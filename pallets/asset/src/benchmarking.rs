@@ -437,7 +437,7 @@ benchmarks! {
     verify {
         assert_eq!(Module::<T>::identifiers(ticker), identifiers2);
     }
-    
+
     controller_transfer {
         let (owner, ticker) = owned_ticker::<T>();
         let pia = UserBuilder::<T>::default().generate_did().build("1stIssuance");

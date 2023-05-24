@@ -19,10 +19,9 @@ use ink_primitives::hash as FunctionSelectorHasher;
 use pallet_asset::checkpoint::ScheduleSpec;
 use pallet_asset::{
     self as asset, AssetMetadataLocalKeyToName, AssetMetadataLocalNameToKey,
-    AssetMetadataLocalSpecs, AssetMetadataValues, AssetOwnershipRelation,
-    Config as AssetConfig, CustomTypeIdSequence,
-    CustomTypes, CustomTypesInverse, ScopeIdOf, SecurityToken, TickerRegistration,
-    TickerRegistrationConfig, Tickers,
+    AssetMetadataLocalSpecs, AssetMetadataValues, AssetOwnershipRelation, Config as AssetConfig,
+    CustomTypeIdSequence, CustomTypes, CustomTypesInverse, ScopeIdOf, SecurityToken,
+    TickerRegistration, TickerRegistrationConfig, Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;

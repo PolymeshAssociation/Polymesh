@@ -1,6 +1,6 @@
 use codec::{Decode, Encode};
 use grandpa::AuthorityId as GrandpaId;
-use pallet_asset::{TickerRegistrationConfig};
+use pallet_asset::TickerRegistrationConfig;
 use pallet_bridge::BridgeTx;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_staking::StakerStatus;
