@@ -93,13 +93,6 @@ fn register_metadata_global_name<T: Config>() -> AssetMetadataKey {
     AssetMetadataKey::Global(key)
 }
 
-fn make_default_reg_config<T: Config>() -> TickerRegistrationConfig<T::Moment> {
-    TickerRegistrationConfig {
-        max_ticker_length: 8,
-        registration_length: Some(10000u32.into()),
-    }
-}
-
 fn emulate_controller_transfer<T: Config>(
     ticker: Ticker,
     investor_did: IdentityId,
