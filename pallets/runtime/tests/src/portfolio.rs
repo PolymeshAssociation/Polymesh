@@ -5,15 +5,14 @@ use frame_system::EventRecord;
 use pallet_portfolio::{
     Event, MovePortfolioItem, NameToNumber, PortfolioAssetBalances, PortfolioNFT,
 };
-use polymesh_common_utilities::balances::Memo;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
 };
-use polymesh_primitives::settlement::{InstructionMemo, LegAsset, LegV2, SettlementType};
+use polymesh_primitives::settlement::{Leg, LegAsset, SettlementType};
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, Fund, FundDescription, NFTCollectionKeys, NFTId,
+    AuthorizationData, AuthorizationError, Fund, FundDescription, Memo, NFTCollectionKeys, NFTId,
     NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
     Signatory, Ticker,
 };
@@ -660,12 +659,12 @@ fn delete_portfolio_with_locked_nfts() {
         let venue_id = create_venue(alice);
         // Locks the NFT - Adds and affirms the instruction
         let nfts = NFTs::new_unverified(ticker, vec![NFTId(1)]);
-        let legs: Vec<LegV2> = vec![LegV2 {
+        let legs: Vec<Leg> = vec![Leg {
             from: PortfolioId::user_portfolio(alice.did, PortfolioNumber(1)),
             to: PortfolioId::default_portfolio(bob.did),
             asset: LegAsset::NonFungible(nfts),
         }];
-        assert_ok!(Settlement::add_and_affirm_instruction_with_memo_v2(
+        assert_ok!(Settlement::add_and_affirm_instruction(
             alice.origin(),
             venue_id,
             SettlementType::SettleOnAffirmation,
@@ -673,7 +672,7 @@ fn delete_portfolio_with_locked_nfts() {
             None,
             legs,
             vec![PortfolioId::user_portfolio(alice.did, PortfolioNumber(1))],
-            Some(InstructionMemo::default()),
+            Some(Memo::default()),
         ));
 
         assert_noop!(

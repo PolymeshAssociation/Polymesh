@@ -43,7 +43,7 @@ use polymesh_primitives::{
     },
     statistics::StatType,
     AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
-    DocumentId, IdentityId, InvestorUid, Moment, NFTCollectionKeys, Permissions, PortfolioId,
+    DocumentId, IdentityId, InvestorUid, Memo, Moment, NFTCollectionKeys, Permissions, PortfolioId,
     PortfolioKind, PortfolioName, SecondaryKey, Signatory, Ticker, WeightMeter,
 };
 use rand::Rng;

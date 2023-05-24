@@ -973,12 +973,6 @@
       "trade_date": "Option<Moment>",
       "value_date": "Option<Moment>"
     },
-    "Leg": {
-      "from": "PortfolioId",
-      "to": "PortfolioId",
-      "asset": "Ticker",
-      "amount": "Balance"
-    },
     "Venue": {
       "creator": "IdentityId",
       "venue_type": "VenueType"
@@ -1187,13 +1181,18 @@
       "ticker": "Ticker",
       "amount": "Balance"
     },
+    "OffChainAsset": {
+      "ticker": "Ticker",
+      "amount": "Balance"
+    },
     "LegAsset": {
       "_enum": {
         "Fungible": "FungibleToken",
-        "NonFungible": "NFTs"
+        "NonFungible": "NFTs",
+        "OffChain": "OffChainAsset"
       }
     },
-    "LegV2": {
+    "Leg": {
       "from": "PortfolioId",
       "to": "PortfolioId",
       "asset": "LegAsset"

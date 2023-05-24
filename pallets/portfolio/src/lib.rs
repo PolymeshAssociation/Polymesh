@@ -53,7 +53,6 @@ use frame_support::{
     ensure,
 };
 use pallet_identity::{self as identity, PermissionedCallOriginData};
-use polymesh_common_utilities::traits::balances::Memo;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 pub use polymesh_common_utilities::traits::{
     asset::AssetFnTrait,
@@ -61,8 +60,8 @@ pub use polymesh_common_utilities::traits::{
 };
 use polymesh_primitives::{
     extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, Fund,
-    FundDescription, IdentityId, NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
-    SecondaryKey, Ticker,
+    FundDescription, IdentityId, Memo, NFTId, PortfolioId, PortfolioKind, PortfolioName,
+    PortfolioNumber, SecondaryKey, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Zero;
