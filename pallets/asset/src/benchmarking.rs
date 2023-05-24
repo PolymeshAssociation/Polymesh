@@ -437,22 +437,7 @@ benchmarks! {
     verify {
         assert_eq!(Module::<T>::identifiers(ticker), identifiers2);
     }
-
-    claim_classic_ticker {
-        let owner = owner::<T>();
-        let did = owner.did();
-        let owner_eth_sk = libsecp256k1::SecretKey::parse(&keccak_256(b"owner")).unwrap();
-        let owner_eth_pk = ethereum::address(&owner_eth_sk);
-
-        let ticker: Ticker = Ticker::from_slice_truncated(&b"USDX1"[..]);
-        make_classic_ticker::<T>(owner_eth_pk, ticker);
-
-        let eth_sig = ethereum::eth_msg(did, b"classic_claim", &owner_eth_sk);
-    }: _(owner.origin, ticker, eth_sig)
-    verify {
-        assert_eq!(did, Module::<T>::ticker_registration(ticker).owner);
-    }
-
+    
     controller_transfer {
         let (owner, ticker) = owned_ticker::<T>();
         let pia = UserBuilder::<T>::default().generate_did().build("1stIssuance");

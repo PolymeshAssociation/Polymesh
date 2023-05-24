@@ -400,9 +400,6 @@ impl ExtBuilder {
             registration_length: Some(10000),
         };
         asset::GenesisConfig::<TestStorage> {
-            classic_migration_tickers: vec![],
-            classic_migration_contract_did: IdentityId::from(1),
-            classic_migration_tconfig: ticker_registration_config.clone(),
             ticker_registration_config,
             reserved_country_currency_codes: vec![],
         }

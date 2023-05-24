@@ -286,28 +286,6 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Storage: Asset ClassicTickers (r:1 w:0)
-    // Storage: Asset Tickers (r:1 w:1)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Storage: Asset AssetOwnershipRelations (r:0 w:2)
-    fn claim_classic_ticker() -> Weight {
-        // Minimum execution time: 90_747 nanoseconds.
-        Weight::from_ref_time(91_478_000)
-            .saturating_add(DbWeight::get().reads(4))
-            .saturating_add(DbWeight::get().writes(3))
-    }
-    // Storage: Asset Tokens (r:1 w:0)
-    // Storage: Asset Tickers (r:1 w:1)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Storage: Asset AssetOwnershipRelations (r:0 w:1)
-    // Storage: Asset ClassicTickers (r:0 w:1)
-    fn reserve_classic_ticker() -> Weight {
-        // Minimum execution time: 40_935 nanoseconds.
-        Weight::from_ref_time(41_888_000)
-            .saturating_add(DbWeight::get().reads(3))
-            .saturating_add(DbWeight::get().writes(3))
-    }
-    // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
