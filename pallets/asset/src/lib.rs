@@ -299,7 +299,7 @@ decl_storage! {
         pub AssetMetadataNextGlobalKey get(fn asset_metadata_next_global_key): AssetMetadataGlobalKey;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
     }
     add_extra_genesis {
         config(reserved_country_currency_codes): Vec<Ticker>;
