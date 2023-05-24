@@ -334,7 +334,7 @@ decl_module! {
         // Remove all storage related to classic tickers in this module
         fn on_runtime_upgrade() -> Weight {
             use polymesh_primitives::storage_migrate_on;
-            storage_migrate_on!(StorageVersion, 1, {
+            storage_migrate_on!(StorageVersion, 2, {
                 let _ = frame_support::storage::migration::clear_storage_prefix(<Pallet<T>>::name().as_bytes(), b"ClassicTickers", b"", None, None);
             });
             Weight::zero()
