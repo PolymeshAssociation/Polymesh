@@ -23,7 +23,6 @@ use polymesh_primitives::{
         AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
         AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
     },
-    ethereum::EthereumAddress,
     AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, ScopeId, Ticker,
 };
 use sp_std::prelude::Vec;
