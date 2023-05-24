@@ -9,9 +9,8 @@ use crate::{
 };
 use chrono::prelude::Utc;
 use frame_support::{
-    assert_noop, assert_ok,
-    dispatch::DispatchResult,
-    IterableStorageDoubleMap, StorageDoubleMap, StorageMap, StorageValue,
+    assert_noop, assert_ok, dispatch::DispatchResult, IterableStorageDoubleMap, StorageDoubleMap,
+    StorageMap, StorageValue,
 };
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
@@ -20,7 +19,7 @@ use pallet_asset::{
     self as asset, AssetMetadataLocalKeyToName, AssetMetadataLocalNameToKey,
     AssetMetadataLocalSpecs, AssetMetadataValues, AssetOwnershipRelation, Config as AssetConfig,
     CustomTypeIdSequence, CustomTypes, CustomTypesInverse, ScopeIdOf, SecurityToken,
-    TickerRegistrationConfig, Tickers,
+    TickerRegistrationConfig,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
