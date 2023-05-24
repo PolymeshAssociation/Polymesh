@@ -1,7 +1,6 @@
 use crate::{
-    ext_builder::{ExtBuilder, IdentityRecord, MockProtocolBaseFees},
+    ext_builder::{ExtBuilder, IdentityRecord},
     nft::create_nft_collection,
-    pips_test::assert_balance,
     storage::{
         add_secondary_key, make_account_without_cdd, provide_scope_claim,
         provide_scope_claim_to_multiple_parties, register_keyring_account, root, Checkpoint,
@@ -11,8 +10,8 @@ use crate::{
 use chrono::prelude::Utc;
 use frame_support::{
     assert_noop, assert_ok,
-    dispatch::{DispatchError, DispatchResult},
-    IterableStorageDoubleMap, IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
+    dispatch::DispatchResult,
+    IterableStorageDoubleMap, StorageDoubleMap, StorageMap, StorageValue,
 };
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
@@ -21,7 +20,7 @@ use pallet_asset::{
     self as asset, AssetMetadataLocalKeyToName, AssetMetadataLocalNameToKey,
     AssetMetadataLocalSpecs, AssetMetadataValues, AssetOwnershipRelation, Config as AssetConfig,
     CustomTypeIdSequence, CustomTypes, CustomTypesInverse, ScopeIdOf, SecurityToken,
-    TickerRegistration, TickerRegistrationConfig, Tickers,
+    TickerRegistrationConfig, Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -30,13 +29,9 @@ use pallet_portfolio::{MovePortfolioItem, NextPortfolioNumber, PortfolioAssetBal
 use pallet_statistics as statistics;
 use polymesh_common_utilities::{
     constants::*,
-    protocol_fee::ProtocolOp,
     traits::balances::Memo,
     traits::checkpoint::{ScheduleId, StoredSchedule},
-    traits::CddAndFeeDetails as _,
-    SystematicIssuers,
 };
-use polymesh_primitives::ethereum;
 use polymesh_primitives::{
     agent::AgentGroup,
     asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName, NonFungibleType},
