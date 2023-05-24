@@ -119,10 +119,12 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::calendar::CheckpointId;
 use polymesh_primitives::ethereum::{self, EcdsaSignature, EthereumAddress};
+use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::transfer_compliance::TransferConditionResult;
 use polymesh_primitives::{
     extract_auth, storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId,
-    IdentityId, PortfolioId, PortfolioKind, ScopeId, SecondaryKey, Ticker, WeightMeter,
+    IdentityId, PortfolioId, PortfolioKind, PortfolioUpdateReason, ScopeId, SecondaryKey, Ticker,
+    WeightMeter,
 };
 
 type Checkpoint<T> = checkpoint::Module<T>;
@@ -1407,6 +1409,7 @@ impl<T: Config> Module<T> {
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: Balance,
+        instruction_id: Option<InstructionId>,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         Self::ensure_granular(ticker, value)?;
@@ -1483,12 +1486,15 @@ impl<T: Config> Module<T> {
             weight_meter,
         )?;
 
-        Self::deposit_event(RawEvent::Transfer(
-            from_portfolio.did,
+        Self::deposit_event(RawEvent::AssetBalanceUpdated(
+            to_portfolio.did,
             *ticker,
-            from_portfolio,
-            to_portfolio,
             value,
+            Some(from_portfolio),
+            to_portfolio,
+            None,
+            instruction_id,
+            PortfolioUpdateReason::Transferred,
         ));
         Ok(())
     }
@@ -1597,22 +1603,16 @@ impl<T: Config> Module<T> {
         let issued_in_this_round = Self::issued_in_funding_round(&ticker_round) + value;
         IssuedInFundingRound::insert(&ticker_round, issued_in_this_round);
 
-        Self::deposit_event(Event::<T>::Transfer(
+        Self::deposit_event(RawEvent::AssetBalanceUpdated(
             to_did,
             *ticker,
-            PortfolioId::default(),
+            value,
+            None,
             PortfolioId::default_portfolio(to_did),
-            value,
+            Some(round),
+            None,
+            PortfolioUpdateReason::Issued,
         ));
-        Self::deposit_event(Event::<T>::Issued(
-            to_did,
-            *ticker,
-            to_did,
-            value,
-            round,
-            issued_in_this_round,
-        ));
-
         Ok(())
     }
 
@@ -1727,6 +1727,7 @@ impl<T: Config> Module<T> {
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: Balance,
+        instruction_id: Option<InstructionId>,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // NB: This function does not check if the sender/receiver have custodian permissions on the portfolios.
@@ -1743,7 +1744,14 @@ impl<T: Config> Module<T> {
             Error::<T>::InvalidTransfer
         );
 
-        Self::unsafe_transfer(from_portfolio, to_portfolio, ticker, value, weight_meter)?;
+        Self::unsafe_transfer(
+            from_portfolio,
+            to_portfolio,
+            ticker,
+            value,
+            instruction_id,
+            weight_meter,
+        )?;
 
         Ok(())
     }
@@ -2031,20 +2039,16 @@ impl<T: Config> Module<T> {
             weight_meter,
         )?;
 
-        Self::deposit_event(RawEvent::Transfer(
+        Self::deposit_event(RawEvent::AssetBalanceUpdated(
             portfolio.did,
             ticker,
+            value,
+            None,
             portfolio,
-            PortfolioId::default(),
-            value,
+            None,
+            None,
+            PortfolioUpdateReason::Redeemed,
         ));
-        Self::deposit_event(RawEvent::Redeemed(
-            portfolio.did,
-            ticker,
-            portfolio.did,
-            value,
-        ));
-
         Ok(())
     }
 
@@ -2446,7 +2450,14 @@ impl<T: Config> Module<T> {
             Self::ensure_agent_with_custody_and_perms(origin, ticker, PortfolioKind::Default)?;
 
         // Transfer `value` of ticker tokens from `investor_did` to controller
-        Self::unsafe_transfer(from_portfolio, to_portfolio, &ticker, value, weight_meter)?;
+        Self::unsafe_transfer(
+            from_portfolio,
+            to_portfolio,
+            &ticker,
+            value,
+            None,
+            weight_meter,
+        )?;
         Self::deposit_event(RawEvent::ControllerTransfer(
             to_portfolio.did,
             ticker,

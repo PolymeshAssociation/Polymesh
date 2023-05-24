@@ -233,7 +233,7 @@ pub use nft::{NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, N
 
 /// Portfolio type definitions.
 pub mod portfolio;
-pub use portfolio::{Fund, FundDescription};
+pub use portfolio::{Fund, FundDescription, PortfolioUpdateReason};
 
 /// Custom WeightMeter definitions.
 pub mod weight_meter;

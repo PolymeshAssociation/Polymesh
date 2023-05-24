@@ -14,7 +14,10 @@ use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
     NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTCount, NFTId, NFTMetadataAttribute, NFTs,
 };
-use polymesh_primitives::{IdentityId, PortfolioId, PortfolioKind, Ticker, WeightMeter};
+use polymesh_primitives::settlement::InstructionId;
+use polymesh_primitives::{
+    IdentityId, PortfolioId, PortfolioKind, PortfolioUpdateReason, Ticker, WeightMeter,
+};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{vec, vec::Vec};
@@ -310,10 +313,13 @@ impl<T: Config> Module<T> {
         }
         PortfolioNFT::insert(caller_portfolio, (ticker, nft_id), true);
 
-        Self::deposit_event(Event::IssuedNFT(
+        Self::deposit_event(Event::NFTCountUpdated(
             caller_portfolio.did,
-            collection_id,
-            nft_id,
+            NFTs::new_unverified(ticker, vec![nft_id]),
+            None,
+            caller_portfolio,
+            None,
+            PortfolioUpdateReason::Issued,
         ));
         Ok(())
     }
@@ -347,23 +353,31 @@ impl<T: Config> Module<T> {
         #[allow(deprecated)]
         MetadataValue::remove_prefix((&collection_id, &nft_id), None);
 
-        Self::deposit_event(Event::RedeemedNFT(caller_portfolio.did, ticker, nft_id));
+        Self::deposit_event(Event::NFTCountUpdated(
+            caller_portfolio.did,
+            NFTs::new_unverified(ticker, vec![nft_id]),
+            None,
+            caller_portfolio,
+            None,
+            PortfolioUpdateReason::Redeemed,
+        ));
         Ok(())
     }
 
     /// Tranfer ownership of all NFTs.
     #[require_transactional]
     pub fn base_nft_transfer(
-        sender_portfolio: &PortfolioId,
-        receiver_portfolio: &PortfolioId,
-        nfts: &NFTs,
+        sender_portfolio: PortfolioId,
+        receiver_portfolio: PortfolioId,
+        nfts: NFTs,
+        instruction_id: InstructionId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // Verifies if there is a collection associated to the NFTs
         CollectionTicker::try_get(nfts.ticker())
             .map_err(|_| Error::<T>::InvalidNFTTransferCollectionNotFound)?;
         // Verifies if all rules for transfering the NFTs are being respected
-        Self::validate_nft_transfer(sender_portfolio, receiver_portfolio, &nfts, weight_meter)?;
+        Self::validate_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts, weight_meter)?;
 
         // Transfer ownership of the NFT
         // Update the balance of the sender and the receiver
@@ -379,6 +393,14 @@ impl<T: Config> Module<T> {
             PortfolioNFT::remove(sender_portfolio, (nfts.ticker(), nft_id));
             PortfolioNFT::insert(receiver_portfolio, (nfts.ticker(), nft_id), true);
         }
+        Self::deposit_event(Event::NFTCountUpdated(
+            receiver_portfolio.did,
+            nfts,
+            Some(sender_portfolio),
+            receiver_portfolio,
+            Some(instruction_id),
+            PortfolioUpdateReason::Transferred,
+        ));
         Ok(())
     }
 

@@ -1111,6 +1111,7 @@ impl<T: Config> Module<T> {
                             leg.to,
                             &ticker,
                             *amount,
+                            Some(instruction_id),
                             weight_meter,
                         )
                         .is_err()
@@ -1119,15 +1120,19 @@ impl<T: Config> Module<T> {
                         }
                     }
                     LegAsset::NonFungible(nfts) => {
-                        if <Nft<T>>::base_nft_transfer(&leg.from, &leg.to, &nfts, weight_meter)
-                            .is_err()
+                        if <Nft<T>>::base_nft_transfer(
+                            leg.from,
+                            leg.to,
+                            nfts.clone(),
+                            instruction_id,
+                            weight_meter,
+                        )
+                        .is_err()
                         {
                             return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
                         }
                     }
-                    LegAsset::OffChain { .. } => {
-                        // TODO: off_chain
-                    }
+                    LegAsset::OffChain { .. } => {}
                 }
             }
         }

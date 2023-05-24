@@ -467,6 +467,7 @@ impl AssetTracker {
             self.get_investor_portfolio(to),
             &self.asset,
             amount,
+            None,
             &mut weight_meter,
         )?;
 

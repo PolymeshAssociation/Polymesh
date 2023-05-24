@@ -19,7 +19,7 @@ use frame_system::RawOrigin;
 use sp_io::hashing::keccak_256;
 use sp_std::{convert::TryInto, iter, prelude::*};
 
-use pallet_portfolio::{MovePortfolioItem, NextPortfolioNumber, PortfolioAssetBalances};
+use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances};
 use pallet_statistics::benchmarking::setup_transfer_restrictions;
 use polymesh_common_utilities::benchs::{
     make_asset, make_indivisible_asset, make_ticker, user, AccountIdOf, User, UserBuilder,
@@ -35,8 +35,8 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::ticker::TICKER_LEN;
 use polymesh_primitives::{
-    AuthorizationData, NFTCollectionKeys, PortfolioName, PortfolioNumber, Signatory, Ticker, Url,
-    WeightMeter,
+    AuthorizationData, Fund, FundDescription, NFTCollectionKeys, PortfolioName, PortfolioNumber,
+    Signatory, Ticker, Url, WeightMeter,
 };
 
 use crate::*;
@@ -260,11 +260,6 @@ fn move_from_default_portfolio<T: Config>(
     amount: Balance,
     destination_portfolio: PortfolioId,
 ) {
-    let moved_item = MovePortfolioItem {
-        ticker,
-        amount,
-        memo: None,
-    };
     Portfolio::<T>::move_portfolio_funds(
         user.origin().clone().into(),
         PortfolioId {
@@ -272,7 +267,10 @@ fn move_from_default_portfolio<T: Config>(
             kind: PortfolioKind::Default,
         },
         destination_portfolio,
-        vec![moved_item],
+        vec![Fund {
+            description: FundDescription::Fungible { ticker, amount },
+            memo: None,
+        }],
     )
     .unwrap();
 }
@@ -563,10 +561,9 @@ benchmarks! {
                 target.origin().into(),
                 default_portfolio,
                 user_portfolio,
-                vec![MovePortfolioItem {
-                    ticker,
-                    amount,
-                    memo: None
+                vec![Fund {
+                    description: FundDescription::Fungible { ticker, amount },
+                    memo: None,
                 }]
             ).unwrap();
 
@@ -677,6 +674,6 @@ benchmarks! {
         let (sender_portfolio, receiver_portfolio) =
             setup_asset_transfer::<T>(&alice, &bob, ticker, None, None, true, true);
     }: {
-        Module::<T>::base_transfer(sender_portfolio, receiver_portfolio, &ticker, ONE_UNIT, &mut weight_meter).unwrap();
+        Module::<T>::base_transfer(sender_portfolio, receiver_portfolio, &ticker, ONE_UNIT, None, &mut weight_meter).unwrap();
     }
 }

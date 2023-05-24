@@ -40,3 +40,14 @@ pub enum FundDescription {
     /// Fungible token.
     NonFungible(NFTs),
 }
+
+/// Reason for the portfolio update.
+#[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
+pub enum PortfolioUpdateReason {
+    /// Tokens were issued.
+    Issued,
+    /// Tokens were redeemed.
+    Redeemed,
+    /// Tokens were transferred.
+    Transferred,
+}
