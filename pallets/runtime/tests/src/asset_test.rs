@@ -28,7 +28,6 @@ use pallet_portfolio::{MovePortfolioItem, NextPortfolioNumber, PortfolioAssetBal
 use pallet_statistics as statistics;
 use polymesh_common_utilities::{
     constants::*,
-    traits::balances::Memo,
     traits::checkpoint::{ScheduleId, StoredSchedule},
 };
 use polymesh_primitives::{
