@@ -23,7 +23,6 @@ use polymesh_primitives::{
         AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
         AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
     },
-    ethereum::EthereumAddress,
     AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, ScopeId, Ticker,
 };
 use sp_std::prelude::Vec;
@@ -105,8 +104,6 @@ pub trait WeightInfo {
     fn remove_documents(d: u32) -> Weight;
     fn set_funding_round(f: u32) -> Weight;
     fn update_identifiers(i: u32) -> Weight;
-    fn claim_classic_ticker() -> Weight;
-    fn reserve_classic_ticker() -> Weight;
     fn controller_transfer() -> Weight;
     fn register_custom_asset_type(n: u32) -> Weight;
 
@@ -223,8 +220,6 @@ decl_event! {
         /// A extension got removed.
         /// caller DID, ticker, AccountId
         ExtensionRemoved(IdentityId, Ticker, AccountId),
-        /// A Polymath Classic token was claimed and transferred to a non-systematic DID.
-        ClassicTickerClaimed(IdentityId, Ticker, EthereumAddress),
         /// Event for when a forced transfer takes place.
         /// caller DID/ controller DID, ticker, Portfolio of token holder, value.
         ControllerTransfer(IdentityId, Ticker, PortfolioId, Balance),
