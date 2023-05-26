@@ -173,9 +173,9 @@ pub trait WeightInfo {
 
     fn unaffirm_transaction(unaffirm: &UnaffirmLeg) -> Weight {
         match unaffirm.party {
-            UnaffirmParty::Sender => Self::sender_unaffirm_transaction(),
-            UnaffirmParty::Receiver => Self::receiver_unaffirm_transaction(),
-            UnaffirmParty::Mediator => Self::mediator_unaffirm_transaction(),
+            LegParty::Sender => Self::sender_unaffirm_transaction(),
+            LegParty::Receiver => Self::receiver_unaffirm_transaction(),
+            LegParty::Mediator => Self::mediator_unaffirm_transaction(),
         }
     }
 }
@@ -390,11 +390,19 @@ impl AffirmLeg {
             party: AffirmParty::Mediator,
         }
     }
+
+    pub fn leg_party(&self) -> LegParty {
+        match self.party {
+            AffirmParty::Sender(_) => LegParty::Sender,
+            AffirmParty::Receiver => LegParty::Receiver,
+            AffirmParty::Mediator => LegParty::Mediator,
+        }
+    }
 }
 
-/// Who is unaffirming the transaction leg.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq)]
-pub enum UnaffirmParty {
+/// Which party of the transaction leg.
+#[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, PartialEq)]
+pub enum LegParty {
     Sender,
     Receiver,
     Mediator,
@@ -403,28 +411,28 @@ pub enum UnaffirmParty {
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq)]
 pub struct UnaffirmLeg {
     leg_id: TransactionLegId,
-    party: UnaffirmParty,
+    party: LegParty,
 }
 
 impl UnaffirmLeg {
     pub fn sender(leg_id: TransactionLegId) -> Self {
         Self {
             leg_id,
-            party: UnaffirmParty::Sender,
+            party: LegParty::Sender,
         }
     }
 
     pub fn receiver(leg_id: TransactionLegId) -> Self {
         Self {
             leg_id,
-            party: UnaffirmParty::Receiver,
+            party: LegParty::Receiver,
         }
     }
 
     pub fn mediator(leg_id: TransactionLegId) -> Self {
         Self {
             leg_id,
-            party: UnaffirmParty::Mediator,
+            party: LegParty::Mediator,
         }
     }
 }
@@ -577,9 +585,9 @@ decl_storage! {
 
         /// Track pending transaction affirmations.
         ///
-        /// counter_party -> (transaction_id, leg_id) -> Option<bool>
+        /// party identity -> (transaction_id, leg_id, leg_party) -> Option<bool>
         UserAffirmations get(fn user_affirmations):
-            double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) (TransactionId, TransactionLegId) => Option<bool>;
+            double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) (TransactionId, TransactionLegId, LegParty) => Option<bool>;
 
         /// The storage for mercat sender proofs.
         ///
@@ -1122,9 +1130,21 @@ impl<T: Config> Module<T> {
             let leg_id = TransactionLegId(i as _);
             let sender_did = Self::get_mercat_account_did(&leg.sender)?;
             let receiver_did = Self::get_mercat_account_did(&leg.receiver)?;
-            UserAffirmations::insert(sender_did, (transaction_id, leg_id), false);
-            UserAffirmations::insert(receiver_did, (transaction_id, leg_id), false);
-            UserAffirmations::insert(&leg.mediator, (transaction_id, leg_id), false);
+            UserAffirmations::insert(
+                sender_did,
+                (transaction_id, leg_id, LegParty::Sender),
+                false,
+            );
+            UserAffirmations::insert(
+                receiver_did,
+                (transaction_id, leg_id, LegParty::Receiver),
+                false,
+            );
+            UserAffirmations::insert(
+                &leg.mediator,
+                (transaction_id, leg_id, LegParty::Mediator),
+                false,
+            );
             TransactionLegs::insert(transaction_id, leg_id, leg.clone());
         }
 
@@ -1159,7 +1179,8 @@ impl<T: Config> Module<T> {
         let leg = TransactionLegs::get(id, leg_id).ok_or(Error::<T>::UnknownInstructionLeg)?;
 
         // Ensure the caller hasn't already affirmed this leg.
-        let caller_affirm = UserAffirmations::get(caller_did, (id, leg_id));
+        let party = affirm.leg_party();
+        let caller_affirm = UserAffirmations::get(caller_did, (id, leg_id, party));
         ensure!(
             caller_affirm == Some(false),
             Error::<T>::InstructionAlreadyAffirmed
@@ -1221,7 +1242,7 @@ impl<T: Config> Module<T> {
             }
         }
         // Update affirmations.
-        UserAffirmations::insert(caller_did, (id, leg_id), true);
+        UserAffirmations::insert(caller_did, (id, leg_id, party), true);
         PendingAffirms::try_mutate(id, |pending| -> DispatchResult {
             if let Some(ref mut pending) = pending {
                 *pending = pending.saturating_sub(1);
@@ -1242,17 +1263,43 @@ impl<T: Config> Module<T> {
         let leg_id = unaffirm.leg_id;
 
         // Ensure the caller has affirmed this leg.
-        let caller_affirm = UserAffirmations::get(caller_did, (id, leg_id));
+        let caller_affirm = UserAffirmations::get(caller_did, (id, leg_id, unaffirm.party));
         ensure!(
             caller_affirm == Some(true),
             Error::<T>::InstructionNotAffirmed
         );
 
         let leg = TransactionLegs::get(id, leg_id).ok_or(Error::<T>::UnknownInstructionLeg)?;
-        match unaffirm.party {
-            UnaffirmParty::Sender => {
+        let pending_affirms = match unaffirm.party {
+            LegParty::Sender => {
                 let sender_did = Self::mercat_account_did(&leg.sender);
                 ensure!(Some(caller_did) == sender_did, Error::<T>::Unauthorized);
+
+                let mut pending_affirms = 1;
+                // If the receiver has affirmed the leg, then we need to invalid their affirmation.
+                let receiver_did = Self::mercat_account_did(&leg.receiver)
+                    .ok_or(Error::<T>::MercatAccountMissing)?;
+                UserAffirmations::mutate(
+                    receiver_did,
+                    (id, leg_id, LegParty::Receiver),
+                    |affirmed| {
+                        if *affirmed == Some(true) {
+                            pending_affirms += 1;
+                        }
+                        *affirmed = Some(false)
+                    },
+                );
+                // If the mediator has affirmed the leg, then we need to invalid their affirmation.
+                UserAffirmations::mutate(
+                    leg.mediator,
+                    (id, leg_id, LegParty::Mediator),
+                    |affirmed| {
+                        if *affirmed == Some(true) {
+                            pending_affirms += 1;
+                        }
+                        *affirmed = Some(false)
+                    },
+                );
 
                 // Take the transaction leg's pending state.
                 TxLegSenderBalance::remove((id, leg_id));
@@ -1265,20 +1312,26 @@ impl<T: Config> Module<T> {
 
                 // Deposit the transaction amount back into the sender's account.
                 Self::mercat_account_deposit_amount(&leg.sender, leg.ticker, sender_amount)?;
+
+                pending_affirms
             }
-            UnaffirmParty::Receiver => {
+            LegParty::Receiver => {
                 let receiver_did = Self::mercat_account_did(&leg.receiver);
                 ensure!(Some(caller_did) == receiver_did, Error::<T>::Unauthorized);
+
+                1
             }
-            UnaffirmParty::Mediator => {
+            LegParty::Mediator => {
                 ensure!(caller_did == leg.mediator, Error::<T>::Unauthorized);
+
+                1
             }
-        }
+        };
         // Update affirmations.
-        UserAffirmations::insert(caller_did, (id, leg_id), false);
+        UserAffirmations::insert(caller_did, (id, leg_id, unaffirm.party), false);
         PendingAffirms::try_mutate(id, |pending| -> DispatchResult {
             if let Some(ref mut pending) = pending {
-                *pending = pending.saturating_add(1);
+                *pending = pending.saturating_add(pending_affirms);
                 Ok(())
             } else {
                 Err(Error::<T>::UnknownInstruction.into())
@@ -1328,18 +1381,21 @@ impl<T: Config> Module<T> {
 
         // Check affirmations and remove them.
         let sender_did = Self::get_mercat_account_did(&leg.sender)?;
-        let sender_affirm = UserAffirmations::take(sender_did, (transaction_id, leg_id));
+        let sender_affirm =
+            UserAffirmations::take(sender_did, (transaction_id, leg_id, LegParty::Sender));
         ensure!(
             sender_affirm == Some(true),
             Error::<T>::InstructionNotAffirmed
         );
         let receiver_did = Self::get_mercat_account_did(&leg.receiver)?;
-        let receiver_affirm = UserAffirmations::take(receiver_did, (transaction_id, leg_id));
+        let receiver_affirm =
+            UserAffirmations::take(receiver_did, (transaction_id, leg_id, LegParty::Receiver));
         ensure!(
             receiver_affirm == Some(true),
             Error::<T>::InstructionNotAffirmed
         );
-        let mediator_affirm = UserAffirmations::take(leg.mediator, (transaction_id, leg_id));
+        let mediator_affirm =
+            UserAffirmations::take(leg.mediator, (transaction_id, leg_id, LegParty::Mediator));
         ensure!(
             mediator_affirm == Some(true),
             Error::<T>::InstructionNotAffirmed
@@ -1394,10 +1450,11 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         // Remove user affirmations.
         let sender_did = Self::get_mercat_account_did(&leg.sender)?;
-        let sender_affirm = UserAffirmations::take(sender_did, (transaction_id, leg_id));
+        let sender_affirm =
+            UserAffirmations::take(sender_did, (transaction_id, leg_id, LegParty::Sender));
         let receiver_did = Self::get_mercat_account_did(&leg.receiver)?;
-        UserAffirmations::remove(receiver_did, (transaction_id, leg_id));
-        UserAffirmations::remove(leg.mediator, (transaction_id, leg_id));
+        UserAffirmations::remove(receiver_did, (transaction_id, leg_id, LegParty::Receiver));
+        UserAffirmations::remove(leg.mediator, (transaction_id, leg_id, LegParty::Mediator));
 
         if sender_affirm == Some(true) {
             // Take the transaction leg's pending state.
@@ -1585,8 +1642,6 @@ decl_error! {
 
         /// Venue does not exist.
         InvalidVenue,
-        /// No pending affirmation for the provided instruction.
-        NoPendingAffirm,
         /// Instruction has not been affirmed.
         InstructionNotAffirmed,
         /// Instruction has already been affirmed.
@@ -1597,12 +1652,6 @@ decl_error! {
         InstructionNotFailed,
         /// Provided leg is not pending execution.
         LegNotPending,
-        /// Signer is not authorized by the venue.
-        UnauthorizedSigner,
-        /// Receipt already used.
-        ReceiptAlreadyClaimed,
-        /// Receipt not used yet.
-        ReceiptNotClaimed,
         /// Venue does not have required permissions.
         UnauthorizedVenue,
         /// While affirming the transfer, system failed to lock the assets involved.
@@ -1631,11 +1680,5 @@ decl_error! {
         UnknownInstructionLeg,
         /// Maximum legs that can be in a single instruction.
         InstructionHasTooManyLegs,
-        /// Signer is already added to venue.
-        SignerAlreadyExists,
-        /// Signer is not added to venue.
-        SignerDoesNotExist,
-        /// Instruction leg amount can't be zero
-        ZeroAmount,
     }
 }
