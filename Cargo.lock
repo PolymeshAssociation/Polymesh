@@ -999,7 +999,7 @@ dependencies = [
 [[package]]
 name = "confidential_identity_core"
 version = "1.1.2"
-source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#15407a792fa42f02cf8b2e658a10771056b65cef"
+source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#03837d02dea975ceb63a0e0b391207cc51528d89"
 dependencies = [
  "blake2",
  "bulletproofs",
@@ -1020,7 +1020,7 @@ dependencies = [
 [[package]]
 name = "confidential_identity_v1"
 version = "1.1.2"
-source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#15407a792fa42f02cf8b2e658a10771056b65cef"
+source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#03837d02dea975ceb63a0e0b391207cc51528d89"
 dependencies = [
  "blake2",
  "byteorder",
@@ -1043,7 +1043,7 @@ dependencies = [
 [[package]]
 name = "confidential_identity_v2"
 version = "2.1.2"
-source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#15407a792fa42f02cf8b2e658a10771056b65cef"
+source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#03837d02dea975ceb63a0e0b391207cc51528d89"
 dependencies = [
  "blake2",
  "byteorder",
@@ -4007,7 +4007,7 @@ checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 [[package]]
 name = "mercat"
 version = "1.1.2"
-source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#15407a792fa42f02cf8b2e658a10771056b65cef"
+source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#03837d02dea975ceb63a0e0b391207cc51528d89"
 dependencies = [
  "byteorder",
  "confidential_identity_core",
@@ -10781,7 +10781,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if 0.1.10",
  "digest 0.10.5",
  "rand 0.8.5",
  "static_assertions",
