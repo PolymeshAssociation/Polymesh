@@ -999,7 +999,7 @@ dependencies = [
 [[package]]
 name = "confidential_identity_core"
 version = "1.1.2"
-source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#54e74c031554f8fa8c934a6e6a912d97d61f56c9"
+source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#15407a792fa42f02cf8b2e658a10771056b65cef"
 dependencies = [
  "blake2",
  "bulletproofs",
@@ -1020,7 +1020,7 @@ dependencies = [
 [[package]]
 name = "confidential_identity_v1"
 version = "1.1.2"
-source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#54e74c031554f8fa8c934a6e6a912d97d61f56c9"
+source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#15407a792fa42f02cf8b2e658a10771056b65cef"
 dependencies = [
  "blake2",
  "byteorder",
@@ -1043,7 +1043,7 @@ dependencies = [
 [[package]]
 name = "confidential_identity_v2"
 version = "2.1.2"
-source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#54e74c031554f8fa8c934a6e6a912d97d61f56c9"
+source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#15407a792fa42f02cf8b2e658a10771056b65cef"
 dependencies = [
  "blake2",
  "byteorder",
@@ -4007,7 +4007,7 @@ checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 [[package]]
 name = "mercat"
 version = "1.1.2"
-source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#54e74c031554f8fa8c934a6e6a912d97d61f56c9"
+source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#15407a792fa42f02cf8b2e658a10771056b65cef"
 dependencies = [
  "byteorder",
  "confidential_identity_core",
