@@ -139,6 +139,7 @@ fn raise_happy_path() {
         &raise_ticker,
         RAISE_SUPPLY,
         None,
+        None,
         &mut weight_meter
     ));
 
@@ -378,6 +379,7 @@ fn raise_unhappy_path() {
         bob_portfolio,
         &raise_ticker,
         1_000_000,
+        None,
         None,
         &mut weight_meter
     ));

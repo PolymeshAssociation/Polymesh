@@ -24,7 +24,6 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
     AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
 };
-use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::{
     AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, PortfolioUpdateReason,
     ScopeId, Ticker,
@@ -246,16 +245,13 @@ decl_event! {
         MetadataValueDeleted(IdentityId, Ticker, AssetMetadataKey),
         /// Emitted when Tokens were issued, redeemed or transferred.
         /// Contains the [`IdentityId`] of the receiver/issuer/redeemer, the [`Ticker`] for the token, the balance that was issued/transferred/redeemed,
-        /// the [`PortfolioId`] of the sender, the [`PortfolioId`] of the receiver/issuer/redeemer, the [`FundingRoundName`], the [`InstructionId`]
-        /// of the transfer and the [`PortfolioUpdateReason`].
+        /// the [`PortfolioId`] of the source, the [`PortfolioId`] of the destination and the [`PortfolioUpdateReason`].
         AssetBalanceUpdated(
             IdentityId,
             Ticker,
             Balance,
             Option<PortfolioId>,
-            PortfolioId,
-            Option<FundingRoundName>,
-            Option<InstructionId>,
+            Option<PortfolioId>,
             PortfolioUpdateReason,
         ),
     }

@@ -16,6 +16,8 @@
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
+use crate::asset::FundingRoundName;
+use crate::settlement::InstructionId;
 use crate::{Balance, Memo, NFTs, Ticker};
 
 /// Describes what should be moved between portfolios. It can be either fungible or non-fungible tokens.
@@ -45,9 +47,17 @@ pub enum FundDescription {
 #[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
 pub enum PortfolioUpdateReason {
     /// Tokens were issued.
-    Issued,
+    Issued {
+        /// If the asset is fungible the [`FundingRoundName`] of the minted tokens.
+        funding_round_name: Option<FundingRoundName>,
+    },
     /// Tokens were redeemed.
     Redeemed,
     /// Tokens were transferred.
-    Transferred,
+    Transferred {
+        /// The [`InstructionId`] of the instruction which originated the transfer.
+        instruction_id: Option<InstructionId>,
+        /// The [`Memo`] of the instruction.
+        instruction_memo: Option<Memo>,
+    },
 }

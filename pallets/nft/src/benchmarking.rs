@@ -205,7 +205,7 @@ benchmarks! {
         let nfts = NFTs::new_unverified(ticker, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
     }: {
         with_transaction(|| {
-            Module::<T>::base_nft_transfer(sender_portfolio, receiver_portfolio, nfts, InstructionId(1), &mut weight_meter)
+            Module::<T>::base_nft_transfer(sender_portfolio, receiver_portfolio, nfts, InstructionId(1), None, &mut weight_meter)
         }).unwrap();
     }
 }

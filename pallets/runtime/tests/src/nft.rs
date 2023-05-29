@@ -559,6 +559,7 @@ fn transfer_nft_without_collection() {
                     receiver_portfolio,
                     nfts,
                     InstructionId(0),
+                    None,
                     &mut weight_meter,
                 )
             }),
@@ -603,6 +604,7 @@ fn transfer_nft_same_portfolio() {
                     receiver_portfolio,
                     nfts,
                     InstructionId(0),
+                    None,
                     &mut weight_meter,
                 )
             }),
@@ -658,6 +660,7 @@ fn transfer_nft_invalid_count() {
                     receiver_portfolio,
                     nfts,
                     InstructionId(0),
+                    None,
                     &mut weight_meter,
                 )
             }),
@@ -713,6 +716,7 @@ fn transfer_nft_not_owned() {
                     receiver_portfolio,
                     nfts,
                     InstructionId(0),
+                    None,
                     &mut weight_meter,
                 )
             }),
@@ -768,6 +772,7 @@ fn transfer_nft_failing_compliance() {
                     receiver_portfolio,
                     nfts,
                     InstructionId(0),
+                    None,
                     &mut weight_meter,
                 )
             }),
@@ -824,6 +829,7 @@ fn transfer_nft() {
                 receiver_portfolio,
                 nfts.clone(),
                 InstructionId(0),
+                None,
                 &mut weight_meter,
             )
         }));
@@ -841,13 +847,15 @@ fn transfer_nft() {
             true
         );
         assert_eq!(
-            super::storage::EventTest::Nft(Event::NFTCountUpdated(
+            super::storage::EventTest::Nft(Event::NFTPortfolioUpdated(
                 bob.did,
                 nfts,
                 Some(sender_portfolio),
-                receiver_portfolio,
-                Some(InstructionId(0)),
-                PortfolioUpdateReason::Transferred,
+                Some(receiver_portfolio),
+                PortfolioUpdateReason::Transferred {
+                    instruction_id: Some(InstructionId(0)),
+                    instruction_memo: None
+                }
             )),
             System::events().last().unwrap().event,
         );

@@ -1067,11 +1067,13 @@ impl<T: Config> Module<T> {
         // Verifies if the venue is allowed for all tickers in the instruction
         Self::ensure_allowed_venue(&instruction_legs, venue_id)?;
 
+        let instruction_memo = InstructionMemos::get(&instruction_id);
         // Attempts to release the locks and transfer all fungible an non fungible assets
         if let Err(leg_id) = frame_storage_with_transaction(|| {
             Self::release_asset_locks_and_transfer_pending_legs(
                 instruction_id,
                 &instruction_legs,
+                instruction_memo,
                 weight_meter,
             )
         })? {
@@ -1099,6 +1101,7 @@ impl<T: Config> Module<T> {
     fn release_asset_locks_and_transfer_pending_legs(
         instruction_id: InstructionId,
         instruction_legs: &[(LegId, Leg)],
+        instruction_memo: Option<Memo>,
         weight_meter: &mut WeightMeter,
     ) -> TransactionOutcome<Result<Result<(), LegId>, DispatchError>> {
         Self::unchecked_release_locks(instruction_id, instruction_legs);
@@ -1112,6 +1115,7 @@ impl<T: Config> Module<T> {
                             &ticker,
                             *amount,
                             Some(instruction_id),
+                            instruction_memo.clone(),
                             weight_meter,
                         )
                         .is_err()
@@ -1125,6 +1129,7 @@ impl<T: Config> Module<T> {
                             leg.to,
                             nfts.clone(),
                             instruction_id,
+                            instruction_memo.clone(),
                             weight_meter,
                         )
                         .is_err()

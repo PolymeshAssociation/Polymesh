@@ -468,6 +468,7 @@ impl AssetTracker {
             &self.asset,
             amount,
             None,
+            None,
             &mut weight_meter,
         )?;
 

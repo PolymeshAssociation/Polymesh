@@ -10,7 +10,6 @@ use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use polymesh_primitives::asset_metadata::AssetMetadataKey;
 use polymesh_primitives::nft::{NFTCollectionId, NFTs};
-use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::ticker::Ticker;
 use polymesh_primitives::{IdentityId, PortfolioId, PortfolioUpdateReason};
 
@@ -36,14 +35,13 @@ decl_event!(
         /// Emitted when a new nft collection is created.
         NftCollectionCreated(IdentityId, Ticker, NFTCollectionId),
         /// Emitted when NFTs were issued, redeemed or transferred.
-        /// Contains the [`IdentityId`] of the receiver/issuer/redeemer, the [`NFTs`], the [`PortfolioId`] of the sender, the [`PortfolioId`]
-        /// of the receiver/issuer/redeemer, the [`InstructionId`] of the transfer and the [`PortfolioUpdateReason`].
-        NFTCountUpdated(
+        /// Contains the [`IdentityId`] of the receiver/issuer/redeemer, the [`NFTs`], the [`PortfolioId`] of the source, the [`PortfolioId`]
+        /// of the destination and the [`PortfolioUpdateReason`].
+        NFTPortfolioUpdated(
             IdentityId,
             NFTs,
             Option<PortfolioId>,
-            PortfolioId,
-            Option<InstructionId>,
+            Option<PortfolioId>,
             PortfolioUpdateReason,
         ),
     }

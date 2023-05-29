@@ -16,7 +16,7 @@ use polymesh_primitives::nft::{
 };
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::{
-    IdentityId, PortfolioId, PortfolioKind, PortfolioUpdateReason, Ticker, WeightMeter,
+    IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, Ticker, WeightMeter,
 };
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
@@ -313,13 +313,14 @@ impl<T: Config> Module<T> {
         }
         PortfolioNFT::insert(caller_portfolio, (ticker, nft_id), true);
 
-        Self::deposit_event(Event::NFTCountUpdated(
+        Self::deposit_event(Event::NFTPortfolioUpdated(
             caller_portfolio.did,
             NFTs::new_unverified(ticker, vec![nft_id]),
             None,
-            caller_portfolio,
-            None,
-            PortfolioUpdateReason::Issued,
+            Some(caller_portfolio),
+            PortfolioUpdateReason::Issued {
+                funding_round_name: None,
+            },
         ));
         Ok(())
     }
@@ -353,11 +354,10 @@ impl<T: Config> Module<T> {
         #[allow(deprecated)]
         MetadataValue::remove_prefix((&collection_id, &nft_id), None);
 
-        Self::deposit_event(Event::NFTCountUpdated(
+        Self::deposit_event(Event::NFTPortfolioUpdated(
             caller_portfolio.did,
             NFTs::new_unverified(ticker, vec![nft_id]),
-            None,
-            caller_portfolio,
+            Some(caller_portfolio),
             None,
             PortfolioUpdateReason::Redeemed,
         ));
@@ -371,6 +371,7 @@ impl<T: Config> Module<T> {
         receiver_portfolio: PortfolioId,
         nfts: NFTs,
         instruction_id: InstructionId,
+        instruction_memo: Option<Memo>,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // Verifies if there is a collection associated to the NFTs
@@ -393,13 +394,15 @@ impl<T: Config> Module<T> {
             PortfolioNFT::remove(sender_portfolio, (nfts.ticker(), nft_id));
             PortfolioNFT::insert(receiver_portfolio, (nfts.ticker(), nft_id), true);
         }
-        Self::deposit_event(Event::NFTCountUpdated(
+        Self::deposit_event(Event::NFTPortfolioUpdated(
             receiver_portfolio.did,
             nfts,
             Some(sender_portfolio),
-            receiver_portfolio,
-            Some(instruction_id),
-            PortfolioUpdateReason::Transferred,
+            Some(receiver_portfolio),
+            PortfolioUpdateReason::Transferred {
+                instruction_id: Some(instruction_id),
+                instruction_memo,
+            },
         ));
         Ok(())
     }

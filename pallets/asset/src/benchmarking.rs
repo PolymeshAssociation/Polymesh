@@ -621,6 +621,6 @@ benchmarks! {
         let (sender_portfolio, receiver_portfolio) =
             setup_asset_transfer::<T>(&alice, &bob, ticker, None, None, true, true);
     }: {
-        Module::<T>::base_transfer(sender_portfolio, receiver_portfolio, &ticker, ONE_UNIT, None, &mut weight_meter).unwrap();
+        Module::<T>::base_transfer(sender_portfolio, receiver_portfolio, &ticker, ONE_UNIT, None, None, &mut weight_meter).unwrap();
     }
 }

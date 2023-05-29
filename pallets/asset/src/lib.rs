@@ -123,8 +123,8 @@ use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::transfer_compliance::TransferConditionResult;
 use polymesh_primitives::{
     extract_auth, storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId,
-    IdentityId, PortfolioId, PortfolioKind, PortfolioUpdateReason, ScopeId, SecondaryKey, Ticker,
-    WeightMeter,
+    IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, ScopeId, SecondaryKey,
+    Ticker, WeightMeter,
 };
 
 type Checkpoint<T> = checkpoint::Module<T>;
@@ -1331,6 +1331,7 @@ impl<T: Config> Module<T> {
         ticker: &Ticker,
         value: Balance,
         instruction_id: Option<InstructionId>,
+        instruction_memo: Option<Memo>,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         Self::ensure_granular(ticker, value)?;
@@ -1412,10 +1413,11 @@ impl<T: Config> Module<T> {
             *ticker,
             value,
             Some(from_portfolio),
-            to_portfolio,
-            None,
-            instruction_id,
-            PortfolioUpdateReason::Transferred,
+            Some(to_portfolio),
+            PortfolioUpdateReason::Transferred {
+                instruction_id,
+                instruction_memo,
+            },
         ));
         Ok(())
     }
@@ -1529,10 +1531,10 @@ impl<T: Config> Module<T> {
             *ticker,
             value,
             None,
-            PortfolioId::default_portfolio(to_did),
-            Some(round),
-            None,
-            PortfolioUpdateReason::Issued,
+            Some(PortfolioId::default_portfolio(to_did)),
+            PortfolioUpdateReason::Issued {
+                funding_round_name: Some(round),
+            },
         ));
         Ok(())
     }
@@ -1648,6 +1650,7 @@ impl<T: Config> Module<T> {
         ticker: &Ticker,
         value: Balance,
         instruction_id: Option<InstructionId>,
+        instruction_memo: Option<Memo>,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // NB: This function does not check if the sender/receiver have custodian permissions on the portfolios.
@@ -1670,6 +1673,7 @@ impl<T: Config> Module<T> {
             ticker,
             value,
             instruction_id,
+            instruction_memo,
             weight_meter,
         )?;
 
@@ -1955,9 +1959,7 @@ impl<T: Config> Module<T> {
             portfolio.did,
             ticker,
             value,
-            None,
-            portfolio,
-            None,
+            Some(portfolio),
             None,
             PortfolioUpdateReason::Redeemed,
         ));
@@ -2292,6 +2294,7 @@ impl<T: Config> Module<T> {
             to_portfolio,
             &ticker,
             value,
+            None,
             None,
             weight_meter,
         )?;
