@@ -114,6 +114,20 @@ jobs:
           keys:
             - v7-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
+          name: Pre-fetch wasm32 deps.
+          command: |
+            docker run --rm --user "$(id -u)":"$(id -g)" \
+              -e VERBOSE="$VERBOSE" \
+              -e RUSTFLAGS="$RUSTFLAGS" \
+              -e RUSTC_WRAPPER="$RUSTC_WRAPPER" \
+              -v "$PWD":/tmp/build \
+              -v ~/.cargo/git:/usr/local/cargo/git \
+              -v ~/.cargo/registry:/usr/local/cargo/registry \
+              -v ~/.cache/sccache:/.cache/sccache \
+              -w /tmp/build polymeshassociation/rust-arm64:debian-$NIGHTLY \
+              cargo check --locked --target=wasm32-unknown-unknown
+          no_output_timeout: 1h
+      - run:
           name: Build arm64 release
           command: |
             docker run --rm --user "$(id -u)":"$(id -g)" \
@@ -125,7 +139,7 @@ jobs:
               -v ~/.cargo/registry:/usr/local/cargo/registry \
               -v ~/.cache/sccache:/.cache/sccache \
               -w /tmp/build polymeshassociation/rust-arm64:debian-$NIGHTLY \
-              cargo build --release
+              cargo build --locked --release
           no_output_timeout: 1h
       - run:
           name: Create assets directory for releases
@@ -160,7 +174,7 @@ jobs:
             - v4-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Build binary with runtime-benchmarks
-          command: cargo build --release --features=runtime-benchmarks,running-ci
+          command: cargo build --locked --release --features=runtime-benchmarks,running-ci
           no_output_timeout: 1h
       - run:
           name: Rename the benchmarks binary.
