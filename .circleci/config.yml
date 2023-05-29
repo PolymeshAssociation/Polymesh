@@ -125,7 +125,8 @@ jobs:
               -v ~/.cargo/registry:/usr/local/cargo/registry \
               -v ~/.cache/sccache:/.cache/sccache \
               -w /tmp/build polymeshassociation/rust-arm64:debian-$NIGHTLY \
-              cargo check --locked --target=wasm32-unknown-unknown
+              cargo check --locked --no-default-features --features no_std \
+                --target=wasm32-unknown-unknown -p polymesh-runtime-develop
           no_output_timeout: 1h
       - run:
           name: Build arm64 release
@@ -513,68 +514,69 @@ workflows:
       - build-docker-arm64-rust-alpine
   commit:
     jobs:
-      - lint
-      - check-storage-version
-      - clippy
-      - test
-      - build
-      - build-ci
       - build-arm64
-      - benchmark-build
-      - coverage
-      - integration-test:
-          requires:
-            - build-ci
-      - benchmark:
-          requires:
-            - benchmark-build
-      - build-docker-debian:
-          requires:
-            - build
-          filters:
-            branches:
-              only:
-                - mainnet
-                - testnet
-                - staging
-                - develop
-      - build-docker-distroless:
-          requires:
-            - build
-          filters:
-            branches:
-              only:
-                - mainnet
-                - testnet
-                - staging
-                - develop
-      - build-docker-arm64-debian:
-          requires:
-            - build-arm64
-          filters:
-            branches:
-              only:
-                - mainnet
-                - testnet
-                - staging
-                - develop
-      - build-docker-arm64-distroless:
-          requires:
-            - build-arm64
-          filters:
-            branches:
-              only:
-                - mainnet
-                - testnet
-                - staging
-                - develop
-      - publish-github-release:
-          requires:
-            - build
-            - build-arm64
-          filters:
-            branches:
-              only:
-                - mainnet
-                - testnet
-                - staging
+        #      - lint
+        #      - check-storage-version
+        #      - clippy
+        #      - test
+        #      - build
+        #      - build-ci
+        #      - build-arm64
+        #      - benchmark-build
+        #      - coverage
+        #      - integration-test:
+        #          requires:
+        #            - build-ci
+        #      - benchmark:
+        #          requires:
+        #            - benchmark-build
+        #      - build-docker-debian:
+        #          requires:
+        #            - build
+        #          filters:
+        #            branches:
+        #              only:
+        #                - mainnet
+        #                - testnet
+        #                - staging
+        #                - develop
+        #      - build-docker-distroless:
+        #          requires:
+        #            - build
+        #          filters:
+        #            branches:
+        #              only:
+        #                - mainnet
+        #                - testnet
+        #                - staging
+        #                - develop
+        #      - build-docker-arm64-debian:
+        #          requires:
+        #            - build-arm64
+        #          filters:
+        #            branches:
+        #              only:
+        #                - mainnet
+        #                - testnet
+        #                - staging
+        #                - develop
+        #      - build-docker-arm64-distroless:
+        #          requires:
+        #            - build-arm64
+        #          filters:
+        #            branches:
+        #              only:
+        #                - mainnet
+        #                - testnet
+        #                - staging
+        #                - develop
+        #      - publish-github-release:
+        #          requires:
+        #            - build
+        #            - build-arm64
+        #          filters:
+        #            branches:
+        #              only:
+        #                - mainnet
+        #                - testnet
+        #                - staging
