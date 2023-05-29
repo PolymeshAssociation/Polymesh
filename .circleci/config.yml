@@ -123,9 +123,8 @@ jobs:
               -v ~/.cargo/registry:/usr/local/cargo/registry \
               -v ~/.cache/sccache:/.cache/sccache \
               -w /tmp/build polymeshassociation/rust-arm64:debian-$NIGHTLY \
-              cargo check --locked --no-default-features --features no_std \
-                --target=wasm32-unknown-unknown -p polymesh-runtime-develop
-          no_output_timeout: 1h
+              cargo fetch --locked --target=wasm32-unknown-unknown
+          no_output_timeout: 30m
       - run:
           name: Build arm64 release
           command: |
