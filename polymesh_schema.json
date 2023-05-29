@@ -562,16 +562,6 @@
       "max_ticker_length": "u8",
       "registration_length": "Option<Moment>"
     },
-    "ClassicTickerRegistration": {
-      "eth_owner": "EthereumAddress",
-      "is_created": "bool"
-    },
-    "ClassicTickerImport": {
-      "eth_owner": "EthereumAddress",
-      "ticker": "Ticker",
-      "is_contract": "bool",
-      "is_created": "bool"
-    },
     "EthereumAddress": "[u8; 20]",
     "EcdsaSignature": "[u8; 65]",
     "MotionTitle": "Text",

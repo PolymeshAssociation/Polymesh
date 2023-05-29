@@ -788,9 +788,6 @@ decl_event! {
         /// The withholding tax specific to a DID for a ticker changed.
         /// (Agent DID, Ticker, Taxed DID, New Tax).
         DidWithholdingTaxChanged(IdentityId, Ticker, IdentityId, Option<Tax>),
-        /// A new DID was made the CAA.
-        /// (New CAA DID, Ticker, New CAA DID).
-        CAATransferred(IdentityId, Ticker, IdentityId),
         /// A CA was initiated.
         /// (Agent DID, CA id, the CA, the CA details)
         CAInitiated(EventDid, CAId, CorporateAction, CADetails),
@@ -807,8 +804,6 @@ decl_event! {
 
 decl_error! {
     pub enum Error for Module<T: Config> {
-        /// The authorization type is not to transfer the CAA to another DID.
-        AuthNotCAATransfer,
         /// The `details` of a CA exceeded the max allowed length.
         DetailsTooLong,
         /// A withholding tax override for a given DID was specified more than once.
