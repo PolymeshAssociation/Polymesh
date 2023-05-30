@@ -1,0 +1,20 @@
+{
+  "name": "mercat-wasm",
+  "collaborators": [
+    "Polymesh Association"
+  ],
+  "description": "The wasm library for MERCAT.",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PolymeshAssociation/cryptography"
+  },
+  "files": [
+    "mercat_wasm_bg.wasm",
+    "mercat_wasm.js",
+    "mercat_wasm.d.ts"
+  ],
+  "main": "mercat_wasm.js",
+  "types": "mercat_wasm.d.ts"
+}
