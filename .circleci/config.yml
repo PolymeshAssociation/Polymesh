@@ -44,7 +44,7 @@ jobs:
       - run:
           name: Build release
           command: cargo build --locked --release
-          no_output_timeout: 1h
+          no_output_timeout: 30m
       - run:
           name: Create assets directory for releases
           command: mkdir ./assets
@@ -82,7 +82,7 @@ jobs:
       - run:
           name: Build ci-runtime
           command: cargo build --locked --release --features ci-runtime
-          no_output_timeout: 1h
+          no_output_timeout: 30m
       - run:
           name: Create assets directory for releases
           command: mkdir ./assets
@@ -114,6 +114,18 @@ jobs:
           keys:
             - v7-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
+          name: Pre-fetch wasm32 deps.
+          command: |
+            docker run --rm --user "$(id -u)":"$(id -g)" \
+              -e RUSTC_WRAPPER="$RUSTC_WRAPPER" \
+              -v "$PWD":/tmp/build \
+              -v ~/.cargo/git:/usr/local/cargo/git \
+              -v ~/.cargo/registry:/usr/local/cargo/registry \
+              -v ~/.cache/sccache:/.cache/sccache \
+              -w /tmp/build polymeshassociation/rust-arm64:debian-$NIGHTLY \
+              cargo fetch --locked --target=wasm32-unknown-unknown
+          no_output_timeout: 30m
+      - run:
           name: Build arm64 release
           command: |
             docker run --rm --user "$(id -u)":"$(id -g)" \
@@ -125,8 +137,8 @@ jobs:
               -v ~/.cargo/registry:/usr/local/cargo/registry \
               -v ~/.cache/sccache:/.cache/sccache \
               -w /tmp/build polymeshassociation/rust-arm64:debian-$NIGHTLY \
-              cargo build --release
-          no_output_timeout: 1h
+              cargo build --locked --release
+          no_output_timeout: 30m
       - run:
           name: Create assets directory for releases
           command: mkdir -p ./assets
@@ -160,8 +172,8 @@ jobs:
             - v4-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Build binary with runtime-benchmarks
-          command: cargo build --release --features=runtime-benchmarks,running-ci
-          no_output_timeout: 1h
+          command: cargo build --locked --release --features=runtime-benchmarks,running-ci
+          no_output_timeout: 30m
       - run:
           name: Rename the benchmarks binary.
           command: mv ./target/release/polymesh ./polymesh-benchmarks
@@ -186,7 +198,7 @@ jobs:
       - run:
           name: Run benchmarks
           command: ./polymesh-benchmarks benchmark pallet -p=* -e=* -r 1 -s 2 --execution wasm --wasm-execution compiled --db-cache 512 --heap-pages=4096
-          no_output_timeout: 1h
+          no_output_timeout: 30m
   migration-tests:
     docker:
       - image: polymeshassociation/rust:debian-nightly-2022-11-02
@@ -206,7 +218,7 @@ jobs:
       - run:
           name: Run migration tests
           command:  cargo test -p migration-tests --lib -- --nocapture
-          no_output_timeout: 1h
+          no_output_timeout: 30m
       - save_cache:
           key: v2-migration-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
@@ -244,7 +256,7 @@ jobs:
             --package pallet-balances:0.1.0
             --package asset-metadata
             --features default_identity
-          no_output_timeout: 1h
+          no_output_timeout: 30m
       - save_cache:
           key: v12-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
@@ -267,7 +279,7 @@ jobs:
       - run:
           name: Coverage
           command: bash ./scripts/coverage.sh
-          no_output_timeout: 1h
+          no_output_timeout: 30m
       - save_cache:
           key: v7-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
@@ -294,7 +306,7 @@ jobs:
           name: install and build integration tests
           command: yarn install && yarn build
           working_directory: ./scripts/cli
-          no_output_timeout: 1h
+          no_output_timeout: 30m
       - run:
           name: run integration tests
           command: yarn test
@@ -318,7 +330,7 @@ jobs:
       - run:
           name: run clippy
           command: cargo clippy -- -A clippy::all -W clippy::complexity -W clippy::perf
-          no_output_timeout: 1h
+          no_output_timeout: 30m
       - save_cache:
           key: v6-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
