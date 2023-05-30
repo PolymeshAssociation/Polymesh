@@ -126,6 +126,18 @@ jobs:
               cargo fetch --locked --target=wasm32-unknown-unknown
           no_output_timeout: 30m
       - run:
+          name: Pre-fetch cargo metadata.
+          command: |
+            docker run --rm --user "$(id -u)":"$(id -g)" \
+              -e RUSTC_WRAPPER="$RUSTC_WRAPPER" \
+              -v "$PWD":/tmp/build \
+              -v ~/.cargo/git:/usr/local/cargo/git \
+              -v ~/.cargo/registry:/usr/local/cargo/registry \
+              -v ~/.cache/sccache:/.cache/sccache \
+              -w /tmp/build polymeshassociation/rust-arm64:debian-$NIGHTLY \
+              cargo metadata --locked --all-features
+          no_output_timeout: 30m
+      - run:
           name: Build arm64 release
           command: |
             docker run --rm --user "$(id -u)":"$(id -g)" \
