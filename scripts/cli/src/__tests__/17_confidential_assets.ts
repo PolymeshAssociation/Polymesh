@@ -25,7 +25,7 @@ import {
   create_transaction,
   finalize_transaction,
   justify_transaction,
-	CreateAccountOutput,
+  CreateAccountOutput,
   Account,
   PubAccount,
   decrypt,
@@ -34,14 +34,14 @@ import {
 type TransactionLegId = number;
 
 interface AffirmParty {
-	Sender?: Uint8Array,
-	Receiver?: string,
-	Mediator?: string,
+  Sender?: Uint8Array,
+  Receiver?: string,
+  Mediator?: string,
 }
 
 type AffirmLeg = {
-	leg_id: TransactionLegId,
-	party: AffirmParty,
+  leg_id: TransactionLegId,
+  party: AffirmParty,
 };
 
 // Disconnects api after all the tests have completed
@@ -51,8 +51,8 @@ afterAll(async () => {
 
 // Seeds needs to be at least 32 bytes.  These are bad seeds, please use a crypt-rng.
 function makeSeed(name: string): Uint8Array {
-	const seed = `${name}::Confidential Asset Test Seed         `;
-	return stringToU8a(seed.substr(0, 32));
+  const seed = `${name}::Confidential Asset Test Seed         `;
+  return stringToU8a(seed.substr(0, 32));
 }
 
 describe("17 - Confidential Asset Unit Test", () => {
@@ -90,7 +90,11 @@ describe("17 - Confidential Asset Unit Test", () => {
     // Dave and Bob create their Mercat account locally and submit the proof to the chain
     console.log("-----------> Creating Dave and Bob's mercat accounts.");
     const daveMercat = create_account(makeSeed("17_dave"));
+    const daveMercatAccount = daveMercat.account;
+    const davePubAccount = daveMercatAccount.public_account;
     const bobMercat = create_account(makeSeed("17_bob"));
+    const bobMercatAccount = bobMercat.account;
+    const bobPubAccount = bobMercatAccount.public_account;
 
     // Validate Dave and Bob's Mercat Accounts
     console.log("-----------> Submitting dave mercat account proofs.");
@@ -100,101 +104,100 @@ describe("17 - Confidential Asset Unit Test", () => {
 
     // Charlie creates his mediator Mercat Account
     console.log("-----------> Creating Charlie's account.");
-		const charlieMercat = create_mediator_account(makeSeed("17_charlie"));
+    const charlieMercat = create_mediator_account(makeSeed("17_charlie"));
 
     // Validate Charlie's Mercat Account
     console.log("-----------> Submitting Charlie's account.");
     await addMediatorMercatAccount(charlie, charlieMercat.public_account);
 
-		await displayBalance(daveMercat.account, ticker, "Dave initial balance");
-		await displayBalance(bobMercat.account, ticker, "Bob initial balance");
+    await displayBalance(daveMercatAccount, ticker, "Dave initial balance");
+    await displayBalance(bobMercatAccount, ticker, "Bob initial balance");
 
-		// Mint Tokens
-  	console.log("-----------> Minting assets.");
-  	await mintTokens(makeSeed("17_mint"), dave, ticker, 1000, daveMercat.account);
+    // Mint Tokens
+    console.log("-----------> Minting assets.");
+    await mintTokens(makeSeed("17_mint"), dave, ticker, 1000, daveMercatAccount);
 
-		await displayBalance(daveMercat.account, ticker, "Dave balance after minting");
+    await displayBalance(daveMercatAccount, ticker, "Dave balance after minting");
 
-  	// Create Venue
-  	console.log("-----------> Creating venue.");
-  	const venueId = await createVenue(charlie);
+    // Create Venue
+    console.log("-----------> Creating venue.");
+    const venueId = await createVenue(charlie);
 
-		// Create Confidential Instruction
-  	console.log("-----------> Creating confidential instruction.");
-  	const transactionId = await addConfidentialInstruction(
-			charlie,
-  	  venueId,
-			ticker,
-  	  daveMercat.account.public_account,
-  	  bobMercat.account.public_account,
-  	  charlieDid,
-  	);
-		let legId = 0;
+    // Create Confidential Instruction
+    console.log("-----------> Creating confidential instruction.");
+    const transactionId = await addConfidentialInstruction(
+      charlie,
+      venueId,
+      ticker,
+      davePubAccount,
+      bobPubAccount,
+      charlieDid,
+    );
+    let legId = 0;
 
-  	console.log("-----------> Initializing confidential transaction.");
-  	let daveEncryptedBalance = await getEncryptedBalance(daveMercat.account.public_account, ticker);
-		const pending_balance = decryptBalances(daveEncryptedBalance, daveMercat.account);
-		let senderProof = create_transaction(
-			makeSeed("Dave_Tx_1"),
-  	  100,
-  	  daveMercat.account,
-  	  daveEncryptedBalance,
-			pending_balance,
-  	  bobMercat.account.public_account,
-			undefined
-		);
+    console.log("-----------> Initializing confidential transaction.");
+    let daveEncryptedBalance = await getEncryptedBalance(davePubAccount, ticker);
+    const pending_balance = decryptBalances(daveEncryptedBalance, daveMercatAccount);
+    let senderProof = create_transaction(
+      makeSeed("Dave_Tx_1"),
+      100,
+      daveMercatAccount,
+      daveEncryptedBalance,
+      pending_balance,
+      bobPubAccount,
+      undefined
+    ).init_tx;
 
-  	console.log("-----------> Submitting initial confidential transaction proof.");
-  	await affirmTransaction(dave, transactionId, { leg_id: legId, party: { Sender: wrapTX(senderProof.init_tx) } });
+    console.log("-----------> Submitting initial confidential transaction proof.");
+    await affirmTransaction(dave, transactionId, { leg_id: legId, party: { Sender: wrapTX(senderProof) } });
 
-  	console.log("-----------> Finalizing confidential transaction.");
-  	const finalizeTransactionProof = finalizeTransaction(
-  	  100,
-  	  senderProof.init_tx,
-  	  bobMercat.account,
-  	);
+    console.log("-----------> Finalizing confidential transaction.");
+    const finalizeTransactionProof = finalizeTransaction(
+      100,
+      senderProof,
+      bobMercatAccount,
+    );
 
-  	console.log("-----------> Receiver affirms transaction..");
-  	await affirmTransaction(bob, transactionId, { leg_id: legId, party: { Receiver: "" } });
+    console.log("-----------> Receiver affirms transaction..");
+    await affirmTransaction(bob, transactionId, { leg_id: legId, party: { Receiver: "" } });
 
-  	console.log("-----------> Justifying confidential transaction.");
-  	justifyTransaction(
-			makeSeed("Charlie_tx_1"),
-  	  senderProof.init_tx,
-			charlieMercat, daveMercat.account.public_account, daveEncryptedBalance,
-			bobMercat.account.public_account, 100);
+    console.log("-----------> Justifying confidential transaction.");
+    justifyTransaction(
+      makeSeed("Charlie_tx_1"),
+      senderProof,
+      charlieMercat, davePubAccount, daveEncryptedBalance,
+      bobPubAccount, 100);
 
-  	console.log("-----------> Mediator affirms transaction..");
-  	await affirmTransaction(charlie, transactionId, { leg_id: legId, party: { Mediator: "" } });
+    console.log("-----------> Mediator affirms transaction..");
+    await affirmTransaction(charlie, transactionId, { leg_id: legId, party: { Mediator: "" } });
 
-  	console.log("-----------> execute transaction.");
-  	await executeTransaction(charlie, transactionId, 1);
+    console.log("-----------> execute transaction.");
+    await executeTransaction(charlie, transactionId, 1);
 
-  	console.log("-----------> Receiver undates their balance");
-  	await applyIncomingBalance(bob, bobMercat.account.public_account, ticker);
+    console.log("-----------> Receiver undates their balance");
+    await applyIncomingBalance(bob, bobPubAccount, ticker);
 
-  	await displayBalance(daveMercat.account, ticker, "Dave balance after giving tokens to Bob");
-  	await displayBalance(bobMercat.account,  ticker, "Bob balance after getting tokens from Dave");
+    await displayBalance(daveMercatAccount, ticker, "Dave balance after giving tokens to Bob");
+    await displayBalance(bobMercatAccount,  ticker, "Bob balance after getting tokens from Dave");
 
-  	daveEncryptedBalance = await getEncryptedBalance(daveMercat.account.public_account, ticker);
-  	const bobEncryptedBalance = await getEncryptedBalance(bobMercat.account.public_account, ticker);
+    daveEncryptedBalance = await getEncryptedBalance(davePubAccount, ticker);
+    const bobEncryptedBalance = await getEncryptedBalance(bobPubAccount, ticker);
 
-  	assert.equal(decryptBalances(daveEncryptedBalance, daveMercat.account), 900);
-  	assert.equal(decryptBalances(bobEncryptedBalance, bobMercat.account), 100);
-
+    assert.equal(decryptBalances(daveEncryptedBalance, daveMercatAccount), 900);
+    assert.equal(decryptBalances(bobEncryptedBalance, bobMercatAccount), 100);
   });
 });
 
 function wrapTX(tx: Uint8Array): Uint8Array {
-	return u8aConcat(
-		compactToU8a(tx.length),
-		tx
-	);
+  return u8aConcat(
+    compactToU8a(tx.length),
+    tx
+  );
 }
 
 async function validateMercatAccount(signer: KeyringPair, proof: Uint8Array, ticker: Ticker) {
   const api = await ApiSingleton.getInstance();
-	const wrapped = wrapTX(proof);
+  const wrapped = wrapTX(proof);
   const transaction = await api.tx.confidentialAsset.validateMercatAccount(ticker, wrapped);
 
   await sendTx(signer, transaction);
@@ -202,7 +205,7 @@ async function validateMercatAccount(signer: KeyringPair, proof: Uint8Array, tic
 
 async function addMediatorMercatAccount(signer: KeyringPair, account: PubAccount) {
   const api = await ApiSingleton.getInstance();
-	const public_key = account.public_key;
+  const public_key = account.public_key;
   const transaction = await api.tx.confidentialAsset.addMediatorMercatAccount(public_key);
 
   await sendTx(signer, transaction);
@@ -220,7 +223,7 @@ async function createConfidentialAsset(signer: KeyringPair, ticker: Ticker) {
 }
 
 async function mintTokens(
-	seed: Uint8Array, signer: KeyringPair, ticker: Ticker, amount: number, account: Account
+  seed: Uint8Array, signer: KeyringPair, ticker: Ticker, amount: number, account: Account
 ) {
   const api = await ApiSingleton.getInstance();
   const mintTxInfo = mint_asset(seed, amount, account);
@@ -258,53 +261,53 @@ function decryptBalances(encryptedBalance: Uint8Array, account: Account): number
 }
 
 async function addConfidentialInstruction(
-	signer: KeyringPair,
-	venueId: number,
-	ticker: Ticker,
-	senderAccount: PubAccount,
-	receiverAccount: PubAccount,
-	mediator: IdentityId,
+  signer: KeyringPair,
+  venueId: number,
+  ticker: Ticker,
+  senderAccount: PubAccount,
+  receiverAccount: PubAccount,
+  mediator: IdentityId,
 ): Promise<number> {
   const api = await ApiSingleton.getInstance();
-	let transactionCounter = (await api.query.confidentialAsset.transactionCounter()).toNumber();
-	let leg = {
-		ticker: ticker,
-		sender: senderAccount.public_key,
-		receiver: receiverAccount.public_key,
-		mediator: mediator,
-	};
+  let transactionCounter = (await api.query.confidentialAsset.transactionCounter()).toNumber();
+  let leg = {
+    ticker: ticker,
+    sender: senderAccount.public_key,
+    receiver: receiverAccount.public_key,
+    mediator: mediator,
+  };
   const transaction = api.tx.confidentialAsset.addTransaction(
-		venueId,
-		[leg],
-		null,
-	);
+    venueId,
+    [leg],
+    null,
+  );
   await sendTx(signer, transaction);
   return transactionCounter;
 }
 
 function finalizeTransaction(
-	amount: number, initializeProof: Uint8Array, receiverAccount: Account
+  amount: number, initializeProof: Uint8Array, receiverAccount: Account
 ) {
   finalize_transaction(amount, initializeProof, receiverAccount);
 }
 
 function justifyTransaction(
-	seed: Uint8Array,
-	initializeProof: Uint8Array,
-	mediatorAccount: Account,
-	senderAccount: PubAccount,
-	senderEncryptedBalance: Uint8Array,
-	receiverAccount: PubAccount,
-	amount: number
+  seed: Uint8Array,
+  initializeProof: Uint8Array,
+  mediatorAccount: Account,
+  senderAccount: PubAccount,
+  senderEncryptedBalance: Uint8Array,
+  receiverAccount: PubAccount,
+  amount: number
 ) {
   justify_transaction(
-		seed,
-		initializeProof,
-		mediatorAccount,
-		senderAccount,
-		senderEncryptedBalance,
-		receiverAccount,
-		amount);
+    seed,
+    initializeProof,
+    mediatorAccount,
+    senderAccount,
+    senderEncryptedBalance,
+    receiverAccount,
+    amount);
 }
 
 async function affirmTransaction(signer: KeyringPair, transaction_id: number, affirm: AffirmLeg) {
