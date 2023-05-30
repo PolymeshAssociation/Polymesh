@@ -299,7 +299,6 @@
       "MaximumTMExtensionLimitReached",
       "IncompatibleExtensionVersion",
       "InvalidEthereumSignature",
-      "NoSuchClassicTicker",
       "TickerRegistrationExpired",
       "SenderSameAsReceiver",
       "NoSuchDoc",
@@ -348,7 +347,6 @@
   },
   "CorporateActionError": {
     "_enum": [
-      "AuthNotCAATransfer",
       "DetailsTooLong",
       "DuplicateDidTax",
       "TooManyDidTaxes",
