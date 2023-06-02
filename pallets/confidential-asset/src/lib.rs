@@ -108,7 +108,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::Randomness,
+    traits::{Get, Randomness},
     weights::Weight,
 };
 use mercat::{
@@ -190,6 +190,12 @@ pub trait Config:
 
     /// Confidential asset pallet weights.
     type WeightInfo: WeightInfo;
+
+    /// Maximum total supply.
+    type MaxTotalSupply: Get<Balance>;
+
+    /// Maximum number of legs in a confidential transaction.
+    type MaxNumberOfLegs: Get<u32>;
 }
 
 /// Mercat types are uploaded as bytes (hex).
@@ -668,7 +674,6 @@ decl_module! {
         /// # Errors
         /// - `TickerAlreadyRegistered` if the ticker was already registered, e.g., by `origin`.
         /// - `TickerRegistrationExpired` if the ticker's registration has expired.
-        /// - `InvalidTotalSupply` if not `divisible` but `total_supply` is not a multiply of unit.
         /// - `TotalSupplyAboveLimit` if `total_supply` exceeds the limit.
         /// - `BadOrigin` if not signed.
         #[weight = <T as Config>::WeightInfo::create_confidential_asset()]
@@ -697,8 +702,7 @@ decl_module! {
         /// - `Unauthorized` if origin is not the owner of the asset.
         /// - `CanSetTotalSupplyOnlyOnce` if this function is called more than once.
         /// - `TotalSupplyMustBePositive` if total supply is zero.
-        /// - `InvalidTotalSupply` if `total_supply` is not a multiply of unit.
-        /// - `TotalSupplyAboveBalanceLimit` if `total_supply` exceeds the mercat balance limit. This is imposed by the MERCAT lib.
+        /// - `TotalSupplyAboveMercatBalanceLimit` if `total_supply` exceeds the mercat balance limit. This is imposed by the MERCAT lib.
         /// - `UnknownConfidentialAsset` The ticker is not part of the set of confidential assets.
         /// - `InvalidAccountMintProof` if the proofs of ticker name and total supply are incorrect.
         #[weight = <T as Config>::WeightInfo::mint_confidential_asset()]
@@ -889,7 +893,7 @@ impl<T: Config> Module<T> {
         // Ensure the asset hasn't been created yet.
         ensure!(
             !Details::contains_key(ticker),
-            Error::<T>::AssetAlreadyCreated
+            Error::<T>::ConfidentialAssetAlreadyCreated
         );
 
         let details = ConfidentialAssetDetails {
@@ -904,9 +908,7 @@ impl<T: Config> Module<T> {
             owner_did,
             ticker,
             Zero::zero(),
-            true,
             asset_type,
-            owner_did,
         ));
         Ok(())
     }
@@ -914,23 +916,30 @@ impl<T: Config> Module<T> {
     fn base_mint_confidential_asset(
         owner_did: IdentityId,
         ticker: Ticker,
-        total_supply: Balance,
+        amount: Balance,
         asset_mint_proof: MercatMintAssetTx,
     ) -> DispatchResult {
         // Ensure the caller is the asset owner and get the asset details.
         let mut details = Self::ensure_asset_owner(ticker, owner_did)?;
 
-        // Current total supply must be zero.
-        // TODO: Allow increasing the total supply?
+        // The mint amount must be positive.
         ensure!(
-            details.total_supply == Zero::zero(),
-            Error::<T>::CanSetTotalSupplyOnlyOnce
+            amount != Zero::zero(),
+            Error::<T>::TotalSupplyMustBePositive
         );
 
-        // New total supply must be positive.
+        // Ensure the total supply doesn't go above `T::MaxTotalSupply`.
+        details.total_supply = details.total_supply.saturating_add(amount);
         ensure!(
-            total_supply != Zero::zero(),
-            Error::<T>::TotalSupplyMustBePositive
+            details.total_supply < T::MaxTotalSupply::get(),
+            Error::<T>::TotalSupplyOverLimit
+        );
+
+        // At the moment, mercat lib imposes that balances can be at most 32/64 bits.
+        let max_balance_mercat = MercatBalance::MAX.saturated_into::<Balance>();
+        ensure!(
+            details.total_supply <= max_balance_mercat,
+            Error::<T>::TotalSupplyAboveMercatBalanceLimit
         );
 
         ensure!(
@@ -938,36 +947,39 @@ impl<T: Config> Module<T> {
             Error::<T>::UnknownConfidentialAsset
         );
 
-        // At the moment, mercat lib imposes that balances can be at most 32/64 bits.
-        let max_balance_mercat = MercatBalance::MAX.saturated_into::<Balance>();
-        ensure!(
-            total_supply <= max_balance_mercat,
-            Error::<T>::TotalSupplyAboveBalanceLimit
-        );
-
         let account: MercatAccount = asset_mint_proof.account.clone().into();
         // Ensure the mercat account's balance has been initialized.
-        let old_balance = MercatAccountBalance::try_get(&account, ticker)
-            .map_err(|_| Error::<T>::MercatAccountMissing)?;
+        ensure!(
+            MercatAccountBalance::contains_key(&account, ticker),
+            Error::<T>::MercatAccountMissing
+        );
 
         let new_encrypted_balance = AssetValidator
             .verify_asset_transaction(
-                total_supply.saturated_into::<MercatBalance>(),
+                amount.saturated_into::<MercatBalance>(),
                 &asset_mint_proof,
                 &asset_mint_proof.account,
-                &old_balance.into(),
                 &[],
             )
             .map_err(|_| Error::<T>::InvalidAccountMintProof)?;
 
-        // Set the total supply (both encrypted and plain).
-        MercatAccountBalance::insert(&account, ticker, new_encrypted_balance);
+        // Deposit the minted assets into the issuer's mercat account.
+        Self::mercat_account_deposit_amount(
+            &account,
+            ticker,
+            asset_mint_proof.memo.enc_issued_amount,
+        )?;
 
-        // This will emit the total supply changed event.
-        details.total_supply = total_supply;
+        // Emit Issue event with new `total_supply`.
+        Self::deposit_event(Event::Issued(
+            owner_did,
+            ticker,
+            amount,
+            details.total_supply,
+        ));
+
+        // Update `total_supply`.
         Details::insert(ticker, details);
-        // TODO: emit Issue event.
-
         Ok(())
     }
 
@@ -983,15 +995,8 @@ impl<T: Config> Module<T> {
         // Take the incoming balance.
         match IncomingBalance::take(&account, ticker) {
             Some(incoming_balance) => {
-                // If there is an incoming balance, apply it to the mercat account balance.
-                MercatAccountBalance::try_mutate(&account, ticker, |balance| -> DispatchResult {
-                    if let Some(ref mut balance) = balance {
-                        *balance += incoming_balance;
-                        Ok(())
-                    } else {
-                        Err(Error::<T>::MercatAccountMissing.into())
-                    }
-                })?;
+                // If there is an incoming balance, deposit it into the mercat account balance.
+                Self::mercat_account_deposit_amount(&account, ticker, incoming_balance)?;
             }
             None => (),
         }
@@ -1043,8 +1048,7 @@ impl<T: Config> Module<T> {
         // Other commits to storage + emit event.
         VenueCreator::insert(venue_id, did);
         IdentityVenues::insert(did, venue_id, ());
-        // TODO:
-        //Self::deposit_event(RawEvent::VenueCreated(did, id, details, typ));
+        Self::deposit_event(Event::VenueCreated(did, venue_id));
         Ok(())
     }
 
@@ -1060,14 +1064,12 @@ impl<T: Config> Module<T> {
             for venue in &venues {
                 VenueAllowList::insert(&ticker, venue, true);
             }
-            // TODO:
-            //Self::deposit_event(RawEvent::VenuesAllowed(did, ticker, venues));
+            Self::deposit_event(Event::VenuesAllowed(did, ticker, venues));
         } else {
             for venue in &venues {
                 VenueAllowList::remove(&ticker, venue);
             }
-            // TODO:
-            //Self::deposit_event(RawEvent::VenuesBlocked(did, ticker, venues));
+            Self::deposit_event(Event::VenuesBlocked(did, ticker, venues));
         }
         Ok(())
     }
@@ -1079,8 +1081,10 @@ impl<T: Config> Module<T> {
         memo: Option<Memo>,
     ) -> Result<TransactionId, DispatchError> {
         // Ensure transaction does not have too many legs.
-        // TODO: Add pallet constant for limit.
-        ensure!(legs.len() <= 10, Error::<T>::InstructionHasTooManyLegs);
+        ensure!(
+            legs.len() <= T::MaxNumberOfLegs::get() as usize,
+            Error::<T>::TransactionHasTooManyLegs
+        );
 
         // Ensure venue exists and the caller is its creator.
         Self::ensure_venue_creator(venue_id, did)?;
@@ -1146,21 +1150,21 @@ impl<T: Config> Module<T> {
         affirm: AffirmLeg,
     ) -> DispatchResult {
         let leg_id = affirm.leg_id;
-        let leg = TransactionLegs::get(id, leg_id).ok_or(Error::<T>::UnknownInstructionLeg)?;
+        let leg = TransactionLegs::get(id, leg_id).ok_or(Error::<T>::UnknownTransactionLeg)?;
 
         // Ensure the caller hasn't already affirmed this leg.
         let party = affirm.leg_party();
         let caller_affirm = UserAffirmations::get(caller_did, (id, leg_id, party));
         ensure!(
             caller_affirm == Some(false),
-            Error::<T>::InstructionAlreadyAffirmed
+            Error::<T>::TransactionAlreadyAffirmed
         );
 
         match affirm.party {
             AffirmParty::Sender(proof) => {
                 let init_tx = proof
                     .into_tx()
-                    .ok_or(Error::<T>::InvalidMercatTransferProof)?;
+                    .ok_or(Error::<T>::InvalidMercatSenderProof)?;
                 let sender_did = Self::mercat_account_did(&leg.sender);
                 ensure!(Some(caller_did) == sender_did, Error::<T>::Unauthorized);
 
@@ -1186,7 +1190,7 @@ impl<T: Config> Module<T> {
                     &[],
                     &mut rng,
                 )
-                .map_err(|_| Error::<T>::InvalidMercatTransferProof)?;
+                .map_err(|_| Error::<T>::InvalidMercatSenderProof)?;
 
                 // Withdraw the transaction amount when the sender affirms.
                 Self::mercat_account_withdraw_amount(
@@ -1218,7 +1222,7 @@ impl<T: Config> Module<T> {
                 *pending = pending.saturating_sub(1);
                 Ok(())
             } else {
-                Err(Error::<T>::UnknownInstruction.into())
+                Err(Error::<T>::UnknownTransaction.into())
             }
         })?;
 
@@ -1236,10 +1240,10 @@ impl<T: Config> Module<T> {
         let caller_affirm = UserAffirmations::get(caller_did, (id, leg_id, unaffirm.party));
         ensure!(
             caller_affirm == Some(true),
-            Error::<T>::InstructionNotAffirmed
+            Error::<T>::TransactionNotAffirmed
         );
 
-        let leg = TransactionLegs::get(id, leg_id).ok_or(Error::<T>::UnknownInstructionLeg)?;
+        let leg = TransactionLegs::get(id, leg_id).ok_or(Error::<T>::UnknownTransactionLeg)?;
         let pending_affirms = match unaffirm.party {
             LegParty::Sender => {
                 let sender_did = Self::mercat_account_did(&leg.sender);
@@ -1274,7 +1278,7 @@ impl<T: Config> Module<T> {
                 // Take the transaction leg's pending state.
                 TxLegSenderBalance::remove((id, leg_id));
                 let sender_amount = TxLegSenderAmount::take((id, leg_id))
-                    .ok_or(Error::<T>::InstructionNotAffirmed)?;
+                    .ok_or(Error::<T>::TransactionNotAffirmed)?;
                 TxLegReceiverAmount::remove((id, leg_id));
 
                 // Remove the sender proof.
@@ -1304,7 +1308,7 @@ impl<T: Config> Module<T> {
                 *pending = pending.saturating_add(pending_affirms);
                 Ok(())
             } else {
-                Err(Error::<T>::UnknownInstruction.into())
+                Err(Error::<T>::UnknownTransaction.into())
             }
         })?;
 
@@ -1312,7 +1316,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_execute_transaction(
-        _did: IdentityId,
+        caller_did: IdentityId,
         transaction_id: TransactionId,
         leg_count: usize,
     ) -> DispatchResult {
@@ -1324,20 +1328,27 @@ impl<T: Config> Module<T> {
         let pending_affirms = PendingAffirms::take(transaction_id);
         ensure!(
             pending_affirms == Some(0),
-            Error::<T>::InstructionNotAffirmed
+            Error::<T>::TransactionNotAffirmed
         );
+
+        // Remove transaction details.
+        let details =
+            <Transactions<T>>::take(transaction_id).ok_or(Error::<T>::UnknownTransactionLeg)?;
 
         // Execute transaction legs.
         for (leg_id, leg) in legs {
             Self::execute_leg(transaction_id, leg_id, leg)?;
         }
 
-        // Remove transaction details and update status.
-        <Transactions<T>>::remove(transaction_id);
+        // Update status.
         let block = System::<T>::block_number();
         <TransactionStatuses<T>>::insert(transaction_id, TransactionStatus::Executed(block));
 
-        // TODO: emit event.
+        Self::deposit_event(Event::TransactionExecuted(
+            caller_did,
+            transaction_id,
+            details.memo,
+        ));
         Ok(())
     }
 
@@ -1355,39 +1366,38 @@ impl<T: Config> Module<T> {
             UserAffirmations::take(sender_did, (transaction_id, leg_id, LegParty::Sender));
         ensure!(
             sender_affirm == Some(true),
-            Error::<T>::InstructionNotAffirmed
+            Error::<T>::TransactionNotAffirmed
         );
         let receiver_did = Self::get_mercat_account_did(&leg.receiver)?;
         let receiver_affirm =
             UserAffirmations::take(receiver_did, (transaction_id, leg_id, LegParty::Receiver));
         ensure!(
             receiver_affirm == Some(true),
-            Error::<T>::InstructionNotAffirmed
+            Error::<T>::TransactionNotAffirmed
         );
         let mediator_affirm =
             UserAffirmations::take(leg.mediator, (transaction_id, leg_id, LegParty::Mediator));
         ensure!(
             mediator_affirm == Some(true),
-            Error::<T>::InstructionNotAffirmed
+            Error::<T>::TransactionNotAffirmed
         );
 
         // Take the transaction leg's pending state.
         TxLegSenderBalance::remove((transaction_id, leg_id));
         TxLegSenderAmount::remove((transaction_id, leg_id));
         let receiver_amount = TxLegReceiverAmount::take((transaction_id, leg_id))
-            .ok_or(Error::<T>::InstructionNotAffirmed)?;
+            .ok_or(Error::<T>::TransactionNotAffirmed)?;
 
         // Remove the sender proof.
         SenderProofs::remove(transaction_id, leg_id);
 
         // Deposit the transaction amount into the receiver's account.
         Self::mercat_account_deposit_amount_incoming(&leg.receiver, ticker, receiver_amount);
-
         Ok(())
     }
 
     fn base_revert_transaction(
-        _did: IdentityId,
+        caller_did: IdentityId,
         transaction_id: TransactionId,
         leg_count: usize,
     ) -> DispatchResult {
@@ -1398,17 +1408,24 @@ impl<T: Config> Module<T> {
         // Remove the pending affirmation count.
         PendingAffirms::remove(transaction_id);
 
+        // Remove transaction details.
+        let details =
+            <Transactions<T>>::take(transaction_id).ok_or(Error::<T>::UnknownTransactionLeg)?;
+
         // Revert transaction legs.
         for (leg_id, leg) in legs {
             Self::revert_leg(transaction_id, leg_id, leg)?;
         }
 
-        // Remove transaction details and update status.
-        <Transactions<T>>::remove(transaction_id);
+        // Update status.
         let block = System::<T>::block_number();
         <TransactionStatuses<T>>::insert(transaction_id, TransactionStatus::Reverted(block));
 
-        // TODO: emit event.
+        Self::deposit_event(Event::TransactionReverted(
+            caller_did,
+            transaction_id,
+            details.memo,
+        ));
         Ok(())
     }
 
@@ -1459,14 +1476,20 @@ impl<T: Config> Module<T> {
         ticker: Ticker,
         amount: EncryptedAmount,
     ) -> DispatchResult {
-        MercatAccountBalance::try_mutate(account, ticker, |balance| -> DispatchResult {
-            if let Some(ref mut balance) = balance {
-                *balance -= amount;
-                Ok(())
-            } else {
-                Err(Error::<T>::MercatAccountMissing.into())
-            }
-        })
+        let balance = MercatAccountBalance::try_mutate(
+            account,
+            ticker,
+            |balance| -> Result<EncryptedAmount, DispatchError> {
+                if let Some(ref mut balance) = balance {
+                    *balance -= amount;
+                    Ok(*balance)
+                } else {
+                    Err(Error::<T>::MercatAccountMissing.into())
+                }
+            },
+        )?;
+        Self::deposit_event(Event::AccountWithdraw(account.clone(), ticker, balance));
+        Ok(())
     }
 
     /// Add the `amount` to the mercat account's balance.
@@ -1475,14 +1498,20 @@ impl<T: Config> Module<T> {
         ticker: Ticker,
         amount: EncryptedAmount,
     ) -> DispatchResult {
-        MercatAccountBalance::try_mutate(account, ticker, |balance| -> DispatchResult {
-            if let Some(ref mut balance) = balance {
-                *balance += amount;
-                Ok(())
-            } else {
-                Err(Error::<T>::MercatAccountMissing.into())
-            }
-        })
+        let balance = MercatAccountBalance::try_mutate(
+            account,
+            ticker,
+            |balance| -> Result<EncryptedAmount, DispatchError> {
+                if let Some(ref mut balance) = balance {
+                    *balance += amount;
+                    Ok(*balance)
+                } else {
+                    Err(Error::<T>::MercatAccountMissing.into())
+                }
+            },
+        )?;
+        Self::deposit_event(Event::AccountDeposit(account.clone(), ticker, balance));
+        Ok(())
     }
 
     /// Add the `amount` to the mercat account's `IncomingBalance` accumulator.
@@ -1499,6 +1528,11 @@ impl<T: Config> Module<T> {
                 *incoming_balance = Some(amount.into());
             }
         });
+        Self::deposit_event(Event::AccountDepositIncoming(
+            account.clone(),
+            ticker,
+            amount,
+        ));
     }
 
     fn get_rng() -> Rng {
@@ -1518,23 +1552,28 @@ impl<T: Config> Module<T> {
 decl_event! {
     pub enum Event {
         /// Event for creation of a Mediator Mercat account.
-        /// caller DID/ owner DID and encryption public key
+        /// caller DID, Mediator mercat account (public key)
         MediatorAccountCreated(IdentityId, MercatAccount),
-
         /// Event for creation of a Mercat account.
-        /// caller DID/ owner DID, mercat account id (which is equal to encrypted asset ID), encrypted balance
+        /// caller DID, mercat account (public key), ticker, encrypted balance
         AccountCreated(IdentityId, MercatAccount, Ticker, EncryptedAmount),
-
         /// Event for creation of a confidential asset.
-        /// caller DID/ owner DID, ticker, total supply, divisibility, asset type, beneficiary DID
-        ConfidentialAssetCreated(IdentityId, Ticker, Balance, bool, AssetType, IdentityId),
-
-        /// Event for resetting the ordering state.
-        /// caller DID/ owner DID, mercat account id, current encrypted account balance
-        ResetConfidentialAccountOrderingState(IdentityId, MercatAccount, Ticker, EncryptedAmount),
-
+        /// (caller DID, ticker, total supply, asset type)
+        ConfidentialAssetCreated(IdentityId, Ticker, Balance, AssetType),
+        /// Issued confidential assets.
+        /// (caller DID, ticker, amount issued, total_supply)
+        Issued(IdentityId, Ticker, Balance, Balance),
+        /// A new venue has been created.
+        /// (caller DID, venue_id)
+        VenueCreated(IdentityId, VenueId),
+        /// Venues added to allow list.
+        /// (caller DID, ticker, Vec<VenueId>)
+        VenuesAllowed(IdentityId, Ticker, Vec<VenueId>),
+        /// Venues removed from the allow list.
+        /// (caller DID, ticker, Vec<VenueId>)
+        VenuesBlocked(IdentityId, Ticker, Vec<VenueId>),
         /// A new transaction has been created
-        /// (did, venue_id, transaction_id, legs, memo)
+        /// (caller DID, venue_id, transaction_id, legs, memo)
         TransactionCreated(
             IdentityId,
             VenueId,
@@ -1542,6 +1581,33 @@ decl_event! {
             Vec<TransactionLeg>,
             Option<Memo>,
         ),
+        /// Confidential transaction executed.
+        /// (caller DID, transaction_id, memo)
+        TransactionExecuted(
+            IdentityId,
+            TransactionId,
+            Option<Memo>,
+        ),
+        /// Confidential transaction reverted.
+        /// (caller DID, transaction_id, memo)
+        TransactionReverted(
+            IdentityId,
+            TransactionId,
+            Option<Memo>,
+        ),
+        /// Mercat account balance decreased.
+        /// This happens when the sender affirms the transaction.
+        /// (mercat account, ticker, new encrypted balance)
+        AccountWithdraw(MercatAccount, Ticker, EncryptedAmount),
+        /// Mercat account balance increased.
+        /// This happens when the sender unaffirms a transaction or
+        /// when the receiver calls `apply_incoming_balance`.
+        /// (mercat account, ticker, new encrypted balance)
+        AccountDeposit(MercatAccount, Ticker, EncryptedAmount),
+        /// Mercat account has an incoming amount.
+        /// This happens when a transaction executes.
+        /// (mercat account, ticker, encrypted amount)
+        AccountDepositIncoming(MercatAccount, Ticker, EncryptedAmount),
     }
 }
 
@@ -1549,106 +1615,51 @@ decl_error! {
     pub enum Error for Module<T: Config> {
         /// The MERCAT account creation proofs are invalid.
         InvalidAccountCreationProof,
-
-        /// Mercat account hasn't been created yet.
-        MercatAccountMissing,
-
-        /// Mercat account already created.
-        MercatAccountAlreadyCreated,
-
-        /// Mercat account's balance already initialized.
-        MercatAccountAlreadyInitialized,
-
         /// The MERCAT asset issuance proofs are invalid.
         InvalidAccountMintProof,
-
-        /// The provided total supply of a confidential asset is invalid.
-        InvalidTotalSupply,
-
+        /// Mercat account hasn't been created yet.
+        MercatAccountMissing,
+        /// Mercat account already created.
+        MercatAccountAlreadyCreated,
+        /// Mercat account's balance already initialized.
+        MercatAccountAlreadyInitialized,
         /// Mercat account isn't a valid CompressedEncryptionPubKey.
         InvalidMercatAccount,
-
         /// The balance values does not fit a mercat balance.
-        TotalSupplyAboveBalanceLimit,
-
+        TotalSupplyAboveMercatBalanceLimit,
         /// The user is not authorized.
         Unauthorized,
-
         /// The provided asset is not among the set of valid asset ids.
         UnknownConfidentialAsset,
-
-        /// After registering the confidential asset, its total supply can change once from zero to a positive value.
-        CanSetTotalSupplyOnlyOnce,
-
+        /// The confidential asset has already been created.
+        ConfidentialAssetAlreadyCreated,
+        /// A confidential asset's total supply can't go above `T::MaxTotalSupply`.
+        TotalSupplyOverLimit,
         /// A confidential asset's total supply must be positive.
         TotalSupplyMustBePositive,
-
         /// Insufficient mercat authorizations are provided.
         InsufficientMercatAuthorizations,
-
         /// Confidential transfer's proofs are invalid.
         ConfidentialTransferValidationFailure,
-
-        /// We only support one confidential transfer per instruction at the moment.
-        MoreThanOneConfidentialLeg,
-        /// Certain transfer modes are not yet supported in confidential modes.
-        ConfidentialModeNotSupportedYet,
-        /// Transaction proof failed to verify.
-        /// Failed to maintain confidential transaction's ordering state.
-        InvalidMercatOrderingState,
-        /// Undefined leg type.
-        UndefinedLegKind,
-        /// Confidential legs do not have assets or amounts.
-        ConfidentialLegHasNoAssetOrAmount,
-        /// Only `LegKind::NonConfidential` has receipt functionality.
-        InvalidLegKind,
-        /// The MERCAT transfer proof is invalid.
-        InvalidMercatTransferProof,
-        /// Need sender's proof to verify receiver's proof.
-        MissingMercatInitializedTransferProof,
-
-        /// The token has already been created.
-        AssetAlreadyCreated,
-
+        /// The MERCAT sender proof is invalid.
+        InvalidMercatSenderProof,
         /// Venue does not exist.
         InvalidVenue,
-        /// Instruction has not been affirmed.
-        InstructionNotAffirmed,
-        /// Instruction has already been affirmed.
-        InstructionAlreadyAffirmed,
-        /// Provided instruction is not pending execution.
-        InstructionNotPending,
-        /// Provided instruction is not failing execution.
-        InstructionNotFailed,
-        /// Provided leg is not pending execution.
-        LegNotPending,
+        /// Transaction has not been affirmed.
+        TransactionNotAffirmed,
+        /// Transaction has already been affirmed.
+        TransactionAlreadyAffirmed,
         /// Venue does not have required permissions.
         UnauthorizedVenue,
-        /// While affirming the transfer, system failed to lock the assets involved.
-        FailedToLockTokens,
-        /// Instruction failed to execute.
-        InstructionFailed,
-        /// Instruction has invalid dates
-        InstructionDatesInvalid,
-        /// Instruction's target settle block reached.
-        InstructionSettleBlockPassed,
-        /// Offchain signature is invalid.
-        InvalidSignature,
-        /// Sender and receiver are the same.
-        SameSenderReceiver,
-        /// The provided settlement block number is in the past and cannot be used by the scheduler.
-        SettleOnPastBlock,
-        /// The current instruction affirmation status does not support the requested action.
-        UnexpectedAffirmationStatus,
-        /// Scheduling of an instruction fails.
-        FailedToSchedule,
+        /// Transaction failed to execute.
+        TransactionFailed,
         /// Legs count should matches with the total number of legs in the transaction.
         LegCountTooSmall,
-        /// Instruction is unknown.
-        UnknownInstruction,
-        /// Instruction leg is unknown.
-        UnknownInstructionLeg,
+        /// Transaction is unknown.
+        UnknownTransaction,
+        /// Transaction leg is unknown.
+        UnknownTransactionLeg,
         /// Maximum legs that can be in a single instruction.
-        InstructionHasTooManyLegs,
+        TransactionHasTooManyLegs,
     }
 }

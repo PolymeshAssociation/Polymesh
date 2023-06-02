@@ -185,12 +185,18 @@ parameter_types! {
     pub const MaxNumberOfFungibleMoves: u32 = 10;
     pub const MaxNumberOfNFTsMoves: u32 = 100;
     pub const MaxNumberOfOffChainAssets: u32 = 10;
+
+    // Confidential asset.
+    pub const MaxTotalSupply: Balance = 10_000_000_000_000;
+    pub const MaxNumberOfConfidentialLegs: u32 = 10;
 }
 
 impl pallet_confidential_asset::Config for TestStorage {
     type RuntimeEvent = RuntimeEvent;
     type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
     type WeightInfo = polymesh_weights::pallet_confidential_asset::SubstrateWeight;
+    type MaxTotalSupply = MaxTotalSupply;
+    type MaxNumberOfLegs = MaxNumberOfConfidentialLegs;
 }
 
 frame_support::construct_runtime!(
