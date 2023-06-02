@@ -38,8 +38,8 @@ use polymesh_primitives::{
     investor_zkproof_data::v2, AccountId, AssetPermissions, AuthorizationData, AuthorizationType,
     CddId, Claim, ClaimType, CustomClaimTypeId, DispatchableName, ExtrinsicPermissions,
     IdentityClaim, IdentityId, InvestorUid, KeyRecord, PalletName, PalletPermissions, Permissions,
-    PortfolioId, PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction, Ticker,
-    TransactionError,
+    PortfolioId, PortfolioKind, PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction,
+    Ticker, TransactionError,
 };
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
 use sp_core::H512;
@@ -1944,7 +1944,12 @@ fn do_add_investor_uniqueness_claim() {
 
     // Get some tokens for Alice in case the default initial balance changes to 0 in simple_token.
     let amount = 10_000;
-    assert_ok!(Asset::issue(alice.origin(), ticker, amount));
+    assert_ok!(Asset::issue(
+        alice.origin(),
+        ticker,
+        amount,
+        PortfolioKind::Default
+    ));
     let asset_balance = initial_balance + amount;
 
     // Make a claim with a scope ID.

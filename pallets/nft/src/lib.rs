@@ -267,10 +267,11 @@ impl<T: Config> Module<T> {
             CollectionTicker::try_get(&ticker).map_err(|_| Error::<T>::CollectionNotFound)?;
 
         // Verifies if the caller has the right permissions (regarding asset and portfolio)
-        let caller_portfolio = Asset::<T>::ensure_agent_with_custody_and_perms(
+        let caller_portfolio = Asset::<T>::ensure_origin_ticker_and_portfolio_permissions(
             origin,
             ticker.clone(),
             portfolio_kind,
+            false,
         )?;
 
         Portfolio::<T>::ensure_portfolio_validity(&caller_portfolio)?;
@@ -329,8 +330,12 @@ impl<T: Config> Module<T> {
             CollectionTicker::try_get(&ticker).map_err(|_| Error::<T>::CollectionNotFound)?;
 
         // Ensure origin is agent with custody and permissions for default portfolio.
-        let caller_portfolio =
-            Asset::<T>::ensure_agent_with_custody_and_perms(origin, ticker, portfolio_kind)?;
+        let caller_portfolio = Asset::<T>::ensure_origin_ticker_and_portfolio_permissions(
+            origin,
+            ticker,
+            portfolio_kind,
+            true,
+        )?;
 
         // Verifies if the NFT exists
         ensure!(

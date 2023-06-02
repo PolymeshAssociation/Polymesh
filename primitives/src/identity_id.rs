@@ -251,7 +251,7 @@ impl From<u64> for PortfolioNumber {
     }
 }
 
-/// TBD
+/// The kind of a portfolio. It can be either a default portfolio or a user-defined one.
 #[derive(Decode, Encode, TypeInfo)]
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -276,12 +276,12 @@ impl From<Option<PortfolioNumber>> for PortfolioKind {
     }
 }
 
-/// The ID of a portfolio.
+/// The identification of a portfolio. Contains the [`IdentityId`] of the portfolio owner and the [`PortfolioKind`].
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PortfolioId {
-    /// The DID of the portfolio.
+    /// The DID of the portfolio owner.
     pub did: IdentityId,
     /// The kind of the portfolio: either default or user.
     pub kind: PortfolioKind,
@@ -303,6 +303,11 @@ impl Printable for PortfolioId {
 }
 
 impl PortfolioId {
+    /// Creates a new [`PortfolioId`].
+    pub fn new(did: IdentityId, kind: PortfolioKind) -> Self {
+        PortfolioId { did, kind }
+    }
+
     /// Returns the default portfolio of `did`.
     pub fn default_portfolio(did: IdentityId) -> Self {
         Self {
