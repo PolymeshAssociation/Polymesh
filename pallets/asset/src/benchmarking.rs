@@ -34,8 +34,8 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::ticker::TICKER_LEN;
 use polymesh_primitives::{
-    AuthorizationData, NFTCollectionKeys, PortfolioName, PortfolioNumber, Signatory, Ticker, Url,
-    WeightMeter,
+    AuthorizationData, NFTCollectionKeys, PortfolioKind, PortfolioName, PortfolioNumber, Signatory,
+    Ticker, Url, WeightMeter,
 };
 
 use crate::*;
@@ -353,7 +353,7 @@ benchmarks! {
 
     issue {
         let (owner, ticker) = owned_ticker::<T>();
-    }: _(owner.origin, ticker, (1_000_000 * POLY).into())
+    }: _(owner.origin, ticker, (1_000_000 * POLY).into(), PortfolioKind::Default)
     verify {
         assert_eq!(Module::<T>::token_details(ticker).total_supply, (2_000_000 * POLY).into());
     }
