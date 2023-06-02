@@ -255,12 +255,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> TransactionState<T> {
         let venue_id = Module::<T>::venue_counter();
         assert_ok!(Module::<T>::create_venue(issuer.origin().into(),));
 
-        // Setup venue filtering and allow our venue.
-        assert_ok!(Module::<T>::set_venue_filtering(
-            issuer.origin().into(),
-            ticker,
-            true
-        ));
+        // Allow our venue.
         assert_ok!(Module::<T>::allow_venues(
             issuer.origin().into(),
             ticker,
@@ -447,17 +442,6 @@ benchmarks! {
     create_venue {
         let issuer = user::<T>("issuer", SEED);
     }: _(issuer.origin())
-
-    set_venue_filtering {
-        let mut rng = StdRng::from_seed([10u8; 32]);
-        let issuer = MercatUser::<T>::new("issuer", &mut rng);
-        let ticker = Ticker::from_slice_truncated(b"A".as_ref());
-        create_confidential_token(
-            &issuer.user,
-            b"Name".as_slice(),
-            ticker,
-        );
-    }: _(issuer.origin(), ticker, true)
 
     allow_venues {
         // Count of venues.
