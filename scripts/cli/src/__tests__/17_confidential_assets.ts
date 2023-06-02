@@ -123,6 +123,10 @@ describe("17 - Confidential Asset Unit Test", () => {
     console.log("-----------> Creating venue.");
     const venueId = await createVenue(charlie);
 
+    // Allow Venue
+    console.log("-----------> Allow venue.");
+    await allowVenue(dave, ticker, venueId);
+
     // Create Confidential Instruction
     console.log("-----------> Creating confidential instruction.");
     const transactionId = await addConfidentialInstruction(
@@ -235,10 +239,16 @@ async function mintTokens(
 
 async function createVenue(signer: KeyringPair): Promise<number> {
   const api = await ApiSingleton.getInstance();
-  let venueCounter = (await api.query.confidentialAsset.venueCounter()).toNumber();
+  let venueId = (await api.query.confidentialAsset.venueCounter()).toNumber();
   const transaction = api.tx.confidentialAsset.createVenue();
   await sendTx(signer, transaction);
-  return venueCounter;
+  return venueId;
+}
+
+async function allowVenue(signer: KeyringPair, ticker: Ticker, venueId: number) {
+  const api = await ApiSingleton.getInstance();
+  const transaction = api.tx.confidentialAsset.allowVenues(ticker, [venueId]);
+  await sendTx(signer, transaction);
 }
 
 async function displayBalance(account: Account, ticker: Ticker, message: String): Promise<Uint8Array> {

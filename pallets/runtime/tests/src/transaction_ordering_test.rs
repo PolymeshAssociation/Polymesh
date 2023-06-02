@@ -13,6 +13,7 @@ use mercat::{
 use pallet_confidential_asset::{
     AffirmLeg, MercatAccount, TransactionId, TransactionLeg, TransactionLegId, UnaffirmLeg,
 };
+use polymesh_primitives::settlement::VenueId;
 use polymesh_primitives::Ticker;
 use rand::prelude::*;
 use test_client::AccountKeyring;
@@ -37,6 +38,7 @@ struct MediatorCredentials {
 
 fn initialize_transaction(
     ticker: Ticker,
+    venue_id: VenueId,
     sender_secret_account: SecAccount,
     sender_creds: AccountCredentials,
     sender_pending_enc_balance: EncryptedAmount,
@@ -49,19 +51,13 @@ fn initialize_transaction(
     // The rest of rngs are built from it.
     let mut rng = StdRng::from_seed([10u8; 32]);
 
-    // Mediator creates a venue.
-    let venue_counter = ConfidentialAsset::venue_counter();
-    assert_ok!(ConfidentialAsset::create_venue(
-        mediator_creds.user.origin()
-    ));
-
     // Mediator creates an transaction.
     let transaction_id = ConfidentialAsset::transaction_counter();
     let leg_id = TransactionLegId(0);
 
     assert_ok!(ConfidentialAsset::add_transaction(
         mediator_creds.user.origin(),
-        venue_counter,
+        venue_id,
         vec![TransactionLeg {
             ticker,
             sender: sender_creds.account.clone(),
@@ -242,11 +238,12 @@ fn finalize_transaction(
     assert_eq!(new_receiver_balance, expected_receiver_balance);
 }
 
-fn chain_set_up(
+fn chain_setup(
     total_supply: u128,
 ) -> (
     StdRng,
     Ticker,
+    VenueId,
     AccountCredentials,
     SecAccount,
     EncryptedAmount,
@@ -293,9 +290,21 @@ fn chain_set_up(
         ticker,
     };
 
+    // Mediator creates a venue.
+    let venue_id = ConfidentialAsset::venue_counter();
+    assert_ok!(ConfidentialAsset::create_venue(charlie_creds.user.origin()));
+
+    // Add the venue to the allow list for the asset.
+    assert_ok!(ConfidentialAsset::allow_venues(
+        alice_creds.user.origin(),
+        ticker,
+        vec![venue_id]
+    ));
+
     (
         rng,
         ticker,
+        venue_id,
         alice_creds,
         alice_secret_account,
         alice_encrypted_init_balance,
@@ -341,12 +350,13 @@ fn settle_out_of_order() {
             let (
                 mut rng,
                 ticker,
+                venue_id,
                 alice_creds,
                 alice_secret_account,
                 alice_init_balance,
                 charlie_creds,
                 charlie_secret_account,
-            ) = chain_set_up(10u128);
+            ) = chain_setup(10u128);
 
             let (bob_secret_account, bob_creds, bob_init_balance) =
                 create_investor_account(AccountKeyring::Bob, &mut rng);
@@ -358,6 +368,7 @@ fn settle_out_of_order() {
             let (transaction_id1000, alice_sent_amount_1000, bob_received_amount_1000) =
                 initialize_transaction(
                     ticker,
+                    venue_id,
                     alice_secret_account.clone(),
                     alice_creds.clone(),
                     alice_init_balance.clone(),
@@ -373,6 +384,7 @@ fn settle_out_of_order() {
             let (transaction_id1001, alice_sent_amount_1001, bob_received_amount_1001) =
                 initialize_transaction(
                     ticker,
+                    venue_id,
                     alice_secret_account.clone(),
                     alice_creds.clone(),
                     alice_init_balance2.clone(),
@@ -430,12 +442,13 @@ fn double_spending_fails() {
             let (
                 mut rng,
                 ticker,
+                venue_id,
                 alice_creds,
                 alice_secret_account,
                 alice_init_balance,
                 charlie_creds,
                 charlie_secret_account,
-            ) = chain_set_up(10u128);
+            ) = chain_setup(10u128);
 
             let (bob_secret_account, bob_creds, bob_init_balance) =
                 create_investor_account(AccountKeyring::Bob, &mut rng);
@@ -451,6 +464,7 @@ fn double_spending_fails() {
             let (transaction_id1000, alice_sent_amount_1000, bob_received_amount_1000) =
                 initialize_transaction(
                     ticker,
+                    venue_id,
                     alice_secret_account.clone(),
                     alice_creds.clone(),
                     alice_init_balance.clone(),
@@ -464,6 +478,7 @@ fn double_spending_fails() {
 
             assert!(initialize_transaction(
                 ticker,
+                venue_id,
                 alice_secret_account.clone(),
                 alice_creds.clone(),
                 // Alice is reusing her initial balance as the pending balance.
@@ -526,12 +541,13 @@ fn mercat_whitepaper_scenario1() {
             let (
                 mut rng,
                 ticker,
+                venue_id,
                 alice_creds,
                 alice_secret_account,
                 alice_init_balance,
                 charlie_creds,
                 charlie_secret_account,
-            ) = chain_set_up(90u128);
+            ) = chain_setup(90u128);
 
             let (bob_secret_account, bob_creds, _) =
                 create_investor_account(AccountKeyring::Bob, &mut rng);
@@ -543,6 +559,7 @@ fn mercat_whitepaper_scenario1() {
             let (transaction_id999, alice_sent_amount_999, dave_received_amount_999) =
                 initialize_transaction(
                     ticker,
+                    venue_id,
                     alice_secret_account.clone(),
                     alice_creds.clone(),
                     alice_init_balance.clone(),
@@ -584,6 +601,7 @@ fn mercat_whitepaper_scenario1() {
             let (transaction_id1000, alice_sent_amount_1000, _bob_received_amount_1000) =
                 initialize_transaction(
                     ticker,
+                    venue_id,
                     alice_secret_account.clone(),
                     alice_creds.clone(),
                     alice_init_balance.clone(),
@@ -599,6 +617,7 @@ fn mercat_whitepaper_scenario1() {
             let (transaction_id1001, dave_sent_amount_1001, alice_received_amount_1001) =
                 initialize_transaction(
                     ticker,
+                    venue_id,
                     dave_secret_account.clone(),
                     dave_creds.clone(),
                     dave_init_balance.clone(),
@@ -613,6 +632,7 @@ fn mercat_whitepaper_scenario1() {
             let (transaction_id1002, alice_sent_amount_1002, dave_received_amount_1002) =
                 initialize_transaction(
                     ticker,
+                    venue_id,
                     alice_secret_account.clone(),
                     alice_creds.clone(),
                     alice_pending_balance.clone(),
@@ -688,12 +708,13 @@ fn mercat_whitepaper_scenario2() {
             let (
                 mut rng,
                 ticker,
+                venue_id,
                 alice_creds,
                 alice_secret_account,
                 alice_init_balance,
                 charlie_creds,
                 charlie_secret_account,
-            ) = chain_set_up(90u128);
+            ) = chain_setup(90u128);
 
             let (bob_secret_account, bob_creds, bob_init_balance) =
                 create_investor_account(AccountKeyring::Bob, &mut rng);
@@ -705,6 +726,7 @@ fn mercat_whitepaper_scenario2() {
             let (transaction_id999, alice_sent_amount_999, dave_received_amount_999) =
                 initialize_transaction(
                     ticker,
+                    venue_id,
                     alice_secret_account.clone(),
                     alice_creds.clone(),
                     alice_init_balance.clone(),
@@ -749,6 +771,7 @@ fn mercat_whitepaper_scenario2() {
             let (transaction_id1000, alice_sent_amount_1000, _bob_received_amount_1000) =
                 initialize_transaction(
                     ticker,
+                    venue_id,
                     alice_secret_account.clone(),
                     alice_creds.clone(),
                     alice_init_balance.clone(),
@@ -764,6 +787,7 @@ fn mercat_whitepaper_scenario2() {
             let (transaction_id1001, dave_sent_amount_1001, alice_received_amount_1001) =
                 initialize_transaction(
                     ticker,
+                    venue_id,
                     dave_secret_account.clone(),
                     dave_creds.clone(),
                     dave_init_balance.clone(),
@@ -778,6 +802,7 @@ fn mercat_whitepaper_scenario2() {
             let (transaction_id1002, alice_sent_amount_1002, dave_received_amount_1002) =
                 initialize_transaction(
                     ticker,
+                    venue_id,
                     alice_secret_account.clone(),
                     alice_creds.clone(),
                     alice_pending_balance.clone(),
@@ -842,6 +867,7 @@ fn mercat_whitepaper_scenario2() {
             let (transaction_id1003, alice_sent_amount_1003, bob_received_amount_1003) =
                 initialize_transaction(
                     ticker,
+                    venue_id,
                     alice_secret_account.clone(),
                     alice_creds.clone(),
                     alice_pending_balance.clone(),
@@ -869,6 +895,7 @@ fn mercat_whitepaper_scenario2() {
             let (transaction_id1004, alice_sent_amount_1004, dave_received_amount_1004) =
                 initialize_transaction(
                     ticker,
+                    venue_id,
                     alice_secret_account.clone(),
                     alice_creds.clone(),
                     alice_init_balance.clone(),

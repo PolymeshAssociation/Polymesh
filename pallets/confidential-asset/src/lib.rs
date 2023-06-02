@@ -150,7 +150,6 @@ pub trait WeightInfo {
     fn mint_confidential_asset() -> Weight;
     fn apply_incoming_balance() -> Weight;
     fn create_venue() -> Weight;
-    fn set_venue_filtering() -> Weight;
     fn allow_venues(l: u32) -> Weight;
     fn disallow_venues(l: u32) -> Weight;
     fn add_transaction() -> Weight;
@@ -500,12 +499,7 @@ decl_storage! {
                        hasher(twox_64_concat) TransactionId
                     => ();
 
-        /// Tracks if a token has enabled filtering venues that can create transactions involving their token.
-        ///
-        /// ticker -> filtering_enabled
-        VenueFiltering get(fn venue_filtering): map hasher(blake2_128_concat) Ticker => bool;
-
-        /// Venues that are allowed to create transactions involving a particular ticker. Only used if filtering is enabled.
+        /// Venues that are allowed to create transactions involving a particular ticker.
         ///
         /// ticker -> venue_id -> allowed
         VenueAllowList get(fn venue_allow_list): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) VenueId => bool;
@@ -743,17 +737,6 @@ decl_module! {
         pub fn create_venue(origin) -> DispatchResult {
             let did = Identity::<T>::ensure_perms(origin)?;
             Self::base_create_venue(did)
-        }
-
-        /// Enables or disabled venue filtering for a token.
-        ///
-        /// # Arguments
-        /// * `ticker` - Ticker of the token in question.
-        /// * `enabled` - Boolean that decides if the filtering should be enabled.
-        #[weight = <T as Config>::WeightInfo::set_venue_filtering()]
-        pub fn set_venue_filtering(origin, ticker: Ticker, enabled: bool) -> DispatchResult {
-            let did = Identity::<T>::ensure_perms(origin)?;
-            Self::base_set_venue_filtering(did, ticker, enabled)
         }
 
         /// Allows additional venues to create instructions involving an asset.
@@ -1037,13 +1020,13 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// If `tickers` doesn't contain the given `ticker` and venue_filtering is enabled, ensures that venue_id is in the allowed list
+    /// If `tickers` doesn't contain the given `ticker`, ensures that venue_id is in the allowed list
     fn ensure_venue_filtering(
         tickers: &mut BTreeSet<Ticker>,
         ticker: Ticker,
         venue_id: &VenueId,
     ) -> DispatchResult {
-        if tickers.insert(ticker) && Self::venue_filtering(ticker) {
+        if tickers.insert(ticker) {
             ensure!(
                 Self::venue_allow_list(ticker, venue_id),
                 Error::<T>::UnauthorizedVenue
@@ -1062,19 +1045,6 @@ impl<T: Config> Module<T> {
         IdentityVenues::insert(did, venue_id, ());
         // TODO:
         //Self::deposit_event(RawEvent::VenueCreated(did, id, details, typ));
-        Ok(())
-    }
-
-    fn base_set_venue_filtering(did: IdentityId, ticker: Ticker, enabled: bool) -> DispatchResult {
-        // Ensure the caller is the asset owner.
-        Self::ensure_asset_owner(ticker, did)?;
-        if enabled {
-            VenueFiltering::insert(ticker, enabled);
-        } else {
-            VenueFiltering::remove(ticker);
-        }
-        // TODO:
-        //Self::deposit_event(RawEvent::VenueFiltering(did, ticker, enabled));
         Ok(())
     }
 

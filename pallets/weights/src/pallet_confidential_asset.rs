@@ -106,15 +106,6 @@ impl pallet_confidential_asset::WeightInfo for SubstrateWeight {
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ConfidentialAsset Details (r:1 w:0)
-    // Storage: ConfidentialAsset VenueFiltering (r:0 w:1)
-    fn set_venue_filtering() -> Weight {
-        // Minimum execution time: 64_323 nanoseconds.
-        Weight::from_ref_time(66_264_000)
-            .saturating_add(DbWeight::get().reads(2))
-            .saturating_add(DbWeight::get().writes(1))
-    }
-    // Storage: Identity KeyRecords (r:1 w:0)
-    // Storage: ConfidentialAsset Details (r:1 w:0)
     // Storage: ConfidentialAsset VenueAllowList (r:0 w:11)
     /// The range of component `v` is `[0, 100]`.
     fn allow_venues(v: u32) -> Weight {

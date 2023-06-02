@@ -449,8 +449,15 @@ fn basic_confidential_settlement() {
                 init_account(&mut rng, ticker, charlie);
 
             // Mediator creates a venue
-            let venue_counter = ConfidentialAsset::venue_counter();
+            let venue_id = ConfidentialAsset::venue_counter();
             assert_ok!(ConfidentialAsset::create_venue(charlie.origin()));
+
+            // Add the venue to the allow list for the asset.
+            assert_ok!(ConfidentialAsset::allow_venues(
+                alice.origin(),
+                ticker,
+                vec![venue_id]
+            ));
 
             // Mediator creates an transaction
             let transaction_id = ConfidentialAsset::transaction_counter();
@@ -458,7 +465,7 @@ fn basic_confidential_settlement() {
 
             assert_ok!(ConfidentialAsset::add_transaction(
                 charlie.origin(),
-                venue_counter,
+                venue_id,
                 vec![TransactionLeg {
                     ticker,
                     sender: alice_account.clone(),
