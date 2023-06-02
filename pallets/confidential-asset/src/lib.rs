@@ -954,7 +954,7 @@ impl<T: Config> Module<T> {
             Error::<T>::MercatAccountMissing
         );
 
-        let new_encrypted_balance = AssetValidator
+        AssetValidator
             .verify_asset_transaction(
                 amount.saturated_into::<MercatBalance>(),
                 &asset_mint_proof,
