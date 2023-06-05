@@ -933,6 +933,13 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Module<T> {
     }
 
     fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, ticker: &Ticker) -> bool {
+        if Self::portfolio_custodian(portfolio_id).is_some() {
+            if T::Asset::ticker_affirmation_exemption(ticker) {
+                return true;
+            }
+            return PreApprovedPortfolios::get(portfolio_id, ticker);
+        }
+
         if T::Asset::skip_ticker_affirmation(&portfolio_id.did, ticker) {
             return true;
         }

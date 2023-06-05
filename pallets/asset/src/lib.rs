@@ -1039,6 +1039,10 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
         PreApprovedTicker::get(identity_id, ticker)
     }
 
+    fn ticker_affirmation_exemption(ticker: &Ticker) -> bool {
+        TickersExemptFromAffirmation::get(ticker)
+    }
+
     #[cfg(feature = "runtime-benchmarks")]
     fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker) {
         if Self::disable_iu(ticker) {

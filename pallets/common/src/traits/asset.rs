@@ -79,6 +79,9 @@ pub trait AssetFnTrait<Account, Origin> {
     /// Returns `true` if the given `identity_id` is exempt from affirming the receivement of `ticker`, otherwise returns `false`.
     fn skip_ticker_affirmation(identity_id: &IdentityId, ticker: &Ticker) -> bool;
 
+    /// Returns `true` if the receivement of `ticker` is exempt from being affirmed, otherwise returns `false`.
+    fn ticker_affirmation_exemption(ticker: &Ticker) -> bool;
+
     /// Adds an artificial IU claim for benchmarks
     #[cfg(feature = "runtime-benchmarks")]
     fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker);

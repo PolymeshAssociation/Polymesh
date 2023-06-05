@@ -3015,7 +3015,7 @@ fn affirm_offchain_asset_without_receipt() {
     });
 }
 
-/// The number of pending affirmations can't include senders that have pre-affirmed the ticker.
+/// The number of pending affirmations can't include receivers that have pre-affirmed the ticker.
 #[test]
 fn add_instruction_with_pre_affirmed_tickers() {
     ExtBuilder::default().build().execute_with(|| {
@@ -3074,7 +3074,78 @@ fn add_instruction_with_pre_affirmed_tickers() {
     });
 }
 
-/// The number of pending affirmations can't include senders that have pre-affirmed transfers to a portfolio.
+/// The number of pending affirmations must include receivers that have pre-affirmed the ticker, but
+/// have assigned custodians that have not pre-affirmed the portfolio.
+#[test]
+fn add_instruction_with_pre_affirmed_tickers_with_assigned_custodian() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Setup base parameters
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let charlie = User::new(AccountKeyring::Charlie);
+        let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
+        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
+        let bob_user_porfolio = PortfolioId::user_portfolio(bob.did, PortfolioNumber(1));
+        let venue = create_token_and_venue(TICKER, alice);
+        let instruction_memo = Some(Memo::default());
+        Portfolio::create_portfolio(bob.origin(), b"BobUserPortfolio".into()).unwrap();
+
+        // Both users have pre-affirmed the ticker
+        Asset::pre_approve_ticker(alice.origin(), TICKER).unwrap();
+        Asset::pre_approve_ticker(bob.origin(), TICKER).unwrap();
+
+        // Bob assigns a custodian to its user portfolio
+        let authorization_id = Identity::add_auth(
+            bob.did,
+            Signatory::from(charlie.did),
+            AuthorizationData::PortfolioCustody(bob_user_porfolio),
+            None,
+        );
+        Portfolio::accept_portfolio_custody(charlie.origin(), authorization_id).unwrap();
+
+        let legs: Vec<Leg> = vec![
+            Leg {
+                from: alice_default_portfolio,
+                to: bob_default_portfolio,
+                asset: LegAsset::Fungible {
+                    ticker: TICKER,
+                    amount: ONE_UNIT,
+                },
+            },
+            Leg {
+                from: alice_default_portfolio,
+                to: bob_user_porfolio,
+                asset: LegAsset::Fungible {
+                    ticker: TICKER,
+                    amount: ONE_UNIT,
+                },
+            },
+        ];
+        assert_ok!(Settlement::add_instruction(
+            alice.origin(),
+            venue,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs.clone(),
+            instruction_memo.clone(),
+        ));
+        // Both the sender and the custodian have to affirm the instruction
+        let portfolios_pending_approval =
+            BTreeSet::from([alice_default_portfolio, bob_user_porfolio]);
+        let portfolios_pre_approved = BTreeSet::from([bob_default_portfolio]);
+        let instruction_id = InstructionId(0);
+        assert_add_instruction_storage(
+            &instruction_id,
+            &portfolios_pending_approval,
+            &portfolios_pre_approved,
+            instruction_memo,
+            &legs,
+        );
+    });
+}
+
+/// The number of pending affirmations can't include receivers that have pre-affirmed transfers to a portfolio.
 #[test]
 fn add_instruction_with_pre_affirmed_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
