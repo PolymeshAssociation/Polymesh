@@ -34,8 +34,8 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::ticker::TICKER_LEN;
 use polymesh_primitives::{
-    AuthorizationData, Fund, FundDescription, NFTCollectionKeys, PortfolioName, PortfolioNumber,
-    Signatory, Ticker, Url, WeightMeter,
+    AuthorizationData, Fund, FundDescription, IdentityId, NFTCollectionKeys, PortfolioName,
+    PortfolioNumber, Signatory, Ticker, Url, WeightMeter,
 };
 
 use crate::*;
@@ -621,6 +621,16 @@ benchmarks! {
         let (sender_portfolio, receiver_portfolio) =
             setup_asset_transfer::<T>(&alice, &bob, ticker, None, None, true, true);
     }: {
-        Module::<T>::base_transfer(sender_portfolio, receiver_portfolio, &ticker, ONE_UNIT, None, None, &mut weight_meter).unwrap();
+        Module::<T>::base_transfer(
+            sender_portfolio,
+            receiver_portfolio,
+            &ticker,
+            ONE_UNIT,
+            None,
+            None,
+            IdentityId::default(),
+            &mut weight_meter
+        )
+        .unwrap();
     }
 }

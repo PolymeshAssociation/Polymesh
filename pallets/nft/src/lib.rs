@@ -372,6 +372,7 @@ impl<T: Config> Module<T> {
         nfts: NFTs,
         instruction_id: InstructionId,
         instruction_memo: Option<Memo>,
+        caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // Verifies if there is a collection associated to the NFTs
@@ -395,7 +396,7 @@ impl<T: Config> Module<T> {
             PortfolioNFT::insert(receiver_portfolio, (nfts.ticker(), nft_id), true);
         }
         Self::deposit_event(Event::NFTPortfolioUpdated(
-            receiver_portfolio.did,
+            caller_did,
             nfts,
             Some(sender_portfolio),
             Some(receiver_portfolio),

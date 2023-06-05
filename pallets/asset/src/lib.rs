@@ -1332,6 +1332,7 @@ impl<T: Config> Module<T> {
         value: Balance,
         instruction_id: Option<InstructionId>,
         instruction_memo: Option<Memo>,
+        caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         Self::ensure_granular(ticker, value)?;
@@ -1409,7 +1410,7 @@ impl<T: Config> Module<T> {
         )?;
 
         Self::deposit_event(RawEvent::AssetBalanceUpdated(
-            to_portfolio.did,
+            caller_did,
             *ticker,
             value,
             Some(from_portfolio),
@@ -1651,6 +1652,7 @@ impl<T: Config> Module<T> {
         value: Balance,
         instruction_id: Option<InstructionId>,
         instruction_memo: Option<Memo>,
+        caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // NB: This function does not check if the sender/receiver have custodian permissions on the portfolios.
@@ -1674,6 +1676,7 @@ impl<T: Config> Module<T> {
             value,
             instruction_id,
             instruction_memo,
+            caller_did,
             weight_meter,
         )?;
 
@@ -2296,6 +2299,7 @@ impl<T: Config> Module<T> {
             value,
             None,
             None,
+            to_portfolio.did,
             weight_meter,
         )?;
         Self::deposit_event(RawEvent::ControllerTransfer(

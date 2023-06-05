@@ -70,6 +70,7 @@ use sp_std::vec;
 
 use pallet_base::{ensure_string_limited, try_next_post};
 use polymesh_common_utilities::constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY;
+use polymesh_common_utilities::traits::identity::IdentityFnTrait;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 pub use polymesh_common_utilities::traits::settlement::{Event, RawEvent, WeightInfo};
 use polymesh_common_utilities::traits::{asset, compliance_manager, identity, nft, CommonConfig};
@@ -1104,6 +1105,7 @@ impl<T: Config> Module<T> {
         instruction_memo: Option<Memo>,
         weight_meter: &mut WeightMeter,
     ) -> TransactionOutcome<Result<Result<(), LegId>, DispatchError>> {
+        let caller_did = Identity::<T>::current_identity().unwrap_or_default();
         Self::unchecked_release_locks(instruction_id, instruction_legs);
         for (leg_id, leg) in instruction_legs {
             if Self::instruction_leg_status(instruction_id, leg_id) == LegStatus::ExecutionPending {
@@ -1116,6 +1118,7 @@ impl<T: Config> Module<T> {
                             *amount,
                             Some(instruction_id),
                             instruction_memo.clone(),
+                            caller_did,
                             weight_meter,
                         )
                         .is_err()
@@ -1130,6 +1133,7 @@ impl<T: Config> Module<T> {
                             nfts.clone(),
                             instruction_id,
                             instruction_memo.clone(),
+                            caller_did,
                             weight_meter,
                         )
                         .is_err()

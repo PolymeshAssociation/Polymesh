@@ -219,10 +219,6 @@ decl_module! {
             Self::deposit_event(Event::PortfolioDeleted(primary_did, num));
         }
 
-        /// Placeholder for removed `move_portfolio_funds`
-        #[weight = 1_000]
-        pub fn place_holder_move_portfolio_funds(_origin) {}
-
         /// Renames a non-default portfolio.
         ///
         /// # Errors

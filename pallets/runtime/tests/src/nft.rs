@@ -12,7 +12,7 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::{
-    NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId,
+    IdentityId, NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId,
     PortfolioKind, PortfolioNumber, PortfolioUpdateReason, Ticker, WeightMeter,
 };
 use test_client::AccountKeyring;
@@ -560,6 +560,7 @@ fn transfer_nft_without_collection() {
                     nfts,
                     InstructionId(0),
                     None,
+                    IdentityId::default(),
                     &mut weight_meter,
                 )
             }),
@@ -605,6 +606,7 @@ fn transfer_nft_same_portfolio() {
                     nfts,
                     InstructionId(0),
                     None,
+                    IdentityId::default(),
                     &mut weight_meter,
                 )
             }),
@@ -661,6 +663,7 @@ fn transfer_nft_invalid_count() {
                     nfts,
                     InstructionId(0),
                     None,
+                    IdentityId::default(),
                     &mut weight_meter,
                 )
             }),
@@ -717,6 +720,7 @@ fn transfer_nft_not_owned() {
                     nfts,
                     InstructionId(0),
                     None,
+                    IdentityId::default(),
                     &mut weight_meter,
                 )
             }),
@@ -773,6 +777,7 @@ fn transfer_nft_failing_compliance() {
                     nfts,
                     InstructionId(0),
                     None,
+                    IdentityId::default(),
                     &mut weight_meter,
                 )
             }),
@@ -830,6 +835,7 @@ fn transfer_nft() {
                 nfts.clone(),
                 InstructionId(0),
                 None,
+                IdentityId::default(),
                 &mut weight_meter,
             )
         }));
@@ -848,7 +854,7 @@ fn transfer_nft() {
         );
         assert_eq!(
             super::storage::EventTest::Nft(Event::NFTPortfolioUpdated(
-                bob.did,
+                IdentityId::default(),
                 nfts,
                 Some(sender_portfolio),
                 Some(receiver_portfolio),

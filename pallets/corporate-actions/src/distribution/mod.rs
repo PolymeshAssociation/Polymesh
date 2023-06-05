@@ -560,6 +560,7 @@ impl<T: Config> Module<T> {
                 gain,
                 None,
                 None,
+                actor.clone().risky_into_inner(),
                 &mut weight_meter,
             )
         })?;

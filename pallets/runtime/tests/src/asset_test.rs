@@ -188,6 +188,7 @@ pub(crate) fn transfer(ticker: Ticker, from: User, to: User, amount: u128) -> Di
         amount,
         None,
         None,
+        IdentityId::default(),
         &mut weight_meter,
     )
 }
@@ -378,6 +379,7 @@ fn default_transfer(from: User, to: User, ticker: Ticker, val: u128) {
         val,
         None,
         None,
+        IdentityId::default(),
         &mut weight_meter
     ));
 }
@@ -1549,6 +1551,7 @@ fn sender_same_as_receiver_test() {
                 1_000,
                 None,
                 None,
+                IdentityId::default(),
                 &mut weight_meter
             ),
             AssetError::SenderSameAsReceiver

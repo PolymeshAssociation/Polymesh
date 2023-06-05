@@ -7,7 +7,7 @@ use pallet_sto::{
 };
 use polymesh_primitives::settlement::{InstructionStatus, VenueDetails, VenueId, VenueType};
 use polymesh_primitives::{
-    asset::AssetType, checked_inc::CheckedInc, PortfolioId, Ticker, WeightMeter,
+    asset::AssetType, checked_inc::CheckedInc, IdentityId, PortfolioId, Ticker, WeightMeter,
 };
 use test_client::AccountKeyring;
 
@@ -140,6 +140,7 @@ fn raise_happy_path() {
         RAISE_SUPPLY,
         None,
         None,
+        IdentityId::default(),
         &mut weight_meter
     ));
 
@@ -381,6 +382,7 @@ fn raise_unhappy_path() {
         1_000_000,
         None,
         None,
+        IdentityId::default(),
         &mut weight_meter
     ));
 

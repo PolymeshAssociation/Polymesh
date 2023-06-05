@@ -469,6 +469,7 @@ impl AssetTracker {
             amount,
             None,
             None,
+            IdentityId::default(),
             &mut weight_meter,
         )?;
 
