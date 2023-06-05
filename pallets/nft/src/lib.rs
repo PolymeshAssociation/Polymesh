@@ -329,7 +329,7 @@ impl<T: Config> Module<T> {
         let collection_id =
             CollectionTicker::try_get(&ticker).map_err(|_| Error::<T>::CollectionNotFound)?;
 
-        // Ensure origin is agent with custody and permissions for default portfolio.
+        // Ensure origin is agent with custody and permissions for portfolio.
         let caller_portfolio = Asset::<T>::ensure_origin_ticker_and_portfolio_permissions(
             origin,
             ticker,

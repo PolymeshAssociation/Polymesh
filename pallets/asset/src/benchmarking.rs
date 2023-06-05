@@ -353,7 +353,9 @@ benchmarks! {
 
     issue {
         let (owner, ticker) = owned_ticker::<T>();
-    }: _(owner.origin, ticker, (1_000_000 * POLY).into(), PortfolioKind::Default)
+        let portfolio_name = PortfolioName(b"MyPortfolio".to_vec());
+        Portfolio::<T>::create_portfolio(owner.origin.clone().into(), portfolio_name).unwrap();
+    }: _(owner.origin, ticker, (1_000_000 * POLY).into(), PortfolioKind::User(PortfolioNumber(1)))
     verify {
         assert_eq!(Module::<T>::token_details(ticker).total_supply, (2_000_000 * POLY).into());
     }
