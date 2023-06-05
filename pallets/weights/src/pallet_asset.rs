@@ -173,7 +173,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
-    // Storage: Portfolio PortfolioCustodian (r:1 w:0)
+    // Storage: Portfolio Portfolios (r:1 w:0)
     // Storage: Asset Tokens (r:1 w:1)
     // Storage: Asset BalanceOf (r:1 w:1)
     // Storage: Portfolio PortfolioAssetBalances (r:1 w:1)
@@ -182,15 +182,16 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: Checkpoint Schedules (r:1 w:0)
     // Storage: Checkpoint CheckpointIdSequence (r:1 w:0)
     // Storage: Asset DisableInvestorUniqueness (r:1 w:0)
-    // Storage: Asset ScopeIdOf (r:1 w:0)
+    // Storage: Asset AggregateBalance (r:1 w:1)
     // Storage: Statistics ActiveAssetStats (r:1 w:0)
     // Storage: Asset FundingRound (r:1 w:0)
     // Storage: Asset IssuedInFundingRound (r:1 w:1)
+    // Storage: Asset BalanceOfAtScope (r:0 w:1)
     fn issue() -> Weight {
-        // Minimum execution time: 93_723 nanoseconds.
-        Weight::from_ref_time(95_467_000)
+        // Minimum execution time: 143_767 nanoseconds.
+        Weight::from_ref_time(144_657_000)
             .saturating_add(DbWeight::get().reads(17))
-            .saturating_add(DbWeight::get().writes(4))
+            .saturating_add(DbWeight::get().writes(6))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
