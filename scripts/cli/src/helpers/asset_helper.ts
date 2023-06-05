@@ -49,7 +49,7 @@ export async function issueTokenToDid(
       true
     );
     await sendTx(signer, createTx);
-    const issueTx = api.tx.asset.issue(ticker, amount);
+    const issueTx = api.tx.asset.issue(ticker, amount, { Default: "" });
     await sendTx(signer, issueTx);
   } else {
     console.log("ticker already reserved");
@@ -64,7 +64,7 @@ export async function mintingAsset(
   ticker: Ticker
 ): Promise<void> {
   const api = await ApiSingleton.getInstance();
-  const transaction = api.tx.asset.issue(ticker, 100);
+  const transaction = api.tx.asset.issue(ticker, 100, { Default: "" });
   await sendTx(signer, transaction);
 }
 

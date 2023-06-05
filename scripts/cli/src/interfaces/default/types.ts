@@ -418,20 +418,6 @@ export interface ClaimType extends Enum {
   readonly type: 'Accredited' | 'Affiliate' | 'BuyLockup' | 'SellLockup' | 'CustomerDueDiligence' | 'KnowYourCustomer' | 'Jurisdiction' | 'Exempted' | 'Blocked' | 'InvestorUniqueness' | 'NoData' | 'InvestorUniquenessV2' | 'Custom';
 }
 
-/** @name ClassicTickerImport */
-export interface ClassicTickerImport extends Struct {
-  readonly eth_owner: EthereumAddress;
-  readonly ticker: Ticker;
-  readonly is_contract: bool;
-  readonly is_created: bool;
-}
-
-/** @name ClassicTickerRegistration */
-export interface ClassicTickerRegistration extends Struct {
-  readonly eth_owner: EthereumAddress;
-  readonly is_created: bool;
-}
-
 /** @name Committee */
 export interface Committee extends Enum {
   readonly isTechnical: boolean;
