@@ -16,7 +16,6 @@
 use frame_benchmarking::benchmarks;
 use frame_support::StorageValue;
 use frame_system::RawOrigin;
-use sp_io::hashing::keccak_256;
 use sp_std::{convert::TryInto, iter, prelude::*};
 
 use pallet_portfolio::{MovePortfolioItem, NextPortfolioNumber, PortfolioAssetBalances};
@@ -92,27 +91,6 @@ fn register_metadata_global_name<T: Config>() -> AssetMetadataKey {
 
     let key = Module::<T>::asset_metadata_next_global_key();
     AssetMetadataKey::Global(key)
-}
-
-fn make_default_reg_config<T: Config>() -> TickerRegistrationConfig<T::Moment> {
-    TickerRegistrationConfig {
-        max_ticker_length: 8,
-        registration_length: Some(10000u32.into()),
-    }
-}
-
-fn make_classic_ticker<T: Config>(eth_owner: ethereum::EthereumAddress, ticker: Ticker) {
-    let classic_ticker = ClassicTickerImport {
-        eth_owner,
-        ticker,
-        is_created: false,
-        is_contract: false,
-    };
-    let reg_config = make_default_reg_config::<T>();
-    let root = RawOrigin::Root.into();
-
-    <Module<T>>::reserve_classic_ticker(root, classic_ticker, 0u128.into(), reg_config)
-        .expect("`reserve_classic_ticker` failed");
 }
 
 fn emulate_controller_transfer<T: Config>(
@@ -450,37 +428,6 @@ benchmarks! {
     }: _(owner.origin, ticker, identifiers)
     verify {
         assert_eq!(Module::<T>::identifiers(ticker), identifiers2);
-    }
-
-    claim_classic_ticker {
-        let owner = owner::<T>();
-        let did = owner.did();
-        let owner_eth_sk = libsecp256k1::SecretKey::parse(&keccak_256(b"owner")).unwrap();
-        let owner_eth_pk = ethereum::address(&owner_eth_sk);
-
-        let ticker: Ticker = Ticker::from_slice_truncated(&b"USDX1"[..]);
-        make_classic_ticker::<T>(owner_eth_pk, ticker);
-
-        let eth_sig = ethereum::eth_msg(did, b"classic_claim", &owner_eth_sk);
-    }: _(owner.origin, ticker, eth_sig)
-    verify {
-        assert_eq!(did, Module::<T>::ticker_registration(ticker).owner);
-    }
-
-    reserve_classic_ticker {
-        let owner = owner::<T>();
-
-        let ticker: Ticker = Ticker::from_slice_truncated(&b"ACME"[..]);
-        let config = make_default_reg_config::<T>();
-        let classic = ClassicTickerImport {
-            eth_owner: ethereum::EthereumAddress(*b"0x012345678987654321"),
-            ticker,
-            is_created: true,
-            is_contract: false,
-        };
-    }: _(RawOrigin::Root, classic, owner.did(), config)
-    verify {
-        assert_eq!(<Tickers<T>>::contains_key(&ticker), true);
     }
 
     controller_transfer {
