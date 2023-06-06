@@ -502,6 +502,10 @@ impl PortfolioSubTrait<AccountId> for Test {
     fn unlock_nft(_: &PortfolioId, _: &Ticker, _: &NFTId) -> DispatchResult {
         unimplemented!()
     }
+
+    fn skip_portfolio_affirmation(_: &PortfolioId, _: &Ticker) -> bool {
+        unimplemented!()
+    }
 }
 
 impl CheckCdd<AccountId> for Test {

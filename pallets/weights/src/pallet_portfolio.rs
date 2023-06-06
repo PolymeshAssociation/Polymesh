@@ -129,4 +129,24 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((2 as u64).saturating_mul(f as u64)))
             .saturating_add(DbWeight::get().writes((2 as u64).saturating_mul(n as u64)))
     }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: Portfolio Portfolios (r:1 w:0)
+    // Storage: Portfolio PortfolioCustodian (r:1 w:0)
+    // Storage: Portfolio PreApprovedPortfolios (r:0 w:1)
+    fn pre_approve_portfolio() -> Weight {
+        // Minimum execution time: 40_396 nanoseconds.
+        Weight::from_ref_time(41_557_000)
+            .saturating_add(DbWeight::get().reads(3))
+            .saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: Portfolio Portfolios (r:1 w:0)
+    // Storage: Portfolio PortfolioCustodian (r:1 w:0)
+    // Storage: Portfolio PreApprovedPortfolios (r:0 w:1)
+    fn remove_portfolio_pre_approval() -> Weight {
+        // Minimum execution time: 41_323 nanoseconds.
+        Weight::from_ref_time(41_603_000)
+            .saturating_add(DbWeight::get().reads(3))
+            .saturating_add(DbWeight::get().writes(1))
+    }
 }

@@ -15,16 +15,15 @@
 
 use core::convert::TryInto;
 use frame_benchmarking::benchmarks;
-use polymesh_common_utilities::{
-    asset::Config as AssetConfig,
-    benchs::{make_asset, user, AccountIdOf, User, UserBuilder},
-    constants::currency::ONE_UNIT,
-    TestUtilsFn,
-};
-use polymesh_primitives::{AuthorizationData, NFTs, PortfolioName, Signatory};
 use scale_info::prelude::format;
 use sp_api_hidden_includes_decl_storage::hidden_include::traits::Get;
 use sp_std::prelude::*;
+
+use polymesh_common_utilities::asset::Config as AssetConfig;
+use polymesh_common_utilities::benchs::{make_asset, user, AccountIdOf, User, UserBuilder};
+use polymesh_common_utilities::constants::currency::ONE_UNIT;
+use polymesh_common_utilities::TestUtilsFn;
+use polymesh_primitives::{AuthorizationData, NFTs, PortfolioName, Signatory};
 
 use crate::*;
 
@@ -153,4 +152,21 @@ benchmarks! {
             assert_eq!(PortfolioNFT::get(&alice_custom_portfolio, (&nft_ticker, NFTId(i as u64))), true);
         }
     }
+
+    pre_approve_portfolio {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let alice_custom_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::User(PortfolioNumber(1)) };
+
+        Module::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
+    }: _(alice.origin, ticker, alice_custom_portfolio)
+
+    remove_portfolio_pre_approval {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let alice_custom_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::User(PortfolioNumber(1)) };
+
+        Module::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
+        Module::<T>::pre_approve_portfolio(alice.clone().origin().into(), ticker, alice_custom_portfolio).unwrap();
+    }: _(alice.origin, ticker, alice_custom_portfolio)
 }

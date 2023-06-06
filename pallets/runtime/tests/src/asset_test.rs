@@ -1,5 +1,5 @@
 use chrono::prelude::Utc;
-use frame_support::dispatch::DispatchResult;
+use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::{assert_noop, assert_ok};
 use frame_support::{IterableStorageDoubleMap, StorageDoubleMap, StorageMap, StorageValue};
 use hex_literal::hex;
@@ -15,12 +15,14 @@ use pallet_asset::checkpoint::ScheduleSpec;
 use pallet_asset::{
     AssetDocuments, AssetMetadataLocalKeyToName, AssetMetadataLocalNameToKey,
     AssetMetadataLocalSpecs, AssetMetadataValues, AssetOwnershipRelation, BalanceOf,
-    Config as AssetConfig, CustomTypeIdSequence, CustomTypes, CustomTypesInverse, ScopeIdOf,
-    SecurityToken, TickerRegistrationConfig,
+    Config as AssetConfig, CustomTypeIdSequence, CustomTypes, CustomTypesInverse,
+    PreApprovedTicker, ScopeIdOf, SecurityToken, TickerRegistrationConfig,
+    TickersExemptFromAffirmation,
 };
 use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances};
-use polymesh_common_utilities::constants::currency::ONE_UNIT;
+use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::constants::*;
+use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::traits::checkpoint::{ScheduleId, StoredSchedule};
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{
@@ -2510,4 +2512,57 @@ fn redeem_token_assigned_custody() {
             PortfolioError::UnauthorizedCustodian
         );
     })
+}
+fn pre_approve_ticker() {
+    ExtBuilder::default().build().execute_with(|| {
+        let ticker: Ticker = ticker("TICKER");
+        let alice = User::new(AccountKeyring::Alice);
+        Asset::pre_approve_ticker(alice.origin(), ticker).unwrap();
+
+        assert!(PreApprovedTicker::get(alice.did, ticker));
+        assert!(!TickersExemptFromAffirmation::get(ticker));
+        assert!(Asset::skip_ticker_affirmation(&alice.did, &ticker));
+    });
+}
+
+#[test]
+fn remove_ticker_pre_approval() {
+    ExtBuilder::default().build().execute_with(|| {
+        let ticker: Ticker = ticker("TICKER");
+        let alice = User::new(AccountKeyring::Alice);
+        Asset::pre_approve_ticker(alice.origin(), ticker).unwrap();
+        Asset::remove_ticker_pre_approval(alice.origin(), ticker).unwrap();
+
+        assert!(!PreApprovedTicker::get(alice.did, ticker));
+        assert!(!TickersExemptFromAffirmation::get(ticker));
+        assert!(!Asset::skip_ticker_affirmation(&alice.did, &ticker));
+    });
+}
+
+#[test]
+fn unauthorized_custodian_ticker_exemption() {
+    ExtBuilder::default().build().execute_with(|| {
+        let ticker: Ticker = ticker("TICKER");
+        let alice = User::new(AccountKeyring::Alice);
+
+        assert_noop!(
+            Asset::exempt_ticker_affirmation(alice.origin(), ticker),
+            DispatchError::BadOrigin
+        );
+        assert_ok!(Asset::exempt_ticker_affirmation(root(), ticker,),);
+
+        assert!(!PreApprovedTicker::get(alice.did, ticker));
+        assert!(TickersExemptFromAffirmation::get(ticker));
+        assert!(Asset::skip_ticker_affirmation(&alice.did, &ticker));
+
+        assert_noop!(
+            Asset::remove_ticker_affirmation_exemption(alice.origin(), ticker),
+            DispatchError::BadOrigin
+        );
+        assert_ok!(Asset::remove_ticker_affirmation_exemption(root(), ticker,),);
+
+        assert!(!PreApprovedTicker::get(alice.did, ticker));
+        assert!(!TickersExemptFromAffirmation::get(ticker));
+        assert!(!Asset::skip_ticker_affirmation(&alice.did, &ticker));
+    });
 }

@@ -393,41 +393,61 @@ impl AssetCount {
     }
 }
 
-/// Stores information about an Instruction.
+/// Stores [`AssetCount`] for the instruction, all portfolio that have pre-affirmed the transfer
+/// and all portfolios that still have to approve the transfer.
 pub struct InstructionInfo {
-    /// Unique counter parties involved in the instruction.
-    parties: BTreeSet<PortfolioId>,
-    /// The [`AssetCount`] for the instruction.
-    asset_count: AssetCount,
+    /// The number of fungible, non fungible and off-chain transfers in the instruction.
+    instruction_asset_count: AssetCount,
+    /// All portfolios that still need to affirm the instruction.
+    portfolios_pending_approval: BTreeSet<PortfolioId>,
+    /// All portfolios that have pre-approved the transfer of a ticker.
+    portfolios_pre_approved: BTreeSet<PortfolioId>,
 }
 
 impl InstructionInfo {
-    /// Creates an instance of `InstructionInfo`.
-    pub fn new(parties: BTreeSet<PortfolioId>, asset_count: AssetCount) -> Self {
+    /// Creates an instance of [`InstructionInfo`].
+    pub fn new(
+        instruction_asset_count: AssetCount,
+        portfolios_pending_approval: BTreeSet<PortfolioId>,
+        portfolios_pre_approved: BTreeSet<PortfolioId>,
+    ) -> Self {
         Self {
-            parties,
-            asset_count,
+            instruction_asset_count,
+            portfolios_pending_approval,
+            portfolios_pre_approved,
         }
     }
 
-    /// Returns a slice of all unique parties in the instruction.
-    pub fn parties(&self) -> &BTreeSet<PortfolioId> {
-        &self.parties
+    /// Returns a slice of all portfolios that still have to affirm the instruction.
+    pub fn portfolios_pending_approval(&self) -> &BTreeSet<PortfolioId> {
+        &self.portfolios_pending_approval
+    }
+
+    /// Returns a [`BTreeSet<&PortfolioId>`] of all portfolios that are in `self.portfolios_pre_approved`, but not in `self.portfolios_pending_approval`.
+    pub fn portfolios_pre_approved_difference(&self) -> BTreeSet<&PortfolioId> {
+        self.portfolios_pre_approved
+            .difference(&self.portfolios_pending_approval)
+            .collect()
+    }
+
+    /// Returns the number of portfolios that still have to affirm the instruction.
+    pub fn number_of_pending_affirmations(&self) -> usize {
+        self.portfolios_pending_approval.len()
     }
 
     /// Returns the number of fungible transfers.
     pub fn fungible_transfers(&self) -> u32 {
-        self.asset_count.fungible()
+        self.instruction_asset_count.fungible()
     }
 
     /// Returns the number of non fungible transfers.
     pub fn nfts_transferred(&self) -> u32 {
-        self.asset_count.non_fungible()
+        self.instruction_asset_count.non_fungible()
     }
 
     /// Returns the number of off-chain transfers.
     pub fn off_chain(&self) -> u32 {
-        self.asset_count.off_chain()
+        self.instruction_asset_count.off_chain()
     }
 }
 
@@ -476,7 +496,8 @@ impl FilteredLegs {
     }
 }
 
-/// Stores relevant information for executing an instruction.
+/// Stores the number of fungible, non fungible and offchain assets in an instruction, the consumed weight for executing the instruction,
+/// and if executing the instruction would fail, the error thrown.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode)]
 pub struct ExecuteInstructionInfo {
@@ -493,7 +514,7 @@ pub struct ExecuteInstructionInfo {
 }
 
 impl ExecuteInstructionInfo {
-    /// Creates an instance of `ExecuteInstructionInfo`.
+    /// Creates an instance of [`ExecuteInstructionInfo`].
     pub fn new(
         fungible_tokens: u32,
         non_fungible_tokens: u32,

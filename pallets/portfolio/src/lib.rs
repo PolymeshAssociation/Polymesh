@@ -54,9 +54,9 @@ use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
 
 use pallet_identity::PermissionedCallOriginData;
+pub use polymesh_common_utilities::portfolio::{Config, Event, WeightInfo};
 use polymesh_common_utilities::traits::asset::AssetFnTrait;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
-pub use polymesh_common_utilities::traits::portfolio::{Config, Event, WeightInfo};
 use polymesh_primitives::{
     extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, Fund,
     FundDescription, IdentityId, NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
@@ -114,6 +114,10 @@ decl_storage! {
         /// All locked nft for a given portfolio.
         pub PortfolioLockedNFT get(fn portfolio_locked_nft):
             double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) (Ticker, NFTId) => bool;
+
+        /// All portfolios that don't need to affirm the receivement of a given ticker.
+        pub PreApprovedPortfolios get(fn pre_approved_portfolios):
+            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) Ticker => bool;
 
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
@@ -325,6 +329,34 @@ decl_module! {
             Self::unchecked_move_funds(primary_did, from, to, funds);
 
             Ok(())
+        }
+
+        /// Pre-approves the receivement of an asset to a portfolio.
+        ///
+        /// # Arguments
+        /// * `origin` - the secondary key of the sender.
+        /// * `ticker` - the [`Ticker`] that will be exempt from affirmation.
+        /// * `portfolio_id` - the [`PortfolioId`] that can receive `ticker` without affirmation.
+        ///
+        /// # Permissions
+        /// * Portfolio
+        #[weight = <T as Config>::WeightInfo::pre_approve_portfolio()]
+        pub fn pre_approve_portfolio(origin, ticker: Ticker, portfolio_id: PortfolioId) -> DispatchResult {
+            Self::base_pre_approve_portfolio(origin, &ticker, portfolio_id)
+        }
+
+        /// Removes the pre approval of an asset to a portfolio.
+        ///
+        /// # Arguments
+        /// * `origin` - the secondary key of the sender.
+        /// * `ticker` - the [`Ticker`] that will be exempt from affirmation.
+        /// * `portfolio_id` - the [`PortfolioId`] that can receive `ticker` without affirmation.
+        ///
+        /// # Permissions
+        /// * Portfolio
+        #[weight = <T as Config>::WeightInfo::remove_portfolio_pre_approval()]
+        pub fn remove_portfolio_pre_approval(origin, ticker: Ticker, portfolio_id: PortfolioId) -> DispatchResult {
+            Self::base_remove_portfolio_pre_approval(origin, &ticker, portfolio_id)
         }
 
         fn on_runtime_upgrade() -> Weight {
@@ -710,6 +742,40 @@ impl<T: Config> Module<T> {
             }
         }
     }
+
+    fn base_pre_approve_portfolio(
+        origin: T::RuntimeOrigin,
+        ticker: &Ticker,
+        portfolio_id: PortfolioId,
+    ) -> DispatchResult {
+        let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
+        Self::ensure_portfolio_validity(&portfolio_id)?;
+        Self::ensure_portfolio_custody_and_permission(
+            portfolio_id,
+            origin_data.primary_did,
+            origin_data.secondary_key.as_ref(),
+        )?;
+
+        PreApprovedPortfolios::insert(&portfolio_id, ticker, true);
+        Ok(())
+    }
+
+    fn base_remove_portfolio_pre_approval(
+        origin: T::RuntimeOrigin,
+        ticker: &Ticker,
+        portfolio_id: PortfolioId,
+    ) -> DispatchResult {
+        let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
+        Self::ensure_portfolio_validity(&portfolio_id)?;
+        Self::ensure_portfolio_custody_and_permission(
+            portfolio_id,
+            origin_data.primary_did,
+            origin_data.secondary_key.as_ref(),
+        )?;
+
+        PreApprovedPortfolios::remove(&portfolio_id, ticker);
+        Ok(())
+    }
 }
 
 impl<T: Config> PortfolioSubTrait<T::AccountId> for Module<T> {
@@ -790,5 +856,19 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Module<T> {
         );
         PortfolioLockedNFT::remove(portfolio_id, (ticker, nft_id));
         Ok(())
+    }
+
+    fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, ticker: &Ticker) -> bool {
+        if Self::portfolio_custodian(portfolio_id).is_some() {
+            if T::Asset::ticker_affirmation_exemption(ticker) {
+                return true;
+            }
+            return PreApprovedPortfolios::get(portfolio_id, ticker);
+        }
+
+        if T::Asset::skip_ticker_affirmation(&portfolio_id.did, ticker) {
+            return true;
+        }
+        PreApprovedPortfolios::get(portfolio_id, ticker)
     }
 }

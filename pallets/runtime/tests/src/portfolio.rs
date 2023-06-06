@@ -1,7 +1,9 @@
 use frame_support::storage::StorageDoubleMap;
 use frame_support::{assert_noop, assert_ok, StorageMap};
 
-use pallet_portfolio::{Event, NameToNumber, PortfolioAssetBalances, PortfolioNFT};
+use pallet_portfolio::{
+    Event, NameToNumber, PortfolioAssetBalances, PortfolioNFT, PreApprovedPortfolios,
+};
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
@@ -866,5 +868,82 @@ fn move_more_funds() {
             ),
             Error::NoDuplicateAssetsAllowed
         );
+    });
+}
+
+#[test]
+fn pre_approve_portfolio() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
+        let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
+        Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
+
+        Portfolio::pre_approve_portfolio(alice.origin(), TICKER, alice_default_portfolio).unwrap();
+
+        assert!(PreApprovedPortfolios::get(alice_default_portfolio, TICKER));
+        assert!(!PreApprovedPortfolios::get(alice_user_porfolio, TICKER));
+        assert!(!Portfolio::skip_portfolio_affirmation(
+            &alice_user_porfolio,
+            &TICKER
+        ));
+        assert!(Portfolio::skip_portfolio_affirmation(
+            &alice_default_portfolio,
+            &TICKER
+        ));
+    });
+}
+
+#[test]
+fn remove_portfolio_pre_approval() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
+        let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
+        Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
+
+        Portfolio::pre_approve_portfolio(alice.origin(), TICKER, alice_default_portfolio).unwrap();
+        Portfolio::remove_portfolio_pre_approval(alice.origin(), TICKER, alice_default_portfolio)
+            .unwrap();
+
+        assert!(!PreApprovedPortfolios::get(alice_default_portfolio, TICKER));
+        assert!(!PreApprovedPortfolios::get(alice_user_porfolio, TICKER));
+        assert!(!Portfolio::skip_portfolio_affirmation(
+            &alice_user_porfolio,
+            &TICKER
+        ));
+        assert!(!Portfolio::skip_portfolio_affirmation(
+            &alice_default_portfolio,
+            &TICKER
+        ));
+    });
+}
+
+#[test]
+fn unauthorized_custodian_pre_approval() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let eve = User::new(AccountKeyring::Eve);
+        let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
+        Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
+
+        assert_noop!(
+            Portfolio::pre_approve_portfolio(bob.origin(), TICKER, alice_user_porfolio),
+            Error::UnauthorizedCustodian
+        );
+
+        set_custodian_ok(alice, bob, alice_user_porfolio);
+
+        assert_noop!(
+            Portfolio::pre_approve_portfolio(eve.origin(), TICKER, alice_user_porfolio),
+            Error::UnauthorizedCustodian
+        );
+
+        assert_ok!(Portfolio::pre_approve_portfolio(
+            bob.origin(),
+            TICKER,
+            alice_user_porfolio
+        ),);
     });
 }

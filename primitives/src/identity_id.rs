@@ -13,18 +13,21 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{cdd_id::InvestorUid, AccountId, EventOnly, SecondaryKey};
+#[cfg(feature = "std")]
+use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongTyped};
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
+
 use codec::{Decode, Encode};
 use core::fmt::{Display, Formatter};
 use core::str;
-use polymesh_primitives_derive::VecU8StrongTyped;
-#[cfg(feature = "std")]
-use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongTyped};
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
 use sp_runtime::traits::Printable;
 use sp_std::prelude::Vec;
+
+use polymesh_primitives_derive::VecU8StrongTyped;
+
+use crate::{cdd_id::InvestorUid, AccountId, EventOnly, SecondaryKey};
 
 const _POLY_DID_PREFIX: &str = "did:poly:";
 const POLY_DID_PREFIX_LEN: usize = 9; // _POLY_DID_PREFIX.len(); // CI does not support: #![feature(const_str_len)]
