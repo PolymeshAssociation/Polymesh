@@ -50,7 +50,7 @@ impl NFTCollection {
     }
 }
 
-/// Represent all NFT being transferred for a given `Ticker`.
+/// Represent all NFT being transferred for a given [`Ticker`].
 #[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct NFTs {

@@ -26,7 +26,7 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::{
     AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, PortfolioKind,
-    ScopeId, Ticker,
+    PortfolioUpdateReason, ScopeId, Ticker,
 };
 
 use crate::traits::nft::NFTTrait;
@@ -81,15 +81,6 @@ decl_event! {
         Moment = <T as pallet_timestamp::Config>::Moment,
         AccountId = <T as frame_system::Config>::AccountId,
     {
-        /// Event for transfer of tokens.
-        /// caller DID, ticker, from portfolio, to portfolio, value
-        Transfer(IdentityId, Ticker, PortfolioId, PortfolioId, Balance),
-        /// Emit when tokens get issued.
-        /// caller DID, ticker, beneficiary DID, value, funding round, total issued in this funding round
-        Issued(IdentityId, Ticker, IdentityId, Balance, FundingRoundName, Balance),
-        /// Emit when tokens get redeemed.
-        /// caller DID, ticker,  from DID, value
-        Redeemed(IdentityId, Ticker, IdentityId, Balance),
         /// Event for creation of the asset.
         /// caller DID/ owner DID, ticker, divisibility, asset type, beneficiary DID, disable investor uniqueness, asset name, identifiers, funding round
         AssetCreated(IdentityId, Ticker, bool, AssetType, IdentityId, bool, AssetName, Vec<AssetIdentifier>, Option<FundingRoundName>),
@@ -163,6 +154,17 @@ decl_event! {
         /// An event emitted when a local metadata value has been removed.
         /// Parameters: caller ticker, Local type name
         MetadataValueDeleted(IdentityId, Ticker, AssetMetadataKey),
+        /// Emitted when Tokens were issued, redeemed or transferred.
+        /// Contains the [`IdentityId`] of the receiver/issuer/redeemer, the [`Ticker`] for the token, the balance that was issued/transferred/redeemed,
+        /// the [`PortfolioId`] of the source, the [`PortfolioId`] of the destination and the [`PortfolioUpdateReason`].
+        AssetBalanceUpdated(
+            IdentityId,
+            Ticker,
+            Balance,
+            Option<PortfolioId>,
+            Option<PortfolioId>,
+            PortfolioUpdateReason,
+        ),
     }
 }
 

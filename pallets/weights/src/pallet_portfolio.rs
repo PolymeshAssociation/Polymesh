@@ -76,24 +76,6 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes(5))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Storage: Portfolio PortfolioCustodian (r:1 w:0)
-    // Storage: Portfolio Portfolios (r:1 w:0)
-    // Storage: Asset Tokens (r:1 w:0)
-    // Storage: Portfolio PortfolioAssetBalances (r:2 w:2)
-    // Storage: Portfolio PortfolioLockedAssets (r:1 w:0)
-    // Storage: Portfolio PortfolioAssetCount (r:2 w:2)
-    /// The range of component `a` is `[1, 500]`.
-    fn move_portfolio_funds(a: u32) -> Weight {
-        // Minimum execution time: 58_878 nanoseconds.
-        Weight::from_ref_time(59_269_000)
-            // Standard Error: 28_100
-            .saturating_add(Weight::from_ref_time(21_530_196).saturating_mul(a.into()))
-            .saturating_add(DbWeight::get().reads(5))
-            .saturating_add(DbWeight::get().reads((4_u64).saturating_mul(a.into())))
-            .saturating_add(DbWeight::get().writes(2))
-            .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(a.into())))
-    }
-    // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Portfolio Portfolios (r:1 w:1)
     // Storage: Portfolio NameToNumber (r:1 w:2)
     /// The range of component `i` is `[1, 500]`.
@@ -134,7 +116,7 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Storage: Portfolio PortfolioAssetBalances (r:2 w:2)
     // Storage: Portfolio PortfolioLockedAssets (r:1 w:0)
     // Storage: Portfolio PortfolioAssetCount (r:1 w:1)
-    fn move_portfolio_funds_v2(f: u32, n: u32) -> Weight {
+    fn move_portfolio_funds(f: u32, n: u32) -> Weight {
         Weight::from_ref_time(68_018_000 as u64)
             // Standard Error: 473_000
             .saturating_add(Weight::from_ref_time(25_861_000 as u64).saturating_mul(f as u64))

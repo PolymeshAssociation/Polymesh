@@ -1,74 +1,68 @@
-use crate::{
-    ext_builder::{ExtBuilder, IdentityRecord},
-    nft::create_nft_collection,
-    storage::{
-        add_secondary_key, make_account_without_cdd, provide_scope_claim,
-        provide_scope_claim_to_multiple_parties, register_keyring_account, root, Checkpoint,
-        TestStorage, User,
-    },
-};
 use chrono::prelude::Utc;
-use frame_support::{
-    assert_noop, assert_ok, dispatch::DispatchResult, IterableStorageDoubleMap, StorageDoubleMap,
-    StorageMap, StorageValue,
-};
+use frame_support::dispatch::DispatchResult;
+use frame_support::{assert_noop, assert_ok};
+use frame_support::{IterableStorageDoubleMap, StorageDoubleMap, StorageMap, StorageValue};
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
-use pallet_asset::checkpoint::ScheduleSpec;
-use pallet_asset::{
-    self as asset, AssetMetadataLocalKeyToName, AssetMetadataLocalNameToKey,
-    AssetMetadataLocalSpecs, AssetMetadataValues, AssetOwnershipRelation, BalanceOf,
-    Config as AssetConfig, CustomTypeIdSequence, CustomTypes, CustomTypesInverse, ScopeIdOf,
-    SecurityToken, TickerRegistrationConfig,
-};
-use pallet_balances as balances;
-use pallet_compliance_manager as compliance_manager;
-use pallet_identity as identity;
-use pallet_portfolio::{MovePortfolioItem, NextPortfolioNumber, PortfolioAssetBalances};
-use pallet_statistics as statistics;
-use polymesh_common_utilities::{
-    constants::currency::ONE_UNIT,
-    constants::*,
-    traits::checkpoint::{ScheduleId, StoredSchedule},
-};
-use polymesh_primitives::{
-    agent::AgentGroup,
-    asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName, NonFungibleType},
-    asset_metadata::{
-        AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataLockStatus, AssetMetadataName,
-        AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
-    },
-    calendar::{
-        CalendarPeriod, CalendarUnit, CheckpointId, CheckpointSchedule, FixedOrVariableCalendarUnit,
-    },
-    statistics::StatType,
-    AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
-    DocumentId, IdentityId, InvestorUid, Memo, Moment, NFTCollectionKeys, Permissions, PortfolioId,
-    PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Signatory, Ticker, WeightMeter,
-};
 use rand::Rng;
 use sp_consensus_babe::Slot;
 use sp_io::hashing::keccak_256;
 use sp_runtime::AnySignature;
-use sp_std::{
-    convert::{From, TryFrom, TryInto},
-    iter,
+use sp_std::convert::{From, TryFrom, TryInto};
+use sp_std::iter;
+
+use pallet_asset::checkpoint::ScheduleSpec;
+use pallet_asset::{
+    AssetDocuments, AssetMetadataLocalKeyToName, AssetMetadataLocalNameToKey,
+    AssetMetadataLocalSpecs, AssetMetadataValues, AssetOwnershipRelation, BalanceOf,
+    Config as AssetConfig, CustomTypeIdSequence, CustomTypes, CustomTypesInverse, ScopeIdOf,
+    SecurityToken, TickerRegistrationConfig,
+};
+use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances};
+use polymesh_common_utilities::constants::currency::ONE_UNIT;
+use polymesh_common_utilities::constants::*;
+use polymesh_common_utilities::traits::checkpoint::{ScheduleId, StoredSchedule};
+use polymesh_primitives::agent::AgentGroup;
+use polymesh_primitives::asset::{
+    AssetName, AssetType, CustomAssetTypeId, FundingRoundName, NonFungibleType,
+};
+use polymesh_primitives::asset_metadata::{
+    AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataLockStatus, AssetMetadataName,
+    AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
+};
+use polymesh_primitives::calendar::{
+    CalendarPeriod, CalendarUnit, CheckpointId, CheckpointSchedule, FixedOrVariableCalendarUnit,
+};
+use polymesh_primitives::statistics::StatType;
+use polymesh_primitives::{
+    AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
+    DocumentId, Fund, FundDescription, IdentityId, InvestorUid, Memo, Moment, NFTCollectionKeys,
+    Permissions, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey,
+    Signatory, Ticker, WeightMeter,
 };
 use test_client::AccountKeyring;
 
+use crate::ext_builder::{ExtBuilder, IdentityRecord};
+use crate::nft::create_nft_collection;
+use crate::storage::{
+    add_secondary_key, make_account_without_cdd, provide_scope_claim,
+    provide_scope_claim_to_multiple_parties, register_keyring_account, root, Checkpoint,
+    TestStorage, User,
+};
+
 type BaseError = pallet_base::Error<TestStorage>;
-type Identity = identity::Module<TestStorage>;
-type Balances = balances::Module<TestStorage>;
-type Asset = asset::Module<TestStorage>;
+type Identity = pallet_identity::Module<TestStorage>;
+type Balances = pallet_balances::Module<TestStorage>;
+type Asset = pallet_asset::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
-type ComplianceManager = compliance_manager::Module<TestStorage>;
+type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
-type AssetError = asset::Error<TestStorage>;
+type AssetError = pallet_asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
-type DidRecords = identity::DidRecords<TestStorage>;
-type Statistics = statistics::Module<TestStorage>;
-type AssetGenesis = asset::GenesisConfig<TestStorage>;
+type DidRecords = pallet_identity::DidRecords<TestStorage>;
+type Statistics = pallet_statistics::Module<TestStorage>;
+type AssetGenesis = pallet_asset::GenesisConfig<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 type ExternalAgents = pallet_external_agents::Module<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
@@ -196,6 +190,9 @@ pub(crate) fn transfer(ticker: Ticker, from: User, to: User, amount: u128) -> Di
         PortfolioId::default_portfolio(to.did),
         &ticker,
         amount,
+        None,
+        None,
+        IdentityId::default(),
         &mut weight_meter,
     )
 }
@@ -384,6 +381,9 @@ fn default_transfer(from: User, to: User, ticker: Ticker, val: u128) {
         PortfolioId::default_portfolio(to.did),
         &ticker,
         val,
+        None,
+        None,
+        IdentityId::default(),
         &mut weight_meter
     ));
 }
@@ -847,7 +847,7 @@ fn adding_removing_documents() {
             ticker
         ));
 
-        assert_eq!(asset::AssetDocuments::iter_prefix_values(ticker).count(), 0);
+        assert_eq!(AssetDocuments::iter_prefix_values(ticker).count(), 0);
     });
 }
 
@@ -1229,7 +1229,7 @@ fn next_checkpoint_is_updated_we() {
     };
     let period_ms = period_secs * 1000;
     set_timestamp(start);
-    assert_eq!(start, <TestStorage as asset::Config>::UnixTime::now());
+    assert_eq!(start, <TestStorage as AssetConfig>::UnixTime::now());
 
     let owner = User::new(AccountKeyring::Alice);
     let bob = User::new(AccountKeyring::Bob);
@@ -1301,7 +1301,7 @@ fn non_recurring_schedule_works_we() {
     // Non-recuring schedule.
     let period = CalendarPeriod::default();
     set_timestamp(start);
-    assert_eq!(start, <TestStorage as asset::Config>::UnixTime::now());
+    assert_eq!(start, <TestStorage as AssetConfig>::UnixTime::now());
 
     let owner = User::new(AccountKeyring::Alice);
     let bob = User::new(AccountKeyring::Bob);
@@ -1563,6 +1563,9 @@ fn sender_same_as_receiver_test() {
                 uk_portfolio,
                 &ticker,
                 1_000,
+                None,
+                None,
+                IdentityId::default(),
                 &mut weight_meter
             ),
             AssetError::SenderSameAsReceiver
@@ -1876,9 +1879,11 @@ fn issuers_can_redeem_tokens_from_portfolio() {
                 owner.origin(),
                 portfolio,
                 user_portfolio,
-                vec![MovePortfolioItem {
-                    ticker,
-                    amount: token.total_supply,
+                vec![Fund {
+                    description: FundDescription::Fungible {
+                        ticker,
+                        amount: token.total_supply,
+                    },
                     memo: None,
                 }],
             )

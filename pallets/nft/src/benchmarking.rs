@@ -14,7 +14,7 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataSpec, AssetMetadataValue,
 };
 use polymesh_primitives::nft::{NFTCollectionId, NFTCollectionKeys, NFTId};
-use polymesh_primitives::{PortfolioKind, WeightMeter};
+use polymesh_primitives::{IdentityId, PortfolioKind, WeightMeter};
 
 use crate::*;
 
@@ -205,7 +205,16 @@ benchmarks! {
         let nfts = NFTs::new_unverified(ticker, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
     }: {
         with_transaction(|| {
-            Module::<T>::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts, &mut weight_meter)
-        }).unwrap();
+            Module::<T>::base_nft_transfer(
+                sender_portfolio,
+                receiver_portfolio,
+                nfts,
+                InstructionId(1),
+                None,
+                IdentityId::default(),
+                &mut weight_meter
+            )
+        })
+        .unwrap();
     }
 }

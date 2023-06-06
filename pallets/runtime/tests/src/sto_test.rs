@@ -5,10 +5,10 @@ use pallet_sto::{
     Fundraiser, FundraiserId, FundraiserName, FundraiserStatus, FundraiserTier, PriceTier,
     MAX_TIERS,
 };
+use polymesh_primitives::asset::AssetType;
+use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::settlement::{InstructionStatus, VenueDetails, VenueId, VenueType};
-use polymesh_primitives::{
-    asset::AssetType, checked_inc::CheckedInc, PortfolioId, PortfolioKind, Ticker, WeightMeter,
-};
+use polymesh_primitives::{IdentityId, PortfolioId, PortfolioKind, Ticker, WeightMeter};
 use test_client::AccountKeyring;
 
 use super::asset_test::{allow_all_transfers, max_len_bytes, set_timestamp};
@@ -138,6 +138,9 @@ fn raise_happy_path() {
         bob_portfolio,
         &raise_ticker,
         RAISE_SUPPLY,
+        None,
+        None,
+        IdentityId::default(),
         &mut weight_meter
     ));
 
@@ -377,6 +380,9 @@ fn raise_unhappy_path() {
         bob_portfolio,
         &raise_ticker,
         1_000_000,
+        None,
+        None,
+        IdentityId::default(),
         &mut weight_meter
     ));
 
