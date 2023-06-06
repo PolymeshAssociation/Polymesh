@@ -76,11 +76,17 @@ pub trait AssetFnTrait<Account, Origin> {
 
     fn register_ticker(origin: Origin, ticker: Ticker) -> DispatchResult;
 
-    #[cfg(feature = "runtime-benchmarks")]
-    /// Adds an artificial IU claim for benchmarks
-    fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker);
-
     fn issue(origin: Origin, ticker: Ticker, total_supply: Balance) -> DispatchResult;
+
+    /// Returns `true` if the given `identity_id` is exempt from affirming the receivement of `ticker`, otherwise returns `false`.
+    fn skip_ticker_affirmation(identity_id: &IdentityId, ticker: &Ticker) -> bool;
+
+    /// Returns `true` if the receivement of `ticker` is exempt from being affirmed, otherwise returns `false`.
+    fn ticker_affirmation_exemption(ticker: &Ticker) -> bool;
+
+    /// Adds an artificial IU claim for benchmarks
+    #[cfg(feature = "runtime-benchmarks")]
+    fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker);
 
     #[cfg(feature = "runtime-benchmarks")]
     fn register_asset_metadata_type(
@@ -108,7 +114,6 @@ pub trait WeightInfo {
     fn update_identifiers(i: u32) -> Weight;
     fn controller_transfer() -> Weight;
     fn register_custom_asset_type(n: u32) -> Weight;
-
     fn set_asset_metadata() -> Weight;
     fn set_asset_metadata_details() -> Weight;
     fn register_and_set_local_asset_metadata() -> Weight;
@@ -119,6 +124,10 @@ pub trait WeightInfo {
     fn remove_local_metadata_key() -> Weight;
     fn remove_metadata_value() -> Weight;
     fn base_transfer() -> Weight;
+    fn exempt_ticker_affirmation() -> Weight;
+    fn remove_ticker_affirmation_exemption() -> Weight;
+    fn pre_approve_ticker() -> Weight;
+    fn remove_ticker_pre_approval() -> Weight;
 }
 
 /// The module's configuration trait.

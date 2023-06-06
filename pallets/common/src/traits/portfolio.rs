@@ -82,6 +82,9 @@ pub trait PortfolioSubTrait<AccountId> {
     /// * `ticker` - the ticker of the NFT.
     /// * `nft_id` - the id of the nft to be unlocked.
     fn unlock_nft(portfolio_id: &PortfolioId, ticker: &Ticker, nft_id: &NFTId) -> DispatchResult;
+
+    /// Returns `true` if the portfolio has pre-approved the receivement of `ticker`, otherwise returns `false`.
+    fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, ticker: &Ticker) -> bool;
 }
 
 pub trait WeightInfo {
@@ -90,6 +93,8 @@ pub trait WeightInfo {
     fn rename_portfolio(i: u32) -> Weight;
     fn quit_portfolio_custody() -> Weight;
     fn accept_portfolio_custody() -> Weight;
+    fn pre_approve_portfolio() -> Weight;
+    fn remove_portfolio_pre_approval() -> Weight;
     fn move_portfolio(funds: &[Fund]) -> Weight {
         let (f, n) = count_token_moves(funds);
         Self::move_portfolio_funds(f, n)
@@ -99,9 +104,9 @@ pub trait WeightInfo {
 
 pub trait Config: CommonConfig + identity::Config + base::Config {
     type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+    type WeightInfo: WeightInfo;
     /// Asset module.
     type Asset: AssetFnTrait<Self::AccountId, Self::RuntimeOrigin>;
-    type WeightInfo: WeightInfo;
     /// Maximum number of fungible assets that can be moved in a single transfer call.
     type MaxNumberOfFungibleMoves: Get<u32>;
     /// Maximum number of NFTs that can be moved in a single transfer call.

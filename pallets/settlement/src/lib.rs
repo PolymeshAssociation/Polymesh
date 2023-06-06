@@ -252,12 +252,12 @@ decl_storage! {
         InstructionLegStatus get(fn instruction_leg_status):
             double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => LegStatus<T::AccountId>;
         /// Number of affirmations pending before instruction is executed. instruction_id -> affirm_pending
-        InstructionAffirmsPending get(fn instruction_affirms_pending): map hasher(twox_64_concat) InstructionId => u64;
+        pub InstructionAffirmsPending get(fn instruction_affirms_pending): map hasher(twox_64_concat) InstructionId => u64;
         /// Tracks affirmations received for an instruction. (instruction_id, counter_party) -> AffirmationStatus
-        AffirmsReceived get(fn affirms_received): double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) PortfolioId => AffirmationStatus;
+        pub AffirmsReceived get(fn affirms_received): double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) PortfolioId => AffirmationStatus;
         /// Helps a user track their pending instructions and affirmations (only needed for UI).
         /// (counter_party, instruction_id) -> AffirmationStatus
-        UserAffirmations get(fn user_affirmations):
+        pub UserAffirmations get(fn user_affirmations):
             double_map hasher(twox_64_concat) PortfolioId, hasher(twox_64_concat) InstructionId => AffirmationStatus;
         /// Tracks redemption of receipts. (signer, receipt_uid) -> receipt_used
         ReceiptsUsed get(fn receipts_used): double_map hasher(twox_64_concat) T::AccountId, hasher(blake2_128_concat) u64 => bool;
@@ -273,7 +273,7 @@ decl_storage! {
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
         /// Instruction memo
-        InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<Memo>;
+        pub InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<Memo>;
         /// Instruction statuses. instruction_id -> InstructionStatus
         InstructionStatuses get(fn instruction_status):
             map hasher(twox_64_concat) InstructionId => InstructionStatus<T::BlockNumber>;
@@ -812,26 +812,45 @@ impl<T: Config> Module<T> {
         Self::venue_for_management(venue_id, did)?;
 
         // Verifies if all legs are valid.
-        let instruction_info = Self::ensure_valid_legs(&legs, venue_id)?;
+        let instruction_info = Self::ensure_valid_legs(&legs, &venue_id)?;
 
         // Advance and get next `instruction_id`.
         let instruction_id = InstructionCounter::try_mutate(try_next_post::<T, _>)?;
 
-        let instruction = Instruction {
-            instruction_id,
-            venue_id,
-            settlement_type,
-            created_at: Some(<pallet_timestamp::Pallet<T>>::get()),
-            trade_date,
-            value_date,
-        };
-
+        // All checks have been made - Write data to storage.
         InstructionStatuses::<T>::insert(instruction_id, InstructionStatus::Pending);
 
-        // Write data to storage.
-        for counter_party in instruction_info.parties() {
-            UserAffirmations::insert(counter_party, instruction_id, AffirmationStatus::Pending);
+        for portfolio_id in instruction_info.portfolios_pending_approval() {
+            UserAffirmations::insert(portfolio_id, instruction_id, AffirmationStatus::Pending);
         }
+        for portfolio_id in instruction_info.portfolios_pre_approved_difference() {
+            UserAffirmations::insert(portfolio_id, instruction_id, AffirmationStatus::Affirmed);
+            AffirmsReceived::insert(instruction_id, portfolio_id, AffirmationStatus::Affirmed);
+        }
+        InstructionAffirmsPending::insert(
+            instruction_id,
+            instruction_info.number_of_pending_affirmations() as u64,
+        );
+
+        legs.iter().enumerate().for_each(|(index, leg)| {
+            InstructionLegs::insert(instruction_id, LegId(index as u64), leg.clone())
+        });
+
+        <InstructionDetails<T>>::insert(
+            instruction_id,
+            Instruction {
+                instruction_id,
+                venue_id,
+                settlement_type,
+                created_at: Some(<pallet_timestamp::Pallet<T>>::get()),
+                trade_date,
+                value_date,
+            },
+        );
+        if let Some(ref memo) = memo {
+            InstructionMemos::insert(instruction_id, &memo);
+        }
+        VenueInstructions::insert(venue_id, instruction_id, ());
 
         if let SettlementType::SettleOnBlock(block_number) = settlement_type {
             let weight_limit = Self::execute_scheduled_instruction_weight_limit(
@@ -842,20 +861,6 @@ impl<T: Config> Module<T> {
             Self::schedule_instruction(instruction_id, block_number, weight_limit);
         }
 
-        <InstructionDetails<T>>::insert(instruction_id, instruction);
-
-        InstructionAffirmsPending::insert(
-            instruction_id,
-            u64::try_from(instruction_info.parties().len()).unwrap_or_default(),
-        );
-        VenueInstructions::insert(venue_id, instruction_id, ());
-        if let Some(ref memo) = memo {
-            InstructionMemos::insert(instruction_id, &memo);
-        }
-
-        legs.iter().enumerate().for_each(|(index, leg)| {
-            InstructionLegs::insert(instruction_id, LegId(index as u64), leg.clone())
-        });
         Self::deposit_event(RawEvent::InstructionCreated(
             did,
             venue_id,
@@ -866,59 +871,44 @@ impl<T: Config> Module<T> {
             legs,
             memo,
         ));
-
         Ok(instruction_id)
     }
 
-    /// Makes sure the legs are valid. For all types of assets the sender and receiver must be different,
-    /// the amount being transferred must be greater than zero, and if filtering is enabled the venue list is also checked.
-    /// The number of each asset type in the legs must be within the valid limits allowed.
-    /// Returns a set of the unique counter parties involved in the legs.
+    /// Returns [`InstructionInfo`] if all legs are valid, otherwise returns an error.
+    /// See also: [`Module::ensure_valid_fungible_leg`], [`Module::ensure_valid_nft_leg`] and [`Module::ensure_valid_off_chain_leg`].
     fn ensure_valid_legs(
         legs: &[Leg],
-        venue_id: VenueId,
+        venue_id: &VenueId,
     ) -> Result<InstructionInfo, DispatchError> {
+        // Tracks the number of fungible, non-fungible and offchain assets across the legs
         let mut instruction_asset_count = AssetCount::default();
-        let mut parties = BTreeSet::new();
+        // Tracks all portfolios that have not been pre-affirmed
+        let mut portfolios_pending_approval = BTreeSet::new();
+        // Tracks all portfolios that have pre-approved the transfer.
+        let mut portfolios_pre_approved = BTreeSet::new();
+        // Tracks all tickers that have been checked for filtering
         let mut tickers = BTreeSet::new();
+
+        // Validates all legs and checks if they have been pre-affirmed
         for leg in legs {
-            ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
-            match &leg.asset {
-                LegAsset::Fungible { ticker, amount } => {
-                    Self::ensure_valid_fungible_leg(&mut tickers, *ticker, *amount, &venue_id)?;
-                    instruction_asset_count
-                        .try_add_fungible()
-                        .map_err(|_| Error::<T>::MaxNumberOfFungibleAssetsExceeded)?;
-                }
-                LegAsset::NonFungible(nfts) => {
-                    Self::ensure_valid_nft_leg(&mut tickers, &nfts, &venue_id)?;
-                    instruction_asset_count
-                        .try_add_non_fungible(&nfts)
-                        .map_err(|_| Error::<T>::MaxNumberOfNFTsExceeded)?;
-                }
-                LegAsset::OffChain { ticker, amount } => {
-                    Self::ensure_valid_off_chain_leg(&mut tickers, *ticker, *amount, &venue_id)?;
-                    instruction_asset_count
-                        .try_add_off_chain()
-                        .map_err(|_| Error::<T>::MaxNumberOfOffChainAssetsExceeded)?;
-                }
+            let ticker =
+                Self::ensure_valid_leg(leg, venue_id, &mut tickers, &mut instruction_asset_count)?;
+
+            portfolios_pending_approval.insert(leg.from);
+            if T::Portfolio::skip_portfolio_affirmation(&leg.to, &ticker) {
+                portfolios_pre_approved.insert(leg.to);
+            } else {
+                portfolios_pending_approval.insert(leg.to);
             }
-            parties.insert(leg.from);
-            parties.insert(leg.to);
         }
-        ensure!(
-            instruction_asset_count.non_fungible() <= T::MaxNumberOfNFTs::get(),
-            Error::<T>::MaxNumberOfNFTsExceeded
-        );
-        ensure!(
-            instruction_asset_count.fungible() <= T::MaxNumberOfFungibleAssets::get(),
-            Error::<T>::MaxNumberOfFungibleAssetsExceeded
-        );
-        ensure!(
-            instruction_asset_count.off_chain() <= T::MaxNumberOfOffChainAssets::get(),
-            Error::<T>::MaxNumberOfOffChainAssetsExceeded
-        );
-        Ok(InstructionInfo::new(parties, instruction_asset_count))
+        // The maximum number of each asset type in one instruction is checked here
+        Self::ensure_within_instruction_max(&instruction_asset_count)?;
+
+        Ok(InstructionInfo::new(
+            instruction_asset_count,
+            portfolios_pending_approval,
+            portfolios_pre_approved,
+        ))
     }
 
     fn unsafe_withdraw_instruction_affirmation(
@@ -1680,6 +1670,40 @@ impl<T: Config> Module<T> {
         PostDispatchInfo::from(Some(weight_meter.consumed()))
     }
 
+    /// Returns [`Ticker`] if the leg is valid, otherwise returns an error.
+    /// See also: [`Module::ensure_valid_fungible_leg`], [`Module::ensure_valid_nft_leg`] and [`Module::ensure_valid_off_chain_leg`].
+    fn ensure_valid_leg(
+        leg: &Leg,
+        venue_id: &VenueId,
+        tickers: &mut BTreeSet<Ticker>,
+        instruction_asset_count: &mut AssetCount,
+    ) -> Result<Ticker, DispatchError> {
+        ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
+        match &leg.asset {
+            LegAsset::Fungible { ticker, amount } => {
+                Self::ensure_valid_fungible_leg(tickers, *ticker, *amount, venue_id)?;
+                instruction_asset_count
+                    .try_add_fungible()
+                    .map_err(|_| Error::<T>::MaxNumberOfFungibleAssetsExceeded)?;
+                Ok(*ticker)
+            }
+            LegAsset::NonFungible(nfts) => {
+                Self::ensure_valid_nft_leg(tickers, &nfts, venue_id)?;
+                instruction_asset_count
+                    .try_add_non_fungible(&nfts)
+                    .map_err(|_| Error::<T>::MaxNumberOfNFTsExceeded)?;
+                Ok(*nfts.ticker())
+            }
+            LegAsset::OffChain { ticker, amount } => {
+                Self::ensure_valid_off_chain_leg(tickers, *ticker, *amount, venue_id)?;
+                instruction_asset_count
+                    .try_add_off_chain()
+                    .map_err(|_| Error::<T>::MaxNumberOfOffChainAssetsExceeded)?;
+                Ok(*ticker)
+            }
+        }
+    }
+
     /// Ensures all checks needed for a fungible leg hold. This includes making sure that the `amount` being
     /// transferred is not zero, that `ticker` exists on chain and that `venue_id` is allowed.
     fn ensure_valid_fungible_leg(
@@ -1729,6 +1753,24 @@ impl<T: Config> Module<T> {
             Error::<T>::UnexpectedOnChainAsset
         );
         Self::ensure_venue_filtering(tickers, ticker, venue_id)?;
+        Ok(())
+    }
+
+    /// Ensures that the number of fungible, non-fungible and offchain transfers is less or equal
+    /// to the maximum allowed in an instruction.
+    fn ensure_within_instruction_max(instruction_asset_count: &AssetCount) -> DispatchResult {
+        ensure!(
+            instruction_asset_count.non_fungible() <= T::MaxNumberOfNFTs::get(),
+            Error::<T>::MaxNumberOfNFTsExceeded
+        );
+        ensure!(
+            instruction_asset_count.fungible() <= T::MaxNumberOfFungibleAssets::get(),
+            Error::<T>::MaxNumberOfFungibleAssetsExceeded
+        );
+        ensure!(
+            instruction_asset_count.off_chain() <= T::MaxNumberOfOffChainAssets::get(),
+            Error::<T>::MaxNumberOfOffChainAssetsExceeded
+        );
         Ok(())
     }
 

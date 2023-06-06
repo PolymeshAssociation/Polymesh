@@ -80,45 +80,42 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-mod auth;
-mod claims;
-mod keys;
-
-pub mod types;
-pub use types::{Claim1stKey, Claim2ndKey, DidStatus, PermissionedCallOriginData, RpcDidRecords};
-
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+mod auth;
+mod claims;
+mod keys;
+pub mod types;
+
+pub use polymesh_common_utilities::traits::identity::WeightInfo;
+pub use types::{Claim1stKey, Claim2ndKey, DidStatus, PermissionedCallOriginData, RpcDidRecords};
+
+use core::convert::From;
+
 use codec::{Decode, Encode};
 use confidential_identity_v2::ScopeClaimProof;
-use core::convert::From;
-use frame_support::{
-    decl_error, decl_module, decl_storage,
-    dispatch::{
-        DispatchClass::{Normal, Operational},
-        DispatchResult, Pays,
-    },
-    traits::{ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers},
-};
 use frame_system::ensure_root;
-pub use polymesh_common_utilities::traits::identity::WeightInfo;
-use polymesh_common_utilities::{
-    constants::did::SECURITY_TOKEN,
-    protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    traits::identity::{
-        AuthorizationNonce, Config, CreateChildIdentityWithAuth, IdentityFnTrait, RawEvent,
-        SecondaryKeyWithAuth, SecondaryKeyWithAuthV1,
-    },
-    SystematicIssuers, GC_DID,
+use sp_runtime::traits::Hash;
+use sp_std::convert::TryFrom;
+use sp_std::prelude::*;
+
+use frame_support::dispatch::DispatchClass::{Normal, Operational};
+use frame_support::dispatch::{DispatchResult, Pays};
+use frame_support::traits::{ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers};
+use frame_support::{decl_error, decl_module, decl_storage};
+use polymesh_common_utilities::constants::did::SECURITY_TOKEN;
+use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
+use polymesh_common_utilities::traits::identity::{
+    AuthorizationNonce, Config, CreateChildIdentityWithAuth, IdentityFnTrait, RawEvent,
+    SecondaryKeyWithAuth, SecondaryKeyWithAuthV1,
 };
+use polymesh_common_utilities::{SystematicIssuers, GC_DID};
 use polymesh_primitives::{
     investor_zkproof_data::v1::InvestorZKProofData, storage_migration_ver, Authorization,
     AuthorizationData, AuthorizationType, CddId, Claim, ClaimType, CustomClaimTypeId, DidRecord,
     IdentityClaim, IdentityId, KeyRecord, Permissions, Scope, SecondaryKey, Signatory, Ticker,
 };
-use sp_runtime::traits::Hash;
-use sp_std::{convert::TryFrom, prelude::*};
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 

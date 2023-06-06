@@ -300,6 +300,14 @@ decl_storage! {
         /// Next Asset Metadata Global Key.
         pub AssetMetadataNextGlobalKey get(fn asset_metadata_next_global_key): AssetMetadataGlobalKey;
 
+        /// A list of tickers that exempt all users from affirming the receivement of the asset.
+        pub TickersExemptFromAffirmation get(fn tickers_exempt_from_affirmation):
+            map hasher(blake2_128_concat) Ticker => bool;
+
+        /// All tickers that don't need an affirmation to be received by an identity.
+        pub PreApprovedTicker get(fn pre_approved_tickers):
+            double_map hasher(identity) IdentityId, hasher(blake2_128_concat) Ticker => bool;
+
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
     }
@@ -850,6 +858,58 @@ decl_module! {
         pub fn remove_metadata_value(origin, ticker: Ticker, metadata_key: AssetMetadataKey) -> DispatchResult {
             Self::base_remove_metadata_value(origin, ticker, metadata_key)
         }
+
+        /// Pre-approves the receivement of the asset for all identities.
+        ///
+        /// # Arguments
+        /// * `origin` - the secondary key of the sender.
+        /// * `ticker` - the [`Ticker`] that will be exempt from affirmation.
+        ///
+        /// # Permissions
+        /// * Root
+        #[weight = <T as Config>::WeightInfo::exempt_ticker_affirmation()]
+        pub fn exempt_ticker_affirmation(origin, ticker: Ticker) -> DispatchResult {
+            Self::base_exempt_ticker_affirmation(origin, &ticker)
+        }
+
+        /// Removes the pre-approval of the asset for all identities.
+        ///
+        /// # Arguments
+        /// * `origin` - the secondary key of the sender.
+        /// * `ticker` - the [`Ticker`] that will have its exemption removed.
+        ///
+        /// # Permissions
+        /// * Root
+        #[weight = <T as Config>::WeightInfo::remove_ticker_affirmation_exemption()]
+        pub fn remove_ticker_affirmation_exemption(origin, ticker: Ticker) -> DispatchResult {
+            Self::base_remove_ticker_affirmation_exemption(origin, &ticker)
+        }
+
+        /// Pre-approves the receivement of an asset.
+        ///
+        /// # Arguments
+        /// * `origin` - the secondary key of the sender.
+        /// * `ticker` - the [`Ticker`] that will be exempt from affirmation.
+        ///
+        /// # Permissions
+        /// * Asset
+        #[weight = <T as Config>::WeightInfo::pre_approve_ticker()]
+        pub fn pre_approve_ticker(origin, ticker: Ticker) -> DispatchResult {
+            Self::base_pre_approve_ticker(origin, &ticker)
+        }
+
+        /// Removes the pre approval of an asset.
+        ///
+        /// # Arguments
+        /// * `origin` - the secondary key of the sender.
+        /// * `ticker` - the [`Ticker`] that will have its exemption removed.
+        ///
+        /// # Permissions
+        /// * Asset
+        #[weight = <T as Config>::WeightInfo::remove_ticker_pre_approval()]
+        pub fn remove_ticker_pre_approval(origin, ticker: Ticker) -> DispatchResult {
+            Self::base_remove_ticker_pre_approval(origin, &ticker)
+        }
     }
 }
 
@@ -970,8 +1030,22 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
         Self::base_register_ticker(origin, ticker)
     }
 
+    fn issue(origin: T::RuntimeOrigin, ticker: Ticker, total_supply: Balance) -> DispatchResult {
+        Self::issue(origin, ticker, total_supply)
+    }
+
+    fn skip_ticker_affirmation(identity_id: &IdentityId, ticker: &Ticker) -> bool {
+        if TickersExemptFromAffirmation::get(ticker) {
+            return true;
+        }
+        PreApprovedTicker::get(identity_id, ticker)
+    }
+
+    fn ticker_affirmation_exemption(ticker: &Ticker) -> bool {
+        TickersExemptFromAffirmation::get(ticker)
+    }
+
     #[cfg(feature = "runtime-benchmarks")]
-    /// Adds an artificial IU claim for benchmarks
     fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker) {
         if Self::disable_iu(ticker) {
             return;
@@ -992,10 +1066,6 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
         AggregateBalance::insert(ticker, &did, current_balance);
         BalanceOfAtScope::insert(did, did, current_balance);
         ScopeIdOf::insert(ticker, did, did);
-    }
-
-    fn issue(origin: T::RuntimeOrigin, ticker: Ticker, total_supply: Balance) -> DispatchResult {
-        Self::issue(origin, ticker, total_supply)
     }
 
     #[cfg(feature = "runtime-benchmarks")]
@@ -2610,6 +2680,40 @@ impl<T: Config> Module<T> {
             ticker,
             metadata_key,
         ));
+        Ok(())
+    }
+
+    /// Pre-approves the receivement of the asset for all identities.
+    fn base_exempt_ticker_affirmation(origin: T::RuntimeOrigin, ticker: &Ticker) -> DispatchResult {
+        ensure_root(origin)?;
+        TickersExemptFromAffirmation::insert(ticker, true);
+        Ok(())
+    }
+
+    /// Removes the pre-approval of the asset for all identities.
+    fn base_remove_ticker_affirmation_exemption(
+        origin: T::RuntimeOrigin,
+        ticker: &Ticker,
+    ) -> DispatchResult {
+        ensure_root(origin)?;
+        TickersExemptFromAffirmation::remove(ticker);
+        Ok(())
+    }
+
+    /// Pre-approves the receivement of an asset.
+    fn base_pre_approve_ticker(origin: T::RuntimeOrigin, ticker: &Ticker) -> DispatchResult {
+        let caller_did = Identity::<T>::ensure_perms(origin)?;
+        PreApprovedTicker::insert(&caller_did, ticker, true);
+        Ok(())
+    }
+
+    /// Removes the pre approval of an asset.
+    fn base_remove_ticker_pre_approval(
+        origin: T::RuntimeOrigin,
+        ticker: &Ticker,
+    ) -> DispatchResult {
+        let caller_did = Identity::<T>::ensure_perms(origin)?;
+        PreApprovedTicker::remove(&caller_did, ticker);
         Ok(())
     }
 }
