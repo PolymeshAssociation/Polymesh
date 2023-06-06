@@ -3,15 +3,17 @@ use frame_support::{assert_noop, assert_ok, StorageDoubleMap, StorageMap};
 
 use pallet_nft::{Collection, CollectionKeys, MetadataValue, NumberOfNFTs};
 use pallet_portfolio::PortfolioNFT;
+use polymesh_common_utilities::traits::nft::Event;
 use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
     AssetMetadataValue,
 };
+use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::{
-    NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId,
-    PortfolioKind, PortfolioNumber, Ticker, WeightMeter,
+    IdentityId, NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId,
+    PortfolioKind, PortfolioNumber, PortfolioUpdateReason, Ticker, WeightMeter,
 };
 use test_client::AccountKeyring;
 
@@ -26,6 +28,7 @@ type NFT = pallet_nft::Module<TestStorage>;
 type NFTError = pallet_nft::Error<TestStorage>;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
+type System = frame_system::Pallet<TestStorage>;
 
 /// Successfully creates an NFT collection and an Asset.
 #[test]
@@ -552,9 +555,12 @@ fn transfer_nft_without_collection() {
         assert_noop!(
             with_transaction(|| {
                 NFT::base_nft_transfer(
-                    &sender_portfolio,
-                    &receiver_portfolio,
-                    &nfts,
+                    sender_portfolio,
+                    receiver_portfolio,
+                    nfts,
+                    InstructionId(0),
+                    None,
+                    IdentityId::default(),
                     &mut weight_meter,
                 )
             }),
@@ -595,9 +601,12 @@ fn transfer_nft_same_portfolio() {
         assert_noop!(
             with_transaction(|| {
                 NFT::base_nft_transfer(
-                    &sender_portfolio,
-                    &receiver_portfolio,
-                    &nfts,
+                    sender_portfolio,
+                    receiver_portfolio,
+                    nfts,
+                    InstructionId(0),
+                    None,
+                    IdentityId::default(),
                     &mut weight_meter,
                 )
             }),
@@ -649,9 +658,12 @@ fn transfer_nft_invalid_count() {
         assert_noop!(
             with_transaction(|| {
                 NFT::base_nft_transfer(
-                    &sender_portfolio,
-                    &receiver_portfolio,
-                    &nfts,
+                    sender_portfolio,
+                    receiver_portfolio,
+                    nfts,
+                    InstructionId(0),
+                    None,
+                    IdentityId::default(),
                     &mut weight_meter,
                 )
             }),
@@ -703,9 +715,12 @@ fn transfer_nft_not_owned() {
         assert_noop!(
             with_transaction(|| {
                 NFT::base_nft_transfer(
-                    &sender_portfolio,
-                    &receiver_portfolio,
-                    &nfts,
+                    sender_portfolio,
+                    receiver_portfolio,
+                    nfts,
+                    InstructionId(0),
+                    None,
+                    IdentityId::default(),
                     &mut weight_meter,
                 )
             }),
@@ -757,9 +772,12 @@ fn transfer_nft_failing_compliance() {
         assert_noop!(
             with_transaction(|| {
                 NFT::base_nft_transfer(
-                    &sender_portfolio,
-                    &receiver_portfolio,
-                    &nfts,
+                    sender_portfolio,
+                    receiver_portfolio,
+                    nfts,
+                    InstructionId(0),
+                    None,
+                    IdentityId::default(),
                     &mut weight_meter,
                 )
             }),
@@ -773,6 +791,7 @@ fn transfer_nft_failing_compliance() {
 fn transfer_nft() {
     ExtBuilder::default().build().execute_with(|| {
         set_timestamp(Utc::now().timestamp() as _);
+        System::set_block_number(1);
 
         // First we need to create a collection and mint one NFT
         let alice: User = User::new(AccountKeyring::Alice);
@@ -811,9 +830,12 @@ fn transfer_nft() {
         let nfts = NFTs::new(ticker, vec![NFTId(1)]).unwrap();
         assert_ok!(with_transaction(|| {
             NFT::base_nft_transfer(
-                &sender_portfolio,
-                &receiver_portfolio,
-                &nfts,
+                sender_portfolio,
+                receiver_portfolio,
+                nfts.clone(),
+                InstructionId(0),
+                None,
+                IdentityId::default(),
                 &mut weight_meter,
             )
         }));
@@ -829,6 +851,19 @@ fn transfer_nft() {
         assert_eq!(
             PortfolioNFT::get(PortfolioId::default_portfolio(bob.did), (&ticker, NFTId(1))),
             true
+        );
+        assert_eq!(
+            super::storage::EventTest::Nft(Event::NFTPortfolioUpdated(
+                IdentityId::default(),
+                nfts,
+                Some(sender_portfolio),
+                Some(receiver_portfolio),
+                PortfolioUpdateReason::Transferred {
+                    instruction_id: Some(InstructionId(0)),
+                    instruction_memo: None
+                }
+            )),
+            System::events().last().unwrap().event,
         );
     });
 }

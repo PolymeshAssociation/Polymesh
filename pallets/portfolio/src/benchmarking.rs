@@ -29,12 +29,10 @@ use crate::*;
 
 const PORTFOLIO_NAME_LEN: usize = 500;
 
-fn make_worst_memo() -> Option<Memo> {
-    Some(Memo([7u8; 32]))
-}
-
-fn owner_portfolio<T: Config + TestUtilsFn<<T as frame_system::Config>::AccountId>>(
-) -> (User<T>, PortfolioId) {
+fn owner_portfolio<T>() -> (User<T>, PortfolioId)
+where
+    T: Config + TestUtilsFn<<T as frame_system::Config>::AccountId>,
+{
     let owner = user::<T>("owner", 0);
 
     let name = PortfolioName(vec![65u8; PORTFOLIO_NAME_LEN as usize]);
@@ -87,38 +85,6 @@ benchmarks! {
         assert!(!Portfolios::contains_key(&did, &next_portfolio_num));
     }
 
-    move_portfolio_funds {
-        // Number of assets being moved
-        let a in 1 .. 500;
-        let mut items = Vec::with_capacity(a as usize);
-        let target = user::<T>("target", 0);
-        let first_ticker = Ticker::generate_into(0u64);
-        let amount = Balance::from(10u32);
-        let portfolio_name = PortfolioName(vec![65u8; 5]);
-        let next_portfolio_num = NextPortfolioNumber::get(&target.did());
-        let default_portfolio = PortfolioId::default_portfolio(target.did());
-        let user_portfolio = PortfolioId::user_portfolio(target.did(), next_portfolio_num.clone());
-
-        for x in 0..a as u64 {
-            let ticker = make_asset::<T>(&target, Some(&Ticker::generate(x)));
-            items.push(MovePortfolioItem {
-                ticker,
-                amount: amount,
-                memo: make_worst_memo(),
-            });
-            PortfolioAssetBalances::insert(&default_portfolio, &ticker, amount);
-        }
-
-        Module::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone()).unwrap();
-
-        assert_eq!(PortfolioAssetBalances::get(&default_portfolio, &first_ticker), amount);
-        assert_eq!(PortfolioAssetBalances::get(&user_portfolio, &first_ticker), 0u32.into());
-    }: _(target.origin, default_portfolio, user_portfolio, items)
-    verify {
-        assert_eq!(PortfolioAssetBalances::get(&default_portfolio, &first_ticker), 0u32.into());
-        assert_eq!(PortfolioAssetBalances::get(&user_portfolio, &first_ticker), amount);
-    }
-
     rename_portfolio {
         // Length of portfolio name
         let i in 1 .. PORTFOLIO_NAME_LEN.try_into().unwrap();
@@ -161,7 +127,7 @@ benchmarks! {
         assert_custodian::<T>(user_portfolio, &custodian, true);
     }
 
-    move_portfolio_funds_v2 {
+    move_portfolio_funds {
         let f in 1..T::MaxNumberOfFungibleMoves::get() as u32;
         let n in 1..T::MaxNumberOfNFTsMoves::get() as u32;
 

@@ -18,7 +18,7 @@ use pallet_asset::{
     CustomTypeIdSequence, CustomTypes, CustomTypesInverse, PreApprovedTicker, ScopeIdOf,
     SecurityToken, TickerRegistrationConfig, TickersExemptFromAffirmation,
 };
-use pallet_portfolio::{MovePortfolioItem, NextPortfolioNumber, PortfolioAssetBalances};
+use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances};
 use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::constants::*;
 use polymesh_common_utilities::traits::checkpoint::{ScheduleId, StoredSchedule};
@@ -36,8 +36,9 @@ use polymesh_primitives::calendar::{
 use polymesh_primitives::statistics::StatType;
 use polymesh_primitives::{
     AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
-    DocumentId, IdentityId, InvestorUid, Memo, Moment, NFTCollectionKeys, Permissions, PortfolioId,
-    PortfolioKind, PortfolioName, SecondaryKey, Signatory, Ticker, WeightMeter,
+    DocumentId, Fund, FundDescription, IdentityId, InvestorUid, Memo, Moment, NFTCollectionKeys,
+    Permissions, PortfolioId, PortfolioKind, PortfolioName, SecondaryKey, Signatory, Ticker,
+    WeightMeter,
 };
 use test_client::AccountKeyring;
 
@@ -184,6 +185,9 @@ pub(crate) fn transfer(ticker: Ticker, from: User, to: User, amount: u128) -> Di
         PortfolioId::default_portfolio(to.did),
         &ticker,
         amount,
+        None,
+        None,
+        IdentityId::default(),
         &mut weight_meter,
     )
 }
@@ -372,6 +376,9 @@ fn default_transfer(from: User, to: User, ticker: Ticker, val: u128) {
         PortfolioId::default_portfolio(to.did),
         &ticker,
         val,
+        None,
+        None,
+        IdentityId::default(),
         &mut weight_meter
     ));
 }
@@ -1541,6 +1548,9 @@ fn sender_same_as_receiver_test() {
                 uk_portfolio,
                 &ticker,
                 1_000,
+                None,
+                None,
+                IdentityId::default(),
                 &mut weight_meter
             ),
             AssetError::SenderSameAsReceiver
@@ -1854,9 +1864,11 @@ fn issuers_can_redeem_tokens_from_portfolio() {
                 owner.origin(),
                 portfolio,
                 user_portfolio,
-                vec![MovePortfolioItem {
-                    ticker,
-                    amount: token.total_supply,
+                vec![Fund {
+                    description: FundDescription::Fungible {
+                        ticker,
+                        amount: token.total_supply,
+                    },
                     memo: None,
                 }],
             )
