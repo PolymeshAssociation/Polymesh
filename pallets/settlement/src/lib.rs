@@ -1105,7 +1105,7 @@ impl<T: Config> Module<T> {
         instruction_memo: Option<Memo>,
         weight_meter: &mut WeightMeter,
     ) -> TransactionOutcome<Result<Result<(), LegId>, DispatchError>> {
-        let caller_did = Identity::<T>::current_identity().unwrap_or_default();
+        let caller_did = Identity::<T>::current_identity().unwrap_or(SettlementDID.as_id());
         Self::unchecked_release_locks(instruction_id, instruction_legs);
         for (leg_id, leg) in instruction_legs {
             if Self::instruction_leg_status(instruction_id, leg_id) == LegStatus::ExecutionPending {
