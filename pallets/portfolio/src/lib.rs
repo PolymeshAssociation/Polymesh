@@ -47,41 +47,23 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use core::{iter, mem};
-use frame_support::{
-    decl_error, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, Weight},
-    ensure,
-};
-use pallet_identity::{self as identity, PermissionedCallOriginData};
-use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
-pub use polymesh_common_utilities::traits::{
-    asset::AssetFnTrait,
-    portfolio::{Config, Event, WeightInfo},
-};
-use polymesh_primitives::{
-    extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, Fund,
-    FundDescription, IdentityId, Memo, NFTId, PortfolioId, PortfolioKind, PortfolioName,
-    PortfolioNumber, SecondaryKey, Ticker,
-};
-use scale_info::TypeInfo;
+use frame_support::dispatch::{DispatchError, DispatchResult, Weight};
+use frame_support::{decl_error, decl_module, decl_storage, ensure};
 use sp_arithmetic::traits::Zero;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
 
-type Identity<T> = identity::Module<T>;
+use pallet_identity::PermissionedCallOriginData;
+use polymesh_common_utilities::traits::asset::AssetFnTrait;
+use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
+pub use polymesh_common_utilities::traits::portfolio::{Config, Event, WeightInfo};
+use polymesh_primitives::{
+    extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, Fund,
+    FundDescription, IdentityId, NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
+    SecondaryKey, Ticker,
+};
 
-/// The ticker and balance of an asset to be moved from one portfolio to another.
-#[derive(Encode, Decode, TypeInfo)]
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct MovePortfolioItem {
-    /// The ticker of the asset to be moved.
-    pub ticker: Ticker,
-    /// The balance of the asset to be moved.
-    pub amount: Balance,
-    /// The memo of the asset to be moved.
-    /// Currently only used in events.
-    pub memo: Option<Memo>,
-}
+type Identity<T> = pallet_identity::Module<T>;
 
 decl_storage! {
     trait Store for Module<T: Config> as Portfolio {
@@ -237,48 +219,6 @@ decl_module! {
             Self::deposit_event(Event::PortfolioDeleted(primary_did, num));
         }
 
-        /// Moves a token amount from one portfolio of an identity to another portfolio of the same
-        /// identity. Must be called by the custodian of the sender.
-        /// Funds from deleted portfolios can also be recovered via this method.
-        ///
-        /// A short memo can be added to to each token amount moved.
-        ///
-        /// # Errors
-        /// * `PortfolioDoesNotExist` if one or both of the portfolios reference an invalid portfolio.
-        /// * `destination_is_same_portfolio` if both sender and receiver portfolio are the same
-        /// * `DifferentIdentityPortfolios` if the sender and receiver portfolios belong to different identities
-        /// * `UnauthorizedCustodian` if the caller is not the custodian of the from portfolio
-        /// * `InsufficientPortfolioBalance` if the sender does not have enough free balance
-        /// * `NoDuplicateAssetsAllowed` the same ticker can't be repeated in the items vector.
-        ///
-        /// # Permissions
-        /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::move_portfolio_funds(items.len() as u32)]
-        pub fn move_portfolio_funds(
-            origin,
-            from: PortfolioId,
-            to: PortfolioId,
-            items: Vec<MovePortfolioItem>,
-        ) {
-            let primary_did =
-                Self::ensure_portfolios_validity_and_permissions(origin, from.clone(), to.clone())?;
-
-            Self::ensure_valid_balances(&from, &items)?;
-
-            // Commit changes.
-            for item in items {
-                Self::unchecked_transfer_portfolio_balance(&from, &to, &item.ticker, item.amount);
-                Self::deposit_event(Event::MovedBetweenPortfolios(
-                    primary_did,
-                    from,
-                    to,
-                    item.ticker,
-                    item.amount,
-                    item.memo
-                ));
-            }
-        }
-
         /// Renames a non-default portfolio.
         ///
         /// # Errors
@@ -367,8 +307,8 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::move_portfolio_v2(funds)]
-        pub fn move_portfolio_funds_v2(
+        #[weight = <T as Config>::WeightInfo::move_portfolio(funds)]
+        pub fn move_portfolio_funds(
             origin,
             from: PortfolioId,
             to: PortfolioId,
@@ -689,23 +629,6 @@ impl<T: Config> Module<T> {
         Ok(origin_data.primary_did)
     }
 
-    /// Verifies if the sending portfolio has the right balance for the transfer.
-    fn ensure_valid_balances(
-        sender_portfolio: &PortfolioId,
-        items: &[MovePortfolioItem],
-    ) -> DispatchResult {
-        let mut unique_tickers = BTreeSet::new();
-        // Ensure there are sufficient funds for all moves.
-        for item in items {
-            ensure!(
-                unique_tickers.insert(item.ticker),
-                Error::<T>::NoDuplicateAssetsAllowed
-            );
-            Self::ensure_sufficient_balance(sender_portfolio, &item.ticker, item.amount)?;
-        }
-        Ok(())
-    }
-
     /// Verifies if the sender has all funds for the transfer. For a fungible move to be valid, the sender must have sufficient balance, and for
     /// a non-fungible move, the NFTs must be owned by the sender and can't be locked.
     fn ensure_valid_funds(sender_portfolio: &PortfolioId, funds: &[Fund]) -> DispatchResult {
@@ -763,12 +686,11 @@ impl<T: Config> Module<T> {
                         &ticker,
                         amount,
                     );
-                    Self::deposit_event(Event::FungibleTokensMovedBetweenPortfolios(
+                    Self::deposit_event(Event::FundsMovedBetweenPortfolios(
                         origin_did,
                         sender_portfolio,
                         receiver_portfolio,
-                        ticker,
-                        amount,
+                        FundDescription::Fungible { ticker, amount },
                         fund.memo,
                     ));
                 }
@@ -777,13 +699,13 @@ impl<T: Config> Module<T> {
                         PortfolioNFT::remove(&sender_portfolio, (nfts.ticker(), nft_id));
                         PortfolioNFT::insert(&receiver_portfolio, (nfts.ticker(), nft_id), true);
                     }
-                    Self::deposit_event(Event::NFTsMovedBetweenPortfolios(
+                    Self::deposit_event(Event::FundsMovedBetweenPortfolios(
                         origin_did,
                         sender_portfolio,
                         receiver_portfolio,
-                        nfts,
+                        FundDescription::NonFungible(nfts),
                         fund.memo,
-                    ))
+                    ));
                 }
             }
         }

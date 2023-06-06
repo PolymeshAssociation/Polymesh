@@ -17,15 +17,17 @@ use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
-use polymesh_primitives::{
-    asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName},
-    asset_metadata::{
-        AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
-        AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
-    },
-    AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, ScopeId, Ticker,
-};
 use sp_std::prelude::Vec;
+
+use polymesh_primitives::asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName};
+use polymesh_primitives::asset_metadata::{
+    AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
+    AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
+};
+use polymesh_primitives::{
+    AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, PortfolioUpdateReason,
+    ScopeId, Ticker,
+};
 
 use crate::traits::nft::NFTTrait;
 use crate::traits::{checkpoint, compliance_manager, external_agents, portfolio, statistics};
@@ -168,15 +170,6 @@ decl_event! {
         Moment = <T as pallet_timestamp::Config>::Moment,
         AccountId = <T as frame_system::Config>::AccountId,
     {
-        /// Event for transfer of tokens.
-        /// caller DID, ticker, from portfolio, to portfolio, value
-        Transfer(IdentityId, Ticker, PortfolioId, PortfolioId, Balance),
-        /// Emit when tokens get issued.
-        /// caller DID, ticker, beneficiary DID, value, funding round, total issued in this funding round
-        Issued(IdentityId, Ticker, IdentityId, Balance, FundingRoundName, Balance),
-        /// Emit when tokens get redeemed.
-        /// caller DID, ticker,  from DID, value
-        Redeemed(IdentityId, Ticker, IdentityId, Balance),
         /// Event for creation of the asset.
         /// caller DID/ owner DID, ticker, divisibility, asset type, beneficiary DID, disable investor uniqueness, asset name, identifiers, funding round
         AssetCreated(IdentityId, Ticker, bool, AssetType, IdentityId, bool, AssetName, Vec<AssetIdentifier>, Option<FundingRoundName>),
@@ -250,5 +243,16 @@ decl_event! {
         /// An event emitted when a local metadata value has been removed.
         /// Parameters: caller ticker, Local type name
         MetadataValueDeleted(IdentityId, Ticker, AssetMetadataKey),
+        /// Emitted when Tokens were issued, redeemed or transferred.
+        /// Contains the [`IdentityId`] of the receiver/issuer/redeemer, the [`Ticker`] for the token, the balance that was issued/transferred/redeemed,
+        /// the [`PortfolioId`] of the source, the [`PortfolioId`] of the destination and the [`PortfolioUpdateReason`].
+        AssetBalanceUpdated(
+            IdentityId,
+            Ticker,
+            Balance,
+            Option<PortfolioId>,
+            Option<PortfolioId>,
+            PortfolioUpdateReason,
+        ),
     }
 }

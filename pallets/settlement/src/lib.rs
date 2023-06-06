@@ -70,6 +70,7 @@ use sp_std::vec;
 
 use pallet_base::{ensure_string_limited, try_next_post};
 use polymesh_common_utilities::constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY;
+use polymesh_common_utilities::traits::identity::IdentityFnTrait;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 pub use polymesh_common_utilities::traits::settlement::{Event, RawEvent, WeightInfo};
 use polymesh_common_utilities::traits::{asset, compliance_manager, identity, nft, CommonConfig};
@@ -1067,11 +1068,13 @@ impl<T: Config> Module<T> {
         // Verifies if the venue is allowed for all tickers in the instruction
         Self::ensure_allowed_venue(&instruction_legs, venue_id)?;
 
+        let instruction_memo = InstructionMemos::get(&instruction_id);
         // Attempts to release the locks and transfer all fungible an non fungible assets
         if let Err(leg_id) = frame_storage_with_transaction(|| {
             Self::release_asset_locks_and_transfer_pending_legs(
                 instruction_id,
                 &instruction_legs,
+                instruction_memo,
                 weight_meter,
             )
         })? {
@@ -1099,8 +1102,10 @@ impl<T: Config> Module<T> {
     fn release_asset_locks_and_transfer_pending_legs(
         instruction_id: InstructionId,
         instruction_legs: &[(LegId, Leg)],
+        instruction_memo: Option<Memo>,
         weight_meter: &mut WeightMeter,
     ) -> TransactionOutcome<Result<Result<(), LegId>, DispatchError>> {
+        let caller_did = Identity::<T>::current_identity().unwrap_or(SettlementDID.as_id());
         Self::unchecked_release_locks(instruction_id, instruction_legs);
         for (leg_id, leg) in instruction_legs {
             if Self::instruction_leg_status(instruction_id, leg_id) == LegStatus::ExecutionPending {
@@ -1111,6 +1116,9 @@ impl<T: Config> Module<T> {
                             leg.to,
                             &ticker,
                             *amount,
+                            Some(instruction_id),
+                            instruction_memo.clone(),
+                            caller_did,
                             weight_meter,
                         )
                         .is_err()
@@ -1119,15 +1127,21 @@ impl<T: Config> Module<T> {
                         }
                     }
                     LegAsset::NonFungible(nfts) => {
-                        if <Nft<T>>::base_nft_transfer(&leg.from, &leg.to, &nfts, weight_meter)
-                            .is_err()
+                        if <Nft<T>>::base_nft_transfer(
+                            leg.from,
+                            leg.to,
+                            nfts.clone(),
+                            instruction_id,
+                            instruction_memo.clone(),
+                            caller_did,
+                            weight_meter,
+                        )
+                        .is_err()
                         {
                             return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
                         }
                     }
-                    LegAsset::OffChain { .. } => {
-                        // TODO: off_chain
-                    }
+                    LegAsset::OffChain { .. } => {}
                 }
             }
         }

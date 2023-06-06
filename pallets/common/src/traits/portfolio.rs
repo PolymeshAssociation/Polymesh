@@ -23,7 +23,7 @@ use frame_support::dispatch::DispatchResult;
 use frame_support::pallet_prelude::Get;
 use frame_support::weights::Weight;
 use polymesh_primitives::{
-    Balance, Fund, FundDescription, IdentityId, Memo, NFTId, NFTs, PortfolioId, PortfolioName,
+    Balance, Fund, FundDescription, IdentityId, Memo, NFTId, PortfolioId, PortfolioName,
     PortfolioNumber, SecondaryKey, Ticker,
 };
 use sp_std::vec::Vec;
@@ -87,15 +87,14 @@ pub trait PortfolioSubTrait<AccountId> {
 pub trait WeightInfo {
     fn create_portfolio() -> Weight;
     fn delete_portfolio() -> Weight;
-    fn move_portfolio_funds(i: u32) -> Weight;
     fn rename_portfolio(i: u32) -> Weight;
     fn quit_portfolio_custody() -> Weight;
     fn accept_portfolio_custody() -> Weight;
-    fn move_portfolio_v2(funds: &[Fund]) -> Weight {
+    fn move_portfolio(funds: &[Fund]) -> Weight {
         let (f, n) = count_token_moves(funds);
-        Self::move_portfolio_funds_v2(f, n)
+        Self::move_portfolio_funds(f, n)
     }
-    fn move_portfolio_funds_v2(f: u32, u: u32) -> Weight;
+    fn move_portfolio_funds(f: u32, u: u32) -> Weight;
 }
 
 pub trait Config: CommonConfig + identity::Config + base::Config {
@@ -124,22 +123,6 @@ decl_event! {
         /// * origin DID
         /// * portfolio number
         PortfolioDeleted(IdentityId, PortfolioNumber),
-        /// A token amount has been moved from one portfolio to another.
-        ///
-        /// # Parameters
-        /// * origin DID
-        /// * source portfolio
-        /// * destination portfolio
-        /// * asset ticker
-        /// * asset balance that was moved
-        MovedBetweenPortfolios(
-            IdentityId,
-            PortfolioId,
-            PortfolioId,
-            Ticker,
-            Balance,
-            Option<Memo>,
-        ),
         /// The portfolio identified with `num` has been renamed to `name`.
         ///
         /// # Parameters
@@ -160,36 +143,21 @@ decl_event! {
         /// * portfolio id
         /// * portfolio custodian did
         PortfolioCustodianChanged(IdentityId, PortfolioId, IdentityId),
-        /// NFTs have been moved from one portfolio to another.
+        /// Funds have moved between portfolios
         ///
         /// # Parameters
-        /// * origin DID
-        /// * source portfolio
-        /// * destination portfolio
-        /// * NFTs
-        NFTsMovedBetweenPortfolios(
+        /// * Origin DID.
+        /// * Source portfolio.
+        /// * Destination portfolio.
+        /// * The type of fund that was moved.
+        /// * Optional memo for the move.
+        FundsMovedBetweenPortfolios(
             IdentityId,
             PortfolioId,
             PortfolioId,
-            NFTs,
+            FundDescription,
             Option<Memo>
-        ),
-        /// A token amount has been moved from one portfolio to another.
-        ///
-        /// # Parameters
-        /// * origin DID
-        /// * source portfolio
-        /// * destination portfolio
-        /// * asset ticker
-        /// * asset balance that was moved
-        FungibleTokensMovedBetweenPortfolios(
-            IdentityId,
-            PortfolioId,
-            PortfolioId,
-            Ticker,
-            Balance,
-            Option<Memo>,
-        ),
+        )
     }
 }
 

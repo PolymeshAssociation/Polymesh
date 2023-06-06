@@ -9,7 +9,7 @@ use rand::{prelude::*, thread_rng};
 use sp_runtime::AnySignature;
 
 use pallet_nft::NumberOfNFTs;
-use pallet_portfolio::{MovePortfolioItem, PortfolioLockedNFT, PortfolioNFT};
+use pallet_portfolio::{PortfolioLockedNFT, PortfolioNFT};
 use pallet_scheduler as scheduler;
 use pallet_settlement::{InstructionLegs, VenueInstructions};
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
@@ -24,9 +24,9 @@ use polymesh_primitives::settlement::{
     VenueType,
 };
 use polymesh_primitives::{
-    AccountId, AuthorizationData, Balance, Claim, Condition, ConditionType, IdentityId, Memo,
-    NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind,
-    PortfolioName, PortfolioNumber, Signatory, Ticker, WeightMeter,
+    AccountId, AuthorizationData, Balance, Claim, Condition, ConditionType, Fund, FundDescription,
+    IdentityId, Memo, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId,
+    PortfolioKind, PortfolioName, PortfolioNumber, Signatory, Ticker, WeightMeter,
 };
 use test_client::AccountKeyring;
 
@@ -1673,10 +1673,12 @@ fn multiple_portfolio_settlement() {
             alice.origin(),
             PortfolioId::default_portfolio(alice.did),
             PortfolioId::user_portfolio(alice.did, alice_num),
-            vec![MovePortfolioItem {
-                ticker: TICKER,
-                amount,
-                memo: None
+            vec![Fund {
+                description: FundDescription::Fungible {
+                    ticker: TICKER,
+                    amount,
+                },
+                memo: None,
             }]
         ));
         set_current_block_number(15);
@@ -1758,10 +1760,12 @@ fn multiple_custodian_settlement() {
             alice.origin(),
             PortfolioId::default_portfolio(alice.did),
             PortfolioId::user_portfolio(alice.did, alice_num),
-            vec![MovePortfolioItem {
-                ticker: TICKER,
-                amount,
-                memo: None
+            vec![Fund {
+                description: FundDescription::Fungible {
+                    ticker: TICKER,
+                    amount,
+                },
+                memo: None,
             }]
         ));
 
