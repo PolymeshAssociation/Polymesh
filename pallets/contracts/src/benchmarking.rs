@@ -330,7 +330,7 @@ benchmarks! {
     }: _(user.origin(), ENDOWMENT, Weight::MAX, None, hash, vec![], other_salt, Permissions::default())
     verify {
         // Ensure contract has the full value.
-        assert_eq!(free_balance::<T>(&addr), ENDOWMENT);
+        assert_eq!(free_balance::<T>(&addr), ENDOWMENT + 1 as Balance);
     }
 
     // This constructs a contract that is maximal expensive to instrument.
@@ -361,7 +361,7 @@ benchmarks! {
     }: _(user.origin(), ENDOWMENT, Weight::MAX, None, wasm.code, vec![], salt, Permissions::default())
     verify {
         // Ensure contract has the full value.
-        assert_eq!(free_balance::<T>(&addr), ENDOWMENT);
+        assert_eq!(free_balance::<T>(&addr), ENDOWMENT + 1 as Balance);
     }
 
     update_call_runtime_whitelist {
