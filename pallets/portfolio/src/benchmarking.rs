@@ -15,27 +15,24 @@
 
 use core::convert::TryInto;
 use frame_benchmarking::benchmarks;
-use polymesh_common_utilities::{
-    asset::Config as AssetConfig,
-    benchs::{make_asset, user, AccountIdOf, User, UserBuilder},
-    constants::currency::ONE_UNIT,
-    TestUtilsFn,
-};
-use polymesh_primitives::{AuthorizationData, NFTs, PortfolioName, Signatory};
 use scale_info::prelude::format;
 use sp_api_hidden_includes_decl_storage::hidden_include::traits::Get;
 use sp_std::prelude::*;
+
+use polymesh_common_utilities::asset::Config as AssetConfig;
+use polymesh_common_utilities::benchs::{make_asset, user, AccountIdOf, User, UserBuilder};
+use polymesh_common_utilities::constants::currency::ONE_UNIT;
+use polymesh_common_utilities::TestUtilsFn;
+use polymesh_primitives::{AuthorizationData, NFTs, PortfolioName, Signatory};
 
 use crate::*;
 
 const PORTFOLIO_NAME_LEN: usize = 500;
 
-fn make_worst_memo() -> Option<Memo> {
-    Some(Memo([7u8; 32]))
-}
-
-fn owner_portfolio<T: Config + TestUtilsFn<<T as frame_system::Config>::AccountId>>(
-) -> (User<T>, PortfolioId) {
+fn owner_portfolio<T>() -> (User<T>, PortfolioId)
+where
+    T: Config + TestUtilsFn<<T as frame_system::Config>::AccountId>,
+{
     let owner = user::<T>("owner", 0);
 
     let name = PortfolioName(vec![65u8; PORTFOLIO_NAME_LEN as usize]);
@@ -47,7 +44,7 @@ fn owner_portfolio<T: Config + TestUtilsFn<<T as frame_system::Config>::AccountI
 }
 
 fn add_auth<T: Config>(owner: &User<T>, custodian: &User<T>, pid: PortfolioId) -> u64 {
-    identity::Module::<T>::add_auth(
+    pallet_identity::Module::<T>::add_auth(
         owner.did(),
         Signatory::from(custodian.did()),
         AuthorizationData::PortfolioCustody(pid),
@@ -86,38 +83,6 @@ benchmarks! {
     }: _(target.origin, next_portfolio_num.clone())
     verify {
         assert!(!Portfolios::contains_key(&did, &next_portfolio_num));
-    }
-
-    move_portfolio_funds {
-        // Number of assets being moved
-        let a in 1 .. 500;
-        let mut items = Vec::with_capacity(a as usize);
-        let target = user::<T>("target", 0);
-        let first_ticker = Ticker::generate_into(0u64);
-        let amount = Balance::from(10u32);
-        let portfolio_name = PortfolioName(vec![65u8; 5]);
-        let next_portfolio_num = NextPortfolioNumber::get(&target.did());
-        let default_portfolio = PortfolioId::default_portfolio(target.did());
-        let user_portfolio = PortfolioId::user_portfolio(target.did(), next_portfolio_num.clone());
-
-        for x in 0..a as u64 {
-            let ticker = make_asset::<T>(&target, Some(&Ticker::generate(x)));
-            items.push(MovePortfolioItem {
-                ticker,
-                amount: amount,
-                memo: make_worst_memo(),
-            });
-            PortfolioAssetBalances::insert(&default_portfolio, &ticker, amount);
-        }
-
-        Module::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone()).unwrap();
-
-        assert_eq!(PortfolioAssetBalances::get(&default_portfolio, &first_ticker), amount);
-        assert_eq!(PortfolioAssetBalances::get(&user_portfolio, &first_ticker), 0u32.into());
-    }: _(target.origin, default_portfolio, user_portfolio, items)
-    verify {
-        assert_eq!(PortfolioAssetBalances::get(&default_portfolio, &first_ticker), 0u32.into());
-        assert_eq!(PortfolioAssetBalances::get(&user_portfolio, &first_ticker), amount);
     }
 
     rename_portfolio {
@@ -162,7 +127,7 @@ benchmarks! {
         assert_custodian::<T>(user_portfolio, &custodian, true);
     }
 
-    move_portfolio_funds_v2 {
+    move_portfolio_funds {
         let f in 1..T::MaxNumberOfFungibleMoves::get() as u32;
         let n in 1..T::MaxNumberOfNFTsMoves::get() as u32;
 
@@ -187,4 +152,21 @@ benchmarks! {
             assert_eq!(PortfolioNFT::get(&alice_custom_portfolio, (&nft_ticker, NFTId(i as u64))), true);
         }
     }
+
+    pre_approve_portfolio {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let alice_custom_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::User(PortfolioNumber(1)) };
+
+        Module::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
+    }: _(alice.origin, ticker, alice_custom_portfolio)
+
+    remove_portfolio_pre_approval {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let alice_custom_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::User(PortfolioNumber(1)) };
+
+        Module::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
+        Module::<T>::pre_approve_portfolio(alice.clone().origin().into(), ticker, alice_custom_portfolio).unwrap();
+    }: _(alice.origin, ticker, alice_custom_portfolio)
 }

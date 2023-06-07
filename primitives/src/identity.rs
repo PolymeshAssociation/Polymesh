@@ -13,10 +13,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use codec::{Decode, Encode};
-use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
+
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 
 /// Identity record.
 ///

@@ -1,9 +1,8 @@
 use frame_support::storage::StorageDoubleMap;
 use frame_support::{assert_noop, assert_ok, StorageMap};
-use frame_system::EventRecord;
 
 use pallet_portfolio::{
-    Event, MovePortfolioItem, NameToNumber, PortfolioAssetBalances, PortfolioNFT,
+    Event, NameToNumber, PortfolioAssetBalances, PortfolioNFT, PreApprovedPortfolios,
 };
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::asset::{AssetType, NonFungibleType};
@@ -22,7 +21,7 @@ use super::asset_test::{create_token, max_len_bytes};
 use super::nft::{create_nft_collection, mint_nft};
 use super::settlement_test::create_venue;
 use super::storage::{EventTest, System, TestStorage, User};
-use super::{assert_last_event, ExtBuilder};
+use super::ExtBuilder;
 
 type Asset = pallet_asset::Module<TestStorage>;
 type Error = pallet_portfolio::Error<TestStorage>;
@@ -156,23 +155,26 @@ fn cannot_delete_portfolio_with_asset() {
             owner.origin(),
             owner_default_portfolio,
             owner_user_portfolio,
-            vec![MovePortfolioItem {
-                ticker,
-                amount: move_amount,
+            vec![Fund {
+                description: FundDescription::Fungible {
+                    ticker,
+                    amount: move_amount,
+                },
                 memo: None,
             }]
         ));
-        // check MovedBetweenPortfolios event
-        assert_last_event!(
-            EventTest::Portfolio(Event::MovedBetweenPortfolios(
-                did, from, to, i_ticker, i_amount, i_memo
+        assert_eq!(
+            EventTest::Portfolio(Event::FundsMovedBetweenPortfolios(
+                owner.did,
+                owner_default_portfolio,
+                owner_user_portfolio,
+                FundDescription::Fungible {
+                    ticker,
+                    amount: move_amount
+                },
+                None
             )),
-            did == &owner.did
-                && from == &owner_default_portfolio
-                && to == &owner_user_portfolio
-                && i_ticker == &ticker
-                && i_amount == &move_amount
-                && i_memo.is_none()
+            System::events().last().unwrap().event,
         );
         let ensure_balances = |default_portfolio_balance, user_portfolio_balance| {
             assert_eq!(
@@ -196,9 +198,11 @@ fn cannot_delete_portfolio_with_asset() {
             owner.origin(),
             owner_user_portfolio,
             owner_default_portfolio,
-            vec![MovePortfolioItem {
-                ticker,
-                amount: move_amount,
+            vec![Fund {
+                description: FundDescription::Fungible {
+                    ticker,
+                    amount: move_amount,
+                },
                 memo: None,
             }]
         ));
@@ -247,10 +251,12 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
             owner.origin(),
             owner_default_portfolio,
             owner_user_portfolio,
-            vec![MovePortfolioItem {
-                ticker,
-                amount: token.total_supply * 2,
-                memo: memo.clone()
+            vec![Fund {
+                description: FundDescription::Fungible {
+                    ticker,
+                    amount: token.total_supply * 2,
+                },
+                memo: memo.clone(),
             }]
         ),
         Error::InsufficientPortfolioBalance
@@ -271,10 +277,9 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
             owner.origin(),
             owner_default_portfolio,
             owner_default_portfolio,
-            vec![MovePortfolioItem {
-                ticker,
-                amount: 1,
-                memo: memo.clone()
+            vec![Fund {
+                description: FundDescription::Fungible { ticker, amount: 1 },
+                memo: memo.clone(),
             }]
         ),
         Error::DestinationIsSamePortfolio
@@ -306,10 +311,9 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
             bob.origin(),
             owner_default_portfolio,
             owner_user_portfolio,
-            vec![MovePortfolioItem {
-                ticker,
-                amount: 1,
-                memo: memo.clone()
+            vec![Fund {
+                description: FundDescription::Fungible { ticker, amount: 1 },
+                memo: memo.clone(),
             }]
         ),
         Error::UnauthorizedCustodian
@@ -321,23 +325,26 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
         owner.origin(),
         owner_default_portfolio,
         owner_user_portfolio,
-        vec![MovePortfolioItem {
-            ticker,
-            amount: move_amount,
-            memo: memo.clone()
+        vec![Fund {
+            description: FundDescription::Fungible {
+                ticker,
+                amount: move_amount,
+            },
+            memo: memo.clone(),
         }]
     ));
-    // check MovedBetweenPortfolios event
-    assert_last_event!(
-        EventTest::Portfolio(Event::MovedBetweenPortfolios(
-            did, from, to, i_ticker, i_amount, i_memo
+    assert_eq!(
+        EventTest::Portfolio(Event::FundsMovedBetweenPortfolios(
+            owner.did,
+            owner_default_portfolio,
+            owner_user_portfolio,
+            FundDescription::Fungible {
+                ticker,
+                amount: move_amount
+            },
+            memo.clone()
         )),
-        did == &owner.did
-            && from == &owner_default_portfolio
-            && to == &owner_user_portfolio
-            && i_ticker == &ticker
-            && i_amount == &move_amount
-            && i_memo == &memo
+        System::events().last().unwrap().event,
     );
     assert_ok!(Portfolio::ensure_portfolio_transfer_validity(
         &owner_default_portfolio,
@@ -390,9 +397,11 @@ fn can_lock_unlock_assets() {
                 owner.origin(),
                 owner_default_portfolio,
                 owner_user_portfolio,
-                vec![MovePortfolioItem {
-                    ticker,
-                    amount: token.total_supply,
+                vec![Fund {
+                    description: FundDescription::Fungible {
+                        ticker,
+                        amount: token.total_supply,
+                    },
                     memo: None,
                 }]
             ),
@@ -404,9 +413,11 @@ fn can_lock_unlock_assets() {
             owner.origin(),
             owner_default_portfolio,
             owner_user_portfolio,
-            vec![MovePortfolioItem {
-                ticker,
-                amount: lock_amount,
+            vec![Fund {
+                description: FundDescription::Fungible {
+                    ticker,
+                    amount: lock_amount,
+                },
                 memo: None,
             }]
         ));
@@ -429,10 +440,9 @@ fn can_lock_unlock_assets() {
                 owner.origin(),
                 owner_default_portfolio,
                 owner_user_portfolio,
-                vec![MovePortfolioItem {
-                    ticker,
-                    amount: 1,
-                    memo: None
+                vec![Fund {
+                    description: FundDescription::Fungible { ticker, amount: 1 },
+                    memo: None,
                 }]
             ),
             Error::InsufficientPortfolioBalance
@@ -463,9 +473,11 @@ fn can_lock_unlock_assets() {
             owner.origin(),
             owner_default_portfolio,
             owner_user_portfolio,
-            vec![MovePortfolioItem {
-                ticker,
-                amount: token.total_supply - lock_amount,
+            vec![Fund {
+                description: FundDescription::Fungible {
+                    ticker,
+                    amount: token.total_supply - lock_amount,
+                },
                 memo: None,
             }]
         ));
@@ -723,7 +735,7 @@ fn move_nft_not_in_portfolio() {
             memo: None,
         }];
         assert_noop!(
-            Portfolio::move_portfolio_funds_v2(
+            Portfolio::move_portfolio_funds(
                 alice.origin(),
                 alice_custom_portfolio,
                 alice_default_portfolio,
@@ -784,7 +796,7 @@ fn move_portfolio_nfts() {
                 memo: None,
             },
         ];
-        assert_ok!(Portfolio::move_portfolio_funds_v2(
+        assert_ok!(Portfolio::move_portfolio_funds(
             alice.origin(),
             alice_default_portfolio,
             alice_custom_portfolio,
@@ -831,15 +843,19 @@ fn move_more_funds() {
             PortfolioName(b"MyOwnPortfolio".to_vec())
         ));
 
-        let items = vec![
-            MovePortfolioItem {
-                ticker: ticker,
-                amount: 1_000_000_000,
+        let funds = vec![
+            Fund {
+                description: FundDescription::Fungible {
+                    ticker,
+                    amount: 1_000_000_000,
+                },
                 memo: None,
             },
-            MovePortfolioItem {
-                ticker: ticker,
-                amount: 1_000_000_000,
+            Fund {
+                description: FundDescription::Fungible {
+                    ticker,
+                    amount: 1_000_000_000,
+                },
                 memo: None,
             },
         ];
@@ -848,9 +864,86 @@ fn move_more_funds() {
                 alice.origin(),
                 alice_default_portfolio,
                 alice_custom_portfolio,
-                items,
+                funds,
             ),
             Error::NoDuplicateAssetsAllowed
         );
+    });
+}
+
+#[test]
+fn pre_approve_portfolio() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
+        let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
+        Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
+
+        Portfolio::pre_approve_portfolio(alice.origin(), TICKER, alice_default_portfolio).unwrap();
+
+        assert!(PreApprovedPortfolios::get(alice_default_portfolio, TICKER));
+        assert!(!PreApprovedPortfolios::get(alice_user_porfolio, TICKER));
+        assert!(!Portfolio::skip_portfolio_affirmation(
+            &alice_user_porfolio,
+            &TICKER
+        ));
+        assert!(Portfolio::skip_portfolio_affirmation(
+            &alice_default_portfolio,
+            &TICKER
+        ));
+    });
+}
+
+#[test]
+fn remove_portfolio_pre_approval() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
+        let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
+        Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
+
+        Portfolio::pre_approve_portfolio(alice.origin(), TICKER, alice_default_portfolio).unwrap();
+        Portfolio::remove_portfolio_pre_approval(alice.origin(), TICKER, alice_default_portfolio)
+            .unwrap();
+
+        assert!(!PreApprovedPortfolios::get(alice_default_portfolio, TICKER));
+        assert!(!PreApprovedPortfolios::get(alice_user_porfolio, TICKER));
+        assert!(!Portfolio::skip_portfolio_affirmation(
+            &alice_user_porfolio,
+            &TICKER
+        ));
+        assert!(!Portfolio::skip_portfolio_affirmation(
+            &alice_default_portfolio,
+            &TICKER
+        ));
+    });
+}
+
+#[test]
+fn unauthorized_custodian_pre_approval() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let eve = User::new(AccountKeyring::Eve);
+        let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
+        Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
+
+        assert_noop!(
+            Portfolio::pre_approve_portfolio(bob.origin(), TICKER, alice_user_porfolio),
+            Error::UnauthorizedCustodian
+        );
+
+        set_custodian_ok(alice, bob, alice_user_porfolio);
+
+        assert_noop!(
+            Portfolio::pre_approve_portfolio(eve.origin(), TICKER, alice_user_porfolio),
+            Error::UnauthorizedCustodian
+        );
+
+        assert_ok!(Portfolio::pre_approve_portfolio(
+            bob.origin(),
+            TICKER,
+            alice_user_porfolio
+        ),);
     });
 }

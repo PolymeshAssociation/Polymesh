@@ -13,18 +13,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use frame_benchmarking::benchmarks;
+
+use pallet_compliance_manager::Module as ComplianceManager;
+use polymesh_common_utilities::asset::AssetFnTrait;
+use polymesh_common_utilities::benchs::{user, AccountIdOf, User};
+use polymesh_common_utilities::TestUtilsFn;
+use polymesh_primitives::{Fund, FundDescription, PortfolioId, PortfolioNumber, Ticker};
+
 use super::*;
 use crate::benchmarking::{currency, did_whts, set_ca_targets, setup_ca, SEED};
 use crate::{CAKind, CorporateActions};
-use frame_benchmarking::benchmarks;
-use pallet_compliance_manager::Module as ComplianceManager;
-use pallet_portfolio::MovePortfolioItem;
-use polymesh_common_utilities::{
-    asset::AssetFnTrait,
-    benchs::{user, AccountIdOf, User},
-    TestUtilsFn,
-};
-use polymesh_primitives::{PortfolioId, PortfolioNumber, Ticker};
+
 const MAX_TARGETS: u32 = 1000;
 const MAX_DID_WHT_IDS: u32 = 1000;
 
@@ -36,9 +36,8 @@ fn portfolio<T: Config>(owner: &User<T>, pnum: PortfolioNumber, ticker: Ticker, 
         origin,
         PortfolioId::default_portfolio(did),
         PortfolioId::user_portfolio(did, pnum),
-        vec![MovePortfolioItem {
-            ticker,
-            amount,
+        vec![Fund {
+            description: FundDescription::Fungible { ticker, amount },
             memo: None,
         }],
     )

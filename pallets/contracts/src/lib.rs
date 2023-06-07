@@ -57,27 +57,26 @@ pub mod benchmarking;
 pub mod chain_extension;
 pub use chain_extension::{ExtrinsicId, PolymeshExtension};
 
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{
-        DispatchError, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
-    },
-    ensure,
-    traits::Get,
-    weights::Weight,
+use frame_support::dispatch::{
+    DispatchError, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
 };
+use frame_support::traits::Get;
+use frame_support::weights::Weight;
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::ensure_root;
-use pallet_contracts::Config as BConfig;
-use pallet_contracts_primitives::{Code, ContractResult};
-use pallet_identity::PermissionedCallOriginData;
-use pallet_identity::WeightInfo as _;
-use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
-use polymesh_common_utilities::with_transaction;
-use polymesh_primitives::{Balance, Permissions};
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::traits::Hash;
 use sp_std::borrow::Cow;
 use sp_std::{vec, vec::Vec};
+
+use pallet_contracts::Config as BConfig;
+use pallet_contracts_primitives::{Code, ContractResult};
+use pallet_identity::PermissionedCallOriginData;
+use polymesh_common_utilities::traits::identity::{
+    Config as IdentityConfig, WeightInfo as IdentityWeightInfo,
+};
+use polymesh_common_utilities::with_transaction;
+use polymesh_primitives::{Balance, Permissions};
 
 type Identity<T> = pallet_identity::Module<T>;
 type IdentityError<T> = pallet_identity::Error<T>;

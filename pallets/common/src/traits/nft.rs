@@ -9,9 +9,9 @@ use frame_support::decl_event;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use polymesh_primitives::asset_metadata::AssetMetadataKey;
-use polymesh_primitives::nft::{NFTCollectionId, NFTId};
+use polymesh_primitives::nft::{NFTCollectionId, NFTs};
 use polymesh_primitives::ticker::Ticker;
-use polymesh_primitives::IdentityId;
+use polymesh_primitives::{IdentityId, PortfolioId, PortfolioUpdateReason};
 
 use crate::compliance_manager::ComplianceFnConfig;
 use crate::{asset, base, identity, portfolio};
@@ -34,10 +34,16 @@ decl_event!(
     pub enum Event {
         /// Emitted when a new nft collection is created.
         NftCollectionCreated(IdentityId, Ticker, NFTCollectionId),
-        /// Emitted when a new nft is issued.
-        IssuedNFT(IdentityId, NFTCollectionId, NFTId),
-        /// Emitted when an NFT is redeemed.
-        RedeemedNFT(IdentityId, Ticker, NFTId),
+        /// Emitted when NFTs were issued, redeemed or transferred.
+        /// Contains the [`IdentityId`] of the receiver/issuer/redeemer, the [`NFTs`], the [`PortfolioId`] of the source, the [`PortfolioId`]
+        /// of the destination and the [`PortfolioUpdateReason`].
+        NFTPortfolioUpdated(
+            IdentityId,
+            NFTs,
+            Option<PortfolioId>,
+            Option<PortfolioId>,
+            PortfolioUpdateReason,
+        ),
     }
 );
 
@@ -49,7 +55,7 @@ pub trait WeightInfo {
 }
 
 pub trait NFTTrait<Origin> {
-    /// Returns true if the given `metadata_key` is a mandatory key for the ticker's NFT collection.
+    /// Returns `true` if the given `metadata_key` is a mandatory key for the ticker's NFT collection.
     fn is_collection_key(ticker: &Ticker, metadata_key: &AssetMetadataKey) -> bool;
 
     #[cfg(feature = "runtime-benchmarks")]

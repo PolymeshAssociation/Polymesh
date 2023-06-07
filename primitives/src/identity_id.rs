@@ -251,7 +251,7 @@ impl From<u64> for PortfolioNumber {
     }
 }
 
-/// TBD
+/// The kind of a portfolio. It can be either a default portfolio or a user-defined one.
 #[derive(Decode, Encode, TypeInfo)]
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -276,7 +276,8 @@ impl From<Option<PortfolioNumber>> for PortfolioKind {
     }
 }
 
-/// The ID of a portfolio.
+/// The identification of a portfolio. Contains the [`IdentityId`] of the portfolio owner
+/// and the portfolion [`PortfolioKind`]
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
