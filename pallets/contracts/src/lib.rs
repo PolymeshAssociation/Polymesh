@@ -97,9 +97,9 @@ where
     fn on_instantiate_transfer(caller: &T::AccountId, contract: &T::AccountId) -> DispatchResult {
         // Get the caller's identity.
         let did =
-            Identity::<T>::get_identity(&caller).ok_or(Error::<T>::InstantiatorWithNoIdentity)?;
+            Identity::<T>::get_identity(caller).ok_or(Error::<T>::InstantiatorWithNoIdentity)?;
         // Check if contact is already linked.
-        match Identity::<T>::get_identity(&contract) {
+        match Identity::<T>::get_identity(contract) {
             Some(contract_did) => {
                 if contract_did != did {
                     // Contract address already linked to a different identity.
@@ -306,7 +306,7 @@ decl_module! {
         /// - All the errors in `pallet_contracts::Call::instantiate_with_code` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = Module::<T>::weight_instantiate_with_code(&code, &salt, &perms).saturating_add(*gas_limit)]
+        #[weight = Module::<T>::weight_instantiate_with_code(code, salt, perms).saturating_add(*gas_limit)]
         pub fn instantiate_with_code_perms(
             origin,
             endowment: Balance,
@@ -347,7 +347,7 @@ decl_module! {
         /// - All the errors in `pallet_contracts::Call::instantiate` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = Module::<T>::weight_instantiate_with_hash(&salt, &perms).saturating_add(*gas_limit)]
+        #[weight = Module::<T>::weight_instantiate_with_hash(salt, perms).saturating_add(*gas_limit)]
         pub fn instantiate_with_hash_perms(
             origin,
             endowment: Balance,
@@ -429,7 +429,7 @@ where
 
     /// Computes weight of `instantiate_with_code(code, salt, perms)`.
     fn weight_instantiate_with_code(code: &[u8], salt: &[u8], perms: &Permissions) -> Weight {
-        <T as Config>::WeightInfo::instantiate_with_code_bytes(&code, &salt).saturating_add(
+        <T as Config>::WeightInfo::instantiate_with_code_bytes(code, salt).saturating_add(
             <T as IdentityConfig>::WeightInfo::permissions_cost_perms(perms),
         )
     }
@@ -461,7 +461,7 @@ where
 
     /// Computes weight of `instantiate_with_hash(code, salt, perms)`.
     fn weight_instantiate_with_hash(salt: &[u8], perms: &Permissions) -> Weight {
-        <T as Config>::WeightInfo::instantiate_with_hash_bytes(&salt).saturating_add(
+        <T as Config>::WeightInfo::instantiate_with_hash_bytes(salt).saturating_add(
             <T as IdentityConfig>::WeightInfo::permissions_cost_perms(perms),
         )
     }

@@ -605,7 +605,7 @@ impl<T: Config> Module<T> {
     }
 
     pub fn get_tx_details(tx: &BridgeTx<T::AccountId>) -> BridgeTxDetail<T::BlockNumber> {
-        Self::bridge_tx_details(&tx.recipient, &tx.nonce)
+        Self::bridge_tx_details(&tx.recipient, tx.nonce)
     }
 
     /// Issues the transacted amount to the recipient.
@@ -615,7 +615,7 @@ impl<T: Config> Module<T> {
         exempted_did: Option<IdentityId>,
     ) -> DispatchResult {
         let did = exempted_did
-            .or_else(|| T::CddChecker::get_key_cdd_did(&recipient))
+            .or_else(|| T::CddChecker::get_key_cdd_did(recipient))
             .ok_or(Error::<T>::NoValidCdd)?;
         let is_exempted = exempted_did.is_some() || Self::bridge_exempted(did);
 
@@ -634,7 +634,7 @@ impl<T: Config> Module<T> {
             <PolyxBridged<T>>::insert(did, (total_mint, current_interval))
         }
 
-        let _pos_imbalance = <balances::Pallet<T>>::deposit_creating(&recipient, *amount);
+        let _pos_imbalance = <balances::Pallet<T>>::deposit_creating(recipient, *amount);
 
         Ok(())
     }
@@ -677,9 +677,8 @@ impl<T: Config> Module<T> {
             Ok(_) => {
                 tx_details.status = BridgeTxStatus::Handled;
                 tx_details.execution_block = System::<T>::block_number();
-                <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
-                let current_did =
-                    Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
+                <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, bridge_tx.nonce, tx_details);
+                let current_did = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
                 Self::deposit_event(RawEvent::Bridged(current_did, bridge_tx));
                 Ok(())
             }
@@ -688,8 +687,7 @@ impl<T: Config> Module<T> {
                 if untrusted_manual_retry {
                     return Err(e);
                 }
-                let current_did =
-                    Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
+                let current_did = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
                 // Recipient missing CDD or limit reached.  Report error as an event.
                 Self::deposit_event(RawEvent::BridgeTxFailed(current_did, bridge_tx.clone(), e));
                 // Retry this tx again later.
@@ -747,7 +745,7 @@ impl<T: Config> Module<T> {
         Self::schedule_call(unlock_block_number, bridge_tx.clone())?;
 
         // Update transaction details.
-        <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
+        <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, bridge_tx.nonce, tx_details);
 
         Ok(())
     }
@@ -817,7 +815,7 @@ impl<T: Config> Module<T> {
                 // Ensure the caller is either the admin or controller.
                 ensure_caller()?;
                 tx_details.amount = bridge_tx.amount;
-                <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
+                <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, bridge_tx.nonce, tx_details);
                 Ok(())
             }
             BridgeTxStatus::Timelocked => fail!(Error::<T>::TimelockedTx),
@@ -868,7 +866,7 @@ impl<T: Config> Module<T> {
             RawOrigin::Root.into(),
             call,
         )?;
-        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
         Self::deposit_event(RawEvent::BridgeTxScheduled(
             current_did,
             bridge_tx,
@@ -992,7 +990,7 @@ impl<T: Config> Module<T> {
             })
             .for_each(|(tx, mut tx_details)| {
                 tx_details.status = BridgeTxStatus::Frozen;
-                <BridgeTxDetails<T>>::insert(&tx.recipient, &tx.nonce, tx_details);
+                <BridgeTxDetails<T>>::insert(&tx.recipient, tx.nonce, tx_details);
                 Self::deposit_event(RawEvent::FrozenTx(did, tx));
             });
         Ok(())
@@ -1016,7 +1014,7 @@ impl<T: Config> Module<T> {
             })
             .map(|(tx, mut tx_details)| {
                 tx_details.status = BridgeTxStatus::Absent;
-                <BridgeTxDetails<T>>::insert(&tx.recipient, &tx.nonce, tx_details.clone());
+                <BridgeTxDetails<T>>::insert(&tx.recipient, tx.nonce, tx_details.clone());
                 Self::deposit_event(RawEvent::UnfrozenTx(did, tx.clone()));
                 let (recipient, nonce) = (tx.recipient.clone(), tx.nonce);
                 let status = Self::handle_bridge_tx_now(tx, tx_details, true, None).into();
@@ -1036,12 +1034,12 @@ impl<T: Config> Module<T> {
         ensure!(
             bridge_txs
                 .iter()
-                .map(|tx| Self::get_tx_details(&tx))
+                .map(|tx| Self::get_tx_details(tx))
                 .all(|tx| tx.status == BridgeTxStatus::Frozen),
             Error::<T>::NotFrozen
         );
         for tx in bridge_txs {
-            <BridgeTxDetails<T>>::remove(&tx.recipient, &tx.nonce);
+            <BridgeTxDetails<T>>::remove(&tx.recipient, tx.nonce);
             Self::deposit_event(RawEvent::TxRemoved(did, tx));
         }
         Ok(())

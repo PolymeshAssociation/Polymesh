@@ -154,8 +154,8 @@ impl<T: Config> Module<T> {
     ///
     /// Results limited to `RPC_MAX_KEYS` secondary keys.
     pub fn get_did_records(did: IdentityId) -> RpcDidRecords<T::AccountId> {
-        if let Some(record) = DidRecords::<T>::get(&did) {
-            let secondary_keys = DidKeys::<T>::iter_key_prefix(&did)
+        if let Some(record) = DidRecords::<T>::get(did) {
+            let secondary_keys = DidKeys::<T>::iter_key_prefix(did)
                 .take(RPC_MAX_KEYS)
                 .filter_map(|key| {
                     // Lookup the key's permissions and convert that into a `SecondaryKey` type.
@@ -324,8 +324,8 @@ impl<T: Config> Module<T> {
 
         // Accept authorization from CDD service provider.
         if Self::cdd_auth_for_primary_key_rotation() {
-            let auth_id = optional_cdd_auth_id
-                .ok_or_else(|| Error::<T>::InvalidAuthorizationFromCddProvider)?;
+            let auth_id =
+                optional_cdd_auth_id.ok_or(Error::<T>::InvalidAuthorizationFromCddProvider)?;
 
             Self::accept_auth_with(&signer, auth_id, |data, auth_by| {
                 let attestation_for_did = extract_auth!(data, AttestPrimaryKeyRotation(a));
@@ -580,7 +580,7 @@ impl<T: Config> Module<T> {
         // Ensure that it is safe to unlink the secondary keys from the did.
         for key in &keys {
             // Ensure that the key is a secondary key.
-            Self::ensure_secondary_key(did, &key)?;
+            Self::ensure_secondary_key(did, key)?;
             // Ensure that the key can be unlinked.
             Self::ensure_key_unlinkable_from_did(key)?;
         }
@@ -725,10 +725,10 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         let (_, did) = Self::ensure_primary_key(origin)?;
         if freeze {
-            IsDidFrozen::insert(&did, true);
+            IsDidFrozen::insert(did, true);
             Self::deposit_event(RawEvent::SecondaryKeysFrozen(did))
         } else {
-            IsDidFrozen::remove(&did);
+            IsDidFrozen::remove(did);
             Self::deposit_event(RawEvent::SecondaryKeysUnfrozen(did));
         }
         Ok(())
@@ -738,7 +738,7 @@ impl<T: Config> Module<T> {
     fn make_did() -> Result<IdentityId, DispatchError> {
         let nonce = Self::multi_purpose_nonce() + 7u64;
         // Even if this transaction fails, nonce should be increased for added unpredictability of dids
-        MultiPurposeNonce::put(&nonce);
+        MultiPurposeNonce::put(nonce);
 
         // TODO: Look into getting randomness from `pallet_babe`.
         // NB: We can't get the current block's hash while processing
@@ -921,7 +921,7 @@ impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Module<T> {
             // Primary keys do not have / require further permission checks.
             KeyRecord::PrimaryKey(did) => Some(data(did, None)),
             // Secondary Key. Ensure DID isn't frozen + key has sufficient permissions.
-            KeyRecord::SecondaryKey(did, permissions) if !Self::is_did_frozen(&did) => {
+            KeyRecord::SecondaryKey(did, permissions) if !Self::is_did_frozen(did) => {
                 let sk = SecondaryKey {
                     key: who.clone(),
                     permissions,

@@ -14,7 +14,7 @@ pub fn evaluate_claim(
     match claim {
         Claim::InvestorUniqueness(_, scope_id, cdd_id) => {
             let message = InvestorZKProofData::make_message(id, scope.as_bytes());
-            verify_proof(cdd_id, id, scope_id, scope, proof, &message)
+            verify_proof(cdd_id, id, scope_id, scope, proof, message)
         }
         _ => false,
     }

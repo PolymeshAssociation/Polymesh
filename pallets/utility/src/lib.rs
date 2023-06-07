@@ -181,7 +181,7 @@ decl_module! {
         /// `BatchInterrupted` event is deposited, along with the number of successful calls made
         /// and the error of the failed call. If all were successful, then the `BatchCompleted`
         /// event is deposited.
-        #[weight = <T as Config>::WeightInfo::batch(&calls)]
+        #[weight = <T as Config>::WeightInfo::batch(calls)]
         pub fn batch(origin, calls: Vec<<T as Config>::Call>) {
             let is_root = Self::ensure_root_or_signed(origin.clone())?;
 
@@ -208,7 +208,7 @@ decl_module! {
         /// To determine the success of the batch, an event is deposited.
         /// If any call failed, then `BatchInterrupted` is deposited.
         /// If all were successful, then the `BatchCompleted` event is deposited.
-        #[weight = <T as Config>::WeightInfo::batch_atomic(&calls)]
+        #[weight = <T as Config>::WeightInfo::batch_atomic(calls)]
         pub fn batch_atomic(origin, calls: Vec<<T as Config>::Call>) {
             let is_root = Self::ensure_root_or_signed(origin.clone())?;
 
@@ -246,7 +246,7 @@ decl_module! {
         /// with a vector of event counts for each call as well as a vector
         /// of errors.
         /// If all were successful, then the `BatchCompleted` event is deposited.
-        #[weight = <T as Config>::WeightInfo::batch_optimistic(&calls)]
+        #[weight = <T as Config>::WeightInfo::batch_optimistic(calls)]
         pub fn batch_optimistic(origin, calls: Vec<<T as Config>::Call>) {
             let is_root = Self::ensure_root_or_signed(origin.clone())?;
 

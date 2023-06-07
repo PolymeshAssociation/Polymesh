@@ -304,7 +304,7 @@ impl<T: Config> Module<T> {
             claim,
         };
 
-        Claims::insert(&pk, &sk, id_claim.clone());
+        Claims::insert(pk, sk, id_claim.clone());
         Self::deposit_event(RawEvent::ClaimAdded(target, id_claim));
     }
 

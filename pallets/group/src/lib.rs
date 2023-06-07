@@ -341,7 +341,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
 
         <InactiveMembers<T, I>>::put(&members);
         let current_did = Context::current_identity::<Identity<T>>()
-            .ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
+            .ok_or(Error::<T, I>::MissingCurrentIdentity)?;
         Self::deposit_event(RawEvent::MemberRemoved(current_did, who));
         Ok(())
     }

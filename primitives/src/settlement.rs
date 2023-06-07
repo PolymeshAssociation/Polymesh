@@ -371,7 +371,7 @@ impl AssetCount {
         for leg in legs {
             match &leg.asset {
                 LegAsset::Fungible { .. } => asset_count.try_add_fungible()?,
-                LegAsset::NonFungible(nfts) => asset_count.try_add_non_fungible(&nfts)?,
+                LegAsset::NonFungible(nfts) => asset_count.try_add_non_fungible(nfts)?,
                 LegAsset::OffChain { .. } => asset_count.try_add_off_chain()?,
             }
         }
@@ -385,7 +385,7 @@ impl AssetCount {
         for (_, leg) in legs {
             match &leg.asset {
                 LegAsset::Fungible { .. } => asset_count.add_fungible(),
-                LegAsset::NonFungible(nfts) => asset_count.add_non_fungible(&nfts),
+                LegAsset::NonFungible(nfts) => asset_count.add_non_fungible(nfts),
                 LegAsset::OffChain { .. } => asset_count.add_off_chain(),
             }
         }

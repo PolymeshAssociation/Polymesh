@@ -60,8 +60,8 @@ fn sum_weights(calls: &[impl GetDispatchInfo]) -> Weight {
             // Each call has 2 reads and 2 writes overhead.
             num_calls
                 * DbWeight::get()
-                    .reads(2 as u64)
-                    .saturating_add(DbWeight::get().writes(2 as u64)),
+                    .reads(2)
+                    .saturating_add(DbWeight::get().writes(2)),
         )
 }
 

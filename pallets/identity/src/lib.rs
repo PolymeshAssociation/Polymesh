@@ -373,7 +373,7 @@ decl_module! {
         }
 
         /// Deprecated. Use `set_secondary_key_permissions` instead.
-        #[weight = <T as Config>::WeightInfo::set_secondary_key_permissions_full(&perms)]
+        #[weight = <T as Config>::WeightInfo::set_secondary_key_permissions_full(perms)]
         pub fn set_permission_to_signer(origin, key: Signatory<T::AccountId>, perms: Permissions) {
             match key {
                 Signatory::Account(key) => Self::base_set_secondary_key_permissions(origin, key, perms)?,
@@ -403,7 +403,7 @@ decl_module! {
 
         // Manage generic authorizations
         /// Adds an authorization.
-        #[weight = <T as Config>::WeightInfo::add_authorization_full::<T::AccountId>(&data)]
+        #[weight = <T as Config>::WeightInfo::add_authorization_full::<T::AccountId>(data)]
         pub fn add_authorization(
             origin,
             target: Signatory<T::AccountId>,
@@ -426,7 +426,7 @@ decl_module! {
         }
 
         /// Deprecated. Use `add_secondary_keys_with_authorization` instead.
-        #[weight = <T as Config>::WeightInfo::add_secondary_keys_full_v1::<T::AccountId>(&additional_keys)]
+        #[weight = <T as Config>::WeightInfo::add_secondary_keys_full_v1::<T::AccountId>(additional_keys)]
         pub fn add_secondary_keys_with_authorization_old(
             origin,
             additional_keys: Vec<SecondaryKeyWithAuthV1<T::AccountId>>,
@@ -532,7 +532,7 @@ decl_module! {
         /// # Errors
         ///     - Can only called by primary key owner.
         ///     - Keys should be able to linked to any identity.
-        #[weight = <T as Config>::WeightInfo::add_secondary_keys_full::<T::AccountId>(&additional_keys)]
+        #[weight = <T as Config>::WeightInfo::add_secondary_keys_full::<T::AccountId>(additional_keys)]
         pub fn add_secondary_keys_with_authorization(
             origin,
             additional_keys: Vec<SecondaryKeyWithAuth<T::AccountId>>,
@@ -544,7 +544,7 @@ decl_module! {
         /// Sets permissions for an specific `target_key` key.
         ///
         /// Only the primary key of an identity is able to set secondary key permissions.
-        #[weight = <T as Config>::WeightInfo::set_secondary_key_permissions_full(&perms)]
+        #[weight = <T as Config>::WeightInfo::set_secondary_key_permissions_full(perms)]
         pub fn set_secondary_key_permissions(origin, key: T::AccountId, perms: Permissions) {
             Self::base_set_secondary_key_permissions(origin, key, perms)?;
         }

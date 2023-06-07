@@ -116,18 +116,21 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Storage: Portfolio PortfolioAssetBalances (r:2 w:2)
     // Storage: Portfolio PortfolioLockedAssets (r:1 w:0)
     // Storage: Portfolio PortfolioAssetCount (r:1 w:1)
+    /// The range of component `f` is `[1, 10]`.
+    /// The range of component `n` is `[1, 100]`.
     fn move_portfolio_funds(f: u32, n: u32) -> Weight {
-        Weight::from_ref_time(68_018_000 as u64)
-            // Standard Error: 473_000
-            .saturating_add(Weight::from_ref_time(25_861_000 as u64).saturating_mul(f as u64))
-            // Standard Error: 23_000
-            .saturating_add(Weight::from_ref_time(13_023_000 as u64).saturating_mul(n as u64))
-            .saturating_add(DbWeight::get().reads(4 as u64))
-            .saturating_add(DbWeight::get().reads((4 as u64).saturating_mul(f as u64)))
-            .saturating_add(DbWeight::get().reads((2 as u64).saturating_mul(n as u64)))
-            .saturating_add(DbWeight::get().writes(1 as u64))
-            .saturating_add(DbWeight::get().writes((2 as u64).saturating_mul(f as u64)))
-            .saturating_add(DbWeight::get().writes((2 as u64).saturating_mul(n as u64)))
+        // Minimum execution time: 328_728 nanoseconds.
+        Weight::from_ref_time(64_392_098)
+            // Standard Error: 124_365
+            .saturating_add(Weight::from_ref_time(26_302_965).saturating_mul(f.into()))
+            // Standard Error: 11_686
+            .saturating_add(Weight::from_ref_time(11_275_176).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(4))
+            .saturating_add(DbWeight::get().reads((4_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes(1))
+            .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(n.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Portfolio Portfolios (r:1 w:0)

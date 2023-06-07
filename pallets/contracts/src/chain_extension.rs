@@ -116,20 +116,20 @@ impl FuncId {
     }
 }
 
-impl Into<u32> for FuncId {
-    fn into(self) -> u32 {
-        let (ext_id, func_id) = match self {
+impl From<FuncId> for u32 {
+    fn from(id: FuncId) -> Self {
+        let (ext_id, func_id) = match id {
             #[cfg(feature = "runtime-benchmarks")]
-            Self::NOP => (0x0000, 0x0000),
-            Self::CallRuntime => (0x0000, 0x01),
-            Self::ReadStorage => (0x0000, 0x02),
-            Self::GetSpecVersion => (0x0000, 0x03),
-            Self::GetTransactionVersion => (0x0000, 0x04),
-            Self::GetKeyDid => (0x0000, 0x05),
-            Self::KeyHasher(KeyHasher::Twox, HashSize::B64) => (0x0000, 0x10),
-            Self::KeyHasher(KeyHasher::Twox, HashSize::B128) => (0x0000, 0x11),
-            Self::KeyHasher(KeyHasher::Twox, HashSize::B256) => (0x0000, 0x12),
-            Self::OldCallRuntime(ExtrinsicId(ext_id, func_id)) => {
+            FuncId::NOP => (0x0000, 0x0000),
+            FuncId::CallRuntime => (0x0000, 0x01),
+            FuncId::ReadStorage => (0x0000, 0x02),
+            FuncId::GetSpecVersion => (0x0000, 0x03),
+            FuncId::GetTransactionVersion => (0x0000, 0x04),
+            FuncId::GetKeyDid => (0x0000, 0x05),
+            FuncId::KeyHasher(KeyHasher::Twox, HashSize::B64) => (0x0000, 0x10),
+            FuncId::KeyHasher(KeyHasher::Twox, HashSize::B128) => (0x0000, 0x11),
+            FuncId::KeyHasher(KeyHasher::Twox, HashSize::B256) => (0x0000, 0x12),
+            FuncId::OldCallRuntime(ExtrinsicId(ext_id, func_id)) => {
                 (ext_id as u32, (func_id as u32) << 8)
             }
         };
@@ -137,10 +137,9 @@ impl Into<u32> for FuncId {
     }
 }
 
-impl Into<i32> for FuncId {
-    fn into(self) -> i32 {
-        let id: u32 = self.into();
-        id as i32
+impl From<FuncId> for i32 {
+    fn from(func_id: FuncId) -> Self {
+        u32::from(func_id) as i32
     }
 }
 
@@ -240,7 +239,7 @@ where
     );
 
     // Charge weight based on storage value length `MaxOutLen`.
-    let max_len = T::MaxOutLen::get() as u32;
+    let max_len = T::MaxOutLen::get();
     let charged_amount =
         env.charge_weight(<T as Config>::WeightInfo::read_storage(key_len, max_len))?;
 

@@ -87,6 +87,11 @@ impl NFTs {
     pub fn len(&self) -> usize {
         self.ids.len()
     }
+
+    /// Returns `true` if there are no nfts being transferred.
+    pub fn is_empty(&self) -> bool {
+        self.ids.is_empty()
+    }
 }
 
 /// The metadata keys for the NFT collection.
@@ -94,19 +99,28 @@ impl NFTs {
 pub struct NFTCollectionKeys(Vec<AssetMetadataKey>);
 
 impl NFTCollectionKeys {
-    /// Returns a slice of all `AssetMetadataKey`.
+    /// Returns a slice of all [`AssetMetadataKey`].
     pub fn keys(&self) -> &[AssetMetadataKey] {
         &self.0
-    }
-
-    /// Returns an iterator, consuming the value, over `AssetMetadataKey`.
-    pub fn into_iter(self) -> IntoIter<AssetMetadataKey> {
-        self.0.into_iter()
     }
 
     /// Returns the number of metadata keys.
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    /// Returns `true` if there are no metadata keys.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl IntoIterator for NFTCollectionKeys {
+    type Item = AssetMetadataKey;
+    type IntoIter = IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 

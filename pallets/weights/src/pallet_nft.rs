@@ -70,37 +70,39 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Storage: Asset FundingRound (r:0 w:1)
     // Storage: Asset AssetOwnershipRelations (r:0 w:1)
     // Storage: Asset AssetNames (r:0 w:1)
-    // Storage: Asset ClassicTickers (r:0 w:1)
     // Storage: Asset DisableInvestorUniqueness (r:0 w:1)
     // Storage: Asset Identifiers (r:0 w:1)
     // Storage: ExternalAgents AgentOf (r:0 w:1)
     // Storage: ExternalAgents GroupOfAgent (r:0 w:1)
+    /// The range of component `n` is `[1, 255]`.
     fn create_nft_collection(n: u32) -> Weight {
-        Weight::from_ref_time(120_477_000 as u64)
-            // Standard Error: 6_000
-            .saturating_add(Weight::from_ref_time(3_674_000 as u64).saturating_mul(n as u64))
-            .saturating_add(DbWeight::get().reads(13 as u64))
-            .saturating_add(DbWeight::get().reads((1 as u64).saturating_mul(n as u64)))
-            .saturating_add(DbWeight::get().writes(16 as u64))
+        // Minimum execution time: 166_518 nanoseconds.
+        Weight::from_ref_time(166_456_814)
+            // Standard Error: 6_660
+            .saturating_add(Weight::from_ref_time(2_623_130).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(13))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes(15))
     }
     // Storage: NFT CollectionTicker (r:1 w:0)
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
-    // Storage: Portfolio PortfolioCustodian (r:1 w:0)
     // Storage: NFT CollectionKeys (r:1 w:0)
-    // Storage: Asset BalanceOf (r:1 w:1)
+    // Storage: NFT NumberOfNFTs (r:1 w:1)
     // Storage: NFT NextNFTId (r:1 w:1)
     // Storage: Portfolio PortfolioNFT (r:0 w:1)
     // Storage: NFT MetadataValue (r:0 w:1)
+    /// The range of component `n` is `[1, 255]`.
     fn issue_nft(n: u32) -> Weight {
-        Weight::from_ref_time(70_116_000 as u64)
-            // Standard Error: 4_000
-            .saturating_add(Weight::from_ref_time(2_578_000 as u64).saturating_mul(n as u64))
-            .saturating_add(DbWeight::get().reads(9 as u64))
-            .saturating_add(DbWeight::get().writes(3 as u64))
-            .saturating_add(DbWeight::get().writes((1 as u64).saturating_mul(n as u64)))
+        // Minimum execution time: 86_480 nanoseconds.
+        Weight::from_ref_time(84_506_032)
+            // Standard Error: 7_918
+            .saturating_add(Weight::from_ref_time(3_235_384).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(8))
+            .saturating_add(DbWeight::get().writes(3))
+            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
     }
     // Storage: NFT CollectionTicker (r:1 w:0)
     // Storage: Identity KeyRecords (r:1 w:0)
@@ -109,15 +111,17 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Portfolio PortfolioCustodian (r:1 w:0)
     // Storage: Portfolio PortfolioNFT (r:1 w:1)
-    // Storage: Asset BalanceOf (r:1 w:1)
+    // Storage: NFT NumberOfNFTs (r:1 w:1)
     // Storage: NFT MetadataValue (r:0 w:1)
+    /// The range of component `n` is `[1, 255]`.
     fn redeem_nft(n: u32) -> Weight {
-        Weight::from_ref_time(76_996_000 as u64)
-            // Standard Error: 4_000
-            .saturating_add(Weight::from_ref_time(871_000 as u64).saturating_mul(n as u64))
-            .saturating_add(DbWeight::get().reads(8 as u64))
-            .saturating_add(DbWeight::get().writes(2 as u64))
-            .saturating_add(DbWeight::get().writes((1 as u64).saturating_mul(n as u64)))
+        // Minimum execution time: 95_113 nanoseconds.
+        Weight::from_ref_time(94_359_878)
+            // Standard Error: 7_934
+            .saturating_add(Weight::from_ref_time(1_699_184).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(8))
+            .saturating_add(DbWeight::get().writes(2))
+            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
     }
     // Storage: NFT CollectionTicker (r:1 w:0)
     // Storage: Asset Frozen (r:1 w:0)
@@ -126,10 +130,10 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Storage: ComplianceManager AssetCompliances (r:1 w:0)
     /// The range of component `n` is `[1, 10]`.
     fn base_nft_transfer(n: u32) -> Weight {
-        // Minimum execution time: 100_853 nanoseconds.
-        Weight::from_ref_time(94_453_219)
-            // Standard Error: 25_703
-            .saturating_add(Weight::from_ref_time(9_033_745).saturating_mul(n.into()))
+        // Minimum execution time: 116_063 nanoseconds.
+        Weight::from_ref_time(108_814_519)
+            // Standard Error: 40_242
+            .saturating_add(Weight::from_ref_time(9_214_966).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(2))

@@ -79,7 +79,7 @@ impl Ticker {
     /// A-Z, least number of characters in Lexicographic order.
     /// Also convert it into the `Ticker` type.
     pub fn generate_into(n: u64) -> Self {
-        Ticker::from_slice_truncated(&*Ticker::generate(n))
+        Ticker::from_slice_truncated(&Ticker::generate(n))
     }
 
     /// Computes the effective length of the ticker, that is, the length of the minimal prefix after

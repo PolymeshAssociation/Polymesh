@@ -35,7 +35,7 @@ impl PartialEq for IgnoredCaseString {
 
 impl PartialEq<&[u8]> for IgnoredCaseString {
     fn eq(&self, other: &&[u8]) -> bool {
-        self.0.as_slice().eq_ignore_ascii_case(*other)
+        self.0.as_slice().eq_ignore_ascii_case(other)
     }
 }
 

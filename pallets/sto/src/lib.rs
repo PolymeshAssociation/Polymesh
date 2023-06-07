@@ -142,12 +142,12 @@ pub struct FundraiserTier {
     pub remaining: Balance,
 }
 
-impl Into<FundraiserTier> for PriceTier {
-    fn into(self) -> FundraiserTier {
+impl From<PriceTier> for FundraiserTier {
+    fn from(price_tier: PriceTier) -> Self {
         FundraiserTier {
-            total: self.total,
-            price: self.price,
-            remaining: self.total,
+            total: price_tier.total,
+            price: price_tier.price,
+            remaining: price_tier.total,
         }
     }
 }
@@ -338,7 +338,7 @@ decl_module! {
             }
 
             // Get the next fundraiser ID.
-            let mut seq = FundraiserCount::get(&offering_asset);
+            let mut seq = FundraiserCount::get(offering_asset);
             let id = try_next_post::<T, _>(&mut seq)?;
 
             <Portfolio<T>>::lock_tokens(&offering_portfolio, &offering_asset, offering_amount)?;

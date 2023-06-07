@@ -76,9 +76,8 @@ where
     /// However, this does not set the payer context since that is meant to remain constant
     /// throughout the transaction. This function can also be used to simply check CDD and update identity context.
     fn get_valid_payer(call: &C, caller: &AccountId) -> ValidPayerResult {
-        match H::get_valid_payer(call, caller) {
-            Some(r) => return r,
-            None => {}
+        if let Some(r) = H::get_valid_payer(call, caller) {
+            return r;
         }
 
         // Returns signatory to charge fee if cdd is valid.

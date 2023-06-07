@@ -183,7 +183,7 @@ impl<T: Config> Module<T> {
             .map_err(|_| Error::<T>::StatTypeLimitReached)?;
 
         // Get list of StatTypes required by current TransferConditions.
-        let required_types = AssetTransferCompliances::<T>::get(&asset)
+        let required_types = AssetTransferCompliances::<T>::get(asset)
             .requirements
             .into_iter()
             .map(|condition| condition.get_stat_type())
@@ -193,7 +193,7 @@ impl<T: Config> Module<T> {
         let remove_types = Self::active_asset_stats(asset)
             .into_iter()
             // Only remove stats that are not in the new `stat_types` set.
-            .filter(|stat_type| !stat_types.contains(&stat_type))
+            .filter(|stat_type| !stat_types.contains(stat_type))
             .map(|stat_type| {
                 if required_types.contains(&stat_type) {
                     // Throw an error if the user tries to remove a `StatType` required
@@ -220,12 +220,12 @@ impl<T: Config> Module<T> {
 
         // Save new stat types.
         let add_types = stat_types.iter().cloned().collect::<Vec<_>>();
-        ActiveAssetStats::<T>::insert(&asset, stat_types);
+        ActiveAssetStats::<T>::insert(asset, stat_types);
 
-        if remove_types.len() > 0 {
+        if !remove_types.is_empty() {
             Self::deposit_event(Event::StatTypesRemoved(did, asset, remove_types));
         }
-        if add_types.len() > 0 {
+        if !add_types.is_empty() {
             Self::deposit_event(Event::StatTypesAdded(did, asset, add_types));
         }
         Ok(())
@@ -292,11 +292,11 @@ impl<T: Config> Module<T> {
                 );
             }
 
-            AssetTransferCompliances::<T>::mutate(&asset, |old| {
+            AssetTransferCompliances::<T>::mutate(asset, |old| {
                 old.requirements = transfer_conditions.clone()
             });
         } else {
-            AssetTransferCompliances::<T>::remove(&asset);
+            AssetTransferCompliances::<T>::remove(asset);
         }
 
         Self::deposit_event(Event::SetAssetTransferCompliance(
@@ -318,7 +318,7 @@ impl<T: Config> Module<T> {
         let did = Self::ensure_asset_perms(origin, exempt_key.asset)?;
         if is_exempt {
             for entity in &entities {
-                TransferConditionExemptEntities::insert(&exempt_key, entity, true);
+                TransferConditionExemptEntities::insert(exempt_key, entity, true);
             }
             Self::deposit_event(Event::TransferConditionExemptionsAdded(
                 did,
@@ -327,7 +327,7 @@ impl<T: Config> Module<T> {
             ));
         } else {
             for entity in &entities {
-                TransferConditionExemptEntities::remove(&exempt_key, entity);
+                TransferConditionExemptEntities::remove(exempt_key, entity);
             }
             Self::deposit_event(Event::TransferConditionExemptionsRemoved(
                 did,
@@ -841,7 +841,7 @@ impl<T: Config> Module<T> {
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         let asset_scope = AssetScope::Ticker(*ticker);
-        let asset_transfer_requirements = AssetTransferCompliances::<T>::get(&asset_scope);
+        let asset_transfer_requirements = AssetTransferCompliances::<T>::get(asset_scope);
 
         // If the requirements are paused, the conditions are not checked
         if asset_transfer_requirements.paused {
@@ -886,7 +886,7 @@ impl<T: Config> Module<T> {
 
         for transfer_condition in transfer_conditions {
             if !Self::check_transfer_condition(
-                &transfer_condition,
+                transfer_condition,
                 asset_scope,
                 sender_scope,
                 receiver_scope,
@@ -919,7 +919,7 @@ impl<T: Config> Module<T> {
         weight_meter: &mut WeightMeter,
     ) -> Result<Vec<TransferConditionResult>, DispatchError> {
         let asset = AssetScope::Ticker(*ticker);
-        let tm = AssetTransferCompliances::<T>::get(&asset);
+        let tm = AssetTransferCompliances::<T>::get(asset);
 
         // Pre-Calculate the investor count changes.
         let count_changes = Self::investor_count_changes(

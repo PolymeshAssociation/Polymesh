@@ -271,10 +271,10 @@ decl_module! {
             let owner = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
             // If the ID matches and schedule is removable, it should be removed.
-            let schedule = Schedules::try_mutate(&ticker, |ss| {
+            let schedule = Schedules::try_mutate(ticker, |ss| {
                 ensure!(ScheduleRefCount::get(ticker, id) == 0, Error::<T>::ScheduleNotRemovable);
                 // By definiton of `id` existing, `.remove(pos)` won't panic.
-                Self::ensure_schedule_exists(&ss, id).map(|pos| ss.remove(pos))
+                Self::ensure_schedule_exists(ss, id).map(|pos| ss.remove(pos))
             })?;
 
             // Remove some additional data.
@@ -535,9 +535,9 @@ impl<T: Config> Module<T> {
             schedule,
             remaining,
         };
-        if let Some(_) = future_at {
+        if future_at.is_some() {
             // Sort schedule into the queue.
-            Schedules::insert(&ticker, {
+            Schedules::insert(ticker, {
                 let mut schedules = schedules;
                 add_schedule(&mut schedules, schedule);
                 schedules

@@ -132,7 +132,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::change_coefficient()]
         pub fn change_coefficient(origin, coefficient: PosRatio) {
             ensure_root(origin)?;
-            Coefficient::put(&coefficient);
+            Coefficient::put(coefficient);
             Self::deposit_event(Event::<T>::CoefficientSet(GC_DID, coefficient));
         }
 
@@ -143,7 +143,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::change_base_fee()]
         pub fn change_base_fee(origin, op: ProtocolOp, base_fee: Balance) {
             ensure_root(origin)?;
-            BaseFees::insert(op, &base_fee);
+            BaseFees::insert(op, base_fee);
             Self::deposit_event(Event::<T>::FeeSet(GC_DID, base_fee));
         }
     }

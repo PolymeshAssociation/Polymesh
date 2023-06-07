@@ -77,7 +77,7 @@ pub(crate) const DEFAULT_LONGEVITY: u64 = 25;
 pub fn set_check_offchain_execution_status<T: Config>(
     now: T::BlockNumber,
 ) -> Result<(), MutateStorageError<<T as frame_system::Config>::BlockNumber, &'static str>> {
-    let storage = StorageValueRef::persistent(&OFFCHAIN_HEAD_DB);
+    let storage = StorageValueRef::persistent(OFFCHAIN_HEAD_DB);
     let threshold = T::BlockNumber::from(OFFCHAIN_REPEAT);
 
     let mutate_stat = storage.mutate::<_, &'static str, _>(|maybe_head| {
@@ -148,7 +148,7 @@ pub(crate) fn compute_offchain_election<T: Config>() -> Result<(), OffchainElect
 pub fn get_balancing_iters<T: Config>() -> usize {
     match T::MaxIterations::get() {
         0 => 0,
-        max @ _ => {
+        max => {
             let seed = sp_io::offchain::random_seed();
             let random = <u32>::decode(&mut TrailingZeroInput::new(seed.as_ref()))
                 .expect("input is padded with zeroes; qed")
@@ -179,7 +179,7 @@ pub fn maximum_compact_len<W: crate::WeightInfo>(
     let weight_with = |voters: u32| -> u64 {
         W::submit_solution_better(
             size.validators.into(),
-            size.nominators.into(),
+            size.nominators,
             voters,
             winners_len,
         ).ref_time()
@@ -215,7 +215,7 @@ pub fn maximum_compact_len<W: crate::WeightInfo>(
             // we found the right value - early exit the function.
             Ok(next) => return next,
         }
-        step = step / 2;
+        step /= 2;
         current_weight = weight_with(voters);
     }
 
@@ -277,7 +277,7 @@ where
             let mut removed = 0;
             for (maybe_index, _stake) in voters_sorted
                 .iter()
-                .map(|(who, stake)| (nominator_index(&who), stake))
+                .map(|(who, stake)| (nominator_index(who), stake))
             {
                 let index = maybe_index.ok_or(OffchainElectionError::NominatorSnapshotCorrupt)?;
                 if compact.remove_voter(index) {
@@ -380,7 +380,7 @@ pub fn prepare_submission<T: Config>(
 
     // Convert back to ratio assignment. This takes less space.
     let low_accuracy_assignment = sp_npos_elections::assignment_staked_to_ratio_normalized(staked)
-        .map_err(|e| OffchainElectionError::from(e))?;
+        .map_err(OffchainElectionError::from)?;
 
     // compact encode the assignment.
     let compact = CompactAssignments::from_assignment(
@@ -388,7 +388,7 @@ pub fn prepare_submission<T: Config>(
         nominator_index,
         validator_index,
     )
-    .map_err(|e| OffchainElectionError::from(e))?;
+    .map_err(OffchainElectionError::from)?;
 
     // potentially reduce the size of the compact to fit weight.
     // let maximum_allowed_voters = maximum_compact_len::<<T as Config>::WeightInfo>(
@@ -419,7 +419,7 @@ pub fn prepare_submission<T: Config>(
         let compact = compact.clone();
         let assignments = compact.into_assignment(nominator_at, validator_at).unwrap();
         let staked = sp_npos_elections::assignment_ratio_to_staked(
-            assignments.clone(),
+            assignments,
             <Module<T>>::slashable_balance_of_fn(),
         );
 

@@ -175,7 +175,7 @@ fn currency_codes() -> Vec<Ticker> {
     }
 
     let currency_file = include_str!("data/currency_symbols.json");
-    let currency_data: FiatCurrency<String> = serde_json::from_str(&currency_file).unwrap();
+    let currency_data: FiatCurrency<String> = serde_json::from_str(currency_file).unwrap();
     currency_data
         .codes
         .into_iter()
@@ -584,7 +584,7 @@ fn itn_rewards() -> Vec<(AccountId, Balance)> {
     return Vec::new();
 
     let itn_rewards_file = include_str!("data/itn_rewards.json");
-    serde_json::from_str::<Vec<(HexAccountId, Balance)>>(&itn_rewards_file)
+    serde_json::from_str::<Vec<(HexAccountId, Balance)>>(itn_rewards_file)
         .unwrap()
         .into_iter()
         .map(|(acc, bal)| (acc.0.into(), bal))
@@ -593,7 +593,7 @@ fn itn_rewards() -> Vec<(AccountId, Balance)> {
 
 fn contracts_call_whitelist() -> Vec<polymesh_contracts::ExtrinsicId> {
     let whitelist_file = include_str!("data/contracts_call_whitelist.json");
-    serde_json::from_str::<Vec<polymesh_contracts::ExtrinsicId>>(&whitelist_file)
+    serde_json::from_str::<Vec<polymesh_contracts::ExtrinsicId>>(whitelist_file)
         .expect("Failed to read contracts call whitelist")
 }
 
@@ -897,7 +897,7 @@ pub mod testnet {
                 TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
                     .expect("Testnet bootstrap telemetry url is valid; qed"),
             ),
-            Some(&*"/polymesh/testnet"),
+            Some("/polymesh/testnet"),
             None,
             Some(polymath_props(42)),
             Default::default(),
@@ -1109,7 +1109,7 @@ pub mod mainnet {
                 TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
                     .expect("Mainnet bootstrap telemetry url is valid; qed"),
             ),
-            Some(&*"/polymesh/mainnet"),
+            Some("/polymesh/mainnet"),
             None,
             Some(polymath_props(12)),
             Default::default(),

@@ -764,7 +764,7 @@ decl_module! {
             let created_at = System::<T>::block_number();
             let expiry = Self::pending_pip_expiry() + created_at;
             let transaction_version = <T::Version as Get<RuntimeVersion>>::get().transaction_version;
-            let proposal_data = Self::reportable_proposal_data(&*proposal);
+            let proposal_data = Self::reportable_proposal_data(&proposal);
             <ProposalMetadata<T>>::insert(id, PipsMetadata {
                 id,
                 created_at,
@@ -789,7 +789,7 @@ decl_module! {
 
             // Record the deposit and as a signal if we have a community PIP.
             if let Proposer::Community(ref proposer) = proposer {
-                <Deposits<T>>::insert(id, &proposer, DepositInfo {
+                <Deposits<T>>::insert(id, proposer, DepositInfo {
                     owner: proposer.clone(),
                     amount: deposit
                 });
@@ -902,7 +902,7 @@ decl_module! {
             Self::is_proposal_state(id, ProposalState::Pending)?;
 
             // Ensure proposal is by committee.
-            let pip = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            let pip = Self::proposals(id).ok_or(Error::<T>::NoSuchProposal)?;
             ensure!(matches!(pip.proposer, Proposer::Committee(_)), Error::<T>::NotByCommittee);
 
             // All is good, schedule PIP for execution.
@@ -920,7 +920,7 @@ decl_module! {
         #[weight = (<T as Config>::WeightInfo::reject_proposal(), Operational)]
         pub fn reject_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
-            let proposal_state = Self::proposal_state(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            let proposal_state = Self::proposal_state(id).ok_or(Error::<T>::NoSuchProposal)?;
             ensure!(Self::is_active(proposal_state), Error::<T>::IncorrectProposalState);
             Self::maybe_unschedule_pip(id, proposal_state);
             Self::maybe_unsnapshot_pip(id, proposal_state);
@@ -1043,7 +1043,7 @@ decl_module! {
         ///      results[i].0 ≠ SnapshotQueue[SnapshotQueue.len() - i].id
         ///   ```
         ///    This is protects against clearing queue while GC is voting.
-        #[weight = (enact_snapshot_results::<T>(&results), Operational)]
+        #[weight = (enact_snapshot_results::<T>(results), Operational)]
         pub fn enact_snapshot_results(origin, results: Vec<(PipId, SnapshotResult)>) -> DispatchResult {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
 
@@ -1169,7 +1169,7 @@ impl<T: Config> Module<T> {
                     })
                     .map(Proposer::Committee)?;
                 let did = Context::current_identity::<Identity<T>>()
-                    .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+                    .ok_or(Error::<T>::MissingCurrentIdentity)?;
                 Ok((proposer, did))
             }
         }
@@ -1206,7 +1206,7 @@ impl<T: Config> Module<T> {
     /// Remove the PIP with `id` from the `ExecutionSchedule` at `block_no`.
     fn unschedule_pip(id: PipId) {
         <PipToSchedule<T>>::remove(id);
-        if let Err(_) = T::Scheduler::cancel_named(id.execution_name()) {
+        if T::Scheduler::cancel_named(id.execution_name()).is_err() {
             Self::deposit_event(RawEvent::ExecutionCancellingFailed(id));
         }
     }

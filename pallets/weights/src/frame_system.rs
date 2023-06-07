@@ -55,15 +55,17 @@ pub struct SubstrateWeight;
 impl frame_system::WeightInfo for SubstrateWeight {
     /// The range of component `b` is `[0, 7864320]`.
     fn remark(b: u32) -> Weight {
-        Weight::from_ref_time(382_693_000 as u64)
+        // Minimum execution time: 7_492 nanoseconds.
+        Weight::from_ref_time(7_577_000)
             // Standard Error: 0
-            .saturating_add(Weight::from_ref_time(219 as u64).saturating_mul(b as u64))
+            .saturating_add(Weight::from_ref_time(415).saturating_mul(b.into()))
     }
     /// The range of component `b` is `[0, 7864320]`.
     fn remark_with_event(b: u32) -> Weight {
-        Weight::from_ref_time(133_584_000 as u64)
-            // Standard Error: 0
-            .saturating_add(Weight::from_ref_time(2_000 as u64).saturating_mul(b as u64))
+        // Minimum execution time: 22_524 nanoseconds.
+        Weight::from_ref_time(22_698_000)
+            // Standard Error: 1
+            .saturating_add(Weight::from_ref_time(1_601).saturating_mul(b.into()))
     }
     // Storage: System Digest (r:1 w:1)
     // Storage: unknown [0x3a686561707061676573] (r:0 w:1)

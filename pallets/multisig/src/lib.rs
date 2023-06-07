@@ -504,7 +504,7 @@ decl_module! {
             );
 
             for signer in &signers {
-                Self::ensure_ms_signer(&multisig, &signer)?;
+                Self::ensure_ms_signer(&multisig, signer)?;
             }
 
             for signer in signers {
@@ -771,7 +771,7 @@ impl<T: Config> Module<T> {
 
     /// Changes the required signature count for a given multisig.
     fn unsafe_change_sigs_required(multisig: T::AccountId, sigs_required: u64) {
-        <MultiSigSignsRequired<T>>::insert(&multisig, &sigs_required);
+        <MultiSigSignsRequired<T>>::insert(&multisig, sigs_required);
         Self::deposit_event(RawEvent::MultiSigSignaturesRequiredChanged(
             Context::current_identity::<Identity<T>>().unwrap_or_default(),
             multisig,
@@ -799,7 +799,7 @@ impl<T: Config> Module<T> {
                 None,
             );
         }
-        <MultiSigSignsRequired<T>>::insert(&account_id, &sigs_required);
+        <MultiSigSignsRequired<T>>::insert(&account_id, sigs_required);
         <MultiSigToIdentity<T>>::insert(account_id.clone(), sender_did);
         Ok(account_id)
     }
@@ -1122,10 +1122,10 @@ impl<T: Config> Module<T> {
         multisig: &T::AccountId,
     ) -> DispatchResult {
         ensure!(
-            <MultiSigToIdentity<T>>::contains_key(&multisig),
+            <MultiSigToIdentity<T>>::contains_key(multisig),
             Error::<T>::MultisigMissingIdentity
         );
-        let multisig_did = <MultiSigToIdentity<T>>::get(&multisig);
+        let multisig_did = <MultiSigToIdentity<T>>::get(multisig);
         ensure!(multisig_did == sender_did, Error::<T>::IdentityNotCreator);
         Ok(())
     }

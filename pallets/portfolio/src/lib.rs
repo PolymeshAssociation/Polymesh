@@ -175,8 +175,8 @@ decl_module! {
             Self::ensure_name_unique(&did, &name)?;
 
             let num = Self::get_next_portfolio_number(&did);
-            NameToNumber::insert(&did, &name, num);
-            Portfolios::insert(&did, &num, name.clone());
+            NameToNumber::insert(did, &name, num);
+            Portfolios::insert(did, num, name.clone());
             Self::deposit_event(Event::PortfolioCreated(did, num, name));
         }
 
@@ -208,16 +208,16 @@ decl_module! {
             Self::ensure_portfolio_custody_and_permission(pid, primary_did, secondary_key.as_ref())?;
 
             // Delete from storage.
-            let portfolio = Portfolios::get(&primary_did, &num);
-            Portfolios::remove(&primary_did, &num);
-            NameToNumber::remove(&primary_did, &portfolio);
-            PortfolioAssetCount::remove(&pid);
+            let portfolio = Portfolios::get(primary_did, num);
+            Portfolios::remove(primary_did, num);
+            NameToNumber::remove(primary_did, portfolio);
+            PortfolioAssetCount::remove(pid);
             #[allow(deprecated)]
-            PortfolioAssetBalances::remove_prefix(&pid, None);
+            PortfolioAssetBalances::remove_prefix(pid, None);
             #[allow(deprecated)]
-            PortfolioLockedAssets::remove_prefix(&pid, None);
-            PortfoliosInCustody::remove(&Self::custodian(&pid), &pid);
-            PortfolioCustodian::remove(&pid);
+            PortfolioLockedAssets::remove_prefix(pid, None);
+            PortfoliosInCustody::remove(Self::custodian(&pid), pid);
+            PortfolioCustodian::remove(pid);
 
             // Emit event.
             Self::deposit_event(Event::PortfolioDeleted(primary_did, num));
@@ -252,9 +252,9 @@ decl_module! {
             Self::ensure_name_unique(&primary_did, &to_name)?;
 
             // Change the name in storage.
-            Portfolios::mutate(&primary_did, &num, |p| {
-                NameToNumber::remove(&primary_did, mem::replace(p, to_name.clone()));
-                NameToNumber::insert(&primary_did, &to_name, num);
+            Portfolios::mutate(primary_did, num, |p| {
+                NameToNumber::remove(primary_did, mem::replace(p, to_name.clone()));
+                NameToNumber::insert(primary_did, &to_name, num);
             });
 
             // Emit Event.
@@ -279,8 +279,8 @@ decl_module! {
             let custodian = Self::custodian(&pid);
             ensure!(did == custodian, Error::<T>::UnauthorizedCustodian);
 
-            PortfolioCustodian::remove(&pid);
-            PortfoliosInCustody::remove(&custodian, &pid);
+            PortfolioCustodian::remove(pid);
+            PortfoliosInCustody::remove(custodian, pid);
             Self::deposit_event(Event::PortfolioCustodianChanged(
                 did,
                 pid,
@@ -320,7 +320,7 @@ decl_module! {
         ) -> DispatchResult {
             // Verifies if the given portfolios are valid
             let primary_did =
-                Self::ensure_portfolios_validity_and_permissions(origin, from.clone(), to.clone())?;
+                Self::ensure_portfolios_validity_and_permissions(origin, from, to)?;
 
             // Verifies if the sender has all the funds
             Self::ensure_valid_funds(&from, &funds)?;
@@ -389,7 +389,7 @@ decl_module! {
 impl<T: Config> Module<T> {
     /// Returns the custodian of `pid`.
     fn custodian(pid: &PortfolioId) -> IdentityId {
-        PortfolioCustodian::get(&pid).unwrap_or(pid.did)
+        PortfolioCustodian::get(pid).unwrap_or(pid.did)
     }
 
     /// Returns the ticker balance of the identity's default portfolio.
@@ -409,7 +409,7 @@ impl<T: Config> Module<T> {
     /// Sets the ticker balance of the identity's default portfolio to `new`.
     pub fn set_default_portfolio_balance(did: IdentityId, ticker: &Ticker, new: Balance) {
         let pid = PortfolioId::default_portfolio(did);
-        PortfolioAssetBalances::mutate(&pid, ticker, |old| {
+        PortfolioAssetBalances::mutate(pid, ticker, |old| {
             Self::transition_asset_count(&pid, *old, new);
             *old = new;
         });
@@ -528,7 +528,7 @@ impl<T: Config> Module<T> {
         Self::ensure_portfolio_validity(to_portfolio)?;
 
         // 3. Ensure sender has enough free balance
-        Self::ensure_sufficient_balance(&from_portfolio, ticker, amount)
+        Self::ensure_sufficient_balance(from_portfolio, ticker, amount)
     }
 
     /// Granular `ensure_portfolio_transfer_validity`.
@@ -544,7 +544,7 @@ impl<T: Config> Module<T> {
         let receiver_portfolio_does_not_exist =
             Self::ensure_portfolio_validity(to_portfolio).is_err();
         let sender_insufficient_balance =
-            Self::ensure_sufficient_balance(&from_portfolio, ticker, amount).is_err();
+            Self::ensure_sufficient_balance(from_portfolio, ticker, amount).is_err();
         PortfolioValidityResult {
             receiver_is_same_portfolio,
             sender_portfolio_does_not_exist,
@@ -565,8 +565,8 @@ impl<T: Config> Module<T> {
         amount: Balance,
     ) -> DispatchResult {
         // Ensure portfolio has enough free balance
-        let total_balance = Self::portfolio_asset_balances(&pid, ticker);
-        let locked_balance = Self::locked_assets(&pid, ticker);
+        let total_balance = Self::portfolio_asset_balances(pid, ticker);
+        let locked_balance = Self::locked_assets(pid, ticker);
         let remaining_balance = total_balance
             .checked_sub(amount)
             .filter(|rb| rb >= &locked_balance)
@@ -620,13 +620,13 @@ impl<T: Config> Module<T> {
             <Identity<T>>::ensure_auth_by(from, curr)?;
 
             // Transfer custody of `pid` over to `to`, removing it from `curr`.
-            PortfoliosInCustody::remove(&curr, &pid);
+            PortfoliosInCustody::remove(curr, pid);
             if pid.did == to {
                 // Set the custodian to the default value `None` meaning that the owner is the custodian.
-                PortfolioCustodian::remove(&pid);
+                PortfolioCustodian::remove(pid);
             } else {
-                PortfolioCustodian::insert(&pid, to);
-                PortfoliosInCustody::insert(&to, &pid, true);
+                PortfolioCustodian::insert(pid, to);
+                PortfoliosInCustody::insert(to, pid, true);
             }
 
             Self::deposit_event(Event::PortfolioCustodianChanged(to, pid, to));
@@ -673,7 +673,7 @@ impl<T: Config> Module<T> {
                         unique_tickers.insert(ticker),
                         Error::<T>::NoDuplicateAssetsAllowed
                     );
-                    Self::ensure_sufficient_balance(sender_portfolio, &ticker, *amount)?;
+                    Self::ensure_sufficient_balance(sender_portfolio, ticker, *amount)?;
                 }
                 FundDescription::NonFungible(nfts) => {
                     Self::ensure_valid_nfts(sender_portfolio, nfts.ticker(), nfts.ids())?;
@@ -728,8 +728,8 @@ impl<T: Config> Module<T> {
                 }
                 FundDescription::NonFungible(nfts) => {
                     for nft_id in nfts.ids() {
-                        PortfolioNFT::remove(&sender_portfolio, (nfts.ticker(), nft_id));
-                        PortfolioNFT::insert(&receiver_portfolio, (nfts.ticker(), nft_id), true);
+                        PortfolioNFT::remove(sender_portfolio, (nfts.ticker(), nft_id));
+                        PortfolioNFT::insert(receiver_portfolio, (nfts.ticker(), nft_id), true);
                     }
                     Self::deposit_event(Event::FundsMovedBetweenPortfolios(
                         origin_did,
@@ -756,7 +756,7 @@ impl<T: Config> Module<T> {
             origin_data.secondary_key.as_ref(),
         )?;
 
-        PreApprovedPortfolios::insert(&portfolio_id, ticker, true);
+        PreApprovedPortfolios::insert(portfolio_id, ticker, true);
         Ok(())
     }
 
@@ -773,7 +773,7 @@ impl<T: Config> Module<T> {
             origin_data.secondary_key.as_ref(),
         )?;
 
-        PreApprovedPortfolios::remove(&portfolio_id, ticker);
+        PreApprovedPortfolios::remove(portfolio_id, ticker);
         Ok(())
     }
 }

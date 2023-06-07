@@ -13,22 +13,19 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::identity::Config as IdentityConfig;
+use codec::{Decode, Encode};
+use frame_support::decl_event;
+use frame_support::dispatch::DispatchResult;
+use frame_support::traits::{ChangeMembers, EnsureOrigin, InitializeMembers};
+use frame_support::weights::Weight;
+
+use scale_info::TypeInfo;
+use sp_std::cmp::{Eq, Ordering, PartialEq};
+use sp_std::vec::Vec;
 
 use polymesh_primitives::IdentityId;
 
-use codec::{Decode, Encode};
-use frame_support::{
-    decl_event,
-    dispatch::DispatchResult,
-    traits::{ChangeMembers, EnsureOrigin, InitializeMembers},
-    weights::Weight,
-};
-use scale_info::TypeInfo;
-use sp_std::{
-    cmp::{Eq, Ordering, PartialEq},
-    vec::Vec,
-};
+use crate::identity::Config as IdentityConfig;
 
 /// The number of group members.
 pub type MemberCount = u32;
@@ -180,7 +177,7 @@ pub trait GroupTrait<Moment: PartialOrd + Copy> {
             .chain(
                 Self::get_inactive_members()
                     .into_iter()
-                    .filter(|m| !Self::is_member_expired(&m, moment))
+                    .filter(|m| !Self::is_member_expired(m, moment))
                     .map(|m| m.id),
             )
             .collect::<Vec<_>>()

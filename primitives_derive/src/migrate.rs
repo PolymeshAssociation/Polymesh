@@ -79,7 +79,7 @@ fn quote_pack_unpack(
         .iter()
         .enumerate()
         .map(|(index, (migrate, with, field))| match &field.ident {
-            Some(ident) => (quote!( #ident ), pack(with, migrate, &ident, ident)),
+            Some(ident) => (quote!( #ident ), pack(with, migrate, ident, ident)),
             None => {
                 let span = field.ty.span();
                 let index = index as u32;

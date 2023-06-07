@@ -49,11 +49,9 @@ impl<AccountId> Context<AccountId> {
     ) -> Result<IdentityId, DispatchError> {
         Self::current_identity::<I>()
             .or_else(|| I::get_identity(key))
-            .ok_or_else(|| {
-                DispatchError::Other(
-                    "Current identity is none and key is not linked to any identity",
-                )
-            })
+            .ok_or(DispatchError::Other(
+                "Current identity is none and key is not linked to any identity",
+            ))
     }
 
     #[cfg(feature = "default_identity")]

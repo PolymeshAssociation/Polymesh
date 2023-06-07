@@ -203,7 +203,7 @@ impl<T: Config> Module<T> {
 
         // Verifies if the ticker is already associated to an NFT collection
         ensure!(
-            !CollectionTicker::contains_key(&ticker),
+            !CollectionTicker::contains_key(ticker),
             Error::<T>::CollectionAlredyRegistered
         );
 
@@ -235,7 +235,7 @@ impl<T: Config> Module<T> {
             Asset::<T>::create_asset(
                 origin,
                 AssetName(ticker.as_slice().to_vec()),
-                ticker.clone(),
+                ticker,
                 false,
                 AssetType::NonFungible(nft_type),
                 Vec::new(),
@@ -246,10 +246,10 @@ impl<T: Config> Module<T> {
 
         // Creates the nft collection
         let collection_id = NextCollectionId::try_mutate(try_next_pre::<T, _>)?;
-        let nft_collection = NFTCollection::new(collection_id, ticker.clone());
-        Collection::insert(&collection_id, nft_collection);
-        CollectionKeys::insert(&collection_id, collection_keys);
-        CollectionTicker::insert(&ticker, &collection_id);
+        let nft_collection = NFTCollection::new(collection_id, ticker);
+        Collection::insert(collection_id, nft_collection);
+        CollectionKeys::insert(collection_id, collection_keys);
+        CollectionTicker::insert(ticker, collection_id);
 
         Self::deposit_event(Event::NftCollectionCreated(
             caller_did,
@@ -267,19 +267,16 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         // Verifies if the collection exists
         let collection_id =
-            CollectionTicker::try_get(&ticker).map_err(|_| Error::<T>::CollectionNotFound)?;
+            CollectionTicker::try_get(ticker).map_err(|_| Error::<T>::CollectionNotFound)?;
 
         // Verifies if the caller has the right permissions (regarding asset and portfolio)
-        let caller_portfolio = Asset::<T>::ensure_agent_with_custody_and_perms(
-            origin,
-            ticker.clone(),
-            portfolio_kind,
-        )?;
+        let caller_portfolio =
+            Asset::<T>::ensure_agent_with_custody_and_perms(origin, ticker, portfolio_kind)?;
 
         Portfolio::<T>::ensure_portfolio_validity(&caller_portfolio)?;
 
         // Verifies that all mandatory keys are being set and that there are no duplicated keys
-        let mandatory_keys: BTreeSet<AssetMetadataKey> = Self::collection_keys(&collection_id);
+        let mandatory_keys: BTreeSet<AssetMetadataKey> = Self::collection_keys(collection_id);
         ensure!(
             mandatory_keys.len() == metadata_attributes.len(),
             Error::<T>::InvalidMetadataAttribute
@@ -303,11 +300,11 @@ impl<T: Config> Module<T> {
         }
 
         // Mints the NFT and adds it to the caller's portfolio
-        let new_balance = NumberOfNFTs::get(&ticker, &caller_portfolio.did)
+        let new_balance = NumberOfNFTs::get(ticker, caller_portfolio.did)
             .checked_add(1)
             .ok_or(Error::<T>::BalanceOverflow)?;
-        let nft_id = NextNFTId::try_mutate(&collection_id, try_next_pre::<T, _>)?;
-        NumberOfNFTs::insert(&ticker, &caller_portfolio.did, new_balance);
+        let nft_id = NextNFTId::try_mutate(collection_id, try_next_pre::<T, _>)?;
+        NumberOfNFTs::insert(ticker, caller_portfolio.did, new_balance);
         for (metadata_key, metadata_value) in nft_attributes.into_iter() {
             MetadataValue::insert((&collection_id, &nft_id), metadata_key, metadata_value);
         }
@@ -333,7 +330,7 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         // Verifies if the collection exists
         let collection_id =
-            CollectionTicker::try_get(&ticker).map_err(|_| Error::<T>::CollectionNotFound)?;
+            CollectionTicker::try_get(ticker).map_err(|_| Error::<T>::CollectionNotFound)?;
 
         // Ensure origin is agent with custody and permissions for default portfolio.
         let caller_portfolio =
@@ -341,16 +338,16 @@ impl<T: Config> Module<T> {
 
         // Verifies if the NFT exists
         ensure!(
-            PortfolioNFT::contains_key(&caller_portfolio, (&ticker, &nft_id)),
+            PortfolioNFT::contains_key(caller_portfolio, (&ticker, &nft_id)),
             Error::<T>::NFTNotFound
         );
 
         // Burns the NFT
-        let new_balance = NumberOfNFTs::get(&ticker, &caller_portfolio.did)
+        let new_balance = NumberOfNFTs::get(ticker, caller_portfolio.did)
             .checked_sub(1)
             .ok_or(Error::<T>::BalanceUnderflow)?;
-        NumberOfNFTs::insert(&ticker, &caller_portfolio.did, new_balance);
-        PortfolioNFT::remove(&caller_portfolio, (&ticker, &nft_id));
+        NumberOfNFTs::insert(ticker, caller_portfolio.did, new_balance);
+        PortfolioNFT::remove(caller_portfolio, (&ticker, &nft_id));
         #[allow(deprecated)]
         MetadataValue::remove_prefix((&collection_id, &nft_id), None);
 
@@ -463,7 +460,7 @@ impl<T: Config> Module<T> {
 
     /// Verifies that the number of NFTs being transferred is greater than zero and less or equal to `MaxNumberOfNFTsPerLeg`.
     pub fn ensure_within_nfts_transfer_limits(nfts: &NFTs) -> DispatchResult {
-        ensure!(nfts.len() > 0, Error::<T>::ZeroCount);
+        ensure!(!nfts.is_empty(), Error::<T>::ZeroCount);
         ensure!(
             nfts.len() <= (T::MaxNumberOfNFTsCount::get() as usize),
             Error::<T>::MaxNumberOfNFTsPerLegExceeded
@@ -483,7 +480,7 @@ impl<T: Config> NFTTrait<T::RuntimeOrigin> for Module<T> {
     fn is_collection_key(ticker: &Ticker, metadata_key: &AssetMetadataKey) -> bool {
         match CollectionTicker::try_get(ticker) {
             Ok(collection_id) => {
-                let key_set = CollectionKeys::get(&collection_id);
+                let key_set = CollectionKeys::get(collection_id);
                 key_set.contains(metadata_key)
             }
             Err(_) => false,

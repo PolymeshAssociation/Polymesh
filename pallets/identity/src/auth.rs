@@ -52,7 +52,7 @@ impl<T: Config> Module<T> {
         expiry: Option<T::Moment>,
     ) -> u64 {
         let new_nonce = Self::multi_purpose_nonce() + 1u64;
-        MultiPurposeNonce::put(&new_nonce);
+        MultiPurposeNonce::put(new_nonce);
 
         let auth = Authorization {
             authorization_data: authorization_data.clone(),
@@ -187,7 +187,7 @@ impl<T: Config> Module<T> {
 
             // check if count is zero
             if auth.count == 0 {
-                <Authorizations<T>>::remove(&target, auth_id);
+                <Authorizations<T>>::remove(target, auth_id);
                 <AuthorizationsGiven<T>>::remove(auth.authorized_by, auth_id);
                 Self::deposit_event(RawEvent::AuthorizationRetryLimitReached(
                     target.as_identity().cloned(),
@@ -196,7 +196,7 @@ impl<T: Config> Module<T> {
                 ));
             } else {
                 // update authorization
-                <Authorizations<T>>::insert(&target, auth_id, auth);
+                <Authorizations<T>>::insert(target, auth_id, auth);
             }
 
             // return error
@@ -204,7 +204,7 @@ impl<T: Config> Module<T> {
         }
 
         // Remove authorization from storage and emit event.
-        <Authorizations<T>>::remove(&target, auth_id);
+        <Authorizations<T>>::remove(target, auth_id);
         <AuthorizationsGiven<T>>::remove(auth.authorized_by, auth_id);
         Self::deposit_event(RawEvent::AuthorizationConsumed(
             target.as_identity().cloned(),

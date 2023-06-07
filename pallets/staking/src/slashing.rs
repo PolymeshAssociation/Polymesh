@@ -243,7 +243,7 @@ pub(crate) fn compute_slash<T: Config>(params: SlashParams<T>)
     }
 
     let (prior_slash_p, _era_slash) = <Module<T> as Store>::ValidatorSlashInEra::get(
-        &slash_era,
+        slash_era,
         stash,
     ).unwrap_or((Perbill::zero(), Zero::zero()));
 
@@ -251,9 +251,9 @@ pub(crate) fn compute_slash<T: Config>(params: SlashParams<T>)
     // error.
     if slash.deconstruct() > prior_slash_p.deconstruct() {
         <Module<T> as Store>::ValidatorSlashInEra::insert(
-            &slash_era,
+            slash_era,
             stash,
-            &(slash, own_slash),
+            (slash, own_slash),
         );
     } else {
         // we slash based on the max in era - this new event is not the max,
@@ -412,16 +412,16 @@ fn slash_nominators<T: Config>(
             let own_slash_difference = own_slash_by_validator.saturating_sub(own_slash_prior);
 
             let mut era_slash = <Module<T> as Store>::NominatorSlashInEra::get(
-                &slash_era,
+                slash_era,
                 stash,
-            ).unwrap_or_else(|| Zero::zero());
+            ).unwrap_or_else(Zero::zero);
 
             era_slash += own_slash_difference;
 
             <Module<T> as Store>::NominatorSlashInEra::insert(
-                &slash_era,
+                slash_era,
                 stash,
-                &era_slash,
+                era_slash,
             );
 
             era_slash
@@ -588,9 +588,9 @@ impl<'a, T: 'a + Config> Drop for InspectingSpans<'a, T> {
 /// Clear slashing metadata for an obsolete era.
 pub(crate) fn clear_era_metadata<T: Config>(obsolete_era: EraIndex) {
     #[allow(deprecated)]
-    <Module<T> as Store>::ValidatorSlashInEra::remove_prefix(&obsolete_era, None);
+    <Module<T> as Store>::ValidatorSlashInEra::remove_prefix(obsolete_era, None);
     #[allow(deprecated)]
-    <Module<T> as Store>::NominatorSlashInEra::remove_prefix(&obsolete_era, None);
+    <Module<T> as Store>::NominatorSlashInEra::remove_prefix(obsolete_era, None);
 }
 
 /// Clear slashing metadata for a dead account.
@@ -674,7 +674,7 @@ pub(crate) fn apply_slash<T: Config>(unapplied_slash: UnappliedSlash<T::AccountI
     if <Module<T>>::slashing_allowed_for() == SlashingSwitch::ValidatorAndNominator {
         for &(ref nominator, nominator_slash) in &unapplied_slash.others {
             do_slash::<T>(
-                &nominator,
+                nominator,
                 nominator_slash,
                 &mut reward_payout,
                 &mut slashed_imbalance,

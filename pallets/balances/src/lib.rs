@@ -447,7 +447,7 @@ impl<T: Config> Module<T> {
 
     /// Get both the free and reserved balances of an account.
     fn account(who: &T::AccountId) -> AccountData {
-        T::AccountStore::get(&who)
+        T::AccountStore::get(who)
     }
 
     /// Places the `free` and `reserved` parts of `new` into `account`. Also does any steps needed

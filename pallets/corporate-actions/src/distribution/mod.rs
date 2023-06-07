@@ -487,10 +487,10 @@ impl<T: Config> Module<T> {
         dist: &Distribution,
     ) -> DispatchResult {
         // Cannot remove payment has started.
-        Self::ensure_distribution_not_started(&dist)?;
+        Self::ensure_distribution_not_started(dist)?;
 
         // Unlock and remove chain data.
-        Self::unlock(&dist, dist.amount)?;
+        Self::unlock(dist, dist.amount)?;
         Distributions::remove(ca_id);
 
         // Emit event.
@@ -560,7 +560,7 @@ impl<T: Config> Module<T> {
                 gain,
                 None,
                 None,
-                actor.clone().risky_into_inner(),
+                actor.risky_into_inner(),
                 &mut weight_meter,
             )
         })?;

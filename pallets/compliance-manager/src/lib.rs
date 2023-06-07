@@ -163,7 +163,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::add_compliance_requirement_full(&sender_conditions, &receiver_conditions)]
+        #[weight = <T as Config>::WeightInfo::add_compliance_requirement_full(sender_conditions, receiver_conditions)]
         pub fn add_compliance_requirement(
             origin,
             ticker: Ticker,
@@ -212,7 +212,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::replace_asset_compliance_full(&asset_compliance)]
+        #[weight = <T as Config>::WeightInfo::replace_asset_compliance_full(asset_compliance)]
         pub fn replace_asset_compliance(origin, ticker: Ticker, asset_compliance: Vec<ComplianceRequirement>) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
@@ -233,7 +233,7 @@ decl_module! {
             Self::verify_compliance_complexity(&asset_compliance, ticker, 0)?;
 
             // Commit changes to storage + emit event.
-            AssetCompliances::mutate(&ticker, |old| old.requirements = asset_compliance.clone());
+            AssetCompliances::mutate(ticker, |old| old.requirements = asset_compliance.clone());
             Self::deposit_event(Event::AssetComplianceReplaced(did, ticker, asset_compliance));
         }
 
@@ -325,7 +325,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::change_compliance_requirement_full(&new_req)]
+        #[weight = <T as Config>::WeightInfo::change_compliance_requirement_full(new_req)]
         pub fn change_compliance_requirement(origin, ticker: Ticker, new_req: ComplianceRequirement) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
@@ -345,10 +345,10 @@ decl_module! {
 
             // Update asset compliance and verify complexity is limited.
             reqs[pos] = new_req.clone();
-            Self::verify_compliance_complexity(&reqs, ticker, 0)?;
+            Self::verify_compliance_complexity(reqs, ticker, 0)?;
 
             // Store updated asset compliance.
-            AssetCompliances::insert(&ticker, asset_compliance);
+            AssetCompliances::insert(ticker, asset_compliance);
             Self::deposit_event(Event::ComplianceRequirementChanged(did, ticker, new_req));
         }
     }
@@ -386,7 +386,7 @@ impl<T: Config> Module<T> {
         T::ProtocolFee::charge_fee(ProtocolOp::ComplianceManagerAddComplianceRequirement)?;
 
         // Commit new compliance to storage & emit event.
-        AssetCompliances::insert(&ticker, asset_compliance);
+        AssetCompliances::insert(ticker, asset_compliance);
         Self::deposit_event(Event::ComplianceRequirementCreated(
             caller_did, ticker, new_req,
         ));
@@ -556,9 +556,9 @@ impl<T: Config> Module<T> {
         slot: &mut Option<Vec<TrustedIssuer>>,
         weight_meter: &mut WeightMeter,
     ) -> Result<bool, DispatchError> {
-        let context = Self::fetch_context(did, ticker, slot, &condition, weight_meter)?;
+        let context = Self::fetch_context(did, ticker, slot, condition, weight_meter)?;
         let any_ea = |ctx: Context<_>| ExternalAgents::<T>::agents(ticker, ctx.id).is_some();
-        Ok(proposition::run(&condition, context, any_ea))
+        Ok(proposition::run(condition, context, any_ea))
     }
 
     /// Returns whether all conditions, in their proper context, hold when evaluated.
@@ -580,7 +580,7 @@ impl<T: Config> Module<T> {
                 weight_meter,
             )?;
             condition.result = condition_holds;
-            all_conditions_hold = all_conditions_hold & condition_holds;
+            all_conditions_hold &= condition_holds;
         }
         Ok(all_conditions_hold)
     }
@@ -592,7 +592,7 @@ impl<T: Config> Module<T> {
         pause: bool,
     ) -> Result<IdentityId, DispatchError> {
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
-        AssetCompliances::mutate(&ticker, |compliance| compliance.paused = pause);
+        AssetCompliances::mutate(ticker, |compliance| compliance.paused = pause);
         Ok(did)
     }
 

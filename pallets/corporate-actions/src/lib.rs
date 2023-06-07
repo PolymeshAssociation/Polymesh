@@ -171,7 +171,7 @@ impl TargetIdentities {
     /// Complexity: O(log n) with `n` being the number of identities listed.
     pub fn targets(&self, did: &IdentityId) -> bool {
         // N.B. The binary search here is OK since the list of identities is sorted.
-        self.treatment.is_include() == self.identities.binary_search(&did).is_ok()
+        self.treatment.is_include() == self.identities.binary_search(did).is_ok()
     }
 }
 

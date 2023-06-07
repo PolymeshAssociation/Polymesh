@@ -317,7 +317,7 @@ decl_storage! {
             // Reserving country currency logic
             let fiat_tickers_reservation_did = SystematicIssuers::FiatTickersReservation.as_id();
             for currency_ticker in &config.reserved_country_currency_codes {
-                <Module<T>>::unverified_register_ticker(&currency_ticker, fiat_tickers_reservation_did, None);
+                <Module<T>>::unverified_register_ticker(currency_ticker, fiat_tickers_reservation_did, None);
             }
         });
     }
@@ -1001,7 +1001,7 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
 
     /// Get the asset `id` balance of `who`.
     fn balance(ticker: &Ticker, who: IdentityId) -> Balance {
-        Self::balance_of(ticker, &who)
+        Self::balance_of(ticker, who)
     }
 
     fn create_asset(
@@ -1085,7 +1085,7 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
 impl<T: Config> AssetSubTrait for Module<T> {
     fn update_balance_of_scope_id(scope_id: ScopeId, target_did: IdentityId, ticker: Ticker) {
         // If `target_did` already has another ScopeId, clean up the old ScopeId data.
-        if ScopeIdOf::contains_key(&ticker, &target_did) {
+        if ScopeIdOf::contains_key(ticker, target_did) {
             let old_scope_id = Self::scope_id(&ticker, &target_did);
             // Delete the balance of target_did at old_scope_id.
             let target_balance = BalanceOfAtScope::take(old_scope_id, target_did);
@@ -1104,7 +1104,7 @@ impl<T: Config> AssetSubTrait for Module<T> {
             // Update the balance of `target_did` under `scope_id`.
             BalanceOfAtScope::insert(scope_id, target_did, current_balance);
             // current aggregate balance + current identity balance is always less than the total supply of `ticker`.
-            AggregateBalance::mutate(ticker, scope_id, |bal| *bal = *bal + current_balance);
+            AggregateBalance::mutate(ticker, scope_id, |bal| *bal += current_balance);
         }
         // Caches the `ScopeId` for a given IdentityId and ticker.
         // this is needed to avoid the on-chain iteration of the claims to find the ScopeId.
@@ -1207,7 +1207,7 @@ impl<T: Config> Module<T> {
 
     /// Ensure that `ticker` is a valid created asset.
     fn ensure_asset_exists(ticker: &Ticker) -> DispatchResult {
-        ensure!(Tokens::contains_key(&ticker), Error::<T>::NoSuchAsset);
+        ensure!(Tokens::contains_key(ticker), Error::<T>::NoSuchAsset);
         Ok(())
     }
 
@@ -1221,7 +1221,7 @@ impl<T: Config> Module<T> {
     }
 
     pub fn is_owner(ticker: &Ticker, did: IdentityId) -> bool {
-        match Self::asset_ownership_relation(&did, &ticker) {
+        match Self::asset_ownership_relation(did, ticker) {
             AssetOwnershipRelation::AssetOwned | AssetOwnershipRelation::TickerOwned => true,
             AssetOwnershipRelation::NotOwned => false,
         }
@@ -1301,16 +1301,16 @@ impl<T: Config> Module<T> {
         no_re_register: bool,
         config: impl FnOnce() -> TickerRegistrationConfig<T::Moment>,
     ) -> Result<Option<T::Moment>, DispatchError> {
-        Self::ensure_ticker_ascii(&ticker)?;
-        Self::ensure_asset_fresh(&ticker)?;
+        Self::ensure_ticker_ascii(ticker)?;
+        Self::ensure_asset_fresh(ticker)?;
 
         let config = config();
 
         // Ensure the ticker is not too long.
-        Self::ensure_ticker_length(&ticker, &config)?;
+        Self::ensure_ticker_length(ticker, &config)?;
 
         // Ensure that the ticker is not registered by someone else (or `to_did`, possibly).
-        if match Self::is_ticker_available_or_registered_to(&ticker, to_did) {
+        if match Self::is_ticker_available_or_registered_to(ticker, to_did) {
             TickerRegistrationStatus::RegisteredByOther => true,
             TickerRegistrationStatus::RegisteredByDid => no_re_register,
             _ => false,
@@ -1350,7 +1350,7 @@ impl<T: Config> Module<T> {
 
     pub fn get_balance_at(ticker: Ticker, did: IdentityId, at: CheckpointId) -> Balance {
         <Checkpoint<T>>::balance_at(ticker, did, at)
-            .unwrap_or_else(|| Self::balance_of(&ticker, &did))
+            .unwrap_or_else(|| Self::balance_of(ticker, did))
     }
 
     pub fn _is_valid_transfer(
@@ -1409,7 +1409,7 @@ impl<T: Config> Module<T> {
 
         // Ensures the token is fungible
         ensure!(
-            Tokens::get(&ticker).asset_type.is_fungible(),
+            Tokens::get(ticker).asset_type.is_fungible(),
             Error::<T>::UnexpectedNonFungibleToken
         );
 
@@ -1436,9 +1436,9 @@ impl<T: Config> Module<T> {
         )?;
 
         // reduce sender's balance
-        BalanceOf::insert(ticker, &from_portfolio.did, updated_from_total_balance);
+        BalanceOf::insert(ticker, from_portfolio.did, updated_from_total_balance);
         // increase receiver's balance
-        BalanceOf::insert(ticker, &to_portfolio.did, updated_to_total_balance);
+        BalanceOf::insert(ticker, to_portfolio.did, updated_to_total_balance);
         // transfer portfolio balances
         Portfolio::<T>::unchecked_transfer_portfolio_balance(
             &from_portfolio,
@@ -1473,8 +1473,8 @@ impl<T: Config> Module<T> {
             ticker,
             Some(&from_portfolio.did),
             Some(&to_portfolio.did),
-            Some(Self::aggregate_balance_of(ticker, &from_scope_id)),
-            Some(Self::aggregate_balance_of(ticker, &to_scope_id)),
+            Some(Self::aggregate_balance_of(ticker, from_scope_id)),
+            Some(Self::aggregate_balance_of(ticker, to_scope_id)),
             value,
             weight_meter,
         )?;
@@ -1504,14 +1504,14 @@ impl<T: Config> Module<T> {
     ) {
         // Calculate the new aggregate balance for given did.
         // It should not be underflow/overflow but still to be defensive.
-        let aggregate_balance = Self::aggregate_balance_of(ticker, &scope_id);
+        let aggregate_balance = Self::aggregate_balance_of(ticker, scope_id);
         let new_aggregate_balance = if is_sender {
             aggregate_balance.saturating_sub(value)
         } else {
             aggregate_balance.saturating_add(value)
         };
 
-        AggregateBalance::insert(ticker, &scope_id, new_aggregate_balance);
+        AggregateBalance::insert(ticker, scope_id, new_aggregate_balance);
         BalanceOfAtScope::insert(scope_id, did, updated_balance);
     }
 
@@ -1562,7 +1562,7 @@ impl<T: Config> Module<T> {
 
         // Increase total supply.
         token.total_supply = updated_total_supply;
-        BalanceOf::insert(ticker, &to_did, updated_to_balance);
+        BalanceOf::insert(ticker, to_did, updated_to_balance);
         Portfolio::<T>::set_default_portfolio_balance(to_did, ticker, updated_to_def_balance);
         Tokens::insert(ticker, token);
 
@@ -1574,14 +1574,14 @@ impl<T: Config> Module<T> {
             // is enabled and the issuer doesn't have a claim yet.
 
             // Update scope balances.
-            Self::update_scope_balance(&ticker, value, scope_id, to_did, updated_to_balance, false);
+            Self::update_scope_balance(ticker, value, scope_id, to_did, updated_to_balance, false);
 
             // Using the aggregate balance to update the unique investor count.
-            updated_to_balance = Self::aggregate_balance_of(ticker, &scope_id);
+            updated_to_balance = Self::aggregate_balance_of(ticker, scope_id);
         }
 
         Statistics::<T>::update_asset_stats(
-            &ticker,
+            ticker,
             None,
             Some(&to_did),
             None,
@@ -1612,7 +1612,7 @@ impl<T: Config> Module<T> {
 
     fn ensure_granular(ticker: &Ticker, value: Balance) -> DispatchResult {
         ensure!(
-            Self::check_granularity(&ticker, value),
+            Self::check_granularity(ticker, value),
             Error::<T>::InvalidGranularity
         );
         Ok(())
@@ -1639,7 +1639,7 @@ impl<T: Config> Module<T> {
 
             Self::ensure_asset_fresh(&ticker)?;
 
-            let owner = Self::ticker_registration(&ticker).owner;
+            let owner = Self::ticker_registration(ticker).owner;
             <Identity<T>>::ensure_auth_by(auth_by, owner)?;
 
             Self::transfer_ticker(ticker, to, owner);
@@ -1651,7 +1651,7 @@ impl<T: Config> Module<T> {
     fn transfer_ticker(ticker: Ticker, to: IdentityId, from: IdentityId) {
         AssetOwnershipRelations::remove(from, ticker);
         AssetOwnershipRelations::insert(to, ticker, AssetOwnershipRelation::TickerOwned);
-        <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to);
+        <Tickers<T>>::mutate(ticker, |tr| tr.owner = to);
         Self::deposit_event(RawEvent::TickerTransferred(to, ticker, from));
     }
 
@@ -1664,11 +1664,11 @@ impl<T: Config> Module<T> {
             Self::ensure_asset_exists(&ticker)?;
             <ExternalAgents<T>>::ensure_agent_permissioned(ticker, auth_by)?;
 
-            let owner = Self::ticker_registration(&ticker).owner;
+            let owner = Self::ticker_registration(ticker).owner;
             AssetOwnershipRelations::remove(owner, ticker);
             AssetOwnershipRelations::insert(to, ticker, AssetOwnershipRelation::AssetOwned);
-            <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to);
-            Tokens::mutate(&ticker, |tr| tr.owner_did = to);
+            <Tickers<T>>::mutate(ticker, |tr| tr.owner = to);
+            Tokens::mutate(ticker, |tr| tr.owner_did = to);
             Self::deposit_event(RawEvent::AssetOwnershipTransferred(to, ticker, owner));
             Ok(())
         })
@@ -1703,13 +1703,13 @@ impl<T: Config> Module<T> {
             INVALID_RECEIVER_DID
         } else if Self::custodian_error(to_portfolio, to_custodian.unwrap_or(to_portfolio.did)) {
             CUSTODIAN_ERROR
-        } else if Self::insufficient_balance(&ticker, from_portfolio.did, value) {
+        } else if Self::insufficient_balance(ticker, from_portfolio.did, value) {
             ERC1400_INSUFFICIENT_BALANCE
         } else if Self::portfolio_failure(&from_portfolio, &to_portfolio, ticker, value) {
             PORTFOLIO_FAILURE
         } else {
             // Compliance manager & Smart Extension check
-            Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value, weight_meter)
+            Self::_is_valid_transfer(ticker, from_portfolio, to_portfolio, value, weight_meter)
                 .unwrap_or(ERC1400_TRANSFER_FAILURE)
         })
     }
@@ -1732,7 +1732,7 @@ impl<T: Config> Module<T> {
 
         // Validate the transfer
         let is_transfer_success =
-            Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value, weight_meter)?;
+            Self::_is_valid_transfer(ticker, from_portfolio, to_portfolio, value, weight_meter)?;
 
         ensure!(
             is_transfer_success == ERC1400_TRANSFER_SUCCESS,
@@ -1755,8 +1755,8 @@ impl<T: Config> Module<T> {
 
     /// Performs necessary checks on parameters of `create_asset`.
     fn ensure_create_asset_parameters(ticker: &Ticker) -> DispatchResult {
-        Self::ensure_asset_fresh(&ticker)?;
-        Self::ensure_ticker_length(&ticker, &Self::ticker_registration_config())
+        Self::ensure_asset_fresh(ticker)?;
+        Self::ensure_ticker_length(ticker, &Self::ticker_registration_config())
     }
 
     /// Ensure asset `ticker` doesn't exist yet.
@@ -1885,7 +1885,7 @@ impl<T: Config> Module<T> {
             Self::unverified_register_ticker(&ticker, did, None);
         } else {
             // Ticker already registered by the user.
-            <Tickers<T>>::mutate(&ticker, |tr| tr.expiry = None);
+            <Tickers<T>>::mutate(ticker, |tr| tr.expiry = None);
         }
 
         let token = SecurityToken {
@@ -1894,9 +1894,9 @@ impl<T: Config> Module<T> {
             divisible,
             asset_type,
         };
-        Tokens::insert(&ticker, token);
-        AssetNames::insert(&ticker, &name);
-        DisableInvestorUniqueness::insert(&ticker, disable_iu);
+        Tokens::insert(ticker, token);
+        AssetNames::insert(ticker, &name);
+        DisableInvestorUniqueness::insert(ticker, disable_iu);
         // NB - At the time of asset creation it is obvious that the asset issuer will not have an
         // `InvestorUniqueness` claim. So we are skipping the scope claim based stats update as
         // those data points will get added in to the system whenever the asset issuer
@@ -1937,8 +1937,8 @@ impl<T: Config> Module<T> {
             false => (RawEvent::AssetUnfrozen(did, ticker), Error::<T>::NotFrozen),
         };
 
-        ensure!(Self::frozen(&ticker) != freeze, error);
-        Frozen::insert(&ticker, freeze);
+        ensure!(Self::frozen(ticker) != freeze, error);
+        Frozen::insert(ticker, freeze);
 
         Self::deposit_event(event);
         Ok(())
@@ -1953,7 +1953,7 @@ impl<T: Config> Module<T> {
         Self::ensure_asset_exists(&ticker)?;
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
-        AssetNames::insert(&ticker, name.clone());
+        AssetNames::insert(ticker, name.clone());
         Self::deposit_event(RawEvent::AssetRenamed(did, ticker, name));
         Ok(())
     }
@@ -1981,7 +1981,7 @@ impl<T: Config> Module<T> {
 
         // Ensures the token is fungible
         ensure!(
-            Tokens::get(&ticker).asset_type.is_fungible(),
+            Tokens::get(ticker).asset_type.is_fungible(),
             Error::<T>::UnexpectedNonFungibleToken
         );
 
@@ -2001,7 +2001,7 @@ impl<T: Config> Module<T> {
         let updated_balance = Self::balance_of(ticker, portfolio.did) - value;
 
         // Update identity balances and total supply
-        BalanceOf::insert(ticker, &portfolio.did, updated_balance);
+        BalanceOf::insert(ticker, portfolio.did, updated_balance);
         Tokens::mutate(ticker, |token| token.total_supply -= value);
 
         // Update scope balances
@@ -2017,7 +2017,7 @@ impl<T: Config> Module<T> {
 
         // Update statistic info.
         // Using the aggregate balance to update the unique investor count.
-        let updated_from_balance = Some(Self::aggregate_balance_of(ticker, &scope_id));
+        let updated_from_balance = Some(Self::aggregate_balance_of(ticker, scope_id));
         Statistics::<T>::update_asset_stats(
             &ticker,
             Some(&portfolio.did),
@@ -2042,7 +2042,7 @@ impl<T: Config> Module<T> {
     fn base_make_divisible(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
-        Tokens::try_mutate(&ticker, |token| -> DispatchResult {
+        Tokens::try_mutate(ticker, |token| -> DispatchResult {
             // Ensures the token is fungible
             ensure!(
                 token.asset_type.is_fungible(),
@@ -2248,7 +2248,7 @@ impl<T: Config> Module<T> {
 
         // Prevent locking an asset metadata with no value
         if detail.is_locked(<pallet_timestamp::Pallet<T>>::get()) {
-            AssetMetadataValues::try_get(&ticker, &key)
+            AssetMetadataValues::try_get(ticker, key)
                 .map_err(|_| Error::<T>::AssetMetadataValueIsEmpty)?;
         }
 
@@ -2400,7 +2400,7 @@ impl<T: Config> Module<T> {
         let sender_custodian_error =
             Self::custodian_error(from_portfolio, from_custodian.unwrap_or(from_portfolio.did));
         let sender_insufficient_balance =
-            Self::insufficient_balance(&ticker, from_portfolio.did, value);
+            Self::insufficient_balance(ticker, from_portfolio.did, value);
         let portfolio_validity_result = <Portfolio<T>>::ensure_portfolio_transfer_validity_granular(
             &from_portfolio,
             &to_portfolio,
@@ -2452,7 +2452,7 @@ impl<T: Config> Module<T> {
     }
 
     fn invalid_granularity(ticker: &Ticker, value: Balance) -> bool {
-        !Self::check_granularity(&ticker, value)
+        !Self::check_granularity(ticker, value)
     }
 
     fn self_transfer(from: &PortfolioId, to: &PortfolioId) -> bool {
@@ -2476,7 +2476,7 @@ impl<T: Config> Module<T> {
     }
 
     fn insufficient_balance(ticker: &Ticker, did: IdentityId, value: Balance) -> bool {
-        Self::balance_of(&ticker, did) < value
+        Self::balance_of(ticker, did) < value
     }
 
     fn portfolio_failure(
@@ -2500,8 +2500,8 @@ impl<T: Config> Module<T> {
         ticker: &Ticker,
     ) -> (ScopeId, ScopeId, SecurityToken) {
         (
-            Self::scope_id(ticker, &from_did),
-            Self::scope_id(ticker, &to_did),
+            Self::scope_id(ticker, from_did),
+            Self::scope_id(ticker, to_did),
             Tokens::get(ticker),
         )
     }
@@ -2521,8 +2521,8 @@ impl<T: Config> Module<T> {
             to_scope_id,
             from_did,
             to_did,
-            Self::aggregate_balance_of(ticker, &from_scope_id),
-            Self::aggregate_balance_of(ticker, &to_scope_id),
+            Self::aggregate_balance_of(ticker, from_scope_id),
+            Self::aggregate_balance_of(ticker, to_scope_id),
             value,
             token.total_supply,
             weight_meter,
@@ -2545,8 +2545,8 @@ impl<T: Config> Module<T> {
             to_scope_id,
             from_did,
             to_did,
-            Self::aggregate_balance_of(ticker, &from_scope_id),
-            Self::aggregate_balance_of(ticker, &to_scope_id),
+            Self::aggregate_balance_of(ticker, from_scope_id),
+            Self::aggregate_balance_of(ticker, to_scope_id),
             value,
             token.total_supply,
             weight_meter,
@@ -2590,7 +2590,7 @@ impl<T: Config> Module<T> {
         Self::ensure_asset_exists(&ticker)?;
         Self::ensure_asset_type_valid(asset_type)?;
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
-        Tokens::try_mutate(&ticker, |token| -> DispatchResult {
+        Tokens::try_mutate(ticker, |token| -> DispatchResult {
             // Ensures that both parameters are non fungible types or if both are fungible types.
             ensure!(
                 token.asset_type.is_fungible() == asset_type.is_fungible(),
@@ -2618,11 +2618,11 @@ impl<T: Config> Module<T> {
         // Verifies if the caller has the correct permissions for this asset
         let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
         // Verifies if the key exists.
-        let name = AssetMetadataLocalKeyToName::try_get(ticker, &local_key)
+        let name = AssetMetadataLocalKeyToName::try_get(ticker, local_key)
             .map_err(|_| Error::<T>::AssetMetadataKeyIsMissing)?;
         // Verifies if the value is locked
         let metadata_key = AssetMetadataKey::Local(local_key);
-        if let Some(value_detail) = AssetMetadataValueDetails::<T>::get(&ticker, &metadata_key) {
+        if let Some(value_detail) = AssetMetadataValueDetails::<T>::get(ticker, metadata_key) {
             ensure!(
                 !value_detail.is_locked(<pallet_timestamp::Pallet<T>>::get()),
                 Error::<T>::AssetMetadataValueIsLocked
@@ -2634,11 +2634,11 @@ impl<T: Config> Module<T> {
             Error::<T>::AssetMetadataKeyBelongsToNFTCollection
         );
         // Remove key from storage
-        AssetMetadataValues::remove(&ticker, &metadata_key);
-        AssetMetadataValueDetails::<T>::remove(&ticker, &metadata_key);
-        AssetMetadataLocalNameToKey::remove(&ticker, &name);
-        AssetMetadataLocalKeyToName::remove(&ticker, &local_key);
-        AssetMetadataLocalSpecs::remove(&ticker, &local_key);
+        AssetMetadataValues::remove(ticker, metadata_key);
+        AssetMetadataValueDetails::<T>::remove(ticker, metadata_key);
+        AssetMetadataLocalNameToKey::remove(ticker, name);
+        AssetMetadataLocalKeyToName::remove(ticker, local_key);
+        AssetMetadataLocalSpecs::remove(ticker, local_key);
         Self::deposit_event(RawEvent::LocalMetadataKeyDeleted(
             caller_did, ticker, local_key,
         ));
@@ -2655,26 +2655,26 @@ impl<T: Config> Module<T> {
         // Verifies if the key exists.
         match metadata_key {
             AssetMetadataKey::Global(global_key) => {
-                if !AssetMetadataGlobalKeyToName::contains_key(&global_key) {
+                if !AssetMetadataGlobalKeyToName::contains_key(global_key) {
                     return Err(Error::<T>::AssetMetadataKeyIsMissing.into());
                 }
             }
             AssetMetadataKey::Local(local_key) => {
-                if !AssetMetadataLocalKeyToName::contains_key(ticker, &local_key) {
+                if !AssetMetadataLocalKeyToName::contains_key(ticker, local_key) {
                     return Err(Error::<T>::AssetMetadataKeyIsMissing.into());
                 }
             }
         }
         // Verifies if the value is locked
-        if let Some(value_detail) = AssetMetadataValueDetails::<T>::get(&ticker, &metadata_key) {
+        if let Some(value_detail) = AssetMetadataValueDetails::<T>::get(ticker, metadata_key) {
             ensure!(
                 !value_detail.is_locked(<pallet_timestamp::Pallet<T>>::get()),
                 Error::<T>::AssetMetadataValueIsLocked
             );
         }
         // Remove the metadata value from storage
-        AssetMetadataValues::remove(&ticker, &metadata_key);
-        AssetMetadataValueDetails::<T>::remove(&ticker, &metadata_key);
+        AssetMetadataValues::remove(ticker, metadata_key);
+        AssetMetadataValueDetails::<T>::remove(ticker, metadata_key);
         Self::deposit_event(RawEvent::MetadataValueDeleted(
             caller_did,
             ticker,
@@ -2703,7 +2703,7 @@ impl<T: Config> Module<T> {
     /// Pre-approves the receivement of an asset.
     fn base_pre_approve_ticker(origin: T::RuntimeOrigin, ticker: &Ticker) -> DispatchResult {
         let caller_did = Identity::<T>::ensure_perms(origin)?;
-        PreApprovedTicker::insert(&caller_did, ticker, true);
+        PreApprovedTicker::insert(caller_did, ticker, true);
         Ok(())
     }
 
@@ -2713,7 +2713,7 @@ impl<T: Config> Module<T> {
         ticker: &Ticker,
     ) -> DispatchResult {
         let caller_did = Identity::<T>::ensure_perms(origin)?;
-        PreApprovedTicker::remove(&caller_did, ticker);
+        PreApprovedTicker::remove(caller_did, ticker);
         Ok(())
     }
 }

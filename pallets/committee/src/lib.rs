@@ -374,7 +374,7 @@ decl_module! {
             }
             let ayes = voting.ayes.len() as MemberCount;
             let nays = voting.nays.len() as MemberCount;
-            <Voting<T, I>>::insert(&proposal, voting);
+            <Voting<T, I>>::insert(proposal, voting);
 
             // 4. Emit event.
             Self::deposit_event(RawEvent::Voted(
@@ -393,7 +393,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
         hash: &T::Hash,
         idx: ProposalIndex,
     ) -> Result<PolymeshVotes<T::BlockNumber>, DispatchError> {
-        let voting = Self::voting(&hash).ok_or(Error::<T, I>::NoSuchProposal)?;
+        let voting = Self::voting(hash).ok_or(Error::<T, I>::NoSuchProposal)?;
         ensure!(voting.index == idx, Error::<T, I>::MismatchedVotingIndex);
         Ok(voting)
     }
@@ -431,7 +431,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
     /// # Return
     /// It returns true if vote was removed.
     fn remove_vote_from(id: IdentityId, proposal: T::Hash) -> bool {
-        if let Some(mut voting) = Self::voting(&proposal) {
+        if let Some(mut voting) = Self::voting(proposal) {
             // If any element is removed, we have to update `voting`.
             let idx = voting.index;
             let remove = |from: &mut Vec<_>, sig| {
@@ -442,7 +442,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
             };
             return remove(&mut voting.ayes, true)
                 .or_else(|| remove(&mut voting.nays, false))
-                .map(|_| <Voting<T, I>>::insert(&proposal, voting))
+                .map(|_| <Voting<T, I>>::insert(proposal, voting))
                 .is_some();
         }
         false
@@ -450,7 +450,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
 
     /// Accepts or rejects the proposal if its threshold is satisfied.
     fn execute_if_passed(proposal: T::Hash) {
-        let voting = match Self::voting(&proposal) {
+        let voting = match Self::voting(proposal) {
             // Make sure we don't have an expired proposal at this point.
             Some(v) if Self::ensure_not_expired(&proposal, v.expiry).is_ok() => v,
             _ => return,
@@ -507,7 +507,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
 
         if approved {
             // execute motion, assuming it exists.
-            if let Some(p) = <ProposalOf<T, I>>::take(&proposal) {
+            if let Some(p) = <ProposalOf<T, I>>::take(proposal) {
                 Self::execute(current_did, p, proposal);
             }
         }
