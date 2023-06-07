@@ -130,7 +130,7 @@ frame_support::construct_runtime!(
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-        Authorship: pallet_authorship::{Pallet, Call, Storage, Inherent},
+        Authorship: pallet_authorship,
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         Staking: staking::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
@@ -166,7 +166,7 @@ parameter_types! {
     pub const MaximumBlockWeight: Weight = Weight::from_ref_time(1024);
     pub BlockWeights: frame_system::limits::BlockWeights =
         frame_system::limits::BlockWeights::simple_max(
-            frame_support::weights::constants::WEIGHT_PER_SECOND * 2
+            Weight::from_ref_time(frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND * 2)
         );
     pub static SessionsPerEra: SessionIndex = 3;
     pub static ExistentialDeposit: Balance = 1;
@@ -224,9 +224,6 @@ impl pallet_balances::Config for Test {
     type MaxLocks = MaxLocks;
 }
 
-parameter_types! {
-    pub const UncleGenerations: u64 = 0;
-}
 sp_runtime::impl_opaque_keys! {
     pub struct SessionKeys {
         pub other: OtherSessionHandler,
@@ -278,8 +275,6 @@ impl pallet_treasury::Config for Test {
 
 impl pallet_authorship::Config for Test {
     type FindAuthor = Author11;
-    type UncleGenerations = UncleGenerations;
-    type FilterUncle = ();
     type EventHandler = pallet_staking::Module<Test>;
 }
 parameter_types! {

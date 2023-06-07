@@ -48,7 +48,7 @@
 #![allow(unused_imports)]
 
 use polymesh_runtime_common::{
-    RocksDbWeight as DbWeight, Weight, WEIGHT_PER_MICROS, WEIGHT_PER_NANOS,
+    RocksDbWeight as DbWeight, Weight, WEIGHT_REF_TIME_PER_MICROS, WEIGHT_REF_TIME_PER_NANOS,
 };
 /// Weights for pallet_grandpa using the Substrate node and recommended hardware.
 pub struct SubstrateWeight;
@@ -63,14 +63,19 @@ impl pallet_grandpa::WeightInfo for SubstrateWeight {
         const MAX_NOMINATORS: u64 = 200;
 
         // checking membership proof
-        (35u64 * WEIGHT_PER_MICROS)
-            .saturating_add((175u64 * WEIGHT_PER_NANOS).saturating_mul(validator_count))
+        Weight::from_ref_time(35u64 * WEIGHT_REF_TIME_PER_MICROS)
+            .saturating_add(
+                Weight::from_ref_time(175u64 * WEIGHT_REF_TIME_PER_NANOS)
+                    .saturating_mul(validator_count),
+            )
             .saturating_add(DbWeight::get().reads(5))
             // check equivocation proof
-            .saturating_add(95u64 * WEIGHT_PER_MICROS)
+            .saturating_add(Weight::from_ref_time(95u64 * WEIGHT_REF_TIME_PER_MICROS))
             // report offence
-            .saturating_add(110u64 * WEIGHT_PER_MICROS)
-            .saturating_add(25u64 * WEIGHT_PER_MICROS * MAX_NOMINATORS)
+            .saturating_add(Weight::from_ref_time(110u64 * WEIGHT_REF_TIME_PER_MICROS))
+            .saturating_add(Weight::from_ref_time(
+                25u64 * WEIGHT_REF_TIME_PER_MICROS * MAX_NOMINATORS,
+            ))
             .saturating_add(DbWeight::get().reads(14 + 3 * MAX_NOMINATORS))
             .saturating_add(DbWeight::get().writes(10 + 3 * MAX_NOMINATORS))
             // fetching set id -> session index mappings

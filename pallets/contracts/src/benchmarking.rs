@@ -67,7 +67,7 @@ fn instantiate<T: Config>(user: &User<T>, wasm: WasmModule<T>, salt: Vec<u8>) ->
 where
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
-    let callee = FrameContracts::<T>::contract_address(&user.account(), &wasm.hash, &salt);
+    let callee = FrameContracts::<T>::contract_address(&user.account(), &wasm.hash, &[], &salt);
     Pallet::<T>::instantiate_with_code_perms(
         user.origin().into(),
         ENDOWMENT,   // endowment
@@ -326,7 +326,7 @@ benchmarks! {
         let user = contract.caller;
 
         // Calculate new contract's address.
-        let addr = FrameContracts::<T>::contract_address(&user.account(), &hash, &other_salt);
+        let addr = FrameContracts::<T>::contract_address(&user.account(), &hash, &[], &other_salt);
     }: _(user.origin(), ENDOWMENT, Weight::MAX, None, hash, vec![], other_salt, Permissions::default())
     verify {
         // Ensure contract has the full value.
@@ -357,7 +357,7 @@ benchmarks! {
 
         // Construct the contract code + get addr.
         let wasm = WasmModule::<T>::sized(c, Location::Deploy);
-        let addr = FrameContracts::<T>::contract_address(&user.account(), &wasm.hash, &salt);
+        let addr = FrameContracts::<T>::contract_address(&user.account(), &wasm.hash, &[], &salt);
     }: _(user.origin(), ENDOWMENT, Weight::MAX, None, wasm.code, vec![], salt, Permissions::default())
     verify {
         // Ensure contract has the full value.

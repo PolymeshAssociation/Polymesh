@@ -695,8 +695,8 @@ where
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn successful_origin() -> O {
-        O::from(RawOrigin::Endorsed(PhantomData))
+    fn try_successful_origin() -> Result<O, ()> {
+        Ok(O::from(RawOrigin::Endorsed(PhantomData)))
     }
 }
 
