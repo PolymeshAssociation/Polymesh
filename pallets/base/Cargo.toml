@@ -15,14 +15,14 @@ serde_derive = { version = "1.0.104", optional = true, default-features = false 
 # Substrate
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
-sp-core = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-monthly-2022-12" }
-sp-std = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-monthly-2022-12" }
-sp-io = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-monthly-2022-12" }
-sp-runtime = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-monthly-2022-12" }
-sp-version = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-monthly-2022-12" }
-sp-api = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-monthly-2022-12" }
-frame-system = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-monthly-2022-12" }
-frame-support = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-monthly-2022-12" }
+sp-core = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v5-monthly-2023-03" }
+sp-std = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v5-monthly-2023-03" }
+sp-io = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v5-monthly-2023-03" }
+sp-runtime = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v5-monthly-2023-03" }
+sp-version = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v5-monthly-2023-03" }
+sp-api = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v5-monthly-2023-03" }
+frame-system = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v5-monthly-2023-03" }
+frame-support = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v5-monthly-2023-03" }
 
 [features]
 default = ["std"]

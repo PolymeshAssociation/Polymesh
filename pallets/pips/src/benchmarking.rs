@@ -252,7 +252,7 @@ benchmarks! {
         let user = user::<T>("proposer", 0);
         identity::CurrentDid::put(user.did());
         let (proposal, url, description) = make_proposal::<T>();
-        let origin = T::UpgradeCommitteeVMO::successful_origin();
+        let origin = T::UpgradeCommitteeVMO::try_successful_origin().unwrap();
         zeroize_deposit::<T>();
         let some_url = Some(url.clone());
         let some_desc = Some(description.clone());
@@ -296,7 +296,7 @@ benchmarks! {
 
     approve_committee_proposal {
         let (proposal, url, description) = make_proposal::<T>();
-        let proposer_origin = T::UpgradeCommitteeVMO::successful_origin();
+        let proposer_origin = T::UpgradeCommitteeVMO::try_successful_origin().unwrap();
         let proposer_did = SystematicIssuers::Committee.as_id();
         identity::CurrentDid::put(proposer_did);
         zeroize_deposit::<T>();
@@ -307,7 +307,7 @@ benchmarks! {
             description: Some(description.clone())
         };
         propose_call.dispatch_bypass_filter(proposer_origin).unwrap();
-        let origin = T::VotingMajorityOrigin::successful_origin();
+        let origin = T::VotingMajorityOrigin::try_successful_origin().unwrap();
         let id = PipId(0);
         let call = Call::<T>::approve_committee_proposal { id };
     }: {
@@ -333,7 +333,7 @@ benchmarks! {
         ).unwrap();
         let id = PipId(0);
         assert_eq!(deposit, Deposits::<T>::get(id, &user.account()).amount, "incorrect deposit in reject_proposal");
-        let vmo_origin = T::VotingMajorityOrigin::successful_origin();
+        let vmo_origin = T::VotingMajorityOrigin::try_successful_origin().unwrap();
         let call = Call::<T>::reject_proposal { id };
     }: {
         call.dispatch_bypass_filter(vmo_origin).unwrap();
@@ -356,7 +356,7 @@ benchmarks! {
             Some(description)
         ).unwrap();
         let id = PipId(0);
-        let vmo_origin = T::VotingMajorityOrigin::successful_origin();
+        let vmo_origin = T::VotingMajorityOrigin::try_successful_origin().unwrap();
         let reject_call = Call::<T>::reject_proposal { id };
         reject_call.dispatch_bypass_filter(vmo_origin.clone()).unwrap();
         let call = Call::<T>::prune_proposal { id };
@@ -383,7 +383,7 @@ benchmarks! {
         let id = PipId(0);
         T::GovernanceCommittee::bench_set_release_coordinator(user.did());
         Module::<T>::snapshot(user.origin().into()).unwrap();
-        let vmo_origin = T::VotingMajorityOrigin::successful_origin();
+        let vmo_origin = T::VotingMajorityOrigin::try_successful_origin().unwrap();
         let enact_call = Call::<T>::enact_snapshot_results { results: vec![(id, SnapshotResult::Approve)] };
         enact_call.dispatch_bypass_filter(vmo_origin).unwrap();
         let future_block = frame_system::Pallet::<T>::block_number() + 100u32.into();
@@ -440,7 +440,7 @@ benchmarks! {
         Module::<T>::snapshot(origin0.into()).unwrap();
 
         // enact
-        let enact_origin = T::VotingMajorityOrigin::successful_origin();
+        let enact_origin = T::VotingMajorityOrigin::try_successful_origin().unwrap();
         let enact_call = enact_call::<T>(a as usize, r as usize, s as usize);
     }: {
         enact_call.dispatch_bypass_filter(enact_origin).unwrap();
@@ -467,7 +467,7 @@ benchmarks! {
         );
 
         // enact
-        let enact_origin = T::VotingMajorityOrigin::successful_origin();
+        let enact_origin = T::VotingMajorityOrigin::try_successful_origin().unwrap();
         let enact_call = enact_call::<T>(PROPOSALS_NUM, 0, 0);
         enact_call.dispatch_bypass_filter(enact_origin).unwrap();
 

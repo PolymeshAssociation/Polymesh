@@ -39,7 +39,7 @@ sp-runtime = { version = "7.0.0" }
 sc-executor = { version = "0.10.0-dev" }
 sp-consensus = { version = "0.10.0-dev" }
 frame-system = { version = "4.0.0-dev" }
-substrate-test-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+substrate-test-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v5-monthly-2023-03" }
 pallet-timestamp = { version = "4.0.0-dev" }
 pallet-treasury = { version = "4.0.0-dev" }
 wabt = "0.10.0"

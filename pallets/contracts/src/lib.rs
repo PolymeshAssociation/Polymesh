@@ -493,8 +493,12 @@ where
         } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
         // Pre-compute what contract's key will be...
-        let contract_key =
-            FrameContracts::<T>::contract_address(&sender, &Self::code_hash(&code), &salt);
+        let contract_key = FrameContracts::<T>::contract_address(
+            &sender,
+            &Self::code_hash(&code),
+            &inst_data,
+            &salt,
+        );
 
         // ...and ensure that key can be a secondary-key of DID...
         Identity::<T>::ensure_perms_length_limited(&perms)?;

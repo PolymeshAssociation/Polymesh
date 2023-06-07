@@ -22,7 +22,9 @@ use sc_executor::NativeElseWasmExecutor;
 pub use sc_executor::{NativeExecutionDispatch, RuntimeVersionOf};
 use sc_network::NetworkService;
 use sc_network_common::{protocol::event::Event, service::NetworkEventStream};
-use sc_service::{config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager};
+use sc_service::{
+    config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager, WarpSyncParams,
+};
 pub use sc_service::{
     config::{PrometheusConfig, Role},
     ChainSpec, Error, PruningMode, RuntimeGenesis, TFullBackend, TFullCallExecutor, TFullClient,
@@ -269,10 +271,7 @@ where
                     slot_duration,
                 );
 
-            let uncles =
-                sp_authorship::InherentDataProvider::<<Block as BlockT>::Header>::check_inherents();
-
-            Ok((slot, timestamp, uncles))
+            Ok((slot, timestamp))
         },
         &task_manager.spawn_essential_handle(),
         config.prometheus_registry(),
@@ -408,7 +407,7 @@ where
 
     #[cfg(feature = "cli")]
     config.network.request_response_protocols.push(
-        sc_finality_grandpa_warp_sync::request_response_config_for_chain(
+        sc_consensus_grandpa_warp_sync::request_response_config_for_chain(
             &config,
             task_manager.spawn_handle(),
             backend.clone(),
@@ -423,7 +422,7 @@ where
             spawn_handle: task_manager.spawn_handle(),
             import_queue,
             block_announce_validator_builder: None,
-            warp_sync: Some(warp_sync),
+            warp_sync_params: Some(WarpSyncParams::WithProvider(warp_sync)),
         })?;
 
     if config.offchain_worker.enabled {
@@ -483,11 +482,6 @@ where
             create_inherent_data_providers: move |parent, ()| {
                 let client_clone = client_clone.clone();
                 async move {
-                    let uncles = sc_consensus_uncles::create_uncles_inherent_data_provider(
-                        &*client_clone,
-                        parent,
-                    )?;
-
                     let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
                     let slot =
@@ -502,7 +496,7 @@ where
                             &parent,
                         )?;
 
-                    Ok((slot, timestamp, uncles, storage_proof))
+                    Ok((slot, timestamp, storage_proof))
                 }
             },
             force_authoring,

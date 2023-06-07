@@ -78,7 +78,7 @@ pallet-im-online = { version = "4.0.0-dev", default-features = false }
 pallet-indices = { version = "4.0.0-dev", default-features = false }
 pallet-offences = { version = "4.0.0-dev", default-features = false }
 pallet-preimage = { version = "4.0.0-dev", default-features = false }
-pallet-randomness-collective-flip = { version = "4.0.0-dev", default-features = false }
+pallet-insecure-randomness-collective-flip = { version = "4.0.0-dev", default-features = false }
 pallet-scheduler = { version = "4.0.0-dev", default-features = false }
 pallet-session = { version = "4.0.0-dev", default-features = false, features = ["historical"] }
 pallet-staking-reward-curve = { version = "4.0.0-dev", default-features = false }
@@ -89,6 +89,7 @@ sp-arithmetic = { version = "6.0.0", default-features = false }
 sp-authority-discovery = { version = "4.0.0-dev", default-features = false }
 sp-block-builder = { version = "4.0.0-dev", default-features = false }
 sp-consensus-babe = { version = "0.10.0-dev", default-features = false }
+sp-consensus-grandpa = { version = "4.0.0-dev", default-features = false }
 sp-core = { version = "7.0.0", default-features = false }
 sp-inherents = { version = "4.0.0-dev", default-features = false }
 sp-io = { version = "7.0.0", default-features = false }
@@ -101,11 +102,11 @@ sp-std = { version = "5.0.0", default-features = false }
 sp-transaction-pool = { version = "4.0.0-dev", default-features = false }
 sp-version = { version = "5.0.0", default-features = false }
 
-test_client = { package = "substrate-test-runtime-client", git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12", optional = true }
+test_client = { package = "substrate-test-runtime-client", git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v5-monthly-2023-03", optional = true }
 substrate-test-utils = { version = "4.0.0-dev", optional = true }
 
 [dev-dependencies]
-libsecp256k1 = { version = "0.6", default-features = false }
+libsecp256k1 = { version = "0.7", default-features = false }
 wat = "1.0"
 sp-tracing = { version = "5.0.0", default-features = false }
 
@@ -156,7 +157,7 @@ std = [
     "pallet-pips/std",
     "pallet-portfolio/std",
     "pallet-relayer/std",
-    "pallet-randomness-collective-flip/std",
+    "pallet-insecure-randomness-collective-flip/std",
     "pallet-scheduler/std",
     "pallet-session/std",
     "pallet-staking/std",

@@ -31,7 +31,7 @@ pallet-timestamp = { version = "4.0.0-dev", default-features = false }
 pallet-session = { version = "4.0.0-dev", default-features = false }
 
 # Only in STD
-substrate-test-runtime-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12", optional = true}
+substrate-test-runtime-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v5-monthly-2023-03", optional = true}
 
 # Only in Benchmarks
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }

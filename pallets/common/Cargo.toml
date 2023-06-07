@@ -32,7 +32,7 @@ schnorrkel = { version = "0.10.1", default-features = false, optional = true }
 
 [dev-dependencies]
 lazy_static = { version = "1.4.0", default-features = false }
-substrate-test-runtime-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+substrate-test-runtime-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v5-monthly-2023-03" }
 
 [features]
 default = ["std", "equalize"]

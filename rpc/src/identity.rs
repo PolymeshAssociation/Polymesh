@@ -16,10 +16,7 @@ use jsonrpsee::{
 };
 use sp_api::{ApiExt, ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{
-    generic::BlockId,
-    traits::{Block as BlockT, Zero},
-};
+use sp_runtime::traits::{Block as BlockT, Zero};
 
 const MAX_IDENTITIES_ALLOWED_TO_QUERY: u32 = 500;
 
@@ -114,10 +111,10 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<CddStatus> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(||
+        let at_hash = at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
-            self.client.info().best_hash));
-        api.is_identity_has_valid_cdd(&at, did, buffer_time)
+            self.client.info().best_hash);
+        api.is_identity_has_valid_cdd(at_hash, did, buffer_time)
             .map_err(|e| {
                 CallError::Custom(ErrorObject::owned(
                     Error::RuntimeError.into(),
@@ -134,10 +131,10 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<AssetDidResult> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(||
+        let at_hash = at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
-            self.client.info().best_hash));
-        api.get_asset_did(&at, ticker).map_err(|e| {
+            self.client.info().best_hash);
+        api.get_asset_did(at_hash, ticker).map_err(|e| {
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to fetch did of the given ticker",
@@ -153,10 +150,10 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<RpcDidRecords<AccountId>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
         let api_version = api
             .api_version::<dyn IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, Moment>>(
-                &at,
+                at_hash,
             )
             .map_err(|e| {
                 CallError::Custom(ErrorObject::owned(
@@ -170,12 +167,12 @@ where
             Some(version) if version >= 2 =>
             {
                 #[allow(deprecated)]
-                api.get_did_records(&at, did)
+                api.get_did_records(at_hash, did)
             }
             Some(1) =>
             {
                 #[allow(deprecated)]
-                api.get_did_records_before_version_2(&at, did)
+                api.get_did_records_before_version_2(at_hash, did)
                     .map(|rec| rec.into())
             }
             _ => {
@@ -205,9 +202,9 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<Authorization<AccountId, Moment>>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_filtered_authorizations(&at, signatory, allow_expired, auth_type)
+        api.get_filtered_authorizations(at_hash, signatory, allow_expired, auth_type)
             .map_err(|e| {
                 CallError::Custom(ErrorObject::owned(
                     Error::RuntimeError.into(),
@@ -239,9 +236,9 @@ where
             .into());
         }
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_did_status(&at, dids).map_err(|e| {
+        api.get_did_status(at_hash, dids).map_err(|e| {
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to fetch dids status",

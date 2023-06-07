@@ -154,7 +154,6 @@ parameter_types! {
     pub const EpochDuration: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
     pub const Version: RuntimeVersion = VERSION;
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
-    pub const UncleGenerations: BlockNumber = 0;
     pub const SessionsPerEra: sp_staking::SessionIndex = 3;
     pub const BondingDuration: pallet_staking::EraIndex = 7;
     pub const SlashDeferDuration: pallet_staking::EraIndex = 4;
@@ -174,6 +173,7 @@ parameter_types! {
     pub const MaxNumberOfNFTsPerLeg: u32 = 10;
     pub const MaxNumberOfNFTs: u32 = 100;
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+    pub const MaxSetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
     pub const MaxAuthorities: u32 = 100_000;
     pub const MaxKeys: u32 = 10_000;
     pub const MaxPeerInHeartbeats: u32 = 10_000;
@@ -195,7 +195,7 @@ frame_support::construct_runtime!(
         Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned} = 1,
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 2,
         Indices: pallet_indices::{Pallet, Call, Storage, Config<T>, Event<T>} = 3,
-        // Authorship: pallet_authorship::{Pallet, Call, Storage, Inherent} = 4,
+        // Authorship: pallet_authorship = 4,
 
         // Balance: Genesis config dependencies: System.
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 5,
@@ -240,7 +240,7 @@ frame_support::construct_runtime!(
         Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event} = 21,
         Historical: pallet_session_historical::{Pallet} = 22,
         ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 23,
-        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Storage} = 24,
+        RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip::{Pallet, Storage} = 24,
 
         // Sudo. Usable initially.
         Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>} = 25,

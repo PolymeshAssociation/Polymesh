@@ -41,7 +41,7 @@ pallet-treasury = { version = "4.0.0-dev" }
 sp-application-crypto = { version = "7.0.0" }
 sp-runtime = { version = "7.0.0" }
 sp-externalities = { version = "0.12.0" }
-substrate-test-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+substrate-test-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v5-monthly-2023-03" }
 wabt = "0.10.0"
 
 [features]

@@ -313,7 +313,7 @@ use frame_support::{
         LockIdentifier, LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons,
     },
     weights::{
-        constants::{WEIGHT_PER_MICROS, WEIGHT_PER_NANOS},
+        constants::{WEIGHT_REF_TIME_PER_MICROS, WEIGHT_REF_TIME_PER_NANOS},
     },
     Twox64Concat,
 };
@@ -2463,8 +2463,8 @@ decl_module! {
 
             Self::update_ledger(&controller, &ledger);
             Ok(Some(
-                35u64 * WEIGHT_PER_MICROS
-                + 50u64 * WEIGHT_PER_NANOS * (ledger.unlocking.len() as u64)
+                Weight::from_ref_time(35u64 * WEIGHT_REF_TIME_PER_MICROS
+                + 50u64 * WEIGHT_REF_TIME_PER_NANOS * (ledger.unlocking.len() as u64))
                 + T::DbWeight::get().reads_writes(3, 2)
             ).into())
         }
@@ -3858,23 +3858,13 @@ where <T as frame_system::Config>::BlockNumber: fmt::Display
 }
 
 /// Add reward points to block authors:
-/// * 20 points to the block producer for producing a (non-uncle) block in the relay chain,
-/// * 2 points to the block producer for each reference to a previously unreferenced uncle, and
-/// * 1 point to the producer of each referenced uncle block.
+/// * 20 points to the block producer for producing a block in the chain,
 impl<T> pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Module<T>
 where
     T: Config + pallet_authorship::Config + pallet_session::Config
 {
     fn note_author(author: T::AccountId) {
         Self::reward_by_ids(vec![(author, 20)])
-    }
-    fn note_uncle(uncle_author: T::AccountId, _age: T::BlockNumber) {
-        // defensive-only: block author must exist.
-        if let Some(block_author) =<pallet_authorship::Pallet<T>>::author() {
-            Self::reward_by_ids(vec![(block_author, 2), (uncle_author, 1)])
-        } else {
-            crate::log!(warn, "block author not set, this should never happen");
-        }
     }
 }
 

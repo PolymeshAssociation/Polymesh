@@ -37,7 +37,7 @@ use polymesh_primitives::{AccountId, Block, BlockNumber, Hash, IdentityId, Index
 use sc_client_api::AuxStore;
 use sc_consensus_babe::{BabeConfiguration, Epoch};
 use sc_consensus_epochs::SharedEpochChanges;
-use sc_finality_grandpa::{
+use sc_consensus_grandpa::{
     FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState,
 };
 use sc_rpc::SubscriptionTaskExecutor;
@@ -135,7 +135,7 @@ where
     use pallet_protocol_fee_rpc::{ProtocolFee, ProtocolFeeApiServer};
     use pallet_staking_rpc::{Staking, StakingApiServer};
     use sc_consensus_babe_rpc::{Babe, BabeApiServer};
-    use sc_finality_grandpa_rpc::{Grandpa, GrandpaApiServer};
+    use sc_consensus_grandpa_rpc::{Grandpa, GrandpaApiServer};
     use sc_rpc::dev::{Dev, DevApiServer};
     use sc_rpc_spec_v2::chain_spec::{ChainSpec, ChainSpecApiServer};
     use sc_sync_state_rpc::{SyncState, SyncStateApiServer};
