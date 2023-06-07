@@ -285,7 +285,7 @@ benchmarks! {
         let n in 1 .. (T::MaxInLen::get() as u32 - 4);
 
         // Encode `System::remark(remark: Vec<u8>)` call.
-        let input = (0u8 /* System */, 1u8 /* remark */, vec![b'A'; n as usize]).encode();
+        let input = (0u8 /* System */, 0u8 /* remark */, vec![b'A'; n as usize]).encode();
         // Setup ChainExtension.
         let contract = Contract::<T>::chain_extension(1, FuncId::CallRuntime, input, 0);
     }: {
