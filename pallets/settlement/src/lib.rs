@@ -1009,9 +1009,10 @@ impl<T: Config> Module<T> {
     /// otherwise the instruction status is set to failed.
     fn execute_instruction_retryable(
         id: InstructionId,
+        caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        if let Err(e) = Self::execute_instruction(id, weight_meter) {
+        if let Err(e) = Self::execute_instruction(id, caller_did, weight_meter) {
             InstructionStatuses::<T>::insert(id, InstructionStatus::Failed);
             return Err(e);
         }
@@ -1021,6 +1022,7 @@ impl<T: Config> Module<T> {
 
     fn execute_instruction(
         instruction_id: InstructionId,
+        caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // Verifies that there are no pending affirmations for the given instruction
@@ -1065,27 +1067,22 @@ impl<T: Config> Module<T> {
                 instruction_id,
                 &instruction_legs,
                 instruction_memo,
+                caller_did,
                 weight_meter,
             )
         })? {
             Self::deposit_event(RawEvent::LegFailedExecution(
-                SettlementDID.as_id(),
+                caller_did,
                 instruction_id,
                 leg_id,
             ));
-            Self::deposit_event(RawEvent::InstructionFailed(
-                SettlementDID.as_id(),
-                instruction_id,
-            ));
+            Self::deposit_event(RawEvent::InstructionFailed(caller_did, instruction_id));
             // Unclaim receipts for the failed transaction so that they can be reused
             Self::unsafe_unclaim_receipts(instruction_id, &instruction_legs);
             return Err(Error::<T>::InstructionFailed.into());
         }
 
-        Self::deposit_event(RawEvent::InstructionExecuted(
-            SettlementDID.as_id(),
-            instruction_id,
-        ));
+        Self::deposit_event(RawEvent::InstructionExecuted(caller_did, instruction_id));
         Ok(())
     }
 
@@ -1093,9 +1090,9 @@ impl<T: Config> Module<T> {
         instruction_id: InstructionId,
         instruction_legs: &[(LegId, Leg)],
         instruction_memo: Option<Memo>,
+        caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> TransactionOutcome<Result<Result<(), LegId>, DispatchError>> {
-        let caller_did = Identity::<T>::current_identity().unwrap_or(SettlementDID.as_id());
         Self::unchecked_release_locks(instruction_id, instruction_legs);
         for (leg_id, leg) in instruction_legs {
             if Self::instruction_leg_status(instruction_id, leg_id) == LegStatus::ExecutionPending {
@@ -1498,13 +1495,14 @@ impl<T: Config> Module<T> {
         settlement_type: SettlementType<T::BlockNumber>,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
+        let caller_did = Identity::<T>::current_identity().unwrap_or(SettlementDID.as_id());
         // We assume `settlement_type == SettleOnAffirmation`,
         // to be defensive, however, this is checked before instruction execution.
         if settlement_type == SettlementType::SettleOnAffirmation && affirms_pending == 0 {
             // We use execute_instruction here directly
             // and not the execute_instruction_retryable variant
             // because direct settlement is not retryable.
-            Self::execute_instruction(id, weight_meter)?;
+            Self::execute_instruction(id, caller_did, weight_meter)?;
         }
         Ok(())
     }
@@ -1664,7 +1662,8 @@ impl<T: Config> Module<T> {
         id: InstructionId,
         weight_meter: &mut WeightMeter,
     ) -> PostDispatchInfo {
-        if let Err(e) = Self::execute_instruction_retryable(id, weight_meter) {
+        let caller_did = Identity::<T>::current_identity().unwrap_or(SettlementDID.as_id());
+        if let Err(e) = Self::execute_instruction_retryable(id, caller_did, weight_meter) {
             Self::deposit_event(RawEvent::FailedToExecuteInstruction(id, e));
         }
         PostDispatchInfo::from(Some(weight_meter.consumed()))
@@ -1787,7 +1786,7 @@ impl<T: Config> Module<T> {
         weight_meter: &mut WeightMeter,
     ) -> DispatchResultWithPostInfo {
         // check origin has the permissions required and valid instruction
-        let (did, sk, instruction_details) =
+        let (caller_did, sk, instruction_details) =
             Self::ensure_origin_perm_and_instruction_validity(origin, id, true)?;
 
         // Check for portfolio
@@ -1795,7 +1794,11 @@ impl<T: Config> Module<T> {
         match portfolio {
             Some(portfolio) => {
                 // Ensure that the caller is a party of this instruction.
-                T::Portfolio::ensure_portfolio_custody_and_permission(portfolio, did, sk.as_ref())?;
+                T::Portfolio::ensure_portfolio_custody_and_permission(
+                    portfolio,
+                    caller_did,
+                    sk.as_ref(),
+                )?;
                 ensure!(
                     instruction_legs
                         .iter()
@@ -1805,7 +1808,7 @@ impl<T: Config> Module<T> {
             }
             None => {
                 // Ensure venue exists & sender is its creator.
-                Self::venue_for_management(instruction_details.venue_id, did)?;
+                Self::venue_for_management(instruction_details.venue_id, caller_did)?;
             }
         }
 
@@ -1813,9 +1816,9 @@ impl<T: Config> Module<T> {
         Self::ensure_valid_input_cost(&instruction_asset_count, input_cost)?;
 
         // Executes the instruction
-        Self::execute_instruction_retryable(id, weight_meter)?;
+        Self::execute_instruction_retryable(id, caller_did, weight_meter)?;
 
-        Self::deposit_event(RawEvent::SettlementManuallyExecuted(did, id));
+        Self::deposit_event(RawEvent::SettlementManuallyExecuted(caller_did, id));
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
 
@@ -1899,13 +1902,13 @@ impl<T: Config> Module<T> {
     /// in the instruction, and the weight consumed for executing the instruction. If the instruction would fail its
     /// execution, it also contains the error.
     pub fn execute_instruction_info(instruction_id: &InstructionId) -> ExecuteInstructionInfo {
+        let caller_did = Identity::<T>::current_identity().unwrap_or(SettlementDID.as_id());
         let instruction_legs: Vec<(LegId, Leg)> =
             InstructionLegs::iter_prefix(&instruction_id).collect();
         let instruction_asset_count = AssetCount::from_legs(&instruction_legs);
         let mut weight_meter =
             WeightMeter::max_limit(Self::execute_scheduled_instruction_minimum_weight());
-
-        match Self::execute_instruction_retryable(*instruction_id, &mut weight_meter) {
+        match Self::execute_instruction_retryable(*instruction_id, caller_did, &mut weight_meter) {
             Ok(_) => ExecuteInstructionInfo::new(
                 instruction_asset_count.fungible(),
                 instruction_asset_count.non_fungible(),
