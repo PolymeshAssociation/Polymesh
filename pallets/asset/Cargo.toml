@@ -41,6 +41,7 @@ frame-system = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 pallet-timestamp = { version = "4.0.0-dev", default-features = false }
 pallet-session = { version = "4.0.0-dev", default-features = false }
+libsecp256k1 = { version = "0.7", default-features = false }
 
 # Only in STD
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
