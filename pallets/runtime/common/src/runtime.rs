@@ -608,8 +608,7 @@ macro_rules! runtime_apis {
             Runtime,
             AllPalletsWithSystem,
             (
-              pallet_preimage::migration::v1::Migration<Runtime>,
-              pallet_scheduler::migration::v3::MigrateToV4<Runtime>,
+              pallet_scheduler::migration::v4::CleanupAgendas<Runtime>,
               pallet_contracts::Migration<Runtime>,
             )
         >;
