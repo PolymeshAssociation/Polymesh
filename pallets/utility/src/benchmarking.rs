@@ -33,7 +33,7 @@ fn remark_call_builder<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     _: T::AccountId,
 ) -> (UniqueCall<<T as Config>::Call>, Vec<u8>) {
     let call = make_calls::<T>(1).pop().unwrap();
-    let nonce: AuthorizationNonce = Module::<T>::nonce(signer.account());
+    let nonce: AuthorizationNonce = Pallet::<T>::nonce(signer.account());
     let call = UniqueCall::new(nonce, call);
 
     // Signer signs the relay call.

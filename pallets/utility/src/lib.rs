@@ -54,7 +54,6 @@ pub mod benchmarking;
 use codec::{Decode, Encode};
 use frame_support::storage::{with_transaction, TransactionOutcome};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{
         DispatchErrorWithPostInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo,
         Weight,
@@ -79,65 +78,11 @@ type CallPermissions<T> = pallet_permissions::Module<T>;
 pub type EventCounts = Vec<u32>;
 pub type ErrorAt = (u32, DispatchError);
 
-/// Configuration trait.
-pub trait Config: frame_system::Config + IdentityConfig + BalancesConfig {
-    /// The overarching event type.
-    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
-
-    /// The overarching call type.
-    type Call: Parameter
-        + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
-        + GetCallMetadata
-        + GetDispatchInfo
-        + From<frame_system::Call<Self>>
-        + From<balances::Call<Self>>
-        + UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>;
-
-    type WeightInfo: WeightInfo;
-}
-
 pub trait WeightInfo {
     fn batch(calls: &[impl GetDispatchInfo]) -> Weight;
     fn batch_atomic(calls: &[impl GetDispatchInfo]) -> Weight;
     fn batch_optimistic(calls: &[impl GetDispatchInfo]) -> Weight;
     fn relay_tx(call: &impl GetDispatchInfo) -> Weight;
-}
-
-decl_storage! {
-    trait Store for Module<T: Config> as Utility {
-        Nonces get(fn nonce): map hasher(twox_64_concat) T::AccountId => AuthorizationNonce;
-    }
-}
-
-decl_error! {
-    pub enum Error for Module<T: Config> {
-        /// Offchain signature is invalid
-        InvalidSignature,
-        /// Target does not have a valid CDD
-        TargetCddMissing,
-        /// Provided nonce was invalid
-        /// If the provided nonce < current nonce, the call was already executed
-        /// If the provided nonce > current nonce, the call(s) before the current failed to execute
-        InvalidNonce,
-    }
-}
-
-decl_event! {
-    /// Events type.
-    pub enum Event
-    {
-        /// Batch of dispatches did not complete fully.
-        /// Includes a vector of event counts for each dispatch and
-        /// the index of the first failing dispatch as well as the error.
-        BatchInterrupted(EventCounts, ErrorAt),
-        /// Batch of dispatches did not complete fully.
-        /// Includes a vector of event counts for each call and
-        /// a vector of any failed dispatches with their indices and associated error.
-        BatchOptimisticFailed(EventCounts, Vec<ErrorAt>),
-        /// Batch of dispatches completed fully with no error.
-        /// Includes a vector of event counts for each dispatch.
-        BatchCompleted(EventCounts),
-    }
 }
 
 /// Wraps a `Call` and provides uniqueness through a nonce
@@ -156,13 +101,38 @@ impl<C> UniqueCall<C> {
     }
 }
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
-        type Error = Error<T>;
+pub use pallet::*;
 
-        /// Deposit one of this module's events by using the default implementation.
-        fn deposit_event() = default;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
+    /// Utility pallet configuration trait.
+    #[pallet::config]
+    pub trait Config: frame_system::Config + IdentityConfig + BalancesConfig {
+        /// The overarching event type.
+        type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+        /// The overarching call type.
+        type Call: Parameter
+            + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
+            + GetCallMetadata
+            + GetDispatchInfo
+            + From<frame_system::Call<Self>>
+            + From<balances::Call<Self>>
+            + UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>;
+
+        type WeightInfo: WeightInfo;
+    }
+
+    #[pallet::pallet]
+    #[pallet::generate_store(pub(super) trait Store)]
+    pub struct Pallet<T>(_);
+
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Dispatch multiple calls from the sender's origin.
         ///
         /// This will execute until the first one fails and then stop.
@@ -181,12 +151,13 @@ decl_module! {
         /// `BatchInterrupted` event is deposited, along with the number of successful calls made
         /// and the error of the failed call. If all were successful, then the `BatchCompleted`
         /// event is deposited.
-        #[weight = <T as Config>::WeightInfo::batch(&calls)]
-        pub fn batch(origin, calls: Vec<<T as Config>::Call>) {
+        #[pallet::weight(<T as Config>::WeightInfo::batch(&calls))]
+        pub fn batch(origin: OriginFor<T>, calls: Vec<<T as Config>::Call>) -> DispatchResult {
             let is_root = Self::ensure_root_or_signed(origin.clone())?;
 
             // Run batch
             Self::deposit_event(Self::run_batch(origin, is_root, calls, true));
+            Ok(())
         }
 
         /// Dispatch multiple calls from the sender's origin.
@@ -208,21 +179,27 @@ decl_module! {
         /// To determine the success of the batch, an event is deposited.
         /// If any call failed, then `BatchInterrupted` is deposited.
         /// If all were successful, then the `BatchCompleted` event is deposited.
-        #[weight = <T as Config>::WeightInfo::batch_atomic(&calls)]
-        pub fn batch_atomic(origin, calls: Vec<<T as Config>::Call>) {
+        #[pallet::weight(<T as Config>::WeightInfo::batch_atomic(&calls))]
+        pub fn batch_atomic(
+            origin: OriginFor<T>,
+            calls: Vec<<T as Config>::Call>,
+        ) -> DispatchResult {
             let is_root = Self::ensure_root_or_signed(origin.clone())?;
 
             // Run batch inside a transaction
-            Self::deposit_event(with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
-                // Run batch.
-                match Self::run_batch(origin, is_root, calls, true) {
-                    ev @ Event::BatchCompleted(_) => TransactionOutcome::Commit(Ok(ev)),
-                    ev => {
-                        // Batch didn't complete.  Rollback transaction.
-                        TransactionOutcome::Rollback(Ok(ev))
+            Self::deposit_event(with_transaction(
+                || -> TransactionOutcome<Result<_, DispatchError>> {
+                    // Run batch.
+                    match Self::run_batch(origin, is_root, calls, true) {
+                        ev @ Event::BatchCompleted(_) => TransactionOutcome::Commit(Ok(ev)),
+                        ev => {
+                            // Batch didn't complete.  Rollback transaction.
+                            TransactionOutcome::Rollback(Ok(ev))
+                        }
                     }
-                }
-            })?);
+                },
+            )?);
+            Ok(())
         }
 
         /// Dispatch multiple calls from the sender's origin.
@@ -246,12 +223,16 @@ decl_module! {
         /// with a vector of event counts for each call as well as a vector
         /// of errors.
         /// If all were successful, then the `BatchCompleted` event is deposited.
-        #[weight = <T as Config>::WeightInfo::batch_optimistic(&calls)]
-        pub fn batch_optimistic(origin, calls: Vec<<T as Config>::Call>) {
+        #[pallet::weight(<T as Config>::WeightInfo::batch_optimistic(&calls))]
+        pub fn batch_optimistic(
+            origin: OriginFor<T>,
+            calls: Vec<<T as Config>::Call>,
+        ) -> DispatchResult {
             let is_root = Self::ensure_root_or_signed(origin.clone())?;
 
             // Optimistically (hey, it's in the function name, :wink:) assume no errors.
             Self::deposit_event(Self::run_batch(origin, is_root, calls, false));
+            Ok(())
         }
 
         /// Relay a call for a target from an origin
@@ -266,22 +247,19 @@ decl_module! {
         /// - `signature`: Signature from target authorizing the relay
         /// - `call`: Call to be relayed on behalf of target
         ///
-        #[weight = <T as Config>::WeightInfo::relay_tx(&*call.call)]
+        #[pallet::weight(<T as Config>::WeightInfo::relay_tx(&*call.call))]
         pub fn relay_tx(
-            origin,
+            origin: OriginFor<T>,
             target: T::AccountId,
             signature: T::OffChainSignature,
-            call: UniqueCall<<T as Config>::Call>
+            call: UniqueCall<<T as Config>::Call>,
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
             CallPermissions::<T>::ensure_call_permissions(&sender)?;
 
             let target_nonce = <Nonces<T>>::get(&target);
 
-            ensure!(
-                target_nonce == call.nonce,
-                Error::<T>::InvalidNonce
-            );
+            ensure!(target_nonce == call.nonce, Error::<T>::InvalidNonce);
 
             ensure!(
                 signature.verify(call.encode().as_slice(), &target),
@@ -296,23 +274,58 @@ decl_module! {
             <Nonces<T>>::insert(target.clone(), target_nonce + 1);
 
             Self::dispatch_call(RawOrigin::Signed(target).into(), false, *call.call)
-                .map(|info| info
-                     .actual_weight
-                     .map(|w| w.saturating_add(Weight::from_ref_time(90_000_000)))
-                     .into())
+                .map(|info| {
+                    info.actual_weight
+                        .map(|w| w.saturating_add(Weight::from_ref_time(90_000_000)))
+                        .into()
+                })
                 .map_err(|e| DispatchErrorWithPostInfo {
                     error: e.error,
                     post_info: e
                         .post_info
                         .actual_weight
                         .map(|w| w.saturating_add(Weight::from_ref_time(90_000_000)))
-                        .into()
+                        .into(),
                 })
         }
     }
+
+    /// Events type.
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event {
+        /// Batch of dispatches did not complete fully.
+        /// Includes a vector of event counts for each dispatch and
+        /// the index of the first failing dispatch as well as the error.
+        BatchInterrupted(EventCounts, ErrorAt),
+        /// Batch of dispatches did not complete fully.
+        /// Includes a vector of event counts for each call and
+        /// a vector of any failed dispatches with their indices and associated error.
+        BatchOptimisticFailed(EventCounts, Vec<ErrorAt>),
+        /// Batch of dispatches completed fully with no error.
+        /// Includes a vector of event counts for each dispatch.
+        BatchCompleted(EventCounts),
+    }
+
+    #[pallet::error]
+    pub enum Error<T> {
+        /// Offchain signature is invalid
+        InvalidSignature,
+        /// Target does not have a valid CDD
+        TargetCddMissing,
+        /// Provided nonce was invalid
+        /// If the provided nonce < current nonce, the call was already executed
+        /// If the provided nonce > current nonce, the call(s) before the current failed to execute
+        InvalidNonce,
+    }
+
+    #[pallet::storage]
+    #[pallet::getter(fn nonce)]
+    pub(super) type Nonces<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, AuthorizationNonce, ValueQuery>;
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     fn dispatch_call(
         origin: T::RuntimeOrigin,
         is_root: bool,
