@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use super::{
     assert_event_doesnt_exist, assert_event_exists, assert_last_event,
     pips_test::assert_balance,
