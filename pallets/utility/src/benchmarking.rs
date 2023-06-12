@@ -10,8 +10,9 @@ use sp_runtime::MultiSignature;
 const MAX_CALLS: u32 = 30;
 
 /// Generate `c` no-op system remark calls.
-fn make_calls<T: Config>(c: u32) -> Vec<<T as Config>::Call> {
-    let call: <T as Config>::Call = frame_system::Call::<T>::remark { remark: vec![] }.into();
+fn make_calls<T: Config>(c: u32) -> Vec<<T as Config>::RuntimeCall> {
+    let call: <T as Config>::RuntimeCall =
+        frame_system::Call::<T>::remark { remark: vec![] }.into();
     vec![call; c as usize]
 }
 
@@ -31,7 +32,7 @@ fn make_relay_tx_users<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, U
 fn remark_call_builder<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     signer: &User<T>,
     _: T::AccountId,
-) -> (UniqueCall<<T as Config>::Call>, Vec<u8>) {
+) -> (UniqueCall<<T as Config>::RuntimeCall>, Vec<u8>) {
     let call = make_calls::<T>(1).pop().unwrap();
     let nonce: AuthorizationNonce = Pallet::<T>::nonce(signer.account());
     let call = UniqueCall::new(nonce, call);
