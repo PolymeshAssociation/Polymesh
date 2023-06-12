@@ -493,6 +493,7 @@ decl_module! {
                     instruction_id,
                     receipt,
                     portfolios,
+                    did,
                     &mut WeightMeter::max_limit_no_minimum()
                 )
             })?;

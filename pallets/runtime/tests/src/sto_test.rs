@@ -5,10 +5,10 @@ use pallet_sto::{
     Fundraiser, FundraiserId, FundraiserName, FundraiserStatus, FundraiserTier, PriceTier,
     MAX_TIERS,
 };
+use polymesh_primitives::asset::AssetType;
+use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::settlement::{InstructionStatus, VenueDetails, VenueId, VenueType};
-use polymesh_primitives::{
-    asset::AssetType, checked_inc::CheckedInc, IdentityId, PortfolioId, Ticker, WeightMeter,
-};
+use polymesh_primitives::{IdentityId, PortfolioId, PortfolioKind, Ticker, WeightMeter};
 use test_client::AccountKeyring;
 
 use super::asset_test::{allow_all_transfers, max_len_bytes, set_timestamp};
@@ -81,7 +81,7 @@ pub fn create_asset(origin: Origin, ticker: Ticker, supply: u128) {
         None,
         true,
     ));
-    assert_ok!(Asset::issue(origin, ticker, supply));
+    assert_ok!(Asset::issue(origin, ticker, supply, PortfolioKind::Default));
 }
 
 struct RaiseContext {
