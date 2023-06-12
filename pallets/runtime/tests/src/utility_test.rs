@@ -65,10 +65,13 @@ fn batch_test(test: impl FnOnce(AccountId, AccountId)) {
 fn batch_with_signed_works() {
     batch_test(|alice, bob| {
         let calls = vec![transfer(bob.clone(), 400), transfer(bob.clone(), 400)];
-        assert_ok!(Utility::batch(RuntimeOrigin::signed(alice.clone()), calls));
+        assert_ok!(Utility::batch_old(
+            RuntimeOrigin::signed(alice.clone()),
+            calls
+        ));
         assert_balance(alice, 200, 0);
         assert_balance(bob, 1000 + 400 + 400, 0);
-        assert_event(Event::BatchCompleted(vec![1, 1]));
+        assert_event(Event::BatchCompletedOld(vec![1, 1]));
     });
 }
 
@@ -80,10 +83,13 @@ fn batch_early_exit_works() {
             transfer(bob.clone(), 900),
             transfer(bob.clone(), 400),
         ];
-        assert_ok!(Utility::batch(RuntimeOrigin::signed(alice.clone()), calls));
+        assert_ok!(Utility::batch_old(
+            RuntimeOrigin::signed(alice.clone()),
+            calls
+        ));
         assert_balance(alice, 600, 0);
         assert_balance(bob, 1000 + 400, 0);
-        assert_event(Event::BatchInterrupted(vec![1, 0], (1, ERROR)));
+        assert_event(Event::BatchInterruptedOld(vec![1, 0], (1, ERROR)));
     })
 }
 
@@ -95,7 +101,7 @@ fn batch_optimistic_works() {
             RuntimeOrigin::signed(alice.clone()),
             calls
         ));
-        assert_event(Event::BatchCompleted(vec![1, 1]));
+        assert_event(Event::BatchCompletedOld(vec![1, 1]));
         assert_balance(alice, 1000 - 401 - 402, 0);
         assert_balance(bob, 1000 + 401 + 402, 0);
     });
@@ -131,7 +137,7 @@ fn batch_atomic_works() {
             RuntimeOrigin::signed(alice.clone()),
             calls
         ));
-        assert_event(Event::BatchCompleted(vec![1, 1]));
+        assert_event(Event::BatchCompletedOld(vec![1, 1]));
         assert_balance(alice, 1000 - 401 - 402, 0);
         assert_balance(bob, 1000 + 401 + 402, 0);
     });
@@ -148,7 +154,7 @@ fn batch_atomic_early_exit_works() {
         ));
         assert_balance(alice, 1000, 0);
         assert_balance(bob, 1000, 0);
-        assert_event(Event::BatchInterrupted(vec![1, 0], (1, ERROR)));
+        assert_event(Event::BatchInterruptedOld(vec![1, 0], (1, ERROR)));
     })
 }
 
@@ -327,10 +333,10 @@ fn batch_secondary_with_permissions() {
             to_name: high_risk_name.clone(),
         }),
     ];
-    assert_ok!(Utility::batch(bob.origin(), calls.clone()));
-    assert_event_doesnt_exist!(EventTest::Utility(Event::BatchCompleted(_)));
+    assert_ok!(Utility::batch_old(bob.origin(), calls.clone()));
+    assert_event_doesnt_exist!(EventTest::Utility(Event::BatchCompletedOld(_)));
     assert_event_exists!(
-        EventTest::Utility(Event::BatchInterrupted(events, err)),
+        EventTest::Utility(Event::BatchInterruptedOld(events, err)),
         events == &[0] && err.0 == 0
     );
     check_name(low_risk_name);

@@ -68,9 +68,46 @@ fn sum_weights(calls: &[impl GetDispatchInfo]) -> Weight {
 /// Weights for pallet_utility using the Substrate node and recommended hardware.
 pub struct SubstrateWeight;
 impl pallet_utility::WeightInfo for SubstrateWeight {
+    /// The range of component `c` is `[0, 1000]`.
+    fn batch(c: u32) -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `0`
+        //  Estimated: `0`
+        // Minimum execution time: 6_742 nanoseconds.
+        Weight::from_ref_time(16_087_635)
+            // Standard Error: 2_411
+            .saturating_add(Weight::from_ref_time(3_665_506).saturating_mul(c.into()))
+    }
+    /// The range of component `c` is `[0, 1000]`.
+    fn batch_all(c: u32) -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `0`
+        //  Estimated: `0`
+        // Minimum execution time: 7_100 nanoseconds.
+        Weight::from_ref_time(14_090_381)
+            // Standard Error: 1_917
+            .saturating_add(Weight::from_ref_time(3_744_891).saturating_mul(c.into()))
+    }
+    fn dispatch_as() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `0`
+        //  Estimated: `0`
+        // Minimum execution time: 8_840 nanoseconds.
+        Weight::from_ref_time(9_280_000)
+    }
+    /// The range of component `c` is `[0, 1000]`.
+    fn force_batch(c: u32) -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `0`
+        //  Estimated: `0`
+        // Minimum execution time: 7_245 nanoseconds.
+        Weight::from_ref_time(14_292_923)
+            // Standard Error: 1_803
+            .saturating_add(Weight::from_ref_time(3_645_950).saturating_mul(c.into()))
+    }
     // Storage: Permissions CurrentPalletName (r:1 w:1)
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
-    fn batch(calls: &[impl GetDispatchInfo]) -> Weight {
+    fn batch_old(calls: &[impl GetDispatchInfo]) -> Weight {
         Weight::from_ref_time(38_672_000)
             // Standard Error: 438_000
             .saturating_add(sum_weights(calls))

@@ -51,7 +51,9 @@ fn remark_call_builder<T: Config + TestUtilsFn<AccountIdOf<T>>>(
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
-    batch {
+    // TODO: Add Substrate benchmarks.
+
+    batch_old {
         let c in 0..MAX_CALLS;
 
         let u = UserBuilder::<T>::default().generate_did().build("ALICE");
@@ -99,5 +101,4 @@ benchmarks! {
     verify {
         // NB see comment at `batch` verify section.
     }
-
 }
