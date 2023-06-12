@@ -15,7 +15,7 @@ use pallet_nft::NumberOfNFTs;
 use pallet_portfolio::{PortfolioLockedNFT, PortfolioNFT};
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
-    AffirmsReceived, InstructionAffirmsPending, InstructionLegs, InstructionMemos,
+    AffirmsReceived, InstructionAffirmsPending, InstructionLegs, InstructionMemos, RawEvent,
     UserAffirmations, VenueInstructions,
 };
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
@@ -2538,6 +2538,22 @@ fn settle_manual_instruction_with_portfolio() {
 
         alice.assert_balance_decreased(&TICKER, amount);
         bob.assert_balance_increased(&TICKER, amount);
+
+        let mut system_events = System::events();
+        assert_eq!(
+            system_events.pop().unwrap().event,
+            super::storage::EventTest::Settlement(RawEvent::SettlementManuallyExecuted(
+                alice.did,
+                instruction_id
+            ))
+        );
+        assert_eq!(
+            system_events.pop().unwrap().event,
+            super::storage::EventTest::Settlement(RawEvent::InstructionExecuted(
+                alice.did,
+                instruction_id
+            ))
+        );
     });
 }
 
