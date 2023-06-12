@@ -383,7 +383,8 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_utility::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
-            type Call = RuntimeCall;
+            type RuntimeCall = RuntimeCall;
+            type PalletsOrigin = OriginCaller;
             type WeightInfo = polymesh_weights::pallet_utility::SubstrateWeight;
         }
 
