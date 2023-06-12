@@ -107,10 +107,6 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       NoSuchAsset: AugmentedError<ApiType>;
       /**
-       * The given ticker is not a classic one.
-       **/
-      NoSuchClassicTicker: AugmentedError<ApiType>;
-      /**
        * The given Document does not exist.
        **/
       NoSuchDoc: AugmentedError<ApiType>;
@@ -673,10 +669,6 @@ declare module '@polkadot/api-base/types/errors' {
       [key: string]: AugmentedError<ApiType>;
     };
     corporateAction: {
-      /**
-       * The authorization type is not to transfer the CAA to another DID.
-       **/
-      AuthNotCAATransfer: AugmentedError<ApiType>;
       /**
        * A CA's declaration date was strictly after its record date.
        **/
@@ -1723,6 +1715,10 @@ declare module '@polkadot/api-base/types/errors' {
        * The maximum number of off-chain assets was exceeded.
        **/
       MaxNumberOfOffChainAssetsExceeded: AugmentedError<ApiType>;
+      /**
+       * The maximum number of receipts was exceeded.
+       **/
+      MaxNumberOfReceiptsExceeded: AugmentedError<ApiType>;
       /**
        * The given number of fungible transfers was underestimated.
        **/

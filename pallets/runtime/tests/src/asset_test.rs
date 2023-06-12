@@ -14,12 +14,14 @@ use sp_std::iter;
 use pallet_asset::checkpoint::ScheduleSpec;
 use pallet_asset::{
     AssetDocuments, AssetMetadataLocalKeyToName, AssetMetadataLocalNameToKey,
-    AssetMetadataLocalSpecs, AssetMetadataValues, AssetOwnershipRelation, Config as AssetConfig,
-    CustomTypeIdSequence, CustomTypes, CustomTypesInverse, PreApprovedTicker, ScopeIdOf,
-    SecurityToken, TickerRegistrationConfig, TickersExemptFromAffirmation,
+    AssetMetadataLocalSpecs, AssetMetadataValues, AssetOwnershipRelation, BalanceOf,
+    Config as AssetConfig, CustomTypeIdSequence, CustomTypes, CustomTypesInverse,
+    PreApprovedTicker, ScopeIdOf, SecurityToken, TickerRegistrationConfig,
+    TickersExemptFromAffirmation,
 };
 use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances};
 use polymesh_common_utilities::asset::AssetFnTrait;
+use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::constants::*;
 use polymesh_common_utilities::traits::checkpoint::{ScheduleId, StoredSchedule};
 use polymesh_primitives::agent::AgentGroup;
@@ -37,8 +39,8 @@ use polymesh_primitives::statistics::StatType;
 use polymesh_primitives::{
     AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
     DocumentId, Fund, FundDescription, IdentityId, InvestorUid, Memo, Moment, NFTCollectionKeys,
-    Permissions, PortfolioId, PortfolioKind, PortfolioName, SecondaryKey, Signatory, Ticker,
-    WeightMeter,
+    Permissions, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey,
+    Signatory, Ticker, WeightMeter,
 };
 use test_client::AccountKeyring;
 
@@ -146,7 +148,12 @@ fn asset_with_ids(
         true,
     )?;
     enable_investor_count(ticker, owner);
-    Asset::issue(owner.origin(), ticker, token.total_supply)?;
+    Asset::issue(
+        owner.origin(),
+        ticker,
+        token.total_supply,
+        PortfolioKind::Default,
+    )?;
     assert_eq!(Asset::balance_of(&ticker, owner.did), token.total_supply);
     Ok(())
 }
@@ -262,7 +269,7 @@ fn issuers_can_create_and_rename_tokens() {
         ));
         enable_investor_count(ticker, owner);
 
-        let issue = |supply| Asset::issue(owner.origin(), ticker, supply);
+        let issue = |supply| Asset::issue(owner.origin(), ticker, supply, PortfolioKind::Default);
         assert_noop!(
             issue(1_000_000_000_000_000_000_000_000),
             AssetError::TotalSupplyAboveLimit
@@ -936,7 +943,12 @@ fn frozen_secondary_keys_create_asset_we() {
         None,
         true,
     ));
-    assert_ok!(Asset::issue(bob.origin(), ticker_1, token_1.total_supply));
+    assert_ok!(Asset::issue(
+        bob.origin(),
+        ticker_1,
+        token_1.total_supply,
+        PortfolioKind::Default
+    ));
     assert_eq!(Asset::token_details(ticker_1), token_1);
 
     // 3. Alice freezes her secondary keys.
@@ -1502,11 +1514,16 @@ fn secondary_key_not_authorized_for_asset_test() {
             let minted_value = 50_000u128.into();
             StoreCallMetadata::set_call_metadata(b"pallet_asset".into(), b"issuer".into());
             assert_noop!(
-                Asset::issue(not.origin(), ticker, minted_value),
+                Asset::issue(not.origin(), ticker, minted_value, PortfolioKind::Default),
                 pallet_external_agents::Error::<TestStorage>::SecondaryKeyNotAuthorizedForAsset
             );
 
-            assert_ok!(Asset::issue(all.origin(), ticker, minted_value));
+            assert_ok!(Asset::issue(
+                all.origin(),
+                ticker,
+                minted_value,
+                PortfolioKind::Default
+            ));
             assert_eq!(Asset::total_supply(ticker), TOTAL_SUPPLY + minted_value);
         });
 }
@@ -1563,7 +1580,7 @@ fn invalid_granularity_test() {
     test_with_owner(|owner| {
         let ticker = an_asset(owner, false);
         assert_noop!(
-            Asset::issue(owner.origin(), ticker, 10_000),
+            Asset::issue(owner.origin(), ticker, 10_000, PortfolioKind::Default),
             AssetError::InvalidGranularity
         );
     })
@@ -1616,14 +1633,14 @@ fn create_asset_errors(owner: AccountId, other: AccountId) {
 
     assert_ok!(create(ta, name.clone(), false, None));
     assert_noop!(
-        Asset::issue(o.clone(), ta, 1_000),
+        Asset::issue(o.clone(), ta, 1_000, PortfolioKind::Default),
         AssetError::InvalidGranularity,
     );
 
     let tb = Ticker::from_slice_truncated(&b"B"[..]);
     assert_ok!(create(tb, name.clone(), true, None));
     assert_noop!(
-        Asset::issue(o.clone(), tb, u128::MAX),
+        Asset::issue(o.clone(), tb, u128::MAX, PortfolioKind::Default),
         AssetError::TotalSupplyAboveLimit,
     );
 
@@ -2316,6 +2333,186 @@ fn remove_metadata_value() {
 }
 
 #[test]
+fn issue_token_invalid_portfolio() {
+    ExtBuilder::default().build().execute_with(|| {
+        let issued_amount = ONE_UNIT;
+        let alice = User::new(AccountKeyring::Alice);
+        let ticker = Ticker::from_slice_truncated(b"TICKER");
+        let alice_user_portfolio = PortfolioKind::User(PortfolioNumber(1));
+
+        assert_ok!(Asset::create_asset(
+            alice.origin(),
+            ticker.as_ref().into(),
+            ticker,
+            true,
+            AssetType::default(),
+            Vec::new(),
+            None,
+            true,
+        ));
+
+        assert_noop!(
+            Asset::issue(alice.origin(), ticker, issued_amount, alice_user_portfolio),
+            PortfolioError::PortfolioDoesNotExist
+        );
+    })
+}
+
+#[test]
+fn issue_token_unassigned_custody() {
+    ExtBuilder::default().build().execute_with(|| {
+        let issued_amount = ONE_UNIT;
+        let alice = User::new(AccountKeyring::Alice);
+        let ticker = Ticker::from_slice_truncated(b"TICKER");
+        let alice_user_portfolio = PortfolioKind::User(PortfolioNumber(1));
+
+        assert_ok!(Portfolio::create_portfolio(
+            alice.origin(),
+            PortfolioName(b"AlicePortfolio".to_vec())
+        ));
+
+        assert_ok!(Asset::create_asset(
+            alice.origin(),
+            ticker.as_ref().into(),
+            ticker,
+            true,
+            AssetType::default(),
+            Vec::new(),
+            None,
+            true,
+        ));
+        assert_ok!(Asset::issue(
+            alice.origin(),
+            ticker,
+            issued_amount,
+            alice_user_portfolio
+        ));
+        assert_eq!(BalanceOf::get(ticker, alice.did), issued_amount);
+    })
+}
+
+#[test]
+fn issue_token_assigned_custody() {
+    ExtBuilder::default().build().execute_with(|| {
+        let issued_amount = ONE_UNIT;
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let ticker = Ticker::from_slice_truncated(b"TICKER");
+        let portfolio_id = PortfolioId::new(alice.did, PortfolioKind::Default);
+
+        assert_ok!(Asset::create_asset(
+            alice.origin(),
+            ticker.as_ref().into(),
+            ticker,
+            true,
+            AssetType::default(),
+            Vec::new(),
+            None,
+            true,
+        ));
+        // Change custody of the default portfolio
+        let authorization_id = Identity::add_auth(
+            alice.did,
+            Signatory::from(bob.did),
+            AuthorizationData::PortfolioCustody(portfolio_id),
+            None,
+        );
+        assert_ok!(Portfolio::accept_portfolio_custody(
+            bob.origin(),
+            authorization_id
+        ));
+
+        assert_ok!(Asset::issue(
+            alice.origin(),
+            ticker,
+            issued_amount,
+            PortfolioKind::Default
+        ));
+        assert_eq!(BalanceOf::get(ticker, alice.did), issued_amount);
+    })
+}
+
+#[test]
+fn redeem_token_unassigned_custody() {
+    ExtBuilder::default().build().execute_with(|| {
+        let issued_amount = ONE_UNIT;
+        let alice = User::new(AccountKeyring::Alice);
+        let ticker = Ticker::from_slice_truncated(b"TICKER");
+
+        assert_ok!(Asset::create_asset(
+            alice.origin(),
+            ticker.as_ref().into(),
+            ticker,
+            true,
+            AssetType::default(),
+            Vec::new(),
+            None,
+            true,
+        ));
+        assert_ok!(Asset::issue(
+            alice.origin(),
+            ticker,
+            issued_amount,
+            PortfolioKind::Default
+        ));
+        assert_ok!(Asset::redeem_from_portfolio(
+            alice.origin(),
+            ticker,
+            issued_amount,
+            PortfolioKind::Default
+        ));
+        assert_eq!(BalanceOf::get(ticker, alice.did), 0);
+    })
+}
+
+#[test]
+fn redeem_token_assigned_custody() {
+    ExtBuilder::default().build().execute_with(|| {
+        let issued_amount = ONE_UNIT;
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let ticker = Ticker::from_slice_truncated(b"TICKER");
+        let portfolio_id = PortfolioId::new(alice.did, PortfolioKind::Default);
+
+        assert_ok!(Asset::create_asset(
+            alice.origin(),
+            ticker.as_ref().into(),
+            ticker,
+            true,
+            AssetType::default(),
+            Vec::new(),
+            None,
+            true,
+        ));
+        // Change custody of the default portfolio
+        let authorization_id = Identity::add_auth(
+            alice.did,
+            Signatory::from(bob.did),
+            AuthorizationData::PortfolioCustody(portfolio_id),
+            None,
+        );
+        assert_ok!(Portfolio::accept_portfolio_custody(
+            bob.origin(),
+            authorization_id
+        ));
+
+        assert_ok!(Asset::issue(
+            alice.origin(),
+            ticker,
+            issued_amount,
+            PortfolioKind::Default
+        ));
+        assert_noop!(
+            Asset::redeem_from_portfolio(
+                alice.origin(),
+                ticker,
+                issued_amount,
+                PortfolioKind::Default
+            ),
+            PortfolioError::UnauthorizedCustodian
+        );
+    })
+}
 fn pre_approve_ticker() {
     ExtBuilder::default().build().execute_with(|| {
         let ticker: Ticker = ticker("TICKER");

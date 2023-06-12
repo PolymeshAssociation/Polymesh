@@ -12,8 +12,9 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::{
-    IdentityId, NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId,
-    PortfolioKind, PortfolioNumber, PortfolioUpdateReason, Ticker, WeightMeter,
+    AuthorizationData, IdentityId, NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute,
+    NFTs, PortfolioId, PortfolioKind, PortfolioNumber, PortfolioUpdateReason, Signatory, Ticker,
+    WeightMeter,
 };
 use test_client::AccountKeyring;
 
@@ -483,6 +484,56 @@ fn burn_nft_not_found() {
         assert_noop!(
             NFT::redeem_nft(alice.origin(), ticker, NFTId(1), PortfolioKind::Default),
             NFTError::NFTNotFound
+        );
+    });
+}
+
+/// An NFT can only be burned if the caller has custody over the portfolio.
+#[test]
+fn burn_nft_no_custody() {
+    ExtBuilder::default().build().execute_with(|| {
+        set_timestamp(Utc::now().timestamp() as _);
+
+        let bob: User = User::new(AccountKeyring::Bob);
+        let alice: User = User::new(AccountKeyring::Alice);
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let portfolio_id = PortfolioId::new(alice.did, PortfolioKind::Default);
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+
+        create_nft_collection(
+            alice.clone(),
+            ticker.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
+
+        // Change custody of the default portfolio
+        let authorization_id = Identity::add_auth(
+            alice.did,
+            Signatory::from(bob.did),
+            AuthorizationData::PortfolioCustody(portfolio_id),
+            None,
+        );
+        assert_ok!(Portfolio::accept_portfolio_custody(
+            bob.origin(),
+            authorization_id
+        ));
+
+        NFT::issue_nft(
+            alice.origin(),
+            ticker,
+            vec![NFTMetadataAttribute {
+                key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+                value: AssetMetadataValue(b"test".to_vec()),
+            }],
+            PortfolioKind::Default,
+        )
+        .unwrap();
+
+        assert_noop!(
+            NFT::redeem_nft(alice.origin(), ticker, NFTId(1), PortfolioKind::Default),
+            PortfolioError::UnauthorizedCustodian
         );
     });
 }

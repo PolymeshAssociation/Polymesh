@@ -13,18 +13,19 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::*;
 use core::iter;
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
-use pallet_asset::benchmarking::make_document;
-use polymesh_common_utilities::{
-    benchs::{make_asset, user, AccountIdOf, User},
-    TestUtilsFn,
-};
 
-const TAX: Tax = Tax::one();
+use pallet_asset::benchmarking::make_document;
+use polymesh_common_utilities::benchs::{make_asset, user, AccountIdOf, User};
+use polymesh_common_utilities::TestUtilsFn;
+use polymesh_primitives::PortfolioKind;
+
+use crate::*;
+
 pub(crate) const SEED: u32 = 0;
+const TAX: Tax = Tax::one();
 const MAX_TARGET_IDENTITIES: u32 = 500;
 const MAX_DID_WHT_IDS: u32 = 1000;
 const DETAILS_LEN: u32 = 1000;
@@ -150,8 +151,13 @@ pub(crate) fn currency<T: Config>(owner: &User<T>) -> Ticker {
         true,
     )
     .expect("Asset cannot be created");
-    Asset::<T>::issue(owner.origin().into(), currency, 1_000_000u32.into())
-        .expect("Could not mint for asset");
+    Asset::<T>::issue(
+        owner.origin().into(),
+        currency,
+        1_000_000u32.into(),
+        PortfolioKind::Default,
+    )
+    .expect("Could not mint for asset");
     currency
 }
 
