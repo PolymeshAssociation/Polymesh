@@ -192,7 +192,12 @@ fn create_token(ticker: Ticker, user: User) {
         None,
         true,
     ));
-    assert_ok!(Asset::issue(user.origin(), ticker, 100_000));
+    assert_ok!(Asset::issue(
+        user.origin(),
+        ticker,
+        100_000,
+        PortfolioKind::Default
+    ));
     allow_all_transfers(ticker, user);
 }
 

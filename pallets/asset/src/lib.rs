@@ -93,7 +93,6 @@ use frame_support::dispatch::{DispatchError, DispatchResult, Weight};
 use frame_support::traits::{Get, PalletInfoAccess};
 use frame_support::{decl_error, decl_module, decl_storage, ensure, fail};
 use frame_system::ensure_root;
-
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
 use sp_std::{convert::TryFrom, prelude::*};
@@ -487,23 +486,20 @@ decl_module! {
             Self::base_rename_asset(origin, ticker, name)
         }
 
-        /// Issue, or mint, new tokens to the caller,
-        /// which must be an authorized external agent.
+        /// Issue, or mint, new tokens to the caller, which must be an authorized external agent.
         ///
         /// # Arguments
-        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
-        /// * `ticker` of the token.
-        /// * `amount` of tokens that get issued.
+        /// * `origin` - A signer that has permissions to act as an agent of `ticker`.
+        /// * `ticker` - The [`Ticker`] of the token.
+        /// * `amount` - The amount of tokens that will be issued.
+        /// * `portfolio_kind` - The [`PortfolioKind`] of the portfolio that will receive the minted tokens.
         ///
         /// # Permissions
         /// * Asset
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::issue()]
-        pub fn issue(origin, ticker: Ticker, amount: Balance) -> DispatchResult {
-            // Ensure origin is agent with custody and permissions for default portfolio.
-            let portfolio = Self::ensure_agent_with_custody_and_perms(origin, ticker, PortfolioKind::Default)?;
-            let mut weight_meter = WeightMeter::max_limit_no_minimum();
-            Self::_mint(&ticker, portfolio.did, amount, Some(ProtocolOp::AssetIssue), &mut weight_meter)
+        pub fn issue(origin, ticker: Ticker, amount: Balance, portfolio_kind: PortfolioKind) -> DispatchResult {
+            Self::base_issue(origin, ticker, amount, portfolio_kind)
         }
 
         /// Redeems existing tokens by reducing the balance of the caller's default portfolio and the total supply of the token
@@ -654,25 +650,23 @@ decl_module! {
             funding_round: Option<FundingRoundName>,
             disable_iu: bool,
         ) -> DispatchResult {
-            let PermissionedCallOriginData {
-                primary_did,
-                secondary_key,
-                ..
-            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-            with_transaction(|| {
-                let asset_type_id = Self::unsafe_register_custom_asset_type(primary_did, custom_asset_type)?;
-                Self::unsafe_create_asset(
-                    primary_did,
-                    secondary_key,
-                    name,
-                    ticker,
-                    divisible,
-                    AssetType::Custom(asset_type_id),
-                    identifiers,
-                    funding_round,
-                    disable_iu,
-                ).map(drop)
-            })
+            let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            let asset_type_id = Self::unsafe_register_custom_asset_type(
+                origin_data.primary_did,
+                custom_asset_type,
+            )?;
+            Self::unsafe_create_asset(
+                origin_data.primary_did,
+                origin_data.secondary_key,
+                name,
+                ticker,
+                divisible,
+                AssetType::Custom(asset_type_id),
+                identifiers,
+                funding_round,
+                disable_iu,
+            )?;
+            Ok(())
         }
 
         /// Set asset metadata value.
@@ -994,153 +988,52 @@ decl_error! {
     }
 }
 
-impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
-    fn ensure_granular(ticker: &Ticker, value: Balance) -> DispatchResult {
-        Self::ensure_granular(ticker, value)
-    }
-
-    /// Get the asset `id` balance of `who`.
-    fn balance(ticker: &Ticker, who: IdentityId) -> Balance {
-        Self::balance_of(ticker, &who)
-    }
-
-    fn create_asset(
+impl<T: Config> Module<T> {
+    /// Issues `amount` tokens for `ticker` into the caller's portfolio.
+    fn base_issue(
         origin: T::RuntimeOrigin,
-        name: AssetName,
         ticker: Ticker,
-        divisible: bool,
-        asset_type: AssetType,
-        identifiers: Vec<AssetIdentifier>,
-        funding_round: Option<FundingRoundName>,
-        disable_iu: bool,
+        amount: Balance,
+        portfolio_kind: PortfolioKind,
     ) -> DispatchResult {
-        Self::create_asset(
+        let portfolio_id = Self::ensure_origin_ticker_and_portfolio_permissions(
             origin,
-            name,
             ticker,
-            divisible,
-            asset_type,
-            identifiers,
-            funding_round,
-            disable_iu,
+            portfolio_kind,
+            false,
+        )?;
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+        Self::_mint(
+            &ticker,
+            portfolio_id.did,
+            amount,
+            Some(ProtocolOp::AssetIssue),
+            &mut weight_meter,
         )
     }
 
-    fn register_ticker(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
-        Self::base_register_ticker(origin, ticker)
-    }
-
-    fn issue(origin: T::RuntimeOrigin, ticker: Ticker, total_supply: Balance) -> DispatchResult {
-        Self::issue(origin, ticker, total_supply)
-    }
-
-    fn skip_ticker_affirmation(identity_id: &IdentityId, ticker: &Ticker) -> bool {
-        if TickersExemptFromAffirmation::get(ticker) {
-            return true;
-        }
-        PreApprovedTicker::get(identity_id, ticker)
-    }
-
-    fn ticker_affirmation_exemption(ticker: &Ticker) -> bool {
-        TickersExemptFromAffirmation::get(ticker)
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker) {
-        if Self::disable_iu(ticker) {
-            return;
-        }
-        use polymesh_primitives::{CddId, Claim, InvestorUid, Scope};
-        Identity::<T>::unverified_add_claim_with_scope(
-            did,
-            Claim::InvestorUniqueness(
-                Scope::Ticker(ticker),
-                did,
-                CddId::new_v1(did, InvestorUid::from(did.to_bytes())),
-            ),
-            Some(Scope::Ticker(ticker)),
-            did,
-            None,
-        );
-        let current_balance = Self::balance_of(ticker, did);
-        AggregateBalance::insert(ticker, &did, current_balance);
-        BalanceOfAtScope::insert(did, did, current_balance);
-        ScopeIdOf::insert(ticker, did, did);
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn register_asset_metadata_type(
+    /// Ensures that `origin` is a permissioned agent for `ticker`, that the portfolio is valid and that calller
+    /// has the access to the portfolio. If `ensure_custody` is `true`, also enforces the caller to have custody
+    /// of the portfolio.
+    pub fn ensure_origin_ticker_and_portfolio_permissions(
         origin: T::RuntimeOrigin,
-        ticker: Option<Ticker>,
-        name: AssetMetadataName,
-        spec: AssetMetadataSpec,
-    ) -> DispatchResult {
-        match ticker {
-            Some(ticker) => Self::register_asset_metadata_local_type(origin, ticker, name, spec),
-            None => Self::register_asset_metadata_global_type(origin, name, spec),
+        ticker: Ticker,
+        portfolio_kind: PortfolioKind,
+        ensure_custody: bool,
+    ) -> Result<PortfolioId, DispatchError> {
+        let origin_data = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ticker)?;
+        let portfolio_id = PortfolioId::new(origin_data.primary_did, portfolio_kind);
+        Portfolio::<T>::ensure_portfolio_validity(&portfolio_id)?;
+        if ensure_custody {
+            Portfolio::<T>::ensure_portfolio_custody(portfolio_id, origin_data.primary_did)?;
         }
-    }
-}
-
-impl<T: Config> AssetSubTrait for Module<T> {
-    fn update_balance_of_scope_id(scope_id: ScopeId, target_did: IdentityId, ticker: Ticker) {
-        // If `target_did` already has another ScopeId, clean up the old ScopeId data.
-        if ScopeIdOf::contains_key(&ticker, &target_did) {
-            let old_scope_id = Self::scope_id(&ticker, &target_did);
-            // Delete the balance of target_did at old_scope_id.
-            let target_balance = BalanceOfAtScope::take(old_scope_id, target_did);
-            // Reduce the aggregate balance of identities with the same ScopeId by the deleted balance.
-            AggregateBalance::mutate(ticker, old_scope_id, {
-                |bal| *bal = bal.saturating_sub(target_balance)
-            });
-        }
-
-        let balance_at_scope = Self::balance_of_at_scope(scope_id, target_did);
-
-        // Used `balance_at_scope` variable to skip re-updating the aggregate balance of the given identityId whom
-        // has the scope claim already.
-        if balance_at_scope == Zero::zero() {
-            let current_balance = Self::balance_of(ticker, target_did);
-            // Update the balance of `target_did` under `scope_id`.
-            BalanceOfAtScope::insert(scope_id, target_did, current_balance);
-            // current aggregate balance + current identity balance is always less than the total supply of `ticker`.
-            AggregateBalance::mutate(ticker, scope_id, |bal| *bal = *bal + current_balance);
-        }
-        // Caches the `ScopeId` for a given IdentityId and ticker.
-        // this is needed to avoid the on-chain iteration of the claims to find the ScopeId.
-        ScopeIdOf::insert(ticker, target_did, scope_id);
+        Portfolio::<T>::ensure_user_portfolio_permission(
+            origin_data.secondary_key.as_ref(),
+            portfolio_id,
+        )?;
+        Ok(portfolio_id)
     }
 
-    /// Returns balance for a given scope id and target DID.
-    fn balance_of_at_scope(scope_id: &ScopeId, target: &IdentityId) -> Balance {
-        Self::balance_of_at_scope(scope_id, target)
-    }
-
-    fn scope_id(ticker: &Ticker, did: &IdentityId) -> ScopeId {
-        if DisableInvestorUniqueness::get(ticker) {
-            *did
-        } else {
-            Self::scope_id_of(ticker, did)
-        }
-    }
-
-    /// Ensure that Investor Uniqueness is allowed for the ticker.
-    fn ensure_investor_uniqueness_claims_allowed(ticker: &Ticker) -> DispatchResult {
-        ensure!(
-            !DisableInvestorUniqueness::get(ticker),
-            Error::<T>::InvestorUniquenessClaimNotAllowed
-        );
-        Ok(())
-    }
-}
-
-/// All functions in the decl_module macro become part of the public interface of the module
-/// If they are there, they are accessible via extrinsic calls whether they are public or not
-/// However, in the impl module section (this, below) the functions can be public and private
-/// Private functions are internal to this module e.g.: _transfer
-/// Public functions can be called from other modules e.g.: lock and unlock (being called from the tcr module)
-/// All functions in the impl module section are not part of public interface because they are not part of the Call enum.
-impl<T: Config> Module<T> {
     /// Ensure that all `idents` are valid.
     fn ensure_asset_idents_valid(idents: &[AssetIdentifier]) -> DispatchResult {
         ensure!(
@@ -1180,23 +1073,6 @@ impl<T: Config> Module<T> {
     fn unverified_update_idents(did: IdentityId, ticker: Ticker, idents: Vec<AssetIdentifier>) {
         Identifiers::insert(ticker, idents.clone());
         Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, idents));
-    }
-
-    pub fn ensure_agent_with_custody_and_perms(
-        origin: T::RuntimeOrigin,
-        ticker: Ticker,
-        portfolio_kind: PortfolioKind,
-    ) -> Result<PortfolioId, DispatchError> {
-        let data = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ticker)?;
-
-        // Ensure the caller has not assigned custody of their portfolio and that they are permissioned.
-        let portfolio = PortfolioId {
-            did: data.primary_did,
-            kind: portfolio_kind,
-        };
-        let skey = data.secondary_key.as_ref();
-        Portfolio::<T>::ensure_portfolio_custody_and_permission(portfolio, data.primary_did, skey)?;
-        Ok(portfolio)
     }
 
     /// Ensure that `did` is the owner of `ticker`.
@@ -1243,7 +1119,7 @@ impl<T: Config> Module<T> {
         }
     }
 
-    /// Returns `true` iff the ticker exists, is owned by `did`, and ticker hasn't expired.
+    /// Returns `true` if the ticker exists, is owned by `did`, and ticker hasn't expired.
     pub fn is_ticker_registry_valid(ticker: &Ticker, did: IdentityId) -> bool {
         // Assumes uppercase ticker
         if let Some(ticker) = Self::maybe_ticker(ticker) {
@@ -1974,8 +1850,12 @@ impl<T: Config> Module<T> {
         portfolio_kind: PortfolioKind,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        // Ensure origin is agent with custody and permissions for portfolio.
-        let portfolio = Self::ensure_agent_with_custody_and_perms(origin, ticker, portfolio_kind)?;
+        let portfolio = Self::ensure_origin_ticker_and_portfolio_permissions(
+            origin,
+            ticker,
+            portfolio_kind,
+            true,
+        )?;
 
         Self::ensure_granular(&ticker, value)?;
 
@@ -1988,7 +1868,6 @@ impl<T: Config> Module<T> {
         // Reduce caller's portfolio balance. This makes sure that the caller has enough unlocked tokens.
         // If `advance_update_balances` fails, `reduce_portfolio_balance` shouldn't modify storage.
 
-        Portfolio::<T>::ensure_portfolio_validity(&portfolio)?;
         with_transaction(|| {
             Portfolio::<T>::reduce_portfolio_balance(&portfolio, &ticker, value)?;
 
@@ -2357,9 +2236,12 @@ impl<T: Config> Module<T> {
         from_portfolio: PortfolioId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        // Ensure `origin` has perms.
-        let to_portfolio =
-            Self::ensure_agent_with_custody_and_perms(origin, ticker, PortfolioKind::Default)?;
+        let to_portfolio = Self::ensure_origin_ticker_and_portfolio_permissions(
+            origin,
+            ticker,
+            PortfolioKind::Default,
+            false,
+        )?;
 
         // Transfer `value` of ticker tokens from `investor_did` to controller
         Self::unsafe_transfer(
@@ -2714,6 +2596,151 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         let caller_did = Identity::<T>::ensure_perms(origin)?;
         PreApprovedTicker::remove(&caller_did, ticker);
+        Ok(())
+    }
+}
+
+impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
+    fn ensure_granular(ticker: &Ticker, value: Balance) -> DispatchResult {
+        Self::ensure_granular(ticker, value)
+    }
+
+    /// Get the asset `id` balance of `who`.
+    fn balance(ticker: &Ticker, who: IdentityId) -> Balance {
+        Self::balance_of(ticker, &who)
+    }
+
+    fn create_asset(
+        origin: T::RuntimeOrigin,
+        name: AssetName,
+        ticker: Ticker,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<AssetIdentifier>,
+        funding_round: Option<FundingRoundName>,
+        disable_iu: bool,
+    ) -> DispatchResult {
+        Self::create_asset(
+            origin,
+            name,
+            ticker,
+            divisible,
+            asset_type,
+            identifiers,
+            funding_round,
+            disable_iu,
+        )
+    }
+
+    fn register_ticker(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
+        Self::base_register_ticker(origin, ticker)
+    }
+
+    fn issue(
+        origin: T::RuntimeOrigin,
+        ticker: Ticker,
+        amount: Balance,
+        portfolio_kind: PortfolioKind,
+    ) -> DispatchResult {
+        Self::issue(origin, ticker, amount, portfolio_kind)
+    }
+
+    fn skip_ticker_affirmation(identity_id: &IdentityId, ticker: &Ticker) -> bool {
+        if TickersExemptFromAffirmation::get(ticker) {
+            return true;
+        }
+        PreApprovedTicker::get(identity_id, ticker)
+    }
+
+    fn ticker_affirmation_exemption(ticker: &Ticker) -> bool {
+        TickersExemptFromAffirmation::get(ticker)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker) {
+        if Self::disable_iu(ticker) {
+            return;
+        }
+        use polymesh_primitives::{CddId, Claim, InvestorUid, Scope};
+        Identity::<T>::unverified_add_claim_with_scope(
+            did,
+            Claim::InvestorUniqueness(
+                Scope::Ticker(ticker),
+                did,
+                CddId::new_v1(did, InvestorUid::from(did.to_bytes())),
+            ),
+            Some(Scope::Ticker(ticker)),
+            did,
+            None,
+        );
+        let current_balance = Self::balance_of(ticker, did);
+        AggregateBalance::insert(ticker, &did, current_balance);
+        BalanceOfAtScope::insert(did, did, current_balance);
+        ScopeIdOf::insert(ticker, did, did);
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn register_asset_metadata_type(
+        origin: T::RuntimeOrigin,
+        ticker: Option<Ticker>,
+        name: AssetMetadataName,
+        spec: AssetMetadataSpec,
+    ) -> DispatchResult {
+        match ticker {
+            Some(ticker) => Self::register_asset_metadata_local_type(origin, ticker, name, spec),
+            None => Self::register_asset_metadata_global_type(origin, name, spec),
+        }
+    }
+}
+
+impl<T: Config> AssetSubTrait for Module<T> {
+    fn update_balance_of_scope_id(scope_id: ScopeId, target_did: IdentityId, ticker: Ticker) {
+        // If `target_did` already has another ScopeId, clean up the old ScopeId data.
+        if ScopeIdOf::contains_key(&ticker, &target_did) {
+            let old_scope_id = Self::scope_id(&ticker, &target_did);
+            // Delete the balance of target_did at old_scope_id.
+            let target_balance = BalanceOfAtScope::take(old_scope_id, target_did);
+            // Reduce the aggregate balance of identities with the same ScopeId by the deleted balance.
+            AggregateBalance::mutate(ticker, old_scope_id, {
+                |bal| *bal = bal.saturating_sub(target_balance)
+            });
+        }
+
+        let balance_at_scope = Self::balance_of_at_scope(scope_id, target_did);
+
+        // Used `balance_at_scope` variable to skip re-updating the aggregate balance of the given identityId whom
+        // has the scope claim already.
+        if balance_at_scope == Zero::zero() {
+            let current_balance = Self::balance_of(ticker, target_did);
+            // Update the balance of `target_did` under `scope_id`.
+            BalanceOfAtScope::insert(scope_id, target_did, current_balance);
+            // current aggregate balance + current identity balance is always less than the total supply of `ticker`.
+            AggregateBalance::mutate(ticker, scope_id, |bal| *bal = *bal + current_balance);
+        }
+        // Caches the `ScopeId` for a given IdentityId and ticker.
+        // this is needed to avoid the on-chain iteration of the claims to find the ScopeId.
+        ScopeIdOf::insert(ticker, target_did, scope_id);
+    }
+
+    /// Returns balance for a given scope id and target DID.
+    fn balance_of_at_scope(scope_id: &ScopeId, target: &IdentityId) -> Balance {
+        Self::balance_of_at_scope(scope_id, target)
+    }
+
+    fn scope_id(ticker: &Ticker, did: &IdentityId) -> ScopeId {
+        if DisableInvestorUniqueness::get(ticker) {
+            *did
+        } else {
+            Self::scope_id_of(ticker, did)
+        }
+    }
+
+    /// Ensure that Investor Uniqueness is allowed for the ticker.
+    fn ensure_investor_uniqueness_claims_allowed(ticker: &Ticker) -> DispatchResult {
+        ensure!(
+            !DisableInvestorUniqueness::get(ticker),
+            Error::<T>::InvestorUniquenessClaimNotAllowed
+        );
         Ok(())
     }
 }

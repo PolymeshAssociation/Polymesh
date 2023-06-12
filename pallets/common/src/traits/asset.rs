@@ -25,110 +25,12 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
 };
 use polymesh_primitives::{
-    AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, PortfolioUpdateReason,
-    ScopeId, Ticker,
+    AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, PortfolioKind,
+    PortfolioUpdateReason, ScopeId, Ticker,
 };
 
 use crate::traits::nft::NFTTrait;
 use crate::traits::{checkpoint, compliance_manager, external_agents, portfolio, statistics};
-
-/// This trait is used by the `identity` pallet to interact with the `pallet-asset`.
-pub trait AssetSubTrait {
-    /// Update the `ticker` balance of `target_did` under `scope_id`. Clean up the balances related
-    /// to any previous valid `old_scope_ids`.
-    ///
-    /// # Arguments
-    /// * `scope_id` - The new `ScopeId` of `target_did` and `ticker`.
-    /// * `target_did` - The `IdentityId` whose balance needs to be updated.
-    /// * `ticker`- Ticker of the asset whose count need to be updated for the given identity.
-    fn update_balance_of_scope_id(scope_id: ScopeId, target_did: IdentityId, ticker: Ticker);
-
-    /// Returns balance for a given scope id and target DID.
-    ///
-    /// # Arguments
-    /// * `scope_id` - The `ScopeId` of the given `IdentityId`.
-    /// * `target` - The `IdentityId` whose balance needs to be queried.
-    fn balance_of_at_scope(scope_id: &ScopeId, target: &IdentityId) -> Balance;
-
-    /// Returns the `ScopeId` for a given `ticker` and `did`.
-    fn scope_id(ticker: &Ticker, did: &IdentityId) -> ScopeId;
-
-    /// Ensure that Investor Uniqueness is allowed for the ticker.
-    fn ensure_investor_uniqueness_claims_allowed(ticker: &Ticker) -> DispatchResult;
-}
-
-pub trait AssetFnTrait<Account, Origin> {
-    /// Ensure the granularity of `value` meets the requirements of `ticker`.
-    fn ensure_granular(ticker: &Ticker, value: Balance) -> DispatchResult;
-
-    fn balance(ticker: &Ticker, did: IdentityId) -> Balance;
-
-    fn create_asset(
-        origin: Origin,
-        name: AssetName,
-        ticker: Ticker,
-        divisible: bool,
-        asset_type: AssetType,
-        identifiers: Vec<AssetIdentifier>,
-        funding_round: Option<FundingRoundName>,
-        disable_iu: bool,
-    ) -> DispatchResult;
-
-    fn register_ticker(origin: Origin, ticker: Ticker) -> DispatchResult;
-
-    fn issue(origin: Origin, ticker: Ticker, total_supply: Balance) -> DispatchResult;
-
-    /// Returns `true` if the given `identity_id` is exempt from affirming the receivement of `ticker`, otherwise returns `false`.
-    fn skip_ticker_affirmation(identity_id: &IdentityId, ticker: &Ticker) -> bool;
-
-    /// Returns `true` if the receivement of `ticker` is exempt from being affirmed, otherwise returns `false`.
-    fn ticker_affirmation_exemption(ticker: &Ticker) -> bool;
-
-    /// Adds an artificial IU claim for benchmarks
-    #[cfg(feature = "runtime-benchmarks")]
-    fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker);
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn register_asset_metadata_type(
-        origin: Origin,
-        ticker: Option<Ticker>,
-        name: AssetMetadataName,
-        spec: AssetMetadataSpec,
-    ) -> DispatchResult;
-}
-
-pub trait WeightInfo {
-    fn register_ticker() -> Weight;
-    fn accept_ticker_transfer() -> Weight;
-    fn accept_asset_ownership_transfer() -> Weight;
-    fn create_asset(n: u32, i: u32, f: u32) -> Weight;
-    fn freeze() -> Weight;
-    fn unfreeze() -> Weight;
-    fn rename_asset(n: u32) -> Weight;
-    fn issue() -> Weight;
-    fn redeem() -> Weight;
-    fn make_divisible() -> Weight;
-    fn add_documents(d: u32) -> Weight;
-    fn remove_documents(d: u32) -> Weight;
-    fn set_funding_round(f: u32) -> Weight;
-    fn update_identifiers(i: u32) -> Weight;
-    fn controller_transfer() -> Weight;
-    fn register_custom_asset_type(n: u32) -> Weight;
-    fn set_asset_metadata() -> Weight;
-    fn set_asset_metadata_details() -> Weight;
-    fn register_and_set_local_asset_metadata() -> Weight;
-    fn register_asset_metadata_local_type() -> Weight;
-    fn register_asset_metadata_global_type() -> Weight;
-    fn redeem_from_portfolio() -> Weight;
-    fn update_asset_type() -> Weight;
-    fn remove_local_metadata_key() -> Weight;
-    fn remove_metadata_value() -> Weight;
-    fn base_transfer() -> Weight;
-    fn exempt_ticker_affirmation() -> Weight;
-    fn remove_ticker_affirmation_exemption() -> Weight;
-    fn pre_approve_ticker() -> Weight;
-    fn remove_ticker_pre_approval() -> Weight;
-}
 
 /// The module's configuration trait.
 pub trait Config:
@@ -264,4 +166,108 @@ decl_event! {
             PortfolioUpdateReason,
         ),
     }
+}
+
+pub trait WeightInfo {
+    fn register_ticker() -> Weight;
+    fn accept_ticker_transfer() -> Weight;
+    fn accept_asset_ownership_transfer() -> Weight;
+    fn create_asset(n: u32, i: u32, f: u32) -> Weight;
+    fn freeze() -> Weight;
+    fn unfreeze() -> Weight;
+    fn rename_asset(n: u32) -> Weight;
+    fn issue() -> Weight;
+    fn redeem() -> Weight;
+    fn make_divisible() -> Weight;
+    fn add_documents(d: u32) -> Weight;
+    fn remove_documents(d: u32) -> Weight;
+    fn set_funding_round(f: u32) -> Weight;
+    fn update_identifiers(i: u32) -> Weight;
+    fn controller_transfer() -> Weight;
+    fn register_custom_asset_type(n: u32) -> Weight;
+    fn set_asset_metadata() -> Weight;
+    fn set_asset_metadata_details() -> Weight;
+    fn register_and_set_local_asset_metadata() -> Weight;
+    fn register_asset_metadata_local_type() -> Weight;
+    fn register_asset_metadata_global_type() -> Weight;
+    fn redeem_from_portfolio() -> Weight;
+    fn update_asset_type() -> Weight;
+    fn remove_local_metadata_key() -> Weight;
+    fn remove_metadata_value() -> Weight;
+    fn base_transfer() -> Weight;
+    fn exempt_ticker_affirmation() -> Weight;
+    fn remove_ticker_affirmation_exemption() -> Weight;
+    fn pre_approve_ticker() -> Weight;
+    fn remove_ticker_pre_approval() -> Weight;
+}
+
+/// This trait is used by the `identity` pallet to interact with the `pallet-asset`.
+pub trait AssetSubTrait {
+    /// Update the `ticker` balance of `target_did` under `scope_id`. Clean up the balances related
+    /// to any previous valid `old_scope_ids`.
+    ///
+    /// # Arguments
+    /// * `scope_id` - The new `ScopeId` of `target_did` and `ticker`.
+    /// * `target_did` - The `IdentityId` whose balance needs to be updated.
+    /// * `ticker`- Ticker of the asset whose count need to be updated for the given identity.
+    fn update_balance_of_scope_id(scope_id: ScopeId, target_did: IdentityId, ticker: Ticker);
+
+    /// Returns balance for a given scope id and target DID.
+    ///
+    /// # Arguments
+    /// * `scope_id` - The `ScopeId` of the given `IdentityId`.
+    /// * `target` - The `IdentityId` whose balance needs to be queried.
+    fn balance_of_at_scope(scope_id: &ScopeId, target: &IdentityId) -> Balance;
+
+    /// Returns the `ScopeId` for a given `ticker` and `did`.
+    fn scope_id(ticker: &Ticker, did: &IdentityId) -> ScopeId;
+
+    /// Ensure that Investor Uniqueness is allowed for the ticker.
+    fn ensure_investor_uniqueness_claims_allowed(ticker: &Ticker) -> DispatchResult;
+}
+
+pub trait AssetFnTrait<Account, Origin> {
+    /// Ensure the granularity of `value` meets the requirements of `ticker`.
+    fn ensure_granular(ticker: &Ticker, value: Balance) -> DispatchResult;
+
+    fn balance(ticker: &Ticker, did: IdentityId) -> Balance;
+
+    fn create_asset(
+        origin: Origin,
+        name: AssetName,
+        ticker: Ticker,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<AssetIdentifier>,
+        funding_round: Option<FundingRoundName>,
+        disable_iu: bool,
+    ) -> DispatchResult;
+
+    fn register_ticker(origin: Origin, ticker: Ticker) -> DispatchResult;
+
+    /// Returns `true` if the given `identity_id` is exempt from affirming the receivement of `ticker`, otherwise returns `false`.
+    fn skip_ticker_affirmation(identity_id: &IdentityId, ticker: &Ticker) -> bool;
+
+    /// Returns `true` if the receivement of `ticker` is exempt from being affirmed, otherwise returns `false`.
+    fn ticker_affirmation_exemption(ticker: &Ticker) -> bool;
+
+    /// Adds an artificial IU claim for benchmarks
+    #[cfg(feature = "runtime-benchmarks")]
+    fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker);
+
+    /// Issues `amount` tokens for `ticker` into the caller's portfolio.
+    fn issue(
+        origin: Origin,
+        ticker: Ticker,
+        amount: Balance,
+        portfolio_kind: PortfolioKind,
+    ) -> DispatchResult;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn register_asset_metadata_type(
+        origin: Origin,
+        ticker: Option<Ticker>,
+        name: AssetMetadataName,
+        spec: AssetMetadataSpec,
+    ) -> DispatchResult;
 }
