@@ -1471,6 +1471,7 @@ impl<T: Config> Module<T> {
         id: InstructionId,
         receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
+        caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         match receipt {
@@ -1483,6 +1484,7 @@ impl<T: Config> Module<T> {
             id,
             Self::instruction_affirms_pending(id),
             Self::instruction_details(id).settlement_type,
+            caller_did,
             weight_meter,
         )?;
         Self::prune_instruction(id, true);
@@ -1493,9 +1495,9 @@ impl<T: Config> Module<T> {
         id: InstructionId,
         affirms_pending: u64,
         settlement_type: SettlementType<T::BlockNumber>,
+        caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        let caller_did = Identity::<T>::current_identity().unwrap_or(SettlementDID.as_id());
         // We assume `settlement_type == SettleOnAffirmation`,
         // to be defensive, however, this is checked before instruction execution.
         if settlement_type == SettlementType::SettleOnAffirmation && affirms_pending == 0 {
