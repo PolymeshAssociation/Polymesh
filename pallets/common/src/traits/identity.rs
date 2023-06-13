@@ -32,9 +32,8 @@ use frame_support::{
     Parameter,
 };
 use polymesh_primitives::{
-    secondary_key::SecondaryKey,
-    AuthorizationData, Balance, CustomClaimTypeId, IdentityClaim, IdentityId, Permissions,
-    Ticker,
+    secondary_key::SecondaryKey, AuthorizationData, Balance, CustomClaimTypeId, IdentityClaim,
+    IdentityId, Permissions, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_core::H512;

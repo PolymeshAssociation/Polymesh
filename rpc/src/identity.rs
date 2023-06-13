@@ -151,40 +151,7 @@ where
     ) -> RpcResult<RpcDidRecords<AccountId>> {
         let api = self.client.runtime_api();
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
-        let api_version = api
-            .api_version::<dyn IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, Moment>>(
-                at_hash,
-            )
-            .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to fetch DID records",
-                    Some(e.to_string()),
-                ))
-            })?;
-
-        match api_version {
-            Some(version) if version >= 2 =>
-            {
-                #[allow(deprecated)]
-                api.get_did_records(at_hash, did)
-            }
-            Some(1) =>
-            {
-                #[allow(deprecated)]
-                api.get_did_records_before_version_2(at_hash, did)
-                    .map(|rec| rec.into())
-            }
-            _ => {
-                return Err(CallError::Custom(ErrorObject::owned(
-                    ErrorCode::MethodNotFound.code(),
-                    format!("Cannot find `IdentityApi` for block {:?}", at),
-                    None::<()>,
-                ))
-                .into());
-            }
-        }
-        .map_err(|e| {
+        api.get_did_records(at_hash, did).map_err(|e| {
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to fetch DID records",
