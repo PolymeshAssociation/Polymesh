@@ -384,17 +384,6 @@ impl<AccountId> SecondaryKey<AccountId> {
         Self { key, permissions }
     }
 
-    /// Convert from v1 `SecondaryKey`.
-    pub fn from_v1(old: v1::SecondaryKey<AccountId>) -> Option<Self> {
-        match old.signer {
-            Signatory::Account(key) => Some(Self {
-                key,
-                permissions: old.permissions,
-            }),
-            _ => None,
-        }
-    }
-
     /// Creates a [`SecondaryKey`] with no permissions from an `AccountId`.
     pub fn from_account_id(key: AccountId) -> Self {
         Self {
@@ -442,33 +431,6 @@ impl<AccountId> SecondaryKey<AccountId> {
     /// Make a `KeyRecord` for this SecondaryKey.
     pub fn make_key_record(&self, did: IdentityId) -> KeyRecord<AccountId> {
         KeyRecord::SecondaryKey(did, self.permissions.clone())
-    }
-}
-
-/// Old v1 `SecondaryKey` type.
-pub mod v1 {
-    use super::*;
-
-    /// Old v1 secondary key.
-    #[derive(Encode, Decode, TypeInfo)]
-    #[derive(Clone, Debug, Default, PartialEq, Eq)]
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    pub struct SecondaryKey<AccountId> {
-        /// Signer.
-        pub signer: Signatory<AccountId>,
-        /// Permissions.
-        pub permissions: Permissions,
-    }
-
-    impl<AccountId> SecondaryKey<AccountId> {
-        /// Convert old `SecondaryKey` into `KeyRecord`.
-        pub fn into_key_record(self, did: IdentityId) -> Option<(AccountId, KeyRecord<AccountId>)> {
-            if let Signatory::Account(key) = self.signer {
-                Some((key, KeyRecord::SecondaryKey(did, self.permissions)))
-            } else {
-                None
-            }
-        }
     }
 }
 
