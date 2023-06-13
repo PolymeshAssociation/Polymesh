@@ -37,7 +37,7 @@ const ERROR: DispatchError = DispatchError::Module(sp_runtime::ModuleError {
     message: None,
 });
 
-fn assert_event(event: Event) {
+fn assert_event(event: Event<TestStorage>) {
     assert_eq!(
         System::events().pop().unwrap().event,
         EventTest::Utility(event)

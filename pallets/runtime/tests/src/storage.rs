@@ -263,7 +263,7 @@ frame_support::construct_runtime!(
         Statistics: pallet_statistics::{Pallet, Call, Storage, Event} = 38,
         Sto: pallet_sto::{Pallet, Call, Storage, Event<T>} = 39,
         Treasury: pallet_treasury::{Pallet, Call, Event<T>} = 40,
-        Utility: pallet_utility::{Pallet, Call, Storage, Event} = 41,
+        Utility: pallet_utility::{Pallet, Call, Storage, Event<T>} = 41,
         Base: pallet_base::{Pallet, Call, Event} = 42,
         ExternalAgents: pallet_external_agents::{Pallet, Call, Storage, Event} = 43,
         Relayer: pallet_relayer::{Pallet, Call, Storage, Event<T>} = 44,

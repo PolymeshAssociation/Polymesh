@@ -6218,15 +6218,12 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex",
- "hex-literal 0.2.2",
  "pallet-balances 0.1.0",
  "pallet-permissions",
  "parity-scale-codec 3.5.0",
  "polymesh-common-utilities",
  "polymesh-primitives",
  "scale-info",
- "serde",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -10060,7 +10057,7 @@ dependencies = [
 [[package]]
 name = "sp-core"
 version = "7.0.0"
-source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#9589e80530a5daf04d67bdb28da563af74289102"
+source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#020f51af1d993a0fd4dbec2f6399d9c649915bb8"
 dependencies = [
  "array-bytes",
  "base58",
@@ -10103,7 +10100,7 @@ dependencies = [
 [[package]]
 name = "sp-core-hashing"
 version = "5.0.0"
-source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#9589e80530a5daf04d67bdb28da563af74289102"
+source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#020f51af1d993a0fd4dbec2f6399d9c649915bb8"
 dependencies = [
  "blake2",
  "byteorder",
@@ -10148,7 +10145,7 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "5.0.0"
-source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#9589e80530a5daf04d67bdb28da563af74289102"
+source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#020f51af1d993a0fd4dbec2f6399d9c649915bb8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -10170,7 +10167,7 @@ dependencies = [
 [[package]]
 name = "sp-externalities"
 version = "0.13.0"
-source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#9589e80530a5daf04d67bdb28da563af74289102"
+source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#020f51af1d993a0fd4dbec2f6399d9c649915bb8"
 dependencies = [
  "environmental",
  "parity-scale-codec 3.5.0",
@@ -10196,7 +10193,7 @@ dependencies = [
 [[package]]
 name = "sp-io"
 version = "7.0.0"
-source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#9589e80530a5daf04d67bdb28da563af74289102"
+source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#020f51af1d993a0fd4dbec2f6399d9c649915bb8"
 dependencies = [
  "bytes",
  "ed25519",
@@ -10232,7 +10229,7 @@ dependencies = [
 [[package]]
 name = "sp-keystore"
 version = "0.13.0"
-source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#9589e80530a5daf04d67bdb28da563af74289102"
+source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#020f51af1d993a0fd4dbec2f6399d9c649915bb8"
 dependencies = [
  "async-trait",
  "futures",
@@ -10300,7 +10297,7 @@ dependencies = [
 [[package]]
 name = "sp-panic-handler"
 version = "5.0.0"
-source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#9589e80530a5daf04d67bdb28da563af74289102"
+source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#020f51af1d993a0fd4dbec2f6399d9c649915bb8"
 dependencies = [
  "backtrace",
  "lazy_static",
@@ -10342,7 +10339,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface"
 version = "7.0.0"
-source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#9589e80530a5daf04d67bdb28da563af74289102"
+source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#020f51af1d993a0fd4dbec2f6399d9c649915bb8"
 dependencies = [
  "bytes",
  "impl-trait-for-tuples",
@@ -10360,7 +10357,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface-proc-macro"
 version = "6.0.0"
-source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#9589e80530a5daf04d67bdb28da563af74289102"
+source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#020f51af1d993a0fd4dbec2f6399d9c649915bb8"
 dependencies = [
  "Inflector",
  "proc-macro-crate 1.1.3",
@@ -10398,7 +10395,7 @@ dependencies = [
 [[package]]
 name = "sp-state-machine"
 version = "0.13.0"
-source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#9589e80530a5daf04d67bdb28da563af74289102"
+source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#020f51af1d993a0fd4dbec2f6399d9c649915bb8"
 dependencies = [
  "hash-db 0.16.0",
  "log",
@@ -10424,7 +10421,7 @@ checksum = "14804d6069ee7a388240b665f17908d98386ffb0b5d39f89a4099fc7a2a4c03f"
 [[package]]
 name = "sp-std"
 version = "5.0.0"
-source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#9589e80530a5daf04d67bdb28da563af74289102"
+source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#020f51af1d993a0fd4dbec2f6399d9c649915bb8"
 
 [[package]]
 name = "sp-storage"
@@ -10443,7 +10440,7 @@ dependencies = [
 [[package]]
 name = "sp-storage"
 version = "7.0.0"
-source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#9589e80530a5daf04d67bdb28da563af74289102"
+source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#020f51af1d993a0fd4dbec2f6399d9c649915bb8"
 dependencies = [
  "impl-serde 0.4.0",
  "parity-scale-codec 3.5.0",
@@ -10484,7 +10481,7 @@ dependencies = [
 [[package]]
 name = "sp-tracing"
 version = "6.0.0"
-source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#9589e80530a5daf04d67bdb28da563af74289102"
+source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#020f51af1d993a0fd4dbec2f6399d9c649915bb8"
 dependencies = [
  "parity-scale-codec 3.5.0",
  "sp-std 5.0.0",
@@ -10521,7 +10518,7 @@ dependencies = [
 [[package]]
 name = "sp-trie"
 version = "7.0.0"
-source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#9589e80530a5daf04d67bdb28da563af74289102"
+source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#020f51af1d993a0fd4dbec2f6399d9c649915bb8"
 dependencies = [
  "ahash 0.8.3",
  "hash-db 0.16.0",
@@ -10572,7 +10569,7 @@ dependencies = [
 [[package]]
 name = "sp-wasm-interface"
 version = "7.0.0"
-source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#9589e80530a5daf04d67bdb28da563af74289102"
+source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#020f51af1d993a0fd4dbec2f6399d9c649915bb8"
 dependencies = [
  "anyhow",
  "impl-trait-for-tuples",

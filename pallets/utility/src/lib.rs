@@ -66,8 +66,7 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarking;
+mod benchmarking;
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -80,7 +79,7 @@ use sp_std::prelude::*;
 // POLYMESH:
 use frame_support::storage::{with_transaction, TransactionOutcome};
 use frame_support::{
-    dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, Weight},
+    dispatch::{DispatchResultWithPostInfo, Weight},
     ensure,
     traits::GetCallMetadata,
 };
@@ -90,6 +89,7 @@ use polymesh_common_utilities::{
     balances::{CheckCdd, Config as BalancesConfig},
     identity::{AuthorizationNonce, Config as IdentityConfig},
 };
+use polymesh_primitives::IdentityId;
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Verify, DispatchError, RuntimeDebug};
 
@@ -100,10 +100,10 @@ pub trait WeightInfo {
     fn force_batch(c: u32) -> Weight;
 
     // POLYMESH:
-    fn batch_old(calls: &[impl GetDispatchInfo]) -> Weight;
-    fn batch_atomic(calls: &[impl GetDispatchInfo]) -> Weight;
-    fn batch_optimistic(calls: &[impl GetDispatchInfo]) -> Weight;
-    fn relay_tx(call: &impl GetDispatchInfo) -> Weight;
+    fn relay_tx() -> Weight;
+    fn batch_old(c: u32) -> Weight;
+    fn batch_atomic(c: u32) -> Weight;
+    fn batch_optimistic(c: u32) -> Weight;
 }
 
 // POLYMESH: Used for permission checks.
@@ -149,7 +149,7 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config + IdentityConfig + BalancesConfig {
         /// The overarching event type.
-        type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// The overarching call type.
         type RuntimeCall: Parameter
@@ -172,7 +172,7 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    pub enum Event {
+    pub enum Event<T: Config> {
         /// Batch of dispatches did not complete fully. Index of first failing dispatch given, as
         /// well as the error.
         BatchInterrupted { index: u32, error: DispatchError },
@@ -186,6 +186,13 @@ pub mod pallet {
         ItemFailed { error: DispatchError },
         /// A call was dispatched.
         DispatchedAs { result: DispatchResult },
+        /// Relayed transaction.
+        /// POLYMESH: event.
+        RelayedTx {
+            caller_did: IdentityId,
+            target: T::AccountId,
+            result: DispatchResult,
+        },
         /// Batch of dispatches did not complete fully.
         /// Includes a vector of event counts for each dispatch and
         /// the index of the first failing dispatch as well as the error.
@@ -324,7 +331,7 @@ pub mod pallet {
                 // Add the weight of this call.
                 weight = weight.saturating_add(extract_actual_weight(&result, &info));
                 if let Err(e) = result {
-                    Self::deposit_event(Event::BatchInterrupted {
+                    Self::deposit_event(Event::<T>::BatchInterrupted {
                         index: index as u32,
                         error: e.error,
                     });
@@ -334,9 +341,9 @@ pub mod pallet {
                     // Return the actual used weight + base_weight of this call.
                     return Ok(Some(base_weight + weight).into());
                 }
-                Self::deposit_event(Event::ItemCompleted);
+                Self::deposit_event(Event::<T>::ItemCompleted);
             }
-            Self::deposit_event(Event::BatchCompleted);
+            Self::deposit_event(Event::<T>::BatchCompleted);
             let base_weight = <T as Config>::WeightInfo::batch(calls_len as u32);
             Ok(Some(base_weight + weight).into())
         }
@@ -355,7 +362,14 @@ pub mod pallet {
         ///
         /// POLYMESH: added.
         #[pallet::call_index(1)]
-        #[pallet::weight(<T as Config>::WeightInfo::relay_tx(&*call.call))]
+        #[pallet::weight({
+		    	let dispatch_info = call.call.get_dispatch_info();
+		    	(
+		    		<T as Config>::WeightInfo::relay_tx()
+		    			.saturating_add(dispatch_info.weight),
+		    		dispatch_info.class,
+		    	)
+		    })]
         pub fn relay_tx(
             origin: OriginFor<T>,
             target: T::AccountId,
@@ -363,7 +377,7 @@ pub mod pallet {
             call: UniqueCall<<T as Config>::RuntimeCall>,
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
+            let caller_did = CallPermissions::<T>::ensure_call_permissions(&sender)?.primary_did;
 
             let target_nonce = <Nonces<T>>::get(&target);
 
@@ -381,20 +395,21 @@ pub mod pallet {
 
             <Nonces<T>>::insert(target.clone(), target_nonce + 1);
 
-            Self::dispatch_call(RawOrigin::Signed(target).into(), false, *call.call)
-                .map(|info| {
-                    info.actual_weight
-                        .map(|w| w.saturating_add(Weight::from_ref_time(90_000_000)))
-                        .into()
-                })
-                .map_err(|e| DispatchErrorWithPostInfo {
-                    error: e.error,
-                    post_info: e
-                        .post_info
-                        .actual_weight
-                        .map(|w| w.saturating_add(Weight::from_ref_time(90_000_000)))
-                        .into(),
-                })
+            let info = call.call.get_dispatch_info();
+            // Dispatch the call with the `target` as the signed origin.
+            let result =
+                Self::dispatch_call(RawOrigin::Signed(target.clone()).into(), false, *call.call);
+            // Get the actual weight of this call.
+            let weight = extract_actual_weight(&result, &info);
+
+            Self::deposit_event(Event::<T>::RelayedTx {
+                caller_did,
+                target,
+                result: result.map(|_| ()).map_err(|e| e.error),
+            });
+
+            let base_weight = <T as Config>::WeightInfo::relay_tx();
+            Ok(Some(base_weight.saturating_add(weight)).into())
         }
 
         /// Send a batch of dispatch calls and atomically execute them.
@@ -474,9 +489,9 @@ pub mod pallet {
                     err.post_info = Some(base_weight + weight).into();
                     err
                 })?;
-                Self::deposit_event(Event::ItemCompleted);
+                Self::deposit_event(Event::<T>::ItemCompleted);
             }
-            Self::deposit_event(Event::BatchCompleted);
+            Self::deposit_event(Event::<T>::BatchCompleted);
             let base_weight = <T as Config>::WeightInfo::batch_all(calls_len as u32);
             Ok(Some(base_weight.saturating_add(weight)).into())
         }
@@ -505,7 +520,7 @@ pub mod pallet {
 
             let res = call.dispatch_bypass_filter((*as_origin).into());
 
-            Self::deposit_event(Event::DispatchedAs {
+            Self::deposit_event(Event::<T>::DispatchedAs {
                 result: res.map(|_| ()).map_err(|e| e.error),
             });
             Ok(())
@@ -571,15 +586,15 @@ pub mod pallet {
                 weight = weight.saturating_add(extract_actual_weight(&result, &info));
                 if let Err(e) = result {
                     has_error = true;
-                    Self::deposit_event(Event::ItemFailed { error: e.error });
+                    Self::deposit_event(Event::<T>::ItemFailed { error: e.error });
                 } else {
-                    Self::deposit_event(Event::ItemCompleted);
+                    Self::deposit_event(Event::<T>::ItemCompleted);
                 }
             }
             if has_error {
-                Self::deposit_event(Event::BatchCompletedWithErrors);
+                Self::deposit_event(Event::<T>::BatchCompletedWithErrors);
             } else {
-                Self::deposit_event(Event::BatchCompleted);
+                Self::deposit_event(Event::<T>::BatchCompleted);
             }
             let base_weight = <T as Config>::WeightInfo::batch(calls_len as u32);
             Ok(Some(base_weight.saturating_add(weight)).into())
@@ -624,7 +639,24 @@ pub mod pallet {
         ///
         /// POLYMESH: Renamed from `batch` and deprecated.
         #[pallet::call_index(6)]
-        #[pallet::weight(<T as Config>::WeightInfo::batch_old(&calls))]
+        #[pallet::weight({
+		    	let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
+		    	let dispatch_weight = dispatch_infos.iter()
+		    		.map(|di| di.weight)
+		    		.fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
+		    		.saturating_add(<T as Config>::WeightInfo::batch_old(calls.len() as u32));
+		    	let dispatch_class = {
+		    		let all_operational = dispatch_infos.iter()
+		    			.map(|di| di.class)
+		    			.all(|class| class == DispatchClass::Operational);
+		    		if all_operational {
+		    			DispatchClass::Operational
+		    		} else {
+		    			DispatchClass::Normal
+		    		}
+		    	};
+		    	(dispatch_weight, dispatch_class)
+		    })]
         #[allow(deprecated)]
         #[deprecated(note = "Please use `batch` instead.")]
         pub fn batch_old(
@@ -660,7 +692,24 @@ pub mod pallet {
         ///
         /// POLYMESH: deprecated.
         #[pallet::call_index(7)]
-        #[pallet::weight(<T as Config>::WeightInfo::batch_atomic(&calls))]
+        #[pallet::weight({
+		    	let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
+		    	let dispatch_weight = dispatch_infos.iter()
+		    		.map(|di| di.weight)
+		    		.fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
+		    		.saturating_add(<T as Config>::WeightInfo::batch_atomic(calls.len() as u32));
+		    	let dispatch_class = {
+		    		let all_operational = dispatch_infos.iter()
+		    			.map(|di| di.class)
+		    			.all(|class| class == DispatchClass::Operational);
+		    		if all_operational {
+		    			DispatchClass::Operational
+		    		} else {
+		    			DispatchClass::Normal
+		    		}
+		    	};
+		    	(dispatch_weight, dispatch_class)
+		    })]
         #[allow(deprecated)]
         #[deprecated(note = "Please use `batch_all` instead.")]
         pub fn batch_atomic(
@@ -674,7 +723,7 @@ pub mod pallet {
                 || -> TransactionOutcome<Result<_, DispatchError>> {
                     // Run batch.
                     match Self::run_batch(origin, is_root, calls, true) {
-                        ev @ Event::BatchCompletedOld(_) => TransactionOutcome::Commit(Ok(ev)),
+                        ev @ Event::<T>::BatchCompletedOld(_) => TransactionOutcome::Commit(Ok(ev)),
                         ev => {
                             // Batch didn't complete.  Rollback transaction.
                             TransactionOutcome::Rollback(Ok(ev))
@@ -709,7 +758,24 @@ pub mod pallet {
         ///
         /// POLYMESH: deprecated.
         #[pallet::call_index(8)]
-        #[pallet::weight(<T as Config>::WeightInfo::batch_optimistic(&calls))]
+        #[pallet::weight({
+		    	let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
+		    	let dispatch_weight = dispatch_infos.iter()
+		    		.map(|di| di.weight)
+		    		.fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
+		    		.saturating_add(<T as Config>::WeightInfo::batch_optimistic(calls.len() as u32));
+		    	let dispatch_class = {
+		    		let all_operational = dispatch_infos.iter()
+		    			.map(|di| di.class)
+		    			.all(|class| class == DispatchClass::Operational);
+		    		if all_operational {
+		    			DispatchClass::Operational
+		    		} else {
+		    			DispatchClass::Normal
+		    		}
+		    	};
+		    	(dispatch_weight, dispatch_class)
+		    })]
         #[allow(deprecated)]
         #[deprecated(note = "Please use `force_batch` instead.")]
         pub fn batch_optimistic(
@@ -746,7 +812,7 @@ impl<T: Config> Pallet<T> {
         is_root: bool,
         calls: Vec<<T as Config>::RuntimeCall>,
         stop_on_errors: bool,
-    ) -> Event {
+    ) -> Event<T> {
         let mut counts = EventCounts::with_capacity(calls.len());
         let mut errors = Vec::new();
         for (index, call) in calls.into_iter().enumerate() {
@@ -761,15 +827,15 @@ impl<T: Config> Pallet<T> {
                 let err_at = (index as u32, e.error);
                 if stop_on_errors {
                     // Interrupt the batch on first error.
-                    return Event::BatchInterruptedOld(counts, err_at);
+                    return Event::<T>::BatchInterruptedOld(counts, err_at);
                 }
                 errors.push(err_at);
             }
         }
         if errors.is_empty() {
-            Event::BatchCompletedOld(counts)
+            Event::<T>::BatchCompletedOld(counts)
         } else {
-            Event::BatchOptimisticFailed(counts, errors)
+            Event::<T>::BatchOptimisticFailed(counts, errors)
         }
     }
 
