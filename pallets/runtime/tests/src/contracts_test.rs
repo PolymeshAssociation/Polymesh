@@ -17,7 +17,7 @@ use test_client::AccountKeyring;
 // and instead focus on the particulars of our contracts pallet.
 // This includes testing CDD, permissions, and what the chain extension does.
 
-const GAS_LIMIT: Gas = Weight::from_ref_time(100_000_000_000).set_proof_size(256 * 1024);
+const GAS_LIMIT: Gas = Weight::from_ref_time(100_000_000_000).set_proof_size(3 * 1024 * 1024);
 
 type Asset = pallet_asset::Module<TestStorage>;
 type FrameContracts = pallet_contracts::Pallet<TestStorage>;
@@ -94,7 +94,7 @@ fn misc_polymesh_extensions() {
                     perms.clone(),
                 )
             };
-            let derive_key = |key, salt| FrameContracts::contract_address(&key, &hash, salt);
+            let derive_key = |key, salt| FrameContracts::contract_address(&key, &hash, &[], salt);
             let call = |key: AccountId, value, data| {
                 FrameContracts::call(user.origin(), key.into(), value, GAS_LIMIT, None, data)
             };

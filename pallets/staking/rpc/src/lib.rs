@@ -7,7 +7,7 @@ use node_rpc::Error;
 pub use pallet_staking_rpc_runtime_api::StakingApi as StakingRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT, Perbill};
+use sp_runtime::{traits::Block as BlockT, Perbill};
 use std::sync::Arc;
 
 #[rpc(client, server)]
@@ -40,11 +40,11 @@ where
 {
     fn get_curve(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<(Perbill, Perbill)>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(||
+        let at_hash = at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
-            self.client.info().best_hash));
+            self.client.info().best_hash);
 
-        api.get_curve(&at).map_err(|e| {
+        api.get_curve(at_hash).map_err(|e| {
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to get curve.",

@@ -23,7 +23,7 @@ pub use pallet_protocol_fee_rpc_runtime_api::{CappedFee, ProtocolFeeApi as Proto
 use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
 
 #[rpc(client, server)]
@@ -60,11 +60,11 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<CappedFee> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(||
+        let at_hash = at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
-            self.client.info().best_hash));
+            self.client.info().best_hash);
 
-        api.compute_fee(&at, op).map_err(|e| {
+        api.compute_fee(at_hash, op).map_err(|e| {
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to query dispatch info.",

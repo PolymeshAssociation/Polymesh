@@ -73,7 +73,7 @@ pallet-im-online = { version = "4.0.0-dev", default-features = false }
 pallet-indices = { version = "4.0.0-dev", default-features = false }
 pallet-offences = { version = "4.0.0-dev", default-features = false }
 pallet-preimage = { version = "4.0.0-dev", default-features = false }
-pallet-randomness-collective-flip = { version = "4.0.0-dev", default-features = false }
+pallet-insecure-randomness-collective-flip = { version = "4.0.0-dev", default-features = false }
 pallet-scheduler = { version = "4.0.0-dev", default-features = false }
 pallet-session = { version = "4.0.0-dev", default-features = false }
 pallet-staking-reward-curve = { version = "4.0.0-dev", default-features = false }
@@ -84,6 +84,7 @@ sp-arithmetic = { version = "6.0.0", default-features = false }
 sp-authority-discovery = { version = "4.0.0-dev", default-features = false }
 sp-block-builder = { version = "4.0.0-dev", default-features = false }
 sp-consensus-babe = { version = "0.10.0-dev", default-features = false }
+sp-consensus-grandpa = { version = "4.0.0-dev", default-features = false }
 sp-core = { version = "7.0.0", default-features = false }
 sp-inherents = { version = "4.0.0-dev", default-features = false }
 sp-io = { version = "7.0.0", default-features = false }
@@ -114,6 +115,7 @@ no_std = [
     "u64_backend",
 ]
 std = [
+		"polymesh-build-tool/std",
     "u64_backend",
     "codec/std",
     "frame-support/std",
@@ -148,7 +150,7 @@ std = [
     "pallet-protocol-fee/std",
     "pallet-relayer/std",
     "pallet-rewards/std",
-    "pallet-randomness-collective-flip/std",
+    "pallet-insecure-randomness-collective-flip/std",
     "pallet-scheduler/std",
     "pallet-session/std",
     "pallet-settlement/std",
@@ -172,6 +174,7 @@ std = [
     "sp-authority-discovery/std",
     "sp-block-builder/std",
     "sp-consensus-babe/std",
+    "sp-consensus-grandpa/std",
     "sp-core/std",
     "sp-inherents/std",
     "sp-io/std",

@@ -2331,20 +2331,16 @@ fn reward_from_authorship_event_handler_works() {
         assert_eq!(<pallet_authorship::Pallet<Test>>::author(), Some(11));
 
         <Module<Test>>::note_author(11);
-        <Module<Test>>::note_uncle(21, 1);
-        // Rewarding the same two times works.
-        <Module<Test>>::note_uncle(11, 1);
 
         // Not mandatory but must be coherent with rewards
         assert_eq_uvec!(Session::validators(), vec![11, 21]);
 
-        // 21 is rewarded as an uncle producer
-        // 11 is rewarded as a block producer and uncle referencer and uncle producer
+        // 11 is rewarded as a block producer
         assert_eq!(
             ErasRewardPoints::<Test>::get(Staking::active_era().unwrap().index),
             EraRewardPoints {
-                individual: vec![(11, 20 + 2 * 2 + 1), (21, 1)].into_iter().collect(),
-                total: 26,
+                individual: vec![(11, 20)].into_iter().collect(),
+                total: 20,
             },
         );
     })
