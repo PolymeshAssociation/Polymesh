@@ -12,9 +12,9 @@ use codec::Codec;
 use jsonrpsee::{
     core::RpcResult,
     proc_macros::rpc,
-    types::error::{CallError, ErrorCode, ErrorObject},
+    types::error::{CallError, ErrorObject},
 };
-use sp_api::{ApiExt, ApiRef, ProvideRuntimeApi};
+use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::{Block as BlockT, Zero};
 
