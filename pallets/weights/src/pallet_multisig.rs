@@ -331,4 +331,7 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(10))
             .saturating_add(DbWeight::get().writes(5))
     }
+    fn change_sigs_required_via_creator() -> Weight {
+        unimplemented!()
+    }
 }

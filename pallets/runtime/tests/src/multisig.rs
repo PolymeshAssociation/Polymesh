@@ -1,17 +1,18 @@
-use super::{
-    asset_test::set_timestamp,
-    next_block,
-    storage::{
-        add_secondary_key, get_last_auth_id, get_primary_key, get_secondary_keys,
-        register_keyring_account, set_curr_did, RuntimeCall, TestStorage, User,
-    },
-    ExtBuilder,
-};
 use frame_support::{assert_noop, assert_ok};
+
 use pallet_multisig as multisig;
 use polymesh_common_utilities::constants::currency::POLY;
+use polymesh_primitives::multisig::{ProposalDetails, ProposalStatus};
 use polymesh_primitives::{AccountId, AuthorizationData, Permissions, SecondaryKey, Signatory};
 use test_client::AccountKeyring;
+
+use super::asset_test::set_timestamp;
+use super::next_block;
+use super::storage::{
+    add_secondary_key, get_last_auth_id, get_primary_key, get_secondary_keys,
+    register_keyring_account, set_curr_did, RuntimeCall, TestStorage, User,
+};
+use super::ExtBuilder;
 
 type Balances = pallet_balances::Module<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
@@ -204,10 +205,7 @@ fn change_multisig_sigs_required() {
 
         let proposal = (ms_address.clone(), 0);
         let proposal_details = MultiSig::proposal_detail(&proposal);
-        assert_eq!(
-            proposal_details.status,
-            multisig::ProposalStatus::ActiveOrExpired
-        );
+        assert_eq!(proposal_details.status, ProposalStatus::ActiveOrExpired);
 
         set_curr_did(Some(alice_did));
         assert_ok!(MultiSig::approve_as_identity(
@@ -952,10 +950,7 @@ fn reject_proposals() {
         let proposal_details1 = MultiSig::proposal_detail(&(ms_address.clone(), proposal_id1));
         assert_eq!(proposal_details1.approvals, 2);
         assert_eq!(proposal_details1.rejections, 3);
-        assert_eq!(
-            proposal_details1.status,
-            multisig::ProposalStatus::ActiveOrExpired
-        );
+        assert_eq!(proposal_details1.status, ProposalStatus::ActiveOrExpired);
         assert_eq!(proposal_details1.auto_close, false);
 
         // Proposal with auto close enabled can not be voted on after rejection.
@@ -986,7 +981,7 @@ fn reject_proposals() {
         next_block();
         assert_eq!(proposal_details2.approvals, 1);
         assert_eq!(proposal_details2.rejections, 3);
-        assert_eq!(proposal_details2.status, multisig::ProposalStatus::Rejected);
+        assert_eq!(proposal_details2.status, ProposalStatus::Rejected);
         assert_eq!(proposal_details2.auto_close, true);
     });
 }
@@ -1032,10 +1027,7 @@ fn expired_proposals() {
         let proposal_id = MultiSig::ms_tx_done(ms_address.clone()) - 1;
         let mut proposal_details = MultiSig::proposal_detail(&(ms_address.clone(), proposal_id));
         assert_eq!(proposal_details.approvals, 1);
-        assert_eq!(
-            proposal_details.status,
-            multisig::ProposalStatus::ActiveOrExpired
-        );
+        assert_eq!(proposal_details.status, ProposalStatus::ActiveOrExpired);
 
         set_curr_did(Some(bob_did));
         assert_ok!(MultiSig::approve_as_identity(
@@ -1046,10 +1038,7 @@ fn expired_proposals() {
 
         proposal_details = MultiSig::proposal_detail(&(ms_address.clone(), proposal_id));
         assert_eq!(proposal_details.approvals, 2);
-        assert_eq!(
-            proposal_details.status,
-            multisig::ProposalStatus::ActiveOrExpired
-        );
+        assert_eq!(proposal_details.status, ProposalStatus::ActiveOrExpired);
 
         // Approval fails when proposal has expired
         set_timestamp(expires_at);
@@ -1061,10 +1050,7 @@ fn expired_proposals() {
 
         proposal_details = MultiSig::proposal_detail(&(ms_address.clone(), proposal_id));
         assert_eq!(proposal_details.approvals, 2);
-        assert_eq!(
-            proposal_details.status,
-            multisig::ProposalStatus::ActiveOrExpired
-        );
+        assert_eq!(proposal_details.status, ProposalStatus::ActiveOrExpired);
 
         // Approval works when time is expiry - 1
         set_timestamp(expires_at - 1);
@@ -1076,10 +1062,7 @@ fn expired_proposals() {
 
         proposal_details = MultiSig::proposal_detail(&(ms_address.clone(), proposal_id));
         assert_eq!(proposal_details.approvals, 3);
-        assert_eq!(
-            proposal_details.status,
-            multisig::ProposalStatus::ExecutionSuccessful
-        );
+        assert_eq!(proposal_details.status, ProposalStatus::ExecutionSuccessful);
     });
 }
 
