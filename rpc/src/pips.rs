@@ -29,7 +29,7 @@ pub use node_rpc_runtime_api::pips::{
 use pallet_pips::PipId;
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::traits::Block as BlockT;
 use sp_std::{prelude::*, vec::Vec};
 
 /// Pips RPC methods.

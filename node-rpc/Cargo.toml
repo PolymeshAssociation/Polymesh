@@ -10,7 +10,7 @@ repository = "https://github.com/PolymeshAssociation/substrate"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpsee = { version = "0.15.1", features = ["server"] }
+jsonrpsee = { version = "0.16.2", features = ["server"] }
 
 polymesh-primitives = { path = "../primitives", default-features = false }
 pallet-group-rpc = { path = "../pallets/group/rpc" }
@@ -23,8 +23,8 @@ sc-client-api = { version = "4.0.0-dev" }
 sc-consensus-babe = { version = "0.10.0-dev" }
 sc-consensus-babe-rpc = { version = "0.10.0-dev" }
 sc-consensus-epochs = { version = "0.10.0-dev" }
-sc-finality-grandpa = { version = "0.10.0-dev" }
-sc-finality-grandpa-rpc = { version = "0.10.0-dev" }
+sc-consensus-grandpa = { version = "0.10.0-dev" }
+sc-consensus-grandpa-rpc = { version = "0.10.0-dev" }
 sc-rpc = { version = "4.0.0-dev" }
 sc-rpc-api = { version = "0.10.0-dev" }
 sc-rpc-spec-v2 = { version = "0.10.0-dev" }

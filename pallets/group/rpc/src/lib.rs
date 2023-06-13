@@ -13,7 +13,7 @@ use jsonrpsee::{
 use node_rpc::Error;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::traits::Block as BlockT;
 use sp_std::prelude::*;
 
 /// Group RPC methods.
@@ -49,8 +49,8 @@ where
 {
     fn get_cdd_valid_members(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<Member>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-        api.get_cdd_valid_members(&at).map_err(|e| {
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
+        api.get_cdd_valid_members(at_hash).map_err(|e| {
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to fetch CDD providers.",
@@ -62,8 +62,8 @@ where
 
     fn get_gc_valid_members(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<Member>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-        api.get_gc_valid_members(&at).map_err(|e| {
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
+        api.get_gc_valid_members(at_hash).map_err(|e| {
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to fetch Governance Committee members.",

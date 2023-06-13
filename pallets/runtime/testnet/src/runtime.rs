@@ -91,9 +91,6 @@ parameter_types! {
     // Timestamp:
     pub const MinimumPeriod: Moment = SLOT_DURATION / 2;
 
-    // Authorship:
-    pub const UncleGenerations: BlockNumber = 0;
-
     // Settlement:
     pub const MaxNumberOfOffChainAssets: u32 = 10;
     pub const MaxNumberOfFungibleAssets: u32 = 10;
@@ -103,6 +100,7 @@ parameter_types! {
     // I'm online:
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
 
+    pub const MaxSetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
     pub const MaxAuthorities: u32 = 100_000;
     pub const MaxKeys: u32 = 10_000;
     pub const MaxPeerInHeartbeats: u32 = 10_000;
@@ -321,7 +319,7 @@ construct_runtime!(
         Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         Indices: pallet_indices::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Authorship: pallet_authorship::{Pallet, Call, Storage, Inherent},
+        Authorship: pallet_authorship,
 
         // Balance: Genesis config dependencies: System.
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
@@ -366,7 +364,7 @@ construct_runtime!(
         Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event},
         Historical: pallet_session_historical::{Pallet},
         ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
-        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Storage},
+        RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip::{Pallet, Storage},
 
         // Sudo. Usable initially.
         Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>},
