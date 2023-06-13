@@ -22,8 +22,8 @@ serde = "1.0.101"
 serde_json = "1.0.41"
 clap = { version = "3.1.6", features = ["derive"] }
 derive_more = "0.99.2"
-kvdb = "0.12"
-kvdb-rocksdb = "0.16.0"
+kvdb = "0.13"
+kvdb-rocksdb = "0.17.0"
 sp-trie = { version = "7.0.0" }
 sp-core = { version = "7.0.0" }
 sp-consensus = { version = "0.10.0-dev" }
@@ -31,14 +31,14 @@ sp-transaction-pool = { version = "4.0.0-dev" }
 sc-basic-authorship = { version = "0.10.0-dev" }
 sp-inherents = { version = "4.0.0-dev" }
 sp-timestamp = { version = "4.0.0-dev" }
-sp-tracing = { version = "5.0.0" }
-hash-db = "0.15.2"
+sp-tracing = { version = "6.0.0" }
+hash-db = "0.16"
 tempfile = "3.1.0"
 fs_extra = "1"
 hex = "0.4.0"
 rand = { version = "0.8", features = ["small_rng"] }
 lazy_static = "1.4.0"
 parity-util-mem = { version = "0.12.0", default-features = false, features = ["primitive-types"] }
-parity-db = { version = "0.3.16" }
+parity-db = { version = "0.4" }
 sc-transaction-pool = { version = "4.0.0-dev" }
 futures = { version = "0.3.4", features = ["thread-pool"] }
