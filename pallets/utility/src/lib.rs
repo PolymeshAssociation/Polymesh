@@ -163,8 +163,8 @@ pub mod pallet {
 
         /// The caller origin, overarching type of all pallets origins.
         type PalletsOrigin: Parameter +
-			      Into<<Self as frame_system::Config>::RuntimeOrigin> +
-			      IsType<<<Self as frame_system::Config>::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin>;
+            Into<<Self as frame_system::Config>::RuntimeOrigin> +
+            IsType<<<Self as frame_system::Config>::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin>;
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
@@ -289,23 +289,23 @@ pub mod pallet {
         /// event is deposited.
         #[pallet::call_index(0)]
         #[pallet::weight({
-		    	let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
-		    	let dispatch_weight = dispatch_infos.iter()
-		    		.map(|di| di.weight)
-		    		.fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
-		    		.saturating_add(<T as Config>::WeightInfo::batch(calls.len() as u32));
-		    	let dispatch_class = {
-		    		let all_operational = dispatch_infos.iter()
-		    			.map(|di| di.class)
-		    			.all(|class| class == DispatchClass::Operational);
-		    		if all_operational {
-		    			DispatchClass::Operational
-		    		} else {
-		    			DispatchClass::Normal
-		    		}
-		    	};
-		    	(dispatch_weight, dispatch_class)
-		    })]
+                let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
+                let dispatch_weight = dispatch_infos.iter()
+                    .map(|di| di.weight)
+                    .fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
+                    .saturating_add(<T as Config>::WeightInfo::batch(calls.len() as u32));
+                let dispatch_class = {
+                    let all_operational = dispatch_infos.iter()
+                        .map(|di| di.class)
+                        .all(|class| class == DispatchClass::Operational);
+                    if all_operational {
+                        DispatchClass::Operational
+                    } else {
+                        DispatchClass::Normal
+                    }
+                };
+                (dispatch_weight, dispatch_class)
+            })]
         pub fn batch(
             origin: OriginFor<T>,
             calls: Vec<<T as Config>::RuntimeCall>,
@@ -363,13 +363,13 @@ pub mod pallet {
         /// POLYMESH: added.
         #[pallet::call_index(1)]
         #[pallet::weight({
-		    	let dispatch_info = call.call.get_dispatch_info();
-		    	(
-		    		<T as Config>::WeightInfo::relay_tx()
-		    			.saturating_add(dispatch_info.weight),
-		    		dispatch_info.class,
-		    	)
-		    })]
+                let dispatch_info = call.call.get_dispatch_info();
+                (
+                    <T as Config>::WeightInfo::relay_tx()
+                        .saturating_add(dispatch_info.weight),
+                    dispatch_info.class,
+                )
+            })]
         pub fn relay_tx(
             origin: OriginFor<T>,
             target: T::AccountId,
@@ -427,23 +427,23 @@ pub mod pallet {
         /// - O(C) where C is the number of calls to be batched.
         #[pallet::call_index(2)]
         #[pallet::weight({
-		    	let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
-		    	let dispatch_weight = dispatch_infos.iter()
-		    		.map(|di| di.weight)
-		    		.fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
-		    		.saturating_add(<T as Config>::WeightInfo::batch_all(calls.len() as u32));
-		    	let dispatch_class = {
-		    		let all_operational = dispatch_infos.iter()
-		    			.map(|di| di.class)
-		    			.all(|class| class == DispatchClass::Operational);
-		    		if all_operational {
-		    			DispatchClass::Operational
-		    		} else {
-		    			DispatchClass::Normal
-		    		}
-		    	};
-		    	(dispatch_weight, dispatch_class)
-		    })]
+                let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
+                let dispatch_weight = dispatch_infos.iter()
+                    .map(|di| di.weight)
+                    .fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
+                    .saturating_add(<T as Config>::WeightInfo::batch_all(calls.len() as u32));
+                let dispatch_class = {
+                    let all_operational = dispatch_infos.iter()
+                        .map(|di| di.class)
+                        .all(|class| class == DispatchClass::Operational);
+                    if all_operational {
+                        DispatchClass::Operational
+                    } else {
+                        DispatchClass::Normal
+                    }
+                };
+                (dispatch_weight, dispatch_class)
+            })]
         pub fn batch_all(
             origin: OriginFor<T>,
             calls: Vec<<T as Config>::RuntimeCall>,
@@ -504,13 +504,13 @@ pub mod pallet {
         /// - O(1).
         #[pallet::call_index(3)]
         #[pallet::weight({
-		    	let dispatch_info = call.get_dispatch_info();
-		    	(
-		    		<T as Config>::WeightInfo::dispatch_as()
-		    			.saturating_add(dispatch_info.weight),
-		    		dispatch_info.class,
-		    	)
-		    })]
+                let dispatch_info = call.get_dispatch_info();
+                (
+                    <T as Config>::WeightInfo::dispatch_as()
+                        .saturating_add(dispatch_info.weight),
+                    dispatch_info.class,
+                )
+            })]
         pub fn dispatch_as(
             origin: OriginFor<T>,
             as_origin: Box<T::PalletsOrigin>,
@@ -541,23 +541,23 @@ pub mod pallet {
         /// - O(C) where C is the number of calls to be batched.
         #[pallet::call_index(4)]
         #[pallet::weight({
-		    	let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
-		    	let dispatch_weight = dispatch_infos.iter()
-		    		.map(|di| di.weight)
-		    		.fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
-		    		.saturating_add(<T as Config>::WeightInfo::force_batch(calls.len() as u32));
-		    	let dispatch_class = {
-		    		let all_operational = dispatch_infos.iter()
-		    			.map(|di| di.class)
-		    			.all(|class| class == DispatchClass::Operational);
-		    		if all_operational {
-		    			DispatchClass::Operational
-		    		} else {
-		    			DispatchClass::Normal
-		    		}
-		    	};
-		    	(dispatch_weight, dispatch_class)
-		    })]
+                let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
+                let dispatch_weight = dispatch_infos.iter()
+                    .map(|di| di.weight)
+                    .fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
+                    .saturating_add(<T as Config>::WeightInfo::force_batch(calls.len() as u32));
+                let dispatch_class = {
+                    let all_operational = dispatch_infos.iter()
+                        .map(|di| di.class)
+                        .all(|class| class == DispatchClass::Operational);
+                    if all_operational {
+                        DispatchClass::Operational
+                    } else {
+                        DispatchClass::Normal
+                    }
+                };
+                (dispatch_weight, dispatch_class)
+            })]
         pub fn force_batch(
             origin: OriginFor<T>,
             calls: Vec<<T as Config>::RuntimeCall>,
@@ -640,23 +640,23 @@ pub mod pallet {
         /// POLYMESH: Renamed from `batch` and deprecated.
         #[pallet::call_index(6)]
         #[pallet::weight({
-		    	let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
-		    	let dispatch_weight = dispatch_infos.iter()
-		    		.map(|di| di.weight)
-		    		.fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
-		    		.saturating_add(<T as Config>::WeightInfo::batch_old(calls.len() as u32));
-		    	let dispatch_class = {
-		    		let all_operational = dispatch_infos.iter()
-		    			.map(|di| di.class)
-		    			.all(|class| class == DispatchClass::Operational);
-		    		if all_operational {
-		    			DispatchClass::Operational
-		    		} else {
-		    			DispatchClass::Normal
-		    		}
-		    	};
-		    	(dispatch_weight, dispatch_class)
-		    })]
+                let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
+                let dispatch_weight = dispatch_infos.iter()
+                    .map(|di| di.weight)
+                    .fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
+                    .saturating_add(<T as Config>::WeightInfo::batch_old(calls.len() as u32));
+                let dispatch_class = {
+                    let all_operational = dispatch_infos.iter()
+                        .map(|di| di.class)
+                        .all(|class| class == DispatchClass::Operational);
+                    if all_operational {
+                        DispatchClass::Operational
+                    } else {
+                        DispatchClass::Normal
+                    }
+                };
+                (dispatch_weight, dispatch_class)
+            })]
         #[allow(deprecated)]
         #[deprecated(note = "Please use `batch` instead.")]
         pub fn batch_old(
@@ -693,23 +693,23 @@ pub mod pallet {
         /// POLYMESH: deprecated.
         #[pallet::call_index(7)]
         #[pallet::weight({
-		    	let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
-		    	let dispatch_weight = dispatch_infos.iter()
-		    		.map(|di| di.weight)
-		    		.fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
-		    		.saturating_add(<T as Config>::WeightInfo::batch_atomic(calls.len() as u32));
-		    	let dispatch_class = {
-		    		let all_operational = dispatch_infos.iter()
-		    			.map(|di| di.class)
-		    			.all(|class| class == DispatchClass::Operational);
-		    		if all_operational {
-		    			DispatchClass::Operational
-		    		} else {
-		    			DispatchClass::Normal
-		    		}
-		    	};
-		    	(dispatch_weight, dispatch_class)
-		    })]
+                let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
+                let dispatch_weight = dispatch_infos.iter()
+                    .map(|di| di.weight)
+                    .fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
+                    .saturating_add(<T as Config>::WeightInfo::batch_atomic(calls.len() as u32));
+                let dispatch_class = {
+                    let all_operational = dispatch_infos.iter()
+                        .map(|di| di.class)
+                        .all(|class| class == DispatchClass::Operational);
+                    if all_operational {
+                        DispatchClass::Operational
+                    } else {
+                        DispatchClass::Normal
+                    }
+                };
+                (dispatch_weight, dispatch_class)
+            })]
         #[allow(deprecated)]
         #[deprecated(note = "Please use `batch_all` instead.")]
         pub fn batch_atomic(
@@ -759,23 +759,23 @@ pub mod pallet {
         /// POLYMESH: deprecated.
         #[pallet::call_index(8)]
         #[pallet::weight({
-		    	let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
-		    	let dispatch_weight = dispatch_infos.iter()
-		    		.map(|di| di.weight)
-		    		.fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
-		    		.saturating_add(<T as Config>::WeightInfo::batch_optimistic(calls.len() as u32));
-		    	let dispatch_class = {
-		    		let all_operational = dispatch_infos.iter()
-		    			.map(|di| di.class)
-		    			.all(|class| class == DispatchClass::Operational);
-		    		if all_operational {
-		    			DispatchClass::Operational
-		    		} else {
-		    			DispatchClass::Normal
-		    		}
-		    	};
-		    	(dispatch_weight, dispatch_class)
-		    })]
+                let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
+                let dispatch_weight = dispatch_infos.iter()
+                    .map(|di| di.weight)
+                    .fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
+                    .saturating_add(<T as Config>::WeightInfo::batch_optimistic(calls.len() as u32));
+                let dispatch_class = {
+                    let all_operational = dispatch_infos.iter()
+                        .map(|di| di.class)
+                        .all(|class| class == DispatchClass::Operational);
+                    if all_operational {
+                        DispatchClass::Operational
+                    } else {
+                        DispatchClass::Normal
+                    }
+                };
+                (dispatch_weight, dispatch_class)
+            })]
         #[allow(deprecated)]
         #[deprecated(note = "Please use `force_batch` instead.")]
         pub fn batch_optimistic(
