@@ -891,12 +891,24 @@ impl<T: Config> Module<T> {
     // Ensures that extrinsic permissions do not use the Except variant
     // This is considered unsafe since extrinsic names can change or be replaced with newer versions
     pub fn ensure_no_except_perms(perms: &ExtrinsicPermissions) -> DispatchResult {
-        let is_not_except = match perms {
-            SubsetRestriction::Whole => true,
-            SubsetRestriction::These(_) => true,
-            SubsetRestriction::Except(_) => false,
+        let _ = match perms {
+            SubsetRestriction::Except(_) => {
+                return Err(Error::<T>::ExceptNotAllowedForExtrinsics.into());
+            }
+            SubsetRestriction::These(pallet_permissions) => {
+                for elem in pallet_permissions {
+                    match elem.dispatchable_names {
+                        SubsetRestriction::Except(_) => {
+                            return Err(Error::<T>::ExceptNotAllowedForExtrinsics.into());
+                        }
+                        _ => return Ok(()), // Matches Whole and These
+                    }
+                }
+            }
+            SubsetRestriction::Whole(_) => {
+                return Ok(());
+            }
         };
-        ensure!(is_not_except, Error::<T>::ExceptNotAllowedForExtrinsics);
         Ok(())
     }
 

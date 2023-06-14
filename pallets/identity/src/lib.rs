@@ -360,11 +360,6 @@ decl_module! {
             Self::base_revoke_claim(target, claim_type, issuer, scope)
         }
 
-        /// Placeholder for removed `legacy_set_permission_to_signer`.
-        #[weight = 1_000]
-        pub fn placeholder_legacy_set_permission_to_signer(_origin) {
-        }
-
         /// It disables all secondary keys at `did` identity.
         ///
         /// # Errors
