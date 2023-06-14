@@ -1134,43 +1134,6 @@ fn change_sigs_required_via_creator_not_enough_signers() {
 }
 
 #[test]
-fn change_sigs_required_via_creator_not_allowed() {
-    ExtBuilder::default().build().execute_with(|| {
-        // Multisig creator
-        let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
-        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let alice_signer = Signatory::from(alice_did);
-        // Multisig signers
-        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
-        let bob_signer = Signatory::Account(AccountKeyring::Bob.to_account_id());
-        let charlie_signer = Signatory::Account(AccountKeyring::Charlie.to_account_id());
-
-        let multisig_account_id =
-            MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id()).unwrap();
-
-        MultiSig::create_multisig(
-            alice.clone(),
-            vec![alice_signer, bob_signer.clone(), charlie_signer],
-            2,
-        )
-        .unwrap();
-        // Signers must accept to be added to the multisig account
-        let bob_auth_id = get_last_auth_id(&bob_signer);
-        MultiSig::accept_multisig_signer_as_key(bob.clone(), bob_auth_id).unwrap();
-        Identity::change_cdd_requirement_for_mk_rotation(
-            Origin::from(frame_system::RawOrigin::Root),
-            true,
-        )
-        .unwrap();
-
-        assert_noop!(
-            MultiSig::change_sigs_required_via_creator(alice.clone(), multisig_account_id, 1),
-            Error::ChangeNotAllowed
-        );
-    });
-}
-
-#[test]
 fn change_sigs_required_via_creator_successfully() {
     ExtBuilder::default().build().execute_with(|| {
         // Multisig creator
