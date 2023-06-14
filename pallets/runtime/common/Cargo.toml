@@ -48,6 +48,7 @@ frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional
 equalize = []
 only-staking = []
 default = ["std", "equalize"]
+testing = []
 no_std = []
 std = [
     "frame-support/std",

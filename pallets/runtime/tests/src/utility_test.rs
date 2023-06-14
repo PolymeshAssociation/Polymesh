@@ -1,31 +1,40 @@
+use super::storage::example::Call as ExampleCall;
 use super::{
     assert_event_doesnt_exist, assert_event_exists, assert_last_event,
     pips_test::assert_balance,
     storage::{
-        add_secondary_key, get_secondary_keys, register_keyring_account_with_balance, EventTest,
-        Identity, Portfolio, RuntimeCall, RuntimeOrigin, System, TestStorage, User, Utility,
+        add_secondary_key, get_secondary_keys, next_block, register_keyring_account_with_balance,
+        EventTest, Identity, Portfolio, RuntimeCall, RuntimeOrigin, System, TestBaseCallFilter,
+        TestStorage, User, Utility,
     },
     ExtBuilder,
 };
 use codec::Encode;
 use frame_support::{
     assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop,
-    dispatch::DispatchError,
+    dispatch::{extract_actual_weight, DispatchError, Dispatchable, GetDispatchInfo, Weight},
+    storage,
+    traits::Contains,
 };
 use frame_system::EventRecord;
 use pallet_balances::Call as BalancesCall;
 use pallet_portfolio::Call as PortfolioCall;
-use pallet_utility::{self as utility, Event, UniqueCall};
+use pallet_utility::{
+    self as utility, Call as UtilityCall, Config as UtilityConfig, Event, UniqueCall, WeightInfo,
+};
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_primitives::{
-    AccountId, PalletPermissions, Permissions, PortfolioName, PortfolioNumber, SubsetRestriction,
+    AccountId, Balance, PalletPermissions, Permissions, PortfolioName, PortfolioNumber,
+    SubsetRestriction,
 };
 use sp_core::sr25519::Signature;
 use test_client::AccountKeyring;
 
 type Error = utility::Error<TestStorage>;
 
-fn transfer(to: AccountId, amount: u128) -> RuntimeCall {
+type Balances = pallet_balances::Module<TestStorage>;
+
+fn transfer(to: AccountId, amount: Balance) -> RuntimeCall {
     RuntimeCall::Balances(BalancesCall::transfer {
         dest: to.into(),
         value: amount,
@@ -373,4 +382,183 @@ fn batch_secondary_with_permissions() {
         error == &expected_error
     );
     check_name(high_risk_name);
+}
+
+///
+/// Tests ported from `substrate/frame/utility/src/tests.rs`.
+///
+
+pub fn new_test_ext() -> sp_io::TestExternalities {
+    let mut ext = ExtBuilder::default().build();
+    ext.execute_with(|| next_block());
+    ext
+}
+
+fn call_foobar(err: bool, start_weight: Weight, end_weight: Option<Weight>) -> RuntimeCall {
+    RuntimeCall::Example(ExampleCall::foobar {
+        err,
+        start_weight,
+        end_weight,
+    })
+}
+
+#[test]
+fn sub_batch_with_root_works() {
+    new_test_ext().execute_with(|| {
+        let charlie = User::new(AccountKeyring::Charlie).balance(10);
+        let ferdie = User::new(AccountKeyring::Ferdie).balance(10);
+        let k = b"a".to_vec();
+        let call = RuntimeCall::System(frame_system::Call::set_storage {
+            items: vec![(k.clone(), k.clone())],
+        });
+        assert!(!TestBaseCallFilter::contains(&call));
+        assert_eq!(Balances::free_balance(charlie.acc()), 10);
+        assert_eq!(Balances::free_balance(ferdie.acc()), 10);
+        assert_ok!(Utility::batch(
+            RuntimeOrigin::root(),
+            vec![
+                RuntimeCall::Balances(BalancesCall::force_transfer {
+                    source: charlie.acc().into(),
+                    dest: ferdie.acc().into(),
+                    value: 5
+                }),
+                RuntimeCall::Balances(BalancesCall::force_transfer {
+                    source: charlie.acc().into(),
+                    dest: ferdie.acc().into(),
+                    value: 5
+                }),
+                call, // Check filters are correctly bypassed
+            ]
+        ));
+        assert_eq!(Balances::free_balance(charlie.acc()), 0);
+        assert_eq!(Balances::free_balance(ferdie.acc()), 20);
+        assert_eq!(storage::unhashed::get_raw(&k), Some(k));
+    });
+}
+
+#[test]
+fn sub_batch_with_signed_works() {
+    new_test_ext().execute_with(|| {
+        let charlie = User::new(AccountKeyring::Charlie).balance(10);
+        let ferdie = User::new(AccountKeyring::Ferdie).balance(10);
+        assert_eq!(Balances::free_balance(charlie.acc()), 10);
+        assert_eq!(Balances::free_balance(ferdie.acc()), 10);
+        assert_ok!(Utility::batch(
+            charlie.origin(),
+            vec![transfer(ferdie.acc(), 5), transfer(ferdie.acc(), 5)]
+        ),);
+        assert_eq!(Balances::free_balance(charlie.acc()), 0);
+        assert_eq!(Balances::free_balance(ferdie.acc()), 20);
+    });
+}
+
+#[test]
+fn sub_batch_with_signed_filters() {
+    new_test_ext().execute_with(|| {
+        let charlie = User::new(AccountKeyring::Charlie);
+        assert_ok!(Utility::batch(
+            charlie.origin(),
+            vec![RuntimeCall::Example(ExampleCall::noop2 {})]
+        ),);
+        System::assert_last_event(
+            utility::Event::BatchInterrupted {
+                index: 0,
+                error: frame_system::Error::<TestStorage>::CallFiltered.into(),
+            }
+            .into(),
+        );
+    });
+}
+
+#[test]
+fn batch_handles_weight_refund() {
+    new_test_ext().execute_with(|| {
+        let charlie = User::new(AccountKeyring::Charlie);
+        let start_weight = Weight::from_ref_time(100);
+        let end_weight = Weight::from_ref_time(75);
+        let diff = start_weight - end_weight;
+        let batch_len = 4;
+
+        // Full weight when ok
+        let inner_call = call_foobar(false, start_weight, None);
+        let batch_calls = vec![inner_call; batch_len as usize];
+        let call = RuntimeCall::Utility(UtilityCall::batch { calls: batch_calls });
+        let info = call.get_dispatch_info();
+        let result = call.dispatch(charlie.origin());
+        assert_ok!(result);
+        assert_eq!(extract_actual_weight(&result, &info), info.weight);
+
+        // Refund weight when ok
+        let inner_call = call_foobar(false, start_weight, Some(end_weight));
+        let batch_calls = vec![inner_call; batch_len as usize];
+        let call = RuntimeCall::Utility(UtilityCall::batch { calls: batch_calls });
+        let info = call.get_dispatch_info();
+        let result = call.dispatch(charlie.origin());
+        assert_ok!(result);
+        // Diff is refunded
+        assert_eq!(
+            extract_actual_weight(&result, &info),
+            info.weight - diff * batch_len
+        );
+
+        // Full weight when err
+        let good_call = call_foobar(false, start_weight, None);
+        let bad_call = call_foobar(true, start_weight, None);
+        let batch_calls = vec![good_call, bad_call];
+        let call = RuntimeCall::Utility(UtilityCall::batch { calls: batch_calls });
+        let info = call.get_dispatch_info();
+        let result = call.dispatch(charlie.origin());
+        assert_ok!(result);
+        System::assert_last_event(
+            utility::Event::BatchInterrupted {
+                index: 1,
+                error: DispatchError::Other(""),
+            }
+            .into(),
+        );
+        // No weight is refunded
+        assert_eq!(extract_actual_weight(&result, &info), info.weight);
+
+        // Refund weight when err
+        let good_call = call_foobar(false, start_weight, Some(end_weight));
+        let bad_call = call_foobar(true, start_weight, Some(end_weight));
+        let batch_calls = vec![good_call, bad_call];
+        let batch_len = batch_calls.len() as u64;
+        let call = RuntimeCall::Utility(UtilityCall::batch { calls: batch_calls });
+        let info = call.get_dispatch_info();
+        let result = call.dispatch(charlie.origin());
+        assert_ok!(result);
+        System::assert_last_event(
+            utility::Event::BatchInterrupted {
+                index: 1,
+                error: DispatchError::Other(""),
+            }
+            .into(),
+        );
+        assert_eq!(
+            extract_actual_weight(&result, &info),
+            info.weight - diff * batch_len
+        );
+
+        // Partial batch completion
+        let good_call = call_foobar(false, start_weight, Some(end_weight));
+        let bad_call = call_foobar(true, start_weight, Some(end_weight));
+        let batch_calls = vec![good_call, bad_call.clone(), bad_call];
+        let call = RuntimeCall::Utility(UtilityCall::batch { calls: batch_calls });
+        let info = call.get_dispatch_info();
+        let result = call.dispatch(charlie.origin());
+        assert_ok!(result);
+        System::assert_last_event(
+            utility::Event::BatchInterrupted {
+                index: 1,
+                error: DispatchError::Other(""),
+            }
+            .into(),
+        );
+        assert_eq!(
+            extract_actual_weight(&result, &info),
+            // Real weight is 2 calls at end_weight
+            <TestStorage as UtilityConfig>::WeightInfo::batch(2) + end_weight * 2,
+        );
+    });
 }

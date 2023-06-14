@@ -32,9 +32,12 @@ macro_rules! misc_pallet_impls {
             ApplyExtrinsicResult, MultiSignature,
         };
 
+        #[cfg(not(feature = "testing"))]
+        type RuntimeBaseCallFilter = frame_support::traits::Everything;
+
         impl frame_system::Config for Runtime {
             /// The basic call filter to use in dispatchable.
-            type BaseCallFilter = frame_support::traits::Everything;
+            type BaseCallFilter = RuntimeBaseCallFilter;
             /// Block & extrinsics weights: base values and limits.
             type BlockWeights = polymesh_runtime_common::RuntimeBlockWeights;
             /// The maximum length of a block (in bytes).
