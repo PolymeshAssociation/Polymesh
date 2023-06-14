@@ -1,5 +1,3 @@
-#![allow(deprecated)]
-
 use super::{
     assert_event_doesnt_exist, assert_event_exists, assert_last_event,
     pips_test::assert_balance,
@@ -10,7 +8,10 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
+use frame_support::{
+    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop,
+    dispatch::DispatchError,
+};
 use frame_system::EventRecord;
 use pallet_balances::Call as BalancesCall;
 use pallet_portfolio::Call as PortfolioCall;
@@ -37,6 +38,7 @@ const ERROR: DispatchError = DispatchError::Module(sp_runtime::ModuleError {
     message: None,
 });
 
+#[track_caller]
 fn assert_event(event: Event<TestStorage>) {
     assert_eq!(
         System::events().pop().unwrap().event,
@@ -67,13 +69,10 @@ fn batch_test(test: impl FnOnce(AccountId, AccountId)) {
 fn batch_with_signed_works() {
     batch_test(|alice, bob| {
         let calls = vec![transfer(bob.clone(), 400), transfer(bob.clone(), 400)];
-        assert_ok!(Utility::batch_old(
-            RuntimeOrigin::signed(alice.clone()),
-            calls
-        ));
+        assert_ok!(Utility::batch(RuntimeOrigin::signed(alice.clone()), calls));
         assert_balance(alice, 200, 0);
         assert_balance(bob, 1000 + 400 + 400, 0);
-        assert_event(Event::BatchCompletedOld(vec![1, 1]));
+        assert_event(Event::BatchCompleted);
     });
 }
 
@@ -85,13 +84,13 @@ fn batch_early_exit_works() {
             transfer(bob.clone(), 900),
             transfer(bob.clone(), 400),
         ];
-        assert_ok!(Utility::batch_old(
-            RuntimeOrigin::signed(alice.clone()),
-            calls
-        ));
+        assert_ok!(Utility::batch(RuntimeOrigin::signed(alice.clone()), calls));
         assert_balance(alice, 600, 0);
         assert_balance(bob, 1000 + 400, 0);
-        assert_event(Event::BatchInterruptedOld(vec![1, 0], (1, ERROR)));
+        assert_event(Event::BatchInterrupted {
+            index: 1,
+            error: ERROR,
+        });
     })
 }
 
@@ -99,11 +98,11 @@ fn batch_early_exit_works() {
 fn batch_optimistic_works() {
     batch_test(|alice, bob| {
         let calls = vec![transfer(bob.clone(), 401), transfer(bob.clone(), 402)];
-        assert_ok!(Utility::batch_optimistic(
+        assert_ok!(Utility::force_batch(
             RuntimeOrigin::signed(alice.clone()),
             calls
         ));
-        assert_event(Event::BatchCompletedOld(vec![1, 1]));
+        assert_event(Event::BatchCompleted);
         assert_balance(alice, 1000 - 401 - 402, 0);
         assert_balance(bob, 1000 + 401 + 402, 0);
     });
@@ -112,7 +111,7 @@ fn batch_optimistic_works() {
 #[test]
 fn batch_optimistic_failures_listed() {
     batch_test(|alice, bob| {
-        assert_ok!(Utility::batch_optimistic(
+        assert_ok!(Utility::force_batch(
             RuntimeOrigin::signed(alice.clone()),
             vec![
                 transfer(bob.clone(), 401), // YAY.
@@ -122,10 +121,33 @@ fn batch_optimistic_failures_listed() {
                 transfer(bob.clone(), 403), // NAY.
             ]
         ));
-        assert_event(Event::BatchOptimisticFailed(
-            vec![1, 0, 0, 1, 0],
-            vec![(1, ERROR), (2, ERROR), (4, ERROR)],
-        ));
+        let mut events = System::events();
+        assert_eq!(
+            events.pop().unwrap().event,
+            EventTest::Utility(Event::BatchCompletedWithErrors)
+        );
+        assert_eq!(
+            events.pop().unwrap().event,
+            EventTest::Utility(Event::ItemFailed { error: ERROR })
+        );
+        assert_eq!(
+            events.pop().unwrap().event,
+            EventTest::Utility(Event::ItemCompleted)
+        );
+        // skip Balances::Transfer event.
+        events.pop().unwrap();
+        assert_eq!(
+            events.pop().unwrap().event,
+            EventTest::Utility(Event::ItemFailed { error: ERROR })
+        );
+        assert_eq!(
+            events.pop().unwrap().event,
+            EventTest::Utility(Event::ItemFailed { error: ERROR })
+        );
+        assert_eq!(
+            events.pop().unwrap().event,
+            EventTest::Utility(Event::ItemCompleted)
+        );
         assert_balance(alice, 1000 - 401 - 402, 0);
         assert_balance(bob, 1000 + 401 + 402, 0);
     });
@@ -135,11 +157,11 @@ fn batch_optimistic_failures_listed() {
 fn batch_atomic_works() {
     batch_test(|alice, bob| {
         let calls = vec![transfer(bob.clone(), 401), transfer(bob.clone(), 402)];
-        assert_ok!(Utility::batch_atomic(
+        assert_ok!(Utility::batch_all(
             RuntimeOrigin::signed(alice.clone()),
             calls
         ));
-        assert_event(Event::BatchCompletedOld(vec![1, 1]));
+        assert_event(Event::BatchCompleted);
         assert_balance(alice, 1000 - 401 - 402, 0);
         assert_balance(bob, 1000 + 401 + 402, 0);
     });
@@ -150,13 +172,12 @@ fn batch_atomic_early_exit_works() {
     batch_test(|alice, bob| {
         let trans = |x| transfer(bob.clone(), x);
         let calls = vec![trans(400), trans(900), trans(400)];
-        assert_ok!(Utility::batch_atomic(
-            RuntimeOrigin::signed(alice.clone()),
-            calls
+        assert_storage_noop!(assert_err_ignore_postinfo!(
+            Utility::batch_all(RuntimeOrigin::signed(alice.clone()), calls),
+            pallet_balances::Error::<TestStorage>::InsufficientBalance
         ));
         assert_balance(alice, 1000, 0);
         assert_balance(bob, 1000, 0);
-        assert_event(Event::BatchInterruptedOld(vec![1, 0], (1, ERROR)));
     })
 }
 
@@ -335,19 +356,21 @@ fn batch_secondary_with_permissions() {
             to_name: high_risk_name.clone(),
         }),
     ];
-    assert_ok!(Utility::batch_old(bob.origin(), calls.clone()));
-    assert_event_doesnt_exist!(EventTest::Utility(Event::BatchCompletedOld(_)));
+    let expected_error: DispatchError =
+        pallet_permissions::Error::<TestStorage>::UnauthorizedCaller.into();
+    assert_ok!(Utility::batch(bob.origin(), calls.clone()));
+    assert_event_doesnt_exist!(EventTest::Utility(Event::BatchCompleted));
     assert_event_exists!(
-        EventTest::Utility(Event::BatchInterruptedOld(events, err)),
-        events == &[0] && err.0 == 0
+        EventTest::Utility(Event::BatchInterrupted { index, error }),
+        *index == 0u32 && error == &expected_error
     );
     check_name(low_risk_name);
 
     // Call the same extrinsics optimistically.
-    assert_ok!(Utility::batch_optimistic(bob.origin(), calls));
+    assert_ok!(Utility::force_batch(bob.origin(), calls));
     assert_event_exists!(
-        EventTest::Utility(Event::BatchOptimisticFailed(events, errors)),
-        events == &[0, 1] && errors.len() == 1 && errors[0].0 == 0
+        EventTest::Utility(Event::ItemFailed { error }),
+        error == &expected_error
     );
     check_name(high_risk_name);
 }
