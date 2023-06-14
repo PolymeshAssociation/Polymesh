@@ -12,9 +12,9 @@ use codec::Codec;
 use jsonrpsee::{
     core::RpcResult,
     proc_macros::rpc,
-    types::error::{CallError, ErrorObject},
+    types::error::{CallError, ErrorCode, ErrorObject},
 };
-use sp_api::{ApiRef, ProvideRuntimeApi};
+use sp_api::{ApiExt, ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::{Block as BlockT, Zero};
 
@@ -151,7 +151,30 @@ where
     ) -> RpcResult<RpcDidRecords<AccountId>> {
         let api = self.client.runtime_api();
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
-        api.get_did_records(at_hash, did).map_err(|e| {
+        let api_version = api
+            .api_version::<dyn IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, Moment>>(
+                at_hash,
+            )
+            .map_err(|e| {
+                CallError::Custom(ErrorObject::owned(
+                    Error::RuntimeError.into(),
+                    "Unable to fetch DID records",
+                    Some(e.to_string()),
+                ))
+            })?;
+
+        match api_version {
+            Some(version) if version >= 2 => api.get_did_records(at_hash, did),
+            _ => {
+                return Err(CallError::Custom(ErrorObject::owned(
+                    ErrorCode::MethodNotFound.code(),
+                    format!("Cannot find `IdentityApi` for block {:?}", at),
+                    None::<()>,
+                ))
+                .into());
+            }
+        }
+        .map_err(|e| {
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to fetch DID records",

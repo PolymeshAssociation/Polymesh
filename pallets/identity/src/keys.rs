@@ -905,7 +905,7 @@ impl<T: Config> Module<T> {
                     }
                 }
             }
-            SubsetRestriction::Whole(_) => {
+            SubsetRestriction::Whole => {
                 return Ok(());
             }
         };
