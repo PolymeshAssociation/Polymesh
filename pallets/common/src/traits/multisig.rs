@@ -94,6 +94,7 @@ pub trait WeightInfo {
     fn make_multisig_primary() -> Weight;
     fn execute_scheduled_proposal() -> Weight;
     fn change_sigs_required_via_creator() -> Weight;
+    fn remove_creator_controls() -> Weight;
 }
 
 /// This trait is used to add a signer to a multisig and enable unlinking multisig from an identity

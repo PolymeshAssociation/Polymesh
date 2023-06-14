@@ -159,6 +159,9 @@ decl_storage! {
         pub MultiSigToIdentity get(fn ms_to_identity): map hasher(identity) T::AccountId => IdentityId;
         /// Details of a multisig proposal
         pub ProposalDetail get(fn proposal_detail): map hasher(twox_64_concat) (T::AccountId, u64) => ProposalDetails<T::Moment>;
+        /// Tracks creators who are no longer allowed to call via_creator extrinsics.
+        pub LostCreatorPrivileges get(fn lost_creator_privileges): map hasher(identity) IdentityId => bool;
+
         /// The last transaction version, used for `on_runtime_upgrade`.
         TransactionVersion get(fn transaction_version) config(): u32;
         /// Storage version.
@@ -403,10 +406,13 @@ decl_module! {
         /// `900_000_000 + 3_000_000 * signers.len()`
         #[weight = <T as Config>::WeightInfo::add_multisig_signers_via_creator(signers.len() as u32)]
         pub fn add_multisig_signers_via_creator(origin, multisig: T::AccountId, signers: Vec<Signatory<T::AccountId>>) {
-            let did = Self::ensure_ms_creator(origin, &multisig)?;
-            ensure!(<MultiSigToIdentity<T>>::get(&multisig) == did, Error::<T>::IdentityNotCreator);
+            let caller_did = Self::ensure_ms_creator(origin, &multisig)?;
+            ensure!(
+                !LostCreatorPrivileges::get(caller_did),
+                Error::<T>::CreatorControlsHaveBeenRemoved
+            );
             for signer in signers {
-                Self::unsafe_add_auth_for_signers(did, signer, multisig.clone());
+                Self::unsafe_add_auth_for_signers(caller_did, signer, multisig.clone());
             }
         }
 
@@ -421,7 +427,12 @@ decl_module! {
         /// `900_000_000 + 3_000_000 * signers.len()`
         #[weight = <T as Config>::WeightInfo::remove_multisig_signers_via_creator(signers.len() as u32)]
         pub fn remove_multisig_signers_via_creator(origin, multisig: T::AccountId, signers: Vec<Signatory<T::AccountId>>) {
-            let _ = Self::ensure_ms_creator(origin, &multisig)?;
+            let caller_did = Self::ensure_ms_creator(origin, &multisig)?;
+            ensure!(
+                !LostCreatorPrivileges::get(caller_did),
+                Error::<T>::CreatorControlsHaveBeenRemoved
+            );
+
             ensure!(Self::is_changing_signers_allowed(&multisig), Error::<T>::ChangeNotAllowed);
             let signers_len: u64 = u64::try_from(signers.len()).unwrap_or_default();
 
@@ -505,8 +516,20 @@ decl_module! {
         /// * `signatures_required` - The number of required signatures.
         #[weight = <T as Config>::WeightInfo::change_sigs_required_via_creator()]
         pub fn change_sigs_required_via_creator(origin, multisig_account: T::AccountId, signatures_required: u64) {
-            Self::ensure_ms_creator(origin, &multisig_account)?;
+            let caller_did = Self::ensure_ms_creator(origin, &multisig_account)?;
+            ensure!(
+                !LostCreatorPrivileges::get(caller_did),
+                Error::<T>::CreatorControlsHaveBeenRemoved
+            );
             Self::base_change_multisig_required_singatures(multisig_account, signatures_required)?;
+        }
+
+        /// Removes the creator ability to call `add_multisig_signers_via_creator`, `remove_multisig_signers_via_creator`
+        /// and `change_sigs_required_via_creator`.
+        #[weight = <T as Config>::WeightInfo::remove_creator_controls()]
+        pub fn remove_creator_controls(origin, multisig_account: T::AccountId) {
+            let caller_did = Self::ensure_ms_creator(origin, &multisig_account)?;
+            Self::base_remove_creator_controls(caller_did);
         }
     }
 }
@@ -564,6 +587,8 @@ decl_error! {
         FailedToSchedule,
         /// More signers than required.
         TooManySigners,
+        /// The creator is no longer allowed to call via creator extrinsics.
+        CreatorControlsHaveBeenRemoved,
     }
 }
 
@@ -1032,6 +1057,12 @@ impl<T: Config> Module<T> {
         );
         Self::unsafe_change_sigs_required(multisig_account, signatures_required);
         Ok(())
+    }
+
+    /// Removes the creator ability to call `add_multisig_signers_via_creator`, `remove_multisig_signers_via_creator`
+    /// and `change_sigs_required_via_creator`.
+    fn base_remove_creator_controls(creator_did: IdentityId) {
+        LostCreatorPrivileges::insert(creator_did, true);
     }
 }
 

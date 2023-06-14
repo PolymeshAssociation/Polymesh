@@ -17,7 +17,7 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
 /// Details of a multisig proposal.
-#[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
 pub struct ProposalDetails<T> {
     /// Number of yes votes
     pub approvals: u64,

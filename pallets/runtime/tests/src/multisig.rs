@@ -1,8 +1,8 @@
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, StorageMap};
 
-use pallet_multisig as multisig;
+use pallet_multisig::{self as multisig, LostCreatorPrivileges};
 use polymesh_common_utilities::constants::currency::POLY;
-use polymesh_primitives::multisig::{ProposalDetails, ProposalStatus};
+use polymesh_primitives::multisig::ProposalStatus;
 use polymesh_primitives::{AccountId, AuthorizationData, Permissions, SecondaryKey, Signatory};
 use test_client::AccountKeyring;
 
@@ -983,6 +983,281 @@ fn reject_proposals() {
         assert_eq!(proposal_details2.rejections, 3);
         assert_eq!(proposal_details2.status, ProposalStatus::Rejected);
         assert_eq!(proposal_details2.auto_close, true);
+    });
+}
+
+#[test]
+fn add_signers_via_creator_removed_controls() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Multisig creator
+        let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice_signer = Signatory::from(alice_did);
+        // Multisig signers
+        let bob_signer = Signatory::Account(AccountKeyring::Bob.to_account_id());
+        let charlie_signer = Signatory::Account(AccountKeyring::Charlie.to_account_id());
+
+        let multisig_account_id =
+            MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id()).unwrap();
+
+        MultiSig::create_multisig(alice.clone(), vec![alice_signer, bob_signer], 2).unwrap();
+        MultiSig::remove_creator_controls(alice.clone(), multisig_account_id.clone()).unwrap();
+
+        assert_noop!(
+            MultiSig::add_multisig_signers_via_creator(
+                alice.clone(),
+                multisig_account_id,
+                vec![charlie_signer]
+            ),
+            Error::CreatorControlsHaveBeenRemoved
+        );
+    });
+}
+
+#[test]
+fn remove_signers_via_creator_removed_controls() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Multisig creator
+        let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice_signer = Signatory::from(alice_did);
+        // Multisig signers
+        let bob_signer = Signatory::Account(AccountKeyring::Bob.to_account_id());
+        let charlie_signer = Signatory::Account(AccountKeyring::Charlie.to_account_id());
+
+        let multisig_account_id =
+            MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id()).unwrap();
+
+        MultiSig::create_multisig(
+            alice.clone(),
+            vec![alice_signer, bob_signer, charlie_signer.clone()],
+            2,
+        )
+        .unwrap();
+        MultiSig::remove_creator_controls(alice.clone(), multisig_account_id.clone()).unwrap();
+
+        assert_noop!(
+            MultiSig::add_multisig_signers_via_creator(
+                alice.clone(),
+                multisig_account_id,
+                vec![charlie_signer]
+            ),
+            Error::CreatorControlsHaveBeenRemoved
+        );
+    });
+}
+
+#[test]
+fn change_sigs_required_via_creator_id_not_creator() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Multisig creator
+        let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice_signer = Signatory::from(alice_did);
+        // Multisig signers
+        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
+        let bob_signer = Signatory::Account(AccountKeyring::Bob.to_account_id());
+        let charlie_signer = Signatory::Account(AccountKeyring::Charlie.to_account_id());
+
+        let multisig_account_id =
+            MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id()).unwrap();
+
+        MultiSig::create_multisig(
+            alice.clone(),
+            vec![alice_signer, bob_signer, charlie_signer],
+            2,
+        )
+        .unwrap();
+
+        assert_noop!(
+            MultiSig::change_sigs_required_via_creator(bob.clone(), multisig_account_id, 2),
+            Error::IdentityNotCreator
+        );
+    });
+}
+
+#[test]
+fn change_sigs_required_via_creator_removed_controls() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Multisig creator
+        let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice_signer = Signatory::from(alice_did);
+        // Multisig signers
+        let bob_signer = Signatory::Account(AccountKeyring::Bob.to_account_id());
+        let charlie_signer = Signatory::Account(AccountKeyring::Charlie.to_account_id());
+
+        let multisig_account_id =
+            MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id()).unwrap();
+
+        MultiSig::create_multisig(
+            alice.clone(),
+            vec![alice_signer, bob_signer, charlie_signer],
+            2,
+        )
+        .unwrap();
+        MultiSig::remove_creator_controls(alice.clone(), multisig_account_id.clone()).unwrap();
+
+        assert_noop!(
+            MultiSig::change_sigs_required_via_creator(alice.clone(), multisig_account_id, 2),
+            Error::CreatorControlsHaveBeenRemoved
+        );
+    });
+}
+
+#[test]
+fn change_sigs_required_via_creator_not_enough_signers() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Multisig creator
+        let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice_signer = Signatory::from(alice_did);
+        // Multisig signers
+        let bob_signer = Signatory::Account(AccountKeyring::Bob.to_account_id());
+        let charlie_signer = Signatory::Account(AccountKeyring::Charlie.to_account_id());
+
+        let multisig_account_id =
+            MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id()).unwrap();
+
+        MultiSig::create_multisig(
+            alice.clone(),
+            vec![alice_signer, bob_signer, charlie_signer],
+            2,
+        )
+        .unwrap();
+
+        assert_noop!(
+            MultiSig::change_sigs_required_via_creator(alice.clone(), multisig_account_id, 4),
+            Error::NotEnoughSigners
+        );
+    });
+}
+
+#[test]
+fn change_sigs_required_via_creator_not_allowed() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Multisig creator
+        let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice_signer = Signatory::from(alice_did);
+        // Multisig signers
+        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
+        let bob_signer = Signatory::Account(AccountKeyring::Bob.to_account_id());
+        let charlie_signer = Signatory::Account(AccountKeyring::Charlie.to_account_id());
+
+        let multisig_account_id =
+            MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id()).unwrap();
+
+        MultiSig::create_multisig(
+            alice.clone(),
+            vec![alice_signer, bob_signer.clone(), charlie_signer],
+            2,
+        )
+        .unwrap();
+        // Signers must accept to be added to the multisig account
+        let bob_auth_id = get_last_auth_id(&bob_signer);
+        MultiSig::accept_multisig_signer_as_key(bob.clone(), bob_auth_id).unwrap();
+        Identity::change_cdd_requirement_for_mk_rotation(
+            Origin::from(frame_system::RawOrigin::Root),
+            true,
+        )
+        .unwrap();
+
+        assert_noop!(
+            MultiSig::change_sigs_required_via_creator(alice.clone(), multisig_account_id, 1),
+            Error::ChangeNotAllowed
+        );
+    });
+}
+
+#[test]
+fn change_sigs_required_via_creator_successfully() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Multisig creator
+        let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice_signer = Signatory::from(alice_did);
+        // Multisig signers
+        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
+        let bob_signer = Signatory::Account(AccountKeyring::Bob.to_account_id());
+        let charlie_signer = Signatory::Account(AccountKeyring::Charlie.to_account_id());
+
+        let multisig_account_id =
+            MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id()).unwrap();
+
+        MultiSig::create_multisig(
+            alice.clone(),
+            vec![alice_signer, bob_signer.clone(), charlie_signer],
+            2,
+        )
+        .unwrap();
+        // Signers must accept to be added to the multisig account
+        let bob_auth_id = get_last_auth_id(&bob_signer);
+        MultiSig::accept_multisig_signer_as_key(bob.clone(), bob_auth_id).unwrap();
+
+        assert_ok!(MultiSig::change_sigs_required_via_creator(
+            alice.clone(),
+            multisig_account_id,
+            1
+        ));
+    });
+}
+
+#[test]
+fn remove_creator_controls_id_not_creator() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Multisig creator
+        let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice_signer = Signatory::from(alice_did);
+        // Multisig signers
+        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
+        let bob_signer = Signatory::Account(AccountKeyring::Bob.to_account_id());
+        let charlie_signer = Signatory::Account(AccountKeyring::Charlie.to_account_id());
+
+        let multisig_account_id =
+            MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id()).unwrap();
+
+        MultiSig::create_multisig(
+            alice.clone(),
+            vec![alice_signer, bob_signer.clone(), charlie_signer],
+            2,
+        )
+        .unwrap();
+
+        assert_noop!(
+            MultiSig::remove_creator_controls(bob.clone(), multisig_account_id),
+            Error::IdentityNotCreator
+        );
+    });
+}
+
+#[test]
+fn remove_creator_controls_successfully() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Multisig creator
+        let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice_signer = Signatory::from(alice_did);
+        // Multisig signers
+        let bob_signer = Signatory::Account(AccountKeyring::Bob.to_account_id());
+        let charlie_signer = Signatory::Account(AccountKeyring::Charlie.to_account_id());
+
+        let multisig_account_id =
+            MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id()).unwrap();
+
+        MultiSig::create_multisig(
+            alice.clone(),
+            vec![alice_signer, bob_signer.clone(), charlie_signer],
+            2,
+        )
+        .unwrap();
+
+        assert_ok!(MultiSig::remove_creator_controls(
+            alice.clone(),
+            multisig_account_id
+        ));
+        assert!(LostCreatorPrivileges::get(alice_did))
     });
 }
 

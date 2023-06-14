@@ -334,4 +334,7 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     fn change_sigs_required_via_creator() -> Weight {
         unimplemented!()
     }
+    fn remove_creator_controls() -> Weight {
+        unimplemented!()
+    }
 }
