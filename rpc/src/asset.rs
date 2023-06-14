@@ -29,7 +29,7 @@ use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 use sp_api::{ApiExt, ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_rpc::number;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::traits::Block as BlockT;
 
 #[rpc(client, server)]
 pub trait AssetApi<BlockHash, AccountId> {
@@ -137,9 +137,9 @@ where
             ))
         })?;
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
         let api_version = api
-            .api_version::<dyn AssetRuntimeApi<Block, AccountId>>(&at)
+            .api_version::<dyn AssetRuntimeApi<Block, AccountId>>(at_hash)
             .map_err(|e| {
                 CallError::Custom(ErrorObject::owned(
                     Error::RuntimeError.into(),
@@ -150,7 +150,7 @@ where
 
         match api_version {
             Some(version) if version >= 2 => api.can_transfer_granular(
-                &at,
+                at_hash,
                 from_custodian,
                 from_portfolio,
                 to_custodian,
@@ -162,7 +162,7 @@ where
             {
                 #[allow(deprecated)]
                 api.can_transfer_granular_before_version_2(
-                    &at,
+                    at_hash,
                     from_custodian,
                     from_portfolio,
                     to_custodian,

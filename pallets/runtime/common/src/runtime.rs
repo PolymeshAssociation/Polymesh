@@ -190,8 +190,6 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_authorship::Config for Runtime {
             type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
-            type UncleGenerations = UncleGenerations;
-            type FilterUncle = ();
             type EventHandler = (Staking, ImOnline);
         }
 
@@ -343,7 +341,7 @@ macro_rules! misc_pallet_impls {
             type CallFilter = frame_support::traits::Nothing;
             type DepositPerItem = polymesh_runtime_common::DepositPerItem;
             type DepositPerByte = polymesh_runtime_common::DepositPerByte;
-            type CallStack = [pallet_contracts::Frame<Self>; 31];
+            type CallStack = [pallet_contracts::Frame<Self>; 5];
             type WeightPrice = pallet_transaction_payment::Pallet<Self>;
             type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
             type ChainExtension = polymesh_contracts::PolymeshExtension;
@@ -352,9 +350,10 @@ macro_rules! misc_pallet_impls {
             type DeletionWeightLimit = DeletionWeightLimit;
             type AddressGenerator = pallet_contracts::DefaultAddressGenerator;
             type PolymeshHooks = polymesh_contracts::ContractPolymeshHooks;
-            type MaxCodeLen = frame_support::traits::ConstU32<{ 128 * 1024 }>;
+            type MaxCodeLen = frame_support::traits::ConstU32<{ 123 * 1024 }>;
             type MaxStorageKeyLen = frame_support::traits::ConstU32<128>;
             type UnsafeUnstableInterface = frame_support::traits::ConstBool<false>;
+            type MaxDebugBufferLen = frame_support::traits::ConstU32<{ 2 * 1024 * 1024 }>;
         }
 
         impl pallet_compliance_manager::Config for Runtime {
@@ -455,9 +454,10 @@ macro_rules! misc_pallet_impls {
 
             type WeightInfo = ();
             type MaxAuthorities = MaxAuthorities;
+            type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
         }
 
-        impl pallet_randomness_collective_flip::Config for Runtime {}
+        impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
 
         impl pallet_treasury::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
@@ -608,8 +608,7 @@ macro_rules! runtime_apis {
             Runtime,
             AllPalletsWithSystem,
             (
-              pallet_preimage::migration::v1::Migration<Runtime>,
-              pallet_scheduler::migration::v3::MigrateToV4<Runtime>,
+              pallet_scheduler::migration::v4::CleanupAgendas<Runtime>,
               pallet_contracts::Migration<Runtime>,
             )
         >;
@@ -669,17 +668,17 @@ macro_rules! runtime_apis {
                 }
             }
 
-            impl pallet_grandpa::fg_primitives::GrandpaApi<Block> for Runtime {
-                fn grandpa_authorities() -> pallet_grandpa::fg_primitives::AuthorityList {
+            impl sp_consensus_grandpa::GrandpaApi<Block> for Runtime {
+                fn grandpa_authorities() -> sp_consensus_grandpa::AuthorityList {
                     Grandpa::grandpa_authorities()
                 }
 
                 fn submit_report_equivocation_unsigned_extrinsic(
-                    equivocation_proof: pallet_grandpa::fg_primitives::EquivocationProof<
+                    equivocation_proof: sp_consensus_grandpa::EquivocationProof<
                         <Block as BlockT>::Hash,
                         NumberFor<Block>,
                     >,
-                    key_owner_proof: pallet_grandpa::fg_primitives::OpaqueKeyOwnershipProof,
+                    key_owner_proof: sp_consensus_grandpa::OpaqueKeyOwnershipProof,
                 ) -> Option<()> {
                     let key_owner_proof = key_owner_proof.decode()?;
 
@@ -690,17 +689,17 @@ macro_rules! runtime_apis {
                 }
 
                 fn generate_key_ownership_proof(
-                    _set_id: pallet_grandpa::fg_primitives::SetId,
+                    _set_id: sp_consensus_grandpa::SetId,
                     authority_id: pallet_grandpa::AuthorityId,
-                ) -> Option<pallet_grandpa::fg_primitives::OpaqueKeyOwnershipProof> {
+                ) -> Option<sp_consensus_grandpa::OpaqueKeyOwnershipProof> {
                     use codec::Encode;
 
-                    Historical::prove((pallet_grandpa::fg_primitives::KEY_TYPE, authority_id))
+                    Historical::prove((sp_consensus_grandpa::KEY_TYPE, authority_id))
                         .map(|p| p.encode())
-                        .map(pallet_grandpa::fg_primitives::OpaqueKeyOwnershipProof::new)
+                        .map(sp_consensus_grandpa::OpaqueKeyOwnershipProof::new)
                 }
 
-                fn current_set_id() -> pallet_grandpa::fg_primitives::SetId {
+                fn current_set_id() -> sp_consensus_grandpa::SetId {
                     Grandpa::current_set_id()
                 }
             }

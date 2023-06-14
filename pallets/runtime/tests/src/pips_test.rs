@@ -1506,15 +1506,15 @@ fn reschedule_execution_works() {
             pallet_scheduler::Event::Canceled { .. }
         ));
         assert_eq!(Pips::pip_to_schedule(id).unwrap(), next);
-        assert_eq!(Agenda::get(scheduled_at), vec![None]);
+        assert_eq!(Agenda::get(scheduled_at), vec![]);
         assert!(matches!(Agenda::get(next).deref()[..], [Some(_)]));
 
         // Reschedule execution for 50 blocks ahead.
         assert_ok!(Pips::reschedule_execution(rc.origin(), id, Some(next + 50)));
         assert_eq!(Pips::active_pip_count(), 1);
         assert_eq!(Pips::pip_to_schedule(id).unwrap(), next + 50);
-        assert_eq!(&vec![None], Agenda::get(scheduled_at).deref());
-        assert_eq!(&vec![None], Agenda::get(next).deref());
+        assert_eq!(Agenda::get(scheduled_at), vec![]);
+        assert_eq!(Agenda::get(next), vec![]);
         assert!(matches!(Agenda::get(next + 50).deref()[..], [Some(_)]));
     });
 }

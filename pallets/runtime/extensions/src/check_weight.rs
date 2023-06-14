@@ -83,7 +83,7 @@ where
         len: usize,
     ) -> TransactionValidity {
         if info.class == DispatchClass::Mandatory {
-            Err(InvalidTransaction::MandatoryDispatch)?
+            Err(InvalidTransaction::MandatoryValidation)?
         }
         Self::do_validate(info, len)
     }

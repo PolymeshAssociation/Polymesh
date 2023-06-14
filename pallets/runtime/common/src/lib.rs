@@ -30,7 +30,10 @@ pub use frame_support::{
     parameter_types,
     traits::Currency,
     weights::{
-        constants::{WEIGHT_PER_MICROS, WEIGHT_PER_MILLIS, WEIGHT_PER_NANOS, WEIGHT_PER_SECOND},
+        constants::{
+            WEIGHT_REF_TIME_PER_MICROS, WEIGHT_REF_TIME_PER_MILLIS, WEIGHT_REF_TIME_PER_NANOS,
+            WEIGHT_REF_TIME_PER_SECOND,
+        },
         RuntimeDbWeight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
     },
 };
@@ -56,7 +59,8 @@ pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// We allow for 2 seconds of compute with a 6 second average block time.
-const MAXIMUM_BLOCK_WEIGHT: Weight = WEIGHT_PER_SECOND.saturating_mul(2).set_proof_size(u64::MAX);
+const MAXIMUM_BLOCK_WEIGHT: Weight =
+    Weight::from_ref_time(WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2)).set_proof_size(u64::MAX);
 
 // TODO (miguel) Remove unused constants.
 parameter_types! {
@@ -72,16 +76,16 @@ parameter_types! {
     /// Blocks can be of upto 10 MB in size.
     pub const MaximumBlockLength: u32 = 10 * 1024 * 1024;
     /// 20 ms is needed to create a block.
-    pub const BlockExecutionWeight: Weight = WEIGHT_PER_MILLIS.saturating_mul(20);
+    pub const BlockExecutionWeight: Weight = Weight::from_ref_time(WEIGHT_REF_TIME_PER_MILLIS.saturating_mul(20));
     /// 0.65 ms is needed to process an empty extrinsic.
-    pub const ExtrinsicBaseWeight: Weight = WEIGHT_PER_MICROS.saturating_mul(650);
+    pub const ExtrinsicBaseWeight: Weight = Weight::from_ref_time(WEIGHT_REF_TIME_PER_MICROS.saturating_mul(650));
     /// When the read/writes are cached/buffered, they take 25/100 microseconds on NVMe disks.
     /// When they are uncached, they take 250/450 microseconds on NVMe disks.
     /// Most read will be cached and writes will be buffered in production.
     /// We are taking a number slightly higher than what cached suggest to allow for some extra breathing room.
     pub const RocksDbWeight: RuntimeDbWeight = RuntimeDbWeight {
-        read: 50 * WEIGHT_PER_MICROS.ref_time(),   // ~50 µs @ 100,000 items
-        write: 200 * WEIGHT_PER_MICROS.ref_time(), // ~200 µs @ 100,000 items
+        read: 50 * WEIGHT_REF_TIME_PER_MICROS,   // ~50 µs @ 100,000 items
+        write: 200 * WEIGHT_REF_TIME_PER_MICROS, // ~200 µs @ 100,000 items
     };
     /// This implies a 100 POLYX fee per MB of transaction length
     pub const TransactionByteFee: Balance = 10 * MILLICENTS;

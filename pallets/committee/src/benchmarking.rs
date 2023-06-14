@@ -137,7 +137,7 @@ benchmarks_instance! {
     set_vote_threshold {
         let n = 1;
         let d = 2;
-        let origin = T::CommitteeOrigin::successful_origin();
+        let origin = T::CommitteeOrigin::try_successful_origin().unwrap();
         let call = Call::<T, I>::set_vote_threshold { n, d };
     }: {
         call.dispatch_bypass_filter(origin).unwrap();
@@ -153,7 +153,7 @@ benchmarks_instance! {
         dids.sort();
         let coordinator = dids.last().unwrap().clone();
         Module::<T, I>::change_members_sorted(&dids, &[], &dids);
-        let origin = T::CommitteeOrigin::successful_origin();
+        let origin = T::CommitteeOrigin::try_successful_origin().unwrap();
         let call = Call::<T, I>::set_release_coordinator { id: coordinator };
     }: {
         call.dispatch_bypass_filter(origin).unwrap();
@@ -167,7 +167,7 @@ benchmarks_instance! {
 
     set_expires_after {
         let maybe_block = MaybeBlock::Some(1u32.into());
-        let origin = T::CommitteeOrigin::successful_origin();
+        let origin = T::CommitteeOrigin::try_successful_origin().unwrap();
         let call = Call::<T, I>::set_expires_after { expiry: maybe_block };
     }: {
         call.dispatch_bypass_filter(origin).unwrap();

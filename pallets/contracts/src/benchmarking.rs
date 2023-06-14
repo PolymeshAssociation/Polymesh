@@ -67,7 +67,7 @@ fn instantiate<T: Config>(user: &User<T>, wasm: WasmModule<T>, salt: Vec<u8>) ->
 where
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
-    let callee = FrameContracts::<T>::contract_address(&user.account(), &wasm.hash, &salt);
+    let callee = FrameContracts::<T>::contract_address(&user.account(), &wasm.hash, &[], &salt);
     Pallet::<T>::instantiate_with_code_perms(
         user.origin().into(),
         ENDOWMENT,   // endowment
@@ -285,7 +285,7 @@ benchmarks! {
         let n in 1 .. (T::MaxInLen::get() as u32 - 4);
 
         // Encode `System::remark(remark: Vec<u8>)` call.
-        let input = (0u8 /* System */, 1u8 /* remark */, vec![b'A'; n as usize]).encode();
+        let input = (0u8 /* System */, 0u8 /* remark */, vec![b'A'; n as usize]).encode();
         // Setup ChainExtension.
         let contract = Contract::<T>::chain_extension(1, FuncId::CallRuntime, input, 0);
     }: {
@@ -326,11 +326,11 @@ benchmarks! {
         let user = contract.caller;
 
         // Calculate new contract's address.
-        let addr = FrameContracts::<T>::contract_address(&user.account(), &hash, &other_salt);
+        let addr = FrameContracts::<T>::contract_address(&user.account(), &hash, &[], &other_salt);
     }: _(user.origin(), ENDOWMENT, Weight::MAX, None, hash, vec![], other_salt, Permissions::default())
     verify {
         // Ensure contract has the full value.
-        assert_eq!(free_balance::<T>(&addr), ENDOWMENT);
+        assert_eq!(free_balance::<T>(&addr), ENDOWMENT + 1 as Balance);
     }
 
     // This constructs a contract that is maximal expensive to instrument.
@@ -357,11 +357,11 @@ benchmarks! {
 
         // Construct the contract code + get addr.
         let wasm = WasmModule::<T>::sized(c, Location::Deploy);
-        let addr = FrameContracts::<T>::contract_address(&user.account(), &wasm.hash, &salt);
+        let addr = FrameContracts::<T>::contract_address(&user.account(), &wasm.hash, &[], &salt);
     }: _(user.origin(), ENDOWMENT, Weight::MAX, None, wasm.code, vec![], salt, Permissions::default())
     verify {
         // Ensure contract has the full value.
-        assert_eq!(free_balance::<T>(&addr), ENDOWMENT);
+        assert_eq!(free_balance::<T>(&addr), ENDOWMENT + 1 as Balance);
     }
 
     update_call_runtime_whitelist {
