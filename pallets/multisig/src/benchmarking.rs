@@ -363,4 +363,12 @@ benchmarks! {
     verify {
         assert!(<ProposalDetail<T>>::get((&multisig, proposal_id)).status == ProposalStatus::ExecutionSuccessful);
     }
+
+    change_sigs_required_via_creator {
+        let (alice, multisig_account, _, _, _) = generate_multisig_for_alice::<T>(2, 2).unwrap();
+    }: _(alice.origin(), multisig_account, 1)
+
+    remove_creator_controls {
+        let (alice, multisig_account, _, _, _) = generate_multisig_for_alice::<T>(2, 2).unwrap();
+    }: _(alice.origin(), multisig_account)
 }
