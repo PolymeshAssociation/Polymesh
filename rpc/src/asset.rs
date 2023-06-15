@@ -13,39 +13,25 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-pub use node_rpc_runtime_api::asset::{AssetApi as AssetRuntimeApi, CanTransferResult};
-
 use std::{convert::TryInto, sync::Arc};
 
-use crate::Error;
 use codec::Codec;
-use jsonrpsee::{
-    core::RpcResult,
-    proc_macros::rpc,
-    types::error::{CallError, ErrorCode, ErrorObject},
-};
-use polymesh_primitives::asset::GranularCanTransferResult;
-use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
-use sp_api::{ApiExt, ApiRef, ProvideRuntimeApi};
+use jsonrpsee::core::RpcResult;
+use jsonrpsee::proc_macros::rpc;
+use jsonrpsee::types::error::{CallError, ErrorObject};
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_rpc::number;
 use sp_runtime::traits::Block as BlockT;
 
+pub use node_rpc_runtime_api::asset::{AssetApi as AssetRuntimeApi, CanTransferResult};
+use polymesh_primitives::asset::GranularCanTransferResult;
+use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
+
+use crate::Error;
+
 #[rpc(client, server)]
 pub trait AssetApi<BlockHash, AccountId> {
-    #[method(name = "asset_canTransfer")]
-    fn can_transfer(
-        &self,
-        sender: AccountId,
-        from_custodian: Option<IdentityId>,
-        from_portfolio: PortfolioId,
-        to_custodian: Option<IdentityId>,
-        to_portfolio: PortfolioId,
-        ticker: Ticker,
-        value: number::NumberOrHex,
-        at: Option<BlockHash>,
-    ) -> RpcResult<CanTransferResult>;
-
     #[method(name = "asset_canTransferGranular")]
     fn can_transfer_granular(
         &self,
@@ -82,42 +68,6 @@ where
     C::Api: AssetRuntimeApi<Block, AccountId>,
     AccountId: Codec,
 {
-    fn can_transfer(
-        &self,
-        sender: AccountId, // Keeping this here to avoid breaking API.
-        from_custodian: Option<IdentityId>,
-        from_portfolio: PortfolioId,
-        to_custodian: Option<IdentityId>,
-        to_portfolio: PortfolioId,
-        ticker: Ticker,
-        value: number::NumberOrHex,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<CanTransferResult> {
-        // Make sure that value fits into 64 bits.
-        let value: u64 = value.try_into().map_err(|_| {
-            CallError::Custom(ErrorObject::owned(
-                ErrorCode::InvalidParams.code(),
-                format!("{:?} doesn't fit in 64 bit unsigned value", value),
-                None::<()>,
-            ))
-        })?;
-        rpc_forward_call!(
-            self,
-            at,
-            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api.can_transfer(
-                at,
-                sender,
-                from_custodian,
-                from_portfolio,
-                to_custodian,
-                to_portfolio,
-                &ticker,
-                value.into()
-            ),
-            "Unable to check transfer"
-        )
-    }
-
     fn can_transfer_granular(
         &self,
         from_custodian: Option<IdentityId>,

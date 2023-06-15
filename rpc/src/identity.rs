@@ -1,22 +1,20 @@
+use std::{convert::TryInto, sync::Arc};
+
+use codec::Codec;
+use jsonrpsee::core::RpcResult;
+use jsonrpsee::proc_macros::rpc;
+use jsonrpsee::types::error::{CallError, ErrorCode, ErrorObject};
+use sp_api::{ApiExt, ApiRef, ProvideRuntimeApi};
+use sp_blockchain::HeaderBackend;
+use sp_runtime::traits::{Block as BlockT, Zero};
+
+pub use node_rpc_runtime_api::identity::IdentityApi as IdentityRuntimeApi;
 pub use pallet_identity::types::{
     AssetDidResult, CddStatus, DidStatus, KeyIdentityData, RpcDidRecords,
 };
 use polymesh_primitives::{Authorization, AuthorizationType, Signatory};
 
-pub use node_rpc_runtime_api::identity::IdentityApi as IdentityRuntimeApi;
-
-use std::{convert::TryInto, sync::Arc};
-
 use super::Error;
-use codec::Codec;
-use jsonrpsee::{
-    core::RpcResult,
-    proc_macros::rpc,
-    types::error::{CallError, ErrorCode, ErrorObject},
-};
-use sp_api::{ApiExt, ApiRef, ProvideRuntimeApi};
-use sp_blockchain::HeaderBackend;
-use sp_runtime::traits::{Block as BlockT, Zero};
 
 const MAX_IDENTITIES_ALLOWED_TO_QUERY: u32 = 500;
 
