@@ -897,13 +897,11 @@ impl<T: Config> Module<T> {
             }
             SubsetRestriction::These(pallet_permissions) => {
                 for elem in pallet_permissions {
-                    match elem.dispatchable_names {
-                        SubsetRestriction::Except(_) => {
-                            return Err(Error::<T>::ExceptNotAllowedForExtrinsics.into());
-                        }
-                        _ => return Ok(()), // Matches Whole and These
+                    if let SubsetRestriction::Except(_) = elem.dispatchable_names {
+                        return Err(Error::<T>::ExceptNotAllowedForExtrinsics.into());
                     }
                 }
+                return Ok(());
             }
             SubsetRestriction::Whole => {
                 return Ok(());
