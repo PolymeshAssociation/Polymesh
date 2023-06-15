@@ -907,7 +907,6 @@ impl<T: Config> Module<T> {
                 return Ok(());
             }
         };
-        Ok(())
     }
 
     /// Ensures length limits are enforced in `perms`.
