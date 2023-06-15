@@ -336,7 +336,7 @@ frame_support::construct_runtime!(
         Nft: pallet_nft::{Pallet, Call, Storage, Event} = 51,
 
         // Testing only.
-            Example: example::{Pallet, Call} = 201,
+        Example: example::{Pallet, Call} = 201,
     }
 );
 

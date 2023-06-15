@@ -1,7 +1,8 @@
 use super::storage::example::Call as ExampleCall;
 use super::{
     assert_event_doesnt_exist, assert_event_exists, assert_last_event,
-    pips_test::assert_balance,
+    committee_test::set_members,
+    pips_test::{assert_balance, assert_state, committee_proposal, community_proposal},
     storage::{
         add_secondary_key, get_secondary_keys, next_block, register_keyring_account_with_balance,
         EventTest, Identity, Portfolio, RuntimeCall, RuntimeOrigin, System, TestBaseCallFilter,
@@ -24,6 +25,7 @@ use frame_system::{Call as SystemCall, EventRecord};
 use pallet_timestamp::Call as TimestampCall;
 
 use pallet_balances::Call as BalancesCall;
+use pallet_pips::{ProposalState, SnapshotResult};
 use pallet_portfolio::Call as PortfolioCall;
 use pallet_utility::{
     self as utility, Call as UtilityCall, Config as UtilityConfig, Event, UniqueCall, WeightInfo,
@@ -39,6 +41,19 @@ use test_client::AccountKeyring;
 type Error = utility::Error<TestStorage>;
 
 type Balances = pallet_balances::Module<TestStorage>;
+type Pips = pallet_pips::Module<TestStorage>;
+type Committee = pallet_committee::Module<TestStorage, pallet_committee::Instance1>;
+
+fn consensus_call(call: RuntimeCall, signers: &[User]) {
+    let call = Box::new(call);
+    for signer in signers {
+        assert_ok!(Committee::vote_or_propose(
+            signer.origin(),
+            true,
+            call.clone()
+        ));
+    }
+}
 
 fn transfer(to: AccountId, amount: Balance) -> RuntimeCall {
     RuntimeCall::Balances(BalancesCall::transfer {
@@ -862,6 +877,108 @@ fn sub_batch_all_doesnt_work_with_inherents() {
                 error: BadOrigin.into(),
             }
         );
+    })
+}
+
+#[test]
+fn batch_works_with_committee_origin() {
+    new_test_ext().execute_with(|| {
+        let proposer = User::new(AccountKeyring::Dave);
+
+        let bob = User::new(AccountKeyring::Bob);
+        let charlie = User::new(AccountKeyring::Charlie);
+        set_members(vec![bob.did, charlie.did]);
+
+        assert_ok!(Pips::set_min_proposal_deposit(RuntimeOrigin::root(), 10));
+
+        let consensus_batch = |calls| {
+            consensus_call(
+                RuntimeCall::Utility(UtilityCall::batch { calls }),
+                &[bob, charlie],
+            )
+        };
+
+        let id_committee = Pips::pip_id_sequence();
+        assert_ok!(committee_proposal(0));
+        let id_snapshot = Pips::pip_id_sequence();
+        assert_ok!(community_proposal(proposer, 10));
+        assert_ok!(Pips::snapshot(bob.origin()));
+        consensus_batch(vec![
+            RuntimeCall::Pips(pallet_pips::Call::approve_committee_proposal { id: id_committee }),
+            RuntimeCall::Pips(pallet_pips::Call::enact_snapshot_results {
+                results: vec![(id_snapshot, SnapshotResult::Approve)],
+            }),
+        ]);
+        assert_state(id_committee, false, ProposalState::Scheduled);
+        assert_state(id_snapshot, false, ProposalState::Scheduled);
+    })
+}
+
+#[test]
+fn force_batch_works_with_committee_origin() {
+    new_test_ext().execute_with(|| {
+        let proposer = User::new(AccountKeyring::Dave);
+
+        let bob = User::new(AccountKeyring::Bob);
+        let charlie = User::new(AccountKeyring::Charlie);
+        set_members(vec![bob.did, charlie.did]);
+
+        assert_ok!(Pips::set_min_proposal_deposit(RuntimeOrigin::root(), 10));
+
+        let consensus_batch = |calls| {
+            consensus_call(
+                RuntimeCall::Utility(UtilityCall::force_batch { calls }),
+                &[bob, charlie],
+            )
+        };
+
+        let id_committee = Pips::pip_id_sequence();
+        assert_ok!(committee_proposal(0));
+        let id_snapshot = Pips::pip_id_sequence();
+        assert_ok!(community_proposal(proposer, 10));
+        assert_ok!(Pips::snapshot(bob.origin()));
+        consensus_batch(vec![
+            RuntimeCall::Pips(pallet_pips::Call::approve_committee_proposal { id: id_committee }),
+            RuntimeCall::Pips(pallet_pips::Call::enact_snapshot_results {
+                results: vec![(id_snapshot, SnapshotResult::Approve)],
+            }),
+        ]);
+        assert_state(id_committee, false, ProposalState::Scheduled);
+        assert_state(id_snapshot, false, ProposalState::Scheduled);
+    })
+}
+
+#[test]
+fn batch_all_works_with_committee_origin() {
+    new_test_ext().execute_with(|| {
+        let proposer = User::new(AccountKeyring::Dave);
+
+        let bob = User::new(AccountKeyring::Bob);
+        let charlie = User::new(AccountKeyring::Charlie);
+        set_members(vec![bob.did, charlie.did]);
+
+        assert_ok!(Pips::set_min_proposal_deposit(RuntimeOrigin::root(), 10));
+
+        let consensus_batch = |calls| {
+            consensus_call(
+                RuntimeCall::Utility(UtilityCall::batch_all { calls }),
+                &[bob, charlie],
+            )
+        };
+
+        let id_committee = Pips::pip_id_sequence();
+        assert_ok!(committee_proposal(0));
+        let id_snapshot = Pips::pip_id_sequence();
+        assert_ok!(community_proposal(proposer, 10));
+        assert_ok!(Pips::snapshot(bob.origin()));
+        consensus_batch(vec![
+            RuntimeCall::Pips(pallet_pips::Call::approve_committee_proposal { id: id_committee }),
+            RuntimeCall::Pips(pallet_pips::Call::enact_snapshot_results {
+                results: vec![(id_snapshot, SnapshotResult::Approve)],
+            }),
+        ]);
+        assert_state(id_committee, false, ProposalState::Scheduled);
+        assert_state(id_snapshot, false, ProposalState::Scheduled);
     })
 }
 

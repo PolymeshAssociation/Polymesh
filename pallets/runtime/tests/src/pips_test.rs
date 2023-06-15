@@ -133,7 +133,7 @@ fn remark_proposal(proposer: User, deposit: u128) -> DispatchResult {
 
 const THE_COMMITTEE: Proposer<AccountId> = Proposer::Committee(pallet_pips::Committee::Upgrade);
 
-fn committee_proposal(deposit: u128) -> DispatchResult {
+pub fn committee_proposal(deposit: u128) -> DispatchResult {
     standard_proposal(
         &pallet_committee::Origin::<TestStorage, pallet_committee::Instance4>::Endorsed(
             <_>::default(),
@@ -144,7 +144,7 @@ fn committee_proposal(deposit: u128) -> DispatchResult {
     )
 }
 
-fn community_proposal(user: User, deposit: u128) -> DispatchResult {
+pub fn community_proposal(user: User, deposit: u128) -> DispatchResult {
     standard_proposal(&user.origin(), &Proposer::Community(user.acc()), deposit)
 }
 
@@ -155,7 +155,7 @@ fn consensus_call(call: pallet_pips::Call<TestStorage>, signers: &[&Origin]) {
     }
 }
 
-fn assert_state(id: PipId, care_about_pruned: bool, state: ProposalState) {
+pub fn assert_state(id: PipId, care_about_pruned: bool, state: ProposalState) {
     let prop = Pips::proposals(id);
     if care_about_pruned && Pips::prune_historical_pips() {
         assert_eq!(prop, None);
