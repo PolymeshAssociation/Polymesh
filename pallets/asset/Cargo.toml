@@ -1,7 +1,7 @@
 [package]
 name = "pallet-asset"
 version = "0.1.0"
-authors = ["Polymath"]
+authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]

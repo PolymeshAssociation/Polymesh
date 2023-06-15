@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Modified by Polymath Inc - 13rd March 2020
+// Modified by Polymesh Association - 13rd March 2020
 // - Validator has posses CDD check
 // - Validator should be a compliant first before adding into the potential validator list.
 // - Nominators should posses a valid CDD check to be a potential nominator. To facilitate

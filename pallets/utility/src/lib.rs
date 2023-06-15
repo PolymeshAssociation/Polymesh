@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 //
-// Modified by Polymath Inc - 2020
+// Modified by Polymesh Association - 2020
 // This module is inspired from the `pallet-utility`.
 // https://github.com/PolymeshAssociation/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/utility
 //
