@@ -147,6 +147,13 @@ benchmarks! {
     }
 
     // POLYMESH:
+    ensure_root {
+        let u = UserBuilder::<T>::default().generate_did().build("ALICE");
+    }: {
+        assert!(Pallet::<T>::ensure_root(u.origin.into()).is_err());
+    }
+
+    // POLYMESH:
     batch_old {
         let c in 0..MAX_CALLS;
 
@@ -184,6 +191,4 @@ benchmarks! {
     verify {
         // NB see comment at `batch` verify section.
     }
-
-    impl_benchmark_test_suite!(Pallet, crate::tests::new_test_ext(), crate::tests::Test);
 }

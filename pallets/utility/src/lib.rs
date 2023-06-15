@@ -79,7 +79,7 @@ use sp_std::prelude::*;
 // POLYMESH:
 use frame_support::storage::{with_transaction, TransactionOutcome};
 use frame_support::{
-    dispatch::{DispatchResultWithPostInfo, Weight},
+    dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, Weight},
     ensure,
     traits::GetCallMetadata,
 };
@@ -100,11 +100,15 @@ pub trait WeightInfo {
     fn force_batch(c: u32) -> Weight;
 
     // POLYMESH:
+    fn ensure_root() -> Weight;
     fn relay_tx() -> Weight;
     fn batch_old(c: u32) -> Weight;
     fn batch_atomic(c: u32) -> Weight;
     fn batch_optimistic(c: u32) -> Weight;
 }
+
+// POLYMESH:
+pub const MIN_WEIGHT: Weight = Weight::from_ref_time(1_000_000);
 
 // POLYMESH: Used for permission checks.
 type CallPermissions<T> = pallet_permissions::Module<T>;
@@ -515,15 +519,21 @@ pub mod pallet {
             origin: OriginFor<T>,
             as_origin: Box<T::PalletsOrigin>,
             call: Box<<T as Config>::RuntimeCall>,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
+        ) -> DispatchResultWithPostInfo {
+            Self::ensure_root(origin)?;
 
+            let info = call.get_dispatch_info();
             let res = call.dispatch_bypass_filter((*as_origin).into());
+            // Get the actual weight of this call.
+            let weight = extract_actual_weight(&res, &info);
 
             Self::deposit_event(Event::<T>::DispatchedAs {
                 result: res.map(|_| ()).map_err(|e| e.error),
             });
-            Ok(())
+
+            // POLYMESH: return the actual weight of the call.
+            let base_weight = <T as Config>::WeightInfo::dispatch_as();
+            Ok(Some(base_weight.saturating_add(weight)).into())
         }
 
         /// Send a batch of dispatch calls.
@@ -612,10 +622,11 @@ pub mod pallet {
             origin: OriginFor<T>,
             call: Box<<T as Config>::RuntimeCall>,
             _weight: Weight,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-            let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
-            res.map(|_| ()).map_err(|e| e.error)
+        ) -> DispatchResultWithPostInfo {
+            Self::ensure_root(origin)?;
+            call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into())
+                .map_err(|e| e.error)?;
+            Ok(().into())
         }
 
         /// Dispatch multiple calls from the sender's origin.
@@ -791,6 +802,7 @@ pub mod pallet {
     }
 }
 
+// POLYMESH:
 impl<T: Config> Pallet<T> {
     fn dispatch_call(
         origin: T::RuntimeOrigin,
@@ -837,6 +849,19 @@ impl<T: Config> Pallet<T> {
         } else {
             Event::<T>::BatchOptimisticFailed(counts, errors)
         }
+    }
+
+    /// Ensure `origin` is Root, if not return a fix small weight.
+    pub(crate) fn ensure_root(origin: T::RuntimeOrigin) -> DispatchResultWithPostInfo {
+        // Ensure the origin is Root.
+        if ensure_root(origin).is_err() {
+            // Return a minimal weight.
+            return Err(DispatchErrorWithPostInfo {
+                post_info: Some(<T as Config>::WeightInfo::ensure_root()).into(),
+                error: DispatchError::BadOrigin,
+            });
+        }
+        Ok(().into())
     }
 
     fn ensure_root_or_signed(origin: T::RuntimeOrigin) -> Result<bool, DispatchError> {
