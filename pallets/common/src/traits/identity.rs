@@ -32,14 +32,12 @@ use frame_support::{
     Parameter,
 };
 use polymesh_primitives::{
-    secondary_key::{v1, SecondaryKey},
-    AuthorizationData, Balance, CustomClaimTypeId, IdentityClaim, IdentityId, Permissions,
-    Signatory, Ticker,
+    secondary_key::SecondaryKey, AuthorizationData, Balance, CustomClaimTypeId, IdentityClaim,
+    IdentityId, Permissions, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
-use sp_std::convert::TryFrom;
 use sp_std::vec::Vec;
 
 pub type AuthorizationNonce = u64;
@@ -72,32 +70,6 @@ pub struct SecondaryKeyWithAuth<AccountId> {
     pub secondary_key: SecondaryKey<AccountId>,
     /// Off-chain authorization signature.
     pub auth_signature: H512,
-}
-
-#[derive(Encode, Decode, TypeInfo)]
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct SecondaryKeyWithAuthV1<AccountId> {
-    secondary_key: v1::SecondaryKey<AccountId>,
-    auth_signature: H512,
-}
-
-impl<AccountId> TryFrom<SecondaryKeyWithAuthV1<AccountId>> for SecondaryKeyWithAuth<AccountId> {
-    type Error = ();
-    fn try_from(auth: SecondaryKeyWithAuthV1<AccountId>) -> Result<Self, Self::Error> {
-        match auth.secondary_key.signer {
-            Signatory::Account(key) => Ok(Self {
-                secondary_key: SecondaryKey {
-                    key,
-                    permissions: auth.secondary_key.permissions,
-                },
-                auth_signature: auth.auth_signature,
-            }),
-            _ => {
-                // Unsupported `Signatory::Identity`.
-                Err(())
-            }
-        }
-    }
 }
 
 /// Create a child identity using `key` as the primary key of the new child identity.
@@ -148,17 +120,6 @@ pub trait WeightInfo {
     fn add_investor_uniqueness_claim_v2() -> Weight;
     fn revoke_claim_by_index() -> Weight;
     fn register_custom_claim_type(n: u32) -> Weight;
-
-    /// Add complexity cost of Permissions to `add_secondary_keys_with_authorization` extrinsic.
-    fn add_secondary_keys_full_v1<AccountId>(
-        additional_keys: &[SecondaryKeyWithAuthV1<AccountId>],
-    ) -> Weight {
-        Self::add_secondary_keys_perms_cost(
-            additional_keys
-                .iter()
-                .map(|auth| &auth.secondary_key.permissions),
-        )
-    }
 
     /// Add complexity cost of Permissions to `add_secondary_keys_with_authorization` extrinsic.
     fn add_secondary_keys_full<AccountId>(

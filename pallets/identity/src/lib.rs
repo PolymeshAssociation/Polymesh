@@ -108,7 +108,7 @@ use polymesh_common_utilities::constants::did::SECURITY_TOKEN;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_common_utilities::traits::identity::{
     AuthorizationNonce, Config, CreateChildIdentityWithAuth, IdentityFnTrait, RawEvent,
-    SecondaryKeyWithAuth, SecondaryKeyWithAuthV1,
+    SecondaryKeyWithAuth,
 };
 use polymesh_common_utilities::{SystematicIssuers, GC_DID};
 use polymesh_primitives::{
@@ -286,18 +286,6 @@ decl_module! {
             Self::base_invalidate_cdd_claims(origin, cdd, disable_from, expiry)?;
         }
 
-        /// Deprecated. Use `remove_secondary_keys` instead.
-        #[weight = <T as Config>::WeightInfo::remove_secondary_keys(keys_to_remove.len() as u32)]
-        pub fn remove_secondary_keys_old(origin, keys_to_remove: Vec<Signatory<T::AccountId>>) {
-            let keys_to_remove = keys_to_remove.into_iter()
-                .map(|key| match key {
-                    Signatory::Account(key) => Ok(key),
-                    _ => Err(Error::<T>::NotASigner),
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            Self::base_remove_secondary_keys(origin, keys_to_remove)?;
-        }
-
         /// Call this with the new primary key. By invoking this method, caller accepts authorization
         /// to become the new primary key of the issuing identity. If a CDD service provider approved
         /// this change (or this is not required), primary key of the DID is updated.
@@ -372,20 +360,6 @@ decl_module! {
             Self::base_revoke_claim(target, claim_type, issuer, scope)
         }
 
-        /// Deprecated. Use `set_secondary_key_permissions` instead.
-        #[weight = <T as Config>::WeightInfo::set_secondary_key_permissions_full(&perms)]
-        pub fn set_permission_to_signer(origin, key: Signatory<T::AccountId>, perms: Permissions) {
-            match key {
-                Signatory::Account(key) => Self::base_set_secondary_key_permissions(origin, key, perms)?,
-                _ => Err(Error::<T>::NotASigner)?,
-            }
-        }
-
-        /// Placeholder for removed `legacy_set_permission_to_signer`.
-        #[weight = 1_000]
-        pub fn placeholder_legacy_set_permission_to_signer(_origin) {
-        }
-
         /// It disables all secondary keys at `did` identity.
         ///
         /// # Errors
@@ -423,20 +397,6 @@ decl_module! {
             _auth_issuer_pays: bool,
         ) {
             Self::base_remove_authorization(origin, target, auth_id)?;
-        }
-
-        /// Deprecated. Use `add_secondary_keys_with_authorization` instead.
-        #[weight = <T as Config>::WeightInfo::add_secondary_keys_full_v1::<T::AccountId>(&additional_keys)]
-        pub fn add_secondary_keys_with_authorization_old(
-            origin,
-            additional_keys: Vec<SecondaryKeyWithAuthV1<T::AccountId>>,
-            expires_at: T::Moment
-        ) {
-            let additional_keys = additional_keys.into_iter()
-                .map(SecondaryKeyWithAuth::<T::AccountId>::try_from)
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|_| Error::<T>::NotASigner)?;
-            Self::base_add_secondary_keys_with_authorization(origin, additional_keys, expires_at)?;
         }
 
         /// Add `Claim::InvestorUniqueness` claim for a given target identity.
@@ -732,6 +692,8 @@ decl_error! {
         NotParentOrChildIdentity,
         /// The same key was included multiple times.
         DuplicateKey,
+        /// Cannot use Except when specifying extrinsic permissions.
+        ExceptNotAllowedForExtrinsics,
     }
 }
 

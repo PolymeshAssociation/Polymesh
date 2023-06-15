@@ -40,7 +40,7 @@ use polymesh_common_utilities::traits::{
 use polymesh_common_utilities::{Context, SystematicIssuers};
 use polymesh_primitives::{
     extract_auth, AuthorizationData, DidRecord, DispatchableName, ExtrinsicPermissions, IdentityId,
-    KeyRecord, PalletName, Permissions, SecondaryKey, Signatory,
+    KeyRecord, PalletName, Permissions, SecondaryKey, Signatory, SubsetRestriction,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -884,7 +884,29 @@ impl<T: Config> Module<T> {
         ensure_custom_length_ok::<T>(perms.complexity(), MAX_PERMISSION_COMPLEXITY)?;
         ensure_custom_length_ok::<T>(perms.asset.complexity(), MAX_ASSETS)?;
         ensure_custom_length_ok::<T>(perms.portfolio.complexity(), MAX_PORTFOLIOS)?;
+        Self::ensure_no_except_perms(&perms.extrinsic)?;
         Self::ensure_extrinsic_perms_length_limited(&perms.extrinsic)
+    }
+
+    // Ensures that extrinsic permissions do not use the Except variant
+    // This is considered unsafe since extrinsic names can change or be replaced with newer versions
+    pub fn ensure_no_except_perms(perms: &ExtrinsicPermissions) -> DispatchResult {
+        let _ = match perms {
+            SubsetRestriction::Except(_) => {
+                return Err(Error::<T>::ExceptNotAllowedForExtrinsics.into());
+            }
+            SubsetRestriction::These(pallet_permissions) => {
+                for elem in pallet_permissions {
+                    if let SubsetRestriction::Except(_) = elem.dispatchable_names {
+                        return Err(Error::<T>::ExceptNotAllowedForExtrinsics.into());
+                    }
+                }
+                return Ok(());
+            }
+            SubsetRestriction::Whole => {
+                return Ok(());
+            }
+        };
     }
 
     /// Ensures length limits are enforced in `perms`.
