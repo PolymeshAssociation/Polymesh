@@ -21,14 +21,7 @@ sp_api::decl_runtime_apis! {
         fn get_asset_did(ticker: Ticker) -> AssetDidResult;
 
         /// Retrieve DidRecord for a given `did`.
-        #[deprecated]
         fn get_did_records(did: IdentityId) -> RpcDidRecords<AccountId>;
-
-        /// Retrieve DidRecord for a given `did`.
-        ///
-        /// Old v1 call for `Signatory` based secondary keys.
-        #[changed_in(2)]
-        fn get_did_records(did: IdentityId) -> pallet_identity::types::v1::RpcDidRecords<AccountId>;
 
         /// Retrieve list of a authorization for a given signatory
         fn get_filtered_authorizations(
