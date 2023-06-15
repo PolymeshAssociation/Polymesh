@@ -71,7 +71,7 @@ macro_rules! assert_permissioned_identity_prefs {
     };
 }
 
-// Polymath: Re-implement `assert_eq_uvec` from substrate to fix compile warnings.
+// PolymeshAssociation: Re-implement `assert_eq_uvec` from substrate to fix compile warnings.
 #[macro_export]
 #[doc(hidden)]
 macro_rules! assert_eq_uvec {
@@ -85,7 +85,7 @@ macro_rules! assert_eq_uvec {
 macro_rules! __assert_eq_uvec {
     ( $x:expr, $y:expr ) => {
         $x.iter().for_each(|e| {
-            // Polymath: removed the un-needed `format!`.
+            // PolymeshAssociation: removed the un-needed `format!`.
             if !$y.contains(e) {
                 panic!("vectors not equal: {:?} != {:?}", $x, $y);
             }

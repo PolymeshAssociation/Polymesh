@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-// Modified by Polymath Inc - 13rd March 2020
+// Modified by Polymesh Association - 13rd March 2020
 // - Charge fee from the identity in the signed extension
 // - Introduce `ChargeTxFee` trait to compute and charge transaction fee for Multisig.
 // - Tips have been removed.

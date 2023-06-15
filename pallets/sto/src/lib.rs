@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Polymath
+// Copyright (c) 2020 Polymesh Association
 
 //! # Sto Module
 //!

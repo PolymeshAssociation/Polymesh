@@ -1,6 +1,6 @@
 FROM ubuntu:bionic
 
-LABEL maintainer="Polymath team <fdevops@polymath.network>"
+LABEL maintainer="Polymesh Association"
 LABEL name="polymesh"
 LABEL version="latest"
 
