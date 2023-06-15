@@ -1,7 +1,7 @@
 [package]
 name = "polymesh-runtime-develop"
 version = "0.1.0"
-authors = ["Polymath Inc."]
+authors = ["PolymeshAssociation"]
 edition = "2021"
 build = "build.rs"
 

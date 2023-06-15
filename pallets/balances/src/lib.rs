@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-// Modified by Polymath Inc - 16th March 2020
+// Modified by Polymesh Association - 16th March 2020
 // Implement `BlockRewardsReserveCurrency` trait in the balances module.
 // Remove migration functionality from the balances module as Polymesh doesn't needed
 // any migration data structure.
