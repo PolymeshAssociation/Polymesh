@@ -1,5 +1,5 @@
 {
-  "name": "@polymathnetwork/polymesh-cli",
+  "name": "@polymeshassociation/polymesh-cli",
   "version": "1.0.0",
   "description": "CLI for Polymesh",
   "main": "/dist/polymesh_cli.js",
@@ -48,7 +48,7 @@
     "test": "jest --runInBand --silent && ./util/schema_test.sh",
     "clear_cache": "jest --clearCache"
   },
-  "author": "Polymath Network",
+  "author": "Polymesh Association",
   "license": "UNLICENSED",
   "dependencies": {
     "@babel/plugin-proposal-class-properties": "^7.16.7",

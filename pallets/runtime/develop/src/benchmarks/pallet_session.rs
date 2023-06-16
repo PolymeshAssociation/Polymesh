@@ -18,7 +18,7 @@
 //! Benchmarks for the Session Pallet.
 // This is separated into its own crate due to cyclic dependency issues.
 
-// Modified by Polymath Inc - 4th January 2021
+// Modified by Polymesh Association - 4th January 2021
 // - It uses our Staking pallet.
 
 use codec::Decode;
