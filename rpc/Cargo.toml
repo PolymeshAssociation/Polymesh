@@ -1,7 +1,7 @@
 [package]
 name = "node-rpc"
 version = "0.1.0"
-authors = ["Polymath"]
+authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [package.metadata.docs.rs]

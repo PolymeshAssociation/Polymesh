@@ -164,17 +164,7 @@ where
             })?;
 
         match api_version {
-            Some(version) if version >= 2 =>
-            {
-                #[allow(deprecated)]
-                api.get_did_records(at_hash, did)
-            }
-            Some(1) =>
-            {
-                #[allow(deprecated)]
-                api.get_did_records_before_version_2(at_hash, did)
-                    .map(|rec| rec.into())
-            }
+            Some(version) if version >= 2 => api.get_did_records(at_hash, did),
             _ => {
                 return Err(CallError::Custom(ErrorObject::owned(
                     ErrorCode::MethodNotFound.code(),
