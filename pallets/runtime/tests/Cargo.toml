@@ -1,7 +1,7 @@
 [package]
 name = "polymesh-runtime-tests"
 version = "1.0.0"
-authors = ["Polymath"]
+authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
@@ -82,7 +82,7 @@ pallet-im-online = { version = "4.0.0-dev", default-features = false }
 pallet-indices = { version = "4.0.0-dev", default-features = false }
 pallet-offences = { version = "4.0.0-dev", default-features = false }
 pallet-preimage = { version = "4.0.0-dev", default-features = false }
-pallet-randomness-collective-flip = { version = "4.0.0-dev", default-features = false }
+pallet-insecure-randomness-collective-flip = { version = "4.0.0-dev", default-features = false }
 pallet-scheduler = { version = "4.0.0-dev", default-features = false }
 pallet-session = { version = "4.0.0-dev", default-features = false, features = ["historical"] }
 pallet-staking-reward-curve = { version = "4.0.0-dev", default-features = false }
@@ -93,6 +93,7 @@ sp-arithmetic = { version = "6.0.0", default-features = false }
 sp-authority-discovery = { version = "4.0.0-dev", default-features = false }
 sp-block-builder = { version = "4.0.0-dev", default-features = false }
 sp-consensus-babe = { version = "0.10.0-dev", default-features = false }
+sp-consensus-grandpa = { version = "4.0.0-dev", default-features = false }
 sp-core = { version = "7.0.0", default-features = false }
 sp-inherents = { version = "4.0.0-dev", default-features = false }
 sp-io = { version = "7.0.0", default-features = false }
@@ -105,11 +106,11 @@ sp-std = { version = "5.0.0", default-features = false }
 sp-transaction-pool = { version = "4.0.0-dev", default-features = false }
 sp-version = { version = "5.0.0", default-features = false }
 
-test_client = { package = "substrate-test-runtime-client", git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12-1", optional = true }
+test_client = { package = "substrate-test-runtime-client", git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03", optional = true }
 substrate-test-utils = { version = "4.0.0-dev", optional = true }
 
 [dev-dependencies]
-libsecp256k1 = { version = "0.6", default-features = false }
+libsecp256k1 = { version = "0.7", default-features = false }
 wat = "1.0"
 sp-tracing = { version = "5.0.0", default-features = false, features = ["std"] }
 
@@ -122,9 +123,79 @@ equalize = []
 only-staking = []
 
 # Backends
-u64_backend = ["mercat/u64_backend", "confidential_identity_core/u64_backend", "polymesh-primitives/u64_backend"]
+u64_backend = [
+		"mercat/u64_backend",
+    "confidential_identity_core/u64_backend",
+    "polymesh-primitives/u64_backend"
+]
 
-no_std = ["pallet-confidential-asset/no_std", "mercat/no_std", "confidential_identity_core/no_std", "u64_backend"]
+no_std = [
+		"pallet-confidential-asset/no_std",
+    "mercat/no_std",
+    "confidential_identity_core/no_std",
+    "u64_backend"
+]
 
-std = ["u64_backend", "rand_core/std", "rand/std", "mercat/std", "confidential_identity_core/std", "confidential_identity_v1/std", "frame-support/std", "frame-system/std", "frame-election-provider-support/std", "ink_primitives/std", "pallet-asset/std", "pallet-confidential-asset/std", "pallet-authorship/std", "pallet-base/std", "pallet-babe/std", "pallet-balances/std", "pallet-sto/std", "pallet-bridge/std", "pallet-committee/std", "pallet-compliance-manager/std", "pallet-confidential-asset/std", "pallet-contracts/std", "pallet-corporate-actions/std", "pallet-external-agents/std", "polymesh-weights/std", "pallet-group-rpc-runtime-api/std", "pallet-group/std", "pallet-identity/std", "pallet-multisig/std", "pallet-nft/std", "pallet-permissions/std", "pallet-preimage/std", "pallet-pips/std", "pallet-portfolio/std", "pallet-relayer/std", "pallet-randomness-collective-flip/std", "pallet-scheduler/std", "pallet-session/std", "pallet-staking/std", "pallet-statistics/std", "pallet-timestamp/std", "pallet-transaction-payment/std", "pallet-treasury/std", "pallet-sudo/std", "polymesh-common-utilities/std", "polymesh-primitives/std", "polymesh-runtime-common/std", "polymesh-contracts/std", "polymesh-weights/std", "serde/std", "sp-arithmetic/std", "sp-core/std", "sp-io/std", "sp-npos-elections/std", "sp-runtime/std", "sp-staking/std", "sp-std/std", "substrate-test-utils", "test_client"]
-runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]
+std = [
+    "u64_backend",
+		"rand_core/std",
+		"rand/std",
+		"mercat/std",
+    "confidential_identity_core/std",
+    "confidential_identity_v1/std",
+    "frame-support/std",
+    "frame-system/std",
+    "frame-election-provider-support/std",
+    "ink_primitives/std",
+    "pallet-asset/std",
+    "pallet-authorship/std",
+    "pallet-base/std",
+    "pallet-babe/std",
+    "pallet-balances/std",
+    "pallet-sto/std",
+    "pallet-bridge/std",
+    "pallet-committee/std",
+    "pallet-compliance-manager/std",
+    "pallet-confidential-asset/std",
+    "pallet-contracts/std",
+    "pallet-corporate-actions/std",
+    "pallet-external-agents/std",
+    "polymesh-weights/std",
+    "pallet-group-rpc-runtime-api/std",
+    "pallet-group/std",
+    "pallet-identity/std",
+    "pallet-multisig/std",
+    "pallet-nft/std",
+    "pallet-permissions/std",
+    "pallet-preimage/std",
+    "pallet-pips/std",
+    "pallet-portfolio/std",
+    "pallet-relayer/std",
+    "pallet-insecure-randomness-collective-flip/std",
+    "pallet-scheduler/std",
+    "pallet-session/std",
+    "pallet-staking/std",
+    "pallet-statistics/std",
+    "pallet-timestamp/std",
+    "pallet-transaction-payment/std",
+    "pallet-treasury/std",
+    "pallet-sudo/std",
+    "polymesh-common-utilities/std",
+    "polymesh-primitives/std",
+    "polymesh-runtime-common/std",
+    "polymesh-contracts/std",
+    "polymesh-weights/std",
+    "serde/std",
+    "sp-arithmetic/std",
+    "sp-core/std",
+    "sp-io/std",
+    "sp-npos-elections/std",
+    "sp-runtime/std",
+    "sp-staking/std",
+    "sp-std/std",
+    "substrate-test-utils",
+    "test_client",
+]
+runtime-benchmarks = [
+    "frame-benchmarking/runtime-benchmarks",
+]

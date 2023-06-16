@@ -1,5 +1,5 @@
 // This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
-// Copyright (c) 2020 Polymath
+// Copyright (c) 2020 Polymesh Association
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -35,9 +35,9 @@ impl From<Error> for i32 {
 macro_rules! rpc_forward_call {
     ($self:ident, $at:ident, $f:expr, $err_msg: literal) => {{
         let api = $self.client.runtime_api();
-        let at = BlockId::hash($at.unwrap_or_else(|| $self.client.info().best_hash));
+        let at_hash = $at.unwrap_or_else(|| $self.client.info().best_hash);
 
-        let result = $f(api, &at).map_err(|e| {
+        let result = $f(api, at_hash).map_err(|e| {
             CallError::Custom(ErrorObject::owned(
                 crate::Error::RuntimeError.into(),
                 $err_msg,

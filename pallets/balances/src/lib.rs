@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-// Modified by Polymath Inc - 16th March 2020
+// Modified by Polymesh Association - 16th March 2020
 // Implement `BlockRewardsReserveCurrency` trait in the balances module.
 // Remove migration functionality from the balances module as Polymesh doesn't needed
 // any migration data structure.
@@ -860,17 +860,27 @@ impl<T: Config> Currency<T::AccountId> for Module<T> {
         Ok(())
     }
 
-    // Important-Note - Use the transfer carefully as this function is not resilient for the cdd check of receiver.
-    // Transfer some free balance from `transactor` to `dest`.
-    // Is a no-op if value to be transferred is zero or the `transactor` is the same as `dest`.
+    /// Important-Note - Use the transfer carefully as this function is not resilient for the cdd check of receiver.
+    /// Transfer some free balance from `transactor` to `dest`.
+    /// Is a no-op if value to be transferred is zero or the `transactor` is the same as `dest`.
     fn transfer(
         transactor: &T::AccountId,
         dest: &T::AccountId,
         value: Self::Balance,
         existence_requirement: ExistenceRequirement,
     ) -> DispatchResult {
-        Self::safe_transfer_core(transactor, dest, value, None, existence_requirement)?;
-        Ok(())
+        Self::safe_transfer_core(transactor, dest, value, None, existence_requirement)
+    }
+
+    /// Transfer some free balance from `transactor` to `dest`.
+    /// Is a no-op if value to be transferred is zero or the `transactor` is the same as `dest`.
+    fn transfer_no_cdd(
+        transactor: &T::AccountId,
+        dest: &T::AccountId,
+        value: Self::Balance,
+        existence_requirement: ExistenceRequirement,
+    ) -> DispatchResult {
+        Self::transfer_core(transactor, dest, value, None, existence_requirement)
     }
 
     /// Slash a target account `who`, returning the negative imbalance created and any left over

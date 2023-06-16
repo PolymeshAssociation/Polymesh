@@ -1,5 +1,5 @@
 // This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
-// Copyright (c) 2020 Polymath
+// Copyright (c) 2020 Polymesh Association
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -23,8 +23,8 @@ use polymesh_common_utilities::benchs::{AccountIdOf, User, UserBuilder};
 use polymesh_common_utilities::{identity::Config as IdentityConfig, TestUtilsFn};
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::{
-    asset::AssetType, AuthorizationData, ClaimType, CountryCode, Scope, TargetIdentity, TrustedFor,
-    TrustedIssuer, WeightMeter,
+    asset::AssetType, AuthorizationData, ClaimType, CountryCode, PortfolioKind, Scope,
+    TargetIdentity, TrustedFor, TrustedIssuer, WeightMeter,
 };
 
 use crate::*;
@@ -149,6 +149,7 @@ pub fn make_token<T: Config>(owner: &User<T>, name: Vec<u8>) -> Ticker {
         owner.origin.clone().into(),
         ticker,
         u128::try_from(token.total_supply).unwrap().into(),
+        PortfolioKind::Default,
     )
     .expect("Cannot mint for asset");
 

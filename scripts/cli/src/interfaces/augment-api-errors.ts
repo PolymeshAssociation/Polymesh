@@ -107,10 +107,6 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       NoSuchAsset: AugmentedError<ApiType>;
       /**
-       * The given ticker is not a classic one.
-       **/
-      NoSuchClassicTicker: AugmentedError<ApiType>;
-      /**
        * The given Document does not exist.
        **/
       NoSuchDoc: AugmentedError<ApiType>;
@@ -162,40 +158,6 @@ declare module '@polkadot/api-base/types/errors' {
        * Attempt to call an extrinsic that is only permitted for fungible tokens.
        **/
       UnexpectedNonFungibleToken: AugmentedError<ApiType>;
-      /**
-       * Generic error
-       **/
-      [key: string]: AugmentedError<ApiType>;
-    };
-    authorship: {
-      /**
-       * The uncle is genesis.
-       **/
-      GenesisUncle: AugmentedError<ApiType>;
-      /**
-       * The uncle parent not in the chain.
-       **/
-      InvalidUncleParent: AugmentedError<ApiType>;
-      /**
-       * The uncle isn't recent enough to be included.
-       **/
-      OldUncle: AugmentedError<ApiType>;
-      /**
-       * The uncle is too high in chain.
-       **/
-      TooHighUncle: AugmentedError<ApiType>;
-      /**
-       * Too many uncles.
-       **/
-      TooManyUncles: AugmentedError<ApiType>;
-      /**
-       * The uncle is already included.
-       **/
-      UncleAlreadyIncluded: AugmentedError<ApiType>;
-      /**
-       * Uncles already set in the block.
-       **/
-      UnclesAlreadySet: AugmentedError<ApiType>;
       /**
        * Generic error
        **/
@@ -526,65 +488,13 @@ declare module '@polkadot/api-base/types/errors' {
     };
     confidentialAsset: {
       /**
-       * The token has already been created.
+       * The confidential asset has already been created.
        **/
-      AssetAlreadyCreated: AugmentedError<ApiType>;
-      /**
-       * After registering the confidential asset, its total supply can change once from zero to a positive value.
-       **/
-      CanSetTotalSupplyOnlyOnce: AugmentedError<ApiType>;
-      /**
-       * Confidential legs do not have assets or amounts.
-       **/
-      ConfidentialLegHasNoAssetOrAmount: AugmentedError<ApiType>;
-      /**
-       * Certain transfer modes are not yet supported in confidential modes.
-       **/
-      ConfidentialModeNotSupportedYet: AugmentedError<ApiType>;
+      ConfidentialAssetAlreadyCreated: AugmentedError<ApiType>;
       /**
        * Confidential transfer's proofs are invalid.
        **/
       ConfidentialTransferValidationFailure: AugmentedError<ApiType>;
-      /**
-       * While affirming the transfer, system failed to lock the assets involved.
-       **/
-      FailedToLockTokens: AugmentedError<ApiType>;
-      /**
-       * Scheduling of an instruction fails.
-       **/
-      FailedToSchedule: AugmentedError<ApiType>;
-      /**
-       * Instruction has already been affirmed.
-       **/
-      InstructionAlreadyAffirmed: AugmentedError<ApiType>;
-      /**
-       * Instruction has invalid dates
-       **/
-      InstructionDatesInvalid: AugmentedError<ApiType>;
-      /**
-       * Instruction failed to execute.
-       **/
-      InstructionFailed: AugmentedError<ApiType>;
-      /**
-       * Maximum legs that can be in a single instruction.
-       **/
-      InstructionHasTooManyLegs: AugmentedError<ApiType>;
-      /**
-       * Instruction has not been affirmed.
-       **/
-      InstructionNotAffirmed: AugmentedError<ApiType>;
-      /**
-       * Provided instruction is not failing execution.
-       **/
-      InstructionNotFailed: AugmentedError<ApiType>;
-      /**
-       * Provided instruction is not pending execution.
-       **/
-      InstructionNotPending: AugmentedError<ApiType>;
-      /**
-       * Instruction's target settle block reached.
-       **/
-      InstructionSettleBlockPassed: AugmentedError<ApiType>;
       /**
        * Insufficient mercat authorizations are provided.
        **/
@@ -598,30 +508,13 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InvalidAccountMintProof: AugmentedError<ApiType>;
       /**
-       * Only `LegKind::NonConfidential` has receipt functionality.
-       **/
-      InvalidLegKind: AugmentedError<ApiType>;
-      /**
        * Mercat account isn't a valid CompressedEncryptionPubKey.
        **/
       InvalidMercatAccount: AugmentedError<ApiType>;
       /**
-       * Transaction proof failed to verify.
-       * Failed to maintain confidential transaction's ordering state.
+       * The MERCAT sender proof is invalid.
        **/
-      InvalidMercatOrderingState: AugmentedError<ApiType>;
-      /**
-       * The MERCAT transfer proof is invalid.
-       **/
-      InvalidMercatTransferProof: AugmentedError<ApiType>;
-      /**
-       * Offchain signature is invalid.
-       **/
-      InvalidSignature: AugmentedError<ApiType>;
-      /**
-       * The provided total supply of a confidential asset is invalid.
-       **/
-      InvalidTotalSupply: AugmentedError<ApiType>;
+      InvalidMercatSenderProof: AugmentedError<ApiType>;
       /**
        * Venue does not exist.
        **/
@@ -630,10 +523,6 @@ declare module '@polkadot/api-base/types/errors' {
        * Legs count should matches with the total number of legs in the transaction.
        **/
       LegCountTooSmall: AugmentedError<ApiType>;
-      /**
-       * Provided leg is not pending execution.
-       **/
-      LegNotPending: AugmentedError<ApiType>;
       /**
        * Mercat account already created.
        **/
@@ -647,85 +536,53 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       MercatAccountMissing: AugmentedError<ApiType>;
       /**
-       * Need sender's proof to verify receiver's proof.
-       **/
-      MissingMercatInitializedTransferProof: AugmentedError<ApiType>;
-      /**
-       * We only support one confidential transfer per instruction at the moment.
-       **/
-      MoreThanOneConfidentialLeg: AugmentedError<ApiType>;
-      /**
-       * No pending affirmation for the provided instruction.
-       **/
-      NoPendingAffirm: AugmentedError<ApiType>;
-      /**
-       * Receipt already used.
-       **/
-      ReceiptAlreadyClaimed: AugmentedError<ApiType>;
-      /**
-       * Receipt not used yet.
-       **/
-      ReceiptNotClaimed: AugmentedError<ApiType>;
-      /**
-       * Sender and receiver are the same.
-       **/
-      SameSenderReceiver: AugmentedError<ApiType>;
-      /**
-       * The provided settlement block number is in the past and cannot be used by the scheduler.
-       **/
-      SettleOnPastBlock: AugmentedError<ApiType>;
-      /**
-       * Signer is already added to venue.
-       **/
-      SignerAlreadyExists: AugmentedError<ApiType>;
-      /**
-       * Signer is not added to venue.
-       **/
-      SignerDoesNotExist: AugmentedError<ApiType>;
-      /**
        * The balance values does not fit a mercat balance.
        **/
-      TotalSupplyAboveBalanceLimit: AugmentedError<ApiType>;
+      TotalSupplyAboveMercatBalanceLimit: AugmentedError<ApiType>;
       /**
        * A confidential asset's total supply must be positive.
        **/
       TotalSupplyMustBePositive: AugmentedError<ApiType>;
       /**
+       * A confidential asset's total supply can't go above `T::MaxTotalSupply`.
+       **/
+      TotalSupplyOverLimit: AugmentedError<ApiType>;
+      /**
+       * Transaction has already been affirmed.
+       **/
+      TransactionAlreadyAffirmed: AugmentedError<ApiType>;
+      /**
+       * Transaction failed to execute.
+       **/
+      TransactionFailed: AugmentedError<ApiType>;
+      /**
+       * Maximum legs that can be in a single instruction.
+       **/
+      TransactionHasTooManyLegs: AugmentedError<ApiType>;
+      /**
+       * Transaction has not been affirmed.
+       **/
+      TransactionNotAffirmed: AugmentedError<ApiType>;
+      /**
        * The user is not authorized.
        **/
       Unauthorized: AugmentedError<ApiType>;
-      /**
-       * Signer is not authorized by the venue.
-       **/
-      UnauthorizedSigner: AugmentedError<ApiType>;
       /**
        * Venue does not have required permissions.
        **/
       UnauthorizedVenue: AugmentedError<ApiType>;
       /**
-       * Undefined leg type.
-       **/
-      UndefinedLegKind: AugmentedError<ApiType>;
-      /**
-       * The current instruction affirmation status does not support the requested action.
-       **/
-      UnexpectedAffirmationStatus: AugmentedError<ApiType>;
-      /**
        * The provided asset is not among the set of valid asset ids.
        **/
       UnknownConfidentialAsset: AugmentedError<ApiType>;
       /**
-       * Instruction is unknown.
+       * Transaction is unknown.
        **/
-      UnknownInstruction: AugmentedError<ApiType>;
+      UnknownTransaction: AugmentedError<ApiType>;
       /**
-       * Instruction leg is unknown.
+       * Transaction leg is unknown.
        **/
-      UnknownInstructionLeg: AugmentedError<ApiType>;
-      /**
-       * Instruction leg amount can't be zero
-       **/
-      ZeroAmount: AugmentedError<ApiType>;
+      UnknownTransactionLeg: AugmentedError<ApiType>;
       /**
        * Generic error
        **/
@@ -772,10 +629,6 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       ContractTrapped: AugmentedError<ApiType>;
       /**
-       * The debug message specified to `seal_debug_message` does contain invalid UTF-8.
-       **/
-      DebugMessageInvalidUTF8: AugmentedError<ApiType>;
-      /**
        * Input passed to a contract API function failed to decode as expected type.
        **/
       DecodingFailed: AugmentedError<ApiType>;
@@ -791,10 +644,6 @@ declare module '@polkadot/api-base/types/errors' {
        * A contract with the same AccountId already exists.
        **/
       DuplicateContract: AugmentedError<ApiType>;
-      /**
-       * The topics passed to `seal_deposit_events` contains at least one duplicate.
-       **/
-      DuplicateTopics: AugmentedError<ApiType>;
       /**
        * An indetermistic code was used in a context where this is not permitted.
        **/
@@ -880,10 +729,6 @@ declare module '@polkadot/api-base/types/errors' {
       [key: string]: AugmentedError<ApiType>;
     };
     corporateAction: {
-      /**
-       * The authorization type is not to transfer the CAA to another DID.
-       **/
-      AuthNotCAATransfer: AugmentedError<ApiType>;
       /**
        * A CA's declaration date was strictly after its record date.
        **/
@@ -1143,6 +988,10 @@ declare module '@polkadot/api-base/types/errors' {
        * The same key was included multiple times.
        **/
       DuplicateKey: AugmentedError<ApiType>;
+      /**
+       * Cannot use Except when specifying extrinsic permissions.
+       **/
+      ExceptNotAllowedForExtrinsics: AugmentedError<ApiType>;
       /**
        * Couldn't charge fee for the transaction.
        **/

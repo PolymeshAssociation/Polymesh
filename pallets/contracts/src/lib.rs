@@ -1,5 +1,5 @@
 // This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
-// Copyright (c) 2020 Polymath
+// Copyright (c) 2020 Polymesh Association
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -492,8 +492,12 @@ where
         } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
         // Pre-compute what contract's key will be...
-        let contract_key =
-            FrameContracts::<T>::contract_address(&sender, &Self::code_hash(&code), &salt);
+        let contract_key = FrameContracts::<T>::contract_address(
+            &sender,
+            &Self::code_hash(&code),
+            &inst_data,
+            &salt,
+        );
 
         // ...and ensure that key can be a secondary-key of DID...
         Identity::<T>::ensure_perms_length_limited(&perms)?;

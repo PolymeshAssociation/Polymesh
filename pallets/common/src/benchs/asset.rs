@@ -1,13 +1,11 @@
-use crate::{
-    benchs::User,
-    constants::currency::POLY,
-    traits::asset::{AssetFnTrait, Config},
-};
-use polymesh_primitives::{
-    asset::{AssetName, AssetType},
-    Ticker,
-};
 use sp_std::vec;
+
+use polymesh_primitives::asset::{AssetName, AssetType};
+use polymesh_primitives::{PortfolioKind, Ticker};
+
+use crate::benchs::User;
+use crate::constants::currency::POLY;
+use crate::traits::asset::{AssetFnTrait, Config};
 
 pub type ResultTicker = Result<Ticker, &'static str>;
 
@@ -45,7 +43,13 @@ fn make_base_asset<T: Config>(owner: &User<T>, divisible: bool, name: Option<&[u
     )
     .expect("Asset cannot be created");
 
-    T::AssetFn::issue(owner.origin().into(), ticker, (1_000_000 * POLY).into()).unwrap();
+    T::AssetFn::issue(
+        owner.origin().into(),
+        ticker,
+        (1_000_000 * POLY).into(),
+        PortfolioKind::Default,
+    )
+    .unwrap();
 
     ticker
 }

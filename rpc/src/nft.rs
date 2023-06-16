@@ -1,5 +1,5 @@
 // This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
-// Copyright (c) 2020 Polymath
+// Copyright (c) 2020 Polymesh Association
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -25,7 +25,6 @@ use jsonrpsee::{
 use frame_support::dispatch::DispatchResult;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::generic::BlockId;
 use sp_runtime::traits::Block as BlockT;
 
 pub use node_rpc_runtime_api::nft::NFTApi as NFTRuntimeApi;
@@ -74,9 +73,9 @@ where
     ) -> RpcResult<DispatchResult> {
         let api = self.client.runtime_api();
         // If the block hash is not supplied assume the best block.
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.validate_nft_transfer(&at, &sender_portfolio, &receiver_portfolio, &nfts)
+        api.validate_nft_transfer(at_hash, &sender_portfolio, &receiver_portfolio, &nfts)
             .map_err(|e| {
                 CallError::Custom(ErrorObject::owned(
                     Error::RuntimeError.into(),

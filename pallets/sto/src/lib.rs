@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Polymath
+// Copyright (c) 2020 Polymesh Association
 
 //! # Sto Module
 //!
@@ -493,6 +493,7 @@ decl_module! {
                     instruction_id,
                     receipt,
                     portfolios,
+                    did,
                     &mut WeightMeter::max_limit_no_minimum()
                 )
             })?;

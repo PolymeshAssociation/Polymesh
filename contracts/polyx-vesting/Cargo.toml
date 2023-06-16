@@ -1,7 +1,7 @@
 [package]
 name = "polyx-vesting"
 version = "0.1.0"
-authors = ["Polymesh Association"]
+authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]

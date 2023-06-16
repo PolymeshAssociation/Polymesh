@@ -1,5 +1,5 @@
 // This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
-// Copyright (c) 2020 Polymath
+// Copyright (c) 2020 Polymesh Association
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@ use jsonrpsee::{
 use polymesh_primitives::{compliance_manager::AssetComplianceResult, IdentityId, Ticker};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::traits::Block as BlockT;
 
 pub trait Trait: frame_system::Config {
     type Currency: Currency<Self::AccountId>;
@@ -81,11 +81,11 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<AssetComplianceResult> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(||
+        let at_hash = at.unwrap_or_else(||
                 // If the block hash is not supplied assume the best block.
-                self.client.info().best_hash));
+                self.client.info().best_hash);
 
-        api.can_transfer(&at, ticker, from_did, to_did)
+        api.can_transfer(at_hash, ticker, from_did, to_did)
             .map_err(|e| {
                 CallError::Custom(ErrorObject::owned(
                     Error::RuntimeError.into(),

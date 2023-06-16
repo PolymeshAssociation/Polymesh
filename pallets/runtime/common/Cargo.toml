@@ -1,7 +1,7 @@
 [package]
 name = "polymesh-runtime-common"
 version = "1.0.0"
-authors = ["Polymath"]
+authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
@@ -26,7 +26,7 @@ pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-f
 
 # General
 serde = { version = "1.0.104", default-features = false }
-rand = { version = "0.7.3", default-features = false }
+rand = { version = "0.8", default-features = false }
 smallvec = "1.4.0"
 
 # Substrate

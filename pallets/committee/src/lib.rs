@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-// Modified by Polymath Inc - 23rd March 2020
+// Modified by Polymesh Association - 23rd March 2020
 // Polymesh changes - This module is inspired from the `pallet-collective`
 // https://github.com/PolymeshAssociation/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/collective
 // It is modified as per the requirement of the Polymesh
@@ -695,8 +695,8 @@ where
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn successful_origin() -> O {
-        O::from(RawOrigin::Endorsed(PhantomData))
+    fn try_successful_origin() -> Result<O, ()> {
+        Ok(O::from(RawOrigin::Endorsed(PhantomData)))
     }
 }
 

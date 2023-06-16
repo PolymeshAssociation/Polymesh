@@ -68,7 +68,15 @@
       "InvalidCDDId",
       "ClaimAndProofVersionsDoNotMatch",
       "AccountKeyIsBeingUsed",
-      "CustomScopeTooLong"
+      "CustomScopeTooLong",
+      "CustomClaimTypeAlreadyExists",
+      "CustomClaimTypeDoesNotExist",
+      "ClaimDoesNotExist",
+      "IsChildIdentity",
+      "NoParentIdentity",
+      "NotParentOrChildIdentity",
+      "DuplicateKey",
+      "ExceptNotAllowedForExtrinsics"
     ]
   },
   "CddServiceProvidersError": {

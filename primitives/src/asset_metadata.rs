@@ -1,5 +1,5 @@
 // This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
-// Copyright (c) 2020 Polymath
+// Copyright (c) 2020 Polymesh Association
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -187,7 +187,7 @@ impl AssetMetadataTypeDef {
     /// Create metadata type definition from a type implmenting `scale_info::TypeInfo`.
     pub fn new_from_type<T: scale_info::StaticTypeInfo>() -> Self {
         let mut reg = scale_info::Registry::new();
-        let ty = reg.register_type(&scale_info::meta_type::<T>()).id();
+        let ty = reg.register_type(&scale_info::meta_type::<T>()).id;
         Self {
             types: reg.into(),
             ty,
