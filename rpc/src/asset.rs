@@ -88,7 +88,7 @@ where
                 None::<()>,
             ))
         })?;
-        
+
         let api = self.client.runtime_api();
         // If the block hash is not supplied assume the best block.
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
