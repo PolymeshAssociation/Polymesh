@@ -18,7 +18,7 @@ use std::{convert::TryInto, sync::Arc};
 use codec::Codec;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
-use jsonrpsee::types::error::{CallError, ErrorObject};
+use jsonrpsee::types::error::{CallError, ErrorCode, ErrorObject};
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_rpc::number;
