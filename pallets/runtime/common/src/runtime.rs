@@ -570,7 +570,7 @@ macro_rules! runtime_apis {
         use polymesh_primitives::settlement::{InstructionId, ExecuteInstructionInfo};
         use polymesh_primitives::{
             calendar::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, NFTs,
-            PortfolioId, Signatory, Ticker, WeightMeter,
+            PortfolioId, Signatory, Ticker, WeightMeter, IdentityClaim
         };
 
         /// The address format for describing accounts.
@@ -928,6 +928,11 @@ macro_rules! runtime_apis {
                     auth_type: Option<polymesh_primitives::AuthorizationType>
                 ) -> Vec<polymesh_primitives::Authorization<polymesh_primitives::AccountId, Moment>> {
                     Identity::get_filtered_authorizations(signatory, allow_expired, auth_type)
+                }
+
+                /// Returns all valid [`IdentityClaim`] of type `CustomerDueDiligence` for the given `target_identity`.
+                fn valid_cdd_claims(target_identity: IdentityId, cdd_checker_leeway: Option<u64>) -> Vec<IdentityClaim> {
+                    Identity::valid_cdd_claims(target_identity, cdd_checker_leeway)
                 }
             }
 

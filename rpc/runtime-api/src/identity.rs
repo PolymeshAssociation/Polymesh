@@ -2,7 +2,7 @@ use codec::Codec;
 use pallet_identity::types::{
     AssetDidResult, CddStatus, DidStatus, KeyIdentityData, RpcDidRecords,
 };
-use polymesh_primitives::{Authorization, AuthorizationType, Signatory};
+use polymesh_primitives::{Authorization, AuthorizationType, IdentityClaim, Signatory};
 use sp_std::prelude::*;
 
 sp_api::decl_runtime_apis! {
@@ -40,5 +40,20 @@ sp_api::decl_runtime_apis! {
         ///
         /// This is an aggregate call provided for UX convenience.
         fn get_key_identity_data(acc: AccountId) -> Option<KeyIdentityData<IdentityId>>;
+
+        /// Returns all valid [`IdentityClaim`] of type `CustomerDueDiligence` for the given `target_identity`.
+        ///
+        /// ```ignore
+        /// curl http://localhost:9933 -H "Content-Type: application/json" -d '{
+        ///     "id":1,
+        ///     "jsonrpc":"2.0",
+        ///     "method": "identity_validCDDClaims",
+        ///     "params":[
+        ///         "0x0100000000000000000000000000000000000000000000000000000000000000",
+        ///         null
+        ///     ]
+        ///   }'
+        /// ```
+        fn valid_cdd_claims(target_identity: IdentityId, cdd_checker_leeway: Option<u64>) -> Vec<IdentityClaim>;
     }
 }

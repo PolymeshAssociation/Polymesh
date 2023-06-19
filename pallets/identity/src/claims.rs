@@ -634,4 +634,18 @@ impl<T: Config> Module<T> {
         CustomClaims::insert(id, ty);
         Ok(id)
     }
+
+    /// Returns all valid [`IdentityClaim`] of type `CustomerDueDiligence` for the given `target_identity`.
+    pub fn valid_cdd_claims(
+        target_identity: IdentityId,
+        cdd_checker_leeway: Option<T::Moment>,
+    ) -> Vec<IdentityClaim> {
+        Self::base_fetch_valid_cdd_claims(
+            target_identity,
+            cdd_checker_leeway.unwrap_or_default(),
+            None,
+            true,
+        )
+        .collect()
+    }
 }
