@@ -562,11 +562,13 @@ macro_rules! runtime_apis {
     ($($extra:item)*) => {
         use frame_support::dispatch::{GetStorageVersion, DispatchError};
         use sp_inherents::{CheckInherentsResult, InherentData};
+        use frame_support::dispatch::result::Result as FrameResult;
         use node_rpc_runtime_api::asset as rpc_api_asset;
 
         use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
+        use polymesh_primitives::asset::GranularCanTransferResult;
         use polymesh_primitives::settlement::{InstructionId, ExecuteInstructionInfo};
         use polymesh_primitives::{
             calendar::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, NFTs,
@@ -938,21 +940,6 @@ macro_rules! runtime_apis {
 
             impl rpc_api_asset::AssetApi<Block, polymesh_primitives::AccountId> for Runtime {
                 #[inline]
-                fn can_transfer(
-                    _sender: polymesh_primitives::AccountId,
-                    from_custodian: Option<IdentityId>,
-                    from_portfolio: PortfolioId,
-                    to_custodian: Option<IdentityId>,
-                    to_portfolio: PortfolioId,
-                    ticker: &Ticker,
-                    value: Balance) -> rpc_api_asset::CanTransferResult
-                {
-                    let mut weight_meter = WeightMeter::max_limit_no_minimum();
-                    Asset::unsafe_can_transfer(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value, &mut weight_meter)
-                        .map_err(|msg| msg.as_bytes().to_vec())
-                }
-
-                #[inline]
                 fn can_transfer_granular(
                     from_custodian: Option<IdentityId>,
                     from_portfolio: PortfolioId,
@@ -960,7 +947,7 @@ macro_rules! runtime_apis {
                     to_portfolio: PortfolioId,
                     ticker: &Ticker,
                     value: Balance
-                ) -> polymesh_primitives::asset::GranularCanTransferResult
+                ) -> FrameResult<GranularCanTransferResult, DispatchError>
                 {
                     let mut weight_meter = WeightMeter::max_limit_no_minimum();
                     Asset::unsafe_can_transfer_granular(
@@ -972,29 +959,6 @@ macro_rules! runtime_apis {
                         value,
                         &mut weight_meter
                     )
-                    .unwrap()
-                }
-            }
-
-            impl node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, polymesh_primitives::AccountId>
-                for Runtime
-            {
-                #[inline]
-                fn can_transfer(
-                    ticker: Ticker,
-                    from_did: Option<IdentityId>,
-                    to_did: Option<IdentityId>,
-                ) -> AssetComplianceResult
-                {
-                    use polymesh_common_utilities::compliance_manager::Config;
-                    let mut weight_meter = WeightMeter::max_limit_no_minimum();
-                    ComplianceManager::verify_restriction_granular(
-                        &ticker,
-                        from_did,
-                        to_did,
-                        &mut weight_meter
-                    )
-                    .unwrap()
                 }
             }
 

@@ -16,10 +16,12 @@
 use std::{convert::TryInto, sync::Arc};
 
 use codec::Codec;
+use frame_support::dispatch::result::Result;
+use frame_support::pallet_prelude::DispatchError;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
 use jsonrpsee::types::error::{CallError, ErrorCode, ErrorObject};
-use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_rpc::number;
 use sp_runtime::traits::Block as BlockT;
@@ -42,7 +44,7 @@ pub trait AssetApi<BlockHash, AccountId> {
         ticker: Ticker,
         value: number::NumberOrHex,
         at: Option<BlockHash>,
-    ) -> RpcResult<GranularCanTransferResult>;
+    ) -> RpcResult<Result<GranularCanTransferResult, DispatchError>>;
 }
 
 /// An implementation of asset specific RPC methods.
@@ -77,7 +79,7 @@ where
         ticker: Ticker,
         value: number::NumberOrHex,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<GranularCanTransferResult> {
+    ) -> RpcResult<Result<GranularCanTransferResult, DispatchError>> {
         // Make sure that value fits into 64 bits.
         let value: u64 = value.try_into().map_err(|_| {
             CallError::Custom(ErrorObject::owned(
@@ -86,55 +88,24 @@ where
                 None::<()>,
             ))
         })?;
+        
         let api = self.client.runtime_api();
+        // If the block hash is not supplied assume the best block.
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
-        let api_version = api
-            .api_version::<dyn AssetRuntimeApi<Block, AccountId>>(at_hash)
-            .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to check transfer",
-                    Some(e.to_string()),
-                ))
-            })?;
 
-        match api_version {
-            Some(version) if version >= 2 => api.can_transfer_granular(
-                at_hash,
-                from_custodian,
-                from_portfolio,
-                to_custodian,
-                to_portfolio,
-                &ticker,
-                value.into(),
-            ),
-            Some(1) =>
-            {
-                #[allow(deprecated)]
-                api.can_transfer_granular_before_version_2(
-                    at_hash,
-                    from_custodian,
-                    from_portfolio,
-                    to_custodian,
-                    to_portfolio,
-                    &ticker,
-                    value.into(),
-                )
-                .map(|res| res.into())
-            }
-            _ => {
-                return Err(CallError::Custom(ErrorObject::owned(
-                    ErrorCode::MethodNotFound.code(),
-                    format!("Cannot find `AssetApi` for block {:?}", at),
-                    None::<()>,
-                ))
-                .into());
-            }
-        }
+        api.can_transfer_granular(
+            at_hash,
+            from_custodian,
+            from_portfolio,
+            to_custodian,
+            to_portfolio,
+            &ticker,
+            value.into(),
+        )
         .map_err(|e| {
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
-                "Unable to check transfer",
+                "Unable to call can_transfer_granular runtime",
                 Some(e.to_string()),
             ))
             .into()
