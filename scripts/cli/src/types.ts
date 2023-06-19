@@ -114,10 +114,6 @@ export type Claim =
   | { InvestorUniqueness: [Scope, ScopeId, CddId] }
   | { NoData: string };
 
-export type MovePortfolioItem = {
-  ticker: Ticker;
-  amount: number;
-};
 export type Whole = {
   Whole: undefined;
 };

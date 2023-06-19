@@ -20,18 +20,6 @@ declare module '@polkadot/api-base/types/consts' {
        **/
       [key: string]: Codec;
     };
-    authorship: {
-      /**
-       * The number of blocks back we should accept uncles.
-       * This means that we will deal with uncle-parents that are
-       * `UncleGenerations + 1` before `now`.
-       **/
-      uncleGenerations: u32 & AugmentedConst<ApiType>;
-      /**
-       * Generic const
-       **/
-      [key: string]: Codec;
-    };
     babe: {
       /**
        * The amount of time, in slots, that each epoch should last.
@@ -128,8 +116,16 @@ declare module '@polkadot/api-base/types/consts' {
        * The maximum length of a contract code in bytes. This limit applies to the instrumented
        * version of the code. Therefore `instantiate_with_code` can fail even when supplying
        * a wasm binary below this maximum size.
+       * 
+       * The value should be chosen carefully taking into the account the overall memory limit
+       * your runtime has, as well as the [maximum allowed callstack
+       * depth](#associatedtype.CallStack). Look into the `integrity_test()` for some insights.
        **/
       maxCodeLen: u32 & AugmentedConst<ApiType>;
+      /**
+       * The maximum length of the debug buffer in bytes.
+       **/
+      maxDebugBufferLen: u32 & AugmentedConst<ApiType>;
       /**
        * The maximum allowable length in bytes for storage keys.
        **/
@@ -168,6 +164,15 @@ declare module '@polkadot/api-base/types/consts' {
        * Max Authorities in use
        **/
       maxAuthorities: u32 & AugmentedConst<ApiType>;
+      /**
+       * The maximum number of entries to keep in the set id to session index mapping.
+       * 
+       * Since the `SetIdSession` map is only used for validating equivocations this
+       * value should relate to the bonding duration of whatever staking system is
+       * being used (if any). If equivocation handling is not enabled then this value
+       * can be zero.
+       **/
+      maxSetIdSessionEntries: u64 & AugmentedConst<ApiType>;
       /**
        * Generic const
        **/
