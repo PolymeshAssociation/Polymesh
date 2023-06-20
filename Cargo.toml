@@ -99,6 +99,7 @@ substrate-frame-rpc-system = { git = "https://github.com/PolymeshAssociation/sub
 substrate-state-trie-migration-rpc = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 substrate-prometheus-endpoint = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 substrate-test-runtime-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
+substrate-build-script-utils = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 substrate-test-utils = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 substrate-test-utils-derive = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 substrate-wasm-builder = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
@@ -198,7 +199,7 @@ polymesh-runtime-mainnet = { path = "pallets/runtime/mainnet" }
 polymesh-runtime-testnet = { path = "pallets/runtime/testnet" }
 
 # General
-chrono = "0.4.11"
+chrono = { version = "0.4", default-features = false }
 ed25519-dalek = "1.0.0"
 futures = "0.3.21"
 jsonrpsee = { version = "0.16.2", features = ["server"] }
@@ -261,7 +262,7 @@ frame-benchmarking = "4.0.0-dev"
 frame-benchmarking-cli = "4.0.0-dev"
 
 [build-dependencies]
-vergen = "3.1.0"
+substrate-build-script-utils = { version = "3.0.0" }
 
 [features]
 default = ["std"]
