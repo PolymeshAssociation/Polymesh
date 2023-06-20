@@ -872,6 +872,74 @@ fn move_more_funds() {
 }
 
 #[test]
+fn empty_fungible_move() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice: User = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let alice_custom_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::User(PortfolioNumber(1)),
+        };
+        let (ticker, _) = create_token(alice);
+        assert_ok!(Portfolio::create_portfolio(
+            alice.origin(),
+            PortfolioName(b"MyOwnPortfolio".to_vec())
+        ));
+
+        let funds = vec![Fund {
+            description: FundDescription::Fungible { ticker, amount: 0 },
+            memo: None,
+        }];
+        assert_noop!(
+            Portfolio::move_portfolio_funds(
+                alice.origin(),
+                alice_default_portfolio,
+                alice_custom_portfolio,
+                funds,
+            ),
+            Error::EmptyTransfer
+        );
+    });
+}
+
+#[test]
+fn empty_nft_move() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice: User = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let alice_custom_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::User(PortfolioNumber(1)),
+        };
+        let (ticker, _) = create_token(alice);
+        assert_ok!(Portfolio::create_portfolio(
+            alice.origin(),
+            PortfolioName(b"MyOwnPortfolio".to_vec())
+        ));
+
+        let funds = vec![Fund {
+            description: FundDescription::NonFungible(NFTs::new_unverified(ticker, Vec::new())),
+            memo: None,
+        }];
+        assert_noop!(
+            Portfolio::move_portfolio_funds(
+                alice.origin(),
+                alice_default_portfolio,
+                alice_custom_portfolio,
+                funds,
+            ),
+            Error::EmptyTransfer
+        );
+    });
+}
+
+#[test]
 fn pre_approve_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
