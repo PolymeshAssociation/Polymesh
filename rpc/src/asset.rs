@@ -21,7 +21,7 @@ use frame_support::pallet_prelude::DispatchError;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
 use jsonrpsee::types::error::{CallError, ErrorCode, ErrorObject};
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_rpc::number;
 use sp_runtime::traits::Block as BlockT;
@@ -92,17 +92,61 @@ where
         let api = self.client.runtime_api();
         // If the block hash is not supplied assume the best block.
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
+        // Gets the api version, returns an error if not found.
+        let api_version = api
+            .api_version::<dyn AssetRuntimeApi<Block, AccountId>>(at_hash)
+            .map_err(|e| {
+                CallError::Custom(ErrorObject::owned(
+                    Error::RuntimeError.into(),
+                    "Unable to find the api version",
+                    Some(e.to_string()),
+                ))
+            })?
+            .ok_or(CallError::Custom(ErrorObject::owned(
+                Error::RuntimeError.into(),
+                "Api version cannot be None",
+                Some("None version"),
+            )))?;
 
-        api.can_transfer_granular(
-            at_hash,
-            from_custodian,
-            from_portfolio,
-            to_custodian,
-            to_portfolio,
-            &ticker,
-            value.into(),
-        )
-        .map_err(|e| {
+        let api_call_result = {
+            if api_version >= 3 {
+                api.can_transfer_granular(
+                    at_hash,
+                    from_custodian,
+                    from_portfolio,
+                    to_custodian,
+                    to_portfolio,
+                    &ticker,
+                    value.into(),
+                )
+            } else if api_version == 2 {
+                #[allow(deprecated)]
+                api.can_transfer_granular_before_version_3(
+                    at_hash,
+                    from_custodian,
+                    from_portfolio,
+                    to_custodian,
+                    to_portfolio,
+                    &ticker,
+                    value.into(),
+                )
+                .map(|value| Ok(value))
+            } else {
+                #[allow(deprecated)]
+                api.can_transfer_granular_before_version_2(
+                    at_hash,
+                    from_custodian,
+                    from_portfolio,
+                    to_custodian,
+                    to_portfolio,
+                    &ticker,
+                    value.into(),
+                )
+                .map(|value| Ok(GranularCanTransferResult::from(value)))
+            }
+        };
+
+        api_call_result.map_err(|e| {
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to call can_transfer_granular runtime",

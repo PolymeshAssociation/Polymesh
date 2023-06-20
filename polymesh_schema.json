@@ -1125,6 +1125,12 @@
       "intended_count": "u32",
       "running_count": "u32"
     },
+    "canTransferGranularReturn": {
+      "_enum": {
+        "Ok": "GranularCanTransferResult",
+        "Err": "DispatchError"
+      }
+    },
     "GranularCanTransferResult": {
       "invalid_granularity": "bool",
       "self_transfer": "bool",
@@ -1472,7 +1478,7 @@
             "isOptional": true
           }
         ],
-        "type": "GranularCanTransferResult"
+        "type": "canTransferGranularReturn"
       }
     },
     "group": {

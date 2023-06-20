@@ -63,5 +63,25 @@ sp_api::decl_runtime_apis! {
             ticker: &Ticker,
             value: Balance
         ) -> Result<GranularCanTransferResult, DispatchError>;
+
+        #[changed_in(3)]
+        fn can_transfer_granular(
+            from_custodian: Option<IdentityId>,
+            from_portfolio: PortfolioId,
+            to_custodian: Option<IdentityId>,
+            to_portfolio: PortfolioId,
+            ticker: &Ticker,
+            value: Balance
+        ) -> GranularCanTransferResult;
+
+        #[changed_in(2)]
+        fn can_transfer_granular(
+            from_custodian: Option<IdentityId>,
+            from_portfolio: PortfolioId,
+            to_custodian: Option<IdentityId>,
+            to_portfolio: PortfolioId,
+            ticker: &Ticker,
+            value: Balance
+        ) -> polymesh_primitives::asset::v1::GranularCanTransferResult;
     }
 }
