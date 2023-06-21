@@ -38,7 +38,7 @@ macro_rules! upgradable_api {
             impl $api_type {
                 $(
                     $(#[doc = $doc_attr])*
-                    $(#[ink($ink_attr)])*
+                    $(#[ink($ink_attr, payable)])*
                     $fn_vis fn $fn_name(&self $(, $param: $ty)*) -> $fn_return {
                         ::paste::paste! {
                             self.[<__impl_ $fn_name>]($($param),*)
