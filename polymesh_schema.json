@@ -1346,7 +1346,7 @@
           {
             "name": "cdd_checker_leeway",
             "type": "u64",
-            "isOptional": true
+            "isOptional": false
           },
           {
             "name": "blockHash",
@@ -1444,7 +1444,7 @@
         "params": [
           {
             "name": "from_custodian",
-            "type": "Option<IdentityId>",
+            "type": "IdentityId",
             "isOptional": false
           },
           {
@@ -1454,7 +1454,7 @@
           },
           {
             "name": "to_custodian",
-            "type": "Option<IdentityId>",
+            "type": "IdentityId",
             "isOptional": false
           },
           {

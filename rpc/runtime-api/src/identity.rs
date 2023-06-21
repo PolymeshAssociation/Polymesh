@@ -7,7 +7,7 @@ use sp_std::prelude::*;
 
 sp_api::decl_runtime_apis! {
     /// Identity runtime API.
-    #[api_version(2)]
+    #[api_version(3)]
     pub trait IdentityApi<IdentityId, Ticker, AccountId, Moment> where
         IdentityId: Codec,
         Ticker: Codec,
@@ -54,6 +54,7 @@ sp_api::decl_runtime_apis! {
         ///     ]
         ///   }'
         /// ```
+        #[api_version(3)]
         fn valid_cdd_claims(target_identity: IdentityId, cdd_checker_leeway: Option<u64>) -> Vec<IdentityClaim>;
     }
 }
