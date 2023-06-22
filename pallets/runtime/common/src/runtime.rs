@@ -618,10 +618,9 @@ macro_rules! runtime_apis {
                 if version < 4 {
                     StorageVersion::new(4).put::<Scheduler>();
                     log::info!(
-                        target: TARGET,
                         "Setting scheduler StorageVersion to v4",
                     );
-                    return T::DbWeight::get().reads(1);
+                    return <Runtime as frame_system::Config>::DbWeight::get().reads(1);
                 }
 
                 Weight::zero()
