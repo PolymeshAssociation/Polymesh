@@ -9,7 +9,7 @@ use frame_support::traits::OnRuntimeUpgrade;
 use core::convert::TryFrom;
 use frame_support::{
     construct_runtime, parameter_types,
-    traits::{tokens::imbalance::SplitTwoWays, KeyOwnerProofSystem},
+    traits::KeyOwnerProofSystem,
     weights::Weight,
 };
 use pallet_asset::checkpoint as pallet_checkpoint;
