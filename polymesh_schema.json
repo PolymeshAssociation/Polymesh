@@ -1444,7 +1444,7 @@
         "params": [
           {
             "name": "from_custodian",
-            "type": "IdentityId",
+            "type": "Option<IdentityId>",
             "isOptional": false
           },
           {
@@ -1454,7 +1454,7 @@
           },
           {
             "name": "to_custodian",
-            "type": "IdentityId",
+            "type": "Option<IdentityId>",
             "isOptional": false
           },
           {
