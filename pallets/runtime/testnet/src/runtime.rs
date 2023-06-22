@@ -8,9 +8,7 @@ use frame_support::traits::OnRuntimeUpgrade;
 
 use core::convert::TryFrom;
 use frame_support::{
-    construct_runtime, parameter_types,
-    traits::KeyOwnerProofSystem,
-    weights::Weight,
+    construct_runtime, parameter_types, traits::KeyOwnerProofSystem, weights::Weight,
 };
 use pallet_asset::checkpoint as pallet_checkpoint;
 use pallet_corporate_actions::ballot as pallet_corporate_ballot;
