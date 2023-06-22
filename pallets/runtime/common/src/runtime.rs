@@ -560,7 +560,10 @@ macro_rules! misc_pallet_impls {
 macro_rules! runtime_apis {
     ($($extra:item)*) => {
         use node_rpc_runtime_api::asset as rpc_api_asset;
-        use frame_support::dispatch::GetStorageVersion;
+        use frame_support::{
+            dispatch::GetStorageVersion,
+            traits::StorageVersion,
+        };
         use sp_inherents::{CheckInherentsResult, InherentData};
         use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
