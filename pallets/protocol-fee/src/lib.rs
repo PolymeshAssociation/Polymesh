@@ -190,24 +190,28 @@ impl<T: Config> Module<T> {
         let subsidiser = T::Subsidiser::check_subsidy(&account, fee, None)
             .map_err(|_| Error::<T>::InsufficientSubsidyBalance)?;
 
-        // Withdraw protocol `fee` from the `account` or their `subsidiser`.
-        let fee_key = subsidiser.as_ref().unwrap_or(&account);
+        // `fee_key` is either a subsidiser or the original payer.
+        let fee_key = if let Some(subsidiser_key) = subsidiser {
+            // Debit the protocol `fee` from the subsidy if there was a subsidiser.
+            // This shouldn't fail, since the subsidy was already checked.
+            T::Subsidiser::debit_subsidy(&account, fee)
+                .map_err(|_| Error::<T>::InsufficientSubsidyBalance)?;
+            subsidiser_key
+        } else {
+            // No subsidy.
+            account
+        };
+
+        // Withdraw protocol `fee` from the payer `fee_key.
         let ret = T::Currency::withdraw(
-            fee_key,
+            &fee_key,
             fee,
             WithdrawReasons::FEE,
             ExistenceRequirement::KeepAlive,
         )
         .map_err(|_| Error::<T>::InsufficientAccountBalance)?;
 
-        // Debit the protocol `fee` from the subsidy if there was a subsidiser.
-        if subsidiser.is_some() {
-            // This shouldn't fail, since the subsidy was already checked.
-            T::Subsidiser::debit_subsidy(&account, fee)
-                .map_err(|_| Error::<T>::InsufficientSubsidyBalance)?;
-        }
-
-        Self::deposit_event(RawEvent::FeeCharged(account, fee));
+        Self::deposit_event(RawEvent::FeeCharged(fee_key, fee));
         Ok(ret)
     }
 
