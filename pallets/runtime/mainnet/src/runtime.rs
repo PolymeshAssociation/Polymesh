@@ -3,9 +3,7 @@
 use crate::constants::time::*;
 use codec::Encode;
 use frame_support::{
-    construct_runtime, parameter_types,
-    traits::{tokens::imbalance::SplitTwoWays, KeyOwnerProofSystem},
-    weights::Weight,
+    construct_runtime, parameter_types, traits::KeyOwnerProofSystem, weights::Weight,
 };
 use pallet_asset::checkpoint as pallet_checkpoint;
 use pallet_corporate_actions::ballot as pallet_corporate_ballot;
@@ -21,7 +19,7 @@ use polymesh_runtime_common::{
     impls::Author,
     merge_active_and_inactive,
     runtime::{GovernanceCommittee, BENCHMARK_MAX_INCREASE, VMO},
-    AvailableBlockRatio, MaximumBlockWeight, NegativeImbalance,
+    AvailableBlockRatio, MaximumBlockWeight,
 };
 use sp_runtime::transaction_validity::TransactionPriority;
 use sp_runtime::{
@@ -140,15 +138,8 @@ parameter_types! {
     pub const MaxNumberOfNFTsMoves: u32 = 100;
 }
 
-/// Splits fees 80/20 between treasury and block author.
-pub type DealWithFees = SplitTwoWays<
-    Balance,
-    NegativeImbalance<Runtime>,
-    Treasury,        // 4 parts (80%) goes to the treasury.
-    Author<Runtime>, // 1 part (20%) goes to the block author.
-    4,
-    1,
->;
+/// 100% goes to the block author.
+pub type DealWithFees = Author<Runtime>;
 
 // Staking:
 pallet_staking_reward_curve::build! {
