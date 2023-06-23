@@ -1,5 +1,5 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
-import type { PortfolioId, Ticker, MovePortfolioItem } from "../types";
+import type { PortfolioId, Ticker } from "../types";
 import type { IdentityId } from "../interfaces";
 import { sendTx, keyToIdentityIds, ApiSingleton } from "../util/init";
 
@@ -52,10 +52,15 @@ export async function movePortfolioFunds(
       did: signerDid,
       kind: { User: portfolioNum },
     };
-    const items: MovePortfolioItem[] = [
+    const items = [
       {
-        ticker,
-        amount,
+        description: {
+          Fungible: {
+            ticker,
+            amount
+          }
+        },
+        memo: null,
       },
     ];
 

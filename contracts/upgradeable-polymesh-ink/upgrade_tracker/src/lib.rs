@@ -22,6 +22,7 @@ pub type WrappedApi = ([u8; 4], u32);
 #[derive(
     Default,
     Clone,
+    Copy,
     Eq,
     PartialEq,
     Ord,
@@ -52,7 +53,17 @@ impl ChainVersion {
 ///
 /// This upgrade is applied when the current chain version
 /// is greater then or equal to `chain_version`.
-#[derive(Default, Clone, scale::Encode, scale::Decode)]
+#[derive(
+    Default,
+    Clone,
+    Copy,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    scale::Encode,
+    scale::Decode
+)]
 #[cfg_attr(feature = "std", derive(Debug, scale_info::TypeInfo))]
 #[derive(ink_storage::traits::SpreadLayout)]
 #[derive(ink_storage::traits::PackedLayout)]
@@ -67,6 +78,7 @@ pub mod upgrade_tracker {
     use crate::*;
     use alloc::vec::Vec;
     use ink_storage::{traits::SpreadAllocate, Mapping};
+    use ink_prelude::collections::BTreeSet;
 
     /// Upgrade tracker contract for Polymesh Ink! API.
     #[ink(storage)]
@@ -75,8 +87,10 @@ pub mod upgrade_tracker {
         /// The `AccountId` of a privileged account that can upgrade apis.
         /// This address is set to the account that instantiated this contract.
         admin: AccountId,
+        /// List of APIs.
+        apis: Vec<WrappedApi>,
         /// Wrapped API upgrades.
-        upgrades: Mapping<WrappedApi, Vec<Upgrade>>,
+        upgrades: Mapping<WrappedApi, BTreeSet<Upgrade>>,
     }
 
     /// Event emitted when the admin account is set.
@@ -158,6 +172,12 @@ pub mod upgrade_tracker {
             Ok(())
         }
 
+        /// Get current admin.
+        #[ink(message)]
+        pub fn get_admin(&self) -> AccountId {
+          self.admin
+        }
+
         /// Upgrade a wrapped api.
         #[ink(message)]
         pub fn upgrade_wrapped_api(&mut self, api: WrappedApi, upgrade: Upgrade) -> Result<()> {
@@ -167,11 +187,15 @@ pub mod upgrade_tracker {
             // Remove old upgrade if it is for the same ChainVersion.
             upgrades.retain(|x| x.chain_version != upgrade.chain_version);
             // Add new upgrade.
-            upgrades.push(upgrade.clone());
-            // Sort by upgrade chain_version.
-            upgrades.sort_by(|a, b| a.chain_version.cmp(&b.chain_version));
+            upgrades.insert(upgrade);
             // Only keep the latest 10 upgrades for each API.
-            upgrades.truncate(10);
+            if upgrades.len() > 10 {
+                // The upgrades are sorted oldest to newest.
+                let old = upgrades.iter().next().copied();
+                if let Some(old) = old {
+                    upgrades.remove(&old);
+                }
+            }
 
             self.env().emit_event(UpgradeWrappedApi {
                 admin: self.admin,
@@ -180,6 +204,9 @@ pub mod upgrade_tracker {
             });
             // Store upgrades.
             self.upgrades.insert(api, &upgrades);
+            if !self.apis.contains(&api) {
+              self.apis.push(api);
+            }
             Ok(())
         }
 
@@ -190,14 +217,23 @@ pub mod upgrade_tracker {
 
             // Search for a compatible upgrade to the wrapped api.
             let current = ChainVersion::current().ok_or(Error::NoChainVersion)?;
-            for upgrade in upgrades.into_iter() {
-                if upgrade.chain_version <= current {
-                    return Ok(upgrade.hash);
-                }
-            }
+            // Do a reverse search, since the newest chain versions are last.
+            upgrades.into_iter()
+                .rfind(|u| u.chain_version <= current)
+                .map(|u| u.hash)
+                .ok_or(Error::NoUpgrade)
+        }
 
-            // No upgrades found for `version`.
-            Err(Error::NoUpgrade)
+        /// Get all apis.
+        #[ink(message)]
+        pub fn get_apis(&self) -> Vec<WrappedApi> {
+            self.apis.clone()
+        }
+
+        /// Get all upgrades.
+        #[ink(message)]
+        pub fn get_api_upgrades(&self, api: WrappedApi) -> Result<BTreeSet<Upgrade>> {
+            Ok(self.upgrades.get(&api).ok_or(Error::NoUpgrade)?)
         }
     }
 }
