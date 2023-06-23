@@ -560,7 +560,10 @@ macro_rules! misc_pallet_impls {
 macro_rules! runtime_apis {
     ($($extra:item)*) => {
         use node_rpc_runtime_api::asset as rpc_api_asset;
-        use frame_support::dispatch::GetStorageVersion;
+        use frame_support::{
+            dispatch::GetStorageVersion,
+            traits::StorageVersion,
+        };
         use sp_inherents::{CheckInherentsResult, InherentData};
         use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
@@ -602,11 +605,27 @@ macro_rules! runtime_apis {
             Runtime,
             AllPalletsWithSystem,
             (
-              pallet_preimage::migration::v1::Migration<Runtime>,
-              pallet_scheduler::migration::v3::MigrateToV4<Runtime>,
+              FixSchedulerV4,
               pallet_contracts::Migration<Runtime>,
             )
         >;
+
+        /// Fix the scheduler pallet storage version.
+        pub struct FixSchedulerV4;
+        impl frame_support::traits::OnRuntimeUpgrade for FixSchedulerV4 {
+            fn on_runtime_upgrade() -> Weight {
+                let version = StorageVersion::get::<Scheduler>();
+                if version < 4 {
+                    StorageVersion::new(4).put::<Scheduler>();
+                    log::info!(
+                        "Setting scheduler StorageVersion to v4",
+                    );
+                    return <Runtime as frame_system::Config>::DbWeight::get().reads(1);
+                }
+
+                Weight::zero()
+            }
+        }
 
         sp_api::impl_runtime_apis! {
             impl sp_api::Core<Block> for Runtime {
