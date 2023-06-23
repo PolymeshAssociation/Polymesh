@@ -140,6 +140,61 @@ impl From<UintAuthorityId> for MockSessionKeys {
 
 type Runtime = TestStorage;
 
+// example module to test behaviors.
+#[frame_support::pallet]
+pub mod example {
+    use frame_support::{dispatch::WithPostDispatchInfo, pallet_prelude::*};
+    use frame_system::pallet_prelude::*;
+
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    #[pallet::config]
+    pub trait Config: frame_system::Config {}
+
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        #[pallet::call_index(0)]
+        #[pallet::weight(*_weight)]
+        pub fn noop(_origin: OriginFor<T>, _weight: Weight) -> DispatchResult {
+            Ok(())
+        }
+
+        #[pallet::call_index(1)]
+        #[pallet::weight(*_start_weight)]
+        pub fn foobar(
+            origin: OriginFor<T>,
+            err: bool,
+            _start_weight: Weight,
+            end_weight: Option<Weight>,
+        ) -> DispatchResultWithPostInfo {
+            let _ = ensure_signed(origin)?;
+            if err {
+                let error: DispatchError = "The cake is a lie.".into();
+                if let Some(weight) = end_weight {
+                    Err(error.with_weight(weight))
+                } else {
+                    Err(error)?
+                }
+            } else {
+                Ok(end_weight.into())
+            }
+        }
+
+        #[pallet::call_index(2)]
+        #[pallet::weight(0)]
+        pub fn big_variant(_origin: OriginFor<T>, _arg: [u8; 400]) -> DispatchResult {
+            Ok(())
+        }
+
+        #[pallet::call_index(3)]
+        #[pallet::weight(0)]
+        pub fn noop2(_origin: OriginFor<T>) -> DispatchResult {
+            Ok(())
+        }
+    }
+}
+
 pallet_staking_reward_curve::build! {
     const REWARD_CURVE: PiecewiseLinear<'_> = curve!(
         min_inflation: 0_025_000,
@@ -263,7 +318,7 @@ frame_support::construct_runtime!(
         Statistics: pallet_statistics::{Pallet, Call, Storage, Event} = 38,
         Sto: pallet_sto::{Pallet, Call, Storage, Event<T>} = 39,
         Treasury: pallet_treasury::{Pallet, Call, Event<T>} = 40,
-        Utility: pallet_utility::{Pallet, Call, Storage, Event} = 41,
+        Utility: pallet_utility::{Pallet, Call, Storage, Event<T>} = 41,
         Base: pallet_base::{Pallet, Call, Event} = 42,
         ExternalAgents: pallet_external_agents::{Pallet, Call, Storage, Event} = 43,
         Relayer: pallet_relayer::{Pallet, Call, Storage, Event<T>} = 44,
@@ -279,6 +334,9 @@ frame_support::construct_runtime!(
         TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 50,
 
         Nft: pallet_nft::{Pallet, Call, Storage, Event} = 51,
+
+        // Testing only.
+        Example: example::{Pallet, Call} = 201,
     }
 );
 
@@ -590,6 +648,21 @@ impl polymesh_common_utilities::traits::identity::Config for TestStorage {
     type InitialPOLYX = InitialPOLYX;
     type MultiSigBalanceLimit = polymesh_runtime_common::MultiSigBalanceLimit;
 }
+
+impl example::Config for TestStorage {}
+
+pub struct TestBaseCallFilter;
+impl frame_support::traits::Contains<RuntimeCall> for TestBaseCallFilter {
+    fn contains(c: &RuntimeCall) -> bool {
+        match *c {
+            // Use `noop2` and `set_storage` for a call that doesn't pass the filter.
+            RuntimeCall::Example(example::Call::noop2 {}) => false,
+            RuntimeCall::System(frame_system::Call::set_storage { .. }) => false,
+            _ => true,
+        }
+    }
+}
+type RuntimeBaseCallFilter = TestBaseCallFilter;
 
 pub struct TestSessionHandler;
 impl pallet_session::SessionHandler<AuthorityId> for TestSessionHandler {

@@ -42,7 +42,7 @@ polymesh-common-utilities = { path = "../../common", default-features = false }
 polymesh-contracts = { path = "../../contracts", default-features = false }
 polymesh-extensions = { path = "../extensions", default-features = false }
 polymesh-primitives = { path = "../../../primitives", default-features = false }
-polymesh-runtime-common = { path = "../common", default-features = false }
+polymesh-runtime-common = { path = "../common", default-features = false, features = ["testing"] }
 polymesh-runtime-develop = { path = "../develop" }
 polymesh-weights = { path = "../../weights", default-features = false }
 polymesh-exec-macro = { path = "exec_macro" }
@@ -108,13 +108,14 @@ substrate-test-utils = { version = "4.0.0-dev", optional = true }
 [dev-dependencies]
 libsecp256k1 = { version = "0.7", default-features = false }
 wat = "1.0"
-sp-tracing = { version = "6.0.0", default-features = false }
+sp-tracing = { version = "6.0.0", default-features = false, features = ["std"] }
 
 [features]
-default = ["std", "equalize"]
+default = ["std", "testing", "equalize"]
 
 default_identity = [ "polymesh-common-utilities/default_identity" ]
 
+testing = []
 equalize = []
 only-staking = []
 

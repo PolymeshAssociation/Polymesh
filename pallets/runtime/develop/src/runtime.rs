@@ -424,7 +424,7 @@ construct_runtime!(
         Statistics: pallet_statistics::{Pallet, Call, Storage, Event, Config},
         Sto: pallet_sto::{Pallet, Call, Storage, Event<T>},
         Treasury: pallet_treasury::{Pallet, Call, Event<T>},
-        Utility: pallet_utility::{Pallet, Call, Storage, Event},
+        Utility: pallet_utility::{Pallet, Call, Storage, Event<T>},
         Base: pallet_base::{Pallet, Call, Event},
         ExternalAgents: pallet_external_agents::{Pallet, Call, Storage, Event},
         Relayer: pallet_relayer::{Pallet, Call, Storage, Event<T>},
