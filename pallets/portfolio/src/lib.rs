@@ -157,7 +157,9 @@ decl_error! {
         /// Only owned NFTs can be moved between portfolios.
         InvalidTransferNFTNotOwned,
         /// Locked NFTs can not be moved between portfolios.
-        InvalidTransferNFTIsLocked
+        InvalidTransferNFTIsLocked,
+        /// Trying to move an amount of zero assets.
+        EmptyTransfer
     }
 }
 
@@ -669,6 +671,7 @@ impl<T: Config> Module<T> {
         for fund in funds {
             match &fund.description {
                 FundDescription::Fungible { ticker, amount } => {
+                    ensure!(*amount > 0, Error::<T>::EmptyTransfer);
                     ensure!(
                         unique_tickers.insert(ticker),
                         Error::<T>::NoDuplicateAssetsAllowed
@@ -676,6 +679,7 @@ impl<T: Config> Module<T> {
                     Self::ensure_sufficient_balance(sender_portfolio, &ticker, *amount)?;
                 }
                 FundDescription::NonFungible(nfts) => {
+                    ensure!(nfts.len() > 0, Error::<T>::EmptyTransfer);
                     Self::ensure_valid_nfts(sender_portfolio, nfts.ticker(), nfts.ids())?;
                 }
             }
