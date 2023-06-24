@@ -78,7 +78,7 @@ use polymesh_common_utilities::with_transaction;
 use polymesh_common_utilities::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::settlement::{
     AffirmationStatus, AssetCount, ExecuteInstructionInfo, FilteredLegs, Instruction,
-    InstructionId, InstructionInfo, InstructionStatus, Leg, LegAsset, LegId, LegStatus, Receipt,
+    InstructionId, InstructionInfo, InstructionStatus, Leg, LegId, LegStatus, Receipt,
     ReceiptDetails, SettlementType, Venue, VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::{
@@ -215,6 +215,10 @@ decl_error! {
         InputWeightIsLessThanMinimum,
         /// The maximum number of receipts was exceeded.
         MaxNumberOfReceiptsExceeded,
+        /// No duplicate uid are allowed for different receipts.
+        DuplicateReceiptUid,
+        /// The instruction id in all receipts must match the extrinsic parameter.
+        ReceiptInstructionIdMissmatch
     }
 }
 
@@ -731,33 +735,35 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
+    #[rustfmt::skip]
     fn lock_via_leg(leg: &Leg) -> DispatchResult {
-        match &leg.asset {
-            LegAsset::Fungible { ticker, amount } => {
-                T::Portfolio::lock_tokens(&leg.from, &ticker, *amount)
-            }
-            LegAsset::NonFungible(nfts) => with_transaction(|| {
+        match leg {
+            Leg::Fungible { sender, ticker, amount, .. } => {
+                T::Portfolio::lock_tokens(&sender, &ticker, *amount)
+            },
+            Leg::NonFungible { sender, nfts, .. } => with_transaction(|| {
                 for nft_id in nfts.ids() {
-                    T::Portfolio::lock_nft(&leg.from, nfts.ticker(), &nft_id)?;
+                    T::Portfolio::lock_nft(&sender, nfts.ticker(), &nft_id)?;
                 }
                 Ok(())
             }),
-            LegAsset::OffChain { .. } => Err(Error::<T>::OffChainAssetCantBeLocked.into()),
+            Leg::OffChain { .. } => Err(Error::<T>::OffChainAssetCantBeLocked.into()),
         }
     }
 
+    #[rustfmt::skip]
     fn unlock_via_leg(leg: &Leg) -> DispatchResult {
-        match &leg.asset {
-            LegAsset::Fungible { ticker, amount } => {
-                T::Portfolio::unlock_tokens(&leg.from, &ticker, *amount)
-            }
-            LegAsset::NonFungible(nfts) => with_transaction(|| {
+        match leg {
+            Leg::Fungible { sender, ticker, amount, .. } => {
+                T::Portfolio::unlock_tokens(&sender, &ticker, *amount)
+            },
+            Leg::NonFungible { sender, nfts, .. } => with_transaction(|| {
                 for nft_id in nfts.ids() {
-                    T::Portfolio::unlock_nft(&leg.from, nfts.ticker(), &nft_id)?;
+                    T::Portfolio::unlock_nft(&sender, nfts.ticker(), &nft_id)?;
                 }
                 Ok(())
             }),
-            LegAsset::OffChain { .. } => Err(Error::<T>::OffChainAssetCantBeLocked.into()),
+            Leg::OffChain { .. } => Err(Error::<T>::OffChainAssetCantBeLocked.into()),
         }
     }
 
@@ -876,6 +882,7 @@ impl<T: Config> Module<T> {
 
     /// Returns [`InstructionInfo`] if all legs are valid, otherwise returns an error.
     /// See also: [`Module::ensure_valid_fungible_leg`], [`Module::ensure_valid_nft_leg`] and [`Module::ensure_valid_off_chain_leg`].
+    #[rustfmt::skip]
     fn ensure_valid_legs(
         legs: &[Leg],
         venue_id: &VenueId,
@@ -893,12 +900,16 @@ impl<T: Config> Module<T> {
         for leg in legs {
             let ticker =
                 Self::ensure_valid_leg(leg, venue_id, &mut tickers, &mut instruction_asset_count)?;
-
-            portfolios_pending_approval.insert(leg.from);
-            if T::Portfolio::skip_portfolio_affirmation(&leg.to, &ticker) {
-                portfolios_pre_approved.insert(leg.to);
-            } else {
-                portfolios_pending_approval.insert(leg.to);
+            match leg {
+                Leg::Fungible { sender, receiver, .. } | Leg::NonFungible { sender, receiver, .. } => {
+                    portfolios_pending_approval.insert(*sender);
+                    if T::Portfolio::skip_portfolio_affirmation(receiver, &ticker) {
+                        portfolios_pre_approved.insert(*receiver);
+                    } else {
+                        portfolios_pending_approval.insert(*receiver);
+                    }
+                }
+                Leg::OffChain { .. } => continue,
             }
         }
         // The maximum number of each asset type in one instruction is checked here
@@ -1086,6 +1097,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    #[rustfmt::skip]
     fn release_asset_locks_and_transfer_pending_legs(
         instruction_id: InstructionId,
         instruction_legs: &[(LegId, Leg)],
@@ -1096,11 +1108,11 @@ impl<T: Config> Module<T> {
         Self::unchecked_release_locks(instruction_id, instruction_legs);
         for (leg_id, leg) in instruction_legs {
             if Self::instruction_leg_status(instruction_id, leg_id) == LegStatus::ExecutionPending {
-                match &leg.asset {
-                    LegAsset::Fungible { ticker, amount } => {
+                match leg {
+                    Leg::Fungible { sender, receiver, ticker, amount } => {
                         if <Asset<T>>::base_transfer(
-                            leg.from,
-                            leg.to,
+                            *sender,
+                            *receiver,
                             &ticker,
                             *amount,
                             Some(instruction_id),
@@ -1113,10 +1125,10 @@ impl<T: Config> Module<T> {
                             return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
                         }
                     }
-                    LegAsset::NonFungible(nfts) => {
+                    Leg::NonFungible { sender, receiver, nfts } => {
                         if <Nft<T>>::base_nft_transfer(
-                            leg.from,
-                            leg.to,
+                            *sender,
+                            *receiver,
                             nfts.clone(),
                             instruction_id,
                             instruction_memo.clone(),
@@ -1128,20 +1140,21 @@ impl<T: Config> Module<T> {
                             return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
                         }
                     }
-                    LegAsset::OffChain { .. } => {}
+                    Leg::OffChain { .. } => {}
                 }
             }
         }
         TransactionOutcome::Commit(Ok(Ok(())))
     }
 
+    #[rustfmt::skip]
     fn prune_instruction(id: InstructionId, executed: bool) {
         let drained_legs: Vec<(LegId, Leg)> = InstructionLegs::drain_prefix(&id).collect();
         let details = <InstructionDetails<T>>::take(id);
         VenueInstructions::remove(details.venue_id, id);
+        InstructionAffirmsPending::remove(id);
         #[allow(deprecated)]
         <InstructionLegStatus<T>>::remove_prefix(id, None);
-        InstructionAffirmsPending::remove(id);
         #[allow(deprecated)]
         AffirmsReceived::remove_prefix(id, None);
 
@@ -1157,14 +1170,16 @@ impl<T: Config> Module<T> {
             );
         }
 
-        // We remove duplicates in memory before triggering storage actions
-        let mut counter_parties = BTreeSet::new();
-        for (_, leg) in &drained_legs {
-            counter_parties.insert(leg.from);
-            counter_parties.insert(leg.to);
-        }
-        for counter_party in &counter_parties {
-            UserAffirmations::remove(&counter_party, id);
+        for (_, leg) in drained_legs {
+            match leg {
+                Leg::Fungible {sender, receiver, .. } | Leg::NonFungible {sender, receiver, .. } => {
+                    UserAffirmations::remove(sender, id);
+                    UserAffirmations::remove(receiver, id);
+                }
+                Leg::OffChain { .. } => {
+                    unimplemented!();
+                }
+            }
         }
     }
 
@@ -1187,7 +1202,7 @@ impl<T: Config> Module<T> {
         with_transaction(|| {
             for (leg_id, leg) in filtered_legs.leg_subset() {
                 ensure!(
-                    !leg.asset.is_off_chain(),
+                    !leg.is_off_chain(),
                     Error::<T>::OffChainAssetMustBeAffirmedWithReceipts
                 );
                 Self::lock_via_leg(&leg)?;
@@ -1278,129 +1293,80 @@ impl<T: Config> Module<T> {
         }
     }
 
-    /// Affirms all legs from the instruction of the given `id`, where `portfolios` are a counter party.
+    /// Affirms all legs from the instruction of the given `instruction_id`, where `portfolios` are a counter party.
     /// If the portfolio is the sender, the asset is also locked.
     pub fn base_affirm_with_receipts(
         origin: <T as frame_system::Config>::RuntimeOrigin,
-        id: InstructionId,
-        receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
+        instruction_id: InstructionId,
+        receipts_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
     ) -> Result<FilteredLegs, DispatchError> {
-        let (did, secondary_key, instruction_details) =
-            Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
-        let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
-
         ensure!(
-            receipt_details.len() <= T::MaxNumberOfOffChainAssets::get() as usize,
+            receipts_details.len() <= T::MaxNumberOfOffChainAssets::get() as usize,
             Error::<T>::MaxNumberOfReceiptsExceeded
         );
 
-        // Verify that the receipts provided are unique
-        let receipt_ids = receipt_details
-            .iter()
-            .map(|receipt| (receipt.signer.clone(), receipt.receipt_uid))
-            .collect::<BTreeSet<_>>();
-
-        ensure!(
-            receipt_ids.len() == receipt_details.len(),
-            Error::<T>::ReceiptAlreadyClaimed
-        );
+        let (did, secondary_key, instruction_details) =
+            Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id, false)?;
+        let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
         // Verify portfolio custodianship and check if it is a counter party with a pending affirmation.
         Self::ensure_portfolios_and_affirmation_status(
-            id,
+            instruction_id,
             &portfolios_set,
             did,
             secondary_key.as_ref(),
             &[AffirmationStatus::Pending],
         )?;
 
-        // Verify that the receipts are valid
-        for receipt in &receipt_details {
-            ensure!(
-                Self::venue_signers(&instruction_details.venue_id, &receipt.signer),
-                Error::<T>::UnauthorizedSigner
-            );
-            ensure!(
-                !Self::receipts_used(&receipt.signer, &receipt.receipt_uid),
-                Error::<T>::ReceiptAlreadyClaimed
-            );
+        Self::ensure_valid_receipts_details(
+            instruction_details.venue_id,
+            &instruction_id,
+            &receipts_details,
+        )?;
 
-            let leg = InstructionLegs::get(&id, &receipt.leg_id).ok_or(Error::<T>::LegNotFound)?;
-            ensure!(
-                leg.asset.is_off_chain(),
-                Error::<T>::ReceiptForInvalidLegType
-            );
-            ensure!(
-                portfolios_set.contains(&leg.from) || portfolios_set.contains(&leg.to),
-                Error::<T>::PortfolioMismatch
-            );
-
-            let (asset, amount) = leg.asset.ticker_and_amount();
-            let msg = Receipt {
-                receipt_uid: receipt.receipt_uid,
-                from: leg.from,
-                to: leg.to,
-                asset,
-                amount,
-            };
-            ensure!(
-                receipt.signature.verify(&msg.encode()[..], &receipt.signer),
-                Error::<T>::InvalidSignature
-            );
+        // Lock tokens for all legs that are not of type [`Leg::OffChain`]
+        let filtered_legs = Self::filtered_legs(instruction_id, &portfolios_set);
+        for (leg_id, leg) in filtered_legs.leg_subset() {
+            Self::lock_via_leg(&leg)?;
+            <InstructionLegStatus<T>>::insert(instruction_id, leg_id, LegStatus::ExecutionPending);
         }
 
-        let filtered_legs = Self::filtered_legs(id, &portfolios_set);
-        // Lock tokens that do not have a receipt attached to their leg.
-        with_transaction(|| {
-            for (leg_id, leg) in filtered_legs.leg_subset() {
-                // Receipt for the leg was provided
-                if let Some(receipt) = receipt_details
-                    .iter()
-                    .find(|receipt| receipt.leg_id == *leg_id)
-                {
-                    <InstructionLegStatus<T>>::insert(
-                        id,
-                        leg_id,
-                        LegStatus::ExecutionToBeSkipped(
-                            receipt.signer.clone(),
-                            receipt.receipt_uid,
-                        ),
-                    );
-                } else if let Err(_) = Self::lock_via_leg(&leg) {
-                    // rustc fails to infer return type of `with_transaction` if you use ?/map_err here
-                    return Err(DispatchError::from(Error::<T>::FailedToLockTokens));
-                } else {
-                    <InstructionLegStatus<T>>::insert(id, leg_id, LegStatus::ExecutionPending);
-                }
-            }
-            Ok(())
-        })?;
-
         // Update storage
-        let affirms_pending = Self::instruction_affirms_pending(id)
-            .saturating_sub(u64::try_from(portfolios_set.len()).unwrap_or_default());
-
-        // Mark receipts used in affirmation as claimed
-        for receipt in &receipt_details {
-            <ReceiptsUsed<T>>::insert(&receipt.signer, receipt.receipt_uid, true);
+        for receipt_detail in receipts_details {
+            <InstructionLegStatus<T>>::insert(
+                instruction_id,
+                receipt_detail.leg_id(),
+                LegStatus::ExecutionToBeSkipped(
+                    receipt_detail.signer().clone(),
+                    receipt_detail.uid(),
+                ),
+            );
+            <ReceiptsUsed<T>>::insert(receipt_detail.signer(), receipt_detail.uid(), true);
             Self::deposit_event(RawEvent::ReceiptClaimed(
                 did,
-                id,
-                receipt.leg_id,
-                receipt.receipt_uid,
-                receipt.signer.clone(),
-                receipt.metadata.clone(),
+                instruction_id,
+                receipt_detail.leg_id(),
+                receipt_detail.uid(),
+                receipt_detail.signer().clone(),
+                receipt_detail.metadata().clone(),
             ));
         }
 
+        let affirms_pending = Self::instruction_affirms_pending(instruction_id)
+            .saturating_sub(u64::try_from(portfolios_set.len()).unwrap_or_default());
+        InstructionAffirmsPending::insert(instruction_id, affirms_pending);
+
         for portfolio in portfolios_set {
-            UserAffirmations::insert(portfolio, id, AffirmationStatus::Affirmed);
-            AffirmsReceived::insert(id, portfolio, AffirmationStatus::Affirmed);
-            Self::deposit_event(RawEvent::InstructionAffirmed(did, portfolio, id));
+            UserAffirmations::insert(portfolio, instruction_id, AffirmationStatus::Affirmed);
+            AffirmsReceived::insert(instruction_id, portfolio, AffirmationStatus::Affirmed);
+            Self::deposit_event(RawEvent::InstructionAffirmed(
+                did,
+                portfolio,
+                instruction_id,
+            ));
         }
 
-        InstructionAffirmsPending::insert(id, affirms_pending);
         Ok(filtered_legs)
     }
 
@@ -1582,11 +1548,10 @@ impl<T: Config> Module<T> {
             Self::instruction_status(id) != InstructionStatus::Unknown,
             Error::<T>::UnknownInstruction
         );
-        // Gets all legs for the instruction, checks if portfolio is in any of the legs, and validates the input cost.
+        // Gets all legs for the instruction and checks if portfolio is in any of the legs
         let legs: Vec<(LegId, Leg)> = InstructionLegs::iter_prefix(&id).collect();
         ensure!(
-            legs.iter()
-                .any(|(_, leg)| leg.from == portfolio || leg.to == portfolio),
+            Self::is_portfolio_present(&legs, &portfolio),
             Error::<T>::CallerIsNotAParty
         );
         let instruction_asset_count = AssetCount::from_legs(&legs);
@@ -1638,7 +1603,7 @@ impl<T: Config> Module<T> {
         // Avoids reading the storage multiple times for the same ticker
         let mut tickers: BTreeSet<Ticker> = BTreeSet::new();
         for (_, leg) in instruction_legs {
-            let ticker = leg.asset.ticker_and_amount().0;
+            let ticker = leg.ticker();
             Self::ensure_venue_filtering(&mut tickers, ticker, &venue_id)?;
         }
         Ok(())
@@ -1673,29 +1638,35 @@ impl<T: Config> Module<T> {
 
     /// Returns [`Ticker`] if the leg is valid, otherwise returns an error.
     /// See also: [`Module::ensure_valid_fungible_leg`], [`Module::ensure_valid_nft_leg`] and [`Module::ensure_valid_off_chain_leg`].
+    #[rustfmt::skip]
     fn ensure_valid_leg(
         leg: &Leg,
         venue_id: &VenueId,
         tickers: &mut BTreeSet<Ticker>,
         instruction_asset_count: &mut AssetCount,
     ) -> Result<Ticker, DispatchError> {
-        ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
-        match &leg.asset {
-            LegAsset::Fungible { ticker, amount } => {
+        match leg {
+            Leg::Fungible { sender, receiver, ticker, amount } => {
+                ensure!(sender != receiver, Error::<T>::SameSenderReceiver);
                 Self::ensure_valid_fungible_leg(tickers, *ticker, *amount, venue_id)?;
                 instruction_asset_count
                     .try_add_fungible()
                     .map_err(|_| Error::<T>::MaxNumberOfFungibleAssetsExceeded)?;
                 Ok(*ticker)
             }
-            LegAsset::NonFungible(nfts) => {
+            Leg::NonFungible { sender, receiver, nfts } => {
+                ensure!(sender != receiver, Error::<T>::SameSenderReceiver);
                 Self::ensure_valid_nft_leg(tickers, &nfts, venue_id)?;
                 instruction_asset_count
                     .try_add_non_fungible(&nfts)
                     .map_err(|_| Error::<T>::MaxNumberOfNFTsExceeded)?;
                 Ok(*nfts.ticker())
             }
-            LegAsset::OffChain { ticker, amount } => {
+            Leg::OffChain { sender_identity, receiver_identity, ticker, amount } => {
+                ensure!(
+                    sender_identity != receiver_identity,
+                    Error::<T>::SameSenderReceiver
+                );
                 Self::ensure_valid_off_chain_leg(tickers, *ticker, *amount, venue_id)?;
                 instruction_asset_count
                     .try_add_off_chain()
@@ -1802,9 +1773,7 @@ impl<T: Config> Module<T> {
                     sk.as_ref(),
                 )?;
                 ensure!(
-                    instruction_legs
-                        .iter()
-                        .any(|(_, leg)| leg.from == portfolio || leg.to == portfolio),
+                    Self::is_portfolio_present(&instruction_legs, &portfolio),
                     Error::<T>::CallerIsNotAParty
                 );
             }
@@ -1830,6 +1799,77 @@ impl<T: Config> Module<T> {
             post_info: Some(<T as Config>::WeightInfo::ensure_root_origin()).into(),
             error: e.into(),
         })
+    }
+
+    /// Returns `true` if the given `portfolio_id` is a party in the given `instruction_set`, otherwise returns `false`.
+    #[rustfmt::skip]
+    fn is_portfolio_present(instruction_set: &[(LegId, Leg)], portfolio_id: &PortfolioId) -> bool {
+        for (_, leg) in instruction_set {
+            match leg {
+                Leg::Fungible{ sender, receiver, .. } | Leg::NonFungible { sender, receiver, .. } => {
+                    if sender == portfolio_id || receiver == portfolio_id {
+                        return true
+                    }
+                }
+                Leg::OffChain { .. } => continue,
+            }
+        }
+        false
+    }
+
+    /// Ensures the all receipts are valid. A receipt is considered valid if the signer is allowed by the venue,
+    /// if the receipt has not been used before, if the receipt's `leg_id` and `instruction_id` are referencing the
+    /// correct instruction/leg and if its signature is valid.
+    #[rustfmt::skip]
+    fn ensure_valid_receipts_details(
+        venue_id: VenueId,
+        instruction_id: &InstructionId,
+        receipts_details: &[ReceiptDetails<T::AccountId, T::OffChainSignature>],
+    ) -> DispatchResult {
+        let mut unique_signers_uid_set = BTreeSet::new();
+        for receipt_details in receipts_details {
+            ensure!(
+                receipt_details.instruction_id() == instruction_id,
+                Error::<T>::ReceiptInstructionIdMissmatch
+            );
+            ensure!(
+                unique_signers_uid_set
+                    .insert((receipt_details.signer().clone(), receipt_details.uid())),
+                Error::<T>::DuplicateReceiptUid
+            );
+            ensure!(
+                Self::venue_signers(venue_id, receipt_details.signer()),
+                Error::<T>::UnauthorizedSigner
+            );
+            ensure!(
+                !Self::receipts_used(receipt_details.signer(), &receipt_details.uid()),
+                Error::<T>::ReceiptAlreadyClaimed
+            );
+
+            let leg = InstructionLegs::get(&instruction_id, &receipt_details.leg_id())
+                .ok_or(Error::<T>::LegNotFound)?;
+            match leg {
+                Leg::OffChain { sender_identity, receiver_identity, ticker, amount } => {
+                    let receipt = Receipt::new(
+                        receipt_details.uid(),
+                        sender_identity,
+                        receiver_identity,
+                        ticker,
+                        amount,
+                    );
+                    ensure!(
+                        receipt_details
+                            .signature()
+                            .verify(&receipt.encode()[..], receipt_details.signer()),
+                        Error::<T>::InvalidSignature
+                    );
+                }
+                Leg::Fungible { .. } | Leg::NonFungible { .. } => {
+                    return Err(Error::<T>::ReceiptForInvalidLegType.into())
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Returns [`WeightMeter`] if the provided `weight_limit` is greater than `minimum_weight`, otherwise returns an error.
@@ -2010,22 +2050,18 @@ pub mod migration {
         v1::InstructionLegs::drain().for_each(|(id, leg_id, old_leg)| {
             let new_leg = {
                 if !pallet_asset::Tokens::contains_key(old_leg.asset) {
-                    Leg {
-                        from: old_leg.from,
-                        to: old_leg.to,
-                        asset: LegAsset::OffChain {
-                            ticker: old_leg.asset,
-                            amount: old_leg.amount,
-                        },
+                    Leg::OffChain {
+                        sender_identity: old_leg.from.did,
+                        receiver_identity: old_leg.to.did,
+                        ticker: old_leg.asset,
+                        amount: old_leg.amount,
                     }
                 } else {
-                    Leg {
-                        from: old_leg.from,
-                        to: old_leg.to,
-                        asset: LegAsset::Fungible {
-                            ticker: old_leg.asset,
-                            amount: old_leg.amount,
-                        },
+                    Leg::Fungible {
+                        sender: old_leg.from,
+                        receiver: old_leg.to,
+                        ticker: old_leg.asset,
+                        amount: old_leg.amount,
                     }
                 }
             };
@@ -2037,23 +2073,25 @@ pub mod migration {
                 match leg_v2.asset {
                     v1::LegAsset::Fungible { ticker, amount } => {
                         if !pallet_asset::Tokens::contains_key(ticker) {
-                            Leg {
-                                from: leg_v2.from,
-                                to: leg_v2.to,
-                                asset: LegAsset::OffChain { ticker, amount },
+                            Leg::OffChain {
+                                sender_identity: leg_v2.from.did,
+                                receiver_identity: leg_v2.to.did,
+                                ticker,
+                                amount,
                             }
                         } else {
-                            Leg {
-                                from: leg_v2.from,
-                                to: leg_v2.to,
-                                asset: LegAsset::Fungible { ticker, amount },
+                            Leg::Fungible {
+                                sender: leg_v2.from,
+                                receiver: leg_v2.to,
+                                ticker,
+                                amount,
                             }
                         }
                     }
-                    v1::LegAsset::NonFungible(nfts) => Leg {
-                        from: leg_v2.from,
-                        to: leg_v2.to,
-                        asset: LegAsset::NonFungible(nfts),
+                    v1::LegAsset::NonFungible(nfts) => Leg::NonFungible {
+                        sender: leg_v2.from,
+                        receiver: leg_v2.to,
+                        nfts,
                     },
                 }
             };
