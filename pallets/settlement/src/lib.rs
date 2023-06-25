@@ -909,7 +909,7 @@ impl<T: Config> Module<T> {
                         portfolios_pending_approval.insert(*receiver);
                     }
                 }
-                Leg::OffChain { .. } => continue,
+                Leg::OffChain { .. } => unimplemented!(),
             }
         }
         // The maximum number of each asset type in one instruction is checked here
@@ -1172,7 +1172,7 @@ impl<T: Config> Module<T> {
 
         for (_, leg) in drained_legs {
             match leg {
-                Leg::Fungible {sender, receiver, .. } | Leg::NonFungible {sender, receiver, .. } => {
+                Leg::Fungible { sender, receiver, .. } | Leg::NonFungible { sender, receiver, .. } => {
                     UserAffirmations::remove(sender, id);
                     UserAffirmations::remove(receiver, id);
                 }
