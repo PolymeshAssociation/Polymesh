@@ -497,9 +497,11 @@ impl InstructionInfo {
             .collect()
     }
 
-    /// Returns the number of portfolios that still have to affirm the instruction.
-    pub fn number_of_pending_affirmations(&self) -> usize {
-        self.portfolios_pending_approval.len()
+    /// Returns the number of pending affirmations for the instruction.
+    /// The value must be equal to all unique portfolio that have not pre-approved the transfer + the number of offchain legs.
+    pub fn number_of_pending_affirmations(&self) -> u64 {
+        self.portfolios_pending_approval.len() as u64
+            + self.instruction_asset_count.off_chain() as u64
     }
 
     /// Returns the number of fungible transfers.

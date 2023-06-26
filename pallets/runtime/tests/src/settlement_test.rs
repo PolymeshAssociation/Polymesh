@@ -15,8 +15,8 @@ use pallet_nft::NumberOfNFTs;
 use pallet_portfolio::{PortfolioLockedNFT, PortfolioNFT};
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
-    AffirmsReceived, InstructionAffirmsPending, InstructionLegs, InstructionMemos, RawEvent,
-    UserAffirmations, VenueInstructions,
+    AffirmsReceived, InstructionAffirmsPending, InstructionLegs, InstructionMemos,
+    OffChainAffirmations, RawEvent, UserAffirmations, VenueInstructions,
 };
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
@@ -1219,9 +1219,9 @@ fn claim_multiple_receipts_during_authorization() {
                         ReceiptMetadata::default()
                     ),
                 ],
-                default_portfolio_vec(alice.did),
+                Vec::new(),
             ),
-            Error::ReceiptAlreadyClaimed
+            Error::DuplicateReceiptUid
         );
 
         assert_ok!(Settlement::affirm_with_receipts(
@@ -1245,12 +1245,18 @@ fn claim_multiple_receipts_during_authorization() {
                     ReceiptMetadata::default()
                 ),
             ],
-            default_portfolio_vec(alice.did),
+            Vec::new(),
         ));
 
-        assert_affirms_pending(instruction_id, 1);
-        assert_user_affirms(instruction_id, &alice, AffirmationStatus::Affirmed);
-        assert_user_affirms(instruction_id, &bob, AffirmationStatus::Pending);
+        assert_affirms_pending(instruction_id, 0);
+        assert_eq!(
+            OffChainAffirmations::get(instruction_id, LegId(0)),
+            AffirmationStatus::Affirmed
+        );
+        assert_eq!(
+            OffChainAffirmations::get(instruction_id, LegId(1)),
+            AffirmationStatus::Affirmed
+        );
         assert_leg_status(
             instruction_id,
             LegId(0),
@@ -1266,8 +1272,6 @@ fn claim_multiple_receipts_during_authorization() {
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
         set_current_block_number(1);
-
-        assert_affirm_instruction!(bob.origin(), instruction_id, bob.did);
 
         // Advances block
         next_block();
@@ -2942,7 +2946,69 @@ fn affirm_offchain_asset_without_receipt() {
                 InstructionId(0),
                 vec![alice_portfolio],
             ),
-            Error::OffChainAssetMustBeAffirmedWithReceipts
+            Error::UnexpectedAffirmationStatus
+        );
+    });
+}
+
+#[test]
+fn add_instruction_with_offchain_assets() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Setup base parameters
+        let alice = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
+        let bob = User::new(AccountKeyring::Bob);
+        let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
+        let venue = create_token_and_venue(TICKER, alice);
+        let instruction_memo = Some(Memo::default());
+        Portfolio::create_portfolio(bob.origin(), b"BobUserPortfolio".into()).unwrap();
+
+        // Both users have pre-affirmed the ticker
+        Asset::pre_approve_ticker(alice.origin(), TICKER2).unwrap();
+        Asset::pre_approve_ticker(bob.origin(), TICKER2).unwrap();
+
+        let legs: Vec<Leg> = vec![
+            Leg::Fungible {
+                sender: alice_default_portfolio,
+                receiver: bob_default_portfolio,
+                ticker: TICKER,
+                amount: ONE_UNIT,
+            },
+            Leg::OffChain {
+                sender_identity: alice.did,
+                receiver_identity: bob.did,
+                ticker: TICKER2,
+                amount: ONE_UNIT,
+            },
+            Leg::OffChain {
+                sender_identity: alice.did,
+                receiver_identity: bob.did,
+                ticker: TICKER2,
+                amount: ONE_UNIT,
+            },
+        ];
+        assert_ok!(Settlement::add_instruction(
+            alice.origin(),
+            venue,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs.clone(),
+            instruction_memo.clone(),
+        ));
+        // Only the sender still has to approve the transfer
+        let portfolios_pending_approval =
+            BTreeSet::from([alice_default_portfolio, bob_default_portfolio]);
+        let portfolios_pre_approved = BTreeSet::new();
+        let offchain_legs = BTreeSet::from([LegId(1), LegId(2)]);
+        let instruction_id = InstructionId(0);
+        assert_add_instruction_storage(
+            &instruction_id,
+            &portfolios_pending_approval,
+            &portfolios_pre_approved,
+            &offchain_legs,
+            instruction_memo,
+            &legs,
         );
     });
 }
@@ -2996,6 +3062,7 @@ fn add_instruction_with_pre_affirmed_tickers() {
             &instruction_id,
             &portfolios_pending_approval,
             &portfolios_pre_approved,
+            &BTreeSet::new(),
             instruction_memo,
             &legs,
         );
@@ -3063,6 +3130,7 @@ fn add_instruction_with_pre_affirmed_tickers_with_assigned_custodian() {
             &instruction_id,
             &portfolios_pending_approval,
             &portfolios_pre_approved,
+            &BTreeSet::new(),
             instruction_memo,
             &legs,
         );
@@ -3124,6 +3192,7 @@ fn add_instruction_with_pre_affirmed_portfolio() {
             &instruction_id,
             &portfolios_pending_approval,
             &portfolios_pre_approved,
+            &BTreeSet::new(),
             instruction_memo,
             &legs,
         );
@@ -3180,6 +3249,7 @@ fn add_instruction_with_single_pre_affirmed() {
             &instruction_id,
             &portfolios_pending_approval,
             &BTreeSet::new(),
+            &BTreeSet::new(),
             instruction_memo,
             &legs,
         );
@@ -3188,12 +3258,13 @@ fn add_instruction_with_single_pre_affirmed() {
 
 /// Asserts the storage has been updated after adding an instruction.
 /// While each portfolio in `portfolios_pending_approval` must have a pending `AffirmationStatus`, each portfolio in `portfolios_pre_approved`
-/// must have an affirmed status. The number of pending affirmations must be equal to the number of portfolios in `portfolios_pending_approval`,
+/// must have an affirmed status. The number of pending affirmations must be equal to the number of portfolios in `portfolios_pending_approval` + the number of offchain legs,
 /// all legs must have been included in `InstructionLegs` and `InstructionMemos` must be equal to `instruction_memo`.
 fn assert_add_instruction_storage(
     instruction_id: &InstructionId,
     portfolios_pending_approval: &BTreeSet<PortfolioId>,
     portfolios_pre_approved: &BTreeSet<PortfolioId>,
+    offchain_legs: &BTreeSet<LegId>,
     instruction_memo: Option<Memo>,
     legs: &[Leg],
 ) {
@@ -3213,9 +3284,15 @@ fn assert_add_instruction_storage(
             AffirmationStatus::Affirmed
         )
     });
+    offchain_legs.iter().for_each(|leg_id| {
+        assert_eq!(
+            OffChainAffirmations::get(instruction_id, leg_id),
+            AffirmationStatus::Pending
+        );
+    });
     assert_eq!(
         InstructionAffirmsPending::get(instruction_id),
-        portfolios_pending_approval.len() as u64
+        portfolios_pending_approval.len() as u64 + offchain_legs.len() as u64
     );
 
     assert_eq!(InstructionMemos::get(instruction_id), instruction_memo);

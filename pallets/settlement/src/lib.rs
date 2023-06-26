@@ -153,8 +153,6 @@ decl_error! {
         ReceiptAlreadyClaimed,
         /// Venue does not have required permissions.
         UnauthorizedVenue,
-        /// While affirming the transfer, system failed to lock the assets involved.
-        FailedToLockTokens,
         /// Instruction failed to execute.
         InstructionFailed,
         /// Instruction has invalid dates
@@ -165,8 +163,6 @@ decl_error! {
         InvalidSignature,
         /// Sender and receiver are the same.
         SameSenderReceiver,
-        /// Portfolio in receipt does not match with portfolios provided by the user.
-        PortfolioMismatch,
         /// The provided settlement block number is in the past and cannot be used by the scheduler.
         SettleOnPastBlock,
         /// The current instruction affirmation status does not support the requested action.
@@ -205,8 +201,6 @@ decl_error! {
         UnexpectedOFFChainAsset,
         /// Off-Chain assets cannot be locked.
         OffChainAssetCantBeLocked,
-        /// Off-Chain assets must be Affirmed with Receipts.
-        OffChainAssetMustBeAffirmedWithReceipts,
         /// The given number of off-chain transfers was underestimated.
         NumberOfOffChainTransfersUnderestimated,
         /// No leg with the given id was found
@@ -218,7 +212,11 @@ decl_error! {
         /// No duplicate uid are allowed for different receipts.
         DuplicateReceiptUid,
         /// The instruction id in all receipts must match the extrinsic parameter.
-        ReceiptInstructionIdMissmatch
+        ReceiptInstructionIdMissmatch,
+        /// Multiple receipts for the same leg are not allowed.
+        MultipleReceiptsForOneLeg,
+        /// An invalid has been reached.
+        UnexpectedLegStatus,
     }
 }
 
@@ -284,6 +282,9 @@ decl_storage! {
         /// Legs under an instruction. (instruction_id, leg_id) -> Leg
         pub InstructionLegs get(fn instruction_legs):
             double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => Option<Leg>;
+        /// Tracks the affirmation status for offchain legs in a instruction. [`(InstructionId, LegId)`] -> [`AffirmationStatus`]
+        pub OffChainAffirmations get(fn offchain_affirmations):
+            double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => AffirmationStatus;
     }
 }
 
@@ -835,11 +836,15 @@ impl<T: Config> Module<T> {
         }
         InstructionAffirmsPending::insert(
             instruction_id,
-            instruction_info.number_of_pending_affirmations() as u64,
+            instruction_info.number_of_pending_affirmations(),
         );
 
         legs.iter().enumerate().for_each(|(index, leg)| {
-            InstructionLegs::insert(instruction_id, LegId(index as u64), leg.clone())
+            let leg_id = LegId(index as u64);
+            InstructionLegs::insert(instruction_id, leg_id, leg.clone());
+            if leg.is_off_chain() {
+                OffChainAffirmations::insert(instruction_id, leg_id, AffirmationStatus::Pending);
+            }
         });
 
         <InstructionDetails<T>>::insert(
@@ -909,7 +914,7 @@ impl<T: Config> Module<T> {
                         portfolios_pending_approval.insert(*receiver);
                     }
                 }
-                Leg::OffChain { .. } => unimplemented!(),
+                Leg::OffChain { .. } => continue,
             }
         }
         // The maximum number of each asset type in one instruction is checked here
@@ -941,19 +946,10 @@ impl<T: Config> Module<T> {
         let filtered_legs = Self::filtered_legs(id, &portfolios);
         for (leg_id, leg) in filtered_legs.leg_subset() {
             match Self::instruction_leg_status(id, leg_id) {
-                LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
-                    // Receipt was claimed for this instruction. Therefore, no token unlocking is required, we just unclaim the receipt.
-                    <ReceiptsUsed<T>>::insert(&signer, receipt_uid, false);
-                    Self::deposit_event(RawEvent::ReceiptUnclaimed(
-                        did,
-                        id,
-                        *leg_id,
-                        receipt_uid,
-                        signer,
-                    ));
+                LegStatus::ExecutionToBeSkipped(_, _) => {
+                    return Err(Error::<T>::UnexpectedLegStatus.into())
                 }
                 LegStatus::ExecutionPending => {
-                    // Tokens are locked, need to be unlocked.
                     Self::unlock_via_leg(&leg)?;
                 }
                 LegStatus::PendingTokenLock => {
@@ -1156,6 +1152,8 @@ impl<T: Config> Module<T> {
         #[allow(deprecated)]
         <InstructionLegStatus<T>>::remove_prefix(id, None);
         #[allow(deprecated)]
+        OffChainAffirmations::remove_prefix(id, None);
+        #[allow(deprecated)]
         AffirmsReceived::remove_prefix(id, None);
 
         if executed {
@@ -1176,9 +1174,7 @@ impl<T: Config> Module<T> {
                     UserAffirmations::remove(sender, id);
                     UserAffirmations::remove(receiver, id);
                 }
-                Leg::OffChain { .. } => {
-                    unimplemented!();
-                }
+                Leg::OffChain { .. } => continue,
             }
         }
     }
@@ -1199,18 +1195,10 @@ impl<T: Config> Module<T> {
         )?;
 
         let filtered_legs = Self::filtered_legs(id, &portfolios);
-        with_transaction(|| {
-            for (leg_id, leg) in filtered_legs.leg_subset() {
-                ensure!(
-                    !leg.is_off_chain(),
-                    Error::<T>::OffChainAssetMustBeAffirmedWithReceipts
-                );
-                Self::lock_via_leg(&leg)?;
-                <InstructionLegStatus<T>>::insert(id, leg_id, LegStatus::ExecutionPending);
-            }
-            Ok(())
-        })
-        .map_err(|e: DispatchError| e)?;
+        for (leg_id, leg) in filtered_legs.leg_subset() {
+            Self::lock_via_leg(&leg)?;
+            <InstructionLegStatus<T>>::insert(id, leg_id, LegStatus::ExecutionPending);
+        }
 
         let affirms_pending = Self::instruction_affirms_pending(id);
 
@@ -1332,6 +1320,12 @@ impl<T: Config> Module<T> {
             <InstructionLegStatus<T>>::insert(instruction_id, leg_id, LegStatus::ExecutionPending);
         }
 
+        // Casting is safe since `Self::ensure_portfolios_and_affirmation_status` is called
+        let affirms_pending = InstructionAffirmsPending::get(instruction_id)
+            .saturating_sub(portfolios_set.len() as u64)
+            .saturating_sub(receipts_details.len() as u64);
+        InstructionAffirmsPending::insert(instruction_id, affirms_pending);
+
         // Update storage
         for receipt_detail in receipts_details {
             <InstructionLegStatus<T>>::insert(
@@ -1341,6 +1335,11 @@ impl<T: Config> Module<T> {
                     receipt_detail.signer().clone(),
                     receipt_detail.uid(),
                 ),
+            );
+            OffChainAffirmations::insert(
+                instruction_id,
+                receipt_detail.leg_id(),
+                AffirmationStatus::Affirmed,
             );
             <ReceiptsUsed<T>>::insert(receipt_detail.signer(), receipt_detail.uid(), true);
             Self::deposit_event(RawEvent::ReceiptClaimed(
@@ -1352,10 +1351,6 @@ impl<T: Config> Module<T> {
                 receipt_detail.metadata().clone(),
             ));
         }
-
-        let affirms_pending = Self::instruction_affirms_pending(instruction_id)
-            .saturating_sub(u64::try_from(portfolios_set.len()).unwrap_or_default());
-        InstructionAffirmsPending::insert(instruction_id, affirms_pending);
 
         for portfolio in portfolios_set {
             UserAffirmations::insert(portfolio, instruction_id, AffirmationStatus::Affirmed);
@@ -1827,6 +1822,7 @@ impl<T: Config> Module<T> {
         receipts_details: &[ReceiptDetails<T::AccountId, T::OffChainSignature>],
     ) -> DispatchResult {
         let mut unique_signers_uid_set = BTreeSet::new();
+        let mut unique_legs = BTreeSet::new();
         for receipt_details in receipts_details {
             ensure!(
                 receipt_details.instruction_id() == instruction_id,
@@ -1836,6 +1832,10 @@ impl<T: Config> Module<T> {
                 unique_signers_uid_set
                     .insert((receipt_details.signer().clone(), receipt_details.uid())),
                 Error::<T>::DuplicateReceiptUid
+            );
+            ensure!(
+                unique_legs.insert(receipt_details.leg_id()),
+                Error::<T>::MultipleReceiptsForOneLeg
             );
             ensure!(
                 Self::venue_signers(venue_id, receipt_details.signer()),
