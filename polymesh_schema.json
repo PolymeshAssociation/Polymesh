@@ -1345,8 +1345,8 @@
           },
           {
             "name": "cdd_checker_leeway",
-            "type": "u64",
-            "isOptional": false
+            "type": "Option<u64>",
+            "isOptional": true
           },
           {
             "name": "blockHash",
