@@ -791,7 +791,7 @@ impl<T: Config> ChangeMembers<IdentityId> for Module<T> {
         _new: &[IdentityId],
     ) {
         // Add/remove Systematic CDD claims for new/removed members.
-        let issuer = SystematicIssuers::CDDProvider;
+        let issuer = SystematicIssuers::Committee;
         Self::add_systematic_cdd_claims(incoming, issuer);
         Self::revoke_systematic_cdd_claims(outgoing, issuer);
     }
@@ -800,7 +800,7 @@ impl<T: Config> ChangeMembers<IdentityId> for Module<T> {
 impl<T: Config> InitializeMembers<IdentityId> for Module<T> {
     /// Initializes members of a group by adding systematic claims for them.
     fn initialize_members(members: &[IdentityId]) {
-        Self::add_systematic_cdd_claims(members, SystematicIssuers::CDDProvider);
+        Self::add_systematic_cdd_claims(members, SystematicIssuers::Committee);
     }
 }
 
