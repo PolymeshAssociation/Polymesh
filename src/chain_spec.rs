@@ -812,9 +812,9 @@ pub mod testnet {
                 complete_txs,
             },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
-            sudo: pallet_sudo::GenesisConfig {
-                key: Some(root_key),
-            },
+            // sudo: pallet_sudo::GenesisConfig {
+            //     key: Some(root_key),
+            // },
             session: session!(initial_authorities, session_keys),
             staking: staking!(
                 initial_authorities,
@@ -1016,9 +1016,9 @@ pub mod mainnet {
                 complete_txs,
             },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
-            sudo: pallet_sudo::GenesisConfig {
-                key: Some(root_key),
-            },
+            // sudo: pallet_sudo::GenesisConfig {
+            //     key: Some(root_key),
+            // },
             session: session!(initial_authorities, session_keys),
             staking: staking!(
                 initial_authorities,
