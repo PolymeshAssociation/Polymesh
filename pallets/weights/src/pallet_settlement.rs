@@ -528,15 +528,13 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
-    fn execute_scheduled_instruction(f: u32, n: u32, o: u32) -> Weight {
-        // Minimum execution time: 5_072_041 nanoseconds.
-        Weight::from_ref_time(326_448_213)
-            // Standard Error: 2_245_299
-            .saturating_add(Weight::from_ref_time(455_216_785).saturating_mul(f.into()))
-            // Standard Error: 207_696
-            .saturating_add(Weight::from_ref_time(155_494_763).saturating_mul(n.into()))
-            // Standard Error: 2_033_894
-            .saturating_add(Weight::from_ref_time(19_441_746).saturating_mul(o.into()))
+    fn execute_scheduled_instruction(f: u32, n: u32, o: u32, ) -> Weight {
+        // Minimum execution time: 4_865_627 nanoseconds.
+        Weight::from_ref_time(4_868_046_000)
+            // Standard Error: 4_968_761
+            .saturating_add(Weight::from_ref_time(256_500_850).saturating_mul(f.into()))
+            // Standard Error: 479_768
+            .saturating_add(Weight::from_ref_time(132_285_533).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().reads((57_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((12_u64).saturating_mul(n.into())))

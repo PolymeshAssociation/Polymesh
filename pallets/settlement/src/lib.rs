@@ -1887,7 +1887,7 @@ impl<T: Config> Module<T> {
 
     /// Returns the worst case weight for an instruction with `f` fungible legs, `n` nfts being transferred and `o` offchain assets.
     fn execute_scheduled_instruction_weight_limit(f: u32, n: u32, o: u32) -> Weight {
-        <T as Config>::WeightInfo::execute_scheduled_instruction(f, n, o).saturating_mul(2)
+        <T as Config>::WeightInfo::execute_scheduled_instruction(f, n, o)
     }
 
     /// Returns the minimum weight for calling the `execute_scheduled_instruction` function.
