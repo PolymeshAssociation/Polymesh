@@ -1345,7 +1345,7 @@
           },
           {
             "name": "cdd_checker_leeway",
-            "type": "Option<u64>",
+            "type": "u64",
             "isOptional": true
           },
           {
