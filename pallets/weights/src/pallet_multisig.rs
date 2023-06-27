@@ -331,4 +331,29 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(10))
             .saturating_add(DbWeight::get().writes(5))
     }
+    // Storage: Identity CurrentDid (r:1 w:0)
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: MultiSig MultiSigToIdentity (r:1 w:0)
+    // Storage: Identity DidRecords (r:1 w:0)
+    // Storage: MultiSig LostCreatorPrivileges (r:1 w:0)
+    // Storage: MultiSig NumberOfSigners (r:1 w:0)
+    // Storage: Identity CddAuthForPrimaryKeyRotation (r:1 w:0)
+    // Storage: MultiSig MultiSigSignsRequired (r:0 w:1)
+    fn change_sigs_required_via_creator() -> Weight {
+        // Minimum execution time: 71_821 nanoseconds.
+        Weight::from_ref_time(72_137_000)
+            .saturating_add(DbWeight::get().reads(7))
+            .saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: Identity CurrentDid (r:1 w:0)
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: MultiSig MultiSigToIdentity (r:1 w:0)
+    // Storage: Identity DidRecords (r:1 w:0)
+    // Storage: MultiSig LostCreatorPrivileges (r:0 w:1)
+    fn remove_creator_controls() -> Weight {
+        // Minimum execution time: 46_793 nanoseconds.
+        Weight::from_ref_time(47_459_000)
+            .saturating_add(DbWeight::get().reads(4))
+            .saturating_add(DbWeight::get().writes(1))
+    }
 }

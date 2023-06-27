@@ -854,7 +854,7 @@ where
             &fee_key, info, post_info, actual_fee, tip, imbalance,
         )?;
         Module::<T>::deposit_event(Event::<T>::TransactionFeePaid {
-            who,
+            who: fee_key,
             actual_fee,
             tip,
         });

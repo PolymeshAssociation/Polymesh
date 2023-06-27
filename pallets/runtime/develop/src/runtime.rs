@@ -4,10 +4,7 @@ use crate::constants::time::*;
 use codec::Encode;
 use core::convert::TryFrom;
 use frame_support::{
-    construct_runtime,
-    dispatch::DispatchResult,
-    parameter_types,
-    traits::{tokens::imbalance::SplitTwoWays, KeyOwnerProofSystem},
+    construct_runtime, dispatch::DispatchResult, parameter_types, traits::KeyOwnerProofSystem,
     weights::Weight,
 };
 use pallet_asset::checkpoint as pallet_checkpoint;
@@ -23,7 +20,7 @@ use polymesh_runtime_common::{
     impls::Author,
     merge_active_and_inactive,
     runtime::{GovernanceCommittee, BENCHMARK_MAX_INCREASE, VMO},
-    AvailableBlockRatio, MaximumBlockWeight, NegativeImbalance,
+    AvailableBlockRatio, MaximumBlockWeight,
 };
 use sp_runtime::transaction_validity::TransactionPriority;
 use sp_runtime::{
@@ -142,15 +139,8 @@ parameter_types! {
     pub const MaxNumberOfNFTsMoves: u32 = 100;
 }
 
-/// Splits fees 80/20 between treasury and block author.
-pub type DealWithFees = SplitTwoWays<
-    Balance,
-    NegativeImbalance<Runtime>,
-    Treasury,        // 4 parts (80%) goes to the treasury.
-    Author<Runtime>, // 1 part (20%) goes to the block author.
-    4,
-    1,
->;
+/// 100% goes to the block author.
+pub type DealWithFees = Author<Runtime>;
 
 // Staking:
 pallet_staking_reward_curve::build! {
@@ -433,7 +423,7 @@ construct_runtime!(
         Statistics: pallet_statistics::{Pallet, Call, Storage, Event, Config},
         Sto: pallet_sto::{Pallet, Call, Storage, Event<T>},
         Treasury: pallet_treasury::{Pallet, Call, Event<T>},
-        Utility: pallet_utility::{Pallet, Call, Storage, Event},
+        Utility: pallet_utility::{Pallet, Call, Storage, Event<T>},
         Base: pallet_base::{Pallet, Call, Event},
         ExternalAgents: pallet_external_agents::{Pallet, Call, Storage, Event},
         Relayer: pallet_relayer::{Pallet, Call, Storage, Event<T>},

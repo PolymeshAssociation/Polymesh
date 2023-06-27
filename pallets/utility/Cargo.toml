@@ -5,48 +5,43 @@ authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
-# General
-serde = { version = "1.0.101", optional = true }
-
 pallet-balances = { path = "../balances", default-features = false }
 pallet-permissions = { path = "../permissions", default-features = false }
 polymesh-common-utilities = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false }
+scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
-scale-info = { version = "2.0", default-features = false, features = ["derive"] }
 sp-core = { version = "7.0.0", default-features = false }
+sp-io = { version = "7.0.0", default-features = false }
 sp-runtime = { version = "7.0.0", default-features = false }
 sp-std = { version = "5.0.0", default-features = false }
-sp-io = { version = "7.0.0", default-features = false }
-
-# Only for benchmarks
-hex-literal = "0.2.1"
-hex = { version = "0.4.2", optional = true }
-
 
 [features]
 default = ["std"]
-no_std = []
 std = [
-    "serde",
-    "hex/std",
-    "codec/std",
-    "sp-runtime/std",
-    "frame-support/std",
-    "frame-system/std",
-    "sp-io/std",
-    "sp-std/std",
+		"frame-benchmarking?/std",
+		"codec/std",
+		"frame-support/std",
+		"frame-system/std",
+		"scale-info/std",
+		"sp-core/std",
+		"sp-io/std",
+		"sp-runtime/std",
+		"sp-std/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "pallet-balances/std",
 ]
 
 runtime-benchmarks = [
-    "frame-benchmarking",
+		"frame-benchmarking/runtime-benchmarks",
+		"frame-support/runtime-benchmarks",
+		"frame-system/runtime-benchmarks",
     "polymesh-common-utilities/runtime-benchmarks",
 ]
+try-runtime = ["frame-support/try-runtime"]
