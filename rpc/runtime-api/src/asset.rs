@@ -16,8 +16,12 @@
 //! Runtime API definition for Asset module.
 
 use codec::Codec;
-use polymesh_primitives::{Balance, IdentityId, PortfolioId, Ticker};
+use frame_support::dispatch::result::Result;
+use frame_support::pallet_prelude::DispatchError;
 use sp_std::vec::Vec;
+
+use polymesh_primitives::asset::GranularCanTransferResult;
+use polymesh_primitives::{Balance, IdentityId, PortfolioId, Ticker};
 
 /// The maximum number of DIDs allowed in a `balance_at` RPC query.
 pub const MAX_BALANCE_AT_QUERY_SIZE: usize = 100;
@@ -28,46 +32,29 @@ pub type CanTransferResult = Result<u8, Error>;
 sp_api::decl_runtime_apis! {
 
     /// The API to interact with Asset.
-    #[api_version(2)]
+    #[api_version(3)]
     pub trait AssetApi<AccountId>
     where
         AccountId: Codec,
     {
         /// Checks whether a transaction with given parameters can take place or not.
-        ///
-        /// # Example
-        ///
-        /// In this example we are checking if Alice can transfer 500 of ticket 0x01
-        /// from herself (Id=0x2a) to Bob (Id=0x3905)
-        ///
-        /// TODO: update example
+        /// The result is "granular" meaning each check is run and returned regardless of outcome.
         ///
         /// ```ignore
-        ///  curl
-        ///    -H "Content-Type: application/json"
-        ///    -d {
-        ///        "id":1, "jsonrpc":"2.0",
-        ///        "method": "asset_canTransfer",
-        ///        "params":[
-        ///            "5CoRaw9Ex4DUjGcnPbPBnc2nez5ZeTmM5WL3ZDVLZzM6eEgE",
-        ///            "0x010000000000000000000000",
-        ///            "0x2a00000000000000000000000000000000000000000000000000000000000000",
-        ///            "0x3905000000000000000000000000000000000000000000000000000000000000",
-        ///            500]}
-        ///    http://localhost:9933 | python3 -m json.tool
+        /// curl http://localhost:9933 -H "Content-Type: application/json" -d '{
+        ///     "id":1,
+        ///     "jsonrpc":"2.0",
+        ///     "method": "asset_canTransferGranular",
+        ///     "params":[
+        ///       "0x0100000000000000000000000000000000000000000000000000000000000000",
+        ///       { "did": "0x0100000000000000000000000000000000000000000000000000000000000000", "kind": "Default"},
+        ///       "0x0200000000000000000000000000000000000000000000000000000000000000",
+        ///       { "did": "0x0200000000000000000000000000000000000000000000000000000000000000", "kind": "Default"},
+        ///       "0x5449434B4552303030303031",
+        ///        0
+        ///     ]
+        ///   }'
         /// ```
-        fn can_transfer(
-            sender: AccountId,
-            from_custodian: Option<IdentityId>,
-            from_portfolio: PortfolioId,
-            to_custodian: Option<IdentityId>,
-            to_portfolio: PortfolioId,
-            ticker: &Ticker,
-            value: Balance
-        ) -> CanTransferResult;
-
-        /// Checks whether a transaction with given parameters can take place or not.
-        /// The result is "granular" meaning each check is run and returned regardless of outcome.
         fn can_transfer_granular(
             from_custodian: Option<IdentityId>,
             from_portfolio: PortfolioId,
@@ -75,12 +62,18 @@ sp_api::decl_runtime_apis! {
             to_portfolio: PortfolioId,
             ticker: &Ticker,
             value: Balance
-        ) -> polymesh_primitives::asset::GranularCanTransferResult;
+        ) -> Result<GranularCanTransferResult, DispatchError>;
 
-        /// Checks whether a transaction with given parameters can take place or not.
-        /// The result is "granular" meaning each check is run and returned regardless of outcome.
-        ///
-        /// v1 call with older TransferManagers (max investor count, max % ownership).
+        #[changed_in(3)]
+        fn can_transfer_granular(
+            from_custodian: Option<IdentityId>,
+            from_portfolio: PortfolioId,
+            to_custodian: Option<IdentityId>,
+            to_portfolio: PortfolioId,
+            ticker: &Ticker,
+            value: Balance
+        ) -> GranularCanTransferResult;
+
         #[changed_in(2)]
         fn can_transfer_granular(
             from_custodian: Option<IdentityId>,
