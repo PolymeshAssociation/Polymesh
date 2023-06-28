@@ -783,6 +783,7 @@ impl<T: Config> IdentityFnTrait<T::AccountId> for Module<T> {
     }
 }
 
+/// Used by the CDD Providers group
 impl<T: Config> ChangeMembers<IdentityId> for Module<T> {
     /// Updates systematic CDDs of members of a group.
     fn change_members_sorted(
@@ -791,16 +792,17 @@ impl<T: Config> ChangeMembers<IdentityId> for Module<T> {
         _new: &[IdentityId],
     ) {
         // Add/remove Systematic CDD claims for new/removed members.
-        let issuer = SystematicIssuers::Committee;
+        let issuer = SystematicIssuers::CDDProvider;
         Self::add_systematic_cdd_claims(incoming, issuer);
         Self::revoke_systematic_cdd_claims(outgoing, issuer);
     }
 }
 
+/// Used by the CDD Providers group
 impl<T: Config> InitializeMembers<IdentityId> for Module<T> {
     /// Initializes members of a group by adding systematic claims for them.
     fn initialize_members(members: &[IdentityId]) {
-        Self::add_systematic_cdd_claims(members, SystematicIssuers::Committee);
+        Self::add_systematic_cdd_claims(members, SystematicIssuers::CDDProvider);
     }
 }
 
