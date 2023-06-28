@@ -86,9 +86,10 @@ impl<T: Config> CddClaimChecker<T> {
         self.active_cdds.contains(&id_claim.claim_issuer)
     }
 
-    /// Issuer is the SystematicIssuers::CDDProvider.
+    /// Issuer is on of SystematicIssuers::CDDProvider or SystematicIssuers::Committee
     fn is_systematic_cdd_provider(&self, id_claim: &IdentityClaim) -> bool {
         SystematicIssuers::CDDProvider.as_id() == id_claim.claim_issuer
+            || SystematicIssuers::Committee.as_id() == id_claim.claim_issuer
     }
 
     /// Issuer is an inactive CDD provider but claim was updated/created before that it was
