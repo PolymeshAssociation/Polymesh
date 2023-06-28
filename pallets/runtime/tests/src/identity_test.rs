@@ -71,7 +71,7 @@ const MAX_PORTFOLIOS: u64 = 2000;
 /// Utility function to fetch *only* systematic CDD claims.
 ///
 /// We have 2 systematic CDD claims issuers:
-/// * Governance Committee group.
+/// * Committee group (used for upgrade, technical & GC members)
 /// * CDD providers group.
 fn fetch_systematic_claim(target: IdentityId) -> Option<IdentityClaim> {
     fetch_systematic_gc(target).or_else(|| fetch_systematic_cdd(target))
@@ -1844,10 +1844,12 @@ fn gc_and_cdd_with_systematic_cdd_claims_we() {
     // 2. Remove Alice from CDD providers.
     assert_ok!(CddServiceProviders::remove_member(root.clone(), alice_id));
     assert_eq!(fetch_systematic_gc(alice_id).is_some(), true);
+    assert_eq!(fetch_systematic_cdd(alice_id).is_none(), true);
 
     // 3. Remove Alice from GC.
     assert_ok!(GovernanceCommittee::remove_member(root, alice_id));
     assert_eq!(fetch_systematic_gc(alice_id).is_none(), true);
+    assert_eq!(fetch_systematic_cdd(alice_id).is_none(), true);
 }
 
 #[test]

@@ -44,8 +44,8 @@ use sp_runtime::{DispatchError, DispatchResult};
 /// These identities are associated with a primary key derived from their name, and for which there is
 /// no possible known private key.
 /// Some of these identities are considered CDD providers:
-/// - Committee: Issues CDD claims to members of committees (i.e. technical, GC, cdd providers) and is used for GC initiated CDD claims.
-/// - CDDProvider: Issues CDD claims to other identities that need to transact POLYX (treasury, brr, rewards)
+/// - Committee: Issues CDD claims to members of committees (i.e. technical, GC) and is used for GC initiated CDD claims.
+/// - CDDProvider: Issues CDD claims to other identities that need to transact POLYX (treasury, brr, rewards) as well as CDD Providers themselves
 /// Committee members have a systematic CDD claim to ensure they can operate independently of permissioned CDD providers if needed.
 /// CDD Providers have a systematic CDD claim to avoid a circular root of trust
 #[derive(Debug, Clone, Copy)]
