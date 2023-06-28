@@ -143,10 +143,6 @@ decl_error! {
         Unauthorized,
         /// Instruction has not been affirmed.
         InstructionNotAffirmed,
-        /// Provided instruction is not pending execution.
-        InstructionNotPending,
-        /// Provided instruction is not failing execution.
-        InstructionNotFailed,
         /// Signer is not authorized by the venue.
         UnauthorizedSigner,
         /// Receipt already used.
@@ -215,6 +211,10 @@ decl_error! {
         InputWeightIsLessThanMinimum,
         /// The maximum number of receipts was exceeded.
         MaxNumberOfReceiptsExceeded,
+        /// There are parties who have not affirmed the instruction.
+        NotAllAffirmationsHaveBeenReceived,
+        /// Only [`InstructionStatus::Pending`] or [`InstructionStatus::Failed`] instructions can be executed.
+        InvalidInstructionStatusForExecution,
     }
 }
 
@@ -483,38 +483,9 @@ decl_module! {
             Ok(Self::base_execute_scheduled_instruction(id, &mut weight_meter))
         }
 
-        /// Reschedules a failed instruction.
-        ///
-        /// # Arguments
-        /// * `id` - Target instruction id to reschedule.
-        ///
-        /// # Permissions
-        /// * Portfolio
-        ///
-        /// # Errors
-        /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
-        #[weight = <T as Config>::WeightInfo::reschedule_instruction()]
-        pub fn reschedule_instruction(origin, id: InstructionId) {
-            let did = Identity::<T>::ensure_perms(origin)?;
-
-            <InstructionStatuses<T>>::try_mutate(id, |status| {
-                ensure!(*status == InstructionStatus::Failed, Error::<T>::InstructionNotFailed);
-                *status = InstructionStatus::Pending;
-                Result::<_, Error<T>>::Ok(())
-            })?;
-
-            // Schedule instruction to be executed in the next block.
-            let execution_at = System::<T>::block_number() + One::one();
-            let instruction_legs: Vec<(LegId, Leg)> = InstructionLegs::iter_prefix(&id).collect();
-            let instruction_asset_count = AssetCount::from_legs(&instruction_legs);
-            let weight_limit = Self::execute_scheduled_instruction_weight_limit(
-                instruction_asset_count.non_fungible(),
-                instruction_asset_count.fungible(),
-                instruction_asset_count.off_chain()
-            );
-            Self::schedule_instruction(id, execution_at, weight_limit);
-            Self::deposit_event(RawEvent::InstructionRescheduled(did, id));
-        }
+        /// Placeholder for removed `reschedule_instruction`
+        #[weight = 1_000]
+        pub fn placeholder_reschedule_instruction(_origin) {}
 
         /// Edit a venue's signers.
         /// * `id` specifies the ID of the venue to edit.
@@ -540,9 +511,6 @@ decl_module! {
         /// # Arguments
         /// * `id` - Target instruction id to reschedule.
         /// * `_legs_count` - Legs included in this instruction.
-        ///
-        /// # Errors
-        /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
         #[weight = <T as Config>::WeightInfo::execute_manual_weight_limit(weight_limit, fungible_transfers, nfts_transfers, offchain_transfers)]
         pub fn execute_manual_instruction(
             origin,
@@ -1028,13 +996,15 @@ impl<T: Config> Module<T> {
         // Verifies that there are no pending affirmations for the given instruction
         ensure!(
             Self::instruction_affirms_pending(instruction_id) == 0,
-            Error::<T>::InstructionFailed
+            Error::<T>::NotAllAffirmationsHaveBeenReceived
         );
 
-        // Verifies that the instruction is not in a Failed or in an Unknown state
+        // Ensures the instruction is pending or has failed at least one time
+        let instruction_status = Self::instruction_status(instruction_id);
         ensure!(
-            Self::instruction_status(instruction_id) == InstructionStatus::Pending,
-            Error::<T>::InstructionNotPending
+            instruction_status == InstructionStatus::Pending
+                || instruction_status == InstructionStatus::Failed,
+            Error::<T>::InvalidInstructionStatusForExecution
         );
 
         let venue_id = Self::instruction_details(instruction_id).venue_id;
@@ -1791,11 +1761,10 @@ impl<T: Config> Module<T> {
         let (caller_did, sk, instruction_details) =
             Self::ensure_origin_perm_and_instruction_validity(origin, id, true)?;
 
-        // Check for portfolio
         let instruction_legs: Vec<(LegId, Leg)> = InstructionLegs::iter_prefix(&id).collect();
         match portfolio {
             Some(portfolio) => {
-                // Ensure that the caller is a party of this instruction.
+                // Ensure that the caller is a party of this instruction
                 T::Portfolio::ensure_portfolio_custody_and_permission(
                     portfolio,
                     caller_did,
@@ -1809,7 +1778,7 @@ impl<T: Config> Module<T> {
                 );
             }
             None => {
-                // Ensure venue exists & sender is its creator.
+                // Ensure the venue exists and the is caller is its creator
                 Self::venue_for_management(instruction_details.venue_id, caller_did)?;
             }
         }
@@ -1817,10 +1786,9 @@ impl<T: Config> Module<T> {
         let instruction_asset_count = AssetCount::from_legs(&instruction_legs);
         Self::ensure_valid_input_cost(&instruction_asset_count, input_cost)?;
 
-        // Executes the instruction
         Self::execute_instruction_retryable(id, caller_did, weight_meter)?;
-
         Self::deposit_event(RawEvent::SettlementManuallyExecuted(caller_did, id));
+
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
 

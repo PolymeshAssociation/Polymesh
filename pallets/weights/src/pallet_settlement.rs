@@ -188,17 +188,6 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Storage: Settlement InstructionStatuses (r:1 w:1)
-    // Storage: Settlement InstructionLegs (r:121 w:0)
-    // Storage: Scheduler Lookup (r:1 w:1)
-    // Storage: Scheduler Agenda (r:1 w:1)
-    fn reschedule_instruction() -> Weight {
-        // Minimum execution time: 1_122_975 nanoseconds.
-        Weight::from_ref_time(1_151_800_000)
-            .saturating_add(DbWeight::get().reads(125))
-            .saturating_add(DbWeight::get().writes(3))
-    }
-    // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Settlement InstructionDetails (r:1 w:1)
     // Storage: Settlement InstructionStatuses (r:1 w:1)
     // Storage: Settlement InstructionLegsV2 (r:112 w:111)
@@ -288,7 +277,6 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
     }
-
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Settlement VenueInfo (r:1 w:0)
     // Storage: Asset Tokens (r:111 w:0)
@@ -332,7 +320,6 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((6_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
     }
-
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Settlement InstructionDetails (r:1 w:0)
     // Storage: Settlement InstructionStatuses (r:1 w:0)
@@ -363,7 +350,6 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((4_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((4_u64).saturating_mul(n.into())))
     }
-
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Settlement InstructionDetails (r:1 w:0)
     // Storage: Settlement InstructionStatuses (r:1 w:0)
@@ -397,7 +383,6 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((4_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((4_u64).saturating_mul(o.into())))
     }
-
     // Storage: Settlement InstructionStatuses (r:1 w:1)
     // Storage: Settlement InstructionLegsV2 (r:112 w:111)
     // Storage: Identity KeyRecords (r:1 w:0)

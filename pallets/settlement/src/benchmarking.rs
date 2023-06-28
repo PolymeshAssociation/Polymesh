@@ -461,36 +461,6 @@ benchmarks! {
         assert!(Module::<T>::receipts_used(&signer.account(), 0), "Settlement: change_receipt_validity didn't work");
     }
 
-    reschedule_instruction {
-        // Number of legs in the instruction
-        let l = T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get() + T::MaxNumberOfOffChainAssets::get();
-
-        let max_nonfungible = T::MaxNumberOfNFTs::get();
-        let max_fungible = T::MaxNumberOfFungibleAssets::get();
-        let max_offchain = T::MaxNumberOfOffChainAssets::get();
-
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let settlement_type = SettlementType::SettleOnAffirmation;
-        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
-
-        setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, max_fungible, max_nonfungible, max_offchain, false, false);
-        InstructionStatuses::<T>::insert(InstructionId(1), InstructionStatus::Failed);
-        advance_one_block::<T>();
-    }: _(alice.origin, InstructionId(1))
-    verify {
-        assert_eq!(
-            InstructionStatuses::<T>::get(InstructionId(1)),
-            InstructionStatus::Pending
-        );
-        advance_one_block::<T>();
-        assert_eq!(
-            InstructionStatuses::<T>::get(InstructionId(1)),
-            InstructionStatus::Success(frame_system::Pallet::<T>::block_number())
-        );
-
-    }
-
     execute_manual_instruction {
         // Number of fungible, non-fungible and offchain assets in the instruction
         let f in 1..T::MaxNumberOfFungibleAssets::get();
