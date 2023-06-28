@@ -15,20 +15,18 @@
 
 use std::sync::Arc;
 
-use crate::Error;
-use jsonrpsee::{
-    core::RpcResult,
-    proc_macros::rpc,
-    types::error::{CallError, ErrorObject},
-};
-
 use frame_support::dispatch::DispatchResult;
+use jsonrpsee::core::RpcResult;
+use jsonrpsee::proc_macros::rpc;
+use jsonrpsee::types::error::{CallError, ErrorObject};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 
 pub use node_rpc_runtime_api::nft::NFTApi as NFTRuntimeApi;
 use polymesh_primitives::{NFTs, PortfolioId};
+
+use crate::Error;
 
 #[rpc(client, server)]
 pub trait NFTApi<BlockHash> {

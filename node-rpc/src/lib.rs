@@ -114,7 +114,6 @@ where
     C::Api: pallet_protocol_fee_rpc::ProtocolFeeRuntimeApi<Block>,
     C::Api: node_rpc::asset::AssetRuntimeApi<Block, AccountId>,
     C::Api: pallet_group_rpc::GroupRuntimeApi<Block>,
-    C::Api: node_rpc::compliance_manager::ComplianceManagerRuntimeApi<Block, AccountId>,
     C::Api: BabeApi<Block>,
     C::Api: BlockBuilder<Block>,
     C::Api: node_rpc::nft::NFTRuntimeApi<Block>,
@@ -124,7 +123,6 @@ where
     B: sc_client_api::Backend<Block> + Send + Sync + 'static,
     B::State: sc_client_api::backend::StateBackend<sp_runtime::traits::HashFor<Block>>,
 {
-    use node_rpc::compliance_manager::{ComplianceManager, ComplianceManagerApiServer};
     use node_rpc::{
         asset::{Asset, AssetApiServer},
         identity::{Identity, IdentityApiServer},
@@ -223,7 +221,6 @@ where
     io.merge(ProtocolFee::new(client.clone()).into_rpc())?;
     io.merge(Asset::new(client.clone()).into_rpc())?;
     io.merge(Group::from(client.clone()).into_rpc())?;
-    io.merge(ComplianceManager::new(client.clone()).into_rpc())?;
     io.merge(NFT::new(client.clone()).into_rpc())?;
     io.merge(Settlement::new(client).into_rpc())?;
 
