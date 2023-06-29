@@ -195,8 +195,6 @@ decl_error! {
         MaxNumberOfOffChainAssetsExceeded,
         /// The given number of fungible transfers was underestimated.
         NumberOfFungibleTransfersUnderestimated,
-        /// Ticker exists in the polymesh chain.
-        UnexpectedOnChainAsset,
         /// Ticker could not be found on chain.
         UnexpectedOFFChainAsset,
         /// Off-Chain assets cannot be locked.
@@ -464,18 +462,6 @@ decl_module! {
             Self::deposit_event(RawEvent::VenuesBlocked(did, ticker, venues));
         }
 
-        /// Marks a receipt issued by the caller as claimed or not claimed.
-        /// This allows the receipt issuer to invalidate an already issued receipt or revalidate an already claimed receipt.
-        ///
-        /// * `receipt_uid` - Unique ID of the receipt.
-        /// * `validity` - New validity of the receipt.
-        #[weight = <T as Config>::WeightInfo::change_receipt_validity()]
-        pub fn change_receipt_validity(origin, receipt_uid: u64, validity: bool) {
-            let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
-            <ReceiptsUsed<T>>::insert(&origin_data.sender, receipt_uid, !validity);
-            Self::deposit_event(RawEvent::ReceiptValidityChanged(origin_data.primary_did, origin_data.sender, receipt_uid, validity));
-        }
-
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
         #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*legs_count, 0, 0)]
         fn execute_scheduled_instruction(origin, id: InstructionId, legs_count: u32) -> DispatchResultWithPostInfo {
@@ -540,14 +526,19 @@ decl_module! {
        #[weight = 1_000]
         pub fn placeholder_add_and_affirm_instruction_with_memo(_origin)  {}
 
-        /// Manually execute settlement
+        /// Manually executes an instruction.
         ///
         /// # Arguments
-        /// * `id` - Target instruction id to reschedule.
-        /// * `_legs_count` - Legs included in this instruction.
+        /// * `id`: The [`InstructionId`] of the instruction to be executed.
+        /// * `portfolio`:  One of the caller's [`PortfolioId`] which is also a counter patry in the instruction.
+        /// If None, the caller must be the venue creator.
+        /// * `fungible_transfers`: The number of fungible legs in the instruction.
+        /// * `nfts_transfers`: The number of nfts being transferred in the instruction.
+        /// * `offchain_transfers`: The number of offchain legs in the instruction.
+        /// * `weight_limit`: An optional maximum [`Weight`] value to be charged for executing the instruction.
+        /// If the `weight_limit` is less than the required amount, the instruction will fail execution.
         ///
-        /// # Errors
-        /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
+        /// Note: calling the rpc method `get_execute_instruction_info` returns an instance of [`ExecuteInstructionInfo`], which contains the count parameters.
         #[weight = <T as Config>::WeightInfo::execute_manual_weight_limit(weight_limit, fungible_transfers, nfts_transfers, offchain_transfers)]
         pub fn execute_manual_instruction(
             origin,
@@ -736,12 +727,14 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
-    #[rustfmt::skip]
     fn lock_via_leg(leg: &Leg) -> DispatchResult {
         match leg {
-            Leg::Fungible { sender, ticker, amount, .. } => {
-                T::Portfolio::lock_tokens(&sender, &ticker, *amount)
-            },
+            Leg::Fungible {
+                sender,
+                ticker,
+                amount,
+                ..
+            } => T::Portfolio::lock_tokens(&sender, &ticker, *amount),
             Leg::NonFungible { sender, nfts, .. } => with_transaction(|| {
                 for nft_id in nfts.ids() {
                     T::Portfolio::lock_nft(&sender, nfts.ticker(), &nft_id)?;
@@ -752,12 +745,14 @@ impl<T: Config> Module<T> {
         }
     }
 
-    #[rustfmt::skip]
     fn unlock_via_leg(leg: &Leg) -> DispatchResult {
         match leg {
-            Leg::Fungible { sender, ticker, amount, .. } => {
-                T::Portfolio::unlock_tokens(&sender, &ticker, *amount)
-            },
+            Leg::Fungible {
+                sender,
+                ticker,
+                amount,
+                ..
+            } => T::Portfolio::unlock_tokens(&sender, &ticker, *amount),
             Leg::NonFungible { sender, nfts, .. } => with_transaction(|| {
                 for nft_id in nfts.ids() {
                     T::Portfolio::unlock_nft(&sender, nfts.ticker(), &nft_id)?;
@@ -887,7 +882,6 @@ impl<T: Config> Module<T> {
 
     /// Returns [`InstructionInfo`] if all legs are valid, otherwise returns an error.
     /// See also: [`Module::ensure_valid_fungible_leg`], [`Module::ensure_valid_nft_leg`] and [`Module::ensure_valid_off_chain_leg`].
-    #[rustfmt::skip]
     fn ensure_valid_legs(
         legs: &[Leg],
         venue_id: &VenueId,
@@ -906,7 +900,12 @@ impl<T: Config> Module<T> {
             let ticker =
                 Self::ensure_valid_leg(leg, venue_id, &mut tickers, &mut instruction_asset_count)?;
             match leg {
-                Leg::Fungible { sender, receiver, .. } | Leg::NonFungible { sender, receiver, .. } => {
+                Leg::Fungible {
+                    sender, receiver, ..
+                }
+                | Leg::NonFungible {
+                    sender, receiver, ..
+                } => {
                     portfolios_pending_approval.insert(*sender);
                     if T::Portfolio::skip_portfolio_affirmation(receiver, &ticker) {
                         portfolios_pre_approved.insert(*receiver);
@@ -1084,8 +1083,6 @@ impl<T: Config> Module<T> {
                 leg_id,
             ));
             Self::deposit_event(RawEvent::InstructionFailed(caller_did, instruction_id));
-            // Unclaim receipts for the failed transaction so that they can be reused
-            Self::unsafe_unclaim_receipts(instruction_id, &instruction_legs);
             return Err(Error::<T>::InstructionFailed.into());
         }
 
@@ -1093,7 +1090,6 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    #[rustfmt::skip]
     fn release_asset_locks_and_transfer_pending_legs(
         instruction_id: InstructionId,
         instruction_legs: &[(LegId, Leg)],
@@ -1105,7 +1101,12 @@ impl<T: Config> Module<T> {
         for (leg_id, leg) in instruction_legs {
             if Self::instruction_leg_status(instruction_id, leg_id) == LegStatus::ExecutionPending {
                 match leg {
-                    Leg::Fungible { sender, receiver, ticker, amount } => {
+                    Leg::Fungible {
+                        sender,
+                        receiver,
+                        ticker,
+                        amount,
+                    } => {
                         if <Asset<T>>::base_transfer(
                             *sender,
                             *receiver,
@@ -1121,7 +1122,11 @@ impl<T: Config> Module<T> {
                             return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
                         }
                     }
-                    Leg::NonFungible { sender, receiver, nfts } => {
+                    Leg::NonFungible {
+                        sender,
+                        receiver,
+                        nfts,
+                    } => {
                         if <Nft<T>>::base_nft_transfer(
                             *sender,
                             *receiver,
@@ -1143,7 +1148,6 @@ impl<T: Config> Module<T> {
         TransactionOutcome::Commit(Ok(Ok(())))
     }
 
-    #[rustfmt::skip]
     fn prune_instruction(id: InstructionId, executed: bool) {
         let drained_legs: Vec<(LegId, Leg)> = InstructionLegs::drain_prefix(&id).collect();
         let details = <InstructionDetails<T>>::take(id);
@@ -1170,7 +1174,12 @@ impl<T: Config> Module<T> {
 
         for (_, leg) in drained_legs {
             match leg {
-                Leg::Fungible { sender, receiver, .. } | Leg::NonFungible { sender, receiver, .. } => {
+                Leg::Fungible {
+                    sender, receiver, ..
+                }
+                | Leg::NonFungible {
+                    sender, receiver, ..
+                } => {
                     UserAffirmations::remove(sender, id);
                     UserAffirmations::remove(receiver, id);
                 }
@@ -1213,26 +1222,6 @@ impl<T: Config> Module<T> {
             affirms_pending.saturating_sub(u64::try_from(portfolios.len()).unwrap_or_default()),
         );
         Ok(filtered_legs)
-    }
-
-    // Unclaims all receipts for an instruction
-    // Should only be used if user is unclaiming, or instruction has failed
-    fn unsafe_unclaim_receipts(id: InstructionId, legs: &[(LegId, Leg)]) {
-        for (leg_id, _) in legs {
-            match Self::instruction_leg_status(id, leg_id) {
-                LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
-                    <ReceiptsUsed<T>>::insert(&signer, receipt_uid, false);
-                    Self::deposit_event(RawEvent::ReceiptUnclaimed(
-                        SettlementDID.as_id(),
-                        id,
-                        *leg_id,
-                        receipt_uid,
-                        signer,
-                    ));
-                }
-                LegStatus::PendingTokenLock | LegStatus::ExecutionPending => {}
-            }
-        }
     }
 
     fn unchecked_release_locks(id: InstructionId, instruction_legs: &[(LegId, Leg)]) {
@@ -1559,7 +1548,6 @@ impl<T: Config> Module<T> {
             origin_data.secondary_key.as_ref(),
         )?;
 
-        Self::unsafe_unclaim_receipts(id, &legs);
         Self::unchecked_release_locks(id, &legs);
         let _ = T::Scheduler::cancel_named(id.execution_name());
         Self::prune_instruction(id, false);
@@ -1633,7 +1621,6 @@ impl<T: Config> Module<T> {
 
     /// Returns [`Ticker`] if the leg is valid, otherwise returns an error.
     /// See also: [`Module::ensure_valid_fungible_leg`], [`Module::ensure_valid_nft_leg`] and [`Module::ensure_valid_off_chain_leg`].
-    #[rustfmt::skip]
     fn ensure_valid_leg(
         leg: &Leg,
         venue_id: &VenueId,
@@ -1641,7 +1628,12 @@ impl<T: Config> Module<T> {
         instruction_asset_count: &mut AssetCount,
     ) -> Result<Ticker, DispatchError> {
         match leg {
-            Leg::Fungible { sender, receiver, ticker, amount } => {
+            Leg::Fungible {
+                sender,
+                receiver,
+                ticker,
+                amount,
+            } => {
                 ensure!(sender != receiver, Error::<T>::SameSenderReceiver);
                 Self::ensure_valid_fungible_leg(tickers, *ticker, *amount, venue_id)?;
                 instruction_asset_count
@@ -1649,7 +1641,11 @@ impl<T: Config> Module<T> {
                     .map_err(|_| Error::<T>::MaxNumberOfFungibleAssetsExceeded)?;
                 Ok(*ticker)
             }
-            Leg::NonFungible { sender, receiver, nfts } => {
+            Leg::NonFungible {
+                sender,
+                receiver,
+                nfts,
+            } => {
                 ensure!(sender != receiver, Error::<T>::SameSenderReceiver);
                 Self::ensure_valid_nft_leg(tickers, &nfts, venue_id)?;
                 instruction_asset_count
@@ -1657,7 +1653,12 @@ impl<T: Config> Module<T> {
                     .map_err(|_| Error::<T>::MaxNumberOfNFTsExceeded)?;
                 Ok(*nfts.ticker())
             }
-            Leg::OffChain { sender_identity, receiver_identity, ticker, amount } => {
+            Leg::OffChain {
+                sender_identity,
+                receiver_identity,
+                ticker,
+                amount,
+            } => {
                 ensure!(
                     sender_identity != receiver_identity,
                     Error::<T>::SameSenderReceiver
@@ -1715,10 +1716,6 @@ impl<T: Config> Module<T> {
         venue_id: &VenueId,
     ) -> DispatchResult {
         ensure!(amount > 0, Error::<T>::ZeroAmount);
-        ensure!(
-            !Self::is_on_chain_asset(&ticker),
-            Error::<T>::UnexpectedOnChainAsset
-        );
         Self::ensure_venue_filtering(tickers, ticker, venue_id)?;
         Ok(())
     }
@@ -1797,13 +1794,17 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns `true` if the given `portfolio_id` is a party in the given `instruction_set`, otherwise returns `false`.
-    #[rustfmt::skip]
     fn is_portfolio_present(instruction_set: &[(LegId, Leg)], portfolio_id: &PortfolioId) -> bool {
         for (_, leg) in instruction_set {
             match leg {
-                Leg::Fungible{ sender, receiver, .. } | Leg::NonFungible { sender, receiver, .. } => {
+                Leg::Fungible {
+                    sender, receiver, ..
+                }
+                | Leg::NonFungible {
+                    sender, receiver, ..
+                } => {
                     if sender == portfolio_id || receiver == portfolio_id {
-                        return true
+                        return true;
                     }
                 }
                 Leg::OffChain { .. } => continue,
@@ -1815,7 +1816,6 @@ impl<T: Config> Module<T> {
     /// Ensures the all receipts are valid. A receipt is considered valid if the signer is allowed by the venue,
     /// if the receipt has not been used before, if the receipt's `leg_id` and `instruction_id` are referencing the
     /// correct instruction/leg and if its signature is valid.
-    #[rustfmt::skip]
     fn ensure_valid_receipts_details(
         venue_id: VenueId,
         instruction_id: &InstructionId,
@@ -1849,7 +1849,12 @@ impl<T: Config> Module<T> {
             let leg = InstructionLegs::get(&instruction_id, &receipt_details.leg_id())
                 .ok_or(Error::<T>::LegNotFound)?;
             match leg {
-                Leg::OffChain { sender_identity, receiver_identity, ticker, amount } => {
+                Leg::OffChain {
+                    sender_identity,
+                    receiver_identity,
+                    ticker,
+                    amount,
+                } => {
                     let receipt = Receipt::new(
                         receipt_details.uid(),
                         sender_identity,
@@ -1940,9 +1945,7 @@ impl<T: Config> Module<T> {
         )
     }
 
-    /// Returns an instance of `ExecuteInstructionInfo`, which contains the number of fungible and non fungible assets
-    /// in the instruction, and the weight consumed for executing the instruction. If the instruction would fail its
-    /// execution, it also contains the error.
+    /// Returns an instance of [`ExecuteInstructionInfo`].
     pub fn execute_instruction_info(instruction_id: &InstructionId) -> ExecuteInstructionInfo {
         let caller_did = Identity::<T>::current_identity().unwrap_or(SettlementDID.as_id());
         let instruction_legs: Vec<(LegId, Leg)> =

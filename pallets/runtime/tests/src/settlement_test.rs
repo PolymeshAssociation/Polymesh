@@ -2887,9 +2887,8 @@ fn add_instruction_unexpected_offchain_asset() {
     });
 }
 
-/// An instruction must reject off-chain legs for ticker that exists on chain.
 #[test]
-fn add_instruction_unexpected_onchain_asset() {
+fn add_instruction_offchain_leg() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
@@ -2901,18 +2900,15 @@ fn add_instruction_unexpected_onchain_asset() {
             ticker: TICKER,
             amount: 1,
         }];
-        assert_noop!(
-            Settlement::add_instruction(
-                alice.origin(),
-                venue_counter,
-                SettlementType::SettleOnAffirmation,
-                None,
-                None,
-                legs,
-                Some(Memo::default()),
-            ),
-            Error::UnexpectedOnChainAsset
-        );
+        assert_ok!(Settlement::add_instruction(
+            alice.origin(),
+            venue_counter,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs,
+            Some(Memo::default()),
+        ),);
     });
 }
 
