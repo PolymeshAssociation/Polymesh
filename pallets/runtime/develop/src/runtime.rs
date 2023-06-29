@@ -293,6 +293,11 @@ impl pallet_test_utils::Config for Runtime {
     type WeightInfo = polymesh_weights::pallet_test_utils::SubstrateWeight;
 }
 
+impl pallet_sudo::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+}
+
 /// NB It is needed by benchmarks, in order to use `UserBuilder`.
 impl TestUtilsFn<AccountId> for Runtime {
     fn register_did(
