@@ -1,20 +1,19 @@
-use crate::Moment;
 use chrono::{Datelike, NaiveDate, NaiveDateTime};
 use codec::{Decode, Encode};
 use core::num::NonZeroU64;
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 use sp_std::convert::TryFrom;
 
+use crate::impl_checked_inc;
+use crate::Moment;
+
 /// A per-ticker checkpoint ID.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct CheckpointId(pub u64);
+impl_checked_inc!(CheckpointId);
 
 /// Calendar units for timing recurring operations.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CalendarUnit {
     /// A unit of one second.
@@ -88,7 +87,6 @@ pub enum FixedOrVariableCalendarUnit {
 }
 
 /// A simple period which is a multiple of a `CalendarUnit`.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct CalendarPeriod {
     /// The base calendar unit.
@@ -148,7 +146,6 @@ impl RecurringPeriod {
 /// The schedule of an asset checkpoint containing the start time `start` and the optional period
 /// `period` - defined with a non-0 multiplier - in case the checkpoint is to recur after `start` at
 /// regular intervals.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct CheckpointSchedule {
     /// Unix time in seconds.

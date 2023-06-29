@@ -105,11 +105,10 @@ impl pallet_asset::checkpoint::WeightInfo for SubstrateWeight {
     // Storage: Checkpoint Schedules (r:1 w:1)
     // Storage: Checkpoint ScheduleRefCount (r:1 w:1)
     /// The range of component `s` is `[1, 52]`.
-    fn remove_schedule(s: u32) -> Weight {
+    fn remove_schedule() -> Weight {
         // Minimum execution time: 47_819 nanoseconds.
         Weight::from_ref_time(50_762_879)
             // Standard Error: 14_306
-            .saturating_add(Weight::from_ref_time(198_098).saturating_mul(s.into()))
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(2))
     }
