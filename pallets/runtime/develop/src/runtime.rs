@@ -13,8 +13,7 @@ use pallet_corporate_actions::distribution as pallet_capital_distribution;
 use pallet_session::historical as pallet_session_historical;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use polymesh_common_utilities::{
-    compliance_manager::ComplianceFnConfig, constants::currency::*, constants::ENSURED_MAX_LEN,
-    protocol_fee::ProtocolOp, TestUtilsFn,
+    constants::currency::*, constants::ENSURED_MAX_LEN, protocol_fee::ProtocolOp, TestUtilsFn,
 };
 use polymesh_primitives::{AccountId, Balance, BlockNumber, InvestorUid, Moment};
 use polymesh_runtime_common::{
@@ -292,6 +291,11 @@ impl pallet_group::Config<pallet_group::Instance2> for Runtime {
 impl pallet_test_utils::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = polymesh_weights::pallet_test_utils::SubstrateWeight;
+}
+
+impl pallet_sudo::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
 }
 
 /// NB It is needed by benchmarks, in order to use `UserBuilder`.

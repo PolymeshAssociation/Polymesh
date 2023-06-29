@@ -31,7 +31,6 @@ use polymesh_common_utilities::{
     constants::currency::{DOLLARS, POLY},
     protocol_fee::ProtocolOp,
     traits::{
-        compliance_manager::ComplianceFnConfig,
         group::GroupTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     },
@@ -718,6 +717,11 @@ impl pips::Config for TestStorage {
 impl pallet_test_utils::Config for TestStorage {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = polymesh_weights::pallet_test_utils::SubstrateWeight;
+}
+
+impl pallet_sudo::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
 }
 
 polymesh_runtime_common::misc_pallet_impls!();

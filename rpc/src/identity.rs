@@ -1,22 +1,20 @@
-pub use pallet_identity::types::{
-    AssetDidResult, CddStatus, DidStatus, KeyIdentityData, RpcDidRecords,
-};
-use polymesh_primitives::{Authorization, AuthorizationType, Signatory};
-
-pub use node_rpc_runtime_api::identity::IdentityApi as IdentityRuntimeApi;
-
 use std::{convert::TryInto, sync::Arc};
 
-use super::Error;
 use codec::Codec;
-use jsonrpsee::{
-    core::RpcResult,
-    proc_macros::rpc,
-    types::error::{CallError, ErrorCode, ErrorObject},
-};
+use jsonrpsee::core::RpcResult;
+use jsonrpsee::proc_macros::rpc;
+use jsonrpsee::types::error::{CallError, ErrorCode, ErrorObject};
 use sp_api::{ApiExt, ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::{Block as BlockT, Zero};
+
+pub use node_rpc_runtime_api::identity::IdentityApi as IdentityRuntimeApi;
+pub use pallet_identity::types::{
+    AssetDidResult, CddStatus, DidStatus, KeyIdentityData, RpcDidRecords,
+};
+use polymesh_primitives::{Authorization, AuthorizationType, IdentityClaim, Signatory};
+
+use super::Error;
 
 const MAX_IDENTITIES_ALLOWED_TO_QUERY: u32 = 500;
 
@@ -74,6 +72,15 @@ pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, Moment> {
         acc: AccountId,
         at: Option<BlockHash>,
     ) -> RpcResult<Option<KeyIdentityData<IdentityId>>>;
+
+    /// Returns all valid [`IdentityClaim`] of type `CustomerDueDiligence` for the given `target_identity`.
+    #[method(name = "identity_validCDDClaims")]
+    fn valid_cdd_claims(
+        &self,
+        target_identity: IdentityId,
+        cdd_checker_leeway: Option<u64>,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<IdentityClaim>>;
 }
 
 /// A struct that implements the [`IdentityApi`].
@@ -111,9 +118,8 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<CddStatus> {
         let api = self.client.runtime_api();
-        let at_hash = at.unwrap_or_else(||
-            // If the block hash is not supplied assume the best block.
-            self.client.info().best_hash);
+        // If the block hash is not supplied assume the best block.
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
         api.is_identity_has_valid_cdd(at_hash, did, buffer_time)
             .map_err(|e| {
                 CallError::Custom(ErrorObject::owned(
@@ -131,9 +137,8 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<AssetDidResult> {
         let api = self.client.runtime_api();
-        let at_hash = at.unwrap_or_else(||
-            // If the block hash is not supplied assume the best block.
-            self.client.info().best_hash);
+        // If the block hash is not supplied assume the best block.
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
         api.get_asset_did(at_hash, ticker).map_err(|e| {
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
@@ -251,5 +256,26 @@ where
             },
             "Unable to query `get_key_identity_data`."
         )
+    }
+
+    fn valid_cdd_claims(
+        &self,
+        target_identity: IdentityId,
+        cdd_checker_leeway: Option<u64>,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<IdentityClaim>> {
+        let api = self.client.runtime_api();
+        // If the block hash is not supplied assume the best block.
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.valid_cdd_claims(at_hash, target_identity, cdd_checker_leeway)
+            .map_err(|e| {
+                CallError::Custom(ErrorObject::owned(
+                    Error::RuntimeError.into(),
+                    "Unable to call valid_cdd_claims runtime",
+                    Some(e.to_string()),
+                ))
+                .into()
+            })
     }
 }

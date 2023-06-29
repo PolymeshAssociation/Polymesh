@@ -16,8 +16,7 @@ use pallet_corporate_actions::distribution as pallet_capital_distribution;
 use pallet_session::historical as pallet_session_historical;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use polymesh_common_utilities::{
-    compliance_manager::ComplianceFnConfig, constants::currency::*, constants::ENSURED_MAX_LEN,
-    protocol_fee::ProtocolOp,
+    constants::currency::*, constants::ENSURED_MAX_LEN, protocol_fee::ProtocolOp,
 };
 use polymesh_primitives::{Balance, BlockNumber, Moment};
 use polymesh_runtime_common::{
@@ -358,10 +357,10 @@ construct_runtime!(
         RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip::{Pallet, Storage},
 
         // Sudo. Usable initially.
-        Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>},
+        // Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>},
 
         // Asset: Genesis config deps: Timestamp,
-        Asset: pallet_asset::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Asset: pallet_asset::{Pallet, Call, Storage, Config<T>, Event<T>} = 26,
         CapitalDistribution: pallet_capital_distribution::{Pallet, Call, Storage, Event},
         Checkpoint: pallet_checkpoint::{Pallet, Call, Storage, Event, Config},
         ComplianceManager: pallet_compliance_manager::{Pallet, Call, Storage, Event},

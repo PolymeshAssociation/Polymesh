@@ -16,21 +16,17 @@
 use std::sync::Arc;
 
 use codec::Codec;
-use jsonrpsee::{
-    core::RpcResult,
-    proc_macros::rpc,
-    types::error::{CallError, ErrorObject},
-};
-pub use node_rpc_runtime_api::pips::{
-    self as runtime_api,
-    capped::{Vote, VoteCount},
-    PipsApi as PipsRuntimeApi,
-};
-use pallet_pips::PipId;
+use jsonrpsee::core::RpcResult;
+use jsonrpsee::proc_macros::rpc;
+use jsonrpsee::types::error::{CallError, ErrorObject};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 use sp_std::{prelude::*, vec::Vec};
+
+use node_rpc_runtime_api::pips::capped::VoteCount;
+pub use node_rpc_runtime_api::pips::{self as runtime_api, PipsApi as PipsRuntimeApi};
+use pallet_pips::PipId;
 
 /// Pips RPC methods.
 #[rpc(client, server)]
