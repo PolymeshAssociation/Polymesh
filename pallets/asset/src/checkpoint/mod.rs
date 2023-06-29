@@ -214,7 +214,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = T::CPWeightInfo::create_schedule(schedule.len() as u32)]
+        #[weight = T::CPWeightInfo::create_schedule()]
         pub fn create_schedule(
             origin,
             ticker: Ticker,
@@ -417,12 +417,14 @@ impl<T: Config> Module<T> {
             .len()
             .try_into()
             .map_err(|_| Error::<T>::SchedulesOverMaxComplexity)?;
+        let max_comp = SchedulesMaxComplexity::get();
+        ensure!(len <= max_comp, Error::<T>::SchedulesOverMaxComplexity);
 
         let mut cached = CachedNextCheckpoints::get(ticker).unwrap_or_default();
         // Ensure the total complexity for all schedules is not too great.
         let total_pending = cached.total_pending.saturating_add(len);
         ensure!(
-            total_pending <= SchedulesMaxComplexity::get(),
+            total_pending <= max_comp,
             Error::<T>::SchedulesOverMaxComplexity
         );
 

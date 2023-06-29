@@ -181,7 +181,7 @@ impl NextCheckpoints {
 pub trait WeightInfo {
     fn create_checkpoint() -> Weight;
     fn set_schedules_max_complexity() -> Weight;
-    fn create_schedule(schedule_len: u32) -> Weight;
+    fn create_schedule() -> Weight;
     fn remove_schedule() -> Weight;
 }
 

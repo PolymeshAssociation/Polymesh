@@ -56,12 +56,9 @@ benchmarks! {
     }
 
     create_schedule {
-        // Number of checkpoints in schedule.
-        let c in 1 .. Module::<T>::schedules_max_complexity() as u32;
-
         let max = Module::<T>::schedules_max_complexity();
         let schedule = ScheduleCheckpoints::new_checkpoints(
-            (0..c).into_iter().map(|n| CP_BASE + (n as u64)).collect()
+            (0..max).into_iter().map(|n| CP_BASE + n).collect()
         );
 
         // Must fit in the max complexity.
