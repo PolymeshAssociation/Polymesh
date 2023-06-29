@@ -52,7 +52,7 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_checkpoint using the Substrate node and recommended hardware.
 pub struct SubstrateWeight;
-impl pallet_checkpoint::WeightInfo for SubstrateWeight {
+impl pallet_asset::checkpoint::WeightInfo for SubstrateWeight {
     // Storage: Checkpoint SchedulesMaxComplexity (r:0 w:1)
     // Proof Skipped: Checkpoint SchedulesMaxComplexity (max_values: Some(1), max_size: None, mode: Measured)
     fn set_schedules_max_complexity() -> Weight {
