@@ -183,14 +183,6 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Storage: Settlement ReceiptsUsed (r:0 w:1)
-    fn change_receipt_validity() -> Weight {
-        // Minimum execution time: 35_465 nanoseconds.
-        Weight::from_ref_time(36_216_000)
-            .saturating_add(DbWeight::get().reads(1))
-            .saturating_add(DbWeight::get().writes(1))
-    }
-    // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Settlement InstructionStatuses (r:1 w:1)
     // Storage: Settlement InstructionLegs (r:121 w:0)
     // Storage: Scheduler Lookup (r:1 w:1)

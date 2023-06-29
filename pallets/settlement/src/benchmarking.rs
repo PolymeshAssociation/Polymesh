@@ -24,7 +24,7 @@ use sp_std::prelude::*;
 
 use pallet_asset::benchmarking::setup_asset_transfer;
 use pallet_nft::benchmarking::setup_nft_transfer;
-use polymesh_common_utilities::benchs::{make_asset, user, AccountIdOf, User, UserBuilder};
+use polymesh_common_utilities::benchs::{make_asset, AccountIdOf, User, UserBuilder};
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::constants::ENSURED_MAX_LEN;
 use polymesh_common_utilities::TestUtilsFn;
@@ -430,13 +430,6 @@ benchmarks! {
         let portfolios =
             [parameters.portfolios.sdr_portfolios, parameters.portfolios.sdr_receipt_portfolios].concat();
     }: _(alice.origin, InstructionId(1), receipt_details, portfolios)
-
-    change_receipt_validity {
-        let signer = user::<T>("signer", 0);
-    }: _(signer.origin(), 0, false)
-    verify {
-        assert!(Module::<T>::receipts_used(&signer.account(), 0), "Settlement: change_receipt_validity didn't work");
-    }
 
     reschedule_instruction {
         // Number of legs in the instruction
