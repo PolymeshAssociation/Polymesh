@@ -531,7 +531,7 @@ decl_module! {
         /// # Arguments
         /// * `id`: The [`InstructionId`] of the instruction to be executed.
         /// * `portfolio`:  One of the caller's [`PortfolioId`] which is also a counter patry in the instruction.
-        /// If None, the caller must be the venue creator.
+        /// If None, the caller must be the venue creator or a counter party in a [`Leg::OffChain`].
         /// * `fungible_transfers`: The number of fungible legs in the instruction.
         /// * `nfts_transfers`: The number of nfts being transferred in the instruction.
         /// * `offchain_transfers`: The number of offchain legs in the instruction.
@@ -1754,7 +1754,6 @@ impl<T: Config> Module<T> {
         let (caller_did, sk, instruction_details) =
             Self::ensure_origin_perm_and_instruction_validity(origin, id, true)?;
 
-        // Check for portfolio
         let instruction_legs: Vec<(LegId, Leg)> = InstructionLegs::iter_prefix(&id).collect();
         match portfolio {
             Some(portfolio) => {
@@ -1770,18 +1769,22 @@ impl<T: Config> Module<T> {
                 );
             }
             None => {
-                // Ensure venue exists & sender is its creator.
-                Self::venue_for_management(instruction_details.venue_id, caller_did)?;
+                // If the caller is not the venue creator, they should be a counter party in an offchain leg
+                if Self::venue_for_management(instruction_details.venue_id, caller_did).is_err() {
+                    ensure!(
+                        Self::is_offchain_party(&instruction_legs, &caller_did),
+                        Error::<T>::Unauthorized
+                    );
+                };
             }
         }
 
         let instruction_asset_count = AssetCount::from_legs(&instruction_legs);
         Self::ensure_valid_input_cost(&instruction_asset_count, input_cost)?;
 
-        // Executes the instruction
         Self::execute_instruction_retryable(id, caller_did, weight_meter)?;
-
         Self::deposit_event(RawEvent::SettlementManuallyExecuted(caller_did, id));
+
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
 
@@ -1808,6 +1811,23 @@ impl<T: Config> Module<T> {
                     }
                 }
                 Leg::OffChain { .. } => continue,
+            }
+        }
+        false
+    }
+
+    /// Returns `true` if the given `caller_did` is a party in any [`Leg::OffChain`] in the `instruction_set`.
+    fn is_offchain_party(instruction_set: &[(LegId, Leg)], caller_did: &IdentityId) -> bool {
+        for (_, leg) in instruction_set {
+            if let Leg::OffChain {
+                sender_identity,
+                receiver_identity,
+                ..
+            } = leg
+            {
+                if sender_identity == caller_did || receiver_identity == caller_did {
+                    return true;
+                }
             }
         }
         false

@@ -2888,26 +2888,71 @@ fn add_instruction_unexpected_offchain_asset() {
 }
 
 #[test]
-fn add_instruction_offchain_leg() {
+fn add_and_execute_offchain_instruction() {
     ExtBuilder::default().build().execute_with(|| {
+        let charlie = User::new(AccountKeyring::Charlie);
         let alice = User::new(AccountKeyring::Alice);
+        let dave = User::new(AccountKeyring::Dave);
         let bob = User::new(AccountKeyring::Bob);
-        let venue_counter = create_token_and_venue(TICKER, alice);
+        let venue_id = create_token_and_venue(TICKER, alice);
+        let amount = 1;
 
         let legs: Vec<Leg> = vec![Leg::OffChain {
-            sender_identity: alice.did,
+            sender_identity: charlie.did,
             receiver_identity: bob.did,
             ticker: TICKER,
-            amount: 1,
+            amount,
         }];
+        let receipt = Receipt::new(0, charlie.did, bob.did, TICKER, amount);
+        let receipts_details = vec![ReceiptDetails::new(
+            0,
+            InstructionId(0),
+            LegId(0),
+            AccountKeyring::Alice.to_account_id(),
+            AccountKeyring::Alice.sign(&receipt.encode()).into(),
+            ReceiptMetadata::default(),
+        )];
+
         assert_ok!(Settlement::add_instruction(
             alice.origin(),
-            venue_counter,
-            SettlementType::SettleOnAffirmation,
+            venue_id,
+            SettlementType::SettleManual(System::block_number() + 1),
             None,
             None,
             legs,
             Some(Memo::default()),
+        ),);
+        assert_ok!(Settlement::affirm_with_receipts(
+            alice.origin(),
+            InstructionId(0),
+            receipts_details,
+            Vec::new(),
+        ),);
+        next_block();
+
+        assert_noop!(
+            Settlement::execute_manual_instruction(
+                dave.origin(),
+                InstructionId(0),
+                None,
+                0,
+                0,
+                1,
+                None
+            ),
+            DispatchErrorWithPostInfo {
+                post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
+                error: Error::Unauthorized.into()
+            }
+        );
+        assert_ok!(Settlement::execute_manual_instruction(
+            charlie.origin(),
+            InstructionId(0),
+            None,
+            0,
+            0,
+            1,
+            None
         ),);
     });
 }
