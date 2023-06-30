@@ -1298,7 +1298,7 @@ impl<T: Config> Module<T> {
 
         Self::ensure_valid_receipts_details(
             instruction_details.venue_id,
-            &instruction_id,
+            instruction_id,
             &receipts_details,
         )?;
 
@@ -1838,14 +1838,14 @@ impl<T: Config> Module<T> {
     /// correct instruction/leg and if its signature is valid.
     fn ensure_valid_receipts_details(
         venue_id: VenueId,
-        instruction_id: &InstructionId,
+        instruction_id: InstructionId,
         receipts_details: &[ReceiptDetails<T::AccountId, T::OffChainSignature>],
     ) -> DispatchResult {
         let mut unique_signers_uid_set = BTreeSet::new();
         let mut unique_legs = BTreeSet::new();
         for receipt_details in receipts_details {
             ensure!(
-                receipt_details.instruction_id() == instruction_id,
+                receipt_details.instruction_id() == &instruction_id,
                 Error::<T>::ReceiptInstructionIdMissmatch
             );
             ensure!(
@@ -1877,6 +1877,8 @@ impl<T: Config> Module<T> {
                 } => {
                     let receipt = Receipt::new(
                         receipt_details.uid(),
+                        instruction_id,
+                        receipt_details.leg_id(),
                         sender_identity,
                         receiver_identity,
                         ticker,

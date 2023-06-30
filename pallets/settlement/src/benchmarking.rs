@@ -270,6 +270,8 @@ fn setup_receipt_details<T: Config>(
     let ticker = Ticker::from_slice_truncated(format!("OFFTicker{}", leg_id).as_bytes());
     let receipt = Receipt::new(
         leg_id as u64,
+        instruction_id,
+        LegId(leg_id as u64),
         sender_identity,
         receiver_identity,
         ticker,
@@ -284,7 +286,7 @@ fn setup_receipt_details<T: Config>(
         LegId(leg_id as u64),
         signer.account(),
         signature,
-        ReceiptMetadata::from(b"ReceiptMet"),
+        Some(ReceiptMetadata::default()),
     )
 }
 

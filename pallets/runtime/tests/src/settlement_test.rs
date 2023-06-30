@@ -27,7 +27,7 @@ use polymesh_primitives::asset_metadata::{
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::settlement::{
     AffirmationStatus, Instruction, InstructionId, InstructionStatus, Leg, LegId, LegStatus,
-    Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueId, VenueType,
+    Receipt, ReceiptDetails, SettlementType, VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::{
     AccountId, AuthorizationData, Balance, Claim, Condition, ConditionType, Fund, FundDescription,
@@ -1161,7 +1161,7 @@ fn claim_multiple_receipts_during_authorization() {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_venue(alice.user);
-        let instruction_id = Settlement::instruction_counter();
+        let id = Settlement::instruction_counter();
         alice.refresh_init_balances();
         bob.refresh_init_balances();
         let amount = 100;
@@ -1193,30 +1193,30 @@ fn claim_multiple_receipts_during_authorization() {
 
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
-        let msg1 = Receipt::new(0, alice.did, bob.did, TICKER, amount);
-        let msg2 = Receipt::new(0, alice.did, bob.did, TICKER2, amount);
-        let msg3 = Receipt::new(1, alice.did, bob.did, TICKER2, amount);
+        let msg1 = Receipt::new(0, id, LegId(0), alice.did, bob.did, TICKER, amount);
+        let msg2 = Receipt::new(0, id, LegId(1), alice.did, bob.did, TICKER2, amount);
+        let msg3 = Receipt::new(1, id, LegId(1), alice.did, bob.did, TICKER2, amount);
 
         assert_noop!(
             Settlement::affirm_with_receipts(
                 alice.origin(),
-                instruction_id,
+                id,
                 vec![
                     ReceiptDetails::new(
                         0,
-                        instruction_id,
+                        id,
                         LegId(0),
                         AccountKeyring::Alice.to_account_id(),
                         AccountKeyring::Alice.sign(&msg1.encode()).into(),
-                        ReceiptMetadata::default()
+                        None
                     ),
                     ReceiptDetails::new(
                         0,
-                        instruction_id,
+                        id,
                         LegId(0),
                         AccountKeyring::Alice.to_account_id(),
                         AccountKeyring::Alice.sign(&msg2.encode()).into(),
-                        ReceiptMetadata::default()
+                        None
                     ),
                 ],
                 Vec::new(),
@@ -1226,44 +1226,44 @@ fn claim_multiple_receipts_during_authorization() {
 
         assert_ok!(Settlement::affirm_with_receipts(
             alice.origin(),
-            instruction_id,
+            id,
             vec![
                 ReceiptDetails::new(
                     0,
-                    instruction_id,
+                    id,
                     LegId(0),
                     AccountKeyring::Alice.to_account_id(),
                     AccountKeyring::Alice.sign(&msg1.encode()).into(),
-                    ReceiptMetadata::default()
+                    None
                 ),
                 ReceiptDetails::new(
                     1,
-                    instruction_id,
+                    id,
                     LegId(1),
                     AccountKeyring::Alice.to_account_id(),
                     AccountKeyring::Alice.sign(&msg3.encode()).into(),
-                    ReceiptMetadata::default()
+                    None
                 ),
             ],
             Vec::new(),
         ));
 
-        assert_affirms_pending(instruction_id, 0);
+        assert_affirms_pending(id, 0);
         assert_eq!(
-            OffChainAffirmations::get(instruction_id, LegId(0)),
+            OffChainAffirmations::get(id, LegId(0)),
             AffirmationStatus::Affirmed
         );
         assert_eq!(
-            OffChainAffirmations::get(instruction_id, LegId(1)),
+            OffChainAffirmations::get(id, LegId(1)),
             AffirmationStatus::Affirmed
         );
         assert_leg_status(
-            instruction_id,
+            id,
             LegId(0),
             LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.to_account_id(), 0),
         );
         assert_leg_status(
-            instruction_id,
+            id,
             LegId(1),
             LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.to_account_id(), 1),
         );
@@ -1275,8 +1275,8 @@ fn claim_multiple_receipts_during_authorization() {
 
         // Advances block
         next_block();
-        assert_user_affirms(instruction_id, &alice, AffirmationStatus::Unknown);
-        assert_user_affirms(instruction_id, &bob, AffirmationStatus::Unknown);
+        assert_user_affirms(id, &alice, AffirmationStatus::Unknown);
+        assert_user_affirms(id, &bob, AffirmationStatus::Unknown);
         assert_locked_assets(&TICKER, &alice, 0);
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -1333,13 +1333,14 @@ fn overload_instruction() {
 #[test]
 fn encode_receipt() {
     ExtBuilder::default().build().execute_with(|| {
+        let id = InstructionId(0);
         let token_name = [0x01u8];
         let ticker = Ticker::from_slice_truncated(&token_name[..]);
         let identity_id = IdentityId::try_from(
             "did:poly:0600000000000000000000000000000000000000000000000000000000000000",
         )
         .unwrap();
-        let msg1 = Receipt::new(0, identity_id, identity_id, ticker, 100);
+        let msg1 = Receipt::new(0, id, LegId(0), identity_id, identity_id, ticker, 100);
         println!("{:?}", AccountKeyring::Alice.sign(&msg1.encode()));
     });
 }
@@ -2786,6 +2787,7 @@ fn add_same_nft_different_legs() {
 fn add_and_affirm_with_receipts_nfts() {
     test_with_cdd_provider(|_eve| {
         // First we need to create a collection, mint one NFT, and create a venue
+        let id = InstructionId(0);
         let alice: User = User::new(AccountKeyring::Alice);
         let bob: User = User::new(AccountKeyring::Bob);
         let collection_keys: NFTCollectionKeys =
@@ -2824,13 +2826,15 @@ fn add_and_affirm_with_receipts_nfts() {
                 InstructionId(0),
                 vec![ReceiptDetails::new(
                     0,
-                    InstructionId(0),
+                    id,
                     LegId(0),
                     AccountKeyring::Alice.to_account_id(),
                     AccountKeyring::Alice
-                        .sign(&Receipt::new(0, alice.did, bob.did, TICKER, 1).encode())
+                        .sign(
+                            &Receipt::new(0, id, LegId(0), alice.did, bob.did, TICKER, 1).encode()
+                        )
                         .into(),
-                    ReceiptMetadata::default()
+                    None
                 )],
                 vec![PortfolioId::default_portfolio(alice.did)],
             ),
@@ -2896,6 +2900,7 @@ fn add_and_execute_offchain_instruction() {
         let bob = User::new(AccountKeyring::Bob);
         let venue_id = create_token_and_venue(TICKER, alice);
         let amount = 1;
+        let id = InstructionId(0);
 
         let legs: Vec<Leg> = vec![Leg::OffChain {
             sender_identity: charlie.did,
@@ -2903,14 +2908,14 @@ fn add_and_execute_offchain_instruction() {
             ticker: TICKER,
             amount,
         }];
-        let receipt = Receipt::new(0, charlie.did, bob.did, TICKER, amount);
+        let receipt = Receipt::new(0, id, LegId(0), charlie.did, bob.did, TICKER, amount);
         let receipts_details = vec![ReceiptDetails::new(
             0,
-            InstructionId(0),
+            id,
             LegId(0),
             AccountKeyring::Alice.to_account_id(),
             AccountKeyring::Alice.sign(&receipt.encode()).into(),
-            ReceiptMetadata::default(),
+            None,
         )];
 
         assert_ok!(Settlement::add_instruction(
@@ -2924,7 +2929,7 @@ fn add_and_execute_offchain_instruction() {
         ),);
         assert_ok!(Settlement::affirm_with_receipts(
             alice.origin(),
-            InstructionId(0),
+            id,
             receipts_details,
             Vec::new(),
         ),);

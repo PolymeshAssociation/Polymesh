@@ -35,7 +35,7 @@ decl_event!(
             LegId,
             u64,
             AccountId,
-            ReceiptMetadata,
+            Option<ReceiptMetadata>,
         ),
         /// Venue filtering has been enabled or disabled for a ticker (did, ticker, filtering_enabled)
         VenueFiltering(IdentityId, Ticker, bool),

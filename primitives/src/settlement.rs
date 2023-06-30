@@ -26,7 +26,7 @@ use scale_info::TypeInfo;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec::Vec;
 
-use polymesh_primitives_derive::VecU8StrongTyped;
+use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 
 use crate::constants::SETTLEMENT_INSTRUCTION_EXECUTION;
 use crate::{impl_checked_inc, Balance, IdentityId, NFTs, PortfolioId, Ticker};
@@ -243,6 +243,10 @@ pub struct Venue {
 pub struct Receipt<Balance> {
     /// Unique receipt number set by the signer for their receipts.
     uid: u64,
+    /// The [`InstructionId`] of the instruction for which the receipt is for.
+    instruction_id: InstructionId,
+    /// The [`LegId`] of the leg for which the receipt is for.
+    leg_id: LegId,
     /// The [`IdentityId`] of the sender.
     sender_identity: IdentityId,
     /// The [`IdentityId`] of the receiver.
@@ -257,6 +261,8 @@ impl<Balance> Receipt<Balance> {
     /// Creates a new [`Receipt`].
     pub fn new(
         uid: u64,
+        instruction_id: InstructionId,
+        leg_id: LegId,
         sender_identity: IdentityId,
         receiver_identity: IdentityId,
         ticker: Ticker,
@@ -264,6 +270,8 @@ impl<Balance> Receipt<Balance> {
     ) -> Self {
         Receipt {
             uid,
+            instruction_id,
+            leg_id,
             sender_identity,
             receiver_identity,
             ticker,
@@ -273,9 +281,9 @@ impl<Balance> Receipt<Balance> {
 }
 
 /// A wrapper of [`Vec<u8>`] that can be used for generic messages.
-#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ReceiptMetadata(Vec<u8>);
+#[derive(Encode, Decode, TypeInfo, SliceU8StrongTyped)]
+#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ReceiptMetadata([u8; 32]);
 
 /// Details about an offchain transaction receipt.
 #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -291,7 +299,7 @@ pub struct ReceiptDetails<AccountId, OffChainSignature> {
     /// Signature confirming the receipt details.
     signature: OffChainSignature,
     /// The [`ReceiptMetadata`] that can be used to attach messages to receipts.
-    metadata: ReceiptMetadata,
+    metadata: Option<ReceiptMetadata>,
 }
 
 impl<AccountId, OffChainSignature> ReceiptDetails<AccountId, OffChainSignature> {
@@ -302,7 +310,7 @@ impl<AccountId, OffChainSignature> ReceiptDetails<AccountId, OffChainSignature> 
         leg_id: LegId,
         signer: AccountId,
         signature: OffChainSignature,
-        metadata: ReceiptMetadata,
+        metadata: Option<ReceiptMetadata>,
     ) -> Self {
         Self {
             uid,
@@ -340,7 +348,7 @@ impl<AccountId, OffChainSignature> ReceiptDetails<AccountId, OffChainSignature> 
     }
 
     /// Returns the [`ReceiptMetadata`] of the receipt details.
-    pub fn metadata(&self) -> &ReceiptMetadata {
+    pub fn metadata(&self) -> &Option<ReceiptMetadata> {
         &self.metadata
     }
 }
