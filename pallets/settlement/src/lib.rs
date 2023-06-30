@@ -1659,11 +1659,7 @@ impl<T: Config> Module<T> {
                 ticker,
                 amount,
             } => {
-                ensure!(
-                    sender_identity != receiver_identity,
-                    Error::<T>::SameSenderReceiver
-                );
-                Self::ensure_valid_off_chain_leg(tickers, *ticker, *amount, venue_id)?;
+                Self::ensure_valid_off_chain_leg(sender_identity, receiver_identity, *amount)?;
                 instruction_asset_count
                     .try_add_off_chain()
                     .map_err(|_| Error::<T>::MaxNumberOfOffChainAssetsExceeded)?;
@@ -1708,15 +1704,17 @@ impl<T: Config> Module<T> {
     }
 
     /// Ensures all checks needed for an off-chain asset leg hold. This includes making sure that the `amount` being
-    /// transferred is not zero, that `ticker` doesn't exist on chain and that `venue_id` is allowed.
+    /// transferred is not zero, and that `sender_identity` and `receiver_identity` are not the same.
     fn ensure_valid_off_chain_leg(
-        tickers: &mut BTreeSet<Ticker>,
-        ticker: Ticker,
+        sender_identity: &IdentityId,
+        receiver_identity: &IdentityId,
         amount: Balance,
-        venue_id: &VenueId,
     ) -> DispatchResult {
         ensure!(amount > 0, Error::<T>::ZeroAmount);
-        Self::ensure_venue_filtering(tickers, ticker, venue_id)?;
+        ensure!(
+            sender_identity != receiver_identity,
+            Error::<T>::SameSenderReceiver
+        );
         Ok(())
     }
 
