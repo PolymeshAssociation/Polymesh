@@ -497,10 +497,7 @@ decl_module! {
         ///
         /// # Weight
         /// `950_000_000 + 1_000_000 * legs.len()`
-        #[weight =
-            <T as Config>::WeightInfo::add_instruction_legs(legs)
-            .saturating_add( <T as Config>::WeightInfo::execute_scheduled_instruction_legs(legs))
-        ]
+        #[weight = <T as Config>::WeightInfo::add_instruction_legs(legs)]
         pub fn add_instruction(
             origin,
             venue_id: VenueId,
@@ -528,10 +525,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight =
-            <T as Config>::WeightInfo::add_and_affirm_instruction_legs(legs)
-            .saturating_add( <T as Config>::WeightInfo::execute_scheduled_instruction_legs(legs))
-        ]
+        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_legs(legs)]
         pub fn add_and_affirm_instruction(
             origin,
             venue_id: VenueId,

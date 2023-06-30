@@ -104,10 +104,6 @@ pub trait WeightInfo {
         let (f, n, o) = Self::get_transfer_by_asset(legs);
         Self::add_and_affirm_instruction(f, n, o)
     }
-    fn execute_scheduled_instruction_legs(legs: &[Leg]) -> Weight {
-        let (f, n, o) = Self::get_transfer_by_asset(legs);
-        Self::execute_scheduled_instruction(f, n, o)
-    }
     fn execute_manual_weight_limit(
         weight_limit: &Option<Weight>,
         f: &u32,
