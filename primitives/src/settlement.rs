@@ -280,7 +280,7 @@ impl<Balance> Receipt<Balance> {
     }
 }
 
-/// A wrapper of [`Vec<u8>`] that can be used for generic messages.
+/// A wrapper of [`[u8; 32]`] that can be used for generic messages.
 #[derive(Encode, Decode, TypeInfo, SliceU8StrongTyped)]
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ReceiptMetadata([u8; 32]);
