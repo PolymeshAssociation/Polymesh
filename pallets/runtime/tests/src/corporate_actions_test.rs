@@ -29,7 +29,7 @@ use polymesh_common_utilities::{
     traits::checkpoint::{ScheduleCheckpoints, ScheduleId},
 };
 use polymesh_primitives::{
-    agent::AgentGroup, calendar::CheckpointId, AuthorizationData, Document, DocumentId, IdentityId,
+    agent::AgentGroup, asset::CheckpointId, AuthorizationData, Document, DocumentId, IdentityId,
     Moment, PortfolioId, PortfolioNumber, Signatory, Ticker,
 };
 use sp_arithmetic::Permill;

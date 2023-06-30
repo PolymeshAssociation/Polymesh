@@ -27,15 +27,13 @@ use polymesh_common_utilities::traits::checkpoint::{
 };
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{
-    AssetName, AssetType, CustomAssetTypeId, FundingRoundName, NonFungibleType,
+    AssetName, AssetType, CheckpointId, CustomAssetTypeId, FundingRoundName, NonFungibleType,
 };
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataLockStatus, AssetMetadataName,
     AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
 };
-use polymesh_primitives::calendar::{
-    CalendarPeriod, CalendarUnit, CheckpointId, FixedOrVariableCalendarUnit,
-};
+use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit, FixedOrVariableCalendarUnit};
 use polymesh_primitives::statistics::StatType;
 use polymesh_primitives::{
     AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,

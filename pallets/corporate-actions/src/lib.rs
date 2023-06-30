@@ -109,7 +109,7 @@ use polymesh_common_utilities::{
     traits::checkpoint::ScheduleId, with_transaction, GC_DID,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, impl_checked_inc, storage_migration_ver, Balance, DocumentId, EventDid,
+    asset::CheckpointId, impl_checked_inc, storage_migration_ver, Balance, DocumentId, EventDid,
     IdentityId, Moment, PortfolioNumber, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;

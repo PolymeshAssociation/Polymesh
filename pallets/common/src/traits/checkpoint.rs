@@ -1,8 +1,10 @@
 use codec::{Decode, Encode};
 use frame_support::decl_event;
 use frame_support::weights::Weight;
-use polymesh_primitives::calendar::{CalendarPeriod, CheckpointId, CheckpointSchedule};
-use polymesh_primitives::{impl_checked_inc, Balance, IdentityId, Moment, Ticker};
+use polymesh_primitives::calendar::{CalendarPeriod, CheckpointSchedule};
+use polymesh_primitives::{
+    asset::CheckpointId, impl_checked_inc, Balance, IdentityId, Moment, Ticker,
+};
 use scale_info::TypeInfo;
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
@@ -29,9 +31,12 @@ impl ScheduleCheckpoints {
     }
 
     pub fn from_period(start: Moment, period: CalendarPeriod, remaining: u32) -> Self {
-        let old = CheckpointSchedule { start, period };
+        Self::from_old(CheckpointSchedule { start, period }, remaining)
+    }
+
+    pub fn from_old(old: CheckpointSchedule, remaining: u32) -> Self {
         let remaining = remaining.min(10);
-        let mut now = start;
+        let mut now = old.start;
         Self {
             pending: (0..remaining)
                 .into_iter()
