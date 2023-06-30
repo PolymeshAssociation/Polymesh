@@ -268,11 +268,6 @@ macro_rules! misc_pallet_impls {
             type MaxAuthorities = MaxAuthorities;
         }
 
-        impl pallet_sudo::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
-            type RuntimeCall = RuntimeCall;
-        }
-
         impl pallet_multisig::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type Scheduler = Scheduler;

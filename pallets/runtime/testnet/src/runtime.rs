@@ -357,10 +357,10 @@ construct_runtime!(
         RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip::{Pallet, Storage},
 
         // Sudo. Usable initially.
-        Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>},
+        // Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>},
 
         // Asset: Genesis config deps: Timestamp,
-        Asset: pallet_asset::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Asset: pallet_asset::{Pallet, Call, Storage, Config<T>, Event<T>} = 26,
         CapitalDistribution: pallet_capital_distribution::{Pallet, Call, Storage, Event},
         Checkpoint: pallet_checkpoint::{Pallet, Call, Storage, Event, Config},
         ComplianceManager: pallet_compliance_manager::{Pallet, Call, Storage, Event},
