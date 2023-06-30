@@ -248,7 +248,7 @@ decl_storage! {
         /// Only needed for the UI.
         ///
         /// identity -> venue_id ()
-        UserVenues get(fn user_venues):
+        pub UserVenues get(fn user_venues):
             double_map hasher(twox_64_concat) IdentityId,
                        hasher(twox_64_concat) VenueId
                     => ();
