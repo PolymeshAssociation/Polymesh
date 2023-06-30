@@ -17,6 +17,7 @@ use frame_support::weights::{Weight, WeightMeter as FrameWeightMeter};
 use scale_info::prelude::string::String;
 
 /// Meters consumed weight that contains a hard limit for the maximal consumable weight and a minimum weight to be charged.
+#[derive(Debug)]
 pub struct WeightMeter {
     minimum_charge: Weight,
     meter: FrameWeightMeter,

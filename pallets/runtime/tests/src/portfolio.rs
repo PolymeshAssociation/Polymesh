@@ -9,7 +9,7 @@ use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
 };
-use polymesh_primitives::settlement::{Leg, LegAsset, SettlementType};
+use polymesh_primitives::settlement::{Leg, SettlementType};
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, Fund, FundDescription, Memo, NFTCollectionKeys, NFTId,
     NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
@@ -671,10 +671,10 @@ fn delete_portfolio_with_locked_nfts() {
         let venue_id = create_venue(alice);
         // Locks the NFT - Adds and affirms the instruction
         let nfts = NFTs::new_unverified(ticker, vec![NFTId(1)]);
-        let legs: Vec<Leg> = vec![Leg {
-            from: PortfolioId::user_portfolio(alice.did, PortfolioNumber(1)),
-            to: PortfolioId::default_portfolio(bob.did),
-            asset: LegAsset::NonFungible(nfts),
+        let legs: Vec<Leg> = vec![Leg::NonFungible {
+            sender: PortfolioId::user_portfolio(alice.did, PortfolioNumber(1)),
+            receiver: PortfolioId::default_portfolio(bob.did),
+            nfts,
         }];
         assert_ok!(Settlement::add_and_affirm_instruction(
             alice.origin(),

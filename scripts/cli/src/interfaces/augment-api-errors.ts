@@ -1037,6 +1037,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       ChangeNotAllowed: AugmentedError<ApiType>;
       /**
+       * The creator is no longer allowed to call via creator extrinsics.
+       **/
+      CreatorControlsHaveBeenRemoved: AugmentedError<ApiType>;
+      /**
        * Multisig address.
        **/
       DecodingError: AugmentedError<ApiType>;
@@ -1396,6 +1400,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       DifferentIdentityPortfolios: AugmentedError<ApiType>;
       /**
+       * Trying to move an amount of zero assets.
+       **/
+      EmptyTransfer: AugmentedError<ApiType>;
+      /**
        * Insufficient balance for a transaction.
        **/
       InsufficientPortfolioBalance: AugmentedError<ApiType>;
@@ -1614,9 +1622,9 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       CallerIsNotAParty: AugmentedError<ApiType>;
       /**
-       * While affirming the transfer, system failed to lock the assets involved.
+       * No duplicate uid are allowed for different receipts.
        **/
-      FailedToLockTokens: AugmentedError<ApiType>;
+      DuplicateReceiptUid: AugmentedError<ApiType>;
       /**
        * Scheduling of an instruction fails.
        **/
@@ -1682,6 +1690,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       MaxNumberOfReceiptsExceeded: AugmentedError<ApiType>;
       /**
+       * Multiple receipts for the same leg are not allowed.
+       **/
+      MultipleReceiptsForOneLeg: AugmentedError<ApiType>;
+      /**
        * The given number of fungible transfers was underestimated.
        **/
       NumberOfFungibleTransfersUnderestimated: AugmentedError<ApiType>;
@@ -1698,14 +1710,6 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       OffChainAssetCantBeLocked: AugmentedError<ApiType>;
       /**
-       * Off-Chain assets must be Affirmed with Receipts.
-       **/
-      OffChainAssetMustBeAffirmedWithReceipts: AugmentedError<ApiType>;
-      /**
-       * Portfolio in receipt does not match with portfolios provided by the user.
-       **/
-      PortfolioMismatch: AugmentedError<ApiType>;
-      /**
        * Receipt already used.
        **/
       ReceiptAlreadyClaimed: AugmentedError<ApiType>;
@@ -1713,6 +1717,10 @@ declare module '@polkadot/api-base/types/errors' {
        * Off-chain receipts can only be used for off-chain leg type.
        **/
       ReceiptForInvalidLegType: AugmentedError<ApiType>;
+      /**
+       * The instruction id in all receipts must match the extrinsic parameter.
+       **/
+      ReceiptInstructionIdMissmatch: AugmentedError<ApiType>;
       /**
        * Sender and receiver are the same.
        **/
@@ -1745,6 +1753,10 @@ declare module '@polkadot/api-base/types/errors' {
        * The current instruction affirmation status does not support the requested action.
        **/
       UnexpectedAffirmationStatus: AugmentedError<ApiType>;
+      /**
+       * An invalid has been reached.
+       **/
+      UnexpectedLegStatus: AugmentedError<ApiType>;
       /**
        * Ticker could not be found on chain.
        **/
@@ -2266,16 +2278,23 @@ declare module '@polkadot/api-base/types/errors' {
        * Provided nonce was invalid
        * If the provided nonce < current nonce, the call was already executed
        * If the provided nonce > current nonce, the call(s) before the current failed to execute
+       * POLYMESH error
        **/
       InvalidNonce: AugmentedError<ApiType>;
       /**
        * Offchain signature is invalid
+       * POLYMESH error
        **/
       InvalidSignature: AugmentedError<ApiType>;
       /**
        * Target does not have a valid CDD
+       * POLYMESH error
        **/
       TargetCddMissing: AugmentedError<ApiType>;
+      /**
+       * Too many calls batched.
+       **/
+      TooManyCalls: AugmentedError<ApiType>;
       /**
        * Generic error
        **/
