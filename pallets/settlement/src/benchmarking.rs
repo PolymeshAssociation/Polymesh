@@ -14,11 +14,10 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 pub use frame_benchmarking::{account, benchmarks};
-use frame_support::traits::{Get, OnInitialize};
+use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use scale_info::prelude::format;
 use sp_core::sr25519::Signature;
-use sp_runtime::traits::One;
 use sp_runtime::MultiSignature;
 use sp_std::prelude::*;
 
@@ -65,12 +64,6 @@ pub struct Portfolios {
     pub sdr_receipt_portfolios: Vec<PortfolioId>,
     pub rcv_portfolios: Vec<PortfolioId>,
     pub rcv_receipt_portfolios: Vec<PortfolioId>,
-}
-
-fn advance_one_block<T: Config + pallet_scheduler::Config>() {
-    let block_number = frame_system::Pallet::<T>::block_number() + One::one();
-    frame_system::Pallet::<T>::set_block_number(block_number);
-    pallet_scheduler::Pallet::<T>::on_initialize(block_number);
 }
 
 fn creator<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> User<T> {

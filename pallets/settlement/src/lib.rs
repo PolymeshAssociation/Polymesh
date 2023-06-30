@@ -483,10 +483,6 @@ decl_module! {
             Ok(Self::base_execute_scheduled_instruction(id, &mut weight_meter))
         }
 
-        /// Placeholder for removed `reschedule_instruction`
-        #[weight = 1_000]
-        pub fn placeholder_reschedule_instruction(_origin) {}
-
         /// Edit a venue's signers.
         /// * `id` specifies the ID of the venue to edit.
         /// * `signers` specifies the signers to add/remove.
