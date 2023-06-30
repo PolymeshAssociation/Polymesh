@@ -1873,6 +1873,11 @@ impl<T: Config> Module<T> {
                     ticker,
                     amount,
                 } => {
+                    ensure!(
+                        OffChainAffirmations::get(instruction_id, receipt_details.leg_id())
+                            == AffirmationStatus::Pending,
+                        Error::<T>::UnexpectedAffirmationStatus
+                    );
                     let receipt = Receipt::new(
                         receipt_details.uid(),
                         instruction_id,

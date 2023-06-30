@@ -2836,7 +2836,7 @@ fn add_and_affirm_with_receipts_nfts() {
                         .into(),
                     None
                 )],
-                vec![PortfolioId::default_portfolio(alice.did)],
+                Vec::new(),
             ),
             Error::ReceiptForInvalidLegType
         );
