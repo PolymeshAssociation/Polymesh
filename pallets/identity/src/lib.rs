@@ -141,7 +141,7 @@ decl_storage! {
         pub CurrentPayer: Option<T::AccountId>;
 
         /// (Target ID, claim type) (issuer,scope) -> Associated claims
-        pub Claims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => IdentityClaim;
+        pub Claims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => Option<IdentityClaim>;
         /// CustomClaimTypeId -> String constant
         pub CustomClaims: map hasher(twox_64_concat) CustomClaimTypeId => Option<Vec<u8>>;
         /// String constant -> CustomClaimTypeId
