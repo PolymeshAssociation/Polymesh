@@ -151,8 +151,6 @@ decl_error! {
         UnauthorizedVenue,
         /// While affirming the transfer, system failed to lock the assets involved.
         FailedToLockTokens,
-        /// Instruction failed to execute.
-        InstructionFailed,
         /// Instruction has invalid dates
         InstructionDatesInvalid,
         /// Instruction's target settle block reached.
@@ -215,6 +213,8 @@ decl_error! {
         NotAllAffirmationsHaveBeenReceived,
         /// Only [`InstructionStatus::Pending`] or [`InstructionStatus::Failed`] instructions can be executed.
         InvalidInstructionStatusForExecution,
+        /// The instruction failed to release asset locks or transfer the assets.
+        FailedToReleaseLockOrTransferAssets,
     }
 }
 
@@ -1045,7 +1045,7 @@ impl<T: Config> Module<T> {
             Self::deposit_event(RawEvent::InstructionFailed(caller_did, instruction_id));
             // Unclaim receipts for the failed transaction so that they can be reused
             Self::unsafe_unclaim_receipts(instruction_id, &instruction_legs);
-            return Err(Error::<T>::InstructionFailed.into());
+            return Err(Error::<T>::FailedToReleaseLockOrTransferAssets.into());
         }
 
         Self::deposit_event(RawEvent::InstructionExecuted(caller_did, instruction_id));

@@ -827,6 +827,21 @@ fn failed_execution() {
         // Ensure balances have not changed.
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
+
+        let execution_error = Settlement::execute_manual_instruction(
+            alice.origin(),
+            instruction_id,
+            None,
+            2,
+            0,
+            0,
+            None,
+        )
+        .unwrap_err();
+        assert_eq!(
+            execution_error.error,
+            Error::FailedToReleaseLockOrTransferAssets.into()
+        );
     });
 }
 
