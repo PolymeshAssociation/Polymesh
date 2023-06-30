@@ -140,9 +140,9 @@ decl_storage! {
         /// (Target ID, claim type) (issuer,scope) -> Associated claims
         pub Claims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => IdentityClaim;
         /// CustomClaimTypeId -> String constant
-        pub CustomClaims: map hasher(twox_64_concat) CustomClaimTypeId => Vec<u8>;
+        pub CustomClaims: map hasher(twox_64_concat) CustomClaimTypeId => Option<Vec<u8>>;
         /// String constant -> CustomClaimTypeId
-        pub CustomClaimsInverse: map hasher(blake2_128_concat) Vec<u8> => CustomClaimTypeId;
+        pub CustomClaimsInverse: map hasher(blake2_128_concat) Vec<u8> => Option<CustomClaimTypeId>;
         /// The next `CustomClaimTypeId`.
         pub CustomClaimIdSequence get(fn custom_claim_id_seq): CustomClaimTypeId;
 
