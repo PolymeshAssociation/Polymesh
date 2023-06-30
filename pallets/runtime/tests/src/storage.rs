@@ -719,6 +719,11 @@ impl pallet_test_utils::Config for TestStorage {
     type WeightInfo = polymesh_weights::pallet_test_utils::SubstrateWeight;
 }
 
+impl pallet_sudo::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+}
+
 polymesh_runtime_common::misc_pallet_impls!();
 
 pub type GovernanceCommittee = group::Module<TestStorage, group::Instance1>;
