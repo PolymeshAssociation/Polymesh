@@ -45,7 +45,7 @@ pub mod benchmarking;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
+    dispatch::{DispatchError, DispatchResult, Weight},
     ensure,
     traits::UnixTime,
 };
@@ -64,7 +64,7 @@ use polymesh_common_utilities::{
     GC_DID,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, storage_migration_ver, IdentityId, Moment, Ticker,
+    asset::CheckpointId, storage_migrate_on, storage_migration_ver, IdentityId, Moment, Ticker,
 };
 
 use crate::Config;
@@ -72,7 +72,7 @@ use crate::Config;
 type Asset<T> = crate::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
-storage_migration_ver!(0);
+storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Config> as Checkpoint {
@@ -156,7 +156,7 @@ decl_storage! {
             double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) ScheduleId => Vec<CheckpointId>;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
     }
 }
 
@@ -165,6 +165,14 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            let mut weight = Weight::zero();
+            storage_migrate_on!(StorageVersion, 1, {
+                migration::migrate_to_v1::<T>(&mut weight);
+            });
+            weight
+        }
 
         /// Creates a single checkpoint at the current time.
         ///
@@ -559,4 +567,80 @@ impl<T: Config> Module<T> {
 /// and that array len > 0.
 fn find_ceiling<'a, E: Ord>(arr: &'a [E], key: &E) -> &'a E {
     &arr[arr.binary_search(key).map_or_else(|i| i, |i| i)]
+}
+
+pub mod migration {
+    use super::*;
+    use polymesh_runtime_common::RocksDbWeight as DbWeight;
+    use sp_runtime::runtime_logger::RuntimeLogger;
+
+    mod v0 {
+        use super::*;
+        use polymesh_primitives::calendar::CheckpointSchedule;
+        use scale_info::TypeInfo;
+
+        // Limit each schedule to a maximum pending checkpoints.
+        const MAX_CP: u32 = 10;
+
+        #[derive(Encode, Decode, TypeInfo, Copy, Clone, Debug)]
+        pub struct StoredSchedule {
+            pub schedule: CheckpointSchedule,
+            pub id: ScheduleId,
+            pub at: Moment,
+            pub remaining: u32,
+        }
+
+        impl From<StoredSchedule> for ScheduleCheckpoints {
+            fn from(old: StoredSchedule) -> Self {
+                let remaining = if old.remaining == 0 {
+                    // 0 means infinite.
+                    MAX_CP
+                } else {
+                    // Limit remaining to MAX_CP.
+                    old.remaining.min(MAX_CP)
+                };
+                Self::from_old(old.schedule, remaining)
+            }
+        }
+
+        decl_storage! {
+            trait Store for Module<T: Config> as Checkpoint {
+                pub Schedules get(fn schedules):
+                    map hasher(blake2_128_concat) Ticker => Vec<StoredSchedule>;
+            }
+        }
+
+        decl_module! {
+            pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin { }
+        }
+    }
+
+    pub fn migrate_to_v1<T: Config>(weight: &mut Weight) {
+        RuntimeLogger::init();
+        log::info!(" >>> Updating Checkpoint storage. Migrating old schedules.");
+        let mut count = 0;
+        let mut reads = 0;
+        let mut writes = 0;
+        v0::Schedules::drain().for_each(|(ticker, old_schedules)| {
+            reads += 1;
+            let mut cached = NextCheckpoints::default();
+            for old_schedule in old_schedules {
+                let id = old_schedule.id;
+                let schedule = ScheduleCheckpoints::from(old_schedule);
+                if let Some(next_at) = schedule.next() {
+                    cached.inc_total_pending(schedule.len() as u64);
+                    cached.add_schedule_next(id, next_at);
+                    count += 1;
+                    writes += 1;
+                    ScheduledCheckpoints::insert(ticker, id, schedule);
+                }
+            }
+            if !cached.is_empty() {
+                writes += 1;
+                CachedNextCheckpoints::insert(ticker, cached);
+            }
+        });
+        weight.saturating_accrue(DbWeight::get().reads_writes(reads, writes));
+        log::info!(" >>> {count} checkpoint schedules have been migrated.");
+    }
 }
