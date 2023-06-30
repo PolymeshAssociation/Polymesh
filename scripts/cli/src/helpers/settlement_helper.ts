@@ -34,14 +34,13 @@ export async function addInstruction(
   let instructionCounter = (
     await api.query.settlement.instructionCounter()
   ).toNumber();
+
   let leg = {
-    from: getDefaultPortfolio(signerDid),
-    to: getDefaultPortfolio(receiverDid),
-    asset: {
-      "Fungible": {
-        ticker: ticker,
-        amount: amount
-      }
+    "Fungible": {
+      sender: getDefaultPortfolio(signerDid),
+      receiver: getDefaultPortfolio(receiverDid),
+      ticker: ticker,
+      amount: amount
     }
   };
 
@@ -121,58 +120,50 @@ export async function addGroupInstruction(
   let instructionCounter = (
     await api.query.settlement.instructionCounter()
   ).toNumber();
+
   let leg = {
-    from: group[1],
-    to: group[0],
-    asset: {
-      "Fungible": {
-        ticker: ticker2,
-        amount: amount
-      }
+    "Fungible": {
+      sender: group[1],
+      receiver: group[0],
+      ticker: ticker2,
+      amount: amount
     }
   };
 
+
   let leg2 = {
-    from: group[0],
-    to: group[1],
-    asset: {
-      "Fungible": {
-        ticker: ticker,
-        amount: amount
-      }
+    "Fungible": {
+      sender: group[0],
+      receiver: group[1],
+      ticker: ticker,
+      amount: amount
     }
   };
 
   let leg3 = {
-    from: group[0],
-    to: group[2],
-    asset: {
-      "Fungible": {
-        ticker: ticker,
-        amount: amount
-      }
+    "Fungible": {
+      sender: group[0],
+      receiver: group[2],
+      ticker: ticker,
+      amount: amount
     }
   };
 
   let leg4 = {
-    from: group[0],
-    to: group[3],
-    asset: {
-      "Fungible": {
-        ticker: ticker,
-        amount: amount
-      }
+    "Fungible": {
+      sender: group[0],
+      receiver: group[3],
+      ticker: ticker,
+      amount: amount
     }
   };
 
   let leg5 = {
-    from: group[0],
-    to: group[4],
-    asset: {
-      "Fungible": {
-        ticker: ticker,
-        amount: amount
-      }
+    "Fungible": {
+      sender: group[0],
+      receiver: group[4],
+      ticker: ticker,
+      amount: amount
     }
   };
 

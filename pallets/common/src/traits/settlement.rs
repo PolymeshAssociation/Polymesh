@@ -35,12 +35,8 @@ decl_event!(
             LegId,
             u64,
             AccountId,
-            ReceiptMetadata,
+            Option<ReceiptMetadata>,
         ),
-        /// A receipt has been invalidated (did, signer, receipt_uid, validity)
-        ReceiptValidityChanged(IdentityId, AccountId, u64, bool),
-        /// A receipt has been unclaimed (did, instruction_id, leg_id, receipt_uid, signer)
-        ReceiptUnclaimed(IdentityId, InstructionId, LegId, u64, AccountId),
         /// Venue filtering has been enabled or disabled for a ticker (did, ticker, filtering_enabled)
         VenueFiltering(IdentityId, Ticker, bool),
         /// Venues added to allow list (did, ticker, vec<venue_id>)
@@ -90,7 +86,6 @@ pub trait WeightInfo {
     fn set_venue_filtering() -> Weight;
     fn allow_venues(u: u32) -> Weight;
     fn disallow_venues(u: u32) -> Weight;
-    fn change_receipt_validity() -> Weight;
     fn reschedule_instruction() -> Weight;
     fn execute_manual_instruction(f: u32, n: u32, o: u32) -> Weight;
     fn add_instruction(f: u32, n: u32, o: u32) -> Weight;

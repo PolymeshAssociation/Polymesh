@@ -1817,21 +1817,54 @@ declare module '@polkadot/api-base/types/events' {
     utility: {
       /**
        * Batch of dispatches completed fully with no error.
-       * Includes a vector of event counts for each dispatch.
        **/
-      BatchCompleted: AugmentedEvent<ApiType, [Vec<u32>]>;
+      BatchCompleted: AugmentedEvent<ApiType, []>;
+      /**
+       * Batch of dispatches completed fully with no error.
+       * Includes a vector of event counts for each dispatch.
+       * POLYMESH: event deprecated.
+       **/
+      BatchCompletedOld: AugmentedEvent<ApiType, [Vec<u32>]>;
+      /**
+       * Batch of dispatches completed but has errors.
+       **/
+      BatchCompletedWithErrors: AugmentedEvent<ApiType, []>;
+      /**
+       * Batch of dispatches did not complete fully. Index of first failing dispatch given, as
+       * well as the error.
+       **/
+      BatchInterrupted: AugmentedEvent<ApiType, [u32, SpRuntimeDispatchError]>;
       /**
        * Batch of dispatches did not complete fully.
        * Includes a vector of event counts for each dispatch and
        * the index of the first failing dispatch as well as the error.
+       * POLYMESH: event deprecated.
        **/
-      BatchInterrupted: AugmentedEvent<ApiType, [Vec<u32>, ITuple<[u32, SpRuntimeDispatchError]>]>;
+      BatchInterruptedOld: AugmentedEvent<ApiType, [Vec<u32>, ITuple<[u32, SpRuntimeDispatchError]>]>;
       /**
        * Batch of dispatches did not complete fully.
        * Includes a vector of event counts for each call and
        * a vector of any failed dispatches with their indices and associated error.
+       * POLYMESH: event deprecated.
        **/
       BatchOptimisticFailed: AugmentedEvent<ApiType, [Vec<u32>, Vec<ITuple<[u32, SpRuntimeDispatchError]>>]>;
+      /**
+       * A call was dispatched.
+       **/
+      DispatchedAs: AugmentedEvent<ApiType, [Result<Null, SpRuntimeDispatchError>]>;
+      /**
+       * A single item within a Batch of dispatches has completed with no error.
+       **/
+      ItemCompleted: AugmentedEvent<ApiType, []>;
+      /**
+       * A single item within a Batch of dispatches has completed with error.
+       **/
+      ItemFailed: AugmentedEvent<ApiType, [SpRuntimeDispatchError]>;
+      /**
+       * Relayed transaction.
+       * POLYMESH: event.
+       **/
+      RelayedTx: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, Result<Null, SpRuntimeDispatchError>]>;
       /**
        * Generic event
        **/
