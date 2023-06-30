@@ -5,7 +5,8 @@ use std::ops::Deref;
 use codec::Encode;
 use frame_support::dispatch::DispatchErrorWithPostInfo;
 use frame_support::{
-    assert_noop, assert_ok, IterableStorageDoubleMap, StorageDoubleMap, StorageMap,
+    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop,
+    IterableStorageDoubleMap, StorageDoubleMap, StorageMap,
 };
 use rand::{prelude::*, thread_rng};
 use sp_runtime::AnySignature;
@@ -828,20 +829,18 @@ fn failed_execution() {
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
 
-        let execution_error = Settlement::execute_manual_instruction(
-            alice.origin(),
-            instruction_id,
-            None,
-            2,
-            0,
-            0,
-            None,
-        )
-        .unwrap_err();
-        assert_eq!(
-            execution_error.error,
-            Error::FailedToReleaseLockOrTransferAssets.into()
-        );
+        assert_storage_noop!(assert_err_ignore_postinfo!(
+            Settlement::execute_manual_instruction(
+                alice.origin(),
+                instruction_id,
+                None,
+                2,
+                0,
+                0,
+                None,
+            ),
+            Error::FailedToReleaseLockOrTransferAssets
+        ));
     });
 }
 
