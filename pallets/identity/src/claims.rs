@@ -452,7 +452,7 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         let (pk, sk) = Self::get_claim_keys(target, claim_type, issuer, scope);
         // Ensure that claim exists
-        let claim = Claims::take(&pk, &sk).ok_or(Error::<T>::ClaimDoesNotExist)?;
+        let claim = Claims::try_get(&pk, &sk).map_err(|_| Error::<T>::ClaimDoesNotExist)?;
 
         let investor_unique_scope_id = match &claim.claim {
             Claim::InvestorUniqueness(_, scope_id, _) => Some(*scope_id),
@@ -480,6 +480,8 @@ impl<T: Config> Module<T> {
             );
         }
 
+        // Remove the claim and emit event.
+        Claims::remove(&pk, &sk);
         Self::deposit_event(RawEvent::ClaimRevoked(target, claim));
         Ok(())
     }
