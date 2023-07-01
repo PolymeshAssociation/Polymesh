@@ -22,16 +22,15 @@ use sp_runtime::traits::One;
 use sp_runtime::MultiSignature;
 use sp_std::prelude::*;
 
-use pallet_asset::benchmarking::{create_portfolio, setup_asset_transfer};
-use pallet_nft::benchmarking::{create_collection_issue_nfts, setup_nft_transfer};
-use polymesh_common_utilities::benchs::{make_asset, user, AccountIdOf, User, UserBuilder};
+use pallet_asset::benchmarking::setup_asset_transfer;
+use pallet_nft::benchmarking::setup_nft_transfer;
+use polymesh_common_utilities::benchs::{make_asset, AccountIdOf, User, UserBuilder};
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::constants::ENSURED_MAX_LEN;
 use polymesh_common_utilities::TestUtilsFn;
-use polymesh_primitives::asset::NonFungibleType;
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::settlement::ReceiptMetadata;
-use polymesh_primitives::{IdentityId, Memo, NFTId, NFTs, PortfolioId, PortfolioKind, Ticker};
+use polymesh_primitives::{IdentityId, Memo, NFTId, NFTs, PortfolioId, Ticker};
 
 use crate::*;
 
@@ -115,23 +114,11 @@ where
     let offchain_legs: Vec<Leg> = (0..o)
         .map(|i| {
             let ticker = Ticker::from_slice_truncated(format!("OFFTicker{}", i).as_bytes());
-            let sdr_portfolio =
-                create_portfolio::<T>(sender, &format!("SdrPortfolioOFFTicker{}", i));
-            let rcv_portfolio =
-                create_portfolio::<T>(receiver, &format!("RcvPortfolioOFFTicker{}", i));
-            portfolios
-                .sdr_receipt_portfolios
-                .push(sdr_portfolio.clone());
-            portfolios
-                .rcv_receipt_portfolios
-                .push(rcv_portfolio.clone());
-            Leg {
-                from: sdr_portfolio,
-                to: rcv_portfolio,
-                asset: LegAsset::OffChain {
-                    ticker: ticker.clone(),
-                    amount: ONE_UNIT,
-                },
+            Leg::OffChain {
+                sender_identity: sender.did(),
+                receiver_identity: receiver.did(),
+                ticker: ticker.clone(),
+                amount: ONE_UNIT,
             }
         })
         .collect();
@@ -153,13 +140,11 @@ where
             );
             portfolios.sdr_portfolios.push(sdr_portfolio.clone());
             portfolios.rcv_portfolios.push(rvc_portfolio.clone());
-            Leg {
-                from: sdr_portfolio,
-                to: rvc_portfolio,
-                asset: LegAsset::Fungible {
-                    ticker,
-                    amount: ONE_UNIT,
-                },
+            Leg::Fungible {
+                sender: sdr_portfolio,
+                receiver: rvc_portfolio,
+                ticker,
+                amount: ONE_UNIT,
             }
         })
         .collect();
@@ -181,10 +166,10 @@ where
             );
             portfolios.sdr_portfolios.push(sdr_portfolio.clone());
             portfolios.rcv_portfolios.push(rcv_portfolio.clone());
-            Leg {
-                from: sdr_portfolio,
-                to: rcv_portfolio,
-                asset: LegAsset::NonFungible(NFTs::new_unverified(ticker, vec![NFTId(1)])),
+            Leg::NonFungible {
+                sender: sdr_portfolio,
+                receiver: rcv_portfolio,
+                nfts: NFTs::new_unverified(ticker, vec![NFTId(1)]),
             }
         })
         .collect();
@@ -237,9 +222,10 @@ where
         .map(|i| {
             setup_receipt_details(
                 &sender,
-                parameters.portfolios.sdr_receipt_portfolios[i as usize].clone(),
-                parameters.portfolios.rcv_receipt_portfolios[i as usize].clone(),
+                sender.did(),
+                receiver.did(),
                 ONE_UNIT,
+                InstructionId(1),
                 i,
             )
         })
@@ -256,18 +242,6 @@ where
         sdr_portfolios,
     )
     .unwrap();
-    // Affirms the receiver side of the instruction
-    let receipt_details: Vec<_> = (0..o)
-        .map(|i| {
-            setup_receipt_details(
-                &receiver,
-                parameters.portfolios.sdr_receipt_portfolios[i as usize].clone(),
-                parameters.portfolios.rcv_receipt_portfolios[i as usize].clone(),
-                ONE_UNIT,
-                i,
-            )
-        })
-        .collect();
     let rcv_portfolios = [
         parameters.portfolios.rcv_portfolios.clone(),
         parameters.portfolios.rcv_receipt_portfolios.clone(),
@@ -276,7 +250,7 @@ where
     Module::<T>::affirm_with_receipts(
         receiver.origin.clone().into(),
         InstructionId(1),
-        receipt_details,
+        Vec::new(),
         rcv_portfolios,
     )
     .unwrap();
@@ -287,29 +261,33 @@ where
 /// Returns the receipt details, signed by `signer`, of a transfer of `amount` for `format!("OFFTicker{}", leg_id).
 fn setup_receipt_details<T: Config>(
     signer: &User<T>,
-    sdr_receipt_portfolio: PortfolioId,
-    rcv_receipt_portfolio: PortfolioId,
+    sender_identity: IdentityId,
+    receiver_identity: IdentityId,
     amount: Balance,
+    instruction_id: InstructionId,
     leg_id: u32,
 ) -> ReceiptDetails<T::AccountId, T::OffChainSignature> {
     let ticker = Ticker::from_slice_truncated(format!("OFFTicker{}", leg_id).as_bytes());
-    let receipt = Receipt {
-        receipt_uid: leg_id as u64,
-        from: sdr_receipt_portfolio,
-        to: rcv_receipt_portfolio,
-        asset: ticker,
+    let receipt = Receipt::new(
+        leg_id as u64,
+        instruction_id,
+        LegId(leg_id as u64),
+        sender_identity,
+        receiver_identity,
+        ticker,
         amount,
-    };
+    );
     let raw_signature: [u8; 64] = signer.sign(&receipt.encode()).unwrap().0;
     let encoded_signature = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
     let signature = T::OffChainSignature::decode(&mut &encoded_signature[..]).unwrap();
-    ReceiptDetails {
-        receipt_uid: leg_id as u64,
-        leg_id: LegId(leg_id as u64),
-        signer: signer.account(),
+    ReceiptDetails::new(
+        leg_id as u64,
+        instruction_id,
+        LegId(leg_id as u64),
+        signer.account(),
         signature,
-        metadata: ReceiptMetadata::from(b"ReceiptMet"),
-    }
+        Some(ReceiptMetadata::default()),
+    )
 }
 
 benchmarks! {
@@ -443,9 +421,10 @@ benchmarks! {
             .map(|i| {
                 setup_receipt_details(
                     &alice,
-                    parameters.portfolios.sdr_receipt_portfolios[i as usize],
-                    parameters.portfolios.rcv_receipt_portfolios[i as usize],
+                    alice.did(),
+                    bob.did(),
                     ONE_UNIT,
+                    InstructionId(1),
                     i
                 )
             })
@@ -453,13 +432,6 @@ benchmarks! {
         let portfolios =
             [parameters.portfolios.sdr_portfolios, parameters.portfolios.sdr_receipt_portfolios].concat();
     }: _(alice.origin, InstructionId(1), receipt_details, portfolios)
-
-    change_receipt_validity {
-        let signer = user::<T>("signer", 0);
-    }: _(signer.origin(), 0, false)
-    verify {
-        assert!(Module::<T>::receipts_used(&signer.account(), 0), "Settlement: change_receipt_validity didn't work");
-    }
 
     reschedule_instruction {
         // Number of legs in the instruction
@@ -588,167 +560,6 @@ benchmarks! {
         let portfolios =
             [parameters.portfolios.sdr_portfolios.clone(), parameters.portfolios.sdr_receipt_portfolios].concat();
     }: _(alice.origin, InstructionId(1), parameters.portfolios.sdr_portfolios[0])
-
-    ensure_allowed_venue {
-        // Number of UNIQUE tickers in the legs
-        let n in 1..T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get() + T::MaxNumberOfOffChainAssets::get();
-
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let venue_id = create_venue_::<T>(alice.did(), vec![]);
-
-        let instruction_legs: Vec<(LegId, Leg)> = (0..n)
-            .map(|i| {
-                let ticker = Ticker::from_slice_truncated(format!("TICKER{}", i).as_bytes());
-                create_collection_issue_nfts::<T>(
-                    alice.origin().into(),
-                    ticker,
-                    Some(NonFungibleType::Derivative),
-                    0,
-                    1,
-                    PortfolioKind::Default,
-                );
-                Module::<T>::set_venue_filtering(alice.origin().into(), ticker, true).unwrap();
-                Module::<T>::allow_venues(alice.origin().into(), ticker, vec![venue_id]).unwrap();
-                (
-                    LegId(i.into()),
-                    Leg {
-                        from: PortfolioId {
-                            did: alice.did(),
-                            kind: PortfolioKind::Default,
-                        },
-                        to: PortfolioId {
-                            did: bob.did(),
-                            kind: PortfolioKind::Default,
-                        },
-                        asset: LegAsset::NonFungible(NFTs::new_unverified(ticker, vec![NFTId(1)])),
-                    },
-                )
-            })
-            .collect();
-    }: {
-        Module::<T>::ensure_allowed_venue(&instruction_legs, venue_id).unwrap();
-    }
-
-    execute_instruction_initial_checks {
-        // Number of legs in the instruction
-        let n in 1..T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get() + T::MaxNumberOfOffChainAssets::get();
-
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let instruction_id = InstructionId(1);
-
-        (0..n)
-            .for_each(|i| {
-                let leg = Leg {
-                    from: PortfolioId {
-                        did: alice.did(),
-                        kind: PortfolioKind::Default,
-                    },
-                    to: PortfolioId {
-                        did: bob.did(),
-                        kind: PortfolioKind::Default,
-                    },
-                    asset: LegAsset::NonFungible(NFTs::new_unverified(ticker, vec![NFTId(1)])),
-                };
-                InstructionLegs::insert(instruction_id, LegId(i.into()), leg);
-            });
-        InstructionStatuses::<T>::insert(instruction_id, InstructionStatus::Pending);
-    }: {
-        assert!(Module::<T>::instruction_affirms_pending(instruction_id) == 0);
-        assert!(Module::<T>::instruction_status(instruction_id) == InstructionStatus::Pending);
-        let venue_id = Module::<T>::instruction_details(instruction_id).venue_id;
-        let mut instruction_legs: Vec<(LegId, Leg)> =
-            InstructionLegs::iter_prefix(&InstructionId(1)).collect();
-        instruction_legs.sort_by_key(|leg_id_leg| leg_id_leg.0);
-    }
-
-    unchecked_release_locks {
-        // Number of fungible and non fungible assets in the legs
-        let f in 1..T::MaxNumberOfFungibleAssets::get();
-        let n in 0..T::MaxNumberOfNFTs::get();
-
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let memo = Some(Memo::default());
-        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
-
-        let parameters = setup_legs::<T>(&alice, &bob, f, n, T::MaxNumberOfOffChainAssets::get(), false, false);
-        Module::<T>::add_and_affirm_instruction(
-            alice.origin.clone().into(),
-            venue_id,
-            SettlementType::SettleOnAffirmation,
-            None,
-            None,
-            parameters.legs,
-            parameters.portfolios.sdr_portfolios,
-            memo,
-        ).unwrap();
-        Module::<T>::affirm_instruction(
-            bob.origin.clone().into(),
-            InstructionId(1),
-            parameters.portfolios.rcv_portfolios,
-        ).unwrap();
-        let instruction_legs: Vec<(LegId, Leg)> =
-            InstructionLegs::iter_prefix(&InstructionId(1)).collect();
-    }: {
-        Module::<T>::unchecked_release_locks(InstructionId(1), &instruction_legs);
-    }
-
-    prune_instruction {
-        // Number of legs and unique parties in the instruction
-        let l in 1..T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get() + T::MaxNumberOfOffChainAssets::get();
-        let p in 1..T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get() + T::MaxNumberOfOffChainAssets::get();
-
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let alice_portfolio = PortfolioId {
-            did: alice.did(),
-            kind: PortfolioKind::Default,
-        };
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let instruction_id = InstructionId(1);
-
-        for i in 0..l {
-            let sender_portfolio = {
-                // Controls the number of unique portfolios
-                if i + 1 < p {
-                    PortfolioId {
-                        did: IdentityId::from(i as u128),
-                        kind: PortfolioKind::Default,
-                    }
-                } else {
-                    alice_portfolio
-                }
-            };
-            let leg = Leg {
-                from: sender_portfolio,
-                to: alice_portfolio,
-                asset: LegAsset::NonFungible(NFTs::new_unverified(ticker, vec![NFTId(1)])),
-            };
-            InstructionLegs::insert(instruction_id, LegId(i.into()), leg);
-            InstructionLegStatus::<T>::insert(instruction_id, LegId(i.into()), LegStatus::ExecutionPending);
-            AffirmsReceived::insert(
-                instruction_id,
-                sender_portfolio,
-                AffirmationStatus::Affirmed,
-            );
-            UserAffirmations::insert(
-                sender_portfolio,
-                instruction_id,
-                AffirmationStatus::Affirmed,
-            )
-        }
-    }: {
-        Module::<T>::prune_instruction(InstructionId(1), true)
-    }
-
-    post_failed_execution {
-        let instruction_id = InstructionId(1);
-        <InstructionDetails<T>>::insert(instruction_id, Instruction::default());
-    }: {
-        InstructionStatuses::<T>::insert(instruction_id, InstructionStatus::Failed);
-    }
 
     execute_instruction_paused {
         // Number of fungible, non-fungible and offchain assets in the instruction
