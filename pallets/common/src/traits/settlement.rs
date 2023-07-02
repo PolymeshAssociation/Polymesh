@@ -86,7 +86,6 @@ pub trait WeightInfo {
     fn set_venue_filtering() -> Weight;
     fn allow_venues(u: u32) -> Weight;
     fn disallow_venues(u: u32) -> Weight;
-    fn reschedule_instruction() -> Weight;
     fn execute_manual_instruction(f: u32, n: u32, o: u32) -> Weight;
     fn add_instruction(f: u32, n: u32, o: u32) -> Weight;
     fn add_and_affirm_instruction(f: u32, n: u32, o: u32) -> Weight;
@@ -104,10 +103,6 @@ pub trait WeightInfo {
     fn add_and_affirm_instruction_legs(legs: &[Leg]) -> Weight {
         let (f, n, o) = Self::get_transfer_by_asset(legs);
         Self::add_and_affirm_instruction(f, n, o)
-    }
-    fn execute_scheduled_instruction_legs(legs: &[Leg]) -> Weight {
-        let (f, n, o) = Self::get_transfer_by_asset(legs);
-        Self::execute_scheduled_instruction(f, n, o)
     }
     fn execute_manual_weight_limit(
         weight_limit: &Option<Weight>,
