@@ -572,7 +572,9 @@ impl<T: Config> Module<T> {
     /// - mapping the the ID to the `time`.
     fn create_at(actor: Option<EventDid>, ticker: Ticker, id: CheckpointId, at: Moment) {
         // Record total supply at checkpoint ID.
-        let supply = <Asset<T>>::token_details(ticker).total_supply;
+        let supply = <Asset<T>>::token_details(&ticker)
+            .map(|t| t.total_supply)
+            .unwrap_or_default();
         TotalSupply::insert(ticker, id, supply);
 
         // Relate Ticker -> ID -> time.

@@ -38,7 +38,7 @@ fn create_portfolio() -> (User, PortfolioNumber) {
     let num = Portfolio::next_portfolio_number(&owner.did);
     assert_eq!(num, PortfolioNumber(1));
     assert_ok!(Portfolio::create_portfolio(owner.origin(), name.clone()));
-    assert_eq!(Portfolio::portfolios(&owner.did, num), name);
+    assert_eq!(Portfolio::portfolios(&owner.did, num), Some(name));
     (owner, num)
 }
 
@@ -101,7 +101,7 @@ fn can_create_rename_delete_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         let (owner, num) = create_portfolio();
 
-        let name = || Portfolio::portfolios(owner.did, num);
+        let name = || Portfolio::portfolios(owner.did, num).unwrap();
         let num_of = |name| Portfolio::name_to_number(owner.did, name);
 
         let first_name = name();
@@ -128,7 +128,7 @@ fn can_delete_recreate_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         let (owner, num) = create_portfolio();
 
-        let name = || Portfolio::portfolios(owner.did, num);
+        let name = || Portfolio::portfolios(owner.did, num).unwrap();
         let num_of = |name| Portfolio::name_to_number(owner.did, name);
 
         let first_name = name();

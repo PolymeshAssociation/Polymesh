@@ -101,8 +101,10 @@ use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
 
 use frame_support::dispatch::DispatchClass::{Normal, Operational};
-use frame_support::dispatch::{DispatchResult, Pays};
-use frame_support::traits::{ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers};
+use frame_support::dispatch::{DispatchResult, Pays, Weight};
+use frame_support::traits::{
+    ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers, PalletInfoAccess,
+};
 use frame_support::{decl_error, decl_module, decl_storage};
 use polymesh_common_utilities::constants::did::SECURITY_TOKEN;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
@@ -112,9 +114,10 @@ use polymesh_common_utilities::traits::identity::{
 };
 use polymesh_common_utilities::{SystematicIssuers, GC_DID};
 use polymesh_primitives::{
-    investor_zkproof_data::v1::InvestorZKProofData, storage_migration_ver, Authorization,
-    AuthorizationData, AuthorizationType, CddId, Claim, ClaimType, CustomClaimTypeId, DidRecord,
-    IdentityClaim, IdentityId, KeyRecord, Permissions, Scope, SecondaryKey, Signatory, Ticker,
+    investor_zkproof_data::v1::InvestorZKProofData, storage_migrate_on, storage_migration_ver,
+    Authorization, AuthorizationData, AuthorizationType, CddId, Claim, ClaimType,
+    CustomClaimTypeId, DidRecord, IdentityClaim, IdentityId, KeyRecord, Permissions, Scope,
+    SecondaryKey, Signatory, Ticker,
 };
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
@@ -138,11 +141,11 @@ decl_storage! {
         pub CurrentPayer: Option<T::AccountId>;
 
         /// (Target ID, claim type) (issuer,scope) -> Associated claims
-        pub Claims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => IdentityClaim;
+        pub Claims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => Option<IdentityClaim>;
         /// CustomClaimTypeId -> String constant
-        pub CustomClaims: map hasher(twox_64_concat) CustomClaimTypeId => Vec<u8>;
+        pub CustomClaims: map hasher(twox_64_concat) CustomClaimTypeId => Option<Vec<u8>>;
         /// String constant -> CustomClaimTypeId
-        pub CustomClaimsInverse: map hasher(blake2_128_concat) Vec<u8> => CustomClaimTypeId;
+        pub CustomClaimsInverse: map hasher(blake2_128_concat) Vec<u8> => Option<CustomClaimTypeId>;
         /// The next `CustomClaimTypeId`.
         pub CustomClaimIdSequence get(fn custom_claim_id_seq): CustomClaimTypeId;
 
@@ -167,10 +170,6 @@ decl_storage! {
         /// All authorizations that an identity has given. (Authorizer, auth_id -> authorized)
         pub AuthorizationsGiven: double_map hasher(identity)
             IdentityId, hasher(twox_64_concat) u64 => Signatory<T::AccountId>;
-
-        /// Obsoleted storage variable superceded by `CddAuthForPrimaryKeyRotation`. It is kept here
-        /// for the purpose of storage migration.
-        pub CddAuthForMasterKeyRotation get(fn cdd_auth_for_master_key_rotation): bool;
 
         /// A config flag that, if set, instructs an authorization from a CDD provider in order to
         /// change the primary key of an identity.
@@ -252,6 +251,13 @@ decl_module! {
         // Initializing events
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion, 2, {
+                let _ = frame_support::storage::migration::clear_storage_prefix(<Pallet<T>>::name().as_bytes(), b"CddAuthForMasterKeyRotation", b"", None, None);
+            });
+            Weight::zero()
+        }
 
         const InitialPOLYX: <T::Balances as Currency<T::AccountId>>::Balance = T::InitialPOLYX::get();
 

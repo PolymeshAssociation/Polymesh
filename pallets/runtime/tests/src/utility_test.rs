@@ -324,7 +324,10 @@ fn batch_secondary_with_permissions() {
     let alice = User::new(AccountKeyring::Alice).balance(1_000);
     let bob = User::new_with(alice.did, AccountKeyring::Bob);
     let check_name = |name| {
-        assert_eq!(Portfolio::portfolios(&alice.did, &PortfolioNumber(1)), name);
+        assert_eq!(
+            Portfolio::portfolios(&alice.did, &PortfolioNumber(1)),
+            Some(name)
+        );
     };
 
     // Add Bob.
