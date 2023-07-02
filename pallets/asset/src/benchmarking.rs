@@ -136,6 +136,10 @@ fn verify_ownership<T: Config>(
     assert_eq!(Module::<T>::asset_ownership_relation(new, ticker), rel);
 }
 
+fn token_details<T: Config>(ticker: Ticker) -> SecurityToken {
+    Module::<T>::token_details(&ticker).unwrap()
+}
+
 fn set_config<T: Config>() {
     <TickerConfig<T>>::put(TickerRegistrationConfig {
         max_ticker_length: TICKER_LEN as u8,
@@ -297,7 +301,7 @@ benchmarks! {
         );
     }: _(new_owner.origin, new_owner_auth_id)
     verify {
-        assert_eq!(Module::<T>::token_details(&ticker).owner_did, did);
+        assert_eq!(token_details::<T>(ticker).owner_did, did);
         verify_ownership::<T>(ticker, owner.did(), did, AssetOwnershipRelation::AssetOwned);
     }
 
@@ -314,7 +318,7 @@ benchmarks! {
        let asset_type = token.asset_type.clone();
     }: _(origin, name, ticker, token.divisible, asset_type, identifiers, fundr, true)
     verify {
-        assert_eq!(Module::<T>::token_details(ticker), token);
+        assert_eq!(token_details::<T>(ticker), token);
         assert_eq!(Module::<T>::identifiers(ticker), identifiers2);
     }
 
@@ -346,7 +350,7 @@ benchmarks! {
         let (owner, ticker) = owned_ticker::<T>();
     }: _(owner.origin, ticker, new_name)
     verify {
-        assert_eq!(Module::<T>::asset_names(ticker), new_name2);
+        assert_eq!(Module::<T>::asset_names(ticker), Some(new_name2));
     }
 
     issue {
@@ -355,14 +359,14 @@ benchmarks! {
         Portfolio::<T>::create_portfolio(owner.origin.clone().into(), portfolio_name).unwrap();
     }: _(owner.origin, ticker, (1_000_000 * POLY).into(), PortfolioKind::User(PortfolioNumber(1)))
     verify {
-        assert_eq!(Module::<T>::token_details(ticker).total_supply, (2_000_000 * POLY).into());
+        assert_eq!(token_details::<T>(ticker).total_supply, (2_000_000 * POLY).into());
     }
 
     redeem {
         let (owner, ticker) = owned_ticker::<T>();
     }: _(owner.origin, ticker, (600_000 * POLY).into())
     verify {
-        assert_eq!(Module::<T>::token_details(ticker).total_supply, (400_000 * POLY).into());
+        assert_eq!(token_details::<T>(ticker).total_supply, (400_000 * POLY).into());
     }
 
     make_divisible {
@@ -370,7 +374,7 @@ benchmarks! {
         let ticker = make_indivisible_asset::<T>(&owner, None);
     }: _(owner.origin, ticker)
     verify {
-        assert_eq!(Module::<T>::token_details(ticker).divisible, true);
+        assert_eq!(token_details::<T>(ticker).divisible, true);
     }
 
     add_documents {
@@ -383,7 +387,7 @@ benchmarks! {
     }: _(owner.origin, docs, ticker)
     verify {
         for i in 1..d {
-            assert_eq!(Module::<T>::asset_documents(ticker, DocumentId(i)), docs2[i as usize]);
+            assert_eq!(Module::<T>::asset_documents(ticker, DocumentId(i)).unwrap(), docs2[i as usize]);
         }
     }
 
@@ -521,18 +525,18 @@ benchmarks! {
 
     }: _(target.origin, ticker, amount, PortfolioKind::User(next_portfolio_num))
     verify {
-        assert_eq!(Module::<T>::token_details(ticker).total_supply, (1_000_000 * POLY) - amount);
+        assert_eq!(token_details::<T>(ticker).total_supply, (1_000_000 * POLY) - amount);
     }
 
     update_asset_type {
         let target = user::<T>("target", 0);
         let ticker = make_asset::<T>(&target, None);
-        assert_eq!(Module::<T>::token_details(&ticker).asset_type, AssetType::default());
+        assert_eq!(token_details::<T>(ticker).asset_type, AssetType::default());
 
         let asset_type = AssetType::EquityPreferred;
     }: _(target.origin, ticker, asset_type)
     verify {
-        assert_eq!(Module::<T>::token_details(&ticker).asset_type, asset_type);
+        assert_eq!(token_details::<T>(ticker).asset_type, asset_type);
     }
 
     remove_local_metadata_key {

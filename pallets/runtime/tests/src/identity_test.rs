@@ -2104,9 +2104,9 @@ fn custom_claim_type_works() {
         let slot_has = |id, data: &str| {
             seq_is(id);
             let id = CustomClaimTypeId(id);
-            let data = data.as_bytes();
-            assert_eq!(CustomClaims::get(id), data);
-            assert_eq!(CustomClaimsInverse::get(data), id);
+            let data = data.as_bytes().to_vec();
+            assert_eq!(CustomClaims::get(id).as_ref(), Some(&data));
+            assert_eq!(CustomClaimsInverse::get(data), Some(id));
         };
 
         // Nothing so far. Generator (G) at 0.

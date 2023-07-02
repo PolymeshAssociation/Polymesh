@@ -8,6 +8,7 @@ use super::{
 };
 use crate::asset_test::{
     allow_all_transfers, basic_asset, check_schedules, next_schedule_id, set_timestamp, token,
+    token_details
 };
 use core::iter;
 use frame_support::{
@@ -115,7 +116,7 @@ fn transfer(ticker: &Ticker, from: User, to: User) {
 fn create_asset(ticker: &[u8], owner: User) -> Ticker {
     let (ticker, token) = token(ticker, owner.did);
     assert_ok!(basic_asset(owner, ticker, &token));
-    assert_eq!(Asset::token_details(ticker).owner_did, owner.did);
+    assert_eq!(token_details(&ticker).owner_did, owner.did);
     allow_all_transfers(ticker, owner);
     ticker
 }
@@ -2142,7 +2143,11 @@ fn dist_claim_rounding_indivisible() {
 
         // Make `currency` indivisible.
         // This the crucial aspect different about this test.
-        Tokens::mutate(currency, |t| t.divisible = false);
+        Tokens::mutate(currency, |t| {
+            if let Some(t) = t {
+                t.divisible = false;
+            }
+        });
 
         // Endow shares to holders.
         let endow = |to, units| transfer_amount(&ticker, owner, to, units * ONE_UNIT);

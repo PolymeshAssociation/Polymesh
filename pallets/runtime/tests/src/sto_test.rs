@@ -223,7 +223,7 @@ fn raise_happy_path() {
     assert_eq!(Asset::balance_of(&raise_ticker, bob.did), bob_init_raise);
     assert_eq!(
         Sto::fundraiser_name(offering_ticker, fundraiser_id),
-        fundraiser_name
+        Some(fundraiser_name)
     );
     let sto_invest = |purchase_amount, max_price, err: Error| {
         exec_noop!(

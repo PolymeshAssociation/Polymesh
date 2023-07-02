@@ -244,7 +244,14 @@ decl_storage! {
                        hasher(twox_64_concat) T::AccountId
                     => bool;
         /// Array of venues created by an identity. Only needed for the UI. IdentityId -> Vec<venue_id>
-        UserVenues get(fn user_venues): map hasher(twox_64_concat) IdentityId => Vec<VenueId>;
+        /// Venues create by an identity.
+        /// Only needed for the UI.
+        ///
+        /// identity -> venue_id ()
+        pub UserVenues get(fn user_venues):
+            double_map hasher(twox_64_concat) IdentityId,
+                       hasher(twox_64_concat) VenueId
+                    => ();
         /// Details about an instruction. instruction_id -> instruction_details
         pub InstructionDetails get(fn instruction_details):
             map hasher(twox_64_concat) InstructionId => Instruction<T::Moment, T::BlockNumber>;
@@ -321,7 +328,7 @@ decl_module! {
             for signer in signers {
                 <VenueSigners<T>>::insert(id, signer, true);
             }
-            UserVenues::append(did, id);
+            UserVenues::insert(did, id, ());
             Self::deposit_event(RawEvent::VenueCreated(did, id, details, typ));
         }
 
@@ -1954,6 +1961,7 @@ pub mod migration {
 
         decl_storage! {
             trait Store for Module<T: Config> as Settlement {
+                pub UserVenues get(fn user_venues): map hasher(twox_64_concat) IdentityId => Vec<VenueId>;
                 pub InstructionDetails get(fn instruction_details):
                     map hasher(twox_64_concat) InstructionId => Instruction<T::Moment, T::BlockNumber>;
                 pub InstructionLegs get(fn instruction_legs):
@@ -1971,9 +1979,24 @@ pub mod migration {
     pub fn migrate_to_v2<T: Config>() {
         RuntimeLogger::init();
         log::info!(" >>> Updating Settlement storage. Migrating Legs and Instructions.");
+        migrate_user_venues::<T>();
         migrate_legs::<T>();
         migrate_instruction_details::<T>();
-        log::info!(" >>> All legs and Instructions have been migrated.");
+        log::info!(" >>> All user_venues, legs and Instructions have been migrated.");
+    }
+
+    fn migrate_user_venues<T: Config>() {
+        // Need to fully drain the old storage.
+        let user_venues = v1::UserVenues::drain().collect::<Vec<(IdentityId, Vec<VenueId>)>>();
+        let mut count = 0;
+        // Convert to new double map.
+        for (did, venues) in user_venues {
+            count += venues.len();
+            for venue_id in venues {
+                UserVenues::insert(did, venue_id, ());
+            }
+        }
+        log::info!(" >>> {count} UserVenues have been migrated.");
     }
 
     fn migrate_legs<T: Config>() {

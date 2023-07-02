@@ -70,7 +70,7 @@ benchmarks! {
         let next_portfolio_num = NextPortfolioNumber::get(&did);
     }: _(target.origin, portfolio_name.clone())
     verify {
-        assert_eq!(Portfolios::get(&did, &next_portfolio_num), portfolio_name);
+        assert_eq!(Portfolios::get(&did, &next_portfolio_num), Some(portfolio_name));
     }
 
     delete_portfolio {
@@ -79,7 +79,7 @@ benchmarks! {
         let portfolio_name = PortfolioName(vec![65u8; 5]);
         let next_portfolio_num = NextPortfolioNumber::get(&did);
         Module::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone()).unwrap();
-        assert_eq!(Portfolios::get(&did, &next_portfolio_num), portfolio_name);
+        assert_eq!(Portfolios::get(&did, &next_portfolio_num), Some(portfolio_name));
     }: _(target.origin, next_portfolio_num.clone())
     verify {
         assert!(!Portfolios::contains_key(&did, &next_portfolio_num));
@@ -94,12 +94,12 @@ benchmarks! {
         let portfolio_name = PortfolioName(vec![65u8; i as usize]);
         let next_portfolio_num = NextPortfolioNumber::get(&did);
         Module::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone()).unwrap();
-        assert_eq!(Portfolios::get(&did, &next_portfolio_num), portfolio_name);
+        assert_eq!(Portfolios::get(&did, &next_portfolio_num), Some(portfolio_name));
         let new_name = PortfolioName(vec![66u8; i as usize]);
 
     }: _(target.origin, next_portfolio_num.clone(), new_name.clone())
     verify {
-        assert_eq!(Portfolios::get(&did, &next_portfolio_num), new_name);
+        assert_eq!(Portfolios::get(&did, &next_portfolio_num), Some(new_name));
     }
 
     quit_portfolio_custody {

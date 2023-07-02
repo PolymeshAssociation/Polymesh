@@ -18,7 +18,7 @@ use pallet_portfolio::{PortfolioLockedNFT, PortfolioNFT};
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
     AffirmsReceived, InstructionAffirmsPending, InstructionLegs, InstructionMemos,
-    OffChainAffirmations, RawEvent, UserAffirmations, VenueInstructions,
+    OffChainAffirmations, RawEvent, UserAffirmations, UserVenues, VenueInstructions,
 };
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
@@ -235,6 +235,14 @@ fn venue_instructions(id: VenueId) -> Vec<InstructionId> {
     VenueInstructions::iter_prefix(id).map(|(i, _)| i).collect()
 }
 
+fn user_venues(did: IdentityId) -> Vec<VenueId> {
+    let mut venues = UserVenues::iter_prefix(did)
+        .map(|(i, _)| i)
+        .collect::<Vec<_>>();
+    venues.sort();
+    venues
+}
+
 #[test]
 fn venue_registration() {
     ExtBuilder::default().build().execute_with(|| {
@@ -254,7 +262,7 @@ fn venue_registration() {
             Settlement::venue_counter(),
             venue_counter.checked_inc().unwrap()
         );
-        assert_eq!(Settlement::user_venues(alice.did), [venue_counter]);
+        assert_eq!(user_venues(alice.did), [venue_counter]);
         assert_eq!(venue_info.creator, alice.did);
         assert_eq!(venue_instructions(venue_counter).len(), 0);
         assert_eq!(Settlement::details(venue_counter), VenueDetails::default());
@@ -277,7 +285,7 @@ fn venue_registration() {
             VenueType::Exchange
         ));
         assert_eq!(
-            Settlement::user_venues(alice.did),
+            user_venues(alice.did),
             [venue_counter, venue_counter.checked_inc().unwrap()]
         );
 

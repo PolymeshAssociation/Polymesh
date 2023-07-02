@@ -197,16 +197,16 @@ decl_storage! {
     trait Store for Module<T: Config> as Asset {
         /// Ticker registration details.
         /// (ticker) -> TickerRegistration
-        pub Tickers get(fn ticker_registration): map hasher(blake2_128_concat) Ticker => TickerRegistration<T::Moment>;
+        pub Tickers get(fn ticker_registration): map hasher(blake2_128_concat) Ticker => Option<TickerRegistration<T::Moment>>;
         /// Ticker registration config.
         /// (ticker) -> TickerRegistrationConfig
         pub TickerConfig get(fn ticker_registration_config) config(): TickerRegistrationConfig<T::Moment>;
         /// Details of the token corresponding to the token ticker.
         /// (ticker) -> SecurityToken details [returns SecurityToken struct]
-        pub Tokens get(fn token_details): map hasher(blake2_128_concat) Ticker => SecurityToken;
+        pub Tokens get(fn tokens): map hasher(blake2_128_concat) Ticker => Option<SecurityToken>;
         /// Asset name of the token corresponding to the token ticker.
         /// (ticker) -> `AssetName`
-        pub AssetNames get(fn asset_names): map hasher(blake2_128_concat) Ticker => AssetName;
+        pub AssetNames get(fn asset_names): map hasher(blake2_128_concat) Ticker => Option<AssetName>;
         /// The total asset ticker balance per identity.
         /// (ticker, DID) -> Balance
         // NB: It is safe to use `identity` hasher here because assets can not be distributed to non-existent identities.
@@ -221,7 +221,7 @@ decl_storage! {
         /// Maps custom asset type ids to the registered string contents.
         pub CustomTypes get(fn custom_types): map hasher(twox_64_concat) CustomAssetTypeId => Vec<u8>;
         /// Inverse map of `CustomTypes`, from registered string contents to custom asset type ids.
-        pub CustomTypesInverse get(fn custom_types_inverse): map hasher(blake2_128_concat) Vec<u8> => CustomAssetTypeId;
+        pub CustomTypesInverse get(fn custom_types_inverse): map hasher(blake2_128_concat) Vec<u8> => Option<CustomAssetTypeId>;
 
         /// The name of the current funding round.
         /// ticker -> funding round
@@ -239,7 +239,7 @@ decl_storage! {
         /// Documents attached to an Asset
         /// (ticker, doc_id) -> document
         pub AssetDocuments get(fn asset_documents):
-            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) DocumentId => Document;
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) DocumentId => Option<Document>;
         /// Per-ticker document ID counter.
         /// (ticker) -> doc_id
         pub AssetDocumentsIdSequence get(fn asset_documents_id_sequence): map hasher(blake2_128_concat) Ticker => DocumentId;
@@ -1104,7 +1104,7 @@ impl<T: Config> Module<T> {
     }
 
     fn maybe_ticker(ticker: &Ticker) -> Option<TickerRegistration<T::Moment>> {
-        <Tickers<T>>::contains_key(ticker).then(|| <Tickers<T>>::get(ticker))
+        <Tickers<T>>::get(ticker)
     }
 
     pub fn is_ticker_available(ticker: &Ticker) -> bool {
@@ -1221,7 +1221,9 @@ impl<T: Config> Module<T> {
 
     // Get the total supply of an asset `id`.
     pub fn total_supply(ticker: Ticker) -> Balance {
-        Self::token_details(ticker).total_supply
+        Self::token_details(&ticker)
+            .map(|t| t.total_supply)
+            .unwrap_or_default()
     }
 
     pub fn get_balance_at(ticker: Ticker, did: IdentityId, at: CheckpointId) -> Balance {
@@ -1283,9 +1285,10 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         Self::ensure_granular(ticker, value)?;
 
+        let token = Self::token_details(ticker)?;
         // Ensures the token is fungible
         ensure!(
-            Tokens::get(&ticker).asset_type.is_fungible(),
+            token.asset_type.is_fungible(),
             Error::<T>::UnexpectedNonFungibleToken
         );
 
@@ -1400,7 +1403,7 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         Self::ensure_granular(ticker, value)?;
         // Read the token details
-        let mut token = Self::token_details(ticker);
+        let mut token = Self::token_details(ticker)?;
         // Ensures the token is fungible
         ensure!(
             token.asset_type.is_fungible(),
@@ -1503,8 +1506,14 @@ impl<T: Config> Module<T> {
         value % ONE_UNIT == 0
     }
 
+    pub fn token_details(ticker: &Ticker) -> Result<SecurityToken, DispatchError> {
+        Ok(Tokens::try_get(ticker).or(Err(Error::<T>::NoSuchAsset))?)
+    }
+
     pub fn is_divisible(ticker: &Ticker) -> bool {
-        Self::token_details(ticker).divisible
+        Self::token_details(ticker)
+            .map(|t| t.divisible)
+            .unwrap_or_default()
     }
 
     /// Accepts and executes the ticker transfer.
@@ -1515,19 +1524,22 @@ impl<T: Config> Module<T> {
 
             Self::ensure_asset_fresh(&ticker)?;
 
-            let owner = Self::ticker_registration(&ticker).owner;
-            <Identity<T>>::ensure_auth_by(auth_by, owner)?;
+            let reg =
+                Self::ticker_registration(&ticker).ok_or(Error::<T>::TickerRegistrationExpired)?;
+            <Identity<T>>::ensure_auth_by(auth_by, reg.owner)?;
 
-            Self::transfer_ticker(ticker, to, owner);
+            Self::transfer_ticker(reg, ticker, to);
             Ok(())
         })
     }
 
-    /// Transfer the given `ticker`'s registration from `from` to `to`.
-    fn transfer_ticker(ticker: Ticker, to: IdentityId, from: IdentityId) {
+    /// Transfer the given `ticker`'s registration from `req.owner` to `to`.
+    fn transfer_ticker(mut reg: TickerRegistration<T::Moment>, ticker: Ticker, to: IdentityId) {
+        let from = reg.owner;
         AssetOwnershipRelations::remove(from, ticker);
         AssetOwnershipRelations::insert(to, ticker, AssetOwnershipRelation::TickerOwned);
-        <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to);
+        reg.owner = to;
+        <Tickers<T>>::insert(&ticker, reg);
         Self::deposit_event(RawEvent::TickerTransferred(to, ticker, from));
     }
 
@@ -1537,15 +1549,24 @@ impl<T: Config> Module<T> {
         <Identity<T>>::accept_auth_with(&to.into(), id, |data, auth_by| {
             let ticker = extract_auth!(data, TransferAssetOwnership(t));
 
-            Self::ensure_asset_exists(&ticker)?;
+            // Get the token details and ensure it exists.
+            let mut token = Self::token_details(&ticker)?;
+
+            // Ensure the authorization was created by a permissioned agent.
             <ExternalAgents<T>>::ensure_agent_permissioned(ticker, auth_by)?;
 
-            let owner = Self::ticker_registration(&ticker).owner;
-            AssetOwnershipRelations::remove(owner, ticker);
+            // Get the ticker registration and ensure it exists.
+            let mut reg = Self::ticker_registration(&ticker).ok_or(Error::<T>::NoSuchAsset)?;
+            let old_owner = reg.owner;
+            AssetOwnershipRelations::remove(old_owner, ticker);
             AssetOwnershipRelations::insert(to, ticker, AssetOwnershipRelation::AssetOwned);
-            <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to);
-            Tokens::mutate(&ticker, |tr| tr.owner_did = to);
-            Self::deposit_event(RawEvent::AssetOwnershipTransferred(to, ticker, owner));
+            // Update ticker registration.
+            reg.owner = to;
+            <Tickers<T>>::insert(&ticker, reg);
+            // Update token details.
+            token.owner_did = to;
+            Tokens::insert(&ticker, token);
+            Self::deposit_event(RawEvent::AssetOwnershipTransferred(to, ticker, old_owner));
             Ok(())
         })
     }
@@ -1761,7 +1782,11 @@ impl<T: Config> Module<T> {
             Self::unverified_register_ticker(&ticker, did, None);
         } else {
             // Ticker already registered by the user.
-            <Tickers<T>>::mutate(&ticker, |tr| tr.expiry = None);
+            <Tickers<T>>::mutate(&ticker, |tr| {
+                if let Some(tr) = tr {
+                    tr.expiry = None;
+                }
+            });
         }
 
         let token = SecurityToken {
@@ -1791,7 +1816,9 @@ impl<T: Config> Module<T> {
         ));
 
         // Add funding round name.
-        FundingRound::insert(ticker, funding_round.unwrap_or_default());
+        if let Some(funding_round) = funding_round {
+            FundingRound::insert(ticker, funding_round);
+        }
 
         Self::unverified_update_idents(did, ticker, identifiers);
 
@@ -1859,9 +1886,10 @@ impl<T: Config> Module<T> {
 
         Self::ensure_granular(&ticker, value)?;
 
+        let mut token = Self::token_details(&ticker)?;
         // Ensures the token is fungible
         ensure!(
-            Tokens::get(&ticker).asset_type.is_fungible(),
+            token.asset_type.is_fungible(),
             Error::<T>::UnexpectedNonFungibleToken
         );
 
@@ -1870,6 +1898,12 @@ impl<T: Config> Module<T> {
 
         with_transaction(|| {
             Portfolio::<T>::reduce_portfolio_balance(&portfolio, &ticker, value)?;
+
+            // Try updating the total supply.
+            token.total_supply = token
+                .total_supply
+                .checked_sub(value)
+                .ok_or(Error::<T>::TotalSupplyOverflow)?;
 
             <Checkpoint<T>>::advance_update_balances(
                 &ticker,
@@ -1881,7 +1915,7 @@ impl<T: Config> Module<T> {
 
         // Update identity balances and total supply
         BalanceOf::insert(ticker, &portfolio.did, updated_balance);
-        Tokens::mutate(ticker, |token| token.total_supply -= value);
+        Tokens::insert(ticker, token);
 
         // Update scope balances
         let scope_id = Self::scope_id(&ticker, &portfolio.did);
@@ -1922,6 +1956,7 @@ impl<T: Config> Module<T> {
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
         Tokens::try_mutate(&ticker, |token| -> DispatchResult {
+            let mut token = token.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
             // Ensures the token is fungible
             ensure!(
                 token.asset_type.is_fungible(),
@@ -2380,11 +2415,11 @@ impl<T: Config> Module<T> {
         from_did: &IdentityId,
         to_did: &IdentityId,
         ticker: &Ticker,
-    ) -> (ScopeId, ScopeId, SecurityToken) {
+    ) -> (ScopeId, ScopeId, Balance) {
         (
             Self::scope_id(ticker, &from_did),
             Self::scope_id(ticker, &to_did),
-            Tokens::get(ticker),
+            Self::total_supply(*ticker),
         )
     }
 
@@ -2395,7 +2430,7 @@ impl<T: Config> Module<T> {
         value: Balance,
         weight_meter: &mut WeightMeter,
     ) -> bool {
-        let (from_scope_id, to_scope_id, token) =
+        let (from_scope_id, to_scope_id, total_supply) =
             Self::setup_statistics_failures(from_did, to_did, ticker);
         Statistics::<T>::verify_transfer_restrictions(
             ticker,
@@ -2406,7 +2441,7 @@ impl<T: Config> Module<T> {
             Self::aggregate_balance_of(ticker, &from_scope_id),
             Self::aggregate_balance_of(ticker, &to_scope_id),
             value,
-            token.total_supply,
+            total_supply,
             weight_meter,
         )
         .is_err()
@@ -2419,7 +2454,7 @@ impl<T: Config> Module<T> {
         value: Balance,
         weight_meter: &mut WeightMeter,
     ) -> Result<Vec<TransferConditionResult>, DispatchError> {
-        let (from_scope_id, to_scope_id, token) =
+        let (from_scope_id, to_scope_id, total_supply) =
             Self::setup_statistics_failures(from_did, to_did, ticker);
         Statistics::<T>::get_transfer_restrictions_results(
             ticker,
@@ -2430,7 +2465,7 @@ impl<T: Config> Module<T> {
             Self::aggregate_balance_of(ticker, &from_scope_id),
             Self::aggregate_balance_of(ticker, &to_scope_id),
             value,
-            token.total_supply,
+            total_supply,
             weight_meter,
         )
     }
@@ -2473,6 +2508,7 @@ impl<T: Config> Module<T> {
         Self::ensure_asset_type_valid(asset_type)?;
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
         Tokens::try_mutate(&ticker, |token| -> DispatchResult {
+            let mut token = token.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
             // Ensures that both parameters are non fungible types or if both are fungible types.
             ensure!(
                 token.asset_type.is_fungible() == asset_type.is_fungible(),

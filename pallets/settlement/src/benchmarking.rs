@@ -302,7 +302,7 @@ benchmarks! {
     }: _(origin, venue_details, signers, venue_type)
     verify {
         assert_eq!(Module::<T>::venue_counter(), VenueId(2), "Invalid venue counter");
-        assert_eq!(Module::<T>::user_venues(did.unwrap()).into_iter().last(), Some(VenueId(1)), "Invalid venue id");
+        assert!(UserVenues::contains_key(did.unwrap(), VenueId(1)), "Invalid venue id");
         assert!(Module::<T>::venue_info(VenueId(1)).is_some(), "Incorrect venue info set");
     }
 
