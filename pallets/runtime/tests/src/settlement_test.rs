@@ -5,12 +5,14 @@ use std::ops::Deref;
 use codec::Encode;
 use frame_support::dispatch::DispatchErrorWithPostInfo;
 use frame_support::{
-    assert_noop, assert_ok, IterableStorageDoubleMap, StorageDoubleMap, StorageMap,
+    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop,
+    IterableStorageDoubleMap, StorageDoubleMap, StorageMap,
 };
 use rand::{prelude::*, thread_rng};
 use sp_runtime::AnySignature;
 use sp_std::collections::btree_set::BTreeSet;
 
+use pallet_asset::BalanceOf;
 use pallet_nft::NumberOfNFTs;
 use pallet_portfolio::{PortfolioLockedNFT, PortfolioNFT};
 use pallet_scheduler as scheduler;
@@ -808,15 +810,18 @@ fn failed_execution() {
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
 
-        // Reschedule instruction and ensure the state is identical to the original state.
-        assert_ok!(Settlement::reschedule_instruction(
-            alice.origin(),
-            instruction_id,
+        assert_storage_noop!(assert_err_ignore_postinfo!(
+            Settlement::execute_manual_instruction(
+                alice.origin(),
+                instruction_id,
+                None,
+                2,
+                0,
+                0,
+                None,
+            ),
+            Error::FailedToReleaseLockOrTransferAssets
         ));
-        assert_eq!(
-            Settlement::instruction_details(instruction_id),
-            instruction_details
-        );
     });
 }
 
@@ -3298,6 +3303,76 @@ fn add_instruction_with_single_pre_affirmed() {
             &BTreeSet::new(),
             instruction_memo,
             &legs,
+        );
+    });
+}
+
+/// Successfully executes an instruction after one failed attempt.
+#[test]
+fn manually_execute_failed_instruction() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Setup base parameters
+        let alice = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
+        let bob = User::new(AccountKeyring::Bob);
+        let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
+        let venue = create_token_and_venue(TICKER, alice);
+        let instruction_memo = Some(Memo::default());
+        create_token(TICKER2, alice);
+
+        // Creates and affirms an instruction and force a failed execution
+        let legs: Vec<Leg> = vec![
+            Leg::Fungible {
+                sender: alice_default_portfolio,
+                receiver: bob_default_portfolio,
+                ticker: TICKER,
+                amount: 1,
+            },
+            Leg::Fungible {
+                sender: alice_default_portfolio,
+                receiver: bob_default_portfolio,
+                ticker: TICKER2,
+                amount: 1,
+            },
+        ];
+        assert_ok!(Settlement::add_and_affirm_instruction(
+            alice.origin(),
+            venue,
+            SettlementType::SettleOnBlock(System::block_number() + 1),
+            None,
+            None,
+            legs.clone(),
+            vec![alice_default_portfolio],
+            instruction_memo.clone(),
+        ));
+        assert_ok!(Settlement::affirm_instruction(
+            bob.origin(),
+            InstructionId(0),
+            vec![bob_default_portfolio],
+        ));
+        assert_ok!(Asset::freeze(alice.origin(), TICKER));
+        next_block();
+        assert_instruction_status(InstructionId(0), InstructionStatus::Failed);
+        assert_eq!(BalanceOf::get(TICKER, alice.did), 100_000);
+        assert_eq!(BalanceOf::get(TICKER2, alice.did), 100_000);
+        // Executes the instruction once again, now successfully.
+        assert_ok!(Asset::unfreeze(alice.origin(), TICKER));
+        assert_ok!(Settlement::execute_manual_instruction(
+            alice.origin(),
+            InstructionId(0),
+            None,
+            2,
+            0,
+            0,
+            None
+        ));
+        assert_eq!(BalanceOf::get(TICKER, bob.did), 1);
+        assert_eq!(BalanceOf::get(TICKER2, bob.did), 1);
+        assert_eq!(BalanceOf::get(TICKER, alice.did), 99_999);
+        assert_eq!(BalanceOf::get(TICKER2, alice.did), 99_999);
+        assert_instruction_status(
+            InstructionId(0),
+            InstructionStatus::Success(System::block_number()),
         );
     });
 }

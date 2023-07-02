@@ -14,11 +14,10 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 pub use frame_benchmarking::{account, benchmarks};
-use frame_support::traits::{Get, OnInitialize};
+use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use scale_info::prelude::format;
 use sp_core::sr25519::Signature;
-use sp_runtime::traits::One;
 use sp_runtime::MultiSignature;
 use sp_std::prelude::*;
 
@@ -64,12 +63,6 @@ pub struct Portfolios {
     pub sdr_receipt_portfolios: Vec<PortfolioId>,
     pub rcv_portfolios: Vec<PortfolioId>,
     pub rcv_receipt_portfolios: Vec<PortfolioId>,
-}
-
-fn advance_one_block<T: Config + pallet_scheduler::Config>() {
-    let block_number = frame_system::Pallet::<T>::block_number() + One::one();
-    frame_system::Pallet::<T>::set_block_number(block_number);
-    pallet_scheduler::Pallet::<T>::on_initialize(block_number);
 }
 
 fn creator<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> User<T> {
@@ -432,36 +425,6 @@ benchmarks! {
         let portfolios =
             [parameters.portfolios.sdr_portfolios, parameters.portfolios.sdr_receipt_portfolios].concat();
     }: _(alice.origin, InstructionId(1), receipt_details, portfolios)
-
-    reschedule_instruction {
-        // Number of legs in the instruction
-        let l = T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get() + T::MaxNumberOfOffChainAssets::get();
-
-        let max_nonfungible = T::MaxNumberOfNFTs::get();
-        let max_fungible = T::MaxNumberOfFungibleAssets::get();
-        let max_offchain = T::MaxNumberOfOffChainAssets::get();
-
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let settlement_type = SettlementType::SettleOnAffirmation;
-        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
-
-        setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, max_fungible, max_nonfungible, max_offchain, false, false);
-        InstructionStatuses::<T>::insert(InstructionId(1), InstructionStatus::Failed);
-        advance_one_block::<T>();
-    }: _(alice.origin, InstructionId(1))
-    verify {
-        assert_eq!(
-            InstructionStatuses::<T>::get(InstructionId(1)),
-            InstructionStatus::Pending
-        );
-        advance_one_block::<T>();
-        assert_eq!(
-            InstructionStatuses::<T>::get(InstructionId(1)),
-            InstructionStatus::Success(frame_system::Pallet::<T>::block_number())
-        );
-
-    }
 
     execute_manual_instruction {
         // Number of fungible, non-fungible and offchain assets in the instruction

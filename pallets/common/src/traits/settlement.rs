@@ -86,7 +86,6 @@ pub trait WeightInfo {
     fn set_venue_filtering() -> Weight;
     fn allow_venues(u: u32) -> Weight;
     fn disallow_venues(u: u32) -> Weight;
-    fn reschedule_instruction() -> Weight;
     fn execute_manual_instruction(f: u32, n: u32, o: u32) -> Weight;
     fn add_instruction(f: u32, n: u32, o: u32) -> Weight;
     fn add_and_affirm_instruction(f: u32, n: u32, o: u32) -> Weight;
