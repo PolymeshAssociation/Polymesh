@@ -535,7 +535,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
 
         setup_execute_instruction::<T>(&alice, &bob, SettlementType::SettleOnAffirmation, venue_id, f, n, o, true, true);
-    }: execute_scheduled_instruction_v3(RawOrigin::Root, InstructionId(1), Weight::MAX)
+    }: execute_scheduled_instruction(RawOrigin::Root, InstructionId(1), Weight::MAX)
 
     execute_scheduled_instruction {
         // Number of fungible, non-fungible and offchain assets in the instruction
@@ -548,7 +548,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
 
         setup_execute_instruction::<T>(&alice, &bob, SettlementType::SettleOnAffirmation, venue_id, f, n, o, false, false);
-    }: execute_scheduled_instruction_v3(RawOrigin::Root, InstructionId(1), Weight::MAX)
+    }: _(RawOrigin::Root, InstructionId(1), Weight::MAX)
 
     ensure_root_origin {
         let origin = RawOrigin::Root;

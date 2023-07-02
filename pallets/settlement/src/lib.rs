@@ -357,26 +357,6 @@ decl_module! {
             Ok(())
         }
 
-        /// Placeholder for removed `add_instruction`
-        #[weight = 1_000]
-        pub fn placeholder_add_instruction(_origin) {}
-
-        /// Placeholder for removed `add_and_affirm_instruction`
-        #[weight = 1_000]
-        pub fn placeholder_add_and_affirm_instruction(_origin) {}
-
-        /// Placeholder for removed `affirm_instruction`
-        #[weight = 1_000]
-        pub fn placeholder_affirm_instruction(_origin)  {}
-
-        /// Placeholder for removed `withdraw_affirmation`
-        #[weight = 1_000]
-        pub fn placeholder_withdraw_affirmation(_origin) {}
-
-        /// Placeholder for removed `reject_instruction`
-        #[weight = 1_000]
-        pub fn placeholder_reject_instruction(_origin) {}
-
         /// Accepts an instruction and claims a signed receipt.
         ///
         /// # Arguments
@@ -402,14 +382,6 @@ decl_module! {
         ) -> DispatchResultWithPostInfo {
             Self::affirm_with_receipts_and_maybe_schedule_instruction(origin, id, receipt_details, portfolios)
         }
-
-        /// Placeholder for removed `claim_receipt`
-        #[weight = 1_000]
-        pub fn placeholder_claim_receipt(_origin) {}
-
-        /// Placeholder for removed `unclaim_receipt`
-        #[weight = 1_000]
-        pub fn placeholder_unclaim_receipt(_origin) {}
 
         /// Enables or disabled venue filtering for a token.
         ///
@@ -462,18 +434,6 @@ decl_module! {
             Self::deposit_event(RawEvent::VenuesBlocked(did, ticker, venues));
         }
 
-        /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
-        #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*legs_count, 0, 0)]
-        fn execute_scheduled_instruction(origin, id: InstructionId, legs_count: u32) -> DispatchResultWithPostInfo {
-            Self::ensure_root_origin(origin)?;
-            let mut weight_meter = Self::ensure_valid_weight_meter(
-                Self::execute_scheduled_instruction_minimum_weight(),
-                Self::execute_scheduled_instruction_weight_limit(legs_count, 0, 0),
-            )?;
-
-            Ok(Self::base_execute_scheduled_instruction(id, &mut weight_meter))
-        }
-
         /// Edit a venue's signers.
         /// * `id` specifies the ID of the venue to edit.
         /// * `signers` specifies the signers to add/remove.
@@ -484,14 +444,6 @@ decl_module! {
 
             Self::base_update_venue_signers(did, id, signers, add_signers)?;
         }
-
-        /// Placeholder for removed `add_instruction_with_memo`
-        #[weight = 1_000]
-        pub fn placeholder_add_instruction_with_memo(_origin) {}
-
-       /// Placeholder for removed `add_and_affirm_instruction_with_memo`
-       #[weight = 1_000]
-        pub fn placeholder_add_and_affirm_instruction_with_memo(_origin)  {}
 
         /// Manually executes an instruction.
         ///
@@ -545,10 +497,7 @@ decl_module! {
         ///
         /// # Weight
         /// `950_000_000 + 1_000_000 * legs.len()`
-        #[weight =
-            <T as Config>::WeightInfo::add_instruction_legs(legs)
-            .saturating_add( <T as Config>::WeightInfo::execute_scheduled_instruction_legs(legs))
-        ]
+        #[weight = <T as Config>::WeightInfo::add_instruction_legs(legs)]
         pub fn add_instruction(
             origin,
             venue_id: VenueId,
@@ -576,10 +525,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight =
-            <T as Config>::WeightInfo::add_and_affirm_instruction_legs(legs)
-            .saturating_add( <T as Config>::WeightInfo::execute_scheduled_instruction_legs(legs))
-        ]
+        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_legs(legs)]
         pub fn add_and_affirm_instruction(
             origin,
             venue_id: VenueId,
@@ -661,24 +607,8 @@ decl_module! {
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
-        #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*fungible_transfers, *nfts_transfers, 0)]
-        fn execute_scheduled_instruction_v2(
-            origin,
-            id: InstructionId,
-            fungible_transfers: u32,
-            nfts_transfers: u32
-        ) -> DispatchResultWithPostInfo{
-            Self::ensure_root_origin(origin)?;
-            let mut weight_meter = Self::ensure_valid_weight_meter(
-                Self::execute_scheduled_instruction_minimum_weight(),
-                Self::execute_scheduled_instruction_weight_limit(fungible_transfers, nfts_transfers, 0),
-            )?;
-            Ok(Self::base_execute_scheduled_instruction(id, &mut weight_meter))
-        }
-
-        /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
         #[weight = (*weight_limit).max(<T as Config>::WeightInfo::execute_scheduled_instruction(0, 0, 0))]
-        fn execute_scheduled_instruction_v3(
+        fn execute_scheduled_instruction(
             origin,
             id: InstructionId,
             weight_limit: Weight
@@ -1223,8 +1153,12 @@ impl<T: Config> Module<T> {
     /// NB - It is expected to execute the given instruction into the given block number but
     /// it is not a guaranteed behavior, Scheduler may have other high priority task scheduled
     /// for the given block so there are chances where the instruction execution block no. may drift.
-    fn schedule_instruction(id: InstructionId, execution_at: T::BlockNumber, weight_limit: Weight) {
-        let call = Call::<T>::execute_scheduled_instruction_v3 { id, weight_limit }.into();
+    pub(crate) fn schedule_instruction(
+        id: InstructionId,
+        execution_at: T::BlockNumber,
+        weight_limit: Weight,
+    ) {
+        let call = Call::<T>::execute_scheduled_instruction { id, weight_limit }.into();
         if let Err(_) = T::Scheduler::schedule_named(
             id.execution_name(),
             DispatchTime::At(execution_at),
@@ -2103,11 +2037,31 @@ pub mod migration {
                 // Migrate Instruction satus.
                 InstructionStatuses::<T>::insert(id, instruction_details.status);
 
+                let settlement_type = instruction_details.settlement_type;
+                // Check if we need to reschedule the settlement execution.
+                let schedule = match settlement_type {
+                    SettlementType::SettleOnBlock(block_number) => Some(block_number),
+                    SettlementType::SettleOnAffirmation => {
+                        if Module::<T>::instruction_affirms_pending(id) == 0 {
+                            Some(System::<T>::block_number() + One::one())
+                        } else {
+                            None
+                        }
+                    }
+                    SettlementType::SettleManual(_) => None,
+                };
+                if let Some(block_number) = schedule {
+                    // Cancel old scheduled task.
+                    let _ = T::Scheduler::cancel_named(id.execution_name());
+                    // Create new scheduled task.
+                    Module::<T>::schedule_instruction(id, block_number, Weight::MAX);
+                }
+
                 //Migrate Instruction details.
                 let instruction = Instruction {
                     instruction_id: id,
                     venue_id: instruction_details.venue_id,
-                    settlement_type: instruction_details.settlement_type,
+                    settlement_type,
                     created_at: instruction_details.created_at,
                     trade_date: instruction_details.trade_date,
                     value_date: instruction_details.value_date,
