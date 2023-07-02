@@ -8,7 +8,7 @@ use super::{
 };
 use crate::asset_test::{
     allow_all_transfers, basic_asset, check_schedules, next_schedule_id, set_timestamp, token,
-    token_details
+    token_details,
 };
 use core::iter;
 use frame_support::{
