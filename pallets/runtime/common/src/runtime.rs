@@ -570,7 +570,7 @@ macro_rules! runtime_apis {
         use polymesh_primitives::asset::GranularCanTransferResult;
         use polymesh_primitives::settlement::{InstructionId, ExecuteInstructionInfo};
         use polymesh_primitives::{
-            calendar::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, NFTs,
+            asset::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, NFTs,
             PortfolioId, Signatory, Ticker, WeightMeter, IdentityClaim
         };
 

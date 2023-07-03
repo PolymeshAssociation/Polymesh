@@ -43,65 +43,36 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
-use core::{iter, mem};
 use frame_support::{
     decl_error, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
+    dispatch::{DispatchError, DispatchResult, Weight},
     ensure,
     traits::UnixTime,
 };
 use frame_system::ensure_root;
-use pallet_base::{try_next_pre, Error::CounterOverflow};
+use sp_runtime::traits::SaturatedConversion;
+use sp_std::prelude::*;
+use sp_std::vec;
+
+use pallet_base::try_next_pre;
 pub use polymesh_common_utilities::traits::checkpoint::{Event, WeightInfo};
-use polymesh_common_utilities::traits::checkpoint::{ScheduleId, StoredSchedule};
+use polymesh_common_utilities::traits::checkpoint::{
+    NextCheckpoints, ScheduleCheckpoints, ScheduleId,
+};
 use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     GC_DID,
 };
 use polymesh_primitives::{
-    calendar::{CalendarPeriod, CheckpointId, CheckpointSchedule},
-    storage_migration_ver, EventDid, IdentityId, Moment, Ticker,
+    asset::CheckpointId, storage_migrate_on, storage_migration_ver, IdentityId, Moment, Ticker,
 };
-use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
-use sp_std::prelude::*;
 
 use crate::Config;
 
 type Asset<T> = crate::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
-/// Input specification for a checkpoint schedule.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, TypeInfo, Copy, Clone, Debug, PartialEq, Eq)]
-pub struct ScheduleSpec {
-    /// Unix time in milli-seconds.
-    /// When `None`, this is an instruction to use the current time.
-    pub start: Option<Moment>,
-    /// The period at which the checkpoint is set to recur after `start`.
-    pub period: CalendarPeriod,
-    /// Number of CPs that the schedule may create
-    /// before it is evicted from the schedule set.
-    ///
-    /// The value `0` is special cased to mean infinity.
-    pub remaining: u32,
-}
-
-/// Create a schedule spec due exactly at the provided `start: Moment` time.
-impl From<Moment> for ScheduleSpec {
-    fn from(start: Moment) -> Self {
-        let period = <_>::default();
-        let start = start.into();
-        Self {
-            start,
-            period,
-            remaining: 0,
-        }
-    }
-}
-
-storage_migration_ver!(0);
+storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Config> as Checkpoint {
@@ -144,8 +115,7 @@ decl_storage! {
 
         // -------------------- Checkpoint Schedule storage --------------------
 
-        /// The maximum complexity allowed for an arbitrary ticker's schedule set
-        /// (i.e. `Schedules` storage item below).
+        /// The maximum complexity allowed for a ticker's schedules.
         pub SchedulesMaxComplexity get(fn schedules_max_complexity) config(): u64;
 
         /// Checkpoint schedule ID sequence for tickers.
@@ -154,11 +124,19 @@ decl_storage! {
         pub ScheduleIdSequence get(fn schedule_id_sequence):
             map hasher(blake2_128_concat) Ticker => ScheduleId;
 
-        /// Checkpoint schedules for tickers.
+        /// Cached next checkpoint for each schedule.
         ///
-        /// (ticker) -> [schedule]
-        pub Schedules get(fn schedules):
-            map hasher(blake2_128_concat) Ticker => Vec<StoredSchedule>;
+        /// This is used to quickly find the next checkpoint from a ticker's schedules.
+        ///
+        /// (ticker) -> next checkpoints
+        pub CachedNextCheckpoints get(fn cached_next_checkpoints):
+            map hasher(blake2_128_concat) Ticker => Option<NextCheckpoints>;
+
+        /// Scheduled checkpoints.
+        ///
+        /// (ticker, schedule ID) -> schedule checkpoints
+        pub ScheduledCheckpoints get(fn scheduled_checkpoints):
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) ScheduleId => Option<ScheduleCheckpoints>;
 
         /// How many "strong" references are there to a given `ScheduleId`?
         ///
@@ -178,7 +156,7 @@ decl_storage! {
             double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) ScheduleId => Vec<CheckpointId>;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
     }
 }
 
@@ -187,6 +165,14 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            let mut weight = Weight::zero();
+            storage_migrate_on!(StorageVersion, 1, {
+                migration::migrate_to_v1::<T>(&mut weight);
+            });
+            weight
+        }
 
         /// Creates a single checkpoint at the current time.
         ///
@@ -199,8 +185,8 @@ decl_module! {
         /// - `CounterOverflow` if the total checkpoint counter would overflow.
         #[weight = T::CPWeightInfo::create_checkpoint()]
         pub fn create_checkpoint(origin, ticker: Ticker) {
-            let owner = <ExternalAgents<T>>::ensure_perms(origin, ticker)?.for_event();
-            Self::create_at_by(owner, ticker, Self::now_unix())?;
+            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+            Self::create_at_by(caller_did, ticker, Self::now_unix())?;
         }
 
         /// Sets the max complexity of a schedule set for an arbitrary ticker to `max_complexity`.
@@ -231,21 +217,20 @@ decl_module! {
         ///
         /// # Errors
         /// - `UnauthorizedAgent` if the DID of `origin` isn't a permissioned agent for `ticker`.
-        /// - `ScheduleDurationTooShort` if the schedule duration is too short.
         /// - `InsufficientAccountBalance` if the protocol fee could not be charged.
         /// - `CounterOverflow` if the schedule ID or total checkpoint counters would overflow.
-        /// - `FailedToComputeNextCheckpoint` if the next checkpoint for `schedule` is in the past.
         ///
         /// # Permissions
         /// * Asset
-        #[weight = T::CPWeightInfo::create_schedule(1)]
+        #[weight = T::CPWeightInfo::create_schedule()]
         pub fn create_schedule(
             origin,
             ticker: Ticker,
-            schedule: ScheduleSpec,
-        ) {
-            let owner = <ExternalAgents<T>>::ensure_perms(origin, ticker)?.for_event();
-            Self::create_schedule_base(owner, ticker, schedule, 0)?;
+            schedule: ScheduleCheckpoints,
+        ) -> DispatchResult {
+            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+            Self::base_create_schedule(caller_did, ticker, schedule, 0)?;
+            Ok(())
         }
 
         /// Removes the checkpoint schedule of an asset identified by `id`.
@@ -262,27 +247,14 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = T::CPWeightInfo::remove_schedule(1)]
+        #[weight = T::CPWeightInfo::remove_schedule()]
         pub fn remove_schedule(
             origin,
             ticker: Ticker,
             id: ScheduleId,
-        ) {
-            let owner = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
-
-            // If the ID matches and schedule is removable, it should be removed.
-            let schedule = Schedules::try_mutate(&ticker, |ss| {
-                ensure!(ScheduleRefCount::get(ticker, id) == 0, Error::<T>::ScheduleNotRemovable);
-                // By definiton of `id` existing, `.remove(pos)` won't panic.
-                Self::ensure_schedule_exists(&ss, id).map(|pos| ss.remove(pos))
-            })?;
-
-            // Remove some additional data.
-            // We don't remove historical points related to the schedule.
-            ScheduleRefCount::remove(ticker, id);
-
-            // Emit event.
-            Self::deposit_event(Event::ScheduleRemoved(owner, ticker, schedule));
+        ) -> DispatchResult {
+            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+            Self::base_remove_schedule(caller_did, ticker, id)
         }
     }
 }
@@ -293,21 +265,21 @@ decl_error! {
         NoSuchSchedule,
         /// A checkpoint schedule is not removable as `ref_count(schedule_id) > 0`.
         ScheduleNotRemovable,
-        /// Failed to compute the next checkpoint.
-        /// The schedule does not have any upcoming checkpoints.
-        FailedToComputeNextCheckpoint,
-        /// The duration of a schedule period is too short.
-        ScheduleDurationTooShort,
-        /// The set of schedules taken together are too complex.
-        /// For example, they are too many, or they occurs too frequently.
-        SchedulesTooComplex,
+        /// The new schedule would put the ticker over the maximum complexity allowed.
+        SchedulesOverMaxComplexity,
+        /// Can't create an empty schedule.
+        ScheduleIsEmpty,
+        /// The schedule has no more checkpoints.
+        ScheduleFinished,
+        /// The schedule has expired checkpoints.
+        ScheduleHasExpiredCheckpoints,
     }
 }
 
 impl<T: Config> Module<T> {
     /// Does checkpoint with ID `cp_id` exist for `ticker`?
     pub fn checkpoint_exists(ticker: &Ticker, cp: CheckpointId) -> bool {
-        (CheckpointId(1)..=CheckpointIdSequence::get(ticker)).contains(&cp)
+        cp > CheckpointId(0) && cp <= CheckpointIdSequence::get(ticker)
     }
 
     /// Returns the balance of `did` for `ticker` at first checkpoint ID `>= cp`, if any.
@@ -371,206 +343,182 @@ impl<T: Config> Module<T> {
 
     /// Advance all checkpoint schedules for `ticker`.
     ///
-    /// Complexity: O(max(s, r log s)) where:
-    ///  - `s` is the number of schedule for `ticker`.
-    ///  - `r`, with `r <= s` is the subset of `s` to reschedule.
     fn advance_schedules(ticker: &Ticker) -> DispatchResult {
-        let mut schedules = Schedules::get(ticker);
+        // Check if there are any pending checkpoints.
+        let mut cached = match CachedNextCheckpoints::try_get(ticker) {
+            Ok(cached) => cached,
+            Err(_) => {
+                // No pending checkpoints for this ticker.
+                return Ok(());
+            }
+        };
 
-        // No schedules? => We want to avoid `now_unix()` below for efficiency.
-        if schedules.is_empty() {
+        let now = Self::now_unix();
+        // Check if there are any expired checkpoints.
+        if !cached.expired(now) {
+            // Haven't reached the `next_at` yet, nothing to do.
             return Ok(());
         }
 
-        // Find the first schedule not due. All the schedules before `end` are due.
-        let now = Self::now_unix();
-        let end = schedules
-            .iter()
-            .position(|s| s.at > now) // Complexity `O(s)`.
-            .unwrap_or(schedules.len());
+        let mut cp_id = CheckpointIdSequence::get(ticker);
 
-        if end == 0 {
-            // Nothing found means no storage changes, so bail.
-            return Ok(());
-        };
+        // Get the set of schedules that have expired checkpoints.
+        let schedule_ids = cached.expired_schedules(now);
 
-        // Plan for CP creation for due schedules and rescheduling.
-        let mut reschedule = Vec::new();
-        let mut create = Vec::with_capacity(end); // Lower bound; might add more.
-        for StoredSchedule {
-            schedule,
-            id,
-            at,
-            mut remaining,
-        } in schedules.drain(..end)
-        {
-            let infinite = remaining == 0;
+        for schedule_id in schedule_ids {
+            match ScheduledCheckpoints::try_get(ticker, schedule_id) {
+                Ok(mut schedule) => {
+                    // Remove expired checkpoints from the schedule.
+                    let checkpoints = schedule.remove_expired(now);
 
-            // Plan for all checkpoints for this schedule.
-            //
-            // There might be more than one.
-            // As an example, consider a checkpoint due every day,
-            // and then there's a week without any transactions.
-            //
-            // Also consider schedules with a bounded number of CPs to make before being evicted.
-            // Here we limit the number of CPs to make, taking at most that many.
-            create.extend(
-                iter::successors(Some(at), |&at| schedule.next_checkpoint(at))
-                    .take_while(|&at| at <= now)
-                    .take_while(|_| {
-                        infinite || {
-                            let new = remaining.saturating_sub(1);
-                            mem::replace(&mut remaining, new) > 0
+                    // Check if the schedule still has pending checkpoints.
+                    match schedule.next() {
+                        Some(next) => {
+                            // Update cached `next` for this schedule.
+                            cached.add_schedule_next(schedule_id, next);
+                            // Update the pending checkpoints for this schedule.
+                            ScheduledCheckpoints::insert(ticker, schedule_id, schedule);
                         }
-                    })
-                    .map(|at| (at, id)),
-            );
+                        None => {
+                            // Schedule is finished, no more checkpoints.
+                            ScheduledCheckpoints::remove(ticker, schedule_id);
+                        }
+                    }
 
-            // If the schedule is recurring, we'll need to reschedule.
-            // Non-`infinite` schedules with no `remaining` ticks are not rescheduled.
-            if infinite || remaining > 0 {
-                if let Some(at) = schedule.next_checkpoint(now) {
-                    reschedule.push(StoredSchedule {
-                        schedule,
-                        id,
-                        at,
-                        remaining,
-                    });
+                    // Update the total_pending count.
+                    cached.dec_total_pending(checkpoints.len() as u64);
+                    // Create the scheduled checkpoints.
+                    for at in checkpoints {
+                        let id = try_next_pre::<T, _>(&mut cp_id)?;
+                        Self::create_at(None, *ticker, id, at);
+                        SchedulePoints::append(ticker, schedule_id, id);
+                    }
                 }
+                _ => (),
             }
         }
 
-        // Ensure that ID count won't overflow.
-        // After this we're safe and can commit to storage.
-        let (id_last, id_seq) = Self::next_cp_ids(ticker, create.len() as u64)?;
-
-        // Create all checkpoints we planned for.
-        for ((at, id), cp_id) in create.into_iter().zip(id_seq) {
-            Self::create_at(None, *ticker, cp_id, at);
-            SchedulePoints::append(ticker, id, cp_id);
+        // Save updated cache.
+        if cached.is_empty() {
+            // No more scheduled checkpoints, remove the cache.
+            CachedNextCheckpoints::remove(ticker);
+        } else {
+            // Update the cache.
+            CachedNextCheckpoints::insert(ticker, cached);
         }
 
-        // Reschedule schedules we need to.
-        // Complexity: `O(r log s)`.
-        reschedule
-            .into_iter()
-            .for_each(|s| add_schedule(&mut schedules, s));
-
-        // Commit changes to `schedules`.
-        CheckpointIdSequence::insert(ticker, id_last);
-        Schedules::insert(ticker, schedules);
+        CheckpointIdSequence::insert(ticker, cp_id);
         Ok(())
     }
 
     /// Creates a schedule generating checkpoints
     /// in the future at either a fixed time or at intervals.
-    pub fn create_schedule_base(
-        did: EventDid,
+    pub fn base_create_schedule(
+        caller_did: IdentityId,
         ticker: Ticker,
-        schedule: ScheduleSpec,
+        schedule: ScheduleCheckpoints,
         ref_count: u32,
-    ) -> Result<StoredSchedule, DispatchError> {
-        let ScheduleSpec {
-            period,
-            start,
-            mut remaining,
-        } = schedule;
+    ) -> Result<(ScheduleId, Moment), DispatchError> {
+        // Ensure the schedule is not empty.
+        let next_at = schedule.next().ok_or(Error::<T>::ScheduleIsEmpty)?;
+        let len: u64 = schedule
+            .len()
+            .try_into()
+            .map_err(|_| Error::<T>::SchedulesOverMaxComplexity)?;
+        let max_comp = SchedulesMaxComplexity::get();
+        ensure!(len <= max_comp, Error::<T>::SchedulesOverMaxComplexity);
 
+        let mut cached = CachedNextCheckpoints::get(ticker).unwrap_or_default();
         // Ensure the total complexity for all schedules is not too great.
-        let schedules = Schedules::get(ticker);
-        schedules
-            .iter()
-            .map(|s| s.schedule.period.complexity())
-            .try_fold(period.complexity(), |a, c| a.checked_add(c))
-            .filter(|&c| c <= SchedulesMaxComplexity::get())
-            .ok_or(Error::<T>::SchedulesTooComplex)?;
+        let total_pending = cached.total_pending.saturating_add(len);
+        ensure!(
+            total_pending <= max_comp,
+            Error::<T>::SchedulesOverMaxComplexity
+        );
+
+        // Ensure the checkpoints are in the future.
+        let now = Self::now_unix();
+        ensure!(
+            schedule.ensure_no_expired(now),
+            Error::<T>::ScheduleHasExpiredCheckpoints
+        );
 
         // Compute the next checkpoint schedule ID. Will store it later.
         let id = try_next_pre::<T, _>(&mut ScheduleIdSequence::get(ticker))?;
 
-        // If start is now, we'll create the first checkpoint immediately later at (1).
-        let infinite = remaining == 0;
-        let now = Self::now_unix();
-        let start = start.unwrap_or(now);
-        let cp_id = (start == now)
-            .then(|| {
-                Self::next_cp_ids(&ticker, 1).map(|(cp_id, _)| {
-                    // Decrement remaining, maintaining infinity -> infinity.
-                    remaining = remaining.saturating_sub(1);
-                    cp_id
-                })
-            })
-            .transpose()?;
-
-        // Compute the next timestamp, if needed.
-        // If the start isn't now or this schedule recurs,
-        // including having more CPs-to-generate remaining,
-        // we'll need to schedule as done in (2).
-        let schedule = CheckpointSchedule { start, period };
-        let future_at = (cp_id.is_none() || (period.amount > 0 && (infinite || remaining != 0)))
-            .then(|| {
-                schedule
-                    .next_checkpoint(now)
-                    .ok_or(Error::<T>::FailedToComputeNextCheckpoint)
-            })
-            .transpose()?;
-
-        // Charge the fee for checkpoint creation.
+        // Charge the fee for checkpoint schedule creation.
         // N.B. this operation bundles verification + a storage change.
         // Thus, it must be last, and only storage changes follow.
         T::ProtocolFee::charge_fee(ProtocolOp::CheckpointCreateSchedule)?;
 
-        // (1) Start is now, so create the checkpoint.
-        if let Some(cp_id) = cp_id {
-            CheckpointIdSequence::insert(ticker, cp_id);
-            SchedulePoints::append(ticker, id, cp_id);
-            Self::create_at(Some(did), ticker, cp_id, now);
-        }
+        // Add the new schedule's `next_at` to the cached next checkpoints.
+        cached.add_schedule_next(id, next_at);
+        cached.inc_total_pending(len);
 
-        // (2) There will be some future checkpoint, so schedule it.
-        let at = future_at.unwrap_or(now);
-        let schedule = StoredSchedule {
-            at,
-            id,
-            schedule,
-            remaining,
-        };
-        if let Some(_) = future_at {
-            // Sort schedule into the queue.
-            Schedules::insert(&ticker, {
-                let mut schedules = schedules;
-                add_schedule(&mut schedules, schedule);
-                schedules
-            })
-        }
-
+        CachedNextCheckpoints::insert(ticker, cached);
+        ScheduledCheckpoints::insert(ticker, id, &schedule);
         ScheduleRefCount::insert(ticker, id, ref_count);
         ScheduleIdSequence::insert(ticker, id);
-        Self::deposit_event(Event::ScheduleCreated(did, ticker, schedule));
-        Ok(schedule)
+
+        Self::deposit_event(Event::ScheduleCreated(caller_did, ticker, id, schedule));
+        Ok((id, next_at))
     }
 
-    /// The `actor` creates a checkpoint at `at` for `ticker`.
+    pub fn base_remove_schedule(
+        caller_did: IdentityId,
+        ticker: Ticker,
+        id: ScheduleId,
+    ) -> DispatchResult {
+        // Ensure that the schedule exists.
+        let schedule =
+            ScheduledCheckpoints::try_get(ticker, id).map_err(|_| Error::<T>::NoSuchSchedule)?;
+
+        // Can only remove the schedule if it doesn't have any references to it.
+        ensure!(
+            ScheduleRefCount::get(ticker, id) == 0,
+            Error::<T>::ScheduleNotRemovable
+        );
+
+        // Remove the schedule and any pending checkpoints.
+        // We don't remove historical points related to the schedule.
+        ScheduleRefCount::remove(ticker, id);
+
+        // Remove the schedule from the cached next checkpoints.
+        CachedNextCheckpoints::mutate(&ticker, |cached| {
+            if let Some(cached) = cached {
+                cached.remove_schedule(id);
+                cached.dec_total_pending(schedule.len() as u64);
+            }
+        });
+        // Remove scheduled checkpoints.
+        ScheduledCheckpoints::remove(ticker, id);
+
+        // Emit event.
+        Self::deposit_event(Event::ScheduleRemoved(caller_did, ticker, id, schedule));
+        Ok(())
+    }
+
+    /// The `caller_did` creates a checkpoint at `at` for `ticker`.
     /// The ID of the new checkpoint is returned.
     fn create_at_by(
-        actor: EventDid,
+        caller_did: IdentityId,
         ticker: Ticker,
         at: Moment,
     ) -> Result<CheckpointId, DispatchError> {
-        let (id, _) = Self::next_cp_ids(&ticker, 1)?;
+        let id = try_next_pre::<T, _>(&mut CheckpointIdSequence::get(ticker))?;
         CheckpointIdSequence::insert(ticker, id);
-        Self::create_at(Some(actor), ticker, id, at);
+        Self::create_at(Some(caller_did), ticker, id, at);
         Ok(id)
     }
 
     /// Creates a checkpoint at `at` for `ticker`, with the given, in advanced reserved, `id`.
-    /// The `actor` is the DID creating the checkpoint,
+    /// The `caller_did` is the DID creating the checkpoint,
     /// or `None` scheduling created the checkpoint.
     ///
     /// Creating a checkpoint entails:
     /// - recording the total supply,
     /// - mapping the the ID to the `time`.
-    fn create_at(actor: Option<EventDid>, ticker: Ticker, id: CheckpointId, at: Moment) {
+    fn create_at(caller_did: Option<IdentityId>, ticker: Ticker, id: CheckpointId, at: Moment) {
         // Record total supply at checkpoint ID.
         let supply = <Asset<T>>::token_details(&ticker)
             .map(|t| t.total_supply)
@@ -581,47 +529,37 @@ impl<T: Config> Module<T> {
         Timestamps::insert(ticker, id, at);
 
         // Emit event & we're done.
-        Self::deposit_event(Event::CheckpointCreated(actor, ticker, id, supply, at));
+        Self::deposit_event(Event::CheckpointCreated(caller_did, ticker, id, supply, at));
     }
 
-    /// Verify that `needed` amount of `CheckpointId`s can be reserved,
-    /// returning the last ID and an iterator over all IDs to reserve.
-    fn next_cp_ids(
+    /// Increment the schedule ref count.
+    pub fn inc_schedule_ref(ticker: &Ticker, id: ScheduleId) {
+        ScheduleRefCount::mutate(ticker, id, |c| *c = c.saturating_add(1));
+    }
+
+    /// Decrement the schedule ref count.
+    pub fn dec_schedule_ref(ticker: &Ticker, id: ScheduleId) {
+        ScheduleRefCount::mutate(ticker, id, |c| *c = c.saturating_sub(1));
+    }
+
+    /// Ensure the schedule exists and get the next checkpoint.
+    pub fn ensure_schedule_next_checkpoint(
         ticker: &Ticker,
-        needed: u64,
-    ) -> Result<(CheckpointId, impl Iterator<Item = CheckpointId>), DispatchError> {
-        let CheckpointId(id) = CheckpointIdSequence::get(ticker);
-        id.checked_add(needed).ok_or(CounterOverflow::<T>)?;
-        let end = CheckpointId(id + needed);
-        let seq = (0..needed).map(move |offset| CheckpointId(id + 1 + offset));
-        Ok((end, seq))
-    }
-
-    /// Ensure that `id` exists in `schedules` and return `id`'s index.
-    pub fn ensure_schedule_exists(
-        schedules: &[StoredSchedule],
         id: ScheduleId,
-    ) -> Result<usize, DispatchError> {
-        schedules
-            .iter()
-            .position(|s| s.id == id)
-            .ok_or_else(|| Error::<T>::NoSuchSchedule.into())
+    ) -> Result<(Moment, u64), DispatchError> {
+        let schedule =
+            ScheduledCheckpoints::try_get(ticker, id).map_err(|_| Error::<T>::NoSuchSchedule)?;
+        // Get the next checkpoint in the schedule, if it isn't finished.
+        let cp_at = schedule.next().ok_or(Error::<T>::ScheduleFinished)?;
+        // Get the index for the checkpoint in this schedule.
+        let cp_at_idx = SchedulePoints::decode_len(ticker, id).unwrap_or(0) as u64;
+        Ok((cp_at, cp_at_idx))
     }
 
     /// Returns the current UNIX time, i.e. milli-seconds since UNIX epoch, 1970-01-01 00:00:00 UTC.
     pub fn now_unix() -> Moment {
-        // We're OK with truncation here because we'll all be dead before it actually happens.
-        T::UnixTime::now().as_millis() as u64
+        T::UnixTime::now().as_millis().saturated_into::<Moment>()
     }
-}
-
-/// Add `schedule` to `ss` in its sorted place, assuming `ss` is already sorted.
-fn add_schedule(ss: &mut Vec<StoredSchedule>, schedule: StoredSchedule) {
-    // `Ok(_)` is unreachable at runtime as adding a schedule with the same ID twice won't happen.
-    // However, we do this to simplify, as the comparison against IDs affords us sorting stability.
-    let (Err(i) | Ok(i)) =
-        ss.binary_search_by(|s| s.at.cmp(&schedule.at).then(s.id.cmp(&schedule.id)));
-    ss.insert(i, schedule);
 }
 
 /// Find the least element `>= key` in `arr`.
@@ -631,4 +569,80 @@ fn add_schedule(ss: &mut Vec<StoredSchedule>, schedule: StoredSchedule) {
 /// and that array len > 0.
 fn find_ceiling<'a, E: Ord>(arr: &'a [E], key: &E) -> &'a E {
     &arr[arr.binary_search(key).map_or_else(|i| i, |i| i)]
+}
+
+pub mod migration {
+    use super::*;
+    use polymesh_runtime_common::RocksDbWeight as DbWeight;
+    use sp_runtime::runtime_logger::RuntimeLogger;
+
+    mod v0 {
+        use super::*;
+        use polymesh_primitives::calendar::CheckpointSchedule;
+        use scale_info::TypeInfo;
+
+        // Limit each schedule to a maximum pending checkpoints.
+        const MAX_CP: u32 = 10;
+
+        #[derive(Encode, Decode, TypeInfo, Copy, Clone, Debug)]
+        pub struct StoredSchedule {
+            pub schedule: CheckpointSchedule,
+            pub id: ScheduleId,
+            pub at: Moment,
+            pub remaining: u32,
+        }
+
+        impl From<StoredSchedule> for ScheduleCheckpoints {
+            fn from(old: StoredSchedule) -> Self {
+                let remaining = if old.remaining == 0 {
+                    // 0 means infinite.
+                    MAX_CP
+                } else {
+                    // Limit remaining to MAX_CP.
+                    old.remaining.min(MAX_CP)
+                };
+                Self::from_old(old.schedule, remaining)
+            }
+        }
+
+        decl_storage! {
+            trait Store for Module<T: Config> as Checkpoint {
+                pub Schedules get(fn schedules):
+                    map hasher(blake2_128_concat) Ticker => Vec<StoredSchedule>;
+            }
+        }
+
+        decl_module! {
+            pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin { }
+        }
+    }
+
+    pub fn migrate_to_v1<T: Config>(weight: &mut Weight) {
+        RuntimeLogger::init();
+        log::info!(" >>> Updating Checkpoint storage. Migrating old schedules.");
+        let mut count = 0;
+        let mut reads = 0;
+        let mut writes = 0;
+        v0::Schedules::drain().for_each(|(ticker, old_schedules)| {
+            reads += 1;
+            let mut cached = NextCheckpoints::default();
+            for old_schedule in old_schedules {
+                let id = old_schedule.id;
+                let schedule = ScheduleCheckpoints::from(old_schedule);
+                if let Some(next_at) = schedule.next() {
+                    cached.inc_total_pending(schedule.len() as u64);
+                    cached.add_schedule_next(id, next_at);
+                    count += 1;
+                    writes += 1;
+                    ScheduledCheckpoints::insert(ticker, id, schedule);
+                }
+            }
+            if !cached.is_empty() {
+                writes += 1;
+                CachedNextCheckpoints::insert(ticker, cached);
+            }
+        });
+        weight.saturating_accrue(DbWeight::get().reads_writes(reads, writes));
+        log::info!(" >>> {count} checkpoint schedules have been migrated.");
+    }
 }

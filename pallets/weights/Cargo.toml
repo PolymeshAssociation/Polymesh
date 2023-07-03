@@ -75,4 +75,5 @@ std = [
     "pallet-treasury/std",
     "pallet-utility/std",
     "polymesh-contracts/std",
+    "polymesh-runtime-common/std",
 ]

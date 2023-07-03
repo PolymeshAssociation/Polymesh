@@ -27,6 +27,12 @@ use crate::identity_id::PortfolioValidityResult;
 use crate::impl_checked_inc;
 use crate::transfer_compliance::TransferConditionResult;
 
+/// A per-ticker checkpoint ID.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct CheckpointId(pub u64);
+impl_checked_inc!(CheckpointId);
+
 /// A wrapper for a token name.
 #[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]

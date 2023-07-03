@@ -6,7 +6,10 @@ use super::{
     },
     ExtBuilder,
 };
-use crate::asset_test::{allow_all_transfers, basic_asset, set_timestamp, token, token_details};
+use crate::asset_test::{
+    allow_all_transfers, basic_asset, check_schedules, next_schedule_id, set_timestamp, token,
+    token_details,
+};
 use core::iter;
 use frame_support::{
     assert_noop, assert_ok,
@@ -24,13 +27,11 @@ use pallet_corporate_actions::{
 };
 use polymesh_common_utilities::{
     constants::currency::ONE_UNIT,
-    traits::checkpoint::{ScheduleId, StoredSchedule},
+    traits::checkpoint::{ScheduleCheckpoints, ScheduleId},
 };
 use polymesh_primitives::{
-    agent::AgentGroup,
-    calendar::{CheckpointId, CheckpointSchedule},
-    AuthorizationData, Document, DocumentId, IdentityId, Moment, PortfolioId, PortfolioNumber,
-    Signatory, Ticker,
+    agent::AgentGroup, asset::CheckpointId, AuthorizationData, Document, DocumentId, IdentityId,
+    Moment, PortfolioId, PortfolioNumber, Signatory, Ticker,
 };
 use sp_arithmetic::Permill;
 use std::convert::TryInto;
@@ -868,11 +869,6 @@ fn remove_ca_works() {
     });
 }
 
-fn next_schedule_id(ticker: Ticker) -> ScheduleId {
-    let ScheduleId(id) = Checkpoint::schedule_id_sequence(ticker);
-    ScheduleId(id + 1)
-}
-
 #[test]
 fn change_record_date_works() {
     test(|ticker, [owner, ..]| {
@@ -916,16 +912,7 @@ fn change_record_date_works() {
         assert_noop!(change(id, spec_sh(ScheduleId(42))), CPError::NoSuchSchedule);
 
         // Successfully use a schedule which exists (the same one as before).
-        let mk_schedule = |at, id| {
-            let period = <_>::default();
-            let schedule = CheckpointSchedule { start: at, period };
-            StoredSchedule {
-                at,
-                id,
-                schedule,
-                remaining: 0,
-            }
-        };
+        let mk_schedule = |at, id| (id, ScheduleCheckpoints::new(at));
         let mut all_schedules = vec![];
         let mut change_ok_scheduled = || {
             let sh_id = next_schedule_id(ticker);
@@ -933,7 +920,7 @@ fn change_record_date_works() {
             assert_fresh(sh_id);
             assert_refs(sh_id, 1);
             all_schedules.push(mk_schedule(1000, sh_id));
-            assert_eq!(Checkpoint::schedules(ticker), all_schedules);
+            check_schedules(ticker, &all_schedules);
             change_ok(id, spec_sh(sh_id), rd_ts(1000, sh_id));
             sh_id
         };
@@ -954,13 +941,13 @@ fn change_record_date_works() {
         ));
         assert_fresh(sh_id3);
         assert_refs(sh_id3, 0);
-        assert_eq!(
-            Checkpoint::schedules(ticker),
-            vec![
+        check_schedules(
+            ticker,
+            &[
                 mk_schedule(1000, sh_id1),
                 mk_schedule(1000, sh_id2),
-                mk_schedule(2000, sh_id3)
-            ]
+                mk_schedule(2000, sh_id3),
+            ],
         );
         change_ok(id, spec_sh(sh_id3), rd_ts(2000, sh_id3));
         assert_refs(sh_id3, 1);
@@ -990,11 +977,10 @@ fn change_record_date_works() {
                 change_ok(id, spec_ts(spec), rd_ts(expect, next_schedule_id(ticker)))
             };
             set_timestamp(3000);
-            change_ok(4999, 4000); // floor(4999 / 1000) * 1000 == 4000
+            change_ok(4999, 4999);
             set_timestamp(4999);
-            change_ok(4999, 4999); // Flooring not applied cause now == 2999.
-            change_ok(5000, 5000); // floor(5000 / 1000) * 1000 == 5000
-            change_ok(5001, 5000); // floor(5001 / 1000) * 1000 == 5000
+            change_ok(4999, 4999);
+            change_ok(5000, 5000);
             set_timestamp(5001);
             assert_noop!(change(id, spec_ts(5001)), Error::RecordDateAfterStart); // 5001 < 5000
             assert_noop!(change(id, spec_ts(6000)), Error::RecordDateAfterStart); // 6000 < 5000

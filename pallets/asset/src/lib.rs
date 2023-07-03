@@ -111,13 +111,13 @@ use polymesh_common_utilities::{with_transaction, SystematicIssuers};
 
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{
-    AssetName, AssetType, CustomAssetTypeId, FundingRoundName, GranularCanTransferResult,
+    AssetName, AssetType, CheckpointId, CustomAssetTypeId, FundingRoundName,
+    GranularCanTransferResult,
 };
 use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
     AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
 };
-use polymesh_primitives::calendar::CheckpointId;
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::transfer_compliance::TransferConditionResult;
 use polymesh_primitives::{
