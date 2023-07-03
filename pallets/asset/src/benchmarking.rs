@@ -316,7 +316,7 @@ benchmarks! {
        let (origin, name, ticker, token, identifiers, fundr) = setup_create_asset::<T>(n, i , f, 0);
        let identifiers2 = identifiers.clone();
        let asset_type = token.asset_type.clone();
-    }: _(origin, name, ticker, token.divisible, asset_type, identifiers, fundr, true)
+    }: _(origin, name, ticker, token.divisible, asset_type, identifiers, fundr)
     verify {
         assert_eq!(token_details::<T>(ticker), token);
         assert_eq!(Module::<T>::identifiers(ticker), identifiers2);
@@ -551,7 +551,6 @@ benchmarks! {
             AssetType::NonFungible(NonFungibleType::Derivative),
             Vec::new(),
             None,
-            true,
         ).unwrap();
         // Creates two metadata keys, one that belong to the NFT collection and one that doesn't
         let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
@@ -589,7 +588,6 @@ benchmarks! {
             AssetType::NonFungible(NonFungibleType::Derivative),
             Vec::new(),
             None,
-            true,
         ).unwrap();
         // Creates one metadata key and set its value
         let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());

@@ -141,7 +141,6 @@ pub fn make_token<T: Config>(owner: &User<T>, name: Vec<u8>) -> Ticker {
         token.asset_type.clone(),
         vec![],
         None,
-        true,
     )
     .expect("Cannot create an asset");
 

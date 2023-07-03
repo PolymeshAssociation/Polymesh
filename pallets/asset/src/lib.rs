@@ -402,8 +402,6 @@ decl_module! {
         /// * `asset_type` - the asset type.
         /// * `identifiers` - a vector of asset identifiers.
         /// * `funding_round` - name of the funding round.
-        /// * `disable_iu` - whether or not investor uniqueness enforcement should be disabled.
-        ///   This cannot be changed after creating the asset.
         ///
         /// ## Errors
         /// - `InvalidAssetIdentifier` if any of `identifiers` are invalid.
@@ -430,9 +428,8 @@ decl_module! {
             asset_type: AssetType,
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>,
-            disable_iu: bool,
         ) -> DispatchResult {
-            Self::base_create_asset(origin, name, ticker, divisible, asset_type, identifiers, funding_round, disable_iu)
+            Self::base_create_asset(origin, name, ticker, divisible, asset_type, identifiers, funding_round)
                 .map(drop)
         }
 
@@ -648,7 +645,6 @@ decl_module! {
             custom_asset_type: Vec<u8>,
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>,
-            disable_iu: bool,
         ) -> DispatchResult {
             let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
             let asset_type_id = Self::unsafe_register_custom_asset_type(
@@ -664,7 +660,6 @@ decl_module! {
                 AssetType::Custom(asset_type_id),
                 identifiers,
                 funding_round,
-                disable_iu,
             )?;
             Ok(())
         }
@@ -983,8 +978,6 @@ decl_error! {
         AssetMetadataKeyBelongsToNFTCollection,
         /// Attempt to lock a metadata value that is empty.
         AssetMetadataValueIsEmpty,
-        /// Investor Uniqueness not allowed.
-        InvestorUniquenessNotAllowed,
     }
 }
 
@@ -1691,7 +1684,6 @@ impl<T: Config> Module<T> {
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
-        disable_iu: bool,
     ) -> Result<IdentityId, DispatchError> {
         let PermissionedCallOriginData {
             primary_did,
@@ -1707,7 +1699,6 @@ impl<T: Config> Module<T> {
             asset_type,
             identifiers,
             funding_round,
-            disable_iu,
         )
     }
 
@@ -1720,10 +1711,7 @@ impl<T: Config> Module<T> {
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
-        disable_iu: bool,
     ) -> Result<IdentityId, DispatchError> {
-        ensure!(disable_iu, Error::<T>::InvestorUniquenessNotAllowed);
-
         Self::ensure_asset_name_bounded(&name)?;
         if let Some(fr) = &funding_round {
             Self::ensure_funding_round_name_bounded(fr)?;
@@ -1797,7 +1785,7 @@ impl<T: Config> Module<T> {
         };
         Tokens::insert(&ticker, token);
         AssetNames::insert(&ticker, &name);
-        DisableInvestorUniqueness::insert(&ticker, disable_iu);
+        DisableInvestorUniqueness::insert(&ticker, true);
         // NB - At the time of asset creation it is obvious that the asset issuer will not have an
         // `InvestorUniqueness` claim. So we are skipping the scope claim based stats update as
         // those data points will get added in to the system whenever the asset issuer
@@ -1809,7 +1797,6 @@ impl<T: Config> Module<T> {
             divisible,
             asset_type,
             did,
-            disable_iu,
             name,
             identifiers.clone(),
             funding_round.clone(),
@@ -2654,7 +2641,6 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
-        disable_iu: bool,
     ) -> DispatchResult {
         Self::create_asset(
             origin,
@@ -2664,7 +2650,6 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
             asset_type,
             identifiers,
             funding_round,
-            disable_iu,
         )
     }
 

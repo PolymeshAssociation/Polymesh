@@ -148,7 +148,6 @@ fn asset_with_ids(
         token.asset_type.clone(),
         ids,
         None,
-        true,
     )?;
     enable_investor_count(ticker, owner);
     Asset::issue(
@@ -291,7 +290,6 @@ fn issuers_can_create_and_rename_tokens() {
             token.asset_type.clone(),
             Vec::new(),
             Some(funding_round_name.clone()),
-            true,
         ));
         enable_investor_count(ticker, owner);
 
@@ -970,7 +968,6 @@ fn frozen_secondary_keys_create_asset_we() {
         token_1.asset_type.clone(),
         vec![],
         None,
-        true,
     ));
     assert_ok!(Asset::issue(
         bob.origin(),
@@ -1639,7 +1636,6 @@ fn create_asset_errors(owner: AccountId, other: AccountId) {
             AssetType::default(),
             vec![],
             funding_name,
-            true,
         )
     };
 
@@ -2370,7 +2366,6 @@ fn issue_token_invalid_portfolio() {
             AssetType::default(),
             Vec::new(),
             None,
-            true,
         ));
 
         assert_noop!(
@@ -2401,7 +2396,6 @@ fn issue_token_unassigned_custody() {
             AssetType::default(),
             Vec::new(),
             None,
-            true,
         ));
         assert_ok!(Asset::issue(
             alice.origin(),
@@ -2430,7 +2424,6 @@ fn issue_token_assigned_custody() {
             AssetType::default(),
             Vec::new(),
             None,
-            true,
         ));
         // Change custody of the default portfolio
         let authorization_id = Identity::add_auth(
@@ -2469,7 +2462,6 @@ fn redeem_token_unassigned_custody() {
             AssetType::default(),
             Vec::new(),
             None,
-            true,
         ));
         assert_ok!(Asset::issue(
             alice.origin(),
@@ -2504,7 +2496,6 @@ fn redeem_token_assigned_custody() {
             AssetType::default(),
             Vec::new(),
             None,
-            true,
         ));
         // Change custody of the default portfolio
         let authorization_id = Identity::add_auth(
