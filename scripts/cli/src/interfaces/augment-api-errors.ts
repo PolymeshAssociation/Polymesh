@@ -95,10 +95,6 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InvestorUniquenessClaimNotAllowed: AugmentedError<ApiType>;
       /**
-       * Investor Uniqueness not allowed.
-       **/
-      InvestorUniquenessNotAllowed: AugmentedError<ApiType>;
-      /**
        * Maximum length of asset name has been exceeded.
        **/
       MaxLengthOfAssetNameExceeded: AugmentedError<ApiType>;
@@ -392,27 +388,29 @@ declare module '@polkadot/api-base/types/errors' {
     };
     checkpoint: {
       /**
-       * Failed to compute the next checkpoint.
-       * The schedule does not have any upcoming checkpoints.
-       **/
-      FailedToComputeNextCheckpoint: AugmentedError<ApiType>;
-      /**
        * A checkpoint schedule does not exist for the asset.
        **/
       NoSuchSchedule: AugmentedError<ApiType>;
       /**
-       * The duration of a schedule period is too short.
+       * The schedule has no more checkpoints.
        **/
-      ScheduleDurationTooShort: AugmentedError<ApiType>;
+      ScheduleFinished: AugmentedError<ApiType>;
+      /**
+       * The schedule has expired checkpoints.
+       **/
+      ScheduleHasExpiredCheckpoints: AugmentedError<ApiType>;
+      /**
+       * Can't create an empty schedule.
+       **/
+      ScheduleIsEmpty: AugmentedError<ApiType>;
       /**
        * A checkpoint schedule is not removable as `ref_count(schedule_id) > 0`.
        **/
       ScheduleNotRemovable: AugmentedError<ApiType>;
       /**
-       * The set of schedules taken together are too complex.
-       * For example, they are too many, or they occurs too frequently.
+       * The new schedule would put the ticker over the maximum complexity allowed.
        **/
-      SchedulesTooComplex: AugmentedError<ApiType>;
+      SchedulesOverMaxComplexity: AugmentedError<ApiType>;
       /**
        * Generic error
        **/
@@ -1139,6 +1137,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       ChangeNotAllowed: AugmentedError<ApiType>;
       /**
+       * The creator is no longer allowed to call via creator extrinsics.
+       **/
+      CreatorControlsHaveBeenRemoved: AugmentedError<ApiType>;
+      /**
        * Multisig address.
        **/
       DecodingError: AugmentedError<ApiType>;
@@ -1498,6 +1500,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       DifferentIdentityPortfolios: AugmentedError<ApiType>;
       /**
+       * Trying to move an amount of zero assets.
+       **/
+      EmptyTransfer: AugmentedError<ApiType>;
+      /**
        * Insufficient balance for a transaction.
        **/
       InsufficientPortfolioBalance: AugmentedError<ApiType>;
@@ -1716,9 +1722,13 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       CallerIsNotAParty: AugmentedError<ApiType>;
       /**
-       * While affirming the transfer, system failed to lock the assets involved.
+       * No duplicate uid are allowed for different receipts.
        **/
-      FailedToLockTokens: AugmentedError<ApiType>;
+      DuplicateReceiptUid: AugmentedError<ApiType>;
+      /**
+       * The instruction failed to release asset locks or transfer the assets.
+       **/
+      FailedToReleaseLockOrTransferAssets: AugmentedError<ApiType>;
       /**
        * Scheduling of an instruction fails.
        **/
@@ -1732,21 +1742,9 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InstructionDatesInvalid: AugmentedError<ApiType>;
       /**
-       * Instruction failed to execute.
-       **/
-      InstructionFailed: AugmentedError<ApiType>;
-      /**
        * Instruction has not been affirmed.
        **/
       InstructionNotAffirmed: AugmentedError<ApiType>;
-      /**
-       * Provided instruction is not failing execution.
-       **/
-      InstructionNotFailed: AugmentedError<ApiType>;
-      /**
-       * Provided instruction is not pending execution.
-       **/
-      InstructionNotPending: AugmentedError<ApiType>;
       /**
        * Instruction settlement block has not yet been reached.
        **/
@@ -1755,6 +1753,10 @@ declare module '@polkadot/api-base/types/errors' {
        * Instruction's target settle block reached.
        **/
       InstructionSettleBlockPassed: AugmentedError<ApiType>;
+      /**
+       * Only [`InstructionStatus::Pending`] or [`InstructionStatus::Failed`] instructions can be executed.
+       **/
+      InvalidInstructionStatusForExecution: AugmentedError<ApiType>;
       /**
        * Offchain signature is invalid.
        **/
@@ -1784,6 +1786,14 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       MaxNumberOfReceiptsExceeded: AugmentedError<ApiType>;
       /**
+       * Multiple receipts for the same leg are not allowed.
+       **/
+      MultipleReceiptsForOneLeg: AugmentedError<ApiType>;
+      /**
+       * There are parties who have not affirmed the instruction.
+       **/
+      NotAllAffirmationsHaveBeenReceived: AugmentedError<ApiType>;
+      /**
        * The given number of fungible transfers was underestimated.
        **/
       NumberOfFungibleTransfersUnderestimated: AugmentedError<ApiType>;
@@ -1800,14 +1810,6 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       OffChainAssetCantBeLocked: AugmentedError<ApiType>;
       /**
-       * Off-Chain assets must be Affirmed with Receipts.
-       **/
-      OffChainAssetMustBeAffirmedWithReceipts: AugmentedError<ApiType>;
-      /**
-       * Portfolio in receipt does not match with portfolios provided by the user.
-       **/
-      PortfolioMismatch: AugmentedError<ApiType>;
-      /**
        * Receipt already used.
        **/
       ReceiptAlreadyClaimed: AugmentedError<ApiType>;
@@ -1815,6 +1817,10 @@ declare module '@polkadot/api-base/types/errors' {
        * Off-chain receipts can only be used for off-chain leg type.
        **/
       ReceiptForInvalidLegType: AugmentedError<ApiType>;
+      /**
+       * The instruction id in all receipts must match the extrinsic parameter.
+       **/
+      ReceiptInstructionIdMissmatch: AugmentedError<ApiType>;
       /**
        * Sender and receiver are the same.
        **/
@@ -1848,13 +1854,13 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       UnexpectedAffirmationStatus: AugmentedError<ApiType>;
       /**
+       * An invalid has been reached.
+       **/
+      UnexpectedLegStatus: AugmentedError<ApiType>;
+      /**
        * Ticker could not be found on chain.
        **/
       UnexpectedOFFChainAsset: AugmentedError<ApiType>;
-      /**
-       * Ticker exists in the polymesh chain.
-       **/
-      UnexpectedOnChainAsset: AugmentedError<ApiType>;
       /**
        * Instruction status is unknown
        **/
@@ -2368,16 +2374,23 @@ declare module '@polkadot/api-base/types/errors' {
        * Provided nonce was invalid
        * If the provided nonce < current nonce, the call was already executed
        * If the provided nonce > current nonce, the call(s) before the current failed to execute
+       * POLYMESH error
        **/
       InvalidNonce: AugmentedError<ApiType>;
       /**
        * Offchain signature is invalid
+       * POLYMESH error
        **/
       InvalidSignature: AugmentedError<ApiType>;
       /**
        * Target does not have a valid CDD
+       * POLYMESH error
        **/
       TargetCddMissing: AugmentedError<ApiType>;
+      /**
+       * Too many calls batched.
+       **/
+      TooManyCalls: AugmentedError<ApiType>;
       /**
        * Generic error
        **/
