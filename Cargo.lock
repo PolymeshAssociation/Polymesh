@@ -7310,7 +7310,7 @@ dependencies = [
  "polymesh-runtime-common",
  "polymesh-runtime-develop",
  "polymesh-weights",
- "rand 0.7.3",
+ "rand 0.8.5",
  "scale-info",
  "serde",
  "serde_json",
