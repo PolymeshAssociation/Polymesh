@@ -321,6 +321,15 @@ export interface CalendarUnit extends Enum {
   readonly type: 'Second' | 'Minute' | 'Hour' | 'Day' | 'Week' | 'Month' | 'Year';
 }
 
+/** @name canTransferGranularReturn */
+export interface canTransferGranularReturn extends Enum {
+  readonly isOk: boolean;
+  readonly asOk: GranularCanTransferResult;
+  readonly isErr: boolean;
+  readonly asErr: DispatchError;
+  readonly type: 'Ok' | 'Err';
+}
+
 /** @name CanTransferResult */
 export interface CanTransferResult extends Enum {
   readonly isOk: boolean;
@@ -905,6 +914,14 @@ export interface FundraiserTier extends Struct {
   readonly remaining: Balance;
 }
 
+/** @name FungibleLeg */
+export interface FungibleLeg extends Struct {
+  readonly sender: PortfolioId;
+  readonly receiver: PortfolioId;
+  readonly ticker: Ticker;
+  readonly amount: Balance;
+}
+
 /** @name FungibleToken */
 export interface FungibleToken extends Struct {
   readonly ticker: Ticker;
@@ -1036,20 +1053,13 @@ export interface KeyRecord extends Enum {
 }
 
 /** @name Leg */
-export interface Leg extends Struct {
-  readonly from: PortfolioId;
-  readonly to: PortfolioId;
-  readonly asset: LegAsset;
-}
-
-/** @name LegAsset */
-export interface LegAsset extends Enum {
+export interface Leg extends Enum {
   readonly isFungible: boolean;
-  readonly asFungible: FungibleToken;
+  readonly asFungible: FungibleLeg;
   readonly isNonFungible: boolean;
-  readonly asNonFungible: NFTs;
+  readonly asNonFungible: NonFungibleLeg;
   readonly isOffChain: boolean;
-  readonly asOffChain: OffChainAsset;
+  readonly asOffChain: OffChainLeg;
   readonly type: 'Fungible' | 'NonFungible' | 'OffChain';
 }
 
@@ -1121,6 +1131,13 @@ export interface NFTs extends Struct {
   readonly ids: Vec<NFTId>;
 }
 
+/** @name NonFungibleLeg */
+export interface NonFungibleLeg extends Struct {
+  readonly sender: PortfolioId;
+  readonly receiver: PortfolioId;
+  readonly nfts: NFTs;
+}
+
 /** @name NonFungibleType */
 export interface NonFungibleType extends Enum {
   readonly isDerivative: boolean;
@@ -1133,6 +1150,14 @@ export interface NonFungibleType extends Enum {
 
 /** @name OffChainAsset */
 export interface OffChainAsset extends Struct {
+  readonly ticker: Ticker;
+  readonly amount: Balance;
+}
+
+/** @name OffChainLeg */
+export interface OffChainLeg extends Struct {
+  readonly sender_identity: IdentityId;
+  readonly receiver_identity: IdentityId;
   readonly ticker: Ticker;
   readonly amount: Balance;
 }

@@ -68,8 +68,6 @@ declare module '@polkadot/api-base/types/submittable' {
        * * `asset_type` - the asset type.
        * * `identifiers` - a vector of asset identifiers.
        * * `funding_round` - name of the funding round.
-       * * `disable_iu` - whether or not investor uniqueness enforcement should be disabled.
-       * This cannot be changed after creating the asset.
        * 
        * ## Errors
        * - `InvalidAssetIdentifier` if any of `identifiers` are invalid.
@@ -84,11 +82,11 @@ declare module '@polkadot/api-base/types/submittable' {
        * ## Permissions
        * * Portfolio
        **/
-      createAsset: AugmentedSubmittable<(name: Bytes | string | Uint8Array, ticker: PolymeshPrimitivesTicker | string | Uint8Array, divisible: bool | boolean | Uint8Array, assetType: PolymeshPrimitivesAssetAssetType | { EquityCommon: any } | { EquityPreferred: any } | { Commodity: any } | { FixedIncome: any } | { REIT: any } | { Fund: any } | { RevenueShareAgreement: any } | { StructuredProduct: any } | { Derivative: any } | { Custom: any } | { StableCoin: any } | { NonFungible: any } | string | Uint8Array, identifiers: Vec<PolymeshPrimitivesAssetIdentifier> | (PolymeshPrimitivesAssetIdentifier | { CUSIP: any } | { CINS: any } | { ISIN: any } | { LEI: any } | { FIGI: any } | string | Uint8Array)[], fundingRound: Option<Bytes> | null | object | string | Uint8Array, disableIu: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes, PolymeshPrimitivesTicker, bool, PolymeshPrimitivesAssetAssetType, Vec<PolymeshPrimitivesAssetIdentifier>, Option<Bytes>, bool]>;
+      createAsset: AugmentedSubmittable<(name: Bytes | string | Uint8Array, ticker: PolymeshPrimitivesTicker | string | Uint8Array, divisible: bool | boolean | Uint8Array, assetType: PolymeshPrimitivesAssetAssetType | { EquityCommon: any } | { EquityPreferred: any } | { Commodity: any } | { FixedIncome: any } | { REIT: any } | { Fund: any } | { RevenueShareAgreement: any } | { StructuredProduct: any } | { Derivative: any } | { Custom: any } | { StableCoin: any } | { NonFungible: any } | string | Uint8Array, identifiers: Vec<PolymeshPrimitivesAssetIdentifier> | (PolymeshPrimitivesAssetIdentifier | { CUSIP: any } | { CINS: any } | { ISIN: any } | { LEI: any } | { FIGI: any } | string | Uint8Array)[], fundingRound: Option<Bytes> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes, PolymeshPrimitivesTicker, bool, PolymeshPrimitivesAssetAssetType, Vec<PolymeshPrimitivesAssetIdentifier>, Option<Bytes>]>;
       /**
        * Utility extrinsic to batch `create_asset` and `register_custom_asset_type`.
        **/
-      createAssetWithCustomType: AugmentedSubmittable<(name: Bytes | string | Uint8Array, ticker: PolymeshPrimitivesTicker | string | Uint8Array, divisible: bool | boolean | Uint8Array, customAssetType: Bytes | string | Uint8Array, identifiers: Vec<PolymeshPrimitivesAssetIdentifier> | (PolymeshPrimitivesAssetIdentifier | { CUSIP: any } | { CINS: any } | { ISIN: any } | { LEI: any } | { FIGI: any } | string | Uint8Array)[], fundingRound: Option<Bytes> | null | object | string | Uint8Array, disableIu: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes, PolymeshPrimitivesTicker, bool, Bytes, Vec<PolymeshPrimitivesAssetIdentifier>, Option<Bytes>, bool]>;
+      createAssetWithCustomType: AugmentedSubmittable<(name: Bytes | string | Uint8Array, ticker: PolymeshPrimitivesTicker | string | Uint8Array, divisible: bool | boolean | Uint8Array, customAssetType: Bytes | string | Uint8Array, identifiers: Vec<PolymeshPrimitivesAssetIdentifier> | (PolymeshPrimitivesAssetIdentifier | { CUSIP: any } | { CINS: any } | { ISIN: any } | { LEI: any } | { FIGI: any } | string | Uint8Array)[], fundingRound: Option<Bytes> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes, PolymeshPrimitivesTicker, bool, Bytes, Vec<PolymeshPrimitivesAssetIdentifier>, Option<Bytes>]>;
       /**
        * Pre-approves the receivement of the asset for all identities.
        * 
@@ -3057,14 +3055,6 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       allowVenues: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, venues: Vec<u64> | (u64 | AnyNumber | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, Vec<u64>]>;
       /**
-       * Marks a receipt issued by the caller as claimed or not claimed.
-       * This allows the receipt issuer to invalidate an already issued receipt or revalidate an already claimed receipt.
-       * 
-       * * `receipt_uid` - Unique ID of the receipt.
-       * * `validity` - New validity of the receipt.
-       **/
-      changeReceiptValidity: AugmentedSubmittable<(receiptUid: u64 | AnyNumber | Uint8Array, validity: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, bool]>;
-      /**
        * Registers a new venue.
        * 
        * * `details` - Extra details about a venue
@@ -3083,64 +3073,25 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       disallowVenues: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, venues: Vec<u64> | (u64 | AnyNumber | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, Vec<u64>]>;
       /**
-       * Manually execute settlement
+       * Manually executes an instruction.
        * 
        * # Arguments
-       * * `id` - Target instruction id to reschedule.
-       * * `_legs_count` - Legs included in this instruction.
+       * * `id`: The [`InstructionId`] of the instruction to be executed.
+       * * `portfolio`:  One of the caller's [`PortfolioId`] which is also a counter patry in the instruction.
+       * If None, the caller must be the venue creator or a counter party in a [`Leg::OffChain`].
+       * * `fungible_transfers`: The number of fungible legs in the instruction.
+       * * `nfts_transfers`: The number of nfts being transferred in the instruction.
+       * * `offchain_transfers`: The number of offchain legs in the instruction.
+       * * `weight_limit`: An optional maximum [`Weight`] value to be charged for executing the instruction.
+       * If the `weight_limit` is less than the required amount, the instruction will fail execution.
        * 
-       * # Errors
-       * * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
+       * Note: calling the rpc method `get_execute_instruction_info` returns an instance of [`ExecuteInstructionInfo`], which contains the count parameters.
        **/
       executeManualInstruction: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, portfolio: Option<PolymeshPrimitivesIdentityIdPortfolioId> | null | object | string | Uint8Array, fungibleTransfers: u32 | AnyNumber | Uint8Array, nftsTransfers: u32 | AnyNumber | Uint8Array, offchainTransfers: u32 | AnyNumber | Uint8Array, weightLimit: Option<SpWeightsWeightV2Weight> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, Option<PolymeshPrimitivesIdentityIdPortfolioId>, u32, u32, u32, Option<SpWeightsWeightV2Weight>]>;
       /**
        * Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
        **/
-      executeScheduledInstruction: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, legsCount: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, u32]>;
-      /**
-       * Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
-       **/
-      executeScheduledInstructionV2: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, fungibleTransfers: u32 | AnyNumber | Uint8Array, nftsTransfers: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, u32, u32]>;
-      /**
-       * Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
-       **/
-      executeScheduledInstructionV3: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, weightLimit: SpWeightsWeightV2Weight | { refTime?: any; proofSize?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, SpWeightsWeightV2Weight]>;
-      /**
-       * Placeholder for removed `add_and_affirm_instruction`
-       **/
-      placeholderAddAndAffirmInstruction: AugmentedSubmittable<() => SubmittableExtrinsic<ApiType>, []>;
-      /**
-       * Placeholder for removed `add_and_affirm_instruction_with_memo`
-       **/
-      placeholderAddAndAffirmInstructionWithMemo: AugmentedSubmittable<() => SubmittableExtrinsic<ApiType>, []>;
-      /**
-       * Placeholder for removed `add_instruction`
-       **/
-      placeholderAddInstruction: AugmentedSubmittable<() => SubmittableExtrinsic<ApiType>, []>;
-      /**
-       * Placeholder for removed `add_instruction_with_memo`
-       **/
-      placeholderAddInstructionWithMemo: AugmentedSubmittable<() => SubmittableExtrinsic<ApiType>, []>;
-      /**
-       * Placeholder for removed `affirm_instruction`
-       **/
-      placeholderAffirmInstruction: AugmentedSubmittable<() => SubmittableExtrinsic<ApiType>, []>;
-      /**
-       * Placeholder for removed `claim_receipt`
-       **/
-      placeholderClaimReceipt: AugmentedSubmittable<() => SubmittableExtrinsic<ApiType>, []>;
-      /**
-       * Placeholder for removed `reject_instruction`
-       **/
-      placeholderRejectInstruction: AugmentedSubmittable<() => SubmittableExtrinsic<ApiType>, []>;
-      /**
-       * Placeholder for removed `unclaim_receipt`
-       **/
-      placeholderUnclaimReceipt: AugmentedSubmittable<() => SubmittableExtrinsic<ApiType>, []>;
-      /**
-       * Placeholder for removed `withdraw_affirmation`
-       **/
-      placeholderWithdrawAffirmation: AugmentedSubmittable<() => SubmittableExtrinsic<ApiType>, []>;
+      executeScheduledInstruction: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, weightLimit: SpWeightsWeightV2Weight | { refTime?: any; proofSize?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, SpWeightsWeightV2Weight]>;
       /**
        * Rejects an existing instruction.
        * 
@@ -3152,19 +3103,6 @@ declare module '@polkadot/api-base/types/submittable' {
        * * Portfolio
        **/
       rejectInstruction: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, portfolio: PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, PolymeshPrimitivesIdentityIdPortfolioId]>;
-      /**
-       * Reschedules a failed instruction.
-       * 
-       * # Arguments
-       * * `id` - Target instruction id to reschedule.
-       * 
-       * # Permissions
-       * * Portfolio
-       * 
-       * # Errors
-       * * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
-       **/
-      rescheduleInstruction: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64]>;
       /**
        * Enables or disabled venue filtering for a token.
        * 
