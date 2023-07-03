@@ -82,8 +82,8 @@ decl_event! {
         AccountId = <T as frame_system::Config>::AccountId,
     {
         /// Event for creation of the asset.
-        /// caller DID/ owner DID, ticker, divisibility, asset type, beneficiary DID, disable investor uniqueness, asset name, identifiers, funding round
-        AssetCreated(IdentityId, Ticker, bool, AssetType, IdentityId, bool, AssetName, Vec<AssetIdentifier>, Option<FundingRoundName>),
+        /// caller DID/ owner DID, ticker, divisibility, asset type, beneficiary DID, asset name, identifiers, funding round
+        AssetCreated(IdentityId, Ticker, bool, AssetType, IdentityId, AssetName, Vec<AssetIdentifier>, Option<FundingRoundName>),
         /// Event emitted when any token identifiers are updated.
         /// caller DID, ticker, a vector of (identifier type, identifier value)
         IdentifiersUpdated(IdentityId, Ticker, Vec<AssetIdentifier>),
@@ -240,7 +240,6 @@ pub trait AssetFnTrait<Account, Origin> {
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
-        disable_iu: bool,
     ) -> DispatchResult;
 
     fn register_ticker(origin: Origin, ticker: Ticker) -> DispatchResult;
