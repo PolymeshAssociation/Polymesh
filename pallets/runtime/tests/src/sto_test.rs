@@ -79,7 +79,6 @@ pub fn create_asset(origin: Origin, ticker: Ticker, supply: u128) {
         AssetType::default(),
         vec![],
         None,
-        true,
     ));
     assert_ok!(Asset::issue(origin, ticker, supply, PortfolioKind::Default));
 }

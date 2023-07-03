@@ -191,7 +191,6 @@ fn create_token(ticker: Ticker, user: User) {
         AssetType::default(),
         vec![],
         None,
-        true,
     ));
     assert_ok!(Asset::issue(
         user.origin(),

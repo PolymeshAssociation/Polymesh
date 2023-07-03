@@ -20,7 +20,7 @@ declare module '@polkadot/api-base/types/storage' {
        * Documents attached to an Asset
        * (ticker, doc_id) -> document
        **/
-      assetDocuments: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesTicker | string | Uint8Array, arg2: u32 | AnyNumber | Uint8Array) => Observable<PolymeshPrimitivesDocument>, [PolymeshPrimitivesTicker, u32]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker, u32]>;
+      assetDocuments: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesTicker | string | Uint8Array, arg2: u32 | AnyNumber | Uint8Array) => Observable<Option<PolymeshPrimitivesDocument>>, [PolymeshPrimitivesTicker, u32]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker, u32]>;
       /**
        * Per-ticker document ID counter.
        * (ticker) -> doc_id
@@ -70,7 +70,7 @@ declare module '@polkadot/api-base/types/storage' {
        * Asset name of the token corresponding to the token ticker.
        * (ticker) -> `AssetName`
        **/
-      assetNames: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesTicker | string | Uint8Array) => Observable<Bytes>, [PolymeshPrimitivesTicker]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker]>;
+      assetNames: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesTicker | string | Uint8Array) => Observable<Option<Bytes>>, [PolymeshPrimitivesTicker]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker]>;
       /**
        * Tickers and token owned by a user
        * (user, ticker) -> AssetOwnership
@@ -100,7 +100,7 @@ declare module '@polkadot/api-base/types/storage' {
       /**
        * Inverse map of `CustomTypes`, from registered string contents to custom asset type ids.
        **/
-      customTypesInverse: AugmentedQuery<ApiType, (arg: Bytes | string | Uint8Array) => Observable<u32>, [Bytes]> & QueryableStorageEntry<ApiType, [Bytes]>;
+      customTypesInverse: AugmentedQuery<ApiType, (arg: Bytes | string | Uint8Array) => Observable<Option<u32>>, [Bytes]> & QueryableStorageEntry<ApiType, [Bytes]>;
       /**
        * Decides whether investor uniqueness requirement is enforced for this asset.
        * `false` means that it is enforced.
@@ -149,7 +149,7 @@ declare module '@polkadot/api-base/types/storage' {
        * Ticker registration details.
        * (ticker) -> TickerRegistration
        **/
-      tickers: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesTicker | string | Uint8Array) => Observable<PalletAssetTickerRegistration>, [PolymeshPrimitivesTicker]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker]>;
+      tickers: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesTicker | string | Uint8Array) => Observable<Option<PalletAssetTickerRegistration>>, [PolymeshPrimitivesTicker]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker]>;
       /**
        * A list of tickers that exempt all users from affirming the receivement of the asset.
        **/
@@ -158,7 +158,7 @@ declare module '@polkadot/api-base/types/storage' {
        * Details of the token corresponding to the token ticker.
        * (ticker) -> SecurityToken details [returns SecurityToken struct]
        **/
-      tokens: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesTicker | string | Uint8Array) => Observable<PalletAssetSecurityToken>, [PolymeshPrimitivesTicker]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker]>;
+      tokens: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesTicker | string | Uint8Array) => Observable<Option<PalletAssetSecurityToken>>, [PolymeshPrimitivesTicker]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker]>;
       /**
        * Generic query
        **/
@@ -780,11 +780,6 @@ declare module '@polkadot/api-base/types/storage' {
        **/
       authorizationsGiven: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesIdentityId | string | Uint8Array, arg2: u64 | AnyNumber | Uint8Array) => Observable<PolymeshPrimitivesSecondaryKeySignatory>, [PolymeshPrimitivesIdentityId, u64]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityId, u64]>;
       /**
-       * Obsoleted storage variable superceded by `CddAuthForPrimaryKeyRotation`. It is kept here
-       * for the purpose of storage migration.
-       **/
-      cddAuthForMasterKeyRotation: AugmentedQuery<ApiType, () => Observable<bool>, []> & QueryableStorageEntry<ApiType, []>;
-      /**
        * A config flag that, if set, instructs an authorization from a CDD provider in order to
        * change the primary key of an identity.
        **/
@@ -792,7 +787,7 @@ declare module '@polkadot/api-base/types/storage' {
       /**
        * (Target ID, claim type) (issuer,scope) -> Associated claims
        **/
-      claims: AugmentedQuery<ApiType, (arg1: PalletIdentityClaim1stKey | { target?: any; claimType?: any } | string | Uint8Array, arg2: PalletIdentityClaim2ndKey | { issuer?: any; scope?: any } | string | Uint8Array) => Observable<PolymeshPrimitivesIdentityClaim>, [PalletIdentityClaim1stKey, PalletIdentityClaim2ndKey]> & QueryableStorageEntry<ApiType, [PalletIdentityClaim1stKey, PalletIdentityClaim2ndKey]>;
+      claims: AugmentedQuery<ApiType, (arg1: PalletIdentityClaim1stKey | { target?: any; claimType?: any } | string | Uint8Array, arg2: PalletIdentityClaim2ndKey | { issuer?: any; scope?: any } | string | Uint8Array) => Observable<Option<PolymeshPrimitivesIdentityClaim>>, [PalletIdentityClaim1stKey, PalletIdentityClaim2ndKey]> & QueryableStorageEntry<ApiType, [PalletIdentityClaim1stKey, PalletIdentityClaim2ndKey]>;
       /**
        * It stores the current identity for current transaction.
        **/
@@ -808,11 +803,11 @@ declare module '@polkadot/api-base/types/storage' {
       /**
        * CustomClaimTypeId -> String constant
        **/
-      customClaims: AugmentedQuery<ApiType, (arg: u32 | AnyNumber | Uint8Array) => Observable<Bytes>, [u32]> & QueryableStorageEntry<ApiType, [u32]>;
+      customClaims: AugmentedQuery<ApiType, (arg: u32 | AnyNumber | Uint8Array) => Observable<Option<Bytes>>, [u32]> & QueryableStorageEntry<ApiType, [u32]>;
       /**
        * String constant -> CustomClaimTypeId
        **/
-      customClaimsInverse: AugmentedQuery<ApiType, (arg: Bytes | string | Uint8Array) => Observable<u32>, [Bytes]> & QueryableStorageEntry<ApiType, [Bytes]>;
+      customClaimsInverse: AugmentedQuery<ApiType, (arg: Bytes | string | Uint8Array) => Observable<Option<u32>>, [Bytes]> & QueryableStorageEntry<ApiType, [Bytes]>;
       /**
        * A reverse double map to allow finding all keys for an identity.
        **/
@@ -1210,7 +1205,7 @@ declare module '@polkadot/api-base/types/storage' {
        * portfolio number maps to `None` then such a portfolio doesn't exist. Conversely, if a
        * pair maps to `Some(name)` then such a portfolio exists and is called `name`.
        **/
-      portfolios: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesIdentityId | string | Uint8Array, arg2: u64 | AnyNumber | Uint8Array) => Observable<Bytes>, [PolymeshPrimitivesIdentityId, u64]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityId, u64]>;
+      portfolios: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesIdentityId | string | Uint8Array, arg2: u64 | AnyNumber | Uint8Array) => Observable<Option<Bytes>>, [PolymeshPrimitivesIdentityId, u64]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityId, u64]>;
       /**
        * Tracks all the portfolios in custody of a particular identity. Only used by the UIs.
        * When `true` is stored as the value for a given `(did, pid)`, it means that `pid` is in custody of `did`.
@@ -1407,8 +1402,12 @@ declare module '@polkadot/api-base/types/storage' {
       userAffirmations: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array, arg2: u64 | AnyNumber | Uint8Array) => Observable<PolymeshPrimitivesSettlementAffirmationStatus>, [PolymeshPrimitivesIdentityIdPortfolioId, u64]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityIdPortfolioId, u64]>;
       /**
        * Array of venues created by an identity. Only needed for the UI. IdentityId -> Vec<venue_id>
+       * Venues create by an identity.
+       * Only needed for the UI.
+       * 
+       * identity -> venue_id ()
        **/
-      userVenues: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesIdentityId | string | Uint8Array) => Observable<Vec<u64>>, [PolymeshPrimitivesIdentityId]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityId]>;
+      userVenues: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesIdentityId | string | Uint8Array, arg2: u64 | AnyNumber | Uint8Array) => Observable<Null>, [PolymeshPrimitivesIdentityId, u64]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityId, u64]>;
       /**
        * Venues that are allowed to create instructions involving a particular ticker. Only used if filtering is enabled.
        * (ticker, venue_id) -> allowed
@@ -1709,7 +1708,7 @@ declare module '@polkadot/api-base/types/storage' {
        * Name for the Fundraiser. Only used offchain.
        * (ticker, fundraiser_id) -> Fundraiser name
        **/
-      fundraiserNames: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesTicker | string | Uint8Array, arg2: u64 | AnyNumber | Uint8Array) => Observable<Bytes>, [PolymeshPrimitivesTicker, u64]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker, u64]>;
+      fundraiserNames: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesTicker | string | Uint8Array, arg2: u64 | AnyNumber | Uint8Array) => Observable<Option<Bytes>>, [PolymeshPrimitivesTicker, u64]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker, u64]>;
       /**
        * All fundraisers that are currently running.
        * (ticker, fundraiser_id) -> Fundraiser

@@ -95,10 +95,6 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InvestorUniquenessClaimNotAllowed: AugmentedError<ApiType>;
       /**
-       * Investor Uniqueness not allowed.
-       **/
-      InvestorUniquenessNotAllowed: AugmentedError<ApiType>;
-      /**
        * Maximum length of asset name has been exceeded.
        **/
       MaxLengthOfAssetNameExceeded: AugmentedError<ApiType>;
@@ -1626,6 +1622,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       DuplicateReceiptUid: AugmentedError<ApiType>;
       /**
+       * The instruction failed to release asset locks or transfer the assets.
+       **/
+      FailedToReleaseLockOrTransferAssets: AugmentedError<ApiType>;
+      /**
        * Scheduling of an instruction fails.
        **/
       FailedToSchedule: AugmentedError<ApiType>;
@@ -1638,21 +1638,9 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InstructionDatesInvalid: AugmentedError<ApiType>;
       /**
-       * Instruction failed to execute.
-       **/
-      InstructionFailed: AugmentedError<ApiType>;
-      /**
        * Instruction has not been affirmed.
        **/
       InstructionNotAffirmed: AugmentedError<ApiType>;
-      /**
-       * Provided instruction is not failing execution.
-       **/
-      InstructionNotFailed: AugmentedError<ApiType>;
-      /**
-       * Provided instruction is not pending execution.
-       **/
-      InstructionNotPending: AugmentedError<ApiType>;
       /**
        * Instruction settlement block has not yet been reached.
        **/
@@ -1661,6 +1649,10 @@ declare module '@polkadot/api-base/types/errors' {
        * Instruction's target settle block reached.
        **/
       InstructionSettleBlockPassed: AugmentedError<ApiType>;
+      /**
+       * Only [`InstructionStatus::Pending`] or [`InstructionStatus::Failed`] instructions can be executed.
+       **/
+      InvalidInstructionStatusForExecution: AugmentedError<ApiType>;
       /**
        * Offchain signature is invalid.
        **/
@@ -1693,6 +1685,10 @@ declare module '@polkadot/api-base/types/errors' {
        * Multiple receipts for the same leg are not allowed.
        **/
       MultipleReceiptsForOneLeg: AugmentedError<ApiType>;
+      /**
+       * There are parties who have not affirmed the instruction.
+       **/
+      NotAllAffirmationsHaveBeenReceived: AugmentedError<ApiType>;
       /**
        * The given number of fungible transfers was underestimated.
        **/
@@ -1761,10 +1757,6 @@ declare module '@polkadot/api-base/types/errors' {
        * Ticker could not be found on chain.
        **/
       UnexpectedOFFChainAsset: AugmentedError<ApiType>;
-      /**
-       * Ticker exists in the polymesh chain.
-       **/
-      UnexpectedOnChainAsset: AugmentedError<ApiType>;
       /**
        * Instruction status is unknown
        **/
