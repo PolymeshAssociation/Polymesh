@@ -245,6 +245,9 @@ pub mod settlement;
 /// Constants definitions.
 pub mod constants;
 
+/// Multisig type definitions.
+pub mod multisig;
+
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {

@@ -9,7 +9,7 @@ use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
 };
-use polymesh_primitives::settlement::{Leg, LegAsset, SettlementType};
+use polymesh_primitives::settlement::{Leg, SettlementType};
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, Fund, FundDescription, Memo, NFTCollectionKeys, NFTId,
     NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
@@ -38,7 +38,7 @@ fn create_portfolio() -> (User, PortfolioNumber) {
     let num = Portfolio::next_portfolio_number(&owner.did);
     assert_eq!(num, PortfolioNumber(1));
     assert_ok!(Portfolio::create_portfolio(owner.origin(), name.clone()));
-    assert_eq!(Portfolio::portfolios(&owner.did, num), name);
+    assert_eq!(Portfolio::portfolios(&owner.did, num), Some(name));
     (owner, num)
 }
 
@@ -101,7 +101,7 @@ fn can_create_rename_delete_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         let (owner, num) = create_portfolio();
 
-        let name = || Portfolio::portfolios(owner.did, num);
+        let name = || Portfolio::portfolios(owner.did, num).unwrap();
         let num_of = |name| Portfolio::name_to_number(owner.did, name);
 
         let first_name = name();
@@ -128,7 +128,7 @@ fn can_delete_recreate_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         let (owner, num) = create_portfolio();
 
-        let name = || Portfolio::portfolios(owner.did, num);
+        let name = || Portfolio::portfolios(owner.did, num).unwrap();
         let num_of = |name| Portfolio::name_to_number(owner.did, name);
 
         let first_name = name();
@@ -671,10 +671,10 @@ fn delete_portfolio_with_locked_nfts() {
         let venue_id = create_venue(alice);
         // Locks the NFT - Adds and affirms the instruction
         let nfts = NFTs::new_unverified(ticker, vec![NFTId(1)]);
-        let legs: Vec<Leg> = vec![Leg {
-            from: PortfolioId::user_portfolio(alice.did, PortfolioNumber(1)),
-            to: PortfolioId::default_portfolio(bob.did),
-            asset: LegAsset::NonFungible(nfts),
+        let legs: Vec<Leg> = vec![Leg::NonFungible {
+            sender: PortfolioId::user_portfolio(alice.did, PortfolioNumber(1)),
+            receiver: PortfolioId::default_portfolio(bob.did),
+            nfts,
         }];
         assert_ok!(Settlement::add_and_affirm_instruction(
             alice.origin(),
@@ -867,6 +867,74 @@ fn move_more_funds() {
                 funds,
             ),
             Error::NoDuplicateAssetsAllowed
+        );
+    });
+}
+
+#[test]
+fn empty_fungible_move() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice: User = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let alice_custom_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::User(PortfolioNumber(1)),
+        };
+        let (ticker, _) = create_token(alice);
+        assert_ok!(Portfolio::create_portfolio(
+            alice.origin(),
+            PortfolioName(b"MyOwnPortfolio".to_vec())
+        ));
+
+        let funds = vec![Fund {
+            description: FundDescription::Fungible { ticker, amount: 0 },
+            memo: None,
+        }];
+        assert_noop!(
+            Portfolio::move_portfolio_funds(
+                alice.origin(),
+                alice_default_portfolio,
+                alice_custom_portfolio,
+                funds,
+            ),
+            Error::EmptyTransfer
+        );
+    });
+}
+
+#[test]
+fn empty_nft_move() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice: User = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let alice_custom_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::User(PortfolioNumber(1)),
+        };
+        let (ticker, _) = create_token(alice);
+        assert_ok!(Portfolio::create_portfolio(
+            alice.origin(),
+            PortfolioName(b"MyOwnPortfolio".to_vec())
+        ));
+
+        let funds = vec![Fund {
+            description: FundDescription::NonFungible(NFTs::new_unverified(ticker, Vec::new())),
+            memo: None,
+        }];
+        assert_noop!(
+            Portfolio::move_portfolio_funds(
+                alice.origin(),
+                alice_default_portfolio,
+                alice_custom_portfolio,
+                funds,
+            ),
+            Error::EmptyTransfer
         );
     });
 }

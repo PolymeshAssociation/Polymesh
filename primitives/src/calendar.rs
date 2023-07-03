@@ -1,20 +1,12 @@
-use crate::Moment;
 use chrono::{Datelike, NaiveDate, NaiveDateTime};
 use codec::{Decode, Encode};
 use core::num::NonZeroU64;
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 use sp_std::convert::TryFrom;
 
-/// A per-ticker checkpoint ID.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, TypeInfo)]
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
-pub struct CheckpointId(pub u64);
+use crate::Moment;
 
 /// Calendar units for timing recurring operations.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CalendarUnit {
     /// A unit of one second.
@@ -88,7 +80,6 @@ pub enum FixedOrVariableCalendarUnit {
 }
 
 /// A simple period which is a multiple of a `CalendarUnit`.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct CalendarPeriod {
     /// The base calendar unit.
@@ -148,7 +139,6 @@ impl RecurringPeriod {
 /// The schedule of an asset checkpoint containing the start time `start` and the optional period
 /// `period` - defined with a non-0 multiplier - in case the checkpoint is to recur after `start` at
 /// regular intervals.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct CheckpointSchedule {
     /// Unix time in seconds.
@@ -292,79 +282,4 @@ fn next_checkpoint_secs(
 #[inline(always)]
 pub fn is_leap_year(year: i32) -> bool {
     (year % 4 == 0) & ((year % 100 != 0) | (year % 400 == 0))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{CalendarPeriod, CalendarUnit, CheckpointSchedule};
-    use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
-
-    fn from_ymd_hms(
-        year: i32,
-        month: u32,
-        day: u32,
-        hour: u32,
-        min: u32,
-        sec: u32,
-    ) -> NaiveDateTime {
-        let d = NaiveDate::from_ymd_opt(year, month, day).unwrap();
-        let t = NaiveTime::from_hms_opt(hour, min, sec).unwrap();
-        d.and_time(t)
-    }
-
-    fn next(schedule: CheckpointSchedule, now: NaiveDateTime) -> NaiveDateTime {
-        let ms = schedule
-            .next_checkpoint(now.timestamp_millis() as u64)
-            .unwrap();
-        NaiveDateTime::from_timestamp_opt((ms / 1000) as i64, 0).unwrap_or_default()
-    }
-
-    #[test]
-    fn next_checkpoint_seconds_test() {
-        let period_day_seconds = CalendarPeriod {
-            unit: CalendarUnit::Second,
-            amount: 60 * 60 * 24,
-        };
-        let schedule_day_seconds = CheckpointSchedule {
-            start: 1000 * 60 * 60, // 1:00:00
-            period: period_day_seconds,
-        };
-        let checkpoint1 = next(schedule_day_seconds, from_ymd_hms(1970, 01, 01, 1, 0, 0));
-        assert_eq!(checkpoint1, from_ymd_hms(1970, 01, 02, 1, 0, 0));
-        let checkpoint2 = next(schedule_day_seconds, from_ymd_hms(2020, 12, 12, 1, 2, 3));
-        assert_eq!(checkpoint2, from_ymd_hms(2020, 12, 13, 1, 0, 0));
-    }
-
-    #[test]
-    fn next_checkpoint_months_test() {
-        let period_5_months = CalendarPeriod {
-            unit: CalendarUnit::Month,
-            amount: 5,
-        };
-        let schedule_5_months = CheckpointSchedule {
-            start: 0,
-            period: period_5_months,
-        };
-        let checkpoint = next(schedule_5_months, from_ymd_hms(1970, 4, 1, 1, 2, 3));
-        assert_eq!(checkpoint, from_ymd_hms(1970, 6, 1, 0, 0, 0));
-    }
-
-    #[test]
-    fn next_checkpoint_end_of_month_test() {
-        let period_1_month = CalendarPeriod {
-            unit: CalendarUnit::Month,
-            amount: 1,
-        };
-        let schedule_end_of_month = CheckpointSchedule {
-            start: 1000 * from_ymd_hms(2024, 1, 31, 1, 2, 3).timestamp() as u64,
-            period: period_1_month,
-        };
-        let checkpoint_leap_feb = next(schedule_end_of_month, from_ymd_hms(2024, 1, 31, 1, 2, 30));
-        assert_eq!(checkpoint_leap_feb, from_ymd_hms(2024, 2, 29, 1, 2, 3));
-        let checkpoint_nonleap_feb =
-            next(schedule_end_of_month, from_ymd_hms(2025, 1, 31, 1, 2, 30));
-        assert_eq!(checkpoint_nonleap_feb, from_ymd_hms(2025, 2, 28, 1, 2, 3));
-        let checkpoint_apr = next(schedule_end_of_month, from_ymd_hms(2025, 3, 31, 1, 2, 30));
-        assert_eq!(checkpoint_apr, from_ymd_hms(2025, 4, 30, 1, 2, 3));
-    }
 }

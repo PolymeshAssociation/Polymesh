@@ -9,9 +9,9 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
 };
 use polymesh_primitives::{
-    asset::AssetType, investor_zkproof_data::v1::InvestorZKProofData, jurisdiction::CountryCode,
-    statistics::*, transfer_compliance::*, AccountId, Balance, CddId, Claim, ClaimType, IdentityId,
-    InvestorUid, PortfolioId, PortfolioKind, Scope, ScopeId, Ticker, WeightMeter,
+    asset::AssetType, jurisdiction::CountryCode, statistics::*, transfer_compliance::*, AccountId,
+    Balance, CddId, Claim, ClaimType, IdentityId, InvestorUid, PortfolioId, PortfolioKind, Scope,
+    ScopeId, Ticker, WeightMeter,
 };
 use sp_arithmetic::Permill;
 use std::collections::{HashMap, HashSet};
@@ -57,12 +57,8 @@ impl InvestorState {
         create_investor_uid(self.acc.clone())
     }
 
-    pub fn scope_id(&self, disable_iu: bool, ticker: Ticker) -> ScopeId {
-        if disable_iu {
-            self.did
-        } else {
-            InvestorZKProofData::make_scope_id(&ticker.as_slice(), &self.uid())
-        }
+    pub fn scope_id(&self) -> ScopeId {
+        self.did
     }
 
     pub fn provide_scope_claim(&self, ticker: Ticker) -> (ScopeId, CddId) {
@@ -139,7 +135,6 @@ struct AssetTracker {
     name: String,
     asset: Ticker,
     total_supply: Balance,
-    disable_iu: bool,
     pub asset_scope: AssetScope,
 
     issuers: HashMap<IdentityId, IssuerState>,
@@ -155,17 +150,14 @@ struct AssetTracker {
 
 impl AssetTracker {
     pub fn new() -> Self {
-        Self::new_full(0, "ACME", true)
-    }
-
-    pub fn new_full(owner_id: u64, name: &str, disable_iu: bool) -> Self {
+        let owner_id = 0;
+        let name = "ACME";
         let asset = Ticker::from_slice_truncated(name.as_bytes());
         let investor_start_id = owner_id + 1000;
         let mut tracker = Self {
             name: name.into(),
             asset,
             total_supply: 0,
-            disable_iu,
             asset_scope: AssetScope::from(asset),
 
             issuers: HashMap::new(),
@@ -195,7 +187,6 @@ impl AssetTracker {
             AssetType::default(),
             vec![],
             None,
-            self.disable_iu,
         ));
 
         self.allow_all_transfers();
@@ -290,7 +281,7 @@ impl AssetTracker {
         println!("ids = {:?}", ids);
         let investors = ids
             .into_iter()
-            .map(|id| self.investor(*id).scope_id(self.disable_iu, self.asset))
+            .map(|id| self.investor(*id).scope_id())
             .collect::<Vec<_>>();
         println!("investors = {:?}", investors);
         for condition in &self.transfer_conditions {
@@ -436,9 +427,6 @@ impl AssetTracker {
 
     fn create_investor(&mut self, id: u64) {
         let investor = InvestorState::new(id);
-        if !self.disable_iu {
-            investor.provide_scope_claim(self.asset);
-        }
         assert!(self.investors.insert(id, investor).is_none());
     }
 
@@ -833,16 +821,16 @@ fn max_investor_ownership_rule_with_ext() {
 }
 
 #[test]
-fn claim_count_rule_no_investor_uniqueness() {
+fn claim_count_rule() {
     ExtBuilder::default()
         .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
         .build()
-        .execute_with(|| claim_count_rule_with_ext(true));
+        .execute_with(|| claim_count_rule_with_ext());
 }
 
-fn claim_count_rule_with_ext(disable_iu: bool) {
+fn claim_count_rule_with_ext() {
     // Create an asset.
-    let mut tracker = AssetTracker::new_full(0, "ACME", disable_iu);
+    let mut tracker = AssetTracker::new();
 
     let issuer = User::new(AccountKeyring::Dave);
     let claim_types = vec![ClaimType::Accredited];

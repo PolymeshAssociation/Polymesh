@@ -26,7 +26,7 @@ use scale_info::TypeInfo;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec::Vec;
 
-use polymesh_primitives_derive::VecU8StrongTyped;
+use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 
 use crate::constants::SETTLEMENT_INSTRUCTION_EXECUTION;
 use crate::{impl_checked_inc, Balance, IdentityId, NFTs, PortfolioId, Ticker};
@@ -173,64 +173,59 @@ pub struct Instruction<Moment, BlockNumber> {
     pub value_date: Option<Moment>,
 }
 
-/// Type of assets that can be transferred in a `Leg`.
+/// Defines a [`Leg`] (i.e the action of a settlement).
 #[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
-pub enum LegAsset {
+pub enum Leg {
     /// Fungible token
     Fungible {
-        /// Ticker of the fungible token.
+        /// The [`PortfolioId`] of the sender.
+        sender: PortfolioId,
+        /// The [`PortfolioId`] of the receiver.
+        receiver: PortfolioId,
+        /// The [`Ticker`] of the fungible token.
         ticker: Ticker,
-        /// Amount being trasnferred.
+        /// The amount being transferred.
         amount: Balance,
     },
     /// Non Fungible token.
-    NonFungible(NFTs),
+    NonFungible {
+        /// The [`PortfolioId`] of the sender.
+        sender: PortfolioId,
+        /// The [`PortfolioId`] of the receiver.
+        receiver: PortfolioId,
+        /// The [`NFTs`] being transferred.
+        nfts: NFTs,
+    },
     /// Assets that don't settle on-chain (e.g USD).
     OffChain {
-        /// Ticker for the off-chain asset.
+        /// The [`IdentityId`] of the sender.
+        sender_identity: IdentityId,
+        /// The [`IdentityId`] of the receiver.
+        receiver_identity: IdentityId,
+        /// The [`Ticker`] for the off-chain asset.
         ticker: Ticker,
-        /// Amount transferred.
+        /// The amount transferred.
         amount: Balance,
     },
 }
 
-impl LegAsset {
-    /// Returns the ticker and amount being transferred.
-    pub fn ticker_and_amount(&self) -> (Ticker, Balance) {
-        match self {
-            LegAsset::Fungible { ticker, amount } => (*ticker, *amount),
-            LegAsset::NonFungible(nfts) => (*nfts.ticker(), nfts.len() as Balance),
-            LegAsset::OffChain { ticker, amount } => (*ticker, *amount),
-        }
-    }
-
-    /// Returns true if it's an off-chain leg.
+impl Leg {
+    /// Returns `true` if it's an [`Leg::OffChain`] leg, otherwise returns `false`.
     pub fn is_off_chain(&self) -> bool {
-        if let LegAsset::OffChain { .. } = self {
+        if let Leg::OffChain { .. } = self {
             return true;
         }
         false
     }
-}
 
-impl Default for LegAsset {
-    fn default() -> Self {
-        LegAsset::Fungible {
-            ticker: Ticker::default(),
-            amount: Balance::default(),
+    /// Returns the [`Ticker`] of the asset in the given leg.
+    pub fn ticker(&self) -> Ticker {
+        match self {
+            Leg::Fungible { ticker, .. } => *ticker,
+            Leg::NonFungible { nfts, .. } => *nfts.ticker(),
+            Leg::OffChain { ticker, .. } => *ticker,
         }
     }
-}
-
-/// Defines a leg (i.e the action of a settlement).
-#[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
-pub struct Leg {
-    /// Portfolio of the sender.
-    pub from: PortfolioId,
-    /// Portfolio of the receiver.
-    pub to: PortfolioId,
-    /// Assets being transferred.
-    pub asset: LegAsset,
 }
 
 /// Details about a venue.
@@ -243,39 +238,119 @@ pub struct Venue {
     pub venue_type: VenueType,
 }
 
-/// Details about an offchain transaction receipt
+/// An offchain transaction receipt.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Receipt<Balance> {
-    /// Unique receipt number set by the signer for their receipts
-    pub receipt_uid: u64,
-    /// Identity of the sender
-    pub from: PortfolioId,
-    /// Identity of the receiver
-    pub to: PortfolioId,
-    /// Ticker of the asset being transferred
-    pub asset: Ticker,
-    /// Amount being transferred
-    pub amount: Balance,
+    /// Unique receipt number set by the signer for their receipts.
+    uid: u64,
+    /// The [`InstructionId`] of the instruction for which the receipt is for.
+    instruction_id: InstructionId,
+    /// The [`LegId`] of the leg for which the receipt is for.
+    leg_id: LegId,
+    /// The [`IdentityId`] of the sender.
+    sender_identity: IdentityId,
+    /// The [`IdentityId`] of the receiver.
+    receiver_identity: IdentityId,
+    /// [`Ticker`] of the asset being transferred.
+    ticker: Ticker,
+    /// The amount transferred.
+    amount: Balance,
 }
 
-/// A wrapper for VenueDetails
-#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ReceiptMetadata(Vec<u8>);
+impl<Balance> Receipt<Balance> {
+    /// Creates a new [`Receipt`].
+    pub fn new(
+        uid: u64,
+        instruction_id: InstructionId,
+        leg_id: LegId,
+        sender_identity: IdentityId,
+        receiver_identity: IdentityId,
+        ticker: Ticker,
+        amount: Balance,
+    ) -> Self {
+        Receipt {
+            uid,
+            instruction_id,
+            leg_id,
+            sender_identity,
+            receiver_identity,
+            ticker,
+            amount,
+        }
+    }
+}
 
-/// Details about an offchain transaction receipt that a user must input
+/// A wrapper of [`[u8; 32]`] that can be used for generic messages.
+#[derive(Encode, Decode, TypeInfo, SliceU8StrongTyped)]
+#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ReceiptMetadata([u8; 32]);
+
+/// Details about an offchain transaction receipt.
 #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct ReceiptDetails<AccountId, OffChainSignature> {
     /// Unique receipt number set by the signer for their receipts
-    pub receipt_uid: u64,
-    /// Target leg id
-    pub leg_id: LegId,
-    /// Signer for this receipt
-    pub signer: AccountId,
-    /// signature confirming the receipt details
-    pub signature: OffChainSignature,
-    /// Generic text that can be used to attach messages to receipts
-    pub metadata: ReceiptMetadata,
+    uid: u64,
+    /// The [`InstructionId`] of the instruction which contains the offchain transfer.
+    instruction_id: InstructionId,
+    /// The [`LegId`] which which contains the offchain transfer.
+    leg_id: LegId,
+    /// The [`AccountId`] of the Signer for this receipt.
+    signer: AccountId,
+    /// Signature confirming the receipt details.
+    signature: OffChainSignature,
+    /// The [`ReceiptMetadata`] that can be used to attach messages to receipts.
+    metadata: Option<ReceiptMetadata>,
+}
+
+impl<AccountId, OffChainSignature> ReceiptDetails<AccountId, OffChainSignature> {
+    /// Creates a new [`ReceiptDetails`].
+    pub fn new(
+        uid: u64,
+        instruction_id: InstructionId,
+        leg_id: LegId,
+        signer: AccountId,
+        signature: OffChainSignature,
+        metadata: Option<ReceiptMetadata>,
+    ) -> Self {
+        Self {
+            uid,
+            instruction_id,
+            leg_id,
+            signer,
+            signature,
+            metadata,
+        }
+    }
+
+    /// Returns the uid of the receipt details.
+    pub fn uid(&self) -> u64 {
+        self.uid
+    }
+
+    /// Returns the [`InstructionId`] of the receipt details.
+    pub fn instruction_id(&self) -> &InstructionId {
+        &self.instruction_id
+    }
+
+    /// Returns the [`LegId`] of the receipt details.
+    pub fn leg_id(&self) -> LegId {
+        self.leg_id
+    }
+
+    /// Returns the [`AccountId`] of the signer of the receipt details.
+    pub fn signer(&self) -> &AccountId {
+        &self.signer
+    }
+
+    /// Returns the signature of the receipt details.
+    pub fn signature(&self) -> &OffChainSignature {
+        &self.signature
+    }
+
+    /// Returns the [`ReceiptMetadata`] of the receipt details.
+    pub fn metadata(&self) -> &Option<ReceiptMetadata> {
+        &self.metadata
+    }
 }
 
 /// Stores the number of fungible, non fungible and offchain transfers in a set of legs.
@@ -369,10 +444,10 @@ impl AssetCount {
     pub fn try_from_legs(legs: &[Leg]) -> Result<AssetCount, String> {
         let mut asset_count = AssetCount::default();
         for leg in legs {
-            match &leg.asset {
-                LegAsset::Fungible { .. } => asset_count.try_add_fungible()?,
-                LegAsset::NonFungible(nfts) => asset_count.try_add_non_fungible(&nfts)?,
-                LegAsset::OffChain { .. } => asset_count.try_add_off_chain()?,
+            match &leg {
+                Leg::Fungible { .. } => asset_count.try_add_fungible()?,
+                Leg::NonFungible { nfts, .. } => asset_count.try_add_non_fungible(&nfts)?,
+                Leg::OffChain { .. } => asset_count.try_add_off_chain()?,
             }
         }
         Ok(asset_count)
@@ -383,10 +458,10 @@ impl AssetCount {
     pub fn from_legs(legs: &[(LegId, Leg)]) -> AssetCount {
         let mut asset_count = AssetCount::default();
         for (_, leg) in legs {
-            match &leg.asset {
-                LegAsset::Fungible { .. } => asset_count.add_fungible(),
-                LegAsset::NonFungible(nfts) => asset_count.add_non_fungible(&nfts),
-                LegAsset::OffChain { .. } => asset_count.add_off_chain(),
+            match &leg {
+                Leg::Fungible { .. } => asset_count.add_fungible(),
+                Leg::NonFungible { nfts, .. } => asset_count.add_non_fungible(&nfts),
+                Leg::OffChain { .. } => asset_count.add_off_chain(),
             }
         }
         asset_count
@@ -430,9 +505,11 @@ impl InstructionInfo {
             .collect()
     }
 
-    /// Returns the number of portfolios that still have to affirm the instruction.
-    pub fn number_of_pending_affirmations(&self) -> usize {
-        self.portfolios_pending_approval.len()
+    /// Returns the number of pending affirmations for the instruction.
+    /// The value must be equal to all unique portfolio that have not pre-approved the transfer + the number of offchain legs.
+    pub fn number_of_pending_affirmations(&self) -> u64 {
+        self.portfolios_pending_approval.len() as u64
+            + self.instruction_asset_count.off_chain() as u64
     }
 
     /// Returns the number of fungible transfers.
@@ -468,11 +545,20 @@ impl FilteredLegs {
         portfolio_set: &BTreeSet<PortfolioId>,
     ) -> Self {
         let unfiltered_asset_count = AssetCount::from_legs(&original_set);
-        let leg_subset: Vec<(LegId, Leg)> = original_set
-            .into_iter()
-            .filter(|(_, leg)| portfolio_set.contains(&leg.from))
-            .collect();
+
+        let mut leg_subset = Vec::new();
+        for (leg_id, leg) in original_set {
+            match leg {
+                Leg::Fungible { sender, .. } | Leg::NonFungible { sender, .. } => {
+                    if portfolio_set.contains(&sender) {
+                        leg_subset.push((leg_id, leg));
+                    }
+                }
+                Leg::OffChain { .. } => continue,
+            }
+        }
         let subset_asset_count = AssetCount::from_legs(&leg_subset);
+
         FilteredLegs {
             leg_subset,
             unfiltered_asset_count,

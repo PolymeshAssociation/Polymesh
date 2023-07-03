@@ -89,38 +89,42 @@ use frame_support::dispatch::{DispatchError, DispatchResult, GetDispatchInfo, We
 use frame_support::storage::{StorageDoubleMap, StorageValue};
 use frame_support::traits::schedule::{DispatchTime, Named as ScheduleNamed};
 use frame_support::traits::{Get, GetCallMetadata};
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
-use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
-use scale_info::TypeInfo;
+use frame_support::{decl_error, decl_module, decl_storage, ensure};
+use frame_system::{ensure_root, ensure_signed, Config as FrameConfig, RawOrigin};
 use sp_runtime::traits::{Dispatchable, Hash, One};
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::convert::TryFrom;
+use sp_std::prelude::*;
+use sp_std::result::Result as StdResult;
 
 use pallet_identity::PermissionedCallOriginData;
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::constants::queue_priority::MULTISIG_PROPOSAL_EXECUTION_PRIORITY;
-use polymesh_common_utilities::multisig::MultiSigSubTrait;
+pub use polymesh_common_utilities::multisig::{Event, MultiSigSubTrait, RawEvent, WeightInfo};
 use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
 use polymesh_common_utilities::transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::Context;
 use polymesh_primitives::constants::MULTISIG_PROPOSAL_EXECUTION;
+use polymesh_primitives::multisig::{ProposalDetails, ProposalStatus};
 use polymesh_primitives::{
     extract_auth, storage_migration_ver, AuthorizationData, IdentityId, KeyRecord, Permissions,
     Signatory,
 };
 
+/// Either the ID of a successfully created multisig account or an error.
+type CreateMultisigAccountResult<T> = StdResult<<T as FrameConfig>::AccountId, DispatchError>;
+/// Either the ID of a successfully created proposal or an error.
+type CreateProposalResult = StdResult<u64, DispatchError>;
 type Identity<T> = pallet_identity::Module<T>;
-
-storage_migration_ver!(2);
 
 pub const NAME: &[u8] = b"MultiSig";
 
-/// Either the ID of a successfully created multisig account or an error.
-pub type CreateMultisigAccountResult<T> =
-    sp_std::result::Result<<T as frame_system::Config>::AccountId, DispatchError>;
-/// Either the ID of a successfully created proposal or an error.
-pub type CreateProposalResult = sp_std::result::Result<u64, DispatchError>;
+storage_migration_ver!(2);
 
-/// The multisig trait.
+/// Convert multisig account and proposal id into a scheduler name.
+fn proposal_execution_name<AccountId: Encode>(multisig: &AccountId, proposal_id: u64) -> Vec<u8> {
+    (MULTISIG_PROPOSAL_EXECUTION, multisig, proposal_id).encode()
+}
+
 pub trait Config: frame_system::Config + IdentityConfig {
     /// The overarching event type.
     type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
@@ -130,81 +134,6 @@ pub trait Config: frame_system::Config + IdentityConfig {
     type SchedulerCall: From<Call<Self>> + Into<<Self as IdentityConfig>::Proposal>;
     /// Weight information for extrinsics in the multisig pallet.
     type WeightInfo: WeightInfo;
-}
-
-/// Details of a multisig proposal
-#[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Eq, Debug)]
-pub struct ProposalDetails<T> {
-    /// Number of yes votes
-    pub approvals: u64,
-    /// Number of no votes
-    pub rejections: u64,
-    /// Status of the proposal
-    pub status: ProposalStatus,
-    /// Expiry of the proposal
-    pub expiry: Option<T>,
-    /// Should the proposal be closed after getting inverse of sign required reject votes
-    pub auto_close: bool,
-}
-
-impl<T: core::default::Default> ProposalDetails<T> {
-    /// Create new `ProposalDetails` object with the given config.
-    pub fn new(expiry: Option<T>, auto_close: bool) -> Self {
-        Self {
-            status: ProposalStatus::ActiveOrExpired,
-            expiry,
-            auto_close,
-            ..Default::default()
-        }
-    }
-}
-
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
-/// Status of a multisig proposal
-pub enum ProposalStatus {
-    /// Proposal does not exist
-    Invalid,
-    /// Proposal has not been closed yet. This means that it's either expired or open for voting.
-    ActiveOrExpired,
-    /// Proposal was accepted and executed successfully
-    ExecutionSuccessful,
-    /// Proposal was accepted and execution was tried but it failed
-    ExecutionFailed,
-    /// Proposal was rejected
-    Rejected,
-}
-
-impl Default for ProposalStatus {
-    fn default() -> Self {
-        Self::Invalid
-    }
-}
-
-/// Convert multisig account and proposal id into a scheduler name.
-fn proposal_execution_name<AccountId: Encode>(multisig: &AccountId, proposal_id: u64) -> Vec<u8> {
-    (MULTISIG_PROPOSAL_EXECUTION, multisig, proposal_id).encode()
-}
-
-pub trait WeightInfo {
-    fn create_multisig(signers: u32) -> Weight;
-    fn create_or_approve_proposal_as_identity() -> Weight;
-    fn create_or_approve_proposal_as_key() -> Weight;
-    fn create_proposal_as_identity() -> Weight;
-    fn create_proposal_as_key() -> Weight;
-    fn approve_as_identity() -> Weight;
-    fn approve_as_key() -> Weight;
-    fn reject_as_identity() -> Weight;
-    fn reject_as_key() -> Weight;
-    fn accept_multisig_signer_as_identity() -> Weight;
-    fn accept_multisig_signer_as_key() -> Weight;
-    fn add_multisig_signer() -> Weight;
-    fn remove_multisig_signer() -> Weight;
-    fn add_multisig_signers_via_creator(signers: u32) -> Weight;
-    fn remove_multisig_signers_via_creator(signers: u32) -> Weight;
-    fn change_sigs_required() -> Weight;
-    fn make_multisig_secondary() -> Weight;
-    fn make_multisig_primary() -> Weight;
-    fn execute_scheduled_proposal() -> Weight;
 }
 
 decl_storage! {
@@ -230,6 +159,9 @@ decl_storage! {
         pub MultiSigToIdentity get(fn ms_to_identity): map hasher(identity) T::AccountId => IdentityId;
         /// Details of a multisig proposal
         pub ProposalDetail get(fn proposal_detail): map hasher(twox_64_concat) (T::AccountId, u64) => ProposalDetails<T::Moment>;
+        /// Tracks creators who are no longer allowed to call via_creator extrinsics.
+        pub LostCreatorPrivileges get(fn lost_creator_privileges): map hasher(identity) IdentityId => bool;
+
         /// The last transaction version, used for `on_runtime_upgrade`.
         TransactionVersion get(fn transaction_version) config(): u32;
         /// Storage version.
@@ -474,10 +406,13 @@ decl_module! {
         /// `900_000_000 + 3_000_000 * signers.len()`
         #[weight = <T as Config>::WeightInfo::add_multisig_signers_via_creator(signers.len() as u32)]
         pub fn add_multisig_signers_via_creator(origin, multisig: T::AccountId, signers: Vec<Signatory<T::AccountId>>) {
-            let did = Self::ensure_ms_creator(origin, &multisig)?;
-            ensure!(<MultiSigToIdentity<T>>::get(&multisig) == did, Error::<T>::IdentityNotCreator);
+            let caller_did = Self::ensure_ms_creator(origin, &multisig)?;
+            ensure!(
+                !LostCreatorPrivileges::get(caller_did),
+                Error::<T>::CreatorControlsHaveBeenRemoved
+            );
             for signer in signers {
-                Self::unsafe_add_auth_for_signers(did, signer, multisig.clone());
+                Self::unsafe_add_auth_for_signers(caller_did, signer, multisig.clone());
             }
         }
 
@@ -492,7 +427,12 @@ decl_module! {
         /// `900_000_000 + 3_000_000 * signers.len()`
         #[weight = <T as Config>::WeightInfo::remove_multisig_signers_via_creator(signers.len() as u32)]
         pub fn remove_multisig_signers_via_creator(origin, multisig: T::AccountId, signers: Vec<Signatory<T::AccountId>>) {
-            let _ = Self::ensure_ms_creator(origin, &multisig)?;
+            let caller_did = Self::ensure_ms_creator(origin, &multisig)?;
+            ensure!(
+                !LostCreatorPrivileges::get(caller_did),
+                Error::<T>::CreatorControlsHaveBeenRemoved
+            );
+
             ensure!(Self::is_changing_signers_allowed(&multisig), Error::<T>::ChangeNotAllowed);
             let signers_len: u64 = u64::try_from(signers.len()).unwrap_or_default();
 
@@ -521,14 +461,9 @@ decl_module! {
         /// * `sigs_required` - New number of required signatures.
         #[weight = <T as Config>::WeightInfo::change_sigs_required()]
         pub fn change_sigs_required(origin, sigs_required: u64) {
-            let sender = ensure_signed(origin)?;
-            Self::ensure_ms(&sender)?;
-            ensure!(
-                <NumberOfSigners<T>>::get(&sender) >= sigs_required,
-                Error::<T>::NotEnoughSigners
-            );
-            ensure!(Self::is_changing_signers_allowed(&sender), Error::<T>::ChangeNotAllowed);
-            Self::unsafe_change_sigs_required(sender, sigs_required);
+            let account_id = ensure_signed(origin)?;
+            Self::ensure_ms(&account_id)?;
+            Self::base_change_multisig_required_singatures(account_id, sigs_required)?;
         }
 
         /// Adds a multisig as a secondary key of current did if the current did is the creator of the
@@ -573,56 +508,31 @@ decl_module! {
             ensure_root(origin)?;
             Self::execute_proposal(multisig, proposal_id, multisig_did)
         }
+
+        /// Changes the number of signatures required by a multisig. This must be called by the creator of the multisig.
+        ///
+        /// # Arguments
+        /// * `multisig_account` - The account identifier ([`AccountId`]) for the multi signature account.
+        /// * `signatures_required` - The number of required signatures.
+        #[weight = <T as Config>::WeightInfo::change_sigs_required_via_creator()]
+        pub fn change_sigs_required_via_creator(origin, multisig_account: T::AccountId, signatures_required: u64) {
+            let caller_did = Self::ensure_ms_creator(origin, &multisig_account)?;
+            ensure!(
+                !LostCreatorPrivileges::get(caller_did),
+                Error::<T>::CreatorControlsHaveBeenRemoved
+            );
+            Self::base_change_multisig_required_singatures(multisig_account, signatures_required)?;
+        }
+
+        /// Removes the creator ability to call `add_multisig_signers_via_creator`, `remove_multisig_signers_via_creator`
+        /// and `change_sigs_required_via_creator`.
+        #[weight = <T as Config>::WeightInfo::remove_creator_controls()]
+        pub fn remove_creator_controls(origin, multisig_account: T::AccountId) {
+            let caller_did = Self::ensure_ms_creator(origin, &multisig_account)?;
+            Self::base_remove_creator_controls(caller_did);
+        }
     }
 }
-
-decl_event!(
-    pub enum Event<T>
-    where
-        AccountId = <T as frame_system::Config>::AccountId,
-    {
-        /// Event emitted after creation of a multisig.
-        /// Arguments: caller DID, multisig address, signers (pending approval), signatures required.
-        MultiSigCreated(
-            IdentityId,
-            AccountId,
-            AccountId,
-            Vec<Signatory<AccountId>>,
-            u64,
-        ),
-        /// Event emitted after adding a proposal.
-        /// Arguments: caller DID, multisig, proposal ID.
-        ProposalAdded(IdentityId, AccountId, u64),
-        /// Event emitted when a proposal is executed.
-        /// Arguments: caller DID, multisig, proposal ID, result.
-        ProposalExecuted(IdentityId, AccountId, u64, bool),
-        /// Event emitted when a signatory is added.
-        /// Arguments: caller DID, multisig, added signer.
-        MultiSigSignerAdded(IdentityId, AccountId, Signatory<AccountId>),
-        /// Event emitted when a multisig signatory is authorized to be added.
-        /// Arguments: caller DID, multisig, authorized signer.
-        MultiSigSignerAuthorized(IdentityId, AccountId, Signatory<AccountId>),
-        /// Event emitted when a multisig signatory is removed.
-        /// Arguments: caller DID, multisig, removed signer.
-        MultiSigSignerRemoved(IdentityId, AccountId, Signatory<AccountId>),
-        /// Event emitted when the number of required signatures is changed.
-        /// Arguments: caller DID, multisig, new required signatures.
-        MultiSigSignaturesRequiredChanged(IdentityId, AccountId, u64),
-        /// Event emitted when the proposal get approved.
-        /// Arguments: caller DID, multisig, authorized signer, proposal id.
-        ProposalApproved(IdentityId, AccountId, Signatory<AccountId>, u64),
-        /// Event emitted when a vote is cast in favor of rejecting a proposal.
-        /// Arguments: caller DID, multisig, authorized signer, proposal id.
-        ProposalRejectionVote(IdentityId, AccountId, Signatory<AccountId>, u64),
-        /// Event emitted when a proposal is rejected.
-        /// Arguments: caller DID, multisig, proposal ID.
-        ProposalRejected(IdentityId, AccountId, u64),
-        /// Event emitted when there's an error in proposal execution
-        ProposalExecutionFailed(DispatchError),
-        /// Scheduling of proposal fails.
-        SchedulingFailed(DispatchError),
-    }
-);
 
 decl_error! {
     /// Multisig module errors.
@@ -677,6 +587,8 @@ decl_error! {
         FailedToSchedule,
         /// More signers than required.
         TooManySigners,
+        /// The creator is no longer allowed to call via creator extrinsics.
+        CreatorControlsHaveBeenRemoved,
     }
 }
 
@@ -896,7 +808,7 @@ impl<T: Config> Module<T> {
                 }
                 if proposal_details.approvals >= Self::ms_signs_required(&multisig) {
                     if let Some(proposal) = Self::proposals((multisig.clone(), proposal_id)) {
-                        let execution_at = system::Pallet::<T>::block_number() + One::one();
+                        let execution_at = frame_system::Pallet::<T>::block_number() + One::one();
                         let call = Call::<T>::execute_scheduled_proposal {
                             multisig: multisig.clone(),
                             proposal_id,
@@ -1129,10 +1041,33 @@ impl<T: Config> Module<T> {
         ensure!(multisig_did == sender_did, Error::<T>::IdentityNotCreator);
         Ok(())
     }
+
+    /// Changes the number of required signatures for the given `multisig_account` to `signatures_required`.
+    fn base_change_multisig_required_singatures(
+        multisig_account: T::AccountId,
+        signatures_required: u64,
+    ) -> DispatchResult {
+        ensure!(
+            <NumberOfSigners<T>>::get(&multisig_account) >= signatures_required,
+            Error::<T>::NotEnoughSigners
+        );
+        ensure!(
+            Self::is_changing_signers_allowed(&multisig_account),
+            Error::<T>::ChangeNotAllowed
+        );
+        Self::unsafe_change_sigs_required(multisig_account, signatures_required);
+        Ok(())
+    }
+
+    /// Removes the creator ability to call `add_multisig_signers_via_creator`, `remove_multisig_signers_via_creator`
+    /// and `change_sigs_required_via_creator`.
+    fn base_remove_creator_controls(creator_did: IdentityId) {
+        LostCreatorPrivileges::insert(creator_did, true);
+    }
 }
 
 impl<T: Config> MultiSigSubTrait<T::AccountId> for Module<T> {
-    fn is_multisig(account: &T::AccountId) -> bool {
-        <MultiSigToIdentity<T>>::contains_key(account)
+    fn is_multisig(account_id: &T::AccountId) -> bool {
+        <MultiSigToIdentity<T>>::contains_key(account_id)
     }
 }

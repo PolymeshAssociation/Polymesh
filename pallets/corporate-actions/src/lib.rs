@@ -101,7 +101,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::ensure_root;
-use pallet_asset::checkpoint::{self, SchedulePoints, ScheduleRefCount};
+use pallet_asset::checkpoint;
 use pallet_base::try_next_post;
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::{
@@ -109,21 +109,18 @@ use polymesh_common_utilities::{
     traits::checkpoint::ScheduleId, with_transaction, GC_DID,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, impl_checked_inc, storage_migration_ver, Balance, DocumentId, EventDid,
+    asset::CheckpointId, impl_checked_inc, storage_migration_ver, Balance, DocumentId, EventDid,
     IdentityId, Moment, PortfolioNumber, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
 use sp_arithmetic::Permill;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 /// Representation of a % to tax, with 10^6 precision.
 pub type Tax = Permill;
 
 /// How should `identities` in `TargetIdentities` be used?
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub enum TargetTreatment {
     /// Only those identities should be included.
@@ -150,7 +147,6 @@ impl TargetTreatment {
 }
 
 /// A description of which identities that a CA will apply to.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Default, Debug)]
 pub struct TargetIdentities {
     /// The specified identities either relevant or irrelevant, depending on `treatment`, for CAs.
@@ -176,7 +172,6 @@ impl TargetIdentities {
 }
 
 /// The kind of a `CorporateAction`.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub enum CAKind {
     /// A predictable benefit.
@@ -208,13 +203,11 @@ impl CAKind {
     }
 }
 
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct CADetails(pub Vec<u8>);
 
 /// Defines how to identify a CA's associated checkpoint, if any.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub enum CACheckpoint {
     /// CA uses a record date scheduled to occur in the future.
@@ -230,7 +223,6 @@ pub enum CACheckpoint {
 
 /// Defines the record date, at which impact should be calculated,
 /// along with checkpoint info to assess the impact at the date.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub struct RecordDate {
     /// When the impact should be calculated, or already has.
@@ -240,7 +232,6 @@ pub struct RecordDate {
 }
 
 /// Input specification of the record date used to derive impact for a CA.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub enum RecordDateSpec {
     /// Record date is in the future.
@@ -254,7 +245,6 @@ pub enum RecordDateSpec {
 
 /// Details of a generic CA.
 /// The `(Ticker, ID)` denoting a unique identifier for the CA is stored as a key outside.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub struct CorporateAction {
     /// The kind of CA that this is.
@@ -286,13 +276,11 @@ impl CorporateAction {
 /// A `Ticker`-local CA ID.
 /// By *local*, we mean that the same number might be used for a different `Ticker`
 /// to uniquely identify a different CA.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Default, Debug)]
 pub struct LocalCAId(pub u32);
 impl_checked_inc!(LocalCAId);
 
 /// A unique global identifier for a CA.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub struct CAId {
     /// The `Ticker` component used to disambiguate the `local` one.
@@ -301,7 +289,6 @@ pub struct CAId {
     pub local_id: LocalCAId,
 }
 
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub struct InitiateCorporateActionArgs {
     ticker: Ticker,
@@ -567,10 +554,10 @@ decl_module! {
             withholding_tax: Option<Vec<(IdentityId, Tax)>>,
         ) -> DispatchResult {
             // Ensure that a permissioned agent is calling.
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ticker)?.for_event();
+            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
             Self::unsafe_initiate_corporate_action(
-                agent,
+                caller_did,
                 ticker,
                 kind,
                 decl_date,
@@ -681,14 +668,15 @@ decl_module! {
             .max(<T as Config>::WeightInfo::change_record_date_with_dist())]
         pub fn change_record_date(origin, ca_id: CAId, record_date: Option<RecordDateSpec>) {
             // Ensure origin is a permissioned agent + CA exists.
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
+            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?;
+            let agent = caller_did.for_event();
             let mut ca = Self::ensure_ca_exists(ca_id)?;
 
             with_transaction(|| -> DispatchResult {
                 // If provided, either use the existing CP ID or schedule one to be made.
                 Self::dec_strong_ref_count(ca_id, ca.record_date);
                 ca.record_date = record_date
-                    .map(|date| Self::handle_record_date(agent, ca_id.ticker, date))
+                    .map(|date| Self::handle_record_date(caller_did, ca_id.ticker, date))
                     .transpose()?;
 
                 // Ensure associated services allow changing the date.
@@ -740,14 +728,14 @@ decl_module! {
             } = ca_args;
 
             let PermissionedCallOriginData {
-                primary_did: agent,
+                primary_did: caller_did,
                 secondary_key,
                 ..
             } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ticker)?;
 
             with_transaction(|| {
                 let ca_id = Self::unsafe_initiate_corporate_action(
-                    agent.for_event(),
+                    caller_did,
                     ticker,
                     kind,
                     decl_date,
@@ -759,7 +747,7 @@ decl_module! {
                 )?;
 
                 <distribution::Module<T>>::unverified_distribute(
-                    agent,
+                    caller_did,
                     secondary_key,
                     ca_id,
                     portfolio,
@@ -834,7 +822,7 @@ decl_error! {
 
 impl<T: Config> Module<T> {
     fn unsafe_initiate_corporate_action(
-        agent: EventDid,
+        caller_did: IdentityId,
         ticker: Ticker,
         kind: CAKind,
         decl_date: Moment,
@@ -844,6 +832,7 @@ impl<T: Config> Module<T> {
         default_withholding_tax: Option<Tax>,
         withholding_tax: Option<Vec<(IdentityId, Tax)>>,
     ) -> Result<CAId, DispatchError> {
+        let agent = caller_did.for_event();
         // Ensure that `details` is short enough.
         ensure!(
             details.len() <= Self::max_details_length() as usize,
@@ -881,7 +870,7 @@ impl<T: Config> Module<T> {
         let record_date = record_date
             .map(|date| {
                 with_transaction(|| -> Result<_, DispatchError> {
-                    let rd = Self::handle_record_date(agent, ticker, date)?;
+                    let rd = Self::handle_record_date(caller_did, ticker, date)?;
                     ensure!(decl_date <= rd.date, Error::<T>::DeclDateAfterRecordDate);
                     Ok(rd)
                 })
@@ -988,15 +977,14 @@ impl<T: Config> Module<T> {
             ..
         }) = record_date
         {
-            // We've proven by getting here that `c > 0`, so `c - 1` cannot underflow.
-            ScheduleRefCount::mutate(ca_id.ticker, sh_id, |c| *c -= 1);
+            <Checkpoint<T>>::dec_schedule_ref(&ca_id.ticker, sh_id);
         }
     }
 
     /// Translate record date to a format we can store.
     /// In the process, create a checkpoint schedule if needed.
     fn handle_record_date(
-        agent: EventDid,
+        caller_did: IdentityId,
         ticker: Ticker,
         date: RecordDateSpec,
     ) -> Result<RecordDate, DispatchError> {
@@ -1005,20 +993,19 @@ impl<T: Config> Module<T> {
                 // Create the schedule and extract the date + id.
                 // We set initial `strong_ref_count(id) <- 1`.
                 let date = date.into();
-                let schedule = <Checkpoint<T>>::create_schedule_base(agent, ticker, date, 1)?;
+                let (id, at) = <Checkpoint<T>>::base_create_schedule(caller_did, ticker, date, 1)?;
                 // It might be the case that the CP was instantly created ^--.
                 // Or it might not have. In either case, it will end up at index 0.
-                (schedule.at, CACheckpoint::Scheduled(schedule.id, 0))
+                (at, CACheckpoint::Scheduled(id, 0))
             }
             RecordDateSpec::ExistingSchedule(id) => {
                 // Ensure the schedule exists and extract the record date.
-                let schedules = <Checkpoint<T>>::schedules(ticker);
-                let schedule = schedules[<Checkpoint<T>>::ensure_schedule_exists(&schedules, id)?];
+                let (at, cp_at_idx) =
+                    <Checkpoint<T>>::ensure_schedule_next_checkpoint(&ticker, id)?;
                 // Schedule cannot be removable, otherwise the CP module may remove it,
                 // so we increment the strong reference count of `id`.
-                ScheduleRefCount::mutate(ticker, id, |c| *c += 1);
-                let cp_at_idx = SchedulePoints::decode_len(ticker, id).unwrap_or(0) as u64;
-                (schedule.at, CACheckpoint::Scheduled(schedule.id, cp_at_idx))
+                <Checkpoint<T>>::inc_schedule_ref(&ticker, id);
+                (at, CACheckpoint::Scheduled(id, cp_at_idx))
             }
             RecordDateSpec::Existing(id) => {
                 // Ensure the CP exists.

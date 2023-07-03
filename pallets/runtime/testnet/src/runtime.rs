@@ -8,9 +8,7 @@ use frame_support::traits::OnRuntimeUpgrade;
 
 use core::convert::TryFrom;
 use frame_support::{
-    construct_runtime, parameter_types,
-    traits::{tokens::imbalance::SplitTwoWays, KeyOwnerProofSystem},
-    weights::Weight,
+    construct_runtime, parameter_types, traits::KeyOwnerProofSystem, weights::Weight,
 };
 use pallet_asset::checkpoint as pallet_checkpoint;
 use pallet_corporate_actions::ballot as pallet_corporate_ballot;
@@ -18,15 +16,14 @@ use pallet_corporate_actions::distribution as pallet_capital_distribution;
 use pallet_session::historical as pallet_session_historical;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use polymesh_common_utilities::{
-    compliance_manager::ComplianceFnConfig, constants::currency::*, constants::ENSURED_MAX_LEN,
-    protocol_fee::ProtocolOp,
+    constants::currency::*, constants::ENSURED_MAX_LEN, protocol_fee::ProtocolOp,
 };
 use polymesh_primitives::{Balance, BlockNumber, Moment};
 use polymesh_runtime_common::{
     impls::Author,
     merge_active_and_inactive,
     runtime::{GovernanceCommittee, BENCHMARK_MAX_INCREASE, VMO},
-    AvailableBlockRatio, MaximumBlockWeight, NegativeImbalance,
+    AvailableBlockRatio, MaximumBlockWeight,
 };
 use sp_runtime::transaction_validity::TransactionPriority;
 use sp_runtime::{
@@ -146,15 +143,8 @@ parameter_types! {
     pub const MaxNumberOfNFTsMoves: u32 = 100;
 }
 
-/// Splits fees 80/20 between treasury and block author.
-pub type DealWithFees = SplitTwoWays<
-    Balance,
-    NegativeImbalance<Runtime>,
-    Treasury,        // 4 parts (80%) goes to the treasury.
-    Author<Runtime>, // 1 part (20%) goes to the block author.
-    4,
-    1,
->;
+/// 100% goes to the block author.
+pub type DealWithFees = Author<Runtime>;
 
 // Staking:
 pallet_staking_reward_curve::build! {
@@ -367,10 +357,10 @@ construct_runtime!(
         RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip::{Pallet, Storage},
 
         // Sudo. Usable initially.
-        Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>},
+        // Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>},
 
         // Asset: Genesis config deps: Timestamp,
-        Asset: pallet_asset::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Asset: pallet_asset::{Pallet, Call, Storage, Config<T>, Event<T>} = 26,
         CapitalDistribution: pallet_capital_distribution::{Pallet, Call, Storage, Event},
         Checkpoint: pallet_checkpoint::{Pallet, Call, Storage, Event, Config},
         ComplianceManager: pallet_compliance_manager::{Pallet, Call, Storage, Event},
@@ -385,7 +375,7 @@ construct_runtime!(
         Statistics: pallet_statistics::{Pallet, Call, Storage, Event, Config},
         Sto: pallet_sto::{Pallet, Call, Storage, Event<T>},
         Treasury: pallet_treasury::{Pallet, Call, Event<T>},
-        Utility: pallet_utility::{Pallet, Call, Storage, Event},
+        Utility: pallet_utility::{Pallet, Call, Storage, Event<T>},
         Base: pallet_base::{Pallet, Call, Event},
         ExternalAgents: pallet_external_agents::{Pallet, Call, Storage, Event},
         Relayer: pallet_relayer::{Pallet, Call, Storage, Event<T>},

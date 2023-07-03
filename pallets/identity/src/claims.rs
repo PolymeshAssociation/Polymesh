@@ -86,9 +86,10 @@ impl<T: Config> CddClaimChecker<T> {
         self.active_cdds.contains(&id_claim.claim_issuer)
     }
 
-    /// Issuer is the SystematicIssuers::CDDProvider.
+    /// Issuer is on of SystematicIssuers::CDDProvider or SystematicIssuers::Committee
     fn is_systematic_cdd_provider(&self, id_claim: &IdentityClaim) -> bool {
         SystematicIssuers::CDDProvider.as_id() == id_claim.claim_issuer
+            || SystematicIssuers::Committee.as_id() == id_claim.claim_issuer
     }
 
     /// Issuer is an inactive CDD provider but claim was updated/created before that it was
@@ -260,7 +261,7 @@ impl<T: Config> Module<T> {
     ) -> Option<IdentityClaim> {
         let pk = Claim1stKey { target, claim_type };
         let sk = Claim2ndKey { issuer, scope };
-        Claims::contains_key(&pk, &sk).then(|| Claims::get(&pk, &sk))
+        Claims::get(&pk, &sk)
     }
 
     /// It adds a new claim without any previous security check.
@@ -451,11 +452,10 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         let (pk, sk) = Self::get_claim_keys(target, claim_type, issuer, scope);
         // Ensure that claim exists
-        let investor_unique_scope_id = match Claims::try_get(&pk, &sk)
-            .map_err(|_| Error::<T>::ClaimDoesNotExist)?
-            .claim
-        {
-            Claim::InvestorUniqueness(_, scope_id, _) => Some(scope_id),
+        let claim = Claims::try_get(&pk, &sk).map_err(|_| Error::<T>::ClaimDoesNotExist)?;
+
+        let investor_unique_scope_id = match &claim.claim {
+            Claim::InvestorUniqueness(_, scope_id, _) => Some(*scope_id),
             Claim::InvestorUniquenessV2(..) => match &sk.scope {
                 Some(Scope::Ticker(ticker)) => {
                     Some(T::AssetSubTraitTarget::scope_id(ticker, &target))
@@ -480,7 +480,8 @@ impl<T: Config> Module<T> {
             );
         }
 
-        let claim = Claims::take(&pk, &sk);
+        // Remove the claim and emit event.
+        Claims::remove(&pk, &sk);
         Self::deposit_event(RawEvent::ClaimRevoked(target, claim));
         Ok(())
     }
@@ -633,5 +634,19 @@ impl<T: Config> Module<T> {
         CustomClaimsInverse::insert(&ty, id);
         CustomClaims::insert(id, ty);
         Ok(id)
+    }
+
+    /// Returns all valid [`IdentityClaim`] of type `CustomerDueDiligence` for the given `target_identity`.
+    pub fn valid_cdd_claims(
+        target_identity: IdentityId,
+        cdd_checker_leeway: Option<T::Moment>,
+    ) -> Vec<IdentityClaim> {
+        Self::base_fetch_valid_cdd_claims(
+            target_identity,
+            cdd_checker_leeway.unwrap_or_default(),
+            None,
+            true,
+        )
+        .collect()
     }
 }

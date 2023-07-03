@@ -4,10 +4,7 @@ use crate::constants::time::*;
 use codec::Encode;
 use core::convert::TryFrom;
 use frame_support::{
-    construct_runtime,
-    dispatch::DispatchResult,
-    parameter_types,
-    traits::{tokens::imbalance::SplitTwoWays, KeyOwnerProofSystem},
+    construct_runtime, dispatch::DispatchResult, parameter_types, traits::KeyOwnerProofSystem,
     weights::Weight,
 };
 use pallet_asset::checkpoint as pallet_checkpoint;
@@ -16,15 +13,14 @@ use pallet_corporate_actions::distribution as pallet_capital_distribution;
 use pallet_session::historical as pallet_session_historical;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use polymesh_common_utilities::{
-    compliance_manager::ComplianceFnConfig, constants::currency::*, constants::ENSURED_MAX_LEN,
-    protocol_fee::ProtocolOp, TestUtilsFn,
+    constants::currency::*, constants::ENSURED_MAX_LEN, protocol_fee::ProtocolOp, TestUtilsFn,
 };
 use polymesh_primitives::{AccountId, Balance, BlockNumber, InvestorUid, Moment};
 use polymesh_runtime_common::{
     impls::Author,
     merge_active_and_inactive,
     runtime::{GovernanceCommittee, BENCHMARK_MAX_INCREASE, VMO},
-    AvailableBlockRatio, MaximumBlockWeight, NegativeImbalance,
+    AvailableBlockRatio, MaximumBlockWeight,
 };
 use sp_runtime::transaction_validity::TransactionPriority;
 use sp_runtime::{
@@ -147,15 +143,8 @@ parameter_types! {
     pub const MaxNumberOfConfidentialLegs: u32 = 10;
 }
 
-/// Splits fees 80/20 between treasury and block author.
-pub type DealWithFees = SplitTwoWays<
-    Balance,
-    NegativeImbalance<Runtime>,
-    Treasury,        // 4 parts (80%) goes to the treasury.
-    Author<Runtime>, // 1 part (20%) goes to the block author.
-    4,
-    1,
->;
+/// 100% goes to the block author.
+pub type DealWithFees = Author<Runtime>;
 
 // Staking:
 pallet_staking_reward_curve::build! {
@@ -308,6 +297,11 @@ impl pallet_test_utils::Config for Runtime {
     type WeightInfo = polymesh_weights::pallet_test_utils::SubstrateWeight;
 }
 
+impl pallet_sudo::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+}
+
 /// NB It is needed by benchmarks, in order to use `UserBuilder`.
 impl TestUtilsFn<AccountId> for Runtime {
     fn register_did(
@@ -447,7 +441,7 @@ construct_runtime!(
         Statistics: pallet_statistics::{Pallet, Call, Storage, Event, Config},
         Sto: pallet_sto::{Pallet, Call, Storage, Event<T>},
         Treasury: pallet_treasury::{Pallet, Call, Event<T>},
-        Utility: pallet_utility::{Pallet, Call, Storage, Event},
+        Utility: pallet_utility::{Pallet, Call, Storage, Event<T>},
         Base: pallet_base::{Pallet, Call, Event},
         ExternalAgents: pallet_external_agents::{Pallet, Call, Storage, Event},
         Relayer: pallet_relayer::{Pallet, Call, Storage, Event<T>},

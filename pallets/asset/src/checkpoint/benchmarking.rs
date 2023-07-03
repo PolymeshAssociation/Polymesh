@@ -18,7 +18,8 @@ use crate::benchmarking::owned_ticker;
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 use polymesh_common_utilities::{benchs::AccountIdOf, TestUtilsFn};
-use polymesh_primitives::calendar::CalendarUnit;
+
+const CP_BASE: u64 = 2000;
 
 fn init<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (RawOrigin<T::AccountId>, Ticker) {
     <pallet_timestamp::Now<T>>::set(1000u32.into());
@@ -27,17 +28,12 @@ fn init<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (RawOrigin<T::AccountId>, 
 }
 
 fn init_with_existing<T: Config + TestUtilsFn<AccountIdOf<T>>>(
-    existing: u32,
+    existing: u64,
 ) -> (RawOrigin<T::AccountId>, Ticker) {
     let (owner, ticker) = init::<T>();
 
-    // First create some schedules. To make sorting more expensive, we'll make em all equal.
-    let schedule = ScheduleSpec {
-        start: Some(2000),
-        remaining: 0,
-        period: <_>::default(),
-    };
-    for _ in 0..existing {
+    for n in 0..existing {
+        let schedule = ScheduleCheckpoints::new(CP_BASE + n);
         Module::<T>::create_schedule(owner.clone().into(), ticker, schedule).unwrap();
     }
 
@@ -60,44 +56,30 @@ benchmarks! {
     }
 
     create_schedule {
-        // Stored schedules before creating this one.
-        let s in 1 .. Module::<T>::schedules_max_complexity() as u32;
-
-        // Make a schedule that is as complex as possible.
-        let schedule = ScheduleSpec {
-            // Not entirely clear this is more expensive, but probably is.
-            // In either case, this triggers `start == now`, which is definitely more expensive.
-            start: None,
-            // Forces us into the most amount of branches.
-            remaining: 2,
-            period: CalendarPeriod {
-                // We want the schedule to be recurring as it triggers more branches.
-                amount: 5,
-                // Months have the most complicated "next at" calculation, so we use months.
-                unit: CalendarUnit::Month,
-            },
-        };
+        let max = Module::<T>::schedules_max_complexity();
+        let schedule = ScheduleCheckpoints::new_checkpoints(
+            (0..max).into_iter().map(|n| CP_BASE + n).collect()
+        );
 
         // Must fit in the max complexity.
         Module::<T>::set_schedules_max_complexity(
             RawOrigin::Root.into(),
-            schedule.period.complexity() * Module::<T>::schedules_max_complexity()
+            10 * max
         ).unwrap();
 
-        let (owner, ticker) = init_with_existing::<T>(s);
+        let (owner, ticker) = init_with_existing::<T>(max);
     }: _(owner, ticker, schedule)
     verify {
-        assert_eq!(Module::<T>::schedule_id_sequence(ticker), ScheduleId(s as u64 + 1))
+        assert_eq!(Module::<T>::schedule_id_sequence(ticker), ScheduleId(max + 1))
     }
 
     remove_schedule {
-        // Stored schedules before creating this one.
-        let s in 1 .. Module::<T>::schedules_max_complexity() as u32;
+        let max = Module::<T>::schedules_max_complexity();
 
-        let id = ScheduleId(s as u64);
-        let (owner, ticker) = init_with_existing::<T>(s);
+        let id = ScheduleId(max);
+        let (owner, ticker) = init_with_existing::<T>(max);
     }: _(owner, ticker, id)
     verify {
-        assert!(Module::<T>::schedules(ticker).iter().all(|s| s.id != id));
+        assert_eq!(Module::<T>::scheduled_checkpoints(ticker, id), None);
     }
 }

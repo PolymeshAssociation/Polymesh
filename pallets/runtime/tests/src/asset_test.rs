@@ -11,7 +11,6 @@ use sp_runtime::AnySignature;
 use sp_std::convert::{From, TryFrom, TryInto};
 use sp_std::iter;
 
-use pallet_asset::checkpoint::ScheduleSpec;
 use pallet_asset::{
     AssetDocuments, AssetMetadataLocalKeyToName, AssetMetadataLocalNameToKey,
     AssetMetadataLocalSpecs, AssetMetadataValues, AssetOwnershipRelation, BalanceOf,
@@ -23,18 +22,18 @@ use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances};
 use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::constants::*;
-use polymesh_common_utilities::traits::checkpoint::{ScheduleId, StoredSchedule};
+use polymesh_common_utilities::traits::checkpoint::{
+    NextCheckpoints, ScheduleCheckpoints, ScheduleId,
+};
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{
-    AssetName, AssetType, CustomAssetTypeId, FundingRoundName, NonFungibleType,
+    AssetName, AssetType, CheckpointId, CustomAssetTypeId, FundingRoundName, NonFungibleType,
 };
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataLockStatus, AssetMetadataName,
     AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
 };
-use polymesh_primitives::calendar::{
-    CalendarPeriod, CalendarUnit, CheckpointId, CheckpointSchedule, FixedOrVariableCalendarUnit,
-};
+use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit, FixedOrVariableCalendarUnit};
 use polymesh_primitives::statistics::StatType;
 use polymesh_primitives::{
     AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
@@ -104,6 +103,10 @@ macro_rules! assert_too_long {
     };
 }
 
+pub(crate) fn token_details(ticker: &Ticker) -> SecurityToken {
+    Asset::token_details(ticker).unwrap_or_default()
+}
+
 pub(crate) fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken) {
     let ticker = Ticker::from_slice_truncated(name);
     let token = SecurityToken {
@@ -145,7 +148,6 @@ fn asset_with_ids(
         token.asset_type.clone(),
         ids,
         None,
-        true,
     )?;
     enable_investor_count(ticker, owner);
     Asset::issue(
@@ -233,6 +235,29 @@ fn exceeded_funding_round_name() -> FundingRoundName {
         .into()
 }
 
+pub fn next_schedule_id(ticker: Ticker) -> ScheduleId {
+    let ScheduleId(id) = Checkpoint::schedule_id_sequence(ticker);
+    ScheduleId(id + 1)
+}
+
+#[track_caller]
+pub fn check_schedules(ticker: Ticker, schedules: &[(ScheduleId, ScheduleCheckpoints)]) {
+    let mut cached = NextCheckpoints::default();
+    for (id, schedule) in schedules {
+        assert_eq!(
+            Checkpoint::scheduled_checkpoints(ticker, id).as_ref(),
+            Some(schedule)
+        );
+        cached.add_schedule_next(*id, schedule.next().unwrap());
+        cached.inc_total_pending(schedule.len() as u64);
+    }
+    if cached.is_empty() {
+        assert_eq!(Checkpoint::cached_next_checkpoints(ticker), None);
+    } else {
+        assert_eq!(Checkpoint::cached_next_checkpoints(ticker), Some(cached));
+    }
+}
+
 #[test]
 fn check_the_test_hex() {
     ExtBuilder::default().build().execute_with(|| {
@@ -265,7 +290,6 @@ fn issuers_can_create_and_rename_tokens() {
             token.asset_type.clone(),
             Vec::new(),
             Some(funding_round_name.clone()),
-            true,
         ));
         enable_investor_count(ticker, owner);
 
@@ -280,7 +304,7 @@ fn issuers_can_create_and_rename_tokens() {
         assert_eq!(Statistics::investor_count(ticker), 1);
 
         // A correct entry is added
-        assert_eq!(Asset::token_details(ticker), token);
+        assert_eq!(token_details(&ticker), token);
         assert_eq!(
             Asset::asset_ownership_relation(token.owner_did, ticker),
             AssetOwnershipRelation::AssetOwned
@@ -295,11 +319,11 @@ fn issuers_can_create_and_rename_tokens() {
             EAError::UnauthorizedAgent
         );
         // The token should remain unchanged in storage.
-        assert_eq!(Asset::token_details(ticker), token);
+        assert_eq!(token_details(&ticker), token);
         // Rename the token and check storage has been updated.
         let new: AssetName = [0x42].into();
         assert_ok!(Asset::rename_asset(owner.origin(), ticker, new.clone()));
-        assert_eq!(Asset::asset_names(ticker), new);
+        assert_eq!(Asset::asset_names(ticker), Some(new));
         assert!(Asset::identifiers(ticker).is_empty());
     });
 }
@@ -367,7 +391,7 @@ fn issuers_can_redeem_tokens() {
             assert_ok!(Asset::redeem(owner.origin(), ticker, token.total_supply));
 
             assert_eq!(Asset::balance_of(&ticker, owner.did), 0);
-            assert_eq!(Asset::token_details(&ticker).total_supply, 0);
+            assert_eq!(token_details(&ticker).total_supply, 0);
 
             assert_noop!(
                 Asset::redeem(owner.origin(), ticker, 1),
@@ -458,7 +482,7 @@ fn register_ticker() {
 
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner.did), true);
         assert_eq!(Asset::is_ticker_available(&ticker), false);
-        let stored_token = Asset::token_details(&ticker);
+        let stored_token = token_details(&ticker);
         assert_eq!(stored_token.asset_type, token.asset_type);
         assert_eq!(Asset::identifiers(ticker), identifiers);
         assert_noop!(
@@ -676,7 +700,7 @@ fn transfer_token_ownership() {
             None,
         );
 
-        assert_eq!(Asset::token_details(&ticker).owner_did, owner.did);
+        assert_eq!(token_details(&ticker).owner_did, owner.did);
 
         assert_noop!(
             Asset::accept_asset_ownership_transfer(alice.origin(), auth_id_alice + 1),
@@ -692,7 +716,7 @@ fn transfer_token_ownership() {
             alice.origin(),
             auth_id_alice
         ));
-        assert_eq!(Asset::token_details(&ticker).owner_did, alice.did);
+        assert_eq!(token_details(&ticker).owner_did, alice.did);
         assert_eq!(
             Asset::asset_ownership_relation(owner.did, ticker),
             AssetOwnershipRelation::NotOwned
@@ -761,7 +785,7 @@ fn transfer_token_ownership() {
             bob.origin(),
             auth_id
         ));
-        assert_eq!(Asset::token_details(&ticker).owner_did, bob.did);
+        assert_eq!(token_details(&ticker).owner_did, bob.did);
     })
 }
 
@@ -779,7 +803,7 @@ fn update_identifiers() {
 
         // Create: A correct entry was added.
         assert_ok!(create(vec![cusip()]));
-        assert_eq!(Asset::token_details(ticker), token);
+        assert_eq!(token_details(&ticker), token);
         assert_eq!(Asset::identifiers(ticker), vec![cusip()]);
 
         // Create: A bad entry was rejected.
@@ -840,7 +864,10 @@ fn adding_removing_documents() {
         ));
 
         for (idx, doc) in documents.into_iter().enumerate() {
-            assert_eq!(doc, Asset::asset_documents(ticker, DocumentId(idx as u32)));
+            assert_eq!(
+                Some(doc),
+                Asset::asset_documents(ticker, DocumentId(idx as u32))
+            );
         }
 
         assert_ok!(Asset::remove_documents(
@@ -941,7 +968,6 @@ fn frozen_secondary_keys_create_asset_we() {
         token_1.asset_type.clone(),
         vec![],
         None,
-        true,
     ));
     assert_ok!(Asset::issue(
         bob.origin(),
@@ -949,7 +975,7 @@ fn frozen_secondary_keys_create_asset_we() {
         token_1.total_supply,
         PortfolioKind::Default
     ));
-    assert_eq!(Asset::token_details(ticker_1), token_1);
+    assert_eq!(token_details(&ticker_1), token_1);
 
     // 3. Alice freezes her secondary keys.
     assert_ok!(Identity::freeze_secondary_keys(alice.origin()));
@@ -1131,7 +1157,7 @@ fn check_unique_investor_count() {
             assert_ok!(basic_asset(alice, ticker, &token));
 
             // Verify the asset creation
-            assert_eq!(Asset::token_details(&ticker), token);
+            assert_eq!(token_details(&ticker), token);
 
             // Verify the balance of the alice and the investor count for the asset.
             assert_eq!(Asset::balance_of(&ticker, alice.did), total_supply); // It should be equal to total supply.
@@ -1239,12 +1265,8 @@ fn next_checkpoint_is_updated_we() {
     let (ticker, token) = a_token(owner.did);
     assert_ok!(basic_asset(owner, ticker, &token));
 
-    assert_eq!(Checkpoint::schedules(ticker), Vec::new());
-    let schedule = ScheduleSpec {
-        start: Some(start),
-        period,
-        remaining: 0,
-    };
+    assert_eq!(Checkpoint::cached_next_checkpoints(ticker), None);
+    let schedule = ScheduleCheckpoints::from_period(start, period, 5);
     assert_ok!(Checkpoint::set_schedules_max_complexity(
         root(),
         period.complexity()
@@ -1254,6 +1276,7 @@ fn next_checkpoint_is_updated_we() {
         ticker,
         schedule
     ));
+    assert_ok!(Checkpoint::advance_update_balances(&ticker, &[]));
     let id = CheckpointId(1);
     assert_eq!(id, Checkpoint::checkpoint_id_sequence(&ticker));
     assert_eq!(start, Checkpoint::timestamps(ticker, id));
@@ -1262,7 +1285,7 @@ fn next_checkpoint_is_updated_we() {
     assert_eq!(total_supply, Asset::get_balance_at(ticker, owner.did, id));
     assert_eq!(0, Asset::get_balance_at(ticker, bob.did, id));
     let checkpoint2 = start + period_ms;
-    assert_eq!(vec![Some(checkpoint2)], next_checkpoints(ticker, start),);
+    assert_eq!(vec![Some(checkpoint2)], next_checkpoints(ticker));
     assert_eq!(vec![checkpoint2], checkpoint_ats(ticker));
 
     let transfer = |at| {
@@ -1311,12 +1334,8 @@ fn non_recurring_schedule_works_we() {
     let (ticker, token) = a_token(owner.did);
     assert_ok!(basic_asset(owner, ticker, &token));
 
-    assert_eq!(Checkpoint::schedules(ticker), Vec::new());
-    let schedule = ScheduleSpec {
-        start: Some(start),
-        period,
-        remaining: 0,
-    };
+    assert_eq!(Checkpoint::cached_next_checkpoints(ticker), None);
+    let schedule = ScheduleCheckpoints::from_period(start, period, 10);
     assert_ok!(Checkpoint::set_schedules_max_complexity(
         root(),
         period.complexity()
@@ -1326,6 +1345,7 @@ fn non_recurring_schedule_works_we() {
         ticker,
         schedule
     ));
+    assert_ok!(Checkpoint::advance_update_balances(&ticker, &[]));
     let id = CheckpointId(1);
     assert_eq!(id, Checkpoint::checkpoint_id_sequence(&ticker));
     assert_eq!(start, Checkpoint::timestamps(ticker, id));
@@ -1334,20 +1354,19 @@ fn non_recurring_schedule_works_we() {
     assert_eq!(total_supply, Asset::get_balance_at(ticker, owner.did, id));
     assert_eq!(0, Asset::get_balance_at(ticker, bob.did, id));
     // The schedule will not recur.
-    assert_eq!(Checkpoint::schedules(ticker), Vec::new());
+    assert_eq!(Checkpoint::cached_next_checkpoints(ticker), None);
 }
 
 fn checkpoint_ats(ticker: Ticker) -> Vec<u64> {
-    Checkpoint::schedules(ticker)
-        .into_iter()
-        .map(|s| s.at)
-        .collect()
+    let cached = Checkpoint::cached_next_checkpoints(ticker).unwrap_or_default();
+    cached.schedules.values().copied().collect()
 }
 
-fn next_checkpoints(ticker: Ticker, start: u64) -> Vec<Option<u64>> {
-    Checkpoint::schedules(ticker)
+fn next_checkpoints(ticker: Ticker) -> Vec<Option<u64>> {
+    let ScheduleId(id) = Checkpoint::schedule_id_sequence(ticker);
+    (1..=id)
         .into_iter()
-        .map(|s| s.schedule.next_checkpoint(start))
+        .map(|id| Checkpoint::scheduled_checkpoints(ticker, ScheduleId(id)).and_then(|s| s.next()))
         .collect()
 }
 
@@ -1376,7 +1395,7 @@ fn schedule_remaining_works() {
         };
 
         // No schedules yet.
-        assert_eq!(Checkpoint::schedules(ticker), vec![]);
+        assert_eq!(Checkpoint::cached_next_checkpoints(ticker), None);
 
         // For simplicity, we use 1s = 1_000ms periods.
         let period = CalendarPeriod {
@@ -1391,23 +1410,24 @@ fn schedule_remaining_works() {
         ));
 
         // Create a schedule with one remaining and where `start == now`.
-        let mut spec = ScheduleSpec {
-            start: Some(start),
-            period,
-            remaining: 1,
-        };
-        let schedule = CheckpointSchedule { start, period };
-        assert_ok!(Checkpoint::create_schedule(owner.origin(), ticker, spec));
+        let schedule = ScheduleCheckpoints::from_period(start, period, 1);
+        assert_ok!(Checkpoint::create_schedule(
+            owner.origin(),
+            ticker,
+            schedule
+        ));
+        assert_ok!(Checkpoint::advance_update_balances(&ticker, &[]));
 
         // We had `remaining == 1` and `start == now`,
         // so since a CP was created, hence `remaining => 0`,
         // the schedule was immediately evicted.
-        assert_eq!(Checkpoint::schedules(ticker), vec![]);
+        assert_eq!(Checkpoint::cached_next_checkpoints(ticker), None);
         assert_eq!(collect_ts(ScheduleId(1)), vec![start]);
 
         // This time, we set `remaining == 5`, but we still have `start == now`,
         // thus one CP is immediately created, so `remaining => 4`.
-        spec.remaining = 5;
+        let schedule = ScheduleCheckpoints::from_period(start, period, 5);
+        let remaining = schedule.len();
         let id2 = ScheduleId(2);
         let assert_ts = |ticks| {
             assert_eq!(
@@ -1416,31 +1436,33 @@ fn schedule_remaining_works() {
             );
         };
         let assert_sh = |at: Moment, remaining| {
-            assert_eq!(
-                Checkpoint::schedules(ticker),
-                vec![StoredSchedule {
-                    id: id2,
-                    schedule,
-                    at: 1_000 * at,
-                    remaining,
-                }]
-            );
+            let now = (at - 1) * 1_000;
+            let mut schedule = schedule.clone();
+            schedule.remove_expired(now);
+            let chain = Checkpoint::scheduled_checkpoints(ticker, id2).unwrap_or_default();
+            assert_eq!(chain, schedule);
+            assert_eq!(chain.len(), remaining);
         };
-        assert_ok!(Checkpoint::create_schedule(owner.origin(), ticker, spec));
+        assert_ok!(Checkpoint::create_schedule(
+            owner.origin(),
+            ticker,
+            schedule.clone()
+        ));
+        assert_ok!(Checkpoint::advance_update_balances(&ticker, &[]));
         assert_sh(2, 4);
         assert_ts(1);
 
         // Transfer and move through the 2nd to 4th recurrences.
         for i in 2..5 {
             transfer(i);
-            assert_sh(i + 1, spec.remaining - i as u32);
+            assert_sh(i + 1, remaining - i as usize);
             assert_ts(i);
         }
 
         // Transfer and move to the 5th (last) recurrence.
         // We've to the point where there are no ticks left.
         transfer(5);
-        assert_eq!(Checkpoint::schedules(ticker), vec![]);
+        assert_eq!(Checkpoint::cached_next_checkpoints(ticker), None);
         assert_ts(5);
     });
 }
@@ -1614,7 +1636,6 @@ fn create_asset_errors(owner: AccountId, other: AccountId) {
             AssetType::default(),
             vec![],
             funding_name,
-            true,
         )
     };
 
@@ -1676,7 +1697,7 @@ fn asset_type_custom_works() {
             let id = CustomAssetTypeId(id);
             let data = data.as_bytes();
             assert_eq!(CustomTypes::get(id), data);
-            assert_eq!(CustomTypesInverse::get(data), id);
+            assert_eq!(CustomTypesInverse::get(data), Some(id));
         };
 
         // Nothing so far. Generator (G) at 0.
@@ -1931,10 +1952,7 @@ fn issuers_can_redeem_tokens_from_portfolio() {
                 Asset::balance_of(&ticker, owner.did),
                 token.total_supply / 2
             );
-            assert_eq!(
-                Asset::token_details(&ticker).total_supply,
-                token.total_supply / 2
-            );
+            assert_eq!(token_details(&ticker).total_supply, token.total_supply / 2);
 
             // Add auth for custody to be moved to bob
             let auth_id = Identity::add_auth(
@@ -2036,7 +2054,7 @@ fn issuers_can_change_asset_type() {
             AssetType::EquityPreferred
         ));
         assert_eq!(
-            Asset::token_details(&ticker).asset_type,
+            token_details(&ticker).asset_type,
             AssetType::EquityPreferred
         );
     })
@@ -2348,7 +2366,6 @@ fn issue_token_invalid_portfolio() {
             AssetType::default(),
             Vec::new(),
             None,
-            true,
         ));
 
         assert_noop!(
@@ -2379,7 +2396,6 @@ fn issue_token_unassigned_custody() {
             AssetType::default(),
             Vec::new(),
             None,
-            true,
         ));
         assert_ok!(Asset::issue(
             alice.origin(),
@@ -2408,7 +2424,6 @@ fn issue_token_assigned_custody() {
             AssetType::default(),
             Vec::new(),
             None,
-            true,
         ));
         // Change custody of the default portfolio
         let authorization_id = Identity::add_auth(
@@ -2447,7 +2462,6 @@ fn redeem_token_unassigned_custody() {
             AssetType::default(),
             Vec::new(),
             None,
-            true,
         ));
         assert_ok!(Asset::issue(
             alice.origin(),
@@ -2482,7 +2496,6 @@ fn redeem_token_assigned_custody() {
             AssetType::default(),
             Vec::new(),
             None,
-            true,
         ));
         // Change custody of the default portfolio
         let authorization_id = Identity::add_auth(

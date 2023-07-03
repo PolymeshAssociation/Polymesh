@@ -633,8 +633,8 @@ impl<T: Config<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
     /// This function is called when the group updates its members, and it executes the following
     /// actions:
     /// * It removes outgoing member's vote of each current proposal.
-    /// * It adds the Systematic CDD claim (issued by `SystematicIssuer::Committee`) to new incoming members.
-    /// * It removes the Systematic CDD claim (issued by `SystematicIssuer::Committee`) from
+    /// * It adds the Systematic CDD claim (issued by `SystematicIssuers::Committee`) to new incoming members.
+    /// * It removes the Systematic CDD claim (issued by `SystematicIssuers::Committee`) from
     /// outgoing members.
     fn change_members_sorted(incoming: &[IdentityId], outgoing: &[IdentityId], new: &[IdentityId]) {
         // Immediately set members so threshold is affected.

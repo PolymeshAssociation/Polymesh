@@ -20,7 +20,7 @@ sp-core = { version = "7.0.0" }
 sp-io = { version = "7.0.0" }
 sp-state-machine = { version = "0.13.0" }
 sp-trie = { version = "7.0.0" }
-trie-root = "0.16.0"
+trie-root = "0.18.0"
 frame-benchmarking = { version = "4.0.0-dev" }
 
 [dev-dependencies]

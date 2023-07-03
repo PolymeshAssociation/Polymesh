@@ -18,7 +18,7 @@ use polymesh_primitives::{
 };
 use test_client::AccountKeyring;
 
-use crate::asset_test::set_timestamp;
+use super::asset_test::{set_timestamp, token_details};
 use crate::ext_builder::ExtBuilder;
 use crate::storage::{TestStorage, User};
 
@@ -48,9 +48,9 @@ fn create_collection_unregistered_ticker() {
             Some(nft_type),
             collection_keys
         ));
-        assert_eq!(Asset::token_details(&ticker).divisible, false);
+        assert_eq!(token_details(&ticker).divisible, false);
         assert_eq!(
-            Asset::token_details(&ticker).asset_type,
+            token_details(&ticker).asset_type,
             AssetType::NonFungible(nft_type)
         );
     });
@@ -74,7 +74,6 @@ fn create_collection_invalid_asset_type() {
             AssetType::default(),
             Vec::new(),
             None,
-            true,
         )
         .expect("failed to create an asset");
 
@@ -194,7 +193,6 @@ pub(crate) fn create_nft_collection(
         asset_type,
         Vec::new(),
         None,
-        true,
     )
     .expect("failed to create an asset");
     for (i, _) in collection_keys.keys().iter().enumerate() {

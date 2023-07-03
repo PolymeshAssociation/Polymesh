@@ -1,6 +1,6 @@
 [package]
 name = "polymesh-ink"
-version = "0.5.7"
+version = "0.5.8"
 authors = ["PolymeshAssociation"]
 edition = "2021"
 license = "Apache-2.0"
@@ -22,7 +22,7 @@ scale-info = { version = "2", default-features = false, features = ["derive"], o
 
 polymesh-api = { version = "0.3.8", default-features = false, features = ["ink"] }
 
-upgrade_tracker = { package = "polymesh_ink_upgrade_tracker", version = "0.2.0", path = "./upgrade_tracker/", default-features = false, features = ["ink-as-dependency"], optional = true }
+upgrade_tracker = { package = "polymesh_ink_upgrade_tracker", version = "1.0.0", path = "./upgrade_tracker/", default-features = false, features = ["ink-as-dependency"], optional = true }
 paste = "1.0"
 
 [lib]
