@@ -51,9 +51,6 @@ node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = f
 pallet-staking-rpc-runtime-api = { package = "pallet-staking-rpc-runtime-api", path = "../../staking/rpc/runtime-api", default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { package = "pallet-protocol-fee-rpc-runtime-api", path = "../../protocol-fee/rpc/runtime-api", default-features = false }
 
-# Crypto
-confidential_identity_core = { version = "1.1.0", default-features = false }
-
 # Others
 lazy_static = { version = "1.4.0", default-features = false }
 log = "0.4.8"
@@ -110,10 +107,13 @@ default = ["std", "equalize"]
 equalize = []
 
 # Backends
-u64_backend = ["confidential_identity_core/u64_backend"]
+u64_backend = ["polymesh-primitives/u64_backend"]
 
 migration-dry-run = []
-no_std = ["u64_backend"]
+no_std = [
+    "polymesh-primitives/no_std",
+    "u64_backend"
+]
 std = [
 		"polymesh-build-tool/std",
     "u64_backend",

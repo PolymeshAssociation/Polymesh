@@ -54,7 +54,7 @@ use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::{
     protocol_fee::ProtocolOp, traits::identity::Config as IdentityConfig, TestUtilsFn,
 };
-use polymesh_primitives::{secondary_key, CddId, Claim, IdentityId, InvestorUid, SecondaryKey};
+use polymesh_primitives::{secondary_key, CddId, Claim, IdentityId, SecondaryKey};
 use sp_std::{prelude::*, vec};
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -78,9 +78,6 @@ decl_event!(
     where
         AccountId = <T as frame_system::Config>::AccountId,
     {
-        /// A new mocked `InvestorUid` has been created for the given Identity.
-        /// (Target DID, New InvestorUid)
-        MockInvestorUIDCreated(IdentityId, InvestorUid),
         /// Emits the `IdentityId` and the `AccountId` of the caller.
         /// (Caller DID, Caller account)
         DidStatus(IdentityId, AccountId),
@@ -120,7 +117,6 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::register_did(secondary_keys.len() as u32)]
         pub fn register_did(
             origin,
-            uid: InvestorUid,
             secondary_keys: Vec<SecondaryKey<T::AccountId>>,
         ) {
             let sender = ensure_signed(origin)?;
@@ -128,16 +124,11 @@ decl_module! {
 
             // Add CDD claim
             let did = Identity::<T>::get_identity(&sender).ok_or("DID Self-register failed")?;
-            let cdd_claim = Claim::CustomerDueDiligence(CddId::new_v1(did, uid));
+            let cdd_claim = Claim::CustomerDueDiligence(CddId::default());
             Identity::<T>::base_add_claim(did, cdd_claim, did, None)?;
         }
 
         /// Registers a new Identity for the `target_account` and issues a CDD claim to it.
-        /// The Investor UID is generated deterministically by the hash of the generated DID and
-        /// then we fix it to be compliant with UUID v4.
-        ///
-        /// # See
-        /// - [RFC 4122: UUID](https://tools.ietf.org/html/rfc4122)
         ///
         /// # Failure
         /// - `origin` has to be an active CDD provider. Inactive CDD providers cannot add new
@@ -147,13 +138,10 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::mock_cdd_register_did()]
         pub fn mock_cdd_register_did(origin, target_account: T::AccountId) {
             let (cdd_did, target_did) = Identity::<T>::base_cdd_register_did(origin, target_account, vec![])?;
-            let target_uid = confidential_identity_v1::mocked::make_investor_uid(target_did.as_bytes());
 
             // Add CDD claim for the target
-            let cdd_claim = Claim::CustomerDueDiligence(CddId::new_v1(target_did, target_uid.into()));
+            let cdd_claim = Claim::CustomerDueDiligence(CddId::default());
             Identity::<T>::base_add_claim(target_did, cdd_claim, cdd_did, None)?;
-
-            Self::deposit_event(RawEvent::MockInvestorUIDCreated(target_did, target_uid.into()));
         }
 
         /// Emits an event with caller's identity.
@@ -183,9 +171,8 @@ decl_module! {
 impl<T: Config> TestUtilsFn<T::AccountId> for Module<T> {
     fn register_did(
         target: T::AccountId,
-        investor: InvestorUid,
         secondary_keys: Vec<secondary_key::SecondaryKey<T::AccountId>>,
     ) -> DispatchResult {
-        Self::register_did(RawOrigin::Signed(target).into(), investor, secondary_keys)
+        Self::register_did(RawOrigin::Signed(target).into(), secondary_keys)
     }
 }

@@ -1,8 +1,6 @@
 use pallet_group as group;
 use pallet_identity as identity;
-use polymesh_primitives::{
-    identity_id::GenesisIdentityRecord, AccountId, IdentityId, Index, InvestorUid,
-};
+use polymesh_primitives::{identity_id::GenesisIdentityRecord, AccountId, IdentityId, Index};
 use polymesh_runtime_develop::{
     runtime::{RuntimeCall, SignedExtra},
     Runtime,
@@ -58,14 +56,12 @@ fn make_min_storage() -> Result<TestExternalities, String> {
         .enumerate()
         .map(|(idx, primary_key)| {
             let did = IdentityId::from(idx as u128);
-            let investor = InvestorUid::from(did.as_ref());
             let issuers = vec![did];
 
             GenesisIdentityRecord {
                 primary_key: Some(primary_key.clone()),
                 issuers,
                 did,
-                investor,
                 ..Default::default()
             }
         })

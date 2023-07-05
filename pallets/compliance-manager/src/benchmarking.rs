@@ -52,9 +52,6 @@ const CLAIM_TYPES: &[ClaimType] = &[
     ClaimType::Jurisdiction,
     ClaimType::Exempted,
     ClaimType::Blocked,
-    ClaimType::InvestorUniqueness,
-    ClaimType::NoType,
-    ClaimType::InvestorUniquenessV2,
 ];
 
 /// Create a token issuer trusted for `Any`.
