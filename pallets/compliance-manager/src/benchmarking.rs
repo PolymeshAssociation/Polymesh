@@ -96,7 +96,7 @@ pub fn make_conditions(s: u32, claims: Option<usize>, issuers: &[TrustedIssuer])
     (0..s)
         .map(|_| Condition {
             condition_type: match claims {
-                None => ConditionType::IsPresent(Claim::NoData),
+                None => ConditionType::IsPresent(Claim::Blocked(Scope::Custom(vec![0]))),
                 Some(len) => ConditionType::IsAnyOf(
                     (0..len)
                         .into_iter()

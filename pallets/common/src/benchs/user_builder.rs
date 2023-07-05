@@ -25,19 +25,14 @@ use schnorrkel::{ExpansionMode, MiniSecretKey};
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
-use polymesh_primitives::{IdentityId, InvestorUid};
+use polymesh_primitives::IdentityId;
 use sp_io::hashing::blake2_256;
 use sp_std::prelude::*;
-
-pub fn uid_from_name_and_idx(name: &str, u: u32) -> InvestorUid {
-    InvestorUid::from((name, u).encode().as_slice())
-}
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
 pub struct UserBuilder<T: Config> {
     account: Option<T::AccountId>,
-    uid: Option<InvestorUid>,
     did: Option<IdentityId>,
     balance: u32,
     seed: u32,
@@ -64,14 +59,9 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> UserBuilder<T> {
         let _ = T::Balances::make_free_balance_be(&account, self.balance.into());
 
         // Generate DID or use the one given.
-        let uid = self
-            .uid
-            .unwrap_or_else(|| uid_from_name_and_idx(name, self.seed));
-
-        let did = self.did.or_else(|| {
-            self.generate_did
-                .then(|| Self::make_did(account.clone(), uid.clone()))
-        });
+        let did = self
+            .did
+            .or_else(|| self.generate_did.then(|| Self::make_did(account.clone())));
 
         // Become a CDD provider.
         self.as_cdd_provider.then(|| {
@@ -84,13 +74,12 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> UserBuilder<T> {
             secret,
             origin,
             did,
-            uid: Some(uid),
         }
     }
 
     /// Create a DID for account `acc` using the specified investor ID.
-    fn make_did(acc: T::AccountId, uid: InvestorUid) -> IdentityId {
-        let _ = T::register_did(acc.clone(), uid, vec![]);
+    fn make_did(acc: T::AccountId) -> IdentityId {
+        let _ = T::register_did(acc.clone(), vec![]);
         T::IdentityFn::get_identity(&acc).unwrap()
     }
 }
@@ -104,10 +93,6 @@ impl<T: Config> UserBuilder<T> {
     pub fn become_cdd_provider(self) -> Self {
         assert_eq!(self.generate_did, true || self.did.is_some());
         self_update!(self, as_cdd_provider, true)
-    }
-
-    pub fn uid(self, u: InvestorUid) -> Self {
-        self_update!(self, uid, Some(u))
     }
 
     pub fn did(self, did: IdentityId) -> Self {
@@ -149,7 +134,6 @@ impl<T: Config> Default for UserBuilder<T> {
     fn default() -> Self {
         Self {
             account: None,
-            uid: None,
             did: None,
             balance: 5_000_000u32,
             seed: 0,

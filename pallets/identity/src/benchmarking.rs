@@ -18,20 +18,18 @@ use crate::*;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 use polymesh_common_utilities::{
-    benchs::{cdd_provider, user, user_without_did, AccountIdOf, User, UserBuilder},
+    benchs::{cdd_provider, user, user_without_did, AccountIdOf, UserBuilder},
     traits::{identity::TargetIdAuthorization, TestUtilsFn},
 };
 use polymesh_primitives::{
     secondary_key::DispatchableNames, AssetPermissions, AuthorizationData, Claim, CountryCode,
-    DispatchableName, ExtrinsicPermissions, IdentityId, PalletName, PalletPermissions, Permissions,
-    PortfolioId, PortfolioNumber, PortfolioPermissions, Scope, ScopeId, SecondaryKey, Signatory,
+    DispatchableName, ExtrinsicPermissions, PalletName, PalletPermissions, Permissions,
+    PortfolioId, PortfolioNumber, PortfolioPermissions, Scope, SecondaryKey, Signatory,
 };
 use sp_core::H512;
 use sp_std::prelude::*;
 
 const SEED: u32 = 0;
-
-const SYS_CDD_DID: IdentityId = SystematicIssuers::CDDProvider.as_id();
 
 pub fn generate_secondary_keys<T: Config>(n: usize) -> Vec<SecondaryKey<T::AccountId>> {
     let mut secondary_keys = Vec::with_capacity(n);
@@ -129,7 +127,6 @@ benchmarks! {
         let child_did = Module::<T>::get_identity(&child_key).unwrap();
 
         // Generate valid CDD claim for child identity.
-        let investor_uid = make_investor_uid(child_did.as_bytes());
         let cdd_claim = Claim::CustomerDueDiligence(CddId::default());
 
         // Add CDD claim to the child identity.
@@ -283,7 +280,7 @@ benchmarks! {
     revoke_claim_by_index {
         let caller = user::<T>("caller", 0);
         let scope = Scope::Identity(caller.did());
-        let claim = Claim::Jurisdiction(CountryCode::BB, scope);
+        let claim = Claim::Jurisdiction(CountryCode::BB, scope.clone());
         let claim_type = claim.claim_type();
         Module::<T>::add_claim(caller.origin.clone().into(), caller.did(), claim.clone(), Some(666u32.into())).unwrap();
     }: _(caller.origin, caller.did(), claim_type, Some(scope))

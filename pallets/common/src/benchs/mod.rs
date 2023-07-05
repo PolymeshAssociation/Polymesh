@@ -20,7 +20,7 @@ mod user;
 pub use user::{PublicKey, SecretKey, User};
 
 mod user_builder;
-pub use user_builder::{uid_from_name_and_idx, AccountIdOf, UserBuilder};
+pub use user_builder::{AccountIdOf, UserBuilder};
 
 use crate::traits::{identity::Config, TestUtilsFn};
 use frame_system::Config as SysTrait;
