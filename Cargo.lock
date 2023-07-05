@@ -4576,6 +4576,7 @@ dependencies = [
  "frame-system",
  "hex-literal 0.2.2",
  "libsecp256k1 0.6.0",
+ "log",
  "pallet-balances 0.1.0",
  "pallet-base",
  "pallet-external-agents",
@@ -6089,7 +6090,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh"
-version = "5.4.1"
+version = "5.4.2"
 dependencies = [
  "chrono",
  "clap 4.1.0",
