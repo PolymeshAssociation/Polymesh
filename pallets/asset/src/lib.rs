@@ -88,7 +88,7 @@ use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
     decl_error, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
+    dispatch::{DispatchError, DispatchResult, Weight},
     ensure, fail,
     traits::Get,
 };
@@ -216,7 +216,7 @@ pub struct ClassicTickerRegistration {
     pub is_created: bool,
 }
 
-storage_migration_ver!(1);
+storage_migration_ver!(2);
 
 decl_storage! {
     trait Store for Module<T: Config> as Asset {
@@ -327,7 +327,7 @@ decl_storage! {
         pub AssetMetadataNextGlobalKey get(fn asset_metadata_next_global_key): AssetMetadataGlobalKey;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
@@ -373,6 +373,52 @@ decl_module! {
         const AssetMetadataValueMaxLength: u32 = T::AssetMetadataValueMaxLength::get();
         const AssetMetadataTypeDefMaxLength: u32 = T::AssetMetadataTypeDefMaxLength::get();
 
+        fn on_runtime_upgrade() -> Weight {
+            use polymesh_primitives::storage_migrate_on;
+
+            storage_migrate_on!(StorageVersion, 2, {
+                log::info!("Migrating Investor Uniqueness assets.");
+                let iu_tickers = DisableInvestorUniqueness::iter()
+                    .filter_map(|(ticker, disable_iu)| match disable_iu {
+                        true => None,
+                        false => Some(ticker),
+                    })
+                    .collect::<Vec<_>>();
+                // Update the scope balances.
+                for ticker in &iu_tickers {
+                    for (target_did, old_scope_id) in ScopeIdOf::iter_prefix(ticker) {
+                        // Cleanup old scope id.
+                        // Delete the balance of target_did at old_scope_id.
+                        BalanceOfAtScope::take(old_scope_id, target_did);
+                        // Cleanup `AggregateBalance` by removing values for old scope ids.
+                        AggregateBalance::take(ticker, old_scope_id);
+
+                        // scope_id will now be the same as the did.
+                        let scope_id = target_did;
+
+                        // Update `BalanceOfAtScope` and `AggregateBalance`.
+                        // These will be the same value as `BalanceOf`.
+                        let balance = Self::balance_of(ticker, target_did);
+                        // Update the balance of `target_did` under `scope_id`.
+                        BalanceOfAtScope::insert(scope_id, target_did, balance);
+                        // `AggregateBalance` is the same as `BalanceOf` for non-IU assets.
+                        AggregateBalance::insert(ticker, scope_id, balance);
+                        // Caches the `ScopeId` for a given IdentityId and ticker.
+                        // this is needed to avoid the on-chain iteration of the claims to find the ScopeId.
+                        ScopeIdOf::insert(ticker, target_did, scope_id);
+                    }
+                    // Disable investor uniqueness.
+                    DisableInvestorUniqueness::insert(ticker, true);
+                }
+
+                log::info!("Migrated {} Investor Uniqueness assets.", iu_tickers.len());
+
+                let count = ClassicTickers::drain().count();
+                log::info!("Removed {count} ClassicTickers.");
+            });
+
+            Weight::zero()
+        }
         /// Registers a new ticker or extends validity of an existing ticker.
         /// NB: Ticker validity does not get carry forward when renewing ticker.
         ///
