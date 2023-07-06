@@ -9,7 +9,7 @@ use pallet_multisig as multisig;
 use pallet_test_utils as test_utils;
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::Context;
-use polymesh_primitives::{InvestorUid, Signatory, TransactionError};
+use polymesh_primitives::{Signatory, TransactionError};
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
 use sp_runtime::transaction_validity::InvalidTransaction;
 use test_client::AccountKeyring;
@@ -44,7 +44,6 @@ fn cdd_checks() {
             assert_eq!(
                 CddHandler::get_valid_payer(
                     &RuntimeCall::TestUtils(test_utils::Call::register_did {
-                        uid: InvestorUid::default(),
                         secondary_keys: Default::default()
                     }),
                     &alice_account

@@ -47,8 +47,6 @@ export interface ClaimType {
   Jurisdiction?: string;
   Exempted?: string;
   Blocked?: string;
-  InvestorUniqueness?: string;
-  NoData?: string;
 }
 
 export interface AuthorizationData {
@@ -110,9 +108,7 @@ export type Claim =
   | { KnowYourCustomer: Scope }
   | { Jurisdiction: [CountryCode, Scope] }
   | { Exempted: Scope }
-  | { Blocked: Scope }
-  | { InvestorUniqueness: [Scope, ScopeId, CddId] }
-  | { NoData: string };
+  | { Blocked: Scope };
 
 export type Whole = {
   Whole: undefined;

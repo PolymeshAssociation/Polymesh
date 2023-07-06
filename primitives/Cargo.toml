@@ -19,9 +19,6 @@ either = { version = "1.6.1", default-features = false }
 polymesh-primitives-derive = { version = "0.1.0", path = "../primitives_derive", default-features = false }
 
 # Crypto
-blake2 = { version = "0.10.2", default-features = false }
-confidential_identity_v1 = { version = "1.1.0", default-features = false, features = ["sp-io"] }
-confidential_identity_v2 = { version = "2.1.0", default-features = false, features = ["sp-io"] }
 schnorrkel = { version = "0.10.1", default-features = false }
 
 # Substrate
@@ -47,15 +44,12 @@ serde_json = { version = "1.0", features = ["arbitrary_precision"] }
 default = ["std"]
 
 # Backends
-u32_backend = [ "confidential_identity_v1/u32_backend", "schnorrkel/u32_backend"]
-u64_backend = [ "confidential_identity_v1/u64_backend", "schnorrkel/u64_backend"]
+u64_backend = ["schnorrkel/u64_backend"]
 
-no_std = [
-	"confidential_identity_v1/no_std",
-	"confidential_identity_v2/no_std"
-]
+no_std = ["u64_backend"]
 
 std = [
+		"u64_backend",
     "chrono/std",
     "codec/std",
     "frame-support/std",
@@ -69,9 +63,6 @@ std = [
     "sp-version/std",
 
     # Crypto
-    "blake2/std",
-    "confidential_identity_v1/std",
-    "confidential_identity_v2/std",
     "polymesh-primitives-derive/std",
     "schnorrkel/std",
     "sp-application-crypto/std",

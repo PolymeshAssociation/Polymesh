@@ -37,9 +37,9 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{
-    investor_zkproof_data::v1::InvestorZKProofData, AccountId, Authorization, AuthorizationData,
-    BlockNumber, CddId, Claim, InvestorUid, Moment, Permissions as AuthPermissions,
-    PortfolioNumber, Scope, ScopeId, SecondaryKey, TrustedFor, TrustedIssuer,
+    AccountId, Authorization, AuthorizationData, BlockNumber, Claim, Moment,
+    Permissions as AuthPermissions, PortfolioNumber, Scope, SecondaryKey, TrustedFor,
+    TrustedIssuer,
 };
 use polymesh_runtime_common::{
     merge_active_and_inactive,
@@ -397,14 +397,6 @@ impl User {
         RuntimeOrigin::signed(self.acc())
     }
 
-    pub fn uid(&self) -> InvestorUid {
-        create_investor_uid(self.acc())
-    }
-
-    pub fn make_scope_claim(&self, ticker: Ticker, cdd_provider: &AccountId) -> (ScopeId, CddId) {
-        provide_scope_claim(self.did, ticker, self.uid(), cdd_provider.clone(), None)
-    }
-
     /// Create a `Scope::Identity` from a User
     pub fn scope(&self) -> Scope {
         Scope::Identity(self.did)
@@ -742,8 +734,7 @@ pub fn make_account(
     ),
     &'static str,
 > {
-    let uid = create_investor_uid(id.clone());
-    make_account_with_uid(id, uid)
+    make_account_with_balance(id, 1_000_000)
 }
 
 pub fn make_account_with_portfolio(ring: AccountKeyring) -> (User, PortfolioId) {
@@ -752,41 +743,9 @@ pub fn make_account_with_portfolio(ring: AccountKeyring) -> (User, PortfolioId) 
     (user, portfolio)
 }
 
-pub fn make_account_with_scope(
-    id: AccountId,
-    ticker: Ticker,
-    cdd_provider: AccountId,
-) -> Result<
-    (
-        <TestStorage as frame_system::Config>::RuntimeOrigin,
-        IdentityId,
-        ScopeId,
-    ),
-    &'static str,
-> {
-    let uid = create_investor_uid(id.clone());
-    let (origin, did) = make_account_with_uid(id, uid.clone()).unwrap();
-    let scope_id = provide_scope_claim(did, ticker, uid, cdd_provider, None).0;
-    Ok((origin, did, scope_id))
-}
-
-pub fn make_account_with_uid(
-    id: AccountId,
-    uid: InvestorUid,
-) -> Result<
-    (
-        <TestStorage as frame_system::Config>::RuntimeOrigin,
-        IdentityId,
-    ),
-    &'static str,
-> {
-    make_account_with_balance(id, uid, 1_000_000)
-}
-
-/// It creates an Account and registers its DID and its InvestorUid.
+/// It creates an Account and registers its DID.
 pub fn make_account_with_balance(
     id: AccountId,
-    uid: InvestorUid,
     balance: Balance,
 ) -> Result<
     (
@@ -812,14 +771,13 @@ pub fn make_account_with_balance(
 
             // Add CDD Claim
             let did = Identity::get_identity(&id).unwrap();
-            let (cdd_id, _) = create_cdd_id(did, Ticker::default(), uid);
-            let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
+            let cdd_claim = Claim::CustomerDueDiligence(Default::default());
             Identity::add_claim(RuntimeOrigin::signed(cdd_acc), did, cdd_claim, None)
                 .map_err(|_| "CDD provider cannot add the CDD claim")?;
             did
         }
         _ => {
-            let _ = TestUtils::register_did(signed_id.clone(), uid, vec![])
+            let _ = TestUtils::register_did(signed_id.clone(), vec![])
                 .map_err(|_| "Register DID failed")?;
             Identity::get_identity(&id).unwrap()
         }
@@ -852,8 +810,7 @@ pub fn register_keyring_account_with_balance(
     balance: Balance,
 ) -> Result<IdentityId, &'static str> {
     let acc_id = acc.to_account_id();
-    let uid = create_investor_uid(acc_id.clone());
-    make_account_with_balance(acc_id, uid, balance).map(|(_, id)| id)
+    make_account_with_balance(acc_id, balance).map(|(_, id)| id)
 }
 
 pub fn get_primary_key(target: IdentityId) -> AccountId {
@@ -955,104 +912,8 @@ pub fn user_portfolio_vec(did: IdentityId, num: PortfolioNumber) -> Vec<Portfoli
     vec![PortfolioId::user_portfolio(did, num)]
 }
 
-pub fn create_cdd_id(
-    claim_to: IdentityId,
-    scope: Ticker,
-    investor_uid: InvestorUid,
-) -> (CddId, InvestorZKProofData) {
-    let proof: InvestorZKProofData = InvestorZKProofData::new(&claim_to, &investor_uid, &scope);
-    let cdd_id = CddId::new_v1(claim_to, investor_uid);
-    (cdd_id, proof)
-}
-
-pub fn create_investor_uid(acc: AccountId) -> InvestorUid {
-    InvestorUid::from(format!("{}", acc).as_str())
-}
-
-pub fn add_cdd_claim(
-    claim_to: IdentityId,
-    scope: Ticker,
-    investor_uid: InvestorUid,
-    cdd_provider: AccountId,
-    cdd_claim_expiry: Option<u64>,
-) -> (ScopeId, CddId, InvestorZKProofData) {
-    let (cdd_id, proof) = create_cdd_id(claim_to, scope, investor_uid);
-    let scope_id = InvestorZKProofData::make_scope_id(&scope.as_slice(), &investor_uid);
-
-    // Add cdd claim first
-    assert_ok!(Identity::add_claim(
-        RuntimeOrigin::signed(cdd_provider),
-        claim_to,
-        Claim::CustomerDueDiligence(cdd_id),
-        cdd_claim_expiry,
-    ));
-    (scope_id, cdd_id, proof)
-}
-
-pub fn provide_scope_claim(
-    claim_to: IdentityId,
-    scope: Ticker,
-    investor_uid: InvestorUid,
-    cdd_provider: AccountId,
-    cdd_claim_expiry: Option<u64>,
-) -> (ScopeId, CddId) {
-    // Add CDD claim, create scope_id and proof.
-    let (scope_id, cdd_id, proof) = add_cdd_claim(
-        claim_to,
-        scope,
-        investor_uid,
-        cdd_provider,
-        cdd_claim_expiry,
-    );
-
-    // Add the InvestorUniqueness claim.
-    assert_ok!(add_investor_uniqueness_claim(
-        claim_to, scope, scope_id, cdd_id, proof
-    ));
-    (claim_to.into(), cdd_id)
-}
-
-pub fn add_investor_uniqueness_claim(
-    claim_to: IdentityId,
-    scope: Ticker,
-    scope_id: ScopeId,
-    cdd_id: CddId,
-    proof: InvestorZKProofData,
-) -> DispatchResult {
-    if Asset::disable_iu(scope) {
-        return Ok(());
-    }
-    let signed_claim_to = RuntimeOrigin::signed(get_primary_key(claim_to));
-
-    // Provide the InvestorUniqueness.
-    Identity::add_investor_uniqueness_claim(
-        signed_claim_to,
-        claim_to,
-        Claim::InvestorUniqueness(Scope::Ticker(scope), scope_id, cdd_id),
-        proof,
-        None,
-    )
-}
-
-pub fn provide_scope_claim_to_multiple_parties<'a>(
-    parties: impl IntoIterator<Item = &'a IdentityId>,
-    ticker: Ticker,
-    cdd_provider: AccountId,
-) {
-    parties.into_iter().for_each(|id| {
-        let uid = create_investor_uid(get_primary_key(*id));
-        provide_scope_claim(*id, ticker, uid, cdd_provider.clone(), None).0;
-    });
-}
-
 pub fn root() -> RuntimeOrigin {
     RuntimeOrigin::from(frame_system::RawOrigin::Root)
-}
-
-pub fn create_cdd_id_and_investor_uid(identity_id: IdentityId) -> (CddId, InvestorUid) {
-    let uid = create_investor_uid(get_primary_key(identity_id));
-    let (cdd_id, _) = create_cdd_id(identity_id, Ticker::default(), uid);
-    (cdd_id, uid)
 }
 
 pub fn make_remark_proposal() -> RuntimeCall {

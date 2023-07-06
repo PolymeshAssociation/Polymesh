@@ -17,10 +17,9 @@ use crate::{
     Claim1stKey, Claim2ndKey, Claims, CustomClaimIdSequence, CustomClaims, CustomClaimsInverse,
     DidRecords, Error, Event, Module, ParentDid,
 };
-use core::convert::From;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure, fail, StorageDoubleMap, StorageMap, StorageValue,
+    ensure, StorageDoubleMap, StorageMap, StorageValue,
 };
 use frame_system::ensure_root;
 use pallet_base::{ensure_string_limited, try_next_pre};
@@ -28,7 +27,6 @@ pub use polymesh_common_utilities::traits::identity::WeightInfo;
 use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
     traits::{
-        asset::AssetSubTrait,
         group::{GroupTrait, InactiveMember},
         identity::{Config, RawEvent},
     },
@@ -36,8 +34,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::identity_claim::CustomClaimTypeId;
 use polymesh_primitives::{
-    investor_zkproof_data::InvestorZKProofData as InvestorZKProof, valid_proof_of_investor, CddId,
-    Claim, ClaimType, IdentityClaim, IdentityId, InvestorUid, Scope, ScopeId, SecondaryKey, Ticker,
+    CddId, Claim, ClaimType, IdentityClaim, IdentityId, Scope, SecondaryKey,
 };
 use sp_runtime::traits::{CheckedAdd, SaturatedConversion, Zero};
 use sp_std::prelude::*;
@@ -332,115 +329,8 @@ impl<T: Config> Module<T> {
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
         Self::ensure_authorized_cdd_provider(issuer)?;
-        // Ensure cdd_id uniqueness for a given target DID.
-        Self::ensure_cdd_id_validness(&claim, target)?;
 
         Self::base_add_claim(target, claim, issuer, expiry)
-    }
-
-    /// Enforce CDD_ID uniqueness for a given target DID.
-    ///
-    /// # Errors
-    /// - `CDDIdNotUniqueForIdentity` is returned when new cdd claim's cdd_id doesn't match the existing cdd claim's cdd_id.
-    fn ensure_cdd_id_validness(claim: &Claim, target: IdentityId) -> DispatchResult {
-        if let Claim::CustomerDueDiligence(cdd_id) = claim {
-            ensure!(
-                cdd_id.is_default_cdd()
-                    || Self::base_fetch_valid_cdd_claims(target, 0u32.into(), None, false)
-                        .filter_map(|c| match c.claim {
-                            Claim::CustomerDueDiligence(c_id) => Some(c_id),
-                            _ => None,
-                        })
-                        .all(|c_id| c_id.is_default_cdd() || c_id == *cdd_id),
-                Error::<T>::CDDIdNotUniqueForIdentity
-            );
-        }
-        Ok(())
-    }
-
-    /// Decodes needed fields from `claim` and `proof`, and ensures that both are in the same
-    /// version.
-    ///
-    /// # Errors
-    /// - `ClaimVariantNotAllowed` if `claim` is not a `Claim::InvestorUniqueness` neither
-    /// `Claim::InvestorUniquenessV2`.
-    /// - `ClaimAndProofVersionsDoNotMatch` if `claim` and `proof` are different versions.
-    fn decode_investor_uniqueness_claim<'a>(
-        claim: &'a Claim,
-        proof: &'_ InvestorZKProof,
-        scope: Option<&'a Scope>,
-    ) -> Result<(&'a Scope, ScopeId, &'a CddId), DispatchError> {
-        let decode = match &claim {
-            Claim::InvestorUniqueness(scope, scope_id, cdd_id) => {
-                ensure!(
-                    matches!(proof, InvestorZKProof::V1(..)),
-                    Error::<T>::ClaimAndProofVersionsDoNotMatch
-                );
-                (scope, *scope_id, cdd_id)
-            }
-            Claim::InvestorUniquenessV2(cdd_id) => match proof {
-                InvestorZKProof::V2(inner_proof) => (
-                    scope.ok_or(Error::<T>::InvalidScopeClaim)?,
-                    inner_proof.0.scope_id.compress().to_bytes().into(),
-                    cdd_id,
-                ),
-                _ => fail!(Error::<T>::ClaimAndProofVersionsDoNotMatch),
-            },
-            _ => fail!(Error::<T>::ClaimVariantNotAllowed),
-        };
-
-        Ok(decode)
-    }
-
-    /// # Errors
-    /// - 'ConfidentialScopeClaimNotAllowed` if :
-    ///     - Sender is not the issuer. That claim can be only added by your-self.
-    ///     - If claim is not valid.
-    /// - 'InvalidCDDId' if you are not the owner of that CDD_ID.
-    ///
-    pub(crate) fn base_add_investor_uniqueness_claim(
-        origin: T::RuntimeOrigin,
-        target: IdentityId,
-        claim: Claim,
-        scope_opt: Option<Scope>,
-        proof: InvestorZKProof,
-        expiry: Option<T::Moment>,
-    ) -> DispatchResult {
-        Self::ensure_custom_scopes_limited(&claim)?;
-
-        // Decode needed fields and ensures `claim` is `InvestorUniqueness*`.
-        let (scope, scope_id, cdd_id) =
-            Self::decode_investor_uniqueness_claim(&claim, &proof, scope_opt.as_ref())?;
-
-        // Only owner of the identity can add that confidential claim.
-        let issuer = Self::ensure_signed_and_validate_claim_target(origin, target)?;
-        ensure!(
-            issuer == target,
-            Error::<T>::ConfidentialScopeClaimNotAllowed
-        );
-        // Verify the owner of that CDD_ID.
-        ensure!(
-            Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id), false).is_some(),
-            Error::<T>::InvalidCDDId
-        );
-
-        // Verify the confidential claim.
-        ensure!(
-            valid_proof_of_investor::evaluate_claim(scope, &claim, &target, &proof),
-            Error::<T>::InvalidScopeClaim
-        );
-
-        if let Scope::Ticker(ticker) = scope {
-            // Ensure uniqueness claims are allowed.
-            T::AssetSubTraitTarget::ensure_investor_uniqueness_claims_allowed(ticker)?;
-
-            // Update the balance of the IdentityId under the ScopeId provided in claim data.
-            T::AssetSubTraitTarget::update_balance_of_scope_id(scope_id, target, *ticker);
-        }
-
-        let scope = Some(scope.clone());
-        Self::unverified_add_claim_with_scope(target, claim, scope, issuer, expiry);
-        Ok(())
     }
 
     /// It removes a claim from `target` which was issued by `issuer` without any security check.
@@ -451,37 +341,9 @@ impl<T: Config> Module<T> {
         scope: Option<Scope>,
     ) -> DispatchResult {
         let (pk, sk) = Self::get_claim_keys(target, claim_type, issuer, scope);
-        // Ensure that claim exists
-        let claim = Claims::try_get(&pk, &sk).map_err(|_| Error::<T>::ClaimDoesNotExist)?;
-
-        let investor_unique_scope_id = match &claim.claim {
-            Claim::InvestorUniqueness(_, scope_id, _) => Some(*scope_id),
-            Claim::InvestorUniquenessV2(..) => match &sk.scope {
-                Some(Scope::Ticker(ticker)) => {
-                    Some(T::AssetSubTraitTarget::scope_id(ticker, &target))
-                }
-                _ => None,
-            },
-            _ => None,
-        };
-
-        // Only if claim is a `InvestorUniqueness*`.
-        if let Some(scope_id) = investor_unique_scope_id {
-            // Ensure the target is the issuer of the claim.
-            ensure!(
-                target == issuer,
-                Error::<T>::ConfidentialScopeClaimNotAllowed
-            );
-
-            // Ensure that the target has balance at scope = 0.
-            ensure!(
-                T::AssetSubTraitTarget::balance_of_at_scope(&scope_id, &target) == Zero::zero(),
-                Error::<T>::TargetHasNonZeroBalanceAtScopeId
-            );
-        }
-
-        // Remove the claim and emit event.
-        Claims::remove(&pk, &sk);
+        // Remove the claim.
+        let claim = Claims::take(&pk, &sk).ok_or(Error::<T>::ClaimDoesNotExist)?;
+        // Emit claim revoked event.
         Self::deposit_event(RawEvent::ClaimRevoked(target, claim));
         Ok(())
     }
@@ -497,28 +359,6 @@ impl<T: Config> Module<T> {
             Error::<T>::DidMustAlreadyExist
         );
         Ok(primary_did)
-    }
-
-    /// Checks whether the sender and the receiver of a transfer have valid investor uniqueness claims for a given ticker
-    pub fn verify_iu_claims_for_transfer(
-        ticker: Ticker,
-        from_did: IdentityId,
-        to_did: IdentityId,
-    ) -> bool {
-        let asset_scope = Some(Scope::from(ticker));
-        Self::base_verify_iu_claim(asset_scope.clone(), from_did)
-            && Self::base_verify_iu_claim(asset_scope, to_did)
-    }
-
-    /// Checks whether the identity has a valid investor uniqueness claim for a given ticker
-    pub fn verify_iu_claim(ticker: Ticker, did: IdentityId) -> bool {
-        let asset_scope = Some(Scope::from(ticker));
-        Self::base_verify_iu_claim(asset_scope, did)
-    }
-
-    pub(crate) fn base_verify_iu_claim(scope: Option<Scope>, did: IdentityId) -> bool {
-        Self::fetch_claim(did, ClaimType::InvestorUniqueness, did, scope.clone()).is_some()
-            || Self::fetch_claim(did, ClaimType::InvestorUniquenessV2, did, scope).is_some()
     }
 
     /// RPC call to know whether the given did has valid cdd claim or not
@@ -595,8 +435,7 @@ impl<T: Config> Module<T> {
     /// Adds systematic CDD claims.
     pub fn add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
         for new_member in targets {
-            let cdd_id = CddId::new_v1(*new_member, InvestorUid::from(new_member.as_ref()));
-            let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
+            let cdd_claim = Claim::CustomerDueDiligence(CddId::default());
             let _ = Self::base_add_claim(*new_member, cdd_claim, issuer.as_id(), None);
         }
     }

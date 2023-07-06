@@ -5,7 +5,7 @@ use frame_support::weights::Weight;
 use polymesh_primitives::{
     statistics::{AssetScope, StatType, StatUpdate},
     transfer_compliance::{TransferCondition, TransferConditionExemptKey},
-    IdentityId, ScopeId,
+    IdentityId,
 };
 use sp_std::vec::Vec;
 
@@ -65,13 +65,13 @@ decl_event!(
         ///
         /// (Caller DID, Asset, Transfer conditions)
         SetAssetTransferCompliance(IdentityId, AssetScope, Vec<TransferCondition>),
-        /// Add `ScopeId`s exempt for transfer conditions matching exempt key.
+        /// Add `IdentityId`s exempt for transfer conditions matching exempt key.
         ///
         /// (Caller DID, Exempt key, Entities)
-        TransferConditionExemptionsAdded(IdentityId, TransferConditionExemptKey, Vec<ScopeId>),
-        /// Remove `ScopeId`s exempt for transfer conditions matching exempt key.
+        TransferConditionExemptionsAdded(IdentityId, TransferConditionExemptKey, Vec<IdentityId>),
+        /// Remove `IdentityId`s exempt for transfer conditions matching exempt key.
         ///
         /// (Caller DID, Exempt key, Entities)
-        TransferConditionExemptionsRemoved(IdentityId, TransferConditionExemptKey, Vec<ScopeId>),
+        TransferConditionExemptionsRemoved(IdentityId, TransferConditionExemptKey, Vec<IdentityId>),
     }
 );

@@ -74,8 +74,6 @@
 //! - `add_authorization` - Adds an authorization.
 //! - `remove_authorization` - Removes an authorization.
 //! - `add_secondary_keys_with_authorization` - Adds secondary keys to target identity `id`.
-//! - `add_investor_uniqueness_claim` - Adds InvestorUniqueness claim for a given target identity.
-//! - `add_investor_uniqueness_claim_v2` - Adds InvestorUniqueness claim V2 for a given target identity.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -94,7 +92,6 @@ pub use types::{Claim1stKey, Claim2ndKey, DidStatus, PermissionedCallOriginData,
 use core::convert::From;
 
 use codec::{Decode, Encode};
-use confidential_identity_v2::ScopeClaimProof;
 use frame_system::ensure_root;
 use sp_runtime::traits::Hash;
 use sp_std::convert::TryFrom;
@@ -114,10 +111,9 @@ use polymesh_common_utilities::traits::identity::{
 };
 use polymesh_common_utilities::{SystematicIssuers, GC_DID};
 use polymesh_primitives::{
-    investor_zkproof_data::v1::InvestorZKProofData, storage_migrate_on, storage_migration_ver,
-    Authorization, AuthorizationData, AuthorizationType, CddId, Claim, ClaimType,
-    CustomClaimTypeId, DidRecord, IdentityClaim, IdentityId, KeyRecord, Permissions, Scope,
-    SecondaryKey, Signatory, Ticker,
+    storage_migrate_on, storage_migration_ver, Authorization, AuthorizationData, AuthorizationType,
+    CddId, Claim, ClaimType, CustomClaimTypeId, DidRecord, IdentityClaim, IdentityId, KeyRecord,
+    Permissions, Scope, SecondaryKey, Signatory, Ticker,
 };
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
@@ -213,7 +209,7 @@ decl_storage! {
 
             //  Other
             for gen_id in &config.identities {
-                let cdd_claim = Claim::CustomerDueDiligence(CddId::new_v1(gen_id.did, gen_id.investor));
+                let cdd_claim = Claim::CustomerDueDiligence(CddId::default());
                 // Direct storage change for registering the DID and providing the claim
                 <Module<T>>::ensure_no_id_record(gen_id.did).unwrap();
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
@@ -348,7 +344,6 @@ decl_module! {
 
             match &claim {
                 Claim::CustomerDueDiligence(..) => Self::base_add_cdd_claim(target, claim, issuer, expiry),
-                Claim::InvestorUniqueness(..) | Claim::InvestorUniquenessV2(..) => Err(Error::<T>::ClaimVariantNotAllowed.into()),
                 _ => {
                     Self::ensure_custom_scopes_limited(&claim)?;
                     T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddClaim)?;
@@ -405,31 +400,6 @@ decl_module! {
             Self::base_remove_authorization(origin, target, auth_id)?;
         }
 
-        /// Add `Claim::InvestorUniqueness` claim for a given target identity.
-        ///
-        /// # <weight>
-        ///  Weight of the this extrinsic is depend on the computation that used to validate
-        ///  the proof of claim, which will be a constant independent of user inputs.
-        /// # </weight>
-        ///
-        /// # Arguments
-        /// * origin - Who provides the claim to the user? In this case, it's the user's account id as the user provides.
-        /// * target - `IdentityId` to which the claim gets assigned.
-        /// * claim - `InvestorUniqueness` claim details.
-        /// * proof - To validate the self attestation.
-        /// * expiry - Expiry of claim.
-        ///
-        /// # Errors
-        /// * `DidMustAlreadyExist` Target should already been a part of the ecosystem.
-        /// * `ClaimVariantNotAllowed` When origin trying to pass claim variant other than `InvestorUniqueness`.
-        /// * `ConfidentialScopeClaimNotAllowed` When issuer is different from target or CDD_ID is invalid for given user.
-        /// * `InvalidScopeClaim When proof is invalid.
-        /// * `InvalidCDDId` when you are not the owner of that CDD_ID.
-        #[weight = <T as Config>::WeightInfo::add_investor_uniqueness_claim()]
-        pub fn add_investor_uniqueness_claim(origin, target: IdentityId, claim: Claim, proof: InvestorZKProofData, expiry: Option<T::Moment>) -> DispatchResult {
-            Self::base_add_investor_uniqueness_claim(origin, target, claim, None, proof.into(), expiry)
-        }
-
         /// Assuming this is executed by the GC voting majority, adds a new cdd claim record.
         #[weight = (<T as Config>::WeightInfo::add_claim(), Operational, Pays::Yes)]
         pub fn gc_add_cdd_claim(
@@ -447,19 +417,10 @@ decl_module! {
             Self::base_revoke_claim(target, ClaimType::CustomerDueDiligence, GC_DID, None)
         }
 
-        #[weight = <T as Config>::WeightInfo::add_investor_uniqueness_claim_v2()]
-        pub fn add_investor_uniqueness_claim_v2(origin, target: IdentityId, scope: Scope, claim: Claim, proof: ScopeClaimProof, expiry: Option<T::Moment>) -> DispatchResult {
-            Self::base_add_investor_uniqueness_claim(origin, target, claim, Some(scope), proof.into(), expiry)
-        }
-
         /// Revokes a specific claim using its [Claim Unique Index](/pallet_identity/index.html#claim-unique-index) composed by `target`,
         /// `claim_type`, and `scope`.
         ///
         /// Please note that `origin` must be the issuer of the target claim.
-        ///
-        /// # Errors
-        /// - `TargetHasNonZeroBalanceAtScopeId` when you try to revoke a `InvestorUniqueness*`
-        /// claim, and `target` identity still have any balance on the given `scope`.
         #[weight = (<T as Config>::WeightInfo::revoke_claim_by_index(), revoke_claim_class(*claim_type))]
         pub fn revoke_claim_by_index(origin, target: IdentityId, claim_type: ClaimType, scope: Option<Scope>) -> DispatchResult {
             let issuer = Self::ensure_perms(origin)?;
@@ -637,8 +598,6 @@ decl_error! {
         AuthorizationsNotForSameDids,
         /// The DID must already exist.
         DidMustAlreadyExist,
-        /// Current identity cannot be forwarded, it is not a secondary key of target identity.
-        CurrentIdentityCannotBeForwarded,
         /// The offchain authorization has expired.
         AuthorizationExpired,
         /// The target DID has no valid CDD.
@@ -665,20 +624,6 @@ decl_error! {
         CannotDecodeSignerAccountId,
         /// Multisig can not be unlinked from an identity while it still holds POLYX
         MultiSigHasBalance,
-        /// Confidential Scope claims can be added by an Identity to it-self.
-        ConfidentialScopeClaimNotAllowed,
-        /// Addition of a new scope claim gets invalidated.
-        InvalidScopeClaim,
-        /// Try to add a claim variant using un-designated extrinsic.
-        ClaimVariantNotAllowed,
-        /// Try to delete the IU claim even when the user has non zero balance at given scopeId.
-        TargetHasNonZeroBalanceAtScopeId,
-        /// CDDId should be unique & same within all cdd claims possessed by a DID.
-        CDDIdNotUniqueForIdentity,
-        /// Non systematic CDD providers can not create default cdd_id claims.
-        InvalidCDDId,
-        /// Claim and Proof versions are different.
-        ClaimAndProofVersionsDoNotMatch,
         /// The account key is being used, it can't be unlinked.
         AccountKeyIsBeingUsed,
         /// A custom scope is too long.
@@ -686,7 +631,7 @@ decl_error! {
         CustomScopeTooLong,
         /// The custom claim type trying to be registered already exists.
         CustomClaimTypeAlreadyExists,
-       /// The custom claim type does not exist.
+        /// The custom claim type does not exist.
         CustomClaimTypeDoesNotExist,
         /// Claim does not exist.
         ClaimDoesNotExist,

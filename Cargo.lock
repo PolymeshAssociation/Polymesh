@@ -728,24 +728,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bulletproofs"
-version = "4.0.0"
-source = "git+https://github.com/PolymeshAssociation/bulletproofs?branch=polymesh#b8670ba8905d4e5d5c204677c4b391eea5d4b158"
-dependencies = [
- "byteorder",
- "curve25519-dalek-ng",
- "digest 0.9.0",
- "merlin 3.0.0",
- "rand 0.8.5",
- "rand_core 0.6.4",
- "serde",
- "serde_derive",
- "sha3 0.9.1",
- "subtle-ng",
- "thiserror",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1128,28 +1110,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "confidential_identity_core"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c054a32f6ebb95f6f6e6631be0db04fb770eae53d1de38e87663e346c2f0293"
-dependencies = [
- "blake2",
- "bulletproofs",
- "byteorder",
- "criterion",
- "curve25519-dalek-ng",
- "merlin 3.0.0",
- "parity-scale-codec 3.5.0",
- "rand 0.8.5",
- "rand_core 0.6.4",
- "scale-info",
- "serde",
- "sha3 0.9.1",
- "sp-std 5.0.0",
- "zeroize",
-]
-
-[[package]]
 name = "confidential_identity_v1"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1166,30 +1126,6 @@ dependencies = [
  "rand_core 0.6.4",
  "schnorrkel 0.10.2",
  "serde",
- "serde_json",
- "sha3 0.9.1",
- "sp-io",
- "sp-std 5.0.0",
- "zeroize",
-]
-
-[[package]]
-name = "confidential_identity_v2"
-version = "2.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cff6815dedb8ca89a080ef1b939dae28e46ea1c9f593ad77e57c654a40fbb10d"
-dependencies = [
- "blake2",
- "byteorder",
- "confidential_identity_core",
- "criterion",
- "curve25519-dalek-ng",
- "parity-scale-codec 3.5.0",
- "rand 0.8.5",
- "rand_core 0.6.4",
- "scale-info",
- "serde",
- "serde_bytes",
  "serde_json",
  "sha3 0.9.1",
  "sp-io",
@@ -5513,7 +5449,6 @@ dependencies = [
 name = "pallet-identity"
 version = "0.1.0"
 dependencies = [
- "confidential_identity_v2",
  "either",
  "frame-benchmarking",
  "frame-support",
@@ -6060,7 +5995,6 @@ dependencies = [
 name = "pallet-test-utils"
 version = "0.1.0"
 dependencies = [
- "confidential_identity_v1",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -6855,10 +6789,7 @@ dependencies = [
 name = "polymesh-primitives"
 version = "5.0.0"
 dependencies = [
- "blake2",
  "chrono",
- "confidential_identity_v1",
- "confidential_identity_v2",
  "either",
  "frame-support",
  "frame-system",
@@ -6919,7 +6850,6 @@ dependencies = [
 name = "polymesh-runtime-develop"
 version = "0.1.0"
 dependencies = [
- "confidential_identity_core",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -7007,7 +6937,6 @@ dependencies = [
 name = "polymesh-runtime-mainnet"
 version = "0.1.0"
 dependencies = [
- "confidential_identity_core",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -7093,7 +7022,6 @@ dependencies = [
 name = "polymesh-runtime-testnet"
 version = "0.1.0"
 dependencies = [
- "confidential_identity_core",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -7181,8 +7109,6 @@ name = "polymesh-runtime-tests"
 version = "1.0.0"
 dependencies = [
  "chrono",
- "confidential_identity_core",
- "confidential_identity_v1",
  "env_logger 0.7.1",
  "frame-benchmarking",
  "frame-election-provider-support",

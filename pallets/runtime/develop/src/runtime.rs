@@ -15,7 +15,7 @@ pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFe
 use polymesh_common_utilities::{
     constants::currency::*, constants::ENSURED_MAX_LEN, protocol_fee::ProtocolOp, TestUtilsFn,
 };
-use polymesh_primitives::{AccountId, Balance, BlockNumber, InvestorUid, Moment};
+use polymesh_primitives::{AccountId, Balance, BlockNumber, Moment};
 use polymesh_runtime_common::{
     impls::Author,
     merge_active_and_inactive,
@@ -302,10 +302,9 @@ impl pallet_sudo::Config for Runtime {
 impl TestUtilsFn<AccountId> for Runtime {
     fn register_did(
         target: AccountId,
-        investor: InvestorUid,
         secondary_keys: Vec<polymesh_primitives::secondary_key::SecondaryKey<AccountId>>,
     ) -> DispatchResult {
-        <TestUtils as TestUtilsFn<AccountId>>::register_did(target, investor, secondary_keys)
+        <TestUtils as TestUtilsFn<AccountId>>::register_did(target, secondary_keys)
     }
 }
 

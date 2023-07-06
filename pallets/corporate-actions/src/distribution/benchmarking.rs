@@ -16,7 +16,6 @@
 use frame_benchmarking::benchmarks;
 
 use pallet_compliance_manager::Module as ComplianceManager;
-use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::benchs::{user, AccountIdOf, User};
 use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::{Fund, FundDescription, PortfolioId, PortfolioNumber, Ticker};
@@ -84,14 +83,6 @@ fn prepare_transfer<T: Config + pallet_compliance_manager::Config + TestUtilsFn<
     <pallet_timestamp::Now<T>>::set(3000u32.into());
 
     let holder = user::<T>("holder", SEED);
-    <T as pallet_compliance_manager::Config>::Asset::add_investor_uniqueness_claim(
-        owner.did(),
-        currency,
-    );
-    <T as pallet_compliance_manager::Config>::Asset::add_investor_uniqueness_claim(
-        holder.did(),
-        currency,
-    );
     <ComplianceManager<T>>::add_compliance_requirement(
         owner.origin().into(),
         currency,

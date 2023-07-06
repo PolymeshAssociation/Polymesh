@@ -15,8 +15,7 @@ use pallet_asset::{
     AssetDocuments, AssetMetadataLocalKeyToName, AssetMetadataLocalNameToKey,
     AssetMetadataLocalSpecs, AssetMetadataValues, AssetOwnershipRelation, BalanceOf,
     Config as AssetConfig, CustomTypeIdSequence, CustomTypes, CustomTypesInverse,
-    PreApprovedTicker, ScopeIdOf, SecurityToken, TickerRegistrationConfig,
-    TickersExemptFromAffirmation,
+    PreApprovedTicker, SecurityToken, TickerRegistrationConfig, TickersExemptFromAffirmation,
 };
 use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances};
 use polymesh_common_utilities::asset::AssetFnTrait;
@@ -37,17 +36,16 @@ use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit, FixedOrVariabl
 use polymesh_primitives::statistics::StatType;
 use polymesh_primitives::{
     AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
-    DocumentId, Fund, FundDescription, IdentityId, InvestorUid, Memo, Moment, NFTCollectionKeys,
-    Permissions, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey,
-    Signatory, Ticker, WeightMeter,
+    DocumentId, Fund, FundDescription, IdentityId, Memo, Moment, NFTCollectionKeys, Permissions,
+    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Signatory, Ticker,
+    WeightMeter,
 };
 use test_client::AccountKeyring;
 
 use crate::ext_builder::{ExtBuilder, IdentityRecord};
 use crate::nft::create_nft_collection;
 use crate::storage::{
-    add_secondary_key, make_account_without_cdd, provide_scope_claim,
-    provide_scope_claim_to_multiple_parties, register_keyring_account, root, Checkpoint,
+    add_secondary_key, make_account_without_cdd, register_keyring_account, root, Checkpoint,
     TestStorage, User,
 };
 
@@ -344,9 +342,6 @@ fn valid_transfers_pass() {
             let (ticker, token) = a_token(owner.did);
             assert_ok!(basic_asset(owner, ticker, &token));
 
-            // Provide scope claim to sender and receiver of the transaction.
-            provide_scope_claim_to_multiple_parties(&[alice.did, owner.did], ticker, eve);
-
             allow_all_transfers(ticker, owner);
 
             // Should fail as sender matches receiver.
@@ -374,9 +369,6 @@ fn issuers_can_redeem_tokens() {
             // Create asset.
             let (ticker, token) = a_token(owner.did);
             assert_ok!(basic_asset(owner, ticker, &token));
-
-            // Provide scope claim to sender and receiver of the transaction.
-            provide_scope_claim_to_multiple_parties(&[owner.did], ticker, alice);
 
             assert_noop!(
                 Asset::redeem(bob.origin(), ticker, token.total_supply),
@@ -642,9 +634,6 @@ fn controller_transfer() {
             // Create asset.
             let (ticker, token) = a_token(owner.did);
             assert_ok!(basic_asset(owner, ticker, &token));
-
-            // Provide scope claim to sender and receiver of the transaction.
-            provide_scope_claim_to_multiple_parties(&[alice.did, owner.did], ticker, eve);
 
             allow_all_transfers(ticker, owner);
 
@@ -1017,9 +1006,6 @@ fn test_can_transfer_rpc() {
             token.total_supply = 1_000 * currency::ONE_UNIT;
             assert_ok!(basic_asset(owner, ticker, &token));
 
-            // Provide scope claim for sender and receiver.
-            provide_scope_claim_to_multiple_parties(&[owner.did, bob.did], ticker, eve);
-
             let unsafe_can_transfer_result = |from_did, to_did, amount| {
                 Asset::unsafe_can_transfer(
                     None,
@@ -1049,7 +1035,7 @@ fn test_can_transfer_rpc() {
 
             // // Case 4: When sender doesn't posses a valid cdd
             // // 4.1: Create Identity who doesn't posses cdd
-            // let (from_without_cdd_signed, from_without_cdd_did) = make_account_with_uid(AccountKeyring::Ferdie.to_account_id()).unwrap();
+            // let (from_without_cdd_signed, from_without_cdd_did) = make_account(AccountKeyring::Ferdie.to_account_id()).unwrap();
             // // Execute can_transfer
             // assert_eq!(
             //     Asset::unsafe_can_transfer(
@@ -1127,10 +1113,6 @@ fn test_asset_genesis(genesis: AssetGenesis) {
     with_asset_genesis(genesis).build().execute_with(|| {});
 }
 
-fn generate_uid(entity_name: String) -> InvestorUid {
-    InvestorUid::from(format!("uid_{}", entity_name).as_bytes())
-}
-
 // Test for the validating the code for unique investors and aggregation of balances.
 #[ignore]
 #[test]
@@ -1161,9 +1143,7 @@ fn check_unique_investor_count() {
 
             // Verify the balance of the alice and the investor count for the asset.
             assert_eq!(Asset::balance_of(&ticker, alice.did), total_supply); // It should be equal to total supply.
-                                                                             // Alice act as the unique investor but not on the basis of ScopeId as alice doesn't posses the claim yet.
             assert_eq!(Statistics::investor_count(ticker), 1);
-            assert!(!ScopeIdOf::contains_key(&ticker, alice.did));
 
             // 1. Transfer some funds to bob_1.did.
 
@@ -1177,59 +1157,27 @@ fn check_unique_investor_count() {
                 AssetError::InvalidTransfer
             );
 
-            // 1c). Provide the valid scope claim.
-            // Create Investor unique Id, In an ideal scenario it will be generated from the PUIS system.
-            let bob_uid = generate_uid("BOB_ENTITY".to_string());
-            provide_scope_claim(bob_1.did, ticker, bob_uid, cdd_provider.clone(), None).0;
-
-            let alice_uid = generate_uid("ALICE_ENTITY".to_string());
-            provide_scope_claim(alice.did, ticker, alice_uid, cdd_provider.clone(), None).0;
-            let alice_scope_id = Asset::scope_id_of(&ticker, &alice.did);
-
             // 1d). Validate the storage changes.
-            let bob_scope_id = Asset::scope_id_of(&ticker, &bob_1.did);
-            assert_eq!(Asset::aggregate_balance_of(&ticker, bob_scope_id), 0);
-            assert_eq!(Asset::balance_of_at_scope(bob_scope_id, bob_1.did), 0);
+            assert_eq!(Asset::balance_of(&ticker, bob_1.did), 0);
 
-            assert_eq!(
-                Asset::aggregate_balance_of(&ticker, alice_scope_id),
-                total_supply
-            );
-            assert_eq!(
-                Asset::balance_of_at_scope(alice_scope_id, alice.did),
-                total_supply
-            );
+            assert_eq!(Asset::balance_of(&ticker, &alice.did), total_supply);
 
             // 1e). successfully transfer funds.
             assert_ok!(transfer(ticker, alice, bob_1, 1000));
 
             // validate the storage changes for Bob.
-            assert_eq!(Asset::aggregate_balance_of(&ticker, &bob_scope_id), 1000);
-            assert_eq!(Asset::balance_of_at_scope(&bob_scope_id, &bob_1.did), 1000);
             assert_eq!(Asset::balance_of(&ticker, &bob_1.did), 1000);
             assert_eq!(Statistics::investor_count(ticker), 2);
 
             // validate the storage changes for Alice.
-            assert_eq!(
-                Asset::aggregate_balance_of(&ticker, &alice_scope_id),
-                total_supply - 1000
-            );
-            assert_eq!(
-                Asset::balance_of_at_scope(&alice_scope_id, &alice.did),
-                total_supply - 1000
-            );
+            assert_eq!(Asset::balance_of(&ticker, &alice.did), total_supply - 1000);
             assert_eq!(Asset::balance_of(&ticker, &alice.did), total_supply - 1000);
             assert_eq!(Statistics::investor_count(ticker), 2);
-
-            // Provide scope claim to bob_2.did
-            provide_scope_claim(bob_2.did, ticker, bob_uid, cdd_provider, None).0;
 
             // 1f). successfully transfer funds.
             assert_ok!(transfer(ticker, alice, bob_2, 1000));
 
             // validate the storage changes for Bob.
-            assert_eq!(Asset::aggregate_balance_of(&ticker, &bob_scope_id), 2000);
-            assert_eq!(Asset::balance_of_at_scope(&bob_scope_id, &bob_2.did), 1000);
             assert_eq!(Asset::balance_of(&ticker, &bob_2.did), 1000);
             assert_eq!(Statistics::investor_count(ticker), 2);
         });
@@ -1888,9 +1836,6 @@ fn issuers_can_redeem_tokens_from_portfolio() {
             // Create asset.
             let (ticker, token) = a_token(owner.did);
             assert_ok!(basic_asset(owner, ticker, &token));
-
-            // Provide scope claim to sender and receiver of the transaction.
-            provide_scope_claim_to_multiple_parties(&[owner.did], ticker, alice);
 
             let portfolio_name = PortfolioName(vec![65u8; 5]);
             let next_portfolio_num = NextPortfolioNumber::get(&owner.did);

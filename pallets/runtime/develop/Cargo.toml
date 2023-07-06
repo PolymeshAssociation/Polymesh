@@ -89,9 +89,6 @@ pallet-scheduler = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 
-# Crypto
-confidential_identity_core = { version = "1.1.0", default-features = false }
-
 # RPC
 frame-system-rpc-runtime-api = { version = "4.0.0-dev", default-features = false }
 pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
@@ -117,10 +114,10 @@ equalize = []
 ci-runtime = []
 
 # Backends
-u64_backend = ["confidential_identity_core/u64_backend"]
+u64_backend = ["polymesh-primitives/u64_backend"]
 
 no_std = [
-    "confidential_identity_core/no_std",
+    "polymesh-primitives/no_std",
     "u64_backend"
 ]
 
@@ -134,7 +131,6 @@ std = [
     "frame-system-benchmarking?/std",
     "frame-system/std",
     "node-rpc-runtime-api/std",
-    "confidential_identity_core/std",
     "pallet-asset/std",
     "pallet-authority-discovery/std",
     "pallet-authorship/std",

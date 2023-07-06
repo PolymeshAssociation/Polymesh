@@ -3,7 +3,7 @@
 
 import type { Bytes, Enum, Option, Struct, Text, U8aFixed, Vec, bool, u128, u16, u32, u64, u8 } from '@polkadot/types-codec';
 import type { ITuple } from '@polkadot/types-codec/types';
-import type { MultiSignature, Signature } from '@polkadot/types/interfaces/extrinsics';
+import type { MultiSignature } from '@polkadot/types/interfaces/extrinsics';
 import type { AccountId, Balance, BlockNumber, Call, H256, H512, Hash, MultiAddress, Perbill, Permill, Weight } from '@polkadot/types/interfaces/runtime';
 import type { AccountInfoWithDualRefCount, DispatchError } from '@polkadot/types/interfaces/system';
 
@@ -386,14 +386,9 @@ export interface Claim extends Enum {
   readonly asExempted: Scope;
   readonly isBlocked: boolean;
   readonly asBlocked: Scope;
-  readonly isInvestorUniqueness: boolean;
-  readonly asInvestorUniqueness: ITuple<[Scope, ScopeId, CddId]>;
-  readonly isNoData: boolean;
-  readonly isInvestorUniquenessV2: boolean;
-  readonly asInvestorUniquenessV2: CddId;
   readonly isCustom: boolean;
   readonly asCustom: ITuple<[CustomClaimTypeId, Option<Scope>]>;
-  readonly type: 'Accredited' | 'Affiliate' | 'BuyLockup' | 'SellLockup' | 'CustomerDueDiligence' | 'KnowYourCustomer' | 'Jurisdiction' | 'Exempted' | 'Blocked' | 'InvestorUniqueness' | 'NoData' | 'InvestorUniquenessV2' | 'Custom';
+  readonly type: 'Accredited' | 'Affiliate' | 'BuyLockup' | 'SellLockup' | 'CustomerDueDiligence' | 'KnowYourCustomer' | 'Jurisdiction' | 'Exempted' | 'Blocked' | 'Custom';
 }
 
 /** @name Claim1stKey */
@@ -419,12 +414,9 @@ export interface ClaimType extends Enum {
   readonly isJurisdiction: boolean;
   readonly isExempted: boolean;
   readonly isBlocked: boolean;
-  readonly isInvestorUniqueness: boolean;
-  readonly isNoData: boolean;
-  readonly isInvestorUniquenessV2: boolean;
   readonly isCustom: boolean;
   readonly asCustom: CustomClaimTypeId;
-  readonly type: 'Accredited' | 'Affiliate' | 'BuyLockup' | 'SellLockup' | 'CustomerDueDiligence' | 'KnowYourCustomer' | 'Jurisdiction' | 'Exempted' | 'Blocked' | 'InvestorUniqueness' | 'NoData' | 'InvestorUniquenessV2' | 'Custom';
+  readonly type: 'Accredited' | 'Affiliate' | 'BuyLockup' | 'SellLockup' | 'CustomerDueDiligence' | 'KnowYourCustomer' | 'Jurisdiction' | 'Exempted' | 'Blocked' | 'Custom';
 }
 
 /** @name Committee */
@@ -1021,12 +1013,6 @@ export interface InstructionStatus extends Enum {
   readonly type: 'Unknown' | 'Pending' | 'Failed';
 }
 
-/** @name InvestorUid */
-export interface InvestorUid extends U8aFixed {}
-
-/** @name InvestorZKProofData */
-export interface InvestorZKProofData extends U8aFixed {}
-
 /** @name ItnRewardStatus */
 export interface ItnRewardStatus extends Enum {
   readonly isUnclaimed: boolean;
@@ -1387,9 +1373,6 @@ export interface RestrictionResult extends Enum {
   readonly type: 'Valid' | 'Invalid' | 'ForceValid';
 }
 
-/** @name RistrettoPoint */
-export interface RistrettoPoint extends U8aFixed {}
-
 /** @name RpcDidRecords */
 export interface RpcDidRecords extends Enum {
   readonly isSuccess: boolean;
@@ -1404,9 +1387,6 @@ export interface RpcDidRecordsSuccess extends Struct {
   readonly primary_key: AccountId;
   readonly secondary_keys: Vec<SecondaryKey>;
 }
-
-/** @name Scalar */
-export interface Scalar extends U8aFixed {}
 
 /** @name ScheduleId */
 export interface ScheduleId extends u64 {}
@@ -1427,13 +1407,6 @@ export interface Scope extends Enum {
   readonly isCustom: boolean;
   readonly asCustom: Bytes;
   readonly type: 'Identity' | 'Ticker' | 'Custom';
-}
-
-/** @name ScopeClaimProof */
-export interface ScopeClaimProof extends Struct {
-  readonly proof_scope_id_wellformed: Signature;
-  readonly proof_scope_id_cdd_id_match: ZkProofData;
-  readonly scope_id: RistrettoPoint;
 }
 
 /** @name ScopeId */
@@ -1735,13 +1708,6 @@ export interface WeightToFeeCoefficient extends Struct {
   readonly coeffFrac: Perbill;
   readonly negative: bool;
   readonly degree: u8;
-}
-
-/** @name ZkProofData */
-export interface ZkProofData extends Struct {
-  readonly challenge_responses: Vec<Scalar>;
-  readonly subtract_expressions_res: RistrettoPoint;
-  readonly blinded_scope_did_hash: RistrettoPoint;
 }
 
 export type PHANTOM_DEFAULT = 'default';

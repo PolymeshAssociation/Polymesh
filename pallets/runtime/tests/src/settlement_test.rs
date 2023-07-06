@@ -41,8 +41,7 @@ use test_client::AccountKeyring;
 use super::asset_test::{allow_all_transfers, max_len_bytes};
 use super::nft::{create_nft_collection, mint_nft};
 use super::storage::{
-    default_portfolio_vec, make_account_without_cdd, provide_scope_claim_to_multiple_parties,
-    user_portfolio_vec, TestStorage, User,
+    default_portfolio_vec, make_account_without_cdd, user_portfolio_vec, TestStorage, User,
 };
 use super::{next_block, ExtBuilder};
 
@@ -312,7 +311,7 @@ fn test_with_cdd_provider(test: impl FnOnce(AccountId)) {
 
 #[test]
 fn basic_settlement() {
-    test_with_cdd_provider(|eve| {
+    test_with_cdd_provider(|_eve| {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
@@ -320,9 +319,6 @@ fn basic_settlement() {
         let amount = 100u128;
         alice.refresh_init_balances();
         bob.refresh_init_balances();
-
-        // Provide scope claim to sender and receiver of the transaction.
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
 
         assert_ok!(Settlement::add_instruction(
             alice.origin(),
@@ -358,7 +354,7 @@ fn basic_settlement() {
 
 #[test]
 fn create_and_affirm_instruction() {
-    test_with_cdd_provider(|eve| {
+    test_with_cdd_provider(|_eve| {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
@@ -366,9 +362,6 @@ fn create_and_affirm_instruction() {
         let amount = 100u128;
         alice.refresh_init_balances();
         bob.refresh_init_balances();
-
-        // Provide scope claim to both the parties of the transaction.
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
 
         let add_and_affirm_tx = |affirm_from_portfolio| {
             Settlement::add_and_affirm_instruction(
@@ -455,7 +448,7 @@ fn overdraft_failure() {
 
 #[test]
 fn token_swap() {
-    test_with_cdd_provider(|eve| {
+    test_with_cdd_provider(|_eve| {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER, TICKER2]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER, TICKER2]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
@@ -517,10 +510,6 @@ fn token_swap() {
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
 
-        // Provide scope claim to parties involved in a instruction.
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve.clone());
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER2, eve);
-
         assert_affirm_instruction!(alice.origin(), instruction_id, alice.did);
         assert_affirms_pending(instruction_id, 1);
 
@@ -579,7 +568,7 @@ fn token_swap() {
 
 #[test]
 fn settle_on_block() {
-    test_with_cdd_provider(|eve| {
+    test_with_cdd_provider(|_eve| {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER, TICKER2]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER, TICKER2]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
@@ -646,10 +635,6 @@ fn settle_on_block() {
 
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
-
-        // Before authorization need to provide the scope claim for both the parties of a transaction.
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve.clone());
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER2, eve);
 
         assert_affirm_instruction!(alice.origin(), instruction_id, alice.did);
 
@@ -834,15 +819,12 @@ fn failed_execution() {
 
 #[test]
 fn venue_filtering() {
-    test_with_cdd_provider(|eve| {
+    test_with_cdd_provider(|_eve| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
         let venue_counter = create_token_and_venue(TICKER, alice);
         let block_number = System::block_number() + 1;
         let instruction_id = Settlement::instruction_counter();
-
-        // provide scope claim.
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
 
         let legs = vec![Leg::Fungible {
             sender: PortfolioId::default_portfolio(alice.did),
@@ -916,7 +898,6 @@ fn basic_fuzzing() {
         let bob = User::new(AccountKeyring::Bob);
         let charlie = User::new(AccountKeyring::Charlie);
         let dave = User::new(AccountKeyring::Dave);
-        let eve = User::existing(AccountKeyring::Eve);
         let venue_counter = Settlement::venue_counter();
         assert_ok!(Settlement::create_venue(
             Origin::signed(AccountKeyring::Alice.to_account_id()),
@@ -1003,12 +984,6 @@ fn basic_fuzzing() {
                         *locked_assets
                             .entry((users[user_id].did, tickers[ticker_id * 4 + user_id]))
                             .or_insert(0) += 1;
-                        // Provide scope claim for all the dids
-                        provide_scope_claim_to_multiple_parties(
-                            &[users[user_id].did, users[k].did],
-                            tickers[ticker_id * 4 + user_id],
-                            eve.acc(),
-                        );
                         legs.push(Leg::Fungible {
                             sender: PortfolioId::default_portfolio(users[user_id].did),
                             receiver: PortfolioId::default_portfolio(users[k].did),
@@ -1297,7 +1272,7 @@ fn claim_multiple_receipts_during_authorization() {
 
 #[test]
 fn overload_instruction() {
-    test_with_cdd_provider(|eve| {
+    test_with_cdd_provider(|_eve| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
         let venue_counter = create_token_and_venue(TICKER, alice);
@@ -1313,9 +1288,6 @@ fn overload_instruction() {
             };
             leg_limit + 1
         ];
-
-        // Provide scope claim to multiple parties of the transaction.
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
 
         assert_noop!(
             Settlement::add_instruction(
@@ -1376,8 +1348,6 @@ fn test_weights_for_settlement_transaction() {
                 create_token_and_venue(TICKER, User::existing(AccountKeyring::Alice));
             let instruction_id = Settlement::instruction_counter();
 
-            let eve = AccountKeyring::Eve.to_account_id();
-
             // Get token Id.
             let ticker_id = Identity::get_token_did(&TICKER).unwrap();
 
@@ -1435,9 +1405,6 @@ fn test_weights_for_settlement_transaction() {
                 Claim::KnowYourCustomer(ticker_id.into())
             );
 
-            // Provide scope claim as well to pass through the transaction.
-            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], TICKER, eve);
-
             // Create instruction
             let legs = vec![Leg::Fungible {
                 sender: PortfolioId::default_portfolio(alice_did),
@@ -1476,7 +1443,7 @@ fn test_weights_for_settlement_transaction() {
 
 #[test]
 fn cross_portfolio_settlement() {
-    test_with_cdd_provider(|eve| {
+    test_with_cdd_provider(|_eve| {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
@@ -1487,9 +1454,6 @@ fn cross_portfolio_settlement() {
         let amount = 100u128;
         alice.refresh_init_balances();
         bob.refresh_init_balances();
-
-        // Provide scope claim to sender and receiver of the transaction.
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
 
         // Instruction referencing a user defined portfolio is created
         assert_ok!(Settlement::add_instruction(
@@ -1553,7 +1517,7 @@ fn cross_portfolio_settlement() {
 
 #[test]
 fn multiple_portfolio_settlement() {
-    test_with_cdd_provider(|eve| {
+    test_with_cdd_provider(|_eve| {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let name = PortfolioName::from([42u8].to_vec());
@@ -1566,9 +1530,6 @@ fn multiple_portfolio_settlement() {
         let amount = 100u128;
         alice.refresh_init_balances();
         bob.refresh_init_balances();
-
-        // Provide scope claim to sender and receiver of the transaction.
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
 
         // An instruction is created with multiple legs referencing multiple portfolios
         assert_ok!(Settlement::add_instruction(
@@ -1691,7 +1652,7 @@ fn multiple_portfolio_settlement() {
 
 #[test]
 fn multiple_custodian_settlement() {
-    test_with_cdd_provider(|eve| {
+    test_with_cdd_provider(|_eve| {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
 
@@ -1717,9 +1678,6 @@ fn multiple_custodian_settlement() {
         let amount = 100u128;
         alice.refresh_init_balances();
         bob.refresh_init_balances();
-
-        // Provide scope claim to sender and receiver of the transaction.
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
 
         assert_ok!(Portfolio::move_portfolio_funds(
             alice.origin(),
@@ -1920,7 +1878,7 @@ fn reject_instruction() {
 
 #[test]
 fn dirty_storage_with_tx() {
-    test_with_cdd_provider(|eve| {
+    test_with_cdd_provider(|_eve| {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
@@ -1929,9 +1887,6 @@ fn dirty_storage_with_tx() {
         let amount2 = 50u128;
         alice.refresh_init_balances();
         bob.refresh_init_balances();
-
-        // Provide scope claim to sender and receiver of the transaction.
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
 
         assert_ok!(Settlement::add_instruction(
             alice.origin(),
@@ -2161,7 +2116,7 @@ fn modify_venue_signers() {
 #[test]
 
 fn reject_instruction_with_zero_amount() {
-    test_with_cdd_provider(|eve| {
+    test_with_cdd_provider(|_eve| {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
@@ -2169,9 +2124,6 @@ fn reject_instruction_with_zero_amount() {
 
         alice.refresh_init_balances();
         bob.refresh_init_balances();
-
-        // Provide scope claim to sender and receiver of the transaction.
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
 
         assert_noop!(
             Settlement::add_instruction(
@@ -2196,7 +2148,7 @@ fn reject_instruction_with_zero_amount() {
 }
 
 fn basic_settlement_with_memo() {
-    test_with_cdd_provider(|eve| {
+    test_with_cdd_provider(|_eve| {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
@@ -2205,8 +2157,6 @@ fn basic_settlement_with_memo() {
         alice.refresh_init_balances();
         bob.refresh_init_balances();
 
-        // Provide scope claim to sender and receiver of the transaction.
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
         assert_ok!(Settlement::add_instruction(
             alice.origin(),
             venue_counter,
@@ -2271,7 +2221,7 @@ fn create_instruction(
 
 #[test]
 fn settle_manual_instruction() {
-    test_with_cdd_provider(|eve| {
+    test_with_cdd_provider(|_eve| {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
@@ -2306,8 +2256,6 @@ fn settle_manual_instruction() {
         assert_affirm_instruction!(alice.origin(), instruction_id, alice.did);
         assert_affirm_instruction!(bob.origin(), instruction_id, bob.did);
 
-        // Before authorization need to provide the scope claim for both the parties of a transaction.
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve.clone());
         // Ensure it gave the correct error message after it failed because the execution block number hasn't reached yet
         assert_noop!(
             Settlement::execute_manual_instruction(
@@ -2377,7 +2325,7 @@ fn settle_manual_instruction() {
 
 #[test]
 fn settle_manual_instruction_with_portfolio() {
-    test_with_cdd_provider(|eve| {
+    test_with_cdd_provider(|_eve| {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let alice_portfolio = PortfolioId::default_portfolio(alice.did);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
@@ -2415,8 +2363,6 @@ fn settle_manual_instruction_with_portfolio() {
         assert_affirm_instruction!(alice.origin(), instruction_id, alice.did);
         assert_affirm_instruction!(bob.origin(), instruction_id, bob.did);
 
-        // Before authorization need to provide the scope claim for both the parties of a transaction.
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve.clone());
         // Ensure it gave the correct error message after it failed because the execution block number hasn't reached yet
         assert_noop!(
             Settlement::execute_manual_instruction(

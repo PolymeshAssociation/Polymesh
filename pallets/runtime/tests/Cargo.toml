@@ -5,8 +5,6 @@ authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
-confidential_identity_v1 = { version = "1.1.0", default-features = false }
-confidential_identity_core = { version = "1.1.0", default-features = false }
 node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
 pallet-asset = { path = "../../asset", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false }
@@ -120,17 +118,14 @@ equalize = []
 only-staking = []
 
 # Backends
-u64_backend = ["confidential_identity_core/u64_backend", "polymesh-primitives/u64_backend"]
+u64_backend = ["polymesh-primitives/u64_backend"]
 
 no_std = [
-    "confidential_identity_core/no_std",
     "u64_backend"
 ]
 
 std = [
     "u64_backend",
-    "confidential_identity_core/std",
-    "confidential_identity_v1/std",
     "frame-support/std",
     "frame-system/std",
     "frame-election-provider-support/std",

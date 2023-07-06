@@ -167,8 +167,7 @@ impl<C: Iterator<Item = Claim>> Proposition<C> for AnyProposition<'_> {
 mod tests {
     use crate::{
         proposition::{self, Context, Proposition},
-        CddId, Claim, Condition, ConditionType, CountryCode, IdentityId, InvestorUid, Scope,
-        TargetIdentity,
+        CddId, Claim, Condition, ConditionType, CountryCode, IdentityId, Scope, TargetIdentity,
     };
     use std::convert::From;
     use std::vec::IntoIter;
@@ -193,8 +192,7 @@ mod tests {
     fn existential_operators_test() {
         let scope = Scope::Identity(IdentityId::from(0));
         let did = IdentityId::from(1);
-        let cdd_claim =
-            Claim::CustomerDueDiligence(CddId::new_v1(did, InvestorUid::from(b"UID1".as_ref())));
+        let cdd_claim = Claim::CustomerDueDiligence(CddId::default());
         let mut context = mk_ctx(vec![cdd_claim.clone(), Claim::Affiliate(scope.clone())]);
         context.id = did;
 

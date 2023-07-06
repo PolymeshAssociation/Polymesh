@@ -101,11 +101,7 @@ fn emulate_controller_transfer<T: Config>(
     let mut weight_meter = WeightMeter::max_limit_no_minimum();
     // Assign balance to an investor.
     let mock_storage = |id: IdentityId, bal: Balance, meter: &mut WeightMeter| {
-        let s_id: ScopeId = id;
         BalanceOf::insert(ticker, id, bal);
-        BalanceOfAtScope::insert(s_id, id, bal);
-        AggregateBalance::insert(ticker, id, bal);
-        ScopeIdOf::insert(ticker, id, s_id);
         Statistics::<T>::update_asset_stats(&ticker, None, Some(&id), None, Some(bal), bal, meter)
             .unwrap();
     };

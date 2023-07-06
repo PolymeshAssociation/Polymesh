@@ -388,27 +388,29 @@ declare module '@polkadot/api-base/types/errors' {
     };
     checkpoint: {
       /**
-       * Failed to compute the next checkpoint.
-       * The schedule does not have any upcoming checkpoints.
-       **/
-      FailedToComputeNextCheckpoint: AugmentedError<ApiType>;
-      /**
        * A checkpoint schedule does not exist for the asset.
        **/
       NoSuchSchedule: AugmentedError<ApiType>;
       /**
-       * The duration of a schedule period is too short.
+       * The schedule has no more checkpoints.
        **/
-      ScheduleDurationTooShort: AugmentedError<ApiType>;
+      ScheduleFinished: AugmentedError<ApiType>;
+      /**
+       * The schedule has expired checkpoints.
+       **/
+      ScheduleHasExpiredCheckpoints: AugmentedError<ApiType>;
+      /**
+       * Can't create an empty schedule.
+       **/
+      ScheduleIsEmpty: AugmentedError<ApiType>;
       /**
        * A checkpoint schedule is not removable as `ref_count(schedule_id) > 0`.
        **/
       ScheduleNotRemovable: AugmentedError<ApiType>;
       /**
-       * The set of schedules taken together are too complex.
-       * For example, they are too many, or they occurs too frequently.
+       * The new schedule would put the ticker over the maximum complexity allowed.
        **/
-      SchedulesTooComplex: AugmentedError<ApiType>;
+      SchedulesOverMaxComplexity: AugmentedError<ApiType>;
       /**
        * Generic error
        **/
@@ -846,10 +848,6 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       ClaimVariantNotAllowed: AugmentedError<ApiType>;
       /**
-       * Confidential Scope claims can be added by an Identity to it-self.
-       **/
-      ConfidentialScopeClaimNotAllowed: AugmentedError<ApiType>;
-      /**
        * Current identity cannot be forwarded, it is not a secondary key of target identity.
        **/
       CurrentIdentityCannotBeForwarded: AugmentedError<ApiType>;
@@ -910,10 +908,6 @@ declare module '@polkadot/api-base/types/errors' {
        * Non systematic CDD providers can not create default cdd_id claims.
        **/
       InvalidCDDId: AugmentedError<ApiType>;
-      /**
-       * Addition of a new scope claim gets invalidated.
-       **/
-      InvalidScopeClaim: AugmentedError<ApiType>;
       /**
        * Identity is already a child of an other identity, can't create grand-child identity.
        **/

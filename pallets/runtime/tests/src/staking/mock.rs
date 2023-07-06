@@ -18,7 +18,6 @@
 //! Test utilities
 
 use crate::asset_test::set_timestamp;
-use crate::storage::create_cdd_id;
 use chrono::prelude::Utc;
 use frame_election_provider_support::NposSolution;
 use frame_support::{
@@ -40,7 +39,6 @@ use pallet_staking::{self as staking, *};
 use polymesh_common_utilities::{
     constants::currency::*,
     traits::{
-        asset::AssetSubTrait,
         balances::{AccountData, CheckCdd},
         group::{GroupTrait, InactiveMember},
         multisig::MultiSigSubTrait,
@@ -51,8 +49,8 @@ use polymesh_common_utilities::{
     },
 };
 use polymesh_primitives::{
-    identity_id::GenesisIdentityRecord, Authorization, AuthorizationData, CddId, Claim, IdentityId,
-    InvestorUid, Moment, NFTId, Permissions, PortfolioId, ScopeId, SecondaryKey, Signatory, Ticker,
+    identity_id::GenesisIdentityRecord, Authorization, AuthorizationData, Claim, IdentityId,
+    Moment, NFTId, Permissions, PortfolioId, SecondaryKey, Signatory, Ticker,
 };
 use sp_core::H256;
 use sp_npos_elections::{
@@ -210,7 +208,6 @@ impl pallet_base::Config for Test {
 }
 
 impl CommonConfig for Test {
-    type AssetSubTraitTarget = Test;
     type BlockRewardsReserve = pallet_balances::Module<Test>;
 }
 
@@ -447,19 +444,6 @@ impl GroupTrait<Moment> for Test {
 
     fn is_member_expired(_member: &InactiveMember<Moment>, _now: Moment) -> bool {
         false
-    }
-}
-
-impl AssetSubTrait for Test {
-    fn update_balance_of_scope_id(_: ScopeId, _: IdentityId, _: Ticker) {}
-    fn balance_of_at_scope(_: &ScopeId, _: &IdentityId) -> Balance {
-        0
-    }
-    fn scope_id(_: &Ticker, _: &IdentityId) -> ScopeId {
-        ScopeId::from(0u128)
-    }
-    fn ensure_investor_uniqueness_claims_allowed(_: &Ticker) -> DispatchResult {
-        Ok(())
     }
 }
 
@@ -813,7 +797,6 @@ impl ExtBuilder {
                     primary_key: Some(1005),
                     issuers: vec![IdentityId::from(1)],
                     did: IdentityId::from(1),
-                    investor: InvestorUid::from(b"uid1".as_ref()),
                     secondary_keys: Default::default(),
                     cdd_claim_expiry: None,
                 },
@@ -821,7 +804,6 @@ impl ExtBuilder {
                     primary_key: Some(11),
                     issuers: vec![IdentityId::from(1)],
                     did: IdentityId::from(11),
-                    investor: InvestorUid::from(b"uid11".as_ref()),
                     secondary_keys: Default::default(),
                     cdd_claim_expiry: None,
                 },
@@ -829,7 +811,6 @@ impl ExtBuilder {
                     primary_key: Some(21),
                     issuers: vec![IdentityId::from(1)],
                     did: IdentityId::from(21),
-                    investor: InvestorUid::from(b"uid21".as_ref()),
                     secondary_keys: Default::default(),
                     cdd_claim_expiry: None,
                 },
@@ -837,7 +818,6 @@ impl ExtBuilder {
                     primary_key: Some(31),
                     issuers: vec![IdentityId::from(1)],
                     did: IdentityId::from(31),
-                    investor: InvestorUid::from(b"uid31".as_ref()),
                     secondary_keys: Default::default(),
                     cdd_claim_expiry: None,
                 },
@@ -845,7 +825,6 @@ impl ExtBuilder {
                     primary_key: Some(41),
                     issuers: vec![IdentityId::from(1)],
                     did: IdentityId::from(41),
-                    investor: InvestorUid::from(b"uid41".as_ref()),
                     secondary_keys: Default::default(),
                     cdd_claim_expiry: None,
                 },
@@ -853,7 +832,6 @@ impl ExtBuilder {
                     primary_key: Some(101),
                     issuers: vec![IdentityId::from(1)],
                     did: IdentityId::from(101),
-                    investor: InvestorUid::from(b"uid101".as_ref()),
                     secondary_keys: Default::default(),
                     cdd_claim_expiry: None,
                 },
@@ -1004,9 +982,14 @@ pub fn provide_did_to_user(account: AccountId) -> bool {
         "Error in registering the DID"
     );
     let did = Identity::get_identity(&account).expect("DID not find in the storage");
-    let (cdd_id, _) = create_cdd_id_and_investor_uid(did);
     assert!(
-        Identity::add_claim(cdd.clone(), did, Claim::CustomerDueDiligence(cdd_id), None).is_ok(),
+        Identity::add_claim(
+            cdd.clone(),
+            did,
+            Claim::CustomerDueDiligence(Default::default()),
+            None
+        )
+        .is_ok(),
         "Error CDD Claim cannot be added to DID"
     );
     true
@@ -1598,7 +1581,7 @@ fn get_primary_key(target: IdentityId) -> AccountId {
     Identity::get_primary_key(target).unwrap_or_default()
 }
 
-pub fn make_account_with_uid(
+pub fn make_account(
     id: AccountId,
 ) -> Result<(<Test as frame_system::Config>::RuntimeOrigin, IdentityId), &'static str> {
     make_account_with_balance(id, 1_000_000, None)
@@ -1612,7 +1595,6 @@ pub fn make_account_with_balance(
 ) -> Result<(<Test as frame_system::Config>::RuntimeOrigin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
-    let uid = create_investor_uid(id);
     // If we have CDD providers, first of them executes the registration.
     let cdd_providers = Group::get_members();
     let did = match cdd_providers.into_iter().nth(0) {
@@ -1621,14 +1603,13 @@ pub fn make_account_with_balance(
             let _ = Identity::cdd_register_did(Origin::signed(cdd_acc), id, vec![])
                 .map_err(|_| "CDD register DID failed")?;
             let did = Identity::get_identity(&id).unwrap();
-            let (cdd_id, _) = create_cdd_id(did, Ticker::default(), uid);
-            let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
+            let cdd_claim = Claim::CustomerDueDiligence(Default::default());
             Identity::add_claim(Origin::signed(cdd_acc), did, cdd_claim, expiry)
                 .map_err(|_| "CDD provider cannot add the CDD claim")?;
             did
         }
         _ => {
-            let _ = TestUtils::register_did(signed_id.clone(), uid, vec![])
+            let _ = TestUtils::register_did(signed_id.clone(), vec![])
                 .map_err(|_| "Register DID failed")?;
             Identity::get_identity(&id).unwrap()
         }
@@ -1648,23 +1629,12 @@ pub fn add_nominator_claim_with_expiry(
     expiry: u64,
 ) {
     let signed_claim_issuer_id = Origin::signed(claim_issuer_account_id);
-    let (cdd_id, _) = create_cdd_id_and_investor_uid(identity_id);
     assert_ok!(Identity::add_claim(
         signed_claim_issuer_id,
         identity_id,
-        Claim::CustomerDueDiligence(cdd_id),
+        Claim::CustomerDueDiligence(Default::default()),
         Some(expiry.into()),
     ));
-}
-
-pub fn create_cdd_id_and_investor_uid(identity_id: IdentityId) -> (CddId, InvestorUid) {
-    let uid = create_investor_uid(get_primary_key(identity_id));
-    let (cdd_id, _) = create_cdd_id(identity_id, Ticker::default(), uid);
-    (cdd_id, uid)
-}
-
-pub fn create_investor_uid(acc: AccountId) -> InvestorUid {
-    InvestorUid::from(format!("{}", acc).as_str())
 }
 
 pub fn add_nominator_claim(
@@ -1674,11 +1644,10 @@ pub fn add_nominator_claim(
 ) {
     let signed_claim_issuer_id = Origin::signed(claim_issuer_account_id);
     let now = Utc::now();
-    let (cdd_id, _) = create_cdd_id_and_investor_uid(identity_id);
     assert_ok!(Identity::add_claim(
         signed_claim_issuer_id,
         identity_id,
-        Claim::CustomerDueDiligence(cdd_id),
+        Claim::CustomerDueDiligence(Default::default()),
         Some((now.timestamp() as u64 + 10000_u64).into()),
     ));
 }
@@ -1707,11 +1676,10 @@ pub fn create_did_and_add_claim_with_expiry(stash: AccountId, expiry: u64) {
         vec![]
     ));
     let did = Identity::get_identity(&stash).unwrap();
-    let (cdd_id, _) = create_cdd_id_and_investor_uid(did);
     assert_ok!(Identity::add_claim(
         Origin::signed(1005),
         did,
-        Claim::CustomerDueDiligence(cdd_id),
+        Claim::CustomerDueDiligence(Default::default()),
         Some(expiry.into())
     ));
 }
