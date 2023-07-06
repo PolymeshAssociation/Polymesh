@@ -105,6 +105,7 @@ substrate-wasm-builder = { git = "https://github.com/PolymeshAssociation/substra
 
 bulletproofs = { version = "4.0.0", git = "https://github.com/PolymeshAssociation/bulletproofs", branch = "polymesh" }
 mercat = { version = "1.1.0", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_polymesh_v6.0" }
+confidential_identity_core = { version = "1.1", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_polymesh_v6.0" }
 
 [workspace]
 members = [
