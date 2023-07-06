@@ -122,8 +122,8 @@ use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::transfer_compliance::TransferConditionResult;
 use polymesh_primitives::{
     extract_auth, storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId,
-    IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, ScopeId, SecondaryKey,
-    Ticker, WeightMeter,
+    IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, SecondaryKey, Ticker,
+    WeightMeter,
 };
 
 type Checkpoint<T> = checkpoint::Module<T>;
@@ -2294,14 +2294,6 @@ impl<T: Config> Module<T> {
         .is_err()
     }
 
-    fn setup_statistics_failures(
-        from_did: &IdentityId,
-        to_did: &IdentityId,
-        ticker: &Ticker,
-    ) -> (ScopeId, ScopeId, Balance) {
-        (*from_did, *to_did, Self::total_supply(*ticker))
-    }
-
     fn statistics_failures(
         from_did: &IdentityId,
         to_did: &IdentityId,
@@ -2309,12 +2301,9 @@ impl<T: Config> Module<T> {
         value: Balance,
         weight_meter: &mut WeightMeter,
     ) -> bool {
-        let (from_scope_id, to_scope_id, total_supply) =
-            Self::setup_statistics_failures(from_did, to_did, ticker);
+        let total_supply = Self::total_supply(*ticker);
         Statistics::<T>::verify_transfer_restrictions(
             ticker,
-            from_scope_id,
-            to_scope_id,
             from_did,
             to_did,
             Self::balance_of(ticker, from_did),
@@ -2333,12 +2322,9 @@ impl<T: Config> Module<T> {
         value: Balance,
         weight_meter: &mut WeightMeter,
     ) -> Result<Vec<TransferConditionResult>, DispatchError> {
-        let (from_scope_id, to_scope_id, total_supply) =
-            Self::setup_statistics_failures(from_did, to_did, ticker);
+        let total_supply = Self::total_supply(*ticker);
         Statistics::<T>::get_transfer_restrictions_results(
             ticker,
-            from_scope_id,
-            to_scope_id,
             from_did,
             to_did,
             Self::balance_of(ticker, from_did),

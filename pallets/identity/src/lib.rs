@@ -598,8 +598,6 @@ decl_error! {
         AuthorizationsNotForSameDids,
         /// The DID must already exist.
         DidMustAlreadyExist,
-        /// Current identity cannot be forwarded, it is not a secondary key of target identity.
-        CurrentIdentityCannotBeForwarded,
         /// The offchain authorization has expired.
         AuthorizationExpired,
         /// The target DID has no valid CDD.
@@ -626,16 +624,6 @@ decl_error! {
         CannotDecodeSignerAccountId,
         /// Multisig can not be unlinked from an identity while it still holds POLYX
         MultiSigHasBalance,
-        /// Try to add a claim variant using un-designated extrinsic.
-        ClaimVariantNotAllowed,
-        /// Try to delete the IU claim even when the user has non zero balance at given scopeId.
-        TargetHasNonZeroBalanceAtScopeId,
-        /// CDDId should be unique & same within all cdd claims possessed by a DID.
-        CDDIdNotUniqueForIdentity,
-        /// Non systematic CDD providers can not create default cdd_id claims.
-        InvalidCDDId,
-        /// Claim and Proof versions are different.
-        ClaimAndProofVersionsDoNotMatch,
         /// The account key is being used, it can't be unlinked.
         AccountKeyIsBeingUsed,
         /// A custom scope is too long.
@@ -643,7 +631,7 @@ decl_error! {
         CustomScopeTooLong,
         /// The custom claim type trying to be registered already exists.
         CustomClaimTypeAlreadyExists,
-       /// The custom claim type does not exist.
+        /// The custom claim type does not exist.
         CustomClaimTypeDoesNotExist,
         /// Claim does not exist.
         ClaimDoesNotExist,

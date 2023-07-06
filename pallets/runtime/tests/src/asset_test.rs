@@ -1143,7 +1143,6 @@ fn check_unique_investor_count() {
 
             // Verify the balance of the alice and the investor count for the asset.
             assert_eq!(Asset::balance_of(&ticker, alice.did), total_supply); // It should be equal to total supply.
-                                                                             // Alice act as the unique investor but not on the basis of ScopeId as alice doesn't posses the claim yet.
             assert_eq!(Statistics::investor_count(ticker), 1);
 
             // 1. Transfer some funds to bob_1.did.

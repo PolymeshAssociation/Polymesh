@@ -23,9 +23,6 @@ use sp_std::{convert::From, prelude::*};
 
 use super::jurisdiction::CountryCode;
 
-/// It is the asset Id.
-pub type ScopeId = IdentityId;
-
 /// The ID of a custom claim type.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, TypeInfo)]

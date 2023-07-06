@@ -132,7 +132,7 @@ pub use cdd_id::CddId;
 /// Claim information.
 /// Each claim is associated with this kind of record.
 pub mod identity_claim;
-pub use identity_claim::{Claim, ClaimType, CustomClaimTypeId, IdentityClaim, Scope, ScopeId};
+pub use identity_claim::{Claim, ClaimType, CustomClaimTypeId, IdentityClaim, Scope};
 
 // Defining and enumerating jurisdictions.
 pub mod jurisdiction;

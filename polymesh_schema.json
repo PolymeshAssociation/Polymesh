@@ -9,7 +9,6 @@
     "ErrorAt": "(u32, DispatchError)",
     "Ticker": "[u8; 12]",
     "CddId": "[u8; 32]",
-    "ScopeId": "[u8; 32]",
     "PosRatio": "(u32, u32)",
     "DocumentId": "u32",
     "DocumentName": "Text",

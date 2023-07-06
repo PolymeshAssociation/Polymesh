@@ -99,7 +99,7 @@ fn init_transfer_conditions<T: Config + Asset + TestUtilsFn<AccountIdOf<T>>>(
 
 fn init_exempts<T: Config + Asset + TestUtilsFn<AccountIdOf<T>>>(
     count: u32,
-) -> (User<T>, TransferConditionExemptKey, BTreeSet<ScopeId>) {
+) -> (User<T>, TransferConditionExemptKey, BTreeSet<IdentityId>) {
     let (owner, ticker) = init_ticker::<T>();
     let scope_ids = (0..count as u128).map(IdentityId::from).collect();
     let exempt_key = TransferConditionExemptKey {
