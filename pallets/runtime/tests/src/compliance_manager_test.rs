@@ -17,7 +17,7 @@ use polymesh_primitives::{
 use test_client::AccountKeyring;
 
 use super::asset_test::{allow_all_transfers, create_token, set_timestamp};
-use super::storage::{get_primary_key, set_curr_did, TestStorage, User};
+use super::storage::{set_curr_did, TestStorage, User};
 use super::ExtBuilder;
 
 type Identity = pallet_identity::Module<TestStorage>;
@@ -1021,7 +1021,6 @@ fn cm_test_case_11_we() {
     // 0. Create accounts
     let owner = User::new(AccountKeyring::Alice);
     let issuer = User::new(AccountKeyring::Bob);
-    let ferdie = AccountKeyring::Ferdie.to_account_id();
 
     // 1. Create a token.
     let (ticker, _) = create_token(owner);

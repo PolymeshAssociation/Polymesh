@@ -49,8 +49,8 @@ use polymesh_common_utilities::{
     },
 };
 use polymesh_primitives::{
-    identity_id::GenesisIdentityRecord, Authorization, AuthorizationData, CddId, Claim, IdentityId,
-    Moment, NFTId, Permissions, PortfolioId, ScopeId, SecondaryKey, Signatory, Ticker,
+    identity_id::GenesisIdentityRecord, Authorization, AuthorizationData, Claim, IdentityId,
+    Moment, NFTId, Permissions, PortfolioId, SecondaryKey, Signatory, Ticker,
 };
 use sp_core::H256;
 use sp_npos_elections::{

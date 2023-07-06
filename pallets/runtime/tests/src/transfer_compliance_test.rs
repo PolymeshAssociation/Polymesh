@@ -8,8 +8,7 @@ use frame_support::{
 };
 use polymesh_primitives::{
     asset::AssetType, jurisdiction::CountryCode, statistics::*, transfer_compliance::*, AccountId,
-    Balance, CddId, Claim, ClaimType, IdentityId, PortfolioId, PortfolioKind, Scope, ScopeId,
-    Ticker, WeightMeter,
+    Balance, Claim, ClaimType, IdentityId, PortfolioId, PortfolioKind, Scope, Ticker, WeightMeter,
 };
 use sp_arithmetic::Permill;
 use std::collections::{HashMap, HashSet};
@@ -51,7 +50,7 @@ impl InvestorState {
         Origin::signed(self.acc.clone())
     }
 
-    pub fn scope_id(&self) -> ScopeId {
+    pub fn did(&self) -> IdentityId {
         self.did
     }
 
@@ -265,7 +264,7 @@ impl AssetTracker {
         println!("ids = {:?}", ids);
         let investors = ids
             .into_iter()
-            .map(|id| self.investor(*id).scope_id())
+            .map(|id| self.investor(*id).did())
             .collect::<Vec<_>>();
         println!("investors = {:?}", investors);
         for condition in &self.transfer_conditions {

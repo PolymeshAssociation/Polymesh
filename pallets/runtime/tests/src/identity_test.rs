@@ -1,13 +1,12 @@
 use super::{
-    asset_test::{an_asset, basic_asset, max_len, max_len_bytes, set_timestamp, token},
+    asset_test::{basic_asset, max_len, max_len_bytes, set_timestamp, token},
     committee_test::gc_vmo,
     exec_noop, exec_ok,
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
         account_from, add_secondary_key, add_secondary_key_with_perms, get_identity_id,
-        get_last_auth_id, get_primary_key, get_secondary_keys, provide_scope_claim,
-        register_keyring_account, register_keyring_account_with_balance, GovernanceCommittee,
-        TestStorage, User,
+        get_last_auth_id, get_primary_key, get_secondary_keys, register_keyring_account,
+        register_keyring_account_with_balance, GovernanceCommittee, TestStorage, User,
     },
     ExtBuilder,
 };
@@ -20,9 +19,7 @@ use pallet_asset::SecurityToken;
 use pallet_balances as balances;
 use pallet_identity::{CustomClaimIdSequence, CustomClaims, CustomClaimsInverse};
 use polymesh_common_utilities::{
-    asset::AssetSubTrait,
     constants::currency::POLY,
-    protocol_fee::ProtocolOp,
     traits::{
         group::GroupTrait,
         identity::{
@@ -34,10 +31,10 @@ use polymesh_common_utilities::{
     SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    AccountId, AssetPermissions, AuthorizationData, AuthorizationType, CddId, Claim, ClaimType,
+    AccountId, AssetPermissions, AuthorizationData, AuthorizationType, Claim, ClaimType,
     CustomClaimTypeId, DispatchableName, ExtrinsicPermissions, IdentityClaim, IdentityId,
-    KeyRecord, PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioKind,
-    PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction, Ticker, TransactionError,
+    KeyRecord, PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope,
+    SecondaryKey, Signatory, SubsetRestriction, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
 use sp_core::H512;
@@ -224,7 +221,7 @@ fn revoking_batch_claims() {
         assert_ok!(add(Claim::Blocked(scope.clone()), None));
         assert!(fetch(ClaimType::Accredited, Some(scope.clone())).is_some());
 
-        assert!(fetch(ClaimType::Blocked, None).is_some());
+        assert!(fetch(ClaimType::Blocked, Some(scope.clone())).is_some());
         assert!(fetch(ClaimType::Accredited, Some(scope.clone())).is_some());
 
         assert_ok!(revoke(Claim::Accredited(scope.clone())));
@@ -233,7 +230,7 @@ fn revoking_batch_claims() {
 
         assert!(fetch(ClaimType::Accredited, Some(scope.clone())).is_none());
 
-        assert!(fetch(ClaimType::Blocked, None).is_none());
+        assert!(fetch(ClaimType::Blocked, Some(scope.clone())).is_none());
 
         assert!(fetch(ClaimType::Accredited, Some(scope.clone())).is_none());
     });

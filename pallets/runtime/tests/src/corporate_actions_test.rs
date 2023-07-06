@@ -1,9 +1,6 @@
 use super::{
     asset_test::max_len_bytes,
-    storage::{
-        provide_scope_claim_to_multiple_parties, root, Balance, Checkpoint, MaxDidWhts,
-        MaxTargetIds, TestStorage, User,
-    },
+    storage::{root, Balance, Checkpoint, MaxDidWhts, MaxTargetIds, TestStorage, User},
     ExtBuilder,
 };
 use crate::asset_test::{
@@ -94,16 +91,12 @@ fn currency_test(logic: impl FnOnce(Ticker, Ticker, [User; 3])) {
 
         // Create `currency` & add scope claims for it to `users`.
         let currency = create_asset(b"BETA", owner);
-        let parties = users.iter().map(|u| &u.did);
-        provide_scope_claim_to_multiple_parties(parties, currency, CDDP.to_account_id());
 
         logic(ticker, currency, users);
     });
 }
 
 fn transfer_amount(ticker: &Ticker, from: User, to: User, amount: u128) {
-    // Provide scope claim to sender and receiver of the transaction.
-    provide_scope_claim_to_multiple_parties(&[from.did, to.did], *ticker, CDDP.to_account_id());
     assert_ok!(crate::asset_test::transfer(*ticker, from, to, amount));
 }
 
@@ -2060,7 +2053,6 @@ fn dist_claim_not_targeted() {
 fn dist_claim_works() {
     currency_test(|ticker, currency, [owner, foo, bar]| {
         let baz = User::new(AccountKeyring::Dave);
-        provide_scope_claim_to_multiple_parties(&[baz.did], currency, CDDP.to_account_id());
 
         // Transfer 500 to `foo`, 1000 to `bar`, and `500` to `baz`.
         transfer(&ticker, owner, foo);
@@ -2139,7 +2131,6 @@ fn dist_claim_works() {
 fn dist_claim_rounding_indivisible() {
     currency_test(|ticker, currency, [owner, foo, bar]| {
         let baz = User::new(AccountKeyring::Dave);
-        provide_scope_claim_to_multiple_parties(&[baz.did], currency, CDDP.to_account_id());
 
         // Make `currency` indivisible.
         // This the crucial aspect different about this test.

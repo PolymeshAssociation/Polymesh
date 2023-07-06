@@ -37,8 +37,8 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{
-    AccountId, Authorization, AuthorizationData, BlockNumber, CddId, Claim, Moment,
-    Permissions as AuthPermissions, PortfolioNumber, Scope, ScopeId, SecondaryKey, TrustedFor,
+    AccountId, Authorization, AuthorizationData, BlockNumber, Claim, Moment,
+    Permissions as AuthPermissions, PortfolioNumber, Scope, SecondaryKey, TrustedFor,
     TrustedIssuer,
 };
 use polymesh_runtime_common::{
@@ -741,22 +741,6 @@ pub fn make_account_with_portfolio(ring: AccountKeyring) -> (User, PortfolioId) 
     let user = User::new(ring);
     let portfolio = PortfolioId::default_portfolio(user.did);
     (user, portfolio)
-}
-
-pub fn make_account_with_scope(
-    id: AccountId,
-    ticker: Ticker,
-    cdd_provider: AccountId,
-) -> Result<
-    (
-        <TestStorage as frame_system::Config>::RuntimeOrigin,
-        IdentityId,
-        ScopeId,
-    ),
-    &'static str,
-> {
-    let (origin, did) = make_account(id).unwrap();
-    Ok((origin, did, did))
 }
 
 /// It creates an Account and registers its DID.

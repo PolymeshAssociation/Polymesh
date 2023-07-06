@@ -15,8 +15,7 @@ use pallet_asset::{
     AssetDocuments, AssetMetadataLocalKeyToName, AssetMetadataLocalNameToKey,
     AssetMetadataLocalSpecs, AssetMetadataValues, AssetOwnershipRelation, BalanceOf,
     Config as AssetConfig, CustomTypeIdSequence, CustomTypes, CustomTypesInverse,
-    PreApprovedTicker, ScopeIdOf, SecurityToken, TickerRegistrationConfig,
-    TickersExemptFromAffirmation,
+    PreApprovedTicker, SecurityToken, TickerRegistrationConfig, TickersExemptFromAffirmation,
 };
 use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances};
 use polymesh_common_utilities::asset::AssetFnTrait;
@@ -1146,7 +1145,6 @@ fn check_unique_investor_count() {
             assert_eq!(Asset::balance_of(&ticker, alice.did), total_supply); // It should be equal to total supply.
                                                                              // Alice act as the unique investor but not on the basis of ScopeId as alice doesn't posses the claim yet.
             assert_eq!(Statistics::investor_count(ticker), 1);
-            assert!(!ScopeIdOf::contains_key(&ticker, alice.did));
 
             // 1. Transfer some funds to bob_1.did.
 
@@ -1161,37 +1159,19 @@ fn check_unique_investor_count() {
             );
 
             // 1d). Validate the storage changes.
-            let bob_scope_id = Asset::scope_id_of(&ticker, &bob_1.did);
-            assert_eq!(Asset::aggregate_balance_of(&ticker, bob_scope_id), 0);
-            assert_eq!(Asset::balance_of_at_scope(bob_scope_id, bob_1.did), 0);
+            assert_eq!(Asset::balance_of(&ticker, bob_1.did), 0);
 
-            assert_eq!(
-                Asset::aggregate_balance_of(&ticker, alice_scope_id),
-                total_supply
-            );
-            assert_eq!(
-                Asset::balance_of_at_scope(alice_scope_id, alice.did),
-                total_supply
-            );
+            assert_eq!(Asset::balance_of(&ticker, &alice.did), total_supply);
 
             // 1e). successfully transfer funds.
             assert_ok!(transfer(ticker, alice, bob_1, 1000));
 
             // validate the storage changes for Bob.
-            assert_eq!(Asset::aggregate_balance_of(&ticker, &bob_scope_id), 1000);
-            assert_eq!(Asset::balance_of_at_scope(&bob_scope_id, &bob_1.did), 1000);
             assert_eq!(Asset::balance_of(&ticker, &bob_1.did), 1000);
             assert_eq!(Statistics::investor_count(ticker), 2);
 
             // validate the storage changes for Alice.
-            assert_eq!(
-                Asset::aggregate_balance_of(&ticker, &alice_scope_id),
-                total_supply - 1000
-            );
-            assert_eq!(
-                Asset::balance_of_at_scope(&alice_scope_id, &alice.did),
-                total_supply - 1000
-            );
+            assert_eq!(Asset::balance_of(&ticker, &alice.did), total_supply - 1000);
             assert_eq!(Asset::balance_of(&ticker, &alice.did), total_supply - 1000);
             assert_eq!(Statistics::investor_count(ticker), 2);
 
@@ -1199,8 +1179,6 @@ fn check_unique_investor_count() {
             assert_ok!(transfer(ticker, alice, bob_2, 1000));
 
             // validate the storage changes for Bob.
-            assert_eq!(Asset::aggregate_balance_of(&ticker, &bob_scope_id), 2000);
-            assert_eq!(Asset::balance_of_at_scope(&bob_scope_id, &bob_2.did), 1000);
             assert_eq!(Asset::balance_of(&ticker, &bob_2.did), 1000);
             assert_eq!(Statistics::investor_count(ticker), 2);
         });
