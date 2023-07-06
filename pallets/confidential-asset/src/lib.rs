@@ -203,7 +203,7 @@ pub trait Config:
 macro_rules! impl_wrapper {
     ($wrapper:ident, $wrapped:ident) => {
         #[derive(Clone, Debug)]
-        pub struct $wrapper($wrapped);
+        pub struct $wrapper(Box<$wrapped>);
 
         impl scale_info::TypeInfo for $wrapper {
             type Identity = Self;
@@ -241,7 +241,7 @@ macro_rules! impl_wrapper {
                 let encoded = <Vec<u8>>::decode(input)?;
                 let wrapped = <$wrapped>::decode(&mut encoded.as_slice())?;
 
-                Ok(Self(wrapped))
+                Ok(Self(Box::new(wrapped)))
             }
         }
 
@@ -255,7 +255,7 @@ macro_rules! impl_wrapper {
 
         impl From<$wrapper> for $wrapped {
             fn from(data: $wrapper) -> Self {
-                data.0
+                *data.0
             }
         }
 
@@ -268,7 +268,7 @@ macro_rules! impl_wrapper {
 
         impl From<$wrapped> for $wrapper {
             fn from(data: $wrapped) -> Self {
-                Self(data)
+                Self(Box::new(data))
             }
         }
     };
@@ -363,7 +363,7 @@ impl SenderProof {
 /// Who is affirming the transaction leg.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq)]
 pub enum AffirmParty {
-    Sender(SenderProof),
+    Sender(Box<SenderProof>),
     Receiver,
     Mediator,
 }
@@ -378,7 +378,7 @@ impl AffirmLeg {
     pub fn sender(leg_id: TransactionLegId, tx: InitializedTransferTx) -> Self {
         Self {
             leg_id,
-            party: AffirmParty::Sender(SenderProof(tx.encode())),
+            party: AffirmParty::Sender(Box::new(SenderProof(tx.encode()))),
         }
     }
 
