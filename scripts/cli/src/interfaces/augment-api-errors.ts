@@ -934,29 +934,9 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       CannotDecodeSignerAccountId: AugmentedError<ApiType>;
       /**
-       * CDDId should be unique & same within all cdd claims possessed by a DID.
-       **/
-      CDDIdNotUniqueForIdentity: AugmentedError<ApiType>;
-      /**
-       * Claim and Proof versions are different.
-       **/
-      ClaimAndProofVersionsDoNotMatch: AugmentedError<ApiType>;
-      /**
        * Claim does not exist.
        **/
       ClaimDoesNotExist: AugmentedError<ApiType>;
-      /**
-       * Try to add a claim variant using un-designated extrinsic.
-       **/
-      ClaimVariantNotAllowed: AugmentedError<ApiType>;
-      /**
-       * Confidential Scope claims can be added by an Identity to it-self.
-       **/
-      ConfidentialScopeClaimNotAllowed: AugmentedError<ApiType>;
-      /**
-       * Current identity cannot be forwarded, it is not a secondary key of target identity.
-       **/
-      CurrentIdentityCannotBeForwarded: AugmentedError<ApiType>;
       /**
        * The custom claim type trying to be registered already exists.
        **/
@@ -1011,14 +991,6 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InvalidAuthorizationSignature: AugmentedError<ApiType>;
       /**
-       * Non systematic CDD providers can not create default cdd_id claims.
-       **/
-      InvalidCDDId: AugmentedError<ApiType>;
-      /**
-       * Addition of a new scope claim gets invalidated.
-       **/
-      InvalidScopeClaim: AugmentedError<ApiType>;
-      /**
        * Identity is already a child of an other identity, can't create grand-child identity.
        **/
       IsChildIdentity: AugmentedError<ApiType>;
@@ -1062,10 +1034,6 @@ declare module '@polkadot/api-base/types/errors' {
        * The target DID has no valid CDD.
        **/
       TargetHasNoCdd: AugmentedError<ApiType>;
-      /**
-       * Try to delete the IU claim even when the user has non zero balance at given scopeId.
-       **/
-      TargetHasNonZeroBalanceAtScopeId: AugmentedError<ApiType>;
       /**
        * Signatory is not pre authorized by the identity
        **/

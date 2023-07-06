@@ -15,7 +15,7 @@
 
 use crate::traits::identity::Config;
 use frame_system::RawOrigin;
-use polymesh_primitives::{crypto::native_schnorrkel, IdentityId, InvestorUid};
+use polymesh_primitives::{crypto::native_schnorrkel, IdentityId};
 use sp_core::sr25519::Signature;
 use sp_runtime::traits::StaticLookup;
 
@@ -27,17 +27,12 @@ pub struct User<T: Config> {
     pub account: T::AccountId,
     pub secret: Option<SecretKey>,
     pub origin: RawOrigin<T::AccountId>,
-    pub uid: Option<InvestorUid>,
     pub did: Option<IdentityId>,
 }
 
 impl<T: Config> User<T> {
     pub fn did(&self) -> IdentityId {
         self.did.expect("User without DID")
-    }
-
-    pub fn uid(&self) -> InvestorUid {
-        self.uid.expect("User without UID")
     }
 
     pub fn account(&self) -> T::AccountId {

@@ -5116,7 +5116,7 @@ fn add_nominator_with_invalid_expiry() {
 
             // For valid trusted CDD service providers
             let account_bob = 600;
-            let (_bob_signed, bob_did) = make_account_with_uid(account_bob).unwrap();
+            let (_bob_signed, bob_did) = make_account(account_bob).unwrap();
             add_trusted_cdd_provider(bob_did);
 
             // bond
@@ -5189,7 +5189,7 @@ fn validate_nominators_with_valid_cdd() {
 
             let claim_issuer_1 = 600;
             let (_claim_issuer_1_signed, claim_issuer_1_did) =
-                make_account_with_uid(claim_issuer_1).unwrap();
+                make_account(claim_issuer_1).unwrap();
             add_trusted_cdd_provider(claim_issuer_1_did);
 
             let account_eve = 700;

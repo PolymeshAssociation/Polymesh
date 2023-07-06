@@ -153,8 +153,6 @@ pub struct GranularCanTransferResult {
     pub invalid_receiver_cdd: bool,
     /// Sender is missing cdd.
     pub invalid_sender_cdd: bool,
-    /// Scope claim is missing.
-    pub missing_scope_claim: bool,
     /// Receiver had a custodian error.
     pub receiver_custodian_error: bool,
     /// Sender had a custodian error.
@@ -182,7 +180,6 @@ impl From<v1::GranularCanTransferResult> for GranularCanTransferResult {
             self_transfer: old.self_transfer,
             invalid_receiver_cdd: old.invalid_receiver_cdd,
             invalid_sender_cdd: old.invalid_sender_cdd,
-            missing_scope_claim: old.missing_scope_claim,
             receiver_custodian_error: old.receiver_custodian_error,
             sender_custodian_error: old.sender_custodian_error,
             sender_insufficient_balance: old.sender_insufficient_balance,
@@ -217,8 +214,6 @@ pub mod v1 {
         pub invalid_receiver_cdd: bool,
         /// Sender is missing cdd.
         pub invalid_sender_cdd: bool,
-        /// Scope claim is missing.
-        pub missing_scope_claim: bool,
         /// Receiver had a custodian error.
         pub receiver_custodian_error: bool,
         /// Sender had a custodian error.

@@ -17,10 +17,7 @@ use polymesh_primitives::{
 use test_client::AccountKeyring;
 
 use super::asset_test::{allow_all_transfers, create_token, set_timestamp};
-use super::storage::{
-    create_cdd_id, create_investor_uid, get_primary_key, provide_scope_claim_to_multiple_parties,
-    set_curr_did, TestStorage, User,
-};
+use super::storage::{set_curr_did, TestStorage, User};
 use super::ExtBuilder;
 
 type Identity = pallet_identity::Module<TestStorage>;
@@ -105,17 +102,18 @@ fn should_add_and_verify_compliance_requirement_we() {
     Balances::make_free_balance_be(&claim_issuer.acc(), 1_000_000);
     let ferdie = User::new(AccountKeyring::Ferdie);
 
+    let claim = Claim::Blocked(ticker.into());
     assert_ok!(Identity::add_claim(
         claim_issuer.origin(),
         owner.did,
-        Claim::NoData,
+        claim.clone(),
         None,
     ));
 
     assert_ok!(Identity::add_claim(
         claim_issuer.origin(),
         token_rec.did,
-        Claim::NoData,
+        claim.clone(),
         None,
     ));
 
@@ -123,7 +121,7 @@ fn should_add_and_verify_compliance_requirement_we() {
     set_timestamp(now.timestamp() as u64);
 
     let sender_condition =
-        Condition::from_dids(ConditionType::IsPresent(Claim::NoData), &[claim_issuer.did]);
+        Condition::from_dids(ConditionType::IsPresent(claim), &[claim_issuer.did]);
 
     let receiver_condition1 = Condition::from_dids(
         ConditionType::IsAbsent(Claim::KnowYourCustomer(owner.scope())),
@@ -154,9 +152,6 @@ fn should_add_and_verify_compliance_requirement_we() {
         Claim::Accredited(claim_issuer.scope()),
         None,
     ));
-
-    // Provide scope claim to sender and receiver of the transaction.
-    provide_scope_claim_to_multiple_parties(&[owner.did, token_rec.did], ticker, cdd.acc());
 
     //Transfer tokens to investor - fails wrong Accredited scope
     assert_invalid_transfer!(ticker, owner.did, token_rec.did, token.total_supply);
@@ -430,10 +425,11 @@ fn pause_resume_asset_compliance_we() {
 
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
+    let claim = Claim::Blocked(ticker.into());
     assert_ok!(Identity::add_claim(
         receiver.origin(),
         receiver.did.clone(),
-        Claim::NoData,
+        claim.clone(),
         Some(99999999999999999u64),
     ));
 
@@ -442,7 +438,7 @@ fn pause_resume_asset_compliance_we() {
 
     // 4. Define conditions
     let receiver_conditions = vec![Condition::from_dids(
-        ConditionType::IsAbsent(Claim::NoData),
+        ConditionType::IsAbsent(claim.clone()),
         &[receiver.did],
     )];
 
@@ -452,13 +448,6 @@ fn pause_resume_asset_compliance_we() {
         vec![],
         receiver_conditions
     ));
-
-    // Provide scope claim to sender and receiver of the transaction.
-    provide_scope_claim_to_multiple_parties(
-        &[owner.did, receiver.did],
-        ticker,
-        AccountKeyring::Eve.to_account_id(),
-    );
 
     // 5. Verify pause/resume mechanism.
     // 5.1. Transfer should be cancelled.
@@ -543,15 +532,10 @@ fn should_successfully_add_and_use_default_issuers_we() {
         ComplianceManager::trusted_claim_issuer(ticker),
         trusted_issuers
     );
-    let (cdd_id, _) = create_cdd_id(
-        receiver.did,
-        Ticker::default(),
-        create_investor_uid(get_primary_key(receiver.did)),
-    );
     assert_ok!(Identity::add_claim(
         trusted_issuer.origin(),
         receiver.did.clone(),
-        Claim::CustomerDueDiligence(cdd_id),
+        Claim::CustomerDueDiligence(Default::default()),
         Some(u64::MAX),
     ));
 
@@ -594,13 +578,6 @@ fn should_successfully_add_and_use_default_issuers_we() {
 
     // fail when token owner doesn't has the valid claim
     assert_invalid_transfer!(ticker, owner.did, receiver.did, 100);
-
-    // Provide scope claim to sender and receiver of the transaction.
-    provide_scope_claim_to_multiple_parties(
-        &[owner.did, receiver.did],
-        ticker,
-        trusted_issuer.acc(),
-    );
 
     // Right claim, but Eve not trusted for this asset.
     provide_accredited_claim(eve.origin());
@@ -669,7 +646,8 @@ fn should_modify_vector_of_trusted_issuer_we() {
     );
 
     // adding claim by trusted issuer 1
-    provide_claim(trusted_issuer_1.origin(), receiver.did, Claim::NoData);
+    let claim = Claim::Blocked(ticker.into());
+    provide_claim(trusted_issuer_1.origin(), receiver.did, claim.clone());
 
     // adding claim by trusted issuer 2
     provide_claim(
@@ -692,7 +670,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     let receiver_condition_1 = sender_condition.clone();
 
-    let receiver_condition_2 = create_condition(Claim::NoData);
+    let receiver_condition_2 = create_condition(claim.clone());
 
     let x = vec![sender_condition.clone()];
     let y = vec![receiver_condition_1, receiver_condition_2];
@@ -703,13 +681,6 @@ fn should_modify_vector_of_trusted_issuer_we() {
         x,
         y
     ));
-
-    // Provide scope claim to sender and receiver of the transaction.
-    provide_scope_claim_to_multiple_parties(
-        &[owner.did, receiver.did],
-        ticker,
-        trusted_issuer_1.acc(),
-    );
 
     assert_valid_transfer!(ticker, owner.did, receiver.did, 10);
 
@@ -737,7 +708,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     );
 
     let receiver_condition_2 = Condition::from_dids(
-        ConditionType::IsPresent(Claim::NoData),
+        ConditionType::IsPresent(claim.clone()),
         &[trusted_issuer_1.did],
     );
 
@@ -803,13 +774,6 @@ fn jurisdiction_asset_compliance_we() {
     // 1. Create & mint token
     let (ticker, _) = create_token(owner);
 
-    // Provide scope claim to sender and receiver of the transaction.
-    provide_scope_claim_to_multiple_parties(
-        &[owner.did, user.did],
-        ticker,
-        AccountKeyring::Eve.to_account_id(),
-    );
-
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::from(IdentityId::from(0));
     let receiver_conditions = vec![
@@ -867,13 +831,6 @@ fn scope_asset_compliance_we() {
 
     // 1. Create a token.
     let (ticker, _) = create_token(owner);
-
-    // Provide scope claim for sender and receiver.
-    provide_scope_claim_to_multiple_parties(
-        &[owner.did, user.did],
-        ticker,
-        AccountKeyring::Eve.to_account_id(),
-    );
 
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::Ticker(ticker);
@@ -1008,13 +965,6 @@ fn cm_test_case_9_we() {
     let eve = User::new(AccountKeyring::Eve);
     let ferdie = User::new(AccountKeyring::Ferdie);
 
-    // Provide scope claim
-    provide_scope_claim_to_multiple_parties(
-        &[owner, charlie, dave, eve, ferdie].map(|u| u.did),
-        ticker,
-        AccountKeyring::One.to_account_id(),
-    );
-
     let verify_restriction_granular = |user: User, claim| {
         assert_ok!(Identity::add_claim(issuer.origin(), user.did, claim, None));
         assert_valid_transfer!(ticker, owner.did, user.did, 100);
@@ -1071,7 +1021,6 @@ fn cm_test_case_11_we() {
     // 0. Create accounts
     let owner = User::new(AccountKeyring::Alice);
     let issuer = User::new(AccountKeyring::Bob);
-    let ferdie = AccountKeyring::Ferdie.to_account_id();
 
     // 1. Create a token.
     let (ticker, _) = create_token(owner);
@@ -1106,13 +1055,6 @@ fn cm_test_case_11_we() {
     let charlie = User::new(AccountKeyring::Charlie);
     let dave = User::new(AccountKeyring::Dave);
     let eve = User::new(AccountKeyring::Eve);
-
-    // Provide scope claim
-    provide_scope_claim_to_multiple_parties(
-        &[owner, charlie, dave, eve].map(|u| u.did),
-        ticker,
-        ferdie,
-    );
 
     // 3.1. Charlie has a 'KnowYourCustomer' Claim.
     assert_ok!(Identity::add_claim(
@@ -1240,13 +1182,6 @@ fn cm_test_case_13_we() {
     let dave = User::new(AccountKeyring::Dave);
     let eve = User::new(AccountKeyring::Eve);
 
-    // Provide scope claim
-    provide_scope_claim_to_multiple_parties(
-        &[owner, charlie, dave, eve].map(|u| u.did),
-        ticker,
-        AccountKeyring::Ferdie.to_account_id(),
-    );
-
     // 3.1. Charlie has a 'KnowYourCustomer' Claim BUT he does not have any of { 'Affiliate',
     //   'Accredited', 'Exempted'}.
     assert_ok!(Identity::add_claim(
@@ -1366,13 +1301,6 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
         issuer.origin(),
         auth_id
     ));
-
-    // Provide scope claim for sender and receiver.
-    provide_scope_claim_to_multiple_parties(
-        &[owner, other, issuer].map(|u| u.did),
-        ticker,
-        AccountKeyring::Eve.to_account_id(),
-    );
 
     // No compliance requirement is present, compliance should fail
     let mut weight_meter = WeightMeter::max_limit_no_minimum();

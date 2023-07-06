@@ -14,13 +14,9 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use frame_support::dispatch::DispatchResult;
-use polymesh_primitives::{
-    secondary_key::SecondaryKey, traits::BlockRewardsReserveCurrency, InvestorUid,
-};
+use polymesh_primitives::{secondary_key::SecondaryKey, traits::BlockRewardsReserveCurrency};
 
 pub trait CommonConfig: frame_system::Config + permissions::Config {
-    type AssetSubTraitTarget: asset::AssetSubTrait;
-
     type BlockRewardsReserve: BlockRewardsReserveCurrency<NegativeImbalance<Self>>;
 }
 
@@ -50,7 +46,6 @@ pub trait TestUtilsFn<AccountId> {
     /// Creates a new did and attaches a CDD claim to it.
     fn register_did(
         target: AccountId,
-        investor: InvestorUid,
         secondary_keys: sp_std::vec::Vec<SecondaryKey<AccountId>>,
     ) -> DispatchResult;
 }

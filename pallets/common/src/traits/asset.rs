@@ -26,7 +26,7 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::{
     AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, PortfolioKind,
-    PortfolioUpdateReason, ScopeId, Ticker,
+    PortfolioUpdateReason, Ticker,
 };
 
 use crate::traits::nft::NFTTrait;
@@ -201,31 +201,6 @@ pub trait WeightInfo {
     fn remove_ticker_pre_approval() -> Weight;
 }
 
-/// This trait is used by the `identity` pallet to interact with the `pallet-asset`.
-pub trait AssetSubTrait {
-    /// Update the `ticker` balance of `target_did` under `scope_id`. Clean up the balances related
-    /// to any previous valid `old_scope_ids`.
-    ///
-    /// # Arguments
-    /// * `scope_id` - The new `ScopeId` of `target_did` and `ticker`.
-    /// * `target_did` - The `IdentityId` whose balance needs to be updated.
-    /// * `ticker`- Ticker of the asset whose count need to be updated for the given identity.
-    fn update_balance_of_scope_id(scope_id: ScopeId, target_did: IdentityId, ticker: Ticker);
-
-    /// Returns balance for a given scope id and target DID.
-    ///
-    /// # Arguments
-    /// * `scope_id` - The `ScopeId` of the given `IdentityId`.
-    /// * `target` - The `IdentityId` whose balance needs to be queried.
-    fn balance_of_at_scope(scope_id: &ScopeId, target: &IdentityId) -> Balance;
-
-    /// Returns the `ScopeId` for a given `ticker` and `did`.
-    fn scope_id(ticker: &Ticker, did: &IdentityId) -> ScopeId;
-
-    /// Ensure that Investor Uniqueness is allowed for the ticker.
-    fn ensure_investor_uniqueness_claims_allowed(ticker: &Ticker) -> DispatchResult;
-}
-
 pub trait AssetFnTrait<Account, Origin> {
     /// Ensure the granularity of `value` meets the requirements of `ticker`.
     fn ensure_granular(ticker: &Ticker, value: Balance) -> DispatchResult;
@@ -249,10 +224,6 @@ pub trait AssetFnTrait<Account, Origin> {
 
     /// Returns `true` if the receivement of `ticker` is exempt from being affirmed, otherwise returns `false`.
     fn ticker_affirmation_exemption(ticker: &Ticker) -> bool;
-
-    /// Adds an artificial IU claim for benchmarks
-    #[cfg(feature = "runtime-benchmarks")]
-    fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker);
 
     /// Issues `amount` tokens for `ticker` into the caller's portfolio.
     fn issue(

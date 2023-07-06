@@ -162,7 +162,6 @@ macro_rules! misc_pallet_impls {
         }
 
         impl polymesh_common_utilities::traits::CommonConfig for Runtime {
-            type AssetSubTraitTarget = Asset;
             type BlockRewardsReserve = pallet_balances::Pallet<Runtime>;
         }
 

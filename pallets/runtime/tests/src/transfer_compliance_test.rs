@@ -1,7 +1,5 @@
 use super::{
-    storage::{
-        account_from, create_investor_uid, make_account, provide_scope_claim, TestStorage, User,
-    },
+    storage::{account_from, make_account, TestStorage, User},
     ExtBuilder,
 };
 use frame_support::{
@@ -10,8 +8,7 @@ use frame_support::{
 };
 use polymesh_primitives::{
     asset::AssetType, jurisdiction::CountryCode, statistics::*, transfer_compliance::*, AccountId,
-    Balance, CddId, Claim, ClaimType, IdentityId, InvestorUid, PortfolioId, PortfolioKind, Scope,
-    ScopeId, Ticker, WeightMeter,
+    Balance, Claim, ClaimType, IdentityId, PortfolioId, PortfolioKind, Scope, Ticker, WeightMeter,
 };
 use sp_arithmetic::Permill;
 use std::collections::{HashMap, HashSet};
@@ -53,22 +50,8 @@ impl InvestorState {
         Origin::signed(self.acc.clone())
     }
 
-    pub fn uid(&self) -> InvestorUid {
-        create_investor_uid(self.acc.clone())
-    }
-
-    pub fn scope_id(&self) -> ScopeId {
+    pub fn did(&self) -> IdentityId {
         self.did
-    }
-
-    pub fn provide_scope_claim(&self, ticker: Ticker) -> (ScopeId, CddId) {
-        provide_scope_claim(
-            self.did,
-            ticker,
-            self.uid(),
-            CDD_PROVIDER.to_account_id(),
-            None,
-        )
     }
 
     pub fn add_issuer_claim(&mut self, did: &IdentityId, acc: &AccountId, claim: &Claim) {
@@ -281,7 +264,7 @@ impl AssetTracker {
         println!("ids = {:?}", ids);
         let investors = ids
             .into_iter()
-            .map(|id| self.investor(*id).scope_id())
+            .map(|id| self.investor(*id).did())
             .collect::<Vec<_>>();
         println!("investors = {:?}", investors);
         for condition in &self.transfer_conditions {

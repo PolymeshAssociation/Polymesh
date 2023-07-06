@@ -1,18 +1,16 @@
 use super::{
-    asset_test::{an_asset, basic_asset, max_len, max_len_bytes, set_timestamp, token},
+    asset_test::{basic_asset, max_len, max_len_bytes, set_timestamp, token},
     committee_test::gc_vmo,
     exec_noop, exec_ok,
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
-        account_from, add_secondary_key, add_secondary_key_with_perms,
-        create_cdd_id_and_investor_uid, get_identity_id, get_last_auth_id, get_primary_key,
-        get_secondary_keys, provide_scope_claim, register_keyring_account,
+        account_from, add_secondary_key, add_secondary_key_with_perms, get_identity_id,
+        get_last_auth_id, get_primary_key, get_secondary_keys, register_keyring_account,
         register_keyring_account_with_balance, GovernanceCommittee, TestStorage, User,
     },
     ExtBuilder,
 };
 use codec::Encode;
-use confidential_identity_v1::mocked::make_investor_uid;
 use frame_support::{
     assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency, StorageDoubleMap,
     StorageMap, StorageValue,
@@ -21,9 +19,7 @@ use pallet_asset::SecurityToken;
 use pallet_balances as balances;
 use pallet_identity::{CustomClaimIdSequence, CustomClaims, CustomClaimsInverse};
 use polymesh_common_utilities::{
-    asset::AssetSubTrait,
     constants::currency::POLY,
-    protocol_fee::ProtocolOp,
     traits::{
         group::GroupTrait,
         identity::{
@@ -35,11 +31,10 @@ use polymesh_common_utilities::{
     SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    investor_zkproof_data::v2, AccountId, AssetPermissions, AuthorizationData, AuthorizationType,
-    CddId, Claim, ClaimType, CustomClaimTypeId, DispatchableName, ExtrinsicPermissions,
-    IdentityClaim, IdentityId, InvestorUid, KeyRecord, PalletName, PalletPermissions, Permissions,
-    PortfolioId, PortfolioKind, PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction,
-    Ticker, TransactionError,
+    AccountId, AssetPermissions, AuthorizationData, AuthorizationType, Claim, ClaimType,
+    CustomClaimTypeId, DispatchableName, ExtrinsicPermissions, IdentityClaim, IdentityId,
+    KeyRecord, PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope,
+    SecondaryKey, Signatory, SubsetRestriction, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
 use sp_core::H512;
@@ -113,7 +108,7 @@ macro_rules! assert_add_cdd_claim {
         assert_ok!(Identity::add_claim(
             $signer,
             $target,
-            Claim::CustomerDueDiligence(create_cdd_id_and_investor_uid($target).0),
+            Claim::CustomerDueDiligence(Default::default()),
             None
         ));
     };
@@ -157,7 +152,6 @@ fn gc_add_remove_cdd_claim() {
 
         assert_ok!(Identity::gc_add_cdd_claim(gc_vmo(), target.did));
 
-        let cdd_id = CddId::new_v1(target.did, InvestorUid::from(target.did.as_ref()));
         assert_eq!(
             fetch(),
             Some(IdentityClaim {
@@ -165,7 +159,7 @@ fn gc_add_remove_cdd_claim() {
                 issuance_date: 0,
                 last_update_date: 0,
                 expiry: None,
-                claim: Claim::CustomerDueDiligence(cdd_id)
+                claim: Claim::CustomerDueDiligence(Default::default())
             })
         );
 
@@ -224,19 +218,19 @@ fn revoking_batch_claims() {
         let revoke = |claim| Identity::revoke_claim(claim_issuer.origin(), claim_issuer.did, claim);
 
         assert_ok!(add(Claim::Accredited(scope.clone()), Some(100u64)));
-        assert_ok!(add(Claim::NoData, None));
+        assert_ok!(add(Claim::Blocked(scope.clone()), None));
         assert!(fetch(ClaimType::Accredited, Some(scope.clone())).is_some());
 
-        assert!(fetch(ClaimType::NoType, None).is_some());
+        assert!(fetch(ClaimType::Blocked, Some(scope.clone())).is_some());
         assert!(fetch(ClaimType::Accredited, Some(scope.clone())).is_some());
 
         assert_ok!(revoke(Claim::Accredited(scope.clone())));
 
-        assert_ok!(revoke(Claim::NoData));
+        assert_ok!(revoke(Claim::Blocked(scope.clone())));
 
         assert!(fetch(ClaimType::Accredited, Some(scope.clone())).is_none());
 
-        assert!(fetch(ClaimType::NoType, None).is_none());
+        assert!(fetch(ClaimType::Blocked, Some(scope.clone())).is_none());
 
         assert!(fetch(ClaimType::Accredited, Some(scope.clone())).is_none());
     });
@@ -1905,170 +1899,6 @@ fn add_permission_with_secondary_key() {
         });
 }
 
-#[ignore]
-#[test]
-fn add_investor_uniqueness_claim() {
-    ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Charlie.to_account_id()])
-        .build()
-        .execute_with(do_add_investor_uniqueness_claim);
-}
-
-fn do_add_investor_uniqueness_claim() {
-    let alice = User::new(AccountKeyring::Alice);
-    let cdd_provider = AccountKeyring::Charlie.to_account_id();
-    let ticker = an_asset(alice, true);
-    let initial_balance = Asset::balance_of(ticker, alice.did);
-    let add_iu_claim = |investor_uid| {
-        provide_scope_claim(
-            alice.did,
-            ticker,
-            investor_uid,
-            cdd_provider.clone(),
-            Some(1),
-        )
-    };
-    let no_balance_at_scope = |scope_id| {
-        assert_eq!(
-            false,
-            pallet_asset::BalanceOfAtScope::contains_key(scope_id, alice.did)
-        );
-    };
-    let balance_at_scope = |scope_id, balance| {
-        assert_eq!(balance, Asset::balance_of_at_scope(scope_id, alice.did));
-    };
-    let scope_id_of = |scope_id| {
-        assert_eq!(scope_id, Asset::scope_id(&ticker, &alice.did));
-    };
-    let aggregate_balance = |scope_id, balance| {
-        assert_eq!(balance, Asset::aggregate_balance_of(ticker, scope_id));
-    };
-
-    // Get some tokens for Alice in case the default initial balance changes to 0 in simple_token.
-    let amount = 10_000;
-    assert_ok!(Asset::issue(
-        alice.origin(),
-        ticker,
-        amount,
-        PortfolioKind::Default
-    ));
-    let asset_balance = initial_balance + amount;
-
-    // Make a claim with a scope ID.
-    let (scope_id, cdd_id) = add_iu_claim(alice.uid());
-    balance_at_scope(scope_id, asset_balance);
-    scope_id_of(scope_id);
-    aggregate_balance(scope_id, asset_balance);
-
-    // Revoke the first CDD claim in order to issue another one.
-    assert_ok!(Identity::revoke_claim(
-        Origin::signed(cdd_provider.clone()),
-        alice.did,
-        Claim::CustomerDueDiligence(cdd_id)
-    ));
-
-    // Make another claim with a different scope ID.
-    let new_uid = InvestorUid::from("ALICE-2");
-    // Adding a claim is possible thanks to the expiration of the previous CDD claim.
-    let new_scope_id = add_iu_claim(new_uid).0;
-    no_balance_at_scope(scope_id);
-    balance_at_scope(new_scope_id, asset_balance);
-    scope_id_of(new_scope_id);
-    aggregate_balance(scope_id, 0);
-    aggregate_balance(new_scope_id, asset_balance);
-}
-
-#[ignore]
-#[test]
-fn add_investor_uniqueness_claim_v2() {
-    let user = AccountKeyring::Alice.to_account_id();
-    let user_no_cdd_id = AccountKeyring::Bob.to_account_id();
-
-    ExtBuilder::default()
-        .add_regular_users_from_accounts(&[user.clone()])
-        .build()
-        .execute_with(|| {
-            // Create an DID without CDD_id.
-            assert_ok!(Identity::_register_did(
-                user_no_cdd_id.clone(),
-                vec![],
-                Some(ProtocolOp::IdentityCddRegisterDid)
-            ));
-
-            // Load test cases and run them.
-            let test_data = add_investor_uniqueness_claim_v2_data(user.clone(), user_no_cdd_id);
-            for (idx, (input, expect)) in test_data.into_iter().enumerate() {
-                let (user, scope, claim, proof) = input;
-                let did = Identity::get_identity(&user).unwrap_or_default();
-                let origin = Origin::signed(user);
-                let output = Identity::add_investor_uniqueness_claim_v2(
-                    origin, did, scope, claim, proof.0, None,
-                );
-                assert_eq!(
-                    output, expect,
-                    "Unexpected output at index {}: output: {:?}, expected: {:?}",
-                    idx, output, expect
-                );
-            }
-        });
-}
-
-/// Creates a data set as an input for `do_add_investor_uniqueness_claim_v2`.
-fn add_investor_uniqueness_claim_v2_data(
-    user: AccountId,
-    user_no_cdd_id: AccountId,
-) -> Vec<(
-    (AccountId, Scope, Claim, v2::InvestorZKProofData),
-    DispatchResult,
-)> {
-    let ticker = Ticker::default();
-    let did = Identity::get_identity(&user).unwrap();
-    let investor: InvestorUid = make_investor_uid(did.as_bytes()).into();
-    let cdd_id = CddId::new_v2(did, investor.clone());
-    let proof = v2::InvestorZKProofData::new(&did, &investor, &ticker);
-    let claim = Claim::InvestorUniquenessV2(cdd_id);
-    let scope = Scope::Ticker(ticker);
-    let invalid_ticker = Ticker::from_slice_truncated(&b"1"[..]);
-    let invalid_version_claim =
-        Claim::InvestorUniqueness(Scope::Ticker(ticker), IdentityId::from(42u128), cdd_id);
-    let invalid_proof = v2::InvestorZKProofData::new(&did, &investor, &invalid_ticker);
-
-    vec![
-        // Invalid claim.
-        (
-            (
-                user.clone(),
-                Scope::Ticker(invalid_ticker),
-                claim.clone(),
-                proof,
-            ),
-            Err(Error::InvalidScopeClaim.into()),
-        ),
-        // Valid ZKProof v2
-        ((user.clone(), scope.clone(), claim.clone(), proof), Ok(())),
-        // Not allowed claim.
-        (
-            (user.clone(), scope.clone(), Claim::NoData, proof),
-            Err(Error::ClaimVariantNotAllowed.into()),
-        ),
-        // Missing CDD id.
-        (
-            (user_no_cdd_id, scope.clone(), claim.clone(), proof),
-            Err(Error::InvalidCDDId.into()),
-        ),
-        // Invalid ZKProof
-        (
-            (user.clone(), scope.clone(), claim, invalid_proof),
-            Err(Error::InvalidScopeClaim.into()),
-        ),
-        // Claim version does NOT match.
-        (
-            (user, scope.clone(), invalid_version_claim, proof),
-            Err(Error::ClaimAndProofVersionsDoNotMatch.into()),
-        ),
-    ]
-}
-
 #[test]
 fn ensure_custom_scopes_limited() {
     ExtBuilder::default().build().execute_with(|| {
@@ -2281,7 +2111,6 @@ fn do_child_identity_test() {
     // Ensure bob has a new identity.
     assert!(valid_cdd(bob));
     assert_ne!(bob.did, alice.did);
-    let (bob_cdd_id, _bob_uid) = create_cdd_id_and_investor_uid(bob_did);
 
     // Attach secondary key to child identity.
     let ferdie = User::new_with(bob.did, AccountKeyring::Ferdie);
@@ -2305,7 +2134,7 @@ fn do_child_identity_test() {
     assert_ok!(Identity::add_claim(
         cdd.clone(),
         bob_did,
-        Claim::CustomerDueDiligence(bob_cdd_id),
+        Claim::CustomerDueDiligence(Default::default()),
         None
     ));
 

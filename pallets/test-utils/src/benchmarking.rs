@@ -17,7 +17,7 @@ use crate::*;
 
 use pallet_identity::benchmarking::generate_secondary_keys;
 use polymesh_common_utilities::{
-    benchs::{cdd_provider, uid_from_name_and_idx, user, AccountIdOf, UserBuilder},
+    benchs::{cdd_provider, user, AccountIdOf, UserBuilder},
     TestUtilsFn,
 };
 
@@ -45,9 +45,8 @@ benchmarks! {
 
         let _cdd =  cdd_provider::<T>("cdd", SEED);
         let caller = UserBuilder::<T>::default().build("caller");
-        let uid = uid_from_name_and_idx("caller", SEED);
         let secondary_keys = generate_secondary_keys::<T>(i as usize);
-    }: _(caller.origin, uid, secondary_keys)
+    }: _(caller.origin, secondary_keys)
     verify {
 
     }

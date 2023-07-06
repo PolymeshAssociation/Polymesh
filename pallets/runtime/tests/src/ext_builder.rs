@@ -1,5 +1,4 @@
 use crate::TestStorage;
-use confidential_identity_v1::mocked::make_investor_uid;
 use frame_support::dispatch::Weight;
 use pallet_asset::{self as asset, TickerRegistrationConfig};
 use pallet_balances as balances;
@@ -12,8 +11,7 @@ use polymesh_common_utilities::{
     constants::currency::POLY, protocol_fee::ProtocolOp, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, AccountId, IdentityId, PosRatio,
-    SecondaryKey, Signatory,
+    identity_id::GenesisIdentityRecord, AccountId, IdentityId, PosRatio, SecondaryKey, Signatory,
 };
 use sp_io::TestExternalities;
 use sp_runtime::Storage;
@@ -328,13 +326,11 @@ impl ExtBuilder {
             .map(|(idx, primary_key)| {
                 let did_index = (idx + offset + 1) as u128;
                 let did = IdentityId::from(did_index);
-                let investor: InvestorUid = make_investor_uid(did.as_bytes()).into();
 
                 GenesisIdentityRecord {
                     primary_key: Some(primary_key),
                     issuers: issuers.clone(),
                     did,
-                    investor,
                     ..Default::default()
                 }
             })

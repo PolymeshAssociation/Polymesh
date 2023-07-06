@@ -12,11 +12,6 @@ declare module '@polkadot/api-base/types/storage' {
   export interface AugmentedQueries<ApiType extends ApiTypes> {
     asset: {
       /**
-       * Store aggregate balance of those identities that has the same `ScopeId`.
-       * (Ticker, ScopeId) => Balance.
-       **/
-      aggregateBalance: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesTicker | string | Uint8Array, arg2: PolymeshPrimitivesIdentityId | string | Uint8Array) => Observable<u128>, [PolymeshPrimitivesTicker, PolymeshPrimitivesIdentityId]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker, PolymeshPrimitivesIdentityId]>;
-      /**
        * Documents attached to an Asset
        * (ticker, doc_id) -> document
        **/
@@ -82,12 +77,6 @@ declare module '@polkadot/api-base/types/storage' {
        **/
       balanceOf: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesTicker | string | Uint8Array, arg2: PolymeshPrimitivesIdentityId | string | Uint8Array) => Observable<u128>, [PolymeshPrimitivesTicker, PolymeshPrimitivesIdentityId]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker, PolymeshPrimitivesIdentityId]>;
       /**
-       * Balances get stored on the basis of the `ScopeId`.
-       * Right now it is only helpful for the UI purposes but in future it can be used to do miracles on-chain.
-       * (ScopeId, IdentityId) => Balance.
-       **/
-      balanceOfAtScope: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesIdentityId | string | Uint8Array, arg2: PolymeshPrimitivesIdentityId | string | Uint8Array) => Observable<u128>, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityId]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityId]>;
-      /**
        * The next `AssetType::Custom` ID in the sequence.
        * 
        * Numbers in the sequence start from 1 rather than 0.
@@ -101,13 +90,6 @@ declare module '@polkadot/api-base/types/storage' {
        * Inverse map of `CustomTypes`, from registered string contents to custom asset type ids.
        **/
       customTypesInverse: AugmentedQuery<ApiType, (arg: Bytes | string | Uint8Array) => Observable<Option<u32>>, [Bytes]> & QueryableStorageEntry<ApiType, [Bytes]>;
-      /**
-       * Decides whether investor uniqueness requirement is enforced for this asset.
-       * `false` means that it is enforced.
-       * 
-       * Ticker => bool.
-       **/
-      disableInvestorUniqueness: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesTicker | string | Uint8Array) => Observable<bool>, [PolymeshPrimitivesTicker]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker]>;
       /**
        * The set of frozen assets implemented as a membership map.
        * ticker -> bool
@@ -131,11 +113,6 @@ declare module '@polkadot/api-base/types/storage' {
        * All tickers that don't need an affirmation to be received by an identity.
        **/
       preApprovedTicker: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesIdentityId | string | Uint8Array, arg2: PolymeshPrimitivesTicker | string | Uint8Array) => Observable<bool>, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker]>;
-      /**
-       * Tracks the ScopeId of the identity for a given ticker.
-       * (Ticker, IdentityId) => ScopeId.
-       **/
-      scopeIdOf: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesTicker | string | Uint8Array, arg2: PolymeshPrimitivesIdentityId | string | Uint8Array) => Observable<U8aFixed>, [PolymeshPrimitivesTicker, PolymeshPrimitivesIdentityId]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker, PolymeshPrimitivesIdentityId]>;
       /**
        * Storage version.
        **/

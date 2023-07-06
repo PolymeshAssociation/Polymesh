@@ -101,13 +101,13 @@ use pallet_base::{
     ensure_opt_string_limited, ensure_string_limited, try_next_pre, Error::CounterOverflow,
 };
 use pallet_identity::PermissionedCallOriginData;
-use polymesh_common_utilities::asset::{AssetFnTrait, AssetSubTrait};
+use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
 use polymesh_common_utilities::constants::*;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 pub use polymesh_common_utilities::traits::asset::{Config, Event, RawEvent, WeightInfo};
 use polymesh_common_utilities::traits::nft::NFTTrait;
-use polymesh_common_utilities::{with_transaction, SystematicIssuers};
+use polymesh_common_utilities::with_transaction;
 
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{
@@ -122,8 +122,8 @@ use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::transfer_compliance::TransferConditionResult;
 use polymesh_primitives::{
     extract_auth, storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId,
-    IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, ScopeId, SecondaryKey,
-    Ticker, WeightMeter,
+    IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, SecondaryKey, Ticker,
+    WeightMeter,
 };
 
 type Checkpoint<T> = checkpoint::Module<T>;
@@ -243,22 +243,6 @@ decl_storage! {
         /// Per-ticker document ID counter.
         /// (ticker) -> doc_id
         pub AssetDocumentsIdSequence get(fn asset_documents_id_sequence): map hasher(blake2_128_concat) Ticker => DocumentId;
-        /// Balances get stored on the basis of the `ScopeId`.
-        /// Right now it is only helpful for the UI purposes but in future it can be used to do miracles on-chain.
-        /// (ScopeId, IdentityId) => Balance.
-        pub BalanceOfAtScope get(fn balance_of_at_scope): double_map hasher(identity) ScopeId, hasher(identity) IdentityId => Balance;
-        /// Store aggregate balance of those identities that has the same `ScopeId`.
-        /// (Ticker, ScopeId) => Balance.
-        pub AggregateBalance get(fn aggregate_balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) ScopeId => Balance;
-        /// Tracks the ScopeId of the identity for a given ticker.
-        /// (Ticker, IdentityId) => ScopeId.
-        pub ScopeIdOf get(fn scope_id_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => ScopeId;
-
-        /// Decides whether investor uniqueness requirement is enforced for this asset.
-        /// `false` means that it is enforced.
-        ///
-        /// Ticker => bool.
-        pub DisableInvestorUniqueness get(fn disable_iu): map hasher(blake2_128_concat) Ticker => bool;
 
         /// Metatdata values for an asset.
         pub AssetMetadataValues get(fn asset_metadata_values):
@@ -314,7 +298,7 @@ decl_storage! {
         config(reserved_country_currency_codes): Vec<Ticker>;
         build(|config: &GenesisConfig<T>| {
             // Reserving country currency logic
-            let fiat_tickers_reservation_did = SystematicIssuers::FiatTickersReservation.as_id();
+            let fiat_tickers_reservation_did = polymesh_common_utilities::SystematicIssuers::FiatTickersReservation.as_id();
             for currency_ticker in &config.reserved_country_currency_codes {
                 <Module<T>>::unverified_register_ticker(&currency_ticker, fiat_tickers_reservation_did, None);
             }
@@ -1235,10 +1219,6 @@ impl<T: Config> Module<T> {
             return Ok(ERC1400_TRANSFERS_HALTED);
         }
 
-        if Self::missing_scope_claim(ticker, &to_portfolio, &from_portfolio) {
-            return Ok(SCOPE_CLAIM_MISSING);
-        }
-
         if Self::portfolio_failure(&from_portfolio, &to_portfolio, ticker, value) {
             return Ok(PORTFOLIO_FAILURE);
         }
@@ -1319,34 +1299,13 @@ impl<T: Config> Module<T> {
             value,
         );
 
-        let from_scope_id = Self::scope_id(ticker, &from_portfolio.did);
-        let to_scope_id = Self::scope_id(ticker, &to_portfolio.did);
-
-        Self::update_scope_balance(
-            ticker,
-            value,
-            from_scope_id,
-            from_portfolio.did,
-            updated_from_total_balance,
-            true,
-        );
-        Self::update_scope_balance(
-            ticker,
-            value,
-            to_scope_id,
-            to_portfolio.did,
-            updated_to_total_balance,
-            false,
-        );
-
         // Update statistic info.
-        // Using the aggregate balance to update the unique investor count.
         Statistics::<T>::update_asset_stats(
             ticker,
             Some(&from_portfolio.did),
             Some(&to_portfolio.did),
-            Some(Self::aggregate_balance_of(ticker, &from_scope_id)),
-            Some(Self::aggregate_balance_of(ticker, &to_scope_id)),
+            Some(updated_from_total_balance),
+            Some(updated_to_total_balance),
             value,
             weight_meter,
         )?;
@@ -1363,28 +1322,6 @@ impl<T: Config> Module<T> {
             },
         ));
         Ok(())
-    }
-
-    /// Updates scope balances after a transfer
-    pub fn update_scope_balance(
-        ticker: &Ticker,
-        value: Balance,
-        scope_id: ScopeId,
-        did: IdentityId,
-        updated_balance: Balance,
-        is_sender: bool,
-    ) {
-        // Calculate the new aggregate balance for given did.
-        // It should not be underflow/overflow but still to be defensive.
-        let aggregate_balance = Self::aggregate_balance_of(ticker, &scope_id);
-        let new_aggregate_balance = if is_sender {
-            aggregate_balance.saturating_sub(value)
-        } else {
-            aggregate_balance.saturating_add(value)
-        };
-
-        AggregateBalance::insert(ticker, &scope_id, new_aggregate_balance);
-        BalanceOfAtScope::insert(scope_id, did, updated_balance);
     }
 
     fn _mint(
@@ -1413,7 +1350,7 @@ impl<T: Config> Module<T> {
         let current_to_balance = Self::balance_of(ticker, to_did);
         // No check since the total balance is always <= the total supply. The
         // total supply is already checked above.
-        let mut updated_to_balance = current_to_balance + value;
+        let updated_to_balance = current_to_balance + value;
         // No check since the default portfolio balance is always <= the total
         // supply. The total supply is already checked above.
         let updated_to_def_balance = Portfolio::<T>::portfolio_asset_balances(
@@ -1437,20 +1374,6 @@ impl<T: Config> Module<T> {
         BalanceOf::insert(ticker, &to_did, updated_to_balance);
         Portfolio::<T>::set_default_portfolio_balance(to_did, ticker, updated_to_def_balance);
         Tokens::insert(ticker, token);
-
-        // If investor uniqueness is disabled for the ticker,
-        // the `scope_id` will always equal `to_did`.
-        let scope_id = Self::scope_id(ticker, &to_did);
-        if scope_id != ScopeId::default() {
-            // scope_id can only be default if investor uniqueness
-            // is enabled and the issuer doesn't have a claim yet.
-
-            // Update scope balances.
-            Self::update_scope_balance(&ticker, value, scope_id, to_did, updated_to_balance, false);
-
-            // Using the aggregate balance to update the unique investor count.
-            updated_to_balance = Self::aggregate_balance_of(ticker, &scope_id);
-        }
 
         Statistics::<T>::update_asset_stats(
             &ticker,
@@ -1582,8 +1505,6 @@ impl<T: Config> Module<T> {
             INVALID_RECEIVER_DID
         } else if Self::invalid_cdd(from_portfolio.did) {
             INVALID_SENDER_DID
-        } else if Self::missing_scope_claim(ticker, &to_portfolio, &from_portfolio) {
-            SCOPE_CLAIM_MISSING
         } else if Self::custodian_error(
             from_portfolio,
             from_custodian.unwrap_or(from_portfolio.did),
@@ -1785,7 +1706,6 @@ impl<T: Config> Module<T> {
         };
         Tokens::insert(&ticker, token);
         AssetNames::insert(&ticker, &name);
-        DisableInvestorUniqueness::insert(&ticker, true);
         // NB - At the time of asset creation it is obvious that the asset issuer will not have an
         // `InvestorUniqueness` claim. So we are skipping the scope claim based stats update as
         // those data points will get added in to the system whenever the asset issuer
@@ -1904,25 +1824,12 @@ impl<T: Config> Module<T> {
         BalanceOf::insert(ticker, &portfolio.did, updated_balance);
         Tokens::insert(ticker, token);
 
-        // Update scope balances
-        let scope_id = Self::scope_id(&ticker, &portfolio.did);
-        Self::update_scope_balance(
-            &ticker,
-            value,
-            scope_id,
-            portfolio.did,
-            updated_balance,
-            true,
-        );
-
         // Update statistic info.
-        // Using the aggregate balance to update the unique investor count.
-        let updated_from_balance = Some(Self::aggregate_balance_of(ticker, &scope_id));
         Statistics::<T>::update_asset_stats(
             &ticker,
             Some(&portfolio.did),
             None,
-            updated_from_balance,
+            Some(updated_balance),
             None,
             value,
             weight_meter,
@@ -2298,7 +2205,6 @@ impl<T: Config> Module<T> {
         let self_transfer = Self::self_transfer(&from_portfolio, &to_portfolio);
         let invalid_receiver_cdd = Self::invalid_cdd(to_portfolio.did);
         let invalid_sender_cdd = Self::invalid_cdd(from_portfolio.did);
-        let missing_scope_claim = Self::missing_scope_claim(ticker, &to_portfolio, &from_portfolio);
         let receiver_custodian_error =
             Self::custodian_error(to_portfolio, to_custodian.unwrap_or(to_portfolio.did));
         let sender_custodian_error =
@@ -2331,7 +2237,6 @@ impl<T: Config> Module<T> {
             self_transfer,
             invalid_receiver_cdd,
             invalid_sender_cdd,
-            missing_scope_claim,
             receiver_custodian_error,
             sender_custodian_error,
             sender_insufficient_balance,
@@ -2340,7 +2245,6 @@ impl<T: Config> Module<T> {
                 && !self_transfer
                 && !invalid_receiver_cdd
                 && !invalid_sender_cdd
-                && !missing_scope_claim
                 && !receiver_custodian_error
                 && !sender_custodian_error
                 && !sender_insufficient_balance
@@ -2367,14 +2271,6 @@ impl<T: Config> Module<T> {
         !Identity::<T>::has_valid_cdd(did)
     }
 
-    fn missing_scope_claim(ticker: &Ticker, from: &PortfolioId, to: &PortfolioId) -> bool {
-        // We want this function missing_scope_claim to return true iff:
-        // - ticker enforces scope claims (i.e. DisableInvestorUniqueness::get(ticker) == false ) AND
-        // - to.did / from.did don’t have a scope claim (i.e. !Identity::<T>::verify_iu_claims_for_transfer(*ticker, to.did, from.did) )
-        !DisableInvestorUniqueness::get(ticker)
-            && !Identity::<T>::verify_iu_claims_for_transfer(*ticker, to.did, from.did)
-    }
-
     fn custodian_error(from: PortfolioId, custodian: IdentityId) -> bool {
         Portfolio::<T>::ensure_portfolio_custody(from, custodian).is_err()
     }
@@ -2398,18 +2294,6 @@ impl<T: Config> Module<T> {
         .is_err()
     }
 
-    fn setup_statistics_failures(
-        from_did: &IdentityId,
-        to_did: &IdentityId,
-        ticker: &Ticker,
-    ) -> (ScopeId, ScopeId, Balance) {
-        (
-            Self::scope_id(ticker, &from_did),
-            Self::scope_id(ticker, &to_did),
-            Self::total_supply(*ticker),
-        )
-    }
-
     fn statistics_failures(
         from_did: &IdentityId,
         to_did: &IdentityId,
@@ -2417,16 +2301,13 @@ impl<T: Config> Module<T> {
         value: Balance,
         weight_meter: &mut WeightMeter,
     ) -> bool {
-        let (from_scope_id, to_scope_id, total_supply) =
-            Self::setup_statistics_failures(from_did, to_did, ticker);
+        let total_supply = Self::total_supply(*ticker);
         Statistics::<T>::verify_transfer_restrictions(
             ticker,
-            from_scope_id,
-            to_scope_id,
             from_did,
             to_did,
-            Self::aggregate_balance_of(ticker, &from_scope_id),
-            Self::aggregate_balance_of(ticker, &to_scope_id),
+            Self::balance_of(ticker, from_did),
+            Self::balance_of(ticker, to_did),
             value,
             total_supply,
             weight_meter,
@@ -2441,16 +2322,13 @@ impl<T: Config> Module<T> {
         value: Balance,
         weight_meter: &mut WeightMeter,
     ) -> Result<Vec<TransferConditionResult>, DispatchError> {
-        let (from_scope_id, to_scope_id, total_supply) =
-            Self::setup_statistics_failures(from_did, to_did, ticker);
+        let total_supply = Self::total_supply(*ticker);
         Statistics::<T>::get_transfer_restrictions_results(
             ticker,
-            from_scope_id,
-            to_scope_id,
             from_did,
             to_did,
-            Self::aggregate_balance_of(ticker, &from_scope_id),
-            Self::aggregate_balance_of(ticker, &to_scope_id),
+            Self::balance_of(ticker, from_did),
+            Self::balance_of(ticker, to_did),
             value,
             total_supply,
             weight_meter,
@@ -2678,29 +2556,6 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker) {
-        if Self::disable_iu(ticker) {
-            return;
-        }
-        use polymesh_primitives::{CddId, Claim, InvestorUid, Scope};
-        Identity::<T>::unverified_add_claim_with_scope(
-            did,
-            Claim::InvestorUniqueness(
-                Scope::Ticker(ticker),
-                did,
-                CddId::new_v1(did, InvestorUid::from(did.to_bytes())),
-            ),
-            Some(Scope::Ticker(ticker)),
-            did,
-            None,
-        );
-        let current_balance = Self::balance_of(ticker, did);
-        AggregateBalance::insert(ticker, &did, current_balance);
-        BalanceOfAtScope::insert(did, did, current_balance);
-        ScopeIdOf::insert(ticker, did, did);
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
     fn register_asset_metadata_type(
         origin: T::RuntimeOrigin,
         ticker: Option<Ticker>,
@@ -2711,57 +2566,5 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
             Some(ticker) => Self::register_asset_metadata_local_type(origin, ticker, name, spec),
             None => Self::register_asset_metadata_global_type(origin, name, spec),
         }
-    }
-}
-
-impl<T: Config> AssetSubTrait for Module<T> {
-    fn update_balance_of_scope_id(scope_id: ScopeId, target_did: IdentityId, ticker: Ticker) {
-        // If `target_did` already has another ScopeId, clean up the old ScopeId data.
-        if ScopeIdOf::contains_key(&ticker, &target_did) {
-            let old_scope_id = Self::scope_id(&ticker, &target_did);
-            // Delete the balance of target_did at old_scope_id.
-            let target_balance = BalanceOfAtScope::take(old_scope_id, target_did);
-            // Reduce the aggregate balance of identities with the same ScopeId by the deleted balance.
-            AggregateBalance::mutate(ticker, old_scope_id, {
-                |bal| *bal = bal.saturating_sub(target_balance)
-            });
-        }
-
-        let balance_at_scope = Self::balance_of_at_scope(scope_id, target_did);
-
-        // Used `balance_at_scope` variable to skip re-updating the aggregate balance of the given identityId whom
-        // has the scope claim already.
-        if balance_at_scope == Zero::zero() {
-            let current_balance = Self::balance_of(ticker, target_did);
-            // Update the balance of `target_did` under `scope_id`.
-            BalanceOfAtScope::insert(scope_id, target_did, current_balance);
-            // current aggregate balance + current identity balance is always less than the total supply of `ticker`.
-            AggregateBalance::mutate(ticker, scope_id, |bal| *bal = *bal + current_balance);
-        }
-        // Caches the `ScopeId` for a given IdentityId and ticker.
-        // this is needed to avoid the on-chain iteration of the claims to find the ScopeId.
-        ScopeIdOf::insert(ticker, target_did, scope_id);
-    }
-
-    /// Returns balance for a given scope id and target DID.
-    fn balance_of_at_scope(scope_id: &ScopeId, target: &IdentityId) -> Balance {
-        Self::balance_of_at_scope(scope_id, target)
-    }
-
-    fn scope_id(ticker: &Ticker, did: &IdentityId) -> ScopeId {
-        if DisableInvestorUniqueness::get(ticker) {
-            *did
-        } else {
-            Self::scope_id_of(ticker, did)
-        }
-    }
-
-    /// Ensure that Investor Uniqueness is allowed for the ticker.
-    fn ensure_investor_uniqueness_claims_allowed(ticker: &Ticker) -> DispatchResult {
-        ensure!(
-            !DisableInvestorUniqueness::get(ticker),
-            Error::<T>::InvestorUniquenessClaimNotAllowed
-        );
-        Ok(())
     }
 }

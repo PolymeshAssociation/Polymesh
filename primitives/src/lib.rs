@@ -18,9 +18,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use blake2::{Blake2b, Digest};
 use codec::{Decode, Encode};
-use confidential_identity_v1::Scalar as ScalarV1;
 use frame_support::weights::Weight;
 use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 use scale_info::TypeInfo;
@@ -76,15 +74,6 @@ impl From<(u32, u32)> for PosRatio {
     }
 }
 
-/// It creates a scalar from the blake2_512 hash of `data` parameter.
-pub fn scalar_blake2_from_bytes(data: impl AsRef<[u8]>) -> ScalarV1 {
-    let hash = Blake2b::default()
-        .chain_update(data.as_ref())
-        .finalize()
-        .into();
-    ScalarV1::from_bytes_mod_order_wide(&hash)
-}
-
 /// The balance of an account.
 /// 128-bits (or 38 significant decimal figures) will allow for 10m currency (10^7) at a resolution
 /// to all for one second's worth of an annualised 50% reward be paid to a unit holder (10^11 unit
@@ -136,20 +125,14 @@ pub use identity::DidRecord;
 /// Provides the `CheckedInc` trait.
 pub mod checked_inc;
 
-/// CDD Identity is an ID to link the encrypted investor UID with one Identity ID.
-/// That keeps the privacy of a real investor and its global portfolio split in several Polymesh
-/// Identities.
+/// CDD Id.
 pub mod cdd_id;
-pub use cdd_id::{CddId, InvestorUid};
-
-/// Investor Zero Knowledge Proof data
-pub mod investor_zkproof_data;
-pub use investor_zkproof_data::InvestorZKProofData;
+pub use cdd_id::CddId;
 
 /// Claim information.
 /// Each claim is associated with this kind of record.
 pub mod identity_claim;
-pub use identity_claim::{Claim, ClaimType, CustomClaimTypeId, IdentityClaim, Scope, ScopeId};
+pub use identity_claim::{Claim, ClaimType, CustomClaimTypeId, IdentityClaim, Scope};
 
 // Defining and enumerating jurisdictions.
 pub mod jurisdiction;
@@ -194,9 +177,6 @@ pub use condition::{Condition, ConditionType, TargetIdentity, TrustedFor, Truste
 /// Predicate calculation for Claims.
 pub mod proposition;
 pub use proposition::{AndProposition, Context, NotProposition, OrProposition, Proposition};
-
-/// For confidential stuff.
-pub mod valid_proof_of_investor;
 
 /// Timekeeping and checkpoints.
 pub mod calendar;

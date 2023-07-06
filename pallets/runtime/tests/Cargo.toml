@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 mercat = { version = "1.1.0", default-features = false }
-confidential_identity_v1 = { version = "1.1.0", default-features = false }
 confidential_identity_core = { version = "1.1.0", default-features = false }
 
 node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
@@ -125,14 +124,12 @@ only-staking = []
 # Backends
 u64_backend = [
 		"mercat/u64_backend",
-    "confidential_identity_core/u64_backend",
     "polymesh-primitives/u64_backend"
 ]
 
 no_std = [
 		"pallet-confidential-asset/no_std",
     "mercat/no_std",
-    "confidential_identity_core/no_std",
     "u64_backend"
 ]
 
@@ -140,8 +137,6 @@ std = [
     "u64_backend",
 		"rand/std",
 		"mercat/std",
-    "confidential_identity_core/std",
-    "confidential_identity_v1/std",
     "frame-support/std",
     "frame-system/std",
     "frame-election-provider-support/std",

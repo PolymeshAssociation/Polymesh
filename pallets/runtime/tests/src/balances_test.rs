@@ -15,7 +15,7 @@ use frame_support::{
 };
 use frame_system::{EventRecord, Phase};
 use pallet_transaction_payment::ChargeTransactionPayment;
-use polymesh_primitives::{traits::BlockRewardsReserveCurrency, InvestorUid, Memo};
+use polymesh_primitives::{traits::BlockRewardsReserveCurrency, Memo};
 use sp_runtime::traits::SignedExtension;
 use test_client::AccountKeyring;
 
@@ -47,7 +47,6 @@ fn signed_extension_charge_transaction_payment_work() {
             let alice_id = AccountKeyring::Alice.to_account_id();
 
             let call = runtime::RuntimeCall::TestUtils(test_utils::Call::register_did {
-                uid: InvestorUid::default(),
                 secondary_keys: vec![],
             });
 
@@ -85,7 +84,6 @@ fn tipping_fails() {
         .build()
         .execute_with(|| {
             let call = runtime::RuntimeCall::TestUtils(test_utils::Call::register_did {
-                uid: InvestorUid::default(),
                 secondary_keys: vec![],
             });
             let len = 10;

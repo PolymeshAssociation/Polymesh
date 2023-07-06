@@ -32,9 +32,7 @@ use polymesh_primitives::statistics::{
 use polymesh_primitives::transfer_compliance::{
     AssetTransferCompliance, TransferCondition, TransferConditionExemptKey, TransferConditionResult,
 };
-use polymesh_primitives::{
-    storage_migration_ver, Balance, IdentityId, ScopeId, Ticker, WeightMeter,
-};
+use polymesh_primitives::{storage_migration_ver, Balance, IdentityId, Ticker, WeightMeter};
 
 type Identity<T> = pallet_identity::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
@@ -56,7 +54,7 @@ decl_storage! {
         pub TransferConditionExemptEntities get(fn transfer_condition_exempt_entities):
             double_map
                 hasher(blake2_128_concat) TransferConditionExemptKey,
-                hasher(blake2_128_concat) ScopeId
+                hasher(blake2_128_concat) IdentityId
             =>
                 bool;
 
@@ -150,7 +148,7 @@ decl_module! {
         /// - Agent
         /// - Asset
         #[weight = <T as Config>::WeightInfo::set_entities_exempt(entities.len() as u32)]
-        pub fn set_entities_exempt(origin, is_exempt: bool, exempt_key: TransferConditionExemptKey, entities: BTreeSet<ScopeId>) {
+        pub fn set_entities_exempt(origin, is_exempt: bool, exempt_key: TransferConditionExemptKey, entities: BTreeSet<IdentityId>) {
             Self::base_set_entities_exempt(origin, is_exempt, exempt_key, entities)?;
         }
     }
@@ -312,7 +310,7 @@ impl<T: Config> Module<T> {
         origin: T::RuntimeOrigin,
         is_exempt: bool,
         exempt_key: TransferConditionExemptKey,
-        entities: BTreeSet<ScopeId>,
+        entities: BTreeSet<IdentityId>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
         let did = Self::ensure_asset_perms(origin, exempt_key.asset)?;
@@ -740,8 +738,6 @@ impl<T: Config> Module<T> {
     fn check_transfer_condition(
         condition: &TransferCondition,
         asset: AssetScope,
-        from: ScopeId,
-        to: ScopeId,
         from_did: &IdentityId,
         to_did: &IdentityId,
         to_balance: Balance,
@@ -799,30 +795,29 @@ impl<T: Config> Module<T> {
             Ok(true)
         } else {
             Self::consume_weight_meter(weight_meter, <T as Config>::WeightInfo::is_exempt())?;
-            Ok(Self::is_exempt(asset, condition, &from, &to))
+            Ok(Self::is_exempt(asset, condition, &from_did, &to_did))
         }
     }
 
-    /// Returns `true` if the [`TransferCondition`] operation is of type [`StatOpType::Count`] and `sender_scope_id`
+    /// Returns `true` if the [`TransferCondition`] operation is of type [`StatOpType::Count`] and `sender_did`
     /// is in the exemption list or if [`TransferCondition`] operation is of type [`StatOpType::Balance`] and
-    /// `receiver_scope_id` is in the exemption list, otherwise returns `false`.
+    /// `receiver_did` is in the exemption list, otherwise returns `false`.
     fn is_exempt(
         asset_scope: AssetScope,
         transfer_condition: &TransferCondition,
-        sender_scope_id: &ScopeId,
-        receiver_scope_id: &ScopeId,
+        sender_did: &IdentityId,
+        receiver_did: &IdentityId,
     ) -> bool {
         let transfer_condition_exempt_key = transfer_condition.get_exempt_key(asset_scope);
         match transfer_condition_exempt_key.op {
             // Count transfer conditions require the sender to be exempt.
-            StatOpType::Count => Self::transfer_condition_exempt_entities(
-                transfer_condition_exempt_key,
-                sender_scope_id,
-            ),
+            StatOpType::Count => {
+                Self::transfer_condition_exempt_entities(transfer_condition_exempt_key, sender_did)
+            }
             // Percent ownersip transfer conditions require the receiver to be exempt.
             StatOpType::Balance => Self::transfer_condition_exempt_entities(
                 transfer_condition_exempt_key,
-                receiver_scope_id,
+                receiver_did,
             ),
         }
     }
@@ -830,8 +825,6 @@ impl<T: Config> Module<T> {
     /// Verify transfer restrictions for a transfer.
     pub fn verify_transfer_restrictions(
         ticker: &Ticker,
-        sender_scope: ScopeId,
-        receiver_scope: ScopeId,
         sender_did: &IdentityId,
         receiver_did: &IdentityId,
         sender_balance: Balance,
@@ -851,8 +844,6 @@ impl<T: Config> Module<T> {
         Self::verify_requirements(
             &asset_transfer_requirements.requirements,
             asset_scope,
-            sender_scope,
-            receiver_scope,
             sender_did,
             receiver_did,
             sender_balance,
@@ -867,8 +858,6 @@ impl<T: Config> Module<T> {
     fn verify_requirements<S: Get<u32>>(
         transfer_conditions: &BoundedBTreeSet<TransferCondition, S>,
         asset_scope: AssetScope,
-        sender_scope: ScopeId,
-        receiver_scope: ScopeId,
         sender_did: &IdentityId,
         receiver_did: &IdentityId,
         sender_balance: Balance,
@@ -888,8 +877,6 @@ impl<T: Config> Module<T> {
             if !Self::check_transfer_condition(
                 &transfer_condition,
                 asset_scope,
-                sender_scope,
-                receiver_scope,
                 sender_did,
                 receiver_did,
                 receiver_balance,
@@ -908,8 +895,6 @@ impl<T: Config> Module<T> {
     /// Get the results of all transfer restrictions for a transfer.
     pub fn get_transfer_restrictions_results(
         ticker: &Ticker,
-        from: ScopeId,
-        to: ScopeId,
         from_did: &IdentityId,
         to_did: &IdentityId,
         from_balance: Balance,
@@ -933,8 +918,6 @@ impl<T: Config> Module<T> {
             let condition_holds = Self::check_transfer_condition(
                 &condition,
                 asset,
-                from,
-                to,
                 from_did,
                 to_did,
                 to_balance,

@@ -35,7 +35,6 @@ pallet-scheduler = { git = "https://github.com/PolymeshAssociation/substrate", b
 pallet-session = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 pallet-staking-reward-curve = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 pallet-timestamp = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
-pallet-treasury = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 sc-authority-discovery = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 sc-basic-authorship = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 sc-block-builder = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
@@ -105,22 +104,13 @@ substrate-test-utils-derive = { git = "https://github.com/PolymeshAssociation/su
 substrate-wasm-builder = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 
 bulletproofs = { version = "4.0.0", git = "https://github.com/PolymeshAssociation/bulletproofs", branch = "polymesh" }
-
-#mercat = { path = "../cryptography/mercat" }
-#confidential_identity_core = { path = "../cryptography/confidential-identity-core" }
-#confidential_identity_v1 = { path = "../cryptography/confidential-identity-v1" }
-#confidential_identity_v2 = { path = "../cryptography/confidential-identity-v2" }
-
 mercat = { version = "1.1.0", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_polymesh_v6.0" }
-confidential_identity_core = { version = "1.1", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_polymesh_v6.0" }
-confidential_identity_v1 = { version = "1.1", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_polymesh_v6.0" }
-confidential_identity_v2 = { version = "2.1", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_polymesh_v6.0" }
 
 [workspace]
 members = [
-    "bin/bench",
-    "bin/crypto-cli",
-    "bin/testing",
+    #"bin/bench",
+    #"bin/crypto-cli",
+    #"bin/testing",
     #"migration-tests",
     #"migration-tests/remote-externalities",
     "node-rpc",

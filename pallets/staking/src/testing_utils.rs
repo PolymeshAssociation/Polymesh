@@ -101,7 +101,6 @@ fn _create_stash_controller<T: Config + TestUtilsFn<AccountIdOf<T>>>(
             origin: RawOrigin::Signed(acc),
             did: None,
             secret: None,
-            uid: None,
         }
     } else {
         UserBuilder::<T>::default()

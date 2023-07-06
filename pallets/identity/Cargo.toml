@@ -18,7 +18,6 @@ serde_derive = { version = "1.0.104", optional = true, default-features = false 
 either = { version = "1.6.1", default-features = false }
 
 # Cryptography
-confidential_identity_v2 = { version = "2.1.0", default-features = false }
 schnorrkel = { version = "0.10.1", default-features = false, optional = true }
 
 # Substrate
@@ -43,15 +42,10 @@ equalize = []
 default = ["std", "equalize"]
 no_cdd = []
 running-ci = []
-no_std = [
-  "confidential_identity_v2/no_std",
-	"confidential_identity_v2/u64_backend",
-]
+no_std = []
 only-staking = []
 std = [
     "codec/std",
-    "confidential_identity_v2/std",
-    "confidential_identity_v2/u64_backend",
     "frame-support/std",
     "frame-system/std",
     "pallet-base/std",

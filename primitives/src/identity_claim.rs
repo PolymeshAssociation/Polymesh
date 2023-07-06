@@ -23,9 +23,6 @@ use sp_std::{convert::From, prelude::*};
 
 use super::jurisdiction::CountryCode;
 
-/// It is the asset Id.
-pub type ScopeId = IdentityId;
-
 /// The ID of a custom claim type.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, TypeInfo)]
@@ -97,29 +94,8 @@ pub enum Claim {
     Exempted(Scope),
     /// User is Blocked.
     Blocked(Scope),
-    /// Confidential claim that will allow an investor to justify that it's identity can be
-    /// a potential asset holder of given `scope`.
-    ///
-    /// All investors must have this claim (or a `InvestorUniquenessV2`), which will help the issuer apply compliance rules
-    /// on the `ScopeId` instead of the investor's `IdentityId`, as `ScopeId` is unique at the
-    /// investor entity level for a given scope (will always be a `Ticker`).
-    InvestorUniqueness(Scope, ScopeId, CddId),
-    /// Empty claim.
-    NoData,
-    /// Confidential claim using latest version from cryptography library.
-    ///
-    /// All investors must have this claim (or a `InvestorUniqueness`), which will help the issuer apply compliance rules
-    /// on the `ScopeId` instead of the investor's `IdentityId`, as `ScopeId` is unique at the
-    /// investor entity level for a given scope (will always be a `Ticker`).
-    InvestorUniquenessV2(CddId),
     /// Custom claim with an optional scope.
     Custom(CustomClaimTypeId, Option<Scope>),
-}
-
-impl Default for Claim {
-    fn default() -> Self {
-        Claim::NoData
-    }
 }
 
 impl Claim {
@@ -135,10 +111,7 @@ impl Claim {
             Claim::Jurisdiction(..) => ClaimType::Jurisdiction,
             Claim::Exempted(..) => ClaimType::Exempted,
             Claim::Blocked(..) => ClaimType::Blocked,
-            Claim::InvestorUniqueness(..) => ClaimType::InvestorUniqueness,
-            Claim::InvestorUniquenessV2(..) => ClaimType::InvestorUniquenessV2,
             Claim::Custom(cc_id, _) => ClaimType::Custom(*cc_id),
-            Claim::NoData => ClaimType::NoType,
         }
     }
 
@@ -152,12 +125,9 @@ impl Claim {
             | Claim::KnowYourCustomer(scope)
             | Claim::Jurisdiction(.., scope)
             | Claim::Exempted(scope)
-            | Claim::Blocked(scope)
-            | Claim::InvestorUniqueness(scope, ..) => Some(scope),
+            | Claim::Blocked(scope) => Some(scope),
             Claim::Custom(_, scope) => scope.as_ref(),
-            Claim::CustomerDueDiligence(..) | Claim::InvestorUniquenessV2(..) | Claim::NoData => {
-                None
-            }
+            Claim::CustomerDueDiligence(..) => None,
         }
     }
 
@@ -190,25 +160,13 @@ pub enum ClaimType {
     Exempted,
     /// User is Blocked.
     Blocked,
-    /// User identity can be bounded under a `ScopeId`.
-    InvestorUniqueness,
-    /// Empty type.
-    NoType,
-    /// New Investor uniqueness claim.
-    InvestorUniquenessV2,
     /// Custom claim referenced by Id.
     Custom(CustomClaimTypeId),
 }
 
-impl Default for ClaimType {
-    fn default() -> Self {
-        ClaimType::NoType
-    }
-}
-
 /// All information of a particular claim
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(Encode, Decode, TypeInfo, Clone, Default, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq)]
 pub struct IdentityClaim {
     /// Issuer of the claim
     pub claim_issuer: IdentityId,
@@ -225,8 +183,11 @@ pub struct IdentityClaim {
 impl From<Claim> for IdentityClaim {
     fn from(data: Claim) -> Self {
         IdentityClaim {
+            claim_issuer: Default::default(),
+            issuance_date: Default::default(),
+            last_update_date: Default::default(),
+            expiry: Default::default(),
             claim: data,
-            ..Default::default()
         }
     }
 }

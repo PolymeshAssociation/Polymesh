@@ -308,40 +308,6 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(i.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Storage: Identity DidRecords (r:1 w:0)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Storage: Instance2Group InactiveMembers (r:1 w:0)
-    // Storage: Identity Claims (r:3 w:1)
-    // Storage: Asset DisableInvestorUniqueness (r:1 w:0)
-    // Storage: Asset ScopeIdOf (r:1 w:1)
-    // Storage: Asset BalanceOfAtScope (r:1 w:1)
-    // Storage: Asset BalanceOf (r:1 w:0)
-    // Storage: Asset AggregateBalance (r:1 w:1)
-    fn add_investor_uniqueness_claim() -> Weight {
-        // Minimum execution time: 1_009_724 nanoseconds.
-        Weight::from_ref_time(1_018_561_000)
-            .saturating_add(DbWeight::get().reads(13))
-            .saturating_add(DbWeight::get().writes(4))
-    }
-    // Storage: Identity KeyRecords (r:1 w:0)
-    // Storage: Identity DidRecords (r:1 w:0)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Storage: Instance2Group InactiveMembers (r:1 w:0)
-    // Storage: Identity Claims (r:3 w:1)
-    // Storage: Asset DisableInvestorUniqueness (r:1 w:0)
-    // Storage: Asset ScopeIdOf (r:1 w:1)
-    // Storage: Asset BalanceOfAtScope (r:1 w:1)
-    // Storage: Asset BalanceOf (r:1 w:0)
-    // Storage: Asset AggregateBalance (r:1 w:1)
-    fn add_investor_uniqueness_claim_v2() -> Weight {
-        // Minimum execution time: 1_913_584 nanoseconds.
-        Weight::from_ref_time(1_921_098_000)
-            .saturating_add(DbWeight::get().reads(13))
-            .saturating_add(DbWeight::get().writes(4))
-    }
-    // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity CustomClaimsInverse (r:1 w:1)
     // Storage: Identity CustomClaimIdSequence (r:1 w:1)
     // Storage: Identity CustomClaims (r:0 w:1)

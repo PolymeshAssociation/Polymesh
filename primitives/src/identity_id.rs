@@ -27,7 +27,7 @@ use sp_std::prelude::Vec;
 
 use polymesh_primitives_derive::VecU8StrongTyped;
 
-use crate::{cdd_id::InvestorUid, AccountId, EventOnly, SecondaryKey};
+use crate::{AccountId, EventOnly, SecondaryKey};
 
 const _POLY_DID_PREFIX: &str = "did:poly:";
 const POLY_DID_PREFIX_LEN: usize = 9; // _POLY_DID_PREFIX.len(); // CI does not support: #![feature(const_str_len)]
@@ -46,8 +46,6 @@ pub struct GenesisIdentityRecord<AccountId> {
     pub issuers: Vec<IdentityId>,
     /// own DID.
     pub did: IdentityId,
-    /// Investor UID.
-    pub investor: InvestorUid,
     /// CDD claim expiry
     pub cdd_claim_expiry: Option<u64>,
 }
@@ -59,7 +57,6 @@ impl Default for GenesisIdentityRecord<AccountId> {
             secondary_keys: Vec::new(),
             issuers: Vec::new(),
             did: Default::default(),
-            investor: Default::default(),
             cdd_claim_expiry: None,
         }
     }
@@ -71,7 +68,6 @@ impl GenesisIdentityRecord<AccountId> {
         Self {
             primary_key: Some(primary_key),       // No CDD claim will be issued
             did: IdentityId::from(nonce as u128), // Identity = 0xi000...0000
-            investor: InvestorUid::from([nonce; 16]), // Irrelevant since no CDD claim is issued
             ..Default::default()
         }
     }
