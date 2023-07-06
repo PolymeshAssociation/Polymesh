@@ -239,8 +239,10 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn integrity_test() {
             // If you hit this error, you need to try to `Box` big dispatchable parameters.
+            let call_size = sp_std::mem::size_of::<<T as Config>::RuntimeCall>();
+            log::info!("RuntimeCall enum size: {}", call_size);
             assert!(
-                sp_std::mem::size_of::<<T as Config>::RuntimeCall>() as u32 <= CALL_ALIGN,
+                call_size as u32 <= CALL_ALIGN,
                 "Call enum size should be smaller than {} bytes.",
                 CALL_ALIGN,
             );

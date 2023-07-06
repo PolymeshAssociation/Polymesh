@@ -20,6 +20,7 @@ sp-core = { version = "7.0.0", default-features = false }
 sp-io = { version = "7.0.0", default-features = false }
 sp-runtime = { version = "7.0.0", default-features = false }
 sp-std = { version = "5.0.0", default-features = false }
+log = "0.4.8"
 
 [features]
 default = ["std"]
