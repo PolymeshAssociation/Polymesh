@@ -191,7 +191,7 @@ impl Default for RestrictionResult {
     }
 }
 
-storage_migration_ver!(2);
+storage_migration_ver!(3);
 
 decl_storage! {
     trait Store for Module<T: Config> as Asset {
@@ -292,7 +292,7 @@ decl_storage! {
             double_map hasher(identity) IdentityId, hasher(blake2_128_concat) Ticker => bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(3)): Version;
     }
     add_extra_genesis {
         config(reserved_country_currency_codes): Vec<Ticker>;
@@ -327,8 +327,18 @@ decl_module! {
         // Remove all storage related to classic tickers in this module
         fn on_runtime_upgrade() -> Weight {
             use polymesh_primitives::storage_migrate_on;
-            storage_migrate_on!(StorageVersion, 2, {
-                let _ = frame_support::storage::migration::clear_storage_prefix(<Pallet<T>>::name().as_bytes(), b"ClassicTickers", b"", None, None);
+            storage_migrate_on!(StorageVersion, 3, {
+                let prefixes = &[
+                    "BalanceOfAtScope",
+                    "AggregateBalance",
+                    "ScopeIdOf",
+                    "DisableInvestorUniqueness",
+                ];
+                for prefix in prefixes {
+                    let res = frame_support::storage::migration::clear_storage_prefix(<Pallet<T>>::name().as_bytes(), prefix.as_bytes(), b"", None, None);
+                    log::info!("Cleared storage prefix[{prefix}]: cursor={:?}, backend={}, unique={}, loops={}",
+                        res.maybe_cursor, res.backend, res.unique, res.loops);
+                }
             });
             Weight::zero()
         }

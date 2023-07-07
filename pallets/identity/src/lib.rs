@@ -99,9 +99,7 @@ use sp_std::prelude::*;
 
 use frame_support::dispatch::DispatchClass::{Normal, Operational};
 use frame_support::dispatch::{DispatchResult, Pays, Weight};
-use frame_support::traits::{
-    ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers, PalletInfoAccess,
-};
+use frame_support::traits::{ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers};
 use frame_support::{decl_error, decl_module, decl_storage};
 use polymesh_common_utilities::constants::did::SECURITY_TOKEN;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
@@ -118,7 +116,7 @@ use polymesh_primitives::{
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 
-storage_migration_ver!(2);
+storage_migration_ver!(3);
 
 decl_storage! {
     trait Store for Module<T: Config> as Identity {
@@ -172,7 +170,7 @@ decl_storage! {
         pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(3)): Version;
 
         /// How many "strong" references to the account key.
         ///
@@ -249,8 +247,8 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 2, {
-                let _ = frame_support::storage::migration::clear_storage_prefix(<Pallet<T>>::name().as_bytes(), b"CddAuthForMasterKeyRotation", b"", None, None);
+            storage_migrate_on!(StorageVersion, 3, {
+                migration::migrate_to_v3::<T>();
             });
             Weight::zero()
         }
@@ -763,5 +761,107 @@ fn revoke_claim_class(claim_type: ClaimType) -> frame_support::dispatch::Dispatc
     match claim_type {
         ClaimType::CustomerDueDiligence => Operational,
         _ => Normal,
+    }
+}
+
+pub mod migration {
+    use super::*;
+    use sp_runtime::runtime_logger::RuntimeLogger;
+
+    mod v2 {
+        use super::*;
+        use polymesh_primitives::{CountryCode, Moment};
+        use scale_info::TypeInfo;
+
+        type ScopeId = IdentityId;
+
+        #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, Hash)]
+        pub enum ClaimV1 {
+            Accredited(Scope),
+            Affiliate(Scope),
+            BuyLockup(Scope),
+            SellLockup(Scope),
+            CustomerDueDiligence(CddId),
+            KnowYourCustomer(Scope),
+            Jurisdiction(CountryCode, Scope),
+            Exempted(Scope),
+            Blocked(Scope),
+            InvestorUniqueness(Scope, ScopeId, CddId),
+            NoData,
+            InvestorUniquenessV2(CddId),
+            Custom(CustomClaimTypeId, Option<Scope>),
+        }
+
+        impl ClaimV1 {
+            pub fn try_into(self) -> Option<Claim> {
+                match self {
+                    Self::Accredited(scope) => Some(Claim::Accredited(scope)),
+                    Self::Affiliate(scope) => Some(Claim::Affiliate(scope)),
+                    Self::BuyLockup(scope) => Some(Claim::BuyLockup(scope)),
+                    Self::SellLockup(scope) => Some(Claim::SellLockup(scope)),
+                    Self::CustomerDueDiligence(cdd) => Some(Claim::CustomerDueDiligence(cdd)),
+                    Self::KnowYourCustomer(scope) => Some(Claim::KnowYourCustomer(scope)),
+                    Self::Jurisdiction(cc, scope) => Some(Claim::Jurisdiction(cc, scope)),
+                    Self::Exempted(scope) => Some(Claim::Exempted(scope)),
+                    Self::Blocked(scope) => Some(Claim::Blocked(scope)),
+                    Self::Custom(type_id, scope) => Some(Claim::Custom(type_id, scope)),
+                    _ => None,
+                }
+            }
+        }
+
+        #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq)]
+        pub struct IdentityClaimV1 {
+            pub claim_issuer: IdentityId,
+            pub issuance_date: Moment,
+            pub last_update_date: Moment,
+            pub expiry: Option<Moment>,
+            pub claim: ClaimV1,
+        }
+
+        impl IdentityClaimV1 {
+            pub fn try_into(self) -> Option<IdentityClaim> {
+                let claim = self.claim.try_into()?;
+                Some(IdentityClaim {
+                    claim_issuer: self.claim_issuer,
+                    issuance_date: self.issuance_date,
+                    last_update_date: self.last_update_date,
+                    expiry: self.expiry,
+                    claim,
+                })
+            }
+        }
+
+        decl_storage! {
+            trait Store for Module<T: Config> as Identity {
+                pub Claims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => Option<IdentityClaimV1>;
+            }
+        }
+
+        decl_module! {
+            pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin { }
+        }
+    }
+
+    pub fn migrate_to_v3<T: Config>() {
+        RuntimeLogger::init();
+        log::info!(" >>> Migrating Identity.Claims.");
+        migrate_claims::<T>();
+        log::info!(" >>> All Claims have been migrated.");
+    }
+
+    fn migrate_claims<T: Config>() {
+        let mut converted = 0;
+        let mut removed = 0;
+        // Migrate all Claims
+        v2::Claims::drain().for_each(|(key1, key2, old_claim)| {
+            if let Some(new_claim) = old_claim.try_into() {
+                converted += 1;
+                Claims::insert(key1, key2, new_claim);
+            } else {
+                removed += 1;
+            }
+        });
+        log::info!("> Migrated {converted} claims, removed {removed} claims.");
     }
 }
