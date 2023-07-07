@@ -832,9 +832,33 @@ pub mod migration {
             }
         }
 
+        #[derive(Encode, Decode, TypeInfo)]
+        #[derive(Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
+        pub enum ClaimTypeV1 {
+            Accredited,
+            Affiliate,
+            BuyLockup,
+            SellLockup,
+            CustomerDueDiligence,
+            KnowYourCustomer,
+            Jurisdiction,
+            Exempted,
+            Blocked,
+            InvestorUniqueness,
+            NoType,
+            InvestorUniquenessV2,
+            Custom(CustomClaimTypeId),
+        }
+
+        #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+        pub struct Claim1stKeyV1 {
+            pub target: IdentityId,
+            pub claim_type: ClaimTypeV1,
+        }
+
         decl_storage! {
             trait Store for Module<T: Config> as Identity {
-                pub Claims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => Option<IdentityClaimV1>;
+                pub Claims: double_map hasher(twox_64_concat) Claim1stKeyV1, hasher(blake2_128_concat) Claim2ndKey => Option<IdentityClaim>;
             }
         }
 
@@ -851,17 +875,44 @@ pub mod migration {
     }
 
     fn migrate_claims<T: Config>() {
+        let mut same = 0;
         let mut converted = 0;
         let mut removed = 0;
+        let mut remap = Vec::new();
         // Migrate all Claims
-        v2::Claims::drain().for_each(|(key1, key2, old_claim)| {
-            if let Some(new_claim) = old_claim.try_into() {
-                converted += 1;
-                Claims::insert(key1, key2, new_claim);
+        v2::Claims::translate::<v2::IdentityClaimV1, _>(|old_key1, key2, old_claim| {
+            if let Some(claim) = old_claim.try_into() {
+                let claim_type = claim.claim.claim_type();
+                let new_key1 = Claim1stKey {
+                    target: old_key1.target,
+                    claim_type,
+                };
+                // Need to move `ClaimType::Custom(_)` to new key1.
+                match claim_type {
+                    ClaimType::Custom(_) => {
+                        converted += 1;
+                        remap.push((new_key1, key2, claim));
+                        // Remove value from old key.
+                        None
+                    }
+                    _ => {
+                        // No convert/migration need.
+                        same += 1;
+                        Some(claim)
+                    }
+                }
             } else {
                 removed += 1;
+                None
             }
         });
-        log::info!("> Migrated {converted} claims, removed {removed} claims.");
+
+        // Re-add claims with changed `key1` values.
+        for (key1, key2, claim) in remap {
+            Claims::insert(key1, key2, claim);
+        }
+        log::info!(
+            "> Migrated Claims: converted={converted}, removed={removed}, unchanged={same}."
+        );
     }
 }
