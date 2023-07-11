@@ -497,10 +497,13 @@ benchmarks! {
     }
 
     add_transaction {
+        // Number of legs in transaction.
+        let l in 0 .. T::MaxNumberOfLegs::get();
+
         let mut rng = StdRng::from_seed([10u8; 32]);
 
         // Setup for transaction.
-        let tx = TransactionState::<T>::new(&mut rng);
+        let tx = TransactionState::<T>::new_legs(l, &mut rng);
 
     }: _(tx.issuer.origin(), tx.venue_id, tx.legs, Some(Memo([7u8; 32])))
 
@@ -572,7 +575,7 @@ benchmarks! {
     }: unaffirm_transaction(tx.mediator.origin(), tx.id, unaffirm)
 
     execute_transaction {
-        let l in 1..4;
+        let l in 0..T::MaxNumberOfLegs::get();
 
         let mut rng = StdRng::from_seed([10u8; 32]);
 
@@ -583,7 +586,7 @@ benchmarks! {
     }: _(tx.issuer.origin(), tx.id, l)
 
     revert_transaction {
-        let l in 1..4;
+        let l in 0..T::MaxNumberOfLegs::get();
 
         let mut rng = StdRng::from_seed([10u8; 32]);
 

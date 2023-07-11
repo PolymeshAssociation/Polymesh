@@ -152,7 +152,7 @@ pub trait WeightInfo {
     fn create_venue() -> Weight;
     fn allow_venues(l: u32) -> Weight;
     fn disallow_venues(l: u32) -> Weight;
-    fn add_transaction() -> Weight;
+    fn add_transaction(l: u32) -> Weight;
     fn sender_affirm_transaction() -> Weight;
     fn receiver_affirm_transaction() -> Weight;
     fn mediator_affirm_transaction() -> Weight;
@@ -765,7 +765,7 @@ decl_module! {
 
         /// Adds a new transaction.
         ///
-        #[weight = <T as Config>::WeightInfo::add_transaction()]
+        #[weight = <T as Config>::WeightInfo::add_transaction(legs.len() as u32)]
         pub fn add_transaction(
             origin,
             venue_id: VenueId,
