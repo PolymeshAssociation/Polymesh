@@ -296,6 +296,42 @@ jobs:
           key: v7-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
+  rust-integration-test:
+    docker:
+      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+    resource_class: medium
+    environment:
+      - VERBOSE: "1"
+      - RUSTFLAGS: -D warnings
+      - RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
+    steps:
+      - checkout
+      - run:
+          name: Store rust version in an environment var for cache key
+          command: rustc --version > rust.version
+      - restore_cache:
+          keys:
+            - v1-integration-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - attach_workspace:
+          at: ./target/release
+      - run:
+          name: run Polymesh ci-runtime dev chain node for integration tests
+          command: >-
+            ./target/release/ci-runtime-polymesh --bob --chain dev
+              --no-prometheus --no-telemetry --tmp
+              --wasm-execution compiled
+              --pool-limit 100000
+          background: true
+      - run:
+          name: Run background nonce server.
+          command: cargo run --locked
+          working_directory: ./integration
+          background: true
+      - run:
+          name: Run polymesh-api integration tests.
+          command: cargo test --locked
+          working_directory: ./integration
+          no_output_timeout: 30m
   integration-test:
     docker:
       - image: node:16-bullseye
@@ -532,6 +568,9 @@ workflows:
       - build-arm64
       - benchmark-build
       - coverage
+      - rust-integration-test:
+          requires:
+            - build-ci
       - integration-test:
           requires:
             - build-ci
