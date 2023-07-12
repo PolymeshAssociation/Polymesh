@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use sp_core::Pair;
 use sp_runtime::MultiSignature;
 use sp_keyring::{sr25519, ed25519};
@@ -5,62 +7,70 @@ use sp_keyring::{sr25519, ed25519};
 use polymesh_api::client::{
   AccountId,
   Signer,
+  PairSigner,
   Result,
 };
 
-/// Default to using sr25519
-pub type AccountSigner<P = sr25519::sr25519::Pair> = PolymeshAccount<P>;
+use crate::User;
 
-pub struct PolymeshAccount<P: Pair> {
-  pub pair: P,
-  pub account: AccountId,
+/// AccountSigner is wrapper for signing keys (sr25519, ed25519, etc...).
+#[derive(Clone)]
+pub struct AccountSigner {
+  signer: Arc<dyn Signer + Send + Sync>,
+  account: AccountId,
 }
 
-impl PolymeshAccount<sr25519::sr25519::Pair> {
-  pub fn alice() -> Self {
-    Self::new(sr25519::Keyring::Alice.pair())
-  }
-}
-
-impl<P> PolymeshAccount<P>
-where
-  P: Pair,
-  MultiSignature: From<<P as Pair>::Signature>,
-  AccountId: From<<P as Pair>::Public>,
-{
-  pub fn new(pair: P) -> Self {
-    let account = pair.public().into();
+impl AccountSigner {
+  pub fn new<P: Pair>(pair: P) -> Self
+  where
+    MultiSignature: From<<P as Pair>::Signature>,
+    AccountId: From<<P as Pair>::Public>
+  {
+    let signer = PairSigner::new(pair);
+    let account = signer.account();
     Self {
-      pair,
+      signer: Arc::new(signer),
       account,
     }
   }
 
+  pub fn alice() -> Self {
+    Self::new(sr25519::Keyring::Alice.pair())
+  }
+
+  pub fn bob() -> Self {
+    Self::new(sr25519::Keyring::Bob.pair())
+  }
+
   /// Generate signing key pair from string `s`.
-  ///
-  /// See [`from_string_with_seed`](Pair::from_string_with_seed) for more extensive documentation.
-  pub fn from_string(s: &str, password_override: Option<&str>) -> Result<Self> {
-    Ok(Self::new(P::from_string(s, password_override)?))
+  pub fn from_string(s: &str) -> Result<Self> {
+    Ok(Self::new(sr25519::sr25519::Pair::from_string(s, None)?))
   }
 }
 
-impl From<sr25519::Keyring> for PolymeshAccount<sr25519::sr25519::Pair> {
+impl From<AccountSigner> for User {
+  fn from(signer: AccountSigner) -> User {
+    User {
+      signer,
+      did: None
+    }
+  }
+}
+
+impl From<sr25519::Keyring> for AccountSigner {
   fn from(key: sr25519::Keyring) -> Self {
     Self::new(key.pair())
   }
 }
 
-impl From<ed25519::Keyring> for PolymeshAccount<ed25519::ed25519::Pair> {
+impl From<ed25519::Keyring> for AccountSigner {
   fn from(key: ed25519::Keyring) -> Self {
     Self::new(key.pair())
   }
 }
 
 #[async_trait::async_trait]
-impl<P: Pair> Signer for PolymeshAccount<P>
-where
-  MultiSignature: From<<P as Pair>::Signature>,
-{
+impl Signer for AccountSigner {
   fn account(&self) -> AccountId {
     self.account.clone()
   }
@@ -77,6 +87,6 @@ where
   }
 
   async fn sign(&self, msg: &[u8]) -> polymesh_api::client::Result<MultiSignature> {
-    Ok(self.pair.sign(msg).into())
+    Ok(self.signer.sign(msg).await?)
   }
 }

@@ -2193,7 +2193,7 @@ checksum = "26072860ba924cbfa98ea39c8c19b4dd6a4a25423dbdf219c1eca91aa0cf6964"
 [[package]]
 name = "polymesh-api"
 version = "0.4.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=polymesh_v6.0#e5a5bd42df0d7acb3ffe7b74efab303687639cab"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=polymesh_v6.0#6d49b020a0afb260cc239392ba499e6fafa48b75"
 dependencies = [
  "async-trait",
  "ink_env",
@@ -2216,7 +2216,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-client"
 version = "0.4.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=polymesh_v6.0#e5a5bd42df0d7acb3ffe7b74efab303687639cab"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=polymesh_v6.0#6d49b020a0afb260cc239392ba499e6fafa48b75"
 dependencies = [
  "async-trait",
  "frame-metadata",
@@ -2244,7 +2244,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-codegen"
 version = "0.4.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=polymesh_v6.0#e5a5bd42df0d7acb3ffe7b74efab303687639cab"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=polymesh_v6.0#6d49b020a0afb260cc239392ba499e6fafa48b75"
 dependencies = [
  "anyhow",
  "frame-metadata",
@@ -2265,7 +2265,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-codegen-macro"
 version = "0.4.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=polymesh_v6.0#e5a5bd42df0d7acb3ffe7b74efab303687639cab"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=polymesh_v6.0#6d49b020a0afb260cc239392ba499e6fafa48b75"
 dependencies = [
  "darling",
  "parity-scale-codec",
@@ -2279,7 +2279,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-ink"
 version = "0.3.4"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=polymesh_v6.0#e5a5bd42df0d7acb3ffe7b74efab303687639cab"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=polymesh_v6.0#6d49b020a0afb260cc239392ba499e6fafa48b75"
 dependencies = [
  "hex",
  "ink_env",
