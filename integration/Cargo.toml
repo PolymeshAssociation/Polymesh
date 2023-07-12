@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [patch.crates-io]
-#polymesh-api = { git = "https://github.com/PolymeshAssociation/polymesh-api", branch = "polymesh_v6.0" }
-polymesh-api = { path = "../../polymesh-api/" }
+polymesh-api = { git = "https://github.com/PolymeshAssociation/polymesh-api", branch = "polymesh_v6.0" }
+#polymesh-api = { path = "../../polymesh-api/" }
 
 [features]
 default = ["simple-nonce-server"]

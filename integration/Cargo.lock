@@ -2193,6 +2193,7 @@ checksum = "26072860ba924cbfa98ea39c8c19b4dd6a4a25423dbdf219c1eca91aa0cf6964"
 [[package]]
 name = "polymesh-api"
 version = "0.4.0"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=polymesh_v6.0#e5a5bd42df0d7acb3ffe7b74efab303687639cab"
 dependencies = [
  "async-trait",
  "ink_env",
@@ -2215,6 +2216,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-client"
 version = "0.4.0"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=polymesh_v6.0#e5a5bd42df0d7acb3ffe7b74efab303687639cab"
 dependencies = [
  "async-trait",
  "frame-metadata",
@@ -2242,6 +2244,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-codegen"
 version = "0.4.0"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=polymesh_v6.0#e5a5bd42df0d7acb3ffe7b74efab303687639cab"
 dependencies = [
  "anyhow",
  "frame-metadata",
@@ -2262,6 +2265,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-codegen-macro"
 version = "0.4.0"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=polymesh_v6.0#e5a5bd42df0d7acb3ffe7b74efab303687639cab"
 dependencies = [
  "darling",
  "parity-scale-codec",
@@ -2275,6 +2279,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-ink"
 version = "0.3.4"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=polymesh_v6.0#e5a5bd42df0d7acb3ffe7b74efab303687639cab"
 dependencies = [
  "hex",
  "ink_env",
@@ -2820,9 +2825,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.100"
+version = "1.0.102"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f1e14e89be7aa4c4b78bdbdc9eb5bf8517829a600ae8eaa39a6e1d960b5185c"
+checksum = "b5062a995d481b2308b6064e9af76011f2921c35f97b0468811ed9f6cd91dfed"
 dependencies = [
  "indexmap 2.0.0",
  "itoa",
