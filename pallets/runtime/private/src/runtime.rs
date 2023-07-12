@@ -1,46 +1,45 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
-use crate::constants::time::*;
+#[cfg(any(feature = "std", test))]
+pub use sp_runtime::BuildStorage;
+#[cfg(feature = "std")]
+use sp_version::NativeVersion;
+
 use codec::Encode;
 use core::convert::TryFrom;
-use frame_support::{
-    construct_runtime, dispatch::DispatchResult, parameter_types, traits::KeyOwnerProofSystem,
-    weights::Weight,
+use frame_support::traits::KeyOwnerProofSystem;
+use frame_support::weights::Weight;
+use frame_support::{construct_runtime, dispatch::DispatchResult, parameter_types};
+use sp_runtime::curve::PiecewiseLinear;
+use sp_runtime::traits::{
+    BlakeTwo256, Block as BlockT, Extrinsic, NumberFor, StaticLookup, Verify,
 };
+use sp_runtime::transaction_validity::TransactionPriority;
+use sp_runtime::{create_runtime_str, Perbill, Permill};
+use sp_std::prelude::*;
+use sp_version::RuntimeVersion;
+
 use pallet_asset::checkpoint as pallet_checkpoint;
 use pallet_corporate_actions::ballot as pallet_corporate_ballot;
 use pallet_corporate_actions::distribution as pallet_capital_distribution;
 use pallet_session::historical as pallet_session_historical;
-pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
-use polymesh_common_utilities::{
-    constants::currency::*, constants::ENSURED_MAX_LEN, protocol_fee::ProtocolOp, TestUtilsFn,
-};
+use pallet_transaction_payment::RuntimeDispatchInfo;
+use polymesh_common_utilities::constants::currency::{DOLLARS, ONE_POLY};
+use polymesh_common_utilities::constants::ENSURED_MAX_LEN;
+use polymesh_common_utilities::protocol_fee::ProtocolOp;
+use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::{AccountId, Balance, BlockNumber, Moment};
-use polymesh_runtime_common::{
-    impls::Author,
-    merge_active_and_inactive,
-    runtime::{GovernanceCommittee, BENCHMARK_MAX_INCREASE, VMO},
-    AvailableBlockRatio, MaximumBlockWeight,
-};
-use sp_runtime::transaction_validity::TransactionPriority;
-use sp_runtime::{
-    create_runtime_str,
-    curve::PiecewiseLinear,
-    traits::{BlakeTwo256, Block as BlockT, Extrinsic, NumberFor, StaticLookup, Verify},
-    Perbill, Permill,
-};
-use sp_std::prelude::*;
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
-use sp_version::RuntimeVersion;
+use polymesh_runtime_common::impls::Author;
+use polymesh_runtime_common::runtime::{GovernanceCommittee, BENCHMARK_MAX_INCREASE, VMO};
+use polymesh_runtime_common::{merge_active_and_inactive, AvailableBlockRatio, MaximumBlockWeight};
+
+use crate::constants::time::*;
 
 pub use frame_support::StorageValue;
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_staking::StakerStatus;
 pub use pallet_timestamp::Call as TimestampCall;
-#[cfg(any(feature = "std", test))]
-pub use sp_runtime::BuildStorage;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -48,8 +47,8 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 /// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-    spec_name: create_runtime_str!("polymesh_dev"),
-    impl_name: create_runtime_str!("polymesh_dev"),
+    spec_name: create_runtime_str!("polymesh_private"),
+    impl_name: create_runtime_str!("polymesh_private"),
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
     // N.B. `d` is unpinned from the binary version
@@ -137,6 +136,13 @@ parameter_types! {
     // Portfolio:
     pub const MaxNumberOfFungibleMoves: u32 = 10;
     pub const MaxNumberOfNFTsMoves: u32 = 100;
+
+    // The fee to be paid for making a transaction; the per-byte portion.
+    pub const TransactionByteFee: Balance = 0;
+
+    // Confidential asset.
+    pub const MaxTotalSupply: Balance = 10_000_000_000_000;
+    pub const MaxNumberOfConfidentialLegs: u32 = 10;
 }
 
 /// 100% goes to the block author.
@@ -308,6 +314,14 @@ impl TestUtilsFn<AccountId> for Runtime {
     }
 }
 
+impl pallet_confidential_asset::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
+    type WeightInfo = polymesh_weights::pallet_confidential_asset::SubstrateWeight;
+    type MaxTotalSupply = MaxTotalSupply;
+    type MaxNumberOfLegs = MaxNumberOfConfidentialLegs;
+}
+
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
 mod benches {
@@ -326,6 +340,7 @@ mod benches {
         [pallet_sto, Sto]
         [pallet_checkpoint, Checkpoint]
         [pallet_compliance_manager, ComplianceManager]
+        [pallet_confidential_asset, ConfidentialAsset]
         [pallet_corporate_actions, CorporateAction]
         [pallet_corporate_ballot, CorporateBallot]
         [pallet_capital_distribution, CapitalDistribution]
@@ -443,6 +458,9 @@ construct_runtime!(
         Nft: pallet_nft::{Pallet, Call, Storage, Event},
 
         TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 50,
+
+        // Confidential Asset pallets.
+        ConfidentialAsset: pallet_confidential_asset::{Pallet, Call, Storage, Event, Config} = 60,
     }
 );
 

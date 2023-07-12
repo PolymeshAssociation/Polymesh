@@ -18,6 +18,7 @@
 #![recursion_limit = "256"]
 
 pub mod cdd_check;
+pub mod custom_fees;
 pub mod fee_details;
 pub mod impls;
 pub mod runtime;
@@ -89,6 +90,8 @@ parameter_types! {
     };
     /// This implies a 100 POLYX fee per MB of transaction length
     pub const TransactionByteFee: Balance = 10 * MILLICENTS;
+    /// Private instances will not charge fees
+    pub const PrivateTransactionByteFee: Balance = 0;
     /// We want the noop transaction to cost 0.03 POLYX
     pub const PolyXBaseFee: Balance = 3 * CENTS;
     /// MultiSig balance limit: 1 POLYX

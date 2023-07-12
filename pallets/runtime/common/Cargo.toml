@@ -37,6 +37,7 @@ only-staking = []
 default = ["std", "equalize"]
 testing = []
 no_std = []
+private = []
 std = [
     "frame-support/std",
     "frame-system/std",
