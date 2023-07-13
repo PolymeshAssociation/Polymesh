@@ -76,7 +76,7 @@ impl SubstrateCli for Cli {
             "TESTNET" | "testnet" => Box::new(chain_spec::mainnet::ChainSpec::from_json_bytes(
                 &include_bytes!("./chain_specs/testnet_raw.json")[..],
             )?),
-            "PRIVATE" | "private" => Box::new(chain_spec::general::develop_config()),
+            "PRIVATE" | "private" => Box::new(chain_spec::private::develop_config()),
             path => Box::new(chain_spec::mainnet::ChainSpec::from_json_file(
                 std::path::PathBuf::from(path),
             )?),

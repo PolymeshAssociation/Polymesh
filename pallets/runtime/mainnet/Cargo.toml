@@ -112,7 +112,7 @@ no_std = [
     "u64_backend"
 ]
 std = [
-		"polymesh-build-tool/std",
+	"polymesh-build-tool/std",
     "u64_backend",
     "codec/std",
     "frame-support/std",

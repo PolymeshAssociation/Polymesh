@@ -137,6 +137,10 @@ parameter_types! {
     // Portfolio:
     pub const MaxNumberOfFungibleMoves: u32 = 10;
     pub const MaxNumberOfNFTsMoves: u32 = 100;
+
+    // Confidential asset.
+    pub const MaxTotalSupply: Balance = 10_000_000_000_000;
+    pub const MaxNumberOfConfidentialLegs: u32 = 10;
 }
 
 /// 100% goes to the block author.
@@ -308,6 +312,14 @@ impl TestUtilsFn<AccountId> for Runtime {
     }
 }
 
+impl pallet_confidential_asset::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
+    type WeightInfo = polymesh_weights::pallet_confidential_asset::SubstrateWeight;
+    type MaxTotalSupply = MaxTotalSupply;
+    type MaxNumberOfLegs = MaxNumberOfConfidentialLegs;
+}
+
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
 mod benches {
@@ -326,6 +338,7 @@ mod benches {
         [pallet_sto, Sto]
         [pallet_checkpoint, Checkpoint]
         [pallet_compliance_manager, ComplianceManager]
+        [pallet_confidential_asset, ConfidentialAsset]
         [pallet_corporate_actions, CorporateAction]
         [pallet_corporate_ballot, CorporateBallot]
         [pallet_capital_distribution, CapitalDistribution]
@@ -443,6 +456,9 @@ construct_runtime!(
         Nft: pallet_nft::{Pallet, Call, Storage, Event},
 
         TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 50,
+
+        // Confidential Asset pallets.
+        ConfidentialAsset: pallet_confidential_asset::{Pallet, Call, Storage, Event, Config} = 60,
     }
 );
 

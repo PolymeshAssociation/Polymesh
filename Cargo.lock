@@ -6700,6 +6700,7 @@ dependencies = [
  "pallet-bridge",
  "pallet-committee",
  "pallet-compliance-manager",
+ "pallet-confidential-asset",
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-corporate-actions",

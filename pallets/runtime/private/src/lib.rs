@@ -13,7 +13,7 @@ pub use runtime::{native_version, WASM_BINARY};
 
 pub use runtime::{
     api, Asset, Authorship, Balances, BalancesCall, Bridge, CheckedExtrinsic, MinimumPeriod,
-    ProtocolFee, Runtime, RuntimeApi, RuntimeCall, SessionKeys, System, SystemCall,
+    ProtocolFee, Runtime, RuntimeApi, RuntimeCall, SessionKeys, SignedExtra, System, SystemCall,
     TransactionPayment, UncheckedExtrinsic,
 };
 

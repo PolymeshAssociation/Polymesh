@@ -41,6 +41,21 @@ pub use pallet_balances::Call as BalancesCall;
 pub use pallet_staking::StakerStatus;
 pub use pallet_timestamp::Call as TimestampCall;
 
+/// 100% goes to the block author.
+pub type DealWithFees = Author<Runtime>;
+
+pub type CddHandler = polymesh_runtime_common::fee_details::DevCddHandler<Runtime>;
+
+impl<'a> TryFrom<&'a RuntimeCall> for &'a pallet_test_utils::Call<Runtime> {
+    type Error = ();
+    fn try_from(call: &'a RuntimeCall) -> Result<&'a pallet_test_utils::Call<Runtime>, ()> {
+        match call {
+            RuntimeCall::TestUtils(x) => Ok(x),
+            _ => Err(()),
+        }
+    }
+}
+
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
@@ -145,20 +160,6 @@ parameter_types! {
     pub const MaxNumberOfConfidentialLegs: u32 = 10;
 }
 
-/// 100% goes to the block author.
-pub type DealWithFees = Author<Runtime>;
-
-// Staking:
-pallet_staking_reward_curve::build! {
-    const REWARD_CURVE: PiecewiseLinear<'_> = curve!(
-        min_inflation: 0_025_000,
-        max_inflation: 0_140_000,
-        ideal_stake: 0_700_000,
-        falloff: 0_050_000,
-        max_piece_count: 40,
-        test_precision: 0_005_000,
-    );
-}
 parameter_types! {
     pub const SessionsPerEra: sp_staking::SessionIndex = 3;
     pub const BondingDuration: pallet_staking::EraIndex = 7;
@@ -181,18 +182,16 @@ parameter_types! {
         BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
 }
 
-polymesh_runtime_common::misc_pallet_impls!();
-
-pub type CddHandler = polymesh_runtime_common::fee_details::DevCddHandler<Runtime>;
-
-impl<'a> TryFrom<&'a RuntimeCall> for &'a pallet_test_utils::Call<Runtime> {
-    type Error = ();
-    fn try_from(call: &'a RuntimeCall) -> Result<&'a pallet_test_utils::Call<Runtime>, ()> {
-        match call {
-            RuntimeCall::TestUtils(x) => Ok(x),
-            _ => Err(()),
-        }
-    }
+// Staking:
+pallet_staking_reward_curve::build! {
+    const REWARD_CURVE: PiecewiseLinear<'_> = curve!(
+        min_inflation: 0_025_000,
+        max_inflation: 0_140_000,
+        ideal_stake: 0_700_000,
+        falloff: 0_050_000,
+        max_piece_count: 40,
+        test_precision: 0_005_000,
+    );
 }
 
 impl polymesh_common_utilities::traits::identity::Config for Runtime {
@@ -322,49 +321,8 @@ impl pallet_confidential_asset::Config for Runtime {
     type MaxNumberOfLegs = MaxNumberOfConfidentialLegs;
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-#[macro_use]
-mod benches {
-    define_benchmarks!(
-        [frame_benchmarking, BaselineBench::<Runtime>]
-        [pallet_asset, Asset]
-        [pallet_balances, Balances]
-        [pallet_identity, Identity]
-        [pallet_pips, Pips]
-        [pallet_multisig, MultiSig]
-        [pallet_portfolio, Portfolio]
-        [pallet_protocol_fee, ProtocolFee]
-        [frame_system, SystemBench::<Runtime>]
-        [pallet_timestamp, Timestamp]
-        [pallet_settlement, Settlement]
-        [pallet_sto, Sto]
-        [pallet_checkpoint, Checkpoint]
-        [pallet_compliance_manager, ComplianceManager]
-        [pallet_confidential_asset, ConfidentialAsset]
-        [pallet_corporate_actions, CorporateAction]
-        [pallet_corporate_ballot, CorporateBallot]
-        [pallet_capital_distribution, CapitalDistribution]
-        [pallet_external_agents, ExternalAgents]
-        [pallet_relayer, Relayer]
-        [pallet_committee, PolymeshCommittee]
-        [pallet_utility, Utility]
-        [pallet_treasury, Treasury]
-        [pallet_im_online, ImOnline]
-        [pallet_group, CddServiceProviders]
-        [pallet_statistics, Statistics]
-        [pallet_permissions, Permissions]
-        [pallet_preimage, Preimage]
-        [pallet_babe, Babe]
-        [pallet_indices, Indices]
-        [pallet_session, SessionBench::<Runtime>]
-        [pallet_grandpa, Grandpa]
-        [pallet_scheduler, Scheduler]
-        [pallet_staking, Staking]
-        [pallet_test_utils, TestUtils]
-        [polymesh_contracts, PolymeshContracts]
-        [pallet_nft, Nft]
-    );
-}
+polymesh_runtime_common::runtime_apis! {}
+polymesh_runtime_common::misc_pallet_impls!();
 
 construct_runtime!(
     pub enum Runtime where
@@ -463,61 +421,3 @@ construct_runtime!(
         ConfidentialAsset: pallet_confidential_asset::{Pallet, Call, Storage, Event, Config} = 60,
     }
 );
-
-polymesh_runtime_common::runtime_apis! {
-    #[cfg(feature = "runtime-benchmarks")]
-    impl frame_benchmarking::Benchmark<Block> for Runtime {
-        fn dispatch_benchmark(
-            config: frame_benchmarking::BenchmarkConfig
-        ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-            use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch,  TrackedStorageKey};
-
-            use crate::benchmarks::pallet_session::Pallet as SessionBench;
-            use frame_system_benchmarking::Pallet as SystemBench;
-            use baseline::Pallet as BaselineBench;
-
-            impl frame_system_benchmarking::Config for Runtime {}
-            impl baseline::Config for Runtime {}
-            impl crate::benchmarks::pallet_session::Config for Runtime {}
-
-            let whitelist: Vec<TrackedStorageKey> = vec![
-                // Block Number
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac").to_vec().into(),
-                // Total Issuance
-                hex_literal::hex!("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80").to_vec().into(),
-                // Execution Phase
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a").to_vec().into(),
-                // Event Count
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850").to_vec().into(),
-                // System Events
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7").to_vec().into(),
-                // Treasury Account
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da95ecffd7b6c0f78751baa9d281e0bfa3a6d6f646c70792f74727372790000000000000000000000000000000000000000").to_vec().into(),
-            ];
-
-            let mut batches = Vec::<BenchmarkBatch>::new();
-            let params = (&config, &whitelist);
-            add_benchmarks!(params, batches);
-            Ok(batches)
-        }
-
-        fn benchmark_metadata(extra: bool) -> (
-            Vec<frame_benchmarking::BenchmarkList>,
-            Vec<frame_support::traits::StorageInfo>,
-        ) {
-            use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
-            use frame_support::traits::StorageInfoTrait;
-
-            use crate::benchmarks::pallet_session::Pallet as SessionBench;
-            use frame_system_benchmarking::Pallet as SystemBench;
-            use baseline::Pallet as BaselineBench;
-
-            let mut list = Vec::<BenchmarkList>::new();
-            list_benchmarks!(list, extra);
-
-            let storage_info = AllPalletsWithSystem::storage_info();
-
-            return (list, storage_info)
-        }
-    }
-}
