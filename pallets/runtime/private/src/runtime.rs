@@ -9,7 +9,7 @@ use codec::Encode;
 use core::convert::TryFrom;
 use frame_support::traits::KeyOwnerProofSystem;
 use frame_support::weights::Weight;
-use frame_support::{construct_runtime, dispatch::DispatchResult, parameter_types};
+use frame_support::{construct_runtime, parameter_types};
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::traits::{
     BlakeTwo256, Block as BlockT, Extrinsic, NumberFor, StaticLookup, Verify,
@@ -27,8 +27,8 @@ use pallet_transaction_payment::RuntimeDispatchInfo;
 use polymesh_common_utilities::constants::currency::{DOLLARS, ONE_POLY};
 use polymesh_common_utilities::constants::ENSURED_MAX_LEN;
 use polymesh_common_utilities::protocol_fee::ProtocolOp;
-use polymesh_common_utilities::TestUtilsFn;
-use polymesh_primitives::{AccountId, Balance, BlockNumber, Moment};
+use polymesh_primitives::{Balance, BlockNumber, Moment};
+use polymesh_runtime_common::fee_details::CddHandler as CommonCddHandler;
 use polymesh_runtime_common::impls::Author;
 use polymesh_runtime_common::runtime::{GovernanceCommittee, BENCHMARK_MAX_INCREASE, VMO};
 use polymesh_runtime_common::{merge_active_and_inactive, AvailableBlockRatio, MaximumBlockWeight};
@@ -44,17 +44,7 @@ pub use pallet_timestamp::Call as TimestampCall;
 /// 100% goes to the block author.
 pub type DealWithFees = Author<Runtime>;
 
-pub type CddHandler = polymesh_runtime_common::fee_details::DevCddHandler<Runtime>;
-
-impl<'a> TryFrom<&'a RuntimeCall> for &'a pallet_test_utils::Call<Runtime> {
-    type Error = ();
-    fn try_from(call: &'a RuntimeCall) -> Result<&'a pallet_test_utils::Call<Runtime>, ()> {
-        match call {
-            RuntimeCall::TestUtils(x) => Ok(x),
-            _ => Err(()),
-        }
-    }
-}
+pub type CddHandler = CommonCddHandler<Runtime, polymesh_runtime_common::fee_details::Noop>;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -293,24 +283,9 @@ impl pallet_group::Config<pallet_group::Instance2> for Runtime {
     type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
 }
 
-impl pallet_test_utils::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = polymesh_weights::pallet_test_utils::SubstrateWeight;
-}
-
 impl pallet_sudo::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
-}
-
-/// NB It is needed by benchmarks, in order to use `UserBuilder`.
-impl TestUtilsFn<AccountId> for Runtime {
-    fn register_did(
-        target: AccountId,
-        secondary_keys: Vec<polymesh_primitives::secondary_key::SecondaryKey<AccountId>>,
-    ) -> DispatchResult {
-        <TestUtils as TestUtilsFn<AccountId>>::register_did(target, secondary_keys)
-    }
 }
 
 impl pallet_confidential_asset::Config for Runtime {
@@ -414,8 +389,6 @@ construct_runtime!(
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
 
         Nft: pallet_nft::{Pallet, Call, Storage, Event},
-
-        TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 50,
 
         // Confidential Asset pallets.
         ConfidentialAsset: pallet_confidential_asset::{Pallet, Call, Storage, Event, Config} = 60,

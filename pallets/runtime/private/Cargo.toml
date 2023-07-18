@@ -113,8 +113,6 @@ default = ["std", "equalize", "private"]
 equalize = []
 private = ["polymesh-runtime-common/private"]
 
-ci-runtime = []
-
 # Backends
 u64_backend = ["polymesh-primitives/u64_backend"]
 
