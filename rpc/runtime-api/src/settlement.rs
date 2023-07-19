@@ -27,7 +27,7 @@ sp_api::decl_runtime_apis! {
         /// curl http://localhost:9933 -H "Content-Type: application/json" -d '{
         ///     "id":1,
         ///     "jsonrpc":"2.0",
-        ///     "method": "settlement_GetExecuteInstructionInfo",
+        ///     "method": "settlement_getExecuteInstructionInfo",
         ///     "params": [1]
         ///   }'
         /// ```
