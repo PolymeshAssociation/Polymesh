@@ -1212,10 +1212,6 @@
         "Custom": "CustomAssetTypeId"
       }
     },
-    "Weight": {
-      "ref_time": "u64",
-      "proof_size": "u64"
-    },
     "ExecuteInstructionInfo": {
       "fungible_tokens": "u32",
       "non_fungible_tokens": "u32",
