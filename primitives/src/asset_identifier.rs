@@ -146,7 +146,7 @@ fn validate_isin(bytes: &[u8; 12]) -> bool {
         }
     }
 
-    // Perform the Luhn test
+    // Luhn test
     let mut s1: u32 = 0;
     let mut s2: u32 = 0;
     for (index, digit) in digits.into_iter().rev().enumerate() {
@@ -248,6 +248,7 @@ mod tests {
             AssetIdentifier::cusip(*b"68389X105"),
             Some(AssetIdentifier::CUSIP(*b"68389X105"))
         );
+        assert_eq!(validate_cusip(&[51, 35, 0, 0, 162, 0, 0, 0, 0]), false);
     }
 
     #[test]
