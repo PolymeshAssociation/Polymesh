@@ -19,6 +19,36 @@ use sp_runtime::{Deserialize, Serialize};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
+#[cfg(feature = "running-ci")]
+/// Defines the constants for the identity pallet.
+pub mod limits {
+    /// Maximum number of secondary keys allowed.
+    pub const MAX_SECONDARY_KEYS: u32 = 2;
+    /// Maximum number of assets allowed.
+    pub const MAX_ASSETS: u32 = 4;
+    /// Maximum number of portfolios allowed.
+    pub const MAX_PORTFOLIOS: u32 = 4;
+    /// Maximum number of pallets allowed.
+    pub const MAX_PALLETS: u32 = 4;
+    /// Maximum number of extrinsics allowed.
+    pub const MAX_EXTRINSICS: u32 = 4;
+}
+
+#[cfg(not(feature = "running-ci"))]
+/// Defines the constants for the identity pallet.
+pub mod limits {
+    /// Maximum number of secondary keys allowed.
+    pub const MAX_SECONDARY_KEYS: u32 = 200;
+    /// Maximum number of assets allowed.
+    pub const MAX_ASSETS: usize = 2000;
+    /// Maximum number of portfolios allowed.
+    pub const MAX_PORTFOLIOS: usize = 2000;
+    /// Maximum number of pallets allowed.
+    pub const MAX_PALLETS: usize = 80;
+    /// Maximum number of extrinsics allowed.
+    pub const MAX_EXTRINSICS: usize = 80;
+}
+
 /// Identity record.
 ///
 /// Used to check if an identity exists and lookup its primary key.

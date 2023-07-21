@@ -17,17 +17,22 @@ use crate::*;
 
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
-use polymesh_common_utilities::{
-    benchs::{cdd_provider, user, user_without_did, AccountIdOf, UserBuilder},
-    traits::{identity::TargetIdAuthorization, TestUtilsFn},
-};
-use polymesh_primitives::{
-    secondary_key::DispatchableNames, AssetPermissions, AuthorizationData, Claim, CountryCode,
-    DispatchableName, ExtrinsicPermissions, PalletName, PalletPermissions, Permissions,
-    PortfolioId, PortfolioNumber, PortfolioPermissions, Scope, SecondaryKey, Signatory,
-};
 use sp_core::H512;
 use sp_std::prelude::*;
+
+use polymesh_common_utilities::benchs::{
+    cdd_provider, user, user_without_did, AccountIdOf, UserBuilder,
+};
+use polymesh_common_utilities::traits::{identity::TargetIdAuthorization, TestUtilsFn};
+use polymesh_primitives::identity::limits::{
+    MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS, MAX_SECONDARY_KEYS,
+};
+use polymesh_primitives::secondary_key::DispatchableNames;
+use polymesh_primitives::{
+    AssetPermissions, AuthorizationData, Claim, CountryCode, DispatchableName,
+    ExtrinsicPermissions, PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber,
+    PortfolioPermissions, Scope, SecondaryKey, Signatory,
+};
 
 const SEED: u32 = 0;
 
@@ -41,26 +46,6 @@ pub fn generate_secondary_keys<T: Config>(n: usize) -> Vec<SecondaryKey<T::Accou
     }
     secondary_keys
 }
-
-#[cfg(feature = "running-ci")]
-mod limits {
-    pub const MAX_SECONDARY_KEYS: u32 = 2;
-    pub const MAX_ASSETS: u32 = 4;
-    pub const MAX_PORTFOLIOS: u32 = 4;
-    pub const MAX_PALLETS: u32 = 4;
-    pub const MAX_EXTRINSICS: u32 = 4;
-}
-
-#[cfg(not(feature = "running-ci"))]
-mod limits {
-    pub const MAX_SECONDARY_KEYS: u32 = 200;
-    pub const MAX_ASSETS: u32 = 1000;
-    pub const MAX_PORTFOLIOS: u32 = 1000;
-    pub const MAX_PALLETS: u32 = 100;
-    pub const MAX_EXTRINSICS: u32 = 100;
-}
-
-use limits::*;
 
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
