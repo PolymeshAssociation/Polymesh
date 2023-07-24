@@ -2,6 +2,7 @@ use codec::{Decode, Encode};
 use core::convert::{TryFrom, TryInto};
 use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
+use sp_std::prelude::Vec;
 
 /// Implementation of common asset identifiers.
 /// https://www.cusip.com/identifiers.html.
