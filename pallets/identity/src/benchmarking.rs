@@ -281,10 +281,10 @@ benchmarks! {
     // Benchmark the memory/cpu complexity of Permissions.
     permissions_cost {
         // Number of assets/portfolios/pallets/extrinsics.
-        let a in 0 .. MAX_ASSETS; // a=(A)ssets
-        let p in 0 .. MAX_PORTFOLIOS; // p=(P)ortfolios
-        let l in 0 .. MAX_PALLETS; // l=pa(L)lets
-        let e in 0 .. MAX_EXTRINSICS; // e=(E)xtrinsics
+        let a in 0 .. MAX_ASSETS as u32; // a=(A)ssets
+        let p in 0 .. MAX_PORTFOLIOS as u32; // p=(P)ortfolios
+        let l in 0 .. MAX_PALLETS as u32; // l=pa(L)lets
+        let e in 0 .. MAX_EXTRINSICS as u32; // e=(E)xtrinsics
         // When the benchmarks run for parameter `e` (number of extrinsics)
         // it will use `l == MAX_PALLETS`.  `e` will be the number of
         // extrinsics per pallet.  So the total number of extrinsics in
