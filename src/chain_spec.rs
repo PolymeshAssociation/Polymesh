@@ -1335,3 +1335,114 @@ pub mod general {
         )
     }
 }
+
+pub mod private {
+    use super::*;
+    use polymesh_runtime_private::{self as rt, constants::time};
+
+    pub type ChainSpec = GenericChainSpec<rt::runtime::GenesisConfig>;
+
+    session_keys!();
+
+    fn genesis(
+        initial_authorities: Vec<InitialAuth>,
+        root_key: AccountId,
+        _enable_println: bool,
+        treasury_bridge_lock: BridgeLockId,
+        reward_bridge_lock: BridgeLockId,
+        key_bridge_locks: Vec<BridgeLockId>,
+    ) -> rt::runtime::GenesisConfig {
+        let (identities, stakers, complete_txs) = genesis_processed_data(
+            &initial_authorities,
+            root_key.clone(),
+            treasury_bridge_lock,
+            reward_bridge_lock,
+            key_bridge_locks,
+        );
+
+        rt::runtime::GenesisConfig {
+            system: frame(rt::WASM_BINARY),
+            asset: asset!(),
+            checkpoint: checkpoint!(),
+            identity: pallet_identity::GenesisConfig {
+                identities,
+                ..Default::default()
+            },
+            balances: Default::default(),
+            bridge: pallet_bridge::GenesisConfig {
+                admin: Some(seeded_acc_id("polymath_1")),
+                creator: Some(seeded_acc_id("polymath_1")),
+                signatures_required: 3,
+                signers: bridge_signers(),
+                timelock: time::MINUTES * 15,
+                bridge_limit: (30_000_000_000, time::DAYS),
+                complete_txs,
+            },
+            indices: pallet_indices::GenesisConfig { indices: vec![] },
+            sudo: pallet_sudo::GenesisConfig {
+                key: Some(root_key),
+            },
+            session: session!(initial_authorities, session_keys),
+            staking: staking!(initial_authorities, stakers, PerThing::zero()),
+            pips: pips!(time::DAYS * 7, MaybeBlock::None, 1000),
+            im_online: Default::default(),
+            authority_discovery: Default::default(),
+            babe: BABE_GENESIS,
+            grandpa: Default::default(),
+            // Governing council
+            committee_membership: group_membership!(1, 2, 3, 5),
+            polymesh_committee: committee!(1, (2, 4)),
+            // CDD providers
+            cdd_service_providers: group_membership!(1, 2, 3, 5),
+            // Technical Committee:
+            technical_committee_membership: group_membership!(3, 5),
+            technical_committee: committee!(5),
+            // Upgrade Committee:
+            upgrade_committee_membership: group_membership!(1, 5),
+            upgrade_committee: committee!(5),
+            protocol_fee: protocol_fee!(),
+            settlement: Default::default(),
+            portfolio: Default::default(),
+            statistics: Default::default(),
+            multi_sig: pallet_multisig::GenesisConfig {
+                transaction_version: 1,
+            },
+            corporate_action: corporate_actions!(),
+            rewards: rewards!(),
+            polymesh_contracts: polymesh_contracts!(),
+            ..Default::default()
+        }
+    }
+
+    fn develop_genesis() -> rt::runtime::GenesisConfig {
+        genesis(
+            vec![get_authority_keys_from_seed("Alice", false)],
+            seeded_acc_id("Eve"),
+            true,
+            BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(
+                2,
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
+                REWARDS_LOCK_HASH,
+            ),
+            BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
+        )
+    }
+
+    pub fn develop_config() -> ChainSpec {
+        // provide boot nodes
+        let boot_nodes = vec![];
+        ChainSpec::from_genesis(
+            "Polymesh Private Develop",
+            "dev_private",
+            ChainType::Development,
+            develop_genesis,
+            boot_nodes,
+            None,
+            None,
+            None,
+            Some(polymath_props(12)),
+            Default::default(),
+        )
+    }
+}

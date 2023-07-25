@@ -118,13 +118,12 @@ ci-runtime = []
 u64_backend = ["polymesh-primitives/u64_backend"]
 
 no_std = [
-    "pallet-confidential-asset/no_std",
     "polymesh-primitives/no_std",
     "u64_backend"
 ]
 
 std = [
-		"polymesh-build-tool/std",
+	"polymesh-build-tool/std",
     "u64_backend",
     "codec/std",
     "frame-benchmarking?/std",

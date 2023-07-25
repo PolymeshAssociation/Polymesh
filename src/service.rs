@@ -41,6 +41,7 @@ use std::sync::Arc;
 pub enum Network {
     Mainnet,
     Testnet,
+    Private,
     Other,
 }
 
@@ -55,6 +56,8 @@ impl IsNetwork for dyn ChainSpec {
             Network::Mainnet
         } else if name.starts_with("Polymesh Testnet") {
             Network::Testnet
+        } else if name.starts_with("Polymesh Private") {
+            Network::Private
         } else {
             Network::Other
         }
@@ -90,6 +93,7 @@ native_executor_instance!(
 );
 native_executor_instance!(TestnetExecutor, polymesh_runtime_testnet, EHF);
 native_executor_instance!(MainnetExecutor, polymesh_runtime_mainnet, EHF);
+native_executor_instance!(PrivateExecutor, polymesh_runtime_private, EHF);
 
 /// A set of APIs that polkadot-like runtimes must implement.
 pub trait RuntimeApiCollection:
@@ -624,6 +628,12 @@ pub fn mainnet_new_full(config: Configuration) -> TaskResult {
         .map(|data| data.task_manager)
 }
 
+/// Create a new Private service for a full node.
+pub fn private_new_full(config: Configuration) -> TaskResult {
+    new_full_base::<polymesh_runtime_private::RuntimeApi, PrivateExecutor, _>(config, |_, _| ())
+        .map(|data| data.task_manager)
+}
+
 pub type NewChainOps<R, D> = (
     Arc<FullClient<R, D>>,
     Arc<FullBackend>,
@@ -664,5 +674,11 @@ pub fn general_chain_ops(
 pub fn mainnet_chain_ops(
     config: &mut Configuration,
 ) -> Result<NewChainOps<polymesh_runtime_mainnet::RuntimeApi, MainnetExecutor>, ServiceError> {
+    chain_ops::<_, _>(config)
+}
+
+pub fn private_chain_ops(
+    config: &mut Configuration,
+) -> Result<NewChainOps<polymesh_runtime_private::RuntimeApi, PrivateExecutor>, ServiceError> {
     chain_ops::<_, _>(config)
 }

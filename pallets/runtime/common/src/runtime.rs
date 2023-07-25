@@ -146,6 +146,7 @@ macro_rules! misc_pallet_impls {
             }
         }
 
+        #[cfg(not(feature = "private"))]
         impl pallet_transaction_payment::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type Currency = Balances;
@@ -153,6 +154,22 @@ macro_rules! misc_pallet_impls {
                 pallet_transaction_payment::CurrencyAdapter<Balances, DealWithFees>;
             type TransactionByteFee = polymesh_runtime_common::TransactionByteFee;
             type WeightToFee = polymesh_runtime_common::WeightToFee;
+            type FeeMultiplierUpdate = ();
+            type CddHandler = CddHandler;
+            type Subsidiser = Relayer;
+            type GovernanceCommittee = PolymeshCommittee;
+            type CddProviders = CddServiceProviders;
+            type Identity = Identity;
+        }
+
+        #[cfg(feature = "private")]
+        impl pallet_transaction_payment::Config for Runtime {
+            type RuntimeEvent = RuntimeEvent;
+            type Currency = Balances;
+            type OnChargeTransaction =
+                pallet_transaction_payment::CurrencyAdapter<Balances, DealWithFees>;
+            type TransactionByteFee = polymesh_runtime_common::PrivateTransactionByteFee;
+            type WeightToFee = polymesh_runtime_common::custom_fees::PrivateRuntimeWeightToFee;
             type FeeMultiplierUpdate = ();
             type CddHandler = CddHandler;
             type Subsidiser = Relayer;

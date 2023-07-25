@@ -144,6 +144,7 @@ members = [
     "pallets/runtime/testnet",
     "pallets/runtime/tests",
     "pallets/runtime/tests/exec_macro",
+    "pallets/runtime/private",
     "pallets/settlement",
     "pallets/staking",
     "pallets/staking/rpc",
@@ -200,6 +201,7 @@ polymesh-node-rpc = { path = "node-rpc" }
 polymesh-runtime-develop = { path = "pallets/runtime/develop" }
 polymesh-runtime-mainnet = { path = "pallets/runtime/mainnet" }
 polymesh-runtime-testnet = { path = "pallets/runtime/testnet" }
+polymesh-runtime-private = { path = "pallets/runtime/private" }
 
 # General
 chrono = { version = "0.4", default-features = false }

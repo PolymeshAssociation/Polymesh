@@ -18,9 +18,9 @@
 use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
 use crate::service::{
-    self, general_chain_ops, mainnet_chain_ops, new_partial, testnet_chain_ops, FullClient,
-    FullServiceComponents, GeneralExecutor, IsNetwork, MainnetExecutor, Network, NewChainOps,
-    TestnetExecutor,
+    self, general_chain_ops, mainnet_chain_ops, new_partial, private_chain_ops, testnet_chain_ops,
+    FullClient, FullServiceComponents, GeneralExecutor, IsNetwork, MainnetExecutor, Network,
+    NewChainOps, PrivateExecutor, TestnetExecutor,
 };
 use frame_benchmarking_cli::*;
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
@@ -76,6 +76,7 @@ impl SubstrateCli for Cli {
             "TESTNET" | "testnet" => Box::new(chain_spec::mainnet::ChainSpec::from_json_bytes(
                 &include_bytes!("./chain_specs/testnet_raw.json")[..],
             )?),
+            "PRIVATE" | "private" => Box::new(chain_spec::private::develop_config()),
             path => Box::new(chain_spec::mainnet::ChainSpec::from_json_file(
                 std::path::PathBuf::from(path),
             )?),
@@ -86,6 +87,7 @@ impl SubstrateCli for Cli {
         match chain_spec.network() {
             Network::Testnet => &polymesh_runtime_testnet::runtime::VERSION,
             Network::Mainnet => &polymesh_runtime_mainnet::runtime::VERSION,
+            Network::Private => &polymesh_runtime_private::runtime::VERSION,
             Network::Other => &polymesh_runtime_develop::runtime::VERSION,
         }
     }
@@ -112,6 +114,7 @@ pub fn run() -> Result<()> {
                 match network {
                     Network::Testnet => service::testnet_new_full(config),
                     Network::Mainnet => service::mainnet_new_full(config),
+                    Network::Private => service::private_new_full(config),
                     Network::Other => service::general_new_full(config),
                 }
                 .map_err(sc_cli::Error::Service)
@@ -127,10 +130,12 @@ pub fn run() -> Result<()> {
             |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
             |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
             |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
+            |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
         ),
         Some(Subcommand::ExportBlocks(cmd)) => async_run(
             &cli,
             cmd,
+            |(c, .., tm), config| Ok((cmd.run(c, config.database), tm)),
             |(c, .., tm), config| Ok((cmd.run(c, config.database), tm)),
             |(c, .., tm), config| Ok((cmd.run(c, config.database), tm)),
             |(c, .., tm), config| Ok((cmd.run(c, config.database), tm)),
@@ -141,10 +146,12 @@ pub fn run() -> Result<()> {
             |(c, .., tm), config| Ok((cmd.run(c, config.chain_spec), tm)),
             |(c, .., tm), config| Ok((cmd.run(c, config.chain_spec), tm)),
             |(c, .., tm), config| Ok((cmd.run(c, config.chain_spec), tm)),
+            |(c, .., tm), config| Ok((cmd.run(c, config.chain_spec), tm)),
         ),
         Some(Subcommand::ImportBlocks(cmd)) => async_run(
             &cli,
             cmd,
+            |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
             |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
             |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
             |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
@@ -156,6 +163,14 @@ pub fn run() -> Result<()> {
         Some(Subcommand::Revert(cmd)) => async_run(
             &cli,
             cmd,
+            |(c, b, _, tm), _| {
+                let aux_revert = Box::new(|client: Arc<FullClient<_, _>>, backend, blocks| {
+                    sc_consensus_babe::revert(client.clone(), backend, blocks)?;
+                    grandpa::revert(client, blocks)?;
+                    Ok(())
+                });
+                Ok((cmd.run(c, b, Some(aux_revert)), tm))
+            },
             |(c, b, _, tm), _| {
                 let aux_revert = Box::new(|client: Arc<FullClient<_, _>>, backend, blocks| {
                     sc_consensus_babe::revert(client.clone(), backend, blocks)?;
@@ -239,26 +254,31 @@ pub fn run() -> Result<()> {
     }
 }
 
-fn async_run<F, G, H>(
+fn async_run<F, G, H, I>(
     cli: &impl sc_cli::SubstrateCli,
     cmd: &impl sc_cli::CliConfiguration,
+    private: impl FnOnce(
+        NewChainOps<polymesh_runtime_private::RuntimeApi, PrivateExecutor>,
+        Configuration,
+    ) -> sc_cli::Result<(F, TaskManager)>,
     testnet: impl FnOnce(
         NewChainOps<polymesh_runtime_testnet::RuntimeApi, TestnetExecutor>,
         Configuration,
-    ) -> sc_cli::Result<(F, TaskManager)>,
+    ) -> sc_cli::Result<(G, TaskManager)>,
     general: impl FnOnce(
         NewChainOps<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>,
         Configuration,
-    ) -> sc_cli::Result<(G, TaskManager)>,
+    ) -> sc_cli::Result<(H, TaskManager)>,
     mainnet: impl FnOnce(
         NewChainOps<polymesh_runtime_mainnet::RuntimeApi, MainnetExecutor>,
         Configuration,
-    ) -> sc_cli::Result<(H, TaskManager)>,
+    ) -> sc_cli::Result<(I, TaskManager)>,
 ) -> sc_service::Result<(), sc_cli::Error>
 where
     F: Future<Output = sc_cli::Result<()>>,
     G: Future<Output = sc_cli::Result<()>>,
     H: Future<Output = sc_cli::Result<()>>,
+    I: Future<Output = sc_cli::Result<()>>,
 {
     let runner = cli.create_runner(cmd)?;
     match runner.config().chain_spec.network() {
@@ -270,6 +290,9 @@ where
         }
         Network::Mainnet => {
             runner.async_run(|mut config| mainnet(mainnet_chain_ops(&mut config)?, config))
+        }
+        Network::Private => {
+            runner.async_run(|mut config| private(private_chain_ops(&mut config)?, config))
         }
     }
 }
