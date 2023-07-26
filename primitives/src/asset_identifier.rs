@@ -1,6 +1,5 @@
 use codec::{Decode, Encode};
 use core::convert::{TryFrom, TryInto};
-use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
 use sp_std::prelude::Vec;
 
@@ -59,7 +58,7 @@ impl AssetIdentifier {
         validate_figi(&bytes).then_some(AssetIdentifier::FIGI(bytes))
     }
 
-    /// Returns `true` iff the identifier is valid.
+    /// Returns `true` if the identifier is valid.
     ///
     /// Mainly used for validating manual constructions of the enum (user input).
     pub fn is_valid(&self) -> bool {
@@ -74,7 +73,7 @@ impl AssetIdentifier {
 
 /// Returns `b` CUSIP digit from its ascii code.
 /// Returns an error if `b` is an invalid character.
-fn byte_value(b: u8) -> Result<u8, String> {
+fn byte_value(b: u8) -> Result<u8, &'static str> {
     match b {
         b'*' => Ok(36),
         b'@' => Ok(37),
@@ -82,13 +81,13 @@ fn byte_value(b: u8) -> Result<u8, String> {
         b'0'..=b'9' => Ok(b - b'0'),
         b'A'..=b'Z' => Ok(b - b'A' + 1 + 9),
         b'a'..=b'z' => Ok(b - 0x20 - b'A' + 1 + 9),
-        _ => Err(String::from("Invalid Character")),
+        _ => Err("Invalid Character"),
     }
 }
 
 /// Returns the check digit for `bytes` by performing the Luhn algorithm.
 /// Returns an error if `bytes` contains an invalid character.
-fn cusip_check_digit(bytes: &[u8]) -> Result<u8, String> {
+fn cusip_check_digit(bytes: &[u8]) -> Result<u8, &'static str> {
     let mut sum: u32 = 0;
     for (index, byte) in bytes.iter().enumerate() {
         let mut v = byte_value(*byte)?;
@@ -187,7 +186,7 @@ fn validate_lei(bytes: &[u8; 20]) -> bool {
     Ok(input_check) == lei_checksum(bytes)
 }
 
-fn lei_checksum(bytes: [u8; 18]) -> Result<u8, String> {
+fn lei_checksum(bytes: [u8; 18]) -> Result<u8, &'static str> {
     let mut i: u32 = 0;
     let mut sum: u128 = 0;
     for byte in bytes.into_iter().rev() {
