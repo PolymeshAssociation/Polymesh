@@ -29,7 +29,7 @@ use crate::Error;
 
 #[rpc(client, server)]
 pub trait SettlementApi<BlockHash> {
-    #[method(name = "settlement_GetExecuteInstructionInfo")]
+    #[method(name = "settlement_getExecuteInstructionInfo")]
     fn get_execute_instruction_info(
         &self,
         instruction_id: InstructionId,
