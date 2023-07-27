@@ -19,7 +19,7 @@ use polymesh_api::{
         AssetName,
         AssetType,
       },
-      identity_id::PortfolioId,
+      identity_id::{PortfolioId, PortfolioKind},
     },
   },
 };
@@ -121,9 +121,9 @@ mod runtime_tester {
 
         fn create_asset(&mut self, name: AssetName, ticker: Ticker, asset_type: AssetType, supply: u128) -> Result<()> {
             let api = Api::new();
-            api.call().asset().create_asset(name, ticker.clone(), true, asset_type, vec![], None, true).submit()
+            api.call().asset().create_asset(name, ticker.clone(), true, asset_type, vec![], None).submit()
               .map_err(|err| Error::PolymeshError(err))?;
-            api.call().asset().issue(ticker, supply).submit()
+            api.call().asset().issue(ticker, supply, PortfolioKind::Default).submit()
               .map_err(|err| Error::PolymeshError(err))
         }
 

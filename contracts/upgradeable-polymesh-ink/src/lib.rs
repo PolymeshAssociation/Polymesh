@@ -12,16 +12,27 @@ use alloc::{vec, vec::Vec};
 #[cfg(feature = "tracker")]
 pub use upgrade_tracker::{Error as UpgradeError, UpgradeTrackerRef, WrappedApi};
 
-use polymesh_api::Api;
+// Polymesh V6 API.
+use polymesh_api::polymesh::Api;
+
+// Re-export Old V5 types.  Changed in V6.
+pub use polymesh_api::{
+    v5_to_v6::{
+      MovePortfolioItem,
+      Leg,
+      PortfolioId, PortfolioKind, PortfolioNumber,
+      Ticker,
+    }
+};
+
+// Re-export V6 types that haven't changed.
 pub use polymesh_api::{
     ink::{basic_types::IdentityId, extension::PolymeshEnvironment},
     polymesh::types::{
-        pallet_portfolio::MovePortfolioItem,
-        pallet_settlement::{Leg, SettlementType, VenueDetails, VenueId, VenueType},
         polymesh_primitives::{
             asset::{AssetName, AssetType},
-            identity_id::{PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber},
-            ticker::Ticker,
+            identity_id::PortfolioName,
+            settlement::{SettlementType, VenueDetails, VenueId, VenueType},
         },
     },
 };
@@ -137,7 +148,7 @@ upgradable_api! {
                 // Get the contract's did.
                 let did = self.get_our_did()?;
                 // Get the next portfolio number.
-                let num = api.query().portfolio().next_portfolio_number(did).map(|v| v.into())?;
+                let num = api.query().portfolio().next_portfolio_number(did)?;
                 // Create Venue.
                 api.call()
                     .portfolio()
@@ -147,7 +158,7 @@ upgradable_api! {
                     .submit()?;
                 Ok(PortfolioId {
                   did,
-                  kind: PortfolioKind::User(num),
+                  kind: PortfolioKind::User(PortfolioNumber(num.0)),
                 })
             }
 
@@ -172,7 +183,7 @@ upgradable_api! {
                 if !api
                     .query()
                     .portfolio()
-                    .portfolios_in_custody(did, portfolio)?
+                    .portfolios_in_custody(did, portfolio.into())?
                 {
                     return Err(PolymeshError::InvalidPortfolioAuthorization);
                 }
@@ -186,7 +197,7 @@ upgradable_api! {
                 // Remove our custodianship.
                 api.call()
                     .portfolio()
-                    .quit_portfolio_custody(portfolio)
+                    .quit_portfolio_custody(portfolio.into())
                     .submit()?;
                 Ok(())
             }
@@ -204,9 +215,9 @@ upgradable_api! {
                 api.call()
                     .portfolio()
                     .move_portfolio_funds(
-                        src,
-                        dest,
-                        funds,
+                        src.into(),
+                        dest.into(),
+                        funds.into_iter().map(|f| f.into()).collect(),
                     )
                     .submit()?;
                 Ok(())
@@ -220,7 +231,7 @@ upgradable_api! {
                 ticker: Ticker
             ) -> PolymeshResult<Balance> {
                 let api = Api::new();
-                let balance = api.query().portfolio().portfolio_asset_balances(portfolio, ticker).map(|v| v.into())?;
+                let balance = api.query().portfolio().portfolio_asset_balances(portfolio.into(), ticker.into()).map(|v| v.into())?;
                 Ok(balance)
             }
 
@@ -235,7 +246,7 @@ upgradable_api! {
                 Ok(api
                     .query()
                     .portfolio()
-                    .portfolios_in_custody(did, portfolio)?)
+                    .portfolios_in_custody(did, portfolio.into())?)
             }
 
             /// Create a Settlement Venue.
@@ -275,15 +286,16 @@ upgradable_api! {
                         SettlementType::SettleManual(0),
                         None,
                         None,
-                        legs,
-                        portfolios,
+                        legs.into_iter().map(|l| l.into()).collect(),
+                        portfolios.into_iter().map(|p| p.into()).collect(),
+                        None,
                     )
                     .submit()?;
 
                 // Create settlement.
                 api.call()
                     .settlement()
-                    .execute_manual_instruction(instruction_id, leg_count, None)
+                    .execute_manual_instruction(instruction_id, None, leg_count, 0, 0, None)
                     .submit()?;
                 Ok(())
             }
@@ -293,7 +305,7 @@ upgradable_api! {
             pub fn asset_issue(&self, ticker: Ticker, amount: Balance) -> PolymeshResult<()> {
                 let api = Api::new();
                 // Mint tokens.
-                api.call().asset().issue(ticker.into(), amount).submit()?;
+                api.call().asset().issue(ticker.into(), amount, PortfolioKind::Default.into()).submit()?;
                 Ok(())
             }
 
@@ -302,7 +314,7 @@ upgradable_api! {
             pub fn asset_redeem_from_portfolio(&self, ticker: Ticker, amount: Balance, portfolio: PortfolioKind) -> PolymeshResult<()> {
                 let api = Api::new();
                 // Redeem tokens.
-                api.call().asset().redeem_from_portfolio(ticker.into(), amount, portfolio).submit()?;
+                api.call().asset().redeem_from_portfolio(ticker.into(), amount, portfolio.into()).submit()?;
                 Ok(())
             }
 
@@ -315,17 +327,16 @@ upgradable_api! {
                     .asset()
                     .create_asset(
                         name,
-                        ticker,
+                        ticker.into(),
                         divisible,
                         asset_type,
                         vec![],
                         None,
-                        true, // Disable Investor uniqueness requirements.
                     )
                     .submit()?;
                 // Mint some tokens.
                 if let Some(amount) = issue {
-                  api.call().asset().issue(ticker.into(), amount).submit()?;
+                  api.call().asset().issue(ticker.into(), amount, PortfolioKind::Default.into()).submit()?;
                 }
                 // Pause compliance rules to allow transfers.
                 api.call()
