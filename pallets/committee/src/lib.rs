@@ -323,7 +323,7 @@ decl_module! {
         /// * `FirstVoteReject`, if `call` hasn't been proposed and `approve == false`.
         /// * `NotAMember`, if the `origin` is not a member of this committee.
         #[weight = (
-            <T as Config<I>>::WeightInfo::vote_or_propose_new_proposal() + call.get_dispatch_info().weight,
+            <T as Config<I>>::WeightInfo::vote_or_propose_new_proposal().saturating_add(call.get_dispatch_info().weight),
             DispatchClass::Operational,
         )]
         pub fn vote_or_propose(origin, approve: bool, call: Box<<T as Config<I>>::Proposal>) -> DispatchResult {
@@ -505,9 +505,11 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
         };
         Self::deposit_event(event(current_did, proposal, yes_votes, no_votes, seats));
 
+        let proposal_of = <ProposalOf<T, I>>::take(&proposal);
+
         if approved {
             // execute motion, assuming it exists.
-            if let Some(p) = <ProposalOf<T, I>>::take(&proposal) {
+            if let Some(p) = proposal_of {
                 Self::execute(current_did, p, proposal);
             }
         }

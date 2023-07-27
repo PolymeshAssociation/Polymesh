@@ -13,32 +13,29 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{
-    traits::{
-        group::GroupTrait,
-        multisig::MultiSigSubTrait,
-        portfolio::PortfolioSubTrait,
-        transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-        CommonConfig,
-    },
-    ChargeProtocolFee,
-};
-
 use codec::{Decode, Encode};
-use frame_support::{
-    decl_event,
-    dispatch::{GetDispatchInfo, PostDispatchInfo, Weight},
-    traits::{Currency, EnsureOrigin, Get, GetCallMetadata},
-    Parameter,
+use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo, Weight};
+use frame_support::traits::{Currency, EnsureOrigin, Get, GetCallMetadata};
+use frame_support::{decl_event, Parameter};
+use scale_info::TypeInfo;
+use sp_core::H512;
+use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
+use sp_std::vec::Vec;
+
+use polymesh_primitives::identity::limits::{
+    MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
 };
 use polymesh_primitives::{
     secondary_key::SecondaryKey, AuthorizationData, Balance, CustomClaimTypeId, IdentityClaim,
     IdentityId, Permissions, Ticker,
 };
-use scale_info::TypeInfo;
-use sp_core::H512;
-use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
-use sp_std::vec::Vec;
+
+use crate::traits::group::GroupTrait;
+use crate::traits::multisig::MultiSigSubTrait;
+use crate::traits::portfolio::PortfolioSubTrait;
+use crate::traits::transaction_payment::{CddAndFeeDetails, ChargeTxFee};
+use crate::traits::CommonConfig;
+use crate::ChargeProtocolFee;
 
 pub type AuthorizationNonce = u64;
 
@@ -108,7 +105,21 @@ pub trait WeightInfo {
 
     fn permissions_cost_perms(perms: &Permissions) -> Weight {
         let (assets, portfolios, pallets, extrinsics) = perms.counts();
-        Self::permissions_cost(assets, portfolios, pallets, extrinsics)
+
+        if assets > MAX_ASSETS as u32
+            || portfolios > MAX_PORTFOLIOS as u32
+            || pallets > MAX_PALLETS as u32
+            || extrinsics > MAX_EXTRINSICS as u32
+        {
+            return Weight::MAX;
+        }
+
+        Self::permissions_cost(
+            assets.max(1),
+            portfolios.max(1),
+            pallets.max(1),
+            extrinsics.max(1),
+        )
     }
 
     fn freeze_secondary_keys() -> Weight;

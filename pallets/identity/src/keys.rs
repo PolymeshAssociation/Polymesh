@@ -38,6 +38,9 @@ use polymesh_common_utilities::traits::{
     AccountCallPermissionsData, CddAndFeeDetails, CheckAccountCallPermissions,
 };
 use polymesh_common_utilities::{Context, SystematicIssuers};
+use polymesh_primitives::identity::limits::{
+    MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
+};
 use polymesh_primitives::{
     extract_auth, AuthorizationData, DidRecord, DispatchableName, ExtrinsicPermissions, IdentityId,
     KeyRecord, PalletName, Permissions, SecondaryKey, Signatory, SubsetRestriction,
@@ -51,11 +54,6 @@ use sp_std::{vec, vec::Vec};
 
 // Maximum secondary keys to return from RPC `identity_getDidRecords`.
 const RPC_MAX_KEYS: usize = 200;
-
-const MAX_ASSETS: usize = 2000;
-const MAX_PORTFOLIOS: usize = 2000;
-const MAX_PALLETS: usize = 80;
-const MAX_EXTRINSICS: usize = 80;
 const MAX_NAME_LEN: usize = 60;
 
 // Limit the maximum memory/cpu cost of a key's permissions.

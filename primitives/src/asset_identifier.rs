@@ -1,6 +1,7 @@
 use codec::{Decode, Encode};
 use core::convert::{TryFrom, TryInto};
 use scale_info::TypeInfo;
+use sp_std::prelude::Vec;
 
 /// Implementation of common asset identifiers.
 /// https://www.cusip.com/identifiers.html.
@@ -57,7 +58,7 @@ impl AssetIdentifier {
         validate_figi(&bytes).then_some(AssetIdentifier::FIGI(bytes))
     }
 
-    /// Returns `true` iff the identifier is valid.
+    /// Returns `true` if the identifier is valid.
     ///
     /// Mainly used for validating manual constructions of the enum (user input).
     pub fn is_valid(&self) -> bool {
@@ -70,113 +71,145 @@ impl AssetIdentifier {
     }
 }
 
+/// Returns `b` CUSIP digit from its ascii code.
+/// Returns an error if `b` is an invalid character.
+fn byte_value(b: u8) -> Result<u8, &'static str> {
+    match b {
+        b'*' => Ok(36),
+        b'@' => Ok(37),
+        b'#' => Ok(38),
+        b'0'..=b'9' => Ok(b - b'0'),
+        b'A'..=b'Z' => Ok(b - b'A' + 1 + 9),
+        b'a'..=b'z' => Ok(b - 0x20 - b'A' + 1 + 9),
+        _ => Err("Invalid Character"),
+    }
+}
+
+/// Returns the check digit for `bytes` by performing the Luhn algorithm.
+/// Returns an error if `bytes` contains an invalid character.
+fn cusip_check_digit(bytes: &[u8]) -> Result<u8, &'static str> {
+    let mut sum: u32 = 0;
+    for (index, byte) in bytes.iter().enumerate() {
+        let mut v = byte_value(*byte)?;
+        // if the index is not even, multiply value by two
+        if index % 2 != 0 {
+            v *= 2;
+        }
+        sum += ((v / 10) + (v % 10)) as u32;
+    }
+    Ok(((10 - (sum % 10)) % 10) as u8)
+}
+
+/// Returns `true` if `bytes` follows the  Committee on Uniform Security Identification Procedures format.
 fn validate_cusip(bytes: &[u8; 9]) -> bool {
-    cusip_checksum(&bytes[..8]) == bytes[8] - b'0'
+    // The last byte must be a checksum digit (0-9)
+    if !bytes[8].is_ascii_digit() {
+        return false;
+    }
+
+    match cusip_check_digit(&bytes[..8]) {
+        Ok(check_digit) => check_digit == bytes[8] - b'0',
+        Err(_) => false,
+    }
 }
 
-fn cusip_checksum(bytes: &[u8]) -> u8 {
-    let total: usize = bytes
-        .iter()
-        .copied()
-        .map(byte_value)
-        .enumerate()
-        .map(|(i, v)| v << (i % 2))
-        .map(|v| (v / 10).wrapping_add(v % 10))
-        .map(|x| x as usize)
-        .sum();
-    ((10 - (total % 10)) % 10) as u8
-}
-
+/// Returns `true` if `bytes` is a valid International Securities Identification Number.
 fn validate_isin(bytes: &[u8; 12]) -> bool {
-    enum UpToTwo {
-        Zero,
-        One(u8),
-        Two(u8, u8),
+    // Must have 2-character ISO country code (A-Z) and a checksum digit (0-9)
+    if !bytes[0].is_ascii_alphabetic()
+        || !bytes[1].is_ascii_alphabetic()
+        || !bytes[11].is_ascii_digit()
+    {
+        return false;
     }
-    impl Iterator for UpToTwo {
-        type Item = u8;
-        fn next(&mut self) -> Option<Self::Item> {
-            let (this, next) = match self {
-                Self::Zero => return None,
-                Self::One(x) => (Self::Zero, Some(*x)),
-                Self::Two(x, y) => (Self::One(*y), Some(*x)),
-            };
-            *self = this;
-            next
-        }
-    }
-    impl core::iter::DoubleEndedIterator for UpToTwo {
-        fn next_back(&mut self) -> Option<Self::Item> {
-            let (this, next) = match self {
-                Self::Zero => return None,
-                Self::One(x) => (Self::Zero, Some(*x)),
-                Self::Two(x, y) => (Self::One(*x), Some(*y)),
-            };
-            *self = this;
-            next
+
+    // After the country code and before the checksum digit, a 9-character security code (A-Z, 0-9)
+    for i in 2..11 {
+        if !bytes[i].is_ascii_alphanumeric() {
+            return false;
         }
     }
 
-    let (s1, s2) = bytes
-        .iter()
-        .copied()
-        .map(byte_value)
-        .flat_map(|b| {
-            if b > 9 {
-                UpToTwo::Two(b / 10, b % 10)
-            } else {
-                UpToTwo::One(b)
-            }
-        })
-        .rev()
-        .enumerate()
-        .fold((0u8, 0u8), |(mut s1, mut s2), (i, digit)| {
-            if i % 2 == 0 {
-                s1 = s1.wrapping_add(digit);
-            } else {
-                s2 = s2.wrapping_add(2u8.wrapping_mul(digit));
-                if digit >= 5 {
-                    s2 = s2.wrapping_sub(9);
+    // Get the individual digits for each byte
+    let mut digits = Vec::new();
+    for byte in bytes {
+        match byte_value(*byte) {
+            Ok(v) => {
+                if v >= 10 {
+                    digits.push(v / 10);
+                    digits.push(v % 10);
+                } else {
+                    digits.push(v);
                 }
             }
-            (s1, s2)
-        });
-    s1.wrapping_add(s2) % 10 == 0
+            Err(_) => return false,
+        }
+    }
+
+    // Luhn test
+    let mut s1: u32 = 0;
+    let mut s2: u32 = 0;
+    for (index, digit) in digits.into_iter().rev().enumerate() {
+        if index % 2 == 0 {
+            s1 += digit as u32;
+            continue;
+        }
+        // Sum for the odd indexes
+        s2 += 2 * digit as u32;
+        if digit >= 5 {
+            s2 -= 9;
+        }
+    }
+
+    (s1 + s2) % 10 == 0
 }
 
+/// Returns `true` if `bytes` is a valid Legal Entity Identifier number.
 fn validate_lei(bytes: &[u8; 20]) -> bool {
-    bytes[..18]
-        .try_into()
-        .ok()
-        .map(lei_checksum)
-        .filter(|hash| {
-            *hash
-                == (bytes[18].wrapping_sub(b'0'))
-                    .wrapping_mul(10)
-                    .wrapping_add(bytes[19].wrapping_sub(b'0'))
-        })
-        .is_some()
+    // The fist 18 bytes must be the LOU ID + Entity Identifier (A-Z, 0-9)
+    for i in 0..18 {
+        if !bytes[i].is_ascii_alphanumeric() {
+            return false;
+        }
+    }
+
+    // The last two bytes must be the verification id (0-9)
+    if !bytes[18].is_ascii_digit() || !bytes[19].is_ascii_digit() {
+        return false;
+    }
+
+    let first_check_digit = bytes[18] - b'0';
+    let second_check_digit = bytes[19] - b'0';
+    let input_check = first_check_digit * 10 + second_check_digit;
+
+    let bytes: [u8; 18] = bytes[..18].try_into().unwrap_or_default();
+    Ok(input_check) == lei_checksum(bytes)
 }
 
-fn lei_checksum(bytes: [u8; 18]) -> u8 {
-    let mut i = 0;
-    let total = bytes
-        .iter()
-        .copied()
-        .rev()
-        .map(byte_value)
-        .map(|x| x as u128)
-        .fold(0u128, |total, b| {
-            let total = total.wrapping_add(b.wrapping_mul(10u128.wrapping_pow(i as u32)));
-            i += if b > 9 { 2 } else { 1 };
-            total
-        });
-    (98 - (total.wrapping_mul(100) % 97)) as u8
+fn lei_checksum(bytes: [u8; 18]) -> Result<u8, &'static str> {
+    let mut i: u32 = 0;
+    let mut sum: u128 = 0;
+    for byte in bytes.into_iter().rev() {
+        let v = byte_value(byte)? as u128;
+
+        sum += v * (10u128.wrapping_pow(i));
+        i += if v > 9 { 2 } else { 1 };
+    }
+    Ok((98 - ((sum * 100) % 97)) as u8)
 }
 
 fn validate_figi(bytes: &[u8; 12]) -> bool {
-    // G for Global.
     if bytes[2] != b'G' {
+        return false;
+    }
+
+    for i in 3..11 {
+        if !bytes[i].is_ascii_alphanumeric() {
+            return false;
+        }
+    }
+
+    if !bytes[11].is_ascii_digit() {
         return false;
     }
 
@@ -184,19 +217,7 @@ fn validate_figi(bytes: &[u8; 12]) -> bool {
         // Disallowed prefixes.
         Err(_) | Ok(b"BS" | b"BM" | b"GG" | b"GB" | b"GH" | b"KY" | b"VG") => false,
         // Validate checksum.
-        Ok(_) => cusip_checksum(&bytes[..11]) == bytes[11] - b'0',
-    }
-}
-
-fn byte_value(b: u8) -> u8 {
-    match b {
-        b'*' => 36,
-        b'@' => 37,
-        b'#' => 38,
-        b'0'..=b'9' => b - b'0',
-        b'A'..=b'Z' => b - b'A' + 1 + 9,
-        b'a'..=b'z' => b - 0x20 - b'A' + 1 + 9,
-        _ => b,
+        Ok(_) => cusip_check_digit(&bytes[..11]) == Ok(bytes[11] - b'0'),
     }
 }
 
@@ -227,6 +248,7 @@ mod tests {
             AssetIdentifier::cusip(*b"68389X105"),
             Some(AssetIdentifier::CUSIP(*b"68389X105"))
         );
+        assert_eq!(validate_cusip(&[51, 35, 0, 0, 162, 0, 0, 0, 0]), false);
     }
 
     #[test]
