@@ -1,6 +1,6 @@
 [package]
 name = "polymesh_ink_upgrade_tracker"
-version = "1.0.0"
+version = "0.3.0"
 authors = ["PolymeshAssociation"]
 edition = "2021"
 license = "Apache-2.0"

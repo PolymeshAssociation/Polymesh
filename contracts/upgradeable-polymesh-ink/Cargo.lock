@@ -1986,7 +1986,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh_ink_upgrade_tracker"
-version = "1.0.0"
+version = "0.3.0"
 dependencies = [
  "ink_env",
  "ink_lang",
