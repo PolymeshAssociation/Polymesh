@@ -173,19 +173,24 @@ mod settlements {
             Ok(())
         }
 
-        fn init_venue(&mut self) -> Result<()> {
+        fn init_venue(&mut self, name: Vec<u8>) -> Result<()> {
             if self.initialized {
                 return Err(Error::AlreadyInitialized);
             }
-            // Create tickers.
-            self.create_asset(self.ticker1)?;
-            self.create_asset(self.ticker2)?;
-
             // Create venue.
             self.venue = self.api.create_venue(
                     VenueDetails(b"Contract Venue".to_vec()),
                     VenueType::Other,
                 )?;
+
+            // Create a portfolio for the contract.
+            let portfolio = self.api.create_portfolio(name)?;
+            self.portfolios.insert(self.did, &portfolio);
+
+            // Create tickers.
+            self.create_asset(self.ticker1)?;
+            self.create_asset(self.ticker2)?;
+
             self.initialized = true;
             Ok(())
         }
@@ -199,9 +204,9 @@ mod settlements {
             Ok(())
         }
 
-        #[ink(message)]
-        pub fn init(&mut self) -> Result<()> {
-            self.init_venue()
+        #[ink(message, payable)]
+        pub fn init(&mut self, name: Vec<u8>) -> Result<()> {
+            self.init_venue(name)
         }
 
         #[ink(message)]
