@@ -605,27 +605,10 @@ macro_rules! runtime_apis {
             Runtime,
             AllPalletsWithSystem,
             (
-              FixSchedulerV4,
+              pallet_scheduler::migration::v4::CleanupAgendas<Runtime>,
               pallet_contracts::Migration<Runtime>,
             )
         >;
-
-        /// Fix the scheduler pallet storage version.
-        pub struct FixSchedulerV4;
-        impl frame_support::traits::OnRuntimeUpgrade for FixSchedulerV4 {
-            fn on_runtime_upgrade() -> Weight {
-                let version = StorageVersion::get::<Scheduler>();
-                if version < 4 {
-                    StorageVersion::new(4).put::<Scheduler>();
-                    log::info!(
-                        "Setting scheduler StorageVersion to v4",
-                    );
-                    return <Runtime as frame_system::Config>::DbWeight::get().reads(1);
-                }
-
-                Weight::zero()
-            }
-        }
 
         sp_api::impl_runtime_apis! {
             impl sp_api::Core<Block> for Runtime {
