@@ -25,12 +25,15 @@ pub use polymesh_api::{
     }
 };
 
+use polymesh_api::polymesh::types::pallet_corporate_actions;
 // Re-export V6 types that haven't changed.
 pub use polymesh_api::{
     ink::{basic_types::IdentityId, extension::PolymeshEnvironment},
     polymesh::types::{
+        pallet_corporate_actions::{CAId, RecordDateSpec},
         polymesh_primitives::{
             asset::{AssetName, AssetType},
+            calendar::CheckpointId,
             identity_id::PortfolioName,
             settlement::{SettlementType, VenueDetails, VenueId, VenueType},
         },
@@ -124,11 +127,48 @@ impl From<polymesh_api::ink::extension::PolymeshRuntimeErr> for PolymeshError {
 pub type PolymeshResult<T> = core::result::Result<T, PolymeshError>;
 
 #[cfg(feature = "as-library")]
-pub type Balance = <PolymeshEnvironment as ink_env::Environment>::Balance;
-#[cfg(feature = "as-library")]
 pub type Hash = <PolymeshEnvironment as ink_env::Environment>::Hash;
 #[cfg(feature = "as-library")]
 pub type AccountId = <PolymeshEnvironment as ink_env::Environment>::AccountId;
+pub type Balance = <PolymeshEnvironment as ink_env::Environment>::Balance;
+pub type Timestamp = <PolymeshEnvironment as ink_env::Environment>::Timestamp;
+
+#[derive(Debug, scale::Encode, scale::Decode)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+pub struct DistributionSummary {
+    pub currency: Ticker,
+    pub per_share: Balance,
+    pub reclaimed: bool,
+    pub payment_at: Timestamp,
+    pub expires_at: Option<Timestamp>,
+}
+
+impl From<pallet_corporate_actions::distribution::Distribution> for DistributionSummary {
+    fn from(distribution: pallet_corporate_actions::distribution::Distribution) -> Self {
+        Self {
+            currency: distribution.currency,
+            per_share: distribution.per_share,
+            reclaimed: distribution.reclaimed,
+            payment_at: distribution.payment_at,
+            expires_at: distribution.expires_at,
+        }
+    }
+}
+
+#[derive(Debug, scale::Encode, scale::Decode)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+pub struct SimpleDividend {
+    pub ticker: Ticker,
+    pub decl_date: Timestamp,
+    pub record_date: pallet_corporate_actions::RecordDateSpec,
+    pub details: Vec<u8>,
+    pub portfolio: Option<PortfolioNumber>,
+    pub currency: Ticker,
+    pub per_share: Balance,
+    pub amount: Balance,
+    pub payment_at: Timestamp,
+    pub expires_at: Option<Timestamp>,
+}
 
 upgradable_api! {
     mod polymesh_ink {
@@ -355,6 +395,62 @@ upgradable_api! {
                 let api = Api::new();
                 let balance = api.query().asset().balance_of(ticker, did)?;
                 Ok(balance)
+            }
+
+            /// Get the `total_supply` of an asset.
+            #[ink(message)]
+            pub fn asset_total_supply(
+                &self,
+                ticker: Ticker
+            ) -> PolymeshResult<Balance> {
+                let api = Api::new();
+                let token = api.query().asset().tokens(ticker)?;
+                Ok(token.total_supply)
+            }
+
+            /// Get Corporate action distribution summary.
+            #[ink(message)]
+            pub fn distribution_summary(
+                &self,
+                ca_id: CAId
+            ) -> PolymeshResult<Option<DistributionSummary>> {
+                let api = Api::new();
+                let distribution = api.query().capital_distribution().distributions(ca_id)?;
+                Ok(distribution.map(|d| d.into()))
+            }
+
+            /// Create a simple dividend distribution.
+            #[ink(message)]
+            pub fn create_dividend(
+                &self,
+                dividend: SimpleDividend
+            ) -> PolymeshResult<()> {
+                let api = Api::new();
+                // Corporate action args.
+                let ca_args = pallet_corporate_actions::InitiateCorporateActionArgs {
+                    ticker: dividend.ticker,
+                    kind: pallet_corporate_actions::CAKind::Other,
+                    decl_date: dividend.decl_date,
+                    record_date: Some(dividend.record_date),
+                    details: pallet_corporate_actions::CADetails(dividend.details),
+                    targets: None,
+                    default_withholding_tax: None,
+                    withholding_tax: None,
+                };
+                // Create corporate action & distribution.
+                api.call()
+                    .corporate_action()
+                    .initiate_corporate_action_and_distribute(
+                        ca_args,
+                        dividend.portfolio,
+                        dividend.currency,
+                        dividend.per_share,
+                        dividend.amount,
+                        dividend.payment_at,
+                        dividend.expires_at,
+                    )
+                    .submit()?;
+                Ok(())
             }
 
             /// Get the identity of the caller.
