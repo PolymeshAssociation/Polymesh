@@ -231,7 +231,7 @@ upgradable_api! {
                 ticker: Ticker
             ) -> PolymeshResult<Balance> {
                 let api = Api::new();
-                let balance = api.query().portfolio().portfolio_asset_balances(portfolio.into(), ticker.into()).map(|v| v.into())?;
+                let balance = api.query().portfolio().portfolio_asset_balances(portfolio.into(), ticker.into())?;
                 Ok(balance)
             }
 
@@ -254,7 +254,7 @@ upgradable_api! {
             pub fn create_venue(&self, details: VenueDetails, ty: VenueType) -> PolymeshResult<VenueId> {
                 let api = Api::new();
                 // Get the next venue id.
-                let id = api.query().settlement().venue_counter().map(|v| v.into())?;
+                let id = api.query().settlement().venue_counter()?;
                 // Create Venue.
                 api.call()
                     .settlement()
@@ -276,8 +276,7 @@ upgradable_api! {
                 let instruction_id = api
                     .query()
                     .settlement()
-                    .instruction_counter()
-                    .map(|v| v.into())?;
+                    .instruction_counter()?;
                 // Create settlement.
                 api.call()
                     .settlement()
@@ -346,6 +345,18 @@ upgradable_api! {
                 Ok(())
             }
 
+            /// Get an identity's asset balance.
+            #[ink(message)]
+            pub fn asset_balance_of(
+                &self,
+                ticker: Ticker,
+                did: IdentityId
+            ) -> PolymeshResult<Balance> {
+                let api = Api::new();
+                let balance = api.query().asset().balance_of(ticker, did)?;
+                Ok(balance)
+            }
+
             /// Get the identity of the caller.
             pub fn get_caller_did(&self) -> PolymeshResult<IdentityId> {
                 self.get_key_did(ink_env::caller::<PolymeshEnvironment>())
@@ -361,7 +372,6 @@ upgradable_api! {
                 let api = Api::new();
                 api.runtime()
                     .get_key_did(acc)?
-                    .map(|did| did.into())
                     .ok_or(PolymeshError::MissingIdentity)
             }
         }
