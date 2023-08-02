@@ -12,7 +12,7 @@ use polymesh_common_utilities::Context;
 use polymesh_primitives::{Signatory, TransactionError};
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
 use sp_runtime::transaction_validity::InvalidTransaction;
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 type MultiSig = multisig::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;

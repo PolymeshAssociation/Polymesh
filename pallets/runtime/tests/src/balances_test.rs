@@ -17,7 +17,7 @@ use frame_system::{EventRecord, Phase};
 use pallet_transaction_payment::ChargeTransactionPayment;
 use polymesh_primitives::{traits::BlockRewardsReserveCurrency, Memo};
 use sp_runtime::traits::SignedExtension;
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 pub type Balances = balances::Module<TestStorage>;
 pub type System = frame_system::Pallet<TestStorage>;

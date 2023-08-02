@@ -98,19 +98,13 @@ sp-version = { git = "https://github.com/PolymeshAssociation/substrate", branch 
 substrate-frame-rpc-system = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 substrate-state-trie-migration-rpc = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 substrate-prometheus-endpoint = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
-substrate-test-runtime-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 substrate-build-script-utils = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
-substrate-test-utils = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
-substrate-test-utils-derive = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 substrate-wasm-builder = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 
 [workspace]
 members = [
     "bin/bench",
-    "bin/crypto-cli",
     "bin/testing",
-    #"migration-tests",
-    #"migration-tests/remote-externalities",
     "node-rpc",
     "pallets/asset",
     "pallets/balances",

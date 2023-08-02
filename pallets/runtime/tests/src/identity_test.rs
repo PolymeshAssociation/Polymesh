@@ -40,7 +40,7 @@ use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
 use sp_core::H512;
 use sp_runtime::transaction_validity::InvalidTransaction;
 use std::convert::From;
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 type AuthorizationsGiven = pallet_identity::AuthorizationsGiven<TestStorage>;
 type Asset = pallet_asset::Module<TestStorage>;

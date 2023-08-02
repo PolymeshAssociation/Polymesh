@@ -40,7 +40,7 @@ use polymesh_primitives::{
     PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Signatory, Ticker,
     WeightMeter,
 };
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 use crate::ext_builder::{ExtBuilder, IdentityRecord};
 use crate::nft::create_nft_collection;

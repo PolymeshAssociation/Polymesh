@@ -73,7 +73,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use std::cell::RefCell;
 use std::convert::From;
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 lazy_static! {
     pub static ref INTEGRATION_TEST: bool = std::env::var("INTEGRATION_TEST")

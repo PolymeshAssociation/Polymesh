@@ -32,7 +32,7 @@ use polymesh_primitives::{
 };
 use sp_arithmetic::Permill;
 use std::convert::TryInto;
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 type System = frame_system::Pallet<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;

@@ -12,7 +12,7 @@ use polymesh_primitives::{
 };
 use sp_arithmetic::Permill;
 use std::collections::{HashMap, HashSet};
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type Identity = pallet_identity::Module<TestStorage>;

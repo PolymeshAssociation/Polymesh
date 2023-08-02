@@ -15,7 +15,7 @@ use polymesh_primitives::{
     NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
     Signatory, Ticker,
 };
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 use super::asset_test::{create_token, max_len_bytes};
 use super::nft::{create_nft_collection, mint_nft};

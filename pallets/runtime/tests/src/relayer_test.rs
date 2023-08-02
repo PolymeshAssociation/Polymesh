@@ -20,7 +20,7 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionValidityError},
     MultiAddress,
 };
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 type Relayer = pallet_relayer::Module<TestStorage>;
 type Subsidies = pallet_relayer::Subsidies<TestStorage>;

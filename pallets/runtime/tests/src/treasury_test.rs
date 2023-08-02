@@ -6,7 +6,7 @@ use super::{
 
 use polymesh_primitives::{Beneficiary, IdentityId};
 use sp_runtime::DispatchError;
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 pub type Balances = pallet_balances::Module<TestStorage>;
 pub type Treasury = pallet_treasury::Module<TestStorage>;

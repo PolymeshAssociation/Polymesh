@@ -19,7 +19,7 @@ use polymesh_primitives::IdentityId;
 use sp_core::H256;
 use sp_runtime::traits::Hash;
 use std::convert::TryFrom;
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 type Committee = committee::Module<TestStorage, committee::Instance1>;
 type CommitteeGroup = group::Module<TestStorage, group::Instance1>;

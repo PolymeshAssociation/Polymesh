@@ -17,7 +17,7 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionValidityError},
     FixedPointNumber, MultiAddress,
 };
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 fn call() -> <TestStorage as frame_system::Config>::RuntimeCall {
     RuntimeCall::Balances(BalancesCall::transfer {

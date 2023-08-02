@@ -11,7 +11,7 @@ use pallet_bridge::{
     self as bridge, BridgeTx as GBridgeTx, BridgeTxDetail as GBridgeTxDetail, BridgeTxStatus,
 };
 use polymesh_primitives::AccountId;
-use test_client::AccountKeyring::*;
+use sp_keyring::AccountKeyring::*;
 
 type Bridge = bridge::Module<TestStorage>;
 type BridgeGenesis = bridge::GenesisConfig<TestStorage>;

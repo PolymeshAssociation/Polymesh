@@ -14,7 +14,7 @@ use polymesh_primitives::{
     AuthorizationData, Claim, ClaimType, Condition, ConditionType, CountryCode, IdentityId,
     PortfolioId, Scope, Signatory, TargetIdentity, Ticker, TrustedFor, WeightMeter,
 };
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 use super::asset_test::{allow_all_transfers, create_token, set_timestamp};
 use super::storage::{set_curr_did, TestStorage, User};

@@ -74,7 +74,7 @@ mod test {
 
     use lazy_static::lazy_static;
     use std::{collections::BTreeMap, convert::From, sync::RwLock, thread};
-    use substrate_test_runtime_client::AccountKeyring;
+    use sp_keyring::AccountKeyring;
 
     lazy_static! {
         pub static ref CURR_IDENTITY: RwLock<Option<IdentityId>> = RwLock::new(None);

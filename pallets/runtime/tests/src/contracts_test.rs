@@ -10,7 +10,7 @@ use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_primitives::{AccountId, Gas, Permissions, PortfolioPermissions, Ticker};
 use polymesh_runtime_common::Currency;
 use sp_runtime::traits::Hash;
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 // We leave it to tests in the substrate to ensure that `pallet-contracts`
 // is functioning correctly, so we do not add such redundant tests

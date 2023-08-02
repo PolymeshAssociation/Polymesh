@@ -36,7 +36,7 @@ use polymesh_primitives::{
     SubsetRestriction,
 };
 use sp_core::sr25519::Signature;
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 type Error = utility::Error<TestStorage>;
 
