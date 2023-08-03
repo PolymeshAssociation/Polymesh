@@ -401,12 +401,37 @@ mod settlements {
             Ok(self.api.distribution_summary(ca_id)?)
         }
 
+        /// Claim dividends.
+        #[ink(message)]
+        pub fn dividend_claim(
+            &mut self,
+            ca_id: CAId
+        ) -> PolymeshResult<()> {
+            Ok(self.api.dividend_claim(ca_id)?)
+        }
+
         /// Create a simple dividend distribution.
         #[ink(message)]
         pub fn create_dividend(
             &mut self,
-            dividend: SimpleDividend
+            ticker: Ticker,
+            portfolio: Option<PortfolioNumber>,
+            currency: Ticker,
+            per_share: Balance,
+            amount: Balance,
         ) -> PolymeshResult<()> {
+            let now = Self::env().block_timestamp();
+            let dividend = SimpleDividend {
+                ticker,
+                decl_date: now,
+                record_date: now,
+                portfolio,
+                currency,
+                per_share,
+                amount,
+                payment_at: now + 1_000,
+                expires_at: None,
+            };
             Ok(self.api.create_dividend(dividend)?)
         }
     }

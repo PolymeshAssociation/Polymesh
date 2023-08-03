@@ -150,8 +150,7 @@ impl From<pallet_corporate_actions::distribution::Distribution> for Distribution
 pub struct SimpleDividend {
     pub ticker: Ticker,
     pub decl_date: Timestamp,
-    pub record_date: pallet_corporate_actions::RecordDateSpec,
-    pub details: Vec<u8>,
+    pub record_date: Timestamp,
     pub portfolio: Option<PortfolioNumber>,
     pub currency: Ticker,
     pub per_share: Balance,
@@ -398,7 +397,7 @@ upgradable_api! {
                 Ok(token.total_supply)
             }
 
-            /// Get Corporate action distribution summary.
+            /// Get corporate action distribution summary.
             #[ink(message)]
             pub fn distribution_summary(
                 &self,
@@ -407,6 +406,17 @@ upgradable_api! {
                 let api = Api::new();
                 let distribution = api.query().capital_distribution().distributions(ca_id)?;
                 Ok(distribution.map(|d| d.into()))
+            }
+
+            /// Cliam dividends from a distribution.
+            #[ink(message)]
+            pub fn dividend_claim(
+                &self,
+                ca_id: CAId
+            ) -> PolymeshResult<()> {
+                let api = Api::new();
+                api.call().capital_distribution().claim(ca_id).submit()?;
+                Ok(())
             }
 
             /// Create a simple dividend distribution.
@@ -419,10 +429,10 @@ upgradable_api! {
                 // Corporate action args.
                 let ca_args = pallet_corporate_actions::InitiateCorporateActionArgs {
                     ticker: dividend.ticker,
-                    kind: pallet_corporate_actions::CAKind::Other,
+                    kind: pallet_corporate_actions::CAKind::PredictableBenefit,
                     decl_date: dividend.decl_date,
-                    record_date: Some(dividend.record_date),
-                    details: pallet_corporate_actions::CADetails(dividend.details),
+                    record_date: Some(RecordDateSpec::Scheduled(dividend.record_date)),
+                    details: pallet_corporate_actions::CADetails(vec![]),
                     targets: None,
                     default_withholding_tax: None,
                     withholding_tax: None,
