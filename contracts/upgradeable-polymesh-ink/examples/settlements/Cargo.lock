@@ -1954,9 +1954,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh-ink"
-version = "0.5.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "657521b424329b3829699b00ed332400deeb04275c44a26627ba73633e7e339c"
+version = "0.5.10"
 dependencies = [
  "ink_env",
  "ink_lang",
@@ -1974,8 +1972,6 @@ dependencies = [
 [[package]]
 name = "polymesh_ink_upgrade_tracker"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4a05f8130207887b974ec0ecc11a37d8268c9c49a25be0316aeeb79beee3bd9"
 dependencies = [
  "ink_env",
  "ink_lang",
