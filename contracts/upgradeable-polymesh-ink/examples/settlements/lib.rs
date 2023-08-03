@@ -372,5 +372,42 @@ mod settlements {
 
             Ok(())
         }
+
+        /// Get an identity's asset balance.
+        #[ink(message)]
+        pub fn asset_balance_of(
+            &mut self,
+            ticker: Ticker,
+            did: IdentityId
+        ) -> PolymeshResult<Balance> {
+            Ok(self.api.asset_balance_of(ticker, did)?)
+        }
+
+        /// Get the `total_supply` of an asset.
+        #[ink(message)]
+        pub fn asset_total_supply(
+            &mut self,
+            ticker: Ticker
+        ) -> PolymeshResult<Balance> {
+            Ok(self.api.asset_total_supply(ticker)?)
+        }
+
+        /// Get Corporate action distribution summary.
+        #[ink(message)]
+        pub fn distribution_summary(
+            &mut self,
+            ca_id: CAId
+        ) -> PolymeshResult<Option<DistributionSummary>> {
+            Ok(self.api.distribution_summary(ca_id)?)
+        }
+
+        /// Create a simple dividend distribution.
+        #[ink(message)]
+        pub fn create_dividend(
+            &mut self,
+            dividend: SimpleDividend
+        ) -> PolymeshResult<()> {
+            Ok(self.api.create_dividend(dividend)?)
+        }
     }
 }
