@@ -17,7 +17,7 @@ use polymesh_api::polymesh::Api;
 
 // Re-export Old V5 types.  Changed in V6.
 pub use polymesh_api::v5_to_v6::{
-    Leg, MovePortfolioItem, PortfolioId, PortfolioKind, PortfolioNumber, Ticker,
+    Leg, MovePortfolioItem,
 };
 
 use polymesh_api::polymesh::types::pallet_corporate_actions;
@@ -26,11 +26,11 @@ pub use polymesh_api::polymesh::types;
 pub use polymesh_api::{
     ink::{basic_types::IdentityId, extension::PolymeshEnvironment},
     polymesh::types::{
-        pallet_corporate_actions::{CAId, RecordDateSpec},
+        pallet_corporate_actions::CAId,
         polymesh_primitives::{
-            asset::{AssetName, AssetType},
-            calendar::CheckpointId,
-            identity_id::PortfolioName,
+            asset::{AssetName, AssetType, CheckpointId},
+            identity_id::{PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber},
+            ticker::Ticker,
             settlement::{SettlementType, VenueDetails, VenueId, VenueType},
         },
     },
@@ -399,7 +399,7 @@ upgradable_api! {
             ) -> PolymeshResult<Balance> {
                 let api = Api::new();
                 let token = api.query().asset().tokens(ticker)?;
-                Ok(token.total_supply)
+                Ok(token.map(|t| t.total_supply).unwrap_or_default())
             }
 
             /// Get corporate action distribution summary.
@@ -436,7 +436,7 @@ upgradable_api! {
                     ticker: dividend.ticker,
                     kind: pallet_corporate_actions::CAKind::PredictableBenefit,
                     decl_date: dividend.decl_date,
-                    record_date: Some(RecordDateSpec::Scheduled(dividend.record_date)),
+                    record_date: Some(pallet_corporate_actions::RecordDateSpec::Scheduled(dividend.record_date)),
                     details: pallet_corporate_actions::CADetails(vec![]),
                     targets: None,
                     default_withholding_tax: None,
