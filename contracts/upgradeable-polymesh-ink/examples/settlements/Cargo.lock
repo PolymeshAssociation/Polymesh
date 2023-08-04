@@ -1944,7 +1944,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh-ink"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "ink_env",
  "ink_lang",

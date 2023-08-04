@@ -236,15 +236,15 @@ mod settlements {
             self.transfer_assets(
                 vec![
                     Leg {
-                        from: our_portfolio,
-                        to: caller_portfolio,
-                        asset: self.ticker1,
+                        from: our_portfolio.into(),
+                        to: caller_portfolio.into(),
+                        asset: self.ticker1.into(),
                         amount: 10 * UNIT,
                     },
                     Leg {
-                        from: our_portfolio,
-                        to: caller_portfolio,
-                        asset: self.ticker2,
+                        from: our_portfolio.into(),
+                        to: caller_portfolio.into(),
+                        asset: self.ticker2.into(),
                         amount: 20 * UNIT,
                     },
                 ],
@@ -301,7 +301,7 @@ mod settlements {
                 caller_portfolio, // Contract controlled portfolio.
                 dest,            // Caller controlled portfolio.
                 vec![MovePortfolioItem {
-                    ticker: ticker,
+                    ticker: ticker.into(),
                     amount,
                     memo: None,
                 }],
@@ -355,15 +355,15 @@ mod settlements {
             self.transfer_assets(
                 vec![
                     Leg {
-                        from: caller_portfolio,
-                        to: our_portfolio,
-                        asset: sell,
+                        from: caller_portfolio.into(),
+                        to: our_portfolio.into(),
+                        asset: sell.into(),
                         amount: sell_amount,
                     },
                     Leg {
-                        from: our_portfolio,
-                        to: caller_portfolio,
-                        asset: buy,
+                        from: our_portfolio.into(),
+                        to: caller_portfolio.into(),
+                        asset: buy.into(),
                         amount: buy_amount,
                     },
                 ],
