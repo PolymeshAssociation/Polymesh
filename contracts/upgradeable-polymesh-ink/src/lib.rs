@@ -16,17 +16,13 @@ pub use upgrade_tracker::{Error as UpgradeError, UpgradeTrackerRef, WrappedApi};
 use polymesh_api::polymesh::Api;
 
 // Re-export Old V5 types.  Changed in V6.
-pub use polymesh_api::{
-    v5_to_v6::{
-      MovePortfolioItem,
-      Leg,
-      PortfolioId, PortfolioKind, PortfolioNumber,
-      Ticker,
-    }
+pub use polymesh_api::v5_to_v6::{
+    Leg, MovePortfolioItem, PortfolioId, PortfolioKind, PortfolioNumber, Ticker,
 };
 
 use polymesh_api::polymesh::types::pallet_corporate_actions;
 // Re-export V6 types that haven't changed.
+pub use polymesh_api::polymesh::types;
 pub use polymesh_api::{
     ink::{basic_types::IdentityId, extension::PolymeshEnvironment},
     polymesh::types::{
@@ -39,7 +35,6 @@ pub use polymesh_api::{
         },
     },
 };
-pub use polymesh_api::polymesh::types;
 
 #[cfg(feature = "tracker")]
 pub const API_VERSION: WrappedApi = (*b"POLY", 5);
@@ -56,8 +51,8 @@ pub enum PolymeshError {
     InvalidPortfolioAuthorization,
     /// Ink! Delegate call error.
     InkDelegateCallError {
-      selector: [u8; 4],
-      err: Option<InkEnvError>,
+        selector: [u8; 4],
+        err: Option<InkEnvError>,
     },
 }
 
@@ -93,20 +88,20 @@ impl PolymeshError {
     pub fn from_delegate_error(err: ink_env::Error, selector: ink_env::call::Selector) -> Self {
         use ink_env::Error::*;
         Self::InkDelegateCallError {
-          selector: selector.to_bytes(),
-          err: match err {
-            Decode(_) => Some(InkEnvError::ScaleDecodeError),
-            CalleeTrapped => Some(InkEnvError::CalleeTrapped),
-            CalleeReverted => Some(InkEnvError::CalleeReverted),
-            KeyNotFound => Some(InkEnvError::KeyNotFound),
-            TransferFailed => Some(InkEnvError::TransferFailed),
-            _EndowmentTooLow => Some(InkEnvError::_EndowmentTooLow),
-            CodeNotFound => Some(InkEnvError::CodeNotFound),
-            NotCallable => Some(InkEnvError::NotCallable),
-            LoggingDisabled => Some(InkEnvError::LoggingDisabled),
-            EcdsaRecoveryFailed => Some(InkEnvError::EcdsaRecoveryFailed),
-            _ => None,
-          },
+            selector: selector.to_bytes(),
+            err: match err {
+                Decode(_) => Some(InkEnvError::ScaleDecodeError),
+                CalleeTrapped => Some(InkEnvError::CalleeTrapped),
+                CalleeReverted => Some(InkEnvError::CalleeReverted),
+                KeyNotFound => Some(InkEnvError::KeyNotFound),
+                TransferFailed => Some(InkEnvError::TransferFailed),
+                _EndowmentTooLow => Some(InkEnvError::_EndowmentTooLow),
+                CodeNotFound => Some(InkEnvError::CodeNotFound),
+                NotCallable => Some(InkEnvError::NotCallable),
+                LoggingDisabled => Some(InkEnvError::LoggingDisabled),
+                EcdsaRecoveryFailed => Some(InkEnvError::EcdsaRecoveryFailed),
+                _ => None,
+            },
         }
     }
 }
