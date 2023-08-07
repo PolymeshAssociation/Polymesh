@@ -53,6 +53,7 @@ use sp_core::{
     sr25519::Pair,
     H256,
 };
+use sp_keyring::AccountKeyring;
 use sp_runtime::generic::Era;
 use sp_runtime::{
     create_runtime_str,
@@ -73,7 +74,6 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use std::cell::RefCell;
 use std::convert::From;
-use sp_keyring::AccountKeyring;
 
 lazy_static! {
     pub static ref INTEGRATION_TEST: bool = std::env::var("INTEGRATION_TEST")

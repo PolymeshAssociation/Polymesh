@@ -73,8 +73,8 @@ mod test {
     use polymesh_primitives::{AccountId, IdentityId};
 
     use lazy_static::lazy_static;
-    use std::{collections::BTreeMap, convert::From, sync::RwLock, thread};
     use sp_keyring::AccountKeyring;
+    use std::{collections::BTreeMap, convert::From, sync::RwLock, thread};
 
     lazy_static! {
         pub static ref CURR_IDENTITY: RwLock<Option<IdentityId>> = RwLock::new(None);

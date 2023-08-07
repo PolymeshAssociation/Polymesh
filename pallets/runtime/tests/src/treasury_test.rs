@@ -5,8 +5,8 @@ use super::{
 };
 
 use polymesh_primitives::{Beneficiary, IdentityId};
-use sp_runtime::DispatchError;
 use sp_keyring::AccountKeyring;
+use sp_runtime::DispatchError;
 
 pub type Balances = pallet_balances::Module<TestStorage>;
 pub type Treasury = pallet_treasury::Module<TestStorage>;

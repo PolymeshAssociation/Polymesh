@@ -22,8 +22,8 @@ use pallet_pips::{
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{MaybeBlock, GC_DID};
 use polymesh_primitives::{AccountId, BlockNumber, Url};
-use std::ops::Deref;
 use sp_keyring::AccountKeyring;
+use std::ops::Deref;
 
 type System = frame_system::Pallet<TestStorage>;
 type Balances = pallet_balances::Module<TestStorage>;

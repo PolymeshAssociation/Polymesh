@@ -31,8 +31,8 @@ use polymesh_primitives::{
     Moment, PortfolioId, PortfolioNumber, Signatory, Ticker,
 };
 use sp_arithmetic::Permill;
-use std::convert::TryInto;
 use sp_keyring::AccountKeyring;
+use std::convert::TryInto;
 
 type System = frame_system::Pallet<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
