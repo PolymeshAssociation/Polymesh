@@ -5635,26 +5635,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-rewards"
-version = "1.0.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "pallet-identity",
- "pallet-staking",
- "parity-scale-codec 3.5.0",
- "polymesh-common-utilities",
- "polymesh-primitives",
- "scale-info",
- "serde",
- "sp-core",
- "sp-runtime",
- "sp-std 5.0.0",
-]
-
-[[package]]
 name = "pallet-scheduler"
 version = "4.0.0-dev"
 source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-v6-monthly-2023-03#f66cfc8635c570ad9cab32fe0079ecee6d291252"
@@ -6494,7 +6474,6 @@ dependencies = [
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc",
  "pallet-protocol-fee-rpc-runtime-api",
- "pallet-rewards",
  "pallet-session",
  "pallet-staking",
  "pallet-staking-rpc-runtime-api",
@@ -6770,7 +6749,6 @@ dependencies = [
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc-runtime-api",
  "pallet-relayer",
- "pallet-rewards",
  "pallet-scheduler",
  "pallet-session",
  "pallet-settlement",
@@ -6854,7 +6832,6 @@ dependencies = [
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc-runtime-api",
  "pallet-relayer",
- "pallet-rewards",
  "pallet-scheduler",
  "pallet-session",
  "pallet-settlement",
@@ -6939,7 +6916,6 @@ dependencies = [
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc-runtime-api",
  "pallet-relayer",
- "pallet-rewards",
  "pallet-scheduler",
  "pallet-session",
  "pallet-settlement",
@@ -7032,7 +7008,6 @@ dependencies = [
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc-runtime-api",
  "pallet-relayer",
- "pallet-rewards",
  "pallet-scheduler",
  "pallet-session",
  "pallet-settlement",
@@ -7109,7 +7084,6 @@ dependencies = [
  "pallet-preimage",
  "pallet-protocol-fee",
  "pallet-relayer",
- "pallet-rewards",
  "pallet-scheduler",
  "pallet-session",
  "pallet-settlement",
