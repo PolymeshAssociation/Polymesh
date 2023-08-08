@@ -329,7 +329,7 @@ jobs:
   rust-integration-test:
     docker:
       - image: polymeshassociation/rust:debian-nightly-2022-11-02
-    resource_class: medium
+    resource_class: medium+
     environment:
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
