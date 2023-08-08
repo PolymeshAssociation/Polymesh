@@ -2192,8 +2192,9 @@ checksum = "26072860ba924cbfa98ea39c8c19b4dd6a4a25423dbdf219c1eca91aa0cf6964"
 
 [[package]]
 name = "polymesh-api"
-version = "0.4.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=polymesh_v6.0#6d49b020a0afb260cc239392ba499e6fafa48b75"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20f093f11c1acb90cd5ff4ba73f726085c228a8cfe79460208a2fca7e9e92e0b"
 dependencies = [
  "async-trait",
  "ink_env",
@@ -2209,14 +2210,15 @@ dependencies = [
  "scale-info",
  "serde",
  "serde-big-array",
- "sp-arithmetic",
+ "sp-arithmetic 9.0.0",
  "thiserror",
 ]
 
 [[package]]
 name = "polymesh-api-client"
-version = "0.4.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=polymesh_v6.0#6d49b020a0afb260cc239392ba499e6fafa48b75"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5c0b70375b18b9a72b5f71fef31af38934443deaa5586784a73e7fb6ac8eae6"
 dependencies = [
  "async-trait",
  "frame-metadata",
@@ -2232,7 +2234,7 @@ dependencies = [
  "serde-big-array",
  "serde_json",
  "sp-application-crypto",
- "sp-arithmetic",
+ "sp-arithmetic 9.0.0",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -2243,8 +2245,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-codegen"
-version = "0.4.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=polymesh_v6.0#6d49b020a0afb260cc239392ba499e6fafa48b75"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76d6575e5275718f200694b368fdd0c82ab0480830561f21d2afc0807f2431fe"
 dependencies = [
  "anyhow",
  "frame-metadata",
@@ -2264,8 +2267,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-codegen-macro"
-version = "0.4.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=polymesh_v6.0#6d49b020a0afb260cc239392ba499e6fafa48b75"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7120376dc4ad00d30728751599676531534cedff0e26a0fdb2e441490c60222c"
 dependencies = [
  "darling",
  "parity-scale-codec",
@@ -2278,8 +2282,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-ink"
-version = "0.3.4"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=polymesh_v6.0#6d49b020a0afb260cc239392ba499e6fafa48b75"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8eba3257140f34c91ec17ec96f1fdaad3a219a4a99928839c6d35c4b81564084"
 dependencies = [
  "hex",
  "ink_env",
@@ -2292,7 +2297,8 @@ dependencies = [
  "parity-scale-codec",
  "primitive-types 0.11.1",
  "scale-info",
- "sp-arithmetic",
+ "sp-arithmetic 9.0.0",
+ "sp-weights",
  "thiserror",
 ]
 
@@ -2665,9 +2671,9 @@ checksum = "fe232bdf6be8c8de797b22184ee71118d63780ea42ac85b61d1baa6d3b782ae9"
 
 [[package]]
 name = "scale-info"
-version = "2.9.0"
+version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35c0a159d0c45c12b20c5a844feb1fe4bea86e28f17b92a5f0c42193634d3782"
+checksum = "001cf62ece89779fd16105b5f515ad0e5cedcd5440d3dd806bb067978e7c3608"
 dependencies = [
  "bitvec",
  "cfg-if",
@@ -2986,7 +2992,7 @@ dependencies = [
  "serde",
  "sp-core",
  "sp-io",
- "sp-std",
+ "sp-std 5.0.0",
 ]
 
 [[package]]
@@ -3001,7 +3007,22 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-debug-derive",
- "sp-std",
+ "sp-std 5.0.0",
+ "static_assertions",
+]
+
+[[package]]
+name = "sp-arithmetic"
+version = "9.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2038010f7514d50775dcbd3edb569e17fa9bda63128580a9e172abb1795f2c1d"
+dependencies = [
+ "integer-sqrt",
+ "num-traits",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-std 6.0.0",
  "static_assertions",
 ]
 
@@ -3041,7 +3062,7 @@ dependencies = [
  "sp-debug-derive",
  "sp-externalities",
  "sp-runtime-interface",
- "sp-std",
+ "sp-std 5.0.0",
  "sp-storage",
  "ss58-registry",
  "substrate-bip39",
@@ -3062,7 +3083,7 @@ dependencies = [
  "digest 0.10.7",
  "sha2 0.10.7",
  "sha3",
- "sp-std",
+ "sp-std 5.0.0",
  "twox-hash",
 ]
 
@@ -3085,7 +3106,7 @@ checksum = "ef739442230f49d88ece41259e5d886d6b8bc0f4197ef7f1585c39c762ce7ef2"
 dependencies = [
  "environmental",
  "parity-scale-codec",
- "sp-std",
+ "sp-std 5.0.0",
  "sp-storage",
 ]
 
@@ -3108,7 +3129,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime-interface",
  "sp-state-machine",
- "sp-std",
+ "sp-std 5.0.0",
  "sp-tracing",
  "sp-trie",
  "sp-wasm-interface",
@@ -3173,10 +3194,10 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-application-crypto",
- "sp-arithmetic",
+ "sp-arithmetic 6.0.0",
  "sp-core",
  "sp-io",
- "sp-std",
+ "sp-std 5.0.0",
  "sp-weights",
 ]
 
@@ -3192,7 +3213,7 @@ dependencies = [
  "primitive-types 0.12.1",
  "sp-externalities",
  "sp-runtime-interface-proc-macro",
- "sp-std",
+ "sp-std 5.0.0",
  "sp-storage",
  "sp-tracing",
  "sp-wasm-interface",
@@ -3228,7 +3249,7 @@ dependencies = [
  "sp-core",
  "sp-externalities",
  "sp-panic-handler",
- "sp-std",
+ "sp-std 5.0.0",
  "sp-trie",
  "thiserror",
  "tracing",
@@ -3242,6 +3263,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf3fd4c1d304be101e6ebbafd3d4be9a37b320c970ef4e8df188b16873981c93"
 
 [[package]]
+name = "sp-std"
+version = "6.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af0ee286f98455272f64ac5bb1384ff21ac029fbb669afbaf48477faff12760e"
+
+[[package]]
 name = "sp-storage"
 version = "7.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3252,7 +3279,7 @@ dependencies = [
  "ref-cast",
  "serde",
  "sp-debug-derive",
- "sp-std",
+ "sp-std 5.0.0",
 ]
 
 [[package]]
@@ -3262,7 +3289,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e761df87dc940d87720939de8f976d1fc0657e523886ae0d7bf3f7e2e2f0abb6"
 dependencies = [
  "parity-scale-codec",
- "sp-std",
+ "sp-std 5.0.0",
  "tracing",
  "tracing-core",
  "tracing-subscriber",
@@ -3285,7 +3312,7 @@ dependencies = [
  "parking_lot",
  "scale-info",
  "sp-core",
- "sp-std",
+ "sp-std 5.0.0",
  "thiserror",
  "tracing",
  "trie-db",
@@ -3301,7 +3328,7 @@ dependencies = [
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
- "sp-std",
+ "sp-std 5.0.0",
  "wasmi",
 ]
 
@@ -3316,10 +3343,10 @@ dependencies = [
  "scale-info",
  "serde",
  "smallvec",
- "sp-arithmetic",
+ "sp-arithmetic 6.0.0",
  "sp-core",
  "sp-debug-derive",
- "sp-std",
+ "sp-std 5.0.0",
 ]
 
 [[package]]

@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use polymesh_api::client::{Result, Signer};
 pub use polymesh_api::{
     client::{AccountId, IdentityId},
-    polymesh::types::polymesh_primitives::secondary_key::{KeyRecord, Permissions, SecondaryKey},
+    polymesh::types::{
+        polymesh_primitives::secondary_key::{KeyRecord, Permissions, SecondaryKey},
+        runtime::{events::*, RuntimeEvent},
+    },
     Api,
 };
 
