@@ -1585,6 +1585,7 @@ dependencies = [
  "env_logger",
  "log",
  "polymesh-api",
+ "polymesh-api-client-extras",
  "serde",
  "sp-core",
  "sp-keyring",
@@ -2192,9 +2193,9 @@ checksum = "26072860ba924cbfa98ea39c8c19b4dd6a4a25423dbdf219c1eca91aa0cf6964"
 
 [[package]]
 name = "polymesh-api"
-version = "1.1.1"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20f093f11c1acb90cd5ff4ba73f726085c228a8cfe79460208a2fca7e9e92e0b"
+checksum = "c90a5bd4998a08e173ce95df30a9abc82e5c2e3baf3b55cfe235d3e08ade3a08"
 dependencies = [
  "async-trait",
  "ink_env",
@@ -2216,9 +2217,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-client"
-version = "1.0.2"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5c0b70375b18b9a72b5f71fef31af38934443deaa5586784a73e7fb6ac8eae6"
+checksum = "366536e12bea0a64c5326d16045046e35e6ef5f579efcfe905ae2f85881d7824"
 dependencies = [
  "async-trait",
  "frame-metadata",
@@ -2244,10 +2245,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "polymesh-api-codegen"
-version = "1.1.0"
+name = "polymesh-api-client-extras"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76d6575e5275718f200694b368fdd0c82ab0480830561f21d2afc0807f2431fe"
+checksum = "7fd8626bbe5dfadbce500f90b00d3a8e9a50b5f42f13f29f9cc933bc7720986f"
+dependencies = [
+ "parity-scale-codec",
+ "polymesh-api",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "polymesh-api-codegen"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fafdf38a93e613dd5e1a8e13e3591495217d45b9e0d581f4ee7acee570bf10ee"
 dependencies = [
  "anyhow",
  "frame-metadata",
@@ -2267,9 +2280,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-codegen-macro"
-version = "1.1.0"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7120376dc4ad00d30728751599676531534cedff0e26a0fdb2e441490c60222c"
+checksum = "07502fff7dd27d839e3cb6fa4b301c0a82ea3ec31dd87de4d109b146baf64da9"
 dependencies = [
  "darling",
  "parity-scale-codec",

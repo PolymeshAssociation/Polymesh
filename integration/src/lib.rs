@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use polymesh_api::client::{Result, Signer};
+use polymesh_api_client_extras::*;
 pub use polymesh_api::{
     client::{AccountId, IdentityId},
     polymesh::types::{
@@ -168,20 +169,26 @@ impl PolymeshTester {
             );
         }
         // Execute batch.
-        let _res = self
+        let mut res = self
             .api
             .call()
             .utility()
             .batch(calls)?
             .execute(&mut self.cdd)
             .await?;
-        // TODO: process events
-        self.load_dids(users.as_mut_slice()).await?;
-        // Update cached users.
+        // Get new identities from batch events.
+        let ids = get_created_ids(&mut res).await?;
         for idx in need_dids {
             let name = names[idx];
-            let did = users[idx].did.expect("user identity");
-            self.set_user_did(name, did);
+            match &ids[idx] {
+                CreatedIds::IdentityCreated(did) => {
+                    users[idx].did = Some(*did);
+                    self.set_user_did(name, *did);
+                }
+                id => {
+                    panic!("Unexpected id: {id:?}");
+                }
+            }
         }
         Ok(users)
     }
@@ -205,7 +212,7 @@ impl PolymeshTester {
             None => {
                 // `account` is not linked to an identity.
                 // Create a new identity with `account` as the primary key.
-                let mut _res = self
+                let mut res = self
                     .api
                     .call()
                     .utility()
@@ -223,8 +230,7 @@ impl PolymeshTester {
                     ])?
                     .execute(&mut self.cdd)
                     .await?;
-                // TODO: Process Identity::DidCreated(did, _, _) event.
-                self.get_did(account).await?.unwrap()
+                get_identity_id(&mut res).await?.unwrap()
             }
         };
         Ok(did)
