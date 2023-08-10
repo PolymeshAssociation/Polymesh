@@ -417,7 +417,7 @@ jobs:
     environment:
       IMAGE_NAME: polymeshassociation/polymesh
     docker:
-      - image: docker:stable-git
+      - image: cimg/deploy:2023.08
     resource_class: small
     steps:
       - checkout
@@ -425,15 +425,15 @@ jobs:
       - attach_workspace:
           at: .
       - run: |
-          export VERSION=`grep ^version ./Cargo.toml | head -1 | cut -d"=" -f2 | sed 's/[^a-zA-Z0-9\.]//g'`
+          export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
           docker build -f ./.docker/Dockerfile.debian --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
-          docker push $IMAGE_NAME
+          docker push --all-tags $IMAGE_NAME
   build-docker-distroless:
     environment:
       IMAGE_NAME: polymeshassociation/polymesh
     docker:
-      - image: docker:stable-git
+      - image: cimg/deploy:2023.08
     resource_class: small
     steps:
       - checkout
@@ -441,10 +441,10 @@ jobs:
       - attach_workspace:
           at: .
       - run: |
-          export VERSION=`grep ^version ./Cargo.toml | head -1 | cut -d"=" -f2 | sed 's/[^a-zA-Z0-9\.]//g'`
+          export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
           docker build -f ./.docker/Dockerfile.distroless --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-distroless --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-distroless .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
-          docker push $IMAGE_NAME
+          docker push --all-tags $IMAGE_NAME
   build-docker-arm64-debian:
     environment:
       IMAGE_NAME: polymeshassociation/polymesh-arm64
@@ -456,7 +456,7 @@ jobs:
       - attach_workspace:
           at: .
       - run: |
-          export VERSION=`grep ^version ./Cargo.toml | head -1 | cut -d"=" -f2 | sed 's/[^a-zA-Z0-9\.]//g'`
+          export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
           docker build -f ./.docker/arm64/Dockerfile.debian --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker push --all-tags $IMAGE_NAME
@@ -471,7 +471,7 @@ jobs:
       - attach_workspace:
           at: .
       - run: |
-          export VERSION=`grep ^version ./Cargo.toml | head -1 | cut -d"=" -f2 | sed 's/[^a-zA-Z0-9\.]//g'`
+          export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
           docker build -f ./.docker/arm64/Dockerfile.distroless --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-distroless --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-distroless .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker push --all-tags $IMAGE_NAME
