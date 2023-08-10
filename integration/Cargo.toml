@@ -1,0 +1,33 @@
+[package]
+name = "integration"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["simple-nonce-server"]
+
+simple-nonce-server = ["actix-web"]
+
+[dependencies]
+anyhow = "1"
+log = "0.4"
+dotenv = "0.15"
+env_logger = "0.9"
+
+thiserror = "1.0.43"
+async-trait = "0.1"
+
+tokio = { version = "1.19", features = ["full"] }
+
+sp-core = "7.0"
+sp-runtime = "7.0"
+sp-keyring = "7.0"
+
+polymesh-api = { version = "2.0", features = ["download_metadata"] }
+polymesh-api-client-extras = { version = "2.0" }
+
+serde = { version = "1.0.171", features = ["derive"] }
+
+# For simple-nonce server
+actix-web = { version = "4", optional = true }
+ureq = "2"
