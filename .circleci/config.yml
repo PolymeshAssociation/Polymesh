@@ -1,4 +1,38 @@
-version: 2
+version: 2.1
+commands:
+  setup-sccache:
+    steps:
+      - run:
+          name: Setup sccache
+          command: |
+            # This configures Rust to use sccache.
+            echo 'export "RUSTC_WRAPPER"="/usr/local/cargo/bin/sccache"' >> $BASH_ENV
+            # This is the maximum space sccache cache will use on disk.
+            echo 'export "SCCACHE_CACHE_SIZE"="2G"' >> $BASH_ENV
+            /usr/local/cargo/bin/sccache --version
+  restore-sccache-cache:
+    steps:
+      - restore_cache:
+          name: Restore sccache cache
+          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
+      - run:
+          name: Show cache size
+          command: /usr/local/cargo/bin/sccache -s
+  save-sccache-cache:
+    steps:
+      - run:
+          name: Show cache size
+          command: /usr/local/cargo/bin/sccache -s
+      - save_cache:
+          name: Save sccache cache
+          # We use {{ epoch }} to always upload a fresh cache:
+          # Of course, restore_cache will not find this exact key,
+          # but it will fall back to the closest key (aka the most recent).
+          # See https://discuss.circleci.com/t/add-mechanism-to-update-existing-cache-key/9014/13
+          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ epoch }}
+          paths:
+            - "/usr/local/cargo"
+            - "~/.cache/sccache"
 jobs:
   lint:
     docker:
@@ -70,19 +104,15 @@ jobs:
     environment:
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
-      - RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
     steps:
       - checkout
-      - run:
-          name: Store rust version in an environment var for cache key
-          command: rustc --version > rust.version
-      - restore_cache:
-          keys:
-            - v7-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - setup-sccache
+      - restore-sccache-cache
       - run:
           name: Build ci-runtime
           command: cargo build --locked --release --features ci-runtime
           no_output_timeout: 30m
+      - save-sccache-cache
       - run:
           name: Create assets directory for releases
           command: mkdir ./assets
@@ -296,6 +326,42 @@ jobs:
           key: v7-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
+  rust-integration-test:
+    docker:
+      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+    resource_class: medium+
+    environment:
+      - VERBOSE: "1"
+      - RUSTFLAGS: -D warnings
+    steps:
+      - checkout
+      - setup-sccache
+      - restore-sccache-cache
+      - attach_workspace:
+          at: ./target/release
+      - run:
+          name: run Polymesh ci-runtime dev chain node for integration tests
+          command: >-
+            ./target/release/ci-runtime-polymesh --bob --chain dev
+              --no-prometheus --no-telemetry --tmp
+              --wasm-execution compiled
+              --pool-limit 100000
+          background: true
+      - run:
+          name: Build nonce server and tests.
+          command: cargo build --bins --tests
+          working_directory: ./integration
+      - run:
+          name: Run background nonce server.
+          command: cargo run --locked
+          working_directory: ./integration
+          background: true
+      - run:
+          name: Run polymesh-api integration tests.
+          command: cargo test --locked
+          working_directory: ./integration
+          no_output_timeout: 30m
+      - save-sccache-cache
   integration-test:
     docker:
       - image: node:16-bullseye
@@ -532,6 +598,9 @@ workflows:
       - build-arm64
       - benchmark-build
       - coverage
+      - rust-integration-test:
+          requires:
+            - build-ci
       - integration-test:
           requires:
             - build-ci
