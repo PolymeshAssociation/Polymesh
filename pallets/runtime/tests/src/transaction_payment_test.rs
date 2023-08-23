@@ -11,13 +11,13 @@ use pallet_transaction_payment::{ChargeTransactionPayment, Multiplier, RuntimeDi
 use polymesh_primitives::AccountId;
 use polymesh_primitives::TransactionError;
 use sp_arithmetic::traits::One;
+use sp_keyring::AccountKeyring;
 use sp_runtime::{
     testing::TestXt,
     traits::SignedExtension,
     transaction_validity::{InvalidTransaction, TransactionValidityError},
     FixedPointNumber, MultiAddress,
 };
-use test_client::AccountKeyring;
 
 fn call() -> <TestStorage as frame_system::Config>::RuntimeCall {
     RuntimeCall::Balances(BalancesCall::transfer {

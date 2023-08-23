@@ -16,7 +16,7 @@ use polymesh_primitives::{
     NFTs, PortfolioId, PortfolioKind, PortfolioNumber, PortfolioUpdateReason, Signatory, Ticker,
     WeightMeter,
 };
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 use super::asset_test::{set_timestamp, token_details};
 use crate::ext_builder::ExtBuilder;

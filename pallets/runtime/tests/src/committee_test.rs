@@ -17,9 +17,9 @@ use pallet_pips::{PipId, ProposalState, SnapshotResult};
 use polymesh_common_utilities::MaybeBlock;
 use polymesh_primitives::IdentityId;
 use sp_core::H256;
+use sp_keyring::AccountKeyring;
 use sp_runtime::traits::Hash;
 use std::convert::TryFrom;
-use test_client::AccountKeyring;
 
 type Committee = committee::Module<TestStorage, committee::Instance1>;
 type CommitteeGroup = group::Module<TestStorage, group::Instance1>;

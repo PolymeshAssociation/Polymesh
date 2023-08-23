@@ -30,9 +30,6 @@ frame-system = { version = "4.0.0-dev", default-features = false }
 pallet-timestamp = { version = "4.0.0-dev", default-features = false }
 pallet-session = { version = "4.0.0-dev", default-features = false }
 
-# Only in STD
-substrate-test-runtime-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03", optional = true}
-
 # Only in Benchmarks
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
 
@@ -46,7 +43,6 @@ no_std = []
 only-staking = []
 running-ci = []
 std = [
-	"substrate-test-runtime-client",
 	"serde_derive",
 	"codec/std",
 	"serde/std",

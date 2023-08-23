@@ -25,7 +25,6 @@ pallet-portfolio = { path = "../../portfolio", default-features = false }
 pallet-protocol-fee = { path = "../../protocol-fee", default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { path = "../../protocol-fee/rpc/runtime-api", default-features = false }
 pallet-relayer = { path = "../../relayer", default-features = false }
-pallet-rewards = { path = "../../rewards", default-features = false }
 pallet-settlement = { path = "../../settlement", default-features = false }
 pallet-staking = { path = "../../staking", default-features = false }
 pallet-staking-rpc-runtime-api = { path = "../../staking/rpc/runtime-api", default-features = false }
@@ -99,9 +98,7 @@ sp-staking = { version = "4.0.0-dev", default-features = false }
 sp-std = { version = "5.0.0", default-features = false }
 sp-transaction-pool = { version = "4.0.0-dev", default-features = false }
 sp-version = { version = "5.0.0", default-features = false }
-
-test_client = { package = "substrate-test-runtime-client", git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03", optional = true }
-substrate-test-utils = { version = "4.0.0-dev", optional = true }
+sp-keyring = { version = "7.0.0" }
 
 [dev-dependencies]
 libsecp256k1 = { version = "0.7", default-features = false }
@@ -175,8 +172,6 @@ std = [
     "sp-runtime/std",
     "sp-staking/std",
     "sp-std/std",
-    "substrate-test-utils",
-    "test_client",
 ]
 runtime-benchmarks = [
     "frame-benchmarking/runtime-benchmarks",

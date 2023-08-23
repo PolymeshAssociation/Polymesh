@@ -4,7 +4,7 @@ use pallet_multisig::{self as multisig, LostCreatorPrivileges};
 use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_primitives::multisig::ProposalStatus;
 use polymesh_primitives::{AccountId, AuthorizationData, Permissions, SecondaryKey, Signatory};
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 use super::asset_test::set_timestamp;
 use super::next_block;

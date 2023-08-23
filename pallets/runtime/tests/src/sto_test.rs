@@ -9,7 +9,7 @@ use polymesh_primitives::asset::AssetType;
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::settlement::{InstructionStatus, VenueDetails, VenueId, VenueType};
 use polymesh_primitives::{IdentityId, PortfolioId, PortfolioKind, Ticker, WeightMeter};
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 use super::asset_test::{allow_all_transfers, max_len_bytes, set_timestamp};
 use super::storage::{make_account_with_portfolio, TestStorage, User};

@@ -98,19 +98,13 @@ sp-version = { git = "https://github.com/PolymeshAssociation/substrate", branch 
 substrate-frame-rpc-system = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 substrate-state-trie-migration-rpc = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 substrate-prometheus-endpoint = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
-substrate-test-runtime-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 substrate-build-script-utils = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
-substrate-test-utils = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
-substrate-test-utils-derive = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 substrate-wasm-builder = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03" }
 
 [workspace]
 members = [
     "bin/bench",
-    "bin/crypto-cli",
     "bin/testing",
-    #"migration-tests",
-    #"migration-tests/remote-externalities",
     "node-rpc",
     "pallets/asset",
     "pallets/balances",
@@ -130,7 +124,6 @@ members = [
     "pallets/nft",
     "pallets/pips",
     "pallets/protocol-fee",
-    "pallets/rewards",
     "pallets/protocol-fee/rpc",
     "pallets/protocol-fee/rpc/runtime-api",
     "pallets/relayer",
@@ -176,7 +169,6 @@ pallet-pips = { path = "pallets/pips", default-features = false }
 pallet-protocol-fee = { path = "pallets/protocol-fee", default-features = false }
 pallet-staking = { path = "pallets/staking", default-features = false }
 pallet-sudo = { path = "pallets/sudo", default-features = false }
-pallet-rewards = { path = "pallets/rewards", default-features = false }
 polymesh-contracts = { path = "pallets/contracts", default-features = false }
 polymesh-common-utilities = { path = "pallets/common", default-features = false }
 polymesh-primitives = { path = "primitives", default-features = false }

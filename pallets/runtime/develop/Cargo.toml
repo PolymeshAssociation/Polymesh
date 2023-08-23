@@ -32,7 +32,6 @@ pallet-permissions = { path = "../../permissions", default-features = false }
 pallet-pips = { path = "../../pips", default-features = false }
 pallet-portfolio = { path = "../../portfolio", default-features = false }
 pallet-protocol-fee = { path = "../../protocol-fee", default-features = false }
-pallet-rewards = { path = "../../rewards", default-features = false }
 pallet-relayer = { path = "../../relayer", default-features = false }
 pallet-sto = { path = "../../sto", default-features = false }
 pallet-settlement = { path = "../../settlement", default-features = false }
@@ -160,7 +159,6 @@ std = [
     "pallet-portfolio/std",
     "pallet-protocol-fee-rpc-runtime-api/std",
     "pallet-protocol-fee/std",
-    "pallet-rewards/std",
     "pallet-relayer/std",
     "pallet-insecure-randomness-collective-flip/std",
     "pallet-scheduler/std",
@@ -227,7 +225,6 @@ runtime-benchmarks = [
     "pallet-portfolio/runtime-benchmarks",
     "pallet-protocol-fee/runtime-benchmarks",
     "pallet-relayer/runtime-benchmarks",
-    "pallet-rewards/runtime-benchmarks",
     "pallet-settlement/runtime-benchmarks",
     "pallet-sto/runtime-benchmarks",
     "pallet-staking/runtime-benchmarks",
