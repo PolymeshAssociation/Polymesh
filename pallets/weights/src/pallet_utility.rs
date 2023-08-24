@@ -58,7 +58,7 @@ impl pallet_utility::WeightInfo for SubstrateWeight {
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
     // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
     /// The range of component `c` is `[0, 1000]`.
-    fn batch(c: u32, ) -> Weight {
+    fn batch(c: u32) -> Weight {
         // Minimum execution time: 13_625 nanoseconds.
         Weight::from_ref_time(31_179_367)
             // Standard Error: 337_107
@@ -71,7 +71,7 @@ impl pallet_utility::WeightInfo for SubstrateWeight {
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
     // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
     /// The range of component `c` is `[0, 1000]`.
-    fn batch_all(c: u32, ) -> Weight {
+    fn batch_all(c: u32) -> Weight {
         // Minimum execution time: 13_075 nanoseconds.
         Weight::from_ref_time(98_669_323)
             // Standard Error: 124_347
@@ -88,7 +88,7 @@ impl pallet_utility::WeightInfo for SubstrateWeight {
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
     // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
     /// The range of component `c` is `[0, 1000]`.
-    fn force_batch(c: u32, ) -> Weight {
+    fn force_batch(c: u32) -> Weight {
         // Minimum execution time: 13_134 nanoseconds.
         Weight::from_ref_time(507_433_640)
             // Standard Error: 269_087
@@ -125,7 +125,7 @@ impl pallet_utility::WeightInfo for SubstrateWeight {
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
     // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
     /// The range of component `c` is `[0, 30]`.
-    fn batch_old(c: u32, ) -> Weight {
+    fn batch_old(c: u32) -> Weight {
         // Minimum execution time: 17_202 nanoseconds.
         Weight::from_ref_time(57_417_621)
             // Standard Error: 417_084
@@ -138,7 +138,7 @@ impl pallet_utility::WeightInfo for SubstrateWeight {
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
     // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
     /// The range of component `c` is `[0, 30]`.
-    fn batch_atomic(c: u32, ) -> Weight {
+    fn batch_atomic(c: u32) -> Weight {
         // Minimum execution time: 16_701 nanoseconds.
         Weight::from_ref_time(18_276_244)
             // Standard Error: 493_998
@@ -151,7 +151,7 @@ impl pallet_utility::WeightInfo for SubstrateWeight {
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
     // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
     /// The range of component `c` is `[0, 30]`.
-    fn batch_optimistic(c: u32, ) -> Weight {
+    fn batch_optimistic(c: u32) -> Weight {
         // Minimum execution time: 14_757 nanoseconds.
         Weight::from_ref_time(17_800_207)
             // Standard Error: 311_065

@@ -130,7 +130,7 @@ impl pallet_group::WeightInfo for SubstrateWeight {
     // Storage: Identity CurrentDid (r:1 w:0)
     // Proof Skipped: Identity CurrentDid (max_values: Some(1), max_size: None, mode: Measured)
     /// The range of component `m` is `[1, 1000]`.
-    fn reset_members(m: u32, ) -> Weight {
+    fn reset_members(m: u32) -> Weight {
         // Minimum execution time: 91_131 nanoseconds.
         Weight::from_ref_time(92_102_000)
             // Standard Error: 104_861

@@ -70,7 +70,7 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Storage: MultiSig MultiSigSignsRequired (r:0 w:1)
     // Proof Skipped: MultiSig MultiSigSignsRequired (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[1, 256]`.
-    fn create_multisig(i: u32, ) -> Weight {
+    fn create_multisig(i: u32) -> Weight {
         // Minimum execution time: 73_107 nanoseconds.
         Weight::from_ref_time(88_646_864)
             // Standard Error: 325_943
@@ -372,7 +372,7 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Storage: Identity Authorizations (r:0 w:256)
     // Proof Skipped: Identity Authorizations (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[1, 256]`.
-    fn add_multisig_signers_via_creator(i: u32, ) -> Weight {
+    fn add_multisig_signers_via_creator(i: u32) -> Weight {
         // Minimum execution time: 93_024 nanoseconds.
         Weight::from_ref_time(198_747_813)
             // Standard Error: 350_003
@@ -400,7 +400,7 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Storage: MultiSig MultiSigSigners (r:256 w:256)
     // Proof Skipped: MultiSig MultiSigSigners (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[1, 256]`.
-    fn remove_multisig_signers_via_creator(i: u32, ) -> Weight {
+    fn remove_multisig_signers_via_creator(i: u32) -> Weight {
         // Minimum execution time: 132_468 nanoseconds.
         Weight::from_ref_time(188_636_427)
             // Standard Error: 473_027

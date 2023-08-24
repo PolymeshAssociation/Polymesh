@@ -119,7 +119,7 @@ impl pallet_corporate_actions::distribution::WeightInfo for SubstrateWeight {
     // Proof Skipped: Checkpoint CheckpointIdSequence (max_values: None, max_size: None, mode: Measured)
     /// The range of component `t` is `[0, 1000]`.
     /// The range of component `w` is `[0, 1000]`.
-    fn claim(t: u32, _w: u32, ) -> Weight {
+    fn claim(t: u32, _w: u32) -> Weight {
         // Minimum execution time: 375_502 nanoseconds.
         Weight::from_ref_time(469_029_637)
             // Standard Error: 8_792
@@ -167,7 +167,7 @@ impl pallet_corporate_actions::distribution::WeightInfo for SubstrateWeight {
     // Proof Skipped: Checkpoint CheckpointIdSequence (max_values: None, max_size: None, mode: Measured)
     /// The range of component `t` is `[0, 1000]`.
     /// The range of component `w` is `[0, 1000]`.
-    fn push_benefit(t: u32, w: u32, ) -> Weight {
+    fn push_benefit(t: u32, w: u32) -> Weight {
         // Minimum execution time: 379_248 nanoseconds.
         Weight::from_ref_time(407_987_885)
             // Standard Error: 9_464

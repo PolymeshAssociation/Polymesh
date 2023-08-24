@@ -94,7 +94,7 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Storage: ExternalAgents GroupOfAgent (r:0 w:1)
     // Proof Skipped: ExternalAgents GroupOfAgent (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[1, 255]`.
-    fn create_nft_collection(n: u32, ) -> Weight {
+    fn create_nft_collection(n: u32) -> Weight {
         // Minimum execution time: 247_864 nanoseconds.
         Weight::from_ref_time(223_070_325)
             // Standard Error: 155_652
@@ -124,7 +124,7 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Storage: NFT MetadataValue (r:0 w:255)
     // Proof Skipped: NFT MetadataValue (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[1, 255]`.
-    fn issue_nft(n: u32, ) -> Weight {
+    fn issue_nft(n: u32) -> Weight {
         // Minimum execution time: 93_636 nanoseconds.
         Weight::from_ref_time(133_067_795)
             // Standard Error: 105_133
@@ -152,7 +152,7 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Storage: NFT MetadataValue (r:255 w:255)
     // Proof Skipped: NFT MetadataValue (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[1, 255]`.
-    fn redeem_nft(n: u32, ) -> Weight {
+    fn redeem_nft(n: u32) -> Weight {
         // Minimum execution time: 114_173 nanoseconds.
         Weight::from_ref_time(154_668_087)
             // Standard Error: 63_157
@@ -173,7 +173,7 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Storage: ComplianceManager AssetCompliances (r:1 w:0)
     // Proof Skipped: ComplianceManager AssetCompliances (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[1, 10]`.
-    fn base_nft_transfer(n: u32, ) -> Weight {
+    fn base_nft_transfer(n: u32) -> Weight {
         // Minimum execution time: 146_785 nanoseconds.
         Weight::from_ref_time(179_954_877)
             // Standard Error: 639_783

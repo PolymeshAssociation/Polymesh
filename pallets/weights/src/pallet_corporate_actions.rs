@@ -57,8 +57,7 @@ impl pallet_corporate_actions::WeightInfo for SubstrateWeight {
     // Proof Skipped: CorporateAction MaxDetailsLength (max_values: Some(1), max_size: None, mode: Measured)
     fn set_max_details_length() -> Weight {
         // Minimum execution time: 17_101 nanoseconds.
-        Weight::from_ref_time(20_058_000)
-            .saturating_add(DbWeight::get().writes(1))
+        Weight::from_ref_time(20_058_000).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
@@ -71,7 +70,7 @@ impl pallet_corporate_actions::WeightInfo for SubstrateWeight {
     // Storage: CorporateAction DefaultTargetIdentities (r:1 w:1)
     // Proof Skipped: CorporateAction DefaultTargetIdentities (max_values: None, max_size: None, mode: Measured)
     /// The range of component `t` is `[0, 500]`.
-    fn set_default_targets(t: u32, ) -> Weight {
+    fn set_default_targets(t: u32) -> Weight {
         // Minimum execution time: 61_895 nanoseconds.
         Weight::from_ref_time(95_467_329)
             // Standard Error: 11_283
@@ -106,7 +105,7 @@ impl pallet_corporate_actions::WeightInfo for SubstrateWeight {
     // Storage: CorporateAction DidWithholdingTax (r:1 w:1)
     // Proof Skipped: CorporateAction DidWithholdingTax (max_values: None, max_size: None, mode: Measured)
     /// The range of component `w` is `[0, 999]`.
-    fn set_did_withholding_tax(w: u32, ) -> Weight {
+    fn set_did_withholding_tax(w: u32) -> Weight {
         // Minimum execution time: 66_334 nanoseconds.
         Weight::from_ref_time(164_326_878)
             // Standard Error: 8_312
@@ -154,7 +153,7 @@ impl pallet_corporate_actions::WeightInfo for SubstrateWeight {
     // Proof Skipped: CorporateAction Details (max_values: None, max_size: None, mode: Measured)
     /// The range of component `w` is `[0, 1000]`.
     /// The range of component `t` is `[0, 500]`.
-    fn initiate_corporate_action_use_defaults(w: u32, t: u32, ) -> Weight {
+    fn initiate_corporate_action_use_defaults(w: u32, t: u32) -> Weight {
         // Minimum execution time: 306_022 nanoseconds.
         Weight::from_ref_time(344_561_083)
             // Standard Error: 8_417
@@ -198,7 +197,7 @@ impl pallet_corporate_actions::WeightInfo for SubstrateWeight {
     // Proof Skipped: CorporateAction Details (max_values: None, max_size: None, mode: Measured)
     /// The range of component `w` is `[0, 1000]`.
     /// The range of component `t` is `[0, 500]`.
-    fn initiate_corporate_action_provided(w: u32, t: u32, ) -> Weight {
+    fn initiate_corporate_action_provided(w: u32, t: u32) -> Weight {
         // Minimum execution time: 499_413 nanoseconds.
         Weight::from_ref_time(249_635_568)
             // Standard Error: 12_436
@@ -223,7 +222,7 @@ impl pallet_corporate_actions::WeightInfo for SubstrateWeight {
     // Storage: CorporateAction CADocLink (r:1 w:1)
     // Proof Skipped: CorporateAction CADocLink (max_values: None, max_size: None, mode: Measured)
     /// The range of component `d` is `[0, 1000]`.
-    fn link_ca_doc(d: u32, ) -> Weight {
+    fn link_ca_doc(d: u32) -> Weight {
         // Minimum execution time: 69_951 nanoseconds.
         Weight::from_ref_time(130_145_105)
             // Standard Error: 104_045

@@ -58,7 +58,7 @@ impl pallet_preimage::WeightInfo for SubstrateWeight {
     // Storage: Preimage PreimageFor (r:0 w:1)
     // Proof: Preimage PreimageFor (max_values: None, max_size: Some(4194344), added: 4196819, mode: MaxEncodedLen)
     /// The range of component `s` is `[0, 4194304]`.
-    fn note_preimage(s: u32, ) -> Weight {
+    fn note_preimage(s: u32) -> Weight {
         // Minimum execution time: 49_463 nanoseconds.
         Weight::from_ref_time(54_365_427)
             // Standard Error: 19
@@ -71,7 +71,7 @@ impl pallet_preimage::WeightInfo for SubstrateWeight {
     // Storage: Preimage PreimageFor (r:0 w:1)
     // Proof: Preimage PreimageFor (max_values: None, max_size: Some(4194344), added: 4196819, mode: MaxEncodedLen)
     /// The range of component `s` is `[0, 4194304]`.
-    fn note_requested_preimage(s: u32, ) -> Weight {
+    fn note_requested_preimage(s: u32) -> Weight {
         // Minimum execution time: 30_557 nanoseconds.
         Weight::from_ref_time(86_987_255)
             // Standard Error: 15
@@ -84,7 +84,7 @@ impl pallet_preimage::WeightInfo for SubstrateWeight {
     // Storage: Preimage PreimageFor (r:0 w:1)
     // Proof: Preimage PreimageFor (max_values: None, max_size: Some(4194344), added: 4196819, mode: MaxEncodedLen)
     /// The range of component `s` is `[0, 4194304]`.
-    fn note_no_deposit_preimage(s: u32, ) -> Weight {
+    fn note_no_deposit_preimage(s: u32) -> Weight {
         // Minimum execution time: 29_324 nanoseconds.
         Weight::from_ref_time(96_102_265)
             // Standard Error: 21

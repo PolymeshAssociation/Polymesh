@@ -57,7 +57,7 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     /// The range of component `b` is `[1, 10]`.
     /// The range of component `c` is `[1, 10]`.
     /// The range of component `d` is `[1, 10]`.
-    fn condition_costs(a: u32, _b: u32, c: u32, _d: u32, ) -> Weight {
+    fn condition_costs(a: u32, _b: u32, c: u32, _d: u32) -> Weight {
         // Minimum execution time: 16_711 nanoseconds.
         Weight::from_ref_time(18_565_000)
             // Standard Error: 143_204
@@ -82,7 +82,7 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     // Storage: ProtocolFee BaseFees (r:1 w:0)
     // Proof Skipped: ProtocolFee BaseFees (max_values: None, max_size: None, mode: Measured)
     /// The range of component `c` is `[1, 6]`.
-    fn add_compliance_requirement(c: u32, ) -> Weight {
+    fn add_compliance_requirement(c: u32) -> Weight {
         // Minimum execution time: 101_058 nanoseconds.
         Weight::from_ref_time(118_004_882)
             // Standard Error: 885_654
@@ -187,7 +187,7 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     // Storage: ComplianceManager TrustedClaimIssuer (r:1 w:0)
     // Proof Skipped: ComplianceManager TrustedClaimIssuer (max_values: None, max_size: None, mode: Measured)
     /// The range of component `c` is `[1, 6]`.
-    fn change_compliance_requirement(c: u32, ) -> Weight {
+    fn change_compliance_requirement(c: u32) -> Weight {
         // Minimum execution time: 80_020 nanoseconds.
         Weight::from_ref_time(99_587_555)
             // Standard Error: 429_843
@@ -208,7 +208,7 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     // Storage: ComplianceManager AssetCompliances (r:1 w:1)
     // Proof Skipped: ComplianceManager AssetCompliances (max_values: None, max_size: None, mode: Measured)
     /// The range of component `c` is `[0, 2]`.
-    fn replace_asset_compliance(c: u32, ) -> Weight {
+    fn replace_asset_compliance(c: u32) -> Weight {
         // Minimum execution time: 73_848 nanoseconds.
         Weight::from_ref_time(105_144_423)
             // Standard Error: 1_401_928
@@ -240,7 +240,7 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
     /// The range of component `c` is `[1, 400]`.
     /// The range of component `t` is `[0, 1]`.
-    fn is_condition_satisfied(c: u32, t: u32, ) -> Weight {
+    fn is_condition_satisfied(c: u32, t: u32) -> Weight {
         // Minimum execution time: 32_361 nanoseconds.
         Weight::from_ref_time(54_384_304)
             // Standard Error: 75_070
@@ -254,7 +254,7 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
     // Proof Skipped: ExternalAgents GroupOfAgent (max_values: None, max_size: None, mode: Measured)
     /// The range of component `e` is `[0, 1]`.
-    fn is_identity_condition(e: u32, ) -> Weight {
+    fn is_identity_condition(e: u32) -> Weight {
         // Minimum execution time: 1_242 nanoseconds.
         Weight::from_ref_time(2_293_489)
             // Standard Error: 245_490
@@ -262,7 +262,7 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(e.into())))
     }
     /// The range of component `i` is `[0, 10000]`.
-    fn is_any_requirement_compliant(i: u32, ) -> Weight {
+    fn is_any_requirement_compliant(i: u32) -> Weight {
         // Minimum execution time: 1_153 nanoseconds.
         Weight::from_ref_time(1_192_000)
             // Standard Error: 1_229

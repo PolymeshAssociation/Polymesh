@@ -77,7 +77,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Proof Skipped: unknown `0x00` (r:1 w:0)
     /// The range of component `k` is `[1, 8192]`.
     /// The range of component `v` is `[1, 8192]`.
-    fn chain_extension_read_storage(k: u32, v: u32, ) -> Weight {
+    fn chain_extension_read_storage(k: u32, v: u32) -> Weight {
         // Minimum execution time: 619_920 nanoseconds.
         Weight::from_ref_time(812_486_598)
             // Standard Error: 3_268
@@ -106,7 +106,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Storage: System EventTopics (r:2 w:2)
     // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
     /// The range of component `r` is `[0, 20]`.
-    fn chain_extension_get_version(r: u32, ) -> Weight {
+    fn chain_extension_get_version(r: u32) -> Weight {
         // Minimum execution time: 615_893 nanoseconds.
         Weight::from_ref_time(754_719_943)
             // Standard Error: 1_456_232
@@ -133,7 +133,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Storage: System EventTopics (r:2 w:2)
     // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
     /// The range of component `r` is `[1, 20]`.
-    fn chain_extension_get_key_did(r: u32, ) -> Weight {
+    fn chain_extension_get_key_did(r: u32) -> Weight {
         // Minimum execution time: 1_020_067 nanoseconds.
         Weight::from_ref_time(791_765_615)
             // Standard Error: 3_514_259
@@ -160,7 +160,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Storage: System EventTopics (r:2 w:2)
     // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
     /// The range of component `r` is `[0, 20]`.
-    fn chain_extension_hash_twox_64(r: u32, ) -> Weight {
+    fn chain_extension_hash_twox_64(r: u32) -> Weight {
         // Minimum execution time: 580_686 nanoseconds.
         Weight::from_ref_time(801_258_758)
             // Standard Error: 2_177_621
@@ -187,7 +187,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Storage: System EventTopics (r:2 w:2)
     // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[0, 64]`.
-    fn chain_extension_hash_twox_64_per_kb(n: u32, ) -> Weight {
+    fn chain_extension_hash_twox_64_per_kb(n: u32) -> Weight {
         // Minimum execution time: 917_396 nanoseconds.
         Weight::from_ref_time(1_010_359_519)
             // Standard Error: 1_144_270
@@ -214,7 +214,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Storage: System EventTopics (r:2 w:2)
     // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
     /// The range of component `r` is `[0, 20]`.
-    fn chain_extension_hash_twox_128(r: u32, ) -> Weight {
+    fn chain_extension_hash_twox_128(r: u32) -> Weight {
         // Minimum execution time: 575_035 nanoseconds.
         Weight::from_ref_time(538_876_467)
             // Standard Error: 2_063_310
@@ -241,7 +241,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Storage: System EventTopics (r:2 w:2)
     // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[0, 64]`.
-    fn chain_extension_hash_twox_128_per_kb(n: u32, ) -> Weight {
+    fn chain_extension_hash_twox_128_per_kb(n: u32) -> Weight {
         // Minimum execution time: 826_787 nanoseconds.
         Weight::from_ref_time(1_059_756_444)
             // Standard Error: 1_207_008
@@ -268,7 +268,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Storage: System EventTopics (r:2 w:2)
     // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
     /// The range of component `r` is `[0, 20]`.
-    fn chain_extension_hash_twox_256(r: u32, ) -> Weight {
+    fn chain_extension_hash_twox_256(r: u32) -> Weight {
         // Minimum execution time: 565_497 nanoseconds.
         Weight::from_ref_time(694_899_046)
             // Standard Error: 1_392_828
@@ -295,7 +295,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Storage: System EventTopics (r:2 w:2)
     // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[0, 64]`.
-    fn chain_extension_hash_twox_256_per_kb(n: u32, ) -> Weight {
+    fn chain_extension_hash_twox_256_per_kb(n: u32) -> Weight {
         // Minimum execution time: 738_701 nanoseconds.
         Weight::from_ref_time(1_045_254_531)
             // Standard Error: 1_037_437
@@ -332,7 +332,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Storage: System EventTopics (r:2 w:2)
     // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[1, 8188]`.
-    fn chain_extension_call_runtime(n: u32, ) -> Weight {
+    fn chain_extension_call_runtime(n: u32) -> Weight {
         // Minimum execution time: 625_560 nanoseconds.
         Weight::from_ref_time(861_333_120)
             // Standard Error: 4_278
@@ -365,7 +365,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes(3))
     }
     /// The range of component `n` is `[1, 8188]`.
-    fn basic_runtime_call(_n: u32, ) -> Weight {
+    fn basic_runtime_call(_n: u32) -> Weight {
         // Minimum execution time: 4_077 nanoseconds.
         Weight::from_ref_time(5_718_532)
     }
@@ -394,7 +394,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Storage: Identity DidKeys (r:0 w:1)
     // Proof Skipped: Identity DidKeys (max_values: None, max_size: None, mode: Measured)
     /// The range of component `s` is `[0, 1048576]`.
-    fn instantiate_with_hash_perms(s: u32, ) -> Weight {
+    fn instantiate_with_hash_perms(s: u32) -> Weight {
         // Minimum execution time: 583_581 nanoseconds.
         Weight::from_ref_time(786_363_174)
             // Standard Error: 78
@@ -430,7 +430,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Proof: Contracts PristineCode (max_values: None, max_size: Some(125988), added: 128463, mode: MaxEncodedLen)
     /// The range of component `c` is `[0, 61717]`.
     /// The range of component `s` is `[0, 1048576]`.
-    fn instantiate_with_code_perms(c: u32, s: u32, ) -> Weight {
+    fn instantiate_with_code_perms(c: u32, s: u32) -> Weight {
         // Minimum execution time: 5_494_994 nanoseconds.
         Weight::from_ref_time(1_064_003_274)
             // Standard Error: 2_708
@@ -443,7 +443,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Storage: Contracts CallRuntimeWhitelist (r:0 w:2000)
     // Proof Skipped: Contracts CallRuntimeWhitelist (max_values: None, max_size: None, mode: Measured)
     /// The range of component `u` is `[0, 2000]`.
-    fn update_call_runtime_whitelist(u: u32, ) -> Weight {
+    fn update_call_runtime_whitelist(u: u32) -> Weight {
         // Minimum execution time: 7_734 nanoseconds.
         Weight::from_ref_time(8_015_000)
             // Standard Error: 18_625

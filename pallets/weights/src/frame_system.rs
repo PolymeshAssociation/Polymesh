@@ -54,14 +54,14 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 pub struct SubstrateWeight;
 impl frame_system::WeightInfo for SubstrateWeight {
     /// The range of component `b` is `[0, 7864320]`.
-    fn remark(b: u32, ) -> Weight {
+    fn remark(b: u32) -> Weight {
         // Minimum execution time: 7_785 nanoseconds.
         Weight::from_ref_time(25_375_978)
             // Standard Error: 3
             .saturating_add(Weight::from_ref_time(614).saturating_mul(b.into()))
     }
     /// The range of component `b` is `[0, 7864320]`.
-    fn remark_with_event(b: u32, ) -> Weight {
+    fn remark_with_event(b: u32) -> Weight {
         // Minimum execution time: 14_215 nanoseconds.
         Weight::from_ref_time(15_589_000)
             // Standard Error: 5
@@ -80,7 +80,7 @@ impl frame_system::WeightInfo for SubstrateWeight {
     // Storage: Skipped Metadata (r:0 w:0)
     // Proof Skipped: Skipped Metadata (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[0, 1000]`.
-    fn set_storage(i: u32, ) -> Weight {
+    fn set_storage(i: u32) -> Weight {
         // Minimum execution time: 7_444 nanoseconds.
         Weight::from_ref_time(8_165_000)
             // Standard Error: 12_755
@@ -90,7 +90,7 @@ impl frame_system::WeightInfo for SubstrateWeight {
     // Storage: Skipped Metadata (r:0 w:0)
     // Proof Skipped: Skipped Metadata (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[0, 1000]`.
-    fn kill_storage(i: u32, ) -> Weight {
+    fn kill_storage(i: u32) -> Weight {
         // Minimum execution time: 5_460 nanoseconds.
         Weight::from_ref_time(5_631_000)
             // Standard Error: 11_680
@@ -100,7 +100,7 @@ impl frame_system::WeightInfo for SubstrateWeight {
     // Storage: Skipped Metadata (r:0 w:0)
     // Proof Skipped: Skipped Metadata (max_values: None, max_size: None, mode: Measured)
     /// The range of component `p` is `[0, 1000]`.
-    fn kill_prefix(p: u32, ) -> Weight {
+    fn kill_prefix(p: u32) -> Weight {
         // Minimum execution time: 8_807 nanoseconds.
         Weight::from_ref_time(26_713_025)
             // Standard Error: 61_288

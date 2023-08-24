@@ -66,7 +66,7 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
     // Storage: Statistics ActiveAssetStats (r:1 w:1)
     // Proof Skipped: Statistics ActiveAssetStats (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[1, 9]`.
-    fn set_active_asset_stats(_i: u32, ) -> Weight {
+    fn set_active_asset_stats(_i: u32) -> Weight {
         // Minimum execution time: 65_192 nanoseconds.
         Weight::from_ref_time(80_979_517)
             .saturating_add(DbWeight::get().reads(6))
@@ -85,7 +85,7 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
     // Storage: Statistics AssetStats (r:0 w:250)
     // Proof Skipped: Statistics AssetStats (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[1, 250]`.
-    fn batch_update_asset_stats(i: u32, ) -> Weight {
+    fn batch_update_asset_stats(i: u32) -> Weight {
         // Minimum execution time: 67_886 nanoseconds.
         Weight::from_ref_time(33_050_783)
             // Standard Error: 73_989
@@ -106,7 +106,7 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
     // Storage: Statistics AssetTransferCompliances (r:1 w:1)
     // Proof Skipped: Statistics AssetTransferCompliances (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[1, 3]`.
-    fn set_asset_transfer_compliance(i: u32, ) -> Weight {
+    fn set_asset_transfer_compliance(i: u32) -> Weight {
         // Minimum execution time: 68_288 nanoseconds.
         Weight::from_ref_time(86_012_363)
             // Standard Error: 1_372_829
@@ -125,7 +125,7 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
     // Storage: Statistics TransferConditionExemptEntities (r:0 w:1000)
     // Proof Skipped: Statistics TransferConditionExemptEntities (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[0, 1000]`.
-    fn set_entities_exempt(i: u32, ) -> Weight {
+    fn set_entities_exempt(i: u32) -> Weight {
         // Minimum execution time: 47_750 nanoseconds.
         Weight::from_ref_time(35_337_385)
             // Standard Error: 92_352
@@ -136,7 +136,7 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
     // Storage: Statistics AssetStats (r:1 w:0)
     // Proof Skipped: Statistics AssetStats (max_values: None, max_size: None, mode: Measured)
     /// The range of component `a` is `[0, 1]`.
-    fn max_investor_count_restriction(a: u32, ) -> Weight {
+    fn max_investor_count_restriction(a: u32) -> Weight {
         // Minimum execution time: 912 nanoseconds.
         Weight::from_ref_time(1_995_200)
             // Standard Error: 225_003
@@ -152,7 +152,7 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
     // Storage: Identity Claims (r:2 w:0)
     // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
     /// The range of component `c` is `[0, 1]`.
-    fn claim_count_restriction_no_stats(c: u32, ) -> Weight {
+    fn claim_count_restriction_no_stats(c: u32) -> Weight {
         // Minimum execution time: 1_002 nanoseconds.
         Weight::from_ref_time(1_518_465)
             // Standard Error: 119_759
@@ -167,8 +167,7 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
     // Proof Skipped: Statistics AssetStats (max_values: None, max_size: None, mode: Measured)
     fn claim_count_restriction_with_stats() -> Weight {
         // Minimum execution time: 33_844 nanoseconds.
-        Weight::from_ref_time(34_215_000)
-            .saturating_add(DbWeight::get().reads(4))
+        Weight::from_ref_time(34_215_000).saturating_add(DbWeight::get().reads(4))
     }
     // Storage: Timestamp Now (r:1 w:0)
     // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
@@ -177,7 +176,7 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
     // Storage: Statistics AssetStats (r:1 w:0)
     // Proof Skipped: Statistics AssetStats (max_values: None, max_size: None, mode: Measured)
     /// The range of component `a` is `[0, 1]`.
-    fn claim_ownership_restriction(a: u32, ) -> Weight {
+    fn claim_ownership_restriction(a: u32) -> Weight {
         // Minimum execution time: 25_237 nanoseconds.
         Weight::from_ref_time(30_771_867)
             // Standard Error: 1_302_288
@@ -192,7 +191,7 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
     // Storage: Statistics AssetStats (r:2 w:2)
     // Proof Skipped: Statistics AssetStats (max_values: None, max_size: None, mode: Measured)
     /// The range of component `a` is `[0, 2]`.
-    fn update_asset_count_stats(a: u32, ) -> Weight {
+    fn update_asset_count_stats(a: u32) -> Weight {
         // Minimum execution time: 25_138 nanoseconds.
         Weight::from_ref_time(30_302_252)
             // Standard Error: 444_465
@@ -208,7 +207,7 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
     // Storage: Statistics AssetStats (r:2 w:2)
     // Proof Skipped: Statistics AssetStats (max_values: None, max_size: None, mode: Measured)
     /// The range of component `a` is `[0, 2]`.
-    fn update_asset_balance_stats(a: u32, ) -> Weight {
+    fn update_asset_balance_stats(a: u32) -> Weight {
         // Minimum execution time: 25_216 nanoseconds.
         Weight::from_ref_time(31_710_856)
             // Standard Error: 315_760
@@ -218,7 +217,7 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(a.into())))
     }
     /// The range of component `i` is `[0, 4]`.
-    fn verify_requirements(i: u32, ) -> Weight {
+    fn verify_requirements(i: u32) -> Weight {
         // Minimum execution time: 931 nanoseconds.
         Weight::from_ref_time(1_763_032)
             // Standard Error: 19_500
@@ -227,7 +226,7 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
     // Storage: Statistics ActiveAssetStats (r:1 w:0)
     // Proof Skipped: Statistics ActiveAssetStats (max_values: None, max_size: None, mode: Measured)
     /// The range of component `a` is `[1, 10]`.
-    fn active_asset_statistics_load(a: u32, ) -> Weight {
+    fn active_asset_statistics_load(a: u32) -> Weight {
         // Minimum execution time: 12_595 nanoseconds.
         Weight::from_ref_time(14_421_204)
             // Standard Error: 24_708
@@ -238,7 +237,6 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
     // Proof Skipped: Statistics TransferConditionExemptEntities (max_values: None, max_size: None, mode: Measured)
     fn is_exempt() -> Weight {
         // Minimum execution time: 14_657 nanoseconds.
-        Weight::from_ref_time(15_569_000)
-            .saturating_add(DbWeight::get().reads(1))
+        Weight::from_ref_time(15_569_000).saturating_add(DbWeight::get().reads(1))
     }
 }

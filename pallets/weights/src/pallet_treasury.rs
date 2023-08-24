@@ -66,7 +66,7 @@ impl pallet_treasury::WeightInfo for SubstrateWeight {
     // Storage: Identity Claims (r:256 w:0)
     // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
     /// The range of component `b` is `[1, 128]`.
-    fn disbursement(b: u32, ) -> Weight {
+    fn disbursement(b: u32) -> Weight {
         // Minimum execution time: 140_743 nanoseconds.
         Weight::from_ref_time(14_489_489)
             // Standard Error: 922_410

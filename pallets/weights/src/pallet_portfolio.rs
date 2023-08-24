@@ -96,7 +96,7 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Storage: Portfolio NameToNumber (r:1 w:2)
     // Proof Skipped: Portfolio NameToNumber (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[1, 500]`.
-    fn rename_portfolio(i: u32, ) -> Weight {
+    fn rename_portfolio(i: u32) -> Weight {
         // Minimum execution time: 57_579 nanoseconds.
         Weight::from_ref_time(85_064_117)
             // Standard Error: 9_510
@@ -152,7 +152,7 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Proof Skipped: Portfolio PortfolioAssetCount (max_values: None, max_size: None, mode: Measured)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[1, 100]`.
-    fn move_portfolio_funds(f: u32, n: u32, ) -> Weight {
+    fn move_portfolio_funds(f: u32, n: u32) -> Weight {
         // Minimum execution time: 543_484 nanoseconds.
         Weight::from_ref_time(81_566_553)
             // Standard Error: 3_785_422

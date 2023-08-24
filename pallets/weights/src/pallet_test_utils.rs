@@ -76,7 +76,7 @@ impl pallet_test_utils::WeightInfo for SubstrateWeight {
     // Storage: Identity Authorizations (r:0 w:99)
     // Proof Skipped: Identity Authorizations (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[0, 100]`.
-    fn register_did(i: u32, ) -> Weight {
+    fn register_did(i: u32) -> Weight {
         // Minimum execution time: 156_504 nanoseconds.
         Weight::from_ref_time(198_398_751)
             // Standard Error: 566_255
@@ -116,8 +116,7 @@ impl pallet_test_utils::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
     fn get_my_did() -> Weight {
         // Minimum execution time: 34_092 nanoseconds.
-        Weight::from_ref_time(51_837_000)
-            .saturating_add(DbWeight::get().reads(1))
+        Weight::from_ref_time(51_837_000).saturating_add(DbWeight::get().reads(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
@@ -129,7 +128,6 @@ impl pallet_test_utils::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
     fn get_cdd_of() -> Weight {
         // Minimum execution time: 86_741 nanoseconds.
-        Weight::from_ref_time(89_477_000)
-            .saturating_add(DbWeight::get().reads(5))
+        Weight::from_ref_time(89_477_000).saturating_add(DbWeight::get().reads(5))
     }
 }

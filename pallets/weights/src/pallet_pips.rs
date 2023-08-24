@@ -340,7 +340,7 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     /// The range of component `a` is `[0, 33]`.
     /// The range of component `r` is `[0, 33]`.
     /// The range of component `s` is `[0, 33]`.
-    fn enact_snapshot_results(a: u32, r: u32, s: u32, ) -> Weight {
+    fn enact_snapshot_results(a: u32, r: u32, s: u32) -> Weight {
         // Minimum execution time: 2_612_679 nanoseconds.
         Weight::from_ref_time(2_673_594_000)
             // Standard Error: 47_053_761

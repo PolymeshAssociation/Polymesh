@@ -66,7 +66,7 @@ impl pallet_external_agents::WeightInfo for SubstrateWeight {
     // Storage: ExternalAgents GroupPermissions (r:0 w:1)
     // Proof Skipped: ExternalAgents GroupPermissions (max_values: None, max_size: None, mode: Measured)
     /// The range of component `p` is `[0, 19]`.
-    fn create_group(p: u32, ) -> Weight {
+    fn create_group(p: u32) -> Weight {
         // Minimum execution time: 59_421 nanoseconds.
         Weight::from_ref_time(84_301_746)
             // Standard Error: 153_211
@@ -87,7 +87,7 @@ impl pallet_external_agents::WeightInfo for SubstrateWeight {
     // Storage: ExternalAgents GroupPermissions (r:0 w:1)
     // Proof Skipped: ExternalAgents GroupPermissions (max_values: None, max_size: None, mode: Measured)
     /// The range of component `p` is `[0, 19]`.
-    fn set_group_permissions(p: u32, ) -> Weight {
+    fn set_group_permissions(p: u32) -> Weight {
         // Minimum execution time: 58_400 nanoseconds.
         Weight::from_ref_time(76_501_966)
             // Standard Error: 169_190
@@ -202,7 +202,7 @@ impl pallet_external_agents::WeightInfo for SubstrateWeight {
     // Storage: ExternalAgents GroupPermissions (r:0 w:1)
     // Proof Skipped: ExternalAgents GroupPermissions (max_values: None, max_size: None, mode: Measured)
     /// The range of component `p` is `[0, 19]`.
-    fn create_group_and_add_auth(p: u32, ) -> Weight {
+    fn create_group_and_add_auth(p: u32) -> Weight {
         // Minimum execution time: 78_697 nanoseconds.
         Weight::from_ref_time(100_448_034)
             // Standard Error: 201_709
@@ -225,7 +225,7 @@ impl pallet_external_agents::WeightInfo for SubstrateWeight {
     // Storage: ExternalAgents GroupPermissions (r:0 w:1)
     // Proof Skipped: ExternalAgents GroupPermissions (max_values: None, max_size: None, mode: Measured)
     /// The range of component `p` is `[0, 19]`.
-    fn create_and_change_custom_group(p: u32, ) -> Weight {
+    fn create_and_change_custom_group(p: u32) -> Weight {
         // Minimum execution time: 87_634 nanoseconds.
         Weight::from_ref_time(98_908_121)
             // Standard Error: 198_795

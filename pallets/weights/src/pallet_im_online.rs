@@ -65,7 +65,7 @@ impl pallet_im_online::WeightInfo for SubstrateWeight {
     // Proof: ImOnline AuthoredBlocks (max_values: None, max_size: Some(56), added: 2531, mode: MaxEncodedLen)
     /// The range of component `k` is `[1, 1000]`.
     /// The range of component `e` is `[1, 100]`.
-    fn validate_unsigned_and_then_heartbeat(k: u32, e: u32, ) -> Weight {
+    fn validate_unsigned_and_then_heartbeat(k: u32, e: u32) -> Weight {
         // Minimum execution time: 210_253 nanoseconds.
         Weight::from_ref_time(206_389_791)
             // Standard Error: 3_546

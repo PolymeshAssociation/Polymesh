@@ -57,8 +57,7 @@ impl pallet_asset::checkpoint::WeightInfo for SubstrateWeight {
     // Proof Skipped: Checkpoint SchedulesMaxComplexity (max_values: Some(1), max_size: None, mode: Measured)
     fn set_schedules_max_complexity() -> Weight {
         // Minimum execution time: 17_984 nanoseconds.
-        Weight::from_ref_time(19_707_000)
-            .saturating_add(DbWeight::get().writes(1))
+        Weight::from_ref_time(19_707_000).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)

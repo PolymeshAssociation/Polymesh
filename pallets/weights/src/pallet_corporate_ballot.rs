@@ -78,7 +78,7 @@ impl pallet_corporate_actions::ballot::WeightInfo for SubstrateWeight {
     // Storage: CorporateBallot RCV (r:0 w:1)
     // Proof Skipped: CorporateBallot RCV (max_values: None, max_size: None, mode: Measured)
     /// The range of component `c` is `[0, 1000]`.
-    fn attach_ballot(c: u32, ) -> Weight {
+    fn attach_ballot(c: u32) -> Weight {
         // Minimum execution time: 114_433 nanoseconds.
         Weight::from_ref_time(152_299_558)
             // Standard Error: 9_397
@@ -108,7 +108,7 @@ impl pallet_corporate_actions::ballot::WeightInfo for SubstrateWeight {
     // Proof Skipped: CorporateBallot Results (max_values: None, max_size: None, mode: Measured)
     /// The range of component `c` is `[0, 1000]`.
     /// The range of component `t` is `[0, 1000]`.
-    fn vote(c: u32, t: u32, ) -> Weight {
+    fn vote(c: u32, t: u32) -> Weight {
         // Minimum execution time: 243_234 nanoseconds.
         Weight::from_ref_time(212_513_196)
             // Standard Error: 9_270
@@ -153,7 +153,7 @@ impl pallet_corporate_actions::ballot::WeightInfo for SubstrateWeight {
     // Storage: CorporateBallot Metas (r:0 w:1)
     // Proof Skipped: CorporateBallot Metas (max_values: None, max_size: None, mode: Measured)
     /// The range of component `c` is `[0, 1000]`.
-    fn change_meta(c: u32, ) -> Weight {
+    fn change_meta(c: u32) -> Weight {
         // Minimum execution time: 75_863 nanoseconds.
         Weight::from_ref_time(99_108_849)
             // Standard Error: 5_364

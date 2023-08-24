@@ -80,7 +80,7 @@ impl pallet_sto::WeightInfo for SubstrateWeight {
     // Storage: Sto Fundraisers (r:0 w:1)
     // Proof Skipped: Sto Fundraisers (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[1, 10]`.
-    fn create_fundraiser(i: u32, ) -> Weight {
+    fn create_fundraiser(i: u32) -> Weight {
         // Minimum execution time: 153_857 nanoseconds.
         Weight::from_ref_time(248_085_188)
             // Standard Error: 681_312

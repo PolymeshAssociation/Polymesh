@@ -64,7 +64,7 @@ impl pallet_scheduler::WeightInfo for SubstrateWeight {
     // Storage: Scheduler Agenda (r:1 w:1)
     // Proof: Scheduler Agenda (max_values: None, max_size: Some(10463), added: 12938, mode: MaxEncodedLen)
     /// The range of component `s` is `[0, 50]`.
-    fn service_agenda_base(s: u32, ) -> Weight {
+    fn service_agenda_base(s: u32) -> Weight {
         // Minimum execution time: 6_311 nanoseconds.
         Weight::from_ref_time(16_010_659)
             // Standard Error: 32_853
@@ -81,7 +81,7 @@ impl pallet_scheduler::WeightInfo for SubstrateWeight {
     // Storage: Preimage StatusFor (r:1 w:1)
     // Proof: Preimage StatusFor (max_values: None, max_size: Some(91), added: 2566, mode: MaxEncodedLen)
     /// The range of component `s` is `[128, 4194304]`.
-    fn service_task_fetched(s: u32, ) -> Weight {
+    fn service_task_fetched(s: u32) -> Weight {
         // Minimum execution time: 48_871 nanoseconds.
         Weight::from_ref_time(49_422_000)
             // Standard Error: 5
@@ -93,8 +93,7 @@ impl pallet_scheduler::WeightInfo for SubstrateWeight {
     // Proof: Scheduler Lookup (max_values: None, max_size: Some(48), added: 2523, mode: MaxEncodedLen)
     fn service_task_named() -> Weight {
         // Minimum execution time: 11_943 nanoseconds.
-        Weight::from_ref_time(12_673_000)
-            .saturating_add(DbWeight::get().writes(1))
+        Weight::from_ref_time(12_673_000).saturating_add(DbWeight::get().writes(1))
     }
     fn service_task_periodic() -> Weight {
         // Minimum execution time: 9_137 nanoseconds.
@@ -111,7 +110,7 @@ impl pallet_scheduler::WeightInfo for SubstrateWeight {
     // Storage: Scheduler Agenda (r:1 w:1)
     // Proof: Scheduler Agenda (max_values: None, max_size: Some(10463), added: 12938, mode: MaxEncodedLen)
     /// The range of component `s` is `[0, 49]`.
-    fn schedule(s: u32, ) -> Weight {
+    fn schedule(s: u32) -> Weight {
         // Minimum execution time: 22_411 nanoseconds.
         Weight::from_ref_time(37_634_902)
             // Standard Error: 51_270
@@ -124,7 +123,7 @@ impl pallet_scheduler::WeightInfo for SubstrateWeight {
     // Storage: Scheduler Lookup (r:0 w:1)
     // Proof: Scheduler Lookup (max_values: None, max_size: Some(48), added: 2523, mode: MaxEncodedLen)
     /// The range of component `s` is `[1, 50]`.
-    fn cancel(s: u32, ) -> Weight {
+    fn cancel(s: u32) -> Weight {
         // Minimum execution time: 33_663 nanoseconds.
         Weight::from_ref_time(38_714_155)
             // Standard Error: 74_408
@@ -137,7 +136,7 @@ impl pallet_scheduler::WeightInfo for SubstrateWeight {
     // Storage: Scheduler Agenda (r:1 w:1)
     // Proof: Scheduler Agenda (max_values: None, max_size: Some(10463), added: 12938, mode: MaxEncodedLen)
     /// The range of component `s` is `[0, 49]`.
-    fn schedule_named(s: u32, ) -> Weight {
+    fn schedule_named(s: u32) -> Weight {
         // Minimum execution time: 35_818 nanoseconds.
         Weight::from_ref_time(61_950_906)
             // Standard Error: 58_648
@@ -150,7 +149,7 @@ impl pallet_scheduler::WeightInfo for SubstrateWeight {
     // Storage: Scheduler Agenda (r:1 w:1)
     // Proof: Scheduler Agenda (max_values: None, max_size: Some(10463), added: 12938, mode: MaxEncodedLen)
     /// The range of component `s` is `[1, 50]`.
-    fn cancel_named(s: u32, ) -> Weight {
+    fn cancel_named(s: u32) -> Weight {
         // Minimum execution time: 32_910 nanoseconds.
         Weight::from_ref_time(34_540_353)
             // Standard Error: 31_765

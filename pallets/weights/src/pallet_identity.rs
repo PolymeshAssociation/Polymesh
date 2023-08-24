@@ -92,7 +92,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Storage: Identity DidKeys (r:0 w:99)
     // Proof Skipped: Identity DidKeys (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[0, 100]`.
-    fn create_child_identities(i: u32, ) -> Weight {
+    fn create_child_identities(i: u32) -> Weight {
         // Minimum execution time: 33_253 nanoseconds.
         Weight::from_ref_time(271_214_196)
             // Standard Error: 1_301_922
@@ -133,7 +133,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Storage: Identity Authorizations (r:0 w:199)
     // Proof Skipped: Identity Authorizations (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[0, 200]`.
-    fn cdd_register_did(i: u32, ) -> Weight {
+    fn cdd_register_did(i: u32) -> Weight {
         // Minimum execution time: 80_640 nanoseconds.
         Weight::from_ref_time(2_891_663)
             // Standard Error: 456_762
@@ -168,7 +168,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Storage: Identity DidKeys (r:0 w:199)
     // Proof Skipped: Identity DidKeys (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[0, 200]`.
-    fn remove_secondary_keys(i: u32, ) -> Weight {
+    fn remove_secondary_keys(i: u32) -> Weight {
         // Minimum execution time: 29_735 nanoseconds.
         Weight::from_ref_time(74_725_975)
             // Standard Error: 324_580
@@ -225,8 +225,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity CddAuthForPrimaryKeyRotation (max_values: Some(1), max_size: None, mode: Measured)
     fn change_cdd_requirement_for_mk_rotation() -> Weight {
         // Minimum execution time: 15_639 nanoseconds.
-        Weight::from_ref_time(16_421_000)
-            .saturating_add(DbWeight::get().writes(1))
+        Weight::from_ref_time(16_421_000).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity Authorizations (r:1 w:1)
     // Proof Skipped: Identity Authorizations (max_values: None, max_size: None, mode: Measured)
@@ -322,7 +321,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     /// The range of component `p` is `[0, 2000]`.
     /// The range of component `l` is `[0, 80]`.
     /// The range of component `e` is `[0, 80]`.
-    fn permissions_cost(_a: u32, _p: u32, l: u32, e: u32, ) -> Weight {
+    fn permissions_cost(_a: u32, _p: u32, l: u32, e: u32) -> Weight {
         // Minimum execution time: 613_987 nanoseconds.
         Weight::from_ref_time(639_264_000)
             // Standard Error: 525_964
@@ -389,7 +388,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Storage: Identity DidKeys (r:0 w:199)
     // Proof Skipped: Identity DidKeys (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[0, 200]`.
-    fn add_secondary_keys_with_authorization(i: u32, ) -> Weight {
+    fn add_secondary_keys_with_authorization(i: u32) -> Weight {
         // Minimum execution time: 48_401 nanoseconds.
         Weight::from_ref_time(156_302_865)
             // Standard Error: 564_523
@@ -408,7 +407,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Storage: Identity CustomClaims (r:0 w:1)
     // Proof Skipped: Identity CustomClaims (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[1, 2048]`.
-    fn register_custom_claim_type(n: u32, ) -> Weight {
+    fn register_custom_claim_type(n: u32) -> Weight {
         // Minimum execution time: 43_412 nanoseconds.
         Weight::from_ref_time(63_521_702)
             // Standard Error: 1_268

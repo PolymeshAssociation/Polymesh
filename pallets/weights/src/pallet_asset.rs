@@ -154,7 +154,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[1, 128]`.
     /// The range of component `i` is `[1, 512]`.
     /// The range of component `f` is `[1, 128]`.
-    fn create_asset(_n: u32, i: u32, f: u32, ) -> Weight {
+    fn create_asset(_n: u32, i: u32, f: u32) -> Weight {
         // Minimum execution time: 153_958 nanoseconds.
         Weight::from_ref_time(198_885_457)
             // Standard Error: 11_239
@@ -213,7 +213,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: Asset AssetNames (r:0 w:1)
     // Proof Skipped: Asset AssetNames (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[1, 128]`.
-    fn rename_asset(_n: u32, ) -> Weight {
+    fn rename_asset(_n: u32) -> Weight {
         // Minimum execution time: 56_274 nanoseconds.
         Weight::from_ref_time(76_579_415)
             .saturating_add(DbWeight::get().reads(5))
@@ -318,7 +318,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: Asset AssetDocuments (r:0 w:64)
     // Proof Skipped: Asset AssetDocuments (max_values: None, max_size: None, mode: Measured)
     /// The range of component `d` is `[1, 64]`.
-    fn add_documents(d: u32, ) -> Weight {
+    fn add_documents(d: u32) -> Weight {
         // Minimum execution time: 78_726 nanoseconds.
         Weight::from_ref_time(72_928_388)
             // Standard Error: 322_517
@@ -338,7 +338,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: Asset AssetDocuments (r:0 w:63)
     // Proof Skipped: Asset AssetDocuments (max_values: None, max_size: None, mode: Measured)
     /// The range of component `d` is `[1, 64]`.
-    fn remove_documents(d: u32, ) -> Weight {
+    fn remove_documents(d: u32) -> Weight {
         // Minimum execution time: 37_429 nanoseconds.
         Weight::from_ref_time(45_597_418)
             // Standard Error: 213_118
@@ -357,7 +357,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: Asset FundingRound (r:0 w:1)
     // Proof Skipped: Asset FundingRound (max_values: None, max_size: None, mode: Measured)
     /// The range of component `f` is `[1, 128]`.
-    fn set_funding_round(_f: u32, ) -> Weight {
+    fn set_funding_round(_f: u32) -> Weight {
         // Minimum execution time: 48_039 nanoseconds.
         Weight::from_ref_time(62_401_469)
             .saturating_add(DbWeight::get().reads(4))
@@ -374,7 +374,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: Asset Identifiers (r:0 w:1)
     // Proof Skipped: Asset Identifiers (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[1, 512]`.
-    fn update_identifiers(i: u32, ) -> Weight {
+    fn update_identifiers(i: u32) -> Weight {
         // Minimum execution time: 52_487 nanoseconds.
         Weight::from_ref_time(68_767_113)
             // Standard Error: 3_954
@@ -419,7 +419,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: Asset CustomTypes (r:0 w:1)
     // Proof Skipped: Asset CustomTypes (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[1, 2048]`.
-    fn register_custom_asset_type(n: u32, ) -> Weight {
+    fn register_custom_asset_type(n: u32) -> Weight {
         // Minimum execution time: 44_553 nanoseconds.
         Weight::from_ref_time(51_249_819)
             // Standard Error: 1_161
@@ -661,15 +661,13 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof Skipped: Asset TickersExemptFromAffirmation (max_values: None, max_size: None, mode: Measured)
     fn exempt_ticker_affirmation() -> Weight {
         // Minimum execution time: 8_757 nanoseconds.
-        Weight::from_ref_time(9_187_000)
-            .saturating_add(DbWeight::get().writes(1))
+        Weight::from_ref_time(9_187_000).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Asset TickersExemptFromAffirmation (r:0 w:1)
     // Proof Skipped: Asset TickersExemptFromAffirmation (max_values: None, max_size: None, mode: Measured)
     fn remove_ticker_affirmation_exemption() -> Weight {
         // Minimum execution time: 8_667 nanoseconds.
-        Weight::from_ref_time(9_107_000)
-            .saturating_add(DbWeight::get().writes(1))
+        Weight::from_ref_time(9_107_000).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
