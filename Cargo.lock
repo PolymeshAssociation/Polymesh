@@ -7070,6 +7070,7 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-committee",
  "pallet-compliance-manager",
+ "pallet-contracts",
  "pallet-corporate-actions",
  "pallet-external-agents",
  "pallet-grandpa",

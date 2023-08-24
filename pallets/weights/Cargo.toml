@@ -10,6 +10,7 @@ frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 pallet-timestamp = { version = "4.0.0-dev", default-features = false }
 pallet-babe = { version = "4.0.0-dev", default-features = false }
+pallet-contracts = { version = "4.0.0-dev", default-features = false }
 pallet-im-online = { version = "4.0.0-dev", default-features = false }
 pallet-indices = { version = "4.0.0-dev", default-features = false }
 pallet-grandpa = { version = "4.0.0-dev", default-features = false }
