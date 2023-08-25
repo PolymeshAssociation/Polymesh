@@ -59,6 +59,7 @@ std = [
     "frame-support/std",
     "frame-benchmarking/std",
     "pallet-base/std",
+    "pallet-external-agents/std",
     "pallet-timestamp/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
