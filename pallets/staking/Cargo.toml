@@ -59,6 +59,7 @@ std = [
 	"frame-system/std",
 	"pallet-authorship/std",
 	"pallet-identity/std",
+	"pallet-babe/std",
 	"sp-arithmetic/std",
 ]
 runtime-benchmarks = [
