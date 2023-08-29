@@ -4,10 +4,7 @@ use crate::constants::time::*;
 use codec::Encode;
 use core::convert::TryFrom;
 use frame_support::{
-    construct_runtime,
-    dispatch::DispatchResult,
-    parameter_types,
-    traits::{tokens::imbalance::SplitTwoWays, KeyOwnerProofSystem},
+    construct_runtime, dispatch::DispatchResult, parameter_types, traits::KeyOwnerProofSystem,
     weights::Weight,
 };
 use pallet_asset::checkpoint as pallet_checkpoint;
@@ -23,7 +20,7 @@ use polymesh_runtime_common::{
     impls::Author,
     merge_active_and_inactive,
     runtime::{GovernanceCommittee, BENCHMARK_MAX_INCREASE, VMO},
-    AvailableBlockRatio, MaximumBlockWeight, NegativeImbalance,
+    AvailableBlockRatio, MaximumBlockWeight,
 };
 use sp_runtime::transaction_validity::TransactionPriority;
 use sp_runtime::{
@@ -56,7 +53,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
     // N.B. `d` is unpinned from the binary version
-    spec_version: 5_004_001,
+    spec_version: 5_004_002,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 3,
@@ -143,15 +140,8 @@ parameter_types! {
     pub const MaxNumberOfNFTsMoves: u32 = 100;
 }
 
-/// Splits fees 80/20 between treasury and block author.
-pub type DealWithFees = SplitTwoWays<
-    Balance,
-    NegativeImbalance<Runtime>,
-    Treasury,        // 4 parts (80%) goes to the treasury.
-    Author<Runtime>, // 1 part (20%) goes to the block author.
-    4,
-    1,
->;
+/// 100% goes to the block author.
+pub type DealWithFees = Author<Runtime>;
 
 // Staking:
 pallet_staking_reward_curve::build! {
