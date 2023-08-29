@@ -38,9 +38,9 @@ use polymesh_primitives::{
 };
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
 use sp_core::H512;
+use sp_keyring::AccountKeyring;
 use sp_runtime::transaction_validity::InvalidTransaction;
 use std::convert::From;
-use test_client::AccountKeyring;
 
 type AuthorizationsGiven = pallet_identity::AuthorizationsGiven<TestStorage>;
 type Asset = pallet_asset::Module<TestStorage>;

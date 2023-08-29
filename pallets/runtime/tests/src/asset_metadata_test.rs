@@ -12,7 +12,7 @@ use polymesh_primitives::{
     },
     Ticker,
 };
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type Moment = <TestStorage as pallet_timestamp::Config>::Moment;

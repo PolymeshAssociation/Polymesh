@@ -15,12 +15,12 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{AccountId, Balance, Signatory, Ticker, TransactionError};
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall as DevRuntimeCall};
+use sp_keyring::AccountKeyring;
 use sp_runtime::{
     traits::{Dispatchable, SignedExtension},
     transaction_validity::{InvalidTransaction, TransactionValidityError},
     MultiAddress,
 };
-use test_client::AccountKeyring;
 
 type Relayer = pallet_relayer::Module<TestStorage>;
 type Subsidies = pallet_relayer::Subsidies<TestStorage>;

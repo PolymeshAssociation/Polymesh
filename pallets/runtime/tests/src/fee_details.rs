@@ -11,8 +11,8 @@ use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{Signatory, TransactionError};
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
+use sp_keyring::AccountKeyring;
 use sp_runtime::transaction_validity::InvalidTransaction;
-use test_client::AccountKeyring;
 
 type MultiSig = multisig::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;

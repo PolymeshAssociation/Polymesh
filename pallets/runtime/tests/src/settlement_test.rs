@@ -36,7 +36,7 @@ use polymesh_primitives::{
     IdentityId, Memo, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId,
     PortfolioKind, PortfolioName, PortfolioNumber, Signatory, Ticker, WeightMeter,
 };
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 use super::asset_test::{allow_all_transfers, max_len_bytes};
 use super::nft::{create_nft_collection, mint_nft};

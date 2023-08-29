@@ -11,8 +11,8 @@ use polymesh_primitives::{
     Balance, Claim, ClaimType, IdentityId, PortfolioId, PortfolioKind, Scope, Ticker, WeightMeter,
 };
 use sp_arithmetic::Permill;
+use sp_keyring::AccountKeyring;
 use std::collections::{HashMap, HashSet};
-use test_client::AccountKeyring;
 
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type Identity = pallet_identity::Module<TestStorage>;

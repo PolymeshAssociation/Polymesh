@@ -14,7 +14,7 @@ use polymesh_primitives::{
     AuthorizationData, ExtrinsicPermissions, PalletPermissions, Signatory, SubsetRestriction,
     Ticker,
 };
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 type ExternalAgents = pallet_external_agents::Module<TestStorage>;
 type BaseError = pallet_base::Error<TestStorage>;

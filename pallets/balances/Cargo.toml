@@ -27,9 +27,6 @@ frame-support = { version = "4.0.0-dev", default-features = false }
 
 pallet-timestamp = { version = "4.0.0-dev", default-features = false }
 
-# Only for test in STD
-substrate-test-runtime-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03", optional = true}
-
 # Benchmarking
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
 
@@ -39,7 +36,6 @@ default = ["std", "equalize"]
 no_std = []
 only-staking = []
 std = [
-	"substrate-test-runtime-client",
 	"serde_derive",
 	"serde/std",
 	"codec/std",

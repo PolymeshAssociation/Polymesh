@@ -33,8 +33,6 @@ pub mod did {
     pub const CLASSIC_MIGRATION_DID: &[u8; 32] = b"system:polymath_classic_mig\0\0\0\0\0";
     /// Fiat Currency Reservation DID
     pub const FIAT_TICKERS_RESERVATION_DID: &[u8; 32] = b"system:fiat_tickers_reservation\0";
-    /// Rewards module DID. It is used in systematic CDD claim for the Rewards module.
-    pub const REWARDS_DID: &[u8; 32] = b"system:rewards_module_did\0\0\0\0\0\0\0";
 }
 
 /// Priorities for the task that get scheduled.
@@ -82,7 +80,6 @@ pub const CDD_PALLET_ID: PalletId = PalletId(*b"pm/cusdd");
 pub const SETTLEMENT_PALLET_ID: PalletId = PalletId(*b"pm/setmn");
 pub const CLASSIC_MIGRATION_PALLET_ID: PalletId = PalletId(*b"pm/ehmig");
 pub const FIAT_TICKERS_RESERVATION_PALLET_ID: PalletId = PalletId(*b"pm/ftres");
-pub const REWARDS_PALLET_ID: PalletId = PalletId(*b"pm/rewrd");
 
 /// Base module constants
 pub const ENSURED_MAX_LEN: u32 = 2048;

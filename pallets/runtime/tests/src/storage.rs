@@ -53,6 +53,7 @@ use sp_core::{
     sr25519::Pair,
     H256,
 };
+use sp_keyring::AccountKeyring;
 use sp_runtime::generic::Era;
 use sp_runtime::{
     create_runtime_str,
@@ -73,7 +74,6 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use std::cell::RefCell;
 use std::convert::From;
-use test_client::AccountKeyring;
 
 lazy_static! {
     pub static ref INTEGRATION_TEST: bool = std::env::var("INTEGRATION_TEST")
@@ -321,7 +321,7 @@ frame_support::construct_runtime!(
         Base: pallet_base::{Pallet, Call, Event} = 42,
         ExternalAgents: pallet_external_agents::{Pallet, Call, Storage, Event} = 43,
         Relayer: pallet_relayer::{Pallet, Call, Storage, Event<T>} = 44,
-        Rewards: pallet_rewards::{Pallet, Call, Storage, Event<T>, Config<T>} = 45,
+        // Removed pallet_rewards = 45,
 
         // Contracts
         Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>} = 46,

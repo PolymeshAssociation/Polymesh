@@ -12,7 +12,7 @@ use sp_io::TestExternalities;
 use sp_runtime::{generic, traits::SignedExtension};
 use sp_std::convert::From;
 
-use test_client::AccountKeyring;
+use sp_keyring::AccountKeyring;
 
 pub fn make_call() -> (<Runtime as frame_system::Config>::RuntimeCall, usize) {
     (

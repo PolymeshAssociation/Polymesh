@@ -14,10 +14,10 @@ use polymesh_primitives::{
     identity_id::GenesisIdentityRecord, AccountId, IdentityId, PosRatio, SecondaryKey, Signatory,
 };
 use sp_io::TestExternalities;
+use sp_keyring::AccountKeyring;
 use sp_runtime::Storage;
 use sp_std::prelude::Vec;
 use sp_std::{cell::RefCell, convert::From, iter};
-use test_client::AccountKeyring;
 
 /// Identity information.
 #[derive(Clone, PartialEq, Debug)]

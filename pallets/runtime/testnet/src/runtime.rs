@@ -379,10 +379,10 @@ construct_runtime!(
         Base: pallet_base::{Pallet, Call, Event},
         ExternalAgents: pallet_external_agents::{Pallet, Call, Storage, Event},
         Relayer: pallet_relayer::{Pallet, Call, Storage, Event<T>},
-        Rewards: pallet_rewards::{Pallet, Call, Storage, Event<T>, Config<T>},
+        // Removed pallet_rewards = 45,
 
         // Contracts
-        Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>},
+        Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>} = 46,
         PolymeshContracts: polymesh_contracts::{Pallet, Call, Storage, Event, Config},
 
         // Preimage register.  Used by `pallet_scheduler`.
