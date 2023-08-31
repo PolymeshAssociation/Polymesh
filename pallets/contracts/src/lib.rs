@@ -53,6 +53,7 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+use codec::{Decode, Encode};
 
 pub mod chain_extension;
 pub use chain_extension::{ExtrinsicId, PolymeshExtension};
@@ -76,7 +77,7 @@ use polymesh_common_utilities::traits::identity::{
     Config as IdentityConfig, WeightInfo as IdentityWeightInfo,
 };
 use polymesh_common_utilities::with_transaction;
-use polymesh_primitives::{Balance, Permissions};
+use polymesh_primitives::{storage_migrate_on, storage_migration_ver, Balance, Permissions};
 
 type Identity<T> = pallet_identity::Module<T>;
 type IdentityError<T> = pallet_identity::Error<T>;
@@ -261,11 +262,15 @@ decl_error! {
     }
 }
 
+storage_migration_ver!(1);
+
 decl_storage! {
-    trait Store for Module<T: Config> as Contracts where T::AccountId: UncheckedFrom<T::Hash>, T::AccountId: AsRef<[u8]> {
+    trait Store for Module<T: Config> as PolymeshContracts where T::AccountId: UncheckedFrom<T::Hash>, T::AccountId: AsRef<[u8]> {
         /// Whitelist of extrinsics allowed to be called from contracts.
         pub CallRuntimeWhitelist get(fn call_runtime_whitelist):
             map hasher(identity) ExtrinsicId => bool;
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
     }
     add_extra_genesis {
         config(call_whitelist): Vec<ExtrinsicId>;
@@ -281,6 +286,23 @@ decl_module! {
     pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin, T::AccountId: UncheckedFrom<T::Hash>, T::AccountId: AsRef<[u8]> {
         type Error = Error<T>;
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            // We remove storage for CallRuntimeWhitelist under the previous pallet name (Contracts)
+            // We do not copy the storage over as it will be re-initialised as part of the 6.0.0 post-release actions
+            let old_pallet_name = "Contracts";
+            storage_migrate_on!(StorageVersion, 1, {
+                let prefixes = &[
+                    "CallRuntimeWhitelist",
+                ];
+                for prefix in prefixes {
+                    let res = frame_support::storage::migration::clear_storage_prefix(old_pallet_name.as_bytes(), prefix.as_bytes(), b"", None, None);
+                    log::info!("Cleared storage prefix[{prefix}]: cursor={:?}, backend={}, unique={}, loops={}",
+                        res.maybe_cursor, res.backend, res.unique, res.loops);
+                }
+            });
+            Weight::zero()
+        }
 
         /// Instantiates a smart contract defining it with the given `code` and `salt`.
         ///
