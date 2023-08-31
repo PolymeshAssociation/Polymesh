@@ -342,7 +342,10 @@ macro_rules! misc_pallet_impls {
             type DeletionQueueDepth = DeletionQueueDepth;
             type DeletionWeightLimit = DeletionWeightLimit;
             type AddressGenerator = pallet_contracts::DefaultAddressGenerator;
+            #[cfg(not(feature = "runtime-benchmarks"))]
             type PolymeshHooks = polymesh_contracts::ContractPolymeshHooks;
+            #[cfg(feature = "runtime-benchmarks")]
+            type PolymeshHooks = polymesh_contracts::benchmarking::BenchmarkContractPolymeshHooks;
             type MaxCodeLen = frame_support::traits::ConstU32<{ 123 * 1024 }>;
             type MaxStorageKeyLen = frame_support::traits::ConstU32<128>;
             type UnsafeUnstableInterface = frame_support::traits::ConstBool<false>;
