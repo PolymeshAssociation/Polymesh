@@ -40,6 +40,8 @@ std = [
     "frame-system/std",
     "pallet-base/std",
     "pallet-balances/std",
+    "pallet-identity/std",
+    "pallet-permissions/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "serde/std",

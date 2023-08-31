@@ -57,6 +57,7 @@ std = [
 	"pallet-timestamp/std",
 	"polymesh-primitives/std",
 	"pallet-session/std",
+	"pallet-external-agents/std",
 ]
 runtime-benchmarks = [
     "frame-benchmarking",

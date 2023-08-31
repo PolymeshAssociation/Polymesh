@@ -60,6 +60,7 @@ std = [
     "pallet-portfolio/std",
     "pallet-session/std",
     "pallet-timestamp/std",
+    "pallet-external-agents/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "polymesh-runtime-common/std",
