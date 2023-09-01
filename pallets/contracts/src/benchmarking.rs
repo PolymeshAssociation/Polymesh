@@ -17,7 +17,7 @@ use crate::chain_extension::*;
 use crate::*;
 
 use codec::Encode;
-use frame_benchmarking::{account, benchmarks};
+use frame_benchmarking::benchmarks;
 use frame_support::{storage::unhashed, traits::tokens::currency::Currency};
 use frame_system::{Config as SysTrait, Pallet as System, RawOrigin};
 use pallet_contracts::benchmarking::code::{
@@ -53,9 +53,6 @@ where
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
     fn check_call_permissions(caller: &T::AccountId) -> DispatchResult {
-        if let None = Identity::<T>::key_records(caller) {
-            register_account_with_cdd::<T>(caller.clone());
-        }
         pallet_permissions::Module::<T>::ensure_call_permissions(caller)?;
         Ok(())
     }
@@ -82,38 +79,27 @@ where
             }
         }
     }
-}
 
-fn register_account_with_cdd<T: Config + TestUtilsFn<<T as SysTrait>::AccountId>>(
-    account_id: T::AccountId,
-) {
-    let cdd_origin = {
+    fn get_cdd_provider_origin() -> Option<T::RuntimeOrigin> {
         match T::CddServiceProviders::get_members().first() {
             Some(cdd_did) => {
                 let cdd_acc = pallet_identity::Module::<T>::get_primary_key(*cdd_did).unwrap();
-                RawOrigin::Signed(cdd_acc)
+                Some(RawOrigin::Signed(cdd_acc).into())
             }
-            None => cdd_provider::<T>("cdd", 0).origin,
+            None => Some(cdd_provider::<T>("cdd", 0).origin.into()),
         }
-    };
+    }
 
-    pallet_identity::Module::<T>::cdd_register_did_with_cdd(
-        cdd_origin.clone().into(),
-        account_id.into(),
-        Vec::new(),
-        None,
-    )
-    .unwrap();
-
-    let beneficiary_account = account::<T::AccountId>("beneficiary", 0, 0);
-    if let None = Identity::<T>::key_records(&beneficiary_account) {
+    fn register_did_with_cdd(
+        cdd_provider_origin: Option<T::RuntimeOrigin>,
+        account_id: T::AccountId,
+    ) -> DispatchResult {
         pallet_identity::Module::<T>::cdd_register_did_with_cdd(
-            cdd_origin.clone().into(),
-            beneficiary_account,
+            cdd_provider_origin.unwrap(),
+            account_id.into(),
             Vec::new(),
             None,
         )
-        .unwrap();
     }
 }
 

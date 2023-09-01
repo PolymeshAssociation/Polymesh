@@ -116,6 +116,19 @@ where
             }
         }
     }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn get_cdd_provider_origin() -> Option<T::RuntimeOrigin> {
+        None
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn register_did_with_cdd(
+        _cdd_provider_origin: Option<T::RuntimeOrigin>,
+        _account_id: T::AccountId,
+    ) -> DispatchResult {
+        Ok(())
+    }
 }
 
 pub const CHAIN_EXTENSION_BATCH_SIZE: u32 = 100;
