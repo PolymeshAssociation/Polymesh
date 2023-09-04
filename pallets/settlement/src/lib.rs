@@ -2076,8 +2076,17 @@ pub mod migration {
                 if let Some(block_number) = schedule {
                     // Cancel old scheduled task.
                     let _ = T::Scheduler::cancel_named(id.execution_name());
+                    // Get the weight limit for the instruction
+                    let instruction_legs: Vec<(LegId, Leg)> =
+                        InstructionLegs::iter_prefix(&id).collect();
+                    let instruction_asset_count = AssetCount::from_legs(&instruction_legs);
+                    let weight_limit = Module::<T>::execute_scheduled_instruction_weight_limit(
+                        instruction_asset_count.fungible(),
+                        instruction_asset_count.non_fungible(),
+                        instruction_asset_count.off_chain(),
+                    );
                     // Create new scheduled task.
-                    Module::<T>::schedule_instruction(id, block_number, Weight::MAX);
+                    Module::<T>::schedule_instruction(id, block_number, weight_limit);
                 }
 
                 //Migrate Instruction details.
