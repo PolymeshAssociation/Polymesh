@@ -52,7 +52,7 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_contracts using the Substrate node and recommended hardware.
 pub struct SubstrateWeight;
-impl pallet_contracts::WeightInfo for SubstrateWeight {
+impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     // Storage: Contracts DeletionQueue (r:1 w:0)
     // Proof: Contracts DeletionQueue (max_values: Some(1), max_size: Some(133122), added: 133617, mode: Measured)
     fn on_process_deletion_queue_batch() -> Weight {
@@ -729,6 +729,7 @@ impl pallet_contracts::WeightInfo for SubstrateWeight {
     fn seal_return(r: u32) -> Weight {
         // Minimum execution time: 519_532 nanoseconds.
         Weight::from_ref_time(576_624_742)
+            .saturating_add(Weight::from_ref_time(1_737_397).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
