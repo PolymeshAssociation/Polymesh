@@ -6569,6 +6569,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-base",
  "pallet-contracts",
  "pallet-contracts-primitives",
