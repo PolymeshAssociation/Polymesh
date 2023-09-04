@@ -154,9 +154,11 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[1, 128]`.
     /// The range of component `i` is `[1, 512]`.
     /// The range of component `f` is `[1, 128]`.
-    fn create_asset(_n: u32, i: u32, f: u32) -> Weight {
+    fn create_asset(n: u32, i: u32, f: u32) -> Weight {
         // Minimum execution time: 153_958 nanoseconds.
         Weight::from_ref_time(198_885_457)
+            // Manually set weight for `n`
+            .saturating_add(Weight::from_ref_time(100_000).saturating_mul(n.into()))        
             // Standard Error: 11_239
             .saturating_add(Weight::from_ref_time(98_874).saturating_mul(i.into()))
             // Standard Error: 45_055
@@ -213,9 +215,11 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: Asset AssetNames (r:0 w:1)
     // Proof Skipped: Asset AssetNames (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[1, 128]`.
-    fn rename_asset(_n: u32) -> Weight {
+    fn rename_asset(n: u32) -> Weight {
         // Minimum execution time: 56_274 nanoseconds.
         Weight::from_ref_time(76_579_415)
+            // Manually set weight for `n`
+            .saturating_add(Weight::from_ref_time(14_448).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -357,9 +361,11 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: Asset FundingRound (r:0 w:1)
     // Proof Skipped: Asset FundingRound (max_values: None, max_size: None, mode: Measured)
     /// The range of component `f` is `[1, 128]`.
-    fn set_funding_round(_f: u32) -> Weight {
+    fn set_funding_round(f: u32) -> Weight {
         // Minimum execution time: 48_039 nanoseconds.
         Weight::from_ref_time(62_401_469)
+            // Manually set weight for `f`
+            .saturating_add(Weight::from_ref_time(1_416).saturating_mul(f.into()))        
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(1))
     }

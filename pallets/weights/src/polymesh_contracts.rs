@@ -365,9 +365,11 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes(3))
     }
     /// The range of component `n` is `[1, 8188]`.
-    fn basic_runtime_call(_n: u32) -> Weight {
+    fn basic_runtime_call(n: u32) -> Weight {
         // Minimum execution time: 4_077 nanoseconds.
         Weight::from_ref_time(5_718_532)
+            // Manually set weight for `n`
+            .saturating_add(Weight::from_ref_time(11).saturating_mul(n.into()))
     }
     // Storage: Identity KeyRecords (r:3 w:1)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)

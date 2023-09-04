@@ -67,9 +67,11 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Proof Skipped: Settlement UserVenues (max_values: None, max_size: None, mode: Measured)
     /// The range of component `d` is `[1, 2048]`.
     /// The range of component `s` is `[0, 50]`.
-    fn create_venue(_d: u32, s: u32) -> Weight {
+    fn create_venue(d: u32, s: u32) -> Weight {
         // Minimum execution time: 62_327 nanoseconds.
         Weight::from_ref_time(150_542_787)
+            // Manually set weight for `d`
+            .saturating_add(Weight::from_ref_time(2_591).saturating_mul(d.into()))        
             // Standard Error: 132_757
             .saturating_add(Weight::from_ref_time(3_308_915).saturating_mul(s.into()))
             .saturating_add(DbWeight::get().reads(2))

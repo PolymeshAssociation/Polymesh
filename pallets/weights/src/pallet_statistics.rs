@@ -66,9 +66,11 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
     // Storage: Statistics ActiveAssetStats (r:1 w:1)
     // Proof Skipped: Statistics ActiveAssetStats (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[1, 9]`.
-    fn set_active_asset_stats(_i: u32) -> Weight {
+    fn set_active_asset_stats(i: u32) -> Weight {
         // Minimum execution time: 65_192 nanoseconds.
         Weight::from_ref_time(80_979_517)
+            // Manually set weight for `i`
+            .saturating_add(Weight::from_ref_time(80_581).saturating_mul(i.into()))	
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(1))
     }
