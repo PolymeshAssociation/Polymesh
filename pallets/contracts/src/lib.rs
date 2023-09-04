@@ -118,15 +118,7 @@ where
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn get_cdd_provider_origin() -> Option<T::RuntimeOrigin> {
-        None
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn register_did_with_cdd(
-        _cdd_provider_origin: Option<T::RuntimeOrigin>,
-        _account_id: T::AccountId,
-    ) -> DispatchResult {
+    fn register_did(_account_id: T::AccountId) -> DispatchResult {
         Ok(())
     }
 }

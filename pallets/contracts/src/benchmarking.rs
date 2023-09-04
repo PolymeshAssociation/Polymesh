@@ -80,22 +80,19 @@ where
         }
     }
 
-    fn get_cdd_provider_origin() -> Option<T::RuntimeOrigin> {
-        match T::CddServiceProviders::get_members().first() {
-            Some(cdd_did) => {
-                let cdd_acc = pallet_identity::Module::<T>::get_primary_key(*cdd_did).unwrap();
-                Some(RawOrigin::Signed(cdd_acc).into())
+    fn register_did(account_id: T::AccountId) -> DispatchResult {
+        let cdd_provider_origin = {
+            match T::CddServiceProviders::get_members().first() {
+                Some(cdd_did) => {
+                    let cdd_acc = pallet_identity::Module::<T>::get_primary_key(*cdd_did).unwrap();
+                    RawOrigin::Signed(cdd_acc).into()
+                }
+                None => cdd_provider::<T>("cdd", 0).origin.into(),
             }
-            None => Some(cdd_provider::<T>("cdd", 0).origin.into()),
-        }
-    }
+        };
 
-    fn register_did_with_cdd(
-        cdd_provider_origin: Option<T::RuntimeOrigin>,
-        account_id: T::AccountId,
-    ) -> DispatchResult {
         pallet_identity::Module::<T>::cdd_register_did_with_cdd(
-            cdd_provider_origin.unwrap(),
+            cdd_provider_origin,
             account_id.into(),
             Vec::new(),
             None,
