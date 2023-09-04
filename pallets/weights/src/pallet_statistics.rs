@@ -70,7 +70,7 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
         // Minimum execution time: 65_192 nanoseconds.
         Weight::from_ref_time(80_979_517)
             // Manually set weight for `i`
-            .saturating_add(Weight::from_ref_time(80_581).saturating_mul(i.into()))	
+            .saturating_add(Weight::from_ref_time(80_581).saturating_mul(i.into()))
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(1))
     }

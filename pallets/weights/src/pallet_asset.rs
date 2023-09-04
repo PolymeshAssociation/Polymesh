@@ -158,7 +158,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
         // Minimum execution time: 153_958 nanoseconds.
         Weight::from_ref_time(198_885_457)
             // Manually set weight for `n`
-            .saturating_add(Weight::from_ref_time(100_000).saturating_mul(n.into()))        
+            .saturating_add(Weight::from_ref_time(100_000).saturating_mul(n.into()))
             // Standard Error: 11_239
             .saturating_add(Weight::from_ref_time(98_874).saturating_mul(i.into()))
             // Standard Error: 45_055
@@ -365,7 +365,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
         // Minimum execution time: 48_039 nanoseconds.
         Weight::from_ref_time(62_401_469)
             // Manually set weight for `f`
-            .saturating_add(Weight::from_ref_time(1_416).saturating_mul(f.into()))        
+            .saturating_add(Weight::from_ref_time(1_416).saturating_mul(f.into()))
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(1))
     }

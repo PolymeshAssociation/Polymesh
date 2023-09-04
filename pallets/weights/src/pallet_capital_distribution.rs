@@ -125,7 +125,7 @@ impl pallet_corporate_actions::distribution::WeightInfo for SubstrateWeight {
             // Standard Error: 8_792
             .saturating_add(Weight::from_ref_time(78_865).saturating_mul(t.into()))
             // Manually set weight for `w`
-            .saturating_add(Weight::from_ref_time(17_224).saturating_mul(w.into()))            
+            .saturating_add(Weight::from_ref_time(17_224).saturating_mul(w.into()))
             .saturating_add(DbWeight::get().reads(19))
             .saturating_add(DbWeight::get().writes(7))
     }

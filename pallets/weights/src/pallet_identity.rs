@@ -327,7 +327,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
             // Manually set for `a`
             .saturating_add(Weight::from_ref_time(100_000).saturating_mul(a.into()))
             // Manually set for `p`
-            .saturating_add(Weight::from_ref_time(100_000).saturating_mul(p.into()))                    
+            .saturating_add(Weight::from_ref_time(100_000).saturating_mul(p.into()))
             // Standard Error: 525_964
             .saturating_add(Weight::from_ref_time(24_922_614).saturating_mul(l.into()))
             // Standard Error: 525_964

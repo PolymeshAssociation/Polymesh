@@ -63,7 +63,7 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
             // Standard Error: 143_204
             .saturating_add(Weight::from_ref_time(7_353_715).saturating_mul(a.into()))
             // Manually set for `b`
-            .saturating_add(Weight::from_ref_time(411_324).saturating_mul(b.into()))            
+            .saturating_add(Weight::from_ref_time(411_324).saturating_mul(b.into()))
             // Standard Error: 143_204
             .saturating_add(Weight::from_ref_time(3_362_706).saturating_mul(c.into()))
             // Manually set for `d`

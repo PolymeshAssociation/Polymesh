@@ -71,7 +71,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
         // Minimum execution time: 62_327 nanoseconds.
         Weight::from_ref_time(150_542_787)
             // Manually set weight for `d`
-            .saturating_add(Weight::from_ref_time(2_591).saturating_mul(d.into()))        
+            .saturating_add(Weight::from_ref_time(2_591).saturating_mul(d.into()))
             // Standard Error: 132_757
             .saturating_add(Weight::from_ref_time(3_308_915).saturating_mul(s.into()))
             .saturating_add(DbWeight::get().reads(2))
