@@ -132,6 +132,9 @@ pub trait Config:
 
     /// Maximum number of off-chain assets that can be transferred in a instruction.
     type MaxNumberOfOffChainAssets: Get<u32>;
+
+    /// Maximum number of venue signers.
+    type MaxNumberOfVenueSigners: Get<u32>;
 }
 
 decl_error! {
@@ -215,6 +218,8 @@ decl_error! {
         MultipleReceiptsForOneLeg,
         /// An invalid has been reached.
         UnexpectedLegStatus,
+        /// The maximum number of venue signers was exceeded.
+        NumberOfVenueSignersExceeded,
     }
 }
 
@@ -234,24 +239,18 @@ decl_storage! {
         ///
         /// venue_id -> instruction_id -> ()
         pub VenueInstructions get(fn venue_instructions):
-            double_map hasher(twox_64_concat) VenueId,
-                       hasher(twox_64_concat) InstructionId
-                    => ();
+            double_map hasher(twox_64_concat) VenueId, hasher(twox_64_concat) InstructionId => ();
 
         /// Signers allowed by the venue. (venue_id, signer) -> bool
         VenueSigners get(fn venue_signers):
-            double_map hasher(twox_64_concat) VenueId,
-                       hasher(twox_64_concat) T::AccountId
-                    => bool;
+            double_map hasher(twox_64_concat) VenueId, hasher(twox_64_concat) T::AccountId => bool;
         /// Array of venues created by an identity. Only needed for the UI. IdentityId -> Vec<venue_id>
         /// Venues create by an identity.
         /// Only needed for the UI.
         ///
         /// identity -> venue_id ()
         pub UserVenues get(fn user_venues):
-            double_map hasher(twox_64_concat) IdentityId,
-                       hasher(twox_64_concat) VenueId
-                    => ();
+            double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) VenueId => ();
         /// Details about an instruction. instruction_id -> instruction_details
         pub InstructionDetails get(fn instruction_details):
             map hasher(twox_64_concat) InstructionId => Instruction<T::Moment, T::BlockNumber>;
@@ -261,7 +260,8 @@ decl_storage! {
         /// Number of affirmations pending before instruction is executed. instruction_id -> affirm_pending
         pub InstructionAffirmsPending get(fn instruction_affirms_pending): map hasher(twox_64_concat) InstructionId => u64;
         /// Tracks affirmations received for an instruction. (instruction_id, counter_party) -> AffirmationStatus
-        pub AffirmsReceived get(fn affirms_received): double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) PortfolioId => AffirmationStatus;
+        pub AffirmsReceived get(fn affirms_received):
+            double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) PortfolioId => AffirmationStatus;
         /// Helps a user track their pending instructions and affirmations (only needed for UI).
         /// (counter_party, instruction_id) -> AffirmationStatus
         pub UserAffirmations get(fn user_affirmations):
@@ -290,6 +290,8 @@ decl_storage! {
         /// Tracks the affirmation status for offchain legs in a instruction. [`(InstructionId, LegId)`] -> [`AffirmationStatus`]
         pub OffChainAffirmations get(fn offchain_affirmations):
             double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => AffirmationStatus;
+        /// Tracks the number of signers each venue has.
+        pub NumberOfVenueSigners get(fn number_of_venue_signers): map hasher(twox_64_concat) VenueId => u32;
     }
 }
 
@@ -317,6 +319,11 @@ decl_module! {
             let did = Identity::<T>::ensure_perms(origin)?;
             ensure_string_limited::<T>(&details)?;
 
+            ensure!(
+                signers.len() <= T::MaxNumberOfVenueSigners::get() as usize,
+                Error::<T>::NumberOfVenueSignersExceeded
+            );
+
             // Advance venue counter.
             // NB: Venue counter starts with 1.
             let id = VenueCounter::try_mutate(try_next_post::<T, _>)?;
@@ -325,6 +332,7 @@ decl_module! {
             let venue = Venue { creator: did, venue_type: typ };
             VenueInfo::insert(id, venue);
             Details::insert(id, details.clone());
+            NumberOfVenueSigners::insert(id, signers.len() as u32);
             for signer in signers {
                 <VenueSigners<T>>::insert(id, signer, true);
             }
@@ -1408,12 +1416,19 @@ impl<T: Config> Module<T> {
         Self::venue_for_management(id, did)?;
 
         if add_signers {
+            let current_number_of_signers = NumberOfVenueSigners::get(id);
+            ensure!(
+                (current_number_of_signers as usize).saturating_add(signers.len())
+                    <= T::MaxNumberOfVenueSigners::get() as usize,
+                Error::<T>::NumberOfVenueSignersExceeded
+            );
             for signer in &signers {
                 ensure!(
                     !Self::venue_signers(&id, &signer),
                     Error::<T>::SignerAlreadyExists
                 );
             }
+            NumberOfVenueSigners::insert(id, current_number_of_signers + signers.len() as u32);
             for signer in &signers {
                 <VenueSigners<T>>::insert(&id, &signer, true);
             }
@@ -1424,6 +1439,11 @@ impl<T: Config> Module<T> {
                     Error::<T>::SignerDoesNotExist
                 );
             }
+            let current_number_of_signers = NumberOfVenueSigners::get(id);
+            NumberOfVenueSigners::insert(
+                id,
+                current_number_of_signers.saturating_sub(signers.len() as u32),
+            );
             for signer in &signers {
                 <VenueSigners<T>>::remove(&id, &signer);
             }

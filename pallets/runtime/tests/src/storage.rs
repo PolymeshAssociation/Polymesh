@@ -239,6 +239,7 @@ parameter_types! {
     pub const MaxNumberOfFungibleMoves: u32 = 10;
     pub const MaxNumberOfNFTsMoves: u32 = 100;
     pub const MaxNumberOfOffChainAssets: u32 = 10;
+    pub const MaxNumberOfVenueSigners: u32 = 50;
 }
 
 frame_support::construct_runtime!(

@@ -9,7 +9,7 @@ use frame_support::{
     IterableStorageDoubleMap, StorageDoubleMap, StorageMap,
 };
 use rand::{prelude::*, thread_rng};
-use sp_runtime::AnySignature;
+use sp_runtime::{AccountId32, AnySignature};
 use sp_std::collections::btree_set::BTreeSet;
 
 use pallet_asset::BalanceOf;
@@ -18,7 +18,8 @@ use pallet_portfolio::{PortfolioLockedNFT, PortfolioNFT};
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
     AffirmsReceived, InstructionAffirmsPending, InstructionLegs, InstructionMemos,
-    OffChainAffirmations, RawEvent, UserAffirmations, UserVenues, VenueInstructions,
+    NumberOfVenueSigners, OffChainAffirmations, RawEvent, UserAffirmations, UserVenues,
+    VenueInstructions,
 };
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
@@ -2111,6 +2112,65 @@ fn modify_venue_signers() {
             false
         );
     });
+}
+
+#[test]
+fn assert_number_of_venue_signers() {
+    ExtBuilder::default().build().execute_with(|| {
+        let max_signers =
+            <TestStorage as pallet_settlement::Config>::MaxNumberOfVenueSigners::get();
+        let venue_id = VenueId(0);
+        let alice = User::new(AccountKeyring::Alice);
+        let initial_signers: Vec<AccountId32> = (0..max_signers as u8)
+            .map(|i| AccountId32::from([i; 32]))
+            .collect();
+        // Verifies that an error will be thrown when the limit is exceeded
+        assert_noop!(
+            Settlement::create_venue(
+                alice.origin(),
+                VenueDetails::default(),
+                (0..max_signers as u8 + 1)
+                    .map(|i| AccountId32::from([i; 32]))
+                    .collect(),
+                VenueType::Exchange
+            ),
+            Error::NumberOfVenueSignersExceeded
+        );
+        // Successfully creates a venue with max_signers
+        assert_ok!(Settlement::create_venue(
+            alice.origin(),
+            VenueDetails::default(),
+            initial_signers.clone(),
+            VenueType::Exchange
+        ));
+        assert_eq!(NumberOfVenueSigners::get(venue_id), max_signers);
+        // Verifies that an error will be thrown when the limit is exceeded
+        assert_noop!(
+            Settlement::update_venue_signers(
+                alice.origin(),
+                venue_id,
+                vec![AccountId32::from([51; 32])],
+                true
+            ),
+            Error::NumberOfVenueSignersExceeded
+        );
+        // Verifies that the count is being updated when adding removing signers
+        assert_ok!(Settlement::update_venue_signers(
+            alice.origin(),
+            venue_id,
+            initial_signers[0..3].to_vec(),
+            false
+        ));
+        assert_eq!(NumberOfVenueSigners::get(venue_id), max_signers - 3);
+        // Verifies that the count is being updated when adding adding new signers
+        assert_ok!(Settlement::update_venue_signers(
+            alice.origin(),
+            venue_id,
+            initial_signers[0..2].to_vec(),
+            true
+        ));
+        assert_eq!(NumberOfVenueSigners::get(venue_id), max_signers - 1);
+    })
 }
 
 #[test]

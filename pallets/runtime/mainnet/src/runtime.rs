@@ -87,6 +87,7 @@ parameter_types! {
     pub const MaxNumberOfFungibleAssets: u32 = 10;
     pub const MaxNumberOfNFTsPerLeg: u32 = 10;
     pub const MaxNumberOfNFTs: u32 = 100;
+    pub const MaxNumberOfVenueSigners: u32 = 50;
 
     // I'm online:
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
