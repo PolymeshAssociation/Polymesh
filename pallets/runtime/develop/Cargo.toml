@@ -121,7 +121,7 @@ no_std = [
 ]
 
 std = [
-		"polymesh-build-tool/std",
+	"polymesh-build-tool/std",
     "u64_backend",
     "codec/std",
     "frame-benchmarking?/std",
@@ -198,7 +198,7 @@ std = [
     "polymesh-extensions/std",
 ]
 runtime-benchmarks = [
-		"getrandom/js",
+	"getrandom/js",
     "frame-benchmarking/runtime-benchmarks",
     "frame-support/runtime-benchmarks",
     "frame-system-benchmarking/runtime-benchmarks",

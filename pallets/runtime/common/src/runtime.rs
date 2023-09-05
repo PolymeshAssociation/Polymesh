@@ -320,6 +320,7 @@ macro_rules! misc_pallet_impls {
             type MaxOutLen = MaxOutLen;
             type WeightInfo = polymesh_weights::polymesh_contracts::SubstrateWeight;
         }
+
         impl pallet_contracts::Config for Runtime {
             type Time = Timestamp;
             type Randomness = RandomnessCollectiveFlip;
@@ -335,13 +336,16 @@ macro_rules! misc_pallet_impls {
             type DepositPerByte = polymesh_runtime_common::DepositPerByte;
             type CallStack = [pallet_contracts::Frame<Self>; 5];
             type WeightPrice = pallet_transaction_payment::Pallet<Self>;
-            type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
+            type WeightInfo = polymesh_weights::pallet_contracts::SubstrateWeight;
             type ChainExtension = polymesh_contracts::PolymeshExtension;
             type Schedule = Schedule;
             type DeletionQueueDepth = DeletionQueueDepth;
             type DeletionWeightLimit = DeletionWeightLimit;
             type AddressGenerator = pallet_contracts::DefaultAddressGenerator;
+            #[cfg(not(feature = "runtime-benchmarks"))]
             type PolymeshHooks = polymesh_contracts::ContractPolymeshHooks;
+            #[cfg(feature = "runtime-benchmarks")]
+            type PolymeshHooks = polymesh_contracts::benchmarking::BenchmarkContractPolymeshHooks;
             type MaxCodeLen = frame_support::traits::ConstU32<{ 123 * 1024 }>;
             type MaxStorageKeyLen = frame_support::traits::ConstU32<128>;
             type UnsafeUnstableInterface = frame_support::traits::ConstBool<false>;

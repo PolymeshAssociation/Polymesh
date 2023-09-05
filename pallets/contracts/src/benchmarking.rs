@@ -19,15 +19,16 @@ use crate::*;
 use codec::Encode;
 use frame_benchmarking::benchmarks;
 use frame_support::{storage::unhashed, traits::tokens::currency::Currency};
-use frame_system::{Pallet as System, RawOrigin};
+use frame_system::{Config as SysTrait, Pallet as System, RawOrigin};
 use pallet_contracts::benchmarking::code::{
     body, max_pages, DataSegment, ImportedFunction, ImportedMemory, Location, ModuleDefinition,
     WasmModule,
 };
 use pallet_contracts::Pallet as FrameContracts;
 use polymesh_common_utilities::{
-    benchs::{user, AccountIdOf, User},
+    benchs::{cdd_provider, user, AccountIdOf, User},
     constants::currency::POLY,
+    group::GroupTrait,
     TestUtilsFn,
 };
 use polymesh_primitives::{Balance, Permissions};
@@ -43,6 +44,61 @@ pub const CHAIN_EXTENSION_BATCHES: u32 = 20;
 const ENDOWMENT: Balance = 1_000 * POLY;
 
 const SALT_BYTE: u8 = 0xFF;
+
+pub struct BenchmarkContractPolymeshHooks;
+
+impl<T: Config + TestUtilsFn<<T as SysTrait>::AccountId>> pallet_contracts::PolymeshHooks<T>
+    for BenchmarkContractPolymeshHooks
+where
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+{
+    fn check_call_permissions(caller: &T::AccountId) -> DispatchResult {
+        pallet_permissions::Module::<T>::ensure_call_permissions(caller)?;
+        Ok(())
+    }
+
+    fn on_instantiate_transfer(caller: &T::AccountId, contract: &T::AccountId) -> DispatchResult {
+        // Get the caller's identity.
+        let did =
+            Identity::<T>::get_identity(&caller).ok_or(Error::<T>::InstantiatorWithNoIdentity)?;
+        // Check if contact is already linked.
+        match Identity::<T>::get_identity(&contract) {
+            Some(contract_did) => {
+                if contract_did != did {
+                    // Contract address already linked to a different identity.
+                    Err(IdentityError::<T>::AlreadyLinked.into())
+                } else {
+                    // Contract is already linked to caller's identity.
+                    Ok(())
+                }
+            }
+            None => {
+                // Linked new contract address to caller's identity.  With empty permissions.
+                Identity::<T>::unsafe_join_identity(did, Permissions::empty(), contract.clone());
+                Ok(())
+            }
+        }
+    }
+
+    fn register_did(account_id: T::AccountId) -> DispatchResult {
+        let cdd_provider_origin = {
+            match T::CddServiceProviders::get_members().first() {
+                Some(cdd_did) => {
+                    let cdd_acc = pallet_identity::Module::<T>::get_primary_key(*cdd_did).unwrap();
+                    RawOrigin::Signed(cdd_acc).into()
+                }
+                None => cdd_provider::<T>("cdd", 0).origin.into(),
+            }
+        };
+
+        pallet_identity::Module::<T>::cdd_register_did_with_cdd(
+            cdd_provider_origin,
+            account_id.into(),
+            Vec::new(),
+            None,
+        )
+    }
+}
 
 /// Construct the default salt used for most benchmarks.
 fn salt() -> Vec<u8> {
