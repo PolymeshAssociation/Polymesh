@@ -348,6 +348,7 @@ mod benches {
         [pallet_test_utils, TestUtils]
         [polymesh_contracts, PolymeshContracts]
         [pallet_nft, Nft]
+        [pallet_contracts, Contracts]
     );
 }
 
