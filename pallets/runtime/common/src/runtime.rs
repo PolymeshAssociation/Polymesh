@@ -471,6 +471,7 @@ macro_rules! misc_pallet_impls {
             type MaxNumberOfNFTsPerLeg = MaxNumberOfNFTsPerLeg;
             type MaxNumberOfNFTs = MaxNumberOfNFTs;
             type MaxNumberOfOffChainAssets = MaxNumberOfOffChainAssets;
+            type MaxNumberOfVenueSigners = MaxNumberOfVenueSigners;
         }
 
         impl pallet_sto::Config for Runtime {
