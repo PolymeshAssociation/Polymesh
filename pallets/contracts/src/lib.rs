@@ -117,6 +117,11 @@ where
             }
         }
     }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn register_did(_account_id: T::AccountId) -> DispatchResult {
+        Ok(())
+    }
 }
 
 pub const CHAIN_EXTENSION_BATCH_SIZE: u32 = 100;
