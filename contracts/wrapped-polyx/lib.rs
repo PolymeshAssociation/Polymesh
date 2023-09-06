@@ -12,14 +12,6 @@ use polymesh_api::{
     Error as PolymeshError,
   },
   polymesh::types::{
-    pallet_portfolio::MovePortfolioItem,
-    pallet_settlement::{
-      VenueId,
-      VenueDetails,
-      VenueType,
-      SettlementType,
-      Leg,
-    },
     polymesh_primitives::{
       ticker::Ticker,
       asset::{
@@ -29,6 +21,14 @@ use polymesh_api::{
       identity_id::{
         PortfolioId,
         PortfolioKind,
+      },
+      portfolio::{Fund, FundDescription},
+      settlement::{
+        Leg,
+        VenueId,
+        VenueDetails,
+        VenueType,
+        SettlementType,
       },
     },
   },
@@ -160,7 +160,6 @@ mod wrapped_polyx {
               AssetType::EquityCommon,
               vec![],
               None,
-              true // Disable Investor uniqueness requirements.
             ).submit()?;
             // Pause compliance rules to allow transfers.
             api.call().compliance_manager().pause_asset_compliance(self.ticker).submit()?;
@@ -283,7 +282,7 @@ mod wrapped_polyx {
             // Mint some tokens.
             api.call()
                 .asset()
-                .issue(self.ticker, amount)
+                .issue(self.ticker, amount, PortfolioKind::Default)
                 .submit()?;
             // Get the next instruction id.
             let instruction_id = api
@@ -302,21 +301,25 @@ mod wrapped_polyx {
               SettlementType::SettleManual(0),
               None,
               None,
-              vec![Leg {
-                from: our_portfolio,
-                to: caller_portfolio,
-                asset: self.ticker,
+              vec![Leg::Fungible {
+                sender: our_portfolio,
+                receiver: caller_portfolio,
+                ticker: self.ticker,
                 amount: amount,
               }],
               vec![
                 our_portfolio,
                 caller_portfolio,
               ],
+              None,
             ).submit()?;
 
             api.call().settlement().execute_manual_instruction(
                 instruction_id,
+                None,
                 1,
+                0,
+                0,
                 None
             ).submit()?;
 
@@ -357,21 +360,25 @@ mod wrapped_polyx {
               SettlementType::SettleManual(0),
               None,
               None,
-              vec![Leg {
-                from: caller_portfolio,
-                to: our_portfolio,
-                asset: self.ticker,
+              vec![Leg::Fungible {
+                sender: caller_portfolio,
+                receiver: our_portfolio,
+                ticker: self.ticker,
                 amount: amount,
               }],
               vec![
                 our_portfolio,
                 caller_portfolio,
               ],
+              None,
             ).submit()?;
 
             api.call().settlement().execute_manual_instruction(
                 instruction_id,
+                None,
                 1,
+                0,
+                0,
                 None
             ).submit()?;
 
@@ -443,9 +450,11 @@ mod wrapped_polyx {
                 .move_portfolio_funds(
                     caller_portfolio, // Contract controlled portfolio.
                     dest.into(),      // Caller controlled portfolio.
-                    vec![MovePortfolioItem {
-                        ticker: self.ticker,
-                        amount,
+                    vec![Fund {
+                        description: FundDescription::Fungible {
+                            ticker: self.ticker,
+                            amount,
+                        },
                         memo: None,
                     }],
                 )

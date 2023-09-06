@@ -12,11 +12,11 @@ use polymesh_api::{
         Error as PolymeshError,
     },
     polymesh::types::{
-        pallet_portfolio::MovePortfolioItem,
-        pallet_settlement::{Leg, SettlementType, VenueDetails, VenueId, VenueType},
         polymesh_primitives::{
             asset::{AssetName, AssetType},
             identity_id::{PortfolioId, PortfolioKind},
+            portfolio::{Fund, FundDescription},
+            settlement::{Leg, SettlementType, VenueDetails, VenueId, VenueType},
             ticker::Ticker,
         },
     },
@@ -118,13 +118,12 @@ mod settlements {
                     AssetType::EquityCommon,
                     vec![],
                     None,
-                    true, // Disable Investor uniqueness requirements.
                 )
                 .submit()?;
             // Mint some tokens.
             api.call()
                 .asset()
-                .issue(ticker.into(), 1_000_000 * UNIT)
+                .issue(ticker.into(), 1_000_000 * UNIT, PortfolioKind::Default)
                 .submit()?;
             // Pause compliance rules to allow transfers.
             api.call()
@@ -217,13 +216,14 @@ mod settlements {
                     None,
                     legs,
                     portfolios,
+                    None,
                 )
                 .submit()?;
 
             // Create settlement.
             api.call()
                 .settlement()
-                .execute_manual_instruction(instruction_id, leg_count, None)
+                .execute_manual_instruction(instruction_id, None, leg_count, 0, 0, None)
                 .submit()?;
             Ok(())
         }
@@ -259,16 +259,16 @@ mod settlements {
             };
             self.transfer_assets(
                 vec![
-                    Leg {
-                        from: our_portfolio,
-                        to: caller_portfolio,
-                        asset: self.ticker1,
+                    Leg::Fungible {
+                        sender: our_portfolio,
+                        receiver: caller_portfolio,
+                        ticker: self.ticker1,
                         amount: 10 * UNIT,
                     },
-                    Leg {
-                        from: our_portfolio,
-                        to: caller_portfolio,
-                        asset: self.ticker2,
+                    Leg::Fungible {
+                        sender: our_portfolio,
+                        receiver: caller_portfolio,
+                        ticker: self.ticker2,
                         amount: 20 * UNIT,
                     },
                 ],
@@ -341,9 +341,11 @@ mod settlements {
                 .move_portfolio_funds(
                     caller_portfolio, // Contract controlled portfolio.
                     dest.into(),      // Caller controlled portfolio.
-                    vec![MovePortfolioItem {
-                        ticker: ticker,
-                        amount,
+                    vec![Fund {
+                        description: FundDescription::Fungible {
+                            ticker: ticker,
+                            amount,
+                        },
                         memo: None,
                     }],
                 )
@@ -400,16 +402,16 @@ mod settlements {
             };
             self.transfer_assets(
                 vec![
-                    Leg {
-                        from: caller_portfolio,
-                        to: our_portfolio,
-                        asset: sell,
+                    Leg::Fungible {
+                        sender: caller_portfolio,
+                        receiver: our_portfolio,
+                        ticker: sell,
                         amount: sell_amount,
                     },
-                    Leg {
-                        from: our_portfolio,
-                        to: caller_portfolio,
-                        asset: buy,
+                    Leg::Fungible {
+                        sender: our_portfolio,
+                        receiver: caller_portfolio,
+                        ticker: buy,
                         amount: buy_amount,
                     },
                 ],
