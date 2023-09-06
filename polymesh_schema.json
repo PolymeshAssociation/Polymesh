@@ -771,7 +771,10 @@
         "PipsPropose",
         "ContractsPutCode",
         "CorporateBallotAttachBallot",
-        "CapitalDistributionDistribute"
+        "CapitalDistributionDistribute",
+        "NFTCreateCollection",
+        "NFTMint",
+        "IdentityCreateChildIdentity"
       ]
     },
     "CddStatus": {
