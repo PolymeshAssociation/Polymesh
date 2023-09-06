@@ -332,7 +332,7 @@ where
     let mut env = env.buf_in_buf_out();
 
     // Charge weight.
-    env.charge_weight(<T as Config>::WeightInfo::get_version())?;
+    env.charge_weight(<T as Config>::WeightInfo::get_key_did())?;
 
     let key: T::AccountId = env.read_as()?;
     trace!(

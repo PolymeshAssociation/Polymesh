@@ -96,23 +96,32 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(13))
             .saturating_add(DbWeight::get().writes(3))
     }
-    // Storage: Identity KeyRecords (r:3 w:0)
+    // Storage: Identity KeyRecords (r:2002 w:0)
+    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
     // Storage: System Account (r:1 w:0)
+    // Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
     // Storage: Contracts ContractInfoOf (r:1 w:1)
+    // Proof: Contracts ContractInfoOf (max_values: None, max_size: Some(290), added: 2765, mode: MaxEncodedLen)
     // Storage: Contracts CodeStorage (r:1 w:0)
+    // Proof: Contracts CodeStorage (max_values: None, max_size: Some(126001), added: 128476, mode: MaxEncodedLen)
     // Storage: Timestamp Now (r:1 w:0)
-    // Storage: Identity IsDidFrozen (r:1 w:0)
+    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
+    // Storage: Identity IsDidFrozen (r:2000 w:0)
+    // Proof Skipped: Identity IsDidFrozen (max_values: None, max_size: None, mode: Measured)
     // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Storage: Instance2Group InactiveMembers (r:1 w:0)
+    // Proof Skipped: Instance2Group ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
     // Storage: Identity Claims (r:2 w:0)
+    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
     // Storage: System EventTopics (r:2 w:2)
+    // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
     /// The range of component `r` is `[1, 20]`.
     fn chain_extension_get_key_did(r: u32) -> Weight {
-        // Minimum execution time: 970_584 nanoseconds.
-        Weight::from_ref_time(809_695_363)
-            // Standard Error: 2_160_987
-            .saturating_add(Weight::from_ref_time(315_638_402).saturating_mul(r.into()))
-            .saturating_add(DbWeight::get().reads(14))
+        // Minimum execution time: 230_114_055 nanoseconds.
+        Weight::from_ref_time(234_042_835_000)
+            // Standard Error: 645_494_782
+            .saturating_add(Weight::from_ref_time(219_847_004_564).saturating_mul(r.into()))
+            .saturating_add(DbWeight::get().reads(11))
+            .saturating_add(DbWeight::get().reads((200_u64).saturating_mul(r.into())))
             .saturating_add(DbWeight::get().writes(3))
     }
     // Storage: Identity KeyRecords (r:2 w:0)
