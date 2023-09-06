@@ -1860,9 +1860,9 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "polymesh-api"
-version = "0.3.7"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68099cc08a8f60fe9b2599605c264cfb266c5c457894a8507980c77c2ae03515"
+checksum = "1f98544db633d11aa07d6b967bcdfab8201a7ca5b77b56cc6d7a895c3bdd887e"
 dependencies = [
  "ink_env",
  "ink_lang",
@@ -1882,9 +1882,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-client"
-version = "0.3.2"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2938b1e82f8318e85bf971a9769c6fde3d7acfc317e489a5f091bdde873caad8"
+checksum = "277ed08cd396bf12a75af44a12d7738779048198857492868666a6b810b65d72"
 dependencies = [
  "async-trait",
  "frame-metadata",
@@ -1902,15 +1902,16 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-weights",
  "thiserror",
  "tokio",
 ]
 
 [[package]]
 name = "polymesh-api-codegen"
-version = "0.3.6"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef6fbce98894d0a032a7b3acae5db59477cc6403861cea039f4deb9b151411d9"
+checksum = "1b177dc9da75834b184dd33a09d4f1edc9f30d4967c5199f743c722d442b3d86"
 dependencies = [
  "anyhow",
  "frame-metadata",
@@ -1930,9 +1931,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-codegen-macro"
-version = "0.3.3"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "017ec5dfe86dc4805d2812c2907045aafad0b3dad79d59a749fbc1fc75fc0f10"
+checksum = "67b76884702bd16bf5314c27774c314bba912952e916a83ae6410a133719b1da"
 dependencies = [
  "darling",
  "parity-scale-codec",
@@ -1945,9 +1946,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-ink"
-version = "0.3.4"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d19d0ca6be24071ebfc38af0aca551f4cc0e0f1cb8276620ac874d9766056aa9"
+checksum = "36595c2cd77c80b6e75177bba60bd8880bebecb9d689035bd8db2590f49006af"
 dependencies = [
  "hex",
  "ink_env",
@@ -1961,6 +1962,7 @@ dependencies = [
  "primitive-types 0.11.1",
  "scale-info",
  "sp-arithmetic",
+ "sp-weights",
  "thiserror",
 ]
 
@@ -3235,7 +3237,7 @@ checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
  "digest 0.10.6",
- "rand 0.7.3",
+ "rand 0.8.5",
  "static_assertions",
 ]
 

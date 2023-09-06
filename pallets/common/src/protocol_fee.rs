@@ -39,6 +39,7 @@ pub enum ProtocolOp {
     CapitalDistributionDistribute,
     NFTCreateCollection,
     NFTMint,
+    IdentityCreateChildIdentity,
 }
 
 /// Common interface to protocol fees for runtime modules.
