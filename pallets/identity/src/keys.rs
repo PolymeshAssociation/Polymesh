@@ -446,6 +446,8 @@ impl<T: Config> Module<T> {
         // Ensure that the key can be unlinked.
         Self::ensure_key_unlinkable_from_did(&secondary_key)?;
 
+        T::ProtocolFee::charge_fee(ProtocolOp::IdentityCreateChildIdentity)?;
+
         // Generate a new DID for the child.
         let child_did = Self::make_did()?;
 
@@ -514,6 +516,8 @@ impl<T: Config> Module<T> {
                 Error::<T>::InvalidAuthorizationSignature
             );
         }
+
+        T::ProtocolFee::batch_charge_fee(ProtocolOp::IdentityCreateChildIdentity, keys.len())?;
 
         // Generate a new identity for each child.
         let mut children = Vec::with_capacity(child_keys.len());
