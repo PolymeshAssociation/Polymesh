@@ -13,29 +13,38 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain_extension::*;
-use crate::*;
-
 use codec::Encode;
-use frame_benchmarking::benchmarks;
+use frame_benchmarking::{account, benchmarks};
 use frame_support::{storage::unhashed, traits::tokens::currency::Currency};
 use frame_system::{Config as SysTrait, Pallet as System, RawOrigin};
+use pallet_contracts::benchmarking::code::body::DynInstr::{Counter, Regular};
 use pallet_contracts::benchmarking::code::{
     body, max_pages, DataSegment, ImportedFunction, ImportedMemory, Location, ModuleDefinition,
     WasmModule,
 };
 use pallet_contracts::Pallet as FrameContracts;
+use sp_runtime::traits::StaticLookup;
+use sp_runtime::Perbill;
+use sp_std::prelude::*;
+use wasm_instrument::parity_wasm::elements::{Instruction, ValueType};
+
 use polymesh_common_utilities::{
     benchs::{cdd_provider, user, AccountIdOf, User},
     constants::currency::POLY,
     group::GroupTrait,
     TestUtilsFn,
 };
-use polymesh_primitives::{Balance, Permissions};
-use sp_runtime::traits::StaticLookup;
-use sp_runtime::Perbill;
-use sp_std::prelude::*;
-use wasm_instrument::parity_wasm::elements::{Instruction, ValueType};
+use polymesh_primitives::identity::limits::{
+    MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
+};
+use polymesh_primitives::secondary_key::DispatchableNames;
+use polymesh_primitives::{
+    AssetPermissions, Balance, DispatchableName, ExtrinsicPermissions, PalletName,
+    PalletPermissions, Permissions, PortfolioId, PortfolioNumber, PortfolioPermissions, Ticker,
+};
+
+use crate::chain_extension::*;
+use crate::*;
 
 pub(crate) const SEED: u32 = 0;
 
@@ -145,6 +154,29 @@ fn put_storage_value(key: &[u8], len: u32) -> u32 {
     Some(value).encoded_size() as u32
 }
 
+fn secondary_key_permission(
+    n_assets: u64,
+    n_portfolios: u128,
+    n_extrinsics: u64,
+    n_pallets: u64,
+) -> Permissions {
+    let asset = AssetPermissions::elems((0..n_assets).map(Ticker::generate_into));
+    let portfolio = PortfolioPermissions::elems(
+        (0..n_portfolios).map(|did| PortfolioId::user_portfolio(did.into(), PortfolioNumber(0))),
+    );
+    let dispatchable_names =
+        DispatchableNames::elems((0..n_extrinsics).map(|e| DispatchableName(Ticker::generate(e))));
+    let extrinsic = ExtrinsicPermissions::elems((0..n_pallets).map(|p| PalletPermissions {
+        pallet_name: PalletName(Ticker::generate(p)),
+        dispatchable_names: dispatchable_names.clone(),
+    }));
+    Permissions {
+        asset,
+        extrinsic,
+        portfolio,
+    }
+}
+
 struct Contract<T: Config> {
     caller: User<T>,
     addr: <T::Lookup as StaticLookup>::Source,
@@ -166,6 +198,48 @@ where
             caller,
             addr: T::Lookup::unlookup(account_id),
         }
+    }
+
+    /// Creates a contract that will call `seal_call_chain_extension' with `FuncId::GetKeyDid`.
+    fn new_seal_chain_extension(
+        repetitions: u32,
+        input: Vec<u8>,
+        key_len: u32,
+        output_len: usize,
+    ) -> Self {
+        let code = WasmModule::<T>::from(ModuleDefinition {
+            memory: Some(ImportedMemory::max::<T>()),
+            imported_functions: vec![ImportedFunction {
+                module: "seal0",
+                name: "seal_call_chain_extension",
+                params: vec![ValueType::I32; 5],
+                return_type: Some(ValueType::I32),
+            }],
+            data_segments: vec![
+                DataSegment {
+                    offset: 0,
+                    value: input.clone(),
+                },
+                DataSegment {
+                    offset: input.len() as u32,
+                    value: output_len.to_le_bytes().into(),
+                },
+            ],
+            call_body: Some(body::repeated_dyn(
+                repetitions,
+                vec![
+                    Regular(Instruction::I32Const(FuncId::GetKeyDid.into())),
+                    Counter(0, key_len),
+                    Regular(Instruction::I32Const(key_len as i32)),
+                    Regular(Instruction::I32Const(input.len() as i32 + 4)),
+                    Regular(Instruction::I32Const(input.len() as i32)),
+                    Regular(Instruction::Call(0)),
+                    Regular(Instruction::Drop),
+                ],
+            )),
+            ..Default::default()
+        });
+        Self::new(code)
     }
 
     /// Create and setup a contract to call the ChainExtension.
@@ -271,14 +345,36 @@ benchmarks! {
 
     // Benchmark ChainExtension GetKeyDid.
     chain_extension_get_key_did {
-        let r in 1 .. CHAIN_EXTENSION_BATCHES;
+        let r in 1..CHAIN_EXTENSION_BATCHES;
 
-        // Construct a user for Key -> Identity lookup.
-        let lookup = funded_user::<T>(SEED + 1);
-        let key = lookup.account().encode();
+        let secondary_key_permission = secondary_key_permission(
+            MAX_ASSETS as u64,
+            MAX_PORTFOLIOS as u128,
+            MAX_EXTRINSICS as u64,
+            MAX_PALLETS as u64
+        );
 
-        // Setup ChainExtension.
-        let contract = Contract::<T>::chain_extension(r * CHAIN_EXTENSION_BATCH_SIZE, FuncId::GetKeyDid, key, 33);
+        let encoded_accounts = (0..r * CHAIN_EXTENSION_BATCH_SIZE)
+            .map(|i| {
+                let primary_user = funded_user::<T>(SEED + i);
+                let secondary_key: T::AccountId = account("key", i, SEED);
+                Identity::<T>::unsafe_join_identity(
+                    primary_user.did(),
+                    secondary_key_permission.clone(),
+                    secondary_key.clone(),
+                );
+                secondary_key.encode()
+            })
+            .collect::<Vec<_>>();
+        let account_len = encoded_accounts.get(0).map(|acc| acc.len()).unwrap_or(0) as u32;
+        let accounts_bytes = encoded_accounts.iter().flat_map(|a| a.clone()).collect::<Vec<_>>();
+
+        let contract = Contract::<T>::new_seal_chain_extension(
+            r * CHAIN_EXTENSION_BATCH_SIZE,
+            accounts_bytes,
+            account_len,
+            33
+        );
     }: {
         contract.call();
     }

@@ -114,7 +114,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
-    // Storage: Identity KeyRecords (r:3 w:0)
+    // Storage: Identity KeyRecords (r:2002 w:0)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
     // Storage: System Account (r:1 w:0)
     // Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
@@ -124,7 +124,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Proof: Contracts CodeStorage (max_values: None, max_size: Some(126001), added: 128476, mode: MaxEncodedLen)
     // Storage: Timestamp Now (r:1 w:0)
     // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: Identity IsDidFrozen (r:1 w:0)
+    // Storage: Identity IsDidFrozen (r:2000 w:0)
     // Proof Skipped: Identity IsDidFrozen (max_values: None, max_size: None, mode: Measured)
     // Storage: Instance2Group ActiveMembers (r:1 w:0)
     // Proof Skipped: Instance2Group ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
@@ -134,11 +134,12 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
     /// The range of component `r` is `[1, 20]`.
     fn chain_extension_get_key_did(r: u32) -> Weight {
-        // Minimum execution time: 1_020_067 nanoseconds.
-        Weight::from_ref_time(791_765_615)
-            // Standard Error: 3_514_259
-            .saturating_add(Weight::from_ref_time(365_418_322).saturating_mul(r.into()))
-            .saturating_add(DbWeight::get().reads(13))
+        // Minimum execution time: 230_114_055 nanoseconds.
+        Weight::from_ref_time(234_042_835_000)
+            // Standard Error: 645_494_782
+            .saturating_add(Weight::from_ref_time(219_847_004_564).saturating_mul(r.into()))
+            .saturating_add(DbWeight::get().reads(11))
+            .saturating_add(DbWeight::get().reads((200_u64).saturating_mul(r.into())))
             .saturating_add(DbWeight::get().writes(3))
     }
     // Storage: Identity KeyRecords (r:2 w:0)
