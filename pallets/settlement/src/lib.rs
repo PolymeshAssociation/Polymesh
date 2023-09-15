@@ -302,7 +302,7 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 1, {
+            storage_migrate_on!(StorageVersion, 2, {
                 migration::migrate_to_v2::<T>();
             });
             Weight::zero()
@@ -2002,8 +2002,8 @@ pub mod migration {
         log::info!(" >>> Updating Settlement storage. Migrating Legs and Instructions.");
         migrate_user_venues::<T>();
         migrate_legs::<T>();
-        reschedule_instructions::<T>();
         migrate_status::<T>();
+        reschedule_instructions::<T>();
         log::info!(" >>> All user_venues, legs and Instructions have been migrated.");
     }
 
@@ -2080,11 +2080,11 @@ pub mod migration {
         let mut n_scheduled_tasks: BTreeMap<T::BlockNumber, u32> = BTreeMap::new();
         let mut next_available_block = System::<T>::block_number() + One::one();
 
-        for (instruction_id, instruction_details) in v1::InstructionDetails::<T>::iter() {
+        for (instruction_id, instruction_details) in InstructionDetails::<T>::iter() {
             let block = {
                 match instruction_details.settlement_type {
                     SettlementType::SettleOnBlock(block) => {
-                        if block > System::<T>::block_number() {
+                        if block >= System::<T>::block_number() {
                             n_scheduled_tasks
                                 .entry(block)
                                 .and_modify(|count| *count += 1)
@@ -2095,7 +2095,8 @@ pub mod migration {
                         }
                     }
                     SettlementType::SettleOnAffirmation => {
-                        if instruction_details.status == InstructionStatus::Pending
+                        if InstructionStatuses::<T>::get(instruction_id)
+                            == InstructionStatus::Pending
                             && Module::<T>::instruction_affirms_pending(instruction_id) == 0
                         {
                             while n_scheduled_tasks.get(&next_available_block)
@@ -2140,7 +2141,7 @@ pub mod migration {
             0,
             |n_instructions, (instruction_id, instruction_details)| {
                 InstructionStatuses::<T>::insert(instruction_id, instruction_details.status);
-                <InstructionDetails<T>>::insert(
+                InstructionDetails::<T>::insert(
                     instruction_id,
                     Instruction {
                         instruction_id,
