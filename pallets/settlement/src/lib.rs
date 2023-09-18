@@ -302,6 +302,9 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion, 1, {
+                migration::migrate_to_v1::<T>();
+            });
             storage_migrate_on!(StorageVersion, 2, {
                 migration::migrate_to_v2::<T>();
             });
@@ -1997,14 +2000,20 @@ pub mod migration {
         }
     }
 
-    pub fn migrate_to_v2<T: Config>() {
+    pub fn migrate_to_v1<T: Config>() {
         RuntimeLogger::init();
         log::info!(" >>> Updating Settlement storage. Migrating Legs and Instructions.");
         migrate_user_venues::<T>();
         migrate_legs::<T>();
         migrate_status::<T>();
-        reschedule_instructions::<T>();
         log::info!(" >>> All user_venues, legs and Instructions have been migrated.");
+    }
+
+    pub fn migrate_to_v2<T: Config>() {
+        RuntimeLogger::init();
+        log::info!(" >>> Rescheduling instructions");
+        reschedule_instructions::<T>();
+        log::info!(" >>> All instructions have been rescheduled");
     }
 
     fn migrate_user_venues<T: Config>() {
