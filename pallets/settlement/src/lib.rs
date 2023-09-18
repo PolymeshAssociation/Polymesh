@@ -223,7 +223,7 @@ decl_error! {
     }
 }
 
-storage_migration_ver!(1);
+storage_migration_ver!(2);
 
 decl_storage! {
     trait Store for Module<T: Config> as Settlement {
@@ -278,7 +278,7 @@ decl_storage! {
         /// Number of instructions in the system (It's one more than the actual number)
         InstructionCounter get(fn instruction_counter) build(|_| InstructionId(1u64)): InstructionId;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
         /// Instruction memo
         pub InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<Memo>;
         /// Instruction statuses. instruction_id -> InstructionStatus
@@ -303,6 +303,9 @@ decl_module! {
 
         fn on_runtime_upgrade() -> Weight {
             storage_migrate_on!(StorageVersion, 1, {
+                migration::migrate_to_v1::<T>();
+            });
+            storage_migrate_on!(StorageVersion, 2, {
                 migration::migrate_to_v2::<T>();
             });
             Weight::zero()
@@ -1930,6 +1933,7 @@ impl<T: Config> Module<T> {
 pub mod migration {
     use super::*;
     use sp_runtime::runtime_logger::RuntimeLogger;
+    use sp_std::collections::btree_map::BTreeMap;
 
     mod v1 {
         use super::*;
@@ -1996,13 +2000,20 @@ pub mod migration {
         }
     }
 
-    pub fn migrate_to_v2<T: Config>() {
+    pub fn migrate_to_v1<T: Config>() {
         RuntimeLogger::init();
         log::info!(" >>> Updating Settlement storage. Migrating Legs and Instructions.");
         migrate_user_venues::<T>();
         migrate_legs::<T>();
-        migrate_instruction_details::<T>();
+        migrate_status::<T>();
         log::info!(" >>> All user_venues, legs and Instructions have been migrated.");
+    }
+
+    pub fn migrate_to_v2<T: Config>() {
+        RuntimeLogger::init();
+        log::info!(" >>> Rescheduling instructions");
+        reschedule_instructions::<T>();
+        log::info!(" >>> All instructions have been rescheduled");
     }
 
     fn migrate_user_venues<T: Config>() {
@@ -2073,54 +2084,84 @@ pub mod migration {
         });
     }
 
-    fn migrate_instruction_details<T: Config>() -> usize {
-        v1::InstructionDetails::<T>::drain().fold(
-            0,
-            |total_instructions, (id, instruction_details)| {
-                // Migrate Instruction satus.
-                InstructionStatuses::<T>::insert(id, instruction_details.status);
+    fn reschedule_instructions<T: Config>() {
+        let max_tasks_per_block = 50;
+        let mut n_scheduled_tasks: BTreeMap<T::BlockNumber, u32> = BTreeMap::new();
+        let mut next_available_block = System::<T>::block_number() + One::one();
 
-                let settlement_type = instruction_details.settlement_type;
-                // Check if we need to reschedule the settlement execution.
-                let schedule = match settlement_type {
-                    SettlementType::SettleOnBlock(block_number) => Some(block_number),
+        for (instruction_id, instruction_details) in InstructionDetails::<T>::iter() {
+            let block = {
+                match instruction_details.settlement_type {
+                    SettlementType::SettleOnBlock(block) => {
+                        if block >= System::<T>::block_number() {
+                            n_scheduled_tasks
+                                .entry(block)
+                                .and_modify(|count| *count += 1)
+                                .or_insert(1);
+                            Some(block)
+                        } else {
+                            None
+                        }
+                    }
                     SettlementType::SettleOnAffirmation => {
-                        if Module::<T>::instruction_affirms_pending(id) == 0 {
-                            Some(System::<T>::block_number() + One::one())
+                        if InstructionStatuses::<T>::get(instruction_id)
+                            == InstructionStatus::Pending
+                            && Module::<T>::instruction_affirms_pending(instruction_id) == 0
+                        {
+                            while n_scheduled_tasks.get(&next_available_block)
+                                >= Some(&max_tasks_per_block)
+                            {
+                                next_available_block += 1u32.into();
+                            }
+                            n_scheduled_tasks
+                                .entry(next_available_block)
+                                .and_modify(|count| *count += 1)
+                                .or_insert(1);
+                            Some(next_available_block)
                         } else {
                             None
                         }
                     }
                     SettlementType::SettleManual(_) => None,
-                };
-                if let Some(block_number) = schedule {
-                    // Cancel old scheduled task.
-                    let _ = T::Scheduler::cancel_named(id.execution_name());
+                }
+            };
+
+            if let Some(block_number) = block {
+                // Attempts to cancel the old scheduled task.
+                if let Ok(_) = T::Scheduler::cancel_named(instruction_id.execution_name()) {
                     // Get the weight limit for the instruction
                     let instruction_legs: Vec<(LegId, Leg)> =
-                        InstructionLegs::iter_prefix(&id).collect();
+                        InstructionLegs::iter_prefix(&instruction_id).collect();
                     let instruction_asset_count = AssetCount::from_legs(&instruction_legs);
                     let weight_limit = Module::<T>::execute_scheduled_instruction_weight_limit(
                         instruction_asset_count.fungible(),
                         instruction_asset_count.non_fungible(),
                         instruction_asset_count.off_chain(),
                     );
-                    // Create new scheduled task.
-                    Module::<T>::schedule_instruction(id, block_number, weight_limit);
+                    // If the old taks was cancelled, create new scheduled task
+                    Module::<T>::schedule_instruction(instruction_id, block_number, weight_limit);
                 }
+            }
+        }
+    }
 
-                //Migrate Instruction details.
-                let instruction = Instruction {
-                    instruction_id: id,
-                    venue_id: instruction_details.venue_id,
-                    settlement_type,
-                    created_at: instruction_details.created_at,
-                    trade_date: instruction_details.trade_date,
-                    value_date: instruction_details.value_date,
-                };
-                <InstructionDetails<T>>::insert(id, instruction);
-
-                total_instructions + 1
+    fn migrate_status<T: Config>() -> usize {
+        v1::InstructionDetails::<T>::drain().fold(
+            0,
+            |n_instructions, (instruction_id, instruction_details)| {
+                InstructionStatuses::<T>::insert(instruction_id, instruction_details.status);
+                InstructionDetails::<T>::insert(
+                    instruction_id,
+                    Instruction {
+                        instruction_id,
+                        venue_id: instruction_details.venue_id,
+                        settlement_type: instruction_details.settlement_type,
+                        created_at: instruction_details.created_at,
+                        trade_date: instruction_details.trade_date,
+                        value_date: instruction_details.value_date,
+                    },
+                );
+                n_instructions + 1
             },
         )
     }
