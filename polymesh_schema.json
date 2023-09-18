@@ -1611,7 +1611,7 @@
     "IdentityApi": [
       {
         "methods": {
-          "is_identity_has_valid_ddd": {
+          "is_identity_has_valid_cdd": {
             "description": "use to tell whether the given did has valid cdd claim or not",
             "params": [
               {
