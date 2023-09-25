@@ -1,7 +1,7 @@
 use chrono::prelude::Utc;
 use frame_support::{assert_noop, assert_ok, StorageDoubleMap, StorageMap};
 
-use pallet_nft::{Collection, CollectionKeys, MetadataValue, NumberOfNFTs};
+use pallet_nft::{Collection, CollectionKeys, MetadataValue, NFTsInCollection, NumberOfNFTs};
 use pallet_portfolio::PortfolioNFT;
 use polymesh_common_utilities::traits::nft::Event;
 use polymesh_common_utilities::with_transaction;
@@ -422,6 +422,7 @@ fn mint_nft_successfully() {
             AssetMetadataValue(b"test".to_vec())
         );
         assert_eq!(NumberOfNFTs::get(&ticker, alice.did), 1);
+        assert_eq!(NFTsInCollection::get(&ticker), 1);
         assert_eq!(
             PortfolioNFT::get(
                 PortfolioId::default_portfolio(alice.did),
@@ -574,6 +575,7 @@ fn burn_nft() {
             AssetMetadataKey::Local(AssetMetadataLocalKey(1))
         ),);
         assert_eq!(NumberOfNFTs::get(&ticker, alice.did), 0);
+        assert_eq!(NFTsInCollection::get(&ticker), 0);
         assert!(!PortfolioNFT::contains_key(
             PortfolioId::default_portfolio(alice.did),
             (&ticker, NFTId(1))
@@ -897,6 +899,7 @@ fn transfer_nft() {
             false
         );
         assert_eq!(NumberOfNFTs::get(&ticker, bob.did), 1);
+        assert_eq!(NFTsInCollection::get(&ticker), 1);
         assert_eq!(
             PortfolioNFT::get(PortfolioId::default_portfolio(bob.did), (&ticker, NFTId(1))),
             true

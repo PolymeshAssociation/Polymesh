@@ -52,6 +52,9 @@ decl_storage!(
 
         /// The next available id for an NFT within a collection.
         pub NextNFTId get(fn nft_id): map hasher(blake2_128_concat) NFTCollectionId => NFTId;
+
+        /// The total number of NFTs in a collection
+        pub NFTsInCollection get(fn nfts_in_collection): map hasher(blake2_128_concat) Ticker => NFTCount;
     }
 );
 
@@ -197,6 +200,10 @@ decl_error! {
         UnregisteredMetadataKey,
         /// It is not possible to transferr zero nft.
         ZeroCount,
+        /// An overflow while calculating the updated supply.
+        SupplyOverflow,
+        /// An underflow while calculating the updated supply.
+        SupplyUnderflow
     }
 }
 
@@ -326,10 +333,14 @@ impl<T: Config> Module<T> {
         }
 
         // Mints the NFT and adds it to the caller's portfolio
+        let new_supply = NFTsInCollection::get(&ticker)
+            .checked_add(1)
+            .ok_or(Error::<T>::SupplyOverflow)?;
         let new_balance = NumberOfNFTs::get(&ticker, &caller_portfolio.did)
             .checked_add(1)
             .ok_or(Error::<T>::BalanceOverflow)?;
         let nft_id = NextNFTId::try_mutate(&collection_id, try_next_pre::<T, _>)?;
+        NFTsInCollection::insert(&ticker, new_supply);
         NumberOfNFTs::insert(&ticker, &caller_portfolio.did, new_balance);
         for (metadata_key, metadata_value) in nft_attributes.into_iter() {
             MetadataValue::insert((&collection_id, &nft_id), metadata_key, metadata_value);
@@ -373,9 +384,13 @@ impl<T: Config> Module<T> {
         );
 
         // Burns the NFT
+        let new_supply = NFTsInCollection::get(&ticker)
+            .checked_sub(1)
+            .ok_or(Error::<T>::SupplyUnderflow)?;
         let new_balance = NumberOfNFTs::get(&ticker, &caller_portfolio.did)
             .checked_sub(1)
             .ok_or(Error::<T>::BalanceUnderflow)?;
+        NFTsInCollection::insert(&ticker, new_supply);
         NumberOfNFTs::insert(&ticker, &caller_portfolio.did, new_balance);
         PortfolioNFT::remove(&caller_portfolio, (&ticker, &nft_id));
         #[allow(deprecated)]

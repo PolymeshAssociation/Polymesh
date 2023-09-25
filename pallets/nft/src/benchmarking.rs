@@ -252,6 +252,7 @@ benchmarks! {
             assert!(PortfolioNFT::contains_key(alice_user_portfolio, (ticker, NFTId(i.into()))));
             assert!(!PortfolioNFT::contains_key(bob_user_portfolio, (ticker, NFTId(i.into()))));
         }
+        assert_eq!(NFTsInCollection::get(nfts.ticker()), n as u64);
     }
 
 }
