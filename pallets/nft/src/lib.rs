@@ -559,6 +559,14 @@ impl<T: Config> Module<T> {
         Self::validate_nft_ownership(&source_portfolio, &caller_portfolio, &nfts)?;
         // Transfer ownership of the NFTs
         Self::unverified_nfts_transfer(&source_portfolio, &caller_portfolio, &nfts);
+
+        Self::deposit_event(Event::NFTPortfolioUpdated(
+            caller_portfolio.did,
+            nfts,
+            Some(source_portfolio),
+            Some(caller_portfolio),
+            PortfolioUpdateReason::ControllerTransfer,
+        ));
         Ok(())
     }
 }
