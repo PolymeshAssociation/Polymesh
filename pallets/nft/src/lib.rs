@@ -129,6 +129,29 @@ decl_module! {
         pub fn redeem_nft(origin, ticker: Ticker, nft_id: NFTId, portfolio_kind: PortfolioKind) -> DispatchResult {
             Self::base_redeem_nft(origin, ticker, nft_id, portfolio_kind)
         }
+
+        /// Forces the transfer of NFTs from a given portfolio to the caller's portfolio.
+        ///
+        /// # Arguments
+        /// * `origin` - is a signer that has permissions to act as an agent of `ticker`.
+        /// * `ticker` - the [`Ticker`] of the NFT collection.
+        /// * `nft_id` - the [`NFTId`] of the NFT to be transferred.
+        /// * `source_portfolio` - the [`PortfolioId`] that currently holds the NFT.
+        /// * `callers_portfolio_kind` - the [`PortfolioKind`] of the caller's portfolio.
+        ///
+        /// # Permissions
+        /// * Asset
+        /// * Portfolio
+        #[weight = <T as Config>::WeightInfo::controller_transfer(nfts.len() as u32)]
+        pub fn controller_transfer(
+            origin,
+            ticker: Ticker,
+            nfts: NFTs,
+            source_portfolio: PortfolioId,
+            callers_portfolio_kind: PortfolioKind
+        ) -> DispatchResult {
+            Self::base_controller_transfer(origin, ticker, nfts, source_portfolio, callers_portfolio_kind)
+        }
     }
 }
 
@@ -379,26 +402,12 @@ impl<T: Config> Module<T> {
         caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        // Verifies if there is a collection associated to the NFTs
-        CollectionTicker::try_get(nfts.ticker())
-            .map_err(|_| Error::<T>::InvalidNFTTransferCollectionNotFound)?;
         // Verifies if all rules for transfering the NFTs are being respected
         Self::validate_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts, weight_meter)?;
 
-        // Transfer ownership of the NFT
-        // Update the balance of the sender and the receiver
-        let transferred_amount = nfts.len() as u64;
-        NumberOfNFTs::mutate(nfts.ticker(), sender_portfolio.did, |balance| {
-            *balance -= transferred_amount
-        });
-        NumberOfNFTs::mutate(nfts.ticker(), receiver_portfolio.did, |balance| {
-            *balance += transferred_amount
-        });
-        // Update the portfolio of the sender and the receiver
-        for nft_id in nfts.ids() {
-            PortfolioNFT::remove(sender_portfolio, (nfts.ticker(), nft_id));
-            PortfolioNFT::insert(receiver_portfolio, (nfts.ticker(), nft_id), true);
-        }
+        // Transfer ownership of the NFTs
+        Self::unverified_nfts_transfer(&sender_portfolio, &receiver_portfolio, &nfts);
+
         Self::deposit_event(Event::NFTPortfolioUpdated(
             caller_did,
             nfts,
@@ -412,26 +421,51 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Verifies if and the sender and receiver are not the same, if both have valid balances,
-    /// if the sender owns the nft, and if all compliance rules are being respected.
+    /// Returns `Ok` if the asset is not frozen, if `sender_portfolio` owns all `nfts`, all arithmetic updates succeed,
+    /// if `sender_portfolio` is different from `receiver_portfolio`, and if all compliance rules are being respected.
     pub fn validate_nft_transfer(
         sender_portfolio: &PortfolioId,
         receiver_portfolio: &PortfolioId,
         nfts: &NFTs,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        let nfts_transferred = nfts.len() as u64;
-        // Verifies that the sender and receiver are not the same
-        ensure!(
-            sender_portfolio != receiver_portfolio,
-            Error::<T>::InvalidNFTTransferSamePortfolio
-        );
         // Verifies that the asset is not frozen
         ensure!(
             !Frozen::get(nfts.ticker()),
             Error::<T>::InvalidNFTTransferFrozenAsset
         );
+        // Verifies that the sender_portfolio owns all nfts being transferred
+        Self::validate_nft_ownership(sender_portfolio, receiver_portfolio, nfts)?;
+        // Verifies that all compliance rules are being respected
+        if !T::Compliance::is_compliant(
+            nfts.ticker(),
+            sender_portfolio.did,
+            receiver_portfolio.did,
+            weight_meter,
+        )? {
+            return Err(Error::<T>::InvalidNFTTransferComplianceFailure.into());
+        }
+
+        Ok(())
+    }
+
+    /// Returns `Ok` if `sender_portfolio` owns all `nfts`, all arithmetic updates succeed, and if `sender_portfolio`
+    /// is different from `receiver_portfolio`.
+    fn validate_nft_ownership(
+        sender_portfolio: &PortfolioId,
+        receiver_portfolio: &PortfolioId,
+        nfts: &NFTs,
+    ) -> DispatchResult {
+        // Verifies if there is a collection associated to the NFTs
+        CollectionTicker::try_get(nfts.ticker())
+            .map_err(|_| Error::<T>::InvalidNFTTransferCollectionNotFound)?;
+        // Verifies that the sender and receiver are not the same
+        ensure!(
+            sender_portfolio != receiver_portfolio,
+            Error::<T>::InvalidNFTTransferSamePortfolio
+        );
         // Verifies that the sender has the required nft count
+        let nfts_transferred = nfts.len() as u64;
         ensure!(
             NumberOfNFTs::get(nfts.ticker(), sender_portfolio.did) >= nfts_transferred,
             Error::<T>::InvalidNFTTransferInsufficientCount
@@ -451,17 +485,6 @@ impl<T: Config> Module<T> {
         NumberOfNFTs::get(nfts.ticker(), receiver_portfolio.did)
             .checked_add(nfts_transferred)
             .ok_or(Error::<T>::InvalidNFTTransferCountOverflow)?;
-
-        // Verifies that all compliance rules are being respected
-        if !T::Compliance::is_compliant(
-            nfts.ticker(),
-            sender_portfolio.did,
-            receiver_portfolio.did,
-            weight_meter,
-        )? {
-            return Err(Error::<T>::InvalidNFTTransferComplianceFailure.into());
-        }
-
         Ok(())
     }
 
@@ -479,6 +502,48 @@ impl<T: Config> Module<T> {
     pub fn ensure_no_duplicate_nfts(nfts: &NFTs) -> DispatchResult {
         let unique_nfts: BTreeSet<&NFTId> = nfts.ids().iter().collect();
         ensure!(unique_nfts.len() == nfts.len(), Error::<T>::DuplicatedNFTId);
+        Ok(())
+    }
+
+    /// Updates the storage for transferring all `nfts` from `sender_portfolio` to `receiver_portfolio`.
+    fn unverified_nfts_transfer(
+        sender_portfolio: &PortfolioId,
+        receiver_portfolio: &PortfolioId,
+        nfts: &NFTs,
+    ) {
+        // Update the balance of the sender and the receiver
+        let transferred_amount = nfts.len() as u64;
+        NumberOfNFTs::mutate(nfts.ticker(), sender_portfolio.did, |balance| {
+            *balance -= transferred_amount
+        });
+        NumberOfNFTs::mutate(nfts.ticker(), receiver_portfolio.did, |balance| {
+            *balance += transferred_amount
+        });
+        // Update the portfolio of the sender and the receiver
+        for nft_id in nfts.ids() {
+            PortfolioNFT::remove(sender_portfolio, (nfts.ticker(), nft_id));
+            PortfolioNFT::insert(receiver_portfolio, (nfts.ticker(), nft_id), true);
+        }
+    }
+
+    pub fn base_controller_transfer(
+        origin: T::RuntimeOrigin,
+        ticker: Ticker,
+        nfts: NFTs,
+        source_portfolio: PortfolioId,
+        callers_portfolio_kind: PortfolioKind,
+    ) -> DispatchResult {
+        // Ensure origin is agent with custody and permissions for portfolio.
+        let caller_portfolio = Asset::<T>::ensure_origin_ticker_and_portfolio_permissions(
+            origin,
+            ticker,
+            callers_portfolio_kind,
+            true,
+        )?;
+        // Verifies if all rules for transfering the NFTs are being respected
+        Self::validate_nft_ownership(&source_portfolio, &caller_portfolio, &nfts)?;
+        // Transfer ownership of the NFTs
+        Self::unverified_nfts_transfer(&source_portfolio, &caller_portfolio, &nfts);
         Ok(())
     }
 }
