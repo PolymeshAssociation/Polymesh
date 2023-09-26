@@ -1409,6 +1409,12 @@ impl<T: Config> Module<T> {
         FilteredLegs::filter_sender(instruction_legs, portfolio_set)
     }
 
+    fn get_instruction_asset_count(id: &InstructionId) -> AssetCount {
+        // Get the weight limit for the instruction
+        let legs: Vec<(LegId, Leg)> = InstructionLegs::iter_prefix(id).collect();
+        AssetCount::from_legs(&legs)
+    }
+
     fn base_update_venue_signers(
         did: IdentityId,
         id: VenueId,
@@ -1903,12 +1909,41 @@ impl<T: Config> Module<T> {
         )
     }
 
+    pub fn get_actual_weight(call: &Call<T>) -> Option<Weight> {
+        match call {
+            Call::affirm_instruction { id, portfolios } => {
+                let portfolios = portfolios.into_iter().cloned().collect::<BTreeSet<_>>();
+                let filtered_legs = Self::filtered_legs(*id, &portfolios);
+                Some(Self::affirm_instruction_weight(
+                    filtered_legs.subset_asset_count(),
+                ))
+            }
+            Call::affirm_with_receipts { id, portfolios, .. } => {
+                let portfolios = portfolios.into_iter().cloned().collect::<BTreeSet<_>>();
+                let filtered_legs = Self::filtered_legs(*id, &portfolios);
+                Some(Self::affirm_with_receipts_weight(
+                    filtered_legs.subset_asset_count(),
+                ))
+            }
+            Call::withdraw_affirmation { id, portfolios } => {
+                let portfolios = portfolios.into_iter().cloned().collect::<BTreeSet<_>>();
+                let filtered_legs = Self::filtered_legs(*id, &portfolios);
+                Some(Self::withdraw_affirmation_weight(
+                    filtered_legs.subset_asset_count(),
+                ))
+            }
+            Call::reject_instruction { id, .. } => {
+                let asset_count = Self::get_instruction_asset_count(id);
+                Some(Self::reject_instruction_weight(&asset_count))
+            }
+            _ => None,
+        }
+    }
+
     /// Returns an instance of [`ExecuteInstructionInfo`].
     pub fn execute_instruction_info(instruction_id: &InstructionId) -> ExecuteInstructionInfo {
         let caller_did = Identity::<T>::current_identity().unwrap_or(SettlementDID.as_id());
-        let instruction_legs: Vec<(LegId, Leg)> =
-            InstructionLegs::iter_prefix(&instruction_id).collect();
-        let instruction_asset_count = AssetCount::from_legs(&instruction_legs);
+        let instruction_asset_count = Self::get_instruction_asset_count(instruction_id);
         let mut weight_meter =
             WeightMeter::max_limit(Self::execute_scheduled_instruction_minimum_weight());
         match Self::execute_instruction_retryable(*instruction_id, caller_did, &mut weight_meter) {
@@ -2130,9 +2165,8 @@ pub mod migration {
                 // Attempts to cancel the old scheduled task.
                 if let Ok(_) = T::Scheduler::cancel_named(instruction_id.execution_name()) {
                     // Get the weight limit for the instruction
-                    let instruction_legs: Vec<(LegId, Leg)> =
-                        InstructionLegs::iter_prefix(&instruction_id).collect();
-                    let instruction_asset_count = AssetCount::from_legs(&instruction_legs);
+                    let instruction_asset_count =
+                        Module::<T>::get_instruction_asset_count(&instruction_id);
                     let weight_limit = Module::<T>::execute_scheduled_instruction_weight_limit(
                         instruction_asset_count.fungible(),
                         instruction_asset_count.non_fungible(),
