@@ -1,7 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
 use frame_support::traits::Get;
+use frame_support::weights::Weight;
 use frame_support::{decl_error, decl_module, decl_storage, ensure, require_transactional};
 
 use pallet_asset::Frozen;
@@ -16,7 +18,8 @@ use polymesh_primitives::nft::{
 };
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::{
-    IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, Ticker, WeightMeter,
+    storage_migrate_on, storage_migration_ver, IdentityId, Memo, PortfolioId, PortfolioKind,
+    PortfolioUpdateReason, Ticker, WeightMeter,
 };
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
@@ -29,6 +32,8 @@ type Portfolio<T> = pallet_portfolio::Module<T>;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+
+storage_migration_ver!(1);
 
 decl_storage!(
     trait Store for Module<T: Config> as NFT {
@@ -55,6 +60,9 @@ decl_storage!(
 
         /// The total number of NFTs in a collection
         pub NFTsInCollection get(fn nfts_in_collection): map hasher(blake2_128_concat) Ticker => NFTCount;
+
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
     }
 );
 
@@ -68,6 +76,13 @@ decl_module! {
 
         /// Initializes the default event for this module.
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion, 1, {
+                migration::migrate_to_v1::<T>();
+            });
+            Weight::zero()
+        }
 
         /// Cretes a new `NFTCollection`.
         ///
@@ -590,5 +605,25 @@ impl<T: Config> NFTTrait<T::RuntimeOrigin> for Module<T> {
         collection_keys: NFTCollectionKeys,
     ) -> DispatchResult {
         Module::<T>::create_nft_collection(origin, ticker, nft_type, collection_keys)
+    }
+}
+
+pub mod migration {
+    use crate::sp_api_hidden_includes_decl_storage::hidden_include::IterableStorageDoubleMap;
+    use crate::{Config, NFTsInCollection, NumberOfNFTs};
+    use frame_support::storage::StorageMap;
+    use sp_runtime::runtime_logger::RuntimeLogger;
+
+    pub fn migrate_to_v1<T: Config>() {
+        RuntimeLogger::init();
+        log::info!(">>> Initializing NFTsInCollection Storage");
+        initialize_nfts_in_collection::<T>();
+        log::info!(">>> NFTsInCollection was successfully updated");
+    }
+
+    fn initialize_nfts_in_collection<T: Config>() {
+        for (ticker, _, id_count) in NumberOfNFTs::iter() {
+            NFTsInCollection::mutate(ticker, |collection_count| *collection_count += id_count);
+        }
     }
 }
