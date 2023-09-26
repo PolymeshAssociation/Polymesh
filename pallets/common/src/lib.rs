@@ -41,6 +41,10 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::{DispatchError, DispatchResult};
 
+/// Use `GetExtra` as the trait bounds for pallet `Config` parameters
+/// that will be used for bounded collections.
+pub trait GetExtra<T>: Get<T> + Clone + core::fmt::Debug + PartialEq + Eq {}
+
 /// ConstSize type wrapper.
 ///
 /// This allows the use of Bounded collections in extrinsic parameters.
@@ -53,11 +57,7 @@ impl<const T: u32> Get<u32> for ConstSize<T> {
     }
 }
 
-/// Use `GetExtra` as the trait bounds for pallet `Config` parameters
-/// that will be used for bounded collections.
-pub trait GetExtra<T>: Get<T> + Clone + core::fmt::Debug + PartialEq + Eq {}
-
-impl<T: Get<T> + Clone + core::fmt::Debug + PartialEq + Eq> GetExtra<T> for T {}
+impl<const T: u32> GetExtra<u32> for ConstSize<T> {}
 
 /// SystematicIssuers (poorly named - should be SystematicIdentities) are identities created and maintained by the chain itself.
 /// These identities are associated with a primary key derived from their name, and for which there is
