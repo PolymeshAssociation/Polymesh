@@ -55,7 +55,7 @@ impl<const T: u32> Get<u32> for ConstSize<T> {
 
 /// Use `GetExtra` as the trait bounds for pallet `Config` parameters
 /// that will be used for bounded collections.
-pub trait GetExtra<T>: Clone + core::fmt::Debug + PartialEq + Eq {}
+pub trait GetExtra<T>: Get<T> + Clone + core::fmt::Debug + PartialEq + Eq {}
 
 impl<T: Get<T> + Clone + core::fmt::Debug + PartialEq + Eq> GetExtra<T> for T {}
 
