@@ -43,12 +43,12 @@ use sp_runtime::{DispatchError, DispatchResult};
 
 /// Use `GetExtra` as the trait bounds for pallet `Config` parameters
 /// that will be used for bounded collections.
-pub trait GetExtra<T>: Get<T> + Clone + core::fmt::Debug + PartialEq + Eq {}
+pub trait GetExtra<T>: Get<T> + Clone + core::fmt::Debug + Default + PartialEq + Eq {}
 
 /// ConstSize type wrapper.
 ///
 /// This allows the use of Bounded collections in extrinsic parameters.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct ConstSize<const T: u32>;
 
 impl<const T: u32> Get<u32> for ConstSize<T> {
