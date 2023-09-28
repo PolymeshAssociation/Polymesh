@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - fix_docs
 
 jobs:
   docs:
@@ -22,7 +23,7 @@ jobs:
     - name: Install rust toolchain
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: nightly
+        toolchain: nightly-2022-11-02
         target: wasm32-unknown-unknown
         override: true
         default: true
