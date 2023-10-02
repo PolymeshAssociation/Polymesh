@@ -648,7 +648,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::affirm_with_receipts(0,0,0)]
+        #[weight = <T as Config>::WeightInfo::affirm_with_receipts_input(*number_of_assets)]
         pub fn affirm_with_receipts_v2(
             origin,
             id: InstructionId,
@@ -677,7 +677,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::affirm_instruction(0, 0)]
+        #[weight = <T as Config>::WeightInfo::affirm_instruction_input(*number_of_assets)]
         pub fn affirm_instruction_v2(
             origin,
             id: InstructionId,
@@ -704,7 +704,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::reject_instruction(0, 0, 0)]
+        #[weight = <T as Config>::WeightInfo::reject_instruction_input(*number_of_assets)]
         pub fn reject_instruction_v2(
             origin,
             id: InstructionId,
@@ -726,7 +726,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::withdraw_affirmation(0,0,0)]
+        #[weight = <T as Config>::WeightInfo::withdraw_affirmation_input(*number_of_assets)]
         pub fn withdraw_affirmation_v2(
             origin,
             id: InstructionId,
@@ -1438,8 +1438,8 @@ impl<T: Config> Module<T> {
         Self::maybe_schedule_instruction(Self::instruction_affirms_pending(id), id, weight_limit);
         Ok(PostDispatchInfo::from(Some(
             Self::affirm_with_receipts_actual_weight(
-                filtered_legs.sender_asset_count(),
-                filtered_legs.receiver_asset_count(),
+                filtered_legs.sender_asset_count().clone(),
+                filtered_legs.receiver_asset_count().clone(),
                 filtered_legs.unfiltered_asset_count().off_chain(),
             ),
         )))
@@ -1466,8 +1466,8 @@ impl<T: Config> Module<T> {
         Self::maybe_schedule_instruction(Self::instruction_affirms_pending(id), id, weight_limit);
         Ok(PostDispatchInfo::from(Some(
             Self::affirm_instruction_actual_weight(
-                filtered_legs.sender_asset_count(),
-                filtered_legs.receiver_asset_count(),
+                filtered_legs.sender_asset_count().clone(),
+                filtered_legs.receiver_asset_count().clone(),
             ),
         )))
     }
@@ -2012,8 +2012,8 @@ impl<T: Config> Module<T> {
         }
         Ok(PostDispatchInfo::from(Some(
             Self::withdraw_affirmation_actual_weight(
-                filtered_legs.sender_asset_count(),
-                filtered_legs.receiver_asset_count(),
+                filtered_legs.sender_asset_count().clone(),
+                filtered_legs.receiver_asset_count().clone(),
                 filtered_legs.unfiltered_asset_count().off_chain(),
             ),
         )))
@@ -2056,114 +2056,36 @@ impl<T: Config> Module<T> {
         <T as Config>::WeightInfo::execute_manual_instruction(0, 0, 0)
     }
 
-    /// Returns the weight for calling `affirm_with_receipts` with `sender_asset_count` and `n_offchain`.
-    fn sender_affirm_with_receipts_weight(
-        sender_asset_count: &AssetCount,
-        n_offchain: u32,
-    ) -> Weight {
-        <T as Config>::WeightInfo::affirm_with_receipts(
-            sender_asset_count.fungible(),
-            sender_asset_count.non_fungible(),
-            n_offchain,
-        )
-    }
-
-    /// Returns the weight for calling `affirm_with_receipts` with `receiver_asset_count`.
-    fn receiver_affirm_with_receipts_weight(receiver_asset_count: &AssetCount) -> Weight {
-        <T as Config>::WeightInfo::affirm_with_receipts_rcv(
-            receiver_asset_count.fungible(),
-            receiver_asset_count.non_fungible(),
-            0,
-        )
-    }
-
     /// Returns the weight for calling `affirm_with_receipts` while considering the `sender_asset_count` for the sender, `receiver_asset_count`
     /// for the receiver, and `n_offchain` offchain legs.
     fn affirm_with_receipts_actual_weight(
-        sender_asset_count: &AssetCount,
-        receiver_asset_count: &AssetCount,
+        sender_asset_count: AssetCount,
+        receiver_asset_count: AssetCount,
         n_offchain: u32,
     ) -> Weight {
-        let sender_weight =
-            Self::sender_affirm_with_receipts_weight(sender_asset_count, n_offchain);
-        let receiver_weight = Self::receiver_affirm_with_receipts_weight(receiver_asset_count);
-        // Common reads/write are being added twice
-        let duplicated_weight = Self::receiver_affirm_with_receipts_weight(&AssetCount::default());
-        // The actual weight is the sum of the sender and receiver weights subtracted by the duplicated weight
-        sender_weight
-            .saturating_add(receiver_weight)
-            .saturating_sub(duplicated_weight)
-    }
-
-    /// Returns the weight for calling `affirm_instruction` with `sender_asset_count`.
-    fn sender_affirm_instruction_weight(sender_asset_count: &AssetCount) -> Weight {
-        <T as Config>::WeightInfo::affirm_instruction(
-            sender_asset_count.fungible(),
-            sender_asset_count.non_fungible(),
-        )
-    }
-
-    /// Returns the weight for calling `affirm_instruction` with `receiver_asset_count`.
-    fn receiver_affirm_instruction_weight(receiver_asset_count: &AssetCount) -> Weight {
-        <T as Config>::WeightInfo::affirm_instruction_rcv(
-            receiver_asset_count.fungible(),
-            receiver_asset_count.non_fungible(),
-        )
+        let input_cost = InputCost::new(sender_asset_count, receiver_asset_count, n_offchain);
+        <T as Config>::WeightInfo::affirm_with_receipts_input(Some(input_cost))
     }
 
     /// Returns the weight for calling `affirm_instruction` while considering the `sender_asset_count` for the sender and`receiver_asset_count`
     /// for the receiver.
     fn affirm_instruction_actual_weight(
-        sender_asset_count: &AssetCount,
-        receiver_asset_count: &AssetCount,
+        sender_asset_count: AssetCount,
+        receiver_asset_count: AssetCount,
     ) -> Weight {
-        let sender_weight = Self::sender_affirm_instruction_weight(sender_asset_count);
-        let receiver_weight = Self::receiver_affirm_instruction_weight(receiver_asset_count);
-        // Common reads/write are being added twice
-        let duplicated_weight = Self::receiver_affirm_instruction_weight(&AssetCount::default());
-        // The actual weight is the sum of the sender and receiver weights subtracted by the duplicated weight
-        sender_weight
-            .saturating_add(receiver_weight)
-            .saturating_sub(duplicated_weight)
-    }
-
-    /// Returns the weight for calling `withdraw_affirmation` with `sender_asset_count` and `n_offchain`.
-    fn sender_withdraw_affirmation_weight(
-        sender_asset_count: &AssetCount,
-        n_offchain: u32,
-    ) -> Weight {
-        <T as Config>::WeightInfo::withdraw_affirmation(
-            sender_asset_count.fungible(),
-            sender_asset_count.non_fungible(),
-            n_offchain,
-        )
-    }
-
-    /// Returns the weight for calling `withdraw_affirmation` with `receiver_asset_count`.
-    fn receiver_withdraw_affirmation_weight(receiver_asset_count: &AssetCount) -> Weight {
-        <T as Config>::WeightInfo::withdraw_affirmation_rcv(
-            receiver_asset_count.fungible(),
-            receiver_asset_count.non_fungible(),
-            0,
-        )
+        let input_cost = InputCost::new(sender_asset_count, receiver_asset_count, 0);
+        <T as Config>::WeightInfo::affirm_instruction_input(Some(input_cost))
     }
 
     /// Returns the weight for calling `withdraw_affirmation` while considering the `sender_asset_count` for the sender and`receiver_asset_count`
     /// for the receiver, and `n_offchain` offchain legs.
     fn withdraw_affirmation_actual_weight(
-        sender_asset_count: &AssetCount,
-        receiver_asset_count: &AssetCount,
+        sender_asset_count: AssetCount,
+        receiver_asset_count: AssetCount,
         n_offchain: u32,
     ) -> Weight {
-        let sender_weight =
-            Self::sender_withdraw_affirmation_weight(sender_asset_count, n_offchain);
-        let receiver_weight = Self::receiver_withdraw_affirmation_weight(receiver_asset_count);
-        // Common reads/write are being added twice
-        let duplicated_weight = Self::receiver_withdraw_affirmation_weight(&AssetCount::default());
-        // The actual weight is the sum of sender side and the receiver side subtracted by the duplicated weight
-        sender_weight
-            .saturating_add(receiver_weight)
-            .saturating_sub(duplicated_weight)
+        let input_cost = InputCost::new(sender_asset_count, receiver_asset_count, n_offchain);
+        <T as Config>::WeightInfo::withdraw_affirmation_input(Some(input_cost))
     }
 
     /// Returns the weight for calling `reject_instruction_weight` with the number of assets in `instruction_asset_count`.
