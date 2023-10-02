@@ -95,6 +95,9 @@ pub trait WeightInfo {
     fn execute_instruction_paused(f: u32, n: u32, o: u32) -> Weight;
     fn execute_scheduled_instruction(f: u32, n: u32, o: u32) -> Weight;
     fn ensure_root_origin() -> Weight;
+    fn affirm_with_receipts_rcv(f: u32, n: u32, o: u32) -> Weight;
+    fn affirm_instruction_rcv(f: u32, n: u32) -> Weight;
+    fn withdraw_affirmation_rcv(f: u32, n: u32, o: u32) -> Weight;
 
     fn add_instruction_legs(legs: &[Leg]) -> Weight {
         let (f, n, o) = Self::get_transfer_by_asset(legs);
