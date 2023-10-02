@@ -644,6 +644,8 @@ decl_module! {
         /// * `portfolios` - a vector of [`PortfolioId`] under the caller's control and intended for affirmation.
         /// * `number_of_assets` - an optional [`InputCost`] that will be used for a precise fee estimation before executing the extrinsic.
         ///
+        /// Note: calling the rpc method `get_input_cost` returns an instance of [`InputCost`].
+        ///
         /// # Permissions
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::affirm_with_receipts(0,0,0)]
@@ -671,6 +673,8 @@ decl_module! {
         /// * `portfolios` - a vector of [`PortfolioId`] under the caller's control and intended for affirmation.
         /// * `number_of_assets` - an optional [`InputCost`] that will be used for a precise fee estimation before executing the extrinsic.
         ///
+        /// Note: calling the rpc method `get_input_cost` returns an instance of [`InputCost`].
+        ///
         /// # Permissions
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::affirm_instruction(0, 0)]
@@ -696,6 +700,8 @@ decl_module! {
         /// * `portfolio` - the [`PortfolioId`] that belongs to the instruction and is rejecting it.
         /// * `number_of_assets` - an optional [`AssetCount`] that will be used for a precise fee estimation before executing the extrinsic.
         ///
+        /// Note: calling the rpc method `get_execute_instruction_info` returns an instance of [`ExecuteInstructionInfo`], which contain the asset count.
+        ///
         /// # Permissions
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::reject_instruction(0, 0, 0)]
@@ -715,6 +721,8 @@ decl_module! {
         /// * `id` - the [`InstructionId`] of the instruction getting an affirmation withdrawn.
         /// * `portfolios` - a vector of [`PortfolioId`] under the caller's control and intended for affirmation withdrawal.
         /// * `number_of_assets` - an optional [`InputCost`] that will be used for a precise fee estimation before executing the extrinsic.
+        ///
+        /// Note: calling the rpc method `get_input_cost` returns an instance of [`InputCost`].
         ///
         /// # Permissions
         /// * Portfolio
