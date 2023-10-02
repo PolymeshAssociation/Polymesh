@@ -354,6 +354,7 @@ impl<AccountId, OffChainSignature> ReceiptDetails<AccountId, OffChainSignature> 
 }
 
 /// Stores the number of fungible, non fungible and offchain transfers in a set of legs.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
 pub struct AssetCount {
     fungible: u32,
@@ -624,6 +625,7 @@ impl FilteredLegs {
 }
 
 /// Holds the [`AssetCount`] for both the sender and receiver side and the number of offchain assets.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
 pub struct InputCost {
     /// The [`AssetCount`] for sender side.

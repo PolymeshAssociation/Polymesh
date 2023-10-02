@@ -3565,12 +3565,7 @@ fn reject_instruction_cost() {
             AssetType::NonFungible(NonFungibleType::Derivative),
             NFTCollectionKeys::default(),
         );
-        mint_nft(
-            alice.clone(),
-            TICKER2,
-            Vec::new(),
-            PortfolioKind::Default,
-        );
+        mint_nft(alice.clone(), TICKER2, Vec::new(), PortfolioKind::Default);
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
@@ -3604,14 +3599,12 @@ fn reject_instruction_cost() {
             ),
             Error::NumberOfTransferredNFTsUnderestimated
         );
-        assert_ok!(
-            Settlement::reject_instruction_v2(
-                bob.origin(),
-                InstructionId(0),
-                bob_default_portfolio,
-                Some(AssetCount::new(1, 1, 0))
-            ),
-        );
+        assert_ok!(Settlement::reject_instruction_v2(
+            bob.origin(),
+            InstructionId(0),
+            bob_default_portfolio,
+            Some(AssetCount::new(1, 1, 0))
+        ),);
     });
 }
 

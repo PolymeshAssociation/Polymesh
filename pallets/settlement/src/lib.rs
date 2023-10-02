@@ -2192,6 +2192,17 @@ impl<T: Config> Module<T> {
             ),
         }
     }
+
+    /// Returns an instance of [`InputCost`].
+    pub fn input_cost(instruction_id: InstructionId, portfolios: Vec<PortfolioId>) -> InputCost {
+        let portfolios = portfolios.into_iter().collect::<BTreeSet<_>>();
+        let filtered_legs = Self::filtered_legs(instruction_id, &portfolios);
+        InputCost::new(
+            filtered_legs.sender_asset_count().clone(),
+            filtered_legs.receiver_asset_count().clone(),
+            filtered_legs.unfiltered_asset_count().off_chain(),
+        )
+    }
 }
 
 pub mod migration {
