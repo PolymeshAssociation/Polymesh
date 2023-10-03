@@ -767,14 +767,14 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     fn affirm_with_receipts_rcv(f: u32, n: u32, o: u32) -> Weight {
-        // Minimum execution time: 1_191_010 nanoseconds.
-        Weight::from_ref_time(92_538_720)
-            // Standard Error: 455_946
-            .saturating_add(Weight::from_ref_time(26_745_510).saturating_mul(f.into()))
-            // Standard Error: 42_176
-            .saturating_add(Weight::from_ref_time(24_656_784).saturating_mul(n.into()))
-            // Standard Error: 413_016
-            .saturating_add(Weight::from_ref_time(86_213_350).saturating_mul(o.into()))
+        // Minimum execution time: 1_491_962 nanoseconds.
+        Weight::from_ref_time(56_498_066)
+            // Standard Error: 2_370_582
+            .saturating_add(Weight::from_ref_time(38_932_223).saturating_mul(f.into()))
+            // Standard Error: 219_285
+            .saturating_add(Weight::from_ref_time(31_679_988).saturating_mul(n.into()))
+            // Standard Error: 2_147_381
+            .saturating_add(Weight::from_ref_time(115_037_469).saturating_mul(o.into()))
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
@@ -803,12 +803,12 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[1, 100]`.
     fn affirm_instruction_rcv(f: u32, n: u32) -> Weight {
-        // Minimum execution time: 403_913 nanoseconds.
-        Weight::from_ref_time(144_105_962)
-            // Standard Error: 424_241
-            .saturating_add(Weight::from_ref_time(24_907_887).saturating_mul(f.into()))
-            // Standard Error: 39_864
-            .saturating_add(Weight::from_ref_time(24_414_273).saturating_mul(n.into()))
+        // Minimum execution time: 486_570 nanoseconds.
+        Weight::from_ref_time(186_837_840)
+            // Standard Error: 1_850_827
+            .saturating_add(Weight::from_ref_time(35_182_815).saturating_mul(f.into()))
+            // Standard Error: 173_918
+            .saturating_add(Weight::from_ref_time(30_285_971).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(15))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
@@ -836,14 +836,14 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     fn withdraw_affirmation_rcv(f: u32, n: u32, o: u32) -> Weight {
-        // Minimum execution time: 359_636 nanoseconds.
-        Weight::from_ref_time(73_072_111)
-            // Standard Error: 248_581
-            .saturating_add(Weight::from_ref_time(24_311_074).saturating_mul(f.into()))
-            // Standard Error: 22_994
-            .saturating_add(Weight::from_ref_time(24_055_482).saturating_mul(n.into()))
-            // Standard Error: 225_176
-            .saturating_add(Weight::from_ref_time(5_512_595).saturating_mul(o.into()))
+        // Minimum execution time: 457_757 nanoseconds.
+        Weight::from_ref_time(123_705_314)
+            // Standard Error: 1_650_659
+            .saturating_add(Weight::from_ref_time(25_960_854).saturating_mul(f.into()))
+            // Standard Error: 152_690
+            .saturating_add(Weight::from_ref_time(30_443_435).saturating_mul(n.into()))
+            // Standard Error: 1_495_242
+            .saturating_add(Weight::from_ref_time(10_850_140).saturating_mul(o.into()))
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
