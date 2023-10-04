@@ -627,7 +627,7 @@ impl FilteredLegs {
 /// Holds the [`AssetCount`] for both the sender and receiver side and the number of offchain assets.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Clone, Copy, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
-pub struct InputCost {
+pub struct AffirmationCount {
     /// The [`AssetCount`] for sender side.
     sender_asset_count: AssetCount,
     /// The [`AssetCount`] for receiver side.
@@ -636,14 +636,14 @@ pub struct InputCost {
     offchain_count: u32,
 }
 
-impl InputCost {
-    /// Creates a new [`InputCost`] instance.
+impl AffirmationCount {
+    /// Creates a new [`AffirmationCount`] instance.
     pub fn new(
         sender_asset_count: AssetCount,
         receiver_asset_count: AssetCount,
         offchain_count: u32,
     ) -> Self {
-        InputCost {
+        AffirmationCount {
             sender_asset_count,
             receiver_asset_count,
             offchain_count,

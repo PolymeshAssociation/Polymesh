@@ -17,7 +17,7 @@
 
 use sp_std::vec::Vec;
 
-use polymesh_primitives::settlement::{ExecuteInstructionInfo, InputCost, InstructionId};
+use polymesh_primitives::settlement::{AffirmationCount, ExecuteInstructionInfo, InstructionId};
 use polymesh_primitives::PortfolioId;
 
 sp_api::decl_runtime_apis! {
@@ -36,17 +36,17 @@ sp_api::decl_runtime_apis! {
         /// ```
         fn get_execute_instruction_info(instruction_id: &InstructionId) -> ExecuteInstructionInfo;
 
-        /// Returns an [`InputCost`] instance containing the number of assets being sent/received from `portfolios`,
+        /// Returns an [`AffirmationCount`] instance containing the number of assets being sent/received from `portfolios`,
         /// and the number of off-chain assets in the instruction.
         ///
         /// ```ignore
         /// curl http://localhost:9933 -H "Content-Type: application/json" -d '{
         ///     "id":1,
         ///     "jsonrpc":"2.0",
-        ///     "method": "settlement_getInputCost",
+        ///     "method": "settlement_getAffirmationCount",
         ///     "params": [1, [{ "did": "0x0100000000000000000000000000000000000000000000000000000000000000", "kind": "Default"}]]
         ///   }'
         /// ```
-        fn get_input_cost(instruction_id: InstructionId, portfolios: Vec<PortfolioId>) -> InputCost;
+        fn get_affirmation_count(instruction_id: InstructionId, portfolios: Vec<PortfolioId>) -> AffirmationCount;
     }
 }

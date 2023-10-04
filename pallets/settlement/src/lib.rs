@@ -77,8 +77,8 @@ use polymesh_common_utilities::traits::{asset, compliance_manager, identity, nft
 use polymesh_common_utilities::with_transaction;
 use polymesh_common_utilities::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::settlement::{
-    AffirmationStatus, AssetCount, ExecuteInstructionInfo, FilteredLegs, InputCost, Instruction,
-    InstructionId, InstructionInfo, InstructionStatus, Leg, LegId, LegStatus, Receipt,
+    AffirmationCount, AffirmationStatus, AssetCount, ExecuteInstructionInfo, FilteredLegs,
+    Instruction, InstructionId, InstructionInfo, InstructionStatus, Leg, LegId, LegStatus, Receipt,
     ReceiptDetails, SettlementType, Venue, VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::{
@@ -384,11 +384,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::affirm_with_receipts(
-            T::MaxNumberOfFungibleAssets::get(),
-            T::MaxNumberOfNFTs::get(),
-            T::MaxNumberOfOffChainAssets::get()
-        )]
+        #[weight = <T as Config>::WeightInfo::affirm_with_receipts_input(None)]
         pub fn affirm_with_receipts(
             origin,
             id: InstructionId,
@@ -577,7 +573,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::affirm_instruction(T::MaxNumberOfFungibleAssets::get(), T::MaxNumberOfNFTs::get())]
+        #[weight = <T as Config>::WeightInfo::affirm_instruction_input(None)]
         pub fn affirm_instruction(origin, id: InstructionId, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
             Self::affirm_and_maybe_schedule_instruction(
                 origin,
@@ -595,11 +591,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::withdraw_affirmation(
-            T::MaxNumberOfFungibleAssets::get(),
-            T::MaxNumberOfNFTs::get(),
-            T::MaxNumberOfOffChainAssets::get()
-        )]
+        #[weight = <T as Config>::WeightInfo::withdraw_affirmation_input(None)]
         pub fn withdraw_affirmation(origin, id: InstructionId, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
             Self::base_withdraw_affirmation(origin, id, portfolios, None)
         }
@@ -612,11 +604,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::reject_instruction(
-            T::MaxNumberOfFungibleAssets::get(),
-            T::MaxNumberOfNFTs::get(),
-            T::MaxNumberOfOffChainAssets::get()
-        )]
+        #[weight = <T as Config>::WeightInfo::reject_instruction_input(None)]
         pub fn reject_instruction(origin, id: InstructionId, portfolio: PortfolioId) -> DispatchResultWithPostInfo {
             Self::base_reject_instruction(origin, id, portfolio, None)
         }
@@ -642,9 +630,9 @@ decl_module! {
         /// * `id` - the [`InstructionId`] of the instruction being affirmed.
         /// * `receipt_details` - a vector of [`ReceiptDetails`], which contain the details about the offchain transfer.
         /// * `portfolios` - a vector of [`PortfolioId`] under the caller's control and intended for affirmation.
-        /// * `number_of_assets` - an optional [`InputCost`] that will be used for a precise fee estimation before executing the extrinsic.
+        /// * `number_of_assets` - an optional [`AffirmationCount`] that will be used for a precise fee estimation before executing the extrinsic.
         ///
-        /// Note: calling the rpc method `get_input_cost` returns an instance of [`InputCost`].
+        /// Note: calling the rpc method `get_affirmation_count` returns an instance of [`AffirmationCount`].
         ///
         /// # Permissions
         /// * Portfolio
@@ -654,7 +642,7 @@ decl_module! {
             id: InstructionId,
             receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
             portfolios: Vec<PortfolioId>,
-            number_of_assets: Option<InputCost>
+            number_of_assets: Option<AffirmationCount>
         ) {
             Self::affirm_with_receipts_and_maybe_schedule_instruction(
                 origin,
@@ -671,9 +659,9 @@ decl_module! {
         /// # Arguments
         /// * `id` - the [`InstructionId`] of the instruction being affirmed.
         /// * `portfolios` - a vector of [`PortfolioId`] under the caller's control and intended for affirmation.
-        /// * `number_of_assets` - an optional [`InputCost`] that will be used for a precise fee estimation before executing the extrinsic.
+        /// * `number_of_assets` - an optional [`AffirmationCount`] that will be used for a precise fee estimation before executing the extrinsic.
         ///
-        /// Note: calling the rpc method `get_input_cost` returns an instance of [`InputCost`].
+        /// Note: calling the rpc method `get_affirmation_count` returns an instance of [`AffirmationCount`].
         ///
         /// # Permissions
         /// * Portfolio
@@ -682,7 +670,7 @@ decl_module! {
             origin,
             id: InstructionId,
             portfolios: Vec<PortfolioId>,
-            number_of_assets: Option<InputCost>
+            number_of_assets: Option<AffirmationCount>
         ) {
             Self::affirm_and_maybe_schedule_instruction(
                 origin,
@@ -720,9 +708,9 @@ decl_module! {
         /// # Arguments
         /// * `id` - the [`InstructionId`] of the instruction getting an affirmation withdrawn.
         /// * `portfolios` - a vector of [`PortfolioId`] under the caller's control and intended for affirmation withdrawal.
-        /// * `number_of_assets` - an optional [`InputCost`] that will be used for a precise fee estimation before executing the extrinsic.
+        /// * `number_of_assets` - an optional [`AffirmationCount`] that will be used for a precise fee estimation before executing the extrinsic.
         ///
-        /// Note: calling the rpc method `get_input_cost` returns an instance of [`InputCost`].
+        /// Note: calling the rpc method `get_affirmation_count` returns an instance of [`AffirmationCount`].
         ///
         /// # Permissions
         /// * Portfolio
@@ -731,7 +719,7 @@ decl_module! {
             origin,
             id: InstructionId,
             portfolios: Vec<PortfolioId>,
-            number_of_assets: Option<InputCost>
+            number_of_assets: Option<AffirmationCount>
         ) {
             Self::base_withdraw_affirmation(origin, id, portfolios, number_of_assets)
                 .map_err(|e| e.error)?;
@@ -944,7 +932,7 @@ impl<T: Config> Module<T> {
         id: InstructionId,
         portfolios: Vec<PortfolioId>,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
-        input_cost: Option<InputCost>,
+        affirmation_count: Option<AffirmationCount>,
     ) -> Result<FilteredLegs, DispatchError> {
         let portfolios = portfolios.into_iter().collect::<BTreeSet<_>>();
         // checks custodianship of portfolios and affirmation status
@@ -958,13 +946,8 @@ impl<T: Config> Module<T> {
         // Unlock tokens that were previously locked during the affirmation
         let filtered_legs = Self::filtered_legs(id, &portfolios);
         // If the fee was estimated in advance, the input values must be at least equal to the actual values
-        if let Some(input_cost) = input_cost {
-            Self::ensure_valid_input_cost(
-                filtered_legs.sender_asset_count(),
-                filtered_legs.receiver_asset_count(),
-                filtered_legs.unfiltered_asset_count().off_chain(),
-                &input_cost,
-            )?;
+        if let Some(affirmation_count) = affirmation_count {
+            Self::ensure_valid_affirmation_count(&filtered_legs, &affirmation_count)?;
         }
         for (leg_id, leg) in filtered_legs.sender_subset() {
             match Self::instruction_leg_status(id, leg_id) {
@@ -1218,7 +1201,7 @@ impl<T: Config> Module<T> {
         id: InstructionId,
         portfolios: BTreeSet<PortfolioId>,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
-        input_cost: Option<InputCost>,
+        affirmation_count: Option<AffirmationCount>,
     ) -> Result<FilteredLegs, DispatchError> {
         // Checks portfolio's custodian and if it is a counter party with a pending affirmation.
         Self::ensure_portfolios_and_affirmation_status(
@@ -1231,13 +1214,8 @@ impl<T: Config> Module<T> {
 
         let filtered_legs = Self::filtered_legs(id, &portfolios);
         // If the fee was estimated in advance, the input values must be at least equal to the actual values
-        if let Some(input_cost) = input_cost {
-            Self::ensure_valid_input_cost(
-                filtered_legs.sender_asset_count(),
-                filtered_legs.receiver_asset_count(),
-                filtered_legs.unfiltered_asset_count().off_chain(),
-                &input_cost,
-            )?;
+        if let Some(affirmation_count) = affirmation_count {
+            Self::ensure_valid_affirmation_count(&filtered_legs, &affirmation_count)?
         }
         for (leg_id, leg) in filtered_legs.sender_subset() {
             Self::lock_via_leg(&leg)?;
@@ -1316,7 +1294,7 @@ impl<T: Config> Module<T> {
         instruction_id: InstructionId,
         receipts_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
-        input_cost: Option<InputCost>,
+        affirmation_count: Option<AffirmationCount>,
     ) -> Result<FilteredLegs, DispatchError> {
         ensure!(
             receipts_details.len() <= T::MaxNumberOfOffChainAssets::get() as usize,
@@ -1345,13 +1323,8 @@ impl<T: Config> Module<T> {
         // Lock tokens for all legs that are not of type [`Leg::OffChain`]
         let filtered_legs = Self::filtered_legs(instruction_id, &portfolios_set);
         // If the fee was estimated in advance, the input values must be at least equal to the actual values
-        if let Some(input_cost) = input_cost {
-            Self::ensure_valid_input_cost(
-                filtered_legs.sender_asset_count(),
-                filtered_legs.receiver_asset_count(),
-                filtered_legs.unfiltered_asset_count().off_chain(),
-                &input_cost,
-            )?;
+        if let Some(affirmation_count) = affirmation_count {
+            Self::ensure_valid_affirmation_count(&filtered_legs, &affirmation_count)?
         }
         for (leg_id, leg) in filtered_legs.sender_subset() {
             Self::lock_via_leg(&leg)?;
@@ -1407,12 +1380,12 @@ impl<T: Config> Module<T> {
         origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
         portfolios: impl Iterator<Item = PortfolioId>,
-        input_cost: Option<InputCost>,
+        affirmation_count: Option<AffirmationCount>,
     ) -> Result<FilteredLegs, DispatchError> {
         let (did, sk, _) = Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
         let portfolios_set = portfolios.collect::<BTreeSet<_>>();
         // Provide affirmation to the instruction
-        Self::unsafe_affirm_instruction(did, id, portfolios_set, sk.as_ref(), input_cost)
+        Self::unsafe_affirm_instruction(did, id, portfolios_set, sk.as_ref(), affirmation_count)
     }
 
     /// Affirms all legs from the instruction of the given `id`, where `portfolios` are a counter party.
@@ -1424,10 +1397,15 @@ impl<T: Config> Module<T> {
         id: InstructionId,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
-        input_cost: Option<InputCost>,
+        affirmation_count: Option<AffirmationCount>,
     ) -> DispatchResultWithPostInfo {
-        let filtered_legs =
-            Self::base_affirm_with_receipts(origin, id, receipt_details, portfolios, input_cost)?;
+        let filtered_legs = Self::base_affirm_with_receipts(
+            origin,
+            id,
+            receipt_details,
+            portfolios,
+            affirmation_count,
+        )?;
         let instruction_asset_count = filtered_legs.unfiltered_asset_count();
         let weight_limit = Self::execute_scheduled_instruction_weight_limit(
             instruction_asset_count.fungible(),
@@ -1453,9 +1431,10 @@ impl<T: Config> Module<T> {
         origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
         portfolios: impl Iterator<Item = PortfolioId>,
-        input_cost: Option<InputCost>,
+        affirmation_count: Option<AffirmationCount>,
     ) -> DispatchResultWithPostInfo {
-        let filtered_legs = Self::base_affirm_instruction(origin, id, portfolios, input_cost)?;
+        let filtered_legs =
+            Self::base_affirm_instruction(origin, id, portfolios, affirmation_count)?;
         let instruction_asset_count = filtered_legs.unfiltered_asset_count();
         let weight_limit = Self::execute_scheduled_instruction_weight_limit(
             instruction_asset_count.fungible(),
@@ -1598,7 +1577,7 @@ impl<T: Config> Module<T> {
         origin: T::RuntimeOrigin,
         id: InstructionId,
         portfolio: PortfolioId,
-        input_cost: Option<AssetCount>,
+        instruction_count: Option<AssetCount>,
     ) -> DispatchResultWithPostInfo {
         ensure!(
             Self::instruction_status(id) != InstructionStatus::Unknown,
@@ -1608,8 +1587,8 @@ impl<T: Config> Module<T> {
         let legs: Vec<(LegId, Leg)> = InstructionLegs::iter_prefix(&id).collect();
         let instruction_asset_count = AssetCount::from_legs(&legs);
         // If the fee was estimated in advance, the input values must be at least equal to the actual values
-        if let Some(input_cost) = input_cost {
-            Self::ensure_valid_cost(&instruction_asset_count, &input_cost)?;
+        if let Some(instruction_count) = instruction_count {
+            Self::ensure_valid_cost(&instruction_asset_count, &instruction_count)?;
         }
         ensure!(
             Self::is_portfolio_present(&legs, &portfolio),
@@ -1995,7 +1974,7 @@ impl<T: Config> Module<T> {
         origin: T::RuntimeOrigin,
         id: InstructionId,
         portfolios: Vec<PortfolioId>,
-        input_cost: Option<InputCost>,
+        affirmation_count: Option<AffirmationCount>,
     ) -> DispatchResultWithPostInfo {
         let (did, secondary_key, details) =
             Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
@@ -2004,7 +1983,7 @@ impl<T: Config> Module<T> {
             id,
             portfolios,
             secondary_key.as_ref(),
-            input_cost,
+            affirmation_count,
         )?;
         if details.settlement_type == SettlementType::SettleOnAffirmation {
             // Cancel the scheduled task for the execution of a given instruction.
@@ -2019,18 +1998,23 @@ impl<T: Config> Module<T> {
         )))
     }
 
-    /// Returns `Ok` if the number of assets in [`InputCost`] is greater or equal to the actual number of assets.
-    fn ensure_valid_input_cost(
-        sender_asset_count: &AssetCount,
-        receiver_asset_count: &AssetCount,
-        n_offchain: u32,
-        input_cost: &InputCost,
+    /// Returns `Ok` if the number of assets in [`AffirmationCount`] is greater or equal to the actual number of assets.
+    fn ensure_valid_affirmation_count(
+        filtered_legs: &FilteredLegs,
+        affirmation_count: &AffirmationCount,
     ) -> DispatchResult {
-        Self::ensure_valid_cost(sender_asset_count, input_cost.sender_asset_count())?;
-        Self::ensure_valid_cost(receiver_asset_count, input_cost.receiver_asset_count())?;
+        Self::ensure_valid_cost(
+            filtered_legs.sender_asset_count(),
+            affirmation_count.sender_asset_count(),
+        )?;
+        Self::ensure_valid_cost(
+            filtered_legs.receiver_asset_count(),
+            affirmation_count.receiver_asset_count(),
+        )?;
         // Verifies if the number of off-chain assets is under the limit
         ensure!(
-            n_offchain <= input_cost.offchain_count(),
+            filtered_legs.unfiltered_asset_count().off_chain()
+                <= affirmation_count.offchain_count(),
             Error::<T>::NumberOfOffChainTransfersUnderestimated
         );
         Ok(())
@@ -2063,8 +2047,9 @@ impl<T: Config> Module<T> {
         receiver_asset_count: AssetCount,
         n_offchain: u32,
     ) -> Weight {
-        let input_cost = InputCost::new(sender_asset_count, receiver_asset_count, n_offchain);
-        <T as Config>::WeightInfo::affirm_with_receipts_input(Some(input_cost))
+        let affirmation_count =
+            AffirmationCount::new(sender_asset_count, receiver_asset_count, n_offchain);
+        <T as Config>::WeightInfo::affirm_with_receipts_input(Some(affirmation_count))
     }
 
     /// Returns the weight for calling `affirm_instruction` while considering the `sender_asset_count` for the sender and`receiver_asset_count`
@@ -2073,8 +2058,8 @@ impl<T: Config> Module<T> {
         sender_asset_count: AssetCount,
         receiver_asset_count: AssetCount,
     ) -> Weight {
-        let input_cost = InputCost::new(sender_asset_count, receiver_asset_count, 0);
-        <T as Config>::WeightInfo::affirm_instruction_input(Some(input_cost))
+        let affirmation_count = AffirmationCount::new(sender_asset_count, receiver_asset_count, 0);
+        <T as Config>::WeightInfo::affirm_instruction_input(Some(affirmation_count))
     }
 
     /// Returns the weight for calling `withdraw_affirmation` while considering the `sender_asset_count` for the sender and`receiver_asset_count`
@@ -2084,8 +2069,9 @@ impl<T: Config> Module<T> {
         receiver_asset_count: AssetCount,
         n_offchain: u32,
     ) -> Weight {
-        let input_cost = InputCost::new(sender_asset_count, receiver_asset_count, n_offchain);
-        <T as Config>::WeightInfo::withdraw_affirmation_input(Some(input_cost))
+        let affirmation_count =
+            AffirmationCount::new(sender_asset_count, receiver_asset_count, n_offchain);
+        <T as Config>::WeightInfo::withdraw_affirmation_input(Some(affirmation_count))
     }
 
     /// Returns the weight for calling `reject_instruction_weight` with the number of assets in `instruction_asset_count`.
@@ -2123,11 +2109,14 @@ impl<T: Config> Module<T> {
         }
     }
 
-    /// Returns an instance of [`InputCost`].
-    pub fn input_cost(instruction_id: InstructionId, portfolios: Vec<PortfolioId>) -> InputCost {
+    /// Returns an instance of [`AffirmationCount`].
+    pub fn affirmation_count(
+        instruction_id: InstructionId,
+        portfolios: Vec<PortfolioId>,
+    ) -> AffirmationCount {
         let portfolios = portfolios.into_iter().collect::<BTreeSet<_>>();
         let filtered_legs = Self::filtered_legs(instruction_id, &portfolios);
-        InputCost::new(
+        AffirmationCount::new(
             filtered_legs.sender_asset_count().clone(),
             filtered_legs.receiver_asset_count().clone(),
             filtered_legs.unfiltered_asset_count().off_chain(),

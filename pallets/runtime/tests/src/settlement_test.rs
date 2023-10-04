@@ -29,8 +29,9 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::settlement::{
-    AffirmationStatus, AssetCount, InputCost, Instruction, InstructionId, InstructionStatus, Leg,
-    LegId, LegStatus, Receipt, ReceiptDetails, SettlementType, VenueDetails, VenueId, VenueType,
+    AffirmationCount, AffirmationStatus, AssetCount, Instruction, InstructionId, InstructionStatus,
+    Leg, LegId, LegStatus, Receipt, ReceiptDetails, SettlementType, VenueDetails, VenueId,
+    VenueType,
 };
 use polymesh_primitives::{
     AccountId, AuthorizationData, Balance, Claim, Condition, ConditionType, Fund, FundDescription,
@@ -3425,14 +3426,15 @@ fn affirm_with_receipts_cost() {
             Some(Memo::default()),
         ),);
 
-        let input_cost = InputCost::new(AssetCount::default(), AssetCount::default(), 0);
+        let affirmation_count =
+            AffirmationCount::new(AssetCount::default(), AssetCount::default(), 0);
         assert_noop!(
             Settlement::affirm_with_receipts_v2(
                 alice.origin(),
                 id,
                 receipts_details,
                 Vec::new(),
-                Some(input_cost)
+                Some(affirmation_count)
             ),
             Error::NumberOfOffChainTransfersUnderestimated
         );
@@ -3478,23 +3480,25 @@ fn affirm_instruction_cost() {
             instruction_memo.clone(),
         ));
 
-        let input_cost = InputCost::new(AssetCount::new(0, 0, 0), AssetCount::default(), 0);
+        let affirmation_count =
+            AffirmationCount::new(AssetCount::new(0, 0, 0), AssetCount::default(), 0);
         assert_noop!(
             Settlement::affirm_instruction_v2(
                 alice.origin(),
                 InstructionId(0),
                 vec![alice_user_porfolio, alice_default_portfolio],
-                Some(input_cost)
+                Some(affirmation_count)
             ),
             Error::NumberOfFungibleTransfersUnderestimated
         );
-        let input_cost = InputCost::new(AssetCount::default(), AssetCount::new(1, 0, 0), 0);
+        let affirmation_count =
+            AffirmationCount::new(AssetCount::default(), AssetCount::new(1, 0, 0), 0);
         assert_noop!(
             Settlement::affirm_instruction_v2(
                 bob.origin(),
                 InstructionId(0),
                 vec![bob_user_porfolio, bob_default_portfolio],
-                Some(input_cost)
+                Some(affirmation_count)
             ),
             Error::NumberOfFungibleTransfersUnderestimated
         );
@@ -3528,20 +3532,22 @@ fn withdraw_affirmation_cost() {
             instruction_memo.clone(),
         ));
 
-        let input_cost = InputCost::new(AssetCount::new(1, 0, 0), AssetCount::default(), 0);
+        let affirmation_count =
+            AffirmationCount::new(AssetCount::new(1, 0, 0), AssetCount::default(), 0);
         assert_ok!(Settlement::affirm_instruction_v2(
             alice.origin(),
             InstructionId(0),
             vec![alice_default_portfolio],
-            Some(input_cost)
+            Some(affirmation_count)
         ),);
-        let input_cost = InputCost::new(AssetCount::new(0, 0, 0), AssetCount::default(), 0);
+        let affirmation_count =
+            AffirmationCount::new(AssetCount::new(0, 0, 0), AssetCount::default(), 0);
         assert_noop!(
             Settlement::withdraw_affirmation_v2(
                 alice.origin(),
                 InstructionId(0),
                 vec![alice_default_portfolio],
-                Some(input_cost)
+                Some(affirmation_count)
             ),
             Error::NumberOfFungibleTransfersUnderestimated
         );

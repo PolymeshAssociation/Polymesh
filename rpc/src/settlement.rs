@@ -24,7 +24,7 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 
 pub use node_rpc_runtime_api::settlement::SettlementApi as SettlementRuntimeApi;
-use polymesh_primitives::settlement::{ExecuteInstructionInfo, InputCost, InstructionId};
+use polymesh_primitives::settlement::{AffirmationCount, ExecuteInstructionInfo, InstructionId};
 use polymesh_primitives::PortfolioId;
 
 use crate::Error;
@@ -38,13 +38,13 @@ pub trait SettlementApi<BlockHash> {
         at: Option<BlockHash>,
     ) -> RpcResult<ExecuteInstructionInfo>;
 
-    #[method(name = "settlement_getInputCost")]
-    fn get_input_cost(
+    #[method(name = "settlement_getAffirmationCount")]
+    fn get_affirmation_count(
         &self,
         instruction_id: InstructionId,
         portfolios: Vec<PortfolioId>,
         at: Option<BlockHash>,
-    ) -> RpcResult<InputCost>;
+    ) -> RpcResult<AffirmationCount>;
 }
 
 /// An implementation of Settlement specific RPC methods.
@@ -89,21 +89,21 @@ where
             })
     }
 
-    fn get_input_cost(
+    fn get_affirmation_count(
         &self,
         instruction_id: InstructionId,
         portfolios: Vec<PortfolioId>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<InputCost> {
+    ) -> RpcResult<AffirmationCount> {
         let api = self.client.runtime_api();
         // If the block hash is not supplied assume the best block.
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_input_cost(at_hash, instruction_id, portfolios)
+        api.get_affirmation_count(at_hash, instruction_id, portfolios)
             .map_err(|e| {
                 CallError::Custom(ErrorObject::owned(
                     Error::RuntimeError.into(),
-                    "Unable to call get_input_cost runtime",
+                    "Unable to call get_affirmation_count runtime",
                     Some(e.to_string()),
                 ))
                 .into()

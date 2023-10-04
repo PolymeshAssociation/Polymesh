@@ -4,7 +4,7 @@ use frame_support::weights::Weight;
 use sp_std::vec::Vec;
 
 use polymesh_primitives::settlement::{
-    AssetCount, InputCost, InstructionId, Leg, LegId, ReceiptMetadata, SettlementType,
+    AffirmationCount, AssetCount, InstructionId, Leg, LegId, ReceiptMetadata, SettlementType,
     VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::{IdentityId, Memo, PortfolioId, Ticker};
@@ -127,18 +127,18 @@ pub trait WeightInfo {
             asset_count.off_chain(),
         )
     }
-    fn affirm_with_receipts_input(input_cost: Option<InputCost>) -> Weight {
-        match input_cost {
-            Some(input_cost) => {
+    fn affirm_with_receipts_input(affirmation_count: Option<AffirmationCount>) -> Weight {
+        match affirmation_count {
+            Some(affirmation_count) => {
                 // The weight for the assets being sent
-                let sender_asset_count = input_cost.sender_asset_count();
+                let sender_asset_count = affirmation_count.sender_asset_count();
                 let sender_side_weight = Self::affirm_with_receipts(
                     sender_asset_count.fungible(),
                     sender_asset_count.non_fungible(),
-                    input_cost.offchain_count(),
+                    affirmation_count.offchain_count(),
                 );
                 // The weight for the assets being received
-                let receiver_asset_count = input_cost.receiver_asset_count();
+                let receiver_asset_count = affirmation_count.receiver_asset_count();
                 let receiver_side_weight = Self::affirm_with_receipts_rcv(
                     receiver_asset_count.fungible(),
                     receiver_asset_count.non_fungible(),
@@ -151,20 +151,20 @@ pub trait WeightInfo {
                     .saturating_add(receiver_side_weight)
                     .saturating_sub(duplicated_weight)
             }
-            None => unimplemented!(),
+            None => Self::affirm_with_receipts(10, 100, 10),
         }
     }
-    fn affirm_instruction_input(input_cost: Option<InputCost>) -> Weight {
-        match input_cost {
-            Some(input_cost) => {
+    fn affirm_instruction_input(affirmation_count: Option<AffirmationCount>) -> Weight {
+        match affirmation_count {
+            Some(affirmation_count) => {
                 // The weight for the assets being sent
-                let sender_asset_count = input_cost.sender_asset_count();
+                let sender_asset_count = affirmation_count.sender_asset_count();
                 let sender_side_weight = Self::affirm_instruction(
                     sender_asset_count.fungible(),
                     sender_asset_count.non_fungible(),
                 );
                 // The weight for the assets being received
-                let receiver_asset_count = input_cost.receiver_asset_count();
+                let receiver_asset_count = affirmation_count.receiver_asset_count();
                 let receiver_side_weight = Self::affirm_instruction_rcv(
                     receiver_asset_count.fungible(),
                     receiver_asset_count.non_fungible(),
@@ -176,21 +176,21 @@ pub trait WeightInfo {
                     .saturating_add(receiver_side_weight)
                     .saturating_sub(duplicated_weight)
             }
-            None => unimplemented!(),
+            None => Self::affirm_instruction(10, 100),
         }
     }
-    fn withdraw_affirmation_input(input_cost: Option<InputCost>) -> Weight {
-        match input_cost {
-            Some(input_cost) => {
+    fn withdraw_affirmation_input(affirmation_count: Option<AffirmationCount>) -> Weight {
+        match affirmation_count {
+            Some(affirmation_count) => {
                 // The weight for the assets being sent
-                let sender_asset_count = input_cost.sender_asset_count();
+                let sender_asset_count = affirmation_count.sender_asset_count();
                 let sender_side_weight = Self::withdraw_affirmation(
                     sender_asset_count.fungible(),
                     sender_asset_count.non_fungible(),
-                    input_cost.offchain_count(),
+                    affirmation_count.offchain_count(),
                 );
                 // The weight for the assets being received
-                let receiver_asset_count = input_cost.receiver_asset_count();
+                let receiver_asset_count = affirmation_count.receiver_asset_count();
                 let receiver_side_weight = Self::withdraw_affirmation_rcv(
                     receiver_asset_count.fungible(),
                     receiver_asset_count.non_fungible(),
@@ -203,7 +203,7 @@ pub trait WeightInfo {
                     .saturating_add(receiver_side_weight)
                     .saturating_sub(duplicated_weight)
             }
-            None => unimplemented!(),
+            None => Self::withdraw_affirmation(10, 100, 10),
         }
     }
     fn reject_instruction_input(asset_count: Option<AssetCount>) -> Weight {
@@ -213,7 +213,7 @@ pub trait WeightInfo {
                 asset_count.non_fungible(),
                 asset_count.off_chain(),
             ),
-            None => unimplemented!(),
+            None => Self::reject_instruction(10, 100, 10),
         }
     }
 }
