@@ -2094,22 +2094,27 @@ impl<T: Config> Module<T> {
             Call::affirm_instruction { id, portfolios } => {
                 let portfolios = portfolios.into_iter().cloned().collect::<BTreeSet<_>>();
                 let filtered_legs = Self::filtered_legs(*id, &portfolios);
-                Some(Self::affirm_instruction_weight(
-                    filtered_legs.subset_asset_count(),
+                Some(Self::affirm_instruction_actual_weight(
+                    *filtered_legs.sender_asset_count(),
+                    *filtered_legs.receiver_asset_count(),
                 ))
             }
             Call::affirm_with_receipts { id, portfolios, .. } => {
                 let portfolios = portfolios.into_iter().cloned().collect::<BTreeSet<_>>();
                 let filtered_legs = Self::filtered_legs(*id, &portfolios);
-                Some(Self::affirm_with_receipts_weight(
-                    filtered_legs.subset_asset_count(),
+                Some(Self::affirm_with_receipts_actual_weight(
+                    *filtered_legs.sender_asset_count(),
+                    *filtered_legs.receiver_asset_count(),
+                    filtered_legs.unfiltered_asset_count().off_chain(),
                 ))
             }
             Call::withdraw_affirmation { id, portfolios } => {
                 let portfolios = portfolios.into_iter().cloned().collect::<BTreeSet<_>>();
                 let filtered_legs = Self::filtered_legs(*id, &portfolios);
-                Some(Self::withdraw_affirmation_weight(
-                    filtered_legs.subset_asset_count(),
+                Some(Self::withdraw_affirmation_actual_weight(
+                    *filtered_legs.sender_asset_count(),
+                    *filtered_legs.receiver_asset_count(),
+                    filtered_legs.unfiltered_asset_count().off_chain(),
                 ))
             }
             Call::reject_instruction { id, .. } => {
