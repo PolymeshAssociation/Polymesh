@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 pallet-permissions = { path = "../permissions", default-features = false }
-pallet-transaction-payment = { path = "../transaction-payment", default-features = false }
 polymesh-common-utilities = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 
@@ -50,7 +49,6 @@ std = [
 	"pallet-timestamp/std",
 	"polymesh-common-utilities/std",
 	"polymesh-primitives/std",
-	"pallet-transaction-payment/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

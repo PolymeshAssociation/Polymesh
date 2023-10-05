@@ -240,7 +240,7 @@ fn query_info_works() {
             TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(3, 2));
 
             assert_eq!(
-                TransactionPayment::query_info(xt, len),
+                TransactionPayment::query_info(xt, len, None),
                 RuntimeDispatchInfo {
                     weight: info.weight,
                     class: info.class,

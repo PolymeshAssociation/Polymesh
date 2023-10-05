@@ -454,6 +454,7 @@ where
     pub fn query_info<Extrinsic: sp_runtime::traits::Extrinsic + GetDispatchInfo>(
         unchecked_extrinsic: Extrinsic,
         len: u32,
+        actual: Option<Weight>,
     ) -> RuntimeDispatchInfo<BalanceOf<T>>
     where
         T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
@@ -463,7 +464,11 @@ where
         // `Extra`. Alternatively, we could actually execute the tx's per-dispatch and record the
         // balance of the sender before and after the pipeline.. but this is way too much hassle for
         // a very very little potential gain in the future.
-        let dispatch_info = <Extrinsic as GetDispatchInfo>::get_dispatch_info(&unchecked_extrinsic);
+        let mut dispatch_info =
+            <Extrinsic as GetDispatchInfo>::get_dispatch_info(&unchecked_extrinsic);
+        if let Some(weight) = actual {
+            dispatch_info.weight = weight;
+        }
 
         let partial_fee = if unchecked_extrinsic.is_signed().unwrap_or(false) {
             Self::compute_fee(len, &dispatch_info, 0u32.into())
@@ -485,11 +490,16 @@ where
     pub fn query_fee_details<Extrinsic: sp_runtime::traits::Extrinsic + GetDispatchInfo>(
         unchecked_extrinsic: Extrinsic,
         len: u32,
+        actual: Option<Weight>,
     ) -> FeeDetails<BalanceOf<T>>
     where
         T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
     {
-        let dispatch_info = <Extrinsic as GetDispatchInfo>::get_dispatch_info(&unchecked_extrinsic);
+        let mut dispatch_info =
+            <Extrinsic as GetDispatchInfo>::get_dispatch_info(&unchecked_extrinsic);
+        if let Some(weight) = actual {
+            dispatch_info.weight = weight;
+        }
 
         let tip = 0u32.into();
 
@@ -505,11 +515,18 @@ where
     }
 
     /// Query information of a dispatch class, weight, and fee of a given encoded `Call`.
-    pub fn query_call_info(call: T::RuntimeCall, len: u32) -> RuntimeDispatchInfo<BalanceOf<T>>
+    pub fn query_call_info(
+        call: T::RuntimeCall,
+        len: u32,
+        actual: Option<Weight>,
+    ) -> RuntimeDispatchInfo<BalanceOf<T>>
     where
         T::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
     {
-        let dispatch_info = <T::RuntimeCall as GetDispatchInfo>::get_dispatch_info(&call);
+        let mut dispatch_info = <T::RuntimeCall as GetDispatchInfo>::get_dispatch_info(&call);
+        if let Some(weight) = actual {
+            dispatch_info.weight = weight;
+        }
         let DispatchInfo { weight, class, .. } = dispatch_info;
 
         RuntimeDispatchInfo {
@@ -520,11 +537,18 @@ where
     }
 
     /// Query fee details of a given encoded `Call`.
-    pub fn query_call_fee_details(call: T::RuntimeCall, len: u32) -> FeeDetails<BalanceOf<T>>
+    pub fn query_call_fee_details(
+        call: T::RuntimeCall,
+        len: u32,
+        actual: Option<Weight>,
+    ) -> FeeDetails<BalanceOf<T>>
     where
         T::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
     {
-        let dispatch_info = <T::RuntimeCall as GetDispatchInfo>::get_dispatch_info(&call);
+        let mut dispatch_info = <T::RuntimeCall as GetDispatchInfo>::get_dispatch_info(&call);
+        if let Some(weight) = actual {
+            dispatch_info.weight = weight;
+        }
         let tip = 0u32.into();
 
         Self::compute_fee_details(len, &dispatch_info, tip)
