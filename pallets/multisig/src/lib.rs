@@ -149,7 +149,8 @@ decl_storage! {
         /// Number of transactions proposed in a multisig. Used as tx id; starts from 0.
         pub MultiSigTxDone get(fn ms_tx_done): map hasher(identity) T::AccountId => u64;
         /// Proposals presented for voting to a multisig (multisig, proposal id) => Option<T::Proposal>.
-        pub Proposals get(fn proposals): map hasher(twox_64_concat) (T::AccountId, u64) => Option<T::Proposal>;
+        pub Proposals get(fn proposals):
+            double_map hasher(twox_64_concat) T::AccountId, hasher(twox_64_concat) u64 => Option<T::Proposal>;
         /// A mapping of proposals to their IDs.
         pub ProposalIds get(fn proposal_ids):
             double_map hasher(identity) T::AccountId, hasher(blake2_128_concat) T::Proposal => Option<u64>;
@@ -732,7 +733,7 @@ impl<T: Config> Module<T> {
                 .unwrap_or_else(|_| <MultiSigToIdentity<T>>::get(&multisig)),
         };
         let proposal_id = Self::ms_tx_done(multisig.clone());
-        <Proposals<T>>::insert((multisig.clone(), proposal_id), proposal.clone());
+        <Proposals<T>>::insert(multisig.clone(), proposal_id, proposal.clone());
         if proposal_to_id {
             // Only use the `Proposal` -> id map for `create_or_approve_proposal` calls.
             <ProposalIds<T>>::insert(multisig.clone(), *proposal, proposal_id);
@@ -785,7 +786,7 @@ impl<T: Config> Module<T> {
             Error::<T>::AlreadyVoted
         );
         ensure!(
-            <Proposals<T>>::contains_key(&multisig_proposal),
+            <Proposals<T>>::contains_key(&multisig, proposal_id),
             Error::<T>::ProposalMissing
         );
 
@@ -807,7 +808,7 @@ impl<T: Config> Module<T> {
                     );
                 }
                 if proposal_details.approvals >= Self::ms_signs_required(&multisig) {
-                    if let Some(proposal) = Self::proposals((multisig.clone(), proposal_id)) {
+                    if let Some(proposal) = Self::proposals(&multisig, proposal_id) {
                         let execution_at = frame_system::Pallet::<T>::block_number() + One::one();
                         let call = Call::<T>::execute_scheduled_proposal {
                             multisig: multisig.clone(),
@@ -857,7 +858,7 @@ impl<T: Config> Module<T> {
         T::CddHandler::set_current_identity(&multisig_did);
         T::CddHandler::set_payer_context(Identity::<T>::get_primary_key(multisig_did));
 
-        if let Some(proposal) = Self::proposals((multisig.clone(), proposal_id)) {
+        if let Some(proposal) = Self::proposals(&multisig, proposal_id) {
             let update_proposal_status = |status| {
                 <ProposalDetail<T>>::mutate((&multisig, proposal_id), |proposal_details| {
                     proposal_details.status = status
