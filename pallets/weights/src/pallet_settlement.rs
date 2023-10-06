@@ -739,4 +739,117 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
         // Minimum execution time: 882 nanoseconds.
         Weight::from_ref_time(992_000)
     }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionDetails (r:1 w:0)
+    // Proof Skipped: Settlement InstructionDetails (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionStatuses (r:1 w:0)
+    // Proof Skipped: Settlement InstructionStatuses (max_values: None, max_size: None, mode: Measured)
+    // Storage: Portfolio PortfolioCustodian (r:110 w:0)
+    // Proof Skipped: Portfolio PortfolioCustodian (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement UserAffirmations (r:110 w:110)
+    // Proof Skipped: Settlement UserAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement VenueSigners (r:1 w:0)
+    // Proof Skipped: Settlement VenueSigners (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement ReceiptsUsed (r:10 w:10)
+    // Proof Skipped: Settlement ReceiptsUsed (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionLegs (r:121 w:0)
+    // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement OffChainAffirmations (r:10 w:10)
+    // Proof Skipped: Settlement OffChainAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
+    // Proof Skipped: Settlement InstructionAffirmsPending (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement AffirmsReceived (r:0 w:110)
+    // Proof Skipped: Settlement AffirmsReceived (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionLegStatus (r:0 w:10)
+    // Proof Skipped: Settlement InstructionLegStatus (max_values: None, max_size: None, mode: Measured)
+    /// The range of component `f` is `[1, 10]`.
+    /// The range of component `n` is `[0, 100]`.
+    /// The range of component `o` is `[0, 10]`.
+    fn affirm_with_receipts_rcv(f: u32, n: u32, o: u32) -> Weight {
+        // Minimum execution time: 1_491_962 nanoseconds.
+        Weight::from_ref_time(56_498_066)
+            // Standard Error: 2_370_582
+            .saturating_add(Weight::from_ref_time(38_932_223).saturating_mul(f.into()))
+            // Standard Error: 219_285
+            .saturating_add(Weight::from_ref_time(31_679_988).saturating_mul(n.into()))
+            // Standard Error: 2_147_381
+            .saturating_add(Weight::from_ref_time(115_037_469).saturating_mul(o.into()))
+            .saturating_add(DbWeight::get().reads(6))
+            .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(o.into())))
+            .saturating_add(DbWeight::get().writes(1))
+            .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
+    }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionDetails (r:1 w:0)
+    // Proof Skipped: Settlement InstructionDetails (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionStatuses (r:1 w:0)
+    // Proof Skipped: Settlement InstructionStatuses (max_values: None, max_size: None, mode: Measured)
+    // Storage: Portfolio PortfolioCustodian (r:110 w:0)
+    // Proof Skipped: Portfolio PortfolioCustodian (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement UserAffirmations (r:110 w:110)
+    // Proof Skipped: Settlement UserAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionLegs (r:121 w:0)
+    // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
+    // Proof Skipped: Settlement InstructionAffirmsPending (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement AffirmsReceived (r:0 w:110)
+    // Proof Skipped: Settlement AffirmsReceived (max_values: None, max_size: None, mode: Measured)
+    /// The range of component `f` is `[1, 10]`.
+    /// The range of component `n` is `[1, 100]`.
+    fn affirm_instruction_rcv(f: u32, n: u32) -> Weight {
+        // Minimum execution time: 486_570 nanoseconds.
+        Weight::from_ref_time(186_837_840)
+            // Standard Error: 1_850_827
+            .saturating_add(Weight::from_ref_time(35_182_815).saturating_mul(f.into()))
+            // Standard Error: 173_918
+            .saturating_add(Weight::from_ref_time(30_285_971).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(15))
+            .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes(1))
+            .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(n.into())))
+    }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionDetails (r:1 w:0)
+    // Proof Skipped: Settlement InstructionDetails (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionStatuses (r:1 w:0)
+    // Proof Skipped: Settlement InstructionStatuses (max_values: None, max_size: None, mode: Measured)
+    // Storage: Portfolio PortfolioCustodian (r:110 w:0)
+    // Proof Skipped: Portfolio PortfolioCustodian (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement UserAffirmations (r:110 w:110)
+    // Proof Skipped: Settlement UserAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionLegs (r:121 w:0)
+    // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
+    // Proof Skipped: Settlement InstructionAffirmsPending (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement AffirmsReceived (r:0 w:110)
+    // Proof Skipped: Settlement AffirmsReceived (max_values: None, max_size: None, mode: Measured)
+    /// The range of component `f` is `[1, 10]`.
+    /// The range of component `n` is `[0, 100]`.
+    /// The range of component `o` is `[0, 10]`.
+    fn withdraw_affirmation_rcv(f: u32, n: u32, o: u32) -> Weight {
+        // Minimum execution time: 457_757 nanoseconds.
+        Weight::from_ref_time(123_705_314)
+            // Standard Error: 1_650_659
+            .saturating_add(Weight::from_ref_time(25_960_854).saturating_mul(f.into()))
+            // Standard Error: 152_690
+            .saturating_add(Weight::from_ref_time(30_443_435).saturating_mul(n.into()))
+            // Standard Error: 1_495_242
+            .saturating_add(Weight::from_ref_time(10_850_140).saturating_mul(o.into()))
+            .saturating_add(DbWeight::get().reads(5))
+            .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(o.into())))
+            .saturating_add(DbWeight::get().writes(1))
+            .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(n.into())))
+    }
 }
