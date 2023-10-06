@@ -113,11 +113,11 @@ fn signers_approve_bridge_tx(tx: BridgeTx, signers: &[AccountId]) -> BridgeTx {
         // Fetch proposal ID if unknown.
         let p_id = proposal_id
             .get_or_insert_with(|| {
-                MultiSig::proposal_ids(&controller.clone(), proposal.clone()).unwrap_or_default()
+                MultiSig::proposal_ids(&controller, proposal.clone()).unwrap_or_default()
             })
             .clone();
         assert_eq!(
-            MultiSig::proposal_detail(&(controller.clone(), p_id)).approvals,
+            MultiSig::proposal_detail(&controller, p_id).approvals,
             (i + 1) as u64
         );
     }
