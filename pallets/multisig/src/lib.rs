@@ -148,7 +148,9 @@ decl_storage! {
         pub MultiSigSignsRequired get(fn ms_signs_required): map hasher(identity) T::AccountId => u64;
         /// Number of transactions proposed in a multisig. Used as tx id; starts from 0.
         pub MultiSigTxDone get(fn ms_tx_done): map hasher(identity) T::AccountId => u64;
-        /// Proposals presented for voting to a multisig (multisig, proposal id) => Option<T::Proposal>.
+        /// Proposals presented for voting to a multisig.
+        ///
+        /// multisig -> proposal id => Option<T::Proposal>.
         pub Proposals get(fn proposals):
             double_map hasher(twox_64_concat) T::AccountId, hasher(twox_64_concat) u64 => Option<T::Proposal>;
         /// A mapping of proposals to their IDs.
