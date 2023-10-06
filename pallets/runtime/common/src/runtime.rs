@@ -576,7 +576,7 @@ macro_rules! runtime_apis {
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
         use polymesh_primitives::asset::GranularCanTransferResult;
-        use polymesh_primitives::settlement::{InstructionId, ExecuteInstructionInfo};
+        use polymesh_primitives::settlement::{InstructionId, ExecuteInstructionInfo, AffirmationCount};
         use polymesh_primitives::{
             asset::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, NFTs,
             PortfolioId, Signatory, Ticker, WeightMeter, IdentityClaim
@@ -1005,6 +1005,14 @@ macro_rules! runtime_apis {
                     instruction_id: &InstructionId
                 ) -> ExecuteInstructionInfo {
                     Settlement::execute_instruction_info(instruction_id)
+                }
+
+                #[inline]
+                fn get_affirmation_count(
+                    instruction_id: InstructionId,
+                    portfolios: Vec<PortfolioId>,
+                ) -> AffirmationCount {
+                    Settlement::affirmation_count(instruction_id, portfolios)
                 }
             }
 
