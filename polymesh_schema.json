@@ -1221,6 +1221,16 @@
       "off_chain_assets": "u32",
       "consumed_weight": "Weight",
       "error": "Option<String>"
+    },
+    "AssetCount": {
+      "fungible_tokens": "u32",
+      "non_fungible_tokens": "u32",
+      "off_chain_assets": "u32"
+    },
+    "AffirmationCount": {
+      "sender_asset_count": "AssetCount",
+      "receiver_asset_count": "AssetCount",
+      "offchain_count": "u32"
     }
   },
   "rpc": {
@@ -1730,7 +1740,7 @@
       {
         "methods": {
           "get_execute_instruction_info": {
-            "description": "Returns an ExecuteInstructionInfo instance, containing the consumed weight and the number of tokens in the instruction.",
+            "description": "Returns an ExecuteInstructionInfo instance containing the consumed weight and the number of tokens in the instruction.",
             "params": [
               {
                 "name": "instruction_id",
@@ -1738,6 +1748,20 @@
               }
             ],
             "type": "ExecuteInstructionInfo"
+          },
+          "get_affirmation_count": {
+            "description": "Returns an AffirmationCount instance containing the number of assets being sent/received from portfolios, and the number of off-chain assets in the instruction.",
+            "params": [
+              {
+                "name": "instruction_id",
+                "type": "InstructionId"
+              },
+              {
+                "name": "portfolios",
+                "type": "Vec<PortfolioId>"
+              }
+            ],
+            "type": "AffirmationCount"
           }
         },
         "version": 1

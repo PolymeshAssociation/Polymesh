@@ -555,4 +555,79 @@ benchmarks! {
     }: {
         assert!(Module::<T>::ensure_root_origin(origin.into()).is_ok());
     }
+
+    affirm_with_receipts_rcv {
+        // Number of fungible, non fungible and offchain assets
+        let f in 1..T::MaxNumberOfFungibleAssets::get();
+        let n in 0..T::MaxNumberOfNFTs::get();
+        let o in 0..T::MaxNumberOfOffChainAssets::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
+
+        let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
+        Module::<T>::add_instruction(
+            alice.origin.clone().into(),
+            venue_id,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            parameters.legs,
+            Some(Memo::default()),
+        ).unwrap();
+
+        let receipt_details = (0..o)
+            .map(|i| {
+                setup_receipt_details(
+                    &alice,
+                    alice.did(),
+                    bob.did(),
+                    ONE_UNIT,
+                    InstructionId(1),
+                    i
+                )
+            })
+            .collect();
+        let portfolios =
+            [parameters.portfolios.rcv_portfolios, parameters.portfolios.rcv_receipt_portfolios].concat();
+    }: affirm_with_receipts(bob.origin, InstructionId(1), receipt_details, portfolios)
+
+    affirm_instruction_rcv {
+        // Number of fungible and non-fungible assets in the portfolios
+        let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
+        let n in 1..T::MaxNumberOfNFTs::get() as u32;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let memo = Some(Memo::default());
+        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
+
+        let parameters = setup_legs::<T>(&alice, &bob, f, n, T::MaxNumberOfOffChainAssets::get(), false, false);
+        Module::<T>::add_instruction(
+            alice.origin.clone().into(),
+            venue_id,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            parameters.legs,
+            memo,
+        ).unwrap();
+    }: affirm_instruction(bob.origin, InstructionId(1), parameters.portfolios.rcv_portfolios)
+
+    withdraw_affirmation_rcv {
+        // Number of fungible, non-fungible and offchain LEGS in the portfolios
+        let f in 1..T::MaxNumberOfFungibleAssets::get();
+        let n in 0..T::MaxNumberOfNFTs::get();
+        let o in 0..T::MaxNumberOfOffChainAssets::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
+        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
+
+        let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, false, false);
+        let portfolios =
+            [parameters.portfolios.rcv_portfolios, parameters.portfolios.rcv_receipt_portfolios].concat();
+    }: withdraw_affirmation(bob.origin, InstructionId(1),  portfolios)
 }
