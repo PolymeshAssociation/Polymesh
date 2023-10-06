@@ -156,12 +156,18 @@ decl_storage! {
         /// A mapping of proposals to their IDs.
         pub ProposalIds get(fn proposal_ids):
             double_map hasher(identity) T::AccountId, hasher(blake2_128_concat) T::Proposal => Option<u64>;
-        /// Individual multisig signer votes. (multi sig, signer, proposal) => vote.
-        pub Votes get(fn votes): map hasher(twox_64_concat) (T::AccountId, Signatory<T::AccountId>, u64) => bool;
+        /// Individual multisig signer votes.
+        ///
+        /// multi sig -> (signer, proposal) => vote.
+        pub Votes get(fn votes):
+            double_map hasher(twox_64_concat) T::AccountId, hasher(twox_64_concat) (Signatory<T::AccountId>, u64) => bool;
         /// Maps a multisig account to its identity.
         pub MultiSigToIdentity get(fn ms_to_identity): map hasher(identity) T::AccountId => IdentityId;
         /// Details of a multisig proposal
-        pub ProposalDetail get(fn proposal_detail): map hasher(twox_64_concat) (T::AccountId, u64) => ProposalDetails<T::Moment>;
+        ///
+        /// multisig -> proposal id => ProposalDetails.
+        pub ProposalDetail get(fn proposal_detail):
+            double_map hasher(twox_64_concat) T::AccountId, hasher(twox_64_concat) u64 => ProposalDetails<T::Moment>;
         /// Tracks creators who are no longer allowed to call via_creator extrinsics.
         pub LostCreatorPrivileges get(fn lost_creator_privileges): map hasher(identity) IdentityId => bool;
 
@@ -741,7 +747,8 @@ impl<T: Config> Module<T> {
             <ProposalIds<T>>::insert(multisig.clone(), *proposal, proposal_id);
         }
         <ProposalDetail<T>>::insert(
-            (multisig.clone(), proposal_id),
+            &multisig,
+            proposal_id,
             ProposalDetails::new(expiry, auto_close),
         );
         // Since proposal_ids are always only incremented by 1, they can not overflow.
@@ -781,10 +788,8 @@ impl<T: Config> Module<T> {
         proposal_id: u64,
     ) -> DispatchResult {
         Self::ensure_ms_signer(&multisig, &signer)?;
-        let multisig_signer_proposal = (multisig.clone(), signer.clone(), proposal_id);
-        let multisig_proposal = (multisig.clone(), proposal_id);
         ensure!(
-            !Self::votes(&multisig_signer_proposal),
+            !Self::votes(&multisig, (&signer, proposal_id)),
             Error::<T>::AlreadyVoted
         );
         ensure!(
@@ -792,7 +797,7 @@ impl<T: Config> Module<T> {
             Error::<T>::ProposalMissing
         );
 
-        let mut proposal_details = Self::proposal_detail(&multisig_proposal);
+        let mut proposal_details = Self::proposal_detail(&multisig, proposal_id);
         proposal_details.approvals += 1u64;
         let multisig_did = <MultiSigToIdentity<T>>::get(&multisig);
         match proposal_details.status {
@@ -835,8 +840,8 @@ impl<T: Config> Module<T> {
             }
         }
         // Update storage
-        <Votes<T>>::insert(&multisig_signer_proposal, true);
-        <ProposalDetail<T>>::insert(&multisig_proposal, proposal_details);
+        <Votes<T>>::insert(&multisig, (&signer, proposal_id), true);
+        <ProposalDetail<T>>::insert(&multisig, proposal_id, proposal_details);
         // emit proposal approved event
         Self::deposit_event(RawEvent::ProposalApproved(
             multisig_did,
@@ -862,7 +867,7 @@ impl<T: Config> Module<T> {
 
         if let Some(proposal) = Self::proposals(&multisig, proposal_id) {
             let update_proposal_status = |status| {
-                <ProposalDetail<T>>::mutate((&multisig, proposal_id), |proposal_details| {
+                <ProposalDetail<T>>::mutate(&multisig, proposal_id, |proposal_details| {
                     proposal_details.status = status
                 })
             };
@@ -896,13 +901,11 @@ impl<T: Config> Module<T> {
         proposal_id: u64,
     ) -> DispatchResult {
         Self::ensure_ms_signer(&multisig, &signer)?;
-        let multisig_signer_proposal = (multisig.clone(), signer.clone(), proposal_id);
-        let multisig_proposal = (multisig.clone(), proposal_id);
         ensure!(
-            !Self::votes(&multisig_signer_proposal),
+            !Self::votes(&multisig, (&signer, proposal_id)),
             Error::<T>::AlreadyVoted
         );
-        let mut proposal_details = Self::proposal_detail(&multisig_proposal);
+        let mut proposal_details = Self::proposal_detail(&multisig, proposal_id);
         proposal_details.rejections += 1u64;
         let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
         match proposal_details.status {
@@ -934,8 +937,8 @@ impl<T: Config> Module<T> {
             }
         }
         // Update storage
-        <Votes<T>>::insert(&multisig_signer_proposal, true);
-        <ProposalDetail<T>>::insert(&multisig_proposal, proposal_details);
+        <Votes<T>>::insert(&multisig, (&signer, proposal_id), true);
+        <ProposalDetail<T>>::insert(&multisig, proposal_id, proposal_details);
         // emit proposal rejected event
         Self::deposit_event(RawEvent::ProposalRejectionVote(
             current_did,
