@@ -158,9 +158,9 @@ decl_storage! {
             double_map hasher(identity) T::AccountId, hasher(blake2_128_concat) T::Proposal => Option<u64>;
         /// Individual multisig signer votes.
         ///
-        /// multi sig -> (signer, proposal) => vote.
+        /// (multisig, proposal_id) -> signer => vote.
         pub Votes get(fn votes):
-            double_map hasher(twox_64_concat) T::AccountId, hasher(twox_64_concat) (Signatory<T::AccountId>, u64) => bool;
+            double_map hasher(twox_64_concat) (T::AccountId, u64), hasher(twox_64_concat) Signatory<T::AccountId> => bool;
         /// Maps a multisig account to its identity.
         pub MultiSigToIdentity get(fn ms_to_identity): map hasher(identity) T::AccountId => IdentityId;
         /// Details of a multisig proposal
@@ -789,7 +789,7 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         Self::ensure_ms_signer(&multisig, &signer)?;
         ensure!(
-            !Self::votes(&multisig, (&signer, proposal_id)),
+            !Self::votes((&multisig, proposal_id), &signer),
             Error::<T>::AlreadyVoted
         );
         ensure!(
@@ -840,7 +840,7 @@ impl<T: Config> Module<T> {
             }
         }
         // Update storage
-        <Votes<T>>::insert(&multisig, (&signer, proposal_id), true);
+        <Votes<T>>::insert((&multisig, proposal_id), &signer, true);
         <ProposalDetail<T>>::insert(&multisig, proposal_id, proposal_details);
         // emit proposal approved event
         Self::deposit_event(RawEvent::ProposalApproved(
@@ -902,7 +902,7 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         Self::ensure_ms_signer(&multisig, &signer)?;
         ensure!(
-            !Self::votes(&multisig, (&signer, proposal_id)),
+            !Self::votes((&multisig, proposal_id), &signer),
             Error::<T>::AlreadyVoted
         );
         let mut proposal_details = Self::proposal_detail(&multisig, proposal_id);
@@ -937,7 +937,7 @@ impl<T: Config> Module<T> {
             }
         }
         // Update storage
-        <Votes<T>>::insert(&multisig, (&signer, proposal_id), true);
+        <Votes<T>>::insert((&multisig, proposal_id), &signer, true);
         <ProposalDetail<T>>::insert(&multisig, proposal_id, proposal_details);
         // emit proposal rejected event
         Self::deposit_event(RawEvent::ProposalRejectionVote(

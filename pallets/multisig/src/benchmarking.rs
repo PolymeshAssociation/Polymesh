@@ -191,7 +191,7 @@ macro_rules! assert_proposal_created {
 
 macro_rules! assert_vote_cast {
     ($proposal_id:ident, $multisig:ident, $signatory:expr) => {
-        assert!(<MultiSig<T>>::votes($multisig, ($signatory, $proposal_id)));
+        assert!(<MultiSig<T>>::votes(($multisig, $proposal_id), $signatory));
     };
 }
 
