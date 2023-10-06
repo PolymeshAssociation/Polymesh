@@ -3429,7 +3429,7 @@ fn affirm_with_receipts_cost() {
         let affirmation_count =
             AffirmationCount::new(AssetCount::default(), AssetCount::default(), 0);
         assert_noop!(
-            Settlement::affirm_with_receipts_v2(
+            Settlement::affirm_with_receipts_with_count(
                 alice.origin(),
                 id,
                 receipts_details,
@@ -3483,7 +3483,7 @@ fn affirm_instruction_cost() {
         let affirmation_count =
             AffirmationCount::new(AssetCount::new(0, 0, 0), AssetCount::default(), 0);
         assert_noop!(
-            Settlement::affirm_instruction_v2(
+            Settlement::affirm_instruction_with_count(
                 alice.origin(),
                 InstructionId(0),
                 vec![alice_user_porfolio, alice_default_portfolio],
@@ -3494,7 +3494,7 @@ fn affirm_instruction_cost() {
         let affirmation_count =
             AffirmationCount::new(AssetCount::default(), AssetCount::new(1, 0, 0), 0);
         assert_noop!(
-            Settlement::affirm_instruction_v2(
+            Settlement::affirm_instruction_with_count(
                 bob.origin(),
                 InstructionId(0),
                 vec![bob_user_porfolio, bob_default_portfolio],
@@ -3534,7 +3534,7 @@ fn withdraw_affirmation_cost() {
 
         let affirmation_count =
             AffirmationCount::new(AssetCount::new(1, 0, 0), AssetCount::default(), 0);
-        assert_ok!(Settlement::affirm_instruction_v2(
+        assert_ok!(Settlement::affirm_instruction_with_count(
             alice.origin(),
             InstructionId(0),
             vec![alice_default_portfolio],
@@ -3543,7 +3543,7 @@ fn withdraw_affirmation_cost() {
         let affirmation_count =
             AffirmationCount::new(AssetCount::new(0, 0, 0), AssetCount::default(), 0);
         assert_noop!(
-            Settlement::withdraw_affirmation_v2(
+            Settlement::withdraw_affirmation_with_count(
                 alice.origin(),
                 InstructionId(0),
                 vec![alice_default_portfolio],
@@ -3597,7 +3597,7 @@ fn reject_instruction_cost() {
         ));
 
         assert_noop!(
-            Settlement::reject_instruction_v2(
+            Settlement::reject_instruction_with_count(
                 bob.origin(),
                 InstructionId(0),
                 bob_default_portfolio,
@@ -3605,7 +3605,7 @@ fn reject_instruction_cost() {
             ),
             Error::NumberOfTransferredNFTsUnderestimated
         );
-        assert_ok!(Settlement::reject_instruction_v2(
+        assert_ok!(Settlement::reject_instruction_with_count(
             bob.origin(),
             InstructionId(0),
             bob_default_portfolio,

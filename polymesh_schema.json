@@ -1227,7 +1227,7 @@
       "non_fungible_tokens": "u32",
       "off_chain_assets": "u32"
     },
-    "InputCost": {
+    "AffirmationCount": {
       "sender_asset_count": "AssetCount",
       "receiver_asset_count": "AssetCount",
       "offchain_count": "u32"
@@ -1749,8 +1749,8 @@
             ],
             "type": "ExecuteInstructionInfo"
           },
-          "get_input_cost": {
-            "description": "Returns an InputCost instance containing the number of assets being sent/received from portfolios, and the number of off-chain assets in the instruction.",
+          "get_affirmation_count": {
+            "description": "Returns an AffirmationCount instance containing the number of assets being sent/received from portfolios, and the number of off-chain assets in the instruction.",
             "params": [
               {
                 "name": "instruction_id",
@@ -1761,7 +1761,7 @@
                 "type": "Vec<PortfolioId>"
               }
             ],
-            "type": "InputCost"
+            "type": "AffirmationCount"
           }
         },
         "version": 1

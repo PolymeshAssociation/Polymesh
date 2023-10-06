@@ -637,7 +637,7 @@ decl_module! {
         /// # Permissions
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::affirm_with_receipts_input(*number_of_assets)]
-        pub fn affirm_with_receipts_v2(
+        pub fn affirm_with_receipts_with_count(
             origin,
             id: InstructionId,
             receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
@@ -666,7 +666,7 @@ decl_module! {
         /// # Permissions
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::affirm_instruction_input(*number_of_assets)]
-        pub fn affirm_instruction_v2(
+        pub fn affirm_instruction_with_count(
             origin,
             id: InstructionId,
             portfolios: Vec<PortfolioId>,
@@ -693,7 +693,7 @@ decl_module! {
         /// # Permissions
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::reject_instruction_input(*number_of_assets)]
-        pub fn reject_instruction_v2(
+        pub fn reject_instruction_with_count(
             origin,
             id: InstructionId,
             portfolio: PortfolioId,
@@ -715,7 +715,7 @@ decl_module! {
         /// # Permissions
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::withdraw_affirmation_input(*number_of_assets)]
-        pub fn withdraw_affirmation_v2(
+        pub fn withdraw_affirmation_with_count(
             origin,
             id: InstructionId,
             portfolios: Vec<PortfolioId>,
