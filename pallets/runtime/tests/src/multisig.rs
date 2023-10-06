@@ -203,8 +203,7 @@ fn change_multisig_sigs_required() {
 
         assert_eq!(MultiSig::ms_signs_required(ms_address.clone()), 2);
 
-        let proposal = (ms_address.clone(), 0);
-        let proposal_details = MultiSig::proposal_detail(&proposal);
+        let proposal_details = MultiSig::proposal_detail(&ms_address, 0);
         assert_eq!(proposal_details.status, ProposalStatus::ActiveOrExpired);
 
         set_curr_did(Some(alice_did));
@@ -860,7 +859,7 @@ fn check_for_approval_closure() {
             after_extra_approval_multi_purpose_nonce
         );
         assert_eq!(
-            MultiSig::proposal_detail(&(ms_address.clone(), proposal_id)).approvals,
+            MultiSig::proposal_detail(&ms_address, proposal_id).approvals,
             1
         );
     });
@@ -947,7 +946,7 @@ fn reject_proposals() {
             ms_address.clone(),
             proposal_id1
         ));
-        let proposal_details1 = MultiSig::proposal_detail(&(ms_address.clone(), proposal_id1));
+        let proposal_details1 = MultiSig::proposal_detail(&ms_address, proposal_id1);
         assert_eq!(proposal_details1.approvals, 2);
         assert_eq!(proposal_details1.rejections, 3);
         assert_eq!(proposal_details1.status, ProposalStatus::ActiveOrExpired);
@@ -977,7 +976,7 @@ fn reject_proposals() {
             Error::ProposalAlreadyRejected
         );
 
-        let proposal_details2 = MultiSig::proposal_detail(&(ms_address.clone(), proposal_id2));
+        let proposal_details2 = MultiSig::proposal_detail(&ms_address, proposal_id2);
         next_block();
         assert_eq!(proposal_details2.approvals, 1);
         assert_eq!(proposal_details2.rejections, 3);
@@ -1263,7 +1262,7 @@ fn expired_proposals() {
         ));
 
         let proposal_id = MultiSig::ms_tx_done(ms_address.clone()) - 1;
-        let mut proposal_details = MultiSig::proposal_detail(&(ms_address.clone(), proposal_id));
+        let mut proposal_details = MultiSig::proposal_detail(&ms_address, proposal_id);
         assert_eq!(proposal_details.approvals, 1);
         assert_eq!(proposal_details.status, ProposalStatus::ActiveOrExpired);
 
@@ -1274,7 +1273,7 @@ fn expired_proposals() {
             proposal_id
         ));
 
-        proposal_details = MultiSig::proposal_detail(&(ms_address.clone(), proposal_id));
+        proposal_details = MultiSig::proposal_detail(&ms_address, proposal_id);
         assert_eq!(proposal_details.approvals, 2);
         assert_eq!(proposal_details.status, ProposalStatus::ActiveOrExpired);
 
@@ -1286,7 +1285,7 @@ fn expired_proposals() {
             Error::ProposalExpired
         );
 
-        proposal_details = MultiSig::proposal_detail(&(ms_address.clone(), proposal_id));
+        proposal_details = MultiSig::proposal_detail(&ms_address, proposal_id);
         assert_eq!(proposal_details.approvals, 2);
         assert_eq!(proposal_details.status, ProposalStatus::ActiveOrExpired);
 
@@ -1298,7 +1297,7 @@ fn expired_proposals() {
             proposal_id
         ));
 
-        proposal_details = MultiSig::proposal_detail(&(ms_address.clone(), proposal_id));
+        proposal_details = MultiSig::proposal_detail(&ms_address, proposal_id);
         assert_eq!(proposal_details.approvals, 3);
         assert_eq!(proposal_details.status, ProposalStatus::ExecutionSuccessful);
     });
