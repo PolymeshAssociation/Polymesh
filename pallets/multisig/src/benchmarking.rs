@@ -191,7 +191,7 @@ macro_rules! assert_proposal_created {
 
 macro_rules! assert_vote_cast {
     ($proposal_id:ident, $multisig:ident, $signatory:expr) => {
-        assert!(<MultiSig<T>>::votes(($multisig, $signatory, $proposal_id)));
+        assert!(<MultiSig<T>>::votes(($multisig, $proposal_id), $signatory));
     };
 }
 
@@ -361,7 +361,7 @@ benchmarks! {
         let ephemeral_proposal_id = proposal_id.clone();
     }: _(RawOrigin::Root, ephemeral_multisig, ephemeral_proposal_id, alice.did(), Weight::zero())
     verify {
-        assert!(<ProposalDetail<T>>::get((&multisig, proposal_id)).status == ProposalStatus::ExecutionSuccessful);
+        assert!(<ProposalDetail<T>>::get(&multisig, proposal_id).status == ProposalStatus::ExecutionSuccessful);
     }
 
     change_sigs_required_via_creator {

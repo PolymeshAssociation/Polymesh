@@ -354,7 +354,8 @@ impl<AccountId, OffChainSignature> ReceiptDetails<AccountId, OffChainSignature> 
 }
 
 /// Stores the number of fungible, non fungible and offchain transfers in a set of legs.
-#[derive(Default)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Clone, Copy, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
 pub struct AssetCount {
     fungible: u32,
     non_fungible: u32,
@@ -528,47 +529,83 @@ impl InstructionInfo {
     }
 }
 
-/// A subset of legs and the [`AssetCount`] for the unfiltered set and the subset.
+/// Holds the [`SenderSideInfo`] and the [`AssetCount`] both for the receiver and unfiltered set.
 pub struct FilteredLegs {
-    /// A [`Vec<(LegId, Leg)>`] containing a subset of the legs.
-    leg_subset: Vec<(LegId, Leg)>,
+    /// Holds the [`SenderSideInfo`] for the legs on the sender side of the instruction.
+    sender_side_info: SenderSideInfo,
+    /// The [`AssetCount`] for the legs on the receiver side of the instruction.
+    receiver_asset_count: AssetCount,
     /// The [`AssetCount`] for the unfiltered set.
     unfiltered_asset_count: AssetCount,
+}
+
+/// Stores a subset of legs on the sender side of an instruction and their [`AssetCount`].
+pub struct SenderSideInfo {
+    /// A [`Vec<(LegId, Leg)>`] containing the legs on the sender side of an instruction.
+    sender_subset: Vec<(LegId, Leg)>,
     /// The [`AssetCount`] for the subset of legs.
-    subset_asset_count: AssetCount,
+    sender_asset_count: AssetCount,
+}
+
+impl SenderSideInfo {
+    /// Constructs a new [`SenderSideInfo`].
+    pub fn new(sender_subset: Vec<(LegId, Leg)>, sender_asset_count: AssetCount) -> Self {
+        Self {
+            sender_subset,
+            sender_asset_count,
+        }
+    }
 }
 
 impl FilteredLegs {
-    /// Returns [`FilteredLegs`] where the subset of legs are the legs where the sender is in the given `portfolio_set`.
+    /// Returns [`FilteredLegs`] where [`SenderSideInfo::sender_subset`] contain legs from a sender that belong to the specified `portfolio_set`.
     pub fn filter_sender(
         original_set: Vec<(LegId, Leg)>,
         portfolio_set: &BTreeSet<PortfolioId>,
     ) -> Self {
         let unfiltered_asset_count = AssetCount::from_legs(&original_set);
+        let mut sender_asset_count = AssetCount::default();
+        let mut receiver_asset_count = AssetCount::default();
 
-        let mut leg_subset = Vec::new();
+        let mut sender_subset = Vec::new();
         for (leg_id, leg) in original_set {
             match leg {
-                Leg::Fungible { sender, .. } | Leg::NonFungible { sender, .. } => {
+                Leg::Fungible {
+                    sender, receiver, ..
+                } => {
                     if portfolio_set.contains(&sender) {
-                        leg_subset.push((leg_id, leg));
+                        sender_subset.push((leg_id, leg));
+                        sender_asset_count.add_fungible();
+                    } else if portfolio_set.contains(&receiver) {
+                        receiver_asset_count.add_fungible();
+                    }
+                }
+                Leg::NonFungible {
+                    sender,
+                    receiver,
+                    ref nfts,
+                } => {
+                    if portfolio_set.contains(&sender) {
+                        sender_asset_count.add_non_fungible(&nfts);
+                        sender_subset.push((leg_id, leg));
+                    } else if portfolio_set.contains(&receiver) {
+                        receiver_asset_count.add_non_fungible(&nfts);
                     }
                 }
                 Leg::OffChain { .. } => continue,
             }
         }
-        let subset_asset_count = AssetCount::from_legs(&leg_subset);
 
         FilteredLegs {
-            leg_subset,
+            sender_side_info: SenderSideInfo::new(sender_subset, sender_asset_count),
+            receiver_asset_count,
             unfiltered_asset_count,
-            subset_asset_count,
         }
     }
 
-    /// Returns a slice of `[(LegId, Leg)]` containing all legs in the subset.
-    pub fn leg_subset(&self) -> &[(LegId, Leg)] {
-        &self.leg_subset
+    /// Returns a slice of `[(LegId, Leg)]` containing all legs in the sender subset.
+    pub fn sender_subset(&self) -> &[(LegId, Leg)] {
+        &self.sender_side_info.sender_subset
     }
 
     /// Returns the [`AssetCount`] for the unfiltered set.
@@ -576,9 +613,56 @@ impl FilteredLegs {
         &self.unfiltered_asset_count
     }
 
-    /// Returns the [`AssetCount`] for the subset of legs.
-    pub fn subset_asset_count(&self) -> &AssetCount {
-        &self.subset_asset_count
+    /// Returns the [`AssetCount`] for the sender subset of legs.
+    pub fn sender_asset_count(&self) -> &AssetCount {
+        &self.sender_side_info.sender_asset_count
+    }
+
+    /// Returns the [`AssetCount`] for the receiver side of the instruction.
+    pub fn receiver_asset_count(&self) -> &AssetCount {
+        &self.receiver_asset_count
+    }
+}
+
+/// Holds the [`AssetCount`] for both the sender and receiver side and the number of offchain assets.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Clone, Copy, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
+pub struct AffirmationCount {
+    /// The [`AssetCount`] for sender side.
+    sender_asset_count: AssetCount,
+    /// The [`AssetCount`] for receiver side.
+    receiver_asset_count: AssetCount,
+    /// The number of off-chain assets in the instruction.
+    offchain_count: u32,
+}
+
+impl AffirmationCount {
+    /// Creates a new [`AffirmationCount`] instance.
+    pub fn new(
+        sender_asset_count: AssetCount,
+        receiver_asset_count: AssetCount,
+        offchain_count: u32,
+    ) -> Self {
+        AffirmationCount {
+            sender_asset_count,
+            receiver_asset_count,
+            offchain_count,
+        }
+    }
+
+    /// Returns the [`AssetCount`] for the sender side.
+    pub fn sender_asset_count(&self) -> &AssetCount {
+        &self.sender_asset_count
+    }
+
+    /// Returns the [`AssetCount`] for the receiver side.
+    pub fn receiver_asset_count(&self) -> &AssetCount {
+        &self.receiver_asset_count
+    }
+
+    /// The number of off-chain assets in the instruction.
+    pub fn offchain_count(&self) -> u32 {
+        self.offchain_count
     }
 }
 

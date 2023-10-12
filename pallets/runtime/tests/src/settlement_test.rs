@@ -29,8 +29,9 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::settlement::{
-    AffirmationStatus, Instruction, InstructionId, InstructionStatus, Leg, LegId, LegStatus,
-    Receipt, ReceiptDetails, SettlementType, VenueDetails, VenueId, VenueType,
+    AffirmationCount, AffirmationStatus, AssetCount, Instruction, InstructionId, InstructionStatus,
+    Leg, LegId, LegStatus, Receipt, ReceiptDetails, SettlementType, VenueDetails, VenueId,
+    VenueType,
 };
 use polymesh_primitives::{
     AccountId, AuthorizationData, Balance, Claim, Condition, ConditionType, Fund, FundDescription,
@@ -3387,6 +3388,229 @@ fn manually_execute_failed_instruction() {
             InstructionId(0),
             InstructionStatus::Success(System::block_number()),
         );
+    });
+}
+
+#[test]
+fn affirm_with_receipts_cost() {
+    ExtBuilder::default().build().execute_with(|| {
+        let charlie = User::new(AccountKeyring::Charlie);
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let venue_id = create_token_and_venue(TICKER, alice);
+        let amount = 1;
+        let id = InstructionId(0);
+
+        let legs: Vec<Leg> = vec![Leg::OffChain {
+            sender_identity: charlie.did,
+            receiver_identity: bob.did,
+            ticker: TICKER,
+            amount,
+        }];
+        let receipt = Receipt::new(0, id, LegId(0), charlie.did, bob.did, TICKER, amount);
+        let receipts_details = vec![ReceiptDetails::new(
+            0,
+            id,
+            LegId(0),
+            AccountKeyring::Alice.to_account_id(),
+            AccountKeyring::Alice.sign(&receipt.encode()).into(),
+            None,
+        )];
+        assert_ok!(Settlement::add_instruction(
+            alice.origin(),
+            venue_id,
+            SettlementType::SettleManual(System::block_number() + 1),
+            None,
+            None,
+            legs,
+            Some(Memo::default()),
+        ),);
+
+        let affirmation_count =
+            AffirmationCount::new(AssetCount::default(), AssetCount::default(), 0);
+        assert_noop!(
+            Settlement::affirm_with_receipts_with_count(
+                alice.origin(),
+                id,
+                receipts_details,
+                Vec::new(),
+                Some(affirmation_count)
+            ),
+            Error::NumberOfOffChainTransfersUnderestimated
+        );
+    });
+}
+
+#[test]
+fn affirm_instruction_cost() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Setup base parameters
+        let alice = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
+        let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
+        let bob = User::new(AccountKeyring::Bob);
+        let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
+        let bob_user_porfolio = PortfolioId::user_portfolio(bob.did, PortfolioNumber(1));
+        let venue = create_token_and_venue(TICKER, alice);
+        let instruction_memo = Some(Memo::default());
+        Portfolio::create_portfolio(bob.origin(), b"BobUserPortfolio".into()).unwrap();
+        Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
+
+        let legs: Vec<Leg> = vec![
+            Leg::Fungible {
+                sender: alice_user_porfolio,
+                receiver: bob_user_porfolio,
+                ticker: TICKER,
+                amount: ONE_UNIT,
+            },
+            Leg::Fungible {
+                sender: alice_default_portfolio,
+                receiver: bob_default_portfolio,
+                ticker: TICKER,
+                amount: ONE_UNIT,
+            },
+        ];
+        assert_ok!(Settlement::add_instruction(
+            alice.origin(),
+            venue,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs.clone(),
+            instruction_memo.clone(),
+        ));
+
+        let affirmation_count =
+            AffirmationCount::new(AssetCount::new(0, 0, 0), AssetCount::default(), 0);
+        assert_noop!(
+            Settlement::affirm_instruction_with_count(
+                alice.origin(),
+                InstructionId(0),
+                vec![alice_user_porfolio, alice_default_portfolio],
+                Some(affirmation_count)
+            ),
+            Error::NumberOfFungibleTransfersUnderestimated
+        );
+        let affirmation_count =
+            AffirmationCount::new(AssetCount::default(), AssetCount::new(1, 0, 0), 0);
+        assert_noop!(
+            Settlement::affirm_instruction_with_count(
+                bob.origin(),
+                InstructionId(0),
+                vec![bob_user_porfolio, bob_default_portfolio],
+                Some(affirmation_count)
+            ),
+            Error::NumberOfFungibleTransfersUnderestimated
+        );
+    });
+}
+
+#[test]
+fn withdraw_affirmation_cost() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Setup base parameters
+        let alice = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
+        let bob = User::new(AccountKeyring::Bob);
+        let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
+        let venue = create_token_and_venue(TICKER, alice);
+        let instruction_memo = Some(Memo::default());
+
+        let legs: Vec<Leg> = vec![Leg::Fungible {
+            sender: alice_default_portfolio,
+            receiver: bob_default_portfolio,
+            ticker: TICKER,
+            amount: 1,
+        }];
+        assert_ok!(Settlement::add_instruction(
+            alice.origin(),
+            venue,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs.clone(),
+            instruction_memo.clone(),
+        ));
+
+        let affirmation_count =
+            AffirmationCount::new(AssetCount::new(1, 0, 0), AssetCount::default(), 0);
+        assert_ok!(Settlement::affirm_instruction_with_count(
+            alice.origin(),
+            InstructionId(0),
+            vec![alice_default_portfolio],
+            Some(affirmation_count)
+        ),);
+        let affirmation_count =
+            AffirmationCount::new(AssetCount::new(0, 0, 0), AssetCount::default(), 0);
+        assert_noop!(
+            Settlement::withdraw_affirmation_with_count(
+                alice.origin(),
+                InstructionId(0),
+                vec![alice_default_portfolio],
+                Some(affirmation_count)
+            ),
+            Error::NumberOfFungibleTransfersUnderestimated
+        );
+    });
+}
+
+#[test]
+fn reject_instruction_cost() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Setup base parameters
+        let alice = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
+        let bob = User::new(AccountKeyring::Bob);
+        let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
+        let venue = create_token_and_venue(TICKER, alice);
+        let instruction_memo = Some(Memo::default());
+
+        create_nft_collection(
+            alice.clone(),
+            TICKER2,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            NFTCollectionKeys::default(),
+        );
+        mint_nft(alice.clone(), TICKER2, Vec::new(), PortfolioKind::Default);
+
+        let legs: Vec<Leg> = vec![
+            Leg::Fungible {
+                sender: alice_default_portfolio,
+                receiver: bob_default_portfolio,
+                ticker: TICKER,
+                amount: 1,
+            },
+            Leg::NonFungible {
+                sender: alice_default_portfolio,
+                receiver: bob_default_portfolio,
+                nfts: NFTs::new_unverified(TICKER2, vec![NFTId(1)]),
+            },
+        ];
+        assert_ok!(Settlement::add_instruction(
+            alice.origin(),
+            venue,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs.clone(),
+            instruction_memo.clone(),
+        ));
+
+        assert_noop!(
+            Settlement::reject_instruction_with_count(
+                bob.origin(),
+                InstructionId(0),
+                bob_default_portfolio,
+                Some(AssetCount::new(1, 0, 0))
+            ),
+            Error::NumberOfTransferredNFTsUnderestimated
+        );
+        assert_ok!(Settlement::reject_instruction_with_count(
+            bob.origin(),
+            InstructionId(0),
+            bob_default_portfolio,
+            Some(AssetCount::new(1, 1, 0))
+        ),);
     });
 }
 
