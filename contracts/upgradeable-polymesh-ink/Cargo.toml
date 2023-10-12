@@ -20,7 +20,7 @@ ink_lang_codegen = { version = "3.0", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
 
-polymesh-api = { version = "1.0", path = "../../../polymesh-api/", default-features = false, features = ["ink", "polymesh_v5"] }
+polymesh-api = { version = "1.0", default-features = false, features = ["ink", "polymesh_v5"] }
 
 upgrade_tracker = { package = "polymesh_ink_upgrade_tracker", version = "1.0.0", path = "./upgrade_tracker/", default-features = false, features = ["ink-as-dependency"], optional = true }
 paste = "1.0"
