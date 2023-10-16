@@ -146,6 +146,15 @@ macro_rules! misc_pallet_impls {
             }
         }
 
+        impl RuntimeCall {
+            fn get_actual_weight(&self) -> Option<Weight> {
+                match self {
+                    RuntimeCall::Settlement(x) => Settlement::get_actual_weight(x),
+                    _ => None,
+                }
+            }
+        }
+
         impl pallet_transaction_payment::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type Currency = Balances;
@@ -567,7 +576,7 @@ macro_rules! runtime_apis {
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
         use polymesh_primitives::asset::GranularCanTransferResult;
-        use polymesh_primitives::settlement::{InstructionId, ExecuteInstructionInfo};
+        use polymesh_primitives::settlement::{InstructionId, ExecuteInstructionInfo, AffirmationCount};
         use polymesh_primitives::{
             asset::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, NFTs,
             PortfolioId, Signatory, Ticker, WeightMeter, IdentityClaim
@@ -822,11 +831,13 @@ macro_rules! runtime_apis {
                 Block,
             > for Runtime {
                 fn query_info(uxt: <Block as BlockT>::Extrinsic, len: u32) -> RuntimeDispatchInfo<Balance> {
-                    TransactionPayment::query_info(uxt, len)
+                    let actual = uxt.function.get_actual_weight();
+                    TransactionPayment::query_info(uxt, len, actual)
                 }
 
                 fn query_fee_details(uxt: <Block as BlockT>::Extrinsic, len: u32) -> pallet_transaction_payment::FeeDetails<Balance> {
-                    TransactionPayment::query_fee_details(uxt, len)
+                    let actual = uxt.function.get_actual_weight();
+                    TransactionPayment::query_fee_details(uxt, len, actual)
                 }
             }
 
@@ -834,10 +845,12 @@ macro_rules! runtime_apis {
                 for Runtime
             {
                 fn query_call_info(call: RuntimeCall, len: u32) -> RuntimeDispatchInfo<Balance> {
-                    TransactionPayment::query_call_info(call, len)
+                    let actual = call.get_actual_weight();
+                    TransactionPayment::query_call_info(call, len, actual)
                 }
                 fn query_call_fee_details(call: RuntimeCall, len: u32) -> pallet_transaction_payment::FeeDetails<Balance> {
-                    TransactionPayment::query_call_fee_details(call, len)
+                    let actual = call.get_actual_weight();
+                    TransactionPayment::query_call_fee_details(call, len, actual)
                 }
             }
 
@@ -992,6 +1005,14 @@ macro_rules! runtime_apis {
                     instruction_id: &InstructionId
                 ) -> ExecuteInstructionInfo {
                     Settlement::execute_instruction_info(instruction_id)
+                }
+
+                #[inline]
+                fn get_affirmation_count(
+                    instruction_id: InstructionId,
+                    portfolios: Vec<PortfolioId>,
+                ) -> AffirmationCount {
+                    Settlement::affirmation_count(instruction_id, portfolios)
                 }
             }
 

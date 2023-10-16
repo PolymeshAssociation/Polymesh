@@ -5035,7 +5035,6 @@ dependencies = [
  "log",
  "pallet-permissions",
  "pallet-timestamp",
- "pallet-transaction-payment",
  "parity-scale-codec 3.5.0",
  "polymesh-common-utilities",
  "polymesh-primitives",

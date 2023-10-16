@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use sp_std::vec::Vec;
 use std::sync::Arc;
 
 use jsonrpsee::core::RpcResult;
@@ -23,7 +24,8 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 
 pub use node_rpc_runtime_api::settlement::SettlementApi as SettlementRuntimeApi;
-use polymesh_primitives::settlement::{ExecuteInstructionInfo, InstructionId};
+use polymesh_primitives::settlement::{AffirmationCount, ExecuteInstructionInfo, InstructionId};
+use polymesh_primitives::PortfolioId;
 
 use crate::Error;
 
@@ -35,6 +37,14 @@ pub trait SettlementApi<BlockHash> {
         instruction_id: InstructionId,
         at: Option<BlockHash>,
     ) -> RpcResult<ExecuteInstructionInfo>;
+
+    #[method(name = "settlement_getAffirmationCount")]
+    fn get_affirmation_count(
+        &self,
+        instruction_id: InstructionId,
+        portfolios: Vec<PortfolioId>,
+        at: Option<BlockHash>,
+    ) -> RpcResult<AffirmationCount>;
 }
 
 /// An implementation of Settlement specific RPC methods.
@@ -73,6 +83,27 @@ where
                 CallError::Custom(ErrorObject::owned(
                     Error::RuntimeError.into(),
                     "Unable to call get_execute_instruction_info runtime",
+                    Some(e.to_string()),
+                ))
+                .into()
+            })
+    }
+
+    fn get_affirmation_count(
+        &self,
+        instruction_id: InstructionId,
+        portfolios: Vec<PortfolioId>,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<AffirmationCount> {
+        let api = self.client.runtime_api();
+        // If the block hash is not supplied assume the best block.
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_affirmation_count(at_hash, instruction_id, portfolios)
+            .map_err(|e| {
+                CallError::Custom(ErrorObject::owned(
+                    Error::RuntimeError.into(),
+                    "Unable to call get_affirmation_count runtime",
                     Some(e.to_string()),
                 ))
                 .into()

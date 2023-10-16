@@ -485,6 +485,7 @@ decl_module! {
                     instruction_id,
                     portfolios,
                     None,
+                    None
                 )?;
 
                 let portfolios = vec![investment_portfolio, funding_portfolio];
