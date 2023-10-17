@@ -191,7 +191,6 @@ polymesh-runtime-testnet = { path = "pallets/runtime/testnet" }
 
 # General
 chrono = { version = "0.4", default-features = false }
-ed25519-dalek = "1.0.0"
 futures = "0.3.21"
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 log = "0.4.17"
