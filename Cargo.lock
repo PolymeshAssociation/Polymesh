@@ -5451,6 +5451,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-asset",
  "pallet-base",
  "pallet-external-agents",
@@ -5460,6 +5461,7 @@ dependencies = [
  "polymesh-common-utilities",
  "polymesh-primitives",
  "scale-info",
+ "sp-runtime",
  "sp-std 5.0.0",
 ]
 

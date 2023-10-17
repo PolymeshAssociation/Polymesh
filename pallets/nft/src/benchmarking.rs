@@ -217,4 +217,42 @@ benchmarks! {
         })
         .unwrap();
     }
+
+    controller_transfer {
+        let n in 1..T::MaxNumberOfNFTsCount::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        let (alice_user_portfolio, bob_user_portfolio) =
+            setup_nft_transfer::<T>(&alice, &bob, ticker, n, None, None, true);
+        let nfts = NFTs::new_unverified(ticker, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
+        with_transaction(|| {
+            Module::<T>::base_nft_transfer(
+                alice_user_portfolio,
+                bob_user_portfolio,
+                nfts.clone(),
+                InstructionId(1),
+                None,
+                IdentityId::default(),
+                &mut weight_meter
+            )
+        })
+        .unwrap();
+        // Before the controller transfer all NFTs belong to bob
+        assert_eq!(NumberOfNFTs::get(nfts.ticker(), bob.did()), n as u64);
+        assert_eq!(NumberOfNFTs::get(nfts.ticker(), alice.did()), 0);
+    }: _(alice.origin.clone(), ticker, nfts.clone(), bob_user_portfolio, alice_user_portfolio.kind)
+    verify {
+        assert_eq!(NumberOfNFTs::get(nfts.ticker(), bob.did()), 0);
+        assert_eq!(NumberOfNFTs::get(nfts.ticker(), alice.did()), n as u64);
+        for i in 1..n + 1 {
+            assert!(PortfolioNFT::contains_key(alice_user_portfolio, (ticker, NFTId(i.into()))));
+            assert!(!PortfolioNFT::contains_key(bob_user_portfolio, (ticker, NFTId(i.into()))));
+        }
+        assert_eq!(NFTsInCollection::get(nfts.ticker()), n as u64);
+    }
+
 }

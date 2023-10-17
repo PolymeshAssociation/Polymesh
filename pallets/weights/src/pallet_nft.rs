@@ -115,6 +115,8 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
     // Storage: NFT CollectionKeys (r:1 w:0)
     // Proof Skipped: NFT CollectionKeys (max_values: None, max_size: None, mode: Measured)
+    // Storage: NFT NFTsInCollection (r:1 w:1)
+    // Proof Skipped: NFT NFTsInCollection (max_values: None, max_size: None, mode: Measured)
     // Storage: NFT NumberOfNFTs (r:1 w:1)
     // Proof Skipped: NFT NumberOfNFTs (max_values: None, max_size: None, mode: Measured)
     // Storage: NFT NextNFTId (r:1 w:1)
@@ -125,12 +127,12 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Proof Skipped: NFT MetadataValue (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[1, 255]`.
     fn issue_nft(n: u32) -> Weight {
-        // Minimum execution time: 93_636 nanoseconds.
-        Weight::from_ref_time(133_067_795)
-            // Standard Error: 105_133
-            .saturating_add(Weight::from_ref_time(5_556_056).saturating_mul(n.into()))
-            .saturating_add(DbWeight::get().reads(8))
-            .saturating_add(DbWeight::get().writes(3))
+        // Minimum execution time: 93_094 nanoseconds.
+        Weight::from_ref_time(94_209_062)
+            // Standard Error: 74_707
+            .saturating_add(Weight::from_ref_time(5_216_435).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(9))
+            .saturating_add(DbWeight::get().writes(4))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
     }
     // Storage: NFT CollectionTicker (r:1 w:0)
@@ -147,19 +149,21 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Proof Skipped: Portfolio PortfolioCustodian (max_values: None, max_size: None, mode: Measured)
     // Storage: Portfolio PortfolioNFT (r:1 w:1)
     // Proof Skipped: Portfolio PortfolioNFT (max_values: None, max_size: None, mode: Measured)
+    // Storage: NFT NFTsInCollection (r:1 w:1)
+    // Proof Skipped: NFT NFTsInCollection (max_values: None, max_size: None, mode: Measured)
     // Storage: NFT NumberOfNFTs (r:1 w:1)
     // Proof Skipped: NFT NumberOfNFTs (max_values: None, max_size: None, mode: Measured)
     // Storage: NFT MetadataValue (r:255 w:255)
     // Proof Skipped: NFT MetadataValue (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[1, 255]`.
     fn redeem_nft(n: u32) -> Weight {
-        // Minimum execution time: 114_173 nanoseconds.
-        Weight::from_ref_time(154_668_087)
-            // Standard Error: 63_157
-            .saturating_add(Weight::from_ref_time(2_460_605).saturating_mul(n.into()))
-            .saturating_add(DbWeight::get().reads(8))
+        // Minimum execution time: 107_301 nanoseconds.
+        Weight::from_ref_time(122_523_796)
+            // Standard Error: 39_701
+            .saturating_add(Weight::from_ref_time(2_129_048).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
-            .saturating_add(DbWeight::get().writes(2))
+            .saturating_add(DbWeight::get().writes(3))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
     }
     // Storage: NFT CollectionTicker (r:1 w:0)
@@ -179,6 +183,35 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
             // Standard Error: 639_783
             .saturating_add(Weight::from_ref_time(14_367_143).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(5))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes(2))
+            .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(n.into())))
+    }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
+    // Proof Skipped: ExternalAgents GroupOfAgent (max_values: None, max_size: None, mode: Measured)
+    // Storage: Permissions CurrentPalletName (r:1 w:0)
+    // Proof Skipped: Permissions CurrentPalletName (max_values: Some(1), max_size: None, mode: Measured)
+    // Storage: Permissions CurrentDispatchableName (r:1 w:0)
+    // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
+    // Storage: Portfolio Portfolios (r:1 w:0)
+    // Proof Skipped: Portfolio Portfolios (max_values: None, max_size: None, mode: Measured)
+    // Storage: Portfolio PortfolioCustodian (r:1 w:0)
+    // Proof Skipped: Portfolio PortfolioCustodian (max_values: None, max_size: None, mode: Measured)
+    // Storage: NFT CollectionTicker (r:1 w:0)
+    // Proof Skipped: NFT CollectionTicker (max_values: None, max_size: None, mode: Measured)
+    // Storage: NFT NumberOfNFTs (r:2 w:2)
+    // Proof Skipped: NFT NumberOfNFTs (max_values: None, max_size: None, mode: Measured)
+    // Storage: Portfolio PortfolioNFT (r:10 w:20)
+    // Proof Skipped: Portfolio PortfolioNFT (max_values: None, max_size: None, mode: Measured)
+    /// The range of component `n` is `[1, 10]`.
+    fn controller_transfer(n: u32) -> Weight {
+        // Minimum execution time: 99_105 nanoseconds.
+        Weight::from_ref_time(103_660_031)
+            // Standard Error: 451_525
+            .saturating_add(Weight::from_ref_time(13_628_325).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(2))
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(n.into())))

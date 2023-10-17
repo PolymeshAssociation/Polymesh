@@ -427,7 +427,7 @@ decl_module! {
                 .map(drop)
         }
 
-        /// Freezes transfers and minting of a given token.
+        /// Freezes transfers of a given token.
         ///
         /// # Arguments
         /// * `origin` - the secondary key of the sender.
@@ -443,7 +443,7 @@ decl_module! {
             Self::set_freeze(origin, ticker, true)
         }
 
-        /// Unfreezes transfers and minting of a given token.
+        /// Unfreezes transfers of a given token.
         ///
         /// # Arguments
         /// * `origin` - the secondary key of the sender.
