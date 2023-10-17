@@ -60,4 +60,6 @@ pub enum PortfolioUpdateReason {
         /// The [`Memo`] of the instruction.
         instruction_memo: Option<Memo>,
     },
+    /// Tokens were transferred via a controller call.
+    ControllerTransfer,
 }
