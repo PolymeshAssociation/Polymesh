@@ -6,6 +6,6 @@
   "main": "index.js",
   "dependencies": {
     "@cloudflare/kv-asset-handler": "^0.2.0",
-    "wrangler": "^2.13.0"
+    "wrangler": "^2.20.1"
   }
 }
