@@ -100,6 +100,9 @@ pub trait WeightInfo {
         Self::move_portfolio_funds(f, n)
     }
     fn move_portfolio_funds(f: u32, u: u32) -> Weight;
+    fn allow_identity_to_create_portfolios() -> Weight;
+    fn revoke_create_portfolios_permission() -> Weight;
+    fn create_custody_portfolio() -> Weight;
 }
 
 pub trait Config: CommonConfig + identity::Config + base::Config {

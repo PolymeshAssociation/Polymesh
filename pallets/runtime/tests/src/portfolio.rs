@@ -2,7 +2,8 @@ use frame_support::storage::StorageDoubleMap;
 use frame_support::{assert_noop, assert_ok, StorageMap};
 
 use pallet_portfolio::{
-    Event, NameToNumber, PortfolioAssetBalances, PortfolioNFT, PreApprovedPortfolios,
+    AllowedCustodians, Event, NameToNumber, PortfolioAssetBalances, PortfolioCustodian,
+    PortfolioNFT, Portfolios, PreApprovedPortfolios,
 };
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::asset::{AssetType, NonFungibleType};
@@ -1013,5 +1014,83 @@ fn unauthorized_custodian_pre_approval() {
             TICKER,
             alice_user_porfolio
         ),);
+    });
+}
+
+#[test]
+fn create_custody_portfolio_missing_owners_permission() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let portfolio_name = PortfolioName("AliceOwnsBobControls".as_bytes().to_vec());
+
+        assert_noop!(
+            Portfolio::create_custody_portfolio(bob.origin(), alice.did, portfolio_name),
+            Error::MissingOwnersPermission
+        );
+        assert_eq!(AllowedCustodians::get(alice.did, bob.did), false);
+    });
+}
+
+#[test]
+fn create_custody_portfolio() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let portfolio_number = PortfolioNumber(1);
+        let portfolio_name = PortfolioName("AliceOwnsBobControls".as_bytes().to_vec());
+        let portfolio_id = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::User(portfolio_number),
+        };
+
+        assert_ok!(Portfolio::allow_identity_to_create_portfolios(
+            alice.origin(),
+            bob.did
+        ));
+        // Asserts storage has been updated
+        assert_eq!(AllowedCustodians::get(alice.did, bob.did), true);
+
+        assert_ok!(Portfolio::create_custody_portfolio(
+            bob.origin(),
+            alice.did,
+            portfolio_name.clone()
+        ));
+        // Asserts storage has been updated
+        assert_eq!(
+            Portfolios::get(alice.did, portfolio_number),
+            Some(portfolio_name)
+        );
+        assert_eq!(PortfolioCustodian::get(portfolio_id), Some(bob.did));
+    });
+}
+
+#[test]
+fn create_custody_portfolio_revoke_permission() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let portfolio_name = PortfolioName("AliceOwnsBobControls".as_bytes().to_vec());
+
+        assert_ok!(Portfolio::allow_identity_to_create_portfolios(
+            alice.origin(),
+            bob.did
+        ));
+        assert_ok!(Portfolio::create_custody_portfolio(
+            bob.origin(),
+            alice.did,
+            portfolio_name.clone()
+        ));
+        assert_ok!(Portfolio::revoke_create_portfolios_permission(
+            alice.origin(),
+            bob.did
+        ));
+        // Asserts storage has been updated
+        assert_eq!(AllowedCustodians::get(alice.did, bob.did), false);
+
+        assert_noop!(
+            Portfolio::create_custody_portfolio(bob.origin(), alice.did, portfolio_name),
+            Error::MissingOwnersPermission
+        );
     });
 }

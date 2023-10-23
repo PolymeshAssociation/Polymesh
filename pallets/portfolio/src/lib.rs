@@ -47,7 +47,7 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use core::{iter, mem};
-use frame_support::dispatch::{DispatchError, DispatchResult, Weight};
+use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::{decl_error, decl_module, decl_storage, ensure};
 use sp_arithmetic::traits::Zero;
 use sp_std::collections::btree_set::BTreeSet;
@@ -58,9 +58,9 @@ pub use polymesh_common_utilities::portfolio::{Config, Event, WeightInfo};
 use polymesh_common_utilities::traits::asset::AssetFnTrait;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 use polymesh_primitives::{
-    extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, Fund,
-    FundDescription, IdentityId, NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
-    SecondaryKey, Ticker,
+    extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, AuthorizationData,
+    Balance, Fund, FundDescription, IdentityId, NFTId, PortfolioId, PortfolioKind, PortfolioName,
+    PortfolioNumber, SecondaryKey, Signatory, Ticker,
 };
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -119,6 +119,10 @@ decl_storage! {
         pub PreApprovedPortfolios get(fn pre_approved_portfolios):
             double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) Ticker => bool;
 
+        /// Custodians allowed to create and take custody of portfolios on an id's behalf.
+        pub AllowedCustodians get(fn allowed_custodians):
+            double_map hasher(identity) IdentityId, hasher(identity) IdentityId => bool;
+
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
     }
@@ -159,7 +163,9 @@ decl_error! {
         /// Locked NFTs can not be moved between portfolios.
         InvalidTransferNFTIsLocked,
         /// Trying to move an amount of zero assets.
-        EmptyTransfer
+        EmptyTransfer,
+        /// The caller doesn't have permission to create portfolios on the owner's behalf.
+        MissingOwnersPermission
     }
 }
 
@@ -172,14 +178,9 @@ decl_module! {
 
         /// Creates a portfolio with the given `name`.
         #[weight = <T as Config>::WeightInfo::create_portfolio()]
-        pub fn create_portfolio(origin, name: PortfolioName) {
-            let did = Identity::<T>::ensure_perms(origin)?;
-            Self::ensure_name_unique(&did, &name)?;
-
-            let num = Self::get_next_portfolio_number(&did);
-            NameToNumber::insert(&did, &name, num);
-            Portfolios::insert(&did, &num, name.clone());
-            Self::deposit_event(Event::PortfolioCreated(did, num, name));
+        pub fn create_portfolio(origin, name: PortfolioName) -> DispatchResult {
+            let callers_did = Identity::<T>::ensure_perms(origin)?;
+            Self::base_create_portfolio(callers_did, name)
         }
 
         /// Deletes a user portfolio. A portfolio can be deleted only if it has no funds.
@@ -360,34 +361,72 @@ decl_module! {
             Self::base_remove_portfolio_pre_approval(origin, &ticker, portfolio_id)
         }
 
-        fn on_runtime_upgrade() -> Weight {
-            use polymesh_primitives::storage_migrate_on;
+        /// Adds an identity that will be allowed to create and take custody of a portfolio under the caller's identity.
+        ///
+        /// # Arguments
+        /// * `trusted_identity` - the [`IdentityId`] that will be allowed to call `create_custody_portfolio`.
+        ///
+        #[weight = <T as Config>::WeightInfo::allow_identity_to_create_portfolios()]
+        pub fn allow_identity_to_create_portfolios(
+            origin,
+            trusted_identity: IdentityId
+        ) -> DispatchResult {
+            Self::base_allow_identity_to_create_portfolios(origin, trusted_identity)
+        }
 
-            // Remove old name to number mappings.
-            // In version 4.0.0 (first mainnet deployment) when a portfolio was removed
-            // the NameToNumber mapping was left out of date, this upgrade removes dangling
-            // NameToNumber mappings.
-            // https://github.com/PolymeshAssociation/Polymesh/pull/1200
-            storage_migrate_on!(StorageVersion, 1, {
-                NameToNumber::iter()
-                    .filter(|(identity, _, number)| !Portfolios::contains_key(identity, number))
-                    .for_each(|(identity, name, _)| NameToNumber::remove(identity, name));
-            });
-            storage_migrate_on!(StorageVersion, 2, {
-                Portfolios::iter()
-                    .filter(|(identity, number, name)| Some(number) == Self::name_to_number(identity, name).as_ref())
-                    .for_each(|(identity, number, name)| {
-                            NameToNumber::insert(identity, name, number);
-                    }
-                );
-            });
+        /// Removes permission of an identity to create and take custody of a portfolio under the caller's identity.
+        ///
+        /// # Arguments
+        /// * `identity` - the [`IdentityId`] that will have the permissions to call `create_custody_portfolio` revoked.
+        ///
+        #[weight = <T as Config>::WeightInfo::revoke_create_portfolios_permission()]
+        pub fn revoke_create_portfolios_permission(
+            origin,
+            identity: IdentityId
+        ) -> DispatchResult {
+            Self::base_revoke_create_portfolios_permission(origin, identity)
+        }
 
-            Weight::zero()
+        /// Creates a portfolio under the `portfolio_owner_id` identity and transfers its custody to the caller's identity.
+        ///
+        /// # Arguments
+        /// * `portfolio_owner_id` - the [`IdentityId`] that will own the new portfolio.
+        /// * `portfolio_name` - the [`PortfolioName`] of the new portfolio.
+        ///
+        #[weight =  <T as Config>::WeightInfo::create_custody_portfolio()]
+        pub fn create_custody_portfolio(
+            origin,
+            portfolio_owner_id: IdentityId,
+            portfolio_name: PortfolioName
+        ) -> DispatchResult {
+            Self::base_create_custody_portfolio(origin, portfolio_owner_id, portfolio_name)
         }
     }
 }
 
 impl<T: Config> Module<T> {
+    /// Creates a portfolio named `portfolio_name` owned by `portfolio_owner_id`.
+    fn base_create_portfolio(
+        portfolio_owner_id: IdentityId,
+        portfolio_name: PortfolioName,
+    ) -> DispatchResult {
+        Self::ensure_name_unique(&portfolio_owner_id, &portfolio_name)?;
+        let portfolio_number = Self::get_next_portfolio_number(&portfolio_owner_id);
+
+        NameToNumber::insert(&portfolio_owner_id, &portfolio_name, portfolio_number);
+        Portfolios::insert(
+            &portfolio_owner_id,
+            &portfolio_number,
+            portfolio_name.clone(),
+        );
+        Self::deposit_event(Event::PortfolioCreated(
+            portfolio_owner_id,
+            portfolio_number,
+            portfolio_name,
+        ));
+        Ok(())
+    }
+
     /// Returns the custodian of `pid`.
     fn custodian(pid: &PortfolioId) -> IdentityId {
         PortfolioCustodian::get(&pid).unwrap_or(pid.did)
@@ -779,6 +818,54 @@ impl<T: Config> Module<T> {
         )?;
 
         PreApprovedPortfolios::remove(&portfolio_id, ticker);
+        Ok(())
+    }
+
+    fn base_allow_identity_to_create_portfolios(
+        origin: T::RuntimeOrigin,
+        trusted_identity: IdentityId,
+    ) -> DispatchResult {
+        let callers_did = Identity::<T>::ensure_perms(origin)?;
+        AllowedCustodians::insert(callers_did, trusted_identity, true);
+        Ok(())
+    }
+
+    fn base_revoke_create_portfolios_permission(
+        origin: T::RuntimeOrigin,
+        identity: IdentityId,
+    ) -> DispatchResult {
+        let callers_did = Identity::<T>::ensure_perms(origin)?;
+        AllowedCustodians::remove(callers_did, identity);
+        Ok(())
+    }
+
+    fn base_create_custody_portfolio(
+        origin: T::RuntimeOrigin,
+        portfolio_owner_id: IdentityId,
+        portfolio_name: PortfolioName,
+    ) -> DispatchResult {
+        let callers_did = Identity::<T>::ensure_perms(origin.clone())?;
+        // Ensures that the caller is allowed to create portfolios on `portfolio_owner_id` behalf
+        ensure!(
+            AllowedCustodians::get(&portfolio_owner_id, &callers_did),
+            Error::<T>::MissingOwnersPermission
+        );
+        // Creates a new portfolio
+        let portfolio_number = NextPortfolioNumber::get(&portfolio_owner_id);
+        let portfolio_id = PortfolioId {
+            did: portfolio_owner_id,
+            kind: PortfolioKind::User(portfolio_number),
+        };
+        Self::base_create_portfolio(portfolio_owner_id, portfolio_name)?;
+        // Adds custody authorization to the new portfolio
+        let auth_id = Identity::<T>::add_auth(
+            portfolio_owner_id,
+            Signatory::from(callers_did),
+            AuthorizationData::PortfolioCustody(portfolio_id),
+            None,
+        );
+        // Accepts custody of the portfolio
+        Self::base_accept_portfolio_custody(origin, auth_id)?;
         Ok(())
     }
 }
