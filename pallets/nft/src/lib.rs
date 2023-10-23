@@ -65,7 +65,7 @@ decl_storage!(
         pub NFTOwner get(fn nft_owner): map hasher(blake2_128_concat) (Ticker, NFTId) => Option<IdentityId>;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
     }
 );
 
