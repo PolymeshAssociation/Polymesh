@@ -222,22 +222,16 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Proof Skipped: Portfolio NextPortfolioNumber (max_values: None, max_size: None, mode: Measured)
     // Storage: Portfolio NameToNumber (r:1 w:1)
     // Proof Skipped: Portfolio NameToNumber (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity MultiPurposeNonce (r:1 w:1)
-    // Proof Skipped: Identity MultiPurposeNonce (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Portfolio PortfolioCustodian (r:1 w:1)
+    // Storage: Portfolio PortfolioCustodian (r:0 w:1)
     // Proof Skipped: Portfolio PortfolioCustodian (max_values: None, max_size: None, mode: Measured)
-    // Storage: Portfolio PortfoliosInCustody (r:0 w:2)
+    // Storage: Portfolio PortfoliosInCustody (r:0 w:1)
     // Proof Skipped: Portfolio PortfoliosInCustody (max_values: None, max_size: None, mode: Measured)
     // Storage: Portfolio Portfolios (r:0 w:1)
     // Proof Skipped: Portfolio Portfolios (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity AuthorizationsGiven (r:0 w:1)
-    // Proof Skipped: Identity AuthorizationsGiven (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity Authorizations (r:0 w:1)
-    // Proof Skipped: Identity Authorizations (max_values: None, max_size: None, mode: Measured)
     fn create_custody_portfolio() -> Weight {
-        // Minimum execution time: 111_162 nanoseconds.
-        Weight::from_ref_time(115_980_000)
-            .saturating_add(DbWeight::get().reads(6))
-            .saturating_add(DbWeight::get().writes(9))
+        // Minimum execution time: 59_601 nanoseconds.
+        Weight::from_ref_time(60_400_000)
+            .saturating_add(DbWeight::get().reads(4))
+            .saturating_add(DbWeight::get().writes(5))
     }
 }

@@ -58,9 +58,9 @@ pub use polymesh_common_utilities::portfolio::{Config, Event, WeightInfo};
 use polymesh_common_utilities::traits::asset::AssetFnTrait;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 use polymesh_primitives::{
-    extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, AuthorizationData,
-    Balance, Fund, FundDescription, IdentityId, NFTId, PortfolioId, PortfolioKind, PortfolioName,
-    PortfolioNumber, SecondaryKey, Signatory, Ticker,
+    extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, Fund,
+    FundDescription, IdentityId, NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
+    SecondaryKey, Ticker,
 };
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -667,13 +667,21 @@ impl<T: Config> Module<T> {
                 // Set the custodian to the default value `None` meaning that the owner is the custodian.
                 PortfolioCustodian::remove(&pid);
             } else {
-                PortfolioCustodian::insert(&pid, to);
-                PortfoliosInCustody::insert(&to, &pid, true);
+                Self::unverified_take_portfolio_custody(&pid, &to);
             }
 
             Self::deposit_event(Event::PortfolioCustodianChanged(to, pid, to));
             Ok(())
         })
+    }
+
+    /// Updates `portfolio_id` custody to `new_custodian_id`.
+    fn unverified_take_portfolio_custody(
+        portfolio_id: &PortfolioId,
+        new_custodian_id: &IdentityId,
+    ) {
+        PortfolioCustodian::insert(&portfolio_id, new_custodian_id);
+        PortfoliosInCustody::insert(&new_custodian_id, &portfolio_id, true);
     }
 
     /// Verifies if the portfolios are different, if the move is between the same identity, if the receiving portfolio exists,
@@ -857,15 +865,8 @@ impl<T: Config> Module<T> {
             kind: PortfolioKind::User(portfolio_number),
         };
         Self::base_create_portfolio(portfolio_owner_id, portfolio_name)?;
-        // Adds custody authorization to the new portfolio
-        let auth_id = Identity::<T>::add_auth(
-            portfolio_owner_id,
-            Signatory::from(callers_did),
-            AuthorizationData::PortfolioCustody(portfolio_id),
-            None,
-        );
-        // Accepts custody of the portfolio
-        Self::base_accept_portfolio_custody(origin, auth_id)?;
+        // Updates storage for taking ownership of a portfolio
+        Self::unverified_take_portfolio_custody(&portfolio_id, &callers_did);
         Ok(())
     }
 }
