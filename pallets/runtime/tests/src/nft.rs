@@ -433,7 +433,7 @@ fn mint_nft_successfully() {
             ),
             true
         );
-        assert_eq!(NFTOwner::get((ticker, NFTId(1))), Some(alice.did));
+        assert_eq!(NFTOwner::get(ticker, NFTId(1)), Some(alice.did));
     });
 }
 
@@ -584,7 +584,7 @@ fn burn_nft() {
             PortfolioId::default_portfolio(alice.did),
             (&ticker, NFTId(1))
         ),);
-        assert_eq!(NFTOwner::get((ticker, NFTId(1))), None);
+        assert_eq!(NFTOwner::get(ticker, NFTId(1)), None);
     });
 }
 
@@ -909,7 +909,7 @@ fn transfer_nft() {
             PortfolioNFT::get(PortfolioId::default_portfolio(bob.did), (&ticker, NFTId(1))),
             true
         );
-        assert_eq!(NFTOwner::get((ticker, NFTId(1))), Some(bob.did));
+        assert_eq!(NFTOwner::get(ticker, NFTId(1)), Some(bob.did));
         assert_eq!(
             super::storage::EventTest::Nft(Event::NFTPortfolioUpdated(
                 IdentityId::default(),
@@ -1002,7 +1002,7 @@ fn controller_transfer() {
             alice_portfolio,
             (ticker, NFTId(1))
         ));
-        assert_eq!(NFTOwner::get((ticker, NFTId(1))), Some(alice.did));
+        assert_eq!(NFTOwner::get(ticker, NFTId(1)), Some(alice.did));
         assert_eq!(
             super::storage::EventTest::Nft(Event::NFTPortfolioUpdated(
                 alice.did,
