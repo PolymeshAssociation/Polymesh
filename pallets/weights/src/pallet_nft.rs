@@ -125,6 +125,8 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Proof Skipped: Portfolio PortfolioNFT (max_values: None, max_size: None, mode: Measured)
     // Storage: NFT MetadataValue (r:0 w:255)
     // Proof Skipped: NFT MetadataValue (max_values: None, max_size: None, mode: Measured)
+    // Storage: NFT NFTOwner (r:0 w:1)
+    // Proof Skipped: NFT NFTOwner (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[1, 255]`.
     fn issue_nft(n: u32) -> Weight {
         // Minimum execution time: 93_094 nanoseconds.
@@ -132,7 +134,7 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
             // Standard Error: 74_707
             .saturating_add(Weight::from_ref_time(5_216_435).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(9))
-            .saturating_add(DbWeight::get().writes(4))
+            .saturating_add(DbWeight::get().writes(5))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
     }
     // Storage: NFT CollectionTicker (r:1 w:0)
@@ -155,6 +157,8 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Proof Skipped: NFT NumberOfNFTs (max_values: None, max_size: None, mode: Measured)
     // Storage: NFT MetadataValue (r:255 w:255)
     // Proof Skipped: NFT MetadataValue (max_values: None, max_size: None, mode: Measured)
+    // Storage: NFT NFTOwner (r:0 w:1)
+    // Proof Skipped: NFT NFTOwner (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[1, 255]`.
     fn redeem_nft(n: u32) -> Weight {
         // Minimum execution time: 107_301 nanoseconds.
@@ -163,7 +167,7 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
             .saturating_add(Weight::from_ref_time(2_129_048).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
-            .saturating_add(DbWeight::get().writes(3))
+            .saturating_add(DbWeight::get().writes(4))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
     }
     // Storage: NFT CollectionTicker (r:1 w:0)
@@ -176,6 +180,8 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Proof Skipped: Portfolio PortfolioNFT (max_values: None, max_size: None, mode: Measured)
     // Storage: ComplianceManager AssetCompliances (r:1 w:0)
     // Proof Skipped: ComplianceManager AssetCompliances (max_values: None, max_size: None, mode: Measured)
+    // Storage: NFT NFTOwner (r:0 w:10)
+    // Proof Skipped: NFT NFTOwner (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[1, 10]`.
     fn base_nft_transfer(n: u32) -> Weight {
         // Minimum execution time: 146_785 nanoseconds.
@@ -185,7 +191,7 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(2))
-            .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
@@ -205,6 +211,8 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Proof Skipped: NFT NumberOfNFTs (max_values: None, max_size: None, mode: Measured)
     // Storage: Portfolio PortfolioNFT (r:10 w:20)
     // Proof Skipped: Portfolio PortfolioNFT (max_values: None, max_size: None, mode: Measured)
+    // Storage: NFT NFTOwner (r:0 w:10)
+    // Proof Skipped: NFT NFTOwner (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[1, 10]`.
     fn controller_transfer(n: u32) -> Weight {
         // Minimum execution time: 99_105 nanoseconds.
@@ -214,6 +222,6 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(2))
-            .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
     }
 }

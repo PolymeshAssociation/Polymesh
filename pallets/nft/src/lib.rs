@@ -2,6 +2,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
+use frame_support::storage::StorageDoubleMap;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_support::{decl_error, decl_module, decl_storage, ensure, require_transactional};
@@ -60,6 +61,9 @@ decl_storage!(
 
         /// The total number of NFTs in a collection
         pub NFTsInCollection get(fn nfts_in_collection): map hasher(blake2_128_concat) Ticker => NFTCount;
+
+        /// Tracks the owner of an NFT
+        pub NFTOwner get(fn nft_owner): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) NFTId => Option<IdentityId>;
 
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
@@ -361,6 +365,7 @@ impl<T: Config> Module<T> {
             MetadataValue::insert((&collection_id, &nft_id), metadata_key, metadata_value);
         }
         PortfolioNFT::insert(caller_portfolio, (ticker, nft_id), true);
+        NFTOwner::insert(ticker, nft_id, caller_portfolio.did);
 
         Self::deposit_event(Event::NFTPortfolioUpdated(
             caller_portfolio.did,
@@ -410,6 +415,7 @@ impl<T: Config> Module<T> {
         PortfolioNFT::remove(&caller_portfolio, (&ticker, &nft_id));
         #[allow(deprecated)]
         MetadataValue::remove_prefix((&collection_id, &nft_id), None);
+        NFTOwner::remove(ticker, nft_id);
 
         Self::deposit_event(Event::NFTPortfolioUpdated(
             caller_portfolio.did,
@@ -553,6 +559,7 @@ impl<T: Config> Module<T> {
         for nft_id in nfts.ids() {
             PortfolioNFT::remove(sender_portfolio, (nfts.ticker(), nft_id));
             PortfolioNFT::insert(receiver_portfolio, (nfts.ticker(), nft_id), true);
+            NFTOwner::insert(nfts.ticker(), nft_id, receiver_portfolio.did);
         }
     }
 
@@ -610,20 +617,28 @@ impl<T: Config> NFTTrait<T::RuntimeOrigin> for Module<T> {
 
 pub mod migration {
     use crate::sp_api_hidden_includes_decl_storage::hidden_include::IterableStorageDoubleMap;
-    use crate::{Config, NFTsInCollection, NumberOfNFTs};
-    use frame_support::storage::StorageMap;
+    use crate::{Config, NFTOwner, NFTsInCollection, NumberOfNFTs};
+    use frame_support::storage::{StorageDoubleMap, StorageMap};
+    use pallet_portfolio::PortfolioNFT;
     use sp_runtime::runtime_logger::RuntimeLogger;
 
     pub fn migrate_to_v1<T: Config>() {
         RuntimeLogger::init();
-        log::info!(">>> Initializing NFTsInCollection Storage");
+        log::info!(">>> Initializing NFTsInCollection and NFTOwner Storage");
         initialize_nfts_in_collection::<T>();
-        log::info!(">>> NFTsInCollection was successfully updated");
+        initialize_nft_owner::<T>();
+        log::info!(">>> NFTsInCollection and NFTOwner were successfully updated");
     }
 
     fn initialize_nfts_in_collection<T: Config>() {
         for (ticker, _, id_count) in NumberOfNFTs::iter() {
             NFTsInCollection::mutate(ticker, |collection_count| *collection_count += id_count);
+        }
+    }
+
+    fn initialize_nft_owner<T: Config>() {
+        for (portfolio_id, (ticker, nft_id), _) in PortfolioNFT::iter() {
+            NFTOwner::insert(ticker, nft_id, portfolio_id.did);
         }
     }
 }

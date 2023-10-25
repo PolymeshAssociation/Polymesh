@@ -1,7 +1,9 @@
 use chrono::prelude::Utc;
 use frame_support::{assert_noop, assert_ok, StorageDoubleMap, StorageMap};
 
-use pallet_nft::{Collection, CollectionKeys, MetadataValue, NFTsInCollection, NumberOfNFTs};
+use pallet_nft::{
+    Collection, CollectionKeys, MetadataValue, NFTOwner, NFTsInCollection, NumberOfNFTs,
+};
 use pallet_portfolio::PortfolioNFT;
 use polymesh_common_utilities::traits::nft::Event;
 use polymesh_common_utilities::with_transaction;
@@ -431,6 +433,7 @@ fn mint_nft_successfully() {
             ),
             true
         );
+        assert_eq!(NFTOwner::get(ticker, NFTId(1)), Some(alice.did));
     });
 }
 
@@ -581,6 +584,7 @@ fn burn_nft() {
             PortfolioId::default_portfolio(alice.did),
             (&ticker, NFTId(1))
         ),);
+        assert_eq!(NFTOwner::get(ticker, NFTId(1)), None);
     });
 }
 
@@ -905,6 +909,7 @@ fn transfer_nft() {
             PortfolioNFT::get(PortfolioId::default_portfolio(bob.did), (&ticker, NFTId(1))),
             true
         );
+        assert_eq!(NFTOwner::get(ticker, NFTId(1)), Some(bob.did));
         assert_eq!(
             super::storage::EventTest::Nft(Event::NFTPortfolioUpdated(
                 IdentityId::default(),
@@ -997,6 +1002,7 @@ fn controller_transfer() {
             alice_portfolio,
             (ticker, NFTId(1))
         ));
+        assert_eq!(NFTOwner::get(ticker, NFTId(1)), Some(alice.did));
         assert_eq!(
             super::storage::EventTest::Nft(Event::NFTPortfolioUpdated(
                 alice.did,
