@@ -867,6 +867,11 @@ impl<T: Config> Module<T> {
         Self::base_create_portfolio(portfolio_owner_id, portfolio_name)?;
         // Updates storage for taking ownership of a portfolio
         Self::unverified_take_portfolio_custody(&portfolio_id, &callers_did);
+        Self::deposit_event(Event::PortfolioCustodianChanged(
+            callers_did,
+            portfolio_id,
+            callers_did,
+        ));
         Ok(())
     }
 }
