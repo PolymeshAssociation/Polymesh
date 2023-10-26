@@ -446,11 +446,6 @@ impl<T: Config> Module<T> {
         // Ensure that the key can be unlinked.
         Self::ensure_key_unlinkable_from_did(&secondary_key)?;
 
-        T::ProtocolFee::charge_fee(ProtocolOp::IdentityCreateChildIdentity)?;
-
-        // Generate a new DID for the child.
-        let child_did = Self::make_did()?;
-
         // Unlink the secondary account key.
         Self::remove_key_record(&secondary_key, Some(parent_did));
         Self::deposit_event(RawEvent::SecondaryKeysRemoved(
@@ -458,20 +453,27 @@ impl<T: Config> Module<T> {
             vec![secondary_key.clone()],
         ));
 
-        let primary_key = secondary_key;
-        // Create a new identity record and link the primary key.
-        Self::add_key_record(&primary_key, KeyRecord::PrimaryKey(child_did));
-        Self::deposit_event(RawEvent::DidCreated(child_did, primary_key.clone(), vec![]));
+        // Creates a child identity and sets `secondary_key` as the child's primary key
+        Self::unverified_create_child_identity(secondary_key, parent_did)?;
 
+        Ok(())
+    }
+
+    /// Creates a new child identity for `parent_did` setting `key` as the primary key for the new identity.
+    pub fn unverified_create_child_identity(
+        key: T::AccountId,
+        parent_did: IdentityId,
+    ) -> DispatchResult {
+        T::ProtocolFee::charge_fee(ProtocolOp::IdentityCreateChildIdentity)?;
+        // Generate a new DID for the child.
+        let child_did = Self::make_did()?;
+        // Create a new identity record
+        Self::add_key_record(&key, KeyRecord::PrimaryKey(child_did));
+        Self::deposit_event(RawEvent::DidCreated(child_did, key.clone(), vec![]));
         // Link new identity to parent identity.
         ParentDid::insert(child_did, parent_did);
 
-        Self::deposit_event(RawEvent::ChildDidCreated(
-            parent_did,
-            child_did,
-            primary_key,
-        ));
-
+        Self::deposit_event(RawEvent::ChildDidCreated(parent_did, child_did, key));
         Ok(())
     }
 

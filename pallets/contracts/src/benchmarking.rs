@@ -28,12 +28,11 @@ use sp_runtime::Perbill;
 use sp_std::prelude::*;
 use wasm_instrument::parity_wasm::elements::{Instruction, ValueType};
 
-use polymesh_common_utilities::{
-    benchs::{cdd_provider, user, AccountIdOf, User},
-    constants::currency::POLY,
-    group::GroupTrait,
-    TestUtilsFn,
-};
+use pallet_identity::ParentDid;
+use polymesh_common_utilities::benchs::{cdd_provider, user, AccountIdOf, User};
+use polymesh_common_utilities::constants::currency::POLY;
+use polymesh_common_utilities::group::GroupTrait;
+use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
 };
@@ -73,7 +72,7 @@ where
         // Check if contact is already linked.
         match Identity::<T>::get_identity(&contract) {
             Some(contract_did) => {
-                if contract_did != did {
+                if contract_did != did && ParentDid::get(contract_did) != Some(did) {
                     // Contract address already linked to a different identity.
                     Err(IdentityError::<T>::AlreadyLinked.into())
                 } else {
@@ -523,4 +522,22 @@ benchmarks! {
             .map(|id| ([(id & 0xFF) as u8, (id >> 8) as u8].into(), true))
             .collect();
     }: _(RawOrigin::Root, updates)
+
+    instantiate_with_code_as_primary_key {
+        let c in 0 .. Perbill::from_percent(49).mul_ceil(T::MaxCodeLen::get());
+        let s in 0 .. max_pages::<T>() * 64 * 1024;
+        let salt = vec![42u8; s as usize];
+
+        // Construct a user doing everything.
+        let user = funded_user::<T>(SEED);
+
+        // Construct the contract code + get addr.
+        let wasm = WasmModule::<T>::sized(c, Location::Deploy);
+        let addr = FrameContracts::<T>::contract_address(&user.account(), &wasm.hash, &[], &salt);
+    }: _(user.origin(), ENDOWMENT, Weight::MAX, None, wasm.code, vec![], salt)
+    verify {
+        // Ensure contract has the full value.
+        assert_eq!(free_balance::<T>(&addr), ENDOWMENT + 1 as Balance);
+    }
+
 }
