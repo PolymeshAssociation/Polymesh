@@ -453,7 +453,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
             .saturating_add(Weight::from_ref_time(2_571_524).saturating_mul(u.into()))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(u.into())))
     }
-    fn instantiate_with_code_as_primary_key(code_len: u32, salt_len: u32) -> Weight {
-        Weight::MAX
+    fn instantiate_with_code_as_primary_key(_code_len: u32, _salt_len: u32) -> Weight {
+        Weight::zero()
     }
 }

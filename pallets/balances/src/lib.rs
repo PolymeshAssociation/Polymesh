@@ -683,6 +683,13 @@ impl<T: Config> Module<T> {
         let transactor_id = T::IdentityFn::get_identity(transactor);
         let dest_id = T::IdentityFn::get_identity(dest);
 
+        log::error!(
+            "transferred: {:?} from {:?} to {:?}",
+            value,
+            transactor,
+            dest
+        );
+
         Self::deposit_event(RawEvent::Transfer(
             transactor_id,
             transactor.clone(),
