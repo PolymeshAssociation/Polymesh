@@ -187,8 +187,13 @@ where
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
     pub fn new(wasm: WasmModule<T>) -> Self {
-        // Construct a user.
-        let caller = funded_user::<T>(SEED);
+        // Construct a user
+        let caller = UserBuilder::<T>::default()
+            .seed(SEED)
+            .generate_did()
+            .become_cdd_provider()
+            .build("Caller");
+        T::Currency::make_free_balance_be(&caller.account(), 1_000_000 * POLY);
 
         // Instantiate the contract.
         let account_id = instantiate::<T>(&caller, wasm, salt());
@@ -509,14 +514,8 @@ benchmarks! {
         // Construct the contract code + get addr.
         let wasm = WasmModule::<T>::sized(c, Location::Deploy);
         let addr = FrameContracts::<T>::contract_address(&user.account(), &wasm.hash, &[], &salt);
-        log::error!("addr acc id: {:?}", addr);
-        log::error!("user acc id: {:?}", &user.account());
-        log::error!("addr before balance: {:?}", free_balance::<T>(&addr));
-        log::error!("user before balance: {:?}", free_balance::<T>(&user.account()));
     }: _(user.origin(), ENDOWMENT, Weight::MAX, None, wasm.code, vec![], salt, Permissions::default())
     verify {
-        log::error!("addr after balance: {:?}", free_balance::<T>(&addr));
-        log::error!("user after balance: {:?}", free_balance::<T>(&user.account()));
         // Ensure contract has the full value.
         assert_eq!(free_balance::<T>(&addr), ENDOWMENT + 1 as Balance);
     }
@@ -535,19 +534,33 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default()
             .generate_did()
-            .balance((1_000_000_000 * POLY) as u32)
             .become_cdd_provider()
             .build("Alice");
+        T::Currency::make_free_balance_be(&alice.account(), 1_000_000 * POLY);
+
         let salt = vec![42u8; s as usize];
         let wasm = WasmModule::<T>::sized(c, Location::Deploy);
         let addr = FrameContracts::<T>::contract_address(&alice.account(), &wasm.hash, &[], &salt);
-        log::error!("addr acc id: {:?}", addr);
-        log::error!("user acc id: {:?}", &alice.account());
-        log::error!("addr before balance: {:?}", free_balance::<T>(&addr));
-        log::error!("user before balance: {:?}", free_balance::<T>(&alice.account()));
     }: _(alice.origin(), ENDOWMENT, Weight::MAX, None, wasm.code, vec![], salt)
     verify {
         assert_eq!(free_balance::<T>(&addr), ENDOWMENT + 1 as Balance);
     }
 
+    instantiate_with_hash_as_primary_key {
+        let s in 0 .. max_pages::<T>() * 64 * 1024;
+        let salt = vec![42u8; s as usize];
+
+        let wasm = WasmModule::<T>::dummy();
+        let hash = wasm.hash.clone();
+
+        // Pre-instantiate a contract so that one with the hash exists.
+        let contract = Contract::<T>::new(wasm);
+        let user = contract.caller;
+
+        // Calculate new contract's address.
+        let addr = FrameContracts::<T>::contract_address(&user.account(), &hash, &[], &salt);
+    }: _(user.origin(), ENDOWMENT, Weight::MAX, None, hash, vec![], salt)
+    verify {
+        assert_eq!(free_balance::<T>(&addr), ENDOWMENT + 1 as Balance);
+    }
 }
