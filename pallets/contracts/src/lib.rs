@@ -338,7 +338,7 @@ decl_module! {
         /// - All the errors in `pallet_contracts::Call::instantiate_with_code` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = Module::<T>::weight_instantiate_with_code(&code, &salt, &Some(perms.clone())).saturating_add(*gas_limit)]
+        #[weight = Module::<T>::weight_instantiate_with_code(&code, &salt, Some(perms)).saturating_add(*gas_limit)]
         pub fn instantiate_with_code_perms(
             origin,
             endowment: Balance,
@@ -389,7 +389,7 @@ decl_module! {
         /// - All the errors in `pallet_contracts::Call::instantiate` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = Module::<T>::weight_instantiate_with_hash(&salt, &Some(perms.clone())).saturating_add(*gas_limit)]
+        #[weight = Module::<T>::weight_instantiate_with_hash(&salt, Some(perms)).saturating_add(*gas_limit)]
         pub fn instantiate_with_hash_perms(
             origin,
             endowment: Balance,
@@ -435,7 +435,7 @@ decl_module! {
         /// - `data`: The input data to pass to the contract constructor.
         /// - `salt`: Used for contract address derivation. By varying this, the same `code` can be used under the same identity.
         ///
-        #[weight = Module::<T>::weight_instantiate_with_code(&code, &salt, &None).saturating_add(*gas_limit)]
+        #[weight = Module::<T>::weight_instantiate_with_code(&code, &salt, None).saturating_add(*gas_limit)]
         pub fn instantiate_with_code_as_primary_key(
             origin,
             endowment: Balance,
@@ -472,7 +472,7 @@ decl_module! {
         /// - `data`: The input data to pass to the contract constructor.
         /// - `salt`: used for contract address derivation. By varying this, the same `code` can be used under the same identity.
         ///
-        #[weight = Module::<T>::weight_instantiate_with_hash(&salt, &None).saturating_add(*gas_limit)]
+        #[weight = Module::<T>::weight_instantiate_with_hash(&salt, None).saturating_add(*gas_limit)]
         pub fn instantiate_with_hash_as_primary_key(
             origin,
             endowment: Balance,
@@ -541,7 +541,7 @@ where
         Self::general_instantiate(
             origin,
             endowment,
-            Self::weight_instantiate_with_code(&code, &salt, &perms),
+            Self::weight_instantiate_with_code(&code, &salt, perms.as_ref()),
             gas_limit,
             storage_deposit_limit,
             Code::Upload(code),
@@ -556,7 +556,7 @@ where
     fn weight_instantiate_with_code(
         code: &[u8],
         salt: &[u8],
-        perms: &Option<Permissions>,
+        perms: Option<&Permissions>,
     ) -> Weight {
         match perms {
             Some(permissions) => {
@@ -587,7 +587,7 @@ where
             origin,
             endowment,
             // Compute the base weight of roughly `base_instantiate`.
-            Self::weight_instantiate_with_hash(&salt, &perms),
+            Self::weight_instantiate_with_hash(&salt, perms.as_ref()),
             gas_limit,
             storage_deposit_limit,
             Code::Existing(code_hash),
@@ -599,7 +599,7 @@ where
     }
 
     /// Computes weight of `instantiate_with_hash(salt, perms)`.
-    fn weight_instantiate_with_hash(salt: &[u8], perms: &Option<Permissions>) -> Weight {
+    fn weight_instantiate_with_hash(salt: &[u8], perms: Option<&Permissions>) -> Weight {
         match perms {
             Some(permissions) => <T as Config>::WeightInfo::instantiate_with_hash_bytes(&salt)
                 .saturating_add(<T as IdentityConfig>::WeightInfo::permissions_cost_perms(
