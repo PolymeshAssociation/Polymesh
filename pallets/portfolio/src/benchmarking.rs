@@ -169,4 +169,21 @@ benchmarks! {
         Module::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
         Module::<T>::pre_approve_portfolio(alice.clone().origin().into(), ticker, alice_custom_portfolio).unwrap();
     }: _(alice.origin, ticker, alice_custom_portfolio)
+
+    allow_identity_to_create_portfolios {
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+    }: _(alice.origin, bob.did())
+
+    revoke_create_portfolios_permission {
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+    }: _(alice.origin, bob.did())
+
+    create_custody_portfolio {
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let portfolio_name = PortfolioName("AliceOwnsBobControls".as_bytes().to_vec());
+        Module::<T>::allow_identity_to_create_portfolios(alice.clone().origin().into(), bob.did()).unwrap();
+    }: _(bob.origin, alice.did(), portfolio_name)
 }
