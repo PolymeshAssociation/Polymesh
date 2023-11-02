@@ -1,0 +1,14 @@
+[package]
+name = "runtime_cache_test"
+version = "2.0.0"
+edition = "2021"
+
+[dependencies]
+sc-executor = { version = "0.10.0-dev" }
+sp-state-machine = { version = "0.13.0" }
+sp-runtime = { version = "7.0.0" }
+sp-io = { version = "7.0.0" }
+sp-core = { version = "7.0.0" }
+env_logger = "0.9"
+
+[features]

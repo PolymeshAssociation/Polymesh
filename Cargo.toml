@@ -105,6 +105,7 @@ substrate-wasm-builder = { git = "https://github.com/PolymeshAssociation/substra
 members = [
     "bin/bench",
     "bin/testing",
+    "bin/runtime_cache",
     "node-rpc",
     "pallets/asset",
     "pallets/balances",
