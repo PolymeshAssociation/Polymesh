@@ -234,17 +234,18 @@ decl_module! {
         /// * `expiry` - Optional proposal expiry time.
         /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
-        /// #[deprecated(since = "6.0.0", note = "Please use the `create_proposal_as_identity` and `approve_as_identity` instead")]
-        #[weight = <T as Config>::WeightInfo::create_or_approve_proposal_as_identity().saturating_add(proposal.get_dispatch_info().weight)]
+        /// #[deprecated(since = "6.1.0", note = "Identity based signers not supported")]
+        #[weight = <T as Config>::WeightInfo::create_or_approve_proposal_as_identity().saturating_add(_proposal.get_dispatch_info().weight)]
         pub fn create_or_approve_proposal_as_identity(
             origin,
-            multisig: T::AccountId,
-            proposal: Box<T::Proposal>,
-            expiry: Option<T::Moment>,
-            auto_close: bool
-        ) {
-            let signer = Self::ensure_perms_signed_did(origin)?;
-            Self::create_or_approve_proposal(multisig, signer, proposal, expiry, auto_close)?;
+            _multisig: T::AccountId,
+            _proposal: Box<T::Proposal>,
+            _expiry: Option<T::Moment>,
+            _auto_close: bool
+        ) -> DispatchResult {
+            ensure_signed(origin)?;
+            ensure!(false, Error::<T>::NotASigner);
+            Ok(())
         }
 
         /// Creates a multisig proposal if it hasn't been created or approves it if it has.
@@ -255,17 +256,18 @@ decl_module! {
         /// * `expiry` - Optional proposal expiry time.
         /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
-        /// #[deprecated(since = "6.0.0", note = "Please use the `create_proposal_as_key` and `approve_as_key` instead")]
-        #[weight = <T as Config>::WeightInfo::create_or_approve_proposal_as_key().saturating_add(proposal.get_dispatch_info().weight)]
+        /// #[deprecated(since = "6.1.0", note = "Please use the `create_proposal_as_key` and `approve_as_key` instead")]
+        #[weight = <T as Config>::WeightInfo::create_or_approve_proposal_as_key().saturating_add(_proposal.get_dispatch_info().weight)]
         pub fn create_or_approve_proposal_as_key(
             origin,
-            multisig: T::AccountId,
-            proposal: Box<T::Proposal>,
-            expiry: Option<T::Moment>,
-            auto_close: bool
+            _multisig: T::AccountId,
+            _proposal: Box<T::Proposal>,
+            _expiry: Option<T::Moment>,
+            _auto_close: bool
         ) -> DispatchResult {
-            let signer = Self::ensure_signed_acc(origin)?;
-            Self::create_or_approve_proposal(multisig, signer, proposal, expiry, auto_close)
+            ensure_signed(origin)?;
+            ensure!(false, Error::<T>::NotASigner);
+            Ok(())
         }
 
         /// Creates a multisig proposal
@@ -276,16 +278,18 @@ decl_module! {
         /// * `expiry` - Optional proposal expiry time.
         /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
-        #[weight = <T as Config>::WeightInfo::create_proposal_as_identity().saturating_add(proposal.get_dispatch_info().weight)]
+        /// #[deprecated(since = "6.1.0", note = "Identity based signers not supported")]
+        #[weight = <T as Config>::WeightInfo::create_proposal_as_identity().saturating_add(_proposal.get_dispatch_info().weight)]
         pub fn create_proposal_as_identity(
             origin,
-            multisig: T::AccountId,
-            proposal: Box<T::Proposal>,
-            expiry: Option<T::Moment>,
-            auto_close: bool
-        ) {
-            let signer = Self::ensure_perms_signed_did(origin)?;
-            Self::create_proposal(multisig, signer, proposal, expiry, auto_close, false)?;
+            _multisig: T::AccountId,
+            _proposal: Box<T::Proposal>,
+            _expiry: Option<T::Moment>,
+            _auto_close: bool
+        ) -> DispatchResult {
+            ensure_signed(origin)?;
+            ensure!(false, Error::<T>::NotASigner);
+            Ok(())
         }
 
         /// Creates a multisig proposal
@@ -314,10 +318,12 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal_id` - Proposal id to approve.
         /// If quorum is reached, the proposal will be immediately executed.
+        /// #[deprecated(since = "6.1.0", note = "Identity based signers not supported")]
         #[weight = <T as Config>::WeightInfo::approve_as_identity()]
-        pub fn approve_as_identity(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
-            let signer = Self::ensure_perms_signed_did(origin)?;
-            Self::unsafe_approve(multisig, signer, proposal_id)
+        pub fn approve_as_identity(origin, _multisig: T::AccountId, _proposal_id: u64) -> DispatchResult {
+            ensure_signed(origin)?;
+            ensure!(false, Error::<T>::NotASigner);
+            Ok(())
         }
 
         /// Approves a multisig proposal using the caller's secondary key (`AccountId`).
@@ -338,10 +344,12 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal_id` - Proposal id to reject.
         /// If quorum is reached, the proposal will be immediately executed.
+        /// #[deprecated(since = "6.1.0", note = "Identity based signers not supported")]
         #[weight = <T as Config>::WeightInfo::reject_as_identity()]
-        pub fn reject_as_identity(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
-            let signer = Self::ensure_perms_signed_did(origin)?;
-            Self::unsafe_reject(multisig, signer, proposal_id)
+        pub fn reject_as_identity(origin, _multisig: T::AccountId, _proposal_id: u64) -> DispatchResult {
+            ensure_signed(origin)?;
+            ensure!(false, Error::<T>::NotASigner);
+            Ok(())
         }
 
         /// Rejects a multisig proposal using the caller's secondary key (`AccountId`).
@@ -360,10 +368,12 @@ decl_module! {
         ///
         /// # Arguments
         /// * `auth_id` - Auth id of the authorization.
+        /// #[deprecated(since = "6.1.0", note = "Identity based signers not supported")]
         #[weight = <T as Config>::WeightInfo::accept_multisig_signer_as_identity()]
-        pub fn accept_multisig_signer_as_identity(origin, auth_id: u64) -> DispatchResult {
-            let signer = Self::ensure_perms_signed_did(origin)?;
-            Self::unsafe_accept_multisig_signer(signer, auth_id)
+        pub fn accept_multisig_signer_as_identity(origin, _auth_id: u64) -> DispatchResult {
+            ensure_signed(origin)?;
+            ensure!(false, Error::<T>::NotASigner);
+            Ok(())
         }
 
         /// Accepts a multisig signer authorization given to signer's key (AccountId).
@@ -381,11 +391,12 @@ decl_module! {
         /// # Arguments
         /// * `signer` - Signatory to add.
         #[weight = <T as Config>::WeightInfo::add_multisig_signer()]
-        pub fn add_multisig_signer(origin, signer: Signatory<T::AccountId>) {
+        pub fn add_multisig_signer(origin, signer: Signatory<T::AccountId>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             Self::ensure_ms(&sender)?;
             let did = <MultiSigToIdentity<T>>::get(&sender);
-            Self::unsafe_add_auth_for_signers(did, signer, sender);
+            Self::unsafe_add_auth_for_signers(did, signer, sender)?;
+            Ok(())
         }
 
         /// Removes a signer from the multisig. This must be called by the multisig itself.
@@ -416,15 +427,16 @@ decl_module! {
         /// # Weight
         /// `900_000_000 + 3_000_000 * signers.len()`
         #[weight = <T as Config>::WeightInfo::add_multisig_signers_via_creator(signers.len() as u32)]
-        pub fn add_multisig_signers_via_creator(origin, multisig: T::AccountId, signers: Vec<Signatory<T::AccountId>>) {
+        pub fn add_multisig_signers_via_creator(origin, multisig: T::AccountId, signers: Vec<Signatory<T::AccountId>>) -> DispatchResult {
             let caller_did = Self::ensure_ms_creator(origin, &multisig)?;
             ensure!(
                 !LostCreatorPrivileges::get(caller_did),
                 Error::<T>::CreatorControlsHaveBeenRemoved
             );
             for signer in signers {
-                Self::unsafe_add_auth_for_signers(caller_did, signer, multisig.clone());
+                Self::unsafe_add_auth_for_signers(caller_did, signer, multisig.clone())?;
             }
+            Ok(())
         }
 
         /// Removes a signer from the multisig.
@@ -611,12 +623,6 @@ impl<T: Config> Module<T> {
         Ok(Signatory::Account(sender))
     }
 
-    fn ensure_perms_signed_did(
-        origin: T::RuntimeOrigin,
-    ) -> Result<Signatory<T::AccountId>, DispatchError> {
-        <Identity<T>>::ensure_perms(origin).map(|d| d.into())
-    }
-
     fn ensure_primary_key(did: &IdentityId, sender: &T::AccountId) -> DispatchResult {
         ensure!(
             <Identity<T>>::is_primary_key(did, sender),
@@ -665,7 +671,11 @@ impl<T: Config> Module<T> {
         multisig_owner: IdentityId,
         target: Signatory<T::AccountId>,
         multisig: T::AccountId,
-    ) {
+    ) -> DispatchResult {
+        ensure!(
+            matches!(target, Signatory::Account(_)),
+            Error::<T>::NotASigner
+        );
         <Identity<T>>::add_auth(
             multisig_owner,
             target.clone(),
@@ -677,6 +687,7 @@ impl<T: Config> Module<T> {
             multisig,
             target,
         ));
+        Ok(())
     }
 
     /// Removes a signer from the valid signer list for a given multisig.
@@ -715,6 +726,10 @@ impl<T: Config> Module<T> {
         MultiSigNonce::put(new_nonce);
         let account_id = Self::get_multisig_address(sender, new_nonce)?;
         for signer in signers {
+            ensure!(
+                matches!(signer, Signatory::Account(_)),
+                Error::<T>::NotASigner
+            );
             <Identity<T>>::add_auth(
                 sender_did,
                 signer.clone(),
