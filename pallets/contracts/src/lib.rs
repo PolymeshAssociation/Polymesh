@@ -72,11 +72,10 @@ use sp_std::{vec, vec::Vec};
 
 use pallet_contracts::Config as BConfig;
 use pallet_contracts_primitives::{Code, ContractResult};
-use pallet_identity::PermissionedCallOriginData;
+use pallet_identity::ParentDid;
 use polymesh_common_utilities::traits::identity::{
     Config as IdentityConfig, WeightInfo as IdentityWeightInfo,
 };
-use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::{storage_migrate_on, storage_migration_ver, Balance, Permissions};
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -102,7 +101,7 @@ where
         // Check if contact is already linked.
         match Identity::<T>::get_identity(&contract) {
             Some(contract_did) => {
-                if contract_did != did {
+                if contract_did != did && ParentDid::get(contract_did) != Some(did) {
                     // Contract address already linked to a different identity.
                     Err(IdentityError::<T>::AlreadyLinked.into())
                 } else {
@@ -157,6 +156,8 @@ pub trait WeightInfo {
     fn chain_extension_call_runtime(n: u32) -> Weight;
     fn dummy_contract() -> Weight;
     fn basic_runtime_call(n: u32) -> Weight;
+    fn instantiate_with_code_as_primary_key(code_len: u32, salt_len: u32) -> Weight;
+    fn instantiate_with_hash_as_primary_key(salt_len: u32) -> Weight;
 
     /// Computes the cost of instantiating where `code_len`
     /// and `salt_len` are specified in kilobytes.
@@ -264,6 +265,10 @@ decl_error! {
         InstantiatorWithNoIdentity,
         /// Extrinsic is not allowed to be called by contracts.
         RuntimeCallDenied,
+        /// The caller is not a primary key.
+        CallerNotAPrimaryKey,
+        /// Secondary key permissions are missing.
+        MissingKeyPermissions
     }
 }
 
@@ -333,7 +338,7 @@ decl_module! {
         /// - All the errors in `pallet_contracts::Call::instantiate_with_code` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = Module::<T>::weight_instantiate_with_code(&code, &salt, &perms).saturating_add(*gas_limit)]
+        #[weight = Module::<T>::weight_instantiate_with_code(&code, &salt, Some(perms)).saturating_add(*gas_limit)]
         pub fn instantiate_with_code_perms(
             origin,
             endowment: Balance,
@@ -344,7 +349,17 @@ decl_module! {
             salt: Vec<u8>,
             perms: Permissions
         ) -> DispatchResultWithPostInfo {
-            Self::base_instantiate_with_code(origin, endowment, gas_limit, storage_deposit_limit, code, data, salt, perms)
+            Self::base_instantiate_with_code(
+                origin,
+                endowment,
+                gas_limit,
+                storage_deposit_limit,
+                code,
+                data,
+                salt,
+                Some(perms),
+                false
+            )
         }
 
         /// Instantiates a smart contract defining using the given `code_hash` and `salt`.
@@ -374,7 +389,7 @@ decl_module! {
         /// - All the errors in `pallet_contracts::Call::instantiate` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = Module::<T>::weight_instantiate_with_hash(&salt, &perms).saturating_add(*gas_limit)]
+        #[weight = Module::<T>::weight_instantiate_with_hash(&salt, Some(perms)).saturating_add(*gas_limit)]
         pub fn instantiate_with_hash_perms(
             origin,
             endowment: Balance,
@@ -385,7 +400,17 @@ decl_module! {
             salt: Vec<u8>,
             perms: Permissions
         ) -> DispatchResultWithPostInfo {
-            Self::base_instantiate_with_hash(origin, endowment, gas_limit, storage_deposit_limit, code_hash, data, salt, perms)
+            Self::base_instantiate_with_hash(
+                origin,
+                endowment,
+                gas_limit,
+                storage_deposit_limit,
+                code_hash,
+                data,
+                salt,
+                Some(perms),
+                false
+            )
         }
 
         /// Update CallRuntime whitelist.
@@ -396,6 +421,78 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::update_call_runtime_whitelist(updates.len() as u32)]
         pub fn update_call_runtime_whitelist(origin, updates: Vec<(ExtrinsicId, bool)>) -> DispatchResult {
             Self::base_update_call_runtime_whitelist(origin, updates)
+        }
+
+        /// Instantiates a smart contract defining it with the given `code` and `salt`.
+        ///
+        /// The contract will be attached as a primary key of a newly created child identity of the caller.
+        ///
+        /// # Arguments
+        /// - `endowment`: Amount of POLYX to transfer to the contract.
+        /// - `gas_limit`: For how much gas the `deploy` code in the contract may at most consume.
+        /// - `storage_deposit_limit`: The maximum amount of balance that can be charged/reserved from the caller to pay for the storage consumed.
+        /// - `code`: The WASM binary defining the smart contract.
+        /// - `data`: The input data to pass to the contract constructor.
+        /// - `salt`: Used for contract address derivation. By varying this, the same `code` can be used under the same identity.
+        ///
+        #[weight = Module::<T>::weight_instantiate_with_code(&code, &salt, None).saturating_add(*gas_limit)]
+        pub fn instantiate_with_code_as_primary_key(
+            origin,
+            endowment: Balance,
+            gas_limit: Weight,
+            storage_deposit_limit: Option<Balance>,
+            code: Vec<u8>,
+            data: Vec<u8>,
+            salt: Vec<u8>
+        ) -> DispatchResultWithPostInfo {
+            Self::base_instantiate_with_code(
+                origin,
+                endowment,
+                gas_limit,
+                storage_deposit_limit,
+                code,
+                data,
+                salt,
+                None,
+                true
+            )
+        }
+
+        /// Instantiates a smart contract defining using the given `code_hash` and `salt`.
+        ///
+        /// Unlike `instantiate_with_code`, this assumes that at least one contract with the same WASM code has already been uploaded.
+        ///
+        /// The contract will be attached as a primary key of a newly created child identity of the caller.
+        ///
+        /// # Arguments
+        /// - `endowment`: amount of POLYX to transfer to the contract.
+        /// - `gas_limit`: for how much gas the `deploy` code in the contract may at most consume.
+        /// - `storage_deposit_limit`: The maximum amount of balance that can be charged/reserved from the caller to pay for the storage consumed.
+        /// - `code_hash`: of an already uploaded WASM binary.
+        /// - `data`: The input data to pass to the contract constructor.
+        /// - `salt`: used for contract address derivation. By varying this, the same `code` can be used under the same identity.
+        ///
+        #[weight = Module::<T>::weight_instantiate_with_hash(&salt, None).saturating_add(*gas_limit)]
+        pub fn instantiate_with_hash_as_primary_key(
+            origin,
+            endowment: Balance,
+            gas_limit: Weight,
+            storage_deposit_limit: Option<Balance>,
+            code_hash: CodeHash<T>,
+            data: Vec<u8>,
+            salt: Vec<u8>,
+        ) -> DispatchResultWithPostInfo {
+            Self::base_instantiate_with_hash(
+                origin,
+                endowment,
+                gas_limit,
+                storage_deposit_limit,
+                code_hash,
+                data,
+                salt,
+                None,
+                true
+            )
         }
     }
 }
@@ -438,27 +535,40 @@ where
         code: Vec<u8>,
         inst_data: Vec<u8>,
         salt: Vec<u8>,
-        perms: Permissions,
+        perms: Option<Permissions>,
+        deploy_as_child_identity: bool,
     ) -> DispatchResultWithPostInfo {
         Self::general_instantiate(
             origin,
             endowment,
-            // Compute the base weight of roughly `base_instantiate`.
-            Self::weight_instantiate_with_code(&code, &salt, &perms),
+            Self::weight_instantiate_with_code(&code, &salt, perms.as_ref()),
             gas_limit,
             storage_deposit_limit,
             Code::Upload(code),
             inst_data,
             salt,
             perms,
+            deploy_as_child_identity,
         )
     }
 
-    /// Computes weight of `instantiate_with_code(code, salt, perms)`.
-    fn weight_instantiate_with_code(code: &[u8], salt: &[u8], perms: &Permissions) -> Weight {
-        <T as Config>::WeightInfo::instantiate_with_code_bytes(&code, &salt).saturating_add(
-            <T as IdentityConfig>::WeightInfo::permissions_cost_perms(perms),
-        )
+    /// Computes the weight of `instantiate_with_code(code, salt, perms)`.
+    fn weight_instantiate_with_code(
+        code: &[u8],
+        salt: &[u8],
+        perms: Option<&Permissions>,
+    ) -> Weight {
+        match perms {
+            Some(permissions) => {
+                <T as Config>::WeightInfo::instantiate_with_code_bytes(&code, &salt).saturating_add(
+                    <T as IdentityConfig>::WeightInfo::permissions_cost_perms(permissions),
+                )
+            }
+            None => <T as Config>::WeightInfo::instantiate_with_code_as_primary_key(
+                code.len() as u32,
+                salt.len() as u32,
+            ),
+        }
     }
 
     /// Instantiates a contract using an existing WASM code blob with `code_hash` as its code.
@@ -470,27 +580,35 @@ where
         code_hash: CodeHash<T>,
         inst_data: Vec<u8>,
         salt: Vec<u8>,
-        perms: Permissions,
+        perms: Option<Permissions>,
+        deploy_as_child_identity: bool,
     ) -> DispatchResultWithPostInfo {
         Self::general_instantiate(
             origin,
             endowment,
             // Compute the base weight of roughly `base_instantiate`.
-            Self::weight_instantiate_with_hash(&salt, &perms),
+            Self::weight_instantiate_with_hash(&salt, perms.as_ref()),
             gas_limit,
             storage_deposit_limit,
             Code::Existing(code_hash),
             inst_data,
             salt,
             perms,
+            deploy_as_child_identity,
         )
     }
 
-    /// Computes weight of `instantiate_with_hash(code, salt, perms)`.
-    fn weight_instantiate_with_hash(salt: &[u8], perms: &Permissions) -> Weight {
-        <T as Config>::WeightInfo::instantiate_with_hash_bytes(&salt).saturating_add(
-            <T as IdentityConfig>::WeightInfo::permissions_cost_perms(perms),
-        )
+    /// Computes weight of `instantiate_with_hash(salt, perms)`.
+    fn weight_instantiate_with_hash(salt: &[u8], perms: Option<&Permissions>) -> Weight {
+        match perms {
+            Some(permissions) => <T as Config>::WeightInfo::instantiate_with_hash_bytes(&salt)
+                .saturating_add(<T as IdentityConfig>::WeightInfo::permissions_cost_perms(
+                    permissions,
+                )),
+            None => {
+                <T as Config>::WeightInfo::instantiate_with_hash_as_primary_key(salt.len() as u32)
+            }
+        }
     }
 
     /// General logic for contract instantiation both when the code or code hash is given.
@@ -509,46 +627,51 @@ where
         code: Code<CodeHash<T>>,
         inst_data: Vec<u8>,
         salt: Vec<u8>,
-        perms: Permissions,
+        perms: Option<Permissions>,
+        deploy_as_child_identity: bool,
     ) -> DispatchResultWithPostInfo {
         // Ensure we have perms + we'll need sender & DID.
-        let PermissionedCallOriginData {
-            primary_did: did,
-            sender,
-            ..
-        } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+        let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
-        // Pre-compute what contract's key will be...
+        // Pre-compute what contract's key will be
         let contract_key = FrameContracts::<T>::contract_address(
-            &sender,
+            &origin_data.sender,
             &Self::code_hash(&code),
             &inst_data,
             &salt,
         );
 
-        // ...and ensure that key can be a secondary-key of DID...
-        Identity::<T>::ensure_perms_length_limited(&perms)?;
+        // Ensure contract_key is not linked to a DID
         Identity::<T>::ensure_key_did_unlinked(&contract_key)?;
-
-        with_transaction(|| {
+        if !deploy_as_child_identity {
+            let perms = perms.ok_or(Error::<T>::MissingKeyPermissions)?;
+            // Ensure that the key can be a secondary-key
+            Identity::<T>::ensure_perms_length_limited(&perms)?;
             // Link contract's address to caller's identity as a secondary key with `perms`.
-            Identity::<T>::unsafe_join_identity(did, perms, contract_key);
+            Identity::<T>::unsafe_join_identity(origin_data.primary_did, perms, contract_key);
+        } else {
+            ensure!(
+                origin_data.secondary_key.is_none(),
+                Error::<T>::CallerNotAPrimaryKey
+            );
+            Identity::<T>::ensure_no_parent(origin_data.primary_did)?;
+            Identity::<T>::unverified_create_child_identity(contract_key, origin_data.primary_did)?;
+        }
 
-            // Now we can finally instantiate the contract.
-            Self::handle_error(
-                base_weight,
-                FrameContracts::<T>::bare_instantiate(
-                    sender,
-                    endowment,
-                    gas_limit,
-                    storage_deposit_limit,
-                    code,
-                    inst_data,
-                    salt,
-                    false,
-                ),
-            )
-        })
+        // Instantiate the contract.
+        Self::handle_error(
+            base_weight,
+            FrameContracts::<T>::bare_instantiate(
+                origin_data.sender,
+                endowment,
+                gas_limit,
+                storage_deposit_limit,
+                code,
+                inst_data,
+                salt,
+                false,
+            ),
+        )
     }
 
     /// Computes the code hash of `code`.

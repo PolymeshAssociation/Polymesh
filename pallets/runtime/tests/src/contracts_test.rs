@@ -1,16 +1,18 @@
-use crate::{
-    ext_builder::ExtBuilder,
-    storage::{TestStorage, User},
-};
 use codec::Encode;
+use frame_support::dispatch::Weight;
 use frame_support::{
-    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, dispatch::Weight,
+    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, StorageMap,
 };
+use sp_keyring::AccountKeyring;
+use sp_runtime::traits::Hash;
+
+use pallet_identity::ParentDid;
 use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_primitives::{AccountId, Gas, Permissions, PortfolioPermissions, Ticker};
 use polymesh_runtime_common::Currency;
-use sp_keyring::AccountKeyring;
-use sp_runtime::traits::Hash;
+
+use crate::ext_builder::ExtBuilder;
+use crate::storage::{TestStorage, User};
 
 // We leave it to tests in the substrate to ensure that `pallet-contracts`
 // is functioning correctly, so we do not add such redundant tests
@@ -170,5 +172,52 @@ fn misc_polymesh_extensions() {
             // ensuring that it was Alice who registered it.
             assert_ok!(call(2500, register_ticker_data));
             assert_ok!(Asset::ensure_owner(&ticker, owner.did));
+        })
+}
+
+#[test]
+fn deploy_as_child_identity() {
+    let eve = AccountKeyring::Eve.to_account_id();
+    ExtBuilder::default()
+        .cdd_providers(vec![eve.clone()])
+        .adjust(Box::new(move |storage| {
+            polymesh_contracts::GenesisConfig {
+                call_whitelist: [
+                    [0x1A, 0x00],
+                    [0x1A, 0x01],
+                    [0x1A, 0x02],
+                    [0x1A, 0x03],
+                    [0x1A, 0x11],
+                    [0x2F, 0x01],
+                ]
+                .into_iter()
+                .map(|ext_id: [u8; 2]| ext_id.into())
+                .collect(),
+            }
+            .assimilate_storage(storage)
+            .unwrap();
+        }))
+        .build()
+        .execute_with(|| {
+            let salt = vec![0xFF];
+            let (code, _) = chain_extension();
+            let hash = Hashing::hash(&code);
+            let alice = User::new(AccountKeyring::Alice);
+            Balances::make_free_balance_be(&alice.acc(), 1_000_000 * POLY);
+
+            assert_ok!(Contracts::instantiate_with_code_as_primary_key(
+                alice.origin(),
+                Balances::minimum_balance(),
+                GAS_LIMIT,
+                None,
+                code.clone(),
+                vec![],
+                salt.clone(),
+            ));
+
+            let contract_account_id =
+                FrameContracts::contract_address(&alice.acc(), &hash, &[], &salt);
+            let child_id = Identity::get_identity(&contract_account_id).unwrap();
+            assert_eq!(ParentDid::get(child_id), Some(alice.did));
         })
 }
