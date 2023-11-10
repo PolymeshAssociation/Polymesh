@@ -365,7 +365,7 @@ decl_module! {
         pub fn accept_multisig_signer_as_identity(origin, _auth_id: u64) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(false, Error::<T>::NotASigner);
-            Ok(())            
+            Ok(())
         }
 
         /// Accepts a multisig signer authorization given to signer's key (AccountId).

@@ -80,10 +80,8 @@ fn join_multisig() {
         set_curr_did(Some(alice_did));
 
         // No longer allow identities to accept multisig signer authorisations
-        assert_noop!(MultiSig::accept_multisig_signer_as_identity(
-                alice.clone(),
-                alice_auth_id
-            ),
+        assert_noop!(
+            MultiSig::accept_multisig_signer_as_identity(alice.clone(), alice_auth_id),
             Error::NotASigner
         );
 
@@ -162,7 +160,7 @@ fn change_multisig_sigs_required() {
         let bob_signer = Signatory::Account(AccountKeyring::Bob.to_account_id());
         let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
         let charlie_signer = Signatory::Account(AccountKeyring::Charlie.to_account_id());
-        
+
         let ms_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id())
             .expect("Next MS");
 
@@ -387,7 +385,10 @@ fn remove_multisig_signer() {
         next_block();
 
         // Alice not removed since that would've broken the multi sig.
-        assert_eq!(MultiSig::ms_signers(ms_address.clone(), charlie_signer), true);
+        assert_eq!(
+            MultiSig::ms_signers(ms_address.clone(), charlie_signer),
+            true
+        );
     });
 }
 
@@ -716,14 +717,17 @@ fn remove_multisig_signers_via_creator() {
         );
 
         // Alice not removed since that would've broken the multi sig.
-        assert_eq!(MultiSig::ms_signers(ms_address.clone(), charlie_signer), true);
+        assert_eq!(
+            MultiSig::ms_signers(ms_address.clone(), charlie_signer),
+            true
+        );
     });
 }
 
 #[test]
 fn add_multisig_signers_via_creator() {
     ExtBuilder::default().build().execute_with(|| {
-        let _alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();        
+        let _alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
         let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
         let bob_signer = Signatory::Account(AccountKeyring::Bob.to_account_id());
@@ -810,8 +814,8 @@ fn check_for_approval_closure() {
             vec![charlie_signer.clone(), dave_signer.clone()],
             1,
         ));
-//alice > charlie
-//eve > dave
+        //alice > charlie
+        //eve > dave
         let charlie_auth_id = get_last_auth_id(&charlie_signer.clone());
 
         set_curr_did(Some(alice_did));
