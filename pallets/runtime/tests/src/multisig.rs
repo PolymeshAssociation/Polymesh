@@ -814,10 +814,7 @@ fn check_for_approval_closure() {
             vec![charlie_signer.clone(), dave_signer.clone()],
             1,
         ));
-        //alice > charlie
-        //eve > dave
         let charlie_auth_id = get_last_auth_id(&charlie_signer.clone());
-
         set_curr_did(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             charlie.clone(),
