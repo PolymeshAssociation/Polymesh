@@ -165,6 +165,28 @@ decl_event! {
             PortfolioId,
             FundDescription,
             Option<Memo>
+        ),
+        /// A portfolio has pre approved the receivement of an asset.
+        ///
+        /// # Parameters
+        /// * [`IdentityId`] of the caller.
+        /// * [`PortfolioId`] that will receive assets without explicit affirmation.
+        /// * [`Ticker`] of the asset that has been exempt from explicit affirmation.
+        PreApprovedPortfolio(
+            IdentityId,
+            PortfolioId,
+            Ticker
+        ),
+        /// A portfolio has removed the approval of an asset.
+        ///
+        /// # Parameters
+        /// * [`IdentityId`] of the caller.
+        /// * [`PortfolioId`] that had its pre approval revoked.
+        /// * [`Ticker`] of the asset that had its pre approval revoked.
+        RevokePreApprovedPortfolio(
+            IdentityId,
+            PortfolioId,
+            Ticker
         )
     }
 }
