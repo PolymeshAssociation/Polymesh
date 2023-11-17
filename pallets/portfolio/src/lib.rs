@@ -809,6 +809,11 @@ impl<T: Config> Module<T> {
         )?;
 
         PreApprovedPortfolios::insert(&portfolio_id, ticker, true);
+        Self::deposit_event(Event::PreApprovedPortfolio(
+            origin_data.primary_did,
+            portfolio_id,
+            *ticker,
+        ));
         Ok(())
     }
 
@@ -826,6 +831,11 @@ impl<T: Config> Module<T> {
         )?;
 
         PreApprovedPortfolios::remove(&portfolio_id, ticker);
+        Self::deposit_event(Event::RevokePreApprovedPortfolio(
+            origin_data.primary_did,
+            portfolio_id,
+            *ticker,
+        ));
         Ok(())
     }
 

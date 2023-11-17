@@ -165,6 +165,18 @@ decl_event! {
             Option<PortfolioId>,
             PortfolioUpdateReason,
         ),
+        /// An asset has been added to the list of pre aprroved receivement (valid for all identities).
+        /// Parameters: [`Ticker`] of the pre approved asset.
+        AssetAffirmationExemption(Ticker),
+        /// An asset has been removed from the list of pre aprroved receivement (valid for all identities).
+        /// Parameters: [`Ticker`] of the asset.
+        RemoveAssetAffirmationExemption(Ticker),
+        /// An identity has added an asset to the list of pre aprroved receivement.
+        /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the pre approved asset.
+        PreApprovedAsset(IdentityId, Ticker),
+        /// An identity has removed an asset to the list of pre aprroved receivement.
+        /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset.
+        RemovePreApprovedAsset(IdentityId, Ticker),
     }
 }
 

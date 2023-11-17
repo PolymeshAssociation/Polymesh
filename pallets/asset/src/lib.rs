@@ -852,7 +852,7 @@ decl_module! {
         /// * Root
         #[weight = <T as Config>::WeightInfo::exempt_ticker_affirmation()]
         pub fn exempt_ticker_affirmation(origin, ticker: Ticker) -> DispatchResult {
-            Self::base_exempt_ticker_affirmation(origin, &ticker)
+            Self::base_exempt_ticker_affirmation(origin, ticker)
         }
 
         /// Removes the pre-approval of the asset for all identities.
@@ -865,7 +865,7 @@ decl_module! {
         /// * Root
         #[weight = <T as Config>::WeightInfo::remove_ticker_affirmation_exemption()]
         pub fn remove_ticker_affirmation_exemption(origin, ticker: Ticker) -> DispatchResult {
-            Self::base_remove_ticker_affirmation_exemption(origin, &ticker)
+            Self::base_remove_ticker_affirmation_exemption(origin, ticker)
         }
 
         /// Pre-approves the receivement of an asset.
@@ -878,7 +878,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Config>::WeightInfo::pre_approve_ticker()]
         pub fn pre_approve_ticker(origin, ticker: Ticker) -> DispatchResult {
-            Self::base_pre_approve_ticker(origin, &ticker)
+            Self::base_pre_approve_ticker(origin, ticker)
         }
 
         /// Removes the pre approval of an asset.
@@ -891,7 +891,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Config>::WeightInfo::remove_ticker_pre_approval()]
         pub fn remove_ticker_pre_approval(origin, ticker: Ticker) -> DispatchResult {
-            Self::base_remove_ticker_pre_approval(origin, &ticker)
+            Self::base_remove_ticker_pre_approval(origin, ticker)
         }
     }
 }
@@ -2477,36 +2477,37 @@ impl<T: Config> Module<T> {
     }
 
     /// Pre-approves the receivement of the asset for all identities.
-    fn base_exempt_ticker_affirmation(origin: T::RuntimeOrigin, ticker: &Ticker) -> DispatchResult {
+    fn base_exempt_ticker_affirmation(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
         ensure_root(origin)?;
-        TickersExemptFromAffirmation::insert(ticker, true);
+        TickersExemptFromAffirmation::insert(&ticker, true);
+        Self::deposit_event(RawEvent::AssetAffirmationExemption(ticker));
         Ok(())
     }
 
     /// Removes the pre-approval of the asset for all identities.
     fn base_remove_ticker_affirmation_exemption(
         origin: T::RuntimeOrigin,
-        ticker: &Ticker,
+        ticker: Ticker,
     ) -> DispatchResult {
         ensure_root(origin)?;
-        TickersExemptFromAffirmation::remove(ticker);
+        TickersExemptFromAffirmation::remove(&ticker);
+        Self::deposit_event(RawEvent::RemoveAssetAffirmationExemption(ticker));
         Ok(())
     }
 
     /// Pre-approves the receivement of an asset.
-    fn base_pre_approve_ticker(origin: T::RuntimeOrigin, ticker: &Ticker) -> DispatchResult {
+    fn base_pre_approve_ticker(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
         let caller_did = Identity::<T>::ensure_perms(origin)?;
-        PreApprovedTicker::insert(&caller_did, ticker, true);
+        PreApprovedTicker::insert(&caller_did, &ticker, true);
+        Self::deposit_event(RawEvent::PreApprovedAsset(caller_did, ticker));
         Ok(())
     }
 
     /// Removes the pre approval of an asset.
-    fn base_remove_ticker_pre_approval(
-        origin: T::RuntimeOrigin,
-        ticker: &Ticker,
-    ) -> DispatchResult {
+    fn base_remove_ticker_pre_approval(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
         let caller_did = Identity::<T>::ensure_perms(origin)?;
-        PreApprovedTicker::remove(&caller_did, ticker);
+        PreApprovedTicker::remove(&caller_did, &ticker);
+        Self::deposit_event(RawEvent::RemovePreApprovedAsset(caller_did, ticker));
         Ok(())
     }
 }
