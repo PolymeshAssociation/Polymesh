@@ -98,10 +98,19 @@ impl<T: Config> sp_std::fmt::Debug for ApiCodeHash<T> {
     }
 }
 
-#[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, Decode, Encode, Eq, Ord, PartialOrd, PartialEq, TypeInfo)]
 pub struct ChainVersion {
     spec_version: u32,
     tx_version: u32,
+}
+
+impl ChainVersion {
+    pub fn new(spec_version: u32, tx_version: u32) -> Self {
+        ChainVersion {
+            spec_version,
+            tx_version,
+        }
+    }
 }
 
 impl<T: Config> pallet_contracts::PolymeshHooks<T> for ContractPolymeshHooks
@@ -237,6 +246,10 @@ pub trait WeightInfo {
             .saturating_sub(Self::dummy_contract())
             .saturating_sub(Self::basic_runtime_call(in_len))
     }
+
+    fn get_latest_api_upgrade() -> Weight {
+        Weight::zero()
+    }
 }
 
 /// The `Config` trait for the smart contracts pallet.
@@ -285,7 +298,9 @@ decl_error! {
         /// The caller is not a primary key.
         CallerNotAPrimaryKey,
         /// Secondary key permissions are missing.
-        MissingKeyPermissions
+        MissingKeyPermissions,
+        /// There are no api upgrades supported for the contract.
+        NoUpgradesSupported
     }
 }
 
