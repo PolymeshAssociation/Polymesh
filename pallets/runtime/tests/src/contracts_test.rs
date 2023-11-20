@@ -1,8 +1,10 @@
 use codec::Encode;
-use frame_support::dispatch::Weight;
+use frame_support::dispatch::{DispatchError, Weight};
 use frame_support::{
-    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, StorageMap,
+    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, StorageDoubleMap,
+    StorageMap,
 };
+use polymesh_contracts::{ApiCodeHash, ChainVersion, SupportedApiUpgrades};
 use sp_keyring::AccountKeyring;
 use sp_runtime::traits::Hash;
 
@@ -12,7 +14,7 @@ use polymesh_primitives::{AccountId, Gas, Permissions, PortfolioPermissions, Tic
 use polymesh_runtime_common::Currency;
 
 use crate::ext_builder::ExtBuilder;
-use crate::storage::{TestStorage, User};
+use crate::storage::{root, TestStorage, User};
 
 // We leave it to tests in the substrate to ensure that `pallet-contracts`
 // is functioning correctly, so we do not add such redundant tests
@@ -32,6 +34,7 @@ type MaxInLen = <TestStorage as polymesh_contracts::Config>::MaxInLen;
 type Balances = pallet_balances::Pallet<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type IdentityError = pallet_identity::Error<TestStorage>;
+type PolymeshContracts = polymesh_contracts::Pallet<TestStorage>;
 
 /// Load a given wasm module represented by a .wat file
 /// and returns a wasm binary contents along with it's hash.
@@ -220,4 +223,93 @@ fn deploy_as_child_identity() {
             let child_id = Identity::get_identity(&contract_account_id).unwrap();
             assert_eq!(ParentDid::get(child_id), Some(alice.did));
         })
+}
+
+#[test]
+fn upgrade_api_unauthorized_caller() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let api = (*b"POLY", 6);
+        let chain_version = ChainVersion::new(6, 0);
+        let api_code_hash = ApiCodeHash {
+            hash: CodeHash::default(),
+        };
+
+        assert_noop!(
+            Contracts::upgrade_api(
+                alice.origin(),
+                alice.acc(),
+                api,
+                chain_version,
+                api_code_hash
+            ),
+            DispatchError::BadOrigin
+        );
+    })
+}
+
+#[test]
+fn upgrade_api() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let api = (*b"POLY", 6);
+        let chain_version = ChainVersion::new(6, 0);
+        let api_code_hash = ApiCodeHash {
+            hash: CodeHash::default(),
+        };
+
+        assert_ok!(Contracts::upgrade_api(
+            root(),
+            alice.acc(),
+            api.clone(),
+            chain_version.clone(),
+            api_code_hash.clone()
+        ));
+
+        assert_eq!(
+            SupportedApiUpgrades::get(&alice.acc(), &api)
+                .get(&chain_version)
+                .unwrap(),
+            &api_code_hash
+        );
+    })
+}
+
+#[test]
+fn upgrade_api_max_supported_api_exceeded() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice_account_id = User::new(AccountKeyring::Alice).acc();
+        let api = (*b"POLY", 6);
+        let api_code_hash = ApiCodeHash {
+            hash: CodeHash::default(),
+        };
+
+        for i in 0..<TestStorage as polymesh_contracts::Config>::MaxApiUpgrades::get() {
+            let chain_version = ChainVersion::new(i, 0);
+            assert_ok!(Contracts::upgrade_api(
+                root(),
+                alice_account_id.clone(),
+                api.clone(),
+                chain_version.clone(),
+                api_code_hash.clone()
+            ));
+            assert_eq!(
+                SupportedApiUpgrades::get(&alice_account_id, &api)
+                    .get(&chain_version)
+                    .unwrap(),
+                &api_code_hash
+            );
+        }
+
+        assert_noop!(
+            Contracts::upgrade_api(
+                root(),
+                alice_account_id.clone(),
+                api,
+                ChainVersion::new(100, 0),
+                api_code_hash
+            ),
+            ContractsError::MaxNumberOfApiUpgradesExceeded
+        );
+    })
 }

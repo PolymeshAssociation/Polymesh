@@ -196,6 +196,7 @@ pub trait WeightInfo {
     fn basic_runtime_call(n: u32) -> Weight;
     fn instantiate_with_code_as_primary_key(code_len: u32, salt_len: u32) -> Weight;
     fn instantiate_with_hash_as_primary_key(salt_len: u32) -> Weight;
+    fn upgrade_api() -> Weight;
 
     /// Computes the cost of instantiating where `code_len`
     /// and `salt_len` are specified in kilobytes.
@@ -547,7 +548,7 @@ decl_module! {
             )
         }
 
-        #[weight = 0]
+        #[weight =  <T as Config>::WeightInfo::upgrade_api()]
         pub fn upgrade_api(
             origin,
             contract_id: T::AccountId,

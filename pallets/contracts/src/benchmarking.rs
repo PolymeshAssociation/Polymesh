@@ -563,4 +563,17 @@ benchmarks! {
     verify {
         assert_eq!(free_balance::<T>(&addr), ENDOWMENT + 1 as Balance);
     }
+
+    upgrade_api {
+        let alice_account_id: T::AccountId = UserBuilder::<T>::default().build("Alice").account();
+        let api: Api = (*b"POLY", 6);
+        let chain_version = ChainVersion::new(6, 0);
+        let api_code_hash: ApiCodeHash<T> = ApiCodeHash { hash: CodeHash::<T>::default() };
+    }: _(RawOrigin::Root, alice_account_id.clone(), api.clone(), chain_version.clone(), api_code_hash.clone())
+    verify {
+        assert_eq!(
+            SupportedApiUpgrades::<T>::get(&alice_account_id, &api).get(&chain_version).unwrap(),
+            &api_code_hash
+        );
+    }
 }
