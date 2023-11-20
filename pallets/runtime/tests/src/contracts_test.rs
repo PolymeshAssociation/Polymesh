@@ -4,7 +4,7 @@ use frame_support::{
     assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, StorageDoubleMap,
     StorageMap,
 };
-use polymesh_contracts::{ApiCodeHash, ChainVersion, SupportedApiUpgrades};
+use polymesh_contracts::{Api, ApiCodeHash, ChainVersion, SupportedApiUpgrades};
 use sp_keyring::AccountKeyring;
 use sp_runtime::traits::Hash;
 
