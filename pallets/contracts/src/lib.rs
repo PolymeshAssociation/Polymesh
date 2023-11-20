@@ -53,11 +53,9 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-use codec::{Decode, Encode};
-
 pub mod chain_extension;
-pub use chain_extension::{ExtrinsicId, PolymeshExtension};
 
+use codec::{Decode, Encode};
 use frame_support::dispatch::{
     DispatchError, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
 };
@@ -65,11 +63,13 @@ use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::ensure_root;
+use scale_info::TypeInfo;
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::traits::Hash;
 use sp_std::borrow::Cow;
 use sp_std::{vec, vec::Vec};
 
+pub use chain_extension::{ExtrinsicId, PolymeshExtension};
 use pallet_contracts::Config as BConfig;
 use pallet_contracts_primitives::{Code, ContractResult};
 use pallet_identity::ParentDid;
@@ -82,8 +82,27 @@ type Identity<T> = pallet_identity::Module<T>;
 type IdentityError<T> = pallet_identity::Error<T>;
 type FrameContracts<T> = pallet_contracts::Pallet<T>;
 type CodeHash<T> = <T as frame_system::Config>::Hash;
+type Api = ([u8; 4], u32);
 
 pub struct ContractPolymeshHooks;
+
+#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct ApiCodeHash<T: Config> {
+    pub hash: CodeHash<T>,
+}
+
+impl<T: Config> sp_std::fmt::Debug for ApiCodeHash<T> {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+        write!(f, "hash: {:?}", self.hash)
+    }
+}
+
+#[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
+pub struct ChainVersion {
+    spec_version: u32,
+    tx_version: u32,
+}
 
 impl<T: Config> pallet_contracts::PolymeshHooks<T> for ContractPolymeshHooks
 where
@@ -240,9 +259,7 @@ pub trait Config:
 
 decl_event! {
     pub enum Event {
-        // This pallet does not directly define custom events.
-        // See `pallet_contracts` and `pallet_identity`
-        // for events currently emitted by extrinsics of this pallet.
+        ApiHashUpdated(Api, ChainVersion, Vec<u8>)
     }
 }
 
@@ -281,6 +298,9 @@ decl_storage! {
             map hasher(identity) ExtrinsicId => bool;
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
+        /// Stores the upgrades suported for each given api and chain version.
+        pub SupportedApiUpgrades get (fn api_tracker):
+            double_map hasher(twox_64_concat) Api, hasher(twox_64_concat) ChainVersion => Option<ApiCodeHash<T>>;
     }
     add_extra_genesis {
         config(call_whitelist): Vec<ExtrinsicId>;
@@ -494,6 +514,11 @@ decl_module! {
                 true
             )
         }
+
+        #[weight = 0]
+        pub fn upgrade_api(origin, api: Api, chain_version: ChainVersion, api_code_hash: ApiCodeHash<T>) -> DispatchResult {
+            Self::base_upgrade_api(origin, api, chain_version, api_code_hash)
+        }
     }
 }
 
@@ -693,5 +718,25 @@ where
             Ok(_) => Ok(post_info),
             Err(error) => Err(DispatchErrorWithPostInfo { post_info, error }),
         }
+    }
+
+    fn base_upgrade_api(
+        origin: T::RuntimeOrigin,
+        api: Api,
+        chain_version: ChainVersion,
+        api_code_hash: ApiCodeHash<T>,
+    ) -> DispatchResult {
+        ensure_root(origin)?;
+        // Remove old upgrade for the same chain version
+        SupportedApiUpgrades::<T>::remove(&api, &chain_version);
+        // Adds new upgrade
+        SupportedApiUpgrades::insert(&api, &chain_version, &api_code_hash);
+        // Emits an event
+        Self::deposit_event(Event::ApiHashUpdated(
+            api,
+            chain_version,
+            api_code_hash.hash.as_ref().to_vec(),
+        ));
+        Ok(())
     }
 }
