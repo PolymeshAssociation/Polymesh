@@ -229,7 +229,7 @@ fn deploy_as_child_identity() {
 fn upgrade_api_unauthorized_caller() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
-        let api = (*b"POLY", 6);
+        let api = Api::new(*b"POLY", 6);
         let chain_version = ChainVersion::new(6, 0);
         let api_code_hash = ApiCodeHash {
             hash: CodeHash::default(),
@@ -252,7 +252,7 @@ fn upgrade_api_unauthorized_caller() {
 fn upgrade_api() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
-        let api = (*b"POLY", 6);
+        let api = Api::new(*b"POLY", 6);
         let chain_version = ChainVersion::new(6, 0);
         let api_code_hash = ApiCodeHash {
             hash: CodeHash::default(),
@@ -279,7 +279,7 @@ fn upgrade_api() {
 fn upgrade_api_max_supported_api_exceeded() {
     ExtBuilder::default().build().execute_with(|| {
         let alice_account_id = User::new(AccountKeyring::Alice).acc();
-        let api = (*b"POLY", 6);
+        let api = Api::new(*b"POLY", 6);
         let api_code_hash = ApiCodeHash {
             hash: CodeHash::default(),
         };

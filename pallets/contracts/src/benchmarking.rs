@@ -566,9 +566,9 @@ benchmarks! {
 
     upgrade_api {
         let alice_account_id: T::AccountId = UserBuilder::<T>::default().build("Alice").account();
-        let api: Api = (*b"POLY", 6);
-        let chain_version = ChainVersion::new(6, 0);
         let api_code_hash: ApiCodeHash<T> = ApiCodeHash { hash: CodeHash::<T>::default() };
+        let chain_version = ChainVersion::new(6, 0);
+        let api = Api::new(*b"POLY", 6);
     }: _(RawOrigin::Root, alice_account_id.clone(), api.clone(), chain_version.clone(), api_code_hash.clone())
     verify {
         assert_eq!(
@@ -576,4 +576,35 @@ benchmarks! {
             &api_code_hash
         );
     }
+
+    chain_extension_get_latest_api_upgrade {
+        let r in 0 .. CHAIN_EXTENSION_BATCHES;
+
+        let alice_account_id: T::AccountId = UserBuilder::<T>::default().build("Alice").account();
+        let api_code_hash: ApiCodeHash<T> = ApiCodeHash { hash: CodeHash::<T>::default() };
+        let output_len: u32 = api_code_hash.hash.as_ref().len() as u32;
+        let api = Api::new(*b"POLY", 6);
+
+        for i in 0..T::MaxApiUpgrades::get() {
+            Module::<T>::upgrade_api(
+                RawOrigin::Root.into(),
+                alice_account_id.clone(),
+                api.clone(),
+                ChainVersion::new(i, 0),
+                api_code_hash.clone(),
+            ).unwrap();
+        }
+
+        let mut input_bytes = Vec::new();
+        for i in 0..r * CHAIN_EXTENSION_BATCH_SIZE {
+            input_bytes.append(&mut alice_account_id.encode());
+            input_bytes.append(&mut api.encode());
+        }
+        let contract = Contract::<T>::chain_extension(
+            r * CHAIN_EXTENSION_BATCH_SIZE,
+            FuncId::GetLatestApiUpgrade,
+            input_bytes,
+            output_len
+        );
+    }: { contract.call(); }
 }

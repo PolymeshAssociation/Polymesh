@@ -59,6 +59,7 @@ use codec::{Decode, Encode};
 use frame_support::dispatch::{
     DispatchError, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
 };
+use frame_support::pallet_prelude::MaxEncodedLen;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, BoundedBTreeMap};
@@ -84,9 +85,26 @@ type Identity<T> = pallet_identity::Module<T>;
 type IdentityError<T> = pallet_identity::Error<T>;
 type FrameContracts<T> = pallet_contracts::Pallet<T>;
 type CodeHash<T> = <T as frame_system::Config>::Hash;
-type Api = ([u8; 4], u32);
 
 pub struct ContractPolymeshHooks;
+
+#[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
+pub struct Api {
+    desc: [u8; 4],
+    major: u32,
+}
+
+impl Api {
+    pub fn new(desc: [u8; 4], major: u32) -> Self {
+        Self { desc, major }
+    }
+}
+
+impl MaxEncodedLen for Api {
+    fn max_encoded_len() -> usize {
+        8
+    }
+}
 
 #[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
@@ -196,6 +214,7 @@ pub trait WeightInfo {
     fn basic_runtime_call(n: u32) -> Weight;
     fn instantiate_with_code_as_primary_key(code_len: u32, salt_len: u32) -> Weight;
     fn instantiate_with_hash_as_primary_key(salt_len: u32) -> Weight;
+    fn chain_extension_get_latest_api_upgrade(r: u32) -> Weight;
     fn upgrade_api() -> Weight;
 
     /// Computes the cost of instantiating where `code_len`
@@ -259,7 +278,7 @@ pub trait WeightInfo {
     }
 
     fn get_latest_api_upgrade() -> Weight {
-        Weight::zero()
+        cost_batched!(chain_extension_get_latest_api_upgrade)
     }
 }
 
