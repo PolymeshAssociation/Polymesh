@@ -412,19 +412,22 @@ where
 {
     let mut env = env.buf_in_buf_out();
     env.charge_weight(<T as Config>::WeightInfo::get_latest_api_upgrade())?;
-    let key: T::AccountId = env.read_as()?;
+    let account_id: T::AccountId = env.read_as()?;
     let api: Api = env.read_as()?;
 
     let spec_version = T::Version::get().spec_version;
     let tx_version = T::Version::get().transaction_version;
     let current_chain_version = ChainVersion::new(spec_version, tx_version);
 
-    let mut api_code_hash: Option<ApiCodeHash<T>> =
-        SupportedApiUpgrades::<T>::get(&api, &current_chain_version);
+    let supported_upgrades: BoundedBTreeMap<ChainVersion, ApiCodeHash<T>, T::MaxApiUpgrades> =
+        SupportedApiUpgrades::<T>::get(&account_id, &api);
+    let mut api_code_hash = supported_upgrades
+        .get(&current_chain_version)
+        .map(|v| v.clone());
     // If there is no api for the current chain version, return the most recent upgrade found
     if api_code_hash.is_none() {
         let mut most_recent_version = ChainVersion::new(0, 0);
-        for (chain_version, code_hash) in SupportedApiUpgrades::<T>::iter_prefix(&api) {
+        for (chain_version, code_hash) in supported_upgrades {
             if chain_version <= current_chain_version && chain_version >= most_recent_version {
                 api_code_hash = Some(code_hash);
                 most_recent_version = chain_version;
@@ -440,12 +443,11 @@ where
         target: "runtime",
         "PolymeshExtension contract GetLatestApiUpgrade: {api_code_hash:?}",
     );
-    let encoded_api_hash = api_code_hash.encode();
+    let encoded_api_hash = api_code_hash.unwrap_or_default().encode();
     env.write(&encoded_api_hash, false, None).map_err(|err| {
         trace!(
             target: "runtime",
-            "PolymeshExtension failed to write api code hash value into contract memory:{:?}",
-            err
+            "PolymeshExtension failed to write api code hash value into contract memory:{err:?}",
         );
         Error::<T>::ReadStorageFailed
     })?;
@@ -613,6 +615,7 @@ mod tests {
         test_func_id(FuncId::KeyHasher(KeyHasher::Twox, HashSize::B64));
         test_func_id(FuncId::KeyHasher(KeyHasher::Twox, HashSize::B128));
         test_func_id(FuncId::KeyHasher(KeyHasher::Twox, HashSize::B256));
+        test_func_id(FuncId::GetLatestApiUpgrade);
         test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x00)));
         test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x01)));
         test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x02)));

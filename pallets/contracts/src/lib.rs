@@ -61,7 +61,7 @@ use frame_support::dispatch::{
 };
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, BoundedBTreeMap};
 use frame_system::ensure_root;
 use scale_info::TypeInfo;
 use sp_core::crypto::UncheckedFrom;
@@ -76,7 +76,9 @@ use pallet_identity::ParentDid;
 use polymesh_common_utilities::traits::identity::{
     Config as IdentityConfig, WeightInfo as IdentityWeightInfo,
 };
-use polymesh_primitives::{storage_migrate_on, storage_migration_ver, Balance, Permissions};
+use polymesh_primitives::{
+    storage_migrate_on, storage_migration_ver, Balance, IdentityId, Permissions,
+};
 
 type Identity<T> = pallet_identity::Module<T>;
 type IdentityError<T> = pallet_identity::Error<T>;
@@ -90,6 +92,14 @@ pub struct ContractPolymeshHooks;
 #[scale_info(skip_type_params(T))]
 pub struct ApiCodeHash<T: Config> {
     pub hash: CodeHash<T>,
+}
+
+impl<T: Config> Default for ApiCodeHash<T> {
+    fn default() -> Self {
+        Self {
+            hash: CodeHash::<T>::default(),
+        }
+    }
 }
 
 impl<T: Config> sp_std::fmt::Debug for ApiCodeHash<T> {
@@ -266,13 +276,18 @@ pub trait Config:
     /// Max value that can be returned from the ChainExtension.
     type MaxOutLen: Get<u32>;
 
+    /// Max number of upgrades allowed.
+    type MaxApiUpgrades: Get<u32>;
+
     /// The weight configuration for the pallet.
     type WeightInfo: WeightInfo;
 }
 
 decl_event! {
     pub enum Event {
-        ApiHashUpdated(Api, ChainVersion, Vec<u8>)
+        /// Emitted when a contract starts supporting a new API upgrade
+        /// Contains the [`IdentityId`] of the contract the [`Api`], [`ChainVersion`], and the bytes for the code hash.
+        ApiHashUpdated(Option<IdentityId>, Api, ChainVersion, Vec<u8>)
     }
 }
 
@@ -299,6 +314,8 @@ decl_error! {
         CallerNotAPrimaryKey,
         /// Secondary key permissions are missing.
         MissingKeyPermissions,
+        /// The number of api upgrades exceeded the maximum allowed.
+        MaxNumberOfApiUpgradesExceeded,
         /// There are no api upgrades supported for the contract.
         NoUpgradesSupported
     }
@@ -313,9 +330,9 @@ decl_storage! {
             map hasher(identity) ExtrinsicId => bool;
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
-        /// Stores the upgrades suported for each given api and chain version.
+        /// Stores the upgrades suported for each contract given the api and chain version.
         pub SupportedApiUpgrades get (fn api_tracker):
-            double_map hasher(twox_64_concat) Api, hasher(twox_64_concat) ChainVersion => Option<ApiCodeHash<T>>;
+            double_map hasher(identity) T::AccountId, hasher(twox_64_concat) Api => BoundedBTreeMap<ChainVersion, ApiCodeHash<T>, T::MaxApiUpgrades>;
     }
     add_extra_genesis {
         config(call_whitelist): Vec<ExtrinsicId>;
@@ -531,8 +548,14 @@ decl_module! {
         }
 
         #[weight = 0]
-        pub fn upgrade_api(origin, api: Api, chain_version: ChainVersion, api_code_hash: ApiCodeHash<T>) -> DispatchResult {
-            Self::base_upgrade_api(origin, api, chain_version, api_code_hash)
+        pub fn upgrade_api(
+            origin,
+            contract_id: T::AccountId,
+            api: Api,
+            chain_version: ChainVersion,
+            api_code_hash: ApiCodeHash<T>
+        ) -> DispatchResult {
+            Self::base_upgrade_api(origin, contract_id, api, chain_version, api_code_hash)
         }
     }
 }
@@ -737,17 +760,21 @@ where
 
     fn base_upgrade_api(
         origin: T::RuntimeOrigin,
+        contract_id: T::AccountId,
         api: Api,
         chain_version: ChainVersion,
         api_code_hash: ApiCodeHash<T>,
     ) -> DispatchResult {
         ensure_root(origin)?;
-        // Remove old upgrade for the same chain version
-        SupportedApiUpgrades::<T>::remove(&api, &chain_version);
-        // Adds new upgrade
-        SupportedApiUpgrades::insert(&api, &chain_version, &api_code_hash);
-        // Emits an event
+
+        SupportedApiUpgrades::<T>::try_mutate(&contract_id, &api, |supported_upgrades| {
+            supported_upgrades
+                .try_insert(chain_version.clone(), api_code_hash.clone())
+                .map_err(|_| Error::<T>::MaxNumberOfApiUpgradesExceeded)
+        })?;
+
         Self::deposit_event(Event::ApiHashUpdated(
+            Identity::<T>::get_identity(&contract_id),
             api,
             chain_version,
             api_code_hash.hash.as_ref().to_vec(),

@@ -489,6 +489,7 @@ parameter_types! {
     pub DeletionQueueDepth: u32 = 1024;
     pub MaxInLen: u32 = 8 * 1024;
     pub MaxOutLen: u32 = 8 * 1024;
+    pub MaxApiUpgrades: u32 = 10;
 }
 
 thread_local! {
