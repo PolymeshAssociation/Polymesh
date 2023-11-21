@@ -578,10 +578,13 @@ benchmarks! {
     chain_extension_get_latest_api_upgrade {
         let r in 0 .. CHAIN_EXTENSION_BATCHES;
 
+        let current_spec_version = T::Version::get().spec_version;
+        let current_tx_version = T::Version::get().transaction_version;
+
         let api_code_hash: ApiCodeHash<T> = ApiCodeHash { hash: CodeHash::<T>::default() };
-        let next_upgrade = NextUpgrade::new(ChainVersion::new(6_000_010, 4), api_code_hash.clone());
+        let next_upgrade = NextUpgrade::new(ChainVersion::new(current_spec_version, current_tx_version), api_code_hash.clone());
         let output_len: u32 = api_code_hash.hash.as_ref().len() as u32;
-        let api = Api::new(*b"POLY", 6_000_010);
+        let api = Api::new(*b"POLY", current_spec_version);
 
         Module::<T>::upgrade_api(
             RawOrigin::Root.into(),

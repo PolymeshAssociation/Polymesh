@@ -568,17 +568,17 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
     // Storage: PolymeshContracts CurrentApiHash (r:1 w:1)
     // Proof Skipped: PolymeshContracts CurrentApiHash (max_values: None, max_size: None, mode: Measured)
-    // Storage: PolymeshContracts ApiNextUpgrade (r:1 w:0)
+    // Storage: PolymeshContracts ApiNextUpgrade (r:1 w:1)
     // Proof Skipped: PolymeshContracts ApiNextUpgrade (max_values: None, max_size: None, mode: Measured)
     // Storage: System EventTopics (r:2 w:2)
     // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
     /// The range of component `r` is `[0, 20]`.
     fn chain_extension_get_latest_api_upgrade(r: u32) -> Weight {
-        // Minimum execution time: 475_244 nanoseconds.
-        Weight::from_ref_time(457_772_776)
-            // Standard Error: 469_206
-            .saturating_add(Weight::from_ref_time(439_654_151).saturating_mul(r.into()))
+        // Minimum execution time: 474_616 nanoseconds.
+        Weight::from_ref_time(526_554_207)
+            // Standard Error: 566_740
+            .saturating_add(Weight::from_ref_time(415_236_821).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(14))
-            .saturating_add(DbWeight::get().writes(4))
+            .saturating_add(DbWeight::get().writes(5))
     }
 }

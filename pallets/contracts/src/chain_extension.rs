@@ -424,9 +424,8 @@ where
         match next_upgrade {
             Some(next_upgrade) => {
                 if next_upgrade.chain_version <= current_chain_version {
-                    if Some(next_upgrade.api_hash.clone()) != current_api_hash {
-                        CurrentApiHash::<T>::insert(&api, &next_upgrade.api_hash);
-                    }
+                    CurrentApiHash::<T>::insert(&api, &next_upgrade.api_hash);
+                    ApiNextUpgrade::<T>::remove(&api);
                     Some(next_upgrade.api_hash)
                 } else {
                     current_api_hash
