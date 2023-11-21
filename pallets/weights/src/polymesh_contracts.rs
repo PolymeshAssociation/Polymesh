@@ -544,11 +544,12 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(23))
             .saturating_add(DbWeight::get().writes(13))
     }
-    // Storage: PolymeshContracts SupportedApiUpgrades (r:0 w:1)
-    // Proof Skipped: PolymeshContracts SupportedApiUpgrades (max_values: None, max_size: None, mode: Measured)
+    // Storage: PolymeshContracts ApiNextUpgrade (r:0 w:1)
+    // Proof Skipped: PolymeshContracts ApiNextUpgrade (max_values: None, max_size: None, mode: Measured)
     fn upgrade_api() -> Weight {
-        // Minimum execution time: 20_304 nanoseconds.
-        Weight::from_ref_time(20_633_000).saturating_add(DbWeight::get().writes(1))
+        // Minimum execution time: 31_700 nanoseconds.
+        Weight::from_ref_time(32_030_000)
+            .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:2 w:0)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)

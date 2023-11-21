@@ -1,10 +1,9 @@
 use codec::Encode;
 use frame_support::dispatch::{DispatchError, Weight};
 use frame_support::{
-    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, StorageDoubleMap,
-    StorageMap,
+    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, StorageMap,
 };
-use polymesh_contracts::{Api, ApiCodeHash, ChainVersion, SupportedApiUpgrades};
+use polymesh_contracts::{Api, ApiCodeHash, ApiNextUpgrade, ChainVersion, NextUpgrade};
 use sp_keyring::AccountKeyring;
 use sp_runtime::traits::Hash;
 
@@ -234,9 +233,10 @@ fn upgrade_api_unauthorized_caller() {
         let api_code_hash = ApiCodeHash {
             hash: CodeHash::default(),
         };
+        let next_upgrade = NextUpgrade::new(chain_version, api_code_hash);
 
         assert_noop!(
-            Contracts::upgrade_api(alice.origin(), api, chain_version, api_code_hash),
+            Contracts::upgrade_api(alice.origin(), api, next_upgrade),
             DispatchError::BadOrigin
         );
     })
@@ -250,17 +250,14 @@ fn upgrade_api() {
         let api_code_hash = ApiCodeHash {
             hash: CodeHash::default(),
         };
+        let next_upgrade = NextUpgrade::new(chain_version, api_code_hash);
 
         assert_ok!(Contracts::upgrade_api(
             root(),
             api.clone(),
-            chain_version.clone(),
-            api_code_hash.clone()
+            next_upgrade.clone()
         ));
 
-        assert_eq!(
-            SupportedApiUpgrades::get(&api, &chain_version).unwrap(),
-            api_code_hash
-        );
+        assert_eq!(ApiNextUpgrade::get(&api).unwrap(), next_upgrade);
     })
 }

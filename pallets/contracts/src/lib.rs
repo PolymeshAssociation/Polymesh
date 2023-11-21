@@ -133,6 +133,32 @@ impl ChainVersion {
     }
 }
 
+#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct NextUpgrade<T: Config> {
+    pub chain_version: ChainVersion,
+    pub api_hash: ApiCodeHash<T>,
+}
+
+impl<T: Config> NextUpgrade<T> {
+    pub fn new(chain_version: ChainVersion, api_hash: ApiCodeHash<T>) -> Self {
+        Self {
+            chain_version,
+            api_hash,
+        }
+    }
+}
+
+impl<T: Config> sp_std::fmt::Debug for NextUpgrade<T> {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+        write!(
+            f,
+            "chain_version: {:?} api_hash: {:?}",
+            self.chain_version, self.api_hash
+        )
+    }
+}
+
 impl<T: Config> pallet_contracts::PolymeshHooks<T> for ContractPolymeshHooks
 where
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
@@ -323,6 +349,8 @@ decl_error! {
         CallerNotAPrimaryKey,
         /// Secondary key permissions are missing.
         MissingKeyPermissions,
+        /// Only future chain versions are allowed.
+        InvalidChainVersion,
         /// There are no api upgrades supported for the contract.
         NoUpgradesSupported
     }
@@ -337,9 +365,12 @@ decl_storage! {
             map hasher(identity) ExtrinsicId => bool;
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
-        /// Stores the upgrades for each api and chain version.
-        pub SupportedApiUpgrades get (fn api_tracker):
-            double_map hasher(twox_64_concat) Api, hasher(twox_64_concat) ChainVersion => Option<ApiCodeHash<T>>;
+        /// Stores the chain version and code hash for the next chain upgrade.
+        pub ApiNextUpgrade get(fn api_next_upgrade):
+            map hasher(twox_64_concat) Api => Option<NextUpgrade<T>>;
+        /// Stores the code hash for the current api.
+        pub CurrentApiHash get (fn api_tracker):
+            map hasher(twox_64_concat) Api => Option<ApiCodeHash<T>>;
     }
     add_extra_genesis {
         config(call_whitelist): Vec<ExtrinsicId>;
@@ -558,10 +589,9 @@ decl_module! {
         pub fn upgrade_api(
             origin,
             api: Api,
-            chain_version: ChainVersion,
-            api_code_hash: ApiCodeHash<T>
+            next_upgrade: NextUpgrade<T>
         ) -> DispatchResult {
-            Self::base_upgrade_api(origin, api, chain_version, api_code_hash)
+            Self::base_upgrade_api(origin, api, next_upgrade)
         }
     }
 }
@@ -767,17 +797,25 @@ where
     fn base_upgrade_api(
         origin: T::RuntimeOrigin,
         api: Api,
-        chain_version: ChainVersion,
-        api_code_hash: ApiCodeHash<T>,
+        next_upgrade: NextUpgrade<T>,
     ) -> DispatchResult {
         ensure_root(origin)?;
 
-        SupportedApiUpgrades::<T>::insert(&api, &chain_version, &api_code_hash);
+        let current_chain_version = ChainVersion::new(
+            T::Version::get().spec_version,
+            T::Version::get().spec_version,
+        );
+
+        if next_upgrade.chain_version < current_chain_version {
+            return Err(Error::<T>::InvalidChainVersion.into());
+        }
+
+        ApiNextUpgrade::<T>::insert(&api, &next_upgrade);
 
         Self::deposit_event(Event::ApiHashUpdated(
             api,
-            chain_version,
-            api_code_hash.hash.as_ref().to_vec(),
+            next_upgrade.chain_version,
+            next_upgrade.api_hash.hash.as_ref().to_vec(),
         ));
         Ok(())
     }

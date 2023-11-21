@@ -566,31 +566,28 @@ benchmarks! {
 
     upgrade_api {
         let api_code_hash: ApiCodeHash<T> = ApiCodeHash { hash: CodeHash::<T>::default() };
-        let chain_version = ChainVersion::new(6, 0);
-        let api = Api::new(*b"POLY", 6);
-    }: _(RawOrigin::Root, api.clone(), chain_version.clone(), api_code_hash.clone())
+        let chain_version = ChainVersion::new(7_000_000, 0);
+        let api = Api::new(*b"POLY", 7_000_000);
+        let next_upgrade = NextUpgrade::new(chain_version, api_code_hash);
+    }: _(RawOrigin::Root, api.clone(), next_upgrade.clone())
     verify {
-        assert_eq!(
-            SupportedApiUpgrades::<T>::get(&api, &chain_version).unwrap(),
-            api_code_hash
-        );
+        assert_eq!(ApiNextUpgrade::<T>::get(&api).unwrap(), next_upgrade);
+        assert_eq!(CurrentApiHash::<T>::get(&api),None);
     }
 
     chain_extension_get_latest_api_upgrade {
         let r in 0 .. CHAIN_EXTENSION_BATCHES;
 
         let api_code_hash: ApiCodeHash<T> = ApiCodeHash { hash: CodeHash::<T>::default() };
+        let next_upgrade = NextUpgrade::new(ChainVersion::new(6_000_010, 6000010), api_code_hash.clone());
         let output_len: u32 = api_code_hash.hash.as_ref().len() as u32;
-        let api = Api::new(*b"POLY", 6);
+        let api = Api::new(*b"POLY", 6_000_010);
 
-        for i in 0..r {
-            Module::<T>::upgrade_api(
-                RawOrigin::Root.into(),
-                api.clone(),
-                ChainVersion::new(i, 0),
-                api_code_hash.clone(),
-            ).unwrap();
-        }
+        Module::<T>::upgrade_api(
+            RawOrigin::Root.into(),
+            api.clone(),
+            next_upgrade.clone(),
+        ).unwrap();
 
         let encoded_input = (0..r * CHAIN_EXTENSION_BATCH_SIZE)
             .map(|_| {

@@ -418,28 +418,34 @@ where
     let tx_version = T::Version::get().transaction_version;
     let current_chain_version = ChainVersion::new(spec_version, tx_version);
 
-    let mut api_code_hash: Option<ApiCodeHash<T>> =
-        SupportedApiUpgrades::<T>::get(&api, &current_chain_version);
-    // If there is no api for the current chain version, return the most recent upgrade found
-    if api_code_hash.is_none() {
-        let mut most_recent_version = ChainVersion::new(0, 0);
-        for (chain_version, code_hash) in SupportedApiUpgrades::<T>::iter_prefix(&api) {
-            if chain_version <= current_chain_version && chain_version >= most_recent_version {
-                api_code_hash = Some(code_hash);
-                most_recent_version = chain_version;
+    let current_api_hash: Option<ApiCodeHash<T>> = CurrentApiHash::<T>::get(&api);
+    let next_upgrade: Option<NextUpgrade<T>> = ApiNextUpgrade::<T>::get(&api);
+    let latest_api_hash = {
+        match next_upgrade {
+            Some(next_upgrade) => {
+                if next_upgrade.chain_version <= current_chain_version {
+                    if Some(next_upgrade.api_hash.clone()) != current_api_hash {
+                        CurrentApiHash::<T>::insert(&api, &next_upgrade.api_hash);
+                    }
+                    Some(next_upgrade.api_hash)
+                } else {
+                    current_api_hash
+                }
             }
+            None => current_api_hash,
         }
-        // If there are no upgrades found, return an error
-        if api_code_hash.is_none() {
-            return Err(Error::<T>::NoUpgradesSupported.into());
-        }
+    };
+
+    // If there are no upgrades found, return an error
+    if latest_api_hash.is_none() {
+        return Err(Error::<T>::NoUpgradesSupported.into());
     }
 
     trace!(
         target: "runtime",
-        "PolymeshExtension contract GetLatestApiUpgrade: {api_code_hash:?}",
+        "PolymeshExtension contract GetLatestApiUpgrade: {latest_api_hash:?}",
     );
-    let encoded_api_hash = api_code_hash.unwrap_or_default().encode();
+    let encoded_api_hash = latest_api_hash.unwrap_or_default().encode();
     env.write(&encoded_api_hash, false, None).map_err(|err| {
         trace!(
             target: "runtime",
