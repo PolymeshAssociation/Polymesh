@@ -548,8 +548,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Proof Skipped: PolymeshContracts ApiNextUpgrade (max_values: None, max_size: None, mode: Measured)
     fn upgrade_api() -> Weight {
         // Minimum execution time: 31_700 nanoseconds.
-        Weight::from_ref_time(32_030_000)
-            .saturating_add(DbWeight::get().writes(1))
+        Weight::from_ref_time(32_030_000).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:2 w:0)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
@@ -567,18 +566,19 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Proof Skipped: Instance2Group ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
     // Storage: Identity Claims (r:2 w:0)
     // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
-    // Storage: PolymeshContracts SupportedApiUpgrades (r:22 w:0)
-    // Proof Skipped: PolymeshContracts SupportedApiUpgrades (max_values: None, max_size: None, mode: Measured)
+    // Storage: PolymeshContracts CurrentApiHash (r:1 w:1)
+    // Proof Skipped: PolymeshContracts CurrentApiHash (max_values: None, max_size: None, mode: Measured)
+    // Storage: PolymeshContracts ApiNextUpgrade (r:1 w:0)
+    // Proof Skipped: PolymeshContracts ApiNextUpgrade (max_values: None, max_size: None, mode: Measured)
     // Storage: System EventTopics (r:2 w:2)
     // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
     /// The range of component `r` is `[0, 20]`.
     fn chain_extension_get_latest_api_upgrade(r: u32) -> Weight {
-        // Minimum execution time: 473_093 nanoseconds.
-        Weight::from_ref_time(474_569_000)
-            // Standard Error: 48_456_568
-            .saturating_add(Weight::from_ref_time(3_902_882_799).saturating_mul(r.into()))
+        // Minimum execution time: 475_244 nanoseconds.
+        Weight::from_ref_time(457_772_776)
+            // Standard Error: 469_206
+            .saturating_add(Weight::from_ref_time(439_654_151).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(14))
-            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(r.into())))
-            .saturating_add(DbWeight::get().writes(3))
+            .saturating_add(DbWeight::get().writes(4))
     }
 }

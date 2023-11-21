@@ -803,7 +803,7 @@ where
 
         let current_chain_version = ChainVersion::new(
             T::Version::get().spec_version,
-            T::Version::get().spec_version,
+            T::Version::get().transaction_version,
         );
 
         if next_upgrade.chain_version < current_chain_version {

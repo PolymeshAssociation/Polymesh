@@ -579,7 +579,7 @@ benchmarks! {
         let r in 0 .. CHAIN_EXTENSION_BATCHES;
 
         let api_code_hash: ApiCodeHash<T> = ApiCodeHash { hash: CodeHash::<T>::default() };
-        let next_upgrade = NextUpgrade::new(ChainVersion::new(6_000_010, 6000010), api_code_hash.clone());
+        let next_upgrade = NextUpgrade::new(ChainVersion::new(6_000_010, 4), api_code_hash.clone());
         let output_len: u32 = api_code_hash.hash.as_ref().len() as u32;
         let api = Api::new(*b"POLY", 6_000_010);
 
