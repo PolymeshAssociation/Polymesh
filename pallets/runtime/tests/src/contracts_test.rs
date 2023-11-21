@@ -236,13 +236,7 @@ fn upgrade_api_unauthorized_caller() {
         };
 
         assert_noop!(
-            Contracts::upgrade_api(
-                alice.origin(),
-                alice.acc(),
-                api,
-                chain_version,
-                api_code_hash
-            ),
+            Contracts::upgrade_api(alice.origin(), api, chain_version, api_code_hash),
             DispatchError::BadOrigin
         );
     })
@@ -251,7 +245,6 @@ fn upgrade_api_unauthorized_caller() {
 #[test]
 fn upgrade_api() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
         let api = Api::new(*b"POLY", 6);
         let chain_version = ChainVersion::new(6, 0);
         let api_code_hash = ApiCodeHash {
@@ -260,56 +253,14 @@ fn upgrade_api() {
 
         assert_ok!(Contracts::upgrade_api(
             root(),
-            alice.acc(),
             api.clone(),
             chain_version.clone(),
             api_code_hash.clone()
         ));
 
         assert_eq!(
-            SupportedApiUpgrades::get(&alice.acc(), &api)
-                .get(&chain_version)
-                .unwrap(),
-            &api_code_hash
-        );
-    })
-}
-
-#[test]
-fn upgrade_api_max_supported_api_exceeded() {
-    ExtBuilder::default().build().execute_with(|| {
-        let alice_account_id = User::new(AccountKeyring::Alice).acc();
-        let api = Api::new(*b"POLY", 6);
-        let api_code_hash = ApiCodeHash {
-            hash: CodeHash::default(),
-        };
-
-        for i in 0..<TestStorage as polymesh_contracts::Config>::MaxApiUpgrades::get() {
-            let chain_version = ChainVersion::new(i, 0);
-            assert_ok!(Contracts::upgrade_api(
-                root(),
-                alice_account_id.clone(),
-                api.clone(),
-                chain_version.clone(),
-                api_code_hash.clone()
-            ));
-            assert_eq!(
-                SupportedApiUpgrades::get(&alice_account_id, &api)
-                    .get(&chain_version)
-                    .unwrap(),
-                &api_code_hash
-            );
-        }
-
-        assert_noop!(
-            Contracts::upgrade_api(
-                root(),
-                alice_account_id.clone(),
-                api,
-                ChainVersion::new(100, 0),
-                api_code_hash
-            ),
-            ContractsError::MaxNumberOfApiUpgradesExceeded
+            SupportedApiUpgrades::get(&api, &chain_version).unwrap(),
+            api_code_hash
         );
     })
 }
