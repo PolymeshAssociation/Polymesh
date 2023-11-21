@@ -548,8 +548,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Proof Skipped: PolymeshContracts SupportedApiUpgrades (max_values: None, max_size: None, mode: Measured)
     fn upgrade_api() -> Weight {
         // Minimum execution time: 20_304 nanoseconds.
-        Weight::from_ref_time(20_633_000)
-            .saturating_add(DbWeight::get().writes(1))
+        Weight::from_ref_time(20_633_000).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:2 w:0)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
@@ -572,7 +571,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Storage: System EventTopics (r:2 w:2)
     // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
     /// The range of component `r` is `[0, 20]`.
-    fn chain_extension_get_latest_api_upgrade(r: u32, ) -> Weight {
+    fn chain_extension_get_latest_api_upgrade(r: u32) -> Weight {
         // Minimum execution time: 473_093 nanoseconds.
         Weight::from_ref_time(474_569_000)
             // Standard Error: 48_456_568
