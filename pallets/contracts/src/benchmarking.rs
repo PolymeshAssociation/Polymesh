@@ -565,9 +565,11 @@ benchmarks! {
     }
 
     upgrade_api {
+        let current_spec_version = T::Version::get().spec_version;
+        let current_tx_version = T::Version::get().transaction_version;
         let api_code_hash: ApiCodeHash<T> = ApiCodeHash { hash: CodeHash::<T>::default() };
-        let chain_version = ChainVersion::new(7_000_000, 0);
-        let api = Api::new(*b"POLY", 7_000_000);
+        let chain_version = ChainVersion::new(current_spec_version, current_tx_version);
+        let api = Api::new(*b"POLY", current_spec_version);
         let next_upgrade = NextUpgrade::new(chain_version, api_code_hash);
     }: _(RawOrigin::Root, api.clone(), next_upgrade.clone())
     verify {

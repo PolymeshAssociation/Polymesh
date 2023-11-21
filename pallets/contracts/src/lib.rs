@@ -305,7 +305,7 @@ pub trait Config:
     IdentityConfig + BConfig<Currency = Self::Balances> + frame_system::Config
 {
     /// The overarching event type.
-    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 
     /// Max value that `in_len` can take, that is,
     /// the length of the data sent from a contract when using the ChainExtension.
@@ -319,10 +319,13 @@ pub trait Config:
 }
 
 decl_event! {
-    pub enum Event {
+    pub enum Event<T>
+    where
+        Hash = CodeHash<T>,
+    {
         /// Emitted when a contract starts supporting a new API upgrade
         /// Contains the [`Api`], [`ChainVersion`], and the bytes for the code hash.
-        ApiHashUpdated(Api, ChainVersion, Vec<u8>)
+        ApiHashUpdated(Api, ChainVersion, Hash)
     }
 }
 
@@ -812,10 +815,10 @@ where
 
         ApiNextUpgrade::<T>::insert(&api, &next_upgrade);
 
-        Self::deposit_event(Event::ApiHashUpdated(
+        Self::deposit_event(Event::<T>::ApiHashUpdated(
             api,
             next_upgrade.chain_version,
-            next_upgrade.api_hash.hash.as_ref().to_vec(),
+            next_upgrade.api_hash.hash,
         ));
         Ok(())
     }
