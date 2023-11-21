@@ -595,11 +595,15 @@ benchmarks! {
             ).unwrap();
         }
 
-        let mut input_bytes = Vec::new();
-        for i in 0..r * CHAIN_EXTENSION_BATCH_SIZE {
-            input_bytes.append(&mut alice_account_id.encode());
-            input_bytes.append(&mut api.encode());
-        }
+        let encoded_input = (0..r * CHAIN_EXTENSION_BATCH_SIZE)
+            .map(|_| {
+                let mut input = alice_account_id.encode();
+                input.append(&mut api.encode());
+                input
+            })
+            .collect::<Vec<_>>();
+        let input_bytes =  encoded_input.iter().flat_map(|a| a.clone()).collect::<Vec<_>>();
+
         let contract = Contract::<T>::chain_extension(
             r * CHAIN_EXTENSION_BATCH_SIZE,
             FuncId::GetLatestApiUpgrade,
