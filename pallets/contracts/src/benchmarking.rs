@@ -583,7 +583,7 @@ benchmarks! {
         let output_len: u32 = api_code_hash.hash.as_ref().len() as u32;
         let api = Api::new(*b"POLY", 6);
 
-        for i in 0..T::MaxApiUpgrades::get() {
+        for i in 0..r {
             Module::<T>::upgrade_api(
                 RawOrigin::Root.into(),
                 api.clone(),

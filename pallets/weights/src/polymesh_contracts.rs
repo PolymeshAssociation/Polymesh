@@ -544,17 +544,41 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(23))
             .saturating_add(DbWeight::get().writes(13))
     }
-    // Storage: PolymeshContracts SupportedApiUpgrades (r:1 w:1)
+    // Storage: PolymeshContracts SupportedApiUpgrades (r:0 w:1)
     // Proof Skipped: PolymeshContracts SupportedApiUpgrades (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
     fn upgrade_api() -> Weight {
-        // Minimum execution time: 36_436 nanoseconds.
-        Weight::from_ref_time(37_247_000)
-            .saturating_add(DbWeight::get().reads(2))
+        // Minimum execution time: 20_304 nanoseconds.
+        Weight::from_ref_time(20_633_000)
             .saturating_add(DbWeight::get().writes(1))
     }
-    fn chain_extension_get_latest_api_upgrade(_r: u32) -> Weight {
-        Weight::zero()
+    // Storage: Identity KeyRecords (r:2 w:0)
+    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: System Account (r:1 w:0)
+    // Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
+    // Storage: Contracts ContractInfoOf (r:1 w:1)
+    // Proof: Contracts ContractInfoOf (max_values: None, max_size: Some(290), added: 2765, mode: MaxEncodedLen)
+    // Storage: Contracts CodeStorage (r:1 w:0)
+    // Proof: Contracts CodeStorage (max_values: None, max_size: Some(126001), added: 128476, mode: MaxEncodedLen)
+    // Storage: Timestamp Now (r:1 w:0)
+    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
+    // Storage: Identity IsDidFrozen (r:1 w:0)
+    // Proof Skipped: Identity IsDidFrozen (max_values: None, max_size: None, mode: Measured)
+    // Storage: Instance2Group ActiveMembers (r:1 w:0)
+    // Proof Skipped: Instance2Group ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
+    // Storage: Identity Claims (r:2 w:0)
+    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
+    // Storage: PolymeshContracts SupportedApiUpgrades (r:22 w:0)
+    // Proof Skipped: PolymeshContracts SupportedApiUpgrades (max_values: None, max_size: None, mode: Measured)
+    // Storage: System EventTopics (r:2 w:2)
+    // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
+    /// The range of component `r` is `[0, 20]`.
+    fn chain_extension_get_latest_api_upgrade(r: u32, ) -> Weight {
+        // Minimum execution time: 473_093 nanoseconds.
+        Weight::from_ref_time(474_569_000)
+            // Standard Error: 48_456_568
+            .saturating_add(Weight::from_ref_time(3_902_882_799).saturating_mul(r.into()))
+            .saturating_add(DbWeight::get().reads(14))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(r.into())))
+            .saturating_add(DbWeight::get().writes(3))
     }
 }

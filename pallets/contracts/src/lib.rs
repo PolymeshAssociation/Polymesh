@@ -288,9 +288,6 @@ pub trait Config:
     /// Max value that can be returned from the ChainExtension.
     type MaxOutLen: Get<u32>;
 
-    /// Max number of upgrades allowed.
-    type MaxApiUpgrades: Get<u32>;
-
     /// The weight configuration for the pallet.
     type WeightInfo: WeightInfo;
 }

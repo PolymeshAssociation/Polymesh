@@ -327,7 +327,6 @@ macro_rules! misc_pallet_impls {
             type RuntimeEvent = RuntimeEvent;
             type MaxInLen = MaxInLen;
             type MaxOutLen = MaxOutLen;
-            type MaxApiUpgrades = MaxApiUpgrades;
             type WeightInfo = polymesh_weights::polymesh_contracts::SubstrateWeight;
         }
 
