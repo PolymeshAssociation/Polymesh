@@ -6,7 +6,7 @@ use frame_support::dispatch::{
 use frame_support::error::BadOrigin;
 use frame_support::traits::Contains;
 use frame_support::{
-    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, storage, StorageMap
+    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, storage, StorageMap,
 };
 use frame_system::{Call as SystemCall, EventRecord};
 use pallet_timestamp::Call as TimestampCall;
@@ -21,7 +21,7 @@ use pallet_utility::{
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_primitives::{
     AccountId, Balance, PalletPermissions, Permissions, PortfolioName, PortfolioNumber,
-    SubsetRestriction, Ticker
+    SubsetRestriction, Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_keyring::AccountKeyring;
@@ -1022,12 +1022,19 @@ fn as_derivative() {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let alice = User::new(AccountKeyring::Alice).balance(1_000_000);
         let derivative_alice_account = Utility::derivative_account_id(alice.acc(), 1).unwrap();
-        Identity::unsafe_join_identity(alice.did, Permissions::default(), derivative_alice_account.clone());
+        Identity::unsafe_join_identity(
+            alice.did,
+            Permissions::default(),
+            derivative_alice_account.clone(),
+        );
         let derivative_alice_id = Identity::get_identity(&derivative_alice_account).unwrap();
         Balances::transfer(alice.origin(), derivative_alice_account.into(), 1_000_000).unwrap();
 
         let call = RuntimeCall::Asset(pallet_asset::Call::register_ticker { ticker });
         assert_ok!(Utility::as_derivative(alice.origin(), 1, Box::new(call)));
-        assert_eq!(Tickers::<TestStorage>::get(ticker).unwrap().owner, derivative_alice_id);
+        assert_eq!(
+            Tickers::<TestStorage>::get(ticker).unwrap().owner,
+            derivative_alice_id
+        );
     });
 }
