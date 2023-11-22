@@ -26,7 +26,6 @@ use sp_runtime::MultiSignature;
 
 use polymesh_common_utilities::benchs::{user, AccountIdOf, User, UserBuilder};
 use polymesh_common_utilities::traits::TestUtilsFn;
-use polymesh_primitives::Permissions;
 
 use super::*;
 
