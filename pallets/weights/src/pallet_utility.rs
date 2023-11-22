@@ -79,9 +79,17 @@ impl pallet_utility::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(2))
     }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: Identity CurrentPayer (r:1 w:1)
+    // Proof Skipped: Identity CurrentPayer (max_values: Some(1), max_size: None, mode: Measured)
+    // Storage: Identity CurrentDid (r:1 w:1)
+    // Proof Skipped: Identity CurrentDid (max_values: Some(1), max_size: None, mode: Measured)
     fn dispatch_as() -> Weight {
-        // Minimum execution time: 16_591 nanoseconds.
-        Weight::from_ref_time(17_633_000)
+        // Minimum execution time: 34_525 nanoseconds.
+        Weight::from_ref_time(35_193_000)
+            .saturating_add(DbWeight::get().reads(3))
+            .saturating_add(DbWeight::get().writes(2))
     }
     // Storage: Permissions CurrentPalletName (r:1 w:1)
     // Proof Skipped: Permissions CurrentPalletName (max_values: Some(1), max_size: None, mode: Measured)
@@ -161,12 +169,14 @@ impl pallet_utility::WeightInfo for SubstrateWeight {
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity ParentDid (r:1 w:0)
-    // Proof Skipped: Identity ParentDid (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity DidRecords (r:1 w:0)
-    // Proof Skipped: Identity DidRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: Identity CurrentPayer (r:1 w:1)
+    // Proof Skipped: Identity CurrentPayer (max_values: Some(1), max_size: None, mode: Measured)
+    // Storage: Identity CurrentDid (r:1 w:1)
+    // Proof Skipped: Identity CurrentDid (max_values: Some(1), max_size: None, mode: Measured)
     fn as_derivative() -> Weight {
-        // Minimum execution time: 32_727 nanoseconds.
-        Weight::from_ref_time(32_884_000).saturating_add(DbWeight::get().reads(3))
+        // Minimum execution time: 28_913 nanoseconds.
+        Weight::from_ref_time(29_369_000)
+            .saturating_add(DbWeight::get().reads(3))
+            .saturating_add(DbWeight::get().writes(2))
     }
 }

@@ -193,8 +193,8 @@ benchmarks! {
 
     // POLYMESH:
     as_derivative {
-        let index = 1
-        let parent_user = user::<T>("parent", 0);
+        let index = 1;
+        let alice = user::<T>("Alice", 0);
         let call = Box::new(frame_system::Call::remark { remark: vec![] }.into());
-    }: _(parent_user.origin, index, call)
+    }: _(alice.origin, index, call)
 }

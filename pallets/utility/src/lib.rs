@@ -71,21 +71,23 @@ mod benchmarking;
 use codec::{Decode, Encode};
 use frame_support::dispatch::{extract_actual_weight, GetDispatchInfo, PostDispatchInfo};
 use frame_support::dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, Weight};
+use frame_support::ensure;
 use frame_support::storage::{with_transaction, TransactionOutcome};
 use frame_support::traits::GetCallMetadata;
 use frame_support::traits::{IsSubType, OriginTrait, UnfilteredDispatchable};
-use frame_support::{ensure, StorageMap as FrameStorageMap};
 use frame_system::{ensure_root, ensure_signed, Pallet as System, RawOrigin};
 use scale_info::TypeInfo;
 use sp_core::Get;
+use sp_io::hashing::blake2_256;
+use sp_runtime::traits::TrailingZeroInput;
 use sp_runtime::traits::{BadOrigin, Dispatchable};
 use sp_runtime::{traits::Verify, DispatchError, RuntimeDebug};
 use sp_std::prelude::*;
 
-use pallet_identity::{DidRecords, ParentDid};
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::balances::{CheckCdd, Config as BalancesConfig};
 use polymesh_common_utilities::identity::{AuthorizationNonce, Config as IdentityConfig};
+use polymesh_common_utilities::Context;
 use polymesh_primitives::IdentityId;
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -260,10 +262,8 @@ pub mod pallet {
         /// If the provided nonce > current nonce, the call(s) before the current failed to execute
         /// POLYMESH error
         InvalidNonce,
-        /// Derivative calls are only allowed if the caller is the child's parent.
-        CallerIsNotChildsParentId,
-        /// Child's account id was not found.
-        ChildsAccountIdNotFound,
+        /// Decoding derivative account Id failed.
+        UnableToDeriveAccountId,
     }
 
     /// Nonce for `relay_tx`.
@@ -522,20 +522,7 @@ pub mod pallet {
             as_origin: Box<T::PalletsOrigin>,
             call: Box<<T as Config>::RuntimeCall>,
         ) -> DispatchResultWithPostInfo {
-            Self::ensure_root(origin)?;
-
-            let info = call.get_dispatch_info();
-            let res = call.dispatch_bypass_filter((*as_origin).into());
-            // Get the actual weight of this call.
-            let weight = extract_actual_weight(&res, &info);
-
-            Self::deposit_event(Event::<T>::DispatchedAs {
-                result: res.map(|_| ()).map_err(|e| e.error),
-            });
-
-            // POLYMESH: return the actual weight of the call.
-            let base_weight = <T as Config>::WeightInfo::dispatch_as();
-            Ok(Some(base_weight.saturating_add(weight)).into())
+            Self::base_dispatch_as(origin, as_origin, call)
         }
 
         /// Send a batch of dispatch calls.
@@ -898,6 +885,44 @@ impl<T: Config> Pallet<T> {
         Ok(is_root)
     }
 
+    fn base_dispatch_as(
+        origin: T::RuntimeOrigin,
+        as_origin: Box<T::PalletsOrigin>,
+        call: Box<<T as Config>::RuntimeCall>,
+    ) -> DispatchResultWithPostInfo {
+        Self::ensure_root(origin)?;
+
+        let as_origin: T::RuntimeOrigin = (*as_origin).into();
+
+        let behalf_account_id = {
+            match as_origin.clone().into() {
+                Ok(RawOrigin::Signed(account_id)) => Some(account_id.clone()),
+                _ => None,
+            }
+        };
+        let behalf_identity = behalf_account_id
+            .clone()
+            .and_then(|acc| Identity::<T>::get_identity(&acc));
+
+        let dispatch_info = call.get_dispatch_info();
+        let call_result = Self::run_with_temporary_did_and_payer(
+            as_origin,
+            behalf_account_id,
+            behalf_identity,
+            call,
+            true,
+        );
+        // Get the actual weight of this call.
+        let weight = extract_actual_weight(&call_result, &dispatch_info);
+
+        Self::deposit_event(Event::<T>::DispatchedAs {
+            result: call_result.map(|_| ()).map_err(|e| e.error),
+        });
+        // POLYMESH: return the actual weight of the call.
+        let base_weight = <T as Config>::WeightInfo::dispatch_as();
+        Ok(Some(base_weight.saturating_add(weight)).into())
+    }
+
     fn base_as_derivative(
         origin: T::RuntimeOrigin,
         index: u16,
@@ -908,10 +933,20 @@ impl<T: Config> Pallet<T> {
         // Sets the caller to be the derivative of the caller's account
         let derivative_account_id = Self::derivative_account_id(origin_account_id, index)?;
         let mut origin = origin;
-        origin.set_caller_from(frame_system::RawOrigin::Signed(derivative_account_id));
+        origin.set_caller_from(frame_system::RawOrigin::Signed(
+            derivative_account_id.clone(),
+        ));
+        // Get the identity of the derivative account id
+        let derivative_did = Identity::<T>::get_identity(&derivative_account_id);
 
         let dispatch_info = call.get_dispatch_info();
-        let call_result = call.dispatch(origin);
+        let call_result = Self::run_with_temporary_did_and_payer(
+            origin,
+            Some(derivative_account_id),
+            derivative_did,
+            call,
+            false,
+        );
 
         // Always take into account the base weight of this call and add the real weight of the dispatch.
         let mut weight = <T as Config>::WeightInfo::as_derivative()
@@ -926,11 +961,42 @@ impl<T: Config> Pallet<T> {
             .map(|_| Some(weight).into())
     }
 
-    /// Calculate the derivative account id of the caller
+    /// Derive a derivative account ID from the owner account and the index.
     pub fn derivative_account_id(
         origin_account_id: T::AccountId,
         index: u16,
     ) -> Result<T::AccountId, DispatchError> {
-        unimplemented!()
+        let entropy = (origin_account_id, index).using_encoded(blake2_256);
+        Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
+            .map_err(|_| Error::<T>::UnableToDeriveAccountId.into())
+    }
+
+    /// Dispatches `call` Setting CurrentDid and CurrentPayer to `did` and `account_id`.
+    /// The values are reset once the call is done.
+    fn run_with_temporary_did_and_payer(
+        origin: T::RuntimeOrigin,
+        account_id: Option<T::AccountId>,
+        did: Option<IdentityId>,
+        call: Box<<T as Config>::RuntimeCall>,
+        bypass_filter: bool,
+    ) -> Result<PostDispatchInfo, DispatchErrorWithPostInfo> {
+        // Hold the original value for payer and identity
+        let original_payer = Context::current_payer::<Identity<T>>();
+        let original_did = Context::current_identity::<Identity<T>>();
+        // Temporarily change identity and payer
+        Context::set_current_identity::<Identity<T>>(did);
+        Context::set_current_payer::<Identity<T>>(account_id);
+        // dispatch the call
+        let call_result = {
+            if bypass_filter {
+                call.dispatch_bypass_filter(origin)
+            } else {
+                call.dispatch(origin)
+            }
+        };
+        // Restore the original payer and identity
+        Context::set_current_payer::<Identity<T>>(original_payer);
+        Context::set_current_identity::<Identity<T>>(original_did);
+        call_result
     }
 }
