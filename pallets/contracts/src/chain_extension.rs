@@ -1,21 +1,21 @@
-use codec::{Decode, Encode};
-use frame_support::{
-    dispatch::{DispatchError, Dispatchable, GetDispatchInfo},
-    ensure,
-    log::trace,
-    storage::unhashed,
-    traits::{Get, GetCallMetadata},
-};
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
+
+use codec::{Decode, DecodeLimit, Encode};
+use frame_support::dispatch::{DispatchError, Dispatchable, GetDispatchInfo};
+use frame_support::ensure;
+use frame_support::log::trace;
+use frame_support::storage::unhashed;
+use frame_support::traits::{Get, GetCallMetadata};
 use frame_system::RawOrigin;
+use scale_info::TypeInfo;
+use sp_core::crypto::UncheckedFrom;
+
 use pallet_contracts::chain_extension as ce;
 use pallet_contracts::Config as BConfig;
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::Context;
 use polymesh_primitives::IdentityId;
-use scale_info::TypeInfo;
-use sp_core::crypto::UncheckedFrom;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 
 use super::*;
 
@@ -479,35 +479,39 @@ where
     env.charge_weight(<T as Config>::WeightInfo::call_runtime(in_len))?;
 
     // Decide what to call in the runtime.
-    use codec::DecodeLimit;
-    let call = match old_call {
-        None => {
-            let input = env.read(in_len)?;
-            // Decode the pallet_id & extrinsic_id.
-            let ext_id =
-                ExtrinsicId::try_from(input.as_slice()).ok_or(Error::<T>::InvalidRuntimeCall)?;
-            // Check if the extrinsic is allowed to be called.
-            Module::<T>::ensure_call_runtime(ext_id)?;
-            <<T as BConfig>::RuntimeCall>::decode_all_with_depth_limit(
-                MAX_DECODE_DEPTH,
-                &mut input.as_slice(),
-            )
-            .map_err(|_| Error::<T>::InvalidRuntimeCall)?
-        }
-        Some(ext_id) => {
-            // Check if the extrinsic is allowed to be called.
-            Module::<T>::ensure_call_runtime(ext_id)?;
-            // Convert old ChainExtension runtime calls into `Call` format.
-            let extrinsic: [u8; 2] = ext_id.into();
-            let params = env.read(in_len)?;
-            let mut input = ChainInput::new(&extrinsic, params.as_slice());
-            let call = <<T as BConfig>::RuntimeCall>::decode_with_depth_limit(
-                MAX_DECODE_DEPTH,
-                &mut input,
-            )
-            .map_err(|_| Error::<T>::InvalidRuntimeCall)?;
-            ensure!(input.is_empty(), Error::<T>::DataLeftAfterDecoding);
-            call
+    let (call, extrinsic_id) = {
+        match old_call {
+            None => {
+                let input = env.read(in_len)?;
+                // Decode the pallet_id & extrinsic_id.
+                let ext_id = ExtrinsicId::try_from(input.as_slice())
+                    .ok_or(Error::<T>::InvalidRuntimeCall)?;
+                // Check if the extrinsic is allowed to be called.
+                Module::<T>::ensure_call_runtime(ext_id)?;
+                (
+                    <<T as BConfig>::RuntimeCall>::decode_all_with_depth_limit(
+                        MAX_DECODE_DEPTH,
+                        &mut input.as_slice(),
+                    )
+                    .map_err(|_| Error::<T>::InvalidRuntimeCall)?,
+                    ext_id,
+                )
+            }
+            Some(ext_id) => {
+                // Check if the extrinsic is allowed to be called.
+                Module::<T>::ensure_call_runtime(ext_id)?;
+                // Convert old ChainExtension runtime calls into `Call` format.
+                let extrinsic: [u8; 2] = ext_id.into();
+                let params = env.read(in_len)?;
+                let mut input = ChainInput::new(&extrinsic, params.as_slice());
+                let call = <<T as BConfig>::RuntimeCall>::decode_with_depth_limit(
+                    MAX_DECODE_DEPTH,
+                    &mut input,
+                )
+                .map_err(|_| Error::<T>::InvalidRuntimeCall)?;
+                ensure!(input.is_empty(), Error::<T>::DataLeftAfterDecoding);
+                (call, ext_id)
+            }
         }
     };
 
@@ -517,6 +521,9 @@ where
 
     // Execute call requested by contract, with current DID set to the contract owner.
     let addr = env.ext().address().clone();
+    // Emit event for calling into the runtime
+    Module::<T>::deposit_event(Event::<T>::SCRuntimeCall(addr.clone(), extrinsic_id));
+    // Dispatch call
     let result = with_did_and_payer::<T, _, _>(contract_did::<T>(&addr)?, addr.clone(), || {
         with_call_metadata(call.get_call_metadata(), || {
             // Dispatch the call, avoiding use of `ext.call_runtime()`,

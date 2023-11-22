@@ -322,10 +322,14 @@ decl_event! {
     pub enum Event<T>
     where
         Hash = CodeHash<T>,
+        AccountId = <T as frame_system::Config>::AccountId,
     {
-        /// Emitted when a contract starts supporting a new API upgrade
+        /// Emitted when a contract starts supporting a new API upgrade.
         /// Contains the [`Api`], [`ChainVersion`], and the bytes for the code hash.
-        ApiHashUpdated(Api, ChainVersion, Hash)
+        ApiHashUpdated(Api, ChainVersion, Hash),
+        /// Emitted when a contract calls into the runtime.
+        /// Contains the account id set by the contract owner and the [`ExtrinsicId`].
+        SCRuntimeCall(AccountId, ExtrinsicId)
     }
 }
 
