@@ -193,12 +193,8 @@ benchmarks! {
 
     // POLYMESH:
     as_derivative {
+        let index = 1
         let parent_user = user::<T>("parent", 0);
-        let child_account = account::<T::AccountId>("child", 0, SEED);
-        Identity::<T>::unsafe_join_identity(parent_user.did(), Permissions::default(), child_account.clone());
-        Identity::<T>::create_child_identity(parent_user.origin().into(), child_account.clone()).unwrap();
-        let child_identity = Identity::<T>::get_identity(&child_account).unwrap();
-
         let call = Box::new(frame_system::Call::remark { remark: vec![] }.into());
-    }: _(parent_user.origin, child_identity, call)
+    }: _(parent_user.origin, index, call)
 }

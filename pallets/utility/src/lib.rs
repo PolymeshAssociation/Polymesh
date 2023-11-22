@@ -802,7 +802,7 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Send a call through a child identity of the sender.
+        /// Send a call through an indexed pseudonym of the sender.
         ///
         /// Filter from origin are passed along. The call will be dispatched with an origin which
         /// use the same filter as the origin of this call.
@@ -820,10 +820,10 @@ pub mod pallet {
         })]
         pub fn as_derivative(
             origin: OriginFor<T>,
-            child_identity: IdentityId,
+            index: u16,
             call: Box<<T as Config>::RuntimeCall>,
         ) -> DispatchResultWithPostInfo {
-            Self::base_as_derivative(origin, child_identity, call)
+            Self::base_as_derivative(origin, index, call)
         }
     }
 }
@@ -900,15 +900,15 @@ impl<T: Config> Pallet<T> {
 
     fn base_as_derivative(
         origin: T::RuntimeOrigin,
-        child_identity: IdentityId,
+        index: u16,
         call: Box<<T as Config>::RuntimeCall>,
     ) -> DispatchResultWithPostInfo {
         let origin_account_id = ensure_signed(origin.clone())?;
 
-        // Sets the caller to be the account id of `child_identity`
-        let child_account_id = Self::derivative_account_id(origin_account_id, child_identity)?;
+        // Sets the caller to be the derivative of the caller's account
+        let derivative_account_id = Self::derivative_account_id(origin_account_id, index)?;
         let mut origin = origin;
-        origin.set_caller_from(frame_system::RawOrigin::Signed(child_account_id));
+        origin.set_caller_from(frame_system::RawOrigin::Signed(derivative_account_id));
 
         let dispatch_info = call.get_dispatch_info();
         let call_result = call.dispatch(origin);
@@ -926,21 +926,11 @@ impl<T: Config> Pallet<T> {
             .map(|_| Some(weight).into())
     }
 
-    /// If `origin_account_id` is the parent identity of `child_identity`, return the child's [`AccountId`].
-    fn derivative_account_id(
+    /// Calculate the derivative account id of the caller
+    pub fn derivative_account_id(
         origin_account_id: T::AccountId,
-        child_identity: IdentityId,
+        index: u16,
     ) -> Result<T::AccountId, DispatchError> {
-        let callers_identity = Identity::<T>::get_identity(&origin_account_id);
-        let child_parent = ParentDid::get(&child_identity);
-        if callers_identity != child_parent {
-            return Err(Error::<T>::CallerIsNotChildsParentId.into());
-        }
-        // Get child's account id
-        let child_did_record = DidRecords::<T>::get(&child_identity)
-            .ok_or_else(|| Error::<T>::ChildsAccountIdNotFound)?;
-        child_did_record
-            .primary_key
-            .ok_or_else(|| Error::<T>::ChildsAccountIdNotFound.into())
+        unimplemented!()
     }
 }
