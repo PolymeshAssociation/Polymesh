@@ -544,4 +544,41 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(23))
             .saturating_add(DbWeight::get().writes(13))
     }
+    // Storage: PolymeshContracts ApiNextUpgrade (r:0 w:1)
+    // Proof Skipped: PolymeshContracts ApiNextUpgrade (max_values: None, max_size: None, mode: Measured)
+    fn upgrade_api() -> Weight {
+        // Minimum execution time: 31_700 nanoseconds.
+        Weight::from_ref_time(32_030_000).saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: Identity KeyRecords (r:2 w:0)
+    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: System Account (r:1 w:0)
+    // Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
+    // Storage: Contracts ContractInfoOf (r:1 w:1)
+    // Proof: Contracts ContractInfoOf (max_values: None, max_size: Some(290), added: 2765, mode: MaxEncodedLen)
+    // Storage: Contracts CodeStorage (r:1 w:0)
+    // Proof: Contracts CodeStorage (max_values: None, max_size: Some(126001), added: 128476, mode: MaxEncodedLen)
+    // Storage: Timestamp Now (r:1 w:0)
+    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
+    // Storage: Identity IsDidFrozen (r:1 w:0)
+    // Proof Skipped: Identity IsDidFrozen (max_values: None, max_size: None, mode: Measured)
+    // Storage: Instance2Group ActiveMembers (r:1 w:0)
+    // Proof Skipped: Instance2Group ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
+    // Storage: Identity Claims (r:2 w:0)
+    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
+    // Storage: PolymeshContracts CurrentApiHash (r:1 w:1)
+    // Proof Skipped: PolymeshContracts CurrentApiHash (max_values: None, max_size: None, mode: Measured)
+    // Storage: PolymeshContracts ApiNextUpgrade (r:1 w:1)
+    // Proof Skipped: PolymeshContracts ApiNextUpgrade (max_values: None, max_size: None, mode: Measured)
+    // Storage: System EventTopics (r:2 w:2)
+    // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
+    /// The range of component `r` is `[0, 20]`.
+    fn chain_extension_get_latest_api_upgrade(r: u32) -> Weight {
+        // Minimum execution time: 474_616 nanoseconds.
+        Weight::from_ref_time(526_554_207)
+            // Standard Error: 566_740
+            .saturating_add(Weight::from_ref_time(415_236_821).saturating_mul(r.into()))
+            .saturating_add(DbWeight::get().reads(14))
+            .saturating_add(DbWeight::get().writes(5))
+    }
 }

@@ -53,23 +53,24 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-use codec::{Decode, Encode};
-
 pub mod chain_extension;
-pub use chain_extension::{ExtrinsicId, PolymeshExtension};
 
+use codec::{Decode, Encode};
 use frame_support::dispatch::{
     DispatchError, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
 };
+use frame_support::pallet_prelude::MaxEncodedLen;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::ensure_root;
+use scale_info::TypeInfo;
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::traits::Hash;
 use sp_std::borrow::Cow;
 use sp_std::{vec, vec::Vec};
 
+pub use chain_extension::{ExtrinsicId, PolymeshExtension};
 use pallet_contracts::Config as BConfig;
 use pallet_contracts_primitives::{Code, ContractResult};
 use pallet_identity::ParentDid;
@@ -84,6 +85,79 @@ type FrameContracts<T> = pallet_contracts::Pallet<T>;
 type CodeHash<T> = <T as frame_system::Config>::Hash;
 
 pub struct ContractPolymeshHooks;
+
+#[derive(Clone, Debug, Decode, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
+pub struct Api {
+    desc: [u8; 4],
+    major: u32,
+}
+
+impl Api {
+    pub fn new(desc: [u8; 4], major: u32) -> Self {
+        Self { desc, major }
+    }
+}
+
+#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct ApiCodeHash<T: Config> {
+    pub hash: CodeHash<T>,
+}
+
+impl<T: Config> Default for ApiCodeHash<T> {
+    fn default() -> Self {
+        Self {
+            hash: CodeHash::<T>::default(),
+        }
+    }
+}
+
+impl<T: Config> sp_std::fmt::Debug for ApiCodeHash<T> {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+        write!(f, "hash: {:?}", self.hash)
+    }
+}
+
+#[derive(Clone, Debug, Decode, Encode, Eq, Ord, PartialOrd, PartialEq, TypeInfo)]
+pub struct ChainVersion {
+    spec_version: u32,
+    tx_version: u32,
+}
+
+impl ChainVersion {
+    pub fn new(spec_version: u32, tx_version: u32) -> Self {
+        ChainVersion {
+            spec_version,
+            tx_version,
+        }
+    }
+}
+
+#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct NextUpgrade<T: Config> {
+    pub chain_version: ChainVersion,
+    pub api_hash: ApiCodeHash<T>,
+}
+
+impl<T: Config> NextUpgrade<T> {
+    pub fn new(chain_version: ChainVersion, api_hash: ApiCodeHash<T>) -> Self {
+        Self {
+            chain_version,
+            api_hash,
+        }
+    }
+}
+
+impl<T: Config> sp_std::fmt::Debug for NextUpgrade<T> {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+        write!(
+            f,
+            "chain_version: {:?} api_hash: {:?}",
+            self.chain_version, self.api_hash
+        )
+    }
+}
 
 impl<T: Config> pallet_contracts::PolymeshHooks<T> for ContractPolymeshHooks
 where
@@ -158,6 +232,8 @@ pub trait WeightInfo {
     fn basic_runtime_call(n: u32) -> Weight;
     fn instantiate_with_code_as_primary_key(code_len: u32, salt_len: u32) -> Weight;
     fn instantiate_with_hash_as_primary_key(salt_len: u32) -> Weight;
+    fn chain_extension_get_latest_api_upgrade(r: u32) -> Weight;
+    fn upgrade_api() -> Weight;
 
     /// Computes the cost of instantiating where `code_len`
     /// and `salt_len` are specified in kilobytes.
@@ -218,6 +294,10 @@ pub trait WeightInfo {
             .saturating_sub(Self::dummy_contract())
             .saturating_sub(Self::basic_runtime_call(in_len))
     }
+
+    fn get_latest_api_upgrade() -> Weight {
+        cost_batched!(chain_extension_get_latest_api_upgrade)
+    }
 }
 
 /// The `Config` trait for the smart contracts pallet.
@@ -225,7 +305,7 @@ pub trait Config:
     IdentityConfig + BConfig<Currency = Self::Balances> + frame_system::Config
 {
     /// The overarching event type.
-    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 
     /// Max value that `in_len` can take, that is,
     /// the length of the data sent from a contract when using the ChainExtension.
@@ -239,10 +319,13 @@ pub trait Config:
 }
 
 decl_event! {
-    pub enum Event {
-        // This pallet does not directly define custom events.
-        // See `pallet_contracts` and `pallet_identity`
-        // for events currently emitted by extrinsics of this pallet.
+    pub enum Event<T>
+    where
+        Hash = CodeHash<T>,
+    {
+        /// Emitted when a contract starts supporting a new API upgrade
+        /// Contains the [`Api`], [`ChainVersion`], and the bytes for the code hash.
+        ApiHashUpdated(Api, ChainVersion, Hash)
     }
 }
 
@@ -268,7 +351,11 @@ decl_error! {
         /// The caller is not a primary key.
         CallerNotAPrimaryKey,
         /// Secondary key permissions are missing.
-        MissingKeyPermissions
+        MissingKeyPermissions,
+        /// Only future chain versions are allowed.
+        InvalidChainVersion,
+        /// There are no api upgrades supported for the contract.
+        NoUpgradesSupported
     }
 }
 
@@ -281,6 +368,12 @@ decl_storage! {
             map hasher(identity) ExtrinsicId => bool;
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
+        /// Stores the chain version and code hash for the next chain upgrade.
+        pub ApiNextUpgrade get(fn api_next_upgrade):
+            map hasher(twox_64_concat) Api => Option<NextUpgrade<T>>;
+        /// Stores the code hash for the current api.
+        pub CurrentApiHash get (fn api_tracker):
+            map hasher(twox_64_concat) Api => Option<ApiCodeHash<T>>;
     }
     add_extra_genesis {
         config(call_whitelist): Vec<ExtrinsicId>;
@@ -494,6 +587,15 @@ decl_module! {
                 true
             )
         }
+
+        #[weight =  <T as Config>::WeightInfo::upgrade_api()]
+        pub fn upgrade_api(
+            origin,
+            api: Api,
+            next_upgrade: NextUpgrade<T>
+        ) -> DispatchResult {
+            Self::base_upgrade_api(origin, api, next_upgrade)
+        }
     }
 }
 
@@ -693,5 +795,31 @@ where
             Ok(_) => Ok(post_info),
             Err(error) => Err(DispatchErrorWithPostInfo { post_info, error }),
         }
+    }
+
+    fn base_upgrade_api(
+        origin: T::RuntimeOrigin,
+        api: Api,
+        next_upgrade: NextUpgrade<T>,
+    ) -> DispatchResult {
+        ensure_root(origin)?;
+
+        let current_chain_version = ChainVersion::new(
+            T::Version::get().spec_version,
+            T::Version::get().transaction_version,
+        );
+
+        if next_upgrade.chain_version < current_chain_version {
+            return Err(Error::<T>::InvalidChainVersion.into());
+        }
+
+        ApiNextUpgrade::<T>::insert(&api, &next_upgrade);
+
+        Self::deposit_event(Event::<T>::ApiHashUpdated(
+            api,
+            next_upgrade.chain_version,
+            next_upgrade.api_hash.hash,
+        ));
+        Ok(())
     }
 }

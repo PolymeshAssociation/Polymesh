@@ -78,6 +78,7 @@ pub enum FuncId {
     GetTransactionVersion,
     GetKeyDid,
     KeyHasher(KeyHasher, HashSize),
+    GetLatestApiUpgrade,
 
     /// Deprecated Polymesh (<=5.0) chain extensions.
     OldCallRuntime(ExtrinsicId),
@@ -99,6 +100,7 @@ impl FuncId {
                 0x10 => Some(Self::KeyHasher(KeyHasher::Twox, HashSize::B64)),
                 0x11 => Some(Self::KeyHasher(KeyHasher::Twox, HashSize::B128)),
                 0x12 => Some(Self::KeyHasher(KeyHasher::Twox, HashSize::B256)),
+                0x13 => Some(Self::GetLatestApiUpgrade),
                 _ => None,
             },
             0x1A => match func_id {
@@ -129,6 +131,7 @@ impl Into<u32> for FuncId {
             Self::KeyHasher(KeyHasher::Twox, HashSize::B64) => (0x0000, 0x10),
             Self::KeyHasher(KeyHasher::Twox, HashSize::B128) => (0x0000, 0x11),
             Self::KeyHasher(KeyHasher::Twox, HashSize::B256) => (0x0000, 0x12),
+            Self::GetLatestApiUpgrade => (0x0000, 0x13),
             Self::OldCallRuntime(ExtrinsicId(ext_id, func_id)) => {
                 (ext_id as u32, (func_id as u32) << 8)
             }
@@ -401,6 +404,58 @@ where
     Ok(ce::RetVal::Converging(0))
 }
 
+fn get_latest_api_upgrade<T, E>(env: ce::Environment<E, ce::InitState>) -> ce::Result<ce::RetVal>
+where
+    T: Config,
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+    E: ce::Ext<T = T>,
+{
+    let mut env = env.buf_in_buf_out();
+    env.charge_weight(<T as Config>::WeightInfo::get_latest_api_upgrade())?;
+    let api: Api = env.read_as()?;
+
+    let spec_version = T::Version::get().spec_version;
+    let tx_version = T::Version::get().transaction_version;
+    let current_chain_version = ChainVersion::new(spec_version, tx_version);
+
+    let current_api_hash: Option<ApiCodeHash<T>> = CurrentApiHash::<T>::get(&api);
+    let next_upgrade: Option<NextUpgrade<T>> = ApiNextUpgrade::<T>::get(&api);
+    let latest_api_hash = {
+        match next_upgrade {
+            Some(next_upgrade) => {
+                if next_upgrade.chain_version <= current_chain_version {
+                    CurrentApiHash::<T>::insert(&api, &next_upgrade.api_hash);
+                    ApiNextUpgrade::<T>::remove(&api);
+                    Some(next_upgrade.api_hash)
+                } else {
+                    current_api_hash
+                }
+            }
+            None => current_api_hash,
+        }
+    };
+
+    // If there are no upgrades found, return an error
+    if latest_api_hash.is_none() {
+        return Err(Error::<T>::NoUpgradesSupported.into());
+    }
+
+    trace!(
+        target: "runtime",
+        "PolymeshExtension contract GetLatestApiUpgrade: {latest_api_hash:?}",
+    );
+    let encoded_api_hash = latest_api_hash.unwrap_or_default().encode();
+    env.write(&encoded_api_hash, false, None).map_err(|err| {
+        trace!(
+            target: "runtime",
+            "PolymeshExtension failed to write api code hash value into contract memory:{err:?}",
+        );
+        Error::<T>::ReadStorageFailed
+    })?;
+
+    Ok(ce::RetVal::Converging(0))
+}
+
 fn call_runtime<T, E>(
     env: ce::Environment<E, ce::InitState>,
     old_call: Option<ExtrinsicId>,
@@ -527,6 +582,7 @@ where
             Some(FuncId::GetTransactionVersion) => get_version(env, false),
             Some(FuncId::GetKeyDid) => get_key_did(env),
             Some(FuncId::KeyHasher(hasher, size)) => key_hasher(env, hasher, size),
+            Some(FuncId::GetLatestApiUpgrade) => get_latest_api_upgrade(env),
             Some(FuncId::OldCallRuntime(p)) => call_runtime(env, Some(p)),
             None => {
                 trace!(
@@ -560,6 +616,7 @@ mod tests {
         test_func_id(FuncId::KeyHasher(KeyHasher::Twox, HashSize::B64));
         test_func_id(FuncId::KeyHasher(KeyHasher::Twox, HashSize::B128));
         test_func_id(FuncId::KeyHasher(KeyHasher::Twox, HashSize::B256));
+        test_func_id(FuncId::GetLatestApiUpgrade);
         test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x00)));
         test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x01)));
         test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x02)));
