@@ -271,15 +271,6 @@ benchmarks! {
         assert_vote_cast!(proposal_id, multisig, signers.last().unwrap());
     }
 
-    accept_multisig_signer_as_identity {
-        let (alice, multisig, _, _, _) = generate_multisig_for_alice_wo_accepting::<T>(1, 1).unwrap();
-        let alice_auth_id = get_last_auth_id::<T>(&Signatory::from(alice.did()));
-        assert_number_of_signers!(0, multisig.clone());
-    }: _(alice.origin(), alice_auth_id)
-    verify {
-        assert_number_of_signers!(1, multisig);
-    }
-
     accept_multisig_signer_as_key {
         let (alice, multisig, signers, signer_origin, _) = generate_multisig_for_alice_wo_accepting::<T>(2, 1).unwrap();
         let signer_auth_id = get_last_auth_id::<T>(&signers.last().unwrap());

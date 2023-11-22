@@ -829,6 +829,11 @@ impl<T: Config> Module<T> {
         for portfolio_id in instruction_info.portfolios_pre_approved_difference() {
             UserAffirmations::insert(portfolio_id, instruction_id, AffirmationStatus::Affirmed);
             AffirmsReceived::insert(instruction_id, portfolio_id, AffirmationStatus::Affirmed);
+            Self::deposit_event(RawEvent::InstructionAutomaticallyAffirmed(
+                did,
+                *portfolio_id,
+                instruction_id,
+            ));
         }
         InstructionAffirmsPending::insert(
             instruction_id,

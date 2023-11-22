@@ -74,6 +74,9 @@ decl_event!(
         ),
         /// Failed to execute instruction.
         FailedToExecuteInstruction(InstructionId, DispatchError),
+        /// An instruction has been automatically affirmed.
+        /// Parameters: [`IdentityId`] of the caller, [`PortfolioId`] of the receiver, and [`InstructionId`] of the instruction.
+        InstructionAutomaticallyAffirmed(IdentityId, PortfolioId, InstructionId),
     }
 );
 
