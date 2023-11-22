@@ -5956,6 +5956,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-balances 0.1.0",
+ "pallet-identity",
  "pallet-permissions",
  "parity-scale-codec 3.5.0",
  "polymesh-common-utilities",

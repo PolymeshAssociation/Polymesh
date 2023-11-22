@@ -69,29 +69,26 @@
 mod benchmarking;
 
 use codec::{Decode, Encode};
-use frame_support::{
-    dispatch::{extract_actual_weight, GetDispatchInfo, PostDispatchInfo},
-    traits::{IsSubType, OriginTrait, UnfilteredDispatchable},
-};
+use frame_support::dispatch::{extract_actual_weight, GetDispatchInfo, PostDispatchInfo};
+use frame_support::dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, Weight};
+use frame_support::storage::{with_transaction, TransactionOutcome};
+use frame_support::traits::GetCallMetadata;
+use frame_support::traits::{IsSubType, OriginTrait, UnfilteredDispatchable};
+use frame_support::{ensure, StorageMap as FrameStorageMap};
+use frame_system::{ensure_root, ensure_signed, Pallet as System, RawOrigin};
+use scale_info::TypeInfo;
+use sp_core::Get;
 use sp_runtime::traits::{BadOrigin, Dispatchable};
+use sp_runtime::{traits::Verify, DispatchError, RuntimeDebug};
 use sp_std::prelude::*;
 
-// POLYMESH:
-use frame_support::storage::{with_transaction, TransactionOutcome};
-use frame_support::{
-    dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, Weight},
-    ensure,
-    traits::GetCallMetadata,
-};
-use frame_system::{ensure_root, ensure_signed, Pallet as System, RawOrigin};
+use pallet_identity::{DidRecords, ParentDid};
 use pallet_permissions::with_call_metadata;
-use polymesh_common_utilities::{
-    balances::{CheckCdd, Config as BalancesConfig},
-    identity::{AuthorizationNonce, Config as IdentityConfig},
-};
+use polymesh_common_utilities::balances::{CheckCdd, Config as BalancesConfig};
+use polymesh_common_utilities::identity::{AuthorizationNonce, Config as IdentityConfig};
 use polymesh_primitives::IdentityId;
-use scale_info::TypeInfo;
-use sp_runtime::{traits::Verify, DispatchError, RuntimeDebug};
+
+type Identity<T> = pallet_identity::Module<T>;
 
 pub trait WeightInfo {
     fn batch(c: u32) -> Weight;
@@ -105,6 +102,7 @@ pub trait WeightInfo {
     fn batch_old(c: u32) -> Weight;
     fn batch_atomic(c: u32) -> Weight;
     fn batch_optimistic(c: u32) -> Weight;
+    fn as_derivative() -> Weight;
 }
 
 // POLYMESH:
@@ -262,6 +260,10 @@ pub mod pallet {
         /// If the provided nonce > current nonce, the call(s) before the current failed to execute
         /// POLYMESH error
         InvalidNonce,
+        /// Derivative calls are only allowed if the caller is the child's parent.
+        CallerIsNotChildsParentId,
+        /// Child's account id was not found.
+        ChildsAccountIdNotFound,
     }
 
     /// Nonce for `relay_tx`.
@@ -799,6 +801,30 @@ pub mod pallet {
             Self::deposit_event(Self::run_batch(origin, is_root, calls, false));
             Ok(())
         }
+
+        /// Send a call through a child identity of the sender.
+        ///
+        /// Filter from origin are passed along. The call will be dispatched with an origin which
+        /// use the same filter as the origin of this call.
+        ///
+        /// The dispatch origin for this call must be _Signed_.
+        #[pallet::call_index(9)]
+        #[pallet::weight({
+            let dispatch_info = call.get_dispatch_info();
+			(
+				<T as Config>::WeightInfo::as_derivative()
+					.saturating_add(T::DbWeight::get().reads_writes(1, 1))
+					.saturating_add(dispatch_info.weight),
+				dispatch_info.class,
+			)
+        })]
+        pub fn as_derivative(
+            origin: OriginFor<T>,
+            child_identity: IdentityId,
+            call: Box<<T as Config>::RuntimeCall>,
+        ) -> DispatchResultWithPostInfo {
+            Self::base_as_derivative(origin, child_identity, call)
+        }
     }
 }
 
@@ -870,5 +896,51 @@ impl<T: Config> Pallet<T> {
             ensure_signed(origin)?;
         }
         Ok(is_root)
+    }
+
+    fn base_as_derivative(
+        origin: T::RuntimeOrigin,
+        child_identity: IdentityId,
+        call: Box<<T as Config>::RuntimeCall>,
+    ) -> DispatchResultWithPostInfo {
+        let origin_account_id = ensure_signed(origin.clone())?;
+
+        // Sets the caller to be the account id of `child_identity`
+        let child_account_id = Self::derivative_account_id(origin_account_id, child_identity)?;
+        let mut origin = origin;
+        origin.set_caller_from(frame_system::RawOrigin::Signed(child_account_id));
+
+        let dispatch_info = call.get_dispatch_info();
+        let call_result = call.dispatch(origin);
+
+        // Always take into account the base weight of this call and add the real weight of the dispatch.
+        let mut weight = <T as Config>::WeightInfo::as_derivative()
+            .saturating_add(T::DbWeight::get().reads_writes(1, 1));
+        weight = weight.saturating_add(extract_actual_weight(&call_result, &dispatch_info));
+
+        call_result
+            .map_err(|mut err| {
+                err.post_info = Some(weight).into();
+                err
+            })
+            .map(|_| Some(weight).into())
+    }
+
+    /// If `origin_account_id` is the parent identity of `child_identity`, return the child's [`AccountId`].
+    fn derivative_account_id(
+        origin_account_id: T::AccountId,
+        child_identity: IdentityId,
+    ) -> Result<T::AccountId, DispatchError> {
+        let callers_identity = Identity::<T>::get_identity(&origin_account_id);
+        let child_parent = ParentDid::get(&child_identity);
+        if callers_identity != child_parent {
+            return Err(Error::<T>::CallerIsNotChildsParentId.into());
+        }
+        // Get child's account id
+        let child_did_record = DidRecords::<T>::get(&child_identity)
+            .ok_or_else(|| Error::<T>::ChildsAccountIdNotFound)?;
+        child_did_record
+            .primary_key
+            .ok_or_else(|| Error::<T>::ChildsAccountIdNotFound.into())
     }
 }

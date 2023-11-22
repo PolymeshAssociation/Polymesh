@@ -19,17 +19,16 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use super::*;
 use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
-
-// POLYMESH:
-use polymesh_common_utilities::{
-    benchs::{AccountIdOf, User, UserBuilder},
-    traits::TestUtilsFn,
-};
 use sp_core::sr25519::Signature;
 use sp_runtime::MultiSignature;
+
+use polymesh_common_utilities::benchs::{user, AccountIdOf, User, UserBuilder};
+use polymesh_common_utilities::traits::TestUtilsFn;
+use polymesh_primitives::Permissions;
+
+use super::*;
 
 // POLYMESH:
 const MAX_CALLS: u32 = 30;
@@ -191,4 +190,15 @@ benchmarks! {
     verify {
         // NB see comment at `batch` verify section.
     }
+
+    // POLYMESH:
+    as_derivative {
+        let parent_user = user::<T>("parent", 0);
+        let child_account = account::<T::AccountId>("child", 0, SEED);
+        Identity::<T>::unsafe_join_identity(parent_user.did(), Permissions::default(), child_account.clone());
+        Identity::<T>::create_child_identity(parent_user.origin().into(), child_account.clone()).unwrap();
+        let child_identity = Identity::<T>::get_identity(&child_account).unwrap();
+
+        let call = Box::new(frame_system::Call::remark { remark: vec![] }.into());
+    }: _(parent_user.origin, child_identity, call)
 }

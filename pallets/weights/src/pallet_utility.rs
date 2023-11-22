@@ -159,4 +159,14 @@ impl pallet_utility::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(2))
     }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: Identity ParentDid (r:1 w:0)
+    // Proof Skipped: Identity ParentDid (max_values: None, max_size: None, mode: Measured)
+    // Storage: Identity DidRecords (r:1 w:0)
+    // Proof Skipped: Identity DidRecords (max_values: None, max_size: None, mode: Measured)
+    fn as_derivative() -> Weight {
+        // Minimum execution time: 32_727 nanoseconds.
+        Weight::from_ref_time(32_884_000).saturating_add(DbWeight::get().reads(3))
+    }
 }
