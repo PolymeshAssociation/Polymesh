@@ -988,11 +988,13 @@ impl<T: Config> Pallet<T> {
         Context::set_current_payer::<Identity<T>>(account_id);
         // dispatch the call
         let call_result = {
-            if bypass_filter {
-                call.dispatch_bypass_filter(origin)
-            } else {
-                call.dispatch(origin)
-            }
+            with_call_metadata(call.get_call_metadata(), || {
+                if bypass_filter {
+                    call.dispatch_bypass_filter(origin)
+                } else {
+                    call.dispatch(origin)
+                }
+            })
         };
         // Restore the original payer and identity
         Context::set_current_payer::<Identity<T>>(original_payer);
