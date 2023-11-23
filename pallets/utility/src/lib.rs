@@ -966,7 +966,7 @@ impl<T: Config> Pallet<T> {
         origin_account_id: T::AccountId,
         index: u16,
     ) -> Result<T::AccountId, DispatchError> {
-        let entropy = (origin_account_id, index).using_encoded(blake2_256);
+        let entropy = (b"modlpy/utilisuba", origin_account_id, index).using_encoded(blake2_256);
         Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
             .map_err(|_| Error::<T>::UnableToDeriveAccountId.into())
     }
