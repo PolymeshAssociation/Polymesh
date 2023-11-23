@@ -6442,7 +6442,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh"
-version = "6.0.1"
+version = "6.1.0"
 dependencies = [
  "chrono",
  "clap 4.3.2",
