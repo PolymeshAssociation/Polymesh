@@ -202,9 +202,6 @@ pub mod transfer_compliance;
 /// Committee type definitions.
 pub mod committee;
 
-/// Host functions.
-pub mod host_functions;
-
 pub mod ethereum;
 
 /// NFT type definitions.
