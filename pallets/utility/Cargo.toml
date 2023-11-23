@@ -8,6 +8,7 @@ edition = "2021"
 pallet-balances = { path = "../balances", default-features = false }
 pallet-permissions = { path = "../permissions", default-features = false }
 polymesh-common-utilities = { path = "../common", default-features = false }
+pallet-identity = { path = "../identity", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 
 # Substrate
