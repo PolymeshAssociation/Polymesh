@@ -563,4 +563,49 @@ benchmarks! {
     verify {
         assert_eq!(free_balance::<T>(&addr), ENDOWMENT + 1 as Balance);
     }
+
+    upgrade_api {
+        let current_spec_version = T::Version::get().spec_version;
+        let current_tx_version = T::Version::get().transaction_version;
+        let api_code_hash: ApiCodeHash<T> = ApiCodeHash { hash: CodeHash::<T>::default() };
+        let chain_version = ChainVersion::new(current_spec_version, current_tx_version);
+        let api = Api::new(*b"POLY", current_spec_version);
+        let next_upgrade = NextUpgrade::new(chain_version, api_code_hash);
+    }: _(RawOrigin::Root, api.clone(), next_upgrade.clone())
+    verify {
+        assert_eq!(ApiNextUpgrade::<T>::get(&api).unwrap(), next_upgrade);
+        assert_eq!(CurrentApiHash::<T>::get(&api),None);
+    }
+
+    chain_extension_get_latest_api_upgrade {
+        let r in 0 .. CHAIN_EXTENSION_BATCHES;
+
+        let current_spec_version = T::Version::get().spec_version;
+        let current_tx_version = T::Version::get().transaction_version;
+
+        let api_code_hash: ApiCodeHash<T> = ApiCodeHash { hash: CodeHash::<T>::default() };
+        let next_upgrade = NextUpgrade::new(ChainVersion::new(current_spec_version, current_tx_version), api_code_hash.clone());
+        let output_len: u32 = api_code_hash.hash.as_ref().len() as u32;
+        let api = Api::new(*b"POLY", current_spec_version);
+
+        Module::<T>::upgrade_api(
+            RawOrigin::Root.into(),
+            api.clone(),
+            next_upgrade.clone(),
+        ).unwrap();
+
+        let encoded_input = (0..r * CHAIN_EXTENSION_BATCH_SIZE)
+            .map(|_| {
+                api.encode()
+            })
+            .collect::<Vec<_>>();
+        let input_bytes =  encoded_input.iter().flat_map(|a| a.clone()).collect::<Vec<_>>();
+
+        let contract = Contract::<T>::chain_extension(
+            r * CHAIN_EXTENSION_BATCH_SIZE,
+            FuncId::GetLatestApiUpgrade,
+            input_bytes,
+            output_len
+        );
+    }: { contract.call(); }
 }

@@ -1,8 +1,9 @@
 use codec::Encode;
-use frame_support::dispatch::Weight;
+use frame_support::dispatch::{DispatchError, Weight};
 use frame_support::{
     assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, StorageMap,
 };
+use polymesh_contracts::{Api, ApiCodeHash, ApiNextUpgrade, ChainVersion, NextUpgrade};
 use sp_keyring::AccountKeyring;
 use sp_runtime::traits::Hash;
 
@@ -12,7 +13,7 @@ use polymesh_primitives::{AccountId, Gas, Permissions, PortfolioPermissions, Tic
 use polymesh_runtime_common::Currency;
 
 use crate::ext_builder::ExtBuilder;
-use crate::storage::{TestStorage, User};
+use crate::storage::{root, TestStorage, User};
 
 // We leave it to tests in the substrate to ensure that `pallet-contracts`
 // is functioning correctly, so we do not add such redundant tests
@@ -32,6 +33,7 @@ type MaxInLen = <TestStorage as polymesh_contracts::Config>::MaxInLen;
 type Balances = pallet_balances::Pallet<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type IdentityError = pallet_identity::Error<TestStorage>;
+type PolymeshContracts = polymesh_contracts::Pallet<TestStorage>;
 
 /// Load a given wasm module represented by a .wat file
 /// and returns a wasm binary contents along with it's hash.
@@ -220,4 +222,42 @@ fn deploy_as_child_identity() {
             let child_id = Identity::get_identity(&contract_account_id).unwrap();
             assert_eq!(ParentDid::get(child_id), Some(alice.did));
         })
+}
+
+#[test]
+fn upgrade_api_unauthorized_caller() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let api = Api::new(*b"POLY", 6);
+        let chain_version = ChainVersion::new(6, 0);
+        let api_code_hash = ApiCodeHash {
+            hash: CodeHash::default(),
+        };
+        let next_upgrade = NextUpgrade::new(chain_version, api_code_hash);
+
+        assert_noop!(
+            Contracts::upgrade_api(alice.origin(), api, next_upgrade),
+            DispatchError::BadOrigin
+        );
+    })
+}
+
+#[test]
+fn upgrade_api() {
+    ExtBuilder::default().build().execute_with(|| {
+        let api = Api::new(*b"POLY", 6);
+        let chain_version = ChainVersion::new(6, 0);
+        let api_code_hash = ApiCodeHash {
+            hash: CodeHash::default(),
+        };
+        let next_upgrade = NextUpgrade::new(chain_version, api_code_hash);
+
+        assert_ok!(Contracts::upgrade_api(
+            root(),
+            api.clone(),
+            next_upgrade.clone()
+        ));
+
+        assert_eq!(ApiNextUpgrade::get(&api).unwrap(), next_upgrade);
+    })
 }
