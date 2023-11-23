@@ -32,4 +32,4 @@ Items should be added to the `changelog` using bulletpoints.
 
 ### data migration
 
-- [List any storage modifications required during upgrade process with details]
+[List any storage modifications required during upgrade process with details]
