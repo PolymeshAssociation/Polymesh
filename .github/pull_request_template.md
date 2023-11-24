@@ -10,11 +10,11 @@ Items should be added to the `changelog` using bulletpoints.
 
 [Describe the features being added in the PR]
 
-### modified extrinsics
+### modified external API
 
 [List any extrinsics whose behaviour or function signature is modified]
 
-### new extrinsics
+### new external API
 
 [List any new extrinsics being introduced]
 
