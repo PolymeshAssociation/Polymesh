@@ -399,6 +399,7 @@ fn mint_nft_successfully() {
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let alice_default_portfolio = PortfolioId::new(alice.did, PortfolioKind::Default);
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
 
@@ -433,7 +434,10 @@ fn mint_nft_successfully() {
             ),
             true
         );
-        assert_eq!(NFTOwner::get(ticker, NFTId(1)), Some(alice.did));
+        assert_eq!(
+            NFTOwner::get(ticker, NFTId(1)),
+            Some(alice_default_portfolio)
+        );
     });
 }
 
@@ -909,7 +913,7 @@ fn transfer_nft() {
             PortfolioNFT::get(PortfolioId::default_portfolio(bob.did), (&ticker, NFTId(1))),
             true
         );
-        assert_eq!(NFTOwner::get(ticker, NFTId(1)), Some(bob.did));
+        assert_eq!(NFTOwner::get(ticker, NFTId(1)), Some(receiver_portfolio));
         assert_eq!(
             super::storage::EventTest::Nft(Event::NFTPortfolioUpdated(
                 IdentityId::default(),
@@ -1002,7 +1006,7 @@ fn controller_transfer() {
             alice_portfolio,
             (ticker, NFTId(1))
         ));
-        assert_eq!(NFTOwner::get(ticker, NFTId(1)), Some(alice.did));
+        assert_eq!(NFTOwner::get(ticker, NFTId(1)), Some(alice_portfolio));
         assert_eq!(
             super::storage::EventTest::Nft(Event::NFTPortfolioUpdated(
                 alice.did,
