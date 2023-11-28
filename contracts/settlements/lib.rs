@@ -10,14 +10,12 @@ use polymesh_api::{
         extension::{PolymeshEnvironment, PolymeshRuntimeErr},
         Error as PolymeshError,
     },
-    polymesh::types::{
-        polymesh_primitives::{
-            asset::{AssetName, AssetType},
-            identity_id::{PortfolioId, PortfolioKind},
-            portfolio::{Fund, FundDescription},
-            settlement::{Leg, SettlementType, VenueDetails, VenueId, VenueType},
-            ticker::Ticker,
-        },
+    polymesh::types::polymesh_primitives::{
+        asset::{AssetName, AssetType},
+        identity_id::{PortfolioId, PortfolioKind},
+        portfolio::{Fund, FundDescription},
+        settlement::{Leg, SettlementType, VenueDetails, VenueId, VenueType},
+        ticker::Ticker,
     },
     Api,
 };
@@ -93,9 +91,9 @@ mod settlements {
         #[ink(constructor)]
         pub fn new(ticker1: Ticker, ticker2: Ticker) -> Self {
             let mut contract = Self {
-              ticker1,
-              ticker2,
-              ..Default::default()
+                ticker1,
+                ticker2,
+                ..Default::default()
             };
             // The contract should always have an identity.
             contract.did = contract.get_did(Self::env().account_id()).unwrap();

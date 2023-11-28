@@ -1,16 +1,15 @@
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(feature = "std"), no_std, no_main)]
 
 extern crate alloc;
 
 use alloc::vec::Vec;
-use ink_lang as ink;
 
 use polymesh_ink::*;
 
 #[ink::contract(env = PolymeshEnvironment)]
 mod settlements {
     use alloc::vec;
-    use ink_storage::{traits::SpreadAllocate, Mapping};
+    use ink::storage::Mapping;
 
     use crate::*;
 
@@ -18,7 +17,6 @@ mod settlements {
 
     /// A contract that uses the settlements pallet.
     #[ink(storage)]
-    #[derive(Default, SpreadAllocate)]
     pub struct Settlements {
         /// The `AccountId` of a privileged account that override the
         /// code hash for `PolymeshInk`.
@@ -46,8 +44,6 @@ mod settlements {
     pub enum Error {
         /// PolymeshInk errors.
         PolymeshInk(PolymeshError),
-        /// Upgrade error.
-        UpgradeError(UpgradeError),
         /// Caller needs to pay the contract for the protocol fee.
         /// (Amount needed)
         InsufficientTransferValue(Balance),
@@ -75,32 +71,25 @@ mod settlements {
         }
     }
 
-    impl From<UpgradeError> for Error {
-        fn from(err: UpgradeError) -> Self {
-            Self::UpgradeError(err)
-        }
-    }
-
     /// The contract result type.
     pub type Result<T> = core::result::Result<T, Error>;
 
     impl Settlements {
         /// Creates a new contract.
         #[ink(constructor)]
-        pub fn new(ticker1: Ticker, ticker2: Ticker, hash: Hash, tracker: Option<UpgradeTrackerRef>) -> Self {
-            ink_lang::utils::initialize_contract(|contract| {
-                Self::new_init(contract, ticker1, ticker2, hash, tracker)
+        pub fn new(ticker1: Ticker, ticker2: Ticker) -> Result<Self> {
+            let api = PolymeshInk::new()?;
+            Ok(Self {
+                ticker1,
+                ticker2,
+                admin: Self::env().caller(),
+                portfolios: Default::default(),
+                // The contract should always have an identity.
+                did: api.get_key_did(Self::env().account_id()).unwrap(),
+                venue: Default::default(),
+                initialized: false,
+                api,
             })
-        }
-
-        fn new_init(&mut self, ticker1: Ticker, ticker2: Ticker, hash: Hash, tracker: Option<UpgradeTrackerRef>) {
-            self.admin = Self::env().caller();
-            self.api = PolymeshInk::new(hash, tracker);
-            self.ticker1 = ticker1;
-            self.ticker2 = ticker2;
-            // The contract should always have an identity.
-            self.did = self.get_did(Self::env().account_id()).unwrap();
-            self.initialized = false;
         }
 
         /// Update the code hash of the polymesh runtime API.
@@ -128,14 +117,13 @@ mod settlements {
         }
 
         fn create_asset(&mut self, ticker: Ticker) -> Result<()> {
-            self.api
-                .asset_create_and_issue(
-                    AssetName(b"".to_vec()),
-                    ticker,
-                    AssetType::EquityCommon,
-                    true, // Divisible token.
-                    Some(1_000_000 * UNIT),
-                )?;
+            self.api.asset_create_and_issue(
+                AssetName(b"".to_vec()),
+                ticker,
+                AssetType::EquityCommon,
+                true, // Divisible token.
+                Some(1_000_000 * UNIT),
+            )?;
             Ok(())
         }
 
@@ -178,10 +166,9 @@ mod settlements {
                 return Err(Error::AlreadyInitialized);
             }
             // Create venue.
-            self.venue = self.api.create_venue(
-                    VenueDetails(b"Contract Venue".to_vec()),
-                    VenueType::Other,
-                )?;
+            self.venue = self
+                .api
+                .create_venue(VenueDetails(b"Contract Venue".to_vec()), VenueType::Other)?;
 
             // Create a portfolio for the contract.
             let portfolio = self.api.create_portfolio(name)?;
@@ -196,11 +183,7 @@ mod settlements {
         }
 
         fn transfer_assets(&self, legs: Vec<Leg>, portfolios: Vec<PortfolioId>) -> Result<()> {
-            self.api.settlement_execute(
-                self.venue,
-                legs,
-                portfolios
-                )?;
+            self.api.settlement_execute(self.venue, legs, portfolios)?;
             Ok(())
         }
 
@@ -235,16 +218,16 @@ mod settlements {
             };
             self.transfer_assets(
                 vec![
-                    Leg {
-                        from: our_portfolio.into(),
-                        to: caller_portfolio.into(),
-                        asset: self.ticker1.into(),
+                    Leg::Fungible {
+                        sender: our_portfolio,
+                        receiver: caller_portfolio,
+                        ticker: self.ticker1,
                         amount: 10 * UNIT,
                     },
-                    Leg {
-                        from: our_portfolio.into(),
-                        to: caller_portfolio.into(),
-                        asset: self.ticker2.into(),
+                    Leg::Fungible {
+                        sender: our_portfolio,
+                        receiver: caller_portfolio,
+                        ticker: self.ticker2,
                         amount: 20 * UNIT,
                     },
                 ],
@@ -299,10 +282,12 @@ mod settlements {
 
             self.api.move_portfolio_funds(
                 caller_portfolio, // Contract controlled portfolio.
-                dest,            // Caller controlled portfolio.
-                vec![MovePortfolioItem {
-                    ticker: ticker.into(),
-                    amount,
+                dest,             // Caller controlled portfolio.
+                vec![Fund {
+                    description: FundDescription::Fungible {
+                        ticker: ticker,
+                        amount,
+                    },
                     memo: None,
                 }],
             )?;
@@ -354,16 +339,16 @@ mod settlements {
             };
             self.transfer_assets(
                 vec![
-                    Leg {
-                        from: caller_portfolio.into(),
-                        to: our_portfolio.into(),
-                        asset: sell.into(),
+                    Leg::Fungible {
+                        sender: caller_portfolio,
+                        receiver: our_portfolio,
+                        ticker: sell,
                         amount: sell_amount,
                     },
-                    Leg {
-                        from: our_portfolio.into(),
-                        to: caller_portfolio.into(),
-                        asset: buy.into(),
+                    Leg::Fungible {
+                        sender: our_portfolio,
+                        receiver: caller_portfolio,
+                        ticker: buy,
                         amount: buy_amount,
                     },
                 ],
@@ -378,17 +363,14 @@ mod settlements {
         pub fn asset_balance_of(
             &mut self,
             ticker: Ticker,
-            did: IdentityId
+            did: IdentityId,
         ) -> PolymeshResult<Balance> {
             Ok(self.api.asset_balance_of(ticker, did)?)
         }
 
         /// Get the `total_supply` of an asset.
         #[ink(message)]
-        pub fn asset_total_supply(
-            &mut self,
-            ticker: Ticker
-        ) -> PolymeshResult<Balance> {
+        pub fn asset_total_supply(&mut self, ticker: Ticker) -> PolymeshResult<Balance> {
             Ok(self.api.asset_total_supply(ticker)?)
         }
 
@@ -396,17 +378,14 @@ mod settlements {
         #[ink(message)]
         pub fn distribution_summary(
             &mut self,
-            ca_id: CAId
+            ca_id: CAId,
         ) -> PolymeshResult<Option<DistributionSummary>> {
             Ok(self.api.distribution_summary(ca_id)?)
         }
 
         /// Claim dividends.
         #[ink(message)]
-        pub fn dividend_claim(
-            &mut self,
-            ca_id: CAId
-        ) -> PolymeshResult<()> {
+        pub fn dividend_claim(&mut self, ca_id: CAId) -> PolymeshResult<()> {
             Ok(self.api.dividend_claim(ca_id)?)
         }
 
