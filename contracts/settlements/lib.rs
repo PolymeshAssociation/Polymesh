@@ -1,9 +1,8 @@
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(feature = "std"), no_std, no_main)]
 
 extern crate alloc;
 
 use alloc::vec::Vec;
-use ink_lang as ink;
 
 use polymesh_api::{
     ink::{
@@ -26,7 +25,7 @@ use polymesh_api::{
 #[ink::contract(env = PolymeshEnvironment)]
 mod settlements {
     use alloc::vec;
-    use ink_storage::{traits::SpreadAllocate, Mapping};
+    use ink::storage::Mapping;
 
     use crate::*;
 
@@ -34,7 +33,7 @@ mod settlements {
 
     /// A contract that uses the settlements pallet.
     #[ink(storage)]
-    #[derive(Default, SpreadAllocate)]
+    #[derive(Default)]
     pub struct Settlements {
         ticker1: Ticker,
         ticker2: Ticker,
@@ -93,17 +92,14 @@ mod settlements {
         /// Creates a new contract.
         #[ink(constructor)]
         pub fn new(ticker1: Ticker, ticker2: Ticker) -> Self {
-            ink_lang::utils::initialize_contract(|contract| {
-                Self::new_init(contract, ticker1, ticker2)
-            })
-        }
-
-        fn new_init(&mut self, ticker1: Ticker, ticker2: Ticker) {
-            self.ticker1 = ticker1;
-            self.ticker2 = ticker2;
+            let mut contract = Self {
+              ticker1,
+              ticker2,
+              ..Default::default()
+            };
             // The contract should always have an identity.
-            self.did = self.get_did(Self::env().account_id()).unwrap();
-            self.initialized = false;
+            contract.did = contract.get_did(Self::env().account_id()).unwrap();
+            contract
         }
 
         fn create_asset(&mut self, ticker: Ticker) -> Result<()> {
