@@ -10,8 +10,8 @@ use polymesh_api::polymesh::types::polymesh_primitives::asset_metadata::AssetMet
 use polymesh_api::polymesh::types::polymesh_primitives::asset_metadata::AssetMetadataKey;
 use polymesh_api::polymesh::types::polymesh_primitives::asset_metadata::AssetMetadataValue;
 use polymesh_api::polymesh::types::polymesh_primitives::identity_id::PortfolioId;
-use polymesh_api::polymesh::types::polymesh_primitives::nft::NFTId;
-use polymesh_api::polymesh::types::polymesh_primitives::settlement::VenueId;
+use polymesh_api::polymesh::types::polymesh_primitives::nft::{NFTId, NFTs};
+use polymesh_api::polymesh::types::polymesh_primitives::settlement::{Leg, VenueId};
 use polymesh_api::polymesh::types::polymesh_primitives::ticker::Ticker;
 use polymesh_api::Api;
 
@@ -59,38 +59,59 @@ mod nft_royalty {
     }
 
     /// The details of an NFT transfer.
-    pub struct NftTransferDetails {
-        /// The [`VenueId`] of the transfer.
-        pub venue_id: VenueId,
+    pub struct NFTTransferDetails {
         /// The [`Ticker`] of the NFT collection.
         pub collection_ticker: Ticker,
         /// The [`NFTId`] of the non-fungible token being transferred.
         pub nft_id: NFTId,
-        /// The [`PortfolioId`] of the NFT buyer.
-        pub buyer_portfolio: PortfolioId,
-        /// The [`PortfolioId`] of the NFT seller.
-        pub seller_portfolio: PortfolioId,
-        /// The price the buyer is paying for the NFT.
-        pub transfer_price: Balance,
+        /// The [`PortfolioId`] that contains the NFT being sold.
+        pub nft_owner_portfolio: PortfolioId,
+        /// The [`PortfolioId`] that will receive the NFT.
+        pub nft_receiver_portfolio: PortfolioId,
     }
 
-    impl NftTransferDetails {
-        /// Creates an instance of [`NftTransferDetails`].
+    /// The details of the proposed offer in exchange for the NFT.
+    pub struct NFTOffer {
+        /// The [`Ticker`] of the asset being used for buying the NFT.
+        pub purchase_ticker: Ticker,
+        /// The price the buyer is paying for the NFT.
+        pub transfer_price: Balance,
+        /// The [`PortfolioId`] that is paying for the NFT.
+        pub payer_portfolio: PortfolioId,
+        /// The [`PortfolioId`] that is receiving the payment for the NFT.
+        pub receiver_portfolio: PortfolioId,
+    }
+
+    impl NFTTransferDetails {
+        /// Creates an instance of [`NFTTransferDetails`].
         pub fn new(
-            venue_id: VenueId,
             collection_ticker: Ticker,
             nft_id: NFTId,
-            buyer_portfolio: PortfolioId,
-            seller_portfolio: PortfolioId,
-            transfer_price: Balance,
+            nft_owner_portfolio: PortfolioId,
+            nft_receiver_portfolio: PortfolioId,
         ) -> Self {
             Self {
-                venue_id,
                 collection_ticker,
                 nft_id,
-                buyer_portfolio,
-                seller_portfolio,
+                nft_owner_portfolio,
+                nft_receiver_portfolio,
+            }
+        }
+    }
+
+    impl NFTOffer {
+        /// Creates an instance of [`NFTOffer`].
+        pub fn new(
+            purchase_ticker: Ticker,
+            transfer_price: Balance,
+            payer_portfolio: PortfolioId,
+            receiver_portfolio: PortfolioId,
+        ) -> Self {
+            Self {
+                purchase_ticker,
                 transfer_price,
+                payer_portfolio,
+                receiver_portfolio,
             }
         }
     }
@@ -118,12 +139,20 @@ mod nft_royalty {
             unimplemented!()
         }
 
-        /// Adds a settlement instruction containing [`NftTransferDetails`].
+        /// Adds a settlement instruction.
         ///
-        /// The instruction will have three legs. One [`Leg`] where [`NftTransferDetails::seller_portfolio`] is transferring [`NFTId`]
-        /// to [`NftTransferDetails::buyer_portfolio`], another leg where the buyer is transferring [`NftTransferDetails::transfer_price`]
-        /// to the seller, and one leg where the buyer is transferring the royalty to the artist.
-        pub fn create_transfer(_nft_transfer_details: NftTransferDetails) -> Result<()> {
+        /// The instruction will have three legs. One [`Leg`] where [`NFTTransferDetails::nft_owner_portfolio`] is transferring
+        /// [`NFTTransferDetails::nft_id`] to [`NFTTransferDetails::nft_receiver_portfolio`], another leg where
+        /// [`NFTOffer::payer_portfolio`] sends [`NFTOffer::transfer_price`] to [`NFTOffer::receiver_portfolio`], and one leg
+        /// where the payer is transferring the royalty to the artist.
+        ///
+        /// Note: Call `get_royalty_amount` to figure out the amount for the royalty.
+        pub fn create_transfer(
+            _venue_id: VenueId,
+            nft_transfer_details: NFTTransferDetails,
+            nft_offer: NFTOffer,
+        ) -> Result<()> {
+            let _legs: Vec<Leg> = Self::setup_legs(nft_transfer_details, nft_offer)?;
             unimplemented!()
         }
 
@@ -160,6 +189,54 @@ mod nft_royalty {
             // TODO: Since we still have to define what the value is, decoding here is only a placeholder.
             Percent::decode::<&[u8]>(&mut metadata_value.0.as_ref())
                 .map_err(|_| Error::FailedToDecodeRoyaltyPercentage)
+        }
+
+        /// Returns a [`Vec<Leg>`] for an instruction transfering an NFT.
+        fn setup_legs(
+            nft_transfer_details: NFTTransferDetails,
+            nft_offer: NFTOffer,
+        ) -> Result<Vec<Leg>> {
+            // The first leg transfers the NFT to the buyer
+            let nfts = NFTs {
+                ticker: nft_transfer_details.collection_ticker,
+                ids: vec![nft_transfer_details.nft_id],
+            };
+            let nft_leg = Leg::NonFungible {
+                sender: nft_transfer_details.nft_owner_portfolio,
+                receiver: nft_transfer_details.nft_receiver_portfolio,
+                nfts,
+            };
+            // The second leg transfers the payment to the seller
+            let nft_payment_leg = Leg::Fungible {
+                sender: nft_offer.payer_portfolio,
+                receiver: nft_offer.receiver_portfolio,
+                ticker: nft_offer.purchase_ticker,
+                amount: nft_offer.transfer_price,
+            };
+            // The third leg transfers the royalty to the artist
+            Self::ensure_valid_royalty_ticker(&nft_offer.purchase_ticker)?;
+            let royalty_portfolio = Self::royalty_portfolio(&nft_offer.purchase_ticker)?;
+            let royalty_amount = Self::get_royalty_amount(
+                nft_transfer_details.collection_ticker,
+                nft_offer.transfer_price,
+            )?;
+            let royalty_leg = Leg::Fungible {
+                sender: nft_offer.payer_portfolio,
+                receiver: royalty_portfolio,
+                ticker: nft_offer.purchase_ticker,
+                amount: royalty_amount,
+            };
+            Ok(vec![nft_leg, nft_payment_leg, royalty_leg])
+        }
+
+        /// Ensures the artist accepts to receive payment for the NFT in `royalty_ticker`.
+        fn ensure_valid_royalty_ticker(_royalty_ticker: &Ticker) -> Result<()> {
+            unimplemented!();
+        }
+
+        /// Returns the [`PortfolioId`] that will receive the royalty.
+        fn royalty_portfolio(_royalty_ticker: &Ticker) -> Result<PortfolioId> {
+            unimplemented!()
         }
     }
 
