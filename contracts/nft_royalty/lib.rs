@@ -1,21 +1,27 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
+use frame_support::pallet_prelude::Get;
+use frame_support::BoundedBTreeSet;
 use ink::storage::Mapping;
-use scale::{Encode, Decode};
+use scale::{Decode, Encode};
+use scale_info::TypeInfo;
+use sp_arithmetic::per_things::Perbill;
 
 use polymesh_api::ink::basic_types::IdentityId;
-use polymesh_api::ink::extension::PolymeshEnvironment;
+use polymesh_api::ink::extension::{
+    PolymeshEnvironment, PolymeshRuntimeErr as PolymeshChainExtError,
+};
 use polymesh_api::ink::Error as PolymeshChainError;
-use polymesh_api::polymesh::types::polymesh_primitives::asset_metadata::AssetMetadataKey;
-use polymesh_api::polymesh::types::polymesh_primitives::asset_metadata::AssetMetadataName;
-use polymesh_api::polymesh::types::polymesh_primitives::asset_metadata::AssetMetadataValue;
+use polymesh_api::polymesh::types::polymesh_primitives::asset_metadata::{
+    AssetMetadataKey, AssetMetadataName, AssetMetadataValue,
+};
 use polymesh_api::polymesh::types::polymesh_primitives::identity_id::PortfolioId;
 use polymesh_api::polymesh::types::polymesh_primitives::nft::{NFTId, NFTs};
-use polymesh_api::polymesh::types::polymesh_primitives::settlement::{Leg, VenueId};
+use polymesh_api::polymesh::types::polymesh_primitives::settlement::{
+    Leg, SettlementType, VenueId,
+};
 use polymesh_api::polymesh::types::polymesh_primitives::ticker::Ticker;
 use polymesh_api::Api;
-
-use polymesh_api::polymesh::types::sp_arithmetic::per_things::Percent;
 
 #[cfg(test)]
 mod tests;
@@ -23,7 +29,7 @@ mod tests;
 #[ink::contract(env = PolymeshEnvironment)]
 mod nft_royalty {
     use super::*;
-    use crate::nft_royalty::types::{NFTOffer, NFTTransferDetails};
+    use crate::nft_royalty::types::{NFTArtistRules, NFTOffer, NFTTransferDetails};
 
     /// The [`AssetMetadataName`] for the key that holds the mandatory NFT collection metadata.
     const NFT_METADATA_NAME: AssetMetadataName = AssetMetadataName(Vec::new());
@@ -32,21 +38,33 @@ mod nft_royalty {
     pub type Result<T> = core::result::Result<T, Error>;
 
     /// Contract Errors.
-    #[derive(Debug)]
+    #[derive(Debug, Decode, Encode, TypeInfo)]
     pub enum Error {
         /// Polymesh runtime error.
         PolymeshRuntimeError(PolymeshChainError),
+        /// [`IdentityId`] not found for the given [`AccountId`].
+        IdentityNotFound(AccountId),
         /// Royalty metadata value not found.
         RoyaltyMetadataValueNotFound(Ticker),
         /// Royalty metadata key not found.
         RoyaltyMetadataKeyNotFound(Ticker),
-        /// Trying to decode [``] from [`AssetMetadataValue`] failed.
-        FailedToDecodeMetadataValue,
+        /// Trying to decode [`NFTArtistRules`] from [`AssetMetadataValue`] failed.
+        FailedToDecodeMetadataValue(String),
+        /// [`NFTOffer::purchase_ticker`] can't be used as royalty payment.
+        TickerNotAllowedForRoyalty(Ticker),
+        /// No [`PortfolioId`] for the given [`IdentityId`].
+        RoyaltyPortfolioNotFound(IdentityId),
     }
 
     impl From<PolymeshChainError> for Error {
         fn from(error: PolymeshChainError) -> Self {
             Self::PolymeshRuntimeError(error)
+        }
+    }
+
+    impl From<PolymeshChainExtError> for Error {
+        fn from(err: PolymeshChainExtError) -> Self {
+            Self::PolymeshRuntimeError(err.into())
         }
     }
 
@@ -58,36 +76,55 @@ mod nft_royalty {
         initialized: bool,
         /// The identity of the contract.
         contract_identity: IdentityId,
-        /// The portfolios that will receive the royalty value for each ticker.
-        royalty_portfolios: Mapping<Ticker, PortfolioId>,
+        /// The portfolios that will receive the royalty value for each identity.
+        royalty_portfolios: Mapping<IdentityId, PortfolioId>,
+        // /// The asset metadata key for each ticker.
+        // metadata_keys: Mapping<Ticker, AssetMetadataKey>,
     }
 
     impl NftRoyalty {
         /// Inititializes the [`NftRoyalty`] storage.
         #[ink(constructor)]
         pub fn new() -> Self {
-            let contract_identity = Self::env()
-                .extension()
-                .get_key_did(Self::env().account_id())
-                .unwrap()
-                .map(|did| did.into())
-                .unwrap();
-            Self {
-                initialized: true,
-                contract_identity,
-                royalty_portfolios: Mapping::default(),
-            }
+            let mut contract = Self::default();
+            contract.initialized = true;
+            contract.contract_identity = Self::get_identity(Self::env().account_id()).unwrap();
+            contract
         }
 
-        /// Simply returns the current value of our `bool`.
+        /// Returns the [`IdentityId`] for the given `account_id`.
+        fn get_identity(account_id: AccountId) -> Result<IdentityId> {
+            Self::env()
+                .extension()
+                .get_key_did(account_id)?
+                .ok_or(Error::IdentityNotFound(account_id))
+        }
+
+        /// Returns the [`IdentityId`] of whoever called the contract.
+        fn get_callers_identity() -> Result<IdentityId> {
+            Self::get_identity(Self::env().caller())
+        }
+
+        /// Returns the [`IdentityId`] of the contract.
         #[ink(message)]
-        pub fn get(&self) {
-            unimplemented!()
+        pub fn contracts_identity(&self) -> IdentityId {
+            self.contract_identity
+        }
+
+        /// Returns the [`PortfolioId`] of the contract's caller.
+        #[ink(message)]
+        pub fn portfolio_identity(&self) -> Result<PortfolioId> {
+            let callers_identity = Self::get_callers_identity()?;
+            self.royalty_portfolio(callers_identity)
         }
 
         /// Returns the [`AssetMetadataKey`] for the given `ticker`.
         fn asset_metadata_key(&mut self, ticker: Ticker) -> Result<AssetMetadataKey> {
-            // TODO: Check if the value is in storage
+            // Checks if the key is already cached.
+            //if let Some(metadata_key) = self.metadata_keys.get(&ticker) {
+            //    return Ok(metadata_key)
+            //}
+
             let api = Api::new();
 
             let local_metadata_key = api
@@ -97,7 +134,8 @@ mod nft_royalty {
                 .map_err(|e| Into::<Error>::into(e))?
                 .ok_or(Error::RoyaltyMetadataKeyNotFound(ticker))?;
             let metadata_key = AssetMetadataKey::Local(local_metadata_key);
-            // TODO: keep metadata key in storage
+            // Caches the key
+            // self.metadata_keys.insert(ticker, metadata_key);
             Ok(metadata_key)
         }
 
@@ -114,30 +152,29 @@ mod nft_royalty {
                 .ok_or(Error::RoyaltyMetadataValueNotFound(ticker))
         }
 
-        /// Returns the decoded metadata value ([``]) for the given [`Ticker`].
-        fn decoded_asset_metadata_value(&mut self, ticker: Ticker) -> Result<()> {
-            let _asset_metadata_value = self.asset_metadata_value(ticker)?;
-            // TODO: decode here
-            unimplemented!()
+        /// Returns the decoded metadata value ([`NFTArtistRules`]) for the given [`Ticker`].
+        fn decoded_asset_metadata_value(&mut self, ticker: Ticker) -> Result<NFTArtistRules> {
+            let asset_metadata_value = self.asset_metadata_value(ticker)?;
+            NFTArtistRules::decode::<&[u8]>(&mut asset_metadata_value.0.as_ref())
+                .map_err(|e| Error::FailedToDecodeMetadataValue(e.to_string()))
         }
 
-        /// Returns [`Balance`] representing the royalty amount that the artist will receive for a NFT transfer of `transfer_price`
+        /// Returns [`Balance`] representing the royalty amount that the artist will receive for an NFT transfer of `transfer_price`
         /// for the given `collection_ticker`.
-        pub fn get_royalty_amount(
+        fn get_royalty_amount(
             &mut self,
             collection_ticker: Ticker,
             transfer_price: Balance,
         ) -> Result<Balance> {
             let royalty_percentage = self.royalty_percentage(collection_ticker)?;
-            // TODO: verify this
-            Ok((royalty_percentage.0 as Balance * transfer_price) / 100)
+            Ok(royalty_percentage * transfer_price)
         }
 
-        /// Returns the [`Percent`] that corresponds to percentage amount that the artist receives as royalty for each NFT transfer.
-        fn royalty_percentage(&mut self, ticker: Ticker) -> Result<Percent> {
-            let _decoded_metadata_value = self.decoded_asset_metadata_value(ticker)?;
-            // TODO: return percent
-            unimplemented!()
+        /// Returns the [`Perbill`] that corresponds to the percentage amount that the artist receives as royalty for each NFT transfer.
+        #[ink(message)]
+        pub fn royalty_percentage(&mut self, ticker: Ticker) -> Result<Perbill> {
+            let nft_artist_rules = self.decoded_asset_metadata_value(ticker)?;
+            Ok(nft_artist_rules.royalty_percentage)
         }
 
         /// Adds a settlement instruction.
@@ -147,25 +184,48 @@ mod nft_royalty {
         /// [`NFTOffer::payer_portfolio`] sends [`NFTOffer::transfer_price`] to [`NFTOffer::receiver_portfolio`], and one leg
         /// where the payer is transferring the royalty to the artist.
         ///
-        /// Note: Call `get_royalty_amount` to figure out the amount for the royalty.
+        /// Note: Call `royalty_percentage` to figure out the royalty percentage.
+        #[ink(message)]
         pub fn create_transfer(
             &mut self,
-            _venue_id: VenueId,
+            venue_id: VenueId,
             nft_transfer_details: NFTTransferDetails,
             nft_offer: NFTOffer,
         ) -> Result<()> {
-            let _decoded_metadata_value =
+            let nft_artist_rules =
                 self.decoded_asset_metadata_value(nft_transfer_details.collection_ticker)?;
 
-            Self::ensure_valid_transfer_values()?;
+            Self::ensure_valid_transfer_values(&nft_artist_rules, &nft_offer)?;
 
-            let _legs: Vec<Leg> = self.setup_legs(nft_transfer_details, nft_offer)?;
-            unimplemented!()
+            let royalty_portfolio = self.royalty_portfolio(Self::get_callers_identity()?)?;
+            let legs: Vec<Leg> =
+                self.setup_legs(nft_transfer_details, nft_offer, royalty_portfolio)?;
+
+            let api = Api::new();
+            api.call()
+                .settlement()
+                .add_and_affirm_instruction(
+                    venue_id,
+                    SettlementType::SettleOnAffirmation,
+                    None,
+                    None,
+                    legs,
+                    vec![royalty_portfolio],
+                    None,
+                )
+                .submit()?;
+            Ok(())
         }
 
         /// Ensures the metadata rules are being respected in the transfer
-        fn ensure_valid_transfer_values() -> Result<()> {
-            unimplemented!();
+        fn ensure_valid_transfer_values(
+            nft_artist_rules: &NFTArtistRules,
+            nft_offer: &NFTOffer,
+        ) -> Result<()> {
+            if !nft_artist_rules.is_ticker_allowed(&nft_offer.purchase_ticker) {
+                return Err(Error::TickerNotAllowedForRoyalty(nft_offer.purchase_ticker));
+            }
+            Ok(())
         }
 
         /// Returns a [`Vec<Leg>`] for an instruction transfering an NFT.
@@ -173,6 +233,7 @@ mod nft_royalty {
             &mut self,
             nft_transfer_details: NFTTransferDetails,
             nft_offer: NFTOffer,
+            royalty_portfolio: PortfolioId,
         ) -> Result<Vec<Leg>> {
             // The first leg transfers the NFT to the buyer
             let nfts = NFTs {
@@ -192,7 +253,6 @@ mod nft_royalty {
                 amount: nft_offer.transfer_price,
             };
             // The third leg transfers the royalty to the artist
-            let royalty_portfolio = Self::royalty_portfolio(&nft_offer.purchase_ticker)?;
             let royalty_amount = self.get_royalty_amount(
                 nft_transfer_details.collection_ticker,
                 nft_offer.transfer_price,
@@ -206,16 +266,19 @@ mod nft_royalty {
             Ok(vec![nft_leg, nft_payment_leg, royalty_leg])
         }
 
-        /// Returns the [`PortfolioId`] that will receive the royalty.
-        fn royalty_portfolio(_royalty_ticker: &Ticker) -> Result<PortfolioId> {
-            unimplemented!()
+        /// Returns the [`PortfolioId`] that will receive the royalty for `caller_identity`.
+        fn royalty_portfolio(&self, caller_identity: IdentityId) -> Result<PortfolioId> {
+            self.royalty_portfolios
+                .get(caller_identity)
+                .ok_or(Error::RoyaltyPortfolioNotFound(caller_identity))
         }
     }
 
-    mod types {
+    pub mod types {
         use super::*;
 
         /// The details of an NFT transfer.
+        #[derive(Decode, Encode, TypeInfo)]
         pub struct NFTTransferDetails {
             /// The [`Ticker`] of the NFT collection.
             pub collection_ticker: Ticker,
@@ -245,6 +308,7 @@ mod nft_royalty {
         }
 
         /// The details of the proposed offer in exchange for the NFT.
+        #[derive(Decode, Encode, TypeInfo)]
         pub struct NFTOffer {
             /// The [`Ticker`] of the asset being used for buying the NFT.
             pub purchase_ticker: Ticker,
@@ -270,6 +334,44 @@ mod nft_royalty {
                     payer_portfolio,
                     receiver_portfolio,
                 }
+            }
+        }
+
+        /// Type used for definig an upper bound to the maximum number of tickers allowed for paying royalty.
+        pub struct MaxNumberOfTickers(u32);
+        /// The maximum number of tickers allowed for paying royalty.
+        pub const MAX_TICKERS_ALLOWED: u32 = 8;
+
+        impl Get<u32> for MaxNumberOfTickers {
+            fn get() -> u32 {
+                MAX_TICKERS_ALLOWED
+            }
+        }
+
+        /// All mandatoty information NFT artists must set as metadata.
+        #[derive(Decode, Encode, TypeInfo)]
+        pub struct NFTArtistRules {
+            /// All [`Ticker`] the artist is willing to receive as royalty.
+            pub allowed_purchase_tickers: BoundedBTreeSet<Ticker, MaxNumberOfTickers>,
+            /// The royalty percentage the artist will receive for each transfer.
+            pub royalty_percentage: Perbill,
+        }
+
+        impl NFTArtistRules {
+            /// Creates an instance of [`NFTArtistRules`].
+            pub fn new(
+                allowed_purchase_tickers: BoundedBTreeSet<Ticker, MaxNumberOfTickers>,
+                royalty_percentage: Perbill,
+            ) -> Self {
+                Self {
+                    allowed_purchase_tickers,
+                    royalty_percentage,
+                }
+            }
+
+            /// Returns `true` if `ticker` is in the [`NFTArtistRules::allowed_purchase_tickers`] set. Otherwise, returns `false`.
+            pub fn is_ticker_allowed(&self, ticker: &Ticker) -> bool {
+                self.allowed_purchase_tickers.contains(ticker)
             }
         }
     }
