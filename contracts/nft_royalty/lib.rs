@@ -7,13 +7,14 @@ use scale::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_arithmetic::per_things::Perbill;
 
+pub use nft_royalty::types::{NFTArtistRules, NFTOffer, NFTTransferDetails};
 use polymesh_api::ink::basic_types::IdentityId;
 use polymesh_api::ink::extension::{
     PolymeshEnvironment, PolymeshRuntimeErr as PolymeshChainExtError,
 };
 use polymesh_api::ink::Error as PolymeshChainError;
 use polymesh_api::polymesh::types::polymesh_primitives::asset_metadata::{
-    AssetMetadataKey, AssetMetadataName, AssetMetadataValue,
+    AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataValue,
 };
 use polymesh_api::polymesh::types::polymesh_primitives::identity_id::PortfolioId;
 use polymesh_api::polymesh::types::polymesh_primitives::nft::{NFTId, NFTs};
@@ -29,7 +30,6 @@ mod tests;
 #[ink::contract(env = PolymeshEnvironment)]
 mod nft_royalty {
     use super::*;
-    use crate::nft_royalty::types::{NFTArtistRules, NFTOffer, NFTTransferDetails};
 
     /// The [`AssetMetadataName`] for the key that holds the mandatory NFT collection metadata.
     const NFT_METADATA_NAME: AssetMetadataName = AssetMetadataName(Vec::new());
@@ -78,8 +78,8 @@ mod nft_royalty {
         contract_identity: IdentityId,
         /// The portfolios that will receive the royalty value for each identity.
         royalty_portfolios: Mapping<IdentityId, PortfolioId>,
-        // /// The asset metadata key for each ticker.
-        // metadata_keys: Mapping<Ticker, AssetMetadataKey>,
+        /// The asset metadata key for each ticker.
+        metadata_keys: Mapping<Ticker, u64>,
     }
 
     impl NftRoyalty {
@@ -90,19 +90,6 @@ mod nft_royalty {
             contract.initialized = true;
             contract.contract_identity = Self::get_identity(Self::env().account_id()).unwrap();
             contract
-        }
-
-        /// Returns the [`IdentityId`] for the given `account_id`.
-        fn get_identity(account_id: AccountId) -> Result<IdentityId> {
-            Self::env()
-                .extension()
-                .get_key_did(account_id)?
-                .ok_or(Error::IdentityNotFound(account_id))
-        }
-
-        /// Returns the [`IdentityId`] of whoever called the contract.
-        fn get_callers_identity() -> Result<IdentityId> {
-            Self::get_identity(Self::env().caller())
         }
 
         /// Returns the [`IdentityId`] of the contract.
@@ -118,38 +105,11 @@ mod nft_royalty {
             self.royalty_portfolio(callers_identity)
         }
 
-        /// Returns the [`AssetMetadataKey`] for the given `ticker`.
-        fn asset_metadata_key(&mut self, ticker: Ticker) -> Result<AssetMetadataKey> {
-            // Checks if the key is already cached.
-            //if let Some(metadata_key) = self.metadata_keys.get(&ticker) {
-            //    return Ok(metadata_key)
-            //}
-
-            let api = Api::new();
-
-            let local_metadata_key = api
-                .query()
-                .asset()
-                .asset_metadata_local_name_to_key(ticker, NFT_METADATA_NAME)
-                .map_err(|e| Into::<Error>::into(e))?
-                .ok_or(Error::RoyaltyMetadataKeyNotFound(ticker))?;
-            let metadata_key = AssetMetadataKey::Local(local_metadata_key);
-            // Caches the key
-            // self.metadata_keys.insert(ticker, metadata_key);
-            Ok(metadata_key)
-        }
-
-        /// Returns the [`AssetMetadataValue`] for the given `ticker`.
-        fn asset_metadata_value(&mut self, ticker: Ticker) -> Result<AssetMetadataValue> {
-            let api = Api::new();
-
-            let metadata_key = self.asset_metadata_key(ticker)?;
-
-            api.query()
-                .asset()
-                .asset_metadata_values(ticker, metadata_key)
-                .map_err(|e| Into::<Error>::into(e))?
-                .ok_or(Error::RoyaltyMetadataValueNotFound(ticker))
+        /// Returns the [`Perbill`] that corresponds to the percentage amount that the artist receives as royalty for each NFT transfer.
+        #[ink(message)]
+        pub fn royalty_percentage(&mut self, ticker: Ticker) -> Result<Perbill> {
+            let nft_artist_rules = self.decoded_asset_metadata_value(ticker)?;
+            Ok(nft_artist_rules.royalty_percentage)
         }
 
         /// Returns the decoded metadata value ([`NFTArtistRules`]) for the given [`Ticker`].
@@ -168,13 +128,6 @@ mod nft_royalty {
         ) -> Result<Balance> {
             let royalty_percentage = self.royalty_percentage(collection_ticker)?;
             Ok(royalty_percentage * transfer_price)
-        }
-
-        /// Returns the [`Perbill`] that corresponds to the percentage amount that the artist receives as royalty for each NFT transfer.
-        #[ink(message)]
-        pub fn royalty_percentage(&mut self, ticker: Ticker) -> Result<Perbill> {
-            let nft_artist_rules = self.decoded_asset_metadata_value(ticker)?;
-            Ok(nft_artist_rules.royalty_percentage)
         }
 
         /// Adds a settlement instruction.
@@ -264,6 +217,52 @@ mod nft_royalty {
                 amount: royalty_amount,
             };
             Ok(vec![nft_leg, nft_payment_leg, royalty_leg])
+        }
+
+        /// Returns the [`AssetMetadataKey`] for the given `ticker`.
+        fn asset_metadata_key(&mut self, ticker: Ticker) -> Result<AssetMetadataKey> {
+            // Checks if the key is already cached.
+            if let Some(key_id) = self.metadata_keys.get(&ticker) {
+                return Ok(AssetMetadataKey::Local(AssetMetadataLocalKey(key_id)));
+            }
+
+            let api = Api::new();
+
+            let local_metadata_key = api
+                .query()
+                .asset()
+                .asset_metadata_local_name_to_key(ticker, NFT_METADATA_NAME)
+                .map_err(|e| Into::<Error>::into(e))?
+                .ok_or(Error::RoyaltyMetadataKeyNotFound(ticker))?;
+            // Caches the key
+            self.metadata_keys.insert(ticker, &local_metadata_key.0);
+            Ok(AssetMetadataKey::Local(local_metadata_key))
+        }
+
+        /// Returns the [`AssetMetadataValue`] for the given `ticker`.
+        fn asset_metadata_value(&mut self, ticker: Ticker) -> Result<AssetMetadataValue> {
+            let api = Api::new();
+
+            let metadata_key = self.asset_metadata_key(ticker)?;
+
+            api.query()
+                .asset()
+                .asset_metadata_values(ticker, metadata_key)
+                .map_err(|e| Into::<Error>::into(e))?
+                .ok_or(Error::RoyaltyMetadataValueNotFound(ticker))
+        }
+
+        /// Returns the [`IdentityId`] for the given `account_id`.
+        fn get_identity(account_id: AccountId) -> Result<IdentityId> {
+            Self::env()
+                .extension()
+                .get_key_did(account_id)?
+                .ok_or(Error::IdentityNotFound(account_id))
+        }
+
+        /// Returns the [`IdentityId`] of whoever called the contract.
+        fn get_callers_identity() -> Result<IdentityId> {
+            Self::get_identity(Self::env().caller())
         }
 
         /// Returns the [`PortfolioId`] that will receive the royalty for `caller_identity`.
