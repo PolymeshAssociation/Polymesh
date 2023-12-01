@@ -34,14 +34,14 @@ mod nft_royalty {
     /// The [`AssetMetadataName`] for the key that holds the mandatory NFT collection metadata.
     const NFT_METADATA_NAME: AssetMetadataName = AssetMetadataName(Vec::new());
 
-    /// The contract result type.
+    /// The contract's result type.
     pub type Result<T> = core::result::Result<T, Error>;
 
     /// Contract Errors.
     #[derive(Debug, Decode, Encode, TypeInfo)]
     pub enum Error {
         /// Polymesh runtime error.
-        PolymeshRuntimeError(PolymeshChainError),
+        PolymeshRuntime(PolymeshChainError),
         /// [`IdentityId`] not found for the given [`AccountId`].
         IdentityNotFound(AccountId),
         /// Royalty metadata value not found.
@@ -58,13 +58,13 @@ mod nft_royalty {
 
     impl From<PolymeshChainError> for Error {
         fn from(error: PolymeshChainError) -> Self {
-            Self::PolymeshRuntimeError(error)
+            Self::PolymeshRuntime(error)
         }
     }
 
     impl From<PolymeshChainExtError> for Error {
         fn from(err: PolymeshChainExtError) -> Self {
-            Self::PolymeshRuntimeError(err.into())
+            Self::PolymeshRuntime(err.into())
         }
     }
 
@@ -86,10 +86,12 @@ mod nft_royalty {
         /// Inititializes the [`NftRoyalty`] storage.
         #[ink(constructor)]
         pub fn new() -> Self {
-            let mut contract = Self::default();
-            contract.initialized = true;
-            contract.contract_identity = Self::get_identity(Self::env().account_id()).unwrap();
-            contract
+            Self {
+                initialized: true,
+                contract_identity: Self::get_identity(Self::env().account_id()).unwrap(),
+                royalty_portfolios: Mapping::default(),
+                metadata_keys: Mapping::default(),
+            }
         }
 
         /// Returns the [`IdentityId`] of the contract.
@@ -113,21 +115,11 @@ mod nft_royalty {
         }
 
         /// Returns the decoded metadata value ([`NFTArtistRules`]) for the given [`Ticker`].
-        fn decoded_asset_metadata_value(&mut self, ticker: Ticker) -> Result<NFTArtistRules> {
+        #[ink(message)]
+        pub fn decoded_asset_metadata_value(&mut self, ticker: Ticker) -> Result<NFTArtistRules> {
             let asset_metadata_value = self.asset_metadata_value(ticker)?;
             NFTArtistRules::decode::<&[u8]>(&mut asset_metadata_value.0.as_ref())
                 .map_err(|e| Error::FailedToDecodeMetadataValue(e.to_string()))
-        }
-
-        /// Returns [`Balance`] representing the royalty amount that the artist will receive for an NFT transfer of `transfer_price`
-        /// for the given `collection_ticker`.
-        fn get_royalty_amount(
-            &mut self,
-            collection_ticker: Ticker,
-            transfer_price: Balance,
-        ) -> Result<Balance> {
-            let royalty_percentage = self.royalty_percentage(collection_ticker)?;
-            Ok(royalty_percentage * transfer_price)
         }
 
         /// Adds a settlement instruction.
@@ -219,21 +211,32 @@ mod nft_royalty {
             Ok(vec![nft_leg, nft_payment_leg, royalty_leg])
         }
 
+        /// Returns [`Balance`] representing the royalty amount that the artist will receive for an NFT transfer of `transfer_price`
+        /// for the given `collection_ticker`.
+        fn get_royalty_amount(
+            &mut self,
+            collection_ticker: Ticker,
+            transfer_price: Balance,
+        ) -> Result<Balance> {
+            let royalty_percentage = self.royalty_percentage(collection_ticker)?;
+            Ok(royalty_percentage * transfer_price)
+        }
+
         /// Returns the [`AssetMetadataKey`] for the given `ticker`.
         fn asset_metadata_key(&mut self, ticker: Ticker) -> Result<AssetMetadataKey> {
             // Checks if the key is already cached.
-            if let Some(key_id) = self.metadata_keys.get(&ticker) {
+            if let Some(key_id) = self.metadata_keys.get(ticker) {
                 return Ok(AssetMetadataKey::Local(AssetMetadataLocalKey(key_id)));
             }
 
             let api = Api::new();
-
             let local_metadata_key = api
                 .query()
                 .asset()
                 .asset_metadata_local_name_to_key(ticker, NFT_METADATA_NAME)
-                .map_err(|e| Into::<Error>::into(e))?
+                .map_err(Into::<Error>::into)?
                 .ok_or(Error::RoyaltyMetadataKeyNotFound(ticker))?;
+
             // Caches the key
             self.metadata_keys.insert(ticker, &local_metadata_key.0);
             Ok(AssetMetadataKey::Local(local_metadata_key))
@@ -241,14 +244,13 @@ mod nft_royalty {
 
         /// Returns the [`AssetMetadataValue`] for the given `ticker`.
         fn asset_metadata_value(&mut self, ticker: Ticker) -> Result<AssetMetadataValue> {
-            let api = Api::new();
-
             let metadata_key = self.asset_metadata_key(ticker)?;
 
+            let api = Api::new();
             api.query()
                 .asset()
                 .asset_metadata_values(ticker, metadata_key)
-                .map_err(|e| Into::<Error>::into(e))?
+                .map_err(Into::<Error>::into)?
                 .ok_or(Error::RoyaltyMetadataValueNotFound(ticker))
         }
 
