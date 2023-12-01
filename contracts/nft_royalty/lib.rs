@@ -16,7 +16,9 @@ use polymesh_api::ink::Error as PolymeshChainError;
 use polymesh_api::polymesh::types::polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataValue,
 };
-use polymesh_api::polymesh::types::polymesh_primitives::identity_id::PortfolioId;
+use polymesh_api::polymesh::types::polymesh_primitives::identity_id::{
+    PortfolioId, PortfolioKind, PortfolioName,
+};
 use polymesh_api::polymesh::types::polymesh_primitives::nft::{NFTId, NFTs};
 use polymesh_api::polymesh::types::polymesh_primitives::settlement::{
     Leg, SettlementType, VenueId,
@@ -54,6 +56,8 @@ mod nft_royalty {
         TickerNotAllowedForRoyalty(Ticker),
         /// No [`PortfolioId`] for the given [`IdentityId`].
         RoyaltyPortfolioNotFound(IdentityId),
+        /// The contract caller has already set up a custodial portfolio.
+        RoyaltyPortfolioAlreadyExists,
     }
 
     impl From<PolymeshChainError> for Error {
@@ -85,13 +89,13 @@ mod nft_royalty {
     impl NftRoyalty {
         /// Inititializes the [`NftRoyalty`] storage.
         #[ink(constructor)]
-        pub fn new() -> Self {
-            Self {
+        pub fn new() -> Result<Self> {
+            Ok(Self {
                 initialized: true,
-                contract_identity: Self::get_identity(Self::env().account_id()).unwrap(),
+                contract_identity: Self::get_identity(Self::env().account_id())?,
                 royalty_portfolios: Mapping::default(),
                 metadata_keys: Mapping::default(),
-            }
+            })
         }
 
         /// Returns the [`IdentityId`] of the contract.
@@ -162,6 +166,38 @@ mod nft_royalty {
             Ok(())
         }
 
+        /// Creates a portoflio owned by the contract's caller and transfer its custody to the smart contract.
+        #[ink(message)]
+        pub fn create_custody_portfolio(&mut self, portfolio_name: PortfolioName) -> Result<()> {
+            let callers_identity = Self::get_callers_identity()?;
+
+            if self.royalty_portfolios.contains(callers_identity) {
+                return Err(Error::RoyaltyPortfolioAlreadyExists);
+            }
+
+            let api = Api::new();
+
+            let portfolio_number = api
+                .query()
+                .portfolio()
+                .next_portfolio_number(callers_identity)
+                .map_err(Into::<Error>::into)?;
+
+            api.call()
+                .portfolio()
+                .create_custody_portfolio(callers_identity, portfolio_name)
+                .submit()?;
+
+            self.royalty_portfolios.insert(
+                callers_identity,
+                &PortfolioId {
+                    did: callers_identity,
+                    kind: PortfolioKind::User(portfolio_number),
+                },
+            );
+            Ok(())
+        }
+
         /// Ensures the metadata rules are being respected in the transfer
         fn ensure_valid_transfer_values(
             nft_artist_rules: &NFTArtistRules,
@@ -224,7 +260,7 @@ mod nft_royalty {
 
         /// Returns the [`AssetMetadataKey`] for the given `ticker`.
         fn asset_metadata_key(&mut self, ticker: Ticker) -> Result<AssetMetadataKey> {
-            // Checks if the key is already cached.
+            // Checks if the key is already in storage.
             if let Some(key_id) = self.metadata_keys.get(ticker) {
                 return Ok(AssetMetadataKey::Local(AssetMetadataLocalKey(key_id)));
             }
@@ -237,7 +273,7 @@ mod nft_royalty {
                 .map_err(Into::<Error>::into)?
                 .ok_or(Error::RoyaltyMetadataKeyNotFound(ticker))?;
 
-            // Caches the key
+            // Add the key to the storage
             self.metadata_keys.insert(ticker, &local_metadata_key.0);
             Ok(AssetMetadataKey::Local(local_metadata_key))
         }
