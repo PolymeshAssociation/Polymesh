@@ -63,7 +63,7 @@ decl_storage!(
         pub NFTsInCollection get(fn nfts_in_collection): map hasher(blake2_128_concat) Ticker => NFTCount;
 
         /// Tracks the owner of an NFT
-        pub NFTOwner get(fn nft_owner): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) NFTId => Option<IdentityId>;
+        pub NFTOwner get(fn nft_owner): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) NFTId => Option<PortfolioId>;
 
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
@@ -365,7 +365,7 @@ impl<T: Config> Module<T> {
             MetadataValue::insert((&collection_id, &nft_id), metadata_key, metadata_value);
         }
         PortfolioNFT::insert(caller_portfolio, (ticker, nft_id), true);
-        NFTOwner::insert(ticker, nft_id, caller_portfolio.did);
+        NFTOwner::insert(ticker, nft_id, caller_portfolio);
 
         Self::deposit_event(Event::NFTPortfolioUpdated(
             caller_portfolio.did,
@@ -559,7 +559,7 @@ impl<T: Config> Module<T> {
         for nft_id in nfts.ids() {
             PortfolioNFT::remove(sender_portfolio, (nfts.ticker(), nft_id));
             PortfolioNFT::insert(receiver_portfolio, (nfts.ticker(), nft_id), true);
-            NFTOwner::insert(nfts.ticker(), nft_id, receiver_portfolio.did);
+            NFTOwner::insert(nfts.ticker(), nft_id, receiver_portfolio);
         }
     }
 
@@ -638,7 +638,7 @@ pub mod migration {
 
     fn initialize_nft_owner<T: Config>() {
         for (portfolio_id, (ticker, nft_id), _) in PortfolioNFT::iter() {
-            NFTOwner::insert(ticker, nft_id, portfolio_id.did);
+            NFTOwner::insert(ticker, nft_id, portfolio_id);
         }
     }
 }
