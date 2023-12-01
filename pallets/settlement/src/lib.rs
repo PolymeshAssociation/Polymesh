@@ -1700,7 +1700,7 @@ impl<T: Config> Module<T> {
                 ticker,
                 amount,
             } => {
-                ensure!(sender != receiver, Error::<T>::SameSenderReceiver);
+                ensure!(sender.did != receiver.did, Error::<T>::SameSenderReceiver);
                 Self::ensure_valid_fungible_leg(tickers, *ticker, *amount, venue_id)?;
                 instruction_asset_count
                     .try_add_fungible()
@@ -1712,7 +1712,7 @@ impl<T: Config> Module<T> {
                 receiver,
                 nfts,
             } => {
-                ensure!(sender != receiver, Error::<T>::SameSenderReceiver);
+                ensure!(sender.did != receiver.did, Error::<T>::SameSenderReceiver);
                 Self::ensure_valid_nft_leg(tickers, &nfts, venue_id)?;
                 instruction_asset_count
                     .try_add_non_fungible(&nfts)
