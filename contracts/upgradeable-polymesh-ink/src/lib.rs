@@ -190,7 +190,7 @@ upgradable_api! {
 
             /// Accept custody of a portfolio.
             #[ink(message)]
-            pub fn accept_portfolio_custody(&self, auth_id: u64, portfolio: PortfolioKind) -> PolymeshResult<()> {
+            pub fn accept_portfolio_custody(&self, auth_id: u64, portfolio: PortfolioKind) -> PolymeshResult<PortfolioId> {
                 // Get the caller's identity.
                 let caller_did = Self::get_caller_did()?;
 
@@ -213,7 +213,7 @@ upgradable_api! {
                 {
                     return Err(PolymeshError::InvalidPortfolioAuthorization);
                 }
-                Ok(())
+                Ok(portfolio)
             }
 
             /// Quit custodianship of a portfolio returning control back to the owner.
@@ -327,16 +327,16 @@ upgradable_api! {
 
             /// Asset issue tokens.
             #[ink(message)]
-            pub fn asset_issue(&self, ticker: Ticker, amount: Balance) -> PolymeshResult<()> {
+            pub fn asset_issue(&self, ticker: Ticker, amount: Balance, portfolio: PortfolioKind) -> PolymeshResult<()> {
                 let api = Api::new();
                 // Mint tokens.
-                api.call().asset().issue(ticker, amount, PortfolioKind::Default).submit()?;
+                api.call().asset().issue(ticker, amount, portfolio).submit()?;
                 Ok(())
             }
 
             /// Asset redeem tokens.
             #[ink(message)]
-            pub fn asset_redeem_from_portfolio(&self, ticker: Ticker, amount: Balance, portfolio: PortfolioKind) -> PolymeshResult<()> {
+            pub fn asset_redeem(&self, ticker: Ticker, amount: Balance, portfolio: PortfolioKind) -> PolymeshResult<()> {
                 let api = Api::new();
                 // Redeem tokens.
                 api.call().asset().redeem_from_portfolio(ticker, amount, portfolio).submit()?;

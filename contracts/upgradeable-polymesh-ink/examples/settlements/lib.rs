@@ -78,17 +78,15 @@ mod settlements {
         /// Creates a new contract.
         #[ink(constructor)]
         pub fn new(ticker1: Ticker, ticker2: Ticker) -> Result<Self> {
-            let api = PolymeshInk::new()?;
             Ok(Self {
                 ticker1,
                 ticker2,
                 admin: Self::env().caller(),
                 portfolios: Default::default(),
-                // The contract should always have an identity.
-                did: api.get_key_did(Self::env().account_id()).unwrap(),
+                did: PolymeshInk::get_our_did()?,
                 venue: Default::default(),
                 initialized: false,
-                api,
+                api: PolymeshInk::new()?,
             })
         }
 
@@ -125,14 +123,6 @@ mod settlements {
                 Some(1_000_000 * UNIT),
             )?;
             Ok(())
-        }
-
-        fn get_did(&self, acc: AccountId) -> Result<IdentityId> {
-            Ok(self.api.get_key_did(acc)?)
-        }
-
-        fn get_caller_did(&self) -> Result<IdentityId> {
-            self.get_did(Self::env().caller())
         }
 
         fn ensure_ticker(&self, ticker: Ticker) -> Result<()> {
@@ -206,7 +196,7 @@ mod settlements {
 
         fn fund_caller(&self) -> Result<()> {
             // Get the caller's identity.
-            let caller_did = self.get_caller_did()?;
+            let caller_did = PolymeshInk::get_caller_did()?;
 
             // Ensure the caller has a portfolio.
             let caller_portfolio = self.ensure_has_portfolio(caller_did)?;
@@ -241,16 +231,10 @@ mod settlements {
         /// Accept custody of a portfolio and give the caller some tokens.
         pub fn add_portfolio(&mut self, auth_id: u64, portfolio: PortfolioKind) -> Result<()> {
             self.ensure_initialized()?;
-            // Get the caller's identity.
-            let caller_did = self.get_caller_did()?;
+            let portfolio = self.api.accept_portfolio_custody(auth_id, portfolio)?;
+            let caller_did = portfolio.did;
             // Ensure the caller doesn't have a portfolio.
             self.ensure_no_portfolio(caller_did)?;
-
-            self.api.accept_portfolio_custody(auth_id, portfolio)?;
-            let portfolio = PortfolioId {
-                did: caller_did,
-                kind: portfolio,
-            };
             // Save the caller's portfolio.
             self.portfolios.insert(caller_did, &portfolio);
 
@@ -271,7 +255,7 @@ mod settlements {
             self.ensure_ticker(ticker)?;
 
             // Get the caller's identity.
-            let caller_did = self.get_caller_did()?;
+            let caller_did = PolymeshInk::get_caller_did()?;
             let dest = PortfolioId {
                 did: caller_did,
                 kind: dest,
@@ -300,7 +284,7 @@ mod settlements {
             self.ensure_initialized()?;
 
             // Get the caller's identity.
-            let caller_did = self.get_caller_did()?;
+            let caller_did = PolymeshInk::get_caller_did()?;
 
             // Ensure the caller has a portfolio.
             let portfolio = self.ensure_has_portfolio(caller_did)?;
@@ -327,7 +311,7 @@ mod settlements {
             self.ensure_ticker(buy)?;
 
             // Get the caller's identity.
-            let caller_did = self.get_caller_did()?;
+            let caller_did = PolymeshInk::get_caller_did()?;
 
             // Ensure the caller has a portfolio.
             let caller_portfolio = self.ensure_has_portfolio(caller_did)?;
