@@ -25,6 +25,7 @@ use polymesh_api::polymesh::types::polymesh_primitives::settlement::{
 };
 use polymesh_api::polymesh::types::polymesh_primitives::ticker::Ticker;
 use polymesh_api::Api;
+use polymesh_ink::{PolymeshError, PolymeshInk};
 
 #[cfg(test)]
 mod tests;
@@ -42,6 +43,8 @@ mod nft_royalty {
     /// Contract Errors.
     #[derive(Debug, Decode, Encode, TypeInfo)]
     pub enum Error {
+        /// Polymesh ink error.
+        PolymeshInk(PolymeshError),
         /// Polymesh runtime error.
         PolymeshRuntime(PolymeshChainError),
         /// [`IdentityId`] not found for the given [`AccountId`].
@@ -72,12 +75,18 @@ mod nft_royalty {
         }
     }
 
+    impl From<PolymeshError> for Error {
+        fn from(err: PolymeshError) -> Self {
+            Self::PolymeshInk(err)
+        }
+    }
+
     /// A contract that manages non-fungible token transfers.
     #[ink(storage)]
     #[derive(Default)]
     pub struct NftRoyalty {
-        /// Returns `true` if the contract has already been initialized.
-        initialized: bool,
+        /// Upgradable Polymesh Ink API.
+        api: PolymeshInk,
         /// The identity of the contract.
         contract_identity: IdentityId,
         /// The portfolios that will receive the royalty value for each identity.
@@ -91,11 +100,31 @@ mod nft_royalty {
         #[ink(constructor)]
         pub fn new() -> Result<Self> {
             Ok(Self {
-                initialized: true,
+                api: PolymeshInk::new()?,
                 contract_identity: Self::get_identity(Self::env().account_id())?,
                 royalty_portfolios: Mapping::default(),
                 metadata_keys: Mapping::default(),
             })
+        }
+
+        /// Inititializes the [`NftRoyalty`] storage with an address of the contract.
+        #[ink(constructor)]
+        pub fn new_with_hash(hash: Hash) -> Result<Self> {
+            Ok(Self {
+                api: PolymeshInk::new_with_hash(hash),
+                contract_identity: Self::get_identity(Self::env().account_id())?,
+                royalty_portfolios: Mapping::default(),
+                metadata_keys: Mapping::default(),
+            })
+        }
+
+        /// Update the `polymesh-ink` API using the tracker.
+        ///
+        /// Anyone can pay the gas fees to do the update using the tracker.
+        #[ink(message)]
+        pub fn update_polymesh_ink(&mut self) -> Result<()> {
+            self.api.check_for_upgrade()?;
+            Ok(())
         }
 
         /// Returns the [`IdentityId`] of the contract.
@@ -106,7 +135,7 @@ mod nft_royalty {
 
         /// Returns the [`PortfolioId`] of the contract's caller.
         #[ink(message)]
-        pub fn portfolio_identity(&self) -> Result<PortfolioId> {
+        pub fn royalty_portfolio_identity(&self) -> Result<PortfolioId> {
             let callers_identity = Self::get_callers_identity()?;
             self.royalty_portfolio(callers_identity)
         }
@@ -150,19 +179,8 @@ mod nft_royalty {
             let legs: Vec<Leg> =
                 self.setup_legs(nft_transfer_details, nft_offer, royalty_portfolio)?;
 
-            let api = Api::new();
-            api.call()
-                .settlement()
-                .add_and_affirm_instruction(
-                    venue_id,
-                    SettlementType::SettleOnAffirmation,
-                    None,
-                    None,
-                    legs,
-                    vec![royalty_portfolio],
-                    None,
-                )
-                .submit()?;
+            self.api
+                .add_and_affirm_instruction(venue_id, legs, vec![royalty_portfolio])?;
             Ok(())
         }
 
@@ -183,10 +201,8 @@ mod nft_royalty {
                 .next_portfolio_number(callers_identity)
                 .map_err(Into::<Error>::into)?;
 
-            api.call()
-                .portfolio()
-                .create_custody_portfolio(callers_identity, portfolio_name)
-                .submit()?;
+            self.api
+                .create_custody_portfolio(callers_identity, portfolio_name)?;
 
             self.royalty_portfolios.insert(
                 callers_identity,
