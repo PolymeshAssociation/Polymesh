@@ -239,7 +239,7 @@ mod wrapped_polyx {
 
             Self::env().emit_event(PolyxWrapped {
                 did: caller_did,
-                key: Self::env().caller().into(),
+                key: Self::env().caller(),
                 amount: amount,
             });
             Ok(())
@@ -265,7 +265,7 @@ mod wrapped_polyx {
             self.api.asset_redeem(self.ticker, amount, PortfolioKind::Default)?;
 
             if Self::env()
-                .transfer(Self::env().caller().into(), amount)
+                .transfer(Self::env().caller(), amount)
                 .is_err()
             {
                 panic!("error transferring")
@@ -273,7 +273,7 @@ mod wrapped_polyx {
 
             Self::env().emit_event(PolyxUnwrapped {
                 did: caller_did,
-                key: Self::env().caller().into(),
+                key: Self::env().caller(),
                 amount: amount,
             });
 
