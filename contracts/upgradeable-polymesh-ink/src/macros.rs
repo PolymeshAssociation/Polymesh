@@ -9,12 +9,29 @@ macro_rules! upgradable_api {
                     $(#[ink($ink_attr:tt)])*
                     $fn_vis:vis fn $fn_name:ident(
                         & $self:ident
-                        $(, $param:ident: $ty:ty)*
+                        $(,)?
+                        $($param:ident: $ty:ty),*
+                        $(,)?
                     ) -> $fn_return:ty {
                         $( $fn_impl:tt )*
                     }
                 )*
             }
+            $(
+            impl $api_type2:ident {
+                $(
+                    $(#[doc = $doc2_attr:tt])*
+                    $fn2_vis:vis fn $fn2_name:ident(
+                        $(& $self2:ident)?
+                        $(,)?
+                        $($param2:ident: $ty2:ty),*
+                        $(,)?
+                    ) -> $fn2_return:ty {
+                        $( $fn2_impl:tt )*
+                    }
+                )*
+            }
+            )?
         }
     ) => {
         pub use $mod_name::*;
@@ -39,7 +56,7 @@ macro_rules! upgradable_api {
                 $(
                     $(#[doc = $doc_attr])*
                     $(#[ink($ink_attr, payable)])*
-                    $fn_vis fn $fn_name(&self $(, $param: $ty)*) -> $fn_return {
+                    $fn_vis fn $fn_name(&self, $($param: $ty),*) -> $fn_return {
                         ::paste::paste! {
                             self.[<__impl_ $fn_name>]($($param),*)
                         }
@@ -50,12 +67,22 @@ macro_rules! upgradable_api {
             impl $api_type {
                 $(
                     ::paste::paste! {
-                        fn [<__impl_ $fn_name>](&$self $(, $param: $ty)*) -> $fn_return {
+                        fn [<__impl_ $fn_name>](&$self, $($param: $ty),*) -> $fn_return {
                             $( $fn_impl )*
                         }
                     }
                 )*
             }
+            $(
+            impl $api_type {
+                $(
+                    $(#[doc = $doc2_attr])*
+                    $fn2_vis fn $fn2_name($(&$self2,)? $($param2: $ty2),*) -> $fn2_return {
+                        $( $fn2_impl )*
+                    }
+                )*
+            }
+            )?
         }
 
         #[cfg(feature = "as-library")]
@@ -104,14 +131,24 @@ macro_rules! upgradable_api {
                         $(#[doc = $doc_attr])*
                         $(#[ink($ink_attr)])*
                         $fn_vis fn $fn_name(
-                            &$self
-                            $(, $param: $ty)*
+                            &$self,
+                            $($param: $ty),*
                         ) -> $fn_return {
                             $( $fn_impl )*
                         }
                     }
                 )*
             }
+            $(
+            impl $api_type {
+                $(
+                    $(#[doc = $doc2_attr])*
+                    $fn2_vis fn $fn2_name($(&$self2,)? $($param2: $ty2),*) -> $fn2_return {
+                        $( $fn2_impl )*
+                    }
+                )*
+            }
+            )?
         }
     };
     // Upgradable api method.
@@ -119,14 +156,16 @@ macro_rules! upgradable_api {
         $(#[doc = $doc_attr:tt])*
         $(#[ink($ink_attr:tt)])+
         $fn_vis:vis fn $fn_name:ident(
-            &$self:ident
-            $(, $param:ident: $ty:ty)*
+            & $self:ident
+            $(,)?
+            $($param:ident: $ty:ty),*
+            $(,)?
         ) -> $fn_return:ty {
             $( $fn_impl:tt )*
         }
     ) => {
         $(#[doc = $doc_attr])*
-        $fn_vis fn $fn_name(&$self $(, $param: $ty)*) -> $fn_return {
+        $fn_vis fn $fn_name(&$self, $($param: $ty),*) -> $fn_return {
             use ink::env::call::{ExecutionInput, Selector};
             const FUNC: &'static str = stringify!{$fn_name};
             let selector = Selector::new(::polymesh_api::ink::blake2_256(FUNC.as_bytes())[..4]
@@ -145,14 +184,16 @@ macro_rules! upgradable_api {
     (@impl_api_func
         $(#[doc = $doc_attr:tt])*
         $fn_vis:vis fn $fn_name:ident(
-            &$self:ident
-            $(, $param:ident: $ty:ty)*
+            $(& $self:ident)?
+            $(,)?
+            $($param:ident: $ty:ty),*
+            $(,)?
         ) -> $fn_return:ty {
             $( $fn_impl:tt )*
         }
     ) => {
         $(#[doc = $doc_attr])*
-        $fn_vis fn $fn_name(&$self $(, $param: $ty)*) -> $fn_return {
+        $fn_vis fn $fn_name($(&$self,)? $($param: $ty),*) -> $fn_return {
             $( $fn_impl )*
         }
     };

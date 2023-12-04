@@ -172,7 +172,7 @@ upgradable_api! {
             pub fn create_portfolio(&self, name: Vec<u8>) -> PolymeshResult<PortfolioId> {
                 let api = Api::new();
                 // Get the contract's did.
-                let did = self.get_our_did()?;
+                let did = Self::get_our_did()?;
                 // Get the next portfolio number.
                 let num = api.query().portfolio().next_portfolio_number(did)?;
                 // Create Venue.
@@ -192,7 +192,7 @@ upgradable_api! {
             #[ink(message)]
             pub fn accept_portfolio_custody(&self, auth_id: u64, portfolio: PortfolioKind) -> PolymeshResult<()> {
                 // Get the caller's identity.
-                let caller_did = self.get_caller_did()?;
+                let caller_did = Self::get_caller_did()?;
 
                 let portfolio = PortfolioId {
                     did: caller_did,
@@ -205,7 +205,7 @@ upgradable_api! {
                     .accept_portfolio_custody(auth_id)
                     .submit()?;
                 // Check that we are the custodian.
-                let did = self.get_our_did()?;
+                let did = Self::get_our_did()?;
                 if !api
                     .query()
                     .portfolio()
@@ -449,19 +449,22 @@ upgradable_api! {
                     .submit()?;
                 Ok(())
             }
+        }
 
+        // Non-upgradable api.
+        impl PolymeshInk {
             /// Get the identity of the caller.
-            pub fn get_caller_did(&self) -> PolymeshResult<IdentityId> {
-                self.get_key_did(ink::env::caller::<PolymeshEnvironment>())
+            pub fn get_caller_did() -> PolymeshResult<IdentityId> {
+                Self::get_key_did(ink::env::caller::<PolymeshEnvironment>())
             }
 
             /// Get the identity of the contract.
-            pub fn get_our_did(&self) -> PolymeshResult<IdentityId> {
-                self.get_key_did(ink::env::account_id::<PolymeshEnvironment>())
+            pub fn get_our_did() -> PolymeshResult<IdentityId> {
+                Self::get_key_did(ink::env::account_id::<PolymeshEnvironment>())
             }
 
             /// Get the identity of a key.
-            pub fn get_key_did(&self, acc: AccountId) -> PolymeshResult<IdentityId> {
+            pub fn get_key_did(acc: AccountId) -> PolymeshResult<IdentityId> {
                 let api = Api::new();
                 api.runtime()
                     .get_key_did(acc)?
