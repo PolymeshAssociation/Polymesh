@@ -1,10 +1,12 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
-use frame_support::pallet_prelude::Get;
-use frame_support::BoundedBTreeSet;
+extern crate alloc;
+
+use alloc::collections::BTreeSet;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use ink::storage::Mapping;
 use scale::{Decode, Encode};
-use scale_info::TypeInfo;
 use sp_arithmetic::per_things::Perbill;
 
 pub use nft_royalty::types::{NFTArtistRules, NFTOffer, NFTTransferDetails};
@@ -20,9 +22,7 @@ use polymesh_api::polymesh::types::polymesh_primitives::identity_id::{
     PortfolioId, PortfolioKind, PortfolioName,
 };
 use polymesh_api::polymesh::types::polymesh_primitives::nft::{NFTId, NFTs};
-use polymesh_api::polymesh::types::polymesh_primitives::settlement::{
-    Leg, SettlementType, VenueId,
-};
+use polymesh_api::polymesh::types::polymesh_primitives::settlement::{Leg, VenueId};
 use polymesh_api::polymesh::types::polymesh_primitives::ticker::Ticker;
 use polymesh_api::Api;
 use polymesh_ink::{PolymeshError, PolymeshInk};
@@ -33,6 +33,7 @@ mod tests;
 #[ink::contract(env = PolymeshEnvironment)]
 mod nft_royalty {
     use super::*;
+    use alloc::vec;
 
     /// The [`AssetMetadataName`] for the key that holds the mandatory NFT collection metadata.
     const NFT_METADATA_NAME: AssetMetadataName = AssetMetadataName(Vec::new());
@@ -41,7 +42,8 @@ mod nft_royalty {
     pub type Result<T> = core::result::Result<T, Error>;
 
     /// Contract Errors.
-    #[derive(Debug, Decode, Encode, TypeInfo)]
+    #[derive(Debug, Decode, Encode)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
     pub enum Error {
         /// Polymesh ink error.
         PolymeshInk(PolymeshError),
@@ -331,7 +333,8 @@ mod nft_royalty {
         use super::*;
 
         /// The details of an NFT transfer.
-        #[derive(Decode, Encode, TypeInfo)]
+        #[derive(Decode, Encode)]
+        #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
         pub struct NFTTransferDetails {
             /// The [`Ticker`] of the NFT collection.
             pub collection_ticker: Ticker,
@@ -361,7 +364,8 @@ mod nft_royalty {
         }
 
         /// The details of the proposed offer in exchange for the NFT.
-        #[derive(Decode, Encode, TypeInfo)]
+        #[derive(Decode, Encode)]
+        #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
         pub struct NFTOffer {
             /// The [`Ticker`] of the asset being used for buying the NFT.
             pub purchase_ticker: Ticker,
@@ -390,22 +394,12 @@ mod nft_royalty {
             }
         }
 
-        /// Type used for definig an upper bound to the maximum number of tickers allowed for paying royalty.
-        pub struct MaxNumberOfTickers(u32);
-        /// The maximum number of tickers allowed for paying royalty.
-        pub const MAX_TICKERS_ALLOWED: u32 = 8;
-
-        impl Get<u32> for MaxNumberOfTickers {
-            fn get() -> u32 {
-                MAX_TICKERS_ALLOWED
-            }
-        }
-
         /// All mandatoty information NFT artists must set as metadata.
-        #[derive(Decode, Encode, TypeInfo)]
+        #[derive(Decode, Encode)]
+        #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
         pub struct NFTArtistRules {
             /// All [`Ticker`] the artist is willing to receive as royalty.
-            pub allowed_purchase_tickers: BoundedBTreeSet<Ticker, MaxNumberOfTickers>,
+            pub allowed_purchase_tickers: BTreeSet<Ticker>,
             /// The royalty percentage the artist will receive for each transfer.
             pub royalty_percentage: Perbill,
         }
@@ -413,7 +407,7 @@ mod nft_royalty {
         impl NFTArtistRules {
             /// Creates an instance of [`NFTArtistRules`].
             pub fn new(
-                allowed_purchase_tickers: BoundedBTreeSet<Ticker, MaxNumberOfTickers>,
+                allowed_purchase_tickers: BTreeSet<Ticker>,
                 royalty_percentage: Perbill,
             ) -> Self {
                 Self {
