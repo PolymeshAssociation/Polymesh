@@ -4,24 +4,6 @@ extern crate alloc;
 
 use polymesh_ink::*;
 
-/*
-use polymesh_api::{
-    ink::{
-        basic_types::IdentityId,
-        extension::{PolymeshEnvironment, PolymeshRuntimeErr},
-        Error as PolymeshError,
-    },
-    polymesh::types::polymesh_primitives::{
-        asset::{AssetName, AssetType},
-        identity_id::{PortfolioId, PortfolioKind},
-        portfolio::{Fund, FundDescription},
-        settlement::{Leg, SettlementType, VenueDetails, VenueId, VenueType},
-        ticker::Ticker,
-    },
-    Api,
-};
-*/
-
 #[ink::contract(env = PolymeshEnvironment)]
 mod wrapped_polyx {
     use alloc::vec;
