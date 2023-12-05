@@ -35,8 +35,8 @@ mod nft_royalty {
     use super::*;
     use alloc::vec;
 
-    /// The [`AssetMetadataName`] for the key that holds the mandatory NFT collection metadata.
-    const NFT_METADATA_NAME: AssetMetadataName = AssetMetadataName(Vec::new());
+    /// The asset metadata name for the key that holds the mandatory NFT collection metadata.
+    const NFT_METADATA_NAME: &[u8] = "v0_nft_madantory_metadata".as_bytes();
 
     /// The contract's result type.
     pub type Result<T> = core::result::Result<T, Error>;
@@ -196,7 +196,6 @@ mod nft_royalty {
             }
 
             let portfolio_number = self.api.next_portfolio_number(callers_identity)?;
-
             self.api
                 .create_custody_portfolio(callers_identity, portfolio_name)?;
 
@@ -279,7 +278,10 @@ mod nft_royalty {
 
             let local_metadata_key = self
                 .api
-                .asset_metadata_local_name_to_key(ticker, NFT_METADATA_NAME)?
+                .asset_metadata_local_name_to_key(
+                    ticker,
+                    AssetMetadataName(NFT_METADATA_NAME.to_vec()),
+                )?
                 .ok_or(Error::RoyaltyMetadataKeyNotFound(ticker))?;
 
             // Add the key to the storage
@@ -293,7 +295,7 @@ mod nft_royalty {
 
             self.api
                 .asset_metadata_value(ticker, metadata_key)?
-                .ok_or(Error::RoyaltyMetadataKeyNotFound(ticker))
+                .ok_or(Error::RoyaltyMetadataValueNotFound(ticker))
         }
 
         /// Returns the [`IdentityId`] for the given `account_id`.
