@@ -365,6 +365,8 @@ default = ["std"]
 running-ci = [ "polymesh-runtime-develop/running-ci" ]
 default_identity = [ "polymesh-common-utilities/default_identity" ]
 runtime-benchmarks = [
+    "frame-benchmarking/runtime-benchmarks",
+    "frame-benchmarking-cli/runtime-benchmarks",
     "sc-client-db/runtime-benchmarks",
     "polymesh-runtime-develop/runtime-benchmarks",
 ]

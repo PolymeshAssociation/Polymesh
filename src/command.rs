@@ -7,7 +7,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// 	http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@
 
 use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
+use crate::benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferBuilder};
 use crate::service::{
     self, general_chain_ops, mainnet_chain_ops, new_partial, testnet_chain_ops, FullClient,
     FullServiceComponents, GeneralExecutor, IsNetwork, MainnetExecutor, Network, NewChainOps,
@@ -25,6 +26,7 @@ use crate::service::{
 use frame_benchmarking_cli::*;
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
 use sc_service::{Configuration, TaskManager};
+use sp_keyring::Sr25519Keyring;
 
 use core::future::Future;
 use log::info;
@@ -190,7 +192,7 @@ pub fn run() -> Result<()> {
                     (BenchmarkCmd::Pallet(cmd), Network::Other) => {
                         if !cfg!(feature = "runtime-benchmarks") {
                             return Err("Benchmarking wasn't enabled when building the node. \
-			                      You can enable it with `--features runtime-benchmarks`."
+                                  You can enable it with `--features runtime-benchmarks`."
                                 .into());
                         }
 
@@ -220,15 +222,33 @@ pub fn run() -> Result<()> {
 
                         cmd.run(config, client, db, storage)
                     }
-                    (BenchmarkCmd::Overhead(_cmd), Network::Other) => {
-                        unimplemented!();
-                        /*
-                                    let FullServiceComponents { client, .. } = new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>(&mut config)?;
-                                    let ext_builder = BenchmarkExtrinsicBuilder::new(client.clone());
-
-                        cmd.run(config, client, inherent_benchmark_data()?, Arc::new(ext_builder))
-                        */
+                    (BenchmarkCmd::Overhead(cmd), Network::Other) => {
+                        let FullServiceComponents {
+                            client, ..
+                        } = new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>(
+                            &mut config,
+                        )?;
+                        let ext_builder = RemarkBuilder::new(client.clone());
+                        cmd.run(config, client, inherent_benchmark_data()?, Vec::new(), &ext_builder)
                     }
+                    (BenchmarkCmd::Extrinsic(cmd), Network::Other) => {
+                        let FullServiceComponents {
+                            client, ..
+                        } = new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>(
+                            &mut config,
+                        )?;
+                        // Register the *Remark* and *TKA* builders.
+                        let ext_factory = ExtrinsicFactory(vec![
+                            Box::new(RemarkBuilder::new(client.clone())),
+                            Box::new(TransferBuilder::new(
+                                client.clone(),
+                                Sr25519Keyring::Alice.to_account_id(),
+                                1,
+                            )),
+                        ]);
+
+                        cmd.run(client, inherent_benchmark_data()?, Vec::new(), &ext_factory)
+                    },
                     (BenchmarkCmd::Machine(cmd), Network::Other) => {
                         cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())
                     }
