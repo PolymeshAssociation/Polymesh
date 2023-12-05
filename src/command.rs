@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferBuilder};
 use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
-use crate::benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferBuilder};
 use crate::service::{
     self, general_chain_ops, mainnet_chain_ops, new_partial, testnet_chain_ops, FullClient,
     FullServiceComponents, GeneralExecutor, IsNetwork, MainnetExecutor, Network, NewChainOps,
@@ -223,20 +223,24 @@ pub fn run() -> Result<()> {
                         cmd.run(config, client, db, storage)
                     }
                     (BenchmarkCmd::Overhead(cmd), Network::Other) => {
-                        let FullServiceComponents {
-                            client, ..
-                        } = new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>(
-                            &mut config,
-                        )?;
+                        let FullServiceComponents { client, .. } =
+                            new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>(
+                                &mut config,
+                            )?;
                         let ext_builder = RemarkBuilder::new(client.clone());
-                        cmd.run(config, client, inherent_benchmark_data()?, Vec::new(), &ext_builder)
+                        cmd.run(
+                            config,
+                            client,
+                            inherent_benchmark_data()?,
+                            Vec::new(),
+                            &ext_builder,
+                        )
                     }
                     (BenchmarkCmd::Extrinsic(cmd), Network::Other) => {
-                        let FullServiceComponents {
-                            client, ..
-                        } = new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>(
-                            &mut config,
-                        )?;
+                        let FullServiceComponents { client, .. } =
+                            new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>(
+                                &mut config,
+                            )?;
                         // Register the *Remark* and *TKA* builders.
                         let ext_factory = ExtrinsicFactory(vec![
                             Box::new(RemarkBuilder::new(client.clone())),
@@ -248,7 +252,7 @@ pub fn run() -> Result<()> {
                         ]);
 
                         cmd.run(client, inherent_benchmark_data()?, Vec::new(), &ext_factory)
-                    },
+                    }
                     (BenchmarkCmd::Machine(cmd), Network::Other) => {
                         cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())
                     }
