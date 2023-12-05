@@ -23,7 +23,6 @@ use polymesh_api::polymesh::types::polymesh_primitives::identity_id::{
 use polymesh_api::polymesh::types::polymesh_primitives::nft::{NFTId, NFTs};
 use polymesh_api::polymesh::types::polymesh_primitives::settlement::{Leg, VenueId};
 use polymesh_api::polymesh::types::polymesh_primitives::ticker::Ticker;
-use polymesh_api::Api;
 use polymesh_ink::{PolymeshError, PolymeshInk};
 
 pub use crate::nft_royalty::types::{NFTArtistRules, NFTOffer, NFTTransferDetails};
@@ -196,13 +195,7 @@ mod nft_royalty {
                 return Err(Error::RoyaltyPortfolioAlreadyExists);
             }
 
-            let api = Api::new();
-
-            let portfolio_number = api
-                .query()
-                .portfolio()
-                .next_portfolio_number(callers_identity)
-                .map_err(Into::<Error>::into)?;
+            let portfolio_number = self.api.next_portfolio_number(callers_identity)?;
 
             self.api
                 .create_custody_portfolio(callers_identity, portfolio_name)?;
@@ -284,12 +277,9 @@ mod nft_royalty {
                 return Ok(AssetMetadataKey::Local(AssetMetadataLocalKey(key_id)));
             }
 
-            let api = Api::new();
-            let local_metadata_key = api
-                .query()
-                .asset()
-                .asset_metadata_local_name_to_key(ticker, NFT_METADATA_NAME)
-                .map_err(Into::<Error>::into)?
+            let local_metadata_key = self
+                .api
+                .asset_metadata_local_name_to_key(ticker, NFT_METADATA_NAME)?
                 .ok_or(Error::RoyaltyMetadataKeyNotFound(ticker))?;
 
             // Add the key to the storage
@@ -301,12 +291,9 @@ mod nft_royalty {
         fn asset_metadata_value(&mut self, ticker: Ticker) -> Result<AssetMetadataValue> {
             let metadata_key = self.asset_metadata_key(ticker)?;
 
-            let api = Api::new();
-            api.query()
-                .asset()
-                .asset_metadata_values(ticker, metadata_key)
-                .map_err(Into::<Error>::into)?
-                .ok_or(Error::RoyaltyMetadataValueNotFound(ticker))
+            self.api
+                .asset_metadata_value(ticker, metadata_key)?
+                .ok_or(Error::RoyaltyMetadataKeyNotFound(ticker))
         }
 
         /// Returns the [`IdentityId`] for the given `account_id`.
