@@ -2,13 +2,14 @@
 //!
 //! Should only be used for benchmarking as it may break in other contexts.
 
-use crate::service::{FullClient, GeneralExecutor};
+use crate::service::FullClient;
 use polymesh_primitives::{AccountId, Balance, Signature};
 
 use polymesh_runtime_common::BlockHashCount;
 use polymesh_runtime_develop::runtime::{self, BalancesCall, SystemCall};
 use sc_cli::Result;
 use sc_client_api::BlockBackend;
+use sc_executor::NativeExecutionDispatch;
 use sp_core::{Encode, Pair};
 use sp_inherents::{InherentData, InherentDataProvider};
 use sp_keyring::Sr25519Keyring;
@@ -19,20 +20,20 @@ use std::{sync::Arc, time::Duration};
 /// Generates extrinsics for the `benchmark overhead` command.
 ///
 /// Note: Should only be used for benchmarking.
-pub struct RemarkBuilder {
-    client: Arc<FullClient<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>>,
+pub struct RemarkBuilder<R, D: NativeExecutionDispatch + 'static> {
+    client: Arc<FullClient<R, D>>,
 }
 
-impl RemarkBuilder {
+impl<R, D: NativeExecutionDispatch + 'static> RemarkBuilder<R, D> {
     /// Creates a new [`Self`] from the given client.
-    pub fn new(
-        client: Arc<FullClient<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>>,
-    ) -> Self {
+    pub fn new(client: Arc<FullClient<R, D>>) -> Self {
         Self { client }
     }
 }
 
-impl frame_benchmarking_cli::ExtrinsicBuilder for RemarkBuilder {
+impl<R, D: NativeExecutionDispatch + 'static> frame_benchmarking_cli::ExtrinsicBuilder
+    for RemarkBuilder<R, D>
+{
     fn pallet(&self) -> &str {
         "system"
     }
@@ -58,19 +59,15 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for RemarkBuilder {
 /// Generates `Balances::Transfer` extrinsics for the benchmarks.
 ///
 /// Note: Should only be used for benchmarking.
-pub struct TransferBuilder {
-    client: Arc<FullClient<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>>,
+pub struct TransferBuilder<R, D: NativeExecutionDispatch + 'static> {
+    client: Arc<FullClient<R, D>>,
     dest: AccountId,
     value: Balance,
 }
 
-impl TransferBuilder {
+impl<R, D: NativeExecutionDispatch + 'static> TransferBuilder<R, D> {
     /// Creates a new [`Self`] from the given client.
-    pub fn new(
-        client: Arc<FullClient<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>>,
-        dest: AccountId,
-        value: Balance,
-    ) -> Self {
+    pub fn new(client: Arc<FullClient<R, D>>, dest: AccountId, value: Balance) -> Self {
         Self {
             client,
             dest,
@@ -79,7 +76,9 @@ impl TransferBuilder {
     }
 }
 
-impl frame_benchmarking_cli::ExtrinsicBuilder for TransferBuilder {
+impl<R, D: NativeExecutionDispatch + 'static> frame_benchmarking_cli::ExtrinsicBuilder
+    for TransferBuilder<R, D>
+{
     fn pallet(&self) -> &str {
         "balances"
     }
@@ -109,8 +108,8 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for TransferBuilder {
 /// Create a transaction using the given `call`.
 ///
 /// Note: Should only be used for benchmarking.
-pub fn create_benchmark_extrinsic(
-    client: &FullClient<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>,
+pub fn create_benchmark_extrinsic<R, D: NativeExecutionDispatch + 'static>(
+    client: &FullClient<R, D>,
     sender: sp_core::sr25519::Pair,
     call: runtime::RuntimeCall,
     nonce: u32,
