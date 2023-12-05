@@ -116,7 +116,7 @@ use polymesh_primitives::{
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 
-storage_migration_ver!(3);
+storage_migration_ver!(4);
 
 decl_storage! {
     trait Store for Module<T: Config> as Identity {
@@ -170,7 +170,7 @@ decl_storage! {
         pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(3)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(4)): Version;
 
         /// How many "strong" references to the account key.
         ///
@@ -185,6 +185,10 @@ decl_storage! {
         /// Parent identity if the DID is a child Identity.
         pub ParentDid get(fn parent_did):
             map hasher(identity) IdentityId => Option<IdentityId>;
+
+        /// All child identities of a parent (i.e ParentDID, ChildDID, true)
+        pub ChildDid get(fn child_did):
+            double_map hasher(identity) IdentityId, hasher(identity) IdentityId => bool;
     }
     add_extra_genesis {
         // Identities at genesis.
@@ -247,8 +251,8 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 3, {
-                migration::migrate_to_v3::<T>();
+            storage_migrate_on!(StorageVersion, 4, {
+                migration::migrate_to_v4::<T>();
             });
             Weight::zero()
         }
@@ -768,151 +772,16 @@ pub mod migration {
     use super::*;
     use sp_runtime::runtime_logger::RuntimeLogger;
 
-    mod v2 {
-        use super::*;
-        use polymesh_primitives::{CountryCode, Moment};
-        use scale_info::TypeInfo;
-
-        type ScopeId = IdentityId;
-
-        #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, Hash)]
-        pub enum ClaimV1 {
-            Accredited(Scope),
-            Affiliate(Scope),
-            BuyLockup(Scope),
-            SellLockup(Scope),
-            CustomerDueDiligence(CddId),
-            KnowYourCustomer(Scope),
-            Jurisdiction(CountryCode, Scope),
-            Exempted(Scope),
-            Blocked(Scope),
-            InvestorUniqueness(Scope, ScopeId, CddId),
-            NoData,
-            InvestorUniquenessV2(CddId),
-            Custom(CustomClaimTypeId, Option<Scope>),
-        }
-
-        impl ClaimV1 {
-            pub fn try_into(self) -> Option<Claim> {
-                match self {
-                    Self::Accredited(scope) => Some(Claim::Accredited(scope)),
-                    Self::Affiliate(scope) => Some(Claim::Affiliate(scope)),
-                    Self::BuyLockup(scope) => Some(Claim::BuyLockup(scope)),
-                    Self::SellLockup(scope) => Some(Claim::SellLockup(scope)),
-                    Self::CustomerDueDiligence(cdd) => Some(Claim::CustomerDueDiligence(cdd)),
-                    Self::KnowYourCustomer(scope) => Some(Claim::KnowYourCustomer(scope)),
-                    Self::Jurisdiction(cc, scope) => Some(Claim::Jurisdiction(cc, scope)),
-                    Self::Exempted(scope) => Some(Claim::Exempted(scope)),
-                    Self::Blocked(scope) => Some(Claim::Blocked(scope)),
-                    Self::Custom(type_id, scope) => Some(Claim::Custom(type_id, scope)),
-                    _ => None,
-                }
-            }
-        }
-
-        #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq)]
-        pub struct IdentityClaimV1 {
-            pub claim_issuer: IdentityId,
-            pub issuance_date: Moment,
-            pub last_update_date: Moment,
-            pub expiry: Option<Moment>,
-            pub claim: ClaimV1,
-        }
-
-        impl IdentityClaimV1 {
-            pub fn try_into(self) -> Option<IdentityClaim> {
-                let claim = self.claim.try_into()?;
-                Some(IdentityClaim {
-                    claim_issuer: self.claim_issuer,
-                    issuance_date: self.issuance_date,
-                    last_update_date: self.last_update_date,
-                    expiry: self.expiry,
-                    claim,
-                })
-            }
-        }
-
-        #[derive(Encode, Decode, TypeInfo)]
-        #[derive(Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
-        pub enum ClaimTypeV1 {
-            Accredited,
-            Affiliate,
-            BuyLockup,
-            SellLockup,
-            CustomerDueDiligence,
-            KnowYourCustomer,
-            Jurisdiction,
-            Exempted,
-            Blocked,
-            InvestorUniqueness,
-            NoType,
-            InvestorUniquenessV2,
-            Custom(CustomClaimTypeId),
-        }
-
-        #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-        pub struct Claim1stKeyV1 {
-            pub target: IdentityId,
-            pub claim_type: ClaimTypeV1,
-        }
-
-        decl_storage! {
-            trait Store for Module<T: Config> as Identity {
-                pub Claims: double_map hasher(twox_64_concat) Claim1stKeyV1, hasher(blake2_128_concat) Claim2ndKey => Option<IdentityClaim>;
-            }
-        }
-
-        decl_module! {
-            pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin { }
-        }
-    }
-
-    pub fn migrate_to_v3<T: Config>() {
+    pub fn migrate_to_v4<T: Config>() {
         RuntimeLogger::init();
-        log::info!(" >>> Migrating Identity.Claims.");
-        migrate_claims::<T>();
-        log::info!(" >>> All Claims have been migrated.");
+        log::info!(" >>> Initializing ChildDid storage");
+        initialize_child_did::<T>();
+        log::info!(" >>> ChildDid has been initialized");
     }
 
-    fn migrate_claims<T: Config>() {
-        let mut same = 0;
-        let mut converted = 0;
-        let mut removed = 0;
-        let mut remap = Vec::new();
-        // Migrate all Claims
-        v2::Claims::translate::<v2::IdentityClaimV1, _>(|old_key1, key2, old_claim| {
-            if let Some(claim) = old_claim.try_into() {
-                let claim_type = claim.claim.claim_type();
-                let new_key1 = Claim1stKey {
-                    target: old_key1.target,
-                    claim_type,
-                };
-                // Need to move `ClaimType::Custom(_)` to new key1.
-                match claim_type {
-                    ClaimType::Custom(_) => {
-                        converted += 1;
-                        remap.push((new_key1, key2, claim));
-                        // Remove value from old key.
-                        None
-                    }
-                    _ => {
-                        // No convert/migration need.
-                        same += 1;
-                        Some(claim)
-                    }
-                }
-            } else {
-                removed += 1;
-                None
-            }
-        });
-
-        // Re-add claims with changed `key1` values.
-        for (key1, key2, claim) in remap {
-            Claims::insert(key1, key2, claim);
+    fn initialize_child_did<T: Config>() {
+        for (child_did, parent_did) in ParentDid::iter() {
+            ChildDid::insert(parent_did, child_did, true);
         }
-        log::info!(
-            "> Migrated Claims: converted={converted}, removed={removed}, unchanged={same}."
-        );
     }
 }
