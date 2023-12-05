@@ -6,29 +6,27 @@ edition = "2021"
 
 [dependencies]
 ink = { version = "4.2.0", default-features = false }
-
-frame-support = { version = "26.0.0", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
 sp-arithmetic = { version = "6.0.0", default-features = false }
 
 polymesh-api = { version = "3.5", default-features = false, features = ["ink"] }
-
-[dev-dependencies]
-ink_e2e = "4.2.0"
+polymesh-ink = { path = "../../../tmp/Polymesh/contracts/upgradeable-polymesh-ink", default-features = false, features = ["as-library"] }
 
 [lib]
 path = "lib.rs"
 
+[profile.release]
+overflow-checks = false     # Disable integer overflow checks.
+
 [features]
 default = ["std"]
 std = [
-    "frame-support/std",
     "ink/std",
     "polymesh-api/std",
     "scale/std",
     "scale-info/std",
     "sp-arithmetic/std",
+    "polymesh-ink/std"
 ]
 ink-as-dependency = []
-e2e-tests = []

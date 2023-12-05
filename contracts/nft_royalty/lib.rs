@@ -9,7 +9,6 @@ use ink::storage::Mapping;
 use scale::{Decode, Encode};
 use sp_arithmetic::per_things::Perbill;
 
-pub use nft_royalty::types::{NFTArtistRules, NFTOffer, NFTTransferDetails};
 use polymesh_api::ink::basic_types::IdentityId;
 use polymesh_api::ink::extension::{
     PolymeshEnvironment, PolymeshRuntimeErr as PolymeshChainExtError,
@@ -26,6 +25,8 @@ use polymesh_api::polymesh::types::polymesh_primitives::settlement::{Leg, VenueI
 use polymesh_api::polymesh::types::polymesh_primitives::ticker::Ticker;
 use polymesh_api::Api;
 use polymesh_ink::{PolymeshError, PolymeshInk};
+
+pub use crate::nft_royalty::types::{NFTArtistRules, NFTOffer, NFTTransferDetails};
 
 #[cfg(test)]
 mod tests;
