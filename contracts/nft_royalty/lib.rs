@@ -1,3 +1,32 @@
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
+// Copyright (c) 2020 Polymesh Association
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3.
+
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+//! # NFT royalty handler smart contract. 
+//!
+//! The goal of this contract is to handle the distribution of royalty for secondary NFT sales. This contract enforces royalty by 
+//! adding one [`Leg`] transfering [`NFTArtistRules::royalty_percentage`] of [`NFTOffer::transfer_price`] to the artist portfolio.
+//!
+//! ### Public Functions
+//!
+//! - `contracts_identity`: Returns the [`IdentityId`] of the contract.
+//! - `royalty_portfolio_identity`: Returns the [`PortfolioId`] of the contract's caller.
+//! - `royalty_percentage`: Returns the [`Perbill`] that corresponds to the percentage amount that the artist receives as royalty for each NFT transfer.
+//! - `decoded_asset_metadata_value`: Returns the decoded metadata value ([`NFTArtistRules`]) for the given [`Ticker`].
+//! - `create_transfer`: Adds a settlement instruction. The instruction will have three legs. One [`Leg`] where [`NFTTransferDetails::nft_owner_portfolio`] is transferring [`NFTTransferDetails::nft_id`] to [`NFTTransferDetails::nft_receiver_portfolio`], another leg where [`NFTOffer::payer_portfolio`] sends [`NFTOffer::transfer_price`] to [`NFTOffer::receiver_portfolio`], and one leg where the payer is transferring the royalty to the artist.
+//! - `create_custody_portfolio`: Creates a portoflio owned by the contract's caller and transfer its custody to the smart contract.
+
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
 extern crate alloc;
