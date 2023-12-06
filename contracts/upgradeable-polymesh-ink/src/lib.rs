@@ -17,6 +17,9 @@ pub use polymesh_api::{
         polymesh_contracts::Api as ContractRuntimeApi,
         polymesh_primitives::{
             asset::{AssetName, AssetType, CheckpointId},
+            asset_metadata::{
+                AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataValue,
+            },
             identity_id::{PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber},
             portfolio::{Fund, FundDescription},
             settlement::{Leg, SettlementType, VenueDetails, VenueId, VenueType},
@@ -448,6 +451,87 @@ upgradable_api! {
                     )
                     .submit()?;
                 Ok(())
+            }
+
+            /// Adds and affirms an instruction.
+            #[ink(message)]
+            pub fn add_and_affirm_instruction(
+                &self,
+                venue_id: VenueId,
+                legs: Vec<Leg>,
+                portfolios: Vec<PortfolioId>
+            ) -> PolymeshResult<()> {
+                Api::new().call()
+                    .settlement()
+                    .add_and_affirm_instruction(
+                        venue_id,
+                        SettlementType::SettleOnAffirmation,
+                        None,
+                        None,
+                        legs,
+                        portfolios,
+                        None,
+                    )
+                    .submit()?;
+                Ok(())
+            }
+
+            /// Creates a portoflio owned by `portfolio_owner_id` and transfer its custody to the smart contract.
+            #[ink(message)]
+            pub fn create_custody_portfolio(
+                &self,
+                portfolio_owner_id: IdentityId,
+                portfolio_name: PortfolioName
+            ) -> PolymeshResult<()> {
+                Api::new().call()
+                    .portfolio()
+                    .create_custody_portfolio(
+                        portfolio_owner_id,
+                        portfolio_name
+                    )
+                    .submit()?;
+                Ok(())
+            }
+
+            /// Returns the [`PortfolioNumber`] for the next portfolio that will be created.
+            #[ink(message)]
+            pub fn next_portfolio_number(
+                &self,
+                portfolio_owner_id: IdentityId
+            ) -> PolymeshResult<PortfolioNumber> {
+                Ok(Api::new().query()
+                    .portfolio()
+                    .next_portfolio_number(
+                        portfolio_owner_id
+                    )?)
+            }
+
+            /// Returns the [`AssetMetadataLocalKey`] for the given `ticker` and `asset_metadata_name`.
+            #[ink(message)]
+            pub fn asset_metadata_local_name_to_key(
+                &self,
+                ticker: Ticker,
+                asset_metadata_name: AssetMetadataName
+            ) -> PolymeshResult<Option<AssetMetadataLocalKey>> {
+                Ok(Api::new().query()
+                    .asset()
+                    .asset_metadata_local_name_to_key(
+                        ticker, asset_metadata_name
+                    )?)
+            }
+
+            /// Returns the [`AssetMetadataValue`] for the given `ticker` and `asset_metadata_key`.
+            #[ink(message)]
+            pub fn asset_metadata_value(
+                &self,
+                ticker: Ticker,
+                asset_metadata_key: AssetMetadataKey
+            ) -> PolymeshResult<Option<AssetMetadataValue>> {
+                Ok(Api::new().query()
+                    .asset()
+                    .asset_metadata_values(
+                        ticker, asset_metadata_key
+                    )?)
             }
 
             /// Get the identity of the caller.
