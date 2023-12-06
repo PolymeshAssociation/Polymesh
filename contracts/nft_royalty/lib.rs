@@ -17,9 +17,7 @@ use polymesh_api::ink::Error as PolymeshChainError;
 use polymesh_api::polymesh::types::polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataValue,
 };
-use polymesh_api::polymesh::types::polymesh_primitives::identity_id::{
-    PortfolioId, PortfolioKind, PortfolioName,
-};
+use polymesh_api::polymesh::types::polymesh_primitives::identity_id::{PortfolioId, PortfolioName};
 use polymesh_api::polymesh::types::polymesh_primitives::nft::{NFTId, NFTs};
 use polymesh_api::polymesh::types::polymesh_primitives::settlement::{Leg, VenueId};
 use polymesh_api::polymesh::types::polymesh_primitives::ticker::Ticker;
@@ -103,7 +101,7 @@ mod nft_royalty {
         pub fn new() -> Result<Self> {
             Ok(Self {
                 api: PolymeshInk::new()?,
-                contract_identity: Self::get_identity(Self::env().account_id())?,
+                contract_identity: PolymeshInk::get_our_did()?,
                 royalty_portfolios: Mapping::default(),
                 metadata_keys: Mapping::default(),
             })
@@ -114,7 +112,7 @@ mod nft_royalty {
         pub fn new_with_hash(hash: Hash) -> Result<Self> {
             Ok(Self {
                 api: PolymeshInk::new_with_hash(hash),
-                contract_identity: Self::get_identity(Self::env().account_id())?,
+                contract_identity: PolymeshInk::get_our_did()?,
                 royalty_portfolios: Mapping::default(),
                 metadata_keys: Mapping::default(),
             })
@@ -172,6 +170,7 @@ mod nft_royalty {
             nft_transfer_details: NFTTransferDetails,
             nft_offer: NFTOffer,
         ) -> Result<()> {
+            self.contract_identity = PolymeshInk::get_our_did()?;
             let nft_artist_rules =
                 self.decoded_asset_metadata_value(nft_transfer_details.collection_ticker)?;
 
@@ -189,23 +188,19 @@ mod nft_royalty {
         /// Creates a portoflio owned by the contract's caller and transfer its custody to the smart contract.
         #[ink(message)]
         pub fn create_custody_portfolio(&mut self, portfolio_name: PortfolioName) -> Result<()> {
+            self.contract_identity = PolymeshInk::get_our_did()?;
             let callers_identity = Self::get_callers_identity()?;
 
             if self.royalty_portfolios.contains(callers_identity) {
                 return Err(Error::RoyaltyPortfolioAlreadyExists);
             }
 
-            let portfolio_number = self.api.next_portfolio_number(callers_identity)?;
-            self.api
+            let portfolio_id = self
+                .api
                 .create_custody_portfolio(callers_identity, portfolio_name)?;
 
-            self.royalty_portfolios.insert(
-                callers_identity,
-                &PortfolioId {
-                    did: callers_identity,
-                    kind: PortfolioKind::User(portfolio_number),
-                },
-            );
+            self.royalty_portfolios
+                .insert(callers_identity, &portfolio_id);
             Ok(())
         }
 
