@@ -2,21 +2,7 @@
 
 extern crate alloc;
 
-use polymesh_api::{
-    ink::{
-        basic_types::IdentityId,
-        extension::{PolymeshEnvironment, PolymeshRuntimeErr},
-        Error as PolymeshError,
-    },
-    polymesh::types::polymesh_primitives::{
-        asset::{AssetName, AssetType},
-        identity_id::{PortfolioId, PortfolioKind},
-        portfolio::{Fund, FundDescription},
-        settlement::{Leg, SettlementType, VenueDetails, VenueId, VenueType},
-        ticker::Ticker,
-    },
-    Api,
-};
+use polymesh_ink::*;
 
 #[ink::contract(env = PolymeshEnvironment)]
 mod wrapped_polyx {
@@ -29,8 +15,11 @@ mod wrapped_polyx {
     #[ink(storage)]
     #[derive(Default)]
     pub struct WrappedPolyx {
-        ticker: Ticker,
         initialized: bool,
+        /// Upgradable Polymesh Ink API.
+        api: PolymeshInk,
+        /// WrappedPolyx token.
+        ticker: Ticker,
         /// Venue for settlements.
         venue: VenueId,
         /// Contract's identity.
@@ -79,8 +68,8 @@ mod wrapped_polyx {
     #[derive(Debug, scale::Encode, scale::Decode)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
     pub enum Error {
-        /// Polymesh runtime error.
-        PolymeshError(PolymeshError),
+        /// PolymeshInk errors.
+        PolymeshInk(PolymeshError),
         /// Scale decode failed.
         ScaleError,
         /// Missing Identity.  MultiSig's are not supported.
@@ -99,13 +88,7 @@ mod wrapped_polyx {
 
     impl From<PolymeshError> for Error {
         fn from(err: PolymeshError) -> Self {
-            Self::PolymeshError(err)
-        }
-    }
-
-    impl From<PolymeshRuntimeErr> for Error {
-        fn from(err: PolymeshRuntimeErr) -> Self {
-            Self::PolymeshError(err.into())
+            Self::PolymeshInk(err)
         }
     }
 
@@ -115,53 +98,30 @@ mod wrapped_polyx {
     impl WrappedPolyx {
         /// Creates a new contract.
         #[ink(constructor)]
-        pub fn new(ticker: Ticker) -> Self {
-            let mut contract = Self {
+        pub fn new(ticker: Ticker) -> Result<Self> {
+            Ok(Self {
+                api: PolymeshInk::new()?,
                 ticker,
+                did: PolymeshInk::get_our_did()?,
                 ..Default::default()
-            };
-            // The contract should always have an identity.
-            contract.did = contract.get_did(Self::env().account_id()).unwrap();
-            contract
+            })
         }
 
         fn create_wrapped_polyx(&mut self) -> Result<()> {
-            let api = Api::new();
-            // Create asset.
-            api.call()
-                .asset()
-                .create_asset(
-                    AssetName(b"Wrapped POLYX".to_vec()),
-                    self.ticker,
-                    true, // Divisible token.
-                    //TODO: Create Other asset type for wrapped tokens
-                    AssetType::EquityCommon,
-                    vec![],
-                    None,
-                )
-                .submit()?;
-            // Pause compliance rules to allow transfers.
-            api.call()
-                .compliance_manager()
-                .pause_asset_compliance(self.ticker)
-                .submit()?;
+            self.api.asset_create_and_issue(
+                AssetName(b"Wrapped POLYX".to_vec()),
+                self.ticker,
+                AssetType::EquityCommon,
+                true, // Divisible token.
+                None,
+            )?;
             Ok(())
         }
 
-        fn get_did(&self, acc: AccountId) -> Result<IdentityId> {
-            Self::env()
-                .extension()
-                .get_key_did(acc)?
-                .map(|did| did.into())
-                .ok_or(Error::MissingIdentity)
-        }
-
-        fn get_caller_did(&self) -> Result<IdentityId> {
-            self.get_did(Self::env().caller())
-        }
-
-        fn ensure_has_portfolio(&self, did: IdentityId) -> Result<PortfolioId> {
-            self.portfolios.get(did).ok_or(Error::NoPortfolio)
+        fn ensure_has_portfolio(&self) -> Result<PortfolioId> {
+            // Get the caller's identity.
+            let caller_did = PolymeshInk::get_caller_did()?;
+            self.portfolios.get(caller_did).ok_or(Error::NoPortfolio)
         }
 
         fn ensure_no_portfolio(&self, did: IdentityId) -> Result<()> {
@@ -182,23 +142,15 @@ mod wrapped_polyx {
             if self.initialized {
                 return Err(Error::AlreadyInitialized);
             }
-            // Create tickers.
+            // Update our identity id.
+            self.did = PolymeshInk::get_our_did()?;
+            // Create ticker.
             self.create_wrapped_polyx()?;
 
-            let api = Api::new();
-            // Get the next venue id.
-            let id = api.query().settlement().venue_counter().map(|v| v.into())?;
-            // Create Venue.
-            api.call()
-                .settlement()
-                .create_venue(
-                    VenueDetails(b"Contract Venue".to_vec()),
-                    vec![],
-                    VenueType::Other,
-                )
-                .submit()?;
-            // Save venue id.
-            self.venue = id;
+            // Create venue.
+            self.venue = self
+                .api
+                .create_venue(VenueDetails(b"Contract Venue".to_vec()), VenueType::Other)?;
             self.initialized = true;
             Ok(())
         }
@@ -224,29 +176,11 @@ mod wrapped_polyx {
         /// Accept custody of a portfolio and give the caller some tokens.
         pub fn add_portfolio(&mut self, auth_id: u64, portfolio: PortfolioKind) -> Result<()> {
             self.ensure_initialized()?;
-            // Get the caller's identity.
-            let caller_did = self.get_caller_did()?;
+            // Accept portfolio custody and ensure we have custody.
+            let portfolio_id = self.api.accept_portfolio_custody(auth_id, portfolio)?;
+            let caller_did = portfolio_id.did;
             // Ensure the caller doesn't have a portfolio.
             self.ensure_no_portfolio(caller_did)?;
-
-            let portfolio_id = PortfolioId {
-                did: caller_did,
-                kind: portfolio,
-            };
-            let api = Api::new();
-            // Accept authorization.
-            api.call()
-                .portfolio()
-                .accept_portfolio_custody(auth_id)
-                .submit()?;
-            // Check that we are the custodian.
-            if !api
-                .query()
-                .portfolio()
-                .portfolios_in_custody(self.did, portfolio_id)?
-            {
-                return Err(Error::InvalidPortfolioAuthorization);
-            }
             // Save the caller's portfolio.
             self.portfolios.insert(caller_did, &portfolio_id);
 
@@ -258,62 +192,38 @@ mod wrapped_polyx {
             Ok(())
         }
 
+        fn transfer(&self, sender: PortfolioId, receiver: PortfolioId, amount: Balance) -> Result<()> {
+            self.api.settlement_execute(self.venue, vec![Leg::Fungible {
+                sender,
+                receiver,
+                ticker: self.ticker,
+                amount: amount,
+            }], vec![sender, receiver])?;
+            Ok(())
+        }
+
         #[ink(message, payable)]
         /// Allow the caller to withdrawal funds from the contract controlled portfolio.
         pub fn mint_wrapped_polyx(&mut self) -> Result<()> {
             self.ensure_initialized()?;
             let amount = Self::env().transferred_value();
 
-            // Get the caller's identity.
-            let caller_did = self.get_caller_did()?;
-
             // Ensure the caller has a portfolio.
-            let caller_portfolio = self.ensure_has_portfolio(caller_did)?;
+            let caller_portfolio = self.ensure_has_portfolio()?;
+            let caller_did = caller_portfolio.did;
 
-            let api = Api::new();
             // Mint some tokens.
-            api.call()
-                .asset()
-                .issue(self.ticker, amount, PortfolioKind::Default)
-                .submit()?;
-            // Get the next instruction id.
-            let instruction_id = api
-                .query()
-                .settlement()
-                .instruction_counter()
-                .map(|v| v.into())?;
-
+            self.api.asset_issue(self.ticker, amount, PortfolioKind::Default)?;
             // Transfer tokens to the caller's portfolio.
             let our_portfolio = PortfolioId {
                 did: self.did,
                 kind: PortfolioKind::Default,
             };
-            api.call()
-                .settlement()
-                .add_and_affirm_instruction(
-                    self.venue,
-                    SettlementType::SettleManual(0),
-                    None,
-                    None,
-                    vec![Leg::Fungible {
-                        sender: our_portfolio,
-                        receiver: caller_portfolio,
-                        ticker: self.ticker,
-                        amount: amount,
-                    }],
-                    vec![our_portfolio, caller_portfolio],
-                    None,
-                )
-                .submit()?;
-
-            api.call()
-                .settlement()
-                .execute_manual_instruction(instruction_id, None, 1, 0, 0, None)
-                .submit()?;
+            self.transfer(our_portfolio, caller_portfolio, amount)?;
 
             Self::env().emit_event(PolyxWrapped {
                 did: caller_did,
-                key: Self::env().caller().into(),
+                key: Self::env().caller(),
                 amount: amount,
             });
             Ok(())
@@ -324,52 +234,22 @@ mod wrapped_polyx {
         pub fn burn_wrapped_polyx(&mut self, amount: Balance) -> Result<()> {
             self.ensure_initialized()?;
 
-            // Get the caller's identity.
-            let caller_did = self.get_caller_did()?;
-
             // Ensure the caller has a portfolio.
-            let caller_portfolio = self.ensure_has_portfolio(caller_did)?;
+            let caller_portfolio = self.ensure_has_portfolio()?;
+            let caller_did = caller_portfolio.did;
 
-            let api = Api::new();
-            // Get the next instruction id.
-            let instruction_id = api
-                .query()
-                .settlement()
-                .instruction_counter()
-                .map(|v| v.into())?;
-
-            // Transfer tokens to the caller's portfolio.
+            // Transfer tokens from the caller's portfolio.
             let our_portfolio = PortfolioId {
                 did: self.did,
                 kind: PortfolioKind::Default,
             };
-            api.call()
-                .settlement()
-                .add_and_affirm_instruction(
-                    self.venue,
-                    SettlementType::SettleManual(0),
-                    None,
-                    None,
-                    vec![Leg::Fungible {
-                        sender: caller_portfolio,
-                        receiver: our_portfolio,
-                        ticker: self.ticker,
-                        amount: amount,
-                    }],
-                    vec![our_portfolio, caller_portfolio],
-                    None,
-                )
-                .submit()?;
+            self.transfer(caller_portfolio, our_portfolio, amount)?;
 
-            api.call()
-                .settlement()
-                .execute_manual_instruction(instruction_id, None, 1, 0, 0, None)
-                .submit()?;
-
-            api.call().asset().redeem(self.ticker, amount).submit()?;
+            // Redeem the tokens.
+            self.api.asset_redeem(self.ticker, amount, PortfolioKind::Default)?;
 
             if Self::env()
-                .transfer(Self::env().caller().into(), amount)
+                .transfer(Self::env().caller(), amount)
                 .is_err()
             {
                 panic!("error transferring")
@@ -377,7 +257,7 @@ mod wrapped_polyx {
 
             Self::env().emit_event(PolyxUnwrapped {
                 did: caller_did,
-                key: Self::env().caller().into(),
+                key: Self::env().caller(),
                 amount: amount,
             });
 
@@ -389,18 +269,12 @@ mod wrapped_polyx {
         pub fn remove_portfolio(&mut self) -> Result<()> {
             self.ensure_initialized()?;
 
-            // Get the caller's identity.
-            let caller_did = self.get_caller_did()?;
-
             // Ensure the caller has a portfolio.
-            let portfolio = self.ensure_has_portfolio(caller_did)?;
+            let portfolio = self.ensure_has_portfolio()?;
+            let caller_did = portfolio.did;
 
-            let api = Api::new();
             // Remove our custodianship.
-            api.call()
-                .portfolio()
-                .quit_portfolio_custody(portfolio)
-                .submit()?;
+            self.api.quit_portfolio_custody(portfolio)?;
             // Remove the portfolio.
             self.portfolios.remove(caller_did);
             Self::env().emit_event(PortfolioRemoved {
@@ -416,32 +290,23 @@ mod wrapped_polyx {
         pub fn withdraw_polyx(&mut self, amount: Balance, dest: PortfolioKind) -> Result<()> {
             self.ensure_initialized()?;
 
-            // Get the caller's identity.
-            let caller_did = self.get_caller_did()?;
+            // Ensure the caller has a portfolio.
+            let caller_portfolio = self.ensure_has_portfolio()?;
             let dest = PortfolioId {
-                did: caller_did,
+                did: caller_portfolio.did,
                 kind: dest,
             };
 
-            // Ensure the caller has a portfolio.
-            let caller_portfolio = self.ensure_has_portfolio(caller_did)?;
-
-            let api = Api::new();
             // Move funds out of the contract controlled portfolio.
-            api.call()
-                .portfolio()
-                .move_portfolio_funds(
-                    caller_portfolio, // Contract controlled portfolio.
-                    dest.into(),      // Caller controlled portfolio.
-                    vec![Fund {
-                        description: FundDescription::Fungible {
-                            ticker: self.ticker,
-                            amount,
-                        },
-                        memo: None,
-                    }],
-                )
-                .submit()?;
+            self.api.move_portfolio_funds(caller_portfolio, dest, vec![
+                Fund {
+                    description: FundDescription::Fungible {
+                        ticker: self.ticker,
+                        amount,
+                    },
+                    memo: None,
+                }
+            ])?;
             Ok(())
         }
     }

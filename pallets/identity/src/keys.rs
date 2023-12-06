@@ -14,9 +14,9 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    types, AccountKeyRefCount, Config, DidKeys, DidRecords, Error, IsDidFrozen, KeyRecords, Module,
-    MultiPurposeNonce, OffChainAuthorizationNonce, ParentDid, PermissionedCallOriginData, RawEvent,
-    RpcDidRecords,
+    types, AccountKeyRefCount, ChildDid, Config, DidKeys, DidRecords, Error, IsDidFrozen,
+    KeyRecords, Module, MultiPurposeNonce, OffChainAuthorizationNonce, ParentDid,
+    PermissionedCallOriginData, RawEvent, RpcDidRecords,
 };
 use codec::{Decode, Encode as _};
 use core::mem;
@@ -472,6 +472,7 @@ impl<T: Config> Module<T> {
         Self::deposit_event(RawEvent::DidCreated(child_did, key.clone(), vec![]));
         // Link new identity to parent identity.
         ParentDid::insert(child_did, parent_did);
+        ChildDid::insert(parent_did, child_did, true);
 
         Self::deposit_event(RawEvent::ChildDidCreated(parent_did, child_did, key));
         Ok(())
@@ -542,6 +543,7 @@ impl<T: Config> Module<T> {
 
             // Link new identity to parent identity.
             ParentDid::insert(child_did, parent_did);
+            ChildDid::insert(parent_did, child_did, true);
 
             Self::deposit_event(RawEvent::ChildDidCreated(parent_did, child_did, key));
         }
@@ -566,6 +568,7 @@ impl<T: Config> Module<T> {
 
         // Unlink child identity from parent identity.
         ParentDid::remove(child_did);
+        ChildDid::remove(parent_did, child_did);
 
         Self::deposit_event(RawEvent::ChildDidUnlinked(
             caller_did, parent_did, child_did,

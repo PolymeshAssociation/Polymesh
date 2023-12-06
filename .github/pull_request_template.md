@@ -8,20 +8,28 @@ Items should be added to the `changelog` using bulletpoints.
 
 ### new features
 
-- [new feature, schema, events, RPC]
+[Describe the features being added in the PR]
 
-### modified API
+### modified external API
 
-- [modified APIs, schema, events, RPC]
+[List any extrinsics whose behaviour or function signature is modified]
 
-### modified logic
+### new external API
 
-- [modified behaviour, bug fixes]
+[List any new extrinsics being introduced]
 
-### modified agent functionality
+### modified events
 
-- [the addition or removal of any extrinsics or events emitted by those extrinsics, that relate to permissioned agents]
+[List any events whose behaviour, name or arguments is modified]
+
+### new events
+
+[List any new events being introduced]
+
+### other
+
+[List any other relevant information, for example RPC function details]
 
 ### data migration
 
-- [storage modified during upgrade process - provide details]
+[List any storage modifications required during upgrade process with details]
