@@ -155,6 +155,8 @@ mod settlements {
             if self.initialized {
                 return Err(Error::AlreadyInitialized);
             }
+            // Update our identity id.
+            self.did = PolymeshInk::get_our_did()?;
             // Create venue.
             self.venue = self
                 .api
