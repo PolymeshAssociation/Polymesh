@@ -21,8 +21,9 @@ pub use polymesh_api::{
                 AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataValue,
             },
             identity_id::{PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber},
+            nft::NFTs,
             portfolio::{Fund, FundDescription},
-            settlement::{Leg, SettlementType, VenueDetails, VenueId, VenueType},
+            settlement::{InstructionId, Leg, SettlementType, VenueDetails, VenueId, VenueType},
             ticker::Ticker,
         },
     },
@@ -460,8 +461,15 @@ upgradable_api! {
                 venue_id: VenueId,
                 legs: Vec<Leg>,
                 portfolios: Vec<PortfolioId>
-            ) -> PolymeshResult<()> {
-                Api::new().call()
+            ) -> PolymeshResult<InstructionId> {
+                let api = Api::new();
+
+                let instruction_id = api
+                    .query()
+                    .settlement()
+                    .instruction_counter()?;
+
+                api.call()
                     .settlement()
                     .add_and_affirm_instruction(
                         venue_id,
@@ -473,7 +481,7 @@ upgradable_api! {
                         None,
                     )
                     .submit()?;
-                Ok(())
+                Ok(instruction_id)
             }
 
             /// Creates a portoflio owned by `portfolio_owner_id` and transfer its custody to the smart contract.
