@@ -13,13 +13,15 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-//! # NFT royalty handler smart contract. 
+//! # NFT royalty handler smart contract.
 //!
-//! The goal of this contract is to handle the distribution of royalty for secondary NFT sales. This contract enforces royalty by 
+//! The goal of this contract is to handle the distribution of royalty for secondary NFT sales. This contract enforces royalty by
 //! adding one [`Leg`] transfering [`NFTArtistRules::royalty_percentage`] of [`NFTOffer::transfer_price`] to the artist portfolio.
 //!
 //! ### Public Functions
 //!
+//! - `initialize_contract`: Initializes the contract creating a venue that will be controlled by the contract.
+//! - `venue_id`: Returns the [`VenueId`] if the contract is initialized. Otherwise, returns an error.
 //! - `contracts_identity`: Returns the [`IdentityId`] of the contract.
 //! - `royalty_portfolio_identity`: Returns the [`PortfolioId`] of the contract's caller.
 //! - `royalty_percentage`: Returns the [`Perbill`] that corresponds to the percentage amount that the artist receives as royalty for each NFT transfer.
@@ -48,7 +50,9 @@ use polymesh_api::polymesh::types::polymesh_primitives::asset_metadata::{
 };
 use polymesh_api::polymesh::types::polymesh_primitives::identity_id::{PortfolioId, PortfolioName};
 use polymesh_api::polymesh::types::polymesh_primitives::nft::{NFTId, NFTs};
-use polymesh_api::polymesh::types::polymesh_primitives::settlement::{Leg, VenueId};
+use polymesh_api::polymesh::types::polymesh_primitives::settlement::{
+    Leg, VenueDetails, VenueId, VenueType,
+};
 use polymesh_api::polymesh::types::polymesh_primitives::ticker::Ticker;
 use polymesh_ink::{PolymeshError, PolymeshInk};
 
@@ -64,6 +68,8 @@ mod nft_royalty {
 
     /// The asset metadata name for the key that holds the mandatory NFT collection metadata.
     const NFT_METADATA_NAME: &[u8] = "v0_nft_madantory_metadata".as_bytes();
+    /// The details of the venue controlled by the smart contract.
+    const VENUE_DETAILS: &[u8] = "sc-controlled-venue".as_bytes();
 
     /// The contract's result type.
     pub type Result<T> = core::result::Result<T, Error>;
@@ -90,6 +96,10 @@ mod nft_royalty {
         RoyaltyPortfolioNotFound(IdentityId),
         /// The contract caller has already set up a custodial portfolio.
         RoyaltyPortfolioAlreadyExists,
+        /// Contract hasn't been initialized.
+        MissingContractInitialization,
+        /// The identity is not trusted for receiving royalty payments.
+        IdentityNotTrustedForRoyaltyPayments,
     }
 
     impl From<PolymeshChainError> for Error {
@@ -112,10 +122,13 @@ mod nft_royalty {
 
     /// A contract that manages non-fungible token transfers.
     #[ink(storage)]
-    #[derive(Default)]
     pub struct NftRoyalty {
         /// Upgradable Polymesh Ink API.
         api: PolymeshInk,
+        /// The [`AccountId`] that called the contract's constructor.
+        admin: AccountId,
+        /// Venue owned by the contract.
+        venue_id: Option<VenueId>,
         /// The identity of the contract.
         contract_identity: IdentityId,
         /// The portfolios that will receive the royalty value for each identity.
@@ -130,6 +143,8 @@ mod nft_royalty {
         pub fn new() -> Result<Self> {
             Ok(Self {
                 api: PolymeshInk::new()?,
+                admin: Self::env().caller(),
+                venue_id: None,
                 contract_identity: PolymeshInk::get_our_did()?,
                 royalty_portfolios: Mapping::default(),
                 metadata_keys: Mapping::default(),
@@ -141,10 +156,29 @@ mod nft_royalty {
         pub fn new_with_hash(hash: Hash) -> Result<Self> {
             Ok(Self {
                 api: PolymeshInk::new_with_hash(hash),
+                admin: Self::env().caller(),
+                venue_id: None,
                 contract_identity: PolymeshInk::get_our_did()?,
                 royalty_portfolios: Mapping::default(),
                 metadata_keys: Mapping::default(),
             })
+        }
+
+        /// Initializes the contract creating a venue that will be controlled by the contract.
+        #[ink(message)]
+        pub fn initialize_contract(&mut self) -> Result<VenueId> {
+            self.contract_identity = PolymeshInk::get_our_did()?;
+            let venue_id = self
+                .api
+                .create_venue(VenueDetails(VENUE_DETAILS.to_vec()), VenueType::Other)?;
+            self.venue_id = Some(venue_id);
+            Ok(venue_id)
+        }
+
+        /// Returns the [`VenueId`] if the contract is initialized. Otherwise, returns an error.
+        #[ink(message)]
+        pub fn venue_id(&self) -> Result<VenueId> {
+            self.venue_id.ok_or(Error::MissingContractInitialization)
         }
 
         /// Update the `polymesh-ink` API using the tracker.
@@ -195,23 +229,28 @@ mod nft_royalty {
         #[ink(message)]
         pub fn create_transfer(
             &mut self,
-            venue_id: VenueId,
             nft_transfer_details: NFTTransferDetails,
             nft_offer: NFTOffer,
-        ) -> Result<()> {
+        ) -> Result<Vec<Leg>> {
+            let venue_id = self.venue_id()?;
+
             self.contract_identity = PolymeshInk::get_our_did()?;
             let nft_artist_rules =
                 self.decoded_asset_metadata_value(nft_transfer_details.collection_ticker)?;
 
-            Self::ensure_valid_transfer_values(&nft_artist_rules, &nft_offer)?;
-
             let royalty_portfolio = self.royalty_portfolio(Self::get_callers_identity()?)?;
+            Self::ensure_valid_transfer_values(
+                &nft_artist_rules,
+                &nft_offer,
+                &royalty_portfolio.did,
+            )?;
+
             let legs: Vec<Leg> =
                 self.setup_legs(nft_transfer_details, nft_offer, royalty_portfolio)?;
 
             self.api
-                .add_and_affirm_instruction(venue_id, legs, vec![royalty_portfolio])?;
-            Ok(())
+                .add_and_affirm_instruction(venue_id, legs.clone(), vec![royalty_portfolio])?;
+            Ok(legs)
         }
 
         /// Creates a portoflio owned by the contract's caller and transfer its custody to the smart contract.
@@ -237,9 +276,14 @@ mod nft_royalty {
         fn ensure_valid_transfer_values(
             nft_artist_rules: &NFTArtistRules,
             nft_offer: &NFTOffer,
+            identity_for_royalty: &IdentityId,
         ) -> Result<()> {
             if !nft_artist_rules.is_ticker_allowed(&nft_offer.purchase_ticker) {
                 return Err(Error::TickerNotAllowedForRoyalty(nft_offer.purchase_ticker));
+            }
+
+            if !nft_artist_rules.is_trusted_identity(identity_for_royalty) {
+                return Err(Error::IdentityNotTrustedForRoyaltyPayments);
             }
             Ok(())
         }
@@ -416,6 +460,8 @@ mod nft_royalty {
             pub allowed_purchase_tickers: BTreeSet<Ticker>,
             /// The royalty percentage the artist will receive for each transfer.
             pub royalty_percentage: Perbill,
+            /// All identities that are trusted for receiving royalty payments.
+            pub trusted_identities: BTreeSet<IdentityId>,
         }
 
         impl NFTArtistRules {
@@ -423,16 +469,23 @@ mod nft_royalty {
             pub fn new(
                 allowed_purchase_tickers: BTreeSet<Ticker>,
                 royalty_percentage: Perbill,
+                trusted_identities: BTreeSet<IdentityId>,
             ) -> Self {
                 Self {
                     allowed_purchase_tickers,
                     royalty_percentage,
+                    trusted_identities,
                 }
             }
 
             /// Returns `true` if `ticker` is in the [`NFTArtistRules::allowed_purchase_tickers`] set. Otherwise, returns `false`.
             pub fn is_ticker_allowed(&self, ticker: &Ticker) -> bool {
                 self.allowed_purchase_tickers.contains(ticker)
+            }
+
+            /// Returns `true` if `identity_id` is in the [`NFTArtistRules::trusted_identities`] set. Otherwise, returns `false`.
+            pub fn is_trusted_identity(&self, identity_id: &IdentityId) -> bool {
+                self.trusted_identities.contains(identity_id)
             }
         }
     }
