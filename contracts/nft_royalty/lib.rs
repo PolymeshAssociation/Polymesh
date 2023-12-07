@@ -26,7 +26,7 @@
 //! - `royalty_portfolio_identity`: Returns the [`PortfolioId`] of the contract's caller.
 //! - `royalty_percentage`: Returns the [`Perbill`] that corresponds to the percentage amount that the artist receives as royalty for each NFT transfer.
 //! - `decoded_asset_metadata_value`: Returns the decoded metadata value ([`NFTArtistRules`]) for the given [`Ticker`].
-//! - `create_transfer`: Adds a settlement instruction. The instruction will have three legs. One [`Leg`] where [`NFTTransferDetails::nft_owner_portfolio`] is transferring [`NFTTransferDetails::nft_id`] to [`NFTTransferDetails::nft_receiver_portfolio`], another leg where [`NFTOffer::payer_portfolio`] sends [`NFTOffer::transfer_price`] to [`NFTOffer::receiver_portfolio`], and one leg where the payer is transferring the royalty to the artist.
+//! - `create_transfer`: Adds a settlement instruction. The instruction will have three legs. One [`Leg`] where [`NFTTransferDetails::nft_owner_portfolio`] is transferring [`NFTTransferDetails::nfts`] to [`NFTTransferDetails::nft_receiver_portfolio`], another leg where [`NFTOffer::payer_portfolio`] sends [`NFTOffer::transfer_price`] to [`NFTOffer::receiver_portfolio`], and one leg where the payer is transferring the royalty to the artist.
 //! - `create_custody_portfolio`: Creates a portoflio owned by the contract's caller and transfer its custody to the smart contract.
 
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
@@ -40,21 +40,11 @@ use ink::storage::Mapping;
 use scale::{Decode, Encode};
 use sp_arithmetic::per_things::Perbill;
 
-use polymesh_api::ink::basic_types::IdentityId;
-use polymesh_api::ink::extension::{
-    PolymeshEnvironment, PolymeshRuntimeErr as PolymeshChainExtError,
+use polymesh_ink::{
+    AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataValue, IdentityId,
+    Leg, NFTId, NFTs, PolymeshEnvironment, PolymeshError, PolymeshInk, PortfolioId, PortfolioName,
+    Ticker, VenueDetails, VenueId, VenueType,
 };
-use polymesh_api::ink::Error as PolymeshChainError;
-use polymesh_api::polymesh::types::polymesh_primitives::asset_metadata::{
-    AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataValue,
-};
-use polymesh_api::polymesh::types::polymesh_primitives::identity_id::{PortfolioId, PortfolioName};
-use polymesh_api::polymesh::types::polymesh_primitives::nft::{NFTId, NFTs};
-use polymesh_api::polymesh::types::polymesh_primitives::settlement::{
-    Leg, VenueDetails, VenueId, VenueType,
-};
-use polymesh_api::polymesh::types::polymesh_primitives::ticker::Ticker;
-use polymesh_ink::{PolymeshError, PolymeshInk};
 
 pub use crate::nft_royalty::types::{NFTArtistRules, NFTOffer, NFTTransferDetails};
 
@@ -80,8 +70,6 @@ mod nft_royalty {
     pub enum Error {
         /// Polymesh ink error.
         PolymeshInk(PolymeshError),
-        /// Polymesh runtime error.
-        PolymeshRuntime(PolymeshChainError),
         /// [`IdentityId`] not found for the given [`AccountId`].
         IdentityNotFound(AccountId),
         /// Royalty metadata value not found.
@@ -98,20 +86,6 @@ mod nft_royalty {
         RoyaltyPortfolioAlreadyExists,
         /// Contract hasn't been initialized.
         MissingContractInitialization,
-        /// The identity is not trusted for receiving royalty payments.
-        IdentityNotTrustedForRoyaltyPayments,
-    }
-
-    impl From<PolymeshChainError> for Error {
-        fn from(error: PolymeshChainError) -> Self {
-            Self::PolymeshRuntime(error)
-        }
-    }
-
-    impl From<PolymeshChainExtError> for Error {
-        fn from(err: PolymeshChainExtError) -> Self {
-            Self::PolymeshRuntime(err.into())
-        }
     }
 
     impl From<PolymeshError> for Error {
@@ -221,7 +195,7 @@ mod nft_royalty {
         /// Adds a settlement instruction.
         ///
         /// The instruction will have three legs. One [`Leg`] where [`NFTTransferDetails::nft_owner_portfolio`] is transferring
-        /// [`NFTTransferDetails::nft_id`] to [`NFTTransferDetails::nft_receiver_portfolio`], another leg where
+        /// [`NFTTransferDetails::nfts`] to [`NFTTransferDetails::nft_receiver_portfolio`], another leg where
         /// [`NFTOffer::payer_portfolio`] sends [`NFTOffer::transfer_price`] to [`NFTOffer::receiver_portfolio`], and one leg
         /// where the payer is transferring the royalty to the artist.
         ///
@@ -238,15 +212,15 @@ mod nft_royalty {
             let nft_artist_rules =
                 self.decoded_asset_metadata_value(nft_transfer_details.collection_ticker)?;
 
-            let royalty_portfolio = self.royalty_portfolio(Self::get_callers_identity()?)?;
-            Self::ensure_valid_transfer_values(
-                &nft_artist_rules,
-                &nft_offer,
-                &royalty_portfolio.did,
-            )?;
+            let royalty_portfolio = self.royalty_portfolio(nft_artist_rules.artist_identity)?;
+            Self::ensure_valid_transfer_values(&nft_artist_rules, &nft_offer)?;
 
-            let legs: Vec<Leg> =
-                self.setup_legs(nft_transfer_details, nft_offer, royalty_portfolio)?;
+            let legs: Vec<Leg> = self.setup_legs(
+                nft_transfer_details,
+                nft_offer,
+                nft_artist_rules.royalty_percentage,
+                royalty_portfolio,
+            );
 
             self.api
                 .add_and_affirm_instruction(venue_id, legs.clone(), vec![royalty_portfolio])?;
@@ -276,14 +250,9 @@ mod nft_royalty {
         fn ensure_valid_transfer_values(
             nft_artist_rules: &NFTArtistRules,
             nft_offer: &NFTOffer,
-            identity_for_royalty: &IdentityId,
         ) -> Result<()> {
             if !nft_artist_rules.is_ticker_allowed(&nft_offer.purchase_ticker) {
                 return Err(Error::TickerNotAllowedForRoyalty(nft_offer.purchase_ticker));
-            }
-
-            if !nft_artist_rules.is_trusted_identity(identity_for_royalty) {
-                return Err(Error::IdentityNotTrustedForRoyaltyPayments);
             }
             Ok(())
         }
@@ -293,12 +262,13 @@ mod nft_royalty {
             &mut self,
             nft_transfer_details: NFTTransferDetails,
             nft_offer: NFTOffer,
+            royalty_percentage: Perbill,
             royalty_portfolio: PortfolioId,
-        ) -> Result<Vec<Leg>> {
+        ) -> Vec<Leg> {
             // The first leg transfers the NFT to the buyer
             let nfts = NFTs {
                 ticker: nft_transfer_details.collection_ticker,
-                ids: vec![nft_transfer_details.nft_id],
+                ids: nft_transfer_details.nfts,
             };
             let nft_leg = Leg::NonFungible {
                 sender: nft_transfer_details.nft_owner_portfolio,
@@ -313,28 +283,14 @@ mod nft_royalty {
                 amount: nft_offer.transfer_price,
             };
             // The third leg transfers the royalty to the artist
-            let royalty_amount = self.get_royalty_amount(
-                nft_transfer_details.collection_ticker,
-                nft_offer.transfer_price,
-            )?;
+            let royalty_amount = royalty_percentage * nft_offer.transfer_price;
             let royalty_leg = Leg::Fungible {
                 sender: nft_offer.payer_portfolio,
                 receiver: royalty_portfolio,
                 ticker: nft_offer.purchase_ticker,
                 amount: royalty_amount,
             };
-            Ok(vec![nft_leg, nft_payment_leg, royalty_leg])
-        }
-
-        /// Returns [`Balance`] representing the royalty amount that the artist will receive for an NFT transfer of `transfer_price`
-        /// for the given `collection_ticker`.
-        fn get_royalty_amount(
-            &mut self,
-            collection_ticker: Ticker,
-            transfer_price: Balance,
-        ) -> Result<Balance> {
-            let royalty_percentage = self.royalty_percentage(collection_ticker)?;
-            Ok(royalty_percentage * transfer_price)
+            vec![nft_leg, nft_payment_leg, royalty_leg]
         }
 
         /// Returns the [`AssetMetadataKey`] for the given `ticker`.
@@ -366,24 +322,16 @@ mod nft_royalty {
                 .ok_or(Error::RoyaltyMetadataValueNotFound(ticker))
         }
 
-        /// Returns the [`IdentityId`] for the given `account_id`.
-        fn get_identity(account_id: AccountId) -> Result<IdentityId> {
-            Self::env()
-                .extension()
-                .get_key_did(account_id)?
-                .ok_or(Error::IdentityNotFound(account_id))
-        }
-
         /// Returns the [`IdentityId`] of whoever called the contract.
         fn get_callers_identity() -> Result<IdentityId> {
-            Self::get_identity(Self::env().caller())
+            Ok(PolymeshInk::get_caller_did()?)
         }
 
-        /// Returns the [`PortfolioId`] that will receive the royalty for `caller_identity`.
-        fn royalty_portfolio(&self, caller_identity: IdentityId) -> Result<PortfolioId> {
+        /// Returns the [`PortfolioId`] that will receive the royalty for `artist_identity`.
+        fn royalty_portfolio(&self, artist_identity: IdentityId) -> Result<PortfolioId> {
             self.royalty_portfolios
-                .get(caller_identity)
-                .ok_or(Error::RoyaltyPortfolioNotFound(caller_identity))
+                .get(artist_identity)
+                .ok_or(Error::RoyaltyPortfolioNotFound(artist_identity))
         }
     }
 
@@ -396,8 +344,8 @@ mod nft_royalty {
         pub struct NFTTransferDetails {
             /// The [`Ticker`] of the NFT collection.
             pub collection_ticker: Ticker,
-            /// The [`NFTId`] of the non-fungible token being transferred.
-            pub nft_id: NFTId,
+            /// All NFTs being transferred.
+            pub nfts: Vec<NFTId>,
             /// The [`PortfolioId`] that contains the NFT being sold.
             pub nft_owner_portfolio: PortfolioId,
             /// The [`PortfolioId`] that will receive the NFT.
@@ -408,13 +356,13 @@ mod nft_royalty {
             /// Creates an instance of [`NFTTransferDetails`].
             pub fn new(
                 collection_ticker: Ticker,
-                nft_id: NFTId,
+                nfts: Vec<NFTId>,
                 nft_owner_portfolio: PortfolioId,
                 nft_receiver_portfolio: PortfolioId,
             ) -> Self {
                 Self {
                     collection_ticker,
-                    nft_id,
+                    nfts,
                     nft_owner_portfolio,
                     nft_receiver_portfolio,
                 }
@@ -460,8 +408,8 @@ mod nft_royalty {
             pub allowed_purchase_tickers: BTreeSet<Ticker>,
             /// The royalty percentage the artist will receive for each transfer.
             pub royalty_percentage: Perbill,
-            /// All identities that are trusted for receiving royalty payments.
-            pub trusted_identities: BTreeSet<IdentityId>,
+            /// The identity that will receive royalty payments.
+            pub artist_identity: IdentityId,
         }
 
         impl NFTArtistRules {
@@ -469,23 +417,18 @@ mod nft_royalty {
             pub fn new(
                 allowed_purchase_tickers: BTreeSet<Ticker>,
                 royalty_percentage: Perbill,
-                trusted_identities: BTreeSet<IdentityId>,
+                artist_identity: IdentityId,
             ) -> Self {
                 Self {
                     allowed_purchase_tickers,
                     royalty_percentage,
-                    trusted_identities,
+                    artist_identity,
                 }
             }
 
             /// Returns `true` if `ticker` is in the [`NFTArtistRules::allowed_purchase_tickers`] set. Otherwise, returns `false`.
             pub fn is_ticker_allowed(&self, ticker: &Ticker) -> bool {
                 self.allowed_purchase_tickers.contains(ticker)
-            }
-
-            /// Returns `true` if `identity_id` is in the [`NFTArtistRules::trusted_identities`] set. Otherwise, returns `false`.
-            pub fn is_trusted_identity(&self, identity_id: &IdentityId) -> bool {
-                self.trusted_identities.contains(identity_id)
             }
         }
     }

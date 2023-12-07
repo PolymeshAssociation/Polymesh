@@ -21,7 +21,7 @@ Each artist should have their own portfolio for receiving royalty payments. The 
 
 ## Creating an NFT Transfer
 
-In order to create an NFT transfer, the `create_transfer` method must be called. This method needs three parameters: the venue identifier, the details of the NFT transfer, and the NFT offer details. This will call the `add_and_affirm_instruction` extrinsic from the `settlement` pallet, and will create an instruction containg three legs. One leg where `NFTTransferDetails::nft_owner_portfolio` is transferring `NFTTransferDetails::nft_id` to `NFTTransferDetails::nft_receiver_portfolio`, another leg where `NFTOffer::payer_portfolio` sends `NFTOffer::transfer_price` to `NFTOffer::receiver_portfolio`, and one leg where the payer is transferring the royalty to the artist.
+In order to create an NFT transfer, the `create_transfer` method must be called. This method needs two parameters: the details of the NFT transfer and the NFT offer details. This will call the `add_and_affirm_instruction` extrinsic from the `settlement` pallet, and will create an instruction containg three legs. One leg where `NFTTransferDetails::nft_owner_portfolio` is transferring `NFTTransferDetails::nft_id` to `NFTTransferDetails::nft_receiver_portfolio`, another leg where `NFTOffer::payer_portfolio` sends `NFTOffer::transfer_price` to `NFTOffer::receiver_portfolio`, and one leg where the payer is transferring the royalty to the artist.
 
 ```Rust
 /// The details of an NFT transfer.
