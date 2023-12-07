@@ -21,7 +21,7 @@ pub use polymesh_api::{
                 AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataValue,
             },
             identity_id::{PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber},
-            nft::NFTs,
+            nft::{NFTId, NFTs},
             portfolio::{Fund, FundDescription},
             settlement::{InstructionId, Leg, SettlementType, VenueDetails, VenueId, VenueType},
             ticker::Ticker,
