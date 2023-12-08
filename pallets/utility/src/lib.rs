@@ -16,7 +16,7 @@
 // limitations under the License.
 
 // Modified by Polymesh Association, original from:
-// https://github.com/PolymeshAssociation/substrate/tree/polymesh-v6-monthly-2023-03/frame/utility
+// https://github.com/PolymeshAssociation/polkadot-sdk/substrate/frame/utility
 //
 // Polymesh changes:
 // - Add permissions checks.
