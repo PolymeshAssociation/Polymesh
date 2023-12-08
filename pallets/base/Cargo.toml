@@ -15,14 +15,14 @@ serde_derive = { version = "1.0.104", optional = true, default-features = false 
 # Substrate
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
-sp-core = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v6-monthly-2023-03-update-deps" }
-sp-std = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v6-monthly-2023-03-update-deps" }
-sp-io = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v6-monthly-2023-03-update-deps" }
-sp-runtime = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v6-monthly-2023-03-update-deps" }
-sp-version = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v6-monthly-2023-03-update-deps" }
-sp-api = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v6-monthly-2023-03-update-deps" }
-frame-system = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v6-monthly-2023-03-update-deps" }
-frame-support = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v6-monthly-2023-03-update-deps" }
+sp-core = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v6-monthly-2023-03-test-s390x" }
+sp-std = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v6-monthly-2023-03-test-s390x" }
+sp-io = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v6-monthly-2023-03-test-s390x" }
+sp-runtime = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v6-monthly-2023-03-test-s390x" }
+sp-version = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v6-monthly-2023-03-test-s390x" }
+sp-api = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v6-monthly-2023-03-test-s390x" }
+frame-system = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v6-monthly-2023-03-test-s390x" }
+frame-support = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-v6-monthly-2023-03-test-s390x" }
 
 [features]
 default = ["std"]
