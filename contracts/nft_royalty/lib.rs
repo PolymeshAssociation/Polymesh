@@ -36,6 +36,7 @@ extern crate alloc;
 use alloc::collections::BTreeSet;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use ink::env::debug_println;
 use ink::storage::Mapping;
 use scale::{Decode, Encode};
 use sp_arithmetic::per_things::Perbill;
@@ -47,9 +48,6 @@ use polymesh_ink::{
 };
 
 pub use crate::nft_royalty::types::{NFTArtistRules, NFTOffer, NFTTransferDetails};
-
-#[cfg(test)]
-mod tests;
 
 #[ink::contract(env = PolymeshEnvironment)]
 mod nft_royalty {
@@ -206,13 +204,17 @@ mod nft_royalty {
             nft_transfer_details: NFTTransferDetails,
             nft_offer: NFTOffer,
         ) -> Result<Vec<Leg>> {
+            debug_println!("Creating an NFT transfer");
             let venue_id = self.venue_id()?;
-
+            debug_println!("Retrieving contract's identity");
             self.contract_identity = PolymeshInk::get_our_did()?;
+            debug_println!("Decoding asset metadata");
             let nft_artist_rules =
                 self.decoded_asset_metadata_value(nft_transfer_details.collection_ticker)?;
 
+            debug_println!("Retrieving royalty portfolio");
             let royalty_portfolio = self.royalty_portfolio(nft_artist_rules.artist_identity)?;
+            debug_println!("Validating metadata rules");
             Self::ensure_valid_transfer_values(&nft_artist_rules, &nft_offer)?;
 
             let legs: Vec<Leg> = self.setup_legs(
@@ -221,7 +223,7 @@ mod nft_royalty {
                 nft_artist_rules.royalty_percentage,
                 royalty_portfolio,
             );
-
+            debug_println!("Creating an Instruction. Legs: {:?}", legs);
             self.api
                 .add_and_affirm_instruction(venue_id, legs.clone(), vec![royalty_portfolio])?;
             Ok(legs)

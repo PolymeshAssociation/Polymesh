@@ -15,7 +15,7 @@ polymesh-ink = { path = "../../../tmp/Polymesh/contracts/upgradeable-polymesh-in
 [lib]
 path = "lib.rs"
 
-[profile.release]
+[profile.dev]
 overflow-checks = false     # Disable integer overflow checks.
 
 [features]
