@@ -36,7 +36,7 @@ commands:
 jobs:
   lint:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+      - image: polymeshassociation/rust:debian-nightly-2023-12-11
     resource_class: small
     environment:
       VERBOSE: "1"
@@ -50,7 +50,7 @@ jobs:
           command: ./scripts/check_spec_and_cargo_version.sh
   check-storage-version:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+      - image: polymeshassociation/rust:debian-nightly-2023-12-11
     resource_class: small
     environment:
       VERBOSE: "1"
@@ -61,7 +61,7 @@ jobs:
           command: ./scripts/check_storage_versions.sh
   build:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+      - image: polymeshassociation/rust:debian-nightly-2023-12-11
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -99,7 +99,7 @@ jobs:
             - "~/.cache/sccache"
   build-ci:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+      - image: polymeshassociation/rust:debian-nightly-2023-12-11
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -128,7 +128,7 @@ jobs:
       image: ubuntu-2004:current
     resource_class: arm.xlarge
     environment:
-      - NIGHTLY: "nightly-2022-11-02"
+      - NIGHTLY: "nightly-2023-12-11"
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
       - RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
@@ -198,7 +198,7 @@ jobs:
             - "~/.cache/sccache"
   benchmark-build:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+      - image: polymeshassociation/rust:debian-nightly-2023-12-11
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -243,7 +243,7 @@ jobs:
           no_output_timeout: 30m
   migration-tests:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+      - image: polymeshassociation/rust:debian-nightly-2023-12-11
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -267,7 +267,7 @@ jobs:
             - "/usr/local/cargo"
   test:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+      - image: polymeshassociation/rust:debian-nightly-2023-12-11
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -306,7 +306,7 @@ jobs:
             - "~/.cache/sccache"
   coverage:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+      - image: polymeshassociation/rust:debian-nightly-2023-12-11
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -328,7 +328,7 @@ jobs:
             - "/usr/local/cargo"
   rust-integration-test:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+      - image: polymeshassociation/rust:debian-nightly-2023-12-11
     resource_class: medium+
     environment:
       - VERBOSE: "1"
@@ -392,7 +392,7 @@ jobs:
           no_output_timeout: 10m
   clippy:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+      - image: polymeshassociation/rust:debian-nightly-2023-12-11
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
