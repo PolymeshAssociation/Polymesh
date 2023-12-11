@@ -364,7 +364,7 @@ jobs:
       - save-sccache-cache
   integration-test:
     docker:
-      - image: node:16-bullseye
+      - image: node:18-bookworm
     resource_class: medium+
     environment:
       VERBOSE: "1"
