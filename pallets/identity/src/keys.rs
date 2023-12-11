@@ -791,7 +791,7 @@ impl<T: Config> Module<T> {
         // 2.1. Create a new identity record and link the primary key.
         Self::add_key_record(&sender, KeyRecord::PrimaryKey(did));
         // 2.2. Give `InitialPOLYX` to the primary key for testing.
-        T::Balances::deposit_creating(&sender, T::InitialPOLYX::get());
+        let _ = T::Balances::deposit_creating(&sender, T::InitialPOLYX::get());
         Self::deposit_event(RawEvent::DidCreated(did, sender, secondary_keys.clone()));
 
         // 2.3. add pre-authorized secondary keys.
