@@ -1,43 +1,39 @@
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(feature = "std"), no_std, no_main)]
 
 extern crate alloc;
 
 mod macros;
 
 #[cfg(not(feature = "as-library"))]
-use ink_lang as ink;
+use alloc::vec;
+use alloc::vec::Vec;
 
-use alloc::{vec, vec::Vec};
-
-#[cfg(feature = "tracker")]
-pub use upgrade_tracker::{Error as UpgradeError, UpgradeTrackerRef, WrappedApi};
-
-// Polymesh V6 API.
-use polymesh_api::polymesh::Api;
-
-// Re-export Old V5 types.  Changed in V6.
-pub use polymesh_api::v5_to_v6::{
-    Leg, MovePortfolioItem,
-};
-
-use polymesh_api::polymesh::types::pallet_corporate_actions;
-// Re-export V6 types that haven't changed.
-pub use polymesh_api::polymesh::types;
+// Polymesh API.
 pub use polymesh_api::{
     ink::{basic_types::IdentityId, extension::PolymeshEnvironment},
     polymesh::types::{
+        pallet_corporate_actions,
         pallet_corporate_actions::CAId,
+        polymesh_contracts::Api as ContractRuntimeApi,
         polymesh_primitives::{
             asset::{AssetName, AssetType, CheckpointId},
+            asset_metadata::{
+                AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataValue,
+            },
             identity_id::{PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber},
+            nft::{NFTId, NFTs},
+            portfolio::{Fund, FundDescription},
+            settlement::{InstructionId, Leg, SettlementType, VenueDetails, VenueId, VenueType},
             ticker::Ticker,
-            settlement::{SettlementType, VenueDetails, VenueId, VenueType},
         },
     },
+    polymesh::Api,
 };
 
-#[cfg(feature = "tracker")]
-pub const API_VERSION: WrappedApi = (*b"POLY", 5);
+pub const API_VERSION: ContractRuntimeApi = ContractRuntimeApi {
+    desc: *b"POLY",
+    major: 6,
+};
 
 /// The contract error types.
 #[derive(Debug, scale::Encode, scale::Decode)]
@@ -56,7 +52,7 @@ pub enum PolymeshError {
     },
 }
 
-/// Encodable `ink_env::Error`.
+/// Encodable `ink::env::Error`.
 #[derive(Debug, scale::Encode, scale::Decode)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum InkEnvError {
@@ -85,8 +81,8 @@ pub enum InkEnvError {
 }
 
 impl PolymeshError {
-    pub fn from_delegate_error(err: ink_env::Error, selector: ink_env::call::Selector) -> Self {
-        use ink_env::Error::*;
+    pub fn from_delegate_error(err: ink::env::Error, selector: ink::env::call::Selector) -> Self {
+        use ink::env::Error::*;
         Self::InkDelegateCallError {
             selector: selector.to_bytes(),
             err: match err {
@@ -122,11 +118,11 @@ impl From<polymesh_api::ink::extension::PolymeshRuntimeErr> for PolymeshError {
 pub type PolymeshResult<T> = core::result::Result<T, PolymeshError>;
 
 #[cfg(feature = "as-library")]
-pub type Hash = <PolymeshEnvironment as ink_env::Environment>::Hash;
+pub type Hash = <PolymeshEnvironment as ink::env::Environment>::Hash;
 #[cfg(feature = "as-library")]
-pub type AccountId = <PolymeshEnvironment as ink_env::Environment>::AccountId;
-pub type Balance = <PolymeshEnvironment as ink_env::Environment>::Balance;
-pub type Timestamp = <PolymeshEnvironment as ink_env::Environment>::Timestamp;
+pub type AccountId = <PolymeshEnvironment as ink::env::Environment>::AccountId;
+pub type Balance = <PolymeshEnvironment as ink::env::Environment>::Balance;
+pub type Timestamp = <PolymeshEnvironment as ink::env::Environment>::Timestamp;
 
 #[derive(Debug, scale::Encode, scale::Decode)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
@@ -180,7 +176,7 @@ upgradable_api! {
             pub fn create_portfolio(&self, name: Vec<u8>) -> PolymeshResult<PortfolioId> {
                 let api = Api::new();
                 // Get the contract's did.
-                let did = self.get_our_did()?;
+                let did = Self::get_our_did()?;
                 // Get the next portfolio number.
                 let num = api.query().portfolio().next_portfolio_number(did)?;
                 // Create Venue.
@@ -198,9 +194,9 @@ upgradable_api! {
 
             /// Accept custody of a portfolio.
             #[ink(message)]
-            pub fn accept_portfolio_custody(&self, auth_id: u64, portfolio: PortfolioKind) -> PolymeshResult<()> {
+            pub fn accept_portfolio_custody(&self, auth_id: u64, portfolio: PortfolioKind) -> PolymeshResult<PortfolioId> {
                 // Get the caller's identity.
-                let caller_did = self.get_caller_did()?;
+                let caller_did = Self::get_caller_did()?;
 
                 let portfolio = PortfolioId {
                     did: caller_did,
@@ -213,15 +209,15 @@ upgradable_api! {
                     .accept_portfolio_custody(auth_id)
                     .submit()?;
                 // Check that we are the custodian.
-                let did = self.get_our_did()?;
+                let did = Self::get_our_did()?;
                 if !api
                     .query()
                     .portfolio()
-                    .portfolios_in_custody(did, portfolio.into())?
+                    .portfolios_in_custody(did, portfolio)?
                 {
                     return Err(PolymeshError::InvalidPortfolioAuthorization);
                 }
-                Ok(())
+                Ok(portfolio)
             }
 
             /// Quit custodianship of a portfolio returning control back to the owner.
@@ -231,7 +227,7 @@ upgradable_api! {
                 // Remove our custodianship.
                 api.call()
                     .portfolio()
-                    .quit_portfolio_custody(portfolio.into())
+                    .quit_portfolio_custody(portfolio)
                     .submit()?;
                 Ok(())
             }
@@ -242,16 +238,16 @@ upgradable_api! {
                 &self,
                 src: PortfolioId,
                 dest: PortfolioId,
-                funds: Vec<MovePortfolioItem>
+                funds: Vec<Fund>
             ) -> PolymeshResult<()> {
                 let api = Api::new();
                 // Move funds out of the contract controlled portfolio.
                 api.call()
                     .portfolio()
                     .move_portfolio_funds(
-                        src.into(),
-                        dest.into(),
-                        funds.into_iter().map(|f| f.into()).collect(),
+                        src,
+                        dest,
+                        funds,
                     )
                     .submit()?;
                 Ok(())
@@ -265,7 +261,7 @@ upgradable_api! {
                 ticker: Ticker
             ) -> PolymeshResult<Balance> {
                 let api = Api::new();
-                let balance = api.query().portfolio().portfolio_asset_balances(portfolio.into(), ticker.into())?;
+                let balance = api.query().portfolio().portfolio_asset_balances(portfolio, ticker)?;
                 Ok(balance)
             }
 
@@ -280,7 +276,7 @@ upgradable_api! {
                 Ok(api
                     .query()
                     .portfolio()
-                    .portfolios_in_custody(did, portfolio.into())?)
+                    .portfolios_in_custody(did, portfolio)?)
             }
 
             /// Create a Settlement Venue.
@@ -319,8 +315,8 @@ upgradable_api! {
                         SettlementType::SettleManual(0),
                         None,
                         None,
-                        legs.into_iter().map(|l| l.into()).collect(),
-                        portfolios.into_iter().map(|p| p.into()).collect(),
+                        legs,
+                        portfolios,
                         None,
                     )
                     .submit()?;
@@ -335,19 +331,19 @@ upgradable_api! {
 
             /// Asset issue tokens.
             #[ink(message)]
-            pub fn asset_issue(&self, ticker: Ticker, amount: Balance) -> PolymeshResult<()> {
+            pub fn asset_issue(&self, ticker: Ticker, amount: Balance, portfolio: PortfolioKind) -> PolymeshResult<()> {
                 let api = Api::new();
                 // Mint tokens.
-                api.call().asset().issue(ticker.into(), amount, PortfolioKind::Default.into()).submit()?;
+                api.call().asset().issue(ticker, amount, portfolio).submit()?;
                 Ok(())
             }
 
             /// Asset redeem tokens.
             #[ink(message)]
-            pub fn asset_redeem_from_portfolio(&self, ticker: Ticker, amount: Balance, portfolio: PortfolioKind) -> PolymeshResult<()> {
+            pub fn asset_redeem(&self, ticker: Ticker, amount: Balance, portfolio: PortfolioKind) -> PolymeshResult<()> {
                 let api = Api::new();
                 // Redeem tokens.
-                api.call().asset().redeem_from_portfolio(ticker.into(), amount, portfolio.into()).submit()?;
+                api.call().asset().redeem_from_portfolio(ticker, amount, portfolio).submit()?;
                 Ok(())
             }
 
@@ -360,7 +356,7 @@ upgradable_api! {
                     .asset()
                     .create_asset(
                         name,
-                        ticker.into(),
+                        ticker,
                         divisible,
                         asset_type,
                         vec![],
@@ -369,12 +365,12 @@ upgradable_api! {
                     .submit()?;
                 // Mint some tokens.
                 if let Some(amount) = issue {
-                  api.call().asset().issue(ticker.into(), amount, PortfolioKind::Default.into()).submit()?;
+                  api.call().asset().issue(ticker, amount, PortfolioKind::Default).submit()?;
                 }
                 // Pause compliance rules to allow transfers.
                 api.call()
                     .compliance_manager()
-                    .pause_asset_compliance(ticker.into())
+                    .pause_asset_compliance(ticker)
                     .submit()?;
                 Ok(())
             }
@@ -458,18 +454,105 @@ upgradable_api! {
                 Ok(())
             }
 
+            /// Adds and affirms an instruction.
+            #[ink(message)]
+            pub fn add_and_affirm_instruction(
+                &self,
+                venue_id: VenueId,
+                legs: Vec<Leg>,
+                portfolios: Vec<PortfolioId>
+            ) -> PolymeshResult<InstructionId> {
+                let api = Api::new();
+
+                let instruction_id = api
+                    .query()
+                    .settlement()
+                    .instruction_counter()?;
+
+                api.call()
+                    .settlement()
+                    .add_and_affirm_instruction(
+                        venue_id,
+                        SettlementType::SettleOnAffirmation,
+                        None,
+                        None,
+                        legs,
+                        portfolios,
+                        None,
+                    )
+                    .submit()?;
+                Ok(instruction_id)
+            }
+
+            /// Creates a portoflio owned by `portfolio_owner_id` and transfer its custody to the smart contract.
+            /// Returns the [`PortfolioId`] of the new portfolio.
+            #[ink(message)]
+            pub fn create_custody_portfolio(
+                &self,
+                portfolio_owner_id: IdentityId,
+                portfolio_name: PortfolioName
+            ) -> PolymeshResult<PortfolioId> {
+                let api = Api::new();
+
+                let portfolio_number = api
+                    .query()
+                    .portfolio()
+                    .next_portfolio_number(portfolio_owner_id)?;
+                let portfolio_id = PortfolioId {
+                    did: portfolio_owner_id,
+                    kind: PortfolioKind::User(portfolio_number),
+                };
+
+                api.call()
+                    .portfolio()
+                    .create_custody_portfolio(portfolio_owner_id, portfolio_name)
+                    .submit()?;
+                Ok(portfolio_id)
+            }
+
+            /// Returns the [`AssetMetadataLocalKey`] for the given `ticker` and `asset_metadata_name`.
+            #[ink(message)]
+            pub fn asset_metadata_local_name_to_key(
+                &self,
+                ticker: Ticker,
+                asset_metadata_name: AssetMetadataName
+            ) -> PolymeshResult<Option<AssetMetadataLocalKey>> {
+                Ok(Api::new().query()
+                    .asset()
+                    .asset_metadata_local_name_to_key(
+                        ticker, asset_metadata_name
+                    )?)
+            }
+
+            /// Returns the [`AssetMetadataValue`] for the given `ticker` and `asset_metadata_key`.
+            #[ink(message)]
+            pub fn asset_metadata_value(
+                &self,
+                ticker: Ticker,
+                asset_metadata_key: AssetMetadataKey
+            ) -> PolymeshResult<Option<AssetMetadataValue>> {
+                Ok(Api::new().query()
+                    .asset()
+                    .asset_metadata_values(
+                        ticker, asset_metadata_key
+                    )?)
+            }
+        }
+
+        // Non-upgradable api.
+        impl PolymeshInk {
             /// Get the identity of the caller.
-            pub fn get_caller_did(&self) -> PolymeshResult<IdentityId> {
-                self.get_key_did(ink_env::caller::<PolymeshEnvironment>())
+            pub fn get_caller_did() -> PolymeshResult<IdentityId> {
+                Self::get_key_did(ink::env::caller::<PolymeshEnvironment>())
             }
 
             /// Get the identity of the contract.
-            pub fn get_our_did(&self) -> PolymeshResult<IdentityId> {
-                self.get_key_did(ink_env::account_id::<PolymeshEnvironment>())
+            pub fn get_our_did() -> PolymeshResult<IdentityId> {
+                Self::get_key_did(ink::env::account_id::<PolymeshEnvironment>())
             }
 
             /// Get the identity of a key.
-            pub fn get_key_did(&self, acc: AccountId) -> PolymeshResult<IdentityId> {
+            pub fn get_key_did(acc: AccountId) -> PolymeshResult<IdentityId> {
                 let api = Api::new();
                 api.runtime()
                     .get_key_did(acc)?
