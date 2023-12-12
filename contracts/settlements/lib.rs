@@ -1,32 +1,15 @@
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(feature = "std"), no_std, no_main)]
 
 extern crate alloc;
 
 use alloc::vec::Vec;
-use ink_lang as ink;
 
-use polymesh_api::{
-    ink::{
-        basic_types::IdentityId,
-        extension::{PolymeshEnvironment, PolymeshRuntimeErr},
-        Error as PolymeshError,
-    },
-    polymesh::types::{
-        polymesh_primitives::{
-            asset::{AssetName, AssetType},
-            identity_id::{PortfolioId, PortfolioKind},
-            portfolio::{Fund, FundDescription},
-            settlement::{Leg, SettlementType, VenueDetails, VenueId, VenueType},
-            ticker::Ticker,
-        },
-    },
-    Api,
-};
+use polymesh_ink::*;
 
 #[ink::contract(env = PolymeshEnvironment)]
 mod settlements {
     use alloc::vec;
-    use ink_storage::{traits::SpreadAllocate, Mapping};
+    use ink::storage::Mapping;
 
     use crate::*;
 
@@ -34,8 +17,16 @@ mod settlements {
 
     /// A contract that uses the settlements pallet.
     #[ink(storage)]
-    #[derive(Default, SpreadAllocate)]
     pub struct Settlements {
+        /// The `AccountId` of a privileged account that override the
+        /// code hash for `PolymeshInk`.
+        ///
+        /// This address is set to the account that instantiated this contract.
+        admin: AccountId,
+        /// Upgradable Polymesh Ink API.
+        api: PolymeshInk,
+
+        /// Ticker pair.
         ticker1: Ticker,
         ticker2: Ticker,
         initialized: bool,
@@ -51,11 +42,11 @@ mod settlements {
     #[derive(Debug, scale::Encode, scale::Decode)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
     pub enum Error {
+        /// PolymeshInk errors.
+        PolymeshInk(PolymeshError),
         /// Caller needs to pay the contract for the protocol fee.
         /// (Amount needed)
         InsufficientTransferValue(Balance),
-        /// Polymesh runtime error.
-        PolymeshError(PolymeshError),
         /// Scale decode failed.
         ScaleError,
         /// Missing Identity.  MultiSig's are not supported.
@@ -76,13 +67,7 @@ mod settlements {
 
     impl From<PolymeshError> for Error {
         fn from(err: PolymeshError) -> Self {
-            Self::PolymeshError(err)
-        }
-    }
-
-    impl From<PolymeshRuntimeErr> for Error {
-        fn from(err: PolymeshRuntimeErr) -> Self {
-            Self::PolymeshError(err.into())
+            Self::PolymeshInk(err)
         }
     }
 
@@ -92,57 +77,52 @@ mod settlements {
     impl Settlements {
         /// Creates a new contract.
         #[ink(constructor)]
-        pub fn new(ticker1: Ticker, ticker2: Ticker) -> Self {
-            ink_lang::utils::initialize_contract(|contract| {
-                Self::new_init(contract, ticker1, ticker2)
+        pub fn new(ticker1: Ticker, ticker2: Ticker) -> Result<Self> {
+            Ok(Self {
+                ticker1,
+                ticker2,
+                admin: Self::env().caller(),
+                portfolios: Default::default(),
+                did: PolymeshInk::get_our_did()?,
+                venue: Default::default(),
+                initialized: false,
+                api: PolymeshInk::new()?,
             })
         }
 
-        fn new_init(&mut self, ticker1: Ticker, ticker2: Ticker) {
-            self.ticker1 = ticker1;
-            self.ticker2 = ticker2;
-            // The contract should always have an identity.
-            self.did = self.get_did(Self::env().account_id()).unwrap();
-            self.initialized = false;
+        /// Update the code hash of the polymesh runtime API.
+        ///
+        /// Only the `admin` is allowed to call this.
+        #[ink(message)]
+        pub fn update_code_hash(&mut self, hash: Hash) {
+            assert_eq!(
+                self.env().caller(),
+                self.admin,
+                "caller {:?} does not have sufficient permissions, only {:?} does",
+                self.env().caller(),
+                self.admin,
+            );
+            self.api.update_code_hash(hash);
         }
 
-        fn create_asset(&mut self, ticker: Ticker) -> Result<()> {
-            let api = Api::new();
-            // Create asset.
-            api.call()
-                .asset()
-                .create_asset(
-                    AssetName(b"".to_vec()),
-                    ticker.into(),
-                    true, // Divisible token.
-                    AssetType::EquityCommon,
-                    vec![],
-                    None,
-                )
-                .submit()?;
-            // Mint some tokens.
-            api.call()
-                .asset()
-                .issue(ticker.into(), 1_000_000 * UNIT, PortfolioKind::Default)
-                .submit()?;
-            // Pause compliance rules to allow transfers.
-            api.call()
-                .compliance_manager()
-                .pause_asset_compliance(ticker.into())
-                .submit()?;
+        /// Update the `polymesh-ink` API using the tracker.
+        ///
+        /// Anyone can pay the gas fees to do the update using the tracker.
+        #[ink(message)]
+        pub fn update_polymesh_ink(&mut self) -> Result<()> {
+            self.api.check_for_upgrade()?;
             Ok(())
         }
 
-        fn get_did(&self, acc: AccountId) -> Result<IdentityId> {
-            Self::env()
-                .extension()
-                .get_key_did(acc)?
-                .map(|did| did.into())
-                .ok_or(Error::MissingIdentity)
-        }
-
-        fn get_caller_did(&self) -> Result<IdentityId> {
-            self.get_did(Self::env().caller())
+        fn create_asset(&mut self, ticker: Ticker) -> Result<()> {
+            self.api.asset_create_and_issue(
+                AssetName(b"".to_vec()),
+                ticker,
+                AssetType::EquityCommon,
+                true, // Divisible token.
+                Some(1_000_000 * UNIT),
+            )?;
+            Ok(())
         }
 
         fn ensure_ticker(&self, ticker: Ticker) -> Result<()> {
@@ -171,66 +151,37 @@ mod settlements {
             Ok(())
         }
 
-        fn init_venue(&mut self) -> Result<()> {
+        fn init_venue(&mut self, name: Vec<u8>) -> Result<()> {
             if self.initialized {
                 return Err(Error::AlreadyInitialized);
             }
+            // Update our identity id.
+            self.did = PolymeshInk::get_our_did()?;
+            // Create venue.
+            self.venue = self
+                .api
+                .create_venue(VenueDetails(b"Contract Venue".to_vec()), VenueType::Other)?;
+
+            // Create a portfolio for the contract.
+            let portfolio = self.api.create_portfolio(name)?;
+            self.portfolios.insert(self.did, &portfolio);
+
             // Create tickers.
             self.create_asset(self.ticker1)?;
             self.create_asset(self.ticker2)?;
 
-            let api = Api::new();
-            // Get the next venue id.
-            let id = api.query().settlement().venue_counter().map(|v| v.into())?;
-            // Create Venue.
-            api.call()
-                .settlement()
-                .create_venue(
-                    VenueDetails(b"Contract Venue".to_vec()),
-                    vec![],
-                    VenueType::Other,
-                )
-                .submit()?;
-            // Save venue id.
-            self.venue = id;
             self.initialized = true;
             Ok(())
         }
 
         fn transfer_assets(&self, legs: Vec<Leg>, portfolios: Vec<PortfolioId>) -> Result<()> {
-            let leg_count = legs.len() as u32;
-            let api = Api::new();
-            // Get the next instruction id.
-            let instruction_id = api
-                .query()
-                .settlement()
-                .instruction_counter()
-                .map(|v| v.into())?;
-            // Create settlement.
-            api.call()
-                .settlement()
-                .add_and_affirm_instruction(
-                    self.venue,
-                    SettlementType::SettleManual(0),
-                    None,
-                    None,
-                    legs,
-                    portfolios,
-                    None,
-                )
-                .submit()?;
-
-            // Create settlement.
-            api.call()
-                .settlement()
-                .execute_manual_instruction(instruction_id, None, leg_count, 0, 0, None)
-                .submit()?;
+            self.api.settlement_execute(self.venue, legs, portfolios)?;
             Ok(())
         }
 
-        #[ink(message)]
-        pub fn init(&mut self) -> Result<()> {
-            self.init_venue()
+        #[ink(message, payable)]
+        pub fn init(&mut self, name: Vec<u8>) -> Result<()> {
+            self.init_venue(name)
         }
 
         #[ink(message)]
@@ -247,7 +198,7 @@ mod settlements {
 
         fn fund_caller(&self) -> Result<()> {
             // Get the caller's identity.
-            let caller_did = self.get_caller_did()?;
+            let caller_did = PolymeshInk::get_caller_did()?;
 
             // Ensure the caller has a portfolio.
             let caller_portfolio = self.ensure_has_portfolio(caller_did)?;
@@ -282,29 +233,10 @@ mod settlements {
         /// Accept custody of a portfolio and give the caller some tokens.
         pub fn add_portfolio(&mut self, auth_id: u64, portfolio: PortfolioKind) -> Result<()> {
             self.ensure_initialized()?;
-            // Get the caller's identity.
-            let caller_did = self.get_caller_did()?;
+            let portfolio = self.api.accept_portfolio_custody(auth_id, portfolio)?;
+            let caller_did = portfolio.did;
             // Ensure the caller doesn't have a portfolio.
             self.ensure_no_portfolio(caller_did)?;
-
-            let portfolio = PortfolioId {
-                did: caller_did,
-                kind: portfolio,
-            };
-            let api = Api::new();
-            // Accept authorization.
-            api.call()
-                .portfolio()
-                .accept_portfolio_custody(auth_id)
-                .submit()?;
-            // Check that we are the custodian.
-            if !api
-                .query()
-                .portfolio()
-                .portfolios_in_custody(self.did, portfolio)?
-            {
-                return Err(Error::InvalidPortfolioAuthorization);
-            }
             // Save the caller's portfolio.
             self.portfolios.insert(caller_did, &portfolio);
 
@@ -325,7 +257,7 @@ mod settlements {
             self.ensure_ticker(ticker)?;
 
             // Get the caller's identity.
-            let caller_did = self.get_caller_did()?;
+            let caller_did = PolymeshInk::get_caller_did()?;
             let dest = PortfolioId {
                 did: caller_did,
                 kind: dest,
@@ -334,22 +266,17 @@ mod settlements {
             // Ensure the caller has a portfolio.
             let caller_portfolio = self.ensure_has_portfolio(caller_did)?;
 
-            let api = Api::new();
-            // Move funds out of the contract controlled portfolio.
-            api.call()
-                .portfolio()
-                .move_portfolio_funds(
-                    caller_portfolio, // Contract controlled portfolio.
-                    dest.into(),      // Caller controlled portfolio.
-                    vec![Fund {
-                        description: FundDescription::Fungible {
-                            ticker: ticker,
-                            amount,
-                        },
-                        memo: None,
-                    }],
-                )
-                .submit()?;
+            self.api.move_portfolio_funds(
+                caller_portfolio, // Contract controlled portfolio.
+                dest,             // Caller controlled portfolio.
+                vec![Fund {
+                    description: FundDescription::Fungible {
+                        ticker: ticker,
+                        amount,
+                    },
+                    memo: None,
+                }],
+            )?;
             Ok(())
         }
 
@@ -359,17 +286,13 @@ mod settlements {
             self.ensure_initialized()?;
 
             // Get the caller's identity.
-            let caller_did = self.get_caller_did()?;
+            let caller_did = PolymeshInk::get_caller_did()?;
 
             // Ensure the caller has a portfolio.
             let portfolio = self.ensure_has_portfolio(caller_did)?;
 
-            let api = Api::new();
             // Remove our custodianship.
-            api.call()
-                .portfolio()
-                .quit_portfolio_custody(portfolio)
-                .submit()?;
+            self.api.quit_portfolio_custody(portfolio)?;
             // Remove the portfolio.
             self.portfolios.remove(caller_did);
 
@@ -390,7 +313,7 @@ mod settlements {
             self.ensure_ticker(buy)?;
 
             // Get the caller's identity.
-            let caller_did = self.get_caller_did()?;
+            let caller_did = PolymeshInk::get_caller_did()?;
 
             // Ensure the caller has a portfolio.
             let caller_portfolio = self.ensure_has_portfolio(caller_did)?;
@@ -419,6 +342,62 @@ mod settlements {
             )?;
 
             Ok(())
+        }
+
+        /// Get an identity's asset balance.
+        #[ink(message)]
+        pub fn asset_balance_of(
+            &mut self,
+            ticker: Ticker,
+            did: IdentityId,
+        ) -> PolymeshResult<Balance> {
+            Ok(self.api.asset_balance_of(ticker, did)?)
+        }
+
+        /// Get the `total_supply` of an asset.
+        #[ink(message)]
+        pub fn asset_total_supply(&mut self, ticker: Ticker) -> PolymeshResult<Balance> {
+            Ok(self.api.asset_total_supply(ticker)?)
+        }
+
+        /// Get Corporate action distribution summary.
+        #[ink(message)]
+        pub fn distribution_summary(
+            &mut self,
+            ca_id: CAId,
+        ) -> PolymeshResult<Option<DistributionSummary>> {
+            Ok(self.api.distribution_summary(ca_id)?)
+        }
+
+        /// Claim dividends.
+        #[ink(message)]
+        pub fn dividend_claim(&mut self, ca_id: CAId) -> PolymeshResult<()> {
+            Ok(self.api.dividend_claim(ca_id)?)
+        }
+
+        /// Create a simple dividend distribution.
+        #[ink(message)]
+        pub fn create_dividend(
+            &mut self,
+            ticker: Ticker,
+            portfolio: Option<PortfolioNumber>,
+            currency: Ticker,
+            per_share: Balance,
+            amount: Balance,
+        ) -> PolymeshResult<()> {
+            let now = Self::env().block_timestamp();
+            let dividend = SimpleDividend {
+                ticker,
+                decl_date: now,
+                record_date: now,
+                portfolio,
+                currency,
+                per_share,
+                amount,
+                payment_at: now + 1_000,
+                expires_at: None,
+            };
+            Ok(self.api.create_dividend(dividend)?)
         }
     }
 }

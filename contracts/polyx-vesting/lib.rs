@@ -1,14 +1,10 @@
-#![cfg_attr(not(feature = "std"), no_std)]
-
-use ink_lang as ink;
+#![cfg_attr(not(feature = "std"), no_std, no_main)]
 
 #[ink::contract]
 mod polyx_vesting {
-    use ink_storage::traits::SpreadAllocate;
-
     /// Defines the storage of your contract.
     #[ink(storage)]
-    #[derive(SpreadAllocate)]
+    #[cfg_attr(feature = "std", derive(PartialEq, Eq))]
     pub struct PolyxVesting {
         released: Balance,
         beneficiary: AccountId,
@@ -48,36 +44,21 @@ mod polyx_vesting {
             beneficiary_address: AccountId,
             start_timestamp: Timestamp,
             duration_milli_seconds: Timestamp,
-        ) -> Self {
-            // We use unwrap as ink! <= v3.4 doesn't support returning Result
-            // But it is fixed in v4.0 https://github.com/paritytech/ink/pull/1446
-            ink_lang::utils::initialize_contract(|contract| {
-                Self::new_init(
-                    contract,
-                    beneficiary_address,
-                    start_timestamp,
-                    duration_milli_seconds,
-                )
-            })
-            .unwrap()
-        }
-
-        fn new_init(
-            &mut self,
-            beneficiary_address: AccountId,
-            start_timestamp: Timestamp,
-            duration_milli_seconds: Timestamp,
-        ) -> Result<()> {
-            self.beneficiary = beneficiary_address;
-            self.start = start_timestamp;
-            self.duration = duration_milli_seconds;
-            self.validation()
+        ) -> Result<Self> {
+            let contract = Self {
+                released: Default::default(),
+                beneficiary: beneficiary_address,
+                start: start_timestamp,
+                duration: duration_milli_seconds,
+            };
+            contract.validation()?;
+            Ok(contract)
         }
 
         fn validation(&self) -> Result<()> {
             let add_result = self.start.checked_add(self.duration);
             // Ensure start and duration not over type limit
-            if self.start < ink_env::block_timestamp::<ink_env::DefaultEnvironment>() {
+            if self.start < ink::env::block_timestamp::<ink::env::DefaultEnvironment>() {
                 return Err(Error::InvalidStartTimestamp);
             } else if add_result.is_none() {
                 return Err(Error::DurationOverflow);
@@ -168,26 +149,24 @@ mod polyx_vesting {
         /// Imports all the definitions from the outer scope so we can use them here.
         use super::*;
 
-        /// Imports `ink_lang` so we can use `#[ink::test]`.
-        use ink_lang as ink;
-
         fn next_x_block(x: u8) {
             for _i in 0..x {
-                ink_env::test::advance_block::<ink_env::DefaultEnvironment>();
+                ink::env::test::advance_block::<ink::env::DefaultEnvironment>();
             }
         }
 
         fn beneficiary_balance(beneficiary_address: AccountId) -> Balance {
-            ink_env::test::get_account_balance::<ink_env::DefaultEnvironment>(beneficiary_address)
+            ink::env::test::get_account_balance::<ink::env::DefaultEnvironment>(beneficiary_address)
                 .expect("failed to get account balance")
         }
 
         /// We test if the new constructor does its job.
         #[ink::test]
         fn new_works() {
-            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
+            let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
             // Constructor works.
-            let polyx_vesting = PolyxVesting::new(accounts.alice, 24, 80);
+            let polyx_vesting =
+                PolyxVesting::new(accounts.alice, 24, 80).expect("valid parameters");
             // Ensure the values are stored correctly
             assert_eq!(polyx_vesting.beneficiary(), accounts.alice);
             assert_eq!(polyx_vesting.start(), 24);
@@ -198,9 +177,10 @@ mod polyx_vesting {
         /// We test if vesting does its job.
         #[ink::test]
         fn vesting_works() {
-            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
+            let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
             // Constructor works.
-            let mut polyx_vesting = PolyxVesting::new(accounts.alice, 24, 80);
+            let mut polyx_vesting =
+                PolyxVesting::new(accounts.alice, 24, 80).expect("valid parameters");
 
             // Ensure error when calling relase before start of vesting period
             assert_eq!(polyx_vesting.release(), Err(Error::FundsNotReleased));
@@ -225,22 +205,24 @@ mod polyx_vesting {
 
         #[ink::test]
         fn validation_works() {
-            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
+            let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
             // Constructor works.
-            let mut polyx_vesting_1 = PolyxVesting::new(accounts.alice, 24, 80);
-            let mut polyx_vesting_2 = PolyxVesting::new(accounts.alice, 24, 80);
+            let _polyx_vesting_1 =
+                PolyxVesting::new(accounts.alice, 24, 80).expect("valid parameters");
+            let _polyx_vesting_2 =
+                PolyxVesting::new(accounts.alice, 24, 80).expect("valid parameters");
 
             next_x_block(5);
 
             // Ensure error when calling release() with start timestamp over 1 year.
             assert_eq!(
-                polyx_vesting_1.new_init(accounts.alice, 1, 80),
+                PolyxVesting::new(accounts.alice, 1, 80),
                 Err(Error::InvalidStartTimestamp)
             );
 
             // Ensure error when calling release() with duration timestamp over 1 year.
             assert_eq!(
-                polyx_vesting_2.new_init(accounts.alice, Timestamp::MAX, 80),
+                PolyxVesting::new(accounts.alice, Timestamp::MAX, 80),
                 Err(Error::DurationOverflow)
             );
         }

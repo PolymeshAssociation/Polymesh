@@ -1,6 +1,6 @@
 [package]
 name = "polymesh-ink"
-version = "0.5.10"
+version = "3.0.0"
 authors = ["PolymeshAssociation"]
 edition = "2021"
 license = "Apache-2.0"
@@ -10,33 +10,20 @@ repository = "https://github.com/PolymeshAssociation/Polymesh"
 homepage = "https://github.com/PolymeshAssociation/Polymesh"
 
 [dependencies]
-ink_primitives = { version = "3.0", default-features = false }
-ink_metadata = { version = "3.0", default-features = false, features = ["derive"], optional = true }
-ink_env = { version = "3.0", default-features = false }
-ink_storage = { version = "3.0", default-features = false }
-ink_lang = { version = "3.0", default-features = false }
-ink_lang_codegen = { version = "3.0", default-features = false }
+ink = { version = "4.3", default-features = false }
 
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
 
-polymesh-api = { version = "1.0", default-features = false, features = ["ink", "polymesh_v5"] }
+polymesh-api = { version = "3.5", default-features = false, features = ["ink"] }
 
-upgrade_tracker = { package = "polymesh_ink_upgrade_tracker", version = "1.0.0", path = "./upgrade_tracker/", default-features = false, features = ["ink-as-dependency"], optional = true }
 paste = "1.0"
 
 [lib]
-name = "polymesh_ink"
 path = "src/lib.rs"
-crate-type = [
-  # Used for normal contract Wasm blobs for upgrades.
-  "cdylib",
-	# Used when contracts link to this crate.
-	"rlib",
-]
 
 [package.metadata.docs.rs]
-features = ["as-library", "tracker"]
+features = ["as-library"]
 
 [features]
 default = ["std"]
@@ -44,22 +31,10 @@ default = ["std"]
 # Compile as upgradable library.
 as-library = []
 
-# Don't include API code, always use delegate calls.  This will generate smaller code.
-always-delegate = []
-
-# Enable support for an "Upgrade tracker" contract.
-tracker = [
-	"upgrade_tracker",
-]
-
 std = [
-    "ink_metadata/std",
-    "ink_env/std",
-    "ink_storage/std",
-    "ink_primitives/std",
+    "ink/std",
     "scale/std",
     "scale-info/std",
     "polymesh-api/std",
-    "upgrade_tracker?/std",
 ]
 ink-as-dependency = []

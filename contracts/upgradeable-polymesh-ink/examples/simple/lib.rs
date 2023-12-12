@@ -1,10 +1,8 @@
 //! Example contract for upgradable `polymesh-ink` API.
 
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(feature = "std"), no_std, no_main)]
 
 extern crate alloc;
-
-use ink_lang as ink;
 
 use polymesh_ink::*;
 
@@ -31,19 +29,11 @@ pub mod test_polymesh_ink {
     pub enum Error {
         /// PolymeshInk errors.
         PolymeshInk(PolymeshError),
-        /// Upgrade error.
-        UpgradeError(UpgradeError)
     }
 
     impl From<PolymeshError> for Error {
         fn from(err: PolymeshError) -> Self {
             Self::PolymeshInk(err)
-        }
-    }
-
-    impl From<UpgradeError> for Error {
-        fn from(err: UpgradeError) -> Self {
-            Self::UpgradeError(err)
         }
     }
 
@@ -56,10 +46,22 @@ pub mod test_polymesh_ink {
         /// Sets the privileged account to the caller. Only this account may
         /// later changed the `forward_to` address.
         #[ink(constructor)]
-        pub fn new(hash: Hash, tracker: Option<UpgradeTrackerRef>) -> Self {
+        pub fn new() -> Result<Self> {
+            Ok(Self {
+                admin: Self::env().caller(),
+                api: PolymeshInk::new()?,
+            })
+        }
+
+        /// Instantiate this contract with an address of the `logic` contract.
+        ///
+        /// Sets the privileged account to the caller. Only this account may
+        /// later changed the `forward_to` address.
+        #[ink(constructor)]
+        pub fn new_with_hash(hash: Hash) -> Self {
             Self {
                 admin: Self::env().caller(),
-                api: PolymeshInk::new(hash, tracker),
+                api: PolymeshInk::new_with_hash(hash),
             }
         }
 
@@ -89,34 +91,42 @@ pub mod test_polymesh_ink {
 
         #[ink(message)]
         pub fn system_remark(&mut self, remark: Vec<u8>) -> Result<()> {
-            self.api
-                .system_remark(remark)?;
+            self.api.system_remark(remark)?;
             Ok(())
         }
 
         #[ink(message)]
         pub fn get_our_did(&mut self) -> Result<IdentityId> {
-            Ok(self.api
-                .get_our_did()?)
+            Ok(PolymeshInk::get_our_did()?)
         }
 
         #[ink(message)]
         pub fn get_caller_did(&mut self) -> Result<IdentityId> {
-            Ok(self.api
-                .get_caller_did()?)
+            Ok(PolymeshInk::get_caller_did()?)
         }
 
         #[ink(message)]
         pub fn create_venue(&mut self, details: Vec<u8>) -> Result<VenueId> {
-            Ok(self.api
+            Ok(self
+                .api
                 .create_venue(VenueDetails(details), VenueType::Other)?)
         }
 
         /// Test creating and issueing an asset using the upgradable `polymesh-ink` API.
         #[ink(message)]
-        pub fn create_asset(&mut self, name: Vec<u8>, ticker: Ticker, amount: Balance) -> Result<()> {
-            self.api
-                .asset_create_and_issue(AssetName(name), ticker, AssetType::EquityCommon, true, Some(amount))?;
+        pub fn create_asset(
+            &mut self,
+            name: Vec<u8>,
+            ticker: Ticker,
+            amount: Balance,
+        ) -> Result<()> {
+            self.api.asset_create_and_issue(
+                AssetName(name),
+                ticker,
+                AssetType::EquityCommon,
+                true,
+                Some(amount),
+            )?;
             Ok(())
         }
     }
