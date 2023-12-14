@@ -273,14 +273,17 @@ pallet-external-agents = { workspace = true, default-features = false }
 pallet-group = { workspace = true, default-features = false }
 pallet-identity = { workspace = true, default-features = false }
 pallet-multisig = { workspace = true, default-features = false }
+pallet-permissions = { workspace = true, default-features = false }
 pallet-pips = { workspace = true, default-features = false }
 pallet-protocol-fee = { workspace = true, default-features = false }
 pallet-staking = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
+pallet-transaction-payment = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
 polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false }
+polymesh-extensions = { workspace = true, default-features = false }
 
 # RPC
 node-rpc = { workspace = true }
