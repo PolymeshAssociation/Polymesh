@@ -1,5 +1,7 @@
 Example contract for custodianship and settlement transfers.
 
+Uses the upgradable `polymesh-ink` API.
+
 ## Build
 
 Install [`cargo-contract`](https://github.com/paritytech/cargo-contract).

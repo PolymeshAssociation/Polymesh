@@ -574,14 +574,14 @@ where
             target: "runtime",
             "PolymeshExtension contract calling: {func_id:?}",
         );
-        match func_id {
+        let res = match func_id {
             // `FuncId::NOP` is only used to benchmark the cost of:
             // 1. Calling a contract.
             // 2. Calling `seal_call_chain_extension` from the contract.
             #[cfg(feature = "runtime-benchmarks")]
             Some(FuncId::NOP) => {
                 // Return without doing any work.
-                return Ok(ce::RetVal::Converging(0));
+                Ok(ce::RetVal::Converging(0))
             }
             Some(FuncId::ReadStorage) => read_storage(env),
             Some(FuncId::CallRuntime) => call_runtime(env, None),
@@ -598,7 +598,15 @@ where
                 );
                 Err(Error::<T>::InvalidFuncId)?
             }
+        };
+        if let Err(err) = &res {
+            trace!(
+                target: "runtime",
+                "PolymeshExtension: err={err:?}",
+            );
         }
+
+        res
     }
 }
 

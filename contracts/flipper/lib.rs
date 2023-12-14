@@ -1,6 +1,4 @@
-#![cfg_attr(not(feature = "std"), no_std)]
-
-use ink_lang as ink;
+#![cfg_attr(not(feature = "std"), no_std, no_main)]
 
 #[ink::contract]
 mod flipper {
@@ -25,7 +23,7 @@ mod flipper {
         ///
         /// Constructors can delegate to other constructors.
         #[ink(constructor)]
-        pub fn default() -> Self {
+        pub fn new_default() -> Self {
             Self::new(Default::default())
         }
 
@@ -52,13 +50,10 @@ mod flipper {
         /// Imports all the definitions from the outer scope so we can use them here.
         use super::*;
 
-        /// Imports `ink_lang` so we can use `#[ink::test]`.
-        use ink_lang as ink;
-
         /// We test if the default constructor does its job.
         #[ink::test]
         fn default_works() {
-            let flipper = Flipper::default();
+            let flipper = Flipper::new_default();
             assert_eq!(flipper.get(), false);
         }
 
