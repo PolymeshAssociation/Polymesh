@@ -69,15 +69,17 @@ macro_rules! native_executor_instance {
     };
 }
 
-type EHF = (frame_benchmarking::benchmarking::HostFunctions,);
-
-native_executor_instance!(
-    GeneralExecutor,
-    polymesh_runtime_develop,
-    (EHF, native_schnorrkel::HostFunctions)
+#[cfg(feature = "runtime-benchmarks")]
+type EHF = (
+    frame_benchmarking::benchmarking::HostFunctions,
+    native_schnorrkel::HostFunctions,
 );
-native_executor_instance!(TestnetExecutor, polymesh_runtime_testnet, EHF);
-native_executor_instance!(MainnetExecutor, polymesh_runtime_mainnet, EHF);
+#[cfg(not(feature = "runtime-benchmarks"))]
+type EHF = ();
+
+native_executor_instance!(GeneralExecutor, polymesh_runtime_develop, EHF);
+native_executor_instance!(TestnetExecutor, polymesh_runtime_testnet, ());
+native_executor_instance!(MainnetExecutor, polymesh_runtime_mainnet, ());
 
 /// A set of APIs that polkadot-like runtimes must implement.
 pub trait RuntimeApiCollection:
@@ -424,8 +426,11 @@ where
 
     let role = config.role.clone();
     let force_authoring = config.force_authoring;
-    let backoff_authoring_blocks =
-        Some(sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default());
+    let backoff_authoring_blocks = if false {
+        Some(sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default())
+    } else {
+        None
+    };
     let name = config.network.node_name.clone();
     let enable_grandpa = !config.disable_grandpa;
     let prometheus_registry = config.prometheus_registry().cloned();
