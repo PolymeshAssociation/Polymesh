@@ -1860,7 +1860,7 @@ impl<T: Config> Module<T> {
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
         Tokens::try_mutate(&ticker, |token| -> DispatchResult {
-            let mut token = token.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
+            let token = token.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
             // Ensures the token is fungible
             ensure!(
                 token.asset_type.is_fungible(),
@@ -2383,7 +2383,7 @@ impl<T: Config> Module<T> {
         Self::ensure_asset_type_valid(asset_type)?;
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
         Tokens::try_mutate(&ticker, |token| -> DispatchResult {
-            let mut token = token.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
+            let token = token.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
             // Ensures that both parameters are non fungible types or if both are fungible types.
             ensure!(
                 token.asset_type.is_fungible() == asset_type.is_fungible(),

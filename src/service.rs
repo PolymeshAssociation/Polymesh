@@ -1,38 +1,27 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-// pub use crate::chain_spec::{
-//     testnet::ChainSpec as TestnetChainSpec,
-// };
-pub use codec::Codec;
 use futures::stream::StreamExt;
 use polymesh_node_rpc as node_rpc;
-pub use polymesh_primitives::{
-    crypto::native_schnorrkel, host_functions::native_rng::native_rng, AccountId, Balance, Block,
-    BlockNumber, Hash, IdentityId, Index as Nonce, Moment, Ticker,
-};
+pub use polymesh_primitives::{AccountId, Block, IdentityId, Index as Nonce, Moment, Ticker};
 pub use polymesh_runtime_develop;
 pub use polymesh_runtime_mainnet;
 pub use polymesh_runtime_testnet;
 use prometheus_endpoint::Registry;
-pub use sc_client_api::backend::Backend;
+
 use sc_client_api::BlockBackend;
-pub use sc_consensus::LongestChain;
+
 use sc_consensus_slots::SlotProportion;
 use sc_executor::NativeElseWasmExecutor;
-pub use sc_executor::{NativeExecutionDispatch, RuntimeVersionOf};
+pub use sc_executor::NativeExecutionDispatch;
 use sc_network::NetworkService;
 use sc_network_common::{protocol::event::Event, service::NetworkEventStream};
 use sc_service::{
     config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager, WarpSyncParams,
 };
-pub use sc_service::{
-    config::{PrometheusConfig, Role},
-    ChainSpec, Error, PruningMode, RuntimeGenesis, TFullBackend, TFullCallExecutor, TFullClient,
-    TransactionPoolOptions,
-};
+pub use sc_service::{config::PrometheusConfig, ChainSpec, Error};
 use sc_telemetry::{Telemetry, TelemetryWorker};
-pub use sp_api::{ConstructRuntimeApi, Core as CoreApi, ProvideRuntimeApi, StateBackend};
-pub use sp_consensus::SelectChain;
+pub use sp_api::ConstructRuntimeApi;
+
 pub use sp_runtime::traits::BlakeTwo256;
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
@@ -78,18 +67,17 @@ macro_rules! native_executor_instance {
     };
 }
 
+#[cfg(feature = "runtime-benchmarks")]
 type EHF = (
     frame_benchmarking::benchmarking::HostFunctions,
-    native_rng::HostFunctions,
+    polymesh_primitives::crypto::native_schnorrkel::HostFunctions,
 );
+#[cfg(not(feature = "runtime-benchmarks"))]
+type EHF = ();
 
-native_executor_instance!(
-    GeneralExecutor,
-    polymesh_runtime_develop,
-    (EHF, native_schnorrkel::HostFunctions)
-);
-native_executor_instance!(TestnetExecutor, polymesh_runtime_testnet, EHF);
-native_executor_instance!(MainnetExecutor, polymesh_runtime_mainnet, EHF);
+native_executor_instance!(GeneralExecutor, polymesh_runtime_develop, EHF);
+native_executor_instance!(TestnetExecutor, polymesh_runtime_testnet, ());
+native_executor_instance!(MainnetExecutor, polymesh_runtime_mainnet, ());
 
 /// A set of APIs that polkadot-like runtimes must implement.
 pub trait RuntimeApiCollection:
@@ -436,8 +424,11 @@ where
 
     let role = config.role.clone();
     let force_authoring = config.force_authoring;
-    let backoff_authoring_blocks =
-        Some(sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default());
+    let backoff_authoring_blocks = if false {
+        Some(sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default())
+    } else {
+        None
+    };
     let name = config.network.node_name.clone();
     let enable_grandpa = !config.disable_grandpa;
     let prometheus_registry = config.prometheus_registry().cloned();

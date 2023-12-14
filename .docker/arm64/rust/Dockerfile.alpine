@@ -1,7 +1,7 @@
-ARG rustbase=1.61.0
+ARG rustbase=1.74.0
 FROM arm64v8/rust:${rustbase}-alpine
 
-ARG toolchainversion=nightly-2022-05-10
+ARG toolchainversion=nightly-2023-12-01
 ENV TOOLCHAIN="${toolchainversion}"
 
 RUN apk add --no-cache \
@@ -14,7 +14,6 @@ RUN apk add --no-cache \
         gcc \
         jq \
         libressl-dev \
-        openssl-dev \
         make \
         pkgconfig \
         protobuf \

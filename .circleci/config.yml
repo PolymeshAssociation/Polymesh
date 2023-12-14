@@ -14,7 +14,7 @@ commands:
     steps:
       - restore_cache:
           name: Restore sccache cache
-          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
+          key: sccache-cache-stable-v1-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
       - run:
           name: Show cache size
           command: /usr/local/cargo/bin/sccache -s
@@ -29,14 +29,14 @@ commands:
           # Of course, restore_cache will not find this exact key,
           # but it will fall back to the closest key (aka the most recent).
           # See https://discuss.circleci.com/t/add-mechanism-to-update-existing-cache-key/9014/13
-          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ epoch }}
+          key: sccache-cache-stable-v1-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ epoch }}
           paths:
             - "/usr/local/cargo"
             - "~/.cache/sccache"
 jobs:
   lint:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+      - image: polymeshassociation/rust:debian-nightly-2023-12-11
     resource_class: small
     environment:
       VERBOSE: "1"
@@ -50,7 +50,7 @@ jobs:
           command: ./scripts/check_spec_and_cargo_version.sh
   check-storage-version:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+      - image: polymeshassociation/rust:debian-nightly-2023-12-11
     resource_class: small
     environment:
       VERBOSE: "1"
@@ -61,7 +61,7 @@ jobs:
           command: ./scripts/check_storage_versions.sh
   build:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+      - image: polymeshassociation/rust:debian-nightly-2023-12-11
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -99,7 +99,7 @@ jobs:
             - "~/.cache/sccache"
   build-ci:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+      - image: polymeshassociation/rust:debian-nightly-2023-12-11
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -124,11 +124,10 @@ jobs:
           paths:
               - .
   build-arm64:
-    machine:
-      image: ubuntu-2004:current
+    docker:
+      - image: polymeshassociation/rust-arm64:debian-nightly-2023-12-11
     resource_class: arm.xlarge
     environment:
-      - NIGHTLY: "nightly-2022-11-02"
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
       - RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
@@ -136,54 +135,17 @@ jobs:
       - checkout
       - run:
           name: Store rust version in an environment var for cache key
-          command: echo $NIGHTLY > rust.version
-      - run:
-          name: Create folders for caching.
-          command: mkdir -p ~/.cargo/git ~/.cargo/registry ~/.cache/sccache
+          command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v7-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v8-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
-          name: Pre-fetch wasm32 deps.
-          command: |
-            docker run --rm --user "$(id -u)":"$(id -g)" \
-              -e RUSTC_WRAPPER="$RUSTC_WRAPPER" \
-              -v "$PWD":/tmp/build \
-              -v ~/.cargo/git:/usr/local/cargo/git \
-              -v ~/.cargo/registry:/usr/local/cargo/registry \
-              -v ~/.cache/sccache:/.cache/sccache \
-              -w /tmp/build polymeshassociation/rust-arm64:debian-$NIGHTLY \
-              cargo fetch --locked --target=wasm32-unknown-unknown
-          no_output_timeout: 30m
-      - run:
-          name: Pre-fetch cargo metadata.
-          command: |
-            docker run --rm --user "$(id -u)":"$(id -g)" \
-              -e RUSTC_WRAPPER="$RUSTC_WRAPPER" \
-              -v "$PWD":/tmp/build \
-              -v ~/.cargo/git:/usr/local/cargo/git \
-              -v ~/.cargo/registry:/usr/local/cargo/registry \
-              -v ~/.cache/sccache:/.cache/sccache \
-              -w /tmp/build polymeshassociation/rust-arm64:debian-$NIGHTLY \
-              cargo metadata --locked --all-features
-          no_output_timeout: 30m
-      - run:
-          name: Build arm64 release
-          command: |
-            docker run --rm --user "$(id -u)":"$(id -g)" \
-              -e VERBOSE="$VERBOSE" \
-              -e RUSTFLAGS="$RUSTFLAGS" \
-              -e RUSTC_WRAPPER="$RUSTC_WRAPPER" \
-              -v "$PWD":/tmp/build \
-              -v ~/.cargo/git:/usr/local/cargo/git \
-              -v ~/.cargo/registry:/usr/local/cargo/registry \
-              -v ~/.cache/sccache:/.cache/sccache \
-              -w /tmp/build polymeshassociation/rust-arm64:debian-$NIGHTLY \
-              cargo build --locked --release
+          name: Build release
+          command: cargo build --locked --release
           no_output_timeout: 30m
       - run:
           name: Create assets directory for releases
-          command: mkdir -p ./assets
+          command: mkdir ./assets
       - run:
           name: Copy arm64 binary to assets
           command: cp ./target/release/polymesh ./assets/polymesh-arm64
@@ -192,13 +154,13 @@ jobs:
           paths:
               - .
       - save_cache:
-          key: v7-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v8-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
-            - "~/.cargo"
+            - "/usr/local/cargo"
             - "~/.cache/sccache"
   benchmark-build:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+      - image: polymeshassociation/rust:debian-nightly-2023-12-11
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -243,7 +205,7 @@ jobs:
           no_output_timeout: 30m
   migration-tests:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+      - image: polymeshassociation/rust:debian-nightly-2023-12-11
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -267,7 +229,7 @@ jobs:
             - "/usr/local/cargo"
   test:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+      - image: polymeshassociation/rust:debian-nightly-2023-12-11
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -306,7 +268,7 @@ jobs:
             - "~/.cache/sccache"
   coverage:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+      - image: polymeshassociation/rust:debian-nightly-2023-12-11
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -328,7 +290,7 @@ jobs:
             - "/usr/local/cargo"
   rust-integration-test:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+      - image: polymeshassociation/rust:debian-nightly-2023-12-11
     resource_class: medium+
     environment:
       - VERBOSE: "1"
@@ -364,7 +326,7 @@ jobs:
       - save-sccache-cache
   integration-test:
     docker:
-      - image: node:16-bullseye
+      - image: node:18-bookworm
     resource_class: medium+
     environment:
       VERBOSE: "1"
@@ -392,7 +354,7 @@ jobs:
           no_output_timeout: 10m
   clippy:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-11-02
+      - image: polymeshassociation/rust:debian-nightly-2023-12-11
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -477,7 +439,7 @@ jobs:
           docker push --all-tags $IMAGE_NAME
   build-docker-rust-debian:
     environment:
-      RUST_BASE: 1.65.0
+      RUST_BASE: 1.74.0
       IMAGE_NAME: polymeshassociation/rust
     docker:
       - image: docker:stable-git
@@ -498,7 +460,7 @@ jobs:
           docker push $IMAGE_NAME
   build-docker-rust-alpine:
     environment:
-      RUST_BASE: 1.65.0
+      RUST_BASE: 1.74.0
       IMAGE_NAME: polymeshassociation/rust
     docker:
       - image: docker:stable-git
@@ -518,7 +480,7 @@ jobs:
           docker push $IMAGE_NAME
   build-docker-arm64-rust-debian:
     environment:
-      RUST_BASE: 1.65.0
+      RUST_BASE: 1.74.0
       IMAGE_NAME: polymeshassociation/rust-arm64
     machine:
       image: ubuntu-2004:current
@@ -537,7 +499,7 @@ jobs:
           docker push --all-tags $IMAGE_NAME
   build-docker-arm64-rust-alpine:
     environment:
-      RUST_BASE: 1.65.0
+      RUST_BASE: 1.74.0
       IMAGE_NAME: polymeshassociation/rust-arm64
     machine:
       image: ubuntu-2004:current
