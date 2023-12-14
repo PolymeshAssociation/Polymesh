@@ -3,8 +3,7 @@
 use futures::stream::StreamExt;
 use polymesh_node_rpc as node_rpc;
 pub use polymesh_primitives::{
-    crypto::native_schnorrkel, AccountId, Block,
-    IdentityId, Index as Nonce, Moment, Ticker,
+    crypto::native_schnorrkel, AccountId, Block, IdentityId, Index as Nonce, Moment, Ticker,
 };
 pub use polymesh_runtime_develop;
 pub use polymesh_runtime_mainnet;
@@ -70,9 +69,7 @@ macro_rules! native_executor_instance {
     };
 }
 
-type EHF = (
-    frame_benchmarking::benchmarking::HostFunctions,
-);
+type EHF = (frame_benchmarking::benchmarking::HostFunctions,);
 
 native_executor_instance!(
     GeneralExecutor,
