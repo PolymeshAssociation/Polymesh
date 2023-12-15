@@ -23,7 +23,7 @@ use frame_support::{
 };
 use frame_system::ensure_root;
 use pallet_base::{ensure_string_limited, try_next_pre};
-pub use polymesh_common_utilities::traits::identity::WeightInfo;
+
 use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
     traits::{
