@@ -10,13 +10,10 @@ scale = { package = "parity-scale-codec", version = "3", default-features = fals
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
 sp-arithmetic = { version = "6.0.0", default-features = false }
 
-polymesh-ink = { path = "../../../tmp/Polymesh/contracts/upgradeable-polymesh-ink", default-features = false, features = ["as-library"] }
+polymesh-ink = { path = "../upgradeable-polymesh-ink", default-features = false, features = ["as-library"] }
 
 [lib]
 path = "lib.rs"
-
-[profile.dev]
-overflow-checks = false     # Disable integer overflow checks.
 
 [features]
 default = ["std"]

@@ -8,6 +8,8 @@ use frame_support::log::trace;
 use frame_support::storage::unhashed;
 use frame_support::traits::{Get, GetCallMetadata};
 use frame_system::RawOrigin;
+use scale_info::prelude::format;
+use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
 use sp_core::crypto::UncheckedFrom;
 
@@ -540,9 +542,19 @@ where
         env.adjust_weight(charged_amount, actual_weight);
     }
 
-    // Ensure the call was successful.
-    result.map_err(|e| e.error)?;
+    // Ensure the call was successful
+    if let Err(e) = result {
+        if let DispatchError::Module(e) = e.error {
+            let error_string: Result<(), String> = Err(format!("{e:?}"));
+            env.write(&error_string.encode(), false, None)
+                .map_err(|_| Error::<T>::ReadStorageFailed)?;
+            return Ok(ce::RetVal::Converging(0));
+        }
+        return Err(e.error);
+    }
 
+    env.write(&Ok::<(), String>(()).encode(), false, None)
+        .map_err(|_| Error::<T>::ReadStorageFailed)?;
     // Done; continue with smart contract execution when returning.
     Ok(ce::RetVal::Converging(0))
 }
