@@ -11,7 +11,7 @@ use frame_support::weights::Weight;
 use polymesh_primitives::asset_metadata::AssetMetadataKey;
 use polymesh_primitives::nft::{NFTCollectionId, NFTs};
 use polymesh_primitives::ticker::Ticker;
-use polymesh_primitives::{IdentityId, PortfolioId, PortfolioUpdateReason};
+use polymesh_primitives::{IdentityId, NFTId, PortfolioId, PortfolioUpdateReason};
 
 use crate::compliance_manager::ComplianceFnConfig;
 use crate::{asset, base, identity, portfolio};
@@ -58,6 +58,8 @@ pub trait WeightInfo {
 pub trait NFTTrait<Origin> {
     /// Returns `true` if the given `metadata_key` is a mandatory key for the ticker's NFT collection.
     fn is_collection_key(ticker: &Ticker, metadata_key: &AssetMetadataKey) -> bool;
+    /// Updates the NFTOwner storage after moving funds.
+    fn move_portfolio_owner(ticker: Ticker, nft_id: NFTId, new_owner_portfolio: PortfolioId);
 
     #[cfg(feature = "runtime-benchmarks")]
     fn create_nft_collection(

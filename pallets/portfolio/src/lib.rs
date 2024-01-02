@@ -56,6 +56,7 @@ use sp_std::prelude::*;
 use pallet_identity::PermissionedCallOriginData;
 pub use polymesh_common_utilities::portfolio::{Config, Event, WeightInfo};
 use polymesh_common_utilities::traits::asset::AssetFnTrait;
+use polymesh_common_utilities::traits::nft::NFTTrait;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 use polymesh_primitives::{
     extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, Fund,
@@ -782,6 +783,7 @@ impl<T: Config> Module<T> {
                     for nft_id in nfts.ids() {
                         PortfolioNFT::remove(&sender_portfolio, (nfts.ticker(), nft_id));
                         PortfolioNFT::insert(&receiver_portfolio, (nfts.ticker(), nft_id), true);
+                        T::NFT::move_portfolio_owner(*nfts.ticker(), *nft_id, receiver_portfolio);
                     }
                     Self::deposit_event(Event::FundsMovedBetweenPortfolios(
                         origin_did,

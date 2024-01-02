@@ -604,6 +604,10 @@ impl<T: Config> NFTTrait<T::RuntimeOrigin> for Module<T> {
         }
     }
 
+    fn move_portfolio_owner(ticker: Ticker, nft_id: NFTId, new_owner_portfolio: PortfolioId) {
+        NFTOwner::insert(ticker, nft_id, new_owner_portfolio);
+    }
+
     #[cfg(feature = "runtime-benchmarks")]
     fn create_nft_collection(
         origin: T::RuntimeOrigin,

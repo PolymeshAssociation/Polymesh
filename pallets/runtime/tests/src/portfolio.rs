@@ -1,6 +1,7 @@
 use frame_support::storage::StorageDoubleMap;
 use frame_support::{assert_noop, assert_ok, StorageMap};
 
+use pallet_nft::NFTOwner;
 use pallet_portfolio::{
     AllowedCustodians, Event, NameToNumber, PortfolioAssetBalances, PortfolioCustodian,
     PortfolioNFT, Portfolios, PreApprovedPortfolios,
@@ -818,6 +819,14 @@ fn move_portfolio_nfts() {
         assert_eq!(
             PortfolioNFT::get(alice_custom_portfolio, (TICKER, NFTId(2))),
             true
+        );
+        assert_eq!(
+            NFTOwner::get(TICKER, NFTId(1)),
+            Some(alice_custom_portfolio)
+        );
+        assert_eq!(
+            NFTOwner::get(TICKER, NFTId(2)),
+            Some(alice_custom_portfolio)
         );
     });
 }

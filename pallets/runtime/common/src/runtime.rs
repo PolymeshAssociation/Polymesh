@@ -295,6 +295,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_portfolio::SubstrateWeight;
             type MaxNumberOfFungibleMoves = MaxNumberOfFungibleMoves;
             type MaxNumberOfNFTsMoves = MaxNumberOfNFTsMoves;
+            type NFT = pallet_nft::Module<Runtime>;
         }
 
         impl pallet_external_agents::Config for Runtime {
