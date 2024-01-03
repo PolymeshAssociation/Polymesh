@@ -150,6 +150,8 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Proof Skipped: Portfolio PortfolioLockedAssets (max_values: None, max_size: None, mode: Measured)
     // Storage: Portfolio PortfolioAssetCount (r:1 w:1)
     // Proof Skipped: Portfolio PortfolioAssetCount (max_values: None, max_size: None, mode: Measured)
+    // Storage: NFT NFTOwner (r:0 w:100)
+    // Proof Skipped: NFT NFTOwner (max_values: None, max_size: None, mode: Measured)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[1, 100]`.
     fn move_portfolio_funds(f: u32, n: u32) -> Weight {
@@ -164,7 +166,7 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(1))
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(f.into())))
-            .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)

@@ -34,7 +34,7 @@ type Portfolio<T> = pallet_portfolio::Module<T>;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-storage_migration_ver!(1);
+storage_migration_ver!(2);
 
 decl_storage!(
     trait Store for Module<T: Config> as NFT {
@@ -66,7 +66,7 @@ decl_storage!(
         pub NFTOwner get(fn nft_owner): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) NFTId => Option<PortfolioId>;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
     }
 );
 
@@ -82,8 +82,8 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 1, {
-                migration::migrate_to_v1::<T>();
+            storage_migrate_on!(StorageVersion, 2, {
+                migration::migrate_to_v2::<T>();
             });
             Weight::zero()
         }
@@ -604,6 +604,10 @@ impl<T: Config> NFTTrait<T::RuntimeOrigin> for Module<T> {
         }
     }
 
+    fn move_portfolio_owner(ticker: Ticker, nft_id: NFTId, new_owner_portfolio: PortfolioId) {
+        NFTOwner::insert(ticker, nft_id, new_owner_portfolio);
+    }
+
     #[cfg(feature = "runtime-benchmarks")]
     fn create_nft_collection(
         origin: T::RuntimeOrigin,
@@ -617,23 +621,16 @@ impl<T: Config> NFTTrait<T::RuntimeOrigin> for Module<T> {
 
 pub mod migration {
     use crate::sp_api_hidden_includes_decl_storage::hidden_include::IterableStorageDoubleMap;
-    use crate::{Config, NFTOwner, NFTsInCollection, NumberOfNFTs};
-    use frame_support::storage::{StorageDoubleMap, StorageMap};
+    use crate::{Config, NFTOwner};
+    use frame_support::storage::StorageDoubleMap;
     use pallet_portfolio::PortfolioNFT;
     use sp_runtime::runtime_logger::RuntimeLogger;
 
-    pub fn migrate_to_v1<T: Config>() {
+    pub fn migrate_to_v2<T: Config>() {
         RuntimeLogger::init();
-        log::info!(">>> Initializing NFTsInCollection and NFTOwner Storage");
-        initialize_nfts_in_collection::<T>();
+        log::info!(">>> Updating NFTOwner Storage");
         initialize_nft_owner::<T>();
-        log::info!(">>> NFTsInCollection and NFTOwner were successfully updated");
-    }
-
-    fn initialize_nfts_in_collection<T: Config>() {
-        for (ticker, _, id_count) in NumberOfNFTs::iter() {
-            NFTsInCollection::mutate(ticker, |collection_count| *collection_count += id_count);
-        }
+        log::info!(">>> NFTOwner was successfully updated");
     }
 
     fn initialize_nft_owner<T: Config>() {
