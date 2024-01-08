@@ -68,6 +68,7 @@ use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
 use sp_std::vec;
 
+use pallet_asset::MandatoryMediators;
 use pallet_base::{ensure_string_limited, try_next_post};
 use polymesh_common_utilities::constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY;
 use polymesh_common_utilities::traits::identity::IdentityFnTrait;
@@ -78,8 +79,9 @@ use polymesh_common_utilities::with_transaction;
 use polymesh_common_utilities::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::settlement::{
     AffirmationCount, AffirmationStatus, AssetCount, ExecuteInstructionInfo, FilteredLegs,
-    Instruction, InstructionId, InstructionInfo, InstructionStatus, Leg, LegId, LegStatus, Receipt,
-    ReceiptDetails, SettlementType, Venue, VenueDetails, VenueId, VenueType,
+    Instruction, InstructionId, InstructionInfo, InstructionStatus, Leg, LegId, LegStatus,
+    MediatorAffirmationStatus, Receipt, ReceiptDetails, SettlementType, Venue, VenueDetails,
+    VenueId, VenueType,
 };
 use polymesh_primitives::{
     storage_migrate_on, storage_migration_ver, Balance, IdentityId, Memo, NFTs, PortfolioId,
@@ -295,6 +297,9 @@ decl_storage! {
             double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => AffirmationStatus;
         /// Tracks the number of signers each venue has.
         pub NumberOfVenueSigners get(fn number_of_venue_signers): map hasher(twox_64_concat) VenueId => u32;
+        /// The status for the mediators affirmation.
+        pub InstructionMediatorsAffirmations get(fn venue_mediators_affirmations):
+            double_map hasher(twox_64_concat) InstructionId, hasher(identity) IdentityId => MediatorAffirmationStatus;
     }
 }
 
@@ -835,6 +840,13 @@ impl<T: Config> Module<T> {
                 instruction_id,
             ));
         }
+        for mediator_id in instruction_info.mediators() {
+            InstructionMediatorsAffirmations::insert(
+                instruction_id,
+                mediator_id,
+                MediatorAffirmationStatus::Pending,
+            );
+        }
         InstructionAffirmsPending::insert(
             instruction_id,
             instruction_info.number_of_pending_affirmations(),
@@ -898,6 +910,8 @@ impl<T: Config> Module<T> {
         let mut portfolios_pending_approval = BTreeSet::new();
         // Tracks all portfolios that have pre-approved the transfer.
         let mut portfolios_pre_approved = BTreeSet::new();
+        // Tracks all mediators that have to affirm the instruction.
+        let mut mediators = BTreeSet::new();
         // Tracks all tickers that have been checked for filtering
         let mut tickers = BTreeSet::new();
 
@@ -921,6 +935,8 @@ impl<T: Config> Module<T> {
                 }
                 Leg::OffChain { .. } => continue,
             }
+            let asset_mediators = MandatoryMediators::<T>::get(ticker);
+            mediators.extend(asset_mediators.iter());
         }
         // The maximum number of each asset type in one instruction is checked here
         Self::ensure_within_instruction_max(&instruction_asset_count)?;
@@ -929,6 +945,7 @@ impl<T: Config> Module<T> {
             instruction_asset_count,
             portfolios_pending_approval,
             portfolios_pre_approved,
+            mediators,
         ))
     }
 
@@ -1047,6 +1064,8 @@ impl<T: Config> Module<T> {
             Self::instruction_affirms_pending(instruction_id) == 0,
             Error::<T>::NotAllAffirmationsHaveBeenReceived
         );
+        // Verifies that all mediator's affirmations are still valid
+        Self::ensure_non_expired_affirmations(&instruction_id)?;
 
         // Ensures the instruction is pending or has failed at least one time
         let instruction_status = Self::instruction_status(instruction_id);
@@ -1100,6 +1119,23 @@ impl<T: Config> Module<T> {
         }
 
         Self::deposit_event(RawEvent::InstructionExecuted(caller_did, instruction_id));
+        Ok(())
+    }
+
+    /// Returns `Ok` if all mediator's affirmation are still valid. Otherwise, returns an error.
+    fn ensure_non_expired_affirmations(instruction_id: &InstructionId) -> DispatchResult {
+        for mediator_affirmation in
+            InstructionMediatorsAffirmations::iter_prefix_values(instruction_id)
+        {
+            match mediator_affirmation {
+                MediatorAffirmationStatus::Affirmed { expiry, timestamp } => {
+                    unimplemented!()
+                }
+                MediatorAffirmationStatus::Unknown | MediatorAffirmationStatus::Pending => {
+                    return Err(Error::<T>::NotAllAffirmationsHaveBeenReceived.into())
+                }
+            }
+        }
         Ok(())
     }
 
