@@ -49,7 +49,6 @@ where
         npos_token_staked,
         total_tokens.clone(),
     );
-    let maximum = portion * (yearly_inflation.maximum * total_tokens.clone());
     // Have fixed rewards kicked in?
     if total_tokens >= max_inflated_issuance {
         let fixed_payout = portion * non_inflated_yearly_reward;
@@ -58,6 +57,7 @@ where
             return (fixed_payout.clone(), fixed_payout);
         }
     }
+    let maximum = portion * (yearly_inflation.maximum * total_tokens);
     (payout, maximum)
 }
 
