@@ -135,6 +135,9 @@ pub trait Config:
 
     /// Maximum number of venue signers.
     type MaxNumberOfVenueSigners: Get<u32>;
+
+    /// Maximum number mediators in the instruction level (this does not include asset mediators).
+    type MaxInstructionMediators: Get<u32>;
 }
 
 decl_error! {
@@ -511,9 +514,6 @@ decl_module! {
         /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
         /// * `legs` - Legs included in this instruction.
         /// * `memo` - Memo field for this instruction.
-        ///
-        /// # Weight
-        /// `950_000_000 + 1_000_000 * legs.len()`
         #[weight = <T as Config>::WeightInfo::add_instruction_legs(legs)]
         pub fn add_instruction(
             origin,

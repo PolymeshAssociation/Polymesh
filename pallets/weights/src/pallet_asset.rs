@@ -695,4 +695,10 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
+    fn add_mandatory_mediators() -> Weight {
+        unimplemented!()
+    }
+    fn remove_mediators() -> Weight {
+        unimplemented!()
+    }
 }

@@ -70,9 +70,13 @@ pub trait Config:
     type AssetFn: AssetFnTrait<Self::AccountId, Self::RuntimeOrigin>;
 
     type WeightInfo: WeightInfo;
+
     type CPWeightInfo: crate::traits::checkpoint::WeightInfo;
 
     type NFTFn: NFTTrait<Self::RuntimeOrigin>;
+
+    /// Maximum number of mediators for an asset.
+    type MaxAssetMediators: Get<u32>;
 }
 
 decl_event! {
@@ -211,6 +215,8 @@ pub trait WeightInfo {
     fn remove_ticker_affirmation_exemption() -> Weight;
     fn pre_approve_ticker() -> Weight;
     fn remove_ticker_pre_approval() -> Weight;
+    fn add_mandatory_mediators() -> Weight;
+    fn remove_mediators() -> Weight;
 }
 
 pub trait AssetFnTrait<Account, Origin> {

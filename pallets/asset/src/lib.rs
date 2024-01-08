@@ -91,6 +91,7 @@ use core::result::Result as StdResult;
 use currency::*;
 use frame_support::dispatch::{DispatchError, DispatchResult, Weight};
 use frame_support::traits::{Get, PalletInfoAccess};
+use frame_support::BoundedBTreeSet;
 use frame_support::{decl_error, decl_module, decl_storage, ensure, fail};
 use frame_system::ensure_root;
 use scale_info::TypeInfo;
@@ -290,6 +291,10 @@ decl_storage! {
         /// All tickers that don't need an affirmation to be received by an identity.
         pub PreApprovedTicker get(fn pre_approved_tickers):
             double_map hasher(identity) IdentityId, hasher(blake2_128_concat) Ticker => bool;
+
+        /// The list of mandatory mediators for every ticker.
+        pub MandatoryMediators get(fn mandatory_mediators):
+            map hasher(blake2_128_concat) Ticker => BoundedBTreeSet<IdentityId, T::MaxAssetMediators>;
 
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(3)): Version;
@@ -893,6 +898,42 @@ decl_module! {
         pub fn remove_ticker_pre_approval(origin, ticker: Ticker) -> DispatchResult {
             Self::base_remove_ticker_pre_approval(origin, ticker)
         }
+
+        /// Sets all identities in the `mediators` set as mandatory mediators for any instruction transfering `ticker`.
+        ///
+        /// # Arguments
+        /// * `origin`: The secondary key of the sender.
+        /// * `ticker`: The [`Ticker`] of the asset that will require the mediators.
+        /// * `mediators`: A set of [`IdentityId`] of all the mandatory mediators for the given ticker.
+        ///
+        /// # Permissions
+        /// * Asset
+        #[weight = <T as Config>::WeightInfo::add_mandatory_mediators()]
+        pub fn add_mandatory_mediators(
+            origin,
+            ticker: Ticker,
+            mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>
+        ) -> DispatchResult {
+            Self::base_add_mandatory_mediators(origin, ticker, mediators)
+        }
+
+        /// Removes all identities in the `mediators` set from the mandatory mediators list for the given `ticker`.
+        ///
+        /// # Arguments
+        /// * `origin`: The secondary key of the sender.
+        /// * `ticker`: The [`Ticker`] of the asset that will have mediators removed.
+        /// * `mediators`: A set of [`IdentityId`] of all the mediators that will be removed from the mandatory mediators list.
+        ///
+        /// # Permissions
+        /// * Asset
+        #[weight = <T as Config>::WeightInfo::remove_mediators()]
+        pub fn remove_mediators(
+            origin,
+            ticker: Ticker,
+            mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>
+        ) -> DispatchResult {
+            Self::base_remove_mediators(origin, ticker, mediators)
+        }
     }
 }
 
@@ -972,6 +1013,8 @@ decl_error! {
         AssetMetadataKeyBelongsToNFTCollection,
         /// Attempt to lock a metadata value that is empty.
         AssetMetadataValueIsEmpty,
+        /// Number of asset mediators would exceed the maximum allowed.
+        NumberOfAssetMediatorsExceeded,
     }
 }
 
@@ -2508,6 +2551,44 @@ impl<T: Config> Module<T> {
         let caller_did = Identity::<T>::ensure_perms(origin)?;
         PreApprovedTicker::remove(&caller_did, &ticker);
         Self::deposit_event(RawEvent::RemovePreApprovedAsset(caller_did, ticker));
+        Ok(())
+    }
+
+    /// Sets all identities in the `mediators` set as mandatory mediators for any instruction transfering `ticker`.
+    fn base_add_mandatory_mediators(
+        origin: T::RuntimeOrigin,
+        ticker: Ticker,
+        new_mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>,
+    ) -> DispatchResult {
+        // Verifies if the caller has the correct permissions for this asset
+        <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+        // Tries to add all new identities as mandatory mediators for the asset
+        MandatoryMediators::<T>::try_mutate(ticker, |mandatory_mediators| -> DispatchResult {
+            for new_mediator in new_mediators {
+                mandatory_mediators
+                    .try_insert(new_mediator)
+                    .map_err(|_| Error::<T>::NumberOfAssetMediatorsExceeded)?;
+            }
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+
+    /// Removes all identities in the `mediators` set from the mandatory mediators list for the given `ticker`.
+    fn base_remove_mediators(
+        origin: T::RuntimeOrigin,
+        ticker: Ticker,
+        mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>,
+    ) -> DispatchResult {
+        // Verifies if the caller has the correct permissions for this asset
+        <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+        // Removes the identities from the mandatory mediators list
+        MandatoryMediators::<T>::mutate(ticker, |mandatory_mediators| {
+            for mediator in mediators {
+                mandatory_mediators.remove(&mediator);
+            }
+        });
         Ok(())
     }
 }

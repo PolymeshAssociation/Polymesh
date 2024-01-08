@@ -653,4 +653,48 @@ benchmarks! {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         Module::<T>::pre_approve_ticker(alice.clone().origin().into(), ticker).unwrap();
     }: _(alice.origin, ticker)
+
+    add_mandatory_mediators {
+        let n in 1 .. T::MaxAssetMediators::get() as u32;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let mediators: BTreeSet<IdentityId> = (0..n).map(|i| IdentityId::from(i as u128)).collect();
+
+        Module::<T>::create_asset(
+            alice.clone().origin().into(),
+            ticker.as_ref().into(),
+            ticker,
+            false,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            Vec::new(),
+            None,
+        ).unwrap();
+
+    }: _(alice.origin, ticker, mediators.try_into().unwrap())
+
+    remove_mediators {
+        let n in 1 .. T::MaxAssetMediators::get() as u32;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let mediators: BTreeSet<IdentityId> = (0..n).map(|i| IdentityId::from(i as u128)).collect();
+
+        Module::<T>::create_asset(
+            alice.clone().origin().into(),
+            ticker.as_ref().into(),
+            ticker,
+            false,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            Vec::new(),
+            None,
+        ).unwrap();
+
+        Module::<T>::add_mandatory_mediators(
+            alice.clone().origin().into(),
+            ticker,
+            mediators.clone().try_into().unwrap()
+        ).unwrap();
+    }: _(alice.origin, ticker, mediators.try_into().unwrap())
+
 }
