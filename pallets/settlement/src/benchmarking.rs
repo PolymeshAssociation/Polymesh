@@ -630,4 +630,14 @@ benchmarks! {
         let portfolios =
             [parameters.portfolios.rcv_portfolios, parameters.portfolios.rcv_receipt_portfolios].concat();
     }: withdraw_affirmation(bob.origin, InstructionId(1),  portfolios)
+
+//    add_instruction_with_mediators {
+//          let n in 0..T::MaxInstructionMediators::get();
+//    }
+//    affirm_instruction_as_mediator {
+//        let n in 0..T::MaxInstructionMediators::get();
+//    }
+//    remove_affirmation_as_mediator {
+//          let n in 0..T::MaxInstructionMediators::get();
+//    }
 }

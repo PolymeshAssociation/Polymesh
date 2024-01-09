@@ -913,8 +913,8 @@ decl_module! {
             origin,
             ticker: Ticker,
             mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>
-        ) -> DispatchResult {
-            Self::base_add_mandatory_mediators(origin, ticker, mediators)
+        ) {
+            Self::base_add_mandatory_mediators(origin, ticker, mediators)?;
         }
 
         /// Removes all identities in the `mediators` set from the mandatory mediators list for the given `ticker`.
@@ -931,8 +931,8 @@ decl_module! {
             origin,
             ticker: Ticker,
             mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>
-        ) -> DispatchResult {
-            Self::base_remove_mediators(origin, ticker, mediators)
+        ) {
+            Self::base_remove_mediators(origin, ticker, mediators)?;
         }
     }
 }

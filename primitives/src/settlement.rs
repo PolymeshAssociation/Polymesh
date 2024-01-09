@@ -697,7 +697,7 @@ impl ExecuteInstructionInfo {
 
 /// The status of the mediator's affirmation.
 #[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
-pub enum MediatorAffirmationStatus {
+pub enum MediatorAffirmationStatus<T> {
     /// Invalid affirmation status
     #[default]
     Unknown,
@@ -706,8 +706,8 @@ pub enum MediatorAffirmationStatus {
     /// The mediator has already affirmed the instruction.
     Affirmed {
         /// Sets an expiration date for the affirmation.
-        expiry: Option<u64>,
+        expiry: Option<T>,
         /// Registers the time the instruction was affirmed.
-        timestamp: u64,
+        timestamp: T,
     },
 }

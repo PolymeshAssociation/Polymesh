@@ -852,4 +852,13 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(n.into())))
     }
+    fn add_instruction_with_mediators() -> Weight {
+        unimplemented!()
+    }
+    fn affirm_instruction_as_mediator() -> Weight {
+        unimplemented!()
+    }
+    fn remove_affirmation_as_mediator() -> Weight {
+        unimplemented!()
+    }
 }
