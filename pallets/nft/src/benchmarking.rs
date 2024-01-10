@@ -91,7 +91,7 @@ pub fn setup_nft_transfer<T>(
     sender_portfolio_name: Option<&str>,
     receiver_portolfio_name: Option<&str>,
     pause_compliance: bool,
-    mediators: u8
+    mediators: u8,
 ) -> (PortfolioId, PortfolioId)
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
@@ -115,12 +115,7 @@ where
         let mediators: BTreeSet<IdentityId> = (0..mediators)
             .map(|i| IdentityId::from((i + 200) as u128))
             .collect();
-        T::AssetFn::add_mandatory_mediators(
-            sender.origin().into(),
-            ticker,
-            mediators,
-        )
-        .unwrap();
+        T::AssetFn::add_mandatory_mediators(sender.origin().into(), ticker, mediators).unwrap();
     }
 
     // Adds the maximum number of compliance requirement

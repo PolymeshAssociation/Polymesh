@@ -97,7 +97,7 @@ fn setup_legs<T>(
     o: u32,
     pause_compliance: bool,
     pause_restrictions: bool,
-    asset_mediators: u8
+    asset_mediators: u8,
 ) -> Parameters
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
@@ -158,7 +158,7 @@ where
                 Some(&sdr_portfolio_name),
                 Some(&rcv_portfolio_name),
                 pause_compliance,
-                asset_mediators
+                asset_mediators,
             );
             portfolios.sdr_portfolios.push(sdr_portfolio.clone());
             portfolios.rcv_portfolios.push(rcv_portfolio.clone());
@@ -189,7 +189,7 @@ fn setup_execute_instruction<T>(
     o: u32,
     pause_compliance: bool,
     pause_restrictions: bool,
-    n_mediators: u8
+    n_mediators: u8,
 ) -> Parameters
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
@@ -203,7 +203,7 @@ where
         o,
         pause_compliance,
         pause_restrictions,
-        n_mediators
+        n_mediators,
     );
     Module::<T>::add_instruction(
         sender.origin.clone().into(),
@@ -662,13 +662,13 @@ benchmarks! {
         let mediators = BTreeSet::from([david.did()]);
 
         let parameters = setup_legs::<T>(
-            &alice, 
-            &bob, 
-            T::MaxNumberOfFungibleAssets::get(), 
-            T::MaxNumberOfNFTs::get(), 
-            T::MaxNumberOfOffChainAssets::get(), 
-            false, 
-            false, 
+            &alice,
+            &bob,
+            T::MaxNumberOfFungibleAssets::get(),
+            T::MaxNumberOfNFTs::get(),
+            T::MaxNumberOfOffChainAssets::get(),
+            false,
+            false,
             2
         );
         Module::<T>::add_instruction_with_mediators(
@@ -693,13 +693,13 @@ benchmarks! {
         let mediators = BTreeSet::from([david.did()]);
 
         let parameters = setup_legs::<T>(
-            &alice, 
-            &bob, 
-            T::MaxNumberOfFungibleAssets::get(), 
-            T::MaxNumberOfNFTs::get(), 
-            T::MaxNumberOfOffChainAssets::get(), 
-            false, 
-            false, 
+            &alice,
+            &bob,
+            T::MaxNumberOfFungibleAssets::get(),
+            T::MaxNumberOfNFTs::get(),
+            T::MaxNumberOfOffChainAssets::get(),
+            false,
+            false,
             2
         );
         Module::<T>::add_instruction_with_mediators(
@@ -713,8 +713,8 @@ benchmarks! {
             mediators.try_into().unwrap()
         ).unwrap();
         Module::<T>::affirm_instruction_as_mediator(
-            david.origin.clone().into(), 
-            InstructionId(1), 
+            david.origin.clone().into(),
+            InstructionId(1),
             None
         ).unwrap();
     }: _(david.origin, InstructionId(1))
