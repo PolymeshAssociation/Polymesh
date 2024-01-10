@@ -91,6 +91,7 @@ pub fn setup_nft_transfer<T>(
     sender_portfolio_name: Option<&str>,
     receiver_portolfio_name: Option<&str>,
     pause_compliance: bool,
+    mediators: u8
 ) -> (PortfolioId, PortfolioId)
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
@@ -108,6 +109,19 @@ where
         n_nfts,
         sender_portfolio.kind,
     );
+
+    // Sets mandatory mediators
+    if mediators > 0 {
+        let mediators: BTreeSet<IdentityId> = (0..mediators)
+            .map(|i| IdentityId::from((i + 200) as u128))
+            .collect();
+        T::AssetFn::add_mandatory_mediators(
+            sender.origin().into(),
+            ticker,
+            mediators,
+        )
+        .unwrap();
+    }
 
     // Adds the maximum number of compliance requirement
     T::Compliance::setup_ticker_compliance(sender.did(), ticker, 50, pause_compliance);
@@ -201,7 +215,7 @@ benchmarks! {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         let (sender_portfolio, receiver_portfolio) =
-            setup_nft_transfer::<T>(&alice, &bob, ticker, n, None, None, true);
+            setup_nft_transfer::<T>(&alice, &bob, ticker, n, None, None, true, 0);
         let nfts = NFTs::new_unverified(ticker, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
     }: {
         with_transaction(|| {
@@ -227,7 +241,7 @@ benchmarks! {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         let (alice_user_portfolio, bob_user_portfolio) =
-            setup_nft_transfer::<T>(&alice, &bob, ticker, n, None, None, true);
+            setup_nft_transfer::<T>(&alice, &bob, ticker, n, None, None, true, 0);
         let nfts = NFTs::new_unverified(ticker, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
         with_transaction(|| {
             Module::<T>::base_nft_transfer(

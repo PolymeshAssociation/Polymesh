@@ -16,6 +16,7 @@
 use frame_benchmarking::benchmarks;
 use frame_support::StorageValue;
 use frame_system::RawOrigin;
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{convert::TryInto, iter, prelude::*};
 
 use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances};
@@ -185,6 +186,7 @@ pub fn setup_asset_transfer<T>(
     receiver_portolfio_name: Option<&str>,
     pause_compliance: bool,
     pause_restrictions: bool,
+    mediators: u8,
 ) -> (PortfolioId, PortfolioId)
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
@@ -197,6 +199,19 @@ where
     // Creates the asset
     make_asset::<T>(sender, Some(ticker.as_ref()));
     move_from_default_portfolio::<T>(sender, ticker, ONE_UNIT * POLY, sender_portfolio);
+
+    // Sets mandatory mediators
+    if mediators > 0 {
+        let mediators: BTreeSet<IdentityId> = (0..mediators)
+            .map(|i| IdentityId::from((i + 100) as u128))
+            .collect();
+        Module::<T>::add_mandatory_mediators(
+            sender.origin().into(),
+            ticker,
+            mediators.try_into().unwrap(),
+        )
+        .unwrap();
+    }
 
     // Adds the maximum number of compliance requirement
     // If pause_compliance is true, only the decoding cost will be considered.
@@ -619,7 +634,7 @@ benchmarks! {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         let (sender_portfolio, receiver_portfolio) =
-            setup_asset_transfer::<T>(&alice, &bob, ticker, None, None, true, true);
+            setup_asset_transfer::<T>(&alice, &bob, ticker, None, None, true, true, 0);
     }: {
         Module::<T>::base_transfer(
             sender_portfolio,

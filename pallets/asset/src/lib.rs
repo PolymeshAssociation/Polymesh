@@ -84,6 +84,9 @@ pub mod checkpoint;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 
+#[cfg(feature = "runtime-benchmarks")]
+use sp_std::collections::btree_set::BTreeSet;
+
 use arrayvec::ArrayVec;
 use codec::{Decode, Encode};
 use core::mem;
@@ -2658,5 +2661,14 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
             Some(ticker) => Self::register_asset_metadata_local_type(origin, ticker, name, spec),
             None => Self::register_asset_metadata_global_type(origin, name, spec),
         }
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn add_mandatory_mediators(
+        origin: T::RuntimeOrigin,
+        ticker: Ticker,
+        mediators: BTreeSet<IdentityId>,
+    ) -> DispatchResult {
+        Self::add_mandatory_mediators(origin, ticker, mediators.try_into().unwrap_or_default())
     }
 }

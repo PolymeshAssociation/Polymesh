@@ -510,13 +510,12 @@ decl_module! {
         /// Adds a new instruction.
         ///
         /// # Arguments
-        /// * `venue_id` - ID of the venue this instruction belongs to.
-        /// * `settlement_type` - Defines if the instruction should be settled in the next block, after receiving all affirmations
-        /// or waiting till a specific block.
-        /// * `trade_date` - Optional date from which people can interact with this instruction.
-        /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
-        /// * `legs` - Legs included in this instruction.
-        /// * `memo` - Memo field for this instruction.
+        /// * `venue_id`: The [`VenueId`] of the venue this instruction belongs to.
+        /// * `settlement_type`: The [`SettlementType`] specifying when the instruction should be settled.
+        /// * `trade_date`: Optional date from which people can interact with this instruction.
+        /// * `value_date`: Optional date after which the instruction should be settled (not enforced).
+        /// * `legs`: A vector of all [`Leg`] included in this instruction.
+        /// * `memo`: An optional [`Memo`] field for this instruction.
         #[weight = <T as Config>::WeightInfo::add_instruction_legs(legs)]
         pub fn add_instruction(
             origin,
@@ -528,20 +527,28 @@ decl_module! {
             instruction_memo: Option<Memo>,
         ) {
             let did = Identity::<T>::ensure_perms(origin)?;
-            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo)?;
+            Self::base_add_instruction(
+                did,
+                venue_id,
+                settlement_type,
+                trade_date,
+                value_date,
+                legs,
+                instruction_memo,
+                None
+            )?;
         }
 
         /// Adds and affirms a new instruction.
         ///
         /// # Arguments
-        /// * `venue_id` - ID of the venue this instruction belongs to.
-        /// * `settlement_type` - Defines if the instruction should be settled in the next block, after receiving all affirmations
-        /// or waiting till a specific block.
-        /// * `trade_date` - Optional date from which people can interact with this instruction.
-        /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
-        /// * `legs` - Legs included in this instruction.
-        /// * `portfolios` - Portfolios that the sender controls and wants to use in this affirmations.
-        /// * `instruction_memo` - Memo field for this instruction.
+        /// * `venue_id`: The [`VenueId`] of the venue this instruction belongs to.
+        /// * `settlement_type`: The [`SettlementType`] specifying when the instruction should be settled.
+        /// * `trade_date`: Optional date from which people can interact with this instruction.
+        /// * `value_date`: Optional date after which the instruction should be settled (not enforced).
+        /// * `legs`: A vector of all [`Leg`] included in this instruction.
+        /// * `portfolios`: A vector of [`PortfolioId`] under the caller's control and intended for affirmation.
+        /// * `memo`: An optional [`Memo`] field for this instruction.
         ///
         /// # Permissions
         /// * Portfolio
@@ -558,7 +565,16 @@ decl_module! {
         ) {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
-            let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo)?;
+            let instruction_id = Self::base_add_instruction(
+                did,
+                venue_id,
+                settlement_type,
+                trade_date,
+                value_date,
+                legs,
+                instruction_memo,
+                None
+            )?;
             Self::affirm_and_maybe_schedule_instruction(
                 origin,
                 instruction_id,
@@ -749,11 +765,11 @@ decl_module! {
         /// * `origin`: The secondary key of the sender.
         /// * `instruction_id`: The [`InstructionId`] that will have the affirmation removed.
         #[weight = <T as Config>::WeightInfo::remove_affirmation_as_mediator()]
-        pub fn remove_affirmation_as_mediator(origin, instruction_id: InstructionId) {
-            Self::base_remove_affirmation_as_mediator(origin, instruction_id)?;
+        pub fn withdraw_affirmation_as_mediator(origin, instruction_id: InstructionId) {
+            Self::base_withdraw_affirmation_as_mediator(origin, instruction_id)?;
         }
 
-        /// Adds a new instruction.
+        /// Adds a new instruction with mediators.
         ///
         /// # Arguments
         /// * `venue_id`: The [`VenueId`] of the venue this instruction belongs to.
@@ -765,16 +781,26 @@ decl_module! {
         /// * `mediators`: A set of [`IdentityId`] of all the mandatory mediators for the instruction.
         #[weight = <T as Config>::WeightInfo::add_instruction_with_mediators()]
         pub fn add_instruction_with_mediators(
-            _origin,
-            _venue_id: VenueId,
-            _settlement_type: SettlementType<T::BlockNumber>,
-            _trade_date: Option<T::Moment>,
-            _value_date: Option<T::Moment>,
-            _legs: Vec<Leg>,
-            _instruction_memo: Option<Memo>,
-            _mediators: BoundedBTreeSet<IdentityId, T::MaxInstructionMediators>,
+            origin,
+            venue_id: VenueId,
+            settlement_type: SettlementType<T::BlockNumber>,
+            trade_date: Option<T::Moment>,
+            value_date: Option<T::Moment>,
+            legs: Vec<Leg>,
+            instruction_memo: Option<Memo>,
+            mediators: BoundedBTreeSet<IdentityId, T::MaxInstructionMediators>,
         ) {
-            unimplemented!()
+            let did = Identity::<T>::ensure_perms(origin)?;
+            Self::base_add_instruction(
+                did,
+                venue_id,
+                settlement_type,
+                trade_date,
+                value_date,
+                legs,
+                instruction_memo,
+                Some(mediators)
+            )?;
         }
     }
 }
@@ -846,6 +872,7 @@ impl<T: Config> Module<T> {
         value_date: Option<T::Moment>,
         legs: Vec<Leg>,
         memo: Option<Memo>,
+        mediators: Option<BoundedBTreeSet<IdentityId, T::MaxInstructionMediators>>,
     ) -> Result<InstructionId, DispatchError> {
         // Verifies if the block number is in the future so that `T::Scheduler::schedule_named` doesn't fail.
         if let SettlementType::SettleOnBlock(block_number) = &settlement_type {
@@ -867,7 +894,12 @@ impl<T: Config> Module<T> {
         Self::venue_for_management(venue_id, did)?;
 
         // Verifies if all legs are valid.
-        let instruction_info = Self::ensure_valid_legs(&legs, &venue_id)?;
+        let mut instruction_info = Self::ensure_valid_legs(&legs, &venue_id)?;
+
+        // Adds the instruction mediators
+        if let Some(mediators) = mediators {
+            instruction_info.extend_mediators(mediators.into())
+        }
 
         // Advance and get next `instruction_id`.
         let instruction_id = InstructionCounter::try_mutate(try_next_post::<T, _>)?;
@@ -1260,6 +1292,8 @@ impl<T: Config> Module<T> {
         OffChainAffirmations::remove_prefix(id, None);
         #[allow(deprecated)]
         AffirmsReceived::remove_prefix(id, None);
+        #[allow(deprecated)]
+        InstructionMediatorsAffirmations::<T>::remove_prefix(id, None);
 
         if executed {
             InstructionStatuses::<T>::insert(
@@ -2169,7 +2203,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Removes the mediator's affirmation for the instruction
-    fn base_remove_affirmation_as_mediator(
+    fn base_withdraw_affirmation_as_mediator(
         origin: T::RuntimeOrigin,
         instruction_id: InstructionId,
     ) -> DispatchResult {
@@ -2200,7 +2234,7 @@ impl<T: Config> Module<T> {
         if n_pending_before_withdrawal == 0
             && instruction.settlement_type == SettlementType::SettleOnAffirmation
         {
-            // Cancel the scheduled task for the execution of a given instruction.
+            // Cancel the scheduled task
             let _ = T::Scheduler::cancel_named(instruction_id.execution_name());
         }
         Ok(())

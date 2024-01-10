@@ -520,6 +520,11 @@ impl InstructionInfo {
     pub fn off_chain(&self) -> u32 {
         self.instruction_asset_count.off_chain()
     }
+
+    /// Extends the mediator's set with the contents of `new_mediators`.
+    pub fn extend_mediators(&mut self, new_mediators: BTreeSet<IdentityId>) {
+        self.mediators.extend(new_mediators.iter());
+    }
 }
 
 /// Holds the [`SenderSideInfo`] and the [`AssetCount`] both for the receiver and unfiltered set.

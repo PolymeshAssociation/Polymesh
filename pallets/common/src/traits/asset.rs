@@ -13,6 +13,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+
+#[cfg(feature = "runtime-benchmarks")]
+use sp_std::collections::btree_set::BTreeSet;
+
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency, Get, UnixTime};
@@ -257,5 +261,12 @@ pub trait AssetFnTrait<Account, Origin> {
         ticker: Option<Ticker>,
         name: AssetMetadataName,
         spec: AssetMetadataSpec,
+    ) -> DispatchResult;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn add_mandatory_mediators(
+        origin: Origin,
+        ticker: Ticker,
+        mediators: BTreeSet<IdentityId>,
     ) -> DispatchResult;
 }

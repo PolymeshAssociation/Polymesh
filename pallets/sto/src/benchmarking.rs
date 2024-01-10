@@ -44,6 +44,7 @@ where
         Some(&format!("RcvPortfolio{:?}", offering_ticker)),
         false,
         false,
+        0,
     );
     let (investor_raising_portfolio, fundraiser_raising_portfolio) = setup_asset_transfer(
         investor,
@@ -53,6 +54,7 @@ where
         Some(&format!("RcvPortfolio{:?}", raise_ticker)),
         false,
         false,
+        0,
     );
 
     let trusted_user = UserBuilder::<T>::default()
