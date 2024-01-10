@@ -82,7 +82,7 @@ decl_event!(
         MediatorAffirmationReceived(IdentityId, InstructionId),
         /// An instruction affirmation has been withdrawn by a mediator.
         /// Parameters: [`IdentityId`] of the mediator and [`InstructionId`] of the instruction.
-        MediatorAffirmationWithdrawn(IdentityId, InstructionId)
+        MediatorAffirmationWithdrawn(IdentityId, InstructionId),
     }
 );
 

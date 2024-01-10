@@ -3889,6 +3889,56 @@ fn withdraw_affirmation_as_mediator() {
     });
 }
 
+#[test]
+fn expired_affirmation_execution() {
+    ExtBuilder::default().build().execute_with(|| {
+        ExtBuilder::default().build().execute_with(|| {
+            let bob = User::new(AccountKeyring::Bob);
+            let alice = User::new(AccountKeyring::Alice);
+            let charlie = User::new(AccountKeyring::Charlie);
+            let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
+            let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
+
+            let venue_counter = create_token_and_venue(TICKER, alice);
+
+            let legs: Vec<Leg> = vec![Leg::Fungible {
+                sender: alice_default_portfolio,
+                receiver: bob_default_portfolio,
+                ticker: TICKER,
+                amount: 1,
+            }];
+            assert_ok!(Settlement::add_instruction_with_mediators(
+                alice.origin(),
+                venue_counter,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                legs.clone(),
+                None,
+                BTreeSet::from([charlie.did]).try_into().unwrap()
+            ));
+            assert_ok!(Settlement::affirm_instruction(
+                alice.origin(),
+                InstructionId(0),
+                vec![alice_default_portfolio]
+            ),);
+            assert_ok!(Settlement::affirm_instruction(
+                bob.origin(),
+                InstructionId(0),
+                vec![bob_default_portfolio]
+            ),);
+            assert_ok!(Settlement::affirm_instruction_as_mediator(
+                charlie.origin(),
+                InstructionId(0),
+                Some(Timestamp::get().saturating_add(3))
+            ),);
+
+            next_block();
+            assert_instruction_status(InstructionId(0), InstructionStatus::Failed);
+        });
+    });
+}
+
 /// Asserts the storage has been updated after adding an instruction.
 /// While each portfolio in `portfolios_pending_approval` must have a pending `AffirmationStatus`, each portfolio in `portfolios_pre_approved`
 /// must have an affirmed status. The number of pending affirmations must be equal to the number of portfolios in `portfolios_pending_approval` + the number of offchain legs,
