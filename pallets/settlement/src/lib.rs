@@ -744,31 +744,6 @@ decl_module! {
                 .map_err(|e| e.error)?;
         }
 
-        /// Affirms the instruction as a mediator - should only be called by mediators, otherwise it will fail.
-        ///
-        /// # Arguments
-        /// * `origin`: The secondary key of the sender.
-        /// * `instruction_id`: The [`InstructionId`] that will be affirmed by the mediator.
-        /// * `expiry`: An Optional value for defining when the affirmation will expire (None means it will always be valid).
-        #[weight = <T as Config>::WeightInfo::affirm_instruction_as_mediator()]
-        pub fn affirm_instruction_as_mediator(
-            origin,
-            instruction_id: InstructionId,
-            expiry: Option<T::Moment>
-        ) {
-            Self::base_affirm_instruction_as_mediator(origin, instruction_id, expiry)?;
-        }
-
-        /// Removes the mediator's affirmation for the instruction - should only be called by mediators, otherwise it will fail.
-        ///
-        /// # Arguments
-        /// * `origin`: The secondary key of the sender.
-        /// * `instruction_id`: The [`InstructionId`] that will have the affirmation removed.
-        #[weight = <T as Config>::WeightInfo::remove_affirmation_as_mediator()]
-        pub fn withdraw_affirmation_as_mediator(origin, instruction_id: InstructionId) {
-            Self::base_withdraw_affirmation_as_mediator(origin, instruction_id)?;
-        }
-
         /// Adds a new instruction with mediators.
         ///
         /// # Arguments
@@ -801,6 +776,31 @@ decl_module! {
                 instruction_memo,
                 Some(mediators)
             )?;
+        }
+
+        /// Affirms the instruction as a mediator - should only be called by mediators, otherwise it will fail.
+        ///
+        /// # Arguments
+        /// * `origin`: The secondary key of the sender.
+        /// * `instruction_id`: The [`InstructionId`] that will be affirmed by the mediator.
+        /// * `expiry`: An Optional value for defining when the affirmation will expire (None means it will always be valid).
+        #[weight = <T as Config>::WeightInfo::affirm_instruction_as_mediator()]
+        pub fn affirm_instruction_as_mediator(
+            origin,
+            instruction_id: InstructionId,
+            expiry: Option<T::Moment>
+        ) {
+            Self::base_affirm_instruction_as_mediator(origin, instruction_id, expiry)?;
+        }
+
+        /// Removes the mediator's affirmation for the instruction - should only be called by mediators, otherwise it will fail.
+        ///
+        /// # Arguments
+        /// * `origin`: The secondary key of the sender.
+        /// * `instruction_id`: The [`InstructionId`] that will have the affirmation removed.
+        #[weight = <T as Config>::WeightInfo::remove_affirmation_as_mediator()]
+        pub fn withdraw_affirmation_as_mediator(origin, instruction_id: InstructionId) {
+            Self::base_withdraw_affirmation_as_mediator(origin, instruction_id)?;
         }
     }
 }
