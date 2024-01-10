@@ -2199,6 +2199,8 @@ impl<T: Config> Module<T> {
             );
             Self::maybe_schedule_instruction(n_pending_affirmations, instruction_id, weight_limit);
         }
+
+        Self::deposit_event(RawEvent::MediatorAffirmationReceived(caller_did, instruction_id));
         Ok(())
     }
 
@@ -2237,6 +2239,7 @@ impl<T: Config> Module<T> {
             // Cancel the scheduled task
             let _ = T::Scheduler::cancel_named(instruction_id.execution_name());
         }
+        Self::deposit_event(RawEvent::MediatorAffirmationWithdrawn(caller_did, instruction_id));
         Ok(())
     }
 

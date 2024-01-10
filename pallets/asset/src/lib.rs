@@ -2564,7 +2564,7 @@ impl<T: Config> Module<T> {
         new_mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>,
     ) -> DispatchResult {
         // Verifies if the caller has the correct permissions for this asset
-        <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
         // Tries to add all new identities as mandatory mediators for the asset
         MandatoryMediators::<T>::try_mutate(ticker, |mandatory_mediators| -> DispatchResult {
             for new_mediator in new_mediators {
@@ -2575,6 +2575,7 @@ impl<T: Config> Module<T> {
             Ok(())
         })?;
 
+        Self::deposit_event(RawEvent::SetAssetMediators(caller_did, ticker));
         Ok(())
     }
 
@@ -2585,13 +2586,14 @@ impl<T: Config> Module<T> {
         mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>,
     ) -> DispatchResult {
         // Verifies if the caller has the correct permissions for this asset
-        <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
         // Removes the identities from the mandatory mediators list
         MandatoryMediators::<T>::mutate(ticker, |mandatory_mediators| {
             for mediator in mediators {
                 mandatory_mediators.remove(&mediator);
             }
         });
+        Self::deposit_event(RawEvent::AssetMediatorsRemoved(caller_did, ticker));
         Ok(())
     }
 }

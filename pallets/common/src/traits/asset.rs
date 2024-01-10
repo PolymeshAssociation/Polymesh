@@ -184,6 +184,12 @@ decl_event! {
         /// An identity has removed an asset to the list of pre aprroved receivement.
         /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset.
         RemovePreApprovedAsset(IdentityId, Ticker),
+        /// An identity has added mandatory mediators to an asset.
+        /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset.
+        SetAssetMediators(IdentityId, Ticker),
+        /// An identity has removed mediators from an asset.
+        /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset.
+        AssetMediatorsRemoved(IdentityId, Ticker)
     }
 }
 
