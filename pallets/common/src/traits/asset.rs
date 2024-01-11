@@ -224,8 +224,8 @@ pub trait WeightInfo {
     fn remove_ticker_affirmation_exemption() -> Weight;
     fn pre_approve_ticker() -> Weight;
     fn remove_ticker_pre_approval() -> Weight;
-    fn add_mandatory_mediators() -> Weight;
-    fn remove_mediators() -> Weight;
+    fn add_mandatory_mediators(n: u32) -> Weight;
+    fn remove_mediators(n: u32) -> Weight;
 }
 
 pub trait AssetFnTrait<Account, Origin> {

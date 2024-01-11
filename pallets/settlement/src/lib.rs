@@ -752,9 +752,9 @@ decl_module! {
         /// * `trade_date`: Optional date from which people can interact with this instruction.
         /// * `value_date`: Optional date after which the instruction should be settled (not enforced).
         /// * `legs`: A vector of all [`Leg`] included in this instruction.
-        /// * `memo`: An optional [`Memo`] field for this instruction.
+        /// * `instruction_memo`: An optional [`Memo`] field for this instruction.
         /// * `mediators`: A set of [`IdentityId`] of all the mandatory mediators for the instruction.
-        #[weight = <T as Config>::WeightInfo::add_instruction_with_mediators()]
+        #[weight = <T as Config>::WeightInfo::add_instruction_with_mediators_legs(legs, mediators.len() as u32)]
         pub fn add_instruction_with_mediators(
             origin,
             venue_id: VenueId,
@@ -778,6 +778,53 @@ decl_module! {
             )?;
         }
 
+        /// Adds and affirms a new instruction with mediators.
+        ///
+        /// # Arguments
+        /// * `venue_id`: The [`VenueId`] of the venue this instruction belongs to.
+        /// * `settlement_type`: The [`SettlementType`] specifying when the instruction should be settled.
+        /// * `trade_date`: Optional date from which people can interact with this instruction.
+        /// * `value_date`: Optional date after which the instruction should be settled (not enforced).
+        /// * `legs`: A vector of all [`Leg`] included in this instruction.
+        /// * `portfolios`: A vector of [`PortfolioId`] under the caller's control and intended for affirmation.
+        /// * `instruction_memo`: An optional [`Memo`] field for this instruction.
+        /// * `mediators`: A set of [`IdentityId`] of all the mandatory mediators for the instruction.
+        ///
+        /// # Permissions
+        /// * Portfolio
+        #[weight = <T as Config>::WeightInfo::add_and_affirm_with_mediators_legs(legs, mediators.len() as u32)]
+        pub fn add_and_affirm_with_mediators(
+            origin,
+            venue_id: VenueId,
+            settlement_type: SettlementType<T::BlockNumber>,
+            trade_date: Option<T::Moment>,
+            value_date: Option<T::Moment>,
+            legs: Vec<Leg>,
+            portfolios: Vec<PortfolioId>,
+            instruction_memo: Option<Memo>,
+            mediators: BoundedBTreeSet<IdentityId, T::MaxInstructionMediators>,
+        ) {
+            let did = Identity::<T>::ensure_perms(origin.clone())?;
+            let instruction_id = Self::base_add_instruction(
+                did,
+                venue_id,
+                settlement_type,
+                trade_date,
+                value_date,
+                legs,
+                instruction_memo,
+                Some(mediators)
+            )?;
+            let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
+            Self::affirm_and_maybe_schedule_instruction(
+                origin,
+                instruction_id,
+                portfolios_set.into_iter(),
+                None
+            )
+            .map_err(|e| e.error)?;
+        }
+
         /// Affirms the instruction as a mediator - should only be called by mediators, otherwise it will fail.
         ///
         /// # Arguments
@@ -798,7 +845,7 @@ decl_module! {
         /// # Arguments
         /// * `origin`: The secondary key of the sender.
         /// * `instruction_id`: The [`InstructionId`] that will have the affirmation removed.
-        #[weight = <T as Config>::WeightInfo::remove_affirmation_as_mediator()]
+        #[weight = <T as Config>::WeightInfo::withdraw_affirmation_as_mediator()]
         pub fn withdraw_affirmation_as_mediator(origin, instruction_id: InstructionId) {
             Self::base_withdraw_affirmation_as_mediator(origin, instruction_id)?;
         }

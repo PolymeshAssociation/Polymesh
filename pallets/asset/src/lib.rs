@@ -911,7 +911,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::add_mandatory_mediators()]
+        #[weight = <T as Config>::WeightInfo::add_mandatory_mediators(mediators.len() as u32)]
         pub fn add_mandatory_mediators(
             origin,
             ticker: Ticker,
@@ -929,7 +929,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::remove_mediators()]
+        #[weight = <T as Config>::WeightInfo::remove_mediators(mediators.len() as u32)]
         pub fn remove_mediators(
             origin,
             ticker: Ticker,

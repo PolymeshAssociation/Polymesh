@@ -107,10 +107,19 @@ pub trait WeightInfo {
     fn affirm_with_receipts_rcv(f: u32, n: u32, o: u32) -> Weight;
     fn affirm_instruction_rcv(f: u32, n: u32) -> Weight;
     fn withdraw_affirmation_rcv(f: u32, n: u32, o: u32) -> Weight;
-    fn add_instruction_with_mediators() -> Weight;
+    fn add_instruction_with_mediators(f: u32, n: u32, o: u32, m: u32) -> Weight;
+    fn add_and_affirm_with_mediators(f: u32, n: u32, o: u32, m: u32) -> Weight;
     fn affirm_instruction_as_mediator() -> Weight;
-    fn remove_affirmation_as_mediator() -> Weight;
+    fn withdraw_affirmation_as_mediator() -> Weight;
 
+    fn add_and_affirm_with_mediators_legs(legs: &[Leg], n_mediators: u32) -> Weight {
+        let (f, n, o) = Self::get_transfer_by_asset(legs);
+        Self::add_and_affirm_with_mediators(f, n, o, n_mediators)
+    }
+    fn add_instruction_with_mediators_legs(legs: &[Leg], n_mediators: u32) -> Weight {
+        let (f, n, o) = Self::get_transfer_by_asset(legs);
+        Self::add_instruction_with_mediators(f, n, o, n_mediators)
+    }
     fn add_instruction_legs(legs: &[Leg]) -> Weight {
         let (f, n, o) = Self::get_transfer_by_asset(legs);
         Self::add_instruction(f, n, o)

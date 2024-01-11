@@ -653,6 +653,23 @@ benchmarks! {
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false, 2);
     }: _(alice.origin, venue_id, settlement_type, None, None, parameters.legs, memo, mediators.try_into().unwrap())
 
+    add_and_affirm_with_mediators {
+        // Number of fungible, non-fungible, offchain legs and mediators
+        let f in 1..T::MaxNumberOfFungibleAssets::get();
+        let n in 0..T::MaxNumberOfNFTs::get();
+        let o in 0..T::MaxNumberOfOffChainAssets::get();
+        let m in 0..T::MaxInstructionMediators::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let memo = Some(Memo::default());
+        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
+        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
+        let mediators: BTreeSet<IdentityId> = (0..m).map(|i| IdentityId::from(i as u128)).collect();
+
+        let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false, 2);
+    }: _(alice.origin, venue_id, settlement_type, None, None, parameters.legs, parameters.portfolios.sdr_portfolios, memo, mediators.try_into().unwrap())
+
     affirm_instruction_as_mediator {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let david = UserBuilder::<T>::default().generate_did().build("David");
