@@ -2647,7 +2647,7 @@ fn unauthorized_remove_mediators() {
             None,
         ));
         assert_noop!(
-            Asset::remove_mediators(bob.origin(), ticker, mediators.try_into().unwrap()),
+            Asset::remove_mandatory_mediators(bob.origin(), ticker, mediators.try_into().unwrap()),
             EAError::UnauthorizedAgent
         );
     });
@@ -2679,7 +2679,7 @@ fn successfully_remove_mediators() {
         ));
 
         let remove_mediators = BTreeSet::from([IdentityId::from(0 as u128)]);
-        assert_ok!(Asset::remove_mediators(
+        assert_ok!(Asset::remove_mandatory_mediators(
             alice.origin(),
             ticker,
             remove_mediators.clone().try_into().unwrap()
