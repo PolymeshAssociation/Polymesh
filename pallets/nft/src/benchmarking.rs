@@ -91,8 +91,8 @@ pub fn setup_nft_transfer<T>(
     sender_portfolio_name: Option<&str>,
     receiver_portolfio_name: Option<&str>,
     pause_compliance: bool,
-    mediators: u8,
-) -> (PortfolioId, PortfolioId)
+    n_mediators: u8,
+) -> (PortfolioId, PortfolioId, Vec<User<T>>)
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
 {
@@ -111,17 +111,25 @@ where
     );
 
     // Sets mandatory mediators
-    if mediators > 0 {
-        let mediators: BTreeSet<IdentityId> = (0..mediators)
-            .map(|i| IdentityId::from((i + 200) as u128))
+    let mut asset_mediators = Vec::new();
+    if n_mediators > 0 {
+        let mediators_identity: BTreeSet<IdentityId> = (0..n_mediators)
+            .map(|i| {
+                let mediator = UserBuilder::<T>::default()
+                    .generate_did()
+                    .build(&format!("Mediator{:?}{}", ticker, i));
+                asset_mediators.push(mediator.clone());
+                mediator.did()
+            })
             .collect();
-        T::AssetFn::add_mandatory_mediators(sender.origin().into(), ticker, mediators).unwrap();
+        T::AssetFn::add_mandatory_mediators(sender.origin().into(), ticker, mediators_identity)
+            .unwrap();
     }
 
     // Adds the maximum number of compliance requirement
     T::Compliance::setup_ticker_compliance(sender.did(), ticker, 50, pause_compliance);
 
-    (sender_portfolio, receiver_portfolio)
+    (sender_portfolio, receiver_portfolio, asset_mediators)
 }
 
 benchmarks! {
@@ -209,7 +217,7 @@ benchmarks! {
         let nft_type: Option<NonFungibleType> = Some(NonFungibleType::Derivative);
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        let (sender_portfolio, receiver_portfolio) =
+        let (sender_portfolio, receiver_portfolio, _) =
             setup_nft_transfer::<T>(&alice, &bob, ticker, n, None, None, true, 0);
         let nfts = NFTs::new_unverified(ticker, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
     }: {
@@ -235,7 +243,7 @@ benchmarks! {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        let (alice_user_portfolio, bob_user_portfolio) =
+        let (alice_user_portfolio, bob_user_portfolio, _) =
             setup_nft_transfer::<T>(&alice, &bob, ticker, n, None, None, true, 0);
         let nfts = NFTs::new_unverified(ticker, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
         with_transaction(|| {

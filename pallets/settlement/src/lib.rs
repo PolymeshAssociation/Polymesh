@@ -1250,6 +1250,7 @@ impl<T: Config> Module<T> {
 
     /// Returns `Ok` if all mediator's affirmation are still valid. Otherwise, returns an error.
     fn ensure_non_expired_affirmations(instruction_id: &InstructionId) -> DispatchResult {
+        let current_timestamp = <pallet_timestamp::Pallet<T>>::get();
         for mediator_affirmation in
             InstructionMediatorsAffirmations::<T>::iter_prefix_values(instruction_id)
         {
@@ -1257,7 +1258,7 @@ impl<T: Config> Module<T> {
                 MediatorAffirmationStatus::Affirmed { expiry, .. } => {
                     if let Some(expiry) = expiry {
                         ensure!(
-                            expiry < <pallet_timestamp::Pallet<T>>::get(),
+                            expiry < current_timestamp,
                             Error::<T>::MediatorAffirmationExpired
                         );
                     }
@@ -2218,16 +2219,18 @@ impl<T: Config> Module<T> {
         );
 
         // Verifies if the expiry date is in the future
-        let timestamp = <pallet_timestamp::Pallet<T>>::get();
         if let Some(expiry) = expiry {
-            ensure!(expiry > timestamp, Error::<T>::InvalidExpiryDate);
+            ensure!(
+                expiry > <pallet_timestamp::Pallet<T>>::get(),
+                Error::<T>::InvalidExpiryDate
+            );
         }
 
         // Updates the mediator's affirmation status to affirmed
         InstructionMediatorsAffirmations::<T>::insert(
             instruction_id,
             caller_did,
-            MediatorAffirmationStatus::Affirmed { expiry, timestamp },
+            MediatorAffirmationStatus::Affirmed { expiry },
         );
         // If the mediator is not reaffirming the instruction, the number of pending affirmation must be updated
         if MediatorAffirmationStatus::Pending == mediator_affirmation_status {
@@ -2276,13 +2279,16 @@ impl<T: Config> Module<T> {
         }
 
         // Updates the mediator's affirmation status to pending and add one to the number of pending affirmations
-        let n_pending_before_withdrawal = InstructionAffirmsPending::get(instruction_id);
         InstructionMediatorsAffirmations::<T>::insert(
             instruction_id,
             caller_did,
             MediatorAffirmationStatus::Pending,
         );
-        InstructionAffirmsPending::mutate(instruction_id, |n| *n = n.saturating_add(1));
+        let n_pending_before_withdrawal = InstructionAffirmsPending::mutate(instruction_id, |n| {
+            let before = n.clone();
+            *n = n.saturating_add(1);
+            before
+        });
         if n_pending_before_withdrawal == 0
             && instruction.settlement_type == SettlementType::SettleOnAffirmation
         {

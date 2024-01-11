@@ -36,7 +36,7 @@ fn create_assets_and_compliance<T>(
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
 {
-    let (fundraiser_offering_portfolio, investor_offering_portfolio) = setup_asset_transfer(
+    let (fundraiser_offering_portfolio, investor_offering_portfolio, _) = setup_asset_transfer(
         fundraiser,
         investor,
         offering_ticker,
@@ -46,7 +46,7 @@ where
         false,
         0,
     );
-    let (investor_raising_portfolio, fundraiser_raising_portfolio) = setup_asset_transfer(
+    let (investor_raising_portfolio, fundraiser_raising_portfolio, _) = setup_asset_transfer(
         investor,
         fundraiser,
         raise_ticker,

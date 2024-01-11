@@ -729,7 +729,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     /// Storage: Asset MandatoryMediators (r:1 w:1)
     /// Proof Skipped: Asset MandatoryMediators (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[1, 4]`.
-    fn remove_mediators(n: u32) -> Weight {
+    fn remove_mandatory_mediators(n: u32) -> Weight {
         // Proof Size summary in bytes:
         //  Measured:  `1180 + n * (32 ±0)`
         //  Estimated: `19270 + n * (160 ±0)`

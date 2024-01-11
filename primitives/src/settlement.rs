@@ -712,7 +712,5 @@ pub enum MediatorAffirmationStatus<T> {
     Affirmed {
         /// Sets an expiration date for the affirmation.
         expiry: Option<T>,
-        /// Registers the time the instruction was affirmed.
-        timestamp: T,
     },
 }

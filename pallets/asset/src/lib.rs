@@ -929,13 +929,13 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::remove_mediators(mediators.len() as u32)]
-        pub fn remove_mediators(
+        #[weight = <T as Config>::WeightInfo::remove_mandatory_mediators(mediators.len() as u32)]
+        pub fn remove_mandatory_mediators(
             origin,
             ticker: Ticker,
             mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>
         ) {
-            Self::base_remove_mediators(origin, ticker, mediators)?;
+            Self::base_remove_mandatory_mediators(origin, ticker, mediators)?;
         }
     }
 }
@@ -2575,12 +2575,12 @@ impl<T: Config> Module<T> {
             Ok(())
         })?;
 
-        Self::deposit_event(RawEvent::SetAssetMediators(caller_did, ticker));
+        Self::deposit_event(RawEvent::AssetMediatorsAdded(caller_did, ticker));
         Ok(())
     }
 
     /// Removes all identities in the `mediators` set from the mandatory mediators list for the given `ticker`.
-    fn base_remove_mediators(
+    fn base_remove_mandatory_mediators(
         origin: T::RuntimeOrigin,
         ticker: Ticker,
         mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>,

@@ -186,7 +186,7 @@ decl_event! {
         RemovePreApprovedAsset(IdentityId, Ticker),
         /// An identity has added mandatory mediators to an asset.
         /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset.
-        SetAssetMediators(IdentityId, Ticker),
+        AssetMediatorsAdded(IdentityId, Ticker),
         /// An identity has removed mediators from an asset.
         /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset.
         AssetMediatorsRemoved(IdentityId, Ticker)
@@ -225,7 +225,7 @@ pub trait WeightInfo {
     fn pre_approve_ticker() -> Weight;
     fn remove_ticker_pre_approval() -> Weight;
     fn add_mandatory_mediators(n: u32) -> Weight;
-    fn remove_mediators(n: u32) -> Weight;
+    fn remove_mandatory_mediators(n: u32) -> Weight;
 }
 
 pub trait AssetFnTrait<Account, Origin> {

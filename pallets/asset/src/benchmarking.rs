@@ -16,6 +16,7 @@
 use frame_benchmarking::benchmarks;
 use frame_support::StorageValue;
 use frame_system::RawOrigin;
+use scale_info::prelude::format;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{convert::TryInto, iter, prelude::*};
 
@@ -186,8 +187,8 @@ pub fn setup_asset_transfer<T>(
     receiver_portolfio_name: Option<&str>,
     pause_compliance: bool,
     pause_restrictions: bool,
-    mediators: u8,
-) -> (PortfolioId, PortfolioId)
+    n_mediators: u8,
+) -> (PortfolioId, PortfolioId, Vec<User<T>>)
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
 {
@@ -201,14 +202,21 @@ where
     move_from_default_portfolio::<T>(sender, ticker, ONE_UNIT * POLY, sender_portfolio);
 
     // Sets mandatory mediators
-    if mediators > 0 {
-        let mediators: BTreeSet<IdentityId> = (0..mediators)
-            .map(|i| IdentityId::from((i + 100) as u128))
+    let mut asset_mediators = Vec::new();
+    if n_mediators > 0 {
+        let mediators_identity: BTreeSet<IdentityId> = (0..n_mediators)
+            .map(|i| {
+                let mediator = UserBuilder::<T>::default()
+                    .generate_did()
+                    .build(&format!("Mediator{:?}{}", ticker, i));
+                asset_mediators.push(mediator.clone());
+                mediator.did()
+            })
             .collect();
         Module::<T>::add_mandatory_mediators(
             sender.origin().into(),
             ticker,
-            mediators.try_into().unwrap(),
+            mediators_identity.try_into().unwrap(),
         )
         .unwrap();
     }
@@ -227,7 +235,7 @@ where
         pause_restrictions,
     );
 
-    (sender_portfolio, receiver_portfolio)
+    (sender_portfolio, receiver_portfolio, asset_mediators)
 }
 
 /// Creates a user portfolio for `user`.
@@ -633,7 +641,7 @@ benchmarks! {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        let (sender_portfolio, receiver_portfolio) =
+        let (sender_portfolio, receiver_portfolio, _) =
             setup_asset_transfer::<T>(&alice, &bob, ticker, None, None, true, true, 0);
     }: {
         Module::<T>::base_transfer(
@@ -688,7 +696,7 @@ benchmarks! {
 
     }: _(alice.origin, ticker, mediators.try_into().unwrap())
 
-    remove_mediators {
+    remove_mandatory_mediators {
         let n in 1 .. T::MaxAssetMediators::get() as u32;
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
