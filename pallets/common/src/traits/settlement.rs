@@ -111,6 +111,7 @@ pub trait WeightInfo {
     fn add_and_affirm_with_mediators(f: u32, n: u32, o: u32, m: u32) -> Weight;
     fn affirm_instruction_as_mediator() -> Weight;
     fn withdraw_affirmation_as_mediator() -> Weight;
+    fn reject_instruction_as_mediator(f: u32, n: u32, o: u32) -> Weight;
 
     fn add_and_affirm_with_mediators_legs(legs: &[Leg], n_mediators: u32) -> Weight {
         let (f, n, o) = Self::get_transfer_by_asset(legs);
@@ -227,14 +228,29 @@ pub trait WeightInfo {
             None => Self::withdraw_affirmation(10, 100, 10),
         }
     }
-    fn reject_instruction_input(asset_count: Option<AssetCount>) -> Weight {
+    fn reject_instruction_input(asset_count: Option<AssetCount>, as_mediator: bool) -> Weight {
         match asset_count {
-            Some(asset_count) => Self::reject_instruction(
-                asset_count.fungible(),
-                asset_count.non_fungible(),
-                asset_count.off_chain(),
-            ),
-            None => Self::reject_instruction(10, 100, 10),
+            Some(asset_count) => {
+                if as_mediator {
+                    return Self::reject_instruction_as_mediator(
+                        asset_count.fungible(),
+                        asset_count.non_fungible(),
+                        asset_count.off_chain(),
+                    );
+                }
+                Self::reject_instruction(
+                    asset_count.fungible(),
+                    asset_count.non_fungible(),
+                    asset_count.off_chain(),
+                )
+            }
+            None => {
+                let (f, n, o) = (10, 100, 10);
+                if as_mediator {
+                    return Self::reject_instruction_as_mediator(f, n, o);
+                }
+                Self::reject_instruction(f, n, o)
+            }
         }
     }
 }

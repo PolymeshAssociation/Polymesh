@@ -623,9 +623,9 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::reject_instruction_input(None)]
+        #[weight = <T as Config>::WeightInfo::reject_instruction_input(None, false)]
         pub fn reject_instruction(origin, id: InstructionId, portfolio: PortfolioId) -> DispatchResultWithPostInfo {
-            Self::base_reject_instruction(origin, id, portfolio, None)
+            Self::base_reject_instruction(origin, id, Some(portfolio), None)
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
@@ -711,14 +711,14 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::reject_instruction_input(*number_of_assets)]
+        #[weight = <T as Config>::WeightInfo::reject_instruction_input(*number_of_assets, false)]
         pub fn reject_instruction_with_count(
             origin,
             id: InstructionId,
             portfolio: PortfolioId,
             number_of_assets: Option<AssetCount>
         ) {
-            Self::base_reject_instruction(origin, id, portfolio, number_of_assets)
+            Self::base_reject_instruction(origin, id, Some(portfolio), number_of_assets)
                 .map_err(|e| e.error)?;
         }
 
@@ -848,6 +848,22 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::withdraw_affirmation_as_mediator()]
         pub fn withdraw_affirmation_as_mediator(origin, instruction_id: InstructionId) {
             Self::base_withdraw_affirmation_as_mediator(origin, instruction_id)?;
+        }
+
+        /// Rejects an existing instruction - should only be called by mediators, otherwise it will fail.
+        ///
+        /// # Arguments
+        /// * `instruction_id` - the [`InstructionId`] of the instruction being rejected.
+        /// * `number_of_assets` - an optional [`AssetCount`] that will be used for a precise fee estimation before executing the extrinsic.
+        ///
+        /// Note: calling the rpc method `get_execute_instruction_info` returns an instance of [`ExecuteInstructionInfo`], which contain the asset count.
+        #[weight = <T as Config>::WeightInfo::reject_instruction_input(None, true)]
+        pub fn reject_instruction_as_mediator(
+            origin,
+            instruction_id: InstructionId,
+            number_of_assets: Option<AssetCount>
+        ) -> DispatchResultWithPostInfo {
+            Self::base_reject_instruction(origin, instruction_id, None, number_of_assets)
         }
     }
 }
@@ -1756,41 +1772,64 @@ impl<T: Config> Module<T> {
 
     fn base_reject_instruction(
         origin: T::RuntimeOrigin,
-        id: InstructionId,
-        portfolio: PortfolioId,
+        instruction_id: InstructionId,
+        portfolio: Option<PortfolioId>,
         instruction_count: Option<AssetCount>,
     ) -> DispatchResultWithPostInfo {
+        // Makes sure the instruction exists
         ensure!(
-            Self::instruction_status(id) != InstructionStatus::Unknown,
+            Self::instruction_status(instruction_id) != InstructionStatus::Unknown,
             Error::<T>::UnknownInstruction
         );
-        // Gets all legs for the instruction and checks if portfolio is in any of the legs
-        let legs: Vec<(LegId, Leg)> = InstructionLegs::iter_prefix(&id).collect();
+        // Get all legs for the instruction
+        let legs: Vec<(LegId, Leg)> = InstructionLegs::iter_prefix(&instruction_id).collect();
         let instruction_asset_count = AssetCount::from_legs(&legs);
         // If the fee was estimated in advance, the input values must be at least equal to the actual values
         if let Some(instruction_count) = instruction_count {
             Self::ensure_valid_cost(&instruction_asset_count, &instruction_count)?;
         }
-        ensure!(
-            Self::is_portfolio_present(&legs, &portfolio),
-            Error::<T>::CallerIsNotAParty
-        );
-
-        // Verifies if the caller has the right permissions for this call
+        // Check if the caller is a mediator or a portfolio owner
         let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
-        T::Portfolio::ensure_portfolio_custody_and_permission(
-            portfolio,
+        let actual_weight = {
+            match portfolio {
+                Some(portfolio) => {
+                    // The portfolio must be present in at least one leg
+                    ensure!(
+                        Self::is_portfolio_present(&legs, &portfolio),
+                        Error::<T>::CallerIsNotAParty
+                    );
+                    // The caller must have the right permissions to the portfolio
+                    T::Portfolio::ensure_portfolio_custody_and_permission(
+                        portfolio,
+                        origin_data.primary_did,
+                        origin_data.secondary_key.as_ref(),
+                    )?;
+                    Self::reject_instruction_weight(instruction_asset_count, false)
+                }
+                None => {
+                    // The caller must be a mediator
+                    ensure!(
+                        InstructionMediatorsAffirmations::<T>::get(
+                            instruction_id,
+                            origin_data.primary_did
+                        ) != MediatorAffirmationStatus::Unknown,
+                        Error::<T>::CallerIsNotAMediator
+                    );
+                    Self::reject_instruction_weight(instruction_asset_count, true)
+                }
+            }
+        };
+        // All checks have been made - write to storage
+        Self::unchecked_release_locks(instruction_id, &legs);
+        let _ = T::Scheduler::cancel_named(instruction_id.execution_name());
+        // Remove all data from storage
+        Self::prune_instruction(instruction_id, false);
+        Self::deposit_event(RawEvent::InstructionRejected(
             origin_data.primary_did,
-            origin_data.secondary_key.as_ref(),
-        )?;
-
-        Self::unchecked_release_locks(id, &legs);
-        let _ = T::Scheduler::cancel_named(id.execution_name());
-        Self::prune_instruction(id, false);
-        Self::deposit_event(RawEvent::InstructionRejected(origin_data.primary_did, id));
-        Ok(PostDispatchInfo::from(Some(
-            Self::reject_instruction_weight(&instruction_asset_count),
-        )))
+            instruction_id,
+        ));
+        // Return the actual weight for the call
+        Ok(PostDispatchInfo::from(Some(actual_weight)))
     }
 
     /// Returns `Ok` if the number of fungible, nonfungible and offchain assets is under the input given by the user.
@@ -2357,11 +2396,10 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns the weight for calling `reject_instruction_weight` with the number of assets in `instruction_asset_count`.
-    fn reject_instruction_weight(instruction_asset_count: &AssetCount) -> Weight {
-        <T as Config>::WeightInfo::reject_instruction(
-            instruction_asset_count.fungible(),
-            instruction_asset_count.non_fungible(),
-            instruction_asset_count.off_chain(),
+    fn reject_instruction_weight(instruction_asset_count: AssetCount, as_mediator: bool) -> Weight {
+        <T as Config>::WeightInfo::reject_instruction_input(
+            Some(instruction_asset_count),
+            as_mediator,
         )
     }
 
@@ -2395,7 +2433,7 @@ impl<T: Config> Module<T> {
             }
             Call::reject_instruction { id, .. } => {
                 let asset_count = Self::get_instruction_asset_count(id);
-                Some(Self::reject_instruction_weight(&asset_count))
+                Some(Self::reject_instruction_weight(asset_count, false))
             }
             _ => None,
         }

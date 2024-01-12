@@ -3935,6 +3935,70 @@ fn expired_affirmation_execution() {
 
             next_block();
             assert_instruction_status(InstructionId(0), InstructionStatus::Failed);
+
+            assert_ok!(Settlement::affirm_instruction_as_mediator(
+                charlie.origin(),
+                InstructionId(0),
+                None
+            ),);
+            assert_ok!(Settlement::execute_manual_instruction(
+                alice.origin(),
+                InstructionId(0),
+                None,
+                1,
+                0,
+                0,
+                None
+            ));
+            assert_instruction_status(
+                InstructionId(0),
+                InstructionStatus::Success(System::block_number()),
+            );
+        });
+    });
+}
+
+#[test]
+fn reject_instruction_as_mediator() {
+    ExtBuilder::default().build().execute_with(|| {
+        ExtBuilder::default().build().execute_with(|| {
+            let bob = User::new(AccountKeyring::Bob);
+            let dave = User::new(AccountKeyring::Dave);
+            let alice = User::new(AccountKeyring::Alice);
+            let charlie = User::new(AccountKeyring::Charlie);
+
+            let venue_counter = create_token_and_venue(TICKER, alice);
+
+            let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+            let legs: Vec<Leg> = vec![Leg::NonFungible {
+                sender: PortfolioId::default_portfolio(alice.did),
+                receiver: PortfolioId::default_portfolio(bob.did),
+                nfts,
+            }];
+            assert_ok!(Settlement::add_instruction_with_mediators(
+                alice.origin(),
+                venue_counter,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                legs.clone(),
+                None,
+                BTreeSet::from([charlie.did]).try_into().unwrap()
+            ));
+
+            assert_noop!(
+                Settlement::reject_instruction_as_mediator(dave.origin(), InstructionId(0), None),
+                Error::CallerIsNotAMediator
+            );
+            assert_ok!(Settlement::reject_instruction_as_mediator(
+                charlie.origin(),
+                InstructionId(0),
+                None
+            ),);
+            assert_instruction_status(
+                InstructionId(0),
+                InstructionStatus::Rejected(System::block_number()),
+            );
         });
     });
 }
