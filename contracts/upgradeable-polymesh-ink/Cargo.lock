@@ -2022,7 +2022,9 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "polymesh-api"
-version = "3.5.0"
+version = "3.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe458a4721937ff96c6e7765d18d21b71148c398656a17814dfbb72cb62bdb9d"
 dependencies = [
  "ink",
  "log",
@@ -2036,7 +2038,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-client"
-version = "3.2.5"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eeac54b128958d9aac03d3f88f43be10ee396c746b7ee329e5794f990c1ff5c7"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -2067,7 +2071,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-codegen"
-version = "3.2.0"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "420d0d8d2abb36e1581e373505933620af181c99e788833b4f7714ee2b05e1eb"
 dependencies = [
  "frame-metadata",
  "heck",
@@ -2085,7 +2091,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-codegen-macro"
-version = "3.2.0"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e165461828beeb9832b9b7a33caa6ebad97a4a900c2f50149df084455170f53c"
 dependencies = [
  "darling",
  "parity-scale-codec",
@@ -2098,7 +2106,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-ink"
-version = "1.1.0"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac3076551d480aed6860a93b30f31d972bde708ff3308ec086e26bc62e7e97ae"
 dependencies = [
  "hex",
  "ink",

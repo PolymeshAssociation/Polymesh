@@ -9,9 +9,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 pub use polymesh_api::ink::basic_types::IdentityId;
-pub use polymesh_api::ink::extension::{
-    PolymeshEnvironment, PolymeshRuntimeErr as PolymeshInkExtError,
-};
+pub use polymesh_api::ink::extension::PolymeshEnvironment;
 pub use polymesh_api::ink::Error as PolymeshInkError;
 pub use polymesh_api::polymesh::types::pallet_corporate_actions;
 pub use polymesh_api::polymesh::types::pallet_corporate_actions::CAId;
@@ -48,8 +46,6 @@ pub enum PolymeshError {
     MissingIdentity,
     /// No portfolio was found for the given [`PortfolioId`].
     InvalidPortfolioAuthorization,
-    /// Polymesh ink extension error.
-    PolymeshExtension(PolymeshInkExtError),
     /// Ink! Delegate call error.
     InkDelegateCallError {
         selector: [u8; 4],
@@ -110,12 +106,6 @@ impl PolymeshError {
 impl From<PolymeshInkError> for PolymeshError {
     fn from(err: PolymeshInkError) -> Self {
         Self::PolymeshRuntime(err)
-    }
-}
-
-impl From<PolymeshInkExtError> for PolymeshError {
-    fn from(err: PolymeshInkExtError) -> Self {
-        Self::PolymeshExtension(err)
     }
 }
 
