@@ -20,6 +20,7 @@ use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::Vec;
 
 use polymesh_primitives::asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName};
@@ -185,11 +186,11 @@ decl_event! {
         /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset.
         RemovePreApprovedAsset(IdentityId, Ticker),
         /// An identity has added mandatory mediators to an asset.
-        /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset.
-        AssetMediatorsAdded(IdentityId, Ticker),
+        /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset, the identity of all mediators added.
+        AssetMediatorsAdded(IdentityId, Ticker, BTreeSet<IdentityId>),
         /// An identity has removed mediators from an asset.
-        /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset.
-        AssetMediatorsRemoved(IdentityId, Ticker)
+        /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset, the identity of all mediators removed.
+        AssetMediatorsRemoved(IdentityId, Ticker, BTreeSet<IdentityId>)
     }
 }
 
