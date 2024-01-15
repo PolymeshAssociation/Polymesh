@@ -16,6 +16,7 @@ scale = { package = "parity-scale-codec", version = "3", default-features = fals
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
 
 polymesh-api = { version = "3.6", default-features = false, features = ["ink"] }
+polymesh-api-ink = { version = "1.2.2", default-features = false, features = ["use_call_runtime_with_error"] }
 
 paste = "1.0"
 
