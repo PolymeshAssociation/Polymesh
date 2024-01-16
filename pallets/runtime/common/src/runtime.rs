@@ -322,6 +322,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_asset::SubstrateWeight;
             type CPWeightInfo = polymesh_weights::pallet_checkpoint::SubstrateWeight;
             type NFTFn = pallet_nft::Module<Runtime>;
+            type MaxAssetMediators = MaxAssetMediators;
         }
 
         impl polymesh_contracts::Config for Runtime {
@@ -482,6 +483,7 @@ macro_rules! misc_pallet_impls {
             type MaxNumberOfNFTs = MaxNumberOfNFTs;
             type MaxNumberOfOffChainAssets = MaxNumberOfOffChainAssets;
             type MaxNumberOfVenueSigners = MaxNumberOfVenueSigners;
+            type MaxInstructionMediators = MaxInstructionMediators;
         }
 
         impl pallet_sto::Config for Runtime {

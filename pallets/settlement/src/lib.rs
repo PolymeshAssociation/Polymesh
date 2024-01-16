@@ -60,7 +60,9 @@ use frame_support::storage::{
 use frame_support::traits::schedule::{DispatchTime, Named};
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use frame_support::{decl_error, decl_module, decl_storage, ensure, IterableStorageDoubleMap};
+use frame_support::{
+    decl_error, decl_module, decl_storage, ensure, BoundedBTreeSet, IterableStorageDoubleMap,
+};
 use frame_system::{ensure_root, RawOrigin};
 use sp_runtime::traits::{One, Verify};
 use sp_std::collections::btree_set::BTreeSet;
@@ -68,6 +70,7 @@ use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
 use sp_std::vec;
 
+use pallet_asset::MandatoryMediators;
 use pallet_base::{ensure_string_limited, try_next_post};
 use polymesh_common_utilities::constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY;
 use polymesh_common_utilities::traits::identity::IdentityFnTrait;
@@ -78,12 +81,13 @@ use polymesh_common_utilities::with_transaction;
 use polymesh_common_utilities::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::settlement::{
     AffirmationCount, AffirmationStatus, AssetCount, ExecuteInstructionInfo, FilteredLegs,
-    Instruction, InstructionId, InstructionInfo, InstructionStatus, Leg, LegId, LegStatus, Receipt,
-    ReceiptDetails, SettlementType, Venue, VenueDetails, VenueId, VenueType,
+    Instruction, InstructionId, InstructionInfo, InstructionStatus, Leg, LegId, LegStatus,
+    MediatorAffirmationStatus, Receipt, ReceiptDetails, SettlementType, Venue, VenueDetails,
+    VenueId, VenueType,
 };
 use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, Balance, IdentityId, Memo, NFTs, PortfolioId,
-    SecondaryKey, Ticker, WeightMeter,
+    storage_migration_ver, Balance, IdentityId, Memo, NFTs, PortfolioId, SecondaryKey, Ticker,
+    WeightMeter,
 };
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -135,6 +139,9 @@ pub trait Config:
 
     /// Maximum number of venue signers.
     type MaxNumberOfVenueSigners: Get<u32>;
+
+    /// Maximum number mediators in the instruction level (this does not include asset mediators).
+    type MaxInstructionMediators: Get<u32>;
 }
 
 decl_error! {
@@ -220,6 +227,12 @@ decl_error! {
         UnexpectedLegStatus,
         /// The maximum number of venue signers was exceeded.
         NumberOfVenueSignersExceeded,
+        /// The caller is not a mediator in the instruction.
+        CallerIsNotAMediator,
+        /// The mediator's expiry date must be in the future.
+        InvalidExpiryDate,
+        /// The expiry date for the mediator's affirmation has passed.
+        MediatorAffirmationExpired
     }
 }
 
@@ -292,6 +305,9 @@ decl_storage! {
             double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => AffirmationStatus;
         /// Tracks the number of signers each venue has.
         pub NumberOfVenueSigners get(fn number_of_venue_signers): map hasher(twox_64_concat) VenueId => u32;
+        /// The status for the mediators affirmation.
+        pub InstructionMediatorsAffirmations get(fn venue_mediators_affirmations):
+            double_map hasher(twox_64_concat) InstructionId, hasher(identity) IdentityId => MediatorAffirmationStatus<T::Moment>;
     }
 }
 
@@ -300,16 +316,6 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
-
-        fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 1, {
-                migration::migrate_to_v1::<T>();
-            });
-            storage_migrate_on!(StorageVersion, 2, {
-                migration::migrate_to_v2::<T>();
-            });
-            Weight::zero()
-        }
 
         /// Registers a new venue.
         ///
@@ -504,16 +510,12 @@ decl_module! {
         /// Adds a new instruction.
         ///
         /// # Arguments
-        /// * `venue_id` - ID of the venue this instruction belongs to.
-        /// * `settlement_type` - Defines if the instruction should be settled in the next block, after receiving all affirmations
-        /// or waiting till a specific block.
-        /// * `trade_date` - Optional date from which people can interact with this instruction.
-        /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
-        /// * `legs` - Legs included in this instruction.
-        /// * `memo` - Memo field for this instruction.
-        ///
-        /// # Weight
-        /// `950_000_000 + 1_000_000 * legs.len()`
+        /// * `venue_id`: The [`VenueId`] of the venue this instruction belongs to.
+        /// * `settlement_type`: The [`SettlementType`] specifying when the instruction should be settled.
+        /// * `trade_date`: Optional date from which people can interact with this instruction.
+        /// * `value_date`: Optional date after which the instruction should be settled (not enforced).
+        /// * `legs`: A vector of all [`Leg`] included in this instruction.
+        /// * `memo`: An optional [`Memo`] field for this instruction.
         #[weight = <T as Config>::WeightInfo::add_instruction_legs(legs)]
         pub fn add_instruction(
             origin,
@@ -525,20 +527,28 @@ decl_module! {
             instruction_memo: Option<Memo>,
         ) {
             let did = Identity::<T>::ensure_perms(origin)?;
-            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo)?;
+            Self::base_add_instruction(
+                did,
+                venue_id,
+                settlement_type,
+                trade_date,
+                value_date,
+                legs,
+                instruction_memo,
+                None
+            )?;
         }
 
         /// Adds and affirms a new instruction.
         ///
         /// # Arguments
-        /// * `venue_id` - ID of the venue this instruction belongs to.
-        /// * `settlement_type` - Defines if the instruction should be settled in the next block, after receiving all affirmations
-        /// or waiting till a specific block.
-        /// * `trade_date` - Optional date from which people can interact with this instruction.
-        /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
-        /// * `legs` - Legs included in this instruction.
-        /// * `portfolios` - Portfolios that the sender controls and wants to use in this affirmations.
-        /// * `instruction_memo` - Memo field for this instruction.
+        /// * `venue_id`: The [`VenueId`] of the venue this instruction belongs to.
+        /// * `settlement_type`: The [`SettlementType`] specifying when the instruction should be settled.
+        /// * `trade_date`: Optional date from which people can interact with this instruction.
+        /// * `value_date`: Optional date after which the instruction should be settled (not enforced).
+        /// * `legs`: A vector of all [`Leg`] included in this instruction.
+        /// * `portfolios`: A vector of [`PortfolioId`] under the caller's control and intended for affirmation.
+        /// * `memo`: An optional [`Memo`] field for this instruction.
         ///
         /// # Permissions
         /// * Portfolio
@@ -555,7 +565,16 @@ decl_module! {
         ) {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
-            let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo)?;
+            let instruction_id = Self::base_add_instruction(
+                did,
+                venue_id,
+                settlement_type,
+                trade_date,
+                value_date,
+                legs,
+                instruction_memo,
+                None
+            )?;
             Self::affirm_and_maybe_schedule_instruction(
                 origin,
                 instruction_id,
@@ -604,9 +623,9 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::reject_instruction_input(None)]
+        #[weight = <T as Config>::WeightInfo::reject_instruction_input(None, false)]
         pub fn reject_instruction(origin, id: InstructionId, portfolio: PortfolioId) -> DispatchResultWithPostInfo {
-            Self::base_reject_instruction(origin, id, portfolio, None)
+            Self::base_reject_instruction(origin, id, Some(portfolio), None)
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
@@ -692,14 +711,14 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::reject_instruction_input(*number_of_assets)]
+        #[weight = <T as Config>::WeightInfo::reject_instruction_input(*number_of_assets, false)]
         pub fn reject_instruction_with_count(
             origin,
             id: InstructionId,
             portfolio: PortfolioId,
             number_of_assets: Option<AssetCount>
         ) {
-            Self::base_reject_instruction(origin, id, portfolio, number_of_assets)
+            Self::base_reject_instruction(origin, id, Some(portfolio), number_of_assets)
                 .map_err(|e| e.error)?;
         }
 
@@ -723,6 +742,128 @@ decl_module! {
         ) {
             Self::base_withdraw_affirmation(origin, id, portfolios, number_of_assets)
                 .map_err(|e| e.error)?;
+        }
+
+        /// Adds a new instruction with mediators.
+        ///
+        /// # Arguments
+        /// * `venue_id`: The [`VenueId`] of the venue this instruction belongs to.
+        /// * `settlement_type`: The [`SettlementType`] specifying when the instruction should be settled.
+        /// * `trade_date`: Optional date from which people can interact with this instruction.
+        /// * `value_date`: Optional date after which the instruction should be settled (not enforced).
+        /// * `legs`: A vector of all [`Leg`] included in this instruction.
+        /// * `instruction_memo`: An optional [`Memo`] field for this instruction.
+        /// * `mediators`: A set of [`IdentityId`] of all the mandatory mediators for the instruction.
+        #[weight = <T as Config>::WeightInfo::add_instruction_with_mediators_legs(legs, mediators.len() as u32)]
+        pub fn add_instruction_with_mediators(
+            origin,
+            venue_id: VenueId,
+            settlement_type: SettlementType<T::BlockNumber>,
+            trade_date: Option<T::Moment>,
+            value_date: Option<T::Moment>,
+            legs: Vec<Leg>,
+            instruction_memo: Option<Memo>,
+            mediators: BoundedBTreeSet<IdentityId, T::MaxInstructionMediators>,
+        ) {
+            let did = Identity::<T>::ensure_perms(origin)?;
+            Self::base_add_instruction(
+                did,
+                venue_id,
+                settlement_type,
+                trade_date,
+                value_date,
+                legs,
+                instruction_memo,
+                Some(mediators)
+            )?;
+        }
+
+        /// Adds and affirms a new instruction with mediators.
+        ///
+        /// # Arguments
+        /// * `venue_id`: The [`VenueId`] of the venue this instruction belongs to.
+        /// * `settlement_type`: The [`SettlementType`] specifying when the instruction should be settled.
+        /// * `trade_date`: Optional date from which people can interact with this instruction.
+        /// * `value_date`: Optional date after which the instruction should be settled (not enforced).
+        /// * `legs`: A vector of all [`Leg`] included in this instruction.
+        /// * `portfolios`: A vector of [`PortfolioId`] under the caller's control and intended for affirmation.
+        /// * `instruction_memo`: An optional [`Memo`] field for this instruction.
+        /// * `mediators`: A set of [`IdentityId`] of all the mandatory mediators for the instruction.
+        ///
+        /// # Permissions
+        /// * Portfolio
+        #[weight = <T as Config>::WeightInfo::add_and_affirm_with_mediators_legs(legs, mediators.len() as u32)]
+        pub fn add_and_affirm_with_mediators(
+            origin,
+            venue_id: VenueId,
+            settlement_type: SettlementType<T::BlockNumber>,
+            trade_date: Option<T::Moment>,
+            value_date: Option<T::Moment>,
+            legs: Vec<Leg>,
+            portfolios: Vec<PortfolioId>,
+            instruction_memo: Option<Memo>,
+            mediators: BoundedBTreeSet<IdentityId, T::MaxInstructionMediators>,
+        ) {
+            let did = Identity::<T>::ensure_perms(origin.clone())?;
+            let instruction_id = Self::base_add_instruction(
+                did,
+                venue_id,
+                settlement_type,
+                trade_date,
+                value_date,
+                legs,
+                instruction_memo,
+                Some(mediators)
+            )?;
+            let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
+            Self::affirm_and_maybe_schedule_instruction(
+                origin,
+                instruction_id,
+                portfolios_set.into_iter(),
+                None
+            )
+            .map_err(|e| e.error)?;
+        }
+
+        /// Affirms the instruction as a mediator - should only be called by mediators, otherwise it will fail.
+        ///
+        /// # Arguments
+        /// * `origin`: The secondary key of the sender.
+        /// * `instruction_id`: The [`InstructionId`] that will be affirmed by the mediator.
+        /// * `expiry`: An Optional value for defining when the affirmation will expire (None means it will always be valid).
+        #[weight = <T as Config>::WeightInfo::affirm_instruction_as_mediator()]
+        pub fn affirm_instruction_as_mediator(
+            origin,
+            instruction_id: InstructionId,
+            expiry: Option<T::Moment>
+        ) {
+            Self::base_affirm_instruction_as_mediator(origin, instruction_id, expiry)?;
+        }
+
+        /// Removes the mediator's affirmation for the instruction - should only be called by mediators, otherwise it will fail.
+        ///
+        /// # Arguments
+        /// * `origin`: The secondary key of the sender.
+        /// * `instruction_id`: The [`InstructionId`] that will have the affirmation removed.
+        #[weight = <T as Config>::WeightInfo::withdraw_affirmation_as_mediator()]
+        pub fn withdraw_affirmation_as_mediator(origin, instruction_id: InstructionId) {
+            Self::base_withdraw_affirmation_as_mediator(origin, instruction_id)?;
+        }
+
+        /// Rejects an existing instruction - should only be called by mediators, otherwise it will fail.
+        ///
+        /// # Arguments
+        /// * `instruction_id` - the [`InstructionId`] of the instruction being rejected.
+        /// * `number_of_assets` - an optional [`AssetCount`] that will be used for a precise fee estimation before executing the extrinsic.
+        ///
+        /// Note: calling the rpc method `get_execute_instruction_info` returns an instance of [`ExecuteInstructionInfo`], which contain the asset count.
+        #[weight = <T as Config>::WeightInfo::reject_instruction_input(None, true)]
+        pub fn reject_instruction_as_mediator(
+            origin,
+            instruction_id: InstructionId,
+            number_of_assets: Option<AssetCount>
+        ) -> DispatchResultWithPostInfo {
+            Self::base_reject_instruction(origin, instruction_id, None, number_of_assets)
         }
     }
 }
@@ -794,6 +935,7 @@ impl<T: Config> Module<T> {
         value_date: Option<T::Moment>,
         legs: Vec<Leg>,
         memo: Option<Memo>,
+        mediators: Option<BoundedBTreeSet<IdentityId, T::MaxInstructionMediators>>,
     ) -> Result<InstructionId, DispatchError> {
         // Verifies if the block number is in the future so that `T::Scheduler::schedule_named` doesn't fail.
         if let SettlementType::SettleOnBlock(block_number) = &settlement_type {
@@ -815,7 +957,12 @@ impl<T: Config> Module<T> {
         Self::venue_for_management(venue_id, did)?;
 
         // Verifies if all legs are valid.
-        let instruction_info = Self::ensure_valid_legs(&legs, &venue_id)?;
+        let mut instruction_info = Self::ensure_valid_legs(&legs, &venue_id)?;
+
+        // Adds the instruction mediators
+        if let Some(mediators) = mediators {
+            instruction_info.extend_mediators(mediators.into())
+        }
 
         // Advance and get next `instruction_id`.
         let instruction_id = InstructionCounter::try_mutate(try_next_post::<T, _>)?;
@@ -834,6 +981,13 @@ impl<T: Config> Module<T> {
                 *portfolio_id,
                 instruction_id,
             ));
+        }
+        for mediator_id in instruction_info.mediators() {
+            InstructionMediatorsAffirmations::<T>::insert(
+                instruction_id,
+                mediator_id,
+                MediatorAffirmationStatus::Pending,
+            );
         }
         InstructionAffirmsPending::insert(
             instruction_id,
@@ -898,6 +1052,8 @@ impl<T: Config> Module<T> {
         let mut portfolios_pending_approval = BTreeSet::new();
         // Tracks all portfolios that have pre-approved the transfer.
         let mut portfolios_pre_approved = BTreeSet::new();
+        // Tracks all mediators that have to affirm the instruction.
+        let mut mediators = BTreeSet::new();
         // Tracks all tickers that have been checked for filtering
         let mut tickers = BTreeSet::new();
 
@@ -921,6 +1077,8 @@ impl<T: Config> Module<T> {
                 }
                 Leg::OffChain { .. } => continue,
             }
+            let asset_mediators = MandatoryMediators::<T>::get(ticker);
+            mediators.extend(asset_mediators.iter());
         }
         // The maximum number of each asset type in one instruction is checked here
         Self::ensure_within_instruction_max(&instruction_asset_count)?;
@@ -929,6 +1087,7 @@ impl<T: Config> Module<T> {
             instruction_asset_count,
             portfolios_pending_approval,
             portfolios_pre_approved,
+            mediators,
         ))
     }
 
@@ -1047,6 +1206,8 @@ impl<T: Config> Module<T> {
             Self::instruction_affirms_pending(instruction_id) == 0,
             Error::<T>::NotAllAffirmationsHaveBeenReceived
         );
+        // Verifies that all mediator's affirmations are still valid
+        Self::ensure_non_expired_affirmations(&instruction_id)?;
 
         // Ensures the instruction is pending or has failed at least one time
         let instruction_status = Self::instruction_status(instruction_id);
@@ -1100,6 +1261,29 @@ impl<T: Config> Module<T> {
         }
 
         Self::deposit_event(RawEvent::InstructionExecuted(caller_did, instruction_id));
+        Ok(())
+    }
+
+    /// Returns `Ok` if all mediator's affirmation are still valid. Otherwise, returns an error.
+    fn ensure_non_expired_affirmations(instruction_id: &InstructionId) -> DispatchResult {
+        let current_timestamp = <pallet_timestamp::Pallet<T>>::get();
+        for mediator_affirmation in
+            InstructionMediatorsAffirmations::<T>::iter_prefix_values(instruction_id)
+        {
+            match mediator_affirmation {
+                MediatorAffirmationStatus::Affirmed { expiry, .. } => {
+                    if let Some(expiry) = expiry {
+                        ensure!(
+                            expiry < current_timestamp,
+                            Error::<T>::MediatorAffirmationExpired
+                        );
+                    }
+                }
+                MediatorAffirmationStatus::Unknown | MediatorAffirmationStatus::Pending => {
+                    return Err(Error::<T>::NotAllAffirmationsHaveBeenReceived.into())
+                }
+            }
+        }
         Ok(())
     }
 
@@ -1172,6 +1356,8 @@ impl<T: Config> Module<T> {
         OffChainAffirmations::remove_prefix(id, None);
         #[allow(deprecated)]
         AffirmsReceived::remove_prefix(id, None);
+        #[allow(deprecated)]
+        InstructionMediatorsAffirmations::<T>::remove_prefix(id, None);
 
         if executed {
             InstructionStatuses::<T>::insert(
@@ -1417,7 +1603,7 @@ impl<T: Config> Module<T> {
             instruction_asset_count.non_fungible(),
             instruction_asset_count.off_chain(),
         );
-        // Schedule instruction to be execute in the next block (expected) if conditions are met.
+        // Schedule instruction to be executed in the next block (expected) if conditions are met.
         Self::maybe_schedule_instruction(Self::instruction_affirms_pending(id), id, weight_limit);
         Ok(PostDispatchInfo::from(Some(
             Self::affirm_with_receipts_actual_weight(
@@ -1586,41 +1772,64 @@ impl<T: Config> Module<T> {
 
     fn base_reject_instruction(
         origin: T::RuntimeOrigin,
-        id: InstructionId,
-        portfolio: PortfolioId,
+        instruction_id: InstructionId,
+        portfolio: Option<PortfolioId>,
         instruction_count: Option<AssetCount>,
     ) -> DispatchResultWithPostInfo {
+        // Makes sure the instruction exists
         ensure!(
-            Self::instruction_status(id) != InstructionStatus::Unknown,
+            Self::instruction_status(instruction_id) != InstructionStatus::Unknown,
             Error::<T>::UnknownInstruction
         );
-        // Gets all legs for the instruction and checks if portfolio is in any of the legs
-        let legs: Vec<(LegId, Leg)> = InstructionLegs::iter_prefix(&id).collect();
+        // Get all legs for the instruction
+        let legs: Vec<(LegId, Leg)> = InstructionLegs::iter_prefix(&instruction_id).collect();
         let instruction_asset_count = AssetCount::from_legs(&legs);
         // If the fee was estimated in advance, the input values must be at least equal to the actual values
         if let Some(instruction_count) = instruction_count {
             Self::ensure_valid_cost(&instruction_asset_count, &instruction_count)?;
         }
-        ensure!(
-            Self::is_portfolio_present(&legs, &portfolio),
-            Error::<T>::CallerIsNotAParty
-        );
-
-        // Verifies if the caller has the right permissions for this call
+        // Check if the caller is a mediator or a portfolio owner
         let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
-        T::Portfolio::ensure_portfolio_custody_and_permission(
-            portfolio,
+        let actual_weight = {
+            match portfolio {
+                Some(portfolio) => {
+                    // The portfolio must be present in at least one leg
+                    ensure!(
+                        Self::is_portfolio_present(&legs, &portfolio),
+                        Error::<T>::CallerIsNotAParty
+                    );
+                    // The caller must have the right permissions to the portfolio
+                    T::Portfolio::ensure_portfolio_custody_and_permission(
+                        portfolio,
+                        origin_data.primary_did,
+                        origin_data.secondary_key.as_ref(),
+                    )?;
+                    Self::reject_instruction_weight(instruction_asset_count, false)
+                }
+                None => {
+                    // The caller must be a mediator
+                    ensure!(
+                        InstructionMediatorsAffirmations::<T>::get(
+                            instruction_id,
+                            origin_data.primary_did
+                        ) != MediatorAffirmationStatus::Unknown,
+                        Error::<T>::CallerIsNotAMediator
+                    );
+                    Self::reject_instruction_weight(instruction_asset_count, true)
+                }
+            }
+        };
+        // All checks have been made - write to storage
+        Self::unchecked_release_locks(instruction_id, &legs);
+        let _ = T::Scheduler::cancel_named(instruction_id.execution_name());
+        // Remove all data from storage
+        Self::prune_instruction(instruction_id, false);
+        Self::deposit_event(RawEvent::InstructionRejected(
             origin_data.primary_did,
-            origin_data.secondary_key.as_ref(),
-        )?;
-
-        Self::unchecked_release_locks(id, &legs);
-        let _ = T::Scheduler::cancel_named(id.execution_name());
-        Self::prune_instruction(id, false);
-        Self::deposit_event(RawEvent::InstructionRejected(origin_data.primary_did, id));
-        Ok(PostDispatchInfo::from(Some(
-            Self::reject_instruction_weight(&instruction_asset_count),
-        )))
+            instruction_id,
+        ));
+        // Return the actual weight for the call
+        Ok(PostDispatchInfo::from(Some(actual_weight)))
     }
 
     /// Returns `Ok` if the number of fungible, nonfungible and offchain assets is under the input given by the user.
@@ -2031,6 +2240,107 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    /// Affirms the instruction as a mediator.
+    fn base_affirm_instruction_as_mediator(
+        origin: T::RuntimeOrigin,
+        instruction_id: InstructionId,
+        expiry: Option<T::Moment>,
+    ) -> DispatchResult {
+        let (caller_did, _, instruction) =
+            Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id, false)?;
+
+        // Verifies if the caller is a mediator
+        let mediator_affirmation_status =
+            InstructionMediatorsAffirmations::<T>::get(instruction_id, caller_did);
+        ensure!(
+            mediator_affirmation_status != MediatorAffirmationStatus::Unknown,
+            Error::<T>::CallerIsNotAMediator
+        );
+
+        // Verifies if the expiry date is in the future
+        if let Some(expiry) = expiry {
+            ensure!(
+                expiry > <pallet_timestamp::Pallet<T>>::get(),
+                Error::<T>::InvalidExpiryDate
+            );
+        }
+
+        // Updates the mediator's affirmation status to affirmed
+        InstructionMediatorsAffirmations::<T>::insert(
+            instruction_id,
+            caller_did,
+            MediatorAffirmationStatus::Affirmed { expiry },
+        );
+        // If the mediator is not reaffirming the instruction, the number of pending affirmation must be updated
+        if MediatorAffirmationStatus::Pending == mediator_affirmation_status {
+            InstructionAffirmsPending::mutate(instruction_id, |n| *n = n.saturating_sub(1));
+        }
+        // If all affirmations have been received, the instruction will be scheduled for the next block
+        let n_pending_affirmations = InstructionAffirmsPending::get(instruction_id);
+        if n_pending_affirmations == 0
+            && instruction.settlement_type == SettlementType::SettleOnAffirmation
+        {
+            let instruction_asset_count = Self::get_instruction_asset_count(&instruction_id);
+            let weight_limit = Self::execute_scheduled_instruction_weight_limit(
+                instruction_asset_count.fungible(),
+                instruction_asset_count.non_fungible(),
+                instruction_asset_count.off_chain(),
+            );
+            Self::maybe_schedule_instruction(n_pending_affirmations, instruction_id, weight_limit);
+        }
+
+        Self::deposit_event(RawEvent::MediatorAffirmationReceived(
+            caller_did,
+            instruction_id,
+        ));
+        Ok(())
+    }
+
+    /// Removes the mediator's affirmation for the instruction
+    fn base_withdraw_affirmation_as_mediator(
+        origin: T::RuntimeOrigin,
+        instruction_id: InstructionId,
+    ) -> DispatchResult {
+        let (caller_did, _, instruction) =
+            Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id, false)?;
+
+        // Verifies if the caller is a mediator and has already affirmed the instruction
+        let mediator_affirmation_status =
+            InstructionMediatorsAffirmations::<T>::get(instruction_id, caller_did);
+        match mediator_affirmation_status {
+            MediatorAffirmationStatus::Unknown => {
+                return Err(Error::<T>::CallerIsNotAMediator.into())
+            }
+            MediatorAffirmationStatus::Pending => {
+                return Err(Error::<T>::UnexpectedAffirmationStatus.into())
+            }
+            MediatorAffirmationStatus::Affirmed { .. } => {}
+        }
+
+        // Updates the mediator's affirmation status to pending and add one to the number of pending affirmations
+        InstructionMediatorsAffirmations::<T>::insert(
+            instruction_id,
+            caller_did,
+            MediatorAffirmationStatus::Pending,
+        );
+        let n_pending_before_withdrawal = InstructionAffirmsPending::mutate(instruction_id, |n| {
+            let before = n.clone();
+            *n = n.saturating_add(1);
+            before
+        });
+        if n_pending_before_withdrawal == 0
+            && instruction.settlement_type == SettlementType::SettleOnAffirmation
+        {
+            // Cancel the scheduled task
+            let _ = T::Scheduler::cancel_named(instruction_id.execution_name());
+        }
+        Self::deposit_event(RawEvent::MediatorAffirmationWithdrawn(
+            caller_did,
+            instruction_id,
+        ));
+        Ok(())
+    }
+
     /// Returns the worst case weight for an instruction with `f` fungible legs, `n` nfts being transferred and `o` offchain assets.
     fn execute_scheduled_instruction_weight_limit(f: u32, n: u32, o: u32) -> Weight {
         <T as Config>::WeightInfo::execute_scheduled_instruction(f, n, o)
@@ -2086,11 +2396,10 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns the weight for calling `reject_instruction_weight` with the number of assets in `instruction_asset_count`.
-    fn reject_instruction_weight(instruction_asset_count: &AssetCount) -> Weight {
-        <T as Config>::WeightInfo::reject_instruction(
-            instruction_asset_count.fungible(),
-            instruction_asset_count.non_fungible(),
-            instruction_asset_count.off_chain(),
+    fn reject_instruction_weight(instruction_asset_count: AssetCount, as_mediator: bool) -> Weight {
+        <T as Config>::WeightInfo::reject_instruction_input(
+            Some(instruction_asset_count),
+            as_mediator,
         )
     }
 
@@ -2124,7 +2433,7 @@ impl<T: Config> Module<T> {
             }
             Call::reject_instruction { id, .. } => {
                 let asset_count = Self::get_instruction_asset_count(id);
-                Some(Self::reject_instruction_weight(&asset_count))
+                Some(Self::reject_instruction_weight(asset_count, false))
             }
             _ => None,
         }
@@ -2165,242 +2474,6 @@ impl<T: Config> Module<T> {
             filtered_legs.sender_asset_count().clone(),
             filtered_legs.receiver_asset_count().clone(),
             filtered_legs.unfiltered_asset_count().off_chain(),
-        )
-    }
-}
-
-pub mod migration {
-    use super::*;
-    use sp_runtime::runtime_logger::RuntimeLogger;
-    use sp_std::collections::btree_map::BTreeMap;
-
-    mod v1 {
-        use super::*;
-        use scale_info::TypeInfo;
-
-        #[derive(Encode, Decode, TypeInfo)]
-        #[derive(Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-        pub struct Instruction<Moment, BlockNumber> {
-            pub instruction_id: InstructionId,
-            pub venue_id: VenueId,
-            pub status: InstructionStatus<BlockNumber>,
-            pub settlement_type: SettlementType<BlockNumber>,
-            pub created_at: Option<Moment>,
-            pub trade_date: Option<Moment>,
-            pub value_date: Option<Moment>,
-        }
-
-        #[derive(Encode, Decode, TypeInfo)]
-        #[derive(Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-        pub struct Leg {
-            pub from: PortfolioId,
-            pub to: PortfolioId,
-            pub asset: Ticker,
-            pub amount: Balance,
-        }
-
-        #[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
-        pub enum LegAsset {
-            Fungible { ticker: Ticker, amount: Balance },
-            NonFungible(NFTs),
-        }
-
-        impl Default for LegAsset {
-            fn default() -> Self {
-                LegAsset::Fungible {
-                    ticker: Ticker::default(),
-                    amount: Balance::default(),
-                }
-            }
-        }
-
-        #[derive(Encode, Decode, TypeInfo)]
-        #[derive(Clone, Debug, Default, Eq, PartialEq)]
-        pub struct LegV2 {
-            pub from: PortfolioId,
-            pub to: PortfolioId,
-            pub asset: LegAsset,
-        }
-
-        decl_storage! {
-            trait Store for Module<T: Config> as Settlement {
-                pub UserVenues get(fn user_venues): map hasher(twox_64_concat) IdentityId => Vec<VenueId>;
-                pub InstructionDetails get(fn instruction_details):
-                    map hasher(twox_64_concat) InstructionId => Instruction<T::Moment, T::BlockNumber>;
-                pub InstructionLegs get(fn instruction_legs):
-                    double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => Leg;
-                pub InstructionLegsV2 get(fn instruction_legsv2):
-                    double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => LegV2;
-            }
-        }
-
-        decl_module! {
-            pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin { }
-        }
-    }
-
-    pub fn migrate_to_v1<T: Config>() {
-        RuntimeLogger::init();
-        log::info!(" >>> Updating Settlement storage. Migrating Legs and Instructions.");
-        migrate_user_venues::<T>();
-        migrate_legs::<T>();
-        migrate_status::<T>();
-        log::info!(" >>> All user_venues, legs and Instructions have been migrated.");
-    }
-
-    pub fn migrate_to_v2<T: Config>() {
-        RuntimeLogger::init();
-        log::info!(" >>> Rescheduling instructions");
-        reschedule_instructions::<T>();
-        log::info!(" >>> All instructions have been rescheduled");
-    }
-
-    fn migrate_user_venues<T: Config>() {
-        // Need to fully drain the old storage.
-        let user_venues = v1::UserVenues::drain().collect::<Vec<(IdentityId, Vec<VenueId>)>>();
-        let mut count = 0;
-        // Convert to new double map.
-        for (did, venues) in user_venues {
-            count += venues.len();
-            for venue_id in venues {
-                UserVenues::insert(did, venue_id, ());
-            }
-        }
-        log::info!(" >>> {count} UserVenues have been migrated.");
-    }
-
-    fn migrate_legs<T: Config>() {
-        // Migrate all itens from InstructionLegs
-        v1::InstructionLegs::drain().for_each(|(id, leg_id, old_leg)| {
-            let new_leg = {
-                if !pallet_asset::Tokens::contains_key(old_leg.asset) {
-                    Leg::OffChain {
-                        sender_identity: old_leg.from.did,
-                        receiver_identity: old_leg.to.did,
-                        ticker: old_leg.asset,
-                        amount: old_leg.amount,
-                    }
-                } else {
-                    Leg::Fungible {
-                        sender: old_leg.from,
-                        receiver: old_leg.to,
-                        ticker: old_leg.asset,
-                        amount: old_leg.amount,
-                    }
-                }
-            };
-            InstructionLegs::insert(&id, leg_id, new_leg);
-        });
-        // Migrate all itens from InstructionLegsV2
-        v1::InstructionLegsV2::drain().for_each(|(id, leg_id, leg_v2)| {
-            let new_leg = {
-                match leg_v2.asset {
-                    v1::LegAsset::Fungible { ticker, amount } => {
-                        if !pallet_asset::Tokens::contains_key(ticker) {
-                            Leg::OffChain {
-                                sender_identity: leg_v2.from.did,
-                                receiver_identity: leg_v2.to.did,
-                                ticker,
-                                amount,
-                            }
-                        } else {
-                            Leg::Fungible {
-                                sender: leg_v2.from,
-                                receiver: leg_v2.to,
-                                ticker,
-                                amount,
-                            }
-                        }
-                    }
-                    v1::LegAsset::NonFungible(nfts) => Leg::NonFungible {
-                        sender: leg_v2.from,
-                        receiver: leg_v2.to,
-                        nfts,
-                    },
-                }
-            };
-            InstructionLegs::insert(&id, leg_id, new_leg);
-        });
-    }
-
-    fn reschedule_instructions<T: Config>() {
-        let max_tasks_per_block = 50;
-        let mut n_scheduled_tasks: BTreeMap<T::BlockNumber, u32> = BTreeMap::new();
-        let mut next_available_block = System::<T>::block_number() + One::one();
-
-        for (instruction_id, instruction_details) in InstructionDetails::<T>::iter() {
-            let block = {
-                match instruction_details.settlement_type {
-                    SettlementType::SettleOnBlock(block) => {
-                        if block >= System::<T>::block_number() {
-                            n_scheduled_tasks
-                                .entry(block)
-                                .and_modify(|count| *count += 1)
-                                .or_insert(1);
-                            Some(block)
-                        } else {
-                            None
-                        }
-                    }
-                    SettlementType::SettleOnAffirmation => {
-                        if InstructionStatuses::<T>::get(instruction_id)
-                            == InstructionStatus::Pending
-                            && Module::<T>::instruction_affirms_pending(instruction_id) == 0
-                        {
-                            while n_scheduled_tasks.get(&next_available_block)
-                                >= Some(&max_tasks_per_block)
-                            {
-                                next_available_block += 1u32.into();
-                            }
-                            n_scheduled_tasks
-                                .entry(next_available_block)
-                                .and_modify(|count| *count += 1)
-                                .or_insert(1);
-                            Some(next_available_block)
-                        } else {
-                            None
-                        }
-                    }
-                    SettlementType::SettleManual(_) => None,
-                }
-            };
-
-            if let Some(block_number) = block {
-                // Attempts to cancel the old scheduled task.
-                if let Ok(_) = T::Scheduler::cancel_named(instruction_id.execution_name()) {
-                    // Get the weight limit for the instruction
-                    let instruction_asset_count =
-                        Module::<T>::get_instruction_asset_count(&instruction_id);
-                    let weight_limit = Module::<T>::execute_scheduled_instruction_weight_limit(
-                        instruction_asset_count.fungible(),
-                        instruction_asset_count.non_fungible(),
-                        instruction_asset_count.off_chain(),
-                    );
-                    // If the old taks was cancelled, create new scheduled task
-                    Module::<T>::schedule_instruction(instruction_id, block_number, weight_limit);
-                }
-            }
-        }
-    }
-
-    fn migrate_status<T: Config>() -> usize {
-        v1::InstructionDetails::<T>::drain().fold(
-            0,
-            |n_instructions, (instruction_id, instruction_details)| {
-                InstructionStatuses::<T>::insert(instruction_id, instruction_details.status);
-                InstructionDetails::<T>::insert(
-                    instruction_id,
-                    Instruction {
-                        instruction_id,
-                        venue_id: instruction_details.venue_id,
-                        settlement_type: instruction_details.settlement_type,
-                        created_at: instruction_details.created_at,
-                        trade_date: instruction_details.trade_date,
-                        value_date: instruction_details.value_date,
-                    },
-                );
-                n_instructions + 1
-            },
         )
     }
 }
