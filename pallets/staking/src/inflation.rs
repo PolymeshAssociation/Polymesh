@@ -44,17 +44,19 @@ where
     const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 
     let portion = Perbill::from_rational(era_duration as u64, MILLISECONDS_PER_YEAR);
-    // Have fixed rewards kicked in?
-    if total_tokens >= max_inflated_issuance {
-        let payout = portion * non_inflated_yearly_reward;
-        // payout is always maximum.
-        return (payout.clone(), payout);
-    }
 
     let payout = portion * yearly_inflation.calculate_for_fraction_times_denominator(
         npos_token_staked,
         total_tokens.clone(),
     );
+    // Have fixed rewards kicked in?
+    if total_tokens >= max_inflated_issuance {
+        let fixed_payout = portion * non_inflated_yearly_reward;
+        if fixed_payout <= payout {
+            // payout is always maximum.
+            return (fixed_payout.clone(), fixed_payout);
+        }
+    }
     let maximum = portion * (yearly_inflation.maximum * total_tokens);
     (payout, maximum)
 }
@@ -143,6 +145,8 @@ mod test {
             57_038_500_000_000_000_000_000
         );
 
+        // Even though the total issuance is above `max_inflated_issuance` we still have
+        // inflation calculated via the curve as this is below the non_inflated_yearly_reward
         assert_eq!(
             super::compute_total_payout(
                 &I_NPOS,
@@ -152,7 +156,24 @@ mod test {
                 1_000_000_000_000_000u128,
                 Perbill::from_percent(5) * 1_000_000_000_000_000u128
             ),
-            (34223100000, 34223100000)
+            (18387768858, 73551075022)
         );
+
+        // Since the staking ratio is high enough, the curve calculated inflation is
+        // above the fixed `non_inflated_yearly_reward` hence we use the latter
+        // i.e. expected response is 5% of 1 billion rather than 10% of 1.5 billion.
+        assert_eq!(
+            super::compute_total_payout(
+                &I_NPOS,
+                750_000_000_000_000u128, //50% staking ratio
+                1_500_000_000_000_000u128,
+                YEAR,
+                1_000_000_000_000_000u128,
+                Perbill::from_percent(5) * 1_000_000_000_000_000u128
+            ),
+            (49_965_776_850_000, 49_965_776_850_000)
+        );
+
+
     }
 }
