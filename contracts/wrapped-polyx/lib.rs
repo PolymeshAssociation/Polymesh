@@ -16,8 +16,6 @@ mod wrapped_polyx {
     #[derive(Default)]
     pub struct WrappedPolyx {
         initialized: bool,
-        /// Upgradable Polymesh Ink API.
-        api: PolymeshInk,
         /// WrappedPolyx token.
         ticker: Ticker,
         /// Venue for settlements.
@@ -100,15 +98,14 @@ mod wrapped_polyx {
         #[ink(constructor)]
         pub fn new(ticker: Ticker) -> Result<Self> {
             Ok(Self {
-                api: PolymeshInk::new()?,
                 ticker,
                 did: PolymeshInk::get_our_did()?,
                 ..Default::default()
             })
         }
 
-        fn create_wrapped_polyx(&mut self) -> Result<()> {
-            self.api.asset_create_and_issue(
+        fn create_wrapped_polyx(&self, api: &PolymeshInk) -> Result<()> {
+            api.asset_create_and_issue(
                 AssetName(b"Wrapped POLYX".to_vec()),
                 self.ticker,
                 AssetType::EquityCommon,
@@ -142,15 +139,15 @@ mod wrapped_polyx {
             if self.initialized {
                 return Err(Error::AlreadyInitialized);
             }
+            let api = PolymeshInk::new()?;
             // Update our identity id.
             self.did = PolymeshInk::get_our_did()?;
             // Create ticker.
-            self.create_wrapped_polyx()?;
+            self.create_wrapped_polyx(&api)?;
 
             // Create venue.
-            self.venue = self
-                .api
-                .create_venue(VenueDetails(b"Contract Venue".to_vec()), VenueType::Other)?;
+            self.venue =
+                api.create_venue(VenueDetails(b"Contract Venue".to_vec()), VenueType::Other)?;
             self.initialized = true;
             Ok(())
         }
@@ -176,8 +173,9 @@ mod wrapped_polyx {
         /// Accept custody of a portfolio and give the caller some tokens.
         pub fn add_portfolio(&mut self, auth_id: u64, portfolio: PortfolioKind) -> Result<()> {
             self.ensure_initialized()?;
+            let api = PolymeshInk::new()?;
             // Accept portfolio custody and ensure we have custody.
-            let portfolio_id = self.api.accept_portfolio_custody(auth_id, portfolio)?;
+            let portfolio_id = api.accept_portfolio_custody(auth_id, portfolio)?;
             let caller_did = portfolio_id.did;
             // Ensure the caller doesn't have a portfolio.
             self.ensure_no_portfolio(caller_did)?;
@@ -192,13 +190,23 @@ mod wrapped_polyx {
             Ok(())
         }
 
-        fn transfer(&self, sender: PortfolioId, receiver: PortfolioId, amount: Balance) -> Result<()> {
-            self.api.settlement_execute(self.venue, vec![Leg::Fungible {
-                sender,
-                receiver,
-                ticker: self.ticker,
-                amount: amount,
-            }], vec![sender, receiver])?;
+        fn transfer(
+            &self,
+            api: &PolymeshInk,
+            sender: PortfolioId,
+            receiver: PortfolioId,
+            amount: Balance,
+        ) -> Result<()> {
+            api.settlement_execute(
+                self.venue,
+                vec![Leg::Fungible {
+                    sender,
+                    receiver,
+                    ticker: self.ticker,
+                    amount: amount,
+                }],
+                vec![sender, receiver],
+            )?;
             Ok(())
         }
 
@@ -212,14 +220,15 @@ mod wrapped_polyx {
             let caller_portfolio = self.ensure_has_portfolio()?;
             let caller_did = caller_portfolio.did;
 
+            let api = PolymeshInk::new()?;
             // Mint some tokens.
-            self.api.asset_issue(self.ticker, amount, PortfolioKind::Default)?;
+            api.asset_issue(self.ticker, amount, PortfolioKind::Default)?;
             // Transfer tokens to the caller's portfolio.
             let our_portfolio = PortfolioId {
                 did: self.did,
                 kind: PortfolioKind::Default,
             };
-            self.transfer(our_portfolio, caller_portfolio, amount)?;
+            self.transfer(&api, our_portfolio, caller_portfolio, amount)?;
 
             Self::env().emit_event(PolyxWrapped {
                 did: caller_did,
@@ -238,20 +247,18 @@ mod wrapped_polyx {
             let caller_portfolio = self.ensure_has_portfolio()?;
             let caller_did = caller_portfolio.did;
 
+            let api = PolymeshInk::new()?;
             // Transfer tokens from the caller's portfolio.
             let our_portfolio = PortfolioId {
                 did: self.did,
                 kind: PortfolioKind::Default,
             };
-            self.transfer(caller_portfolio, our_portfolio, amount)?;
+            self.transfer(&api, caller_portfolio, our_portfolio, amount)?;
 
             // Redeem the tokens.
-            self.api.asset_redeem(self.ticker, amount, PortfolioKind::Default)?;
+            api.asset_redeem(self.ticker, amount, PortfolioKind::Default)?;
 
-            if Self::env()
-                .transfer(Self::env().caller(), amount)
-                .is_err()
-            {
+            if Self::env().transfer(Self::env().caller(), amount).is_err() {
                 panic!("error transferring")
             }
 
@@ -273,8 +280,9 @@ mod wrapped_polyx {
             let portfolio = self.ensure_has_portfolio()?;
             let caller_did = portfolio.did;
 
+            let api = PolymeshInk::new()?;
             // Remove our custodianship.
-            self.api.quit_portfolio_custody(portfolio)?;
+            api.quit_portfolio_custody(portfolio)?;
             // Remove the portfolio.
             self.portfolios.remove(caller_did);
             Self::env().emit_event(PortfolioRemoved {
@@ -297,16 +305,19 @@ mod wrapped_polyx {
                 kind: dest,
             };
 
+            let api = PolymeshInk::new()?;
             // Move funds out of the contract controlled portfolio.
-            self.api.move_portfolio_funds(caller_portfolio, dest, vec![
-                Fund {
+            api.move_portfolio_funds(
+                caller_portfolio,
+                dest,
+                vec![Fund {
                     description: FundDescription::Fungible {
                         ticker: self.ticker,
                         amount,
                     },
                     memo: None,
-                }
-            ])?;
+                }],
+            )?;
             Ok(())
         }
     }
