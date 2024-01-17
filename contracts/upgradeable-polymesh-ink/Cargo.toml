@@ -15,7 +15,8 @@ ink = { version = "4.3", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
 
-polymesh-api = { version = "3.5", default-features = false, features = ["ink"] }
+polymesh-api = { version = "3.6", default-features = false, features = ["ink"] }
+polymesh-api-ink = { version = "1.2.2", default-features = false }
 
 paste = "1.0"
 
@@ -27,6 +28,7 @@ features = ["as-library"]
 
 [features]
 default = ["std"]
+use_call_runtime_with_error = ["polymesh-api-ink/use_call_runtime_with_error"]
 
 # Compile as upgradable library.
 as-library = []

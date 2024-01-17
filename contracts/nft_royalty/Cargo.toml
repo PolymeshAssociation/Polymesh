@@ -1,0 +1,27 @@
+[package]
+name = "nft_royalty"
+version = "0.1.0"
+authors = ["Polymesh"]
+edition = "2021"
+
+[dependencies]
+ink = { version = "4.2.0", default-features = false }
+scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
+scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
+sp-arithmetic = { version = "6.0.0", default-features = false }
+
+polymesh-ink = { path = "../upgradeable-polymesh-ink", default-features = false, features = ["as-library"] }
+
+[lib]
+path = "lib.rs"
+
+[features]
+default = ["std"]
+std = [
+    "ink/std",
+    "scale/std",
+    "scale-info/std",
+    "sp-arithmetic/std",
+    "polymesh-ink/std"
+]
+ink-as-dependency = []
