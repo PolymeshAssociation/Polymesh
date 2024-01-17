@@ -8,6 +8,8 @@ use frame_support::log::trace;
 use frame_support::storage::unhashed;
 use frame_support::traits::{Get, GetCallMetadata};
 use frame_system::RawOrigin;
+use scale_info::prelude::format;
+use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
 use sp_core::crypto::UncheckedFrom;
 
@@ -79,9 +81,7 @@ pub enum FuncId {
     GetKeyDid,
     KeyHasher(KeyHasher, HashSize),
     GetLatestApiUpgrade,
-
-    /// Deprecated Polymesh (<=5.0) chain extensions.
-    OldCallRuntime(ExtrinsicId),
+    CallRuntimeWithError,
 }
 
 impl FuncId {
@@ -101,16 +101,7 @@ impl FuncId {
                 0x11 => Some(Self::KeyHasher(KeyHasher::Twox, HashSize::B128)),
                 0x12 => Some(Self::KeyHasher(KeyHasher::Twox, HashSize::B256)),
                 0x13 => Some(Self::GetLatestApiUpgrade),
-                _ => None,
-            },
-            0x1A => match func_id {
-                0x00_00 | 0x01_00 | 0x02_00 | 0x03_00 | 0x11_00 => Some(Self::OldCallRuntime(
-                    ExtrinsicId(0x1A, (func_id >> 8) as u8),
-                )),
-                _ => None,
-            },
-            0x2F => match func_id {
-                0x01_00 => Some(Self::OldCallRuntime(ExtrinsicId(0x2F, 0x01))),
+                0x14 => Some(Self::CallRuntimeWithError),
                 _ => None,
             },
             _ => None,
@@ -132,9 +123,7 @@ impl Into<u32> for FuncId {
             Self::KeyHasher(KeyHasher::Twox, HashSize::B128) => (0x0000, 0x11),
             Self::KeyHasher(KeyHasher::Twox, HashSize::B256) => (0x0000, 0x12),
             Self::GetLatestApiUpgrade => (0x0000, 0x13),
-            Self::OldCallRuntime(ExtrinsicId(ext_id, func_id)) => {
-                (ext_id as u32, (func_id as u32) << 8)
-            }
+            Self::CallRuntimeWithError => (0x0000, 0x14),
         };
         (ext_id << 16) + func_id
     }
@@ -179,16 +168,8 @@ struct ChainInput<'a, 'b> {
 }
 
 impl<'a, 'b> ChainInput<'a, 'b> {
-    pub fn new(input1: &'a [u8], input2: &'b [u8]) -> Self {
-        Self { input1, input2 }
-    }
-
     pub fn len(&self) -> usize {
         self.input1.len() + self.input2.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
     }
 }
 
@@ -458,7 +439,7 @@ where
 
 fn call_runtime<T, E>(
     env: ce::Environment<E, ce::InitState>,
-    old_call: Option<ExtrinsicId>,
+    write_error: bool,
 ) -> ce::Result<ce::RetVal>
 where
     <T as BConfig>::RuntimeCall: GetDispatchInfo + GetCallMetadata,
@@ -480,39 +461,20 @@ where
 
     // Decide what to call in the runtime.
     let (call, extrinsic_id) = {
-        match old_call {
-            None => {
-                let input = env.read(in_len)?;
-                // Decode the pallet_id & extrinsic_id.
-                let ext_id = ExtrinsicId::try_from(input.as_slice())
-                    .ok_or(Error::<T>::InvalidRuntimeCall)?;
-                // Check if the extrinsic is allowed to be called.
-                Module::<T>::ensure_call_runtime(ext_id)?;
-                (
-                    <<T as BConfig>::RuntimeCall>::decode_all_with_depth_limit(
-                        MAX_DECODE_DEPTH,
-                        &mut input.as_slice(),
-                    )
-                    .map_err(|_| Error::<T>::InvalidRuntimeCall)?,
-                    ext_id,
-                )
-            }
-            Some(ext_id) => {
-                // Check if the extrinsic is allowed to be called.
-                Module::<T>::ensure_call_runtime(ext_id)?;
-                // Convert old ChainExtension runtime calls into `Call` format.
-                let extrinsic: [u8; 2] = ext_id.into();
-                let params = env.read(in_len)?;
-                let mut input = ChainInput::new(&extrinsic, params.as_slice());
-                let call = <<T as BConfig>::RuntimeCall>::decode_with_depth_limit(
-                    MAX_DECODE_DEPTH,
-                    &mut input,
-                )
-                .map_err(|_| Error::<T>::InvalidRuntimeCall)?;
-                ensure!(input.is_empty(), Error::<T>::DataLeftAfterDecoding);
-                (call, ext_id)
-            }
-        }
+        let input = env.read(in_len)?;
+        // Decode the pallet_id & extrinsic_id.
+        let ext_id =
+            ExtrinsicId::try_from(input.as_slice()).ok_or(Error::<T>::InvalidRuntimeCall)?;
+        // Check if the extrinsic is allowed to be called.
+        Module::<T>::ensure_call_runtime(ext_id)?;
+        (
+            <<T as BConfig>::RuntimeCall>::decode_all_with_depth_limit(
+                MAX_DECODE_DEPTH,
+                &mut input.as_slice(),
+            )
+            .map_err(|_| Error::<T>::InvalidRuntimeCall)?,
+            ext_id,
+        )
     };
 
     // Charge weight for the call.
@@ -540,9 +502,23 @@ where
         env.adjust_weight(charged_amount, actual_weight);
     }
 
-    // Ensure the call was successful.
-    result.map_err(|e| e.error)?;
+    // Ensure the call was successful
+    if let Err(e) = result {
+        if write_error {
+            if let DispatchError::Module(e) = e.error {
+                let error_string: Result<(), String> = Err(format!("{e:?}"));
+                env.write(&error_string.encode(), false, None)
+                    .map_err(|_| Error::<T>::ReadStorageFailed)?;
+                return Ok(ce::RetVal::Converging(0));
+            }
+        }
+        return Err(e.error);
+    }
 
+    if write_error {
+        env.write(&Ok::<(), String>(()).encode(), false, None)
+            .map_err(|_| Error::<T>::ReadStorageFailed)?;
+    }
     // Done; continue with smart contract execution when returning.
     Ok(ce::RetVal::Converging(0))
 }
@@ -584,13 +560,13 @@ where
                 Ok(ce::RetVal::Converging(0))
             }
             Some(FuncId::ReadStorage) => read_storage(env),
-            Some(FuncId::CallRuntime) => call_runtime(env, None),
+            Some(FuncId::CallRuntime) => call_runtime(env, false),
             Some(FuncId::GetSpecVersion) => get_version(env, true),
             Some(FuncId::GetTransactionVersion) => get_version(env, false),
             Some(FuncId::GetKeyDid) => get_key_did(env),
             Some(FuncId::KeyHasher(hasher, size)) => key_hasher(env, hasher, size),
             Some(FuncId::GetLatestApiUpgrade) => get_latest_api_upgrade(env),
-            Some(FuncId::OldCallRuntime(p)) => call_runtime(env, Some(p)),
+            Some(FuncId::CallRuntimeWithError) => call_runtime(env, true),
             None => {
                 trace!(
                     target: "runtime",
@@ -632,11 +608,6 @@ mod tests {
         test_func_id(FuncId::KeyHasher(KeyHasher::Twox, HashSize::B128));
         test_func_id(FuncId::KeyHasher(KeyHasher::Twox, HashSize::B256));
         test_func_id(FuncId::GetLatestApiUpgrade);
-        test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x00)));
-        test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x01)));
-        test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x02)));
-        test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x03)));
-        test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x11)));
-        test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x2F, 0x01)));
+        test_func_id(FuncId::CallRuntimeWithError);
     }
 }

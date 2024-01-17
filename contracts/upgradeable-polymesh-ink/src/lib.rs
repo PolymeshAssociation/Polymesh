@@ -8,42 +8,43 @@ mod macros;
 use alloc::vec;
 use alloc::vec::Vec;
 
-// Polymesh API.
-pub use polymesh_api::{
-    ink::{basic_types::IdentityId, extension::PolymeshEnvironment},
-    polymesh::types::{
-        pallet_corporate_actions,
-        pallet_corporate_actions::CAId,
-        polymesh_contracts::Api as ContractRuntimeApi,
-        polymesh_primitives::{
-            asset::{AssetName, AssetType, CheckpointId},
-            asset_metadata::{
-                AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataValue,
-            },
-            identity_id::{PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber},
-            nft::{NFTId, NFTs},
-            portfolio::{Fund, FundDescription},
-            settlement::{InstructionId, Leg, SettlementType, VenueDetails, VenueId, VenueType},
-            ticker::Ticker,
-        },
-    },
-    polymesh::Api,
+pub use polymesh_api::ink::basic_types::IdentityId;
+pub use polymesh_api::ink::extension::PolymeshEnvironment;
+pub use polymesh_api::ink::Error as PolymeshInkError;
+pub use polymesh_api::polymesh::types::pallet_corporate_actions;
+pub use polymesh_api::polymesh::types::pallet_corporate_actions::CAId;
+pub use polymesh_api::polymesh::types::polymesh_contracts::Api as ContractRuntimeApi;
+pub use polymesh_api::polymesh::types::polymesh_primitives::asset::{
+    AssetName, AssetType, CheckpointId,
 };
+pub use polymesh_api::polymesh::types::polymesh_primitives::asset_metadata::{
+    AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataValue,
+};
+pub use polymesh_api::polymesh::types::polymesh_primitives::identity_id::{
+    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
+};
+pub use polymesh_api::polymesh::types::polymesh_primitives::nft::{NFTId, NFTs};
+pub use polymesh_api::polymesh::types::polymesh_primitives::portfolio::{Fund, FundDescription};
+pub use polymesh_api::polymesh::types::polymesh_primitives::settlement::{
+    InstructionId, Leg, SettlementType, VenueDetails, VenueId, VenueType,
+};
+pub use polymesh_api::polymesh::types::polymesh_primitives::ticker::Ticker;
+pub use polymesh_api::polymesh::Api;
 
 pub const API_VERSION: ContractRuntimeApi = ContractRuntimeApi {
     desc: *b"POLY",
     major: 6,
 };
 
-/// The contract error types.
+/// Contract Errors.
 #[derive(Debug, scale::Encode, scale::Decode)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum PolymeshError {
     /// Polymesh runtime error.
-    PolymeshError,
-    /// Missing Identity.  MultiSig's are not supported.
+    PolymeshRuntime(PolymeshInkError),
+    /// [`IdentityId`] not found for the contract caller. MultiSig's are not supported.
     MissingIdentity,
-    /// Invalid portfolio authorization.
+    /// No portfolio was found for the given [`PortfolioId`].
     InvalidPortfolioAuthorization,
     /// Ink! Delegate call error.
     InkDelegateCallError {
@@ -102,15 +103,9 @@ impl PolymeshError {
     }
 }
 
-impl From<polymesh_api::ink::Error> for PolymeshError {
-    fn from(_err: polymesh_api::ink::Error) -> Self {
-        Self::PolymeshError
-    }
-}
-
-impl From<polymesh_api::ink::extension::PolymeshRuntimeErr> for PolymeshError {
-    fn from(_err: polymesh_api::ink::extension::PolymeshRuntimeErr) -> Self {
-        Self::PolymeshError
+impl From<PolymeshInkError> for PolymeshError {
+    fn from(err: PolymeshInkError) -> Self {
+        Self::PolymeshRuntime(err)
     }
 }
 
