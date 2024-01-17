@@ -36,7 +36,6 @@ extern crate alloc;
 use alloc::collections::BTreeSet;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use ink::env::debug_println;
 use ink::storage::Mapping;
 use scale::{Decode, Encode};
 use sp_arithmetic::per_things::Perbill;
@@ -84,6 +83,8 @@ mod nft_royalty {
         RoyaltyPortfolioAlreadyExists,
         /// Contract hasn't been initialized.
         MissingContractInitialization,
+        /// Contract has already been initialized.
+        ContractIsAlreadyInitialized,
     }
 
     impl From<PolymeshError> for Error {
@@ -95,8 +96,8 @@ mod nft_royalty {
     /// A contract that manages non-fungible token transfers.
     #[ink(storage)]
     pub struct NftRoyalty {
-        /// Upgradable Polymesh Ink API.
-        api: PolymeshInk,
+        /// Flag indicating whether the contract has been initialized.
+        initialized: bool,
         /// The [`AccountId`] that called the contract's constructor.
         admin: AccountId,
         /// Venue owned by the contract.
@@ -114,20 +115,7 @@ mod nft_royalty {
         #[ink(constructor)]
         pub fn new() -> Result<Self> {
             Ok(Self {
-                api: PolymeshInk::new()?,
-                admin: Self::env().caller(),
-                venue_id: None,
-                contract_identity: PolymeshInk::get_our_did()?,
-                royalty_portfolios: Mapping::default(),
-                metadata_keys: Mapping::default(),
-            })
-        }
-
-        /// Inititializes the [`NftRoyalty`] storage with an address of the contract.
-        #[ink(constructor)]
-        pub fn new_with_hash(hash: Hash) -> Result<Self> {
-            Ok(Self {
-                api: PolymeshInk::new_with_hash(hash),
+                initialized: false,
                 admin: Self::env().caller(),
                 venue_id: None,
                 contract_identity: PolymeshInk::get_our_did()?,
@@ -139,11 +127,17 @@ mod nft_royalty {
         /// Initializes the contract creating a venue that will be controlled by the contract.
         #[ink(message)]
         pub fn initialize_contract(&mut self) -> Result<VenueId> {
+            if self.initialized {
+                return Err(Error::ContractIsAlreadyInitialized);
+            }
+
             self.contract_identity = PolymeshInk::get_our_did()?;
-            let venue_id = self
-                .api
-                .create_venue(VenueDetails(VENUE_DETAILS.to_vec()), VenueType::Other)?;
+            let api = PolymeshInk::new()?;
+            let venue_id =
+                api.create_venue(VenueDetails(VENUE_DETAILS.to_vec()), VenueType::Other)?;
             self.venue_id = Some(venue_id);
+            self.initialized = true;
+
             Ok(venue_id)
         }
 
@@ -151,15 +145,6 @@ mod nft_royalty {
         #[ink(message)]
         pub fn venue_id(&self) -> Result<VenueId> {
             self.venue_id.ok_or(Error::MissingContractInitialization)
-        }
-
-        /// Update the `polymesh-ink` API using the tracker.
-        ///
-        /// Anyone can pay the gas fees to do the update using the tracker.
-        #[ink(message)]
-        pub fn update_polymesh_ink(&mut self) -> Result<()> {
-            self.api.check_for_upgrade()?;
-            Ok(())
         }
 
         /// Returns the [`IdentityId`] of the contract.
@@ -204,44 +189,38 @@ mod nft_royalty {
             nft_transfer_details: NFTTransferDetails,
             nft_offer: NFTOffer,
         ) -> Result<Vec<Leg>> {
-            debug_println!("Creating an NFT transfer");
             let venue_id = self.venue_id()?;
-            debug_println!("Retrieving contract's identity");
-            self.contract_identity = PolymeshInk::get_our_did()?;
-            debug_println!("Decoding asset metadata");
             let nft_artist_rules =
                 self.decoded_asset_metadata_value(nft_transfer_details.collection_ticker)?;
 
-            debug_println!("Retrieving royalty portfolio");
             let royalty_portfolio = self.royalty_portfolio(nft_artist_rules.artist_identity)?;
-            debug_println!("Validating metadata rules");
             Self::ensure_valid_transfer_values(&nft_artist_rules, &nft_offer)?;
 
+            let api = PolymeshInk::new()?;
             let legs: Vec<Leg> = self.setup_legs(
                 nft_transfer_details,
                 nft_offer,
                 nft_artist_rules.royalty_percentage,
                 royalty_portfolio,
             );
-            debug_println!("Creating an Instruction. Legs: {:?}", legs);
-            self.api
-                .add_and_affirm_instruction(venue_id, legs.clone(), vec![royalty_portfolio])?;
+            api.add_and_affirm_instruction(venue_id, legs.clone(), vec![royalty_portfolio])?;
             Ok(legs)
         }
 
         /// Creates a portoflio owned by the contract's caller and transfer its custody to the smart contract.
         #[ink(message)]
         pub fn create_custody_portfolio(&mut self, portfolio_name: PortfolioName) -> Result<()> {
-            self.contract_identity = PolymeshInk::get_our_did()?;
-            let callers_identity = Self::get_callers_identity()?;
+            if !self.initialized {
+                return Err(Error::MissingContractInitialization);
+            }
 
+            let callers_identity = Self::get_callers_identity()?;
             if self.royalty_portfolios.contains(callers_identity) {
                 return Err(Error::RoyaltyPortfolioAlreadyExists);
             }
 
-            let portfolio_id = self
-                .api
-                .create_custody_portfolio(callers_identity, portfolio_name)?;
+            let api = PolymeshInk::new()?;
+            let portfolio_id = api.create_custody_portfolio(callers_identity, portfolio_name)?;
 
             self.royalty_portfolios
                 .insert(callers_identity, &portfolio_id);
@@ -277,12 +256,14 @@ mod nft_royalty {
                 receiver: nft_transfer_details.nft_receiver_portfolio,
                 nfts,
             };
+            // Calculate the royalty_amount
+            let royalty_amount = royalty_percentage * nft_offer.transfer_price;
             // The second leg transfers the payment to the seller
             let nft_payment_leg = Leg::Fungible {
                 sender: nft_offer.payer_portfolio,
                 receiver: nft_offer.receiver_portfolio,
                 ticker: nft_offer.purchase_ticker,
-                amount: nft_offer.transfer_price,
+                amount: nft_offer.transfer_price - royalty_amount,
             };
             // The third leg transfers the royalty to the artist
             let royalty_amount = royalty_percentage * nft_offer.transfer_price;
@@ -296,14 +277,17 @@ mod nft_royalty {
         }
 
         /// Returns the [`AssetMetadataKey`] for the given `ticker`.
-        fn asset_metadata_key(&mut self, ticker: Ticker) -> Result<AssetMetadataKey> {
+        fn asset_metadata_key(
+            &mut self,
+            ticker: Ticker,
+            api: &PolymeshInk,
+        ) -> Result<AssetMetadataKey> {
             // Checks if the key is already in storage.
             if let Some(key_id) = self.metadata_keys.get(ticker) {
                 return Ok(AssetMetadataKey::Local(AssetMetadataLocalKey(key_id)));
             }
 
-            let local_metadata_key = self
-                .api
+            let local_metadata_key = api
                 .asset_metadata_local_name_to_key(
                     ticker,
                     AssetMetadataName(NFT_METADATA_NAME.to_vec()),
@@ -317,10 +301,10 @@ mod nft_royalty {
 
         /// Returns the [`AssetMetadataValue`] for the given `ticker`.
         fn asset_metadata_value(&mut self, ticker: Ticker) -> Result<AssetMetadataValue> {
-            let metadata_key = self.asset_metadata_key(ticker)?;
+            let api = PolymeshInk::new()?;
+            let metadata_key = self.asset_metadata_key(ticker, &api)?;
 
-            self.api
-                .asset_metadata_value(ticker, metadata_key)?
+            api.asset_metadata_value(ticker, metadata_key)?
                 .ok_or(Error::RoyaltyMetadataValueNotFound(ticker))
         }
 
