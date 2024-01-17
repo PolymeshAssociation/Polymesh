@@ -17,9 +17,9 @@ use pallet_nft::NumberOfNFTs;
 use pallet_portfolio::{PortfolioLockedNFT, PortfolioNFT};
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
-    AffirmsReceived, InstructionAffirmsPending, InstructionLegs, InstructionMemos,
-    NumberOfVenueSigners, OffChainAffirmations, RawEvent, UserAffirmations, UserVenues,
-    VenueInstructions,
+    AffirmsReceived, InstructionAffirmsPending, InstructionLegs, InstructionMediatorsAffirmations,
+    InstructionMemos, NumberOfVenueSigners, OffChainAffirmations, RawEvent, UserAffirmations,
+    UserVenues, VenueInstructions,
 };
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
@@ -30,8 +30,8 @@ use polymesh_primitives::asset_metadata::{
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::settlement::{
     AffirmationCount, AffirmationStatus, AssetCount, Instruction, InstructionId, InstructionStatus,
-    Leg, LegId, LegStatus, Receipt, ReceiptDetails, SettlementType, VenueDetails, VenueId,
-    VenueType,
+    Leg, LegId, LegStatus, MediatorAffirmationStatus, Receipt, ReceiptDetails, SettlementType,
+    VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::{
     AccountId, AuthorizationData, Balance, Claim, Condition, ConditionType, Fund, FundDescription,
@@ -3074,6 +3074,8 @@ fn add_instruction_with_offchain_assets() {
             &offchain_legs,
             instruction_memo,
             &legs,
+            &BTreeSet::new(),
+            &BTreeSet::new(),
         );
     });
 }
@@ -3130,6 +3132,8 @@ fn add_instruction_with_pre_affirmed_tickers() {
             &BTreeSet::new(),
             instruction_memo,
             &legs,
+            &BTreeSet::new(),
+            &BTreeSet::new(),
         );
     });
 }
@@ -3198,6 +3202,8 @@ fn add_instruction_with_pre_affirmed_tickers_with_assigned_custodian() {
             &BTreeSet::new(),
             instruction_memo,
             &legs,
+            &BTreeSet::new(),
+            &BTreeSet::new(),
         );
     });
 }
@@ -3260,6 +3266,8 @@ fn add_instruction_with_pre_affirmed_portfolio() {
             &BTreeSet::new(),
             instruction_memo,
             &legs,
+            &BTreeSet::new(),
+            &BTreeSet::new(),
         );
     });
 }
@@ -3317,6 +3325,8 @@ fn add_instruction_with_single_pre_affirmed() {
             &BTreeSet::new(),
             instruction_memo,
             &legs,
+            &BTreeSet::new(),
+            &BTreeSet::new(),
         );
     });
 }
@@ -3614,6 +3624,371 @@ fn reject_instruction_cost() {
     });
 }
 
+#[test]
+fn add_instruction_with_mediators() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let dave = User::new(AccountKeyring::Dave);
+        let alice = User::new(AccountKeyring::Alice);
+        let charlie = User::new(AccountKeyring::Charlie);
+        let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
+        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
+
+        let venue_counter = create_token_and_venue(TICKER, alice);
+
+        let asset_mediator = BTreeSet::from([dave.did]);
+        Asset::add_mandatory_mediators(alice.origin(), TICKER, asset_mediator.try_into().unwrap())
+            .unwrap();
+
+        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let legs: Vec<Leg> = vec![Leg::NonFungible {
+            sender: PortfolioId::default_portfolio(alice.did),
+            receiver: PortfolioId::default_portfolio(bob.did),
+            nfts,
+        }];
+        let instruction_mediators = BTreeSet::from([charlie.did]);
+        assert_ok!(Settlement::add_instruction_with_mediators(
+            alice.origin(),
+            venue_counter,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs.clone(),
+            None,
+            instruction_mediators.try_into().unwrap()
+        ));
+
+        let portfolios_pending_approval =
+            BTreeSet::from([alice_default_portfolio, bob_default_portfolio]);
+        let mediators_pending_approval = BTreeSet::from([dave.did, charlie.did]);
+        assert_add_instruction_storage(
+            &InstructionId(0),
+            &portfolios_pending_approval,
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            None,
+            &legs,
+            &mediators_pending_approval,
+            &BTreeSet::new(),
+        );
+    });
+}
+
+#[test]
+fn affirm_as_mediator_invalid_mediator() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let dave = User::new(AccountKeyring::Dave);
+        let alice = User::new(AccountKeyring::Alice);
+        let charlie = User::new(AccountKeyring::Charlie);
+
+        let venue_counter = create_token_and_venue(TICKER, alice);
+
+        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let legs: Vec<Leg> = vec![Leg::NonFungible {
+            sender: PortfolioId::default_portfolio(alice.did),
+            receiver: PortfolioId::default_portfolio(bob.did),
+            nfts,
+        }];
+        assert_ok!(Settlement::add_instruction_with_mediators(
+            alice.origin(),
+            venue_counter,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs.clone(),
+            None,
+            BTreeSet::from([charlie.did]).try_into().unwrap()
+        ));
+
+        assert_noop!(
+            Settlement::affirm_instruction_as_mediator(dave.origin(), InstructionId(0), None),
+            Error::CallerIsNotAMediator
+        );
+    });
+}
+
+#[test]
+fn affirm_as_mediator() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let charlie = User::new(AccountKeyring::Charlie);
+        let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
+        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
+
+        let venue_counter = create_token_and_venue(TICKER, alice);
+
+        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let legs: Vec<Leg> = vec![Leg::NonFungible {
+            sender: PortfolioId::default_portfolio(alice.did),
+            receiver: PortfolioId::default_portfolio(bob.did),
+            nfts,
+        }];
+        assert_ok!(Settlement::add_instruction_with_mediators(
+            alice.origin(),
+            venue_counter,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs.clone(),
+            None,
+            BTreeSet::from([charlie.did]).try_into().unwrap()
+        ));
+
+        assert_ok!(Settlement::affirm_instruction_as_mediator(
+            charlie.origin(),
+            InstructionId(0),
+            None
+        ),);
+
+        let portfolios_pending_approval =
+            BTreeSet::from([alice_default_portfolio, bob_default_portfolio]);
+        let mediators_affirmed = BTreeSet::from([charlie.did]);
+        assert_add_instruction_storage(
+            &InstructionId(0),
+            &portfolios_pending_approval,
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            None,
+            &legs,
+            &BTreeSet::new(),
+            &mediators_affirmed,
+        );
+    });
+}
+
+#[test]
+fn withdraw_as_mediator_invalid_mediator() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let dave = User::new(AccountKeyring::Dave);
+        let alice = User::new(AccountKeyring::Alice);
+        let charlie = User::new(AccountKeyring::Charlie);
+
+        let venue_counter = create_token_and_venue(TICKER, alice);
+
+        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let legs: Vec<Leg> = vec![Leg::NonFungible {
+            sender: PortfolioId::default_portfolio(alice.did),
+            receiver: PortfolioId::default_portfolio(bob.did),
+            nfts,
+        }];
+        assert_ok!(Settlement::add_instruction_with_mediators(
+            alice.origin(),
+            venue_counter,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs.clone(),
+            None,
+            BTreeSet::from([charlie.did]).try_into().unwrap()
+        ));
+
+        assert_noop!(
+            Settlement::withdraw_affirmation_as_mediator(dave.origin(), InstructionId(0)),
+            Error::CallerIsNotAMediator
+        );
+    });
+}
+
+#[test]
+fn withdraw_as_mediator_invalid_status() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let charlie = User::new(AccountKeyring::Charlie);
+
+        let venue_counter = create_token_and_venue(TICKER, alice);
+
+        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let legs: Vec<Leg> = vec![Leg::NonFungible {
+            sender: PortfolioId::default_portfolio(alice.did),
+            receiver: PortfolioId::default_portfolio(bob.did),
+            nfts,
+        }];
+        assert_ok!(Settlement::add_instruction_with_mediators(
+            alice.origin(),
+            venue_counter,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs.clone(),
+            None,
+            BTreeSet::from([charlie.did]).try_into().unwrap()
+        ));
+
+        assert_noop!(
+            Settlement::withdraw_affirmation_as_mediator(charlie.origin(), InstructionId(0)),
+            Error::UnexpectedAffirmationStatus
+        );
+    });
+}
+
+#[test]
+fn withdraw_affirmation_as_mediator() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let charlie = User::new(AccountKeyring::Charlie);
+        let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
+        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
+
+        let venue_counter = create_token_and_venue(TICKER, alice);
+
+        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let legs: Vec<Leg> = vec![Leg::NonFungible {
+            sender: PortfolioId::default_portfolio(alice.did),
+            receiver: PortfolioId::default_portfolio(bob.did),
+            nfts,
+        }];
+        assert_ok!(Settlement::add_instruction_with_mediators(
+            alice.origin(),
+            venue_counter,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs.clone(),
+            None,
+            BTreeSet::from([charlie.did]).try_into().unwrap()
+        ));
+
+        assert_ok!(Settlement::affirm_instruction_as_mediator(
+            charlie.origin(),
+            InstructionId(0),
+            None
+        ),);
+        assert_ok!(Settlement::withdraw_affirmation_as_mediator(
+            charlie.origin(),
+            InstructionId(0),
+        ),);
+
+        let portfolios_pending_approval =
+            BTreeSet::from([alice_default_portfolio, bob_default_portfolio]);
+        let mediators_pending_approval = BTreeSet::from([charlie.did]);
+        assert_add_instruction_storage(
+            &InstructionId(0),
+            &portfolios_pending_approval,
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            None,
+            &legs,
+            &mediators_pending_approval,
+            &BTreeSet::new(),
+        );
+    });
+}
+
+#[test]
+fn expired_affirmation_execution() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let charlie = User::new(AccountKeyring::Charlie);
+        let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
+        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
+
+        let venue_counter = create_token_and_venue(TICKER, alice);
+
+        let legs: Vec<Leg> = vec![Leg::Fungible {
+            sender: alice_default_portfolio,
+            receiver: bob_default_portfolio,
+            ticker: TICKER,
+            amount: 1,
+        }];
+        assert_ok!(Settlement::add_instruction_with_mediators(
+            alice.origin(),
+            venue_counter,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs.clone(),
+            None,
+            BTreeSet::from([charlie.did]).try_into().unwrap()
+        ));
+        assert_ok!(Settlement::affirm_instruction(
+            alice.origin(),
+            InstructionId(0),
+            vec![alice_default_portfolio]
+        ),);
+        assert_ok!(Settlement::affirm_instruction(
+            bob.origin(),
+            InstructionId(0),
+            vec![bob_default_portfolio]
+        ),);
+        assert_ok!(Settlement::affirm_instruction_as_mediator(
+            charlie.origin(),
+            InstructionId(0),
+            Some(Timestamp::get().saturating_add(3))
+        ),);
+
+        next_block();
+        assert_instruction_status(InstructionId(0), InstructionStatus::Failed);
+
+        assert_ok!(Settlement::affirm_instruction_as_mediator(
+            charlie.origin(),
+            InstructionId(0),
+            None
+        ),);
+        assert_ok!(Settlement::execute_manual_instruction(
+            alice.origin(),
+            InstructionId(0),
+            None,
+            1,
+            0,
+            0,
+            None
+        ));
+        assert_instruction_status(
+            InstructionId(0),
+            InstructionStatus::Success(System::block_number()),
+        );
+    });
+}
+
+#[test]
+fn reject_instruction_as_mediator() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let dave = User::new(AccountKeyring::Dave);
+        let alice = User::new(AccountKeyring::Alice);
+        let charlie = User::new(AccountKeyring::Charlie);
+
+        let venue_counter = create_token_and_venue(TICKER, alice);
+
+        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let legs: Vec<Leg> = vec![Leg::NonFungible {
+            sender: PortfolioId::default_portfolio(alice.did),
+            receiver: PortfolioId::default_portfolio(bob.did),
+            nfts,
+        }];
+        assert_ok!(Settlement::add_instruction_with_mediators(
+            alice.origin(),
+            venue_counter,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs.clone(),
+            None,
+            BTreeSet::from([charlie.did]).try_into().unwrap()
+        ));
+
+        assert_noop!(
+            Settlement::reject_instruction_as_mediator(dave.origin(), InstructionId(0), None),
+            Error::CallerIsNotAMediator
+        );
+        assert_ok!(Settlement::reject_instruction_as_mediator(
+            charlie.origin(),
+            InstructionId(0),
+            None
+        ),);
+        assert_instruction_status(
+            InstructionId(0),
+            InstructionStatus::Rejected(System::block_number()),
+        );
+    });
+}
+
 /// Asserts the storage has been updated after adding an instruction.
 /// While each portfolio in `portfolios_pending_approval` must have a pending `AffirmationStatus`, each portfolio in `portfolios_pre_approved`
 /// must have an affirmed status. The number of pending affirmations must be equal to the number of portfolios in `portfolios_pending_approval` + the number of offchain legs,
@@ -3625,6 +4000,8 @@ fn assert_add_instruction_storage(
     offchain_legs: &BTreeSet<LegId>,
     instruction_memo: Option<Memo>,
     legs: &[Leg],
+    mediators_pending_approval: &BTreeSet<IdentityId>,
+    mediators_affirmed: &BTreeSet<IdentityId>,
 ) {
     portfolios_pending_approval.iter().for_each(|portfolio_id| {
         assert_eq!(
@@ -3650,7 +4027,9 @@ fn assert_add_instruction_storage(
     });
     assert_eq!(
         InstructionAffirmsPending::get(instruction_id),
-        portfolios_pending_approval.len() as u64 + offchain_legs.len() as u64
+        portfolios_pending_approval.len() as u64
+            + offchain_legs.len() as u64
+            + mediators_pending_approval.len() as u64
     );
 
     assert_eq!(InstructionMemos::get(instruction_id), instruction_memo);
@@ -3660,6 +4039,21 @@ fn assert_add_instruction_storage(
             InstructionLegs::get(instruction_id, LegId(i as u64)),
             Some(legs[i].clone())
         )
+    });
+
+    mediators_pending_approval.iter().for_each(|identity_id| {
+        assert_eq!(
+            InstructionMediatorsAffirmations::<TestStorage>::get(instruction_id, identity_id),
+            MediatorAffirmationStatus::Pending
+        )
+    });
+    mediators_affirmed.iter().for_each(|identity_id| {
+        match InstructionMediatorsAffirmations::<TestStorage>::get(instruction_id, identity_id) {
+            MediatorAffirmationStatus::Pending | MediatorAffirmationStatus::Unknown => {
+                panic!("unexpected mediator affirmation status")
+            }
+            MediatorAffirmationStatus::Affirmed { .. } => {}
+        }
     });
 }
 

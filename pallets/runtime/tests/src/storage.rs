@@ -240,6 +240,8 @@ parameter_types! {
     pub const MaxNumberOfNFTsMoves: u32 = 100;
     pub const MaxNumberOfOffChainAssets: u32 = 10;
     pub const MaxNumberOfVenueSigners: u32 = 50;
+    pub const MaxInstructionMediators: u32 = 4;
+    pub const MaxAssetMediators: u32 = 4;
 }
 
 frame_support::construct_runtime!(

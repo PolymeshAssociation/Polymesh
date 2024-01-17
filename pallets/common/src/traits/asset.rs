@@ -17,6 +17,7 @@ use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::Vec;
 
 use polymesh_primitives::asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName};
@@ -70,9 +71,13 @@ pub trait Config:
     type AssetFn: AssetFnTrait<Self::AccountId, Self::RuntimeOrigin>;
 
     type WeightInfo: WeightInfo;
+
     type CPWeightInfo: crate::traits::checkpoint::WeightInfo;
 
     type NFTFn: NFTTrait<Self::RuntimeOrigin>;
+
+    /// Maximum number of mediators for an asset.
+    type MaxAssetMediators: Get<u32>;
 }
 
 decl_event! {
@@ -177,6 +182,12 @@ decl_event! {
         /// An identity has removed an asset to the list of pre aprroved receivement.
         /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset.
         RemovePreApprovedAsset(IdentityId, Ticker),
+        /// An identity has added mandatory mediators to an asset.
+        /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset, the identity of all mediators added.
+        AssetMediatorsAdded(IdentityId, Ticker, BTreeSet<IdentityId>),
+        /// An identity has removed mediators from an asset.
+        /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset, the identity of all mediators removed.
+        AssetMediatorsRemoved(IdentityId, Ticker, BTreeSet<IdentityId>)
     }
 }
 
@@ -211,6 +222,8 @@ pub trait WeightInfo {
     fn remove_ticker_affirmation_exemption() -> Weight;
     fn pre_approve_ticker() -> Weight;
     fn remove_ticker_pre_approval() -> Weight;
+    fn add_mandatory_mediators(n: u32) -> Weight;
+    fn remove_mandatory_mediators(n: u32) -> Weight;
 }
 
 pub trait AssetFnTrait<Account, Origin> {
@@ -251,5 +264,12 @@ pub trait AssetFnTrait<Account, Origin> {
         ticker: Option<Ticker>,
         name: AssetMetadataName,
         spec: AssetMetadataSpec,
+    ) -> DispatchResult;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn add_mandatory_mediators(
+        origin: Origin,
+        ticker: Ticker,
+        mediators: BTreeSet<IdentityId>,
     ) -> DispatchResult;
 }

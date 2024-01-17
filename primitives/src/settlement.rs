@@ -43,9 +43,12 @@ impl_checked_inc!(VenueId);
 pub struct VenueDetails(Vec<u8>);
 
 /// Status of an instruction
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone, Debug, Decode, Default, Encode, Eq, Ord, PartialEq, PartialOrd, TypeInfo
+)]
 pub enum InstructionStatus<BlockNumber> {
     /// Invalid instruction or details pruned
+    #[default]
     Unknown,
     /// Instruction is pending execution
     Pending,
@@ -57,17 +60,13 @@ pub enum InstructionStatus<BlockNumber> {
     Rejected(BlockNumber),
 }
 
-impl<BlockNumber> Default for InstructionStatus<BlockNumber> {
-    fn default() -> Self {
-        Self::Unknown
-    }
-}
-
 /// Type of the venue. Used for offchain filtering.
-#[derive(Encode, Decode, TypeInfo)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Copy, Clone, Debug, Decode, Default, Encode, Eq, Ord, PartialEq, PartialOrd, TypeInfo
+)]
 pub enum VenueType {
     /// Default type - used for mixed and unknown types
+    #[default]
     Other,
     /// Represents a primary distribution
     Distribution,
@@ -77,16 +76,13 @@ pub enum VenueType {
     Exchange,
 }
 
-impl Default for VenueType {
-    fn default() -> Self {
-        Self::Other
-    }
-}
-
 /// Status of a leg
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Copy, Clone, Debug, Decode, Default, Encode, Eq, Ord, PartialEq, PartialOrd, TypeInfo
+)]
 pub enum LegStatus<AccountId> {
     /// It is waiting for affirmation
+    #[default]
     PendingTokenLock,
     /// It is waiting execution (tokens currently locked)
     ExecutionPending,
@@ -94,16 +90,13 @@ pub enum LegStatus<AccountId> {
     ExecutionToBeSkipped(AccountId, u64),
 }
 
-impl<AccountId> Default for LegStatus<AccountId> {
-    fn default() -> Self {
-        Self::PendingTokenLock
-    }
-}
-
 /// Status of an affirmation
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone, Debug, Decode, Default, Encode, Eq, Ord, PartialEq, PartialOrd, TypeInfo
+)]
 pub enum AffirmationStatus {
     /// Invalid affirmation
+    #[default]
     Unknown,
     /// Pending user's consent
     Pending,
@@ -111,28 +104,18 @@ pub enum AffirmationStatus {
     Affirmed,
 }
 
-impl Default for AffirmationStatus {
-    fn default() -> Self {
-        Self::Unknown
-    }
-}
-
 /// Type of settlement
-#[derive(Encode, Decode, TypeInfo)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Copy, Clone, Debug, Decode, Default, Encode, Eq, Ord, PartialEq, PartialOrd, TypeInfo
+)]
 pub enum SettlementType<BlockNumber> {
     /// Instruction should be settled in the next block as soon as all affirmations are received.
+    #[default]
     SettleOnAffirmation,
     /// Instruction should be settled on a particular block.
     SettleOnBlock(BlockNumber),
     /// Instruction must be settled manually on or after BlockNumber.
     SettleManual(BlockNumber),
-}
-
-impl<BlockNumber> Default for SettlementType<BlockNumber> {
-    fn default() -> Self {
-        Self::SettleOnAffirmation
-    }
 }
 
 /// A per-Instruction leg ID.
@@ -469,8 +452,8 @@ impl AssetCount {
     }
 }
 
-/// Stores [`AssetCount`] for the instruction, all portfolio that have pre-affirmed the transfer
-/// and all portfolios that still have to approve the transfer.
+/// Stores the [`AssetCount`] for the instruction, all portfolio that have pre-affirmed the transfer
+/// all portfolios that still have to approve the transfer, and the identity of all mediators.
 pub struct InstructionInfo {
     /// The number of fungible, non fungible and off-chain transfers in the instruction.
     instruction_asset_count: AssetCount,
@@ -478,6 +461,8 @@ pub struct InstructionInfo {
     portfolios_pending_approval: BTreeSet<PortfolioId>,
     /// All portfolios that have pre-approved the transfer of a ticker.
     portfolios_pre_approved: BTreeSet<PortfolioId>,
+    /// All mediators that need to affirm the instruction.
+    mediators: BTreeSet<IdentityId>,
 }
 
 impl InstructionInfo {
@@ -486,11 +471,13 @@ impl InstructionInfo {
         instruction_asset_count: AssetCount,
         portfolios_pending_approval: BTreeSet<PortfolioId>,
         portfolios_pre_approved: BTreeSet<PortfolioId>,
+        mediators: BTreeSet<IdentityId>,
     ) -> Self {
         Self {
             instruction_asset_count,
             portfolios_pending_approval,
             portfolios_pre_approved,
+            mediators,
         }
     }
 
@@ -506,11 +493,17 @@ impl InstructionInfo {
             .collect()
     }
 
+    /// Returns a [`BTreeSet<&IdentityId>`] of all mediators that have to affirm the instruction.
+    pub fn mediators(&self) -> &BTreeSet<IdentityId> {
+        &self.mediators
+    }
+
     /// Returns the number of pending affirmations for the instruction.
-    /// The value must be equal to all unique portfolio that have not pre-approved the transfer + the number of offchain legs.
+    /// The value must be equal to all unique portfolio that have not pre-approved the transfer + the number of offchain legs + the number of mediators.
     pub fn number_of_pending_affirmations(&self) -> u64 {
         self.portfolios_pending_approval.len() as u64
             + self.instruction_asset_count.off_chain() as u64
+            + self.mediators.len() as u64
     }
 
     /// Returns the number of fungible transfers.
@@ -526,6 +519,11 @@ impl InstructionInfo {
     /// Returns the number of off-chain transfers.
     pub fn off_chain(&self) -> u32 {
         self.instruction_asset_count.off_chain()
+    }
+
+    /// Extends the mediator's set with the contents of `new_mediators`.
+    pub fn extend_mediators(&mut self, new_mediators: BTreeSet<IdentityId>) {
+        self.mediators.extend(new_mediators.iter());
     }
 }
 
@@ -700,4 +698,19 @@ impl ExecuteInstructionInfo {
             error: error.map(|e| e.to_string()),
         }
     }
+}
+
+/// The status of the mediator's affirmation.
+#[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
+pub enum MediatorAffirmationStatus<T> {
+    /// Invalid affirmation status
+    #[default]
+    Unknown,
+    /// The mediator hasn't affirmed the instruction.
+    Pending,
+    /// The mediator has already affirmed the instruction.
+    Affirmed {
+        /// Sets an expiration date for the affirmation.
+        expiry: Option<T>,
+    },
 }

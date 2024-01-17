@@ -16,6 +16,8 @@
 use frame_benchmarking::benchmarks;
 use frame_support::StorageValue;
 use frame_system::RawOrigin;
+use scale_info::prelude::format;
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{convert::TryInto, iter, prelude::*};
 
 use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances};
@@ -185,7 +187,8 @@ pub fn setup_asset_transfer<T>(
     receiver_portolfio_name: Option<&str>,
     pause_compliance: bool,
     pause_restrictions: bool,
-) -> (PortfolioId, PortfolioId)
+    n_mediators: u8,
+) -> (PortfolioId, PortfolioId, Vec<User<T>>)
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
 {
@@ -197,6 +200,26 @@ where
     // Creates the asset
     make_asset::<T>(sender, Some(ticker.as_ref()));
     move_from_default_portfolio::<T>(sender, ticker, ONE_UNIT * POLY, sender_portfolio);
+
+    // Sets mandatory mediators
+    let mut asset_mediators = Vec::new();
+    if n_mediators > 0 {
+        let mediators_identity: BTreeSet<IdentityId> = (0..n_mediators)
+            .map(|i| {
+                let mediator = UserBuilder::<T>::default()
+                    .generate_did()
+                    .build(&format!("Mediator{:?}{}", ticker, i));
+                asset_mediators.push(mediator.clone());
+                mediator.did()
+            })
+            .collect();
+        Module::<T>::add_mandatory_mediators(
+            sender.origin().into(),
+            ticker,
+            mediators_identity.try_into().unwrap(),
+        )
+        .unwrap();
+    }
 
     // Adds the maximum number of compliance requirement
     // If pause_compliance is true, only the decoding cost will be considered.
@@ -212,7 +235,7 @@ where
         pause_restrictions,
     );
 
-    (sender_portfolio, receiver_portfolio)
+    (sender_portfolio, receiver_portfolio, asset_mediators)
 }
 
 /// Creates a user portfolio for `user`.
@@ -618,8 +641,8 @@ benchmarks! {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        let (sender_portfolio, receiver_portfolio) =
-            setup_asset_transfer::<T>(&alice, &bob, ticker, None, None, true, true);
+        let (sender_portfolio, receiver_portfolio, _) =
+            setup_asset_transfer::<T>(&alice, &bob, ticker, None, None, true, true, 0);
     }: {
         Module::<T>::base_transfer(
             sender_portfolio,
@@ -653,4 +676,48 @@ benchmarks! {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         Module::<T>::pre_approve_ticker(alice.clone().origin().into(), ticker).unwrap();
     }: _(alice.origin, ticker)
+
+    add_mandatory_mediators {
+        let n in 1 .. T::MaxAssetMediators::get() as u32;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let mediators: BTreeSet<IdentityId> = (0..n).map(|i| IdentityId::from(i as u128)).collect();
+
+        Module::<T>::create_asset(
+            alice.clone().origin().into(),
+            ticker.as_ref().into(),
+            ticker,
+            false,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            Vec::new(),
+            None,
+        ).unwrap();
+
+    }: _(alice.origin, ticker, mediators.try_into().unwrap())
+
+    remove_mandatory_mediators {
+        let n in 1 .. T::MaxAssetMediators::get() as u32;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let mediators: BTreeSet<IdentityId> = (0..n).map(|i| IdentityId::from(i as u128)).collect();
+
+        Module::<T>::create_asset(
+            alice.clone().origin().into(),
+            ticker.as_ref().into(),
+            ticker,
+            false,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            Vec::new(),
+            None,
+        ).unwrap();
+
+        Module::<T>::add_mandatory_mediators(
+            alice.clone().origin().into(),
+            ticker,
+            mediators.clone().try_into().unwrap()
+        ).unwrap();
+    }: _(alice.origin, ticker, mediators.try_into().unwrap())
+
 }
