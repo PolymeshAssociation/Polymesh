@@ -87,7 +87,6 @@ use sp_runtime::{Deserialize, Serialize};
 use arrayvec::ArrayVec;
 use codec::{Decode, Encode};
 use core::mem;
-use core::result::Result as StdResult;
 use currency::*;
 use frame_support::dispatch::{DispatchError, DispatchResult, Weight};
 use frame_support::traits::{Get, PalletInfoAccess};
@@ -1017,7 +1016,11 @@ decl_error! {
         /// Number of asset mediators would exceed the maximum allowed.
         NumberOfAssetMediatorsExceeded,
         /// Invalid ticker character - valid set: A`..`Z` `0`..`9` `_` `-` `.` `/`.
-        InvalidTickerCharacter
+        InvalidTickerCharacter,
+        /// Failed to transfer the asset - asset is frozen.
+        InvalidTransferFrozenAsset,
+        /// Failed to transfer an NFT - compliance failed.
+        InvalidTransferComplianceFailure
     }
 }
 
@@ -1264,8 +1267,8 @@ impl<T: Config> Module<T> {
     }
 
     // Get the total supply of an asset `id`.
-    pub fn total_supply(ticker: Ticker) -> Balance {
-        Self::token_details(&ticker)
+    pub fn total_supply(ticker: &Ticker) -> Balance {
+        Self::token_details(ticker)
             .map(|t| t.total_supply)
             .unwrap_or_default()
     }
@@ -1275,41 +1278,47 @@ impl<T: Config> Module<T> {
             .unwrap_or_else(|| Self::balance_of(&ticker, &did))
     }
 
-    pub fn _is_valid_transfer(
+    pub fn validate_asset_transfer(
         ticker: &Ticker,
-        from_portfolio: PortfolioId,
-        to_portfolio: PortfolioId,
+        sender_portfolio: &PortfolioId,
+        receiver_portfolio: &PortfolioId,
         value: Balance,
         weight_meter: &mut WeightMeter,
-    ) -> StdResult<u8, DispatchError> {
-        if Self::frozen(ticker) {
-            return Ok(ERC1400_TRANSFERS_HALTED);
-        }
+    ) -> DispatchResult {
+        // Verifies that the asset is not frozen
+        ensure!(!Frozen::get(ticker), Error::<T>::InvalidTransferFrozenAsset);
 
-        if Self::portfolio_failure(&from_portfolio, &to_portfolio, ticker, value) {
-            return Ok(PORTFOLIO_FAILURE);
-        }
-
-        if Self::statistics_failures(
-            &from_portfolio.did,
-            &to_portfolio.did,
+        // Verifies that both portfolios exist an that the sender has sufficient balance
+        Portfolio::<T>::ensure_portfolio_transfer_validity(
+            sender_portfolio,
+            receiver_portfolio,
             ticker,
             value,
-            weight_meter,
-        ) {
-            return Ok(TRANSFER_MANAGER_FAILURE);
-        }
+        )?;
 
+        // Verifies that the statistics restrictions are satisfied
+        Statistics::<T>::verify_transfer_restrictions(
+            ticker,
+            &sender_portfolio.did,
+            &receiver_portfolio.did,
+            Self::balance_of(ticker, sender_portfolio.did),
+            Self::balance_of(ticker, receiver_portfolio.did),
+            value,
+            Self::total_supply(ticker),
+            weight_meter,
+        )?;
+
+        // Verifies that all compliance rules are being respected
         if !T::ComplianceManager::is_compliant(
             ticker,
-            from_portfolio.did,
-            to_portfolio.did,
+            sender_portfolio.did,
+            receiver_portfolio.did,
             weight_meter,
         )? {
-            return Ok(COMPLIANCE_MANAGER_FAILURE);
+            return Err(Error::<T>::InvalidTransferComplianceFailure.into());
         }
 
-        Ok(ERC1400_TRANSFER_SUCCESS)
+        Ok(())
     }
 
     // Transfers tokens from one identity to another
@@ -1554,44 +1563,6 @@ impl<T: Config> Module<T> {
         })
     }
 
-    /// RPC: Function allows external users to know whether the transfer extrinsic
-    /// will be valid or not beforehand.
-    pub fn unsafe_can_transfer(
-        from_custodian: Option<IdentityId>,
-        from_portfolio: PortfolioId,
-        to_custodian: Option<IdentityId>,
-        to_portfolio: PortfolioId,
-        ticker: &Ticker,
-        value: Balance,
-        weight_meter: &mut WeightMeter,
-    ) -> StdResult<u8, &'static str> {
-        Ok(if Self::invalid_granularity(ticker, value) {
-            // Granularity check
-            INVALID_GRANULARITY
-        } else if Self::self_transfer(&from_portfolio, &to_portfolio) {
-            INVALID_RECEIVER_DID
-        } else if Self::invalid_cdd(from_portfolio.did) {
-            INVALID_SENDER_DID
-        } else if Self::custodian_error(
-            from_portfolio,
-            from_custodian.unwrap_or(from_portfolio.did),
-        ) {
-            CUSTODIAN_ERROR
-        } else if Self::invalid_cdd(to_portfolio.did) {
-            INVALID_RECEIVER_DID
-        } else if Self::custodian_error(to_portfolio, to_custodian.unwrap_or(to_portfolio.did)) {
-            CUSTODIAN_ERROR
-        } else if Self::insufficient_balance(&ticker, from_portfolio.did, value) {
-            ERC1400_INSUFFICIENT_BALANCE
-        } else if Self::portfolio_failure(&from_portfolio, &to_portfolio, ticker, value) {
-            PORTFOLIO_FAILURE
-        } else {
-            // Compliance manager & Smart Extension check
-            Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value, weight_meter)
-                .unwrap_or(ERC1400_TRANSFER_FAILURE)
-        })
-    }
-
     /// Transfers an asset from one identity portfolio to another
     pub fn base_transfer(
         from_portfolio: PortfolioId,
@@ -1608,14 +1579,13 @@ impl<T: Config> Module<T> {
         // The only place this function is used right now is the settlement engine and the settlement engine
         // checks custodial permissions when the instruction is authorized.
 
-        // Validate the transfer
-        let is_transfer_success =
-            Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value, weight_meter)?;
-
-        ensure!(
-            is_transfer_success == ERC1400_TRANSFER_SUCCESS,
-            Error::<T>::InvalidTransfer
-        );
+        Self::validate_asset_transfer(
+            &ticker,
+            &from_portfolio,
+            &to_portfolio,
+            value,
+            weight_meter,
+        )?;
 
         Self::unsafe_transfer(
             from_portfolio,
@@ -2346,42 +2316,6 @@ impl<T: Config> Module<T> {
         Self::balance_of(&ticker, did) < value
     }
 
-    fn portfolio_failure(
-        from_portfolio: &PortfolioId,
-        to_portfolio: &PortfolioId,
-        ticker: &Ticker,
-        value: Balance,
-    ) -> bool {
-        Portfolio::<T>::ensure_portfolio_transfer_validity(
-            from_portfolio,
-            to_portfolio,
-            ticker,
-            value,
-        )
-        .is_err()
-    }
-
-    fn statistics_failures(
-        from_did: &IdentityId,
-        to_did: &IdentityId,
-        ticker: &Ticker,
-        value: Balance,
-        weight_meter: &mut WeightMeter,
-    ) -> bool {
-        let total_supply = Self::total_supply(*ticker);
-        Statistics::<T>::verify_transfer_restrictions(
-            ticker,
-            from_did,
-            to_did,
-            Self::balance_of(ticker, from_did),
-            Self::balance_of(ticker, to_did),
-            value,
-            total_supply,
-            weight_meter,
-        )
-        .is_err()
-    }
-
     fn transfer_condition_failures_granular(
         from_did: &IdentityId,
         to_did: &IdentityId,
@@ -2389,7 +2323,7 @@ impl<T: Config> Module<T> {
         value: Balance,
         weight_meter: &mut WeightMeter,
     ) -> Result<Vec<TransferConditionResult>, DispatchError> {
-        let total_supply = Self::total_supply(*ticker);
+        let total_supply = Self::total_supply(ticker);
         Statistics::<T>::get_transfer_restrictions_results(
             ticker,
             from_did,
