@@ -88,8 +88,8 @@ use arrayvec::ArrayVec;
 use codec::{Decode, Encode};
 use core::mem;
 use currency::*;
-use frame_support::dispatch::{DispatchError, DispatchResult, Weight};
-use frame_support::traits::{Get, PalletInfoAccess};
+use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::traits::Get;
 use frame_support::BoundedBTreeSet;
 use frame_support::{decl_error, decl_module, decl_storage, ensure, fail};
 use frame_system::ensure_root;
@@ -328,25 +328,6 @@ decl_module! {
         const AssetMetadataNameMaxLength: u32 = T::AssetMetadataNameMaxLength::get();
         const AssetMetadataValueMaxLength: u32 = T::AssetMetadataValueMaxLength::get();
         const AssetMetadataTypeDefMaxLength: u32 = T::AssetMetadataTypeDefMaxLength::get();
-
-        // Remove all storage related to classic tickers in this module
-        fn on_runtime_upgrade() -> Weight {
-            use polymesh_primitives::storage_migrate_on;
-            storage_migrate_on!(StorageVersion, 3, {
-                let prefixes = &[
-                    "BalanceOfAtScope",
-                    "AggregateBalance",
-                    "ScopeIdOf",
-                    "DisableInvestorUniqueness",
-                ];
-                for prefix in prefixes {
-                    let res = frame_support::storage::migration::clear_storage_prefix(<Pallet<T>>::name().as_bytes(), prefix.as_bytes(), b"", None, None);
-                    log::info!("Cleared storage prefix[{prefix}]: cursor={:?}, backend={}, unique={}, loops={}",
-                        res.maybe_cursor, res.backend, res.unique, res.loops);
-                }
-            });
-            Weight::zero()
-        }
 
         /// Registers a new ticker or extends validity of an existing ticker.
         /// NB: Ticker validity does not get carry forward when renewing ticker.

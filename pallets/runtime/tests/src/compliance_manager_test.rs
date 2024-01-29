@@ -5,7 +5,6 @@ use sp_std::prelude::*;
 
 use pallet_compliance_manager::Error as CMError;
 use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
-use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::compliance_manager::{
     AssetComplianceResult, ComplianceRequirement, ComplianceRequirementResult,
@@ -35,32 +34,27 @@ type EAError = pallet_external_agents::Error<TestStorage>;
 macro_rules! assert_invalid_transfer {
     ($ticker:expr, $from:expr, $to:expr, $amount:expr) => {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
-        assert_ne!(
-            Asset::_is_valid_transfer(
-                &$ticker,
-                PortfolioId::default_portfolio($from),
-                PortfolioId::default_portfolio($to),
-                $amount,
-                &mut weight_meter
-            ),
-            Ok(ERC1400_TRANSFER_SUCCESS)
-        );
+        assert!(Asset::validate_asset_transfer(
+            &$ticker,
+            &PortfolioId::default_portfolio($from),
+            &PortfolioId::default_portfolio($to),
+            $amount,
+            &mut weight_meter
+        )
+        .is_err(),);
     };
 }
 
 macro_rules! assert_valid_transfer {
     ($ticker:expr, $from:expr, $to:expr, $amount:expr) => {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
-        assert_eq!(
-            Asset::_is_valid_transfer(
-                &$ticker,
-                PortfolioId::default_portfolio($from),
-                PortfolioId::default_portfolio($to),
-                $amount,
-                &mut weight_meter
-            ),
-            Ok(ERC1400_TRANSFER_SUCCESS)
-        );
+        assert_ok!(Asset::validate_asset_transfer(
+            &$ticker,
+            &PortfolioId::default_portfolio($from),
+            &PortfolioId::default_portfolio($to),
+            $amount,
+            &mut weight_meter
+        ),);
     };
 }
 

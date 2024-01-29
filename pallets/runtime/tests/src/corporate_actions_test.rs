@@ -2024,7 +2024,7 @@ fn dist_claim_misc_bad() {
 
         // Travel back in time. Now dist is active, but compliance rules not met, so transfer fails.
         set_timestamp(5);
-        noop(AssetError::InvalidTransfer.into());
+        noop(AssetError::InvalidTransferComplianceFailure.into());
     });
 }
 
@@ -2112,7 +2112,7 @@ fn dist_claim_works() {
         // Owner should have some free currency balance due to withheld taxes.
         let pid = PortfolioId::default_portfolio(owner.did);
         let wht = benefit_foo - post_tax_foo + benefit_bar - post_tax_bar;
-        let rem = Asset::total_supply(ticker) - amount + wht;
+        let rem = Asset::total_supply(&ticker) - amount + wht;
         assert_ok!(Portfolio::ensure_sufficient_balance(&pid, &currency, rem));
         assert_noop!(
             Portfolio::ensure_sufficient_balance(&pid, &currency, rem + 1),
