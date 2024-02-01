@@ -517,7 +517,7 @@ jobs:
           docker push --all-tags $IMAGE_NAME
   publish-github-release:
     docker:
-      - image: circleci/golang:1.17
+      - image: cimg/go:1.21.3
     steps:
       - attach_workspace:
           at: ./assets
