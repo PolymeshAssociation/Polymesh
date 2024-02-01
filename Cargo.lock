@@ -6501,7 +6501,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh"
-version = "6.1.0"
+version = "6.2.0"
 dependencies = [
  "clap 4.4.11",
  "frame-benchmarking",
