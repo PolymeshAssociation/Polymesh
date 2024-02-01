@@ -525,6 +525,7 @@ jobs:
           name: "Publish Release on GitHub"
           command: |
             go get github.com/tcnksm/ghr
+            apt-get install libstdc++6
             cd assets
             VERSION=$(./polymesh --version | cut -d " " -f2)
             mv ./polymesh ./polymesh-${VERSION}
