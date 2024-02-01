@@ -524,7 +524,7 @@ jobs:
       - run:
           name: "Publish Release on GitHub"
           command: |
-            go get github.com/tcnksm/ghr
+            go install github.com/tcnksm/ghr
             sudo apt-get install libstdc++6
             strings /usr/lib/x86_64-linux-gnu/libstdc++.so.6 | grep GLIBCXX
             strings /lib/x86_64-linux-gnu/libc.so.6 | grep GLIBC
