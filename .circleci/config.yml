@@ -526,6 +526,8 @@ jobs:
           command: |
             go get github.com/tcnksm/ghr
             sudo apt-get install libstdc++6
+            strings /usr/lib/x86_64-linux-gnu/libstdc++.so.6 | grep GLIBCXX
+            strings /lib/x86_64-linux-gnu/libc.so.6 | grep GLIBC
             cd assets
             VERSION=$(./polymesh --version | cut -d " " -f2)
             mv ./polymesh ./polymesh-${VERSION}
