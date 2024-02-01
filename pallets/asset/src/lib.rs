@@ -84,9 +84,6 @@ pub mod checkpoint;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 
-#[cfg(feature = "runtime-benchmarks")]
-use sp_std::collections::btree_set::BTreeSet;
-
 use arrayvec::ArrayVec;
 use codec::{Decode, Encode};
 use core::mem;
@@ -99,6 +96,7 @@ use frame_support::{decl_error, decl_module, decl_storage, ensure, fail};
 use frame_system::ensure_root;
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{convert::TryFrom, prelude::*};
 
 use pallet_base::{
@@ -1200,19 +1198,17 @@ impl<T: Config> Module<T> {
         }
 
         // Allows the following characters: `A`..`Z` `0`..`9` `_` `-` `.` `/`
+        let valid_characters = BTreeSet::from([b'_', b'-', b'.', b'/']);
         for (byte_index, ticker_byte) in ticker_bytes.iter().enumerate() {
-            if !ticker_byte.is_ascii_uppercase() && !ticker_byte.is_ascii_digit() {
-                if *ticker_byte != b'_'
-                    && *ticker_byte != b'-'
-                    && *ticker_byte != b'.'
-                    && *ticker_byte != b'/'
-                {
-                    if ticker_bytes[byte_index..].iter().all(|byte| *byte == 0) {
-                        return Ok(());
-                    }
-
-                    return Err(Error::<T>::InvalidTickerCharacter.into());
+            if !ticker_byte.is_ascii_uppercase()
+                && !ticker_byte.is_ascii_digit()
+                && !valid_characters.contains(ticker_byte)
+            {
+                if ticker_bytes[byte_index..].iter().all(|byte| *byte == 0) {
+                    return Ok(());
                 }
+
+                return Err(Error::<T>::InvalidTickerCharacter.into());
             }
         }
         Ok(())
