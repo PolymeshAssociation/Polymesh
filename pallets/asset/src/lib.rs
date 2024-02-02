@@ -68,9 +68,6 @@
 //! - `extension_details` - It provides the list of Smart extension added for the given tokens.
 //! - `extensions` - It provides the list of Smart extension added for the given tokens and for the given type.
 //! - `frozen` - It tells whether the given ticker is frozen or not.
-//! - `is_ticker_available` - It checks whether the given ticker is available or not.
-//! - `is_ticker_registry_valid` - It checks whether the ticker is owned by a given IdentityId or not.
-//! - `is_ticker_available_or_registered_to` - It provides the status of a given ticker.
 //! - `total_supply` - It provides the total supply of a ticker.
 //! - `get_balance_at` - It provides the balance of a DID at a certain checkpoint.
 
@@ -111,7 +108,7 @@ use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{
     AssetName, AssetType, CheckpointId, CustomAssetTypeId, FundingRoundName,
-    GranularCanTransferResult, TickerRegistrationStatus,
+    GranularCanTransferResult,
 };
 use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
@@ -127,6 +124,7 @@ use polymesh_primitives::{
 
 type Checkpoint<T> = checkpoint::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
+type Identity<T> = pallet_identity::Module<T>;
 type Portfolio<T> = pallet_portfolio::Module<T>;
 type Statistics<T> = pallet_statistics::Module<T>;
 
@@ -182,15 +180,6 @@ pub struct TickerRegistrationConfig<U> {
     pub registration_length: Option<U>,
 }
 
-/// Enum that uses as the return type for the restriction verification.
-#[derive(Encode, Decode, Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum RestrictionResult {
-    Valid,
-    #[default]
-    Invalid,
-    ForceValid,
-}
-
 storage_migration_ver!(3);
 
 decl_storage! {
@@ -225,10 +214,10 @@ decl_storage! {
 
         /// The name of the current funding round.
         /// ticker -> funding round
-        FundingRound get(fn funding_round): map hasher(blake2_128_concat) Ticker => FundingRoundName;
+        pub FundingRound get(fn funding_round): map hasher(blake2_128_concat) Ticker => FundingRoundName;
         /// The total balances of tokens issued in all recorded funding rounds.
         /// (ticker, funding round) -> balance
-        IssuedInFundingRound get(fn issued_in_funding_round): map hasher(blake2_128_concat) (Ticker, FundingRoundName) => Balance;
+        pub IssuedInFundingRound get(fn issued_in_funding_round): map hasher(blake2_128_concat) (Ticker, FundingRoundName) => Balance;
         /// The set of frozen assets implemented as a membership map.
         /// ticker -> bool
         pub Frozen get(fn frozen): map hasher(blake2_128_concat) Ticker => bool;
@@ -310,9 +299,6 @@ decl_storage! {
     }
 }
 
-type Identity<T> = pallet_identity::Module<T>;
-
-// Public interface for this runtime module.
 decl_module! {
     pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
 
@@ -332,11 +318,8 @@ decl_module! {
         /// NB: Ticker validity does not get carry forward when renewing ticker.
         ///
         /// # Arguments
-        /// * `origin` It contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
-        /// * `ticker` ticker to register.
-        ///
-        /// # Permissions
-        /// * Asset
+        /// * `origin`: It contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
+        /// * `ticker`: the [`Ticker`] to register.
         #[weight = <T as Config>::WeightInfo::register_ticker()]
         pub fn register_ticker(origin, ticker: Ticker) -> DispatchResult {
             Self::base_register_ticker(origin, ticker)
@@ -1084,9 +1067,7 @@ impl<T: Config> Module<T> {
 
         Self::ensure_ticker_length(ticker, max_ticker_length)?;
 
-        if let TickerRegistrationStatus::RegisteredByDifferentCaller =
-            Self::ticker_registration_status(ticker, ticker_owner_did)
-        {
+        if !Self::can_reregister_ticker(ticker, ticker_owner_did) {
             return Err(Error::<T>::TickerAlreadyRegistered.into());
         }
 
@@ -1137,39 +1118,29 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns [`TickerRegistrationStatus::NotRegistered`] if the ticker hasn't been registered yet,
-    /// [`TickerRegistrationStatus::RegistrationExpired`] if the previous registration has already expired,
-    /// [`TickerRegistrationStatus::AlredyRegisteredByCaller`] if the ticker is already registered by `caller_did` or
-    /// [`TickerRegistrationStatus::RegisteredByDifferentCaller`] if the ticker is registered by a different caller.
-    fn ticker_registration_status(
-        ticker: &Ticker,
-        caller_did: &IdentityId,
-    ) -> TickerRegistrationStatus {
+    /// Returns `false`` if the ticker hasn't expired and was registered by a different caller. Otherwise, returns `true`.
+    fn can_reregister_ticker(ticker: &Ticker, caller_did: &IdentityId) -> bool {
         match <Tickers<T>>::get(ticker) {
-            Some(ticker_registration) => match ticker_registration.expiry {
-                Some(expiration_time) => {
-                    if <pallet_timestamp::Pallet<T>>::get() > expiration_time {
-                        return TickerRegistrationStatus::RegistrationExpired;
-                    }
-
-                    if &ticker_registration.owner == caller_did {
-                        return TickerRegistrationStatus::AlreadyRegisteredByCaller;
-                    }
-
-                    TickerRegistrationStatus::RegisteredByDifferentCaller
+            Some(ticker_registration) => {
+                if &ticker_registration.owner == caller_did {
+                    return true;
                 }
-                None => {
-                    if &ticker_registration.owner == caller_did {
-                        return TickerRegistrationStatus::AlreadyRegisteredByCaller;
+
+                match ticker_registration.expiry {
+                    Some(expiration_time) => {
+                        if <pallet_timestamp::Pallet<T>>::get() > expiration_time {
+                            return true;
+                        }
+                        false
                     }
-                    TickerRegistrationStatus::RegisteredByDifferentCaller
+                    None => return false,
                 }
-            },
-            None => TickerRegistrationStatus::NotRegistered,
+            }
+            None => true,
         }
     }
 
-    /// Registers the given `ticker` to `owner` with an optional `expiry`.
+    /// All storage writes for registering `ticker` to `owner` with an optional `expiry`.
     /// Note: One fee is charged ([`ProtocolOp::AssetRegisterTicker`]).
     fn unverified_register_ticker(
         ticker: Ticker,
@@ -1568,6 +1539,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    /// Creates a new asset.
     fn base_create_asset(
         origin: T::RuntimeOrigin,
         asset_name: AssetName,

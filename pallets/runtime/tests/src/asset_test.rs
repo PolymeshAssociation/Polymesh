@@ -71,7 +71,7 @@ type FeeError = pallet_protocol_fee::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type StoreCallMetadata = pallet_permissions::StoreCallMetadata<TestStorage>;
 
-fn now() -> u64 {
+pub fn now() -> u64 {
     Utc::now().timestamp() as _
 }
 
@@ -461,167 +461,6 @@ fn checkpoints_fuzz_test() {
             }
         });
     }
-}
-
-#[test]
-fn register_ticker() {
-    ExtBuilder::default().build().execute_with(|| {
-        set_time_to_now();
-
-        let owner = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
-
-        let (ticker, token) = a_token(owner.did);
-        let identifiers = vec![AssetIdentifier::isin(*b"US0378331005").unwrap()];
-        assert_ok!(asset_with_ids(owner, ticker, &token, identifiers.clone()));
-
-        let register = |ticker| Asset::register_ticker(owner.origin(), ticker);
-
-        assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner.did), true);
-        assert_eq!(Asset::is_ticker_available(&ticker), false);
-        let stored_token = token_details(&ticker);
-        assert_eq!(stored_token.asset_type, token.asset_type);
-        assert_eq!(Asset::identifiers(ticker), identifiers);
-        assert_noop!(
-            register(Ticker::from_slice_truncated(&[b'A'][..])),
-            AssetError::AssetAlreadyCreated
-        );
-
-        assert_noop!(
-            register(Ticker::from_slice_truncated(
-                &[b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A'][..]
-            )),
-            AssetError::TickerTooLong
-        );
-
-        let ticker = Ticker::from_slice_truncated(&[b'A', b'A'][..]);
-
-        assert_eq!(Asset::is_ticker_available(&ticker), true);
-
-        assert_ok!(register(ticker));
-
-        assert_eq!(
-            Asset::asset_ownership_relation(owner.did, ticker),
-            AssetOwnershipRelation::TickerOwned
-        );
-
-        assert_noop!(
-            Asset::register_ticker(alice.origin(), ticker),
-            AssetError::TickerAlreadyRegistered
-        );
-
-        assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner.did), true);
-        assert_eq!(Asset::is_ticker_available(&ticker), false);
-
-        set_timestamp(now() + 10001);
-
-        assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner.did), false);
-        assert_eq!(Asset::is_ticker_available(&ticker), true);
-
-        for bs in &[
-            [b'A', 31, b'B'].as_ref(),
-            [127, b'A'].as_ref(),
-            [b'A', 0, 0, 0, b'A'].as_ref(),
-        ] {
-            assert_noop!(
-                register(Ticker::from_slice_truncated(&bs[..])),
-                AssetError::InvalidTickerCharacter
-            );
-        }
-    })
-}
-
-#[test]
-fn transfer_ticker() {
-    ExtBuilder::default().build().execute_with(|| {
-        set_time_to_now();
-
-        let owner = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
-
-        let ticker = Ticker::from_slice_truncated(&[b'A', b'A'][..]);
-
-        assert_eq!(Asset::is_ticker_available(&ticker), true);
-        assert_ok!(Asset::register_ticker(owner.origin(), ticker));
-
-        let auth_id_alice = Identity::add_auth(
-            owner.did,
-            Signatory::from(alice.did),
-            AuthorizationData::TransferTicker(ticker),
-            None,
-        );
-
-        let auth_id_bob = Identity::add_auth(
-            owner.did,
-            Signatory::from(bob.did),
-            AuthorizationData::TransferTicker(ticker),
-            None,
-        );
-
-        assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner.did), true);
-        assert_eq!(Asset::is_ticker_registry_valid(&ticker, alice.did), false);
-        assert_eq!(Asset::is_ticker_available(&ticker), false);
-
-        assert_noop!(
-            Asset::accept_ticker_transfer(alice.origin(), auth_id_alice + 1),
-            "Authorization does not exist"
-        );
-
-        assert_eq!(
-            Asset::asset_ownership_relation(owner.did, ticker),
-            AssetOwnershipRelation::TickerOwned
-        );
-
-        assert_ok!(Asset::accept_ticker_transfer(alice.origin(), auth_id_alice));
-
-        assert_eq!(
-            Asset::asset_ownership_relation(owner.did, ticker),
-            AssetOwnershipRelation::NotOwned
-        );
-        assert_eq!(
-            Asset::asset_ownership_relation(alice.did, ticker),
-            AssetOwnershipRelation::TickerOwned
-        );
-
-        assert_eq!(
-            Asset::asset_ownership_relation(alice.did, ticker),
-            AssetOwnershipRelation::TickerOwned
-        );
-
-        assert_eq!(
-            Asset::accept_ticker_transfer(bob.origin(), auth_id_bob),
-            Err("Illegal use of Authorization".into()),
-        );
-
-        let add_auth = |auth, expiry| {
-            Identity::add_auth(alice.did, Signatory::from(bob.did), auth, Some(expiry))
-        };
-
-        let auth_id = add_auth(AuthorizationData::TransferTicker(ticker), now() - 100);
-
-        assert_noop!(
-            Asset::accept_ticker_transfer(bob.origin(), auth_id),
-            "Authorization expired"
-        );
-
-        // Try accepting the wrong authorization type.
-        let auth_id = add_auth(AuthorizationData::RotatePrimaryKey, now() + 100);
-
-        assert_eq!(
-            Asset::accept_ticker_transfer(bob.origin(), auth_id),
-            Err(AuthorizationError::BadType.into()),
-        );
-
-        let auth_id = add_auth(AuthorizationData::TransferTicker(ticker), now() + 100);
-
-        assert_ok!(Asset::accept_ticker_transfer(bob.origin(), auth_id));
-
-        assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner.did), false);
-        assert_eq!(Asset::is_ticker_registry_valid(&ticker, alice.did), false);
-        assert_eq!(Asset::is_ticker_registry_valid(&ticker, bob.did), true);
-        assert_eq!(Asset::is_ticker_available(&ticker), false);
-    })
 }
 
 #[test]
@@ -1411,26 +1250,6 @@ fn secondary_key_not_authorized_for_asset_test() {
             ));
             assert_eq!(Asset::total_supply(&ticker), TOTAL_SUPPLY + minted_value);
         });
-}
-
-#[test]
-fn invalid_ticker_registry_test() {
-    test_with_owner(|owner| {
-        let (ticker, token) = token(b"MYUSD", owner.did);
-        assert_ok!(basic_asset(owner, ticker, &token));
-
-        // Generate a data set for testing: (input, expected result)
-        [
-            (&b"MYUSD"[..], true),
-            (&b"MYUSD\01"[..], false),
-            (&b"YOUR"[..], false),
-        ]
-        .iter()
-        .map(|(name, exp)| (Ticker::from_slice_truncated(*name), exp))
-        .for_each(|(ticker, exp)| {
-            assert_eq!(*exp, Asset::is_ticker_registry_valid(&ticker, owner.did))
-        });
-    });
 }
 
 #[test]

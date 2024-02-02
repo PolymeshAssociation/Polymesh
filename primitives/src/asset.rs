@@ -232,16 +232,3 @@ pub mod v1 {
         pub result: bool,
     }
 }
-
-/// Defines the ticker registration state.
-#[derive(Clone, Eq, PartialEq, Debug)]
-pub enum TickerRegistrationStatus {
-    /// The ticker hasn't been registered yet.
-    NotRegistered,
-    /// The has been registered, but has already experied.
-    RegistrationExpired,
-    /// The ticker is registered and belongs to a different caller.
-    RegisteredByDifferentCaller,
-    /// The ticker is already registered to the caller.
-    AlreadyRegisteredByCaller,
-}
