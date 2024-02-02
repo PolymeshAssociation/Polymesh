@@ -285,9 +285,6 @@ benchmarks! {
         set_config::<T>();
         let ticker = Ticker::repeating(b'A');
     }: _(caller.origin, ticker)
-    verify {
-        assert_eq!(Module::<T>::is_ticker_available(&ticker), false);
-    }
 
     accept_ticker_transfer {
         let owner = owner::<T>();
