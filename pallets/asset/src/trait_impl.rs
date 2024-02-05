@@ -1,3 +1,8 @@
+#[cfg(feature = "runtime-benchmarks")]
+use polymesh_primitives::asset_metadata::{AssetMetadataName, AssetMetadataSpec};
+#[cfg(feature = "runtime-benchmarks")]
+use sp_std::collections::btree_set::BTreeSet;
+
 use frame_support::dispatch::DispatchResult;
 use frame_support::storage::{StorageDoubleMap, StorageMap};
 
@@ -13,7 +18,6 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
         Self::ensure_granular(ticker, value)
     }
 
-    /// Get the asset `id` balance of `who`.
     fn balance(ticker: &Ticker, who: IdentityId) -> Balance {
         Self::balance_of(ticker, &who)
     }

@@ -71,11 +71,11 @@ type FeeError = pallet_protocol_fee::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type StoreCallMetadata = pallet_permissions::StoreCallMetadata<TestStorage>;
 
-fn now() -> u64 {
+pub fn now() -> u64 {
     Utc::now().timestamp() as _
 }
 
-fn set_time_to_now() {
+pub fn set_time_to_now() {
     set_timestamp(now());
 }
 
