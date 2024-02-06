@@ -2112,9 +2112,9 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "polymesh-api"
-version = "3.5.0"
+version = "3.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0447542e190095b2950c3047483a4f676d07be3cce61e095a672ef2197cb28e"
+checksum = "fe458a4721937ff96c6e7765d18d21b71148c398656a17814dfbb72cb62bdb9d"
 dependencies = [
  "ink",
  "log",
@@ -2128,9 +2128,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-client"
-version = "3.2.5"
+version = "3.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9724c8ccc50b2aeb885d9b6906b02bf0a6815cf2e80e6b95dcfd3c6714820f3"
+checksum = "eeac54b128958d9aac03d3f88f43be10ee396c746b7ee329e5794f990c1ff5c7"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -2161,9 +2161,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-codegen"
-version = "3.2.0"
+version = "3.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40cb9faabe0fcc9b39b1e58f8de3b0771bb6240dc0ec9643d9b50c1880357eae"
+checksum = "420d0d8d2abb36e1581e373505933620af181c99e788833b4f7714ee2b05e1eb"
 dependencies = [
  "frame-metadata",
  "heck",
@@ -2181,9 +2181,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-codegen-macro"
-version = "3.2.0"
+version = "3.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "140562a50fce7873d1d1e43bccddf5d1930704352d2d2cafa01c6feaf96c799c"
+checksum = "e165461828beeb9832b9b7a33caa6ebad97a4a900c2f50149df084455170f53c"
 dependencies = [
  "darling",
  "parity-scale-codec",
@@ -2196,9 +2196,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-ink"
-version = "1.1.0"
+version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0d34465f4790fc4836dcc35b0ccc033a9bf4cc93d56ad240f381203e46ae279"
+checksum = "37133ff748242241c6ebaaff618b9d7a4e8beb7689ce0c4c2d102c3110dfe9b4"
 dependencies = [
  "hex",
  "ink",
@@ -2211,12 +2211,15 @@ dependencies = [
 
 [[package]]
 name = "polymesh-ink"
-version = "3.0.0"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7fdcb55151975f7cfb24299bd523cb44145cbfe7eb0107b7a6d7b6b20cc1d9f3"
 dependencies = [
  "ink",
  "parity-scale-codec",
  "paste",
  "polymesh-api",
+ "polymesh-api-ink",
  "scale-info",
 ]
 
@@ -4347,7 +4350,7 @@ checksum = "dff9641d1cd4be8d1a070daf9e3773c5f67e78b4d9d42263020c057706765c04"
 
 [[package]]
 name = "wrapped-polyx"
-version = "3.0.0"
+version = "3.1.0"
 dependencies = [
  "ink",
  "parity-scale-codec",

@@ -517,14 +517,14 @@ jobs:
           docker push --all-tags $IMAGE_NAME
   publish-github-release:
     docker:
-      - image: circleci/golang:1.17
+      - image: cimg/go:1.21.3
     steps:
       - attach_workspace:
           at: ./assets
       - run:
           name: "Publish Release on GitHub"
           command: |
-            go get github.com/tcnksm/ghr
+            go install github.com/tcnksm/ghr@latest
             cd assets
             VERSION=$(./polymesh --version | cut -d " " -f2)
             mv ./polymesh ./polymesh-${VERSION}
