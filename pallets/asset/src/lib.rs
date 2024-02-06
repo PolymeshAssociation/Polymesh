@@ -95,6 +95,7 @@ use frame_support::{decl_error, decl_module, decl_storage, ensure, fail};
 use frame_system::ensure_root;
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{convert::TryFrom, prelude::*};
 
 use pallet_base::{
@@ -973,6 +974,10 @@ decl_error! {
         AssetMetadataKeyBelongsToNFTCollection,
         /// Attempt to lock a metadata value that is empty.
         AssetMetadataValueIsEmpty,
+        /// Number of asset mediators would exceed the maximum allowed.
+        NumberOfAssetMediatorsExceeded,
+        /// Invalid ticker character - valid set: A`..`Z` `0`..`9` `_` `-` `.` `/`.
+        InvalidTickerCharacter
     }
 }
 
@@ -1143,18 +1148,29 @@ impl<T: Config> Module<T> {
         }
     }
 
-    /// Ensure `ticker` is fully printable ASCII (SPACE to '~').
-    fn ensure_ticker_ascii(ticker: &Ticker) -> DispatchResult {
-        let bytes = ticker.as_slice();
+    /// Returns `Ok` if the ticker contains only the following characters: `A`..`Z` `0`..`9` `_` `-` `.` `/`.
+    pub fn verify_ticker_characters(ticker: &Ticker) -> DispatchResult {
+        let ticker_bytes = ticker.as_ref();
 
-        ensure!(bytes[0] != 0, Error::<T>::TickerFirstByteNotValid);
-        // Find first byte not alphanumeric.
-        let good = bytes
-            .iter()
-            .position(|b| !(*b).is_ascii_alphanumeric())
-            // Everything after must be a NULL byte.
-            .map_or(true, |nm_pos| bytes[nm_pos..].iter().all(|b| *b == 0));
-        ensure!(good, Error::<T>::TickerNotAlphanumeric);
+        // The first byte of the ticker cannot be NULL
+        if *ticker_bytes.first().unwrap_or(&0) == 0 {
+            return Err(Error::<T>::TickerFirstByteNotValid.into());
+        }
+
+        // Allows the following characters: `A`..`Z` `0`..`9` `_` `-` `.` `/`
+        let valid_characters = BTreeSet::from([b'_', b'-', b'.', b'/']);
+        for (byte_index, ticker_byte) in ticker_bytes.iter().enumerate() {
+            if !ticker_byte.is_ascii_uppercase()
+                && !ticker_byte.is_ascii_digit()
+                && !valid_characters.contains(ticker_byte)
+            {
+                if ticker_bytes[byte_index..].iter().all(|byte| *byte == 0) {
+                    return Ok(());
+                }
+
+                return Err(Error::<T>::InvalidTickerCharacter.into());
+            }
+        }
         Ok(())
     }
 
@@ -1165,7 +1181,7 @@ impl<T: Config> Module<T> {
         no_re_register: bool,
         config: impl FnOnce() -> TickerRegistrationConfig<T::Moment>,
     ) -> Result<Option<T::Moment>, DispatchError> {
-        Self::ensure_ticker_ascii(&ticker)?;
+        Self::verify_ticker_characters(&ticker)?;
         Self::ensure_asset_fresh(&ticker)?;
 
         let config = config();
@@ -1667,7 +1683,7 @@ impl<T: Config> Module<T> {
 
         // If `ticker` isn't registered, it will be, so ensure it is fully ascii.
         if available {
-            Self::ensure_ticker_ascii(&ticker)?;
+            Self::verify_ticker_characters(&ticker)?;
         }
 
         let token_did = Identity::<T>::get_token_did(&ticker)?;

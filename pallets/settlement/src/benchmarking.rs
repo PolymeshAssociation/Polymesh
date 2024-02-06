@@ -106,7 +106,7 @@ where
     // Creates offchain legs and new portfolios for each leg
     let offchain_legs: Vec<Leg> = (0..o)
         .map(|i| {
-            let ticker = Ticker::from_slice_truncated(format!("OFFTicker{}", i).as_bytes());
+            let ticker = Ticker::from_slice_truncated(format!("OFFTICKER{}", i).as_bytes());
             Leg::OffChain {
                 sender_identity: sender.did(),
                 receiver_identity: receiver.did(),
@@ -119,7 +119,7 @@ where
     // Creates f assets, creates two portfolios, adds maximum compliance requirements, adds maximum transfer conditions and pauses them
     let fungible_legs: Vec<Leg> = (0..f)
         .map(|i| {
-            let ticker = Ticker::from_slice_truncated(format!("Ticker{}", i).as_bytes());
+            let ticker = Ticker::from_slice_truncated(format!("TICKER{}", i).as_bytes());
             let sdr_portfolio_name = format!("SdrPortfolioTicker{}", i);
             let rcv_portfolio_name = format!("RcvPortfolioTicker{}", i);
             let (sdr_portfolio, rvc_portfolio) = setup_asset_transfer(
@@ -145,7 +145,7 @@ where
     // Creates n collections, mints one NFT, creates two portfolios, adds maximum compliance requirements and pauses it
     let nft_legs: Vec<Leg> = (0..n)
         .map(|i| {
-            let ticker = Ticker::from_slice_truncated(format!("NFTTicker{}", i).as_bytes());
+            let ticker = Ticker::from_slice_truncated(format!("NFTTICKER{}", i).as_bytes());
             let sdr_portfolio_name = format!("SdrPortfolioNFTTicker{}", i);
             let rcv_portfolio_name = format!("RcvPortfolioNFTTicker{}", i);
             let (sdr_portfolio, rcv_portfolio) = setup_nft_transfer(
@@ -260,7 +260,7 @@ fn setup_receipt_details<T: Config>(
     instruction_id: InstructionId,
     leg_id: u32,
 ) -> ReceiptDetails<T::AccountId, T::OffChainSignature> {
-    let ticker = Ticker::from_slice_truncated(format!("OFFTicker{}", leg_id).as_bytes());
+    let ticker = Ticker::from_slice_truncated(format!("OFFTICKER{}", leg_id).as_bytes());
     let receipt = Receipt::new(
         leg_id as u64,
         instruction_id,
