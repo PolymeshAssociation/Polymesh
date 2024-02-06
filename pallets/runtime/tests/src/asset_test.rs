@@ -36,6 +36,7 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit, FixedOrVariableCalendarUnit};
 use polymesh_primitives::statistics::StatType;
+use polymesh_primitives::ticker::TICKER_LEN;
 use polymesh_primitives::{
     AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
     DocumentId, Fund, FundDescription, IdentityId, Memo, Moment, NFTCollectionKeys, Permissions,
@@ -522,7 +523,7 @@ fn register_ticker() {
         ] {
             assert_noop!(
                 register(Ticker::from_slice_truncated(&bs[..])),
-                AssetError::TickerNotAlphanumeric
+                AssetError::InvalidTickerCharacter
             );
         }
     })
@@ -2692,4 +2693,51 @@ fn successfully_remove_mediators() {
             assert!(!MandatoryMediators::<TestStorage>::get(&ticker).contains(&mediator));
         }
     });
+}
+
+#[test]
+fn verify_ticker_characters() {
+    let mut all_valid_characters = Vec::new();
+    let mut valid_ascii_digits: Vec<u8> = (48..58).collect();
+    let mut valid_ascii_letters: Vec<u8> = (65..91).collect();
+    let mut valid_special_characters: Vec<u8> = Vec::from([b'-', b'.', b'/', b'_']);
+    all_valid_characters.append(&mut valid_ascii_digits);
+    all_valid_characters.append(&mut valid_ascii_letters);
+    all_valid_characters.append(&mut valid_special_characters);
+
+    let mut rng = rand::thread_rng();
+
+    // Generates 10 random valid tickers
+    for _ in 0..10 {
+        let valid_ticker: Vec<u8> = (0..TICKER_LEN + 1)
+            .map(|_| all_valid_characters[rng.gen_range(0, all_valid_characters.len())])
+            .collect();
+        assert_ok!(Asset::verify_ticker_characters(
+            &Ticker::from_slice_truncated(&valid_ticker)
+        ));
+    }
+
+    let valid_set: BTreeSet<&u8> = all_valid_characters.iter().collect();
+    let mut all_invalid_characters: Vec<u8> = (0..=255).collect();
+    all_invalid_characters.retain(|ascii_code| !valid_set.contains(ascii_code));
+
+    // Generates 10 random invalid tickers
+    for _ in 0..10 {
+        let mut invalid_ticker: Vec<u8> = (0..TICKER_LEN - 1)
+            .map(|_| all_valid_characters[rng.gen_range(0, all_valid_characters.len())])
+            .collect();
+        invalid_ticker.push(all_invalid_characters[rng.gen_range(0, all_invalid_characters.len())]);
+
+        assert_eq!(
+            Asset::verify_ticker_characters(&Ticker::from_slice_truncated(&invalid_ticker))
+                .unwrap_err(),
+            AssetError::InvalidTickerCharacter.into()
+        );
+    }
+
+    assert_eq!(
+        Asset::verify_ticker_characters(&Ticker::from_slice_truncated(&[0; TICKER_LEN]))
+            .unwrap_err(),
+        AssetError::TickerFirstByteNotValid.into()
+    );
 }
