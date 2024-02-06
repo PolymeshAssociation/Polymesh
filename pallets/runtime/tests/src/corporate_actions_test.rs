@@ -2024,7 +2024,7 @@ fn dist_claim_misc_bad() {
 
         // Travel back in time. Now dist is active, but compliance rules not met, so transfer fails.
         set_timestamp(5);
-        noop(AssetError::InvalidTransfer.into());
+        noop(AssetError::InvalidTransferComplianceFailure.into());
     });
 }
 

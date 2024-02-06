@@ -47,10 +47,8 @@ pub mod queue_priority {
 
 // ERC1400 transfer status codes
 pub const ERC1400_TRANSFER_FAILURE: u8 = 0x50;
-pub const ERC1400_TRANSFER_SUCCESS: u8 = 0x51;
 pub const ERC1400_INSUFFICIENT_BALANCE: u8 = 0x52;
 pub const ERC1400_INSUFFICIENT_ALLOWANCE: u8 = 0x53;
-pub const ERC1400_TRANSFERS_HALTED: u8 = 0x54;
 pub const ERC1400_FUNDS_LOCKED: u8 = 0x55;
 pub const ERC1400_INVALID_SENDER: u8 = 0x56;
 pub const ERC1400_INVALID_RECEIVER: u8 = 0x57;
@@ -59,15 +57,12 @@ pub const ERC1400_INVALID_OPERATOR: u8 = 0x58;
 // Application-specific status codes
 pub const INVALID_SENDER_DID: u8 = 0xa0;
 pub const INVALID_RECEIVER_DID: u8 = 0xa1;
-pub const COMPLIANCE_MANAGER_FAILURE: u8 = 0xa2;
 pub const INVALID_GRANULARITY: u8 = 0xa4;
 pub const APP_TX_VOLUME_LIMIT_REACHED: u8 = 0xa5;
 pub const APP_BLOCKED_TX: u8 = 0xa6;
 pub const APP_FUNDS_LOCKED: u8 = 0xa7;
 pub const APP_FUNDS_LIMIT_REACHED: u8 = 0xa8;
-pub const PORTFOLIO_FAILURE: u8 = 0xa9;
 pub const CUSTODIAN_ERROR: u8 = 0xaa;
-pub const TRANSFER_MANAGER_FAILURE: u8 = 0xac;
 
 // PIP pallet constants.
 pub const PIP_MAX_REPORTING_SIZE: usize = 1024;

@@ -83,6 +83,10 @@ decl_error! {
         /// Number of asset mediators would exceed the maximum allowed.
         NumberOfAssetMediatorsExceeded,
         /// Invalid ticker character - valid set: A`..`Z` `0`..`9` `_` `-` `.` `/`.
-        InvalidTickerCharacter
+        InvalidTickerCharacter,
+        /// Failed to transfer the asset - asset is frozen.
+        InvalidTransferFrozenAsset,
+        /// Failed to transfer an NFT - compliance failed.
+        InvalidTransferComplianceFailure
     }
 }
