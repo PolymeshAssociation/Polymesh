@@ -1,13 +1,13 @@
-//! Polymesh CLI binary.
+//! Polymesh Node CLI binary.
 #![warn(missing_docs)]
-#![warn(unused_extern_crates)]
 
 mod chain_spec;
 #[macro_use]
 mod service;
+mod benchmarking;
 mod cli;
 mod command;
 
-fn main() -> Result<(), sc_cli::Error> {
+fn main() -> sc_cli::Result<()> {
     command::run()
 }

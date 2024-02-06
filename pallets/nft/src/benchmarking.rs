@@ -91,7 +91,8 @@ pub fn setup_nft_transfer<T>(
     sender_portfolio_name: Option<&str>,
     receiver_portolfio_name: Option<&str>,
     pause_compliance: bool,
-) -> (PortfolioId, PortfolioId)
+    n_mediators: u8,
+) -> (PortfolioId, PortfolioId, Vec<User<T>>)
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
 {
@@ -109,10 +110,26 @@ where
         sender_portfolio.kind,
     );
 
+    // Sets mandatory mediators
+    let mut asset_mediators = Vec::new();
+    if n_mediators > 0 {
+        let mediators_identity: BTreeSet<IdentityId> = (0..n_mediators)
+            .map(|i| {
+                let mediator = UserBuilder::<T>::default()
+                    .generate_did()
+                    .build(&format!("Mediator{:?}{}", ticker, i));
+                asset_mediators.push(mediator.clone());
+                mediator.did()
+            })
+            .collect();
+        T::AssetFn::add_mandatory_mediators(sender.origin().into(), ticker, mediators_identity)
+            .unwrap();
+    }
+
     // Adds the maximum number of compliance requirement
     T::Compliance::setup_ticker_compliance(sender.did(), ticker, 50, pause_compliance);
 
-    (sender_portfolio, receiver_portfolio)
+    (sender_portfolio, receiver_portfolio, asset_mediators)
 }
 
 benchmarks! {
@@ -200,8 +217,8 @@ benchmarks! {
         let nft_type: Option<NonFungibleType> = Some(NonFungibleType::Derivative);
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        let (sender_portfolio, receiver_portfolio) =
-            setup_nft_transfer::<T>(&alice, &bob, ticker, n, None, None, true);
+        let (sender_portfolio, receiver_portfolio, _) =
+            setup_nft_transfer::<T>(&alice, &bob, ticker, n, None, None, true, 0);
         let nfts = NFTs::new_unverified(ticker, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
     }: {
         with_transaction(|| {
@@ -217,4 +234,42 @@ benchmarks! {
         })
         .unwrap();
     }
+
+    controller_transfer {
+        let n in 1..T::MaxNumberOfNFTsCount::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        let (alice_user_portfolio, bob_user_portfolio, _) =
+            setup_nft_transfer::<T>(&alice, &bob, ticker, n, None, None, true, 0);
+        let nfts = NFTs::new_unverified(ticker, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
+        with_transaction(|| {
+            Module::<T>::base_nft_transfer(
+                alice_user_portfolio,
+                bob_user_portfolio,
+                nfts.clone(),
+                InstructionId(1),
+                None,
+                IdentityId::default(),
+                &mut weight_meter
+            )
+        })
+        .unwrap();
+        // Before the controller transfer all NFTs belong to bob
+        assert_eq!(NumberOfNFTs::get(nfts.ticker(), bob.did()), n as u64);
+        assert_eq!(NumberOfNFTs::get(nfts.ticker(), alice.did()), 0);
+    }: _(alice.origin.clone(), ticker, nfts.clone(), bob_user_portfolio, alice_user_portfolio.kind)
+    verify {
+        assert_eq!(NumberOfNFTs::get(nfts.ticker(), bob.did()), 0);
+        assert_eq!(NumberOfNFTs::get(nfts.ticker(), alice.did()), n as u64);
+        for i in 1..n + 1 {
+            assert!(PortfolioNFT::contains_key(alice_user_portfolio, (ticker, NFTId(i.into()))));
+            assert!(!PortfolioNFT::contains_key(bob_user_portfolio, (ticker, NFTId(i.into()))));
+        }
+        assert_eq!(NFTsInCollection::get(nfts.ticker()), n as u64);
+    }
+
 }

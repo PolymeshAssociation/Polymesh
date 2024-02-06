@@ -1,21 +1,23 @@
-use codec::{Decode, Encode};
-use frame_support::{
-    dispatch::{DispatchError, Dispatchable, GetDispatchInfo},
-    ensure,
-    log::trace,
-    storage::unhashed,
-    traits::{Get, GetCallMetadata},
-};
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
+
+use codec::{Decode, DecodeLimit, Encode};
+use frame_support::dispatch::{DispatchError, Dispatchable, GetDispatchInfo};
+use frame_support::ensure;
+use frame_support::log::trace;
+use frame_support::storage::unhashed;
+use frame_support::traits::{Get, GetCallMetadata};
 use frame_system::RawOrigin;
+use scale_info::prelude::format;
+use scale_info::prelude::string::String;
+use scale_info::TypeInfo;
+use sp_core::crypto::UncheckedFrom;
+
 use pallet_contracts::chain_extension as ce;
 use pallet_contracts::Config as BConfig;
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::Context;
 use polymesh_primitives::IdentityId;
-use scale_info::TypeInfo;
-use sp_core::crypto::UncheckedFrom;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 
 use super::*;
 
@@ -78,9 +80,8 @@ pub enum FuncId {
     GetTransactionVersion,
     GetKeyDid,
     KeyHasher(KeyHasher, HashSize),
-
-    /// Deprecated Polymesh (<=5.0) chain extensions.
-    OldCallRuntime(ExtrinsicId),
+    GetLatestApiUpgrade,
+    CallRuntimeWithError,
 }
 
 impl FuncId {
@@ -99,16 +100,8 @@ impl FuncId {
                 0x10 => Some(Self::KeyHasher(KeyHasher::Twox, HashSize::B64)),
                 0x11 => Some(Self::KeyHasher(KeyHasher::Twox, HashSize::B128)),
                 0x12 => Some(Self::KeyHasher(KeyHasher::Twox, HashSize::B256)),
-                _ => None,
-            },
-            0x1A => match func_id {
-                0x00_00 | 0x01_00 | 0x02_00 | 0x03_00 | 0x11_00 => Some(Self::OldCallRuntime(
-                    ExtrinsicId(0x1A, (func_id >> 8) as u8),
-                )),
-                _ => None,
-            },
-            0x2F => match func_id {
-                0x01_00 => Some(Self::OldCallRuntime(ExtrinsicId(0x2F, 0x01))),
+                0x13 => Some(Self::GetLatestApiUpgrade),
+                0x14 => Some(Self::CallRuntimeWithError),
                 _ => None,
             },
             _ => None,
@@ -129,9 +122,8 @@ impl Into<u32> for FuncId {
             Self::KeyHasher(KeyHasher::Twox, HashSize::B64) => (0x0000, 0x10),
             Self::KeyHasher(KeyHasher::Twox, HashSize::B128) => (0x0000, 0x11),
             Self::KeyHasher(KeyHasher::Twox, HashSize::B256) => (0x0000, 0x12),
-            Self::OldCallRuntime(ExtrinsicId(ext_id, func_id)) => {
-                (ext_id as u32, (func_id as u32) << 8)
-            }
+            Self::GetLatestApiUpgrade => (0x0000, 0x13),
+            Self::CallRuntimeWithError => (0x0000, 0x14),
         };
         (ext_id << 16) + func_id
     }
@@ -176,16 +168,8 @@ struct ChainInput<'a, 'b> {
 }
 
 impl<'a, 'b> ChainInput<'a, 'b> {
-    pub fn new(input1: &'a [u8], input2: &'b [u8]) -> Self {
-        Self { input1, input2 }
-    }
-
     pub fn len(&self) -> usize {
         self.input1.len() + self.input2.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
     }
 }
 
@@ -401,9 +385,61 @@ where
     Ok(ce::RetVal::Converging(0))
 }
 
+fn get_latest_api_upgrade<T, E>(env: ce::Environment<E, ce::InitState>) -> ce::Result<ce::RetVal>
+where
+    T: Config,
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+    E: ce::Ext<T = T>,
+{
+    let mut env = env.buf_in_buf_out();
+    env.charge_weight(<T as Config>::WeightInfo::get_latest_api_upgrade())?;
+    let api: Api = env.read_as()?;
+
+    let spec_version = T::Version::get().spec_version;
+    let tx_version = T::Version::get().transaction_version;
+    let current_chain_version = ChainVersion::new(spec_version, tx_version);
+
+    let current_api_hash: Option<ApiCodeHash<T>> = CurrentApiHash::<T>::get(&api);
+    let next_upgrade: Option<NextUpgrade<T>> = ApiNextUpgrade::<T>::get(&api);
+    let latest_api_hash = {
+        match next_upgrade {
+            Some(next_upgrade) => {
+                if next_upgrade.chain_version <= current_chain_version {
+                    CurrentApiHash::<T>::insert(&api, &next_upgrade.api_hash);
+                    ApiNextUpgrade::<T>::remove(&api);
+                    Some(next_upgrade.api_hash)
+                } else {
+                    current_api_hash
+                }
+            }
+            None => current_api_hash,
+        }
+    };
+
+    // If there are no upgrades found, return an error
+    if latest_api_hash.is_none() {
+        return Err(Error::<T>::NoUpgradesSupported.into());
+    }
+
+    trace!(
+        target: "runtime",
+        "PolymeshExtension contract GetLatestApiUpgrade: {latest_api_hash:?}",
+    );
+    let encoded_api_hash = latest_api_hash.unwrap_or_default().encode();
+    env.write(&encoded_api_hash, false, None).map_err(|err| {
+        trace!(
+            target: "runtime",
+            "PolymeshExtension failed to write api code hash value into contract memory:{err:?}",
+        );
+        Error::<T>::ReadStorageFailed
+    })?;
+
+    Ok(ce::RetVal::Converging(0))
+}
+
 fn call_runtime<T, E>(
     env: ce::Environment<E, ce::InitState>,
-    old_call: Option<ExtrinsicId>,
+    write_error: bool,
 ) -> ce::Result<ce::RetVal>
 where
     <T as BConfig>::RuntimeCall: GetDispatchInfo + GetCallMetadata,
@@ -424,36 +460,21 @@ where
     env.charge_weight(<T as Config>::WeightInfo::call_runtime(in_len))?;
 
     // Decide what to call in the runtime.
-    use codec::DecodeLimit;
-    let call = match old_call {
-        None => {
-            let input = env.read(in_len)?;
-            // Decode the pallet_id & extrinsic_id.
-            let ext_id =
-                ExtrinsicId::try_from(input.as_slice()).ok_or(Error::<T>::InvalidRuntimeCall)?;
-            // Check if the extrinsic is allowed to be called.
-            Module::<T>::ensure_call_runtime(ext_id)?;
+    let (call, extrinsic_id) = {
+        let input = env.read(in_len)?;
+        // Decode the pallet_id & extrinsic_id.
+        let ext_id =
+            ExtrinsicId::try_from(input.as_slice()).ok_or(Error::<T>::InvalidRuntimeCall)?;
+        // Check if the extrinsic is allowed to be called.
+        Module::<T>::ensure_call_runtime(ext_id)?;
+        (
             <<T as BConfig>::RuntimeCall>::decode_all_with_depth_limit(
                 MAX_DECODE_DEPTH,
                 &mut input.as_slice(),
             )
-            .map_err(|_| Error::<T>::InvalidRuntimeCall)?
-        }
-        Some(ext_id) => {
-            // Check if the extrinsic is allowed to be called.
-            Module::<T>::ensure_call_runtime(ext_id)?;
-            // Convert old ChainExtension runtime calls into `Call` format.
-            let extrinsic: [u8; 2] = ext_id.into();
-            let params = env.read(in_len)?;
-            let mut input = ChainInput::new(&extrinsic, params.as_slice());
-            let call = <<T as BConfig>::RuntimeCall>::decode_with_depth_limit(
-                MAX_DECODE_DEPTH,
-                &mut input,
-            )
-            .map_err(|_| Error::<T>::InvalidRuntimeCall)?;
-            ensure!(input.is_empty(), Error::<T>::DataLeftAfterDecoding);
-            call
-        }
+            .map_err(|_| Error::<T>::InvalidRuntimeCall)?,
+            ext_id,
+        )
     };
 
     // Charge weight for the call.
@@ -462,6 +483,9 @@ where
 
     // Execute call requested by contract, with current DID set to the contract owner.
     let addr = env.ext().address().clone();
+    // Emit event for calling into the runtime
+    Module::<T>::deposit_event(Event::<T>::SCRuntimeCall(addr.clone(), extrinsic_id));
+    // Dispatch call
     let result = with_did_and_payer::<T, _, _>(contract_did::<T>(&addr)?, addr.clone(), || {
         with_call_metadata(call.get_call_metadata(), || {
             // Dispatch the call, avoiding use of `ext.call_runtime()`,
@@ -478,9 +502,23 @@ where
         env.adjust_weight(charged_amount, actual_weight);
     }
 
-    // Ensure the call was successful.
-    result.map_err(|e| e.error)?;
+    // Ensure the call was successful
+    if let Err(e) = result {
+        if write_error {
+            if let DispatchError::Module(e) = e.error {
+                let error_string: Result<(), String> = Err(format!("{e:?}"));
+                env.write(&error_string.encode(), false, None)
+                    .map_err(|_| Error::<T>::ReadStorageFailed)?;
+                return Ok(ce::RetVal::Converging(0));
+            }
+        }
+        return Err(e.error);
+    }
 
+    if write_error {
+        env.write(&Ok::<(), String>(()).encode(), false, None)
+            .map_err(|_| Error::<T>::ReadStorageFailed)?;
+    }
     // Done; continue with smart contract execution when returning.
     Ok(ce::RetVal::Converging(0))
 }
@@ -512,22 +550,23 @@ where
             target: "runtime",
             "PolymeshExtension contract calling: {func_id:?}",
         );
-        match func_id {
+        let res = match func_id {
             // `FuncId::NOP` is only used to benchmark the cost of:
             // 1. Calling a contract.
             // 2. Calling `seal_call_chain_extension` from the contract.
             #[cfg(feature = "runtime-benchmarks")]
             Some(FuncId::NOP) => {
                 // Return without doing any work.
-                return Ok(ce::RetVal::Converging(0));
+                Ok(ce::RetVal::Converging(0))
             }
             Some(FuncId::ReadStorage) => read_storage(env),
-            Some(FuncId::CallRuntime) => call_runtime(env, None),
+            Some(FuncId::CallRuntime) => call_runtime(env, false),
             Some(FuncId::GetSpecVersion) => get_version(env, true),
             Some(FuncId::GetTransactionVersion) => get_version(env, false),
             Some(FuncId::GetKeyDid) => get_key_did(env),
             Some(FuncId::KeyHasher(hasher, size)) => key_hasher(env, hasher, size),
-            Some(FuncId::OldCallRuntime(p)) => call_runtime(env, Some(p)),
+            Some(FuncId::GetLatestApiUpgrade) => get_latest_api_upgrade(env),
+            Some(FuncId::CallRuntimeWithError) => call_runtime(env, true),
             None => {
                 trace!(
                     target: "runtime",
@@ -535,7 +574,15 @@ where
                 );
                 Err(Error::<T>::InvalidFuncId)?
             }
+        };
+        if let Err(err) = &res {
+            trace!(
+                target: "runtime",
+                "PolymeshExtension: err={err:?}",
+            );
         }
+
+        res
     }
 }
 
@@ -560,11 +607,7 @@ mod tests {
         test_func_id(FuncId::KeyHasher(KeyHasher::Twox, HashSize::B64));
         test_func_id(FuncId::KeyHasher(KeyHasher::Twox, HashSize::B128));
         test_func_id(FuncId::KeyHasher(KeyHasher::Twox, HashSize::B256));
-        test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x00)));
-        test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x01)));
-        test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x02)));
-        test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x03)));
-        test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x11)));
-        test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x2F, 0x01)));
+        test_func_id(FuncId::GetLatestApiUpgrade);
+        test_func_id(FuncId::CallRuntimeWithError);
     }
 }

@@ -360,10 +360,12 @@ decl_module! {
         ///
         /// # Arguments
         /// * `auth_id` - Auth id of the authorization.
+        /// #[deprecated(since = "6.1.0", note = "Identity based signers not supported")]
         #[weight = <T as Config>::WeightInfo::accept_multisig_signer_as_identity()]
-        pub fn accept_multisig_signer_as_identity(origin, auth_id: u64) -> DispatchResult {
-            let signer = Self::ensure_perms_signed_did(origin)?;
-            Self::unsafe_accept_multisig_signer(signer, auth_id)
+        pub fn accept_multisig_signer_as_identity(origin, _auth_id: u64) -> DispatchResult {
+            ensure_signed(origin)?;
+            ensure!(false, Error::<T>::NotASigner);
+            Ok(())
         }
 
         /// Accepts a multisig signer authorization given to signer's key (AccountId).

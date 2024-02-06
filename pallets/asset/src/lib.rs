@@ -91,10 +91,12 @@ use core::result::Result as StdResult;
 use currency::*;
 use frame_support::dispatch::{DispatchError, DispatchResult, Weight};
 use frame_support::traits::{Get, PalletInfoAccess};
+use frame_support::BoundedBTreeSet;
 use frame_support::{decl_error, decl_module, decl_storage, ensure, fail};
 use frame_system::ensure_root;
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{convert::TryFrom, prelude::*};
 
 use pallet_base::{
@@ -291,6 +293,10 @@ decl_storage! {
         pub PreApprovedTicker get(fn pre_approved_tickers):
             double_map hasher(identity) IdentityId, hasher(blake2_128_concat) Ticker => bool;
 
+        /// The list of mandatory mediators for every ticker.
+        pub MandatoryMediators get(fn mandatory_mediators):
+            map hasher(blake2_128_concat) Ticker => BoundedBTreeSet<IdentityId, T::MaxAssetMediators>;
+
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(3)): Version;
     }
@@ -427,7 +433,7 @@ decl_module! {
                 .map(drop)
         }
 
-        /// Freezes transfers and minting of a given token.
+        /// Freezes transfers of a given token.
         ///
         /// # Arguments
         /// * `origin` - the secondary key of the sender.
@@ -443,7 +449,7 @@ decl_module! {
             Self::set_freeze(origin, ticker, true)
         }
 
-        /// Unfreezes transfers and minting of a given token.
+        /// Unfreezes transfers of a given token.
         ///
         /// # Arguments
         /// * `origin` - the secondary key of the sender.
@@ -852,7 +858,7 @@ decl_module! {
         /// * Root
         #[weight = <T as Config>::WeightInfo::exempt_ticker_affirmation()]
         pub fn exempt_ticker_affirmation(origin, ticker: Ticker) -> DispatchResult {
-            Self::base_exempt_ticker_affirmation(origin, &ticker)
+            Self::base_exempt_ticker_affirmation(origin, ticker)
         }
 
         /// Removes the pre-approval of the asset for all identities.
@@ -865,7 +871,7 @@ decl_module! {
         /// * Root
         #[weight = <T as Config>::WeightInfo::remove_ticker_affirmation_exemption()]
         pub fn remove_ticker_affirmation_exemption(origin, ticker: Ticker) -> DispatchResult {
-            Self::base_remove_ticker_affirmation_exemption(origin, &ticker)
+            Self::base_remove_ticker_affirmation_exemption(origin, ticker)
         }
 
         /// Pre-approves the receivement of an asset.
@@ -878,7 +884,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Config>::WeightInfo::pre_approve_ticker()]
         pub fn pre_approve_ticker(origin, ticker: Ticker) -> DispatchResult {
-            Self::base_pre_approve_ticker(origin, &ticker)
+            Self::base_pre_approve_ticker(origin, ticker)
         }
 
         /// Removes the pre approval of an asset.
@@ -891,7 +897,43 @@ decl_module! {
         /// * Asset
         #[weight = <T as Config>::WeightInfo::remove_ticker_pre_approval()]
         pub fn remove_ticker_pre_approval(origin, ticker: Ticker) -> DispatchResult {
-            Self::base_remove_ticker_pre_approval(origin, &ticker)
+            Self::base_remove_ticker_pre_approval(origin, ticker)
+        }
+
+        /// Sets all identities in the `mediators` set as mandatory mediators for any instruction transfering `ticker`.
+        ///
+        /// # Arguments
+        /// * `origin`: The secondary key of the sender.
+        /// * `ticker`: The [`Ticker`] of the asset that will require the mediators.
+        /// * `mediators`: A set of [`IdentityId`] of all the mandatory mediators for the given ticker.
+        ///
+        /// # Permissions
+        /// * Asset
+        #[weight = <T as Config>::WeightInfo::add_mandatory_mediators(mediators.len() as u32)]
+        pub fn add_mandatory_mediators(
+            origin,
+            ticker: Ticker,
+            mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>
+        ) {
+            Self::base_add_mandatory_mediators(origin, ticker, mediators)?;
+        }
+
+        /// Removes all identities in the `mediators` set from the mandatory mediators list for the given `ticker`.
+        ///
+        /// # Arguments
+        /// * `origin`: The secondary key of the sender.
+        /// * `ticker`: The [`Ticker`] of the asset that will have mediators removed.
+        /// * `mediators`: A set of [`IdentityId`] of all the mediators that will be removed from the mandatory mediators list.
+        ///
+        /// # Permissions
+        /// * Asset
+        #[weight = <T as Config>::WeightInfo::remove_mandatory_mediators(mediators.len() as u32)]
+        pub fn remove_mandatory_mediators(
+            origin,
+            ticker: Ticker,
+            mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>
+        ) {
+            Self::base_remove_mandatory_mediators(origin, ticker, mediators)?;
         }
     }
 }
@@ -972,6 +1014,10 @@ decl_error! {
         AssetMetadataKeyBelongsToNFTCollection,
         /// Attempt to lock a metadata value that is empty.
         AssetMetadataValueIsEmpty,
+        /// Number of asset mediators would exceed the maximum allowed.
+        NumberOfAssetMediatorsExceeded,
+        /// Invalid ticker character - valid set: A`..`Z` `0`..`9` `_` `-` `.` `/`.
+        InvalidTickerCharacter
     }
 }
 
@@ -1142,18 +1188,29 @@ impl<T: Config> Module<T> {
         }
     }
 
-    /// Ensure `ticker` is fully printable ASCII (SPACE to '~').
-    fn ensure_ticker_ascii(ticker: &Ticker) -> DispatchResult {
-        let bytes = ticker.as_slice();
+    /// Returns `Ok` if the ticker contains only the following characters: `A`..`Z` `0`..`9` `_` `-` `.` `/`.
+    pub fn verify_ticker_characters(ticker: &Ticker) -> DispatchResult {
+        let ticker_bytes = ticker.as_ref();
 
-        ensure!(bytes[0] != 0, Error::<T>::TickerFirstByteNotValid);
-        // Find first byte not alphanumeric.
-        let good = bytes
-            .iter()
-            .position(|b| !(*b).is_ascii_alphanumeric())
-            // Everything after must be a NULL byte.
-            .map_or(true, |nm_pos| bytes[nm_pos..].iter().all(|b| *b == 0));
-        ensure!(good, Error::<T>::TickerNotAlphanumeric);
+        // The first byte of the ticker cannot be NULL
+        if *ticker_bytes.first().unwrap_or(&0) == 0 {
+            return Err(Error::<T>::TickerFirstByteNotValid.into());
+        }
+
+        // Allows the following characters: `A`..`Z` `0`..`9` `_` `-` `.` `/`
+        let valid_characters = BTreeSet::from([b'_', b'-', b'.', b'/']);
+        for (byte_index, ticker_byte) in ticker_bytes.iter().enumerate() {
+            if !ticker_byte.is_ascii_uppercase()
+                && !ticker_byte.is_ascii_digit()
+                && !valid_characters.contains(ticker_byte)
+            {
+                if ticker_bytes[byte_index..].iter().all(|byte| *byte == 0) {
+                    return Ok(());
+                }
+
+                return Err(Error::<T>::InvalidTickerCharacter.into());
+            }
+        }
         Ok(())
     }
 
@@ -1164,7 +1221,7 @@ impl<T: Config> Module<T> {
         no_re_register: bool,
         config: impl FnOnce() -> TickerRegistrationConfig<T::Moment>,
     ) -> Result<Option<T::Moment>, DispatchError> {
-        Self::ensure_ticker_ascii(&ticker)?;
+        Self::verify_ticker_characters(&ticker)?;
         Self::ensure_asset_fresh(&ticker)?;
 
         let config = config();
@@ -1663,7 +1720,7 @@ impl<T: Config> Module<T> {
 
         // If `ticker` isn't registered, it will be, so ensure it is fully ascii.
         if available {
-            Self::ensure_ticker_ascii(&ticker)?;
+            Self::verify_ticker_characters(&ticker)?;
         }
 
         let token_did = Identity::<T>::get_token_did(&ticker)?;
@@ -1860,7 +1917,7 @@ impl<T: Config> Module<T> {
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
         Tokens::try_mutate(&ticker, |token| -> DispatchResult {
-            let mut token = token.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
+            let token = token.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
             // Ensures the token is fungible
             ensure!(
                 token.asset_type.is_fungible(),
@@ -2383,7 +2440,7 @@ impl<T: Config> Module<T> {
         Self::ensure_asset_type_valid(asset_type)?;
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
         Tokens::try_mutate(&ticker, |token| -> DispatchResult {
-            let mut token = token.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
+            let token = token.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
             // Ensures that both parameters are non fungible types or if both are fungible types.
             ensure!(
                 token.asset_type.is_fungible() == asset_type.is_fungible(),
@@ -2477,36 +2534,85 @@ impl<T: Config> Module<T> {
     }
 
     /// Pre-approves the receivement of the asset for all identities.
-    fn base_exempt_ticker_affirmation(origin: T::RuntimeOrigin, ticker: &Ticker) -> DispatchResult {
+    fn base_exempt_ticker_affirmation(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
         ensure_root(origin)?;
-        TickersExemptFromAffirmation::insert(ticker, true);
+        TickersExemptFromAffirmation::insert(&ticker, true);
+        Self::deposit_event(RawEvent::AssetAffirmationExemption(ticker));
         Ok(())
     }
 
     /// Removes the pre-approval of the asset for all identities.
     fn base_remove_ticker_affirmation_exemption(
         origin: T::RuntimeOrigin,
-        ticker: &Ticker,
+        ticker: Ticker,
     ) -> DispatchResult {
         ensure_root(origin)?;
-        TickersExemptFromAffirmation::remove(ticker);
+        TickersExemptFromAffirmation::remove(&ticker);
+        Self::deposit_event(RawEvent::RemoveAssetAffirmationExemption(ticker));
         Ok(())
     }
 
     /// Pre-approves the receivement of an asset.
-    fn base_pre_approve_ticker(origin: T::RuntimeOrigin, ticker: &Ticker) -> DispatchResult {
+    fn base_pre_approve_ticker(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
         let caller_did = Identity::<T>::ensure_perms(origin)?;
-        PreApprovedTicker::insert(&caller_did, ticker, true);
+        PreApprovedTicker::insert(&caller_did, &ticker, true);
+        Self::deposit_event(RawEvent::PreApprovedAsset(caller_did, ticker));
         Ok(())
     }
 
     /// Removes the pre approval of an asset.
-    fn base_remove_ticker_pre_approval(
-        origin: T::RuntimeOrigin,
-        ticker: &Ticker,
-    ) -> DispatchResult {
+    fn base_remove_ticker_pre_approval(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
         let caller_did = Identity::<T>::ensure_perms(origin)?;
-        PreApprovedTicker::remove(&caller_did, ticker);
+        PreApprovedTicker::remove(&caller_did, &ticker);
+        Self::deposit_event(RawEvent::RemovePreApprovedAsset(caller_did, ticker));
+        Ok(())
+    }
+
+    /// Sets all identities in the `mediators` set as mandatory mediators for any instruction transfering `ticker`.
+    fn base_add_mandatory_mediators(
+        origin: T::RuntimeOrigin,
+        ticker: Ticker,
+        new_mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>,
+    ) -> DispatchResult {
+        // Verifies if the caller has the correct permissions for this asset
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+        // Tries to add all new identities as mandatory mediators for the asset
+        MandatoryMediators::<T>::try_mutate(ticker, |mandatory_mediators| -> DispatchResult {
+            for new_mediator in &new_mediators {
+                mandatory_mediators
+                    .try_insert(*new_mediator)
+                    .map_err(|_| Error::<T>::NumberOfAssetMediatorsExceeded)?;
+            }
+            Ok(())
+        })?;
+
+        Self::deposit_event(RawEvent::AssetMediatorsAdded(
+            caller_did,
+            ticker,
+            new_mediators.into_inner(),
+        ));
+        Ok(())
+    }
+
+    /// Removes all identities in the `mediators` set from the mandatory mediators list for the given `ticker`.
+    fn base_remove_mandatory_mediators(
+        origin: T::RuntimeOrigin,
+        ticker: Ticker,
+        mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>,
+    ) -> DispatchResult {
+        // Verifies if the caller has the correct permissions for this asset
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+        // Removes the identities from the mandatory mediators list
+        MandatoryMediators::<T>::mutate(ticker, |mandatory_mediators| {
+            for mediator in &mediators {
+                mandatory_mediators.remove(mediator);
+            }
+        });
+        Self::deposit_event(RawEvent::AssetMediatorsRemoved(
+            caller_did,
+            ticker,
+            mediators.into_inner(),
+        ));
         Ok(())
     }
 }
@@ -2576,5 +2682,14 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
             Some(ticker) => Self::register_asset_metadata_local_type(origin, ticker, name, spec),
             None => Self::register_asset_metadata_global_type(origin, name, spec),
         }
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn add_mandatory_mediators(
+        origin: T::RuntimeOrigin,
+        ticker: Ticker,
+        mediators: BTreeSet<IdentityId>,
+    ) -> DispatchResult {
+        Self::add_mandatory_mediators(origin, ticker, mediators.try_into().unwrap_or_default())
     }
 }

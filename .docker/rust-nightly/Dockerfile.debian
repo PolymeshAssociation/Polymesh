@@ -1,7 +1,7 @@
-ARG rustbase=1.63.0
+ARG rustbase=1.74.0
 FROM rust:${rustbase}
 
-ARG toolchainversion=nightly-2022-05-10
+ARG toolchainversion=nightly-2023-12-01
 ENV TOOLCHAIN="${toolchainversion}"
 
 RUN apt update && \
@@ -25,4 +25,4 @@ RUN rustup toolchain install $TOOLCHAIN && \
   rustup component add rustfmt clippy llvm-tools-preview && \
   rustup component add rustfmt clippy llvm-tools-preview --toolchain $TOOLCHAIN && \
   rustup target add wasm32-unknown-unknown --toolchain $TOOLCHAIN && \
-  cargo install sccache cargo-sonar cargo-audit cargo-deny cargo-outdated
+  cargo install sccache cargo-sonar cargo-audit cargo-deny cargo-outdated cargo-nextest --locked

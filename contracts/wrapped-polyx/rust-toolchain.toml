@@ -1,5 +1,5 @@
 [toolchain]
-channel = "nightly-2023-12-11"
+channel = "1.70.0"
 targets = [ "wasm32-unknown-unknown" ]
-components = [ "rustfmt" ]
+components = [ "rustfmt", "rust-std", "rust-src" ]
 profile = "minimal"

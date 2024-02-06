@@ -1,16 +1,21 @@
-use crate::{
-    ext_builder::ExtBuilder,
-    storage::{TestStorage, User},
-};
 use codec::Encode;
+use frame_support::dispatch::{DispatchError, Weight};
 use frame_support::{
-    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, dispatch::Weight,
+    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, StorageMap,
 };
-use polymesh_common_utilities::constants::currency::POLY;
-use polymesh_primitives::{AccountId, Gas, Permissions, PortfolioPermissions, Ticker};
-use polymesh_runtime_common::Currency;
+use polymesh_contracts::{
+    Api, ApiCodeHash, ApiNextUpgrade, ChainVersion, ExtrinsicId, NextUpgrade,
+};
 use sp_keyring::AccountKeyring;
 use sp_runtime::traits::Hash;
+
+use pallet_identity::ParentDid;
+use polymesh_common_utilities::constants::currency::POLY;
+use polymesh_primitives::{Gas, Permissions, PortfolioPermissions, SubsetRestriction, Ticker};
+use polymesh_runtime_common::Currency;
+
+use crate::ext_builder::ExtBuilder;
+use crate::storage::{root, TestStorage, User};
 
 // We leave it to tests in the substrate to ensure that `pallet-contracts`
 // is functioning correctly, so we do not add such redundant tests
@@ -30,6 +35,7 @@ type MaxInLen = <TestStorage as polymesh_contracts::Config>::MaxInLen;
 type Balances = pallet_balances::Pallet<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type IdentityError = pallet_identity::Error<TestStorage>;
+type PolymeshContracts = polymesh_contracts::Pallet<TestStorage>;
 
 /// Load a given wasm module represented by a .wat file
 /// and returns a wasm binary contents along with it's hash.
@@ -46,129 +52,207 @@ fn chain_extension() -> (Vec<u8>, CodeHash) {
     compile_module("chain_extension").unwrap()
 }
 
+fn update_call_runtime_whitelist(extrinsics: Vec<(ExtrinsicId, bool)>) {
+    assert_ok!(Contracts::update_call_runtime_whitelist(root(), extrinsics));
+}
+
 #[test]
-fn misc_polymesh_extensions() {
-    let eve = AccountKeyring::Eve.to_account_id();
-    ExtBuilder::default()
-        .cdd_providers(vec![eve.clone()])
-        .adjust(Box::new(move |storage| {
-            polymesh_contracts::GenesisConfig {
-                call_whitelist: [
-                    [0x1A, 0x00],
-                    [0x1A, 0x01],
-                    [0x1A, 0x02],
-                    [0x1A, 0x03],
-                    [0x1A, 0x11],
-                    [0x2F, 0x01],
-                ]
-                .into_iter()
-                .map(|ext_id: [u8; 2]| ext_id.into())
-                .collect(),
-            }
-            .assimilate_storage(storage)
-            .unwrap();
-        }))
-        .build()
-        .execute_with(|| {
-            let owner = User::new(AccountKeyring::Alice);
-            let user = User::new(AccountKeyring::Bob);
-            Balances::make_free_balance_be(&owner.acc(), 1_000_000 * POLY);
+fn deploy_as_secondary_key() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        Balances::make_free_balance_be(&alice.acc(), 1_000_000 * POLY);
 
-            let (code, _) = chain_extension();
-            let hash = Hashing::hash(&code);
-            let salt = vec![0xFF];
+        let permissions = Permissions {
+            portfolio: PortfolioPermissions::Whole,
+            asset: SubsetRestriction::empty(),
+            extrinsic: SubsetRestriction::empty(),
+        };
+        let (code, _) = chain_extension();
+        let salt = vec![0xFF];
+        // Deploy the contract as a secondary key of Alice
+        assert_ok!(Contracts::instantiate_with_code_perms(
+            alice.origin(),
+            Balances::minimum_balance(),
+            GAS_LIMIT,
+            None,
+            code.clone(),
+            vec![],
+            salt.clone(),
+            permissions.clone(),
+        ));
+        // Ensures the is a secondary key of alice
+        let hash = Hashing::hash(&code);
+        let derived_key = FrameContracts::contract_address(&alice.acc(), &hash, &[], &salt);
+        let key_data = Identity::get_key_identity_data(derived_key).unwrap();
+        assert_eq!(key_data.identity, alice.did);
+        assert_eq!(key_data.permissions.unwrap(), permissions);
+        // The same contract can't be instantiated twice for the same identity
+        assert_noop!(
+            Contracts::instantiate_with_code_perms(
+                alice.origin(),
+                Balances::minimum_balance(),
+                GAS_LIMIT,
+                None,
+                code.clone(),
+                vec![],
+                salt.clone(),
+                permissions.clone(),
+            ),
+            IdentityError::AlreadyLinked
+        );
+    })
+}
 
-            let perms = Permissions {
-                portfolio: PortfolioPermissions::Whole,
-                ..Permissions::empty()
-            };
-            let instantiate = || {
-                Contracts::instantiate_with_code_perms(
-                    owner.origin(),
-                    Balances::minimum_balance(),
-                    GAS_LIMIT,
-                    None,
-                    code.clone(),
-                    vec![],
-                    salt.clone(),
-                    perms.clone(),
-                )
-            };
-            let derive_key = |key, salt| FrameContracts::contract_address(&key, &hash, &[], salt);
-            let call = |key: AccountId, value, data| {
-                FrameContracts::call(user.origin(), key.into(), value, GAS_LIMIT, None, data)
-            };
-            let assert_has_secondary_key = |key: AccountId| {
-                let data = Identity::get_key_identity_data(key).unwrap();
-                assert_eq!(data.identity, owner.did);
-                assert_eq!(data.permissions.unwrap(), perms);
-            };
+#[test]
+fn chain_extension_calls() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let ticker = Ticker::from_slice_truncated(b"A" as &[u8]);
+        Balances::make_free_balance_be(&alice.acc(), 1_000_000 * POLY);
 
-            // Instantiate contract.
-            // Next time, a secondary key with that key already exists.
-            assert_ok!(instantiate());
-            assert_noop!(instantiate(), IdentityError::AlreadyLinked);
+        let permissions = Permissions {
+            portfolio: PortfolioPermissions::Whole,
+            asset: SubsetRestriction::empty(),
+            extrinsic: SubsetRestriction::empty(),
+        };
+        let (code, _) = chain_extension();
+        let salt = vec![0xFF];
+        // Deploy the contract as a secondary key of Alice
+        assert_ok!(Contracts::instantiate_with_code_perms(
+            alice.origin(),
+            Balances::minimum_balance(),
+            GAS_LIMIT,
+            None,
+            code.clone(),
+            vec![],
+            salt.clone(),
+            permissions.clone(),
+        ));
+        // A call to a non-existent instantiation must return an error
+        let hash = Hashing::hash(&code);
+        let wrong_key = FrameContracts::contract_address(&alice.acc(), &hash, &[], &[0x00]);
+        assert_storage_noop!(assert_err_ignore_postinfo!(
+            FrameContracts::call(
+                bob.origin(),
+                wrong_key.into(),
+                0,
+                GAS_LIMIT,
+                None,
+                Vec::new()
+            ),
+            BaseContractsError::ContractNotFound
+        ));
+        // Calls to functions not recognized must return an error
+        let contract_key = FrameContracts::contract_address(&alice.acc(), &hash, &[], &salt);
+        assert_storage_noop!(assert_err_ignore_postinfo!(
+            FrameContracts::call(
+                bob.origin(),
+                contract_key.clone().into(),
+                0,
+                GAS_LIMIT,
+                None,
+                0x04_00_00_00.encode()
+            ),
+            ContractsError::InvalidFuncId,
+        ));
+        // Calls the right chain extension function, but runtime call fails
+        let extrinsic_id: ExtrinsicId = [0x1A, 0x00].into();
+        update_call_runtime_whitelist(vec![(extrinsic_id.clone(), true)]);
+        let register_ticker_input = [
+            0x00_00_00_01.encode(),
+            extrinsic_id.encode(),
+            ticker.encode(),
+        ]
+        .concat();
+        assert_storage_noop!(assert_err_ignore_postinfo!(
+            FrameContracts::call(
+                bob.origin(),
+                contract_key.clone().into(),
+                0,
+                GAS_LIMIT,
+                None,
+                register_ticker_input.clone()
+            ),
+            pallet_permissions::Error::<TestStorage>::UnauthorizedCaller,
+        ));
+        // Successfull call
+        assert_ok!(Identity::set_secondary_key_permissions(
+            alice.origin(),
+            contract_key.clone(),
+            Permissions::default(),
+        ));
+        assert_ok!(FrameContracts::call(
+            bob.origin(),
+            contract_key.into(),
+            2_500,
+            GAS_LIMIT,
+            None,
+            register_ticker_input
+        ),);
+        assert_ok!(Asset::ensure_owner(&ticker, alice.did));
+    })
+}
 
-            // Ensure contract is now a secondary key of Alice.
-            let key_first_contract = derive_key(owner.acc(), &salt);
-            assert_has_secondary_key(key_first_contract.clone());
+#[test]
+fn deploy_as_child_identity() {
+    ExtBuilder::default().build().execute_with(|| {
+        let salt = vec![0xFF];
+        let (code, _) = chain_extension();
+        let hash = Hashing::hash(&code);
+        let alice = User::new(AccountKeyring::Alice);
+        Balances::make_free_balance_be(&alice.acc(), 1_000_000 * POLY);
 
-            // Ensure a call different non-existent instantiation results in "contract not found".
-            assert_storage_noop!(assert_err_ignore_postinfo!(
-                call(derive_key(owner.acc(), &[0x00]), 0, vec![]),
-                BaseContractsError::ContractNotFound,
-            ));
+        assert_ok!(Contracts::instantiate_with_code_as_primary_key(
+            alice.origin(),
+            Balances::minimum_balance(),
+            GAS_LIMIT,
+            None,
+            code.clone(),
+            vec![],
+            salt.clone(),
+        ));
 
-            // Execute a chain extension with too long data.
-            let call = |value, data| call(key_first_contract.clone(), value, data);
-            let mut too_long_data = 0x00_00_00_01.encode();
-            too_long_data.extend(vec![b'X'; MaxInLen::get() as usize + 1]);
-            assert_storage_noop!(assert_err_ignore_postinfo!(
-                call(0, too_long_data),
-                ContractsError::InLenTooLarge,
-            ));
+        let contract_account_id = FrameContracts::contract_address(&alice.acc(), &hash, &[], &salt);
+        let child_id = Identity::get_identity(&contract_account_id).unwrap();
+        assert_eq!(ParentDid::get(child_id), Some(alice.did));
+    })
+}
 
-            // Execute a func_id that isn't recognized.
-            assert_storage_noop!(assert_err_ignore_postinfo!(
-                call(0, 0x04_00_00_00.encode()),
-                ContractsError::InvalidFuncId,
-            ));
+#[test]
+fn upgrade_api_unauthorized_caller() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let api = Api::new(*b"POLY", 6);
+        let chain_version = ChainVersion::new(6, 0);
+        let api_code_hash = ApiCodeHash {
+            hash: CodeHash::default(),
+        };
+        let next_upgrade = NextUpgrade::new(chain_version, api_code_hash);
 
-            // Input for registering ticker `A` (11 trailing nulls).
-            let ticker = Ticker::from_slice_truncated(b"A" as &[u8]);
-            let mut register_ticker_data = 0x00_1A_00_00.encode();
-            register_ticker_data.extend(ticker.encode());
+        assert_noop!(
+            Contracts::upgrade_api(alice.origin(), api, next_upgrade),
+            DispatchError::BadOrigin
+        );
+    })
+}
 
-            // Leave too much data left in the input.
-            let mut register_ticker_extra_data = register_ticker_data.clone();
-            register_ticker_extra_data.extend(b"X"); // Adding this leaves too much data.
-            assert_storage_noop!(assert_err_ignore_postinfo!(
-                call(0, register_ticker_extra_data),
-                ContractsError::DataLeftAfterDecoding,
-            ));
+#[test]
+fn upgrade_api() {
+    ExtBuilder::default().build().execute_with(|| {
+        let api = Api::new(*b"POLY", 6);
+        let chain_version = ChainVersion::new(6, 0);
+        let api_code_hash = ApiCodeHash {
+            hash: CodeHash::default(),
+        };
+        let next_upgrade = NextUpgrade::new(chain_version, api_code_hash);
 
-            // Execute `register_ticker` but fail due to lacking permissions.
-            assert_storage_noop!(assert_err_ignore_postinfo!(
-                call(0, register_ticker_data.clone()),
-                pallet_permissions::Error::<TestStorage>::UnauthorizedCaller,
-            ));
+        assert_ok!(Contracts::upgrade_api(
+            root(),
+            api.clone(),
+            next_upgrade.clone()
+        ));
 
-            // Grant permissions to `key_first_contract`, and so registration should go through.
-            assert_ok!(Identity::set_secondary_key_permissions(
-                owner.origin(),
-                key_first_contract.clone(),
-                Permissions::default(),
-            ));
-
-            // The contract doesn't have enough POLYX to cover the protocol fee.
-            assert_storage_noop!(assert_err_ignore_postinfo!(
-                call(0, register_ticker_data.clone()),
-                pallet_protocol_fee::Error::<TestStorage>::InsufficientAccountBalance,
-            ));
-
-            // Successfully execute `register_ticker`,
-            // ensuring that it was Alice who registered it.
-            assert_ok!(call(2500, register_ticker_data));
-            assert_ok!(Asset::ensure_owner(&ticker, owner.did));
-        })
+        assert_eq!(ApiNextUpgrade::get(&api).unwrap(), next_upgrade);
+    })
 }

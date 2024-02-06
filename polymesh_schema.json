@@ -1118,7 +1118,6 @@
       "self_transfer": "bool",
       "invalid_receiver_cdd": "bool",
       "invalid_sender_cdd": "bool",
-      "missing_scope_claim": "bool",
       "receiver_custodian_error": "bool",
       "sender_custodian_error": "bool",
       "sender_insufficient_balance": "bool",
@@ -1126,7 +1125,8 @@
       "asset_frozen": "bool",
       "transfer_condition_result": "Vec<TransferConditionResult>",
       "compliance_result": "AssetComplianceResult",
-      "result": "bool"
+      "result": "bool",
+      "consumed_weight": "Option<Weight>"
     },
     "PortfolioValidityResult": {
       "receiver_is_same_portfolio": "bool",
@@ -1560,6 +1560,27 @@
           }
         ],
         "type": "ExecuteInstructionInfo"
+      },
+      "getAffirmationCount": {
+        "description": "Returns an instance of AffirmationCount, which holds the asset count for both the sender and receiver and the number of offchain assets in the instruction",
+        "params": [
+          {
+            "name": "instruction_id",
+            "type": "InstructionId",
+            "isOptional": false
+          },
+          {
+            "name": "portfolios",
+            "type": "Vec<PortfolioId>",
+            "isOptional": false
+          },
+          {
+            "name": "blockHash",
+            "type": "Hash",
+            "isOptional": true
+          }
+        ],
+        "type": "AffirmationCount"
       }
     }
   },

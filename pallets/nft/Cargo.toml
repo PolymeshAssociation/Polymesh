@@ -18,7 +18,10 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
+sp-runtime = { version = "7.0.0", default-features = false }
 sp-std = { version = "5.0.0", default-features = false }
+# Other crates
+log = "0.4.8"
 
 # Only in STD
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }

@@ -56,7 +56,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
     // N.B. `d` is unpinned from the binary version
-    spec_version: 6_000_004,
+    spec_version: 6_002_000,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 4,
@@ -94,6 +94,7 @@ parameter_types! {
     pub const MaxNumberOfNFTsPerLeg: u32 = 10;
     pub const MaxNumberOfNFTs: u32 = 100;
     pub const MaxNumberOfVenueSigners: u32 = 50;
+    pub const MaxInstructionMediators: u32 = 4;
 
     // I'm online:
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
@@ -110,6 +111,7 @@ parameter_types! {
     pub const AssetMetadataNameMaxLength: u32 = 256;
     pub const AssetMetadataValueMaxLength: u32 = 8 * 1024;
     pub const AssetMetadataTypeDefMaxLength: u32 = 8 * 1024;
+    pub const MaxAssetMediators: u32 = 4;
 
     // Compliance manager:
     pub const MaxConditionComplexity: u32 = 50;
@@ -384,7 +386,7 @@ construct_runtime!(
 
         // Contracts
         Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>} = 46,
-        PolymeshContracts: polymesh_contracts::{Pallet, Call, Storage, Event, Config},
+        PolymeshContracts: polymesh_contracts::{Pallet, Call, Storage, Event<T>, Config},
 
         // Preimage register.  Used by `pallet_scheduler`.
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},

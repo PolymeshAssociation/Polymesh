@@ -17,7 +17,7 @@ use frame_support::{
 };
 use pallet_asset::SecurityToken;
 use pallet_balances as balances;
-use pallet_identity::{CustomClaimIdSequence, CustomClaims, CustomClaimsInverse};
+use pallet_identity::{ChildDid, CustomClaimIdSequence, CustomClaims, CustomClaimsInverse};
 use polymesh_common_utilities::{
     constants::currency::POLY,
     traits::{
@@ -2111,6 +2111,8 @@ fn do_child_identity_test() {
     // Ensure bob has a new identity.
     assert!(valid_cdd(bob));
     assert_ne!(bob.did, alice.did);
+    assert_eq!(ParentDid::get(bob.did), Some(alice.did));
+    assert_eq!(ChildDid::get(alice.did, bob.did), true);
 
     // Attach secondary key to child identity.
     let ferdie = User::new_with(bob.did, AccountKeyring::Ferdie);
@@ -2174,6 +2176,8 @@ fn do_child_identity_test() {
 
     // Unlink child from parent again.
     exec_ok!(Identity::unlink_child_identity(bob.origin(), bob_did));
+    assert_eq!(ParentDid::get(bob.did), None);
+    assert_eq!(ChildDid::get(alice.did, bob.did), false);
 
     assert!(valid_cdd(bob));
 
@@ -2183,6 +2187,8 @@ fn do_child_identity_test() {
     let ferdie_did = did_of(ferdie).expect("Ferdie's new identity");
     let ferdie = User::new_with(ferdie_did, AccountKeyring::Ferdie);
     assert!(valid_cdd(ferdie));
+    assert_eq!(ParentDid::get(ferdie.did), Some(bob.did));
+    assert_eq!(ChildDid::get(bob.did, ferdie.did), true);
 }
 
 #[test]

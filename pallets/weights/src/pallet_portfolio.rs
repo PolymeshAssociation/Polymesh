@@ -150,6 +150,8 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Proof Skipped: Portfolio PortfolioLockedAssets (max_values: None, max_size: None, mode: Measured)
     // Storage: Portfolio PortfolioAssetCount (r:1 w:1)
     // Proof Skipped: Portfolio PortfolioAssetCount (max_values: None, max_size: None, mode: Measured)
+    // Storage: NFT NFTOwner (r:0 w:100)
+    // Proof Skipped: NFT NFTOwner (max_values: None, max_size: None, mode: Measured)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[1, 100]`.
     fn move_portfolio_funds(f: u32, n: u32) -> Weight {
@@ -164,7 +166,7 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(1))
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(f.into())))
-            .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
@@ -193,5 +195,45 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
         Weight::from_ref_time(54_932_000)
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: Portfolio AllowedCustodians (r:0 w:1)
+    // Proof Skipped: Portfolio AllowedCustodians (max_values: None, max_size: None, mode: Measured)
+    fn allow_identity_to_create_portfolios() -> Weight {
+        // Minimum execution time: 23_275 nanoseconds.
+        Weight::from_ref_time(23_598_000)
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: Portfolio AllowedCustodians (r:0 w:1)
+    // Proof Skipped: Portfolio AllowedCustodians (max_values: None, max_size: None, mode: Measured)
+    fn revoke_create_portfolios_permission() -> Weight {
+        // Minimum execution time: 23_458 nanoseconds.
+        Weight::from_ref_time(23_605_000)
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: Portfolio AllowedCustodians (r:1 w:0)
+    // Proof Skipped: Portfolio AllowedCustodians (max_values: None, max_size: None, mode: Measured)
+    // Storage: Portfolio NextPortfolioNumber (r:1 w:1)
+    // Proof Skipped: Portfolio NextPortfolioNumber (max_values: None, max_size: None, mode: Measured)
+    // Storage: Portfolio NameToNumber (r:1 w:1)
+    // Proof Skipped: Portfolio NameToNumber (max_values: None, max_size: None, mode: Measured)
+    // Storage: Portfolio PortfolioCustodian (r:0 w:1)
+    // Proof Skipped: Portfolio PortfolioCustodian (max_values: None, max_size: None, mode: Measured)
+    // Storage: Portfolio PortfoliosInCustody (r:0 w:1)
+    // Proof Skipped: Portfolio PortfoliosInCustody (max_values: None, max_size: None, mode: Measured)
+    // Storage: Portfolio Portfolios (r:0 w:1)
+    // Proof Skipped: Portfolio Portfolios (max_values: None, max_size: None, mode: Measured)
+    fn create_custody_portfolio() -> Weight {
+        // Minimum execution time: 59_601 nanoseconds.
+        Weight::from_ref_time(60_400_000)
+            .saturating_add(DbWeight::get().reads(4))
+            .saturating_add(DbWeight::get().writes(5))
     }
 }

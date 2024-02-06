@@ -9,12 +9,29 @@ macro_rules! upgradable_api {
                     $(#[ink($ink_attr:tt)])*
                     $fn_vis:vis fn $fn_name:ident(
                         & $self:ident
-                        $(, $param:ident: $ty:ty)*
+                        $(,)?
+                        $($param:ident: $ty:ty),*
+                        $(,)?
                     ) -> $fn_return:ty {
                         $( $fn_impl:tt )*
                     }
                 )*
             }
+            $(
+            impl $api_type2:ident {
+                $(
+                    $(#[doc = $doc2_attr:tt])*
+                    $fn2_vis:vis fn $fn2_name:ident(
+                        $(& $self2:ident)?
+                        $(,)?
+                        $($param2:ident: $ty2:ty),*
+                        $(,)?
+                    ) -> $fn2_return:ty {
+                        $( $fn2_impl:tt )*
+                    }
+                )*
+            }
+            )?
         }
     ) => {
         pub use $mod_name::*;
@@ -39,7 +56,7 @@ macro_rules! upgradable_api {
                 $(
                     $(#[doc = $doc_attr])*
                     $(#[ink($ink_attr, payable)])*
-                    $fn_vis fn $fn_name(&self $(, $param: $ty)*) -> $fn_return {
+                    $fn_vis fn $fn_name(&self, $($param: $ty),*) -> $fn_return {
                         ::paste::paste! {
                             self.[<__impl_ $fn_name>]($($param),*)
                         }
@@ -50,77 +67,62 @@ macro_rules! upgradable_api {
             impl $api_type {
                 $(
                     ::paste::paste! {
-                        fn [<__impl_ $fn_name>](&$self $(, $param: $ty)*) -> $fn_return {
+                        fn [<__impl_ $fn_name>](&$self, $($param: $ty),*) -> $fn_return {
                             $( $fn_impl )*
                         }
                     }
                 )*
             }
+            $(
+            impl $api_type {
+                $(
+                    $(#[doc = $doc2_attr])*
+                    $fn2_vis fn $fn2_name($(&$self2,)? $($param2: $ty2),*) -> $fn2_return {
+                        $( $fn2_impl )*
+                    }
+                )*
+            }
+            )?
         }
 
         #[cfg(feature = "as-library")]
         mod $mod_name {
             use super::*;
 
-            #[cfg(not(feature = "always-delegate"))]
-            pub type UpgradeHash = Option<Hash>;
-            #[cfg(feature = "always-delegate")]
-            pub type UpgradeHash = Hash;
-
             /// Upgradable wrapper for the Polymesh Runtime API.
             ///
             /// Contracts can use this to maintain support accross
             /// major Polymesh releases.
             #[derive(Clone, Debug, Default, scale::Encode, scale::Decode)]
-            #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-            #[derive(ink_storage::traits::SpreadLayout)]
-            #[derive(ink_storage::traits::PackedLayout)]
-            #[derive(ink_storage::traits::SpreadAllocate)]
-            #[cfg_attr(feature = "std", derive(ink_storage::traits::StorageLayout))]
+            #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
             pub struct $api_type {
-                hash: UpgradeHash,
-                #[cfg(feature = "tracker")]
-                tracker: Option<UpgradeTrackerRef>,
+                hash: Hash,
             }
 
             impl $api_type {
-                #[cfg(not(feature = "tracker"))]
-                pub fn new(hash: UpgradeHash) -> Self {
+                pub fn new() -> PolymeshResult<Self> {
+                    Ok(Self {
+                      hash: Self::get_latest_upgrade()?,
+                    })
+                }
+
+                pub fn new_with_hash(hash: Hash) -> Self {
                     Self { hash }
                 }
 
-                #[cfg(feature = "tracker")]
-                pub fn new(hash: UpgradeHash, tracker: Option<UpgradeTrackerRef>) -> Self {
-                    Self { hash, tracker }
-                }
-
-                #[cfg(feature = "tracker")]
-                pub fn new_tracker(tracker: UpgradeTrackerRef) -> Self {
-                    #[cfg(not(feature = "always-delegate"))]
-                    let hash = tracker.get_latest_upgrade(API_VERSION).ok();
-                    #[cfg(feature = "always-delegate")]
-                    let hash = tracker.get_latest_upgrade(API_VERSION).unwrap();
-                    Self { hash, tracker: Some(tracker) }
-                }
-
                 /// Update code hash.
-                pub fn update_code_hash(&mut self, hash: UpgradeHash) {
+                pub fn update_code_hash(&mut self, hash: Hash) {
                     self.hash = hash;
                 }
 
-                #[cfg(feature = "tracker")]
-                pub fn check_for_upgrade(&mut self) -> Result<(), UpgradeError> {
-                    if let Some(tracker) = &self.tracker {
-                        #[cfg(not(feature = "always-delegate"))]
-                        {
-                            self.hash = tracker.get_latest_upgrade(API_VERSION).ok();
-                        }
-                        #[cfg(feature = "always-delegate")]
-                        {
-                            self.hash = tracker.get_latest_upgrade(API_VERSION)?;
-                        }
-                    }
+                pub fn check_for_upgrade(&mut self) -> PolymeshResult<()> {
+                    self.hash = Self::get_latest_upgrade()?;
                     Ok(())
+                }
+
+                fn get_latest_upgrade() -> PolymeshResult<Hash> {
+                    let extension = <<PolymeshEnvironment as ink::env::Environment>::ChainExtension as ink::ChainExtensionInstance>::instantiate();
+                    Ok(extension.get_latest_api_upgrade((&API_VERSION).into())?.into())
                 }
 
                 $(
@@ -129,14 +131,24 @@ macro_rules! upgradable_api {
                         $(#[doc = $doc_attr])*
                         $(#[ink($ink_attr)])*
                         $fn_vis fn $fn_name(
-                            &$self
-                            $(, $param: $ty)*
+                            &$self,
+                            $($param: $ty),*
                         ) -> $fn_return {
                             $( $fn_impl )*
                         }
                     }
                 )*
             }
+            $(
+            impl $api_type {
+                $(
+                    $(#[doc = $doc2_attr])*
+                    $fn2_vis fn $fn2_name($(&$self2,)? $($param2: $ty2),*) -> $fn2_return {
+                        $( $fn2_impl )*
+                    }
+                )*
+            }
+            )?
         }
     };
     // Upgradable api method.
@@ -144,49 +156,44 @@ macro_rules! upgradable_api {
         $(#[doc = $doc_attr:tt])*
         $(#[ink($ink_attr:tt)])+
         $fn_vis:vis fn $fn_name:ident(
-            &$self:ident
-            $(, $param:ident: $ty:ty)*
+            & $self:ident
+            $(,)?
+            $($param:ident: $ty:ty),*
+            $(,)?
         ) -> $fn_return:ty {
             $( $fn_impl:tt )*
         }
     ) => {
         $(#[doc = $doc_attr])*
-        $fn_vis fn $fn_name(&$self $(, $param: $ty)*) -> $fn_return {
-            use ink_env::call::{DelegateCall, ExecutionInput, Selector};
-            #[cfg(not(feature = "always-delegate"))]
-            let hash = $self.hash;
-            #[cfg(feature = "always-delegate")]
-            let hash = Some($self.hash);
-            if let Some(hash) = hash {
-                const FUNC: &'static str = stringify!{$fn_name};
-                let selector = Selector::new(::polymesh_api::ink::blake2_256(FUNC.as_bytes())[..4]
-                  .try_into().unwrap());
-                ink_env::call::build_call::<ink_env::DefaultEnvironment>()
-                    .call_type(DelegateCall::new().code_hash(hash))
-                    .exec_input(
-                        ExecutionInput::new(selector)
-                            .push_arg(($($param),*)),
-                    )
-                    .returns::<$fn_return>()
-                    .fire()
-                    .map_err(|e| crate::PolymeshError::from_delegate_error(e, selector))?
-            } else {
-                $( $fn_impl )*
-            }
+        $fn_vis fn $fn_name(&$self, $($param: $ty),*) -> $fn_return {
+            use ink::env::call::{ExecutionInput, Selector};
+            const FUNC: &'static str = stringify!{$fn_name};
+            let selector = Selector::new(::polymesh_api::ink::blake2_256(FUNC.as_bytes())[..4]
+              .try_into().unwrap());
+            ink::env::call::build_call::<ink::env::DefaultEnvironment>()
+                .delegate($self.hash)
+                .exec_input(
+                    ExecutionInput::new(selector)
+                        .push_arg(($($param),*)),
+                )
+                .returns::<$fn_return>()
+                .invoke()
         }
     };
     // Non-upgradable api method.
     (@impl_api_func
         $(#[doc = $doc_attr:tt])*
         $fn_vis:vis fn $fn_name:ident(
-            &$self:ident
-            $(, $param:ident: $ty:ty)*
+            $(& $self:ident)?
+            $(,)?
+            $($param:ident: $ty:ty),*
+            $(,)?
         ) -> $fn_return:ty {
             $( $fn_impl:tt )*
         }
     ) => {
         $(#[doc = $doc_attr])*
-        $fn_vis fn $fn_name(&$self $(, $param: $ty)*) -> $fn_return {
+        $fn_vis fn $fn_name($(&$self,)? $($param: $ty),*) -> $fn_return {
             $( $fn_impl )*
         }
     };

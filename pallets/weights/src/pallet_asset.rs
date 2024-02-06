@@ -695,4 +695,51 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
+    /// Storage: Identity KeyRecords (r:1 w:0)
+    /// Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    /// Storage: ExternalAgents GroupOfAgent (r:1 w:0)
+    /// Proof Skipped: ExternalAgents GroupOfAgent (max_values: None, max_size: None, mode: Measured)
+    /// Storage: Permissions CurrentPalletName (r:1 w:0)
+    /// Proof Skipped: Permissions CurrentPalletName (max_values: Some(1), max_size: None, mode: Measured)
+    /// Storage: Permissions CurrentDispatchableName (r:1 w:0)
+    /// Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
+    /// Storage: Asset MandatoryMediators (r:1 w:1)
+    /// Proof Skipped: Asset MandatoryMediators (max_values: None, max_size: None, mode: Measured)
+    /// The range of component `n` is `[1, 4]`.
+    fn add_mandatory_mediators(n: u32) -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `1129`
+        //  Estimated: `19010`
+        // Minimum execution time: 46_407 nanoseconds.
+        Weight::from_ref_time(49_009_947)
+            .saturating_add(Weight::from_proof_size(19010))
+            // Standard Error: 118_620
+            .saturating_add(Weight::from_ref_time(281_996).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(5))
+            .saturating_add(DbWeight::get().writes(1))
+    }
+    /// Storage: Identity KeyRecords (r:1 w:0)
+    /// Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    /// Storage: ExternalAgents GroupOfAgent (r:1 w:0)
+    /// Proof Skipped: ExternalAgents GroupOfAgent (max_values: None, max_size: None, mode: Measured)
+    /// Storage: Permissions CurrentPalletName (r:1 w:0)
+    /// Proof Skipped: Permissions CurrentPalletName (max_values: Some(1), max_size: None, mode: Measured)
+    /// Storage: Permissions CurrentDispatchableName (r:1 w:0)
+    /// Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
+    /// Storage: Asset MandatoryMediators (r:1 w:1)
+    /// Proof Skipped: Asset MandatoryMediators (max_values: None, max_size: None, mode: Measured)
+    /// The range of component `n` is `[1, 4]`.
+    fn remove_mandatory_mediators(n: u32) -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `1180 + n * (32 ±0)`
+        //  Estimated: `19270 + n * (160 ±0)`
+        // Minimum execution time: 48_597 nanoseconds.
+        Weight::from_ref_time(50_264_278)
+            .saturating_add(Weight::from_proof_size(19270))
+            // Standard Error: 57_762
+            .saturating_add(Weight::from_ref_time(46_485).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(5))
+            .saturating_add(DbWeight::get().writes(1))
+            .saturating_add(Weight::from_proof_size(160).saturating_mul(n.into()))
+    }
 }

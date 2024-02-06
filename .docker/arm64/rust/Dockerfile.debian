@@ -1,7 +1,7 @@
-ARG rustbase=1.63.0
+ARG rustbase=1.74.0
 FROM arm64v8/rust:${rustbase}
 
-ARG toolchainversion=nightly-2022-05-10
+ARG toolchainversion=nightly-2023-12-01
 ENV TOOLCHAIN="${toolchainversion}"
 
 RUN apt update && \

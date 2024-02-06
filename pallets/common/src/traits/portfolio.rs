@@ -17,7 +17,7 @@
 //!
 //! The interface allows to accept portfolio custody
 
-use crate::{asset::AssetFnTrait, base, identity, CommonConfig};
+use crate::{asset::AssetFnTrait, base, identity, nft::NFTTrait, CommonConfig};
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::pallet_prelude::Get;
@@ -100,6 +100,9 @@ pub trait WeightInfo {
         Self::move_portfolio_funds(f, n)
     }
     fn move_portfolio_funds(f: u32, u: u32) -> Weight;
+    fn allow_identity_to_create_portfolios() -> Weight;
+    fn revoke_create_portfolios_permission() -> Weight;
+    fn create_custody_portfolio() -> Weight;
 }
 
 pub trait Config: CommonConfig + identity::Config + base::Config {
@@ -111,6 +114,8 @@ pub trait Config: CommonConfig + identity::Config + base::Config {
     type MaxNumberOfFungibleMoves: Get<u32>;
     /// Maximum number of NFTs that can be moved in a single transfer call.
     type MaxNumberOfNFTsMoves: Get<u32>;
+    /// NFT module - required for updating the ownership of an NFT.
+    type NFT: NFTTrait<Self::RuntimeOrigin>;
 }
 
 decl_event! {
@@ -162,6 +167,28 @@ decl_event! {
             PortfolioId,
             FundDescription,
             Option<Memo>
+        ),
+        /// A portfolio has pre approved the receivement of an asset.
+        ///
+        /// # Parameters
+        /// * [`IdentityId`] of the caller.
+        /// * [`PortfolioId`] that will receive assets without explicit affirmation.
+        /// * [`Ticker`] of the asset that has been exempt from explicit affirmation.
+        PreApprovedPortfolio(
+            IdentityId,
+            PortfolioId,
+            Ticker
+        ),
+        /// A portfolio has removed the approval of an asset.
+        ///
+        /// # Parameters
+        /// * [`IdentityId`] of the caller.
+        /// * [`PortfolioId`] that had its pre approval revoked.
+        /// * [`Ticker`] of the asset that had its pre approval revoked.
+        RevokePreApprovedPortfolio(
+            IdentityId,
+            PortfolioId,
+            Ticker
         )
     }
 }

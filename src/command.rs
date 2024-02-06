@@ -7,7 +7,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// 	http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferBuilder};
 use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
 use crate::service::{
@@ -25,6 +26,7 @@ use crate::service::{
 use frame_benchmarking_cli::*;
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
 use sc_service::{Configuration, TaskManager};
+use sp_keyring::Sr25519Keyring;
 
 use core::future::Future;
 use log::info;
@@ -190,7 +192,7 @@ pub fn run() -> Result<()> {
                     (BenchmarkCmd::Pallet(cmd), Network::Other) => {
                         if !cfg!(feature = "runtime-benchmarks") {
                             return Err("Benchmarking wasn't enabled when building the node. \
-			                      You can enable it with `--features runtime-benchmarks`."
+                                  You can enable it with `--features runtime-benchmarks`."
                                 .into());
                         }
 
@@ -199,6 +201,20 @@ pub fn run() -> Result<()> {
                     (BenchmarkCmd::Block(cmd), Network::Other) => {
                         let FullServiceComponents { client, .. } =
                             new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>(
+                                &mut config,
+                            )?;
+                        cmd.run(client)
+                    }
+                    (BenchmarkCmd::Block(cmd), Network::Testnet) => {
+                        let FullServiceComponents { client, .. } =
+                            new_partial::<polymesh_runtime_testnet::RuntimeApi, GeneralExecutor>(
+                                &mut config,
+                            )?;
+                        cmd.run(client)
+                    }
+                    (BenchmarkCmd::Block(cmd), Network::Mainnet) => {
+                        let FullServiceComponents { client, .. } =
+                            new_partial::<polymesh_runtime_mainnet::RuntimeApi, GeneralExecutor>(
                                 &mut config,
                             )?;
                         cmd.run(client)
@@ -220,14 +236,143 @@ pub fn run() -> Result<()> {
 
                         cmd.run(config, client, db, storage)
                     }
-                    (BenchmarkCmd::Overhead(_cmd), Network::Other) => {
-                        unimplemented!();
-                        /*
-                                    let FullServiceComponents { client, .. } = new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>(&mut config)?;
-                                    let ext_builder = BenchmarkExtrinsicBuilder::new(client.clone());
+                    #[cfg(feature = "runtime-benchmarks")]
+                    (BenchmarkCmd::Storage(cmd), Network::Testnet) => {
+                        let FullServiceComponents {
+                            client, backend, ..
+                        } = new_partial::<polymesh_runtime_testnet::RuntimeApi, GeneralExecutor>(
+                            &mut config,
+                        )?;
+                        let db = backend.expose_db();
+                        let storage = backend.expose_storage();
 
-                        cmd.run(config, client, inherent_benchmark_data()?, Arc::new(ext_builder))
-                        */
+                        cmd.run(config, client, db, storage)
+                    }
+                    #[cfg(feature = "runtime-benchmarks")]
+                    (BenchmarkCmd::Storage(cmd), Network::Mainnet) => {
+                        let FullServiceComponents {
+                            client, backend, ..
+                        } = new_partial::<polymesh_runtime_mainnet::RuntimeApi, GeneralExecutor>(
+                            &mut config,
+                        )?;
+                        let db = backend.expose_db();
+                        let storage = backend.expose_storage();
+
+                        cmd.run(config, client, db, storage)
+                    }
+                    (BenchmarkCmd::Overhead(cmd), Network::Other) => {
+                        let FullServiceComponents { client, .. } =
+                            new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>(
+                                &mut config,
+                            )?;
+                        let ext_builder = RemarkBuilder::<
+                            polymesh_runtime_develop::RuntimeApi,
+                            GeneralExecutor,
+                        >::new(client.clone());
+                        cmd.run(
+                            config,
+                            client,
+                            inherent_benchmark_data()?,
+                            Vec::new(),
+                            &ext_builder,
+                        )
+                    }
+                    (BenchmarkCmd::Overhead(cmd), Network::Testnet) => {
+                        let FullServiceComponents { client, .. } =
+                            new_partial::<polymesh_runtime_testnet::RuntimeApi, GeneralExecutor>(
+                                &mut config,
+                            )?;
+                        let ext_builder = RemarkBuilder::<
+                            polymesh_runtime_testnet::RuntimeApi,
+                            GeneralExecutor,
+                        >::new(client.clone());
+                        cmd.run(
+                            config,
+                            client,
+                            inherent_benchmark_data()?,
+                            Vec::new(),
+                            &ext_builder,
+                        )
+                    }
+                    (BenchmarkCmd::Overhead(cmd), Network::Mainnet) => {
+                        let FullServiceComponents { client, .. } =
+                            new_partial::<polymesh_runtime_mainnet::RuntimeApi, GeneralExecutor>(
+                                &mut config,
+                            )?;
+                        let ext_builder = RemarkBuilder::<
+                            polymesh_runtime_mainnet::RuntimeApi,
+                            GeneralExecutor,
+                        >::new(client.clone());
+                        cmd.run(
+                            config,
+                            client,
+                            inherent_benchmark_data()?,
+                            Vec::new(),
+                            &ext_builder,
+                        )
+                    }
+                    (BenchmarkCmd::Extrinsic(cmd), Network::Other) => {
+                        let FullServiceComponents { client, .. } =
+                            new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>(
+                                &mut config,
+                            )?;
+                        // Register the *Remark* and *TKA* builders.
+                        let ext_factory = ExtrinsicFactory(vec![
+                            Box::new(RemarkBuilder::<
+                                polymesh_runtime_develop::RuntimeApi,
+                                GeneralExecutor,
+                            >::new(client.clone())),
+                            Box::new(TransferBuilder::<
+                                polymesh_runtime_develop::RuntimeApi,
+                                GeneralExecutor,
+                            >::new(
+                                client.clone(), Sr25519Keyring::Alice.to_account_id(), 1
+                            )),
+                        ]);
+
+                        cmd.run(client, inherent_benchmark_data()?, Vec::new(), &ext_factory)
+                    }
+                    (BenchmarkCmd::Extrinsic(cmd), Network::Testnet) => {
+                        let FullServiceComponents { client, .. } =
+                            new_partial::<polymesh_runtime_testnet::RuntimeApi, GeneralExecutor>(
+                                &mut config,
+                            )?;
+                        // Register the *Remark* and *TKA* builders.
+                        let ext_factory = ExtrinsicFactory(vec![
+                            Box::new(RemarkBuilder::<
+                                polymesh_runtime_testnet::RuntimeApi,
+                                GeneralExecutor,
+                            >::new(client.clone())),
+                            Box::new(TransferBuilder::<
+                                polymesh_runtime_testnet::RuntimeApi,
+                                GeneralExecutor,
+                            >::new(
+                                client.clone(), Sr25519Keyring::Alice.to_account_id(), 1
+                            )),
+                        ]);
+
+                        cmd.run(client, inherent_benchmark_data()?, Vec::new(), &ext_factory)
+                    }
+                    (BenchmarkCmd::Extrinsic(cmd), Network::Mainnet) => {
+                        let FullServiceComponents { client, .. } =
+                            new_partial::<polymesh_runtime_mainnet::RuntimeApi, GeneralExecutor>(
+                                &mut config,
+                            )?;
+                        // Register the *Remark* and *TKA* builders.
+                        let ext_factory = ExtrinsicFactory(vec![
+                            Box::new(RemarkBuilder::<
+                                polymesh_runtime_mainnet::RuntimeApi,
+                                GeneralExecutor,
+                            >::new(client.clone())),
+                            Box::new(TransferBuilder::<
+                                polymesh_runtime_mainnet::RuntimeApi,
+                                GeneralExecutor,
+                            >::new(
+                                client.clone(), Sr25519Keyring::Alice.to_account_id(), 1
+                            )),
+                        ]);
+
+                        cmd.run(client, inherent_benchmark_data()?, Vec::new(), &ext_factory)
                     }
                     (BenchmarkCmd::Machine(cmd), Network::Other) => {
                         cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())

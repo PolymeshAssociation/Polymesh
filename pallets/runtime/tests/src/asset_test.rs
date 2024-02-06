@@ -8,6 +8,7 @@ use rand::Rng;
 use sp_consensus_babe::Slot;
 use sp_io::hashing::keccak_256;
 use sp_runtime::AnySignature;
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::{From, TryFrom, TryInto};
 use sp_std::iter;
 
@@ -15,7 +16,8 @@ use pallet_asset::{
     AssetDocuments, AssetMetadataLocalKeyToName, AssetMetadataLocalNameToKey,
     AssetMetadataLocalSpecs, AssetMetadataValues, AssetOwnershipRelation, BalanceOf,
     Config as AssetConfig, CustomTypeIdSequence, CustomTypes, CustomTypesInverse,
-    PreApprovedTicker, SecurityToken, TickerRegistrationConfig, TickersExemptFromAffirmation,
+    MandatoryMediators, PreApprovedTicker, SecurityToken, TickerRegistrationConfig,
+    TickersExemptFromAffirmation,
 };
 use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances};
 use polymesh_common_utilities::asset::AssetFnTrait;
@@ -34,6 +36,7 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit, FixedOrVariableCalendarUnit};
 use polymesh_primitives::statistics::StatType;
+use polymesh_primitives::ticker::TICKER_LEN;
 use polymesh_primitives::{
     AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
     DocumentId, Fund, FundDescription, IdentityId, Memo, Moment, NFTCollectionKeys, Permissions,
@@ -520,7 +523,7 @@ fn register_ticker() {
         ] {
             assert_noop!(
                 register(Ticker::from_slice_truncated(&bs[..])),
-                AssetError::TickerNotAlphanumeric
+                AssetError::InvalidTickerCharacter
             );
         }
     })
@@ -2523,4 +2526,218 @@ fn unauthorized_custodian_ticker_exemption() {
         assert!(!TickersExemptFromAffirmation::get(ticker));
         assert!(!Asset::skip_ticker_affirmation(&alice.did, &ticker));
     });
+}
+
+#[test]
+fn unauthorized_add_mandatory_mediators() {
+    ExtBuilder::default().build().execute_with(|| {
+        let ticker: Ticker = ticker("TICKER");
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let max_mediators = <TestStorage as pallet_asset::Config>::MaxAssetMediators::get();
+        let mediators: BTreeSet<IdentityId> = (0..max_mediators)
+            .map(|i| IdentityId::from(i as u128))
+            .collect();
+
+        assert_ok!(Asset::create_asset(
+            alice.origin(),
+            ticker.as_ref().into(),
+            ticker,
+            true,
+            AssetType::default(),
+            Vec::new(),
+            None,
+        ));
+        assert_noop!(
+            Asset::add_mandatory_mediators(bob.origin(), ticker, mediators.try_into().unwrap()),
+            EAError::UnauthorizedAgent
+        );
+    });
+}
+
+#[test]
+fn successfully_add_mandatory_mediators() {
+    ExtBuilder::default().build().execute_with(|| {
+        let ticker: Ticker = ticker("TICKER");
+        let alice = User::new(AccountKeyring::Alice);
+        let max_mediators = <TestStorage as pallet_asset::Config>::MaxAssetMediators::get();
+        let mediators: BTreeSet<IdentityId> = (0..max_mediators)
+            .map(|i| IdentityId::from(i as u128))
+            .collect();
+
+        assert_ok!(Asset::create_asset(
+            alice.origin(),
+            ticker.as_ref().into(),
+            ticker,
+            true,
+            AssetType::default(),
+            Vec::new(),
+            None,
+        ));
+        assert_ok!(Asset::add_mandatory_mediators(
+            alice.origin(),
+            ticker,
+            mediators.clone().try_into().unwrap()
+        ));
+
+        assert_eq!(
+            MandatoryMediators::<TestStorage>::get(&ticker).len(),
+            mediators.len()
+        );
+        for mediator in mediators {
+            assert!(MandatoryMediators::<TestStorage>::get(&ticker).contains(&mediator));
+        }
+    });
+}
+
+#[test]
+fn add_mandatory_mediators_exceed_limit() {
+    ExtBuilder::default().build().execute_with(|| {
+        let ticker: Ticker = ticker("TICKER");
+        let alice = User::new(AccountKeyring::Alice);
+        let max_mediators = <TestStorage as pallet_asset::Config>::MaxAssetMediators::get();
+        let mediators: BTreeSet<IdentityId> = (0..max_mediators)
+            .map(|i| IdentityId::from(i as u128))
+            .collect();
+
+        assert_ok!(Asset::create_asset(
+            alice.origin(),
+            ticker.as_ref().into(),
+            ticker,
+            true,
+            AssetType::default(),
+            Vec::new(),
+            None,
+        ));
+        assert_ok!(Asset::add_mandatory_mediators(
+            alice.origin(),
+            ticker,
+            mediators.clone().try_into().unwrap()
+        ));
+
+        let new_mediator = BTreeSet::from([IdentityId::from(max_mediators as u128)]);
+        assert_noop!(
+            Asset::add_mandatory_mediators(
+                alice.origin(),
+                ticker,
+                new_mediator.try_into().unwrap()
+            ),
+            AssetError::NumberOfAssetMediatorsExceeded
+        );
+    });
+}
+
+#[test]
+fn unauthorized_remove_mediators() {
+    ExtBuilder::default().build().execute_with(|| {
+        let ticker: Ticker = ticker("TICKER");
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let max_mediators = <TestStorage as pallet_asset::Config>::MaxAssetMediators::get();
+        let mediators: BTreeSet<IdentityId> = (0..max_mediators)
+            .map(|i| IdentityId::from(i as u128))
+            .collect();
+
+        assert_ok!(Asset::create_asset(
+            alice.origin(),
+            ticker.as_ref().into(),
+            ticker,
+            true,
+            AssetType::default(),
+            Vec::new(),
+            None,
+        ));
+        assert_noop!(
+            Asset::remove_mandatory_mediators(bob.origin(), ticker, mediators.try_into().unwrap()),
+            EAError::UnauthorizedAgent
+        );
+    });
+}
+
+#[test]
+fn successfully_remove_mediators() {
+    ExtBuilder::default().build().execute_with(|| {
+        let ticker: Ticker = ticker("TICKER");
+        let alice = User::new(AccountKeyring::Alice);
+        let max_mediators = <TestStorage as pallet_asset::Config>::MaxAssetMediators::get();
+        let mediators: BTreeSet<IdentityId> = (0..max_mediators)
+            .map(|i| IdentityId::from(i as u128))
+            .collect();
+
+        assert_ok!(Asset::create_asset(
+            alice.origin(),
+            ticker.as_ref().into(),
+            ticker,
+            true,
+            AssetType::default(),
+            Vec::new(),
+            None,
+        ));
+        assert_ok!(Asset::add_mandatory_mediators(
+            alice.origin(),
+            ticker,
+            mediators.clone().try_into().unwrap()
+        ));
+
+        let remove_mediators = BTreeSet::from([IdentityId::from(0 as u128)]);
+        assert_ok!(Asset::remove_mandatory_mediators(
+            alice.origin(),
+            ticker,
+            remove_mediators.clone().try_into().unwrap()
+        ),);
+        assert_eq!(
+            MandatoryMediators::<TestStorage>::get(&ticker).len(),
+            mediators.len() - remove_mediators.len()
+        );
+        for mediator in remove_mediators {
+            assert!(!MandatoryMediators::<TestStorage>::get(&ticker).contains(&mediator));
+        }
+    });
+}
+
+#[test]
+fn verify_ticker_characters() {
+    let mut all_valid_characters = Vec::new();
+    let mut valid_ascii_digits: Vec<u8> = (48..58).collect();
+    let mut valid_ascii_letters: Vec<u8> = (65..91).collect();
+    let mut valid_special_characters: Vec<u8> = Vec::from([b'-', b'.', b'/', b'_']);
+    all_valid_characters.append(&mut valid_ascii_digits);
+    all_valid_characters.append(&mut valid_ascii_letters);
+    all_valid_characters.append(&mut valid_special_characters);
+
+    let mut rng = rand::thread_rng();
+
+    // Generates 10 random valid tickers
+    for _ in 0..10 {
+        let valid_ticker: Vec<u8> = (0..TICKER_LEN + 1)
+            .map(|_| all_valid_characters[rng.gen_range(0, all_valid_characters.len())])
+            .collect();
+        assert_ok!(Asset::verify_ticker_characters(
+            &Ticker::from_slice_truncated(&valid_ticker)
+        ));
+    }
+
+    let valid_set: BTreeSet<&u8> = all_valid_characters.iter().collect();
+    let mut all_invalid_characters: Vec<u8> = (0..=255).collect();
+    all_invalid_characters.retain(|ascii_code| !valid_set.contains(ascii_code));
+
+    // Generates 10 random invalid tickers
+    for _ in 0..10 {
+        let mut invalid_ticker: Vec<u8> = (0..TICKER_LEN - 1)
+            .map(|_| all_valid_characters[rng.gen_range(0, all_valid_characters.len())])
+            .collect();
+        invalid_ticker.push(all_invalid_characters[rng.gen_range(0, all_invalid_characters.len())]);
+
+        assert_eq!(
+            Asset::verify_ticker_characters(&Ticker::from_slice_truncated(&invalid_ticker))
+                .unwrap_err(),
+            AssetError::InvalidTickerCharacter.into()
+        );
+    }
+
+    assert_eq!(
+        Asset::verify_ticker_characters(&Ticker::from_slice_truncated(&[0; TICKER_LEN]))
+            .unwrap_err(),
+        AssetError::TickerFirstByteNotValid.into()
+    );
 }

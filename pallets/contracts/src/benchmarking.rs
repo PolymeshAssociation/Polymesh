@@ -28,12 +28,11 @@ use sp_runtime::Perbill;
 use sp_std::prelude::*;
 use wasm_instrument::parity_wasm::elements::{Instruction, ValueType};
 
-use polymesh_common_utilities::{
-    benchs::{cdd_provider, user, AccountIdOf, User},
-    constants::currency::POLY,
-    group::GroupTrait,
-    TestUtilsFn,
-};
+use pallet_identity::ParentDid;
+use polymesh_common_utilities::benchs::{cdd_provider, user, AccountIdOf, User, UserBuilder};
+use polymesh_common_utilities::constants::currency::POLY;
+use polymesh_common_utilities::group::GroupTrait;
+use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
 };
@@ -73,7 +72,7 @@ where
         // Check if contact is already linked.
         match Identity::<T>::get_identity(&contract) {
             Some(contract_did) => {
-                if contract_did != did {
+                if contract_did != did && ParentDid::get(contract_did) != Some(did) {
                     // Contract address already linked to a different identity.
                     Err(IdentityError::<T>::AlreadyLinked.into())
                 } else {
@@ -188,8 +187,13 @@ where
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
     pub fn new(wasm: WasmModule<T>) -> Self {
-        // Construct a user.
-        let caller = funded_user::<T>(SEED);
+        // Construct a user
+        let caller = UserBuilder::<T>::default()
+            .seed(SEED)
+            .generate_did()
+            .become_cdd_provider()
+            .build("Caller");
+        T::Currency::make_free_balance_be(&caller.account(), 1_000_000 * POLY);
 
         // Instantiate the contract.
         let account_id = instantiate::<T>(&caller, wasm, salt());
@@ -523,4 +527,85 @@ benchmarks! {
             .map(|id| ([(id & 0xFF) as u8, (id >> 8) as u8].into(), true))
             .collect();
     }: _(RawOrigin::Root, updates)
+
+    instantiate_with_code_as_primary_key {
+        let c in 0 .. Perbill::from_percent(49).mul_ceil(T::MaxCodeLen::get());
+        let s in 0 .. max_pages::<T>() * 64 * 1024;
+
+        let alice = UserBuilder::<T>::default()
+            .generate_did()
+            .become_cdd_provider()
+            .build("Alice");
+        T::Currency::make_free_balance_be(&alice.account(), 1_000_000 * POLY);
+
+        let salt = vec![42u8; s as usize];
+        let wasm = WasmModule::<T>::sized(c, Location::Deploy);
+        let addr = FrameContracts::<T>::contract_address(&alice.account(), &wasm.hash, &[], &salt);
+    }: _(alice.origin(), ENDOWMENT, Weight::MAX, None, wasm.code, vec![], salt)
+    verify {
+        assert_eq!(free_balance::<T>(&addr), ENDOWMENT + 1 as Balance);
+    }
+
+    instantiate_with_hash_as_primary_key {
+        let s in 0 .. max_pages::<T>() * 64 * 1024;
+        let salt = vec![42u8; s as usize];
+
+        let wasm = WasmModule::<T>::dummy();
+        let hash = wasm.hash.clone();
+
+        // Pre-instantiate a contract so that one with the hash exists.
+        let contract = Contract::<T>::new(wasm);
+        let user = contract.caller;
+
+        // Calculate new contract's address.
+        let addr = FrameContracts::<T>::contract_address(&user.account(), &hash, &[], &salt);
+    }: _(user.origin(), ENDOWMENT, Weight::MAX, None, hash, vec![], salt)
+    verify {
+        assert_eq!(free_balance::<T>(&addr), ENDOWMENT + 1 as Balance);
+    }
+
+    upgrade_api {
+        let current_spec_version = T::Version::get().spec_version;
+        let current_tx_version = T::Version::get().transaction_version;
+        let api_code_hash: ApiCodeHash<T> = ApiCodeHash { hash: CodeHash::<T>::default() };
+        let chain_version = ChainVersion::new(current_spec_version, current_tx_version);
+        let api = Api::new(*b"POLY", current_spec_version);
+        let next_upgrade = NextUpgrade::new(chain_version, api_code_hash);
+    }: _(RawOrigin::Root, api.clone(), next_upgrade.clone())
+    verify {
+        assert_eq!(ApiNextUpgrade::<T>::get(&api).unwrap(), next_upgrade);
+        assert_eq!(CurrentApiHash::<T>::get(&api),None);
+    }
+
+    chain_extension_get_latest_api_upgrade {
+        let r in 0 .. CHAIN_EXTENSION_BATCHES;
+
+        let current_spec_version = T::Version::get().spec_version;
+        let current_tx_version = T::Version::get().transaction_version;
+
+        let api_code_hash: ApiCodeHash<T> = ApiCodeHash { hash: CodeHash::<T>::default() };
+        let next_upgrade = NextUpgrade::new(ChainVersion::new(current_spec_version, current_tx_version), api_code_hash.clone());
+        let output_len: u32 = api_code_hash.hash.as_ref().len() as u32;
+        let api = Api::new(*b"POLY", current_spec_version);
+
+        Module::<T>::upgrade_api(
+            RawOrigin::Root.into(),
+            api.clone(),
+            next_upgrade.clone(),
+        ).unwrap();
+
+        let encoded_input = (0..r * CHAIN_EXTENSION_BATCH_SIZE)
+            .map(|_| {
+                api.encode()
+            })
+            .collect::<Vec<_>>();
+        let input_bytes =  encoded_input.iter().flat_map(|a| a.clone()).collect::<Vec<_>>();
+
+        let contract = Contract::<T>::chain_extension(
+            r * CHAIN_EXTENSION_BATCH_SIZE,
+            FuncId::GetLatestApiUpgrade,
+            input_bytes,
+            output_len
+        );
+    }: { contract.call(); }
 }

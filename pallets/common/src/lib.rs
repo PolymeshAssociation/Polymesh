@@ -33,12 +33,31 @@ pub mod benchs;
 
 use core::ops::Add;
 use frame_support::codec::{Decode, Encode};
+use frame_support::traits::Get;
 use frame_support::PalletId;
 use polymesh_primitives::IdentityId;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::{DispatchError, DispatchResult};
+
+/// Use `GetExtra` as the trait bounds for pallet `Config` parameters
+/// that will be used for bounded collections.
+pub trait GetExtra<T>: Get<T> + Clone + core::fmt::Debug + Default + PartialEq + Eq {}
+
+/// ConstSize type wrapper.
+///
+/// This allows the use of Bounded collections in extrinsic parameters.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub struct ConstSize<const T: u32>;
+
+impl<const T: u32> Get<u32> for ConstSize<T> {
+    fn get() -> u32 {
+        T
+    }
+}
+
+impl<const T: u32> GetExtra<u32> for ConstSize<T> {}
 
 /// SystematicIssuers (poorly named - should be SystematicIdentities) are identities created and maintained by the chain itself.
 /// These identities are associated with a primary key derived from their name, and for which there is

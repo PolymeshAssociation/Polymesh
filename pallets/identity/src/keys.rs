@@ -14,9 +14,9 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    types, AccountKeyRefCount, Config, DidKeys, DidRecords, Error, IsDidFrozen, KeyRecords, Module,
-    MultiPurposeNonce, OffChainAuthorizationNonce, ParentDid, PermissionedCallOriginData, RawEvent,
-    RpcDidRecords,
+    types, AccountKeyRefCount, ChildDid, Config, DidKeys, DidRecords, Error, IsDidFrozen,
+    KeyRecords, Module, MultiPurposeNonce, OffChainAuthorizationNonce, ParentDid,
+    PermissionedCallOriginData, RawEvent, RpcDidRecords,
 };
 use codec::{Decode, Encode as _};
 use core::mem;
@@ -446,11 +446,6 @@ impl<T: Config> Module<T> {
         // Ensure that the key can be unlinked.
         Self::ensure_key_unlinkable_from_did(&secondary_key)?;
 
-        T::ProtocolFee::charge_fee(ProtocolOp::IdentityCreateChildIdentity)?;
-
-        // Generate a new DID for the child.
-        let child_did = Self::make_did()?;
-
         // Unlink the secondary account key.
         Self::remove_key_record(&secondary_key, Some(parent_did));
         Self::deposit_event(RawEvent::SecondaryKeysRemoved(
@@ -458,20 +453,28 @@ impl<T: Config> Module<T> {
             vec![secondary_key.clone()],
         ));
 
-        let primary_key = secondary_key;
-        // Create a new identity record and link the primary key.
-        Self::add_key_record(&primary_key, KeyRecord::PrimaryKey(child_did));
-        Self::deposit_event(RawEvent::DidCreated(child_did, primary_key.clone(), vec![]));
+        // Creates a child identity and sets `secondary_key` as the child's primary key
+        Self::unverified_create_child_identity(secondary_key, parent_did)?;
 
+        Ok(())
+    }
+
+    /// Creates a new child identity for `parent_did` setting `key` as the primary key for the new identity.
+    pub fn unverified_create_child_identity(
+        key: T::AccountId,
+        parent_did: IdentityId,
+    ) -> DispatchResult {
+        T::ProtocolFee::charge_fee(ProtocolOp::IdentityCreateChildIdentity)?;
+        // Generate a new DID for the child.
+        let child_did = Self::make_did()?;
+        // Create a new identity record
+        Self::add_key_record(&key, KeyRecord::PrimaryKey(child_did));
+        Self::deposit_event(RawEvent::DidCreated(child_did, key.clone(), vec![]));
         // Link new identity to parent identity.
         ParentDid::insert(child_did, parent_did);
+        ChildDid::insert(parent_did, child_did, true);
 
-        Self::deposit_event(RawEvent::ChildDidCreated(
-            parent_did,
-            child_did,
-            primary_key,
-        ));
-
+        Self::deposit_event(RawEvent::ChildDidCreated(parent_did, child_did, key));
         Ok(())
     }
 
@@ -540,6 +543,7 @@ impl<T: Config> Module<T> {
 
             // Link new identity to parent identity.
             ParentDid::insert(child_did, parent_did);
+            ChildDid::insert(parent_did, child_did, true);
 
             Self::deposit_event(RawEvent::ChildDidCreated(parent_did, child_did, key));
         }
@@ -564,6 +568,7 @@ impl<T: Config> Module<T> {
 
         // Unlink child identity from parent identity.
         ParentDid::remove(child_did);
+        ChildDid::remove(parent_did, child_did);
 
         Self::deposit_event(RawEvent::ChildDidUnlinked(
             caller_did, parent_did, child_did,
@@ -786,7 +791,7 @@ impl<T: Config> Module<T> {
         // 2.1. Create a new identity record and link the primary key.
         Self::add_key_record(&sender, KeyRecord::PrimaryKey(did));
         // 2.2. Give `InitialPOLYX` to the primary key for testing.
-        T::Balances::deposit_creating(&sender, T::InitialPOLYX::get());
+        let _ = T::Balances::deposit_creating(&sender, T::InitialPOLYX::get());
         Self::deposit_event(RawEvent::DidCreated(did, sender, secondary_keys.clone()));
 
         // 2.3. add pre-authorized secondary keys.

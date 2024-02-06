@@ -240,6 +240,8 @@ parameter_types! {
     pub const MaxNumberOfNFTsMoves: u32 = 100;
     pub const MaxNumberOfOffChainAssets: u32 = 10;
     pub const MaxNumberOfVenueSigners: u32 = 50;
+    pub const MaxInstructionMediators: u32 = 4;
+    pub const MaxAssetMediators: u32 = 4;
 }
 
 frame_support::construct_runtime!(
@@ -326,7 +328,7 @@ frame_support::construct_runtime!(
 
         // Contracts
         Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>} = 46,
-        PolymeshContracts: polymesh_contracts::{Pallet, Call, Storage, Event, Config} = 47,
+        PolymeshContracts: polymesh_contracts::{Pallet, Call, Storage, Event<T>, Config} = 47,
 
         // Preimage register.  Used by `pallet_scheduler`.
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 48,

@@ -57,7 +57,7 @@ pub fn create_funded_user<T: Config + TestUtilsFn<AccountIdOf<T>>>(
         .generate_did()
         .build(string);
     // ensure T::CurrencyToVote will work correctly.
-    T::Currency::issue(balance.into());
+    let _ = T::Currency::issue(balance.into());
     user
 }
 
@@ -67,7 +67,7 @@ pub fn create_stash_controller_with_balance<T: Config + TestUtilsFn<AccountIdOf<
 ) -> Result<(User<T>, User<T>), DispatchError> {
     let (s, c) = create_stash_controller::<T>(n, balance)?;
     let _ = T::Balances::make_free_balance_be(&c.account(), balance.into());
-    T::Currency::issue(balance.into());
+    let _ = T::Currency::issue(balance.into());
     Ok((s, c))
 }
 
@@ -476,6 +476,6 @@ pub fn create_funded_user_without_did<T: Config + TestUtilsFn<AccountIdOf<T>>>(
         .seed(n)
         .build(string);
     // ensure T::CurrencyToVote will work correctly.
-    T::Currency::issue(balance.into());
+    let _ = T::Currency::issue(balance.into());
     user
 }
