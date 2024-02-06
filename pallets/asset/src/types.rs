@@ -16,13 +16,30 @@ pub enum AssetOwnershipRelation {
     AssetOwned,
 }
 
-/// struct to store the token details.
+/// Stores the details of a security token.
 #[derive(Clone, Debug, Decode, Default, Encode, TypeInfo, PartialEq, Eq)]
 pub struct SecurityToken {
     pub total_supply: Balance,
     pub owner_did: IdentityId,
     pub divisible: bool,
     pub asset_type: AssetType,
+}
+
+impl SecurityToken {
+    /// Creates a new [`SecurityToken`] instance.
+    pub fn new(
+        total_supply: Balance,
+        owner_did: IdentityId,
+        divisible: bool,
+        asset_type: AssetType,
+    ) -> Self {
+        Self {
+            total_supply,
+            owner_did,
+            divisible,
+            asset_type,
+        }
+    }
 }
 
 /// struct to store the ticker registration details.
@@ -38,12 +55,4 @@ pub struct TickerRegistration<T> {
 pub struct TickerRegistrationConfig<T> {
     pub max_ticker_length: u8,
     pub registration_length: Option<T>,
-}
-
-/// Enum that represents the current status of a ticker.
-#[derive(Clone, Debug, Decode, Encode, PartialEq, Eq)]
-pub enum TickerRegistrationStatus {
-    RegisteredByOther,
-    Available,
-    RegisteredByDid,
 }

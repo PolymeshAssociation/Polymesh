@@ -353,7 +353,10 @@ fn valid_transfers_pass() {
 
             // Should fail as sender matches receiver.
             let transfer = |from, to| transfer(ticker, from, to, 500);
-            assert_noop!(transfer(owner, owner), AssetError::InvalidTransfer);
+            assert_noop!(
+                transfer(owner, owner),
+                PortfolioError::DestinationIsSamePortfolio
+            );
             assert_ok!(transfer(owner, alice));
 
             assert_eq!(Asset::balance_of(&ticker, owner.did), TOTAL_SUPPLY - 500);
@@ -486,7 +489,7 @@ fn controller_transfer() {
             // Should fail as sender matches receiver.
             assert_noop!(
                 transfer(ticker, owner, owner, 500),
-                AssetError::InvalidTransfer
+                PortfolioError::DestinationIsSamePortfolio
             );
 
             assert_ok!(transfer(ticker, owner, alice, 500));
