@@ -96,6 +96,7 @@ use sp_std::prelude::*;
 use pallet_base::{
     ensure_opt_string_limited, ensure_string_limited, try_next_pre, Error::CounterOverflow,
 };
+use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
 use polymesh_common_utilities::constants::*;
@@ -989,27 +990,32 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Issues `amount` tokens for `ticker` into the caller's portfolio.
+    /// Issues `amount_to_issue` tokens for `ticker` into the caller's portfolio.
     fn base_issue(
         origin: T::RuntimeOrigin,
         ticker: Ticker,
-        amount: Balance,
+        amount_to_issue: Balance,
         portfolio_kind: PortfolioKind,
     ) -> DispatchResult {
-        let portfolio_id = Self::ensure_origin_ticker_and_portfolio_permissions(
+        let caller_portfolio = Self::ensure_origin_ticker_and_portfolio_permissions(
             origin,
             ticker,
             portfolio_kind,
             false,
         )?;
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
-        Self::_mint(
-            &ticker,
-            portfolio_id.did,
-            amount,
-            Some(ProtocolOp::AssetIssue),
+
+        let mut security_token = Self::token_details(&ticker)?;
+        Self::validate_issuance_rules(&security_token, amount_to_issue)?;
+        Self::unverified_issue_tokens(
+            ticker,
+            &mut security_token,
+            caller_portfolio,
+            amount_to_issue,
+            true,
             &mut weight_meter,
-        )
+        )?;
+        Ok(())
     }
 
     fn base_redeem(
@@ -1026,9 +1032,9 @@ impl<T: Config> Module<T> {
             true,
         )?;
 
-        Self::ensure_granular(&ticker, value)?;
-
         let mut token = Self::token_details(&ticker)?;
+        Self::ensure_token_granular(&token, &value)?;
+
         // Ensures the token is fungible
         ensure!(
             token.asset_type.is_fungible(),
@@ -1750,6 +1756,27 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    /// Returns `Ok` if all rules for issuing a token are satisfied.
+    fn validate_issuance_rules(
+        security_token: &SecurityToken,
+        amount_to_issue: Balance,
+    ) -> DispatchResult {
+        ensure!(
+            security_token.asset_type.is_fungible(),
+            Error::<T>::UnexpectedNonFungibleToken
+        );
+
+        Self::ensure_token_granular(security_token, &amount_to_issue)?;
+
+        let new_supply = security_token
+            .total_supply
+            .checked_add(amount_to_issue)
+            .ok_or(Error::<T>::TotalSupplyOverflow)?;
+        ensure!(new_supply <= MAX_SUPPLY, Error::<T>::TotalSupplyAboveLimit);
+
+        Ok(())
+    }
+
     /// Ensures that `origin` is a permissioned agent for `ticker`, that the portfolio is valid and that calller
     /// has the access to the portfolio. If `ensure_custody` is `true`, also enforces the caller to have custody
     /// of the portfolio.
@@ -1778,27 +1805,19 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn ensure_granular(ticker: &Ticker, value: Balance) -> DispatchResult {
-        ensure!(
-            Self::check_granularity(&ticker, value),
-            Error::<T>::InvalidGranularity
-        );
-        Ok(())
-    }
-
-    fn check_granularity(ticker: &Ticker, value: Balance) -> bool {
-        Self::is_divisible(ticker) || Self::is_unit_multiple(value)
-    }
-
+    /// Returns `true` if [`SecurityToken::divisible`], otherwise returns `false`.
     pub fn is_divisible(ticker: &Ticker) -> bool {
         Self::token_details(ticker)
             .map(|t| t.divisible)
             .unwrap_or_default()
     }
 
-    /// Is `value` a multiple of "one unit"?
-    fn is_unit_multiple(value: Balance) -> bool {
-        value % ONE_UNIT == 0
+    /// Returns `Ok` if [`SecurityToken::divisible`] or `value` % ONE_UNIT == 0. Otherwise, returns [`Error::<T>::InvalidGranularity`].
+    fn ensure_token_granular(security_token: &SecurityToken, value: &Balance) -> DispatchResult {
+        if security_token.divisible || value % ONE_UNIT == 0 {
+            return Ok(());
+        }
+        Err(Error::<T>::InvalidGranularity.into())
     }
 
     pub fn check_asset_metadata_key_exists(ticker: &Ticker, key: &AssetMetadataKey) -> bool {
@@ -1848,12 +1867,6 @@ impl<T: Config> Module<T> {
                 Error::<T>::AssetMetadataTypeDefMaxLengthExceeded
             );
         }
-        Ok(())
-    }
-
-    /// Ensure `supply <= MAX_SUPPLY`.
-    fn ensure_within_max_supply(supply: Balance) -> DispatchResult {
-        ensure!(supply <= MAX_SUPPLY, Error::<T>::TotalSupplyAboveLimit);
         Ok(())
     }
 
@@ -2015,82 +2028,56 @@ impl<T: Config> Module<T> {
         Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, idents));
     }
 
-    fn _mint(
-        ticker: &Ticker,
-        to_did: IdentityId,
-        value: Balance,
-        protocol_fee_data: Option<ProtocolOp>,
+    /// All storage writes for issuing a token.
+    /// Note: if `charge_fee`` is `true` [`ProtocolOp::AssetIssue`] is charged.
+    fn unverified_issue_tokens(
+        ticker: Ticker,
+        security_token: &mut SecurityToken,
+        issuer_portfolio: PortfolioId,
+        amount_to_issue: Balance,
+        charge_fee: bool,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        Self::ensure_granular(ticker, value)?;
-        // Read the token details
-        let mut token = Self::token_details(ticker)?;
-        // Ensures the token is fungible
-        ensure!(
-            token.asset_type.is_fungible(),
-            Error::<T>::UnexpectedNonFungibleToken
-        );
+        if charge_fee {
+            T::ProtocolFee::charge_fee(ProtocolOp::AssetIssue)?;
+        }
 
-        // Prepare the updated total supply.
-        let updated_total_supply = token
-            .total_supply
-            .checked_add(value)
-            .ok_or(Error::<T>::TotalSupplyOverflow)?;
-        Self::ensure_within_max_supply(updated_total_supply)?;
-        // Increase receiver balance.
-        let current_to_balance = Self::balance_of(ticker, to_did);
-        // No check since the total balance is always <= the total supply. The
-        // total supply is already checked above.
-        let updated_to_balance = current_to_balance + value;
-        // No check since the default portfolio balance is always <= the total
-        // supply. The total supply is already checked above.
-        let updated_to_def_balance = Portfolio::<T>::portfolio_asset_balances(
-            PortfolioId::default_portfolio(to_did),
-            ticker,
-        ) + value;
+        let current_issuer_balance = BalanceOf::get(&ticker, &issuer_portfolio.did);
+        <Checkpoint<T>>::advance_update_balances(
+            &ticker,
+            &[(issuer_portfolio.did, current_issuer_balance)],
+        )?;
 
-        // In transaction because we don't want fee to be charged if advancing fails.
-        with_transaction(|| {
-            // Charge the fee.
-            if let Some(op) = protocol_fee_data {
-                T::ProtocolFee::charge_fee(op)?;
-            }
-
-            // Advance checkpoint schedules and update last checkpoint.
-            <Checkpoint<T>>::advance_update_balances(ticker, &[(to_did, current_to_balance)])
-        })?;
-
-        // Increase total supply.
-        token.total_supply = updated_total_supply;
-        BalanceOf::insert(ticker, &to_did, updated_to_balance);
-        Portfolio::<T>::set_default_portfolio_balance(to_did, ticker, updated_to_def_balance);
-        Tokens::insert(ticker, token);
+        security_token.total_supply += amount_to_issue;
+        let new_issuer_balance = current_issuer_balance + amount_to_issue;
+        BalanceOf::insert(ticker, issuer_portfolio.did, new_issuer_balance);
+        Tokens::insert(&ticker, security_token);
+        PortfolioAssetBalances::mutate(&issuer_portfolio, &ticker, |issuer_balance| {
+            *issuer_balance += amount_to_issue
+        });
 
         Statistics::<T>::update_asset_stats(
             &ticker,
             None,
-            Some(&to_did),
+            Some(&issuer_portfolio.did),
             None,
-            Some(updated_to_balance),
-            value,
+            Some(new_issuer_balance),
+            amount_to_issue,
             weight_meter,
         )?;
-
-        let round = Self::funding_round(ticker);
-        let ticker_round = (*ticker, round.clone());
-        // No check since the issued balance is always <= the total
-        // supply. The total supply is already checked above.
-        let issued_in_this_round = Self::issued_in_funding_round(&ticker_round) + value;
-        IssuedInFundingRound::insert(&ticker_round, issued_in_this_round);
+        let funding_round_name = FundingRound::get(&ticker);
+        IssuedInFundingRound::mutate((&ticker, &funding_round_name), |balance| {
+            *balance += amount_to_issue
+        });
 
         Self::deposit_event(RawEvent::AssetBalanceUpdated(
-            to_did,
-            *ticker,
-            value,
+            issuer_portfolio.did,
+            ticker,
+            amount_to_issue,
             None,
-            Some(PortfolioId::default_portfolio(to_did)),
+            Some(issuer_portfolio),
             PortfolioUpdateReason::Issued {
-                funding_round_name: Some(round),
+                funding_round_name: Some(funding_round_name),
             },
         ));
         Ok(())
@@ -2107,10 +2094,9 @@ impl<T: Config> Module<T> {
         caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        Self::ensure_granular(ticker, value)?;
+        let token = Self::token_details(&ticker)?;
+        Self::ensure_token_granular(&token, &value)?;
 
-        let token = Self::token_details(ticker)?;
-        // Ensures the token is fungible
         ensure!(
             token.asset_type.is_fungible(),
             Error::<T>::UnexpectedNonFungibleToken
@@ -2283,7 +2269,7 @@ impl<T: Config> Module<T> {
         value: Balance,
         weight_meter: &mut WeightMeter,
     ) -> Result<GranularCanTransferResult, DispatchError> {
-        let invalid_granularity = Self::invalid_granularity(ticker, value);
+        let invalid_granularity = Self::invalid_granularity(ticker, &value);
         let self_transfer = Self::self_transfer(&from_portfolio, &to_portfolio);
         let invalid_receiver_cdd = Self::invalid_cdd(to_portfolio.did);
         let invalid_sender_cdd = Self::invalid_cdd(from_portfolio.did);
@@ -2343,8 +2329,11 @@ impl<T: Config> Module<T> {
 }
 
 impl<T: Config> Module<T> {
-    fn invalid_granularity(ticker: &Ticker, value: Balance) -> bool {
-        !Self::check_granularity(&ticker, value)
+    fn invalid_granularity(ticker: &Ticker, value: &Balance) -> bool {
+        match Tokens::get(ticker) {
+            Some(security_token) => Self::ensure_token_granular(&security_token, value).is_err(),
+            None => true,
+        }
     }
 
     fn self_transfer(from: &PortfolioId, to: &PortfolioId) -> bool {
@@ -2390,7 +2379,10 @@ impl<T: Config> Module<T> {
 
 impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
     fn ensure_granular(ticker: &Ticker, value: Balance) -> DispatchResult {
-        Self::ensure_granular(ticker, value)
+        if let Some(security_token) = Tokens::get(ticker) {
+            return Self::ensure_token_granular(&security_token, &value);
+        }
+        Err(Error::<T>::InvalidGranularity.into())
     }
 
     fn balance(ticker: &Ticker, who: IdentityId) -> Balance {

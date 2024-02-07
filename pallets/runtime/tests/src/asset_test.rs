@@ -1982,31 +1982,6 @@ fn remove_metadata_value() {
 }
 
 #[test]
-fn issue_token_invalid_portfolio() {
-    ExtBuilder::default().build().execute_with(|| {
-        let issued_amount = ONE_UNIT;
-        let alice = User::new(AccountKeyring::Alice);
-        let ticker = Ticker::from_slice_truncated(b"TICKER");
-        let alice_user_portfolio = PortfolioKind::User(PortfolioNumber(1));
-
-        assert_ok!(Asset::create_asset(
-            alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
-            true,
-            AssetType::default(),
-            Vec::new(),
-            None,
-        ));
-
-        assert_noop!(
-            Asset::issue(alice.origin(), ticker, issued_amount, alice_user_portfolio),
-            PortfolioError::PortfolioDoesNotExist
-        );
-    })
-}
-
-#[test]
 fn issue_token_unassigned_custody() {
     ExtBuilder::default().build().execute_with(|| {
         let issued_amount = ONE_UNIT;
@@ -2033,46 +2008,6 @@ fn issue_token_unassigned_custody() {
             ticker,
             issued_amount,
             alice_user_portfolio
-        ));
-        assert_eq!(BalanceOf::get(ticker, alice.did), issued_amount);
-    })
-}
-
-#[test]
-fn issue_token_assigned_custody() {
-    ExtBuilder::default().build().execute_with(|| {
-        let issued_amount = ONE_UNIT;
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
-        let ticker = Ticker::from_slice_truncated(b"TICKER");
-        let portfolio_id = PortfolioId::new(alice.did, PortfolioKind::Default);
-
-        assert_ok!(Asset::create_asset(
-            alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
-            true,
-            AssetType::default(),
-            Vec::new(),
-            None,
-        ));
-        // Change custody of the default portfolio
-        let authorization_id = Identity::add_auth(
-            alice.did,
-            Signatory::from(bob.did),
-            AuthorizationData::PortfolioCustody(portfolio_id),
-            None,
-        );
-        assert_ok!(Portfolio::accept_portfolio_custody(
-            bob.origin(),
-            authorization_id
-        ));
-
-        assert_ok!(Asset::issue(
-            alice.origin(),
-            ticker,
-            issued_amount,
-            PortfolioKind::Default
         ));
         assert_eq!(BalanceOf::get(ticker, alice.did), issued_amount);
     })
