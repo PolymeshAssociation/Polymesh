@@ -1181,33 +1181,41 @@ impl<T: Config> Module<T> {
     fn base_controller_transfer(
         origin: T::RuntimeOrigin,
         ticker: Ticker,
-        value: Balance,
-        from_portfolio: PortfolioId,
+        transfer_value: Balance,
+        sender_portfolio: PortfolioId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        let to_portfolio = Self::ensure_origin_ticker_and_portfolio_permissions(
+        let caller_portfolio = Self::ensure_origin_ticker_and_portfolio_permissions(
             origin,
             ticker,
             PortfolioKind::Default,
             false,
         )?;
 
-        // Transfer `value` of ticker tokens from `investor_did` to controller
-        Self::unsafe_transfer(
-            from_portfolio,
-            to_portfolio,
+        Self::validate_asset_transfer(
             &ticker,
-            value,
-            None,
-            None,
-            to_portfolio.did,
+            &sender_portfolio,
+            &caller_portfolio,
+            transfer_value,
+            true,
             weight_meter,
         )?;
-        Self::deposit_event(RawEvent::ControllerTransfer(
-            to_portfolio.did,
+        Self::unverified_transfer_asset(
+            sender_portfolio,
+            caller_portfolio,
             ticker,
-            from_portfolio,
-            value,
+            transfer_value,
+            None,
+            None,
+            caller_portfolio.did,
+            weight_meter,
+        )?;
+
+        Self::deposit_event(RawEvent::ControllerTransfer(
+            caller_portfolio.did,
+            ticker,
+            sender_portfolio,
+            transfer_value,
         ));
         Ok(())
     }
@@ -1556,7 +1564,7 @@ impl<T: Config> Module<T> {
         from_portfolio: PortfolioId,
         to_portfolio: PortfolioId,
         ticker: &Ticker,
-        value: Balance,
+        transfer_value: Balance,
         instruction_id: Option<InstructionId>,
         instruction_memo: Option<Memo>,
         caller_did: IdentityId,
@@ -1571,15 +1579,16 @@ impl<T: Config> Module<T> {
             &ticker,
             &from_portfolio,
             &to_portfolio,
-            value,
+            transfer_value,
+            false,
             weight_meter,
         )?;
 
-        Self::unsafe_transfer(
+        Self::unverified_transfer_asset(
             from_portfolio,
             to_portfolio,
-            ticker,
-            value,
+            *ticker,
+            transfer_value,
             instruction_id,
             instruction_memo,
             caller_did,
@@ -1895,19 +1904,44 @@ impl<T: Config> Module<T> {
         ticker: &Ticker,
         sender_portfolio: &PortfolioId,
         receiver_portfolio: &PortfolioId,
-        value: Balance,
+        transfer_value: Balance,
+        is_controller_transfer: bool,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        // Verifies that the asset is not frozen
-        ensure!(!Frozen::get(ticker), Error::<T>::InvalidTransferFrozenAsset);
+        let security_token = Self::token_details(&ticker)?;
+        ensure!(
+            security_token.asset_type.is_fungible(),
+            Error::<T>::UnexpectedNonFungibleToken
+        );
+
+        Self::ensure_token_granular(&security_token, &transfer_value)?;
+
+        ensure!(
+            BalanceOf::get(ticker, &sender_portfolio.did) >= transfer_value,
+            Error::<T>::InsufficientBalance
+        );
+        ensure!(
+            BalanceOf::get(ticker, &receiver_portfolio.did)
+                .checked_add(transfer_value)
+                .is_some(),
+            Error::<T>::BalanceOverflow
+        );
 
         // Verifies that both portfolios exist an that the sender has sufficient balance
         Portfolio::<T>::ensure_portfolio_transfer_validity(
             sender_portfolio,
             receiver_portfolio,
             ticker,
-            value,
+            transfer_value,
         )?;
+
+        // Controllers are exempt from statistics, compliance and frozen rules.
+        if is_controller_transfer {
+            return Ok(());
+        }
+
+        // Verifies that the asset is not frozen
+        ensure!(!Frozen::get(ticker), Error::<T>::InvalidTransferFrozenAsset);
 
         // Verifies that the statistics restrictions are satisfied
         Statistics::<T>::verify_transfer_restrictions(
@@ -1916,7 +1950,7 @@ impl<T: Config> Module<T> {
             &receiver_portfolio.did,
             Self::balance_of(ticker, sender_portfolio.did),
             Self::balance_of(ticker, receiver_portfolio.did),
-            value,
+            transfer_value,
             Self::total_supply(ticker),
             weight_meter,
         )?;
@@ -2084,75 +2118,55 @@ impl<T: Config> Module<T> {
     }
 
     // Transfers tokens from one identity to another
-    pub fn unsafe_transfer(
-        from_portfolio: PortfolioId,
-        to_portfolio: PortfolioId,
-        ticker: &Ticker,
-        value: Balance,
+    pub fn unverified_transfer_asset(
+        sender_portfolio: PortfolioId,
+        receiver_portfolio: PortfolioId,
+        ticker: Ticker,
+        transfer_value: Balance,
         instruction_id: Option<InstructionId>,
         instruction_memo: Option<Memo>,
         caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        let token = Self::token_details(&ticker)?;
-        Self::ensure_token_granular(&token, &value)?;
-
-        ensure!(
-            token.asset_type.is_fungible(),
-            Error::<T>::UnexpectedNonFungibleToken
-        );
-
-        ensure!(
-            from_portfolio.did != to_portfolio.did,
-            Error::<T>::SenderSameAsReceiver
-        );
-
-        let from_total_balance = Self::balance_of(ticker, from_portfolio.did);
-        ensure!(from_total_balance >= value, Error::<T>::InsufficientBalance);
-        let updated_from_total_balance = from_total_balance - value;
-
-        let to_total_balance = Self::balance_of(ticker, to_portfolio.did);
-        let updated_to_total_balance = to_total_balance
-            .checked_add(value)
-            .ok_or(Error::<T>::BalanceOverflow)?;
-
+        // Gets the current balance and advances the checkpoint
+        let sender_current_balance = BalanceOf::get(&ticker, &sender_portfolio.did);
+        let receiver_current_balance = BalanceOf::get(&ticker, &receiver_portfolio.did);
         <Checkpoint<T>>::advance_update_balances(
-            ticker,
+            &ticker,
             &[
-                (from_portfolio.did, from_total_balance),
-                (to_portfolio.did, to_total_balance),
+                (sender_portfolio.did, sender_current_balance),
+                (receiver_portfolio.did, receiver_current_balance),
             ],
         )?;
-
-        // reduce sender's balance
-        BalanceOf::insert(ticker, &from_portfolio.did, updated_from_total_balance);
-        // increase receiver's balance
-        BalanceOf::insert(ticker, &to_portfolio.did, updated_to_total_balance);
-        // transfer portfolio balances
+        // Updates the balance in the asset pallet
+        let sender_new_balance = sender_current_balance - transfer_value;
+        let receiver_new_balance = receiver_current_balance + transfer_value;
+        BalanceOf::insert(ticker, sender_portfolio.did, sender_new_balance);
+        BalanceOf::insert(ticker, receiver_portfolio.did, receiver_new_balance);
+        // Updates the balances in the portfolio pallet
         Portfolio::<T>::unchecked_transfer_portfolio_balance(
-            &from_portfolio,
-            &to_portfolio,
-            ticker,
-            value,
+            &sender_portfolio,
+            &receiver_portfolio,
+            &ticker,
+            transfer_value,
         );
-
-        // Update statistic info.
+        // Update statistics info
         Statistics::<T>::update_asset_stats(
-            ticker,
-            Some(&from_portfolio.did),
-            Some(&to_portfolio.did),
-            Some(updated_from_total_balance),
-            Some(updated_to_total_balance),
-            value,
+            &ticker,
+            Some(&sender_portfolio.did),
+            Some(&receiver_portfolio.did),
+            Some(sender_new_balance),
+            Some(receiver_new_balance),
+            transfer_value,
             weight_meter,
         )?;
 
         Self::deposit_event(RawEvent::AssetBalanceUpdated(
             caller_did,
-            *ticker,
-            value,
-            Some(from_portfolio),
-            Some(to_portfolio),
+            ticker,
+            transfer_value,
+            Some(sender_portfolio),
+            Some(receiver_portfolio),
             PortfolioUpdateReason::Transferred {
                 instruction_id,
                 instruction_memo,

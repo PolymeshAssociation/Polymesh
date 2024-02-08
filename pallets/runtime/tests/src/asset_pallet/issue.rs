@@ -163,6 +163,7 @@ fn issue_tokens_assigned_custody() {
         ));
         assert_eq!(BalanceOf::get(ticker, alice.did), 1_000);
         assert_eq!(PortfolioAssetBalances::get(&portfolio_id, &ticker), 1_000);
+        assert_eq!(PortfolioAssetBalances::get(&portfolio_id, &ticker), 1_000);
     })
 }
 

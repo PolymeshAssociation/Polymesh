@@ -39,6 +39,7 @@ macro_rules! assert_invalid_transfer {
             &PortfolioId::default_portfolio($from),
             &PortfolioId::default_portfolio($to),
             $amount,
+            false,
             &mut weight_meter
         )
         .is_err(),);
@@ -53,6 +54,7 @@ macro_rules! assert_valid_transfer {
             &PortfolioId::default_portfolio($from),
             &PortfolioId::default_portfolio($to),
             $amount,
+            false,
             &mut weight_meter
         ),);
     };

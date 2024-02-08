@@ -349,7 +349,7 @@ fn valid_transfers_pass() {
             let transfer = |from, to| transfer(ticker, from, to, 500);
             assert_noop!(
                 transfer(owner, owner),
-                PortfolioError::DestinationIsSamePortfolio
+                PortfolioError::InvalidTransferSenderIdMatchesReceiverId
             );
             assert_ok!(transfer(owner, alice));
 
@@ -398,10 +398,10 @@ fn issuers_can_redeem_tokens() {
 
 fn default_transfer(from: User, to: User, ticker: Ticker, val: u128) {
     let mut weight_meter = WeightMeter::max_limit_no_minimum();
-    assert_ok!(Asset::unsafe_transfer(
+    assert_ok!(Asset::unverified_transfer_asset(
         PortfolioId::default_portfolio(from.did),
         PortfolioId::default_portfolio(to.did),
-        &ticker,
+        ticker,
         val,
         None,
         None,
@@ -483,7 +483,7 @@ fn controller_transfer() {
             // Should fail as sender matches receiver.
             assert_noop!(
                 transfer(ticker, owner, owner, 500),
-                PortfolioError::DestinationIsSamePortfolio
+                PortfolioError::InvalidTransferSenderIdMatchesReceiverId
             );
 
             assert_ok!(transfer(ticker, owner, alice, 500));
@@ -1249,33 +1249,6 @@ fn secondary_key_not_authorized_for_asset_test() {
             ));
             assert_eq!(Asset::total_supply(&ticker), TOTAL_SUPPLY + minted_value);
         });
-}
-
-#[test]
-fn sender_same_as_receiver_test() {
-    test_with_owner(|owner| {
-        let ticker = an_asset(owner, true);
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
-
-        // Create new portfolio
-        let eu_portfolio = PortfolioId::default_portfolio(owner.did);
-        let uk_portfolio = new_portfolio(owner.acc(), "UK");
-
-        // Enforce an unsafe tranfer.
-        assert_noop!(
-            Asset::unsafe_transfer(
-                eu_portfolio,
-                uk_portfolio,
-                &ticker,
-                1_000,
-                None,
-                None,
-                IdentityId::default(),
-                &mut weight_meter
-            ),
-            AssetError::SenderSameAsReceiver
-        );
-    });
 }
 
 #[test]

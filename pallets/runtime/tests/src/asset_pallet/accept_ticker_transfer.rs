@@ -1,5 +1,4 @@
-use frame_support::{assert_noop, assert_ok};
-use frame_support::{StorageDoubleMap, StorageMap, StorageValue};
+use frame_support::{assert_noop, assert_ok, StorageDoubleMap, StorageMap, StorageValue};
 use sp_keyring::AccountKeyring;
 
 use pallet_asset::{
