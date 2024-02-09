@@ -8,6 +8,7 @@ use rand::Rng;
 use sp_consensus_babe::Slot;
 use sp_io::hashing::keccak_256;
 use sp_runtime::AnySignature;
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::{From, TryFrom, TryInto};
 use sp_std::iter;
 
