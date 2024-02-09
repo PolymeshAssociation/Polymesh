@@ -15,9 +15,9 @@ use pallet_asset::{
     AssetDocuments, AssetMetadataLocalKeyToName, AssetMetadataLocalNameToKey,
     AssetMetadataLocalSpecs, AssetMetadataValues, AssetOwnershipRelation, BalanceOf,
     Config as AssetConfig, CustomTypeIdSequence, CustomTypes, CustomTypesInverse,
-    PreApprovedTicker, SecurityToken, TickerRegistrationConfig, TickersExemptFromAffirmation,
+    PreApprovedTicker, SecurityToken, TickerRegistrationConfig, TickersExemptFromAffirmation, Tokens
 };
-use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances};
+use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances, PortfolioLockedAssets};
 use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::constants::*;
@@ -33,6 +33,9 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
 };
 use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit, FixedOrVariableCalendarUnit};
+use polymesh_primitives::settlement::{
+    InstructionId, Leg, SettlementType, VenueDetails, VenueId, VenueType,
+};
 use polymesh_primitives::statistics::StatType;
 use polymesh_primitives::{
     AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
@@ -68,6 +71,7 @@ type EAError = pallet_external_agents::Error<TestStorage>;
 type FeeError = pallet_protocol_fee::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type StoreCallMetadata = pallet_permissions::StoreCallMetadata<TestStorage>;
+type Settlement = pallet_settlement::Module<TestStorage>;
 
 fn now() -> u64 {
     Utc::now().timestamp() as _
@@ -2522,5 +2526,130 @@ fn unauthorized_custodian_ticker_exemption() {
         assert!(!PreApprovedTicker::get(alice.did, ticker));
         assert!(!TickersExemptFromAffirmation::get(ticker));
         assert!(!Asset::skip_ticker_affirmation(&alice.did, &ticker));
+    });
+}
+
+#[test]
+fn controller_transfer_locked_asset() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
+        let bob_default_portfolio = PortfolioId {
+            did: bob.did,
+            kind: PortfolioKind::Default,
+        };
+        let alice_default_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+
+        assert_ok!(Asset::create_asset(
+            alice.origin(),
+            ticker.as_ref().into(),
+            ticker,
+            true,
+            AssetType::default(),
+            Vec::new(),
+            None,
+        ));
+        assert_ok!(Asset::issue(
+            alice.origin(),
+            ticker,
+            1_000,
+            PortfolioKind::Default
+        ));
+        let authorization_id = Identity::add_auth(
+            alice.did,
+            Signatory::from(bob.did),
+            AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
+            None,
+        );
+        assert_ok!(ExternalAgents::accept_become_agent(
+            bob.origin(),
+            authorization_id
+        ));
+        // Lock the asset by creating and affirming an instruction
+        assert_ok!(Settlement::create_venue(
+            alice.origin(),
+            VenueDetails::default(),
+            vec![alice.acc()],
+            VenueType::Other
+        ));
+        assert_ok!(Settlement::add_instruction(
+            alice.origin(),
+            VenueId(0),
+            SettlementType::SettleManual(System::block_number() + 1),
+            None,
+            None,
+            vec![Leg::Fungible {
+                sender: alice_default_portfolio,
+                receiver: bob_default_portfolio,
+                ticker: ticker,
+                amount: 1_000,
+            }],
+            None,
+        ));
+        assert_ok!(Settlement::affirm_instruction(
+            alice.origin(),
+            InstructionId(0),
+            vec![alice_default_portfolio]
+        ),);
+
+        // Controller transfer should fail since the tokens are locked
+        assert_noop!(
+            Asset::controller_transfer(bob.origin(), ticker, 200, alice_default_portfolio),
+            PortfolioError::InsufficientPortfolioBalance
+        );
+    });
+}
+
+fn issue_tokens_user_portfolio() {
+    ExtBuilder::default().build().execute_with(|| {
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
+        let alice = User::new(AccountKeyring::Alice);
+        let alice_user_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::User(PortfolioNumber(1)),
+        };
+        let alice_default_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+
+        assert_ok!(Portfolio::create_portfolio(
+            alice.origin(),
+            PortfolioName(b"AliceUserPortfolio".to_vec())
+        ));
+        assert_ok!(Asset::create_asset(
+            alice.origin(),
+            ticker.as_ref().into(),
+            ticker,
+            true,
+            AssetType::default(),
+            Vec::new(),
+            None,
+        ));
+        assert_ok!(Asset::issue(
+            alice.origin(),
+            ticker,
+            1_000,
+            PortfolioKind::User(PortfolioNumber(1))
+        ));
+
+        assert_eq!(
+            PortfolioAssetBalances::get(&alice_default_portfolio, &ticker),
+            0
+        );
+        assert_eq!(
+            PortfolioAssetBalances::get(&alice_user_portfolio, &ticker),
+            1_000
+        );
+        assert_eq!(
+            PortfolioLockedAssets::get(&alice_user_portfolio, &ticker),
+            0
+        );
+        assert_eq!(BalanceOf::get(&ticker, &alice.did), 1_000);
+        assert_eq!(Tokens::get(&ticker).unwrap().total_supply, 1_000);
     });
 }
