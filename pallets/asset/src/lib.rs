@@ -102,7 +102,6 @@ use pallet_base::{
     ensure_opt_string_limited, ensure_string_limited, try_next_pre, Error::CounterOverflow,
 };
 use pallet_identity::PermissionedCallOriginData;
-use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
 use polymesh_common_utilities::constants::*;
@@ -1402,7 +1401,7 @@ impl<T: Config> Module<T> {
         // Increase total supply.
         token.total_supply = updated_total_supply;
         BalanceOf::insert(ticker, issuer_portfolio.did, updated_to_balance);
-        PortfolioAssetBalances::insert(issuer_portfolio, ticker, updated_to_def_balance);
+        Portfolio::<T>::set_portfolio_balance(issuer_portfolio, ticker, updated_to_def_balance);
         Tokens::insert(ticker, token);
 
         Statistics::<T>::update_asset_stats(
