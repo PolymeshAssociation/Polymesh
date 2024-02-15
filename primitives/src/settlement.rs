@@ -157,6 +157,7 @@ pub struct Instruction<Moment, BlockNumber> {
 }
 
 /// Defines a [`Leg`] (i.e the action of a settlement).
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
 pub enum Leg {
     /// Fungible token

@@ -86,7 +86,11 @@ decl_error! {
         InvalidTickerCharacter,
         /// Failed to transfer the asset - asset is frozen.
         InvalidTransferFrozenAsset,
-        /// Failed to transfer an NFT - compliance failed.
-        InvalidTransferComplianceFailure
+        /// Failed to transfer the asset - compliance failed.
+        InvalidTransferComplianceFailure,
+        /// Failed to transfer the asset - receiver cdd is not valid.
+        InvalidTransferInvalidReceiverCDD,
+        /// Failed to transfer the asset - sender cdd is not valid.
+        InvalidTransferInvalidSenderCDD
     }
 }
