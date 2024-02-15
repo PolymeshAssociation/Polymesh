@@ -16,7 +16,8 @@ use pallet_asset::{
     AssetDocuments, AssetMetadataLocalKeyToName, AssetMetadataLocalNameToKey,
     AssetMetadataLocalSpecs, AssetMetadataValues, AssetOwnershipRelation, BalanceOf,
     Config as AssetConfig, CustomTypeIdSequence, CustomTypes, CustomTypesInverse,
-    PreApprovedTicker, SecurityToken, TickerRegistrationConfig, TickersExemptFromAffirmation, Tokens
+    PreApprovedTicker, SecurityToken, TickerRegistrationConfig, TickersExemptFromAffirmation,
+    Tokens,
 };
 use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances, PortfolioLockedAssets};
 use polymesh_common_utilities::asset::AssetFnTrait;
