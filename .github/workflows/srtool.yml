@@ -24,7 +24,7 @@ jobs:
           package: polymesh-runtime-${{ matrix.chain }}
           runtime_dir: pallets/runtime/${{ matrix.chain }}
           image: chevdor/srtool
-          tag: 1.66.0
+          tag: 1.66.1
       - name: Summary
         run: |
           echo Summary:
