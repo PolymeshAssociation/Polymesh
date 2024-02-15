@@ -1,0 +1,24 @@
+This file is just for information.
+The contracts_call_whitelist.json corresponds to the following extrinsics:
+Asset.accept_asset_ownership_transfer		[26,2],
+Asset.accept_ticker_transfer		[26,1],
+Asset.create_asset		[26,3],
+Asset.issue		[26,7],
+Asset.redeem		[26,8],
+Asset.redeem_from_portfolio		[26,22],
+Asset.register_custom_asset_type		[26,15],
+Asset.register_ticker		[26,0],
+ComplianceManager.pause_asset_compliance		[29,4],
+CapitalDistribution.claim		[27, 1],
+CorporateAction.initiate_corporate_action_and_distribute		[30,8],
+PolymeshContracts.instantiate_with_hash_perms		[47,1]
+Portfolio.accept_portfolio_custody		[34,4],
+Portfolio.create_portfolio		[34,0],
+Portfolio.create_custody_portfolio		[34,10],
+Portfolio.move_portfolio_funds		[34,5],
+Portfolio.quit_portfolio_custody		[34,3],
+Settlement.add_and_affirm_instruction		[37,10],
+Settlement.create_venue		[37,0],
+Settlement.execute_manual_instruction		[37,8],
+System.remark		[0,0],
+System.remark_with_event		[0,7]
