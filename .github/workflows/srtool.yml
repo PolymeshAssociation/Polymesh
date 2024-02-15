@@ -6,6 +6,7 @@ on:
       - 'mainnet'
       - 'testnet'
       - 'staging'
+      - 'fix_srtools'
 
 jobs:
   srtool:
