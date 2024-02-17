@@ -549,7 +549,10 @@ macro_rules! polymesh_contracts {
         polymesh_contracts::GenesisConfig {
             call_whitelist: contracts_call_whitelist(),
             upgradable_code: contracts_upgradable_code(),
-            upgradable_description: "POLY".as_bytes().try_into().expect("Wrong Length - should be length 4"),
+            upgradable_description: "POLY"
+                .as_bytes()
+                .try_into()
+                .expect("Wrong Length - should be length 4"),
             upgradable_major: 6,
             upgradable_owner: $root_key,
         }

@@ -115,9 +115,7 @@ impl<T: Config> Default for ApiCodeHash<T> {
 
 impl<T: Config> ApiCodeHash<T> {
     pub fn new(hash: CodeHash<T>) -> Self {
-        ApiCodeHash {
-            hash,
-        }
+        ApiCodeHash { hash }
     }
 }
 
