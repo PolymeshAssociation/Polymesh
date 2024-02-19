@@ -97,17 +97,18 @@ fn register_metadata_global_name<T: Config>() -> AssetMetadataKey {
 
 fn emulate_controller_transfer<T: Config>(
     ticker: Ticker,
-    investor_did: IdentityId,
+    investor_portfolio: PortfolioId,
     pia: IdentityId,
 ) {
     let mut weight_meter = WeightMeter::max_limit_no_minimum();
     // Assign balance to an investor.
     let mock_storage = |id: IdentityId, bal: Balance, meter: &mut WeightMeter| {
         BalanceOf::insert(ticker, id, bal);
+        PortfolioAssetBalances::insert(investor_portfolio, ticker, bal);
         Statistics::<T>::update_asset_stats(&ticker, None, Some(&id), None, Some(bal), bal, meter)
             .unwrap();
     };
-    mock_storage(investor_did, 1000u32.into(), &mut weight_meter);
+    mock_storage(investor_portfolio.did, 1000u32.into(), &mut weight_meter);
     mock_storage(pia, 5000u32.into(), &mut weight_meter);
 }
 
@@ -464,8 +465,8 @@ benchmarks! {
             None,
         );
         pallet_external_agents::Module::<T>::accept_become_agent(pia.origin().into(), auth_id)?;
-        emulate_controller_transfer::<T>(ticker, investor.did(), pia.did());
         let portfolio_to = PortfolioId::default_portfolio(investor.did());
+        emulate_controller_transfer::<T>(ticker, portfolio_to, pia.did());
     }: _(pia.origin, ticker, 500u32.into(), portfolio_to)
     verify {
         assert_eq!(Module::<T>::balance_of(ticker, investor.did()), 500u32.into());
