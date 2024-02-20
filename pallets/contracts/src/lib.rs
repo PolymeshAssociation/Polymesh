@@ -64,6 +64,7 @@ use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::ensure_root;
+use pallet_contracts::Determinism;
 use scale_info::TypeInfo;
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::traits::Hash;
@@ -109,6 +110,12 @@ impl<T: Config> Default for ApiCodeHash<T> {
         Self {
             hash: CodeHash::<T>::default(),
         }
+    }
+}
+
+impl<T: Config> ApiCodeHash<T> {
+    pub fn new(hash: CodeHash<T>) -> Self {
+        ApiCodeHash { hash }
     }
 }
 
@@ -381,10 +388,28 @@ decl_storage! {
     }
     add_extra_genesis {
         config(call_whitelist): Vec<ExtrinsicId>;
-        build(|config: &GenesisConfig| {
+        config(upgradable_code): Vec<u8>;
+        config(upgradable_owner): Option<T::AccountId>;
+        config(upgradable_description): [u8; 4];
+        config(upgradable_major): u32;
+        build(|config: &GenesisConfig<T>| {
             for ext_id in &config.call_whitelist {
                 CallRuntimeWhitelist::insert(ext_id, true);
             }
+
+            if let Some(ref owner) = config.upgradable_owner {
+                let code_result = FrameContracts::<T>::bare_upload_code(
+                    owner.clone(),
+                    config.upgradable_code.clone(),
+                    None,
+                    Determinism::Deterministic,
+                ).unwrap();
+                log::info!("Uploaded upgradeable code {}", code_result.code_hash);
+                let api_code_hash: ApiCodeHash<T> = ApiCodeHash::new(code_result.code_hash);
+                let api: Api = Api::new(config.upgradable_description, config.upgradable_major);
+                CurrentApiHash::insert(api, api_code_hash);
+            }
+
         });
     }
 }

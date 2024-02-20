@@ -1,0 +1,3178 @@
+{
+  "source": {
+    "hash": "0x4306285ed964afb6f08ab8c4e33d7d37a1383e847cd3299b35b80bab56cc89c6",
+    "language": "ink! 4.3.0",
+    "compiler": "rustc 1.70.0",
+    "build_info": {
+      "build_mode": "Release",
+      "cargo_contract_version": "3.2.0",
+      "rust_toolchain": "stable-aarch64-apple-darwin",
+      "wasm_opt_settings": {
+        "keep_debug_symbols": false,
+        "optimization_passes": "Z"
+      }
+    }
+  },
+  "contract": {
+    "name": "polymesh-ink",
+    "version": "3.1.0",
+    "authors": [
+      "PolymeshAssociation"
+    ],
+    "description": "Upgradable Polymesh Ink! API",
+    "repository": "https://github.com/PolymeshAssociation/Polymesh",
+    "homepage": "https://github.com/PolymeshAssociation/Polymesh",
+    "license": "Apache-2.0"
+  },
+  "spec": {
+    "constructors": [
+      {
+        "args": [],
+        "default": false,
+        "docs": [],
+        "label": "new",
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink_primitives",
+            "ConstructorResult"
+          ],
+          "type": 0
+        },
+        "selector": "0x9bae9d5e"
+      }
+    ],
+    "docs": [],
+    "environment": {
+      "accountId": {
+        "displayName": [
+          "AccountId"
+        ],
+        "type": 75
+      },
+      "balance": {
+        "displayName": [
+          "Balance"
+        ],
+        "type": 27
+      },
+      "blockNumber": {
+        "displayName": [
+          "BlockNumber"
+        ],
+        "type": 10
+      },
+      "chainExtension": {
+        "displayName": [
+          "ChainExtension"
+        ],
+        "type": 77
+      },
+      "hash": {
+        "displayName": [
+          "Hash"
+        ],
+        "type": 76
+      },
+      "maxEventTopics": 4,
+      "timestamp": {
+        "displayName": [
+          "Timestamp"
+        ],
+        "type": 21
+      }
+    },
+    "events": [],
+    "lang_error": {
+      "displayName": [
+        "ink",
+        "LangError"
+      ],
+      "type": 2
+    },
+    "messages": [
+      {
+        "args": [
+          {
+            "label": "remark",
+            "type": {
+              "displayName": [],
+              "type": 3
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Wrap the `system.remark` extrinsic.  Only useful for testing."
+        ],
+        "label": "system_remark",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 5
+        },
+        "selector": "0x45a3d5d7"
+      },
+      {
+        "args": [
+          {
+            "label": "name",
+            "type": {
+              "displayName": [],
+              "type": 3
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Create a portfolio."
+        ],
+        "label": "create_portfolio",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 14
+        },
+        "selector": "0xeac8f033"
+      },
+      {
+        "args": [
+          {
+            "label": "auth_id",
+            "type": {
+              "displayName": [],
+              "type": 21
+            }
+          },
+          {
+            "label": "portfolio",
+            "type": {
+              "displayName": [],
+              "type": 19
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Accept custody of a portfolio."
+        ],
+        "label": "accept_portfolio_custody",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 14
+        },
+        "selector": "0xaf40a392"
+      },
+      {
+        "args": [
+          {
+            "label": "portfolio",
+            "type": {
+              "displayName": [],
+              "type": 16
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Quit custodianship of a portfolio returning control back to the owner."
+        ],
+        "label": "quit_portfolio_custody",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 5
+        },
+        "selector": "0x51c9da6d"
+      },
+      {
+        "args": [
+          {
+            "label": "src",
+            "type": {
+              "displayName": [],
+              "type": 16
+            }
+          },
+          {
+            "label": "dest",
+            "type": {
+              "displayName": [],
+              "type": 16
+            }
+          },
+          {
+            "label": "funds",
+            "type": {
+              "displayName": [],
+              "type": 22
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Move funds between portfolios."
+        ],
+        "label": "move_portfolio_funds",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 5
+        },
+        "selector": "0xd909bf68"
+      },
+      {
+        "args": [
+          {
+            "label": "portfolio",
+            "type": {
+              "displayName": [],
+              "type": 16
+            }
+          },
+          {
+            "label": "ticker",
+            "type": {
+              "displayName": [],
+              "type": 25
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Get portfolio balance."
+        ],
+        "label": "portfolio_asset_balances",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 33
+        },
+        "selector": "0x5aef26a9"
+      },
+      {
+        "args": [
+          {
+            "label": "did",
+            "type": {
+              "displayName": [],
+              "type": 17
+            }
+          },
+          {
+            "label": "portfolio",
+            "type": {
+              "displayName": [],
+              "type": 16
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Check portfolios_in_custody."
+        ],
+        "label": "check_portfolios_in_custody",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 35
+        },
+        "selector": "0x29c10bab"
+      },
+      {
+        "args": [
+          {
+            "label": "details",
+            "type": {
+              "displayName": [],
+              "type": 38
+            }
+          },
+          {
+            "label": "ty",
+            "type": {
+              "displayName": [],
+              "type": 39
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Create a Settlement Venue."
+        ],
+        "label": "create_venue",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 40
+        },
+        "selector": "0x49c5ba46"
+      },
+      {
+        "args": [
+          {
+            "label": "venue",
+            "type": {
+              "displayName": [],
+              "type": 42
+            }
+          },
+          {
+            "label": "legs",
+            "type": {
+              "displayName": [],
+              "type": 43
+            }
+          },
+          {
+            "label": "portfolios",
+            "type": {
+              "displayName": [],
+              "type": 45
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Create and execute a settlement to transfer assets."
+        ],
+        "label": "settlement_execute",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 5
+        },
+        "selector": "0x54d4730c"
+      },
+      {
+        "args": [
+          {
+            "label": "ticker",
+            "type": {
+              "displayName": [],
+              "type": 25
+            }
+          },
+          {
+            "label": "amount",
+            "type": {
+              "displayName": [],
+              "type": 27
+            }
+          },
+          {
+            "label": "portfolio",
+            "type": {
+              "displayName": [],
+              "type": 19
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Asset issue tokens."
+        ],
+        "label": "asset_issue",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 5
+        },
+        "selector": "0x721a7267"
+      },
+      {
+        "args": [
+          {
+            "label": "ticker",
+            "type": {
+              "displayName": [],
+              "type": 25
+            }
+          },
+          {
+            "label": "amount",
+            "type": {
+              "displayName": [],
+              "type": 27
+            }
+          },
+          {
+            "label": "portfolio",
+            "type": {
+              "displayName": [],
+              "type": 19
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Asset redeem tokens."
+        ],
+        "label": "asset_redeem",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 5
+        },
+        "selector": "0x98c1fcb8"
+      },
+      {
+        "args": [
+          {
+            "label": "name",
+            "type": {
+              "displayName": [],
+              "type": 46
+            }
+          },
+          {
+            "label": "ticker",
+            "type": {
+              "displayName": [],
+              "type": 25
+            }
+          },
+          {
+            "label": "asset_type",
+            "type": {
+              "displayName": [],
+              "type": 47
+            }
+          },
+          {
+            "label": "divisible",
+            "type": {
+              "displayName": [],
+              "type": 37
+            }
+          },
+          {
+            "label": "issue",
+            "type": {
+              "displayName": [],
+              "type": 50
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Very simple create asset and issue."
+        ],
+        "label": "asset_create_and_issue",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 5
+        },
+        "selector": "0x713184ef"
+      },
+      {
+        "args": [
+          {
+            "label": "ticker",
+            "type": {
+              "displayName": [],
+              "type": 25
+            }
+          },
+          {
+            "label": "did",
+            "type": {
+              "displayName": [],
+              "type": 17
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Get an identity's asset balance."
+        ],
+        "label": "asset_balance_of",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 33
+        },
+        "selector": "0x1649cdf9"
+      },
+      {
+        "args": [
+          {
+            "label": "ticker",
+            "type": {
+              "displayName": [],
+              "type": 25
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Get the `total_supply` of an asset."
+        ],
+        "label": "asset_total_supply",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 33
+        },
+        "selector": "0x3175216e"
+      },
+      {
+        "args": [
+          {
+            "label": "ca_id",
+            "type": {
+              "displayName": [],
+              "type": 51
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Get corporate action distribution summary."
+        ],
+        "label": "distribution_summary",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 53
+        },
+        "selector": "0x109d9a44"
+      },
+      {
+        "args": [
+          {
+            "label": "ca_id",
+            "type": {
+              "displayName": [],
+              "type": 51
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Cliam dividends from a distribution."
+        ],
+        "label": "dividend_claim",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 5
+        },
+        "selector": "0xd0ebf231"
+      },
+      {
+        "args": [
+          {
+            "label": "dividend",
+            "type": {
+              "displayName": [],
+              "type": 58
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Create a simple dividend distribution."
+        ],
+        "label": "create_dividend",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 5
+        },
+        "selector": "0xd1fb9233"
+      },
+      {
+        "args": [
+          {
+            "label": "venue_id",
+            "type": {
+              "displayName": [],
+              "type": 42
+            }
+          },
+          {
+            "label": "legs",
+            "type": {
+              "displayName": [],
+              "type": 43
+            }
+          },
+          {
+            "label": "portfolios",
+            "type": {
+              "displayName": [],
+              "type": 45
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Adds and affirms an instruction."
+        ],
+        "label": "add_and_affirm_instruction",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 60
+        },
+        "selector": "0xa2c50463"
+      },
+      {
+        "args": [
+          {
+            "label": "portfolio_owner_id",
+            "type": {
+              "displayName": [],
+              "type": 17
+            }
+          },
+          {
+            "label": "portfolio_name",
+            "type": {
+              "displayName": [],
+              "type": 63
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Creates a portoflio owned by `portfolio_owner_id` and transfer its custody to the smart contract.",
+          " Returns the [`PortfolioId`] of the new portfolio."
+        ],
+        "label": "create_custody_portfolio",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 14
+        },
+        "selector": "0x429a4b6f"
+      },
+      {
+        "args": [
+          {
+            "label": "ticker",
+            "type": {
+              "displayName": [],
+              "type": 25
+            }
+          },
+          {
+            "label": "asset_metadata_name",
+            "type": {
+              "displayName": [],
+              "type": 64
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Returns the [`AssetMetadataLocalKey`] for the given `ticker` and `asset_metadata_name`."
+        ],
+        "label": "asset_metadata_local_name_to_key",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 65
+        },
+        "selector": "0x45d87113"
+      },
+      {
+        "args": [
+          {
+            "label": "ticker",
+            "type": {
+              "displayName": [],
+              "type": 25
+            }
+          },
+          {
+            "label": "asset_metadata_key",
+            "type": {
+              "displayName": [],
+              "type": 69
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Returns the [`AssetMetadataValue`] for the given `ticker` and `asset_metadata_key`."
+        ],
+        "label": "asset_metadata_value",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 71
+        },
+        "selector": "0xa8f59c06"
+      }
+    ]
+  },
+  "storage": {
+    "root": {
+      "layout": {
+        "struct": {
+          "fields": [],
+          "name": "PolymeshInk"
+        }
+      },
+      "root_key": "0x00000000"
+    }
+  },
+  "types": [
+    {
+      "id": 0,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 1
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 2
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 1
+          },
+          {
+            "name": "E",
+            "type": 2
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 1,
+      "type": {
+        "def": {
+          "tuple": []
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "index": 1,
+                "name": "CouldNotReadInput"
+              }
+            ]
+          }
+        },
+        "path": [
+          "ink_primitives",
+          "LangError"
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "type": {
+        "def": {
+          "sequence": {
+            "type": 4
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": {
+        "def": {
+          "primitive": "u8"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 6
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 2
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 6
+          },
+          {
+            "name": "E",
+            "type": 2
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 6,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 1
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 7
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 1
+          },
+          {
+            "name": "E",
+            "type": 7
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 8,
+                    "typeName": "PolymeshInkError"
+                  }
+                ],
+                "index": 0,
+                "name": "PolymeshRuntime"
+              },
+              {
+                "index": 1,
+                "name": "MissingIdentity"
+              },
+              {
+                "index": 2,
+                "name": "InvalidPortfolioAuthorization"
+              },
+              {
+                "fields": [
+                  {
+                    "name": "selector",
+                    "type": 11,
+                    "typeName": "[u8; 4]"
+                  },
+                  {
+                    "name": "err",
+                    "type": 12,
+                    "typeName": "Option<InkEnvError>"
+                  }
+                ],
+                "index": 3,
+                "name": "InkDelegateCallError"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_ink",
+          "PolymeshError"
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 9,
+                    "typeName": "String"
+                  }
+                ],
+                "index": 0,
+                "name": "ParityScaleCodec"
+              },
+              {
+                "fields": [
+                  {
+                    "name": "status_code",
+                    "type": 10,
+                    "typeName": "u32"
+                  }
+                ],
+                "index": 1,
+                "name": "Generic"
+              },
+              {
+                "fields": [
+                  {
+                    "name": "error_msg",
+                    "type": 9,
+                    "typeName": "String"
+                  }
+                ],
+                "index": 2,
+                "name": "ExtrinsicCallFailed"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api_ink",
+          "error",
+          "Error"
+        ]
+      }
+    },
+    {
+      "id": 9,
+      "type": {
+        "def": {
+          "primitive": "str"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": {
+        "def": {
+          "primitive": "u32"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "type": {
+        "def": {
+          "array": {
+            "len": 4,
+            "type": 4
+          }
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "index": 0,
+                "name": "None"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 13
+                  }
+                ],
+                "index": 1,
+                "name": "Some"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 13
+          }
+        ],
+        "path": [
+          "Option"
+        ]
+      }
+    },
+    {
+      "id": 13,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "index": 0,
+                "name": "ScaleDecodeError"
+              },
+              {
+                "index": 1,
+                "name": "CalleeTrapped"
+              },
+              {
+                "index": 2,
+                "name": "CalleeReverted"
+              },
+              {
+                "index": 3,
+                "name": "KeyNotFound"
+              },
+              {
+                "index": 4,
+                "name": "TransferFailed"
+              },
+              {
+                "index": 5,
+                "name": "_EndowmentTooLow"
+              },
+              {
+                "index": 6,
+                "name": "CodeNotFound"
+              },
+              {
+                "index": 7,
+                "name": "NotCallable"
+              },
+              {
+                "index": 8,
+                "name": "LoggingDisabled"
+              },
+              {
+                "index": 9,
+                "name": "EcdsaRecoveryFailed"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_ink",
+          "InkEnvError"
+        ]
+      }
+    },
+    {
+      "id": 14,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 15
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 2
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 15
+          },
+          {
+            "name": "E",
+            "type": 2
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 15,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 16
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 7
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 16
+          },
+          {
+            "name": "E",
+            "type": 7
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 16,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "name": "did",
+                "type": 17,
+                "typeName": "::polymesh_api_ink::IdentityId"
+              },
+              {
+                "name": "kind",
+                "type": 19,
+                "typeName": "polymesh_primitives::identity_id::PortfolioKind"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "identity_id",
+          "PortfolioId"
+        ]
+      }
+    },
+    {
+      "id": 17,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 18,
+                "typeName": "[u8; 32]"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api_ink",
+          "basic_types",
+          "IdentityId"
+        ]
+      }
+    },
+    {
+      "id": 18,
+      "type": {
+        "def": {
+          "array": {
+            "len": 32,
+            "type": 4
+          }
+        }
+      }
+    },
+    {
+      "id": 19,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "index": 0,
+                "name": "Default"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 20,
+                    "typeName": "polymesh_primitives::identity_id::PortfolioNumber"
+                  }
+                ],
+                "index": 1,
+                "name": "User"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "identity_id",
+          "PortfolioKind"
+        ]
+      }
+    },
+    {
+      "id": 20,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 21,
+                "typeName": "u64"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "identity_id",
+          "PortfolioNumber"
+        ]
+      }
+    },
+    {
+      "id": 21,
+      "type": {
+        "def": {
+          "primitive": "u64"
+        }
+      }
+    },
+    {
+      "id": 22,
+      "type": {
+        "def": {
+          "sequence": {
+            "type": 23
+          }
+        }
+      }
+    },
+    {
+      "id": 23,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "name": "description",
+                "type": 24,
+                "typeName": "polymesh_primitives::portfolio::FundDescription"
+              },
+              {
+                "name": "memo",
+                "type": 31,
+                "typeName": "Option<polymesh_primitives::Memo>"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "portfolio",
+          "Fund"
+        ]
+      }
+    },
+    {
+      "id": 24,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "name": "ticker",
+                    "type": 25,
+                    "typeName": "polymesh_primitives::ticker::Ticker"
+                  },
+                  {
+                    "name": "amount",
+                    "type": 27,
+                    "typeName": "u128"
+                  }
+                ],
+                "index": 0,
+                "name": "Fungible"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 28,
+                    "typeName": "polymesh_primitives::nft::NFTs"
+                  }
+                ],
+                "index": 1,
+                "name": "NonFungible"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "portfolio",
+          "FundDescription"
+        ]
+      }
+    },
+    {
+      "id": 25,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 26,
+                "typeName": "[u8; 12usize]"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "ticker",
+          "Ticker"
+        ]
+      }
+    },
+    {
+      "id": 26,
+      "type": {
+        "def": {
+          "array": {
+            "len": 12,
+            "type": 4
+          }
+        }
+      }
+    },
+    {
+      "id": 27,
+      "type": {
+        "def": {
+          "primitive": "u128"
+        }
+      }
+    },
+    {
+      "id": 28,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "name": "ticker",
+                "type": 25,
+                "typeName": "polymesh_primitives::ticker::Ticker"
+              },
+              {
+                "name": "ids",
+                "type": 29,
+                "typeName": "::alloc::vec::Vec<polymesh_primitives::nft::NFTId>"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "nft",
+          "NFTs"
+        ]
+      }
+    },
+    {
+      "id": 29,
+      "type": {
+        "def": {
+          "sequence": {
+            "type": 30
+          }
+        }
+      }
+    },
+    {
+      "id": 30,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 21,
+                "typeName": "u64"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "nft",
+          "NFTId"
+        ]
+      }
+    },
+    {
+      "id": 31,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "index": 0,
+                "name": "None"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 32
+                  }
+                ],
+                "index": 1,
+                "name": "Some"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 32
+          }
+        ],
+        "path": [
+          "Option"
+        ]
+      }
+    },
+    {
+      "id": 32,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 18,
+                "typeName": "[u8; 32usize]"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "Memo"
+        ]
+      }
+    },
+    {
+      "id": 33,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 34
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 2
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 34
+          },
+          {
+            "name": "E",
+            "type": 2
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 34,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 27
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 7
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 27
+          },
+          {
+            "name": "E",
+            "type": 7
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 35,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 36
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 2
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 36
+          },
+          {
+            "name": "E",
+            "type": 2
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 36,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 37
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 7
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 37
+          },
+          {
+            "name": "E",
+            "type": 7
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 37,
+      "type": {
+        "def": {
+          "primitive": "bool"
+        }
+      }
+    },
+    {
+      "id": 38,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 3,
+                "typeName": "::alloc::vec::Vec<u8>"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "settlement",
+          "VenueDetails"
+        ]
+      }
+    },
+    {
+      "id": 39,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "index": 0,
+                "name": "Other"
+              },
+              {
+                "index": 1,
+                "name": "Distribution"
+              },
+              {
+                "index": 2,
+                "name": "Sto"
+              },
+              {
+                "index": 3,
+                "name": "Exchange"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "settlement",
+          "VenueType"
+        ]
+      }
+    },
+    {
+      "id": 40,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 41
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 2
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 41
+          },
+          {
+            "name": "E",
+            "type": 2
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 41,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 42
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 7
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 42
+          },
+          {
+            "name": "E",
+            "type": 7
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 42,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 21,
+                "typeName": "u64"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "settlement",
+          "VenueId"
+        ]
+      }
+    },
+    {
+      "id": 43,
+      "type": {
+        "def": {
+          "sequence": {
+            "type": 44
+          }
+        }
+      }
+    },
+    {
+      "id": 44,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "name": "sender",
+                    "type": 16,
+                    "typeName": "polymesh_primitives::identity_id::PortfolioId"
+                  },
+                  {
+                    "name": "receiver",
+                    "type": 16,
+                    "typeName": "polymesh_primitives::identity_id::PortfolioId"
+                  },
+                  {
+                    "name": "ticker",
+                    "type": 25,
+                    "typeName": "polymesh_primitives::ticker::Ticker"
+                  },
+                  {
+                    "name": "amount",
+                    "type": 27,
+                    "typeName": "u128"
+                  }
+                ],
+                "index": 0,
+                "name": "Fungible"
+              },
+              {
+                "fields": [
+                  {
+                    "name": "sender",
+                    "type": 16,
+                    "typeName": "polymesh_primitives::identity_id::PortfolioId"
+                  },
+                  {
+                    "name": "receiver",
+                    "type": 16,
+                    "typeName": "polymesh_primitives::identity_id::PortfolioId"
+                  },
+                  {
+                    "name": "nfts",
+                    "type": 28,
+                    "typeName": "polymesh_primitives::nft::NFTs"
+                  }
+                ],
+                "index": 1,
+                "name": "NonFungible"
+              },
+              {
+                "fields": [
+                  {
+                    "name": "sender_identity",
+                    "type": 17,
+                    "typeName": "::polymesh_api_ink::IdentityId"
+                  },
+                  {
+                    "name": "receiver_identity",
+                    "type": 17,
+                    "typeName": "::polymesh_api_ink::IdentityId"
+                  },
+                  {
+                    "name": "ticker",
+                    "type": 25,
+                    "typeName": "polymesh_primitives::ticker::Ticker"
+                  },
+                  {
+                    "name": "amount",
+                    "type": 27,
+                    "typeName": "u128"
+                  }
+                ],
+                "index": 2,
+                "name": "OffChain"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "settlement",
+          "Leg"
+        ]
+      }
+    },
+    {
+      "id": 45,
+      "type": {
+        "def": {
+          "sequence": {
+            "type": 16
+          }
+        }
+      }
+    },
+    {
+      "id": 46,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 3,
+                "typeName": "::alloc::vec::Vec<u8>"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "asset",
+          "AssetName"
+        ]
+      }
+    },
+    {
+      "id": 47,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "index": 0,
+                "name": "EquityCommon"
+              },
+              {
+                "index": 1,
+                "name": "EquityPreferred"
+              },
+              {
+                "index": 2,
+                "name": "Commodity"
+              },
+              {
+                "index": 3,
+                "name": "FixedIncome"
+              },
+              {
+                "index": 4,
+                "name": "REIT"
+              },
+              {
+                "index": 5,
+                "name": "Fund"
+              },
+              {
+                "index": 6,
+                "name": "RevenueShareAgreement"
+              },
+              {
+                "index": 7,
+                "name": "StructuredProduct"
+              },
+              {
+                "index": 8,
+                "name": "Derivative"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 48,
+                    "typeName": "polymesh_primitives::asset::CustomAssetTypeId"
+                  }
+                ],
+                "index": 9,
+                "name": "Custom"
+              },
+              {
+                "index": 10,
+                "name": "StableCoin"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 49,
+                    "typeName": "polymesh_primitives::asset::NonFungibleType"
+                  }
+                ],
+                "index": 11,
+                "name": "NonFungible"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "asset",
+          "AssetType"
+        ]
+      }
+    },
+    {
+      "id": 48,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 10,
+                "typeName": "u32"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "asset",
+          "CustomAssetTypeId"
+        ]
+      }
+    },
+    {
+      "id": 49,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "index": 0,
+                "name": "Derivative"
+              },
+              {
+                "index": 1,
+                "name": "FixedIncome"
+              },
+              {
+                "index": 2,
+                "name": "Invoice"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 48,
+                    "typeName": "polymesh_primitives::asset::CustomAssetTypeId"
+                  }
+                ],
+                "index": 3,
+                "name": "Custom"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "asset",
+          "NonFungibleType"
+        ]
+      }
+    },
+    {
+      "id": 50,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "index": 0,
+                "name": "None"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 27
+                  }
+                ],
+                "index": 1,
+                "name": "Some"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 27
+          }
+        ],
+        "path": [
+          "Option"
+        ]
+      }
+    },
+    {
+      "id": 51,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "name": "ticker",
+                "type": 25,
+                "typeName": "polymesh_primitives::ticker::Ticker"
+              },
+              {
+                "name": "local_id",
+                "type": 52,
+                "typeName": "pallet_corporate_actions::LocalCAId"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "pallet_corporate_actions",
+          "CAId"
+        ]
+      }
+    },
+    {
+      "id": 52,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 10,
+                "typeName": "u32"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "pallet_corporate_actions",
+          "LocalCAId"
+        ]
+      }
+    },
+    {
+      "id": 53,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 54
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 2
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 54
+          },
+          {
+            "name": "E",
+            "type": 2
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 54,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 55
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 7
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 55
+          },
+          {
+            "name": "E",
+            "type": 7
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 55,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "index": 0,
+                "name": "None"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 56
+                  }
+                ],
+                "index": 1,
+                "name": "Some"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 56
+          }
+        ],
+        "path": [
+          "Option"
+        ]
+      }
+    },
+    {
+      "id": 56,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "name": "currency",
+                "type": 25,
+                "typeName": "Ticker"
+              },
+              {
+                "name": "per_share",
+                "type": 27,
+                "typeName": "Balance"
+              },
+              {
+                "name": "reclaimed",
+                "type": 37,
+                "typeName": "bool"
+              },
+              {
+                "name": "payment_at",
+                "type": 21,
+                "typeName": "Timestamp"
+              },
+              {
+                "name": "expires_at",
+                "type": 57,
+                "typeName": "Option<Timestamp>"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_ink",
+          "DistributionSummary"
+        ]
+      }
+    },
+    {
+      "id": 57,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "index": 0,
+                "name": "None"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 21
+                  }
+                ],
+                "index": 1,
+                "name": "Some"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 21
+          }
+        ],
+        "path": [
+          "Option"
+        ]
+      }
+    },
+    {
+      "id": 58,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "name": "ticker",
+                "type": 25,
+                "typeName": "Ticker"
+              },
+              {
+                "name": "decl_date",
+                "type": 21,
+                "typeName": "Timestamp"
+              },
+              {
+                "name": "record_date",
+                "type": 21,
+                "typeName": "Timestamp"
+              },
+              {
+                "name": "portfolio",
+                "type": 59,
+                "typeName": "Option<PortfolioNumber>"
+              },
+              {
+                "name": "currency",
+                "type": 25,
+                "typeName": "Ticker"
+              },
+              {
+                "name": "per_share",
+                "type": 27,
+                "typeName": "Balance"
+              },
+              {
+                "name": "amount",
+                "type": 27,
+                "typeName": "Balance"
+              },
+              {
+                "name": "payment_at",
+                "type": 21,
+                "typeName": "Timestamp"
+              },
+              {
+                "name": "expires_at",
+                "type": 57,
+                "typeName": "Option<Timestamp>"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_ink",
+          "SimpleDividend"
+        ]
+      }
+    },
+    {
+      "id": 59,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "index": 0,
+                "name": "None"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 20
+                  }
+                ],
+                "index": 1,
+                "name": "Some"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 20
+          }
+        ],
+        "path": [
+          "Option"
+        ]
+      }
+    },
+    {
+      "id": 60,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 61
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 2
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 61
+          },
+          {
+            "name": "E",
+            "type": 2
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 61,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 62
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 7
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 62
+          },
+          {
+            "name": "E",
+            "type": 7
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 62,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 21,
+                "typeName": "u64"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "settlement",
+          "InstructionId"
+        ]
+      }
+    },
+    {
+      "id": 63,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 3,
+                "typeName": "::alloc::vec::Vec<u8>"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "identity_id",
+          "PortfolioName"
+        ]
+      }
+    },
+    {
+      "id": 64,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 3,
+                "typeName": "::alloc::vec::Vec<u8>"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "asset_metadata",
+          "AssetMetadataName"
+        ]
+      }
+    },
+    {
+      "id": 65,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 66
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 2
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 66
+          },
+          {
+            "name": "E",
+            "type": 2
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 66,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 67
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 7
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 67
+          },
+          {
+            "name": "E",
+            "type": 7
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 67,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "index": 0,
+                "name": "None"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 68
+                  }
+                ],
+                "index": 1,
+                "name": "Some"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 68
+          }
+        ],
+        "path": [
+          "Option"
+        ]
+      }
+    },
+    {
+      "id": 68,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 21,
+                "typeName": "u64"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "asset_metadata",
+          "AssetMetadataLocalKey"
+        ]
+      }
+    },
+    {
+      "id": 69,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 70,
+                    "typeName": "polymesh_primitives::asset_metadata::AssetMetadataGlobalKey"
+                  }
+                ],
+                "index": 0,
+                "name": "Global"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 68,
+                    "typeName": "polymesh_primitives::asset_metadata::AssetMetadataLocalKey"
+                  }
+                ],
+                "index": 1,
+                "name": "Local"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "asset_metadata",
+          "AssetMetadataKey"
+        ]
+      }
+    },
+    {
+      "id": 70,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 21,
+                "typeName": "u64"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "asset_metadata",
+          "AssetMetadataGlobalKey"
+        ]
+      }
+    },
+    {
+      "id": 71,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 72
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 2
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 72
+          },
+          {
+            "name": "E",
+            "type": 2
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 72,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 73
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 7
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 73
+          },
+          {
+            "name": "E",
+            "type": 7
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 73,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "index": 0,
+                "name": "None"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 74
+                  }
+                ],
+                "index": 1,
+                "name": "Some"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 74
+          }
+        ],
+        "path": [
+          "Option"
+        ]
+      }
+    },
+    {
+      "id": 74,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 3,
+                "typeName": "::alloc::vec::Vec<u8>"
+              }
+            ]
+          }
+        },
+        "path": [
+          "polymesh_api",
+          "polymesh",
+          "types",
+          "polymesh_primitives",
+          "asset_metadata",
+          "AssetMetadataValue"
+        ]
+      }
+    },
+    {
+      "id": 75,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 18,
+                "typeName": "[u8; 32]"
+              }
+            ]
+          }
+        },
+        "path": [
+          "ink_primitives",
+          "types",
+          "AccountId"
+        ]
+      }
+    },
+    {
+      "id": 76,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 18,
+                "typeName": "[u8; 32]"
+              }
+            ]
+          }
+        },
+        "path": [
+          "ink_primitives",
+          "types",
+          "Hash"
+        ]
+      }
+    },
+    {
+      "id": 77,
+      "type": {
+        "def": {
+          "variant": {}
+        },
+        "path": [
+          "polymesh_api_ink",
+          "extension",
+          "PolymeshRuntime"
+        ]
+      }
+    }
+  ],
+  "version": "4"
+}
