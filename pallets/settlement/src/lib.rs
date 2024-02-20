@@ -2292,6 +2292,7 @@ impl<T: Config> Module<T> {
         Self::deposit_event(RawEvent::MediatorAffirmationReceived(
             caller_did,
             instruction_id,
+            expiry,
         ));
         Ok(())
     }

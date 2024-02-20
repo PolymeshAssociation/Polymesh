@@ -79,7 +79,7 @@ decl_event!(
         InstructionAutomaticallyAffirmed(IdentityId, PortfolioId, InstructionId),
         /// An instruction has affirmed by a mediator.
         /// Parameters: [`IdentityId`] of the mediator and [`InstructionId`] of the instruction.
-        MediatorAffirmationReceived(IdentityId, InstructionId),
+        MediatorAffirmationReceived(IdentityId, InstructionId, Option<Moment>),
         /// An instruction affirmation has been withdrawn by a mediator.
         /// Parameters: [`IdentityId`] of the mediator and [`InstructionId`] of the instruction.
         MediatorAffirmationWithdrawn(IdentityId, InstructionId),
