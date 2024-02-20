@@ -1038,7 +1038,7 @@ impl<T: Config> Module<T> {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         Self::_mint(
             &ticker,
-            portfolio_id.did,
+            portfolio_id,
             amount,
             Some(ProtocolOp::AssetIssue),
             &mut weight_meter,
@@ -1345,6 +1345,8 @@ impl<T: Config> Module<T> {
         let updated_to_total_balance = to_total_balance
             .checked_add(value)
             .ok_or(Error::<T>::BalanceOverflow)?;
+        // Checks if the balance is not locked
+        Portfolio::<T>::ensure_sufficient_balance(&from_portfolio, ticker, value)?;
 
         <Checkpoint<T>>::advance_update_balances(
             ticker,
@@ -1393,7 +1395,7 @@ impl<T: Config> Module<T> {
 
     fn _mint(
         ticker: &Ticker,
-        to_did: IdentityId,
+        issuer_portfolio: PortfolioId,
         value: Balance,
         protocol_fee_data: Option<ProtocolOp>,
         weight_meter: &mut WeightMeter,
@@ -1414,16 +1416,14 @@ impl<T: Config> Module<T> {
             .ok_or(Error::<T>::TotalSupplyOverflow)?;
         Self::ensure_within_max_supply(updated_total_supply)?;
         // Increase receiver balance.
-        let current_to_balance = Self::balance_of(ticker, to_did);
+        let current_to_balance = Self::balance_of(ticker, issuer_portfolio.did);
         // No check since the total balance is always <= the total supply. The
         // total supply is already checked above.
         let updated_to_balance = current_to_balance + value;
-        // No check since the default portfolio balance is always <= the total
+        // No check since the portfolio balance is always <= the total
         // supply. The total supply is already checked above.
-        let updated_to_def_balance = Portfolio::<T>::portfolio_asset_balances(
-            PortfolioId::default_portfolio(to_did),
-            ticker,
-        ) + value;
+        let updated_to_def_balance =
+            Portfolio::<T>::portfolio_asset_balances(issuer_portfolio, ticker) + value;
 
         // In transaction because we don't want fee to be charged if advancing fails.
         with_transaction(|| {
@@ -1433,19 +1433,22 @@ impl<T: Config> Module<T> {
             }
 
             // Advance checkpoint schedules and update last checkpoint.
-            <Checkpoint<T>>::advance_update_balances(ticker, &[(to_did, current_to_balance)])
+            <Checkpoint<T>>::advance_update_balances(
+                ticker,
+                &[(issuer_portfolio.did, current_to_balance)],
+            )
         })?;
 
         // Increase total supply.
         token.total_supply = updated_total_supply;
-        BalanceOf::insert(ticker, &to_did, updated_to_balance);
-        Portfolio::<T>::set_default_portfolio_balance(to_did, ticker, updated_to_def_balance);
+        BalanceOf::insert(ticker, issuer_portfolio.did, updated_to_balance);
+        Portfolio::<T>::set_portfolio_balance(issuer_portfolio, ticker, updated_to_def_balance);
         Tokens::insert(ticker, token);
 
         Statistics::<T>::update_asset_stats(
             &ticker,
             None,
-            Some(&to_did),
+            Some(&issuer_portfolio.did),
             None,
             Some(updated_to_balance),
             value,
@@ -1460,11 +1463,11 @@ impl<T: Config> Module<T> {
         IssuedInFundingRound::insert(&ticker_round, issued_in_this_round);
 
         Self::deposit_event(RawEvent::AssetBalanceUpdated(
-            to_did,
+            issuer_portfolio.did,
             *ticker,
             value,
             None,
-            Some(PortfolioId::default_portfolio(to_did)),
+            Some(issuer_portfolio),
             PortfolioUpdateReason::Issued {
                 funding_round_name: Some(round),
             },
