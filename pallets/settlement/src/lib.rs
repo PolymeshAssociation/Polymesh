@@ -1037,6 +1037,14 @@ impl<T: Config> Module<T> {
             legs,
             memo,
         ));
+
+        if !instruction_info.mediators().is_empty() {
+            Self::deposit_event(RawEvent::InstructionMediators(
+                instruction_id,
+                instruction_info.mediators().clone(),
+            ));
+        }
+
         Ok(instruction_id)
     }
 

@@ -1,6 +1,7 @@
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchError;
 use frame_support::weights::Weight;
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec::Vec;
 
 use polymesh_primitives::settlement::{
@@ -83,6 +84,9 @@ decl_event!(
         /// An instruction affirmation has been withdrawn by a mediator.
         /// Parameters: [`IdentityId`] of the mediator and [`InstructionId`] of the instruction.
         MediatorAffirmationWithdrawn(IdentityId, InstructionId),
+        /// An instruction with mediators has been created.
+        /// Parameters: [`InstructionId`] of the instruction and the [`IdentityId`] of all mediators.
+        InstructionMediators(InstructionId, BTreeSet<IdentityId>),
     }
 );
 
