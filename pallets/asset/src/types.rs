@@ -56,3 +56,30 @@ pub struct TickerRegistrationConfig<T> {
     pub max_ticker_length: u8,
     pub registration_length: Option<T>,
 }
+
+/// Tracks information regarding ticker registration.
+#[derive(Clone, Debug)]
+pub struct TickerRegistrationStatus {
+    can_reregister: bool,
+    charge_fee: bool,
+}
+
+impl TickerRegistrationStatus {
+    /// Creates a new [`TickerRegistrationStatus`] instance.
+    pub fn new(can_reregister: bool, charge_fee: bool) -> Self {
+        TickerRegistrationStatus {
+            can_reregister,
+            charge_fee,
+        }
+    }
+
+    /// Returns `true` if the ticker can be reregistered.
+    pub fn can_reregister(&self) -> bool {
+        self.can_reregister
+    }
+
+    /// Returns `true` if the ticker registration fee must be charged.
+    pub fn charge_fee(&self) -> bool {
+        self.charge_fee
+    }
+}

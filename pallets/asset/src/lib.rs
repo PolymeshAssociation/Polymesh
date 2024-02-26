@@ -124,6 +124,7 @@ use polymesh_primitives::{
 pub use error::Error;
 pub use types::{
     AssetOwnershipRelation, SecurityToken, TickerRegistration, TickerRegistrationConfig,
+    TickerRegistrationStatus,
 };
 
 type Checkpoint<T> = checkpoint::Module<T>;
@@ -243,9 +244,15 @@ decl_storage! {
         config(reserved_country_currency_codes): Vec<Ticker>;
         build(|config: &GenesisConfig<T>| {
             // Reserving country currency logic
-            let fiat_tickers_reservation_did = polymesh_common_utilities::SystematicIssuers::FiatTickersReservation.as_id();
+            let fiat_tickers_reservation_did =
+                polymesh_common_utilities::SystematicIssuers::FiatTickersReservation.as_id();
             for currency_ticker in &config.reserved_country_currency_codes {
-                let _ = <Module<T>>::unverified_register_ticker(*currency_ticker, fiat_tickers_reservation_did, None);
+                let _ = <Module<T>>::unverified_register_ticker(
+                    *currency_ticker,
+                    fiat_tickers_reservation_did,
+                    None,
+                    false
+                );
             }
         });
     }
@@ -860,7 +867,7 @@ impl<T: Config> Module<T> {
         let caller_did = Identity::<T>::ensure_perms(origin)?;
 
         let ticker_registration_config = Self::ticker_registration_config();
-        Self::validate_ticker_registration_rules(
+        let ticker_registration_status = Self::validate_ticker_registration_rules(
             &ticker,
             &caller_did,
             ticker_registration_config.max_ticker_length,
@@ -869,7 +876,12 @@ impl<T: Config> Module<T> {
         let expiry = ticker_registration_config
             .registration_length
             .map(|x| <pallet_timestamp::Pallet<T>>::get() + x);
-        Self::unverified_register_ticker(ticker, caller_did, expiry)?;
+        Self::unverified_register_ticker(
+            ticker,
+            caller_did,
+            expiry,
+            ticker_registration_status.charge_fee(),
+        )?;
 
         Ok(())
     }
@@ -932,7 +944,7 @@ impl<T: Config> Module<T> {
         let caller_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
         let token_did = Identity::<T>::get_token_did(&ticker)?;
-        Self::validate_asset_creation_rules(
+        let ticker_registration_status = Self::validate_asset_creation_rules(
             caller_data.primary_did,
             caller_data.secondary_key,
             token_did,
@@ -951,6 +963,7 @@ impl<T: Config> Module<T> {
             asset_type,
             funding_round_name,
             identifiers,
+            ticker_registration_status.charge_fee(),
         )?;
 
         Ok(caller_data.primary_did)
@@ -1236,7 +1249,7 @@ impl<T: Config> Module<T> {
         let asset_type = AssetType::Custom(custom_asset_type_id);
 
         let token_did = Identity::<T>::get_token_did(&ticker)?;
-        Self::validate_asset_creation_rules(
+        let ticker_registration_status = Self::validate_asset_creation_rules(
             caller_data.primary_did,
             caller_data.secondary_key,
             token_did,
@@ -1255,6 +1268,7 @@ impl<T: Config> Module<T> {
             asset_type,
             funding_round_name,
             identifiers,
+            ticker_registration_status.charge_fee(),
         )?;
 
         Ok(())
@@ -1589,22 +1603,24 @@ impl<T: Config> Module<T> {
 //==========================================================================
 
 impl<T: Config> Module<T> {
-    /// Returns `Ok` if all registration rules are satisfied.
+    /// Returns [`TickerRegistrationStatus`] if all registration rules are satisfied.
     fn validate_ticker_registration_rules(
         ticker: &Ticker,
         ticker_owner_did: &IdentityId,
         max_ticker_length: u8,
-    ) -> DispatchResult {
+    ) -> Result<TickerRegistrationStatus, DispatchError> {
         Self::verify_ticker_characters(&ticker)?;
         Self::ensure_asset_doesnt_exist(&ticker)?;
 
         Self::ensure_ticker_length(ticker, max_ticker_length)?;
 
-        if !Self::can_reregister_ticker(ticker, ticker_owner_did) {
+        let ticker_registration_status = Self::can_reregister_ticker(ticker, ticker_owner_did);
+
+        if !ticker_registration_status.can_reregister() {
             return Err(Error::<T>::TickerAlreadyRegistered.into());
         }
 
-        Ok(())
+        Ok(ticker_registration_status)
     }
 
     /// Returns `Ok` if the ticker contains only the following characters: `A`..`Z` `0`..`9` `_` `-` `.` `/`.
@@ -1651,29 +1667,39 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns `false`` if the ticker hasn't expired and was registered by a different caller. Otherwise, returns `true`.
-    fn can_reregister_ticker(ticker: &Ticker, caller_did: &IdentityId) -> bool {
+    /// Returns [`TickerRegistrationStatus`] containing information regarding whether the ticker can be registered and if the fee must be charged.
+    fn can_reregister_ticker(ticker: &Ticker, caller_did: &IdentityId) -> TickerRegistrationStatus {
         match <Tickers<T>>::get(ticker) {
             Some(ticker_registration) => {
-                if &ticker_registration.owner == caller_did {
-                    return true;
-                }
-
+                // Checks if the ticker has an expiration time
                 match ticker_registration.expiry {
                     Some(expiration_time) => {
+                        // Checks if the registration has expired
                         if <pallet_timestamp::Pallet<T>>::get() > expiration_time {
-                            return true;
+                            return TickerRegistrationStatus::new(true, true);
                         }
-                        false
+                        // The ticker is still valid and was registered by the caller
+                        if &ticker_registration.owner == caller_did {
+                            return TickerRegistrationStatus::new(true, false);
+                        }
+                        // The ticker is still valid and was NOT registered by the caller
+                        TickerRegistrationStatus::new(false, false)
                     }
-                    None => return false,
+                    None => {
+                        // The ticker is still valid and was registered by the caller
+                        if &ticker_registration.owner == caller_did {
+                            return TickerRegistrationStatus::new(true, false);
+                        }
+                        // The ticker is still valid and was NOT registered by the caller
+                        TickerRegistrationStatus::new(false, false)
+                    }
                 }
             }
-            None => true,
+            None => TickerRegistrationStatus::new(true, true),
         }
     }
 
-    /// Returns `Ok` if all rules for creating an asset are satisfied.
+    /// Returns [`TickerRegistrationStatus`] if all rules for creating an asset are satisfied.
     fn validate_asset_creation_rules(
         caller_did: IdentityId,
         secondary_key: Option<SecondaryKey<T::AccountId>>,
@@ -1682,7 +1708,7 @@ impl<T: Config> Module<T> {
         asset_name: &AssetName,
         asset_type: &AssetType,
         funding_round_name: Option<FundingRoundName>,
-    ) -> DispatchResult {
+    ) -> Result<TickerRegistrationStatus, DispatchError> {
         if let Some(funding_round_name) = funding_round_name {
             Self::ensure_valid_funding_round_name(&funding_round_name)?;
         }
@@ -1690,7 +1716,7 @@ impl<T: Config> Module<T> {
         Self::ensure_valid_asset_type(asset_type)?;
 
         let ticker_registration_config = Self::ticker_registration_config();
-        Self::validate_ticker_registration_rules(
+        let ticker_registration_status = Self::validate_ticker_registration_rules(
             ticker,
             &caller_did,
             ticker_registration_config.max_ticker_length,
@@ -1705,7 +1731,7 @@ impl<T: Config> Module<T> {
             caller_did,
             secondary_key.as_ref(),
         )?;
-        Ok(())
+        Ok(ticker_registration_status)
     }
 
     pub fn token_details(ticker: &Ticker) -> Result<SecurityToken, DispatchError> {
@@ -1935,13 +1961,16 @@ impl<T: Config> Module<T> {
 
 impl<T: Config> Module<T> {
     /// All storage writes for registering `ticker` to `owner` with an optional `expiry`.
-    /// Note: One fee is charged ([`ProtocolOp::AssetRegisterTicker`]).
+    /// Note: If `charge_fee` is `true` one fee is charged ([`ProtocolOp::AssetRegisterTicker`]).
     fn unverified_register_ticker(
         ticker: Ticker,
         owner: IdentityId,
         expiry: Option<T::Moment>,
+        charge_fee: bool,
     ) -> DispatchResult {
-        T::ProtocolFee::charge_fee(ProtocolOp::AssetRegisterTicker)?;
+        if charge_fee {
+            T::ProtocolFee::charge_fee(ProtocolOp::AssetRegisterTicker)?;
+        }
 
         // If the ticker was already registered, removes the previous owner
         if let Some(ticker_registration) = <Tickers<T>>::get(ticker) {
@@ -1977,15 +2006,16 @@ impl<T: Config> Module<T> {
         asset_type: AssetType,
         funding_round_name: Option<FundingRoundName>,
         identifiers: Vec<AssetIdentifier>,
+        ticker_registration_fee: bool,
     ) -> DispatchResult {
         T::ProtocolFee::charge_fee(ProtocolOp::AssetCreateAsset)?;
-        Self::unverified_register_ticker(ticker, caller_did, None)?;
+        Self::unverified_register_ticker(ticker, caller_did, None, ticker_registration_fee)?;
 
         Identity::<T>::commit_token_did(token_did, ticker);
         let token = SecurityToken::new(Zero::zero(), caller_did, divisible, asset_type);
         Tokens::insert(ticker, token);
 
-        AssetNames::insert(ticker, asset_name.clone());
+        AssetNames::insert(ticker, &asset_name);
         if let Some(ref funding_round_name) = funding_round_name {
             FundingRound::insert(ticker, funding_round_name);
         }
@@ -2193,8 +2223,8 @@ impl<T: Config> Module<T> {
             }
             Err(_) => {
                 let type_id = CustomTypeIdSequence::try_mutate(try_next_pre::<T, _>)?;
-                CustomTypesInverse::insert(asset_type_bytes.clone(), type_id);
-                CustomTypes::insert(type_id, asset_type_bytes.clone());
+                CustomTypesInverse::insert(&asset_type_bytes, type_id);
+                CustomTypes::insert(type_id, &asset_type_bytes);
                 Self::deposit_event(Event::<T>::CustomAssetTypeRegistered(
                     caller_did,
                     type_id,
