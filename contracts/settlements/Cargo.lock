@@ -733,6 +733,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e48c92028aaa870e83d51c64e5d4e0b6981b360c522198c23959f219a4e1b15b"
 
 [[package]]
+name = "equivalent"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
+
+[[package]]
 name = "errno"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -983,7 +989,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6c80984affa11d98d1b88b66ac8853f143217b399d3c74116778ff8fdb4ed2e"
 dependencies = [
  "fallible-iterator",
- "indexmap",
+ "indexmap 1.9.2",
  "stable_deref_trait",
 ]
 
@@ -1035,9 +1041,9 @@ dependencies = [
 
 [[package]]
 name = "h2"
-version = "0.3.18"
+version = "0.3.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17f8a914c2987b688368b5138aa05321db91f4090cf26118185672ad588bce21"
+checksum = "bb2c4422095b67ee78da96fbb51a4cc413b3b25883c7717ff7ca1ab31022c9c9"
 dependencies = [
  "bytes",
  "fnv",
@@ -1045,7 +1051,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "http",
- "indexmap",
+ "indexmap 2.2.2",
  "slab",
  "tokio",
  "tokio-util",
@@ -1084,6 +1090,12 @@ checksum = "43a3c133739dddd0d2990f9a4bdf8eb4b21ef50e4851ca85ab661199821d510e"
 dependencies = [
  "ahash 0.8.6",
 ]
+
+[[package]]
+name = "hashbrown"
+version = "0.14.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "290f1a1d9242c78d09ce40a5e87e7554ee637af1351968159f4952f028f75604"
 
 [[package]]
 name = "heck"
@@ -1322,6 +1334,16 @@ dependencies = [
  "autocfg",
  "hashbrown 0.12.3",
  "serde",
+]
+
+[[package]]
+name = "indexmap"
+version = "2.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "824b2ae422412366ba479e8111fd301f7b5faece8149317bb81925979a53f520"
+dependencies = [
+ "equivalent",
+ "hashbrown 0.14.3",
 ]
 
 [[package]]
@@ -1964,7 +1986,7 @@ checksum = "03b4680b86d9cfafba8fc491dc9b6df26b68cf40e9e6cd73909194759a63c385"
 dependencies = [
  "crc32fast",
  "hashbrown 0.13.2",
- "indexmap",
+ "indexmap 1.9.2",
  "memchr",
 ]
 
@@ -2121,9 +2143,9 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "polymesh-api"
-version = "3.5.0"
+version = "3.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0447542e190095b2950c3047483a4f676d07be3cce61e095a672ef2197cb28e"
+checksum = "fe458a4721937ff96c6e7765d18d21b71148c398656a17814dfbb72cb62bdb9d"
 dependencies = [
  "ink",
  "log",
@@ -2137,9 +2159,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-client"
-version = "3.2.5"
+version = "3.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9724c8ccc50b2aeb885d9b6906b02bf0a6815cf2e80e6b95dcfd3c6714820f3"
+checksum = "eeac54b128958d9aac03d3f88f43be10ee396c746b7ee329e5794f990c1ff5c7"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -2170,14 +2192,14 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-codegen"
-version = "3.2.0"
+version = "3.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40cb9faabe0fcc9b39b1e58f8de3b0771bb6240dc0ec9643d9b50c1880357eae"
+checksum = "420d0d8d2abb36e1581e373505933620af181c99e788833b4f7714ee2b05e1eb"
 dependencies = [
  "frame-metadata",
  "heck",
  "hex",
- "indexmap",
+ "indexmap 1.9.2",
  "log",
  "parity-scale-codec",
  "proc-macro2",
@@ -2190,9 +2212,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-codegen-macro"
-version = "3.2.0"
+version = "3.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "140562a50fce7873d1d1e43bccddf5d1930704352d2d2cafa01c6feaf96c799c"
+checksum = "e165461828beeb9832b9b7a33caa6ebad97a4a900c2f50149df084455170f53c"
 dependencies = [
  "darling",
  "parity-scale-codec",
@@ -2205,9 +2227,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-ink"
-version = "1.1.0"
+version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0d34465f4790fc4836dcc35b0ccc033a9bf4cc93d56ad240f381203e46ae279"
+checksum = "37133ff748242241c6ebaaff618b9d7a4e8beb7689ce0c4c2d102c3110dfe9b4"
 dependencies = [
  "hex",
  "ink",
@@ -2220,12 +2242,13 @@ dependencies = [
 
 [[package]]
 name = "polymesh-ink"
-version = "3.0.0"
+version = "3.1.0"
 dependencies = [
  "ink",
  "parity-scale-codec",
  "paste",
  "polymesh-api",
+ "polymesh-api-ink",
  "scale-info",
 ]
 
@@ -2880,7 +2903,7 @@ version = "1.0.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "020ff22c755c2ed3f8cf162dbb41a7268d934702f3ed3631656ea597e08fc3db"
 dependencies = [
- "indexmap",
+ "indexmap 1.9.2",
  "itoa",
  "ryu",
  "serde",
@@ -3962,7 +3985,7 @@ version = "0.102.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48134de3d7598219ab9eaf6b91b15d8e50d31da76b8519fe4ecfcec2cf35104b"
 dependencies = [
- "indexmap",
+ "indexmap 1.9.2",
  "url",
 ]
 
@@ -3975,7 +3998,7 @@ dependencies = [
  "anyhow",
  "bincode",
  "cfg-if",
- "indexmap",
+ "indexmap 1.9.2",
  "libc",
  "log",
  "object 0.30.4",
@@ -4009,7 +4032,7 @@ dependencies = [
  "anyhow",
  "cranelift-entity",
  "gimli 0.27.3",
- "indexmap",
+ "indexmap 1.9.2",
  "log",
  "object 0.30.4",
  "serde",
@@ -4071,7 +4094,7 @@ dependencies = [
  "anyhow",
  "cc",
  "cfg-if",
- "indexmap",
+ "indexmap 1.9.2",
  "libc",
  "log",
  "mach",
@@ -4418,18 +4441,18 @@ checksum = "9828b178da53440fa9c766a3d2f73f7cf5d0ac1fe3980c1e5018d899fd19e07b"
 
 [[package]]
 name = "zerocopy"
-version = "0.7.26"
+version = "0.7.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e97e415490559a91254a2979b4829267a57d2fcd741a98eee8b722fb57289aa0"
+checksum = "74d4d3961e53fa4c9a25a8637fc2bfaf2595b3d3ae34875568a5cf64787716be"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.7.26"
+version = "0.7.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd7e48ccf166952882ca8bd778a43502c64f33bf94c12ebe2a7f08e5a0f6689f"
+checksum = "9ce1b18ccd8e73a9321186f97e46f9f04b778851177567b1975109d26a08d2a6"
 dependencies = [
  "proc-macro2",
  "quote",

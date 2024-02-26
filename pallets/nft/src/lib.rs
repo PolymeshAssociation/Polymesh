@@ -9,7 +9,7 @@ use frame_support::{decl_error, decl_module, decl_storage, ensure, require_trans
 
 use pallet_asset::Frozen;
 use pallet_base::try_next_pre;
-use pallet_portfolio::PortfolioNFT;
+use pallet_portfolio::{PortfolioLockedNFT, PortfolioNFT};
 use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
 pub use polymesh_common_utilities::traits::nft::{Config, Event, NFTTrait, WeightInfo};
 use polymesh_primitives::asset::{AssetName, AssetType, NonFungibleType};
@@ -222,7 +222,9 @@ decl_error! {
         /// An overflow while calculating the updated supply.
         SupplyOverflow,
         /// An underflow while calculating the updated supply.
-        SupplyUnderflow
+        SupplyUnderflow,
+        /// Failed to transfer an NFT - nft is locked.
+        InvalidNFTTransferNFTIsLocked
     }
 }
 
@@ -510,11 +512,15 @@ impl<T: Config> Module<T> {
         Self::ensure_within_nfts_transfer_limits(nfts)?;
         // Verifies that all ids are unique
         Self::ensure_no_duplicate_nfts(nfts)?;
-        // Verfies that the sender owns the nfts
+        // Verfies that the sender owns the nfts and that they are not locked
         for nft_id in nfts.ids() {
             ensure!(
                 PortfolioNFT::contains_key(sender_portfolio, (nfts.ticker(), nft_id)),
                 Error::<T>::InvalidNFTTransferNFTNotOwned
+            );
+            ensure!(
+                !PortfolioLockedNFT::contains_key(sender_portfolio, (nfts.ticker(), nft_id)),
+                Error::<T>::InvalidNFTTransferNFTIsLocked
             );
         }
         // Verfies that the receiver will not overflow

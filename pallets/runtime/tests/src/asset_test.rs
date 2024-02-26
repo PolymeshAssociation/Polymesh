@@ -17,9 +17,9 @@ use pallet_asset::{
     AssetMetadataLocalSpecs, AssetMetadataValues, AssetOwnershipRelation, BalanceOf,
     Config as AssetConfig, CustomTypeIdSequence, CustomTypes, CustomTypesInverse,
     MandatoryMediators, PreApprovedTicker, SecurityToken, TickerRegistrationConfig,
-    TickersExemptFromAffirmation,
+    TickersExemptFromAffirmation, Tokens,
 };
-use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances};
+use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances, PortfolioLockedAssets};
 use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::traits::checkpoint::{
@@ -34,6 +34,9 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
 };
 use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit, FixedOrVariableCalendarUnit};
+use polymesh_primitives::settlement::{
+    InstructionId, Leg, SettlementType, VenueDetails, VenueId, VenueType,
+};
 use polymesh_primitives::statistics::StatType;
 use polymesh_primitives::{
     AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
@@ -69,6 +72,7 @@ type EAError = pallet_external_agents::Error<TestStorage>;
 type FeeError = pallet_protocol_fee::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type StoreCallMetadata = pallet_permissions::StoreCallMetadata<TestStorage>;
+type Settlement = pallet_settlement::Module<TestStorage>;
 
 pub fn now() -> u64 {
     Utc::now().timestamp() as _

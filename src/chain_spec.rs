@@ -545,11 +545,24 @@ macro_rules! protocol_fee {
 }
 
 macro_rules! polymesh_contracts {
-    () => {
+    ($root_key:expr) => {
         polymesh_contracts::GenesisConfig {
             call_whitelist: contracts_call_whitelist(),
+            upgradable_code: contracts_upgradable_code(),
+            upgradable_description: "POLY"
+                .as_bytes()
+                .try_into()
+                .expect("Wrong Length - should be length 4"),
+            upgradable_major: 6,
+            upgradable_owner: $root_key,
         }
     };
+}
+
+fn contracts_upgradable_code() -> Vec<u8> {
+    // NB - Contract should match the `upgradable_major` version above.
+    let upgradable_code = include_bytes!("data/contracts/polymesh_ink_6.wasm").to_vec();
+    upgradable_code
 }
 
 fn contracts_call_whitelist() -> Vec<polymesh_contracts::ExtrinsicId> {
@@ -602,7 +615,7 @@ pub mod general {
             },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
             sudo: pallet_sudo::GenesisConfig {
-                key: Some(root_key),
+                key: Some(root_key.clone()),
             },
             session: session!(initial_authorities, session_keys),
             staking: staking!(
@@ -642,7 +655,7 @@ pub mod general {
                 transaction_version: 1,
             },
             corporate_action: corporate_actions!(),
-            polymesh_contracts: polymesh_contracts!(),
+            polymesh_contracts: polymesh_contracts!(Some(root_key)),
         }
     }
 
@@ -796,7 +809,7 @@ pub mod testnet {
                 transaction_version: 1,
             },
             corporate_action: corporate_actions!(),
-            polymesh_contracts: polymesh_contracts!(),
+            polymesh_contracts: polymesh_contracts!(Some(root_key)),
         }
     }
 
@@ -979,7 +992,7 @@ pub mod mainnet {
                 transaction_version: 1,
             },
             corporate_action: corporate_actions!(),
-            polymesh_contracts: polymesh_contracts!(),
+            polymesh_contracts: polymesh_contracts!(Some(root_key)),
         }
     }
 
@@ -1134,7 +1147,7 @@ pub mod general {
             },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
             sudo: pallet_sudo::GenesisConfig {
-                key: Some(root_key),
+                key: Some(root_key.clone()),
             },
             session: session!(initial_authorities, session_keys),
             staking: staking!(initial_authorities, stakers, PerThing::zero()),
@@ -1170,7 +1183,7 @@ pub mod general {
                 transaction_version: 1,
             },
             corporate_action: corporate_actions!(),
-            polymesh_contracts: polymesh_contracts!(),
+            polymesh_contracts: polymesh_contracts!(Some(root_key)),
         }
     }
 

@@ -1018,7 +1018,7 @@ impl<T: Config> Module<T> {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         Self::_mint(
             &ticker,
-            portfolio_id.did,
+            portfolio_id,
             amount,
             Some(ProtocolOp::AssetIssue),
             &mut weight_meter,

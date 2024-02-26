@@ -34,7 +34,7 @@
 //!
 //! - `default_portfolio_balance`: Returns the ticker balance of the identity's default portfolio.
 //! - `user_portfolio_balance`: Returns the ticker balance of an identity's user portfolio.
-//! - `set_default_portfolio_balance`: Sets the ticker balance of the identity's default portfolio.
+//! - `set_portfolio_balance`: Sets the ticker balance of a portfolio.
 //! - `unchecked_transfer_portfolio_balance`: Transfers funds from one portfolio to another.
 //! - `ensure_portfolio_custody`: Makes sure that the given identity has custodian access over the portfolio.
 //! - `ensure_portfolio_transfer_validity`: Makes sure that a transfer between two portfolios is valid.
@@ -447,9 +447,8 @@ impl<T: Config> Module<T> {
         Self::portfolio_asset_balances(PortfolioId::user_portfolio(did, num), ticker)
     }
 
-    /// Sets the ticker balance of the identity's default portfolio to `new`.
-    pub fn set_default_portfolio_balance(did: IdentityId, ticker: &Ticker, new: Balance) {
-        let pid = PortfolioId::default_portfolio(did);
+    /// Sets the ticker balance of the a portfolio to `new`.
+    pub fn set_portfolio_balance(pid: PortfolioId, ticker: &Ticker, new: Balance) {
         PortfolioAssetBalances::mutate(&pid, ticker, |old| {
             Self::transition_asset_count(&pid, *old, new);
             *old = new;

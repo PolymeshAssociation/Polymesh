@@ -41,7 +41,7 @@ fn verify_ticker_characters() {
     }
 
     let valid_set: BTreeSet<&u8> = all_valid_characters.iter().collect();
-    let mut all_invalid_characters: Vec<u8> = (0..=255).collect();
+    let mut all_invalid_characters: Vec<u8> = (1..=255).collect();
     all_invalid_characters.retain(|ascii_code| !valid_set.contains(ascii_code));
 
     // Generates 10 random invalid tickers
