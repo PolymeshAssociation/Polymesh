@@ -1,7 +1,8 @@
 use codec::Encode;
 use frame_support::dispatch::{DispatchError, Weight};
 use frame_support::{
-    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, StorageMap,
+    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, StorageDoubleMap,
+    StorageMap,
 };
 use polymesh_contracts::{
     Api, ApiCodeHash, ApiNextUpgrade, ChainVersion, ExtrinsicId, NextUpgrade,
@@ -9,6 +10,7 @@ use polymesh_contracts::{
 use sp_keyring::AccountKeyring;
 use sp_runtime::traits::Hash;
 
+use pallet_asset::{AssetOwnershipRelation, AssetOwnershipRelations};
 use pallet_identity::ParentDid;
 use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_primitives::{Gas, Permissions, PortfolioPermissions, SubsetRestriction, Ticker};
@@ -190,7 +192,10 @@ fn chain_extension_calls() {
             None,
             register_ticker_input
         ),);
-        assert_ok!(Asset::ensure_owner(&ticker, alice.did));
+        assert_eq!(
+            AssetOwnershipRelations::get(&alice.did, &ticker),
+            AssetOwnershipRelation::TickerOwned
+        );
     })
 }
 

@@ -11,6 +11,7 @@ pub use storage::{
 pub mod ext_builder;
 pub use ext_builder::ExtBuilder;
 
+mod asset_pallet;
 #[macro_use]
 mod asset_test;
 mod asset_metadata_test;

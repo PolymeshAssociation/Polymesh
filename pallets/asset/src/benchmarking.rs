@@ -25,10 +25,11 @@ use pallet_statistics::benchmarking::setup_transfer_restrictions;
 use polymesh_common_utilities::benchs::{
     make_asset, make_indivisible_asset, make_ticker, user, AccountIdOf, User, UserBuilder,
 };
-use polymesh_common_utilities::constants::currency::POLY;
+use polymesh_common_utilities::constants::currency::{ONE_UNIT, POLY};
 use polymesh_common_utilities::traits::compliance_manager::ComplianceFnConfig;
 use polymesh_common_utilities::traits::nft::NFTTrait;
 use polymesh_common_utilities::TestUtilsFn;
+use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{AssetName, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataDescription, AssetMetadataKey, AssetMetadataName, AssetMetadataSpec,
@@ -286,9 +287,6 @@ benchmarks! {
         set_config::<T>();
         let ticker = Ticker::repeating(b'A');
     }: _(caller.origin, ticker)
-    verify {
-        assert_eq!(Module::<T>::is_ticker_available(&ticker), false);
-    }
 
     accept_ticker_transfer {
         let owner = owner::<T>();

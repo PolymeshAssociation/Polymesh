@@ -19,10 +19,11 @@ use pallet_asset::{
     MandatoryMediators, PreApprovedTicker, SecurityToken, TickerRegistrationConfig,
     TickersExemptFromAffirmation, Tokens,
 };
-use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances, PortfolioLockedAssets};
+use pallet_portfolio::{
+    NextPortfolioNumber, PortfolioAssetBalances, PortfolioAssetCount, PortfolioLockedAssets,
+};
 use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
-use polymesh_common_utilities::constants::*;
 use polymesh_common_utilities::traits::checkpoint::{
     NextCheckpoints, ScheduleCheckpoints, ScheduleId,
 };
@@ -39,7 +40,6 @@ use polymesh_primitives::settlement::{
     InstructionId, Leg, SettlementType, VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::statistics::StatType;
-use polymesh_primitives::ticker::TICKER_LEN;
 use polymesh_primitives::{
     AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
     DocumentId, Fund, FundDescription, IdentityId, Memo, Moment, NFTCollectionKeys, Permissions,
@@ -76,11 +76,11 @@ type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type StoreCallMetadata = pallet_permissions::StoreCallMetadata<TestStorage>;
 type Settlement = pallet_settlement::Module<TestStorage>;
 
-fn now() -> u64 {
+pub fn now() -> u64 {
     Utc::now().timestamp() as _
 }
 
-fn set_time_to_now() {
+pub fn set_time_to_now() {
     set_timestamp(now());
 }
 
@@ -466,167 +466,6 @@ fn checkpoints_fuzz_test() {
 }
 
 #[test]
-fn register_ticker() {
-    ExtBuilder::default().build().execute_with(|| {
-        set_time_to_now();
-
-        let owner = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
-
-        let (ticker, token) = a_token(owner.did);
-        let identifiers = vec![AssetIdentifier::isin(*b"US0378331005").unwrap()];
-        assert_ok!(asset_with_ids(owner, ticker, &token, identifiers.clone()));
-
-        let register = |ticker| Asset::register_ticker(owner.origin(), ticker);
-
-        assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner.did), true);
-        assert_eq!(Asset::is_ticker_available(&ticker), false);
-        let stored_token = token_details(&ticker);
-        assert_eq!(stored_token.asset_type, token.asset_type);
-        assert_eq!(Asset::identifiers(ticker), identifiers);
-        assert_noop!(
-            register(Ticker::from_slice_truncated(&[b'A'][..])),
-            AssetError::AssetAlreadyCreated
-        );
-
-        assert_noop!(
-            register(Ticker::from_slice_truncated(
-                &[b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A'][..]
-            )),
-            AssetError::TickerTooLong
-        );
-
-        let ticker = Ticker::from_slice_truncated(&[b'A', b'A'][..]);
-
-        assert_eq!(Asset::is_ticker_available(&ticker), true);
-
-        assert_ok!(register(ticker));
-
-        assert_eq!(
-            Asset::asset_ownership_relation(owner.did, ticker),
-            AssetOwnershipRelation::TickerOwned
-        );
-
-        assert_noop!(
-            Asset::register_ticker(alice.origin(), ticker),
-            AssetError::TickerAlreadyRegistered
-        );
-
-        assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner.did), true);
-        assert_eq!(Asset::is_ticker_available(&ticker), false);
-
-        set_timestamp(now() + 10001);
-
-        assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner.did), false);
-        assert_eq!(Asset::is_ticker_available(&ticker), true);
-
-        for bs in &[
-            [b'A', 31, b'B'].as_ref(),
-            [127, b'A'].as_ref(),
-            [b'A', 0, 0, 0, b'A'].as_ref(),
-        ] {
-            assert_noop!(
-                register(Ticker::from_slice_truncated(&bs[..])),
-                AssetError::InvalidTickerCharacter
-            );
-        }
-    })
-}
-
-#[test]
-fn transfer_ticker() {
-    ExtBuilder::default().build().execute_with(|| {
-        set_time_to_now();
-
-        let owner = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
-
-        let ticker = Ticker::from_slice_truncated(&[b'A', b'A'][..]);
-
-        assert_eq!(Asset::is_ticker_available(&ticker), true);
-        assert_ok!(Asset::register_ticker(owner.origin(), ticker));
-
-        let auth_id_alice = Identity::add_auth(
-            owner.did,
-            Signatory::from(alice.did),
-            AuthorizationData::TransferTicker(ticker),
-            None,
-        );
-
-        let auth_id_bob = Identity::add_auth(
-            owner.did,
-            Signatory::from(bob.did),
-            AuthorizationData::TransferTicker(ticker),
-            None,
-        );
-
-        assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner.did), true);
-        assert_eq!(Asset::is_ticker_registry_valid(&ticker, alice.did), false);
-        assert_eq!(Asset::is_ticker_available(&ticker), false);
-
-        assert_noop!(
-            Asset::accept_ticker_transfer(alice.origin(), auth_id_alice + 1),
-            "Authorization does not exist"
-        );
-
-        assert_eq!(
-            Asset::asset_ownership_relation(owner.did, ticker),
-            AssetOwnershipRelation::TickerOwned
-        );
-
-        assert_ok!(Asset::accept_ticker_transfer(alice.origin(), auth_id_alice));
-
-        assert_eq!(
-            Asset::asset_ownership_relation(owner.did, ticker),
-            AssetOwnershipRelation::NotOwned
-        );
-        assert_eq!(
-            Asset::asset_ownership_relation(alice.did, ticker),
-            AssetOwnershipRelation::TickerOwned
-        );
-
-        assert_eq!(
-            Asset::asset_ownership_relation(alice.did, ticker),
-            AssetOwnershipRelation::TickerOwned
-        );
-
-        assert_eq!(
-            Asset::accept_ticker_transfer(bob.origin(), auth_id_bob),
-            Err("Illegal use of Authorization".into()),
-        );
-
-        let add_auth = |auth, expiry| {
-            Identity::add_auth(alice.did, Signatory::from(bob.did), auth, Some(expiry))
-        };
-
-        let auth_id = add_auth(AuthorizationData::TransferTicker(ticker), now() - 100);
-
-        assert_noop!(
-            Asset::accept_ticker_transfer(bob.origin(), auth_id),
-            "Authorization expired"
-        );
-
-        // Try accepting the wrong authorization type.
-        let auth_id = add_auth(AuthorizationData::RotatePrimaryKey, now() + 100);
-
-        assert_eq!(
-            Asset::accept_ticker_transfer(bob.origin(), auth_id),
-            Err(AuthorizationError::BadType.into()),
-        );
-
-        let auth_id = add_auth(AuthorizationData::TransferTicker(ticker), now() + 100);
-
-        assert_ok!(Asset::accept_ticker_transfer(bob.origin(), auth_id));
-
-        assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner.did), false);
-        assert_eq!(Asset::is_ticker_registry_valid(&ticker, alice.did), false);
-        assert_eq!(Asset::is_ticker_registry_valid(&ticker, bob.did), true);
-        assert_eq!(Asset::is_ticker_available(&ticker), false);
-    })
-}
-
-#[test]
 fn controller_transfer() {
     let eve = AccountKeyring::Eve.to_account_id();
     ExtBuilder::default()
@@ -993,96 +832,6 @@ fn frozen_secondary_keys_create_asset_we() {
     //     create_token_result,
     //     DispatchError::Other("Current identity is none and key is not linked to any identity")
     // );
-}
-
-#[test]
-fn test_can_transfer_rpc() {
-    let eve = AccountKeyring::Eve.to_account_id();
-    ExtBuilder::default()
-        .cdd_providers(vec![eve.clone()])
-        .monied(true)
-        .balance_factor(1)
-        .build()
-        .execute_with(|| {
-            let owner = User::new(AccountKeyring::Alice);
-            let bob = User::new(AccountKeyring::Bob);
-
-            // Create asset.
-            let (ticker, mut token) = a_token(owner.did);
-            token.divisible = false;
-            token.total_supply = 1_000 * currency::ONE_UNIT;
-            assert_ok!(basic_asset(owner, ticker, &token));
-
-            let unsafe_can_transfer_result = |from_did, to_did, amount| {
-                Asset::unsafe_can_transfer(
-                    None,
-                    PortfolioId::default_portfolio(from_did),
-                    None,
-                    PortfolioId::default_portfolio(to_did),
-                    &ticker,
-                    amount, // It only passed when it should be the multiple of currency::ONE_UNIT
-                    &mut WeightMeter::max_limit_no_minimum(),
-                )
-                .unwrap()
-            };
-
-            // case 1: When passed invalid granularity
-            assert_eq!(
-                unsafe_can_transfer_result(owner.did, bob.did, 100),
-                INVALID_GRANULARITY
-            );
-
-            // Case 2: when from_did balance is 0
-            assert_eq!(
-                unsafe_can_transfer_result(bob.did, owner.did, 100 * currency::ONE_UNIT),
-                ERC1400_INSUFFICIENT_BALANCE
-            );
-
-            // Comment below test case, These will be un-commented when we improved the DID check.
-
-            // // Case 4: When sender doesn't posses a valid cdd
-            // // 4.1: Create Identity who doesn't posses cdd
-            // let (from_without_cdd_signed, from_without_cdd_did) = make_account(AccountKeyring::Ferdie.to_account_id()).unwrap();
-            // // Execute can_transfer
-            // assert_eq!(
-            //     Asset::unsafe_can_transfer(
-            //         AccountKeyring::Ferdie.to_account_id(),
-            //         ticker,
-            //         Some(from_without_cdd_did),
-            //         Some(bob_did),
-            //         5 * currency::ONE_UNIT
-            //     ).unwrap(),
-            //     INVALID_SENDER_DID
-            // );
-
-            // // Case 5: When receiver doesn't posses a valid cdd
-            // assert_eq!(
-            //     Asset::unsafe_can_transfer(
-            //         AccountKeyring::Alice.to_account_id(),
-            //         ticker,
-            //         Some(alice_did),
-            //         Some(from_without_cdd_did),
-            //         5 * currency::ONE_UNIT
-            //     ).unwrap(),
-            //     INVALID_RECEIVER_DID
-            // );
-
-            // Case 6: When Asset transfer is frozen
-            // 6.1: pause the transfer
-            assert_ok!(Asset::freeze(owner.origin(), ticker));
-            assert_eq!(
-                unsafe_can_transfer_result(owner.did, bob.did, 20 * currency::ONE_UNIT),
-                ERC1400_TRANSFERS_HALTED
-            );
-            assert_ok!(Asset::unfreeze(owner.origin(), ticker));
-
-            // Case 7: when transaction get success by the compliance_manager
-            allow_all_transfers(ticker, owner);
-            assert_eq!(
-                unsafe_can_transfer_result(owner.did, bob.did, 20 * currency::ONE_UNIT),
-                ERC1400_TRANSFER_SUCCESS
-            );
-        })
 }
 
 fn ticker(name: &str) -> Ticker {
@@ -1501,28 +1250,8 @@ fn secondary_key_not_authorized_for_asset_test() {
                 minted_value,
                 PortfolioKind::Default
             ));
-            assert_eq!(Asset::total_supply(ticker), TOTAL_SUPPLY + minted_value);
+            assert_eq!(Asset::total_supply(&ticker), TOTAL_SUPPLY + minted_value);
         });
-}
-
-#[test]
-fn invalid_ticker_registry_test() {
-    test_with_owner(|owner| {
-        let (ticker, token) = token(b"MYUSD", owner.did);
-        assert_ok!(basic_asset(owner, ticker, &token));
-
-        // Generate a data set for testing: (input, expected result)
-        [
-            (&b"MYUSD"[..], true),
-            (&b"MYUSD\01"[..], false),
-            (&b"YOUR"[..], false),
-        ]
-        .iter()
-        .map(|(name, exp)| (Ticker::from_slice_truncated(*name), exp))
-        .for_each(|(ticker, exp)| {
-            assert_eq!(*exp, Asset::is_ticker_registry_valid(&ticker, owner.did))
-        });
-    });
 }
 
 #[test]
@@ -1736,53 +1465,6 @@ fn test_with_owner(test: impl FnOnce(User)) {
         .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| test(User::existing(owner)));
-}
-
-#[test]
-fn unsafe_can_transfer_all_status_codes_test() {
-    test_with_owner(|owner| {
-        let ticker = an_asset(owner, false);
-
-        let uk_portfolio = new_portfolio(owner.acc(), "UK");
-        let default_portfolio = PortfolioId::default_portfolio(owner.did);
-        let do_unsafe_can_transfer = || {
-            Asset::unsafe_can_transfer(
-                None,
-                default_portfolio,
-                None,
-                uk_portfolio,
-                &ticker,
-                100,
-                &mut WeightMeter::max_limit_no_minimum(),
-            )
-            .unwrap()
-        };
-
-        // INVALID_GRANULARITY
-        let code = do_unsafe_can_transfer();
-        assert_eq!(code, INVALID_GRANULARITY);
-
-        // Update indivisible.
-        assert_ok!(Asset::make_divisible(owner.origin(), ticker));
-
-        // INVALID_RECEIVER_DID
-        let code = do_unsafe_can_transfer();
-        assert_eq!(code, INVALID_RECEIVER_DID);
-
-        // INVALID_SENDER_DID
-        let no_cdd_portfolio_did = PortfolioId::default();
-        let code = Asset::unsafe_can_transfer(
-            None,
-            no_cdd_portfolio_did,
-            None,
-            default_portfolio,
-            &ticker,
-            100,
-            &mut WeightMeter::max_limit_no_minimum(),
-        )
-        .unwrap();
-        assert_eq!(code, INVALID_SENDER_DID);
-    });
 }
 
 #[test]
@@ -2700,53 +2382,6 @@ fn successfully_remove_mediators() {
 }
 
 #[test]
-fn verify_ticker_characters() {
-    let mut all_valid_characters = Vec::new();
-    let mut valid_ascii_digits: Vec<u8> = (48..58).collect();
-    let mut valid_ascii_letters: Vec<u8> = (65..91).collect();
-    let mut valid_special_characters: Vec<u8> = Vec::from([b'-', b'.', b'/', b'_']);
-    all_valid_characters.append(&mut valid_ascii_digits);
-    all_valid_characters.append(&mut valid_ascii_letters);
-    all_valid_characters.append(&mut valid_special_characters);
-
-    let mut rng = rand::thread_rng();
-
-    // Generates 10 random valid tickers
-    for _ in 0..10 {
-        let valid_ticker: Vec<u8> = (0..TICKER_LEN + 1)
-            .map(|_| all_valid_characters[rng.gen_range(0, all_valid_characters.len())])
-            .collect();
-        assert_ok!(Asset::verify_ticker_characters(
-            &Ticker::from_slice_truncated(&valid_ticker)
-        ));
-    }
-
-    let valid_set: BTreeSet<&u8> = all_valid_characters.iter().collect();
-    let mut all_invalid_characters: Vec<u8> = (0..=255).collect();
-    all_invalid_characters.retain(|ascii_code| !valid_set.contains(ascii_code));
-
-    // Generates 10 random invalid tickers
-    for _ in 0..10 {
-        let mut invalid_ticker: Vec<u8> = (0..TICKER_LEN - 1)
-            .map(|_| all_valid_characters[rng.gen_range(0, all_valid_characters.len())])
-            .collect();
-        invalid_ticker.push(all_invalid_characters[rng.gen_range(0, all_invalid_characters.len())]);
-
-        assert_eq!(
-            Asset::verify_ticker_characters(&Ticker::from_slice_truncated(&invalid_ticker))
-                .unwrap_err(),
-            AssetError::InvalidTickerCharacter.into()
-        );
-    }
-
-    assert_eq!(
-        Asset::verify_ticker_characters(&Ticker::from_slice_truncated(&[0; TICKER_LEN]))
-            .unwrap_err(),
-        AssetError::TickerFirstByteNotValid.into()
-    );
-}
-
-#[test]
 fn controller_transfer_locked_asset() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(AccountKeyring::Bob);
@@ -2821,6 +2456,7 @@ fn controller_transfer_locked_asset() {
     });
 }
 
+#[test]
 fn issue_tokens_user_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
@@ -2868,5 +2504,7 @@ fn issue_tokens_user_portfolio() {
         );
         assert_eq!(BalanceOf::get(&ticker, &alice.did), 1_000);
         assert_eq!(Tokens::get(&ticker).unwrap().total_supply, 1_000);
+        assert_eq!(PortfolioAssetCount::get(alice_user_portfolio), 1);
+        assert_eq!(PortfolioAssetCount::get(alice_default_portfolio), 0);
     });
 }
