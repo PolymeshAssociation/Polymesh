@@ -942,28 +942,15 @@ impl<T: Config> Module<T> {
     ) -> Result<IdentityId, DispatchError> {
         let caller_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
-        let token_did = Identity::<T>::get_token_did(&ticker)?;
-        let ticker_registration_status = Self::validate_asset_creation_rules(
+        Self::validate_and_create_asset(
             caller_data.primary_did,
             caller_data.secondary_key,
-            token_did,
-            &ticker,
-            &asset_name,
-            &asset_type,
-            funding_round_name.clone(),
-            &identifiers,
-        )?;
-
-        Self::unverified_create_asset(
-            caller_data.primary_did,
-            token_did,
+            asset_name,
             ticker,
             divisible,
-            asset_name,
             asset_type,
-            funding_round_name,
             identifiers,
-            ticker_registration_status.charge_fee(),
+            funding_round_name.clone(),
         )?;
 
         Ok(caller_data.primary_did)
@@ -1248,28 +1235,15 @@ impl<T: Config> Module<T> {
             Self::unverified_register_custom_asset_type(caller_data.primary_did, asset_type_bytes)?;
         let asset_type = AssetType::Custom(custom_asset_type_id);
 
-        let token_did = Identity::<T>::get_token_did(&ticker)?;
-        let ticker_registration_status = Self::validate_asset_creation_rules(
+        Self::validate_and_create_asset(
             caller_data.primary_did,
             caller_data.secondary_key,
-            token_did,
-            &ticker,
-            &asset_name,
-            &asset_type,
-            funding_round_name.clone(),
-            &identifiers,
-        )?;
-
-        Self::unverified_create_asset(
-            caller_data.primary_did,
-            token_did,
+            asset_name,
             ticker,
             divisible,
-            asset_name,
             asset_type,
-            funding_round_name,
             identifiers,
-            ticker_registration_status.charge_fee(),
+            funding_round_name.clone(),
         )?;
 
         Ok(())
@@ -1955,6 +1929,44 @@ impl<T: Config> Module<T> {
         Self::token_details(ticker)
             .map(|t| t.total_supply)
             .unwrap_or_default()
+    }
+
+    /// Calls [`Module::validate_asset_creation_rules`] and [`Module::unverified_create_asset`].
+    fn validate_and_create_asset(
+        caller_primary_identity: IdentityId,
+        caller_secondary_key: Option<SecondaryKey<T::AccountId>>,
+        asset_name: AssetName,
+        ticker: Ticker,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<AssetIdentifier>,
+        funding_round_name: Option<FundingRoundName>,
+    ) -> DispatchResult {
+        let token_did = Identity::<T>::get_token_did(&ticker)?;
+        let ticker_registration_status = Self::validate_asset_creation_rules(
+            caller_primary_identity,
+            caller_secondary_key,
+            token_did,
+            &ticker,
+            &asset_name,
+            &asset_type,
+            funding_round_name.clone(),
+            &identifiers,
+        )?;
+
+        Self::unverified_create_asset(
+            caller_primary_identity,
+            token_did,
+            ticker,
+            divisible,
+            asset_name,
+            asset_type,
+            funding_round_name,
+            identifiers,
+            ticker_registration_status.charge_fee(),
+        )?;
+
+        Ok(())
     }
 }
 
