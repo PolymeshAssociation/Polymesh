@@ -950,7 +950,7 @@ impl<T: Config> Module<T> {
             divisible,
             asset_type,
             identifiers,
-            funding_round_name.clone(),
+            funding_round_name,
         )?;
 
         Ok(caller_data.primary_did)
@@ -1243,7 +1243,7 @@ impl<T: Config> Module<T> {
             divisible,
             asset_type,
             identifiers,
-            funding_round_name.clone(),
+            funding_round_name,
         )?;
 
         Ok(())
