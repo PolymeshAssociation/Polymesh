@@ -511,21 +511,20 @@ decl_module! {
         /// # Arguments
         /// * `origin` - a signer that has permissions to act as an agent of `ticker`.
         /// * `ticker` - the ticker of the token.
-        /// * `identifiers` - the asset identifiers to be updated in the form of a vector of pairs
-        ///    of `IdentifierType` and `AssetIdentifier` value.
+        /// * `asset_identifiers` - the asset identifiers to be updated in the form of a vector of pairs of `IdentifierType` and `AssetIdentifier` value.
         ///
         /// ## Errors
         /// - `InvalidAssetIdentifier` if `identifiers` contains any invalid identifier.
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::update_identifiers( identifiers.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::update_identifiers(asset_identifiers.len() as u32)]
         pub fn update_identifiers(
             origin,
             ticker: Ticker,
-            identifiers: Vec<AssetIdentifier>
+            asset_identifiers: Vec<AssetIdentifier>
         ) -> DispatchResult {
-            Self::base_update_identifiers(origin, ticker, identifiers)
+            Self::base_update_identifiers(origin, ticker, asset_identifiers)
         }
 
         /// Forces a transfer of token from `from_portfolio` to the caller's default portfolio.
@@ -952,6 +951,7 @@ impl<T: Config> Module<T> {
             &asset_name,
             &asset_type,
             funding_round_name.clone(),
+            &identifiers,
         )?;
 
         Self::unverified_create_asset(
@@ -1177,11 +1177,11 @@ impl<T: Config> Module<T> {
     fn base_update_identifiers(
         origin: T::RuntimeOrigin,
         ticker: Ticker,
-        identifiers: Vec<AssetIdentifier>,
+        asset_identifiers: Vec<AssetIdentifier>,
     ) -> DispatchResult {
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
-        Self::ensure_asset_idents_valid(&identifiers)?;
-        Self::unverified_update_idents(did, ticker, identifiers);
+        Self::ensure_valid_asset_identifiers(&asset_identifiers)?;
+        Self::unverified_update_idents(did, ticker, asset_identifiers);
         Ok(())
     }
 
@@ -1257,6 +1257,7 @@ impl<T: Config> Module<T> {
             &asset_name,
             &asset_type,
             funding_round_name.clone(),
+            &identifiers,
         )?;
 
         Self::unverified_create_asset(
@@ -1708,12 +1709,14 @@ impl<T: Config> Module<T> {
         asset_name: &AssetName,
         asset_type: &AssetType,
         funding_round_name: Option<FundingRoundName>,
+        asset_identifiers: &[AssetIdentifier],
     ) -> Result<TickerRegistrationStatus, DispatchError> {
         if let Some(funding_round_name) = funding_round_name {
             Self::ensure_valid_funding_round_name(&funding_round_name)?;
         }
         Self::ensure_valid_asset_name(asset_name)?;
         Self::ensure_valid_asset_type(asset_type)?;
+        Self::ensure_valid_asset_identifiers(asset_identifiers)?;
 
         let ticker_registration_config = Self::ticker_registration_config();
         let ticker_registration_status = Self::validate_ticker_registration_rules(
@@ -1767,10 +1770,10 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Ensure that all `idents` are valid.
-    fn ensure_asset_idents_valid(idents: &[AssetIdentifier]) -> DispatchResult {
+    /// Returns `Ok` if all `asset_identifiers` are valid. Otherwise, returns [`Error::<T>::InvalidAssetIdentifier`].
+    fn ensure_valid_asset_identifiers(asset_identifiers: &[AssetIdentifier]) -> DispatchResult {
         ensure!(
-            idents.iter().all(|i| i.is_valid()),
+            asset_identifiers.iter().all(|i| i.is_valid()),
             Error::<T>::InvalidAssetIdentifier
         );
         Ok(())
