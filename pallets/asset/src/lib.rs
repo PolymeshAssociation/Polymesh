@@ -68,9 +68,6 @@
 //! - `extension_details` - It provides the list of Smart extension added for the given tokens.
 //! - `extensions` - It provides the list of Smart extension added for the given tokens and for the given type.
 //! - `frozen` - It tells whether the given ticker is frozen or not.
-//! - `is_ticker_available` - It checks whether the given ticker is available or not.
-//! - `is_ticker_registry_valid` - It checks whether the ticker is owned by a given IdentityId or not.
-//! - `is_ticker_available_or_registered_to` - It provides the status of a given ticker.
 //! - `total_supply` - It provides the total supply of a ticker.
 //! - `get_balance_at` - It provides the balance of a DID at a certain checkpoint.
 
@@ -84,24 +81,21 @@ pub mod checkpoint;
 mod error;
 mod types;
 
-use arrayvec::ArrayVec;
 use codec::{Decode, Encode};
 use core::mem;
-use core::result::Result as StdResult;
 use currency::*;
-use frame_support::dispatch::{DispatchError, DispatchResult, Weight};
-use frame_support::traits::{Get, PalletInfoAccess};
+use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::traits::Get;
 use frame_support::BoundedBTreeSet;
-use frame_support::{decl_module, decl_storage, ensure, fail};
+use frame_support::{decl_module, decl_storage, ensure};
 use frame_system::ensure_root;
 use sp_runtime::traits::Zero;
 use sp_std::collections::btree_set::BTreeSet;
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::prelude::*;
 
 use pallet_base::{
     ensure_opt_string_limited, ensure_string_limited, try_next_pre, Error::CounterOverflow,
 };
-use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
 use polymesh_common_utilities::constants::*;
@@ -173,10 +167,10 @@ decl_storage! {
 
         /// The name of the current funding round.
         /// ticker -> funding round
-        FundingRound get(fn funding_round): map hasher(blake2_128_concat) Ticker => FundingRoundName;
+        pub FundingRound get(fn funding_round): map hasher(blake2_128_concat) Ticker => FundingRoundName;
         /// The total balances of tokens issued in all recorded funding rounds.
         /// (ticker, funding round) -> balance
-        IssuedInFundingRound get(fn issued_in_funding_round): map hasher(blake2_128_concat) (Ticker, FundingRoundName) => Balance;
+        pub IssuedInFundingRound get(fn issued_in_funding_round): map hasher(blake2_128_concat) (Ticker, FundingRoundName) => Balance;
         /// The set of frozen assets implemented as a membership map.
         /// ticker -> bool
         pub Frozen get(fn frozen): map hasher(blake2_128_concat) Ticker => bool;
@@ -250,9 +244,15 @@ decl_storage! {
         config(reserved_country_currency_codes): Vec<Ticker>;
         build(|config: &GenesisConfig<T>| {
             // Reserving country currency logic
-            let fiat_tickers_reservation_did = polymesh_common_utilities::SystematicIssuers::FiatTickersReservation.as_id();
+            let fiat_tickers_reservation_did =
+                polymesh_common_utilities::SystematicIssuers::FiatTickersReservation.as_id();
             for currency_ticker in &config.reserved_country_currency_codes {
-                <Module<T>>::unverified_register_ticker(&currency_ticker, fiat_tickers_reservation_did, None);
+                let _ = <Module<T>>::unverified_register_ticker(
+                    *currency_ticker,
+                    fiat_tickers_reservation_did,
+                    None,
+                    false
+                );
             }
         });
     }
@@ -272,25 +272,6 @@ decl_module! {
         const AssetMetadataNameMaxLength: u32 = T::AssetMetadataNameMaxLength::get();
         const AssetMetadataValueMaxLength: u32 = T::AssetMetadataValueMaxLength::get();
         const AssetMetadataTypeDefMaxLength: u32 = T::AssetMetadataTypeDefMaxLength::get();
-
-        // Remove all storage related to classic tickers in this module
-        fn on_runtime_upgrade() -> Weight {
-            use polymesh_primitives::storage_migrate_on;
-            storage_migrate_on!(StorageVersion, 3, {
-                let prefixes = &[
-                    "BalanceOfAtScope",
-                    "AggregateBalance",
-                    "ScopeIdOf",
-                    "DisableInvestorUniqueness",
-                ];
-                for prefix in prefixes {
-                    let res = frame_support::storage::migration::clear_storage_prefix(<Pallet<T>>::name().as_bytes(), prefix.as_bytes(), b"", None, None);
-                    log::info!("Cleared storage prefix[{prefix}]: cursor={:?}, backend={}, unique={}, loops={}",
-                        res.maybe_cursor, res.backend, res.unique, res.loops);
-                }
-            });
-            Weight::zero()
-        }
 
         /// Registers a new ticker or extends validity of an existing ticker.
         /// NB: Ticker validity does not get carry forward when renewing ticker.
@@ -372,8 +353,8 @@ decl_module! {
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
-            Self::base_create_asset(origin, name, ticker, divisible, asset_type, identifiers, funding_round)
-                .map(drop)
+            Self::base_create_asset(origin, name, ticker, divisible, asset_type, identifiers, funding_round)?;
+            Ok(())
         }
 
         /// Freezes transfers of a given token.
@@ -530,21 +511,20 @@ decl_module! {
         /// # Arguments
         /// * `origin` - a signer that has permissions to act as an agent of `ticker`.
         /// * `ticker` - the ticker of the token.
-        /// * `identifiers` - the asset identifiers to be updated in the form of a vector of pairs
-        ///    of `IdentifierType` and `AssetIdentifier` value.
+        /// * `asset_identifiers` - the asset identifiers to be updated in the form of a vector of pairs of `IdentifierType` and `AssetIdentifier` value.
         ///
         /// ## Errors
         /// - `InvalidAssetIdentifier` if `identifiers` contains any invalid identifier.
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::update_identifiers( identifiers.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::update_identifiers(asset_identifiers.len() as u32)]
         pub fn update_identifiers(
             origin,
             ticker: Ticker,
-            identifiers: Vec<AssetIdentifier>
+            asset_identifiers: Vec<AssetIdentifier>
         ) -> DispatchResult {
-            Self::base_update_identifiers(origin, ticker, identifiers)
+            Self::base_update_identifiers(origin, ticker, asset_identifiers)
         }
 
         /// Forces a transfer of token from `from_portfolio` to the caller's default portfolio.
@@ -571,7 +551,8 @@ decl_module! {
         /// * `ty` contains the string representation of the asset type.
         #[weight = <T as Config>::WeightInfo::register_custom_asset_type(ty.len() as u32)]
         pub fn register_custom_asset_type(origin, ty: Vec<u8>) -> DispatchResult {
-            Self::base_register_custom_asset_type(origin, ty).map(drop)
+            Self::base_register_custom_asset_type(origin, ty)?;
+            Ok(())
         }
 
         /// Utility extrinsic to batch `create_asset` and `register_custom_asset_type`.
@@ -589,20 +570,14 @@ decl_module! {
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
-            let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
-            let asset_type_id = Self::unsafe_register_custom_asset_type(
-                origin_data.primary_did,
-                custom_asset_type,
-            )?;
-            Self::unsafe_create_asset(
-                origin_data.primary_did,
-                origin_data.secondary_key,
-                name,
+            Self::base_create_asset_with_custom_type(
+                origin,
                 ticker,
+                name,
                 divisible,
-                AssetType::Custom(asset_type_id),
+                custom_asset_type,
                 identifiers,
-                funding_round,
+                funding_round
             )?;
             Ok(())
         }
@@ -886,14 +861,26 @@ decl_module! {
 //==========================================================================
 
 impl<T: Config> Module<T> {
+    /// Registers `ticker` to the caller.
     fn base_register_ticker(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
-        let to_did = Identity::<T>::ensure_perms(origin)?;
-        let expiry = Self::ticker_registration_checks(&ticker, to_did, false, || {
-            Self::ticker_registration_config()
-        })?;
+        let caller_did = Identity::<T>::ensure_perms(origin)?;
 
-        T::ProtocolFee::charge_fee(ProtocolOp::AssetRegisterTicker)?;
-        Self::unverified_register_ticker(&ticker, to_did, expiry);
+        let ticker_registration_config = Self::ticker_registration_config();
+        let ticker_registration_status = Self::validate_ticker_registration_rules(
+            &ticker,
+            &caller_did,
+            ticker_registration_config.max_ticker_length,
+        )?;
+
+        let expiry = ticker_registration_config
+            .registration_length
+            .map(|x| <pallet_timestamp::Pallet<T>>::get() + x);
+        Self::unverified_register_ticker(
+            ticker,
+            caller_did,
+            expiry,
+            ticker_registration_status.charge_fee(),
+        )?;
 
         Ok(())
     }
@@ -904,7 +891,7 @@ impl<T: Config> Module<T> {
         <Identity<T>>::accept_auth_with(&to.into(), auth_id, |data, auth_by| {
             let ticker = extract_auth!(data, TransferTicker(t));
 
-            Self::ensure_asset_fresh(&ticker)?;
+            Self::ensure_asset_doesnt_exist(&ticker)?;
 
             let reg =
                 Self::ticker_registration(&ticker).ok_or(Error::<T>::TickerRegistrationExpired)?;
@@ -943,30 +930,30 @@ impl<T: Config> Module<T> {
         })
     }
 
+    /// Creates a new asset.
     fn base_create_asset(
         origin: T::RuntimeOrigin,
-        name: AssetName,
+        asset_name: AssetName,
         ticker: Ticker,
         divisible: bool,
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
-        funding_round: Option<FundingRoundName>,
+        funding_round_name: Option<FundingRoundName>,
     ) -> Result<IdentityId, DispatchError> {
-        let PermissionedCallOriginData {
-            primary_did,
-            secondary_key,
-            ..
-        } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-        Self::unsafe_create_asset(
-            primary_did,
-            secondary_key,
-            name,
+        let caller_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
+
+        Self::validate_and_create_asset(
+            caller_data.primary_did,
+            caller_data.secondary_key,
+            asset_name,
             ticker,
             divisible,
             asset_type,
             identifiers,
-            funding_round,
-        )
+            funding_round_name,
+        )?;
+
+        Ok(caller_data.primary_did)
     }
 
     fn base_set_freeze(origin: T::RuntimeOrigin, ticker: Ticker, freeze: bool) -> DispatchResult {
@@ -991,14 +978,14 @@ impl<T: Config> Module<T> {
     fn base_rename_asset(
         origin: T::RuntimeOrigin,
         ticker: Ticker,
-        name: AssetName,
+        asset_name: AssetName,
     ) -> DispatchResult {
-        Self::ensure_asset_name_bounded(&name)?;
+        Self::ensure_valid_asset_name(&asset_name)?;
         Self::ensure_asset_exists(&ticker)?;
-        let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
-        AssetNames::insert(&ticker, name.clone());
-        Self::deposit_event(RawEvent::AssetRenamed(did, ticker, name));
+        AssetNames::insert(&ticker, asset_name.clone());
+        Self::deposit_event(RawEvent::AssetRenamed(caller_did, ticker, asset_name));
         Ok(())
     }
 
@@ -1160,24 +1147,28 @@ impl<T: Config> Module<T> {
     fn base_set_funding_round(
         origin: T::RuntimeOrigin,
         ticker: Ticker,
-        name: FundingRoundName,
+        funding_round_name: FundingRoundName,
     ) -> DispatchResult {
-        Self::ensure_funding_round_name_bounded(&name)?;
-        let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+        Self::ensure_valid_funding_round_name(&funding_round_name)?;
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
-        FundingRound::insert(ticker, name.clone());
-        Self::deposit_event(RawEvent::FundingRoundSet(did, ticker, name));
+        FundingRound::insert(ticker, funding_round_name.clone());
+        Self::deposit_event(RawEvent::FundingRoundSet(
+            caller_did,
+            ticker,
+            funding_round_name,
+        ));
         Ok(())
     }
 
     fn base_update_identifiers(
         origin: T::RuntimeOrigin,
         ticker: Ticker,
-        identifiers: Vec<AssetIdentifier>,
+        asset_identifiers: Vec<AssetIdentifier>,
     ) -> DispatchResult {
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
-        Self::ensure_asset_idents_valid(&identifiers)?;
-        Self::unverified_update_idents(did, ticker, identifiers);
+        Self::ensure_valid_asset_identifiers(&asset_identifiers)?;
+        Self::unverified_update_idents(did, ticker, asset_identifiers);
         Ok(())
     }
 
@@ -1215,12 +1206,47 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    /// Registers a new custom asset type.
     fn base_register_custom_asset_type(
         origin: T::RuntimeOrigin,
-        ty: Vec<u8>,
-    ) -> Result<CustomAssetTypeId, DispatchError> {
-        let did = Identity::<T>::ensure_perms(origin)?;
-        Self::unsafe_register_custom_asset_type(did, ty)
+        asset_type_bytes: Vec<u8>,
+    ) -> DispatchResult {
+        let caller_did = Identity::<T>::ensure_perms(origin)?;
+        Self::validate_custom_asset_type_rules(&asset_type_bytes)?;
+
+        Self::unverified_register_custom_asset_type(caller_did, asset_type_bytes)?;
+        Ok(())
+    }
+
+    /// Creates an asset with [`AssetType::Custom`].
+    fn base_create_asset_with_custom_type(
+        origin: T::RuntimeOrigin,
+        ticker: Ticker,
+        asset_name: AssetName,
+        divisible: bool,
+        asset_type_bytes: Vec<u8>,
+        identifiers: Vec<AssetIdentifier>,
+        funding_round_name: Option<FundingRoundName>,
+    ) -> DispatchResult {
+        let caller_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
+
+        Self::validate_custom_asset_type_rules(&asset_type_bytes)?;
+        let custom_asset_type_id =
+            Self::unverified_register_custom_asset_type(caller_data.primary_did, asset_type_bytes)?;
+        let asset_type = AssetType::Custom(custom_asset_type_id);
+
+        Self::validate_and_create_asset(
+            caller_data.primary_did,
+            caller_data.secondary_key,
+            asset_name,
+            ticker,
+            divisible,
+            asset_type,
+            identifiers,
+            funding_round_name,
+        )?;
+
+        Ok(())
     }
 
     fn base_set_asset_metadata(
@@ -1336,7 +1362,7 @@ impl<T: Config> Module<T> {
         asset_type: AssetType,
     ) -> DispatchResult {
         Self::ensure_asset_exists(&ticker)?;
-        Self::ensure_asset_type_valid(asset_type)?;
+        Self::ensure_valid_asset_type(&asset_type)?;
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
         Tokens::try_mutate(&ticker, |token| -> DispatchResult {
             let token = token.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
@@ -1524,14 +1550,13 @@ impl<T: Config> Module<T> {
         // The only place this function is used right now is the settlement engine and the settlement engine
         // checks custodial permissions when the instruction is authorized.
 
-        // Validate the transfer
-        let is_transfer_success =
-            Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value, weight_meter)?;
-
-        ensure!(
-            is_transfer_success == ERC1400_TRANSFER_SUCCESS,
-            Error::<T>::InvalidTransfer
-        );
+        Self::validate_asset_transfer(
+            &ticker,
+            &from_portfolio,
+            &to_portfolio,
+            value,
+            weight_meter,
+        )?;
 
         Self::unsafe_transfer(
             from_portfolio,
@@ -1553,33 +1578,24 @@ impl<T: Config> Module<T> {
 //==========================================================================
 
 impl<T: Config> Module<T> {
-    /// Before registering a ticker, do some checks, and return the expiry moment.
-    fn ticker_registration_checks(
+    /// Returns [`TickerRegistrationStatus`] if all registration rules are satisfied.
+    fn validate_ticker_registration_rules(
         ticker: &Ticker,
-        to_did: IdentityId,
-        no_re_register: bool,
-        config: impl FnOnce() -> TickerRegistrationConfig<T::Moment>,
-    ) -> Result<Option<T::Moment>, DispatchError> {
+        ticker_owner_did: &IdentityId,
+        max_ticker_length: u8,
+    ) -> Result<TickerRegistrationStatus, DispatchError> {
         Self::verify_ticker_characters(&ticker)?;
-        Self::ensure_asset_fresh(&ticker)?;
+        Self::ensure_asset_doesnt_exist(&ticker)?;
 
-        let config = config();
+        Self::ensure_ticker_length(ticker, max_ticker_length)?;
 
-        // Ensure the ticker is not too long.
-        Self::ensure_ticker_length(&ticker, &config)?;
+        let ticker_registration_status = Self::can_reregister_ticker(ticker, ticker_owner_did);
 
-        // Ensure that the ticker is not registered by someone else (or `to_did`, possibly).
-        if match Self::is_ticker_available_or_registered_to(&ticker, to_did) {
-            TickerRegistrationStatus::RegisteredByOther => true,
-            TickerRegistrationStatus::RegisteredByDid => no_re_register,
-            _ => false,
-        } {
-            fail!(Error::<T>::TickerAlreadyRegistered);
+        if !ticker_registration_status.can_reregister() {
+            return Err(Error::<T>::TickerAlreadyRegistered.into());
         }
 
-        Ok(config
-            .registration_length
-            .map(|exp| <pallet_timestamp::Pallet<T>>::get() + exp))
+        Ok(ticker_registration_status)
     }
 
     /// Returns `Ok` if the ticker contains only the following characters: `A`..`Z` `0`..`9` `_` `-` `.` `/`.
@@ -1608,8 +1624,8 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Ensure asset `ticker` doesn't exist yet.
-    fn ensure_asset_fresh(ticker: &Ticker) -> DispatchResult {
+    /// Returns `Ok` if `ticker` doensn't exist. Otherwise, returns [`Error::AssetAlreadyCreated`].
+    fn ensure_asset_doesnt_exist(ticker: &Ticker) -> DispatchResult {
         ensure!(
             !Tokens::contains_key(ticker),
             Error::<T>::AssetAlreadyCreated
@@ -1617,82 +1633,124 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Ensure ticker length is within limit per `config`.
-    fn ensure_ticker_length<U>(
-        ticker: &Ticker,
-        config: &TickerRegistrationConfig<U>,
-    ) -> DispatchResult {
+    /// Returns `Ok` if `ticker` length is less or equal to `max_ticker_length`. Otherwise, returns [`Error::TickerTooLong`].
+    fn ensure_ticker_length(ticker: &Ticker, max_ticker_length: u8) -> DispatchResult {
         ensure!(
-            ticker.len() <= usize::try_from(config.max_ticker_length).unwrap_or_default(),
+            ticker.len() <= max_ticker_length as usize,
             Error::<T>::TickerTooLong
         );
         Ok(())
     }
 
-    /// Returns:
-    /// - `RegisteredByOther` if ticker is registered to someone else.
-    /// - `Available` if ticker is available for registry.
-    /// - `RegisteredByDid` if ticker is already registered to provided did.
-    fn is_ticker_available_or_registered_to(
-        ticker: &Ticker,
-        did: IdentityId,
-    ) -> TickerRegistrationStatus {
-        // Assumes uppercase ticker
-        match Self::maybe_ticker(ticker) {
-            Some(TickerRegistration { expiry, owner }) => match expiry {
-                // Ticker registered to someone but expired and can be registered again.
-                Some(expiry) if <pallet_timestamp::Pallet<T>>::get() > expiry => {
-                    TickerRegistrationStatus::Available
+    /// Returns [`TickerRegistrationStatus`] containing information regarding whether the ticker can be registered and if the fee must be charged.
+    fn can_reregister_ticker(ticker: &Ticker, caller_did: &IdentityId) -> TickerRegistrationStatus {
+        match <Tickers<T>>::get(ticker) {
+            Some(ticker_registration) => {
+                // Checks if the ticker has an expiration time
+                match ticker_registration.expiry {
+                    Some(expiration_time) => {
+                        // Checks if the registration has expired
+                        if <pallet_timestamp::Pallet<T>>::get() > expiration_time {
+                            return TickerRegistrationStatus::new(true, true);
+                        }
+                        // The ticker is still valid and was registered by the caller
+                        if &ticker_registration.owner == caller_did {
+                            return TickerRegistrationStatus::new(true, false);
+                        }
+                        // The ticker is still valid and was NOT registered by the caller
+                        TickerRegistrationStatus::new(false, false)
+                    }
+                    None => {
+                        // The ticker is still valid and was registered by the caller
+                        if &ticker_registration.owner == caller_did {
+                            return TickerRegistrationStatus::new(true, false);
+                        }
+                        // The ticker is still valid and was NOT registered by the caller
+                        TickerRegistrationStatus::new(false, false)
+                    }
                 }
-                // Ticker is already registered to provided did (may or may not expire in future).
-                _ if owner == did => TickerRegistrationStatus::RegisteredByDid,
-                // Ticker registered to someone else and hasn't expired.
-                _ => TickerRegistrationStatus::RegisteredByOther,
-            },
-            // Ticker not registered yet.
-            None => TickerRegistrationStatus::Available,
+            }
+            None => TickerRegistrationStatus::new(true, true),
         }
     }
 
-    fn maybe_ticker(ticker: &Ticker) -> Option<TickerRegistration<T::Moment>> {
-        <Tickers<T>>::get(ticker)
+    /// Returns [`TickerRegistrationStatus`] if all rules for creating an asset are satisfied.
+    fn validate_asset_creation_rules(
+        caller_did: IdentityId,
+        secondary_key: Option<SecondaryKey<T::AccountId>>,
+        token_did: IdentityId,
+        ticker: &Ticker,
+        asset_name: &AssetName,
+        asset_type: &AssetType,
+        funding_round_name: Option<FundingRoundName>,
+        asset_identifiers: &[AssetIdentifier],
+    ) -> Result<TickerRegistrationStatus, DispatchError> {
+        if let Some(funding_round_name) = funding_round_name {
+            Self::ensure_valid_funding_round_name(&funding_round_name)?;
+        }
+        Self::ensure_valid_asset_name(asset_name)?;
+        Self::ensure_valid_asset_type(asset_type)?;
+        Self::ensure_valid_asset_identifiers(asset_identifiers)?;
+
+        let ticker_registration_config = Self::ticker_registration_config();
+        let ticker_registration_status = Self::validate_ticker_registration_rules(
+            ticker,
+            &caller_did,
+            ticker_registration_config.max_ticker_length,
+        )?;
+
+        // Ensure there's no pre-existing entry for the DID.
+        Identity::<T>::ensure_no_id_record(token_did)?;
+
+        // Ensure that the caller has relevant portfolio permissions
+        Portfolio::<T>::ensure_portfolio_custody_and_permission(
+            PortfolioId::default_portfolio(caller_did),
+            caller_did,
+            secondary_key.as_ref(),
+        )?;
+        Ok(ticker_registration_status)
     }
 
     pub fn token_details(ticker: &Ticker) -> Result<SecurityToken, DispatchError> {
         Ok(Tokens::try_get(ticker).or(Err(Error::<T>::NoSuchAsset))?)
     }
 
-    /// Ensure `name` is within the global limit for asset name lengths.
-    fn ensure_funding_round_name_bounded(name: &FundingRoundName) -> DispatchResult {
+    /// Returns `Ok` if `funding_round_name` is valid. Otherwise, returns [`Error::<T>::FundingRoundNameMaxLengthExceeded`].
+    fn ensure_valid_funding_round_name(funding_round_name: &FundingRoundName) -> DispatchResult {
         ensure!(
-            name.len() as u32 <= T::FundingRoundNameMaxLength::get(),
+            funding_round_name.len() <= T::FundingRoundNameMaxLength::get() as usize,
             Error::<T>::FundingRoundNameMaxLengthExceeded
         );
         Ok(())
     }
 
-    /// Ensure `name` is within the global limit for asset name lengths.
-    fn ensure_asset_name_bounded(name: &AssetName) -> DispatchResult {
+    /// Returns `Ok` if `asset_name` is valid. Otherwise, returns [`Error::<T>::MaxLengthOfAssetNameExceeded`].
+    fn ensure_valid_asset_name(asset_name: &AssetName) -> DispatchResult {
         ensure!(
-            name.len() as u32 <= T::AssetNameMaxLength::get(),
+            asset_name.len() <= T::AssetNameMaxLength::get() as usize,
             Error::<T>::MaxLengthOfAssetNameExceeded
         );
         Ok(())
     }
 
-    /// Ensure that all `idents` are valid.
-    fn ensure_asset_idents_valid(idents: &[AssetIdentifier]) -> DispatchResult {
-        ensure!(
-            idents.iter().all(|i| i.is_valid()),
-            Error::<T>::InvalidAssetIdentifier
-        );
+    /// Returns `Ok` if `asset_type` is valid. Otherwise, returns [`Error::<T>::InvalidCustomAssetTypeId`].
+    fn ensure_valid_asset_type(asset_type: &AssetType) -> DispatchResult {
+        if let AssetType::Custom(custom_type_id) = asset_type {
+            ensure!(
+                CustomTypes::contains_key(custom_type_id),
+                Error::<T>::InvalidCustomAssetTypeId
+            );
+        }
         Ok(())
     }
 
-    /// Performs necessary checks on parameters of `create_asset`.
-    fn ensure_create_asset_parameters(ticker: &Ticker) -> DispatchResult {
-        Self::ensure_asset_fresh(&ticker)?;
-        Self::ensure_ticker_length(&ticker, &Self::ticker_registration_config())
+    /// Returns `Ok` if all `asset_identifiers` are valid. Otherwise, returns [`Error::<T>::InvalidAssetIdentifier`].
+    fn ensure_valid_asset_identifiers(asset_identifiers: &[AssetIdentifier]) -> DispatchResult {
+        ensure!(
+            asset_identifiers.iter().all(|i| i.is_valid()),
+            Error::<T>::InvalidAssetIdentifier
+        );
+        Ok(())
     }
 
     /// Ensures that `origin` is a permissioned agent for `ticker`, that the portfolio is valid and that calller
@@ -1715,6 +1773,12 @@ impl<T: Config> Module<T> {
             portfolio_id,
         )?;
         Ok(portfolio_id)
+    }
+
+    /// Returns `Ok` if all rules for creating a custom type are satisfied.
+    fn validate_custom_asset_type_rules(asset_type_bytes: &[u8]) -> DispatchResult {
+        ensure_string_limited::<T>(asset_type_bytes)?;
+        Ok(())
     }
 
     fn ensure_granular(ticker: &Ticker, value: Balance) -> DispatchResult {
@@ -1756,18 +1820,6 @@ impl<T: Config> Module<T> {
     /// Ensure that `ticker` is a valid created asset.
     fn ensure_asset_exists(ticker: &Ticker) -> DispatchResult {
         ensure!(Tokens::contains_key(&ticker), Error::<T>::NoSuchAsset);
-        Ok(())
-    }
-
-    /// Ensure `AssetType` is valid.
-    /// This checks that the `AssetType::Custom(custom_type_id)` is valid.
-    fn ensure_asset_type_valid(asset_type: AssetType) -> DispatchResult {
-        if let AssetType::Custom(custom_type_id) = asset_type {
-            ensure!(
-                CustomTypes::contains_key(custom_type_id),
-                Error::<T>::InvalidCustomAssetTypeId
-            );
-        }
         Ok(())
     }
 
@@ -1829,77 +1881,47 @@ impl<T: Config> Module<T> {
             .unwrap_or_else(|| Self::balance_of(&ticker, &did))
     }
 
-    pub fn _is_valid_transfer(
+    pub fn validate_asset_transfer(
         ticker: &Ticker,
-        from_portfolio: PortfolioId,
-        to_portfolio: PortfolioId,
+        sender_portfolio: &PortfolioId,
+        receiver_portfolio: &PortfolioId,
         value: Balance,
         weight_meter: &mut WeightMeter,
-    ) -> StdResult<u8, DispatchError> {
-        if Self::frozen(ticker) {
-            return Ok(ERC1400_TRANSFERS_HALTED);
-        }
+    ) -> DispatchResult {
+        // Verifies that the asset is not frozen
+        ensure!(!Frozen::get(ticker), Error::<T>::InvalidTransferFrozenAsset);
 
-        if Self::portfolio_failure(&from_portfolio, &to_portfolio, ticker, value) {
-            return Ok(PORTFOLIO_FAILURE);
-        }
-
-        if Self::statistics_failures(
-            &from_portfolio.did,
-            &to_portfolio.did,
-            ticker,
-            value,
-            weight_meter,
-        ) {
-            return Ok(TRANSFER_MANAGER_FAILURE);
-        }
-
-        if !T::ComplianceManager::is_compliant(
-            ticker,
-            from_portfolio.did,
-            to_portfolio.did,
-            weight_meter,
-        )? {
-            return Ok(COMPLIANCE_MANAGER_FAILURE);
-        }
-
-        Ok(ERC1400_TRANSFER_SUCCESS)
-    }
-
-    fn portfolio_failure(
-        from_portfolio: &PortfolioId,
-        to_portfolio: &PortfolioId,
-        ticker: &Ticker,
-        value: Balance,
-    ) -> bool {
+        // Verifies that both portfolios exist an that the sender has sufficient balance
         Portfolio::<T>::ensure_portfolio_transfer_validity(
-            from_portfolio,
-            to_portfolio,
+            sender_portfolio,
+            receiver_portfolio,
             ticker,
             value,
-        )
-        .is_err()
-    }
+        )?;
 
-    fn statistics_failures(
-        from_did: &IdentityId,
-        to_did: &IdentityId,
-        ticker: &Ticker,
-        value: Balance,
-        weight_meter: &mut WeightMeter,
-    ) -> bool {
-        let total_supply = Self::total_supply(ticker);
+        // Verifies that the statistics restrictions are satisfied
         Statistics::<T>::verify_transfer_restrictions(
             ticker,
-            from_did,
-            to_did,
-            Self::balance_of(ticker, from_did),
-            Self::balance_of(ticker, to_did),
+            &sender_portfolio.did,
+            &receiver_portfolio.did,
+            Self::balance_of(ticker, sender_portfolio.did),
+            Self::balance_of(ticker, receiver_portfolio.did),
             value,
-            total_supply,
+            Self::total_supply(ticker),
             weight_meter,
-        )
-        .is_err()
+        )?;
+
+        // Verifies that all compliance rules are being respected
+        if !T::ComplianceManager::is_compliant(
+            ticker,
+            sender_portfolio.did,
+            receiver_portfolio.did,
+            weight_meter,
+        )? {
+            return Err(Error::<T>::InvalidTransferComplianceFailure.into());
+        }
+
+        Ok(())
     }
 
     // Get the total supply of an asset `id`.
@@ -1908,6 +1930,44 @@ impl<T: Config> Module<T> {
             .map(|t| t.total_supply)
             .unwrap_or_default()
     }
+
+    /// Calls [`Module::validate_asset_creation_rules`] and [`Module::unverified_create_asset`].
+    fn validate_and_create_asset(
+        caller_primary_identity: IdentityId,
+        caller_secondary_key: Option<SecondaryKey<T::AccountId>>,
+        asset_name: AssetName,
+        ticker: Ticker,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<AssetIdentifier>,
+        funding_round_name: Option<FundingRoundName>,
+    ) -> DispatchResult {
+        let token_did = Identity::<T>::get_token_did(&ticker)?;
+        let ticker_registration_status = Self::validate_asset_creation_rules(
+            caller_primary_identity,
+            caller_secondary_key,
+            token_did,
+            &ticker,
+            &asset_name,
+            &asset_type,
+            funding_round_name.clone(),
+            &identifiers,
+        )?;
+
+        Self::unverified_create_asset(
+            caller_primary_identity,
+            token_did,
+            ticker,
+            divisible,
+            asset_name,
+            asset_type,
+            funding_round_name,
+            identifiers,
+            ticker_registration_status.charge_fee(),
+        )?;
+
+        Ok(())
+    }
 }
 
 //==========================================================================
@@ -1915,24 +1975,29 @@ impl<T: Config> Module<T> {
 //==========================================================================
 
 impl<T: Config> Module<T> {
-    /// Registers the given `ticker` to the `owner` identity with an optional expiry time.
-    ///
-    /// ## Expected constraints
-    /// - `owner` should be a valid IdentityId.
-    /// - `ticker` should be valid, please see `ticker_registration_checks`.
-    /// - `ticker` should be available or already registered by `owner`.
-    fn unverified_register_ticker(ticker: &Ticker, owner: IdentityId, expiry: Option<T::Moment>) {
-        if let Some(ticker_details) = Self::maybe_ticker(ticker) {
-            AssetOwnershipRelations::remove(ticker_details.owner, ticker);
+    /// All storage writes for registering `ticker` to `owner` with an optional `expiry`.
+    /// Note: If `charge_fee` is `true` one fee is charged ([`ProtocolOp::AssetRegisterTicker`]).
+    fn unverified_register_ticker(
+        ticker: Ticker,
+        owner: IdentityId,
+        expiry: Option<T::Moment>,
+        charge_fee: bool,
+    ) -> DispatchResult {
+        if charge_fee {
+            T::ProtocolFee::charge_fee(ProtocolOp::AssetRegisterTicker)?;
         }
 
-        let ticker_registration = TickerRegistration { owner, expiry };
+        // If the ticker was already registered, removes the previous owner
+        if let Some(ticker_registration) = <Tickers<T>>::get(ticker) {
+            AssetOwnershipRelations::remove(&ticker_registration.owner, &ticker);
+        }
 
-        // Store ticker registration details
-        <Tickers<T>>::insert(ticker, ticker_registration);
+        // Write the ticker registration data to the storage
+        <Tickers<T>>::insert(ticker, TickerRegistration { owner, expiry });
         AssetOwnershipRelations::insert(owner, ticker, AssetOwnershipRelation::TickerOwned);
 
-        Self::deposit_event(RawEvent::TickerRegistered(owner, *ticker, expiry));
+        Self::deposit_event(RawEvent::TickerRegistered(owner, ticker, expiry));
+        Ok(())
     }
 
     /// Transfer the given `ticker`'s registration from `req.owner` to `to`.
@@ -1945,116 +2010,46 @@ impl<T: Config> Module<T> {
         Self::deposit_event(RawEvent::TickerTransferred(to, ticker, from));
     }
 
-    fn unsafe_create_asset(
-        did: IdentityId,
-        secondary_key: Option<SecondaryKey<T::AccountId>>,
-        name: AssetName,
+    /// All storage writes for creating an asset.
+    /// Note: two fees are charged ([`ProtocolOp::AssetCreateAsset`] and [`ProtocolOp::AssetRegisterTicker`]).
+    fn unverified_create_asset(
+        caller_did: IdentityId,
+        token_did: IdentityId,
         ticker: Ticker,
         divisible: bool,
+        asset_name: AssetName,
         asset_type: AssetType,
+        funding_round_name: Option<FundingRoundName>,
         identifiers: Vec<AssetIdentifier>,
-        funding_round: Option<FundingRoundName>,
-    ) -> Result<IdentityId, DispatchError> {
-        Self::ensure_asset_name_bounded(&name)?;
-        if let Some(fr) = &funding_round {
-            Self::ensure_funding_round_name_bounded(fr)?;
-        }
-        Self::ensure_asset_idents_valid(&identifiers)?;
-        Self::ensure_asset_type_valid(asset_type)?;
-
-        Self::ensure_create_asset_parameters(&ticker)?;
-
-        // Ensure its registered by DID or at least expired, thus available.
-        let available = match Self::is_ticker_available_or_registered_to(&ticker, did) {
-            TickerRegistrationStatus::RegisteredByOther => {
-                fail!(Error::<T>::TickerAlreadyRegistered)
-            }
-            TickerRegistrationStatus::RegisteredByDid => false,
-            TickerRegistrationStatus::Available => true,
-        };
-
-        // If `ticker` isn't registered, it will be, so ensure it is fully ascii.
-        if available {
-            Self::verify_ticker_characters(&ticker)?;
-        }
-
-        let token_did = Identity::<T>::get_token_did(&ticker)?;
-        // Ensure there's no pre-existing entry for the DID.
-        // This should never happen, but let's be defensive here.
-        Identity::<T>::ensure_no_id_record(token_did)?;
-
-        // Ensure that the caller has relevant portfolio permissions
-        let user_default_portfolio = PortfolioId::default_portfolio(did);
-        Portfolio::<T>::ensure_portfolio_custody_and_permission(
-            user_default_portfolio,
-            did,
-            secondary_key.as_ref(),
-        )?;
-
-        // Charge protocol fees.
-        T::ProtocolFee::charge_fees(&{
-            let mut fees = ArrayVec::<_, 2>::new();
-            if available {
-                fees.push(ProtocolOp::AssetRegisterTicker);
-                fees.push(ProtocolOp::AssetCreateAsset);
-            }
-            fees
-        })?;
-
-        //==========================================================================
-        // At this point all checks have been made; **only** storage changes follow!
-        //==========================================================================
+        ticker_registration_fee: bool,
+    ) -> DispatchResult {
+        T::ProtocolFee::charge_fee(ProtocolOp::AssetCreateAsset)?;
+        Self::unverified_register_ticker(ticker, caller_did, None, ticker_registration_fee)?;
 
         Identity::<T>::commit_token_did(token_did, ticker);
+        let token = SecurityToken::new(Zero::zero(), caller_did, divisible, asset_type);
+        Tokens::insert(ticker, token);
 
-        // Register the ticker or finish its registration.
-        if available {
-            // Ticker not registered by anyone (or registry expired), so register.
-            Self::unverified_register_ticker(&ticker, did, None);
-        } else {
-            // Ticker already registered by the user.
-            <Tickers<T>>::mutate(&ticker, |tr| {
-                if let Some(tr) = tr {
-                    tr.expiry = None;
-                }
-            });
+        AssetNames::insert(ticker, &asset_name);
+        if let Some(ref funding_round_name) = funding_round_name {
+            FundingRound::insert(ticker, funding_round_name);
         }
+        Self::unverified_update_idents(caller_did, ticker, identifiers.clone());
+        // Grant owner full agent permissions.
+        <ExternalAgents<T>>::unchecked_add_agent(ticker, caller_did, AgentGroup::Full)?;
 
-        let token = SecurityToken {
-            total_supply: Zero::zero(),
-            owner_did: did,
-            divisible,
-            asset_type,
-        };
-        Tokens::insert(&ticker, token);
-        AssetNames::insert(&ticker, &name);
-        // NB - At the time of asset creation it is obvious that the asset issuer will not have an
-        // `InvestorUniqueness` claim. So we are skipping the scope claim based stats update as
-        // those data points will get added in to the system whenever the asset issuer
-        // has an InvestorUniqueness claim. This also applies when issuing assets.
-        AssetOwnershipRelations::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
+        AssetOwnershipRelations::insert(caller_did, ticker, AssetOwnershipRelation::AssetOwned);
         Self::deposit_event(RawEvent::AssetCreated(
-            did,
+            caller_did,
             ticker,
             divisible,
             asset_type,
-            did,
-            name,
-            identifiers.clone(),
-            funding_round.clone(),
+            caller_did,
+            asset_name,
+            identifiers,
+            funding_round_name,
         ));
-
-        // Add funding round name.
-        if let Some(funding_round) = funding_round {
-            FundingRound::insert(ticker, funding_round);
-        }
-
-        Self::unverified_update_idents(did, ticker, identifiers);
-
-        // Grant owner full agent permissions.
-        <ExternalAgents<T>>::unchecked_add_agent(ticker, did, AgentGroup::Full).unwrap();
-
-        Ok(did)
+        Ok(())
     }
 
     /// Update identitifiers of `ticker` as `did`.
@@ -2227,25 +2222,32 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn unsafe_register_custom_asset_type(
-        did: IdentityId,
-        ty: Vec<u8>,
+    /// Emits an event in case `asset_type_bytes` already exits, otherwise creates a new custom type.
+    fn unverified_register_custom_asset_type(
+        caller_did: IdentityId,
+        asset_type_bytes: Vec<u8>,
     ) -> Result<CustomAssetTypeId, DispatchError> {
-        ensure_string_limited::<T>(&ty)?;
-
-        Ok(match CustomTypesInverse::try_get(&ty) {
-            Ok(id) => {
-                Self::deposit_event(Event::<T>::CustomAssetTypeExists(did, id, ty));
-                id
+        match CustomTypesInverse::try_get(&asset_type_bytes) {
+            Ok(type_id) => {
+                Self::deposit_event(Event::<T>::CustomAssetTypeExists(
+                    caller_did,
+                    type_id,
+                    asset_type_bytes,
+                ));
+                Ok(type_id)
             }
-            Err(()) => {
-                let id = CustomTypeIdSequence::try_mutate(try_next_pre::<T, _>)?;
-                CustomTypesInverse::insert(&ty, id);
-                CustomTypes::insert(id, ty.clone());
-                Self::deposit_event(Event::<T>::CustomAssetTypeRegistered(did, id, ty));
-                id
+            Err(_) => {
+                let type_id = CustomTypeIdSequence::try_mutate(try_next_pre::<T, _>)?;
+                CustomTypesInverse::insert(&asset_type_bytes, type_id);
+                CustomTypes::insert(type_id, &asset_type_bytes);
+                Self::deposit_event(Event::<T>::CustomAssetTypeRegistered(
+                    caller_did,
+                    type_id,
+                    asset_type_bytes,
+                ));
+                Ok(type_id)
             }
-        })
+        }
     }
 
     fn unverified_set_asset_metadata(
