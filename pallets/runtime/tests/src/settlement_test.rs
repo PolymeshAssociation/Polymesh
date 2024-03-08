@@ -22,7 +22,6 @@ use pallet_settlement::{
     UserVenues, VenueInstructions,
 };
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
-use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
@@ -1430,16 +1429,13 @@ fn test_weights_for_settlement_transaction() {
             assert_affirm_instruction!(bob_signed.clone(), instruction_id, bob_did);
 
             let mut weight_meter = WeightMeter::max_limit_no_minimum();
-            assert_ok!(
-                Asset::_is_valid_transfer(
-                    &TICKER,
-                    PortfolioId::default_portfolio(alice_did),
-                    PortfolioId::default_portfolio(bob_did),
-                    100,
-                    &mut weight_meter
-                ),
-                ERC1400_TRANSFER_SUCCESS
-            );
+            assert_ok!(Asset::validate_asset_transfer(
+                &TICKER,
+                &PortfolioId::default_portfolio(alice_did),
+                &PortfolioId::default_portfolio(bob_did),
+                100,
+                &mut weight_meter
+            ),);
         });
 }
 
