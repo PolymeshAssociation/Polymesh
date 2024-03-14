@@ -1478,10 +1478,8 @@ pub(crate) fn prepare_submission_with(
     } = Staking::do_phragmen::<OffchainAccuracy>(iterations).unwrap();
     let winners = winners.into_iter().map(|(who, _)| who).collect::<Vec<_>>();
 
-    let mut staked = sp_npos_elections::assignment_ratio_to_staked(
-        assignments,
-        Staking::weight_of_fn(),
-    );
+    let mut staked =
+        sp_npos_elections::assignment_ratio_to_staked(assignments, Staking::weight_of_fn());
 
     // apply custom tweaks. awesome for testing.
     tweak(&mut staked);

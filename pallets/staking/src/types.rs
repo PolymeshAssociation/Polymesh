@@ -4,6 +4,7 @@ use sp_runtime::{Deserialize, Serialize};
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::BoundedVec;
 use sp_runtime::RuntimeDebug;
+use sp_std::vec::Vec;
 use scale_info::TypeInfo;
 
 use crate::{BalanceOf, Config, Exposure, NominatorIndex,  ValidatorIndex};

@@ -640,11 +640,48 @@ impl<T: Config> StakingLedger<T> {
     /// applied.
     pub fn slash(
         &mut self,
-        slash_amount: BalanceOf<T>,
+        mut value: BalanceOf<T>,
         minimum_balance: BalanceOf<T>,
-        slash_era: EraIndex,
     ) -> BalanceOf<T> {
-        unimplemented!()
+        let pre_total = self.total;
+        let total = &mut self.total;
+        let active = &mut self.active;
+
+        let slash_out_of = |total_remaining: &mut BalanceOf<T>,
+                            target: &mut BalanceOf<T>,
+                            value: &mut BalanceOf<T>| {
+            let mut slash_from_target = (*value).min(*target);
+
+            if !slash_from_target.is_zero() {
+                *target -= slash_from_target;
+
+                // don't leave a dust balance in the staking system.
+                if *target <= minimum_balance {
+                    slash_from_target += *target;
+                    *value += sp_std::mem::replace(target, Zero::zero());
+                }
+
+                *total_remaining = total_remaining.saturating_sub(slash_from_target);
+                *value -= slash_from_target;
+            }
+        };
+
+        slash_out_of(total, active, &mut value);
+
+        let i = self
+            .unlocking
+            .iter_mut()
+            .map(|chunk| {
+                slash_out_of(total, &mut chunk.value, &mut value);
+                chunk.value
+            })
+            .take_while(|value| value.is_zero()) // take all fully-consumed chunks out.
+            .count();
+
+        // kill all drained chunks.
+        let _ = self.unlocking.drain(..i);
+
+        pre_total.saturating_sub(*total)
     }
 }
 

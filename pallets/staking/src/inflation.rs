@@ -48,7 +48,8 @@ where
         * yearly_inflation
             .calculate_for_fraction_times_denominator(npos_token_staked, total_tokens.clone());
 
-    // Polymesh change: Have fixed rewards kicked in?
+    // Polymesh Change: Have fixed rewards kicked in?
+    // -----------------------------------------------------------------
     if total_tokens >= max_inflated_issuance {
         let fixed_payout = portion * non_inflated_yearly_reward;
         if fixed_payout <= payout {
