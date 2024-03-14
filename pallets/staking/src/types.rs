@@ -1,14 +1,15 @@
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 
-use codec::{Decode, Encode, HasCompact};
+use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
+use frame_support::BoundedVec;
 use sp_runtime::RuntimeDebug;
 use scale_info::TypeInfo;
 
-use crate::{Exposure, ValidatorIndex, NominatorIndex};
+use crate::{BalanceOf, Config, Exposure, NominatorIndex,  ValidatorIndex};
 
 /// Preference of an identity regarding validation.
-#[derive(Clone, Copy, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Copy, Decode, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct PermissionedIdentityPrefs {
     /// Intended number of validators an identity wants to run.
     ///
@@ -41,7 +42,7 @@ impl PermissionedIdentityPrefs {
 
 /// Switch used to change the "victim" for slashing. Victims can be
 /// validators, both validators and nominators, or no-one.
-#[derive(Clone, Copy, Decode, Default, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Copy, Decode, Default, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum SlashingSwitch {
     /// Allow validators but not nominators to get slashed.
@@ -66,21 +67,22 @@ pub enum ElectionCompute {
 }
 
 /// The result of an election round.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct ElectionResult<AccountId, Balance: HasCompact> {
     /// Flat list of validators who have been elected.
-    elected_stashes: Vec<AccountId>,
+    pub elected_stashes: Vec<AccountId>,
     /// Flat list of new exposures, to be updated in the [`Exposure`] storage.
-    exposures: Vec<(AccountId, Exposure<AccountId, Balance>)>,
+    pub exposures: Vec<(AccountId, Exposure<AccountId, Balance>)>,
     /// Type of the result. This is kept on chain only to track and report the best score's
     /// submission type. An optimisation could remove this.
     pub compute: ElectionCompute,
 }
 
 /// The status of the upcoming (offchain) election.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Clone, Decode, Default, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 pub enum ElectionStatus<BlockNumber> {
     /// Nothing has and will happen for now. submission window is not open.
+    #[default]
     Closed,
     /// The submission window has been open since the contained block number.
     Open(BlockNumber),
@@ -91,7 +93,7 @@ pub enum ElectionStatus<BlockNumber> {
 /// Note that these values must reflect the __total__ number, not only those that are present in the
 /// solution. In short, these should be the same size as the size of the values dumped in
 /// `SnapshotValidators` and `SnapshotNominators`.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo, RuntimeDebug, Default)]
+#[derive(Clone, Copy, Decode, Default, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct ElectionSize {
     /// Number of validators in the snapshot of the current election round.
     #[codec(compact)]
@@ -116,12 +118,6 @@ impl<BlockNumber: PartialEq> ElectionStatus<BlockNumber> {
 
     pub fn is_open(&self) -> bool {
         !self.is_closed()
-    }
-}
-
-impl<BlockNumber> Default for ElectionStatus<BlockNumber> {
-    fn default() -> Self {
-        Self::Closed
     }
 }
 

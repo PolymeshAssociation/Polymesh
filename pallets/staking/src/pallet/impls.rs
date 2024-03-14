@@ -44,11 +44,24 @@ use sp_std::prelude::*;
 
 use crate::{
     log, slashing, weights::WeightInfo, ActiveEraInfo, BalanceOf, EraPayout, Exposure, ExposureOf,
-    Forcing, IndividualExposure, MaxWinnersOf, Nominations, PositiveImbalanceOf, RewardDestination,
+    Forcing, IndividualExposure, Nominations, PositiveImbalanceOf, RewardDestination,
     SessionInterface, StakingLedger, ValidatorPrefs,
 };
 
 use super::{pallet::*, STAKING_ID};
+
+use frame_support::traits::DefensiveSaturating;
+use sp_npos_elections::{
+    Assignment, ElectionScore, Supports, to_support_map, EvaluateSupport, SupportMap, 
+    ExtendedBalance
+};
+
+use polymesh_common_utilities::Context;
+use polymesh_primitives::IdentityId;
+
+use crate::{UnlockChunk, ValidatorIndex, CompactAssignments, NominatorIndex, OffchainAccuracy};
+use crate::types::{ElectionSize, ElectionCompute, ElectionResult};
+use crate::_feps::NposSolution;
 
 /// The maximum number of iterations that we do whilst iterating over `T::VoterList` in
 /// `get_npos_voters`.
@@ -57,6 +70,8 @@ use super::{pallet::*, STAKING_ID};
 /// invalid (for any reason) the iteration continues. With this constant, we iterate at most 2 * n
 /// times and then give up.
 const NPOS_MAX_ITERATIONS_COEFFICIENT: u32 = 2;
+
+type Identity<T> = pallet_identity::Module<T>;
 
 impl<T: Config> Pallet<T> {
     /// The total balance that can be slashed from a stash account as of right now.
@@ -89,11 +104,11 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    /// Same as `weight_of_fn`, but made for one time use.
-    pub fn weight_of(who: &T::AccountId) -> VoteWeight {
-        let issuance = T::Currency::total_issuance();
-        Self::slashable_balance_of_vote_weight(who, issuance)
-    }
+//    /// Same as `weight_of_fn`, but made for one time use.
+//    pub fn weight_of(who: &T::AccountId) -> VoteWeight {
+//        let issuance = T::Currency::total_issuance();
+//        Self::slashable_balance_of_vote_weight(who, issuance)
+//    }
 
     pub(super) fn do_withdraw_unbonded(
         controller: &T::AccountId,
@@ -114,13 +129,15 @@ impl<T: Config> Pallet<T> {
                 // Remove the lock.
                 T::Currency::remove_lock(STAKING_ID, &stash);
 
-                T::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
+                //T::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
+                unimplemented!()
             } else {
                 // This was the consequence of a partial unbond. just update the ledger and move on.
                 Self::update_ledger(&controller, &ledger);
 
                 // This is only an update, so we use less overall weight.
-                T::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
+                //T::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
+                unimplemented!()
             };
 
         // `old_total` should never be less than the new total because
@@ -128,10 +145,7 @@ impl<T: Config> Pallet<T> {
         if ledger.total < old_total {
             // Already checked that this won't overflow by entry condition.
             let value = old_total - ledger.total;
-            Self::deposit_event(Event::<T>::Withdrawn {
-                stash,
-                amount: value,
-            });
+            Self::deposit_event(Event::<T>::Withdrawn(stash, value));
         }
 
         Ok(used_weight)
@@ -140,29 +154,20 @@ impl<T: Config> Pallet<T> {
     pub(super) fn do_payout_stakers(
         validator_stash: T::AccountId,
         era: EraIndex,
-    ) -> DispatchResultWithPostInfo {
+    ) -> DispatchResult {
         // Validate input data
-        let current_era = CurrentEra::<T>::get().ok_or_else(|| {
-            Error::<T>::InvalidEraToReward
-                .with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
-        })?;
+        let current_era = CurrentEra::<T>::get().ok_or(Error::<T>::InvalidEraToReward)?;
         let history_depth = T::HistoryDepth::get();
         ensure!(
             era <= current_era && era >= current_era.saturating_sub(history_depth),
             Error::<T>::InvalidEraToReward
-                .with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
         );
 
         // Note: if era has no reward to be claimed, era may be future. better not to update
         // `ledger.claimed_rewards` in this case.
-        let era_payout = <ErasValidatorReward<T>>::get(&era).ok_or_else(|| {
-            Error::<T>::InvalidEraToReward
-                .with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
-        })?;
+        let era_payout = <ErasValidatorReward<T>>::get(&era).ok_or(Error::<T>::InvalidEraToReward)?;
 
-        let controller = Self::bonded(&validator_stash).ok_or_else(|| {
-            Error::<T>::NotStash.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
-        })?;
+        let controller = Self::bonded(&validator_stash).ok_or(Error::<T>::NotStash)?;
         let mut ledger = <Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController)?;
 
         ledger
@@ -171,8 +176,7 @@ impl<T: Config> Pallet<T> {
 
         match ledger.claimed_rewards.binary_search(&era) {
             Ok(_) => {
-                return Err(Error::<T>::AlreadyClaimed
-                    .with_weight(T::WeightInfo::payout_stakers_alive_staked(0)))
+                return Err(Error::<T>::AlreadyClaimed.into())
             }
             Err(pos) => ledger
                 .claimed_rewards
@@ -206,7 +210,7 @@ impl<T: Config> Pallet<T> {
 
         // Nothing to do if they have no reward points.
         if validator_reward_points.is_zero() {
-            return Ok(Some(T::WeightInfo::payout_stakers_alive_staked(0)).into());
+            return Ok(());
         }
 
         // This is the fraction of the total reward that the validator and the
@@ -227,10 +231,6 @@ impl<T: Config> Pallet<T> {
         let validator_exposure_part = Perbill::from_rational(exposure.own, exposure.total);
         let validator_staking_payout = validator_exposure_part * validator_leftover_payout;
 
-        Self::deposit_event(Event::<T>::PayoutStarted {
-            era_index: era,
-            validator_stash: ledger.stash.clone(),
-        });
 
         let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
         // We can now make total validator payout:
@@ -238,10 +238,11 @@ impl<T: Config> Pallet<T> {
             &ledger.stash,
             validator_staking_payout + validator_commission_payout,
         ) {
-            Self::deposit_event(Event::<T>::Rewarded {
-                stash: ledger.stash,
-                amount: imbalance.peek(),
-            });
+            // Polymesh change: Provide DID of stash account.
+            // -----------------------------------------------------------------
+            let did = <Identity<T>>::get_identity(&ledger.stash).unwrap_or_default();
+            Self::deposit_event(Event::<T>::Reward(did, ledger.stash, imbalance.peek()));
+            // -----------------------------------------------------------------
             total_imbalance.subsume(imbalance);
         }
 
@@ -261,21 +262,16 @@ impl<T: Config> Pallet<T> {
             if let Some(imbalance) = Self::make_payout(&nominator.who, nominator_reward) {
                 // Note: this logic does not count payouts for `RewardDestination::None`.
                 nominator_payout_count += 1;
-                let e = Event::<T>::Rewarded {
-                    stash: nominator.who.clone(),
-                    amount: imbalance.peek(),
-                };
-                Self::deposit_event(e);
+                // Polymesh change: Provide DID of nominator account.
+                // -------------------------------------------------------------
+                let did = <Identity<T>>::get_identity(&nominator.who).unwrap_or_default();
+                Self::deposit_event(Event::<T>::Reward(did, nominator.who.clone(), imbalance.peek()));
+                // -------------------------------------------------------------
                 total_imbalance.subsume(imbalance);
             }
         }
 
-        T::Reward::on_unbalanced(total_imbalance);
-        debug_assert!(nominator_payout_count <= T::MaxNominatorRewardedPerValidator::get());
-        Ok(Some(T::WeightInfo::payout_stakers_alive_staked(
-            nominator_payout_count,
-        ))
-        .into())
+        Ok(())
     }
 
     /// Update the ledger for a controller.
@@ -293,13 +289,12 @@ impl<T: Config> Pallet<T> {
 
     /// Chill a stash account.
     pub(crate) fn chill_stash(stash: &T::AccountId) {
-        let chilled_as_validator = Self::do_remove_validator(stash);
-        let chilled_as_nominator = Self::do_remove_nominator(stash);
-        if chilled_as_validator || chilled_as_nominator {
-            Self::deposit_event(Event::<T>::Chilled {
-                stash: stash.clone(),
-            });
-        }
+        // Polymesh Change: Decrement the running count by 1
+        // -----------------------------------------------------------------
+        Self::release_running_validator(stash);
+        // -----------------------------------------------------------------
+        Self::do_remove_validator(stash);
+        Self::do_remove_nominator(stash);
     }
 
     /// Actually make a payment to a staker. This uses the currency's reward function
@@ -326,315 +321,11 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Plan a new session potentially trigger a new era.
-    fn new_session(
-        session_index: SessionIndex,
-        is_genesis: bool,
-    ) -> Option<BoundedVec<T::AccountId, MaxWinnersOf<T>>> {
-        if let Some(current_era) = Self::current_era() {
-            // Initial era has been set.
-            let current_era_start_session_index = Self::eras_start_session_index(current_era)
-                .unwrap_or_else(|| {
-                    frame_support::print("Error: start_session_index must be set for current_era");
-                    0
-                });
-
-            let era_length = session_index.saturating_sub(current_era_start_session_index); // Must never happen.
-
-            match ForceEra::<T>::get() {
-                // Will be set to `NotForcing` again if a new era has been triggered.
-                Forcing::ForceNew => (),
-                // Short circuit to `try_trigger_new_era`.
-                Forcing::ForceAlways => (),
-                // Only go to `try_trigger_new_era` if deadline reached.
-                Forcing::NotForcing if era_length >= T::SessionsPerEra::get() => (),
-                _ => {
-                    // Either `Forcing::ForceNone`,
-                    // or `Forcing::NotForcing if era_length >= T::SessionsPerEra::get()`.
-                    return None;
-                }
-            }
-
-            // New era.
-            let maybe_new_era_validators = Self::try_trigger_new_era(session_index, is_genesis);
-            if maybe_new_era_validators.is_some()
-                && matches!(ForceEra::<T>::get(), Forcing::ForceNew)
-            {
-                Self::set_force_era(Forcing::NotForcing);
-            }
-
-            maybe_new_era_validators
-        } else {
-            // Set initial era.
-            log!(debug, "Starting the first era.");
-            Self::try_trigger_new_era(session_index, is_genesis)
-        }
-    }
-
-    /// Start a session potentially starting an era.
-    fn start_session(start_session: SessionIndex) {
-        let next_active_era = Self::active_era().map(|e| e.index + 1).unwrap_or(0);
-        // This is only `Some` when current era has already progressed to the next era, while the
-        // active era is one behind (i.e. in the *last session of the active era*, or *first session
-        // of the new current era*, depending on how you look at it).
-        if let Some(next_active_era_start_session_index) =
-            Self::eras_start_session_index(next_active_era)
-        {
-            if next_active_era_start_session_index == start_session {
-                Self::start_era(start_session);
-            } else if next_active_era_start_session_index < start_session {
-                // This arm should never happen, but better handle it than to stall the staking
-                // pallet.
-                frame_support::print("Warning: A session appears to have been skipped.");
-                Self::start_era(start_session);
-            }
-        }
-
-        // disable all offending validators that have been disabled for the whole era
-        for (index, disabled) in <OffendingValidators<T>>::get() {
-            if disabled {
-                T::SessionInterface::disable_validator(index);
-            }
-        }
-    }
-
-    /// End a session potentially ending an era.
-    fn end_session(session_index: SessionIndex) {
-        if let Some(active_era) = Self::active_era() {
-            if let Some(next_active_era_start_session_index) =
-                Self::eras_start_session_index(active_era.index + 1)
-            {
-                if next_active_era_start_session_index == session_index + 1 {
-                    Self::end_era(active_era, session_index);
-                }
-            }
-        }
-    }
-
-    /// Start a new era. It does:
-    ///
-    /// * Increment `active_era.index`,
-    /// * reset `active_era.start`,
-    /// * update `BondedEras` and apply slashes.
-    fn start_era(start_session: SessionIndex) {
-        let active_era = ActiveEra::<T>::mutate(|active_era| {
-            let new_index = active_era.as_ref().map(|info| info.index + 1).unwrap_or(0);
-            *active_era = Some(ActiveEraInfo {
-                index: new_index,
-                // Set new active era start in next `on_finalize`. To guarantee usage of `Time`
-                start: None,
-            });
-            new_index
-        });
-
-        let bonding_duration = T::BondingDuration::get();
-
-        BondedEras::<T>::mutate(|bonded| {
-            bonded.push((active_era, start_session));
-
-            if active_era > bonding_duration {
-                let first_kept = active_era - bonding_duration;
-
-                // Prune out everything that's from before the first-kept index.
-                let n_to_prune = bonded
-                    .iter()
-                    .take_while(|&&(era_idx, _)| era_idx < first_kept)
-                    .count();
-
-                // Kill slashing metadata.
-                for (pruned_era, _) in bonded.drain(..n_to_prune) {
-                    slashing::clear_era_metadata::<T>(pruned_era);
-                }
-
-                if let Some(&(_, first_session)) = bonded.first() {
-                    T::SessionInterface::prune_historical_up_to(first_session);
-                }
-            }
-        });
-
-        Self::apply_unapplied_slashes(active_era);
-    }
-
-    /// Compute payout for era.
-    fn end_era(active_era: ActiveEraInfo, _session_index: SessionIndex) {
-        // Note: active_era_start can be None if end era is called during genesis config.
-        if let Some(active_era_start) = active_era.start {
-            let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
-
-            let era_duration = (now_as_millis_u64 - active_era_start).saturated_into::<u64>();
-            let staked = Self::eras_total_stake(&active_era.index);
-            let issuance = T::Currency::total_issuance();
-            let (validator_payout, remainder) =
-                T::EraPayout::era_payout(staked, issuance, era_duration);
-
-            Self::deposit_event(Event::<T>::EraPaid {
-                era_index: active_era.index,
-                validator_payout,
-                remainder,
-            });
-
-            // Set ending era reward.
-            <ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
-            T::RewardRemainder::on_unbalanced(T::Currency::issue(remainder));
-
-            // Clear offending validators.
-            <OffendingValidators<T>>::kill();
-        }
-    }
-
-    /// Plan a new era.
-    ///
-    /// * Bump the current era storage (which holds the latest planned era).
-    /// * Store start session index for the new planned era.
-    /// * Clean old era information.
-    /// * Store staking information for the new planned era
-    ///
-    /// Returns the new validator set.
-    pub fn trigger_new_era(
-        start_session_index: SessionIndex,
-        exposures: BoundedVec<
-            (T::AccountId, Exposure<T::AccountId, BalanceOf<T>>),
-            MaxWinnersOf<T>,
-        >,
-    ) -> BoundedVec<T::AccountId, MaxWinnersOf<T>> {
-        // Increment or set current era.
-        let new_planned_era = CurrentEra::<T>::mutate(|s| {
-            *s = Some(s.map(|s| s + 1).unwrap_or(0));
-            s.unwrap()
-        });
-        ErasStartSessionIndex::<T>::insert(&new_planned_era, &start_session_index);
-
-        // Clean old era information.
-        if let Some(old_era) = new_planned_era.checked_sub(T::HistoryDepth::get() + 1) {
-            Self::clear_era_information(old_era);
-        }
-
-        // Set staking information for the new era.
-        Self::store_stakers_info(exposures, new_planned_era)
-    }
-
-    /// Potentially plan a new era.
-    ///
-    /// Get election result from `T::ElectionProvider`.
-    /// In case election result has more than [`MinimumValidatorCount`] validator trigger a new era.
-    ///
-    /// In case a new era is planned, the new validator set is returned.
-    pub(crate) fn try_trigger_new_era(
-        start_session_index: SessionIndex,
-        is_genesis: bool,
-    ) -> Option<BoundedVec<T::AccountId, MaxWinnersOf<T>>> {
-        let election_result: BoundedVec<_, MaxWinnersOf<T>> = if is_genesis {
-            let result = <T::GenesisElectionProvider>::elect().map_err(|e| {
-                log!(warn, "genesis election provider failed due to {:?}", e);
-                Self::deposit_event(Event::StakingElectionFailed);
-            });
-
-            result
-                .ok()?
-                .into_inner()
-                .try_into()
-                // both bounds checked in integrity test to be equal
-                .defensive_unwrap_or_default()
-        } else {
-            let result = <T::ElectionProvider>::elect().map_err(|e| {
-                log!(warn, "election provider failed due to {:?}", e);
-                Self::deposit_event(Event::StakingElectionFailed);
-            });
-            result.ok()?
-        };
-
-        let exposures = Self::collect_exposures(election_result);
-        if (exposures.len() as u32) < Self::minimum_validator_count().max(1) {
-            // Session will panic if we ever return an empty validator set, thus max(1) ^^.
-            match CurrentEra::<T>::get() {
-                Some(current_era) if current_era > 0 => log!(
-                    warn,
-                    "chain does not have enough staking candidates to operate for era {:?} ({} \
-					elected, minimum is {})",
-                    CurrentEra::<T>::get().unwrap_or(0),
-                    exposures.len(),
-                    Self::minimum_validator_count(),
-                ),
-                None => {
-                    // The initial era is allowed to have no exposures.
-                    // In this case the SessionManager is expected to choose a sensible validator
-                    // set.
-                    // TODO: this should be simplified #8911
-                    CurrentEra::<T>::put(0);
-                    ErasStartSessionIndex::<T>::insert(&0, &start_session_index);
-                }
-                _ => (),
-            }
-
-            Self::deposit_event(Event::StakingElectionFailed);
-            return None;
-        }
-
-        Self::deposit_event(Event::StakersElected);
-        Some(Self::trigger_new_era(start_session_index, exposures))
-    }
-
-    /// Process the output of the election.
-    ///
-    /// Store staking information for the new planned era
-    pub fn store_stakers_info(
-        exposures: BoundedVec<
-            (T::AccountId, Exposure<T::AccountId, BalanceOf<T>>),
-            MaxWinnersOf<T>,
-        >,
-        new_planned_era: EraIndex,
-    ) -> BoundedVec<T::AccountId, MaxWinnersOf<T>> {
-        let elected_stashes: BoundedVec<_, MaxWinnersOf<T>> = exposures
-			.iter()
-			.cloned()
-			.map(|(x, _)| x)
-			.collect::<Vec<_>>()
-			.try_into()
-			.expect("since we only map through exposures, size of elected_stashes is always same as exposures; qed");
-
-        // Populate stakers, exposures, and the snapshot of validator prefs.
-        let mut total_stake: BalanceOf<T> = Zero::zero();
-        exposures.into_iter().for_each(|(stash, exposure)| {
-            total_stake = total_stake.saturating_add(exposure.total);
-            <ErasStakers<T>>::insert(new_planned_era, &stash, &exposure);
-
-            let mut exposure_clipped = exposure;
-            let clipped_max_len = T::MaxNominatorRewardedPerValidator::get() as usize;
-            if exposure_clipped.others.len() > clipped_max_len {
-                exposure_clipped
-                    .others
-                    .sort_by(|a, b| a.value.cmp(&b.value).reverse());
-                exposure_clipped.others.truncate(clipped_max_len);
-            }
-            <ErasStakersClipped<T>>::insert(&new_planned_era, &stash, exposure_clipped);
-        });
-
-        // Insert current era staking information
-        <ErasTotalStake<T>>::insert(&new_planned_era, total_stake);
-
-        // Collect the pref of all winners.
-        for stash in &elected_stashes {
-            let pref = Self::validators(stash);
-            <ErasValidatorPrefs<T>>::insert(&new_planned_era, stash, pref);
-        }
-
-        if new_planned_era > 0 {
-            log!(
-                info,
-                "new validator set of size {:?} has been processed for era {:?}",
-                elected_stashes.len(),
-                new_planned_era,
-            );
-        }
-
-        elected_stashes
-    }
-
     /// Consume a set of [`BoundedSupports`] from [`sp_npos_elections`] and collect them into a
     /// [`Exposure`].
-    fn collect_exposures(
-        supports: BoundedSupportsOf<T::ElectionProvider>,
-    ) -> BoundedVec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>), MaxWinnersOf<T>> {
+    pub(crate) fn collect_exposures(
+        supports: SupportMap<T::AccountId>,
+    ) -> Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)> {
         let total_issuance = T::Currency::total_issuance();
         let to_currency = |e: frame_election_provider_support::ExtendedBalance| {
             T::CurrencyToVote::to_currency(e, total_issuance)
@@ -666,8 +357,7 @@ impl<T: Config> Pallet<T> {
                 let exposure = Exposure { own, others, total };
                 (validator, exposure)
             })
-            .try_collect()
-            .expect("we only map through support vector which cannot change the size; qed")
+            .collect()
     }
 
     /// Remove all associated data of a stash account from the staking system.
@@ -694,62 +384,61 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Clear all era information for given era.
-    pub(crate) fn clear_era_information(era_index: EraIndex) {
-        #[allow(deprecated)]
-        <ErasStakers<T>>::remove_prefix(era_index, None);
-        #[allow(deprecated)]
-        <ErasStakersClipped<T>>::remove_prefix(era_index, None);
-        #[allow(deprecated)]
-        <ErasValidatorPrefs<T>>::remove_prefix(era_index, None);
-        <ErasValidatorReward<T>>::remove(era_index);
-        <ErasRewardPoints<T>>::remove(era_index);
-        <ErasTotalStake<T>>::remove(era_index);
-        ErasStartSessionIndex::<T>::remove(era_index);
-    }
-
-    /// Apply previously-unapplied slashes on the beginning of a new era, after a delay.
-    fn apply_unapplied_slashes(active_era: EraIndex) {
-        let era_slashes = <Self as Store>::UnappliedSlashes::take(&active_era);
-        log!(
-            debug,
-            "found {} slashes scheduled to be executed in era {:?}",
-            era_slashes.len(),
-            active_era,
-        );
-        for slash in era_slashes {
-            let slash_era = active_era.saturating_sub(T::SlashDeferDuration::get());
-            slashing::apply_slash::<T>(slash, slash_era);
-        }
-    }
-
-    /// Add reward points to validators using their stash account ID.
-    ///
-    /// Validators are keyed by stash account ID and must be in the current elected set.
-    ///
-    /// For each element in the iterator the given number of points in u32 is added to the
-    /// validator, thus duplicates are handled.
-    ///
-    /// At the end of the era each the total payout will be distributed among validator
-    /// relatively to their points.
-    ///
-    /// COMPLEXITY: Complexity is `number_of_validator_to_reward x current_elected_len`.
-    pub fn reward_by_ids(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
-        if let Some(active_era) = Self::active_era() {
-            <ErasRewardPoints<T>>::mutate(active_era.index, |era_rewards| {
-                for (validator, points) in validators_points.into_iter() {
-                    *era_rewards.individual.entry(validator).or_default() += points;
-                    era_rewards.total += points;
-                }
-            });
-        }
-    }
+//    /// Clear all era information for given era.
+//    pub(crate) fn clear_era_information(era_index: EraIndex) {
+//        #[allow(deprecated)]
+//        <ErasStakers<T>>::remove_prefix(era_index, None);
+//        #[allow(deprecated)]
+//        <ErasStakersClipped<T>>::remove_prefix(era_index, None);
+//        #[allow(deprecated)]
+//        <ErasValidatorPrefs<T>>::remove_prefix(era_index, None);
+//        <ErasValidatorReward<T>>::remove(era_index);
+//        <ErasRewardPoints<T>>::remove(era_index);
+//        <ErasTotalStake<T>>::remove(era_index);
+//        ErasStartSessionIndex::<T>::remove(era_index);
+//    }
+//
+//    /// Apply previously-unapplied slashes on the beginning of a new era, after a delay.
+//    fn apply_unapplied_slashes(active_era: EraIndex) {
+//        let era_slashes = <Self as Store>::UnappliedSlashes::take(&active_era);
+//        log!(
+//            debug,
+//            "found {} slashes scheduled to be executed in era {:?}",
+//            era_slashes.len(),
+//            active_era,
+//        );
+//        for slash in era_slashes {
+//            let slash_era = active_era.saturating_sub(T::SlashDeferDuration::get());
+//            slashing::apply_slash::<T>(slash, slash_era);
+//        }
+//    }
+//
+//    /// Add reward points to validators using their stash account ID.
+//    ///
+//    /// Validators are keyed by stash account ID and must be in the current elected set.
+//    ///
+//    /// For each element in the iterator the given number of points in u32 is added to the
+//    /// validator, thus duplicates are handled.
+//    ///
+//    /// At the end of the era each the total payout will be distributed among validator
+//    /// relatively to their points.
+//    ///
+//    /// COMPLEXITY: Complexity is `number_of_validator_to_reward x current_elected_len`.
+//    pub fn reward_by_ids(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
+//        if let Some(active_era) = Self::active_era() {
+//            <ErasRewardPoints<T>>::mutate(active_era.index, |era_rewards| {
+//                for (validator, points) in validators_points.into_iter() {
+//                    *era_rewards.individual.entry(validator).or_default() += points;
+//                    era_rewards.total += points;
+//                }
+//            });
+//        }
+//    }
 
     /// Helper to set a new `ForceEra` mode.
     pub(crate) fn set_force_era(mode: Forcing) {
         log!(info, "Setting force era mode {:?}.", mode);
         ForceEra::<T>::put(mode);
-        Self::deposit_event(Event::<T>::ForceEra { mode });
     }
 
     /// Ensures that at the end of the current session there will be a new era.
@@ -760,153 +449,20 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    #[cfg(feature = "runtime-benchmarks")]
-    pub fn add_era_stakers(
-        current_era: EraIndex,
-        stash: T::AccountId,
-        exposure: Exposure<T::AccountId, BalanceOf<T>>,
-    ) {
-        <ErasStakers<T>>::insert(&current_era, &stash, &exposure);
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    pub fn set_slash_reward_fraction(fraction: Perbill) {
-        SlashRewardFraction::<T>::put(fraction);
-    }
-
-    /// Get all of the voters that are eligible for the npos election.
-    ///
-    /// `maybe_max_len` can imposes a cap on the number of voters returned;
-    ///
-    /// Sets `MinimumActiveStake` to the minimum active nominator stake in the returned set of
-    /// nominators.
-    ///
-    /// This function is self-weighing as [`DispatchClass::Mandatory`].
-    pub fn get_npos_voters(maybe_max_len: Option<usize>) -> Vec<VoterOf<Self>> {
-        let max_allowed_len = {
-            let all_voter_count = T::VoterList::count() as usize;
-            maybe_max_len
-                .unwrap_or(all_voter_count)
-                .min(all_voter_count)
-        };
-
-        let mut all_voters = Vec::<_>::with_capacity(max_allowed_len);
-
-        // cache a few things.
-        let weight_of = Self::weight_of_fn();
-
-        let mut voters_seen = 0u32;
-        let mut validators_taken = 0u32;
-        let mut nominators_taken = 0u32;
-        let mut min_active_stake = u64::MAX;
-
-        let mut sorted_voters = T::VoterList::iter();
-        while all_voters.len() < max_allowed_len
-            && voters_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * max_allowed_len as u32)
-        {
-            let voter = match sorted_voters.next() {
-                Some(voter) => {
-                    voters_seen.saturating_inc();
-                    voter
-                }
-                None => break,
-            };
-
-            if let Some(Nominations { targets, .. }) = <Nominators<T>>::get(&voter) {
-                let voter_weight = weight_of(&voter);
-                if !targets.is_empty() {
-                    all_voters.push((voter.clone(), voter_weight, targets));
-                    nominators_taken.saturating_inc();
-                } else {
-                    // Technically should never happen, but not much we can do about it.
-                }
-                min_active_stake = if voter_weight < min_active_stake {
-                    voter_weight
-                } else {
-                    min_active_stake
-                };
-            } else if Validators::<T>::contains_key(&voter) {
-                // if this voter is a validator:
-                let self_vote = (
-                    voter.clone(),
-                    weight_of(&voter),
-                    vec![voter.clone()]
-                        .try_into()
-                        .expect("`MaxVotesPerVoter` must be greater than or equal to 1"),
-                );
-                all_voters.push(self_vote);
-                validators_taken.saturating_inc();
-            } else {
-                // this can only happen if: 1. there a bug in the bags-list (or whatever is the
-                // sorted list) logic and the state of the two pallets is no longer compatible, or
-                // because the nominators is not decodable since they have more nomination than
-                // `T::MaxNominations`. The latter can rarely happen, and is not really an emergency
-                // or bug if it does.
-                log!(
-					warn,
-					"DEFENSIVE: invalid item in `VoterList`: {:?}, this nominator probably has too many nominations now",
-					voter
-				);
-            }
-        }
-
-        // all_voters should have not re-allocated.
-        debug_assert!(all_voters.capacity() == max_allowed_len);
-
-        Self::register_weight(T::WeightInfo::get_npos_voters(
-            validators_taken,
-            nominators_taken,
-        ));
-
-        let min_active_stake: T::CurrencyBalance = if all_voters.len() == 0 {
-            0u64.into()
-        } else {
-            min_active_stake.into()
-        };
-
-        MinimumActiveStake::<T>::put(min_active_stake);
-
-        log!(
-            info,
-            "generated {} npos voters, {} from validators and {} nominators",
-            all_voters.len(),
-            validators_taken,
-            nominators_taken
-        );
-
-        all_voters
-    }
-
-    /// Get the targets for an upcoming npos election.
-    ///
-    /// This function is self-weighing as [`DispatchClass::Mandatory`].
-    pub fn get_npos_targets(maybe_max_len: Option<usize>) -> Vec<T::AccountId> {
-        let max_allowed_len = maybe_max_len.unwrap_or_else(|| T::TargetList::count() as usize);
-        let mut all_targets = Vec::<T::AccountId>::with_capacity(max_allowed_len);
-        let mut targets_seen = 0;
-
-        let mut targets_iter = T::TargetList::iter();
-        while all_targets.len() < max_allowed_len
-            && targets_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * max_allowed_len as u32)
-        {
-            let target = match targets_iter.next() {
-                Some(target) => {
-                    targets_seen.saturating_inc();
-                    target
-                }
-                None => break,
-            };
-
-            if Validators::<T>::contains_key(&target) {
-                all_targets.push(target);
-            }
-        }
-
-        Self::register_weight(T::WeightInfo::get_npos_targets(all_targets.len() as u32));
-        log!(info, "generated {} npos targets", all_targets.len());
-
-        all_targets
-    }
+//    #[cfg(feature = "runtime-benchmarks")]
+//    pub fn add_era_stakers(
+//        current_era: EraIndex,
+//        stash: T::AccountId,
+//        exposure: Exposure<T::AccountId, BalanceOf<T>>,
+//    ) {
+//        <ErasStakers<T>>::insert(&current_era, &stash, &exposure);
+//    }
+//
+//    #[cfg(feature = "runtime-benchmarks")]
+//    pub fn set_slash_reward_fraction(fraction: Perbill) {
+//        SlashRewardFraction::<T>::put(fraction);
+//    }
+//
 
     /// This function will add a nominator to the `Nominators` storage map,
     /// and `VoterList`.
@@ -917,17 +473,7 @@ impl<T: Config> Pallet<T> {
     /// to `Nominators` or `VoterList` outside of this function is almost certainly
     /// wrong.
     pub fn do_add_nominator(who: &T::AccountId, nominations: Nominations<T>) {
-        if !Nominators::<T>::contains_key(who) {
-            // maybe update sorted list.
-            let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who))
-                .defensive_unwrap_or_default();
-        }
         Nominators::<T>::insert(who, nominations);
-
-        debug_assert_eq!(
-            Nominators::<T>::count() + Validators::<T>::count(),
-            T::VoterList::count()
-        );
     }
 
     /// This function will remove a nominator from the `Nominators` storage map,
@@ -939,20 +485,12 @@ impl<T: Config> Pallet<T> {
     /// `Nominators` or `VoterList` outside of this function is almost certainly
     /// wrong.
     pub fn do_remove_nominator(who: &T::AccountId) -> bool {
-        let outcome = if Nominators::<T>::contains_key(who) {
+        if Nominators::<T>::contains_key(who) {
             Nominators::<T>::remove(who);
-            let _ = T::VoterList::on_remove(who).defensive();
             true
         } else {
             false
-        };
-
-        debug_assert_eq!(
-            Nominators::<T>::count() + Validators::<T>::count(),
-            T::VoterList::count()
-        );
-
-        outcome
+        }
     }
 
     /// This function will add a validator to the `Validators` storage map.
@@ -963,17 +501,7 @@ impl<T: Config> Pallet<T> {
     /// `Validators` or `VoterList` outside of this function is almost certainly
     /// wrong.
     pub fn do_add_validator(who: &T::AccountId, prefs: ValidatorPrefs) {
-        if !Validators::<T>::contains_key(who) {
-            // maybe update sorted list.
-            let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who))
-                .defensive_unwrap_or_default();
-        }
         Validators::<T>::insert(who, prefs);
-
-        debug_assert_eq!(
-            Nominators::<T>::count() + Validators::<T>::count(),
-            T::VoterList::count()
-        );
     }
 
     /// This function will remove a validator from the `Validators` storage map.
@@ -984,898 +512,368 @@ impl<T: Config> Pallet<T> {
     /// `Validators` or `VoterList` outside of this function is almost certainly
     /// wrong.
     pub fn do_remove_validator(who: &T::AccountId) -> bool {
-        let outcome = if Validators::<T>::contains_key(who) {
+        if Validators::<T>::contains_key(who) {
             Validators::<T>::remove(who);
-            let _ = T::VoterList::on_remove(who).defensive();
             true
         } else {
             false
-        };
-
-        debug_assert_eq!(
-            Nominators::<T>::count() + Validators::<T>::count(),
-            T::VoterList::count()
-        );
-
-        outcome
+        }
     }
 
-    /// Register some amount of weight directly with the system pallet.
-    ///
-    /// This is always mandatory weight.
-    fn register_weight(weight: Weight) {
-        <frame_system::Pallet<T>>::register_extra_weight_unchecked(
-            weight,
-            DispatchClass::Mandatory,
-        );
-    }
-}
+//    /// Register some amount of weight directly with the system pallet.
+//    ///
+//    /// This is always mandatory weight.
+//    fn register_weight(weight: Weight) {
+//        <frame_system::Pallet<T>>::register_extra_weight_unchecked(
+//            weight,
+//            DispatchClass::Mandatory,
+//        );
+//    }
 
-impl<T: Config> Pallet<T> {
-    /// Returns the current nominations quota for nominators.
-    ///
-    /// Used by the runtime API.
-    /// Note: for now, this api runtime will always return value of `T::MaxNominations` and thus it
-    /// is redundant. However, with the upcoming changes in
-    /// <https://github.com/paritytech/substrate/pull/12970>, the nominations quota will change
-    /// depending on the nominators balance. We're introducing this runtime API now to prepare the
-    /// community to use it before rolling out PR#12970.
-    pub fn api_nominations_quota(_balance: BalanceOf<T>) -> u32 {
-        T::MaxNominations::get()
-    }
-}
-
-impl<T: Config> ElectionDataProvider for Pallet<T> {
-    type AccountId = T::AccountId;
-    type BlockNumber = BlockNumberFor<T>;
-    type MaxVotesPerVoter = T::MaxNominations;
-
-    fn desired_targets() -> data_provider::Result<u32> {
-        Self::register_weight(T::DbWeight::get().reads(1));
-        Ok(Self::validator_count())
+    // Polymesh Change: 
+    // ----------------------------------------------------------------- 
+    /// Returns the allowed validator count.
+    pub(crate) fn get_allowed_validator_count() -> u32 {
+        (T::MaxValidatorPerIdentity::get() * Self::validator_count()).max(1)
     }
 
-    fn electing_voters(maybe_max_len: Option<usize>) -> data_provider::Result<Vec<VoterOf<Self>>> {
-        // This can never fail -- if `maybe_max_len` is `Some(_)` we handle it.
-        let voters = Self::get_npos_voters(maybe_max_len);
-        debug_assert!(maybe_max_len.map_or(true, |max| voters.len() <= max));
-
-        Ok(voters)
-    }
-
-    fn electable_targets(maybe_max_len: Option<usize>) -> data_provider::Result<Vec<T::AccountId>> {
-        let target_count = T::TargetList::count();
-
-        // We can't handle this case yet -- return an error.
-        if maybe_max_len.map_or(false, |max_len| target_count > max_len as u32) {
-            return Err("Target snapshot too big");
+    /// Decrease the running count of validators by 1 for the stash identity.
+    pub(crate) fn release_running_validator(stash: &T::AccountId) {
+        if !<Validators<T>>::contains_key(stash) {
+            return;
         }
 
-        Ok(Self::get_npos_targets(None))
-    }
-
-    fn next_election_prediction(now: T::BlockNumber) -> T::BlockNumber {
-        let current_era = Self::current_era().unwrap_or(0);
-        let current_session = Self::current_planned_session();
-        let current_era_start_session_index =
-            Self::eras_start_session_index(current_era).unwrap_or(0);
-        // Number of session in the current era or the maximum session per era if reached.
-        let era_progress = current_session
-            .saturating_sub(current_era_start_session_index)
-            .min(T::SessionsPerEra::get());
-
-        let until_this_session_end = T::NextNewSession::estimate_next_new_session(now)
-            .0
-            .unwrap_or_default()
-            .saturating_sub(now);
-
-        let session_length = T::NextNewSession::average_session_length();
-
-        let sessions_left: T::BlockNumber = match ForceEra::<T>::get() {
-            Forcing::ForceNone => Bounded::max_value(),
-            Forcing::ForceNew | Forcing::ForceAlways => Zero::zero(),
-            Forcing::NotForcing if era_progress >= T::SessionsPerEra::get() => Zero::zero(),
-            Forcing::NotForcing => T::SessionsPerEra::get()
-                .saturating_sub(era_progress)
-                // One session is computed in this_session_end.
-                .saturating_sub(1)
-                .into(),
-        };
-
-        now.saturating_add(
-            until_this_session_end.saturating_add(sessions_left.saturating_mul(session_length)),
-        )
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn add_voter(
-        voter: T::AccountId,
-        weight: VoteWeight,
-        targets: BoundedVec<T::AccountId, Self::MaxVotesPerVoter>,
-    ) {
-        let stake = <BalanceOf<T>>::try_from(weight).unwrap_or_else(|_| {
-            panic!("cannot convert a VoteWeight into BalanceOf, benchmark needs reconfiguring.")
-        });
-        <Bonded<T>>::insert(voter.clone(), voter.clone());
-        <Ledger<T>>::insert(
-            voter.clone(),
-            StakingLedger {
-                stash: voter.clone(),
-                active: stake,
-                total: stake,
-                unlocking: Default::default(),
-                claimed_rewards: Default::default(),
-            },
-        );
-
-        Self::do_add_nominator(
-            &voter,
-            Nominations {
-                targets,
-                submitted_in: 0,
-                suppressed: false,
-            },
-        );
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn add_target(target: T::AccountId) {
-        let stake = MinValidatorBond::<T>::get() * 100u32.into();
-        <Bonded<T>>::insert(target.clone(), target.clone());
-        <Ledger<T>>::insert(
-            target.clone(),
-            StakingLedger {
-                stash: target.clone(),
-                active: stake,
-                total: stake,
-                unlocking: Default::default(),
-                claimed_rewards: Default::default(),
-            },
-        );
-        Self::do_add_validator(
-            &target,
-            ValidatorPrefs {
-                commission: Perbill::zero(),
-                blocked: false,
-            },
-        );
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn clear() {
-        #[allow(deprecated)]
-        <Bonded<T>>::remove_all(None);
-        #[allow(deprecated)]
-        <Ledger<T>>::remove_all(None);
-        #[allow(deprecated)]
-        <Validators<T>>::remove_all();
-        #[allow(deprecated)]
-        <Nominators<T>>::remove_all();
-
-        T::VoterList::unsafe_clear();
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn put_snapshot(
-        voters: Vec<VoterOf<Self>>,
-        targets: Vec<T::AccountId>,
-        target_stake: Option<VoteWeight>,
-    ) {
-        targets.into_iter().for_each(|v| {
-            let stake: BalanceOf<T> = target_stake
-                .and_then(|w| <BalanceOf<T>>::try_from(w).ok())
-                .unwrap_or_else(|| MinNominatorBond::<T>::get() * 100u32.into());
-            <Bonded<T>>::insert(v.clone(), v.clone());
-            <Ledger<T>>::insert(
-                v.clone(),
-                StakingLedger {
-                    stash: v.clone(),
-                    active: stake,
-                    total: stake,
-                    unlocking: Default::default(),
-                    claimed_rewards: Default::default(),
-                },
-            );
-            Self::do_add_validator(
-                &v,
-                ValidatorPrefs {
-                    commission: Perbill::zero(),
-                    blocked: false,
-                },
-            );
-        });
-
-        voters.into_iter().for_each(|(v, s, t)| {
-            let stake = <BalanceOf<T>>::try_from(s).unwrap_or_else(|_| {
-                panic!("cannot convert a VoteWeight into BalanceOf, benchmark needs reconfiguring.")
-            });
-            <Bonded<T>>::insert(v.clone(), v.clone());
-            <Ledger<T>>::insert(
-                v.clone(),
-                StakingLedger {
-                    stash: v.clone(),
-                    active: stake,
-                    total: stake,
-                    unlocking: Default::default(),
-                    claimed_rewards: Default::default(),
-                },
-            );
-            Self::do_add_nominator(
-                &v,
-                Nominations {
-                    targets: t,
-                    submitted_in: 0,
-                    suppressed: false,
-                },
-            );
-        });
-    }
-}
-
-/// In this implementation `new_session(session)` must be called before `end_session(session-1)`
-/// i.e. the new session must be planned before the ending of the previous session.
-///
-/// Once the first new_session is planned, all session must start and then end in order, though
-/// some session can lag in between the newest session planned and the latest session started.
-impl<T: Config> pallet_session::SessionManager<T::AccountId> for Pallet<T> {
-    fn new_session(new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
-        log!(trace, "planning new session {}", new_index);
-        CurrentPlannedSession::<T>::put(new_index);
-        Self::new_session(new_index, false).map(|v| v.into_inner())
-    }
-    fn new_session_genesis(new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
-        log!(trace, "planning new session {} at genesis", new_index);
-        CurrentPlannedSession::<T>::put(new_index);
-        Self::new_session(new_index, true).map(|v| v.into_inner())
-    }
-    fn start_session(start_index: SessionIndex) {
-        log!(trace, "starting session {}", start_index);
-        Self::start_session(start_index)
-    }
-    fn end_session(end_index: SessionIndex) {
-        log!(trace, "ending session {}", end_index);
-        Self::end_session(end_index)
-    }
-}
-
-impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>>
-    for Pallet<T>
-{
-    fn new_session(
-        new_index: SessionIndex,
-    ) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
-        <Self as pallet_session::SessionManager<_>>::new_session(new_index).map(|validators| {
-            let current_era = Self::current_era()
-                // Must be some as a new era has been created.
-                .unwrap_or(0);
-
-            validators
-                .into_iter()
-                .map(|v| {
-                    let exposure = Self::eras_stakers(current_era, &v);
-                    (v, exposure)
-                })
-                .collect()
-        })
-    }
-    fn new_session_genesis(
-        new_index: SessionIndex,
-    ) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
-        <Self as pallet_session::SessionManager<_>>::new_session_genesis(new_index).map(
-            |validators| {
-                let current_era = Self::current_era()
-                    // Must be some as a new era has been created.
-                    .unwrap_or(0);
-
-                validators
-                    .into_iter()
-                    .map(|v| {
-                        let exposure = Self::eras_stakers(current_era, &v);
-                        (v, exposure)
-                    })
-                    .collect()
-            },
-        )
-    }
-    fn start_session(start_index: SessionIndex) {
-        <Self as pallet_session::SessionManager<_>>::start_session(start_index)
-    }
-    fn end_session(end_index: SessionIndex) {
-        <Self as pallet_session::SessionManager<_>>::end_session(end_index)
-    }
-}
-
-/// Add reward points to block authors:
-/// * 20 points to the block producer for producing a (non-uncle) block in the relay chain,
-impl<T> pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Pallet<T>
-where
-    T: Config + pallet_authorship::Config + pallet_session::Config,
-{
-    fn note_author(author: T::AccountId) {
-        Self::reward_by_ids(vec![(author, 20)])
-    }
-}
-
-/// This is intended to be used with `FilterHistoricalOffences`.
-impl<T: Config>
-    OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight>
-    for Pallet<T>
-where
-    T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
-    T: pallet_session::historical::Config<
-        FullIdentification = Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
-        FullIdentificationOf = ExposureOf<T>,
-    >,
-    T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
-    T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
-    T::ValidatorIdOf: Convert<
-        <T as frame_system::Config>::AccountId,
-        Option<<T as frame_system::Config>::AccountId>,
-    >,
-{
-    fn on_offence(
-        offenders: &[OffenceDetails<
-            T::AccountId,
-            pallet_session::historical::IdentificationTuple<T>,
-        >],
-        slash_fraction: &[Perbill],
-        slash_session: SessionIndex,
-        disable_strategy: DisableStrategy,
-    ) -> Weight {
-        let reward_proportion = SlashRewardFraction::<T>::get();
-        let mut consumed_weight = Weight::from_ref_time(0);
-        let mut add_db_reads_writes = |reads, writes| {
-            consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
-        };
-
-        let active_era = {
-            let active_era = Self::active_era();
-            add_db_reads_writes(1, 0);
-            if active_era.is_none() {
-                // This offence need not be re-submitted.
-                return consumed_weight;
-            }
-            active_era
-                .expect("value checked not to be `None`; qed")
-                .index
-        };
-        let active_era_start_session_index = Self::eras_start_session_index(active_era)
-            .unwrap_or_else(|| {
-                frame_support::print("Error: start_session_index must be set for current_era");
-                0
-            });
-        add_db_reads_writes(1, 0);
-
-        let window_start = active_era.saturating_sub(T::BondingDuration::get());
-
-        // Fast path for active-era report - most likely.
-        // `slash_session` cannot be in a future active era. It must be in `active_era` or before.
-        let slash_era = if slash_session >= active_era_start_session_index {
-            active_era
-        } else {
-            let eras = BondedEras::<T>::get();
-            add_db_reads_writes(1, 0);
-
-            // Reverse because it's more likely to find reports from recent eras.
-            match eras
-                .iter()
-                .rev()
-                .find(|&&(_, ref sesh)| sesh <= &slash_session)
-            {
-                Some(&(ref slash_era, _)) => *slash_era,
-                // Before bonding period. defensive - should be filtered out.
-                None => return consumed_weight,
-            }
-        };
-
-        add_db_reads_writes(1, 1);
-
-        let slash_defer_duration = T::SlashDeferDuration::get();
-
-        let invulnerables = Self::invulnerables();
-        add_db_reads_writes(1, 0);
-
-        for (details, slash_fraction) in offenders.iter().zip(slash_fraction) {
-            let (stash, exposure) = &details.offender;
-
-            // Skip if the validator is invulnerable.
-            if invulnerables.contains(stash) {
-                continue;
-            }
-
-            let unapplied = slashing::compute_slash::<T>(slashing::SlashParams {
-                stash,
-                slash: *slash_fraction,
-                exposure,
-                slash_era,
-                window_start,
-                now: active_era,
-                reward_proportion,
-                disable_strategy,
-            });
-
-            Self::deposit_event(Event::<T>::SlashReported {
-                validator: stash.clone(),
-                fraction: *slash_fraction,
-                slash_era,
-            });
-
-            if let Some(mut unapplied) = unapplied {
-                let nominators_len = unapplied.others.len() as u64;
-                let reporters_len = details.reporters.len() as u64;
-
-                {
-                    let upper_bound = 1 /* Validator/NominatorSlashInEra */ + 2 /* fetch_spans */;
-                    let rw = upper_bound + nominators_len * upper_bound;
-                    add_db_reads_writes(rw, rw);
-                }
-                unapplied.reporters = details.reporters.clone();
-                if slash_defer_duration == 0 {
-                    // Apply right away.
-                    slashing::apply_slash::<T>(unapplied, slash_era);
-                    {
-                        let slash_cost = (6, 5);
-                        let reward_cost = (2, 2);
-                        add_db_reads_writes(
-                            (1 + nominators_len) * slash_cost.0 + reward_cost.0 * reporters_len,
-                            (1 + nominators_len) * slash_cost.1 + reward_cost.1 * reporters_len,
-                        );
+        if let Some(id) = <Identity<T>>::get_identity(stash) {
+            PermissionedIdentity::<T>::mutate(&id, |pref| {
+                if let Some(p) = pref {
+                    if p.running_count > 0 {
+                        p.running_count -= 1;
+                        <Identity<T>>::remove_account_key_ref_count(&stash);
                     }
-                } else {
-                    // Defer to end of some `slash_defer_duration` from now.
-                    log!(
-                        debug,
-                        "deferring slash of {:?}% happened in {:?} (reported in {:?}) to {:?}",
-                        slash_fraction,
-                        slash_era,
-                        active_era,
-                        slash_era + slash_defer_duration + 1,
-                    );
-                    <Self as Store>::UnappliedSlashes::mutate(
-                        slash_era
-                            .saturating_add(slash_defer_duration)
-                            .saturating_add(One::one()),
-                        move |for_later| for_later.push(unapplied),
-                    );
-                    add_db_reads_writes(1, 1);
+                }
+            });
+        }
+    }
+
+    /// Basic and cheap checks that we perform in validate unsigned, and in the execution.
+    ///
+    /// State reads: ElectionState, CurrentEr, QueuedScore.
+    ///
+    /// This function does weight refund in case of errors, which is based upon the fact that it is
+    /// called at the very beginning of the call site's function.
+    pub fn pre_dispatch_checks(score: ElectionScore, era: EraIndex) -> DispatchResultWithPostInfo {
+        // discard solutions that are not in-time
+        // check window open
+        ensure!(
+            Self::era_election_status().is_open(),
+            Error::<T>::OffchainElectionEarlySubmission
+                .with_weight(T::DbWeight::get().reads(1)),
+        );
+
+        // check current era.
+        if let Some(current_era) = Self::current_era() {
+            ensure!(
+                current_era == era,
+                Error::<T>::OffchainElectionEarlySubmission
+                    .with_weight(T::DbWeight::get().reads(2)),
+            )
+        }
+
+        // assume the given score is valid. Is it better than what we have on-chain, if we have any?
+        if let Some(queued_score) = Self::queued_score() {
+            ensure!(
+                score.strict_threshold_better(queued_score, T::MinSolutionScoreBump::get()),
+                Error::<T>::OffchainElectionWeakSubmission
+                    .with_weight(T::DbWeight::get().reads(3)),
+            )
+        }
+
+        Ok(None::<Weight>.into())
+    }
+
+    /// Checks a given solution and if correct and improved, writes it on chain as the queued result
+    /// of the next round. This may be called by both a signed and an unsigned transaction.
+    pub(crate) fn check_and_replace_solution(
+        winners: Vec<ValidatorIndex>,
+        compact_assignments: CompactAssignments,
+        compute: ElectionCompute,
+        claimed_score: ElectionScore,
+        era: EraIndex,
+        election_size: ElectionSize,
+    ) -> DispatchResultWithPostInfo {
+        // Do the basic checks. era, claimed score and window open.
+        let _ = Self::pre_dispatch_checks(claimed_score, era)?;
+
+        // before we read any further state, we check that the unique targets in compact is same as
+        // compact. is a all in-memory check and easy to do. Moreover, it ensures that the solution
+        // is not full of bogus edges that can cause lots of reads to SlashingSpans. Thus, we can
+        // assume that the storage access of this function is always O(|winners|), not
+        // O(|compact.edge_count()|).
+        ensure!(
+            compact_assignments.unique_targets().len() == winners.len(),
+            Error::<T>::OffchainElectionBogusWinnerCount,
+        );
+
+        // Check that the number of presented winners is sane. Most often we have more candidates
+        // than we need. Then it should be `Self::validator_count()`. Else it should be all the
+        // candidates.
+        let snapshot_validators_length = <SnapshotValidators<T>>::decode_len()
+            .map(|l| l as u32)
+            .ok_or_else(|| Error::<T>::SnapshotUnavailable)?;
+
+        // size of the solution must be correct.
+        ensure!(
+            snapshot_validators_length == u32::from(election_size.validators),
+            Error::<T>::OffchainElectionBogusElectionSize,
+        );
+
+        // check the winner length only here and when we know the length of the snapshot validators
+        // length.
+        let desired_winners = Self::validator_count().min(snapshot_validators_length);
+        ensure!(
+            winners.len() as u32 == desired_winners,
+            Error::<T>::OffchainElectionBogusWinnerCount
+        );
+
+        let snapshot_nominators_len = <SnapshotNominators<T>>::decode_len()
+            .map(|l| l as u32)
+            .ok_or_else(|| Error::<T>::SnapshotUnavailable)?;
+
+        // rest of the size of the solution must be correct.
+        ensure!(
+            snapshot_nominators_len == election_size.nominators,
+            Error::<T>::OffchainElectionBogusElectionSize,
+        );
+
+        // decode snapshot validators.
+        let snapshot_validators = Self::snapshot_validators();
+        ensure!(
+            !snapshot_validators.is_empty(),
+            Error::<T>::SnapshotUnavailable
+        );
+
+        // check if all winners were legit; this is rather cheap. Replace with accountId.
+        let winners = winners
+            .into_iter()
+            .map(|widx| {
+                // NOTE: at the moment, since staking is explicitly blocking any offence until election
+                // is closed, we don't check here if the account id at `snapshot_validators[widx]` is
+                // actually a validator. If this ever changes, this loop needs to also check this.
+                snapshot_validators
+                    .get(widx as usize)
+                    .cloned()
+                    .ok_or(Error::<T>::OffchainElectionBogusWinner)
+            })
+            .collect::<Result<Vec<T::AccountId>, Error<T>>>()?;
+
+        // decode the rest of the snapshot.
+        let snapshot_nominators = Self::snapshot_nominators();
+        ensure!(
+            !snapshot_nominators.is_empty(),
+            Error::<T>::SnapshotUnavailable
+        );
+
+        // helpers
+        let nominator_at = |i: NominatorIndex| -> Option<T::AccountId> {
+            snapshot_nominators.get(i as usize).cloned()
+        };
+        let validator_at = |i: ValidatorIndex| -> Option<T::AccountId> {
+            snapshot_validators.get(i as usize).cloned()
+        };
+
+        // un-compact.
+        let assignments = compact_assignments
+            .into_assignment(nominator_at, validator_at)
+            .map_err(|e| {
+                // log the error since it is not propagated into the runtime error.
+                log!(warn, "💸 un-compacting solution failed due to {:?}", e);
+                Error::<T>::OffchainElectionBogusCompact
+            })?;
+
+        // check all nominators actually including the claimed vote. Also check correct self votes.
+        // Note that we assume all validators and nominators in `assignments` are properly bonded,
+        // because they are coming from the snapshot via a given index.
+        for Assignment { who, distribution } in assignments.iter() {
+            let is_validator = <Validators<T>>::contains_key(&who);
+            let maybe_nomination = Self::nominators(&who);
+
+            if !(maybe_nomination.is_some() ^ is_validator) {
+                // all of the indices must map to either a validator or a nominator. If this is ever
+                // not the case, then the locking system of staking is most likely faulty, or we
+                // have bigger problems.
+                log!(
+                    error,
+                    "💸 detected an error in the staking locking and snapshot."
+                );
+                // abort.
+                return Err(Error::<T>::OffchainElectionBogusNominator.into());
+            }
+
+            if !is_validator {
+                // a normal vote
+                let nomination = maybe_nomination.expect(
+                    "exactly one of `maybe_validator` and `maybe_nomination.is_some` is true. \
+                    is_validator is false; maybe_nomination is some; qed",
+                );
+
+                // NOTE: we don't really have to check here if the sum of all edges are the
+                // nominator correct. Un-compacting assures this by definition.
+
+                for (t, _) in distribution {
+                    // each target in the provided distribution must be actually nominated by the
+                    // nominator after the last non-zero slash.
+                    if nomination.targets.iter().find(|&tt| tt == t).is_none() {
+                        return Err(Error::<T>::OffchainElectionBogusNomination.into());
+                    }
+
+                    if <Self as Store>::SlashingSpans::get(&t).map_or(false, |spans| {
+                        nomination.submitted_in < spans.last_nonzero_slash()
+                    }) {
+                        return Err(Error::<T>::OffchainElectionSlashedNomination.into());
+                    }
                 }
             } else {
-                add_db_reads_writes(4 /* fetch_spans */, 5 /* kick_out_if_recent */)
+                // a self vote
+                ensure!(
+                    distribution.len() == 1,
+                    Error::<T>::OffchainElectionBogusSelfVote
+                );
+                ensure!(
+                    distribution[0].0 == *who,
+                    Error::<T>::OffchainElectionBogusSelfVote
+                );
+                // defensive only. A compact assignment of length one does NOT encode the weight and
+                // it is always created to be 100%.
+                ensure!(
+                    distribution[0].1 == OffchainAccuracy::one(),
+                    Error::<T>::OffchainElectionBogusSelfVote,
+                );
             }
         }
 
-        consumed_weight
-    }
-}
+        // convert into staked assignments.
+        let staked_assignments = sp_npos_elections::assignment_ratio_to_staked(
+            assignments,
+            Self::weight_of_fn(),
+        );
 
-impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
-    type Score = VoteWeight;
-
-    fn score(who: &T::AccountId) -> Self::Score {
-        Self::weight_of(who)
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn set_score_of(who: &T::AccountId, weight: Self::Score) {
-        // this will clearly results in an inconsistent state, but it should not matter for a
-        // benchmark.
-        let active: BalanceOf<T> = weight.try_into().map_err(|_| ()).unwrap();
-        let mut ledger = match Self::ledger(who) {
-            None => StakingLedger::default_from(who.clone()),
-            Some(l) => l,
-        };
-        ledger.active = active;
-
-        <Ledger<T>>::insert(who, ledger);
-        <Bonded<T>>::insert(who, who);
-
-        // also, we play a trick to make sure that a issuance based-`CurrencyToVote` behaves well:
-        // This will make sure that total issuance is zero, thus the currency to vote will be a 1-1
-        // conversion.
-        let imbalance = T::Currency::burn(T::Currency::total_issuance());
-        // kinda ugly, but gets the job done. The fact that this works here is a HUGE exception.
-        // Don't try this pattern in other places.
-        sp_std::mem::forget(imbalance);
-    }
-}
-
-/// A simple sorted list implementation that does not require any additional pallets. Note, this
-/// does not provide validators in sorted order. If you desire nominators in a sorted order take
-/// a look at [`pallet-bags-list`].
-pub struct UseValidatorsMap<T>(sp_std::marker::PhantomData<T>);
-impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
-    type Score = BalanceOf<T>;
-    type Error = ();
-
-    /// Returns iterator over voter list, which can have `take` called on it.
-    fn iter() -> Box<dyn Iterator<Item = T::AccountId>> {
-        Box::new(Validators::<T>::iter().map(|(v, _)| v))
-    }
-    fn iter_from(
-        start: &T::AccountId,
-    ) -> Result<Box<dyn Iterator<Item = T::AccountId>>, Self::Error> {
-        if Validators::<T>::contains_key(start) {
-            let start_key = Validators::<T>::hashed_key_for(start);
-            Ok(Box::new(
-                Validators::<T>::iter_from(start_key).map(|(n, _)| n),
-            ))
-        } else {
-            Err(())
-        }
-    }
-    fn count() -> u32 {
-        Validators::<T>::count()
-    }
-    fn contains(id: &T::AccountId) -> bool {
-        Validators::<T>::contains_key(id)
-    }
-    fn on_insert(_: T::AccountId, _weight: Self::Score) -> Result<(), Self::Error> {
-        // nothing to do on insert.
-        Ok(())
-    }
-    fn get_score(id: &T::AccountId) -> Result<Self::Score, Self::Error> {
-        Ok(Pallet::<T>::weight_of(id).into())
-    }
-    fn on_update(_: &T::AccountId, _weight: Self::Score) -> Result<(), Self::Error> {
-        // nothing to do on update.
-        Ok(())
-    }
-    fn on_remove(_: &T::AccountId) -> Result<(), Self::Error> {
-        // nothing to do on remove.
-        Ok(())
-    }
-    fn unsafe_regenerate(
-        _: impl IntoIterator<Item = T::AccountId>,
-        _: Box<dyn Fn(&T::AccountId) -> Self::Score>,
-    ) -> u32 {
-        // nothing to do upon regenerate.
-        0
-    }
-    #[cfg(feature = "try-runtime")]
-    fn try_state() -> Result<(), &'static str> {
-        Ok(())
-    }
-
-    fn unsafe_clear() {
-        #[allow(deprecated)]
-        Validators::<T>::remove_all();
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn score_update_worst_case(_who: &T::AccountId, _is_increase: bool) -> Self::Score {
-        unimplemented!()
-    }
-}
-
-/// A simple voter list implementation that does not require any additional pallets. Note, this
-/// does not provided nominators in sorted ordered. If you desire nominators in a sorted order take
-/// a look at [`pallet-bags-list].
-pub struct UseNominatorsAndValidatorsMap<T>(sp_std::marker::PhantomData<T>);
-impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsMap<T> {
-    type Error = ();
-    type Score = VoteWeight;
-
-    fn iter() -> Box<dyn Iterator<Item = T::AccountId>> {
-        Box::new(
-            Validators::<T>::iter()
-                .map(|(v, _)| v)
-                .chain(Nominators::<T>::iter().map(|(n, _)| n)),
-        )
-    }
-    fn iter_from(
-        start: &T::AccountId,
-    ) -> Result<Box<dyn Iterator<Item = T::AccountId>>, Self::Error> {
-        if Validators::<T>::contains_key(start) {
-            let start_key = Validators::<T>::hashed_key_for(start);
-            Ok(Box::new(
-                Validators::<T>::iter_from(start_key)
-                    .map(|(n, _)| n)
-                    .chain(Nominators::<T>::iter().map(|(x, _)| x)),
-            ))
-        } else if Nominators::<T>::contains_key(start) {
-            let start_key = Nominators::<T>::hashed_key_for(start);
-            Ok(Box::new(
-                Nominators::<T>::iter_from(start_key).map(|(n, _)| n),
-            ))
-        } else {
-            Err(())
-        }
-    }
-    fn count() -> u32 {
-        Nominators::<T>::count().saturating_add(Validators::<T>::count())
-    }
-    fn contains(id: &T::AccountId) -> bool {
-        Nominators::<T>::contains_key(id) || Validators::<T>::contains_key(id)
-    }
-    fn on_insert(_: T::AccountId, _weight: Self::Score) -> Result<(), Self::Error> {
-        // nothing to do on insert.
-        Ok(())
-    }
-    fn get_score(id: &T::AccountId) -> Result<Self::Score, Self::Error> {
-        Ok(Pallet::<T>::weight_of(id))
-    }
-    fn on_update(_: &T::AccountId, _weight: Self::Score) -> Result<(), Self::Error> {
-        // nothing to do on update.
-        Ok(())
-    }
-    fn on_remove(_: &T::AccountId) -> Result<(), Self::Error> {
-        // nothing to do on remove.
-        Ok(())
-    }
-    fn unsafe_regenerate(
-        _: impl IntoIterator<Item = T::AccountId>,
-        _: Box<dyn Fn(&T::AccountId) -> Self::Score>,
-    ) -> u32 {
-        // nothing to do upon regenerate.
-        0
-    }
-
-    #[cfg(feature = "try-runtime")]
-    fn try_state() -> Result<(), &'static str> {
-        Ok(())
-    }
-
-    fn unsafe_clear() {
-        // NOTE: Caller must ensure this doesn't lead to too many storage accesses. This is a
-        // condition of SortedListProvider::unsafe_clear.
-        #[allow(deprecated)]
-        Nominators::<T>::remove_all();
-        #[allow(deprecated)]
-        Validators::<T>::remove_all();
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn score_update_worst_case(_who: &T::AccountId, _is_increase: bool) -> Self::Score {
-        unimplemented!()
-    }
-}
-
-// NOTE: in this entire impl block, the assumption is that `who` is a stash account.
-impl<T: Config> StakingInterface for Pallet<T> {
-    type AccountId = T::AccountId;
-    type Balance = BalanceOf<T>;
-
-    fn minimum_nominator_bond() -> Self::Balance {
-        MinNominatorBond::<T>::get()
-    }
-
-    fn minimum_validator_bond() -> Self::Balance {
-        MinValidatorBond::<T>::get()
-    }
-
-    fn desired_validator_count() -> u32 {
-        ValidatorCount::<T>::get()
-    }
-
-    fn election_ongoing() -> bool {
-        T::ElectionProvider::ongoing()
-    }
-
-    fn force_unstake(who: Self::AccountId) -> sp_runtime::DispatchResult {
-        let num_slashing_spans = Self::slashing_spans(&who).map_or(0, |s| s.iter().count() as u32);
-        Self::force_unstake(RawOrigin::Root.into(), who.clone(), num_slashing_spans)
-    }
-
-    fn stash_by_ctrl(controller: &Self::AccountId) -> Result<Self::AccountId, DispatchError> {
-        Self::ledger(controller)
-            .map(|l| l.stash)
-            .ok_or(Error::<T>::NotController.into())
-    }
-
-    fn is_exposed_in_era(who: &Self::AccountId, era: &EraIndex) -> bool {
-        ErasStakers::<T>::iter_prefix(era).any(|(validator, exposures)| {
-            validator == *who || exposures.others.iter().any(|i| i.who == *who)
-        })
-    }
-
-    fn bonding_duration() -> EraIndex {
-        T::BondingDuration::get()
-    }
-
-    fn current_era() -> EraIndex {
-        Self::current_era().unwrap_or(Zero::zero())
-    }
-
-    fn stake(who: &Self::AccountId) -> Result<Stake<Self>, DispatchError> {
-        Self::bonded(who)
-            .and_then(|c| Self::ledger(c))
-            .map(|l| Stake {
-                stash: l.stash,
-                total: l.total,
-                active: l.active,
-            })
-            .ok_or(Error::<T>::NotStash.into())
-    }
-
-    fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult {
-        Self::bond_extra(RawOrigin::Signed(who.clone()).into(), extra)
-    }
-
-    fn unbond(who: &Self::AccountId, value: Self::Balance) -> DispatchResult {
-        let ctrl = Self::bonded(who).ok_or(Error::<T>::NotStash)?;
-        Self::unbond(RawOrigin::Signed(ctrl).into(), value)
-            .map_err(|with_post| with_post.error)
-            .map(|_| ())
-    }
-
-    fn chill(who: &Self::AccountId) -> DispatchResult {
-        // defensive-only: any account bonded via this interface has the stash set as the
-        // controller, but we have to be sure. Same comment anywhere else that we read this.
-        let ctrl = Self::bonded(who).ok_or(Error::<T>::NotStash)?;
-        Self::chill(RawOrigin::Signed(ctrl).into())
-    }
-
-    fn withdraw_unbonded(
-        who: Self::AccountId,
-        num_slashing_spans: u32,
-    ) -> Result<bool, DispatchError> {
-        let ctrl = Self::bonded(who).ok_or(Error::<T>::NotStash)?;
-        Self::withdraw_unbonded(RawOrigin::Signed(ctrl.clone()).into(), num_slashing_spans)
-            .map(|_| !Ledger::<T>::contains_key(&ctrl))
-            .map_err(|with_post| with_post.error)
-    }
-
-    fn bond(
-        who: &Self::AccountId,
-        value: Self::Balance,
-        payee: &Self::AccountId,
-    ) -> DispatchResult {
-        Self::bond(
-            RawOrigin::Signed(who.clone()).into(),
-            T::Lookup::unlookup(who.clone()),
-            value,
-            RewardDestination::Account(payee.clone()),
-        )
-    }
-
-    fn nominate(who: &Self::AccountId, targets: Vec<Self::AccountId>) -> DispatchResult {
-        let ctrl = Self::bonded(who).ok_or(Error::<T>::NotStash)?;
-        let targets = targets
+        // build the support map thereof in order to evaluate.
+        let supports_map = to_support_map::<T::AccountId>(&staked_assignments);
+        let supports = supports_map
+            .clone()
             .into_iter()
-            .map(T::Lookup::unlookup)
-            .collect::<Vec<_>>();
-        Self::nominate(RawOrigin::Signed(ctrl).into(), targets)
-    }
+            .collect::<Supports<T::AccountId>>();
 
-    sp_staking::runtime_benchmarks_enabled! {
-        fn nominations(who: Self::AccountId) -> Option<Vec<T::AccountId>> {
-            Nominators::<T>::get(who).map(|n| n.targets.into_inner())
-        }
-
-        fn add_era_stakers(
-            current_era: &EraIndex,
-            stash: &T::AccountId,
-            exposures: Vec<(Self::AccountId, Self::Balance)>,
-        ) {
-            let others = exposures
-                .iter()
-                .map(|(who, value)| IndividualExposure { who: who.clone(), value: value.clone() })
-                .collect::<Vec<_>>();
-            let exposure = Exposure { total: Default::default(), own: Default::default(), others };
-            <ErasStakers<T>>::insert(&current_era, &stash, &exposure);
-        }
-
-        fn set_current_era(era: EraIndex) {
-            CurrentEra::<T>::put(era);
-        }
-    }
-}
-
-#[cfg(any(test, feature = "try-runtime"))]
-impl<T: Config> Pallet<T> {
-    pub(crate) fn do_try_state(_: BlockNumberFor<T>) -> Result<(), &'static str> {
+        // Check if the score is the same as the claimed one.
+        let submitted_score = (&supports).evaluate();
         ensure!(
-            T::VoterList::iter()
-                .all(|x| <Nominators<T>>::contains_key(&x) || <Validators<T>>::contains_key(&x)),
-            "VoterList contains non-staker"
+            submitted_score == claimed_score,
+            Error::<T>::OffchainElectionBogusScore
         );
 
-        Self::check_nominators()?;
-        Self::check_exposures()?;
-        Self::check_ledgers()?;
-        Self::check_count()
-    }
-
-    fn check_count() -> Result<(), &'static str> {
-        ensure!(
-            <T as Config>::VoterList::count()
-                == Nominators::<T>::count() + Validators::<T>::count(),
-            "wrong external count"
-        );
-        ensure!(
-            <T as Config>::TargetList::count() == Validators::<T>::count(),
-            "wrong external count"
-        );
-        ensure!(
-			ValidatorCount::<T>::get() <=
-				<T::ElectionProvider as frame_election_provider_support::ElectionProviderBase>::MaxWinners::get(),
-			"validator count exceeded election max winners"
+        // At last, alles Ok. Exposures and store the result.
+        let exposures = Self::collect_exposures(supports_map);
+        log!(
+			info,
+			"💸 A better solution (with compute {:?} and score {:?}) has been validated and stored on chain.",
+			compute,
+			submitted_score,
 		);
+
+        // write new results.
+        <QueuedElected<T>>::put(Some(ElectionResult {
+            elected_stashes: winners,
+            compute,
+            exposures,
+        }));
+        QueuedScore::<T>::put(Some(submitted_score));
+
+        // emit event.
+        Self::deposit_event(Event::<T>::SolutionStored(compute));
+
+        Ok(None::<Weight>.into())
+    }
+
+    pub(crate) fn unbond_balance(
+        controller: T::AccountId,
+        ledger: &mut StakingLedger<T>,
+        value: BalanceOf<T>,
+    ) -> DispatchResult {
+        let mut value = value.min(ledger.active);
+
+        if !value.is_zero() {
+            ledger.active -= value;
+
+            // Avoid there being a dust balance left in the staking system.
+            if ledger.active < T::Currency::minimum_balance() {
+                value += ledger.active;
+                ledger.active = Zero::zero();
+            }
+
+            // Note: in case there is no current era it is fine to bond one era more.
+            let era = Self::current_era().unwrap_or(0) + T::BondingDuration::get();
+            if let Some(mut chunk) =
+                ledger.unlocking.last_mut().filter(|chunk| chunk.era == era)
+            {
+                // To keep the chunk count down, we only keep one chunk per era. Since
+                // `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
+                // be the last one.
+                chunk.value = chunk.value.defensive_saturating_add(value)
+            } else {
+                ledger
+                    .unlocking
+                    .try_push(UnlockChunk { value, era })
+                    .map_err(|_| Error::<T>::NoMoreChunks)?;
+            };
+            // NOTE: ledger must be updated prior to calling `Self::weight_of`.
+            Self::update_ledger(&controller, &ledger);
+
+            let did = Context::current_identity::<T::IdentityFn>().unwrap_or_default();
+            Self::deposit_event(Event::<T>::Unbonded(did, ledger.stash.clone(), value));
+        }
         Ok(())
     }
 
-    fn check_ledgers() -> Result<(), &'static str> {
-        Bonded::<T>::iter()
-            .map(|(_, ctrl)| Self::ensure_ledger_consistent(ctrl))
-            .collect::<Result<_, _>>()
+    pub(crate) fn get_bonding_duration_period() -> u64 {
+        (T::SessionsPerEra::get()  * T::BondingDuration::get()) as u64 // total session
+            * T::EpochDuration::get() // session length
+            * T::ExpectedBlockTime::get().saturated_into::<u64>()
     }
 
-    fn check_exposures() -> Result<(), &'static str> {
-        // a check per validator to ensure the exposure struct is always sane.
-        let era = Self::active_era().unwrap().index;
-        ErasStakers::<T>::iter_prefix_values(era)
-            .map(|expo| {
-                ensure!(
-                    expo.total
-                        == expo.own
-                            + expo
-                                .others
-                                .iter()
-                                .map(|e| e.value)
-                                .fold(Zero::zero(), |acc, x| acc + x),
-                    "wrong total exposure.",
-                );
-                Ok(())
-            })
-            .collect::<Result<_, _>>()
-    }
+    pub(crate) fn base_chill_from_governance(
+        origin: T::RuntimeOrigin, 
+        identity: IdentityId, 
+        stash_keys: Vec<T::AccountId>
+    ) -> DispatchResult {
+        // Checks that the era election status is closed.
+        ensure!(
+            Self::era_election_status().is_closed(), 
+            Error::<T>::CallNotAllowed
+        );
+        // Required origin for removing a validator.
+        T::RequiredRemoveOrigin::ensure_origin(origin)?;
+        // Checks that the identity is allowed to run operator/validator nodes.
+        ensure!(
+            Self::permissioned_identity(&identity).is_some(), 
+            Error::<T>::NotExists
+        );
 
-    fn check_nominators() -> Result<(), &'static str> {
-        // a check per nominator to ensure their entire stake is correctly distributed. Will only
-        // kick-in if the nomination was submitted before the current era.
-        let era = Self::active_era().unwrap().index;
-        <Nominators<T>>::iter()
-            .filter_map(|(nominator, nomination)| {
-                if nomination.submitted_in < era {
-                    Some(nominator)
-                } else {
-                    None
-                }
-            })
-            .map(|nominator| {
-                // must be bonded.
-                Self::ensure_is_stash(&nominator)?;
-                let mut sum = BalanceOf::<T>::zero();
-                T::SessionInterface::validators()
-                    .iter()
-                    .map(|v| Self::eras_stakers(era, v))
-                    .map(|e| {
-                        let individual = e
-                            .others
-                            .iter()
-                            .filter(|e| e.who == nominator)
-                            .collect::<Vec<_>>();
-                        let len = individual.len();
-                        match len {
-                            0 => { /* not supporting this validator at all. */ }
-                            1 => sum += individual[0].value,
-                            _ => return Err("nominator cannot back a validator more than once."),
-                        };
-                        Ok(())
-                    })
-                    .collect::<Result<_, _>>()
-            })
-            .collect::<Result<_, _>>()
-    }
-
-    fn ensure_is_stash(who: &T::AccountId) -> Result<(), &'static str> {
-        ensure!(Self::bonded(who).is_some(), "Not a stash.");
-        Ok(())
-    }
-
-    fn ensure_ledger_consistent(ctrl: T::AccountId) -> Result<(), &'static str> {
-        // ensures ledger.total == ledger.active + sum(ledger.unlocking).
-        let ledger = Self::ledger(ctrl.clone()).ok_or("Not a controller.")?;
-        let real_total: BalanceOf<T> = ledger
-            .unlocking
-            .iter()
-            .fold(ledger.active, |a, c| a + c.value);
-        ensure!(real_total == ledger.total, "ledger.total corrupt");
-
-        if !(ledger.active >= T::Currency::minimum_balance() || ledger.active.is_zero()) {
-            log!(warn, "ledger.active less than ED: {:?}, {:?}", ctrl, ledger)
+        for key in &stash_keys {
+            let key_did = Identity::<T>::get_identity(&key);
+            // Checks if the stash key identity is the same as the identity given.
+            ensure!(key_did == Some(identity), Error::<T>::NotStash);   
+            // Checks if the key is a validator if not returns an error.
+            ensure!(<Validators<T>>::contains_key(&key), Error::<T>::NotExists); 
         }
 
+        for key in stash_keys {
+            Self::chill_stash(&key);
+        }
+       
+        // Change identity status to be Non-Permissioned
+        PermissionedIdentity::<T>::remove(&identity);
         Ok(())
     }
+
+    // -------------------------------------------------------------------------
 }

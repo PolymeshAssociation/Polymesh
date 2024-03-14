@@ -1480,7 +1480,7 @@ pub(crate) fn prepare_submission_with(
 
     let mut staked = sp_npos_elections::assignment_ratio_to_staked(
         assignments,
-        Staking::slashable_balance_of_fn(),
+        Staking::weight_of_fn(),
     );
 
     // apply custom tweaks. awesome for testing.
@@ -1518,7 +1518,7 @@ pub(crate) fn prepare_submission_with(
     let score = if compute_real_score {
         let staked = sp_npos_elections::assignment_ratio_to_staked(
             assignments_reduced.clone(),
-            Staking::slashable_balance_of_fn(),
+            Staking::weight_of_fn(),
         );
 
         let support_map = to_supports::<AccountId>(staked.as_slice());

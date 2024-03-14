@@ -267,7 +267,7 @@ where
     {
         Some(to_remove) if to_remove > 0 => {
             // grab all voters and sort them by least stake.
-            let balance_of = <Module<T>>::slashable_balance_of_fn();
+            let balance_of = <Module<T>>::weight_of_fn();
             let mut voters_sorted = <Nominators<T>>::iter()
                 .map(|(who, _)| (who.clone(), balance_of(&who)))
                 .collect::<Vec<_>>();
@@ -370,7 +370,7 @@ pub fn prepare_submission<T: Config>(
     // convert into absolute value and to obtain the reduced version.
     let mut staked = sp_npos_elections::assignment_ratio_to_staked(
         assignments,
-        <Module<T>>::slashable_balance_of_fn(),
+        <Module<T>>::weight_of_fn(),
     );
 
     // reduce
@@ -420,7 +420,7 @@ pub fn prepare_submission<T: Config>(
         let assignments = compact.into_assignment(nominator_at, validator_at).unwrap();
         let staked = sp_npos_elections::assignment_ratio_to_staked(
             assignments.clone(),
-            <Module<T>>::slashable_balance_of_fn(),
+            <Module<T>>::weight_of_fn(),
         );
 
         let support_map = to_supports::<T::AccountId>(&staked);
