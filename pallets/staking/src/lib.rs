@@ -360,6 +360,19 @@ generate_solution_type!(
     >(16)
 );
 
+#[cfg(debug_assertions)]
+impl CompactAssignments {
+    pub fn push_votes1(&mut self, v: (NominatorIndex, ValidatorIndex)) {
+        self.votes1.push(v)
+    }
+
+    pub fn get_votes3(
+        &mut self,
+    ) -> &mut Vec<(NominatorIndex, [(ValidatorIndex, OffchainAccuracy); 2], ValidatorIndex)> {
+        &mut self.votes3
+    }
+}
+
 /// Accuracy used for on-chain election.
 pub type ChainAccuracy = Perbill;
 

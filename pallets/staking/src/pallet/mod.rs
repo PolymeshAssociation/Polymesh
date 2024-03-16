@@ -658,7 +658,66 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
         fn build(&self) {
-            unimplemented!()
+            ValidatorCount::<T>::put(self.validator_count);
+            MinimumValidatorCount::<T>::put(self.minimum_validator_count);
+            Invulnerables::<T>::put(&self.invulnerables);
+            ForceEra::<T>::put(self.force_era);
+            SlashRewardFraction::<T>::put(self.slash_reward_fraction);
+            CanceledSlashPayout::<T>::put(self.canceled_payout);
+            ValidatorCommissionCap::<T>::put(self.validator_commission_cap);
+            MinimumBondThreshold::<T>::put(self.min_bond_threshold);
+            SlashingAllowedFor::<T>::put(self.slashing_allowed_for);
+            HistoryDepth::<T>::put(self.history_depth);
+
+            for &(did, ref stash, ref controller, balance, ref status) in &self.stakers {
+                crate::log!(
+                    trace,
+                    "inserting genesis staker: {:?} => {:?} => {:?}",
+                    stash,
+                    balance,
+                    status
+                );
+                assert!(
+                    T::Currency::free_balance(stash) >= balance,
+                    "Stash does not have enough balance to bond."
+                );
+                frame_support::assert_ok!(<Pallet<T>>::bond(
+                    T::RuntimeOrigin::from(Some(stash.clone()).into()),
+                    T::Lookup::unlookup(controller.clone()),
+                    balance,
+                    RewardDestination::Staked,
+                ));
+                frame_support::assert_ok!(match status {
+                    crate::StakerStatus::Validator => {
+                        if <Pallet<T>>::permissioned_identity(&did).is_none() {
+                            // Adding identity directly in the storage by assuming it is CDD'ed
+                            PermissionedIdentity::<T>::insert(
+                                &did, 
+                                PermissionedIdentityPrefs::new(3)
+                            );
+                            <Pallet<T>>::deposit_event(Event::<T>::PermissionedIdentityAdded(
+                                GC_DID, 
+                                did
+                            ));
+                        }
+                        <Module<T>>::validate(
+                            T::RuntimeOrigin::from(Some(controller.clone()).into()),
+                            ValidatorPrefs {
+                                commission: self.validator_commission_cap,
+                                blocked: Default::default(),
+                            },
+                        )
+                    },
+                    crate::StakerStatus::Nominator(votes) => <Pallet<T>>::nominate(
+                        T::RuntimeOrigin::from(Some(controller.clone()).into()),
+                        votes
+                            .iter()
+                            .map(|l| T::Lookup::unlookup(l.clone()))
+                            .collect(),
+                    ),
+                    _ => Ok(()),
+                });
+            }
         }
     }
 
@@ -811,21 +870,87 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-            unimplemented!()
+        /// sets `ElectionStatus` to `Open(now)` where `now` is the block number at which the
+        /// election window has opened, if we are at the last session and less blocks than
+        /// `T::ElectionLookahead` is remaining until the next new session schedule. The offchain
+        /// worker, if applicable, will execute at the end of the current block, and solutions may
+        /// be submitted.
+        fn on_initialize(now: T::BlockNumber) -> Weight {
+            let mut consumed_weight = Weight::zero();
+            
+            let mut add_weight = |reads: u64, writes: u64, weight| {
+                consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
+                consumed_weight += weight;
+            };
+
+            if
+            // if we don't have any ongoing offchain compute.
+            Self::era_election_status().is_closed() &&
+                // either current session final based on the plan, or we're forcing.
+                (Self::is_current_session_final() || Self::will_era_be_forced())
+            {
+                let (maybe_next_session_change, estimate_next_new_session_weight) =
+                    T::NextNewSession::estimate_next_new_session(now);
+                if let Some(next_session_change) = maybe_next_session_change {
+                    if let Some(remaining) = next_session_change.checked_sub(&now) {
+                        if remaining <= T::ElectionLookahead::get() && !remaining.is_zero() {
+                            // create snapshot.
+                            let (did_snapshot, snapshot_weight) = Self::create_stakers_snapshot();
+                            add_weight(0, 0, snapshot_weight);
+                            if did_snapshot {
+                                // Set the flag to make sure we don't waste any compute here in the same era
+                                // after we have triggered the offline compute.
+                                <EraElectionStatus<T>>::put(
+                                    ElectionStatus::<T::BlockNumber>::Open(now),
+                                );
+                                add_weight(0, 1, Weight::zero());
+                                crate::log!(
+                                    info,
+                                    "💸 Election window is Open({:?}). Snapshot created",
+                                    now
+                                );
+                            } else {
+                                crate::log!(warn, "💸 Failed to create snapshot at {:?}.", now);
+                            }
+                        }
+                    }
+                } else {
+                    crate::log!(warn, "💸 Estimating next session change failed.");
+                }
+                add_weight(0, 0, estimate_next_new_session_weight)
+            }
+            // For `era_election_status`, `is_current_session_final`, `will_era_be_forced`
+            add_weight(3, 0, Weight::zero());
+            // Additional read from `on_finalize`
+            add_weight(1, 0, Weight::zero());
+            consumed_weight
         }
 
         fn on_finalize(_n: BlockNumberFor<T>) {
-            unimplemented!()
+            // Set the start of the first era.
+            if let Some(mut active_era) = Self::active_era() {
+                if active_era.start.is_none() {
+                    let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
+                    active_era.start = Some(now_as_millis_u64);
+                    // This write only ever happens once, we don't include it in the weight in
+                    // general
+                    ActiveEra::<T>::put(active_era);
+                }
+            }
+            // `on_finalize` weight is tracked in `on_initialize`
         }
 
         fn integrity_test() {
-            unimplemented!()
-        }
-
-        #[cfg(feature = "try-runtime")]
-        fn try_state(n: BlockNumberFor<T>) -> Result<(), &'static str> {
-            Self::do_try_state(n)
+            sp_std::if_std! {
+                sp_io::TestExternalities::new_empty().execute_with(||
+                    assert!(
+                        T::SlashDeferDuration::get() < T::BondingDuration::get() || T::BondingDuration::get() == 0,
+                        "As per documentation, slash defer duration ({}) should be less than bonding duration ({}).",
+                        T::SlashDeferDuration::get(),
+                        T::BondingDuration::get(),
+                    )
+                );
+            }
         }
     }
 

@@ -131,15 +131,13 @@ impl<T: Config> Pallet<T> {
                 // Remove the lock.
                 T::Currency::remove_lock(STAKING_ID, &stash);
 
-                //T::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
-                unimplemented!()
+                <T as Config>::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
             } else {
                 // This was the consequence of a partial unbond. just update the ledger and move on.
                 Self::update_ledger(&controller, &ledger);
 
                 // This is only an update, so we use less overall weight.
-                //T::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
-                unimplemented!()
+                <T as Config>::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
             };
 
         // `old_total` should never be less than the new total because
@@ -1467,6 +1465,13 @@ impl<T: Config> Pallet<T> {
             <SnapshotNominators<T>>::put(nominators);
             add_db_reads_writes(0, 2);
             (true, consumed_weight)
+        }
+    }
+
+    pub(crate) fn will_era_be_forced() -> bool {
+        match ForceEra::<T>::get() {
+            Forcing::ForceAlways | Forcing::ForceNew => true,
+            Forcing::ForceNone | Forcing::NotForcing => false,
         }
     }
     // -------------------------------------------------------------------------

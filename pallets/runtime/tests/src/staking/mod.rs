@@ -1423,7 +1423,7 @@ fn bond_extra_and_withdraw_unbonded_works() {
 fn too_many_unbond_calls_should_not_work() {
     ExtBuilder::default().build_and_execute(|| {
         // locked at era 0 until 3
-        for _ in 0..pallet_staking::MaxNominations - 1 {
+        for _ in 0..pallet_staking::MaxNominations::get() - 1 {
             assert_ok!(Staking::unbond(Origin::signed(10), 1));
         }
 
@@ -3392,8 +3392,8 @@ mod offchain_phragmen {
 
     fn election_size() -> ElectionSize {
         ElectionSize {
-            validators: Staking::snapshot_validators().unwrap().len() as ValidatorIndex,
-            nominators: Staking::snapshot_nominators().unwrap().len() as NominatorIndex,
+            validators: Staking::snapshot_validators().len() as ValidatorIndex,
+            nominators: Staking::snapshot_nominators().len() as NominatorIndex,
         }
     }
 
@@ -3451,8 +3451,8 @@ mod offchain_phragmen {
                 run_to_block(10);
                 assert_session_era!(1, 0);
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Closed);
-                assert!(Staking::snapshot_nominators().is_none());
-                assert!(Staking::snapshot_validators().is_none());
+                assert!(Staking::snapshot_nominators().is_empty());
+                assert!(Staking::snapshot_validators().is_empty());
 
                 run_to_block(36);
                 assert_session_era!(3, 0);
@@ -3462,8 +3462,8 @@ mod offchain_phragmen {
                 run_to_block(37);
                 assert_session_era!(3, 0);
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Open(37));
-                assert!(Staking::snapshot_nominators().is_some());
-                assert!(Staking::snapshot_validators().is_some());
+                assert!(!Staking::snapshot_nominators().is_empty());
+                assert!(!Staking::snapshot_validators().is_empty());
 
                 run_to_block(38);
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Open(37));
@@ -3474,26 +3474,26 @@ mod offchain_phragmen {
                 run_to_block(40);
                 assert_session_era!(4, 0);
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Closed);
-                assert!(Staking::snapshot_nominators().is_none());
-                assert!(Staking::snapshot_validators().is_none());
+                assert!(Staking::snapshot_nominators().is_empty());
+                assert!(Staking::snapshot_validators().is_empty());
 
                 run_to_block(86);
                 assert_session_era!(8, 1);
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Closed);
-                assert!(Staking::snapshot_nominators().is_none());
-                assert!(Staking::snapshot_validators().is_none());
+                assert!(Staking::snapshot_nominators().is_empty());
+                assert!(Staking::snapshot_validators().is_empty());
 
                 // second era onwards has 50 blocks per era.
                 run_to_block(87);
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Open(87));
-                assert!(Staking::snapshot_nominators().is_some());
-                assert!(Staking::snapshot_validators().is_some());
+                assert!(!Staking::snapshot_nominators().is_empty());
+                assert!(!Staking::snapshot_validators().is_empty());
 
                 run_to_block(90);
                 assert_session_era!(9, 1);
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Closed);
-                assert!(Staking::snapshot_nominators().is_none());
-                assert!(Staking::snapshot_validators().is_none());
+                assert!(Staking::snapshot_nominators().is_empty());
+                assert!(Staking::snapshot_validators().is_empty());
             })
     }
 
@@ -3562,13 +3562,13 @@ mod offchain_phragmen {
                 run_to_block(37);
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Open(37));
                 assert!(Staking::is_current_session_final());
-                assert!(Staking::snapshot_validators().is_some());
+                assert!(!Staking::snapshot_validators().is_empty());
 
                 // closes normally
                 run_to_block(40);
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Closed);
                 assert!(!Staking::is_current_session_final());
-                assert!(Staking::snapshot_validators().is_none());
+                assert!(Staking::snapshot_validators().is_empty());
                 assert_session_era!(4, 0);
 
                 run_to_block(47);
@@ -3615,7 +3615,7 @@ mod offchain_phragmen {
             .build()
             .execute_with(|| {
                 run_to_block(12);
-                assert!(Staking::snapshot_validators().is_some());
+                assert!(!Staking::snapshot_validators().is_empty());
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Open(12));
 
                 // validate more than the limit
@@ -3627,7 +3627,7 @@ mod offchain_phragmen {
 
                 // window stays closed since no snapshot was taken.
                 run_to_block(27);
-                assert!(Staking::snapshot_validators().is_none());
+                assert!(Staking::snapshot_validators().is_empty());
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Closed);
             })
     }
@@ -3640,7 +3640,7 @@ mod offchain_phragmen {
             .build()
             .execute_with(|| {
                 run_to_block(12);
-                assert!(Staking::snapshot_validators().is_some());
+                assert!(!Staking::snapshot_validators().is_empty());
                 // given
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Open(12));
 
@@ -3662,7 +3662,7 @@ mod offchain_phragmen {
             .execute_with(|| {
                 run_to_block(12);
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Open(12));
-                assert!(Staking::snapshot_validators().is_some());
+                assert!(!Staking::snapshot_validators().is_empty());
 
                 let (compact, winners, score) = prepare_submission_with(true, true, 2, |_| {});
                 assert_ok!(submit_solution(Origin::signed(10), winners, compact, score,));
@@ -4026,8 +4026,8 @@ mod offchain_phragmen {
                 build_offchain_phragmen_test_ext();
                 run_to_block(12);
 
-                assert_eq!(Staking::snapshot_nominators().unwrap().len(), 5 + 4);
-                assert_eq!(Staking::snapshot_validators().unwrap().len(), 4);
+                assert_eq!(Staking::snapshot_nominators().len(), 5 + 4);
+                assert_eq!(Staking::snapshot_validators().len(), 4);
                 let (mut compact, winners, score) = prepare_submission_with(true, true, 2, |_| {});
 
                 // index 9 doesn't exist.
@@ -4053,8 +4053,8 @@ mod offchain_phragmen {
                 build_offchain_phragmen_test_ext();
                 run_to_block(12);
 
-                assert_eq!(Staking::snapshot_nominators().unwrap().len(), 5 + 4);
-                assert_eq!(Staking::snapshot_validators().unwrap().len(), 4);
+                assert_eq!(Staking::snapshot_nominators().len(), 5 + 4);
+                assert_eq!(Staking::snapshot_validators().len(), 4);
                 let (mut compact, winners, score) = prepare_submission_with(true, true, 2, |_| {});
 
                 // index 4 doesn't exist.
@@ -4084,8 +4084,8 @@ mod offchain_phragmen {
                 build_offchain_phragmen_test_ext();
                 run_to_block(12);
 
-                assert_eq!(Staking::snapshot_nominators().unwrap().len(), 5 + 4);
-                assert_eq!(Staking::snapshot_validators().unwrap().len(), 4);
+                assert_eq!(Staking::snapshot_nominators().len(), 5 + 4);
+                assert_eq!(Staking::snapshot_validators().len(), 4);
                 let (compact, _, score) = prepare_submission_with(true, true, 2, |_| {});
 
                 // index 4 doesn't exist.
@@ -4111,8 +4111,8 @@ mod offchain_phragmen {
                 build_offchain_phragmen_test_ext();
                 run_to_block(12);
 
-                assert_eq!(Staking::snapshot_nominators().unwrap().len(), 5 + 4);
-                assert_eq!(Staking::snapshot_validators().unwrap().len(), 4);
+                assert_eq!(Staking::snapshot_nominators().len(), 5 + 4);
+                assert_eq!(Staking::snapshot_validators().len(), 4);
                 let (compact, winners, score) = prepare_submission_with(false, true, 2, |a| {
                     // swap all 11 and 41s in the distribution with non-winners. Note that it is
                     // important that the count of winners and the count of unique targets remain
@@ -4396,7 +4396,7 @@ mod offchain_phragmen {
                 ));
 
                 run_to_block(37);
-                assert!(Staking::snapshot_validators().is_some());
+                assert!(!Staking::snapshot_validators().is_empty());
                 let entity_id = Identity::get_identity(&70).unwrap();
 
                 let (compact, winners, score) = prepare_submission_with(true, true, 2, |_| {});
@@ -4422,7 +4422,7 @@ mod offchain_phragmen {
                 assert_eq!(Identity::has_valid_cdd(entity_id), false);
 
                 run_to_block(87);
-                assert!(Staking::snapshot_validators().is_some());
+                assert!(!Staking::snapshot_validators().is_empty());
                 let (compact_2, winners_2, score_2) =
                     prepare_submission_with(true, true, 2, |_| {});
 

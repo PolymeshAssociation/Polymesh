@@ -225,11 +225,11 @@ impl pallet_staking::WeightInfo for SubstrateWeight {
     }
     // Storage: Staking ValidatorCount (r:0 w:1)
     /// The range of component `c` is `[0, 1000]`.
-    fn set_validator_count(c: u32) -> Weight {
+    fn set_validator_count() -> Weight {
         // Minimum execution time: 6_743 nanoseconds.
         Weight::from_ref_time(7_404_924)
             // Standard Error: 70
-            .saturating_add(Weight::from_ref_time(4).saturating_mul(c.into()))
+            .saturating_add(Weight::from_ref_time(4))
             .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Staking ForceEra (r:0 w:1)
@@ -300,7 +300,7 @@ impl pallet_staking::WeightInfo for SubstrateWeight {
     // Storage: Identity KeyRecords (r:4 w:0)
     // Storage: Identity IsDidFrozen (r:1 w:0)
     /// The range of component `n` is `[1, 2048]`.
-    fn payout_stakers(n: u32) -> Weight {
+    fn payout_stakers_dead_controller(n: u32) -> Weight {
         // Minimum execution time: 1_003_723 nanoseconds.
         Weight::from_ref_time(1_483_152_965)
             // Standard Error: 152_019
@@ -324,7 +324,7 @@ impl pallet_staking::WeightInfo for SubstrateWeight {
     // Storage: Balances Locks (r:2 w:2)
     // Storage: Identity KeyRecords (r:3 w:0)
     /// The range of component `n` is `[1, 2048]`.
-    fn payout_stakers_alive_controller(n: u32) -> Weight {
+    fn payout_stakers_alive_staked(n: u32) -> Weight {
         // Minimum execution time: 1_106_463 nanoseconds.
         Weight::from_ref_time(1_328_865_997)
             // Standard Error: 120_768

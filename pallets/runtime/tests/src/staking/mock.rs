@@ -274,7 +274,7 @@ impl pallet_treasury::Config for Test {
 
 impl pallet_authorship::Config for Test {
     type FindAuthor = Author11;
-    type EventHandler = pallet_staking::Module<Test>;
+    type EventHandler = pallet_staking::Pallet<Test>;
 }
 parameter_types! {
     pub const MinimumPeriod: u64 = 5;
@@ -1278,7 +1278,7 @@ pub(crate) fn reward_all_elected() {
         .into_iter()
         .map(|v| (v, 1));
 
-    <Module<Test>>::reward_by_ids(rewards)
+    <Pallet<Test>>::reward_by_ids(rewards)
 }
 
 pub(crate) fn validator_controllers() -> Vec<AccountId> {
