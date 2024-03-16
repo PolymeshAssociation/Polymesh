@@ -69,6 +69,8 @@ use sp_staking::{
 };
 use std::{cell::RefCell, collections::BTreeMap};
 
+use pallet_staking::types::SlashingSwitch;
+
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 1000;
 
@@ -586,7 +588,6 @@ impl SortedMembers<u64> for TwoThousand {
 }
 
 impl Config for Test {
-    const MAX_NOMINATIONS: u32 = pallet_staking::MAX_NOMINATIONS;
     type Currency = Balances;
     type UnixTime = Timestamp;
     type CurrencyToVote = frame_support::traits::SaturatingCurrencyToVote;
@@ -619,6 +620,8 @@ impl Config for Test {
     type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
     type FixedYearlyReward = FixedYearlyReward;
     type MinimumBond = MinimumBond;
+    type MaxNominations = pallet_staking::MaxNominations;
+    type MaxUnlockingChunks = pallet_staking::MaxUnlockingChunks;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
@@ -1293,7 +1296,7 @@ pub(crate) fn on_offence_in_era(
     slash_fraction: &[Perbill],
     era: EraIndex,
 ) {
-    let bonded_eras = staking::BondedEras::get();
+    let bonded_eras = staking::BondedEras::<Test>::get();
     for &(bonded_era, start_session) in bonded_eras.iter() {
         if bonded_era == era {
             let _ = Staking::on_offence(
@@ -1429,8 +1432,8 @@ pub(crate) fn horrible_phragmen_with_post_processing(
         reduce(&mut staked_assignment);
     }
 
-    let snapshot_validators = Staking::snapshot_validators().unwrap();
-    let snapshot_nominators = Staking::snapshot_nominators().unwrap();
+    let snapshot_validators = Staking::snapshot_validators();
+    let snapshot_nominators = Staking::snapshot_nominators();
     let nominator_index = |a: &AccountId| -> Option<NominatorIndex> {
         snapshot_nominators
             .iter()
@@ -1489,8 +1492,8 @@ pub(crate) fn prepare_submission_with(
     }
 
     // convert back to ratio assignment. This takes less space.
-    let snapshot_validators = Staking::snapshot_validators().expect("snapshot not created.");
-    let snapshot_nominators = Staking::snapshot_nominators().expect("snapshot not created.");
+    let snapshot_validators = Staking::snapshot_validators();
+    let snapshot_nominators = Staking::snapshot_nominators();
     let nominator_index = |a: &AccountId| -> Option<NominatorIndex> {
         snapshot_nominators.iter().position(|x| x == a).map_or_else(
             || {
