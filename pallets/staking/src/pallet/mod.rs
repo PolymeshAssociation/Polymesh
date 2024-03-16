@@ -139,18 +139,15 @@ pub mod pallet {
         type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
 
         /// Number of sessions per era.
-        #[pallet::constant]
         type SessionsPerEra: Get<SessionIndex>;
 
-        /// Number of eras that staked funds must remain bonded for.
-        #[pallet::constant]
+        /// Number of eras that staked funds must remain bonded for.]
         type BondingDuration: Get<EraIndex>;
 
         /// Number of eras that slashes are deferred by, after computation.
         ///
         /// This should be less than the bonding duration. Set to 0 if slashes
         /// should be applied immediately, without opportunity for intervention.
-        #[pallet::constant]
         type SlashDeferDuration: Get<EraIndex>;
 
         /// Weight information for extrinsics in this pallet.
@@ -199,30 +196,25 @@ pub mod pallet {
         /// Maximum number of balancing iterations to run in the offchain submission.
         ///
         /// If set to 0, balance_solution will not be executed at all.
-        #[pallet::constant]
         type MaxIterations: Get<u32>;
 
         /// The threshold of improvement that should be provided for a new solution to be accepted.
-        #[pallet::constant]
         type MinSolutionScoreBump: Get<Perbill>;
 
         /// The maximum number of nominators rewarded for each validator.
         ///
         /// For each validator only the `$MaxNominatorRewardedPerValidator` biggest stakers can claim
         /// their reward. This used to limit the i/o cost for the nominator payout.
-        #[pallet::constant]
         type MaxNominatorRewardedPerValidator: Get<u32>;
 
         /// The fraction of the validator set that is safe to be offending.
         /// After the threshold is reached a new era will be forced.
-        #[pallet::constant]
         type OffendingValidatorsThreshold: Get<Perbill>;
 
         /// A configuration for base priority of unsigned transactions.
         ///
         /// This is exposed so that it can be tuned for particular runtime, when
         /// multiple pallets send unsigned transactions.
-        #[pallet::constant]
         type UnsignedPriority: Get<TransactionPriority>;
 
         /// Maximum weight that the unsigned transaction can have.
@@ -230,7 +222,6 @@ pub mod pallet {
         /// Chose this value with care. On one hand, it should be as high as possible, so the solution
         /// can contain as many nominators/validators as possible. On the other hand, it should be small
         /// enough to fit in the block.
-        #[pallet::constant]
         type OffchainSolutionWeightLimit: Get<Weight>;
 
         /// Required origin for adding a potential validator (can always be Root).
@@ -250,19 +241,15 @@ pub mod pallet {
 
         /// Maximum amount of validators that can run by an identity.
         /// It will be MaxValidatorPerIdentity * Self::validator_count().
-        #[pallet::constant]
         type MaxValidatorPerIdentity: Get<Permill>;
 
         /// Maximum amount of total issuance after which fixed rewards kicks in.
-        #[pallet::constant]
         type MaxVariableInflationTotalIssuance: Get<BalanceOf<Self>>;
 
         /// Yearly total reward amount that gets distributed when fixed rewards kicks in.
-        #[pallet::constant]
         type FixedYearlyReward: Get<BalanceOf<Self>>;
 
         /// Minimum bond amount.
-        #[pallet::constant]
         type MinimumBond: Get<BalanceOf<Self>>;
         // -----------------------------------------------------------------
     }
@@ -301,13 +288,15 @@ pub mod pallet {
     /// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
     #[pallet::storage]
     #[pallet::getter(fn bonded)]
-    pub type Bonded<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::AccountId>;
+    pub type Bonded<T: Config> = 
+        StorageMap<_, Twox64Concat, T::AccountId, T::AccountId, OptionQuery>;
 
     /// Map from all (unlocked) "controller" accounts to the info regarding the staking.
     #[pallet::storage]
     #[pallet::getter(fn ledger)]
     #[pallet::unbounded]
-    pub type Ledger<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, StakingLedger<T>>;
+    pub type Ledger<T: Config> = 
+        StorageMap<_, Blake2_128Concat, T::AccountId, StakingLedger<T>, OptionQuery>;
 
     /// Where the reward payment should be made. Keyed by stash.
     ///
@@ -346,7 +335,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn nominators)]
     pub type Nominators<T: Config> =
-        CountedStorageMap<_, Twox64Concat, T::AccountId, Nominations<T>>;
+        CountedStorageMap<_, Twox64Concat, T::AccountId, Nominations<T>, OptionQuery>;
 
     /// The current era index.
     ///
@@ -354,7 +343,7 @@ pub mod pallet {
     /// set, it might be active or not.
     #[pallet::storage]
     #[pallet::getter(fn current_era)]
-    pub type CurrentEra<T> = StorageValue<_, EraIndex>;
+    pub type CurrentEra<T> = StorageValue<_, EraIndex, OptionQuery>;
 
     /// The active era information, it holds index and start.
     ///
@@ -362,7 +351,7 @@ pub mod pallet {
     /// equal to [`SessionInterface::validators`].
     #[pallet::storage]
     #[pallet::getter(fn active_era)]
-    pub type ActiveEra<T> = StorageValue<_, ActiveEraInfo>;
+    pub type ActiveEra<T> = StorageValue<_, ActiveEraInfo, OptionQuery>;
 
     /// The session index at which the era start for the last `HISTORY_DEPTH` eras.
     ///
@@ -370,7 +359,7 @@ pub mod pallet {
     /// for the eras in `[CurrentEra - HISTORY_DEPTH, CurrentEra]`.
     #[pallet::storage]
     #[pallet::getter(fn eras_start_session_index)]
-    pub type ErasStartSessionIndex<T> = StorageMap<_, Twox64Concat, EraIndex, SessionIndex>;
+    pub type ErasStartSessionIndex<T> = StorageMap<_, Twox64Concat, EraIndex, SessionIndex, OptionQuery>;
 
     /// Exposure of validator at era.
     ///
@@ -438,7 +427,7 @@ pub mod pallet {
     /// Eras that haven't finished yet or has been removed doesn't have reward.
     #[pallet::storage]
     #[pallet::getter(fn eras_validator_reward)]
-    pub type ErasValidatorReward<T: Config> = StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
+    pub type ErasValidatorReward<T: Config> = StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, OptionQuery>;
 
     /// Rewards for the last `HISTORY_DEPTH` eras.
     /// If reward hasn't been set or has been removed then 0 reward is returned.
@@ -503,19 +492,27 @@ pub mod pallet {
         Twox64Concat,
         T::AccountId,
         (Perbill, BalanceOf<T>),
+        OptionQuery,
     >;
 
     /// All slashing events on nominators, mapped by era to the highest slash value of the era.
     #[pallet::storage]
-    pub type NominatorSlashInEra<T: Config> =
-        StorageDoubleMap<_, Twox64Concat, EraIndex, Twox64Concat, T::AccountId, BalanceOf<T>>;
+    pub type NominatorSlashInEra<T: Config> = StorageDoubleMap<
+        _, 
+        Twox64Concat, 
+        EraIndex, 
+        Twox64Concat, 
+        T::AccountId, 
+        BalanceOf<T>, 
+        OptionQuery,
+    >;
 
     /// Slashing spans for stash accounts.
     #[pallet::storage]
     #[pallet::getter(fn slashing_spans)]
     #[pallet::unbounded]
     pub type SlashingSpans<T: Config> =
-        StorageMap<_, Twox64Concat, T::AccountId, slashing::SlashingSpans>;
+        StorageMap<_, Twox64Concat, T::AccountId, slashing::SlashingSpans, OptionQuery>;
 
     /// Records information about the maximum slash of a stash within a slashing span,
     /// as well as how much reward has been paid out.
@@ -546,21 +543,21 @@ pub mod pallet {
     
     #[pallet::storage]
     /// The earliest era for which we have a pending, unapplied slash.
-    pub(crate) type EarliestUnappliedSlash<T: Config> = StorageValue<_, Option<EraIndex>, ValueQuery>;
+    pub(crate) type EarliestUnappliedSlash<T: Config> = StorageValue<_, EraIndex, OptionQuery>;
 
     /// Snapshot of validators at the beginning of the current election window. This should only
     /// have a value when [`EraElectionStatus`] == `ElectionStatus::Open(_)`.
     #[pallet::storage]
     #[pallet::unbounded]
     #[pallet::getter(fn snapshot_validators)]
-    pub(crate) type SnapshotValidators<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+    pub(crate) type SnapshotValidators<T: Config> = StorageValue<_, Vec<T::AccountId>, OptionQuery>;
     
     /// Snapshot of nominators at the beginning of the current election window. This should only
     /// have a value when [`EraElectionStatus`] == `ElectionStatus::Open(_)`.
     #[pallet::storage]
     #[pallet::unbounded]
     #[pallet::getter(fn snapshot_nominators)]
-    pub type SnapshotNominators<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+    pub type SnapshotNominators<T: Config> = StorageValue<_, Vec<T::AccountId>, OptionQuery>;
 
     /// The next validator set. At the end of an era, if this is available (potentially from the
     /// result of an offchain worker), it is immediately used. Otherwise, the on-chain election
@@ -569,12 +566,12 @@ pub mod pallet {
     #[pallet::unbounded]
     #[pallet::getter(fn queued_elected)]
     pub type QueuedElected<T: Config> = 
-        StorageValue<_, Option<ElectionResult<T::AccountId, BalanceOf<T>>>, ValueQuery>;
+        StorageValue<_, ElectionResult<T::AccountId, BalanceOf<T>>, OptionQuery>;
 
     /// The score of the current [`QueuedElected`].
     #[pallet::storage]
     #[pallet::getter(fn queued_score)]
-    pub type QueuedScore<T: Config> = StorageValue<_, Option<ElectionScore>, ValueQuery>;
+    pub type QueuedScore<T: Config> = StorageValue<_, ElectionScore, OptionQuery>;
 
     /// Flag to control the execution of the offchain election. When `Open(_)`, we accept solutions
     /// to be submitted.
@@ -595,7 +592,7 @@ pub mod pallet {
     #[pallet::unbounded]
     #[pallet::getter(fn permissioned_identity)]
     pub type PermissionedIdentity<T: Config> =
-        StorageMap<_, Twox64Concat, IdentityId, PermissionedIdentityPrefs>;
+        StorageMap<_, Twox64Concat, IdentityId, PermissionedIdentityPrefs, OptionQuery>;
 
     /// Allows flexibility in commission. Every validator has commission that should be in the 
     /// range [0, Cap].
@@ -700,7 +697,7 @@ pub mod pallet {
                                 did
                             ));
                         }
-                        <Module<T>>::validate(
+                        <Pallet<T>>::validate(
                             T::RuntimeOrigin::from(Some(controller.clone()).into()),
                             ValidatorPrefs {
                                 commission: self.validator_commission_cap,

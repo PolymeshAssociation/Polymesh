@@ -836,11 +836,8 @@ impl<T: Config> Pallet<T> {
         );
 
         // decode snapshot validators.
-        let snapshot_validators = Self::snapshot_validators();
-        ensure!(
-            !snapshot_validators.is_empty(),
-            Error::<T>::SnapshotUnavailable
-        );
+        let snapshot_validators = 
+            Self::snapshot_validators().ok_or(Error::<T>::SnapshotUnavailable)?;
 
         // check if all winners were legit; this is rather cheap. Replace with accountId.
         let winners = winners
@@ -857,11 +854,8 @@ impl<T: Config> Pallet<T> {
             .collect::<Result<Vec<T::AccountId>, Error<T>>>()?;
 
         // decode the rest of the snapshot.
-        let snapshot_nominators = Self::snapshot_nominators();
-        ensure!(
-            !snapshot_nominators.is_empty(),
-            Error::<T>::SnapshotUnavailable
-        );
+        let snapshot_nominators = 
+            Self::snapshot_nominators().ok_or(Error::<T>::SnapshotUnavailable)?;
 
         // helpers
         let nominator_at = |i: NominatorIndex| -> Option<T::AccountId> {
@@ -971,12 +965,12 @@ impl<T: Config> Pallet<T> {
 		);
 
         // write new results.
-        <QueuedElected<T>>::put(Some(ElectionResult {
+        <QueuedElected<T>>::put(ElectionResult {
             elected_stashes: winners,
             compute,
             exposures,
-        }));
-        QueuedScore::<T>::put(Some(submitted_score));
+        });
+        QueuedScore::<T>::put(submitted_score);
 
         // emit event.
         Self::deposit_event(Event::<T>::SolutionStored(compute));

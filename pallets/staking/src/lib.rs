@@ -1049,7 +1049,7 @@ where <T as frame_system::Config>::BlockNumber: core::fmt::Display
 
 impl<T: Config>
     pallet_session::historical::SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>>
-    for Module<T>
+    for Pallet<T>
 where
     <T as frame_system::Config>::BlockNumber: core::fmt::Display,
 {

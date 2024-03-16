@@ -335,8 +335,10 @@ pub fn prepare_submission<T: Config>(
     OffchainElectionError,
 > {
     // make sure that the snapshot is available.
-    let snapshot_validators = <Pallet<T>>::snapshot_validators();
-    let snapshot_nominators = <Pallet<T>>::snapshot_nominators();
+    let snapshot_validators =
+        <Pallet<T>>::snapshot_validators().ok_or(OffchainElectionError::SnapshotUnavailable)?;
+    let snapshot_nominators =
+        <Pallet<T>>::snapshot_nominators().ok_or(OffchainElectionError::SnapshotUnavailable)?;
 
     // all helper closures that we'd ever need.
     let nominator_index = |a: &T::AccountId| -> Option<NominatorIndex> {

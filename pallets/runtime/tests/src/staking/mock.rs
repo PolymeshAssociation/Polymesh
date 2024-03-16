@@ -1432,8 +1432,8 @@ pub(crate) fn horrible_phragmen_with_post_processing(
         reduce(&mut staked_assignment);
     }
 
-    let snapshot_validators = Staking::snapshot_validators();
-    let snapshot_nominators = Staking::snapshot_nominators();
+    let snapshot_validators = Staking::snapshot_validators().unwrap();
+    let snapshot_nominators = Staking::snapshot_nominators().unwrap();
     let nominator_index = |a: &AccountId| -> Option<NominatorIndex> {
         snapshot_nominators
             .iter()
@@ -1492,8 +1492,8 @@ pub(crate) fn prepare_submission_with(
     }
 
     // convert back to ratio assignment. This takes less space.
-    let snapshot_validators = Staking::snapshot_validators();
-    let snapshot_nominators = Staking::snapshot_nominators();
+    let snapshot_validators = Staking::snapshot_validators().expect("snapshot not created.");
+    let snapshot_nominators = Staking::snapshot_nominators().expect("snapshot not created.");
     let nominator_index = |a: &AccountId| -> Option<NominatorIndex> {
         snapshot_nominators.iter().position(|x| x == a).map_or_else(
             || {
