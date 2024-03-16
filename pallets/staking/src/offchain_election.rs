@@ -17,24 +17,27 @@
 
 //! Helpers for offchain worker election.
 
-use crate::_feps::NposSolution;
-use crate::{
-    Call, CompactAssignments, Config, ElectionSize, Module, NominatorIndex, Nominators,
-    OffchainAccuracy, ValidatorIndex,
-};
 use codec::Decode;
-use frame_support::{traits::Get, weights::Weight, IterableStorageMap};
+use frame_support::traits::Get;
+use frame_support::weights::Weight;
+use frame_support::IterableStorageMap;
 use frame_system::offchain::SubmitTransaction;
 use sp_npos_elections::{
     reduce, to_supports, Assignment, ElectionResult, ElectionScore, EvaluateSupport,
     ExtendedBalance,
 };
-use sp_runtime::{
-    offchain::storage::{MutateStorageError, StorageValueRef},
-    traits::TrailingZeroInput,
-    RuntimeDebug,
+use sp_runtime::offchain::storage::{MutateStorageError, StorageValueRef};
+use sp_runtime::traits::TrailingZeroInput;
+use sp_runtime::RuntimeDebug;
+use sp_std::convert::TryInto;
+use sp_std::prelude::*;
+
+use crate::types::ElectionSize;
+use crate::_feps::NposSolution;
+use crate::{
+    Call, CompactAssignments, Config, NominatorIndex, Nominators, OffchainAccuracy, Pallet, 
+    ValidatorIndex,
 };
-use sp_std::{convert::TryInto, prelude::*};
 
 /// Error types related to the offchain election machinery.
 #[derive(RuntimeDebug)]
@@ -107,7 +110,7 @@ pub(crate) fn compute_offchain_election<T: Config>() -> Result<(), OffchainElect
     let ElectionResult {
         winners,
         assignments,
-    } = <Module<T>>::do_phragmen::<OffchainAccuracy>(iters)
+    } = <Pallet<T>>::do_phragmen::<OffchainAccuracy>(iters)
         .ok_or(OffchainElectionError::ElectionFailed)?;
 
     // process and prepare it for submission.
@@ -126,7 +129,7 @@ pub(crate) fn compute_offchain_election<T: Config>() -> Result<(), OffchainElect
     );
 
     // defensive-only: current era can never be none except genesis.
-    let era = <Module<T>>::current_era().unwrap_or_default();
+    let era = <Pallet<T>>::current_era().unwrap_or_default();
 
     // send it.
     let call = Call::submit_election_solution_unsigned {
@@ -267,7 +270,7 @@ where
     {
         Some(to_remove) if to_remove > 0 => {
             // grab all voters and sort them by least stake.
-            let balance_of = <Module<T>>::weight_of_fn();
+            let balance_of = <Pallet<T>>::weight_of_fn();
             let mut voters_sorted = <Nominators<T>>::iter()
                 .map(|(who, _)| (who.clone(), balance_of(&who)))
                 .collect::<Vec<_>>();
@@ -332,10 +335,8 @@ pub fn prepare_submission<T: Config>(
     OffchainElectionError,
 > {
     // make sure that the snapshot is available.
-    let snapshot_validators =
-        <Module<T>>::snapshot_validators().ok_or(OffchainElectionError::SnapshotUnavailable)?;
-    let snapshot_nominators =
-        <Module<T>>::snapshot_nominators().ok_or(OffchainElectionError::SnapshotUnavailable)?;
+    let snapshot_validators = <Pallet<T>>::snapshot_validators();
+    let snapshot_nominators = <Pallet<T>>::snapshot_nominators();
 
     // all helper closures that we'd ever need.
     let nominator_index = |a: &T::AccountId| -> Option<NominatorIndex> {
@@ -370,7 +371,7 @@ pub fn prepare_submission<T: Config>(
     // convert into absolute value and to obtain the reduced version.
     let mut staked = sp_npos_elections::assignment_ratio_to_staked(
         assignments,
-        <Module<T>>::weight_of_fn(),
+        <Pallet<T>>::weight_of_fn(),
     );
 
     // reduce
@@ -420,7 +421,7 @@ pub fn prepare_submission<T: Config>(
         let assignments = compact.into_assignment(nominator_at, validator_at).unwrap();
         let staked = sp_npos_elections::assignment_ratio_to_staked(
             assignments.clone(),
-            <Module<T>>::weight_of_fn(),
+            <Pallet<T>>::weight_of_fn(),
         );
 
         let support_map = to_supports::<T::AccountId>(&staked);
@@ -447,7 +448,7 @@ pub fn prepare_submission<T: Config>(
 mod test {
     #![allow(unused_variables)]
     use super::*;
-    use crate::ElectionSize;
+    use crate::types::ElectionSize;
 
     struct Staking;
 
@@ -482,7 +483,7 @@ mod test {
         fn set_controller() -> Weight {
             unimplemented!()
         }
-        fn set_validator_count(_c: u32) -> Weight {
+        fn set_validator_count() -> Weight {
             unimplemented!()
         }
         fn force_no_eras() -> Weight {
@@ -503,13 +504,19 @@ mod test {
         fn cancel_deferred_slash(s: u32) -> Weight {
             unimplemented!()
         }
-        fn payout_all(_: u32, _: u32) -> Weight {
+        fn payout_stakers_dead_controller(n: u32, ) -> Weight {
             unimplemented!()
         }
-        fn payout_stakers(n: u32) -> Weight {
+	    fn payout_stakers_alive_staked(n: u32, ) -> Weight {
             unimplemented!()
         }
-        fn payout_stakers_alive_controller(n: u32) -> Weight {
+        fn rebond(l: u32) -> Weight {
+            unimplemented!()
+        }
+        fn reap_stash(s: u32) -> Weight {
+            unimplemented!()
+        }
+        fn new_era(v: u32, n: u32) -> Weight {
             unimplemented!()
         }
         fn set_min_bond_threshold() -> Weight {
@@ -527,16 +534,10 @@ mod test {
         fn do_slash(_: u32) -> Weight {
             unimplemented!()
         }
-        fn rebond(l: u32) -> Weight {
-            unimplemented!()
-        }
         fn set_history_depth(e: u32) -> Weight {
             unimplemented!()
         }
-        fn reap_stash(s: u32) -> Weight {
-            unimplemented!()
-        }
-        fn new_era(v: u32, n: u32) -> Weight {
+        fn payout_all(v: u32, n: u32) -> Weight {
             unimplemented!()
         }
         fn change_slashing_allowed_for() -> Weight {
@@ -545,19 +546,17 @@ mod test {
         fn update_permissioned_validator_intended_count() -> Weight {
             unimplemented!()
         }
-        fn scale_validator_count() -> Weight {
-            unimplemented!()
-        }
         fn increase_validator_count() -> Weight {
             unimplemented!()
         }
-
-        fn submit_solution_better(v: u32, n: u32, a: u32, w: u32) -> Weight {
-            Weight::from_ref_time((0 * v + 0 * n + 1000 * a + 0 * w).into())
+        fn scale_validator_count() -> Weight {
+            unimplemented!()
         }
-
         fn chill_from_governance(s: u32) -> Weight {
             unimplemented!()
+        }
+        fn submit_solution_better(v: u32, n: u32, a: u32, w: u32) -> Weight {
+            Weight::from_ref_time((0 * v + 0 * n + 1000 * a + 0 * w).into())
         }
     }
 

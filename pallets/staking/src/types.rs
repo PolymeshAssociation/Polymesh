@@ -2,12 +2,11 @@
 use sp_runtime::{Deserialize, Serialize};
 
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
-use frame_support::BoundedVec;
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
 use scale_info::TypeInfo;
 
-use crate::{BalanceOf, Config, Exposure, NominatorIndex,  ValidatorIndex};
+use crate::{Exposure, NominatorIndex,  ValidatorIndex};
 
 /// Preference of an identity regarding validation.
 #[derive(Clone, Copy, Decode, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]

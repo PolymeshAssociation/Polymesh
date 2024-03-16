@@ -57,7 +57,7 @@ where
             return (fixed_payout.clone(), fixed_payout);
         }
     }
-    // -------------------------------------------------------------
+    // ------------------------------------------------------------------
     let maximum = portion * (yearly_inflation.maximum * total_tokens);
     (payout, maximum)
 }

@@ -54,7 +54,6 @@ pub trait WeightInfo {
 	fn withdraw_unbonded_update(s: u32, ) -> Weight;
 	fn withdraw_unbonded_kill(s: u32, ) -> Weight;
 	fn validate() -> Weight;
-	fn kick(k: u32, ) -> Weight;
 	fn nominate(n: u32, ) -> Weight;
 	fn chill() -> Weight;
 	fn set_payee() -> Weight;
@@ -71,11 +70,20 @@ pub trait WeightInfo {
 	fn rebond(l: u32, ) -> Weight;
 	fn reap_stash(s: u32, ) -> Weight;
 	fn new_era(v: u32, n: u32, ) -> Weight;
-	fn get_npos_voters(v: u32, n: u32, ) -> Weight;
-	fn get_npos_targets(v: u32, ) -> Weight;
-	fn set_staking_configs_all_set() -> Weight;
-	fn set_staking_configs_all_remove() -> Weight;
-	fn chill_other() -> Weight;
-	fn force_apply_min_commission() -> Weight;
-	fn set_min_commission() -> Weight;
+	// Polymesh Change
+    // -----------------------------------------------------------------
+	fn set_min_bond_threshold() -> Weight;
+    fn add_permissioned_validator() -> Weight;
+    fn remove_permissioned_validator() -> Weight;
+    fn set_commission_cap(m: u32) -> Weight;
+	fn set_history_depth(e: u32) -> Weight;
+	fn do_slash(l: u32) -> Weight;
+    fn payout_all(v: u32, n: u32) -> Weight;
+    fn submit_solution_better(v: u32, n: u32, a: u32, w: u32) -> Weight;
+    fn change_slashing_allowed_for() -> Weight;
+    fn update_permissioned_validator_intended_count() -> Weight;
+    fn increase_validator_count() -> Weight;
+    fn scale_validator_count() -> Weight;
+    fn chill_from_governance(s: u32) -> Weight;
+	// -----------------------------------------------------------------
 }

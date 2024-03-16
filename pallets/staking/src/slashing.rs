@@ -56,14 +56,14 @@ use crate::{
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
     ensure,
-    traits::{Currency, Defensive, Get, Imbalance, OnUnbalanced},
+    traits::{Currency, Get, Imbalance, OnUnbalanced},
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{Saturating, Zero},
     DispatchResult, RuntimeDebug,
 };
-use sp_staking::{offence::DisableStrategy, EraIndex};
+use sp_staking::EraIndex;
 use sp_std::vec::Vec;
 
 use crate::types::SlashingSwitch;

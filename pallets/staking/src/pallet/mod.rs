@@ -72,10 +72,6 @@ use crate::{ValidatorIndex, CompactAssignments};
 type Identity<T> = pallet_identity::Module<T>;
 
 const STAKING_ID: LockIdentifier = *b"staking ";
-// The speculative number of spans are used as an input of the weight annotation of
-// [`Call::unbond`], as the post dipatch weight may depend on the number of slashing span on the
-// account which is not provided as an input. The value set should be conservative but sensible.
-pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -160,29 +156,6 @@ pub mod pallet {
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
 
-        /// Number of eras to keep in history.
-        ///
-        /// Following information is kept for eras in `[current_era -
-        /// HistoryDepth, current_era]`: `ErasStakers`, `ErasStakersClipped`,
-        /// `ErasValidatorPrefs`, `ErasValidatorReward`, `ErasRewardPoints`,
-        /// `ErasTotalStake`, `ErasStartSessionIndex`,
-        /// `StakingLedger.claimed_rewards`.
-        ///
-        /// Must be more than the number of eras delayed by session.
-        /// I.e. active era must always be in history. I.e. `active_era >
-        /// current_era - history_depth` must be guaranteed.
-        ///
-        /// If migrating an existing pallet from storage value to config value,
-        /// this should be set to same value or greater as in storage.
-        ///
-        /// Note: `HistoryDepth` is used as the upper bound for the `BoundedVec`
-        /// item `StakingLedger.claimed_rewards`. Setting this value lower than
-        /// the existing value can lead to inconsistencies in the
-        /// `StakingLedger` and will need to be handled properly in a migration.
-        /// The test `reducing_history_depth_abrupt` shows this effect.
-        #[pallet::constant]
-        type HistoryDepth: Get<u32>;
-
         /// The maximum number of `unlocking` chunks a [`StakingLedger`] can
         /// have. Effectively determines how many unique eras a staker may be
         /// unbonding in.
@@ -196,7 +169,8 @@ pub mod pallet {
         #[pallet::constant]
         type MaxUnlockingChunks: Get<u32>;
 
-        // Polymesh change: --------------------------------------------
+        // Polymesh Change: Have fixed rewards kicked in?
+        // -----------------------------------------------------------------
         /// The origin which can cancel a deferred slash. Root can always do this.
         type SlashCancelOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
@@ -290,8 +264,19 @@ pub mod pallet {
         /// Minimum bond amount.
         #[pallet::constant]
         type MinimumBond: Get<BalanceOf<Self>>;
-        // -------------------------------------------------------------
+        // -----------------------------------------------------------------
     }
+
+    /// Number of eras to keep in history.
+    ///
+    /// Information is kept for eras in `[current_era - history_depth; current_era]`.
+    ///
+    /// Must be more than the number of eras delayed by session otherwise. I.e. active era must
+    /// always be in history. I.e. `active_era > current_era - history_depth` must be
+    /// guaranteed.
+    #[pallet::storage]
+    #[pallet::getter(fn history_depth)]
+    pub type HistoryDepth<T> = StorageValue<_, u32, ValueQuery>;
 
     /// The ideal number of active validators.
     #[pallet::storage]
@@ -321,6 +306,7 @@ pub mod pallet {
     /// Map from all (unlocked) "controller" accounts to the info regarding the staking.
     #[pallet::storage]
     #[pallet::getter(fn ledger)]
+    #[pallet::unbounded]
     pub type Ledger<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, StakingLedger<T>>;
 
     /// Where the reward payment should be made. Keyed by stash.
@@ -504,13 +490,13 @@ pub mod pallet {
     /// `[active_era - bounding_duration; active_era]`
     #[pallet::storage]
     #[pallet::unbounded]
-    pub(crate) type BondedEras<T: Config> =
+    pub type BondedEras<T: Config> =
         StorageValue<_, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
 
     /// All slashing events on validators, mapped by era to the highest slash proportion
     /// and slash value of the era.
     #[pallet::storage]
-    pub(crate) type ValidatorSlashInEra<T: Config> = StorageDoubleMap<
+    pub type ValidatorSlashInEra<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
         EraIndex,
@@ -521,7 +507,7 @@ pub mod pallet {
 
     /// All slashing events on nominators, mapped by era to the highest slash value of the era.
     #[pallet::storage]
-    pub(crate) type NominatorSlashInEra<T: Config> =
+    pub type NominatorSlashInEra<T: Config> =
         StorageDoubleMap<_, Twox64Concat, EraIndex, Twox64Concat, T::AccountId, BalanceOf<T>>;
 
     /// Slashing spans for stash accounts.
@@ -534,7 +520,7 @@ pub mod pallet {
     /// Records information about the maximum slash of a stash within a slashing span,
     /// as well as how much reward has been paid out.
     #[pallet::storage]
-    pub(crate) type SpanSlash<T: Config> = StorageMap<
+    pub type SpanSlash<T: Config> = StorageMap<
         _,
         Twox64Concat,
         (T::AccountId, slashing::SpanIndex),
@@ -557,6 +543,10 @@ pub mod pallet {
     pub type OffendingValidators<T: Config> = StorageValue<_, Vec<(u32, bool)>, ValueQuery>;
 
     // Polymesh Change: --------------------------------------------
+    
+    #[pallet::storage]
+    /// The earliest era for which we have a pending, unapplied slash.
+    pub(crate) type EarliestUnappliedSlash<T: Config> = StorageValue<_, Option<EraIndex>, ValueQuery>;
 
     /// Snapshot of validators at the beginning of the current election window. This should only
     /// have a value when [`EraElectionStatus`] == `ElectionStatus::Open(_)`.
@@ -577,6 +567,7 @@ pub mod pallet {
     /// is executed.
     #[pallet::storage]
     #[pallet::unbounded]
+    #[pallet::getter(fn queued_elected)]
     pub type QueuedElected<T: Config> = 
         StorageValue<_, Option<ElectionResult<T::AccountId, BalanceOf<T>>>, ValueQuery>;
 
@@ -596,6 +587,7 @@ pub mod pallet {
     /// True if the current **planned** session is final. Note that this does not take era
     /// forcing into account.
     #[pallet::storage]
+    #[pallet::getter(fn is_current_session_final)]
     pub type IsCurrentSessionFinal<T: Config> = StorageValue<_, bool, ValueQuery>; 
 
     /// Entities that are allowed to run operator/validator nodes.
@@ -639,7 +631,7 @@ pub mod pallet {
             crate::StakerStatus<T::AccountId>,
         )>,
         pub validator_commission_cap: Perbill,
-        pub minimum_bound_threshold: BalanceOf<T>,
+        pub min_bond_threshold: BalanceOf<T>,
         pub slashing_allowed_for: SlashingSwitch,
         pub history_depth: u32,
     }
@@ -656,7 +648,7 @@ pub mod pallet {
                 canceled_payout: Default::default(),
                 stakers: Default::default(),
                 validator_commission_cap: Default::default(),
-                minimum_bound_threshold: Default::default(),
+                min_bond_threshold: Default::default(),
                 slashing_allowed_for: Default::default(),
                 history_depth: Default::default(),
             }
@@ -675,7 +667,7 @@ pub mod pallet {
     pub enum Event<T: Config> {
         /// The era payout has been set; the first balance is the validator-payout; the second is
         /// the remainder from the maximum amount of reward.
-        EraPaid(EraIndex, BalanceOf<T>, BalanceOf<T>),
+        EraPayout(EraIndex, BalanceOf<T>, BalanceOf<T>),
         /// The nominator has been rewarded by this amount.
         Reward(IdentityId, T::AccountId, BalanceOf<T>),
         /// A staker (validator or nominator) has been slashed by the given amount.
@@ -892,7 +884,7 @@ pub mod pallet {
             <Payee<T>>::insert(&stash, payee);
 
             let current_era = CurrentEra::<T>::get().unwrap_or(0);
-            let history_depth = T::HistoryDepth::get();
+            let history_depth = Self::history_depth();
             let last_reward_era = current_era.saturating_sub(history_depth);
 
             let stash_balance = T::Currency::free_balance(&stash);
@@ -909,12 +901,7 @@ pub mod pallet {
                 total: value,
                 active: value,
                 unlocking: Default::default(),
-                claimed_rewards: (last_reward_era..current_era)
-                    .try_collect()
-                    // Since last_reward_era is calculated as `current_era -
-                    // HistoryDepth`, following bound is always expected to be
-                    // satisfied.
-                    .defensive_map_err(|_| Error::<T>::BoundNotMet)?,
+                claimed_rewards: (last_reward_era..current_era).collect(),
             };
             Self::update_ledger(&controller, &item);
             Ok(())
@@ -1717,6 +1704,34 @@ pub mod pallet {
             .into())
         }
 
+        /// Rebond a portion of the stash scheduled to be unlocked.
+        ///
+        /// The dispatch origin must be signed by the controller.
+        ///
+        /// ## Complexity
+        /// - Time complexity: O(L), where L is unlocking chunks
+        /// - Bounded by `MaxUnlockingChunks`.
+        #[pallet::call_index(25)]
+        #[pallet::weight(Weight::zero())]
+        pub fn set_history_depth(
+            origin: OriginFor<T>,
+            #[pallet::compact] new_history_depth: EraIndex,
+            #[pallet::compact] _era_items_deleted: u32,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            if let Some(current_era) = Self::current_era() {
+                HistoryDepth::<T>::mutate(|history_depth| {
+					let last_kept = current_era.checked_sub(*history_depth).unwrap_or(0);
+					let new_last_kept = current_era.checked_sub(new_history_depth).unwrap_or(0);
+                    for era_index in last_kept..new_last_kept {
+                        Self::clear_era_information(era_index);
+                    }
+                    *history_depth = new_history_depth
+                })
+            }
+            Ok(())
+        }
+
         /// Remove all data structures concerning a staker/stash once it is at a state where it can
         /// be considered `dust` in the staking system. The requirements are:
         ///
@@ -1729,7 +1744,7 @@ pub mod pallet {
         /// It can be called by anyone, as long as `stash` meets the above requirements.
         ///
         /// Refunds the transaction fees upon successful execution.
-        #[pallet::call_index(25)]
+        #[pallet::call_index(26)]
         #[pallet::weight(Weight::zero())]
         pub fn reap_stash(
             origin: OriginFor<T>,
@@ -1801,7 +1816,7 @@ pub mod pallet {
         ///   - Initial solution is almost the same.
         ///   - Worse solution is retraced in pre-dispatch-checks which sets its own weight.
         /// # </weight>
-        #[pallet::call_index(26)]
+        #[pallet::call_index(27)]
         #[pallet::weight(Weight::zero())]
         pub fn submit_election_solution(
             origin: OriginFor<T>,
@@ -1831,7 +1846,7 @@ pub mod pallet {
         /// # <weight>
         /// See [`submit_election_solution`].
         /// # </weight>
-        #[pallet::call_index(27)]
+        #[pallet::call_index(28)]
         #[pallet::weight(Weight::zero())]
         pub fn submit_election_solution_unsigned(
             origin: OriginFor<T>,
@@ -1859,7 +1874,7 @@ pub mod pallet {
             Ok(adjustments)
         }
 
-        #[pallet::call_index(28)]
+        #[pallet::call_index(29)]
         #[pallet::weight(Weight::zero())]
         pub fn payout_stakers_by_system(
             origin: OriginFor<T>,
@@ -1879,7 +1894,7 @@ pub mod pallet {
         /// # Arguments
         /// * origin - AccountId of root.
         /// * slashing_switch - Switch used to set the targets for s
-        #[pallet::call_index(29)]
+        #[pallet::call_index(30)]
         #[pallet::weight(Weight::zero())]
         pub fn change_slashing_allowed_for(
             origin: OriginFor<T>,
@@ -1898,7 +1913,7 @@ pub mod pallet {
         /// * origin which must be the required origin for adding a potential validator.
         /// * identity to add as a validator.
         /// * new_intended_count New value of intended co
-        #[pallet::call_index(30)]
+        #[pallet::call_index(31)]
         #[pallet::weight(Weight::zero())]
         pub fn update_permissioned_validator_intended_count(
             origin: OriginFor<T>,
@@ -1931,7 +1946,7 @@ pub mod pallet {
         /// * `CallNotAllowed` The call is not allowed at the given time due to restrictions of election period.
         /// * `NotExists` Permissioned validator doesn't exist.
         /// * `NotStash` Not a stash account for the permissioned i
-        #[pallet::call_index(31)]
+        #[pallet::call_index(32)]
         #[pallet::weight(Weight::zero())]
         pub fn chill_from_governance(
             origin: OriginFor<T>,
@@ -1939,6 +1954,19 @@ pub mod pallet {
             stash_keys: Vec<T::AccountId>
         ) -> DispatchResult {
             Self::base_chill_from_governance(origin, identity, stash_keys)
+        }
+    }
+
+    #[pallet::validate_unsigned]
+    impl<T: Config> ValidateUnsigned for Pallet<T> {
+        type Call = Call<T>;
+            
+        fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+            Self::validate_unsigned_call(source, call)
+        }
+
+        fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
+            Self::pre_dispatch_call(call)
         }
     }
 }
