@@ -28,8 +28,7 @@ use frame_support::{
         Contains, Currency, FindAuthor, GenesisBuild as _, Get, Imbalance, KeyOwnerProofSystem,
         OnFinalize, OnInitialize, OnUnbalanced, OneSessionHandler, SortedMembers,
     },
-    weights::constants::RocksDbWeight,
-    IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
+    weights::constants::RocksDbWeight, StorageDoubleMap, StorageMap,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_group as group;
@@ -72,7 +71,7 @@ use std::{cell::RefCell, collections::BTreeMap};
 use pallet_staking::types::SlashingSwitch;
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
-pub const BLOCK_TIME: u64 = 1000;
+pub const BLOCK_TIME: u64 = 1_000;
 
 /// The AccountId alias in this test module.
 pub(crate) type AccountId = u64;

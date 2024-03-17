@@ -17,43 +17,35 @@
 
 //! Implementations for the Staking FRAME Pallet.
 
-use frame_election_provider_support::{
-    data_provider, BoundedSupportsOf, ElectionDataProvider, ElectionProvider, ScoreProvider,
-    SortedListProvider, VoteWeight, VoterOf,
-};
+use frame_election_provider_support::VoteWeight;
 use frame_support::{
     dispatch::WithPostDispatchInfo,
     pallet_prelude::*,
     traits::{
-        Currency, CurrencyToVote, Defensive, DefensiveResult, EstimateNextNewSession, Get,
-        Imbalance, LockableCurrency, OnUnbalanced, TryCollect, UnixTime, WithdrawReasons,
+        Currency, CurrencyToVote, Get, Imbalance, LockableCurrency, OnUnbalanced, UnixTime, 
+        WithdrawReasons,
     },
     weights::Weight,
 };
-use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use pallet_session::historical;
+use frame_system::RawOrigin;
+
 use sp_runtime::{
-    traits::{Bounded, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero},
+    traits::{ SaturatedConversion, Saturating, Zero},
     Perbill,
 };
-use sp_staking::{
-    offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-    EraIndex, SessionIndex, Stake, StakingInterface,
-};
+use sp_staking::{EraIndex, SessionIndex};
 use sp_std::prelude::*;
 
 use crate::{
-    log, slashing, weights::WeightInfo, ActiveEraInfo, BalanceOf, EraPayout, Exposure, ExposureOf,
-    Forcing, IndividualExposure, Nominations, PositiveImbalanceOf, RewardDestination,
-    SessionInterface, StakingLedger, ValidatorPrefs,
+    log, slashing, weights::WeightInfo, ActiveEraInfo, BalanceOf, Exposure, Forcing, 
+    IndividualExposure, Nominations, PositiveImbalanceOf, RewardDestination, SessionInterface, 
+    StakingLedger, ValidatorPrefs,
 };
 
 use super::{pallet::*, STAKING_ID};
 
-use frame_support::traits::DefensiveSaturating;
 use sp_npos_elections::{
-    Assignment, ElectionScore, Supports, to_support_map, EvaluateSupport, SupportMap, 
-    ExtendedBalance
+    Assignment, ElectionScore, Supports, to_support_map, EvaluateSupport, SupportMap,
 };
 
 use polymesh_common_utilities::Context;
@@ -68,7 +60,7 @@ use frame_support::traits::schedule::{Anon, DispatchTime, HIGHEST_PRIORITY};
 use sp_npos_elections::{
     BalancingConfig, ElectionResult as PrimitiveElectionResult, PerThing128, seq_phragmen
 };
-use sp_runtime::{PerU16, ModuleError};
+use sp_runtime::ModuleError;
 
 use crate::{ChainAccuracy, MAX_NOMINATORS, MAX_VALIDATORS};
 use crate::types::ElectionStatus;
@@ -447,7 +439,7 @@ impl<T: Config> Pallet<T> {
         if let Some(active_era_start) = active_era.start {
             let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
 
-            let era_duration = (now_as_millis_u64 - active_era_start).saturated_into::<u64>();
+            let era_duration = now_as_millis_u64 - active_era_start;
             let (validator_payout, max_payout) = crate::inflation::compute_total_payout(
                 &T::RewardCurve::get(),
                 Self::eras_total_stake(&active_era.index),
@@ -1097,19 +1089,10 @@ impl<T: Config> Pallet<T> {
 
             // Note: in case there is no current era it is fine to bond one era more.
             let era = Self::current_era().unwrap_or(0) + T::BondingDuration::get();
-            if let Some(mut chunk) =
-                ledger.unlocking.last_mut().filter(|chunk| chunk.era == era)
-            {
-                // To keep the chunk count down, we only keep one chunk per era. Since
-                // `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
-                // be the last one.
-                chunk.value = chunk.value.defensive_saturating_add(value)
-            } else {
-                ledger
-                    .unlocking
-                    .try_push(UnlockChunk { value, era })
-                    .map_err(|_| Error::<T>::NoMoreChunks)?;
-            };
+            ledger
+                .unlocking
+                .try_push(UnlockChunk { value, era })
+                .map_err(|_| Error::<T>::NoMoreChunks)?;
             // NOTE: ledger must be updated prior to calling `Self::weight_of`.
             Self::update_ledger(&controller, &ledger);
 

@@ -3462,8 +3462,8 @@ mod offchain_phragmen {
                 run_to_block(37);
                 assert_session_era!(3, 0);
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Open(37));
-                assert!(!Staking::snapshot_nominators().is_none());
-                assert!(!Staking::snapshot_validators().is_none());
+                assert!(Staking::snapshot_nominators().is_some());
+                assert!(Staking::snapshot_validators().is_some());
 
                 run_to_block(38);
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Open(37));
@@ -3486,8 +3486,8 @@ mod offchain_phragmen {
                 // second era onwards has 50 blocks per era.
                 run_to_block(87);
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Open(87));
-                assert!(!Staking::snapshot_nominators().is_none());
-                assert!(!Staking::snapshot_validators().is_none());
+                assert!(Staking::snapshot_nominators().is_some());
+                assert!(Staking::snapshot_validators().is_some());
 
                 run_to_block(90);
                 assert_session_era!(9, 1);
@@ -3562,7 +3562,7 @@ mod offchain_phragmen {
                 run_to_block(37);
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Open(37));
                 assert!(Staking::is_current_session_final());
-                assert!(!Staking::snapshot_validators().is_none());
+                assert!(Staking::snapshot_validators().is_some());
 
                 // closes normally
                 run_to_block(40);
@@ -3615,7 +3615,7 @@ mod offchain_phragmen {
             .build()
             .execute_with(|| {
                 run_to_block(12);
-                assert!(!Staking::snapshot_validators().is_none());
+                assert!(Staking::snapshot_validators().is_some());
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Open(12));
 
                 // validate more than the limit
@@ -3640,7 +3640,7 @@ mod offchain_phragmen {
             .build()
             .execute_with(|| {
                 run_to_block(12);
-                assert!(!Staking::snapshot_validators().is_none());
+                assert!(Staking::snapshot_validators().is_some());
                 // given
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Open(12));
 
@@ -4396,7 +4396,7 @@ mod offchain_phragmen {
                 ));
 
                 run_to_block(37);
-                assert!(!Staking::snapshot_validators().is_none());
+                assert!(Staking::snapshot_validators().is_some());
                 let entity_id = Identity::get_identity(&70).unwrap();
 
                 let (compact, winners, score) = prepare_submission_with(true, true, 2, |_| {});
@@ -4422,7 +4422,7 @@ mod offchain_phragmen {
                 assert_eq!(Identity::has_valid_cdd(entity_id), false);
 
                 run_to_block(87);
-                assert!(!Staking::snapshot_validators().is_none());
+                assert!(Staking::snapshot_validators().is_some());
                 let (compact_2, winners_2, score_2) =
                     prepare_submission_with(true, true, 2, |_| {});
 

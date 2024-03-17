@@ -297,15 +297,14 @@ mod pallet;
 
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
-    traits::{Currency, Defensive, Get},
+    traits::{Currency, Get},
     weights::Weight,
     BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-    curve::PiecewiseLinear,
-    traits::{AtLeast32BitUnsigned, Convert, Saturating, StaticLookup, Zero},
-    Perbill, Perquintill, Rounding, RuntimeDebug,
+    traits::{Convert, Saturating, StaticLookup, Zero},
+    Perbill, RuntimeDebug,
 };
 use sp_staking::{
     offence::{Offence, OffenceError, ReportOffence},
@@ -314,7 +313,7 @@ use sp_staking::{
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 pub use weights::WeightInfo;
 
-pub use pallet::{pallet::*, *};
+pub use pallet::pallet::*;
 
 use frame_election_provider_support::generate_solution_type;
 use frame_support::traits::LockIdentifier;
@@ -812,7 +811,7 @@ impl<AccountId, Balance: HasCompact + Zero> UnappliedSlash<AccountId, Balance> {
 /// Means for interacting with a specialized version of the `session` trait.
 ///
 /// This is needed because `Staking` sets the `ValidatorIdOf` of the `pallet_session::Config`
-pub trait SessionInterface<AccountId> {
+pub trait SessionInterface<AccountId>  {
     /// Disable the validator at the given index, returns `false` if the validator was already
     /// disabled or the index is out of bounds.
     fn disable_validator(validator_index: u32) -> bool;
@@ -846,18 +845,6 @@ where
 
     fn prune_historical_up_to(up_to: SessionIndex) {
         <pallet_session::historical::Pallet<T>>::prune_up_to(up_to);
-    }
-}
-
-impl<AccountId> SessionInterface<AccountId> for () {
-    fn disable_validator(_: u32) -> bool {
-        true
-    }
-    fn validators() -> Vec<AccountId> {
-        Vec::new()
-    }
-    fn prune_historical_up_to(_: SessionIndex) {
-        ()
     }
 }
 

@@ -20,7 +20,6 @@
 use codec::Decode;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use frame_support::IterableStorageMap;
 use frame_system::offchain::SubmitTransaction;
 use sp_npos_elections::{
     reduce, to_supports, Assignment, ElectionResult, ElectionScore, EvaluateSupport,

@@ -17,16 +17,12 @@
 
 //! Staking FRAME Pallet.
 
-use frame_election_provider_support::{
-    ElectionProvider, ElectionProviderBase, SortedListProvider, VoteWeight,
-};
 use frame_support::{
     dispatch::Codec,
     pallet_prelude::*,
     traits::{
-        Currency, CurrencyToVote, Defensive, DefensiveResult, DefensiveSaturating, EnsureOrigin,
-        EstimateNextNewSession, Get, LockIdentifier, LockableCurrency, OnUnbalanced, TryCollect,
-        UnixTime,
+        Currency, CurrencyToVote, EnsureOrigin, EstimateNextNewSession, Get, LockIdentifier, 
+        LockableCurrency, OnUnbalanced, UnixTime,
     },
     weights::Weight,
     BoundedVec,
@@ -41,13 +37,10 @@ use sp_std::prelude::*;
 
 mod impls;
 
-pub use impls::*;
-
 use crate::{
-    slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-    EraRewardPoints, Exposure, Forcing, NegativeImbalanceOf, Nominations, PositiveImbalanceOf,
-    RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
-    ValidatorPrefs,
+    slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraRewardPoints, 
+    Exposure, Forcing, NegativeImbalanceOf, Nominations, PositiveImbalanceOf,RewardDestination, 
+    SessionInterface, StakingLedger, UnappliedSlash, ValidatorPrefs,
 };
 
 use frame_support::traits::IsSubType;
@@ -75,10 +68,6 @@ const STAKING_ID: LockIdentifier = *b"staking ";
 
 #[frame_support::pallet]
 pub mod pallet {
-    use frame_election_provider_support::ElectionDataProvider;
-
-    use crate::BenchmarkingConfig;
-
     use super::*;
 
     /// The current storage version.
@@ -254,6 +243,9 @@ pub mod pallet {
         // -----------------------------------------------------------------
     }
 
+    #[pallet::type_value]
+    pub fn HistoryDepthDefault() -> u32 { 84 }
+
     /// Number of eras to keep in history.
     ///
     /// Information is kept for eras in `[current_era - history_depth; current_era]`.
@@ -263,7 +255,7 @@ pub mod pallet {
     /// guaranteed.
     #[pallet::storage]
     #[pallet::getter(fn history_depth)]
-    pub type HistoryDepth<T> = StorageValue<_, u32, ValueQuery>;
+    pub type HistoryDepth<T> = StorageValue<_, u32, ValueQuery, HistoryDepthDefault>;
 
     /// The ideal number of active validators.
     #[pallet::storage]
@@ -664,7 +656,7 @@ pub mod pallet {
             ValidatorCommissionCap::<T>::put(self.validator_commission_cap);
             MinimumBondThreshold::<T>::put(self.min_bond_threshold);
             SlashingAllowedFor::<T>::put(self.slashing_allowed_for);
-            HistoryDepth::<T>::put(self.history_depth);
+            //HistoryDepth::<T>::put(self.history_depth);
 
             for &(did, ref stash, ref controller, balance, ref status) in &self.stakers {
                 crate::log!(
@@ -684,7 +676,7 @@ pub mod pallet {
                     balance,
                     RewardDestination::Staked,
                 ));
-                frame_support::assert_ok!(match status {
+                match status {
                     crate::StakerStatus::Validator => {
                         if <Pallet<T>>::permissioned_identity(&did).is_none() {
                             // Adding identity directly in the storage by assuming it is CDD'ed
@@ -697,23 +689,25 @@ pub mod pallet {
                                 did
                             ));
                         }
-                        <Pallet<T>>::validate(
+                        let _ = <Pallet<T>>::validate(
                             T::RuntimeOrigin::from(Some(controller.clone()).into()),
                             ValidatorPrefs {
                                 commission: self.validator_commission_cap,
                                 blocked: Default::default(),
                             },
-                        )
+                        );
                     },
-                    crate::StakerStatus::Nominator(votes) => <Pallet<T>>::nominate(
-                        T::RuntimeOrigin::from(Some(controller.clone()).into()),
-                        votes
-                            .iter()
-                            .map(|l| T::Lookup::unlookup(l.clone()))
-                            .collect(),
-                    ),
-                    _ => Ok(()),
-                });
+                    crate::StakerStatus::Nominator(votes) => {
+                        let _ = <Pallet<T>>::nominate(
+                            T::RuntimeOrigin::from(Some(controller.clone()).into()),
+                            votes
+                                .iter()
+                                .map(|l| T::Lookup::unlookup(l.clone()))
+                                .collect(),
+                            );
+                    },
+                    _ => {},
+                };
             }
         }
     }
@@ -1869,20 +1863,24 @@ pub mod pallet {
         #[pallet::call_index(26)]
         #[pallet::weight(Weight::zero())]
         pub fn reap_stash(
-            origin: OriginFor<T>,
+            _origin: OriginFor<T>,
             stash: T::AccountId,
             num_slashing_spans: u32,
         ) -> DispatchResultWithPostInfo {
-            let _ = ensure_signed(origin)?;
+            //let _ = ensure_signed(origin)?;
 
-            let ed = T::Currency::minimum_balance();
-            let reapable = T::Currency::total_balance(&stash) < ed
-                || Self::ledger(Self::bonded(stash.clone()).ok_or(Error::<T>::NotStash)?)
-                    .map(|l| l.total)
-                    .unwrap_or_default()
-                    < ed;
-            ensure!(reapable, Error::<T>::FundedTarget);
+            //let ed = T::Currency::minimum_balance();
+            //let reapable = T::Currency::total_balance(&stash) < ed
+            //    || Self::ledger(Self::bonded(stash.clone()).ok_or(Error::<T>::NotStash)?)
+            //        .map(|l| l.total)
+            //        .unwrap_or_default()
+            //        < ed;
+            //ensure!(reapable, Error::<T>::FundedTarget);
 
+			ensure!(
+                T::Currency::total_balance(&stash) == T::Currency::minimum_balance(), 
+                Error::<T>::FundedTarget
+            );
             Self::kill_stash(&stash, num_slashing_spans)?;
             T::Currency::remove_lock(STAKING_ID, &stash);
 
