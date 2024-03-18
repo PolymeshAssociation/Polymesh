@@ -21,8 +21,8 @@ use frame_support::{
     dispatch::Codec,
     pallet_prelude::*,
     traits::{
-        Currency, CurrencyToVote, EnsureOrigin, EstimateNextNewSession, Get, LockIdentifier, 
-        LockableCurrency, OnUnbalanced, UnixTime,
+        Currency, CurrencyToVote, EnsureOrigin, EstimateNextNewSession, Get, LockableCurrency, 
+        OnUnbalanced, UnixTime,
     },
     weights::Weight,
     BoundedVec,
@@ -60,11 +60,9 @@ use crate::types::{
     ElectionStatus, ElectionResult, ElectionCompute, PermissionedIdentityPrefs, SlashingSwitch, 
     ElectionSize
 };
-use crate::{ValidatorIndex, CompactAssignments};
+use crate::{ValidatorIndex, CompactAssignments, STAKING_ID};
 
 type Identity<T> = pallet_identity::Module<T>;
-
-const STAKING_ID: LockIdentifier = *b"staking ";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -941,6 +939,31 @@ pub mod pallet {
                         T::BondingDuration::get(),
                     )
                 );
+            }
+        }
+
+        /// Check if the current block number is the one at which the election window has been set
+        /// to open. If so, it runs the offchain worker code.
+        fn offchain_worker(now: T::BlockNumber) {
+            use crate::offchain_election::{
+                compute_offchain_election, set_check_offchain_execution_status,
+            };
+
+            if Self::era_election_status().is_open_at(now) {
+                let offchain_status = set_check_offchain_execution_status::<T>(now);
+                if let Err(why) = offchain_status {
+                    crate::log!(
+                        warn,
+                        "💸 skipping offchain worker in open election window due to [{:?}]",
+                        why
+                    );
+                } else {
+                    if let Err(e) = compute_offchain_election::<T>() {
+                        crate::log!(error, "💸 Error in election offchain worker: {:?}", e);
+                    } else {
+                        crate::log!(debug, "💸 Executed offchain worker thread without errors.");
+                    }
+                }
             }
         }
     }

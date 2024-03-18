@@ -28,7 +28,8 @@ use frame_support::{
         Contains, Currency, FindAuthor, GenesisBuild as _, Get, Imbalance, KeyOwnerProofSystem,
         OnFinalize, OnInitialize, OnUnbalanced, OneSessionHandler, SortedMembers,
     },
-    weights::constants::RocksDbWeight, StorageDoubleMap, StorageMap,
+    weights::constants::RocksDbWeight,
+    StorageDoubleMap, StorageMap,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_group as group;

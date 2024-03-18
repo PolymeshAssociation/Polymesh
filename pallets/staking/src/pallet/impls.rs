@@ -39,10 +39,10 @@ use sp_std::prelude::*;
 use crate::{
     log, slashing, weights::WeightInfo, ActiveEraInfo, BalanceOf, Exposure, Forcing, 
     IndividualExposure, Nominations, PositiveImbalanceOf, RewardDestination, SessionInterface, 
-    StakingLedger, ValidatorPrefs,
+    StakingLedger, ValidatorPrefs, STAKING_ID
 };
 
-use super::{pallet::*, STAKING_ID};
+use super::pallet::*;
 
 use sp_npos_elections::{
     Assignment, ElectionScore, Supports, to_support_map, EvaluateSupport, SupportMap,
@@ -321,7 +321,7 @@ impl<T: Config> Pallet<T> {
 
             match ForceEra::<T>::get() {
                 // Will be set to `NotForcing` again if a new era has been triggered.
-                Forcing::ForceNew => (),
+                Forcing::ForceNew => ForceEra::<T>::kill(),
                 // Short circuit to `try_trigger_new_era`.
                 Forcing::ForceAlways => (),
                 // Only go to `try_trigger_new_era` if deadline reached.
@@ -1233,7 +1233,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Plan a new era. Return the potential new staking set.
-    fn new_era(start_session_index: SessionIndex) -> Option<Vec<T::AccountId>> {
+    pub(crate) fn new_era(start_session_index: SessionIndex) -> Option<Vec<T::AccountId>> {
         // Increment or set current era.
         let current_era = CurrentEra::<T>::mutate(|s| {
             *s = Some(s.map(|s| s + 1).unwrap_or(0));
