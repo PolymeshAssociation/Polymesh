@@ -51,19 +51,19 @@ use sp_npos_elections::{
 use polymesh_common_utilities::Context;
 use polymesh_primitives::IdentityId;
 
-use crate::{UnlockChunk, ValidatorIndex, CompactAssignments, NominatorIndex, OffchainAccuracy};
-use crate::types::{ElectionSize, ElectionCompute, ElectionResult};
+use crate::{
+    UnlockChunk, ValidatorIndex, CompactAssignments, NominatorIndex, OffchainAccuracy, ChainAccuracy, 
+    MAX_NOMINATORS, MAX_VALIDATORS
+};
+use crate::types::{ElectionSize, ElectionCompute, ElectionResult, ElectionStatus};
 use crate::_feps::NposSolution;
 
-use frame_support::dispatch::DispatchErrorWithPostInfo;
+use frame_support::dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo};
 use frame_support::traits::schedule::{Anon, DispatchTime, HIGHEST_PRIORITY};
 use sp_npos_elections::{
     BalancingConfig, ElectionResult as PrimitiveElectionResult, PerThing128, seq_phragmen
 };
 use sp_runtime::ModuleError;
-
-use crate::{ChainAccuracy, MAX_NOMINATORS, MAX_VALIDATORS};
-use crate::types::ElectionStatus;
 
 type Identity<T> = pallet_identity::Module<T>;
 
@@ -98,16 +98,10 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-//    /// Same as `weight_of_fn`, but made for one time use.
-//    pub fn weight_of(who: &T::AccountId) -> VoteWeight {
-//        let issuance = T::Currency::total_issuance();
-//        Self::slashable_balance_of_vote_weight(who, issuance)
-//    }
-
     pub(super) fn do_withdraw_unbonded(
         controller: &T::AccountId,
         num_slashing_spans: u32,
-    ) -> Result<Weight, DispatchError> {
+    ) -> Result<PostDispatchInfo, DispatchError> {
         let mut ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
         let (stash, old_total) = (ledger.stash.clone(), ledger.total);
         if let Some(current_era) = Self::current_era() {
@@ -115,21 +109,21 @@ impl<T: Config> Pallet<T> {
         }
 
         let used_weight =
-            if ledger.unlocking.is_empty() && ledger.active < T::Currency::minimum_balance() {
+            if ledger.unlocking.is_empty() && ledger.active <= T::Currency::minimum_balance() {
                 // This account must have called `unbond()` with some value that caused the active
                 // portion to fall below existential deposit + will have no more unlocking chunks
                 // left. We can now safely remove all staking-related information.
                 Self::kill_stash(&stash, num_slashing_spans)?;
                 // Remove the lock.
                 T::Currency::remove_lock(STAKING_ID, &stash);
-
-                <T as Config>::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
+                // This is worst case scenario, so we use the full weight and return None
+                None
             } else {
                 // This was the consequence of a partial unbond. just update the ledger and move on.
                 Self::update_ledger(&controller, &ledger);
 
                 // This is only an update, so we use less overall weight.
-                <T as Config>::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
+                Some(<T as Config>::WeightInfo::withdraw_unbonded_update(num_slashing_spans))
             };
 
         // `old_total` should never be less than the new total because
@@ -140,7 +134,7 @@ impl<T: Config> Pallet<T> {
             Self::deposit_event(Event::<T>::Withdrawn(stash, value));
         }
 
-        Ok(used_weight)
+        Ok(used_weight.into())
     }
 
     pub(super) fn do_payout_stakers(
@@ -631,21 +625,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-//    #[cfg(feature = "runtime-benchmarks")]
-//    pub fn add_era_stakers(
-//        current_era: EraIndex,
-//        stash: T::AccountId,
-//        exposure: Exposure<T::AccountId, BalanceOf<T>>,
-//    ) {
-//        <ErasStakers<T>>::insert(&current_era, &stash, &exposure);
-//    }
-//
-//    #[cfg(feature = "runtime-benchmarks")]
-//    pub fn set_slash_reward_fraction(fraction: Perbill) {
-//        SlashRewardFraction::<T>::put(fraction);
-//    }
-//
-
     /// This function will add a nominator to the `Nominators` storage map,
     /// and `VoterList`.
     ///
@@ -701,16 +680,6 @@ impl<T: Config> Pallet<T> {
             false
         }
     }
-
-//    /// Register some amount of weight directly with the system pallet.
-//    ///
-//    /// This is always mandatory weight.
-//    fn register_weight(weight: Weight) {
-//        <frame_system::Pallet<T>>::register_extra_weight_unchecked(
-//            weight,
-//            DispatchClass::Mandatory,
-//        );
-//    }
 
     // Polymesh Change: Functions
     // ----------------------------------------------------------------- 

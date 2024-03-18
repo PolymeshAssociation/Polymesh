@@ -21,7 +21,7 @@
 use frame_benchmarking::account;
 use frame_system::RawOrigin;
 use frame_support::ensure;
-use frame_support::traits::{CurrencyToVote, Imbalance};
+use frame_support::traits::CurrencyToVote;
 use rand_chacha::rand_core::{RngCore, SeedableRng};
 use rand_chacha::ChaChaRng;
 use sp_io::hashing::blake2_256;
@@ -30,9 +30,9 @@ use sp_runtime::DispatchError;
 
 use polymesh_common_utilities::benchs::{AccountIdOf, User, UserBuilder};
 use polymesh_common_utilities::TestUtilsFn;
-use polymesh_primitives::{AuthorizationData, Permissions, Signatory, IdentityId};
+use polymesh_primitives::{AuthorizationData, Permissions, Signatory};
 
-use crate::Module as Staking;
+use crate::Pallet as Staking;
 use crate::types::ElectionSize;
 use crate::*;
 
@@ -250,7 +250,7 @@ pub fn get_weak_solution<T: Config>(
     <Validators<T>>::iter().for_each(|(who, _p)| {
         *backing_stake_of
             .entry(who.clone())
-            .or_insert_with(|| Zero::zero()) += <Module<T>>::slashable_balance_of(&who)
+            .or_insert_with(|| Zero::zero()) += <Pallet<T>>::slashable_balance_of(&who)
     });
 
     // elect winners. We chose the.. least backed ones.
@@ -260,7 +260,7 @@ pub fn get_weak_solution<T: Config>(
         .iter()
         .rev()
         .cloned()
-        .take(<Module<T>>::validator_count() as usize)
+        .take(<Pallet<T>>::validator_count() as usize)
         .collect();
 
     let mut staked_assignments: Vec<StakedAssignment<T::AccountId>> = Vec::new();
@@ -273,7 +273,7 @@ pub fn get_weak_solution<T: Config>(
             who: w.clone(),
             distribution: vec![(
                 w.clone(),
-                <Module<T>>::slashable_balance_of_vote_weight(&w, T::Currency::total_issuance())
+                <Pallet<T>>::slashable_balance_of_vote_weight(&w, T::Currency::total_issuance())
                     .into(),
             )],
         })
@@ -284,8 +284,8 @@ pub fn get_weak_solution<T: Config>(
     }
 
     // helpers for building the compact
-    let snapshot_validators = <Module<T>>::snapshot_validators().unwrap();
-    let snapshot_nominators = <Module<T>>::snapshot_nominators().unwrap();
+    let snapshot_validators = <Pallet<T>>::snapshot_validators().unwrap();
+    let snapshot_nominators = <Pallet<T>>::snapshot_nominators().unwrap();
 
     let nominator_index = |a: &T::AccountId| -> Option<NominatorIndex> {
         snapshot_nominators
@@ -310,7 +310,7 @@ pub fn get_weak_solution<T: Config>(
     let score = {
         let staked = assignment_ratio_to_staked::<_, OffchainAccuracy, _>(
             low_accuracy_assignment.clone(),
-            <Module<T>>::weight_of_fn(),
+            <Pallet<T>>::weight_of_fn(),
         );
 
         let support_map = to_supports::<T::AccountId>(staked.as_slice());
@@ -361,7 +361,7 @@ pub fn get_seq_phragmen_solution<T: Config>(
     let sp_npos_elections::ElectionResult {
         winners,
         assignments,
-    } = <Module<T>>::do_phragmen::<OffchainAccuracy>(iters).unwrap();
+    } = <Pallet<T>>::do_phragmen::<OffchainAccuracy>(iters).unwrap();
 
     offchain_election::prepare_submission::<T>(
         assignments,
@@ -384,8 +384,8 @@ pub fn get_single_winner_solution<T: Config>(
     ),
     &'static str,
 > {
-    let snapshot_validators = <Module<T>>::snapshot_validators().unwrap();
-    let snapshot_nominators = <Module<T>>::snapshot_nominators().unwrap();
+    let snapshot_validators = <Pallet<T>>::snapshot_validators().unwrap();
+    let snapshot_nominators = <Pallet<T>>::snapshot_nominators().unwrap();
 
     let val_index = snapshot_validators
         .iter()
@@ -423,7 +423,7 @@ pub fn get_single_winner_solution<T: Config>(
 
 /// get the active era.
 pub fn current_era<T: Config>() -> EraIndex {
-    <Module<T>>::current_era().unwrap_or(0)
+    <Pallet<T>>::current_era().unwrap_or(0)
 }
 
 /// initialize the first era.

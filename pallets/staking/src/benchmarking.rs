@@ -28,8 +28,8 @@ use polymesh_common_utilities::benchs::{AccountIdOf, UserBuilder};
 use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::{Permissions, IdentityId};
 
-use crate::Module as Staking;
-use crate::types::{ElectionSize, ElectionStatus};
+use crate::Pallet as Staking;
+use crate::types::ElectionStatus;
 use super::*;
 use testing_utils::*;
 

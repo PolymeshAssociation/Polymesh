@@ -1184,7 +1184,7 @@ pub mod pallet {
             let controller = ensure_signed(origin)?;
 
             let actual_weight = Self::do_withdraw_unbonded(&controller, num_slashing_spans)?;
-            Ok(Some(actual_weight).into())
+            Ok(actual_weight)
         }
 
         /// Declare the desire to validate for the origin controller.
@@ -1214,7 +1214,7 @@ pub mod pallet {
 
             // ensure their commission is correct.
             ensure!(
-                prefs.commission >= Self::validator_commission_cap(),
+                prefs.commission <= Self::validator_commission_cap(),
                 Error::<T>::InvalidValidatorCommission
             );
 
