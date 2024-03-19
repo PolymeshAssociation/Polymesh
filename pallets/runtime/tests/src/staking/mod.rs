@@ -100,9 +100,8 @@ use chrono::prelude::Utc;
 use codec::Decode;
 use frame_support::{
     assert_noop, assert_ok,
-    storage::{IterableStorageMap, StorageDoubleMap, StorageValue},
+    storage::StorageDoubleMap,
     traits::{Currency, Get, OnFinalize, OnInitialize, ReservableCurrency},
-    StorageMap,
 };
 use mock::*;
 use pallet_balances::Error as BalancesError;

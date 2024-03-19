@@ -484,7 +484,7 @@ mod test {
         fn set_controller() -> Weight {
             unimplemented!()
         }
-        fn set_validator_count() -> Weight {
+        fn set_validator_count(_c: u32) -> Weight {
             unimplemented!()
         }
         fn force_no_eras() -> Weight {
@@ -505,19 +505,13 @@ mod test {
         fn cancel_deferred_slash(s: u32) -> Weight {
             unimplemented!()
         }
-        fn payout_stakers_dead_controller(n: u32, ) -> Weight {
+        fn payout_all(_: u32, _: u32) -> Weight {
             unimplemented!()
         }
-	    fn payout_stakers_alive_staked(n: u32, ) -> Weight {
+        fn payout_stakers(n: u32) -> Weight {
             unimplemented!()
         }
-        fn rebond(l: u32) -> Weight {
-            unimplemented!()
-        }
-        fn reap_stash(s: u32) -> Weight {
-            unimplemented!()
-        }
-        fn new_era(v: u32, n: u32) -> Weight {
+        fn payout_stakers_alive_controller(n: u32) -> Weight {
             unimplemented!()
         }
         fn set_min_bond_threshold() -> Weight {
@@ -535,10 +529,16 @@ mod test {
         fn do_slash(_: u32) -> Weight {
             unimplemented!()
         }
+        fn rebond(l: u32) -> Weight {
+            unimplemented!()
+        }
         fn set_history_depth(e: u32) -> Weight {
             unimplemented!()
         }
-        fn payout_all(v: u32, n: u32) -> Weight {
+        fn reap_stash(s: u32) -> Weight {
+            unimplemented!()
+        }
+        fn new_era(v: u32, n: u32) -> Weight {
             unimplemented!()
         }
         fn change_slashing_allowed_for() -> Weight {
@@ -547,17 +547,19 @@ mod test {
         fn update_permissioned_validator_intended_count() -> Weight {
             unimplemented!()
         }
-        fn increase_validator_count() -> Weight {
-            unimplemented!()
-        }
         fn scale_validator_count() -> Weight {
             unimplemented!()
         }
-        fn chill_from_governance(s: u32) -> Weight {
+        fn increase_validator_count() -> Weight {
             unimplemented!()
         }
+
         fn submit_solution_better(v: u32, n: u32, a: u32, w: u32) -> Weight {
             Weight::from_ref_time((0 * v + 0 * n + 1000 * a + 0 * w).into())
+        }
+
+        fn chill_from_governance(s: u32) -> Weight {
+            unimplemented!()
         }
     }
 

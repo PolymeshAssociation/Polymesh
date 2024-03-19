@@ -43,6 +43,7 @@ use crate::{
     SessionInterface, StakingLedger, UnappliedSlash, ValidatorPrefs,
 };
 
+use frame_support::dispatch::DispatchClass::Operational;
 use frame_support::traits::IsSubType;
 use frame_support::traits::schedule::Anon;
 use frame_support::weights::constants::{WEIGHT_REF_TIME_PER_MICROS, WEIGHT_REF_TIME_PER_NANOS};
@@ -60,7 +61,7 @@ use crate::types::{
     ElectionStatus, ElectionResult, ElectionCompute, PermissionedIdentityPrefs, SlashingSwitch, 
     ElectionSize
 };
-use crate::{ValidatorIndex, CompactAssignments, STAKING_ID};
+use crate::{ValidatorIndex, CompactAssignments, STAKING_ID, MAX_ALLOWED_VALIDATORS};
 
 type Identity<T> = pallet_identity::Module<T>;
 
@@ -986,7 +987,7 @@ pub mod pallet {
         /// NOTE: Two of the storage writes (`Self::bonded`, `Self::payee`) are _never_ cleaned
         /// unless the `origin` falls below _existential deposit_ and gets removed as dust.
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::bond())]
         pub fn bond(
             origin: OriginFor<T>,
             controller: AccountIdLookupOf<T>,
@@ -1061,7 +1062,7 @@ pub mod pallet {
         /// - Independent of the arguments. Insignificant complexity.
         /// - O(1).
         #[pallet::call_index(1)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::bond_extra())]
         pub fn bond_extra(
             origin: OriginFor<T>,
             #[pallet::compact] max_additional: BalanceOf<T>,
@@ -1122,7 +1123,7 @@ pub mod pallet {
         ///
         /// See also [`Call::withdraw_unbonded`].
         #[pallet::call_index(2)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::unbond())]
         pub fn unbond(
             origin: OriginFor<T>,
             #[pallet::compact] value: BalanceOf<T>,
@@ -1169,7 +1170,7 @@ pub mod pallet {
         /// O(S) where S is the number of slashing spans to remove
         /// NOTE: Weight annotation is the kill scenario, we refund otherwise.
         #[pallet::call_index(3)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans))]
         pub fn withdraw_unbonded(
             origin: OriginFor<T>,
             num_slashing_spans: u32,
@@ -1193,7 +1194,7 @@ pub mod pallet {
         ///
         /// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
         #[pallet::call_index(4)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::validate())]
         pub fn validate(origin: OriginFor<T>, prefs: ValidatorPrefs) -> DispatchResult {
             // Polymesh Change: 
             // -----------------------------------------------------------------
@@ -1255,7 +1256,7 @@ pub mod pallet {
         /// which is capped at CompactAssignments::LIMIT (T::MaxNominations).
         /// - Both the reads and writes follow a similar pattern.
         #[pallet::call_index(5)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::nominate(targets.len() as u32))]
         pub fn nominate(
             origin: OriginFor<T>,
             targets: Vec<AccountIdLookupOf<T>>,
@@ -1340,7 +1341,7 @@ pub mod pallet {
         /// - Contains one read.
         /// - Writes are limited to the `origin` account key.
         #[pallet::call_index(6)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::chill())]
         pub fn chill(origin: OriginFor<T>) -> DispatchResult {
             // Polymesh Change: 
             // -----------------------------------------------------------------
@@ -1368,7 +1369,7 @@ pub mod pallet {
         /// - Writes are limited to the `origin` account key.
         /// ---------
         #[pallet::call_index(7)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_payee())]
         pub fn set_payee(
             origin: OriginFor<T>,
             payee: RewardDestination<T::AccountId>,
@@ -1392,7 +1393,7 @@ pub mod pallet {
         /// - Contains a limited number of reads.
         /// - Writes are limited to the `origin` account key.
         #[pallet::call_index(8)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_controller())]
         pub fn set_controller(
             origin: OriginFor<T>,
             controller: AccountIdLookupOf<T>,
@@ -1419,7 +1420,7 @@ pub mod pallet {
         /// ## Complexity
         /// O(1)
         #[pallet::call_index(9)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_validator_count(*new))]
         pub fn set_validator_count(
             origin: OriginFor<T>,
             #[pallet::compact] new: u32,
@@ -1437,7 +1438,7 @@ pub mod pallet {
         /// ## Complexity
         /// Same as [`Self::set_validator_count`].
         #[pallet::call_index(10)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::increase_validator_count())]
         pub fn increase_validator_count(
             origin: OriginFor<T>,
             #[pallet::compact] additional: u32,
@@ -1459,7 +1460,7 @@ pub mod pallet {
         /// ## Complexity
         /// Same as [`Self::set_validator_count`].
         #[pallet::call_index(11)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::scale_validator_count())]
         pub fn scale_validator_count(origin: OriginFor<T>, factor: Percent) -> DispatchResult {
             ensure_root(origin)?;
             let old = ValidatorCount::<T>::get();
@@ -1478,7 +1479,7 @@ pub mod pallet {
         /// ## Complexity
         /// Same as [`Self::set_validator_count`].
         #[pallet::call_index(12)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::add_permissioned_validator())]
         pub fn add_permissioned_validator(
             origin: OriginFor<T>, 
             identity: IdentityId, 
@@ -1520,7 +1521,7 @@ pub mod pallet {
         /// * origin Required origin for removing a potential validator.
         /// * identity Validator's IdentityId.
         #[pallet::call_index(13)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_permissioned_validator())]
         pub fn remove_permissioned_validator(
             origin: OriginFor<T>, 
             identity: IdentityId, 
@@ -1543,7 +1544,7 @@ pub mod pallet {
         /// of it and if it is expired then the account should be unbonded and removed from the 
         /// nominating process.
         #[pallet::call_index(14)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(1_000_000_000)]
         pub fn validate_cdd_expiry_nominators(
             origin: OriginFor<T>, 
             targets: Vec<T::AccountId> 
@@ -1598,7 +1599,7 @@ pub mod pallet {
         /// # Arguments
         /// * `new_cap` the new commission cap.
         #[pallet::call_index(15)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_commission_cap(MAX_ALLOWED_VALIDATORS))]
         pub fn set_commission_cap(
             origin: OriginFor<T>, 
             new_cap: Perbill 
@@ -1627,7 +1628,7 @@ pub mod pallet {
         /// # Arguments
         /// * `new_cap` the new commission cap.
         #[pallet::call_index(16)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_min_bond_threshold())]
         pub fn set_min_bond_threshold(
             origin: OriginFor<T>, 
             new_value: BalanceOf<T> 
@@ -1655,7 +1656,7 @@ pub mod pallet {
         /// - No arguments.
         /// - Weight: O(1)
         #[pallet::call_index(17)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::force_no_eras())]
         pub fn force_no_eras(origin: OriginFor<T>) -> DispatchResult {
             ensure_root(origin)?;
             Self::set_force_era(Forcing::ForceNone);
@@ -1677,7 +1678,7 @@ pub mod pallet {
         /// - No arguments.
         /// - Weight: O(1)
         #[pallet::call_index(18)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::force_new_era())]
         pub fn force_new_era(origin: OriginFor<T>) -> DispatchResult {
             ensure_root(origin)?;
             Self::set_force_era(Forcing::ForceNew);
@@ -1688,7 +1689,7 @@ pub mod pallet {
         ///
         /// The dispatch origin must be Root.
         #[pallet::call_index(19)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_invulnerables(invulnerables.len() as u32))]
         pub fn set_invulnerables(
             origin: OriginFor<T>,
             invulnerables: Vec<T::AccountId>,
@@ -1702,7 +1703,7 @@ pub mod pallet {
         ///
         /// The dispatch origin must be Root.
         #[pallet::call_index(20)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::force_unstake(*num_slashing_spans))]
         pub fn force_unstake(
             origin: OriginFor<T>,
             stash: T::AccountId,
@@ -1728,7 +1729,7 @@ pub mod pallet {
         /// If this is called just before a new era is triggered, the election process may not
         /// have enough blocks to get a result.
         #[pallet::call_index(21)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::force_new_era_always())]
         pub fn force_new_era_always(origin: OriginFor<T>) -> DispatchResult {
             ensure_root(origin)?;
             Self::set_force_era(Forcing::ForceAlways);
@@ -1741,7 +1742,7 @@ pub mod pallet {
         ///
         /// Parameters: era and indices of the slashes for that era to kill.
         #[pallet::call_index(22)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::cancel_deferred_slash(slash_indices.len() as u32))]
         pub fn cancel_deferred_slash(
             origin: OriginFor<T>,
             era: EraIndex,
@@ -1783,7 +1784,7 @@ pub mod pallet {
         /// ## Complexity
         /// - At most O(MaxNominatorRewardedPerValidator).
         #[pallet::call_index(23)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::payout_stakers(T::MaxNominatorRewardedPerValidator::get() as u32))]
         pub fn payout_stakers(
             origin: OriginFor<T>,
             validator_stash: T::AccountId,
@@ -1808,7 +1809,7 @@ pub mod pallet {
         /// - Time complexity: O(L), where L is unlocking chunks
         /// - Bounded by `MaxUnlockingChunks`.
         #[pallet::call_index(24)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::rebond(T::MaxUnlockingChunks::get()))]
         pub fn rebond(
             origin: OriginFor<T>,
             #[pallet::compact] value: BalanceOf<T>,
@@ -1851,7 +1852,7 @@ pub mod pallet {
         /// - Time complexity: O(L), where L is unlocking chunks
         /// - Bounded by `MaxUnlockingChunks`.
         #[pallet::call_index(25)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_history_depth(*_era_items_deleted))]
         pub fn set_history_depth(
             origin: OriginFor<T>,
             #[pallet::compact] new_history_depth: EraIndex,
@@ -1884,30 +1885,19 @@ pub mod pallet {
         ///
         /// Refunds the transaction fees upon successful execution.
         #[pallet::call_index(26)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::reap_stash(*num_slashing_spans))]
         pub fn reap_stash(
             _origin: OriginFor<T>,
             stash: T::AccountId,
             num_slashing_spans: u32,
-        ) -> DispatchResultWithPostInfo {
-            //let _ = ensure_signed(origin)?;
-
-            //let ed = T::Currency::minimum_balance();
-            //let reapable = T::Currency::total_balance(&stash) < ed
-            //    || Self::ledger(Self::bonded(stash.clone()).ok_or(Error::<T>::NotStash)?)
-            //        .map(|l| l.total)
-            //        .unwrap_or_default()
-            //        < ed;
-            //ensure!(reapable, Error::<T>::FundedTarget);
-
+        ) -> DispatchResult {
 			ensure!(
                 T::Currency::total_balance(&stash) == T::Currency::minimum_balance(), 
                 Error::<T>::FundedTarget
             );
             Self::kill_stash(&stash, num_slashing_spans)?;
             T::Currency::remove_lock(STAKING_ID, &stash);
-
-            Ok(Pays::No.into())
+            Ok(())
         }
 
         /// Submit an election result to the chain. If the solution:
@@ -1960,7 +1950,7 @@ pub mod pallet {
         ///   - Worse solution is retraced in pre-dispatch-checks which sets its own weight.
         /// # </weight>
         #[pallet::call_index(27)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight((T::OffchainSolutionWeightLimit::get(), Operational))]
         pub fn submit_election_solution(
             origin: OriginFor<T>,
             winners: Vec<ValidatorIndex>,
@@ -1990,7 +1980,7 @@ pub mod pallet {
         /// See [`submit_election_solution`].
         /// # </weight>
         #[pallet::call_index(28)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight((T::OffchainSolutionWeightLimit::get(), Operational))]
         pub fn submit_election_solution_unsigned(
             origin: OriginFor<T>,
             winners: Vec<ValidatorIndex>,
@@ -2018,7 +2008,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(29)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::payout_stakers(T::MaxNominatorRewardedPerValidator::get() as u32))]
         pub fn payout_stakers_by_system(
             origin: OriginFor<T>,
             validator_stash: T::AccountId, 
@@ -2038,7 +2028,7 @@ pub mod pallet {
         /// * origin - AccountId of root.
         /// * slashing_switch - Switch used to set the targets for s
         #[pallet::call_index(30)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::change_slashing_allowed_for())]
         pub fn change_slashing_allowed_for(
             origin: OriginFor<T>,
             slashing_switch: SlashingSwitch
@@ -2057,7 +2047,7 @@ pub mod pallet {
         /// * identity to add as a validator.
         /// * new_intended_count New value of intended co
         #[pallet::call_index(31)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::update_permissioned_validator_intended_count())]
         pub fn update_permissioned_validator_intended_count(
             origin: OriginFor<T>,
             identity: IdentityId, 
@@ -2090,7 +2080,7 @@ pub mod pallet {
         /// * `NotExists` Permissioned validator doesn't exist.
         /// * `NotStash` Not a stash account for the permissioned i
         #[pallet::call_index(32)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::chill_from_governance(stash_keys.len() as u32))]
         pub fn chill_from_governance(
             origin: OriginFor<T>,
             identity: IdentityId, 
