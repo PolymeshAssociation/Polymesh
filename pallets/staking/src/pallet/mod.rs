@@ -1824,7 +1824,7 @@ pub mod pallet {
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
             ensure!(!ledger.unlocking.is_empty(), Error::<T>::NoUnlockChunk);
 
-            let (ledger, rebonded_value) = ledger.rebond(value);
+            let (ledger, _rebonded_value) = ledger.rebond(value);
             // Last check: the new active amount of ledger must be more than ED.
             ensure!(
                 ledger.active >= T::Currency::minimum_balance(),

@@ -229,7 +229,7 @@ impl<T: Config> Pallet<T> {
         // Track the number of payout ops to nominators. Note:
         // `WeightInfo::payout_stakers_alive_staked` always assumes at least a validator is paid
         // out, so we do not need to count their payout op.
-        let mut nominator_payout_count: u32 = 0;
+        //let mut nominator_payout_count: u32 = 0;
 
         // Lets now calculate how this is split to the nominators.
         // Reward only the clipped exposures. Note this is not necessarily sorted.
@@ -241,7 +241,7 @@ impl<T: Config> Pallet<T> {
             // We can now make nominator payout:
             if let Some(imbalance) = Self::make_payout(&nominator.who, nominator_reward) {
                 // Note: this logic does not count payouts for `RewardDestination::None`.
-                nominator_payout_count += 1;
+                //nominator_payout_count += 1;
                 // Polymesh change: Provide DID of nominator account.
                 // -------------------------------------------------------------
                 let did = <Identity<T>>::get_identity(&nominator.who).unwrap_or_default();
