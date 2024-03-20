@@ -70,7 +70,7 @@ pub mod pallet {
     use super::*;
 
     /// The current storage version.
-    const STORAGE_VERSION: StorageVersion = StorageVersion::new(13);
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
 
     #[pallet::pallet]
     #[pallet::generate_store(pub(crate) trait Store)]
@@ -159,8 +159,6 @@ pub mod pallet {
         #[pallet::constant]
         type MaxUnlockingChunks: Get<u32>;
 
-        // Polymesh Change: Have fixed rewards kicked in?
-        // -----------------------------------------------------------------
         /// The origin which can cancel a deferred slash. Root can always do this.
         type SlashCancelOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
@@ -244,7 +242,6 @@ pub mod pallet {
 
         /// Minimum bond amount.
         type MinimumBond: Get<BalanceOf<Self>>;
-        // -----------------------------------------------------------------
     }
 
     #[pallet::type_value]
@@ -1606,7 +1603,7 @@ pub mod pallet {
         /// # Arguments
         /// * `new_cap` the new commission cap.
         #[pallet::call_index(15)]
-        #[pallet::weight(<T as Config>::WeightInfo::set_commission_cap(MAX_ALLOWED_VALIDATORS))]
+        #[pallet::weight((<T as Config>::WeightInfo::set_commission_cap(MAX_ALLOWED_VALIDATORS), Operational, Pays::Yes))]
         pub fn set_commission_cap(origin: OriginFor<T>, new_cap: Perbill) -> DispatchResult {
             T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
 
@@ -1633,7 +1630,7 @@ pub mod pallet {
         /// # Arguments
         /// * `new_cap` the new commission cap.
         #[pallet::call_index(16)]
-        #[pallet::weight(<T as Config>::WeightInfo::set_min_bond_threshold())]
+        #[pallet::weight((<T as Config>::WeightInfo::set_min_bond_threshold(), Operational, Pays::Yes))]
         pub fn set_min_bond_threshold(
             origin: OriginFor<T>,
             new_value: BalanceOf<T>,

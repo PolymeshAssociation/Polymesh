@@ -301,7 +301,6 @@ impl<T: Config> Pallet<T> {
             RewardDestination::Account(dest_account) => {
                 Some(T::Currency::deposit_creating(&dest_account, amount))
             }
-            RewardDestination::None => None,
         }
     }
 
@@ -1058,10 +1057,7 @@ impl<T: Config> Pallet<T> {
 
             // Note: in case there is no current era it is fine to bond one era more.
             let era = Self::current_era().unwrap_or(0) + T::BondingDuration::get();
-            ledger
-                .unlocking
-                .try_push(UnlockChunk { value, era })
-                .map_err(|_| Error::<T>::NoMoreChunks)?;
+            ledger.unlocking.push(UnlockChunk { value, era });
             // NOTE: ledger must be updated prior to calling `Self::weight_of`.
             Self::update_ledger(&controller, &ledger);
 

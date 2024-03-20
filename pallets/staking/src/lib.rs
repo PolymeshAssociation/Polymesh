@@ -482,8 +482,6 @@ pub enum RewardDestination<AccountId> {
     Controller,
     /// Pay into a specified account.
     Account(AccountId),
-    /// Receive no reward.
-    None,
 }
 
 impl<AccountId> Default for RewardDestination<AccountId> {
@@ -560,7 +558,7 @@ pub struct StakingLedger<T: Config> {
     /// Any balance that is becoming free, which may eventually be transferred out of the stash
     /// (assuming it doesn't get slashed first). It is assumed that this will be treated as a first
     /// in, first out queue where the new (higher value) eras get pushed on the back.
-    pub unlocking: BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>,
+    pub unlocking: Vec<UnlockChunk<BalanceOf<T>>>,
     /// List of eras for which the stakers behind a validator have claimed rewards. Only updated
     /// for validators.
     pub claimed_rewards: Vec<EraIndex>,
@@ -582,7 +580,7 @@ impl<T: Config> StakingLedger<T> {
     /// total by the sum of their balances.
     fn consolidate_unlocked(self, current_era: EraIndex) -> Self {
         let mut total = self.total;
-        let unlocking: BoundedVec<_, _> = self
+        let unlocking = self
             .unlocking
             .into_iter()
             .filter(|chunk| {
@@ -593,11 +591,7 @@ impl<T: Config> StakingLedger<T> {
                     false
                 }
             })
-            .collect::<Vec<_>>()
-            .try_into()
-            .expect(
-                "filtering items from a bounded vec always leaves length less than bounds. qed",
-            );
+            .collect::<Vec<_>>();
 
         Self {
             stash: self.stash,

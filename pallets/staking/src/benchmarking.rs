@@ -523,7 +523,7 @@ benchmarks! {
             era: EraIndex::zero(),
         };
         for _ in 0 .. l {
-            staking_ledger.unlocking.try_push(unlock_chunk.clone()).unwrap();
+            staking_ledger.unlocking.push(unlock_chunk.clone());
         }
         Ledger::<T>::insert(controller.account(), staking_ledger.clone());
         let original_bonded: BalanceOf<T> = staking_ledger.active;
@@ -624,7 +624,7 @@ benchmarks! {
             era: EraIndex::zero(),
         };
         for _ in 0 .. l {
-            staking_ledger.unlocking.try_push(unlock_chunk.clone()).unwrap();
+            staking_ledger.unlocking.push(unlock_chunk.clone());
         }
         Ledger::<T>::insert(controller.account(), staking_ledger);
         let balance_before = T::Currency::free_balance(&stash.account());
