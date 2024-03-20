@@ -2,14 +2,24 @@
 use sp_runtime::{Deserialize, Serialize};
 
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
+use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
-use scale_info::TypeInfo;
 
-use crate::{Exposure, NominatorIndex,  ValidatorIndex};
+use crate::{Exposure, NominatorIndex, ValidatorIndex};
 
 /// Preference of an identity regarding validation.
-#[derive(Clone, Copy, Decode, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(
+    Clone,
+    Copy,
+    Decode,
+    Encode,
+    Eq,
+    MaxEncodedLen,
+    PartialEq,
+    RuntimeDebug,
+    TypeInfo
+)]
 pub struct PermissionedIdentityPrefs {
     /// Intended number of validators an identity wants to run.
     ///
@@ -24,25 +34,36 @@ pub struct PermissionedIdentityPrefs {
 
 impl Default for PermissionedIdentityPrefs {
     fn default() -> Self {
-        Self { 
-            intended_count: 1, 
-            running_count: 0 
+        Self {
+            intended_count: 1,
+            running_count: 0,
         }
     }
 }
 
 impl PermissionedIdentityPrefs {
     pub fn new(intended_count: u32) -> Self {
-        Self { 
-            intended_count, 
-            running_count: 0 
+        Self {
+            intended_count,
+            running_count: 0,
         }
     }
 }
 
 /// Switch used to change the "victim" for slashing. Victims can be
 /// validators, both validators and nominators, or no-one.
-#[derive(Clone, Copy, Decode, Default, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(
+    Clone,
+    Copy,
+    Decode,
+    Default,
+    Encode,
+    Eq,
+    MaxEncodedLen,
+    PartialEq,
+    RuntimeDebug,
+    TypeInfo
+)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum SlashingSwitch {
     /// Allow validators but not nominators to get slashed.
@@ -93,7 +114,17 @@ pub enum ElectionStatus<BlockNumber> {
 /// Note that these values must reflect the __total__ number, not only those that are present in the
 /// solution. In short, these should be the same size as the size of the values dumped in
 /// `SnapshotValidators` and `SnapshotNominators`.
-#[derive(Clone, Copy, Decode, Default, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(
+    Clone,
+    Copy,
+    Decode,
+    Default,
+    Encode,
+    Eq,
+    PartialEq,
+    RuntimeDebug,
+    TypeInfo
+)]
 pub struct ElectionSize {
     /// Number of validators in the snapshot of the current election round.
     #[codec(compact)]
@@ -103,7 +134,6 @@ pub struct ElectionSize {
     pub nominators: NominatorIndex,
 }
 
-
 impl<BlockNumber: PartialEq> ElectionStatus<BlockNumber> {
     pub fn is_open_at(&self, n: BlockNumber) -> bool {
         *self == Self::Open(n)
@@ -112,7 +142,7 @@ impl<BlockNumber: PartialEq> ElectionStatus<BlockNumber> {
     pub fn is_closed(&self) -> bool {
         match self {
             Self::Closed => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -124,7 +154,17 @@ impl<BlockNumber: PartialEq> ElectionStatus<BlockNumber> {
 // A value placed in storage that represents the current version of the Staking storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
 // This should match directly with the semantic versions of the Rust crate.
-#[derive(Clone, Copy, Decode, Default, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(
+    Clone,
+    Copy,
+    Decode,
+    Default,
+    Encode,
+    Eq,
+    PartialEq,
+    RuntimeDebug,
+    TypeInfo
+)]
 enum Releases {
     V1_0_0Ancient,
     V2_0_0,

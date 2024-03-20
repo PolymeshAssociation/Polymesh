@@ -17,20 +17,20 @@
 
 //! Staking pallet benchmarking.
 
-use frame_system::RawOrigin;
 pub use frame_benchmarking::{account, benchmarks, whitelist_account, whitelisted_caller};
 use frame_support::dispatch::DispatchError;
 use frame_support::traits::Imbalance;
+use frame_system::RawOrigin;
 use sp_runtime::traits::One;
 use sp_runtime::Percent;
 
 use polymesh_common_utilities::benchs::{AccountIdOf, UserBuilder};
 use polymesh_common_utilities::TestUtilsFn;
-use polymesh_primitives::{Permissions, IdentityId};
+use polymesh_primitives::{IdentityId, Permissions};
 
-use crate::Pallet as Staking;
-use crate::types::ElectionStatus;
 use super::*;
+use crate::types::ElectionStatus;
+use crate::Pallet as Staking;
 use testing_utils::*;
 
 const SEED: u32 = 0;
@@ -801,7 +801,7 @@ benchmarks! {
             Staking::<T>::validate(key.origin().into(), validator_prefs).expect("Validate fails");
             // Checks that the stash key is in validators storage
             assert_eq!(<Validators<T>>::contains_key(&key.account), true);
-        }    
+        }
     }: _(RawOrigin::Root, validator_did, signatories.clone())
     verify {
         for key in signatories {

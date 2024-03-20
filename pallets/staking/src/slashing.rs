@@ -303,7 +303,8 @@ pub(crate) fn compute_slash<T: Config>(
 
     let mut nominators_slashed = Vec::new();
     if <Pallet<T>>::slashing_allowed_for() == SlashingSwitch::ValidatorAndNominator {
-        reward_payout += slash_nominators::<T>(params.clone(), prior_slash_p, &mut nominators_slashed);
+        reward_payout +=
+            slash_nominators::<T>(params.clone(), prior_slash_p, &mut nominators_slashed);
     }
     // -----------------------------------------------------------------
 

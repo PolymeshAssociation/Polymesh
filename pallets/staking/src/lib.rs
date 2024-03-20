@@ -288,10 +288,10 @@ pub mod benchmarking;
 pub mod testing_utils;
 
 pub mod inflation;
+pub mod offchain_election;
 pub mod slashing;
 pub mod types;
 pub mod weights;
-pub mod offchain_election;
 
 mod pallet;
 
@@ -316,14 +316,14 @@ pub use weights::WeightInfo;
 pub use pallet::pallet::*;
 
 use frame_election_provider_support::generate_solution_type;
-use frame_support::traits::LockIdentifier;
 use frame_support::parameter_types;
+use frame_support::traits::LockIdentifier;
 use sp_runtime::PerU16;
 use sp_staking::offence::{DisableStrategy, OffenceDetails, OnOffenceHandler};
 use sp_std::mem::size_of;
 
-use crate::types::SlashingSwitch;
 use crate::_feps::NposSolution;
+use crate::types::SlashingSwitch;
 
 // Polymesh Change: Constants and type definitions
 // -----------------------------------------------------------------
@@ -367,7 +367,11 @@ impl CompactAssignments {
 
     pub fn get_votes3(
         &mut self,
-    ) -> &mut Vec<(NominatorIndex, [(ValidatorIndex, OffchainAccuracy); 2], ValidatorIndex)> {
+    ) -> &mut Vec<(
+        NominatorIndex,
+        [(ValidatorIndex, OffchainAccuracy); 2],
+        ValidatorIndex,
+    )> {
         &mut self.votes3
     }
 }
@@ -401,13 +405,15 @@ macro_rules! log {
 pub type RewardPoint = u32;
 
 /// The balance type of this pallet.
-pub type BalanceOf<T> = 
+pub type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-type PositiveImbalanceOf<T> =
-    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::PositiveImbalance;
-pub type NegativeImbalanceOf<T> =
-    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::PositiveImbalance;
+pub type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
@@ -537,7 +543,7 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
     Encode,
     Decode,
     RuntimeDebugNoBound,
-    TypeInfo,
+    TypeInfo
 )]
 #[scale_info(skip_type_params(T))]
 pub struct StakingLedger<T: Config> {
@@ -811,7 +817,7 @@ impl<AccountId, Balance: HasCompact + Zero> UnappliedSlash<AccountId, Balance> {
 /// Means for interacting with a specialized version of the `session` trait.
 ///
 /// This is needed because `Staking` sets the `ValidatorIdOf` of the `pallet_session::Config`
-pub trait SessionInterface<AccountId>  {
+pub trait SessionInterface<AccountId> {
     /// Disable the validator at the given index, returns `false` if the validator was already
     /// disabled or the index is out of bounds.
     fn disable_validator(validator_index: u32) -> bool;
@@ -990,7 +996,7 @@ impl BenchmarkingConfig for TestBenchmarkingConfig {
 /// in the chain,
 impl<T> pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Pallet<T>
 where
-    T: Config + pallet_authorship::Config + pallet_session::Config
+    T: Config + pallet_authorship::Config + pallet_session::Config,
 {
     fn note_author(author: T::AccountId) {
         Self::reward_by_ids(vec![(author, 20)])
@@ -1003,7 +1009,8 @@ where
 /// Once the first new_session is planned, all session must start and then end in order, though
 /// some session can lag in between the newest session planned and the latest session started.
 impl<T: Config> pallet_session::SessionManager<T::AccountId> for Pallet<T>
-where <T as frame_system::Config>::BlockNumber: core::fmt::Display
+where
+    <T as frame_system::Config>::BlockNumber: core::fmt::Display,
 {
     fn new_session(new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
         log::trace!(

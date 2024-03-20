@@ -22,7 +22,7 @@ use frame_support::{
     dispatch::WithPostDispatchInfo,
     pallet_prelude::*,
     traits::{
-        Currency, CurrencyToVote, Get, Imbalance, LockableCurrency, OnUnbalanced, UnixTime, 
+        Currency, CurrencyToVote, Get, Imbalance, LockableCurrency, OnUnbalanced, UnixTime,
         WithdrawReasons,
     },
     weights::Weight,
@@ -30,38 +30,38 @@ use frame_support::{
 use frame_system::RawOrigin;
 
 use sp_runtime::{
-    traits::{ SaturatedConversion, Saturating, Zero},
+    traits::{SaturatedConversion, Saturating, Zero},
     Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 use sp_std::prelude::*;
 
 use crate::{
-    log, slashing, weights::WeightInfo, ActiveEraInfo, BalanceOf, Exposure, Forcing, 
-    IndividualExposure, Nominations, PositiveImbalanceOf, RewardDestination, SessionInterface, 
-    StakingLedger, ValidatorPrefs, STAKING_ID
+    log, slashing, weights::WeightInfo, ActiveEraInfo, BalanceOf, Exposure, Forcing,
+    IndividualExposure, Nominations, PositiveImbalanceOf, RewardDestination, SessionInterface,
+    StakingLedger, ValidatorPrefs, STAKING_ID,
 };
 
 use super::pallet::*;
 
 use sp_npos_elections::{
-    Assignment, ElectionScore, Supports, to_support_map, EvaluateSupport, SupportMap,
+    to_support_map, Assignment, ElectionScore, EvaluateSupport, SupportMap, Supports,
 };
 
 use polymesh_common_utilities::Context;
 use polymesh_primitives::IdentityId;
 
-use crate::{
-    UnlockChunk, ValidatorIndex, CompactAssignments, NominatorIndex, OffchainAccuracy, ChainAccuracy, 
-    MAX_NOMINATORS, MAX_VALIDATORS
-};
-use crate::types::{ElectionSize, ElectionCompute, ElectionResult, ElectionStatus};
 use crate::_feps::NposSolution;
+use crate::types::{ElectionCompute, ElectionResult, ElectionSize, ElectionStatus};
+use crate::{
+    ChainAccuracy, CompactAssignments, NominatorIndex, OffchainAccuracy, UnlockChunk,
+    ValidatorIndex, MAX_NOMINATORS, MAX_VALIDATORS,
+};
 
 use frame_support::dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo};
 use frame_support::traits::schedule::{Anon, DispatchTime, HIGHEST_PRIORITY};
 use sp_npos_elections::{
-    BalancingConfig, ElectionResult as PrimitiveElectionResult, PerThing128, seq_phragmen
+    seq_phragmen, BalancingConfig, ElectionResult as PrimitiveElectionResult, PerThing128,
 };
 use sp_runtime::ModuleError;
 
@@ -123,7 +123,9 @@ impl<T: Config> Pallet<T> {
                 Self::update_ledger(&controller, &ledger);
 
                 // This is only an update, so we use less overall weight.
-                Some(<T as Config>::WeightInfo::withdraw_unbonded_update(num_slashing_spans))
+                Some(<T as Config>::WeightInfo::withdraw_unbonded_update(
+                    num_slashing_spans,
+                ))
             };
 
         // `old_total` should never be less than the new total because
@@ -151,7 +153,8 @@ impl<T: Config> Pallet<T> {
 
         // Note: if era has no reward to be claimed, era may be future. better not to update
         // `ledger.claimed_rewards` in this case.
-        let era_payout = <ErasValidatorReward<T>>::get(&era).ok_or(Error::<T>::InvalidEraToReward)?;
+        let era_payout =
+            <ErasValidatorReward<T>>::get(&era).ok_or(Error::<T>::InvalidEraToReward)?;
 
         let controller = Self::bonded(&validator_stash).ok_or(Error::<T>::NotStash)?;
         let mut ledger = <Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController)?;
@@ -161,9 +164,7 @@ impl<T: Config> Pallet<T> {
             .retain(|&x| x >= current_era.saturating_sub(history_depth));
 
         match ledger.claimed_rewards.binary_search(&era) {
-            Ok(_) => {
-                return Err(Error::<T>::AlreadyClaimed.into())
-            }
+            Ok(_) => return Err(Error::<T>::AlreadyClaimed.into()),
             Err(pos) => ledger.claimed_rewards.insert(pos, era),
         }
 
@@ -211,7 +212,6 @@ impl<T: Config> Pallet<T> {
         let validator_exposure_part = Perbill::from_rational(exposure.own, exposure.total);
         let validator_staking_payout = validator_exposure_part * validator_leftover_payout;
 
-
         let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
         // We can now make total validator payout:
         if let Some(imbalance) = Self::make_payout(
@@ -245,7 +245,11 @@ impl<T: Config> Pallet<T> {
                 // Polymesh change: Provide DID of nominator account.
                 // -------------------------------------------------------------
                 let did = <Identity<T>>::get_identity(&nominator.who).unwrap_or_default();
-                Self::deposit_event(Event::<T>::Reward(did, nominator.who.clone(), imbalance.peek()));
+                Self::deposit_event(Event::<T>::Reward(
+                    did,
+                    nominator.who.clone(),
+                    imbalance.peek(),
+                ));
                 // -------------------------------------------------------------
                 total_imbalance.subsume(imbalance);
             }
@@ -302,7 +306,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Plan a new session potentially trigger a new era.
-    pub(crate) fn new_session(session_index: SessionIndex,) -> Option<Vec<T::AccountId>> {
+    pub(crate) fn new_session(session_index: SessionIndex) -> Option<Vec<T::AccountId>> {
         if let Some(current_era) = Self::current_era() {
             // Initial era has been set.
             let current_era_start_session_index = Self::eras_start_session_index(current_era)
@@ -321,8 +325,8 @@ impl<T: Config> Pallet<T> {
                 // Only go to `try_trigger_new_era` if deadline reached.
                 Forcing::NotForcing if era_length >= T::SessionsPerEra::get() => (),
                 _ => {
-                    // Either `Forcing::ForceNone`, or `Forcing::NotForcing 
-                    // if era_length >= T::SessionsPerEra::get()`. Either `ForceNone`, or 
+                    // Either `Forcing::ForceNone`, or `Forcing::NotForcing
+                    // if era_length >= T::SessionsPerEra::get()`. Either `ForceNone`, or
                     // `NotForcing && era_length < T::SessionsPerEra::get()`.
                     if era_length + 1 == T::SessionsPerEra::get() {
                         IsCurrentSessionFinal::<T>::put(true);
@@ -472,8 +476,8 @@ impl<T: Config> Pallet<T> {
                             e
                         );
                         Self::deposit_event(Event::<T>::RewardPaymentSchedulingInterrupted(
-                            validator_id, 
-                            active_era.index, 
+                            validator_id,
+                            active_era.index,
                             e
                         ));
                     }
@@ -682,7 +686,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // Polymesh Change: Functions
-    // ----------------------------------------------------------------- 
+    // -----------------------------------------------------------------
     /// Returns the allowed validator count.
     pub(crate) fn get_allowed_validator_count() -> u32 {
         (T::MaxValidatorPerIdentity::get() * Self::validator_count()).max(1)
@@ -717,8 +721,7 @@ impl<T: Config> Pallet<T> {
         // check window open
         ensure!(
             Self::era_election_status().is_open(),
-            Error::<T>::OffchainElectionEarlySubmission
-                .with_weight(T::DbWeight::get().reads(1)),
+            Error::<T>::OffchainElectionEarlySubmission.with_weight(T::DbWeight::get().reads(1)),
         );
 
         // check current era.
@@ -734,8 +737,7 @@ impl<T: Config> Pallet<T> {
         if let Some(queued_score) = Self::queued_score() {
             ensure!(
                 score.strict_threshold_better(queued_score, T::MinSolutionScoreBump::get()),
-                Error::<T>::OffchainElectionWeakSubmission
-                    .with_weight(T::DbWeight::get().reads(3)),
+                Error::<T>::OffchainElectionWeakSubmission.with_weight(T::DbWeight::get().reads(3)),
             )
         }
 
@@ -797,7 +799,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // decode snapshot validators.
-        let snapshot_validators = 
+        let snapshot_validators =
             Self::snapshot_validators().ok_or(Error::<T>::SnapshotUnavailable)?;
 
         // check if all winners were legit; this is rather cheap. Replace with accountId.
@@ -815,7 +817,7 @@ impl<T: Config> Pallet<T> {
             .collect::<Result<Vec<T::AccountId>, Error<T>>>()?;
 
         // decode the rest of the snapshot.
-        let snapshot_nominators = 
+        let snapshot_nominators =
             Self::snapshot_nominators().ok_or(Error::<T>::SnapshotUnavailable)?;
 
         // helpers
@@ -897,10 +899,8 @@ impl<T: Config> Pallet<T> {
         }
 
         // convert into staked assignments.
-        let staked_assignments = sp_npos_elections::assignment_ratio_to_staked(
-            assignments,
-            Self::weight_of_fn(),
-        );
+        let staked_assignments =
+            sp_npos_elections::assignment_ratio_to_staked(assignments, Self::weight_of_fn());
 
         // build the support map thereof in order to evaluate.
         let supports_map = to_support_map::<T::AccountId>(&staked_assignments);
@@ -1078,43 +1078,43 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn base_chill_from_governance(
-        origin: T::RuntimeOrigin, 
-        identity: IdentityId, 
-        stash_keys: Vec<T::AccountId>
+        origin: T::RuntimeOrigin,
+        identity: IdentityId,
+        stash_keys: Vec<T::AccountId>,
     ) -> DispatchResult {
         // Checks that the era election status is closed.
         ensure!(
-            Self::era_election_status().is_closed(), 
+            Self::era_election_status().is_closed(),
             Error::<T>::CallNotAllowed
         );
         // Required origin for removing a validator.
         T::RequiredRemoveOrigin::ensure_origin(origin)?;
         // Checks that the identity is allowed to run operator/validator nodes.
         ensure!(
-            Self::permissioned_identity(&identity).is_some(), 
+            Self::permissioned_identity(&identity).is_some(),
             Error::<T>::NotExists
         );
 
         for key in &stash_keys {
             let key_did = Identity::<T>::get_identity(&key);
             // Checks if the stash key identity is the same as the identity given.
-            ensure!(key_did == Some(identity), Error::<T>::NotStash);   
+            ensure!(key_did == Some(identity), Error::<T>::NotStash);
             // Checks if the key is a validator if not returns an error.
-            ensure!(<Validators<T>>::contains_key(&key), Error::<T>::NotExists); 
+            ensure!(<Validators<T>>::contains_key(&key), Error::<T>::NotExists);
         }
 
         for key in stash_keys {
             Self::chill_stash(&key);
         }
-       
+
         // Change identity status to be Non-Permissioned
         PermissionedIdentity::<T>::remove(&identity);
         Ok(())
     }
 
     pub(crate) fn validate_unsigned_call(
-        source: TransactionSource, 
-        call: &Call<T>
+        source: TransactionSource,
+        call: &Call<T>,
     ) -> TransactionValidity {
         if let Call::submit_election_solution_unsigned { score, era, .. } = call {
             use crate::offchain_election::DEFAULT_LONGEVITY;
@@ -1150,8 +1150,7 @@ impl<T: Config> Pallet<T> {
             ValidTransaction::with_tag_prefix("StakingOffchain")
                 // The higher the score[0], the better a solution is.
                 .priority(
-                    T::UnsignedPriority::get()
-                        .saturating_add(score.minimal_stake.saturated_into()),
+                    T::UnsignedPriority::get().saturating_add(score.minimal_stake.saturated_into()),
                 )
                 // Defensive only. A single solution can exist in the pool per era. Each validator
                 // will run OCW at most once per era, hence there should never exist more than one
@@ -1192,11 +1191,11 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Converts a [`DispatchErrorWithPostInfo`] to a custom InvalidTransaction with the inner code being 
+    /// Converts a [`DispatchErrorWithPostInfo`] to a custom InvalidTransaction with the inner code being
     /// the error number.
     fn to_invalid(error_with_post_info: DispatchErrorWithPostInfo) -> InvalidTransaction {
         if let DispatchError::Module(ModuleError { error, .. }) = error_with_post_info.error {
-            return InvalidTransaction::Custom(error[0])
+            return InvalidTransaction::Custom(error[0]);
         }
         InvalidTransaction::Custom(0)
     }
@@ -1331,10 +1330,8 @@ impl<T: Config> Pallet<T> {
                 .collect::<Vec<T::AccountId>>();
             let assignments = phragmen_result.assignments;
 
-            let staked_assignments = sp_npos_elections::assignment_ratio_to_staked(
-                assignments,
-                Self::weight_of_fn(),
-            );
+            let staked_assignments =
+                sp_npos_elections::assignment_ratio_to_staked(assignments, Self::weight_of_fn());
 
             let supports = to_support_map::<T::AccountId>(&staked_assignments);
 

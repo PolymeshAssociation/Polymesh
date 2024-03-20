@@ -31,10 +31,10 @@ use sp_runtime::RuntimeDebug;
 use sp_std::convert::TryInto;
 use sp_std::prelude::*;
 
-use crate::types::ElectionSize;
 use crate::_feps::NposSolution;
+use crate::types::ElectionSize;
 use crate::{
-    Call, CompactAssignments, Config, NominatorIndex, Nominators, OffchainAccuracy, Pallet, 
+    Call, CompactAssignments, Config, NominatorIndex, Nominators, OffchainAccuracy, Pallet,
     ValidatorIndex,
 };
 
@@ -184,7 +184,8 @@ pub fn maximum_compact_len<W: crate::WeightInfo>(
             size.nominators.into(),
             voters,
             winners_len,
-        ).ref_time()
+        )
+        .ref_time()
     };
 
     let next_voters = |current_weight: u64, voters: u32, step: u32| -> Result<u32, ()> {
@@ -370,10 +371,8 @@ pub fn prepare_submission<T: Config>(
     let winners = winners.into_iter().map(|(who, _)| who).collect::<Vec<_>>();
 
     // convert into absolute value and to obtain the reduced version.
-    let mut staked = sp_npos_elections::assignment_ratio_to_staked(
-        assignments,
-        <Pallet<T>>::weight_of_fn(),
-    );
+    let mut staked =
+        sp_npos_elections::assignment_ratio_to_staked(assignments, <Pallet<T>>::weight_of_fn());
 
     // reduce
     if do_reduce {

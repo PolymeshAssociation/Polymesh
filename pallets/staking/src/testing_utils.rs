@@ -19,9 +19,9 @@
 //! bonding validators, nominators, and generating different types of solutions.
 
 use frame_benchmarking::account;
-use frame_system::RawOrigin;
 use frame_support::ensure;
 use frame_support::traits::CurrencyToVote;
+use frame_system::RawOrigin;
 use rand_chacha::rand_core::{RngCore, SeedableRng};
 use rand_chacha::ChaChaRng;
 use sp_io::hashing::blake2_256;
@@ -32,8 +32,8 @@ use polymesh_common_utilities::benchs::{AccountIdOf, User, UserBuilder};
 use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::{AuthorizationData, Permissions, Signatory};
 
-use crate::Pallet as Staking;
 use crate::types::ElectionSize;
+use crate::Pallet as Staking;
 use crate::*;
 
 const SEED: u32 = 0;
@@ -409,9 +409,9 @@ pub fn get_single_winner_solution<T: Config>(
         ..Default::default()
     };
     let score = ElectionScore {
-      minimal_stake: stake,
-      sum_stake: stake,
-      sum_stake_squared: stake * stake
+        minimal_stake: stake,
+        sum_stake: stake,
+        sum_stake_squared: stake * stake,
     };
     let size = ElectionSize {
         validators: snapshot_validators.len() as ValidatorIndex,
