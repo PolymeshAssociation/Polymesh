@@ -1,11 +1,5 @@
 [
   [
-		"Maturity",
-    {
-      "url": "https://example.com/maturity"
-    }
-  ],
-  [
 		"baseTokenUri",
     {
       "url": "https://developers.polymesh.network/polymesh-docs/primitives/nfts/#token-uri",
