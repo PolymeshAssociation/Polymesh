@@ -10,8 +10,9 @@ use polymesh_common_utilities::{
     MaybeBlock, SystematicIssuers,
 };
 use polymesh_primitives::{
-    identity_id::GenesisIdentityRecord, AccountId, IdentityId, Moment, PosRatio, SecondaryKey,
-    Signatory, Signature, Ticker,
+    asset_metadata::{AssetMetadataName, AssetMetadataSpec},
+    identity_id::GenesisIdentityRecord,
+    AccountId, IdentityId, Moment, PosRatio, SecondaryKey, Signatory, Signature, Ticker,
 };
 use sc_chain_spec::{ChainSpecExtension, ChainType};
 use sc_service::Properties;
@@ -153,6 +154,7 @@ macro_rules! asset {
         pallet_asset::GenesisConfig {
             ticker_registration_config: ticker_registration_config(),
             reserved_country_currency_codes: currency_codes(),
+            asset_metadata: asset_metadata(),
         }
     };
 }
@@ -179,6 +181,11 @@ fn currency_codes() -> Vec<Ticker> {
         .into_iter()
         .map(|y| Ticker::from_slice_truncated(y.as_bytes()))
         .collect()
+}
+
+fn asset_metadata() -> Vec<(AssetMetadataName, AssetMetadataSpec)> {
+    let metadata_json = include_str!("data/asset_metadata.json");
+    serde_json::from_str(&metadata_json).expect("Asset Metadata")
 }
 
 macro_rules! checkpoint {
