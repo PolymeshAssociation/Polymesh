@@ -24,12 +24,10 @@
 use codec::Decode;
 use core::convert::TryInto;
 use frame_benchmarking::benchmarks;
-use frame_support::traits::{Currency, OnInitialize};
+use frame_support::traits::{Currency, Get, OnInitialize};
 use frame_system::RawOrigin;
 use pallet_session::{Call, Pallet as Session};
-use pallet_staking::{
-    benchmarking::create_validator_with_nominators_with_balance, MAX_NOMINATIONS,
-};
+use pallet_staking::benchmarking::create_validator_with_nominators_with_balance;
 use polymesh_common_utilities::{benchs::AccountIdOf, TestUtilsFn};
 use sp_runtime::traits::TrailingZeroInput;
 use sp_std::prelude::*;
@@ -65,14 +63,14 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> ValidatorInfo<T> {
         let balance: u32 = (4_000 * POLY).try_into().unwrap();
         let stash = create_validator_with_nominators_with_balance::<T>(
             nominators,
-            MAX_NOMINATIONS as u32,
+            <T as pallet_staking::Config>::MaxNominations::get(),
             balance,
             false,
         )
         .unwrap()
         .0
         .account();
-        let controller = pallet_staking::Module::<T>::bonded(&stash).expect("not stash");
+        let controller = pallet_staking::Pallet::<T>::bonded(&stash).expect("not stash");
 
         let keys = T::Keys::decode(&mut TrailingZeroInput::zeroes()).unwrap();
         let proof: Vec<u8> = vec![0, 1, 2, 3];
@@ -97,7 +95,7 @@ benchmarks! {
     }
 
     set_keys {
-        let n = MAX_NOMINATIONS as u32;
+        let n = <T as pallet_staking::Config>::MaxNominations::get() as u32;
         let validator = ValidatorInfo::<T>::build(n).unwrap();
         let proof = validator.proof.clone();
         let keys = validator.keys.clone();
@@ -105,7 +103,7 @@ benchmarks! {
     }: _(RawOrigin::Signed(validator.controller), keys, proof)
 
     purge_keys {
-        let n = MAX_NOMINATIONS as u32;
+        let n = <T as pallet_staking::Config>::MaxNominations::get() as u32;
         let validator = ValidatorInfo::<T>::build(n).unwrap();
         let controller = RawOrigin::Signed(validator.controller.clone());
 

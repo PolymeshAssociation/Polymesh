@@ -235,7 +235,6 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_staking::Config for Runtime {
-            const MAX_NOMINATIONS: u32 = pallet_staking::MAX_NOMINATIONS;
             type Currency = Balances;
             type UnixTime = Timestamp;
             type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
@@ -266,10 +265,10 @@ macro_rules! misc_pallet_impls {
             type FixedYearlyReward = FixedYearlyReward;
             type PalletsOrigin = OriginCaller;
             type MinimumBond = MinimumBond;
-            // The unsigned solution weight targeted by the OCW. We set it to the maximum possible value of
-            // a single extrinsic.
             type OffchainSolutionWeightLimit = polymesh_runtime_common::OffchainSolutionWeightLimit;
             type WeightInfo = polymesh_weights::pallet_staking::SubstrateWeight;
+            type MaxNominations = pallet_staking::MaxNominations;
+            type MaxUnlockingChunks = pallet_staking::MaxUnlockingChunks;
         }
 
         impl pallet_authority_discovery::Config for Runtime {

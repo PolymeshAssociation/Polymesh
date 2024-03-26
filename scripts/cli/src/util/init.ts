@@ -381,8 +381,8 @@ export async function getValidCddProvider(alice: KeyringPair) {
 export async function getExpiries(length: number) {
   const api = await ApiSingleton.getInstance();
   let blockTime = (api.consts.babe.expectedBlockTime).toNumber();
-  let bondingDuration = (api.consts.staking.bondingDuration).toNumber();
-  let sessionPerEra = (api.consts.staking.sessionsPerEra).toNumber();
+  let bondingDuration = api.consts.staking.bondingDuration;
+  let sessionPerEra = api.consts.staking.sessionsPerEra;
   let session_length = (api.consts.babe.epochDuration).toNumber();
   const currentBlockTime = (await api.query.timestamp.now()).toNumber();
 
