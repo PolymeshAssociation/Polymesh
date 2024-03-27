@@ -177,12 +177,12 @@ impl Deref for UserWithBalance {
     }
 }
 
-fn create_token_and_venue(ticker: Ticker, user: User) -> VenueId {
+pub(crate) fn create_token_and_venue(ticker: Ticker, user: User) -> VenueId {
     create_token(ticker, user);
     create_venue(user)
 }
 
-fn create_token(ticker: Ticker, user: User) {
+pub(crate) fn create_token(ticker: Ticker, user: User) {
     assert_ok!(Asset::create_asset(
         user.origin(),
         ticker.as_slice().into(),
