@@ -16,7 +16,6 @@ serde_derive = { version = "1.0.112", optional = true, default-features = false}
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
-pallet-session = { version = "4.0.0-dev", default-features = false }
 pallet-timestamp = { version = "4.0.0-dev", default-features = false }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
 sp-api = { version = "4.0.0-dev", default-features = false }
@@ -50,7 +49,6 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"pallet-session/std",
 	"pallet-timestamp/std",
 	"polymesh-primitives/std",
 	"serde/std",

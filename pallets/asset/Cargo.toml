@@ -42,7 +42,6 @@ sp-api = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 pallet-timestamp = { version = "4.0.0-dev", default-features = false }
-pallet-session = { version = "4.0.0-dev", default-features = false }
 
 # Only in STD
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
@@ -58,7 +57,6 @@ std = [
     "pallet-balances/std",
     "pallet-identity/std",
     "pallet-portfolio/std",
-    "pallet-session/std",
     "pallet-timestamp/std",
     "pallet-external-agents/std",
     "polymesh-common-utilities/std",
