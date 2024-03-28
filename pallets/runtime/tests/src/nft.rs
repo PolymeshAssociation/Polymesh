@@ -14,9 +14,10 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::{
-    AuthorizationData, IdentityId, NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute,
-    NFTs, PortfolioId, PortfolioKind, PortfolioNumber, PortfolioUpdateReason, Signatory, Ticker,
-    WeightMeter,
+    AuthorizationData, Claim, ClaimType, Condition, ConditionType, CountryCode, IdentityId,
+    NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId,
+    PortfolioKind, PortfolioNumber, PortfolioUpdateReason, Scope, Signatory, Ticker, TrustedFor,
+    TrustedIssuer, WeightMeter,
 };
 use sp_keyring::AccountKeyring;
 
@@ -796,8 +797,9 @@ fn transfer_nft_failing_compliance() {
         set_timestamp(Utc::now().timestamp() as _);
 
         // First we need to create a collection and mint one NFT
-        let alice: User = User::new(AccountKeyring::Alice);
         let bob: User = User::new(AccountKeyring::Bob);
+        let dave: User = User::new(AccountKeyring::Dave);
+        let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let collection_keys: NFTCollectionKeys =
@@ -818,6 +820,22 @@ fn transfer_nft_failing_compliance() {
             nfts_metadata,
             PortfolioKind::Default,
         );
+
+        assert_ok!(ComplianceManager::add_compliance_requirement(
+            alice.origin(),
+            ticker,
+            Vec::new(),
+            vec![Condition {
+                condition_type: ConditionType::IsPresent(Claim::Jurisdiction(
+                    CountryCode::BR,
+                    Scope::Identity(bob.did)
+                )),
+                issuers: vec![TrustedIssuer {
+                    issuer: dave.did,
+                    trusted_for: TrustedFor::Specific(vec![ClaimType::Jurisdiction])
+                }]
+            }],
+        ));
 
         // transfer the NFT
         let sender_portfolio = PortfolioId {

@@ -39,7 +39,6 @@ frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional
 
 pallet-timestamp = { version = "4.0.0-dev", default-features = false }
 
-
 [features]
 equalize = []
 default = ["std", "equalize"]

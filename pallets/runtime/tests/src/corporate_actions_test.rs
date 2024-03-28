@@ -27,8 +27,9 @@ use polymesh_common_utilities::{
     traits::checkpoint::{ScheduleCheckpoints, ScheduleId},
 };
 use polymesh_primitives::{
-    agent::AgentGroup, asset::CheckpointId, AuthorizationData, Document, DocumentId, IdentityId,
-    Moment, PortfolioId, PortfolioNumber, Signatory, Ticker,
+    agent::AgentGroup, asset::CheckpointId, AuthorizationData, Claim, ClaimType, Condition,
+    ConditionType, CountryCode, Document, DocumentId, IdentityId, Moment, PortfolioId,
+    PortfolioNumber, Scope, Signatory, Ticker, TrustedFor, TrustedIssuer,
 };
 use sp_arithmetic::Permill;
 use sp_keyring::AccountKeyring;
@@ -2012,6 +2013,22 @@ fn dist_claim_misc_bad() {
         assert_ok!(ComplianceManager::reset_asset_compliance(
             owner.origin(),
             ticker2
+        ));
+        let dave = User::new(AccountKeyring::Dave);
+        assert_ok!(ComplianceManager::add_compliance_requirement(
+            owner.origin(),
+            ticker2,
+            Vec::new(),
+            vec![Condition {
+                condition_type: ConditionType::IsPresent(Claim::Jurisdiction(
+                    CountryCode::BR,
+                    Scope::Identity(claimant.did)
+                )),
+                issuers: vec![TrustedIssuer {
+                    issuer: dave.did,
+                    trusted_for: TrustedFor::Specific(vec![ClaimType::Jurisdiction])
+                }]
+            }],
         ));
 
         // But it hasn't started yet.
