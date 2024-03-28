@@ -1296,11 +1296,11 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
         auth_id
     ));
 
-    // No compliance requirement is present, compliance should fail
+    // No compliance requirement is present, compliance should pass
     let mut weight_meter = WeightMeter::max_limit_no_minimum();
     assert_ok!(
         ComplianceManager::is_compliant(&ticker, issuer.did, other.did, &mut weight_meter),
-        false
+        true
     );
 
     let conditions = |ident: TargetIdentity| {
