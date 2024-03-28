@@ -49,8 +49,6 @@ const MAX_DOC_NAME: usize = 1024;
 const MAX_DOC_TYPE: usize = 1024;
 const MAX_IDENTIFIERS_PER_ASSET: u32 = 512;
 
-type Statistics<T> = pallet_statistics::Module<T>;
-
 pub fn make_document() -> Document {
     Document {
         uri: [b'u'; MAX_DOC_URI].into(),
@@ -94,23 +92,6 @@ fn register_metadata_global_name<T: Config>() -> AssetMetadataKey {
 
     let key = Module::<T>::asset_metadata_next_global_key();
     AssetMetadataKey::Global(key)
-}
-
-fn emulate_controller_transfer<T: Config>(
-    ticker: Ticker,
-    investor_portfolio: PortfolioId,
-    pia: IdentityId,
-) {
-    let mut weight_meter = WeightMeter::max_limit_no_minimum();
-    // Assign balance to an investor.
-    let mock_storage = |id: IdentityId, bal: Balance, meter: &mut WeightMeter| {
-        BalanceOf::insert(ticker, id, bal);
-        PortfolioAssetBalances::insert(investor_portfolio, ticker, bal);
-        Statistics::<T>::update_asset_stats(&ticker, None, Some(&id), None, Some(bal), bal, meter)
-            .unwrap();
-    };
-    mock_storage(investor_portfolio.did, 1000u32.into(), &mut weight_meter);
-    mock_storage(pia, 5000u32.into(), &mut weight_meter);
 }
 
 fn owner<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> User<T> {
@@ -453,21 +434,35 @@ benchmarks! {
     }
 
     controller_transfer {
-        let (owner, ticker) = owned_ticker::<T>();
-        let pia = UserBuilder::<T>::default().generate_did().build("1stIssuance");
-        let investor = UserBuilder::<T>::default().generate_did().build("investor");
+        let bob = user::<T>("Bob", 0);
+        let alice = user::<T>("Alice", 0);
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        Module::<T>::create_asset(
+            alice.origin().into(),
+            ticker.as_ref().into(),
+            ticker,
+            true,
+            AssetType::Derivative,
+            Vec::new(),
+            None,
+        ).unwrap();
+        Module::<T>::issue(
+            alice.origin().into(),
+            ticker,
+            1_000,
+            PortfolioKind::Default
+        ).unwrap();
+
         let auth_id = pallet_identity::Module::<T>::add_auth(
-            owner.did(),
-            Signatory::from(pia.did()),
+            alice.did(),
+            Signatory::from(bob.did()),
             AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
             None,
         );
-        pallet_external_agents::Module::<T>::accept_become_agent(pia.origin().into(), auth_id)?;
-        let portfolio_to = PortfolioId::default_portfolio(investor.did());
-        emulate_controller_transfer::<T>(ticker, portfolio_to, pia.did());
-    }: _(pia.origin, ticker, 500u32.into(), portfolio_to)
+        pallet_external_agents::Module::<T>::accept_become_agent(bob.origin().into(), auth_id)?;
+    }: _(bob.origin.clone(), ticker, 1_000,  PortfolioId::default_portfolio(alice.did()))
     verify {
-        assert_eq!(Module::<T>::balance_of(ticker, investor.did()), 500u32.into());
+        assert_eq!(Module::<T>::balance_of(ticker, bob.did()), 1_000);
     }
 
     register_custom_asset_type {

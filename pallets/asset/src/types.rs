@@ -19,9 +19,13 @@ pub enum AssetOwnershipRelation {
 /// Stores the details of a security token.
 #[derive(Clone, Debug, Decode, Default, Encode, TypeInfo, PartialEq, Eq)]
 pub struct SecurityToken {
+    /// Total [`Balance`] that has been issued.
     pub total_supply: Balance,
+    /// [`IdentityId`] of the token owner.
     pub owner_did: IdentityId,
+    /// Set to `true` if the token is divisible.
     pub divisible: bool,
+    /// The [`AssetType`] of the token.
     pub asset_type: AssetType,
 }
 

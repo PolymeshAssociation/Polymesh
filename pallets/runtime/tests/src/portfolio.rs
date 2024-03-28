@@ -263,15 +263,6 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
         ),
         Error::InsufficientPortfolioBalance
     );
-    assert_noop!(
-        Portfolio::ensure_portfolio_transfer_validity(
-            &owner_default_portfolio,
-            &owner_user_portfolio,
-            &ticker,
-            token.total_supply * 2,
-        ),
-        Error::InsufficientPortfolioBalance
-    );
 
     // Attempt to move to the same portfolio.
     assert_noop!(
@@ -293,14 +284,14 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
             &ticker,
             1,
         ),
-        Error::DestinationIsSamePortfolio
+        Error::InvalidTransferSenderIdMatchesReceiverId
     );
 
     // Attempt to move to a non-existent portfolio.
     assert_noop!(
         Portfolio::ensure_portfolio_transfer_validity(
             &owner_default_portfolio,
-            &PortfolioId::user_portfolio(owner.did, PortfolioNumber(666)),
+            &PortfolioId::user_portfolio(bob.did, PortfolioNumber(666)),
             &ticker,
             1,
         ),
@@ -348,12 +339,6 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
         )),
         System::events().last().unwrap().event,
     );
-    assert_ok!(Portfolio::ensure_portfolio_transfer_validity(
-        &owner_default_portfolio,
-        &owner_user_portfolio,
-        &ticker,
-        move_amount,
-    ));
     assert_eq!(
         Portfolio::default_portfolio_balance(owner.did, &ticker),
         token.total_supply - move_amount,

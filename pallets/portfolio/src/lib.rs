@@ -166,7 +166,9 @@ decl_error! {
         /// Trying to move an amount of zero assets.
         EmptyTransfer,
         /// The caller doesn't have permission to create portfolios on the owner's behalf.
-        MissingOwnersPermission
+        MissingOwnersPermission,
+        /// The sender identity can't be the same as the receiver identity.
+        InvalidTransferSenderIdMatchesReceiverId
     }
 }
 
@@ -559,10 +561,10 @@ impl<T: Config> Module<T> {
         ticker: &Ticker,
         amount: Balance,
     ) -> DispatchResult {
-        // 1. Ensure from and to portfolio are different
+        // Transfers between the same identity should call move_portfolio_funds
         ensure!(
-            from_portfolio != to_portfolio,
-            Error::<T>::DestinationIsSamePortfolio
+            from_portfolio.did != to_portfolio.did,
+            Error::<T>::InvalidTransferSenderIdMatchesReceiverId
         );
 
         // 2. Ensure that the portfolios exist
@@ -580,7 +582,7 @@ impl<T: Config> Module<T> {
         ticker: &Ticker,
         amount: Balance,
     ) -> PortfolioValidityResult {
-        let receiver_is_same_portfolio = from_portfolio == to_portfolio;
+        let receiver_is_same_portfolio = from_portfolio.did == to_portfolio.did;
         let sender_portfolio_does_not_exist =
             Self::ensure_portfolio_validity(from_portfolio).is_err();
         let receiver_portfolio_does_not_exist =
