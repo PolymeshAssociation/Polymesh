@@ -905,11 +905,18 @@ impl<T: Config> Module<T> {
         proposal_id: u64,
     ) -> DispatchResult {
         Self::ensure_ms_signer(&multisig, &signer)?;
-        ensure!(
-            !Self::votes((&multisig, proposal_id), &signer),
-            Error::<T>::AlreadyVoted
-        );
+
         let mut proposal_details = Self::proposal_detail(&multisig, proposal_id);
+
+        // Only allow the original proposer to change their vote if no one else has voted
+        let mut proposal_owner = false;
+        if Votes::<T>::get((&multisig, proposal_id), &signer) {
+            if proposal_details.rejections != 0 || proposal_details.approvals != 1 {
+                return Err(Error::<T>::AlreadyVoted.into());
+            }
+            proposal_owner = true;
+        }
+
         proposal_details.rejections += 1u64;
         let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
         match proposal_details.status {
@@ -929,7 +936,12 @@ impl<T: Config> Module<T> {
                 if proposal_details.auto_close {
                     let approvals_needed = Self::ms_signs_required(multisig.clone());
                     let ms_signers = Self::number_of_signers(multisig.clone());
-                    if proposal_details.rejections > ms_signers.saturating_sub(approvals_needed) {
+                    if proposal_details.rejections > ms_signers.saturating_sub(approvals_needed)
+                        || proposal_owner
+                    {
+                        if proposal_owner {
+                            proposal_details.approvals = 0;
+                        }
                         proposal_details.status = ProposalStatus::Rejected;
                         Self::deposit_event(RawEvent::ProposalRejected(
                             current_did,
