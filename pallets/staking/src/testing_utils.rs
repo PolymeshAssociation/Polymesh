@@ -43,9 +43,9 @@ type Identity<T> = pallet_identity::Module<T>;
 /// This function removes all validators and nominators from storage.
 pub fn clear_validators_and_nominators<T: Config>() {
     #[allow(deprecated)]
-    Validators::<T>::remove_all();
+    Validators::<T>::remove_all(None);
     #[allow(deprecated)]
-    Nominators::<T>::remove_all();
+    Nominators::<T>::remove_all(None);
 }
 
 /// Grab a funded user with the given balance.
