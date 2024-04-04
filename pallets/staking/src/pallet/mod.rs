@@ -55,7 +55,7 @@ use sp_runtime::Permill;
 
 use polymesh_common_utilities::identity::Config as IdentityConfig;
 use polymesh_common_utilities::{Context, GC_DID};
-use polymesh_primitives::IdentityId;
+use polymesh_primitives::{storage_migration_ver, IdentityId};
 
 use crate::types::{
     ElectionCompute, ElectionResult, ElectionSize, ElectionStatus, PermissionedIdentityPrefs,
@@ -65,16 +65,15 @@ use crate::{CompactAssignments, EraIndex, ValidatorIndex, MAX_ALLOWED_VALIDATORS
 
 type Identity<T> = pallet_identity::Module<T>;
 
+storage_migration_ver!(1);
+
 #[frame_support::pallet]
 pub mod pallet {
-    use super::*;
 
-    /// The current storage version.
-    const STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
+    use super::*;
 
     #[pallet::pallet]
     #[pallet::generate_store(pub(crate) trait Store)]
-    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     /// Possible operations on the configuration values of this pallet.
@@ -309,7 +308,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn validators)]
     pub type Validators<T: Config> =
-        CountedStorageMap<_, Twox64Concat, T::AccountId, ValidatorPrefs, ValueQuery>;
+        StorageMap<_, Twox64Concat, T::AccountId, ValidatorPrefs, ValueQuery>;
 
     /// The map from nominator stash key to their nomination preferences, namely the validators that
     /// they wish to support.
@@ -332,7 +331,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn nominators)]
     pub type Nominators<T: Config> =
-        CountedStorageMap<_, Twox64Concat, T::AccountId, Nominations<T>, OptionQuery>;
+        StorageMap<_, Twox64Concat, T::AccountId, Nominations<T>, OptionQuery>;
 
     /// The current era index.
     ///
@@ -608,6 +607,10 @@ pub mod pallet {
     #[pallet::getter(fn slashing_allowed_for)]
     pub type SlashingAllowedFor<T: Config> = StorageValue<_, SlashingSwitch, ValueQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn storage_version)]
+    pub type PolymeshStorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
+
     // -------------------------------------------------------------
 
     #[pallet::genesis_config]
@@ -662,6 +665,7 @@ pub mod pallet {
             ValidatorCommissionCap::<T>::put(self.validator_commission_cap);
             MinimumBondThreshold::<T>::put(self.min_bond_threshold);
             SlashingAllowedFor::<T>::put(self.slashing_allowed_for);
+            PolymeshStorageVersion::<T>::put(Version::new(1));
             //HistoryDepth::<T>::put(self.history_depth);
 
             for &(did, ref stash, ref controller, balance, ref status) in &self.stakers {
