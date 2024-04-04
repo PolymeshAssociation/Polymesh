@@ -32,7 +32,7 @@ use sp_runtime::{
     traits::{CheckedSub, SaturatedConversion, StaticLookup, Zero},
     ArithmeticError, Perbill, Percent,
 };
-use sp_staking::{EraIndex, SessionIndex};
+use sp_staking::SessionIndex;
 use sp_std::prelude::*;
 
 mod impls;
@@ -61,7 +61,7 @@ use crate::types::{
     ElectionCompute, ElectionResult, ElectionSize, ElectionStatus, PermissionedIdentityPrefs,
     SlashingSwitch,
 };
-use crate::{CompactAssignments, ValidatorIndex, MAX_ALLOWED_VALIDATORS, STAKING_ID};
+use crate::{CompactAssignments, EraIndex, ValidatorIndex, MAX_ALLOWED_VALIDATORS, STAKING_ID};
 
 type Identity<T> = pallet_identity::Module<T>;
 
@@ -132,9 +132,11 @@ pub mod pallet {
         type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
 
         /// Number of sessions per era.
+        #[pallet::constant]
         type SessionsPerEra: Get<SessionIndex>;
 
         /// Number of eras that staked funds must remain bonded for.]
+        #[pallet::constant]
         type BondingDuration: Get<EraIndex>;
 
         /// Number of eras that slashes are deferred by, after computation.

@@ -87,9 +87,21 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InvalidGranularity: AugmentedError<ApiType>;
       /**
+       * Invalid ticker character - valid set: A`..`Z` `0`..`9` `_` `-` `.` `/`.
+       **/
+      InvalidTickerCharacter: AugmentedError<ApiType>;
+      /**
        * Transfer validation check failed.
        **/
       InvalidTransfer: AugmentedError<ApiType>;
+      /**
+       * Failed to transfer an NFT - compliance failed.
+       **/
+      InvalidTransferComplianceFailure: AugmentedError<ApiType>;
+      /**
+       * Failed to transfer the asset - asset is frozen.
+       **/
+      InvalidTransferFrozenAsset: AugmentedError<ApiType>;
       /**
        * Investor Uniqueness claims are not allowed for this asset.
        **/
@@ -114,6 +126,10 @@ declare module '@polkadot/api-base/types/errors' {
        * The asset must be frozen.
        **/
       NotFrozen: AugmentedError<ApiType>;
+      /**
+       * Number of asset mediators would exceed the maximum allowed.
+       **/
+      NumberOfAssetMediatorsExceeded: AugmentedError<ApiType>;
       /**
        * Transfers to self are not allowed
        **/
@@ -832,25 +848,9 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       CannotDecodeSignerAccountId: AugmentedError<ApiType>;
       /**
-       * CDDId should be unique & same within all cdd claims possessed by a DID.
-       **/
-      CDDIdNotUniqueForIdentity: AugmentedError<ApiType>;
-      /**
-       * Claim and Proof versions are different.
-       **/
-      ClaimAndProofVersionsDoNotMatch: AugmentedError<ApiType>;
-      /**
        * Claim does not exist.
        **/
       ClaimDoesNotExist: AugmentedError<ApiType>;
-      /**
-       * Try to add a claim variant using un-designated extrinsic.
-       **/
-      ClaimVariantNotAllowed: AugmentedError<ApiType>;
-      /**
-       * Current identity cannot be forwarded, it is not a secondary key of target identity.
-       **/
-      CurrentIdentityCannotBeForwarded: AugmentedError<ApiType>;
       /**
        * The custom claim type trying to be registered already exists.
        **/
@@ -905,10 +905,6 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InvalidAuthorizationSignature: AugmentedError<ApiType>;
       /**
-       * Non systematic CDD providers can not create default cdd_id claims.
-       **/
-      InvalidCDDId: AugmentedError<ApiType>;
-      /**
        * Identity is already a child of an other identity, can't create grand-child identity.
        **/
       IsChildIdentity: AugmentedError<ApiType>;
@@ -952,10 +948,6 @@ declare module '@polkadot/api-base/types/errors' {
        * The target DID has no valid CDD.
        **/
       TargetHasNoCdd: AugmentedError<ApiType>;
-      /**
-       * Try to delete the IU claim even when the user has non zero balance at given scopeId.
-       **/
-      TargetHasNonZeroBalanceAtScopeId: AugmentedError<ApiType>;
       /**
        * Signatory is not pre authorized by the identity
        **/
@@ -1173,6 +1165,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InvalidNFTTransferInsufficientCount: AugmentedError<ApiType>;
       /**
+       * Failed to transfer an NFT - nft is locked.
+       **/
+      InvalidNFTTransferNFTIsLocked: AugmentedError<ApiType>;
+      /**
        * Failed to transfer an NFT - NFT not found in portfolio.
        **/
       InvalidNFTTransferNFTNotOwned: AugmentedError<ApiType>;
@@ -1192,6 +1188,14 @@ declare module '@polkadot/api-base/types/errors' {
        * The NFT does not exist.
        **/
       NFTNotFound: AugmentedError<ApiType>;
+      /**
+       * An overflow while calculating the updated supply.
+       **/
+      SupplyOverflow: AugmentedError<ApiType>;
+      /**
+       * An underflow while calculating the updated supply.
+       **/
+      SupplyUnderflow: AugmentedError<ApiType>;
       /**
        * At least one of the metadata keys has not been registered.
        **/
@@ -1343,6 +1347,10 @@ declare module '@polkadot/api-base/types/errors' {
     };
     polymeshContracts: {
       /**
+       * The caller is not a primary key.
+       **/
+      CallerNotAPrimaryKey: AugmentedError<ApiType>;
+      /**
        * Data left in input when decoding arguments of a call.
        **/
       DataLeftAfterDecoding: AugmentedError<ApiType>;
@@ -1356,6 +1364,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InstantiatorWithNoIdentity: AugmentedError<ApiType>;
       /**
+       * Only future chain versions are allowed.
+       **/
+      InvalidChainVersion: AugmentedError<ApiType>;
+      /**
        * Invalid `func_id` provided from contract.
        **/
       InvalidFuncId: AugmentedError<ApiType>;
@@ -1363,6 +1375,14 @@ declare module '@polkadot/api-base/types/errors' {
        * Failed to decode a valid `RuntimeCall`.
        **/
       InvalidRuntimeCall: AugmentedError<ApiType>;
+      /**
+       * Secondary key permissions are missing.
+       **/
+      MissingKeyPermissions: AugmentedError<ApiType>;
+      /**
+       * There are no api upgrades supported for the contract.
+       **/
+      NoUpgradesSupported: AugmentedError<ApiType>;
       /**
        * Output data returned from the ChainExtension was too large.
        **/
@@ -1409,6 +1429,10 @@ declare module '@polkadot/api-base/types/errors' {
        * Only owned NFTs can be moved between portfolios.
        **/
       InvalidTransferNFTNotOwned: AugmentedError<ApiType>;
+      /**
+       * The caller doesn't have permission to create portfolios on the owner's behalf.
+       **/
+      MissingOwnersPermission: AugmentedError<ApiType>;
       /**
        * The NFT is already locked.
        **/
@@ -1532,28 +1556,6 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       [key: string]: AugmentedError<ApiType>;
     };
-    rewards: {
-      /**
-       * Provided signature was invalid.
-       **/
-      InvalidSignature: AugmentedError<ApiType>;
-      /**
-       * Itn reward was already claimed.
-       **/
-      ItnRewardAlreadyClaimed: AugmentedError<ApiType>;
-      /**
-       * Balance can not be converted to a primitive.
-       **/
-      UnableToCovertBalance: AugmentedError<ApiType>;
-      /**
-       * Address was not found in the list of Itn addresses.
-       **/
-      UnknownItnAddress: AugmentedError<ApiType>;
-      /**
-       * Generic error
-       **/
-      [key: string]: AugmentedError<ApiType>;
-    };
     scheduler: {
       /**
        * Failed to schedule a call
@@ -1608,6 +1610,10 @@ declare module '@polkadot/api-base/types/errors' {
     };
     settlement: {
       /**
+       * The caller is not a mediator in the instruction.
+       **/
+      CallerIsNotAMediator: AugmentedError<ApiType>;
+      /**
        * The caller is not a party of this instruction.
        **/
       CallerIsNotAParty: AugmentedError<ApiType>;
@@ -1644,6 +1650,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InstructionSettleBlockPassed: AugmentedError<ApiType>;
       /**
+       * The mediator's expiry date must be in the future.
+       **/
+      InvalidExpiryDate: AugmentedError<ApiType>;
+      /**
        * Only [`InstructionStatus::Pending`] or [`InstructionStatus::Failed`] instructions can be executed.
        **/
       InvalidInstructionStatusForExecution: AugmentedError<ApiType>;
@@ -1676,6 +1686,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       MaxNumberOfReceiptsExceeded: AugmentedError<ApiType>;
       /**
+       * The expiry date for the mediator's affirmation has passed.
+       **/
+      MediatorAffirmationExpired: AugmentedError<ApiType>;
+      /**
        * Multiple receipts for the same leg are not allowed.
        **/
       MultipleReceiptsForOneLeg: AugmentedError<ApiType>;
@@ -1695,6 +1709,10 @@ declare module '@polkadot/api-base/types/errors' {
        * The given number of nfts being transferred was underestimated.
        **/
       NumberOfTransferredNFTsUnderestimated: AugmentedError<ApiType>;
+      /**
+       * The maximum number of venue signers was exceeded.
+       **/
+      NumberOfVenueSignersExceeded: AugmentedError<ApiType>;
       /**
        * Off-Chain assets cannot be locked.
        **/
@@ -1797,6 +1815,10 @@ declare module '@polkadot/api-base/types/errors' {
        * When the amount to be bonded is less than `MinimumBond`
        **/
       BondTooSmall: AugmentedError<ApiType>;
+      /**
+       * Some bound is not met.
+       **/
+      BoundNotMet: AugmentedError<ApiType>;
       /**
        * The call is not allowed at the given time due to restrictions of election period.
        **/
@@ -1940,6 +1962,11 @@ declare module '@polkadot/api-base/types/errors' {
        * Validator stash identity was not permissioned.
        **/
       StashIdentityNotPermissioned: AugmentedError<ApiType>;
+      /**
+       * There are too many nominators in the system. Governance needs to adjust the staking
+       * settings to keep things safe for the runtime.
+       **/
+      TooManyNominators: AugmentedError<ApiType>;
       /**
        * Too many nomination targets supplied.
        **/
@@ -2281,6 +2308,10 @@ declare module '@polkadot/api-base/types/errors' {
        * Too many calls batched.
        **/
       TooManyCalls: AugmentedError<ApiType>;
+      /**
+       * Decoding derivative account Id failed.
+       **/
+      UnableToDeriveAccountId: AugmentedError<ApiType>;
       /**
        * Generic error
        **/

@@ -33,11 +33,11 @@ use sp_runtime::{
     traits::{SaturatedConversion, Saturating, Zero},
     Perbill,
 };
-use sp_staking::{EraIndex, SessionIndex};
+use sp_staking::SessionIndex;
 use sp_std::prelude::*;
 
 use crate::{
-    log, slashing, weights::WeightInfo, ActiveEraInfo, BalanceOf, Exposure, Forcing,
+    log, slashing, weights::WeightInfo, ActiveEraInfo, BalanceOf, EraIndex, Exposure, Forcing,
     IndividualExposure, Nominations, PositiveImbalanceOf, RewardDestination, SessionInterface,
     StakingLedger, ValidatorPrefs, STAKING_ID,
 };
