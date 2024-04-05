@@ -884,6 +884,7 @@ impl<T: Config> Module<T> {
                 }
                 Err(e) => {
                     update_proposal_status(ProposalStatus::ExecutionFailed);
+                    Self::deposit_event(RawEvent::ProposalExecutionFailed(e.error));
                     Self::deposit_event(RawEvent::ProposalFailedToExecute(
                         multisig_did,
                         multisig.clone(),
