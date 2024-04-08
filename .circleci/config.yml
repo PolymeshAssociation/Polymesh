@@ -449,7 +449,7 @@ jobs:
       - setup_remote_docker:
           version: 20.10.14
       - run: |
-          export NIGHTLY=`date "+nightly-%Y-%m-%d"`
+          export NIGHTLY="nightly-2023-12-11"
           docker build -f ./.docker/rust-nightly/Dockerfile.debian \
             --build-arg rustbase=$RUST_BASE \
             --build-arg toolchainversion=$NIGHTLY \
@@ -488,7 +488,7 @@ jobs:
     steps:
       - checkout
       - run: |
-          export NIGHTLY=`date "+nightly-%Y-%m-%d"`
+          export NIGHTLY="nightly-2023-12-11"
           docker build -f ./.docker/arm64/rust/Dockerfile.debian \
             --build-arg rustbase=$RUST_BASE \
             --build-arg toolchainversion=$NIGHTLY \
@@ -536,86 +536,7 @@ jobs:
 
 workflows:
   version: 2
-  nightly:
-    triggers:
-      - schedule:
-          cron: "0 23 * * *"
-          filters:
-            branches:
-              only:
-                - develop
-    jobs:
-      - build-docker-rust-debian
-      - build-docker-rust-alpine
-      - build-docker-arm64-rust-debian
-      - build-docker-arm64-rust-alpine
   commit:
     jobs:
-      - lint
-      - check-storage-version
-      - clippy
-      - test
-      - build
-      - build-ci
-      - build-arm64
-      - benchmark-build
-      - coverage
-      - rust-integration-test:
-          requires:
-            - build-ci
-      - integration-test:
-          requires:
-            - build-ci
-      - benchmark:
-          requires:
-            - benchmark-build
-      - build-docker-debian:
-          requires:
-            - build
-          filters:
-            branches:
-              only:
-                - mainnet
-                - testnet
-                - staging
-                - develop
-      - build-docker-distroless:
-          requires:
-            - build
-          filters:
-            branches:
-              only:
-                - mainnet
-                - testnet
-                - staging
-                - develop
-      - build-docker-arm64-debian:
-          requires:
-            - build-arm64
-          filters:
-            branches:
-              only:
-                - mainnet
-                - testnet
-                - staging
-                - develop
-      - build-docker-arm64-distroless:
-          requires:
-            - build-arm64
-          filters:
-            branches:
-              only:
-                - mainnet
-                - testnet
-                - staging
-                - develop
-      - publish-github-release:
-          requires:
-            - build
-            - build-arm64
-          filters:
-            branches:
-              only:
-                - mainnet
-                - testnet
-                - staging
+      - build-docker-rust-debian
+      - build-docker-arm64-rust-debian
