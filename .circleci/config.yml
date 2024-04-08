@@ -14,7 +14,7 @@ commands:
     steps:
       - restore_cache:
           name: Restore sccache cache
-          key: sccache-cache-stable-v1-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
+          key: sccache-cache-stable-v2-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
       - run:
           name: Show cache size
           command: /usr/local/cargo/bin/sccache -s
@@ -29,7 +29,7 @@ commands:
           # Of course, restore_cache will not find this exact key,
           # but it will fall back to the closest key (aka the most recent).
           # See https://discuss.circleci.com/t/add-mechanism-to-update-existing-cache-key/9014/13
-          key: sccache-cache-stable-v1-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ epoch }}
+          key: sccache-cache-stable-v2-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ epoch }}
           paths:
             - "/usr/local/cargo"
             - "~/.cache/sccache"
@@ -74,7 +74,7 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v7-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v9-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Build release
           command: cargo build --locked --release
@@ -93,7 +93,7 @@ jobs:
           paths:
               - .
       - save_cache:
-          key: v7-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v9-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
             - "~/.cache/sccache"
@@ -138,7 +138,7 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v8-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v9-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Build release
           command: cargo build --locked --release
@@ -154,7 +154,7 @@ jobs:
           paths:
               - .
       - save_cache:
-          key: v8-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v9-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
             - "~/.cache/sccache"
@@ -173,7 +173,7 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v4-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v9-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Build binary with runtime-benchmarks
           command: cargo build --locked --release --features=runtime-benchmarks,running-ci
@@ -186,7 +186,7 @@ jobs:
           paths:
             - polymesh-benchmarks
       - save_cache:
-          key: v4-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v9-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
             - "~/.cache/sccache"
@@ -218,13 +218,13 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v2-migration-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v9-migration-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Run migration tests
           command:  cargo test -p migration-tests --lib -- --nocapture
           no_output_timeout: 30m
       - save_cache:
-          key: v2-migration-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v9-migration-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
   test:
@@ -244,7 +244,7 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v12-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v13-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Tests
           command: >-
@@ -262,7 +262,7 @@ jobs:
             --features default_identity
           no_output_timeout: 30m
       - save_cache:
-          key: v12-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v13-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
             - "~/.cache/sccache"
@@ -279,13 +279,13 @@ jobs:
           command: rustc --version | tee rust.version
       - restore_cache:
           keys:
-            - v7-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v9-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Coverage
           command: bash ./scripts/coverage.sh
           no_output_timeout: 30m
       - save_cache:
-          key: v7-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v9-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
   rust-integration-test:
@@ -366,13 +366,13 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v6-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v9-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: run clippy
           command: cargo clippy -- -A clippy::all -W clippy::complexity -W clippy::perf
           no_output_timeout: 30m
       - save_cache:
-          key: v6-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v9-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
   build-docker-debian:
