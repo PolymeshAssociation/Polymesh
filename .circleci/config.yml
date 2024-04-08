@@ -443,7 +443,7 @@ jobs:
       IMAGE_NAME: polymeshassociation/rust
     docker:
       - image: docker:stable-git
-    resource_class: small
+    resource_class: large
     steps:
       - checkout
       - setup_remote_docker:
