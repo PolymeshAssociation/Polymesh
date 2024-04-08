@@ -150,29 +150,3 @@ impl<BlockNumber: PartialEq> ElectionStatus<BlockNumber> {
         !self.is_closed()
     }
 }
-
-// A value placed in storage that represents the current version of the Staking storage. This value
-// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-// This should match directly with the semantic versions of the Rust crate.
-#[derive(
-    Clone,
-    Copy,
-    Decode,
-    Default,
-    Encode,
-    Eq,
-    PartialEq,
-    RuntimeDebug,
-    TypeInfo
-)]
-enum Releases {
-    V1_0_0Ancient,
-    V2_0_0,
-    V3_0_0,
-    V4_0_0,
-    V5_0_0,
-    V6_0_0,
-    #[default]
-    V6_0_1,
-    V7_0_0,
-}

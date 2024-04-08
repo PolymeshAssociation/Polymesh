@@ -631,7 +631,6 @@ pub mod pallet {
         pub validator_commission_cap: Perbill,
         pub min_bond_threshold: BalanceOf<T>,
         pub slashing_allowed_for: SlashingSwitch,
-        pub history_depth: u32,
     }
 
     #[cfg(feature = "std")]
@@ -648,7 +647,6 @@ pub mod pallet {
                 validator_commission_cap: Default::default(),
                 min_bond_threshold: Default::default(),
                 slashing_allowed_for: Default::default(),
-                history_depth: Default::default(),
             }
         }
     }
@@ -666,7 +664,6 @@ pub mod pallet {
             MinimumBondThreshold::<T>::put(self.min_bond_threshold);
             SlashingAllowedFor::<T>::put(self.slashing_allowed_for);
             PolymeshStorageVersion::<T>::put(Version::new(1));
-            //HistoryDepth::<T>::put(self.history_depth);
 
             for &(did, ref stash, ref controller, balance, ref status) in &self.stakers {
                 crate::log!(

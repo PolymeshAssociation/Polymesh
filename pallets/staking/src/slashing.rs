@@ -297,10 +297,10 @@ pub(crate) fn compute_slash<T: Config>(
         }
     }
 
-    // Polymesh Change: SlashingSwitch` decides whether nominator gets slashed.
-    // -----------------------------------------------------------------
     add_offending_validator::<T>(params.stash, true);
 
+    // Polymesh Change: SlashingSwitch` decides whether nominator gets slashed.
+    // -----------------------------------------------------------------
     let mut nominators_slashed = Vec::new();
     if <Pallet<T>>::slashing_allowed_for() == SlashingSwitch::ValidatorAndNominator {
         reward_payout +=
