@@ -1,5 +1,5 @@
 ARG rustbase=1.74.0
-FROM arm64v8/rust:${rustbase}
+FROM arm64v8/rust:${rustbase}-bullseye
 
 ARG toolchainversion=nightly-2023-12-01
 ENV TOOLCHAIN="${toolchainversion}"
