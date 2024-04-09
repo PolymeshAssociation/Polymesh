@@ -401,6 +401,7 @@ impl ExtBuilder {
         asset::GenesisConfig::<TestStorage> {
             ticker_registration_config,
             reserved_country_currency_codes: vec![],
+            asset_metadata: vec![],
         }
         .assimilate_storage(storage)
         .unwrap();

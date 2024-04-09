@@ -257,7 +257,8 @@ pub struct Memo(pub [u8; 32]);
 /// Url for linking to off-chain resources.
 #[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Url(pub Vec<u8>);
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct Url(#[cfg_attr(feature = "std", serde(with = "serde_bytes"))] pub Vec<u8>);
 
 /// The name of a pallet.
 #[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]

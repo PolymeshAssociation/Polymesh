@@ -1,0 +1,34 @@
+[
+  [
+		"baseTokenUri",
+    {
+      "url": "https://developers.polymesh.network/polymesh-docs/primitives/nfts/#token-uri",
+      "description": "Specifies the starting point for constructing off-chain URIs that store JSON-formatted metadata for NFTs within a collection. Allows dynamic {tokenId} substitution for individual NFTs. If {tokenId} is part of the base token URI, users are responsible for substituting it with the specific NFT's ID to create unique URIs. If {tokenId} is not included, users must append the token ID to the end of the base token URI to form NFT-specific URIs.",
+      "typeDef": "Text - not SCALE encoded"
+    }
+  ],
+  [
+		"baseImageUri",
+    {
+      "url": "https://developers.polymesh.network/polymesh-docs/primitives/nfts/#image-uri",
+      "description": "Specifies the starting point for constructing off-chain URIs related to NFT images in a collection. Allows dynamic {tokenId} substitution for individual NFTs. If {tokenId} is part of the base image URI, users are responsible for substituting it with the specific NFT's ID to create unique URIs. If {tokenId} is not included, users must append the token ID to the end of the base image URI to form NFT-specific URIs. It is recommended to include {tokenId} in the base image URI to handle file extensions appropriately.",
+      "typeDef": "Text - not SCALE encoded"
+    }
+  ],
+  [
+		"tokenUri",
+    {
+      "url": "https://developers.polymesh.network/polymesh-docs/primitives/nfts/#token-uri",
+      "description": "Points to an off-chain URI that stores JSON formatted metadata related to an individual NFT. Supports dynamic {tokenId} substitution for individual NFTs allowing it to be used at either the individual NFT and collection levels. If {tokenId} is part of the token URI, users are responsible for substituting it with the specific NFT's ID to create unique URIs.",
+      "typeDef": "Text - not SCALE encoded"
+    }
+  ],
+  [
+		"imageUri",
+    {
+      "url": "https://developers.polymesh.network/polymesh-docs/primitives/nfts/#image-uri",
+      "description": "Points to an off-chain URI that stores an image for an individual NFT. Supports dynamic {tokenId} substitution for individual NFTs allowing it to be used at either the individual NFT and collection levels. If {tokenId} is part of the token URI, users are responsible for substituting it with the specific NFT's ID to create unique URIs.",
+      "typeDef": "Text - not SCALE encoded"
+    }
+  ]
+]
