@@ -12,9 +12,12 @@ commands:
             /usr/local/cargo/bin/sccache --version
   restore-sccache-cache:
     steps:
+      - run:
+          name: Store rust version in a file for cache key
+          command: rustc --version > rust.version
       - restore_cache:
           name: Restore sccache cache
-          key: sccache-cache-stable-v2-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
+          key: sccache-cache-stable-v2-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
       - run:
           name: Show cache size
           command: /usr/local/cargo/bin/sccache -s
@@ -29,7 +32,7 @@ commands:
           # Of course, restore_cache will not find this exact key,
           # but it will fall back to the closest key (aka the most recent).
           # See https://discuss.circleci.com/t/add-mechanism-to-update-existing-cache-key/9014/13
-          key: sccache-cache-stable-v2-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ epoch }}
+          key: sccache-cache-stable-v2-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ epoch }}
           paths:
             - "/usr/local/cargo"
             - "~/.cache/sccache"
@@ -69,12 +72,8 @@ jobs:
       - RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
     steps:
       - checkout
-      - run:
-          name: Store rust version in an environment var for cache key
-          command: rustc --version > rust.version
-      - restore_cache:
-          keys:
-            - v9-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - setup-sccache
+      - restore-sccache-cache
       - run:
           name: Build release
           command: cargo build --locked --release
@@ -92,11 +91,7 @@ jobs:
           root: ./assets
           paths:
               - .
-      - save_cache:
-          key: v9-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-          paths:
-            - "/usr/local/cargo"
-            - "~/.cache/sccache"
+      - save-sccache-cache
   build-ci:
     docker:
       - image: polymeshassociation/rust:debian-nightly-2023-12-11
@@ -133,12 +128,8 @@ jobs:
       - RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
     steps:
       - checkout
-      - run:
-          name: Store rust version in an environment var for cache key
-          command: rustc --version > rust.version
-      - restore_cache:
-          keys:
-            - v9-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - setup-sccache
+      - restore-sccache-cache
       - run:
           name: Build release
           command: cargo build --locked --release
@@ -153,11 +144,7 @@ jobs:
           root: ./assets
           paths:
               - .
-      - save_cache:
-          key: v9-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-          paths:
-            - "/usr/local/cargo"
-            - "~/.cache/sccache"
+      - save-sccache-cache
   benchmark-build:
     docker:
       - image: polymeshassociation/rust:debian-nightly-2023-12-11
@@ -168,12 +155,8 @@ jobs:
       - RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
     steps:
       - checkout
-      - run:
-          name: Store rust version in an environment var for cache key
-          command: rustc --version > rust.version
-      - restore_cache:
-          keys:
-            - v9-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - setup-sccache
+      - restore-sccache-cache
       - run:
           name: Build binary with runtime-benchmarks
           command: cargo build --locked --release --features=runtime-benchmarks,running-ci
@@ -185,11 +168,7 @@ jobs:
           root: ./
           paths:
             - polymesh-benchmarks
-      - save_cache:
-          key: v9-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-          paths:
-            - "/usr/local/cargo"
-            - "~/.cache/sccache"
+      - save-sccache-cache
   benchmark:
     docker:
       - image: debian:stable
@@ -213,20 +192,13 @@ jobs:
       - BUILD_DUMMY_WASM_BINARY: "1"
     steps:
       - checkout
-      - run:
-          name: Store rust version in an environment var for cache key
-          command: rustc --version > rust.version
-      - restore_cache:
-          keys:
-            - v9-migration-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - setup-sccache
+      - restore-sccache-cache
       - run:
           name: Run migration tests
           command:  cargo test -p migration-tests --lib -- --nocapture
           no_output_timeout: 30m
-      - save_cache:
-          key: v9-migration-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-          paths:
-            - "/usr/local/cargo"
+      - save-sccache-cache
   test:
     docker:
       - image: polymeshassociation/rust:debian-nightly-2023-12-11
@@ -239,12 +211,8 @@ jobs:
       - RUST_BACKTRACE: "1"
     steps:
       - checkout
-      - run:
-          name: Store rust version in a file for cache key
-          command: rustc --version > rust.version
-      - restore_cache:
-          keys:
-            - v13-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - setup-sccache
+      - restore-sccache-cache
       - run:
           name: Tests
           command: >-
@@ -261,11 +229,7 @@ jobs:
             --package asset-metadata
             --features default_identity
           no_output_timeout: 30m
-      - save_cache:
-          key: v13-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-          paths:
-            - "/usr/local/cargo"
-            - "~/.cache/sccache"
+      - save-sccache-cache
   coverage:
     docker:
       - image: polymeshassociation/rust:debian-nightly-2023-12-11
@@ -274,20 +238,13 @@ jobs:
       - VERBOSE: "1"
     steps:
       - checkout
-      - run:
-          name: Store rust version in a file for cache key
-          command: rustc --version | tee rust.version
-      - restore_cache:
-          keys:
-            - v9-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - setup-sccache
+      - restore-sccache-cache
       - run:
           name: Coverage
           command: bash ./scripts/coverage.sh
           no_output_timeout: 30m
-      - save_cache:
-          key: v9-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-          paths:
-            - "/usr/local/cargo"
+      - save-sccache-cache
   rust-integration-test:
     docker:
       - image: polymeshassociation/rust:debian-nightly-2023-12-11
@@ -361,20 +318,13 @@ jobs:
       - SKIP_WASM_BUILD: "1"
     steps:
       - checkout
-      - run:
-          name: Store rust version in a file for cache key
-          command: rustc --version > rust.version
-      - restore_cache:
-          keys:
-            - v9-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - setup-sccache
+      - restore-sccache-cache
       - run:
           name: run clippy
           command: cargo clippy -- -A clippy::all -W clippy::complexity -W clippy::perf
           no_output_timeout: 30m
-      - save_cache:
-          key: v9-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-          paths:
-            - "/usr/local/cargo"
+      - save-sccache-cache
   build-docker-debian:
     environment:
       IMAGE_NAME: polymeshassociation/polymesh
