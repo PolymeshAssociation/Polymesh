@@ -1896,7 +1896,6 @@ impl<T: Config> Module<T> {
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         let security_token = Self::token_details(&ticker)?;
-        Self::ensure_token_granular(&security_token, &transfer_value)?;
         ensure!(
             security_token.asset_type.is_fungible(),
             Error::<T>::UnexpectedNonFungibleToken
@@ -2136,6 +2135,7 @@ impl<T: Config> Module<T> {
         security_token.total_supply += amount_to_issue;
         Tokens::insert(ticker, security_token);
 
+        // No check since the total balance is always <= the total supply
         let new_issuer_portfolio_balance =
             Portfolio::<T>::portfolio_asset_balances(issuer_portfolio, ticker) + amount_to_issue;
         Portfolio::<T>::set_portfolio_balance(
@@ -2156,7 +2156,7 @@ impl<T: Config> Module<T> {
 
         let funding_round_name = FundingRound::get(&ticker);
         IssuedInFundingRound::mutate((&ticker, &funding_round_name), |balance| {
-            *balance += amount_to_issue
+            *balance = balance.saturating_add(amount_to_issue)
         });
 
         Self::deposit_event(RawEvent::AssetBalanceUpdated(
@@ -2402,10 +2402,7 @@ impl<T: Config> Module<T> {
 
 impl<T: Config> Module<T> {
     fn invalid_granularity(ticker: &Ticker, value: Balance) -> bool {
-        if let Some(security_token) = Tokens::get(ticker) {
-            return Self::ensure_token_granular(&security_token, &value).is_err();
-        }
-        true
+        Self::ensure_granular(ticker, value).is_err()
     }
 
     fn self_transfer(from: &PortfolioId, to: &PortfolioId) -> bool {

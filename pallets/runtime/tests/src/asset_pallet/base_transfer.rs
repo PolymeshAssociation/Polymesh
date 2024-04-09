@@ -150,6 +150,12 @@ fn base_transfer_invalid_granularity() {
             Vec::new(),
             None,
         ));
+        assert_ok!(Asset::issue(
+            alice.origin(),
+            ticker,
+            1_000_000,
+            PortfolioKind::Default
+        ),);
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_noop!(
             Asset::base_transfer(
