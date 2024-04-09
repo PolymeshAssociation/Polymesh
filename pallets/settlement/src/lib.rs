@@ -1205,7 +1205,8 @@ impl<T: Config> Module<T> {
         caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        with_transaction(|| {
+        let mut failed_leg_id = None;
+        let tx_result = with_transaction(|| {
             // Ensures the number of pending affirmations is zero
             let n_pending_affirmations = InstructionAffirmsPending::take(instruction_id);
             ensure!(
@@ -1221,8 +1222,6 @@ impl<T: Config> Module<T> {
             );
             // Ensures all mediator's affirmations are still valid
             Self::ensure_non_expired_affirmations(&instruction_id)?;
-            // Ensures all offchain receipts have been received
-            Self::ensure_no_missing_receipts(&instruction_id)?;
 
             // The order of execution of the legs matter in some edge cases around compliance.
             let mut instruction_legs: Vec<(LegId, Leg)> =
@@ -1271,16 +1270,23 @@ impl<T: Config> Module<T> {
                     Ok(())
                 }
                 Err(leg_id) => {
-                    Self::deposit_event(RawEvent::LegFailedExecution(
-                        caller_did,
-                        instruction_id,
-                        leg_id,
-                    ));
-                    Self::deposit_event(RawEvent::InstructionFailed(caller_did, instruction_id));
+                    failed_leg_id = Some(leg_id);
                     Err(Error::<T>::FailedToReleaseLockOrTransferAssets.into())
                 }
             }
-        })
+        });
+
+        // Since with_transaction reverts events as well, the events have to be emitted here
+        if let Some(failed_leg_id) = failed_leg_id {
+            Self::deposit_event(RawEvent::LegFailedExecution(
+                caller_did,
+                instruction_id,
+                failed_leg_id,
+            ));
+            Self::deposit_event(RawEvent::InstructionFailed(caller_did, instruction_id));
+        }
+
+        tx_result
     }
 
     /// Returns `Ok` if all mediator's affirmation are still valid. Otherwise, returns an error.
@@ -1307,27 +1313,15 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns `Ok` if all receipts have been received. Otherwise, returns an error.
-    /// This call also removes all elements from the `OffChainAffirmations` storage.
-    fn ensure_no_missing_receipts(instruction_id: &InstructionId) -> DispatchResult {
-        for (_, affirmation_status) in OffChainAffirmations::drain_prefix(instruction_id) {
-            ensure!(
-                affirmation_status == AffirmationStatus::Affirmed,
-                Error::<T>::NotAllAffirmationsHaveBeenReceived,
-            );
-        }
-        Ok(())
-    }
-
     /// Returns `Ok` if all affirmations have been received. Otherwise, returns an error.
-    /// This call also removes all elements from both `UserAffirmations` and `AffirmsReceived` storage.
+    /// This call also removes all elements from `UserAffirmations`, `AffirmsReceived` and `OffChainAffirmations` storage.
     fn ensure_no_missing_affirmation(
         instruction_id: &InstructionId,
         instruction_legs: &[(LegId, Leg)],
     ) -> DispatchResult {
         let mut unique_portfolios = BTreeSet::new();
 
-        for (_, leg) in instruction_legs {
+        for (leg_id, leg) in instruction_legs {
             match leg {
                 Leg::Fungible {
                     sender, receiver, ..
@@ -1362,7 +1356,13 @@ impl<T: Config> Module<T> {
                         );
                     }
                 }
-                Leg::OffChain { .. } => continue,
+                Leg::OffChain { .. } => {
+                    ensure!(
+                        OffChainAffirmations::take(instruction_id, leg_id)
+                            == AffirmationStatus::Affirmed,
+                        Error::<T>::NotAllAffirmationsHaveBeenReceived,
+                    );
+                }
             }
         }
 
@@ -1433,9 +1433,11 @@ impl<T: Config> Module<T> {
         let instruction_details = InstructionDetails::<T>::take(&instruction_id);
         VenueInstructions::remove(instruction_details.venue_id, instruction_id);
         InstructionAffirmsPending::remove(instruction_id);
-        let _ = OffChainAffirmations::clear_prefix(instruction_id, u32::MAX, None);
-        let _ = AffirmsReceived::clear_prefix(instruction_id, u32::MAX, None);
-        let _ = InstructionMediatorsAffirmations::<T>::clear_prefix(instruction_id, u32::MAX, None);
+        let _ = InstructionMediatorsAffirmations::<T>::clear_prefix(
+            instruction_id,
+            T::MaxInstructionMediators::get(),
+            None,
+        );
         // We need all portfolios to clear the UserAffirmations storage
         let instruction_legs =
             InstructionLegs::drain_prefix(&instruction_id).collect::<Vec<(LegId, Leg)>>();
@@ -1444,7 +1446,7 @@ impl<T: Config> Module<T> {
             instruction_legs.len() as u32,
             None,
         );
-        for (_, leg) in instruction_legs {
+        for (leg_id, leg) in instruction_legs {
             match leg {
                 Leg::Fungible {
                     sender, receiver, ..
@@ -1454,8 +1456,12 @@ impl<T: Config> Module<T> {
                 } => {
                     UserAffirmations::remove(sender, instruction_id);
                     UserAffirmations::remove(receiver, instruction_id);
+                    AffirmsReceived::remove(instruction_id, sender);
+                    AffirmsReceived::remove(instruction_id, receiver);
                 }
-                Leg::OffChain { .. } => continue,
+                Leg::OffChain { .. } => {
+                    OffChainAffirmations::remove(instruction_id, leg_id);
+                }
             }
         }
         // Update the intruction Status to InstructionStatus::Rejected

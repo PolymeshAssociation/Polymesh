@@ -4,12 +4,13 @@ use sp_keyring::AccountKeyring;
 use pallet_asset::BalanceOf;
 use pallet_portfolio::PortfolioLockedAssets;
 use pallet_settlement::{
-    AffirmsReceived, InstructionAffirmsPending, InstructionDetails, InstructionLegStatus,
+    AffirmsReceived, Error, InstructionAffirmsPending, InstructionDetails, InstructionLegStatus,
     InstructionLegs, InstructionMediatorsAffirmations, InstructionStatuses, OffChainAffirmations,
-    UserAffirmations, VenueInstructions,
+    RawEvent, UserAffirmations, VenueInstructions,
 };
+use polymesh_common_utilities::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::settlement::{
-    AffirmationStatus, Instruction, InstructionId, InstructionStatus, Leg, SettlementType,
+    AffirmationStatus, Instruction, InstructionId, InstructionStatus, Leg, LegId, SettlementType,
 };
 use polymesh_primitives::{PortfolioId, Ticker};
 
@@ -18,6 +19,7 @@ use crate::storage::User;
 use crate::{next_block, ExtBuilder, TestStorage};
 
 type Settlement = pallet_settlement::Module<TestStorage>;
+type System = frame_system::Pallet<TestStorage>;
 
 const TICKER: Ticker = Ticker::new_unchecked([b'A', b'C', b'M', b'E', 0, 0, 0, 0, 0, 0, 0, 0]);
 const TICKER2: Ticker = Ticker::new_unchecked([b'A', b'C', b'M', b'Y', 0, 0, 0, 0, 0, 0, 0, 0]);
@@ -105,6 +107,8 @@ fn execute_instruction_storage_pruning() {
 #[test]
 fn execute_instruction_storage_rollback() {
     ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(1);
+
         let instruction_id = InstructionId(0);
         let bob = User::new(AccountKeyring::Bob);
         let alice = User::new(AccountKeyring::Alice);
@@ -148,7 +152,7 @@ fn execute_instruction_storage_rollback() {
         ));
         // Removes TICKER2 balance to force an error
         BalanceOf::insert(TICKER2, alice.did, 0);
-        InstructionStatuses::<TestStorage>::insert(instruction_id, InstructionStatus::Failed);
+        next_block();
         // Asserts storage has not changed
         assert_eq!(
             PortfolioLockedAssets::get(alice_default_portfolio, TICKER),
@@ -166,7 +170,36 @@ fn execute_instruction_storage_rollback() {
             UserAffirmations::get(bob_default_portfolio, instruction_id),
             AffirmationStatus::Affirmed
         );
+        assert_eq!(
+            InstructionStatuses::<TestStorage>::get(instruction_id),
+            InstructionStatus::Failed
+        );
         let all_legs = InstructionLegs::iter_prefix_values(instruction_id).collect::<Vec<_>>();
         assert_eq!(all_legs.len(), 2);
+        // Asserts the events are being emitted
+        let mut system_events = System::events();
+        system_events.pop().unwrap();
+        assert_eq!(
+            system_events.pop().unwrap().event,
+            crate::storage::EventTest::Settlement(RawEvent::FailedToExecuteInstruction(
+                instruction_id,
+                Error::<TestStorage>::FailedToReleaseLockOrTransferAssets.into()
+            ))
+        );
+        assert_eq!(
+            system_events.pop().unwrap().event,
+            crate::storage::EventTest::Settlement(RawEvent::InstructionFailed(
+                SettlementDID.as_id(),
+                instruction_id
+            ))
+        );
+        assert_eq!(
+            system_events.pop().unwrap().event,
+            crate::storage::EventTest::Settlement(RawEvent::LegFailedExecution(
+                SettlementDID.as_id(),
+                instruction_id,
+                LegId(1)
+            ))
+        );
     });
 }
