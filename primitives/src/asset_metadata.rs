@@ -18,12 +18,15 @@ use crate::Url;
 use codec::{Decode, DecodeAll, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::{PortableRegistry, TypeInfo};
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::Vec;
 
 /// Asset Metadata Name.
 #[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq)]
-pub struct AssetMetadataName(pub Vec<u8>);
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct AssetMetadataName(#[cfg_attr(feature = "std", serde(with = "serde_bytes"))] pub Vec<u8>);
 
 /// Asset Metadata Global Key.
 #[derive(Encode, Decode, TypeInfo)]
@@ -121,17 +124,24 @@ impl<Moment> Default for AssetMetadataLockStatus<Moment> {
 /// Asset Metadata description.
 #[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct AssetMetadataDescription(pub Vec<u8>);
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct AssetMetadataDescription(
+    #[cfg_attr(feature = "std", serde(with = "serde_bytes"))] pub Vec<u8>,
+);
 
 /// Asset Metadata Specs.
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct AssetMetadataSpec {
     /// Off-chain specs or documentation.
+    #[cfg_attr(feature = "std", serde(default))]
     pub url: Option<Url>,
     /// Description of metadata type.
+    #[cfg_attr(feature = "std", serde(default))]
     pub description: Option<AssetMetadataDescription>,
     /// Optional SCALE encoded `AssetMetadataTypeDef`.
+    #[cfg_attr(feature = "std", serde(with = "serde_bytes", default))]
     pub type_def: Option<Vec<u8>>,
 }
 

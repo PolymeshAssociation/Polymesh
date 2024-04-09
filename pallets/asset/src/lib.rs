@@ -242,6 +242,7 @@ decl_storage! {
     }
     add_extra_genesis {
         config(reserved_country_currency_codes): Vec<Ticker>;
+        config(asset_metadata): Vec<(AssetMetadataName, AssetMetadataSpec)>;
         build(|config: &GenesisConfig<T>| {
             // Reserving country currency logic
             let fiat_tickers_reservation_did =
@@ -253,6 +254,12 @@ decl_storage! {
                     None,
                     false
                 );
+            }
+
+            // Register Asset Metadata.
+            for (name, spec) in &config.asset_metadata {
+                <Module<T>>::base_register_asset_metadata_global_type(name.clone(), spec.clone())
+                    .expect("Shouldn't fail");
             }
         });
     }
@@ -682,7 +689,10 @@ decl_module! {
         /// * `AssetMetadataTypeDefMaxLengthExceeded` if the metadata `spec` type definition exceeds the maximum length.
         #[weight = <T as Config>::WeightInfo::register_asset_metadata_global_type()]
         pub fn register_asset_metadata_global_type(origin, name: AssetMetadataName, spec: AssetMetadataSpec) -> DispatchResult {
-            Self::base_register_asset_metadata_global_type(origin, name, spec)
+            // Only allow global metadata types to be registered by root.
+            ensure_root(origin)?;
+
+            Self::base_register_asset_metadata_global_type(name, spec)
         }
 
         /// Redeems existing tokens by reducing the balance of the caller's portfolio and the total supply of the token
@@ -1326,15 +1336,11 @@ impl<T: Config> Module<T> {
     }
 
     fn base_register_asset_metadata_global_type(
-        origin: T::RuntimeOrigin,
         name: AssetMetadataName,
         spec: AssetMetadataSpec,
     ) -> DispatchResult {
         Self::ensure_asset_metadata_name_limited(&name)?;
         Self::ensure_asset_metadata_spec_limited(&spec)?;
-
-        // Only allow global metadata types to be registered by root.
-        ensure_root(origin)?;
 
         // Check if key already exists.
         ensure!(
