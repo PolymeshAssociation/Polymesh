@@ -90,6 +90,7 @@ use frame_support::weights::Weight;
 use frame_support::BoundedBTreeSet;
 use frame_support::{decl_module, decl_storage, ensure};
 use frame_system::ensure_root;
+use sp_io::hashing::blake2_128;
 use sp_runtime::traits::Zero;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
@@ -240,6 +241,9 @@ decl_storage! {
         /// The list of mandatory mediators for every ticker.
         pub MandatoryMediators get(fn mandatory_mediators):
             map hasher(blake2_128_concat) Ticker => BoundedBTreeSet<IdentityId, T::MaxAssetMediators>;
+
+        /// Asset id nonce.
+        AssetNonce get(fn asset_nonce) build(|_| 1u64): u64;
 
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(4)): Version;
@@ -597,7 +601,7 @@ decl_module! {
         ) -> DispatchResult {
             Self::base_create_asset_with_custom_type(
                 origin,
-                ticker,
+                Some(ticker),
                 name,
                 divisible,
                 custom_asset_type,
@@ -881,6 +885,49 @@ decl_module! {
         ) {
             Self::base_remove_mandatory_mediators(origin, ticker, mediators)?;
         }
+
+        /// Initializes a new security token, with the initiating account as its owner.
+        /// The total supply will initially be zero. To mint tokens, use `issue`.
+        ///
+        /// # Arguments
+        /// * `origin` - contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
+        /// * `name` - the name of the token.
+        /// * `ticker` - the ticker symbol of the token.
+        /// * `divisible` - a boolean to identify the divisibility status of the token.
+        /// * `asset_type` - the asset type.
+        /// * `identifiers` - a vector of asset identifiers.
+        /// * `funding_round` - name of the funding round.
+        ///
+        /// ## Errors
+        /// - `InvalidAssetIdentifier` if any of `identifiers` are invalid.
+        /// - `MaxLengthOfAssetNameExceeded` if `name`'s length exceeds `T::AssetNameMaxLength`.
+        /// - `FundingRoundNameMaxLengthExceeded` if the name of the funding round is longer that
+        /// `T::FundingRoundNameMaxLength`.
+        /// - `AssetAlreadyCreated` if asset was already created.
+        /// - `TickerTooLong` if `ticker`'s length is greater than `config.max_ticker_length` chain
+        /// parameter.
+        /// - `TickerNotAlphanumeric` if `ticker` is not yet registered, and contains non-alphanumeric characters or any character after first occurrence of `\0`.
+        ///
+        /// ## Permissions
+        /// * Portfolio
+        #[weight = <T as Config>::WeightInfo::create_asset(
+            name.len() as u32,
+            identifiers.len() as u32,
+            funding_round.as_ref().map_or(0, |name| name.len()) as u32
+        )]
+        pub fn create_asset_v2(
+            origin,
+            name: AssetName,
+            ticker: Option<Ticker>,
+            divisible: bool,
+            asset_type: AssetType,
+            identifiers: Vec<AssetIdentifier>,
+            funding_round: Option<FundingRoundName>,
+        ) -> DispatchResult {
+            Self::base_create_asset(origin, name, ticker, divisible, asset_type, identifiers, funding_round)?;
+            Ok(())
+        }
+
     }
 }
 
@@ -896,6 +943,7 @@ impl<T: Config> Module<T> {
         let ticker_registration_config = Self::ticker_registration_config();
         let ticker_registration_status = Self::validate_ticker_registration_rules(
             &ticker,
+            true,
             &caller_did,
             ticker_registration_config.max_ticker_length,
         )?;
@@ -962,7 +1010,7 @@ impl<T: Config> Module<T> {
     fn base_create_asset(
         origin: T::RuntimeOrigin,
         asset_name: AssetName,
-        ticker: Ticker,
+        ticker: Option<Ticker>,
         divisible: bool,
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
@@ -1262,7 +1310,7 @@ impl<T: Config> Module<T> {
     /// Creates an asset with [`AssetType::Custom`].
     fn base_create_asset_with_custom_type(
         origin: T::RuntimeOrigin,
-        ticker: Ticker,
+        ticker: Option<Ticker>,
         asset_name: AssetName,
         divisible: bool,
         asset_type_bytes: Vec<u8>,
@@ -1620,13 +1668,16 @@ impl<T: Config> Module<T> {
     /// Returns [`TickerRegistrationStatus`] if all registration rules are satisfied.
     fn validate_ticker_registration_rules(
         ticker: &Ticker,
+        is_named: bool,
         ticker_owner_did: &IdentityId,
         max_ticker_length: u8,
     ) -> Result<TickerRegistrationStatus, DispatchError> {
-        Self::verify_ticker_characters(&ticker)?;
+        // Only validate ticker characters for named tickers.
+        if is_named {
+            Self::verify_ticker_characters(&ticker)?;
+            Self::ensure_ticker_length(ticker, max_ticker_length)?;
+        }
         Self::ensure_asset_doesnt_exist(&ticker)?;
-
-        Self::ensure_ticker_length(ticker, max_ticker_length)?;
 
         let ticker_registration_status = Self::can_reregister_ticker(ticker, ticker_owner_did);
 
@@ -1718,7 +1769,8 @@ impl<T: Config> Module<T> {
         caller_did: IdentityId,
         secondary_key: Option<SecondaryKey<T::AccountId>>,
         token_did: IdentityId,
-        ticker: &Ticker,
+        ticker: Ticker,
+        is_named: bool,
         asset_name: &AssetName,
         asset_type: &AssetType,
         funding_round_name: Option<FundingRoundName>,
@@ -1734,6 +1786,7 @@ impl<T: Config> Module<T> {
         let ticker_registration_config = Self::ticker_registration_config();
         let ticker_registration_status = Self::validate_ticker_registration_rules(
             ticker,
+            is_named,
             &caller_did,
             ticker_registration_config.max_ticker_length,
         )?;
@@ -2103,18 +2156,23 @@ impl<T: Config> Module<T> {
         caller_primary_identity: IdentityId,
         caller_secondary_key: Option<SecondaryKey<T::AccountId>>,
         asset_name: AssetName,
-        ticker: Ticker,
+        ticker: Option<Ticker>,
         divisible: bool,
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
         funding_round_name: Option<FundingRoundName>,
     ) -> DispatchResult {
+        let (ticker, is_named) = match ticker {
+            Some(ticker) => (ticker, true),
+            None => (Self::make_asset_id()?, false),
+        };
         let token_did = Identity::<T>::get_token_did(&ticker)?;
         let ticker_registration_status = Self::validate_asset_creation_rules(
             caller_primary_identity,
             caller_secondary_key,
             token_did,
-            &ticker,
+            ticker,
+            is_named,
             &asset_name,
             &asset_type,
             funding_round_name.clone(),
@@ -2154,6 +2212,20 @@ impl<T: Config> Module<T> {
             .ok_or(Error::<T>::TotalSupplyOverflow)?;
         ensure!(new_supply <= MAX_SUPPLY, Error::<T>::TotalSupplyAboveLimit);
         Ok(())
+    }
+
+    /// Generate a random asset id.
+    fn make_asset_id() -> Result<Ticker, DispatchError> {
+        let nonce = Self::asset_nonce() + 1u64;
+        AssetNonce::put(&nonce);
+
+        let parent_hash = System::<T>::parent_hash();
+        let hash = blake2_128(&(b"AssetId", parent_hash, nonce).encode());
+        let mut ticker = Ticker::default();
+        ticker[0..12].copy_from_slice(hash[0..12]);
+        ticker.0[0] |= 0x10;
+
+        Ok(ticker)
     }
 }
 
