@@ -2220,12 +2220,10 @@ impl<T: Config> Module<T> {
         AssetNonce::put(&nonce);
 
         let parent_hash = System::<T>::parent_hash();
-        let hash = blake2_128(&(b"AssetId", parent_hash, nonce).encode());
-        let mut ticker = Ticker::default();
-        ticker[0..12].copy_from_slice(hash[0..12]);
-        ticker.0[0] |= 0x10;
+        let mut hash = blake2_128(&(b"AssetId", parent_hash, nonce).encode());
+        hash[0] |= 0x10;
 
-        Ok(ticker)
+        Ok(Ticker::from_slice_truncated(hash))
     }
 }
 
