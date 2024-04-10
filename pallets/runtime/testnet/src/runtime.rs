@@ -214,6 +214,7 @@ impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
     type MultiSigBalanceLimit = polymesh_runtime_common::MultiSigBalanceLimit;
+    type MaxGivenAuths = MaxGivenAuths;
 }
 
 impl pallet_committee::Config<GovernanceCommittee> for Runtime {

@@ -213,6 +213,9 @@ pub trait Config: CommonConfig + pallet_timestamp::Config + crate::traits::base:
     /// Only allow MultiSig primary/secondary keys to be removed from an identity
     /// if its POLYX balance is below this limit.
     type MultiSigBalanceLimit: Get<<Self::Balances as Currency<Self::AccountId>>::Balance>;
+
+    /// Maximum number of authorizations an identity can give.
+    type MaxGivenAuths: Get<u32>;
 }
 
 decl_event!(
