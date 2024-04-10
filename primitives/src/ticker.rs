@@ -36,7 +36,7 @@ pub enum AssetId {
 
 impl From<Ticker> for AssetId {
     fn from(ticker: Ticker) -> Self {
-        if ticker.0[0] & 0x10 == 0x10 {
+        if ticker.0[0] & 0x80 == 0x80 {
             Self::Unnamed(ticker.0)
         } else {
             Self::Named(ticker)

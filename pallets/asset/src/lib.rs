@@ -2221,7 +2221,9 @@ impl<T: Config> Module<T> {
 
         let parent_hash = frame_system::Pallet::<T>::parent_hash();
         let mut hash = blake2_128(&(b"AssetId", parent_hash, nonce).encode());
-        hash[0] |= 0x10;
+        // Set the highest bit of the first byte to mark it as an "unnamed" ticker.
+        // This also forces the first byte to be non-ASCII.
+        hash[0] |= 0x80;
 
         Ok(Ticker::from_slice_truncated(&hash))
     }
