@@ -1679,7 +1679,8 @@ impl<T: Config> Module<T> {
         }
         Self::ensure_asset_doesnt_exist(ticker)?;
 
-        let ticker_registration_status = Self::can_reregister_ticker(ticker, ticker_owner_did);
+        let ticker_registration_status =
+            Self::can_reregister_ticker(ticker, is_named, ticker_owner_did);
 
         if !ticker_registration_status.can_reregister() {
             return Err(Error::<T>::TickerAlreadyRegistered.into());
@@ -1733,7 +1734,11 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns [`TickerRegistrationStatus`] containing information regarding whether the ticker can be registered and if the fee must be charged.
-    fn can_reregister_ticker(ticker: Ticker, caller_did: &IdentityId) -> TickerRegistrationStatus {
+    fn can_reregister_ticker(
+        ticker: Ticker,
+        is_named: bool,
+        caller_did: &IdentityId,
+    ) -> TickerRegistrationStatus {
         match <Tickers<T>>::get(ticker) {
             Some(ticker_registration) => {
                 // Checks if the ticker has an expiration time
@@ -1741,7 +1746,7 @@ impl<T: Config> Module<T> {
                     Some(expiration_time) => {
                         // Checks if the registration has expired
                         if <pallet_timestamp::Pallet<T>>::get() > expiration_time {
-                            return TickerRegistrationStatus::new(true, true);
+                            return TickerRegistrationStatus::new(true, is_named);
                         }
                         // The ticker is still valid and was registered by the caller
                         if &ticker_registration.owner == caller_did {
@@ -1760,7 +1765,7 @@ impl<T: Config> Module<T> {
                     }
                 }
             }
-            None => TickerRegistrationStatus::new(true, true),
+            None => TickerRegistrationStatus::new(true, is_named),
         }
     }
 
