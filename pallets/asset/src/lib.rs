@@ -382,7 +382,7 @@ decl_module! {
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
-            Self::base_create_asset(origin, name, ticker, divisible, asset_type, identifiers, funding_round)?;
+            Self::base_create_asset(origin, name, Some(ticker), divisible, asset_type, identifiers, funding_round)?;
             Ok(())
         }
 
@@ -942,7 +942,7 @@ impl<T: Config> Module<T> {
 
         let ticker_registration_config = Self::ticker_registration_config();
         let ticker_registration_status = Self::validate_ticker_registration_rules(
-            &ticker,
+            ticker,
             true,
             &caller_did,
             ticker_registration_config.max_ticker_length,
@@ -967,7 +967,7 @@ impl<T: Config> Module<T> {
         <Identity<T>>::accept_auth_with(&to.into(), auth_id, |data, auth_by| {
             let ticker = extract_auth!(data, TransferTicker(t));
 
-            Self::ensure_asset_doesnt_exist(&ticker)?;
+            Self::ensure_asset_doesnt_exist(ticker)?;
 
             let reg =
                 Self::ticker_registration(&ticker).ok_or(Error::<T>::TickerRegistrationExpired)?;
@@ -1667,7 +1667,7 @@ impl<T: Config> Module<T> {
 impl<T: Config> Module<T> {
     /// Returns [`TickerRegistrationStatus`] if all registration rules are satisfied.
     fn validate_ticker_registration_rules(
-        ticker: &Ticker,
+        ticker: Ticker,
         is_named: bool,
         ticker_owner_did: &IdentityId,
         max_ticker_length: u8,
@@ -1677,7 +1677,7 @@ impl<T: Config> Module<T> {
             Self::verify_ticker_characters(&ticker)?;
             Self::ensure_ticker_length(ticker, max_ticker_length)?;
         }
-        Self::ensure_asset_doesnt_exist(&ticker)?;
+        Self::ensure_asset_doesnt_exist(ticker)?;
 
         let ticker_registration_status = Self::can_reregister_ticker(ticker, ticker_owner_did);
 
@@ -1715,7 +1715,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns `Ok` if `ticker` doensn't exist. Otherwise, returns [`Error::AssetAlreadyCreated`].
-    fn ensure_asset_doesnt_exist(ticker: &Ticker) -> DispatchResult {
+    fn ensure_asset_doesnt_exist(ticker: Ticker) -> DispatchResult {
         ensure!(
             !Tokens::contains_key(ticker),
             Error::<T>::AssetAlreadyCreated
@@ -1724,7 +1724,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns `Ok` if `ticker` length is less or equal to `max_ticker_length`. Otherwise, returns [`Error::TickerTooLong`].
-    fn ensure_ticker_length(ticker: &Ticker, max_ticker_length: u8) -> DispatchResult {
+    fn ensure_ticker_length(ticker: Ticker, max_ticker_length: u8) -> DispatchResult {
         ensure!(
             ticker.len() <= max_ticker_length as usize,
             Error::<T>::TickerTooLong
@@ -1733,7 +1733,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns [`TickerRegistrationStatus`] containing information regarding whether the ticker can be registered and if the fee must be charged.
-    fn can_reregister_ticker(ticker: &Ticker, caller_did: &IdentityId) -> TickerRegistrationStatus {
+    fn can_reregister_ticker(ticker: Ticker, caller_did: &IdentityId) -> TickerRegistrationStatus {
         match <Tickers<T>>::get(ticker) {
             Some(ticker_registration) => {
                 // Checks if the ticker has an expiration time
@@ -2219,11 +2219,11 @@ impl<T: Config> Module<T> {
         let nonce = Self::asset_nonce() + 1u64;
         AssetNonce::put(&nonce);
 
-        let parent_hash = System::<T>::parent_hash();
+        let parent_hash = frame_system::Pallet::<T>::parent_hash();
         let mut hash = blake2_128(&(b"AssetId", parent_hash, nonce).encode());
         hash[0] |= 0x10;
 
-        Ok(Ticker::from_slice_truncated(hash))
+        Ok(Ticker::from_slice_truncated(&hash))
     }
 }
 
