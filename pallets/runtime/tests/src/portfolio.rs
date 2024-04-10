@@ -50,7 +50,8 @@ fn set_custodian_ok(current_custodian: User, new_custodian: User, portfolio_id: 
         Signatory::from(new_custodian.did),
         AuthorizationData::PortfolioCustody(portfolio_id),
         None,
-    );
+    )
+    .unwrap();
     assert_ok!(Portfolio::accept_portfolio_custody(
         new_custodian.origin(),
         auth_id
@@ -525,7 +526,7 @@ fn can_take_custody_of_portfolios() {
         // Bob can not issue authorization for custody transfer of a portfolio they don't have custody of
         let add_auth = |from: User, target: User| {
             let auth = AuthorizationData::PortfolioCustody(owner_user_portfolio);
-            Identity::add_auth(from.did, Signatory::from(target.did), auth, None)
+            Identity::add_auth(from.did, Signatory::from(target.did), auth, None).unwrap()
         };
 
         let auth_id = add_auth(bob, bob);

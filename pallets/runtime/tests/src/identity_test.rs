@@ -549,7 +549,7 @@ fn do_join_identity_as_key_with_perm_test() {
     run_add_secondary_key_with_perm_test(move |alice, perms| {
         let bob = User::new_with(alice.did, AccountKeyring::Bob);
         let data = AuthorizationData::JoinIdentity(perms);
-        let auth_id = Identity::add_auth(alice.did, bob.signatory_acc(), data, None);
+        let auth_id = Identity::add_auth(alice.did, bob.signatory_acc(), data, None).unwrap();
         Identity::join_identity_as_key(bob.origin(), auth_id)
     })
 }
@@ -578,7 +578,8 @@ fn do_add_secondary_keys_with_permissions_test() {
         bob.signatory_acc(),
         AuthorizationData::JoinIdentity(permissions.clone()),
         None,
-    );
+    )
+    .unwrap();
     assert_eq!(
         Identity::join_identity(bob.origin(), auth_id),
         Err(Error::AlreadyLinked.into()),
@@ -921,7 +922,8 @@ fn enforce_uniqueness_keys_in_identity() {
         bob.signatory_acc(),
         AuthorizationData::JoinIdentity(Permissions::empty()),
         None,
-    );
+    )
+    .unwrap();
     assert_eq!(
         Identity::join_identity(bob.origin(), auth_id),
         Err(Error::AlreadyLinked.into()),
@@ -1148,7 +1150,8 @@ fn adding_authorizations() {
             bob.signatory_did(),
             AuthorizationData::TransferTicker(ticker50),
             None,
-        );
+        )
+        .unwrap();
         assert_eq!(
             AuthorizationsGiven::get(alice.did, auth_id),
             bob.signatory_did(),
@@ -1166,7 +1169,8 @@ fn adding_authorizations() {
             bob.signatory_did(),
             AuthorizationData::TransferTicker(ticker50),
             Some(100),
-        );
+        )
+        .unwrap();
         assert_eq!(
             AuthorizationsGiven::get(alice.did, auth_id),
             bob.signatory_did()
@@ -1211,7 +1215,8 @@ fn removing_authorizations() {
             bob.signatory_did(),
             AuthorizationData::TransferTicker(ticker50),
             None,
-        );
+        )
+        .unwrap();
         assert_eq!(
             AuthorizationsGiven::get(alice.did, auth_id),
             bob.signatory_did()
@@ -1262,6 +1267,7 @@ fn changing_primary_key_we() {
             AuthorizationData::RotatePrimaryKey,
             None,
         )
+        .unwrap()
     };
     let accept = |ring: AccountKeyring, auth| {
         Identity::accept_primary_key(Origin::signed(ring.to_account_id()), auth, None)
@@ -1289,7 +1295,8 @@ fn changing_primary_key_we() {
         Signatory::Account(alice.acc()),
         AuthorizationData::JoinIdentity(Permissions::default()),
         None,
-    );
+    )
+    .unwrap();
     assert_ok!(Identity::join_identity(alice.origin(), join_auth));
 
     // Do it again but now making the secondary key the new primary key.
@@ -1323,14 +1330,16 @@ fn changing_primary_key_with_cdd_auth_we() {
         new.signatory_acc(),
         AuthorizationData::RotatePrimaryKey,
         None,
-    );
+    )
+    .unwrap();
 
     let cdd_auth_id = Identity::add_auth(
         cdd_did,
         new.signatory_acc(),
         AuthorizationData::AttestPrimaryKeyRotation(alice.did),
         None,
-    );
+    )
+    .unwrap();
 
     assert_ok!(Identity::change_cdd_requirement_for_mk_rotation(
         frame_system::RawOrigin::Root.into(),
@@ -1344,7 +1353,8 @@ fn changing_primary_key_with_cdd_auth_we() {
         new.signatory_acc(),
         AuthorizationData::RotatePrimaryKey,
         None,
-    );
+    )
+    .unwrap();
 
     // Accept the authorization with the new key
     assert_ok!(Identity::accept_primary_key(
@@ -1385,7 +1395,8 @@ fn rotating_primary_key_to_secondary_we() {
         bob.signatory_acc(),
         AuthorizationData::RotatePrimaryKeyToSecondary(Permissions::default()),
         None,
-    );
+    )
+    .unwrap();
     assert_eq!(
         rotate(bob.origin(), bob_rotate_auth),
         Err(Error::AlreadyLinked.into())
@@ -1396,7 +1407,8 @@ fn rotating_primary_key_to_secondary_we() {
         Signatory::Account(charlie.to_account_id()),
         AuthorizationData::RotatePrimaryKeyToSecondary(Permissions::default()),
         None,
-    );
+    )
+    .unwrap();
     assert_ok!(rotate(charlie_origin.clone(), charlie_rotate_auth));
     assert_eq!(alice_pk(), charlie.to_account_id());
     assert!(Identity::is_secondary_key(alice.did, &alice.acc()));
@@ -1406,7 +1418,8 @@ fn rotating_primary_key_to_secondary_we() {
         alice.signatory_acc(),
         AuthorizationData::RotatePrimaryKeyToSecondary(Permissions::default()),
         None,
-    );
+    )
+    .unwrap();
     assert_ok!(rotate(alice.origin(), alice_rotate_auth));
     assert_eq!(alice_pk(), alice.acc());
     assert!(Identity::is_secondary_key(
@@ -1441,13 +1454,15 @@ fn rotating_primary_key_to_secondary_with_cdd_auth_we() {
         Signatory::Account(charlie.to_account_id()),
         AuthorizationData::RotatePrimaryKeyToSecondary(Permissions::default()),
         None,
-    );
+    )
+    .unwrap();
     let join_auth = Identity::add_auth(
         alice.did,
         Signatory::Account(charlie.to_account_id()),
         AuthorizationData::JoinIdentity(Permissions::default()),
         None,
-    );
+    )
+    .unwrap();
     assert_ok!(Identity::join_identity(charlie_origin.clone(), join_auth));
 
     // Primary key matches Alice's key
@@ -1465,7 +1480,8 @@ fn rotating_primary_key_to_secondary_with_cdd_auth_we() {
         Signatory::Account(charlie.to_account_id()),
         AuthorizationData::AttestPrimaryKeyRotation(alice.did),
         None,
-    );
+    )
+    .unwrap();
 
     assert_ok!(rotate(charlie_origin, rotate_auth, Some(cdd_auth_id)));
 
@@ -1558,7 +1574,7 @@ fn add_identity_signers() {
 
         let add_auth = |from: User, to| {
             let data = AuthorizationData::JoinIdentity(Permissions::default());
-            Identity::add_auth(from.did, to, data, None)
+            Identity::add_auth(from.did, to, data, None).unwrap()
         };
 
         let auth_id_for_acc_to_id = add_auth(alice, bob.signatory_acc());
@@ -2012,7 +2028,7 @@ fn cdd_register_did_events() {
                     alice_did,
                     None,
                     Some(AccountKeyring::Charlie.to_account_id()),
-                    Identity::multi_purpose_nonce(),
+                    Identity::next_auth_id(),
                     AuthorizationData::JoinIdentity(alice_secundary_keys[1].permissions.clone()),
                     None,
                 ))
@@ -2023,7 +2039,7 @@ fn cdd_register_did_events() {
                     alice_did,
                     None,
                     Some(AccountKeyring::Dave.to_account_id()),
-                    Identity::multi_purpose_nonce() - 1,
+                    Identity::next_auth_id() - 1,
                     AuthorizationData::JoinIdentity(alice_secundary_keys[0].permissions.clone()),
                     None,
                 ))

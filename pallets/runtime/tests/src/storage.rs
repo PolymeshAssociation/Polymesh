@@ -242,6 +242,7 @@ parameter_types! {
     pub const MaxNumberOfVenueSigners: u32 = 50;
     pub const MaxInstructionMediators: u32 = 4;
     pub const MaxAssetMediators: u32 = 4;
+    pub const MaxGivenAuths: u32 = 1024;
 }
 
 frame_support::construct_runtime!(
@@ -641,6 +642,7 @@ impl polymesh_common_utilities::traits::identity::Config for TestStorage {
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
     type MultiSigBalanceLimit = polymesh_runtime_common::MultiSigBalanceLimit;
+    type MaxGivenAuths = MaxGivenAuths;
 }
 
 impl example::Config for TestStorage {}
@@ -834,7 +836,8 @@ pub fn add_secondary_key_with_perms(did: IdentityId, acc: AccountId, perms: Auth
         Signatory::Account(acc.clone()),
         AuthorizationData::JoinIdentity(perms),
         None,
-    );
+    )
+    .unwrap();
     assert_ok!(Identity::join_identity(RuntimeOrigin::signed(acc), auth_id));
 }
 

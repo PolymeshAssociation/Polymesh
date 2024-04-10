@@ -322,12 +322,14 @@ impl polymesh_common_utilities::traits::identity::Config for Test {
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
     type MultiSigBalanceLimit = polymesh_runtime_common::MultiSigBalanceLimit;
+    type MaxGivenAuths = MaxGivenAuths;
 }
 
 parameter_types! {
     pub const InitialPOLYX: Balance = 0;
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
+    pub const MaxGivenAuths: u32 = 1024;
 }
 
 impl pallet_scheduler::Config for Test {

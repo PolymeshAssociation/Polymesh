@@ -29,7 +29,8 @@ fn accept_ticker_transfer() {
             Signatory::from(bob.did),
             AuthorizationData::TransferTicker(ticker),
             None,
-        );
+        )
+        .unwrap();
         assert_ok!(Asset::accept_ticker_transfer(bob.origin(), auth_id,),);
 
         let ticker_registration_config = TickerConfig::<TestStorage>::get();
@@ -88,7 +89,8 @@ fn accept_ticker_transfer_asset_exists() {
             Signatory::from(bob.did),
             AuthorizationData::TransferTicker(ticker),
             None,
-        );
+        )
+        .unwrap();
         assert_noop!(
             Asset::accept_ticker_transfer(bob.origin(), auth_id,),
             AssetError::AssetAlreadyCreated
@@ -110,7 +112,8 @@ fn accept_ticker_transfer_auth_expired() {
             Signatory::from(bob.did),
             AuthorizationData::TransferTicker(ticker),
             Some(now() - 1000),
-        );
+        )
+        .unwrap();
         assert_noop!(
             Asset::accept_ticker_transfer(bob.origin(), bob_auth_id,),
             "Authorization expired"
@@ -155,13 +158,15 @@ fn accept_ticker_transfer_illegal_auth() {
             Signatory::from(bob.did),
             AuthorizationData::TransferTicker(ticker),
             None,
-        );
+        )
+        .unwrap();
         let dave_auth_id = Identity::add_auth(
             alice.did,
             Signatory::from(dave.did),
             AuthorizationData::TransferTicker(ticker),
             None,
-        );
+        )
+        .unwrap();
         assert_ok!(Asset::accept_ticker_transfer(bob.origin(), bob_auth_id,),);
         assert_noop!(
             Asset::accept_ticker_transfer(dave.origin(), dave_auth_id,),
@@ -183,13 +188,15 @@ fn accept_ticker_transfer_bad_type() {
             Signatory::from(bob.did),
             AuthorizationData::RotatePrimaryKey,
             None,
-        );
+        )
+        .unwrap();
         Identity::add_auth(
             alice.did,
             Signatory::from(bob.did),
             AuthorizationData::TransferTicker(ticker),
             None,
-        );
+        )
+        .unwrap();
         assert_noop!(
             Asset::accept_ticker_transfer(bob.origin(), bob_auth_id,),
             "Authorization type is wrong"

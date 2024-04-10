@@ -1667,7 +1667,8 @@ fn multiple_custodian_settlement() {
             Signatory::from(alice.did),
             AuthorizationData::PortfolioCustody(PortfolioId::user_portfolio(bob.did, bob_num)),
             None,
-        );
+        )
+        .unwrap();
         assert_ok!(Portfolio::accept_portfolio_custody(alice.origin(), auth_id));
 
         // Create a token
@@ -1748,7 +1749,8 @@ fn multiple_custodian_settlement() {
             Signatory::from(bob.did),
             AuthorizationData::PortfolioCustody(PortfolioId::user_portfolio(alice.did, alice_num)),
             None,
-        );
+        )
+        .unwrap();
         assert_ok!(Portfolio::accept_portfolio_custody(bob.origin(), auth_id2));
 
         // Bob fails to approve the instruction with both of his portfolios since he doesn't have custody for the second one
@@ -3160,7 +3162,8 @@ fn add_instruction_with_pre_affirmed_tickers_with_assigned_custodian() {
             Signatory::from(charlie.did),
             AuthorizationData::PortfolioCustody(bob_user_porfolio),
             None,
-        );
+        )
+        .unwrap();
         Portfolio::accept_portfolio_custody(charlie.origin(), authorization_id).unwrap();
 
         let legs: Vec<Leg> = vec![

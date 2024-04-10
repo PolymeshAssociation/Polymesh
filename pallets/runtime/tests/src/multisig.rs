@@ -142,7 +142,8 @@ fn join_multisig() {
             Signatory::Account(ms_address.clone()),
             AuthorizationData::AddMultiSigSigner(ms_address.clone()),
             None,
-        );
+        )
+        .unwrap();
 
         assert_eq!(
             MultiSig::accept_multisig_signer_as_key(Origin::signed(ms_address.clone()), ms_auth_id),
@@ -592,7 +593,8 @@ fn rotate_multisig_primary_key_with_balance() {
             Signatory::Account(charlie_key.clone()),
             AuthorizationData::RotatePrimaryKey,
             None,
-        );
+        )
+        .unwrap();
         // Fails because the current MultiSig primary_key has a balance.
         assert_eq!(
             Identity::accept_primary_key(Origin::signed(charlie_key.clone()), auth_id, None),
