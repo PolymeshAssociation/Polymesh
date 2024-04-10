@@ -24,10 +24,13 @@ use sp_std::vec::Vec;
 /// Ticker length.
 pub const TICKER_LEN: usize = 12;
 
+/// AssetId to support both named/unnamed assets.
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AssetId {
+    /// Named asset using a valid ticker.
     Named(Ticker),
+    /// Unnamed asset with a random id.
     Unnamed([u8; TICKER_LEN]),
 }
 
