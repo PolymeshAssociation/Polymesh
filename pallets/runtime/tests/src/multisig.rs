@@ -1,6 +1,6 @@
-use frame_support::{assert_noop, assert_ok, StorageMap};
+use frame_support::{assert_noop, assert_ok, StorageDoubleMap, StorageMap};
 
-use pallet_multisig::{self as multisig, LostCreatorPrivileges};
+use pallet_multisig::{self as multisig, LostCreatorPrivileges, ProposalDetail, Votes};
 use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_primitives::multisig::ProposalStatus;
 use polymesh_primitives::{AccountId, AuthorizationData, Permissions, SecondaryKey, Signatory};
@@ -1237,6 +1237,142 @@ fn remove_creator_controls_successfully() {
             multisig_account_id
         ));
         assert!(LostCreatorPrivileges::get(alice_did))
+    });
+}
+
+#[test]
+fn proposal_owner_rejection() {
+    ExtBuilder::default().build().execute_with(|| {
+        let eve: User = User::new(AccountKeyring::Eve);
+        let bob: User = User::new(AccountKeyring::Bob);
+        let dave: User = User::new(AccountKeyring::Dave);
+        let alice: User = User::new(AccountKeyring::Alice);
+
+        // Creates a multi-signature
+        let ms_address =
+            MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id()).unwrap();
+        setup_multisig(
+            alice.origin(),
+            3,
+            vec![
+                Signatory::from(alice.did),
+                Signatory::from(bob.did),
+                Signatory::from(dave.did),
+                Signatory::from(eve.did),
+            ],
+        );
+
+        // Creates a proposal
+        let call1 = Box::new(RuntimeCall::MultiSig(
+            multisig::Call::change_sigs_required { sigs_required: 4 },
+        ));
+        assert_ok!(MultiSig::create_proposal_as_identity(
+            alice.origin(),
+            ms_address.clone(),
+            call1,
+            None,
+            true
+        ));
+        let proposal_id = MultiSig::ms_tx_done(ms_address.clone()) - 1;
+
+        // The owner of the proposal should be able to reject it if no one else has voted
+        assert_ok!(MultiSig::reject_as_identity(
+            alice.origin(),
+            ms_address.clone(),
+            proposal_id
+        ));
+
+        // The proposal status must be set to rejected
+        let proposal_details = ProposalDetail::<TestStorage>::get(&ms_address, proposal_id);
+        assert_eq!(proposal_details.status, ProposalStatus::Rejected);
+        assert_eq!(proposal_details.approvals, 0);
+        assert_eq!(proposal_details.rejections, 1);
+        assert_eq!(proposal_details.auto_close, true);
+        assert_eq!(
+            Votes::<TestStorage>::get((&ms_address, proposal_id), Signatory::from(alice.did)),
+            true
+        );
+
+        // The owner shouldn't be able to change their vote again
+        assert_noop!(
+            MultiSig::reject_as_identity(alice.origin(), ms_address.clone(), proposal_id),
+            Error::AlreadyVoted
+        );
+
+        // No other votes are allowed, since the proposal has been rejected
+        assert_noop!(
+            MultiSig::reject_as_identity(bob.origin(), ms_address.clone(), proposal_id),
+            Error::ProposalAlreadyRejected
+        );
+    });
+}
+
+#[test]
+fn proposal_owner_rejection_denied() {
+    ExtBuilder::default().build().execute_with(|| {
+        let eve: User = User::new(AccountKeyring::Eve);
+        let bob: User = User::new(AccountKeyring::Bob);
+        let dave: User = User::new(AccountKeyring::Dave);
+        let alice: User = User::new(AccountKeyring::Alice);
+
+        // Creates a multi-signature
+        let ms_address =
+            MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id()).unwrap();
+        setup_multisig(
+            alice.origin(),
+            3,
+            vec![
+                Signatory::from(alice.did),
+                Signatory::from(bob.did),
+                Signatory::from(dave.did),
+                Signatory::from(eve.did),
+            ],
+        );
+
+        // Creates a proposal
+        let call1 = Box::new(RuntimeCall::MultiSig(
+            multisig::Call::change_sigs_required { sigs_required: 4 },
+        ));
+        assert_ok!(MultiSig::create_proposal_as_identity(
+            alice.origin(),
+            ms_address.clone(),
+            call1,
+            None,
+            true
+        ));
+        let proposal_id = MultiSig::ms_tx_done(ms_address.clone()) - 1;
+
+        // The owner of the proposal shouldn't be able to reject it since bob has already voted
+        assert_ok!(MultiSig::reject_as_identity(
+            bob.origin(),
+            ms_address.clone(),
+            proposal_id
+        ));
+        assert_noop!(
+            MultiSig::reject_as_identity(alice.origin(), ms_address.clone(), proposal_id),
+            Error::AlreadyVoted
+        );
+
+        // The proposal status must be set to Active
+        let proposal_details = ProposalDetail::<TestStorage>::get(&ms_address, proposal_id);
+        assert_eq!(proposal_details.status, ProposalStatus::ActiveOrExpired);
+        assert_eq!(proposal_details.approvals, 1);
+        assert_eq!(proposal_details.rejections, 1);
+        assert_eq!(proposal_details.auto_close, true);
+        assert_eq!(
+            Votes::<TestStorage>::get((&ms_address, proposal_id), Signatory::from(alice.did)),
+            true
+        );
+        assert_eq!(
+            Votes::<TestStorage>::get((&ms_address, proposal_id), Signatory::from(bob.did)),
+            true
+        );
+
+        // No user should be able to change their vote
+        assert_noop!(
+            MultiSig::reject_as_identity(bob.origin(), ms_address.clone(), proposal_id),
+            Error::AlreadyVoted
+        );
     });
 }
 
