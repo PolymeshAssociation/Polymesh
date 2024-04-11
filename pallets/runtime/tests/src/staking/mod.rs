@@ -5241,7 +5241,7 @@ fn validate_nominators_with_valid_cdd() {
             println!("Current timestamp: {:?}", Timestamp::now());
 
             assert_ok!(Staking::validate_cdd_expiry_nominators(
-                Origin::signed(claim_issuer_1),
+                root(),
                 claimed_nominator
             ));
             assert!(Staking::nominators(&account_alice).is_none());
