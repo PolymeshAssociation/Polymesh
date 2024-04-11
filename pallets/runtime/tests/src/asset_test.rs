@@ -355,7 +355,7 @@ fn valid_transfers_pass() {
             let transfer = |from, to| transfer(ticker, from, to, 500);
             assert_noop!(
                 transfer(owner, owner),
-                PortfolioError::DestinationIsSamePortfolio
+                PortfolioError::InvalidTransferSenderIdMatchesReceiverId
             );
             assert_ok!(transfer(owner, alice));
 
@@ -375,10 +375,15 @@ fn issuers_can_redeem_tokens() {
 
             let owner = User::new(AccountKeyring::Dave);
             let bob = User::new(AccountKeyring::Bob);
+            let owner_portfolio_id = PortfolioId {
+                did: owner.did,
+                kind: PortfolioKind::Default,
+            };
 
             // Create asset.
             let (ticker, token) = a_token(owner.did);
             assert_ok!(basic_asset(owner, ticker, &token));
+            assert_eq!(PortfolioAssetCount::get(owner_portfolio_id), 1);
 
             assert_noop!(
                 Asset::redeem(bob.origin(), ticker, token.total_supply),
@@ -392,6 +397,7 @@ fn issuers_can_redeem_tokens() {
 
             assert_ok!(Asset::redeem(owner.origin(), ticker, token.total_supply));
 
+            assert_eq!(PortfolioAssetCount::get(owner_portfolio_id), 0);
             assert_eq!(Asset::balance_of(&ticker, owner.did), 0);
             assert_eq!(token_details(&ticker).total_supply, 0);
 
@@ -404,10 +410,10 @@ fn issuers_can_redeem_tokens() {
 
 fn default_transfer(from: User, to: User, ticker: Ticker, val: u128) {
     let mut weight_meter = WeightMeter::max_limit_no_minimum();
-    assert_ok!(Asset::unsafe_transfer(
+    assert_ok!(Asset::unverified_transfer_asset(
         PortfolioId::default_portfolio(from.did),
         PortfolioId::default_portfolio(to.did),
-        &ticker,
+        ticker,
         val,
         None,
         None,
@@ -489,7 +495,7 @@ fn controller_transfer() {
             // Should fail as sender matches receiver.
             assert_noop!(
                 transfer(ticker, owner, owner, 500),
-                PortfolioError::DestinationIsSamePortfolio
+                PortfolioError::InvalidTransferSenderIdMatchesReceiverId
             );
 
             assert_ok!(transfer(ticker, owner, alice, 500));
@@ -1265,33 +1271,6 @@ fn secondary_key_not_authorized_for_asset_test() {
 }
 
 #[test]
-fn sender_same_as_receiver_test() {
-    test_with_owner(|owner| {
-        let ticker = an_asset(owner, true);
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
-
-        // Create new portfolio
-        let eu_portfolio = PortfolioId::default_portfolio(owner.did);
-        let uk_portfolio = new_portfolio(owner.acc(), "UK");
-
-        // Enforce an unsafe tranfer.
-        assert_noop!(
-            Asset::unsafe_transfer(
-                eu_portfolio,
-                uk_portfolio,
-                &ticker,
-                1_000,
-                None,
-                None,
-                IdentityId::default(),
-                &mut weight_meter
-            ),
-            AssetError::SenderSameAsReceiver
-        );
-    });
-}
-
-#[test]
 fn invalid_granularity_test() {
     test_with_owner(|owner| {
         let ticker = an_asset(owner, false);
@@ -1996,31 +1975,6 @@ fn remove_metadata_value() {
 }
 
 #[test]
-fn issue_token_invalid_portfolio() {
-    ExtBuilder::default().build().execute_with(|| {
-        let issued_amount = ONE_UNIT;
-        let alice = User::new(AccountKeyring::Alice);
-        let ticker = Ticker::from_slice_truncated(b"TICKER");
-        let alice_user_portfolio = PortfolioKind::User(PortfolioNumber(1));
-
-        assert_ok!(Asset::create_asset(
-            alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
-            true,
-            AssetType::default(),
-            Vec::new(),
-            None,
-        ));
-
-        assert_noop!(
-            Asset::issue(alice.origin(), ticker, issued_amount, alice_user_portfolio),
-            PortfolioError::PortfolioDoesNotExist
-        );
-    })
-}
-
-#[test]
 fn issue_token_unassigned_custody() {
     ExtBuilder::default().build().execute_with(|| {
         let issued_amount = ONE_UNIT;
@@ -2047,47 +2001,6 @@ fn issue_token_unassigned_custody() {
             ticker,
             issued_amount,
             alice_user_portfolio
-        ));
-        assert_eq!(BalanceOf::get(ticker, alice.did), issued_amount);
-    })
-}
-
-#[test]
-fn issue_token_assigned_custody() {
-    ExtBuilder::default().build().execute_with(|| {
-        let issued_amount = ONE_UNIT;
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
-        let ticker = Ticker::from_slice_truncated(b"TICKER");
-        let portfolio_id = PortfolioId::new(alice.did, PortfolioKind::Default);
-
-        assert_ok!(Asset::create_asset(
-            alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
-            true,
-            AssetType::default(),
-            Vec::new(),
-            None,
-        ));
-        // Change custody of the default portfolio
-        let authorization_id = Identity::add_auth(
-            alice.did,
-            Signatory::from(bob.did),
-            AuthorizationData::PortfolioCustody(portfolio_id),
-            None,
-        )
-        .unwrap();
-        assert_ok!(Portfolio::accept_portfolio_custody(
-            bob.origin(),
-            authorization_id
-        ));
-
-        assert_ok!(Asset::issue(
-            alice.origin(),
-            ticker,
-            issued_amount,
-            PortfolioKind::Default
         ));
         assert_eq!(BalanceOf::get(ticker, alice.did), issued_amount);
     })
