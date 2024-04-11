@@ -999,27 +999,31 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Issues `amount` tokens for `ticker` into the caller's portfolio.
+    /// Issues `amount_to_issue` tokens for `ticker` into the caller's portfolio.
     fn base_issue(
         origin: T::RuntimeOrigin,
         ticker: Ticker,
-        amount: Balance,
+        amount_to_issue: Balance,
         portfolio_kind: PortfolioKind,
     ) -> DispatchResult {
-        let portfolio_id = Self::ensure_origin_ticker_and_portfolio_permissions(
+        let caller_portfolio = Self::ensure_origin_ticker_and_portfolio_permissions(
             origin,
             ticker,
             portfolio_kind,
             false,
         )?;
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
-        Self::_mint(
-            &ticker,
-            portfolio_id,
-            amount,
-            Some(ProtocolOp::AssetIssue),
+        let mut security_token = Self::token_details(&ticker)?;
+        Self::validate_issuance_rules(&security_token, amount_to_issue)?;
+        Self::unverified_issue_tokens(
+            ticker,
+            &mut security_token,
+            caller_portfolio,
+            amount_to_issue,
+            true,
             &mut weight_meter,
-        )
+        )?;
+        Ok(())
     }
 
     fn base_redeem(
@@ -1036,9 +1040,9 @@ impl<T: Config> Module<T> {
             true,
         )?;
 
-        Self::ensure_granular(&ticker, value)?;
-
         let mut token = Self::token_details(&ticker)?;
+        Self::ensure_token_granular(&token, &value)?;
+
         // Ensures the token is fungible
         ensure!(
             token.asset_type.is_fungible(),
@@ -1185,33 +1189,42 @@ impl<T: Config> Module<T> {
     fn base_controller_transfer(
         origin: T::RuntimeOrigin,
         ticker: Ticker,
-        value: Balance,
-        from_portfolio: PortfolioId,
+        transfer_value: Balance,
+        sender_portfolio: PortfolioId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        let to_portfolio = Self::ensure_origin_ticker_and_portfolio_permissions(
+        let caller_portfolio = Self::ensure_origin_ticker_and_portfolio_permissions(
             origin,
             ticker,
             PortfolioKind::Default,
             false,
         )?;
 
-        // Transfer `value` of ticker tokens from `investor_did` to controller
-        Self::unsafe_transfer(
-            from_portfolio,
-            to_portfolio,
+        Self::validate_asset_transfer(
             &ticker,
-            value,
-            None,
-            None,
-            to_portfolio.did,
+            &sender_portfolio,
+            &caller_portfolio,
+            transfer_value,
+            true,
             weight_meter,
         )?;
-        Self::deposit_event(RawEvent::ControllerTransfer(
-            to_portfolio.did,
+
+        Self::unverified_transfer_asset(
+            sender_portfolio,
+            caller_portfolio,
             ticker,
-            from_portfolio,
-            value,
+            transfer_value,
+            None,
+            None,
+            caller_portfolio.did,
+            weight_meter,
+        )?;
+
+        Self::deposit_event(RawEvent::ControllerTransfer(
+            caller_portfolio.did,
+            ticker,
+            sender_portfolio,
+            transfer_value,
         ));
         Ok(())
     }
@@ -1545,7 +1558,7 @@ impl<T: Config> Module<T> {
         from_portfolio: PortfolioId,
         to_portfolio: PortfolioId,
         ticker: &Ticker,
-        value: Balance,
+        transfer_value: Balance,
         instruction_id: Option<InstructionId>,
         instruction_memo: Option<Memo>,
         caller_did: IdentityId,
@@ -1560,15 +1573,16 @@ impl<T: Config> Module<T> {
             &ticker,
             &from_portfolio,
             &to_portfolio,
-            value,
+            transfer_value,
+            false,
             weight_meter,
         )?;
 
-        Self::unsafe_transfer(
+        Self::unverified_transfer_asset(
             from_portfolio,
             to_portfolio,
-            ticker,
-            value,
+            *ticker,
+            transfer_value,
             instruction_id,
             instruction_memo,
             caller_did,
@@ -1787,27 +1801,19 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn ensure_granular(ticker: &Ticker, value: Balance) -> DispatchResult {
-        ensure!(
-            Self::check_granularity(&ticker, value),
-            Error::<T>::InvalidGranularity
-        );
-        Ok(())
+    /// Returns `Ok` if [`SecurityToken::divisible`] or `value` % ONE_UNIT == 0. Otherwise, returns [`Error::<T>::InvalidGranularity`].
+    fn ensure_token_granular(security_token: &SecurityToken, value: &Balance) -> DispatchResult {
+        if security_token.divisible || value % ONE_UNIT == 0 {
+            return Ok(());
+        }
+        Err(Error::<T>::InvalidGranularity.into())
     }
 
-    fn check_granularity(ticker: &Ticker, value: Balance) -> bool {
-        Self::is_divisible(ticker) || Self::is_unit_multiple(value)
-    }
-
+    /// Returns `true` if [`SecurityToken::divisible`], otherwise returns `false`.
     pub fn is_divisible(ticker: &Ticker) -> bool {
         Self::token_details(ticker)
             .map(|t| t.divisible)
             .unwrap_or_default()
-    }
-
-    /// Is `value` a multiple of "one unit"?
-    fn is_unit_multiple(value: Balance) -> bool {
-        value % ONE_UNIT == 0
     }
 
     pub fn check_asset_metadata_key_exists(ticker: &Ticker, key: &AssetMetadataKey) -> bool {
@@ -1860,12 +1866,6 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Ensure `supply <= MAX_SUPPLY`.
-    fn ensure_within_max_supply(supply: Balance) -> DispatchResult {
-        ensure!(supply <= MAX_SUPPLY, Error::<T>::TotalSupplyAboveLimit);
-        Ok(())
-    }
-
     /// Returns `None` if there's no asset associated to the given ticker,
     /// returns Some(true) if the asset exists and is of type `AssetType::NonFungible`, and returns Some(false) otherwise.
     pub fn nft_asset(ticker: &Ticker) -> Option<bool> {
@@ -1891,19 +1891,42 @@ impl<T: Config> Module<T> {
         ticker: &Ticker,
         sender_portfolio: &PortfolioId,
         receiver_portfolio: &PortfolioId,
-        value: Balance,
+        transfer_value: Balance,
+        is_controller_transfer: bool,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        // Verifies that the asset is not frozen
-        ensure!(!Frozen::get(ticker), Error::<T>::InvalidTransferFrozenAsset);
+        let security_token = Self::token_details(&ticker)?;
+        ensure!(
+            security_token.asset_type.is_fungible(),
+            Error::<T>::UnexpectedNonFungibleToken
+        );
 
-        // Verifies that both portfolios exist an that the sender has sufficient balance
+        ensure!(
+            BalanceOf::get(ticker, &sender_portfolio.did) >= transfer_value,
+            Error::<T>::InsufficientBalance
+        );
+        ensure!(
+            BalanceOf::get(ticker, &receiver_portfolio.did)
+                .checked_add(transfer_value)
+                .is_some(),
+            Error::<T>::BalanceOverflow
+        );
+
+        // Verifies that both portfolios exist an that the sender portfolio has sufficient balance
         Portfolio::<T>::ensure_portfolio_transfer_validity(
             sender_portfolio,
             receiver_portfolio,
             ticker,
-            value,
+            transfer_value,
         )?;
+
+        // Controllers are exempt from statistics, compliance and frozen rules.
+        if is_controller_transfer {
+            return Ok(());
+        }
+
+        // Verifies that the asset is not frozen
+        ensure!(!Frozen::get(ticker), Error::<T>::InvalidTransferFrozenAsset);
 
         // Verifies that the statistics restrictions are satisfied
         Statistics::<T>::verify_transfer_restrictions(
@@ -1912,8 +1935,8 @@ impl<T: Config> Module<T> {
             &receiver_portfolio.did,
             Self::balance_of(ticker, sender_portfolio.did),
             Self::balance_of(ticker, receiver_portfolio.did),
-            value,
-            Self::total_supply(ticker),
+            transfer_value,
+            security_token.total_supply,
             weight_meter,
         )?;
 
@@ -1972,6 +1995,26 @@ impl<T: Config> Module<T> {
             ticker_registration_status.charge_fee(),
         )?;
 
+        Ok(())
+    }
+
+    /// Returns `Ok` if all rules for issuing a token are satisfied.
+    fn validate_issuance_rules(
+        security_token: &SecurityToken,
+        amount_to_issue: Balance,
+    ) -> DispatchResult {
+        ensure!(
+            security_token.asset_type.is_fungible(),
+            Error::<T>::UnexpectedNonFungibleToken
+        );
+
+        Self::ensure_token_granular(security_token, &amount_to_issue)?;
+
+        let new_supply = security_token
+            .total_supply
+            .checked_add(amount_to_issue)
+            .ok_or(Error::<T>::TotalSupplyOverflow)?;
+        ensure!(new_supply <= MAX_SUPPLY, Error::<T>::TotalSupplyAboveLimit);
         Ok(())
     }
 }
@@ -2066,160 +2109,122 @@ impl<T: Config> Module<T> {
         Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, idents));
     }
 
-    fn _mint(
-        ticker: &Ticker,
+    /// All storage writes for issuing a token.
+    /// Note: if `charge_fee`` is `true` [`ProtocolOp::AssetIssue`] is charged.
+    fn unverified_issue_tokens(
+        ticker: Ticker,
+        security_token: &mut SecurityToken,
         issuer_portfolio: PortfolioId,
-        value: Balance,
-        protocol_fee_data: Option<ProtocolOp>,
+        amount_to_issue: Balance,
+        charge_fee: bool,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        Self::ensure_granular(ticker, value)?;
-        // Read the token details
-        let mut token = Self::token_details(ticker)?;
-        // Ensures the token is fungible
-        ensure!(
-            token.asset_type.is_fungible(),
-            Error::<T>::UnexpectedNonFungibleToken
+        if charge_fee {
+            T::ProtocolFee::charge_fee(ProtocolOp::AssetIssue)?;
+        }
+
+        let current_issuer_balance = BalanceOf::get(&ticker, &issuer_portfolio.did);
+        <Checkpoint<T>>::advance_update_balances(
+            &ticker,
+            &[(issuer_portfolio.did, current_issuer_balance)],
+        )?;
+
+        let new_issuer_balance = current_issuer_balance + amount_to_issue;
+        BalanceOf::insert(ticker, issuer_portfolio.did, new_issuer_balance);
+
+        security_token.total_supply += amount_to_issue;
+        Tokens::insert(ticker, security_token);
+
+        // No check since the total balance is always <= the total supply
+        let new_issuer_portfolio_balance =
+            Portfolio::<T>::portfolio_asset_balances(issuer_portfolio, ticker) + amount_to_issue;
+        Portfolio::<T>::set_portfolio_balance(
+            issuer_portfolio,
+            &ticker,
+            new_issuer_portfolio_balance,
         );
-
-        // Prepare the updated total supply.
-        let updated_total_supply = token
-            .total_supply
-            .checked_add(value)
-            .ok_or(Error::<T>::TotalSupplyOverflow)?;
-        Self::ensure_within_max_supply(updated_total_supply)?;
-        // Increase receiver balance.
-        let current_to_balance = Self::balance_of(ticker, issuer_portfolio.did);
-        // No check since the total balance is always <= the total supply. The
-        // total supply is already checked above.
-        let updated_to_balance = current_to_balance + value;
-        // No check since the portfolio balance is always <= the total
-        // supply. The total supply is already checked above.
-        let updated_to_def_balance =
-            Portfolio::<T>::portfolio_asset_balances(issuer_portfolio, ticker) + value;
-
-        // In transaction because we don't want fee to be charged if advancing fails.
-        with_transaction(|| {
-            // Charge the fee.
-            if let Some(op) = protocol_fee_data {
-                T::ProtocolFee::charge_fee(op)?;
-            }
-
-            <Checkpoint<T>>::advance_update_balances(
-                ticker,
-                &[(issuer_portfolio.did, current_to_balance)],
-            )
-        })?;
-
-        // Increase total supply.
-        token.total_supply = updated_total_supply;
-        BalanceOf::insert(ticker, issuer_portfolio.did, updated_to_balance);
-        Portfolio::<T>::set_portfolio_balance(issuer_portfolio, ticker, updated_to_def_balance);
-        Tokens::insert(ticker, token);
 
         Statistics::<T>::update_asset_stats(
             &ticker,
             None,
             Some(&issuer_portfolio.did),
             None,
-            Some(updated_to_balance),
-            value,
+            Some(new_issuer_balance),
+            amount_to_issue,
             weight_meter,
         )?;
 
-        let round = Self::funding_round(ticker);
-        let ticker_round = (*ticker, round.clone());
-        // No check since the issued balance is always <= the total
-        // supply. The total supply is already checked above.
-        let issued_in_this_round = Self::issued_in_funding_round(&ticker_round) + value;
-        IssuedInFundingRound::insert(&ticker_round, issued_in_this_round);
+        let funding_round_name = FundingRound::get(&ticker);
+        IssuedInFundingRound::mutate((&ticker, &funding_round_name), |balance| {
+            *balance = balance.saturating_add(amount_to_issue)
+        });
 
         Self::deposit_event(RawEvent::AssetBalanceUpdated(
             issuer_portfolio.did,
-            *ticker,
-            value,
+            ticker,
+            amount_to_issue,
             None,
             Some(issuer_portfolio),
             PortfolioUpdateReason::Issued {
-                funding_round_name: Some(round),
+                funding_round_name: Some(funding_round_name),
             },
         ));
         Ok(())
     }
 
-    // Transfers tokens from one identity to another
-    pub fn unsafe_transfer(
-        from_portfolio: PortfolioId,
-        to_portfolio: PortfolioId,
-        ticker: &Ticker,
-        value: Balance,
+    // Transfers `transfer_value` from `sender_portfolio` to `receiver_portfolio`.
+    pub fn unverified_transfer_asset(
+        sender_portfolio: PortfolioId,
+        receiver_portfolio: PortfolioId,
+        ticker: Ticker,
+        transfer_value: Balance,
         instruction_id: Option<InstructionId>,
         instruction_memo: Option<Memo>,
         caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        Self::ensure_granular(ticker, value)?;
-
-        let token = Self::token_details(ticker)?;
-        // Ensures the token is fungible
-        ensure!(
-            token.asset_type.is_fungible(),
-            Error::<T>::UnexpectedNonFungibleToken
-        );
-
-        ensure!(
-            from_portfolio.did != to_portfolio.did,
-            Error::<T>::SenderSameAsReceiver
-        );
-
-        let from_total_balance = Self::balance_of(ticker, from_portfolio.did);
-        ensure!(from_total_balance >= value, Error::<T>::InsufficientBalance);
-        let updated_from_total_balance = from_total_balance - value;
-
-        let to_total_balance = Self::balance_of(ticker, to_portfolio.did);
-        let updated_to_total_balance = to_total_balance
-            .checked_add(value)
-            .ok_or(Error::<T>::BalanceOverflow)?;
-        // Checks if the balance is not locked
-        Portfolio::<T>::ensure_sufficient_balance(&from_portfolio, ticker, value)?;
-
+        // Gets the current balance and advances the checkpoint
+        let sender_current_balance = BalanceOf::get(&ticker, &sender_portfolio.did);
+        let receiver_current_balance = BalanceOf::get(&ticker, &receiver_portfolio.did);
         <Checkpoint<T>>::advance_update_balances(
-            ticker,
+            &ticker,
             &[
-                (from_portfolio.did, from_total_balance),
-                (to_portfolio.did, to_total_balance),
+                (sender_portfolio.did, sender_current_balance),
+                (receiver_portfolio.did, receiver_current_balance),
             ],
         )?;
 
-        // reduce sender's balance
-        BalanceOf::insert(ticker, &from_portfolio.did, updated_from_total_balance);
-        // increase receiver's balance
-        BalanceOf::insert(ticker, &to_portfolio.did, updated_to_total_balance);
-        // transfer portfolio balances
+        // Updates the balance in the asset pallet
+        let sender_new_balance = sender_current_balance - transfer_value;
+        let receiver_new_balance = receiver_current_balance + transfer_value;
+        BalanceOf::insert(ticker, sender_portfolio.did, sender_new_balance);
+        BalanceOf::insert(ticker, receiver_portfolio.did, receiver_new_balance);
+
+        // Updates the balances in the portfolio pallet
         Portfolio::<T>::unchecked_transfer_portfolio_balance(
-            &from_portfolio,
-            &to_portfolio,
-            ticker,
-            value,
+            &sender_portfolio,
+            &receiver_portfolio,
+            &ticker,
+            transfer_value,
         );
 
-        // Update statistic info.
+        // Update statistics info.
         Statistics::<T>::update_asset_stats(
-            ticker,
-            Some(&from_portfolio.did),
-            Some(&to_portfolio.did),
-            Some(updated_from_total_balance),
-            Some(updated_to_total_balance),
-            value,
+            &ticker,
+            Some(&sender_portfolio.did),
+            Some(&receiver_portfolio.did),
+            Some(sender_new_balance),
+            Some(receiver_new_balance),
+            transfer_value,
             weight_meter,
         )?;
 
         Self::deposit_event(RawEvent::AssetBalanceUpdated(
             caller_did,
-            *ticker,
-            value,
-            Some(from_portfolio),
-            Some(to_portfolio),
+            ticker,
+            transfer_value,
+            Some(sender_portfolio),
+            Some(receiver_portfolio),
             PortfolioUpdateReason::Transferred {
                 instruction_id,
                 instruction_memo,
@@ -2397,7 +2402,7 @@ impl<T: Config> Module<T> {
 
 impl<T: Config> Module<T> {
     fn invalid_granularity(ticker: &Ticker, value: Balance) -> bool {
-        !Self::check_granularity(&ticker, value)
+        Self::ensure_granular(ticker, value).is_err()
     }
 
     fn self_transfer(from: &PortfolioId, to: &PortfolioId) -> bool {
@@ -2443,7 +2448,10 @@ impl<T: Config> Module<T> {
 
 impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
     fn ensure_granular(ticker: &Ticker, value: Balance) -> DispatchResult {
-        Self::ensure_granular(ticker, value)
+        if let Some(security_token) = Tokens::get(ticker) {
+            return Self::ensure_token_granular(&security_token, &value);
+        }
+        Err(Error::<T>::InvalidGranularity.into())
     }
 
     fn balance(ticker: &Ticker, who: IdentityId) -> Balance {

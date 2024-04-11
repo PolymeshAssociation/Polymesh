@@ -1434,6 +1434,7 @@ fn test_weights_for_settlement_transaction() {
                 &PortfolioId::default_portfolio(alice_did),
                 &PortfolioId::default_portfolio(bob_did),
                 100,
+                false,
                 &mut weight_meter
             ),);
         });
