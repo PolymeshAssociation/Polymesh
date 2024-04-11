@@ -125,6 +125,9 @@ impl<T: Config> Module<T> {
     ) {
         <Authorizations<T>>::remove(target, auth_id);
         <AuthorizationsGiven<T>>::remove(authorizer, auth_id);
+        NumberOfGivenAuths::mutate(authorizer, |number_of_given_auths| {
+            *number_of_given_auths = number_of_given_auths.saturating_sub(1);
+        });
         let id = target.as_identity().cloned();
         let acc = target.as_account().cloned();
         let event = if revoked {
