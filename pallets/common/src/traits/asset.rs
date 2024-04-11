@@ -35,11 +35,7 @@ use crate::traits::{checkpoint, compliance_manager, external_agents, portfolio, 
 
 /// The module's configuration trait.
 pub trait Config:
-    crate::balances::Config
-    + external_agents::Config
-    + pallet_session::Config
-    + statistics::Config
-    + portfolio::Config
+    crate::balances::Config + external_agents::Config + statistics::Config + portfolio::Config
 {
     /// The overarching event type.
     type RuntimeEvent: From<Event<Self>>

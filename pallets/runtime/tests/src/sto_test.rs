@@ -127,10 +127,10 @@ fn raise_happy_path() {
     let raise_ticker = raise_ticker.unwrap();
 
     let mut weight_meter = WeightMeter::max_limit_no_minimum();
-    assert_ok!(Asset::unsafe_transfer(
+    assert_ok!(Asset::unverified_transfer_asset(
         alice_portfolio,
         bob_portfolio,
-        &raise_ticker,
+        raise_ticker,
         RAISE_SUPPLY,
         None,
         None,
@@ -364,10 +364,10 @@ fn raise_unhappy_path() {
     create_asset(alice.origin(), raise_ticker, 1_000_000);
 
     let mut weight_meter = WeightMeter::max_limit_no_minimum();
-    assert_ok!(Asset::unsafe_transfer(
+    assert_ok!(Asset::unverified_transfer_asset(
         alice_portfolio,
         bob_portfolio,
-        &raise_ticker,
+        raise_ticker,
         1_000_000,
         None,
         None,
