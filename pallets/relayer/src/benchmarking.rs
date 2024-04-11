@@ -70,7 +70,7 @@ benchmarks! {
         // setup authorization
         let auth_id = <Relayer<T>>::unverified_add_auth_for_paying_key(
             payer.did(), user.account(), payer.account(), limit
-        );
+        ).unwrap();
     }: _(user.origin(), auth_id)
     verify {
         assert_subsidy(user, Some((payer, limit)));

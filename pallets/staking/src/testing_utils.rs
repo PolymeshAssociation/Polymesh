@@ -114,7 +114,7 @@ fn _create_stash_controller<T: Config + TestUtilsFn<AccountIdOf<T>>>(
         Signatory::Account(controller.account()),
         AuthorizationData::JoinIdentity(Permissions::default()),
         None,
-    );
+    )?;
     <identity::Module<T>>::join_identity_as_key(controller.origin().into(), auth_id)?;
     let controller_lookup = controller.lookup();
     Staking::<T>::bond(

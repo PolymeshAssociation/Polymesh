@@ -165,7 +165,8 @@ benchmarks! {
             cdd.did(), signatory.clone(),
             AuthorizationData::AttestPrimaryKeyRotation(target.did()),
             None,
-        );
+        )
+        .unwrap();
         Module::<T>::change_cdd_requirement_for_mk_rotation(
             RawOrigin::Root.into(),
             true
@@ -175,7 +176,8 @@ benchmarks! {
             target.did(), signatory,
             AuthorizationData::RotatePrimaryKey,
             None,
-        );
+        ).
+        unwrap();
     }: _(new_key.origin, owner_auth_id, Some(cdd_auth_id))
 
     rotate_primary_key_to_secondary {
@@ -188,12 +190,14 @@ benchmarks! {
             cdd.did(), signatory.clone(),
             AuthorizationData::AttestPrimaryKeyRotation(target.did()),
             None,
-        );
+        )
+        .unwrap();
         let rotate_auth_id =  Module::<T>::add_auth(
             target.did(), signatory.clone(),
             AuthorizationData::RotatePrimaryKeyToSecondary(Permissions::default()),
             None,
-        );
+        )
+        .unwrap();
         Module::<T>::change_cdd_requirement_for_mk_rotation(
             RawOrigin::Root.into(),
             true
@@ -223,7 +227,8 @@ benchmarks! {
             Signatory::Account(new_key.account()),
             AuthorizationData::JoinIdentity(Permissions::default()),
             None,
-        );
+        )
+        .unwrap();
     }: _(new_key.origin, auth_id)
 
     leave_identity_as_key {
@@ -236,7 +241,8 @@ benchmarks! {
             signatory,
             AuthorizationData::JoinIdentity(Permissions::default()),
             None,
-        );
+        )
+        .unwrap();
         Module::<T>::join_identity_as_key(key.origin().into(), auth_id)
             .expect("Key cannot be joined to identity");
 
@@ -360,7 +366,8 @@ benchmarks! {
             signatory.clone(),
             AuthorizationData::JoinIdentity(Permissions::default()),
             Some(666u32.into()),
-        );
+        )
+        .unwrap();
     }: _(caller.origin, signatory, auth_id, true)
 
     add_secondary_keys_with_authorization {

@@ -281,7 +281,8 @@ benchmarks! {
             Signatory::from(did),
             AuthorizationData::TransferTicker(ticker),
             None
-        );
+        )
+        .unwrap();
     }: _(new_owner.origin, new_owner_auth_id)
     verify {
         verify_ownership::<T>(ticker, owner.did(), did, AssetOwnershipRelation::TickerOwned);
@@ -297,7 +298,8 @@ benchmarks! {
             Signatory::from(did),
             AuthorizationData::TransferAssetOwnership(ticker),
             None,
-        );
+        )
+        .unwrap();
     }: _(new_owner.origin, new_owner_auth_id)
     verify {
         assert_eq!(token_details::<T>(ticker).owner_did, did);
@@ -458,7 +460,8 @@ benchmarks! {
             Signatory::from(bob.did()),
             AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
             None,
-        );
+        )
+        .unwrap();
         pallet_external_agents::Module::<T>::accept_become_agent(bob.origin().into(), auth_id)?;
     }: _(bob.origin.clone(), ticker, 1_000,  PortfolioId::default_portfolio(alice.did()))
     verify {

@@ -56,7 +56,8 @@ fn controller_transfer_locked_asset() {
             Signatory::from(bob.did),
             AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
             None,
-        );
+        )
+        .unwrap();
         assert_ok!(ExternalAgents::accept_become_agent(
             bob.origin(),
             authorization_id

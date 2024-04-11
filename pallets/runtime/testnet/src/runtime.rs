@@ -180,6 +180,8 @@ parameter_types! {
 
     pub const ReportLongevity: u64 =
         BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
+
+    pub MaxGivenAuths: u32 = 1024;
 }
 
 polymesh_runtime_common::misc_pallet_impls!();
