@@ -789,13 +789,20 @@ pub mod migration {
 
     pub fn migrate_to_v5<T: Config>() {
         RuntimeLogger::init();
-        log::info!(" >>> Initializing NextAuthId");
+        log::info!(" >>> Initializing NextAuthId and NumberOfGivenAuths");
         initialize_next_auth_id::<T>();
-        log::info!(" >>> NextAuthId has been initialized");
+        initialize_number_of_given_auths::<T>();
+        log::info!(" >>> NextAuthId and NumberOfGivenAuths have been initialized");
     }
 
     fn initialize_next_auth_id<T: Config>() {
         let next_auth_id = MultiPurposeNonce::get().saturating_add(1);
         NextAuthId::put(next_auth_id);
+    }
+
+    fn initialize_number_of_given_auths<T: Config>() {
+        for (authorizer, _) in AuthorizationsGiven::<T>::iter_keys() {
+            NumberOfGivenAuths::mutate(authorizer, |n| *n = n.saturating_add(1));
+        }
     }
 }
