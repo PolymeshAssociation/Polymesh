@@ -28,7 +28,6 @@ frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 
 pallet-timestamp = { version = "4.0.0-dev", default-features = false }
-pallet-session = { version = "4.0.0-dev", default-features = false }
 
 # Only in Benchmarks
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
@@ -56,7 +55,6 @@ std = [
 	"frame-system/std",
 	"pallet-timestamp/std",
 	"polymesh-primitives/std",
-	"pallet-session/std",
 	"pallet-external-agents/std",
 ]
 runtime-benchmarks = [
