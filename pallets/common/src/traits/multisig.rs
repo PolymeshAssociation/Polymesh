@@ -70,6 +70,9 @@ decl_event!(
         ProposalExecutionFailed(DispatchError),
         /// Scheduling of proposal fails.
         SchedulingFailed(DispatchError),
+        /// Event emitted when a proposal failed to execute.
+        /// Arguments: caller DID, multisig, proposal ID, error.
+        ProposalFailedToExecute(IdentityId, AccountId, u64, DispatchError),
     }
 );
 
