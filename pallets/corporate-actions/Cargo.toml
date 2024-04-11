@@ -36,7 +36,6 @@ frame-system = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
 pallet-timestamp = { version = "4.0.0-dev", default-features = false }
-pallet-session = { version = "4.0.0-dev", default-features = false }
 
 pallet-compliance-manager = { path = "../compliance-manager", default-features = false, optional = true }
 
