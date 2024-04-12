@@ -323,7 +323,7 @@ use frame_system::{
 };
 use pallet_identity as identity;
 use pallet_session::historical;
-use polymesh_common_utilities::{identity::Config as IdentityConfig, Context, GC_DID};
+use polymesh_common_utilities::{identity::Config as IdentityConfig, Context, GC_DID, constants::GC_PALLET_ID};
 use polymesh_primitives::{IdentityId, storage_migration_ver, storage_migrate_on};
 use scale_info::TypeInfo;
 use frame_election_provider_support::{
@@ -339,7 +339,7 @@ use sp_runtime::{
     curve::PiecewiseLinear,
     traits::{
         AtLeast32BitUnsigned, CheckedSub, Convert, Dispatchable, SaturatedConversion, Saturating,
-        StaticLookup, Zero,
+        StaticLookup, Zero, AccountIdConversion, 
     },
     transaction_validity::{
         InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
@@ -2235,7 +2235,7 @@ decl_module! {
         /// #</weight>
         #[weight = 1_000_000_000]
         pub fn validate_cdd_expiry_nominators(origin, targets: Vec<T::AccountId>) {
-            let (caller, caller_id) = Identity::<T>::ensure_did(origin)?;
+            ensure_root(origin.clone())?;
 
             let mut expired_nominators = Vec::new();
             ensure!(!targets.is_empty(), "targets cannot be empty");
@@ -2270,7 +2270,7 @@ decl_module! {
                     <Nominators<T>>::remove(target);
                 }
             }
-            Self::deposit_event(RawEvent::InvalidatedNominators(caller_id, caller, expired_nominators));
+            Self::deposit_event(RawEvent::InvalidatedNominators(GC_DID, GC_PALLET_ID.into_account_truncating(), expired_nominators));
         }
 
         /// Changes commission rate which applies to all validators. Only Governance
