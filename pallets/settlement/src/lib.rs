@@ -54,9 +54,6 @@ use frame_support::dispatch::{
     DispatchError, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
     PostDispatchInfo,
 };
-use frame_support::storage::{
-    with_transaction as frame_storage_with_transaction, TransactionOutcome,
-};
 use frame_support::traits::schedule::{DispatchTime, Named};
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
@@ -268,7 +265,7 @@ decl_storage! {
         pub InstructionDetails get(fn instruction_details):
             map hasher(twox_64_concat) InstructionId => Instruction<T::Moment, T::BlockNumber>;
         /// Status of a leg under an instruction. (instruction_id, leg_id) -> LegStatus
-        InstructionLegStatus get(fn instruction_leg_status):
+        pub InstructionLegStatus get(fn instruction_leg_status):
             double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => LegStatus<T::AccountId>;
         /// Number of affirmations pending before instruction is executed. instruction_id -> affirm_pending
         pub InstructionAffirmsPending get(fn instruction_affirms_pending): map hasher(twox_64_concat) InstructionId => u64;
@@ -295,7 +292,7 @@ decl_storage! {
         /// Instruction memo
         pub InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<Memo>;
         /// Instruction statuses. instruction_id -> InstructionStatus
-        InstructionStatuses get(fn instruction_status):
+        pub InstructionStatuses get(fn instruction_status):
             map hasher(twox_64_concat) InstructionId => InstructionStatus<T::BlockNumber>;
         /// Legs under an instruction. (instruction_id, leg_id) -> Leg
         pub InstructionLegs get(fn instruction_legs):
@@ -1200,7 +1197,6 @@ impl<T: Config> Module<T> {
             InstructionStatuses::<T>::insert(id, InstructionStatus::Failed);
             return Err(e);
         }
-        Self::prune_instruction(id, true);
         Ok(())
     }
 
@@ -1209,74 +1205,96 @@ impl<T: Config> Module<T> {
         caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        // Verifies that there are no pending affirmations for the given instruction
-        ensure!(
-            Self::instruction_affirms_pending(instruction_id) == 0,
-            Error::<T>::NotAllAffirmationsHaveBeenReceived
-        );
-        // Verifies that all mediator's affirmations are still valid
-        Self::ensure_non_expired_affirmations(&instruction_id)?;
+        let mut failed_leg_id = None;
+        let tx_result = with_transaction(|| {
+            // Ensures the number of pending affirmations is zero
+            let n_pending_affirmations = InstructionAffirmsPending::take(instruction_id);
+            ensure!(
+                n_pending_affirmations == 0,
+                Error::<T>::NotAllAffirmationsHaveBeenReceived
+            );
+            // Ensures the instruction is pending or has failed at least one time
+            let instruction_status = InstructionStatuses::<T>::get(instruction_id);
+            ensure!(
+                instruction_status == InstructionStatus::Pending
+                    || instruction_status == InstructionStatus::Failed,
+                Error::<T>::InvalidInstructionStatusForExecution
+            );
+            // Ensures all mediator's affirmations are still valid
+            Self::ensure_non_expired_affirmations(&instruction_id)?;
 
-        // Ensures the instruction is pending or has failed at least one time
-        let instruction_status = Self::instruction_status(instruction_id);
-        ensure!(
-            instruction_status == InstructionStatus::Pending
-                || instruction_status == InstructionStatus::Failed,
-            Error::<T>::InvalidInstructionStatusForExecution
-        );
+            // The order of execution of the legs matter in some edge cases around compliance.
+            let mut instruction_legs: Vec<(LegId, Leg)> =
+                InstructionLegs::drain_prefix(&instruction_id).collect();
+            instruction_legs.sort_by_key(|leg_id_leg| leg_id_leg.0);
 
-        let venue_id = Self::instruction_details(instruction_id).venue_id;
+            // Ensures all affirmations have been received
+            Self::ensure_no_missing_affirmation(&instruction_id, &instruction_legs)?;
 
-        // NB: The order of execution of the legs matter in some edge cases around compliance.
-        // E.g: Consider a token with a total supply of 100 and maximum percentage ownership of 10%.
-        // In a given moment, Alice owns 10 tokens, Bob owns 5 and Charlie owns 0.
-        // Now, consider one instruction with two legs: 1. Alice transfers 5 tokens to Charlie; 2. Bob transfers 5 tokens to Alice;
-        // If the second leg gets executed before the first leg, Alice will momentarily hold 15% of the asset and hence the settlement will fail compliance.
-        let mut instruction_legs: Vec<(LegId, Leg)> =
-            InstructionLegs::iter_prefix(&instruction_id).collect();
-        instruction_legs.sort_by_key(|leg_id_leg| leg_id_leg.0);
+            let instruction_asset_count = AssetCount::from_legs(&instruction_legs);
+            weight_meter
+                .check_accrue(<T as Config>::WeightInfo::execute_instruction_paused(
+                    instruction_asset_count.fungible(),
+                    instruction_asset_count.non_fungible(),
+                    instruction_asset_count.off_chain(),
+                ))
+                .map_err(|_| Error::<T>::WeightLimitExceeded)?;
 
-        let instruction_asset_count = AssetCount::from_legs(&instruction_legs);
-        weight_meter
-            .check_accrue(<T as Config>::WeightInfo::execute_instruction_paused(
-                instruction_asset_count.fungible(),
-                instruction_asset_count.non_fungible(),
-                instruction_asset_count.off_chain(),
-            ))
-            .map_err(|_| Error::<T>::WeightLimitExceeded)?;
+            // Ensures the venue is allowed for all tickers in the instruction
+            let instruction_details = InstructionDetails::<T>::take(instruction_id);
+            Self::ensure_allowed_venue(&instruction_legs, instruction_details.venue_id)?;
 
-        // Verifies if the venue is allowed for all tickers in the instruction
-        Self::ensure_allowed_venue(&instruction_legs, venue_id)?;
-
-        let instruction_memo = InstructionMemos::get(&instruction_id);
-        // Attempts to release the locks and transfer all fungible an non fungible assets
-        if let Err(leg_id) = frame_storage_with_transaction(|| {
-            Self::release_asset_locks_and_transfer_pending_legs(
+            // Attempts to release the locks and transfer all fungible an non fungible assets
+            let instruction_memo = InstructionMemos::get(&instruction_id);
+            match Self::release_asset_locks_and_transfer_pending_legs(
                 instruction_id,
                 &instruction_legs,
                 instruction_memo,
                 caller_did,
                 weight_meter,
-            )
-        })? {
+            ) {
+                Ok(_) => {
+                    // Remove remaning storage
+                    VenueInstructions::remove(instruction_details.venue_id, instruction_id);
+                    let _ = InstructionLegStatus::<T>::clear_prefix(
+                        instruction_id,
+                        instruction_legs.len() as u32,
+                        None,
+                    );
+                    // Change instruction status
+                    InstructionStatuses::<T>::insert(
+                        instruction_id,
+                        InstructionStatus::Success(System::<T>::block_number()),
+                    );
+                    Self::deposit_event(RawEvent::InstructionExecuted(caller_did, instruction_id));
+                    Ok(())
+                }
+                Err(leg_id) => {
+                    failed_leg_id = Some(leg_id);
+                    Err(Error::<T>::FailedToReleaseLockOrTransferAssets.into())
+                }
+            }
+        });
+
+        // Since with_transaction reverts events as well, the events have to be emitted here
+        if let Some(failed_leg_id) = failed_leg_id {
             Self::deposit_event(RawEvent::LegFailedExecution(
                 caller_did,
                 instruction_id,
-                leg_id,
+                failed_leg_id,
             ));
             Self::deposit_event(RawEvent::InstructionFailed(caller_did, instruction_id));
-            return Err(Error::<T>::FailedToReleaseLockOrTransferAssets.into());
         }
 
-        Self::deposit_event(RawEvent::InstructionExecuted(caller_did, instruction_id));
-        Ok(())
+        tx_result
     }
 
     /// Returns `Ok` if all mediator's affirmation are still valid. Otherwise, returns an error.
+    /// This call also removes all elements from the `InstructionMediatorsAffirmations` storage.
     fn ensure_non_expired_affirmations(instruction_id: &InstructionId) -> DispatchResult {
         let current_timestamp = <pallet_timestamp::Pallet<T>>::get();
-        for mediator_affirmation in
-            InstructionMediatorsAffirmations::<T>::iter_prefix_values(instruction_id)
+        for (_, mediator_affirmation) in
+            InstructionMediatorsAffirmations::<T>::drain_prefix(instruction_id)
         {
             match mediator_affirmation {
                 MediatorAffirmationStatus::Affirmed { expiry, .. } => {
@@ -1295,13 +1313,69 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    /// Returns `Ok` if all affirmations have been received. Otherwise, returns an error.
+    /// This call also removes all elements from `UserAffirmations`, `AffirmsReceived` and `OffChainAffirmations` storage.
+    fn ensure_no_missing_affirmation(
+        instruction_id: &InstructionId,
+        instruction_legs: &[(LegId, Leg)],
+    ) -> DispatchResult {
+        let mut unique_portfolios = BTreeSet::new();
+
+        for (leg_id, leg) in instruction_legs {
+            match leg {
+                Leg::Fungible {
+                    sender, receiver, ..
+                }
+                | Leg::NonFungible {
+                    sender, receiver, ..
+                } => {
+                    if unique_portfolios.insert(sender) {
+                        let sdr_affirmation_status = UserAffirmations::take(sender, instruction_id);
+                        ensure!(
+                            sdr_affirmation_status == AffirmationStatus::Affirmed,
+                            Error::<T>::NotAllAffirmationsHaveBeenReceived
+                        );
+                        let sdr_affirmation_status = AffirmsReceived::take(instruction_id, sender);
+                        ensure!(
+                            sdr_affirmation_status == AffirmationStatus::Affirmed,
+                            Error::<T>::NotAllAffirmationsHaveBeenReceived
+                        );
+                    }
+                    if unique_portfolios.insert(receiver) {
+                        let rcv_affirmation_status =
+                            UserAffirmations::take(receiver, instruction_id);
+                        ensure!(
+                            rcv_affirmation_status == AffirmationStatus::Affirmed,
+                            Error::<T>::NotAllAffirmationsHaveBeenReceived
+                        );
+                        let rcv_affirmation_status =
+                            AffirmsReceived::take(instruction_id, receiver);
+                        ensure!(
+                            rcv_affirmation_status == AffirmationStatus::Affirmed,
+                            Error::<T>::NotAllAffirmationsHaveBeenReceived
+                        );
+                    }
+                }
+                Leg::OffChain { .. } => {
+                    ensure!(
+                        OffChainAffirmations::take(instruction_id, leg_id)
+                            == AffirmationStatus::Affirmed,
+                        Error::<T>::NotAllAffirmationsHaveBeenReceived,
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     fn release_asset_locks_and_transfer_pending_legs(
         instruction_id: InstructionId,
         instruction_legs: &[(LegId, Leg)],
         instruction_memo: Option<Memo>,
         caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
-    ) -> TransactionOutcome<Result<Result<(), LegId>, DispatchError>> {
+    ) -> Result<(), LegId> {
         Self::unchecked_release_locks(instruction_id, instruction_legs);
         for (leg_id, leg) in instruction_legs {
             if Self::instruction_leg_status(instruction_id, leg_id) == LegStatus::ExecutionPending {
@@ -1324,7 +1398,7 @@ impl<T: Config> Module<T> {
                         )
                         .is_err()
                         {
-                            return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
+                            return Err(*leg_id);
                         }
                     }
                     Leg::NonFungible {
@@ -1343,43 +1417,36 @@ impl<T: Config> Module<T> {
                         )
                         .is_err()
                         {
-                            return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
+                            return Err(*leg_id);
                         }
                     }
                     Leg::OffChain { .. } => {}
                 }
             }
         }
-        TransactionOutcome::Commit(Ok(Ok(())))
+        Ok(())
     }
 
-    fn prune_instruction(id: InstructionId, executed: bool) {
-        let drained_legs: Vec<(LegId, Leg)> = InstructionLegs::drain_prefix(&id).collect();
-        let details = <InstructionDetails<T>>::take(id);
-        VenueInstructions::remove(details.venue_id, id);
-        InstructionAffirmsPending::remove(id);
-        #[allow(deprecated)]
-        <InstructionLegStatus<T>>::remove_prefix(id, None);
-        #[allow(deprecated)]
-        OffChainAffirmations::remove_prefix(id, None);
-        #[allow(deprecated)]
-        AffirmsReceived::remove_prefix(id, None);
-        #[allow(deprecated)]
-        InstructionMediatorsAffirmations::<T>::remove_prefix(id, None);
-
-        if executed {
-            InstructionStatuses::<T>::insert(
-                id,
-                InstructionStatus::Success(System::<T>::block_number()),
-            );
-        } else {
-            InstructionStatuses::<T>::insert(
-                id,
-                InstructionStatus::Rejected(System::<T>::block_number()),
-            );
-        }
-
-        for (_, leg) in drained_legs {
+    /// Clears the storage for a rejected instruction and updates the instruction status to
+    /// [`InstructionStatus::Rejected`].
+    fn prune_rejected_instruction(instruction_id: InstructionId) {
+        let instruction_details = InstructionDetails::<T>::take(&instruction_id);
+        VenueInstructions::remove(instruction_details.venue_id, instruction_id);
+        InstructionAffirmsPending::remove(instruction_id);
+        let _ = InstructionMediatorsAffirmations::<T>::clear_prefix(
+            instruction_id,
+            T::MaxInstructionMediators::get(),
+            None,
+        );
+        // We need all portfolios to clear the UserAffirmations storage
+        let instruction_legs =
+            InstructionLegs::drain_prefix(&instruction_id).collect::<Vec<(LegId, Leg)>>();
+        let _ = InstructionLegStatus::<T>::clear_prefix(
+            &instruction_id,
+            instruction_legs.len() as u32,
+            None,
+        );
+        for (leg_id, leg) in instruction_legs {
             match leg {
                 Leg::Fungible {
                     sender, receiver, ..
@@ -1387,12 +1454,21 @@ impl<T: Config> Module<T> {
                 | Leg::NonFungible {
                     sender, receiver, ..
                 } => {
-                    UserAffirmations::remove(sender, id);
-                    UserAffirmations::remove(receiver, id);
+                    UserAffirmations::remove(sender, instruction_id);
+                    UserAffirmations::remove(receiver, instruction_id);
+                    AffirmsReceived::remove(instruction_id, sender);
+                    AffirmsReceived::remove(instruction_id, receiver);
                 }
-                Leg::OffChain { .. } => continue,
+                Leg::OffChain { .. } => {
+                    OffChainAffirmations::remove(instruction_id, leg_id);
+                }
             }
         }
+        // Update the intruction Status to InstructionStatus::Rejected
+        InstructionStatuses::<T>::insert(
+            instruction_id,
+            InstructionStatus::Rejected(System::<T>::block_number()),
+        );
     }
 
     pub fn unsafe_affirm_instruction(
@@ -1674,7 +1750,6 @@ impl<T: Config> Module<T> {
             caller_did,
             weight_meter,
         )?;
-        Self::prune_instruction(id, true);
         Ok(())
     }
 
@@ -1831,7 +1906,7 @@ impl<T: Config> Module<T> {
         Self::unchecked_release_locks(instruction_id, &legs);
         let _ = T::Scheduler::cancel_named(instruction_id.execution_name());
         // Remove all data from storage
-        Self::prune_instruction(instruction_id, false);
+        Self::prune_rejected_instruction(instruction_id);
         Self::deposit_event(RawEvent::InstructionRejected(
             origin_data.primary_did,
             instruction_id,
