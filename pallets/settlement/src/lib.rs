@@ -2566,4 +2566,82 @@ impl<T: Config> Module<T> {
             filtered_legs.unfiltered_asset_count().off_chain(),
         )
     }
+
+    /// Returns `Ok` if the leg can be transferred. Otherwise, returns a vector containing all errors for the transfer.
+    #[rustfmt::skip]
+    pub fn transfer_report(
+        leg: Leg,
+        skip_locked_check: bool,
+        weight_meter: &mut WeightMeter,
+    ) -> Result<(), Vec<DispatchError>> {
+        match leg {
+            Leg::Fungible { sender, receiver, ticker, amount } => {
+                <Asset<T>>::asset_transfer_report(
+                    &sender,
+                    &receiver,
+                    &ticker,
+                    amount,
+                    skip_locked_check,
+                    weight_meter,
+                )?;
+            }
+            Leg::NonFungible { sender, receiver, nfts} => {
+                <Nft<T>>::nft_transfer_report(
+                    &sender,
+                    &receiver,
+                    &nfts,
+                    skip_locked_check,
+                    weight_meter
+                )?;
+            }
+            Leg::OffChain { .. } => {},
+        }
+        Ok(())
+    }
+
+    /// Returns `Ok` if the instruction can be executed. Otherwise, returns a vector containing all errors for the execution.
+    pub fn execute_instruction_report(
+        instruction_id: &InstructionId,
+        weight_meter: &mut WeightMeter,
+    ) -> Result<(), Vec<DispatchError>> {
+        let mut execution_errors = Vec::new();
+
+        if Self::instruction_affirms_pending(instruction_id) != 0 {
+            execution_errors.push(Error::<T>::NotAllAffirmationsHaveBeenReceived.into());
+        }
+
+        if let Err(e) = Self::ensure_non_expired_affirmations(&instruction_id) {
+            execution_errors.push(e);
+        }
+
+        match Self::instruction_status(instruction_id) {
+            InstructionStatus::Unknown
+            | InstructionStatus::Success(_)
+            | InstructionStatus::Rejected(_) => {
+                execution_errors.push(Error::<T>::InvalidInstructionStatusForExecution.into());
+            }
+            InstructionStatus::Pending | InstructionStatus::Failed => {}
+        }
+
+        let instruction_legs: Vec<(LegId, Leg)> =
+            InstructionLegs::iter_prefix(&instruction_id).collect();
+        let venue_id = Self::instruction_details(instruction_id).venue_id;
+        if let Err(e) = Self::ensure_allowed_venue(&instruction_legs, venue_id) {
+            execution_errors.push(e);
+        }
+
+        for (leg_id, leg) in instruction_legs {
+            let leg_status = Self::instruction_leg_status(instruction_id, leg_id);
+            if leg_status == LegStatus::ExecutionPending {
+                if let Err(e) = Self::transfer_report(leg, true, weight_meter) {
+                    execution_errors.extend_from_slice(&e);
+                }
+            }
+        }
+
+        if !execution_errors.is_empty() {
+            return Err(execution_errors);
+        }
+        Ok(())
+    }
 }

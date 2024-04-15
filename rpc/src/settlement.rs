@@ -16,6 +16,7 @@
 use sp_std::vec::Vec;
 use std::sync::Arc;
 
+use frame_support::dispatch::DispatchError;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
 use jsonrpsee::types::error::{CallError, ErrorObject};
@@ -24,7 +25,9 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 
 pub use node_rpc_runtime_api::settlement::SettlementApi as SettlementRuntimeApi;
-use polymesh_primitives::settlement::{AffirmationCount, ExecuteInstructionInfo, InstructionId};
+use polymesh_primitives::settlement::{
+    AffirmationCount, ExecuteInstructionInfo, InstructionId, Leg,
+};
 use polymesh_primitives::PortfolioId;
 
 use crate::Error;
@@ -45,6 +48,21 @@ pub trait SettlementApi<BlockHash> {
         portfolios: Vec<PortfolioId>,
         at: Option<BlockHash>,
     ) -> RpcResult<AffirmationCount>;
+
+    #[method(name = "settlement_getTransferReport")]
+    fn get_transfer_report(
+        &self,
+        leg: Leg,
+        skip_locked_check: bool,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Result<(), Vec<DispatchError>>>;
+
+    #[method(name = "settlement_getExecuteIntructionReport")]
+    fn get_execute_instruction_report(
+        &self,
+        instruction_id: InstructionId,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Result<(), Vec<DispatchError>>>;
 }
 
 /// An implementation of Settlement specific RPC methods.
@@ -104,6 +122,47 @@ where
                 CallError::Custom(ErrorObject::owned(
                     Error::RuntimeError.into(),
                     "Unable to call get_affirmation_count runtime",
+                    Some(e.to_string()),
+                ))
+                .into()
+            })
+    }
+
+    fn get_transfer_report(
+        &self,
+        leg: Leg,
+        skip_locked_check: bool,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Result<(), Vec<DispatchError>>> {
+        let api = self.client.runtime_api();
+        // If the block hash is not supplied assume the best block.
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_transfer_report(at_hash, leg, skip_locked_check)
+            .map_err(|e| {
+                CallError::Custom(ErrorObject::owned(
+                    Error::RuntimeError.into(),
+                    "Unable to call get_transfer_report runtime",
+                    Some(e.to_string()),
+                ))
+                .into()
+            })
+    }
+
+    fn get_execute_instruction_report(
+        &self,
+        instruction_id: InstructionId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Result<(), Vec<DispatchError>>> {
+        let api = self.client.runtime_api();
+        // If the block hash is not supplied assume the best block.
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_execute_instruction_report(at_hash, instruction_id)
+            .map_err(|e| {
+                CallError::Custom(ErrorObject::owned(
+                    Error::RuntimeError.into(),
+                    "Unable to call get_execute_instruction_report runtime",
                     Some(e.to_string()),
                 ))
                 .into()
