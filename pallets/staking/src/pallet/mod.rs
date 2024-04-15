@@ -50,9 +50,10 @@ use frame_support::weights::constants::{WEIGHT_REF_TIME_PER_MICROS, WEIGHT_REF_T
 use frame_system::offchain::SendTransactionTypes;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::curve::PiecewiseLinear;
-use sp_runtime::traits::{Dispatchable, Saturating};
+use sp_runtime::traits::{AccountIdConversion, Dispatchable, Saturating};
 use sp_runtime::Permill;
 
+use polymesh_common_utilities::constants::GC_PALLET_ID;
 use polymesh_common_utilities::identity::Config as IdentityConfig;
 use polymesh_common_utilities::{Context, GC_DID};
 use polymesh_primitives::{storage_migration_ver, IdentityId};
@@ -1556,7 +1557,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             targets: Vec<T::AccountId>,
         ) -> DispatchResult {
-            let (caller, caller_id) = Identity::<T>::ensure_did(origin)?;
+            ensure_root(origin.clone())?;
 
             let mut expired_nominators = Vec::new();
             ensure!(!targets.is_empty(), "targets cannot be empty");
@@ -1593,8 +1594,8 @@ pub mod pallet {
                 }
             }
             Self::deposit_event(Event::<T>::InvalidatedNominators(
-                caller_id,
-                caller,
+                GC_DID,
+                GC_PALLET_ID.into_account_truncating(),
                 expired_nominators,
             ));
             Ok(())
