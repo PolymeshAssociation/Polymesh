@@ -1824,6 +1824,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       BondTooSmall: AugmentedError<ApiType>;
       /**
+       * Some bound is not met.
+       **/
+      BoundNotMet: AugmentedError<ApiType>;
+      /**
        * The call is not allowed at the given time due to restrictions of election period.
        **/
       CallNotAllowed: AugmentedError<ApiType>;
@@ -1966,6 +1970,11 @@ declare module '@polkadot/api-base/types/errors' {
        * Validator stash identity was not permissioned.
        **/
       StashIdentityNotPermissioned: AugmentedError<ApiType>;
+      /**
+       * There are too many nominators in the system. Governance needs to adjust the staking
+       * settings to keep things safe for the runtime.
+       **/
+      TooManyNominators: AugmentedError<ApiType>;
       /**
        * Too many nomination targets supplied.
        **/

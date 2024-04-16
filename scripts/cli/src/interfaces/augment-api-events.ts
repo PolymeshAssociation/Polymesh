@@ -1416,7 +1416,7 @@ declare module '@polkadot/api-base/types/events' {
     };
     staking: {
       /**
-       * An account has bonded this amount. \[did, stash, amount\]
+       * An account has bonded this amount. \[stash, amount\]
        * 
        * NOTE: This event is only emitted when funds are bonded via a dispatchable. Notably,
        * it will not be emitted for staking rewards when they are added to stake.
@@ -1430,7 +1430,6 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * The era payout has been set; the first balance is the validator-payout; the second is
        * the remainder from the maximum amount of reward.
-       * \[era_index, validator_payout, remainder\]
        **/
       EraPayout: AugmentedEvent<ApiType, [u32, u128, u128]>;
       /**
@@ -1448,7 +1447,7 @@ declare module '@polkadot/api-base/types/events' {
       Nominated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, Vec<AccountId32>]>;
       /**
        * An old slashing report from a prior era was discarded because it could
-       * not be processed. \[session_index\]
+       * not be processed.
        **/
       OldSlashingReportDiscarded: AugmentedEvent<ApiType, [u32]>;
       /**
@@ -1462,7 +1461,7 @@ declare module '@polkadot/api-base/types/events' {
        **/
       PermissionedIdentityRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityId]>;
       /**
-       * The staker has been rewarded by this amount. \[stash_identity, stash, amount\]
+       * The nominator has been rewarded by this amount.
        **/
       Reward: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, u128]>;
       /**
@@ -1470,8 +1469,7 @@ declare module '@polkadot/api-base/types/events' {
        **/
       RewardPaymentSchedulingInterrupted: AugmentedEvent<ApiType, [AccountId32, u32, SpRuntimeDispatchError]>;
       /**
-       * One validator (and its nominators) has been slashed by the given amount.
-       * \[validator, amount\]
+       * A staker (validator or nominator) has been slashed by the given amount.
        **/
       Slash: AugmentedEvent<ApiType, [AccountId32, u128]>;
       /**
@@ -1479,20 +1477,20 @@ declare module '@polkadot/api-base/types/events' {
        **/
       SlashingAllowedForChanged: AugmentedEvent<ApiType, [PalletStakingSlashingSwitch]>;
       /**
-       * A new solution for the upcoming election has been stored. \[compute\]
+       * A new solution for the upcoming election has been stored.
        **/
       SolutionStored: AugmentedEvent<ApiType, [PalletStakingElectionCompute]>;
       /**
-       * A new set of stakers was elected with the given \[compute\].
+       * A new set of stakers was elected.
        **/
       StakingElection: AugmentedEvent<ApiType, [PalletStakingElectionCompute]>;
       /**
-       * An account has unbonded this amount. \[did, stash, amount\]
+       * An account has unbonded this amount.
        **/
       Unbonded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, u128]>;
       /**
        * An account has called `withdraw_unbonded` and removed unbonding chunks worth `Balance`
-       * from the unlocking queue. \[stash, amount\]
+       * from the unlocking queue.
        **/
       Withdrawn: AugmentedEvent<ApiType, [AccountId32, u128]>;
       /**

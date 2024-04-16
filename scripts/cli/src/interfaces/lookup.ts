@@ -621,9 +621,9 @@ export default {
     }
   },
   /**
-   * Lookup101: pallet_staking::RawEvent<Balance, sp_core::crypto::AccountId32>
+   * Lookup101: pallet_staking::pallet::pallet::Event<T>
    **/
-  PalletStakingRawEvent: {
+  PalletStakingPalletEvent: {
     _enum: {
       EraPayout: '(u32,u128,u128)',
       Reward: '(PolymeshPrimitivesIdentityId,AccountId32,u128)',
@@ -645,13 +645,13 @@ export default {
     }
   },
   /**
-   * Lookup102: pallet_staking::ElectionCompute
+   * Lookup102: pallet_staking::types::ElectionCompute
    **/
   PalletStakingElectionCompute: {
     _enum: ['OnChain', 'Signed', 'Unsigned']
   },
   /**
-   * Lookup104: pallet_staking::SlashingSwitch
+   * Lookup104: pallet_staking::types::SlashingSwitch
    **/
   PalletStakingSlashingSwitch: {
     _enum: ['Validator', 'ValidatorAndNominator', 'None']
@@ -2381,9 +2381,9 @@ export default {
     }
   },
   /**
-   * Lookup395: pallet_staking::Call<T>
+   * Lookup395: pallet_staking::pallet::pallet::Call<T>
    **/
-  PalletStakingCall: {
+  PalletStakingPalletCall: {
     _enum: {
       bond: {
         controller: 'MultiAddress',
@@ -2554,7 +2554,7 @@ export default {
     sumStakeSquared: 'u128'
   },
   /**
-   * Lookup455: pallet_staking::ElectionSize
+   * Lookup455: pallet_staking::types::ElectionSize
    **/
   PalletStakingElectionSize: {
     validators: 'Compact<u16>',
@@ -3979,7 +3979,7 @@ export default {
     _enum: ['ControllerNotSet', 'BadCaller', 'BadAdmin', 'NoValidCdd', 'ProposalAlreadyHandled', 'Unauthorized', 'Frozen', 'NotFrozen', 'FrozenTx', 'BridgeLimitReached', 'Overflow', 'DivisionByZero', 'TimelockedTx']
   },
   /**
-   * Lookup578: pallet_staking::StakingLedger<sp_core::crypto::AccountId32, Balance>
+   * Lookup578: pallet_staking::StakingLedger<T>
    **/
   PalletStakingStakingLedger: {
     stash: 'AccountId32',
@@ -3996,7 +3996,7 @@ export default {
     era: 'Compact<u32>'
   },
   /**
-   * Lookup581: pallet_staking::Nominations<sp_core::crypto::AccountId32>
+   * Lookup581: pallet_staking::Nominations<T>
    **/
   PalletStakingNominations: {
     targets: 'Vec<AccountId32>',
@@ -4004,27 +4004,27 @@ export default {
     suppressed: 'bool'
   },
   /**
-   * Lookup582: pallet_staking::ActiveEraInfo
+   * Lookup583: pallet_staking::ActiveEraInfo
    **/
   PalletStakingActiveEraInfo: {
     index: 'u32',
     start: 'Option<u64>'
   },
   /**
-   * Lookup584: pallet_staking::EraRewardPoints<sp_core::crypto::AccountId32>
+   * Lookup585: pallet_staking::EraRewardPoints<sp_core::crypto::AccountId32>
    **/
   PalletStakingEraRewardPoints: {
     total: 'u32',
     individual: 'BTreeMap<AccountId32, u32>'
   },
   /**
-   * Lookup587: pallet_staking::Forcing
+   * Lookup588: pallet_staking::Forcing
    **/
   PalletStakingForcing: {
     _enum: ['NotForcing', 'ForceNew', 'ForceNone', 'ForceAlways']
   },
   /**
-   * Lookup589: pallet_staking::UnappliedSlash<sp_core::crypto::AccountId32, Balance>
+   * Lookup590: pallet_staking::UnappliedSlash<sp_core::crypto::AccountId32, Balance>
    **/
   PalletStakingUnappliedSlash: {
     validator: 'AccountId32',
@@ -4034,7 +4034,7 @@ export default {
     payout: 'u128'
   },
   /**
-   * Lookup593: pallet_staking::slashing::SlashingSpans
+   * Lookup594: pallet_staking::slashing::SlashingSpans
    **/
   PalletStakingSlashingSlashingSpans: {
     spanIndex: 'u32',
@@ -4043,14 +4043,14 @@ export default {
     prior: 'Vec<u32>'
   },
   /**
-   * Lookup594: pallet_staking::slashing::SpanRecord<Balance>
+   * Lookup595: pallet_staking::slashing::SpanRecord<Balance>
    **/
   PalletStakingSlashingSpanRecord: {
     slashed: 'u128',
     paidOut: 'u128'
   },
   /**
-   * Lookup597: pallet_staking::ElectionResult<sp_core::crypto::AccountId32, Balance>
+   * Lookup598: pallet_staking::types::ElectionResult<sp_core::crypto::AccountId32, Balance>
    **/
   PalletStakingElectionResult: {
     electedStashes: 'Vec<AccountId32>',
@@ -4058,7 +4058,7 @@ export default {
     compute: 'PalletStakingElectionCompute'
   },
   /**
-   * Lookup598: pallet_staking::ElectionStatus<BlockNumber>
+   * Lookup599: pallet_staking::types::ElectionStatus<BlockNumber>
    **/
   PalletStakingElectionStatus: {
     _enum: {
@@ -4067,23 +4067,17 @@ export default {
     }
   },
   /**
-   * Lookup599: pallet_staking::PermissionedIdentityPrefs
+   * Lookup600: pallet_staking::types::PermissionedIdentityPrefs
    **/
   PalletStakingPermissionedIdentityPrefs: {
     intendedCount: 'u32',
     runningCount: 'u32'
   },
   /**
-   * Lookup600: pallet_staking::Releases
+   * Lookup602: pallet_staking::pallet::pallet::Error<T>
    **/
-  PalletStakingReleases: {
-    _enum: ['V1_0_0Ancient', 'V2_0_0', 'V3_0_0', 'V4_0_0', 'V5_0_0', 'V6_0_0', 'V6_0_1', 'V7_0_0']
-  },
-  /**
-   * Lookup602: pallet_staking::Error<T>
-   **/
-  PalletStakingError: {
-    _enum: ['NotController', 'NotStash', 'AlreadyBonded', 'AlreadyPaired', 'EmptyTargets', 'InvalidSlashIndex', 'InsufficientValue', 'NoMoreChunks', 'NoUnlockChunk', 'FundedTarget', 'InvalidEraToReward', 'NotSortedAndUnique', 'AlreadyClaimed', 'OffchainElectionEarlySubmission', 'OffchainElectionWeakSubmission', 'SnapshotUnavailable', 'OffchainElectionBogusWinnerCount', 'OffchainElectionBogusWinner', 'OffchainElectionBogusCompact', 'OffchainElectionBogusNominator', 'OffchainElectionBogusNomination', 'OffchainElectionSlashedNomination', 'OffchainElectionBogusSelfVote', 'OffchainElectionBogusEdge', 'OffchainElectionBogusScore', 'OffchainElectionBogusElectionSize', 'CallNotAllowed', 'IncorrectSlashingSpans', 'AlreadyExists', 'NotExists', 'NoChange', 'InvalidValidatorIdentity', 'InvalidValidatorCommission', 'StashIdentityDoesNotExist', 'StashIdentityNotPermissioned', 'StashIdentityNotCDDed', 'HitIntendedValidatorCount', 'IntendedCountIsExceedingConsensusLimit', 'BondTooSmall', 'BadState', 'TooManyTargets', 'BadTarget', 'InvalidValidatorUnbondAmount']
+  PalletStakingPalletError: {
+    _enum: ['NotController', 'NotStash', 'AlreadyBonded', 'AlreadyPaired', 'EmptyTargets', 'InvalidSlashIndex', 'InsufficientValue', 'NoMoreChunks', 'NoUnlockChunk', 'FundedTarget', 'InvalidEraToReward', 'NotSortedAndUnique', 'AlreadyClaimed', 'OffchainElectionEarlySubmission', 'OffchainElectionWeakSubmission', 'SnapshotUnavailable', 'OffchainElectionBogusWinnerCount', 'OffchainElectionBogusWinner', 'OffchainElectionBogusCompact', 'OffchainElectionBogusNominator', 'OffchainElectionBogusNomination', 'OffchainElectionSlashedNomination', 'OffchainElectionBogusSelfVote', 'OffchainElectionBogusEdge', 'OffchainElectionBogusScore', 'OffchainElectionBogusElectionSize', 'CallNotAllowed', 'IncorrectSlashingSpans', 'AlreadyExists', 'NotExists', 'NoChange', 'InvalidValidatorIdentity', 'InvalidValidatorCommission', 'StashIdentityDoesNotExist', 'StashIdentityNotPermissioned', 'StashIdentityNotCDDed', 'HitIntendedValidatorCount', 'IntendedCountIsExceedingConsensusLimit', 'BondTooSmall', 'BadState', 'TooManyTargets', 'BadTarget', 'InvalidValidatorUnbondAmount', 'BoundNotMet', 'TooManyNominators']
   },
   /**
    * Lookup603: sp_staking::offence::OffenceDetails<sp_core::crypto::AccountId32, Offender>

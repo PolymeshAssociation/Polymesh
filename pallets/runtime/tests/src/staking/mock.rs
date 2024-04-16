@@ -29,7 +29,7 @@ use frame_support::{
         OnFinalize, OnInitialize, OnUnbalanced, OneSessionHandler, SortedMembers,
     },
     weights::constants::RocksDbWeight,
-    IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
+    StorageDoubleMap, StorageMap,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_group as group;
@@ -69,8 +69,10 @@ use sp_staking::{
 };
 use std::{cell::RefCell, collections::BTreeMap};
 
+use pallet_staking::types::SlashingSwitch;
+
 pub const INIT_TIMESTAMP: u64 = 30_000;
-pub const BLOCK_TIME: u64 = 1000;
+pub const BLOCK_TIME: u64 = 1_000;
 
 /// The AccountId alias in this test module.
 pub(crate) type AccountId = u64;
@@ -272,7 +274,7 @@ impl pallet_treasury::Config for Test {
 
 impl pallet_authorship::Config for Test {
     type FindAuthor = Author11;
-    type EventHandler = pallet_staking::Module<Test>;
+    type EventHandler = pallet_staking::Pallet<Test>;
 }
 parameter_types! {
     pub const MinimumPeriod: u64 = 5;
@@ -588,7 +590,6 @@ impl SortedMembers<u64> for TwoThousand {
 }
 
 impl Config for Test {
-    const MAX_NOMINATIONS: u32 = pallet_staking::MAX_NOMINATIONS;
     type Currency = Balances;
     type UnixTime = Timestamp;
     type CurrencyToVote = frame_support::traits::SaturatingCurrencyToVote;
@@ -621,6 +622,8 @@ impl Config for Test {
     type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
     type FixedYearlyReward = FixedYearlyReward;
     type MinimumBond = MinimumBond;
+    type MaxNominations = pallet_staking::MaxNominations;
+    type MaxUnlockingChunks = pallet_staking::MaxUnlockingChunks;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
@@ -1277,7 +1280,7 @@ pub(crate) fn reward_all_elected() {
         .into_iter()
         .map(|v| (v, 1));
 
-    <Module<Test>>::reward_by_ids(rewards)
+    <Pallet<Test>>::reward_by_ids(rewards)
 }
 
 pub(crate) fn validator_controllers() -> Vec<AccountId> {
@@ -1295,7 +1298,7 @@ pub(crate) fn on_offence_in_era(
     slash_fraction: &[Perbill],
     era: EraIndex,
 ) {
-    let bonded_eras = staking::BondedEras::get();
+    let bonded_eras = staking::BondedEras::<Test>::get();
     for &(bonded_era, start_session) in bonded_eras.iter() {
         if bonded_era == era {
             let _ = Staking::on_offence(
@@ -1480,10 +1483,8 @@ pub(crate) fn prepare_submission_with(
     } = Staking::do_phragmen::<OffchainAccuracy>(iterations).unwrap();
     let winners = winners.into_iter().map(|(who, _)| who).collect::<Vec<_>>();
 
-    let mut staked = sp_npos_elections::assignment_ratio_to_staked(
-        assignments,
-        Staking::slashable_balance_of_fn(),
-    );
+    let mut staked =
+        sp_npos_elections::assignment_ratio_to_staked(assignments, Staking::weight_of_fn());
 
     // apply custom tweaks. awesome for testing.
     tweak(&mut staked);
@@ -1520,7 +1521,7 @@ pub(crate) fn prepare_submission_with(
     let score = if compute_real_score {
         let staked = sp_npos_elections::assignment_ratio_to_staked(
             assignments_reduced.clone(),
-            Staking::slashable_balance_of_fn(),
+            Staking::weight_of_fn(),
         );
 
         let support_map = to_supports::<AccountId>(staked.as_slice());
