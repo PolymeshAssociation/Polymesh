@@ -186,7 +186,7 @@ impl<T: Config> Module<T> {
         accepter: impl FnOnce(AuthorizationData<T::AccountId>, IdentityId) -> DispatchResult,
     ) -> DispatchResult {
         // Extract authorization.
-        let mut auth = Self::ensure_authorization(target, auth_id)?;
+        let auth = Self::ensure_authorization(target, auth_id)?;
 
         // Ensure that `auth.expiry`, if provided, is in the future.
         if let Some(expiry) = auth.expiry {
@@ -195,33 +195,14 @@ impl<T: Config> Module<T> {
         }
 
         // Run custom per-type validation and updates.
-        let res = accepter(auth.authorization_data.clone(), auth.authorized_by);
-
-        if res.is_err() {
-            // decrement
-            auth.count = auth.count.saturating_sub(1);
-
-            // check if count is zero
-            if auth.count == 0 {
-                <Authorizations<T>>::remove(&target, auth_id);
-                <AuthorizationsGiven<T>>::remove(auth.authorized_by, auth_id);
-                Self::deposit_event(RawEvent::AuthorizationRetryLimitReached(
-                    target.as_identity().cloned(),
-                    target.as_account().cloned(),
-                    auth_id,
-                ));
-            } else {
-                // update authorization
-                <Authorizations<T>>::insert(&target, auth_id, auth);
-            }
-
-            // return error
-            return res;
-        }
+        accepter(auth.authorization_data.clone(), auth.authorized_by)?;
 
         // Remove authorization from storage and emit event.
         <Authorizations<T>>::remove(&target, auth_id);
         <AuthorizationsGiven<T>>::remove(auth.authorized_by, auth_id);
+        NumberOfGivenAuths::mutate(auth.authorized_by, |number_of_given_auths| {
+            *number_of_given_auths = number_of_given_auths.saturating_sub(1);
+        });
         Self::deposit_event(RawEvent::AuthorizationConsumed(
             target.as_identity().cloned(),
             target.as_account().cloned(),
