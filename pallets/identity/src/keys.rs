@@ -14,8 +14,8 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    types, AccountKeyRefCount, ChildDid, Config, DidKeys, DidRecords, Error, IsDidFrozen,
-    KeyRecords, Module, MultiPurposeNonce, NextAuthId, OffChainAuthorizationNonce,
+    types, AccountKeyRefCount, ChildDid, Config, CurrentAuthId, DidKeys, DidRecords, Error,
+    IsDidFrozen, KeyRecords, Module, MultiPurposeNonce, OffChainAuthorizationNonce,
     OutdatedAuthorizations, ParentDid, PermissionedCallOriginData, RawEvent, RpcDidRecords,
 };
 use codec::{Decode, Encode as _};
@@ -607,7 +607,7 @@ impl<T: Config> Module<T> {
     /// Sets all authorizations with auth_id less or equal to the current id as invalid for the
     /// `signatory_account`.
     fn set_outdated_autorizations(signatory_account: Signatory<T::AccountId>) {
-        let current_auth_id = NextAuthId::get();
+        let current_auth_id = CurrentAuthId::get();
         OutdatedAuthorizations::<T>::insert(signatory_account, current_auth_id);
     }
 

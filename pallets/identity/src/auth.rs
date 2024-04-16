@@ -14,8 +14,8 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    AuthorizationType, Authorizations, AuthorizationsGiven, Config, Error, KeyRecords, Module,
-    NextAuthId, NumberOfGivenAuths, RawEvent,
+    AuthorizationType, Authorizations, AuthorizationsGiven, Config, CurrentAuthId, Error,
+    KeyRecords, Module, NumberOfGivenAuths, RawEvent,
 };
 use frame_support::dispatch::DispatchResult;
 use frame_support::{ensure, StorageDoubleMap, StorageMap, StorageValue};
@@ -59,13 +59,13 @@ impl<T: Config> Module<T> {
     ) -> Result<u64, DispatchError> {
         let number_of_given_auths = NumberOfGivenAuths::get(from);
         ensure!(
-            number_of_given_auths <= T::MaxGivenAuths::get(),
+            number_of_given_auths < T::MaxGivenAuths::get(),
             Error::<T>::ExceededNumberOfGivenAuths
         );
         NumberOfGivenAuths::insert(from, number_of_given_auths.saturating_add(1));
 
-        let new_auth_id = Self::next_auth_id().saturating_add(1);
-        NextAuthId::put(new_auth_id);
+        let new_auth_id = Self::current_auth_id().saturating_add(1);
+        CurrentAuthId::put(new_auth_id);
 
         let auth = Authorization {
             authorization_data: authorization_data.clone(),

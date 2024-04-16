@@ -198,8 +198,8 @@ decl_storage! {
         pub OutdatedAuthorizations get(fn outdated_authorizations):
             map hasher(blake2_128_concat) Signatory<T::AccountId> => Option<u64>;
 
-        /// The next available auth id
-        pub NextAuthId get(fn next_auth_id): u64
+        /// Controls the authorization id.
+        pub CurrentAuthId get(fn current_auth_id): u64
     }
     add_extra_genesis {
         // Identities at genesis.
@@ -797,7 +797,7 @@ pub mod migration {
 
     fn initialize_next_auth_id<T: Config>() {
         let next_auth_id = MultiPurposeNonce::get().saturating_add(1);
-        NextAuthId::put(next_auth_id);
+        CurrentAuthId::put(next_auth_id);
     }
 
     fn initialize_number_of_given_auths<T: Config>() {

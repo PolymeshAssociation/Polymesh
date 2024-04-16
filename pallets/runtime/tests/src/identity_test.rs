@@ -2028,7 +2028,7 @@ fn cdd_register_did_events() {
                     alice_did,
                     None,
                     Some(AccountKeyring::Charlie.to_account_id()),
-                    Identity::next_auth_id(),
+                    Identity::current_auth_id(),
                     AuthorizationData::JoinIdentity(alice_secundary_keys[1].permissions.clone()),
                     None,
                 ))
@@ -2039,7 +2039,7 @@ fn cdd_register_did_events() {
                     alice_did,
                     None,
                     Some(AccountKeyring::Dave.to_account_id()),
-                    Identity::next_auth_id() - 1,
+                    Identity::current_auth_id() - 1,
                     AuthorizationData::JoinIdentity(alice_secundary_keys[0].permissions.clone()),
                     None,
                 ))
