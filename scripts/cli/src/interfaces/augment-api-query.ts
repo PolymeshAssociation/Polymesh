@@ -781,6 +781,10 @@ declare module '@polkadot/api-base/types/storage' {
        **/
       claims: AugmentedQuery<ApiType, (arg1: PalletIdentityClaim1stKey | { target?: any; claimType?: any } | string | Uint8Array, arg2: PalletIdentityClaim2ndKey | { issuer?: any; scope?: any } | string | Uint8Array) => Observable<Option<PolymeshPrimitivesIdentityClaim>>, [PalletIdentityClaim1stKey, PalletIdentityClaim2ndKey]> & QueryableStorageEntry<ApiType, [PalletIdentityClaim1stKey, PalletIdentityClaim2ndKey]>;
       /**
+       * Controls the authorization id.
+       **/
+      currentAuthId: AugmentedQuery<ApiType, () => Observable<u64>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
        * It stores the current identity for current transaction.
        **/
       currentDid: AugmentedQuery<ApiType, () => Observable<Option<U8aFixed>>, []> & QueryableStorageEntry<ApiType, []>;
@@ -820,10 +824,6 @@ declare module '@polkadot/api-base/types/storage' {
        * Nonce to ensure unique actions. starts from 1.
        **/
       multiPurposeNonce: AugmentedQuery<ApiType, () => Observable<u64>, []> & QueryableStorageEntry<ApiType, []>;
-      /**
-       * The next available auth id
-       **/
-      nextAuthId: AugmentedQuery<ApiType, () => Observable<u64>, []> & QueryableStorageEntry<ApiType, []>;
       /**
        * Track the number of authorizations given by each identity.
        **/
