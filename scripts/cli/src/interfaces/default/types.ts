@@ -13,6 +13,13 @@ export interface AccountInfo extends AccountInfoWithDualRefCount {}
 /** @name Address */
 export interface Address extends MultiAddress {}
 
+/** @name AffirmationCount */
+export interface AffirmationCount extends Struct {
+  readonly sender_asset_count: AssetCount;
+  readonly receiver_asset_count: AssetCount;
+  readonly offchain_count: u32;
+}
+
 /** @name AffirmationStatus */
 export interface AffirmationStatus extends Enum {
   readonly isUnknown: boolean;
@@ -46,6 +53,13 @@ export interface AssetComplianceResult extends Struct {
   readonly paused: bool;
   readonly requirements: Vec<ComplianceRequirementResult>;
   readonly result: bool;
+}
+
+/** @name AssetCount */
+export interface AssetCount extends Struct {
+  readonly fungible_tokens: u32;
+  readonly non_fungible_tokens: u32;
+  readonly off_chain_assets: u32;
 }
 
 /** @name AssetDidResult */
@@ -321,8 +335,8 @@ export interface CalendarUnit extends Enum {
   readonly type: 'Second' | 'Minute' | 'Hour' | 'Day' | 'Week' | 'Month' | 'Year';
 }
 
-/** @name canTransferGranularReturn */
-export interface canTransferGranularReturn extends Enum {
+/** @name CanTransferGranularReturn */
+export interface CanTransferGranularReturn extends Enum {
   readonly isOk: boolean;
   readonly asOk: GranularCanTransferResult;
   readonly isErr: boolean;
@@ -841,6 +855,15 @@ export interface EventCounts extends Vec<u32> {}
 /** @name EventDid */
 export interface EventDid extends IdentityId {}
 
+/** @name ExecuteInstructionInfo */
+export interface ExecuteInstructionInfo extends Struct {
+  readonly fungible_tokens: u32;
+  readonly non_fungible_tokens: u32;
+  readonly off_chain_assets: u32;
+  readonly consumed_weight: Weight;
+  readonly error: Option<Text>;
+}
+
 /** @name ExtrinsicPermissions */
 export interface ExtrinsicPermissions extends Enum {
   readonly isWhole: boolean;
@@ -926,7 +949,6 @@ export interface GranularCanTransferResult extends Struct {
   readonly self_transfer: bool;
   readonly invalid_receiver_cdd: bool;
   readonly invalid_sender_cdd: bool;
-  readonly missing_scope_claim: bool;
   readonly receiver_custodian_error: bool;
   readonly sender_custodian_error: bool;
   readonly sender_insufficient_balance: bool;
@@ -935,6 +957,7 @@ export interface GranularCanTransferResult extends Struct {
   readonly transfer_condition_result: Vec<TransferConditionResult>;
   readonly compliance_result: AssetComplianceResult;
   readonly result: bool;
+  readonly consumed_weight: Option<Weight>;
 }
 
 /** @name HandledTxStatus */
@@ -1324,7 +1347,10 @@ export interface ProtocolOp extends Enum {
   readonly isContractsPutCode: boolean;
   readonly isCorporateBallotAttachBallot: boolean;
   readonly isCapitalDistributionDistribute: boolean;
-  readonly type: 'AssetRegisterTicker' | 'AssetIssue' | 'AssetAddDocuments' | 'AssetCreateAsset' | 'CheckpointCreateSchedule' | 'ComplianceManagerAddComplianceRequirement' | 'IdentityCddRegisterDid' | 'IdentityAddClaim' | 'IdentityAddSecondaryKeysWithAuthorization' | 'PipsPropose' | 'ContractsPutCode' | 'CorporateBallotAttachBallot' | 'CapitalDistributionDistribute';
+  readonly isNftCreateCollection: boolean;
+  readonly isNftMint: boolean;
+  readonly isIdentityCreateChildIdentity: boolean;
+  readonly type: 'AssetRegisterTicker' | 'AssetIssue' | 'AssetAddDocuments' | 'AssetCreateAsset' | 'CheckpointCreateSchedule' | 'ComplianceManagerAddComplianceRequirement' | 'IdentityCddRegisterDid' | 'IdentityAddClaim' | 'IdentityAddSecondaryKeysWithAuthorization' | 'PipsPropose' | 'ContractsPutCode' | 'CorporateBallotAttachBallot' | 'CapitalDistributionDistribute' | 'NftCreateCollection' | 'NftMint' | 'IdentityCreateChildIdentity';
 }
 
 /** @name Receipt */
@@ -1408,9 +1434,6 @@ export interface Scope extends Enum {
   readonly asCustom: Bytes;
   readonly type: 'Identity' | 'Ticker' | 'Custom';
 }
-
-/** @name ScopeId */
-export interface ScopeId extends U8aFixed {}
 
 /** @name SecondaryKey */
 export interface SecondaryKey extends Struct {

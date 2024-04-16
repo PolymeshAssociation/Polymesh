@@ -4,7 +4,6 @@
 import type { ApiTypes } from '@polkadot/api-base/types';
 import type { Vec, bool, u128, u16, u32, u64, u8 } from '@polkadot/types-codec';
 import type { Codec } from '@polkadot/types-codec/types';
-import type { Perbill, Permill } from '@polkadot/types/interfaces/runtime';
 import type { FrameSystemLimitsBlockLength, FrameSystemLimitsBlockWeights, PalletContractsSchedule, SpVersionRuntimeVersion, SpWeightsRuntimeDbWeight, SpWeightsWeightToFeeCoefficient, SpWeightsWeightV2Weight } from '@polkadot/types/lookup';
 
 declare module '@polkadot/api-base/types/consts' {
@@ -232,66 +231,30 @@ declare module '@polkadot/api-base/types/consts' {
     };
     staking: {
       /**
-       * Number of eras that staked funds must remain bonded for.
+       * Number of eras that staked funds must remain bonded for.]
        **/
       bondingDuration: u32 & AugmentedConst<ApiType>;
       /**
-       * The number of blocks before the end of the era from which election submissions are allowed.
+       * Maximum number of nominations per nominator.
+       **/
+      maxNominations: u32 & AugmentedConst<ApiType>;
+      /**
+       * The maximum number of `unlocking` chunks a [`StakingLedger`] can
+       * have. Effectively determines how many unique eras a staker may be
+       * unbonding in.
        * 
-       * Setting this to zero will disable the offchain compute and only on-chain seq-phragmen will
-       * be used.
-       * 
-       * This is bounded by being within the last session. Hence, setting it to a value more than the
-       * length of a session will be pointless.
+       * Note: `MaxUnlockingChunks` is used as the upper bound for the
+       * `BoundedVec` item `StakingLedger.unlocking`. Setting this value
+       * lower than the existing value can lead to inconsistencies in the
+       * `StakingLedger` and will need to be handled properly in a runtime
+       * migration. The test `reducing_max_unlocking_chunks_abrupt` shows
+       * this effect.
        **/
-      electionLookahead: u32 & AugmentedConst<ApiType>;
-      /**
-       * Total year rewards that gets paid during fixed reward schedule.
-       **/
-      fixedYearlyReward: u128 & AugmentedConst<ApiType>;
-      /**
-       * Maximum number of balancing iterations to run in the offchain submission.
-       * 
-       * If set to 0, balance_solution will not be executed at all.
-       **/
-      maxIterations: u32 & AugmentedConst<ApiType>;
-      /**
-       * The maximum number of nominators rewarded for each validator.
-       * 
-       * For each validator only the `$MaxNominatorRewardedPerValidator` biggest stakers can claim
-       * their reward. This used to limit the i/o cost for the nominator payout.
-       **/
-      maxNominatorRewardedPerValidator: u32 & AugmentedConst<ApiType>;
-      /**
-       * Maximum number of validators for each permissioned identity.
-       * 
-       * Max number of validators count = `MaxValidatorPerIdentity * Self::validator_count()`.
-       **/
-      maxValidatorPerIdentity: Permill & AugmentedConst<ApiType>;
-      /**
-       * Maximum amount of `T::currency::total_issuance()` after that non-inflated rewards get paid.
-       **/
-      maxVariableInflationTotalIssuance: u128 & AugmentedConst<ApiType>;
-      /**
-       * Minimum amount of POLYX that must be bonded for a new bond.
-       **/
-      minimumBond: u128 & AugmentedConst<ApiType>;
-      /**
-       * The threshold of improvement that should be provided for a new solution to be accepted.
-       **/
-      minSolutionScoreBump: Perbill & AugmentedConst<ApiType>;
+      maxUnlockingChunks: u32 & AugmentedConst<ApiType>;
       /**
        * Number of sessions per era.
        **/
       sessionsPerEra: u32 & AugmentedConst<ApiType>;
-      /**
-       * Number of eras that slashes are deferred by, after computation.
-       * 
-       * This should be less than the bonding duration.
-       * Set to 0 if slashes should be applied immediately, without opportunity for
-       * intervention.
-       **/
-      slashDeferDuration: u32 & AugmentedConst<ApiType>;
       /**
        * Generic const
        **/

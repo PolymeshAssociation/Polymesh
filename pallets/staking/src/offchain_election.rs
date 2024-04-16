@@ -17,24 +17,26 @@
 
 //! Helpers for offchain worker election.
 
-use crate::_feps::NposSolution;
-use crate::{
-    Call, CompactAssignments, Config, ElectionSize, Module, NominatorIndex, Nominators,
-    OffchainAccuracy, ValidatorIndex,
-};
 use codec::Decode;
-use frame_support::{traits::Get, weights::Weight, IterableStorageMap};
+use frame_support::traits::Get;
+use frame_support::weights::Weight;
 use frame_system::offchain::SubmitTransaction;
 use sp_npos_elections::{
     reduce, to_supports, Assignment, ElectionResult, ElectionScore, EvaluateSupport,
     ExtendedBalance,
 };
-use sp_runtime::{
-    offchain::storage::{MutateStorageError, StorageValueRef},
-    traits::TrailingZeroInput,
-    RuntimeDebug,
+use sp_runtime::offchain::storage::{MutateStorageError, StorageValueRef};
+use sp_runtime::traits::TrailingZeroInput;
+use sp_runtime::RuntimeDebug;
+use sp_std::convert::TryInto;
+use sp_std::prelude::*;
+
+use crate::_feps::NposSolution;
+use crate::types::ElectionSize;
+use crate::{
+    Call, CompactAssignments, Config, NominatorIndex, Nominators, OffchainAccuracy, Pallet,
+    ValidatorIndex,
 };
-use sp_std::{convert::TryInto, prelude::*};
 
 /// Error types related to the offchain election machinery.
 #[derive(RuntimeDebug)]
@@ -107,7 +109,7 @@ pub(crate) fn compute_offchain_election<T: Config>() -> Result<(), OffchainElect
     let ElectionResult {
         winners,
         assignments,
-    } = <Module<T>>::do_phragmen::<OffchainAccuracy>(iters)
+    } = <Pallet<T>>::do_phragmen::<OffchainAccuracy>(iters)
         .ok_or(OffchainElectionError::ElectionFailed)?;
 
     // process and prepare it for submission.
@@ -126,7 +128,7 @@ pub(crate) fn compute_offchain_election<T: Config>() -> Result<(), OffchainElect
     );
 
     // defensive-only: current era can never be none except genesis.
-    let era = <Module<T>>::current_era().unwrap_or_default();
+    let era = <Pallet<T>>::current_era().unwrap_or_default();
 
     // send it.
     let call = Call::submit_election_solution_unsigned {
@@ -182,7 +184,8 @@ pub fn maximum_compact_len<W: crate::WeightInfo>(
             size.nominators.into(),
             voters,
             winners_len,
-        ).ref_time()
+        )
+        .ref_time()
     };
 
     let next_voters = |current_weight: u64, voters: u32, step: u32| -> Result<u32, ()> {
@@ -267,7 +270,7 @@ where
     {
         Some(to_remove) if to_remove > 0 => {
             // grab all voters and sort them by least stake.
-            let balance_of = <Module<T>>::slashable_balance_of_fn();
+            let balance_of = <Pallet<T>>::weight_of_fn();
             let mut voters_sorted = <Nominators<T>>::iter()
                 .map(|(who, _)| (who.clone(), balance_of(&who)))
                 .collect::<Vec<_>>();
@@ -333,9 +336,9 @@ pub fn prepare_submission<T: Config>(
 > {
     // make sure that the snapshot is available.
     let snapshot_validators =
-        <Module<T>>::snapshot_validators().ok_or(OffchainElectionError::SnapshotUnavailable)?;
+        <Pallet<T>>::snapshot_validators().ok_or(OffchainElectionError::SnapshotUnavailable)?;
     let snapshot_nominators =
-        <Module<T>>::snapshot_nominators().ok_or(OffchainElectionError::SnapshotUnavailable)?;
+        <Pallet<T>>::snapshot_nominators().ok_or(OffchainElectionError::SnapshotUnavailable)?;
 
     // all helper closures that we'd ever need.
     let nominator_index = |a: &T::AccountId| -> Option<NominatorIndex> {
@@ -368,10 +371,8 @@ pub fn prepare_submission<T: Config>(
     let winners = winners.into_iter().map(|(who, _)| who).collect::<Vec<_>>();
 
     // convert into absolute value and to obtain the reduced version.
-    let mut staked = sp_npos_elections::assignment_ratio_to_staked(
-        assignments,
-        <Module<T>>::slashable_balance_of_fn(),
-    );
+    let mut staked =
+        sp_npos_elections::assignment_ratio_to_staked(assignments, <Pallet<T>>::weight_of_fn());
 
     // reduce
     if do_reduce {
@@ -420,7 +421,7 @@ pub fn prepare_submission<T: Config>(
         let assignments = compact.into_assignment(nominator_at, validator_at).unwrap();
         let staked = sp_npos_elections::assignment_ratio_to_staked(
             assignments.clone(),
-            <Module<T>>::slashable_balance_of_fn(),
+            <Pallet<T>>::weight_of_fn(),
         );
 
         let support_map = to_supports::<T::AccountId>(&staked);
@@ -447,7 +448,7 @@ pub fn prepare_submission<T: Config>(
 mod test {
     #![allow(unused_variables)]
     use super::*;
-    use crate::ElectionSize;
+    use crate::types::ElectionSize;
 
     struct Staking;
 

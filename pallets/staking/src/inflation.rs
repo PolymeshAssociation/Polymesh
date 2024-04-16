@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,12 +44,12 @@ where
     const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 
     let portion = Perbill::from_rational(era_duration as u64, MILLISECONDS_PER_YEAR);
+    let payout = portion
+        * yearly_inflation
+            .calculate_for_fraction_times_denominator(npos_token_staked, total_tokens.clone());
 
-    let payout = portion * yearly_inflation.calculate_for_fraction_times_denominator(
-        npos_token_staked,
-        total_tokens.clone(),
-    );
-    // Have fixed rewards kicked in?
+    // Polymesh Change: Have fixed rewards kicked in?
+    // -----------------------------------------------------------------
     if total_tokens >= max_inflated_issuance {
         let fixed_payout = portion * non_inflated_yearly_reward;
         if fixed_payout <= payout {
@@ -57,6 +57,7 @@ where
             return (fixed_payout.clone(), fixed_payout);
         }
     }
+    // ------------------------------------------------------------------
     let maximum = portion * (yearly_inflation.maximum * total_tokens);
     (payout, maximum)
 }
@@ -173,7 +174,5 @@ mod test {
             ),
             (49_965_776_850_000, 49_965_776_850_000)
         );
-
-
     }
 }
