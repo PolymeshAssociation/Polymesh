@@ -178,12 +178,12 @@ impl Deref for UserWithBalance {
     }
 }
 
-fn create_token_and_venue(ticker: Ticker, user: User) -> VenueId {
+pub(crate) fn create_token_and_venue(ticker: Ticker, user: User) -> VenueId {
     create_token(ticker, user);
     create_venue(user)
 }
 
-fn create_token(ticker: Ticker, user: User) {
+pub(crate) fn create_token(ticker: Ticker, user: User) {
     assert_ok!(Asset::create_asset(
         user.origin(),
         ticker.as_slice().into(),
@@ -1451,6 +1451,7 @@ fn test_weights_for_settlement_transaction() {
                 &PortfolioId::default_portfolio(alice_did),
                 &PortfolioId::default_portfolio(bob_did),
                 100,
+                false,
                 &mut weight_meter
             ),);
         });

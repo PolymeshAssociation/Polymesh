@@ -18,24 +18,27 @@
 //! Testing utils for staking. Provides some common functions to setup staking state, such as
 //! bonding validators, nominators, and generating different types of solutions.
 
-use crate::Module as Staking;
-use crate::*;
 use frame_benchmarking::account;
+use frame_support::ensure;
+use frame_support::traits::CurrencyToVote;
 use frame_system::RawOrigin;
-use polymesh_common_utilities::{
-    benchs::{AccountIdOf, User, UserBuilder},
-    TestUtilsFn,
-};
-use polymesh_primitives::{AuthorizationData, Permissions, Signatory};
-use rand_chacha::{
-    rand_core::{RngCore, SeedableRng},
-    ChaChaRng,
-};
+use rand_chacha::rand_core::{RngCore, SeedableRng};
+use rand_chacha::ChaChaRng;
 use sp_io::hashing::blake2_256;
 use sp_npos_elections::*;
 use sp_runtime::DispatchError;
 
+use polymesh_common_utilities::benchs::{AccountIdOf, User, UserBuilder};
+use polymesh_common_utilities::TestUtilsFn;
+use polymesh_primitives::{AuthorizationData, Permissions, Signatory};
+
+use crate::types::ElectionSize;
+use crate::Pallet as Staking;
+use crate::*;
+
 const SEED: u32 = 0;
+
+type Identity<T> = pallet_identity::Module<T>;
 
 /// This function removes all validators and nominators from storage.
 pub fn clear_validators_and_nominators<T: Config>() {
@@ -109,13 +112,13 @@ fn _create_stash_controller<T: Config + TestUtilsFn<AccountIdOf<T>>>(
             .build("controller")
     };
     // Attach the controller key as the secondary key to the stash.
-    let auth_id = <identity::Module<T>>::add_auth(
+    let auth_id = Identity::<T>::add_auth(
         stash.did(),
         Signatory::Account(controller.account()),
         AuthorizationData::JoinIdentity(Permissions::default()),
         None,
     );
-    <identity::Module<T>>::join_identity_as_key(controller.origin().into(), auth_id)?;
+    Identity::<T>::join_identity_as_key(controller.origin().into(), auth_id)?;
     let controller_lookup = controller.lookup();
     Staking::<T>::bond(
         stash.origin().into(),
@@ -226,7 +229,7 @@ pub fn create_validators_with_nominators_for_era<T: Config + TestUtilsFn<Account
         Staking::<T>::nominate(n_controller.origin().into(), selected_validators)?;
     }
 
-    ValidatorCount::put(validators);
+    ValidatorCount::<T>::put(validators);
 
     Ok(validator_choosen)
 }
@@ -247,7 +250,7 @@ pub fn get_weak_solution<T: Config>(
     <Validators<T>>::iter().for_each(|(who, _p)| {
         *backing_stake_of
             .entry(who.clone())
-            .or_insert_with(|| Zero::zero()) += <Module<T>>::slashable_balance_of(&who)
+            .or_insert_with(|| Zero::zero()) += <Pallet<T>>::slashable_balance_of(&who)
     });
 
     // elect winners. We chose the.. least backed ones.
@@ -257,7 +260,7 @@ pub fn get_weak_solution<T: Config>(
         .iter()
         .rev()
         .cloned()
-        .take(<Module<T>>::validator_count() as usize)
+        .take(<Pallet<T>>::validator_count() as usize)
         .collect();
 
     let mut staked_assignments: Vec<StakedAssignment<T::AccountId>> = Vec::new();
@@ -270,7 +273,7 @@ pub fn get_weak_solution<T: Config>(
             who: w.clone(),
             distribution: vec![(
                 w.clone(),
-                <Module<T>>::slashable_balance_of_vote_weight(&w, T::Currency::total_issuance())
+                <Pallet<T>>::slashable_balance_of_vote_weight(&w, T::Currency::total_issuance())
                     .into(),
             )],
         })
@@ -281,8 +284,8 @@ pub fn get_weak_solution<T: Config>(
     }
 
     // helpers for building the compact
-    let snapshot_validators = <Module<T>>::snapshot_validators().unwrap();
-    let snapshot_nominators = <Module<T>>::snapshot_nominators().unwrap();
+    let snapshot_validators = <Pallet<T>>::snapshot_validators().unwrap();
+    let snapshot_nominators = <Pallet<T>>::snapshot_nominators().unwrap();
 
     let nominator_index = |a: &T::AccountId| -> Option<NominatorIndex> {
         snapshot_nominators
@@ -307,7 +310,7 @@ pub fn get_weak_solution<T: Config>(
     let score = {
         let staked = assignment_ratio_to_staked::<_, OffchainAccuracy, _>(
             low_accuracy_assignment.clone(),
-            <Module<T>>::slashable_balance_of_fn(),
+            <Pallet<T>>::weight_of_fn(),
         );
 
         let support_map = to_supports::<T::AccountId>(staked.as_slice());
@@ -358,7 +361,7 @@ pub fn get_seq_phragmen_solution<T: Config>(
     let sp_npos_elections::ElectionResult {
         winners,
         assignments,
-    } = <Module<T>>::do_phragmen::<OffchainAccuracy>(iters).unwrap();
+    } = <Pallet<T>>::do_phragmen::<OffchainAccuracy>(iters).unwrap();
 
     offchain_election::prepare_submission::<T>(
         assignments,
@@ -381,8 +384,8 @@ pub fn get_single_winner_solution<T: Config>(
     ),
     &'static str,
 > {
-    let snapshot_validators = <Module<T>>::snapshot_validators().unwrap();
-    let snapshot_nominators = <Module<T>>::snapshot_nominators().unwrap();
+    let snapshot_validators = <Pallet<T>>::snapshot_validators().unwrap();
+    let snapshot_nominators = <Pallet<T>>::snapshot_nominators().unwrap();
 
     let val_index = snapshot_validators
         .iter()
@@ -406,9 +409,9 @@ pub fn get_single_winner_solution<T: Config>(
         ..Default::default()
     };
     let score = ElectionScore {
-      minimal_stake: stake,
-      sum_stake: stake,
-      sum_stake_squared: stake * stake
+        minimal_stake: stake,
+        sum_stake: stake,
+        sum_stake_squared: stake * stake,
     };
     let size = ElectionSize {
         validators: snapshot_validators.len() as ValidatorIndex,
@@ -420,12 +423,12 @@ pub fn get_single_winner_solution<T: Config>(
 
 /// get the active era.
 pub fn current_era<T: Config>() -> EraIndex {
-    <Module<T>>::current_era().unwrap_or(0)
+    <Pallet<T>>::current_era().unwrap_or(0)
 }
 
 /// initialize the first era.
-pub fn init_active_era() {
-    ActiveEra::put(ActiveEraInfo {
+pub fn init_active_era<T: Config>() {
+    ActiveEra::<T>::put(ActiveEraInfo {
         index: 1,
         start: None,
     })
@@ -443,7 +446,7 @@ pub fn create_assignments_for_offchain<T: Config>(
     ),
     &'static str,
 > {
-    let ratio = OffchainAccuracy::from_rational(1, MAX_NOMINATIONS);
+    let ratio = OffchainAccuracy::from_rational(1, T::MaxNominations::get());
     let assignments: Vec<Assignment<T::AccountId, OffchainAccuracy>> = <Nominators<T>>::iter()
         .take(num_assignments as usize)
         .map(|(n, t)| Assignment {

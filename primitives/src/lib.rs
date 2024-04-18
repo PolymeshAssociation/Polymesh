@@ -288,8 +288,9 @@ macro_rules! const_assert {
 #[macro_export]
 macro_rules! storage_migration_ver {
     ($ver:literal) => {
+        #[derive(frame_support::pallet_prelude::MaxEncodedLen)]
         #[derive(Encode, Decode, scale_info::TypeInfo)]
-        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+        #[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
         pub struct Version(u8);
 
         impl Version {
