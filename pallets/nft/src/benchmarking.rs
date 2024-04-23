@@ -30,7 +30,7 @@ fn create_collection<T: Config>(
     let collection_keys: NFTCollectionKeys = creates_keys_register_metadata_types::<T>(n);
     Module::<T>::create_nft_collection(origin, ticker, nft_type, collection_keys)
         .expect("failed to create nft collection");
-    Module::<T>::collection_id()
+    Module::<T>::current_collection_id()
 }
 
 /// Creates a set of `NFTCollectionKeys` made of `n` global keys and registers `n` global asset metadata types.
