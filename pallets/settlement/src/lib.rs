@@ -312,6 +312,12 @@ decl_module! {
     pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::RuntimeOrigin {
         type Error = Error<T>;
 
+        const MaxNumberOfOffChainAssets: u32 = T::MaxNumberOfOffChainAssets::get();
+        const MaxNumberOfFungibleAssets: u32 = T::MaxNumberOfFungibleAssets::get();
+        const MaxNumberOfNFTsPerLeg: u32 = T::MaxNumberOfNFTsPerLeg::get();
+        const MaxNumberOfNFTs: u32 = T::MaxNumberOfNFTs::get();
+        const MaxNumberOfVenueSigners: u32 = T::MaxNumberOfVenueSigners::get();
+
         fn deposit_event() = default;
 
         /// Registers a new venue.
