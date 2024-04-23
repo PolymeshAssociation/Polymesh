@@ -33,9 +33,10 @@ use polymesh_primitives::settlement::{
     VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::{
-    AccountId, AuthorizationData, Balance, Claim, Condition, ConditionType, Fund, FundDescription,
-    IdentityId, Memo, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId,
-    PortfolioKind, PortfolioName, PortfolioNumber, Signatory, Ticker, WeightMeter,
+    AccountId, AuthorizationData, Balance, Claim, ClaimType, Condition, ConditionType, CountryCode,
+    Fund, FundDescription, IdentityId, Memo, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs,
+    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, Scope, Signatory, Ticker,
+    TrustedFor, TrustedIssuer, WeightMeter,
 };
 use sp_keyring::AccountKeyring;
 
@@ -679,6 +680,7 @@ fn settle_on_block() {
 #[test]
 fn failed_execution() {
     ExtBuilder::default().build().execute_with(|| {
+        let dave: User = User::new(AccountKeyring::Dave);
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER, TICKER2]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER, TICKER2]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
@@ -687,6 +689,21 @@ fn failed_execution() {
         assert_ok!(ComplianceManager::reset_asset_compliance(
             Origin::signed(AccountKeyring::Bob.to_account_id()),
             TICKER2,
+        ));
+        assert_ok!(ComplianceManager::add_compliance_requirement(
+            bob.origin(),
+            TICKER2,
+            Vec::new(),
+            vec![Condition {
+                condition_type: ConditionType::IsPresent(Claim::Jurisdiction(
+                    CountryCode::BR,
+                    Scope::Identity(alice.did)
+                )),
+                issuers: vec![TrustedIssuer {
+                    issuer: dave.did,
+                    trusted_for: TrustedFor::Specific(vec![ClaimType::Jurisdiction])
+                }]
+            }],
         ));
         let block_number = System::block_number() + 1;
         let amount = 100u128;
@@ -1931,8 +1948,9 @@ fn dirty_storage_with_tx() {
 #[test]
 fn reject_failed_instruction() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
+        let dave = User::new(AccountKeyring::Dave);
+        let alice = User::new(AccountKeyring::Alice);
 
         let venue_counter = create_token_and_venue(TICKER, alice);
         let amount = 100u128;
@@ -1953,6 +1971,22 @@ fn reject_failed_instruction() {
         assert_ok!(ComplianceManager::reset_asset_compliance(
             alice.origin(),
             TICKER
+        ));
+
+        assert_ok!(ComplianceManager::add_compliance_requirement(
+            alice.origin(),
+            TICKER,
+            Vec::new(),
+            vec![Condition {
+                condition_type: ConditionType::IsPresent(Claim::Jurisdiction(
+                    CountryCode::BR,
+                    Scope::Identity(bob.did)
+                )),
+                issuers: vec![TrustedIssuer {
+                    issuer: dave.did,
+                    trusted_for: TrustedFor::Specific(vec![ClaimType::Jurisdiction])
+                }]
+            }],
         ));
 
         // Go to next block to have the scheduled execution run and ensure it has failed.

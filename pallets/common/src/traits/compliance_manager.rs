@@ -79,8 +79,8 @@ decl_event!(
 );
 
 pub trait ComplianceFnConfig {
-    /// Returns `false` if there are no requirements for the asset or if all of the
-    /// asset's requirement don't hold, otherwise returns`true`.
+    /// Returns `true` if there are no requirements or if any requirement is satisfied.
+    /// Otherwise, returns `false`.
     fn is_compliant(
         ticker: &Ticker,
         sender_did: IdentityId,

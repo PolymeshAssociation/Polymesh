@@ -6,7 +6,8 @@ use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::settlement::{Leg, SettlementType, VenueDetails, VenueId, VenueType};
 use polymesh_primitives::{
-    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, Ticker, WeightMeter,
+    Claim, ClaimType, Condition, ConditionType, CountryCode, PortfolioId, PortfolioKind,
+    PortfolioName, PortfolioNumber, Scope, Ticker, TrustedFor, TrustedIssuer, WeightMeter,
 };
 
 use crate::storage::User;
@@ -335,6 +336,7 @@ fn base_transfer_invalid_compliance() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(AccountKeyring::Bob);
         let alice = User::new(AccountKeyring::Alice);
+        let dave: User = User::new(AccountKeyring::Dave);
         let ticker = Ticker::from_slice_truncated(b"TICKER");
         let alice_default_portfolio = PortfolioId {
             did: alice.did,
@@ -364,6 +366,21 @@ fn base_transfer_invalid_compliance() {
             1_000,
             PortfolioKind::Default
         ),);
+        assert_ok!(ComplianceManager::add_compliance_requirement(
+            alice.origin(),
+            ticker,
+            Vec::new(),
+            vec![Condition {
+                condition_type: ConditionType::IsPresent(Claim::Jurisdiction(
+                    CountryCode::BR,
+                    Scope::Identity(alice.did)
+                )),
+                issuers: vec![TrustedIssuer {
+                    issuer: dave.did,
+                    trusted_for: TrustedFor::Specific(vec![ClaimType::Jurisdiction])
+                }]
+            }],
+        ));
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_noop!(
             Asset::base_transfer(
