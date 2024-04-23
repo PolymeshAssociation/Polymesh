@@ -718,8 +718,8 @@ impl<T: Config> ComplianceFnConfig for Module<T> {
     ) -> Result<bool, DispatchError> {
         let asset_compliance = Self::asset_compliance(ticker);
 
-        // If compliance is paused, the rules are not checked
-        if asset_compliance.paused {
+        // If there are no requirements or compliance is paused, no rules are checked.
+        if asset_compliance.paused || asset_compliance.requirements.is_empty() {
             return Ok(true);
         }
 
