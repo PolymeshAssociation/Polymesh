@@ -1920,11 +1920,6 @@ impl<T: Config> Module<T> {
             transfer_value,
         )?;
 
-        ensure!(
-            Identity::<T>::has_valid_cdd(receiver_portfolio.did),
-            Error::<T>::InvalidTransferInvalidReceiverCDD
-        );
-
         // Controllers are exempt from statistics, compliance and frozen rules.
         if is_controller_transfer {
             return Ok(());
@@ -1932,6 +1927,11 @@ impl<T: Config> Module<T> {
 
         // Verifies that the asset is not frozen
         ensure!(!Frozen::get(ticker), Error::<T>::InvalidTransferFrozenAsset);
+
+        ensure!(
+            Identity::<T>::has_valid_cdd(receiver_portfolio.did),
+            Error::<T>::InvalidTransferInvalidReceiverCDD
+        );
 
         ensure!(
             Identity::<T>::has_valid_cdd(sender_portfolio.did),

@@ -500,12 +500,6 @@ impl<T: Config> Module<T> {
             .checked_add(nfts_transferred)
             .ok_or(Error::<T>::InvalidNFTTransferCountOverflow)?;
 
-        // Verifies if the receiver has a valid CDD claim.
-        ensure!(
-            Identity::<T>::has_valid_cdd(receiver_portfolio.did),
-            Error::<T>::InvalidNFTTransferInvalidReceiverCDD
-        );
-
         // Controllers are exempt from compliance and frozen rules.
         if is_controller_transfer {
             return Ok(());
@@ -515,6 +509,12 @@ impl<T: Config> Module<T> {
         ensure!(
             !Frozen::get(nfts.ticker()),
             Error::<T>::InvalidNFTTransferFrozenAsset
+        );
+
+        // Verifies if the receiver has a valid CDD claim.
+        ensure!(
+            Identity::<T>::has_valid_cdd(receiver_portfolio.did),
+            Error::<T>::InvalidNFTTransferInvalidReceiverCDD
         );
 
         // Verifies if the sender has a valid CDD claim.
