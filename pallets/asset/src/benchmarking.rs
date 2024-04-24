@@ -90,7 +90,7 @@ fn register_metadata_global_name<T: Config>() -> AssetMetadataKey {
     Module::<T>::register_asset_metadata_global_type(root, name, spec)
         .expect("`register_asset_metadata_global_type` failed");
 
-    let key = Module::<T>::current_asset_metadata_global_key();
+    let key = Module::<T>::current_asset_metadata_global_key().unwrap();
     AssetMetadataKey::Global(key)
 }
 
