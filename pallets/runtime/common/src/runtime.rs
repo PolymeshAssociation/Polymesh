@@ -579,9 +579,10 @@ macro_rules! runtime_apis {
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
         use polymesh_primitives::asset::GranularCanTransferResult;
         use polymesh_primitives::settlement::{InstructionId, ExecuteInstructionInfo, AffirmationCount};
+        use polymesh_primitives::compliance_manager::{AssetComplianceResult, ComplianceReport};
         use polymesh_primitives::{
-            asset::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, NFTs,
-            PortfolioId, Signatory, Ticker, WeightMeter, IdentityClaim
+            asset::CheckpointId, IdentityId, Index, NFTs,PortfolioId, Signatory, Ticker,
+            WeightMeter, IdentityClaim
         };
 
         /// The address format for describing accounts.
@@ -1035,6 +1036,23 @@ macro_rules! runtime_apis {
                     Settlement::execute_instruction_report(&instruction_id, &mut weight_meter)
                 }
 
+            }
+
+            impl node_rpc_runtime_api::compliance::ComplianceApi<Block> for Runtime {
+                #[inline]
+                fn compliance_report(
+                    ticker: &Ticker,
+                    sender_identity: &IdentityId,
+                    receiver_identity: &IdentityId,
+                ) -> FrameResult<ComplianceReport, DispatchError> {
+                    let mut weight_meter = WeightMeter::max_limit_no_minimum();
+                    ComplianceManager::compliance_report(
+                        ticker,
+                        sender_identity,
+                        receiver_identity,
+                        &mut weight_meter
+                    )
+                }
             }
 
             $($extra)*
