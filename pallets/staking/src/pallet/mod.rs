@@ -1013,6 +1013,11 @@ pub mod pallet {
                 return Err(Error::<T>::AlreadyBonded.into());
             }
 
+            // An existing controller cannot become a stash.
+            if <Ledger<T>>::contains_key(&stash) {
+                return Err(Error::<T>::AlreadyPaired.into());
+            }
+
             let controller = T::Lookup::lookup(controller)?;
 
             if <Ledger<T>>::contains_key(&controller) {
@@ -1407,11 +1412,18 @@ pub mod pallet {
             controller: AccountIdLookupOf<T>,
         ) -> DispatchResult {
             let stash = ensure_signed(origin)?;
+
             let old_controller = Self::bonded(&stash).ok_or(Error::<T>::NotStash)?;
             let controller = T::Lookup::lookup(controller)?;
+
             if <Ledger<T>>::contains_key(&controller) {
                 return Err(Error::<T>::AlreadyPaired.into());
             }
+            // Prevents stashes which are controllers from calling the extrinsic
+            if <Ledger<T>>::contains_key(&stash) {
+                return Err(Error::<T>::BadState.into());
+            }
+
             if controller != old_controller {
                 <Bonded<T>>::insert(&stash, &controller);
                 if let Some(l) = <Ledger<T>>::take(&old_controller) {
