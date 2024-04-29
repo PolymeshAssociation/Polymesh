@@ -1231,6 +1231,21 @@
       "sender_asset_count": "AssetCount",
       "receiver_asset_count": "AssetCount",
       "offchain_count": "u32"
+    },
+    "ComplianceReport": {
+      "any_requirement_satistifed": "bool",
+      "paused_compliance": "bool",
+      "requirements": "Vec<RequirementReport>"
+    },
+    "RequirementReport": {
+      "requirement_satisfied": "bool",
+      "id": "u32",
+      "sender_conditions": "Vec<ConditionReport>",
+      "receiver_conditions": "Vec<ConditionReport>"
+    },
+    "ConditionReport": {
+      "satisfied": "bool",
+      "condition": "Condition"
     }
   },
   "rpc": {
@@ -1581,6 +1596,71 @@
           }
         ],
         "type": "AffirmationCount"
+      },
+      "get_transfer_report": {
+        "description": "Returns `Ok` if the leg can be transferred. Otherwise, returns a vector containing all errors for the transfer.",
+        "params": [
+          {
+            "name": "leg",
+            "type": "Leg",
+            "isOptional": false
+          },
+          {
+            "name": "skip_locked_check",
+            "type": "bool",
+            "isOptional": false
+          },
+          {
+            "name": "blockHash",
+            "type": "Hash",
+            "isOptional": true
+          }
+        ],
+        "type": "Result<(), Vec<DispatchError>>"
+      },
+      "get_execute_instruction_report": {
+        "description": "Returns `Ok` if the instruction can be executed. Otherwise, returns a vector containing all errors for the execution.",
+        "params": [
+          {
+            "name": "instruction_id",
+            "type": "InstructionId",
+            "isOptional": false
+          },
+          {
+            "name": "blockHash",
+            "type": "Hash",
+            "isOptional": true
+          }
+        ],
+        "type": "Result<(), Vec<DispatchError>>"
+      }
+    },
+    "compliance": {
+      "compliance_report": {
+        "description": "Checks all compliance requirements for the given ticker.",
+        "params": [
+          {
+            "name": "ticker",
+            "type": "Ticker",
+            "isOptional": false
+          },
+          {
+            "name": "sender_identity",
+            "type": "IdentityId",
+            "isOptional": false
+          },
+          {
+            "name": "receiver_identity",
+            "type": "IdentityId",
+            "isOptional": false
+          },
+          {
+            "name": "blockHash",
+            "type": "Hash",
+            "isOptional": true
+          }
+        ],
+        "type": "Result<ComplianceReport, DispatchError>"
       }
     }
   },
