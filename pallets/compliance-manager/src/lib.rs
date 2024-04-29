@@ -804,37 +804,21 @@ impl<T: Config> Module<T> {
             // The requirement is satisfied only if all sender and receiver conditions hold.
             let mut requirement_satisfied = true;
             // Get the [`ConditionrReport`] for all sender conditions
-            let mut sender_conditions_report = Vec::new();
-            for sender_condition in requirement.sender_conditions {
-                let is_condition_satisfied = Self::is_condition_satisfied(
-                    ticker,
-                    *sender_identity,
-                    &sender_condition,
-                    &mut None,
-                    weight_meter,
-                )?;
-                sender_conditions_report.push(ConditionReport::new(
-                    sender_condition,
-                    is_condition_satisfied,
-                ));
-                requirement_satisfied = requirement_satisfied && is_condition_satisfied;
-            }
+            let sender_conditions_report = Self::get_conditions_report(
+                ticker,
+                *sender_identity,
+                requirement.sender_conditions,
+                &mut requirement_satisfied,
+                weight_meter,
+            )?;
             // Get the [`ConditionrReport`] for all receiver conditions
-            let mut receiver_conditions_report = Vec::new();
-            for receiver_condition in requirement.receiver_conditions {
-                let is_condition_satisfied = Self::is_condition_satisfied(
-                    ticker,
-                    *receiver_identity,
-                    &receiver_condition,
-                    &mut None,
-                    weight_meter,
-                )?;
-                receiver_conditions_report.push(ConditionReport::new(
-                    receiver_condition,
-                    is_condition_satisfied,
-                ));
-                requirement_satisfied = requirement_satisfied && is_condition_satisfied;
-            }
+            let receiver_conditions_report = Self::get_conditions_report(
+                ticker,
+                *receiver_identity,
+                requirement.receiver_conditions,
+                &mut requirement_satisfied,
+                weight_meter,
+            )?;
             requirements_report.push(RequirementReport::new(
                 sender_conditions_report,
                 receiver_conditions_report,
@@ -849,5 +833,28 @@ impl<T: Config> Module<T> {
             any_requirement_satisfied,
             asset_compliance.paused,
         ))
+    }
+
+    /// Returns all [`ConditionReport`] for the given `conditions`.
+    fn get_conditions_report(
+        ticker: &Ticker,
+        identity: IdentityId,
+        conditions: Vec<Condition>,
+        requirement_satisfied: &mut bool,
+        weight_meter: &mut WeightMeter,
+    ) -> Result<Vec<ConditionReport>, DispatchError> {
+        let mut conditions_report = Vec::new();
+        for condition in conditions {
+            let is_condition_satisfied = Self::is_condition_satisfied(
+                ticker,
+                identity,
+                &condition,
+                &mut None,
+                weight_meter,
+            )?;
+            conditions_report.push(ConditionReport::new(condition, is_condition_satisfied));
+            *requirement_satisfied = *requirement_satisfied && is_condition_satisfied;
+        }
+        Ok(conditions_report)
     }
 }

@@ -7,7 +7,7 @@ use pallet_compliance_manager::Error as CMError;
 use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::compliance_manager::{
-    AssetComplianceResult, ComplianceReport, ComplianceRequirement, ComplianceRequirementResult,
+    ComplianceReport, ComplianceRequirement, ComplianceRequirementResult,
 };
 use polymesh_primitives::{
     AuthorizationData, Claim, ClaimType, Condition, ConditionType, CountryCode, IdentityId,

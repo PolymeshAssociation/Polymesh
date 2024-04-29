@@ -953,6 +953,7 @@ macro_rules! runtime_apis {
             }
 
             impl rpc_api_asset::AssetApi<Block, polymesh_primitives::AccountId> for Runtime {
+                #[deprecated]
                 #[inline]
                 fn can_transfer_granular(
                     from_custodian: Option<IdentityId>,
