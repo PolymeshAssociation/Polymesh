@@ -52,3 +52,4 @@ pub mod pallet_timestamp;
 pub mod pallet_treasury;
 pub mod pallet_utility;
 pub mod polymesh_contracts;
+pub mod pallet_state_trie_migration;

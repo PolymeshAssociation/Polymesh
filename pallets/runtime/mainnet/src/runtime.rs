@@ -174,6 +174,11 @@ parameter_types! {
 
     pub const ReportLongevity: u64 =
         BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
+
+    // State trie Migration
+    pub const MigrationSignedDepositPerItem: Balance = 0;
+    pub const MigrationSignedDepositBase: Balance = 0;
+    pub const MaxKeyLen: u32 = 512;
 }
 
 polymesh_runtime_common::misc_pallet_impls!();
@@ -371,6 +376,8 @@ construct_runtime!(
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
 
         Nft: pallet_nft::{Pallet, Call, Storage, Event},
+
+        StateTrieMigration: pallet_state_trie_migration::{Pallet, Call, Storage, Event<T> } = 100,
     }
 );
 

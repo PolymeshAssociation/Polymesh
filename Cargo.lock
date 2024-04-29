@@ -5826,6 +5826,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-state-trie-migration"
+version = "4.0.0-dev"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v6-monthly-2023-03#74ef745933703849d756dc16d41d938157d6943a"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec 3.6.9",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 5.0.0",
+]
+
+[[package]]
 name = "pallet-statistics"
 version = "0.1.0"
 dependencies = [
@@ -6813,6 +6830,7 @@ dependencies = [
  "pallet-staking",
  "pallet-staking-reward-curve",
  "pallet-staking-rpc-runtime-api",
+ "pallet-state-trie-migration",
  "pallet-statistics",
  "pallet-sto",
  "pallet-sudo",
@@ -6896,6 +6914,7 @@ dependencies = [
  "pallet-staking",
  "pallet-staking-reward-curve",
  "pallet-staking-rpc-runtime-api",
+ "pallet-state-trie-migration",
  "pallet-statistics",
  "pallet-sto",
  "pallet-sudo",
@@ -6980,6 +6999,7 @@ dependencies = [
  "pallet-staking",
  "pallet-staking-reward-curve",
  "pallet-staking-rpc-runtime-api",
+ "pallet-state-trie-migration",
  "pallet-statistics",
  "pallet-sto",
  "pallet-sudo",
@@ -7147,6 +7167,7 @@ dependencies = [
  "pallet-session",
  "pallet-settlement",
  "pallet-staking",
+ "pallet-state-trie-migration",
  "pallet-statistics",
  "pallet-sto",
  "pallet-test-utils",
@@ -11202,7 +11223,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "digest 0.10.7",
  "rand 0.8.5",
  "static_assertions",
