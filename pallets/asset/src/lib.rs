@@ -1381,7 +1381,7 @@ impl<T: Config> Module<T> {
 
         // Next global key.
         let key = Self::update_current_asset_metadata_global_key()?;
-        AssetMetadataNextGlobalKey::try_mutate(try_next_pre::<T, _>)?;
+        AssetMetadataNextGlobalKey::set(key);
 
         // Store global key <-> name mapping.
         AssetMetadataGlobalNameToKey::insert(&name, key);
@@ -2331,7 +2331,7 @@ impl<T: Config> Module<T> {
 
         // Next local key for asset.
         let key = Self::update_current_asset_metadata_local_key(&ticker)?;
-        AssetMetadataNextLocalKey::try_mutate(ticker, try_next_pre::<T, _>)?;
+        AssetMetadataNextLocalKey::insert(ticker, key);
 
         // Store local key <-> name mapping.
         AssetMetadataLocalNameToKey::insert(ticker, &name, key);
@@ -2583,11 +2583,9 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
 }
 
 pub mod migration {
+    use frame_support::storage::{IterableStorageMap, StorageMap, StorageValue};
     use sp_runtime::runtime_logger::RuntimeLogger;
 
-    use crate::sp_api_hidden_includes_decl_storage::hidden_include::IterableStorageMap;
-    use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageMap;
-    use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageValue;
     use crate::{
         AssetMetadataGlobalKey, AssetMetadataNextGlobalKey, AssetMetadataNextLocalKey, Config,
         CurrentAssetMetadataGlobalKey, CurrentAssetMetadataLocalKey,

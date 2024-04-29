@@ -304,7 +304,7 @@ impl<T: Config> Module<T> {
 
         // Creates the nft collection
         let collection_id = Self::update_current_collection_id()?;
-        NextCollectionId::try_mutate(try_next_pre::<T, _>)?;
+        NextCollectionId::set(collection_id);
         let nft_collection = NFTCollection::new(collection_id, ticker.clone());
         Collection::insert(&collection_id, nft_collection);
         CollectionKeys::insert(&collection_id, collection_keys);
@@ -370,7 +370,7 @@ impl<T: Config> Module<T> {
             .checked_add(1)
             .ok_or(Error::<T>::BalanceOverflow)?;
         let nft_id = Self::update_current_nft_id(&collection_id)?;
-        NextNFTId::try_mutate(&collection_id, try_next_pre::<T, _>)?;
+        NextNFTId::insert(&collection_id, nft_id);
         NFTsInCollection::insert(&ticker, new_supply);
         NumberOfNFTs::insert(&ticker, &caller_portfolio.did, new_balance);
         for (metadata_key, metadata_value) in nft_attributes.into_iter() {
@@ -668,11 +668,9 @@ impl<T: Config> NFTTrait<T::RuntimeOrigin> for Module<T> {
 }
 
 pub mod migration {
+    use frame_support::storage::{IterableStorageMap, StorageMap, StorageValue};
     use sp_runtime::runtime_logger::RuntimeLogger;
 
-    use crate::sp_api_hidden_includes_decl_storage::hidden_include::IterableStorageMap;
-    use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageMap;
-    use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageValue;
     use crate::{
         Config, CurrentCollectionId, CurrentNFTId, NFTCollectionId, NextCollectionId, NextNFTId,
     };
