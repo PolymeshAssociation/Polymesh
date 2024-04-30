@@ -142,8 +142,8 @@ parameter_types! {
     pub const MaxNumberOfNFTsMoves: u32 = 100;
 
     // State trie Migration
-    pub const MigrationSignedDepositPerItem: Balance = 0;
-    pub const MigrationSignedDepositBase: Balance = 0;
+    pub const MigrationSignedDepositPerItem: Balance = 1_000;
+    pub const MigrationSignedDepositBase: Balance = 1_000_000;
     pub const MaxKeyLen: u32 = 512;
 }
 
