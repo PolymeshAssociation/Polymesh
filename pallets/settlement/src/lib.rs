@@ -2567,13 +2567,13 @@ impl<T: Config> Module<T> {
         )
     }
 
-    /// Returns `Ok` if the leg can be transferred. Otherwise, returns a vector containing all errors for the transfer.
+    /// Returns a vector containing all errors for the transfer. An empty vec means there's no error.
     #[rustfmt::skip]
     pub fn transfer_report(
         leg: Leg,
         skip_locked_check: bool,
         weight_meter: &mut WeightMeter,
-    ) -> Result<(), Vec<DispatchError>> {
+    ) -> Vec<DispatchError> {
         match leg {
             Leg::Fungible { sender, receiver, ticker, amount } => {
                 <Asset<T>>::asset_transfer_report(
@@ -2583,7 +2583,7 @@ impl<T: Config> Module<T> {
                     amount,
                     skip_locked_check,
                     weight_meter,
-                )?;
+                )
             }
             Leg::NonFungible { sender, receiver, nfts} => {
                 <Nft<T>>::nft_transfer_report(
@@ -2592,18 +2592,19 @@ impl<T: Config> Module<T> {
                     &nfts,
                     skip_locked_check,
                     weight_meter
-                )?;
+                )
             }
-            Leg::OffChain { .. } => {},
+            Leg::OffChain { .. } => {
+                Vec::new()
+            },
         }
-        Ok(())
     }
 
-    /// Returns `Ok` if the instruction can be executed. Otherwise, returns a vector containing all errors for the execution.
+    /// Returns a vector containing all errors for the execution. An empty vec means there's no error.
     pub fn execute_instruction_report(
         instruction_id: &InstructionId,
         weight_meter: &mut WeightMeter,
-    ) -> Result<(), Vec<DispatchError>> {
+    ) -> Vec<DispatchError> {
         let mut execution_errors = Vec::new();
 
         if Self::instruction_affirms_pending(instruction_id) != 0 {
@@ -2633,15 +2634,11 @@ impl<T: Config> Module<T> {
         for (leg_id, leg) in instruction_legs {
             let leg_status = Self::instruction_leg_status(instruction_id, leg_id);
             if leg_status == LegStatus::ExecutionPending {
-                if let Err(e) = Self::transfer_report(leg, true, weight_meter) {
-                    execution_errors.extend_from_slice(&e);
-                }
+                let transfer_errors = Self::transfer_report(leg, true, weight_meter);
+                execution_errors.extend_from_slice(&transfer_errors);
             }
         }
 
-        if !execution_errors.is_empty() {
-            return Err(execution_errors);
-        }
-        Ok(())
+        execution_errors
     }
 }

@@ -472,8 +472,9 @@ impl<T: Config> Module<T> {
         weight_meter: Option<&mut WeightMeter>,
     ) -> DispatchResult {
         // Verifies if there is a collection associated to the NFTs
-        CollectionTicker::try_get(nfts.ticker())
-            .map_err(|_| Error::<T>::InvalidNFTTransferCollectionNotFound)?;
+        if !CollectionTicker::contains_key(nfts.ticker()) {
+            return Err(Error::<T>::InvalidNFTTransferCollectionNotFound.into());
+        }
 
         // Verifies that the sender and receiver are not the same
         ensure!(
@@ -621,20 +622,20 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns `Ok` if all nfts can be transferred. Otherwise, returns a vector containing all errors for the transfer.
+    /// Returns a vector containing all errors for the transfer. An empty vec means there's no error.
     pub fn nft_transfer_report(
         sender_portfolio: &PortfolioId,
         receiver_portfolio: &PortfolioId,
         nfts: &NFTs,
         skip_locked_check: bool,
         weight_meter: &mut WeightMeter,
-    ) -> Result<(), Vec<DispatchError>> {
+    ) -> Vec<DispatchError> {
         let mut nft_transfer_errors = Vec::new();
 
         // If the collection doesn't exist, there's no point in assessing anything else
-        CollectionTicker::try_get(nfts.ticker()).or(Err(vec![
-            Error::<T>::InvalidNFTTransferCollectionNotFound.into(),
-        ]))?;
+        if !CollectionTicker::contains_key(nfts.ticker()) {
+            return vec![Error::<T>::InvalidNFTTransferCollectionNotFound.into()];
+        }
 
         if Frozen::get(nfts.ticker()) {
             nft_transfer_errors.push(Error::<T>::InvalidNFTTransferFrozenAsset.into());
@@ -703,10 +704,7 @@ impl<T: Config> Module<T> {
             }
         }
 
-        if !nft_transfer_errors.is_empty() {
-            return Err(nft_transfer_errors);
-        }
-        Ok(())
+        nft_transfer_errors
     }
 }
 

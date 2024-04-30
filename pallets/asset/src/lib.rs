@@ -1963,7 +1963,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns `Ok` if the asset can be transferred. Otherwise, returns a vector containing all errors for the transfer.
+    /// Returns a vector containing all errors for the transfer. An empty vec means there's no error.
     pub fn asset_transfer_report(
         sender_portfolio: &PortfolioId,
         receiver_portfolio: &PortfolioId,
@@ -1971,14 +1971,18 @@ impl<T: Config> Module<T> {
         transfer_value: Balance,
         skip_locked_check: bool,
         weight_meter: &mut WeightMeter,
-    ) -> Result<(), Vec<DispatchError>> {
+    ) -> Vec<DispatchError> {
         let mut asset_transfer_errors = Vec::new();
 
         // If the security token doesn't exist or if the token is an NFT, there's no point in assessing anything else
-        let security_token =
-            Tokens::try_get(ticker).or(Err(vec![Error::<T>::NoSuchAsset.into()]))?;
+        let security_token = {
+            match Tokens::try_get(ticker) {
+                Ok(security_token) => security_token,
+                Err(_) => return vec![Error::<T>::NoSuchAsset.into()],
+            }
+        };
         if !security_token.asset_type.is_fungible() {
-            return Err(vec![Error::<T>::UnexpectedNonFungibleToken.into()]);
+            return vec![Error::<T>::UnexpectedNonFungibleToken.into()];
         }
 
         if let Err(e) = Self::ensure_token_granular(&security_token, &transfer_value) {
@@ -2065,10 +2069,7 @@ impl<T: Config> Module<T> {
             }
         }
 
-        if !asset_transfer_errors.is_empty() {
-            return Err(asset_transfer_errors);
-        }
-        Ok(())
+        asset_transfer_errors
     }
 
     // Get the total supply of an asset `id`.

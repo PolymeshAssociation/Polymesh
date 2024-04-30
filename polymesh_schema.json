@@ -1598,7 +1598,7 @@
         "type": "AffirmationCount"
       },
       "get_transfer_report": {
-        "description": "Returns `Ok` if the leg can be transferred. Otherwise, returns a vector containing all errors for the transfer.",
+        "description": "Returns a vector containing all errors for the transfer. An empty vec means there's no error.",
         "params": [
           {
             "name": "leg",
@@ -1616,10 +1616,10 @@
             "isOptional": true
           }
         ],
-        "type": "Result<(), Vec<DispatchError>>"
+        "type": "Vec<DispatchError>"
       },
       "get_execute_instruction_report": {
-        "description": "Returns `Ok` if the instruction can be executed. Otherwise, returns a vector containing all errors for the execution.",
+        "description": "Returns a vector containing all errors for the execution. An empty vec means there's no error.",
         "params": [
           {
             "name": "instruction_id",
@@ -1632,7 +1632,7 @@
             "isOptional": true
           }
         ],
-        "type": "Result<(), Vec<DispatchError>>"
+        "type": "Vec<DispatchError>"
       }
     },
     "compliance": {

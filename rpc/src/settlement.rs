@@ -55,14 +55,14 @@ pub trait SettlementApi<BlockHash> {
         leg: Leg,
         skip_locked_check: bool,
         at: Option<BlockHash>,
-    ) -> RpcResult<Result<(), Vec<DispatchError>>>;
+    ) -> RpcResult<Vec<DispatchError>>;
 
     #[method(name = "settlement_getExecuteIntructionReport")]
     fn get_execute_instruction_report(
         &self,
         instruction_id: InstructionId,
         at: Option<BlockHash>,
-    ) -> RpcResult<Result<(), Vec<DispatchError>>>;
+    ) -> RpcResult<Vec<DispatchError>>;
 }
 
 /// An implementation of Settlement specific RPC methods.
@@ -133,7 +133,7 @@ where
         leg: Leg,
         skip_locked_check: bool,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Result<(), Vec<DispatchError>>> {
+    ) -> RpcResult<Vec<DispatchError>> {
         let api = self.client.runtime_api();
         // If the block hash is not supplied assume the best block.
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
@@ -153,7 +153,7 @@ where
         &self,
         instruction_id: InstructionId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Result<(), Vec<DispatchError>>> {
+    ) -> RpcResult<Vec<DispatchError>> {
         let api = self.client.runtime_api();
         // If the block hash is not supplied assume the best block.
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
