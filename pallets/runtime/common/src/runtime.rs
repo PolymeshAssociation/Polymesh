@@ -17,6 +17,13 @@ pub const BENCHMARK_MAX_INCREASE: u32 = 0;
 #[macro_export]
 macro_rules! misc_pallet_impls {
     () => {
+        /// The BABE epoch configuration at genesis.
+        pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
+            sp_consensus_babe::BabeEpochConfiguration {
+                c: PRIMARY_PROBABILITY,
+                allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
+            };
+
         /// Native version.
         #[cfg(any(feature = "std", test))]
         pub fn native_version() -> NativeVersion {
@@ -717,18 +724,14 @@ macro_rules! runtime_apis {
 
             impl sp_consensus_babe::BabeApi<Block> for Runtime {
                 fn configuration() -> sp_consensus_babe::BabeConfiguration {
-                    // The choice of `c` parameter (where `1 - c` represents the
-                    // probability of a slot being empty), is done in accordance to the
-                    // slot duration and expected target block time, for safely
-                    // resisting network delays of maximum two seconds.
-                    // <https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results>
+                    let epoch_config = Babe::epoch_config().unwrap_or(BABE_GENESIS_EPOCH_CONFIG);
                     sp_consensus_babe::BabeConfiguration {
                         slot_duration: Babe::slot_duration(),
                         epoch_length: EpochDuration::get(),
-                        c: PRIMARY_PROBABILITY,
+                        c: epoch_config.c,
                         authorities: Babe::authorities().to_vec(),
                         randomness: Babe::randomness(),
-                        allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
+                        allowed_slots: epoch_config.allowed_slots,
                     }
                 }
 
