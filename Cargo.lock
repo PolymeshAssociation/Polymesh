@@ -7092,6 +7092,7 @@ dependencies = [
  "pallet-staking",
  "pallet-staking-reward-curve",
  "pallet-staking-rpc-runtime-api",
+ "pallet-state-trie-migration",
  "pallet-statistics",
  "pallet-sto",
  "pallet-sudo",
