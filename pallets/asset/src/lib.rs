@@ -2083,9 +2083,6 @@ impl<T: Config> Module<T> {
         if let Some(ref funding_round_name) = funding_round_name {
             FundingRound::insert(ticker, funding_round_name);
         }
-        Self::unverified_update_idents(caller_did, ticker, identifiers.clone());
-        // Grant owner full agent permissions.
-        <ExternalAgents<T>>::unchecked_add_agent(ticker, caller_did, AgentGroup::Full)?;
 
         AssetOwnershipRelations::insert(caller_did, ticker, AssetOwnershipRelation::AssetOwned);
         Self::deposit_event(RawEvent::AssetCreated(
@@ -2095,9 +2092,14 @@ impl<T: Config> Module<T> {
             asset_type,
             caller_did,
             asset_name,
-            identifiers,
+            identifiers.clone(),
             funding_round_name,
         ));
+
+        //These emit events which should come after the main AssetCreated event
+        Self::unverified_update_idents(caller_did, ticker, identifiers);
+        // Grant owner full agent permissions.
+        <ExternalAgents<T>>::unchecked_add_agent(ticker, caller_did, AgentGroup::Full)?;
         Ok(())
     }
 
