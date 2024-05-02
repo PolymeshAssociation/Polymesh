@@ -1596,71 +1596,6 @@
           }
         ],
         "type": "AffirmationCount"
-      },
-      "get_transfer_report": {
-        "description": "Returns a vector containing all errors for the transfer. An empty vec means there's no error.",
-        "params": [
-          {
-            "name": "leg",
-            "type": "Leg",
-            "isOptional": false
-          },
-          {
-            "name": "skip_locked_check",
-            "type": "bool",
-            "isOptional": false
-          },
-          {
-            "name": "blockHash",
-            "type": "Hash",
-            "isOptional": true
-          }
-        ],
-        "type": "Vec<DispatchError>"
-      },
-      "get_execute_instruction_report": {
-        "description": "Returns a vector containing all errors for the execution. An empty vec means there's no error.",
-        "params": [
-          {
-            "name": "instruction_id",
-            "type": "InstructionId",
-            "isOptional": false
-          },
-          {
-            "name": "blockHash",
-            "type": "Hash",
-            "isOptional": true
-          }
-        ],
-        "type": "Vec<DispatchError>"
-      }
-    },
-    "compliance": {
-      "compliance_report": {
-        "description": "Checks all compliance requirements for the given ticker.",
-        "params": [
-          {
-            "name": "ticker",
-            "type": "Ticker",
-            "isOptional": false
-          },
-          {
-            "name": "sender_identity",
-            "type": "IdentityId",
-            "isOptional": false
-          },
-          {
-            "name": "receiver_identity",
-            "type": "IdentityId",
-            "isOptional": false
-          },
-          {
-            "name": "blockHash",
-            "type": "Hash",
-            "isOptional": true
-          }
-        ],
-        "type": "Result<ComplianceReport, DispatchError>"
       }
     }
   },
@@ -1863,6 +1798,30 @@
               }
             ],
             "type": "AffirmationCount"
+          },
+          "get_transfer_report": {
+            "description": "Returns a vector containing all errors for the transfer. An empty vec means there's no error.",
+            "params": [
+              {
+                "name": "leg",
+                "type": "Leg"
+              },
+              {
+                "name": "skip_locked_check",
+                "type": "bool"
+              }
+            ],
+            "type": "Vec<DispatchError>"
+          },
+          "get_execute_instruction_report": {
+            "description": "Returns a vector containing all errors for the execution. An empty vec means there's no error.",
+            "params": [
+              {
+                "name": "instruction_id",
+                "type": "InstructionId"
+              }
+            ],
+            "type": "Vec<DispatchError>"
           }
         },
         "version": 1
@@ -1929,6 +1888,31 @@
             "description": "Retrieves curves parameters",
             "params": [],
             "type": "Vec<(Perbill, Perbill)>"
+          }
+        },
+        "version": 1
+      }
+    ],
+    "ComplianceApi": [
+      {
+        "methods": {
+          "compliance_report": {
+            "description": "Checks all compliance requirements for the given ticker.",
+            "params": [
+              {
+                "name": "ticker",
+                "type": "Ticker"
+              },
+              {
+                "name": "sender_identity",
+                "type": "IdentityId"
+              },
+              {
+                "name": "receiver_identity",
+                "type": "IdentityId"
+              }
+            ],
+            "type": "Result<ComplianceReport, DispatchError>"
           }
         },
         "version": 1
