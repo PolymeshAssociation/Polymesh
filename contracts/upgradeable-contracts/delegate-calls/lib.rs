@@ -49,7 +49,7 @@ pub mod upgradeable_contract {
     /// storage key instead of the default contract storage `ContractRootKey::ROOT_KEY`.
     ///
     /// This allows us to store the proxy contract's storage in such a way that it will not
-    /// conflict with the the default storage layout of the contract we're proxying calls to.
+    /// conflict with the default storage layout of the contract we're proxying calls to.
     impl SpreadLayout for ProxyFields {
         const FOOTPRINT: u64 =
             <AccountId as SpreadLayout>::FOOTPRINT + <Hash as SpreadLayout>::FOOTPRINT;

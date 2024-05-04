@@ -1321,7 +1321,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * 
        * If the code does not already exist a deposit is reserved from the caller
        * and unreserved only when [`Self::remove_code`] is called. The size of the reserve
-       * depends on the instrumented size of the the supplied `code`.
+       * depends on the instrumented size of the supplied `code`.
        * 
        * If the code already exists in storage it will still return `Ok` and upgrades
        * the in storage version to the current

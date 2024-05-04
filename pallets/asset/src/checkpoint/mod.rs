@@ -517,7 +517,7 @@ impl<T: Config> Module<T> {
     ///
     /// Creating a checkpoint entails:
     /// - recording the total supply,
-    /// - mapping the the ID to the `time`.
+    /// - mapping the ID to the `time`.
     fn create_at(caller_did: Option<IdentityId>, ticker: Ticker, id: CheckpointId, at: Moment) {
         // Record total supply at checkpoint ID.
         let supply = <Asset<T>>::token_details(&ticker)

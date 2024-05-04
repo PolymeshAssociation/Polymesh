@@ -491,7 +491,7 @@ benchmarks! {
 
     // This constructs a contract that is maximal expensive to instrument.
     // It creates a maximum number of metering blocks per byte.
-    // The size of the salt influences the runtime because is is hashed in order to
+    // The size of the salt influences the runtime because is hashed in order to
     // determine the contract address. All code is generated to the `call` function so that
     // we don't benchmark the actual execution of this code but merely what it takes to load
     // a code of that size into the sandbox.
