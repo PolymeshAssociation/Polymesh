@@ -84,6 +84,7 @@ pallet-babe = { version = "4.0.0-dev", default-features = false }
 pallet-authority-discovery = { version = "4.0.0-dev", default-features = false }
 pallet-insecure-randomness-collective-flip = { version = "4.0.0-dev", default-features = false }
 pallet-scheduler = { version = "4.0.0-dev", default-features = false }
+pallet-state-trie-migration = { version = "4.0.0-dev", default-features = false }
 
 frame-system = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
@@ -136,6 +137,7 @@ std = [
     "pallet-base/std",
     "pallet-babe/std",
     "pallet-balances/std",
+    "pallet-state-trie-migration/std",
     "pallet-sto/std",
     "pallet-bridge/std",
     "pallet-committee/std",
@@ -234,6 +236,7 @@ runtime-benchmarks = [
     "pallet-utility/runtime-benchmarks",
     "pallet-test-utils/runtime-benchmarks",
     "pallet-staking/runtime-benchmarks",
+    "pallet-state-trie-migration/runtime-benchmarks",
     "polymesh-common-utilities/runtime-benchmarks",
     "polymesh-contracts/runtime-benchmarks",
     "polymesh-primitives/runtime-benchmarks",
