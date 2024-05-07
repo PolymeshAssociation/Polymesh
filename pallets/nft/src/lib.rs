@@ -22,7 +22,7 @@ use polymesh_primitives::nft::{
 };
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::{
-    storage_migration_on, storage_migration_ver, IdentityId, Memo, PortfolioId, PortfolioKind,
+    storage_migrate_on, storage_migration_ver, IdentityId, Memo, PortfolioId, PortfolioKind,
     PortfolioUpdateReason, Ticker, WeightMeter,
 };
 
