@@ -242,6 +242,9 @@ parameter_types! {
     pub const MaxNumberOfVenueSigners: u32 = 50;
     pub const MaxInstructionMediators: u32 = 4;
     pub const MaxAssetMediators: u32 = 4;
+    pub const MigrationSignedDepositPerItem: Balance = 0;
+    pub const MigrationSignedDepositBase: Balance = 0;
+    pub const MaxKeyLen: u32 = 2048;
 }
 
 frame_support::construct_runtime!(
@@ -339,6 +342,8 @@ frame_support::construct_runtime!(
 
         // Testing only.
         Example: example::{Pallet, Call} = 201,
+
+        StateTrieMigration: pallet_state_trie_migration::{Pallet, Call, Storage, Event<T>} = 210,
     }
 );
 

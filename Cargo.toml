@@ -36,6 +36,7 @@ pallet-session = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", 
 pallet-staking-reward-curve = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v6-monthly-2023-03" }
 pallet-timestamp = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v6-monthly-2023-03" }
 pallet-treasury = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v6-monthly-2023-03" }
+pallet-state-trie-migration = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v6-monthly-2023-03" }
 sc-authority-discovery = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v6-monthly-2023-03" }
 sc-basic-authorship = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v6-monthly-2023-03" }
 sc-block-builder = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v6-monthly-2023-03" }
