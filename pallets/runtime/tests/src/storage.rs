@@ -1,15 +1,36 @@
-use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE};
+#[cfg(feature = "std")]
+use sp_version::NativeVersion;
+
+use std::cell::RefCell;
+use std::convert::From;
+
 use codec::Encode;
-use frame_support::{
-    assert_ok,
-    dispatch::{DispatchInfo, DispatchResult, Weight},
-    parameter_types,
-    traits::{Currency, Imbalance, KeyOwnerProofSystem, OnInitialize, OnUnbalanced},
-    weights::{
-        RuntimeDbWeight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
-    },
-    StorageDoubleMap,
+use frame_support::dispatch::{DispatchInfo, DispatchResult, Weight};
+use frame_support::traits::{Currency, Imbalance, KeyOwnerProofSystem, OnInitialize, OnUnbalanced};
+use frame_support::weights::{
+    RuntimeDbWeight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
 };
+use frame_support::{assert_ok, parameter_types, StorageDoubleMap};
+use smallvec::smallvec;
+use sp_core::crypto::{key_types, Pair as PairTrait};
+use sp_core::sr25519::Pair;
+use sp_core::H256;
+use sp_keyring::AccountKeyring;
+use sp_runtime::curve::PiecewiseLinear;
+use sp_runtime::generic::Era;
+use sp_runtime::testing::UintAuthorityId;
+use sp_runtime::traits::{
+    BlakeTwo256, Block as BlockT, Extrinsic, IdentityLookup, NumberFor, OpaqueKeys, StaticLookup,
+    Verify,
+};
+use sp_runtime::transaction_validity::{
+    InvalidTransaction, TransactionPriority, TransactionValidity, ValidTransaction,
+};
+use sp_runtime::{create_runtime_str, AnySignature, KeyTypeId, Perbill, Permill};
+use sp_std::collections::btree_set::BTreeSet;
+use sp_std::iter;
+use sp_version::RuntimeVersion;
+
 use frame_system::{EnsureRoot, RawOrigin};
 use lazy_static::lazy_static;
 use pallet_asset::checkpoint as pallet_checkpoint;
@@ -27,53 +48,23 @@ use pallet_protocol_fee as protocol_fee;
 use pallet_session::historical as pallet_session_historical;
 use pallet_transaction_payment::RuntimeDispatchInfo;
 use pallet_utility;
-use polymesh_common_utilities::{
-    constants::currency::{DOLLARS, POLY},
-    protocol_fee::ProtocolOp,
-    traits::{
-        group::GroupTrait,
-        transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-    },
-    Context,
-};
+use polymesh_common_utilities::constants::currency::{DOLLARS, POLY};
+use polymesh_common_utilities::protocol_fee::ProtocolOp;
+use polymesh_common_utilities::traits::group::GroupTrait;
+use polymesh_common_utilities::traits::transaction_payment::{CddAndFeeDetails, ChargeTxFee};
+use polymesh_common_utilities::Context;
+use polymesh_primitives::settlement::Leg;
 use polymesh_primitives::{
     AccountId, Authorization, AuthorizationData, BlockNumber, Claim, Moment,
     Permissions as AuthPermissions, PortfolioNumber, Scope, SecondaryKey, TrustedFor,
     TrustedIssuer,
 };
-use polymesh_runtime_common::{
-    merge_active_and_inactive,
-    runtime::{BENCHMARK_MAX_INCREASE, VMO},
-    AvailableBlockRatio, MaximumBlockWeight,
-};
+use polymesh_runtime_common::merge_active_and_inactive;
+use polymesh_runtime_common::runtime::{BENCHMARK_MAX_INCREASE, VMO};
+use polymesh_runtime_common::{AvailableBlockRatio, MaximumBlockWeight};
 use polymesh_runtime_develop::constants::time::{EPOCH_DURATION_IN_BLOCKS, MILLISECS_PER_BLOCK};
-use smallvec::smallvec;
-use sp_core::{
-    crypto::{key_types, Pair as PairTrait},
-    sr25519::Pair,
-    H256,
-};
-use sp_keyring::AccountKeyring;
-use sp_runtime::generic::Era;
-use sp_runtime::{
-    create_runtime_str,
-    curve::PiecewiseLinear,
-    testing::UintAuthorityId,
-    traits::{
-        BlakeTwo256, Block as BlockT, Extrinsic, IdentityLookup, NumberFor, OpaqueKeys,
-        StaticLookup, Verify,
-    },
-    transaction_validity::{
-        InvalidTransaction, TransactionPriority, TransactionValidity, ValidTransaction,
-    },
-    AnySignature, KeyTypeId, Perbill, Permill,
-};
-use sp_std::{collections::btree_set::BTreeSet, iter};
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
-use sp_version::RuntimeVersion;
-use std::cell::RefCell;
-use std::convert::From;
+
+use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE};
 
 lazy_static! {
     pub static ref INTEGRATION_TEST: bool = std::env::var("INTEGRATION_TEST")

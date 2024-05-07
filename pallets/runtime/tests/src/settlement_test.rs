@@ -43,7 +43,7 @@ use sp_keyring::AccountKeyring;
 use super::asset_test::{allow_all_transfers, max_len_bytes};
 use super::nft::{create_nft_collection, mint_nft};
 use super::storage::{
-    default_portfolio_vec, make_account_without_cdd, user_portfolio_vec, TestStorage, User,
+    default_portfolio_vec, make_account_with_balance, user_portfolio_vec, TestStorage, User,
 };
 use super::{next_block, ExtBuilder};
 
@@ -1354,13 +1354,14 @@ fn test_weights_for_settlement_transaction() {
         .build()
         .execute_with(|| {
             let alice = AccountKeyring::Alice.to_account_id();
-            let (alice_signed, alice_did) = make_account_without_cdd(alice.clone()).unwrap();
+            let (alice_signed, alice_did) =
+                make_account_with_balance(alice.clone(), 10_000).unwrap();
 
             let bob = AccountKeyring::Bob.to_account_id();
-            let (bob_signed, bob_did) = make_account_without_cdd(bob).unwrap();
+            let (bob_signed, bob_did) = make_account_with_balance(bob, 10_000).unwrap();
 
             let dave = AccountKeyring::Dave.to_account_id();
-            let (dave_signed, dave_did) = make_account_without_cdd(dave).unwrap();
+            let (dave_signed, dave_did) = make_account_with_balance(dave, 10_000).unwrap();
 
             let venue_counter =
                 create_token_and_venue(TICKER, User::existing(AccountKeyring::Alice));

@@ -86,6 +86,7 @@ use core::mem;
 use currency::*;
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Get;
+use frame_support::weights::Weight;
 use frame_support::BoundedBTreeSet;
 use frame_support::{decl_module, decl_storage, ensure};
 use frame_system::ensure_root;
@@ -96,6 +97,7 @@ use sp_std::prelude::*;
 use pallet_base::{
     ensure_opt_string_limited, ensure_string_limited, try_next_pre, Error::CounterOverflow,
 };
+use pallet_portfolio::{Error as PortfolioError, PortfolioAssetBalances};
 use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
 use polymesh_common_utilities::constants::*;
@@ -103,7 +105,6 @@ use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 pub use polymesh_common_utilities::traits::asset::{Config, Event, RawEvent, WeightInfo};
 use polymesh_common_utilities::traits::nft::NFTTrait;
 use polymesh_common_utilities::with_transaction;
-
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{
     AssetName, AssetType, CheckpointId, CustomAssetTypeId, FundingRoundName,
@@ -116,9 +117,9 @@ use polymesh_primitives::asset_metadata::{
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::transfer_compliance::TransferConditionResult;
 use polymesh_primitives::{
-    extract_auth, storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId,
-    IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, SecondaryKey, Ticker,
-    WeightMeter,
+    extract_auth, storage_migrate_on, storage_migration_ver, AssetIdentifier, Balance, Document,
+    DocumentId, IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, SecondaryKey,
+    Ticker, WeightMeter,
 };
 
 pub use error::Error;
@@ -133,7 +134,7 @@ type Identity<T> = pallet_identity::Module<T>;
 type Portfolio<T> = pallet_portfolio::Module<T>;
 type Statistics<T> = pallet_statistics::Module<T>;
 
-storage_migration_ver!(3);
+storage_migration_ver!(4);
 
 decl_storage! {
     trait Store for Module<T: Config> as Asset {
@@ -220,9 +221,12 @@ decl_storage! {
             map hasher(twox_64_concat) AssetMetadataGlobalKey => Option<AssetMetadataSpec>;
 
         /// Next Asset Metadata Local Key.
+        #[deprecated]
         pub AssetMetadataNextLocalKey get(fn asset_metadata_next_local_key):
             map hasher(blake2_128_concat) Ticker => AssetMetadataLocalKey;
+
         /// Next Asset Metadata Global Key.
+        #[deprecated]
         pub AssetMetadataNextGlobalKey get(fn asset_metadata_next_global_key): AssetMetadataGlobalKey;
 
         /// A list of tickers that exempt all users from affirming the receivement of the asset.
@@ -238,7 +242,14 @@ decl_storage! {
             map hasher(blake2_128_concat) Ticker => BoundedBTreeSet<IdentityId, T::MaxAssetMediators>;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(3)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(4)): Version;
+
+        /// The last [`AssetMetadataLocalKey`] used for [`Ticker`].
+        pub CurrentAssetMetadataLocalKey get(fn current_asset_metadata_local_key):
+            map hasher(blake2_128_concat) Ticker => Option<AssetMetadataLocalKey>;
+
+        /// The last [`AssetMetadataGlobalKey`] used for a global key.
+        pub CurrentAssetMetadataGlobalKey get(fn current_asset_metadata_global_key): Option<AssetMetadataGlobalKey>;
     }
     add_extra_genesis {
         config(reserved_country_currency_codes): Vec<Ticker>;
@@ -272,6 +283,13 @@ decl_module! {
 
         /// initialize the default event for this module
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion, 4, {
+                migration::migrate_to_v4::<T>();
+            });
+            Weight::zero()
+        }
 
         const AssetNameMaxLength: u32 = T::AssetNameMaxLength::get();
         const FundingRoundNameMaxLength: u32 = T::FundingRoundNameMaxLength::get();
@@ -1362,7 +1380,8 @@ impl<T: Config> Module<T> {
         );
 
         // Next global key.
-        let key = AssetMetadataNextGlobalKey::try_mutate(try_next_pre::<T, _>)?;
+        let key = Self::update_current_asset_metadata_global_key()?;
+        AssetMetadataNextGlobalKey::set(key);
 
         // Store global key <-> name mapping.
         AssetMetadataGlobalNameToKey::insert(&name, key);
@@ -1928,6 +1947,16 @@ impl<T: Config> Module<T> {
         // Verifies that the asset is not frozen
         ensure!(!Frozen::get(ticker), Error::<T>::InvalidTransferFrozenAsset);
 
+        ensure!(
+            Identity::<T>::has_valid_cdd(receiver_portfolio.did),
+            Error::<T>::InvalidTransferInvalidReceiverCDD
+        );
+
+        ensure!(
+            Identity::<T>::has_valid_cdd(sender_portfolio.did),
+            Error::<T>::InvalidTransferInvalidSenderCDD
+        );
+
         // Verifies that the statistics restrictions are satisfied
         Statistics::<T>::verify_transfer_restrictions(
             ticker,
@@ -1951,6 +1980,115 @@ impl<T: Config> Module<T> {
         }
 
         Ok(())
+    }
+
+    /// Returns a vector containing all errors for the transfer. An empty vec means there's no error.
+    pub fn asset_transfer_report(
+        sender_portfolio: &PortfolioId,
+        receiver_portfolio: &PortfolioId,
+        ticker: &Ticker,
+        transfer_value: Balance,
+        skip_locked_check: bool,
+        weight_meter: &mut WeightMeter,
+    ) -> Vec<DispatchError> {
+        let mut asset_transfer_errors = Vec::new();
+
+        // If the security token doesn't exist or if the token is an NFT, there's no point in assessing anything else
+        let security_token = {
+            match Tokens::try_get(ticker) {
+                Ok(security_token) => security_token,
+                Err(_) => return vec![Error::<T>::NoSuchAsset.into()],
+            }
+        };
+        if !security_token.asset_type.is_fungible() {
+            return vec![Error::<T>::UnexpectedNonFungibleToken.into()];
+        }
+
+        if let Err(e) = Self::ensure_token_granular(&security_token, &transfer_value) {
+            asset_transfer_errors.push(e);
+        }
+
+        let sender_current_balance = BalanceOf::get(ticker, &sender_portfolio.did);
+        if sender_current_balance < transfer_value {
+            asset_transfer_errors.push(Error::<T>::InsufficientBalance.into());
+        }
+
+        let receiver_current_balance = BalanceOf::get(ticker, &receiver_portfolio.did);
+        if receiver_current_balance
+            .checked_add(transfer_value)
+            .is_none()
+        {
+            asset_transfer_errors.push(Error::<T>::BalanceOverflow.into());
+        }
+
+        if sender_portfolio.did == receiver_portfolio.did {
+            asset_transfer_errors
+                .push(PortfolioError::<T>::InvalidTransferSenderIdMatchesReceiverId.into());
+        }
+
+        if let Err(e) = Portfolio::<T>::ensure_portfolio_validity(sender_portfolio) {
+            asset_transfer_errors.push(e);
+        }
+
+        if let Err(e) = Portfolio::<T>::ensure_portfolio_validity(receiver_portfolio) {
+            asset_transfer_errors.push(e);
+        }
+
+        if skip_locked_check {
+            if PortfolioAssetBalances::get(sender_portfolio, ticker) < transfer_value {
+                asset_transfer_errors
+                    .push(PortfolioError::<T>::InsufficientPortfolioBalance.into());
+            }
+        } else {
+            if let Err(e) =
+                Portfolio::<T>::ensure_sufficient_balance(sender_portfolio, ticker, transfer_value)
+            {
+                asset_transfer_errors.push(e);
+            }
+        }
+
+        if !Identity::<T>::has_valid_cdd(receiver_portfolio.did) {
+            asset_transfer_errors.push(Error::<T>::InvalidTransferInvalidReceiverCDD.into());
+        }
+
+        if !Identity::<T>::has_valid_cdd(sender_portfolio.did) {
+            asset_transfer_errors.push(Error::<T>::InvalidTransferInvalidSenderCDD.into());
+        }
+
+        if Frozen::get(ticker) {
+            asset_transfer_errors.push(Error::<T>::InvalidTransferFrozenAsset.into());
+        }
+
+        if let Err(e) = Statistics::<T>::verify_transfer_restrictions(
+            ticker,
+            &sender_portfolio.did,
+            &receiver_portfolio.did,
+            sender_current_balance,
+            receiver_current_balance,
+            transfer_value,
+            security_token.total_supply,
+            weight_meter,
+        ) {
+            asset_transfer_errors.push(e);
+        }
+
+        match T::ComplianceManager::is_compliant(
+            ticker,
+            sender_portfolio.did,
+            receiver_portfolio.did,
+            weight_meter,
+        ) {
+            Ok(is_compliant) => {
+                if !is_compliant {
+                    asset_transfer_errors.push(Error::<T>::InvalidTransferComplianceFailure.into());
+                }
+            }
+            Err(e) => {
+                asset_transfer_errors.push(e);
+            }
+        }
+
+        asset_transfer_errors
     }
 
     // Get the total supply of an asset `id`.
@@ -2313,7 +2451,8 @@ impl<T: Config> Module<T> {
         );
 
         // Next local key for asset.
-        let key = AssetMetadataNextLocalKey::try_mutate(ticker, try_next_pre::<T, _>)?;
+        let key = Self::update_current_asset_metadata_local_key(&ticker)?;
+        AssetMetadataNextLocalKey::insert(ticker, key);
 
         // Store local key <-> name mapping.
         AssetMetadataLocalNameToKey::insert(ticker, &name, key);
@@ -2326,6 +2465,43 @@ impl<T: Config> Module<T> {
             did, ticker, name, key, spec,
         ));
         Ok(key.into())
+    }
+
+    /// Adds one to `CurrentCollectionId`.
+    fn update_current_asset_metadata_global_key() -> Result<AssetMetadataGlobalKey, DispatchError> {
+        CurrentAssetMetadataGlobalKey::try_mutate(|current_global_key| match current_global_key {
+            Some(current_key) => {
+                let new_key = try_next_pre::<T, _>(current_key)?;
+                *current_global_key = Some(new_key);
+                Ok::<AssetMetadataGlobalKey, DispatchError>(new_key)
+            }
+            None => {
+                let new_key = AssetMetadataGlobalKey(1);
+                *current_global_key = Some(new_key);
+                Ok::<AssetMetadataGlobalKey, DispatchError>(new_key)
+            }
+        })
+    }
+
+    /// Adds one to the `AssetMetadataLocalKey` for the given `ticker`.
+    fn update_current_asset_metadata_local_key(
+        ticker: &Ticker,
+    ) -> Result<AssetMetadataLocalKey, DispatchError> {
+        CurrentAssetMetadataLocalKey::try_mutate(
+            ticker,
+            |current_local_key| match current_local_key {
+                Some(current_key) => {
+                    let new_key = try_next_pre::<T, _>(current_key)?;
+                    *current_local_key = Some(new_key);
+                    Ok::<AssetMetadataLocalKey, DispatchError>(new_key)
+                }
+                None => {
+                    let new_key = AssetMetadataLocalKey(1);
+                    *current_local_key = Some(new_key);
+                    Ok::<AssetMetadataLocalKey, DispatchError>(new_key)
+                }
+            },
+        )
     }
 }
 
@@ -2524,5 +2700,33 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
         mediators: BTreeSet<IdentityId>,
     ) -> DispatchResult {
         Self::add_mandatory_mediators(origin, ticker, mediators.try_into().unwrap_or_default())
+    }
+}
+
+pub mod migration {
+    use frame_support::storage::{IterableStorageMap, StorageMap, StorageValue};
+    use sp_runtime::runtime_logger::RuntimeLogger;
+
+    use crate::{
+        AssetMetadataGlobalKey, AssetMetadataNextGlobalKey, AssetMetadataNextLocalKey, Config,
+        CurrentAssetMetadataGlobalKey, CurrentAssetMetadataLocalKey,
+    };
+
+    pub fn migrate_to_v4<T: Config>() {
+        RuntimeLogger::init();
+        log::info!(">>> Initializing CurrentAssetMetadataLocalKey and CurrentAssetMetadataGlobalKey storage");
+        initialize_storage::<T>();
+        log::info!(">>> Storage has been initialized");
+    }
+
+    fn initialize_storage<T: Config>() {
+        for (ticker, current_local_key) in AssetMetadataNextLocalKey::iter() {
+            CurrentAssetMetadataLocalKey::insert(ticker, current_local_key);
+        }
+
+        let global_key = AssetMetadataNextGlobalKey::get();
+        if AssetMetadataGlobalKey::default() != global_key {
+            CurrentAssetMetadataGlobalKey::put(global_key);
+        }
     }
 }

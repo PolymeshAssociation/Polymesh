@@ -1,11 +1,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::DispatchResult;
+use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::storage::StorageDoubleMap;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_support::{decl_error, decl_module, decl_storage, ensure, require_transactional};
+use sp_std::collections::btree_map::BTreeMap;
+use sp_std::collections::btree_set::BTreeSet;
+use sp_std::{vec, vec::Vec};
 
 use pallet_asset::Frozen;
 use pallet_base::try_next_pre;
@@ -22,9 +25,6 @@ use polymesh_primitives::{
     storage_migrate_on, storage_migration_ver, IdentityId, Memo, PortfolioId, PortfolioKind,
     PortfolioUpdateReason, Ticker, WeightMeter,
 };
-use sp_std::collections::btree_map::BTreeMap;
-use sp_std::collections::btree_set::BTreeSet;
-use sp_std::{vec, vec::Vec};
 
 type Asset<T> = pallet_asset::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
@@ -34,7 +34,7 @@ type Portfolio<T> = pallet_portfolio::Module<T>;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-storage_migration_ver!(2);
+storage_migration_ver!(3);
 
 decl_storage!(
     trait Store for Module<T: Config> as NFT {
@@ -54,9 +54,11 @@ decl_storage!(
         pub MetadataValue get(fn metadata_value): double_map hasher(blake2_128_concat) (NFTCollectionId, NFTId), hasher(blake2_128_concat) AssetMetadataKey => AssetMetadataValue;
 
         /// The next available id for an NFT collection.
+        #[deprecated]
         pub NextCollectionId get(fn collection_id): NFTCollectionId;
 
         /// The next available id for an NFT within a collection.
+        #[deprecated]
         pub NextNFTId get(fn nft_id): map hasher(blake2_128_concat) NFTCollectionId => NFTId;
 
         /// The total number of NFTs in a collection
@@ -65,8 +67,14 @@ decl_storage!(
         /// Tracks the owner of an NFT
         pub NFTOwner get(fn nft_owner): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) NFTId => Option<PortfolioId>;
 
+        /// The last `NFTId` used for an NFT.
+        pub CurrentNFTId get(fn current_nft_id): map hasher(blake2_128_concat) NFTCollectionId => Option<NFTId>;
+
+        /// The last `NFTCollectionId` used for a collection.
+        pub CurrentCollectionId get(fn current_collection_id): Option<NFTCollectionId>;
+
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(3)): Version;
     }
 );
 
@@ -82,8 +90,8 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 2, {
-                migration::migrate_to_v2::<T>();
+            storage_migrate_on!(StorageVersion, 3, {
+                migration::migrate_to_v3::<T>();
             });
             Weight::zero()
         }
@@ -224,7 +232,13 @@ decl_error! {
         /// An underflow while calculating the updated supply.
         SupplyUnderflow,
         /// Failed to transfer an NFT - nft is locked.
-        InvalidNFTTransferNFTIsLocked
+        InvalidNFTTransferNFTIsLocked,
+        /// The sender identity can't be the same as the receiver identity.
+        InvalidNFTTransferSenderIdMatchesReceiverId,
+        /// The receiver has an invalid CDD.
+        InvalidNFTTransferInvalidReceiverCDD,
+        /// The sender has an invalid CDD.
+        InvalidNFTTransferInvalidSenderCDD
     }
 }
 
@@ -295,7 +309,8 @@ impl<T: Config> Module<T> {
         }
 
         // Creates the nft collection
-        let collection_id = NextCollectionId::try_mutate(try_next_pre::<T, _>)?;
+        let collection_id = Self::update_current_collection_id()?;
+        NextCollectionId::set(collection_id);
         let nft_collection = NFTCollection::new(collection_id, ticker.clone());
         Collection::insert(&collection_id, nft_collection);
         CollectionKeys::insert(&collection_id, collection_keys);
@@ -360,7 +375,8 @@ impl<T: Config> Module<T> {
         let new_balance = NumberOfNFTs::get(&ticker, &caller_portfolio.did)
             .checked_add(1)
             .ok_or(Error::<T>::BalanceOverflow)?;
-        let nft_id = NextNFTId::try_mutate(&collection_id, try_next_pre::<T, _>)?;
+        let nft_id = Self::update_current_nft_id(&collection_id)?;
+        NextNFTId::insert(&collection_id, nft_id);
         NFTsInCollection::insert(&ticker, new_supply);
         NumberOfNFTs::insert(&ticker, &caller_portfolio.did, new_balance);
         for (metadata_key, metadata_value) in nft_attributes.into_iter() {
@@ -441,7 +457,13 @@ impl<T: Config> Module<T> {
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // Verifies if all rules for transfering the NFTs are being respected
-        Self::validate_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts, weight_meter)?;
+        Self::validate_nft_transfer(
+            &sender_portfolio,
+            &receiver_portfolio,
+            &nfts,
+            false,
+            Some(weight_meter),
+        )?;
 
         // Transfer ownership of the NFTs
         Self::unverified_nfts_transfer(&sender_portfolio, &receiver_portfolio, &nfts);
@@ -459,27 +481,73 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns `Ok` if the asset is not frozen, if `sender_portfolio` owns all `nfts`, all arithmetic updates succeed,
-    /// if `sender_portfolio` is different from `receiver_portfolio`, and if all compliance rules are being respected.
+    /// Returns `Ok` if all rules for transferring the NFTs are satisfied.
     pub fn validate_nft_transfer(
         sender_portfolio: &PortfolioId,
         receiver_portfolio: &PortfolioId,
         nfts: &NFTs,
-        weight_meter: &mut WeightMeter,
+        is_controller_transfer: bool,
+        weight_meter: Option<&mut WeightMeter>,
     ) -> DispatchResult {
+        // Verifies if there is a collection associated to the NFTs
+        if !CollectionTicker::contains_key(nfts.ticker()) {
+            return Err(Error::<T>::InvalidNFTTransferCollectionNotFound.into());
+        }
+
+        // Verifies that the sender and receiver are not the same
+        ensure!(
+            sender_portfolio.did != receiver_portfolio.did,
+            Error::<T>::InvalidNFTTransferSenderIdMatchesReceiverId
+        );
+
+        // Verifies that the sender has the required nft count
+        let nfts_transferred = nfts.len() as u64;
+        ensure!(
+            NumberOfNFTs::get(nfts.ticker(), sender_portfolio.did) >= nfts_transferred,
+            Error::<T>::InvalidNFTTransferInsufficientCount
+        );
+
+        // Verifies that the number of nfts being transferred are within the allowed limits
+        Self::ensure_within_nfts_transfer_limits(nfts)?;
+        // Verifies that all ids are unique
+        Self::ensure_no_duplicate_nfts(nfts)?;
+        // Verfies that the sender owns the nfts
+        Self::ensure_nft_ownership(sender_portfolio, nfts)?;
+
+        // Verfies that the receiver will not overflow
+        NumberOfNFTs::get(nfts.ticker(), receiver_portfolio.did)
+            .checked_add(nfts_transferred)
+            .ok_or(Error::<T>::InvalidNFTTransferCountOverflow)?;
+
+        // Controllers are exempt from compliance and frozen rules.
+        if is_controller_transfer {
+            return Ok(());
+        }
+
         // Verifies that the asset is not frozen
         ensure!(
             !Frozen::get(nfts.ticker()),
             Error::<T>::InvalidNFTTransferFrozenAsset
         );
-        // Verifies that the sender_portfolio owns all nfts being transferred
-        Self::validate_nft_ownership(sender_portfolio, receiver_portfolio, nfts)?;
+
+        // Verifies if the receiver has a valid CDD claim.
+        ensure!(
+            Identity::<T>::has_valid_cdd(receiver_portfolio.did),
+            Error::<T>::InvalidNFTTransferInvalidReceiverCDD
+        );
+
+        // Verifies if the sender has a valid CDD claim.
+        ensure!(
+            Identity::<T>::has_valid_cdd(sender_portfolio.did),
+            Error::<T>::InvalidNFTTransferInvalidSenderCDD
+        );
+
         // Verifies that all compliance rules are being respected
         if !T::Compliance::is_compliant(
             nfts.ticker(),
             sender_portfolio.did,
             receiver_portfolio.did,
-            weight_meter,
+            weight_meter.ok_or(Error::<T>::InvalidNFTTransferComplianceFailure)?,
         )? {
             return Err(Error::<T>::InvalidNFTTransferComplianceFailure.into());
         }
@@ -487,31 +555,8 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns `Ok` if `sender_portfolio` owns all `nfts`, all arithmetic updates succeed, and if `sender_portfolio`
-    /// is different from `receiver_portfolio`.
-    fn validate_nft_ownership(
-        sender_portfolio: &PortfolioId,
-        receiver_portfolio: &PortfolioId,
-        nfts: &NFTs,
-    ) -> DispatchResult {
-        // Verifies if there is a collection associated to the NFTs
-        CollectionTicker::try_get(nfts.ticker())
-            .map_err(|_| Error::<T>::InvalidNFTTransferCollectionNotFound)?;
-        // Verifies that the sender and receiver are not the same
-        ensure!(
-            sender_portfolio != receiver_portfolio,
-            Error::<T>::InvalidNFTTransferSamePortfolio
-        );
-        // Verifies that the sender has the required nft count
-        let nfts_transferred = nfts.len() as u64;
-        ensure!(
-            NumberOfNFTs::get(nfts.ticker(), sender_portfolio.did) >= nfts_transferred,
-            Error::<T>::InvalidNFTTransferInsufficientCount
-        );
-        // Verifies that the number of nfts being transferred are within the allowed limits
-        Self::ensure_within_nfts_transfer_limits(nfts)?;
-        // Verifies that all ids are unique
-        Self::ensure_no_duplicate_nfts(nfts)?;
+    /// Returns `Ok` if `sender_portfolio` has all nfts and they are not locked. Otherwise, returns an `Err`.
+    fn ensure_nft_ownership(sender_portfolio: &PortfolioId, nfts: &NFTs) -> DispatchResult {
         // Verfies that the sender owns the nfts and that they are not locked
         for nft_id in nfts.ids() {
             ensure!(
@@ -523,10 +568,7 @@ impl<T: Config> Module<T> {
                 Error::<T>::InvalidNFTTransferNFTIsLocked
             );
         }
-        // Verfies that the receiver will not overflow
-        NumberOfNFTs::get(nfts.ticker(), receiver_portfolio.did)
-            .checked_add(nfts_transferred)
-            .ok_or(Error::<T>::InvalidNFTTransferCountOverflow)?;
+
         Ok(())
     }
 
@@ -584,7 +626,7 @@ impl<T: Config> Module<T> {
             true,
         )?;
         // Verifies if all rules for transfering the NFTs are being respected
-        Self::validate_nft_ownership(&source_portfolio, &caller_portfolio, &nfts)?;
+        Self::validate_nft_transfer(&source_portfolio, &caller_portfolio, &nfts, true, None)?;
         // Transfer ownership of the NFTs
         Self::unverified_nfts_transfer(&source_portfolio, &caller_portfolio, &nfts);
 
@@ -596,6 +638,123 @@ impl<T: Config> Module<T> {
             PortfolioUpdateReason::ControllerTransfer,
         ));
         Ok(())
+    }
+
+    /// Returns a vector containing all errors for the transfer. An empty vec means there's no error.
+    pub fn nft_transfer_report(
+        sender_portfolio: &PortfolioId,
+        receiver_portfolio: &PortfolioId,
+        nfts: &NFTs,
+        skip_locked_check: bool,
+        weight_meter: &mut WeightMeter,
+    ) -> Vec<DispatchError> {
+        let mut nft_transfer_errors = Vec::new();
+
+        // If the collection doesn't exist, there's no point in assessing anything else
+        if !CollectionTicker::contains_key(nfts.ticker()) {
+            return vec![Error::<T>::InvalidNFTTransferCollectionNotFound.into()];
+        }
+
+        if Frozen::get(nfts.ticker()) {
+            nft_transfer_errors.push(Error::<T>::InvalidNFTTransferFrozenAsset.into());
+        }
+
+        if sender_portfolio.did == receiver_portfolio.did {
+            nft_transfer_errors
+                .push(Error::<T>::InvalidNFTTransferSenderIdMatchesReceiverId.into());
+        }
+
+        let nfts_transferred = nfts.len() as u64;
+        if NumberOfNFTs::get(nfts.ticker(), &sender_portfolio.did) < nfts_transferred {
+            nft_transfer_errors.push(Error::<T>::InvalidNFTTransferInsufficientCount.into());
+        }
+
+        if let Err(e) = Self::ensure_within_nfts_transfer_limits(nfts) {
+            nft_transfer_errors.push(e);
+        }
+
+        if let Err(e) = Self::ensure_no_duplicate_nfts(nfts) {
+            nft_transfer_errors.push(e);
+        }
+
+        if skip_locked_check {
+            for nft_id in nfts.ids() {
+                if !PortfolioNFT::contains_key(sender_portfolio, (nfts.ticker(), nft_id)) {
+                    nft_transfer_errors.push(Error::<T>::InvalidNFTTransferNFTNotOwned.into());
+                    break;
+                }
+            }
+        } else {
+            if let Err(e) = Self::ensure_nft_ownership(sender_portfolio, nfts) {
+                nft_transfer_errors.push(e);
+            }
+        }
+
+        if !Identity::<T>::has_valid_cdd(receiver_portfolio.did) {
+            nft_transfer_errors.push(Error::<T>::InvalidNFTTransferInvalidReceiverCDD.into());
+        }
+
+        if !Identity::<T>::has_valid_cdd(sender_portfolio.did) {
+            nft_transfer_errors.push(Error::<T>::InvalidNFTTransferInvalidSenderCDD.into());
+        }
+
+        if NumberOfNFTs::get(nfts.ticker(), &receiver_portfolio.did)
+            .checked_add(nfts_transferred)
+            .is_none()
+        {
+            nft_transfer_errors.push(Error::<T>::InvalidNFTTransferCountOverflow.into());
+        }
+
+        match T::Compliance::is_compliant(
+            nfts.ticker(),
+            sender_portfolio.did,
+            receiver_portfolio.did,
+            weight_meter,
+        ) {
+            Ok(is_compliant) => {
+                if !is_compliant {
+                    nft_transfer_errors
+                        .push(Error::<T>::InvalidNFTTransferComplianceFailure.into());
+                }
+            }
+            Err(e) => {
+                nft_transfer_errors.push(e);
+            }
+        }
+
+        nft_transfer_errors
+    }
+
+    /// Adds one to `CurrentCollectionId`.
+    fn update_current_collection_id() -> Result<NFTCollectionId, DispatchError> {
+        CurrentCollectionId::try_mutate(|current_collection_id| match current_collection_id {
+            Some(current_id) => {
+                let new_id = try_next_pre::<T, _>(current_id)?;
+                *current_collection_id = Some(new_id);
+                Ok::<NFTCollectionId, DispatchError>(new_id)
+            }
+            None => {
+                let new_id = NFTCollectionId(1);
+                *current_collection_id = Some(new_id);
+                Ok::<NFTCollectionId, DispatchError>(new_id)
+            }
+        })
+    }
+
+    /// Adds one to the `NFTId` that belongs to `collection_id`.
+    fn update_current_nft_id(collection_id: &NFTCollectionId) -> Result<NFTId, DispatchError> {
+        CurrentNFTId::try_mutate(collection_id, |current_nft_id| match current_nft_id {
+            Some(current_id) => {
+                let new_nft_id = try_next_pre::<T, _>(current_id)?;
+                *current_nft_id = Some(new_nft_id);
+                Ok::<NFTId, DispatchError>(new_nft_id)
+            }
+            None => {
+                let new_nft_id = NFTId(1);
+                *current_nft_id = Some(new_nft_id);
+                Ok::<NFTId, DispatchError>(new_nft_id)
+            }
+        })
     }
 }
 
@@ -626,22 +785,28 @@ impl<T: Config> NFTTrait<T::RuntimeOrigin> for Module<T> {
 }
 
 pub mod migration {
-    use crate::sp_api_hidden_includes_decl_storage::hidden_include::IterableStorageDoubleMap;
-    use crate::{Config, NFTOwner};
-    use frame_support::storage::StorageDoubleMap;
-    use pallet_portfolio::PortfolioNFT;
+    use frame_support::storage::{IterableStorageMap, StorageMap, StorageValue};
     use sp_runtime::runtime_logger::RuntimeLogger;
 
-    pub fn migrate_to_v2<T: Config>() {
+    use crate::{
+        Config, CurrentCollectionId, CurrentNFTId, NFTCollectionId, NextCollectionId, NextNFTId,
+    };
+
+    pub fn migrate_to_v3<T: Config>() {
         RuntimeLogger::init();
-        log::info!(">>> Updating NFTOwner Storage");
-        initialize_nft_owner::<T>();
-        log::info!(">>> NFTOwner was successfully updated");
+        log::info!(">>> Initializing CurrentNFTId and CurrentCollectionId storage");
+        initialize_storage::<T>();
+        log::info!(">>> Storage has been initialized");
     }
 
-    fn initialize_nft_owner<T: Config>() {
-        for (portfolio_id, (ticker, nft_id), _) in PortfolioNFT::iter() {
-            NFTOwner::insert(ticker, nft_id, portfolio_id);
+    fn initialize_storage<T: Config>() {
+        for (collection_id, current_nft_id) in NextNFTId::iter() {
+            CurrentNFTId::insert(collection_id, current_nft_id);
+        }
+
+        let collection_id = NextCollectionId::get();
+        if NFTCollectionId::default() != collection_id {
+            CurrentCollectionId::put(collection_id);
         }
     }
 }

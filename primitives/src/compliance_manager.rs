@@ -141,3 +141,116 @@ impl From<AssetCompliance> for AssetComplianceResult {
         }
     }
 }
+
+/// Holds detailed information for all asset's requirements.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[derive(Encode, Decode, TypeInfo)]
+pub struct ComplianceReport {
+    /// Set to `true` if any requirement is satisfied.
+    any_requirement_satistifed: bool,
+    /// Set to `true` if the asset compliance is paused.
+    paused_compliance: bool,
+    /// All [`RequirementReport`] containg the info for each of the asset's requirement.
+    requirements: Vec<RequirementReport>,
+}
+
+impl ComplianceReport {
+    /// Creates a new [`ComplianceReport`] instance.
+    pub fn new(
+        requirements: Vec<RequirementReport>,
+        any_requirement_satistifed: bool,
+        paused_compliance: bool,
+    ) -> Self {
+        Self {
+            any_requirement_satistifed,
+            paused_compliance,
+            requirements,
+        }
+    }
+
+    /// Returns [`Self::any_requirement_satistifed`].
+    pub fn is_any_requirement_satisfied(&self) -> bool {
+        self.any_requirement_satistifed
+    }
+
+    /// Returns the [`RequirementReport`] for the given `index`.
+    pub fn get_requirement(&self, index: usize) -> Option<&RequirementReport> {
+        self.requirements.get(index)
+    }
+}
+
+/// Holds the information for an individual asset requirement.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[derive(Encode, Decode, TypeInfo)]
+pub struct RequirementReport {
+    /// Set to `true` if all conditions are satisfied.
+    requirement_satisfied: bool,
+    /// Unique identifier of the compliance requirement.
+    id: u32,
+    /// All sender [`ConditionReport`].
+    sender_conditions: Vec<ConditionReport>,
+    /// All receiver [`ConditionReport`].
+    receiver_conditions: Vec<ConditionReport>,
+}
+
+impl RequirementReport {
+    /// Creates a new [`RequirementReport`] instance.
+    pub fn new(
+        sender_conditions: Vec<ConditionReport>,
+        receiver_conditions: Vec<ConditionReport>,
+        id: u32,
+        requirement_satisfied: bool,
+    ) -> Self {
+        Self {
+            requirement_satisfied,
+            id,
+            sender_conditions,
+            receiver_conditions,
+        }
+    }
+
+    /// Returns [`Self::requirement_satisfied`].
+    pub fn is_requirement_satisfied(&self) -> bool {
+        self.requirement_satisfied
+    }
+
+    /// Returns the sender [`ConditionReport`] for the given `index`.
+    pub fn get_sender_condition(&self, index: usize) -> Option<&ConditionReport> {
+        self.sender_conditions.get(index)
+    }
+
+    /// Returns the receiver [`ConditionReport`] for the given `index`.
+    pub fn get_receiver_condition(&self, index: usize) -> Option<&ConditionReport> {
+        self.receiver_conditions.get(index)
+    }
+}
+
+/// Holds the information for an individual condition.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[derive(Encode, Decode, TypeInfo)]
+pub struct ConditionReport {
+    /// Set to `true` if the condition is satisfied.
+    pub satisfied: bool,
+    /// The [`Condition`] assessed.
+    pub condition: Condition,
+}
+
+impl ConditionReport {
+    /// Creates a new [`ConditionReport`] instance.
+    pub fn new(condition: Condition, satisfied: bool) -> Self {
+        Self {
+            satisfied,
+            condition,
+        }
+    }
+
+    /// Returns [`Self::satisfied`].
+    pub fn is_condition_satisfied(&self) -> bool {
+        self.satisfied
+    }
+
+    /// Returns [`Self.condition`].
+    pub fn condition(&self) -> &Condition {
+        &self.condition
+    }
+}
