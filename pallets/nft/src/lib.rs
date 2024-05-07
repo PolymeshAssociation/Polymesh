@@ -4,6 +4,7 @@ use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::storage::StorageDoubleMap;
 use frame_support::traits::Get;
+use frame_support::weights::Weight;
 use frame_support::{decl_error, decl_module, decl_storage, ensure, require_transactional};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
@@ -21,8 +22,8 @@ use polymesh_primitives::nft::{
 };
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::{
-    storage_migration_ver, IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason,
-    Ticker, WeightMeter,
+    storage_migration_on, storage_migration_ver, IdentityId, Memo, PortfolioId, PortfolioKind,
+    PortfolioUpdateReason, Ticker, WeightMeter,
 };
 
 type Asset<T> = pallet_asset::Module<T>;
