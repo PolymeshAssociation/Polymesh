@@ -1,8 +1,10 @@
 use chrono::prelude::Utc;
+use frame_support::storage::StorageValue;
 use frame_support::{assert_noop, assert_ok, StorageDoubleMap, StorageMap};
 
 use pallet_nft::{
-    Collection, CollectionKeys, MetadataValue, NFTOwner, NFTsInCollection, NumberOfNFTs,
+    Collection, CollectionKeys, CurrentCollectionId, CurrentNFTId, MetadataValue, NFTOwner,
+    NFTsInCollection, NextCollectionId, NextNFTId, NumberOfNFTs,
 };
 use pallet_portfolio::PortfolioNFT;
 use polymesh_common_utilities::traits::nft::Event;
@@ -221,6 +223,8 @@ pub(crate) fn create_nft_collection(
     ));
     assert!(Collection::contains_key(NFTCollectionId(1)));
     assert_eq!(CollectionKeys::get(NFTCollectionId(1)).len(), n_keys);
+    assert_eq!(NextCollectionId::get(), NFTCollectionId(1));
+    assert_eq!(CurrentCollectionId::get(), Some(NFTCollectionId(1)));
 }
 
 /// An NFT can only be minted if its collection exists.
@@ -439,6 +443,8 @@ fn mint_nft_successfully() {
             NFTOwner::get(ticker, NFTId(1)),
             Some(alice_default_portfolio)
         );
+        assert_eq!(NextNFTId::get(NFTCollectionId(1)), NFTId(1));
+        assert_eq!(CurrentNFTId::get(NFTCollectionId(1)), Some(NFTId(1)));
     });
 }
 
@@ -590,6 +596,10 @@ fn burn_nft() {
             (&ticker, NFTId(1))
         ),);
         assert_eq!(NFTOwner::get(ticker, NFTId(1)), None);
+        assert_eq!(NextNFTId::get(NFTCollectionId(1)), NFTId(1));
+        assert_eq!(CurrentNFTId::get(NFTCollectionId(1)), Some(NFTId(1)));
+        assert_eq!(NextCollectionId::get(), NFTCollectionId(1));
+        assert_eq!(CurrentCollectionId::get(), Some(NFTCollectionId(1)));
     });
 }
 
