@@ -92,6 +92,7 @@ pallet-authority-discovery = { version = "4.0.0-dev", default-features = false }
 pallet-insecure-randomness-collective-flip = { version = "4.0.0-dev", default-features = false }
 pallet-scheduler = { version = "4.0.0-dev", default-features = false }
 pallet-staking-reward-curve = { version = "4.0.0-dev", default-features = false }
+pallet-state-trie-migration = { version = "4.0.0-dev", default-features = false }
 
 frame-system = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
@@ -157,6 +158,7 @@ std = [
     "pallet-staking-rpc-runtime-api/std",
     "pallet-staking/std",
     "pallet-statistics/std",
+    "pallet-state-trie-migration/std",
     "pallet-sudo/std",
     "pallet-test-utils/std",
     "pallet-timestamp/std",

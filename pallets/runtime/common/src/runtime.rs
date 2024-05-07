@@ -569,6 +569,18 @@ macro_rules! misc_pallet_impls {
             type MaxNumberOfCollectionKeys = MaxNumberOfCollectionKeys;
             type MaxNumberOfNFTsCount = MaxNumberOfNFTsPerLeg;
         }
+
+        impl pallet_state_trie_migration::Config for Runtime {
+            type RuntimeEvent = RuntimeEvent;
+            type Currency = Balances;
+            type SignedDepositPerItem = MigrationSignedDepositPerItem;
+            type SignedDepositBase = MigrationSignedDepositBase;
+            // An origin that can control the whole pallet: should be Root, or a part of your council.
+            type ControlOrigin = polymesh_primitives::EnsureRoot;
+            type SignedFilter = frame_system::EnsureSigned<Self::AccountId>;
+            type MaxKeyLen = MaxKeyLen;
+            type WeightInfo = polymesh_weights::pallet_state_trie_migration::SubstrateWeight;
+        }
     };
 }
 
