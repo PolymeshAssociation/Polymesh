@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::DispatchResult;
+use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::storage::StorageDoubleMap;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
@@ -34,7 +34,7 @@ type Portfolio<T> = pallet_portfolio::Module<T>;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-storage_migration_ver!(2);
+storage_migration_ver!(3);
 
 decl_storage!(
     trait Store for Module<T: Config> as NFT {
@@ -54,9 +54,11 @@ decl_storage!(
         pub MetadataValue get(fn metadata_value): double_map hasher(blake2_128_concat) (NFTCollectionId, NFTId), hasher(blake2_128_concat) AssetMetadataKey => AssetMetadataValue;
 
         /// The next available id for an NFT collection.
+        #[deprecated]
         pub NextCollectionId get(fn collection_id): NFTCollectionId;
 
         /// The next available id for an NFT within a collection.
+        #[deprecated]
         pub NextNFTId get(fn nft_id): map hasher(blake2_128_concat) NFTCollectionId => NFTId;
 
         /// The total number of NFTs in a collection
@@ -65,8 +67,14 @@ decl_storage!(
         /// Tracks the owner of an NFT
         pub NFTOwner get(fn nft_owner): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) NFTId => Option<PortfolioId>;
 
+        /// The last `NFTId` used for an NFT.
+        pub CurrentNFTId get(fn current_nft_id): map hasher(blake2_128_concat) NFTCollectionId => Option<NFTId>;
+
+        /// The last `NFTCollectionId` used for a collection.
+        pub CurrentCollectionId get(fn current_collection_id): Option<NFTCollectionId>;
+
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(3)): Version;
     }
 );
 
@@ -82,8 +90,8 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 2, {
-                migration::migrate_to_v2::<T>();
+            storage_migrate_on!(StorageVersion, 3, {
+                migration::migrate_to_v3::<T>();
             });
             Weight::zero()
         }
@@ -295,7 +303,8 @@ impl<T: Config> Module<T> {
         }
 
         // Creates the nft collection
-        let collection_id = NextCollectionId::try_mutate(try_next_pre::<T, _>)?;
+        let collection_id = Self::update_current_collection_id()?;
+        NextCollectionId::set(collection_id);
         let nft_collection = NFTCollection::new(collection_id, ticker.clone());
         Collection::insert(&collection_id, nft_collection);
         CollectionKeys::insert(&collection_id, collection_keys);
@@ -360,7 +369,8 @@ impl<T: Config> Module<T> {
         let new_balance = NumberOfNFTs::get(&ticker, &caller_portfolio.did)
             .checked_add(1)
             .ok_or(Error::<T>::BalanceOverflow)?;
-        let nft_id = NextNFTId::try_mutate(&collection_id, try_next_pre::<T, _>)?;
+        let nft_id = Self::update_current_nft_id(&collection_id)?;
+        NextNFTId::insert(&collection_id, nft_id);
         NFTsInCollection::insert(&ticker, new_supply);
         NumberOfNFTs::insert(&ticker, &caller_portfolio.did, new_balance);
         for (metadata_key, metadata_value) in nft_attributes.into_iter() {
@@ -597,6 +607,38 @@ impl<T: Config> Module<T> {
         ));
         Ok(())
     }
+
+    /// Adds one to `CurrentCollectionId`.
+    fn update_current_collection_id() -> Result<NFTCollectionId, DispatchError> {
+        CurrentCollectionId::try_mutate(|current_collection_id| match current_collection_id {
+            Some(current_id) => {
+                let new_id = try_next_pre::<T, _>(current_id)?;
+                *current_collection_id = Some(new_id);
+                Ok::<NFTCollectionId, DispatchError>(new_id)
+            }
+            None => {
+                let new_id = NFTCollectionId(1);
+                *current_collection_id = Some(new_id);
+                Ok::<NFTCollectionId, DispatchError>(new_id)
+            }
+        })
+    }
+
+    /// Adds one to the `NFTId` that belongs to `collection_id`.
+    fn update_current_nft_id(collection_id: &NFTCollectionId) -> Result<NFTId, DispatchError> {
+        CurrentNFTId::try_mutate(collection_id, |current_nft_id| match current_nft_id {
+            Some(current_id) => {
+                let new_nft_id = try_next_pre::<T, _>(current_id)?;
+                *current_nft_id = Some(new_nft_id);
+                Ok::<NFTId, DispatchError>(new_nft_id)
+            }
+            None => {
+                let new_nft_id = NFTId(1);
+                *current_nft_id = Some(new_nft_id);
+                Ok::<NFTId, DispatchError>(new_nft_id)
+            }
+        })
+    }
 }
 
 impl<T: Config> NFTTrait<T::RuntimeOrigin> for Module<T> {
@@ -626,22 +668,28 @@ impl<T: Config> NFTTrait<T::RuntimeOrigin> for Module<T> {
 }
 
 pub mod migration {
-    use crate::sp_api_hidden_includes_decl_storage::hidden_include::IterableStorageDoubleMap;
-    use crate::{Config, NFTOwner};
-    use frame_support::storage::StorageDoubleMap;
-    use pallet_portfolio::PortfolioNFT;
+    use frame_support::storage::{IterableStorageMap, StorageMap, StorageValue};
     use sp_runtime::runtime_logger::RuntimeLogger;
 
-    pub fn migrate_to_v2<T: Config>() {
+    use crate::{
+        Config, CurrentCollectionId, CurrentNFTId, NFTCollectionId, NextCollectionId, NextNFTId,
+    };
+
+    pub fn migrate_to_v3<T: Config>() {
         RuntimeLogger::init();
-        log::info!(">>> Updating NFTOwner Storage");
-        initialize_nft_owner::<T>();
-        log::info!(">>> NFTOwner was successfully updated");
+        log::info!(">>> Initializing CurrentNFTId and CurrentCollectionId storage");
+        initialize_storage::<T>();
+        log::info!(">>> Storage has been initialized");
     }
 
-    fn initialize_nft_owner<T: Config>() {
-        for (portfolio_id, (ticker, nft_id), _) in PortfolioNFT::iter() {
-            NFTOwner::insert(ticker, nft_id, portfolio_id);
+    fn initialize_storage<T: Config>() {
+        for (collection_id, current_nft_id) in NextNFTId::iter() {
+            CurrentNFTId::insert(collection_id, current_nft_id);
+        }
+
+        let collection_id = NextCollectionId::get();
+        if NFTCollectionId::default() != collection_id {
+            CurrentCollectionId::put(collection_id);
         }
     }
 }

@@ -86,6 +86,7 @@ use core::mem;
 use currency::*;
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Get;
+use frame_support::weights::Weight;
 use frame_support::BoundedBTreeSet;
 use frame_support::{decl_module, decl_storage, ensure};
 use frame_system::ensure_root;
@@ -116,9 +117,9 @@ use polymesh_primitives::asset_metadata::{
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::transfer_compliance::TransferConditionResult;
 use polymesh_primitives::{
-    extract_auth, storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId,
-    IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, SecondaryKey, Ticker,
-    WeightMeter,
+    extract_auth, storage_migrate_on, storage_migration_ver, AssetIdentifier, Balance, Document,
+    DocumentId, IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, SecondaryKey,
+    Ticker, WeightMeter,
 };
 
 pub use error::Error;
@@ -133,7 +134,7 @@ type Identity<T> = pallet_identity::Module<T>;
 type Portfolio<T> = pallet_portfolio::Module<T>;
 type Statistics<T> = pallet_statistics::Module<T>;
 
-storage_migration_ver!(3);
+storage_migration_ver!(4);
 
 decl_storage! {
     trait Store for Module<T: Config> as Asset {
@@ -220,9 +221,12 @@ decl_storage! {
             map hasher(twox_64_concat) AssetMetadataGlobalKey => Option<AssetMetadataSpec>;
 
         /// Next Asset Metadata Local Key.
+        #[deprecated]
         pub AssetMetadataNextLocalKey get(fn asset_metadata_next_local_key):
             map hasher(blake2_128_concat) Ticker => AssetMetadataLocalKey;
+
         /// Next Asset Metadata Global Key.
+        #[deprecated]
         pub AssetMetadataNextGlobalKey get(fn asset_metadata_next_global_key): AssetMetadataGlobalKey;
 
         /// A list of tickers that exempt all users from affirming the receivement of the asset.
@@ -238,7 +242,14 @@ decl_storage! {
             map hasher(blake2_128_concat) Ticker => BoundedBTreeSet<IdentityId, T::MaxAssetMediators>;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(3)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(4)): Version;
+
+        /// The last [`AssetMetadataLocalKey`] used for [`Ticker`].
+        pub CurrentAssetMetadataLocalKey get(fn current_asset_metadata_local_key):
+            map hasher(blake2_128_concat) Ticker => Option<AssetMetadataLocalKey>;
+
+        /// The last [`AssetMetadataGlobalKey`] used for a global key.
+        pub CurrentAssetMetadataGlobalKey get(fn current_asset_metadata_global_key): Option<AssetMetadataGlobalKey>;
     }
     add_extra_genesis {
         config(reserved_country_currency_codes): Vec<Ticker>;
@@ -272,6 +283,13 @@ decl_module! {
 
         /// initialize the default event for this module
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion, 4, {
+                migration::migrate_to_v4::<T>();
+            });
+            Weight::zero()
+        }
 
         const AssetNameMaxLength: u32 = T::AssetNameMaxLength::get();
         const FundingRoundNameMaxLength: u32 = T::FundingRoundNameMaxLength::get();
@@ -1362,7 +1380,8 @@ impl<T: Config> Module<T> {
         );
 
         // Next global key.
-        let key = AssetMetadataNextGlobalKey::try_mutate(try_next_pre::<T, _>)?;
+        let key = Self::update_current_asset_metadata_global_key()?;
+        AssetMetadataNextGlobalKey::set(key);
 
         // Store global key <-> name mapping.
         AssetMetadataGlobalNameToKey::insert(&name, key);
@@ -2083,9 +2102,6 @@ impl<T: Config> Module<T> {
         if let Some(ref funding_round_name) = funding_round_name {
             FundingRound::insert(ticker, funding_round_name);
         }
-        Self::unverified_update_idents(caller_did, ticker, identifiers.clone());
-        // Grant owner full agent permissions.
-        <ExternalAgents<T>>::unchecked_add_agent(ticker, caller_did, AgentGroup::Full)?;
 
         AssetOwnershipRelations::insert(caller_did, ticker, AssetOwnershipRelation::AssetOwned);
         Self::deposit_event(RawEvent::AssetCreated(
@@ -2095,9 +2111,14 @@ impl<T: Config> Module<T> {
             asset_type,
             caller_did,
             asset_name,
-            identifiers,
+            identifiers.clone(),
             funding_round_name,
         ));
+
+        //These emit events which should come after the main AssetCreated event
+        Self::unverified_update_idents(caller_did, ticker, identifiers);
+        // Grant owner full agent permissions.
+        <ExternalAgents<T>>::unchecked_add_agent(ticker, caller_did, AgentGroup::Full)?;
         Ok(())
     }
 
@@ -2311,7 +2332,8 @@ impl<T: Config> Module<T> {
         );
 
         // Next local key for asset.
-        let key = AssetMetadataNextLocalKey::try_mutate(ticker, try_next_pre::<T, _>)?;
+        let key = Self::update_current_asset_metadata_local_key(&ticker)?;
+        AssetMetadataNextLocalKey::insert(ticker, key);
 
         // Store local key <-> name mapping.
         AssetMetadataLocalNameToKey::insert(ticker, &name, key);
@@ -2324,6 +2346,43 @@ impl<T: Config> Module<T> {
             did, ticker, name, key, spec,
         ));
         Ok(key.into())
+    }
+
+    /// Adds one to `CurrentCollectionId`.
+    fn update_current_asset_metadata_global_key() -> Result<AssetMetadataGlobalKey, DispatchError> {
+        CurrentAssetMetadataGlobalKey::try_mutate(|current_global_key| match current_global_key {
+            Some(current_key) => {
+                let new_key = try_next_pre::<T, _>(current_key)?;
+                *current_global_key = Some(new_key);
+                Ok::<AssetMetadataGlobalKey, DispatchError>(new_key)
+            }
+            None => {
+                let new_key = AssetMetadataGlobalKey(1);
+                *current_global_key = Some(new_key);
+                Ok::<AssetMetadataGlobalKey, DispatchError>(new_key)
+            }
+        })
+    }
+
+    /// Adds one to the `AssetMetadataLocalKey` for the given `ticker`.
+    fn update_current_asset_metadata_local_key(
+        ticker: &Ticker,
+    ) -> Result<AssetMetadataLocalKey, DispatchError> {
+        CurrentAssetMetadataLocalKey::try_mutate(
+            ticker,
+            |current_local_key| match current_local_key {
+                Some(current_key) => {
+                    let new_key = try_next_pre::<T, _>(current_key)?;
+                    *current_local_key = Some(new_key);
+                    Ok::<AssetMetadataLocalKey, DispatchError>(new_key)
+                }
+                None => {
+                    let new_key = AssetMetadataLocalKey(1);
+                    *current_local_key = Some(new_key);
+                    Ok::<AssetMetadataLocalKey, DispatchError>(new_key)
+                }
+            },
+        )
     }
 }
 
@@ -2522,5 +2581,33 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
         mediators: BTreeSet<IdentityId>,
     ) -> DispatchResult {
         Self::add_mandatory_mediators(origin, ticker, mediators.try_into().unwrap_or_default())
+    }
+}
+
+pub mod migration {
+    use frame_support::storage::{IterableStorageMap, StorageMap, StorageValue};
+    use sp_runtime::runtime_logger::RuntimeLogger;
+
+    use crate::{
+        AssetMetadataGlobalKey, AssetMetadataNextGlobalKey, AssetMetadataNextLocalKey, Config,
+        CurrentAssetMetadataGlobalKey, CurrentAssetMetadataLocalKey,
+    };
+
+    pub fn migrate_to_v4<T: Config>() {
+        RuntimeLogger::init();
+        log::info!(">>> Initializing CurrentAssetMetadataLocalKey and CurrentAssetMetadataGlobalKey storage");
+        initialize_storage::<T>();
+        log::info!(">>> Storage has been initialized");
+    }
+
+    fn initialize_storage<T: Config>() {
+        for (ticker, current_local_key) in AssetMetadataNextLocalKey::iter() {
+            CurrentAssetMetadataLocalKey::insert(ticker, current_local_key);
+        }
+
+        let global_key = AssetMetadataNextGlobalKey::get();
+        if AssetMetadataGlobalKey::default() != global_key {
+            CurrentAssetMetadataGlobalKey::put(global_key);
+        }
     }
 }
