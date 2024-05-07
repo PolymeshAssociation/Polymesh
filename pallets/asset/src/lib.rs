@@ -97,6 +97,7 @@ use sp_std::prelude::*;
 use pallet_base::{
     ensure_opt_string_limited, ensure_string_limited, try_next_pre, Error::CounterOverflow,
 };
+use pallet_portfolio::{Error as PortfolioError, PortfolioAssetBalances};
 use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
 use polymesh_common_utilities::constants::*;
@@ -104,7 +105,6 @@ use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 pub use polymesh_common_utilities::traits::asset::{Config, Event, RawEvent, WeightInfo};
 use polymesh_common_utilities::traits::nft::NFTTrait;
 use polymesh_common_utilities::with_transaction;
-
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{
     AssetName, AssetType, CheckpointId, CustomAssetTypeId, FundingRoundName,
@@ -1947,6 +1947,16 @@ impl<T: Config> Module<T> {
         // Verifies that the asset is not frozen
         ensure!(!Frozen::get(ticker), Error::<T>::InvalidTransferFrozenAsset);
 
+        ensure!(
+            Identity::<T>::has_valid_cdd(receiver_portfolio.did),
+            Error::<T>::InvalidTransferInvalidReceiverCDD
+        );
+
+        ensure!(
+            Identity::<T>::has_valid_cdd(sender_portfolio.did),
+            Error::<T>::InvalidTransferInvalidSenderCDD
+        );
+
         // Verifies that the statistics restrictions are satisfied
         Statistics::<T>::verify_transfer_restrictions(
             ticker,
@@ -1970,6 +1980,115 @@ impl<T: Config> Module<T> {
         }
 
         Ok(())
+    }
+
+    /// Returns a vector containing all errors for the transfer. An empty vec means there's no error.
+    pub fn asset_transfer_report(
+        sender_portfolio: &PortfolioId,
+        receiver_portfolio: &PortfolioId,
+        ticker: &Ticker,
+        transfer_value: Balance,
+        skip_locked_check: bool,
+        weight_meter: &mut WeightMeter,
+    ) -> Vec<DispatchError> {
+        let mut asset_transfer_errors = Vec::new();
+
+        // If the security token doesn't exist or if the token is an NFT, there's no point in assessing anything else
+        let security_token = {
+            match Tokens::try_get(ticker) {
+                Ok(security_token) => security_token,
+                Err(_) => return vec![Error::<T>::NoSuchAsset.into()],
+            }
+        };
+        if !security_token.asset_type.is_fungible() {
+            return vec![Error::<T>::UnexpectedNonFungibleToken.into()];
+        }
+
+        if let Err(e) = Self::ensure_token_granular(&security_token, &transfer_value) {
+            asset_transfer_errors.push(e);
+        }
+
+        let sender_current_balance = BalanceOf::get(ticker, &sender_portfolio.did);
+        if sender_current_balance < transfer_value {
+            asset_transfer_errors.push(Error::<T>::InsufficientBalance.into());
+        }
+
+        let receiver_current_balance = BalanceOf::get(ticker, &receiver_portfolio.did);
+        if receiver_current_balance
+            .checked_add(transfer_value)
+            .is_none()
+        {
+            asset_transfer_errors.push(Error::<T>::BalanceOverflow.into());
+        }
+
+        if sender_portfolio.did == receiver_portfolio.did {
+            asset_transfer_errors
+                .push(PortfolioError::<T>::InvalidTransferSenderIdMatchesReceiverId.into());
+        }
+
+        if let Err(e) = Portfolio::<T>::ensure_portfolio_validity(sender_portfolio) {
+            asset_transfer_errors.push(e);
+        }
+
+        if let Err(e) = Portfolio::<T>::ensure_portfolio_validity(receiver_portfolio) {
+            asset_transfer_errors.push(e);
+        }
+
+        if skip_locked_check {
+            if PortfolioAssetBalances::get(sender_portfolio, ticker) < transfer_value {
+                asset_transfer_errors
+                    .push(PortfolioError::<T>::InsufficientPortfolioBalance.into());
+            }
+        } else {
+            if let Err(e) =
+                Portfolio::<T>::ensure_sufficient_balance(sender_portfolio, ticker, transfer_value)
+            {
+                asset_transfer_errors.push(e);
+            }
+        }
+
+        if !Identity::<T>::has_valid_cdd(receiver_portfolio.did) {
+            asset_transfer_errors.push(Error::<T>::InvalidTransferInvalidReceiverCDD.into());
+        }
+
+        if !Identity::<T>::has_valid_cdd(sender_portfolio.did) {
+            asset_transfer_errors.push(Error::<T>::InvalidTransferInvalidSenderCDD.into());
+        }
+
+        if Frozen::get(ticker) {
+            asset_transfer_errors.push(Error::<T>::InvalidTransferFrozenAsset.into());
+        }
+
+        if let Err(e) = Statistics::<T>::verify_transfer_restrictions(
+            ticker,
+            &sender_portfolio.did,
+            &receiver_portfolio.did,
+            sender_current_balance,
+            receiver_current_balance,
+            transfer_value,
+            security_token.total_supply,
+            weight_meter,
+        ) {
+            asset_transfer_errors.push(e);
+        }
+
+        match T::ComplianceManager::is_compliant(
+            ticker,
+            sender_portfolio.did,
+            receiver_portfolio.did,
+            weight_meter,
+        ) {
+            Ok(is_compliant) => {
+                if !is_compliant {
+                    asset_transfer_errors.push(Error::<T>::InvalidTransferComplianceFailure.into());
+                }
+            }
+            Err(e) => {
+                asset_transfer_errors.push(e);
+            }
+        }
+
+        asset_transfer_errors
     }
 
     // Get the total supply of an asset `id`.

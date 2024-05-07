@@ -7,7 +7,7 @@ use pallet_compliance_manager::Error as CMError;
 use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::compliance_manager::{
-    AssetComplianceResult, ComplianceRequirement, ComplianceRequirementResult,
+    ComplianceReport, ComplianceRequirement, ComplianceRequirementResult,
 };
 use polymesh_primitives::{
     AuthorizationData, Claim, ClaimType, Condition, ConditionType, CountryCode, IdentityId,
@@ -152,31 +152,76 @@ fn should_add_and_verify_compliance_requirement_we() {
     //Transfer tokens to investor - fails wrong Accredited scope
     assert_invalid_transfer!(ticker, owner.did, token_rec.did, token.total_supply);
     let get_result = || {
-        ComplianceManager::verify_restriction_granular(
+        ComplianceManager::compliance_report(
             &ticker,
-            Some(owner.did),
-            Some(token_rec.did),
+            &owner.did,
+            &token_rec.did,
             &mut WeightMeter::max_limit_no_minimum(),
         )
         .unwrap()
     };
-    let second_unpassed = |result: AssetComplianceResult| {
-        assert!(!result.result);
-        assert!(!result.requirements[0].result);
-        assert!(result.requirements[0].sender_conditions[0].result);
-        assert!(result.requirements[0].receiver_conditions[0].result);
-        assert!(!result.requirements[0].receiver_conditions[1].result);
+    let second_unpassed = |compliance_report: ComplianceReport| {
+        assert!(!compliance_report.is_any_requirement_satisfied());
         assert_eq!(
-            result.requirements[0].sender_conditions[0].condition,
-            sender_condition
+            compliance_report
+                .get_requirement(0)
+                .unwrap()
+                .is_requirement_satisfied(),
+            false
         );
         assert_eq!(
-            result.requirements[0].receiver_conditions[0].condition,
-            receiver_condition1
+            compliance_report
+                .get_requirement(0)
+                .unwrap()
+                .get_sender_condition(0)
+                .unwrap()
+                .is_condition_satisfied(),
+            true
         );
         assert_eq!(
-            result.requirements[0].receiver_conditions[1].condition,
-            receiver_condition2
+            compliance_report
+                .get_requirement(0)
+                .unwrap()
+                .get_receiver_condition(0)
+                .unwrap()
+                .is_condition_satisfied(),
+            true
+        );
+        assert_eq!(
+            compliance_report
+                .get_requirement(0)
+                .unwrap()
+                .get_receiver_condition(1)
+                .unwrap()
+                .is_condition_satisfied(),
+            false
+        );
+        assert_eq!(
+            compliance_report
+                .get_requirement(0)
+                .unwrap()
+                .get_sender_condition(0)
+                .unwrap()
+                .condition(),
+            &sender_condition
+        );
+        assert_eq!(
+            compliance_report
+                .get_requirement(0)
+                .unwrap()
+                .get_receiver_condition(0)
+                .unwrap()
+                .condition(),
+            &receiver_condition1
+        );
+        assert_eq!(
+            compliance_report
+                .get_requirement(0)
+                .unwrap()
+                .get_receiver_condition(1)
+                .unwrap()
+                .condition(),
+            &receiver_condition2
         );
     };
     second_unpassed(get_result());
@@ -199,23 +244,68 @@ fn should_add_and_verify_compliance_requirement_we() {
         None,
     ));
     assert_valid_transfer!(ticker, owner.did, token_rec.did, 10);
-    let result = get_result();
-    assert!(result.result);
-    assert!(result.requirements[0].result);
-    assert!(result.requirements[0].sender_conditions[0].result);
-    assert!(result.requirements[0].receiver_conditions[0].result);
-    assert!(result.requirements[0].receiver_conditions[1].result);
+    let compliance_report = get_result();
+    assert!(compliance_report.is_any_requirement_satisfied());
     assert_eq!(
-        result.requirements[0].sender_conditions[0].condition,
-        sender_condition
+        compliance_report
+            .get_requirement(0)
+            .unwrap()
+            .is_requirement_satisfied(),
+        true
     );
     assert_eq!(
-        result.requirements[0].receiver_conditions[0].condition,
-        receiver_condition1
+        compliance_report
+            .get_requirement(0)
+            .unwrap()
+            .get_sender_condition(0)
+            .unwrap()
+            .is_condition_satisfied(),
+        true
     );
     assert_eq!(
-        result.requirements[0].receiver_conditions[1].condition,
-        receiver_condition2
+        compliance_report
+            .get_requirement(0)
+            .unwrap()
+            .get_receiver_condition(0)
+            .unwrap()
+            .is_condition_satisfied(),
+        true
+    );
+    assert_eq!(
+        compliance_report
+            .get_requirement(0)
+            .unwrap()
+            .get_receiver_condition(1)
+            .unwrap()
+            .is_condition_satisfied(),
+        true
+    );
+    assert_eq!(
+        compliance_report
+            .get_requirement(0)
+            .unwrap()
+            .get_sender_condition(0)
+            .unwrap()
+            .condition(),
+        &sender_condition
+    );
+    assert_eq!(
+        compliance_report
+            .get_requirement(0)
+            .unwrap()
+            .get_receiver_condition(0)
+            .unwrap()
+            .condition(),
+        &receiver_condition1
+    );
+    assert_eq!(
+        compliance_report
+            .get_requirement(0)
+            .unwrap()
+            .get_receiver_condition(1)
+            .unwrap()
+            .condition(),
+        &receiver_condition2
     );
 
     assert_ok!(Identity::add_claim(
@@ -226,23 +316,68 @@ fn should_add_and_verify_compliance_requirement_we() {
     ));
 
     assert_invalid_transfer!(ticker, owner.did, token_rec.did, 10);
-    let result = get_result();
-    assert!(!result.result);
-    assert!(!result.requirements[0].result);
-    assert!(result.requirements[0].sender_conditions[0].result);
-    assert!(!result.requirements[0].receiver_conditions[0].result);
-    assert!(result.requirements[0].receiver_conditions[1].result);
+    let compliance_report = get_result();
+    assert!(!compliance_report.is_any_requirement_satisfied());
     assert_eq!(
-        result.requirements[0].sender_conditions[0].condition,
-        sender_condition
+        compliance_report
+            .get_requirement(0)
+            .unwrap()
+            .is_requirement_satisfied(),
+        false
     );
     assert_eq!(
-        result.requirements[0].receiver_conditions[0].condition,
-        receiver_condition1
+        compliance_report
+            .get_requirement(0)
+            .unwrap()
+            .get_sender_condition(0)
+            .unwrap()
+            .is_condition_satisfied(),
+        true
     );
     assert_eq!(
-        result.requirements[0].receiver_conditions[1].condition,
-        receiver_condition2
+        compliance_report
+            .get_requirement(0)
+            .unwrap()
+            .get_receiver_condition(0)
+            .unwrap()
+            .is_condition_satisfied(),
+        false
+    );
+    assert_eq!(
+        compliance_report
+            .get_requirement(0)
+            .unwrap()
+            .get_receiver_condition(1)
+            .unwrap()
+            .is_condition_satisfied(),
+        true
+    );
+    assert_eq!(
+        compliance_report
+            .get_requirement(0)
+            .unwrap()
+            .get_sender_condition(0)
+            .unwrap()
+            .condition(),
+        &sender_condition
+    );
+    assert_eq!(
+        compliance_report
+            .get_requirement(0)
+            .unwrap()
+            .get_receiver_condition(0)
+            .unwrap()
+            .condition(),
+        &receiver_condition1
+    );
+    assert_eq!(
+        compliance_report
+            .get_requirement(0)
+            .unwrap()
+            .get_receiver_condition(1)
+            .unwrap()
+            .condition(),
+        &receiver_condition2
     );
 
     let comp_req = ComplianceRequirement {
@@ -961,47 +1096,76 @@ fn cm_test_case_9_we() {
     let eve = User::new(AccountKeyring::Eve);
     let ferdie = User::new(AccountKeyring::Ferdie);
 
-    let verify_restriction_granular = |user: User, claim| {
+    let get_compliance_report = |user: User, claim| {
         assert_ok!(Identity::add_claim(issuer.origin(), user.did, claim, None));
         assert_valid_transfer!(ticker, owner.did, user.did, 100);
-        ComplianceManager::verify_restriction_granular(
+        ComplianceManager::compliance_report(
             &ticker,
-            Some(owner.did),
-            Some(user.did),
+            &owner.did,
+            &user.did,
             &mut WeightMeter::max_limit_no_minimum(),
         )
         .unwrap()
     };
 
     // 3.1. Charlie has a 'KnowYourCustomer' Claim.
-    let result = verify_restriction_granular(charlie, Claim::KnowYourCustomer(scope.clone()));
-    assert!(result.result);
-    assert!(result.requirements[0].result);
-    assert!(result.requirements[0].receiver_conditions[0].result);
+    let compliance_report = get_compliance_report(charlie, Claim::KnowYourCustomer(scope.clone()));
+    assert!(compliance_report.is_any_requirement_satisfied());
+    assert!(compliance_report
+        .get_requirement(0)
+        .unwrap()
+        .is_requirement_satisfied());
+    assert!(compliance_report
+        .get_requirement(0)
+        .unwrap()
+        .get_receiver_condition(0)
+        .unwrap()
+        .is_condition_satisfied());
 
     // 3.2. Dave has a 'Affiliate' Claim
-    let result = verify_restriction_granular(dave, Claim::Affiliate(scope.clone()));
-    assert!(result.result);
-    assert!(result.requirements[0].result);
-    assert!(result.requirements[0].receiver_conditions[0].result);
+    let compliance_report = get_compliance_report(dave, Claim::Affiliate(scope.clone()));
+    assert!(compliance_report.is_any_requirement_satisfied());
+    assert!(compliance_report
+        .get_requirement(0)
+        .unwrap()
+        .is_requirement_satisfied());
+    assert!(compliance_report
+        .get_requirement(0)
+        .unwrap()
+        .get_receiver_condition(0)
+        .unwrap()
+        .is_condition_satisfied());
 
     // 3.3. Eve has a 'Exempted' Claim
-    let result = verify_restriction_granular(eve, Claim::Exempted(scope.clone()));
-    assert!(result.requirements[0].result);
-    assert!(result.requirements[0].receiver_conditions[0].result);
+    let compliance_report = get_compliance_report(eve, Claim::Exempted(scope.clone()));
+    assert!(compliance_report.is_any_requirement_satisfied());
+    assert!(compliance_report
+        .get_requirement(0)
+        .unwrap()
+        .get_receiver_condition(0)
+        .unwrap()
+        .is_condition_satisfied());
 
     // 3.4 Ferdie has none of the required claims
     assert_invalid_transfer!(ticker, owner.did, ferdie.did, 100);
-    let result = ComplianceManager::verify_restriction_granular(
+    let compliance_report = ComplianceManager::compliance_report(
         &ticker,
-        Some(owner.did),
-        Some(ferdie.did),
+        &owner.did,
+        &ferdie.did,
         &mut WeightMeter::max_limit_no_minimum(),
     )
     .unwrap();
-    assert!(!result.result);
-    assert!(!result.requirements[0].result);
-    assert!(!result.requirements[0].receiver_conditions[0].result);
+    assert!(!compliance_report.is_any_requirement_satisfied());
+    assert!(!compliance_report
+        .get_requirement(0)
+        .unwrap()
+        .is_requirement_satisfied());
+    assert!(!compliance_report
+        .get_requirement(0)
+        .unwrap()
+        .get_receiver_condition(0)
+        .unwrap()
+        .is_condition_satisfied());
 }
 
 #[test]
