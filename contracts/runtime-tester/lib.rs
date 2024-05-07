@@ -5,7 +5,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use polymesh_api::{
-    ink::{basic_types::IdentityId, extension::PolymeshEnvironment, Error as PolymeshError},
+    ink::{basic_types::IdentityId, extension::PolymeshEnvironment, Error as PolymeshInkError},
     polymesh::types::{
         polymesh_contracts::Api as ContractRuntimeApi,
         polymesh_primitives::{
@@ -35,8 +35,7 @@ mod runtime_tester {
         /// (Amount needed)
         InsufficientTransferValue(Balance),
         /// Polymesh runtime error.
-        PolymeshError(PolymeshError),
-        //PolymeshError(PolymeshRuntimeErr),
+        PolymeshRuntime(PolymeshInkError),
         /// Scale decode failed.
         ScaleError,
     }
@@ -60,7 +59,7 @@ mod runtime_tester {
             Self::env()
                 .extension()
                 .call_runtime(call.into())
-                .map_err(|err| Error::PolymeshError(PolymeshError::RuntimeError(err)))
+                .map_err(|err| Error::PolymeshRuntime(err))
         }
 
         #[ink(message)]
@@ -68,7 +67,7 @@ mod runtime_tester {
             Self::env()
                 .extension()
                 .read_storage(key.into())
-                .map_err(|err| Error::PolymeshError(PolymeshError::RuntimeError(err)))
+                .map_err(|err| Error::PolymeshRuntime(err))
         }
 
         #[ink(message)]
@@ -76,7 +75,7 @@ mod runtime_tester {
             Self::env()
                 .extension()
                 .get_spec_version()
-                .map_err(|err| Error::PolymeshError(PolymeshError::RuntimeError(err)))
+                .map_err(|err| Error::PolymeshRuntime(err))
         }
 
         #[ink(message)]
@@ -84,7 +83,7 @@ mod runtime_tester {
             Self::env()
                 .extension()
                 .get_transaction_version()
-                .map_err(|err| Error::PolymeshError(PolymeshError::RuntimeError(err)))
+                .map_err(|err| Error::PolymeshRuntime(err))
         }
 
         #[ink(message)]
@@ -92,7 +91,7 @@ mod runtime_tester {
             Self::env()
                 .extension()
                 .get_latest_api_upgrade((&api).into())
-                .map_err(|err| Error::PolymeshError(PolymeshError::RuntimeError(err)))
+                .map_err(|err| Error::PolymeshRuntime(err))
         }
 
         #[ink(message)]
@@ -101,7 +100,7 @@ mod runtime_tester {
             api.query()
                 .asset()
                 .balance_of(ticker, did)
-                .map_err(|err| Error::PolymeshError(err))
+                .map_err(|err| Error::PolymeshRuntime(err))
         }
 
         #[ink(message)]
@@ -114,7 +113,7 @@ mod runtime_tester {
             api.query()
                 .portfolio()
                 .portfolio_asset_balances(portfolio, ticker)
-                .map_err(|err| Error::PolymeshError(err))
+                .map_err(|err| Error::PolymeshRuntime(err))
         }
 
         #[ink(message)]
@@ -124,7 +123,7 @@ mod runtime_tester {
                 .asset()
                 .register_ticker(ticker)
                 .submit()
-                .map_err(|err| Error::PolymeshError(err))
+                .map_err(|err| Error::PolymeshRuntime(err))
         }
 
         #[ink(message)]
@@ -134,7 +133,7 @@ mod runtime_tester {
                 .asset()
                 .accept_ticker_transfer(auth_id)
                 .submit()
-                .map_err(|err| Error::PolymeshError(err))
+                .map_err(|err| Error::PolymeshRuntime(err))
         }
 
         #[ink(message)]
@@ -144,7 +143,7 @@ mod runtime_tester {
                 .asset()
                 .accept_asset_ownership_transfer(auth_id)
                 .submit()
-                .map_err(|err| Error::PolymeshError(err))
+                .map_err(|err| Error::PolymeshRuntime(err))
         }
 
         fn create_asset(
@@ -159,12 +158,12 @@ mod runtime_tester {
                 .asset()
                 .create_asset(name, ticker.clone(), true, asset_type, vec![], None)
                 .submit()
-                .map_err(|err| Error::PolymeshError(err))?;
+                .map_err(|err| Error::PolymeshRuntime(err))?;
             api.call()
                 .asset()
                 .issue(ticker, supply, PortfolioKind::Default)
                 .submit()
-                .map_err(|err| Error::PolymeshError(err))
+                .map_err(|err| Error::PolymeshRuntime(err))
         }
 
         #[ink(message)]
@@ -202,7 +201,7 @@ mod runtime_tester {
                 .asset()
                 .register_custom_asset_type(ty)
                 .submit()
-                .map_err(|err| Error::PolymeshError(err))
+                .map_err(|err| Error::PolymeshRuntime(err))
         }
     }
 }
