@@ -2,7 +2,6 @@ use anyhow::Result;
 
 use integration::*;
 use polymesh_api::types::polymesh_primitives::settlement::{VenueDetails, VenueType};
-use polymesh_api_client_extras::*;
 
 #[tokio::test]
 async fn create_venue() -> Result<()> {
