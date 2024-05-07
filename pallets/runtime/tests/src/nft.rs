@@ -681,7 +681,7 @@ fn transfer_nft_same_portfolio() {
                     &mut weight_meter,
                 )
             }),
-            NFTError::InvalidNFTTransferSamePortfolio
+            NFTError::InvalidNFTTransferSenderIdMatchesReceiverId
         );
     });
 }

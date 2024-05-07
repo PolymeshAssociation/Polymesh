@@ -89,7 +89,8 @@ pub use polymesh_common_utilities::traits::compliance_manager::{
     ComplianceFnConfig, Config, Event, WeightInfo,
 };
 use polymesh_primitives::compliance_manager::{
-    AssetCompliance, AssetComplianceResult, ComplianceRequirement, ConditionResult,
+    AssetCompliance, AssetComplianceResult, ComplianceReport, ComplianceRequirement,
+    ConditionReport, ConditionResult, RequirementReport,
 };
 use polymesh_primitives::{
     proposition, storage_migration_ver, Claim, Condition, ConditionType, Context, IdentityId,
@@ -771,5 +772,89 @@ impl<T: Config> ComplianceFnConfig for Module<T> {
         pause_compliance: bool,
     ) {
         benchmarking::setup_ticker_compliance::<T>(caller_did, ticker, n, pause_compliance);
+    }
+}
+
+//==========================================================================
+// All RPC functions!
+//==========================================================================
+
+impl<T: Config> Module<T> {
+    /// Returns a [`ComplianceReport`] for the given `ticker`.
+    pub fn compliance_report(
+        ticker: &Ticker,
+        sender_identity: &IdentityId,
+        receiver_identity: &IdentityId,
+        weight_meter: &mut WeightMeter,
+    ) -> Result<ComplianceReport, DispatchError> {
+        let asset_compliance = Self::asset_compliance(ticker);
+
+        if asset_compliance.requirements.is_empty() {
+            return Ok(ComplianceReport::new(
+                Vec::new(),
+                true,
+                asset_compliance.paused,
+            ));
+        }
+
+        let mut any_requirement_satisfied = false;
+        // Get the [`RequirementReport`] for each requirement
+        let mut requirements_report = Vec::new();
+        for requirement in asset_compliance.requirements {
+            // The requirement is satisfied only if all sender and receiver conditions hold.
+            let mut requirement_satisfied = true;
+            // Get the [`ConditionrReport`] for all sender conditions
+            let sender_conditions_report = Self::get_conditions_report(
+                ticker,
+                *sender_identity,
+                requirement.sender_conditions,
+                &mut requirement_satisfied,
+                weight_meter,
+            )?;
+            // Get the [`ConditionrReport`] for all receiver conditions
+            let receiver_conditions_report = Self::get_conditions_report(
+                ticker,
+                *receiver_identity,
+                requirement.receiver_conditions,
+                &mut requirement_satisfied,
+                weight_meter,
+            )?;
+            requirements_report.push(RequirementReport::new(
+                sender_conditions_report,
+                receiver_conditions_report,
+                requirement.id,
+                requirement_satisfied,
+            ));
+            any_requirement_satisfied = any_requirement_satisfied || requirement_satisfied;
+        }
+
+        Ok(ComplianceReport::new(
+            requirements_report,
+            any_requirement_satisfied,
+            asset_compliance.paused,
+        ))
+    }
+
+    /// Returns all [`ConditionReport`] for the given `conditions`.
+    fn get_conditions_report(
+        ticker: &Ticker,
+        identity: IdentityId,
+        conditions: Vec<Condition>,
+        requirement_satisfied: &mut bool,
+        weight_meter: &mut WeightMeter,
+    ) -> Result<Vec<ConditionReport>, DispatchError> {
+        let mut conditions_report = Vec::new();
+        for condition in conditions {
+            let is_condition_satisfied = Self::is_condition_satisfied(
+                ticker,
+                identity,
+                &condition,
+                &mut None,
+                weight_meter,
+            )?;
+            conditions_report.push(ConditionReport::new(condition, is_condition_satisfied));
+            *requirement_satisfied = *requirement_satisfied && is_condition_satisfied;
+        }
+        Ok(conditions_report)
     }
 }

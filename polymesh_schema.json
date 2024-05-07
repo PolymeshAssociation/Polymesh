@@ -1231,6 +1231,21 @@
       "sender_asset_count": "AssetCount",
       "receiver_asset_count": "AssetCount",
       "offchain_count": "u32"
+    },
+    "ComplianceReport": {
+      "any_requirement_satistifed": "bool",
+      "paused_compliance": "bool",
+      "requirements": "Vec<RequirementReport>"
+    },
+    "RequirementReport": {
+      "requirement_satisfied": "bool",
+      "id": "u32",
+      "sender_conditions": "Vec<ConditionReport>",
+      "receiver_conditions": "Vec<ConditionReport>"
+    },
+    "ConditionReport": {
+      "satisfied": "bool",
+      "condition": "Condition"
     }
   },
   "rpc": {
@@ -1783,6 +1798,30 @@
               }
             ],
             "type": "AffirmationCount"
+          },
+          "get_transfer_report": {
+            "description": "Returns a vector containing all errors for the transfer. An empty vec means there's no error.",
+            "params": [
+              {
+                "name": "leg",
+                "type": "Leg"
+              },
+              {
+                "name": "skip_locked_check",
+                "type": "bool"
+              }
+            ],
+            "type": "Vec<DispatchError>"
+          },
+          "get_execute_instruction_report": {
+            "description": "Returns a vector containing all errors for the execution. An empty vec means there's no error.",
+            "params": [
+              {
+                "name": "instruction_id",
+                "type": "InstructionId"
+              }
+            ],
+            "type": "Vec<DispatchError>"
           }
         },
         "version": 1
@@ -1849,6 +1888,31 @@
             "description": "Retrieves curves parameters",
             "params": [],
             "type": "Vec<(Perbill, Perbill)>"
+          }
+        },
+        "version": 1
+      }
+    ],
+    "ComplianceApi": [
+      {
+        "methods": {
+          "compliance_report": {
+            "description": "Checks all compliance requirements for the given ticker.",
+            "params": [
+              {
+                "name": "ticker",
+                "type": "Ticker"
+              },
+              {
+                "name": "sender_identity",
+                "type": "IdentityId"
+              },
+              {
+                "name": "receiver_identity",
+                "type": "IdentityId"
+              }
+            ],
+            "type": "Result<ComplianceReport, DispatchError>"
           }
         },
         "version": 1
