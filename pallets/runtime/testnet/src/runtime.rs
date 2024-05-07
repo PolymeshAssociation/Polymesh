@@ -143,6 +143,11 @@ parameter_types! {
     // Portfolio:
     pub const MaxNumberOfFungibleMoves: u32 = 10;
     pub const MaxNumberOfNFTsMoves: u32 = 100;
+
+    // State trie Migration
+    pub const MigrationSignedDepositPerItem: Balance = 0;
+    pub const MigrationSignedDepositBase: Balance = 0;
+    pub const MaxKeyLen: u32 = 2048;
 }
 
 /// 100% goes to the block author.
@@ -393,6 +398,8 @@ construct_runtime!(
         Nft: pallet_nft::{Pallet, Call, Storage, Event},
 
         TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 50,
+
+        StateTrieMigration: pallet_state_trie_migration::{Pallet, Call, Storage, Event<T> } = 100,
     }
 );
 
