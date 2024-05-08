@@ -267,17 +267,12 @@ jobs:
               --pool-limit 100000
           background: true
       - run:
-          name: Build nonce server and tests.
-          command: cargo build --bins --tests
+          name: Reset accounts db
+          command: ./reset_db.sh
           working_directory: ./integration
-      - run:
-          name: Run background nonce server.
-          command: cargo run --locked
-          working_directory: ./integration
-          background: true
       - run:
           name: Run polymesh-api integration tests.
-          command: cargo test --locked
+          command: cargo nextest run --locked
           working_directory: ./integration
           no_output_timeout: 30m
       - save-sccache-cache
