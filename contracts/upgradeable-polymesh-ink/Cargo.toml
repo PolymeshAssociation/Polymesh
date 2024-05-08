@@ -15,8 +15,8 @@ ink = { version = "4.3", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
 
-polymesh-api = { version = "3.6", default-features = false, features = ["ink"] }
-polymesh-api-ink = { version = "1.2.2", default-features = false }
+polymesh-api = { version = "3.7", default-features = false, features = ["ink"] }
+polymesh-api-ink = { version = "1.3.0", default-features = false }
 
 paste = "1.0"
 
