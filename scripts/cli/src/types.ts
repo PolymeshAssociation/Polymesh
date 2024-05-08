@@ -1,8 +1,6 @@
 import type { AccountId } from "@polkadot/types/interfaces/runtime";
 import type { IdentityId, CountryCode } from "../src/interfaces";
 import type { AnyNumber } from "@polkadot/types/types";
-//import { Option } from "fp-ts/lib/Option";
-//import type { Option, Vec } from '@polkadot/types/codec';
 
 export interface Document {
   uri: DocumentUri;
@@ -32,23 +30,6 @@ export interface PortfolioKind {
   User?: PortfolioNumber;
 }
 
-export interface TargetIdentity {
-  PrimaryIssuanceAgent?: string;
-  Specific?: IdentityId;
-}
-
-export interface ClaimType {
-  Accredited?: string;
-  Affiliate?: string;
-  BuyLockup?: string;
-  SellLockup?: string;
-  CustomerDueDiligence?: string;
-  KnowYourCustomer?: string;
-  Jurisdiction?: string;
-  Exempted?: string;
-  Blocked?: string;
-}
-
 export interface AuthorizationData {
   AttestPrimaryKeyRotation?: IdentityId;
   RotatePrimaryKey?: IdentityId;
@@ -72,19 +53,6 @@ export interface AgentGroup {
   PolymeshV1PIA?: string;
 }
 
-export interface ConditionType {
-  IsPresent?: Claim;
-  IsAbsent?: Claim;
-  IsAnyOf?: Claim[];
-  IsNoneOf?: Claim[];
-  IsIdentity?: TargetIdentity;
-}
-
-export interface TrustedFor {
-  Any?: string;
-  Specific?: ClaimType[];
-}
-
 export type Ticker = string;
 export type NonceObject = { nonce: string };
 export type PortfolioNumber = number;
@@ -96,7 +64,6 @@ export type Expiry = string | object | Uint8Array | null;
 export type DocumentName = string;
 export type DocumentUri = string;
 export type Signatory = { Identity: IdentityId } | { Account: AccountId | Uint8Array};
-export type ItnRewardStatus = { Unclaimed: number } | { Claimed: "" };
 export type venueType = "Other" | "Distribution" | "Sto" | "Exchange" | number | Uint8Array;
 
 export type Claim =
@@ -140,37 +107,11 @@ export type PortfolioId = {
   kind: PortfolioKind;
 };
 
-export type TickerRegistration = {
-  owner: IdentityId;
-  expiry: Expiry;
-};
-
 export type Authorization = {
   authorization_data: AuthorizationData;
   authorized_by: IdentityId;
   expiry: Expiry;
   auth_id: number;
-};
-
-export type TrustedIssuer = {
-  issuer: IdentityId;
-  trusted_for: TrustedFor;
-};
-
-export type Condition = {
-  condition_type: ConditionType;
-  issuers: TrustedIssuer[];
-};
-
-export type ComplianceRequirement = {
-  sender_conditions: Condition[];
-  receiver_conditions: Condition[];
-  id: number;
-};
-
-export type AssetCompliance = {
-  is_paused: Boolean;
-  requirements: ComplianceRequirement[];
 };
 
 export type PriceTier = {
