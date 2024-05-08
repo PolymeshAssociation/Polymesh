@@ -46,7 +46,8 @@ fn add_auth<T: Asset + TestUtilsFn<AccountIdOf<T>>>(
         other.did().into(),
         AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
         None,
-    );
+    )
+    .unwrap();
     (other, auth_id)
 }
 

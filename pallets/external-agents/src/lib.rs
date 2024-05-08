@@ -324,7 +324,7 @@ impl<T: Config> Module<T> {
             Signatory::Identity(target),
             AuthorizationData::BecomeAgent(ticker, AgentGroup::Custom(ag_id)),
             expiry,
-        );
+        )?;
         Ok(())
     }
 

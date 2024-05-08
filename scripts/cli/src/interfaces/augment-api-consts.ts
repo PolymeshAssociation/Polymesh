@@ -179,6 +179,7 @@ declare module '@polkadot/api-base/types/consts' {
     };
     identity: {
       initialPOLYX: u128 & AugmentedConst<ApiType>;
+      maxGivenAuths: u32 & AugmentedConst<ApiType>;
       /**
        * Generic const
        **/

@@ -387,7 +387,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             Self::ensure_ms(&sender)?;
             let did = <MultiSigToIdentity<T>>::get(&sender);
-            Self::unsafe_add_auth_for_signers(did, signer, sender);
+            Self::unsafe_add_auth_for_signers(did, signer, sender)?;
         }
 
         /// Removes a signer from the multisig. This must be called by the multisig itself.
@@ -425,7 +425,7 @@ decl_module! {
                 Error::<T>::CreatorControlsHaveBeenRemoved
             );
             for signer in signers {
-                Self::unsafe_add_auth_for_signers(caller_did, signer, multisig.clone());
+                Self::unsafe_add_auth_for_signers(caller_did, signer, multisig.clone())?;
             }
         }
 
@@ -667,18 +667,19 @@ impl<T: Config> Module<T> {
         multisig_owner: IdentityId,
         target: Signatory<T::AccountId>,
         multisig: T::AccountId,
-    ) {
+    ) -> DispatchResult {
         <Identity<T>>::add_auth(
             multisig_owner,
             target.clone(),
             AuthorizationData::AddMultiSigSigner(multisig.clone()),
             None,
-        );
+        )?;
         Self::deposit_event(RawEvent::MultiSigSignerAuthorized(
             multisig_owner,
             multisig,
             target,
         ));
+        Ok(())
     }
 
     /// Removes a signer from the valid signer list for a given multisig.
@@ -722,7 +723,7 @@ impl<T: Config> Module<T> {
                 signer.clone(),
                 AuthorizationData::AddMultiSigSigner(account_id.clone()),
                 None,
-            );
+            )?;
         }
         <MultiSigSignsRequired<T>>::insert(&account_id, &sigs_required);
         <MultiSigToIdentity<T>>::insert(account_id.clone(), sender_did);

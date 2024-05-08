@@ -177,6 +177,8 @@ parameter_types! {
     pub const ReportLongevity: u64 =
         BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
 
+    pub const MaxGivenAuths: u32 = 1024;
+
     // State trie Migration
     pub const MigrationSignedDepositPerItem: Balance = 0;
     pub const MigrationSignedDepositBase: Balance = 0;
@@ -208,6 +210,7 @@ impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
     type MultiSigBalanceLimit = polymesh_runtime_common::MultiSigBalanceLimit;
+    type MaxGivenAuths = MaxGivenAuths;
 }
 
 impl pallet_committee::Config<GovernanceCommittee> for Runtime {

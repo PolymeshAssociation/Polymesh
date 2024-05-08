@@ -881,6 +881,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       DuplicateKey: AugmentedError<ApiType>;
       /**
+       * Maximum number of given authorizations was exceeded.
+       **/
+      ExceededNumberOfGivenAuths: AugmentedError<ApiType>;
+      /**
        * Cannot use Except when specifying extrinsic permissions.
        **/
       ExceptNotAllowedForExtrinsics: AugmentedError<ApiType>;
@@ -1429,6 +1433,10 @@ declare module '@polkadot/api-base/types/errors' {
        * Only owned NFTs can be moved between portfolios.
        **/
       InvalidTransferNFTNotOwned: AugmentedError<ApiType>;
+      /**
+       * The sender identity can't be the same as the receiver identity.
+       **/
+      InvalidTransferSenderIdMatchesReceiverId: AugmentedError<ApiType>;
       /**
        * The caller doesn't have permission to create portfolios on the owner's behalf.
        **/

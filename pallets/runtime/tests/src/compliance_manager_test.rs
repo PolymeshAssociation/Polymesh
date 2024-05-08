@@ -1456,7 +1456,8 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
         Signatory::from(issuer.did),
         AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
         None,
-    );
+    )
+    .unwrap();
     assert_ok!(ExternalAgents::accept_become_agent(
         issuer.origin(),
         auth_id

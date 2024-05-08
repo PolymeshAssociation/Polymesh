@@ -535,14 +535,16 @@ fn transfer_token_ownership() {
             Signatory::from(alice.did),
             AuthorizationData::TransferAssetOwnership(ticker),
             None,
-        );
+        )
+        .unwrap();
 
         let auth_id_bob = Identity::add_auth(
             owner.did,
             Signatory::from(bob.did),
             AuthorizationData::TransferAssetOwnership(ticker),
             None,
-        );
+        )
+        .unwrap();
 
         assert_eq!(token_details(&ticker).owner_did, owner.did);
 
@@ -586,7 +588,8 @@ fn transfer_token_ownership() {
             Signatory::from(bob.did),
             AuthorizationData::TransferAssetOwnership(ticker),
             Some(now() - 100),
-        );
+        )
+        .unwrap();
 
         assert_noop!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
@@ -599,7 +602,8 @@ fn transfer_token_ownership() {
             Signatory::from(bob.did),
             AuthorizationData::RotatePrimaryKey,
             Some(now() + 100),
-        );
+        )
+        .unwrap();
 
         assert_eq!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
@@ -611,7 +615,8 @@ fn transfer_token_ownership() {
             Signatory::from(bob.did),
             AuthorizationData::TransferAssetOwnership(Ticker::from_slice_truncated(&[0x50][..])),
             Some(now() + 100),
-        );
+        )
+        .unwrap();
 
         assert_eq!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
@@ -623,7 +628,8 @@ fn transfer_token_ownership() {
             Signatory::from(bob.did),
             AuthorizationData::TransferAssetOwnership(ticker),
             Some(now() + 100),
-        );
+        )
+        .unwrap();
 
         assert_ok!(Asset::accept_asset_ownership_transfer(
             bob.origin(),
@@ -757,7 +763,8 @@ fn freeze_unfreeze_asset() {
             Signatory::from(bob.did),
             AuthorizationData::TransferAssetOwnership(ticker),
             None,
-        );
+        )
+        .unwrap();
         assert_ok!(Asset::accept_asset_ownership_transfer(
             bob.origin(),
             auth_id
@@ -1576,7 +1583,8 @@ fn issuers_can_redeem_tokens_from_portfolio() {
                 Signatory::from(bob.did),
                 AuthorizationData::PortfolioCustody(user_portfolio),
                 None,
-            );
+            )
+            .unwrap();
 
             // Check that bob accepts auth
             assert_ok!(Portfolio::accept_portfolio_custody(bob.origin(), auth_id));
@@ -2054,7 +2062,8 @@ fn redeem_token_assigned_custody() {
             Signatory::from(bob.did),
             AuthorizationData::PortfolioCustody(portfolio_id),
             None,
-        );
+        )
+        .unwrap();
         assert_ok!(Portfolio::accept_portfolio_custody(
             bob.origin(),
             authorization_id
@@ -2333,7 +2342,8 @@ fn controller_transfer_locked_asset() {
             Signatory::from(bob.did),
             AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
             None,
-        );
+        )
+        .unwrap();
         assert_ok!(ExternalAgents::accept_become_agent(
             bob.origin(),
             authorization_id

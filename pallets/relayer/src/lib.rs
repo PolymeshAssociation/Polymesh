@@ -234,7 +234,7 @@ impl<T: Config> Module<T> {
         } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
 
         // Create authorization for `paying_key` to subsidise the `user_key`, with `polyx_limit` POLYX.
-        Self::unverified_add_auth_for_paying_key(paying_did, user_key, paying_key, polyx_limit);
+        Self::unverified_add_auth_for_paying_key(paying_did, user_key, paying_key, polyx_limit)?;
         Ok(())
     }
 
@@ -353,7 +353,7 @@ impl<T: Config> Module<T> {
         user_key: T::AccountId,
         paying_key: T::AccountId,
         polyx_limit: Balance,
-    ) -> u64 {
+    ) -> Result<u64, DispatchError> {
         let auth_id = <Identity<T>>::add_auth(
             from,
             Signatory::Account(user_key.clone()),
@@ -363,7 +363,7 @@ impl<T: Config> Module<T> {
                 polyx_limit,
             ),
             None,
-        );
+        )?;
         Self::deposit_event(RawEvent::AuthorizedPayingKey(
             from.for_event(),
             user_key,
@@ -371,7 +371,7 @@ impl<T: Config> Module<T> {
             polyx_limit,
             auth_id,
         ));
-        auth_id
+        Ok(auth_id)
     }
 
     /// Check if the `key` has a valid CDD.

@@ -50,6 +50,7 @@ fn add_auth<T: Config>(owner: &User<T>, custodian: &User<T>, pid: PortfolioId) -
         AuthorizationData::PortfolioCustody(pid),
         None,
     )
+    .unwrap()
 }
 
 fn assert_custodian<T: Config>(pid: PortfolioId, custodian: &User<T>, holds: bool) {

@@ -897,6 +897,11 @@ declare module '@polkadot/api-base/types/events' {
        **/
       ProposalExecutionFailed: AugmentedEvent<ApiType, [SpRuntimeDispatchError]>;
       /**
+       * Event emitted when a proposal failed to execute.
+       * Arguments: caller DID, multisig, proposal ID, error.
+       **/
+      ProposalFailedToExecute: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, u64, SpRuntimeDispatchError]>;
+      /**
        * Event emitted when a proposal is rejected.
        * Arguments: caller DID, multisig, proposal ID.
        **/
