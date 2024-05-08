@@ -528,7 +528,8 @@ fn burn_nft_no_custody() {
             Signatory::from(bob.did),
             AuthorizationData::PortfolioCustody(portfolio_id),
             None,
-        );
+        )
+        .unwrap();
         assert_ok!(Portfolio::accept_portfolio_custody(
             bob.origin(),
             authorization_id

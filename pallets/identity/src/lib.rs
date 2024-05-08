@@ -116,7 +116,7 @@ use polymesh_primitives::{
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 
-storage_migration_ver!(4);
+storage_migration_ver!(5);
 
 decl_storage! {
     trait Store for Module<T: Config> as Identity {
@@ -170,7 +170,7 @@ decl_storage! {
         pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(4)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(5)): Version;
 
         /// How many "strong" references to the account key.
         ///
@@ -189,6 +189,17 @@ decl_storage! {
         /// All child identities of a parent (i.e ParentDID, ChildDID, true)
         pub ChildDid get(fn child_did):
             double_map hasher(identity) IdentityId, hasher(identity) IdentityId => bool;
+
+        /// Track the number of authorizations given by each identity.
+        pub NumberOfGivenAuths get(fn number_of_given_auths):
+            map hasher(identity) IdentityId => u32;
+
+        /// Tracks all authorizations that must be deleted
+        pub OutdatedAuthorizations get(fn outdated_authorizations):
+            map hasher(blake2_128_concat) Signatory<T::AccountId> => Option<u64>;
+
+        /// Controls the authorization id.
+        pub CurrentAuthId get(fn current_auth_id): u64
     }
     add_extra_genesis {
         // Identities at genesis.
@@ -246,13 +257,15 @@ decl_module! {
 
         type Error = Error<T>;
 
+        const MaxGivenAuths: u32 = T::MaxGivenAuths::get();
+
         // Initializing events
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 4, {
-                migration::migrate_to_v4::<T>();
+            storage_migrate_on!(StorageVersion, 5, {
+                migration::migrate_to_v5::<T>();
             });
             Weight::zero()
         }
@@ -647,6 +660,8 @@ decl_error! {
         DuplicateKey,
         /// Cannot use Except when specifying extrinsic permissions.
         ExceptNotAllowedForExtrinsics,
+        /// Maximum number of given authorizations was exceeded.
+        ExceededNumberOfGivenAuths,
     }
 }
 
@@ -772,16 +787,22 @@ pub mod migration {
     use super::*;
     use sp_runtime::runtime_logger::RuntimeLogger;
 
-    pub fn migrate_to_v4<T: Config>() {
+    pub fn migrate_to_v5<T: Config>() {
         RuntimeLogger::init();
-        log::info!(" >>> Initializing ChildDid storage");
-        initialize_child_did::<T>();
-        log::info!(" >>> ChildDid has been initialized");
+        log::info!(" >>> Initializing NextAuthId and NumberOfGivenAuths");
+        initialize_next_auth_id::<T>();
+        initialize_number_of_given_auths::<T>();
+        log::info!(" >>> NextAuthId and NumberOfGivenAuths have been initialized");
     }
 
-    fn initialize_child_did<T: Config>() {
-        for (child_did, parent_did) in ParentDid::iter() {
-            ChildDid::insert(parent_did, child_did, true);
+    fn initialize_next_auth_id<T: Config>() {
+        let next_auth_id = MultiPurposeNonce::get().saturating_add(1);
+        CurrentAuthId::put(next_auth_id);
+    }
+
+    fn initialize_number_of_given_auths<T: Config>() {
+        for (authorizer, _) in AuthorizationsGiven::<T>::iter_keys() {
+            NumberOfGivenAuths::mutate(authorizer, |n| *n = n.saturating_add(1));
         }
     }
 }

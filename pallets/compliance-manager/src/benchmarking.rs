@@ -270,7 +270,8 @@ fn add_external_agent<T>(
         external_agent_id.into(),
         AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
         None,
-    );
+    )
+    .unwrap();
     pallet_external_agents::Module::<T>::accept_become_agent(external_agent_origin, auth_id)
         .unwrap();
 }

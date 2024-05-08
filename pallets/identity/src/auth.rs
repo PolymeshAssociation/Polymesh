@@ -14,8 +14,8 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    AuthorizationType, Authorizations, AuthorizationsGiven, Config, Error, KeyRecords, Module,
-    MultiPurposeNonce, RawEvent,
+    AuthorizationType, Authorizations, AuthorizationsGiven, Config, CurrentAuthId, Error,
+    KeyRecords, Module, NumberOfGivenAuths, RawEvent,
 };
 use frame_support::dispatch::DispatchResult;
 use frame_support::{ensure, StorageDoubleMap, StorageMap, StorageValue};
@@ -24,6 +24,7 @@ use polymesh_common_utilities::Context;
 use polymesh_primitives::{
     Authorization, AuthorizationData, AuthorizationError, IdentityId, Signatory,
 };
+use sp_core::Get;
 use sp_runtime::DispatchError;
 use sp_std::vec::Vec;
 
@@ -41,7 +42,12 @@ impl<T: Config> Module<T> {
         {
             Self::ensure_perms_length_limited(perms)?;
         }
-        Ok(Self::add_auth(from_did, target, authorization_data, expiry))
+        Ok(Self::add_auth(
+            from_did,
+            target,
+            authorization_data,
+            expiry,
+        )?)
     }
 
     /// Adds an authorization.
@@ -50,32 +56,39 @@ impl<T: Config> Module<T> {
         target: Signatory<T::AccountId>,
         authorization_data: AuthorizationData<T::AccountId>,
         expiry: Option<T::Moment>,
-    ) -> u64 {
-        let new_nonce = Self::multi_purpose_nonce() + 1u64;
-        MultiPurposeNonce::put(&new_nonce);
+    ) -> Result<u64, DispatchError> {
+        let number_of_given_auths = NumberOfGivenAuths::get(from);
+        ensure!(
+            number_of_given_auths < T::MaxGivenAuths::get(),
+            Error::<T>::ExceededNumberOfGivenAuths
+        );
+        NumberOfGivenAuths::insert(from, number_of_given_auths.saturating_add(1));
+
+        let new_auth_id = Self::current_auth_id().saturating_add(1);
+        CurrentAuthId::put(new_auth_id);
 
         let auth = Authorization {
             authorization_data: authorization_data.clone(),
             authorized_by: from,
             expiry,
-            auth_id: new_nonce,
+            auth_id: new_auth_id,
             count: 50,
         };
 
-        <Authorizations<T>>::insert(target.clone(), new_nonce, auth);
-        <AuthorizationsGiven<T>>::insert(from, new_nonce, target.clone());
+        <Authorizations<T>>::insert(target.clone(), new_auth_id, auth);
+        <AuthorizationsGiven<T>>::insert(from, new_auth_id, target.clone());
 
         // This event is split in order to help the event harvesters.
         Self::deposit_event(RawEvent::AuthorizationAdded(
             from,
             target.as_identity().cloned(),
             target.as_account().cloned(),
-            new_nonce,
+            new_auth_id,
             authorization_data,
             expiry,
         ));
 
-        new_nonce
+        Ok(new_auth_id)
     }
 
     /// Removes an authorization.
@@ -112,6 +125,9 @@ impl<T: Config> Module<T> {
     ) {
         <Authorizations<T>>::remove(target, auth_id);
         <AuthorizationsGiven<T>>::remove(authorizer, auth_id);
+        NumberOfGivenAuths::mutate(authorizer, |number_of_given_auths| {
+            *number_of_given_auths = number_of_given_auths.saturating_sub(1);
+        });
         let id = target.as_identity().cloned();
         let acc = target.as_account().cloned();
         let event = if revoked {
@@ -170,7 +186,7 @@ impl<T: Config> Module<T> {
         accepter: impl FnOnce(AuthorizationData<T::AccountId>, IdentityId) -> DispatchResult,
     ) -> DispatchResult {
         // Extract authorization.
-        let mut auth = Self::ensure_authorization(target, auth_id)?;
+        let auth = Self::ensure_authorization(target, auth_id)?;
 
         // Ensure that `auth.expiry`, if provided, is in the future.
         if let Some(expiry) = auth.expiry {
@@ -179,33 +195,14 @@ impl<T: Config> Module<T> {
         }
 
         // Run custom per-type validation and updates.
-        let res = accepter(auth.authorization_data.clone(), auth.authorized_by);
-
-        if res.is_err() {
-            // decrement
-            auth.count = auth.count.saturating_sub(1);
-
-            // check if count is zero
-            if auth.count == 0 {
-                <Authorizations<T>>::remove(&target, auth_id);
-                <AuthorizationsGiven<T>>::remove(auth.authorized_by, auth_id);
-                Self::deposit_event(RawEvent::AuthorizationRetryLimitReached(
-                    target.as_identity().cloned(),
-                    target.as_account().cloned(),
-                    auth_id,
-                ));
-            } else {
-                // update authorization
-                <Authorizations<T>>::insert(&target, auth_id, auth);
-            }
-
-            // return error
-            return res;
-        }
+        accepter(auth.authorization_data.clone(), auth.authorized_by)?;
 
         // Remove authorization from storage and emit event.
         <Authorizations<T>>::remove(&target, auth_id);
         <AuthorizationsGiven<T>>::remove(auth.authorized_by, auth_id);
+        NumberOfGivenAuths::mutate(auth.authorized_by, |number_of_given_auths| {
+            *number_of_given_auths = number_of_given_auths.saturating_sub(1);
+        });
         Self::deposit_event(RawEvent::AuthorizationConsumed(
             target.as_identity().cloned(),
             target.as_account().cloned(),
@@ -214,11 +211,19 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Return and ensure that there's an authorization `auth_id` for `target`.
+    /// Return and ensure that there's a valid authorization `auth_id` for `target`.
     fn ensure_authorization(
         target: &Signatory<T::AccountId>,
         auth_id: u64,
     ) -> Result<Authorization<T::AccountId, T::Moment>, DispatchError> {
-        Self::authorizations(target, auth_id).ok_or_else(|| AuthorizationError::Invalid.into())
+        let auth =
+            Self::authorizations(target, auth_id).ok_or_else(|| AuthorizationError::Invalid)?;
+        // Ensures the authorization is not outdated
+        if let Some(outdated_id) = Self::outdated_authorizations(target) {
+            if auth_id <= outdated_id {
+                return Err(AuthorizationError::Invalid.into());
+            }
+        }
+        Ok(auth)
     }
 }

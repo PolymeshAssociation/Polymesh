@@ -198,7 +198,7 @@ export async function addAuthorization(
 
 export async function getAuthId() {
   const api = await ApiSingleton.getInstance();
-  return (await api.query.identity.multiPurposeNonce()).toNumber();
+  return (await api.query.identity.currentAuthId()).toNumber();
 }
 
 export async function joinIdentityAsKey(signer: KeyringPair, authId: number | u64) {

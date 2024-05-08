@@ -14,9 +14,9 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    types, AccountKeyRefCount, ChildDid, Config, DidKeys, DidRecords, Error, IsDidFrozen,
-    KeyRecords, Module, MultiPurposeNonce, OffChainAuthorizationNonce, ParentDid,
-    PermissionedCallOriginData, RawEvent, RpcDidRecords,
+    types, AccountKeyRefCount, ChildDid, Config, CurrentAuthId, DidKeys, DidRecords, Error,
+    IsDidFrozen, KeyRecords, Module, MultiPurposeNonce, OffChainAuthorizationNonce,
+    OutdatedAuthorizations, ParentDid, PermissionedCallOriginData, RawEvent, RpcDidRecords,
 };
 use codec::{Decode, Encode as _};
 use core::mem;
@@ -596,10 +596,19 @@ impl<T: Config> Module<T> {
         for key in &keys {
             // Unlink the secondary account key.
             Self::remove_key_record(key, Some(did));
+            // Sets all authorizations for key as outdated (these will be deleted on_intialize)
+            Self::set_outdated_autorizations(Signatory::Account(key.clone()));
         }
 
         Self::deposit_event(RawEvent::SecondaryKeysRemoved(did, keys));
         Ok(())
+    }
+
+    /// Sets all authorizations with auth_id less or equal to the current id as invalid for the
+    /// `signatory_account`.
+    fn set_outdated_autorizations(signatory_account: Signatory<T::AccountId>) {
+        let current_auth_id = CurrentAuthId::get();
+        OutdatedAuthorizations::<T>::insert(signatory_account, current_auth_id);
     }
 
     /// Adds secondary keys to target identity `id`.
@@ -795,11 +804,11 @@ impl<T: Config> Module<T> {
         Self::deposit_event(RawEvent::DidCreated(did, sender, secondary_keys.clone()));
 
         // 2.3. add pre-authorized secondary keys.
-        secondary_keys.iter().for_each(|sk| {
+        for sk in secondary_keys {
             let signer = Signatory::Account(sk.key.clone());
             let data = AuthorizationData::JoinIdentity(sk.permissions.clone());
-            Self::add_auth(did, signer, data, None);
-        });
+            Self::add_auth(did, signer, data, None)?;
+        }
         Ok(did)
     }
 
