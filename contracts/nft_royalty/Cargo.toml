@@ -8,9 +8,9 @@ edition = "2021"
 ink = { version = "4.2.0", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
-sp-arithmetic = { version = "6.0.0", default-features = false }
+sp-arithmetic = { version = "21.0.0", default-features = false }
 
-polymesh-ink = { path = "../upgradeable-polymesh-ink", default-features = false, features = ["as-library"] }
+polymesh-ink = { version = "3.2.0", default-features = false, features = ["as-library"] }
 
 [lib]
 path = "lib.rs"
