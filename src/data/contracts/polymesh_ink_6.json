@@ -1,6 +1,6 @@
 {
   "source": {
-    "hash": "0x18c4471024fa28813655105cab91546d25d6f80729968160d5eba72b8e1ad233",
+    "hash": "0x19d4a304032f3a26b6685c4d3b549d4733d9ecf8a2b0f3988e2c9a430664c63a",
     "language": "ink! 4.3.0",
     "compiler": "rustc 1.70.0",
     "build_info": {
@@ -15,7 +15,7 @@
   },
   "contract": {
     "name": "polymesh-ink",
-    "version": "3.2.1",
+    "version": "3.3.0",
     "authors": [
       "PolymeshAssociation"
     ],
@@ -48,7 +48,7 @@
         "displayName": [
           "AccountId"
         ],
-        "type": 75
+        "type": 78
       },
       "balance": {
         "displayName": [
@@ -66,13 +66,13 @@
         "displayName": [
           "ChainExtension"
         ],
-        "type": 77
+        "type": 80
       },
       "hash": {
         "displayName": [
           "Hash"
         ],
-        "type": 76
+        "type": 79
       },
       "maxEventTopics": 4,
       "timestamp": {
@@ -791,6 +791,79 @@
           "type": 71
         },
         "selector": "0xa8f59c06"
+      },
+      {
+        "args": [
+          {
+            "label": "ticker",
+            "type": {
+              "displayName": [],
+              "type": 25
+            }
+          },
+          {
+            "label": "nft",
+            "type": {
+              "displayName": [],
+              "type": 30
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Get the portfolio owning an NFT."
+        ],
+        "label": "nft_owner",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 75
+        },
+        "selector": "0x19f161f1"
+      },
+      {
+        "args": [
+          {
+            "label": "portfolio",
+            "type": {
+              "displayName": [],
+              "type": 16
+            }
+          },
+          {
+            "label": "ticker",
+            "type": {
+              "displayName": [],
+              "type": 25
+            }
+          },
+          {
+            "label": "nfts",
+            "type": {
+              "displayName": [],
+              "type": 29
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Check the owner of some NFTs."
+        ],
+        "label": "check_nfts_owner",
+        "mutates": false,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 5
+        },
+        "selector": "0x7f8caba0"
       }
     ]
   },
@@ -1016,6 +1089,10 @@
                 ],
                 "index": 3,
                 "name": "InkDelegateCallError"
+              },
+              {
+                "index": 4,
+                "name": "NotNftOwner"
               }
             ]
           }
@@ -3124,6 +3201,123 @@
       "id": 75,
       "type": {
         "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 76
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 2
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 76
+          },
+          {
+            "name": "E",
+            "type": 2
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 76,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 77
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 7
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 77
+          },
+          {
+            "name": "E",
+            "type": 7
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 77,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "index": 0,
+                "name": "None"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 16
+                  }
+                ],
+                "index": 1,
+                "name": "Some"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 16
+          }
+        ],
+        "path": [
+          "Option"
+        ]
+      }
+    },
+    {
+      "id": 78,
+      "type": {
+        "def": {
           "composite": {
             "fields": [
               {
@@ -3141,7 +3335,7 @@
       }
     },
     {
-      "id": 76,
+      "id": 79,
       "type": {
         "def": {
           "composite": {
@@ -3161,7 +3355,7 @@
       }
     },
     {
-      "id": 77,
+      "id": 80,
       "type": {
         "def": {
           "variant": {}
