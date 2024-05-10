@@ -295,7 +295,13 @@ upgradable_api! {
             /// Create and execute a settlement to transfer assets.
             #[ink(message)]
             pub fn settlement_execute(&self, venue: VenueId, legs: Vec<Leg>, portfolios: Vec<PortfolioId>) -> PolymeshResult<()> {
-                let leg_count = legs.len() as u32;
+                let (fungible, nfts, offchain) = legs.iter().fold((0, 0, 0), |(fungible, nfts, offchain), leg| {
+                  match leg {
+                    Leg::Fungible { .. } => (fungible + 1, nfts, offchain),
+                    Leg::NonFungible { .. } => (fungible, nfts + 1, offchain),
+                    Leg::OffChain { .. } => (fungible, nfts, offchain + 1),
+                  }
+                });
                 let api = Api::new();
                 // Get the next instruction id.
                 let instruction_id = api
@@ -319,7 +325,7 @@ upgradable_api! {
                 // Create settlement.
                 api.call()
                     .settlement()
-                    .execute_manual_instruction(instruction_id, None, leg_count, 0, 0, None)
+                    .execute_manual_instruction(instruction_id, None, fungible, nfts, offchain, None)
                     .submit()?;
                 Ok(())
             }

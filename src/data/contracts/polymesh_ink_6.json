@@ -1,12 +1,12 @@
 {
   "source": {
-    "hash": "0x4306285ed964afb6f08ab8c4e33d7d37a1383e847cd3299b35b80bab56cc89c6",
+    "hash": "0x18c4471024fa28813655105cab91546d25d6f80729968160d5eba72b8e1ad233",
     "language": "ink! 4.3.0",
     "compiler": "rustc 1.70.0",
     "build_info": {
       "build_mode": "Release",
       "cargo_contract_version": "3.2.0",
-      "rust_toolchain": "stable-aarch64-apple-darwin",
+      "rust_toolchain": "stable-x86_64-unknown-linux-gnu",
       "wasm_opt_settings": {
         "keep_debug_symbols": false,
         "optimization_passes": "Z"
@@ -15,7 +15,7 @@
   },
   "contract": {
     "name": "polymesh-ink",
-    "version": "3.1.0",
+    "version": "3.2.1",
     "authors": [
       "PolymeshAssociation"
     ],
