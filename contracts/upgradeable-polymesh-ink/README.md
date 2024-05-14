@@ -3,6 +3,25 @@ An upgradable wrapper around the Polymesh Runtime API.
 This allows contracts to use a stable API that can be updated
 to support each major Polymesh release.
 
+## Verifiable build
+
+Install the docker image:
+```
+docker pull quay.io/subscan-explorer/wasm-compile-build:amd64-stable-1.70.0-v3.2.0
+```
+
+Build the contact inside the docker image:
+```
+docker run --rm -it -v .:/builds/contract -v ./target:/target/ quay.io/subscan-explorer/wasm-compile-build:amd64-stable-1.70.0-v3.2.0 cargo contract build --release
+```
+
+Check the contract hash from `./target/ink/polymesh_ink.json`
+```
+grep hash ./target/ink/polymesh_ink.json
+```
+
+Compare that hash to the current API hash on Testnet/Mainnet.  Query `PolymeshContracts.currentApiHash`.
+
 ## Build the wrapped API contract.
 
 Install [`cargo-contract`](https://github.com/paritytech/cargo-contract).
