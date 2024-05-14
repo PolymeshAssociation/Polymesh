@@ -24,6 +24,26 @@ use sp_std::vec::Vec;
 /// Ticker length.
 pub const TICKER_LEN: usize = 12;
 
+/// AssetId to support both named/unnamed assets.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum AssetId {
+    /// Named asset using a valid ticker.
+    Named(Ticker),
+    /// Unnamed asset with a random id.
+    Unnamed([u8; TICKER_LEN]),
+}
+
+impl From<Ticker> for AssetId {
+    fn from(ticker: Ticker) -> Self {
+        if ticker.0[0] & 0x80 == 0x80 {
+            Self::Unnamed(ticker.0)
+        } else {
+            Self::Named(ticker)
+        }
+    }
+}
+
 /// Ticker symbol.
 ///
 /// This type stores fixed-length case-sensitive byte strings. Any value of this type that is
