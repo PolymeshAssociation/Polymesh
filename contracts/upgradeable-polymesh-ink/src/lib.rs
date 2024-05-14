@@ -51,6 +51,8 @@ pub enum PolymeshError {
         selector: [u8; 4],
         err: Option<InkEnvError>,
     },
+    /// Not the NFT owner.
+    NotNftOwner,
 }
 
 /// Encodable `ink::env::Error`.
@@ -295,7 +297,13 @@ upgradable_api! {
             /// Create and execute a settlement to transfer assets.
             #[ink(message)]
             pub fn settlement_execute(&self, venue: VenueId, legs: Vec<Leg>, portfolios: Vec<PortfolioId>) -> PolymeshResult<()> {
-                let leg_count = legs.len() as u32;
+                let (fungible, nfts, offchain) = legs.iter().fold((0, 0, 0), |(fungible, nfts, offchain), leg| {
+                  match leg {
+                    Leg::Fungible { .. } => (fungible + 1, nfts, offchain),
+                    Leg::NonFungible { .. } => (fungible, nfts + 1, offchain),
+                    Leg::OffChain { .. } => (fungible, nfts, offchain + 1),
+                  }
+                });
                 let api = Api::new();
                 // Get the next instruction id.
                 let instruction_id = api
@@ -319,7 +327,7 @@ upgradable_api! {
                 // Create settlement.
                 api.call()
                     .settlement()
-                    .execute_manual_instruction(instruction_id, None, leg_count, 0, 0, None)
+                    .execute_manual_instruction(instruction_id, None, fungible, nfts, offchain, None)
                     .submit()?;
                 Ok(())
             }
@@ -531,6 +539,35 @@ upgradable_api! {
                     .asset_metadata_values(
                         ticker, asset_metadata_key
                     )?)
+            }
+
+            /// Get the portfolio owning an NFT.
+            #[ink(message)]
+            pub fn nft_owner(
+              &self,
+              ticker: Ticker,
+              nft: NFTId,
+            ) -> PolymeshResult<Option<PortfolioId>> {
+                let api = Api::new();
+                Ok(api.query().nft().nft_owner(ticker, nft)?)
+            }
+
+            /// Check the owner of some NFTs.
+            #[ink(message)]
+            pub fn check_nfts_owner(
+              &self,
+              portfolio: PortfolioId,
+              ticker: Ticker,
+              nfts: Vec<NFTId>,
+            ) -> PolymeshResult<()> {
+                let api = Api::new();
+                for nft in nfts {
+                    let nft_owner = api.query().nft().nft_owner(ticker, nft)?;
+                    if nft_owner != Some(portfolio) {
+                        return Err(PolymeshError::NotNftOwner);
+                    }
+                }
+                Ok(())
             }
         }
 
