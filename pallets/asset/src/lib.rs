@@ -892,7 +892,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
         /// * `name` - the name of the token.
-        /// * `ticker` - the ticker symbol of the token.
+        /// * `ticker` - the ticker symbol of the token.  (Optional.  A random ticker will be generated if no `ticker` is provided)
         /// * `divisible` - a boolean to identify the divisibility status of the token.
         /// * `asset_type` - the asset type.
         /// * `identifiers` - a vector of asset identifiers.
@@ -927,7 +927,6 @@ decl_module! {
             Self::base_create_asset(origin, name, ticker, divisible, asset_type, identifiers, funding_round)?;
             Ok(())
         }
-
     }
 }
 
