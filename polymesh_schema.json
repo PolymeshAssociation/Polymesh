@@ -1597,7 +1597,7 @@
         ],
         "type": "AffirmationCount"
       },
-      "getExecuteIntructionReport": {
+      "getExecuteInstructionReport": {
         "description": "Returns a vector containing all errors for the execution. An empty vec means there's no error.",
         "params": [
           {
