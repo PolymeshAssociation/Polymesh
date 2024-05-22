@@ -143,6 +143,7 @@ pub mod pallet {
         ///
         /// This should be less than the bonding duration. Set to 0 if slashes
         /// should be applied immediately, without opportunity for intervention.
+        #[pallet::constant]
         type SlashDeferDuration: Get<EraIndex>;
 
         /// Weight information for extrinsics in this pallet.
@@ -181,6 +182,7 @@ pub mod pallet {
         ///
         /// This is bounded by being within the last session. Hence, setting it to a value more than the
         /// length of a session will be pointless.
+        #[pallet::constant]
         type ElectionLookahead: Get<Self::BlockNumber>;
 
         /// The overarching call type.
@@ -189,15 +191,18 @@ pub mod pallet {
         /// Maximum number of balancing iterations to run in the offchain submission.
         ///
         /// If set to 0, balance_solution will not be executed at all.
+        #[pallet::constant]
         type MaxIterations: Get<u32>;
 
         /// The threshold of improvement that should be provided for a new solution to be accepted.
+        #[pallet::constant]
         type MinSolutionScoreBump: Get<Perbill>;
 
         /// The maximum number of nominators rewarded for each validator.
         ///
         /// For each validator only the `$MaxNominatorRewardedPerValidator` biggest stakers can claim
         /// their reward. This used to limit the i/o cost for the nominator payout.
+        #[pallet::constant]
         type MaxNominatorRewardedPerValidator: Get<u32>;
 
         /// The fraction of the validator set that is safe to be offending.
@@ -234,15 +239,19 @@ pub mod pallet {
 
         /// Maximum amount of validators that can run by an identity.
         /// It will be MaxValidatorPerIdentity * Self::validator_count().
+        #[pallet::constant]
         type MaxValidatorPerIdentity: Get<Permill>;
 
         /// Maximum amount of total issuance after which fixed rewards kicks in.
+        #[pallet::constant]
         type MaxVariableInflationTotalIssuance: Get<BalanceOf<Self>>;
 
         /// Yearly total reward amount that gets distributed when fixed rewards kicks in.
+        #[pallet::constant]
         type FixedYearlyReward: Get<BalanceOf<Self>>;
 
         /// Minimum bond amount.
+        #[pallet::constant]
         type MinimumBond: Get<BalanceOf<Self>>;
     }
 
