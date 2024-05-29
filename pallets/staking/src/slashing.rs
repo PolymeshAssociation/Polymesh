@@ -56,17 +56,15 @@ use crate::{
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
     ensure,
-    traits::{Currency, Get, Imbalance, OnUnbalanced},
+    traits::{Currency, Defensive, Get, Imbalance, OnUnbalanced},
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{Saturating, Zero},
     DispatchResult, RuntimeDebug,
 };
+use sp_staking::{offence::DisableStrategy, EraIndex};
 use sp_std::vec::Vec;
-
-use crate::types::SlashingSwitch;
-use crate::EraIndex;
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.
@@ -77,11 +75,11 @@ pub type SpanIndex = u32;
 
 // A range of start..end eras for a slashing span.
 #[derive(Encode, Decode, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Debug, PartialEq))]
-pub struct SlashingSpan {
-    pub index: SpanIndex,
-    pub start: EraIndex,
-    pub length: Option<EraIndex>, // the ongoing slashing span has indeterminate length.
+#[cfg_attr(test, derive(Debug, PartialEq))]
+pub(crate) struct SlashingSpan {
+    pub(crate) index: SpanIndex,
+    pub(crate) start: EraIndex,
+    pub(crate) length: Option<EraIndex>, // the ongoing slashing span has indeterminate length.
 }
 
 impl SlashingSpan {
@@ -137,7 +135,7 @@ impl SlashingSpans {
     }
 
     // an iterator over all slashing spans in _reverse_ order - most recent first.
-    pub fn iter(&'_ self) -> impl Iterator<Item = SlashingSpan> + '_ {
+    pub(crate) fn iter(&'_ self) -> impl Iterator<Item = SlashingSpan> + '_ {
         let mut last_start = self.last_start;
         let mut index = self.span_index;
         let last = SlashingSpan {
@@ -196,14 +194,15 @@ impl SlashingSpans {
 
 /// A slashing-span record for a particular stash.
 #[derive(Encode, Decode, Default, TypeInfo, MaxEncodedLen)]
-pub struct SpanRecord<Balance> {
+pub(crate) struct SpanRecord<Balance> {
     slashed: Balance,
     paid_out: Balance,
 }
 
 impl<Balance> SpanRecord<Balance> {
     /// The value of stash balance slashed in this span.
-    pub fn amount(&self) -> &Balance {
+    #[cfg(test)]
+    pub(crate) fn amount(&self) -> &Balance {
         &self.slashed
     }
 }
@@ -226,6 +225,8 @@ pub(crate) struct SlashParams<'a, T: 'a + Config> {
     /// The maximum percentage of a slash that ever gets paid out.
     /// This is f_inf in the paper.
     pub(crate) reward_proportion: Perbill,
+    /// When to disable offenders.
+    pub(crate) disable_strategy: DisableStrategy,
 }
 
 /// Computes a slash of a validator and nominators. It returns an unapplied
@@ -297,16 +298,11 @@ pub(crate) fn compute_slash<T: Config>(
         }
     }
 
-    add_offending_validator::<T>(params.stash, true);
+    let disable_when_slashed = params.disable_strategy != DisableStrategy::Never;
+    add_offending_validator::<T>(params.stash, disable_when_slashed);
 
-    // Polymesh Change: SlashingSwitch` decides whether nominator gets slashed.
-    // -----------------------------------------------------------------
     let mut nominators_slashed = Vec::new();
-    if <Pallet<T>>::slashing_allowed_for() == SlashingSwitch::ValidatorAndNominator {
-        reward_payout +=
-            slash_nominators::<T>(params.clone(), prior_slash_p, &mut nominators_slashed);
-    }
-    // -----------------------------------------------------------------
+    reward_payout += slash_nominators::<T>(params.clone(), prior_slash_p, &mut nominators_slashed);
 
     Some(UnappliedSlash {
         validator: params.stash.clone(),
@@ -336,9 +332,8 @@ fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
         <Pallet<T>>::chill_stash(params.stash);
     }
 
-    // add the validator to the offenders list but since there's no slash being applied there's no
-    // need to disable the validator
-    add_offending_validator::<T>(params.stash, false);
+    let disable_without_slash = params.disable_strategy == DisableStrategy::Always;
+    add_offending_validator::<T>(params.stash, disable_without_slash);
 }
 
 /// Add the given validator to the offenders list and optionally disable it.
@@ -614,9 +609,9 @@ pub fn do_slash<T: Config>(
     value: BalanceOf<T>,
     reward_payout: &mut BalanceOf<T>,
     slashed_imbalance: &mut NegativeImbalanceOf<T>,
-    _slash_era: EraIndex,
+    slash_era: EraIndex,
 ) {
-    let controller = match <Pallet<T>>::bonded(stash) {
+    let controller = match <Pallet<T>>::bonded(stash).defensive() {
         None => return,
         Some(c) => c,
     };
@@ -626,7 +621,7 @@ pub fn do_slash<T: Config>(
         None => return, // nothing to do.
     };
 
-    let value = ledger.slash(value, T::Currency::minimum_balance());
+    let value = ledger.slash(value, T::Currency::minimum_balance(), slash_era);
 
     if !value.is_zero() {
         let (imbalance, missing) = T::Currency::slash(stash, value);
@@ -640,7 +635,10 @@ pub fn do_slash<T: Config>(
         <Pallet<T>>::update_ledger(&controller, &ledger);
 
         // trigger the event
-        <Pallet<T>>::deposit_event(super::Event::<T>::Slash(stash.clone(), value));
+        <Pallet<T>>::deposit_event(super::Event::<T>::Slashed {
+            staker: stash.clone(),
+            amount: value,
+        });
     }
 }
 
@@ -660,20 +658,15 @@ pub(crate) fn apply_slash<T: Config>(
         slash_era,
     );
 
-    // Polymesh Change: SlashingSwitch` decides whether nominator gets slashed.
-    // -----------------------------------------------------------------
-    if <Pallet<T>>::slashing_allowed_for() == SlashingSwitch::ValidatorAndNominator {
-        for &(ref nominator, nominator_slash) in &unapplied_slash.others {
-            do_slash::<T>(
-                nominator,
-                nominator_slash,
-                &mut reward_payout,
-                &mut slashed_imbalance,
-                slash_era,
-            );
-        }
+    for &(ref nominator, nominator_slash) in &unapplied_slash.others {
+        do_slash::<T>(
+            nominator,
+            nominator_slash,
+            &mut reward_payout,
+            &mut slashed_imbalance,
+            slash_era,
+        );
     }
-    // -----------------------------------------------------------------
 
     pay_reporters::<T>(reward_payout, slashed_imbalance, &unapplied_slash.reporters);
 }
