@@ -57,7 +57,7 @@ pub trait SettlementApi<BlockHash> {
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<DispatchError>>;
 
-    #[method(name = "settlement_getExecuteIntructionReport")]
+    #[method(name = "settlement_getExecuteInstructionReport")]
     fn get_execute_instruction_report(
         &self,
         instruction_id: InstructionId,
