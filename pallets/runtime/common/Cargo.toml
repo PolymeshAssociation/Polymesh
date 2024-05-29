@@ -35,7 +35,6 @@ pallet-authorship = { version = "4.0.0-dev", default-features = false }
 equalize = []
 only-staking = []
 default = ["std", "equalize"]
-runtime-benchmarks = []
 testing = []
 no_std = []
 std = [
@@ -50,4 +49,17 @@ std = [
     "polymesh-primitives/std",
     "sp-runtime/std",
     "sp-std/std",
+]
+runtime-benchmarks = [
+    "pallet-balances/runtime-benchmarks",
+    "pallet-committee/runtime-benchmarks",
+    "pallet-identity/runtime-benchmarks",
+    "pallet-multisig/runtime-benchmarks",
+    "pallet-relayer/runtime-benchmarks",
+    "pallet-test-utils/runtime-benchmarks",
+    "polymesh-common-utilities/runtime-benchmarks",
+    "polymesh-primitives/runtime-benchmarks",
+    "frame-support/runtime-benchmarks",
+    "frame-system/runtime-benchmarks",
+    "sp-runtime/runtime-benchmarks",
 ]
