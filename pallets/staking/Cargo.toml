@@ -37,7 +37,9 @@ frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional
 rand_chacha = { version = "0.2", default-features = false, optional = true }
 
 [dev-dependencies]
+frame-benchmarking = { version = "4.0.0-dev", default-features = false }
 pallet-staking-reward-curve = { version = "4.0.0-dev", default-features = false }
+rand_chacha = { version = "0.2" }
 sp-tracing = "6.0.0"
 
 [features]

@@ -72,6 +72,7 @@ sp-arithmetic = { version = "6.0.0", default-features = false }
 pallet-authorship = { version = "4.0.0-dev", default-features = false }
 pallet-contracts = { version = "4.0.0-dev", default-features = false }
 pallet-contracts-primitives = { version = "7.0.0", default-features = false }
+pallet-election-provider-multi-phase = { version = "4.0.0-dev", default-features = false }
 pallet-executive = { package = "frame-executive", version = "4.0.0-dev", default-features = false }
 pallet-grandpa = { version = "4.0.0-dev", default-features = false }
 pallet-im-online = { version = "4.0.0-dev", default-features = false }
@@ -86,6 +87,7 @@ pallet-insecure-randomness-collective-flip = { version = "4.0.0-dev", default-fe
 pallet-scheduler = { version = "4.0.0-dev", default-features = false }
 pallet-state-trie-migration = { version = "4.0.0-dev", default-features = false }
 
+frame-election-provider-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 
@@ -126,6 +128,7 @@ std = [
     "u64_backend",
     "codec/std",
     "frame-benchmarking?/std",
+    "frame-election-provider-support/std",
     "frame-support/std",
     "frame-system-rpc-runtime-api/std",
     "frame-system-benchmarking?/std",
@@ -144,6 +147,7 @@ std = [
     "pallet-compliance-manager/std",
     "pallet-contracts/std",
     "pallet-corporate-actions/std",
+    "pallet-election-provider-multi-phase/std",
     "pallet-executive/std",
     "pallet-external-agents/std",
     "pallet-grandpa/std",
@@ -241,7 +245,9 @@ runtime-benchmarks = [
     "polymesh-contracts/runtime-benchmarks",
     "polymesh-primitives/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",
-    "pallet-nft/runtime-benchmarks"
+    "pallet-nft/runtime-benchmarks",
+    "frame-election-provider-support/runtime-benchmarks",
+    "pallet-election-provider-multi-phase/runtime-benchmarks",
 ]
 running-ci = [
     "pallet-statistics/running-ci",

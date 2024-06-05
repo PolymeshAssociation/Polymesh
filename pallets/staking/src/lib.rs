@@ -1016,6 +1016,19 @@ where
     }
 }
 
+pub struct OnStakerSlashMock<T: Config>(core::marker::PhantomData<T>);
+
+impl<T: Config> sp_staking::OnStakerSlash<T::AccountId, T::CurrencyBalance>
+    for OnStakerSlashMock<T>
+{
+    fn on_slash(
+        _pool_account: &T::AccountId,
+        _slashed_bonded: T::CurrencyBalance,
+        _slashed_chunks: &BTreeMap<EraIndex, T::CurrencyBalance>,
+    ) {
+    }
+}
+
 /// Configurations of the benchmarking of the pallet.
 pub trait BenchmarkingConfig {
     /// The maximum number of validators to use.
@@ -1027,11 +1040,9 @@ pub trait BenchmarkingConfig {
 /// A mock benchmarking config for pallet-staking.
 ///
 /// Should only be used for testing.
-#[cfg(feature = "std")]
-pub struct TestBenchmarkingConfig;
+pub struct SampleBenchmarkingConfig;
 
-#[cfg(feature = "std")]
-impl BenchmarkingConfig for TestBenchmarkingConfig {
+impl BenchmarkingConfig for SampleBenchmarkingConfig {
     type MaxValidators = frame_support::traits::ConstU32<100>;
     type MaxNominators = frame_support::traits::ConstU32<100>;
 }

@@ -33,13 +33,16 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 //! Auxillary struct/enums
 
-use crate::NegativeImbalance;
+use frame_election_provider_support::BalancingConfig;
 use frame_support::traits::{Currency, OnUnbalanced};
 use frame_system as system;
+use sp_runtime::traits::Convert;
+
 use pallet_authorship as authorship;
 use pallet_balances as balances;
 use polymesh_primitives::Balance;
-use sp_runtime::traits::Convert;
+
+use crate::NegativeImbalance;
 
 pub struct Author<R>(sp_std::marker::PhantomData<R>);
 
@@ -86,4 +89,56 @@ where
     fn convert(x: u128) -> Balance {
         x * Self::factor()
     }
+}
+
+pub struct EstimateCallFeeMax;
+
+impl<Call, Balance: From<u32>> frame_support::traits::EstimateCallFee<Call, Balance>
+    for EstimateCallFeeMax
+{
+    fn estimate_call_fee(_: &Call, _: frame_support::dispatch::PostDispatchInfo) -> Balance {
+        u32::MAX.into()
+    }
+}
+
+/// A source of random balance for NposSolver, which is meant to be run by the OCW election miner.
+pub struct OffchainRandomBalancing;
+
+impl frame_support::pallet_prelude::Get<Option<BalancingConfig>> for OffchainRandomBalancing {
+    fn get() -> Option<BalancingConfig> {
+        use codec::Decode;
+        use sp_runtime::traits::TrailingZeroInput;
+
+        let iterations = match crate::MINER_MAX_ITERATIONS {
+            0 => 0,
+            max => {
+                let seed = sp_io::offchain::random_seed();
+                let random = <u32>::decode(&mut TrailingZeroInput::new(&seed))
+                    .expect("input is padded with zeroes; qed")
+                    % max.saturating_add(1);
+                random as usize
+            }
+        };
+
+        let config = BalancingConfig {
+            iterations,
+            tolerance: 0,
+        };
+        Some(config)
+    }
+}
+
+/// The numbers configured here could always be more than the the maximum limits of staking pallet
+/// to ensure election snapshot will not run out of memory. For now, we set them to smaller values
+/// since the staking is bounded and the weight pipeline takes hours for this single pallet.
+pub struct ElectionProviderBenchmarkConfig;
+
+impl pallet_election_provider_multi_phase::BenchmarkingConfig for ElectionProviderBenchmarkConfig {
+    const VOTERS: [u32; 2] = [1000, 2000];
+    const TARGETS: [u32; 2] = [500, 1000];
+    const ACTIVE_VOTERS: [u32; 2] = [500, 800];
+    const DESIRED_TARGETS: [u32; 2] = [200, 400];
+    const SNAPSHOT_MAXIMUM_VOTERS: u32 = 1000;
+    const MINER_MAXIMUM_VOTERS: u32 = 1000;
+    const MAXIMUM_TARGETS: u32 = 300;
 }

@@ -465,13 +465,10 @@ macro_rules! session {
 macro_rules! staking {
     ($auths:expr, $stakers:expr, $cap:expr) => {
         pallet_staking::GenesisConfig {
-            minimum_validator_count: 1,
             validator_count: 40,
-            validator_commission_cap: $cap,
-            stakers: $stakers,
+            minimum_validator_count: 1,
             invulnerables: vec![],
             slash_reward_fraction: sp_runtime::Perbill::from_percent(10),
-            min_bond_threshold: 0, // Will be updated to 50,000 POLYX once network has stabalised, before external operators join
             ..Default::default()
         }
     };

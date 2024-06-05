@@ -243,8 +243,13 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_staking::Config for Runtime {
             type Currency = Balances;
+            type CurrencyBalance = Balance;
             type UnixTime = Timestamp;
             type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
+            type ElectionProvider = ElectionProviderMultiPhase;
+            type GenesisElectionProvider = Self::ElectionProvider;
+            type MaxNominations = polymesh_runtime_common::MaxNominations;
+            type HistoryDepth = polymesh_runtime_common::HistoryDepth;
             type RewardRemainder = ();
             type RuntimeEvent = RuntimeEvent;
             type Slash = Treasury; // send the slashed funds to the treasury.
@@ -252,30 +257,18 @@ macro_rules! misc_pallet_impls {
             type SessionsPerEra = SessionsPerEra;
             type BondingDuration = BondingDuration;
             type SlashDeferDuration = SlashDeferDuration;
-            type SlashCancelOrigin = polymesh_primitives::EnsureRoot;
+            type AdminOrigin = polymesh_primitives::EnsureRoot;
             type SessionInterface = Self;
-            type RewardCurve = RewardCurve;
+            type EraPayout = ();
             type NextNewSession = Session;
-            type ElectionLookahead = ElectionLookahead;
-            type Call = RuntimeCall;
-            type MaxIterations = MaxIterations;
-            type MinSolutionScoreBump = MinSolutionScoreBump;
             type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
             type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
-            type UnsignedPriority = StakingUnsignedPriority;
-            type RequiredAddOrigin = Self::SlashCancelOrigin;
-            type RequiredRemoveOrigin = Self::SlashCancelOrigin;
-            type RequiredCommissionOrigin = Self::SlashCancelOrigin;
-            type RewardScheduler = Scheduler;
-            type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
-            type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
-            type FixedYearlyReward = FixedYearlyReward;
-            type PalletsOrigin = OriginCaller;
-            type MinimumBond = MinimumBond;
-            type OffchainSolutionWeightLimit = polymesh_runtime_common::OffchainSolutionWeightLimit;
+            type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
+            type TargetList = pallet_staking::UseValidatorsMap<Self>;
+            type MaxUnlockingChunks = polymesh_runtime_common::MaxUnlockingChunks;
+            type OnStakerSlash = pallet_staking::OnStakerSlashMock<Self>;
+            type BenchmarkingConfig = pallet_staking::SampleBenchmarkingConfig;
             type WeightInfo = polymesh_weights::pallet_staking::SubstrateWeight;
-            type MaxNominations = pallet_staking::MaxNominations;
-            type MaxUnlockingChunks = pallet_staking::MaxUnlockingChunks;
         }
 
         impl pallet_authority_discovery::Config for Runtime {
@@ -580,6 +573,105 @@ macro_rules! misc_pallet_impls {
             type SignedFilter = frame_system::EnsureSigned<Self::AccountId>;
             type MaxKeyLen = MaxKeyLen;
             type WeightInfo = polymesh_weights::pallet_state_trie_migration::SubstrateWeight;
+        }
+
+        impl pallet_election_provider_multi_phase::Config for Runtime {
+            type RuntimeEvent = RuntimeEvent;
+            // Currency type
+            type Currency = Balances;
+            // Something that can estimate the fee of a call (used when submitting a solution for the signed phase)
+            type EstimateCallFee = polymesh_runtime_common::impls::EstimateCallFeeMax;
+            // Duration of the unsigned phase
+            type UnsignedPhase = polymesh_runtime_common::UnsignedPhase;
+            // Duration of the signed phase
+            type SignedPhase = polymesh_runtime_common::SignedPhase;
+            // The minimum amount of improvement to the solution score in the Signed phase
+            type BetterSignedThreshold = ();
+            // The minimum amount of improvement to the solution score in the Unsigned phase
+            type BetterUnsignedThreshold = polymesh_runtime_common::BetterUnsignedThreshold;
+            // The repeat threshold of the offchain worker
+            type OffchainRepeat = polymesh_runtime_common::OffChainRepeat;
+            // The priority of the unsigned transaction submitted in the unsigned-phase
+            type MinerTxPriority = polymesh_runtime_common::MultiPhaseUnsignedPriority;
+            // Configurations of the embedded miner
+            type MinerConfig = Self;
+            // Maximum number of signed submissions that can be queued
+            type SignedMaxSubmissions = polymesh_runtime_common::SignedMaxSubmissions;
+            // Maximum weight of a signed solution
+            type SignedMaxWeight = polymesh_runtime_common::SignedMaxWeight;
+            // The maximum amount of unchecked solutions to refund the call fee for
+            type SignedMaxRefunds = polymesh_runtime_common::SignedMaxRefunds;
+            // Base reward for a signed solution
+            type SignedRewardBase = polymesh_runtime_common::SignedRewardBase;
+            // Base deposit for a signed solution
+            type SignedDepositBase = polymesh_runtime_common::SignedDepositBase;
+            // Per-byte deposit for a signed solution
+            type SignedDepositByte = polymesh_runtime_common::SignedDepositByte;
+            // Per-weight deposit for a signed solution
+            type SignedDepositWeight = ();
+            // The maximum number of electing voters to put in the snapshot
+            type MaxElectingVoters = polymesh_runtime_common::MaxElectingVoters;
+            // The maximum number of electable targets to put in the snapshot
+            type MaxElectableTargets = polymesh_runtime_common::MaxElectableTargets;
+            // The maximum number of winners that can be elected by this `ElectionProvider` implementation
+            type MaxWinners = polymesh_runtime_common::MaxActiveValidators;
+            // Handler for the slashed deposits
+            type SlashHandler = ();
+            // Handler for the rewards
+            type RewardHandler = ();
+            // Something that will provide the election data
+            type DataProvider = Staking;
+            // Configuration for the fallback
+            type Fallback = frame_election_provider_support::onchain::OnChainExecution<Self>;
+            // Configuration of the governance-only fallback
+            type GovernanceFallback =
+                frame_election_provider_support::onchain::OnChainExecution<Self>;
+            // OCW election solution miner algorithm implementation
+            type Solver = frame_election_provider_support::SequentialPhragmen<
+                polymesh_primitives::AccountId,
+                pallet_election_provider_multi_phase::SolutionAccuracyOf<Self>,
+                polymesh_runtime_common::impls::OffchainRandomBalancing,
+            >;
+            // Origin that can control this pallet
+            type ForceOrigin = polymesh_primitives::EnsureRoot;
+            // The configuration of benchmarking
+            type BenchmarkingConfig =
+                polymesh_runtime_common::impls::ElectionProviderBenchmarkConfig;
+            // The weight of the pallet.
+            type WeightInfo = pallet_election_provider_multi_phase::weights::SubstrateWeight<Self>;
+        }
+
+        impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
+            type AccountId = polymesh_primitives::AccountId;
+	        type MaxLength = polymesh_runtime_common::MinerMaxLength;
+	        type MaxWeight = polymesh_runtime_common::MinerMaxWeight;
+	        type Solution = polymesh_runtime_common::NposSolution16;
+	        type MaxVotesPerVoter =
+	            <<Self as pallet_election_provider_multi_phase::Config>::DataProvider as frame_election_provider_support::ElectionDataProvider>::MaxVotesPerVoter;
+
+	        // The unsigned submissions have to respect the weight of the submit_unsigned call, thus their
+	        // weight estimate function is wired to this call's weight.
+	        fn solution_weight(v: u32, t: u32, a: u32, d: u32) -> Weight {
+	        	<
+	        		<Self as pallet_election_provider_multi_phase::Config>::WeightInfo
+	        		as
+	        		pallet_election_provider_multi_phase::WeightInfo
+	        	>::submit_unsigned(v, t, a, d)
+	        }
+        }
+
+        impl frame_election_provider_support::onchain::Config for Runtime {
+            type System = Self;
+            type Solver = frame_election_provider_support::SequentialPhragmen<
+                polymesh_primitives::AccountId,
+                pallet_election_provider_multi_phase::SolutionAccuracyOf<Self>,
+            >;
+            type DataProvider =
+                <Self as pallet_election_provider_multi_phase::Config>::DataProvider;
+            type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Self>;
+            type MaxWinners = <Self as pallet_election_provider_multi_phase::Config>::MaxWinners;
+            type VotersBound = polymesh_runtime_common::MaxOnChainElectingVoters;
+            type TargetsBound = polymesh_runtime_common::MaxOnChainElectableTargets;
         }
     };
 }
