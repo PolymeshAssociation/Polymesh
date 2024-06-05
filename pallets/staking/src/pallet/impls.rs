@@ -114,13 +114,13 @@ impl<T: Config> Pallet<T> {
                 // Remove the lock.
                 T::Currency::remove_lock(STAKING_ID, &stash);
 
-                T::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
+                <T as Config>::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
             } else {
                 // This was the consequence of a partial unbond. just update the ledger and move on.
                 Self::update_ledger(&controller, &ledger);
 
                 // This is only an update, so we use less overall weight.
-                T::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
+                <T as Config>::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
             };
 
         // `old_total` should never be less than the new total because
@@ -144,24 +144,25 @@ impl<T: Config> Pallet<T> {
         // Validate input data
         let current_era = CurrentEra::<T>::get().ok_or_else(|| {
             Error::<T>::InvalidEraToReward
-                .with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+                .with_weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(0))
         })?;
         let history_depth = T::HistoryDepth::get();
         ensure!(
             era <= current_era && era >= current_era.saturating_sub(history_depth),
             Error::<T>::InvalidEraToReward
-                .with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+                .with_weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(0))
         );
 
         // Note: if era has no reward to be claimed, era may be future. better not to update
         // `ledger.claimed_rewards` in this case.
         let era_payout = <ErasValidatorReward<T>>::get(&era).ok_or_else(|| {
             Error::<T>::InvalidEraToReward
-                .with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+                .with_weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(0))
         })?;
 
         let controller = Self::bonded(&validator_stash).ok_or_else(|| {
-            Error::<T>::NotStash.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+            Error::<T>::NotStash
+                .with_weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(0))
         })?;
         let mut ledger = <Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController)?;
 
@@ -172,7 +173,7 @@ impl<T: Config> Pallet<T> {
         match ledger.claimed_rewards.binary_search(&era) {
             Ok(_) => {
                 return Err(Error::<T>::AlreadyClaimed
-                    .with_weight(T::WeightInfo::payout_stakers_alive_staked(0)))
+                    .with_weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(0)))
             }
             Err(pos) => ledger
                 .claimed_rewards
@@ -206,7 +207,7 @@ impl<T: Config> Pallet<T> {
 
         // Nothing to do if they have no reward points.
         if validator_reward_points.is_zero() {
-            return Ok(Some(T::WeightInfo::payout_stakers_alive_staked(0)).into());
+            return Ok(Some(<T as Config>::WeightInfo::payout_stakers_alive_staked(0)).into());
         }
 
         // This is the fraction of the total reward that the validator and the
@@ -272,7 +273,7 @@ impl<T: Config> Pallet<T> {
 
         T::Reward::on_unbalanced(total_imbalance);
         debug_assert!(nominator_payout_count <= T::MaxNominatorRewardedPerValidator::get());
-        Ok(Some(T::WeightInfo::payout_stakers_alive_staked(
+        Ok(Some(<T as Config>::WeightInfo::payout_stakers_alive_staked(
             nominator_payout_count,
         ))
         .into())
@@ -853,7 +854,7 @@ impl<T: Config> Pallet<T> {
         // all_voters should have not re-allocated.
         debug_assert!(all_voters.capacity() == max_allowed_len);
 
-        Self::register_weight(T::WeightInfo::get_npos_voters(
+        Self::register_weight(<T as Config>::WeightInfo::get_npos_voters(
             validators_taken,
             nominators_taken,
         ));
@@ -902,7 +903,9 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        Self::register_weight(T::WeightInfo::get_npos_targets(all_targets.len() as u32));
+        Self::register_weight(<T as Config>::WeightInfo::get_npos_targets(
+            all_targets.len() as u32,
+        ));
         log!(info, "generated {} npos targets", all_targets.len());
 
         all_targets
