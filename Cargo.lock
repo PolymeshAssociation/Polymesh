@@ -7113,6 +7113,7 @@ dependencies = [
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-corporate-actions",
+ "pallet-election-provider-multi-phase",
  "pallet-external-agents",
  "pallet-grandpa",
  "pallet-group",
@@ -7180,6 +7181,7 @@ dependencies = [
  "sp-tracing",
  "sp-transaction-pool",
  "sp-version",
+ "substrate-test-utils",
  "wat",
 ]
 
@@ -10638,6 +10640,27 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-state-machine",
+]
+
+[[package]]
+name = "substrate-test-utils"
+version = "4.0.0-dev"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v6-monthly-2023-03#74ef745933703849d756dc16d41d938157d6943a"
+dependencies = [
+ "futures",
+ "substrate-test-utils-derive",
+ "tokio",
+]
+
+[[package]]
+name = "substrate-test-utils-derive"
+version = "0.10.0-dev"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v6-monthly-2023-03#74ef745933703849d756dc16d41d938157d6943a"
+dependencies = [
+ "proc-macro-crate 1.1.3",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
