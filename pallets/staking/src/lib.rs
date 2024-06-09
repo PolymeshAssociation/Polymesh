@@ -284,19 +284,19 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
 pub mod testing_utils;
 
 pub mod inflation;
 pub mod slashing;
+pub mod types;
 pub mod weights;
 
-mod pallet;
+pub mod pallet;
 
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
     traits::{Currency, Defensive, Get},
-    weights::Weight,
     BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
@@ -337,10 +337,10 @@ pub type RewardPoint = u32;
 /// The balance type of this pallet.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
-type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
+pub type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::PositiveImbalance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+pub type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 
@@ -458,10 +458,10 @@ pub struct ValidatorPrefs {
 pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
     /// Amount of funds to be unlocked.
     #[codec(compact)]
-    value: Balance,
+    pub value: Balance,
     /// Era number at which point it'll be unlocked.
     #[codec(compact)]
-    era: EraIndex,
+    pub era: EraIndex,
 }
 
 /// The ledger of a (bonded) stash.
@@ -800,15 +800,15 @@ impl<AccountId, Balance: Default + HasCompact> Default for Exposure<AccountId, B
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
     /// The stash ID of the offending validator.
-    validator: AccountId,
+    pub validator: AccountId,
     /// The validator's own slash.
-    own: Balance,
+    pub own: Balance,
     /// All other slashed stakers and amounts.
-    others: Vec<(AccountId, Balance)>,
+    pub others: Vec<(AccountId, Balance)>,
     /// Reporters of the offence; bounty payout recipients.
-    reporters: Vec<AccountId>,
+    pub reporters: Vec<AccountId>,
     /// The amount of payout.
-    payout: Balance,
+    pub payout: Balance,
 }
 
 impl<AccountId, Balance: HasCompact + Zero> UnappliedSlash<AccountId, Balance> {

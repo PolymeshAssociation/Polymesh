@@ -52,9 +52,15 @@ use crate::{
 
 // Polymesh change
 // -----------------------------------------------------------------
+use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::Permill;
+
+use polymesh_common_utilities::constants::GC_PALLET_ID;
 use polymesh_common_utilities::identity::Config as IdentityConfig;
-use polymesh_common_utilities::Context;
+use polymesh_common_utilities::{Context, GC_DID};
 use polymesh_primitives::IdentityId;
+
+use crate::types::{PermissionedIdentityPrefs, SlashingSwitch};
 // -----------------------------------------------------------------
 
 const STAKING_ID: LockIdentifier = *b"staking ";
@@ -91,7 +97,7 @@ pub mod pallet {
     }
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + IdentityConfig {
+    pub trait Config: frame_system::Config + pallet_babe::Config + IdentityConfig {
         /// The staking balance.
         type Currency: LockableCurrency<
             Self::AccountId,
@@ -281,6 +287,11 @@ pub mod pallet {
 
         // Polymesh change
         // -----------------------------------------------------------------
+
+        /// Maximum amount of validators that can run by an identity.
+        /// It will be MaxValidatorPerIdentity * Self::validator_count().
+        #[pallet::constant]
+        type MaxValidatorPerIdentity: Get<Permill>;
 
         // -----------------------------------------------------------------
     }
@@ -526,13 +537,12 @@ pub mod pallet {
     /// `[active_era - bounding_duration; active_era]`
     #[pallet::storage]
     #[pallet::unbounded]
-    pub(crate) type BondedEras<T: Config> =
-        StorageValue<_, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
+    pub type BondedEras<T: Config> = StorageValue<_, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
 
     /// All slashing events on validators, mapped by era to the highest slash proportion
     /// and slash value of the era.
     #[pallet::storage]
-    pub(crate) type ValidatorSlashInEra<T: Config> = StorageDoubleMap<
+    pub type ValidatorSlashInEra<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
         EraIndex,
@@ -543,7 +553,7 @@ pub mod pallet {
 
     /// All slashing events on nominators, mapped by era to the highest slash value of the era.
     #[pallet::storage]
-    pub(crate) type NominatorSlashInEra<T: Config> =
+    pub type NominatorSlashInEra<T: Config> =
         StorageDoubleMap<_, Twox64Concat, EraIndex, Twox64Concat, T::AccountId, BalanceOf<T>>;
 
     /// Slashing spans for stash accounts.
@@ -556,7 +566,7 @@ pub mod pallet {
     /// Records information about the maximum slash of a stash within a slashing span,
     /// as well as how much reward has been paid out.
     #[pallet::storage]
-    pub(crate) type SpanSlash<T: Config> = StorageMap<
+    pub type SpanSlash<T: Config> = StorageMap<
         _,
         Twox64Concat,
         (T::AccountId, slashing::SpanIndex),
@@ -589,7 +599,24 @@ pub mod pallet {
     /// nominators. The threshold is compared to the actual number of validators / nominators
     /// (`CountFor*`) in the system compared to the configured max (`Max*Count`).
     #[pallet::storage]
-    pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
+    pub type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
+
+    // Polymesh change
+    // -----------------------------------------------------------------
+
+    /// Entities that are allowed to run operator/validator nodes.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn permissioned_identity)]
+    pub type PermissionedIdentity<T: Config> =
+        StorageMap<_, Twox64Concat, IdentityId, PermissionedIdentityPrefs, OptionQuery>;
+
+    /// Slashing switch for validators & Nominators.
+    #[pallet::storage]
+    #[pallet::getter(fn slashing_allowed_for)]
+    pub type SlashingAllowedFor<T: Config> = StorageValue<_, SlashingSwitch, ValueQuery>;
+
+    // -----------------------------------------------------------------
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -707,6 +734,7 @@ pub mod pallet {
         },
         /// The nominator has been rewarded by this amount.
         Rewarded {
+            identity: IdentityId,
             stash: T::AccountId,
             amount: BalanceOf<T>,
         },
@@ -738,6 +766,7 @@ pub mod pallet {
         },
         /// An account has unbonded this amount.
         Unbonded {
+            identity: IdentityId,
             stash: T::AccountId,
             amount: BalanceOf<T>,
         },
@@ -768,6 +797,34 @@ pub mod pallet {
         },
         /// A new force era mode was set.
         ForceEra { mode: Forcing },
+
+        // Polymesh change
+        // -----------------------------------------------------------------
+        /// User has updated their nominations.
+        Nominated {
+            nominator_identity: IdentityId,
+            stash: T::AccountId,
+            targets: Vec<T::AccountId>,
+        },
+        /// An identity has issued a candidacy for becoming a validator.
+        PermissionedIdentityAdded {
+            governance_councill_did: IdentityId,
+            validators_identity: IdentityId,
+        },
+        /// An identity has been removed from the permissioned identities pool.
+        PermissionedIdentityRemoved {
+            governance_councill_did: IdentityId,
+            validators_identity: IdentityId,
+        },
+        /// Remove the nominators from the valid nominators when there CDD expired.
+        InvalidatedNominators {
+            governance_councill_did: IdentityId,
+            governance_councill_account: IdentityId,
+            expired_nominators: Vec<T::AccountId>,
+        },
+        ///
+        SlashingAllowedForChanged { slashing_switch: SlashingSwitch },
+        // -----------------------------------------------------------------
     }
 
     #[pallet::error]
@@ -819,13 +876,28 @@ pub mod pallet {
         /// There are too many nominators in the system. Governance needs to adjust the staking
         /// settings to keep things safe for the runtime.
         TooManyNominators,
-        /// There are too many validator candidates in the system. Governance needs to adjust the
-        /// staking settings to keep things safe for the runtime.
+        /// There are too many validator candidates in the system.
         TooManyValidators,
         /// Commission is too low. Must be at least `MinCommission`.
         CommissionTooLow,
         /// Some bound is not met.
         BoundNotMet,
+        /// Validator or nominator stash identity does not exist.
+        StashIdentityDoesNotExist,
+        /// Validator's stash identity is not permissioned.
+        StashIdentityNotPermissioned,
+        /// Nominator stash has not gone through CDD.
+        StashIdentityNotCDDed,
+        /// Permissioned validator already exists.
+        IdentityIsAlreadyPermissioned,
+        /// Identity has not gone throught CDD.
+        IdentityIsMissingCDD,
+        /// When the intended number of validators to run is >= 2/3 of `validator_count`.
+        IntendedCountIsExceedingConsensusLimit,
+        /// Identity was not found in the permissioned identity pool.
+        IdentityNotFound,
+        /// No validator was found for the given key.
+        ValidatorNotFound,
     }
 
     #[pallet::hooks]
@@ -1013,11 +1085,15 @@ pub mod pallet {
                         T::VoterList::on_update(&stash, Self::weight_of(&ledger.stash)).defensive();
                 }
 
+                // Polymesh change
+                // -----------------------------------------------------------------
+                let stash_did = Context::current_identity::<T::IdentityFn>().unwrap_or_default();
                 Self::deposit_event(Event::<T>::Bonded {
-                    identity: IdentityId::default(),
+                    identity: stash_did,
                     stash,
                     amount: extra,
                 });
+                // -----------------------------------------------------------------
             }
             Ok(())
         }
@@ -1105,9 +1181,7 @@ pub mod pallet {
 
                 // Note: in case there is no current era it is fine to bond one era more.
                 let era = Self::current_era().unwrap_or(0) + T::BondingDuration::get();
-                if let Some(mut chunk) =
-                    ledger.unlocking.last_mut().filter(|chunk| chunk.era == era)
-                {
+                if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
                     // To keep the chunk count down, we only keep one chunk per era. Since
                     // `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
                     // be the last one.
@@ -1127,10 +1201,16 @@ pub mod pallet {
                         .defensive();
                 }
 
+                // Polymesh change
+                // -----------------------------------------------------------------
+                let controller_did =
+                    Context::current_identity::<T::IdentityFn>().unwrap_or_default();
                 Self::deposit_event(Event::<T>::Unbonded {
+                    identity: controller_did,
                     stash: ledger.stash,
                     amount: value,
                 });
+                // -----------------------------------------------------------------
             }
 
             let actual_weight = if let Some(withdraw_weight) = maybe_withdraw_weight {
@@ -1192,18 +1272,25 @@ pub mod pallet {
                 Error::<T>::CommissionTooLow
             );
 
+            // Polymesh change
+            // -----------------------------------------------------------------
+            let stash_did = pallet_identity::Module::<T>::get_identity(stash)
+                .ok_or(Error::<T>::StashIdentityDoesNotExist)?;
+            let mut stash_did_prefs = Self::permissioned_identity(stash_did)
+                .ok_or(Error::<T>::StashIdentityNotPermissioned)?;
+
             // Only check limits if they are not already a validator.
             if !Validators::<T>::contains_key(stash) {
-                // If this error is reached, we need to adjust the `MinValidatorBond` and start
-                // calling `chill_other`. Until then, we explicitly block new validators to protect
-                // the runtime.
-                if let Some(max_validators) = MaxValidatorsCount::<T>::get() {
-                    ensure!(
-                        Validators::<T>::count() < max_validators,
-                        Error::<T>::TooManyValidators
-                    );
-                }
+                // Ensure the identity doesn't run more validators than the intended count
+                ensure!(
+                    stash_did_prefs.running_count < stash_did_prefs.intended_count,
+                    Error::<T>::TooManyValidators
+                );
+                stash_did_prefs.running_count += 1;
+                pallet_identity::Module::<T>::add_account_key_ref_count(&stash);
+                PermissionedIdentity::<T>::insert(stash_did, stash_did_prefs);
             }
+            // -----------------------------------------------------------------
 
             Self::do_remove_nominator(stash);
             Self::do_add_validator(stash, prefs.clone());
@@ -1276,6 +1363,27 @@ pub mod pallet {
                 .collect::<Result<Vec<_>, _>>()?
                 .try_into()
                 .map_err(|_| Error::<T>::TooManyNominators)?;
+
+            // Polymesh change
+            // -----------------------------------------------------------------
+            let nominator_did = pallet_identity::Module::<T>::get_identity(&stash)
+                .ok_or(Error::<T>::StashIdentityDoesNotExist)?;
+            let bounding_duration_period = Self::get_bonding_duration_period() as u32;
+
+            if let None = pallet_identity::Module::<T>::fetch_cdd(
+                nominator_did,
+                bounding_duration_period.into(),
+            ) {
+                return Err(Error::<T>::StashIdentityNotCDDed.into());
+            }
+
+            Self::release_running_validator(&stash);
+            Self::deposit_event(Event::<T>::Nominated {
+                nominator_identity: nominator_did,
+                stash: ledger.stash.clone(),
+                targets: targets.to_vec(),
+            });
+            // -----------------------------------------------------------------
 
             let nominations = Nominations {
                 targets,
@@ -1356,6 +1464,12 @@ pub mod pallet {
             if <Ledger<T>>::contains_key(&controller) {
                 return Err(Error::<T>::AlreadyPaired.into());
             }
+
+            // Prevents stashes which are controllers from calling the extrinsic
+            if <Ledger<T>>::contains_key(&stash) {
+                return Err(Error::<T>::BadState.into());
+            }
+
             if controller != old_controller {
                 <Bonded<T>>::insert(&stash, &controller);
                 if let Some(l) = <Ledger<T>>::take(&old_controller) {
@@ -1889,6 +2003,201 @@ pub mod pallet {
             MinCommission::<T>::put(new);
             Ok(())
         }
+
+        // Polymesh change
+        // -----------------------------------------------------------------
+
+        /// Adds a permissioned identity and sets its preferences.
+        ///
+        /// The dispatch origin must be Root.
+        #[pallet::call_index(26)]
+        #[pallet::weight(Weight::zero())]
+        pub fn add_permissioned_validator(
+            origin: OriginFor<T>,
+            identity: IdentityId,
+            intended_count: Option<u32>,
+        ) -> DispatchResult {
+            T::AdminOrigin::ensure_origin(origin)?;
+
+            ensure!(
+                Self::permissioned_identity(&identity).is_none(),
+                Error::<T>::IdentityIsAlreadyPermissioned
+            );
+
+            ensure!(
+                pallet_identity::Module::<T>::has_valid_cdd(identity),
+                Error::<T>::IdentityIsMissingCDD
+            );
+
+            match intended_count {
+                Some(intended_count) => {
+                    ensure!(
+                        intended_count < Self::maximum_number_of_validators_per_identity(),
+                        Error::<T>::IntendedCountIsExceedingConsensusLimit
+                    );
+                    PermissionedIdentity::<T>::insert(
+                        &identity,
+                        PermissionedIdentityPrefs::new(intended_count),
+                    );
+                }
+                None => {
+                    PermissionedIdentity::<T>::insert(
+                        &identity,
+                        PermissionedIdentityPrefs::default(),
+                    );
+                }
+            }
+
+            Self::deposit_event(Event::<T>::PermissionedIdentityAdded {
+                governance_councill_did: GC_DID,
+                validators_identity: identity,
+            });
+            Ok(())
+        }
+
+        /// Remove an identity from the pool of (wannabe) validator identities. Effects are known in the next session.
+        ///
+        /// The dispatch origin must be Root.
+        ///
+        /// # Arguments
+        /// * origin Required origin for removing a potential validator.
+        /// * identity Validator's IdentityId.
+        #[pallet::call_index(27)]
+        #[pallet::weight(Weight::zero())]
+        pub fn remove_permissioned_validator(
+            origin: OriginFor<T>,
+            identity: IdentityId,
+        ) -> DispatchResult {
+            T::AdminOrigin::ensure_origin(origin)?;
+
+            ensure!(
+                Self::permissioned_identity(&identity).is_some(),
+                Error::<T>::IdentityNotFound
+            );
+
+            PermissionedIdentity::<T>::remove(&identity);
+
+            Self::deposit_event(Event::<T>::PermissionedIdentityRemoved {
+                governance_councill_did: GC_DID,
+                validators_identity: identity,
+            });
+            Ok(())
+        }
+
+        /// Validate the nominators CDD expiry time.
+        ///
+        /// If an account from a given set of address is nominating then check the CDD expiry time
+        /// of it and if it is expired then the account should be unbonded and removed from the
+        /// nominating process.
+        #[pallet::call_index(28)]
+        #[pallet::weight(Weight::zero())]
+        pub fn validate_cdd_expiry_nominators(
+            origin: OriginFor<T>,
+            targets: Vec<T::AccountId>,
+        ) -> DispatchResult {
+            ensure_root(origin.clone())?;
+
+            ensure!(!targets.is_empty(), Error::<T>::EmptyTargets);
+
+            let mut expired_nominators = Vec::new();
+            // Iterate provided list of accountIds (These accountIds should be stash type account).
+            for target in targets
+                .iter()
+                // Nominator must be vouching for someone.
+                .filter(|target| Self::nominators(target).is_some())
+                // Access the DIDs of the nominators whose CDDs have expired.
+                .filter(|target| {
+                    // Fetch all the claim values provided by the trusted service providers
+                    // There is a possibility that nominator will have more than one claim for the same key,
+                    // So we iterate all of them and if any one of the claim value doesn't expire then nominator posses
+                    // valid CDD otherwise it will be removed from the pool of the nominators.
+                    // If the target has no DID, it's also removed.
+                    pallet_identity::Module::<T>::get_identity(&target)
+                        .filter(|did| pallet_identity::Module::<T>::has_valid_cdd(*did))
+                        .is_none()
+                })
+            {
+                // Un-bonding the balance that bonded with the controller account of a Stash account
+                // This unbonded amount only be accessible after completion of the BondingDuration
+                // Controller account need to call the dispatchable function `withdraw_unbond` to withdraw fund.
+
+                let controller = Self::bonded(target).ok_or(Error::<T>::NotStash)?;
+                let mut ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
+                let active_balance = ledger.active;
+                if ledger.unlocking.len() < T::MaxUnlockingChunks::get() as usize {
+                    Self::unbond_balance(controller, &mut ledger, active_balance)?;
+
+                    expired_nominators.push(target.clone());
+                    // Free the nominator from the valid nominator list
+                    <Nominators<T>>::remove(target);
+                }
+            }
+            Self::deposit_event(Event::<T>::InvalidatedNominators {
+                governance_councill_did: GC_DID,
+                governance_councill_account: GC_PALLET_ID.into_account_truncating(),
+                expired_nominators: expired_nominators,
+            });
+            Ok(())
+        }
+
+        #[pallet::call_index(29)]
+        #[pallet::weight(Weight::zero())]
+        pub fn payout_stakers_by_system(
+            origin: OriginFor<T>,
+            validator_stash: T::AccountId,
+            era: EraIndex,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            Self::do_payout_stakers(validator_stash, era)
+        }
+
+        /// Switch slashing status on the basis of given `slashing_switch`. Can only be called by root.
+        #[pallet::call_index(30)]
+        #[pallet::weight(Weight::zero())]
+        pub fn change_slashing_allowed_for(
+            origin: OriginFor<T>,
+            slashing_switch: SlashingSwitch,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            SlashingAllowedFor::<T>::put(slashing_switch);
+            Self::deposit_event(Event::<T>::SlashingAllowedForChanged { slashing_switch });
+            Ok(())
+        }
+
+        /// Sets the intended count to `new_intended_count` for the given `identity`.
+        #[pallet::call_index(31)]
+        #[pallet::weight(Weight::zero())]
+        pub fn update_permissioned_validator_intended_count(
+            origin: OriginFor<T>,
+            identity: IdentityId,
+            new_intended_count: u32,
+        ) -> DispatchResult {
+            T::AdminOrigin::ensure_origin(origin)?;
+
+            ensure!(
+                Self::maximum_number_of_validators_per_identity() > new_intended_count,
+                Error::<T>::IntendedCountIsExceedingConsensusLimit
+            );
+
+            PermissionedIdentity::<T>::try_mutate(&identity, |pref| {
+                pref.as_mut()
+                    .ok_or_else(|| Error::<T>::IdentityNotFound.into())
+                    .map(|p| p.intended_count = new_intended_count)
+            })
+        }
+
+        /// Governance council forcefully chills a validator. Effects will be felt at the beginning of the next era.
+        #[pallet::call_index(32)]
+        #[pallet::weight(Weight::zero())]
+        pub fn chill_from_governance(
+            origin: OriginFor<T>,
+            identity: IdentityId,
+            stash_keys: Vec<T::AccountId>,
+        ) -> DispatchResult {
+            Self::base_chill_from_governance(origin, identity, stash_keys)
+        }
+
+        // -----------------------------------------------------------------
     }
 }
 

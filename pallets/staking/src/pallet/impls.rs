@@ -50,6 +50,11 @@ use crate::{
 
 use super::{pallet::*, STAKING_ID};
 
+// Polymesh change
+// -----------------------------------------------------------------
+use polymesh_primitives::IdentityId;
+// -----------------------------------------------------------------
+
 /// The maximum number of iterations that we do whilst iterating over `T::VoterList` in
 /// `get_npos_voters`.
 ///
@@ -239,7 +244,13 @@ impl<T: Config> Pallet<T> {
             &ledger.stash,
             validator_staking_payout + validator_commission_payout,
         ) {
+            // Polymesh change
+            // -----------------------------------------------------------------
+            let stash_did =
+                pallet_identity::Module::<T>::get_identity(&ledger.stash).unwrap_or_default();
+            // -----------------------------------------------------------------
             Self::deposit_event(Event::<T>::Rewarded {
+                identity: stash_did,
                 stash: ledger.stash,
                 amount: imbalance.peek(),
             });
@@ -262,7 +273,13 @@ impl<T: Config> Pallet<T> {
             if let Some(imbalance) = Self::make_payout(&nominator.who, nominator_reward) {
                 // Note: this logic does not count payouts for `RewardDestination::None`.
                 nominator_payout_count += 1;
+                // Polymesh change
+                // -----------------------------------------------------------------
+                let nominator_did =
+                    pallet_identity::Module::<T>::get_identity(&nominator.who).unwrap_or_default();
+                // -----------------------------------------------------------------
                 let e = Event::<T>::Rewarded {
+                    identity: nominator_did,
                     stash: nominator.who.clone(),
                     amount: imbalance.peek(),
                 };
@@ -294,6 +311,10 @@ impl<T: Config> Pallet<T> {
 
     /// Chill a stash account.
     pub(crate) fn chill_stash(stash: &T::AccountId) {
+        // Polymesh change
+        // -----------------------------------------------------------------
+        Self::release_running_validator(stash);
+        // -----------------------------------------------------------------
         let chilled_as_validator = Self::do_remove_validator(stash);
         let chilled_as_nominator = Self::do_remove_nominator(stash);
         if chilled_as_validator || chilled_as_nominator {
@@ -678,7 +699,7 @@ impl<T: Config> Pallet<T> {
     /// This is called:
     /// - after a `withdraw_unbonded()` call that frees all of a stash's bonded balance.
     /// - through `reap_stash()` if the balance has fallen to zero (through slashing).
-    pub(crate) fn kill_stash(stash: &T::AccountId, num_slashing_spans: u32) -> DispatchResult {
+    pub fn kill_stash(stash: &T::AccountId, num_slashing_spans: u32) -> DispatchResult {
         let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
         slashing::clear_stash_metadata::<T>(stash, num_slashing_spans)?;
@@ -747,7 +768,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Helper to set a new `ForceEra` mode.
-    pub(crate) fn set_force_era(mode: Forcing) {
+    pub fn set_force_era(mode: Forcing) {
         log!(info, "Setting force era mode {:?}.", mode);
         ForceEra::<T>::put(mode);
         Self::deposit_event(Event::<T>::ForceEra { mode });
@@ -1012,6 +1033,80 @@ impl<T: Config> Pallet<T> {
             DispatchClass::Mandatory,
         );
     }
+
+    // Polymesh change
+    // -----------------------------------------------------------------
+    pub(crate) fn get_bonding_duration_period() -> u64 {
+        (T::SessionsPerEra::get()  * T::BondingDuration::get()) as u64 // total session
+            * T::EpochDuration::get() // session length
+            * T::ExpectedBlockTime::get().saturated_into::<u64>()
+    }
+
+    /// Decrease the running count of validators by 1 for the stash identity.
+    pub(crate) fn release_running_validator(stash: &T::AccountId) {
+        if !<Validators<T>>::contains_key(stash) {
+            return;
+        }
+
+        if let Some(did) = pallet_identity::Module::<T>::get_identity(stash) {
+            PermissionedIdentity::<T>::mutate(&did, |preferences| {
+                if let Some(p) = preferences {
+                    if p.running_count > 0 {
+                        p.running_count -= 1;
+                        pallet_identity::Module::<T>::remove_account_key_ref_count(&stash);
+                    }
+                }
+            });
+        }
+    }
+
+    /// Returns the maximum number of validators per identiy
+    pub fn maximum_number_of_validators_per_identity() -> u32 {
+        (T::MaxValidatorPerIdentity::get() * Self::validator_count()).max(1)
+    }
+
+    pub fn unbond_balance(
+        _controller_account: T::AccountId,
+        _ledger: &mut StakingLedger<T>,
+        _value: BalanceOf<T>,
+    ) -> DispatchResult {
+        unimplemented!()
+    }
+
+    pub(crate) fn base_chill_from_governance(
+        origin: T::RuntimeOrigin,
+        identity: IdentityId,
+        stash_keys: Vec<T::AccountId>,
+    ) -> DispatchResult {
+        T::AdminOrigin::ensure_origin(origin)?;
+
+        // Checks that the identity is allowed to run operator/validator nodes.
+        ensure!(
+            Self::permissioned_identity(&identity).is_some(),
+            Error::<T>::IdentityNotFound
+        );
+
+        for key in &stash_keys {
+            let key_did = pallet_identity::Module::<T>::get_identity(&key);
+            // Checks if the stash key identity is the same as the identity given.
+            ensure!(key_did == Some(identity), Error::<T>::NotStash);
+            // Checks if the key is a validator if not returns an error.
+            ensure!(
+                <Validators<T>>::contains_key(&key),
+                Error::<T>::ValidatorNotFound
+            );
+        }
+
+        for key in stash_keys {
+            Self::chill_stash(&key);
+        }
+
+        // Change identity status to be Non-Permissioned
+        PermissionedIdentity::<T>::remove(&identity);
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------
 }
 
 impl<T: Config> Pallet<T> {
@@ -1764,9 +1859,9 @@ impl<T: Config> StakingInterface for Pallet<T> {
     }
 }
 
-#[cfg(any(test, feature = "try-runtime"))]
+#[cfg(feature = "std")]
 impl<T: Config> Pallet<T> {
-    pub(crate) fn do_try_state(_: BlockNumberFor<T>) -> Result<(), &'static str> {
+    pub fn do_try_state(_: BlockNumberFor<T>) -> Result<(), &'static str> {
         ensure!(
             T::VoterList::iter()
                 .all(|x| <Nominators<T>>::contains_key(&x) || <Validators<T>>::contains_key(&x)),
