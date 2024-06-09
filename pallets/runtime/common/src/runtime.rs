@@ -269,6 +269,7 @@ macro_rules! misc_pallet_impls {
             type OnStakerSlash = pallet_staking::OnStakerSlashMock<Self>;
             type BenchmarkingConfig = pallet_staking::SampleBenchmarkingConfig;
             type WeightInfo = polymesh_weights::pallet_staking::SubstrateWeight;
+            type MaxValidatorPerIdentity = polymesh_runtime_common::MaxValidatorPerIdentity;
         }
 
         impl pallet_authority_discovery::Config for Runtime {

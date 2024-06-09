@@ -1,13 +1,13 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2018-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// 	http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,59 +17,43 @@
 
 //! Test utilities
 
-use crate::asset_test::set_timestamp;
-use chrono::prelude::Utc;
-use frame_election_provider_support::NposSolution;
+use frame_election_provider_support::{onchain, SequentialPhragmen};
 use frame_support::{
-    assert_ok,
-    dispatch::{DispatchInfo, DispatchResult, Weight},
-    parameter_types,
+    assert_ok, ord_parameter_types, parameter_types,
     traits::{
-        Contains, Currency, FindAuthor, GenesisBuild as _, Get, Imbalance, KeyOwnerProofSystem,
-        OnFinalize, OnInitialize, OnUnbalanced, OneSessionHandler, SortedMembers,
+        ConstU32, Currency, EitherOfDiverse, FindAuthor, GenesisBuild, Get, Hooks, Imbalance,
+        OnUnbalanced, OneSessionHandler,
     },
     weights::constants::RocksDbWeight,
-    StorageDoubleMap, StorageMap,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use pallet_group as group;
-use pallet_identity as identity;
-use pallet_protocol_fee as protocol_fee;
-use pallet_staking::{self as staking, *};
-use polymesh_common_utilities::{
-    constants::currency::*,
-    traits::{
-        balances::{AccountData, CheckCdd},
-        group::{GroupTrait, InactiveMember},
-        multisig::MultiSigSubTrait,
-        portfolio::PortfolioSubTrait,
-        relayer::SubsidiserTrait,
-        transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-        CommonConfig,
-    },
-};
-use polymesh_primitives::{
-    identity_id::GenesisIdentityRecord, Authorization, AuthorizationData, Claim, IdentityId,
-    Moment, NFTId, Permissions, PortfolioId, SecondaryKey, Signatory, Ticker,
-};
 use sp_core::H256;
-use sp_npos_elections::{
-    reduce, to_supports, ElectionScore, EvaluateSupport, ExtendedBalance, StakedAssignment,
-};
+use sp_io;
 use sp_runtime::{
     curve::PiecewiseLinear,
-    testing::{Header, TestSignature, TestXt, UintAuthorityId},
+    testing::{Header, UintAuthorityId},
     traits::{IdentityLookup, Zero},
-    transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
-    KeyTypeId, Perbill, Permill,
 };
-use sp_staking::{
-    offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-    SessionIndex,
-};
-use std::{cell::RefCell, collections::BTreeMap};
 
-use pallet_staking::types::SlashingSwitch;
+use std::collections::BTreeMap;
+
+use frame_support::dispatch::{DispatchInfo, DispatchResult, Weight};
+use frame_support::traits::KeyOwnerProofSystem;
+use sp_runtime::testing::TestXt;
+use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction};
+use sp_runtime::{KeyTypeId, Perbill};
+use sp_staking::offence::{DisableStrategy, OffenceDetails, OnOffenceHandler};
+use sp_staking::{EraIndex, SessionIndex};
+
+use pallet_staking::{self as pallet_staking, *};
+use polymesh_common_utilities::traits::balances::{AccountData, CheckCdd};
+use polymesh_common_utilities::traits::group::{GroupTrait, InactiveMember};
+use polymesh_common_utilities::traits::multisig::MultiSigSubTrait;
+use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
+use polymesh_common_utilities::traits::relayer::SubsidiserTrait;
+use polymesh_common_utilities::traits::CommonConfig;
+use polymesh_common_utilities::transaction_payment::ChargeTxFee;
+use polymesh_primitives::{IdentityId, Moment, NFTId, PortfolioId, SecondaryKey, Ticker};
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 1_000;
@@ -118,7 +102,6 @@ pub fn is_disabled(controller: AccountId) -> bool {
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
-pub type Origin = <Test as frame_system::Config>::RuntimeOrigin;
 pub type Call = RuntimeCall;
 
 frame_support::construct_runtime!(
@@ -132,7 +115,7 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         Authorship: pallet_authorship,
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Staking: staking::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
+        Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
         Historical: pallet_session::historical::{Pallet},
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>, Config<T>},
@@ -160,21 +143,20 @@ impl FindAuthor<AccountId> for Author11 {
 }
 
 parameter_types! {
-    pub const BlockHashCount: u64 = 250;
+    pub static SessionsPerEra: sp_staking::SessionIndex = 3;
+    pub static ExistentialDeposit: Balance = 1;
+    pub static SlashDeferDuration: EraIndex = 0;
+    pub static Period: BlockNumber = 5;
+    pub static Offset: BlockNumber = 0;
+
     pub const MaxLen: u32 = 256;
     pub const MaxLocks: u32 = 1024;
+    pub const BlockHashCount: u64 = 250;
     pub const MaximumBlockWeight: Weight = Weight::from_ref_time(1024);
     pub BlockWeights: frame_system::limits::BlockWeights =
         frame_system::limits::BlockWeights::simple_max(
             Weight::from_ref_time(frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND * 2)
         );
-    pub static SessionsPerEra: SessionIndex = 3;
-    pub static ExistentialDeposit: Balance = 1;
-    pub static SlashDeferDuration: EraIndex = 0;
-    pub static ElectionLookahead: BlockNumber = 0;
-    pub static Period: BlockNumber = 5;
-    pub static Offset: BlockNumber = 0;
-    pub static MaxIterations: u32 = 0;
 }
 
 impl frame_system::Config for Test {
@@ -199,8 +181,8 @@ impl frame_system::Config for Test {
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
-    type OnSetCode = ();
     type SS58Prefix = ();
+    type OnSetCode = ();
     type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
@@ -214,13 +196,14 @@ impl CommonConfig for Test {
 }
 
 impl pallet_balances::Config for Test {
-    type DustRemoval = ();
     type RuntimeEvent = RuntimeEvent;
+    type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
+
     type CddChecker = Test;
-    type WeightInfo = polymesh_weights::pallet_balances::SubstrateWeight;
     type MaxLocks = MaxLocks;
+    type WeightInfo = polymesh_weights::pallet_balances::SubstrateWeight;
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -228,6 +211,7 @@ sp_runtime::impl_opaque_keys! {
         pub other: OtherSessionHandler,
     }
 }
+
 impl pallet_session::Config for Test {
     type SessionManager = pallet_session::historical::NoteHistoricalRoot<Test, Staking>;
     type Keys = SessionKeys;
@@ -235,7 +219,7 @@ impl pallet_session::Config for Test {
     type SessionHandler = (OtherSessionHandler,);
     type RuntimeEvent = RuntimeEvent;
     type ValidatorId = AccountId;
-    type ValidatorIdOf = StashOf<Test>;
+    type ValidatorIdOf = pallet_staking::StashOf<Test>;
     type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
     type WeightInfo = ();
 }
@@ -250,8 +234,8 @@ impl pallet_committee::Config<pallet_committee::Instance1> for Test {
 }
 
 impl pallet_session::historical::Config for Test {
-    type FullIdentification = Exposure<AccountId, Balance>;
-    type FullIdentificationOf = ExposureOf<Test>;
+    type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
+    type FullIdentificationOf = pallet_staking::ExposureOf<Test>;
 }
 
 impl pallet_pips::Config for Test {
@@ -276,9 +260,11 @@ impl pallet_authorship::Config for Test {
     type FindAuthor = Author11;
     type EventHandler = pallet_staking::Pallet<Test>;
 }
+
 parameter_types! {
     pub const MinimumPeriod: u64 = 5;
 }
+
 impl pallet_timestamp::Config for Test {
     type Moment = u64;
     type OnTimestampSet = ();
@@ -286,7 +272,7 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
-impl group::Config<group::Instance2> for Test {
+impl pallet_group::Config<pallet_group::Instance2> for Test {
     type RuntimeEvent = RuntimeEvent;
     type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
@@ -298,7 +284,7 @@ impl group::Config<group::Instance2> for Test {
     type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
 }
 
-impl protocol_fee::Config for Test {
+impl pallet_protocol_fee::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type OnProtocolFeePayment = ();
@@ -311,16 +297,16 @@ impl polymesh_common_utilities::traits::identity::Config for Test {
     type Proposal = RuntimeCall;
     type MultiSig = Test;
     type Portfolio = Test;
-    type CddServiceProviders = group::Module<Test, group::Instance2>;
+    type CddServiceProviders = pallet_group::Module<Test, pallet_group::Instance2>;
     type Balances = Balances;
     type ChargeTxFeeTarget = Test;
     type CddHandler = Test;
     type Public = UintAuthorityId;
-    type OffChainSignature = TestSignature;
-    type ProtocolFee = protocol_fee::Module<Test>;
+    type OffChainSignature = sp_runtime::testing::TestSignature;
+    type ProtocolFee = pallet_protocol_fee::Module<Test>;
     type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type WeightInfo = polymesh_weights::pallet_identity::SubstrateWeight;
-    type IdentityFn = identity::Module<Test>;
+    type IdentityFn = pallet_identity::Module<Test>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
     type MultiSigBalanceLimit = polymesh_runtime_common::MultiSigBalanceLimit;
@@ -367,8 +353,11 @@ impl pallet_test_utils::Config for Test {
     type WeightInfo = polymesh_weights::pallet_test_utils::SubstrateWeight;
 }
 
-impl CddAndFeeDetails<AccountId, Call> for Test {
-    fn get_valid_payer(_: &Call, _: &AccountId) -> Result<Option<AccountId>, InvalidTransaction> {
+impl polymesh_common_utilities::transaction_payment::CddAndFeeDetails<AccountId, Call> for Test {
+    fn get_valid_payer(
+        _: &Call,
+        _: &AccountId,
+    ) -> Result<Option<AccountId>, sp_runtime::transaction_validity::InvalidTransaction> {
         Ok(None)
     }
     fn clear_context() {}
@@ -545,85 +534,97 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
     pub const BondingDuration: EraIndex = 3;
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
+    pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(75);
+
     pub const MaxNominatorRewardedPerValidator: u32 = 64;
-    pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
-    pub const UnsignedPriority: u64 = 1 << 20;
-    pub const MinSolutionScoreBump: Perbill = Perbill::zero();
-    pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
-    pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
-    pub const FixedYearlyReward: Balance = 200_000_000 * POLY;
-    pub const MinimumBond: Balance = 10u128;
 }
 
-thread_local! {
-    pub static REWARD_REMAINDER_UNBALANCED: RefCell<u128> = RefCell::new(0);
+parameter_types! {
+    pub static RewardRemainderUnbalanced: u128 = 0;
 }
 
 pub struct RewardRemainderMock;
 
 impl OnUnbalanced<NegativeImbalanceOf<Test>> for RewardRemainderMock {
     fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<Test>) {
-        REWARD_REMAINDER_UNBALANCED.with(|v| {
-            *v.borrow_mut() += amount.peek();
+        RewardRemainderUnbalanced::mutate(|v| {
+            *v += amount.peek();
         });
         drop(amount);
     }
 }
 
+const THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
+    [10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
+
 parameter_types! {
-    pub const TwoThousand: AccountId = 2000;
-    pub const ThreeThousand: AccountId = 3000;
-    pub const FourThousand: AccountId = 4000;
-    pub const FiveThousand: AccountId = 5000;
+    pub static BagThresholds: &'static [sp_npos_elections::VoteWeight] = &THRESHOLDS;
+    pub static MaxNominations: u32 = 16;
+    pub static HistoryDepth: u32 = 80;
+    pub static MaxUnlockingChunks: u32 = 32;
+    pub static RewardOnUnbalanceWasCalled: bool = false;
+    pub static LedgerSlashPerEra: (BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) = (Zero::zero(), BTreeMap::new());
+    pub static MaxWinners: u32 = 100;
 }
 
-impl Contains<u64> for TwoThousand {
-    fn contains(t: &u64) -> bool {
-        TwoThousand::get() == *t
+pub struct OnChainSeqPhragmen;
+impl onchain::Config for OnChainSeqPhragmen {
+    type System = Test;
+    type Solver = SequentialPhragmen<AccountId, Perbill>;
+    type DataProvider = Staking;
+    type WeightInfo = ();
+    type MaxWinners = MaxWinners;
+    type VotersBound = ConstU32<{ u32::MAX }>;
+    type TargetsBound = ConstU32<{ u32::MAX }>;
+}
+
+pub struct MockReward {}
+impl OnUnbalanced<PositiveImbalanceOf<Test>> for MockReward {
+    fn on_unbalanced(_: PositiveImbalanceOf<Test>) {
+        RewardOnUnbalanceWasCalled::set(true);
     }
 }
 
-impl SortedMembers<u64> for TwoThousand {
-    fn sorted_members() -> Vec<u64> {
-        vec![TwoThousand::get()]
+pub struct OnStakerSlashMock<T: Config>(core::marker::PhantomData<T>);
+impl<T: Config> sp_staking::OnStakerSlash<AccountId, Balance> for OnStakerSlashMock<T> {
+    fn on_slash(
+        _pool_account: &AccountId,
+        slashed_bonded: Balance,
+        slashed_chunks: &BTreeMap<EraIndex, Balance>,
+    ) {
+        LedgerSlashPerEra::set((slashed_bonded, slashed_chunks.clone()));
     }
 }
 
-impl Config for Test {
+impl pallet_staking::Config for Test {
     type Currency = Balances;
+    type CurrencyBalance = Balance;
     type UnixTime = Timestamp;
-    type CurrencyToVote = frame_support::traits::SaturatingCurrencyToVote;
-    type RewardRemainder = RewardRemainderMock;
+    type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
+    type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
+    type GenesisElectionProvider = Self::ElectionProvider;
+    type MaxNominations = polymesh_runtime_common::MaxNominations;
+    type HistoryDepth = polymesh_runtime_common::HistoryDepth;
+    type RewardRemainder = ();
     type RuntimeEvent = RuntimeEvent;
     type Slash = ();
     type Reward = ();
     type SessionsPerEra = SessionsPerEra;
-    type SlashDeferDuration = SlashDeferDuration;
-    type SlashCancelOrigin = frame_system::EnsureRoot<Self::AccountId>;
     type BondingDuration = BondingDuration;
+    type SlashDeferDuration = SlashDeferDuration;
+    type AdminOrigin = frame_system::EnsureRoot<AccountId>;
     type SessionInterface = Self;
-    type RewardCurve = RewardCurve;
+    type EraPayout = ();
     type NextNewSession = Session;
-    type ElectionLookahead = ElectionLookahead;
-    type Call = RuntimeCall;
-    type MaxIterations = MaxIterations;
-    type MinSolutionScoreBump = MinSolutionScoreBump;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
     type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
-    type UnsignedPriority = UnsignedPriority;
-    type OffchainSolutionWeightLimit = polymesh_runtime_common::OffchainSolutionWeightLimit;
+    type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
+    type TargetList = pallet_staking::UseValidatorsMap<Self>;
+    type MaxUnlockingChunks = polymesh_runtime_common::MaxUnlockingChunks;
+    type OnStakerSlash = pallet_staking::OnStakerSlashMock<Self>;
+    type BenchmarkingConfig = pallet_staking::SampleBenchmarkingConfig;
     type WeightInfo = polymesh_weights::pallet_staking::SubstrateWeight;
-    type RequiredAddOrigin = frame_system::EnsureRoot<AccountId>;
-    type RequiredRemoveOrigin = EnsureSignedBy<TwoThousand, Self::AccountId>;
-    type RequiredCommissionOrigin = frame_system::EnsureRoot<AccountId>;
-    type RewardScheduler = Scheduler;
-    type PalletsOrigin = OriginCaller;
-    type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
-    type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
-    type FixedYearlyReward = FixedYearlyReward;
-    type MinimumBond = MinimumBond;
-    type MaxNominations = pallet_staking::MaxNominations;
-    type MaxUnlockingChunks = pallet_staking::MaxUnlockingChunks;
+    type MaxValidatorPerIdentity = polymesh_runtime_common::MaxValidatorPerIdentity;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
@@ -636,34 +637,39 @@ where
 
 pub type Extrinsic = TestXt<Call, ()>;
 
+pub(crate) type StakingCall = pallet_staking::Call<Test>;
+pub(crate) type TestCall = <Test as frame_system::Config>::RuntimeCall;
+
 pub struct ExtBuilder {
-    validator_pool: bool,
     nominate: bool,
     validator_count: u32,
     minimum_validator_count: u32,
-    fair: bool,
-    num_validators: Option<u32>,
     invulnerables: Vec<AccountId>,
     has_stakers: bool,
     initialize_first_session: bool,
-    max_offchain_iterations: u32,
-    slashing_allowed_for: SlashingSwitch,
+    pub min_nominator_bond: Balance,
+    min_validator_bond: Balance,
+    balance_factor: Balance,
+    status: BTreeMap<AccountId, StakerStatus<AccountId>>,
+    stakes: BTreeMap<AccountId, Balance>,
+    stakers: Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
 }
 
 impl Default for ExtBuilder {
     fn default() -> Self {
         Self {
-            validator_pool: false,
             nominate: true,
             validator_count: 2,
             minimum_validator_count: 0,
-            fair: true,
-            num_validators: None,
+            balance_factor: 1,
             invulnerables: vec![],
             has_stakers: true,
             initialize_first_session: true,
-            max_offchain_iterations: 0,
-            slashing_allowed_for: SlashingSwitch::Validator,
+            min_nominator_bond: ExistentialDeposit::get(),
+            min_validator_bond: ExistentialDeposit::get(),
+            status: Default::default(),
+            stakes: Default::default(),
+            stakers: Default::default(),
         }
     }
 }
@@ -671,10 +677,6 @@ impl Default for ExtBuilder {
 impl ExtBuilder {
     pub fn existential_deposit(self, existential_deposit: Balance) -> Self {
         EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = existential_deposit);
-        self
-    }
-    pub fn validator_pool(mut self, validator_pool: bool) -> Self {
-        self.validator_pool = validator_pool;
         self
     }
     pub fn nominate(mut self, nominate: bool) -> Self {
@@ -693,24 +695,12 @@ impl ExtBuilder {
         SLASH_DEFER_DURATION.with(|v| *v.borrow_mut() = eras);
         self
     }
-    pub fn fair(mut self, is_fair: bool) -> Self {
-        self.fair = is_fair;
-        self
-    }
-    pub fn num_validators(mut self, num_validators: u32) -> Self {
-        self.num_validators = Some(num_validators);
-        self
-    }
     pub fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
         self.invulnerables = invulnerables;
         self
     }
     pub fn session_per_era(self, length: SessionIndex) -> Self {
         SESSIONS_PER_ERA.with(|v| *v.borrow_mut() = length);
-        self
-    }
-    pub fn election_lookahead(self, look: BlockNumber) -> Self {
-        ELECTION_LOOKAHEAD.with(|v| *v.borrow_mut() = look);
         self
     }
     pub fn period(self, length: BlockNumber) -> Self {
@@ -721,13 +711,6 @@ impl ExtBuilder {
         self.has_stakers = has;
         self
     }
-    pub fn max_offchain_iterations(self, iterations: u32) -> Self {
-        MAX_ITERATIONS.with(|v| *v.borrow_mut() = iterations);
-        self
-    }
-    pub fn offchain_election_ext(self) -> Self {
-        self.session_per_era(4).period(5).election_lookahead(3)
-    }
     pub fn initialize_first_session(mut self, init: bool) -> Self {
         self.initialize_first_session = init;
         self
@@ -736,176 +719,145 @@ impl ExtBuilder {
         OFFSET.with(|v| *v.borrow_mut() = offset);
         self
     }
-    pub fn slashing_allowed_for(mut self, status: SlashingSwitch) -> Self {
-        self.slashing_allowed_for = status;
+    pub fn min_nominator_bond(mut self, amount: Balance) -> Self {
+        self.min_nominator_bond = amount;
         self
     }
-
-    pub fn build(self) -> sp_io::TestExternalities {
+    pub fn min_validator_bond(mut self, amount: Balance) -> Self {
+        self.min_validator_bond = amount;
+        self
+    }
+    pub fn set_status(mut self, who: AccountId, status: StakerStatus<AccountId>) -> Self {
+        self.status.insert(who, status);
+        self
+    }
+    pub fn set_stake(mut self, who: AccountId, stake: Balance) -> Self {
+        self.stakes.insert(who, stake);
+        self
+    }
+    pub fn add_staker(
+        mut self,
+        stash: AccountId,
+        ctrl: AccountId,
+        stake: Balance,
+        status: StakerStatus<AccountId>,
+    ) -> Self {
+        self.stakers.push((stash, ctrl, stake, status));
+        self
+    }
+    pub fn balance_factor(mut self, factor: Balance) -> Self {
+        self.balance_factor = factor;
+        self
+    }
+    fn build(self) -> sp_io::TestExternalities {
         sp_tracing::try_init_simple();
         let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
-        let balance_factor = if ExistentialDeposit::get() > 1 {
-            256
-        } else {
-            1
-        };
-
-        let num_validators = self.num_validators.unwrap_or(self.validator_count);
-        let validators = (0..num_validators)
-            .map(|x| ((x + 1) * 10 + 1) as AccountId)
-            .collect::<Vec<_>>();
 
         let _ = pallet_balances::GenesisConfig::<Test> {
             balances: vec![
-                (1, 10 * balance_factor),
-                (2, 20 * balance_factor),
-                (3, 300 * balance_factor),
-                (4, 400 * balance_factor),
-                (10, balance_factor),
-                (11, balance_factor * 1000),
-                (20, balance_factor),
-                (21, balance_factor * 2000),
-                (30, balance_factor),
-                (31, balance_factor * 2000),
-                (40, balance_factor),
-                (41, balance_factor * 2000),
-                (50, balance_factor),
-                (51, balance_factor * 2000),
-                (60, balance_factor),
-                (61, balance_factor * 2000),
-                (70, balance_factor),
-                (71, balance_factor * 2000),
-                (80, balance_factor),
-                (81, balance_factor * 2000),
-                (100, 2000 * balance_factor),
-                (101, 2000 * balance_factor),
+                (1, 10 * self.balance_factor),
+                (2, 20 * self.balance_factor),
+                (3, 300 * self.balance_factor),
+                (4, 400 * self.balance_factor),
+                // controllers
+                (10, self.balance_factor),
+                (20, self.balance_factor),
+                (30, self.balance_factor),
+                (40, self.balance_factor),
+                (50, self.balance_factor),
+                // stashes
+                (11, self.balance_factor * 1000),
+                (21, self.balance_factor * 2000),
+                (31, self.balance_factor * 2000),
+                (41, self.balance_factor * 2000),
+                (51, self.balance_factor * 2000),
+                // optional nominator
+                (100, self.balance_factor * 2000),
+                (101, self.balance_factor * 2000),
+                // aux accounts
+                (60, self.balance_factor),
+                (61, self.balance_factor * 2000),
+                (70, self.balance_factor),
+                (71, self.balance_factor * 2000),
+                (80, self.balance_factor),
+                (81, self.balance_factor * 2000),
                 // This allows us to have a total_payout different from 0.
                 (999, 1_000_000_000_000),
             ],
         }
         .assimilate_storage(&mut storage);
 
-        let _ = group::GenesisConfig::<Test, group::Instance2> {
-            active_members_limit: u32::MAX,
-            active_members: vec![IdentityId::from(1), IdentityId::from(2)],
-            phantom: Default::default(),
-        }
-        .assimilate_storage(&mut storage);
-
-        let _ = identity::GenesisConfig::<Test> {
-            identities: vec![
-                // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
-                // Provide Identity
-                GenesisIdentityRecord {
-                    primary_key: Some(1005),
-                    issuers: vec![IdentityId::from(1)],
-                    did: IdentityId::from(1),
-                    secondary_keys: Default::default(),
-                    cdd_claim_expiry: None,
-                },
-                GenesisIdentityRecord {
-                    primary_key: Some(11),
-                    issuers: vec![IdentityId::from(1)],
-                    did: IdentityId::from(11),
-                    secondary_keys: Default::default(),
-                    cdd_claim_expiry: None,
-                },
-                GenesisIdentityRecord {
-                    primary_key: Some(21),
-                    issuers: vec![IdentityId::from(1)],
-                    did: IdentityId::from(21),
-                    secondary_keys: Default::default(),
-                    cdd_claim_expiry: None,
-                },
-                GenesisIdentityRecord {
-                    primary_key: Some(31),
-                    issuers: vec![IdentityId::from(1)],
-                    did: IdentityId::from(31),
-                    secondary_keys: Default::default(),
-                    cdd_claim_expiry: None,
-                },
-                GenesisIdentityRecord {
-                    primary_key: Some(41),
-                    issuers: vec![IdentityId::from(1)],
-                    did: IdentityId::from(41),
-                    secondary_keys: Default::default(),
-                    cdd_claim_expiry: None,
-                },
-                GenesisIdentityRecord {
-                    primary_key: Some(101),
-                    issuers: vec![IdentityId::from(1)],
-                    did: IdentityId::from(101),
-                    secondary_keys: Default::default(),
-                    cdd_claim_expiry: None,
-                },
-            ],
-            ..Default::default()
-        }
-        .assimilate_storage(&mut storage);
-
         let mut stakers = vec![];
         if self.has_stakers {
-            let stake_21 = if self.fair { 1000 } else { 2000 };
-            let stake_31 = if self.validator_pool {
-                balance_factor * 1000
-            } else {
-                MinimumBond::get()
-            };
-            let status_41 = if self.validator_pool {
-                StakerStatus::<AccountId>::Validator
-            } else {
-                StakerStatus::<AccountId>::Idle
-            };
-            let nominated = if self.nominate { vec![11, 21] } else { vec![] };
             stakers = vec![
-                // (IdentityId, stash, controller, staked_amount, status)
+                // (stash, ctrl, stake, status)
+                // these two will be elected in the default test where we elect 2.
                 (
-                    IdentityId::from(11),
                     11,
                     10,
-                    balance_factor * 1000,
+                    self.balance_factor * 1000,
                     StakerStatus::<AccountId>::Validator,
                 ),
                 (
-                    IdentityId::from(21),
                     21,
                     20,
-                    stake_21,
+                    self.balance_factor * 1000,
                     StakerStatus::<AccountId>::Validator,
                 ),
+                // a loser validator
                 (
-                    IdentityId::from(31),
                     31,
                     30,
-                    stake_31,
+                    self.balance_factor * 500,
                     StakerStatus::<AccountId>::Validator,
                 ),
+                // an idle validator
                 (
-                    IdentityId::from(41),
                     41,
                     40,
-                    balance_factor * 1000,
-                    status_41,
-                ),
-                // nominator
-                (
-                    IdentityId::from(101),
-                    101,
-                    100,
-                    balance_factor * 500,
-                    StakerStatus::<AccountId>::Nominator(nominated),
+                    self.balance_factor * 1000,
+                    StakerStatus::<AccountId>::Idle,
                 ),
             ];
+            // optionally add a nominator
+            if self.nominate {
+                stakers.push((
+                    101,
+                    100,
+                    self.balance_factor * 500,
+                    StakerStatus::<AccountId>::Nominator(vec![11, 21]),
+                ))
+            }
+            // replace any of the status if needed.
+            self.status.into_iter().for_each(|(stash, status)| {
+                let (_, _, _, ref mut prev_status) = stakers
+                    .iter_mut()
+                    .find(|s| s.0 == stash)
+                    .expect("set_status staker should exist; qed");
+                *prev_status = status;
+            });
+            // replaced any of the stakes if needed.
+            self.stakes.into_iter().for_each(|(stash, stake)| {
+                let (_, _, ref mut prev_stake, _) = stakers
+                    .iter_mut()
+                    .find(|s| s.0 == stash)
+                    .expect("set_stake staker should exits; qed.");
+                *prev_stake = stake;
+            });
+            // extend stakers if needed.
+            stakers.extend(self.stakers)
         }
+
         let _ = pallet_staking::GenesisConfig::<Test> {
             stakers: stakers.clone(),
             validator_count: self.validator_count,
             minimum_validator_count: self.minimum_validator_count,
             invulnerables: self.invulnerables,
             slash_reward_fraction: Perbill::from_percent(10),
-            slashing_allowed_for: self.slashing_allowed_for,
+            min_nominator_bond: self.min_nominator_bond,
+            min_validator_bond: self.min_validator_bond,
             ..Default::default()
         }
         .assimilate_storage(&mut storage);
@@ -915,12 +867,11 @@ impl ExtBuilder {
                 // set the keys for the first session.
                 stakers
                     .into_iter()
-                    .map(|(_, id, ..)| (id, id, SessionKeys { other: id.into() }))
+                    .map(|(id, ..)| (id, id, SessionKeys { other: id.into() }))
                     .collect()
             } else {
                 // set some dummy validators in genesis.
-                validators
-                    .into_iter()
+                (0..self.validator_count as u64)
                     .map(|id| (id, id, SessionKeys { other: id.into() }))
                     .collect()
             },
@@ -936,221 +887,55 @@ impl ExtBuilder {
             ext.execute_with(|| {
                 System::set_block_number(1);
                 Session::on_initialize(1);
-                Staking::on_initialize(1);
-                set_timestamp(INIT_TIMESTAMP);
+                <Staking as Hooks<u64>>::on_initialize(1);
+                Timestamp::set_timestamp(INIT_TIMESTAMP);
             });
         }
 
         ext
     }
     pub fn build_and_execute(self, test: impl FnOnce() -> ()) {
+        sp_tracing::try_init_simple();
         let mut ext = self.build();
         ext.execute_with(test);
-        ext.execute_with(post_conditions);
+        ext.execute_with(|| {
+            Staking::do_try_state(System::block_number()).unwrap();
+        });
     }
 }
 
-pub type Group = group::Module<Test, group::Instance2>;
-
-fn post_conditions() {
-    check_nominators();
-    check_exposures();
-    check_ledgers();
-}
+pub type Group = pallet_group::Module<Test, pallet_group::Instance2>;
 
 pub(crate) fn active_era() -> EraIndex {
     Staking::active_era().unwrap().index
-}
-
-pub fn provide_did_to_user(account: AccountId) -> bool {
-    if <identity::KeyRecords<Test>>::contains_key(&account) {
-        return false;
-    }
-    let cdd_account_id = 1005;
-    let cdd = Origin::signed(cdd_account_id);
-    assert!(
-        <identity::KeyRecords<Test>>::contains_key(&cdd_account_id),
-        "CDD provider account not mapped to identity"
-    );
-    let cdd_did = Identity::get_identity(&cdd_account_id).expect("CDD provider missing identity");
-    assert!(
-        <identity::DidRecords<Test>>::contains_key(&cdd_did),
-        "CDD provider identity has no DID record"
-    );
-    let cdd_did_record = <identity::DidRecords<Test>>::get(&cdd_did).unwrap_or_default();
-    assert!(
-        cdd_did_record.primary_key == Some(cdd_account_id),
-        "CDD identity primary key mismatch"
-    );
-    assert!(
-        Identity::cdd_register_did(cdd.clone(), account, vec![]).is_ok(),
-        "Error in registering the DID"
-    );
-    let did = Identity::get_identity(&account).expect("DID not find in the storage");
-    assert!(
-        Identity::add_claim(
-            cdd.clone(),
-            did,
-            Claim::CustomerDueDiligence(Default::default()),
-            None
-        )
-        .is_ok(),
-        "Error CDD Claim cannot be added to DID"
-    );
-    true
-}
-
-pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
-    if !get_identity(to_secondary_key) {
-        let _did = Identity::get_identity(&stash_key).unwrap();
-        assert!(
-            Identity::add_authorization(
-                Origin::signed(stash_key),
-                Signatory::Account(to_secondary_key),
-                AuthorizationData::JoinIdentity(Permissions::default()),
-                None
-            )
-            .is_ok(),
-            "Error in providing the authorization"
-        );
-        let auth_id = get_last_auth_id(&Signatory::Account(to_secondary_key));
-        assert_ok!(Identity::join_identity_as_key(
-            Origin::signed(to_secondary_key),
-            auth_id
-        ));
-    }
-}
-
-pub fn get_identity(key: AccountId) -> bool {
-    <identity::KeyRecords<Test>>::contains_key(&key)
-}
-
-fn check_ledgers() {
-    // check the ledger of all stakers.
-    Bonded::<Test>::iter().for_each(|(_, ctrl)| assert_ledger_consistent(ctrl))
-}
-
-fn check_exposures() {
-    // a check per validator to ensure the exposure struct is always sane.
-    let era = active_era();
-    ErasStakers::<Test>::iter_prefix_values(era).for_each(|expo| {
-        assert_eq!(
-            expo.total as u128,
-            expo.own as u128 + expo.others.iter().map(|e| e.value as u128).sum::<u128>(),
-            "wrong total exposure.",
-        );
-    })
-}
-
-fn check_nominators() {
-    // a check per nominator to ensure their entire stake is correctly distributed. Will only kick-
-    // in if the nomination was submitted before the current era.
-    let era = active_era();
-    <Nominators<Test>>::iter()
-        .filter_map(|(nominator, nomination)| {
-            if nomination.submitted_in > era {
-                Some(nominator)
-            } else {
-                None
-            }
-        })
-        .for_each(|nominator| {
-            // must be bonded.
-            assert_is_stash(nominator);
-            let mut sum = 0;
-            Session::validators()
-                .iter()
-                .map(|v| Staking::eras_stakers(era, v))
-                .for_each(|e| {
-                    let individual = e
-                        .others
-                        .iter()
-                        .filter(|e| e.who == nominator)
-                        .collect::<Vec<_>>();
-                    let len = individual.len();
-                    match len {
-                        0 => { /* not supporting this validator at all. */ }
-                        1 => sum += individual[0].value,
-                        _ => panic!("nominator cannot back a validator more than once."),
-                    };
-                });
-
-            let nominator_stake = Staking::slashable_balance_of(&nominator);
-            // a nominator cannot over-spend.
-            assert!(
-                nominator_stake >= sum,
-                "failed: Nominator({}) stake({}) >= sum divided({})",
-                nominator,
-                nominator_stake,
-                sum,
-            );
-
-            let diff = nominator_stake - sum;
-            assert!(diff < 100);
-        });
-}
-
-fn assert_is_stash(acc: AccountId) {
-    assert!(Staking::bonded(&acc).is_some(), "Not a stash.");
-}
-
-fn assert_ledger_consistent(ctrl: AccountId) {
-    // ensures ledger.total == ledger.active + sum(ledger.unlocking).
-    let ledger = Staking::ledger(ctrl).expect("Not a controller.");
-    let real_total: Balance = ledger
-        .unlocking
-        .iter()
-        .fold(ledger.active, |a, c| a + c.value);
-    assert_eq!(real_total, ledger.total);
 }
 
 pub(crate) fn current_era() -> EraIndex {
     Staking::current_era().unwrap()
 }
 
-pub fn bond_validator(stash: AccountId, ctrl: AccountId, val: Balance) {
-    bond_validator_with_intended_count(stash, ctrl, val, None)
+pub(crate) fn bond(stash: AccountId, ctrl: AccountId, val: Balance) {
+    let _ = Balances::make_free_balance_be(&stash, val);
+    let _ = Balances::make_free_balance_be(&ctrl, val);
+    assert_ok!(Staking::bond(
+        RuntimeOrigin::signed(stash),
+        ctrl,
+        val,
+        RewardDestination::Controller
+    ));
 }
 
-pub fn bond_validator_with_intended_count(
-    stash: AccountId,
-    ctrl: AccountId,
-    val: Balance,
-    i_count: Option<u32>,
-) {
+pub(crate) fn bond_validator(stash: AccountId, ctrl: AccountId, val: Balance) {
     bond(stash, ctrl, val);
-    let entity_id = Identity::get_identity(&stash).unwrap();
-    if Staking::permissioned_identity(entity_id).is_none() {
-        assert_ok!(Staking::add_permissioned_validator(
-            frame_system::RawOrigin::Root.into(),
-            entity_id,
-            i_count
-        ));
-    }
     assert_ok!(Staking::validate(
-        Origin::signed(ctrl),
+        RuntimeOrigin::signed(ctrl),
         ValidatorPrefs::default()
     ));
     assert_ok!(Session::set_keys(
-        Origin::signed(ctrl),
+        RuntimeOrigin::signed(ctrl),
         SessionKeys { other: ctrl.into() },
         vec![]
     ));
-}
-
-pub fn bond(stash: AccountId, ctrl: AccountId, val: Balance) {
-    let _ = Balances::make_free_balance_be(&stash, val);
-    let _ = Balances::make_free_balance_be(&ctrl, val);
-    provide_did_to_user(stash);
-    add_secondary_key(stash, ctrl);
-    if Staking::bonded(&stash).is_none() {
-        assert_ok!(Staking::bond(
-            Origin::signed(stash),
-            ctrl,
-            val,
-            RewardDestination::Controller,
-        ));
-    }
 }
 
 pub(crate) fn bond_nominator(
@@ -1159,21 +944,8 @@ pub(crate) fn bond_nominator(
     val: Balance,
     target: Vec<AccountId>,
 ) {
-    let _ = Balances::make_free_balance_be(&stash, val);
-    let _ = Balances::make_free_balance_be(&ctrl, val);
-    assert_ok!(Staking::bond(
-        Origin::signed(stash),
-        ctrl,
-        val,
-        RewardDestination::Controller,
-    ));
-    assert_ok!(Staking::nominate(Origin::signed(ctrl), target));
-}
-
-pub fn bond_nominator_cdd(stash: AccountId, ctrl: AccountId, val: Balance, target: Vec<AccountId>) {
-    provide_did_to_user(stash);
-    add_secondary_key(stash, ctrl);
-    bond_nominator(stash, ctrl, val, target);
+    bond(stash, ctrl, val);
+    assert_ok!(Staking::nominate(RuntimeOrigin::signed(ctrl), target));
 }
 
 /// Progress to the given block, triggering session and era changes as we progress.
@@ -1183,11 +955,11 @@ pub fn bond_nominator_cdd(stash: AccountId, ctrl: AccountId, val: Balance, targe
 /// in the function), and then finalize the block.
 pub(crate) fn run_to_block(n: BlockNumber) {
     Staking::on_finalize(System::block_number());
-    for b in System::block_number() + 1..=n {
+    for b in (System::block_number() + 1)..=n {
         System::set_block_number(b);
         Session::on_initialize(b);
-        Staking::on_initialize(b);
-        set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
+        <Staking as Hooks<u64>>::on_initialize(b);
+        Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
         if b != n {
             Staking::on_finalize(System::block_number());
         }
@@ -1228,30 +1000,22 @@ pub(crate) fn start_active_era(era_index: EraIndex) {
 }
 
 pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
-    let reward = inflation::compute_total_payout(
-        <Test as Config>::RewardCurve::get(),
+    let (payout, _rest) = <Test as Config>::EraPayout::era_payout(
         Staking::eras_total_stake(active_era()),
         Balances::total_issuance(),
         duration,
-        MaxVariableInflationTotalIssuance::get(),
-        FixedYearlyReward::get(),
-    )
-    .0;
-
-    assert!(reward > 0);
-    reward
+    );
+    assert!(payout > 0);
+    payout
 }
 
 pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
-    inflation::compute_total_payout(
-        <Test as Config>::RewardCurve::get(),
-        0,
+    let (payout, rest) = <Test as Config>::EraPayout::era_payout(
+        Staking::eras_total_stake(active_era()),
         Balances::total_issuance(),
         duration,
-        MaxVariableInflationTotalIssuance::get(),
-        FixedYearlyReward::get(),
-    )
-    .1
+    );
+    payout + rest
 }
 
 /// Time it takes to finish a session.
@@ -1297,16 +1061,12 @@ pub(crate) fn on_offence_in_era(
     >],
     slash_fraction: &[Perbill],
     era: EraIndex,
+    disable_strategy: DisableStrategy,
 ) {
-    let bonded_eras = staking::BondedEras::<Test>::get();
+    let bonded_eras = pallet_staking::BondedEras::<Test>::get();
     for &(bonded_era, start_session) in bonded_eras.iter() {
         if bonded_era == era {
-            let _ = Staking::on_offence(
-                offenders,
-                slash_fraction,
-                start_session,
-                DisableStrategy::WhenSlashed,
-            );
+            let _ = Staking::on_offence(offenders, slash_fraction, start_session, disable_strategy);
             return;
         } else if bonded_era > era {
             break;
@@ -1318,7 +1078,7 @@ pub(crate) fn on_offence_in_era(
             offenders,
             slash_fraction,
             Staking::eras_start_session_index(era).unwrap(),
-            DisableStrategy::WhenSlashed,
+            disable_strategy,
         );
     } else {
         panic!("cannot slash in era {}", era);
@@ -1333,214 +1093,17 @@ pub(crate) fn on_offence_now(
     slash_fraction: &[Perbill],
 ) {
     let now = Staking::active_era().unwrap().index;
-    on_offence_in_era(offenders, slash_fraction, now)
+    on_offence_in_era(offenders, slash_fraction, now, DisableStrategy::WhenSlashed)
 }
 
 pub(crate) fn add_slash(who: &AccountId) {
     on_offence_now(
         &[OffenceDetails {
-            offender: (
-                who.clone(),
-                Staking::eras_stakers(Staking::active_era().unwrap().index, who.clone()),
-            ),
+            offender: (*who, Staking::eras_stakers(active_era(), *who)),
             reporters: vec![],
         }],
         &[Perbill::from_percent(10)],
     );
-}
-
-// winners will be chosen by simply their unweighted total backing stake. Nominator stake is
-// distributed evenly.
-pub(crate) fn horrible_phragmen_with_post_processing(
-    do_reduce: bool,
-) -> (CompactAssignments, Vec<ValidatorIndex>, ElectionScore) {
-    let mut backing_stake_of: BTreeMap<AccountId, Balance> = BTreeMap::new();
-
-    // self stake
-    <Validators<Test>>::iter().for_each(|(who, _p)| {
-        *backing_stake_of.entry(who).or_insert(Zero::zero()) += Staking::slashable_balance_of(&who)
-    });
-
-    // add nominator stuff
-    <Nominators<Test>>::iter().for_each(|(who, nomination)| {
-        nomination.targets.iter().for_each(|v| {
-            *backing_stake_of.entry(*v).or_insert(Zero::zero()) +=
-                Staking::slashable_balance_of(&who)
-        })
-    });
-
-    // elect winners
-    let mut sorted: Vec<AccountId> = backing_stake_of.keys().cloned().collect();
-    sorted.sort_by_key(|x| backing_stake_of.get(x).unwrap());
-    let winners: Vec<AccountId> = sorted
-        .iter()
-        .cloned()
-        .take(Staking::validator_count() as usize)
-        .collect();
-
-    // create assignments
-    let mut staked_assignment: Vec<StakedAssignment<AccountId>> = Vec::new();
-    <Nominators<Test>>::iter().for_each(|(who, nomination)| {
-        let mut dist: Vec<(AccountId, ExtendedBalance)> = Vec::new();
-        nomination.targets.iter().for_each(|v| {
-            if winners.iter().find(|w| *w == v).is_some() {
-                dist.push((*v, ExtendedBalance::zero()));
-            }
-        });
-
-        if dist.len() == 0 {
-            return;
-        }
-
-        // assign real stakes. just split the stake.
-        let stake = Staking::slashable_balance_of(&who) as ExtendedBalance;
-        let mut sum: ExtendedBalance = Zero::zero();
-        let dist_len = dist.len();
-        {
-            dist.iter_mut().for_each(|(_, w)| {
-                let partial = stake / (dist_len as ExtendedBalance);
-                *w = partial;
-                sum += partial;
-            });
-        }
-
-        // assign the leftover to last.
-        {
-            let leftover = stake - sum;
-            let last = dist.last_mut().unwrap();
-            last.1 += leftover;
-        }
-
-        staked_assignment.push(StakedAssignment {
-            who,
-            distribution: dist,
-        });
-    });
-
-    // Ensure that this result is worse than seq-phragmen. Otherwise, it should not have been used
-    // for testing.
-    let score = {
-        let (_, _, better_score) = prepare_submission_with(true, true, 0, |_| {});
-
-        let support = to_supports::<AccountId>(&staked_assignment);
-        let score = support.evaluate();
-
-        assert!(better_score.strict_threshold_better(score, MinSolutionScoreBump::get()));
-
-        score
-    };
-
-    if do_reduce {
-        reduce(&mut staked_assignment);
-    }
-
-    let snapshot_validators = Staking::snapshot_validators().unwrap();
-    let snapshot_nominators = Staking::snapshot_nominators().unwrap();
-    let nominator_index = |a: &AccountId| -> Option<NominatorIndex> {
-        snapshot_nominators
-            .iter()
-            .position(|x| x == a)
-            .map(|i| i as NominatorIndex)
-    };
-    let validator_index = |a: &AccountId| -> Option<ValidatorIndex> {
-        snapshot_validators
-            .iter()
-            .position(|x| x == a)
-            .map(|i| i as ValidatorIndex)
-    };
-
-    // convert back to ratio assignment. This takes less space.
-    let assignments_reduced = sp_npos_elections::assignment_staked_to_ratio::<
-        AccountId,
-        OffchainAccuracy,
-    >(staked_assignment);
-
-    let compact =
-        CompactAssignments::from_assignment(&assignments_reduced, nominator_index, validator_index)
-            .unwrap();
-
-    // winner ids to index
-    let winners = winners
-        .into_iter()
-        .map(|w| validator_index(&w).unwrap())
-        .collect::<Vec<_>>();
-
-    (compact, winners, score)
-}
-
-// Note: this should always logically reproduce [`offchain_election::prepare_submission`], yet we
-// cannot do it since we want to have `tweak` injected into the process.
-pub(crate) fn prepare_submission_with(
-    compute_real_score: bool,
-    do_reduce: bool,
-    iterations: usize,
-    tweak: impl FnOnce(&mut Vec<StakedAssignment<AccountId>>),
-) -> (CompactAssignments, Vec<ValidatorIndex>, ElectionScore) {
-    // run election on the default stuff.
-    let sp_npos_elections::ElectionResult {
-        winners,
-        assignments,
-    } = Staking::do_phragmen::<OffchainAccuracy>(iterations).unwrap();
-    let winners = winners.into_iter().map(|(who, _)| who).collect::<Vec<_>>();
-
-    let mut staked =
-        sp_npos_elections::assignment_ratio_to_staked(assignments, Staking::weight_of_fn());
-
-    // apply custom tweaks. awesome for testing.
-    tweak(&mut staked);
-
-    if do_reduce {
-        reduce(&mut staked);
-    }
-
-    // convert back to ratio assignment. This takes less space.
-    let snapshot_validators = Staking::snapshot_validators().expect("snapshot not created.");
-    let snapshot_nominators = Staking::snapshot_nominators().expect("snapshot not created.");
-    let nominator_index = |a: &AccountId| -> Option<NominatorIndex> {
-        snapshot_nominators.iter().position(|x| x == a).map_or_else(
-            || {
-                println!("unable to find nominator index for {:?}", a);
-                None
-            },
-            |i| Some(i as NominatorIndex),
-        )
-    };
-    let validator_index = |a: &AccountId| -> Option<ValidatorIndex> {
-        snapshot_validators.iter().position(|x| x == a).map_or_else(
-            || {
-                println!("unable to find validator index for {:?}", a);
-                None
-            },
-            |i| Some(i as ValidatorIndex),
-        )
-    };
-
-    let assignments_reduced = sp_npos_elections::assignment_staked_to_ratio(staked);
-
-    // re-compute score by converting, yet again, into staked type
-    let score = if compute_real_score {
-        let staked = sp_npos_elections::assignment_ratio_to_staked(
-            assignments_reduced.clone(),
-            Staking::weight_of_fn(),
-        );
-
-        let support_map = to_supports::<AccountId>(staked.as_slice());
-        support_map.evaluate()
-    } else {
-        Default::default()
-    };
-
-    let compact =
-        CompactAssignments::from_assignment(&assignments_reduced, nominator_index, validator_index)
-            .expect("Failed to create compact");
-
-    // winner ids to index
-    let winners = winners
-        .into_iter()
-        .map(|w| validator_index(&w).unwrap())
-        .collect::<Vec<_>>();
-
-    (compact, winners, score)
 }
 
 /// Make all validator and nominator request their payment
@@ -1555,14 +1118,34 @@ pub(crate) fn make_all_reward_payment(era: EraIndex) {
     for validator_controller in validators_with_reward.iter().filter_map(Staking::bonded) {
         let ledger = <Ledger<Test>>::get(&validator_controller).unwrap();
         assert_ok!(Staking::payout_stakers(
-            Origin::signed(1337),
+            RuntimeOrigin::signed(1337),
             ledger.stash,
             era
         ));
     }
 }
 
-pub(crate) fn staking_events() -> Vec<staking::Event<Test>> {
+#[macro_export]
+macro_rules! assert_session_era {
+    ($session:expr, $era:expr) => {
+        assert_eq!(
+            Session::current_index(),
+            $session,
+            "wrong session {} != {}",
+            Session::current_index(),
+            $session,
+        );
+        assert_eq!(
+            Staking::current_era().unwrap(),
+            $era,
+            "wrong current era {} != {}",
+            Staking::current_era().unwrap(),
+            $era,
+        );
+    };
+}
+
+pub(crate) fn staking_events() -> Vec<pallet_staking::Event<Test>> {
     System::events()
         .into_iter()
         .map(|r| r.event)
@@ -1576,143 +1159,31 @@ pub(crate) fn staking_events() -> Vec<staking::Event<Test>> {
         .collect()
 }
 
+parameter_types! {
+    static StakingEventsIndex: usize = 0;
+}
+ord_parameter_types! {
+    pub const One: u64 = 1;
+}
+
+type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
+
+pub(crate) fn staking_events_since_last_call() -> Vec<pallet_staking::Event<Test>> {
+    let all: Vec<_> = System::events()
+        .into_iter()
+        .filter_map(|r| {
+            if let RuntimeEvent::Staking(inner) = r.event {
+                Some(inner)
+            } else {
+                None
+            }
+        })
+        .collect();
+    let seen = StakingEventsIndex::get();
+    StakingEventsIndex::set(all.len());
+    all.into_iter().skip(seen).collect()
+}
+
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
     (Balances::free_balance(who), Balances::reserved_balance(who))
-}
-
-fn get_primary_key(target: IdentityId) -> AccountId {
-    Identity::get_primary_key(target).unwrap_or_default()
-}
-
-pub fn make_account(
-    id: AccountId,
-) -> Result<(<Test as frame_system::Config>::RuntimeOrigin, IdentityId), &'static str> {
-    make_account_with_balance(id, 1_000_000, None)
-}
-
-/// It creates an Account and registers its DID.
-pub fn make_account_with_balance(
-    id: AccountId,
-    balance: Balance,
-    expiry: Option<Moment>,
-) -> Result<(<Test as frame_system::Config>::RuntimeOrigin, IdentityId), &'static str> {
-    let signed_id = Origin::signed(id.clone());
-    Balances::make_free_balance_be(&id, balance);
-    // If we have CDD providers, first of them executes the registration.
-    let cdd_providers = Group::get_members();
-    let did = match cdd_providers.into_iter().nth(0) {
-        Some(cdd_provider) => {
-            let cdd_acc = get_primary_key(cdd_provider);
-            let _ = Identity::cdd_register_did(Origin::signed(cdd_acc), id, vec![])
-                .map_err(|_| "CDD register DID failed")?;
-            let did = Identity::get_identity(&id).unwrap();
-            let cdd_claim = Claim::CustomerDueDiligence(Default::default());
-            Identity::add_claim(Origin::signed(cdd_acc), did, cdd_claim, expiry)
-                .map_err(|_| "CDD provider cannot add the CDD claim")?;
-            did
-        }
-        _ => {
-            let _ = TestUtils::register_did(signed_id.clone(), vec![])
-                .map_err(|_| "Register DID failed")?;
-            Identity::get_identity(&id).unwrap()
-        }
-    };
-    Ok((signed_id, did))
-}
-
-pub fn add_trusted_cdd_provider(cdd_sp: IdentityId) {
-    let root = Origin::from(frame_system::RawOrigin::Root);
-    assert_ok!(Group::add_member(root, cdd_sp));
-}
-
-pub fn add_nominator_claim_with_expiry(
-    _claim_issuer: IdentityId,
-    identity_id: IdentityId,
-    claim_issuer_account_id: AccountId,
-    expiry: u64,
-) {
-    let signed_claim_issuer_id = Origin::signed(claim_issuer_account_id);
-    assert_ok!(Identity::add_claim(
-        signed_claim_issuer_id,
-        identity_id,
-        Claim::CustomerDueDiligence(Default::default()),
-        Some(expiry.into()),
-    ));
-}
-
-pub fn add_nominator_claim(
-    _claim_issuer: IdentityId,
-    identity_id: IdentityId,
-    claim_issuer_account_id: AccountId,
-) {
-    let signed_claim_issuer_id = Origin::signed(claim_issuer_account_id);
-    let now = Utc::now();
-    assert_ok!(Identity::add_claim(
-        signed_claim_issuer_id,
-        identity_id,
-        Claim::CustomerDueDiligence(Default::default()),
-        Some((now.timestamp() as u64 + 10000_u64).into()),
-    ));
-}
-
-pub fn bond_nominator_with_expiry(acc: u64, val: u128, claim_expiry: u64, target: Vec<AccountId>) {
-    // a = controller
-    // a + 1 = stash
-    let controller = acc;
-    let stash = acc + 1;
-    let _ = Balances::make_free_balance_be(&(stash), val);
-    assert_ok!(Staking::bond(
-        Origin::signed(stash),
-        controller,
-        val,
-        RewardDestination::Controller
-    ));
-    create_did_and_add_claim_with_expiry(stash, claim_expiry);
-    assert_ok!(Staking::nominate(Origin::signed(controller), target));
-}
-
-pub fn create_did_and_add_claim_with_expiry(stash: AccountId, expiry: u64) {
-    Balances::make_free_balance_be(&1005, 1_000_000);
-    assert_ok!(Identity::cdd_register_did(
-        Origin::signed(1005),
-        stash,
-        vec![]
-    ));
-    let did = Identity::get_identity(&stash).unwrap();
-    assert_ok!(Identity::add_claim(
-        Origin::signed(1005),
-        did,
-        Claim::CustomerDueDiligence(Default::default()),
-        Some(expiry.into())
-    ));
-}
-
-// `iter_prefix_values` has no guarantee that it will iterate in a sequential
-// order. However, we need the latest `auth_id`. Which is why we search for the claim
-// with the highest `auth_id`.
-pub fn get_last_auth(signatory: &Signatory<AccountId>) -> Authorization<AccountId, u64> {
-    <identity::Authorizations<Test>>::iter_prefix_values(signatory)
-        .into_iter()
-        .max_by_key(|x| x.auth_id)
-        .expect("there are no authorizations")
-}
-
-pub fn get_last_auth_id(signatory: &Signatory<AccountId>) -> u64 {
-    get_last_auth(signatory).auth_id
-}
-
-pub fn root() -> Origin {
-    Origin::from(frame_system::RawOrigin::Root)
-}
-
-pub fn run_to_block_scheduler(n: u64) {
-    while System::block_number() < n {
-        Staking::on_finalize(System::block_number());
-        Scheduler::on_finalize(System::block_number());
-        System::set_block_number(System::block_number() + 1);
-        Scheduler::on_initialize(System::block_number());
-        Session::on_initialize(System::block_number());
-        Staking::on_initialize(System::block_number());
-        Staking::on_finalize(System::block_number());
-    }
 }

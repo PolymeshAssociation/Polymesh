@@ -147,6 +147,7 @@ parameter_types! {
     pub MaxNominations: u32 = 16;
     pub HistoryDepth:u32 = 84;
     pub MaxUnlockingChunks: u32 = 32;
+    pub MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
 
     // Multi-phase election parameters
     // Signed phase

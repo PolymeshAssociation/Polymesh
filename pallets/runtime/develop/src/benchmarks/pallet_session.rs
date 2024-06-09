@@ -27,7 +27,7 @@ use frame_benchmarking::benchmarks;
 use frame_support::traits::{Currency, Get, OnInitialize};
 use frame_system::RawOrigin;
 use pallet_session::{Call, Pallet as Session};
-use pallet_staking::benchmarking::create_validator_with_nominators_with_balance;
+use pallet_staking::benchmarking::create_validator_with_nominators;
 use polymesh_common_utilities::{benchs::AccountIdOf, TestUtilsFn};
 use sp_runtime::traits::TrailingZeroInput;
 use sp_std::prelude::*;
@@ -61,7 +61,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> ValidatorInfo<T> {
         >>::Balance: From<u128>,
     {
         let balance: u32 = (4_000 * POLY).try_into().unwrap();
-        let stash = create_validator_with_nominators_with_balance::<T>(
+        let stash = create_validator_with_nominators::<T>(
             nominators,
             <T as pallet_staking::Config>::MaxNominations::get(),
             balance,

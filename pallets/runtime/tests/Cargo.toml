@@ -69,6 +69,7 @@ pallet-authorship = { version = "4.0.0-dev", default-features = false }
 pallet-babe = { version = "4.0.0-dev", default-features = false }
 pallet-contracts = { version = "4.0.0-dev", default-features = false }
 pallet-contracts-primitives = { version = "7.0.0", default-features = false }
+pallet-election-provider-multi-phase = { version = "4.0.0-dev", default-features = false }
 pallet-executive = { package = "frame-executive", version = "4.0.0-dev", default-features = false }
 pallet-grandpa = { version = "4.0.0-dev", default-features = false }
 pallet-im-online = { version = "4.0.0-dev", default-features = false }
@@ -100,6 +101,7 @@ sp-transaction-pool = { version = "4.0.0-dev", default-features = false }
 sp-version = { version = "5.0.0", default-features = false }
 sp-keyring = { version = "7.0.0" }
 pallet-state-trie-migration = { version = "4.0.0-dev", default-features = false }
+substrate-test-utils = { version = "4.0.0-dev", default-features = false }
 
 [dev-dependencies]
 libsecp256k1 = { version = "0.7", default-features = false }
@@ -139,6 +141,7 @@ std = [
     "pallet-compliance-manager/std",
     "pallet-contracts/std",
     "pallet-corporate-actions/std",
+    "pallet-election-provider-multi-phase/std",
     "pallet-external-agents/std",
     "polymesh-weights/std",
     "pallet-group-rpc-runtime-api/std",
