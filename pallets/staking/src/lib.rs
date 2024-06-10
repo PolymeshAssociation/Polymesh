@@ -886,6 +886,8 @@ pub trait EraPayout<Balance> {
         total_staked: Balance,
         total_issuance: Balance,
         era_duration_millis: u64,
+        max_inflated_issuance: Balance,
+        non_inflated_yearly_reward: Balance,
     ) -> (Balance, Balance);
 }
 
@@ -894,6 +896,8 @@ impl<Balance: Default> EraPayout<Balance> for () {
         _total_staked: Balance,
         _total_issuance: Balance,
         _era_duration_millis: u64,
+        _max_inflated_issuance: Balance,
+        _non_inflated_yearly_reward: Balance,
     ) -> (Balance, Balance) {
         (Default::default(), Default::default())
     }
@@ -901,26 +905,31 @@ impl<Balance: Default> EraPayout<Balance> for () {
 
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
-//pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
-//impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'static>>>
-//    EraPayout<Balance> for ConvertCurve<T>
-//{
-//    fn era_payout(
-//        total_staked: Balance,
-//        total_issuance: Balance,
-//        era_duration_millis: u64,
-//    ) -> (Balance, Balance) {
-//        let (validator_payout, max_payout) = inflation::compute_total_payout(
-//            T::get(),
-//            total_staked,
-//            total_issuance,
-//            // Duration of era; more than u64::MAX is rewarded as u64::MAX.
-//            era_duration_millis,
-//        );
-//        let rest = max_payout.saturating_sub(validator_payout.clone());
-//        (validator_payout, rest)
-//    }
-//}
+pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
+
+impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'static>>>
+    EraPayout<Balance> for ConvertCurve<T>
+{
+    fn era_payout(
+        total_staked: Balance,
+        total_issuance: Balance,
+        era_duration_millis: u64,
+        max_inflated_issuance: Balance,
+        non_inflated_yearly_reward: Balance,
+    ) -> (Balance, Balance) {
+        let (validator_payout, max_payout) = inflation::compute_total_payout(
+            T::get(),
+            total_staked,
+            total_issuance,
+            // Duration of era; more than u64::MAX is rewarded as u64::MAX.
+            era_duration_millis,
+            max_inflated_issuance,
+            non_inflated_yearly_reward,
+        );
+        let rest = max_payout.saturating_sub(validator_payout.clone());
+        (validator_payout, rest)
+    }
+}
 
 /// Mode of era-forcing.
 #[derive(

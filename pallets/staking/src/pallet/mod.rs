@@ -1792,19 +1792,14 @@ pub mod pallet {
         #[pallet::call_index(20)]
         #[pallet::weight(<T as Config>::WeightInfo::reap_stash(*num_slashing_spans))]
         pub fn reap_stash(
-            origin: OriginFor<T>,
+            _origin: OriginFor<T>,
             stash: T::AccountId,
             num_slashing_spans: u32,
         ) -> DispatchResultWithPostInfo {
-            let _ = ensure_signed(origin)?;
-
-            let ed = T::Currency::minimum_balance();
-            let reapable = T::Currency::total_balance(&stash) < ed
-                || Self::ledger(Self::bonded(stash.clone()).ok_or(Error::<T>::NotStash)?)
-                    .map(|l| l.total)
-                    .unwrap_or_default()
-                    < ed;
-            ensure!(reapable, Error::<T>::FundedTarget);
+            ensure!(
+                T::Currency::total_balance(&stash) == T::Currency::minimum_balance(),
+                Error::<T>::FundedTarget
+            );
 
             Self::kill_stash(&stash, num_slashing_spans)?;
             T::Currency::remove_lock(STAKING_ID, &stash);

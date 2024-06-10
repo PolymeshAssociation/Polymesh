@@ -587,6 +587,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 }
 
 pub struct MockReward {}
+
 impl OnUnbalanced<PositiveImbalanceOf<Test>> for MockReward {
     fn on_unbalanced(_: PositiveImbalanceOf<Test>) {
         RewardOnUnbalanceWasCalled::set(true);
@@ -611,25 +612,25 @@ impl pallet_staking::Config for Test {
     type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
     type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
     type GenesisElectionProvider = Self::ElectionProvider;
-    type MaxNominations = polymesh_runtime_common::MaxNominations;
-    type HistoryDepth = polymesh_runtime_common::HistoryDepth;
-    type RewardRemainder = ();
+    type MaxNominations = MaxNominations;
+    type HistoryDepth = HistoryDepth;
+    type RewardRemainder = RewardRemainderMock;
     type RuntimeEvent = RuntimeEvent;
     type Slash = ();
-    type Reward = ();
+    type Reward = MockReward;
     type SessionsPerEra = SessionsPerEra;
     type BondingDuration = BondingDuration;
     type SlashDeferDuration = SlashDeferDuration;
     type AdminOrigin = frame_system::EnsureRoot<AccountId>;
     type SessionInterface = Self;
-    type EraPayout = ();
+    type EraPayout = ConvertCurve<RewardCurve>;
     type NextNewSession = Session;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
     type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
     type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
     type TargetList = pallet_staking::UseValidatorsMap<Self>;
-    type MaxUnlockingChunks = polymesh_runtime_common::MaxUnlockingChunks;
-    type OnStakerSlash = pallet_staking::OnStakerSlashMock<Self>;
+    type MaxUnlockingChunks = MaxUnlockingChunks;
+    type OnStakerSlash = OnStakerSlashMock<Self>;
     type BenchmarkingConfig = pallet_staking::SampleBenchmarkingConfig;
     type WeightInfo = polymesh_weights::pallet_staking::SubstrateWeight;
     type MaxValidatorPerIdentity = polymesh_runtime_common::MaxValidatorPerIdentity;
@@ -860,6 +861,27 @@ impl ExtBuilder {
                     secondary_keys: Default::default(),
                     cdd_claim_expiry: None,
                 },
+                GenesisIdentityRecord {
+                    primary_key: Some(61),
+                    issuers: vec![IdentityId::from(1)],
+                    did: IdentityId::from(61),
+                    secondary_keys: Default::default(),
+                    cdd_claim_expiry: None,
+                },
+                GenesisIdentityRecord {
+                    primary_key: Some(71),
+                    issuers: vec![IdentityId::from(1)],
+                    did: IdentityId::from(71),
+                    secondary_keys: Default::default(),
+                    cdd_claim_expiry: None,
+                },
+                GenesisIdentityRecord {
+                    primary_key: Some(81),
+                    issuers: vec![IdentityId::from(1)],
+                    did: IdentityId::from(81),
+                    secondary_keys: Default::default(),
+                    cdd_claim_expiry: None,
+                },
             ],
             ..Default::default()
         }
@@ -912,6 +934,7 @@ impl ExtBuilder {
                     StakerStatus::<AccountId>::Nominator(vec![11, 21]),
                 ))
             }
+
             // replace any of the status if needed.
             self.status.into_iter().for_each(|(stash, status)| {
                 let (_, _, _, _, ref mut prev_status) = stakers
@@ -920,6 +943,7 @@ impl ExtBuilder {
                     .expect("set_status staker should exist; qed");
                 *prev_status = status;
             });
+
             // replaced any of the stakes if needed.
             self.stakes.into_iter().for_each(|(stash, stake)| {
                 let (_, _, _, ref mut prev_stake, _) = stakers
@@ -1370,6 +1394,12 @@ pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 
 pub fn get_identity(key: AccountId) -> bool {
     pallet_identity::KeyRecords::<Test>::contains_key(&key)
+}
+
+pub fn bond_nominator_cdd(stash: AccountId, ctrl: AccountId, val: Balance, target: Vec<AccountId>) {
+    provide_did_to_user(stash);
+    add_secondary_key(stash, ctrl);
+    bond_nominator(stash, ctrl, val, target);
 }
 
 // `iter_prefix_values` has no guarantee that it will iterate in a sequential

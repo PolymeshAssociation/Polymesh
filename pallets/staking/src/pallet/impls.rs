@@ -111,7 +111,7 @@ impl<T: Config> Pallet<T> {
         }
 
         let used_weight =
-            if ledger.unlocking.is_empty() && ledger.active < T::Currency::minimum_balance() {
+            if ledger.unlocking.is_empty() && ledger.active <= T::Currency::minimum_balance() {
                 // This account must have called `unbond()` with some value that caused the active
                 // portion to fall below existential deposit + will have no more unlocking chunks
                 // left. We can now safely remove all staking-related information.
@@ -486,8 +486,17 @@ impl<T: Config> Pallet<T> {
             let era_duration = (now_as_millis_u64 - active_era_start).saturated_into::<u64>();
             let staked = Self::eras_total_stake(&active_era.index);
             let issuance = T::Currency::total_issuance();
-            let (validator_payout, remainder) =
-                T::EraPayout::era_payout(staked, issuance, era_duration);
+            let (validator_payout, remainder) = T::EraPayout::era_payout(
+                staked,
+                issuance,
+                era_duration,
+                T::MaxVariableInflationTotalIssuance::get(),
+                T::FixedYearlyReward::get(),
+            );
+
+            // Polymesh change
+            // -----------------------------------------------------------------
+            // -----------------------------------------------------------------
 
             Self::deposit_event(Event::<T>::EraPaid {
                 era_index: active_era.index,
