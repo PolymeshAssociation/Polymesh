@@ -270,6 +270,8 @@ macro_rules! misc_pallet_impls {
             type BenchmarkingConfig = pallet_staking::SampleBenchmarkingConfig;
             type WeightInfo = polymesh_weights::pallet_staking::SubstrateWeight;
             type MaxValidatorPerIdentity = polymesh_runtime_common::MaxValidatorPerIdentity;
+            type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
+            type FixedYearlyReward = FixedYearlyReward;
         }
 
         impl pallet_authority_discovery::Config for Runtime {

@@ -39,6 +39,7 @@ use std::collections::BTreeMap;
 
 use frame_support::dispatch::{DispatchInfo, DispatchResult, Weight};
 use frame_support::traits::KeyOwnerProofSystem;
+use frame_support::{StorageDoubleMap, StorageMap};
 use sp_runtime::testing::TestXt;
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction};
 use sp_runtime::{KeyTypeId, Perbill};
@@ -46,6 +47,7 @@ use sp_staking::offence::{DisableStrategy, OffenceDetails, OnOffenceHandler};
 use sp_staking::{EraIndex, SessionIndex};
 
 use pallet_staking::{self as pallet_staking, *};
+use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_common_utilities::traits::balances::{AccountData, CheckCdd};
 use polymesh_common_utilities::traits::group::{GroupTrait, InactiveMember};
 use polymesh_common_utilities::traits::multisig::MultiSigSubTrait;
@@ -53,7 +55,11 @@ use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 use polymesh_common_utilities::traits::relayer::SubsidiserTrait;
 use polymesh_common_utilities::traits::CommonConfig;
 use polymesh_common_utilities::transaction_payment::ChargeTxFee;
-use polymesh_primitives::{IdentityId, Moment, NFTId, PortfolioId, SecondaryKey, Ticker};
+use polymesh_primitives::identity_id::GenesisIdentityRecord;
+use polymesh_primitives::{
+    Authorization, AuthorizationData, Claim, IdentityId, Moment, NFTId, Permissions, PortfolioId,
+    SecondaryKey, Signatory, Ticker,
+};
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 1_000;
@@ -537,6 +543,8 @@ parameter_types! {
     pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(75);
 
     pub const MaxNominatorRewardedPerValidator: u32 = 64;
+    pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
+    pub const FixedYearlyReward: Balance = 200_000_000 * POLY;
 }
 
 parameter_types! {
@@ -625,6 +633,8 @@ impl pallet_staking::Config for Test {
     type BenchmarkingConfig = pallet_staking::SampleBenchmarkingConfig;
     type WeightInfo = polymesh_weights::pallet_staking::SubstrateWeight;
     type MaxValidatorPerIdentity = polymesh_runtime_common::MaxValidatorPerIdentity;
+    type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
+    type FixedYearlyReward = FixedYearlyReward;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
@@ -652,7 +662,13 @@ pub struct ExtBuilder {
     balance_factor: Balance,
     status: BTreeMap<AccountId, StakerStatus<AccountId>>,
     stakes: BTreeMap<AccountId, Balance>,
-    stakers: Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
+    stakers: Vec<(
+        IdentityId,
+        AccountId,
+        AccountId,
+        Balance,
+        StakerStatus<AccountId>,
+    )>,
 }
 
 impl Default for ExtBuilder {
@@ -737,12 +753,13 @@ impl ExtBuilder {
     }
     pub fn add_staker(
         mut self,
+        identity: IdentityId,
         stash: AccountId,
         ctrl: AccountId,
         stake: Balance,
         status: StakerStatus<AccountId>,
     ) -> Self {
-        self.stakers.push((stash, ctrl, stake, status));
+        self.stakers.push((identity, stash, ctrl, stake, status));
         self
     }
     pub fn balance_factor(mut self, factor: Balance) -> Self {
@@ -789,18 +806,80 @@ impl ExtBuilder {
         }
         .assimilate_storage(&mut storage);
 
+        pallet_group::GenesisConfig::<Test, pallet_group::Instance2> {
+            active_members_limit: u32::MAX,
+            active_members: vec![IdentityId::from(1), IdentityId::from(2)],
+            phantom: Default::default(),
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        pallet_identity::GenesisConfig::<Test> {
+            identities: vec![
+                // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
+                // Provide Identity
+                GenesisIdentityRecord {
+                    primary_key: Some(1005),
+                    issuers: vec![IdentityId::from(1)],
+                    did: IdentityId::from(1),
+                    secondary_keys: Default::default(),
+                    cdd_claim_expiry: None,
+                },
+                GenesisIdentityRecord {
+                    primary_key: Some(11),
+                    issuers: vec![IdentityId::from(1)],
+                    did: IdentityId::from(11),
+                    secondary_keys: Default::default(),
+                    cdd_claim_expiry: None,
+                },
+                GenesisIdentityRecord {
+                    primary_key: Some(21),
+                    issuers: vec![IdentityId::from(1)],
+                    did: IdentityId::from(21),
+                    secondary_keys: Default::default(),
+                    cdd_claim_expiry: None,
+                },
+                GenesisIdentityRecord {
+                    primary_key: Some(31),
+                    issuers: vec![IdentityId::from(1)],
+                    did: IdentityId::from(31),
+                    secondary_keys: Default::default(),
+                    cdd_claim_expiry: None,
+                },
+                GenesisIdentityRecord {
+                    primary_key: Some(41),
+                    issuers: vec![IdentityId::from(1)],
+                    did: IdentityId::from(41),
+                    secondary_keys: Default::default(),
+                    cdd_claim_expiry: None,
+                },
+                GenesisIdentityRecord {
+                    primary_key: Some(101),
+                    issuers: vec![IdentityId::from(1)],
+                    did: IdentityId::from(101),
+                    secondary_keys: Default::default(),
+                    cdd_claim_expiry: None,
+                },
+            ],
+            ..Default::default()
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
         let mut stakers = vec![];
         if self.has_stakers {
             stakers = vec![
                 // (stash, ctrl, stake, status)
                 // these two will be elected in the default test where we elect 2.
                 (
+                    IdentityId::from(11),
                     11,
                     10,
                     self.balance_factor * 1000,
                     StakerStatus::<AccountId>::Validator,
                 ),
                 (
+                    IdentityId::from(21),
                     21,
                     20,
                     self.balance_factor * 1000,
@@ -808,6 +887,7 @@ impl ExtBuilder {
                 ),
                 // a loser validator
                 (
+                    IdentityId::from(31),
                     31,
                     30,
                     self.balance_factor * 500,
@@ -815,6 +895,7 @@ impl ExtBuilder {
                 ),
                 // an idle validator
                 (
+                    IdentityId::from(41),
                     41,
                     40,
                     self.balance_factor * 1000,
@@ -824,6 +905,7 @@ impl ExtBuilder {
             // optionally add a nominator
             if self.nominate {
                 stakers.push((
+                    IdentityId::from(101),
                     101,
                     100,
                     self.balance_factor * 500,
@@ -832,17 +914,17 @@ impl ExtBuilder {
             }
             // replace any of the status if needed.
             self.status.into_iter().for_each(|(stash, status)| {
-                let (_, _, _, ref mut prev_status) = stakers
+                let (_, _, _, _, ref mut prev_status) = stakers
                     .iter_mut()
-                    .find(|s| s.0 == stash)
+                    .find(|s| s.1 == stash)
                     .expect("set_status staker should exist; qed");
                 *prev_status = status;
             });
             // replaced any of the stakes if needed.
             self.stakes.into_iter().for_each(|(stash, stake)| {
-                let (_, _, ref mut prev_stake, _) = stakers
+                let (_, _, _, ref mut prev_stake, _) = stakers
                     .iter_mut()
-                    .find(|s| s.0 == stash)
+                    .find(|s| s.1 == stash)
                     .expect("set_stake staker should exits; qed.");
                 *prev_stake = stake;
             });
@@ -867,7 +949,7 @@ impl ExtBuilder {
                 // set the keys for the first session.
                 stakers
                     .into_iter()
-                    .map(|(id, ..)| (id, id, SessionKeys { other: id.into() }))
+                    .map(|(_, id, ..)| (id, id, SessionKeys { other: id.into() }))
                     .collect()
             } else {
                 // set some dummy validators in genesis.
@@ -906,6 +988,72 @@ impl ExtBuilder {
 
 pub type Group = pallet_group::Module<Test, pallet_group::Instance2>;
 
+pub fn provide_did_to_user(account: AccountId) -> bool {
+    if pallet_identity::KeyRecords::<Test>::contains_key(&account) {
+        return false;
+    }
+
+    let cdd_account_id = 1005;
+    let cdd = RuntimeOrigin::signed(cdd_account_id);
+    assert!(
+        pallet_identity::KeyRecords::<Test>::contains_key(&cdd_account_id),
+        "CDD provider account not mapped to identity"
+    );
+
+    let cdd_did = pallet_identity::Module::<Test>::get_identity(&cdd_account_id)
+        .expect("CDD provider missing identity");
+    assert!(
+        pallet_identity::DidRecords::<Test>::contains_key(&cdd_did),
+        "CDD provider identity has no DID record"
+    );
+
+    let cdd_did_record = pallet_identity::DidRecords::<Test>::get(&cdd_did).unwrap_or_default();
+    assert!(
+        cdd_did_record.primary_key == Some(cdd_account_id),
+        "CDD identity primary key mismatch"
+    );
+    assert!(
+        pallet_identity::Module::<Test>::cdd_register_did(cdd.clone(), account, vec![]).is_ok(),
+        "Error in registering the DID"
+    );
+
+    let did = pallet_identity::Module::<Test>::get_identity(&account)
+        .expect("DID not find in the storage");
+    assert!(
+        pallet_identity::Module::<Test>::add_claim(
+            cdd.clone(),
+            did,
+            Claim::CustomerDueDiligence(Default::default()),
+            None
+        )
+        .is_ok(),
+        "Error CDD Claim cannot be added to DID"
+    );
+    true
+}
+
+pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
+    if !get_identity(to_secondary_key) {
+        pallet_identity::Module::<Test>::get_identity(&stash_key).unwrap();
+        assert!(
+            pallet_identity::Module::<Test>::add_authorization(
+                RuntimeOrigin::signed(stash_key),
+                Signatory::Account(to_secondary_key),
+                AuthorizationData::JoinIdentity(Permissions::default()),
+                None
+            )
+            .is_ok(),
+            "Error in providing the authorization"
+        );
+
+        let auth_id = get_last_auth_id(&Signatory::Account(to_secondary_key));
+        assert_ok!(pallet_identity::Module::<Test>::join_identity_as_key(
+            RuntimeOrigin::signed(to_secondary_key),
+            auth_id
+        ));
+    }
+}
+
 pub(crate) fn active_era() -> EraIndex {
     Staking::active_era().unwrap().index
 }
@@ -917,16 +1065,41 @@ pub(crate) fn current_era() -> EraIndex {
 pub(crate) fn bond(stash: AccountId, ctrl: AccountId, val: Balance) {
     let _ = Balances::make_free_balance_be(&stash, val);
     let _ = Balances::make_free_balance_be(&ctrl, val);
-    assert_ok!(Staking::bond(
-        RuntimeOrigin::signed(stash),
-        ctrl,
-        val,
-        RewardDestination::Controller
-    ));
+
+    provide_did_to_user(stash);
+    add_secondary_key(stash, ctrl);
+
+    if Staking::bonded(&stash).is_none() {
+        assert_ok!(Staking::bond(
+            RuntimeOrigin::signed(stash),
+            ctrl,
+            val,
+            RewardDestination::Controller,
+        ));
+    }
 }
 
 pub(crate) fn bond_validator(stash: AccountId, ctrl: AccountId, val: Balance) {
+    bond_validator_with_intended_count(stash, ctrl, val, None)
+}
+
+pub fn bond_validator_with_intended_count(
+    stash: AccountId,
+    ctrl: AccountId,
+    val: Balance,
+    i_count: Option<u32>,
+) {
     bond(stash, ctrl, val);
+
+    let stash_id = Identity::get_identity(&stash).unwrap();
+    if Staking::permissioned_identity(stash_id).is_none() {
+        assert_ok!(Staking::add_permissioned_validator(
+            frame_system::RawOrigin::Root.into(),
+            stash_id,
+            i_count
+        ));
+    }
+
     assert_ok!(Staking::validate(
         RuntimeOrigin::signed(ctrl),
         ValidatorPrefs::default()
@@ -1000,22 +1173,29 @@ pub(crate) fn start_active_era(era_index: EraIndex) {
 }
 
 pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
-    let (payout, _rest) = <Test as Config>::EraPayout::era_payout(
+    let reward = inflation::compute_total_payout(
+        &I_NPOS,
         Staking::eras_total_stake(active_era()),
         Balances::total_issuance(),
         duration,
-    );
-    assert!(payout > 0);
-    payout
+        <Test as Config>::MaxVariableInflationTotalIssuance::get(),
+        <Test as Config>::FixedYearlyReward::get(),
+    )
+    .0;
+    assert!(reward > 0);
+    reward
 }
 
 pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
-    let (payout, rest) = <Test as Config>::EraPayout::era_payout(
-        Staking::eras_total_stake(active_era()),
+    inflation::compute_total_payout(
+        &I_NPOS,
+        0,
         Balances::total_issuance(),
         duration,
-    );
-    payout + rest
+        <Test as Config>::MaxVariableInflationTotalIssuance::get(),
+        <Test as Config>::FixedYearlyReward::get(),
+    )
+    .1
 }
 
 /// Time it takes to finish a session.
@@ -1186,4 +1366,22 @@ pub(crate) fn staking_events_since_last_call() -> Vec<pallet_staking::Event<Test
 
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
     (Balances::free_balance(who), Balances::reserved_balance(who))
+}
+
+pub fn get_identity(key: AccountId) -> bool {
+    pallet_identity::KeyRecords::<Test>::contains_key(&key)
+}
+
+// `iter_prefix_values` has no guarantee that it will iterate in a sequential
+// order. However, we need the latest `auth_id`. Which is why we search for the claim
+// with the highest `auth_id`.
+pub fn get_last_auth(signatory: &Signatory<AccountId>) -> Authorization<AccountId, u64> {
+    pallet_identity::Authorizations::<Test>::iter_prefix_values(signatory)
+        .into_iter()
+        .max_by_key(|x| x.auth_id)
+        .expect("there are no authorizations")
+}
+
+pub fn get_last_auth_id(signatory: &Signatory<AccountId>) -> u64 {
+    get_last_auth(signatory).auth_id
 }

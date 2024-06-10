@@ -293,6 +293,14 @@ pub mod pallet {
         #[pallet::constant]
         type MaxValidatorPerIdentity: Get<Permill>;
 
+        /// Maximum amount of total issuance after which fixed rewards kicks in.
+        #[pallet::constant]
+        type MaxVariableInflationTotalIssuance: Get<BalanceOf<Self>>;
+
+        /// Yearly total reward amount that gets distributed when fixed rewards kicks in.
+        #[pallet::constant]
+        type FixedYearlyReward: Get<BalanceOf<Self>>;
+
         // -----------------------------------------------------------------
     }
 
@@ -627,6 +635,7 @@ pub mod pallet {
         pub slash_reward_fraction: Perbill,
         pub canceled_payout: BalanceOf<T>,
         pub stakers: Vec<(
+            IdentityId,
             T::AccountId,
             T::AccountId,
             BalanceOf<T>,
@@ -675,7 +684,7 @@ pub mod pallet {
                 MaxNominatorsCount::<T>::put(x);
             }
 
-            for &(ref stash, ref controller, balance, ref status) in &self.stakers {
+            for &(did, ref stash, ref controller, balance, ref status) in &self.stakers {
                 crate::log!(
                     trace,
                     "inserting genesis staker: {:?} => {:?} => {:?}",
@@ -694,10 +703,26 @@ pub mod pallet {
                     RewardDestination::Staked,
                 ));
                 frame_support::assert_ok!(match status {
-                    crate::StakerStatus::Validator => <Pallet<T>>::validate(
-                        T::RuntimeOrigin::from(Some(controller.clone()).into()),
-                        Default::default(),
-                    ),
+                    crate::StakerStatus::Validator => {
+                        // Polymesh change
+                        // -----------------------------------------------------------------
+                        if <Pallet<T>>::permissioned_identity(&did).is_none() {
+                            // Adding identity directly in the storage by assuming it is CDD'ed
+                            PermissionedIdentity::<T>::insert(
+                                &did,
+                                PermissionedIdentityPrefs::new(3),
+                            );
+                            <Pallet<T>>::deposit_event(Event::<T>::PermissionedIdentityAdded {
+                                governance_councill_did: GC_DID,
+                                validators_identity: did,
+                            });
+                        }
+                        // -----------------------------------------------------------------
+                        <Pallet<T>>::validate(
+                            T::RuntimeOrigin::from(Some(controller.clone()).into()),
+                            Default::default(),
+                        )
+                    }
                     crate::StakerStatus::Nominator(votes) => <Pallet<T>>::nominate(
                         T::RuntimeOrigin::from(Some(controller.clone()).into()),
                         votes

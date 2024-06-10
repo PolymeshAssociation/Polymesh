@@ -2103,6 +2103,7 @@ fn switching_roles() {
 fn wrong_vote_is_moot() {
     ExtBuilder::default()
         .add_staker(
+            IdentityId::from(61),
             61,
             60,
             500,
@@ -4736,10 +4737,7 @@ fn bond_during_era_correctly_populates_claimed_rewards() {
                     total: 1000,
                     active: 1000,
                     unlocking: Default::default(),
-                    claimed_rewards: (last_reward_era..current_era)
-                        .collect::<Vec<_>>()
-                        .try_into()
-                        .unwrap(),
+                    claimed_rewards: (15..current_era).collect::<Vec<_>>().try_into().unwrap(),
                 })
             );
         });
@@ -5156,13 +5154,26 @@ mod election_data_provider {
         ExtBuilder::default()
             .nominate(false)
             .add_staker(
+                IdentityId::from(61),
                 61,
                 60,
                 2_000,
                 StakerStatus::<AccountId>::Nominator(vec![21]),
             )
-            .add_staker(71, 70, 10, StakerStatus::<AccountId>::Nominator(vec![21]))
-            .add_staker(81, 80, 50, StakerStatus::<AccountId>::Nominator(vec![21]))
+            .add_staker(
+                IdentityId::from(71),
+                71,
+                70,
+                10,
+                StakerStatus::<AccountId>::Nominator(vec![21]),
+            )
+            .add_staker(
+                IdentityId::from(81),
+                81,
+                80,
+                50,
+                StakerStatus::<AccountId>::Nominator(vec![21]),
+            )
             .build_and_execute(|| {
                 assert_ok!(<Staking as ElectionDataProvider>::electing_voters(None));
                 assert_eq!(MinimumActiveStake::<Test>::get(), 10);
@@ -5235,18 +5246,21 @@ mod election_data_provider {
             // the best way to invalidate a bunch of nominators is to have them nominate a lot of
             // ppl, but then lower the MaxNomination limit.
             .add_staker(
+                IdentityId::from(61),
                 61,
                 60,
                 2_000,
                 StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]),
             )
             .add_staker(
+                IdentityId::from(71),
                 71,
                 70,
                 2_000,
                 StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]),
             )
             .add_staker(
+                IdentityId::from(81),
                 81,
                 80,
                 2_000,
@@ -5791,8 +5805,20 @@ fn min_commission_works() {
 fn change_of_max_nominations() {
     use frame_election_provider_support::ElectionDataProvider;
     ExtBuilder::default()
-        .add_staker(60, 61, 10, StakerStatus::Nominator(vec![1]))
-        .add_staker(70, 71, 10, StakerStatus::Nominator(vec![1, 2, 3]))
+        .add_staker(
+            IdentityId::from(60),
+            60,
+            61,
+            10,
+            StakerStatus::Nominator(vec![1]),
+        )
+        .add_staker(
+            IdentityId::from(70),
+            70,
+            71,
+            10,
+            StakerStatus::Nominator(vec![1, 2, 3]),
+        )
         .balance_factor(10)
         .build_and_execute(|| {
             // pre-condition
