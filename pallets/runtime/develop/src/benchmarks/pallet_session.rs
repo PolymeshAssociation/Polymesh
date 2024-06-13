@@ -28,6 +28,7 @@ use frame_support::traits::{Currency, Get, OnInitialize};
 use frame_system::RawOrigin;
 use pallet_session::{Call, Pallet as Session};
 use pallet_staking::benchmarking::create_validator_with_nominators;
+use pallet_staking::RewardDestination;
 use polymesh_common_utilities::{benchs::AccountIdOf, TestUtilsFn};
 use sp_runtime::traits::TrailingZeroInput;
 use sp_std::prelude::*;
@@ -64,8 +65,9 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> ValidatorInfo<T> {
         let stash = create_validator_with_nominators::<T>(
             nominators,
             <T as pallet_staking::Config>::MaxNominations::get(),
-            balance,
             false,
+            RewardDestination::Staked,
+            Some(balance),
         )
         .unwrap()
         .0

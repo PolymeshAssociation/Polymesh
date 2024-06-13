@@ -21,10 +21,7 @@ use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public, H256};
-use sp_runtime::{
-    traits::{AccountIdConversion, IdentifyAccount, Verify},
-    PerThing,
-};
+use sp_runtime::traits::{AccountIdConversion, IdentifyAccount, Verify};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -467,6 +464,7 @@ macro_rules! staking {
         pallet_staking::GenesisConfig {
             validator_count: 40,
             minimum_validator_count: 1,
+            stakers: $stakers,
             invulnerables: vec![],
             slash_reward_fraction: sp_runtime::Perbill::from_percent(10),
             ..Default::default()

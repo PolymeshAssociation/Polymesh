@@ -549,7 +549,7 @@ benchmarks! {
         let current_era = CurrentEra::<T>::get().unwrap();
         // set the commission for this particular era as well.
         <ErasValidatorPrefs<T>>::insert(
-            current_era, 
+            current_era,
             validator.account().clone(),
             <Staking<T>>::validators(&validator.account())
         );
@@ -992,4 +992,3 @@ mod tests {
         });
     }
 }
-
