@@ -29,10 +29,17 @@ use sp_io::hashing::blake2_256;
 
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{pallet_prelude::*, traits::Currency};
-use sp_runtime::{traits::StaticLookup, Perbill};
+use sp_runtime::Perbill;
 use sp_std::prelude::*;
 
 const SEED: u32 = 0;
+
+// Polymesh change
+// -----------------------------------------------------------------
+use polymesh_common_utilities::benchs::{AccountIdOf, User, UserBuilder};
+use polymesh_common_utilities::TestUtilsFn;
+use polymesh_primitives::{AuthorizationData, Permissions, Signatory};
+// -----------------------------------------------------------------
 
 /// This function removes all validators and nominators from storage.
 pub fn clear_validators_and_nominators<T: Config>() {
@@ -48,61 +55,53 @@ pub fn clear_validators_and_nominators<T: Config>() {
 }
 
 /// Grab a funded user.
-pub fn create_funded_user<T: Config>(
-    string: &'static str,
-    n: u32,
-    balance_factor: u32,
-) -> T::AccountId {
-    let user = account(string, n, SEED);
-    let balance = T::Currency::minimum_balance() * balance_factor.into();
-    let _ = T::Currency::make_free_balance_be(&user, balance);
-    user
-}
-
-/// Grab a funded user with max Balance.
-pub fn create_funded_user_with_balance<T: Config>(
-    string: &'static str,
-    n: u32,
-    balance: BalanceOf<T>,
-) -> T::AccountId {
-    let user = account(string, n, SEED);
-    let _ = T::Currency::make_free_balance_be(&user, balance);
-    user
+pub fn create_funded_user<T>(string: &'static str, n: u32, balance: u32) -> User<T>
+where
+    T: Config + TestUtilsFn<AccountIdOf<T>>,
+{
+    // Polymesh change
+    // -----------------------------------------------------------------
+    let _ = T::Currency::issue(balance.into());
+    UserBuilder::<T>::default()
+        .balance(balance)
+        .seed(n)
+        .generate_did()
+        .build(string)
+    // -----------------------------------------------------------------
 }
 
 /// Create a stash and controller pair.
-pub fn create_stash_controller<T: Config>(
+pub fn create_stash_controller<T>(
     n: u32,
-    balance_factor: u32,
+    balance: u32,
     destination: RewardDestination<T::AccountId>,
-) -> Result<(T::AccountId, T::AccountId), &'static str> {
-    let stash = create_funded_user::<T>("stash", n, balance_factor);
-    let controller = create_funded_user::<T>("controller", n, balance_factor);
-    let controller_lookup = T::Lookup::unlookup(controller.clone());
-    let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
-    Staking::<T>::bond(
-        RawOrigin::Signed(stash.clone()).into(),
-        controller_lookup,
-        amount,
-        destination,
+) -> Result<(User<T>, User<T>), &'static str>
+where
+    T: Config + TestUtilsFn<AccountIdOf<T>>,
+{
+    let stash = create_funded_user::<T>("stash", n, balance);
+    let controller = UserBuilder::<T>::default()
+        .balance(balance)
+        .seed(n)
+        .build("controller");
+
+    // Polymesh change
+    // -----------------------------------------------------------------
+    // Attach the controller key as secondary key of the stash
+    let auth_id = pallet_identity::Module::<T>::add_auth(
+        stash.did(),
+        Signatory::Account(controller.account()),
+        AuthorizationData::JoinIdentity(Permissions::default()),
+        None,
     )?;
-    Ok((stash, controller))
-}
+    pallet_identity::Module::<T>::join_identity_as_key(controller.origin().into(), auth_id)?;
+    // -----------------------------------------------------------------
 
-/// Create a stash and controller pair with fixed balance.
-pub fn create_stash_controller_with_balance<T: Config>(
-    n: u32,
-    balance: crate::BalanceOf<T>,
-    destination: RewardDestination<T::AccountId>,
-) -> Result<(T::AccountId, T::AccountId), &'static str> {
-    let stash = create_funded_user_with_balance::<T>("stash", n, balance);
-    let controller = create_funded_user_with_balance::<T>("controller", n, balance);
-    let controller_lookup = T::Lookup::unlookup(controller.clone());
-
+    let controller_lookup = controller.lookup();
     Staking::<T>::bond(
-        RawOrigin::Signed(stash.clone()).into(),
+        stash.origin().into(),
         controller_lookup,
-        balance,
+        (balance / 10).into(),
         destination,
     )?;
     Ok((stash, controller))
@@ -112,48 +111,77 @@ pub fn create_stash_controller_with_balance<T: Config>(
 /// This is used to test worst case payout scenarios.
 pub fn create_stash_and_dead_controller<T: Config>(
     n: u32,
-    balance_factor: u32,
+    balance: u32,
     destination: RewardDestination<T::AccountId>,
-) -> Result<(T::AccountId, T::AccountId), &'static str> {
-    let stash = create_funded_user::<T>("stash", n, balance_factor);
-    // controller has no funds
-    let controller = create_funded_user::<T>("controller", n, 0);
-    let controller_lookup = T::Lookup::unlookup(controller.clone());
-    let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
+) -> Result<(User<T>, User<T>), &'static str>
+where
+    T: Config + TestUtilsFn<AccountIdOf<T>>,
+{
+    let stash = create_funded_user::<T>("stash", n, balance);
+    let controller_account: T::AccountId = account("controller", n, 100);
+    let controller = User {
+        account: controller_account.clone(),
+        origin: RawOrigin::Signed(controller_account),
+        did: None,
+        secret: None,
+    };
+
+    // Polymesh change
+    // -----------------------------------------------------------------
+    // Attach the controller key as secondary key of the stash
+    let auth_id = pallet_identity::Module::<T>::add_auth(
+        stash.did(),
+        Signatory::Account(controller.account()),
+        AuthorizationData::JoinIdentity(Permissions::default()),
+        None,
+    )?;
+    pallet_identity::Module::<T>::join_identity_as_key(controller.origin().into(), auth_id)?;
+    // -----------------------------------------------------------------
+
+    let controller_lookup = controller.lookup();
     Staking::<T>::bond(
-        RawOrigin::Signed(stash.clone()).into(),
+        stash.origin().into(),
         controller_lookup,
-        amount,
+        (balance / 10).into(),
         destination,
     )?;
     Ok((stash, controller))
 }
 
 /// create `max` validators.
-pub fn create_validators<T: Config>(
+pub fn create_validators<T>(
     max: u32,
-    balance_factor: u32,
-) -> Result<Vec<AccountIdLookupOf<T>>, &'static str> {
-    create_validators_with_seed::<T>(max, balance_factor, 0)
+    balance: u32,
+) -> Result<Vec<AccountIdLookupOf<T>>, &'static str>
+where
+    T: Config + TestUtilsFn<AccountIdOf<T>>,
+{
+    create_validators_with_seed::<T>(max, balance, 0)
 }
 
 /// create `max` validators, with a seed to help unintentional prevent account collisions.
-pub fn create_validators_with_seed<T: Config>(
+pub fn create_validators_with_seed<T>(
     max: u32,
-    balance_factor: u32,
+    balance: u32,
     seed: u32,
-) -> Result<Vec<AccountIdLookupOf<T>>, &'static str> {
+) -> Result<Vec<AccountIdLookupOf<T>>, &'static str>
+where
+    T: Config + TestUtilsFn<AccountIdOf<T>>,
+{
     let mut validators: Vec<AccountIdLookupOf<T>> = Vec::with_capacity(max as usize);
     for i in 0..max {
         let (stash, controller) =
-            create_stash_controller::<T>(i + seed, balance_factor, RewardDestination::Staked)?;
+            create_stash_controller::<T>(i + seed, balance, RewardDestination::Staked)?;
         let validator_prefs = ValidatorPrefs {
             commission: Perbill::from_percent(50),
             ..Default::default()
         };
-        Staking::<T>::validate(RawOrigin::Signed(controller).into(), validator_prefs)?;
-        let stash_lookup = T::Lookup::unlookup(stash);
-        validators.push(stash_lookup);
+        // Polymesh change
+        // -----------------------------------------------------------------
+        Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), stash.did(), Some(2))?;
+        // -----------------------------------------------------------------
+        Staking::<T>::validate(controller.origin().into(), validator_prefs)?;
+        validators.push(stash.lookup());
     }
     Ok(validators)
 }
@@ -179,7 +207,10 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
     edge_per_nominator: usize,
     randomize_stake: bool,
     to_nominate: Option<u32>,
-) -> Result<Vec<AccountIdLookupOf<T>>, &'static str> {
+) -> Result<Vec<AccountIdLookupOf<T>>, &'static str>
+where
+    T: Config + TestUtilsFn<AccountIdOf<T>>,
+{
     clear_validators_and_nominators::<T>();
 
     let mut validators_stash: Vec<AccountIdLookupOf<T>> = Vec::with_capacity(validators as usize);
@@ -194,15 +225,13 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
         };
         let (v_stash, v_controller) =
             create_stash_controller::<T>(i, balance_factor, RewardDestination::Staked)?;
+        Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), v_stash.did(), Some(2))?;
         let validator_prefs = ValidatorPrefs {
             commission: Perbill::from_percent(50),
             ..Default::default()
         };
-        Staking::<T>::validate(
-            RawOrigin::Signed(v_controller.clone()).into(),
-            validator_prefs,
-        )?;
-        let stash_lookup = T::Lookup::unlookup(v_stash.clone());
+        Staking::<T>::validate(v_controller.origin().into(), validator_prefs)?;
+        let stash_lookup = v_stash.lookup();
         validators_stash.push(stash_lookup.clone());
     }
 
@@ -212,9 +241,9 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
     // Create nominators
     for j in 0..nominators {
         let balance_factor = if randomize_stake {
-            rng.next_u32() % 255 + 10
+            rng.next_u32() % 100_000_000u32 + 10_000_000u32
         } else {
-            100u32
+            10_000_000u32
         };
         let (_n_stash, n_controller) =
             create_stash_controller::<T>(u32::MAX - j, balance_factor, RewardDestination::Staked)?;
@@ -229,17 +258,13 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
             let validator = available_validators.remove(selected);
             selected_validators.push(validator);
         }
-        Staking::<T>::nominate(
-            RawOrigin::Signed(n_controller.clone()).into(),
-            selected_validators,
-        )?;
+        Staking::<T>::nominate(n_controller.origin().into(), selected_validators)?;
     }
 
     ValidatorCount::<T>::put(validators);
 
     Ok(validator_chosen)
 }
-
 /// get the current era.
 pub fn current_era<T: Config>() -> EraIndex {
     <Pallet<T>>::current_era().unwrap_or(0)

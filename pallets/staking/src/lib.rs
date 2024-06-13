@@ -284,7 +284,7 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-#[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
+#[cfg(any(feature = "runtime-benchmarks"))]
 pub mod testing_utils;
 
 pub mod inflation;
