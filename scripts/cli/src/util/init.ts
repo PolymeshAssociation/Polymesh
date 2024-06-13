@@ -224,7 +224,7 @@ export async function keyToIdentityIds(
     if (rec.isPrimaryKey) {
       return rec.asPrimaryKey;
     } else if (rec.isSecondaryKey) {
-      return rec.asSecondaryKey[0];
+      return rec.asSecondaryKey;
     }
   }
   return <IdentityId>(0 as unknown);
