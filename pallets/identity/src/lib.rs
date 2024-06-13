@@ -107,9 +107,9 @@ use polymesh_common_utilities::traits::identity::{
 };
 use polymesh_common_utilities::{SystematicIssuers, GC_DID};
 use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, Authorization, AuthorizationData, AuthorizationType,
-    CddId, Claim, ClaimType, CustomClaimTypeId, DidRecord, IdentityClaim, IdentityId, KeyRecord,
-    Permissions, Scope, SecondaryKey, Signatory,
+    storage_migrate_on, storage_migration_ver, AssetPermissions, Authorization, AuthorizationData, AuthorizationType,
+    CddId, Claim, ClaimType, CustomClaimTypeId, DidRecord, ExtrinsicPermissions, IdentityClaim, IdentityId, KeyRecord,
+    Permissions, PortfolioPermissions, Scope, SecondaryKey, Signatory,
 };
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
@@ -138,9 +138,21 @@ decl_storage! {
         /// The next `CustomClaimTypeId`.
         pub CustomClaimIdSequence get(fn custom_claim_id_seq): CustomClaimTypeId;
 
-        /// Map from AccountId to `KeyRecord` that holds the key's identity and permissions.
+        /// Map from AccountId to `KeyRecord` that holds the key's type and identity.
         pub KeyRecords get(fn key_records):
             map hasher(twox_64_concat) T::AccountId => Option<KeyRecord<T::AccountId>>;
+
+        /// A secondary key's extrinsic permissions.
+        pub KeyExtrinsicPermissions get(fn key_extrinsic_permissions):
+            map hasher(twox_64_concat) T::AccountId => Option<ExtrinsicPermissions>;
+
+        /// A secondary key's asset permissions.
+        pub KeyAssetPermissions get(fn key_asset_permissions):
+            map hasher(twox_64_concat) T::AccountId => Option<AssetPermissions>;
+
+        /// A secondary key's portfolio permissions.
+        pub KeyPortfolioPermissions get(fn key_portfolio_permissions):
+            map hasher(twox_64_concat) T::AccountId => Option<PortfolioPermissions>;
 
         /// A reverse double map to allow finding all keys for an identity.
         pub DidKeys get(fn did_keys):
@@ -239,7 +251,8 @@ decl_storage! {
                 );
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
                 let sk = SecondaryKey::from_account_id(secondary_account_id.clone());
-                <Module<T>>::add_key_record(secondary_account_id, sk.make_key_record(did));
+                <Module<T>>::add_key_record(secondary_account_id, KeyRecord::SecondaryKey(did));
+                <Module<T>>::set_key_permissions(&sk.key, &sk.permissions);
                 <Module<T>>::deposit_event(RawEvent::SecondaryKeysAdded(did, vec![sk]));
             }
         });

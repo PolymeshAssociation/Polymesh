@@ -223,10 +223,10 @@ pub enum KeyRecord<AccountId> {
     ///
     /// (Key's identity)
     PrimaryKey(IdentityId),
-    /// Key is a secondary key with the given permissions.
+    /// Key is a secondary key and can have restricted permissions.
     ///
-    /// (Key's identity, key's permissions)
-    SecondaryKey(IdentityId, Permissions),
+    /// (Key's identity)
+    SecondaryKey(IdentityId),
     /// Key is a MuliSig signer key.
     ///
     /// (MultiSig account id)
@@ -245,7 +245,7 @@ impl<AccountId> KeyRecord<AccountId> {
 
     /// Check if the key is the secondary key and return the identity.
     pub fn is_secondary_key(&self) -> Option<IdentityId> {
-        if let Self::SecondaryKey(did, _) = self {
+        if let Self::SecondaryKey(did) = self {
             Some(*did)
         } else {
             None
@@ -256,7 +256,7 @@ impl<AccountId> KeyRecord<AccountId> {
     pub fn get_did_key_type(&self) -> Option<(IdentityId, bool)> {
         match self {
             Self::PrimaryKey(did) => Some((*did, true)),
-            Self::SecondaryKey(did, _) => Some((*did, false)),
+            Self::SecondaryKey(did) => Some((*did, false)),
             _ => None,
         }
     }
@@ -264,17 +264,8 @@ impl<AccountId> KeyRecord<AccountId> {
     /// Extract the identity if it is a primary/secondary key.
     pub fn as_did(&self) -> Option<IdentityId> {
         match self {
-            Self::PrimaryKey(did) | Self::SecondaryKey(did, _) => Some(*did),
+            Self::PrimaryKey(did) | Self::SecondaryKey(did) => Some(*did),
             _ => None,
-        }
-    }
-
-    /// Convert `KeyRecord` into a `SecondaryKey`, if it is a secondary key.
-    pub fn into_secondary_key(self, key: AccountId) -> Option<SecondaryKey<AccountId>> {
-        if let Self::SecondaryKey(_did, permissions) = self {
-            Some(SecondaryKey { key, permissions })
-        } else {
-            None
         }
     }
 }
@@ -427,11 +418,6 @@ impl<AccountId> SecondaryKey<AccountId> {
     /// Returns the complexity of the secondary key's permissions.
     pub fn complexity(&self) -> usize {
         self.permissions.complexity()
-    }
-
-    /// Make a `KeyRecord` for this SecondaryKey.
-    pub fn make_key_record(&self, did: IdentityId) -> KeyRecord<AccountId> {
-        KeyRecord::SecondaryKey(did, self.permissions.clone())
     }
 }
 
