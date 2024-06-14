@@ -232,6 +232,13 @@ impl<T: Config> Module<T> {
         KeyPortfolioPermissions::<T>::insert(key, &permissions.portfolio);
     }
 
+    pub fn remove_key_permissions(key: &T::AccountId) {
+        // Remove the key's permissions.
+        KeyAssetPermissions::<T>::kill(key);
+        KeyExtrinsicPermissions::<T>::kill(key);
+        KeyPortfolioPermissions::<T>::kill(key);
+    }
+
     /// Add a `KeyRecord` for an `AccountId` key, if it doesn't exist.
     ///
     /// The `key` can be:
@@ -275,6 +282,8 @@ impl<T: Config> Module<T> {
                 true
             }
             Some(KeyRecord::SecondaryKey(did1)) if Some(did1) == did => {
+                // Remove the secondary key's permissions.
+                Self::remove_key_permissions(key);
                 // `did` must match the key's `did`.
                 // Remove the key from the Identity's list of keys.
                 DidKeys::<T>::remove(did1, key);
