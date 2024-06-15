@@ -52,13 +52,15 @@ use crate::{
 
 // Polymesh change
 // -----------------------------------------------------------------
-use sp_runtime::traits::AccountIdConversion;
+use frame_support::traits::schedule::Anon;
+use frame_support::traits::IsSubType;
+use sp_runtime::traits::{AccountIdConversion, Dispatchable};
 use sp_runtime::Permill;
 
 use polymesh_common_utilities::constants::GC_PALLET_ID;
 use polymesh_common_utilities::identity::Config as IdentityConfig;
 use polymesh_common_utilities::{Context, GC_DID};
-use polymesh_primitives::IdentityId;
+use polymesh_primitives::{storage_migration_ver, IdentityId};
 
 use crate::types::{PermissionedIdentityPrefs, SlashingSwitch};
 // -----------------------------------------------------------------
@@ -69,6 +71,8 @@ const STAKING_ID: LockIdentifier = *b"staking ";
 // account which is not provided as an input. The value set should be conservative but sensible.
 pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 
+storage_migration_ver!(2);
+
 #[frame_support::pallet]
 pub mod pallet {
     use frame_election_provider_support::ElectionDataProvider;
@@ -77,12 +81,8 @@ pub mod pallet {
 
     use super::*;
 
-    /// The current storage version.
-    const STORAGE_VERSION: StorageVersion = StorageVersion::new(13);
-
     #[pallet::pallet]
     #[pallet::generate_store(pub(crate) trait Store)]
-    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     /// Possible operations on the configuration values of this pallet.
@@ -300,6 +300,15 @@ pub mod pallet {
         /// Yearly total reward amount that gets distributed when fixed rewards kicks in.
         #[pallet::constant]
         type FixedYearlyReward: Get<BalanceOf<Self>>;
+
+        /// The overarching call type.
+        type Call: Dispatchable + From<Call<Self>> + IsSubType<Call<Self>> + Clone;
+
+        /// Overarching type of all pallets origins.
+        type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
+
+        /// To schedule the rewards for the stakers after the end of era.
+        type RewardScheduler: Anon<Self::BlockNumber, <Self as Config>::Call, Self::PalletsOrigin>;
 
         // -----------------------------------------------------------------
     }
@@ -624,6 +633,10 @@ pub mod pallet {
     #[pallet::getter(fn slashing_allowed_for)]
     pub type SlashingAllowedFor<T: Config> = StorageValue<_, SlashingSwitch, ValueQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn storage_version)]
+    pub type PolymeshStorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
+
     // -----------------------------------------------------------------
 
     #[pallet::genesis_config]
@@ -645,6 +658,7 @@ pub mod pallet {
         pub min_validator_bond: BalanceOf<T>,
         pub max_validator_count: Option<u32>,
         pub max_nominator_count: Option<u32>,
+        pub slashing_allowed_for: SlashingSwitch,
     }
 
     #[cfg(feature = "std")]
@@ -662,6 +676,7 @@ pub mod pallet {
                 min_validator_bond: Default::default(),
                 max_validator_count: None,
                 max_nominator_count: None,
+                slashing_allowed_for: Default::default(),
             }
         }
     }
@@ -677,6 +692,7 @@ pub mod pallet {
             SlashRewardFraction::<T>::put(self.slash_reward_fraction);
             MinNominatorBond::<T>::put(self.min_nominator_bond);
             MinValidatorBond::<T>::put(self.min_validator_bond);
+            SlashingAllowedFor::<T>::put(self.slashing_allowed_for);
             if let Some(x) = self.max_validator_count {
                 MaxValidatorsCount::<T>::put(x);
             }

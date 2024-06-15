@@ -52,6 +52,7 @@ use super::{pallet::*, STAKING_ID};
 
 // Polymesh change
 // -----------------------------------------------------------------
+use crate::pallet::SlashingSwitch;
 use polymesh_primitives::IdentityId;
 // -----------------------------------------------------------------
 
@@ -1429,6 +1430,16 @@ where
         slash_session: SessionIndex,
         disable_strategy: DisableStrategy,
     ) -> Weight {
+        // Polymesh change
+        // -----------------------------------------------------------------
+        let slash_fraction_none = vec![Perbill::from_parts(0); slash_fraction.len()];
+        let slash_fraction = if SlashingAllowedFor::<T>::get() == SlashingSwitch::None {
+            slash_fraction_none.as_slice()
+        } else {
+            slash_fraction
+        };
+        // -----------------------------------------------------------------
+
         let reward_proportion = SlashRewardFraction::<T>::get();
         let mut consumed_weight = Weight::from_ref_time(0);
         let mut add_db_reads_writes = |reads, writes| {

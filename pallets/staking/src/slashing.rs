@@ -50,8 +50,8 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-    BalanceOf, Config, Error, Exposure, NegativeImbalanceOf, Pallet, Perbill, SessionInterface,
-    Store, UnappliedSlash,
+    types::SlashingSwitch, BalanceOf, Config, Error, Exposure, NegativeImbalanceOf, Pallet,
+    Perbill, SessionInterface, SlashingAllowedFor, Store, UnappliedSlash,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
@@ -300,8 +300,14 @@ pub(crate) fn compute_slash<T: Config>(
     let disable_when_slashed = params.disable_strategy != DisableStrategy::Never;
     add_offending_validator::<T>(params.stash, disable_when_slashed);
 
+    // Polymesh change
+    // -----------------------------------------------------------------
     let mut nominators_slashed = Vec::new();
-    reward_payout += slash_nominators::<T>(params.clone(), prior_slash_p, &mut nominators_slashed);
+    if SlashingAllowedFor::<T>::get() == SlashingSwitch::ValidatorAndNominator {
+        reward_payout +=
+            slash_nominators::<T>(params.clone(), prior_slash_p, &mut nominators_slashed);
+    }
+    // -----------------------------------------------------------------
 
     Some(UnappliedSlash {
         validator: params.stash.clone(),
@@ -657,15 +663,20 @@ pub(crate) fn apply_slash<T: Config>(
         slash_era,
     );
 
-    for &(ref nominator, nominator_slash) in &unapplied_slash.others {
-        do_slash::<T>(
-            nominator,
-            nominator_slash,
-            &mut reward_payout,
-            &mut slashed_imbalance,
-            slash_era,
-        );
+    // Polymesh change
+    // -----------------------------------------------------------------
+    if SlashingAllowedFor::<T>::get() == SlashingSwitch::ValidatorAndNominator {
+        for &(ref nominator, nominator_slash) in &unapplied_slash.others {
+            do_slash::<T>(
+                nominator,
+                nominator_slash,
+                &mut reward_payout,
+                &mut slashed_imbalance,
+                slash_era,
+            );
+        }
     }
+    // -----------------------------------------------------------------
 
     pay_reporters::<T>(reward_payout, slashed_imbalance, &unapplied_slash.reporters);
 }

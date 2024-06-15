@@ -298,5 +298,34 @@ mod test {
             .0,
             57_038_500_000_000_000_000_000
         );
+
+        // Even though the total issuance is above `max_inflated_issuance` we still have
+        // inflation calculated via the curve as this is below the non_inflated_yearly_reward
+        assert_eq!(
+            super::compute_total_payout(
+                &I_NPOS,
+                1_000_000,
+                1_074_582_300_000_000u128,
+                SIX_HOURS,
+                1_000_000_000_000_000u128,
+                sp_runtime::Perbill::from_percent(5) * 1_000_000_000_000_000u128
+            ),
+            (18387768858, 73551075022)
+        );
+
+        // Since the staking ratio is high enough, the curve calculated inflation is
+        // above the fixed `non_inflated_yearly_reward` hence we use the latter
+        // i.e. expected response is 5% of 1 billion rather than 10% of 1.5 billion.
+        assert_eq!(
+            super::compute_total_payout(
+                &I_NPOS,
+                750_000_000_000_000u128, //50% staking ratio
+                1_500_000_000_000_000u128,
+                YEAR,
+                1_000_000_000_000_000u128,
+                sp_runtime::Perbill::from_percent(5) * 1_000_000_000_000_000u128
+            ),
+            (49_965_776_850_000, 49_965_776_850_000)
+        );
     }
 }
