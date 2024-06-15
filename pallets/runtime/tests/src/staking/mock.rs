@@ -47,6 +47,7 @@ use sp_staking::offence::{DisableStrategy, OffenceDetails, OnOffenceHandler};
 use sp_staking::{EraIndex, SessionIndex};
 
 use pallet_staking::{self as pallet_staking, *};
+use pallet_staking::types::SlashingSwitch;
 use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_common_utilities::traits::balances::{AccountData, CheckCdd};
 use polymesh_common_utilities::traits::group::{GroupTrait, InactiveMember};
@@ -636,6 +637,9 @@ impl pallet_staking::Config for Test {
     type MaxValidatorPerIdentity = polymesh_runtime_common::MaxValidatorPerIdentity;
     type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
     type FixedYearlyReward = FixedYearlyReward;
+    type Call = RuntimeCall;
+    type PalletsOrigin = OriginCaller;
+    type RewardScheduler = Scheduler;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
@@ -670,6 +674,7 @@ pub struct ExtBuilder {
         Balance,
         StakerStatus<AccountId>,
     )>,
+    slashing_allowed_for: SlashingSwitch,
 }
 
 impl Default for ExtBuilder {
@@ -687,6 +692,7 @@ impl Default for ExtBuilder {
             status: Default::default(),
             stakes: Default::default(),
             stakers: Default::default(),
+            slashing_allowed_for: SlashingSwitch::Validator,
         }
     }
 }
@@ -964,6 +970,7 @@ impl ExtBuilder {
             slash_reward_fraction: Perbill::from_percent(10),
             min_nominator_bond: self.min_nominator_bond,
             min_validator_bond: self.min_validator_bond,
+            slashing_allowed_for: self.slashing_allowed_for,
             ..Default::default()
         }
         .assimilate_storage(&mut storage);

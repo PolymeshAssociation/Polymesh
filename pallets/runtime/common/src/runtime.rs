@@ -272,6 +272,9 @@ macro_rules! misc_pallet_impls {
             type MaxValidatorPerIdentity = polymesh_runtime_common::MaxValidatorPerIdentity;
             type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
             type FixedYearlyReward = FixedYearlyReward;
+            type Call = RuntimeCall;
+            type PalletsOrigin = OriginCaller;
+            type RewardScheduler = Scheduler;
         }
 
         impl pallet_authority_discovery::Config for Runtime {

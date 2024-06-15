@@ -805,9 +805,13 @@ fn nominators_also_get_slashed_pro_rata() {
             &[slash_percent],
         );
 
-        // both stakes must have been decreased.
-        assert!(Staking::ledger(100).unwrap().active < nominator_stake);
+        // Polymesh change
+        // -----------------------------------------------------------------
+        // Nominator slashing is switched of
+        // validator stake must have decreased
+        assert!(Staking::ledger(100).unwrap().active == nominator_stake);
         assert!(Staking::ledger(10).unwrap().active < validator_stake);
+        // -----------------------------------------------------------------
 
         let slash_amount = slash_percent * exposed_stake;
         let validator_share =
@@ -820,17 +824,17 @@ fn nominators_also_get_slashed_pro_rata() {
         assert!(nominator_share > 0);
 
         // both stakes must have been decreased pro-rata.
-        assert_eq!(
-            Staking::ledger(100).unwrap().active,
-            nominator_stake - nominator_share
-        );
+        // assert_eq!(
+        //     Staking::ledger(100).unwrap().active,
+        //     nominator_stake - nominator_share
+        // );
         assert_eq!(
             Staking::ledger(10).unwrap().active,
             validator_stake - validator_share
         );
         assert_eq!(
             balances(&101).0, // free balance
-            nominator_balance - nominator_share,
+            nominator_balance,
         );
         assert_eq!(
             balances(&11).0, // free balance
@@ -2581,7 +2585,11 @@ fn reward_validator_slashing_validator_does_not_overflow() {
         );
 
         assert_eq!(Balances::total_balance(&11), stake - 1);
-        assert_eq!(Balances::total_balance(&2), 1);
+        // Polymesh change
+        // ----------------------------------------------------------------
+        // Nominators slashing is switched off
+        // assert_eq!(Balances::total_balance(&2), 1);
+        // ----------------------------------------------------------------
     })
 }
 
@@ -2839,10 +2847,10 @@ fn reporters_receive_their_slice() {
     // amount.
     ExtBuilder::default().build_and_execute(|| {
         // The reporters' reward is calculated from the total exposure.
-        let initial_balance = 1125;
+        let initial_balance = 1_000;
 
         assert_eq!(
-            Staking::eras_stakers(active_era(), 11).total,
+            Staking::eras_stakers(active_era(), 11).own,
             initial_balance
         );
 
@@ -2869,10 +2877,10 @@ fn subsequent_reports_in_same_span_pay_out_less() {
     // amount, but less and less if they submit multiple reports in one span.
     ExtBuilder::default().build_and_execute(|| {
         // The reporters' reward is calculated from the total exposure.
-        let initial_balance = 1125;
+        let initial_balance = 1_000;
 
         assert_eq!(
-            Staking::eras_stakers(active_era(), 11).total,
+            Staking::eras_stakers(active_era(), 11).own,
             initial_balance
         );
 
@@ -2918,7 +2926,7 @@ fn invulnerables_are_not_slashed() {
             let exposure = Staking::eras_stakers(active_era(), 21);
             let initial_balance = Staking::slashable_balance_of(&21);
 
-            let nominator_balances: Vec<_> = exposure
+            let _nominator_balances: Vec<_> = exposure
                 .others
                 .iter()
                 .map(|o| Balances::free_balance(&o.who))
@@ -2946,13 +2954,17 @@ fn invulnerables_are_not_slashed() {
                 2000 - (2 * initial_balance / 10)
             );
 
-            // ensure that nominators were slashed as well.
-            for (initial_balance, other) in nominator_balances.into_iter().zip(exposure.others) {
-                assert_eq!(
-                    Balances::free_balance(&other.who),
-                    initial_balance - (2 * other.value / 10),
-                );
-            }
+            // Polymesh change
+            // -----------------------------------------------------------------
+            // Nominators slashing is switched off
+            // // ensure that nominators were slashed as well.
+            // for (initial_balance, other) in nominator_balances.into_iter().zip(exposure.others) {
+            //     assert_eq!(
+            //         Balances::free_balance(&other.who),
+            //         initial_balance - (2 * other.value / 10),
+            //     );
+            // }
+            // -----------------------------------------------------------------
         });
 }
 
@@ -3087,7 +3099,7 @@ fn garbage_collection_on_window_pruning() {
 
         let exposure = Staking::eras_stakers(now, 11);
         assert_eq!(Balances::free_balance(101), 2000);
-        let nominated_value = exposure.others.iter().find(|o| o.who == 101).unwrap().value;
+        let _nominated_value = exposure.others.iter().find(|o| o.who == 101).unwrap().value;
 
         on_offence_now(
             &[OffenceDetails {
@@ -3098,15 +3110,19 @@ fn garbage_collection_on_window_pruning() {
         );
 
         assert_eq!(Balances::free_balance(11), 900);
-        assert_eq!(Balances::free_balance(101), 2000 - (nominated_value / 10));
+        // Polymesh change
+        // -----------------------------------------------------------------
+        // Nominators slashing is switched off
+        // assert_eq!(Balances::free_balance(101), 2000 - (nominated_value / 10));
+        // -----------------------------------------------------------------
 
         assert!(pallet_staking::ValidatorSlashInEra::<Test>::get(&now, &11).is_some());
-        assert!(pallet_staking::NominatorSlashInEra::<Test>::get(&now, &101).is_some());
+        assert!(pallet_staking::NominatorSlashInEra::<Test>::get(&now, &101).is_none());
 
         // + 1 because we have to exit the bonding window.
         for era in (0..(BondingDuration::get() + 1)).map(|offset| offset + now + 1) {
             assert!(pallet_staking::ValidatorSlashInEra::<Test>::get(&now, &11).is_some());
-            assert!(pallet_staking::NominatorSlashInEra::<Test>::get(&now, &101).is_some());
+            assert!(pallet_staking::NominatorSlashInEra::<Test>::get(&now, &101).is_none());
 
             mock::start_active_era(era);
         }
@@ -3155,8 +3171,12 @@ fn slashing_nominators_by_span_max() {
 
         assert_eq!(Balances::free_balance(11), 900);
 
+        // Polymesh change
+        // -----------------------------------------------------------------
+        // Nominators slashing is switched off
         let slash_1_amount = Perbill::from_percent(10) * nominated_value_11;
-        assert_eq!(Balances::free_balance(101), 2000 - slash_1_amount);
+        assert_eq!(Balances::free_balance(101), 2000);
+        // -----------------------------------------------------------------
 
         let expected_spans = vec![
             slashing::SlashingSpan {
@@ -3175,7 +3195,7 @@ fn slashing_nominators_by_span_max() {
 
         assert_eq!(get_span(11).iter().collect::<Vec<_>>(), expected_spans);
 
-        assert_eq!(get_span(101).iter().collect::<Vec<_>>(), expected_spans);
+        //assert_eq!(get_span(101).iter().collect::<Vec<_>>(), expected_spans);
 
         // second slash: higher era, higher value, same span.
         on_offence_in_era(
@@ -3196,7 +3216,7 @@ fn slashing_nominators_by_span_max() {
         assert!(slash_2_amount > slash_1_amount);
 
         // only the maximum slash in a single span is taken.
-        assert_eq!(Balances::free_balance(101), 2000 - slash_2_amount);
+        assert_eq!(Balances::free_balance(101), 2000);
 
         // third slash: in same era and on same validator as first, higher
         // in-era value, but lower slash value than slash 2.
@@ -3219,7 +3239,7 @@ fn slashing_nominators_by_span_max() {
         assert!(slash_3_amount > slash_1_amount);
 
         // only the maximum slash in a single span is taken.
-        assert_eq!(Balances::free_balance(101), 2000 - slash_2_amount);
+        assert_eq!(Balances::free_balance(101), 2000);
     });
 }
 
@@ -3308,7 +3328,7 @@ fn deferred_slashes_are_deferred() {
 
             let exposure = Staking::eras_stakers(active_era(), 11);
             assert_eq!(Balances::free_balance(101), 2000);
-            let nominated_value = exposure.others.iter().find(|o| o.who == 101).unwrap().value;
+            let _nominated_value = exposure.others.iter().find(|o| o.who == 101).unwrap().value;
 
             System::reset_events();
 
@@ -3341,8 +3361,11 @@ fn deferred_slashes_are_deferred() {
             mock::start_active_era(4);
 
             assert_eq!(Balances::free_balance(11), 900);
-            assert_eq!(Balances::free_balance(101), 2000 - (nominated_value / 10));
-
+            // Polymesh change
+            // -----------------------------------------------------------------
+            // Nominators slashing is switched off
+            // assert_eq!(Balances::free_balance(101), 2000 - (nominated_value / 10));
+            // -----------------------------------------------------------------
             assert!(matches!(
                 staking_events_since_last_call().as_slice(),
                 &[
@@ -3364,10 +3387,6 @@ fn deferred_slashes_are_deferred() {
                         staker: 11,
                         amount: 100
                     },
-                    Event::Slashed {
-                        staker: 101,
-                        amount: 12
-                    }
                 ]
             ));
         })
@@ -3417,10 +3436,6 @@ fn retroactive_deferred_slashes_two_eras_before() {
                         staker: 11,
                         amount: 100
                     },
-                    Event::Slashed {
-                        staker: 101,
-                        amount: 12
-                    }
                 ]
             ));
         })
@@ -3472,10 +3487,6 @@ fn retroactive_deferred_slashes_one_before() {
                         staker: 11,
                         amount: 100
                     },
-                    Event::Slashed {
-                        staker: 101,
-                        amount: 12
-                    }
                 ]
             ));
 
@@ -3498,7 +3509,7 @@ fn staker_cannot_bail_deferred_slash() {
             assert_eq!(Balances::free_balance(101), 2000);
 
             let exposure = Staking::eras_stakers(active_era(), 11);
-            let nominated_value = exposure.others.iter().find(|o| o.who == 101).unwrap().value;
+            let _nominated_value = exposure.others.iter().find(|o| o.who == 101).unwrap().value;
 
             on_offence_now(
                 &[OffenceDetails {
@@ -3566,7 +3577,11 @@ fn staker_cannot_bail_deferred_slash() {
             mock::start_active_era(4);
 
             assert_eq!(Balances::free_balance(11), 900);
-            assert_eq!(Balances::free_balance(101), 2000 - (nominated_value / 10));
+            // Polymesh change
+            // -----------------------------------------------------------------
+            // Nominators slashing is switched off
+            assert_eq!(Balances::free_balance(101), 2000);
+            // -----------------------------------------------------------------
 
             // and the leftover of the funds can now be unbonded.
         })
@@ -3650,10 +3665,6 @@ fn remove_deferred() {
                         staker: 11,
                         amount: 50
                     },
-                    Event::Slashed {
-                        staker: 101,
-                        amount: 7
-                    }
                 ]
             ));
 
@@ -3662,11 +3673,15 @@ fn remove_deferred() {
             let initial_slash = slash_10 * nominated_value;
 
             let total_slash = slash_15 * nominated_value;
-            let actual_slash = total_slash - initial_slash;
+            let _actual_slash = total_slash - initial_slash;
 
+            // Polymesh change
+            // -----------------------------------------------------------------
+            // Nominator slashing is switched off
             // 5% slash (15 - 10) processed now.
             assert_eq!(Balances::free_balance(11), 950);
-            assert_eq!(Balances::free_balance(101), 2000 - actual_slash);
+            assert_eq!(Balances::free_balance(101), 2000);
+            // -----------------------------------------------------------------
         })
 }
 
@@ -3803,20 +3818,17 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
                     staker: 11,
                     amount: 100
                 },
-                Event::Slashed {
-                    staker: 101,
-                    amount: 12
-                },
             ]
         );
 
         // post-slash balance
         let nominator_slash_amount_11 = 125 / 10;
         assert_eq!(Balances::free_balance(11), 900);
-        assert_eq!(
-            Balances::free_balance(101),
-            2000 - nominator_slash_amount_11
-        );
+        // Polymesh change
+        // -----------------------------------------------------------------
+        // Nominators slashing is switched off
+        assert_eq!(Balances::free_balance(101), 2000);
+        // -----------------------------------------------------------------
 
         // check that validator was chilled.
         assert!(pallet_staking::Validators::<Test>::iter().all(|(stash, _)| stash != 11));
@@ -3837,7 +3849,7 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
             exposure_11,
             Exposure {
                 own: 900,
-                total: 1046,
+                total: 1051,
                 ..
             }
         ));
@@ -3846,7 +3858,7 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
             exposure_21,
             Exposure {
                 own: 1000,
-                total: 1342,
+                total: 1349,
                 ..
             }
         ));
@@ -3915,10 +3927,6 @@ fn non_slashable_offence_doesnt_disable_validator() {
                     staker: 21,
                     amount: 250
                 },
-                Event::Slashed {
-                    staker: 101,
-                    amount: 94
-                }
             ]
         );
 
@@ -3996,10 +4004,6 @@ fn slashing_independent_of_disabling_validator() {
                     staker: 21,
                     amount: 250
                 },
-                Event::Slashed {
-                    staker: 101,
-                    amount: 94
-                }
             ]
         );
 
@@ -4858,8 +4862,8 @@ fn offences_weight_calculated_correctly() {
 			reporters: vec![1],
 		}];
 
-		let n = 1; // Number of offenders
-		let rw = 3 + 3 * n; // rw reads and writes
+		let _n = 1; // Number of offenders
+		let rw = 3; // rw reads and writes
 		let one_offence_unapplied_weight =
 			<Test as frame_system::Config>::DbWeight::get().reads_writes(4, 1)
 		 +
@@ -4867,7 +4871,7 @@ fn offences_weight_calculated_correctly() {
 			// One `slash_cost`
 			+ <Test as frame_system::Config>::DbWeight::get().reads_writes(6, 5)
 			// `slash_cost` * nominators (1)
-			+ <Test as frame_system::Config>::DbWeight::get().reads_writes(6, 5)
+			// + <Test as frame_system::Config>::DbWeight::get().reads_writes(6, 5)
 			// `reward_cost` * reporters (1)
 			+ <Test as frame_system::Config>::DbWeight::get().reads_writes(2, 2)
 		;
