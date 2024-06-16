@@ -744,4 +744,19 @@ impl pallet_staking::WeightInfo for SubstrateWeight {
         // Minimum execution time: 4_518 nanoseconds.
         Weight::from_ref_time(4_656_000).saturating_add(RocksDbWeight::get().writes(1_u64))
     }
+    fn add_permissioned_validator() -> Weight {
+        Weight::zero()
+    }
+    fn remove_permissioned_validator() -> Weight {
+        Weight::zero()
+    }
+    fn change_slashing_allowed_for() -> Weight {
+        Weight::zero()
+    }
+    fn update_permissioned_validator_intended_count() -> Weight {
+        Weight::zero()
+    }
+    fn chill_from_governance(_n: u32) -> Weight {
+        Weight::zero()
+    }
 }

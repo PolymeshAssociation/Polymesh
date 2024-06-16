@@ -46,8 +46,8 @@ use sp_runtime::{KeyTypeId, Perbill};
 use sp_staking::offence::{DisableStrategy, OffenceDetails, OnOffenceHandler};
 use sp_staking::{EraIndex, SessionIndex};
 
-use pallet_staking::{self as pallet_staking, *};
 use pallet_staking::types::SlashingSwitch;
+use pallet_staking::{self as pallet_staking, *};
 use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_common_utilities::traits::balances::{AccountData, CheckCdd};
 use polymesh_common_utilities::traits::group::{GroupTrait, InactiveMember};
@@ -1422,3 +1422,100 @@ pub fn get_last_auth(signatory: &Signatory<AccountId>) -> Authorization<AccountI
 pub fn get_last_auth_id(signatory: &Signatory<AccountId>) -> u64 {
     get_last_auth(signatory).auth_id
 }
+
+// Polymesh change
+// -----------------------------------------------------------------
+
+pub type Origin = <Test as frame_system::Config>::RuntimeOrigin;
+
+fn get_primary_key(target: IdentityId) -> AccountId {
+    Identity::get_primary_key(target).unwrap_or_default()
+}
+
+pub fn make_account(account_id: AccountId) -> (Origin, IdentityId) {
+    make_account_with_balance(account_id, 1_000_000, None)
+}
+
+/// It creates an Account and registers its DID.
+pub fn make_account_with_balance(
+    account_id: AccountId,
+    balance: Balance,
+    expiry: Option<Moment>,
+) -> (Origin, IdentityId) {
+    Balances::make_free_balance_be(&account_id, balance);
+
+    let signed_account = Origin::signed(account_id.clone());
+
+    let cdd_providers = Group::get_members();
+    if let Some(cdd_provider_did) = cdd_providers.into_iter().nth(0) {
+        let cdd_provider_acc = get_primary_key(cdd_provider_did);
+        Identity::cdd_register_did(Origin::signed(cdd_provider_acc), account_id, vec![]).unwrap();
+        let account_did = Identity::get_identity(&account_id).unwrap();
+        Identity::add_claim(
+            Origin::signed(cdd_provider_acc),
+            account_did,
+            Claim::CustomerDueDiligence(Default::default()),
+            expiry,
+        )
+        .unwrap();
+        return (signed_account, account_did);
+    }
+
+    TestUtils::register_did(signed_account.clone(), vec![]).unwrap();
+    let account_did = Identity::get_identity(&account_id).unwrap();
+
+    (signed_account, account_did)
+}
+
+pub fn add_trusted_cdd_provider(identity: IdentityId) {
+    assert_ok!(Group::add_member(
+        Origin::from(frame_system::RawOrigin::Root),
+        identity
+    ));
+}
+
+pub fn run_to_block_scheduler(n: u64) {
+    while System::block_number() < n {
+        Staking::on_finalize(System::block_number());
+        Scheduler::on_finalize(System::block_number());
+        System::set_block_number(System::block_number() + 1);
+        Scheduler::on_initialize(System::block_number());
+        Session::on_initialize(System::block_number());
+        Staking::on_initialize(System::block_number());
+        Staking::on_finalize(System::block_number());
+    }
+}
+
+pub fn bond_nominator_with_expiry(acc: u64, val: u128, claim_expiry: u64, target: Vec<AccountId>) {
+    // a = controller
+    // a + 1 = stash
+    let controller = acc;
+    let stash = acc + 1;
+    let _ = Balances::make_free_balance_be(&(stash), val);
+    assert_ok!(Staking::bond(
+        Origin::signed(stash),
+        controller,
+        val,
+        RewardDestination::Controller
+    ));
+    create_did_and_add_claim_with_expiry(stash, claim_expiry);
+    assert_ok!(Staking::nominate(Origin::signed(controller), target));
+}
+
+pub fn create_did_and_add_claim_with_expiry(stash: AccountId, expiry: u64) {
+    Balances::make_free_balance_be(&1005, 1_000_000);
+    assert_ok!(Identity::cdd_register_did(
+        Origin::signed(1005),
+        stash,
+        vec![]
+    ));
+    let did = Identity::get_identity(&stash).unwrap();
+    assert_ok!(Identity::add_claim(
+        Origin::signed(1005),
+        did,
+        Claim::CustomerDueDiligence(Default::default()),
+        Some(expiry.into())
+    ));
+}
+
+// -----------------------------------------------------------------

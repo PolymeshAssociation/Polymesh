@@ -24,9 +24,8 @@ use frame_support::{
     dispatch::Codec,
     pallet_prelude::*,
     traits::{
-        Currency, CurrencyToVote, Defensive, DefensiveResult, DefensiveSaturating, EnsureOrigin,
-        EstimateNextNewSession, Get, LockIdentifier, LockableCurrency, OnUnbalanced, TryCollect,
-        UnixTime,
+        Currency, CurrencyToVote, Defensive, DefensiveResult, EnsureOrigin, EstimateNextNewSession,
+        Get, LockIdentifier, LockableCurrency, OnUnbalanced, TryCollect, UnixTime,
     },
     weights::Weight,
     BoundedVec,
@@ -46,8 +45,7 @@ pub use impls::*;
 use crate::{
     slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
     EraRewardPoints, Exposure, Forcing, NegativeImbalanceOf, Nominations, PositiveImbalanceOf,
-    RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
-    ValidatorPrefs,
+    RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, ValidatorPrefs,
 };
 
 // Polymesh change
@@ -865,6 +863,12 @@ pub mod pallet {
         },
         ///
         SlashingAllowedForChanged { slashing_switch: SlashingSwitch },
+        /// Reward scheduling interrupted.
+        RewardPaymentSchedulingInterrupted {
+            account_id: T::AccountId,
+            era: EraIndex,
+            error: DispatchError,
+        },
         // -----------------------------------------------------------------
     }
 
@@ -1189,70 +1193,13 @@ pub mod pallet {
             // we need to fetch the ledger again because it may have been mutated in the call
             // to `Self::do_withdraw_unbonded` above.
             let mut ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
-            let mut value = value.min(ledger.active);
 
             ensure!(
                 ledger.unlocking.len() < T::MaxUnlockingChunks::get() as usize,
                 Error::<T>::NoMoreChunks,
             );
 
-            if !value.is_zero() {
-                ledger.active -= value;
-
-                // Avoid there being a dust balance left in the staking system.
-                if ledger.active < T::Currency::minimum_balance() {
-                    value += ledger.active;
-                    ledger.active = Zero::zero();
-                }
-
-                let min_active_bond = if Nominators::<T>::contains_key(&ledger.stash) {
-                    MinNominatorBond::<T>::get()
-                } else if Validators::<T>::contains_key(&ledger.stash) {
-                    MinValidatorBond::<T>::get()
-                } else {
-                    Zero::zero()
-                };
-
-                // Make sure that the user maintains enough active bond for their role.
-                // If a user runs into this error, they should chill first.
-                ensure!(
-                    ledger.active >= min_active_bond,
-                    Error::<T>::InsufficientBond
-                );
-
-                // Note: in case there is no current era it is fine to bond one era more.
-                let era = Self::current_era().unwrap_or(0) + T::BondingDuration::get();
-                if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
-                    // To keep the chunk count down, we only keep one chunk per era. Since
-                    // `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
-                    // be the last one.
-                    chunk.value = chunk.value.defensive_saturating_add(value)
-                } else {
-                    ledger
-                        .unlocking
-                        .try_push(UnlockChunk { value, era })
-                        .map_err(|_| Error::<T>::NoMoreChunks)?;
-                };
-                // NOTE: ledger must be updated prior to calling `Self::weight_of`.
-                Self::update_ledger(&controller, &ledger);
-
-                // update this staker in the sorted list, if they exist in it.
-                if T::VoterList::contains(&ledger.stash) {
-                    let _ = T::VoterList::on_update(&ledger.stash, Self::weight_of(&ledger.stash))
-                        .defensive();
-                }
-
-                // Polymesh change
-                // -----------------------------------------------------------------
-                let controller_did =
-                    Context::current_identity::<T::IdentityFn>().unwrap_or_default();
-                Self::deposit_event(Event::<T>::Unbonded {
-                    identity: controller_did,
-                    stash: ledger.stash,
-                    amount: value,
-                });
-                // -----------------------------------------------------------------
-            }
+            Self::unbond_balance(controller, &mut ledger, value)?;
 
             let actual_weight = if let Some(withdraw_weight) = maybe_withdraw_weight {
                 Some(<T as Config>::WeightInfo::unbond().saturating_add(withdraw_weight))
@@ -2047,7 +1994,7 @@ pub mod pallet {
         ///
         /// The dispatch origin must be Root.
         #[pallet::call_index(26)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::add_permissioned_validator())]
         pub fn add_permissioned_validator(
             origin: OriginFor<T>,
             identity: IdentityId,
@@ -2099,7 +2046,7 @@ pub mod pallet {
         /// * origin Required origin for removing a potential validator.
         /// * identity Validator's IdentityId.
         #[pallet::call_index(27)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_permissioned_validator())]
         pub fn remove_permissioned_validator(
             origin: OriginFor<T>,
             identity: IdentityId,
@@ -2126,7 +2073,7 @@ pub mod pallet {
         /// of it and if it is expired then the account should be unbonded and removed from the
         /// nominating process.
         #[pallet::call_index(28)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(1_000_000_000)]
         pub fn validate_cdd_expiry_nominators(
             origin: OriginFor<T>,
             targets: Vec<T::AccountId>,
@@ -2177,7 +2124,9 @@ pub mod pallet {
         }
 
         #[pallet::call_index(29)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(
+            T::MaxNominatorRewardedPerValidator::get()
+        ))]
         pub fn payout_stakers_by_system(
             origin: OriginFor<T>,
             validator_stash: T::AccountId,
@@ -2189,7 +2138,7 @@ pub mod pallet {
 
         /// Switch slashing status on the basis of given `slashing_switch`. Can only be called by root.
         #[pallet::call_index(30)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::change_slashing_allowed_for())]
         pub fn change_slashing_allowed_for(
             origin: OriginFor<T>,
             slashing_switch: SlashingSwitch,
@@ -2202,7 +2151,7 @@ pub mod pallet {
 
         /// Sets the intended count to `new_intended_count` for the given `identity`.
         #[pallet::call_index(31)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::update_permissioned_validator_intended_count())]
         pub fn update_permissioned_validator_intended_count(
             origin: OriginFor<T>,
             identity: IdentityId,
@@ -2224,7 +2173,7 @@ pub mod pallet {
 
         /// Governance council forcefully chills a validator. Effects will be felt at the beginning of the next era.
         #[pallet::call_index(32)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::chill_from_governance(stash_keys.len() as u32))]
         pub fn chill_from_governance(
             origin: OriginFor<T>,
             identity: IdentityId,

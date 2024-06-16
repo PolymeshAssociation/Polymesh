@@ -2849,10 +2849,7 @@ fn reporters_receive_their_slice() {
         // The reporters' reward is calculated from the total exposure.
         let initial_balance = 1_000;
 
-        assert_eq!(
-            Staking::eras_stakers(active_era(), 11).own,
-            initial_balance
-        );
+        assert_eq!(Staking::eras_stakers(active_era(), 11).own, initial_balance);
 
         on_offence_now(
             &[OffenceDetails {
@@ -2879,10 +2876,7 @@ fn subsequent_reports_in_same_span_pay_out_less() {
         // The reporters' reward is calculated from the total exposure.
         let initial_balance = 1_000;
 
-        assert_eq!(
-            Staking::eras_stakers(active_era(), 11).own,
-            initial_balance
-        );
+        assert_eq!(Staking::eras_stakers(active_era(), 11).own, initial_balance);
 
         on_offence_now(
             &[OffenceDetails {
@@ -6523,3 +6517,537 @@ mod staking_interface {
         });
     }
 }
+
+// Polymesh change
+// -----------------------------------------------------------------
+
+use chrono::Utc;
+
+use crate::asset_test::set_timestamp;
+use pallet_staking::types::{PermissionedIdentityPrefs, SlashingSwitch};
+
+type PError = pallet_pips::Error<Test>;
+
+macro_rules! assert_absent_identity {
+    ($acc_id:expr) => {
+        assert!(
+            Staking::permissioned_identity(mock::Identity::get_identity($acc_id).unwrap())
+                .is_none()
+        );
+    };
+}
+
+macro_rules! assert_present_identity {
+    ($acc_id:expr) => {
+        assert!(
+            Staking::permissioned_identity(mock::Identity::get_identity($acc_id).unwrap())
+                .is_some()
+        );
+    };
+}
+
+macro_rules! assert_permissioned_identity_prefs {
+    ($id:expr, $i_count:expr, $r_count:expr) => {
+        assert_eq!(
+            Staking::permissioned_identity($id).unwrap(),
+            PermissionedIdentityPrefs {
+                intended_count: $i_count,
+                running_count: $r_count
+            }
+        );
+    };
+}
+
+fn create_on_offence_now(offender: u64) {
+    on_offence_now(
+        &[OffenceDetails {
+            offender: (
+                offender,
+                Staking::eras_stakers(Staking::active_era().unwrap().index, offender),
+            ),
+            reporters: vec![],
+        }],
+        &[Perbill::from_percent(10)],
+    );
+}
+
+#[test]
+fn add_nominator_with_invalid_expiry() {
+    ExtBuilder::default().nominate(true).build_and_execute(|| {
+        let alice_acc = 500;
+        let alice_controller_acc = 501;
+        let alice_controller_signed = RuntimeOrigin::signed(alice_controller_acc);
+        let (_, _) =
+            make_account_with_balance(alice_acc, 1_000_000, Some(Utc::now().timestamp() as u64));
+
+        let bob_acc = 600;
+        let (_, bob_did) = make_account(bob_acc);
+        add_trusted_cdd_provider(bob_did);
+
+        assert_ok!(Staking::bond(
+            RuntimeOrigin::signed(alice_acc.clone()),
+            alice_controller_acc,
+            1000,
+            RewardDestination::Stash
+        ));
+
+        set_timestamp(Utc::now().timestamp() as u64);
+        assert_noop!(
+            Staking::nominate(alice_controller_signed, vec![10, 20, 30]),
+            Error::<Test>::StashIdentityNotCDDed,
+        );
+        assert!(Staking::nominators(&alice_acc).is_none());
+    });
+}
+
+#[test]
+fn add_valid_nominator_with_multiple_claims() {
+    ExtBuilder::default().nominate(true).build_and_execute(|| {
+        let alice_acc = 500;
+        let alice_controller_acc = 501;
+        let alice_controller_signed = RuntimeOrigin::signed(alice_controller_acc);
+        let (_, _) = make_account_with_balance(alice_acc, 1_000_000, None);
+
+        assert_ok!(Staking::bond(
+            Origin::signed(alice_acc.clone()),
+            alice_controller_acc,
+            1000,
+            RewardDestination::Stash
+        ));
+
+        set_timestamp(Utc::now().timestamp() as u64);
+        assert_ok!(Staking::nominate(alice_controller_signed, vec![10, 20, 30]),);
+        assert!(!Staking::nominators(&alice_acc).is_none());
+    });
+}
+
+#[test]
+fn validate_nominators_with_valid_cdd() {
+    ExtBuilder::default()
+        .nominate(true)
+        .min_nominator_bond(0)
+        .build_and_execute(|| {
+            let alice_acc = 500;
+            let alice_controller_acc = 501;
+            let alice_controller_signed = RuntimeOrigin::signed(alice_controller_acc);
+            let (_, _) = make_account_with_balance(
+                alice_acc,
+                1_000_000,
+                Some(Utc::now().timestamp() as u64 + 500u64),
+            );
+
+            let (_, claim_issuer_1_did) = make_account(600);
+            add_trusted_cdd_provider(claim_issuer_1_did);
+
+            let eve_acc = 700;
+            let eve_controller_acc = 701;
+            let eve_controller_signed = Origin::signed(eve_controller_acc);
+            let (_, _) = make_account_with_balance(
+                eve_acc,
+                1_000_000,
+                Some(Utc::now().timestamp() as u64 + 7000u64),
+            );
+
+            assert_ok!(Staking::bond(
+                RuntimeOrigin::signed(alice_acc.clone()),
+                alice_controller_acc,
+                1000,
+                RewardDestination::Stash
+            ));
+            assert_ok!(Staking::bond(
+                Origin::signed(eve_acc),
+                eve_controller_acc,
+                1000,
+                RewardDestination::Stash
+            ));
+
+            set_timestamp(Utc::now().timestamp() as u64);
+            assert_ok!(Staking::nominate(alice_controller_signed, vec![10, 20, 30]));
+            assert!(!Staking::nominators(&alice_acc).is_none());
+
+            assert_ok!(Staking::nominate(eve_controller_signed, vec![11, 21, 31]));
+            assert!(!Staking::nominators(&eve_acc).is_none());
+
+            set_timestamp((Utc::now().timestamp() as u64) + 800_u64);
+            assert_ok!(Staking::validate_cdd_expiry_nominators(
+                RuntimeOrigin::root(),
+                vec![alice_acc.clone(), eve_acc.clone()]
+            ));
+            assert!(Staking::nominators(&alice_acc).is_none());
+            assert!(!Staking::nominators(&eve_acc).is_none());
+
+            let ledger_data = Staking::ledger(&alice_controller_acc).unwrap();
+            assert_eq!(ledger_data.active, 0);
+            assert_eq!(ledger_data.unlocking.len(), 1);
+        });
+}
+
+#[test]
+fn should_initialize_stakers_and_validators() {
+    // Verifies initial conditions of mock
+    ExtBuilder::default().build_and_execute(|| {
+        assert_eq!(Staking::bonded(&11), Some(10)); // Account 11 is stashed and locked, and account 10 is the controller
+        assert_eq!(Staking::bonded(&21), Some(20)); // Account 21 is stashed and locked, and account 20 is the controller
+        assert_eq!(Staking::bonded(&500), None); // Account 1 is not a stashed
+
+        // Account 10 controls the stash from account 11, which is 100 * balance_factor units
+        assert_eq!(
+            Staking::ledger(&10),
+            Some(StakingLedger {
+                stash: 11,
+                total: 1000,
+                active: 1000,
+                unlocking: Default::default(),
+                claimed_rewards: Default::default(),
+            })
+        );
+        // Account 20 controls the stash from account 21, which is 200 * balance_factor units
+        assert_eq!(
+            Staking::ledger(&20),
+            Some(StakingLedger {
+                stash: 21,
+                total: 1000,
+                active: 1000,
+                unlocking: Default::default(),
+                claimed_rewards: Default::default(),
+            })
+        );
+        // Account 1 does not control any stash
+        assert_eq!(Staking::ledger(&500), None);
+    });
+}
+
+#[test]
+fn should_add_permissioned_validators() {
+    ExtBuilder::default().build_and_execute(|| {
+        let acc_10 = 10;
+        let acc_20 = 20;
+
+        provide_did_to_user(10);
+        provide_did_to_user(20);
+
+        assert_add_permissioned_validator!(&acc_10);
+        assert_add_permissioned_validator!(&acc_20);
+        assert_present_identity!(&acc_10);
+        assert_present_identity!(&acc_20);
+    });
+}
+
+#[test]
+fn should_remove_permissioned_validators() {
+    ExtBuilder::default().build_and_execute(|| {
+        let acc_10 = 10;
+        let acc_20 = 20;
+        let acc_30 = 30;
+
+        provide_did_to_user(10);
+        provide_did_to_user(20);
+        provide_did_to_user(30);
+
+        assert_add_permissioned_validator!(&acc_10);
+        assert_add_permissioned_validator!(&acc_20);
+
+        assert_ok!(Staking::remove_permissioned_validator(
+            RuntimeOrigin::root(),
+            mock::Identity::get_identity(&acc_20).unwrap()
+        ));
+
+        assert_present_identity!(&acc_10);
+        assert_absent_identity!(&acc_20);
+        assert_absent_identity!(&acc_30);
+    });
+}
+
+#[test]
+fn voting_for_pip_overlays_with_staking() {
+    use crate::staking::mock::RuntimeCall;
+
+    ExtBuilder::default().build_and_execute(|| {
+        System::set_block_number(1);
+
+        assert_ok!(Pips::set_min_proposal_deposit(RuntimeOrigin::root(), 0));
+
+        // Initialize with 100 POLYX.
+        let alice_acc = 500;
+        let (alice_signer, _) = make_account_with_balance(alice_acc, 100, None);
+
+        let alice_proposal = |deposit: u128| {
+            let signer = Origin::signed(alice_acc);
+            let proposal = Box::new(RuntimeCall::Pips(
+                pallet_pips::Call::set_min_proposal_deposit { deposit: 0 },
+            ));
+            Pips::propose(signer, proposal, deposit, None, None)
+        };
+
+        // Bond all but 10.
+        assert_ok!(Staking::bond(
+            alice_signer,
+            alice_acc,
+            90,
+            RewardDestination::Stash
+        ));
+        // OK, because we're overlaying with 90 tokens already locked.
+        assert_ok!(alice_proposal(50));
+        // OK, because we're still overlaying, but also increasing it by 10.
+        assert_ok!(alice_proposal(50));
+        // Error, because we don't have 101 tokens to bond.
+        assert_noop!(alice_proposal(1), PError::InsufficientDeposit);
+    });
+}
+
+#[test]
+fn slashing_leaves_pips_untouched() {
+    use crate::staking::mock::RuntimeCall;
+    use pallet_pips::PipId;
+
+    ExtBuilder::default().build_and_execute(|| {
+        let acc = 11;
+        let propose = |deposit| {
+            let signer = Origin::signed(acc);
+            let proposal = Box::new(RuntimeCall::Pips(pallet_pips::Call::set_active_pip_limit {
+                limit: 0,
+            }));
+            Pips::propose(signer, proposal, deposit, None, None)
+        };
+        let slash = |amount| {
+            let exposure = Exposure {
+                total: amount,
+                own: amount,
+                others: vec![],
+            };
+            let details = OffenceDetails {
+                offender: (acc, exposure),
+                reporters: vec![],
+            };
+            on_offence_now(&[details], &[Perbill::from_percent(100)]);
+        };
+        let balance_is = |bal| {
+            assert_eq!(Balances::free_balance(acc), bal);
+        };
+        let id = PipId(0);
+        let vote_is = |bal| {
+            Pips::proposals(id).unwrap();
+            assert_eq!(Pips::proposal_vote(id, acc).unwrap().1, bal);
+        };
+        let vote = |bal| Pips::vote(Origin::signed(acc), id, true, bal);
+
+        // Ensure we start with 1000 balance.
+        balance_is(1000);
+
+        // Raise min deposit to 1000.
+        assert_ok!(Pips::set_prune_historical_pips(
+            RuntimeOrigin::root(),
+            false
+        ));
+        assert_ok!(Pips::set_min_proposal_deposit(RuntimeOrigin::root(), 1000));
+
+        assert_ok!(propose(1000));
+
+        // Fall below minimum deposit; still have 1000 as vote, and proposal exists.
+        slash(700);
+        balance_is(300);
+        vote_is(1000);
+        assert_ok!(vote(1000));
+
+        // Lower account balance to 1; ditto.
+        start_active_era(12);
+        slash(299);
+        balance_is(1);
+        vote_is(1000);
+
+        // Cannot propose anything; still locked 1000 into PIPs.
+        assert_ok!(Pips::set_min_proposal_deposit(RuntimeOrigin::root(), 0));
+        assert_noop!(propose(2), PError::InsufficientDeposit);
+
+        // Lower vote to 1; locked decreases to 1.
+        assert_ok!(vote(1));
+        vote_is(1);
+
+        // Slash again, we'll have 0 in balance now, but 1 still locked.
+        slash(1);
+        vote_is(1);
+        assert_ok!(vote(1));
+    });
+}
+
+#[test]
+fn check_slashing_switch_for_validators_and_nominators() {
+    ExtBuilder::default()
+        .validator_count(4)
+        .build_and_execute(|| {
+            // Check the initial state of the Slashing Switch.
+            assert_eq!(Staking::slashing_allowed_for(), SlashingSwitch::Validator);
+
+            let change_slashing_allowed_for = |switch: SlashingSwitch| {
+                assert_ok!(Staking::change_slashing_allowed_for(
+                    RuntimeOrigin::root(),
+                    switch
+                ));
+                assert_eq!(Staking::slashing_allowed_for(), switch);
+            };
+
+            change_slashing_allowed_for(SlashingSwitch::None);
+            change_slashing_allowed_for(SlashingSwitch::ValidatorAndNominator);
+        });
+}
+
+#[test]
+fn offence_is_blocked_when_slashing_status_is_off() {
+    ExtBuilder::default()
+        .validator_count(4)
+        .has_stakers(false)
+        .build_and_execute(|| {
+            assert_ok!(Staking::change_slashing_allowed_for(
+                RuntimeOrigin::root(),
+                SlashingSwitch::None
+            ));
+            assert_eq!(Staking::slashing_allowed_for(), SlashingSwitch::None);
+            let initial_balance = Balances::free_balance(10);
+            create_on_offence_now(10);
+            // No slashing happened.
+            assert_eq!(Balances::free_balance(10), initial_balance);
+        });
+}
+
+#[test]
+fn check_slashing_for_different_switches() {
+    ExtBuilder::default().build_and_execute(|| {
+        mock::start_active_era(1);
+
+        assert_eq!(Balances::free_balance(11), 1000);
+        assert_eq!(Balances::free_balance(21), 2000);
+
+        // Switch to ValidatorAndNominator.
+        assert_ok!(Staking::change_slashing_allowed_for(
+            RuntimeOrigin::root(),
+            SlashingSwitch::ValidatorAndNominator
+        ));
+        assert_eq!(
+            Staking::slashing_allowed_for(),
+            SlashingSwitch::ValidatorAndNominator
+        );
+
+        // Add nominator.
+        // add a new candidate for being a nominator. account 3 controlled by 4.
+        bond_nominator_with_expiry(3, 2000, 99999999, vec![11, 21]);
+        add_secondary_key(4, 3);
+
+        mock::start_active_era(2);
+
+        assert_eq!(Balances::free_balance(101), 2000);
+
+        create_on_offence_now(11);
+
+        create_on_offence_now(21);
+
+        // Balance of account 11 [validator] get slashed by 10% i.e 10 % of 1000 (total staked).
+        assert_eq!(Balances::free_balance(11), 900);
+        // Balance of account 4 [nominator] get slashed by 10% i.e 10 % of 2000 (total staked).
+        assert_eq!(Balances::free_balance(4), 1800);
+        // Balance of account 21 [validator] get slashed by 10% i.e 10 % of 1000 (total staked).
+        assert_eq!(Balances::free_balance(21), 1900);
+    })
+}
+
+#[test]
+fn chill_from_governance() {
+    ExtBuilder::default()
+        .validator_count(8)
+        .minimum_validator_count(1)
+        .build_and_execute(|| {
+            // 50 stash and 51 controller (corrected)
+            bond(50, 51, 500000);
+            let entity_id = mock::Identity::get_identity(&50).unwrap();
+
+            // Add a new validator successfully.
+            bond_validator_with_intended_count(50, 51, 500000, Some(2));
+            assert_permissioned_identity_prefs!(entity_id, 2, 1);
+
+            // Add other stash and controller to the same did.
+            add_secondary_key(50, 60);
+            add_secondary_key(50, 61);
+
+            // Validate one more validator from the same entity.
+            // 60 stash and 61 controller.
+            bond_validator(60, 61, 500000);
+            assert_permissioned_identity_prefs!(entity_id, 2, 2);
+
+            // Removes 50 and 60 from being validators
+            assert_ok!(Staking::chill_from_governance(
+                RuntimeOrigin::root(),
+                entity_id,
+                vec![50, 60]
+            ));
+
+            // No longer permissioned identity
+            assert_noop!(
+                Staking::chill_from_governance(RuntimeOrigin::root(), entity_id, vec![50, 60]),
+                Error::<Test>::IdentityNotFound
+            );
+
+            // 70 stash and 71 controller
+            bond(70, 71, 500000);
+            let entity_id_2 = mock::Identity::get_identity(&70).unwrap();
+
+            // Add a new validator successfully.
+            bond_validator_with_intended_count(70, 71, 500000, Some(2));
+
+            // Add other stash and controller to the same did.
+            add_secondary_key(70, 80);
+            add_secondary_key(70, 81);
+
+            // Check keys that aren't joined with identity gives error
+            assert_noop!(
+                Staking::chill_from_governance(RuntimeOrigin::root(), entity_id_2, vec![90, 95]),
+                Error::<Test>::NotStash
+            );
+
+            // Check key that is not GC gives error
+            assert_noop!(
+                Staking::chill_from_governance(Origin::signed(20), entity_id_2, vec![90, 95]),
+                BadOrigin
+            );
+        });
+}
+
+#[test]
+fn test_running_count() {
+    ExtBuilder::default()
+        .validator_count(8)
+        .minimum_validator_count(1)
+        .build_and_execute(|| {
+            // 50 stash and 51 controller
+            bond(50, 51, 500000);
+            let entity_id = mock::Identity::get_identity(&50).unwrap();
+
+            // Add a new validator successfully.
+            bond_validator_with_intended_count(50, 51, 500000, Some(2));
+            assert_permissioned_identity_prefs!(entity_id, 2, 1);
+
+            // Add other stash and controller to the same did.
+            add_secondary_key(50, 60);
+            add_secondary_key(50, 61);
+
+            // Validate one more validator from the same entity.
+            // 60 stash and 61 controller.
+            bond_validator(60, 61, 500000);
+            assert_permissioned_identity_prefs!(entity_id, 2, 2);
+
+            // Ensure that the validator's stash key can't be removed from it's identity.
+            assert_noop!(
+                mock::Identity::remove_secondary_keys(Origin::signed(50), vec![60]),
+                pallet_identity::Error::<Test>::AccountKeyIsBeingUsed
+            );
+
+            // chill to remove the validator
+            assert_ok!(Staking::chill(Origin::signed(61)));
+
+            // remove validator's stash key from it's identity
+            assert_ok!(mock::Identity::remove_secondary_keys(
+                Origin::signed(50),
+                vec![60]
+            ));
+        });
+}
+
+// -----------------------------------------------------------------

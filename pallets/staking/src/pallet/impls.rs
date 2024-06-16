@@ -52,8 +52,16 @@ use super::{pallet::*, STAKING_ID};
 
 // Polymesh change
 // -----------------------------------------------------------------
-use crate::pallet::SlashingSwitch;
+
+use frame_support::traits::schedule::Anon;
+use frame_support::traits::schedule::{DispatchTime, HIGHEST_PRIORITY};
+use frame_support::traits::DefensiveSaturating;
+
+use polymesh_common_utilities::Context;
 use polymesh_primitives::IdentityId;
+
+use crate::pallet::SlashingSwitch;
+use crate::UnlockChunk;
 // -----------------------------------------------------------------
 
 /// The maximum number of iterations that we do whilst iterating over `T::VoterList` in
@@ -497,6 +505,41 @@ impl<T: Config> Pallet<T> {
 
             // Polymesh change
             // -----------------------------------------------------------------
+            // Schedule rewards
+            let next_block_number = <frame_system::Pallet<T>>::block_number() + 1u32.into();
+            for (index, validator_id) in T::SessionInterface::validators().into_iter().enumerate() {
+                let schedule_block_number =
+                    next_block_number + index.saturated_into::<T::BlockNumber>();
+                match T::RewardScheduler::schedule(
+                    DispatchTime::At(schedule_block_number),
+                    None,
+                    HIGHEST_PRIORITY,
+                    RawOrigin::Root.into(),
+                    Call::<T>::payout_stakers_by_system {
+                        validator_stash: validator_id.clone(),
+                        era: active_era.index,
+                    }.into()
+                ) {
+                    Ok(_) => log!(
+                        info,
+                        "💸 Rewards are successfully scheduled for validator id: {:?} at block number: {:?}",
+                        &validator_id,
+                        schedule_block_number,
+                    ),
+                    Err(error) => {
+                        log!(
+                            error,
+                            "⛔ Detected error in scheduling the reward payment: {:?}",
+                            error
+                        );
+                        Self::deposit_event(Event::<T>::RewardPaymentSchedulingInterrupted {
+                            account_id: validator_id,
+                            era: active_era.index,
+                            error
+                        });
+                    }
+                }
+            }
             // -----------------------------------------------------------------
 
             Self::deposit_event(Event::<T>::EraPaid {
@@ -1076,11 +1119,70 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn unbond_balance(
-        _controller_account: T::AccountId,
-        _ledger: &mut StakingLedger<T>,
-        _value: BalanceOf<T>,
+        controller_account: T::AccountId,
+        ledger: &mut StakingLedger<T>,
+        value: BalanceOf<T>,
     ) -> DispatchResult {
-        unimplemented!()
+        let mut value = value.min(ledger.active);
+
+        if !value.is_zero() {
+            ledger.active -= value;
+
+            // Avoid there being a dust balance left in the staking system.
+            if ledger.active < T::Currency::minimum_balance() {
+                value += ledger.active;
+                ledger.active = Zero::zero();
+            }
+
+            let min_active_bond = if Nominators::<T>::contains_key(&ledger.stash) {
+                MinNominatorBond::<T>::get()
+            } else if Validators::<T>::contains_key(&ledger.stash) {
+                MinValidatorBond::<T>::get()
+            } else {
+                Zero::zero()
+            };
+
+            // Make sure that the user maintains enough active bond for their role.
+            // If a user runs into this error, they should chill first.
+            ensure!(
+                ledger.active >= min_active_bond,
+                Error::<T>::InsufficientBond
+            );
+
+            // Note: in case there is no current era it is fine to bond one era more.
+            let era = Self::current_era().unwrap_or(0) + T::BondingDuration::get();
+            if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
+                // To keep the chunk count down, we only keep one chunk per era. Since
+                // `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
+                // be the last one.
+                chunk.value = chunk.value.defensive_saturating_add(value)
+            } else {
+                ledger
+                    .unlocking
+                    .try_push(UnlockChunk { value, era })
+                    .map_err(|_| Error::<T>::NoMoreChunks)?;
+            };
+            // NOTE: ledger must be updated prior to calling `Self::weight_of`.
+            Self::update_ledger(&controller_account, &ledger);
+
+            // update this staker in the sorted list, if they exist in it.
+            if T::VoterList::contains(&ledger.stash) {
+                let _ = T::VoterList::on_update(&ledger.stash, Self::weight_of(&ledger.stash))
+                    .defensive();
+            }
+
+            // Polymesh change
+            // -----------------------------------------------------------------
+            let controller_did = Context::current_identity::<T::IdentityFn>().unwrap_or_default();
+            Self::deposit_event(Event::<T>::Unbonded {
+                identity: controller_did,
+                stash: ledger.stash.clone(),
+                amount: value,
+            });
+            // -----------------------------------------------------------------
+        }
+
+        Ok(())
     }
 
     pub(crate) fn base_chill_from_governance(

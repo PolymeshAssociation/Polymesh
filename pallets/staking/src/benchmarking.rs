@@ -51,7 +51,9 @@ type MaxNominators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig
 // -----------------------------------------------------------------
 use polymesh_common_utilities::benchs::{AccountIdOf, User, UserBuilder};
 use polymesh_common_utilities::TestUtilsFn;
-use polymesh_primitives::IdentityId;
+use polymesh_primitives::{IdentityId, Permissions};
+
+use crate::types::SlashingSwitch;
 // -----------------------------------------------------------------
 
 // Polymesh change
@@ -63,7 +65,7 @@ macro_rules! whitelist_account {
     };
 }
 
-fn add_permissioned_validator<T: Config>(id: IdentityId, intended_count: Option<u32>) {
+fn add_permissioned_validator_<T: Config>(id: IdentityId, intended_count: Option<u32>) {
     Staking::<T>::set_validator_count(RawOrigin::Root.into(), 10)
         .expect("Failed to set the validator count");
     Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), id, intended_count)
@@ -296,7 +298,7 @@ benchmarks! {
 
         // Polymesh change
         // -----------------------------------------------------------------
-        add_permissioned_validator::<T>(stash.did(), Some(2));
+        add_permissioned_validator_::<T>(stash.did(), Some(2));
         // -----------------------------------------------------------------
 
         whitelist_account!(controller);
@@ -871,6 +873,93 @@ benchmarks! {
     verify {
         assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
     }
+
+    // Polymesh change
+    // -----------------------------------------------------------------
+    add_permissioned_validator {
+        clear_validators_and_nominators::<T>();
+        let (stash, controller) =
+            create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
+        Staking::<T>::set_validator_count(RawOrigin::Root.into(), 10).unwrap();
+    }: _(RawOrigin::Root, stash.did(), Some(1))
+    verify {
+        let identity_preferences = Staking::<T>::permissioned_identity(stash.did());
+        assert!(identity_preferences.is_some());
+        assert_eq!(identity_preferences.unwrap().intended_count, 1);
+    }
+
+    remove_permissioned_validator {
+        clear_validators_and_nominators::<T>();
+        let (stash, controller) =
+            create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
+        add_permissioned_validator_::<T>(stash.did(), Some(1));
+    }: _(RawOrigin::Root, stash.did())
+    verify {
+        let identity_preferences = Staking::<T>::permissioned_identity(stash.did());
+        assert!(identity_preferences.is_none());
+    }
+
+    change_slashing_allowed_for {}: _(RawOrigin::Root, SlashingSwitch::ValidatorAndNominator)
+    verify {
+        assert_eq!(Staking::<T>::slashing_allowed_for(), SlashingSwitch::ValidatorAndNominator);
+    }
+
+    update_permissioned_validator_intended_count {
+        clear_validators_and_nominators::<T>();
+        let (stash, controller) =
+            create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
+        add_permissioned_validator_::<T>(stash.did(), Some(1));
+    }: _(RawOrigin::Root, stash.did(), 2)
+    verify {
+        assert_eq!(Staking::<T>::permissioned_identity(stash.did()).unwrap().intended_count, 2);
+    }
+
+    chill_from_governance {
+        let s in 1..100;
+
+        let validator = create_funded_user::<T>("validator", USER_SEED, 10_000);
+
+        Staking::<T>::set_validator_count(RawOrigin::Root.into(), 1_000).unwrap();
+        assert_eq!(Staking::<T>::validator_count(), 1_000);
+
+        Staking::<T>::add_permissioned_validator(
+            RawOrigin::Root.into(),
+            validator.did(),
+            Some(100)
+        ).unwrap();
+
+        whitelist_account!(validator);
+
+        let mut signatories = Vec::new();
+        for x in 0 .. s {
+            let key = UserBuilder::<T>::default().seed(x).balance(10_000u32).build("key");
+            let _ = T::Currency::issue(10_000u32.into());
+
+            pallet_identity::Module::<T>::unsafe_join_identity(
+                validator.did(),
+                Permissions::default(),
+                key.account.clone()
+            );
+            Staking::<T>::bond(
+                key.origin().into(),
+                key.lookup(),
+                2_000_000u32.into(),
+                RewardDestination::Staked
+            )
+            .unwrap();
+            whitelist_account!(key);
+
+            Staking::<T>::validate(key.origin().into(), ValidatorPrefs::default()).unwrap();
+            assert_eq!(<Validators<T>>::contains_key(&key.account), true);
+            signatories.push(key.account.clone());
+        }
+    }: _(RawOrigin::Root, validator.did(), signatories.clone())
+    verify {
+        for key in signatories {
+            assert!(!<Validators<T>>::contains_key(&key));
+        }
+    }
+    // -----------------------------------------------------------------
 }
 
 #[cfg(test)]
