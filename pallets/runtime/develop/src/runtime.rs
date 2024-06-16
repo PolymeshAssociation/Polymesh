@@ -364,7 +364,6 @@ mod benches {
         [pallet_nft, Nft]
         [pallet_contracts, Contracts]
         [pallet_state_trie_migration, StateTrieMigration]
-        [pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
     );
 }
 
