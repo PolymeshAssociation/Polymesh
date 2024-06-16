@@ -691,6 +691,7 @@ pub mod pallet {
             MinNominatorBond::<T>::put(self.min_nominator_bond);
             MinValidatorBond::<T>::put(self.min_validator_bond);
             SlashingAllowedFor::<T>::put(self.slashing_allowed_for);
+            PolymeshStorageVersion::<T>::put(Version::new(2));
             if let Some(x) = self.max_validator_count {
                 MaxValidatorsCount::<T>::put(x);
             }
