@@ -4,8 +4,8 @@
 import type { ApiTypes } from '@polkadot/api-base/types';
 import type { BTreeSet, Bytes, Null, Option, U8aFixed, Vec, WrapperOpaque, bool, u128, u16, u32, u64, u8 } from '@polkadot/types-codec';
 import type { AnyNumber, ITuple } from '@polkadot/types-codec/types';
-import type { AccountId32, Call, H256, Perbill, Permill } from '@polkadot/types/interfaces/runtime';
-import type { FrameSupportDispatchPerDispatchClassWeight, FrameSystemAccountInfo, FrameSystemEventRecord, FrameSystemLastRuntimeUpgradeInfo, FrameSystemPhase, PalletAssetAssetOwnershipRelation, PalletAssetSecurityToken, PalletAssetTickerRegistration, PalletAssetTickerRegistrationConfig, PalletBalancesBalanceLock, PalletBridgeBridgeTxDetail, PalletCommitteePolymeshVotes, PalletContractsStorageContractInfo, PalletContractsStorageDeletedContract, PalletContractsWasmOwnerInfo, PalletContractsWasmPrefabWasmModule, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCorporateAction, PalletCorporateActionsDistribution, PalletCorporateActionsTargetIdentities, PalletGrandpaStoredPendingChange, PalletGrandpaStoredState, PalletIdentityClaim1stKey, PalletIdentityClaim2ndKey, PalletImOnlineBoundedOpaqueNetworkState, PalletImOnlineSr25519AppSr25519Public, PalletPipsDepositInfo, PalletPipsPip, PalletPipsPipsMetadata, PalletPipsProposalState, PalletPipsSnapshotMetadata, PalletPipsSnapshottedPip, PalletPipsVote, PalletPipsVotingResult, PalletPreimageRequestStatus, PalletRelayerSubsidy, PalletSchedulerScheduled, PalletStakingActiveEraInfo, PalletStakingElectionResult, PalletStakingElectionStatus, PalletStakingEraRewardPoints, PalletStakingExposure, PalletStakingForcing, PalletStakingNominations, PalletStakingPermissionedIdentityPrefs, PalletStakingRewardDestination, PalletStakingSlashingSlashingSpans, PalletStakingSlashingSpanRecord, PalletStakingSlashingSwitch, PalletStakingStakingLedger, PalletStakingUnappliedSlash, PalletStakingValidatorPrefs, PalletStoFundraiser, PalletTransactionPaymentReleases, PolymeshCommonUtilitiesCheckpointNextCheckpoints, PolymeshCommonUtilitiesCheckpointScheduleCheckpoints, PolymeshCommonUtilitiesGroupInactiveMember, PolymeshCommonUtilitiesMaybeBlock, PolymeshCommonUtilitiesProtocolFeeProtocolOp, PolymeshContractsApi, PolymeshContractsApiCodeHash, PolymeshContractsChainExtensionExtrinsicId, PolymeshContractsNextUpgrade, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail, PolymeshPrimitivesAuthorization, PolymeshPrimitivesComplianceManagerAssetCompliance, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesIdentityClaim, PolymeshPrimitivesIdentityDidRecord, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesMemo, PolymeshPrimitivesMultisigProposalDetails, PolymeshPrimitivesNftNftCollection, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKeyKeyRecord, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesSettlementAffirmationStatus, PolymeshPrimitivesSettlementInstruction, PolymeshPrimitivesSettlementInstructionStatus, PolymeshPrimitivesSettlementLeg, PolymeshPrimitivesSettlementLegStatus, PolymeshPrimitivesSettlementMediatorAffirmationStatus, PolymeshPrimitivesSettlementVenue, PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStat1stKey, PolymeshPrimitivesStatisticsStat2ndKey, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceAssetTransferCompliance, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, PolymeshRuntimeDevelopRuntimeSessionKeys, SpConsensusBabeAppPublic, SpConsensusBabeBabeEpochConfiguration, SpConsensusBabeDigestsNextConfigDescriptor, SpConsensusBabeDigestsPreDigest, SpCoreCryptoKeyTypeId, SpNposElectionsElectionScore, SpRuntimeDigest, SpStakingOffenceOffenceDetails } from '@polkadot/types/lookup';
+import type { AccountId32, Call, H256, Perbill, Percent, Permill } from '@polkadot/types/interfaces/runtime';
+import type { FrameSupportDispatchPerDispatchClassWeight, FrameSystemAccountInfo, FrameSystemEventRecord, FrameSystemLastRuntimeUpgradeInfo, FrameSystemPhase, PalletAssetAssetOwnershipRelation, PalletAssetSecurityToken, PalletAssetTickerRegistration, PalletAssetTickerRegistrationConfig, PalletBalancesBalanceLock, PalletBridgeBridgeTxDetail, PalletCommitteePolymeshVotes, PalletContractsStorageContractInfo, PalletContractsStorageDeletedContract, PalletContractsWasmOwnerInfo, PalletContractsWasmPrefabWasmModule, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCorporateAction, PalletCorporateActionsDistribution, PalletCorporateActionsTargetIdentities, PalletElectionProviderMultiPhasePhase, PalletElectionProviderMultiPhaseReadySolution, PalletElectionProviderMultiPhaseRoundSnapshot, PalletElectionProviderMultiPhaseSignedSignedSubmission, PalletElectionProviderMultiPhaseSolutionOrSnapshotSize, PalletGrandpaStoredPendingChange, PalletGrandpaStoredState, PalletIdentityClaim1stKey, PalletIdentityClaim2ndKey, PalletImOnlineBoundedOpaqueNetworkState, PalletImOnlineSr25519AppSr25519Public, PalletPipsDepositInfo, PalletPipsPip, PalletPipsPipsMetadata, PalletPipsProposalState, PalletPipsSnapshotMetadata, PalletPipsSnapshottedPip, PalletPipsVote, PalletPipsVotingResult, PalletPreimageRequestStatus, PalletRelayerSubsidy, PalletSchedulerScheduled, PalletStakingActiveEraInfo, PalletStakingEraRewardPoints, PalletStakingExposure, PalletStakingForcing, PalletStakingNominations, PalletStakingPermissionedIdentityPrefs, PalletStakingRewardDestination, PalletStakingSlashingSlashingSpans, PalletStakingSlashingSpanRecord, PalletStakingSlashingSwitch, PalletStakingStakingLedger, PalletStakingUnappliedSlash, PalletStakingValidatorPrefs, PalletStateTrieMigrationMigrationLimits, PalletStateTrieMigrationMigrationTask, PalletStoFundraiser, PalletTransactionPaymentReleases, PolymeshCommonUtilitiesCheckpointNextCheckpoints, PolymeshCommonUtilitiesCheckpointScheduleCheckpoints, PolymeshCommonUtilitiesGroupInactiveMember, PolymeshCommonUtilitiesMaybeBlock, PolymeshCommonUtilitiesProtocolFeeProtocolOp, PolymeshContractsApi, PolymeshContractsApiCodeHash, PolymeshContractsChainExtensionExtrinsicId, PolymeshContractsNextUpgrade, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail, PolymeshPrimitivesAuthorization, PolymeshPrimitivesComplianceManagerAssetCompliance, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesIdentityClaim, PolymeshPrimitivesIdentityDidRecord, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesMemo, PolymeshPrimitivesMultisigProposalDetails, PolymeshPrimitivesNftNftCollection, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKeyKeyRecord, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesSettlementAffirmationStatus, PolymeshPrimitivesSettlementInstruction, PolymeshPrimitivesSettlementInstructionStatus, PolymeshPrimitivesSettlementLeg, PolymeshPrimitivesSettlementLegStatus, PolymeshPrimitivesSettlementMediatorAffirmationStatus, PolymeshPrimitivesSettlementVenue, PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStat1stKey, PolymeshPrimitivesStatisticsStat2ndKey, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceAssetTransferCompliance, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, PolymeshRuntimeDevelopRuntimeSessionKeys, SpConsensusBabeAppPublic, SpConsensusBabeBabeEpochConfiguration, SpConsensusBabeDigestsNextConfigDescriptor, SpConsensusBabeDigestsPreDigest, SpCoreCryptoKeyTypeId, SpNposElectionsElectionScore, SpRuntimeDigest, SpStakingOffenceOffenceDetails } from '@polkadot/types/lookup';
 import type { Observable } from '@polkadot/types/types';
 
 declare module '@polkadot/api-base/types/storage' {
@@ -76,6 +76,14 @@ declare module '@polkadot/api-base/types/storage' {
        * (ticker, DID) -> Balance
        **/
       balanceOf: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesTicker | string | Uint8Array, arg2: PolymeshPrimitivesIdentityId | string | Uint8Array) => Observable<u128>, [PolymeshPrimitivesTicker, PolymeshPrimitivesIdentityId]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker, PolymeshPrimitivesIdentityId]>;
+      /**
+       * The last [`AssetMetadataGlobalKey`] used for a global key.
+       **/
+      currentAssetMetadataGlobalKey: AugmentedQuery<ApiType, () => Observable<Option<u64>>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * The last [`AssetMetadataLocalKey`] used for [`Ticker`].
+       **/
+      currentAssetMetadataLocalKey: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesTicker | string | Uint8Array) => Observable<Option<u64>>, [PolymeshPrimitivesTicker]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker]>;
       /**
        * The next `AssetType::Custom` ID in the sequence.
        * 
@@ -679,6 +687,85 @@ declare module '@polkadot/api-base/types/storage' {
        **/
       [key: string]: QueryableStorageEntry<ApiType>;
     };
+    electionProviderMultiPhase: {
+      /**
+       * Current phase.
+       **/
+      currentPhase: AugmentedQuery<ApiType, () => Observable<PalletElectionProviderMultiPhasePhase>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * Desired number of targets to elect for this round.
+       * 
+       * Only exists when [`Snapshot`] is present.
+       **/
+      desiredTargets: AugmentedQuery<ApiType, () => Observable<Option<u32>>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * The minimum score that each 'untrusted' solution must attain in order to be considered
+       * feasible.
+       * 
+       * Can be set via `set_minimum_untrusted_score`.
+       **/
+      minimumUntrustedScore: AugmentedQuery<ApiType, () => Observable<Option<SpNposElectionsElectionScore>>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * Current best solution, signed or unsigned, queued to be returned upon `elect`.
+       **/
+      queuedSolution: AugmentedQuery<ApiType, () => Observable<Option<PalletElectionProviderMultiPhaseReadySolution>>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * Internal counter for the number of rounds.
+       * 
+       * This is useful for de-duplication of transactions submitted to the pool, and general
+       * diagnostics of the pallet.
+       * 
+       * This is merely incremented once per every time that an upstream `elect` is called.
+       **/
+      round: AugmentedQuery<ApiType, () => Observable<u32>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * A sorted, bounded vector of `(score, block_number, index)`, where each `index` points to a
+       * value in `SignedSubmissions`.
+       * 
+       * We never need to process more than a single signed submission at a time. Signed submissions
+       * can be quite large, so we're willing to pay the cost of multiple database accesses to access
+       * them one at a time instead of reading and decoding all of them at once.
+       **/
+      signedSubmissionIndices: AugmentedQuery<ApiType, () => Observable<Vec<ITuple<[SpNposElectionsElectionScore, u32, u32]>>>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * The next index to be assigned to an incoming signed submission.
+       * 
+       * Every accepted submission is assigned a unique index; that index is bound to that particular
+       * submission for the duration of the election. On election finalization, the next index is
+       * reset to 0.
+       * 
+       * We can't just use `SignedSubmissionIndices.len()`, because that's a bounded set; past its
+       * capacity, it will simply saturate. We can't just iterate over `SignedSubmissionsMap`,
+       * because iteration is slow. Instead, we store the value here.
+       **/
+      signedSubmissionNextIndex: AugmentedQuery<ApiType, () => Observable<u32>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * Unchecked, signed solutions.
+       * 
+       * Together with `SubmissionIndices`, this stores a bounded set of `SignedSubmissions` while
+       * allowing us to keep only a single one in memory at a time.
+       * 
+       * Twox note: the key of the map is an auto-incrementing index which users cannot inspect or
+       * affect; we shouldn't need a cryptographically secure hasher.
+       **/
+      signedSubmissionsMap: AugmentedQuery<ApiType, (arg: u32 | AnyNumber | Uint8Array) => Observable<Option<PalletElectionProviderMultiPhaseSignedSignedSubmission>>, [u32]> & QueryableStorageEntry<ApiType, [u32]>;
+      /**
+       * Snapshot data of the round.
+       * 
+       * This is created at the beginning of the signed phase and cleared upon calling `elect`.
+       **/
+      snapshot: AugmentedQuery<ApiType, () => Observable<Option<PalletElectionProviderMultiPhaseRoundSnapshot>>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * The metadata of the [`RoundSnapshot`]
+       * 
+       * Only exists when [`Snapshot`] is present.
+       **/
+      snapshotMetadata: AugmentedQuery<ApiType, () => Observable<Option<PalletElectionProviderMultiPhaseSolutionOrSnapshotSize>>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * Generic query
+       **/
+      [key: string]: QueryableStorageEntry<ApiType>;
+    };
     externalAgents: {
       /**
        * Maps an agent (`IdentityId`) to all all `Ticker`s they belong to, if any.
@@ -970,6 +1057,14 @@ declare module '@polkadot/api-base/types/storage' {
        * The collection id corresponding to each ticker.
        **/
       collectionTicker: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesTicker | string | Uint8Array) => Observable<u64>, [PolymeshPrimitivesTicker]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker]>;
+      /**
+       * The last `NFTCollectionId` used for a collection.
+       **/
+      currentCollectionId: AugmentedQuery<ApiType, () => Observable<Option<u64>>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * The last `NFTId` used for an NFT.
+       **/
+      currentNFTId: AugmentedQuery<ApiType, (arg: u64 | AnyNumber | Uint8Array) => Observable<Option<u64>>, [u64]> & QueryableStorageEntry<ApiType, [u64]>;
       /**
        * The metadata value of an nft given its collection id, token id and metadata key.
        **/
@@ -1504,6 +1599,20 @@ declare module '@polkadot/api-base/types/storage' {
        **/
       canceledSlashPayout: AugmentedQuery<ApiType, () => Observable<u128>, []> & QueryableStorageEntry<ApiType, []>;
       /**
+       * The threshold for when users can start calling `chill_other` for other validators /
+       * nominators. The threshold is compared to the actual number of validators / nominators
+       * (`CountFor*`) in the system compared to the configured max (`Max*Count`).
+       **/
+      chillThreshold: AugmentedQuery<ApiType, () => Observable<Option<Percent>>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * Counter for the related counted storage map
+       **/
+      counterForNominators: AugmentedQuery<ApiType, () => Observable<u32>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * Counter for the related counted storage map
+       **/
+      counterForValidators: AugmentedQuery<ApiType, () => Observable<u32>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
        * The current era index.
        * 
        * This is the latest planned era, depending on how the Session pallet queues the validator
@@ -1511,14 +1620,11 @@ declare module '@polkadot/api-base/types/storage' {
        **/
       currentEra: AugmentedQuery<ApiType, () => Observable<Option<u32>>, []> & QueryableStorageEntry<ApiType, []>;
       /**
-       * The earliest era for which we have a pending, unapplied slash.
+       * The last planned session scheduled by the session pallet.
+       * 
+       * This is basically in sync with the call to [`pallet_session::SessionManager::new_session`].
        **/
-      earliestUnappliedSlash: AugmentedQuery<ApiType, () => Observable<Option<u32>>, []> & QueryableStorageEntry<ApiType, []>;
-      /**
-       * Flag to control the execution of the offchain election. When `Open(_)`, we accept solutions
-       * to be submitted.
-       **/
-      eraElectionStatus: AugmentedQuery<ApiType, () => Observable<PalletStakingElectionStatus>, []> & QueryableStorageEntry<ApiType, []>;
+      currentPlannedSession: AugmentedQuery<ApiType, () => Observable<u32>, []> & QueryableStorageEntry<ApiType, []>;
       /**
        * Rewards for the last `HISTORY_DEPTH` eras.
        * If reward hasn't been set or has been removed then 0 reward is returned.
@@ -1578,38 +1684,49 @@ declare module '@polkadot/api-base/types/storage' {
        **/
       forceEra: AugmentedQuery<ApiType, () => Observable<PalletStakingForcing>, []> & QueryableStorageEntry<ApiType, []>;
       /**
-       * Number of eras to keep in history.
-       * 
-       * Information is kept for eras in `[current_era - history_depth; current_era]`.
-       * 
-       * Must be more than the number of eras delayed by session otherwise. I.e. active era must
-       * always be in history. I.e. `active_era > current_era - history_depth` must be
-       * guaranteed.
-       **/
-      historyDepth: AugmentedQuery<ApiType, () => Observable<u32>, []> & QueryableStorageEntry<ApiType, []>;
-      /**
        * Any validators that may never be slashed or forcibly kicked. It's a Vec since they're
        * easy to initialize and the performance hit is minimal (we expect no more than four
        * invulnerables) and restricted to testnets.
        **/
       invulnerables: AugmentedQuery<ApiType, () => Observable<Vec<AccountId32>>, []> & QueryableStorageEntry<ApiType, []>;
       /**
-       * True if the current **planned** session is final. Note that this does not take era
-       * forcing into account.
-       **/
-      isCurrentSessionFinal: AugmentedQuery<ApiType, () => Observable<bool>, []> & QueryableStorageEntry<ApiType, []>;
-      /**
        * Map from all (unlocked) "controller" accounts to the info regarding the staking.
        **/
       ledger: AugmentedQuery<ApiType, (arg: AccountId32 | string | Uint8Array) => Observable<Option<PalletStakingStakingLedger>>, [AccountId32]> & QueryableStorageEntry<ApiType, [AccountId32]>;
       /**
-       * The minimum amount with which a validator can bond.
+       * The maximum nominator count before we stop allowing new validators to join.
+       * 
+       * When this value is not set, no limits are enforced.
        **/
-      minimumBondThreshold: AugmentedQuery<ApiType, () => Observable<u128>, []> & QueryableStorageEntry<ApiType, []>;
+      maxNominatorsCount: AugmentedQuery<ApiType, () => Observable<Option<u32>>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * The maximum validator count before we stop allowing new validators to join.
+       * 
+       * When this value is not set, no limits are enforced.
+       **/
+      maxValidatorsCount: AugmentedQuery<ApiType, () => Observable<Option<u32>>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * The minimum amount of commission that validators can set.
+       * 
+       * If set to `0`, no limit exists.
+       **/
+      minCommission: AugmentedQuery<ApiType, () => Observable<Perbill>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * The minimum active nominator stake of the last successful election.
+       **/
+      minimumActiveStake: AugmentedQuery<ApiType, () => Observable<u128>, []> & QueryableStorageEntry<ApiType, []>;
       /**
        * Minimum number of staking participants before emergency conditions are imposed.
        **/
       minimumValidatorCount: AugmentedQuery<ApiType, () => Observable<u32>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * The minimum active bond to become and maintain the role of a nominator.
+       **/
+      minNominatorBond: AugmentedQuery<ApiType, () => Observable<u128>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * The minimum active bond to become and maintain the role of a validator.
+       **/
+      minValidatorBond: AugmentedQuery<ApiType, () => Observable<u128>, []> & QueryableStorageEntry<ApiType, []>;
       /**
        * The map from nominator stash key to their nomination preferences, namely the validators that
        * they wish to support.
@@ -1659,15 +1776,8 @@ declare module '@polkadot/api-base/types/storage' {
       permissionedIdentity: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesIdentityId | string | Uint8Array) => Observable<Option<PalletStakingPermissionedIdentityPrefs>>, [PolymeshPrimitivesIdentityId]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityId]>;
       polymeshStorageVersion: AugmentedQuery<ApiType, () => Observable<u8>, []> & QueryableStorageEntry<ApiType, []>;
       /**
-       * The next validator set. At the end of an era, if this is available (potentially from the
-       * result of an offchain worker), it is immediately used. Otherwise, the on-chain election
-       * is executed.
+       * Slashing switch for validators & Nominators.
        **/
-      queuedElected: AugmentedQuery<ApiType, () => Observable<Option<PalletStakingElectionResult>>, []> & QueryableStorageEntry<ApiType, []>;
-      /**
-       * The score of the current [`QueuedElected`].
-       **/
-      queuedScore: AugmentedQuery<ApiType, () => Observable<Option<SpNposElectionsElectionScore>>, []> & QueryableStorageEntry<ApiType, []>;
       slashingAllowedFor: AugmentedQuery<ApiType, () => Observable<PalletStakingSlashingSwitch>, []> & QueryableStorageEntry<ApiType, []>;
       /**
        * Slashing spans for stash accounts.
@@ -1680,16 +1790,6 @@ declare module '@polkadot/api-base/types/storage' {
        **/
       slashRewardFraction: AugmentedQuery<ApiType, () => Observable<Perbill>, []> & QueryableStorageEntry<ApiType, []>;
       /**
-       * Snapshot of nominators at the beginning of the current election window. This should only
-       * have a value when [`EraElectionStatus`] == `ElectionStatus::Open(_)`.
-       **/
-      snapshotNominators: AugmentedQuery<ApiType, () => Observable<Option<Vec<AccountId32>>>, []> & QueryableStorageEntry<ApiType, []>;
-      /**
-       * Snapshot of validators at the beginning of the current election window. This should only
-       * have a value when [`EraElectionStatus`] == `ElectionStatus::Open(_)`.
-       **/
-      snapshotValidators: AugmentedQuery<ApiType, () => Observable<Option<Vec<AccountId32>>>, []> & QueryableStorageEntry<ApiType, []>;
-      /**
        * Records information about the maximum slash of a stash within a slashing span,
        * as well as how much reward has been paid out.
        **/
@@ -1698,11 +1798,6 @@ declare module '@polkadot/api-base/types/storage' {
        * All unapplied slashes that are queued for later.
        **/
       unappliedSlashes: AugmentedQuery<ApiType, (arg: u32 | AnyNumber | Uint8Array) => Observable<Vec<PalletStakingUnappliedSlash>>, [u32]> & QueryableStorageEntry<ApiType, [u32]>;
-      /**
-       * Allows flexibility in commission. Every validator has commission that should be in the
-       * range [0, Cap].
-       **/
-      validatorCommissionCap: AugmentedQuery<ApiType, () => Observable<Perbill>, []> & QueryableStorageEntry<ApiType, []>;
       /**
        * The ideal number of active validators.
        **/
@@ -1718,6 +1813,31 @@ declare module '@polkadot/api-base/types/storage' {
        * and slash value of the era.
        **/
       validatorSlashInEra: AugmentedQuery<ApiType, (arg1: u32 | AnyNumber | Uint8Array, arg2: AccountId32 | string | Uint8Array) => Observable<Option<ITuple<[Perbill, u128]>>>, [u32, AccountId32]> & QueryableStorageEntry<ApiType, [u32, AccountId32]>;
+      /**
+       * Generic query
+       **/
+      [key: string]: QueryableStorageEntry<ApiType>;
+    };
+    stateTrieMigration: {
+      /**
+       * The limits that are imposed on automatic migrations.
+       * 
+       * If set to None, then no automatic migration happens.
+       **/
+      autoLimits: AugmentedQuery<ApiType, () => Observable<Option<PalletStateTrieMigrationMigrationLimits>>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * Migration progress.
+       * 
+       * This stores the snapshot of the last migrated keys. It can be set into motion and move
+       * forward by any of the means provided by this pallet.
+       **/
+      migrationProcess: AugmentedQuery<ApiType, () => Observable<PalletStateTrieMigrationMigrationTask>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * The maximum limits that the signed migration could use.
+       * 
+       * If not set, no signed submission is allowed.
+       **/
+      signedMigrationMaxLimits: AugmentedQuery<ApiType, () => Observable<Option<PalletStateTrieMigrationMigrationLimits>>, []> & QueryableStorageEntry<ApiType, []>;
       /**
        * Generic query
        **/

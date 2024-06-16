@@ -27,7 +27,6 @@ import {
   forceNewEra,
   unbond,
   nominate,
-  checkEraElectionClosed,
   bond,
 } from "../helpers/staking_helper";
 import { setActiveAssetStats, setAssetTransferCompliance } from "../helpers/statistics_helper";
@@ -110,20 +109,12 @@ describe("15 - Portfolio Unit Test", () => {
       movePortfolioFunds(dave, dave, ticker, 10)
     ).resolves.not.toThrow();
 
-    console.log(
-      `Election Status: ${await api.query.staking.eraElectionStatus()}`
-    );
-    await checkEraElectionClosed();
-    console.log(
-      `Election Status: ${await api.query.staking.eraElectionStatus()}`
-    );
     // Bound some POLYX.
     console.log("Portfolio: StopStakingAPortion");
     await expect(unbond(dave, 100)).resolves.not.toThrow();
 
     // Nominate Alice.
     console.log("Portfolio: StartStakingANewOperator");
-    await checkEraElectionClosed();
     await expect(nominate(dave, alice.publicKey)).resolves.not.toThrow();
   });
 });

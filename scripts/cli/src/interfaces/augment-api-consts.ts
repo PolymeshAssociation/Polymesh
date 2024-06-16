@@ -4,6 +4,7 @@
 import type { ApiTypes } from '@polkadot/api-base/types';
 import type { Vec, bool, u128, u16, u32, u64, u8 } from '@polkadot/types-codec';
 import type { Codec } from '@polkadot/types-codec/types';
+import type { Perbill, Permill } from '@polkadot/types/interfaces/runtime';
 import type { FrameSystemLimitsBlockLength, FrameSystemLimitsBlockWeights, PalletContractsSchedule, SpVersionRuntimeVersion, SpWeightsRuntimeDbWeight, SpWeightsWeightToFeeCoefficient, SpWeightsWeightV2Weight } from '@polkadot/types/lookup';
 
 declare module '@polkadot/api-base/types/consts' {
@@ -14,6 +15,7 @@ declare module '@polkadot/api-base/types/consts' {
       assetMetadataValueMaxLength: u32 & AugmentedConst<ApiType>;
       assetNameMaxLength: u32 & AugmentedConst<ApiType>;
       fundingRoundNameMaxLength: u32 & AugmentedConst<ApiType>;
+      maxAssetMediators: u32 & AugmentedConst<ApiType>;
       /**
        * Generic const
        **/
@@ -158,6 +160,99 @@ declare module '@polkadot/api-base/types/consts' {
        **/
       [key: string]: Codec;
     };
+    electionProviderMultiPhase: {
+      /**
+       * The minimum amount of improvement to the solution score that defines a solution as
+       * "better" in the Signed phase.
+       **/
+      betterSignedThreshold: Perbill & AugmentedConst<ApiType>;
+      /**
+       * The minimum amount of improvement to the solution score that defines a solution as
+       * "better" in the Unsigned phase.
+       **/
+      betterUnsignedThreshold: Perbill & AugmentedConst<ApiType>;
+      /**
+       * The maximum number of electable targets to put in the snapshot.
+       **/
+      maxElectableTargets: u16 & AugmentedConst<ApiType>;
+      /**
+       * The maximum number of electing voters to put in the snapshot. At the moment, snapshots
+       * are only over a single block, but once multi-block elections are introduced they will
+       * take place over multiple blocks.
+       **/
+      maxElectingVoters: u32 & AugmentedConst<ApiType>;
+      /**
+       * The maximum number of winners that can be elected by this `ElectionProvider`
+       * implementation.
+       * 
+       * Note: This must always be greater or equal to `T::DataProvider::desired_targets()`.
+       **/
+      maxWinners: u32 & AugmentedConst<ApiType>;
+      minerMaxLength: u32 & AugmentedConst<ApiType>;
+      minerMaxVotesPerVoter: u32 & AugmentedConst<ApiType>;
+      minerMaxWeight: SpWeightsWeightV2Weight & AugmentedConst<ApiType>;
+      /**
+       * The priority of the unsigned transaction submitted in the unsigned-phase
+       **/
+      minerTxPriority: u64 & AugmentedConst<ApiType>;
+      /**
+       * The repeat threshold of the offchain worker.
+       * 
+       * For example, if it is 5, that means that at least 5 blocks will elapse between attempts
+       * to submit the worker's solution.
+       **/
+      offchainRepeat: u32 & AugmentedConst<ApiType>;
+      /**
+       * Base deposit for a signed solution.
+       **/
+      signedDepositBase: u128 & AugmentedConst<ApiType>;
+      /**
+       * Per-byte deposit for a signed solution.
+       **/
+      signedDepositByte: u128 & AugmentedConst<ApiType>;
+      /**
+       * Per-weight deposit for a signed solution.
+       **/
+      signedDepositWeight: u128 & AugmentedConst<ApiType>;
+      /**
+       * The maximum amount of unchecked solutions to refund the call fee for.
+       **/
+      signedMaxRefunds: u32 & AugmentedConst<ApiType>;
+      /**
+       * Maximum number of signed submissions that can be queued.
+       * 
+       * It is best to avoid adjusting this during an election, as it impacts downstream data
+       * structures. In particular, `SignedSubmissionIndices<T>` is bounded on this value. If you
+       * update this value during an election, you _must_ ensure that
+       * `SignedSubmissionIndices.len()` is less than or equal to the new value. Otherwise,
+       * attempts to submit new solutions may cause a runtime panic.
+       **/
+      signedMaxSubmissions: u32 & AugmentedConst<ApiType>;
+      /**
+       * Maximum weight of a signed solution.
+       * 
+       * If [`Config::MinerConfig`] is being implemented to submit signed solutions (outside of
+       * this pallet), then [`MinerConfig::solution_weight`] is used to compare against
+       * this value.
+       **/
+      signedMaxWeight: SpWeightsWeightV2Weight & AugmentedConst<ApiType>;
+      /**
+       * Duration of the signed phase.
+       **/
+      signedPhase: u32 & AugmentedConst<ApiType>;
+      /**
+       * Base reward for a signed solution
+       **/
+      signedRewardBase: u128 & AugmentedConst<ApiType>;
+      /**
+       * Duration of the unsigned phase.
+       **/
+      unsignedPhase: u32 & AugmentedConst<ApiType>;
+      /**
+       * Generic const
+       **/
+      [key: string]: Codec;
+    };
     grandpa: {
       /**
        * Max Authorities in use
@@ -230,15 +325,60 @@ declare module '@polkadot/api-base/types/consts' {
        **/
       [key: string]: Codec;
     };
+    settlement: {
+      maxNumberOfFungibleAssets: u32 & AugmentedConst<ApiType>;
+      maxNumberOfNFTs: u32 & AugmentedConst<ApiType>;
+      maxNumberOfNFTsPerLeg: u32 & AugmentedConst<ApiType>;
+      maxNumberOfOffChainAssets: u32 & AugmentedConst<ApiType>;
+      maxNumberOfVenueSigners: u32 & AugmentedConst<ApiType>;
+      /**
+       * Generic const
+       **/
+      [key: string]: Codec;
+    };
     staking: {
       /**
-       * Number of eras that staked funds must remain bonded for.]
+       * Number of eras that staked funds must remain bonded for.
        **/
       bondingDuration: u32 & AugmentedConst<ApiType>;
+      /**
+       * Yearly total reward amount that gets distributed when fixed rewards kicks in.
+       **/
+      fixedYearlyReward: u128 & AugmentedConst<ApiType>;
+      /**
+       * Number of eras to keep in history.
+       * 
+       * Following information is kept for eras in `[current_era -
+       * HistoryDepth, current_era]`: `ErasStakers`, `ErasStakersClipped`,
+       * `ErasValidatorPrefs`, `ErasValidatorReward`, `ErasRewardPoints`,
+       * `ErasTotalStake`, `ErasStartSessionIndex`,
+       * `StakingLedger.claimed_rewards`.
+       * 
+       * Must be more than the number of eras delayed by session.
+       * I.e. active era must always be in history. I.e. `active_era >
+       * current_era - history_depth` must be guaranteed.
+       * 
+       * If migrating an existing pallet from storage value to config value,
+       * this should be set to same value or greater as in storage.
+       * 
+       * Note: `HistoryDepth` is used as the upper bound for the `BoundedVec`
+       * item `StakingLedger.claimed_rewards`. Setting this value lower than
+       * the existing value can lead to inconsistencies in the
+       * `StakingLedger` and will need to be handled properly in a migration.
+       * The test `reducing_history_depth_abrupt` shows this effect.
+       **/
+      historyDepth: u32 & AugmentedConst<ApiType>;
       /**
        * Maximum number of nominations per nominator.
        **/
       maxNominations: u32 & AugmentedConst<ApiType>;
+      /**
+       * The maximum number of nominators rewarded for each validator.
+       * 
+       * For each validator only the `$MaxNominatorRewardedPerValidator` biggest stakers can
+       * claim their reward. This used to limit the i/o cost for the nominator payout.
+       **/
+      maxNominatorRewardedPerValidator: u32 & AugmentedConst<ApiType>;
       /**
        * The maximum number of `unlocking` chunks a [`StakingLedger`] can
        * have. Effectively determines how many unique eras a staker may be
@@ -253,9 +393,55 @@ declare module '@polkadot/api-base/types/consts' {
        **/
       maxUnlockingChunks: u32 & AugmentedConst<ApiType>;
       /**
+       * Maximum amount of validators that can run by an identity.
+       * It will be MaxValidatorPerIdentity * Self::validator_count().
+       **/
+      maxValidatorPerIdentity: Permill & AugmentedConst<ApiType>;
+      /**
+       * Maximum amount of total issuance after which fixed rewards kicks in.
+       **/
+      maxVariableInflationTotalIssuance: u128 & AugmentedConst<ApiType>;
+      /**
        * Number of sessions per era.
        **/
       sessionsPerEra: u32 & AugmentedConst<ApiType>;
+      /**
+       * Number of eras that slashes are deferred by, after computation.
+       * 
+       * This should be less than the bonding duration. Set to 0 if slashes
+       * should be applied immediately, without opportunity for intervention.
+       **/
+      slashDeferDuration: u32 & AugmentedConst<ApiType>;
+      /**
+       * Generic const
+       **/
+      [key: string]: Codec;
+    };
+    stateTrieMigration: {
+      /**
+       * Maximal number of bytes that a key can have.
+       * 
+       * FRAME itself does not limit the key length.
+       * The concrete value must therefore depend on your storage usage.
+       * A [`frame_support::storage::StorageNMap`] for example can have an arbitrary number of
+       * keys which are then hashed and concatenated, resulting in arbitrarily long keys.
+       * 
+       * Use the *state migration RPC* to retrieve the length of the longest key in your
+       * storage: <https://github.com/paritytech/substrate/issues/11642>
+       * 
+       * The migration will halt with a `Halted` event if this value is too small.
+       * Since there is no real penalty from over-estimating, it is advised to use a large
+       * value. The default is 512 byte.
+       * 
+       * Some key lengths for reference:
+       * - [`frame_support::storage::StorageValue`]: 32 byte
+       * - [`frame_support::storage::StorageMap`]: 64 byte
+       * - [`frame_support::storage::StorageDoubleMap`]: 96 byte
+       * 
+       * For more info see
+       * <https://www.shawntabrizi.com/substrate/querying-substrate-storage-via-rpc/>
+       **/
+      maxKeyLen: u32 & AugmentedConst<ApiType>;
       /**
        * Generic const
        **/

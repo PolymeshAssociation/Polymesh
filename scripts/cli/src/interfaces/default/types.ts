@@ -440,6 +440,13 @@ export interface Committee extends Enum {
   readonly type: 'Technical' | 'Upgrade';
 }
 
+/** @name ComplianceReport */
+export interface ComplianceReport extends Struct {
+  readonly any_requirement_satistifed: bool;
+  readonly paused_compliance: bool;
+  readonly requirements: Vec<RequirementReport>;
+}
+
 /** @name ComplianceRequirement */
 export interface ComplianceRequirement extends Struct {
   readonly sender_conditions: Vec<Condition>;
@@ -459,6 +466,12 @@ export interface ComplianceRequirementResult extends Struct {
 export interface Condition extends Struct {
   readonly condition_type: ConditionType;
   readonly issuers: Vec<TrustedIssuer>;
+}
+
+/** @name ConditionReport */
+export interface ConditionReport extends Struct {
+  readonly satisfied: bool;
+  readonly condition: Condition;
 }
 
 /** @name ConditionResult */
@@ -1389,6 +1402,14 @@ export interface RecordDateSpec extends Enum {
   readonly isExisting: boolean;
   readonly asExisting: CheckpointId;
   readonly type: 'Scheduled' | 'ExistingSchedule' | 'Existing';
+}
+
+/** @name RequirementReport */
+export interface RequirementReport extends Struct {
+  readonly requirement_satisfied: bool;
+  readonly id: u32;
+  readonly sender_conditions: Vec<ConditionReport>;
+  readonly receiver_conditions: Vec<ConditionReport>;
 }
 
 /** @name RestrictionResult */

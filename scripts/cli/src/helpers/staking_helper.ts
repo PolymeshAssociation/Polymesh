@@ -49,10 +49,3 @@ export async function nominate(signer: KeyringPair, target: Uint8Array) {
 	const transaction = api.tx.staking.nominate([target]);
 	await sendTx(signer, transaction);
 }
-
-export async function checkEraElectionClosed() {
-  const api = await ApiSingleton.getInstance();
-  while ((await api.query.staking.eraElectionStatus()).isOpen) {
-    await sleep(1000);
-  }
-}

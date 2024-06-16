@@ -5,7 +5,7 @@ import type { ApiTypes } from '@polkadot/api-base/types';
 import type { BTreeSet, Bytes, Null, Option, Result, U8aFixed, Vec, bool, u128, u32, u64, u8 } from '@polkadot/types-codec';
 import type { ITuple } from '@polkadot/types-codec/types';
 import type { AccountId32, H256, Perbill, Permill } from '@polkadot/types/interfaces/runtime';
-import type { FrameSupportDispatchDispatchInfo, FrameSupportTokensMiscBalanceStatus, PalletBridgeBridgeTx, PalletBridgeHandledTxStatus, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCorporateAction, PalletCorporateActionsDistribution, PalletCorporateActionsTargetIdentities, PalletImOnlineSr25519AppSr25519Public, PalletPipsProposalData, PalletPipsProposalState, PalletPipsProposer, PalletPipsSnapshottedPip, PalletStakingElectionCompute, PalletStakingExposure, PalletStakingSlashingSwitch, PalletStoFundraiser, PolymeshCommonUtilitiesCheckpointScheduleCheckpoints, PolymeshCommonUtilitiesMaybeBlock, PolymeshContractsApi, PolymeshContractsChainExtensionExtrinsicId, PolymeshContractsChainVersion, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail, PolymeshPrimitivesAuthorizationAuthorizationData, PolymeshPrimitivesComplianceManagerComplianceRequirement, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesEventOnly, PolymeshPrimitivesIdentityClaim, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesMemo, PolymeshPrimitivesNftNfTs, PolymeshPrimitivesPortfolioFundDescription, PolymeshPrimitivesPortfolioPortfolioUpdateReason, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKey, PolymeshPrimitivesSecondaryKeyPermissions, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesSettlementLeg, PolymeshPrimitivesSettlementReceiptMetadata, PolymeshPrimitivesSettlementSettlementType, PolymeshPrimitivesSettlementVenueType, PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesStatisticsStatUpdate, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceTransferCondition, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, SpConsensusGrandpaAppPublic, SpRuntimeDispatchError } from '@polkadot/types/lookup';
+import type { FrameSupportDispatchDispatchInfo, FrameSupportTokensMiscBalanceStatus, PalletBridgeBridgeTx, PalletBridgeHandledTxStatus, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCorporateAction, PalletCorporateActionsDistribution, PalletCorporateActionsTargetIdentities, PalletElectionProviderMultiPhaseElectionCompute, PalletElectionProviderMultiPhasePhase, PalletImOnlineSr25519AppSr25519Public, PalletPipsProposalData, PalletPipsProposalState, PalletPipsProposer, PalletPipsSnapshottedPip, PalletStakingExposure, PalletStakingForcing, PalletStakingSlashingSwitch, PalletStakingValidatorPrefs, PalletStateTrieMigrationError, PalletStateTrieMigrationMigrationCompute, PalletStoFundraiser, PolymeshCommonUtilitiesCheckpointScheduleCheckpoints, PolymeshCommonUtilitiesMaybeBlock, PolymeshContractsApi, PolymeshContractsChainExtensionExtrinsicId, PolymeshContractsChainVersion, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail, PolymeshPrimitivesAuthorizationAuthorizationData, PolymeshPrimitivesComplianceManagerComplianceRequirement, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesEventOnly, PolymeshPrimitivesIdentityClaim, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesMemo, PolymeshPrimitivesNftNfTs, PolymeshPrimitivesPortfolioFundDescription, PolymeshPrimitivesPortfolioPortfolioUpdateReason, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKey, PolymeshPrimitivesSecondaryKeyPermissions, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesSettlementLeg, PolymeshPrimitivesSettlementReceiptMetadata, PolymeshPrimitivesSettlementSettlementType, PolymeshPrimitivesSettlementVenueType, PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesStatisticsStatUpdate, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceTransferCondition, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, SpConsensusGrandpaAppPublic, SpNposElectionsElectionScore, SpRuntimeDispatchError } from '@polkadot/types/lookup';
 
 declare module '@polkadot/api-base/types/events' {
   export interface AugmentedEvents<ApiType extends ApiTypes> {
@@ -623,6 +623,44 @@ declare module '@polkadot/api-base/types/events' {
        * (voter DID, CAId, Votes)
        **/
       VoteCast: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PalletCorporateActionsCaId, Vec<PalletCorporateActionsBallotBallotVote>]>;
+      /**
+       * Generic event
+       **/
+      [key: string]: AugmentedEvent<ApiType>;
+    };
+    electionProviderMultiPhase: {
+      /**
+       * An election failed.
+       * 
+       * Not much can be said about which computes failed in the process.
+       **/
+      ElectionFailed: AugmentedEvent<ApiType, []>;
+      /**
+       * The election has been finalized, with the given computation and score.
+       **/
+      ElectionFinalized: AugmentedEvent<ApiType, [PalletElectionProviderMultiPhaseElectionCompute, SpNposElectionsElectionScore]>;
+      /**
+       * There was a phase transition in a given round.
+       **/
+      PhaseTransitioned: AugmentedEvent<ApiType, [PalletElectionProviderMultiPhasePhase, PalletElectionProviderMultiPhasePhase, u32]>;
+      /**
+       * An account has been rewarded for their signed submission being finalized.
+       **/
+      Rewarded: AugmentedEvent<ApiType, [AccountId32, u128]>;
+      /**
+       * An account has been slashed for submitting an invalid signed submission.
+       **/
+      Slashed: AugmentedEvent<ApiType, [AccountId32, u128]>;
+      /**
+       * A solution was stored with the given compute.
+       * 
+       * The `origin` indicates the origin of the solution. If `origin` is `Some(AccountId)`,
+       * the stored solution was submited in the signed phase by a miner with the `AccountId`.
+       * Otherwise, the solution was stored either during the unsigned phase or by
+       * `T::ForceOrigin`. The `bool` is `true` when a previous solution was ejected to make
+       * room for this one.
+       **/
+      SolutionStored: AugmentedEvent<ApiType, [PalletElectionProviderMultiPhaseElectionCompute, Option<AccountId32>, bool]>;
       /**
        * Generic event
        **/
@@ -1423,26 +1461,28 @@ declare module '@polkadot/api-base/types/events' {
        **/
       Bonded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, u128]>;
       /**
-       * When commission cap get updated.
-       * (old value, new value)
+       * An account has stopped participating as either a validator or nominator.
        **/
-      CommissionCapUpdated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, Perbill, Perbill]>;
+      Chilled: AugmentedEvent<ApiType, [AccountId32]>;
       /**
        * The era payout has been set; the first balance is the validator-payout; the second is
        * the remainder from the maximum amount of reward.
        **/
-      EraPayout: AugmentedEvent<ApiType, [u32, u128, u128]>;
+      EraPaid: AugmentedEvent<ApiType, [u32, u128, u128]>;
+      /**
+       * A new force era mode was set.
+       **/
+      ForceEra: AugmentedEvent<ApiType, [PalletStakingForcing]>;
       /**
        * Remove the nominators from the valid nominators when there CDD expired.
-       * Caller, Stash accountId of nominators
        **/
-      InvalidatedNominators: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, Vec<AccountId32>]>;
+      InvalidatedNominators: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityId, Vec<AccountId32>]>;
       /**
-       * Min bond threshold was updated (new value).
+       * A nominator has been kicked from a validator.
        **/
-      MinimumBondThresholdUpdated: AugmentedEvent<ApiType, [Option<PolymeshPrimitivesIdentityId>, u128]>;
+      Kicked: AugmentedEvent<ApiType, [AccountId32, AccountId32]>;
       /**
-       * User has updated their nominations
+       * User has updated their nominations.
        **/
       Nominated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, Vec<AccountId32>]>;
       /**
@@ -1451,48 +1491,82 @@ declare module '@polkadot/api-base/types/events' {
        **/
       OldSlashingReportDiscarded: AugmentedEvent<ApiType, [u32]>;
       /**
-       * An DID has issued a candidacy. See the transaction for who.
-       * GC identity , Validator's identity.
+       * The stakers' rewards are getting paid.
+       **/
+      PayoutStarted: AugmentedEvent<ApiType, [u32, AccountId32]>;
+      /**
+       * An identity has issued a candidacy for becoming a validator.
        **/
       PermissionedIdentityAdded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityId]>;
       /**
-       * The given member was removed. See the transaction for who.
-       * GC identity , Validator's identity.
+       * An identity has been removed from the permissioned identities pool.
        **/
       PermissionedIdentityRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityId]>;
       /**
        * The nominator has been rewarded by this amount.
        **/
-      Reward: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, u128]>;
+      Rewarded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, u128]>;
       /**
-       * When scheduling of reward payments get interrupted.
+       * Reward scheduling interrupted.
        **/
       RewardPaymentSchedulingInterrupted: AugmentedEvent<ApiType, [AccountId32, u32, SpRuntimeDispatchError]>;
       /**
        * A staker (validator or nominator) has been slashed by the given amount.
        **/
-      Slash: AugmentedEvent<ApiType, [AccountId32, u128]>;
+      Slashed: AugmentedEvent<ApiType, [AccountId32, u128]>;
       /**
-       * Update for whom balance get slashed.
+       * 
        **/
       SlashingAllowedForChanged: AugmentedEvent<ApiType, [PalletStakingSlashingSwitch]>;
       /**
-       * A new solution for the upcoming election has been stored.
+       * A slash for the given validator, for the given percentage of their stake, at the given
+       * era as been reported.
        **/
-      SolutionStored: AugmentedEvent<ApiType, [PalletStakingElectionCompute]>;
+      SlashReported: AugmentedEvent<ApiType, [AccountId32, Perbill, u32]>;
       /**
        * A new set of stakers was elected.
        **/
-      StakingElection: AugmentedEvent<ApiType, [PalletStakingElectionCompute]>;
+      StakersElected: AugmentedEvent<ApiType, []>;
+      /**
+       * The election failed. No new era is planned.
+       **/
+      StakingElectionFailed: AugmentedEvent<ApiType, []>;
       /**
        * An account has unbonded this amount.
        **/
       Unbonded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, u128]>;
       /**
+       * A validator has set their preferences.
+       **/
+      ValidatorPrefsSet: AugmentedEvent<ApiType, [AccountId32, PalletStakingValidatorPrefs]>;
+      /**
        * An account has called `withdraw_unbonded` and removed unbonding chunks worth `Balance`
        * from the unlocking queue.
        **/
       Withdrawn: AugmentedEvent<ApiType, [AccountId32, u128]>;
+      /**
+       * Generic event
+       **/
+      [key: string]: AugmentedEvent<ApiType>;
+    };
+    stateTrieMigration: {
+      /**
+       * The auto migration task finished.
+       **/
+      AutoMigrationFinished: AugmentedEvent<ApiType, []>;
+      /**
+       * Migration got halted due to an error or miss-configuration.
+       **/
+      Halted: AugmentedEvent<ApiType, [PalletStateTrieMigrationError]>;
+      /**
+       * Given number of `(top, child)` keys were migrated respectively, with the given
+       * `compute`.
+       **/
+      Migrated: AugmentedEvent<ApiType, [u32, u32, PalletStateTrieMigrationMigrationCompute]>;
+      /**
+       * Some account got slashed by the given amount.
+       **/
+      Slashed: AugmentedEvent<ApiType, [AccountId32, u128]>;
       /**
        * Generic event
        **/
