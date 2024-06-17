@@ -22,6 +22,7 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public, H256};
 use sp_runtime::traits::{AccountIdConversion, IdentifyAccount, Verify};
+use sp_runtime::PerThing;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -463,6 +464,7 @@ macro_rules! staking {
     ($auths:expr, $stakers:expr, $cap:expr) => {
         pallet_staking::GenesisConfig {
             validator_count: 40,
+            validator_commission_cap: $cap,
             minimum_validator_count: 1,
             stakers: $stakers,
             invulnerables: vec![],
