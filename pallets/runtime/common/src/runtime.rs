@@ -589,8 +589,11 @@ macro_rules! misc_pallet_impls {
             type EstimateCallFee = polymesh_runtime_common::impls::EstimateCallFeeMax;
             // Duration of the unsigned phase
             type UnsignedPhase = polymesh_runtime_common::UnsignedPhase;
+            #[cfg(not(feature = "runtime-benchmarks"))]
             // Duration of the signed phase
             type SignedPhase = polymesh_runtime_common::SignedPhase;
+            #[cfg(feature = "runtime-benchmarks")]
+            type SignedPhase = polymesh_runtime_common::SignedPhaseBench;
             // The minimum amount of improvement to the solution score in the Signed phase
             type BetterSignedThreshold = ();
             // The minimum amount of improvement to the solution score in the Unsigned phase
@@ -628,10 +631,10 @@ macro_rules! misc_pallet_impls {
             // Something that will provide the election data
             type DataProvider = Staking;
             // Configuration for the fallback
-            type Fallback = frame_election_provider_support::onchain::OnChainExecution<Self>;
+            type Fallback = frame_election_provider_support::onchain::OnChainExecution<OnChainSeqPhragmen>;
             // Configuration of the governance-only fallback
             type GovernanceFallback =
-                frame_election_provider_support::onchain::OnChainExecution<Self>;
+                frame_election_provider_support::onchain::OnChainExecution<OnChainSeqPhragmen>;
             // OCW election solution miner algorithm implementation
             type Solver = frame_election_provider_support::SequentialPhragmen<
                 polymesh_primitives::AccountId,
@@ -664,20 +667,6 @@ macro_rules! misc_pallet_impls {
 	        		pallet_election_provider_multi_phase::WeightInfo
 	        	>::submit_unsigned(v, t, a, d)
 	        }
-        }
-
-        impl frame_election_provider_support::onchain::Config for Runtime {
-            type System = Self;
-            type Solver = frame_election_provider_support::SequentialPhragmen<
-                polymesh_primitives::AccountId,
-                pallet_election_provider_multi_phase::SolutionAccuracyOf<Self>,
-            >;
-            type DataProvider =
-                <Self as pallet_election_provider_multi_phase::Config>::DataProvider;
-            type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Self>;
-            type MaxWinners = <Self as pallet_election_provider_multi_phase::Config>::MaxWinners;
-            type VotersBound = polymesh_runtime_common::MaxOnChainElectingVoters;
-            type TargetsBound = polymesh_runtime_common::MaxOnChainElectableTargets;
         }
     };
 }

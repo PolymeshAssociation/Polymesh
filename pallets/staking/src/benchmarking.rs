@@ -107,6 +107,7 @@ where
 {
     // Clean up any existing state.
     clear_validators_and_nominators::<T>();
+
     let mut points_total = 0;
     let mut points_individual = Vec::new();
 
@@ -116,6 +117,7 @@ where
         commission: Perbill::from_percent(50),
         ..Default::default()
     };
+    Staking::<T>::set_commission_cap(RawOrigin::Root.into(), Perbill::from_percent(60)).unwrap();
     Staking::<T>::set_validator_count(RawOrigin::Root.into(), 10)?;
     Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), v_stash.did(), Some(2))?;
     Staking::<T>::validate(v_controller.origin().into(), validator_prefs)?;
@@ -818,6 +820,7 @@ benchmarks! {
             create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
         let validator_prefs =
             ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
+        Staking::<T>::set_commission_cap(RawOrigin::Root.into(), Perbill::from_percent(60)).unwrap();
         Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), stash.did(), Some(2))?;
         Staking::<T>::validate(controller.origin().into(), validator_prefs)?;
         assert!(T::VoterList::contains(&stash.account()));
@@ -847,6 +850,7 @@ benchmarks! {
             create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
         let validator_prefs =
             ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
+        Staking::<T>::set_commission_cap(RawOrigin::Root.into(), Perbill::from_percent(60)).unwrap();
         Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), stash.did(), Some(2))?;
         Staking::<T>::validate(controller.origin().into(), validator_prefs)?;
 
@@ -958,6 +962,31 @@ benchmarks! {
         for key in signatories {
             assert!(!<Validators<T>>::contains_key(&key));
         }
+    }
+
+    set_commission_cap {
+        let m in 0 .. 150;
+
+        let mut stashes = Vec::with_capacity(m as usize);
+        for i in 0 .. m {
+            let stash = create_funded_user::<T>("stash", i, 1000);
+            stashes.push(stash.account());
+            Validators::<T>::insert(
+                stash.account(),
+                ValidatorPrefs {
+                    commission: Perbill::from_percent(70),
+                    ..Default::default()
+                }
+            );
+        }
+    }: _(RawOrigin::Root, Perbill::from_percent(50))
+    verify {
+        stashes.iter().for_each(|s| {
+            assert_eq!(
+                Staking::<T>::validators(s),
+                ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() }
+            );
+        });
     }
     // -----------------------------------------------------------------
 }

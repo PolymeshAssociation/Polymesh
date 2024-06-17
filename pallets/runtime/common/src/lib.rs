@@ -152,6 +152,7 @@ parameter_types! {
     // Multi-phase election parameters
     // Signed phase
     pub const SignedPhase: u32 = 0;
+    pub const SignedPhaseBench: u32 = 1_200;
     pub const SignedMaxSubmissions: u32 = 0;
     pub const SignedMaxWeight: Weight = Weight::zero();
     pub const SignedMaxRefunds: u32 = 0;

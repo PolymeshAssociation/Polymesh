@@ -759,4 +759,7 @@ impl pallet_staking::WeightInfo for SubstrateWeight {
     fn chill_from_governance(_n: u32) -> Weight {
         Weight::zero()
     }
+    fn set_commission_cap(_n: u32) -> Weight {
+        Weight::zero()
+    }
 }

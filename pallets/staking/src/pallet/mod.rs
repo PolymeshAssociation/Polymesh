@@ -52,6 +52,7 @@ use crate::{
 // -----------------------------------------------------------------
 use frame_support::traits::schedule::Anon;
 use frame_support::traits::IsSubType;
+use frame_system::offchain::SendTransactionTypes;
 use sp_runtime::traits::{AccountIdConversion, Dispatchable};
 use sp_runtime::Permill;
 
@@ -95,7 +96,12 @@ pub mod pallet {
     }
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + pallet_babe::Config + IdentityConfig {
+    pub trait Config:
+        frame_system::Config
+        + SendTransactionTypes<Call<Self>>
+        + pallet_babe::Config
+        + IdentityConfig
+    {
         /// The staking balance.
         type Currency: LockableCurrency<
             Self::AccountId,
@@ -631,6 +637,11 @@ pub mod pallet {
     #[pallet::getter(fn slashing_allowed_for)]
     pub type SlashingAllowedFor<T: Config> = StorageValue<_, SlashingSwitch, ValueQuery>;
 
+    /// Allows flexibility in commission. Every validator has commission that should be in the range [0, Cap].
+    #[pallet::storage]
+    #[pallet::getter(fn validator_commission_cap)]
+    pub type ValidatorCommissionCap<T: Config> = StorageValue<_, Perbill, ValueQuery>;
+
     #[pallet::storage]
     #[pallet::getter(fn storage_version)]
     pub type PolymeshStorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
@@ -657,6 +668,7 @@ pub mod pallet {
         pub max_validator_count: Option<u32>,
         pub max_nominator_count: Option<u32>,
         pub slashing_allowed_for: SlashingSwitch,
+        pub validator_commission_cap: Perbill,
     }
 
     #[cfg(feature = "std")]
@@ -675,6 +687,7 @@ pub mod pallet {
                 max_validator_count: None,
                 max_nominator_count: None,
                 slashing_allowed_for: Default::default(),
+                validator_commission_cap: Default::default(),
             }
         }
     }
@@ -691,6 +704,7 @@ pub mod pallet {
             MinNominatorBond::<T>::put(self.min_nominator_bond);
             MinValidatorBond::<T>::put(self.min_validator_bond);
             SlashingAllowedFor::<T>::put(self.slashing_allowed_for);
+            ValidatorCommissionCap::<T>::put(self.validator_commission_cap);
             PolymeshStorageVersion::<T>::put(Version::new(2));
             if let Some(x) = self.max_validator_count {
                 MaxValidatorsCount::<T>::put(x);
@@ -735,7 +749,10 @@ pub mod pallet {
                         // -----------------------------------------------------------------
                         <Pallet<T>>::validate(
                             T::RuntimeOrigin::from(Some(controller.clone()).into()),
-                            Default::default(),
+                            ValidatorPrefs {
+                                commission: self.validator_commission_cap,
+                                blocked: Default::default(),
+                            },
                         )
                     }
                     crate::StakerStatus::Nominator(votes) => <Pallet<T>>::nominate(
@@ -862,13 +879,19 @@ pub mod pallet {
             governance_councill_account: IdentityId,
             expired_nominators: Vec<T::AccountId>,
         },
-        ///
+        /// Slashing allowed has been updated.
         SlashingAllowedForChanged { slashing_switch: SlashingSwitch },
         /// Reward scheduling interrupted.
         RewardPaymentSchedulingInterrupted {
             account_id: T::AccountId,
             era: EraIndex,
             error: DispatchError,
+        },
+        /// Commission cap has been updated.
+        CommissionCapUpdated {
+            governance_councill_did: IdentityId,
+            old_commission_cap: Perbill,
+            new_commission_cap: Perbill,
         },
         // -----------------------------------------------------------------
     }
@@ -944,6 +967,10 @@ pub mod pallet {
         IdentityNotFound,
         /// No validator was found for the given key.
         ValidatorNotFound,
+        /// Validator commiission is above maximum.
+        CommissionTooHigh,
+        /// New commission must be different from previous commission.
+        CommissionUnchanged,
     }
 
     #[pallet::hooks]
@@ -1259,6 +1286,12 @@ pub mod pallet {
             ensure!(
                 prefs.commission >= MinCommission::<T>::get(),
                 Error::<T>::CommissionTooLow
+            );
+
+            // ensure their commission is correct.
+            ensure!(
+                prefs.commission <= Self::validator_commission_cap(),
+                Error::<T>::CommissionTooHigh
             );
 
             // Polymesh change
@@ -2183,6 +2216,37 @@ pub mod pallet {
             Self::base_chill_from_governance(origin, identity, stash_keys)
         }
 
+        /// Changes commission rate which applies to all validators. Only Governance
+        /// committee is allowed to change this value.
+        ///
+        /// # Arguments
+        /// * `new_cap` the new commission cap.
+        #[pallet::call_index(33)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_commission_cap(150))]
+        pub fn set_commission_cap(origin: OriginFor<T>, new_cap: Perbill) -> DispatchResult {
+            T::AdminOrigin::ensure_origin(origin.clone())?;
+
+            // Update the cap, assuming it changed, or error.
+            let old_cap =
+                ValidatorCommissionCap::<T>::try_mutate(|cap| -> Result<_, DispatchError> {
+                    ensure!(*cap != new_cap, Error::<T>::CommissionUnchanged);
+                    Ok(core::mem::replace(cap, new_cap))
+                })?;
+
+            // Update `commission` in each validator prefs to `min(comission, new_cap)`.
+            <Validators<T>>::translate(|_, mut prefs: ValidatorPrefs| {
+                prefs.commission = prefs.commission.min(new_cap);
+                Some(prefs)
+            });
+
+            Self::deposit_event(Event::<T>::CommissionCapUpdated {
+                governance_councill_did: GC_DID,
+                old_commission_cap: old_cap,
+                new_commission_cap: new_cap,
+            });
+
+            Ok(())
+        }
         // -----------------------------------------------------------------
     }
 }

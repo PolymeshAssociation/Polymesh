@@ -402,7 +402,7 @@ construct_runtime!(
 
         TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 50,
 
-        ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>},
+        ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
 
         StateTrieMigration: pallet_state_trie_migration::{Pallet, Call, Storage, Event<T> } = 100,
     }
@@ -423,4 +423,19 @@ impl DryRunRuntimeUpgrade for Runtime {
     fn dry_run_runtime_upgrade() -> Weight {
         <AllPallets as OnRuntimeUpgrade>::on_runtime_upgrade()
     }
+}
+
+pub struct OnChainSeqPhragmen;
+
+impl frame_election_provider_support::onchain::Config for OnChainSeqPhragmen {
+    type System = Runtime;
+    type Solver = frame_election_provider_support::SequentialPhragmen<
+        polymesh_primitives::AccountId,
+        pallet_election_provider_multi_phase::SolutionAccuracyOf<Runtime>,
+    >;
+    type DataProvider = <Runtime as pallet_election_provider_multi_phase::Config>::DataProvider;
+    type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
+    type MaxWinners = <Runtime as pallet_election_provider_multi_phase::Config>::MaxWinners;
+    type VotersBound = polymesh_runtime_common::MaxOnChainElectingVoters;
+    type TargetsBound = polymesh_runtime_common::MaxOnChainElectableTargets;
 }

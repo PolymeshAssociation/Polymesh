@@ -338,7 +338,7 @@ frame_support::construct_runtime!(
 
         StateTrieMigration: pallet_state_trie_migration::{Pallet, Call, Storage, Event<T>} = 210,
 
-        ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>},
+        ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
     }
 );
 
@@ -1046,4 +1046,19 @@ fn signed_extra(nonce: Index) -> SignedExtra {
         pallet_transaction_payment::ChargeTransactionPayment::from(0),
         pallet_permissions::StoreCallMetadata::new(),
     )
+}
+
+pub struct OnChainSeqPhragmen;
+
+impl frame_election_provider_support::onchain::Config for OnChainSeqPhragmen {
+    type System = Runtime;
+    type Solver = frame_election_provider_support::SequentialPhragmen<
+        polymesh_primitives::AccountId,
+        pallet_election_provider_multi_phase::SolutionAccuracyOf<Runtime>,
+    >;
+    type DataProvider = <Runtime as pallet_election_provider_multi_phase::Config>::DataProvider;
+    type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
+    type MaxWinners = <Runtime as pallet_election_provider_multi_phase::Config>::MaxWinners;
+    type VotersBound = polymesh_runtime_common::MaxOnChainElectingVoters;
+    type TargetsBound = polymesh_runtime_common::MaxOnChainElectableTargets;
 }

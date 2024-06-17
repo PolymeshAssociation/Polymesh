@@ -5551,6 +5551,10 @@ fn capped_stakers_works() {}
 #[test]
 fn min_commission_works() {
     ExtBuilder::default().build_and_execute(|| {
+        assert_ok!(Staking::set_commission_cap(
+            RuntimeOrigin::root(),
+            Perbill::from_percent(60)
+        ));
         // account 10 controls the stash from account 11
         assert_ok!(Staking::validate(
             RuntimeOrigin::signed(10),
@@ -5801,6 +5805,10 @@ fn force_apply_min_commission_works() {
     };
     let validators = || Validators::<Test>::iter().collect::<Vec<_>>();
     ExtBuilder::default().build_and_execute(|| {
+        assert_ok!(Staking::set_commission_cap(
+            RuntimeOrigin::root(),
+            Perbill::from_percent(60)
+        ));
         assert_ok!(Staking::validate(RuntimeOrigin::signed(30), prefs(10)));
         assert_ok!(Staking::validate(RuntimeOrigin::signed(20), prefs(5)));
 
@@ -6457,6 +6465,10 @@ fn set_min_commission_works_with_admin_origin() {
         );
 
         // setting commission >= min_commission works
+        assert_ok!(Staking::set_commission_cap(
+            RuntimeOrigin::root(),
+            Perbill::from_percent(60)
+        ));
         assert_ok!(Staking::validate(
             RuntimeOrigin::signed(10),
             ValidatorPrefs {

@@ -168,6 +168,7 @@ pub fn create_validators_with_seed<T>(
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
 {
+    Staking::<T>::set_commission_cap(RawOrigin::Root.into(), Perbill::from_percent(50)).unwrap();
     let mut validators: Vec<AccountIdLookupOf<T>> = Vec::with_capacity(max as usize);
     for i in 0..max {
         let (stash, controller) =
@@ -183,6 +184,7 @@ where
         Staking::<T>::validate(controller.origin().into(), validator_prefs)?;
         validators.push(stash.lookup());
     }
+
     Ok(validators)
 }
 
@@ -213,6 +215,7 @@ where
 {
     clear_validators_and_nominators::<T>();
 
+    Staking::<T>::set_commission_cap(RawOrigin::Root.into(), Perbill::from_percent(50)).unwrap();
     let mut validators_stash: Vec<AccountIdLookupOf<T>> = Vec::with_capacity(validators as usize);
     let mut rng = ChaChaRng::from_seed(SEED.using_encoded(blake2_256));
 
