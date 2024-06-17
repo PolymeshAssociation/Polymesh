@@ -234,9 +234,9 @@ impl<T: Config> Module<T> {
 
     pub fn remove_key_permissions(key: &T::AccountId) {
         // Remove the key's permissions.
-        KeyAssetPermissions::<T>::kill(key);
-        KeyExtrinsicPermissions::<T>::kill(key);
-        KeyPortfolioPermissions::<T>::kill(key);
+        KeyAssetPermissions::<T>::remove(key);
+        KeyExtrinsicPermissions::<T>::remove(key);
+        KeyPortfolioPermissions::<T>::remove(key);
     }
 
     /// Add a `KeyRecord` for an `AccountId` key, if it doesn't exist.
