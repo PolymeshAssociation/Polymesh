@@ -6,6 +6,7 @@ import type {
   DocumentName,
   Document,
   These,
+  TheseMap,
   DispatchableName,
   PalletName,
   PalletPermissions,
@@ -75,7 +76,7 @@ export async function setPortfolio(
  * @description Adds extrinsic to extrinsic array
  */
 export function setExtrinsic(
-  extrinsics: These<[PalletName, PalletPermissions]>,
+  extrinsics: TheseMap<PalletName, PalletPermissions>,
   palletName: string,
   dispatchName: string
 ): void {
@@ -87,6 +88,5 @@ export function setExtrinsic(
       return;
     }
   }
-  extrinsics.These.push([palletName, { extrinsics: { These: [dispatchName] }}]);
-  extrinsics.These.sort((a, b) => (a[0] > b[0] ? 1 : -1));
+  extrinsics.These.set(palletName, { extrinsics: { These: [dispatchName] }});
 }

@@ -1,4 +1,6 @@
 import type { AccountId } from "@polkadot/types/interfaces/runtime";
+import type { Option, u64, BTreeMap, Text } from '@polkadot/types-codec';
+import { Codec } from '@polkadot/types/types';
 import type { IdentityId, CountryCode } from "../src/interfaces";
 
 export interface Document {
@@ -57,9 +59,9 @@ export type NonceObject = { nonce: string };
 export type PortfolioNumber = number;
 export type ScopeId = string;
 export type CddId = string;
-export type PalletName = string;
+export type PalletName = Text;
 export type DispatchableName = string;
-export type Expiry = string | object | Uint8Array | null;
+export type Expiry = Option<u64> | null;
 export type DocumentName = string;
 export type DocumentUri = string;
 export type Signatory = { Identity: IdentityId } | { Account: AccountId | Uint8Array};
@@ -85,9 +87,17 @@ export type These<T> = {
 export type Except<T> = {
   Except: T[];
 };
+export type TheseMap<K extends Codec, T extends Codec> = {
+  These: BTreeMap<K, T>;
+};
+
+export type ExceptMap<K extends Codec, T extends Codec> = {
+  Except: BTreeMap<K, T>;
+};
 export type SubsetRestriction<T> = Whole | These<T> | Except<T>;
+export type SubmapRestriction<K extends Codec, T extends Codec> = Whole | TheseMap<K, T> | ExceptMap<K, T>;
 export type AssetPermissions = SubsetRestriction<Ticker>;
-export type ExtrinsicPermissions = SubsetRestriction<[PalletName, PalletPermissions]>;
+export type ExtrinsicPermissions = SubmapRestriction<PalletName, PalletPermissions>;
 export type PortfolioPermissions = SubsetRestriction<PortfolioId>;
 
 export type Permissions = {
