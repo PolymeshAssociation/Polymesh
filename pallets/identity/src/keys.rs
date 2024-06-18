@@ -40,8 +40,8 @@ use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
 };
 use polymesh_primitives::{
-    extract_auth, AuthorizationData, DidRecord, DispatchableName, ExtrinsicPermissions, IdentityId,
-    KeyRecord, PalletName, Permissions, SecondaryKey, Signatory, SubsetRestriction,
+    extract_auth, AuthorizationData, DidRecord, ExtrinsicName, ExtrinsicPermissions, IdentityId,
+    KeyRecord, PalletName, Permissions, SecondaryKey, Signatory,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -932,34 +932,22 @@ impl<T: Config> Module<T> {
     // Ensures that extrinsic permissions do not use the Except variant
     // This is considered unsafe since extrinsic names can change or be replaced with newer versions
     pub fn ensure_no_except_perms(perms: &ExtrinsicPermissions) -> DispatchResult {
-        let _ = match perms {
-            SubsetRestriction::Except(_) => {
-                return Err(Error::<T>::ExceptNotAllowedForExtrinsics.into());
-            }
-            SubsetRestriction::These(pallet_permissions) => {
-                for elem in pallet_permissions {
-                    if let SubsetRestriction::Except(_) = elem.dispatchable_names {
-                        return Err(Error::<T>::ExceptNotAllowedForExtrinsics.into());
-                    }
-                }
-                return Ok(());
-            }
-            SubsetRestriction::Whole => {
-                return Ok(());
-            }
-        };
+        if !perms.check_no_except_perms() {
+            return Err(Error::<T>::ExceptNotAllowedForExtrinsics.into());
+        }
+        Ok(())
     }
 
     /// Ensures length limits are enforced in `perms`.
     pub fn ensure_extrinsic_perms_length_limited(perms: &ExtrinsicPermissions) -> DispatchResult {
         if let Some(set) = perms.inner() {
             ensure_custom_length_ok::<T>(set.len(), MAX_PALLETS)?;
-            for elem in set {
-                ensure_custom_string_limited::<T>(&elem.pallet_name, MAX_NAME_LEN)?;
-                if let Some(set) = elem.dispatchable_names.inner() {
+            for (name, elem) in set {
+                ensure_custom_string_limited::<T>(name.as_bytes(), MAX_NAME_LEN)?;
+                if let Some(set) = elem.extrinsics.inner() {
                     ensure_custom_length_ok::<T>(set.len(), MAX_EXTRINSICS)?;
                     for elem in set {
-                        ensure_custom_string_limited::<T>(elem, MAX_NAME_LEN)?;
+                        ensure_custom_string_limited::<T>(elem.as_bytes(), MAX_NAME_LEN)?;
                     }
                 }
             }
@@ -973,7 +961,7 @@ impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Module<T> {
     fn check_account_call_permissions(
         who: &T::AccountId,
         pallet_name: impl FnOnce() -> PalletName,
-        function_name: impl FnOnce() -> DispatchableName,
+        function_name: impl FnOnce() -> ExtrinsicName,
     ) -> Option<AccountCallPermissionsData<T::AccountId>> {
         let data = |did, secondary_key| AccountCallPermissionsData {
             primary_did: did,

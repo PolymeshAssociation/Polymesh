@@ -18,9 +18,16 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+#[cfg(not(feature = "std"))]
+use alloc::{
+    format,
+    string::{String, ToString},
+};
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
-use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
+use polymesh_primitives_derive::{SliceU8StrongTyped, StringStrongTyped, VecU8StrongTyped};
 use scale_info::TypeInfo;
 use sp_runtime::{generic, traits::BlakeTwo256, MultiSignature};
 #[cfg(feature = "std")]
@@ -261,16 +268,30 @@ pub struct Memo(pub [u8; 32]);
 pub struct Url(#[cfg_attr(feature = "std", serde(with = "serde_bytes"))] pub Vec<u8>);
 
 /// The name of a pallet.
-#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Encode, Decode, TypeInfo, StringStrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct PalletName(pub Vec<u8>);
+pub struct PalletName(pub String);
 
-/// The name of a function within a pallet.
-#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+impl PalletName {
+    /// Helper method to generate a PalletName.  Used for tests and benchmarks.
+    pub fn generate(n: u64) -> Self {
+        Self(format!("P{n}"))
+    }
+}
+
+/// The name of an extrinsic within a pallet.
+#[derive(Encode, Decode, TypeInfo, StringStrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct DispatchableName(pub Vec<u8>);
+pub struct ExtrinsicName(pub String);
+
+impl ExtrinsicName {
+    /// Helper method to generate a PalletName.  Used for tests and benchmarks.
+    pub fn generate(n: u64) -> Self {
+        Self(format!("E{n}"))
+    }
+}
 
 /// Compile time assert.
 #[macro_export]

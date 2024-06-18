@@ -34,14 +34,15 @@ use polymesh_common_utilities::{
 use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::{
     AccountId, AssetPermissions, AuthorizationData, AuthorizationType, Claim, ClaimType,
-    CustomClaimTypeId, DispatchableName, ExtrinsicPermissions, IdentityClaim, IdentityId,
-    KeyRecord, PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope,
-    SecondaryKey, Signatory, SubsetRestriction, Ticker, TransactionError,
+    CustomClaimTypeId, ExtrinsicName, ExtrinsicPermissions, IdentityClaim, IdentityId, KeyRecord,
+    PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope, SecondaryKey,
+    Signatory, SubsetRestriction, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
 use sp_core::H512;
 use sp_keyring::AccountKeyring;
 use sp_runtime::transaction_validity::InvalidTransaction;
+use sp_std::iter;
 use std::convert::From;
 
 type AuthorizationsGiven = pallet_identity::AuthorizationsGiven<TestStorage>;
@@ -506,7 +507,7 @@ fn run_add_secondary_key_with_perm_test(
 
     let perm1 = Permissions::empty();
     let perm2 = Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
-        b"identity".into(),
+        "identity".into(),
     )]);
 
     // Count alice's secondary keys.
@@ -562,7 +563,7 @@ fn do_add_secondary_keys_with_permissions_test() {
     add_secondary_key(alice.did, bob.acc());
 
     let permissions = Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
-        b"identity".into(),
+        "identity".into(),
     )]);
     // Try adding bob again with custom permissions
     let auth_id = Identity::add_auth(
@@ -652,7 +653,7 @@ fn do_remove_secondary_keys_test() {
         alice.origin(),
         bob.acc(),
         Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
-            b"identity".into(),
+            "identity".into(),
         )])
         .into(),
     );
@@ -973,28 +974,30 @@ fn one_step_join_id_with_ext() {
     );
 }
 
+pub(crate) fn max_len_string<R: From<String>>(add: u32) -> R {
+    iter::repeat('A')
+        .take((max_len() + add) as usize)
+        .collect::<String>()
+        .into()
+}
+
 pub(crate) fn test_with_bad_ext_perms(test: impl Fn(ExtrinsicPermissions)) {
-    test(SubsetRestriction::elems(
+    test(ExtrinsicPermissions::these(
         (0..=max_len() as u64)
-            .map(Ticker::generate)
-            .map(PalletName::from)
+            .map(PalletName::generate)
             .map(PalletPermissions::entire_pallet),
     ));
-    test(SubsetRestriction::elem(PalletPermissions::entire_pallet(
-        max_len_bytes(1),
-    )));
-    test(SubsetRestriction::elem(PalletPermissions::new(
+    test(ExtrinsicPermissions::these([
+        PalletPermissions::entire_pallet(max_len_string(1)),
+    ]));
+    test(ExtrinsicPermissions::these([PalletPermissions::new(
         "".into(),
-        SubsetRestriction::elems(
-            (0..=max_len() as u64)
-                .map(Ticker::generate)
-                .map(DispatchableName::from),
-        ),
-    )));
-    test(SubsetRestriction::elem(PalletPermissions::new(
+        SubsetRestriction::elems((0..=max_len() as u64).map(ExtrinsicName::generate)),
+    )]));
+    test(ExtrinsicPermissions::these([PalletPermissions::new(
         "".into(),
-        SubsetRestriction::elem(max_len_bytes(1)),
-    )));
+        SubsetRestriction::elem(max_len_string(1)),
+    )]));
 }
 
 pub(crate) fn test_with_bad_perms(did: IdentityId, test: impl Fn(Permissions)) {

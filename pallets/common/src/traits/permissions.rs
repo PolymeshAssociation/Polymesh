@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use polymesh_primitives::{DispatchableName, IdentityId, PalletName, SecondaryKey};
+use polymesh_primitives::{ExtrinsicName, IdentityId, PalletName, SecondaryKey};
 
 /// Permissions module configuration trait.
 pub trait Config: frame_system::Config {
@@ -44,6 +44,6 @@ pub trait CheckAccountCallPermissions<AccountId> {
     fn check_account_call_permissions(
         who: &AccountId,
         pallet_name: impl FnOnce() -> PalletName,
-        function_name: impl FnOnce() -> DispatchableName,
+        function_name: impl FnOnce() -> ExtrinsicName,
     ) -> Option<AccountCallPermissionsData<AccountId>>;
 }

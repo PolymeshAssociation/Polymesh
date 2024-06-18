@@ -5,8 +5,10 @@ pub use polymesh_api_tester::*;
 use std::collections::{BTreeMap, BTreeSet};
 
 use polymesh_api::types::polymesh_primitives::{
-    identity_id::PortfolioId, secondary_key::PalletPermissions, subset::SubsetRestriction,
-    DispatchableName, PalletName,
+    identity_id::PortfolioId,
+    secondary_key::{ExtrinsicPermissions, PalletPermissions},
+    subset::SubsetRestriction,
+    ExtrinsicName, PalletName,
 };
 use polymesh_api::*;
 
@@ -147,30 +149,21 @@ impl PalletPermissionsBuilder {
         pallet.add(&extrinsic.to_string());
     }
 
-    fn build_entries(&self) -> BTreeSet<PalletPermissions> {
+    fn build_entries(&self) -> BTreeMap<PalletName, PalletPermissions> {
         if let Some(entries) = &self.entries {
             entries
                 .iter()
                 .map(|(pallet, extrinsics)| {
-                    let dispatchable_names = match extrinsics.build() {
+                    let extrinsics = match extrinsics.build() {
                         SubsetRestriction::Whole => SubsetRestriction::Whole,
                         SubsetRestriction::These(names) => SubsetRestriction::These(
-                            names
-                                .into_iter()
-                                .map(|n| DispatchableName(n.as_bytes().into()))
-                                .collect(),
+                            names.into_iter().map(|n| ExtrinsicName(n.into())).collect(),
                         ),
                         SubsetRestriction::Except(names) => SubsetRestriction::Except(
-                            names
-                                .into_iter()
-                                .map(|n| DispatchableName(n.as_bytes().into()))
-                                .collect(),
+                            names.into_iter().map(|n| ExtrinsicName(n.into())).collect(),
                         ),
                     };
-                    PalletPermissions {
-                        pallet_name: PalletName(pallet.as_bytes().into()),
-                        dispatchable_names,
-                    }
+                    (PalletName(pallet.into()), PalletPermissions { extrinsics })
                 })
                 .collect()
         } else {
@@ -178,11 +171,11 @@ impl PalletPermissionsBuilder {
         }
     }
 
-    pub fn build(&self) -> SubsetRestriction<PalletPermissions> {
+    pub fn build(&self) -> ExtrinsicPermissions {
         match &self.mode {
-            RestrictionMode::Whole => SubsetRestriction::Whole,
-            RestrictionMode::These => SubsetRestriction::These(self.build_entries()),
-            RestrictionMode::Except => SubsetRestriction::Except(self.build_entries()),
+            RestrictionMode::Whole => ExtrinsicPermissions::Whole,
+            RestrictionMode::These => ExtrinsicPermissions::These(self.build_entries()),
+            RestrictionMode::Except => ExtrinsicPermissions::Except(self.build_entries()),
         }
     }
 }

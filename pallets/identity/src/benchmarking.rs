@@ -17,7 +17,6 @@ use crate::*;
 
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
-use scale_info::prelude::format;
 use sp_core::H512;
 use sp_std::prelude::*;
 
@@ -29,11 +28,11 @@ use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS, MAX_SECONDARY_KEYS,
 };
-use polymesh_primitives::secondary_key::DispatchableNames;
+use polymesh_primitives::secondary_key::ExtrinsicNames;
 use polymesh_primitives::{
-    AssetPermissions, AuthorizationData, Claim, CountryCode, DispatchableName,
-    ExtrinsicPermissions, PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber,
-    PortfolioPermissions, Scope, SecondaryKey, Signatory,
+    AssetPermissions, AuthorizationData, Claim, CountryCode, ExtrinsicName, ExtrinsicPermissions,
+    PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, PortfolioPermissions,
+    Scope, SecondaryKey, Signatory,
 };
 
 const SEED: u32 = 0;
@@ -311,17 +310,16 @@ benchmarks! {
                 PortfolioId::user_portfolio(did.into(), PortfolioNumber(0))
             })
         );
-        let dispatchable_names = DispatchableNames::elems(
+        let extrinsics = ExtrinsicNames::elems(
             (0..e as u64).map(|e| {
-                DispatchableName(format!("Calls{}", e).as_bytes().into())
+                ExtrinsicName::generate(e)
             })
         );
-        let extrinsic = ExtrinsicPermissions::elems(
+        let extrinsic = ExtrinsicPermissions::these(
             (0..l as u64).map(|p| {
-                PalletPermissions {
-                    pallet_name: PalletName(format!("Pallet{}", p).as_bytes().into()),
-                    dispatchable_names: dispatchable_names.clone(),
-                }
+                (PalletName::generate(p), PalletPermissions {
+                    extrinsics: extrinsics.clone(),
+                })
             })
         );
 

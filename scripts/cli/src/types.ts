@@ -1,6 +1,5 @@
 import type { AccountId } from "@polkadot/types/interfaces/runtime";
 import type { IdentityId, CountryCode } from "../src/interfaces";
-import type { AnyNumber } from "@polkadot/types/types";
 
 export interface Document {
   uri: DocumentUri;
@@ -88,7 +87,7 @@ export type Except<T> = {
 };
 export type SubsetRestriction<T> = Whole | These<T> | Except<T>;
 export type AssetPermissions = SubsetRestriction<Ticker>;
-export type ExtrinsicPermissions = SubsetRestriction<PalletPermissions>;
+export type ExtrinsicPermissions = SubsetRestriction<[PalletName, PalletPermissions]>;
 export type PortfolioPermissions = SubsetRestriction<PortfolioId>;
 
 export type Permissions = {
@@ -98,8 +97,7 @@ export type Permissions = {
 };
 
 export type PalletPermissions = {
-  pallet_name: PalletName;
-  dispatchable_names: SubsetRestriction<DispatchableName>;
+  extrinsics: SubsetRestriction<DispatchableName>;
 };
 
 export type PortfolioId = {
