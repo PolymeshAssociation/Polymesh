@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 
 use tokio::task::JoinHandle;
 
@@ -90,19 +90,7 @@ async fn test_sk_calls(
         let call = Arc::new(api.call().utility().force_batch(batch)?);
         let results = test_sk_call(users, call, true).await?;
         for mut res in results {
-            let events = res
-                .events()
-                .await?
-                .ok_or_else(|| anyhow!("Failed to get batch events"))?;
-            let calls_ok = events
-                .0
-                .iter()
-                .filter_map(|rec| match rec.event {
-                    RuntimeEvent::Utility(UtilityEvent::ItemCompleted) => Some(true),
-                    RuntimeEvent::Utility(UtilityEvent::ItemFailed { .. }) => Some(false),
-                    _ => None,
-                })
-                .collect::<Vec<bool>>();
+            let calls_ok = get_batch_results(&mut res).await?;
             assert_eq!(calls_ok, expected);
         }
     }

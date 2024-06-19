@@ -12,6 +12,22 @@ use polymesh_api::*;
 
 use anyhow::{anyhow, Result};
 
+pub async fn get_batch_results(res: &mut TransactionResults) -> Result<Vec<bool>> {
+    let events = res
+        .events()
+        .await?
+        .ok_or_else(|| anyhow!("Failed to get batch events"))?;
+    Ok(events
+        .0
+        .iter()
+        .filter_map(|rec| match rec.event {
+            RuntimeEvent::Utility(UtilityEvent::ItemCompleted) => Some(true),
+            RuntimeEvent::Utility(UtilityEvent::ItemFailed { .. }) => Some(false),
+            _ => None,
+        })
+        .collect())
+}
+
 #[derive(Clone, Default, PartialEq, Eq)]
 pub enum RestrictionMode {
     #[default]
