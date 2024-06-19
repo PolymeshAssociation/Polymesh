@@ -762,4 +762,7 @@ impl pallet_staking::WeightInfo for SubstrateWeight {
     fn set_commission_cap(_n: u32) -> Weight {
         Weight::zero()
     }
+    fn validate_cdd_expiry_nominators(_n: u32) -> Weight {
+        Weight::zero()
+    }
 }

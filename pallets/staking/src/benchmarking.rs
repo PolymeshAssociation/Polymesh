@@ -49,8 +49,12 @@ type MaxNominators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig
 
 // Polymesh change
 // -----------------------------------------------------------------
+
+use frame_support::StorageDoubleMap;
+
 use polymesh_common_utilities::benchs::{AccountIdOf, User, UserBuilder};
 use polymesh_common_utilities::TestUtilsFn;
+use polymesh_primitives::identity_claim::ClaimType;
 use polymesh_primitives::{IdentityId, Permissions};
 
 use crate::types::SlashingSwitch;
@@ -310,69 +314,71 @@ benchmarks! {
         assert!(T::VoterList::contains(&stash.account()));
     }
 
-//    kick {
-//        // scenario: we want to kick `k` nominators from nominating us (we are a validator).
-//        // we'll assume that `k` is under 128 for the purposes of determining the slope.
-//        // each nominator should have `T::MaxNominations::get()` validators nominated, and our validator
-//        // should be somewhere in there.
-//        let k in 1 .. 128;
-//
-//        // these are the other validators; there are `T::MaxNominations::get() - 1` of them, so
-//        // there are a total of `T::MaxNominations::get()` validators in the system.
-//        let rest_of_validators = create_validators_with_seed::<T>(T::MaxNominations::get() - 1, 100, 415)?;
-//
-//        // this is the validator that will be kicking.
-//        let (stash, controller) = create_stash_controller::<T>(
-//            T::MaxNominations::get() - 1,
-//            100,
-//            Default::default(),
-//        )?;
-//        let stash_lookup = T::Lookup::unlookup(stash.clone());
-//
-//        // they start validating.
-//        Staking::<T>::validate(RawOrigin::Signed(controller.clone()).into(), Default::default())?;
-//
-//        // we now create the nominators. there will be `k` of them; each will nominate all
-//        // validators. we will then kick each of the `k` nominators from the main validator.
-//        let mut nominator_stashes = Vec::with_capacity(k as usize);
-//        for i in 0 .. k {
-//            // create a nominator stash.
-//            let (n_stash, n_controller) = create_stash_controller::<T>(
-//                T::MaxNominations::get() + i,
-//                100,
-//                Default::default(),
-//            )?;
-//
-//            // bake the nominations; we first clone them from the rest of the validators.
-//            let mut nominations = rest_of_validators.clone();
-//            // then insert "our" validator somewhere in there (we vary it) to avoid accidental
-//            // optimisations/pessimisations.
-//            nominations.insert(i as usize % (nominations.len() + 1), stash_lookup.clone());
-//            // then we nominate.
-//            Staking::<T>::nominate(RawOrigin::Signed(n_controller.clone()).into(), nominations)?;
-//
-//            nominator_stashes.push(n_stash);
-//        }
-//
-//        // all nominators now should be nominating our validator...
-//        for n in nominator_stashes.iter() {
-//            assert!(Nominators::<T>::get(n).unwrap().targets.contains(&stash));
-//        }
-//
-//        // we need the unlookuped version of the nominator stash for the kick.
-//        let kicks = nominator_stashes.iter()
-//            .map(|n| T::Lookup::unlookup(n.clone()))
-//            .collect::<Vec<_>>();
-//
-//        whitelist_account!(controller);
-//    }: _(RawOrigin::Signed(controller), kicks)
-//    verify {
-//        // all nominators now should *not* be nominating our validator...
-//        for n in nominator_stashes.iter() {
-//            assert!(!Nominators::<T>::get(n).unwrap().targets.contains(&stash));
-//        }
-//    }
-//
+    kick {
+        // scenario: we want to kick `k` nominators from nominating us (we are a validator).
+        // we'll assume that `k` is under 128 for the purposes of determining the slope.
+        // each nominator should have `T::MaxNominations::get()` validators nominated, and our validator
+        // should be somewhere in there.
+        let k in 1 .. 128;
+
+        // these are the other validators; there are `T::MaxNominations::get() - 1` of them, so
+        // there are a total of `T::MaxNominations::get()` validators in the system.
+        let rest_of_validators = create_validators_with_seed::<T>(T::MaxNominations::get() - 1, 100, 415)?;
+
+        // this is the validator that will be kicking.
+        let (stash, controller) = create_stash_controller::<T>(
+            T::MaxNominations::get() - 1,
+            100,
+            Default::default(),
+        )?;
+        let stash_lookup = stash.lookup();
+
+        add_permissioned_validator_::<T>(stash.did(), Some(2));
+
+        // they start validating.
+        Staking::<T>::validate(controller.origin().into(), Default::default())?;
+
+        // we now create the nominators. there will be `k` of them; each will nominate all
+        // validators. we will then kick each of the `k` nominators from the main validator.
+        let mut nominator_stashes = Vec::with_capacity(k as usize);
+        for i in 0 .. k {
+            // create a nominator stash.
+            let (n_stash, n_controller) = create_stash_controller::<T>(
+                T::MaxNominations::get() + i,
+                100,
+                Default::default(),
+            )?;
+
+            // bake the nominations; we first clone them from the rest of the validators.
+            let mut nominations = rest_of_validators.clone();
+            // then insert "our" validator somewhere in there (we vary it) to avoid accidental
+            // optimisations/pessimisations.
+            nominations.insert(i as usize % (nominations.len() + 1), stash_lookup.clone());
+            // then we nominate.
+            Staking::<T>::nominate(n_controller.origin().into(), nominations)?;
+
+            nominator_stashes.push(n_stash.account());
+        }
+
+        // all nominators now should be nominating our validator...
+        for n in nominator_stashes.iter() {
+            assert!(Nominators::<T>::get(n).unwrap().targets.contains(&stash.account()));
+        }
+
+        // we need the unlookuped version of the nominator stash for the kick.
+        let kicks = nominator_stashes.iter()
+            .map(|n| T::Lookup::unlookup(n.clone()))
+            .collect::<Vec<_>>();
+
+        whitelist_account!(controller);
+    }: _(controller.origin(), kicks)
+    verify {
+        // all nominators now should *not* be nominating our validator...
+        for n in nominator_stashes.iter() {
+            assert!(!Nominators::<T>::get(n).unwrap().targets.contains(&stash.account()));
+        }
+    }
+
     // Worst case scenario, T::MaxNominations::get()
     nominate {
         let n in 1 .. T::MaxNominations::get();
@@ -988,6 +994,40 @@ benchmarks! {
             );
         });
     }
+
+    validate_cdd_expiry_nominators {
+        let n in 1 .. T::MaxNominations::get();
+
+        clear_validators_and_nominators::<T>();
+
+        let (validator, nominators) = create_validator_with_nominators::<T>(
+            n,
+            T::MaxNominatorRewardedPerValidator::get() as u32,
+            true,
+            RewardDestination::Controller,
+            Some(10_000_000)
+        )?;
+
+        for nominator in &nominators {
+            let claim_first = pallet_identity::Claim1stKey {
+                target: nominator.0.did(),
+                claim_type: ClaimType::CustomerDueDiligence
+            };
+            let _ = pallet_identity::Claims::clear_prefix(claim_first, 1, None);
+        }
+
+        let nominators: Vec<T::AccountId> = nominators.iter().map(|x| x.0.account()).collect();
+        for nominator in &nominators {
+            assert!(Nominators::<T>::contains_key(nominator));
+        }
+
+    }: _(RawOrigin::Root, nominators.clone())
+    verify {
+        for nominator in nominators {
+            assert!(!Nominators::<T>::contains_key(nominator));
+        }
+    }
+
     // -----------------------------------------------------------------
 }
 

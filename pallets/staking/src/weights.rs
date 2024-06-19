@@ -60,4 +60,5 @@ pub trait WeightInfo {
 	fn update_permissioned_validator_intended_count() -> Weight;
 	fn chill_from_governance(n: u32) -> Weight;
 	fn set_commission_cap(n: u32) -> Weight;
+	fn validate_cdd_expiry_nominators(n: u32) -> Weight;
 }

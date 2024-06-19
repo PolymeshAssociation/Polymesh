@@ -2114,7 +2114,7 @@ pub mod pallet {
         /// of it and if it is expired then the account should be unbonded and removed from the
         /// nominating process.
         #[pallet::call_index(28)]
-        #[pallet::weight(1_000_000_000)]
+        #[pallet::weight(<T as Config>::WeightInfo::validate_cdd_expiry_nominators(targets.len() as u32))]
         pub fn validate_cdd_expiry_nominators(
             origin: OriginFor<T>,
             targets: Vec<T::AccountId>,
