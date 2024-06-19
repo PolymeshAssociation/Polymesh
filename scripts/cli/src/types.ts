@@ -59,7 +59,7 @@ export type NonceObject = { nonce: string };
 export type PortfolioNumber = number;
 export type ScopeId = string;
 export type CddId = string;
-export type PalletName = Text;
+export type PalletName = string;
 export type DispatchableName = string;
 export type Expiry = Option<u64> | null;
 export type DocumentName = string;
@@ -87,15 +87,15 @@ export type These<T> = {
 export type Except<T> = {
   Except: T[];
 };
-export type TheseMap<K extends Codec, T extends Codec> = {
-  These: BTreeMap<K, T>;
+export type TheseMap<K, T> = {
+  These: Map<K, T>;
 };
 
-export type ExceptMap<K extends Codec, T extends Codec> = {
-  Except: BTreeMap<K, T>;
+export type ExceptMap<K, T> = {
+  Except: Map<K, T>;
 };
 export type SubsetRestriction<T> = Whole | These<T> | Except<T>;
-export type SubmapRestriction<K extends Codec, T extends Codec> = Whole | TheseMap<K, T> | ExceptMap<K, T>;
+export type SubmapRestriction<K, T> = Whole | TheseMap<K, T> | ExceptMap<K, T>;
 export type AssetPermissions = SubsetRestriction<Ticker>;
 export type ExtrinsicPermissions = SubmapRestriction<PalletName, PalletPermissions>;
 export type PortfolioPermissions = SubsetRestriction<PortfolioId>;

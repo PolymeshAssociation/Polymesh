@@ -13,7 +13,7 @@ export async function addSecondaryKeys(
   const api = await ApiSingleton.getInstance();
   let totalPermissions: Permissions = {
     asset: { These: [] },
-    extrinsic: { These: [] },
+    extrinsic: { These: new Map() },
     portfolio: { These: [] },
   };
 
