@@ -242,6 +242,20 @@ impl From<&PermissionsBuilder> for Permissions {
     }
 }
 
+pub async fn get_auth_id(res: &mut TransactionResults) -> Result<Option<u64>> {
+    if let Some(events) = res.events().await? {
+        for rec in &events.0 {
+            match &rec.event {
+                RuntimeEvent::Identity(IdentityEvent::AuthorizationAdded(_, _, _, auth, _, _)) => {
+                    return Ok(Some(*auth));
+                }
+                _ => (),
+            }
+        }
+    }
+    Ok(None)
+}
+
 /// Helper trait to add methods to `User`
 #[async_trait::async_trait]
 pub trait IntegrationUser: Signer {

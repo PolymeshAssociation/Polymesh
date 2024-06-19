@@ -44,6 +44,7 @@ async fn test_sk_calls(
     api: &Api,
     users: &mut Vec<User>,
     calls: &[(&Arc<WrappedCall>, bool)],
+    only_batch: bool,
 ) -> Result<()> {
     let mut tasks: Vec<JoinHandle<Result<()>>> = Vec::new();
 
@@ -57,6 +58,9 @@ async fn test_sk_calls(
         }
         expected.push(*expect_ok);
         batch.push(call.runtime_call().clone());
+        if only_batch {
+            continue;
+        }
         let mut users = users.clone();
         let call = (*call).clone();
         let expect_ok = *expect_ok;
@@ -156,6 +160,7 @@ async fn secondary_keys_permissions() -> Result<()> {
             // The keys should be allowed to add an authorization.
             (&add_auth_call, true),
         ],
+        false,
     )
     .await?;
 
@@ -178,6 +183,7 @@ async fn secondary_keys_permissions() -> Result<()> {
             // The keys shouldn't be allowed to add an authorization.
             (&add_auth_call, false),
         ],
+        false,
     )
     .await?;
 
@@ -200,6 +206,93 @@ async fn secondary_keys_permissions() -> Result<()> {
             // The keys shouldn't be allowed to add an authorization.
             (&add_auth_call, false),
         ],
+        false,
+    )
+    .await?;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn secondary_key_change_identity() -> Result<()> {
+    let mut tester = PolymeshTester::new().await?;
+    let mut users = tester
+        .users_with_secondary_keys(&[("SecondaryKeyChangeDID1", 1), ("SecondaryKeyChangeDID2", 0)])
+        .await?;
+
+    let user0_pk = users[0].account();
+    let user0_sk0 = users[0].get_sk(0)?.account();
+
+    // Create JoinIdentity auth for sk0 to join DID2 with no-permissions.
+    let mut res = tester
+        .api
+        .call()
+        .identity()
+        .add_authorization(
+            Signatory::Account(user0_sk0),
+            AuthorizationData::JoinIdentity(PermissionsBuilder::empty().build()),
+            None,
+        )?
+        .execute(&mut users[1])
+        .await?;
+    let auth_id = get_auth_id(&mut res)
+        .await?
+        .expect("Missing JoinIdentity auth id");
+
+    // Prepare a POLYX transfer to one user.
+    let balance_transfer_call =
+        Arc::new(tester.api.call().balances().transfer(user0_pk.into(), 1)?);
+    // Prepare `system.remark` call.
+    let remark_call = Arc::new(tester.api.call().system().remark(vec![])?);
+    // Prepare `settlement.create_venue` call.
+    let create_venue_call = Arc::new(tester.api.call().settlement().create_venue(
+        VenueDetails(vec![]),
+        vec![],
+        VenueType::Other,
+    )?);
+    // Prepare `identity.add_authorization` call.
+    let add_auth_call = Arc::new(tester.api.call().identity().add_authorization(
+        Signatory::Account(user0_pk),
+        AuthorizationData::RotatePrimaryKey,
+        None,
+    )?);
+    // Prepare `identity.leave_identity_as_key` call.
+    let leave_did1_call = Arc::new(tester.api.call().identity().leave_identity_as_key()?);
+    // Prepare `identity.join_identity_as_key` call.
+    let join_did2_call = Arc::new(tester.api.call().identity().join_identity_as_key(auth_id)?);
+
+    test_sk_calls(
+        &tester.api,
+        &mut users,
+        &[
+            // Ensure the secondary key can still do `balance.transfer` and `system.remark` calls.
+            // These calls are not restricted by key permissions.
+            (&balance_transfer_call, true),
+            (&remark_call, true),
+            // The secondary key should be allowed to create venues.
+            (&create_venue_call, true),
+            // The secondary key should be allowed to add an authorization.
+            (&add_auth_call, true),
+            // The secondary key should be allowed to leave DID1.
+            (&leave_did1_call, true), // The secondary key should have no identity here.
+            // The key should still be able to do POLYX transfer and `system.remark` calls.
+            (&balance_transfer_call, true),
+            (&remark_call, true),
+            // The key shouldn't be allowed to create venues.  Has no identity.
+            (&create_venue_call, false),
+            // The key shouldn't be allowed to add an authorization.  Has no identity.
+            (&add_auth_call, false),
+            // The key should be allowed to join DID2.
+            (&join_did2_call, true), // The key is now a secondar key of DID2 with no permissions.
+            // The secondary key should still be able to do POLYX transfer and `system.remark` calls.
+            (&balance_transfer_call, true),
+            (&remark_call, true),
+            // The secondary key shouldn't be allowed to create venues.  Has no call permissions.
+            (&create_venue_call, false),
+            // The secondary key shouldn't be allowed to add an authorization.  Has no call permissions.
+            (&add_auth_call, false),
+        ],
+        true,
     )
     .await?;
 
