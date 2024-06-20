@@ -502,6 +502,7 @@ impl CheckCdd<AccountId> for Test {
 
 impl polymesh_common_utilities::traits::permissions::Config for Test {
     type Checker = Identity;
+    type WhitelistCallFilter = frame_support::traits::Everything;
 }
 
 parameter_types! {

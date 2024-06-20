@@ -30,14 +30,16 @@ use core::mem;
 use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    traits::{CallMetadata, GetCallMetadata},
+    traits::{CallMetadata, Contains, GetCallMetadata},
 };
 use polymesh_common_utilities::traits::{AccountCallPermissionsData, CheckAccountCallPermissions};
 use polymesh_primitives::{ExtrinsicName, PalletName};
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
-    transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
+    transaction_validity::{
+        InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
+    },
 };
 use sp_std::{fmt, marker::PhantomData, result::Result, vec};
 
@@ -80,6 +82,30 @@ impl<T: Config> Module<T> {
             || Self::current_dispatchable_name(),
         )
         .ok_or_else(|| Error::<T>::UnauthorizedCaller.into())
+    }
+}
+
+impl<T: Config> Module<T>
+where
+    <T as frame_system::Config>::RuntimeCall: GetCallMetadata,
+{
+    pub fn ensure_caller_permissions(
+        caller: &T::AccountId,
+        call: &<T as frame_system::Config>::RuntimeCall,
+    ) -> Result<(), DispatchError> {
+        // Check if the call is whitelisted.
+        if T::WhitelistCallFilter::contains(call) {
+            // We don't need to check permissions.
+            return Ok(());
+        }
+        let metadata = call.get_call_metadata();
+        T::Checker::check_account_call_permissions(
+            caller,
+            || metadata.pallet_name.into(),
+            || metadata.function_name.into(),
+        )
+        .ok_or_else(|| Error::<T>::UnauthorizedCaller)?;
+        Ok(())
     }
 }
 
@@ -136,21 +162,25 @@ where
 
     fn validate(
         &self,
-        _: &Self::AccountId,
-        _: &Self::Call,
+        caller: &Self::AccountId,
+        call: &Self::Call,
         _: &DispatchInfoOf<Self::Call>,
         _: usize,
     ) -> TransactionValidity {
+        Module::<T>::ensure_caller_permissions(caller, call)
+            .map_err(|_| InvalidTransaction::BadSigner)?;
         Ok(ValidTransaction::default())
     }
 
     fn pre_dispatch(
         self,
-        _: &Self::AccountId,
+        caller: &Self::AccountId,
         call: &Self::Call,
         _: &DispatchInfoOf<Self::Call>,
         _: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
+        Module::<T>::ensure_caller_permissions(caller, call)
+            .map_err(|_| InvalidTransaction::BadSigner)?;
         let metadata = call.get_call_metadata();
         Self::set_call_metadata(metadata.pallet_name.into(), metadata.function_name.into());
         Ok(())

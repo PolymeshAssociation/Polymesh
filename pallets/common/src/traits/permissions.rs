@@ -19,6 +19,8 @@ use polymesh_primitives::{ExtrinsicName, IdentityId, PalletName, SecondaryKey};
 pub trait Config: frame_system::Config {
     /// The type that implements the permission check function.
     type Checker: CheckAccountCallPermissions<Self::AccountId>;
+    /// Whitelist calls.  Secondary key call permissions do not apply to these.
+    type WhitelistCallFilter: frame_support::traits::Contains<Self::RuntimeCall>;
 }
 
 /// Result of `CheckAccountCallPermissions::check_account_call_permissions`.
