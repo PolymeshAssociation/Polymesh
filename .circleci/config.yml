@@ -272,7 +272,7 @@ jobs:
           working_directory: ./integration
       - run:
           name: Run polymesh-api integration tests.
-          command: cargo nextest run --locked
+          command: cargo test --locked
           working_directory: ./integration
           no_output_timeout: 30m
       - save-sccache-cache

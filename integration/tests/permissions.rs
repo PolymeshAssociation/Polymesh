@@ -5,6 +5,7 @@ use anyhow::Result;
 use tokio::task::JoinHandle;
 
 use polymesh_api::{
+    client::Error as ClientError,
     types::polymesh_primitives::{
         authorization::AuthorizationData,
         secondary_key::Signatory,
@@ -19,22 +20,34 @@ async fn test_sk_call(
     users: &mut [User],
     call: Arc<WrappedCall>,
     expect_ok: bool,
-) -> Result<Vec<TransactionResults>> {
+) -> Result<Vec<Result<TransactionResults, ClientError>>> {
     let mut results = Vec::new();
     for user in users {
         for sk in &mut user.secondary_keys {
             // Send some POLYX back to the primary key from the secondary key.
-            let res = call.submit_and_watch(sk).await?;
+            let res = call.submit_and_watch(sk).await;
             results.push(res);
         }
     }
     // Wait for all results.
     for res in &mut results {
-        let result = res.ok().await;
         if expect_ok {
+            // The transaction should be accepted by the RPC node.  (valid transaction)
+            let res = res.as_mut().expect("Transaction rejected by node");
+            // The transaction should execute without error.
+            let result = res.ok().await;
             assert!(result.is_ok());
         } else {
-            assert!(result.is_err());
+            match res {
+              Ok(ref mut res) => {
+                let result = res.ok().await;
+                assert!(result.is_err());
+              }
+              Err(err) => {
+                // TODO: Check error type.
+                eprintln!("Transaction reject by node: {err:?}")
+              }
+            }
         }
     }
     Ok(results)
@@ -89,7 +102,8 @@ async fn test_sk_calls(
         // Use `force_batch` and check the results for each call in the batch.
         let call = Arc::new(api.call().utility().force_batch(batch)?);
         let results = test_sk_call(users, call, true).await?;
-        for mut res in results {
+        for res in results {
+            let mut res = res.expect("Valid transaction");
             let calls_ok = get_batch_results(&mut res).await?;
             assert_eq!(calls_ok, expected);
         }
