@@ -3092,9 +3092,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-client"
-version = "3.7.0"
+version = "3.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b24c1fb3199b3b4e55093b0aeb877cf909d0f3c620d5f6807d6c93ff314af27d"
+checksum = "5eda1ebfa288f984c2a332d7e0c3714623a788557a668b42446fad3a5b3da015"
 dependencies = [
  "async-stream",
  "async-trait",
