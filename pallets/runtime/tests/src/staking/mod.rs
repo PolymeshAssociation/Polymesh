@@ -3068,10 +3068,10 @@ fn garbage_collection_after_slashing() {
 
             // reap_stash respects num_slashing_spans so that weight is accurate
             assert_noop!(
-                Staking::reap_stash(RuntimeOrigin::none(), 11, 0),
+                Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0),
                 Error::<Test>::IncorrectSlashingSpans
             );
-            assert_ok!(Staking::reap_stash(RuntimeOrigin::none(), 11, 2));
+            assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 2));
 
             assert!(pallet_staking::SlashingSpans::<Test>::get(&11).is_none());
             assert_eq!(
