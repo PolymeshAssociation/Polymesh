@@ -85,7 +85,7 @@ use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
 
 use pallet_identity::PermissionedCallOriginData;
-use pallet_permissions::with_call_metadata;
+use pallet_permissions::{origin_call_filter, with_call_metadata};
 pub use polymesh_common_utilities::multisig::{MultiSigSubTrait, WeightInfo};
 use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
 use polymesh_primitives::multisig::{ProposalState, ProposalVoteCount};
@@ -1095,7 +1095,9 @@ impl<T: Config> Pallet<T> {
             // Enable reentry guard before executing the proposal.
             ExecutionReentry::<T>::set(true);
             // Execute proposal.
-            let res = proposal.dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into());
+            let mut origin = frame_system::RawOrigin::Signed(multisig.clone()).into();
+            origin_call_filter::<T>(&mut origin);
+            let res = proposal.dispatch(origin);
             // Make sure to reset the reentry guard, even if the proposal throws an error.
             ExecutionReentry::<T>::set(false);
             res

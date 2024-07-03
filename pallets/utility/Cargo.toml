@@ -34,9 +34,9 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-    "polymesh-common-utilities/std",
-    "polymesh-primitives/std",
-    "pallet-balances/std",
+	"polymesh-common-utilities/std",
+	"polymesh-primitives/std",
+	"pallet-balances/std",
 	"pallet-identity/std"
 ]
 

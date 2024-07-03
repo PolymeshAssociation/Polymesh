@@ -30,8 +30,10 @@ use core::mem;
 use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    traits::{CallMetadata, Contains, GetCallMetadata},
+    pallet_prelude::*,
+    traits::{CallMetadata, Contains, GetCallMetadata, OriginTrait},
 };
+use frame_system::ensure_signed;
 use polymesh_common_utilities::traits::{AccountCallPermissionsData, CheckAccountCallPermissions};
 use polymesh_primitives::{ExtrinsicName, PalletName};
 use scale_info::TypeInfo;
@@ -85,13 +87,10 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> Module<T>
-where
-    <T as frame_system::Config>::RuntimeCall: GetCallMetadata,
-{
+impl<T: Config> Module<T> {
     pub fn ensure_caller_permissions(
         caller: &T::AccountId,
-        call: &<T as frame_system::Config>::RuntimeCall,
+        call: &<T as Config>::RuntimeCall,
     ) -> Result<(), DispatchError> {
         // Check if the call is whitelisted.
         if T::WhitelistCallFilter::contains(call) {
@@ -106,6 +105,16 @@ where
         )
         .ok_or_else(|| Error::<T>::UnauthorizedCaller)?;
         Ok(())
+    }
+
+    /// Apply call permissions to `origin`.
+    pub fn origin_call_permissions(origin: &mut T::RuntimeOrigin) {
+        if let Ok(signer) = ensure_signed(origin.clone()) {
+            origin.add_filter(move |call| {
+                let call = <T as Config>::RuntimeCall::from_ref(call);
+                Self::ensure_caller_permissions(&signer, call).is_ok()
+            })
+        }
     }
 }
 
@@ -148,11 +157,10 @@ impl<T: Config> StoreCallMetadata<T> {
 impl<T> SignedExtension for StoreCallMetadata<T>
 where
     T: Config + Send + Sync,
-    <T as frame_system::Config>::RuntimeCall: GetCallMetadata,
 {
     const IDENTIFIER: &'static str = "StoreCallMetadata";
     type AccountId = T::AccountId;
-    type Call = <T as frame_system::Config>::RuntimeCall;
+    type Call = <T as Config>::RuntimeCall;
     type AdditionalSigned = ();
     type Pre = ();
 
@@ -196,6 +204,10 @@ where
         Self::clear_call_metadata();
         Ok(())
     }
+}
+
+pub fn origin_call_filter<T: Config>(origin: &mut T::RuntimeOrigin) {
+    Module::<T>::origin_call_permissions(origin)
 }
 
 /// Transacts `tx` while setting the call metadata to that of `call` until the call is

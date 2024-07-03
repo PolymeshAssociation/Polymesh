@@ -527,6 +527,7 @@ macro_rules! misc_pallet_impls {
         }
 
         impl polymesh_common_utilities::traits::permissions::Config for Runtime {
+            type RuntimeCall = RuntimeCall;
             type Checker = Identity;
             type WhitelistCallFilter = SecondaryKeyWhitelist;
         }
