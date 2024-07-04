@@ -27,7 +27,7 @@ pub type Timestamp<T> = pallet_timestamp::Pallet<T>;
 
 fn generate_signers<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     n: usize,
-) -> (Vec<Signatory<T::AccountId>>, Vec<User<T>>) {
+) -> (Vec<T::AccountId>, Vec<User<T>>) {
     let mut users = Vec::with_capacity(n);
     let signers = (0..n)
         .into_iter()
@@ -35,13 +35,14 @@ fn generate_signers<T: Config + TestUtilsFn<AccountIdOf<T>>>(
             let user = <UserBuilder<T>>::default().seed(x as u32).build("key");
             let account = user.account.clone();
             users.push(user);
-            Signatory::Account(account)
+            account
         })
         .collect();
     (signers, users)
 }
 
-fn get_last_auth_id<T: Config>(signatory: &Signatory<T::AccountId>) -> u64 {
+fn get_last_auth_id<T: Config>(account: &T::AccountId) -> u64 {
+    let signatory = Signatory::Account(account.clone());
     <pallet_identity::Authorizations<T>>::iter_prefix_values(signatory)
         .into_iter()
         .map(|x| x.auth_id)
@@ -53,7 +54,7 @@ fn generate_multisig_with_extra_signers<T: Config + TestUtilsFn<AccountIdOf<T>>>
     caller: &User<T>,
     num_of_extra_signers: u32,
     num_of_signers_required: u32,
-) -> Result<(T::AccountId, Vec<Signatory<T::AccountId>>, Vec<User<T>>), DispatchError> {
+) -> Result<(T::AccountId, Vec<T::AccountId>, Vec<User<T>>), DispatchError> {
     let (signers, users) = generate_signers::<T>(num_of_extra_signers as usize);
     let multisig = <MultiSig<T>>::get_next_multisig_address(caller.account()).expect("Next MS");
     <MultiSig<T>>::create_multisig(
@@ -68,7 +69,7 @@ fn generate_multisig_with_extra_signers<T: Config + TestUtilsFn<AccountIdOf<T>>>
 pub type MultisigSetupResult<T, AccountId> = (
     User<T>,
     AccountId,
-    Vec<Signatory<AccountId>>,
+    Vec<AccountId>,
     Vec<User<T>>,
     RawOrigin<AccountId>,
 );
@@ -105,7 +106,7 @@ fn generate_multisig_for_alice<T: Config + TestUtilsFn<AccountIdOf<T>>>(
 pub type ProposalSetupResult<T, AccountId, Proposal> = (
     User<T>,
     AccountId,
-    Vec<Signatory<AccountId>>,
+    Vec<AccountId>,
     Vec<User<T>>,
     u64,
     Box<Proposal>,
@@ -229,7 +230,7 @@ benchmarks! {
 
     add_multisig_signer {
         let (alice, multisig, _, _, multisig_origin) = generate_multisig_for_alice::<T>(1, 1).unwrap();
-        let bob = Signatory::Account(<UserBuilder<T>>::default().build("bob").account());
+        let bob = <UserBuilder<T>>::default().build("bob").account();
         let ephemeral_bob = bob.clone();
         let original_last_auth = get_last_auth_id::<T>(&bob);
     }: _(multisig_origin, ephemeral_bob)

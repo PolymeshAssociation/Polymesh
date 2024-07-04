@@ -701,20 +701,18 @@ fn do_remove_secondary_keys_test_with_externalities() {
     let bob = User::new_with(alice.did, AccountKeyring::Bob);
     let charlie = User::new(AccountKeyring::Charlie);
     let dave_key = AccountKeyring::Dave.to_account_id();
+    let ferdie_key = AccountKeyring::Ferdie.to_account_id();
 
     let ms_address = MultiSig::get_next_multisig_address(alice.acc()).expect("Next MS");
 
     assert_ok!(MultiSig::create_multisig(
         alice.origin(),
-        vec![
-            Signatory::from(alice.did),
-            Signatory::Account(dave_key.clone())
-        ],
+        vec![ferdie_key.clone(), dave_key.clone()],
         1,
     ));
     let auth_id = get_last_auth_id(&Signatory::Account(dave_key.clone()));
     assert_ok!(MultiSig::unsafe_accept_multisig_signer(
-        Signatory::Account(dave_key.clone()),
+        dave_key.clone(),
         auth_id
     ));
 
@@ -771,7 +769,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
 
     // Check multisig's signer
     assert_eq!(
-        MultiSig::ms_signers(ms_address.clone(), Signatory::Account(dave_key.clone())),
+        MultiSig::ms_signers(ms_address.clone(), dave_key.clone()),
         true
     );
 
@@ -794,10 +792,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
     assert_eq!(Identity::get_identity(&bob.acc()), None);
 
     // Check multisig's signer
-    assert_eq!(
-        MultiSig::ms_signers(ms_address.clone(), Signatory::Account(dave_key)),
-        true
-    );
+    assert_eq!(MultiSig::ms_signers(ms_address.clone(), dave_key), true);
 }
 
 #[test]
@@ -814,20 +809,18 @@ fn leave_identity_test_with_externalities() {
 
     let bob_sk = SecondaryKey::new(bob.acc(), Permissions::empty());
     let dave_key = AccountKeyring::Dave.to_account_id();
+    let ferdie_key = AccountKeyring::Ferdie.to_account_id();
 
     let ms_address = MultiSig::get_next_multisig_address(alice.acc()).expect("Next MS");
 
     assert_ok!(MultiSig::create_multisig(
         alice.origin(),
-        vec![
-            Signatory::from(alice.did),
-            Signatory::Account(dave_key.clone())
-        ],
+        vec![ferdie_key.clone(), dave_key.clone()],
         1,
     ));
     let auth_id = get_last_auth_id(&Signatory::Account(dave_key.clone()));
     assert_ok!(MultiSig::unsafe_accept_multisig_signer(
-        Signatory::Account(dave_key.clone()),
+        dave_key.clone(),
         auth_id
     ));
 
@@ -865,7 +858,7 @@ fn leave_identity_test_with_externalities() {
 
     // Check multisig's signer
     assert_eq!(
-        MultiSig::ms_signers(ms_address.clone(), Signatory::Account(dave_key.clone())),
+        MultiSig::ms_signers(ms_address.clone(), dave_key.clone()),
         true
     );
 
@@ -886,10 +879,7 @@ fn leave_identity_test_with_externalities() {
     assert_eq!(Identity::get_identity(&ms_address), None);
 
     // Check multisig's signer
-    assert_eq!(
-        MultiSig::ms_signers(ms_address.clone(), Signatory::Account(dave_key)),
-        true
-    );
+    assert_eq!(MultiSig::ms_signers(ms_address.clone(), dave_key), true);
 }
 
 #[test]

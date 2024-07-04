@@ -121,7 +121,7 @@ use polymesh_common_utilities::{
     traits::{balances::CheckCdd, identity::Config as IdentityConfig},
     Context, GC_DID,
 };
-use polymesh_primitives::{storage_migration_ver, Balance, IdentityId, Signatory};
+use polymesh_primitives::{storage_migration_ver, Balance, IdentityId};
 use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_runtime::traits::{Saturating, Zero};
@@ -297,7 +297,7 @@ decl_storage! {
         /// AccountId of the multisig creator.
         config(creator): Option<T::AccountId>;
         /// The set of initial signers from which a multisig address is created at genesis time.
-        config(signers): Vec<Signatory<T::AccountId>>;
+        config(signers): Vec<T::AccountId>;
         /// The number of required signatures in the genesis signer set.
         config(signatures_required): u64;
         /// Admin account.
@@ -761,13 +761,12 @@ impl<T: Config> Module<T> {
         let sender = ensure_signed(origin)?;
         let controller = Self::ensure_controller_set()?;
 
-        let sender_signer = Signatory::Account(sender);
         let propose = |bridge_tx| {
             let proposal = <T as Config>::Proposal::from(Call::<T>::handle_bridge_tx { bridge_tx });
             let boxed_proposal = Box::new(proposal.into());
             <multisig::Module<T>>::base_create_or_approve_proposal(
                 controller.clone(),
-                sender_signer.clone(),
+                sender.clone(),
                 boxed_proposal,
                 None,
                 true,
