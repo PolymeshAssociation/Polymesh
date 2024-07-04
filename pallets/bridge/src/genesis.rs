@@ -2,7 +2,7 @@ use crate::{BridgeTxDetail, BridgeTxStatus, Config, GenesisConfig};
 
 use frame_support::storage::StorageDoubleMap;
 use polymesh_common_utilities::{balances::CheckCdd, constants::currency::POLY, Context};
-use polymesh_primitives::Permissions;
+use polymesh_primitives::{Permissions, Signatory};
 use sp_runtime::traits::Zero;
 use sp_std::convert::TryFrom;
 
@@ -34,10 +34,12 @@ pub(crate) fn controller<T: Config>(config: &GenesisConfig<T>) -> Option<T::Acco
 
     for signer in &config.signers {
         log::info!("Accepting bridge signer auth for {:?}", signer);
-        let last_auth = <pallet_identity::Authorizations<T>>::iter_prefix_values(signer)
-            .next()
-            .expect("cannot find bridge signer auth")
-            .auth_id;
+        let last_auth = <pallet_identity::Authorizations<T>>::iter_prefix_values(
+            Signatory::Account(signer.clone()),
+        )
+        .next()
+        .expect("cannot find bridge signer auth")
+        .auth_id;
         <pallet_multisig::Module<T>>::unsafe_accept_multisig_signer(signer.clone(), last_auth)
             .expect("cannot accept bridge signer auth");
     }
