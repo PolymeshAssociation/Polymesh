@@ -38,19 +38,12 @@
 //! ### Dispatchable Functions
 //!
 //! - `create_multisig` - Creates a new multisig.
-//! - `create_or_approve_proposal_as_identity` - Creates or approves a multisig proposal given the
-//! signer's identity.
-//! - `create_or_approve_proposal_as_key` - Creates or approves a multisig proposal given the
+//! - `create_or_approve_proposal` - Creates or approves a multisig proposal given the
 //! signer's account key.
-//! - `create_proposal_as_identity` - Creates a multisig proposal given the signer's identity.
-//! - `create_proposal_as_key` - Creates a multisig proposal given the signer's account key.
-//! - `approve_as_identity` - Approves a multisig proposal given the signer's identity.
-//! - `approve_as_key` - Approves a multisig proposal given the signer's account key.
-//! - `reject_as_identity` - Rejects a multisig proposal using the caller's identity.
-//! - `reject_as_key` - Rejects a multisig proposal using the caller's secondary key (`AccountId`).
-//! - `accept_multisig_signer_as_identity` - Accepts a multisig signer authorization given the
-//! signer's identity.
-//! - `accept_multisig_signer_as_key` - Accepts a multisig signer authorization given the signer's
+//! - `create_proposal` - Creates a multisig proposal given the signer's account key.
+//! - `approve` - Approves a multisig proposal given the signer's account key.
+//! - `reject` - Rejects a multisig proposal using the caller's secondary key (`AccountId`).
+//! - `accept_multisig_signer` - Accepts a multisig signer authorization given the signer's
 //! account key.
 //! - `add_multisig_signer` - Adds a signer to the multisig.
 //! - `remove_multisig_signer` - Removes a signer from the multisig.
@@ -234,30 +227,9 @@ decl_module! {
         /// * `expiry` - Optional proposal expiry time.
         /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
-        /// #[deprecated(since = "6.0.0", note = "Please use the `create_proposal_as_identity` and `approve_as_identity` instead")]
-        #[weight = <T as Config>::WeightInfo::create_or_approve_proposal_as_identity().saturating_add(proposal.get_dispatch_info().weight)]
-        pub fn create_or_approve_proposal_as_identity(
-            origin,
-            multisig: T::AccountId,
-            proposal: Box<T::Proposal>,
-            expiry: Option<T::Moment>,
-            auto_close: bool
-        ) {
-            let signer = Self::ensure_perms_signed_did(origin)?;
-            Self::create_or_approve_proposal(multisig, signer, proposal, expiry, auto_close)?;
-        }
-
-        /// Creates a multisig proposal if it hasn't been created or approves it if it has.
-        ///
-        /// # Arguments
-        /// * `multisig` - MultiSig address.
-        /// * `proposal` - Proposal to be voted on.
-        /// * `expiry` - Optional proposal expiry time.
-        /// * `auto_close` - Close proposal on receiving enough reject votes.
-        /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
-        /// #[deprecated(since = "6.0.0", note = "Please use the `create_proposal_as_key` and `approve_as_key` instead")]
-        #[weight = <T as Config>::WeightInfo::create_or_approve_proposal_as_key().saturating_add(proposal.get_dispatch_info().weight)]
-        pub fn create_or_approve_proposal_as_key(
+        /// #[deprecated(since = "6.0.0", note = "Please use the `create_proposal` and `approve` instead")]
+        #[weight = <T as Config>::WeightInfo::create_or_approve_proposal().saturating_add(proposal.get_dispatch_info().weight)]
+        pub fn create_or_approve_proposal(
             origin,
             multisig: T::AccountId,
             proposal: Box<T::Proposal>,
@@ -265,7 +237,7 @@ decl_module! {
             auto_close: bool
         ) -> DispatchResult {
             let signer = Self::ensure_signed_acc(origin)?;
-            Self::create_or_approve_proposal(multisig, signer, proposal, expiry, auto_close)
+            Self::base_create_or_approve_proposal(multisig, signer, proposal, expiry, auto_close)
         }
 
         /// Creates a multisig proposal
@@ -276,28 +248,8 @@ decl_module! {
         /// * `expiry` - Optional proposal expiry time.
         /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
-        #[weight = <T as Config>::WeightInfo::create_proposal_as_identity().saturating_add(proposal.get_dispatch_info().weight)]
-        pub fn create_proposal_as_identity(
-            origin,
-            multisig: T::AccountId,
-            proposal: Box<T::Proposal>,
-            expiry: Option<T::Moment>,
-            auto_close: bool
-        ) {
-            let signer = Self::ensure_perms_signed_did(origin)?;
-            Self::create_proposal(multisig, signer, proposal, expiry, auto_close, false)?;
-        }
-
-        /// Creates a multisig proposal
-        ///
-        /// # Arguments
-        /// * `multisig` - MultiSig address.
-        /// * `proposal` - Proposal to be voted on.
-        /// * `expiry` - Optional proposal expiry time.
-        /// * `auto_close` - Close proposal on receiving enough reject votes.
-        /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
-        #[weight = <T as Config>::WeightInfo::create_proposal_as_key().saturating_add(proposal.get_dispatch_info().weight)]
-        pub fn create_proposal_as_key(
+        #[weight = <T as Config>::WeightInfo::create_proposal().saturating_add(proposal.get_dispatch_info().weight)]
+        pub fn create_proposal(
             origin,
             multisig: T::AccountId,
             proposal: Box<T::Proposal>,
@@ -305,19 +257,7 @@ decl_module! {
             auto_close: bool
         ) {
             let signer = Self::ensure_signed_acc(origin)?;
-            Self::create_proposal(multisig, signer, proposal, expiry, auto_close, false)?;
-        }
-
-        /// Approves a multisig proposal using the caller's identity.
-        ///
-        /// # Arguments
-        /// * `multisig` - MultiSig address.
-        /// * `proposal_id` - Proposal id to approve.
-        /// If quorum is reached, the proposal will be immediately executed.
-        #[weight = <T as Config>::WeightInfo::approve_as_identity()]
-        pub fn approve_as_identity(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
-            let signer = Self::ensure_perms_signed_did(origin)?;
-            Self::unsafe_approve(multisig, signer, proposal_id)
+            Self::base_create_proposal(multisig, signer, proposal, expiry, auto_close, false)?;
         }
 
         /// Approves a multisig proposal using the caller's secondary key (`AccountId`).
@@ -326,22 +266,10 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal_id` - Proposal id to approve.
         /// If quorum is reached, the proposal will be immediately executed.
-        #[weight = <T as Config>::WeightInfo::approve_as_key()]
-        pub fn approve_as_key(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
+        #[weight = <T as Config>::WeightInfo::approve()]
+        pub fn approve(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let signer = Self::ensure_signed_acc(origin)?;
             Self::unsafe_approve(multisig, signer, proposal_id)
-        }
-
-        /// Rejects a multisig proposal using the caller's identity.
-        ///
-        /// # Arguments
-        /// * `multisig` - MultiSig address.
-        /// * `proposal_id` - Proposal id to reject.
-        /// If quorum is reached, the proposal will be immediately executed.
-        #[weight = <T as Config>::WeightInfo::reject_as_identity()]
-        pub fn reject_as_identity(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
-            let signer = Self::ensure_perms_signed_did(origin)?;
-            Self::unsafe_reject(multisig, signer, proposal_id)
         }
 
         /// Rejects a multisig proposal using the caller's secondary key (`AccountId`).
@@ -350,30 +278,18 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal_id` - Proposal id to reject.
         /// If quorum is reached, the proposal will be immediately executed.
-        #[weight = <T as Config>::WeightInfo::reject_as_key()]
-        pub fn reject_as_key(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
+        #[weight = <T as Config>::WeightInfo::reject()]
+        pub fn reject(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let signer = Self::ensure_signed_acc(origin)?;
             Self::unsafe_reject(multisig, signer, proposal_id)
-        }
-
-        /// Accepts a multisig signer authorization given to signer's identity.
-        ///
-        /// # Arguments
-        /// * `auth_id` - Auth id of the authorization.
-        /// #[deprecated(since = "6.1.0", note = "Identity based signers not supported")]
-        #[weight = <T as Config>::WeightInfo::accept_multisig_signer_as_identity()]
-        pub fn accept_multisig_signer_as_identity(origin, _auth_id: u64) -> DispatchResult {
-            ensure_signed(origin)?;
-            ensure!(false, Error::<T>::NotASigner);
-            Ok(())
         }
 
         /// Accepts a multisig signer authorization given to signer's key (AccountId).
         ///
         /// # Arguments
         /// * `auth_id` - Auth id of the authorization.
-        #[weight = <T as Config>::WeightInfo::accept_multisig_signer_as_key()]
-        pub fn accept_multisig_signer_as_key(origin, auth_id: u64) -> DispatchResult {
+        #[weight = <T as Config>::WeightInfo::accept_multisig_signer()]
+        pub fn accept_multisig_signer(origin, auth_id: u64) -> DispatchResult {
             let signer = Self::ensure_signed_acc(origin)?;
             Self::unsafe_accept_multisig_signer(signer, auth_id)
         }
@@ -613,12 +529,6 @@ impl<T: Config> Module<T> {
         Ok(Signatory::Account(sender))
     }
 
-    fn ensure_perms_signed_did(
-        origin: T::RuntimeOrigin,
-    ) -> Result<Signatory<T::AccountId>, DispatchError> {
-        <Identity<T>>::ensure_perms(origin).map(|d| d.into())
-    }
-
     fn ensure_primary_key(did: &IdentityId, sender: &T::AccountId) -> DispatchResult {
         ensure!(
             <Identity<T>>::is_primary_key(did, sender),
@@ -731,7 +641,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Creates a new proposal.
-    pub fn create_proposal(
+    pub fn base_create_proposal(
         multisig: T::AccountId,
         sender_signer: Signatory<T::AccountId>,
         proposal: Box<T::Proposal>,
@@ -769,7 +679,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Creates or approves a multisig proposal.
-    pub fn create_or_approve_proposal(
+    pub fn base_create_or_approve_proposal(
         multisig: T::AccountId,
         sender_signer: Signatory<T::AccountId>,
         proposal: Box<T::Proposal>,
@@ -781,7 +691,14 @@ impl<T: Config> Module<T> {
             Self::unsafe_approve(multisig, sender_signer, proposal_id)?;
         } else {
             // The proposal is new.
-            Self::create_proposal(multisig, sender_signer, proposal, expiry, auto_close, true)?;
+            Self::base_create_proposal(
+                multisig,
+                sender_signer,
+                proposal,
+                expiry,
+                auto_close,
+                true,
+            )?;
         }
         Ok(())
     }
