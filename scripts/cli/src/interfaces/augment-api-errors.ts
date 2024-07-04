@@ -103,6 +103,14 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InvalidTransferFrozenAsset: AugmentedError<ApiType>;
       /**
+       * Failed to transfer the asset - receiver cdd is not valid.
+       **/
+      InvalidTransferInvalidReceiverCDD: AugmentedError<ApiType>;
+      /**
+       * Failed to transfer the asset - sender cdd is not valid.
+       **/
+      InvalidTransferInvalidSenderCDD: AugmentedError<ApiType>;
+      /**
        * Investor Uniqueness claims are not allowed for this asset.
        **/
       InvestorUniquenessClaimNotAllowed: AugmentedError<ApiType>;
@@ -881,6 +889,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       DuplicateKey: AugmentedError<ApiType>;
       /**
+       * Maximum number of given authorizations was exceeded.
+       **/
+      ExceededNumberOfGivenAuths: AugmentedError<ApiType>;
+      /**
        * Cannot use Except when specifying extrinsic permissions.
        **/
       ExceptNotAllowedForExtrinsics: AugmentedError<ApiType>;
@@ -1039,10 +1051,6 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       IdentityNotCreator: AugmentedError<ApiType>;
       /**
-       * Current DID is missing
-       **/
-      MissingCurrentIdentity: AugmentedError<ApiType>;
-      /**
        * Multisig is not attached to an identity
        **/
       MultisigMissingIdentity: AugmentedError<ApiType>;
@@ -1091,9 +1099,9 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       ProposalMissing: AugmentedError<ApiType>;
       /**
-       * Too few or too many required signatures.
+       * Too few or too many required signers.
        **/
-      RequiredSignaturesOutOfBounds: AugmentedError<ApiType>;
+      RequiredSignersOutOfBounds: AugmentedError<ApiType>;
       /**
        * Signer is an account key that is already associated with an identity.
        **/
@@ -1161,9 +1169,21 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InvalidNFTTransferFrozenAsset: AugmentedError<ApiType>;
       /**
+       * Ticker and NFT ticker don't match
+       **/
+      InvalidNFTTransferInconsistentTicker: AugmentedError<ApiType>;
+      /**
        * Failed to transfer an NFT - the number of nfts in the identity is insufficient.
        **/
       InvalidNFTTransferInsufficientCount: AugmentedError<ApiType>;
+      /**
+       * The receiver has an invalid CDD.
+       **/
+      InvalidNFTTransferInvalidReceiverCDD: AugmentedError<ApiType>;
+      /**
+       * The sender has an invalid CDD.
+       **/
+      InvalidNFTTransferInvalidSenderCDD: AugmentedError<ApiType>;
       /**
        * Failed to transfer an NFT - nft is locked.
        **/
@@ -1176,6 +1196,10 @@ declare module '@polkadot/api-base/types/errors' {
        * Failed to transfer an NFT - attempt to move to the same portfolio.
        **/
       InvalidNFTTransferSamePortfolio: AugmentedError<ApiType>;
+      /**
+       * The sender identity can't be the same as the receiver identity.
+       **/
+      InvalidNFTTransferSenderIdMatchesReceiverId: AugmentedError<ApiType>;
       /**
        * The maximum number of metadata keys was exceeded.
        **/
@@ -1429,6 +1453,10 @@ declare module '@polkadot/api-base/types/errors' {
        * Only owned NFTs can be moved between portfolios.
        **/
       InvalidTransferNFTNotOwned: AugmentedError<ApiType>;
+      /**
+       * The sender identity can't be the same as the receiver identity.
+       **/
+      InvalidTransferSenderIdMatchesReceiverId: AugmentedError<ApiType>;
       /**
        * The caller doesn't have permission to create portfolios on the owner's behalf.
        **/
@@ -1816,6 +1844,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       BondTooSmall: AugmentedError<ApiType>;
       /**
+       * Some bound is not met.
+       **/
+      BoundNotMet: AugmentedError<ApiType>;
+      /**
        * The call is not allowed at the given time due to restrictions of election period.
        **/
       CallNotAllowed: AugmentedError<ApiType>;
@@ -1959,9 +1991,50 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       StashIdentityNotPermissioned: AugmentedError<ApiType>;
       /**
+       * There are too many nominators in the system. Governance needs to adjust the staking
+       * settings to keep things safe for the runtime.
+       **/
+      TooManyNominators: AugmentedError<ApiType>;
+      /**
        * Too many nomination targets supplied.
        **/
       TooManyTargets: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
+    };
+    stateTrieMigration: {
+      /**
+       * Bad child root provided.
+       **/
+      BadChildRoot: AugmentedError<ApiType>;
+      /**
+       * Bad witness data provided.
+       **/
+      BadWitness: AugmentedError<ApiType>;
+      /**
+       * A key was longer than the configured maximum.
+       * 
+       * This means that the migration halted at the current [`Progress`] and
+       * can be resumed with a larger [`crate::Config::MaxKeyLen`] value.
+       * Retrying with the same [`crate::Config::MaxKeyLen`] value will not work.
+       * The value should only be increased to avoid a storage migration for the currently
+       * stored [`crate::Progress::LastKey`].
+       **/
+      KeyTooLong: AugmentedError<ApiType>;
+      /**
+       * Max signed limits not respected.
+       **/
+      MaxSignedLimits: AugmentedError<ApiType>;
+      /**
+       * submitter does not have enough funds.
+       **/
+      NotEnoughFunds: AugmentedError<ApiType>;
+      /**
+       * Signed migration is not allowed because the maximum limit is not set yet.
+       **/
+      SignedMigrationNotAllowed: AugmentedError<ApiType>;
       /**
        * Generic error
        **/

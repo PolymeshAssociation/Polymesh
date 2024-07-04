@@ -5,7 +5,7 @@ import type { ApiTypes } from '@polkadot/api-base/types';
 import type { BTreeSet, Bytes, Compact, Option, U8aFixed, Vec, bool, u128, u16, u32, u64, u8 } from '@polkadot/types-codec';
 import type { AnyNumber, ITuple } from '@polkadot/types-codec/types';
 import type { AccountId32, Call, H256, MultiAddress, Perbill, Percent, Permill } from '@polkadot/types/interfaces/runtime';
-import type { PalletBridgeBridgeTx, PalletContractsWasmDeterminism, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCaKind, PalletCorporateActionsInitiateCorporateActionArgs, PalletCorporateActionsRecordDateSpec, PalletCorporateActionsTargetIdentities, PalletImOnlineHeartbeat, PalletImOnlineSr25519AppSr25519Signature, PalletPipsSnapshotResult, PalletStakingCompactAssignments, PalletStakingElectionSize, PalletStakingRewardDestination, PalletStakingSlashingSwitch, PalletStakingValidatorPrefs, PalletStoPriceTier, PalletUtilityUniqueCall, PolymeshCommonUtilitiesCheckpointScheduleCheckpoints, PolymeshCommonUtilitiesIdentityCreateChildIdentityWithAuth, PolymeshCommonUtilitiesIdentitySecondaryKeyWithAuth, PolymeshCommonUtilitiesMaybeBlock, PolymeshCommonUtilitiesProtocolFeeProtocolOp, PolymeshContractsApi, PolymeshContractsChainExtensionExtrinsicId, PolymeshContractsNextUpgrade, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail, PolymeshPrimitivesAssetNonFungibleType, PolymeshPrimitivesAuthorizationAuthorizationData, PolymeshPrimitivesBeneficiary, PolymeshPrimitivesComplianceManagerComplianceRequirement, PolymeshPrimitivesCondition, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesIdentityClaimClaim, PolymeshPrimitivesIdentityClaimClaimType, PolymeshPrimitivesIdentityClaimScope, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesIdentityIdPortfolioKind, PolymeshPrimitivesMemo, PolymeshPrimitivesNftNfTs, PolymeshPrimitivesNftNftCollectionKeys, PolymeshPrimitivesNftNftMetadataAttribute, PolymeshPrimitivesPortfolioFund, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKey, PolymeshPrimitivesSecondaryKeyPermissions, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesSettlementAffirmationCount, PolymeshPrimitivesSettlementAssetCount, PolymeshPrimitivesSettlementLeg, PolymeshPrimitivesSettlementReceiptDetails, PolymeshPrimitivesSettlementSettlementType, PolymeshPrimitivesSettlementVenueType, PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesStatisticsStatUpdate, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceTransferCondition, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, PolymeshRuntimeDevelopRuntimeOriginCaller, PolymeshRuntimeDevelopRuntimeSessionKeys, SpConsensusBabeDigestsNextConfigDescriptor, SpConsensusGrandpaEquivocationProof, SpConsensusSlotsEquivocationProof, SpNposElectionsElectionScore, SpRuntimeMultiSignature, SpSessionMembershipProof, SpWeightsWeightV2Weight } from '@polkadot/types/lookup';
+import type { PalletBridgeBridgeTx, PalletContractsWasmDeterminism, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCaKind, PalletCorporateActionsInitiateCorporateActionArgs, PalletCorporateActionsRecordDateSpec, PalletCorporateActionsTargetIdentities, PalletImOnlineHeartbeat, PalletImOnlineSr25519AppSr25519Signature, PalletPipsSnapshotResult, PalletStakingCompactAssignments, PalletStakingElectionSize, PalletStakingRewardDestination, PalletStakingSlashingSwitch, PalletStakingValidatorPrefs, PalletStateTrieMigrationMigrationLimits, PalletStateTrieMigrationMigrationTask, PalletStateTrieMigrationProgress, PalletStoPriceTier, PalletUtilityUniqueCall, PolymeshCommonUtilitiesCheckpointScheduleCheckpoints, PolymeshCommonUtilitiesIdentityCreateChildIdentityWithAuth, PolymeshCommonUtilitiesIdentitySecondaryKeyWithAuth, PolymeshCommonUtilitiesMaybeBlock, PolymeshCommonUtilitiesProtocolFeeProtocolOp, PolymeshContractsApi, PolymeshContractsChainExtensionExtrinsicId, PolymeshContractsNextUpgrade, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail, PolymeshPrimitivesAssetNonFungibleType, PolymeshPrimitivesAuthorizationAuthorizationData, PolymeshPrimitivesBeneficiary, PolymeshPrimitivesComplianceManagerComplianceRequirement, PolymeshPrimitivesCondition, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesIdentityClaimClaim, PolymeshPrimitivesIdentityClaimClaimType, PolymeshPrimitivesIdentityClaimScope, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesIdentityIdPortfolioKind, PolymeshPrimitivesMemo, PolymeshPrimitivesNftNfTs, PolymeshPrimitivesNftNftCollectionKeys, PolymeshPrimitivesNftNftMetadataAttribute, PolymeshPrimitivesPortfolioFund, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKey, PolymeshPrimitivesSecondaryKeyPermissions, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesSettlementAffirmationCount, PolymeshPrimitivesSettlementAssetCount, PolymeshPrimitivesSettlementLeg, PolymeshPrimitivesSettlementReceiptDetails, PolymeshPrimitivesSettlementSettlementType, PolymeshPrimitivesSettlementVenueType, PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesStatisticsStatUpdate, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceTransferCondition, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, PolymeshRuntimeDevelopRuntimeOriginCaller, PolymeshRuntimeDevelopRuntimeSessionKeys, SpConsensusBabeDigestsNextConfigDescriptor, SpConsensusGrandpaEquivocationProof, SpConsensusSlotsEquivocationProof, SpNposElectionsElectionScore, SpRuntimeMultiSignature, SpSessionMembershipProof, SpWeightsWeightV2Weight } from '@polkadot/types/lookup';
 
 declare module '@polkadot/api-base/types/submittable' {
   export interface AugmentedSubmittables<ApiType extends ApiTypes> {
@@ -95,33 +95,6 @@ declare module '@polkadot/api-base/types/submittable' {
        * * Portfolio
        **/
       createAsset: AugmentedSubmittable<(name: Bytes | string | Uint8Array, ticker: PolymeshPrimitivesTicker | string | Uint8Array, divisible: bool | boolean | Uint8Array, assetType: PolymeshPrimitivesAssetAssetType | { EquityCommon: any } | { EquityPreferred: any } | { Commodity: any } | { FixedIncome: any } | { REIT: any } | { Fund: any } | { RevenueShareAgreement: any } | { StructuredProduct: any } | { Derivative: any } | { Custom: any } | { StableCoin: any } | { NonFungible: any } | string | Uint8Array, identifiers: Vec<PolymeshPrimitivesAssetIdentifier> | (PolymeshPrimitivesAssetIdentifier | { CUSIP: any } | { CINS: any } | { ISIN: any } | { LEI: any } | { FIGI: any } | string | Uint8Array)[], fundingRound: Option<Bytes> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes, PolymeshPrimitivesTicker, bool, PolymeshPrimitivesAssetAssetType, Vec<PolymeshPrimitivesAssetIdentifier>, Option<Bytes>]>;
-      /**
-       * Initializes a new security token, with the initiating account as its owner.
-       * The total supply will initially be zero. To mint tokens, use `issue`.
-       * 
-       * # Arguments
-       * * `origin` - contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
-       * * `name` - the name of the token.
-       * * `ticker` - the ticker symbol of the token.
-       * * `divisible` - a boolean to identify the divisibility status of the token.
-       * * `asset_type` - the asset type.
-       * * `identifiers` - a vector of asset identifiers.
-       * * `funding_round` - name of the funding round.
-       * 
-       * ## Errors
-       * - `InvalidAssetIdentifier` if any of `identifiers` are invalid.
-       * - `MaxLengthOfAssetNameExceeded` if `name`'s length exceeds `T::AssetNameMaxLength`.
-       * - `FundingRoundNameMaxLengthExceeded` if the name of the funding round is longer that
-       * `T::FundingRoundNameMaxLength`.
-       * - `AssetAlreadyCreated` if asset was already created.
-       * - `TickerTooLong` if `ticker`'s length is greater than `config.max_ticker_length` chain
-       * parameter.
-       * - `TickerNotAlphanumeric` if `ticker` is not yet registered, and contains non-alphanumeric characters or any character after first occurrence of `\0`.
-       * 
-       * ## Permissions
-       * * Portfolio
-       **/
-      createAssetV2: AugmentedSubmittable<(name: Bytes | string | Uint8Array, ticker: Option<PolymeshPrimitivesTicker> | null | object | string | Uint8Array, divisible: bool | boolean | Uint8Array, assetType: PolymeshPrimitivesAssetAssetType | { EquityCommon: any } | { EquityPreferred: any } | { Commodity: any } | { FixedIncome: any } | { REIT: any } | { Fund: any } | { RevenueShareAgreement: any } | { StructuredProduct: any } | { Derivative: any } | { Custom: any } | { StableCoin: any } | { NonFungible: any } | string | Uint8Array, identifiers: Vec<PolymeshPrimitivesAssetIdentifier> | (PolymeshPrimitivesAssetIdentifier | { CUSIP: any } | { CINS: any } | { ISIN: any } | { LEI: any } | { FIGI: any } | string | Uint8Array)[], fundingRound: Option<Bytes> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes, Option<PolymeshPrimitivesTicker>, bool, PolymeshPrimitivesAssetAssetType, Vec<PolymeshPrimitivesAssetIdentifier>, Option<Bytes>]>;
       /**
        * Utility extrinsic to batch `create_asset` and `register_custom_asset_type`.
        **/
@@ -2125,48 +2098,31 @@ declare module '@polkadot/api-base/types/submittable' {
     };
     multiSig: {
       /**
-       * Accepts a multisig signer authorization given to signer's identity.
-       * 
-       * # Arguments
-       * * `auth_id` - Auth id of the authorization.
-       * #[deprecated(since = "6.1.0", note = "Identity based signers not supported")]
-       **/
-      acceptMultisigSignerAsIdentity: AugmentedSubmittable<(authId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64]>;
-      /**
        * Accepts a multisig signer authorization given to signer's key (AccountId).
        * 
        * # Arguments
        * * `auth_id` - Auth id of the authorization.
        **/
-      acceptMultisigSignerAsKey: AugmentedSubmittable<(authId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64]>;
+      acceptMultisigSigner: AugmentedSubmittable<(authId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64]>;
       /**
        * Adds a signer to the multisig. This must be called by the multisig itself.
        * 
        * # Arguments
-       * * `signer` - Signatory to add.
+       * * `signer` - Signer to add.
        **/
-      addMultisigSigner: AugmentedSubmittable<(signer: PolymeshPrimitivesSecondaryKeySignatory | { Identity: any } | { Account: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesSecondaryKeySignatory]>;
+      addMultisigSigner: AugmentedSubmittable<(signer: AccountId32 | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32]>;
       /**
        * Adds a signer to the multisig. This must be called by the creator identity of the
        * multisig.
        * 
        * # Arguments
        * * `multisig` - Address of the multi sig
-       * * `signers` - Signatories to add.
+       * * `signers` - Signers to add.
        * 
        * # Weight
        * `900_000_000 + 3_000_000 * signers.len()`
        **/
-      addMultisigSignersViaCreator: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, signers: Vec<PolymeshPrimitivesSecondaryKeySignatory> | (PolymeshPrimitivesSecondaryKeySignatory | { Identity: any } | { Account: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [AccountId32, Vec<PolymeshPrimitivesSecondaryKeySignatory>]>;
-      /**
-       * Approves a multisig proposal using the caller's identity.
-       * 
-       * # Arguments
-       * * `multisig` - MultiSig address.
-       * * `proposal_id` - Proposal id to approve.
-       * If quorum is reached, the proposal will be immediately executed.
-       **/
-      approveAsIdentity: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposalId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u64]>;
+      addMultisigSignersViaCreator: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, signers: Vec<AccountId32> | (AccountId32 | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [AccountId32, Vec<AccountId32>]>;
       /**
        * Approves a multisig proposal using the caller's secondary key (`AccountId`).
        * 
@@ -2175,7 +2131,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * * `proposal_id` - Proposal id to approve.
        * If quorum is reached, the proposal will be immediately executed.
        **/
-      approveAsKey: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposalId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u64]>;
+      approve: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposalId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u64]>;
       /**
        * Changes the number of signatures required by a multisig. This must be called by the
        * multisig itself.
@@ -2199,7 +2155,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * * `signers` - Signers of the multisig (They need to accept authorization before they are actually added).
        * * `sigs_required` - Number of sigs required to process a multi-sig tx.
        **/
-      createMultisig: AugmentedSubmittable<(signers: Vec<PolymeshPrimitivesSecondaryKeySignatory> | (PolymeshPrimitivesSecondaryKeySignatory | { Identity: any } | { Account: any } | string | Uint8Array)[], sigsRequired: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Vec<PolymeshPrimitivesSecondaryKeySignatory>, u64]>;
+      createMultisig: AugmentedSubmittable<(signers: Vec<AccountId32> | (AccountId32 | string | Uint8Array)[], sigsRequired: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Vec<AccountId32>, u64]>;
       /**
        * Creates a multisig proposal if it hasn't been created or approves it if it has.
        * 
@@ -2209,21 +2165,9 @@ declare module '@polkadot/api-base/types/submittable' {
        * * `expiry` - Optional proposal expiry time.
        * * `auto_close` - Close proposal on receiving enough reject votes.
        * If this is 1 out of `m` multisig, the proposal will be immediately executed.
-       * #[deprecated(since = "6.0.0", note = "Please use the `create_proposal_as_identity` and `approve_as_identity` instead")]
+       * #[deprecated(since = "6.0.0", note = "Please use the `create_proposal` and `approve` instead")]
        **/
-      createOrApproveProposalAsIdentity: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposal: Call | { callIndex?: any; args?: any } | string | Uint8Array, expiry: Option<u64> | null | object | string | Uint8Array, autoClose: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, Call, Option<u64>, bool]>;
-      /**
-       * Creates a multisig proposal if it hasn't been created or approves it if it has.
-       * 
-       * # Arguments
-       * * `multisig` - MultiSig address.
-       * * `proposal` - Proposal to be voted on.
-       * * `expiry` - Optional proposal expiry time.
-       * * `auto_close` - Close proposal on receiving enough reject votes.
-       * If this is 1 out of `m` multisig, the proposal will be immediately executed.
-       * #[deprecated(since = "6.0.0", note = "Please use the `create_proposal_as_key` and `approve_as_key` instead")]
-       **/
-      createOrApproveProposalAsKey: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposal: Call | { callIndex?: any; args?: any } | string | Uint8Array, expiry: Option<u64> | null | object | string | Uint8Array, autoClose: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, Call, Option<u64>, bool]>;
+      createOrApproveProposal: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposal: Call | { callIndex?: any; args?: any } | string | Uint8Array, expiry: Option<u64> | null | object | string | Uint8Array, autoClose: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, Call, Option<u64>, bool]>;
       /**
        * Creates a multisig proposal
        * 
@@ -2234,18 +2178,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * * `auto_close` - Close proposal on receiving enough reject votes.
        * If this is 1 out of `m` multisig, the proposal will be immediately executed.
        **/
-      createProposalAsIdentity: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposal: Call | { callIndex?: any; args?: any } | string | Uint8Array, expiry: Option<u64> | null | object | string | Uint8Array, autoClose: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, Call, Option<u64>, bool]>;
-      /**
-       * Creates a multisig proposal
-       * 
-       * # Arguments
-       * * `multisig` - MultiSig address.
-       * * `proposal` - Proposal to be voted on.
-       * * `expiry` - Optional proposal expiry time.
-       * * `auto_close` - Close proposal on receiving enough reject votes.
-       * If this is 1 out of `m` multisig, the proposal will be immediately executed.
-       **/
-      createProposalAsKey: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposal: Call | { callIndex?: any; args?: any } | string | Uint8Array, expiry: Option<u64> | null | object | string | Uint8Array, autoClose: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, Call, Option<u64>, bool]>;
+      createProposal: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposal: Call | { callIndex?: any; args?: any } | string | Uint8Array, expiry: Option<u64> | null | object | string | Uint8Array, autoClose: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, Call, Option<u64>, bool]>;
       /**
        * Root callable extrinsic, used as an internal call for executing scheduled multisig proposal.
        **/
@@ -2267,15 +2200,6 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       makeMultisigSecondary: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32]>;
       /**
-       * Rejects a multisig proposal using the caller's identity.
-       * 
-       * # Arguments
-       * * `multisig` - MultiSig address.
-       * * `proposal_id` - Proposal id to reject.
-       * If quorum is reached, the proposal will be immediately executed.
-       **/
-      rejectAsIdentity: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposalId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u64]>;
-      /**
        * Rejects a multisig proposal using the caller's secondary key (`AccountId`).
        * 
        * # Arguments
@@ -2283,7 +2207,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * * `proposal_id` - Proposal id to reject.
        * If quorum is reached, the proposal will be immediately executed.
        **/
-      rejectAsKey: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposalId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u64]>;
+      reject: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposalId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u64]>;
       /**
        * Removes the creator ability to call `add_multisig_signers_via_creator`, `remove_multisig_signers_via_creator`
        * and `change_sigs_required_via_creator`.
@@ -2293,21 +2217,21 @@ declare module '@polkadot/api-base/types/submittable' {
        * Removes a signer from the multisig. This must be called by the multisig itself.
        * 
        * # Arguments
-       * * `signer` - Signatory to remove.
+       * * `signer` - Signer to remove.
        **/
-      removeMultisigSigner: AugmentedSubmittable<(signer: PolymeshPrimitivesSecondaryKeySignatory | { Identity: any } | { Account: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesSecondaryKeySignatory]>;
+      removeMultisigSigner: AugmentedSubmittable<(signer: AccountId32 | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32]>;
       /**
        * Removes a signer from the multisig.
        * This must be called by the creator identity of the multisig.
        * 
        * # Arguments
        * * `multisig` - Address of the multisig.
-       * * `signers` - Signatories to remove.
+       * * `signers` - Signers to remove.
        * 
        * # Weight
        * `900_000_000 + 3_000_000 * signers.len()`
        **/
-      removeMultisigSignersViaCreator: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, signers: Vec<PolymeshPrimitivesSecondaryKeySignatory> | (PolymeshPrimitivesSecondaryKeySignatory | { Identity: any } | { Account: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [AccountId32, Vec<PolymeshPrimitivesSecondaryKeySignatory>]>;
+      removeMultisigSignersViaCreator: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, signers: Vec<AccountId32> | (AccountId32 | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [AccountId32, Vec<AccountId32>]>;
       /**
        * Generic tx
        **/
@@ -3332,14 +3256,13 @@ declare module '@polkadot/api-base/types/submittable' {
     };
     staking: {
       /**
-       * Governance committee on 2/3 rds majority can introduce a new potential identity
-       * to the pool of permissioned entities who can run validators. Staking module uses `PermissionedIdentity`
-       * to ensure validators have completed KYB compliance and considers them for validation.
+       * Scale up the ideal number of validators by a factor upto maximum of
+       * `ElectionProviderBase::MaxWinners`.
        * 
-       * # Arguments
-       * * origin Required origin for adding a potential validator.
-       * * identity Validator's IdentityId.
-       * * intended_count No. of validators given identity intends to run.
+       * The dispatch origin must be Root.
+       * 
+       * ## Complexity
+       * Same as [`Self::set_validator_count`].
        **/
       addPermissionedValidator: AugmentedSubmittable<(identity: PolymeshPrimitivesIdentityId | string | Uint8Array, intendedCount: Option<u32> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesIdentityId, Option<u32>]>;
       /**
@@ -3351,60 +3274,38 @@ declare module '@polkadot/api-base/types/submittable' {
        * The dispatch origin for this call must be _Signed_ by the stash account.
        * 
        * Emits `Bonded`.
-       * 
-       * # <weight>
+       * ## Complexity
        * - Independent of the arguments. Moderate complexity.
        * - O(1).
        * - Three extra DB entries.
        * 
        * NOTE: Two of the storage writes (`Self::bonded`, `Self::payee`) are _never_ cleaned
        * unless the `origin` falls below _existential deposit_ and gets removed as dust.
-       * ------------------
-       * Weight: O(1)
-       * DB Weight:
-       * - Read: Bonded, Ledger, [Origin Account], Current Era, History Depth, Locks
-       * - Write: Bonded, Payee, [Origin Account], Locks, Ledger
-       * # </weight>
        **/
       bond: AugmentedSubmittable<(controller: MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array, value: Compact<u128> | AnyNumber | Uint8Array, payee: PalletStakingRewardDestination | { Staked: any } | { Stash: any } | { Controller: any } | { Account: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [MultiAddress, Compact<u128>, PalletStakingRewardDestination]>;
       /**
        * Add some extra amount that have appeared in the stash `free_balance` into the balance up
        * for staking.
        * 
-       * Use this if there are additional funds in your stash account that you wish to bond.
-       * Unlike [`bond`] or [`unbond`] this function does not impose any limitation on the amount
-       * that can be added.
+       * The dispatch origin for this call must be _Signed_ by the stash, not the controller.
        * 
-       * The dispatch origin for this call must be _Signed_ by the stash, not the controller and
-       * it can be only called when [`EraElectionStatus`] is `Closed`.
+       * Use this if there are additional funds in your stash account that you wish to bond.
+       * Unlike [`bond`](Self::bond) or [`unbond`](Self::unbond) this function does not impose
+       * any limitation on the amount that can be added.
        * 
        * Emits `Bonded`.
        * 
-       * # <weight>
+       * ## Complexity
        * - Independent of the arguments. Insignificant complexity.
        * - O(1).
-       * - One DB entry.
-       * ------------
-       * DB Weight:
-       * - Read: Era Election Status, Bonded, Ledger, [Origin Account], Locks
-       * - Write: [Origin Account], Locks, Ledger
-       * # </weight>
        **/
       bondExtra: AugmentedSubmittable<(maxAdditional: Compact<u128> | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Compact<u128>]>;
       /**
        * Cancel enactment of a deferred slash.
        * 
-       * Can be called by the `T::SlashCancelOrigin`.
+       * Can be called by the `T::AdminOrigin`.
        * 
        * Parameters: era and indices of the slashes for that era to kill.
-       * 
-       * # <weight>
-       * Complexity: O(U + S)
-       * with U unapplied slashes weighted with U=1000
-       * and S is the number of slash indices to be canceled.
-       * - Read: Unapplied Slashes
-       * - Write: Unapplied Slashes
-       * # </weight>
        **/
       cancelDeferredSlash: AugmentedSubmittable<(era: u32 | AnyNumber | Uint8Array, slashIndices: Vec<u32> | (u32 | AnyNumber | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [u32, Vec<u32>]>;
       /**
@@ -3412,7 +3313,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * 
        * # Arguments
        * * origin - AccountId of root.
-       * * slashing_switch - Switch used to set the targets for slashing.
+       * * slashing_switch - Switch used to set the targets for s
        **/
       changeSlashingAllowedFor: AugmentedSubmittable<(slashingSwitch: PalletStakingSlashingSwitch | 'Validator' | 'ValidatorAndNominator' | 'None' | number | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletStakingSlashingSwitch]>;
       /**
@@ -3421,18 +3322,11 @@ declare module '@polkadot/api-base/types/submittable' {
        * Effects will be felt at the beginning of the next era.
        * 
        * The dispatch origin for this call must be _Signed_ by the controller, not the stash.
-       * And, it can be only called when [`EraElectionStatus`] is `Closed`.
        * 
-       * # <weight>
+       * ## Complexity
        * - Independent of the arguments. Insignificant complexity.
        * - Contains one read.
        * - Writes are limited to the `origin` account key.
-       * --------
-       * Weight: O(1)
-       * DB Weight:
-       * - Read: EraElectionStatus, Ledger
-       * - Write: Validators, Nominators
-       * # </weight>
        **/
       chill: AugmentedSubmittable<() => SubmittableExtrinsic<ApiType>, []>;
       /**
@@ -3449,7 +3343,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * * `BadOrigin` The origin was not a GC member.
        * * `CallNotAllowed` The call is not allowed at the given time due to restrictions of election period.
        * * `NotExists` Permissioned validator doesn't exist.
-       * * `NotStash` Not a stash account for the permissioned identity.
+       * * `NotStash` Not a stash account for the permissioned i
        **/
       chillFromGovernance: AugmentedSubmittable<(identity: PolymeshPrimitivesIdentityId | string | Uint8Array, stashKeys: Vec<AccountId32> | (AccountId32 | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesIdentityId, Vec<AccountId32>]>;
       /**
@@ -3458,11 +3352,15 @@ declare module '@polkadot/api-base/types/submittable' {
        * 
        * The dispatch origin must be Root.
        * 
-       * # <weight>
+       * # Warning
+       * 
+       * The election process starts multiple blocks before the end of the era.
+       * If this is called just before a new era is triggered, the election process may not
+       * have enough blocks to get a result.
+       * 
+       * ## Complexity
        * - No arguments.
        * - Weight: O(1)
-       * - Write ForceEra
-       * # </weight>
        **/
       forceNewEra: AugmentedSubmittable<() => SubmittableExtrinsic<ApiType>, []>;
       /**
@@ -3470,10 +3368,11 @@ declare module '@polkadot/api-base/types/submittable' {
        * 
        * The dispatch origin must be Root.
        * 
-       * # <weight>
-       * - Weight: O(1)
-       * - Write: ForceEra
-       * # </weight>
+       * # Warning
+       * 
+       * The election process starts multiple blocks before the end of the era.
+       * If this is called just before a new era is triggered, the election process may not
+       * have enough blocks to get a result.
        **/
       forceNewEraAlways: AugmentedSubmittable<() => SubmittableExtrinsic<ApiType>, []>;
       /**
@@ -3481,56 +3380,44 @@ declare module '@polkadot/api-base/types/submittable' {
        * 
        * The dispatch origin must be Root.
        * 
-       * # <weight>
+       * # Warning
+       * 
+       * The election process starts multiple blocks before the end of the era.
+       * Thus the election process may be ongoing when this is called. In this case the
+       * election will continue until the next era is triggered.
+       * 
+       * ## Complexity
        * - No arguments.
        * - Weight: O(1)
-       * - Write: ForceEra
-       * # </weight>
        **/
       forceNoEras: AugmentedSubmittable<() => SubmittableExtrinsic<ApiType>, []>;
       /**
        * Force a current staker to become completely unstaked, immediately.
        * 
        * The dispatch origin must be Root.
-       * 
-       * # <weight>
-       * O(S) where S is the number of slashing spans to be removed
-       * Reads: Bonded, Slashing Spans, Account, Locks
-       * Writes: Bonded, Slashing Spans (if S > 0), Ledger, Payee, Validators, Nominators, Account, Locks
-       * Writes Each: SpanSlash * S
-       * # </weight>
        **/
       forceUnstake: AugmentedSubmittable<(stash: AccountId32 | string | Uint8Array, numSlashingSpans: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u32]>;
       /**
-       * Increments the ideal number of validators.
+       * Increments the ideal number of validators upto maximum of
+       * `ElectionProviderBase::MaxWinners`.
        * 
        * The dispatch origin must be Root.
        * 
-       * # <weight>
-       * Same as [`set_validator_count`].
-       * # </weight>
+       * ## Complexity
+       * Same as [`Self::set_validator_count`].
        **/
       increaseValidatorCount: AugmentedSubmittable<(additional: Compact<u32> | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Compact<u32>]>;
       /**
        * Declare the desire to nominate `targets` for the origin controller.
        * 
-       * Effects will be felt at the beginning of the next era. This can only be called when
-       * [`EraElectionStatus`] is `Closed`.
+       * Effects will be felt at the beginning of the next era.
        * 
        * The dispatch origin for this call must be _Signed_ by the controller, not the stash.
-       * And, it can be only called when [`EraElectionStatus`] is `Closed`.
        * 
-       * # <weight>
+       * ## Complexity
        * - The transaction's complexity is proportional to the size of `targets` (N)
-       * which is capped at CompactAssignments::LIMIT (MAX_NOMINATIONS).
+       * which is capped at CompactAssignments::LIMIT (T::MaxNominations).
        * - Both the reads and writes follow a similar pattern.
-       * ---------
-       * Weight: O(N)
-       * where N is the number of targets
-       * DB Weight:
-       * - Reads: Era Election Status, Ledger, Current Era
-       * - Writes: Validators, Nominators
-       * # </weight>
        **/
       nominate: AugmentedSubmittable<(targets: Vec<MultiAddress> | (MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [Vec<MultiAddress>]>;
       /**
@@ -3543,61 +3430,34 @@ declare module '@polkadot/api-base/types/submittable' {
        * The origin of this call must be _Signed_. Any account can call this function, even if
        * it is not one of the stakers.
        * 
-       * This can only be called when [`EraElectionStatus`] is `Closed`.
-       * 
-       * # <weight>
-       * - Time complexity: at most O(MaxNominatorRewardedPerValidator).
-       * - Contains a limited number of reads and writes.
-       * -----------
-       * N is the Number of payouts for the validator (including the validator)
-       * Weight:
-       * - Reward Destination Staked: O(N)
-       * - Reward Destination Controller (Creating): O(N)
-       * DB Weight:
-       * - Read: EraElectionStatus, CurrentEra, HistoryDepth, ErasValidatorReward,
-       * ErasStakersClipped, ErasRewardPoints, ErasValidatorPrefs (8 items)
-       * - Read Each: Bonded, Ledger, Payee, Locks, System Account (5 items)
-       * - Write Each: System Account, Locks, Ledger (3 items)
-       * # </weight>
+       * ## Complexity
+       * - At most O(MaxNominatorRewardedPerValidator).
        **/
       payoutStakers: AugmentedSubmittable<(validatorStash: AccountId32 | string | Uint8Array, era: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u32]>;
-      /**
-       * System version of `payout_stakers()`. Only be called by the root origin.
-       **/
       payoutStakersBySystem: AugmentedSubmittable<(validatorStash: AccountId32 | string | Uint8Array, era: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u32]>;
       /**
-       * Remove all data structure concerning a staker/stash once its balance is at the minimum.
-       * This is essentially equivalent to `withdraw_unbonded` except it can be called by anyone
-       * and the target `stash` must have no funds left beyond the ED.
+       * Remove all data structures concerning a staker/stash once it is at a state where it can
+       * be considered `dust` in the staking system. The requirements are:
        * 
-       * This can be called from any origin.
+       * 1. the `total_balance` of the stash is below existential deposit.
+       * 2. or, the `ledger.total` of the stash is below existential deposit.
        * 
-       * - `stash`: The stash account to reap. Its balance must be zero.
+       * The former can happen in cases like a slash; the latter when a fully unbonded account
+       * is still receiving staking rewards in `RewardDestination::Staked`.
        * 
-       * # <weight>
-       * Complexity: O(S) where S is the number of slashing spans on the account.
-       * DB Weight:
-       * - Reads: Stash Account, Bonded, Slashing Spans, Locks
-       * - Writes: Bonded, Slashing Spans (if S > 0), Ledger, Payee, Validators, Nominators, Stash Account, Locks
-       * - Writes Each: SpanSlash * S
-       * # </weight>
+       * It can be called by anyone, as long as `stash` meets the above requirements.
+       * 
+       * Refunds the transaction fees upon successful execution.
        **/
       reapStash: AugmentedSubmittable<(stash: AccountId32 | string | Uint8Array, numSlashingSpans: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u32]>;
       /**
        * Rebond a portion of the stash scheduled to be unlocked.
        * 
-       * The dispatch origin must be signed by the controller, and it can be only called when
-       * [`EraElectionStatus`] is `Closed`.
+       * The dispatch origin must be signed by the controller.
        * 
-       * # <weight>
+       * ## Complexity
        * - Time complexity: O(L), where L is unlocking chunks
-       * - Bounded by `MAX_UNLOCKING_CHUNKS`.
-       * - Storage changes: Can't increase storage, only decrease it.
-       * ---------------
-       * - DB Weight:
-       * - Reads: EraElectionStatus, Ledger, Locks, [Origin Account]
-       * - Writes: [Origin Account], Locks, Ledger
-       * # </weight>
+       * - Bounded by `MaxUnlockingChunks`.
        **/
       rebond: AugmentedSubmittable<(value: Compact<u128> | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Compact<u128>]>;
       /**
@@ -3611,13 +3471,13 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       removePermissionedValidator: AugmentedSubmittable<(identity: PolymeshPrimitivesIdentityId | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesIdentityId]>;
       /**
-       * Scale up the ideal number of validators by a factor.
+       * Scale up the ideal number of validators by a factor upto maximum of
+       * `ElectionProviderBase::MaxWinners`.
        * 
        * The dispatch origin must be Root.
        * 
-       * # <weight>
-       * Same as [`set_validator_count`].
-       * # </weight>
+       * ## Complexity
+       * Same as [`Self::set_validator_count`].
        **/
       scaleValidatorCount: AugmentedSubmittable<(factor: Percent | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Percent]>;
       /**
@@ -3631,82 +3491,54 @@ declare module '@polkadot/api-base/types/submittable' {
       /**
        * (Re-)set the controller of a stash.
        * 
-       * Effects will be felt at the beginning of the next era.
+       * Effects will be felt instantly (as soon as this function is completed successfully).
        * 
        * The dispatch origin for this call must be _Signed_ by the stash, not the controller.
        * 
-       * # <weight>
+       * ## Complexity
+       * O(1)
        * - Independent of the arguments. Insignificant complexity.
        * - Contains a limited number of reads.
        * - Writes are limited to the `origin` account key.
-       * ----------
-       * Weight: O(1)
-       * DB Weight:
-       * - Read: Bonded, Ledger New Controller, Ledger Old Controller
-       * - Write: Bonded, Ledger New Controller, Ledger Old Controller
-       * # </weight>
        **/
       setController: AugmentedSubmittable<(controller: MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [MultiAddress]>;
       /**
-       * Set `HistoryDepth` value. This function will delete any history information
-       * when `HistoryDepth` is reduced.
+       * Rebond a portion of the stash scheduled to be unlocked.
        * 
-       * Parameters:
-       * - `new_history_depth`: The new history depth you would like to set.
-       * - `era_items_deleted`: The number of items that will be deleted by this dispatch.
-       * This should report all the storage items that will be deleted by clearing old
-       * era history. Needed to report an accurate weight for the dispatch. Trusted by
-       * `Root` to report an accurate number.
+       * The dispatch origin must be signed by the controller.
        * 
-       * Origin must be root.
-       * 
-       * # <weight>
-       * - E: Number of history depths removed, i.e. 10 -> 7 = 3
-       * - Weight: O(E)
-       * - DB Weight:
-       * - Reads: Current Era, History Depth
-       * - Writes: History Depth
-       * - Clear Prefix Each: Era Stakers, EraStakersClipped, ErasValidatorPrefs
-       * - Writes Each: ErasValidatorReward, ErasRewardPoints, ErasTotalStake, ErasStartSessionIndex
-       * # </weight>
+       * ## Complexity
+       * - Time complexity: O(L), where L is unlocking chunks
+       * - Bounded by `MaxUnlockingChunks`.
        **/
       setHistoryDepth: AugmentedSubmittable<(newHistoryDepth: Compact<u32> | AnyNumber | Uint8Array, eraItemsDeleted: Compact<u32> | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Compact<u32>, Compact<u32>]>;
       /**
        * Set the validators who cannot be slashed (if any).
        * 
        * The dispatch origin must be Root.
-       * 
-       * # <weight>
-       * - O(V)
-       * - Write: Invulnerables
-       * # </weight>
        **/
       setInvulnerables: AugmentedSubmittable<(invulnerables: Vec<AccountId32> | (AccountId32 | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [Vec<AccountId32>]>;
       /**
-       * Changes min bond value to be used in validate(). Only Governance
+       * Changes commission rate which applies to all validators. Only Governance
        * committee is allowed to change this value.
        * 
        * # Arguments
-       * * `new_value` the new minimum
+       * * `new_cap` the new commission cap.
        **/
       setMinBondThreshold: AugmentedSubmittable<(newValue: u128 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u128]>;
       /**
        * (Re-)set the payment target for a controller.
        * 
-       * Effects will be felt at the beginning of the next era.
+       * Effects will be felt instantly (as soon as this function is completed successfully).
        * 
        * The dispatch origin for this call must be _Signed_ by the controller, not the stash.
        * 
-       * # <weight>
+       * ## Complexity
+       * - O(1)
        * - Independent of the arguments. Insignificant complexity.
        * - Contains a limited number of reads.
        * - Writes are limited to the `origin` account key.
        * ---------
-       * - Weight: O(1)
-       * - DB Weight:
-       * - Read: Ledger
-       * - Write: Payee
-       * # </weight>
        **/
       setPayee: AugmentedSubmittable<(payee: PalletStakingRewardDestination | { Staked: any } | { Stash: any } | { Controller: any } | { Account: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletStakingRewardDestination]>;
       /**
@@ -3714,10 +3546,8 @@ declare module '@polkadot/api-base/types/submittable' {
        * 
        * The dispatch origin must be Root.
        * 
-       * # <weight>
-       * Weight: O(1)
-       * Write: Validator Count
-       * # </weight>
+       * ## Complexity
+       * O(1)
        **/
       setValidatorCount: AugmentedSubmittable<(updated: Compact<u32> | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Compact<u32>]>;
       /**
@@ -3789,34 +3619,21 @@ declare module '@polkadot/api-base/types/submittable' {
        * period ends. If this leaves an amount actively bonded less than
        * T::Currency::minimum_balance(), then it is increased to the full amount.
        * 
+       * The dispatch origin for this call must be _Signed_ by the controller, not the stash.
+       * 
        * Once the unlock period is done, you can call `withdraw_unbonded` to actually move
        * the funds out of management ready for transfer.
        * 
-       * No more than a limited number of unlocking chunks (see `MAX_UNLOCKING_CHUNKS`)
-       * can co-exists at the same time. In that case, [`Call::withdraw_unbonded`] need
-       * to be called first to remove some of the chunks (if possible).
+       * No more than a limited number of unlocking chunks (see `MaxUnlockingChunks`)
+       * can co-exists at the same time. If there are no unlocking chunks slots available
+       * [`Call::withdraw_unbonded`] is called to remove some of the chunks (if possible).
        * 
-       * The dispatch origin for this call must be _Signed_ by the controller, not the stash.
-       * And, it can be only called when [`EraElectionStatus`] is `Closed`.
+       * If a user encounters the `InsufficientBond` error when calling this extrinsic,
+       * they should call `chill` first in order to free up their bonded funds.
        * 
        * Emits `Unbonded`.
        * 
        * See also [`Call::withdraw_unbonded`].
-       * 
-       * # <weight>
-       * - Independent of the arguments. Limited but potentially exploitable complexity.
-       * - Contains a limited number of reads.
-       * - Each call (requires the remainder of the bonded balance to be above `minimum_balance`)
-       * will cause a new entry to be inserted into a vector (`Ledger.unlocking`) kept in storage.
-       * The only way to clean the aforementioned storage item is also user-controlled via
-       * `withdraw_unbonded`.
-       * - One DB entry.
-       * ----------
-       * Weight: O(1)
-       * DB Weight:
-       * - Read: EraElectionStatus, Ledger, CurrentEra, Locks, \[Origin Account\]
-       * - Write: Locks, Ledger, \[Origin Account\]
-       * </weight>
        **/
       unbond: AugmentedSubmittable<(value: Compact<u128> | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Compact<u128>]>;
       /**
@@ -3825,7 +3642,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * # Arguments
        * * origin which must be the required origin for adding a potential validator.
        * * identity to add as a validator.
-       * * new_intended_count New value of intended count.
+       * * new_intended_count New value of intended co
        **/
       updatePermissionedValidatorIntendedCount: AugmentedSubmittable<(identity: PolymeshPrimitivesIdentityId | string | Uint8Array, newIntendedCount: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesIdentityId, u32]>;
       /**
@@ -3834,31 +3651,14 @@ declare module '@polkadot/api-base/types/submittable' {
        * Effects will be felt at the beginning of the next era.
        * 
        * The dispatch origin for this call must be _Signed_ by the controller, not the stash.
-       * And, it can be only called when [`EraElectionStatus`] is `Closed`.
-       * 
-       * # <weight>
-       * - Independent of the arguments. Insignificant complexity.
-       * - Contains a limited number of reads.
-       * - Writes are limited to the `origin` account key.
-       * -----------
-       * Weight: O(1)
-       * DB Weight:
-       * - Read: Era Election Status, Ledger
-       * - Write: Nominators, Validators
-       * # </weight>
        **/
       validate: AugmentedSubmittable<(prefs: PalletStakingValidatorPrefs | { commission?: any; blocked?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletStakingValidatorPrefs]>;
       /**
        * Validate the nominators CDD expiry time.
        * 
-       * If an account from a given set of address is nominating then
-       * check the CDD expiry time of it and if it is expired
-       * then the account should be unbonded and removed from the nominating process.
-       * 
-       * #<weight>
-       * - Depends on passed list of AccountId.
-       * - Depends on the no. of claim issuers an accountId has for the CDD expiry.
-       * #</weight>
+       * If an account from a given set of address is nominating then check the CDD expiry time
+       * of it and if it is expired then the account should be unbonded and removed from the
+       * nominating process.
        **/
       validateCddExpiryNominators: AugmentedSubmittable<(targets: Vec<AccountId32> | (AccountId32 | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [Vec<AccountId32>]>;
       /**
@@ -3867,34 +3667,85 @@ declare module '@polkadot/api-base/types/submittable' {
        * This essentially frees up that balance to be used by the stash account to do
        * whatever it wants.
        * 
-       * The dispatch origin for this call must be _Signed_ by the controller, not the stash.
-       * And, it can be only called when [`EraElectionStatus`] is `Closed`.
+       * The dispatch origin for this call must be _Signed_ by the controller.
        * 
        * Emits `Withdrawn`.
        * 
        * See also [`Call::unbond`].
        * 
-       * # <weight>
-       * - Could be dependent on the `origin` argument and how much `unlocking` chunks exist.
-       * It implies `consolidate_unlocked` which loops over `Ledger.unlocking`, which is
-       * indirectly user-controlled. See [`unbond`] for more detail.
-       * - Contains a limited number of reads, yet the size of which could be large based on `ledger`.
-       * - Writes are limited to the `origin` account key.
-       * ---------------
-       * Complexity O(S) where S is the number of slashing spans to remove
-       * Update:
-       * - Reads: EraElectionStatus, Ledger, Current Era, Locks, [Origin Account]
-       * - Writes: [Origin Account], Locks, Ledger
-       * Kill:
-       * - Reads: EraElectionStatus, Ledger, Current Era, Bonded, Slashing Spans, [Origin
-       * Account], Locks
-       * - Writes: Bonded, Slashing Spans (if S > 0), Ledger, Payee, Validators, Nominators,
-       * [Origin Account], Locks
-       * - Writes Each: SpanSlash * S
+       * ## Complexity
+       * O(S) where S is the number of slashing spans to remove
        * NOTE: Weight annotation is the kill scenario, we refund otherwise.
-       * # </weight>
        **/
       withdrawUnbonded: AugmentedSubmittable<(numSlashingSpans: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u32]>;
+      /**
+       * Generic tx
+       **/
+      [key: string]: SubmittableExtrinsicFunction<ApiType>;
+    };
+    stateTrieMigration: {
+      /**
+       * Continue the migration for the given `limits`.
+       * 
+       * The dispatch origin of this call can be any signed account.
+       * 
+       * This transaction has NO MONETARY INCENTIVES. calling it will not reward anyone. Albeit,
+       * Upon successful execution, the transaction fee is returned.
+       * 
+       * The (potentially over-estimated) of the byte length of all the data read must be
+       * provided for up-front fee-payment and weighing. In essence, the caller is guaranteeing
+       * that executing the current `MigrationTask` with the given `limits` will not exceed
+       * `real_size_upper` bytes of read data.
+       * 
+       * The `witness_task` is merely a helper to prevent the caller from being slashed or
+       * generally trigger a migration that they do not intend. This parameter is just a message
+       * from caller, saying that they believed `witness_task` was the last state of the
+       * migration, and they only wish for their transaction to do anything, if this assumption
+       * holds. In case `witness_task` does not match, the transaction fails.
+       * 
+       * Based on the documentation of [`MigrationTask::migrate_until_exhaustion`], the
+       * recommended way of doing this is to pass a `limit` that only bounds `count`, as the
+       * `size` limit can always be overwritten.
+       **/
+      continueMigrate: AugmentedSubmittable<(limits: PalletStateTrieMigrationMigrationLimits | { size_?: any; item?: any } | string | Uint8Array, realSizeUpper: u32 | AnyNumber | Uint8Array, witnessTask: PalletStateTrieMigrationMigrationTask | { progressTop?: any; progressChild?: any; size_?: any; topItems?: any; childItems?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletStateTrieMigrationMigrationLimits, u32, PalletStateTrieMigrationMigrationTask]>;
+      /**
+       * Control the automatic migration.
+       * 
+       * The dispatch origin of this call must be [`Config::ControlOrigin`].
+       **/
+      controlAutoMigration: AugmentedSubmittable<(maybeConfig: Option<PalletStateTrieMigrationMigrationLimits> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Option<PalletStateTrieMigrationMigrationLimits>]>;
+      /**
+       * Forcefully set the progress the running migration.
+       * 
+       * This is only useful in one case: the next key to migrate is too big to be migrated with
+       * a signed account, in a parachain context, and we simply want to skip it. A reasonable
+       * example of this would be `:code:`, which is both very expensive to migrate, and commonly
+       * used, so probably it is already migrated.
+       * 
+       * In case you mess things up, you can also, in principle, use this to reset the migration
+       * process.
+       **/
+      forceSetProgress: AugmentedSubmittable<(progressTop: PalletStateTrieMigrationProgress | { ToStart: any } | { LastKey: any } | { Complete: any } | string | Uint8Array, progressChild: PalletStateTrieMigrationProgress | { ToStart: any } | { LastKey: any } | { Complete: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletStateTrieMigrationProgress, PalletStateTrieMigrationProgress]>;
+      /**
+       * Migrate the list of child keys by iterating each of them one by one.
+       * 
+       * All of the given child keys must be present under one `child_root`.
+       * 
+       * This does not affect the global migration process tracker ([`MigrationProcess`]), and
+       * should only be used in case any keys are leftover due to a bug.
+       **/
+      migrateCustomChild: AugmentedSubmittable<(root: Bytes | string | Uint8Array, childKeys: Vec<Bytes> | (Bytes | string | Uint8Array)[], totalSize: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes, Vec<Bytes>, u32]>;
+      /**
+       * Migrate the list of top keys by iterating each of them one by one.
+       * 
+       * This does not affect the global migration process tracker ([`MigrationProcess`]), and
+       * should only be used in case any keys are leftover due to a bug.
+       **/
+      migrateCustomTop: AugmentedSubmittable<(keys: Vec<Bytes> | (Bytes | string | Uint8Array)[], witnessSize: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Vec<Bytes>, u32]>;
+      /**
+       * Set the maximum limit of the signed migration.
+       **/
+      setSignedMaxLimits: AugmentedSubmittable<(limits: PalletStateTrieMigrationMigrationLimits | { size_?: any; item?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletStateTrieMigrationMigrationLimits]>;
       /**
        * Generic tx
        **/
