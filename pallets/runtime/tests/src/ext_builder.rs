@@ -11,7 +11,7 @@ use polymesh_common_utilities::{
     constants::currency::POLY, protocol_fee::ProtocolOp, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    identity_id::GenesisIdentityRecord, AccountId, IdentityId, PosRatio, SecondaryKey, Signatory,
+    identity_id::GenesisIdentityRecord, AccountId, IdentityId, PosRatio, SecondaryKey,
 };
 use sp_io::TestExternalities;
 use sp_keyring::AccountKeyring;
@@ -94,7 +94,7 @@ struct BridgeConfig {
     /// Bridge admin key. See `Bridge` documentation for details.
     pub admin: Option<AccountId>,
     /// signers of the controller multisig account.
-    pub signers: Vec<Signatory<AccountId>>,
+    pub signers: Vec<AccountId>,
     /// # of signers required for controller multisig account.
     pub signatures_required: u64,
     /// Bridge limit.
@@ -264,10 +264,7 @@ impl ExtBuilder {
         signatures_required: u64,
     ) -> Self {
         self.bridge.admin = Some(admin);
-        self.bridge.signers = signers
-            .into_iter()
-            .map(Signatory::Account)
-            .collect::<Vec<_>>();
+        self.bridge.signers = signers.into_iter().collect::<Vec<_>>();
         self.bridge.signatures_required = signatures_required;
         self
     }

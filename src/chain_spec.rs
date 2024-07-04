@@ -12,7 +12,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     asset_metadata::{AssetMetadataName, AssetMetadataSpec},
     identity_id::GenesisIdentityRecord,
-    AccountId, IdentityId, Moment, PosRatio, SecondaryKey, Signatory, Signature, Ticker,
+    AccountId, IdentityId, Moment, PosRatio, SecondaryKey, Signature, Ticker,
 };
 use sc_chain_spec::{ChainSpecExtension, ChainType};
 use sc_service::Properties;
@@ -430,9 +430,8 @@ fn dev_genesis_processed_data(
     (vec![identity], stakers, complete_txs)
 }
 
-fn bridge_signers() -> Vec<Signatory<AccountId>> {
-    let signer =
-        |seed| Signatory::Account(AccountId::from(get_from_seed::<sr25519::Public>(seed).0));
+fn bridge_signers() -> Vec<AccountId> {
+    let signer = |seed| AccountId::from(get_from_seed::<sr25519::Public>(seed).0);
     vec![
         signer("relay_1"),
         signer("relay_2"),

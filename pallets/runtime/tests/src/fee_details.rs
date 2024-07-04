@@ -30,15 +30,13 @@ fn cdd_checks() {
             let (alice_signed, _) =
                 make_account_without_cdd(AccountKeyring::Alice.to_account_id()).unwrap();
             let alice_account = AccountKeyring::Alice.to_account_id();
-            let alice_key_signatory = Signatory::Account(AccountKeyring::Alice.to_account_id());
-            let alice_account_signatory = Signatory::Account(alice_account.clone());
+            let alice_signatory = Signatory::Account(alice_account.clone());
 
             // charlie has valid cdd
             let charlie_signed = Origin::signed(AccountKeyring::Charlie.to_account_id());
             let _ = register_keyring_account(AccountKeyring::Charlie).unwrap();
             let charlie_account = AccountKeyring::Charlie.to_account_id();
-            let charlie_key_signatory = Signatory::Account(AccountKeyring::Charlie.to_account_id());
-            let charlie_account_signatory = Signatory::Account(charlie_account.clone());
+            let charlie_signatory = Signatory::Account(charlie_account.clone());
 
             // register did bypasses cdd checks
             assert_eq!(
@@ -80,11 +78,11 @@ fn cdd_checks() {
             // call to accept being a multisig signer should fail when authorizer does not have a valid cdd (expired)
             assert_ok!(MultiSig::create_multisig(
                 alice_signed.clone(),
-                vec![alice_key_signatory.clone()],
+                vec![alice_account.clone()],
                 1,
             ));
 
-            let alice_auth_id = get_last_auth_id(&alice_key_signatory);
+            let alice_auth_id = get_last_auth_id(&alice_signatory);
             assert_noop!(
                 CddHandler::get_valid_payer(
                     &RuntimeCall::MultiSig(multisig::Call::accept_multisig_signer {
@@ -102,7 +100,7 @@ fn cdd_checks() {
             assert_noop!(
                 CddHandler::get_valid_payer(
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
-                        target: alice_account_signatory.clone(),
+                        target: alice_signatory.clone(),
                         auth_id: alice_auth_id,
                         _auth_issuer_pays: true
                     }),
@@ -115,7 +113,7 @@ fn cdd_checks() {
             assert_noop!(
                 CddHandler::get_valid_payer(
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
-                        target: alice_account_signatory.clone(),
+                        target: alice_signatory.clone(),
                         auth_id: alice_auth_id,
                         _auth_issuer_pays: false
                     }),
@@ -127,16 +125,16 @@ fn cdd_checks() {
             // check that authorisation can be removed correctly
             assert_ok!(MultiSig::create_multisig(
                 charlie_signed.clone(),
-                vec![alice_key_signatory.clone()],
+                vec![alice_account.clone()],
                 1,
             ));
-            let alice_auth_id = get_last_auth_id(&alice_key_signatory);
+            let alice_auth_id = get_last_auth_id(&alice_signatory);
 
             // call to remove authorisation with caller paying should fail if caller does not have a valid cdd
             assert_noop!(
                 CddHandler::get_valid_payer(
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
-                        target: alice_account_signatory.clone(),
+                        target: alice_signatory.clone(),
                         auth_id: alice_auth_id,
                         _auth_issuer_pays: false
                     }),
@@ -149,7 +147,7 @@ fn cdd_checks() {
             assert_eq!(
                 CddHandler::get_valid_payer(
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
-                        target: alice_account_signatory,
+                        target: alice_signatory.clone(),
                         auth_id: alice_auth_id,
                         _auth_issuer_pays: true
                     }),
@@ -164,16 +162,16 @@ fn cdd_checks() {
             // create an authorisation where the target has a CDD claim and the issuer does not
             assert_ok!(MultiSig::create_multisig(
                 alice_signed.clone(),
-                vec![Signatory::Account(AccountKeyring::Charlie.to_account_id())],
+                vec![charlie_account.clone()],
                 1,
             ));
-            let charlie_auth_id = get_last_auth_id(&charlie_key_signatory);
+            let charlie_auth_id = get_last_auth_id(&charlie_signatory);
 
             // call to remove authorisation with issuer paying should fail if issuer does not have a valid cdd
             assert_noop!(
                 CddHandler::get_valid_payer(
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
-                        target: charlie_account_signatory.clone(),
+                        target: charlie_signatory.clone(),
                         auth_id: charlie_auth_id,
                         _auth_issuer_pays: true
                     }),
@@ -186,7 +184,7 @@ fn cdd_checks() {
             assert_eq!(
                 CddHandler::get_valid_payer(
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
-                        target: charlie_account_signatory,
+                        target: charlie_signatory,
                         auth_id: charlie_auth_id,
                         _auth_issuer_pays: false
                     }),
@@ -202,10 +200,10 @@ fn cdd_checks() {
             // fee must be paid by multisig creator
             assert_ok!(MultiSig::create_multisig(
                 charlie_signed.clone(),
-                vec![Signatory::Account(AccountKeyring::Alice.to_account_id())],
+                vec![alice_account.clone()],
                 1,
             ));
-            let alice_auth_id = get_last_auth_id(&alice_key_signatory);
+            let alice_auth_id = get_last_auth_id(&alice_signatory);
 
             assert_eq!(
                 CddHandler::get_valid_payer(

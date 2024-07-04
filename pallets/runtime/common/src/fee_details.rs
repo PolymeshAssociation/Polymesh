@@ -92,8 +92,7 @@ where
         };
 
         let handle_multisig = |multisig: &AccountId, caller: &AccountId| {
-            let sig = Signatory::Account(caller.clone());
-            if <pallet_multisig::MultiSigSigners<A>>::contains_key(multisig, sig) {
+            if <pallet_multisig::MultiSigSigners<A>>::contains_key(multisig, caller) {
                 check_cdd(&<pallet_multisig::MultiSigToIdentity<A>>::get(multisig))
             } else {
                 MISSING_ID
