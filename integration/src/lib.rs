@@ -354,30 +354,18 @@ impl IntegrationUser for User {
     ) -> Result<()> {
         let permissions = permissions.into();
         let sk = self.get_sk(sk)?.account();
-        let asset = self
+        let record = self
             .api
             .query()
             .identity()
-            .key_asset_permissions(sk)
+            .key_records(sk)
             .await?
-            .ok_or_else(|| anyhow!("Missing asset permissions"))?;
-        assert_eq!(permissions.asset, asset);
-        let portfolio = self
-            .api
-            .query()
-            .identity()
-            .key_portfolio_permissions(sk)
-            .await?
-            .ok_or_else(|| anyhow!("Missing portfolio permissions"))?;
-        assert_eq!(permissions.portfolio, portfolio);
-        let extrinsic = self
-            .api
-            .query()
-            .identity()
-            .key_extrinsic_permissions(sk)
-            .await?
-            .ok_or_else(|| anyhow!("Missing extrinsic permissions"))?;
-        assert_eq!(permissions.extrinsic, extrinsic);
+            .ok_or_else(|| anyhow!("Missing KeyRecords"))?;
+        let key_permissions = match record {
+          KeyRecord::SecondaryKey(_, perms) => Some(perms),
+          _ => None,
+        };
+        assert_eq!(Some(permissions), key_permissions);
         Ok(())
     }
 
