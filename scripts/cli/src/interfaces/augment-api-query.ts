@@ -71,6 +71,7 @@ declare module '@polkadot/api-base/types/storage' {
        * Maps each [`AssetID`] to its underling [`AssetName`].
        **/
       assetNames: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesAssetAssetID | string | Uint8Array) => Observable<Option<Bytes>>, [PolymeshPrimitivesAssetAssetID]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesAssetAssetID]>;
+      assetNonce: AugmentedQuery<ApiType, (arg: AccountId32 | string | Uint8Array) => Observable<u64>, [AccountId32]> & QueryableStorageEntry<ApiType, [AccountId32]>;
       /**
        * A list of assets that exempt all users from affirming its receivement.
        **/
@@ -121,7 +122,6 @@ declare module '@polkadot/api-base/types/storage' {
        * All assets that don't need an affirmation to be received by an identity.
        **/
       preApprovedAsset: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesIdentityId | string | Uint8Array, arg2: PolymeshPrimitivesAssetAssetID | string | Uint8Array) => Observable<bool>, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID]>;
-      rngNonce: AugmentedQuery<ApiType, () => Observable<u64>, []> & QueryableStorageEntry<ApiType, []>;
       /**
        * Maps each [`AssetID`] to its underling [`SecurityToken`].
        **/
@@ -915,7 +915,7 @@ declare module '@polkadot/api-base/types/storage' {
       /**
        * Signers of a multisig. (multisig, signer) => bool.
        **/
-      multiSigSigners: AugmentedQuery<ApiType, (arg1: AccountId32 | string | Uint8Array, arg2: PolymeshPrimitivesSecondaryKeySignatory | { Identity: any } | { Account: any } | string | Uint8Array) => Observable<bool>, [AccountId32, PolymeshPrimitivesSecondaryKeySignatory]> & QueryableStorageEntry<ApiType, [AccountId32, PolymeshPrimitivesSecondaryKeySignatory]>;
+      multiSigSigners: AugmentedQuery<ApiType, (arg1: AccountId32 | string | Uint8Array, arg2: AccountId32 | string | Uint8Array) => Observable<bool>, [AccountId32, AccountId32]> & QueryableStorageEntry<ApiType, [AccountId32, AccountId32]>;
       /**
        * Confirmations required before processing a multisig tx.
        **/
@@ -961,7 +961,7 @@ declare module '@polkadot/api-base/types/storage' {
        * 
        * (multisig, proposal_id) -> signer => vote.
        **/
-      votes: AugmentedQuery<ApiType, (arg1: ITuple<[AccountId32, u64]> | [AccountId32 | string | Uint8Array, u64 | AnyNumber | Uint8Array], arg2: PolymeshPrimitivesSecondaryKeySignatory | { Identity: any } | { Account: any } | string | Uint8Array) => Observable<bool>, [ITuple<[AccountId32, u64]>, PolymeshPrimitivesSecondaryKeySignatory]> & QueryableStorageEntry<ApiType, [ITuple<[AccountId32, u64]>, PolymeshPrimitivesSecondaryKeySignatory]>;
+      votes: AugmentedQuery<ApiType, (arg1: ITuple<[AccountId32, u64]> | [AccountId32 | string | Uint8Array, u64 | AnyNumber | Uint8Array], arg2: AccountId32 | string | Uint8Array) => Observable<bool>, [ITuple<[AccountId32, u64]>, AccountId32]> & QueryableStorageEntry<ApiType, [ITuple<[AccountId32, u64]>, AccountId32]>;
       /**
        * Generic query
        **/

@@ -329,15 +329,6 @@ export async function generateOffchainKeys(keyType: string) {
   await api.rpc.author.insertKey(keyType, PHRASE, u8aToHex(newPair.publicKey));
 }
 
-// Creates a Signatory Object
-export async function signatory(signer: KeyringPair, entity: KeyringPair) {
-  let entityDid = (await createIdentities(signer, [entity]))[0];
-  let signatoryObj = {
-    Identity: entityDid,
-  };
-  return signatoryObj;
-}
-
 export function getDefaultPortfolio(did: IdentityId) {
   return { did: did, kind: { Default: ""} };
 }
