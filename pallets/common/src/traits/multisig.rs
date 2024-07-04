@@ -78,16 +78,11 @@ decl_event!(
 
 pub trait WeightInfo {
     fn create_multisig(signers: u32) -> Weight;
-    fn create_or_approve_proposal_as_identity() -> Weight;
-    fn create_or_approve_proposal_as_key() -> Weight;
-    fn create_proposal_as_identity() -> Weight;
-    fn create_proposal_as_key() -> Weight;
-    fn approve_as_identity() -> Weight;
-    fn approve_as_key() -> Weight;
-    fn reject_as_identity() -> Weight;
-    fn reject_as_key() -> Weight;
-    fn accept_multisig_signer_as_identity() -> Weight;
-    fn accept_multisig_signer_as_key() -> Weight;
+    fn create_or_approve_proposal() -> Weight;
+    fn create_proposal() -> Weight;
+    fn approve() -> Weight;
+    fn reject() -> Weight;
+    fn accept_multisig_signer() -> Weight;
     fn add_multisig_signer() -> Weight;
     fn remove_multisig_signer() -> Weight;
     fn add_multisig_signers_via_creator(signers: u32) -> Weight;

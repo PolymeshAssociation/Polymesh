@@ -71,9 +71,7 @@ fn cdd_checks() {
             // call to accept being a multisig signer should fail when invalid auth
             assert_noop!(
                 CddHandler::get_valid_payer(
-                    &RuntimeCall::MultiSig(multisig::Call::accept_multisig_signer_as_key {
-                        auth_id: 0
-                    }),
+                    &RuntimeCall::MultiSig(multisig::Call::accept_multisig_signer { auth_id: 0 }),
                     &alice_account
                 ),
                 InvalidTransaction::Custom(TransactionError::InvalidAuthorization as u8)
@@ -89,7 +87,7 @@ fn cdd_checks() {
             let alice_auth_id = get_last_auth_id(&alice_key_signatory);
             assert_noop!(
                 CddHandler::get_valid_payer(
-                    &RuntimeCall::MultiSig(multisig::Call::accept_multisig_signer_as_key {
+                    &RuntimeCall::MultiSig(multisig::Call::accept_multisig_signer {
                         auth_id: alice_auth_id
                     }),
                     &alice_account
@@ -211,7 +209,7 @@ fn cdd_checks() {
 
             assert_eq!(
                 CddHandler::get_valid_payer(
-                    &RuntimeCall::MultiSig(multisig::Call::accept_multisig_signer_as_key {
+                    &RuntimeCall::MultiSig(multisig::Call::accept_multisig_signer {
                         auth_id: alice_auth_id
                     }),
                     &alice_account
