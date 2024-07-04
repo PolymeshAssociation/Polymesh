@@ -11,6 +11,7 @@ pallet-identity = { path = "../identity", default-features = false}
 pallet-permissions = { path = "../permissions", default-features = false }
 polymesh-common-utilities = {path = "../common", default-features = false}
 polymesh-primitives = { path = "../../primitives", default-features = false}
+#polymesh-runtime-common = { path = "../runtime/common", default-features = false }
 
 # General
 log = "0.4.8"
@@ -46,6 +47,7 @@ std = [
 	"frame-support/std",
 	"polymesh-primitives/std",
 	"polymesh-common-utilities/std",
+#	"polymesh-runtime-common/std",
 	"pallet-identity/std",
 ]
 runtime-benchmarks = [

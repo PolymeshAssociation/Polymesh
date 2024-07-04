@@ -99,9 +99,11 @@ use polymesh_common_utilities::Context;
 use polymesh_primitives::constants::MULTISIG_PROPOSAL_EXECUTION;
 use polymesh_primitives::multisig::{ProposalDetails, ProposalStatus};
 use polymesh_primitives::{
-    extract_auth, storage_migration_ver, AuthorizationData, IdentityId, KeyRecord, Permissions,
-    Signatory,
+    extract_auth, storage_migrate_on, storage_migration_ver, AuthorizationData, IdentityId,
+    KeyRecord, Permissions, Signatory,
 };
+//use polymesh_runtime_common::RocksDbWeight as DbWeight;
+use frame_support::weights::constants::RocksDbWeight as DbWeight;
 
 /// Either the ID of a successfully created multisig account or an error.
 type CreateMultisigAccountResult<T> = StdResult<<T as FrameConfig>::AccountId, DispatchError>;
@@ -111,7 +113,7 @@ type Identity<T> = pallet_identity::Module<T>;
 
 pub const NAME: &[u8] = b"MultiSig";
 
-storage_migration_ver!(2);
+storage_migration_ver!(3);
 
 /// Convert multisig account and proposal id into a scheduler name.
 fn proposal_execution_name<AccountId: Encode>(multisig: &AccountId, proposal_id: u64) -> Vec<u8> {
@@ -167,7 +169,7 @@ decl_storage! {
         /// The last transaction version, used for `on_runtime_upgrade`.
         TransactionVersion get(fn transaction_version) config(): u32;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(3)): Version;
     }
 }
 
@@ -181,6 +183,7 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             use sp_version::RuntimeVersion;
             use polymesh_primitives::migrate::kill_item;
+            let mut weight = Weight::zero();
 
             // Kill pending proposals if the transaction version is upgraded
             let current_version = <T::Version as Get<RuntimeVersion>>::get().transaction_version;
@@ -192,10 +195,14 @@ decl_module! {
                 for item in &["Proposals", "ProposalIds", "ProposalDetail", "Votes"] {
                     kill_item(NAME, item.as_bytes())
                 }
+                // TODO: Improve this weight.
+                weight.saturating_accrue(DbWeight::get().reads_writes(4, 4));
             }
 
-            //TODO placeholder weight
-            Weight::from_ref_time(1_000)
+            storage_migrate_on!(StorageVersion, 3, {
+                migration::migrate_to_v3::<T>(&mut weight);
+            });
+            weight
         }
 
         /// Creates a multisig
@@ -999,5 +1006,67 @@ impl<T: Config> Module<T> {
 impl<T: Config> MultiSigSubTrait<T::AccountId> for Module<T> {
     fn is_multisig(account_id: &T::AccountId) -> bool {
         <MultiSigToIdentity<T>>::contains_key(account_id)
+    }
+}
+
+pub mod migration {
+    use super::*;
+    use sp_runtime::runtime_logger::RuntimeLogger;
+
+    mod v2 {
+        use super::*;
+
+        decl_storage! {
+            trait Store for Module<T: Config> as MultiSig {
+                pub MultiSigSigners: double_map hasher(identity) T::AccountId, hasher(twox_64_concat) Signatory<T::AccountId> => bool;
+                pub Votes get(fn votes):
+                    double_map hasher(twox_64_concat) (T::AccountId, u64), hasher(twox_64_concat) Signatory<T::AccountId> => bool;
+            }
+        }
+
+        decl_module! {
+            pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin { }
+        }
+    }
+
+    pub fn migrate_to_v3<T: Config>(weight: &mut Weight) {
+        RuntimeLogger::init();
+        migrate_signatory::<T>(weight);
+    }
+
+    fn migrate_signatory<T: Config>(weight: &mut Weight) {
+        log::info!(" >>> Migrate Signatory values to only AccountId");
+        let mut sig_count = 0;
+        let mut vote_count = 0;
+        let mut reads = 0;
+        let mut writes = 0;
+        v2::MultiSigSigners::<T>::drain().for_each(|(ms, signer, value)| {
+            reads += 1;
+            sig_count += 1;
+            match signer {
+                Signatory::Account(signer) => {
+                    writes += 1;
+                    MultiSigSigners::<T>::insert(ms, signer, value);
+                }
+                _ => {
+                    // Shouldn't be any Identity signatories.
+                }
+            }
+        });
+        v2::Votes::<T>::drain().for_each(|((ms, proposal_id), signer, value)| {
+            reads += 1;
+            vote_count += 1;
+            match signer {
+                Signatory::Account(signer) => {
+                    writes += 1;
+                    Votes::<T>::insert((ms, proposal_id), signer, value);
+                }
+                _ => {
+                    // Shouldn't be any Identity signatories.
+                }
+            }
+        });
+        weight.saturating_accrue(DbWeight::get().reads_writes(reads, writes));
+        log::info!(" >>> {sig_count} Signers migrated.  {vote_count} votes migrated.");
     }
 }
