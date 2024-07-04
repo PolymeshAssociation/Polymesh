@@ -1,16 +1,16 @@
 use anyhow::Result;
 
 use polymesh_api::{
+    types::polymesh_contracts::chain_extension::ExtrinsicId,
     types::polymesh_primitives::{
         authorization::AuthorizationData,
         secondary_key::Signatory,
         settlement::{VenueDetails, VenueType},
     },
-    types::polymesh_contracts::chain_extension::ExtrinsicId,
     TransactionResults,
 };
-use sp_weights::Weight;
 use sp_core::Encode;
+use sp_weights::Weight;
 
 use integration::*;
 
@@ -38,20 +38,22 @@ async fn contract_as_secondary_key_change_identity() -> Result<()> {
     // Use `sudo` to update call runtime whitelist for contracts.
     let mut sudo = tester.sudo.clone().expect("No Sudo user");
     let mut res_whitelist = tester
-      .api
-      .call()
-      .sudo()
-      .sudo(tester
         .api
         .call()
-        .polymesh_contracts()
-        .update_call_runtime_whitelist(vec![
-          // Allow `utility.force_batch`.
-          (ExtrinsicId(0x29, 0x04), true)
-        ])?.into()
-      )?
-      .submit_and_watch(&mut sudo)
-      .await?;
+        .sudo()
+        .sudo(
+            tester
+                .api
+                .call()
+                .polymesh_contracts()
+                .update_call_runtime_whitelist(vec![
+                    // Allow `utility.force_batch`.
+                    (ExtrinsicId(0x29, 0x04), true),
+                ])?
+                .into(),
+        )?
+        .submit_and_watch(&mut sudo)
+        .await?;
 
     // Upload and deploy `call_runtime_tester` contract as a secondary key of DID1.
     let call_runtime_bytes = include_bytes!("call_runtime_tester.wasm");
@@ -73,8 +75,9 @@ async fn contract_as_secondary_key_change_identity() -> Result<()> {
         .await?;
 
     // Wait for the contract to be deployed and get it's address.
-    let contract = get_contract_address(&mut res).await?
-      .expect("Failed to deploy contract");
+    let contract = get_contract_address(&mut res)
+        .await?
+        .expect("Failed to deploy contract");
 
     // Wait for whitelist to update.
     res_whitelist.ok().await?;
@@ -109,32 +112,34 @@ async fn contract_as_secondary_key_change_identity() -> Result<()> {
     let join_did2_call = tester.api.call().identity().join_identity_as_key(auth_id)?;
 
     let expected = vec![
-      true,  // remark.
-      true,  // create venue.
-      true,  // leave did1.
-      true,  // remark.
-      false, // create venue.
-      true,  // join did2.
-      true,  // remark.
-      false, // create venue.
+        true,  // remark.
+        true,  // create venue.
+        true,  // leave did1.
+        true,  // remark.
+        false, // create venue.
+        true,  // join did2.
+        true,  // remark.
+        false, // create venue.
     ];
     let batch_call = tester
-      .api
-      .call()
-      .utility()
-      .force_batch(vec![
-        remark_call.runtime_call().clone(),
-        create_venue_call.runtime_call().clone(),
-        leave_did1_call.into(), // The secondary key should have no identity here.
-        remark_call.runtime_call().clone(),
-        // The key shouldn't be allowed to create venues.  Has no identity.
-        create_venue_call.runtime_call().clone(),
-        // The key should be allowed to join DID2.
-        join_did2_call.into(), // The key is now a secondar key of DID2 with no permissions.
-        remark_call.runtime_call().clone(),
-        // The secondary key shouldn't be allowed to create venues.  Has no call permissions.
-        create_venue_call.runtime_call().clone(),
-      ])?.runtime_call().encode();
+        .api
+        .call()
+        .utility()
+        .force_batch(vec![
+            remark_call.runtime_call().clone(),
+            create_venue_call.runtime_call().clone(),
+            leave_did1_call.into(), // The secondary key should have no identity here.
+            remark_call.runtime_call().clone(),
+            // The key shouldn't be allowed to create venues.  Has no identity.
+            create_venue_call.runtime_call().clone(),
+            // The key should be allowed to join DID2.
+            join_did2_call.into(), // The key is now a secondar key of DID2 with no permissions.
+            remark_call.runtime_call().clone(),
+            // The secondary key shouldn't be allowed to create venues.  Has no call permissions.
+            create_venue_call.runtime_call().clone(),
+        ])?
+        .runtime_call()
+        .encode();
     let encoded_call = (0x6bu8, 0x1eu8, 0x9fu8, 0xe6u8, batch_call).encode();
 
     let mut res = tester

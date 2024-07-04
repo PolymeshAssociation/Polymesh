@@ -362,8 +362,8 @@ impl IntegrationUser for User {
             .await?
             .ok_or_else(|| anyhow!("Missing KeyRecords"))?;
         let key_permissions = match record {
-          KeyRecord::SecondaryKey(_, perms) => Some(perms),
-          _ => None,
+            KeyRecord::SecondaryKey(_, perms) => Some(perms),
+            _ => None,
         };
         assert_eq!(Some(permissions), key_permissions);
         Ok(())

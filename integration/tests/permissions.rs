@@ -39,14 +39,14 @@ async fn test_sk_call(
             assert!(result.is_ok());
         } else {
             match res {
-              Ok(ref mut res) => {
-                let result = res.ok().await;
-                assert!(result.is_err());
-              }
-              Err(err) => {
-                // TODO: Check error type.
-                eprintln!("Transaction reject by node: {err:?}")
-              }
+                Ok(ref mut res) => {
+                    let result = res.ok().await;
+                    assert!(result.is_err());
+                }
+                Err(err) => {
+                    // TODO: Check error type.
+                    eprintln!("Transaction reject by node: {err:?}")
+                }
             }
         }
     }
