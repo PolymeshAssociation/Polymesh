@@ -98,7 +98,7 @@ fn generate_multisig_for_alice<T: Config + TestUtilsFn<AccountIdOf<T>>>(
         generate_multisig_for_alice_wo_accepting::<T>(total_signers, signers_required).unwrap();
     for signer in &signers {
         let auth_id = get_last_auth_id::<T>(signer);
-        <MultiSig<T>>::unsafe_accept_multisig_signer(signer.clone(), auth_id).unwrap();
+        <MultiSig<T>>::base_accept_multisig_signer(signer.clone(), auth_id).unwrap();
     }
     Ok((alice, multisig.clone(), signers, users, multisig_origin))
 }
@@ -206,9 +206,16 @@ benchmarks! {
 
     approve {
         let (alice, multisig, signers, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(2, 2).unwrap();
-    }: _(users[1].origin(), ephemeral_multisig, proposal_id)
+    }: _(users[1].origin(), ephemeral_multisig, proposal_id, Weight::MAX)
     verify {
         assert_vote_cast!(proposal_id, multisig, signers.last().unwrap());
+    }
+
+    execute_proposal {
+        let (alice, multisig, signers, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(2, 2).unwrap();
+        let did = alice.did.expect("Alice must have a DID");
+    }: {
+      assert!(MultiSig::<T>::execute_proposal(multisig, proposal_id, did, Weight::MAX).is_ok());
     }
 
     reject {
@@ -291,14 +298,6 @@ benchmarks! {
     }: _(alice.origin(), multisig.clone(), None)
     verify {
         assert!(<Identity<T>>::get_primary_key(alice.did()) == Some(multisig));
-    }
-
-    execute_scheduled_proposal {
-        let (alice, multisig, _, _, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(1, 1).unwrap();
-        let ephemeral_proposal_id = proposal_id.clone();
-    }: _(RawOrigin::Root, ephemeral_multisig, ephemeral_proposal_id, alice.did(), Weight::zero())
-    verify {
-        assert!(<ProposalDetail<T>>::get(&multisig, proposal_id).status == ProposalStatus::ExecutionSuccessful);
     }
 
     change_sigs_required_via_creator {

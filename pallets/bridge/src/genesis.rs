@@ -40,7 +40,7 @@ pub(crate) fn controller<T: Config>(config: &GenesisConfig<T>) -> Option<T::Acco
         .next()
         .expect("cannot find bridge signer auth")
         .auth_id;
-        <pallet_multisig::Module<T>>::unsafe_accept_multisig_signer(signer.clone(), last_auth)
+        <pallet_multisig::Module<T>>::base_accept_multisig_signer(signer.clone(), last_auth)
             .expect("cannot accept bridge signer auth");
     }
 

@@ -61,9 +61,9 @@
 //!
 //! - `create_multisig_account` - Creates a multisig account without precondition checks or emitting
 //! an event.
-//! - `create_proposal` - Creates a proposal for a multisig transaction.
-//! - `create_or_approve_proposal` - Creates or approves a multisig proposal.
-//! - `unsafe_accept_multisig_signer` - Accepts and processes an addition of a signer to a multisig.
+//! - `base_create_proposal` - Creates a proposal for a multisig transaction.
+//! - `base_create_or_approve_proposal` - Creates or approves a multisig proposal.
+//! - `base_accept_multisig_signer` - Accepts and processes an addition of a signer to a multisig.
 //! - `get_next_multisig_address` - Gets the next available multisig account ID.
 //! - `get_multisig_address` - Constructs a multisig account given a nonce.
 //! - `ms_signers` - Helper function that checks if someone is an authorized signer of a multisig or
@@ -78,25 +78,24 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use core::convert::From;
-use frame_support::dispatch::{DispatchError, DispatchResult, GetDispatchInfo, Weight};
+use frame_support::dispatch::{
+    DispatchError, DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo,
+    Weight,
+};
 use frame_support::storage::{StorageDoubleMap, StorageValue};
-use frame_support::traits::schedule::{DispatchTime, Named as ScheduleNamed};
 use frame_support::traits::{Get, GetCallMetadata};
 use frame_support::{decl_error, decl_module, decl_storage, ensure};
-use frame_system::{ensure_root, ensure_signed, Config as FrameConfig, RawOrigin};
-use sp_runtime::traits::{Dispatchable, Hash, One};
+use frame_system::{ensure_signed, Config as FrameConfig};
+use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
 use sp_std::result::Result as StdResult;
 
 use pallet_identity::PermissionedCallOriginData;
 use pallet_permissions::with_call_metadata;
-use polymesh_common_utilities::constants::queue_priority::MULTISIG_PROPOSAL_EXECUTION_PRIORITY;
 pub use polymesh_common_utilities::multisig::{Event, MultiSigSubTrait, RawEvent, WeightInfo};
 use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
-use polymesh_common_utilities::transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::Context;
-use polymesh_primitives::constants::MULTISIG_PROPOSAL_EXECUTION;
 use polymesh_primitives::multisig::{ProposalDetails, ProposalStatus};
 use polymesh_primitives::{
     extract_auth, storage_migrate_on, storage_migration_ver, AuthorizationData, IdentityId,
@@ -107,26 +106,39 @@ use frame_support::weights::constants::RocksDbWeight as DbWeight;
 
 /// Either the ID of a successfully created multisig account or an error.
 type CreateMultisigAccountResult<T> = StdResult<<T as FrameConfig>::AccountId, DispatchError>;
-/// Either the ID of a successfully created proposal or an error.
-type CreateProposalResult = StdResult<u64, DispatchError>;
 type Identity<T> = pallet_identity::Module<T>;
 
 pub const NAME: &[u8] = b"MultiSig";
 
 storage_migration_ver!(3);
 
-/// Convert multisig account and proposal id into a scheduler name.
-fn proposal_execution_name<AccountId: Encode>(multisig: &AccountId, proposal_id: u64) -> Vec<u8> {
-    (MULTISIG_PROPOSAL_EXECUTION, multisig, proposal_id).encode()
+fn add_base_weight(base_weight: Weight, post_info: &mut PostDispatchInfo) {
+    if let Some(actual_weight) = &mut post_info.actual_weight {
+        *actual_weight = actual_weight.saturating_add(base_weight);
+    } else {
+        post_info.actual_weight = Some(base_weight);
+    }
+}
+
+fn with_base_weight(
+    base_weight: Weight,
+    tx: impl FnOnce() -> DispatchResultWithPostInfo,
+) -> DispatchResultWithPostInfo {
+    match tx() {
+        Ok(mut post_info) => {
+            add_base_weight(base_weight, &mut post_info);
+            Ok(post_info)
+        }
+        Err(mut err) => {
+            add_base_weight(base_weight, &mut err.post_info);
+            Err(err)
+        }
+    }
 }
 
 pub trait Config: frame_system::Config + IdentityConfig {
     /// The overarching event type.
     type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
-    /// Scheduler of multisig proposals.
-    type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
-    /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
-    type SchedulerCall: From<Call<Self>> + Into<<Self as IdentityConfig>::Proposal>;
     /// Weight information for extrinsics in the multisig pallet.
     type WeightInfo: WeightInfo;
 }
@@ -233,18 +245,25 @@ decl_module! {
         /// * `proposal` - Proposal to be voted on.
         /// * `expiry` - Optional proposal expiry time.
         /// * `auto_close` - Close proposal on receiving enough reject votes.
+        ///
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
         /// #[deprecated(since = "6.0.0", note = "Please use the `create_proposal` and `approve` instead")]
-        #[weight = <T as Config>::WeightInfo::create_or_approve_proposal().saturating_add(proposal.get_dispatch_info().weight)]
+        #[weight = {
+          <T as Config>::WeightInfo::create_or_approve_proposal()
+            .saturating_add(<T as Config>::WeightInfo::execute_proposal())
+            .saturating_add(proposal.get_dispatch_info().weight)
+        }]
         pub fn create_or_approve_proposal(
             origin,
             multisig: T::AccountId,
             proposal: Box<T::Proposal>,
             expiry: Option<T::Moment>,
-            auto_close: bool
-        ) -> DispatchResult {
+            auto_close: bool,
+        ) -> DispatchResultWithPostInfo {
             let signer = ensure_signed(origin)?;
-            Self::base_create_or_approve_proposal(multisig, signer, proposal, expiry, auto_close)
+            with_base_weight(<T as Config>::WeightInfo::create_or_approve_proposal(), || {
+                Self::base_create_or_approve_proposal(multisig, signer, proposal, expiry, auto_close)
+            })
         }
 
         /// Creates a multisig proposal
@@ -254,17 +273,24 @@ decl_module! {
         /// * `proposal` - Proposal to be voted on.
         /// * `expiry` - Optional proposal expiry time.
         /// * `auto_close` - Close proposal on receiving enough reject votes.
+        ///
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
-        #[weight = <T as Config>::WeightInfo::create_proposal().saturating_add(proposal.get_dispatch_info().weight)]
+        #[weight = {
+          <T as Config>::WeightInfo::create_proposal()
+            .saturating_add(<T as Config>::WeightInfo::execute_proposal())
+            .saturating_add(proposal.get_dispatch_info().weight)
+        }]
         pub fn create_proposal(
             origin,
             multisig: T::AccountId,
             proposal: Box<T::Proposal>,
             expiry: Option<T::Moment>,
-            auto_close: bool
-        ) {
+            auto_close: bool,
+        ) -> DispatchResultWithPostInfo {
             let signer = ensure_signed(origin)?;
-            Self::base_create_proposal(multisig, signer, proposal, expiry, auto_close, false)?;
+            with_base_weight(<T as Config>::WeightInfo::create_proposal(), || {
+                Self::base_create_proposal(multisig, signer, proposal, expiry, auto_close, false)
+            })
         }
 
         /// Approves a multisig proposal using the caller's secondary key (`AccountId`).
@@ -272,11 +298,19 @@ decl_module! {
         /// # Arguments
         /// * `multisig` - MultiSig address.
         /// * `proposal_id` - Proposal id to approve.
+        /// * `max_weight` - The maximum weight to execute the proposal.
+        ///
         /// If quorum is reached, the proposal will be immediately executed.
-        #[weight = <T as Config>::WeightInfo::approve()]
-        pub fn approve(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
+        #[weight = {
+          <T as Config>::WeightInfo::approve()
+            .saturating_add(<T as Config>::WeightInfo::execute_proposal())
+            .saturating_add(*max_weight)
+        }]
+        pub fn approve(origin, multisig: T::AccountId, proposal_id: u64, max_weight: Weight) -> DispatchResultWithPostInfo {
             let signer = ensure_signed(origin)?;
-            Self::unsafe_approve(multisig, signer, proposal_id)
+            with_base_weight(<T as Config>::WeightInfo::approve(), || {
+                Self::base_approve(multisig, signer, proposal_id, max_weight)
+            })
         }
 
         /// Rejects a multisig proposal using the caller's secondary key (`AccountId`).
@@ -288,7 +322,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::reject()]
         pub fn reject(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let signer = ensure_signed(origin)?;
-            Self::unsafe_reject(multisig, signer, proposal_id)
+            Self::base_reject(multisig, signer, proposal_id)
         }
 
         /// Accepts a multisig signer authorization given to signer's key (AccountId).
@@ -298,7 +332,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::accept_multisig_signer()]
         pub fn accept_multisig_signer(origin, auth_id: u64) -> DispatchResult {
             let signer = ensure_signed(origin)?;
-            Self::unsafe_accept_multisig_signer(signer, auth_id)
+            Self::base_accept_multisig_signer(signer, auth_id)
         }
 
         /// Adds a signer to the multisig. This must be called by the multisig itself.
@@ -310,7 +344,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             Self::ensure_ms(&sender)?;
             let did = <MultiSigToIdentity<T>>::get(&sender);
-            Self::unsafe_add_auth_for_signers(did, signer, sender)?;
+            Self::base_add_auth_for_signers(did, signer, sender)?;
         }
 
         /// Removes a signer from the multisig. This must be called by the multisig itself.
@@ -328,7 +362,7 @@ decl_module! {
             );
             ensure!(Self::is_changing_signers_allowed(&sender), Error::<T>::ChangeNotAllowed);
             <NumberOfSigners<T>>::mutate(&sender, |x| *x -= 1u64);
-            Self::unsafe_signer_removal(sender, signer);
+            Self::base_signer_removal(sender, signer);
         }
 
         /// Adds a signer to the multisig. This must be called by the creator identity of the
@@ -348,7 +382,7 @@ decl_module! {
                 Error::<T>::CreatorControlsHaveBeenRemoved
             );
             for signer in signers {
-                Self::unsafe_add_auth_for_signers(caller_did, signer, multisig.clone())?;
+                Self::base_add_auth_for_signers(caller_did, signer, multisig.clone())?;
             }
         }
 
@@ -384,7 +418,7 @@ decl_module! {
             }
 
             for signer in signers {
-                Self::unsafe_signer_removal(multisig.clone(), signer);
+                Self::base_signer_removal(multisig.clone(), signer);
             }
 
             <NumberOfSigners<T>>::insert(&multisig, pending_num_of_signers);
@@ -430,19 +464,6 @@ decl_module! {
             let did = Self::ensure_ms_creator(origin, &multisig)?;
             Self::ensure_ms(&multisig)?;
             <Identity<T>>::common_rotate_primary_key(did, multisig, None, optional_cdd_auth_id)
-        }
-
-        /// Root callable extrinsic, used as an internal call for executing scheduled multisig proposal.
-        #[weight = <T as Config>::WeightInfo::execute_scheduled_proposal().saturating_add(*_proposal_weight)]
-        fn execute_scheduled_proposal(
-            origin,
-            multisig: T::AccountId,
-            proposal_id: u64,
-            multisig_did: IdentityId,
-            _proposal_weight: Weight
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-            Self::execute_proposal(multisig, proposal_id, multisig_did)
         }
 
         /// Changes the number of signatures required by a multisig. This must be called by the creator of the multisig.
@@ -515,10 +536,10 @@ decl_error! {
         ProposalExpired,
         /// Proposal was executed earlier
         ProposalAlreadyExecuted,
+        /// Max weight not enough to execute proposal.
+        MaxWeightTooLow,
         /// Multisig is not attached to an identity
         MultisigMissingIdentity,
-        /// Scheduling of a proposal fails
-        FailedToSchedule,
         /// More signers than required.
         TooManySigners,
         /// The creator is no longer allowed to call via creator extrinsics.
@@ -571,7 +592,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Adds an authorization for the accountKey to become a signer of multisig.
-    fn unsafe_add_auth_for_signers(
+    fn base_add_auth_for_signers(
         multisig_owner: IdentityId,
         target: T::AccountId,
         multisig: T::AccountId,
@@ -591,7 +612,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Removes a signer from the valid signer list for a given multisig.
-    fn unsafe_signer_removal(multisig: T::AccountId, signer: T::AccountId) {
+    fn base_signer_removal(multisig: T::AccountId, signer: T::AccountId) {
         Identity::<T>::remove_key_record(&signer, None);
         <MultiSigSigners<T>>::remove(&multisig, &signer);
         Self::deposit_event(RawEvent::MultiSigSignerRemoved(
@@ -602,7 +623,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Changes the required signature count for a given multisig.
-    fn unsafe_change_sigs_required(multisig: T::AccountId, sigs_required: u64) {
+    fn base_change_sigs_required(multisig: T::AccountId, sigs_required: u64) {
         <MultiSigSignsRequired<T>>::insert(&multisig, &sigs_required);
         Self::deposit_event(RawEvent::MultiSigSignersRequiredChanged(
             Context::current_identity::<Identity<T>>().unwrap_or_default(),
@@ -644,8 +665,9 @@ impl<T: Config> Module<T> {
         expiry: Option<T::Moment>,
         auto_close: bool,
         proposal_to_id: bool,
-    ) -> CreateProposalResult {
+    ) -> DispatchResultWithPostInfo {
         Self::ensure_ms_signer(&multisig, &sender_signer)?;
+        let max_weight = proposal.get_dispatch_info().weight;
         let caller_did = <MultiSigToIdentity<T>>::get(&multisig);
         let proposal_id = Self::ms_tx_done(multisig.clone());
         <Proposals<T>>::insert(multisig.clone(), proposal_id, proposal.clone());
@@ -666,8 +688,7 @@ impl<T: Config> Module<T> {
             multisig.clone(),
             proposal_id,
         ));
-        Self::unsafe_approve(multisig, sender_signer, proposal_id)?;
-        Ok(proposal_id)
+        Self::base_approve(multisig, sender_signer, proposal_id, max_weight)
     }
 
     /// Creates or approves a multisig proposal.
@@ -677,10 +698,11 @@ impl<T: Config> Module<T> {
         proposal: Box<T::Proposal>,
         expiry: Option<T::Moment>,
         auto_close: bool,
-    ) -> DispatchResult {
+    ) -> DispatchResultWithPostInfo {
         if let Some(proposal_id) = Self::proposal_ids(&multisig, &*proposal) {
+            let max_weight = proposal.get_dispatch_info().weight;
             // This is an existing proposal.
-            Self::unsafe_approve(multisig, sender_signer, proposal_id)?;
+            Self::base_approve(multisig, sender_signer, proposal_id, max_weight)
         } else {
             // The proposal is new.
             Self::base_create_proposal(
@@ -691,16 +713,17 @@ impl<T: Config> Module<T> {
                 auto_close,
                 true,
             )?;
+            Ok(().into())
         }
-        Ok(())
     }
 
     /// Approves a multisig proposal and executes it if enough signatures have been received.
-    fn unsafe_approve(
+    fn base_approve(
         multisig: T::AccountId,
         signer: T::AccountId,
         proposal_id: u64,
-    ) -> DispatchResult {
+        max_weight: Weight,
+    ) -> DispatchResultWithPostInfo {
         Self::ensure_ms_signer(&multisig, &signer)?;
         ensure!(
             !Self::votes((&multisig, proposal_id), &signer),
@@ -714,6 +737,7 @@ impl<T: Config> Module<T> {
         let mut proposal_details = Self::proposal_detail(&multisig, proposal_id);
         proposal_details.approvals += 1u64;
         let multisig_did = <MultiSigToIdentity<T>>::get(&multisig);
+        let mut execute_proposal = false;
         match proposal_details.status {
             ProposalStatus::Invalid => return Err(Error::<T>::ProposalMissing.into()),
             ProposalStatus::Rejected => return Err(Error::<T>::ProposalAlreadyRejected.into()),
@@ -729,27 +753,7 @@ impl<T: Config> Module<T> {
                     );
                 }
                 if proposal_details.approvals >= Self::ms_signs_required(&multisig) {
-                    if let Some(proposal) = Self::proposals(&multisig, proposal_id) {
-                        let execution_at = frame_system::Pallet::<T>::block_number() + One::one();
-                        let call = Call::<T>::execute_scheduled_proposal {
-                            multisig: multisig.clone(),
-                            proposal_id,
-                            multisig_did,
-                            _proposal_weight: proposal.get_dispatch_info().weight,
-                        }
-                        .into();
-
-                        // Scheduling will fail when it's already scheduled (had enough votes already).
-                        // We ignore the failure here.
-                        let _ = T::Scheduler::schedule_named(
-                            proposal_execution_name(&multisig, proposal_id),
-                            DispatchTime::At(execution_at),
-                            None,
-                            MULTISIG_PROPOSAL_EXECUTION_PRIORITY,
-                            RawOrigin::Root.into(),
-                            call,
-                        );
-                    }
+                    execute_proposal = true;
                 }
             }
         }
@@ -759,62 +763,74 @@ impl<T: Config> Module<T> {
         // emit proposal approved event
         Self::deposit_event(RawEvent::ProposalApproved(
             multisig_did,
-            multisig,
+            multisig.clone(),
             signer,
             proposal_id,
         ));
-        Ok(())
+        if execute_proposal {
+            Self::execute_proposal(multisig, proposal_id, multisig_did, max_weight)
+        } else {
+            Ok(().into())
+        }
     }
 
     /// Executes a proposal if it has enough approvals
-    fn execute_proposal(
+    pub(crate) fn execute_proposal(
         multisig: T::AccountId,
         proposal_id: u64,
         multisig_did: IdentityId,
-    ) -> DispatchResult {
-        ensure!(
-            <Identity<T>>::has_valid_cdd(multisig_did),
-            Error::<T>::CddMissing
-        );
-        T::CddHandler::set_current_identity(&multisig_did);
-        T::CddHandler::set_payer_context(Identity::<T>::get_primary_key(multisig_did));
+        max_weight: Weight,
+    ) -> DispatchResultWithPostInfo {
+        // Get the proposal.
+        let proposal = <Proposals<T>>::try_get(&multisig, proposal_id)
+            .map_err(|_| Error::<T>::ProposalMissing)?;
 
-        if let Some(proposal) = Self::proposals(&multisig, proposal_id) {
-            let update_proposal_status = |status| {
-                <ProposalDetail<T>>::mutate(&multisig, proposal_id, |proposal_details| {
-                    proposal_details.status = status
-                })
-            };
-            let res = match with_call_metadata(proposal.get_call_metadata(), || {
-                proposal.dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into())
-            }) {
-                Ok(_) => {
-                    update_proposal_status(ProposalStatus::ExecutionSuccessful);
-                    true
-                }
-                Err(e) => {
-                    update_proposal_status(ProposalStatus::ExecutionFailed);
-                    Self::deposit_event(RawEvent::ProposalFailedToExecute(
-                        multisig_did,
-                        multisig.clone(),
-                        proposal_id,
-                        e.error,
-                    ));
-                    false
-                }
-            };
-            Self::deposit_event(RawEvent::ProposalExecuted(
-                multisig_did,
-                multisig,
-                proposal_id,
-                res,
-            ));
-        }
-        Ok(())
+        // Ensure `max_weight` was enough to cover the worst-case weight.
+        let proposal_weight = proposal.get_dispatch_info().weight;
+        ensure!(
+            proposal_weight.all_lte(max_weight),
+            Error::<T>::MaxWeightTooLow
+        );
+
+        let update_proposal_status = |status| {
+            <ProposalDetail<T>>::mutate(&multisig, proposal_id, |proposal_details| {
+                proposal_details.status = status
+            })
+        };
+        let (res, actual_weight) = match with_call_metadata(proposal.get_call_metadata(), || {
+            proposal.dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into())
+        }) {
+            Ok(post_info) => {
+                update_proposal_status(ProposalStatus::ExecutionSuccessful);
+                (true, post_info.actual_weight)
+            }
+            Err(e) => {
+                update_proposal_status(ProposalStatus::ExecutionFailed);
+                Self::deposit_event(RawEvent::ProposalFailedToExecute(
+                    multisig_did,
+                    multisig.clone(),
+                    proposal_id,
+                    e.error,
+                ));
+                (false, e.post_info.actual_weight)
+            }
+        };
+        Self::deposit_event(RawEvent::ProposalExecuted(
+            multisig_did,
+            multisig,
+            proposal_id,
+            res,
+        ));
+        // If the proposal call doesn't return an `actual_weight`, then default to `proposal_weight`.
+        // Also include the overhead of this `execute_proposal` method.
+        let actual_weight = actual_weight
+            .unwrap_or(proposal_weight)
+            .saturating_add(<T as Config>::WeightInfo::execute_proposal());
+        Ok(Some(actual_weight).into())
     }
 
     /// Rejects a multisig proposal
-    fn unsafe_reject(
+    fn base_reject(
         multisig: T::AccountId,
         signer: T::AccountId,
         proposal_id: u64,
@@ -881,7 +897,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Accepts and processed an addition of a signer to a multisig.
-    pub fn unsafe_accept_multisig_signer(signer: T::AccountId, auth_id: u64) -> DispatchResult {
+    pub fn base_accept_multisig_signer(signer: T::AccountId, auth_id: u64) -> DispatchResult {
         <Identity<T>>::accept_auth_with(
             &Signatory::Account(signer.clone()),
             auth_id,
@@ -970,11 +986,8 @@ impl<T: Config> Module<T> {
         sender_did: IdentityId,
         multisig: &T::AccountId,
     ) -> DispatchResult {
-        ensure!(
-            <MultiSigToIdentity<T>>::contains_key(&multisig),
-            Error::<T>::MultisigMissingIdentity
-        );
-        let multisig_did = <MultiSigToIdentity<T>>::get(&multisig);
+        let multisig_did = <MultiSigToIdentity<T>>::try_get(&multisig)
+            .map_err(|_| Error::<T>::MultisigMissingIdentity)?;
         ensure!(multisig_did == sender_did, Error::<T>::IdentityNotCreator);
         Ok(())
     }
@@ -992,7 +1005,7 @@ impl<T: Config> Module<T> {
             Self::is_changing_signers_allowed(&multisig_account),
             Error::<T>::ChangeNotAllowed
         );
-        Self::unsafe_change_sigs_required(multisig_account, signatures_required);
+        Self::base_change_sigs_required(multisig_account, signatures_required);
         Ok(())
     }
 

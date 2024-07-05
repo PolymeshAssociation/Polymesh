@@ -771,6 +771,8 @@ impl<T: Config> Module<T> {
                 None,
                 true,
             )
+            .map_err(|e| e.error)?;
+            Ok(())
         };
         let txs_result = Self::apply_handler(propose, bridge_txs);
         if send_event {

@@ -224,8 +224,7 @@ fn do_admin_freeze_and_unfreeze_bridge(signers: &[AccountId]) {
     let starting_alices_balance = alice_balance();
     signers_approve_bridge_tx(tx, signers);
 
-    ensure_tx_status(alice.clone(), 1, BridgeTxStatus::Absent);
-    fast_forward_blocks(timelock);
+    fast_forward_blocks(timelock - 1);
 
     // Weight calculation when bridge is freezed.
     ensure_tx_status(alice.clone(), 1, BridgeTxStatus::Timelocked);
@@ -349,7 +348,6 @@ fn do_timelock_txs(signers: &[AccountId]) {
 
     // Approve the transaction by `signers`.
     signers_approve_bridge_tx(tx, signers);
-    next_block();
     let unlock_block_number = next_unlock_block_number();
 
     // Tx should be timelocked.
@@ -382,7 +380,7 @@ fn do_rate_limit(signers: &[AccountId]) {
 
     // Propose the transaction... and it should not issue due to the current rate_limit.
     signers_approve_bridge_tx(tx, signers);
-    advance_block_and_verify_alice_balance(Bridge::timelock(), starting_alices_balance);
+    advance_block_and_verify_alice_balance(Bridge::timelock() - 1, starting_alices_balance);
 
     // Still no issue, rate limit reached.
     assert_eq!(alice_balance(), starting_alices_balance);
@@ -407,7 +405,6 @@ fn do_exempted(signers: &[AccountId]) {
 
     // Send and approve the transaction.
     signers_approve_bridge_tx(tx, signers);
-    next_block();
 
     let execution_block = ensure_tx_status(alice.clone(), 1, BridgeTxStatus::Timelocked);
     assert_eq!(execution_block, next_unlock_block_number());
@@ -440,7 +437,6 @@ fn do_force_mint(signers: &[AccountId]) {
     let timelock = Bridge::timelock();
 
     let tx = signers_approve_bridge_tx(tx, signers);
-    next_block();
     let unlock_block_number = next_unlock_block_number();
 
     let execution_block = ensure_tx_status(alice.clone(), 1, BridgeTxStatus::Timelocked);
@@ -503,7 +499,7 @@ fn do_freeze_txs(signers: &[AccountId]) {
         .map(|tx| Balances::total_balance(&tx.recipient))
         .collect::<Vec<_>>();
 
-    fast_forward_blocks(Bridge::timelock());
+    fast_forward_blocks(Bridge::timelock() - 1);
 
     // Freeze all txs except the first one.
     let frozen_txs = txs.iter().skip(1).cloned().collect::<Vec<_>>();
@@ -565,7 +561,7 @@ fn do_batch_propose_bridge_tx(signers: &[AccountId]) {
     });
 
     // Advance block
-    fast_forward_blocks(Bridge::timelock());
+    fast_forward_blocks(Bridge::timelock() - 1);
     ensure_txs_status(&txs, BridgeTxStatus::Timelocked);
 
     // Now transactions should be `Handled`.
@@ -641,7 +637,7 @@ fn do_remove_txs(signers: &[AccountId]) {
 
     // Create some txs and register the recipients' balance.
     let txs = make_bridge_txs(AMOUNT).map(|tx| signers_approve_bridge_tx(tx, signers));
-    fast_forward_blocks(Bridge::timelock());
+    fast_forward_blocks(Bridge::timelock() - 1);
 
     // Freeze all txs except the first one.
     let frozen_txs = txs.iter().skip(1).cloned().collect::<Vec<_>>();
