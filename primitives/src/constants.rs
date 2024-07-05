@@ -19,6 +19,5 @@
 
 /// Prefixes for scheduled actions
 pub const SETTLEMENT_INSTRUCTION_EXECUTION: [u8; 27] = *b"SETTLEMENT_INSTRUCTION_EXEC";
-pub const MULTISIG_PROPOSAL_EXECUTION: [u8; 22] = *b"MULTISIG_PROPOSAL_EXEC";
 pub const PIP_EXECUTION: [u8; 8] = *b"PIP_EXEC";
 pub const PIP_EXPIRY: [u8; 10] = *b"PIP_EXPIRY";

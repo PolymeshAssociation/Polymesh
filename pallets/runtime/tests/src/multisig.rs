@@ -1,4 +1,7 @@
-use frame_support::{assert_noop, assert_ok, StorageDoubleMap, StorageMap};
+use frame_support::{
+    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, dispatch::Weight,
+    StorageDoubleMap, StorageMap,
+};
 
 use pallet_multisig::{self as multisig, LostCreatorPrivileges, ProposalDetail, Votes};
 use polymesh_common_utilities::constants::currency::POLY;
@@ -204,7 +207,12 @@ fn change_multisig_sigs_required() {
         let proposal_details = MultiSig::proposal_detail(&ms_address, 0);
         assert_eq!(proposal_details.status, ProposalStatus::ActiveOrExpired);
 
-        assert_ok!(MultiSig::approve(charlie.clone(), ms_address.clone(), 0));
+        assert_ok!(MultiSig::approve(
+            charlie.clone(),
+            ms_address.clone(),
+            0,
+            Weight::MAX
+        ));
         next_block();
         assert_eq!(MultiSig::ms_signs_required(ms_address), 1);
     });
@@ -817,10 +825,10 @@ fn check_for_approval_closure() {
         let bob_auth_id = get_last_auth_id(&bob_signer.clone());
         let multi_purpose_nonce = Identity::multi_purpose_nonce();
 
-        assert_noop!(
-            MultiSig::approve(dave.clone(), ms_address.clone(), proposal_id),
+        assert_storage_noop!(assert_err_ignore_postinfo!(
+            MultiSig::approve(dave.clone(), ms_address.clone(), proposal_id, Weight::MAX),
             Error::ProposalAlreadyExecuted
-        );
+        ));
 
         next_block();
         let after_extra_approval_auth_id = get_last_auth_id(&bob_signer.clone());
@@ -910,7 +918,8 @@ fn reject_proposals() {
         assert_ok!(MultiSig::approve(
             dave.clone(),
             ms_address.clone(),
-            proposal_id1
+            proposal_id1,
+            Weight::MAX
         ));
         let proposal_details1 = MultiSig::proposal_detail(&ms_address, proposal_id1);
         assert_eq!(proposal_details1.approvals, 2);
@@ -934,10 +943,10 @@ fn reject_proposals() {
             ms_address.clone(),
             proposal_id2
         ));
-        assert_noop!(
-            MultiSig::approve(dave.clone(), ms_address.clone(), proposal_id2),
+        assert_storage_noop!(assert_err_ignore_postinfo!(
+            MultiSig::approve(dave.clone(), ms_address.clone(), proposal_id2, Weight::MAX),
             Error::ProposalAlreadyRejected
-        );
+        ));
 
         let proposal_details2 = MultiSig::proposal_detail(&ms_address, proposal_id2);
         next_block();
@@ -1366,7 +1375,8 @@ fn expired_proposals() {
         assert_ok!(MultiSig::approve(
             bob.clone(),
             ms_address.clone(),
-            proposal_id
+            proposal_id,
+            Weight::MAX
         ));
 
         proposal_details = MultiSig::proposal_detail(&ms_address, proposal_id);
@@ -1376,7 +1386,12 @@ fn expired_proposals() {
         // Approval fails when proposal has expired
         set_timestamp(expires_at);
         assert_noop!(
-            MultiSig::approve(charlie.clone(), ms_address.clone(), proposal_id),
+            MultiSig::approve(
+                charlie.clone(),
+                ms_address.clone(),
+                proposal_id,
+                Weight::MAX
+            ),
             Error::ProposalExpired
         );
 
@@ -1386,7 +1401,12 @@ fn expired_proposals() {
 
         // Approval works when time is expiry - 1
         set_timestamp(expires_at - 1);
-        assert_ok!(MultiSig::approve(charlie, ms_address.clone(), proposal_id));
+        assert_ok!(MultiSig::approve(
+            charlie,
+            ms_address.clone(),
+            proposal_id,
+            Weight::MAX
+        ));
 
         proposal_details = MultiSig::proposal_detail(&ms_address, proposal_id);
         assert_eq!(proposal_details.approvals, 3);
@@ -1403,6 +1423,6 @@ fn setup_multisig(creator_origin: Origin, sigs_required: u64, signers: Vec<Accou
 
     for signer in signers {
         let auth_id = get_last_auth_id(&signer);
-        assert_ok!(MultiSig::unsafe_accept_multisig_signer(signer, auth_id));
+        assert_ok!(MultiSig::base_accept_multisig_signer(signer, auth_id));
     }
 }
