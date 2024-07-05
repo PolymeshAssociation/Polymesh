@@ -1430,8 +1430,8 @@ pub mod pallet {
             }
 
             // Prevents stashes which are controllers of another ledger from calling the extrinsic
-            if let Some(bonded_ledger) = <Ledger<T>>::get(&stash) {
-                if bonded_ledger.stash != stash {
+            if old_controller != stash {
+                if <Ledger<T>>::contains_key(&stash) {
                     return Err(Error::<T>::BadState.into());
                 }
             }
