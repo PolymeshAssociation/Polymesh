@@ -71,6 +71,7 @@ pub trait WeightInfo {
     fn create_or_approve_proposal() -> Weight;
     fn create_proposal() -> Weight;
     fn approve() -> Weight;
+    fn execute_proposal() -> Weight;
     fn reject() -> Weight;
     fn accept_multisig_signer() -> Weight;
     fn add_multisig_signer() -> Weight;
@@ -80,7 +81,6 @@ pub trait WeightInfo {
     fn change_sigs_required() -> Weight;
     fn make_multisig_secondary() -> Weight;
     fn make_multisig_primary() -> Weight;
-    fn execute_scheduled_proposal() -> Weight;
     fn change_sigs_required_via_creator() -> Weight;
     fn remove_creator_controls() -> Weight;
 }
