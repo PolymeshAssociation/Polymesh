@@ -1308,7 +1308,7 @@ impl<T: Config> Module<T> {
                 MediatorAffirmationStatus::Affirmed { expiry, .. } => {
                     if let Some(expiry) = expiry {
                         ensure!(
-                            expiry < current_timestamp,
+                            expiry > current_timestamp,
                             Error::<T>::MediatorAffirmationExpired
                         );
                     }
