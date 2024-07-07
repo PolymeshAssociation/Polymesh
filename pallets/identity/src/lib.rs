@@ -116,7 +116,7 @@ use polymesh_primitives::{
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 
-storage_migration_ver!(5);
+storage_migration_ver!(6);
 
 decl_storage! {
     trait Store for Module<T: Config> as Identity {
@@ -170,7 +170,7 @@ decl_storage! {
         pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(5)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(6)): Version;
 
         /// How many "strong" references to the account key.
         ///
@@ -264,8 +264,8 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 5, {
-                migration::migrate_to_v5::<T>();
+            storage_migrate_on!(StorageVersion, 6, {
+                migration::migrate_to_v6::<T>();
             });
             Weight::zero()
         }
@@ -784,25 +784,36 @@ fn revoke_claim_class(claim_type: ClaimType) -> frame_support::dispatch::Dispatc
 }
 
 pub mod migration {
-    use super::*;
+    use hex_literal::hex;
     use sp_runtime::runtime_logger::RuntimeLogger;
 
-    pub fn migrate_to_v5<T: Config>() {
+    use super::*;
+
+    pub fn migrate_to_v6<T: Config>() {
         RuntimeLogger::init();
-        log::info!(" >>> Initializing NextAuthId and NumberOfGivenAuths");
-        initialize_next_auth_id::<T>();
-        initialize_number_of_given_auths::<T>();
-        log::info!(" >>> NextAuthId and NumberOfGivenAuths have been initialized");
-    }
+        log::info!(" >>> Updating account ref");
 
-    fn initialize_next_auth_id<T: Config>() {
-        let next_auth_id = MultiPurposeNonce::get().saturating_add(1);
-        CurrentAuthId::put(next_auth_id);
-    }
-
-    fn initialize_number_of_given_auths<T: Config>() {
-        for (authorizer, _) in AuthorizationsGiven::<T>::iter_keys() {
-            NumberOfGivenAuths::mutate(authorizer, |n| *n = n.saturating_add(1));
+        // Hex for key 2EGKNqWLx2VhjgFZ6BwXZ9Tf6jQXzWjW4cNvE2Bd24z85xfq
+        if let Ok(key_1) = Decode::decode(
+            &mut hex!("50631df3b9b6a7a7d8893ae3959b3d9ca1f266ca05ea6e007cdaeb8adbae9805").as_ref(),
+        ) {
+            crate::Module::<T>::remove_account_key_ref_count(&key_1);
         }
+
+        // Hex for key 2DR8JZWwJ7jDSHYDKoaV7Bfi6dyoQ6FkBx4KYB5owtjiFgj5
+        if let Ok(key_2) = Decode::decode(
+            &mut hex!("2aded091e73417dd618c66a10175df84cd76803ad9a87a62cb986d2e84e6d43c").as_ref(),
+        ) {
+            crate::Module::<T>::remove_account_key_ref_count(&key_2);
+        };
+
+        // Hex for key 2G3CJWkzusVqtxYoofCjGqwxgjFYJS6Rxvg8supREvQBmtvy
+        if let Ok(key_3) = Decode::decode(
+            &mut hex!("9ed994211b1b54a39a2ff9f4d94f6ca0a2da5411bfc266f8236425c2efd0876c").as_ref(),
+        ) {
+            crate::Module::<T>::remove_account_key_ref_count(&key_3);
+        }
+
+        log::info!(" >>> Account ref has been updated");
     }
 }
