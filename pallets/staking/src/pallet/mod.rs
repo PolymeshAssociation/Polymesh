@@ -1428,9 +1428,12 @@ pub mod pallet {
             if <Ledger<T>>::contains_key(&controller) {
                 return Err(Error::<T>::AlreadyPaired.into());
             }
-            // Prevents stashes which are controllers from calling the extrinsic
-            if <Ledger<T>>::contains_key(&stash) {
-                return Err(Error::<T>::BadState.into());
+
+            // Prevents stashes which are controllers of another ledger from calling the extrinsic
+            if old_controller != stash {
+                if <Ledger<T>>::contains_key(&stash) {
+                    return Err(Error::<T>::BadState.into());
+                }
             }
 
             if controller != old_controller {
