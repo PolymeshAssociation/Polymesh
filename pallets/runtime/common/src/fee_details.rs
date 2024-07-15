@@ -92,8 +92,8 @@ where
         };
 
         let handle_multisig = |multisig: &AccountId, caller: &AccountId| {
-            if <pallet_multisig::MultiSigSigners<A>>::contains_key(multisig, caller) {
-                check_cdd(&<pallet_multisig::MultiSigToIdentity<A>>::get(multisig))
+            if pallet_multisig::MultiSigSigners::<A>::contains_key(multisig, caller) {
+                check_cdd(&pallet_multisig::CreatorDid::<A>::get(multisig))
             } else {
                 MISSING_ID
             }

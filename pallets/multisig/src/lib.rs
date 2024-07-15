@@ -168,8 +168,8 @@ decl_storage! {
         /// (multisig, proposal_id) -> signer => vote.
         pub Votes get(fn votes):
             double_map hasher(twox_64_concat) (T::AccountId, u64), hasher(twox_64_concat) T::AccountId => bool;
-        /// Maps a multisig account to its identity.
-        pub MultiSigToIdentity get(fn ms_to_identity): map hasher(identity) T::AccountId => IdentityId;
+        /// The multisig creator's identity.
+        pub CreatorDid: map hasher(identity) T::AccountId => IdentityId;
         /// Details of a multisig proposal
         ///
         /// multisig -> proposal id => ProposalDetails.
@@ -338,8 +338,9 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::add_multisig_signer()]
         pub fn add_multisig_signer(origin, signer: T::AccountId) {
             let sender = ensure_signed(origin)?;
-            Self::ensure_ms(&sender)?;
-            let did = <MultiSigToIdentity<T>>::get(&sender);
+            // Ensure the caller is a MultiSig and get it's creator DID.
+            let did = CreatorDid::<T>::try_get(&sender)
+                .map_err(|_| Error::<T>::NoSuchMultisig)?;
             Self::base_add_auth_for_signers(did, signer, sender)?;
         }
 
@@ -564,7 +565,7 @@ impl<T: Config> Module<T> {
 
     fn ensure_ms(sender: &T::AccountId) -> DispatchResult {
         ensure!(
-            <MultiSigToIdentity<T>>::contains_key(sender),
+            <CreatorDid<T>>::contains_key(sender),
             Error::<T>::NoSuchMultisig
         );
         Ok(())
@@ -649,7 +650,7 @@ impl<T: Config> Module<T> {
             )?;
         }
         <MultiSigSignsRequired<T>>::insert(&account_id, &sigs_required);
-        <MultiSigToIdentity<T>>::insert(account_id.clone(), sender_did);
+        <CreatorDid<T>>::insert(account_id.clone(), sender_did);
         Ok(account_id)
     }
 
@@ -663,7 +664,7 @@ impl<T: Config> Module<T> {
     ) -> DispatchResultWithPostInfo {
         Self::ensure_ms_signer(&multisig, &sender_signer)?;
         let max_weight = proposal.get_dispatch_info().weight;
-        let caller_did = <MultiSigToIdentity<T>>::get(&multisig);
+        let caller_did = <CreatorDid<T>>::get(&multisig);
         let proposal_id = Self::ms_tx_done(multisig.clone());
         <Proposals<T>>::insert(multisig.clone(), proposal_id, proposal.clone());
         if proposal_to_id {
@@ -719,7 +720,7 @@ impl<T: Config> Module<T> {
 
         let mut proposal_details = Self::proposal_detail(&multisig, proposal_id);
         proposal_details.approvals += 1u64;
-        let multisig_did = <MultiSigToIdentity<T>>::get(&multisig);
+        let creator_did = <CreatorDid<T>>::get(&multisig);
         let mut execute_proposal = false;
         match proposal_details.status {
             ProposalStatus::Invalid => return Err(Error::<T>::ProposalMissing.into()),
@@ -745,13 +746,13 @@ impl<T: Config> Module<T> {
         <ProposalDetail<T>>::insert(&multisig, proposal_id, proposal_details);
         // emit proposal approved event
         Self::deposit_event(RawEvent::ProposalApproved(
-            multisig_did,
+            creator_did,
             multisig.clone(),
             signer,
             proposal_id,
         ));
         if execute_proposal {
-            Self::execute_proposal(multisig, proposal_id, multisig_did, max_weight)
+            Self::execute_proposal(multisig, proposal_id, creator_did, max_weight)
         } else {
             Ok(().into())
         }
@@ -761,7 +762,7 @@ impl<T: Config> Module<T> {
     pub(crate) fn execute_proposal(
         multisig: T::AccountId,
         proposal_id: u64,
-        multisig_did: IdentityId,
+        creator_did: IdentityId,
         max_weight: Weight,
     ) -> DispatchResultWithPostInfo {
         // Get the proposal.
@@ -790,7 +791,7 @@ impl<T: Config> Module<T> {
             Err(e) => {
                 update_proposal_status(ProposalStatus::ExecutionFailed);
                 Self::deposit_event(RawEvent::ProposalFailedToExecute(
-                    multisig_did,
+                    creator_did,
                     multisig.clone(),
                     proposal_id,
                     e.error,
@@ -799,7 +800,7 @@ impl<T: Config> Module<T> {
             }
         };
         Self::deposit_event(RawEvent::ProposalExecuted(
-            multisig_did,
+            creator_did,
             multisig,
             proposal_id,
             res,
@@ -909,7 +910,7 @@ impl<T: Config> Module<T> {
                     Error::<T>::MultisigNotAllowedToLinkToItself
                 );
 
-                let ms_identity = <MultiSigToIdentity<T>>::get(&multisig);
+                let ms_identity = <CreatorDid<T>>::get(&multisig);
                 <Identity<T>>::ensure_auth_by(ms_identity, auth_by)?;
 
                 <MultiSigSigners<T>>::insert(&multisig, &signer, true);
@@ -967,9 +968,9 @@ impl<T: Config> Module<T> {
         sender_did: IdentityId,
         multisig: &T::AccountId,
     ) -> DispatchResult {
-        let multisig_did = <MultiSigToIdentity<T>>::try_get(&multisig)
-            .map_err(|_| Error::<T>::MultisigMissingIdentity)?;
-        ensure!(multisig_did == sender_did, Error::<T>::IdentityNotCreator);
+        let creator_did =
+            CreatorDid::<T>::try_get(&multisig).map_err(|_| Error::<T>::MultisigMissingIdentity)?;
+        ensure!(creator_did == sender_did, Error::<T>::IdentityNotCreator);
         Ok(())
     }
 
@@ -999,7 +1000,7 @@ impl<T: Config> Module<T> {
 
 impl<T: Config> MultiSigSubTrait<T::AccountId> for Module<T> {
     fn is_multisig(account_id: &T::AccountId) -> bool {
-        <MultiSigToIdentity<T>>::contains_key(account_id)
+        <CreatorDid<T>>::contains_key(account_id)
     }
 }
 
@@ -1012,9 +1013,9 @@ pub mod migration {
 
         decl_storage! {
             trait Store for Module<T: Config> as MultiSig {
+                pub MultiSigToIdentity : map hasher(identity) T::AccountId => IdentityId;
                 pub MultiSigSigners: double_map hasher(identity) T::AccountId, hasher(twox_64_concat) Signatory<T::AccountId> => bool;
-                pub Votes get(fn votes):
-                    double_map hasher(twox_64_concat) (T::AccountId, u64), hasher(twox_64_concat) Signatory<T::AccountId> => bool;
+                pub Votes: double_map hasher(twox_64_concat) (T::AccountId, u64), hasher(twox_64_concat) Signatory<T::AccountId> => bool;
             }
         }
 
@@ -1026,6 +1027,7 @@ pub mod migration {
     pub fn migrate_to_v3<T: Config>(weight: &mut Weight) {
         RuntimeLogger::init();
         migrate_signatory::<T>(weight);
+        migrate_creator_did::<T>(weight);
     }
 
     fn migrate_signatory<T: Config>(weight: &mut Weight) {
@@ -1062,5 +1064,20 @@ pub mod migration {
         });
         weight.saturating_accrue(DbWeight::get().reads_writes(reads, writes));
         log::info!(" >>> {sig_count} Signers migrated.  {vote_count} votes migrated.");
+    }
+
+    fn migrate_creator_did<T: Config>(weight: &mut Weight) {
+        log::info!(" >>> Migrate MultiSigToIdentity to CreatorDid");
+        let mut did_count = 0;
+        let mut reads = 0;
+        let mut writes = 0;
+        v2::MultiSigToIdentity::<T>::drain().for_each(|(ms, did)| {
+            reads += 1;
+            did_count += 1;
+            CreatorDid::<T>::insert(ms, did);
+            writes += 1;
+        });
+        weight.saturating_accrue(DbWeight::get().reads_writes(reads, writes));
+        log::info!(" >>> {did_count} CreatorDids migrated.");
     }
 }
