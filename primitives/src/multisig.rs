@@ -27,19 +27,16 @@ pub struct ProposalDetails<T> {
     pub status: ProposalStatus,
     /// Expiry of the proposal
     pub expiry: Option<T>,
-    /// Should the proposal be closed after getting inverse of sign required reject votes
-    pub auto_close: bool,
 }
 
 impl<T: Default> ProposalDetails<T> {
     /// Create a new [`ProposalDetails`] object with the given config.
-    pub fn new(expiry: Option<T>, auto_close: bool) -> Self {
+    pub fn new(expiry: Option<T>) -> Self {
         Self {
             approvals: 0,
             rejections: 0,
             status: ProposalStatus::ActiveOrExpired,
             expiry,
-            auto_close,
         }
     }
 }

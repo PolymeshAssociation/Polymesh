@@ -199,7 +199,6 @@ fn change_multisig_sigs_required() {
             ms_address.clone(),
             call,
             None,
-            false
         ));
 
         assert_eq!(MultiSig::ms_signs_required(ms_address.clone()), 2);
@@ -257,7 +256,6 @@ fn create_or_approve_change_multisig_sigs_required() {
             ms_address.clone(),
             call.clone(),
             None,
-            false
         ));
         next_block();
         assert_eq!(MultiSig::ms_signs_required(ms_address.clone()), 2);
@@ -266,7 +264,6 @@ fn create_or_approve_change_multisig_sigs_required() {
             ms_address.clone(),
             call,
             None,
-            false
         ));
         next_block();
         assert_eq!(MultiSig::ms_signs_required(ms_address), 1);
@@ -337,7 +334,6 @@ fn remove_multisig_signer() {
             ms_address.clone(),
             call,
             None,
-            false
         ));
 
         next_block();
@@ -367,7 +363,6 @@ fn remove_multisig_signer() {
             ms_address.clone(),
             remove_alice,
             None,
-            false
         ));
 
         next_block();
@@ -423,7 +418,6 @@ fn add_multisig_signer() {
             ms_address.clone(),
             call,
             None,
-            false
         ));
 
         next_block();
@@ -437,7 +431,6 @@ fn add_multisig_signer() {
             ms_address.clone(),
             call2,
             None,
-            false
         ));
 
         next_block();
@@ -818,7 +811,6 @@ fn check_for_approval_closure() {
             ms_address.clone(),
             call,
             None,
-            false
         ));
         next_block();
         let proposal_id = MultiSig::ms_tx_done(ms_address.clone()) - 1;
@@ -887,7 +879,6 @@ fn reject_proposals() {
             ms_address.clone(),
             call1,
             None,
-            false
         ));
         let proposal_id1 = MultiSig::ms_tx_done(ms_address.clone()) - 1;
         assert_ok!(MultiSig::create_proposal(
@@ -895,11 +886,10 @@ fn reject_proposals() {
             ms_address.clone(),
             call2,
             None,
-            true
         ));
         let proposal_id2 = MultiSig::ms_tx_done(ms_address.clone()) - 1;
 
-        // Proposal with auto close disabled can be voted on even after rejection.
+        // Proposals can't be voted on even after rejection.
         assert_ok!(MultiSig::reject(
             bob.clone(),
             ms_address.clone(),
@@ -915,19 +905,16 @@ fn reject_proposals() {
             ms_address.clone(),
             proposal_id1
         ));
-        assert_ok!(MultiSig::approve(
-            dave.clone(),
-            ms_address.clone(),
-            proposal_id1,
-            Weight::MAX
+        assert_storage_noop!(assert_err_ignore_postinfo!(
+            MultiSig::approve(dave.clone(), ms_address.clone(), proposal_id1, Weight::MAX),
+            Error::ProposalAlreadyRejected
         ));
         let proposal_details1 = MultiSig::proposal_detail(&ms_address, proposal_id1);
-        assert_eq!(proposal_details1.approvals, 2);
+        assert_eq!(proposal_details1.approvals, 1);
         assert_eq!(proposal_details1.rejections, 3);
-        assert_eq!(proposal_details1.status, ProposalStatus::ActiveOrExpired);
-        assert_eq!(proposal_details1.auto_close, false);
+        assert_eq!(proposal_details1.status, ProposalStatus::Rejected);
 
-        // Proposal with auto close enabled can not be voted on after rejection.
+        // Proposal can't be voted on after rejection.
         assert_ok!(MultiSig::reject(
             bob.clone(),
             ms_address.clone(),
@@ -953,7 +940,6 @@ fn reject_proposals() {
         assert_eq!(proposal_details2.approvals, 1);
         assert_eq!(proposal_details2.rejections, 3);
         assert_eq!(proposal_details2.status, ProposalStatus::Rejected);
-        assert_eq!(proposal_details2.auto_close, true);
     });
 }
 
@@ -1228,7 +1214,6 @@ fn proposal_owner_rejection() {
             ms_address.clone(),
             call1,
             None,
-            true
         ));
         let proposal_id = MultiSig::ms_tx_done(ms_address.clone()) - 1;
 
@@ -1244,7 +1229,6 @@ fn proposal_owner_rejection() {
         assert_eq!(proposal_details.status, ProposalStatus::Rejected);
         assert_eq!(proposal_details.approvals, 0);
         assert_eq!(proposal_details.rejections, 1);
-        assert_eq!(proposal_details.auto_close, true);
         assert_eq!(
             Votes::<TestStorage>::get((&ms_address, proposal_id), ferdie_key),
             true
@@ -1297,7 +1281,6 @@ fn proposal_owner_rejection_denied() {
             ms_address.clone(),
             call1,
             None,
-            true
         ));
         let proposal_id = MultiSig::ms_tx_done(ms_address.clone()) - 1;
 
@@ -1317,7 +1300,6 @@ fn proposal_owner_rejection_denied() {
         assert_eq!(proposal_details.status, ProposalStatus::ActiveOrExpired);
         assert_eq!(proposal_details.approvals, 1);
         assert_eq!(proposal_details.rejections, 1);
-        assert_eq!(proposal_details.auto_close, true);
         assert_eq!(
             Votes::<TestStorage>::get((&ms_address, proposal_id), ferdie_key),
             true
@@ -1364,7 +1346,6 @@ fn expired_proposals() {
             ms_address.clone(),
             call,
             Some(100u64),
-            false
         ));
 
         let proposal_id = MultiSig::ms_tx_done(ms_address.clone()) - 1;
