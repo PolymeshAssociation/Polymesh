@@ -254,8 +254,6 @@ jobs:
       - RUSTFLAGS: -D warnings
     steps:
       - checkout
-      - setup-sccache
-      - restore-sccache-cache
       - attach_workspace:
           at: ./target/release
       - run:
@@ -279,7 +277,6 @@ jobs:
           command: cargo nextest run --locked
           working_directory: ./integration
           no_output_timeout: 30m
-      - save-sccache-cache
   integration-test:
     docker:
       - image: node:18-bookworm
