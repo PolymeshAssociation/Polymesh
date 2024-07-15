@@ -248,7 +248,7 @@ jobs:
   rust-integration-test:
     docker:
       - image: polymeshassociation/rust:debian-nightly-2023-12-11
-    resource_class: xlarge
+    resource_class: large
     environment:
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
@@ -269,6 +269,10 @@ jobs:
       - run:
           name: Reset accounts db
           command: ./reset_db.sh
+          working_directory: ./integration
+      - run:
+          name: Clear polymesh-api to force re-compile (chain metadata might have changed).
+          command: cargo clean -p polymesh-api
           working_directory: ./integration
       - run:
           name: Run polymesh-api integration tests.
