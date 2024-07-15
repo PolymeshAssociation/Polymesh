@@ -244,7 +244,6 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
         /// * `expiry` - Optional proposal expiry time.
-        /// * `auto_close` - Close proposal on receiving enough reject votes.
         ///
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
         /// #[deprecated(since = "6.0.0", note = "Please use the `create_proposal` and `approve` instead")]
@@ -258,11 +257,10 @@ decl_module! {
             multisig: T::AccountId,
             proposal: Box<T::Proposal>,
             expiry: Option<T::Moment>,
-            auto_close: bool,
         ) -> DispatchResultWithPostInfo {
             let signer = ensure_signed(origin)?;
             with_base_weight(<T as Config>::WeightInfo::create_or_approve_proposal(), || {
-                Self::base_create_or_approve_proposal(multisig, signer, proposal, expiry, auto_close)
+                Self::base_create_or_approve_proposal(multisig, signer, proposal, expiry)
             })
         }
 
@@ -272,7 +270,6 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
         /// * `expiry` - Optional proposal expiry time.
-        /// * `auto_close` - Close proposal on receiving enough reject votes.
         ///
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
         #[weight = {
@@ -285,11 +282,10 @@ decl_module! {
             multisig: T::AccountId,
             proposal: Box<T::Proposal>,
             expiry: Option<T::Moment>,
-            auto_close: bool,
         ) -> DispatchResultWithPostInfo {
             let signer = ensure_signed(origin)?;
             with_base_weight(<T as Config>::WeightInfo::create_proposal(), || {
-                Self::base_create_proposal(multisig, signer, proposal, expiry, auto_close, false)
+                Self::base_create_proposal(multisig, signer, proposal, expiry, false)
             })
         }
 
@@ -663,7 +659,6 @@ impl<T: Config> Module<T> {
         sender_signer: T::AccountId,
         proposal: Box<T::Proposal>,
         expiry: Option<T::Moment>,
-        auto_close: bool,
         proposal_to_id: bool,
     ) -> DispatchResultWithPostInfo {
         Self::ensure_ms_signer(&multisig, &sender_signer)?;
@@ -675,11 +670,7 @@ impl<T: Config> Module<T> {
             // Only use the `Proposal` -> id map for `create_or_approve_proposal` calls.
             <ProposalIds<T>>::insert(multisig.clone(), *proposal, proposal_id);
         }
-        <ProposalDetail<T>>::insert(
-            &multisig,
-            proposal_id,
-            ProposalDetails::new(expiry, auto_close),
-        );
+        <ProposalDetail<T>>::insert(&multisig, proposal_id, ProposalDetails::new(expiry));
         // Since proposal_ids are always only incremented by 1, they can not overflow.
         let next_proposal_id: u64 = proposal_id + 1u64;
         <MultiSigTxDone<T>>::insert(multisig.clone(), next_proposal_id);
@@ -697,7 +688,6 @@ impl<T: Config> Module<T> {
         sender_signer: T::AccountId,
         proposal: Box<T::Proposal>,
         expiry: Option<T::Moment>,
-        auto_close: bool,
     ) -> DispatchResultWithPostInfo {
         if let Some(proposal_id) = Self::proposal_ids(&multisig, &*proposal) {
             let max_weight = proposal.get_dispatch_info().weight;
@@ -705,14 +695,7 @@ impl<T: Config> Module<T> {
             Self::base_approve(multisig, sender_signer, proposal_id, max_weight)
         } else {
             // The proposal is new.
-            Self::base_create_proposal(
-                multisig,
-                sender_signer,
-                proposal,
-                expiry,
-                auto_close,
-                true,
-            )?;
+            Self::base_create_proposal(multisig, sender_signer, proposal, expiry, true)?;
             Ok(().into())
         }
     }
@@ -864,22 +847,20 @@ impl<T: Config> Module<T> {
                         Error::<T>::ProposalExpired
                     );
                 }
-                if proposal_details.auto_close {
-                    let approvals_needed = Self::ms_signs_required(multisig.clone());
-                    let ms_signers = Self::number_of_signers(multisig.clone());
-                    if proposal_details.rejections > ms_signers.saturating_sub(approvals_needed)
-                        || proposal_owner
-                    {
-                        if proposal_owner {
-                            proposal_details.approvals = 0;
-                        }
-                        proposal_details.status = ProposalStatus::Rejected;
-                        Self::deposit_event(RawEvent::ProposalRejected(
-                            current_did,
-                            multisig.clone(),
-                            proposal_id,
-                        ));
+                let approvals_needed = Self::ms_signs_required(multisig.clone());
+                let ms_signers = Self::number_of_signers(multisig.clone());
+                if proposal_details.rejections > ms_signers.saturating_sub(approvals_needed)
+                    || proposal_owner
+                {
+                    if proposal_owner {
+                        proposal_details.approvals = 0;
                     }
+                    proposal_details.status = ProposalStatus::Rejected;
+                    Self::deposit_event(RawEvent::ProposalRejected(
+                        current_did,
+                        multisig.clone(),
+                        proposal_id,
+                    ));
                 }
             }
         }

@@ -144,7 +144,6 @@ fn generate_multisig_and_create_proposal<T: Config + TestUtilsFn<AccountIdOf<T>>
         multisig.clone(),
         proposal.clone(),
         None,
-        true,
     )
     .unwrap();
     Ok((
@@ -192,14 +191,14 @@ benchmarks! {
 
     create_or_approve_proposal {
         let (alice, multisig, _, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(2, 1).unwrap();
-    }: _(users[0].origin(), ephemeral_multisig, proposal, Some(1337u32.into()), true)
+    }: _(users[0].origin(), ephemeral_multisig, proposal, Some(1337u32.into()))
     verify {
         assert_proposal_created!(proposal_id, multisig);
     }
 
     create_proposal {
         let (_, multisig, _, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(2, 1).unwrap();
-    }: _(users[0].origin(), ephemeral_multisig, proposal, Some(1337u32.into()), true)
+    }: _(users[0].origin(), ephemeral_multisig, proposal, Some(1337u32.into()))
     verify {
         assert_proposal_created!(proposal_id, multisig);
     }

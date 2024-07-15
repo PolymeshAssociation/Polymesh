@@ -166,7 +166,6 @@ impl MuliSigState {
                 self.account.clone(),
                 proposal.runtime_call().clone(),
                 None,
-                true,
             )?
             .submit_and_watch(&mut self.signers[0])
             .await?;
