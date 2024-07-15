@@ -186,7 +186,7 @@ benchmarks! {
         let (alice, multisig, signers, _, _) = generate_multisig_for_alice::<T>(i, 1).unwrap();
     }: _(alice.origin(), signers, i as u64)
     verify {
-        assert!(<MultiSigToIdentity<T>>::contains_key(multisig), "create_multisig");
+        assert!(<CreatorDid<T>>::contains_key(multisig), "create_multisig");
     }
 
     create_or_approve_proposal {
