@@ -623,7 +623,7 @@ impl committee::Config<committee::Instance4> for TestStorage {
 impl polymesh_common_utilities::traits::identity::Config for TestStorage {
     type RuntimeEvent = RuntimeEvent;
     type Proposal = RuntimeCall;
-    type MultiSig = multisig::Module<TestStorage>;
+    type MultiSig = multisig::Pallet<TestStorage>;
     type Portfolio = portfolio::Module<TestStorage>;
     type CddServiceProviders = CddServiceProvider;
     type Balances = balances::Module<TestStorage>;

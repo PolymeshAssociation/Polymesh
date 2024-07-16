@@ -24,7 +24,7 @@ pub(crate) fn controller<T: Config>(config: &GenesisConfig<T>) -> Option<T::Acco
 
     let creator = config.creator.as_ref().expect("Bridge creator.");
 
-    let multisig_id = pallet_multisig::Module::<T>::base_create_multisig(
+    let multisig_id = pallet_multisig::Pallet::<T>::base_create_multisig(
         creator.clone(),
         config.signers.as_slice(),
         config.signatures_required,
@@ -40,7 +40,7 @@ pub(crate) fn controller<T: Config>(config: &GenesisConfig<T>) -> Option<T::Acco
         .next()
         .expect("cannot find bridge signer auth")
         .auth_id;
-        <pallet_multisig::Module<T>>::base_accept_multisig_signer(signer.clone(), last_auth)
+        pallet_multisig::Pallet::<T>::base_accept_multisig_signer(signer.clone(), last_auth)
             .expect("cannot accept bridge signer auth");
     }
 

@@ -17,7 +17,7 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
 /// Count of approvals and rejections of a multisig proposal.
-#[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, Default, Decode, Encode, Eq, PartialEq, TypeInfo)]
 pub struct ProposalVoteCount {
     /// Number of yes votes
     pub approvals: u64,

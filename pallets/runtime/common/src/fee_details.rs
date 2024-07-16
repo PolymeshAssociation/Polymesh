@@ -1,7 +1,6 @@
 use codec::{Decode, Encode};
 use core::convert::{TryFrom, TryInto};
 use core::marker::PhantomData;
-use frame_support::{StorageDoubleMap, StorageMap};
 use pallet_identity::Module;
 use polymesh_common_utilities::traits::identity::Config;
 use polymesh_common_utilities::{traits::transaction_payment::CddAndFeeDetails, Context};

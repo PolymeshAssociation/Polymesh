@@ -18,53 +18,7 @@
 //! The interface allows to process addition of a multisig signer from modules other than the
 //! multisig module itself.
 
-use frame_support::decl_event;
-use frame_support::dispatch::DispatchError;
 use frame_support::pallet_prelude::Weight;
-use sp_std::vec::Vec;
-
-use polymesh_primitives::IdentityId;
-
-decl_event!(
-    pub enum Event<T>
-    where
-        AccountId = <T as frame_system::Config>::AccountId,
-    {
-        /// Event emitted after creation of a multisig.
-        /// Arguments: caller DID, multisig address, signers (pending approval), signers required.
-        MultiSigCreated(IdentityId, AccountId, AccountId, Vec<AccountId>, u64),
-        /// Event emitted after adding a proposal.
-        /// Arguments: caller DID, multisig, proposal ID.
-        ProposalAdded(IdentityId, AccountId, u64),
-        /// Event emitted when a proposal is executed.
-        /// Arguments: caller DID, multisig, proposal ID, result.
-        ProposalExecuted(IdentityId, AccountId, u64, bool),
-        /// Event emitted when a signatory is added.
-        /// Arguments: caller DID, multisig, added signer.
-        MultiSigSignerAdded(IdentityId, AccountId, AccountId),
-        /// Event emitted when a multisig signatory is authorized to be added.
-        /// Arguments: caller DID, multisig, authorized signer.
-        MultiSigSignerAuthorized(IdentityId, AccountId, AccountId),
-        /// Event emitted when a multisig signatory is removed.
-        /// Arguments: caller DID, multisig, removed signer.
-        MultiSigSignerRemoved(IdentityId, AccountId, AccountId),
-        /// Event emitted when the number of required signers is changed.
-        /// Arguments: caller DID, multisig, new required signers.
-        MultiSigSignersRequiredChanged(IdentityId, AccountId, u64),
-        /// Event emitted when the proposal get approved.
-        /// Arguments: caller DID, multisig, authorized signer, proposal id.
-        ProposalApproved(IdentityId, AccountId, AccountId, u64),
-        /// Event emitted when a vote is cast in favor of rejecting a proposal.
-        /// Arguments: caller DID, multisig, authorized signer, proposal id.
-        ProposalRejectionVote(IdentityId, AccountId, AccountId, u64),
-        /// Event emitted when a proposal is rejected.
-        /// Arguments: caller DID, multisig, proposal ID.
-        ProposalRejected(IdentityId, AccountId, u64),
-        /// Event emitted when a proposal failed to execute.
-        /// Arguments: caller DID, multisig, proposal ID, error.
-        ProposalFailedToExecute(IdentityId, AccountId, u64, DispatchError),
-    }
-);
 
 pub trait WeightInfo {
     fn create_multisig(signers: u32) -> Weight;

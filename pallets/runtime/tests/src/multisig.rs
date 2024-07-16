@@ -1,6 +1,5 @@
 use frame_support::{
     assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, dispatch::Weight,
-    StorageDoubleMap, StorageMap,
 };
 
 use pallet_multisig::{
@@ -21,7 +20,7 @@ use super::ExtBuilder;
 
 type Balances = pallet_balances::Module<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
-type MultiSig = pallet_multisig::Module<TestStorage>;
+type MultiSig = pallet_multisig::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type IdError = pallet_identity::Error<TestStorage>;
@@ -1187,7 +1186,7 @@ fn remove_creator_controls_successfully() {
             alice.clone(),
             multisig_account_id
         ));
-        assert!(LostCreatorPrivileges::get(alice_did))
+        assert!(LostCreatorPrivileges::<TestStorage>::get(alice_did))
     });
 }
 

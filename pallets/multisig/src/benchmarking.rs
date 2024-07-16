@@ -14,6 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use frame_benchmarking::benchmarks;
+use frame_support::storage::StorageDoubleMap;
 use frame_system::RawOrigin;
 
 use polymesh_common_utilities::benchs::{AccountIdOf, User, UserBuilder};
@@ -21,7 +22,7 @@ use polymesh_common_utilities::TestUtilsFn;
 
 use crate::*;
 
-pub type MultiSig<T> = crate::Module<T>;
+pub type MultiSig<T> = crate::Pallet<T>;
 pub type Identity<T> = pallet_identity::Module<T>;
 pub type Timestamp<T> = pallet_timestamp::Pallet<T>;
 
