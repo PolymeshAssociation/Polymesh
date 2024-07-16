@@ -188,7 +188,7 @@ decl_event! {
 }
 
 pub trait WeightInfo {
-    fn register_ticker() -> Weight;
+    fn register_unique_ticker() -> Weight;
     fn accept_ticker_transfer() -> Weight;
     fn accept_asset_ownership_transfer() -> Weight;
     fn create_asset(n: u32, i: u32, f: u32) -> Weight;

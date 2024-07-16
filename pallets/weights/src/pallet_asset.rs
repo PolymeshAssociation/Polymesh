@@ -71,7 +71,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity CurrentPayer (max_values: Some(1), max_size: None, mode: Measured)
     // Storage: Asset AssetOwnershipRelations (r:0 w:1)
     // Proof Skipped: Asset AssetOwnershipRelations (max_values: None, max_size: None, mode: Measured)
-    fn register_ticker() -> Weight {
+    fn register_unique_ticker() -> Weight {
         // Minimum execution time: 77_273 nanoseconds.
         Weight::from_ref_time(80_039_000)
             .saturating_add(DbWeight::get().reads(8))

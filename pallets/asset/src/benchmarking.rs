@@ -262,7 +262,7 @@ fn move_from_default_portfolio<T: Config>(
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
-    register_ticker {
+    register_unique_ticker {
         let caller = UserBuilder::<T>::default().generate_did().build("caller");
         // Generate a ticker of length `t`.
         set_config::<T>();

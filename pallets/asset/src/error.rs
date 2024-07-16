@@ -92,5 +92,9 @@ decl_error! {
         InvalidTransferInvalidReceiverCDD,
         /// Failed to transfer the asset - sender cdd is not valid.
         InvalidTransferInvalidSenderCDD,
+        /// The given ticker was not found.
+        TickerNotFound,
+        /// The given ticker is already linked to an asset.
+        TickerIsAlreadyLinkedToAnAsset,
     }
 }

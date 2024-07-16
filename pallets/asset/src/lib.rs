@@ -134,15 +134,15 @@ type Identity<T> = pallet_identity::Module<T>;
 type Portfolio<T> = pallet_portfolio::Module<T>;
 type Statistics<T> = pallet_statistics::Module<T>;
 
+type AssetID = u64;
+
 storage_migration_ver!(4);
 
 decl_storage! {
     trait Store for Module<T: Config> as Asset {
-        /// Ticker registration details.
-        /// (ticker) -> TickerRegistration
-        pub Tickers get(fn ticker_registration): map hasher(blake2_128_concat) Ticker => Option<TickerRegistration<T::Moment>>;
-        /// Ticker registration config.
-        /// (ticker) -> TickerRegistrationConfig
+        /// Maps each [`Ticker`] to its registration details ([`TickerRegistration`]).
+        pub UniqueTickerRegistration get(fn unique_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<TickerRegistration<T::Moment>>;
+        /// Returns [`TickerRegistrationConfig`] for assessing if a ticker is valid.
         pub TickerConfig get(fn ticker_registration_config) config(): TickerRegistrationConfig<T::Moment>;
         /// Details of the token corresponding to the token ticker.
         /// (ticker) -> SecurityToken details [returns SecurityToken struct]
@@ -241,15 +241,18 @@ decl_storage! {
         pub MandatoryMediators get(fn mandatory_mediators):
             map hasher(blake2_128_concat) Ticker => BoundedBTreeSet<IdentityId, T::MaxAssetMediators>;
 
-        /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(4)): Version;
-
         /// The last [`AssetMetadataLocalKey`] used for [`Ticker`].
         pub CurrentAssetMetadataLocalKey get(fn current_asset_metadata_local_key):
             map hasher(blake2_128_concat) Ticker => Option<AssetMetadataLocalKey>;
 
         /// The last [`AssetMetadataGlobalKey`] used for a global key.
         pub CurrentAssetMetadataGlobalKey get(fn current_asset_metadata_global_key): Option<AssetMetadataGlobalKey>;
+
+        /// Maps all unique tickers that are linked to an [`AssetID`].
+        pub TickerAssetID get(fn ticker_asset_id): map hasher(blake2_128_concat) Ticker => Option<AssetID>;
+
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(4)): Version;
     }
     add_extra_genesis {
         config(reserved_country_currency_codes): Vec<Ticker>;
@@ -298,18 +301,18 @@ decl_module! {
         const AssetMetadataTypeDefMaxLength: u32 = T::AssetMetadataTypeDefMaxLength::get();
         const MaxAssetMediators: u32 = T::MaxAssetMediators::get();
 
-        /// Registers a new ticker or extends validity of an existing ticker.
+        /// Registers a unique ticker or extends validity of an existing ticker.
         /// NB: Ticker validity does not get carry forward when renewing ticker.
         ///
         /// # Arguments
-        /// * `origin` It contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
-        /// * `ticker` ticker to register.
+        /// * `origin`: It contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
+        /// * `ticker`: [`Ticker`] to register.
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::register_ticker()]
-        pub fn register_ticker(origin, ticker: Ticker) -> DispatchResult {
-            Self::base_register_ticker(origin, ticker)
+        #[weight = <T as Config>::WeightInfo::register_unique_ticker()]
+        pub fn register_unique_ticker(origin, ticker: Ticker) -> DispatchResult {
+            Self::base_register_unique_ticker(origin, ticker)
         }
 
         /// Accepts a ticker transfer.
@@ -890,10 +893,10 @@ decl_module! {
 
 impl<T: Config> Module<T> {
     /// Registers `ticker` to the caller.
-    fn base_register_ticker(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
+    fn base_register_unique_ticker(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
         let caller_did = Identity::<T>::ensure_perms(origin)?;
 
-        let ticker_registration_config = Self::ticker_registration_config();
+        let ticker_registration_config = TickerConfig::<T>::get();
         let ticker_registration_status = Self::validate_ticker_registration_rules(
             &ticker,
             &caller_did,
@@ -921,11 +924,11 @@ impl<T: Config> Module<T> {
 
             Self::ensure_asset_doesnt_exist(&ticker)?;
 
-            let reg =
-                Self::ticker_registration(&ticker).ok_or(Error::<T>::TickerRegistrationExpired)?;
-            <Identity<T>>::ensure_auth_by(auth_by, reg.owner)?;
+            let ticker_registration =
+                UniqueTickerRegistration::<T>::get(&ticker).ok_or(Error::<T>::TickerNotFound)?;
+            <Identity<T>>::ensure_auth_by(auth_by, ticker_registration.owner)?;
 
-            Self::transfer_ticker(reg, ticker, to);
+            Self::transfer_ticker(ticker_registration, ticker, to);
             Ok(())
         })
     }
@@ -943,13 +946,14 @@ impl<T: Config> Module<T> {
             <ExternalAgents<T>>::ensure_agent_permissioned(ticker, auth_by)?;
 
             // Get the ticker registration and ensure it exists.
-            let mut reg = Self::ticker_registration(&ticker).ok_or(Error::<T>::NoSuchAsset)?;
+            let mut reg =
+                UniqueTickerRegistration::<T>::get(&ticker).ok_or(Error::<T>::TickerNotFound)?;
             let old_owner = reg.owner;
             AssetOwnershipRelations::remove(old_owner, ticker);
             AssetOwnershipRelations::insert(to, ticker, AssetOwnershipRelation::AssetOwned);
             // Update ticker registration.
             reg.owner = to;
-            <Tickers<T>>::insert(&ticker, reg);
+            UniqueTickerRegistration::<T>::insert(&ticker, reg);
             // Update token details.
             token.owner_did = to;
             Tokens::insert(&ticker, token);
@@ -1624,7 +1628,8 @@ impl<T: Config> Module<T> {
         max_ticker_length: u8,
     ) -> Result<TickerRegistrationStatus, DispatchError> {
         Self::verify_ticker_characters(&ticker)?;
-        Self::ensure_asset_doesnt_exist(&ticker)?;
+
+        Self::ensure_ticker_not_linked(&ticker)?;
 
         Self::ensure_ticker_length(ticker, max_ticker_length)?;
 
@@ -1663,6 +1668,15 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    /// Returns `Ok` if `ticker` is not linked to an [`AssetID`]. Otherwise, returns [`Error::TickerIsAlreadyLinkedToAnAsset`].
+    fn ensure_ticker_not_linked(ticker: &Ticker) -> DispatchResult {
+        ensure!(
+            !TickerAssetID::contains_key(ticker),
+            Error::<T>::TickerIsAlreadyLinkedToAnAsset
+        );
+        Ok(())
+    }
+
     /// Returns `Ok` if `ticker` doensn't exist. Otherwise, returns [`Error::AssetAlreadyCreated`].
     fn ensure_asset_doesnt_exist(ticker: &Ticker) -> DispatchResult {
         ensure!(
@@ -1683,7 +1697,7 @@ impl<T: Config> Module<T> {
 
     /// Returns [`TickerRegistrationStatus`] containing information regarding whether the ticker can be registered and if the fee must be charged.
     fn can_reregister_ticker(ticker: &Ticker, caller_did: &IdentityId) -> TickerRegistrationStatus {
-        match <Tickers<T>>::get(ticker) {
+        match UniqueTickerRegistration::<T>::get(ticker) {
             Some(ticker_registration) => {
                 // Checks if the ticker has an expiration time
                 match ticker_registration.expiry {
@@ -1731,7 +1745,7 @@ impl<T: Config> Module<T> {
         Self::ensure_valid_asset_type(asset_type)?;
         Self::ensure_valid_asset_identifiers(asset_identifiers)?;
 
-        let ticker_registration_config = Self::ticker_registration_config();
+        let ticker_registration_config = TickerConfig::<T>::get();
         let ticker_registration_status = Self::validate_ticker_registration_rules(
             ticker,
             &caller_did,
@@ -2175,12 +2189,12 @@ impl<T: Config> Module<T> {
         }
 
         // If the ticker was already registered, removes the previous owner
-        if let Some(ticker_registration) = <Tickers<T>>::get(ticker) {
+        if let Some(ticker_registration) = UniqueTickerRegistration::<T>::get(ticker) {
             AssetOwnershipRelations::remove(&ticker_registration.owner, &ticker);
         }
 
         // Write the ticker registration data to the storage
-        <Tickers<T>>::insert(ticker, TickerRegistration { owner, expiry });
+        UniqueTickerRegistration::<T>::insert(ticker, TickerRegistration { owner, expiry });
         AssetOwnershipRelations::insert(owner, ticker, AssetOwnershipRelation::TickerOwned);
 
         Self::deposit_event(RawEvent::TickerRegistered(owner, ticker, expiry));
@@ -2193,7 +2207,7 @@ impl<T: Config> Module<T> {
         AssetOwnershipRelations::remove(from, ticker);
         AssetOwnershipRelations::insert(to, ticker, AssetOwnershipRelation::TickerOwned);
         reg.owner = to;
-        <Tickers<T>>::insert(&ticker, reg);
+        UniqueTickerRegistration::<T>::insert(&ticker, reg);
         Self::deposit_event(RawEvent::TickerTransferred(to, ticker, from));
     }
 
@@ -2657,7 +2671,7 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
     }
 
     fn register_ticker(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
-        Self::base_register_ticker(origin, ticker)
+        Self::base_register_unique_ticker(origin, ticker)
     }
 
     fn issue(
