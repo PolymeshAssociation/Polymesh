@@ -1014,8 +1014,8 @@ pub mod migration {
         decl_storage! {
             trait Store for Module<T: Config> as MultiSig {
                 pub MultiSigToIdentity : map hasher(identity) T::AccountId => IdentityId;
+
                 pub MultiSigSigners: double_map hasher(identity) T::AccountId, hasher(twox_64_concat) Signatory<T::AccountId> => bool;
-                pub Votes: double_map hasher(twox_64_concat) (T::AccountId, u64), hasher(twox_64_concat) Signatory<T::AccountId> => bool;
             }
         }
 
@@ -1033,7 +1033,6 @@ pub mod migration {
     fn migrate_signatory<T: Config>(weight: &mut Weight) {
         log::info!(" >>> Migrate Signatory values to only AccountId");
         let mut sig_count = 0;
-        let mut vote_count = 0;
         let mut reads = 0;
         let mut writes = 0;
         v2::MultiSigSigners::<T>::drain().for_each(|(ms, signer, value)| {
@@ -1049,21 +1048,8 @@ pub mod migration {
                 }
             }
         });
-        v2::Votes::<T>::drain().for_each(|((ms, proposal_id), signer, value)| {
-            reads += 1;
-            vote_count += 1;
-            match signer {
-                Signatory::Account(signer) => {
-                    writes += 1;
-                    Votes::<T>::insert((ms, proposal_id), signer, value);
-                }
-                _ => {
-                    // Shouldn't be any Identity signatories.
-                }
-            }
-        });
         weight.saturating_accrue(DbWeight::get().reads_writes(reads, writes));
-        log::info!(" >>> {sig_count} Signers migrated.  {vote_count} votes migrated.");
+        log::info!(" >>> {sig_count} Signers migrated.");
     }
 
     fn migrate_creator_did<T: Config>(weight: &mut Weight) {
