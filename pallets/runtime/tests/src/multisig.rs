@@ -3,9 +3,11 @@ use frame_support::{
     StorageDoubleMap, StorageMap,
 };
 
-use pallet_multisig::{self as multisig, LostCreatorPrivileges, ProposalDetail, Votes};
+use pallet_multisig::{
+    self as multisig, LostCreatorPrivileges, ProposalStates, ProposalVoteCounts, Votes,
+};
 use polymesh_common_utilities::constants::currency::POLY;
-use polymesh_primitives::multisig::ProposalStatus;
+use polymesh_primitives::multisig::ProposalState;
 use polymesh_primitives::{AccountId, AuthorizationData, Permissions, SecondaryKey, Signatory};
 use sp_keyring::AccountKeyring;
 
@@ -203,8 +205,8 @@ fn change_multisig_sigs_required() {
 
         assert_eq!(MultiSig::ms_signs_required(ms_address.clone()), 2);
 
-        let proposal_details = MultiSig::proposal_detail(&ms_address, 0);
-        assert_eq!(proposal_details.status, ProposalStatus::ActiveOrExpired);
+        let proposal_state = ProposalStates::<TestStorage>::get(&ms_address, 0).unwrap();
+        assert_eq!(proposal_state, ProposalState::Active { until: None });
 
         assert_ok!(MultiSig::approve(
             charlie.clone(),
@@ -832,7 +834,9 @@ fn check_for_approval_closure() {
             after_extra_approval_multi_purpose_nonce
         );
         assert_eq!(
-            MultiSig::proposal_detail(&ms_address, proposal_id).approvals,
+            ProposalVoteCounts::<TestStorage>::get(&ms_address, proposal_id)
+                .unwrap()
+                .approvals,
             1
         );
     });
@@ -909,10 +913,13 @@ fn reject_proposals() {
             MultiSig::approve(dave.clone(), ms_address.clone(), proposal_id1, Weight::MAX),
             Error::ProposalAlreadyRejected
         ));
-        let proposal_details1 = MultiSig::proposal_detail(&ms_address, proposal_id1);
-        assert_eq!(proposal_details1.approvals, 1);
-        assert_eq!(proposal_details1.rejections, 3);
-        assert_eq!(proposal_details1.status, ProposalStatus::Rejected);
+        let vote_count1 =
+            ProposalVoteCounts::<TestStorage>::get(&ms_address, proposal_id1).unwrap();
+        let proposal_state1 =
+            ProposalStates::<TestStorage>::get(&ms_address, proposal_id1).unwrap();
+        assert_eq!(vote_count1.approvals, 1);
+        assert_eq!(vote_count1.rejections, 3);
+        assert_eq!(proposal_state1, ProposalState::Rejected);
 
         // Proposal can't be voted on after rejection.
         assert_ok!(MultiSig::reject(
@@ -935,11 +942,14 @@ fn reject_proposals() {
             Error::ProposalAlreadyRejected
         ));
 
-        let proposal_details2 = MultiSig::proposal_detail(&ms_address, proposal_id2);
+        let vote_count2 =
+            ProposalVoteCounts::<TestStorage>::get(&ms_address, proposal_id2).unwrap();
+        let proposal_state2 =
+            ProposalStates::<TestStorage>::get(&ms_address, proposal_id2).unwrap();
         next_block();
-        assert_eq!(proposal_details2.approvals, 1);
-        assert_eq!(proposal_details2.rejections, 3);
-        assert_eq!(proposal_details2.status, ProposalStatus::Rejected);
+        assert_eq!(vote_count2.approvals, 1);
+        assert_eq!(vote_count2.rejections, 3);
+        assert_eq!(proposal_state2, ProposalState::Rejected);
     });
 }
 
@@ -1225,10 +1235,11 @@ fn proposal_owner_rejection() {
         ));
 
         // The proposal status must be set to rejected
-        let proposal_details = ProposalDetail::<TestStorage>::get(&ms_address, proposal_id);
-        assert_eq!(proposal_details.status, ProposalStatus::Rejected);
-        assert_eq!(proposal_details.approvals, 0);
-        assert_eq!(proposal_details.rejections, 1);
+        let vote_count = ProposalVoteCounts::<TestStorage>::get(&ms_address, proposal_id).unwrap();
+        let proposal_state = ProposalStates::<TestStorage>::get(&ms_address, proposal_id).unwrap();
+        assert_eq!(proposal_state, ProposalState::Rejected);
+        assert_eq!(vote_count.approvals, 0);
+        assert_eq!(vote_count.rejections, 1);
         assert_eq!(
             Votes::<TestStorage>::get((&ms_address, proposal_id), ferdie_key),
             true
@@ -1237,7 +1248,7 @@ fn proposal_owner_rejection() {
         // The owner shouldn't be able to change their vote again
         assert_noop!(
             MultiSig::reject(ferdie, ms_address.clone(), proposal_id),
-            Error::AlreadyVoted
+            Error::ProposalAlreadyRejected
         );
 
         // No other votes are allowed, since the proposal has been rejected
@@ -1296,10 +1307,11 @@ fn proposal_owner_rejection_denied() {
         );
 
         // The proposal status must be set to Active
-        let proposal_details = ProposalDetail::<TestStorage>::get(&ms_address, proposal_id);
-        assert_eq!(proposal_details.status, ProposalStatus::ActiveOrExpired);
-        assert_eq!(proposal_details.approvals, 1);
-        assert_eq!(proposal_details.rejections, 1);
+        let vote_count = ProposalVoteCounts::<TestStorage>::get(&ms_address, proposal_id).unwrap();
+        let proposal_state = ProposalStates::<TestStorage>::get(&ms_address, proposal_id).unwrap();
+        assert_eq!(proposal_state, ProposalState::Active { until: None });
+        assert_eq!(vote_count.approvals, 1);
+        assert_eq!(vote_count.rejections, 1);
         assert_eq!(
             Votes::<TestStorage>::get((&ms_address, proposal_id), ferdie_key),
             true
@@ -1349,9 +1361,17 @@ fn expired_proposals() {
         ));
 
         let proposal_id = MultiSig::ms_tx_done(ms_address.clone()) - 1;
-        let mut proposal_details = MultiSig::proposal_detail(&ms_address, proposal_id);
-        assert_eq!(proposal_details.approvals, 1);
-        assert_eq!(proposal_details.status, ProposalStatus::ActiveOrExpired);
+        let mut vote_count =
+            ProposalVoteCounts::<TestStorage>::get(&ms_address, proposal_id).unwrap();
+        let mut proposal_state =
+            ProposalStates::<TestStorage>::get(&ms_address, proposal_id).unwrap();
+        assert_eq!(vote_count.approvals, 1);
+        assert_eq!(
+            proposal_state,
+            ProposalState::Active {
+                until: Some(100u64)
+            }
+        );
 
         assert_ok!(MultiSig::approve(
             bob.clone(),
@@ -1360,9 +1380,15 @@ fn expired_proposals() {
             Weight::MAX
         ));
 
-        proposal_details = MultiSig::proposal_detail(&ms_address, proposal_id);
-        assert_eq!(proposal_details.approvals, 2);
-        assert_eq!(proposal_details.status, ProposalStatus::ActiveOrExpired);
+        vote_count = ProposalVoteCounts::<TestStorage>::get(&ms_address, proposal_id).unwrap();
+        proposal_state = ProposalStates::<TestStorage>::get(&ms_address, proposal_id).unwrap();
+        assert_eq!(vote_count.approvals, 2);
+        assert_eq!(
+            proposal_state,
+            ProposalState::Active {
+                until: Some(100u64)
+            }
+        );
 
         // Approval fails when proposal has expired
         set_timestamp(expires_at);
@@ -1376,9 +1402,15 @@ fn expired_proposals() {
             Error::ProposalExpired
         );
 
-        proposal_details = MultiSig::proposal_detail(&ms_address, proposal_id);
-        assert_eq!(proposal_details.approvals, 2);
-        assert_eq!(proposal_details.status, ProposalStatus::ActiveOrExpired);
+        vote_count = ProposalVoteCounts::<TestStorage>::get(&ms_address, proposal_id).unwrap();
+        proposal_state = ProposalStates::<TestStorage>::get(&ms_address, proposal_id).unwrap();
+        assert_eq!(vote_count.approvals, 2);
+        assert_eq!(
+            proposal_state,
+            ProposalState::Active {
+                until: Some(100u64)
+            }
+        );
 
         // Approval works when time is expiry - 1
         set_timestamp(expires_at - 1);
@@ -1389,9 +1421,10 @@ fn expired_proposals() {
             Weight::MAX
         ));
 
-        proposal_details = MultiSig::proposal_detail(&ms_address, proposal_id);
-        assert_eq!(proposal_details.approvals, 3);
-        assert_eq!(proposal_details.status, ProposalStatus::ExecutionSuccessful);
+        vote_count = ProposalVoteCounts::<TestStorage>::get(&ms_address, proposal_id).unwrap();
+        proposal_state = ProposalStates::<TestStorage>::get(&ms_address, proposal_id).unwrap();
+        assert_eq!(vote_count.approvals, 3);
+        assert_eq!(proposal_state, ProposalState::ExecutionSuccessful);
     });
 }
 

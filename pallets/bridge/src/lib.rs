@@ -765,7 +765,7 @@ impl<T: Config> Module<T> {
             let proposal = <T as Config>::Proposal::from(Call::<T>::handle_bridge_tx { bridge_tx });
             let boxed_proposal = Box::new(proposal.into());
             <multisig::Module<T>>::base_create_or_approve_proposal(
-                controller.clone(),
+                &controller,
                 sender.clone(),
                 boxed_proposal,
                 None,

@@ -16,43 +16,51 @@
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
-/// Details of a multisig proposal.
+/// Count of approvals and rejections of a multisig proposal.
 #[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
-pub struct ProposalDetails<T> {
+pub struct ProposalVoteCount {
     /// Number of yes votes
     pub approvals: u64,
     /// Number of no votes
     pub rejections: u64,
-    /// Status of the proposal
-    pub status: ProposalStatus,
-    /// Expiry of the proposal
-    pub expiry: Option<T>,
 }
 
-impl<T: Default> ProposalDetails<T> {
-    /// Create a new [`ProposalDetails`] object with the given config.
-    pub fn new(expiry: Option<T>) -> Self {
-        Self {
-            approvals: 0,
-            rejections: 0,
-            status: ProposalStatus::ActiveOrExpired,
-            expiry,
-        }
-    }
-}
-
-/// Status of a multisig proposal.
-#[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
-pub enum ProposalStatus {
-    /// Proposal does not exist
-    #[default]
-    Invalid,
-    /// Proposal has not been closed yet. This means that it's either expired or open for voting.
-    ActiveOrExpired,
+/// State of a multisig proposal.
+#[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
+pub enum ProposalState<Moment> {
+    /// Proposal is active.
+    Active {
+        /// Optional time limit.
+        until: Option<Moment>,
+    },
     /// Proposal was accepted and executed successfully
     ExecutionSuccessful,
     /// Proposal was accepted and execution was tried but it failed
     ExecutionFailed,
     /// Proposal was rejected
     Rejected,
+}
+
+impl<Moment> ProposalState<Moment>
+where
+    Moment: PartialOrd<Moment>,
+{
+    /// Create new proposal state with optional time limit.
+    pub fn new(until: Option<Moment>) -> Self {
+        Self::Active { until }
+    }
+
+    /// Return `true` if the proposal state is active.
+    pub fn is_active<T: FnOnce() -> Moment>(&self, get_timestamp: T) -> bool {
+        match self {
+            Self::Active { until: None } => true,
+            Self::Active { until: Some(until) } => {
+                let current = get_timestamp();
+                // The proposal is still active, when the current time is
+                // less then `until`.
+                *until > current
+            }
+            _ => false,
+        }
+    }
 }

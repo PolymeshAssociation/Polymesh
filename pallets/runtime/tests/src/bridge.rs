@@ -117,7 +117,9 @@ fn signers_approve_bridge_tx(tx: BridgeTx, signers: &[AccountId]) -> BridgeTx {
             })
             .clone();
         assert_eq!(
-            MultiSig::proposal_detail(&controller, p_id).approvals,
+            MultiSig::proposal_vote_counts(&controller, p_id)
+                .unwrap()
+                .approvals,
             (i + 1) as u64
         );
     }

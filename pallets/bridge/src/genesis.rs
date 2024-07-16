@@ -24,7 +24,7 @@ pub(crate) fn controller<T: Config>(config: &GenesisConfig<T>) -> Option<T::Acco
 
     let creator = config.creator.as_ref().expect("Bridge creator.");
 
-    let multisig_id = pallet_multisig::Module::<T>::create_multisig_account(
+    let multisig_id = pallet_multisig::Module::<T>::base_create_multisig(
         creator.clone(),
         config.signers.as_slice(),
         config.signatures_required,
