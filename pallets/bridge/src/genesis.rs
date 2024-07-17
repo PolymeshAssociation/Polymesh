@@ -26,6 +26,7 @@ pub(crate) fn controller<T: Config>(config: &GenesisConfig<T>) -> Option<T::Acco
 
     let multisig_id = pallet_multisig::Pallet::<T>::base_create_multisig(
         creator.clone(),
+        Default::default(),
         config.signers.as_slice(),
         config.signatures_required,
     )

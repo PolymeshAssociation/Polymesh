@@ -92,7 +92,10 @@ where
 
         let handle_multisig = |multisig: &AccountId, caller: &AccountId| {
             if pallet_multisig::MultiSigSigners::<A>::contains_key(multisig, caller) {
-                check_cdd(&pallet_multisig::CreatorDid::<A>::get(multisig))
+                match pallet_multisig::CreatorDid::<A>::try_get(multisig) {
+                    Ok(did) => check_cdd(&did),
+                    Err(_) => MISSING_ID,
+                }
             } else {
                 MISSING_ID
             }

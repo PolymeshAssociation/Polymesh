@@ -94,7 +94,6 @@ use pallet_identity::PermissionedCallOriginData;
 use pallet_permissions::with_call_metadata;
 pub use polymesh_common_utilities::multisig::{MultiSigSubTrait, WeightInfo};
 use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
-use polymesh_common_utilities::Context;
 use polymesh_primitives::multisig::{ProposalState, ProposalVoteCount};
 use polymesh_primitives::{
     extract_auth, storage_migrate_on, storage_migration_ver, AuthorizationData, IdentityId,
@@ -202,8 +201,12 @@ pub mod pallet {
                 ..
             } = IdentityPallet::<T>::ensure_origin_call_permissions(origin)?;
             Self::ensure_sigs_in_bounds(&signers, sigs_required)?;
-            let account_id =
-                Self::base_create_multisig(sender.clone(), signers.as_slice(), sigs_required)?;
+            let account_id = Self::base_create_multisig(
+                sender.clone(),
+                primary_did,
+                signers.as_slice(),
+                sigs_required,
+            )?;
             Self::deposit_event(Event::MultiSigCreated {
                 caller_did: primary_did,
                 multisig: account_id,
@@ -339,9 +342,8 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let multisig = ensure_signed(origin)?;
             // Ensure the caller is a MultiSig and get it's creator DID.
-            let did =
-                CreatorDid::<T>::try_get(&multisig).map_err(|_| Error::<T>::NoSuchMultisig)?;
-            Self::base_add_auth_for_signers(did, signer, multisig)?;
+            let ms_did = Self::get_ms_did(&multisig).ok_or(Error::<T>::MultisigMissingIdentity)?;
+            Self::base_add_auth_for_signers(ms_did, signer, multisig)?;
             Ok(().into())
         }
 
@@ -459,7 +461,8 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let multisig = ensure_signed(origin)?;
             Self::ensure_ms(&multisig)?;
-            Self::base_change_multisig_required_singatures(&multisig, sigs_required)?;
+            let caller_did = Self::get_ms_did(&multisig).unwrap_or_default();
+            Self::base_change_multisig_required_signatures(caller_did, &multisig, sigs_required)?;
             Ok(().into())
         }
 
@@ -476,7 +479,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let did = IdentityPallet::<T>::ensure_perms(origin)?;
             Self::ensure_ms(&multisig)?;
-            Self::verify_sender_is_creator(did, &multisig)?;
+            Self::verify_caller_is_creator(did, &multisig)?;
 
             // Ensure the key is unlinked.
             IdentityPallet::<T>::ensure_key_did_unlinked(&multisig)?;
@@ -526,7 +529,11 @@ pub mod pallet {
                 !LostCreatorPrivileges::<T>::get(caller_did),
                 Error::<T>::CreatorControlsHaveBeenRemoved
             );
-            Self::base_change_multisig_required_singatures(&multisig, signatures_required)?;
+            Self::base_change_multisig_required_signatures(
+                caller_did,
+                &multisig,
+                signatures_required,
+            )?;
             Ok(().into())
         }
 
@@ -731,8 +738,10 @@ pub mod pallet {
     >;
 
     /// The multisig creator's identity.
+    ///
+    /// multisig -> Option<IdentityId>.
     #[pallet::storage]
-    pub type CreatorDid<T: Config> = StorageMap<_, Identity, T::AccountId, IdentityId, ValueQuery>;
+    pub type CreatorDid<T: Config> = StorageMap<_, Identity, T::AccountId, IdentityId>;
 
     /// The count of approvals/rejections of a multisig proposal.
     ///
@@ -798,9 +807,13 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    fn ensure_primary_key(did: &IdentityId, sender: &T::AccountId) -> DispatchResult {
+    pub fn get_ms_did(multisig: &T::AccountId) -> Option<IdentityId> {
+        IdentityPallet::<T>::get_identity(multisig).or_else(|| CreatorDid::<T>::get(multisig))
+    }
+
+    fn ensure_primary_key(did: &IdentityId, caller: &T::AccountId) -> DispatchResult {
         ensure!(
-            IdentityPallet::<T>::is_primary_key(did, sender),
+            IdentityPallet::<T>::is_primary_key(did, caller),
             Error::<T>::NotPrimaryKey
         );
         Ok(())
@@ -810,15 +823,15 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         multisig: &T::AccountId,
     ) -> Result<IdentityId, DispatchError> {
-        let (sender, did) = IdentityPallet::<T>::ensure_did(origin)?;
-        Self::verify_sender_is_creator(did, multisig)?;
-        Self::ensure_primary_key(&did, &sender)?;
+        let (caller, did) = IdentityPallet::<T>::ensure_did(origin)?;
+        Self::verify_caller_is_creator(did, multisig)?;
+        Self::ensure_primary_key(&did, &caller)?;
         Ok(did)
     }
 
-    fn ensure_ms(sender: &T::AccountId) -> DispatchResult {
+    fn ensure_ms(caller: &T::AccountId) -> DispatchResult {
         ensure!(
-            CreatorDid::<T>::contains_key(sender),
+            MultiSigSignsRequired::<T>::contains_key(caller),
             Error::<T>::NoSuchMultisig
         );
         Ok(())
@@ -862,18 +875,18 @@ impl<T: Config> Pallet<T> {
 
     /// Adds an authorization for the accountKey to become a signer of multisig.
     fn base_add_auth_for_signers(
-        multisig_owner: IdentityId,
+        caller_did: IdentityId,
         target: T::AccountId,
         multisig: T::AccountId,
     ) -> DispatchResult {
         IdentityPallet::<T>::add_auth(
-            multisig_owner,
+            caller_did,
             Signatory::Account(target.clone()),
             AuthorizationData::AddMultiSigSigner(multisig.clone()),
             None,
         )?;
         Self::deposit_event(Event::MultiSigSignerAuthorized {
-            caller_did: multisig_owner,
+            caller_did,
             multisig,
             signer: target,
         });
@@ -885,58 +898,48 @@ impl<T: Config> Pallet<T> {
         IdentityPallet::<T>::remove_key_record(&signer, None);
         MultiSigSigners::<T>::remove(multisig, &signer);
         Self::deposit_event(Event::MultiSigSignerRemoved {
-            caller_did: Context::current_identity::<IdentityPallet<T>>().unwrap_or_default(),
+            caller_did: Self::get_ms_did(multisig).unwrap_or_default(),
             multisig: multisig.clone(),
             signer,
         });
     }
 
-    /// Changes the required signature count for a given multisig.
-    fn base_change_sigs_required(multisig: &T::AccountId, sigs_required: u64) {
-        MultiSigSignsRequired::<T>::insert(multisig, &sigs_required);
-        Self::deposit_event(Event::MultiSigSignersRequiredChanged {
-            caller_did: Context::current_identity::<IdentityPallet<T>>().unwrap_or_default(),
-            multisig: multisig.clone(),
-            sigs_required,
-        });
-    }
-
     /// Creates a multisig without precondition checks or emitting an event.
     pub fn base_create_multisig(
-        sender: T::AccountId,
+        caller: T::AccountId,
+        caller_did: IdentityId,
         signers: &[T::AccountId],
         sigs_required: u64,
     ) -> Result<T::AccountId, DispatchError> {
-        let sender_did = Context::current_identity_or::<IdentityPallet<T>>(&sender)?;
         let new_nonce = Self::ms_nonce()
             .checked_add(1)
             .ok_or(Error::<T>::NonceOverflow)?;
         MultiSigNonce::<T>::put(new_nonce);
-        let account_id = Self::get_multisig_address(sender, new_nonce)?;
+        let multisig = Self::get_multisig_address(caller, new_nonce)?;
         for signer in signers {
             IdentityPallet::<T>::add_auth(
-                sender_did,
+                caller_did,
                 Signatory::Account(signer.clone()),
-                AuthorizationData::AddMultiSigSigner(account_id.clone()),
+                AuthorizationData::AddMultiSigSigner(multisig.clone()),
                 None,
             )?;
         }
-        MultiSigSignsRequired::<T>::insert(&account_id, &sigs_required);
-        CreatorDid::<T>::insert(account_id.clone(), sender_did);
-        Ok(account_id)
+        MultiSigSignsRequired::<T>::insert(&multisig, &sigs_required);
+        CreatorDid::<T>::insert(&multisig, caller_did);
+        Ok(multisig)
     }
 
     /// Creates a new proposal.
     pub fn base_create_proposal(
         multisig: &T::AccountId,
-        sender_signer: T::AccountId,
+        signer: T::AccountId,
         proposal: Box<T::Proposal>,
         expiry: Option<T::Moment>,
         proposal_to_id: bool,
     ) -> DispatchResultWithPostInfo {
-        Self::ensure_ms_signer(multisig, &sender_signer)?;
+        Self::ensure_ms_signer(multisig, &signer)?;
         let max_weight = proposal.get_dispatch_info().weight;
-        let caller_did = CreatorDid::<T>::get(multisig);
+        let caller_did = Self::get_ms_did(multisig).unwrap_or_default();
         let proposal_id = Self::ms_tx_done(multisig);
         Proposals::<T>::insert(multisig, proposal_id, &*proposal);
         if proposal_to_id {
@@ -953,23 +956,23 @@ impl<T: Config> Pallet<T> {
             multisig: multisig.clone(),
             proposal_id,
         });
-        Self::base_approve(multisig, sender_signer, proposal_id, max_weight)
+        Self::base_approve(multisig, signer, proposal_id, max_weight)
     }
 
     /// Creates or approves a multisig proposal.
     pub fn base_create_or_approve_proposal(
         multisig: &T::AccountId,
-        sender_signer: T::AccountId,
+        signer: T::AccountId,
         proposal: Box<T::Proposal>,
         expiry: Option<T::Moment>,
     ) -> DispatchResultWithPostInfo {
         if let Some(proposal_id) = Self::proposal_ids(multisig, &*proposal) {
             let max_weight = proposal.get_dispatch_info().weight;
             // This is an existing proposal.
-            Self::base_approve(multisig, sender_signer, proposal_id, max_weight)
+            Self::base_approve(multisig, signer, proposal_id, max_weight)
         } else {
             // The proposal is new.
-            Self::base_create_proposal(multisig, sender_signer, proposal, expiry, true)?;
+            Self::base_create_proposal(multisig, signer, proposal, expiry, true)?;
             Ok(().into())
         }
     }
@@ -995,7 +998,7 @@ impl<T: Config> Pallet<T> {
         let mut vote_count = ProposalVoteCounts::<T>::try_get(multisig, proposal_id)
             .map_err(|_| Error::<T>::ProposalMissing)?;
         vote_count.approvals += 1u64;
-        let creator_did = CreatorDid::<T>::get(multisig);
+        let creator_did = Self::get_ms_did(multisig).unwrap_or_default();
         let execute_proposal = vote_count.approvals >= Self::ms_signs_required(multisig);
 
         // Update storage
@@ -1090,10 +1093,10 @@ impl<T: Config> Pallet<T> {
             proposal_owner = true;
         }
 
-        let current_did = Context::current_identity::<IdentityPallet<T>>().unwrap_or_default();
+        let caller_did = Self::get_ms_did(multisig).unwrap_or_default();
         // emit proposal reject vote event.
         Self::deposit_event(Event::ProposalRejectionVote {
-            caller_did: current_did,
+            caller_did,
             multisig: multisig.clone(),
             signer: signer.clone(),
             proposal_id,
@@ -1108,7 +1111,7 @@ impl<T: Config> Pallet<T> {
             }
             ProposalStates::<T>::insert(multisig, proposal_id, ProposalState::Rejected);
             Self::deposit_event(Event::ProposalRejected {
-                caller_did: current_did,
+                caller_did,
                 multisig: multisig.clone(),
                 proposal_id,
             });
@@ -1151,7 +1154,8 @@ impl<T: Config> Pallet<T> {
                     Error::<T>::MultisigNotAllowedToLinkToItself
                 );
 
-                let ms_identity = CreatorDid::<T>::get(&multisig);
+                let ms_identity =
+                    Self::get_ms_did(&multisig).ok_or(Error::<T>::MultisigMissingIdentity)?;
                 IdentityPallet::<T>::ensure_auth_by(ms_identity, auth_by)?;
 
                 MultiSigSigners::<T>::insert(&multisig, &signer, true);
@@ -1172,19 +1176,19 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Gets the next available multisig account ID.
-    pub fn get_next_multisig_address(sender: T::AccountId) -> Result<T::AccountId, DispatchError> {
+    pub fn get_next_multisig_address(caller: T::AccountId) -> Result<T::AccountId, DispatchError> {
         // Nonce is always only incremented by small numbers and hence can never overflow 64 bits.
         // Also, this is just a helper function that does not modify state.
         let new_nonce = Self::ms_nonce() + 1;
-        Self::get_multisig_address(sender, new_nonce)
+        Self::get_multisig_address(caller, new_nonce)
     }
 
     /// Constructs a multisig account given a nonce.
     pub fn get_multisig_address(
-        sender: T::AccountId,
+        caller: T::AccountId,
         nonce: u64,
     ) -> Result<T::AccountId, DispatchError> {
-        let h: T::Hash = T::Hashing::hash(&(b"MULTI_SIG", nonce, sender).encode());
+        let h: T::Hash = T::Hashing::hash(&(b"MULTI_SIG", nonce, caller).encode());
         Ok(T::AccountId::decode(&mut &h.encode()[..]).map_err(|_| Error::<T>::DecodingError)?)
     }
 
@@ -1205,18 +1209,19 @@ impl<T: Config> Pallet<T> {
         true
     }
 
-    pub fn verify_sender_is_creator(
-        sender_did: IdentityId,
+    pub fn verify_caller_is_creator(
+        caller_did: IdentityId,
         multisig: &T::AccountId,
     ) -> DispatchResult {
         let creator_did =
             CreatorDid::<T>::try_get(multisig).map_err(|_| Error::<T>::MultisigMissingIdentity)?;
-        ensure!(creator_did == sender_did, Error::<T>::IdentityNotCreator);
+        ensure!(creator_did == caller_did, Error::<T>::IdentityNotCreator);
         Ok(())
     }
 
     /// Changes the number of required signatures for the given `multisig` to `signatures_required`.
-    fn base_change_multisig_required_singatures(
+    fn base_change_multisig_required_signatures(
+        caller_did: IdentityId,
         multisig: &T::AccountId,
         signatures_required: u64,
     ) -> DispatchResult {
@@ -1228,7 +1233,12 @@ impl<T: Config> Pallet<T> {
             Self::is_changing_signers_allowed(multisig),
             Error::<T>::ChangeNotAllowed
         );
-        Self::base_change_sigs_required(multisig, signatures_required);
+        MultiSigSignsRequired::<T>::insert(multisig, &signatures_required);
+        Self::deposit_event(Event::MultiSigSignersRequiredChanged {
+            caller_did,
+            multisig: multisig.clone(),
+            sigs_required: signatures_required,
+        });
         Ok(())
     }
 
@@ -1241,7 +1251,7 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> MultiSigSubTrait<T::AccountId> for Pallet<T> {
     fn is_multisig(account_id: &T::AccountId) -> bool {
-        CreatorDid::<T>::contains_key(account_id)
+        MultiSigSignsRequired::<T>::contains_key(account_id)
     }
 }
 
