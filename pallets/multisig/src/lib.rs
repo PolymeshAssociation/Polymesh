@@ -713,7 +713,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn proposal_ids)]
     pub type ProposalIds<T: Config> =
-        StorageDoubleMap<_, Identity, T::AccountId, Blake2_128Concat, T::Proposal, u64>;
+        StorageDoubleMap<_, Identity, T::AccountId, Blake2_128, T::Proposal, u64>;
 
     /// Individual multisig signer votes.
     ///
