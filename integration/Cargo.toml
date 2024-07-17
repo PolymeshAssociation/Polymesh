@@ -3,6 +3,14 @@ name = "integration"
 version = "0.1.0"
 edition = "2021"
 
+[patch.crates-io]
+polymesh-api = { git = "https://github.com/PolymeshAssociation/polymesh-api", branch = "multisig_v7" }
+polymesh-api-client = { git = "https://github.com/PolymeshAssociation/polymesh-api", branch = "multisig_v7" }
+polymesh-api-client-extras = { git = "https://github.com/PolymeshAssociation/polymesh-api", branch = "multisig_v7" }
+polymesh-api-tester = { git = "https://github.com/PolymeshAssociation/polymesh-api", branch = "multisig_v7" }
+polymesh-api-codegen = { git = "https://github.com/PolymeshAssociation/polymesh-api", branch = "multisig_v7" }
+polymesh-api-codegen-macro = { git = "https://github.com/PolymeshAssociation/polymesh-api", branch = "multisig_v7" }
+
 [features]
 default = []
 

@@ -204,13 +204,13 @@ pub mod pallet {
             Self::ensure_sigs_in_bounds(&signers, sigs_required)?;
             let account_id =
                 Self::base_create_multisig(sender.clone(), signers.as_slice(), sigs_required)?;
-            Self::deposit_event(Event::MultiSigCreated(
-                primary_did,
-                account_id,
-                sender,
+            Self::deposit_event(Event::MultiSigCreated {
+                caller_did: primary_did,
+                multisig: account_id,
+                caller: sender,
                 signers,
                 sigs_required,
-            ));
+            });
             Ok(().into())
         }
 
@@ -548,44 +548,76 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Event emitted after creation of a multisig.
-        /// Arguments: caller DID, multisig address, signers (pending approval), signers required.
-        MultiSigCreated(
-            IdentityId,
-            T::AccountId,
-            T::AccountId,
-            Vec<T::AccountId>,
-            u64,
-        ),
+        MultiSigCreated {
+            caller_did: IdentityId,
+            multisig: T::AccountId,
+            caller: T::AccountId,
+            signers: Vec<T::AccountId>,
+            sigs_required: u64,
+        },
         /// Event emitted after adding a proposal.
-        /// Arguments: caller DID, multisig, proposal ID.
-        ProposalAdded(IdentityId, T::AccountId, u64),
+        ProposalAdded {
+            caller_did: IdentityId,
+            multisig: T::AccountId,
+            proposal_id: u64,
+        },
         /// Event emitted when a proposal is executed.
-        /// Arguments: caller DID, multisig, proposal ID, result.
-        ProposalExecuted(IdentityId, T::AccountId, u64, bool),
+        ProposalExecuted {
+            caller_did: IdentityId,
+            multisig: T::AccountId,
+            proposal_id: u64,
+            result: DispatchResult,
+        },
         /// Event emitted when a signatory is added.
-        /// Arguments: caller DID, multisig, added signer.
-        MultiSigSignerAdded(IdentityId, T::AccountId, T::AccountId),
+        MultiSigSignerAdded {
+            caller_did: IdentityId,
+            multisig: T::AccountId,
+            signer: T::AccountId,
+        },
         /// Event emitted when a multisig signatory is authorized to be added.
-        /// Arguments: caller DID, multisig, authorized signer.
-        MultiSigSignerAuthorized(IdentityId, T::AccountId, T::AccountId),
+        MultiSigSignerAuthorized {
+            caller_did: IdentityId,
+            multisig: T::AccountId,
+            signer: T::AccountId,
+        },
         /// Event emitted when a multisig signatory is removed.
-        /// Arguments: caller DID, multisig, removed signer.
-        MultiSigSignerRemoved(IdentityId, T::AccountId, T::AccountId),
+        MultiSigSignerRemoved {
+            caller_did: IdentityId,
+            multisig: T::AccountId,
+            signer: T::AccountId,
+        },
         /// Event emitted when the number of required signers is changed.
-        /// Arguments: caller DID, multisig, new required signers.
-        MultiSigSignersRequiredChanged(IdentityId, T::AccountId, u64),
-        /// Event emitted when the proposal get approved.
-        /// Arguments: caller DID, multisig, authorized signer, proposal id.
-        ProposalApproved(IdentityId, T::AccountId, T::AccountId, u64),
+        MultiSigSignersRequiredChanged {
+            caller_did: IdentityId,
+            multisig: T::AccountId,
+            sigs_required: u64,
+        },
+        /// Event emitted when a vote is cast in favor of approving a proposal.
+        ProposalApprovalVote {
+            caller_did: IdentityId,
+            multisig: T::AccountId,
+            signer: T::AccountId,
+            proposal_id: u64,
+        },
         /// Event emitted when a vote is cast in favor of rejecting a proposal.
-        /// Arguments: caller DID, multisig, authorized signer, proposal id.
-        ProposalRejectionVote(IdentityId, T::AccountId, T::AccountId, u64),
+        ProposalRejectionVote {
+            caller_did: IdentityId,
+            multisig: T::AccountId,
+            signer: T::AccountId,
+            proposal_id: u64,
+        },
+        /// Event emitted when the proposal get approved.
+        ProposalApproved {
+            caller_did: IdentityId,
+            multisig: T::AccountId,
+            proposal_id: u64,
+        },
         /// Event emitted when a proposal is rejected.
-        /// Arguments: caller DID, multisig, proposal ID.
-        ProposalRejected(IdentityId, T::AccountId, u64),
-        /// Event emitted when a proposal failed to execute.
-        /// Arguments: caller DID, multisig, proposal ID, error.
-        ProposalFailedToExecute(IdentityId, T::AccountId, u64, DispatchError),
+        ProposalRejected {
+            caller_did: IdentityId,
+            multisig: T::AccountId,
+            proposal_id: u64,
+        },
     }
 
     /// Multisig module errors.
@@ -840,11 +872,11 @@ impl<T: Config> Pallet<T> {
             AuthorizationData::AddMultiSigSigner(multisig.clone()),
             None,
         )?;
-        Self::deposit_event(Event::MultiSigSignerAuthorized(
-            multisig_owner,
+        Self::deposit_event(Event::MultiSigSignerAuthorized {
+            caller_did: multisig_owner,
             multisig,
-            target,
-        ));
+            signer: target,
+        });
         Ok(())
     }
 
@@ -852,21 +884,21 @@ impl<T: Config> Pallet<T> {
     fn base_signer_removal(multisig: &T::AccountId, signer: T::AccountId) {
         IdentityPallet::<T>::remove_key_record(&signer, None);
         MultiSigSigners::<T>::remove(multisig, &signer);
-        Self::deposit_event(Event::MultiSigSignerRemoved(
-            Context::current_identity::<IdentityPallet<T>>().unwrap_or_default(),
-            multisig.clone(),
+        Self::deposit_event(Event::MultiSigSignerRemoved {
+            caller_did: Context::current_identity::<IdentityPallet<T>>().unwrap_or_default(),
+            multisig: multisig.clone(),
             signer,
-        ));
+        });
     }
 
     /// Changes the required signature count for a given multisig.
     fn base_change_sigs_required(multisig: &T::AccountId, sigs_required: u64) {
         MultiSigSignsRequired::<T>::insert(multisig, &sigs_required);
-        Self::deposit_event(Event::MultiSigSignersRequiredChanged(
-            Context::current_identity::<IdentityPallet<T>>().unwrap_or_default(),
-            multisig.clone(),
+        Self::deposit_event(Event::MultiSigSignersRequiredChanged {
+            caller_did: Context::current_identity::<IdentityPallet<T>>().unwrap_or_default(),
+            multisig: multisig.clone(),
             sigs_required,
-        ));
+        });
     }
 
     /// Creates a multisig without precondition checks or emitting an event.
@@ -916,11 +948,11 @@ impl<T: Config> Pallet<T> {
         // Since proposal_ids are always only incremented by 1, they can not overflow.
         let next_proposal_id: u64 = proposal_id + 1u64;
         MultiSigTxDone::<T>::insert(multisig, next_proposal_id);
-        Self::deposit_event(Event::ProposalAdded(
+        Self::deposit_event(Event::ProposalAdded {
             caller_did,
-            multisig.clone(),
+            multisig: multisig.clone(),
             proposal_id,
-        ));
+        });
         Self::base_approve(multisig, sender_signer, proposal_id, max_weight)
     }
 
@@ -969,14 +1001,20 @@ impl<T: Config> Pallet<T> {
         // Update storage
         Votes::<T>::insert((multisig, proposal_id), &signer, true);
         ProposalVoteCounts::<T>::insert(multisig, proposal_id, vote_count);
-        // emit proposal approved event
-        Self::deposit_event(Event::ProposalApproved(
-            creator_did,
-            multisig.clone(),
+        // emit proposal approval vote event.
+        Self::deposit_event(Event::ProposalApprovalVote {
+            caller_did: creator_did,
+            multisig: multisig.clone(),
             signer,
             proposal_id,
-        ));
+        });
         if execute_proposal {
+            // emit proposal approved event
+            Self::deposit_event(Event::ProposalApproved {
+                caller_did: creator_did,
+                multisig: multisig.clone(),
+                proposal_id,
+            });
             Self::execute_proposal(multisig, proposal_id, creator_did, max_weight)
         } else {
             Ok(().into())
@@ -1001,7 +1039,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::MaxWeightTooLow
         );
 
-        let (res, actual_weight) = match with_call_metadata(proposal.get_call_metadata(), || {
+        let (result, actual_weight) = match with_call_metadata(proposal.get_call_metadata(), || {
             proposal.dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into())
         }) {
             Ok(post_info) => {
@@ -1010,25 +1048,19 @@ impl<T: Config> Pallet<T> {
                     proposal_id,
                     ProposalState::ExecutionSuccessful,
                 );
-                (true, post_info.actual_weight)
+                (Ok(()), post_info.actual_weight)
             }
             Err(e) => {
                 ProposalStates::<T>::insert(multisig, proposal_id, ProposalState::ExecutionFailed);
-                Self::deposit_event(Event::ProposalFailedToExecute(
-                    creator_did,
-                    multisig.clone(),
-                    proposal_id,
-                    e.error,
-                ));
-                (false, e.post_info.actual_weight)
+                (Err(e.error), e.post_info.actual_weight)
             }
         };
-        Self::deposit_event(Event::ProposalExecuted(
-            creator_did,
-            multisig.clone(),
+        Self::deposit_event(Event::ProposalExecuted {
+            caller_did: creator_did,
+            multisig: multisig.clone(),
             proposal_id,
-            res,
-        ));
+            result,
+        });
         // If the proposal call doesn't return an `actual_weight`, then default to `proposal_weight`.
         // Also include the overhead of this `execute_proposal` method.
         let actual_weight = actual_weight
@@ -1058,8 +1090,16 @@ impl<T: Config> Pallet<T> {
             proposal_owner = true;
         }
 
-        vote_count.rejections += 1u64;
         let current_did = Context::current_identity::<IdentityPallet<T>>().unwrap_or_default();
+        // emit proposal reject vote event.
+        Self::deposit_event(Event::ProposalRejectionVote {
+            caller_did: current_did,
+            multisig: multisig.clone(),
+            signer: signer.clone(),
+            proposal_id,
+        });
+
+        vote_count.rejections += 1u64;
         let approvals_needed = Self::ms_signs_required(multisig.clone());
         let ms_signers = Self::number_of_signers(multisig.clone());
         if vote_count.rejections > ms_signers.saturating_sub(approvals_needed) || proposal_owner {
@@ -1067,22 +1107,15 @@ impl<T: Config> Pallet<T> {
                 vote_count.approvals = 0;
             }
             ProposalStates::<T>::insert(multisig, proposal_id, ProposalState::Rejected);
-            Self::deposit_event(Event::ProposalRejected(
-                current_did,
-                multisig.clone(),
+            Self::deposit_event(Event::ProposalRejected {
+                caller_did: current_did,
+                multisig: multisig.clone(),
                 proposal_id,
-            ));
+            });
         }
         // Update storage
         Votes::<T>::insert((multisig, proposal_id), &signer, true);
         ProposalVoteCounts::<T>::insert(multisig, proposal_id, vote_count);
-        // emit proposal rejected event
-        Self::deposit_event(Event::ProposalRejectionVote(
-            current_did,
-            multisig.clone(),
-            signer,
-            proposal_id,
-        ));
         Ok(())
     }
 
@@ -1128,7 +1161,11 @@ impl<T: Config> Pallet<T> {
                     &signer,
                     KeyRecord::MultiSigSignerKey(multisig.clone()),
                 );
-                Self::deposit_event(Event::MultiSigSignerAdded(ms_identity, multisig, signer));
+                Self::deposit_event(Event::MultiSigSignerAdded {
+                    caller_did: ms_identity,
+                    multisig,
+                    signer,
+                });
                 Ok(())
             },
         )

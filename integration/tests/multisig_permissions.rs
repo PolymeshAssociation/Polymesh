@@ -16,8 +16,8 @@ async fn get_ms_proposal_id(res: &mut TransactionResults) -> Result<u64> {
     let events = res.events().await?.expect("Failed to create MS proposal");
     for rec in &events.0 {
         match &rec.event {
-            RuntimeEvent::MultiSig(MultiSigEvent::ProposalAdded(_, _, id)) => {
-                return Ok(*id);
+            RuntimeEvent::MultiSig(MultiSigEvent::ProposalAdded { proposal_id, .. }) => {
+                return Ok(*proposal_id);
             }
             _ => (),
         }
@@ -29,11 +29,8 @@ async fn ms_proposal_executed(res: &mut TransactionResults) -> Result<Option<boo
     let events = res.events().await?.expect("Failed to approve MS proposal");
     for rec in &events.0 {
         match &rec.event {
-            RuntimeEvent::MultiSig(MultiSigEvent::ProposalExecuted(..)) => {
-                return Ok(Some(true));
-            }
-            RuntimeEvent::MultiSig(MultiSigEvent::ProposalFailedToExecute(..)) => {
-                return Ok(Some(false));
+            RuntimeEvent::MultiSig(MultiSigEvent::ProposalExecuted { result, .. }) => {
+                return Ok(Some(result.is_ok()));
             }
             _ => (),
         }
@@ -106,8 +103,8 @@ impl MuliSigState {
                         }
                     }
                 }
-                RuntimeEvent::MultiSig(MultiSigEvent::MultiSigCreated(_, ms_account, ..)) => {
-                    account = Some(*ms_account);
+                RuntimeEvent::MultiSig(MultiSigEvent::MultiSigCreated { multisig, .. }) => {
+                    account = Some(*multisig);
                 }
                 _ => (),
             }
@@ -162,11 +159,7 @@ impl MuliSigState {
             .api
             .call()
             .multi_sig()
-            .create_proposal(
-                self.account.clone(),
-                proposal.runtime_call().clone(),
-                None,
-            )?
+            .create_proposal(self.account.clone(), proposal.runtime_call().clone(), None)?
             .submit_and_watch(&mut self.signers[0])
             .await?;
         Ok(res)
