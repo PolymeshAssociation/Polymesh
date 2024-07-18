@@ -592,7 +592,7 @@ fn make_multisig_secondary_key() {
         assert!(!has_ms_sk());
 
         let mk_ms_signer =
-            |u: User| MultiSig::make_multisig_secondary(u.origin(), multisig.clone());
+            |u: User| MultiSig::make_multisig_secondary(u.origin(), multisig.clone(), None);
         assert_noop!(mk_ms_signer(bob), Error::IdentityNotCreator);
 
         assert_ok!(mk_ms_signer(alice));
@@ -611,6 +611,7 @@ fn remove_multisig_signers_via_creator() {
         let bob_signer = AccountKeyring::Bob.to_account_id();
         let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
         let charlie_signer = AccountKeyring::Charlie.to_account_id();
+        let dave = User::new(AccountKeyring::Dave);
 
         let ms_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id())
             .expect("Next MS");
@@ -651,6 +652,15 @@ fn remove_multisig_signers_via_creator() {
         assert_noop!(
             MultiSig::remove_multisig_signers_via_creator(
                 bob.clone(),
+                ms_address.clone(),
+                vec![bob_signer.clone()]
+            ),
+            IdError::KeyNotAllowed
+        );
+
+        assert_noop!(
+            MultiSig::remove_multisig_signers_via_creator(
+                dave.origin(),
                 ms_address.clone(),
                 vec![bob_signer.clone()]
             ),
@@ -701,6 +711,7 @@ fn add_multisig_signers_via_creator() {
         let bob_signer = AccountKeyring::Bob.to_account_id();
         let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
         let charlie_signer = AccountKeyring::Charlie.to_account_id();
+        let dave = User::new(AccountKeyring::Dave);
 
         let ms_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id())
             .expect("Next MS");
@@ -730,6 +741,15 @@ fn add_multisig_signers_via_creator() {
         assert_noop!(
             MultiSig::add_multisig_signers_via_creator(
                 bob.clone(),
+                ms_address.clone(),
+                vec![bob_signer.clone()]
+            ),
+            pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
+        );
+
+        assert_noop!(
+            MultiSig::add_multisig_signers_via_creator(
+                dave.origin(),
                 ms_address.clone(),
                 vec![bob_signer.clone()]
             ),
@@ -1024,6 +1044,7 @@ fn change_sigs_required_via_creator_id_not_creator() {
         let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
         let bob_signer = AccountKeyring::Bob.to_account_id();
         let charlie_signer = AccountKeyring::Charlie.to_account_id();
+        let dave = User::new(AccountKeyring::Dave);
 
         let multisig_account_id =
             MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id()).unwrap();
@@ -1036,7 +1057,12 @@ fn change_sigs_required_via_creator_id_not_creator() {
         .unwrap();
 
         assert_noop!(
-            MultiSig::change_sigs_required_via_creator(bob.clone(), multisig_account_id, 2),
+            MultiSig::change_sigs_required_via_creator(bob.clone(), multisig_account_id.clone(), 2),
+            pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
+        );
+
+        assert_noop!(
+            MultiSig::change_sigs_required_via_creator(dave.origin(), multisig_account_id, 2),
             Error::IdentityNotCreator
         );
     });
@@ -1143,6 +1169,7 @@ fn remove_creator_controls_id_not_creator() {
         let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
         let bob_signer = AccountKeyring::Bob.to_account_id();
         let charlie_signer = AccountKeyring::Charlie.to_account_id();
+        let dave = User::new(AccountKeyring::Dave);
 
         let multisig_account_id =
             MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id()).unwrap();
@@ -1155,7 +1182,12 @@ fn remove_creator_controls_id_not_creator() {
         .unwrap();
 
         assert_noop!(
-            MultiSig::remove_creator_controls(bob.clone(), multisig_account_id),
+            MultiSig::remove_creator_controls(bob.clone(), multisig_account_id.clone()),
+            pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
+        );
+
+        assert_noop!(
+            MultiSig::remove_creator_controls(dave.origin(), multisig_account_id),
             Error::IdentityNotCreator
         );
     });

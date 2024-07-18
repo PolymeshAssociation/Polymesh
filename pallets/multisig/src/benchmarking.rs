@@ -288,7 +288,8 @@ benchmarks! {
 
     make_multisig_secondary {
         let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(1, 1).unwrap();
-    }: _(alice.origin(), multisig.clone())
+        let whole = Permissions::default();
+    }: _(alice.origin(), multisig.clone(), Some(whole))
     verify {
         assert!(Identity::<T>::is_secondary_key(alice.did(), &multisig));
     }

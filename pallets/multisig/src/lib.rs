@@ -476,16 +476,29 @@ pub mod pallet {
         pub fn make_multisig_secondary(
             origin: OriginFor<T>,
             multisig: T::AccountId,
+            permissions: Option<Permissions>,
         ) -> DispatchResultWithPostInfo {
-            let did = IdentityPallet::<T>::ensure_perms(origin)?;
+            let (did, permissions) = match permissions {
+                Some(permissions) => {
+                    // Only the primary key can add a secondary key with custom permissions.
+                    let (_, did) = IdentityPallet::<T>::ensure_primary_key(origin)?;
+                    (did, permissions)
+                }
+                None => {
+                    // Default to empty permissions for the new secondary key.
+                    let (_, did) = IdentityPallet::<T>::ensure_did(origin)?;
+                    (did, Permissions::empty())
+                }
+            };
+
             Self::ensure_ms(&multisig)?;
             Self::verify_caller_is_creator(did, &multisig)?;
 
             // Ensure the key is unlinked.
             IdentityPallet::<T>::ensure_key_did_unlinked(&multisig)?;
 
-            // Add the multisig as a secondary key with no permissions.
-            IdentityPallet::<T>::unsafe_join_identity(did, Permissions::empty(), multisig);
+            // Add the multisig as a secondary key.
+            IdentityPallet::<T>::unsafe_join_identity(did, permissions, multisig);
             Ok(().into())
         }
 
@@ -664,8 +677,6 @@ pub mod pallet {
         SignerAlreadyLinkedToIdentity,
         /// Multisig not allowed to add itself as a signer.
         MultisigNotAllowedToLinkToItself,
-        /// The function can only be called by the primary key of the did
-        NotPrimaryKey,
         /// Proposal was rejected earlier
         ProposalAlreadyRejected,
         /// Proposal has expired
@@ -811,21 +822,12 @@ impl<T: Config> Pallet<T> {
         IdentityPallet::<T>::get_identity(multisig).or_else(|| CreatorDid::<T>::get(multisig))
     }
 
-    fn ensure_primary_key(did: &IdentityId, caller: &T::AccountId) -> DispatchResult {
-        ensure!(
-            IdentityPallet::<T>::is_primary_key(did, caller),
-            Error::<T>::NotPrimaryKey
-        );
-        Ok(())
-    }
-
     fn ensure_ms_creator(
         origin: T::RuntimeOrigin,
         multisig: &T::AccountId,
     ) -> Result<IdentityId, DispatchError> {
-        let (caller, did) = IdentityPallet::<T>::ensure_did(origin)?;
+        let (_, did) = IdentityPallet::<T>::ensure_primary_key(origin)?;
         Self::verify_caller_is_creator(did, multisig)?;
-        Self::ensure_primary_key(&did, &caller)?;
         Ok(did)
     }
 

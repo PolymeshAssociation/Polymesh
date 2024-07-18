@@ -51,7 +51,7 @@ impl MuliSigState {
         create_name: &str,
         n_signers: usize,
         sigs_required: u64,
-        join_did_as_primary: Option<bool>,
+        join_did_as_secondary: Option<Permissions>,
     ) -> Result<MuliSigState> {
         let mut signers = Vec::with_capacity(n_signers);
         let signer_name_prefix = format!("{create_name}Signer");
@@ -116,14 +116,13 @@ impl MuliSigState {
             signers,
             sigs_required,
         };
-        match join_did_as_primary {
-            Some(true) => {
+        match join_did_as_secondary {
+            None => {
                 results.push(ms.make_primary().await?);
             }
-            Some(false) => {
-                results.push(ms.make_secondary().await?);
+            perms => {
+                results.push(ms.make_secondary(perms).await?);
             }
-            None => (),
         }
 
         Ok(ms)
@@ -141,13 +140,13 @@ impl MuliSigState {
         Ok(res)
     }
 
-    async fn make_secondary(&mut self) -> Result<TransactionResults> {
+    async fn make_secondary(&mut self, permissions: Option<Permissions>) -> Result<TransactionResults> {
         let res = self
             .creator
             .api
             .call()
             .multi_sig()
-            .make_multisig_secondary(self.account.clone())?
+            .make_multisig_secondary(self.account.clone(), permissions)?
             .submit_and_watch(&mut self.creator)
             .await?;
         Ok(res)
@@ -197,7 +196,7 @@ impl MuliSigState {
         }
     }
 
-    async fn set_ms_key_permissions(
+    pub async fn set_ms_key_permissions(
         &mut self,
         permissions: impl Into<Permissions> + Send,
     ) -> Result<TransactionResults> {
@@ -243,8 +242,9 @@ async fn multisig_as_secondary_key_change_identity() -> Result<()> {
         .await?;
     let mut did2 = users[1].clone();
 
+    let whole = PermissionsBuilder::whole();
     let mut ms =
-        MuliSigState::create(&mut tester, "MultiSigSecondaryDID1", 3, 2, Some(false)).await?;
+        MuliSigState::create(&mut tester, "MultiSigSecondaryDID1", 3, 2, Some((&whole).into())).await?;
 
     // Create JoinIdentity auth for the MS to join DID2 with no-permissions.
     let mut res = tester
@@ -261,10 +261,6 @@ async fn multisig_as_secondary_key_change_identity() -> Result<()> {
     let auth_id = get_auth_id(&mut res)
         .await?
         .expect("Missing JoinIdentity auth id");
-
-    // Change MS account's secondary key permissions.
-    let whole = PermissionsBuilder::whole();
-    ms.set_ms_key_permissions(&whole).await?;
 
     // Prepare `system.remark` call.
     let remark_call = tester.api.call().system().remark(vec![])?;
