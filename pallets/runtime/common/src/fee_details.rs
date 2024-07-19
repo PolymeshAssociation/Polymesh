@@ -46,12 +46,11 @@ impl<C> GetValidPayerHook<C> for Noop {
 /// The set of `Call`s from pallets that `CddHandler` recognizes specially.
 pub enum Call<'a, R>
 where
-    R: Config + pallet_multisig::Config + pallet_relayer::Config + pallet_bridge::Config,
+    R: Config + pallet_multisig::Config + pallet_relayer::Config,
 {
     MultiSig(&'a pallet_multisig::Call<R>),
     Identity(&'a pallet_identity::Call<R>),
     Relayer(&'a pallet_relayer::Call<R>),
-    Bridge(&'a pallet_bridge::Call<R>),
 }
 
 /// The implementation of `CddAndFeeDetails` for the chain.
@@ -62,10 +61,7 @@ impl<C, A, H> CddAndFeeDetails<AccountId, C> for CddHandler<A, H>
 where
     H: GetValidPayerHook<C>,
     for<'a> Call<'a, A>: TryFrom<&'a C>,
-    A: Config<AccountId = AccountId>
-        + pallet_multisig::Config
-        + pallet_relayer::Config
-        + pallet_bridge::Config,
+    A: Config<AccountId = AccountId> + pallet_multisig::Config + pallet_relayer::Config,
 {
     /// Check if there's an eligible payer with valid CDD.
     /// Return the payer if found or else an error.
@@ -172,15 +168,6 @@ where
                 | pallet_multisig::Call::approve { multisig, .. }
                 | pallet_multisig::Call::reject { multisig, .. },
             )) => handle_multisig(multisig, caller),
-            // Call made by an Account key to propose or approve a multisig transaction via the bridge helper
-            // The multisig must have valid CDD and the caller must be a signer of the multisig.
-            Ok(Call::Bridge(
-                pallet_bridge::Call::propose_bridge_tx { .. }
-                | pallet_bridge::Call::batch_propose_bridge_tx { .. },
-            )) => match pallet_bridge::Module::<A>::controller() {
-                Some(controller) => handle_multisig(&controller, caller),
-                None => MISSING_ID,
-            },
             // All other calls.
             //
             // The external account must directly be linked to an identity with valid CDD.

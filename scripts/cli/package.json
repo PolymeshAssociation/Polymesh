@@ -33,7 +33,6 @@
     "06_create_assets": "jest --runInBand 06_create_assets",
     "07_create_claim_compliance": "jest --runInBand 07_create_claim_compliance",
     "08_asset_minting": "jest --runInBand 08_asset_minting",
-    "09_bridge_transfer": "jest --runInBand 09_bridge_transfer",
     "10_governance_management": "jest --runInBand 10_governance_management",
     "11_A_settlement": "jest --runInBand 11_A_settlement",
     "11_B_settlement": "jest --runInBand 11_B_settlement",

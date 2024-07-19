@@ -6766,7 +6766,6 @@ dependencies = [
  "frame-system",
  "pallet-authorship",
  "pallet-balances 0.1.0",
- "pallet-bridge",
  "pallet-committee",
  "pallet-group-rpc-runtime-api",
  "pallet-identity",
