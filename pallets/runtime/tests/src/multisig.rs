@@ -272,7 +272,7 @@ fn create_or_approve_change_multisig_sigs_required() {
 }
 
 #[test]
-fn remove_multisig_signer() {
+fn remove_multisig_signers() {
     ExtBuilder::default().build().execute_with(|| {
         let _alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
@@ -325,8 +325,8 @@ fn remove_multisig_signer() {
         assert_eq!(Identity::get_identity(&ms_address), None);
 
         let call = Box::new(RuntimeCall::MultiSig(
-            multisig::Call::remove_multisig_signer {
-                signer: bob_signer.clone(),
+            multisig::Call::remove_multisig_signers {
+                signers: vec![bob_signer.clone()],
             },
         ));
 
@@ -354,8 +354,8 @@ fn remove_multisig_signer() {
         );
 
         let remove_alice = Box::new(RuntimeCall::MultiSig(
-            multisig::Call::remove_multisig_signer {
-                signer: charlie_signer.clone(),
+            multisig::Call::remove_multisig_signers {
+                signers: vec![charlie_signer.clone()],
             },
         ));
 
@@ -377,7 +377,7 @@ fn remove_multisig_signer() {
 }
 
 #[test]
-fn add_multisig_signer() {
+fn add_multisig_signers() {
     ExtBuilder::default().build().execute_with(|| {
         let _alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
@@ -410,9 +410,11 @@ fn add_multisig_signer() {
             false
         );
 
-        let call = Box::new(RuntimeCall::MultiSig(multisig::Call::add_multisig_signer {
-            signer: bob_signer.clone(),
-        }));
+        let call = Box::new(RuntimeCall::MultiSig(
+            multisig::Call::add_multisig_signers {
+                signers: vec![bob_signer.clone()],
+            },
+        ));
 
         assert_ok!(MultiSig::create_proposal(
             dave.clone(),
@@ -423,9 +425,11 @@ fn add_multisig_signer() {
 
         next_block();
 
-        let call2 = Box::new(RuntimeCall::MultiSig(multisig::Call::add_multisig_signer {
-            signer: charlie_signer.clone(),
-        }));
+        let call2 = Box::new(RuntimeCall::MultiSig(
+            multisig::Call::add_multisig_signers {
+                signers: vec![charlie_signer.clone()],
+            },
+        ));
 
         assert_ok!(MultiSig::create_proposal(
             dave.clone(),
@@ -824,9 +828,11 @@ fn check_for_approval_closure() {
             false
         );
 
-        let call = Box::new(RuntimeCall::MultiSig(multisig::Call::add_multisig_signer {
-            signer: bob_signer.clone(),
-        }));
+        let call = Box::new(RuntimeCall::MultiSig(
+            multisig::Call::add_multisig_signers {
+                signers: vec![bob_signer.clone()],
+            },
+        ));
         assert_ok!(MultiSig::create_proposal(
             charlie.clone(),
             ms_address.clone(),

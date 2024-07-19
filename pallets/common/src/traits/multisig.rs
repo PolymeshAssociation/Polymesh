@@ -28,8 +28,8 @@ pub trait WeightInfo {
     fn execute_proposal() -> Weight;
     fn reject() -> Weight;
     fn accept_multisig_signer() -> Weight;
-    fn add_multisig_signer() -> Weight;
-    fn remove_multisig_signer() -> Weight;
+    fn add_multisig_signers(signers: u32) -> Weight;
+    fn remove_multisig_signers(signers: u32) -> Weight;
     fn add_multisig_signers_via_creator(signers: u32) -> Weight;
     fn remove_multisig_signers_via_creator(signers: u32) -> Weight;
     fn change_sigs_required() -> Weight;

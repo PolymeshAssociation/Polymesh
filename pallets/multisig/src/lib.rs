@@ -330,46 +330,41 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Adds a signer to the multisig. This must be called by the multisig itself.
+        /// Adds signers to the multisig. This must be called by the multisig itself.
         ///
         /// # Arguments
-        /// * `signer` - Signer to add.
+        /// * `signers` - Signers to add.
         #[pallet::call_index(6)]
-        #[pallet::weight(<T as Config>::WeightInfo::add_multisig_signer())]
-        pub fn add_multisig_signer(
+        #[pallet::weight(<T as Config>::WeightInfo::add_multisig_signers(signers.len() as u32))]
+        pub fn add_multisig_signers(
             origin: OriginFor<T>,
-            signer: T::AccountId,
+            signers: Vec<T::AccountId>,
         ) -> DispatchResultWithPostInfo {
             let multisig = ensure_signed(origin)?;
-            // Ensure the caller is a MultiSig and get it's creator DID.
+            // Ensure the caller is a MultiSig and get it's DID.
             let ms_did = Self::get_ms_did(&multisig).ok_or(Error::<T>::MultisigMissingIdentity)?;
-            Self::base_add_auth_for_signers(ms_did, signer, multisig)?;
+            for signer in signers {
+                Self::base_add_auth_for_signers(ms_did, signer, multisig.clone())?;
+            }
             Ok(().into())
         }
 
-        /// Removes a signer from the multisig. This must be called by the multisig itself.
+        /// Removes signers from the multisig. This must be called by the multisig itself.
         ///
         /// # Arguments
-        /// * `signer` - Signer to remove.
-        #[pallet::weight(<T as Config>::WeightInfo::remove_multisig_signer())]
+        /// * `signers` - Signers to remove.
+        #[pallet::weight(<T as Config>::WeightInfo::remove_multisig_signers(signers.len() as u32))]
         #[pallet::call_index(7)]
-        pub fn remove_multisig_signer(
+        pub fn remove_multisig_signers(
             origin: OriginFor<T>,
-            signer: T::AccountId,
+            signers: Vec<T::AccountId>,
         ) -> DispatchResultWithPostInfo {
             let multisig = ensure_signed(origin)?;
-            Self::ensure_ms(&multisig)?;
-            Self::ensure_ms_signer(&multisig, &signer)?;
-            ensure!(
-                NumberOfSigners::<T>::get(&multisig) > MultiSigSignsRequired::<T>::get(&multisig),
-                Error::<T>::NotEnoughSigners
-            );
-            ensure!(
-                Self::is_changing_signers_allowed(&multisig),
-                Error::<T>::ChangeNotAllowed
-            );
-            NumberOfSigners::<T>::mutate(&multisig, |x| *x -= 1u64);
-            Self::base_signer_removal(&multisig, signer);
+            // Ensure the caller is a MultiSig and get it's DID.
+            let ms_did = Self::get_ms_did(&multisig).ok_or(Error::<T>::MultisigMissingIdentity)?;
+
+            // Remove the signers from the multisig.
+            Self::base_remove_signers(ms_did, multisig, signers)?;
             Ok(().into())
         }
 
@@ -380,8 +375,6 @@ pub mod pallet {
         /// * `multisig` - Address of the multi sig
         /// * `signers` - Signers to add.
         ///
-        /// # Weight
-        /// `900_000_000 + 3_000_000 * signers.len()`
         #[pallet::call_index(8)]
         #[pallet::weight(<T as Config>::WeightInfo::add_multisig_signers_via_creator(signers.len() as u32))]
         pub fn add_multisig_signers_via_creator(
@@ -394,9 +387,7 @@ pub mod pallet {
                 !LostCreatorPrivileges::<T>::get(caller_did),
                 Error::<T>::CreatorControlsHaveBeenRemoved
             );
-            for signer in signers {
-                Self::base_add_auth_for_signers(caller_did, signer, multisig.clone())?;
-            }
+            Self::base_add_signers(caller_did, multisig, signers)?;
             Ok(().into())
         }
 
@@ -407,8 +398,6 @@ pub mod pallet {
         /// * `multisig` - Address of the multisig.
         /// * `signers` - Signers to remove.
         ///
-        /// # Weight
-        /// `900_000_000 + 3_000_000 * signers.len()`
         #[pallet::call_index(9)]
         #[pallet::weight(<T as Config>::WeightInfo::remove_multisig_signers_via_creator(signers.len() as u32))]
         pub fn remove_multisig_signers_via_creator(
@@ -416,35 +405,16 @@ pub mod pallet {
             multisig: T::AccountId,
             signers: Vec<T::AccountId>,
         ) -> DispatchResultWithPostInfo {
+            // Ensure the caller is the creator and that they haven't lost permissions.
             let caller_did = Self::ensure_ms_creator(origin, &multisig)?;
             ensure!(
                 !LostCreatorPrivileges::<T>::get(caller_did),
                 Error::<T>::CreatorControlsHaveBeenRemoved
             );
 
-            ensure!(
-                Self::is_changing_signers_allowed(&multisig),
-                Error::<T>::ChangeNotAllowed
-            );
-            let signers_len: u64 = u64::try_from(signers.len()).unwrap_or_default();
+            // Remove the signers from the multisig.
+            Self::base_remove_signers(caller_did, multisig, signers)?;
 
-            let pending_num_of_signers = NumberOfSigners::<T>::get(&multisig)
-                .checked_sub(signers_len)
-                .ok_or(Error::<T>::TooManySigners)?;
-            ensure!(
-                pending_num_of_signers >= MultiSigSignsRequired::<T>::get(&multisig),
-                Error::<T>::NotEnoughSigners
-            );
-
-            for signer in &signers {
-                Self::ensure_ms_signer(&multisig, &signer)?;
-            }
-
-            for signer in signers {
-                Self::base_signer_removal(&multisig, signer);
-            }
-
-            NumberOfSigners::<T>::insert(&multisig, pending_num_of_signers);
             Ok(().into())
         }
 
@@ -471,6 +441,8 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `multisig` - multi sig address
+        /// * `permissions` - optional custom permissions.  Only the primary key can provide custom permissions.
+        ///
         #[pallet::call_index(11)]
         #[pallet::weight(<T as Config>::WeightInfo::make_multisig_secondary())]
         pub fn make_multisig_secondary(
@@ -506,7 +478,7 @@ pub mod pallet {
         /// of the multisig.
         ///
         /// # Arguments
-        /// * `multi_sig` - multi sig address
+        /// * `multisig` - multi sig address
         #[pallet::call_index(12)]
         #[pallet::weight(<T as Config>::WeightInfo::make_multisig_primary())]
         pub fn make_multisig_primary(
@@ -875,7 +847,18 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Adds an authorization for the accountKey to become a signer of multisig.
+    fn base_add_signers(
+        caller_did: IdentityId,
+        multisig: T::AccountId,
+        signers: Vec<T::AccountId>,
+    ) -> DispatchResult {
+        for signer in signers {
+            Self::base_add_auth_for_signers(caller_did, signer, multisig.clone())?;
+        }
+        Ok(())
+    }
+
+    // Adds an authorization for the accountKey to become a signer of multisig.
     fn base_add_auth_for_signers(
         caller_did: IdentityId,
         target: T::AccountId,
@@ -895,12 +878,40 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    fn base_remove_signers(
+        caller_did: IdentityId,
+        multisig: T::AccountId,
+        signers: Vec<T::AccountId>,
+    ) -> DispatchResult {
+        ensure!(
+            Self::is_changing_signers_allowed(&multisig),
+            Error::<T>::ChangeNotAllowed
+        );
+        let signers_len: u64 = u64::try_from(signers.len()).unwrap_or_default();
+
+        let pending_num_of_signers = NumberOfSigners::<T>::get(&multisig)
+            .checked_sub(signers_len)
+            .ok_or(Error::<T>::TooManySigners)?;
+        ensure!(
+            pending_num_of_signers >= MultiSigSignsRequired::<T>::get(&multisig),
+            Error::<T>::NotEnoughSigners
+        );
+
+        for signer in signers {
+            Self::ensure_ms_signer(&multisig, &signer)?;
+            Self::base_signer_removal(caller_did, &multisig, signer);
+        }
+
+        NumberOfSigners::<T>::insert(&multisig, pending_num_of_signers);
+        Ok(())
+    }
+
     /// Removes a signer from the valid signer list for a given multisig.
-    fn base_signer_removal(multisig: &T::AccountId, signer: T::AccountId) {
+    fn base_signer_removal(caller_did: IdentityId, multisig: &T::AccountId, signer: T::AccountId) {
         IdentityPallet::<T>::remove_key_record(&signer, None);
         MultiSigSigners::<T>::remove(multisig, &signer);
         Self::deposit_event(Event::MultiSigSignerRemoved {
-            caller_did: Self::get_ms_did(multisig).unwrap_or_default(),
+            caller_did,
             multisig: multisig.clone(),
             signer,
         });

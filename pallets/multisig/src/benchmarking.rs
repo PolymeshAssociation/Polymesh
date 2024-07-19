@@ -235,20 +235,27 @@ benchmarks! {
         assert_number_of_signers!(1, multisig);
     }
 
-    add_multisig_signer {
+    add_multisig_signers {
+        // Number of signers
+        let i in 1 .. MAX_SIGNERS;
+
         let (alice, multisig, _, _, multisig_origin) = generate_multisig_for_alice::<T>(1, 1).unwrap();
-        let bob = UserBuilder::<T>::default().build("bob").account();
-        let ephemeral_bob = bob.clone();
-        let original_last_auth = get_last_auth_id::<T>(&bob);
-    }: _(multisig_origin, ephemeral_bob)
+        let (signers, _) = generate_signers::<T>(i as usize);
+        let last_signer = signers.last().cloned().unwrap();
+        let original_last_auth = get_last_auth_id::<T>(&last_signer);
+    }: _(multisig_origin, signers)
     verify {
-        assert!(original_last_auth < get_last_auth_id::<T>(&bob));
+        assert!(original_last_auth < get_last_auth_id::<T>(&last_signer));
     }
 
-    remove_multisig_signer {
-        let (alice, multisig, signers, _, multisig_origin) = generate_multisig_for_alice::<T>(2, 1).unwrap();
-        assert_number_of_signers!(2, multisig.clone());
-    }: _(multisig_origin, signers[0].clone())
+    remove_multisig_signers {
+        // Number of signers
+        let i in 1 .. MAX_SIGNERS;
+
+        let (alice, multisig, signers, _, multisig_origin) = generate_multisig_for_alice::<T>(1 + i, 1).unwrap();
+        let signers_to_remove = signers[1..].to_vec();
+        assert_number_of_signers!(1 + i as u64, multisig.clone());
+    }: _(multisig_origin, signers_to_remove)
     verify {
         assert_number_of_signers!(1, multisig);
     }
@@ -276,7 +283,7 @@ benchmarks! {
         let ephemeral_multisig = multisig.clone();
     }: _(alice.origin(), ephemeral_multisig, signers_to_remove)
     verify {
-        assert_number_of_signers!(1, multisig.clone());
+        assert_number_of_signers!(1, multisig);
     }
 
     change_sigs_required {
