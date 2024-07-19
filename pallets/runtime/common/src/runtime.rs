@@ -145,7 +145,6 @@ macro_rules! misc_pallet_impls {
                 use polymesh_runtime_common::fee_details::Call::*;
                 Ok(match call {
                     RuntimeCall::Identity(x) => Identity(x),
-                    RuntimeCall::Bridge(x) => Bridge(x),
                     RuntimeCall::MultiSig(x) => MultiSig(x),
                     RuntimeCall::Relayer(x) => Relayer(x),
                     _ => return Err(()),
@@ -288,11 +287,7 @@ macro_rules! misc_pallet_impls {
             type MaxSigners = MaxMultiSigSigners;
         }
 
-        impl pallet_bridge::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
-            type Proposal = RuntimeCall;
-            type Scheduler = Scheduler;
-        }
+        impl pallet_bridge::Config for Runtime {}
 
         impl pallet_portfolio::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;

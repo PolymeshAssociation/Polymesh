@@ -2,7 +2,6 @@ use crate::TestStorage;
 use frame_support::dispatch::Weight;
 use pallet_asset::{self as asset, TickerRegistrationConfig};
 use pallet_balances as balances;
-use pallet_bridge::BridgeTx;
 use pallet_committee as committee;
 use pallet_group as group;
 use pallet_identity as identity;
@@ -39,8 +38,6 @@ impl IdentityRecord {
 pub const PROTOCOL_OP_BASE_FEE: u128 = 41;
 
 pub const COOL_OFF_PERIOD: u32 = 100;
-const DEFAULT_BRIGDE_LIMIT: u128 = 1_000_000_000_000_000;
-const DEFAULT_BRIDGE_TIMELOCK: u32 = 3;
 
 struct BuilderVoteThreshold {
     pub numerator: u32,
@@ -88,22 +85,6 @@ impl Default for MockProtocolBaseFees {
 }
 
 #[derive(Default)]
-struct BridgeConfig {
-    /// Complete TXs
-    pub complete_txs: Vec<BridgeTx<AccountId>>,
-    /// Bridge admin key. See `Bridge` documentation for details.
-    pub admin: Option<AccountId>,
-    /// signers of the controller multisig account.
-    pub signers: Vec<AccountId>,
-    /// # of signers required for controller multisig account.
-    pub signatures_required: u64,
-    /// Bridge limit.
-    pub limit: Option<u128>,
-    /// Bridge timelock.
-    pub timelock: Option<u32>,
-}
-
-#[derive(Default)]
 pub struct ExtBuilder {
     /// Minimum weight for the extrinsic (see `weight_to_fee` below).
     extrinsic_base_weight: Weight,
@@ -132,8 +113,6 @@ pub struct ExtBuilder {
     /// The minimum duration for a checkpoint period, in seconds.
     min_checkpoint_duration: u64,
     adjust: Option<Box<dyn FnOnce(&mut Storage)>>,
-    /// Bridge configuration
-    bridge: BridgeConfig,
 }
 
 thread_local! {
@@ -251,34 +230,6 @@ impl ExtBuilder {
         self
     }
 
-    pub fn set_bridge_complete_tx(mut self, txs: Vec<BridgeTx<AccountId>>) -> Self {
-        self.bridge.complete_txs = txs;
-        self
-    }
-
-    /// Sets the bridge controller.
-    pub fn set_bridge_controller(
-        mut self,
-        admin: AccountId,
-        signers: Vec<AccountId>,
-        signatures_required: u64,
-    ) -> Self {
-        self.bridge.admin = Some(admin);
-        self.bridge.signers = signers.into_iter().collect::<Vec<_>>();
-        self.bridge.signatures_required = signatures_required;
-        self
-    }
-
-    pub fn set_bridge_limit(mut self, limit: u128) -> Self {
-        self.bridge.limit = Some(limit);
-        self
-    }
-
-    pub fn set_bridge_timelock(mut self, timelock: u32) -> Self {
-        self.bridge.timelock = Some(timelock);
-        self
-    }
-
     fn set_associated_consts(&self) {
         EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow_mut() = self.extrinsic_base_weight);
         TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.transaction_byte_fee);
@@ -346,26 +297,6 @@ impl ExtBuilder {
             .enumerate()
             .map(|(idx, acc)| (acc, did_maker(idx)))
             .collect()
-    }
-
-    fn build_bridge(&self, storage: &mut Storage) {
-        if let Some(creator) = &self.bridge.admin {
-            pallet_bridge::GenesisConfig::<TestStorage> {
-                creator: Some(creator.clone()),
-                admin: Some(creator.clone()),
-                signers: self.bridge.signers.clone(),
-                signatures_required: self.bridge.signatures_required,
-                bridge_limit: (self.bridge.limit.unwrap_or(DEFAULT_BRIGDE_LIMIT), 1),
-                timelock: self
-                    .bridge
-                    .timelock
-                    .unwrap_or(DEFAULT_BRIDGE_TIMELOCK)
-                    .into(),
-                ..Default::default()
-            }
-            .assimilate_storage(storage)
-            .unwrap();
-        }
     }
 
     fn build_identity_genesis(
@@ -483,15 +414,6 @@ impl ExtBuilder {
         .unwrap();
     }
 
-    fn build_bridge_genesis(&self, storage: &mut Storage) {
-        pallet_bridge::GenesisConfig::<TestStorage> {
-            complete_txs: self.bridge.complete_txs.clone(),
-            ..Default::default()
-        }
-        .assimilate_storage(storage)
-        .unwrap()
-    }
-
     /// Create externalities.
     pub fn build(self) -> TestExternalities {
         self.set_associated_consts();
@@ -567,10 +489,6 @@ impl ExtBuilder {
         self.build_committee_genesis(&mut storage, gc_full_identities.as_slice());
         self.build_protocol_fee_genesis(&mut storage);
         self.build_pips_genesis(&mut storage);
-        //self.build_contracts_genesis(&mut storage);
-        self.build_bridge_genesis(&mut storage);
-
-        self.build_bridge(&mut storage);
 
         if let Some(adjust) = self.adjust {
             adjust(&mut storage);

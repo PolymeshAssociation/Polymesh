@@ -114,8 +114,8 @@ export async function initMain(): Promise<KeyringPair[]> {
     genesisEntities = [
       await generateEntity("Alice"),
       await generateEntity("relay_1"),
-      await generateEntity("polymath_1"),
-      await generateEntity("polymath_2"),
+      await generateEntity("polymesh_1"),
+      await generateEntity("polymesh_2"),
       await generateEntity("Bob"),
     ];
   }
