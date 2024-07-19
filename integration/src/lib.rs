@@ -258,6 +258,12 @@ impl From<&PermissionsBuilder> for Permissions {
     }
 }
 
+impl From<PermissionsBuilder> for Permissions {
+    fn from(builder: PermissionsBuilder) -> Self {
+        builder.build()
+    }
+}
+
 pub async fn get_auth_id(res: &mut TransactionResults) -> Result<Option<u64>> {
     if let Some(events) = res.events().await? {
         for rec in &events.0 {
