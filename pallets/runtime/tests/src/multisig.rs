@@ -1,5 +1,6 @@
 use frame_support::{
     assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, dispatch::Weight,
+    BoundedVec,
 };
 
 use pallet_multisig::{
@@ -33,6 +34,12 @@ fn get_last_auth_id(account: &AccountId) -> u64 {
     super::storage::get_last_auth_id(&signatory)
 }
 
+pub fn create_signers(
+    signers: Vec<AccountId>,
+) -> BoundedVec<AccountId, <TestStorage as pallet_multisig::Config>::MaxSigners> {
+    signers.try_into().unwrap()
+}
+
 #[test]
 fn create_multisig() {
     ExtBuilder::default().build().execute_with(|| {
@@ -42,13 +49,13 @@ fn create_multisig() {
 
         let ms_address = MultiSig::get_next_multisig_address(alice.acc()).expect("Next MS");
 
-        let signers = || vec![eve_signer.clone(), bob_signer.clone()];
+        let signers = || create_signers(vec![eve_signer.clone(), bob_signer.clone()]);
         let create = |signers, nsigs| MultiSig::create_multisig(alice.origin(), signers, nsigs);
 
         assert_ok!(create(signers(), 1));
         assert_eq!(MultiSig::ms_signs_required(ms_address), 1);
 
-        assert_noop!(create(vec![], 10), Error::NotEnoughSigners);
+        assert_noop!(create(create_signers(vec![]), 10), Error::NotEnoughSigners);
         assert_noop!(create(signers(), 0), Error::RequiredSignersIsZero);
         assert_noop!(create(signers(), 10), Error::NotEnoughSigners);
     });
@@ -77,7 +84,7 @@ fn join_multisig() {
 
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
-            vec![ferdie_signer.clone(), bob_signer.clone()],
+            create_signers(vec![ferdie_signer.clone(), bob_signer.clone()]),
             1,
         ));
 
@@ -111,7 +118,7 @@ fn join_multisig() {
 
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
-            vec![ferdie_signer.clone(), bob_signer.clone()],
+            create_signers(vec![ferdie_signer.clone(), bob_signer.clone()]),
             1,
         ));
 
@@ -123,7 +130,7 @@ fn join_multisig() {
 
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
-            vec![ferdie_signer.clone(), dave.acc()],
+            create_signers(vec![ferdie_signer.clone(), dave.acc()]),
             1,
         ));
 
@@ -136,7 +143,7 @@ fn join_multisig() {
 
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
-            vec![ms_address.clone()],
+            create_signers(vec![ms_address.clone()]),
             1,
         ));
 
@@ -171,7 +178,7 @@ fn change_multisig_sigs_required() {
 
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
-            vec![charlie_signer.clone(), bob_signer.clone()],
+            create_signers(vec![charlie_signer.clone(), bob_signer.clone()]),
             2,
         ));
 
@@ -232,7 +239,7 @@ fn create_or_approve_change_multisig_sigs_required() {
             .expect("Next MS");
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
-            vec![charlie_signer.clone(), bob_signer.clone()],
+            create_signers(vec![charlie_signer.clone(), bob_signer.clone()]),
             2,
         ));
 
@@ -286,7 +293,7 @@ fn remove_multisig_signers() {
 
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
-            vec![charlie_signer.clone(), bob_signer.clone()],
+            create_signers(vec![charlie_signer.clone(), bob_signer.clone()]),
             1,
         ));
 
@@ -326,7 +333,7 @@ fn remove_multisig_signers() {
 
         let call = Box::new(RuntimeCall::MultiSig(
             multisig::Call::remove_multisig_signers {
-                signers: vec![bob_signer.clone()],
+                signers: create_signers(vec![bob_signer.clone()]),
             },
         ));
 
@@ -355,7 +362,7 @@ fn remove_multisig_signers() {
 
         let remove_alice = Box::new(RuntimeCall::MultiSig(
             multisig::Call::remove_multisig_signers {
-                signers: vec![charlie_signer.clone()],
+                signers: create_signers(vec![charlie_signer.clone()]),
             },
         ));
 
@@ -393,7 +400,7 @@ fn add_multisig_signers() {
 
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
-            vec![dave_signer.clone()],
+            create_signers(vec![dave_signer.clone()]),
             1,
         ));
 
@@ -412,7 +419,7 @@ fn add_multisig_signers() {
 
         let call = Box::new(RuntimeCall::MultiSig(
             multisig::Call::add_multisig_signers {
-                signers: vec![bob_signer.clone()],
+                signers: create_signers(vec![bob_signer.clone()]),
             },
         ));
 
@@ -427,7 +434,7 @@ fn add_multisig_signers() {
 
         let call2 = Box::new(RuntimeCall::MultiSig(
             multisig::Call::add_multisig_signers {
-                signers: vec![charlie_signer.clone()],
+                signers: create_signers(vec![charlie_signer.clone()]),
             },
         ));
 
@@ -497,7 +504,7 @@ fn make_multisig_primary() {
 
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
-            vec![ferdie_key],
+            create_signers(vec![ferdie_key]),
             1,
         ));
 
@@ -531,7 +538,11 @@ fn rotate_multisig_primary_key_with_balance() {
 
         let ms_address = MultiSig::get_next_multisig_address(alice.acc()).expect("Next MS");
 
-        assert_ok!(MultiSig::create_multisig(alice.origin(), vec![dave_key], 1,));
+        assert_ok!(MultiSig::create_multisig(
+            alice.origin(),
+            create_signers(vec![dave_key]),
+            1,
+        ));
 
         // Alice's primary key hasn't changed.
         assert_eq!(get_primary_key(alice.did), alice.acc());
@@ -586,7 +597,7 @@ fn make_multisig_secondary_key() {
 
         assert_ok!(MultiSig::create_multisig(
             alice.origin(),
-            vec![ferdie_key],
+            create_signers(vec![ferdie_key]),
             1,
         ));
         // The desired secondary key record.
@@ -622,7 +633,7 @@ fn remove_multisig_signers_via_creator() {
 
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
-            vec![charlie_signer.clone(), bob_signer.clone()],
+            create_signers(vec![charlie_signer.clone(), bob_signer.clone()]),
             1,
         ));
 
@@ -657,7 +668,7 @@ fn remove_multisig_signers_via_creator() {
             MultiSig::remove_multisig_signers_via_creator(
                 bob.clone(),
                 ms_address.clone(),
-                vec![bob_signer.clone()]
+                create_signers(vec![bob_signer.clone()])
             ),
             IdError::KeyNotAllowed
         );
@@ -666,7 +677,7 @@ fn remove_multisig_signers_via_creator() {
             MultiSig::remove_multisig_signers_via_creator(
                 dave.origin(),
                 ms_address.clone(),
-                vec![bob_signer.clone()]
+                create_signers(vec![bob_signer.clone()])
             ),
             Error::IdentityNotCreator
         );
@@ -674,7 +685,7 @@ fn remove_multisig_signers_via_creator() {
         assert_ok!(MultiSig::remove_multisig_signers_via_creator(
             alice.clone(),
             ms_address.clone(),
-            vec![bob_signer.clone()]
+            create_signers(vec![bob_signer.clone()])
         ));
 
         assert_eq!(MultiSig::number_of_signers(ms_address.clone()), 1);
@@ -693,7 +704,7 @@ fn remove_multisig_signers_via_creator() {
             MultiSig::remove_multisig_signers_via_creator(
                 alice.clone(),
                 ms_address.clone(),
-                vec![charlie_signer.clone()]
+                create_signers(vec![charlie_signer.clone()])
             ),
             Error::NotEnoughSigners
         );
@@ -722,7 +733,7 @@ fn add_multisig_signers_via_creator() {
 
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
-            vec![charlie_signer.clone()],
+            create_signers(vec![charlie_signer.clone()]),
             1,
         ));
 
@@ -746,7 +757,7 @@ fn add_multisig_signers_via_creator() {
             MultiSig::add_multisig_signers_via_creator(
                 bob.clone(),
                 ms_address.clone(),
-                vec![bob_signer.clone()]
+                create_signers(vec![bob_signer.clone()])
             ),
             pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
         );
@@ -755,7 +766,7 @@ fn add_multisig_signers_via_creator() {
             MultiSig::add_multisig_signers_via_creator(
                 dave.origin(),
                 ms_address.clone(),
-                vec![bob_signer.clone()]
+                create_signers(vec![bob_signer.clone()])
             ),
             Error::IdentityNotCreator
         );
@@ -763,7 +774,7 @@ fn add_multisig_signers_via_creator() {
         assert_ok!(MultiSig::add_multisig_signers_via_creator(
             alice.clone(),
             ms_address.clone(),
-            vec![bob_signer.clone()]
+            create_signers(vec![bob_signer.clone()])
         ));
 
         assert_eq!(
@@ -800,7 +811,7 @@ fn check_for_approval_closure() {
 
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
-            vec![charlie_signer.clone(), dave_signer.clone()],
+            create_signers(vec![charlie_signer.clone(), dave_signer.clone()]),
             1,
         ));
         let charlie_auth_id = get_last_auth_id(&charlie_signer.clone());
@@ -830,7 +841,7 @@ fn check_for_approval_closure() {
 
         let call = Box::new(RuntimeCall::MultiSig(
             multisig::Call::add_multisig_signers {
-                signers: vec![bob_signer.clone()],
+                signers: create_signers(vec![bob_signer.clone()]),
             },
         ));
         assert_ok!(MultiSig::create_proposal(
@@ -894,7 +905,7 @@ fn reject_proposals() {
         setup_multisig(
             alice.clone(),
             3,
-            vec![ferdie_key, bob_key, charlie_key, dave_key, eve_key],
+            create_signers(vec![ferdie_key, bob_key, charlie_key, dave_key, eve_key]),
         );
 
         let call1 = Box::new(RuntimeCall::MultiSig(
@@ -992,14 +1003,19 @@ fn add_signers_via_creator_removed_controls() {
         let multisig_account_id =
             MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id()).unwrap();
 
-        MultiSig::create_multisig(alice.clone(), vec![ferdie_signer, bob_signer], 2).unwrap();
+        MultiSig::create_multisig(
+            alice.clone(),
+            create_signers(vec![ferdie_signer, bob_signer]),
+            2,
+        )
+        .unwrap();
         MultiSig::remove_creator_controls(alice.clone(), multisig_account_id.clone()).unwrap();
 
         assert_noop!(
             MultiSig::add_multisig_signers_via_creator(
                 alice.clone(),
                 multisig_account_id,
-                vec![charlie_signer]
+                create_signers(vec![charlie_signer])
             ),
             Error::CreatorControlsHaveBeenRemoved
         );
@@ -1022,7 +1038,7 @@ fn remove_signers_via_creator_removed_controls() {
 
         MultiSig::create_multisig(
             alice.clone(),
-            vec![ferdie_signer, bob_signer, charlie_signer.clone()],
+            create_signers(vec![ferdie_signer, bob_signer, charlie_signer.clone()]),
             2,
         )
         .unwrap();
@@ -1032,7 +1048,7 @@ fn remove_signers_via_creator_removed_controls() {
             MultiSig::add_multisig_signers_via_creator(
                 alice.clone(),
                 multisig_account_id,
-                vec![charlie_signer]
+                create_signers(vec![charlie_signer])
             ),
             Error::CreatorControlsHaveBeenRemoved
         );
@@ -1057,7 +1073,7 @@ fn change_sigs_required_via_creator_id_not_creator() {
 
         MultiSig::create_multisig(
             alice.clone(),
-            vec![ferdie_signer, bob_signer, charlie_signer],
+            create_signers(vec![ferdie_signer, bob_signer, charlie_signer]),
             2,
         )
         .unwrap();
@@ -1090,7 +1106,7 @@ fn change_sigs_required_via_creator_removed_controls() {
 
         MultiSig::create_multisig(
             alice.clone(),
-            vec![ferdie_signer, bob_signer, charlie_signer],
+            create_signers(vec![ferdie_signer, bob_signer, charlie_signer]),
             2,
         )
         .unwrap();
@@ -1120,7 +1136,7 @@ fn change_sigs_required_via_creator_not_enough_signers() {
 
         MultiSig::create_multisig(
             alice.clone(),
-            vec![ferdie_signer, bob_signer.clone(), charlie_signer],
+            create_signers(vec![ferdie_signer, bob_signer.clone(), charlie_signer]),
             2,
         )
         .unwrap();
@@ -1153,7 +1169,7 @@ fn change_sigs_required_via_creator_successfully() {
 
         MultiSig::create_multisig(
             alice.clone(),
-            vec![ferdie_signer, bob_signer.clone(), charlie_signer],
+            create_signers(vec![ferdie_signer, bob_signer.clone(), charlie_signer]),
             2,
         )
         .unwrap();
@@ -1187,7 +1203,7 @@ fn remove_creator_controls_id_not_creator() {
 
         MultiSig::create_multisig(
             alice.clone(),
-            vec![ferdie_signer, bob_signer.clone(), charlie_signer],
+            create_signers(vec![ferdie_signer, bob_signer.clone(), charlie_signer]),
             2,
         )
         .unwrap();
@@ -1220,7 +1236,7 @@ fn remove_creator_controls_successfully() {
 
         MultiSig::create_multisig(
             alice.clone(),
-            vec![ferdie_signer, bob_signer.clone(), charlie_signer],
+            create_signers(vec![ferdie_signer, bob_signer.clone(), charlie_signer]),
             2,
         )
         .unwrap();
@@ -1254,7 +1270,7 @@ fn proposal_owner_rejection() {
         setup_multisig(
             alice.origin(),
             3,
-            vec![ferdie_key.clone(), bob_key, dave_key, eve_key],
+            create_signers(vec![ferdie_key.clone(), bob_key, dave_key, eve_key]),
         );
 
         // Creates a proposal
@@ -1322,7 +1338,7 @@ fn proposal_owner_rejection_denied() {
         setup_multisig(
             alice.origin(),
             3,
-            vec![ferdie_key.clone(), bob_key.clone(), dave_key, eve_key],
+            create_signers(vec![ferdie_key.clone(), bob_key.clone(), dave_key, eve_key]),
         );
 
         // Creates a proposal
@@ -1388,7 +1404,11 @@ fn expired_proposals() {
         let ms_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id())
             .expect("Next MS");
 
-        setup_multisig(alice.clone(), 3, vec![ferdie_key, bob_key, charlie_key]);
+        setup_multisig(
+            alice.clone(),
+            3,
+            create_signers(vec![ferdie_key, bob_key, charlie_key]),
+        );
 
         let expires_at = 100u64;
         let call = Box::new(RuntimeCall::MultiSig(
@@ -1485,7 +1505,7 @@ fn multisig_proposal_nesting_not_allowed() {
                 .expect("Next MS");
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
-            vec![dave_signer.clone()],
+            create_signers(vec![dave_signer.clone()]),
             1,
         ));
         let auth_id = get_last_auth_id(&dave_signer);
@@ -1502,7 +1522,7 @@ fn multisig_proposal_nesting_not_allowed() {
                 .expect("Next MS");
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
-            vec![ms1_address.clone()],
+            create_signers(vec![ms1_address.clone()]),
             1,
         ));
 
@@ -1527,7 +1547,7 @@ fn multisig_proposal_nesting_not_allowed() {
         // Try to nest a proposal execution.
         let nested_call = Box::new(RuntimeCall::MultiSig(
             multisig::Call::add_multisig_signers {
-                signers: vec![bob_signer.clone()],
+                signers: create_signers(vec![bob_signer.clone()]),
             },
         ));
         let call_create_proposal =
@@ -1555,7 +1575,11 @@ fn multisig_proposal_nesting_not_allowed() {
     });
 }
 
-fn setup_multisig(creator_origin: Origin, sigs_required: u64, signers: Vec<AccountId>) {
+fn setup_multisig(
+    creator_origin: Origin,
+    sigs_required: u64,
+    signers: BoundedVec<AccountId, <TestStorage as pallet_multisig::Config>::MaxSigners>,
+) {
     assert_ok!(MultiSig::create_multisig(
         creator_origin,
         signers.clone(),
