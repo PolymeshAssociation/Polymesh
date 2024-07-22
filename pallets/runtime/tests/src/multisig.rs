@@ -48,9 +48,9 @@ fn create_multisig() {
         assert_ok!(create(signers(), 1));
         assert_eq!(MultiSig::ms_signs_required(ms_address), 1);
 
-        assert_noop!(create(vec![], 10), Error::NoSigners);
-        assert_noop!(create(signers(), 0), Error::RequiredSignersOutOfBounds);
-        assert_noop!(create(signers(), 10), Error::RequiredSignersOutOfBounds);
+        assert_noop!(create(vec![], 10), Error::NotEnoughSigners);
+        assert_noop!(create(signers(), 0), Error::RequiredSignersIsZero);
+        assert_noop!(create(signers(), 10), Error::NotEnoughSigners);
     });
 }
 
@@ -1111,6 +1111,7 @@ fn change_sigs_required_via_creator_not_enough_signers() {
         let _alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         // Multisig signers
         let ferdie_signer = AccountKeyring::Ferdie.to_account_id();
+        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
         let bob_signer = AccountKeyring::Bob.to_account_id();
         let charlie_signer = AccountKeyring::Charlie.to_account_id();
 
@@ -1119,10 +1120,14 @@ fn change_sigs_required_via_creator_not_enough_signers() {
 
         MultiSig::create_multisig(
             alice.clone(),
-            vec![ferdie_signer, bob_signer, charlie_signer],
+            vec![ferdie_signer, bob_signer.clone(), charlie_signer],
             2,
         )
         .unwrap();
+
+        // Signers must accept to be added to the multisig account
+        let bob_auth_id = get_last_auth_id(&bob_signer);
+        MultiSig::accept_multisig_signer(bob, bob_auth_id).unwrap();
 
         assert_noop!(
             MultiSig::change_sigs_required_via_creator(alice.clone(), multisig_account_id, 4),

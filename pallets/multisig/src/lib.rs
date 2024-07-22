@@ -200,7 +200,8 @@ pub mod pallet {
                 primary_did,
                 ..
             } = IdentityPallet::<T>::ensure_origin_call_permissions(origin)?;
-            Self::ensure_sigs_in_bounds(&signers, sigs_required)?;
+            let signers_len: u64 = u64::try_from(signers.len()).unwrap_or_default();
+            Self::ensure_sigs_in_bounds(signers_len, sigs_required)?;
             let account_id = Self::base_create_multisig(
                 sender.clone(),
                 primary_did,
@@ -343,9 +344,7 @@ pub mod pallet {
             let multisig = ensure_signed(origin)?;
             // Ensure the caller is a MultiSig and get it's DID.
             let ms_did = Self::get_ms_did(&multisig).ok_or(Error::<T>::MultisigMissingIdentity)?;
-            for signer in signers {
-                Self::base_add_auth_for_signers(ms_did, signer, multisig.clone())?;
-            }
+            Self::base_add_signers(ms_did, multisig, signers)?;
             Ok(().into())
         }
 
@@ -560,23 +559,23 @@ pub mod pallet {
             proposal_id: u64,
             result: DispatchResult,
         },
-        /// Event emitted when a signatory is added.
+        /// Event emitted when a signer is added by accepting the authorization.
         MultiSigSignerAdded {
             caller_did: IdentityId,
             multisig: T::AccountId,
             signer: T::AccountId,
         },
-        /// Event emitted when a multisig signatory is authorized to be added.
-        MultiSigSignerAuthorized {
+        /// Event emitted when multisig signers are authorized to be added.
+        MultiSigSignersAuthorized {
             caller_did: IdentityId,
             multisig: T::AccountId,
-            signer: T::AccountId,
+            signers: Vec<T::AccountId>,
         },
-        /// Event emitted when a multisig signatory is removed.
-        MultiSigSignerRemoved {
+        /// Event emitted when multisig signers are removed.
+        MultiSigSignersRemoved {
             caller_did: IdentityId,
             multisig: T::AccountId,
-            signer: T::AccountId,
+            signers: Vec<T::AccountId>,
         },
         /// Event emitted when the number of required signers is changed.
         MultiSigSignersRequiredChanged {
@@ -621,15 +620,14 @@ pub mod pallet {
         ProposalMissing,
         /// Multisig address.
         DecodingError,
-        /// No signers.
-        NoSigners,
-        /// Too few or too many required signers.
-        RequiredSignersOutOfBounds,
+        /// Required number of signers must be greater then zero.
+        RequiredSignersIsZero,
         /// Not a signer.
         NotASigner,
         /// No such multisig.
         NoSuchMultisig,
-        /// Not enough signers.
+        /// Not enough signers.  The number of signers has to be greater then or equal to
+        /// the required number of signers to approve proposals.
         NotEnoughSigners,
         /// A nonce overflow.
         NonceOverflow,
@@ -659,7 +657,7 @@ pub mod pallet {
         MaxWeightTooLow,
         /// Multisig is not attached to an identity
         MultisigMissingIdentity,
-        /// More signers than required.
+        /// Tried to remove more signers then the multisig has.
         TooManySigners,
         /// The creator is no longer allowed to call via creator extrinsics.
         CreatorControlsHaveBeenRemoved,
@@ -819,12 +817,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn ensure_sigs_in_bounds(signers: &[T::AccountId], required: u64) -> DispatchResult {
-        ensure!(!signers.is_empty(), Error::<T>::NoSigners);
-        ensure!(
-            u64::try_from(signers.len()).unwrap_or_default() >= required && required > 0,
-            Error::<T>::RequiredSignersOutOfBounds
-        );
+    fn ensure_sigs_in_bounds(num_signers: u64, required: u64) -> DispatchResult {
+        ensure!(required > 0, Error::<T>::RequiredSignersIsZero);
+        ensure!(num_signers >= required, Error::<T>::NotEnoughSigners);
         Ok(())
     }
 
@@ -852,28 +847,18 @@ impl<T: Config> Pallet<T> {
         multisig: T::AccountId,
         signers: Vec<T::AccountId>,
     ) -> DispatchResult {
-        for signer in signers {
-            Self::base_add_auth_for_signers(caller_did, signer, multisig.clone())?;
+        for signer in &signers {
+            IdentityPallet::<T>::add_auth(
+                caller_did,
+                Signatory::Account(signer.clone()),
+                AuthorizationData::AddMultiSigSigner(multisig.clone()),
+                None,
+            )?;
         }
-        Ok(())
-    }
-
-    // Adds an authorization for the accountKey to become a signer of multisig.
-    fn base_add_auth_for_signers(
-        caller_did: IdentityId,
-        target: T::AccountId,
-        multisig: T::AccountId,
-    ) -> DispatchResult {
-        IdentityPallet::<T>::add_auth(
-            caller_did,
-            Signatory::Account(target.clone()),
-            AuthorizationData::AddMultiSigSigner(multisig.clone()),
-            None,
-        )?;
-        Self::deposit_event(Event::MultiSigSignerAuthorized {
+        Self::deposit_event(Event::MultiSigSignersAuthorized {
             caller_did,
             multisig,
-            signer: target,
+            signers,
         });
         Ok(())
     }
@@ -892,29 +877,22 @@ impl<T: Config> Pallet<T> {
         let pending_num_of_signers = NumberOfSigners::<T>::get(&multisig)
             .checked_sub(signers_len)
             .ok_or(Error::<T>::TooManySigners)?;
-        ensure!(
-            pending_num_of_signers >= MultiSigSignsRequired::<T>::get(&multisig),
-            Error::<T>::NotEnoughSigners
-        );
+        let sigs_required = MultiSigSignsRequired::<T>::get(&multisig);
+        Self::ensure_sigs_in_bounds(pending_num_of_signers, sigs_required)?;
 
-        for signer in signers {
-            Self::ensure_ms_signer(&multisig, &signer)?;
-            Self::base_signer_removal(caller_did, &multisig, signer);
+        for signer in &signers {
+            Self::ensure_ms_signer(&multisig, signer)?;
+            IdentityPallet::<T>::remove_key_record(signer, None);
+            MultiSigSigners::<T>::remove(&multisig, signer);
         }
 
         NumberOfSigners::<T>::insert(&multisig, pending_num_of_signers);
-        Ok(())
-    }
-
-    /// Removes a signer from the valid signer list for a given multisig.
-    fn base_signer_removal(caller_did: IdentityId, multisig: &T::AccountId, signer: T::AccountId) {
-        IdentityPallet::<T>::remove_key_record(&signer, None);
-        MultiSigSigners::<T>::remove(multisig, &signer);
-        Self::deposit_event(Event::MultiSigSignerRemoved {
+        Self::deposit_event(Event::MultiSigSignersRemoved {
             caller_did,
             multisig: multisig.clone(),
-            signer,
+            signers,
         });
+        Ok(())
     }
 
     /// Creates a multisig without precondition checks or emitting an event.
@@ -1238,10 +1216,8 @@ impl<T: Config> Pallet<T> {
         multisig: &T::AccountId,
         signatures_required: u64,
     ) -> DispatchResult {
-        ensure!(
-            NumberOfSigners::<T>::get(multisig) >= signatures_required,
-            Error::<T>::NotEnoughSigners
-        );
+        let num_signers = NumberOfSigners::<T>::get(multisig);
+        Self::ensure_sigs_in_bounds(num_signers, signatures_required)?;
         ensure!(
             Self::is_changing_signers_allowed(multisig),
             Error::<T>::ChangeNotAllowed
@@ -1293,11 +1269,11 @@ pub mod migration {
         // Remove old storage.
         polymesh_primitives::migrate::kill_item(b"MultiSig", b"ProposalDetail");
 
-        migrate_signatory::<T>(weight);
+        migrate_signers::<T>(weight);
         migrate_creator_did::<T>(weight);
     }
 
-    fn migrate_signatory<T: Config>(weight: &mut Weight) {
+    fn migrate_signers<T: Config>(weight: &mut Weight) {
         log::info!(" >>> Migrate Signatory values to only AccountId");
         let mut sig_count = 0;
         let mut reads = 0;
