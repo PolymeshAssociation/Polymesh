@@ -85,6 +85,7 @@ use frame_support::dispatch::{
 use frame_support::ensure;
 use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::{Get, GetCallMetadata};
+use frame_support::BoundedVec;
 use frame_system::ensure_signed;
 use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::convert::TryFrom;
@@ -144,6 +145,8 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// Weight information for extrinsics in the multisig pallet.
         type WeightInfo: WeightInfo;
+        /// Maximum number of signers that can be added/removed in one call.
+        type MaxSigners: Get<u32>;
     }
 
     #[pallet::pallet]
@@ -192,7 +195,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::create_multisig(signers.len() as u32))]
         pub fn create_multisig(
             origin: OriginFor<T>,
-            signers: Vec<T::AccountId>,
+            signers: BoundedVec<T::AccountId, T::MaxSigners>,
             sigs_required: u64,
         ) -> DispatchResultWithPostInfo {
             let PermissionedCallOriginData {
@@ -339,7 +342,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::add_multisig_signers(signers.len() as u32))]
         pub fn add_multisig_signers(
             origin: OriginFor<T>,
-            signers: Vec<T::AccountId>,
+            signers: BoundedVec<T::AccountId, T::MaxSigners>,
         ) -> DispatchResultWithPostInfo {
             let multisig = ensure_signed(origin)?;
             // Ensure the caller is a MultiSig and get it's DID.
@@ -356,7 +359,7 @@ pub mod pallet {
         #[pallet::call_index(7)]
         pub fn remove_multisig_signers(
             origin: OriginFor<T>,
-            signers: Vec<T::AccountId>,
+            signers: BoundedVec<T::AccountId, T::MaxSigners>,
         ) -> DispatchResultWithPostInfo {
             let multisig = ensure_signed(origin)?;
             // Ensure the caller is a MultiSig and get it's DID.
@@ -379,7 +382,7 @@ pub mod pallet {
         pub fn add_multisig_signers_via_creator(
             origin: OriginFor<T>,
             multisig: T::AccountId,
-            signers: Vec<T::AccountId>,
+            signers: BoundedVec<T::AccountId, T::MaxSigners>,
         ) -> DispatchResultWithPostInfo {
             let caller_did = Self::ensure_ms_creator(origin, &multisig)?;
             ensure!(
@@ -402,7 +405,7 @@ pub mod pallet {
         pub fn remove_multisig_signers_via_creator(
             origin: OriginFor<T>,
             multisig: T::AccountId,
-            signers: Vec<T::AccountId>,
+            signers: BoundedVec<T::AccountId, T::MaxSigners>,
         ) -> DispatchResultWithPostInfo {
             // Ensure the caller is the creator and that they haven't lost permissions.
             let caller_did = Self::ensure_ms_creator(origin, &multisig)?;
@@ -543,7 +546,7 @@ pub mod pallet {
             caller_did: IdentityId,
             multisig: T::AccountId,
             caller: T::AccountId,
-            signers: Vec<T::AccountId>,
+            signers: BoundedVec<T::AccountId, T::MaxSigners>,
             sigs_required: u64,
         },
         /// Event emitted after adding a proposal.
@@ -569,13 +572,13 @@ pub mod pallet {
         MultiSigSignersAuthorized {
             caller_did: IdentityId,
             multisig: T::AccountId,
-            signers: Vec<T::AccountId>,
+            signers: BoundedVec<T::AccountId, T::MaxSigners>,
         },
         /// Event emitted when multisig signers are removed.
         MultiSigSignersRemoved {
             caller_did: IdentityId,
             multisig: T::AccountId,
-            signers: Vec<T::AccountId>,
+            signers: BoundedVec<T::AccountId, T::MaxSigners>,
         },
         /// Event emitted when the number of required signers is changed.
         MultiSigSignersRequiredChanged {
@@ -853,7 +856,7 @@ impl<T: Config> Pallet<T> {
     fn base_add_signers(
         caller_did: IdentityId,
         multisig: T::AccountId,
-        signers: Vec<T::AccountId>,
+        signers: BoundedVec<T::AccountId, T::MaxSigners>,
     ) -> DispatchResult {
         for signer in &signers {
             IdentityPallet::<T>::add_auth(
@@ -874,7 +877,7 @@ impl<T: Config> Pallet<T> {
     fn base_remove_signers(
         caller_did: IdentityId,
         multisig: T::AccountId,
-        signers: Vec<T::AccountId>,
+        signers: BoundedVec<T::AccountId, T::MaxSigners>,
     ) -> DispatchResult {
         ensure!(
             Self::is_changing_signers_allowed(&multisig),

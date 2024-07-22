@@ -218,6 +218,10 @@ parameter_types! {
     pub const MaxNumberOfFungibleAssets: u32 = 100;
     pub const MaxNumberOfNFTsPerLeg: u32 = 10;
     pub const MaxNumberOfNFTs: u32 = 100;
+
+    // Multisig
+    pub const MaxMultiSigSigners: u32 = 256;
+
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
     pub const MaxSetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
     pub const MaxAuthorities: u32 = 100_000;
