@@ -146,6 +146,7 @@ pub mod pallet {
         /// Weight information for extrinsics in the multisig pallet.
         type WeightInfo: WeightInfo;
         /// Maximum number of signers that can be added/removed in one call.
+        #[pallet::constant]
         type MaxSigners: Get<u32>;
     }
 
