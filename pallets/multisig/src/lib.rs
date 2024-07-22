@@ -1011,12 +1011,6 @@ impl<T: Config> Pallet<T> {
             proposal_id,
         });
         if execute_proposal {
-            // emit proposal approved event
-            Self::deposit_event(Event::ProposalApproved {
-                caller_did: creator_did,
-                multisig: multisig.clone(),
-                proposal_id,
-            });
             Self::execute_proposal(multisig, proposal_id, creator_did, max_weight)
         } else {
             Ok(().into())
@@ -1030,6 +1024,12 @@ impl<T: Config> Pallet<T> {
         creator_did: IdentityId,
         max_weight: Weight,
     ) -> DispatchResultWithPostInfo {
+        // emit proposal approved event
+        Self::deposit_event(Event::ProposalApproved {
+            caller_did: creator_did,
+            multisig: multisig.clone(),
+            proposal_id,
+        });
         // Get the proposal.
         let proposal = Proposals::<T>::try_get(multisig, proposal_id)
             .map_err(|_| Error::<T>::ProposalMissing)?;

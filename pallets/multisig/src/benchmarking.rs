@@ -191,28 +191,28 @@ benchmarks! {
     }
 
     create_or_approve_proposal {
-        let (alice, multisig, _, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(2, 1).unwrap();
+        let (alice, multisig, _, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(3, 3).unwrap();
     }: _(users[0].origin(), ephemeral_multisig, proposal, Some(1337u32.into()))
     verify {
         assert_proposal_created!(proposal_id, multisig);
     }
 
     create_proposal {
-        let (_, multisig, _, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(2, 1).unwrap();
+        let (_, multisig, _, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(3, 3).unwrap();
     }: _(users[0].origin(), ephemeral_multisig, proposal, Some(1337u32.into()))
     verify {
         assert_proposal_created!(proposal_id, multisig);
     }
 
     approve {
-        let (alice, multisig, signers, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(2, 2).unwrap();
-    }: _(users[1].origin(), ephemeral_multisig, proposal_id, Weight::MAX)
+        let (alice, multisig, signers, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(3, 3).unwrap();
+    }: _(users[2].origin(), ephemeral_multisig, proposal_id, Weight::MAX)
     verify {
         assert_vote_cast!(proposal_id, multisig, signers.last().unwrap());
     }
 
     execute_proposal {
-        let (alice, multisig, signers, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(2, 2).unwrap();
+        let (alice, multisig, signers, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(3, 3).unwrap();
         let did = alice.did.expect("Alice must have a DID");
     }: {
       assert!(MultiSig::<T>::execute_proposal(&multisig, proposal_id, did, Weight::MAX).is_ok());
