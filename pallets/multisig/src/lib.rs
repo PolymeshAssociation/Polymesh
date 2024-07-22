@@ -82,9 +82,9 @@ use frame_support::dispatch::{
     DispatchError, DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo,
     Weight,
 };
+use frame_support::ensure;
 use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::{Get, GetCallMetadata};
-use frame_support::{decl_module, decl_storage, ensure};
 use frame_system::ensure_signed;
 use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::convert::TryFrom;
@@ -661,6 +661,9 @@ pub mod pallet {
         TooManySigners,
         /// The creator is no longer allowed to call via creator extrinsics.
         CreatorControlsHaveBeenRemoved,
+        /// A multisig proposal is not allowed to nest the approval & execution of
+        /// another multisig proposal.
+        MultiSigProposalNestingNotAllowed,
     }
 
     /// Nonce to ensure unique MultiSig addresses are generated; starts from 1.
@@ -751,6 +754,11 @@ pub mod pallet {
     #[pallet::getter(fn lost_creator_privileges)]
     pub type LostCreatorPrivileges<T: Config> =
         StorageMap<_, Identity, IdentityId, bool, ValueQuery>;
+
+    /// Proposal execution reentry guard.
+    #[pallet::storage]
+    #[pallet::getter(fn execution_reentry)]
+    pub(super) type ExecutionReentry<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     /// The last transaction version, used for `on_runtime_upgrade`.
     #[pallet::storage]
@@ -1034,7 +1042,19 @@ impl<T: Config> Pallet<T> {
         );
 
         let (result, actual_weight) = match with_call_metadata(proposal.get_call_metadata(), || {
-            proposal.dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into())
+            // Check execution reentry guard.
+            ensure!(
+                !Self::execution_reentry(),
+                Error::<T>::MultiSigProposalNestingNotAllowed,
+            );
+
+            // Enable reentry guard before executing the proposal.
+            ExecutionReentry::<T>::set(true);
+            // Execute proposal.
+            let res = proposal.dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into());
+            // Make sure to reset the reentry guard, even if the proposal throws an error.
+            ExecutionReentry::<T>::set(false);
+            res
         }) {
             Ok(post_info) => {
                 ProposalStates::<T>::insert(
@@ -1049,6 +1069,7 @@ impl<T: Config> Pallet<T> {
                 (Err(e.error), e.post_info.actual_weight)
             }
         };
+
         Self::deposit_event(Event::ProposalExecuted {
             caller_did: creator_did,
             multisig: multisig.clone(),
@@ -1250,6 +1271,7 @@ pub mod migration {
 
     mod v2 {
         use super::*;
+        use frame_support::{decl_module, decl_storage};
 
         decl_storage! {
             trait Store for Module<T: Config> as MultiSig {

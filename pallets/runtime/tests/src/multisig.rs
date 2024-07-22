@@ -1470,6 +1470,91 @@ fn expired_proposals() {
     });
 }
 
+#[test]
+fn multisig_proposal_nesting_not_allowed() {
+    ExtBuilder::default().build().execute_with(|| {
+        let _alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
+        let bob_signer = AccountKeyring::Bob.to_account_id();
+        let dave = Origin::signed(AccountKeyring::Dave.to_account_id());
+        let dave_signer = AccountKeyring::Dave.to_account_id();
+
+        // Created the first top-level multisig.
+        let ms1_address =
+            MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id())
+                .expect("Next MS");
+        assert_ok!(MultiSig::create_multisig(
+            alice.clone(),
+            vec![dave_signer.clone()],
+            1,
+        ));
+        let auth_id = get_last_auth_id(&dave_signer);
+        assert_ok!(MultiSig::accept_multisig_signer(dave.clone(), auth_id));
+
+        assert_eq!(
+            MultiSig::ms_signers(ms1_address.clone(), dave_signer.clone()),
+            true
+        );
+
+        // Create another multisig with `ms1_address` as a signer.
+        let ms2_address =
+            MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id())
+                .expect("Next MS");
+        assert_ok!(MultiSig::create_multisig(
+            alice.clone(),
+            vec![ms1_address.clone()],
+            1,
+        ));
+
+        let auth_id = get_last_auth_id(&ms1_address);
+        let call_accept_auth = Box::new(RuntimeCall::MultiSig(
+            multisig::Call::accept_multisig_signer { auth_id },
+        ));
+
+        assert_ok!(MultiSig::create_proposal(
+            dave.clone(),
+            ms1_address.clone(),
+            call_accept_auth,
+            None,
+        ));
+
+        // Check that `ms1_address` is now a signer for `ms2_address`.
+        assert_eq!(
+            MultiSig::ms_signers(ms2_address.clone(), ms1_address.clone()),
+            true
+        );
+
+        // Try to nest a proposal execution.
+        let nested_call = Box::new(RuntimeCall::MultiSig(
+            multisig::Call::add_multisig_signers {
+                signers: vec![bob_signer.clone()],
+            },
+        ));
+        let call_create_proposal =
+            Box::new(RuntimeCall::MultiSig(multisig::Call::create_proposal {
+                multisig: ms2_address.clone(),
+                proposal: nested_call,
+                expiry: None,
+            }));
+
+        assert_ok!(MultiSig::create_proposal(
+            dave.clone(),
+            ms1_address.clone(),
+            call_create_proposal,
+            None,
+        ));
+        // The top-level proposal should execute ok.
+        let proposal_id = MultiSig::ms_tx_done(ms1_address.clone()) - 1;
+        let proposal_state = ProposalStates::<TestStorage>::get(&ms1_address, proposal_id).unwrap();
+        assert_eq!(proposal_state, ProposalState::ExecutionSuccessful);
+
+        // The nested proposal should fail.
+        let proposal_id = MultiSig::ms_tx_done(ms2_address.clone()) - 1;
+        let proposal_state = ProposalStates::<TestStorage>::get(&ms2_address, proposal_id).unwrap();
+        assert_eq!(proposal_state, ProposalState::ExecutionFailed);
+    });
+}
+
 fn setup_multisig(creator_origin: Origin, sigs_required: u64, signers: Vec<AccountId>) {
     assert_ok!(MultiSig::create_multisig(
         creator_origin,
