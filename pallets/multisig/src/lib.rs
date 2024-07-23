@@ -168,6 +168,8 @@ pub mod pallet {
                 removed += res.unique;
                 let res = ProposalVoteCounts::<T>::clear(u32::max_value(), None);
                 removed += res.unique;
+                let res = ProposalStates::<T>::clear(u32::max_value(), None);
+                removed += res.unique;
                 let res = Votes::<T>::clear(u32::max_value(), None);
                 removed += res.unique;
                 weight.saturating_accrue(DbWeight::get().reads_writes(removed as _, removed as _));
@@ -736,19 +738,8 @@ pub mod pallet {
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
 
     #[pallet::genesis_config]
-    pub struct GenesisConfig {
-        #[doc = " The last transaction version, used for `on_runtime_upgrade`."]
-        pub transaction_version: u32,
-    }
-
-    #[cfg(feature = "std")]
-    impl Default for GenesisConfig {
-        fn default() -> Self {
-            Self {
-                transaction_version: Default::default(),
-            }
-        }
-    }
+    #[derive(Default)]
+    pub struct GenesisConfig {}
 
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig {
@@ -868,8 +859,8 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Creates a multisig without precondition checks or emitting an event.
-    pub fn base_create_multisig(
+    // Creates a multisig without precondition checks or emitting an event.
+    fn base_create_multisig(
         caller: T::AccountId,
         caller_did: IdentityId,
         signers: &[T::AccountId],
@@ -893,8 +884,8 @@ impl<T: Config> Pallet<T> {
         Ok(multisig)
     }
 
-    /// Creates a new proposal.
-    pub fn base_create_proposal(
+    // Creates a new proposal.
+    fn base_create_proposal(
         multisig: &T::AccountId,
         signer: T::AccountId,
         proposal: Box<T::Proposal>,
@@ -961,8 +952,8 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Executes a proposal if it has enough approvals
-    pub(crate) fn execute_proposal(
+    // Executes a proposal if it has enough approvals
+    fn execute_proposal(
         multisig: &T::AccountId,
         proposal_id: u64,
         creator_did: IdentityId,
@@ -974,9 +965,9 @@ impl<T: Config> Pallet<T> {
             multisig: multisig.clone(),
             proposal_id,
         });
-        // Get the proposal.
-        let proposal = Proposals::<T>::try_get(multisig, proposal_id)
-            .map_err(|_| Error::<T>::ProposalMissing)?;
+        // Take the proposal.
+        let proposal = Proposals::<T>::take(multisig, proposal_id)
+            .ok_or_else(|| Error::<T>::ProposalMissing)?;
 
         // Ensure `max_weight` was enough to cover the worst-case weight.
         let proposal_weight = proposal.get_dispatch_info().weight;
@@ -1057,14 +1048,18 @@ impl<T: Config> Pallet<T> {
             signer: signer.clone(),
             proposal_id,
         });
-
+        // Record the signer's vote.
+        Votes::<T>::insert((multisig, proposal_id), &signer, true);
         vote_count.rejections += 1u64;
+
         let approvals_needed = Self::ms_signs_required(multisig.clone());
         let ms_signers = Self::number_of_signers(multisig.clone());
         if vote_count.rejections > ms_signers.saturating_sub(approvals_needed) || proposal_owner {
             if proposal_owner {
                 vote_count.approvals = 0;
             }
+            // Remove the proposal from storage.
+            Proposals::<T>::remove(multisig, proposal_id);
             ProposalStates::<T>::insert(multisig, proposal_id, ProposalState::Rejected);
             Self::deposit_event(Event::ProposalRejected {
                 caller_did,
@@ -1072,14 +1067,13 @@ impl<T: Config> Pallet<T> {
                 proposal_id,
             });
         }
-        // Update storage
-        Votes::<T>::insert((multisig, proposal_id), &signer, true);
+        // Update vote counts.
         ProposalVoteCounts::<T>::insert(multisig, proposal_id, vote_count);
         Ok(())
     }
 
-    /// Accepts and processed an addition of a signer to a multisig.
-    pub fn base_accept_multisig_signer(signer: T::AccountId, auth_id: u64) -> DispatchResult {
+    // Accepts and processed an addition of a signer to a multisig.
+    fn base_accept_multisig_signer(signer: T::AccountId, auth_id: u64) -> DispatchResult {
         IdentityPallet::<T>::accept_auth_with(
             &Signatory::Account(signer.clone()),
             auth_id,

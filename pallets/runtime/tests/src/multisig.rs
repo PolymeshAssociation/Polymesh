@@ -1535,6 +1535,9 @@ fn setup_multisig(
 
     for signer in signers {
         let auth_id = get_last_auth_id(&signer);
-        assert_ok!(MultiSig::base_accept_multisig_signer(signer, auth_id));
+        assert_ok!(MultiSig::accept_multisig_signer(
+            Origin::signed(signer),
+            auth_id
+        ));
     }
 }

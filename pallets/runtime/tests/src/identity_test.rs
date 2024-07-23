@@ -721,8 +721,8 @@ fn do_remove_secondary_keys_test_with_externalities() {
         1,
     ));
     let auth_id = get_last_auth_id(&Signatory::Account(dave_key.clone()));
-    assert_ok!(MultiSig::base_accept_multisig_signer(
-        dave_key.clone(),
+    assert_ok!(MultiSig::accept_multisig_signer(
+        Origin::signed(dave_key.clone()),
         auth_id
     ));
 
@@ -829,8 +829,8 @@ fn leave_identity_test_with_externalities() {
         1,
     ));
     let auth_id = get_last_auth_id(&Signatory::Account(dave_key.clone()));
-    assert_ok!(MultiSig::base_accept_multisig_signer(
-        dave_key.clone(),
+    assert_ok!(MultiSig::accept_multisig_signer(
+        Origin::signed(dave_key.clone()),
         auth_id
     ));
 

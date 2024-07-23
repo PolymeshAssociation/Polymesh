@@ -544,9 +544,7 @@ pub mod general {
             settlement: Default::default(),
             portfolio: Default::default(),
             statistics: Default::default(),
-            multi_sig: pallet_multisig::GenesisConfig {
-                transaction_version: 1,
-            },
+            multi_sig: Default::default(),
             corporate_action: corporate_actions!(),
             polymesh_contracts: polymesh_contracts!(Some(root_key)),
         }
@@ -689,9 +687,7 @@ pub mod testnet {
             settlement: Default::default(),
             portfolio: Default::default(),
             statistics: Default::default(),
-            multi_sig: pallet_multisig::GenesisConfig {
-                transaction_version: 1,
-            },
+            multi_sig: Default::default(),
             corporate_action: corporate_actions!(),
             polymesh_contracts: polymesh_contracts!(Some(root_key)),
         }
@@ -862,9 +858,7 @@ pub mod mainnet {
             settlement: Default::default(),
             portfolio: Default::default(),
             statistics: Default::default(),
-            multi_sig: pallet_multisig::GenesisConfig {
-                transaction_version: 1,
-            },
+            multi_sig: Default::default(),
             corporate_action: corporate_actions!(),
             polymesh_contracts: polymesh_contracts!(Some(root_key)),
         }
@@ -1043,9 +1037,7 @@ pub mod general {
             settlement: Default::default(),
             portfolio: Default::default(),
             statistics: Default::default(),
-            multi_sig: pallet_multisig::GenesisConfig {
-                transaction_version: 1,
-            },
+            multi_sig: Default::default(),
             corporate_action: corporate_actions!(),
             polymesh_contracts: polymesh_contracts!(Some(root_key)),
         }
