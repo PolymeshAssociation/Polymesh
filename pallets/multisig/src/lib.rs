@@ -660,10 +660,12 @@ pub mod pallet {
     pub type MultiSigSignsRequired<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery>;
 
-    /// Number of transactions proposed in a multisig. Used as tx id; starts from 0.
+    /// Next proposal id for a multisig.  Starts from 0.
+    ///
+    /// multisig => next proposal id
     #[pallet::storage]
-    #[pallet::getter(fn ms_tx_done)]
-    pub type MultiSigTxDone<T: Config> = StorageMap<_, Identity, T::AccountId, u64, ValueQuery>;
+    #[pallet::getter(fn next_proposal_id)]
+    pub type NextProposalId<T: Config> = StorageMap<_, Identity, T::AccountId, u64, ValueQuery>;
 
     /// Proposals presented for voting to a multisig.
     ///
@@ -894,7 +896,7 @@ impl<T: Config> Pallet<T> {
         Self::ensure_ms_signer(multisig, &signer)?;
         let max_weight = proposal.get_dispatch_info().weight;
         let caller_did = Self::get_ms_did(multisig).unwrap_or_default();
-        let proposal_id = Self::ms_tx_done(multisig);
+        let proposal_id = Self::next_proposal_id(multisig);
 
         Proposals::<T>::insert(multisig, proposal_id, &*proposal);
         ProposalVoteCounts::<T>::insert(multisig, proposal_id, ProposalVoteCount::default());
@@ -902,7 +904,7 @@ impl<T: Config> Pallet<T> {
 
         // Since proposal_ids are always only incremented by 1, they can not overflow.
         let next_proposal_id: u64 = proposal_id + 1u64;
-        MultiSigTxDone::<T>::insert(multisig, next_proposal_id);
+        NextProposalId::<T>::insert(multisig, next_proposal_id);
         Self::deposit_event(Event::ProposalAdded {
             caller_did,
             multisig: multisig.clone(),
@@ -1214,6 +1216,7 @@ pub mod migration {
         decl_storage! {
             trait Store for Module<T: Config> as MultiSig {
                 pub MultiSigToIdentity : map hasher(identity) T::AccountId => IdentityId;
+                pub MultiSigTxDone: map hasher(identity) T::AccountId => u64;
 
                 pub MultiSigSigners: double_map hasher(identity) T::AccountId, hasher(twox_64_concat) Signatory<T::AccountId> => bool;
             }
@@ -1232,6 +1235,7 @@ pub mod migration {
 
         migrate_signers::<T>(weight);
         migrate_creator_did::<T>(weight);
+        migrate_tx_done::<T>(weight);
     }
 
     fn migrate_signers<T: Config>(weight: &mut Weight) {
@@ -1254,6 +1258,21 @@ pub mod migration {
         });
         weight.saturating_accrue(DbWeight::get().reads_writes(reads, writes));
         log::info!(" >>> {sig_count} Signers migrated.");
+    }
+
+    fn migrate_tx_done<T: Config>(weight: &mut Weight) {
+        log::info!(" >>> Migrate MultiSigTxDone to NextProposalId");
+        let mut count = 0;
+        let mut reads = 0;
+        let mut writes = 0;
+        v2::MultiSigTxDone::<T>::drain().for_each(|(ms, next_id)| {
+            reads += 1;
+            count += 1;
+            NextProposalId::<T>::insert(ms, next_id);
+            writes += 1;
+        });
+        weight.saturating_accrue(DbWeight::get().reads_writes(reads, writes));
+        log::info!(" >>> {count} NextProposalId migrated.");
     }
 
     fn migrate_creator_did<T: Config>(weight: &mut Weight) {

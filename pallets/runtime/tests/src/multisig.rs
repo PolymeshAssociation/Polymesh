@@ -798,7 +798,7 @@ fn check_for_approval_closure() {
             None,
         ));
         next_block();
-        let proposal_id = MultiSig::ms_tx_done(ms_address.clone()) - 1;
+        let proposal_id = MultiSig::next_proposal_id(ms_address.clone()) - 1;
         let bob_auth_id = get_last_auth_id(&bob_signer.clone());
         let multi_purpose_nonce = Identity::multi_purpose_nonce();
 
@@ -867,14 +867,14 @@ fn reject_proposals() {
             call1,
             None,
         ));
-        let proposal_id1 = MultiSig::ms_tx_done(ms_address.clone()) - 1;
+        let proposal_id1 = MultiSig::next_proposal_id(ms_address.clone()) - 1;
         assert_ok!(MultiSig::create_proposal(
             ferdie.clone(),
             ms_address.clone(),
             call2,
             None,
         ));
-        let proposal_id2 = MultiSig::ms_tx_done(ms_address.clone()) - 1;
+        let proposal_id2 = MultiSig::next_proposal_id(ms_address.clone()) - 1;
 
         // Proposals can't be voted on even after rejection.
         assert_ok!(MultiSig::reject(
@@ -1230,7 +1230,7 @@ fn proposal_owner_rejection() {
             call1,
             None,
         ));
-        let proposal_id = MultiSig::ms_tx_done(ms_address.clone()) - 1;
+        let proposal_id = MultiSig::next_proposal_id(ms_address.clone()) - 1;
 
         // The owner of the proposal should be able to reject it if no one else has voted
         assert_ok!(MultiSig::reject(
@@ -1298,7 +1298,7 @@ fn proposal_owner_rejection_denied() {
             call1,
             None,
         ));
-        let proposal_id = MultiSig::ms_tx_done(ms_address.clone()) - 1;
+        let proposal_id = MultiSig::next_proposal_id(ms_address.clone()) - 1;
 
         // The owner of the proposal shouldn't be able to reject it since bob has already voted
         assert_ok!(MultiSig::reject(
@@ -1369,7 +1369,7 @@ fn expired_proposals() {
             Some(100u64),
         ));
 
-        let proposal_id = MultiSig::ms_tx_done(ms_address.clone()) - 1;
+        let proposal_id = MultiSig::next_proposal_id(ms_address.clone()) - 1;
         let mut vote_count =
             ProposalVoteCounts::<TestStorage>::get(&ms_address, proposal_id).unwrap();
         let mut proposal_state =
@@ -1511,12 +1511,12 @@ fn multisig_proposal_nesting_not_allowed() {
             None,
         ));
         // The top-level proposal should execute ok.
-        let proposal_id = MultiSig::ms_tx_done(ms1_address.clone()) - 1;
+        let proposal_id = MultiSig::next_proposal_id(ms1_address.clone()) - 1;
         let proposal_state = ProposalStates::<TestStorage>::get(&ms1_address, proposal_id).unwrap();
         assert_eq!(proposal_state, ProposalState::ExecutionSuccessful);
 
         // The nested proposal should fail.
-        let proposal_id = MultiSig::ms_tx_done(ms2_address.clone()) - 1;
+        let proposal_id = MultiSig::next_proposal_id(ms2_address.clone()) - 1;
         let proposal_state = ProposalStates::<TestStorage>::get(&ms2_address, proposal_id).unwrap();
         assert_eq!(proposal_state, ProposalState::ExecutionFailed);
     });
