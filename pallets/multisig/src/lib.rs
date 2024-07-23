@@ -38,8 +38,6 @@
 //! ### Dispatchable Functions
 //!
 //! - `create_multisig` - Creates a new multisig.
-//! - `create_or_approve_proposal` - Creates or approves a multisig proposal given the
-//! signer's account key.
 //! - `create_proposal` - Creates a multisig proposal given the signer's account key.
 //! - `approve` - Approves a multisig proposal given the signer's account key.
 //! - `reject` - Rejects a multisig proposal using the caller's secondary key (`AccountId`).
@@ -62,7 +60,6 @@
 //! - `base_create_multisig` - Creates a multisig account without precondition checks or emitting
 //! an event.
 //! - `base_create_proposal` - Creates a proposal for a multisig transaction.
-//! - `base_create_or_approve_proposal` - Creates or approves a multisig proposal.
 //! - `base_accept_multisig_signer` - Accepts and processes an addition of a signer to a multisig.
 //! - `get_next_multisig_address` - Gets the next available multisig account ID.
 //! - `get_multisig_address` - Constructs a multisig account given a nonce.
@@ -169,8 +166,6 @@ pub mod pallet {
                 let mut removed = 0;
                 let res = Proposals::<T>::clear(u32::max_value(), None);
                 removed += res.unique;
-                let res = ProposalIds::<T>::clear(u32::max_value(), None);
-                removed += res.unique;
                 let res = ProposalVoteCounts::<T>::clear(u32::max_value(), None);
                 removed += res.unique;
                 let res = Votes::<T>::clear(u32::max_value(), None);
@@ -222,34 +217,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Creates a multisig proposal if it hasn't been created or approves it if it has.
-        ///
-        /// # Arguments
-        /// * `multisig` - MultiSig address.
-        /// * `proposal` - Proposal to be voted on.
-        /// * `expiry` - Optional proposal expiry time.
-        ///
-        /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
-        /// #[deprecated(since = "6.0.0", note = "Please use the `create_proposal` and `approve` instead")]
-        #[pallet::call_index(1)]
-        #[pallet::weight({
-          <T as Config>::WeightInfo::create_or_approve_proposal()
-            .saturating_add(<T as Config>::WeightInfo::execute_proposal())
-            .saturating_add(proposal.get_dispatch_info().weight)
-        })]
-        pub fn create_or_approve_proposal(
-            origin: OriginFor<T>,
-            multisig: T::AccountId,
-            proposal: Box<T::Proposal>,
-            expiry: Option<T::Moment>,
-        ) -> DispatchResultWithPostInfo {
-            let signer = ensure_signed(origin)?;
-            with_base_weight(
-                <T as Config>::WeightInfo::create_or_approve_proposal(),
-                || Self::base_create_or_approve_proposal(&multisig, signer, proposal, expiry),
-            )
-        }
-
         /// Creates a multisig proposal
         ///
         /// # Arguments
@@ -258,7 +225,7 @@ pub mod pallet {
         /// * `expiry` - Optional proposal expiry time.
         ///
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
-        #[pallet::call_index(2)]
+        #[pallet::call_index(1)]
         #[pallet::weight({
           <T as Config>::WeightInfo::create_proposal()
             .saturating_add(<T as Config>::WeightInfo::execute_proposal())
@@ -272,7 +239,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let signer = ensure_signed(origin)?;
             with_base_weight(<T as Config>::WeightInfo::create_proposal(), || {
-                Self::base_create_proposal(&multisig, signer, proposal, expiry, false)
+                Self::base_create_proposal(&multisig, signer, proposal, expiry)
             })
         }
 
@@ -284,7 +251,7 @@ pub mod pallet {
         /// * `max_weight` - The maximum weight to execute the proposal.
         ///
         /// If quorum is reached, the proposal will be immediately executed.
-        #[pallet::call_index(3)]
+        #[pallet::call_index(2)]
         #[pallet::weight({
           <T as Config>::WeightInfo::approve()
             .saturating_add(<T as Config>::WeightInfo::execute_proposal())
@@ -308,7 +275,7 @@ pub mod pallet {
         /// * `multisig` - MultiSig address.
         /// * `proposal_id` - Proposal id to reject.
         /// If quorum is reached, the proposal will be immediately executed.
-        #[pallet::call_index(4)]
+        #[pallet::call_index(3)]
         #[pallet::weight(<T as Config>::WeightInfo::reject())]
         pub fn reject(
             origin: OriginFor<T>,
@@ -324,7 +291,7 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `auth_id` - Auth id of the authorization.
-        #[pallet::call_index(5)]
+        #[pallet::call_index(4)]
         #[pallet::weight(<T as Config>::WeightInfo::accept_multisig_signer())]
         pub fn accept_multisig_signer(
             origin: OriginFor<T>,
@@ -339,7 +306,7 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `signers` - Signers to add.
-        #[pallet::call_index(6)]
+        #[pallet::call_index(5)]
         #[pallet::weight(<T as Config>::WeightInfo::add_multisig_signers(signers.len() as u32))]
         pub fn add_multisig_signers(
             origin: OriginFor<T>,
@@ -357,7 +324,7 @@ pub mod pallet {
         /// # Arguments
         /// * `signers` - Signers to remove.
         #[pallet::weight(<T as Config>::WeightInfo::remove_multisig_signers(signers.len() as u32))]
-        #[pallet::call_index(7)]
+        #[pallet::call_index(6)]
         pub fn remove_multisig_signers(
             origin: OriginFor<T>,
             signers: BoundedVec<T::AccountId, T::MaxSigners>,
@@ -378,7 +345,7 @@ pub mod pallet {
         /// * `multisig` - Address of the multi sig
         /// * `signers` - Signers to add.
         ///
-        #[pallet::call_index(8)]
+        #[pallet::call_index(7)]
         #[pallet::weight(<T as Config>::WeightInfo::add_multisig_signers_via_creator(signers.len() as u32))]
         pub fn add_multisig_signers_via_creator(
             origin: OriginFor<T>,
@@ -401,7 +368,7 @@ pub mod pallet {
         /// * `multisig` - Address of the multisig.
         /// * `signers` - Signers to remove.
         ///
-        #[pallet::call_index(9)]
+        #[pallet::call_index(8)]
         #[pallet::weight(<T as Config>::WeightInfo::remove_multisig_signers_via_creator(signers.len() as u32))]
         pub fn remove_multisig_signers_via_creator(
             origin: OriginFor<T>,
@@ -426,7 +393,7 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `sigs_required` - New number of required signatures.
-        #[pallet::call_index(10)]
+        #[pallet::call_index(9)]
         #[pallet::weight(<T as Config>::WeightInfo::change_sigs_required())]
         pub fn change_sigs_required(
             origin: OriginFor<T>,
@@ -446,7 +413,7 @@ pub mod pallet {
         /// * `multisig` - multi sig address
         /// * `permissions` - optional custom permissions.  Only the primary key can provide custom permissions.
         ///
-        #[pallet::call_index(11)]
+        #[pallet::call_index(10)]
         #[pallet::weight(<T as Config>::WeightInfo::make_multisig_secondary())]
         pub fn make_multisig_secondary(
             origin: OriginFor<T>,
@@ -482,7 +449,7 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `multisig` - multi sig address
-        #[pallet::call_index(12)]
+        #[pallet::call_index(11)]
         #[pallet::weight(<T as Config>::WeightInfo::make_multisig_primary())]
         pub fn make_multisig_primary(
             origin: OriginFor<T>,
@@ -505,7 +472,7 @@ pub mod pallet {
         /// # Arguments
         /// * `multisig` - The account identifier ([`AccountId`]) for the multi signature account.
         /// * `signatures_required` - The number of required signatures.
-        #[pallet::call_index(13)]
+        #[pallet::call_index(12)]
         #[pallet::weight(<T as Config>::WeightInfo::change_sigs_required_via_creator())]
         pub fn change_sigs_required_via_creator(
             origin: OriginFor<T>,
@@ -527,7 +494,7 @@ pub mod pallet {
 
         /// Removes the creator ability to call `add_multisig_signers_via_creator`, `remove_multisig_signers_via_creator`
         /// and `change_sigs_required_via_creator`.
-        #[pallet::call_index(14)]
+        #[pallet::call_index(13)]
         #[pallet::weight(<T as Config>::WeightInfo::remove_creator_controls())]
         pub fn remove_creator_controls(
             origin: OriginFor<T>,
@@ -703,12 +670,6 @@ pub mod pallet {
     #[pallet::getter(fn proposals)]
     pub type Proposals<T: Config> =
         StorageDoubleMap<_, Twox64Concat, T::AccountId, Twox64Concat, u64, T::Proposal>;
-
-    /// A mapping of proposals to their IDs.
-    #[pallet::storage]
-    #[pallet::getter(fn proposal_ids)]
-    pub type ProposalIds<T: Config> =
-        StorageDoubleMap<_, Identity, T::AccountId, Blake2_128, T::Proposal, u64>;
 
     /// Individual multisig signer votes.
     ///
@@ -938,19 +899,16 @@ impl<T: Config> Pallet<T> {
         signer: T::AccountId,
         proposal: Box<T::Proposal>,
         expiry: Option<T::Moment>,
-        proposal_to_id: bool,
     ) -> DispatchResultWithPostInfo {
         Self::ensure_ms_signer(multisig, &signer)?;
         let max_weight = proposal.get_dispatch_info().weight;
         let caller_did = Self::get_ms_did(multisig).unwrap_or_default();
         let proposal_id = Self::ms_tx_done(multisig);
+
         Proposals::<T>::insert(multisig, proposal_id, &*proposal);
-        if proposal_to_id {
-            // Only use the `Proposal` -> id map for `create_or_approve_proposal` calls.
-            ProposalIds::<T>::insert(multisig, *proposal, proposal_id);
-        }
         ProposalVoteCounts::<T>::insert(multisig, proposal_id, ProposalVoteCount::default());
         ProposalStates::<T>::insert(multisig, proposal_id, ProposalState::new(expiry));
+
         // Since proposal_ids are always only incremented by 1, they can not overflow.
         let next_proposal_id: u64 = proposal_id + 1u64;
         MultiSigTxDone::<T>::insert(multisig, next_proposal_id);
@@ -960,24 +918,6 @@ impl<T: Config> Pallet<T> {
             proposal_id,
         });
         Self::base_approve(multisig, signer, proposal_id, max_weight)
-    }
-
-    /// Creates or approves a multisig proposal.
-    pub fn base_create_or_approve_proposal(
-        multisig: &T::AccountId,
-        signer: T::AccountId,
-        proposal: Box<T::Proposal>,
-        expiry: Option<T::Moment>,
-    ) -> DispatchResultWithPostInfo {
-        if let Some(proposal_id) = Self::proposal_ids(multisig, &*proposal) {
-            let max_weight = proposal.get_dispatch_info().weight;
-            // This is an existing proposal.
-            Self::base_approve(multisig, signer, proposal_id, max_weight)
-        } else {
-            // The proposal is new.
-            Self::base_create_proposal(multisig, signer, proposal, expiry, true)?;
-            Ok(().into())
-        }
     }
 
     /// Approves a multisig proposal and executes it if enough signatures have been received.
@@ -1294,6 +1234,7 @@ pub mod migration {
         RuntimeLogger::init();
         // Remove old storage.
         polymesh_primitives::migrate::kill_item(b"MultiSig", b"ProposalDetail");
+        polymesh_primitives::migrate::kill_item(b"MultiSig", b"ProposalIds");
 
         migrate_signers::<T>(weight);
         migrate_creator_did::<T>(weight);

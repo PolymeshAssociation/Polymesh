@@ -163,8 +163,7 @@ where
             // Call made by an Account key to propose, reject or approve a multisig transaction.
             // The multisig must have valid CDD and the caller must be a signer of the multisig.
             Ok(Call::MultiSig(
-                pallet_multisig::Call::create_or_approve_proposal { multisig, .. }
-                | pallet_multisig::Call::create_proposal { multisig, .. }
+                pallet_multisig::Call::create_proposal { multisig, .. }
                 | pallet_multisig::Call::approve { multisig, .. }
                 | pallet_multisig::Call::reject { multisig, .. },
             )) => handle_multisig(multisig, caller),

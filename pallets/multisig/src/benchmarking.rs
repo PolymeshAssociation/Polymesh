@@ -197,13 +197,6 @@ benchmarks! {
         assert!(CreatorDid::<T>::contains_key(multisig), "create_multisig");
     }
 
-    create_or_approve_proposal {
-        let (alice, multisig, _, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(3, 3).unwrap();
-    }: _(users[0].origin(), ephemeral_multisig, proposal, Some(1337u32.into()))
-    verify {
-        assert_proposal_created!(proposal_id, multisig);
-    }
-
     create_proposal {
         let (_, multisig, _, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(3, 3).unwrap();
     }: _(users[0].origin(), ephemeral_multisig, proposal, Some(1337u32.into()))

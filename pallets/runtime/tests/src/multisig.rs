@@ -226,59 +226,6 @@ fn change_multisig_sigs_required() {
 }
 
 #[test]
-fn create_or_approve_change_multisig_sigs_required() {
-    ExtBuilder::default().build().execute_with(|| {
-        let _alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
-        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
-        let charlie_signer = AccountKeyring::Charlie.to_account_id();
-
-        let ms_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id())
-            .expect("Next MS");
-        assert_ok!(MultiSig::create_multisig(
-            alice.clone(),
-            create_signers(vec![charlie_signer.clone(), bob_signer.clone()]),
-            2,
-        ));
-
-        let charlie_auth_id = get_last_auth_id(&charlie_signer);
-        assert_ok!(MultiSig::accept_multisig_signer(
-            charlie.clone(),
-            charlie_auth_id
-        ));
-
-        let bob_auth_id = get_last_auth_id(&bob_signer);
-        assert_ok!(MultiSig::accept_multisig_signer(bob.clone(), bob_auth_id));
-        assert_eq!(
-            MultiSig::ms_signers(ms_address.clone(), charlie_signer),
-            true
-        );
-        assert_eq!(MultiSig::ms_signers(ms_address.clone(), bob_signer), true);
-        let call = Box::new(RuntimeCall::MultiSig(
-            multisig::Call::change_sigs_required { sigs_required: 1 },
-        ));
-        assert_ok!(MultiSig::create_or_approve_proposal(
-            bob.clone(),
-            ms_address.clone(),
-            call.clone(),
-            None,
-        ));
-        next_block();
-        assert_eq!(MultiSig::ms_signs_required(ms_address.clone()), 2);
-        assert_ok!(MultiSig::create_or_approve_proposal(
-            charlie.clone(),
-            ms_address.clone(),
-            call,
-            None,
-        ));
-        next_block();
-        assert_eq!(MultiSig::ms_signs_required(ms_address), 1);
-    });
-}
-
-#[test]
 fn remove_multisig_signers() {
     ExtBuilder::default().build().execute_with(|| {
         let _alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
