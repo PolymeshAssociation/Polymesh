@@ -307,18 +307,30 @@ impl MuliSigState {
         permissions: impl Into<Permissions> + Send,
     ) -> Result<()> {
         let permissions = permissions.into();
-        let record = self
+        let asset = self
             .api
             .query()
             .identity()
-            .key_records(self.account)
+            .key_asset_permissions(self.account)
             .await?
-            .ok_or_else(|| anyhow!("Missing KeyRecords"))?;
-        let key_permissions = match record {
-            KeyRecord::SecondaryKey(_, perms) => Some(perms),
-            _ => None,
-        };
-        assert_eq!(Some(permissions), key_permissions);
+            .ok_or_else(|| anyhow!("Missing asset permissions"))?;
+        assert_eq!(permissions.asset, asset);
+        let portfolio = self
+            .api
+            .query()
+            .identity()
+            .key_portfolio_permissions(self.account)
+            .await?
+            .ok_or_else(|| anyhow!("Missing portfolio permissions"))?;
+        assert_eq!(permissions.portfolio, portfolio);
+        let extrinsic = self
+            .api
+            .query()
+            .identity()
+            .key_extrinsic_permissions(self.account)
+            .await?
+            .ok_or_else(|| anyhow!("Missing extrinsic permissions"))?;
+        assert_eq!(permissions.extrinsic, extrinsic);
         Ok(())
     }
 }
