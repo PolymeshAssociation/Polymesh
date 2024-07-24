@@ -31,7 +31,7 @@ use polymesh_primitives::secondary_key::DispatchableNames;
 use polymesh_primitives::{
     AssetPermissions, AuthorizationData, Claim, CountryCode, DispatchableName,
     ExtrinsicPermissions, PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber,
-    PortfolioPermissions, Scope, SecondaryKey, Signatory,
+    PortfolioPermissions, Scope, SecondaryKey, Signatory, Ticker,
 };
 
 const SEED: u32 = 0;

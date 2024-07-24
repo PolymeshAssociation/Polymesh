@@ -23,7 +23,7 @@
 //! and then attaching a ballot to it via `attach_ballot`.
 //! When attaching a ballot, the motions are provided, along with when the duration of the ballot.
 //!
-//! Once the start time is due, token holders in the CA's ticker/asset may cast their ballot.
+//! Once the start time is due, token holders in the CA's asset may cast their ballot.
 //! To do so, they call the `vote` dispatchable,
 //! dividing their available votes to each choice within a motion.
 //!
@@ -74,8 +74,8 @@
 //! - `change_rcv(origin, ca_id, rcv)` changes the support for RCV to `rcv` in the ballot for CA with `ca_id`.
 //! - `remove_ballot(origin, ca_id)` removes the ballot for CA with `ca_id`.
 
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarking;
+//#[cfg(feature = "runtime-benchmarks")]
+//pub mod benchmarking;
 
 use crate as ca;
 use ca::{CAId, CAKind, Config, CorporateAction};
@@ -310,14 +310,14 @@ decl_module! {
         /// See the `BallotMeta` for more.
         ///
         /// ## Arguments
-        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.asset_id`.
         /// - `ca_id` identifies the CA to attach the ballot to.
         /// - `range` specifies when voting starts and ends.
         /// - `meta` specifies the ballot's metadata as aforementioned.
         /// - `rcv` specifies whether RCV is enabled for this ballot.
         ///
         /// # Errors
-        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset_id`.
         /// - `NoSuchCA` if `ca_id` does not identify an existing CA.
         /// - `CANotNotice` if the CA is not of the `IssuerNotice` kind.
         /// - `StartAfterEnd` if `range.start > range.end`.
@@ -331,7 +331,7 @@ decl_module! {
         #[weight = <T as Config>::BallotWeightInfo::attach_ballot(meta.saturating_num_choices())]
         pub fn attach_ballot(origin, ca_id: CAId, range: BallotTimeRange, meta: BallotMeta, rcv: bool) {
             // Ensure origin is a permissioned agent, that `ca_id` exists, that its a notice, and the date invariant.
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?;
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?;
             let ca = <CA<T>>::ensure_ca_exists(ca_id)?;
             ensure!(matches!(ca.kind, CAKind::IssuerNotice), Error::<T>::CANotNotice);
             Self::ensure_range_invariant(&ca, range)?;
@@ -466,19 +466,19 @@ decl_module! {
         /// Amend the end date of the ballot of the CA identified by `ca_id`.
         ///
         /// ## Arguments
-        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.asset_id`.
         /// - `ca_id` identifies the attached ballot's CA.
         /// - `end` specifies the new end date of the ballot.
         ///
         /// # Errors
-        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset_id`.
         /// - `NoSuchBallot` if `ca_id` does not identify a ballot.
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
         /// - `StartAfterEnd` if `start > end`.
         #[weight = <T as Config>::BallotWeightInfo::change_end()]
         pub fn change_end(origin, ca_id: CAId, end: Moment) {
             // Ensure origin is a permissioned agent, ballot exists, and start is in the future.
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?;
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?;
             let mut range = Self::ensure_ballot_exists(ca_id)?;
             Self::ensure_ballot_not_started(range)?;
 
@@ -494,12 +494,12 @@ decl_module! {
         /// Amend the metadata (title, motions, etc.) of the ballot of the CA identified by `ca_id`.
         ///
         /// ## Arguments
-        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.asset_id`.
         /// - `ca_id` identifies the attached ballot's CA.
         /// - `meta` specifies the new metadata.
         ///
         /// # Errors
-        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset_id`.
         /// - `NoSuchBallot` if `ca_id` does not identify a ballot.
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
         /// - `NumberOfChoicesOverflow` if the total choice in `meta` overflows `usize`.
@@ -507,7 +507,7 @@ decl_module! {
         #[weight = <T as Config>::BallotWeightInfo::change_meta(meta.saturating_num_choices())]
         pub fn change_meta(origin, ca_id: CAId, meta: BallotMeta) {
             // Ensure origin is a permissioned agent, a ballot exists, start is in the future.
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?;
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?;
             Self::ensure_ballot_not_started(Self::ensure_ballot_exists(ca_id)?)?;
 
             // Compute number-of-choices-in-motion cache.
@@ -523,18 +523,18 @@ decl_module! {
         /// Amend RCV support for the ballot of the CA identified by `ca_id`.
         ///
         /// ## Arguments
-        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.asset_id`.
         /// - `ca_id` identifies the attached ballot's CA.
         /// - `rcv` specifies if RCV is to be supported or not.
         ///
         /// # Errors
-        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset_id`.
         /// - `NoSuchBallot` if `ca_id` does not identify a ballot.
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
         #[weight = <T as Config>::BallotWeightInfo::change_rcv()]
         pub fn change_rcv(origin, ca_id: CAId, rcv: bool) {
             // Ensure origin is a permissioned agent, a ballot exists, start is in the future.
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?;
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?;
             Self::ensure_ballot_not_started(Self::ensure_ballot_exists(ca_id)?)?;
 
             // Commit to storage + emit event.
@@ -545,16 +545,16 @@ decl_module! {
         /// Remove the ballot of the CA identified by `ca_id`.
         ///
         /// ## Arguments
-        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.asset_id`.
         /// - `ca_id` identifies the attached ballot's CA.
         ///
         /// # Errors
-        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset_id`.
         /// - `NoSuchBallot` if `ca_id` does not identify a ballot.
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
         #[weight = <T as Config>::BallotWeightInfo::remove_ballot()]
         pub fn remove_ballot(origin, ca_id: CAId) {
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?.for_event();
             let range = Self::ensure_ballot_exists(ca_id)?;
             Self::remove_ballot_base(agent, ca_id, range)?;
         }

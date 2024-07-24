@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use crate::asset::AssetID;
 use crate::{DispatchableName, IdentityId, PalletName, PortfolioId, SubsetRestriction, Ticker};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -39,7 +40,7 @@ fn name_complexity(name: &[u8]) -> usize {
 }
 
 /// Asset permissions.
-pub type AssetPermissions = SubsetRestriction<Ticker>;
+pub type AssetPermissions = SubsetRestriction<AssetID>;
 
 /// A permission to call:
 ///
@@ -403,7 +404,7 @@ impl<AccountId> SecondaryKey<AccountId> {
     }
 
     /// Checks if the given key has permission to access the given asset.
-    pub fn has_asset_permission(&self, asset: Ticker) -> bool {
+    pub fn has_asset_permission(&self, asset: AssetID) -> bool {
         self.permissions.asset.ge(&SubsetRestriction::elem(asset))
     }
 

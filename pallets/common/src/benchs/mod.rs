@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 mod asset;
-pub use asset::{make_asset, make_indivisible_asset, make_ticker, ResultTicker};
+pub use asset::{reg_unique_ticker, ResultTicker};
 
 mod user;
 pub use user::{PublicKey, SecretKey, User};

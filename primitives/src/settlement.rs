@@ -28,8 +28,9 @@ use sp_std::vec::Vec;
 
 use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 
+use crate::asset::AssetID;
 use crate::constants::SETTLEMENT_INSTRUCTION_EXECUTION;
-use crate::{impl_checked_inc, Balance, IdentityId, NFTs, PortfolioId, Ticker};
+use crate::{impl_checked_inc, Balance, IdentityId, NFTs, PortfolioId};
 
 /// A global and unique venue ID.
 #[derive(Encode, Decode, TypeInfo)]
@@ -166,8 +167,8 @@ pub enum Leg {
         sender: PortfolioId,
         /// The [`PortfolioId`] of the receiver.
         receiver: PortfolioId,
-        /// The [`Ticker`] of the fungible token.
-        ticker: Ticker,
+        /// The [`AssetID`] of the fungible token.
+        asset_id: AssetID,
         /// The amount being transferred.
         amount: Balance,
     },
@@ -186,8 +187,8 @@ pub enum Leg {
         sender_identity: IdentityId,
         /// The [`IdentityId`] of the receiver.
         receiver_identity: IdentityId,
-        /// The [`Ticker`] for the off-chain asset.
-        ticker: Ticker,
+        /// The [`AssetID`] for the off-chain asset.
+        asset_id: AssetID,
         /// The amount transferred.
         amount: Balance,
     },
@@ -202,12 +203,12 @@ impl Leg {
         false
     }
 
-    /// Returns the [`Ticker`] of the asset in the given leg.
-    pub fn ticker(&self) -> Ticker {
+    /// Returns the [`AssetID`] of the asset in the given leg.
+    pub fn asset_id(&self) -> AssetID {
         match self {
-            Leg::Fungible { ticker, .. } => *ticker,
-            Leg::NonFungible { nfts, .. } => *nfts.ticker(),
-            Leg::OffChain { ticker, .. } => *ticker,
+            Leg::Fungible { asset_id, .. } => *asset_id,
+            Leg::NonFungible { nfts, .. } => *nfts.asset_id(),
+            Leg::OffChain { asset_id, .. } => *asset_id,
         }
     }
 }
@@ -235,8 +236,8 @@ pub struct Receipt<Balance> {
     sender_identity: IdentityId,
     /// The [`IdentityId`] of the receiver.
     receiver_identity: IdentityId,
-    /// [`Ticker`] of the asset being transferred.
-    ticker: Ticker,
+    /// [`AssetID`] of the asset being transferred.
+    asset_id: AssetID,
     /// The amount transferred.
     amount: Balance,
 }
@@ -249,7 +250,7 @@ impl<Balance> Receipt<Balance> {
         leg_id: LegId,
         sender_identity: IdentityId,
         receiver_identity: IdentityId,
-        ticker: Ticker,
+        asset_id: AssetID,
         amount: Balance,
     ) -> Self {
         Receipt {
@@ -258,7 +259,7 @@ impl<Balance> Receipt<Balance> {
             leg_id,
             sender_identity,
             receiver_identity,
-            ticker,
+            asset_id,
             amount,
         }
     }
@@ -460,7 +461,7 @@ pub struct InstructionInfo {
     instruction_asset_count: AssetCount,
     /// All portfolios that still need to affirm the instruction.
     portfolios_pending_approval: BTreeSet<PortfolioId>,
-    /// All portfolios that have pre-approved the transfer of a ticker.
+    /// All portfolios that have pre-approved the transfer of an asset.
     portfolios_pre_approved: BTreeSet<PortfolioId>,
     /// All mediators that need to affirm the instruction.
     mediators: BTreeSet<IdentityId>,

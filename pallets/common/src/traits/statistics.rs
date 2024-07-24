@@ -2,8 +2,9 @@ use crate::asset::AssetFnTrait;
 use frame_support::decl_event;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::{
-    statistics::{AssetScope, StatType, StatUpdate},
+    statistics::{StatType, StatUpdate},
     transfer_compliance::{TransferCondition, TransferConditionExemptKey},
     IdentityId,
 };
@@ -51,20 +52,20 @@ decl_event!(
     pub enum Event {
         /// Stat types added to asset.
         ///
-        /// (Caller DID, Asset, Stat types)
-        StatTypesAdded(IdentityId, AssetScope, Vec<StatType>),
+        /// (Caller DID, AssetID, Stat types)
+        StatTypesAdded(IdentityId, AssetID, Vec<StatType>),
         /// Stat types removed from asset.
         ///
-        /// (Caller DID, Asset, Stat types)
-        StatTypesRemoved(IdentityId, AssetScope, Vec<StatType>),
+        /// (Caller DID, AssetID, Stat types)
+        StatTypesRemoved(IdentityId, AssetID, Vec<StatType>),
         /// Asset stats updated.
         ///
-        /// (Caller DID, Asset, Stat type, Updates)
-        AssetStatsUpdated(IdentityId, AssetScope, StatType, Vec<StatUpdate>),
+        /// (Caller DID, AssetID, Stat type, Updates)
+        AssetStatsUpdated(IdentityId, AssetID, StatType, Vec<StatUpdate>),
         /// Set Transfer compliance rules for asset.
         ///
-        /// (Caller DID, Asset, Transfer conditions)
-        SetAssetTransferCompliance(IdentityId, AssetScope, Vec<TransferCondition>),
+        /// (Caller DID, AssetID, Transfer conditions)
+        SetAssetTransferCompliance(IdentityId, AssetID, Vec<TransferCondition>),
         /// Add `IdentityId`s exempt for transfer conditions matching exempt key.
         ///
         /// (Caller DID, Exempt key, Entities)

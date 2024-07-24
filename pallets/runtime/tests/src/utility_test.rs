@@ -1033,7 +1033,9 @@ fn as_derivative() {
         let call = RuntimeCall::Asset(pallet_asset::Call::register_unique_ticker { ticker });
         assert_ok!(Utility::as_derivative(alice.origin(), 1, Box::new(call)));
         assert_eq!(
-            UniqueTickerRegistration::<TestStorage>::get(ticker).unwrap().owner,
+            UniqueTickerRegistration::<TestStorage>::get(ticker)
+                .unwrap()
+                .owner,
             derivative_alice_id
         );
     });

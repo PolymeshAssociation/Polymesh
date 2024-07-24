@@ -4,11 +4,12 @@ use frame_support::weights::Weight;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec::Vec;
 
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::settlement::{
     AffirmationCount, AssetCount, InstructionId, Leg, LegId, ReceiptMetadata, SettlementType,
     VenueDetails, VenueId, VenueType,
 };
-use polymesh_primitives::{IdentityId, Memo, PortfolioId, Ticker};
+use polymesh_primitives::{IdentityId, Memo, PortfolioId};
 
 decl_event!(
     pub enum Event<T>
@@ -38,20 +39,20 @@ decl_event!(
             AccountId,
             Option<ReceiptMetadata>,
         ),
-        /// Venue filtering has been enabled or disabled for a ticker (did, ticker, filtering_enabled)
-        VenueFiltering(IdentityId, Ticker, bool),
-        /// Venues added to allow list (did, ticker, vec<venue_id>)
-        VenuesAllowed(IdentityId, Ticker, Vec<VenueId>),
-        /// Venues added to block list (did, ticker, vec<venue_id>)
-        VenuesBlocked(IdentityId, Ticker, Vec<VenueId>),
+        /// Venue filtering has been enabled or disabled for an asset (did, AssetID, filtering_enabled)
+        VenueFiltering(IdentityId, AssetID, bool),
+        /// Venues added to allow list (did, AssetID, vec<venue_id>)
+        VenuesAllowed(IdentityId, AssetID, Vec<VenueId>),
+        /// Venues added to block list (did, AssetID, vec<venue_id>)
+        VenuesBlocked(IdentityId, AssetID, Vec<VenueId>),
         /// Execution of a leg failed (did, instruction_id, leg_id)
         LegFailedExecution(IdentityId, InstructionId, LegId),
         /// Instruction failed execution (did, instruction_id)
         InstructionFailed(IdentityId, InstructionId),
         /// Instruction executed successfully(did, instruction_id)
         InstructionExecuted(IdentityId, InstructionId),
-        /// Venue not part of the token's allow list (did, Ticker, venue_id)
-        VenueUnauthorized(IdentityId, Ticker, VenueId),
+        /// Venue not part of the token's allow list (did, AssetID, venue_id)
+        VenueUnauthorized(IdentityId, AssetID, VenueId),
         /// Scheduling of instruction fails.
         SchedulingFailed(DispatchError),
         /// Instruction is rescheduled.

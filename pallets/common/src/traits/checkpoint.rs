@@ -1,10 +1,9 @@
 use codec::{Decode, Encode};
 use frame_support::decl_event;
 use frame_support::weights::Weight;
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::calendar::{CalendarPeriod, CheckpointSchedule};
-use polymesh_primitives::{
-    asset::CheckpointId, impl_checked_inc, Balance, IdentityId, Moment, Ticker,
-};
+use polymesh_primitives::{asset::CheckpointId, impl_checked_inc, Balance, IdentityId, Moment};
 use scale_info::TypeInfo;
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
@@ -194,22 +193,22 @@ decl_event! {
     pub enum Event {
         /// A checkpoint was created.
         ///
-        /// (caller DID, ticker, checkpoint ID, total supply, checkpoint timestamp)
-        CheckpointCreated(Option<IdentityId>, Ticker, CheckpointId, Balance, Moment),
+        /// (caller DID, AssetID, checkpoint ID, total supply, checkpoint timestamp)
+        CheckpointCreated(Option<IdentityId>, AssetID, CheckpointId, Balance, Moment),
 
-        /// The maximum complexity for an arbitrary ticker's schedule set was changed.
+        /// The maximum complexity for an arbitrary asset's schedule set was changed.
         ///
         /// (GC DID, the new maximum)
         MaximumSchedulesComplexityChanged(IdentityId, u64),
 
         /// A checkpoint schedule was created.
         ///
-        /// (caller DID, ticker, schedule id, schedule)
-        ScheduleCreated(IdentityId, Ticker, ScheduleId, ScheduleCheckpoints),
+        /// (caller DID, AssetID, schedule id, schedule)
+        ScheduleCreated(IdentityId, AssetID, ScheduleId, ScheduleCheckpoints),
 
         /// A checkpoint schedule was removed.
         ///
-        /// (caller DID, ticker, schedule id, schedule)
-        ScheduleRemoved(IdentityId, Ticker, ScheduleId, ScheduleCheckpoints),
+        /// (caller DID, AssetID, schedule id, schedule)
+        ScheduleRemoved(IdentityId, AssetID, ScheduleId, ScheduleCheckpoints),
     }
 }

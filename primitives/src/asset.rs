@@ -27,7 +27,10 @@ use crate::identity_id::PortfolioValidityResult;
 use crate::impl_checked_inc;
 use crate::transfer_compliance::TransferConditionResult;
 
-/// A per-ticker checkpoint ID.
+/// An unique asset identifier.
+pub type AssetID = [u8; 16];
+
+/// A per-asset checkpoint ID.
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CheckpointId(pub u64);

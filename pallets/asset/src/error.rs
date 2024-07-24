@@ -18,7 +18,7 @@ decl_error! {
         TickerAlreadyRegistered,
         /// The total supply is above the limit.
         TotalSupplyAboveLimit,
-        /// No such token.
+        /// No security token associated to the given asset ID.
         NoSuchAsset,
         /// The token is already frozen.
         AlreadyFrozen,
@@ -92,9 +92,11 @@ decl_error! {
         InvalidTransferInvalidReceiverCDD,
         /// Failed to transfer the asset - sender cdd is not valid.
         InvalidTransferInvalidSenderCDD,
-        /// The given ticker was not found.
-        TickerNotFound,
+        /// The ticker registration associated to the ticker was not found.
+        TickerRegistrationNotFound,
         /// The given ticker is already linked to an asset.
         TickerIsAlreadyLinkedToAnAsset,
+        /// An unexpected error when generating a new asset ID.
+        AssetIDGenerationError,
     }
 }

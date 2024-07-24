@@ -13,7 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Claim, ClaimType, CountryCode, IdentityId, Scope, Ticker};
+use crate::asset::AssetID;
+use crate::{Claim, ClaimType, CountryCode, IdentityId, Scope};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
@@ -22,42 +23,6 @@ use sp_std::{hash::Hash, hash::Hasher, ops::Deref, ops::DerefMut, prelude::*};
 
 /// Transfer manager percentage
 pub type Percentage = sp_arithmetic::Permill;
-
-/// Asset scope for stats.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, TypeInfo)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum AssetScope {
-    /// Ticker scope.  Used for per-ticker stats.
-    Ticker(Ticker),
-    // TODO: Add support for cross-ticker stats.  Support needs to be
-    // added to the Assets pallet first.
-    //TickerGroup(TickerGroupId),
-    //Company(CompanyId),
-}
-
-impl From<Ticker> for AssetScope {
-    fn from(ticker: Ticker) -> AssetScope {
-        AssetScope::Ticker(ticker)
-    }
-}
-
-impl From<AssetScope> for Scope {
-    fn from(asset: AssetScope) -> Scope {
-        match asset {
-            AssetScope::Ticker(ticker) => Scope::Ticker(ticker),
-        }
-    }
-}
-
-impl AssetScope {
-    /// Get claim scope from asset scope.
-    pub fn claim_scope(&self) -> Scope {
-        match self {
-            AssetScope::Ticker(ticker) => Scope::Ticker(*ticker),
-        }
-    }
-}
 
 /// Stats Operation type.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -70,22 +35,31 @@ pub enum StatOpType {
     Balance,
 }
 
-/// Stats type.
+/// The statistic type.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StatType {
-    /// Stats operation type.
-    pub op: StatOpType,
-    /// ClaimType and issuer for this stat type.
+    /// The [`StatOpType`] of the statistic.
+    pub operation_type: StatOpType,
+    /// The [`ClaimType`] and issuer [`IdentityID`] for the statistic.
     pub claim_issuer: Option<(ClaimType, IdentityId)>,
 }
 
 impl StatType {
-    /// Investor count.
+    /// Creates an [`StatType`] instance.
+    pub fn new(operation_type: StatOpType, claim_issuer: Option<(ClaimType, IdentityId)>) -> Self {
+        StatType {
+            operation_type,
+            claim_issuer,
+        }
+    }
+
+    /// Returns an [`StatType`] instance where [`StatType::operational_type`] is
+    /// [`StatOpType::Count`] and [`StatType::claim_issuer`] is `None`.
     pub fn investor_count() -> Self {
         Self {
-            op: StatOpType::Count,
+            operation_type: StatOpType::Count,
             claim_issuer: None,
         }
     }
@@ -95,24 +69,25 @@ impl StatType {
 #[derive(Decode, Encode, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Stat1stKey {
-    /// Asset scope.
-    pub asset: AssetScope,
-    /// Stat type.
+    /// The [`AssetID`] of the token.
+    pub asset_id: AssetID,
+    /// The [`StatType`] of the statistic.
     pub stat_type: StatType,
 }
 
 impl Stat1stKey {
-    /// Investor count.
-    pub fn investor_count(ticker: Ticker) -> Self {
+    /// Returns a [`Stat1stKey`] instance where [`Stat1stKey::asset_id`] is set to `asset_id` and
+    /// [`Stat1stKey::stat_type`] is set to [`StatType::investor_count`].
+    pub fn investor_count(asset_id: AssetID) -> Self {
         Self {
-            asset: ticker.into(),
+            asset_id,
             stat_type: StatType::investor_count(),
         }
     }
 
     /// Get claim scope from asset scope.
     pub fn claim_scope(&self) -> Scope {
-        self.asset.claim_scope()
+        Scope::Asset(self.asset_id)
     }
 }
 

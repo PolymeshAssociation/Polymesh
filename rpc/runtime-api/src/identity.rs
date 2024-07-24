@@ -1,7 +1,5 @@
 use codec::Codec;
-use pallet_identity::types::{
-    AssetDidResult, CddStatus, DidStatus, KeyIdentityData, RpcDidRecords,
-};
+use pallet_identity::types::{CddStatus, DidStatus, KeyIdentityData, RpcDidRecords};
 use polymesh_primitives::{Authorization, AuthorizationType, IdentityClaim, Signatory};
 use sp_std::prelude::*;
 
@@ -16,9 +14,6 @@ sp_api::decl_runtime_apis! {
     {
         /// Returns CDD status of an identity
         fn is_identity_has_valid_cdd(did: IdentityId, buffer_time: Option<u64>) -> CddStatus;
-
-        /// Returns DID of an asset
-        fn get_asset_did(ticker: Ticker) -> AssetDidResult;
 
         /// Retrieve DidRecord for a given `did`.
         fn get_did_records(did: IdentityId) -> RpcDidRecords<AccountId>;

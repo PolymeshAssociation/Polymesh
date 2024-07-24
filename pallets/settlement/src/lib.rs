@@ -46,8 +46,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarking;
+//#[cfg(feature = "runtime-benchmarks")]
+//pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{
@@ -76,6 +76,7 @@ pub use polymesh_common_utilities::traits::settlement::{Event, RawEvent, WeightI
 use polymesh_common_utilities::traits::{asset, compliance_manager, identity, nft, CommonConfig};
 use polymesh_common_utilities::with_transaction;
 use polymesh_common_utilities::SystematicIssuers::Settlement as SettlementDID;
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::settlement::{
     AffirmationCount, AffirmationStatus, AssetCount, ExecuteInstructionInfo, FilteredLegs,
     Instruction, InstructionId, InstructionInfo, InstructionStatus, Leg, LegId, LegStatus,
@@ -83,8 +84,7 @@ use polymesh_primitives::settlement::{
     VenueId, VenueType,
 };
 use polymesh_primitives::{
-    storage_migration_ver, Balance, IdentityId, Memo, NFTs, PortfolioId, SecondaryKey, Ticker,
-    WeightMeter,
+    storage_migration_ver, Balance, IdentityId, Memo, NFTs, PortfolioId, SecondaryKey, WeightMeter,
 };
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -196,7 +196,7 @@ decl_error! {
         MaxNumberOfOffChainAssetsExceeded,
         /// The given number of fungible transfers was underestimated.
         NumberOfFungibleTransfersUnderestimated,
-        /// Ticker could not be found on chain.
+        /// AssetID could not be found on chain.
         UnexpectedOFFChainAsset,
         /// Off-Chain assets cannot be locked.
         OffChainAssetCantBeLocked,
@@ -278,11 +278,11 @@ decl_storage! {
             double_map hasher(twox_64_concat) PortfolioId, hasher(twox_64_concat) InstructionId => AffirmationStatus;
         /// Tracks redemption of receipts. (signer, receipt_uid) -> receipt_used
         ReceiptsUsed get(fn receipts_used): double_map hasher(twox_64_concat) T::AccountId, hasher(blake2_128_concat) u64 => bool;
-        /// Tracks if a token has enabled filtering venues that can create instructions involving their token. Ticker -> filtering_enabled
-        VenueFiltering get(fn venue_filtering): map hasher(blake2_128_concat) Ticker => bool;
-        /// Venues that are allowed to create instructions involving a particular ticker. Only used if filtering is enabled.
-        /// (ticker, venue_id) -> allowed
-        VenueAllowList get(fn venue_allow_list): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) VenueId => bool;
+        /// Tracks if a token has enabled filtering venues that can create instructions involving their token. AssetID -> filtering_enabled
+        VenueFiltering get(fn venue_filtering): map hasher(blake2_128_concat) AssetID => bool;
+        /// Venues that are allowed to create instructions involving a particular asset. Only used if filtering is enabled.
+        /// ([`AssetID`], venue_id) -> allowed
+        VenueAllowList get(fn venue_allow_list): double_map hasher(blake2_128_concat) AssetID, hasher(twox_64_concat) VenueId => bool;
         /// Number of venues in the system (It's one more than the actual number)
         VenueCounter get(fn venue_counter) build(|_| VenueId(1u64)): VenueId;
         /// Number of instructions in the system (It's one more than the actual number)
@@ -412,52 +412,52 @@ decl_module! {
         /// Enables or disabled venue filtering for a token.
         ///
         /// # Arguments
-        /// * `ticker` - Ticker of the token in question.
+        /// * `asset_id` - AssetID of the token in question.
         /// * `enabled` - Boolean that decides if the filtering should be enabled.
         ///
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::set_venue_filtering()]
-        pub fn set_venue_filtering(origin, ticker: Ticker, enabled: bool) {
-            let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+        pub fn set_venue_filtering(origin, asset_id: AssetID, enabled: bool) {
+            let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
             if enabled {
-                VenueFiltering::insert(ticker, enabled);
+                VenueFiltering::insert(asset_id, enabled);
             } else {
-                VenueFiltering::remove(ticker);
+                VenueFiltering::remove(asset_id);
             }
-            Self::deposit_event(RawEvent::VenueFiltering(did, ticker, enabled));
+            Self::deposit_event(RawEvent::VenueFiltering(did, asset_id, enabled));
         }
 
         /// Allows additional venues to create instructions involving an asset.
         ///
-        /// * `ticker` - Ticker of the token in question.
+        /// * `asset_id` - AssetID of the token in question.
         /// * `venues` - Array of venues that are allowed to create instructions for the token in question.
         ///
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::allow_venues(venues.len() as u32)]
-        pub fn allow_venues(origin, ticker: Ticker, venues: Vec<VenueId>) {
-            let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+        pub fn allow_venues(origin, asset_id: AssetID, venues: Vec<VenueId>) {
+            let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
             for venue in &venues {
-                VenueAllowList::insert(&ticker, venue, true);
+                VenueAllowList::insert(&asset_id, venue, true);
             }
-            Self::deposit_event(RawEvent::VenuesAllowed(did, ticker, venues));
+            Self::deposit_event(RawEvent::VenuesAllowed(did, asset_id, venues));
         }
 
         /// Revokes permission given to venues for creating instructions involving a particular asset.
         ///
-        /// * `ticker` - Ticker of the token in question.
+        /// * `asset_id` - AssetID of the token in question.
         /// * `venues` - Array of venues that are no longer allowed to create instructions for the token in question.
         ///
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::disallow_venues(venues.len() as u32)]
-        pub fn disallow_venues(origin, ticker: Ticker, venues: Vec<VenueId>) {
-            let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+        pub fn disallow_venues(origin, asset_id: AssetID, venues: Vec<VenueId>) {
+            let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
             for venue in &venues {
-                VenueAllowList::remove(&ticker, venue);
+                VenueAllowList::remove(&asset_id, venue);
             }
-            Self::deposit_event(RawEvent::VenuesBlocked(did, ticker, venues));
+            Self::deposit_event(RawEvent::VenuesBlocked(did, asset_id, venues));
         }
 
         /// Edit a venue's signers.
@@ -876,13 +876,13 @@ impl<T: Config> Module<T> {
         match leg {
             Leg::Fungible {
                 sender,
-                ticker,
+                asset_id,
                 amount,
                 ..
-            } => T::Portfolio::lock_tokens(&sender, &ticker, *amount),
+            } => T::Portfolio::lock_tokens(&sender, &asset_id, *amount),
             Leg::NonFungible { sender, nfts, .. } => with_transaction(|| {
                 for nft_id in nfts.ids() {
-                    T::Portfolio::lock_nft(&sender, nfts.ticker(), &nft_id)?;
+                    T::Portfolio::lock_nft(&sender, nfts.asset_id(), &nft_id)?;
                 }
                 Ok(())
             }),
@@ -894,13 +894,13 @@ impl<T: Config> Module<T> {
         match leg {
             Leg::Fungible {
                 sender,
-                ticker,
+                asset_id,
                 amount,
                 ..
-            } => T::Portfolio::unlock_tokens(&sender, &ticker, *amount),
+            } => T::Portfolio::unlock_tokens(&sender, &asset_id, *amount),
             Leg::NonFungible { sender, nfts, .. } => with_transaction(|| {
                 for nft_id in nfts.ids() {
-                    T::Portfolio::unlock_nft(&sender, nfts.ticker(), &nft_id)?;
+                    T::Portfolio::unlock_nft(&sender, nfts.asset_id(), &nft_id)?;
                 }
                 Ok(())
             }),
@@ -1072,7 +1072,7 @@ impl<T: Config> Module<T> {
 
         // Validates all legs and checks if they have been pre-affirmed
         for leg in legs {
-            let ticker =
+            let asset_id =
                 Self::ensure_valid_leg(leg, venue_id, &mut tickers, &mut instruction_asset_count)?;
             match leg {
                 Leg::Fungible {
@@ -1082,7 +1082,7 @@ impl<T: Config> Module<T> {
                     sender, receiver, ..
                 } => {
                     portfolios_pending_approval.insert(*sender);
-                    if T::Portfolio::skip_portfolio_affirmation(receiver, &ticker) {
+                    if T::Portfolio::skip_portfolio_affirmation(receiver, &asset_id) {
                         portfolios_pre_approved.insert(*receiver);
                     } else {
                         portfolios_pending_approval.insert(*receiver);
@@ -1090,7 +1090,7 @@ impl<T: Config> Module<T> {
                 }
                 Leg::OffChain { .. } => continue,
             }
-            let asset_mediators = MandatoryMediators::<T>::get(ticker);
+            let asset_mediators = MandatoryMediators::<T>::get(asset_id);
             mediators.extend(asset_mediators.iter());
         }
         // The maximum number of each asset type in one instruction is checked here
@@ -1391,13 +1391,13 @@ impl<T: Config> Module<T> {
                     Leg::Fungible {
                         sender,
                         receiver,
-                        ticker,
+                        asset_id,
                         amount,
                     } => {
                         if <Asset<T>>::base_transfer(
                             *sender,
                             *receiver,
-                            &ticker,
+                            *asset_id,
                             *amount,
                             Some(instruction_id),
                             instruction_memo.clone(),
@@ -1949,24 +1949,24 @@ impl<T: Config> Module<T> {
         instruction_legs: &[(LegId, Leg)],
         venue_id: VenueId,
     ) -> DispatchResult {
-        // Avoids reading the storage multiple times for the same ticker
-        let mut tickers: BTreeSet<Ticker> = BTreeSet::new();
+        // Avoids reading the storage multiple times for the same asset_id
+        let mut tickers: BTreeSet<AssetID> = BTreeSet::new();
         for (_, leg) in instruction_legs {
-            let ticker = leg.ticker();
-            Self::ensure_venue_filtering(&mut tickers, ticker, &venue_id)?;
+            let asset_id = leg.asset_id();
+            Self::ensure_venue_filtering(&mut tickers, asset_id, &venue_id)?;
         }
         Ok(())
     }
 
-    /// If `tickers` doesn't contain the given `ticker` and venue_filtering is enabled, ensures that venue_id is in the allowed list
+    /// If `tickers` doesn't contain the given `asset_id` and venue_filtering is enabled, ensures that venue_id is in the allowed list
     fn ensure_venue_filtering(
-        tickers: &mut BTreeSet<Ticker>,
-        ticker: Ticker,
+        tickers: &mut BTreeSet<AssetID>,
+        asset_id: AssetID,
         venue_id: &VenueId,
     ) -> DispatchResult {
-        if tickers.insert(ticker) && Self::venue_filtering(ticker) {
+        if tickers.insert(asset_id) && Self::venue_filtering(asset_id) {
             ensure!(
-                Self::venue_allow_list(ticker, venue_id),
+                Self::venue_allow_list(asset_id, venue_id),
                 Error::<T>::UnauthorizedVenue
             );
         }
@@ -1985,27 +1985,27 @@ impl<T: Config> Module<T> {
         PostDispatchInfo::from(Some(weight_meter.consumed()))
     }
 
-    /// Returns [`Ticker`] if the leg is valid, otherwise returns an error.
+    /// Returns [`AssetID`] if the leg is valid, otherwise returns an error.
     /// See also: [`Module::ensure_valid_fungible_leg`], [`Module::ensure_valid_nft_leg`] and [`Module::ensure_valid_off_chain_leg`].
     fn ensure_valid_leg(
         leg: &Leg,
         venue_id: &VenueId,
-        tickers: &mut BTreeSet<Ticker>,
+        tickers: &mut BTreeSet<AssetID>,
         instruction_asset_count: &mut AssetCount,
-    ) -> Result<Ticker, DispatchError> {
+    ) -> Result<AssetID, DispatchError> {
         match leg {
             Leg::Fungible {
                 sender,
                 receiver,
-                ticker,
+                asset_id,
                 amount,
             } => {
                 ensure!(sender.did != receiver.did, Error::<T>::SameSenderReceiver);
-                Self::ensure_valid_fungible_leg(tickers, *ticker, *amount, venue_id)?;
+                Self::ensure_valid_fungible_leg(tickers, *asset_id, *amount, venue_id)?;
                 instruction_asset_count
                     .try_add_fungible()
                     .map_err(|_| Error::<T>::MaxNumberOfFungibleAssetsExceeded)?;
-                Ok(*ticker)
+                Ok(*asset_id)
             }
             Leg::NonFungible {
                 sender,
@@ -2017,55 +2017,55 @@ impl<T: Config> Module<T> {
                 instruction_asset_count
                     .try_add_non_fungible(&nfts)
                     .map_err(|_| Error::<T>::MaxNumberOfNFTsExceeded)?;
-                Ok(*nfts.ticker())
+                Ok(*nfts.asset_id())
             }
             Leg::OffChain {
                 sender_identity,
                 receiver_identity,
-                ticker,
+                asset_id,
                 amount,
             } => {
                 Self::ensure_valid_off_chain_leg(sender_identity, receiver_identity, *amount)?;
                 instruction_asset_count
                     .try_add_off_chain()
                     .map_err(|_| Error::<T>::MaxNumberOfOffChainAssetsExceeded)?;
-                Ok(*ticker)
+                Ok(*asset_id)
             }
         }
     }
 
     /// Ensures all checks needed for a fungible leg hold. This includes making sure that the `amount` being
-    /// transferred is not zero, that `ticker` exists on chain and that `venue_id` is allowed.
+    /// transferred is not zero, that `asset_id` exists on chain and that `venue_id` is allowed.
     fn ensure_valid_fungible_leg(
-        tickers: &mut BTreeSet<Ticker>,
-        ticker: Ticker,
+        tickers: &mut BTreeSet<AssetID>,
+        asset_id: AssetID,
         amount: Balance,
         venue_id: &VenueId,
     ) -> DispatchResult {
         ensure!(amount > 0, Error::<T>::ZeroAmount);
         ensure!(
-            Self::is_on_chain_asset(&ticker),
+            Self::is_on_chain_asset(&asset_id),
             Error::<T>::UnexpectedOFFChainAsset
         );
-        Self::ensure_venue_filtering(tickers, ticker, venue_id)?;
+        Self::ensure_venue_filtering(tickers, asset_id, venue_id)?;
         Ok(())
     }
 
     /// Ensures all checks needed for a non fungible leg hold. This includes making sure that the number of NFTs being
-    /// transferred is within the defined limits, that there are no duplicate NFTs in the same leg, that `ticker` exists on chain,
+    /// transferred is within the defined limits, that there are no duplicate NFTs in the same leg, that `asset_id` exists on chain,
     /// and that `venue_id` is allowed.
     fn ensure_valid_nft_leg(
-        tickers: &mut BTreeSet<Ticker>,
+        tickers: &mut BTreeSet<AssetID>,
         nfts: &NFTs,
         venue_id: &VenueId,
     ) -> DispatchResult {
         ensure!(
-            Self::is_on_chain_asset(nfts.ticker()),
+            Self::is_on_chain_asset(nfts.asset_id()),
             Error::<T>::UnexpectedOFFChainAsset
         );
         <Nft<T>>::ensure_within_nfts_transfer_limits(&nfts)?;
         <Nft<T>>::ensure_no_duplicate_nfts(&nfts)?;
-        Self::ensure_venue_filtering(tickers, nfts.ticker().clone(), venue_id)?;
+        Self::ensure_venue_filtering(tickers, nfts.asset_id().clone(), venue_id)?;
         Ok(())
     }
 
@@ -2102,9 +2102,9 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns true if the ticker is on-chain and false otherwise.
-    fn is_on_chain_asset(ticker: &Ticker) -> bool {
-        pallet_asset::Tokens::contains_key(ticker)
+    /// Returns true if the asset_id is on-chain and false otherwise.
+    fn is_on_chain_asset(asset_id: &AssetID) -> bool {
+        pallet_asset::SecurityTokens::contains_key(asset_id)
     }
 
     fn base_execute_manual_instruction(
@@ -2236,7 +2236,7 @@ impl<T: Config> Module<T> {
                 Leg::OffChain {
                     sender_identity,
                     receiver_identity,
-                    ticker,
+                    asset_id,
                     amount,
                 } => {
                     ensure!(
@@ -2250,7 +2250,7 @@ impl<T: Config> Module<T> {
                         receipt_details.leg_id(),
                         sender_identity,
                         receiver_identity,
-                        ticker,
+                        asset_id,
                         amount,
                     );
                     ensure!(
@@ -2577,11 +2577,11 @@ impl<T: Config> Module<T> {
         weight_meter: &mut WeightMeter,
     ) -> Vec<DispatchError> {
         match leg {
-            Leg::Fungible { sender, receiver, ticker, amount } => {
+            Leg::Fungible { sender, receiver, asset_id, amount } => {
                 <Asset<T>>::asset_transfer_report(
                     &sender,
                     &receiver,
-                    &ticker,
+                    &asset_id,
                     amount,
                     skip_locked_check,
                     weight_meter,

@@ -20,9 +20,10 @@ use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use sp_std::prelude::*;
 
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::compliance_manager::{AssetComplianceResult, ComplianceRequirement};
 use polymesh_primitives::condition::{conditions_total_counts, Condition};
-use polymesh_primitives::{IdentityId, Ticker, TrustedIssuer, WeightMeter};
+use polymesh_primitives::{IdentityId, TrustedIssuer, WeightMeter};
 
 use crate::asset::AssetFnTrait;
 use crate::balances::Config as BalancesConfig;
@@ -49,32 +50,32 @@ pub trait Config:
 decl_event!(
     pub enum Event {
         /// Emitted when new compliance requirement is created.
-        /// (caller DID, Ticker, ComplianceRequirement).
-        ComplianceRequirementCreated(IdentityId, Ticker, ComplianceRequirement),
+        /// (caller DID, AssetID, ComplianceRequirement).
+        ComplianceRequirementCreated(IdentityId, AssetID, ComplianceRequirement),
         /// Emitted when a compliance requirement is removed.
-        /// (caller DID, Ticker, requirement_id).
-        ComplianceRequirementRemoved(IdentityId, Ticker, u32),
+        /// (caller DID, AssetID, requirement_id).
+        ComplianceRequirementRemoved(IdentityId, AssetID, u32),
         /// Emitted when an asset compliance is replaced.
-        /// Parameters: caller DID, ticker, new asset compliance.
-        AssetComplianceReplaced(IdentityId, Ticker, Vec<ComplianceRequirement>),
-        /// Emitted when an asset compliance of a ticker is reset.
-        /// (caller DID, Ticker).
-        AssetComplianceReset(IdentityId, Ticker),
-        /// Emitted when an asset compliance for a given ticker gets resume.
-        /// (caller DID, Ticker).
-        AssetComplianceResumed(IdentityId, Ticker),
-        /// Emitted when an asset compliance for a given ticker gets paused.
-        /// (caller DID, Ticker).
-        AssetCompliancePaused(IdentityId, Ticker),
+        /// Parameters: caller DID, AssetID, new asset compliance.
+        AssetComplianceReplaced(IdentityId, AssetID, Vec<ComplianceRequirement>),
+        /// Emitted when an asset compliance of a asset_id is reset.
+        /// (caller DID, AssetID).
+        AssetComplianceReset(IdentityId, AssetID),
+        /// Emitted when an asset compliance for a given asset_id gets resume.
+        /// (caller DID, AssetID).
+        AssetComplianceResumed(IdentityId, AssetID),
+        /// Emitted when an asset compliance for a given asset_id gets paused.
+        /// (caller DID, AssetID).
+        AssetCompliancePaused(IdentityId, AssetID),
         /// Emitted when compliance requirement get modified/change.
-        /// (caller DID, Ticker, ComplianceRequirement).
-        ComplianceRequirementChanged(IdentityId, Ticker, ComplianceRequirement),
-        /// Emitted when default claim issuer list for a given ticker gets added.
-        /// (caller DID, Ticker, Added TrustedIssuer).
-        TrustedDefaultClaimIssuerAdded(IdentityId, Ticker, TrustedIssuer),
-        /// Emitted when default claim issuer list for a given ticker get removed.
-        /// (caller DID, Ticker, Removed TrustedIssuer).
-        TrustedDefaultClaimIssuerRemoved(IdentityId, Ticker, IdentityId),
+        /// (caller DID, AssetID, ComplianceRequirement).
+        ComplianceRequirementChanged(IdentityId, AssetID, ComplianceRequirement),
+        /// Emitted when default claim issuer list for a given asset_id gets added.
+        /// (caller DID, AssetID, Added TrustedIssuer).
+        TrustedDefaultClaimIssuerAdded(IdentityId, AssetID, TrustedIssuer),
+        /// Emitted when default claim issuer list for a given asset_id get removed.
+        /// (caller DID, AssetID, Removed TrustedIssuer).
+        TrustedDefaultClaimIssuerRemoved(IdentityId, AssetID, IdentityId),
     }
 );
 
@@ -82,23 +83,23 @@ pub trait ComplianceFnConfig {
     /// Returns `true` if there are no requirements or if any requirement is satisfied.
     /// Otherwise, returns `false`.
     fn is_compliant(
-        ticker: &Ticker,
+        asset_id: &AssetID,
         sender_did: IdentityId,
         receiver_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> Result<bool, DispatchError>;
 
     fn verify_restriction_granular(
-        ticker: &Ticker,
+        asset_id: &AssetID,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
         weight_meter: &mut WeightMeter,
     ) -> Result<AssetComplianceResult, DispatchError>;
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn setup_ticker_compliance(
+    fn setup_asset_compliance(
         caler_did: IdentityId,
-        ticker: Ticker,
+        asset_id: AssetID,
         n: u32,
         pause_compliance: bool,
     );
