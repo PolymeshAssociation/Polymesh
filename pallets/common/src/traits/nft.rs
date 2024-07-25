@@ -1,8 +1,6 @@
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::dispatch::DispatchResult;
 #[cfg(feature = "runtime-benchmarks")]
-use polymesh_primitives::asset::NonFungibleType;
-#[cfg(feature = "runtime-benchmarks")]
 use polymesh_primitives::nft::NFTCollectionKeys;
 
 use frame_support::decl_event;
@@ -65,7 +63,6 @@ pub trait NFTTrait<Origin> {
     fn create_nft_collection(
         origin: Origin,
         asset_id: AssetID,
-        nft_type: Option<NonFungibleType>,
         collection_keys: NFTCollectionKeys,
     ) -> DispatchResult;
 }

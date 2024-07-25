@@ -15,7 +15,7 @@ use pallet_base::try_next_pre;
 use pallet_portfolio::{PortfolioLockedNFT, PortfolioNFT};
 use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
 pub use polymesh_common_utilities::traits::nft::{Config, Event, NFTTrait, WeightInfo};
-use polymesh_primitives::asset::{AssetID, AssetName, AssetType, NonFungibleType};
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
     NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTCount, NFTId, NFTMetadataAttribute, NFTs,
@@ -31,8 +31,8 @@ type ExternalAgents<T> = pallet_external_agents::Module<T>;
 type Identity<T> = pallet_identity::Module<T>;
 type Portfolio<T> = pallet_portfolio::Module<T>;
 
-//#[cfg(feature = "runtime-benchmarks")]
-//pub mod benchmarking;
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 storage_migration_ver!(3);
 
@@ -51,7 +51,8 @@ decl_storage!(
         pub CollectionKeys get(fn collection_keys): map hasher(blake2_128_concat) NFTCollectionId => BTreeSet<AssetMetadataKey>;
 
         /// The metadata value of an nft given its collection id, token id and metadata key.
-        pub MetadataValue get(fn metadata_value): double_map hasher(blake2_128_concat) (NFTCollectionId, NFTId), hasher(blake2_128_concat) AssetMetadataKey => AssetMetadataValue;
+        pub MetadataValue get(fn metadata_value):
+            double_map hasher(blake2_128_concat) (NFTCollectionId, NFTId), hasher(blake2_128_concat) AssetMetadataKey => AssetMetadataValue;
 
         /// The next available id for an NFT collection.
         #[deprecated]
@@ -101,7 +102,6 @@ decl_module! {
         /// # Arguments
         /// * `origin` - contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
         /// * `asset_id` - the [`AssetID`] associated to the new collection.
-        /// * `nft_type` - in case the asset hasn't been created yet, one will be created with the given type.
         /// * `collection_keys` - all mandatory metadata keys that the tokens in the collection must have.
         ///
         /// ## Errors
@@ -114,8 +114,8 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::create_nft_collection(collection_keys.len() as u32)]
-        pub fn create_nft_collection(origin, asset_id: AssetID, nft_type: Option<NonFungibleType>, collection_keys: NFTCollectionKeys) -> DispatchResult {
-            Self::base_create_nft_collection(origin, asset_id, nft_type, collection_keys)
+        pub fn create_nft_collection(origin, asset_id: AssetID, collection_keys: NFTCollectionKeys) -> DispatchResult {
+            Self::base_create_nft_collection(origin, asset_id, collection_keys)
         }
 
         /// Issues an NFT to the caller.
@@ -164,7 +164,6 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` - is a signer that has permissions to act as an agent of `asset_id`.
-        /// * `asset_id` - the [`AssetID`] of the NFT collection.
         /// * `nft_id` - the [`NFTId`] of the NFT to be transferred.
         /// * `source_portfolio` - the [`PortfolioId`] that currently holds the NFT.
         /// * `callers_portfolio_kind` - the [`PortfolioKind`] of the caller's portfolio.
@@ -175,12 +174,11 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::controller_transfer(nfts.len() as u32)]
         pub fn controller_transfer(
             origin,
-            asset_id: AssetID,
             nfts: NFTs,
             source_portfolio: PortfolioId,
             callers_portfolio_kind: PortfolioKind
         ) -> DispatchResult {
-            Self::base_controller_transfer(origin, asset_id, nfts, source_portfolio, callers_portfolio_kind)
+            Self::base_controller_transfer(origin, nfts, source_portfolio, callers_portfolio_kind)
         }
     }
 }
@@ -238,7 +236,9 @@ decl_error! {
         /// The receiver has an invalid CDD.
         InvalidNFTTransferInvalidReceiverCDD,
         /// The sender has an invalid CDD.
-        InvalidNFTTransferInvalidSenderCDD
+        InvalidNFTTransferInvalidSenderCDD,
+        /// There's no asset associated to the given asset_id.
+        InvalidAssetID
     }
 }
 
@@ -246,23 +246,17 @@ impl<T: Config> Module<T> {
     fn base_create_nft_collection(
         origin: T::RuntimeOrigin,
         asset_id: AssetID,
-        nft_type: Option<NonFungibleType>,
         collection_keys: NFTCollectionKeys,
     ) -> DispatchResult {
-        // Verifies if the asset has already been created and the caller's permission to create the collection
-        let (create_asset, caller_did) = {
+        // Verifies if the caller has asset permission and if the asset is an NFT.
+        let caller_did = {
             match Asset::<T>::nft_asset(&asset_id) {
                 Some(is_nft_asset) => {
                     ensure!(is_nft_asset, Error::<T>::InvalidAssetType);
-                    let caller_did =
-                        <ExternalAgents<T>>::ensure_agent_asset_perms(origin.clone(), asset_id)?
-                            .primary_did;
-                    (false, caller_did)
+                    <ExternalAgents<T>>::ensure_agent_asset_perms(origin.clone(), asset_id)?
+                        .primary_did
                 }
-                None => {
-                    let caller_did = Identity::<T>::ensure_perms(origin.clone())?;
-                    (true, caller_did)
-                }
+                None => return Err(Error::<T>::InvalidAssetID.into()),
             }
         };
 
@@ -292,19 +286,6 @@ impl<T: Config> Module<T> {
                 Asset::<T>::check_asset_metadata_key_exists(&asset_id, key),
                 Error::<T>::UnregisteredMetadataKey
             )
-        }
-
-        // Creates an nft asset if it hasn't been created yet
-        if create_asset {
-            let nft_type = nft_type.ok_or(Error::<T>::InvalidAssetType)?;
-            Asset::<T>::create_asset(
-                origin,
-                AssetName(Vec::new()),
-                false,
-                AssetType::NonFungible(nft_type),
-                Vec::new(),
-                None,
-            )?;
         }
 
         // Creates the nft collection
@@ -612,7 +593,6 @@ impl<T: Config> Module<T> {
 
     pub fn base_controller_transfer(
         origin: T::RuntimeOrigin,
-        asset_id: AssetID,
         nfts: NFTs,
         source_portfolio: PortfolioId,
         callers_portfolio_kind: PortfolioKind,
@@ -620,7 +600,7 @@ impl<T: Config> Module<T> {
         // Ensure origin is agent with custody and permissions for portfolio.
         let caller_portfolio = Asset::<T>::ensure_origin_asset_and_portfolio_permissions(
             origin,
-            asset_id,
+            *nfts.asset_id(),
             callers_portfolio_kind,
             true,
         )?;
@@ -776,10 +756,9 @@ impl<T: Config> NFTTrait<T::RuntimeOrigin> for Module<T> {
     fn create_nft_collection(
         origin: T::RuntimeOrigin,
         asset_id: AssetID,
-        nft_type: Option<NonFungibleType>,
         collection_keys: NFTCollectionKeys,
     ) -> DispatchResult {
-        Module::<T>::create_nft_collection(origin, asset_id, nft_type, collection_keys)
+        Module::<T>::create_nft_collection(origin, asset_id, collection_keys)
     }
 }
 

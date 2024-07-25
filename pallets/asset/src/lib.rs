@@ -2585,25 +2585,27 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
         Self::generate_asset_id(caller_did, false)
     }
 
-    //    #[cfg(feature = "runtime-benchmarks")]
-    //    fn register_asset_metadata_type(
-    //        origin: T::RuntimeOrigin,
-    //        ticker: Option<Ticker>,
-    //        name: AssetMetadataName,
-    //        spec: AssetMetadataSpec,
-    //    ) -> DispatchResult {
-    //        match ticker {
-    //            Some(ticker) => Self::register_asset_metadata_local_type(origin, ticker, name, spec),
-    //            None => Self::register_asset_metadata_global_type(origin, name, spec),
-    //        }
-    //    }
-    //
-    //    #[cfg(feature = "runtime-benchmarks")]
-    //    fn add_mandatory_mediators(
-    //        origin: T::RuntimeOrigin,
-    //        ticker: Ticker,
-    //        mediators: BTreeSet<IdentityId>,
-    //    ) -> DispatchResult {
-    //        Self::add_mandatory_mediators(origin, ticker, mediators.try_into().unwrap_or_default())
-    //    }
+    #[cfg(feature = "runtime-benchmarks")]
+    fn register_asset_metadata_type(
+        origin: T::RuntimeOrigin,
+        asset_id: Option<AssetID>,
+        name: AssetMetadataName,
+        spec: AssetMetadataSpec,
+    ) -> DispatchResult {
+        match asset_id {
+            Some(asset_id) => {
+                Self::register_asset_metadata_local_type(origin, asset_id, name, spec)
+            }
+            None => Self::register_asset_metadata_global_type(origin, name, spec),
+        }
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn add_mandatory_mediators(
+        origin: T::RuntimeOrigin,
+        asset_id: AssetID,
+        mediators: BTreeSet<IdentityId>,
+    ) -> DispatchResult {
+        Self::add_mandatory_mediators(origin, asset_id, mediators.try_into().unwrap_or_default())
+    }
 }

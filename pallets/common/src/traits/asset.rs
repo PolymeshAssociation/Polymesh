@@ -261,19 +261,18 @@ pub trait AssetFnTrait<Account, Origin> {
     #[cfg(feature = "runtime-benchmarks")]
     fn generate_asset_id(caller_did: IdentityId) -> AssetID;
 
-    //
-    //    #[cfg(feature = "runtime-benchmarks")]
-    //    fn register_asset_metadata_type(
-    //        origin: Origin,
-    //        ticker: Option<Ticker>,
-    //        name: AssetMetadataName,
-    //        spec: AssetMetadataSpec,
-    //    ) -> DispatchResult;
-    //
-    //    #[cfg(feature = "runtime-benchmarks")]
-    //    fn add_mandatory_mediators(
-    //        origin: Origin,
-    //        ticker: Ticker,
-    //        mediators: BTreeSet<IdentityId>,
-    //    ) -> DispatchResult;
+    #[cfg(feature = "runtime-benchmarks")]
+    fn register_asset_metadata_type(
+        origin: Origin,
+        asset_id: Option<AssetID>,
+        name: AssetMetadataName,
+        spec: AssetMetadataSpec,
+    ) -> DispatchResult;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn add_mandatory_mediators(
+        origin: Origin,
+        asset_id: AssetID,
+        mediators: BTreeSet<IdentityId>,
+    ) -> DispatchResult;
 }
