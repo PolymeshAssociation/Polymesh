@@ -2085,7 +2085,7 @@ impl<T: Config> Module<T> {
         asset_identifiers: Vec<AssetIdentifier>,
         funding_round_name: Option<FundingRoundName>,
     ) -> DispatchResult {
-        let asset_id = Self::generate_asset_id(caller_primary_identity);
+        let asset_id = Self::generate_asset_id(caller_primary_identity, true);
 
         Self::validate_asset_creation_rules(
             caller_primary_identity,
@@ -2148,15 +2148,17 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn generate_asset_id(caller_did: IdentityId) -> AssetID {
-        let seed = Self::get_seed();
+    pub fn generate_asset_id(caller_did: IdentityId, update: bool) -> AssetID {
+        let seed = Self::get_seed(update);
         blake2_128(&(b"modlpy/pallet_asset", caller_did, seed).encode())
     }
 
-    fn get_seed() -> [u8; 32] {
+    fn get_seed(update: bool) -> [u8; 32] {
         // Increase the nonce each time.
         let nonce = RngNonce::get();
-        RngNonce::put(nonce.wrapping_add(1));
+        if update {
+            RngNonce::put(nonce.wrapping_add(1));
+        }
 
         // Use the `nonce` and chain randomness to generate a new seed.
         let (random_hash, _) = T::Randomness::random(&(b"PalletAsset", nonce).encode());
@@ -2576,6 +2578,11 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
         portfolio_kind: PortfolioKind,
     ) -> DispatchResult {
         Self::issue(origin, asset_id, amount, portfolio_kind)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn generate_asset_id(caller_did: IdentityId) -> AssetID {
+        Self::generate_asset_id(caller_did, false)
     }
 
     //    #[cfg(feature = "runtime-benchmarks")]

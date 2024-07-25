@@ -9,7 +9,7 @@ use crate::traits::asset::{AssetFnTrait, Config};
 
 pub type ResultTicker = Result<Ticker, &'static str>;
 
-/// Registers a unique ticker for `ticker_owner`.
+/// Registers a unique ticker named `ticker_name` for `ticker_owner`.
 pub fn reg_unique_ticker<T: Config>(
     ticker_owner: T::RuntimeOrigin,
     ticker_name: Option<&[u8]>,
@@ -22,36 +22,22 @@ pub fn reg_unique_ticker<T: Config>(
     ticker
 }
 
-//pub fn make_asset<T: Config>(owner: &User<T>, name: Option<&[u8]>) -> Ticker {
-//    make_base_asset::<T>(owner, true, name)
-//}
-//
-//pub fn make_indivisible_asset<T: Config>(owner: &User<T>, name: Option<&[u8]>) -> Ticker {
-//    make_base_asset::<T>(owner, false, name)
-//}
-//
-//fn make_base_asset<T: Config>(owner: &User<T>, divisible: bool, name: Option<&[u8]>) -> Ticker {
-//    let ticker = make_ticker::<T>(owner.origin().into(), name);
-//    let name: AssetName = ticker.as_slice().into();
-//
+//fn create_sample_asset<T: Config>(asset_owner: &User<T>, divisible: bool, asset_name: Option<&[u8]>) {
 //    T::AssetFn::create_asset(
-//        owner.origin().into(),
-//        name.clone(),
-//        ticker,
+//        asset_owner.origin().into(),
+//        asset_name.clone(),
 //        divisible,
 //        AssetType::default(),
 //        vec![],
 //        None,
 //    )
-//    .expect("Asset cannot be created");
+//    .unwrap();
 //
 //    T::AssetFn::issue(
-//        owner.origin().into(),
+//        asset_owner.origin().into(),
 //        ticker,
 //        (1_000_000 * POLY).into(),
 //        PortfolioKind::Default,
 //    )
 //    .unwrap();
-//
-//    ticker
 //}

@@ -24,7 +24,7 @@ use polymesh_common_utilities::{identity::Config as IdentityConfig, TestUtilsFn}
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::{
     asset::AssetType, AuthorizationData, ClaimType, CountryCode, PortfolioKind, Scope,
-    TargetIdentity, TrustedFor, TrustedIssuer, WeightMeter,
+    TargetIdentity, Ticker, TrustedFor, TrustedIssuer, WeightMeter,
 };
 
 use crate::*;
@@ -118,44 +118,37 @@ fn split_conditions(count: u32) -> (u32, u32) {
     (s, r)
 }
 
-/// Create a new token with name `name` on behalf of `owner`.
-/// The new token is a _divisible_ one with 1_000_000 units.
-pub fn make_token<T: Config>(owner: &User<T>, name: Vec<u8>) -> Ticker {
-    let token = SecurityToken {
-        owner_did: owner.did.clone().unwrap(),
-        total_supply: 1_000_000,
-        divisible: true,
-        asset_type: AssetType::default(),
-        ..Default::default()
-    };
-    let ticker = Ticker::from_slice_truncated(&*name);
-
+/// Creates a new [`SecurityToken`] and issues 1_000_000 tokens for that token.
+pub fn create_and_issue_sample_asset<T: Config>(
+    asset_owner: &User<T>,
+    asset_name: Vec<u8>,
+) -> AssetID {
+    let asset_id = T::Asset::generate_asset_id(asset_owner.did());
     T::Asset::create_asset(
-        owner.origin.clone().into(),
-        name.into(),
-        ticker,
+        asset_owner.origin.clone().into(),
+        asset_name.into(),
         true,
-        token.asset_type.clone(),
+        AssetType::default(),
         vec![],
         None,
     )
-    .expect("Cannot create an asset");
+    .unwrap();
 
     T::Asset::issue(
-        owner.origin.clone().into(),
-        ticker,
-        u128::try_from(token.total_supply).unwrap().into(),
+        asset_owner.origin.clone().into(),
+        asset_id,
+        1_000_000 as u128,
         PortfolioKind::Default,
     )
-    .expect("Cannot mint for asset");
+    .unwrap();
 
-    ticker
+    asset_id
 }
 
 /// This struct helps to simplify the parameter copy/pass during the benchmarks.
 struct ComplianceRequirementInfo<T: Config> {
     pub owner: User<T>,
-    pub ticker: Ticker,
+    pub asset_id: AssetID,
     pub sender_conditions: Vec<Condition>,
     pub receiver_conditions: Vec<Condition>,
 }
@@ -165,10 +158,10 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> ComplianceRequirementInfo<T> {
         make_issuers::<T>(i, None).into_iter().for_each(|issuer| {
             Module::<T>::add_default_trusted_claim_issuer(
                 self.owner.origin.clone().into(),
-                self.ticker.clone(),
+                self.asset_id,
                 issuer,
             )
-            .expect("Default trusted claim issuer cannot be added");
+            .unwrap();
         });
     }
 }
@@ -184,7 +177,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> ComplianceRequirementBuilder<T> {
         let (sender_count, receiver_count) = split_conditions(conditions_count);
         // Create accounts and token.
         let owner = UserBuilder::<T>::default().generate_did().build("OWNER");
-        let ticker = make_token::<T>(&owner, b"1".to_vec());
+        let asset_id = create_and_issue_sample_asset::<T>(&owner, b"1".to_vec());
 
         // Create issuers (i) and conditions(s & r).
         let issuers = make_issuers::<T>(trusted_issuer_count, None);
@@ -193,7 +186,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> ComplianceRequirementBuilder<T> {
 
         let info = ComplianceRequirementInfo {
             owner,
-            ticker,
+            asset_id,
             sender_conditions,
             receiver_conditions,
         };
@@ -211,7 +204,7 @@ impl<T: Config> ComplianceRequirementBuilder<T> {
         assert!(!self.has_been_added, "Compliance has been added before");
         Module::<T>::add_compliance_requirement(
             self.info.owner.origin.clone().into(),
-            self.info.ticker.clone(),
+            self.info.asset_id.clone(),
             self.info.sender_conditions.clone(),
             self.info.receiver_conditions.clone(),
         )
@@ -258,7 +251,7 @@ fn add_identity_claim<T: Config>(id: IdentityId, claim: Claim, trusted_issuer_id
 
 /// Adds `external_agent_id` as an enternal agent for `ticker`.
 fn add_external_agent<T>(
-    ticker: Ticker,
+    asset_id: AssetID,
     ticker_owner: IdentityId,
     external_agent_id: IdentityId,
     external_agent_origin: T::RuntimeOrigin,
@@ -268,7 +261,7 @@ fn add_external_agent<T>(
     let auth_id = pallet_identity::Module::<T>::add_auth(
         ticker_owner,
         external_agent_id.into(),
-        AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
+        AuthorizationData::BecomeAgent(asset_id, AgentGroup::Full),
         None,
     )
     .unwrap();
@@ -278,7 +271,7 @@ fn add_external_agent<T>(
 
 fn setup_is_condition_satisfied<T>(
     sender: &User<T>,
-    ticker: Ticker,
+    asset_id: AssetID,
     n_claims: u32,
     n_issuers: u32,
     read_trusted_issuers_storage: bool,
@@ -306,11 +299,11 @@ where
     });
 
     if read_trusted_issuers_storage {
-        // Adds all trusted issuers as the default for the ticker
+        // Adds all trusted issuers as the default for the asset_id
         trusted_issuers.into_iter().for_each(|trusted_issuer| {
             Module::<T>::base_add_default_trusted_claim_issuer(
                 sender.did(),
-                ticker,
+                asset_id,
                 trusted_issuer,
             )
             .unwrap();
@@ -322,10 +315,10 @@ where
     Condition::new(ConditionType::IsNoneOf(claims), trusted_issuers)
 }
 
-/// Adds `n` requirements for `ticker` and pauses compliance if `pause_compliance` is true.
-pub fn setup_ticker_compliance<T: Config>(
+/// Adds `n` requirements for `asset_id` and pauses compliance if `pause_compliance` is true.
+pub fn setup_asset_compliance<T: Config>(
     caller_did: IdentityId,
-    ticker: Ticker,
+    asset_id: AssetID,
     n: u32,
     pause_compliance: bool,
 ) {
@@ -341,7 +334,7 @@ pub fn setup_ticker_compliance<T: Config>(
         )];
         Module::<T>::base_add_compliance_requirement(
             caller_did,
-            ticker,
+            asset_id,
             sender_conditions,
             Vec::new(),
         )
@@ -349,7 +342,7 @@ pub fn setup_ticker_compliance<T: Config>(
     });
 
     if pause_compliance {
-        AssetCompliances::mutate(&ticker, |compliance| compliance.paused = true);
+        AssetCompliances::mutate(&asset_id, |compliance| compliance.paused = true);
     }
 }
 
@@ -373,9 +366,9 @@ benchmarks! {
 
         let d = ComplianceRequirementBuilder::<T>::new(MAX_TRUSTED_ISSUER_PER_CONDITION, c).build();
 
-    }: _(d.owner.origin, d.ticker, d.sender_conditions.clone(), d.receiver_conditions.clone())
+    }: _(d.owner.origin, d.asset_id, d.sender_conditions.clone(), d.receiver_conditions.clone())
     verify {
-        let req = Module::<T>::asset_compliance(d.ticker).requirements.pop().unwrap();
+        let req = Module::<T>::asset_compliance(d.asset_id).requirements.pop().unwrap();
         assert_eq!( req.sender_conditions, d.sender_conditions, "Sender conditions not expected");
         assert_eq!( req.receiver_conditions, d.receiver_conditions, "Sender conditions not expected");
     }
@@ -388,10 +381,10 @@ benchmarks! {
             .add_compliance_requirement().build();
 
         // Remove the latest one.
-        let id = Module::<T>::get_latest_requirement_id(d.ticker);
-    }: _(d.owner.origin, d.ticker, id)
+        let id = Module::<T>::get_latest_requirement_id(d.asset_id);
+    }: _(d.owner.origin, d.asset_id, id)
     verify {
-        let is_removed = Module::<T>::asset_compliance(d.ticker)
+        let is_removed = Module::<T>::asset_compliance(d.asset_id)
             .requirements
             .into_iter()
             .find(|r| r.id == id)
@@ -405,9 +398,9 @@ benchmarks! {
             MAX_TRUSTED_ISSUER_PER_CONDITION,
             MAX_CONDITIONS_PER_COMPLIANCE)
             .add_compliance_requirement().build();
-    }: _(d.owner.origin, d.ticker)
+    }: _(d.owner.origin, d.asset_id)
     verify {
-        assert!( Module::<T>::asset_compliance(d.ticker).paused, "Asset compliance is not paused");
+        assert!( Module::<T>::asset_compliance(d.asset_id).paused, "Asset compliance is not paused");
     }
 
     resume_asset_compliance {
@@ -416,10 +409,10 @@ benchmarks! {
 
         Module::<T>::pause_asset_compliance(
             d.owner.origin.clone().into(),
-            d.ticker.clone()).unwrap();
-    }: _(d.owner.origin, d.ticker)
+            d.asset_id.clone()).unwrap();
+    }: _(d.owner.origin, d.asset_id)
     verify {
-        assert!( !Module::<T>::asset_compliance(d.ticker).paused, "Asset compliance is paused");
+        assert!( !Module::<T>::asset_compliance(d.asset_id).paused, "Asset compliance is paused");
     }
 
     add_default_trusted_claim_issuer {
@@ -431,9 +424,9 @@ benchmarks! {
 
         // Add one more for benchmarking.
         let new_issuer = make_issuer::<T>(MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS, None);
-    }: _(d.owner.origin, d.ticker, new_issuer.clone())
+    }: _(d.owner.origin, d.asset_id, new_issuer.clone())
     verify {
-        let trusted_issuers = Module::<T>::trusted_claim_issuer(d.ticker);
+        let trusted_issuers = Module::<T>::trusted_claim_issuer(d.asset_id);
         assert!(
             trusted_issuers.contains(&new_issuer),
             "Default trusted claim issuer was not added");
@@ -448,10 +441,10 @@ benchmarks! {
         d.add_default_trusted_claim_issuer(MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS);
 
         // Delete the latest trusted issuer.
-        let issuer = Module::<T>::trusted_claim_issuer(d.ticker).pop().unwrap();
-    }: _(d.owner.origin, d.ticker, issuer.issuer.clone())
+        let issuer = Module::<T>::trusted_claim_issuer(d.asset_id).pop().unwrap();
+    }: _(d.owner.origin, d.asset_id, issuer.issuer.clone())
     verify {
-        let trusted_issuers = Module::<T>::trusted_claim_issuer(d.ticker);
+        let trusted_issuers = Module::<T>::trusted_claim_issuer(d.asset_id);
         assert!(
             !trusted_issuers.contains(&issuer),
             "Default trusted claim issuer was not removed"
@@ -468,7 +461,7 @@ benchmarks! {
             .add_compliance_requirement().build();
 
         // Change the latest one.
-        let id = Module::<T>::get_latest_requirement_id(d.ticker);
+        let id = Module::<T>::get_latest_requirement_id(d.asset_id);
 
         // Build a new set of compliance requirements.
         let (sender_count, receiver_count) = split_conditions(c);
@@ -478,9 +471,9 @@ benchmarks! {
             sender_conditions: make_conditions(sender_count, None, &issuers),
             receiver_conditions: make_conditions(receiver_count, None, &issuers),
         };
-    }: _(d.owner.origin, d.ticker, new_req.clone())
+    }: _(d.owner.origin, d.asset_id, new_req.clone())
     verify {
-        let req = Module::<T>::asset_compliance(d.ticker)
+        let req = Module::<T>::asset_compliance(d.asset_id)
             .requirements
             .into_iter()
             .find(|req| req.id == new_req.id)
@@ -506,7 +499,7 @@ benchmarks! {
         (1..c).for_each( |_i| {
             let _ = Module::<T>::add_compliance_requirement(
                 d.owner.origin.clone().into(),
-                d.ticker.clone(),
+                d.asset_id.clone(),
                 sender_conditions.clone(),
                 receiver_conditions.clone()).unwrap();
         });
@@ -518,9 +511,9 @@ benchmarks! {
                 receiver_conditions: receiver_conditions.clone(),
                 id,
             }}).collect::<Vec<_>>();
-    }: _(d.owner.origin, d.ticker, asset_compliance.clone())
+    }: _(d.owner.origin, d.asset_id, asset_compliance.clone())
     verify {
-        let reqs = Module::<T>::asset_compliance(d.ticker).requirements;
+        let reqs = Module::<T>::asset_compliance(d.asset_id).requirements;
         assert_eq!( reqs, asset_compliance, "Asset compliance was not replaced");
     }
 
@@ -530,12 +523,13 @@ benchmarks! {
             MAX_TRUSTED_ISSUER_PER_CONDITION,
             MAX_CONDITIONS_PER_COMPLIANCE)
             .add_compliance_requirement().build();
-    }: _(d.owner.origin, d.ticker)
+    }: _(d.owner.origin, d.asset_id)
     verify {
         assert!(
-            Module::<T>::asset_compliance(d.ticker).requirements.is_empty(),
+            Module::<T>::asset_compliance(d.asset_id).requirements.is_empty(),
             "Compliance Requeriment was not reset");
     }
+
     is_condition_satisfied {
         // Number of claims * issuers
         let c in 1..400;
@@ -544,15 +538,14 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        make_token::<T>(&alice, ticker.as_ref().to_vec());
-        let condition = setup_is_condition_satisfied::<T>(&alice, ticker, 1, c, t == 1);
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+        let asset_id = create_and_issue_sample_asset::<T>(&alice, b"MyAsset".to_vec());
+        let condition = setup_is_condition_satisfied::<T>(&alice, asset_id, 1, c, t == 1);
     }: {
         assert!(
             Module::<T>::is_condition_satisfied(
-                &ticker,
+                &asset_id,
                 alice.did(),
                 &condition,
                 &mut None,
@@ -568,12 +561,11 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        make_token::<T>(&alice, ticker.as_ref().to_vec());
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+        let asset_id = create_and_issue_sample_asset::<T>(&alice, b"MyAsset".to_vec());
         let condition = if e == 1 {
-            add_external_agent::<T>(ticker, alice.did(), bob.did(), bob.origin().into());
+            add_external_agent::<T>(asset_id, alice.did(), bob.did(), bob.origin().into());
             Condition::new(
                 ConditionType::IsIdentity(TargetIdentity::ExternalAgent),
                 Vec::new(),
@@ -587,7 +579,7 @@ benchmarks! {
     }: {
         assert!(
             Module::<T>::is_condition_satisfied(
-                &ticker,
+                &asset_id,
                 alice.did(),
                 &condition,
                 &mut None,
@@ -602,9 +594,9 @@ benchmarks! {
 
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
+        let asset_id = create_and_issue_sample_asset::<T>(&alice, b"MyAsset".to_vec());
         let requirements: Vec<ComplianceRequirement> = (0..i)
             .map(|i| ComplianceRequirement {
                 sender_conditions: vec![Condition {
@@ -619,7 +611,7 @@ benchmarks! {
         // We want this to return false to make sure it loops through all requirements
         assert!(
             !Module::<T>::is_any_requirement_compliant(
-                &ticker,
+                &asset_id,
                 &requirements,
                 alice.did(),
                 bob.did(),

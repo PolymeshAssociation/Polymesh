@@ -159,7 +159,7 @@ fn secondary_key_permission(
     n_extrinsics: u64,
     n_pallets: u64,
 ) -> Permissions {
-    let asset = AssetPermissions::elems((0..n_assets).map(Ticker::generate_into));
+    let asset = AssetPermissions::elems((0..n_assets).map(|i| [i as u8; 16]));
     let portfolio = PortfolioPermissions::elems(
         (0..n_portfolios).map(|did| PortfolioId::user_portfolio(did.into(), PortfolioNumber(0))),
     );
