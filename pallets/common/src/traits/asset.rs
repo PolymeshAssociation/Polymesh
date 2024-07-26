@@ -28,7 +28,7 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
 };
 use polymesh_primitives::{
-    AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, PortfolioKind,
+    AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId,
     PortfolioUpdateReason, Ticker,
 };
 

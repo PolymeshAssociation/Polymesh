@@ -20,7 +20,6 @@ use scale_info::prelude::format;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{convert::TryInto, iter, prelude::*};
 
-use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances};
 use pallet_statistics::benchmarking::setup_transfer_restrictions;
 use polymesh_common_utilities::benchs::{reg_unique_ticker, user, AccountIdOf, User, UserBuilder};
 use polymesh_common_utilities::constants::currency::{ONE_UNIT, POLY};
@@ -121,6 +120,19 @@ pub(crate) fn create_sample_asset<T: Config>(asset_owner: &User<T>, divisible: b
     asset_id
 }
 
+pub(crate) fn create_and_issue_sample_asset<T: Config>(asset_owner: &User<T>) -> AssetID {
+    let asset_id = create_sample_asset::<T>(asset_owner, true);
+    Module::<T>::issue(
+        asset_owner.origin().into(),
+        asset_id,
+        (1_000_000 * POLY).into(),
+        PortfolioKind::Default,
+    )
+    .unwrap();
+
+    asset_id
+}
+
 /// Creates an asset for `ticker`, creates a custom portfolio for the sender and receiver, sets up compliance and transfer restrictions.
 /// Returns the sender and receiver portfolio.
 pub fn setup_asset_transfer<T>(
@@ -141,7 +153,7 @@ where
         create_portfolio::<T>(receiver, receiver_portolfio_name.unwrap_or("RcvPortfolio"));
 
     // Creates the asset
-    let asset_id = create_sample_asset::<T>(sender, true);
+    let asset_id = create_and_issue_sample_asset::<T>(sender);
     move_from_default_portfolio::<T>(sender, asset_id, ONE_UNIT * POLY, sender_portfolio);
 
     // Sets mandatory mediators
@@ -170,13 +182,13 @@ where
 
     // Adds transfer conditions only to consider the cost of decoding it
     // If pause_restrictions is true, only the decoding cost will be considered.
-    //setup_transfer_restrictions::<T>(
-    //    sender.origin().into(),
-    //    sender.did(),
-    //    asset_id,
-    //    4,
-    //    pause_restrictions,
-    //);
+    setup_transfer_restrictions::<T>(
+        sender.origin().into(),
+        sender.did(),
+        asset_id,
+        4,
+        pause_restrictions,
+    );
 
     (
         sender_portfolio,
@@ -234,13 +246,13 @@ benchmarks! {
         let ticker = Ticker::repeating(b'A');
     }: _(alice.origin.clone(), ticker)
     verify {
-        assert_eq!(TickersOwnedByUser::get(alice.did(), ticker), true);
         assert_eq!(
-            UniqueTickerRegistration::<T>::get(ticker).unwrap(),
-            TickerRegistration {
-                owner: alice.did(),
-                expiry: None
-            }
+            TickersOwnedByUser::get(alice.did(), ticker), 
+            true
+        );
+        assert_eq!(
+            UniqueTickerRegistration::<T>::get(ticker).unwrap().owner,
+            alice.did(),
         )
     }
 
@@ -259,14 +271,17 @@ benchmarks! {
         .unwrap();
     }: _(bob.origin.clone(), new_owner_auth_id)
     verify {
-        assert_eq!(TickersOwnedByUser::get(alice.did(), ticker), false);
-        assert_eq!(TickersOwnedByUser::get(bob.did(), ticker), true);
         assert_eq!(
-            UniqueTickerRegistration::<T>::get(ticker).unwrap(),
-            TickerRegistration {
-                owner: bob.did(),
-                expiry: None
-            }
+            TickersOwnedByUser::get(alice.did(), ticker), 
+            false
+        );
+        assert_eq!(
+            TickersOwnedByUser::get(bob.did(), ticker), 
+            true
+        );
+        assert_eq!(
+            UniqueTickerRegistration::<T>::get(ticker).unwrap().owner,
+            bob.did(),
         )
     }
 
@@ -499,9 +514,10 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let ty = vec![b'X'; n as usize];
+        assert_eq!(Module::<T>::custom_type_id_seq(), CustomAssetTypeId(0));
     }: _(alice.origin, ty)
     verify {
-        assert_eq!(Module::<T>::custom_type_id_seq(), CustomAssetTypeId(2));
+        assert_eq!(Module::<T>::custom_type_id_seq(), CustomAssetTypeId(1));
     }
 
     set_asset_metadata {
@@ -633,7 +649,6 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         let (sender_portfolio, receiver_portfolio, _, asset_id) =

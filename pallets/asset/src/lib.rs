@@ -744,7 +744,7 @@ decl_module! {
         /// * Root
         #[weight = <T as Config>::WeightInfo::exempt_asset_affirmation()]
         pub fn exempt_asset_affirmation(origin, asset_id: AssetID) -> DispatchResult {
-            Self::base_exempt_ticker_affirmation(origin, asset_id)
+            Self::base_exempt_asset_affirmation(origin, asset_id)
         }
 
         /// Removes the pre-approval of the asset for all identities.
@@ -757,7 +757,7 @@ decl_module! {
         /// * Root
         #[weight = <T as Config>::WeightInfo::remove_asset_affirmation_exemption()]
         pub fn remove_asset_affirmation_exemption(origin, asset_id: AssetID) -> DispatchResult {
-            Self::base_remove_ticker_affirmation_exemption(origin, asset_id)
+            Self::base_remove_asset_affirmation_exemption(origin, asset_id)
         }
 
         /// Pre-approves the receivement of an asset.
@@ -770,7 +770,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Config>::WeightInfo::pre_approve_asset()]
         pub fn pre_approve_asset(origin, asset_id: AssetID) -> DispatchResult {
-            Self::base_pre_approve_ticker(origin, asset_id)
+            Self::base_pre_approve_asset(origin, asset_id)
         }
 
         /// Removes the pre approval of an asset.
@@ -783,7 +783,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Config>::WeightInfo::remove_asset_pre_approval()]
         pub fn remove_asset_pre_approval(origin, asset_id: AssetID) -> DispatchResult {
-            Self::base_remove_ticker_pre_approval(origin, asset_id)
+            Self::base_remove_asset_pre_approval(origin, asset_id)
         }
 
         /// Sets all identities in the `mediators` set as mandatory mediators for any instruction transfering `asset_id`.
@@ -1455,7 +1455,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Pre-approves the receivement of the asset for all identities.
-    fn base_exempt_ticker_affirmation(
+    fn base_exempt_asset_affirmation(
         origin: T::RuntimeOrigin,
         asset_id: AssetID,
     ) -> DispatchResult {
@@ -1466,7 +1466,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Removes the pre-approval of the asset for all identities.
-    fn base_remove_ticker_affirmation_exemption(
+    fn base_remove_asset_affirmation_exemption(
         origin: T::RuntimeOrigin,
         assset_id: AssetID,
     ) -> DispatchResult {
@@ -1477,7 +1477,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Pre-approves the receivement of an asset.
-    fn base_pre_approve_ticker(origin: T::RuntimeOrigin, asset_id: AssetID) -> DispatchResult {
+    fn base_pre_approve_asset(origin: T::RuntimeOrigin, asset_id: AssetID) -> DispatchResult {
         let caller_did = Identity::<T>::ensure_perms(origin)?;
         PreApprovedAsset::insert(&caller_did, &asset_id, true);
         Self::deposit_event(RawEvent::PreApprovedAsset(caller_did, asset_id));
@@ -1485,7 +1485,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Removes the pre approval of an asset.
-    fn base_remove_ticker_pre_approval(
+    fn base_remove_asset_pre_approval(
         origin: T::RuntimeOrigin,
         asset_id: AssetID,
     ) -> DispatchResult {
