@@ -15,8 +15,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-//#[cfg(feature = "runtime-benchmarks")]
-//pub mod benchmarking;
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};

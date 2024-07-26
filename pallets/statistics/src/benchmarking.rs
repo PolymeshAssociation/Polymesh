@@ -3,7 +3,9 @@ use sp_runtime::Permill;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
 
-use polymesh_common_utilities::benchs::{make_asset, AccountIdOf, User, UserBuilder};
+use polymesh_common_utilities::benchs::{
+    create_and_issue_sample_asset, AccountIdOf, User, UserBuilder,
+};
 use polymesh_common_utilities::constants::currency::{ONE_UNIT, POLY};
 use polymesh_common_utilities::traits::{asset::Config as Asset, TestUtilsFn};
 use polymesh_primitives::{jurisdiction::*, statistics::*, Claim, ClaimType, Scope};
@@ -27,7 +29,7 @@ fn make_stats(count: u32) -> BTreeSet<StatType> {
         .map(|idx| {
             let (op, claim_type) = STAT_TYPES[idx % STAT_TYPES.len()];
             StatType {
-                op,
+                operation_type: op,
                 claim_issuer: claim_type.map(|ct| (ct, IdentityId::from(idx as u128))),
             }
         })
@@ -61,25 +63,29 @@ fn make_transfer_conditions(stats: &BTreeSet<StatType>, count: u32) -> BTreeSet<
     (0..count as usize)
         .into_iter()
         .zip(stats.iter())
-        .map(|(_idx, stat)| match (stat.op, stat.claim_issuer) {
-            (StatOpType::Count, None) => TransferCondition::MaxInvestorCount(10),
-            (StatOpType::Balance, None) => TransferCondition::MaxInvestorOwnership(p40),
-            (StatOpType::Count, Some((claim_type, issuer))) => {
-                let claim = claim_type_to_stat_claim(claim_type).expect("Unsupported ClaimType");
-                TransferCondition::ClaimCount(claim, issuer, 0, Some(10))
-            }
-            (StatOpType::Balance, Some((claim_type, issuer))) => {
-                let claim = claim_type_to_stat_claim(claim_type).expect("Unsupported ClaimType");
-                TransferCondition::ClaimOwnership(claim, issuer, p0, p40)
-            }
-        })
+        .map(
+            |(_idx, stat)| match (stat.operation_type, stat.claim_issuer) {
+                (StatOpType::Count, None) => TransferCondition::MaxInvestorCount(10),
+                (StatOpType::Balance, None) => TransferCondition::MaxInvestorOwnership(p40),
+                (StatOpType::Count, Some((claim_type, issuer))) => {
+                    let claim =
+                        claim_type_to_stat_claim(claim_type).expect("Unsupported ClaimType");
+                    TransferCondition::ClaimCount(claim, issuer, 0, Some(10))
+                }
+                (StatOpType::Balance, Some((claim_type, issuer))) => {
+                    let claim =
+                        claim_type_to_stat_claim(claim_type).expect("Unsupported ClaimType");
+                    TransferCondition::ClaimOwnership(claim, issuer, p0, p40)
+                }
+            },
+        )
         .collect()
 }
 
-fn init_ticker<T: Asset + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
+fn init_asset<T: Asset + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, AssetID) {
     let owner = UserBuilder::<T>::default().generate_did().build("OWNER");
-    let ticker = make_asset::<T>(&owner, Some(b"1"));
-    (owner, ticker)
+    let asset_id = create_and_issue_sample_asset::<T>(&owner, true, None, b"MyAsset", true);
+    (owner, asset_id)
 }
 
 fn init_transfer_conditions<T: Config + Asset + TestUtilsFn<AccountIdOf<T>>>(
@@ -87,23 +93,23 @@ fn init_transfer_conditions<T: Config + Asset + TestUtilsFn<AccountIdOf<T>>>(
     count_conditions: u32,
 ) -> (
     User<T>,
-    Ticker,
+    AssetID,
     BTreeSet<StatType>,
     BTreeSet<TransferCondition>,
 ) {
-    let (owner, ticker) = init_ticker::<T>();
+    let (owner, asset_id) = init_asset::<T>();
     let stats = make_stats(count_stats);
     let conditions = make_transfer_conditions(&stats, count_conditions);
-    (owner, ticker, stats, conditions)
+    (owner, asset_id, stats, conditions)
 }
 
 fn init_exempts<T: Config + Asset + TestUtilsFn<AccountIdOf<T>>>(
     count: u32,
 ) -> (User<T>, TransferConditionExemptKey, BTreeSet<IdentityId>) {
-    let (owner, ticker) = init_ticker::<T>();
+    let (owner, asset_id) = init_asset::<T>();
     let scope_ids = (0..count as u128).map(IdentityId::from).collect();
     let exempt_key = TransferConditionExemptKey {
-        asset: ticker.into(),
+        asset_id,
         op: StatOpType::Count,
         claim_type: Some(ClaimType::Accredited),
     };
@@ -113,11 +119,11 @@ fn init_exempts<T: Config + Asset + TestUtilsFn<AccountIdOf<T>>>(
 /// Exempts `exempt_user_id` to follow a transfer condition of claim type `Accredited` for `ticker`.
 pub fn set_transfer_exception<T: Config>(
     origin: T::RuntimeOrigin,
-    ticker: Ticker,
+    asset_id: AssetID,
     exempt_user_id: IdentityId,
 ) {
     let transfer_exception = TransferConditionExemptKey {
-        asset: AssetScope::Ticker(ticker),
+        asset_id,
         op: StatOpType::Balance,
         claim_type: Some(ClaimType::Accredited),
     };
@@ -146,37 +152,35 @@ pub fn add_identity_claim<T: Config>(id: IdentityId, claim: Claim, issuer_id: Id
 pub fn setup_transfer_restrictions<T: Config>(
     origin: T::RuntimeOrigin,
     sender_id: IdentityId,
-    ticker: Ticker,
+    asset_id: AssetID,
     n: u32,
     pause_restrictions: bool,
 ) {
-    let asset_scope = AssetScope::from(ticker);
-
     // Adds the maximum number of active statistics
     let active_stats = (0..10)
         .map(|i| StatType {
-            op: StatOpType::Count,
+            operation_type: StatOpType::Count,
             claim_issuer: Some((ClaimType::Accredited, IdentityId::from(i as u128))),
         })
         .collect();
-    Module::<T>::set_active_asset_stats(origin.clone(), asset_scope, active_stats).unwrap();
+    Module::<T>::set_active_asset_stats(origin.clone(), asset_id, active_stats).unwrap();
 
     let transfer_conditions: BTreeSet<TransferCondition> = (0..n)
         .map(|i| {
             let issuer_id = IdentityId::from(i as u128);
             add_identity_claim::<T>(
                 sender_id,
-                Claim::Accredited(Scope::Ticker(ticker)),
+                Claim::Accredited(Scope::Asset(asset_id)),
                 issuer_id,
             );
             TransferCondition::ClaimCount(StatClaim::Accredited(true), issuer_id, 0, Some(1))
         })
         .collect();
-    Module::<T>::set_asset_transfer_compliance(origin.clone(), asset_scope, transfer_conditions)
+    Module::<T>::set_asset_transfer_compliance(origin.clone(), asset_id, transfer_conditions)
         .unwrap();
     if pause_restrictions {
-        ActiveAssetStats::<T>::remove(&asset_scope);
-        AssetTransferCompliances::<T>::mutate(asset_scope, |atc| {
+        ActiveAssetStats::<T>::remove(&asset_id);
+        AssetTransferCompliances::<T>::mutate(asset_id, |atc| {
             atc.paused = true;
         });
         return;
@@ -246,16 +250,15 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        make_asset::<T>(&alice, Some(ticker.as_ref()));
+        let asset_id = create_and_issue_sample_asset::<T>(&alice, true, None, b"MyAsset", true);
         let transfer_condition = TransferCondition::MaxInvestorCount(1);
         let changes = if a == 1 { Some((false, true)) } else { Some((true, true)) };
     }: {
         assert!(Module::<T>::check_transfer_condition(
             &transfer_condition,
-            AssetScope::Ticker(ticker),
+            asset_id,
             &alice.did(),
             &bob.did(),
             0,
@@ -269,15 +272,14 @@ benchmarks! {
     max_investor_ownership_restriction {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        make_asset::<T>(&alice, Some(ticker.as_ref()));
+        let asset_id = create_and_issue_sample_asset::<T>(&alice, true, None, b"MyAsset", true);
         let transfer_condition = TransferCondition::MaxInvestorOwnership(Permill::one());
     }: {
         assert!(Module::<T>::check_transfer_condition(
             &transfer_condition,
-            AssetScope::Ticker(ticker),
+            asset_id,
             &alice.did(),
             &bob.did(),
             0,
@@ -294,17 +296,16 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        make_asset::<T>(&alice, Some(ticker.as_ref()));
+        let asset_id = create_and_issue_sample_asset::<T>(&alice, true, None, b"MyAsset", true);
         let changes = if c == 0 { None } else { Some((false, false)) };
         let transfer_condition =
             TransferCondition::ClaimCount(StatClaim::Accredited(true), alice.did(), 0, Some(1));
     }: {
         assert!(Module::<T>::check_transfer_condition(
             &transfer_condition,
-            AssetScope::Ticker(ticker),
+            asset_id,
             &alice.did(),
             &bob.did(),
             0,
@@ -318,16 +319,15 @@ benchmarks! {
     claim_count_restriction_with_stats {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        make_asset::<T>(&alice, Some(ticker.as_ref()));
+        let asset_id = create_and_issue_sample_asset::<T>(&alice, true, None, b"MyAsset", true);
         let transfer_condition =
             TransferCondition::ClaimCount(StatClaim::Accredited(true), alice.did(), 0, Some(1));
     }: {
         assert!(Module::<T>::check_transfer_condition(
             &transfer_condition,
-            AssetScope::Ticker(ticker),
+            asset_id,
             &alice.did(),
             &bob.did(),
             0,
@@ -344,23 +344,22 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        make_asset::<T>(&alice, Some(ticker.as_ref()));
+        let asset_id = create_and_issue_sample_asset::<T>(&alice, true, None, b"MyAsset", true);
         let transfer_condition =
             TransferCondition::ClaimOwnership(StatClaim::Accredited(true), IdentityId::from(0), Permill::zero(), Permill::one());
         if a == 1 {
             add_identity_claim::<T>(
                 alice.did(),
-                Claim::Accredited(Scope::Ticker(ticker)),
+                Claim::Accredited(Scope::Asset(asset_id)),
                 IdentityId::from(0)
             );
         }
     }: {
         assert!(Module::<T>::check_transfer_condition(
             &transfer_condition,
-            AssetScope::Ticker(ticker),
+            asset_id,
             &alice.did(),
             &bob.did(),
             0,
@@ -377,14 +376,16 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let issuer_id = IdentityId::from(0);
-        let asset = AssetScope::Ticker(ticker);
-        let stat_type = StatType{op: StatOpType::Count, claim_issuer: Some((ClaimType::Accredited, issuer_id))};
-        let key1 = Stat1stKey { asset, stat_type };
+        let stat_type = StatType{
+            operation_type: StatOpType::Count,
+            claim_issuer: Some((ClaimType::Accredited, issuer_id))
+        };
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        make_asset::<T>(&alice, Some(ticker.as_ref()));
+        let asset_id = create_and_issue_sample_asset::<T>(&alice, true, None, b"MyAsset", true);
+        let key1 = Stat1stKey { asset_id, stat_type };
+
         let changes = {
             if a == 0 {
                 (true, true)
@@ -393,7 +394,7 @@ benchmarks! {
             } else {
                 add_identity_claim::<T>(
                     alice.did(),
-                    Claim::Accredited(Scope::Ticker(ticker)),
+                    Claim::Accredited(Scope::Asset(asset_id)),
                     issuer_id,
                 );
                 (true, true)
@@ -418,21 +419,19 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let issuer_id = IdentityId::from(0);
-        let asset = AssetScope::Ticker(ticker);
-        let stat_type = StatType{op: StatOpType::Balance, claim_issuer: Some((ClaimType::Accredited, issuer_id))};
-        let key1 = Stat1stKey { asset, stat_type };
+        let stat_type = StatType{operation_type: StatOpType::Balance, claim_issuer: Some((ClaimType::Accredited, issuer_id))};
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        make_asset::<T>(&alice, Some(ticker.as_ref()));
+        let asset_id = create_and_issue_sample_asset::<T>(&alice, true, None, b"MyAsset", true);
+        let key1 = Stat1stKey { asset_id, stat_type };
         let (from_balance, to_balance) = {
             if a == 0 {
                 (Some(ONE_UNIT), Some(ONE_UNIT))
             } else {
                 add_identity_claim::<T>(
                     alice.did(),
-                    Claim::Accredited(Scope::Ticker(ticker)),
+                    Claim::Accredited(Scope::Asset(asset_id)),
                     issuer_id,
                 );
                 if a == 1 {
@@ -462,8 +461,7 @@ benchmarks! {
 
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let asset_scope = AssetScope::Ticker(ticker);
+        let asset_id = [i as u8; 16];
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         let transfer_conditions: BTreeSet<TransferCondition> = (0..i)
@@ -473,7 +471,7 @@ benchmarks! {
         assert!(
             Module::<T>::verify_requirements::<T::MaxTransferConditionsPerAsset>(
                 &transfer_conditions.try_into().unwrap(),
-                asset_scope,
+                asset_id,
                 &alice.did(),
                 &bob.did(),
                 ONE_UNIT,
@@ -489,34 +487,32 @@ benchmarks! {
     active_asset_statistics_load {
         let a in 1..T::MaxStatsPerAsset::get();
 
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let asset_scope = AssetScope::Ticker(ticker);
+        let asset_id = [a as u8; 16];
 
         let statistics: BTreeSet<StatType> = (0..a)
             .map(|a| StatType {
-                op: StatOpType::Count,
+                operation_type: StatOpType::Count,
                 claim_issuer: Some((ClaimType::Accredited, alice.did())),
             })
             .collect();
         let statistics: BoundedBTreeSet<StatType, T::MaxStatsPerAsset> = statistics.try_into().unwrap();
-        ActiveAssetStats::<T>::insert(&asset_scope, statistics);
+        ActiveAssetStats::<T>::insert(&asset_id, statistics);
     }: {
-        Module::<T>::active_asset_stats(asset_scope).into_iter();
+        Module::<T>::active_asset_stats(asset_id).into_iter();
     }
 
     is_exempt {
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let asset_scope = AssetScope::Ticker(ticker);
+        let asset_id = [0 as u8; 16];
         let statistic_claim = StatClaim::Jurisdiction(Some(CountryCode::BR));
         let transfer_condition = TransferCondition::ClaimOwnership(statistic_claim, alice.did(), Permill::zero(), Permill::zero());
-        TransferConditionExemptEntities::insert(transfer_condition.get_exempt_key(asset_scope.clone()), bob.did(), true);
+        TransferConditionExemptEntities::insert(transfer_condition.get_exempt_key(asset_id.clone()), bob.did(), true);
     }: {
         assert!(
             Module::<T>::is_exempt(
-                asset_scope,
+                asset_id,
                 &transfer_condition,
                 &alice.did(),
                 &bob.did()

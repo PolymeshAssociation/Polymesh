@@ -23,13 +23,15 @@ use sp_std::prelude::*;
 
 use pallet_asset::benchmarking::setup_asset_transfer;
 use pallet_nft::benchmarking::setup_nft_transfer;
-use polymesh_common_utilities::benchs::{make_asset, AccountIdOf, User, UserBuilder};
+use polymesh_common_utilities::benchs::{
+    create_and_issue_sample_asset, AccountIdOf, User, UserBuilder,
+};
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::constants::ENSURED_MAX_LEN;
 use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::settlement::ReceiptMetadata;
-use polymesh_primitives::{IdentityId, Memo, NFTId, NFTs, PortfolioId, Ticker};
+use polymesh_primitives::{IdentityId, Memo, NFTId, NFTs, PortfolioId};
 
 use crate::*;
 
@@ -86,8 +88,8 @@ fn create_venue_<T: Config>(did: IdentityId, signers: Vec<T::AccountId>) -> Venu
     venue_counter
 }
 
-pub fn create_asset_<T: Config>(owner: &User<T>) -> Ticker {
-    make_asset::<T>(owner, Some(&Ticker::generate(8u64)))
+pub fn create_asset_<T: Config>(owner: &User<T>) -> AssetID {
+    create_and_issue_sample_asset::<T>(owner, true, None, b"MyAsset", true)
 }
 
 fn setup_legs<T>(
@@ -108,11 +110,11 @@ where
     // Creates offchain legs and new portfolios for each leg
     let offchain_legs: Vec<Leg> = (0..o)
         .map(|i| {
-            let ticker = Ticker::from_slice_truncated(format!("OFFTICKER{}", i).as_bytes());
+            let asset_id = [i as u8; 16];
             Leg::OffChain {
                 sender_identity: sender.did(),
                 receiver_identity: receiver.did(),
-                ticker: ticker.clone(),
+                asset_id,
                 amount: ONE_UNIT,
             }
         })
@@ -121,13 +123,11 @@ where
     // Creates f assets, creates two portfolios, adds maximum compliance requirements, adds maximum transfer conditions and pauses them
     let fungible_legs: Vec<Leg> = (0..f)
         .map(|i| {
-            let ticker = Ticker::from_slice_truncated(format!("TICKER{}", i).as_bytes());
             let sdr_portfolio_name = format!("SdrPortfolioTicker{}", i);
             let rcv_portfolio_name = format!("RcvPortfolioTicker{}", i);
-            let (sdr_portfolio, rvc_portfolio, mut mediators) = setup_asset_transfer(
+            let (sdr_portfolio, rvc_portfolio, mut mediators, asset_id) = setup_asset_transfer(
                 sender,
                 receiver,
-                ticker,
                 Some(&sdr_portfolio_name),
                 Some(&rcv_portfolio_name),
                 pause_compliance,
@@ -140,7 +140,7 @@ where
             Leg::Fungible {
                 sender: sdr_portfolio,
                 receiver: rvc_portfolio,
-                ticker,
+                asset_id,
                 amount: ONE_UNIT,
             }
         })
@@ -149,13 +149,11 @@ where
     // Creates n collections, mints one NFT, creates two portfolios, adds maximum compliance requirements and pauses it
     let nft_legs: Vec<Leg> = (0..n)
         .map(|i| {
-            let ticker = Ticker::from_slice_truncated(format!("NFTTICKER{}", i).as_bytes());
             let sdr_portfolio_name = format!("SdrPortfolioNFTTicker{}", i);
             let rcv_portfolio_name = format!("RcvPortfolioNFTTicker{}", i);
-            let (sdr_portfolio, rcv_portfolio, mut mediators) = setup_nft_transfer(
+            let (asset_id, sdr_portfolio, rcv_portfolio, mut mediators) = setup_nft_transfer(
                 sender,
                 receiver,
-                ticker,
                 1,
                 Some(&sdr_portfolio_name),
                 Some(&rcv_portfolio_name),
@@ -168,7 +166,7 @@ where
             Leg::NonFungible {
                 sender: sdr_portfolio,
                 receiver: rcv_portfolio,
-                nfts: NFTs::new_unverified(ticker, vec![NFTId(1)]),
+                nfts: NFTs::new_unverified(asset_id, vec![NFTId(1)]),
             }
         })
         .collect();
@@ -230,6 +228,7 @@ where
                 ONE_UNIT,
                 InstructionId(1),
                 i,
+                [i as u8; 16],
             )
         })
         .collect();
@@ -281,15 +280,15 @@ fn setup_receipt_details<T: Config>(
     amount: Balance,
     instruction_id: InstructionId,
     leg_id: u32,
+    asset_id: AssetID,
 ) -> ReceiptDetails<T::AccountId, T::OffChainSignature> {
-    let ticker = Ticker::from_slice_truncated(format!("OFFTICKER{}", leg_id).as_bytes());
     let receipt = Receipt::new(
         leg_id as u64,
         instruction_id,
         LegId(leg_id as u64),
         sender_identity,
         receiver_identity,
-        ticker,
+        asset_id,
         amount,
     );
     let raw_signature: [u8; 64] = signer.sign(&receipt.encode()).unwrap().0;
@@ -455,7 +454,8 @@ benchmarks! {
                     bob.did(),
                     ONE_UNIT,
                     InstructionId(1),
-                    i
+                    i,
+                    [i as u8; 16]
                 )
             })
             .collect();
@@ -632,7 +632,8 @@ benchmarks! {
                     bob.did(),
                     ONE_UNIT,
                     InstructionId(1),
-                    i
+                    i,
+                    [i as u8; 16]
                 )
             })
             .collect();

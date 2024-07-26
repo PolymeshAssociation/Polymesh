@@ -21,7 +21,7 @@ use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{convert::TryInto, iter, prelude::*};
 
 use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances};
-//use pallet_statistics::benchmarking::setup_transfer_restrictions;
+use pallet_statistics::benchmarking::setup_transfer_restrictions;
 use polymesh_common_utilities::benchs::{reg_unique_ticker, user, AccountIdOf, User, UserBuilder};
 use polymesh_common_utilities::constants::currency::{ONE_UNIT, POLY};
 use polymesh_common_utilities::traits::compliance_manager::ComplianceFnConfig;
@@ -100,7 +100,7 @@ fn set_ticker_registration_config<T: Config>() {
 }
 
 /// Creates a new [`SecurityToken`] considering the worst case scenario.
-fn create_sample_asset<T: Config>(asset_owner: &User<T>, divisible: bool) -> AssetID {
+pub(crate) fn create_sample_asset<T: Config>(asset_owner: &User<T>, divisible: bool) -> AssetID {
     let asset_name = AssetName::from(vec![b'N'; T::AssetNameMaxLength::get() as usize].as_slice());
     let funding_round_name =
         FundingRoundName::from(vec![b'F'; T::FundingRoundNameMaxLength::get() as usize].as_slice());

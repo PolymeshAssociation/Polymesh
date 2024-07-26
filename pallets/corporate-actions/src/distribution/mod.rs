@@ -61,8 +61,8 @@
 //! - `reclaim` reclaims forfeited benefits of a capital distribution that has expired.
 //! - `remove_distribution` removes a capital distribution which hasn't reached its payment date yet.
 
-//#[cfg(feature = "runtime-benchmarks")]
-//pub mod benchmarking;
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 use crate as ca;
 use ca::{CAId, Config, Tax};

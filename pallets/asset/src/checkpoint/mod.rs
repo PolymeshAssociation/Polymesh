@@ -39,8 +39,8 @@
 //!    and applies new balances in `updates` for the last checkpoint.
 //! - Other misc storage items as defined in `decl_storage!`.
 
-//#[cfg(feature = "runtime-benchmarks")]
-//pub mod benchmarking;
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use frame_support::{

@@ -27,7 +27,7 @@ use crate::{CAKind, CorporateActions};
 const MAX_TARGETS: u32 = 1000;
 const MAX_DID_WHT_IDS: u32 = 1000;
 
-fn portfolio<T: Config>(owner: &User<T>, pnum: PortfolioNumber, ticker: Ticker, amount: Balance) {
+fn portfolio<T: Config>(owner: &User<T>, pnum: PortfolioNumber, asset_id: AssetID, amount: Balance) {
     let did = owner.did();
     let origin: T::RuntimeOrigin = owner.origin().into();
     <Portfolio<T>>::create_portfolio(origin.clone(), "portfolio".into()).unwrap();
@@ -36,14 +36,14 @@ fn portfolio<T: Config>(owner: &User<T>, pnum: PortfolioNumber, ticker: Ticker, 
         PortfolioId::default_portfolio(did),
         PortfolioId::user_portfolio(did, pnum),
         vec![Fund {
-            description: FundDescription::Fungible { ticker, amount },
+            description: FundDescription::Fungible { asset_id, amount },
             memo: None,
         }],
     )
     .unwrap();
 }
 
-fn dist<T: Config + TestUtilsFn<AccountIdOf<T>>>(target_ids: u32) -> (User<T>, CAId, Ticker) {
+fn dist<T: Config + TestUtilsFn<AccountIdOf<T>>>(target_ids: u32) -> (User<T>, CAId, AssetID) {
     let (owner, ca_id) = setup_ca::<T>(CAKind::UnpredictableBenefit);
 
     let currency = currency::<T>(&owner);
@@ -74,7 +74,7 @@ fn prepare_transfer<T: Config + pallet_compliance_manager::Config + TestUtilsFn<
 ) -> (User<T>, User<T>, CAId) {
     let (owner, ca_id, currency) = dist::<T>(target_ids);
 
-    CorporateActions::mutate(ca_id.ticker, ca_id.local_id, |ca| {
+    CorporateActions::mutate(ca_id.asset_id, ca_id.local_id, |ca| {
         let mut whts = did_whts::<T>(did_whts_num);
         whts.sort_by_key(|(did, _)| *did);
         ca.as_mut().unwrap().withholding_tax = whts;
