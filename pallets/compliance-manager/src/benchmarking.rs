@@ -15,16 +15,14 @@
 
 use frame_benchmarking::benchmarks;
 use scale_info::prelude::format;
-use sp_std::convert::TryFrom;
 
-use pallet_asset::SecurityToken;
 use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::benchs::{AccountIdOf, User, UserBuilder};
 use polymesh_common_utilities::{identity::Config as IdentityConfig, TestUtilsFn};
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::{
     asset::AssetType, AuthorizationData, ClaimType, CountryCode, PortfolioKind, Scope,
-    TargetIdentity, Ticker, TrustedFor, TrustedIssuer, WeightMeter,
+    TargetIdentity, TrustedFor, TrustedIssuer, WeightMeter,
 };
 
 use crate::*;

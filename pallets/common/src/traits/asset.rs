@@ -13,6 +13,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+#[cfg(feature = "runtime-benchmarks")]
+use polymesh_primitives::PortfolioKind;
+
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency, Get, Randomness, UnixTime};
@@ -199,7 +202,7 @@ pub trait WeightInfo {
     fn create_asset(n: u32, i: u32, f: u32) -> Weight;
     fn freeze() -> Weight;
     fn unfreeze() -> Weight;
-    fn rename_asset() -> Weight;
+    fn rename_asset(n: u32) -> Weight;
     fn issue() -> Weight;
     fn redeem() -> Weight;
     fn make_divisible() -> Weight;

@@ -403,7 +403,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::rename_asset()]
+        #[weight = <T as Config>::WeightInfo::rename_asset(asset_name.len() as u32)]
         pub fn rename_asset(origin, asset_id: AssetID, asset_name: AssetName) -> DispatchResult {
             Self::base_rename_asset(origin, asset_id, asset_name)
         }

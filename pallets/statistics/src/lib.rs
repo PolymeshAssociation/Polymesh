@@ -944,11 +944,6 @@ impl<T: Config> Module<T> {
         Ok(transfer_conditions)
     }
 
-    //    /// Helper function to get investor count for tests.
-    //    pub fn investor_count(ticker: Ticker) -> u128 {
-    //        AssetStats::get(Stat1stKey::investor_count(ticker), Stat2ndKey::NoClaimStat)
-    //    }
-    //
     /// Consumes from `weight_meter` the given `weight`.
     /// If the new consumed weight is greater than the limit, consumed will be set to limit and an error will be returned.
     fn consume_weight_meter(weight_meter: &mut WeightMeter, weight: Weight) -> DispatchResult {
@@ -956,16 +951,6 @@ impl<T: Config> Module<T> {
             .consume_weight_until_limit(weight)
             .map_err(|_| Error::<T>::WeightLimitExceeded.into())
     }
-
-    //    /// Helper function to set investor count for benchmarks.
-    //    #[cfg(feature = "runtime-benchmarks")]
-    //    pub fn set_investor_count(ticker: Ticker, count: u128) {
-    //        AssetStats::insert(
-    //            Stat1stKey::investor_count(ticker),
-    //            Stat2ndKey::NoClaimStat,
-    //            count,
-    //        )
-    //    }
 }
 
 decl_error! {

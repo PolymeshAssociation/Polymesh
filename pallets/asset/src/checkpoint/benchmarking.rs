@@ -27,6 +27,7 @@ use crate::benchmarking::create_sample_asset;
 const CP_BASE: u64 = 2000;
 
 fn init_with_existing<T: Config>(asset_owner: &User<T>, existing: u64) -> AssetID {
+    <pallet_timestamp::Now<T>>::set(1000u32.into());
     let asset_id = create_sample_asset::<T>(&asset_owner, true);
 
     for n in 0..existing {
@@ -47,6 +48,7 @@ benchmarks! {
     }
 
     create_checkpoint {
+        <pallet_timestamp::Now<T>>::set(1000u32.into());
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
     }: _(alice.origin, asset_id)
@@ -55,6 +57,7 @@ benchmarks! {
     }
 
     create_schedule {
+        <pallet_timestamp::Now<T>>::set(1000u32.into());
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
 
         let max = Module::<T>::schedules_max_complexity();

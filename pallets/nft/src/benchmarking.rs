@@ -67,7 +67,7 @@ fn create_collection_issue_nfts<T: Config>(
     n_nfts: u32,
     portfolio_kind: PortfolioKind,
 ) -> AssetID {
-    let (asset_id, nft_collection_id) = create_collection::<T>(collection_owner, n_keys);
+    let (asset_id, _) = create_collection::<T>(collection_owner, n_keys);
 
     let metadata_attributes: Vec<NFTMetadataAttribute> = (1..n_keys + 1)
         .map(|key| NFTMetadataAttribute {

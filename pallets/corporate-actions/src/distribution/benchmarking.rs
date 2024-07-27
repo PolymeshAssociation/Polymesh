@@ -18,7 +18,7 @@ use frame_benchmarking::benchmarks;
 use pallet_compliance_manager::Module as ComplianceManager;
 use polymesh_common_utilities::benchs::{user, AccountIdOf, User};
 use polymesh_common_utilities::TestUtilsFn;
-use polymesh_primitives::{Fund, FundDescription, PortfolioId, PortfolioNumber, Ticker};
+use polymesh_primitives::{Fund, FundDescription, PortfolioId, PortfolioNumber};
 
 use super::*;
 use crate::benchmarking::{currency, did_whts, set_ca_targets, setup_ca, SEED};

@@ -215,7 +215,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: Asset AssetNames (r:0 w:1)
     // Proof Skipped: Asset AssetNames (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[1, 128]`.
-    fn rename_asset() -> Weight {
+    fn rename_asset(_n: u32) -> Weight {
         // Minimum execution time: 56_274 nanoseconds.
         Weight::from_ref_time(76_579_415)
             .saturating_add(DbWeight::get().reads(5))

@@ -101,23 +101,11 @@ use polymesh_primitives::{
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 type Identity<T> = pallet_identity::Module<T>;
 
-pub mod weight_for {
-    use super::*;
-
-    pub fn weight_for_verify_restriction<T: Config>(no_of_compliance_requirements: u64) -> Weight {
-        no_of_compliance_requirements * Weight::from_ref_time(100_000_000)
-    }
-
-    pub fn weight_for_reading_asset_compliance<T: Config>() -> Weight {
-        T::DbWeight::get().reads(1) + Weight::from_ref_time(1_000_000)
-    }
-}
-
 storage_migration_ver!(0);
 
 decl_storage! {
     trait Store for Module<T: Config> as ComplianceManager {
-        /// Asset compliance for an asset ([`AssetID`] -> [`AssetCompliance`])
+        /// Compliance for an asset ([`AssetID`] -> [`AssetCompliance`])
         pub AssetCompliances get(fn asset_compliance): map hasher(blake2_128_concat) AssetID => AssetCompliance;
         /// List of trusted claim issuer [`AssetID`] -> Issuer Identity
         pub TrustedClaimIssuer get(fn trusted_claim_issuer): map hasher(blake2_128_concat) AssetID => Vec<TrustedIssuer>;
@@ -772,7 +760,7 @@ impl<T: Config> ComplianceFnConfig for Module<T> {
         n: u32,
         pause_compliance: bool,
     ) {
-        //benchmarking::setup_ticker_compliance::<T>(caller_did, asset_id, n, pause_compliance);
+        benchmarking::setup_asset_compliance::<T>(caller_did, asset_id, n, pause_compliance);
     }
 }
 
