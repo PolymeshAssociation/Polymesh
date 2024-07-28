@@ -1,0 +1,27 @@
+[package]
+name = "call_runtime-tester"
+version = "3.0.0"
+authors = ["Polymesh Association"]
+edition = "2021"
+publish = false
+
+[dependencies]
+ink = { version = "4.3", default-features = false }
+
+scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
+scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
+
+polymesh-api = { version = "3.7", default-features = false, features = ["ink"] }
+
+[lib]
+path = "lib.rs"
+
+[features]
+default = ["std"]
+std = [
+    "ink/std",
+    "scale/std",
+    "scale-info/std",
+		"polymesh-api/std",
+]
+ink-as-dependency = []
