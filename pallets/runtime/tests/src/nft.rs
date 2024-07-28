@@ -1126,3 +1126,53 @@ fn controller_transfer_nft_not_owned() {
         );
     });
 }
+
+#[test]
+fn controller_transfer_unauthorized_agent2() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice: User = User::new(AccountKeyring::Alice);
+        let bob: User = User::new(AccountKeyring::Bob);
+        let nft_ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let non_nft_ticker = Ticker::from_slice_truncated(b"NONNFT".as_ref());
+
+        // Creates one asset that bob controls
+        Asset::create_asset(
+            bob.origin(),
+            b"MyAsset".into(),
+            non_nft_ticker,
+            true,
+            AssetType::Fund,
+            Vec::new(),
+            None,
+        )
+        .unwrap();
+
+        // Creates one NFT collection for Alice
+        create_nft_collection(
+            alice.clone(),
+            nft_ticker.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            Vec::new().into(),
+        );
+        mint_nft(
+            alice.clone(),
+            nft_ticker.clone(),
+            Vec::new(),
+            PortfolioKind::Default,
+        );
+        ComplianceManager::pause_asset_compliance(alice.origin(), nft_ticker.clone()).unwrap();
+
+        // Bob calls controller transfer
+        let nfts = NFTs::new(nft_ticker, vec![NFTId(1)]).unwrap();
+        assert_noop!(
+            NFT::controller_transfer(
+                bob.origin(),
+                non_nft_ticker,
+                nfts.clone(),
+                PortfolioId::new(alice.did, PortfolioKind::Default),
+                PortfolioKind::Default
+            ),
+            NFTError::InvalidNFTTransferInconsistentTicker
+        );
+    });
+}
