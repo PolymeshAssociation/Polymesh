@@ -998,18 +998,19 @@ macro_rules! runtime_apis {
 
             impl node_rpc_runtime_api::nft::NFTApi<Block> for Runtime {
                 #[inline]
-                fn validate_nft_transfer(
-                    sender_portfolio: &PortfolioId,
-                    receiver_portfolio: &PortfolioId,
-                    nfts: &NFTs
-                ) -> frame_support::dispatch::DispatchResult {
+                fn transfer_report(
+                    sender_portfolio: PortfolioId,
+                    receiver_portfolio: PortfolioId,
+                    nfts: NFTs,
+                    skip_locked_check: bool,
+                ) -> Vec<DispatchError> {
                     let mut weight_meter = WeightMeter::max_limit_no_minimum();
-                    Nft::validate_nft_transfer(
-                        sender_portfolio,
-                        receiver_portfolio,
-                        nfts,
-                        false,
-                        Some(&mut weight_meter)
+                    Nft::nft_transfer_report(
+                        &sender_portfolio,
+                        &receiver_portfolio,
+                        &nfts,
+                        skip_locked_check,
+                        &mut weight_meter
                     )
                 }
             }

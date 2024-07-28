@@ -15,30 +15,35 @@
 
 //! Runtime API definition for NFT module.
 
-use frame_support::dispatch::DispatchResult;
+use frame_support::dispatch::DispatchError;
+use sp_std::vec::Vec;
 
 use polymesh_primitives::{NFTs, PortfolioId};
 
 sp_api::decl_runtime_apis! {
 
+    #[api_version(2)]
     pub trait NFTApi {
-        /// Verifies if the given NFTs can be transferred from `sender_portfolio` to `receiver_portfolio`.
-        /// In order for the transfer to be successfull, the following conditions must hold:
-        /// The sender and receiver are not the same, both portfolios have valid balances, the sender owns the nft,
-        /// all compliance rules are being respected, and no duplicate nfts being transferred.
+        /// Returns a vector containing all errors for the transfer. An empty vec means there's no error.
         ///
         /// ```ignore
         /// curl http://localhost:9933 -H "Content-Type: application/json" -d '{
         ///     "id":1,
         ///     "jsonrpc":"2.0",
-        ///     "method": "nft_validateNFTTransfer",
-        ///     "params":[
-        ///       { "did": "0x0100000000000000000000000000000000000000000000000000000000000000", "kind": "Default"},
-        ///       { "did": "0x0200000000000000000000000000000000000000000000000000000000000000", "kind": "Default"},
-        ///       { "ticker": "0x5449434B4552303030303031", "ids": [1]}
+        ///     "method": "nft_transferReport",
+        ///     "params": [
+        ///        { "did": "0x0100000000000000000000000000000000000000000000000000000000000000", "kind": "Default"},
+        ///        { "did": "0x0100000000000000000000000000000000000000000000000000000000000000", "kind": "Default"},
+        ///        { "asset_id": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "ids": [1]},
+        ///        false
         ///     ]
-        ///   }'
+        /// }'
         /// ```
-        fn validate_nft_transfer(sender_portfolio: &PortfolioId, receiver_portfolio: &PortfolioId, nfts: &NFTs) -> DispatchResult;
+        fn transfer_report(
+            sender_portfolio: PortfolioId,
+            receiver_portfolio: PortfolioId,
+            nfts: NFTs,
+            skip_locked_check: bool,
+        ) -> Vec<DispatchError>;
     }
 }
