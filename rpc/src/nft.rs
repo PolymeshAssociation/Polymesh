@@ -75,14 +75,20 @@ where
         // If the block hash is not supplied assume the best block.
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.transfer_report(at_hash, sender_portfolio, receiver_portfolio, nfts, skip_locked_check)
-            .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to call validate_nft_transfer runtime",
-                    Some(e.to_string()),
-                ))
-                .into()
-            })
+        api.transfer_report(
+            at_hash,
+            sender_portfolio,
+            receiver_portfolio,
+            nfts,
+            skip_locked_check,
+        )
+        .map_err(|e| {
+            CallError::Custom(ErrorObject::owned(
+                Error::RuntimeError.into(),
+                "Unable to call validate_nft_transfer runtime",
+                Some(e.to_string()),
+            ))
+            .into()
+        })
     }
 }
