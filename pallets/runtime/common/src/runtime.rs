@@ -592,6 +592,7 @@ macro_rules! runtime_apis {
         use frame_support::dispatch::{GetStorageVersion, DispatchError};
         use sp_inherents::{CheckInherentsResult, InherentData};
         use frame_support::dispatch::result::Result as FrameResult;
+        use node_rpc_runtime_api::asset as rpc_api_asset;
 
         use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
@@ -958,6 +959,26 @@ macro_rules! runtime_apis {
                 /// Returns all valid [`IdentityClaim`] of type `CustomerDueDiligence` for the given `target_identity`.
                 fn valid_cdd_claims(target_identity: IdentityId, cdd_checker_leeway: Option<u64>) -> Vec<IdentityClaim> {
                     Identity::valid_cdd_claims(target_identity, cdd_checker_leeway)
+                }
+            }
+
+            impl rpc_api_asset::AssetApi<Block> for Runtime {
+                fn transfer_report(
+                    sender_portfolio: PortfolioId,
+                    receiver_portfolio: PortfolioId,
+                    asset_id: AssetID,
+                    transfer_value: Balance,
+                    skip_locked_check: bool,
+                ) -> Vec<DispatchError> {
+                    let mut weight_meter = WeightMeter::max_limit_no_minimum();
+                    Asset::asset_transfer_report(
+                        &sender_portfolio,
+                        &receiver_portfolio,
+                        &asset_id,
+                        transfer_value,
+                        skip_locked_check,
+                        &mut weight_meter
+                    )
                 }
             }
 

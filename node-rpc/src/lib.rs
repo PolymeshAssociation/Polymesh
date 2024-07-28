@@ -112,6 +112,7 @@ where
     C::Api: node_rpc::pips::PipsRuntimeApi<Block, AccountId>,
     C::Api: node_rpc::identity::IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, Moment>,
     C::Api: pallet_protocol_fee_rpc::ProtocolFeeRuntimeApi<Block>,
+    C::Api: node_rpc::asset::AssetRuntimeApi<Block>,
     C::Api: pallet_group_rpc::GroupRuntimeApi<Block>,
     C::Api: BabeApi<Block>,
     C::Api: BlockBuilder<Block>,
@@ -123,6 +124,7 @@ where
     B::State: sc_client_api::backend::StateBackend<sp_runtime::traits::HashFor<Block>>,
 {
     use node_rpc::{
+        asset::{Asset, AssetApiServer},
         identity::{Identity, IdentityApiServer},
         nft::{NFTApiServer, NFT},
         pips::{Pips, PipsApiServer},
@@ -214,6 +216,7 @@ where
     io.merge(Pips::new(client.clone()).into_rpc())?;
     io.merge(Identity::new(client.clone()).into_rpc())?;
     io.merge(ProtocolFee::new(client.clone()).into_rpc())?;
+    io.merge(Asset::new(client.clone()).into_rpc())?;
     io.merge(Group::from(client.clone()).into_rpc())?;
     io.merge(NFT::new(client.clone()).into_rpc())?;
     io.merge(Settlement::new(client).into_rpc())?;

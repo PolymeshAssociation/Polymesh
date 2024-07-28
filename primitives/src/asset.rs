@@ -13,19 +13,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
-
 use codec::{Decode, Encode};
-use frame_support::weights::Weight;
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
 use sp_std::prelude::Vec;
 
-use crate::compliance_manager::AssetComplianceResult;
-use crate::identity_id::PortfolioValidityResult;
 use crate::impl_checked_inc;
-use crate::transfer_compliance::TransferConditionResult;
 
 /// An unique asset identifier.
 pub type AssetID = [u8; 16];
@@ -143,95 +136,3 @@ impl AssetType {
 #[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct FundingRoundName(pub Vec<u8>);
-
-/// Result of a granular can transfer.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(Decode, Encode, Clone, PartialEq, Eq)]
-pub struct GranularCanTransferResult {
-    /// Granularity check failed.
-    pub invalid_granularity: bool,
-    /// Receiver is equal to sender.
-    pub self_transfer: bool,
-    /// Receiver is missing cdd.
-    pub invalid_receiver_cdd: bool,
-    /// Sender is missing cdd.
-    pub invalid_sender_cdd: bool,
-    /// Receiver had a custodian error.
-    pub receiver_custodian_error: bool,
-    /// Sender had a custodian error.
-    pub sender_custodian_error: bool,
-    /// Sender had an insufficient balance.
-    pub sender_insufficient_balance: bool,
-    /// Portfolio validity result.
-    pub portfolio_validity_result: PortfolioValidityResult,
-    /// Asset is frozen.
-    pub asset_frozen: bool,
-    /// Result of transfer condition check.
-    pub transfer_condition_result: Vec<TransferConditionResult>,
-    /// Result of compliance check.
-    pub compliance_result: AssetComplianceResult,
-    /// Final evaluation result.
-    pub result: bool,
-    /// The weight for checking the asset's compliance and transfer restrictions.
-    pub consumed_weight: Option<Weight>,
-}
-
-impl From<v1::GranularCanTransferResult> for GranularCanTransferResult {
-    fn from(old: v1::GranularCanTransferResult) -> Self {
-        Self {
-            invalid_granularity: old.invalid_granularity,
-            self_transfer: old.self_transfer,
-            invalid_receiver_cdd: old.invalid_receiver_cdd,
-            invalid_sender_cdd: old.invalid_sender_cdd,
-            receiver_custodian_error: old.receiver_custodian_error,
-            sender_custodian_error: old.sender_custodian_error,
-            sender_insufficient_balance: old.sender_insufficient_balance,
-            portfolio_validity_result: old.portfolio_validity_result,
-            asset_frozen: old.asset_frozen,
-            transfer_condition_result: old
-                .statistics_result
-                .into_iter()
-                .map(|tm| tm.into())
-                .collect(),
-            compliance_result: old.compliance_result,
-            consumed_weight: None,
-            result: old.result,
-        }
-    }
-}
-
-/// Deprecated v1 GranularCanTransferResult.
-pub mod v1 {
-    use super::*;
-    use crate::statistics::v1::TransferManagerResult;
-
-    /// Result of a granular can transfer.
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-    #[derive(Decode, Encode, Clone, PartialEq, Eq)]
-    pub struct GranularCanTransferResult {
-        /// Granularity check failed.
-        pub invalid_granularity: bool,
-        /// Receiver is equal to sender.
-        pub self_transfer: bool,
-        /// Receiver is missing cdd.
-        pub invalid_receiver_cdd: bool,
-        /// Sender is missing cdd.
-        pub invalid_sender_cdd: bool,
-        /// Receiver had a custodian error.
-        pub receiver_custodian_error: bool,
-        /// Sender had a custodian error.
-        pub sender_custodian_error: bool,
-        /// Sender had an insufficient balance.
-        pub sender_insufficient_balance: bool,
-        /// Portfolio validity result.
-        pub portfolio_validity_result: PortfolioValidityResult,
-        /// Asset is frozen.
-        pub asset_frozen: bool,
-        /// Result of statistics check.
-        pub statistics_result: Vec<TransferManagerResult>,
-        /// Result of compliance check.
-        pub compliance_result: AssetComplianceResult,
-        /// Final evaluation result.
-        pub result: bool,
-    }
-}
