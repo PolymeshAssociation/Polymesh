@@ -247,7 +247,7 @@ benchmarks! {
     }: _(alice.origin.clone(), ticker)
     verify {
         assert_eq!(
-            TickersOwnedByUser::get(alice.did(), ticker), 
+            TickersOwnedByUser::get(alice.did(), ticker),
             true
         );
         assert_eq!(
@@ -272,11 +272,11 @@ benchmarks! {
     }: _(bob.origin.clone(), new_owner_auth_id)
     verify {
         assert_eq!(
-            TickersOwnedByUser::get(alice.did(), ticker), 
+            TickersOwnedByUser::get(alice.did(), ticker),
             false
         );
         assert_eq!(
-            TickersOwnedByUser::get(bob.did(), ticker), 
+            TickersOwnedByUser::get(bob.did(), ticker),
             true
         );
         assert_eq!(
@@ -285,23 +285,36 @@ benchmarks! {
         )
     }
 
-//    accept_asset_ownership_transfer {
-//        let (owner, ticker) = owned_ticker::<T>();
-//        let new_owner = UserBuilder::<T>::default().generate_did().build("new_owner");
-//        let did = new_owner.did();
-//
-//        let new_owner_auth_id = pallet_identity::Module::<T>::add_auth(
-//            owner.did(),
-//            Signatory::from(did),
-//            AuthorizationData::TransferAssetOwnership(ticker),
-//            None,
-//        )
-//        .unwrap();
-//    }: _(new_owner.origin, new_owner_auth_id)
-//    verify {
-//        assert_eq!(token_details::<T>(ticker).owner_did, did);
-//        verify_ownership::<T>(ticker, owner.did(), did, AssetOwnershipRelation::AssetOwned);
-//    }
+    accept_asset_ownership_transfer {
+        set_ticker_registration_config::<T>();
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let asset_id = create_sample_asset::<T>(&alice, true);
+        let ticker = reg_unique_ticker::<T>(alice.origin().into(), None);
+        Module::<T>::link_ticker_to_asset_id(alice.origin().into(), ticker, asset_id).unwrap();
+
+        let new_owner_auth_id = pallet_identity::Module::<T>::add_auth(
+            alice.did(),
+            Signatory::from(bob.did()),
+            AuthorizationData::TransferAssetOwnership(asset_id),
+            None,
+        )
+        .unwrap();
+    }: _(bob.origin.clone(), new_owner_auth_id)
+    verify {
+        assert_eq!(
+            SecurityTokens::get(&asset_id).unwrap().owner_did,
+            bob.did()
+        );
+        assert_eq!(
+            SecurityTokensOwnedByuser::get(bob.did(), asset_id),
+            true
+        );
+        assert_eq!(
+            TickersOwnedByUser::get(bob.did(), ticker),
+            true
+        );
+    }
 
     create_asset {
         // Token name length.
@@ -732,4 +745,11 @@ benchmarks! {
         )
         .unwrap();
     }: _(alice.origin, asset_id, mediators.try_into().unwrap())
+
+    link_ticker_to_asset_id {
+        set_ticker_registration_config::<T>();
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let asset_id = create_sample_asset::<T>(&alice, true);
+        let ticker = reg_unique_ticker::<T>(alice.origin().into(), None);
+    }: _(alice.origin, ticker, asset_id)
 }

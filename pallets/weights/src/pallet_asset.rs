@@ -740,4 +740,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes(1))
             .saturating_add(Weight::from_proof_size(160).saturating_mul(n.into()))
     }
+    fn link_ticker_to_asset_id() -> Weight {
+        Weight::zero()
+    }
 }

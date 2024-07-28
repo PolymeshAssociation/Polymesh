@@ -31,8 +31,8 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
 };
 use polymesh_primitives::{
-    AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId,
-    PortfolioUpdateReason, Ticker,
+    AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, PortfolioUpdateReason,
+    Ticker,
 };
 
 use crate::traits::nft::NFTTrait;
@@ -88,23 +88,16 @@ decl_event! {
     pub enum Event<T>
     where
         Moment = <T as pallet_timestamp::Config>::Moment,
-        AccountId = <T as frame_system::Config>::AccountId,
     {
         /// Event for creation of the asset.
-        /// caller DID/ owner DID, ticker, divisibility, asset type, beneficiary DID, asset name, identifiers, funding round
+        /// caller DID/ owner DID, AssetID, divisibility, asset type, beneficiary DID, asset name, identifiers, funding round
         AssetCreated(IdentityId, AssetID, bool, AssetType, IdentityId, AssetName, Vec<AssetIdentifier>, Option<FundingRoundName>),
         /// Event emitted when any token identifiers are updated.
-        /// caller DID, ticker, a vector of (identifier type, identifier value)
+        /// caller DID, AssetID, a vector of (identifier type, identifier value)
         IdentifiersUpdated(IdentityId, AssetID, Vec<AssetIdentifier>),
         /// Event for change in divisibility.
-        /// caller DID, ticker, divisibility
+        /// caller DID, AssetID, divisibility
         DivisibilityChanged(IdentityId, AssetID, bool),
-        /// An additional event to Transfer; emitted when `transfer_with_data` is called.
-        /// caller DID , ticker, from DID, to DID, value, data
-        TransferWithData(IdentityId, Ticker, IdentityId, IdentityId, Balance, Vec<u8>),
-        /// is_issuable() output
-        /// ticker, return value (true if issuable)
-        IsIssuable(Ticker, bool),
         /// Emit when ticker is registered.
         /// caller DID / ticker owner did, ticker, ticker owner, expiry
         TickerRegistered(IdentityId, Ticker, Option<Moment>),
@@ -112,29 +105,26 @@ decl_event! {
         /// caller DID / ticker transferred to DID, ticker, from
         TickerTransferred(IdentityId, Ticker, IdentityId),
         /// Emit when token ownership is transferred.
-        /// caller DID / token ownership transferred to DID, ticker, from
+        /// caller DID / token ownership transferred to DID, AssetID, from
         AssetOwnershipTransferred(IdentityId, AssetID, IdentityId),
         /// An event emitted when an asset is frozen.
-        /// Parameter: caller DID, ticker.
+        /// Parameter: caller DID, AssetID.
         AssetFrozen(IdentityId, AssetID),
         /// An event emitted when an asset is unfrozen.
-        /// Parameter: caller DID, ticker.
+        /// Parameter: caller DID, AssetID.
         AssetUnfrozen(IdentityId, AssetID),
         /// An event emitted when a token is renamed.
-        /// Parameters: caller DID, ticker, new token name.
+        /// Parameters: caller DID, AssetID, new token name.
         AssetRenamed(IdentityId, AssetID, AssetName),
-        /// An event carrying the name of the current funding round of a ticker.
-        /// Parameters: caller DID, ticker, funding round name.
+        /// An event carrying the name of the current funding round of an asset.
+        /// Parameters: caller DID, AssetID, funding round name.
         FundingRoundSet(IdentityId, AssetID, FundingRoundName),
         /// A new document attached to an asset
         DocumentAdded(IdentityId, AssetID, DocumentId, Document),
         /// A document removed from an asset
         DocumentRemoved(IdentityId, AssetID, DocumentId),
-        /// A extension got removed.
-        /// caller DID, ticker, AccountId
-        ExtensionRemoved(IdentityId, Ticker, AccountId),
         /// Event for when a forced transfer takes place.
-        /// caller DID/ controller DID, ticker, Portfolio of token holder, value.
+        /// caller DID/ controller DID, ExtensionRemoved, Portfolio of token holder, value.
         ControllerTransfer(IdentityId, AssetID, PortfolioId, Balance),
         /// A custom asset type already exists on-chain.
         /// caller DID, the ID of the custom asset type, the string contents registered.
@@ -143,28 +133,28 @@ decl_event! {
         /// caller DID, the ID of the custom asset type, the string contents registered.
         CustomAssetTypeRegistered(IdentityId, CustomAssetTypeId, Vec<u8>),
         /// Set asset metadata value.
-        /// (Caller DID, ticker, metadata value, optional value details)
+        /// (Caller DID, AssetID, metadata value, optional value details)
         SetAssetMetadataValue(IdentityId, AssetID, AssetMetadataValue, Option<AssetMetadataValueDetail<Moment>>),
         /// Set asset metadata value details (expire, lock status).
-        /// (Caller DID, ticker, value details)
+        /// (Caller DID, AssetID, value details)
         SetAssetMetadataValueDetails(IdentityId, AssetID, AssetMetadataValueDetail<Moment>),
         /// Register asset metadata local type.
-        /// (Caller DID, ticker, Local type name, Local type key, type specs)
+        /// (Caller DID, AssetID, Local type name, Local type key, type specs)
         RegisterAssetMetadataLocalType(IdentityId, AssetID, AssetMetadataName, AssetMetadataLocalKey, AssetMetadataSpec),
         /// Register asset metadata global type.
         /// (Global type name, Global type key, type specs)
         RegisterAssetMetadataGlobalType(AssetMetadataName, AssetMetadataGlobalKey, AssetMetadataSpec),
         /// An event emitted when the type of an asset changed.
-        /// Parameters: caller DID, ticker, new token type.
+        /// Parameters: caller DID, AssetID, new token type.
         AssetTypeChanged(IdentityId, AssetID, AssetType),
         /// An event emitted when a local metadata key has been removed.
-        /// Parameters: caller ticker, Local type name
+        /// Parameters: caller AssetID, Local type name
         LocalMetadataKeyDeleted(IdentityId, AssetID, AssetMetadataLocalKey),
         /// An event emitted when a local metadata value has been removed.
-        /// Parameters: caller ticker, Local type name
+        /// Parameters: caller AssetID, Local type name
         MetadataValueDeleted(IdentityId, AssetID, AssetMetadataKey),
         /// Emitted when Tokens were issued, redeemed or transferred.
-        /// Contains the [`IdentityId`] of the receiver/issuer/redeemer, the [`Ticker`] for the token, the balance that was issued/transferred/redeemed,
+        /// Contains the [`IdentityId`] of the receiver/issuer/redeemer, the [`AssetID`] for the token, the balance that was issued/transferred/redeemed,
         /// the [`PortfolioId`] of the source, the [`PortfolioId`] of the destination and the [`PortfolioUpdateReason`].
         AssetBalanceUpdated(
             IdentityId,
@@ -175,23 +165,26 @@ decl_event! {
             PortfolioUpdateReason,
         ),
         /// An asset has been added to the list of pre aprroved receivement (valid for all identities).
-        /// Parameters: [`Ticker`] of the pre approved asset.
+        /// Parameters: [`AssetID`] of the pre approved asset.
         AssetAffirmationExemption(AssetID),
         /// An asset has been removed from the list of pre aprroved receivement (valid for all identities).
-        /// Parameters: [`Ticker`] of the asset.
+        /// Parameters: [`AssetID`] of the asset.
         RemoveAssetAffirmationExemption(AssetID),
         /// An identity has added an asset to the list of pre aprroved receivement.
-        /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the pre approved asset.
+        /// Parameters: [`IdentityId`] of caller, [`AssetID`] of the pre approved asset.
         PreApprovedAsset(IdentityId, AssetID),
         /// An identity has removed an asset to the list of pre aprroved receivement.
-        /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset.
+        /// Parameters: [`IdentityId`] of caller, [`AssetID`] of the asset.
         RemovePreApprovedAsset(IdentityId, AssetID),
         /// An identity has added mandatory mediators to an asset.
-        /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset, the identity of all mediators added.
+        /// Parameters: [`IdentityId`] of caller, [`AssetID`] of the asset, the identity of all mediators added.
         AssetMediatorsAdded(IdentityId, AssetID, BTreeSet<IdentityId>),
         /// An identity has removed mediators from an asset.
-        /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset, the identity of all mediators removed.
-        AssetMediatorsRemoved(IdentityId, AssetID, BTreeSet<IdentityId>)
+        /// Parameters: [`IdentityId`] of caller, [`AssetID`] of the asset, the identity of all mediators removed.
+        AssetMediatorsRemoved(IdentityId, AssetID, BTreeSet<IdentityId>),
+        /// An identity has linked a ticker to an asset.
+        /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset, the asset identifier [`AssetID`].
+        TickerLinkedToAsset(IdentityId, Ticker, AssetID),
     }
 }
 
@@ -228,6 +221,7 @@ pub trait WeightInfo {
     fn remove_asset_pre_approval() -> Weight;
     fn add_mandatory_mediators(n: u32) -> Weight;
     fn remove_mandatory_mediators(n: u32) -> Weight;
+    fn link_ticker_to_asset_id() -> Weight;
 }
 
 pub trait AssetFnTrait<Account, Origin> {

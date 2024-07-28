@@ -27,7 +27,12 @@ use crate::{CAKind, CorporateActions};
 const MAX_TARGETS: u32 = 1000;
 const MAX_DID_WHT_IDS: u32 = 1000;
 
-fn portfolio<T: Config>(owner: &User<T>, pnum: PortfolioNumber, asset_id: AssetID, amount: Balance) {
+fn portfolio<T: Config>(
+    owner: &User<T>,
+    pnum: PortfolioNumber,
+    asset_id: AssetID,
+    amount: Balance,
+) {
     let did = owner.did();
     let origin: T::RuntimeOrigin = owner.origin().into();
     <Portfolio<T>>::create_portfolio(origin.clone(), "portfolio".into()).unwrap();

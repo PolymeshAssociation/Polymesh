@@ -807,7 +807,7 @@ decl_module! {
         /// Removes all identities in the `mediators` set from the mandatory mediators list for the given `asset_id`.
         ///
         /// # Arguments
-        /// * `origin`: The secondary key of the sender.
+        /// * `origin`: the secondary key of the sender.
         /// * `asset_id`: the [`AssetID`] of the asset that will have mediators removed.
         /// * `mediators`: A set of [`IdentityId`] of all the mediators that will be removed from the mandatory mediators list.
         ///
@@ -820,6 +820,20 @@ decl_module! {
             mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>
         ) {
             Self::base_remove_mandatory_mediators(origin, asset_id, mediators)?;
+        }
+
+        /// Establishes a connection between a ticker and an AssetID.
+        ///
+        /// # Arguments
+        /// * `origin`: the secondary key of the sender.
+        /// * `ticker`: the [`Ticker`] that will be linked to the given `asset_id`.
+        /// * `asset_id`: the [`AssetID`] that will be connected to `ticker`.
+        ///
+        /// # Permissions
+        /// * Asset
+        #[weight = <T as Config>::WeightInfo::link_ticker_to_asset_id()]
+        pub fn link_ticker_to_asset_id(origin, ticker: Ticker, asset_id: AssetID) {
+            Self::base_link_ticker_to_asset_id(origin, ticker, asset_id)?;
         }
     }
 }
@@ -1579,6 +1593,48 @@ impl<T: Config> Module<T> {
             weight_meter,
         )?;
 
+        Ok(())
+    }
+
+    pub fn base_link_ticker_to_asset_id(
+        origin: T::RuntimeOrigin,
+        ticker: Ticker,
+        asset_id: AssetID,
+    ) -> DispatchResult {
+        // Verifies if the caller has the correct permissions for this asset
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+        // The caller must own the ticker and the ticker can't be expired
+        UniqueTickerRegistration::<T>::try_mutate(
+            ticker,
+            |ticker_registration| -> DispatchResult {
+                match ticker_registration {
+                    Some(ticker_registration) => {
+                        ensure!(
+                            ticker_registration.owner == caller_did,
+                            Error::<T>::TickerNotRegisteredToCaller
+                        );
+                        if let Some(ticker_expiry) = ticker_registration.expiry {
+                            ensure!(
+                                ticker_expiry > pallet_timestamp::Pallet::<T>::get(),
+                                Error::<T>::TickerRegistrationExpired
+                            );
+                        }
+                        ticker_registration.expiry = None;
+                        Ok(())
+                    }
+                    None => return Err(Error::<T>::TickerRegistrationNotFound.into()),
+                }
+            },
+        )?;
+        // The ticker can't be linked to any other asset
+        ensure!(
+            !TickerAssetID::contains_key(ticker),
+            Error::<T>::TickerIsAlreadyLinkedToAnAsset
+        );
+        // Links the ticker to the asset
+        TickerAssetID::insert(ticker, asset_id);
+        AssetIDTicker::insert(asset_id, ticker);
+        Self::deposit_event(RawEvent::TickerLinkedToAsset(caller_did, ticker, asset_id));
         Ok(())
     }
 }
