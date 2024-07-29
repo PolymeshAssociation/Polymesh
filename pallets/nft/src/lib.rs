@@ -597,6 +597,10 @@ impl<T: Config> Module<T> {
         source_portfolio: PortfolioId,
         callers_portfolio_kind: PortfolioKind,
     ) -> DispatchResult {
+        ensure!(
+            &ticker == nfts.ticker(),
+            Error::<T>::InvalidNFTTransferInconsistentTicker
+        );
         // Ensure origin is agent with custody and permissions for portfolio.
         let caller_portfolio = Asset::<T>::ensure_origin_asset_and_portfolio_permissions(
             origin,
@@ -604,6 +608,7 @@ impl<T: Config> Module<T> {
             callers_portfolio_kind,
             true,
         )?;
+
         // Verifies if all rules for transfering the NFTs are being respected
         Self::validate_nft_transfer(&source_portfolio, &caller_portfolio, &nfts, true, None)?;
         // Transfer ownership of the NFTs
