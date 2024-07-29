@@ -5,14 +5,13 @@ use sp_keyring::AccountKeyring;
 use sp_std::collections::btree_set::BTreeSet;
 
 use pallet_asset::{
-    AssetOwnershipRelation, AssetOwnershipRelations, TickerConfig, TickerRegistration,
-    UniqueTickerRegistration,
+    TickerConfig, TickerRegistration, TickersOwnedByUser, UniqueTickerRegistration,
 };
 use polymesh_primitives::asset::AssetType;
 use polymesh_primitives::ticker::TICKER_LEN;
 use polymesh_primitives::Ticker;
 
-use crate::asset_test::{now, set_timestamp};
+use super::asset_setup::{now, set_timestamp};
 use crate::storage::User;
 use crate::{ExtBuilder, TestStorage};
 
@@ -87,10 +86,7 @@ fn register_ticker() {
                 expiry: ticker_registration_config.registration_length
             }
         );
-        assert_eq!(
-            AssetOwnershipRelations::get(&alice.did, &ticker),
-            AssetOwnershipRelation::TickerOwned
-        );
+        assert_eq!(TickersOwnedByUser::get(&alice.did, &ticker), true);
     });
 }
 
@@ -114,19 +110,25 @@ fn register_ticker_already_linked() {
     ExtBuilder::default().build().execute_with(|| {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
         let alice = User::new(AccountKeyring::Alice);
+        let asset_id = Asset::generate_asset_id(alice.did, false);
 
         assert_ok!(Asset::register_unique_ticker(alice.origin(), ticker,));
+
         assert_ok!(Asset::create_asset(
             alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
+            b"MyAsset".into(),
             true,
             AssetType::default(),
             Vec::new(),
             None,
         ));
-        // link ticker to asset id here
-        unimplemented!();
+
+        assert_ok!(Asset::link_ticker_to_asset_id(
+            alice.origin(),
+            ticker,
+            asset_id
+        ));
+
         assert_noop!(
             Asset::register_unique_ticker(alice.origin(), ticker,),
             AssetError::TickerIsAlreadyLinkedToAnAsset
@@ -181,14 +183,8 @@ fn register_already_expired_ticker() {
                 .owner,
             bob.did,
         );
-        assert_eq!(
-            AssetOwnershipRelations::get(&alice.did, &ticker),
-            AssetOwnershipRelation::NotOwned
-        );
-        assert_eq!(
-            AssetOwnershipRelations::get(&bob.did, &ticker),
-            AssetOwnershipRelation::TickerOwned
-        );
+        assert_eq!(TickersOwnedByUser::get(&alice.did, &ticker), false);
+        assert_eq!(TickersOwnedByUser::get(&bob.did, &ticker), true);
     });
 }
 

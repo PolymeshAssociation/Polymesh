@@ -438,7 +438,7 @@ impl<AccountId> SecondaryKey<AccountId> {
 #[cfg(test)]
 mod tests {
     use super::{Permissions, PortfolioId, SecondaryKey, Signatory, SubsetRestriction};
-    use crate::{IdentityId, Ticker};
+    use crate::IdentityId;
     use sp_core::sr25519::Public;
     use std::convert::{From, TryFrom};
 
@@ -450,7 +450,7 @@ mod tests {
         assert_eq!(rk1, rk2);
 
         let rk3_permissions = Permissions {
-            asset: SubsetRestriction::elem(Ticker::from_slice_truncated(&[1][..])),
+            asset: SubsetRestriction::elem([0; 16]),
             extrinsic: SubsetRestriction::Whole,
             portfolio: SubsetRestriction::elem(PortfolioId::default_portfolio(IdentityId::from(
                 1u128,
@@ -467,23 +467,23 @@ mod tests {
     #[test]
     fn has_permission_test() {
         let key = Public::from_raw([b'A'; 32]);
-        let ticker1 = Ticker::from_slice_truncated(&[1][..]);
-        let ticker2 = Ticker::from_slice_truncated(&[2][..]);
+        let asset_id = [0; 16];
+        let asset_id2 = [1; 16];
         let portfolio1 = PortfolioId::user_portfolio(IdentityId::default(), 1.into());
         let portfolio2 = PortfolioId::user_portfolio(IdentityId::default(), 2.into());
         let permissions = Permissions {
-            asset: SubsetRestriction::elem(ticker1),
+            asset: SubsetRestriction::elem([0; 16]),
             extrinsic: SubsetRestriction::Whole,
             portfolio: SubsetRestriction::elem(portfolio1),
         };
         let free_key = SecondaryKey::new(key.clone(), Permissions::default());
         let restricted_key = SecondaryKey::new(key, permissions.clone());
-        assert!(free_key.has_asset_permission(ticker2));
+        assert!(free_key.has_asset_permission(asset_id2));
         assert!(free_key
             .has_extrinsic_permission(&b"pallet".as_ref().into(), &b"function".as_ref().into()));
         assert!(free_key.has_portfolio_permission(vec![portfolio1]));
-        assert!(restricted_key.has_asset_permission(ticker1));
-        assert!(!restricted_key.has_asset_permission(ticker2));
+        assert!(restricted_key.has_asset_permission(asset_id));
+        assert!(!restricted_key.has_asset_permission(asset_id2));
         assert!(restricted_key
             .has_extrinsic_permission(&b"pallet".as_ref().into(), &b"function".as_ref().into()));
         assert!(restricted_key.has_portfolio_permission(vec![portfolio1]));

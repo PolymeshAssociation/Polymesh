@@ -2,12 +2,12 @@ use frame_support::{assert_noop, assert_ok};
 use sp_keyring::AccountKeyring;
 
 use polymesh_primitives::agent::AgentGroup;
-use polymesh_primitives::asset::AssetType;
 use polymesh_primitives::settlement::{
     InstructionId, Leg, SettlementType, VenueDetails, VenueId, VenueType,
 };
-use polymesh_primitives::{AuthorizationData, PortfolioId, PortfolioKind, Signatory, Ticker};
+use polymesh_primitives::{AuthorizationData, PortfolioId, PortfolioKind, Signatory};
 
+use crate::asset_pallet::asset_setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
 use crate::storage::User;
 use crate::{ExtBuilder, TestStorage};
 
@@ -26,7 +26,6 @@ fn controller_transfer_locked_asset() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(AccountKeyring::Bob);
         let alice = User::new(AccountKeyring::Alice);
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
         let bob_default_portfolio = PortfolioId {
             did: bob.did,
             kind: PortfolioKind::Default,
@@ -36,25 +35,11 @@ fn controller_transfer_locked_asset() {
             kind: PortfolioKind::Default,
         };
 
-        assert_ok!(Asset::create_asset(
-            alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
-            true,
-            AssetType::default(),
-            Vec::new(),
-            None,
-        ));
-        assert_ok!(Asset::issue(
-            alice.origin(),
-            ticker,
-            1_000,
-            PortfolioKind::Default
-        ));
+        let asset_id = create_and_issue_sample_asset(&alice);
         let authorization_id = Identity::add_auth(
             alice.did,
             Signatory::from(bob.did),
-            AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
+            AuthorizationData::BecomeAgent(asset_id, AgentGroup::Full),
             None,
         )
         .unwrap();
@@ -78,8 +63,8 @@ fn controller_transfer_locked_asset() {
             vec![Leg::Fungible {
                 sender: alice_default_portfolio,
                 receiver: bob_default_portfolio,
-                ticker: ticker,
-                amount: 1_000,
+                asset_id,
+                amount: ISSUE_AMOUNT,
             }],
             None,
         ));
@@ -91,7 +76,7 @@ fn controller_transfer_locked_asset() {
 
         // Controller transfer should fail since the tokens are locked
         assert_noop!(
-            Asset::controller_transfer(bob.origin(), ticker, 200, alice_default_portfolio),
+            Asset::controller_transfer(bob.origin(), asset_id, 200, alice_default_portfolio),
             PortfolioError::InsufficientPortfolioBalance
         );
     });
