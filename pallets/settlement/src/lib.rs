@@ -976,15 +976,7 @@ impl<T: Config> Module<T> {
         for portfolio_id in instruction_info.portfolios_pending_approval() {
             UserAffirmations::insert(portfolio_id, instruction_id, AffirmationStatus::Pending);
         }
-        for portfolio_id in instruction_info.portfolios_pre_approved_difference() {
-            UserAffirmations::insert(portfolio_id, instruction_id, AffirmationStatus::Affirmed);
-            AffirmsReceived::insert(instruction_id, portfolio_id, AffirmationStatus::Affirmed);
-            Self::deposit_event(RawEvent::InstructionAutomaticallyAffirmed(
-                did,
-                *portfolio_id,
-                instruction_id,
-            ));
-        }
+
         for mediator_id in instruction_info.mediators() {
             InstructionMediatorsAffirmations::<T>::insert(
                 instruction_id,
@@ -1021,15 +1013,6 @@ impl<T: Config> Module<T> {
         }
         VenueInstructions::insert(venue_id, instruction_id, ());
 
-        if let SettlementType::SettleOnBlock(block_number) = settlement_type {
-            let weight_limit = Self::execute_scheduled_instruction_weight_limit(
-                instruction_info.fungible_transfers(),
-                instruction_info.nfts_transferred(),
-                instruction_info.off_chain(),
-            );
-            Self::schedule_instruction(instruction_id, block_number, weight_limit);
-        }
-
         Self::deposit_event(RawEvent::InstructionCreated(
             did,
             venue_id,
@@ -1041,11 +1024,30 @@ impl<T: Config> Module<T> {
             memo,
         ));
 
+        for portfolio_id in instruction_info.portfolios_pre_approved_difference() {
+            UserAffirmations::insert(portfolio_id, instruction_id, AffirmationStatus::Affirmed);
+            AffirmsReceived::insert(instruction_id, portfolio_id, AffirmationStatus::Affirmed);
+            Self::deposit_event(RawEvent::InstructionAutomaticallyAffirmed(
+                did,
+                *portfolio_id,
+                instruction_id,
+            ));
+        }
+
         if !instruction_info.mediators().is_empty() {
             Self::deposit_event(RawEvent::InstructionMediators(
                 instruction_id,
                 instruction_info.mediators().clone(),
             ));
+        }
+
+        if let SettlementType::SettleOnBlock(block_number) = settlement_type {
+            let weight_limit = Self::execute_scheduled_instruction_weight_limit(
+                instruction_info.fungible_transfers(),
+                instruction_info.nfts_transferred(),
+                instruction_info.off_chain(),
+            );
+            Self::schedule_instruction(instruction_id, block_number, weight_limit);
         }
 
         Ok(instruction_id)
@@ -1306,7 +1308,7 @@ impl<T: Config> Module<T> {
                 MediatorAffirmationStatus::Affirmed { expiry, .. } => {
                     if let Some(expiry) = expiry {
                         ensure!(
-                            expiry < current_timestamp,
+                            expiry > current_timestamp,
                             Error::<T>::MediatorAffirmationExpired
                         );
                     }

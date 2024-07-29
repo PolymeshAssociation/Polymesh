@@ -1,6 +1,6 @@
 [package]
 name = "polymesh"
-version = "6.3.0"
+version = "6.3.3"
 authors = ["PolymeshAssociation"]
 build = "build.rs"
 edition = "2021"

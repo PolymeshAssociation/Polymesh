@@ -702,10 +702,10 @@ impl<T: Config> Pallet<T> {
                 if let Some(p) = pref {
                     if p.running_count > 0 {
                         p.running_count -= 1;
-                        <Identity<T>>::remove_account_key_ref_count(&stash);
                     }
                 }
             });
+            <Identity<T>>::remove_account_key_ref_count(&stash);
         }
     }
 
