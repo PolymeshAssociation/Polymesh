@@ -12,7 +12,7 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
 };
 
-use super::asset_setup::create_and_issue_sample_asset;
+use super::setup::create_and_issue_sample_asset;
 use crate::storage::{root, User};
 use crate::{ExtBuilder, TestStorage};
 

@@ -12,17 +12,15 @@ use polymesh_common_utilities::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::settlement::{
     AffirmationStatus, Instruction, InstructionId, InstructionStatus, Leg, LegId, SettlementType,
 };
-use polymesh_primitives::{PortfolioId, Ticker};
+use polymesh_primitives::PortfolioId;
 
-use crate::settlement_test::{create_token, create_token_and_venue};
+use super::setup::create_and_issue_sample_asset_with_venue;
+use crate::asset_pallet::setup::create_and_issue_sample_asset;
 use crate::storage::User;
 use crate::{next_block, ExtBuilder, TestStorage};
 
 type Settlement = pallet_settlement::Module<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
-
-const TICKER: Ticker = Ticker::new_unchecked([b'A', b'C', b'M', b'E', 0, 0, 0, 0, 0, 0, 0, 0]);
-const TICKER2: Ticker = Ticker::new_unchecked([b'A', b'C', b'M', b'Y', 0, 0, 0, 0, 0, 0, 0, 0]);
 
 #[test]
 fn execute_instruction_storage_pruning() {
@@ -33,11 +31,11 @@ fn execute_instruction_storage_pruning() {
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
 
-        let venue_id = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue_id) = create_and_issue_sample_asset_with_venue(&alice);
         let legs: Vec<Leg> = vec![Leg::Fungible {
             sender: PortfolioId::default_portfolio(alice.did),
             receiver: PortfolioId::default_portfolio(bob.did),
-            ticker: TICKER,
+            asset_id,
             amount: 1_000,
         }];
         assert_ok!(Settlement::add_instruction(
@@ -115,19 +113,19 @@ fn execute_instruction_storage_rollback() {
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
 
-        let venue_id = create_token_and_venue(TICKER, alice);
-        create_token(TICKER2, alice);
+        let (asset_id, venue_id) = create_and_issue_sample_asset_with_venue(&alice);
+        let asset_id2 = create_and_issue_sample_asset(&alice);
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
                 sender: PortfolioId::default_portfolio(alice.did),
                 receiver: PortfolioId::default_portfolio(bob.did),
-                ticker: TICKER,
+                asset_id,
                 amount: 1_000,
             },
             Leg::Fungible {
                 sender: PortfolioId::default_portfolio(alice.did),
                 receiver: PortfolioId::default_portfolio(bob.did),
-                ticker: TICKER2,
+                asset_id: asset_id2,
                 amount: 1_000,
             },
         ];
@@ -150,16 +148,16 @@ fn execute_instruction_storage_rollback() {
             instruction_id,
             vec![bob_default_portfolio]
         ));
-        // Removes TICKER2 balance to force an error
-        BalanceOf::insert(TICKER2, alice.did, 0);
+        // Removes asset_id2 balance to force an error
+        BalanceOf::insert(asset_id2, alice.did, 0);
         next_block();
         // Asserts storage has not changed
         assert_eq!(
-            PortfolioLockedAssets::get(alice_default_portfolio, TICKER),
+            PortfolioLockedAssets::get(alice_default_portfolio, asset_id),
             1_000
         );
         assert_eq!(
-            PortfolioLockedAssets::get(alice_default_portfolio, TICKER2),
+            PortfolioLockedAssets::get(alice_default_portfolio, asset_id2),
             1_000
         );
         assert_eq!(

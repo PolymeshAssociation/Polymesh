@@ -12,8 +12,8 @@ pub mod ext_builder;
 pub use ext_builder::ExtBuilder;
 
 mod asset_pallet;
-//#[macro_use]
-//mod asset_test;
+#[macro_use]
+mod asset_test;
 //mod asset_metadata_test;
 //mod balances_test;
 //mod bridge;
@@ -32,7 +32,7 @@ mod asset_pallet;
 //mod portfolio;
 //mod protocol_fee;
 //mod relayer_test;
-//mod settlement_pallet;
+mod settlement_pallet;
 //mod settlement_test;
 //mod signed_extra;
 //mod staking;

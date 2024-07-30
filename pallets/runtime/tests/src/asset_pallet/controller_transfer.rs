@@ -7,7 +7,7 @@ use polymesh_primitives::settlement::{
 };
 use polymesh_primitives::{AuthorizationData, PortfolioId, PortfolioKind, Signatory};
 
-use crate::asset_pallet::asset_setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
+use super::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
 use crate::storage::User;
 use crate::{ExtBuilder, TestStorage};
 

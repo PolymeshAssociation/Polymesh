@@ -10,9 +10,7 @@ use polymesh_primitives::{
     PortfolioName, PortfolioNumber, Scope, TrustedFor, TrustedIssuer, WeightMeter,
 };
 
-use super::asset_setup::{
-    create_and_issue_sample_asset, create_and_issue_sample_nft, ISSUE_AMOUNT,
-};
+use super::setup::{create_and_issue_sample_asset, create_and_issue_sample_nft, ISSUE_AMOUNT};
 use crate::storage::User;
 use crate::{ExtBuilder, TestStorage};
 

@@ -11,7 +11,7 @@ use polymesh_primitives::asset::AssetType;
 use polymesh_primitives::ticker::TICKER_LEN;
 use polymesh_primitives::Ticker;
 
-use super::asset_setup::{now, set_timestamp};
+use super::setup::{now, set_timestamp};
 use crate::storage::User;
 use crate::{ExtBuilder, TestStorage};
 
