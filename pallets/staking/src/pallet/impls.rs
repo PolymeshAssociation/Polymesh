@@ -1106,10 +1106,10 @@ impl<T: Config> Pallet<T> {
                 if let Some(p) = preferences {
                     if p.running_count > 0 {
                         p.running_count -= 1;
-                        pallet_identity::Module::<T>::remove_account_key_ref_count(&stash);
                     }
                 }
             });
+            pallet_identity::Module::<T>::remove_account_key_ref_count(&stash);
         }
     }
 

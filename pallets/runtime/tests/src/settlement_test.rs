@@ -3954,8 +3954,10 @@ fn expired_affirmation_execution() {
         assert_ok!(Settlement::affirm_instruction_as_mediator(
             charlie.origin(),
             InstructionId(0),
-            Some(Timestamp::get().saturating_add(3))
+            Some(Timestamp::get() + 1)
         ),);
+
+        Timestamp::set_timestamp(Timestamp::get() + 2);
 
         next_block();
         assert_instruction_status(InstructionId(0), InstructionStatus::Failed);
@@ -3963,7 +3965,7 @@ fn expired_affirmation_execution() {
         assert_ok!(Settlement::affirm_instruction_as_mediator(
             charlie.origin(),
             InstructionId(0),
-            None
+            Some(Timestamp::get() + 3)
         ),);
         assert_ok!(Settlement::execute_manual_instruction(
             alice.origin(),

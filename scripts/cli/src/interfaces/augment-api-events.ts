@@ -1465,6 +1465,10 @@ declare module '@polkadot/api-base/types/events' {
        **/
       Chilled: AugmentedEvent<ApiType, [AccountId32]>;
       /**
+       * Commission cap has been updated.
+       **/
+      CommissionCapUpdated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, Perbill, Perbill]>;
+      /**
        * The era payout has been set; the first balance is the validator-payout; the second is
        * the remainder from the maximum amount of reward.
        **/
@@ -1515,7 +1519,7 @@ declare module '@polkadot/api-base/types/events' {
        **/
       Slashed: AugmentedEvent<ApiType, [AccountId32, u128]>;
       /**
-       * 
+       * Slashing allowed has been updated.
        **/
       SlashingAllowedForChanged: AugmentedEvent<ApiType, [PalletStakingSlashingSwitch]>;
       /**
