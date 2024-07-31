@@ -26,7 +26,7 @@ use crate::impl_checked_inc;
 /// An unique asset identifier.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode, TypeInfo)]
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq,  PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct AssetID([u8; 16]);
 
 impl From<[u8; 16]> for AssetID {

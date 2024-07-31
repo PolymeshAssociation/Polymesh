@@ -1,5 +1,6 @@
 use super::{
-    asset_test::{basic_asset, max_len, max_len_bytes, set_timestamp, token},
+    asset_pallet::setup::create_and_issue_sample_asset,
+    asset_test::{max_len, max_len_bytes, set_timestamp},
     committee_test::gc_vmo,
     exec_noop, exec_ok,
     ext_builder::PROTOCOL_OP_BASE_FEE,
@@ -30,6 +31,7 @@ use polymesh_common_utilities::{
     },
     SystematicIssuers, GC_DID,
 };
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::{
     AccountId, AssetPermissions, AuthorizationData, AuthorizationType, Claim, ClaimType,
     CustomClaimTypeId, DispatchableName, ExtrinsicPermissions, IdentityClaim, IdentityId,
@@ -95,12 +97,6 @@ fn target_id_auth(user: User) -> (TargetIdAuthorization<u64>, u64) {
         },
         expires_at,
     )
-}
-
-fn create_new_token(name: &[u8], owner: User) -> (Ticker, SecurityToken) {
-    let r = token(name, owner.did);
-    assert_ok!(basic_asset(owner, r.0, &r.1));
-    r
 }
 
 macro_rules! assert_add_cdd_claim {
@@ -288,12 +284,8 @@ fn do_add_permissions_to_multiple_tokens() {
 
     // Create some tokens.
     let max_tokens = 20;
-    let tokens: Vec<Ticker> = (0..max_tokens)
-        .map(|i| {
-            let name = format!("TOKEN{}", i);
-            let (ticker, _) = create_new_token(name.as_bytes(), alice);
-            ticker
-        })
+    let tokens: Vec<AssetID> = (0..max_tokens)
+        .map(|_| create_and_issue_sample_asset(&alice))
         .collect();
 
     let test_set_perms = |asset| {
@@ -1027,7 +1019,7 @@ pub(crate) fn test_with_bad_ext_perms(test: impl Fn(ExtrinsicPermissions)) {
 
 pub(crate) fn test_with_bad_perms(did: IdentityId, test: impl Fn(Permissions)) {
     test(Permissions {
-        asset: SubsetRestriction::elems((0..=MAX_ASSETS).map(Ticker::generate_into)),
+        asset: SubsetRestriction::elems((0..=MAX_ASSETS).map(|i| AssetID::new([i as u8; 16]))),
         ..<_>::default()
     });
     test(Permissions {

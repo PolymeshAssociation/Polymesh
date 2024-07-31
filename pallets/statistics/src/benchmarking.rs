@@ -461,7 +461,7 @@ benchmarks! {
 
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let asset_id = [i as u8; 16];
+        let asset_id = AssetID::new([i as u8; 16]);
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         let transfer_conditions: BTreeSet<TransferCondition> = (0..i)
@@ -488,7 +488,7 @@ benchmarks! {
         let a in 1..T::MaxStatsPerAsset::get();
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let asset_id = [a as u8; 16];
+        let asset_id = AssetID::new([a as u8; 16]);
 
         let statistics: BTreeSet<StatType> = (0..a)
             .map(|a| StatType {
@@ -505,7 +505,7 @@ benchmarks! {
     is_exempt {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let asset_id = [0 as u8; 16];
+        let asset_id = AssetID::new([0 as u8; 16]);
         let statistic_claim = StatClaim::Jurisdiction(Some(CountryCode::BR));
         let transfer_condition = TransferCondition::ClaimOwnership(statistic_claim, alice.did(), Permill::zero(), Permill::zero());
         TransferConditionExemptEntities::insert(transfer_condition.get_exempt_key(asset_id.clone()), bob.did(), true);

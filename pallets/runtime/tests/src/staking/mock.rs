@@ -48,9 +48,10 @@ use polymesh_common_utilities::{
         CommonConfig,
     },
 };
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::{
     identity_id::GenesisIdentityRecord, Authorization, AuthorizationData, Claim, IdentityId,
-    Moment, NFTId, Permissions, PortfolioId, SecondaryKey, Signatory, Ticker,
+    Moment, NFTId, Permissions, PortfolioId, SecondaryKey, Signatory,
 };
 use sp_core::H256;
 use sp_npos_elections::{
@@ -462,11 +463,11 @@ impl PortfolioSubTrait<AccountId> for Test {
         unimplemented!()
     }
 
-    fn lock_tokens(_: &PortfolioId, _: &Ticker, _: Balance) -> DispatchResult {
+    fn lock_tokens(_: &PortfolioId, _: &AssetID, _: Balance) -> DispatchResult {
         unimplemented!()
     }
 
-    fn unlock_tokens(_: &PortfolioId, _: &Ticker, _: Balance) -> DispatchResult {
+    fn unlock_tokens(_: &PortfolioId, _: &AssetID, _: Balance) -> DispatchResult {
         unimplemented!()
     }
 
@@ -478,15 +479,15 @@ impl PortfolioSubTrait<AccountId> for Test {
         unimplemented!()
     }
 
-    fn lock_nft(_: &PortfolioId, _: &Ticker, _: &NFTId) -> DispatchResult {
+    fn lock_nft(_: &PortfolioId, _: &AssetID, _: &NFTId) -> DispatchResult {
         unimplemented!()
     }
 
-    fn unlock_nft(_: &PortfolioId, _: &Ticker, _: &NFTId) -> DispatchResult {
+    fn unlock_nft(_: &PortfolioId, _: &AssetID, _: &NFTId) -> DispatchResult {
         unimplemented!()
     }
 
-    fn skip_portfolio_affirmation(_: &PortfolioId, _: &Ticker) -> bool {
+    fn skip_portfolio_affirmation(_: &PortfolioId, _: &AssetID) -> bool {
         unimplemented!()
     }
 }

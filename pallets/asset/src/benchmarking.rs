@@ -307,7 +307,7 @@ benchmarks! {
             bob.did()
         );
         assert_eq!(
-            SecurityTokensOwnedByuser::get(bob.did(), asset_id),
+            SecurityTokensOwnedByUser::get(bob.did(), asset_id),
             true
         );
         assert_eq!(
@@ -338,7 +338,7 @@ benchmarks! {
             Some(SecurityToken::new(0, alice.did(), true, AssetType::default()))
         );
         assert_eq!(
-            SecurityTokensOwnedByuser::get(alice.did(), &asset_id),
+            SecurityTokensOwnedByUser::get(alice.did(), &asset_id),
             true
         );
         assert_eq!(

@@ -33,6 +33,7 @@ use polymesh_common_utilities::benchs::{cdd_provider, user, AccountIdOf, User, U
 use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_common_utilities::group::GroupTrait;
 use polymesh_common_utilities::TestUtilsFn;
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
 };
@@ -159,7 +160,7 @@ fn secondary_key_permission(
     n_extrinsics: u64,
     n_pallets: u64,
 ) -> Permissions {
-    let asset = AssetPermissions::elems((0..n_assets).map(|i| [i as u8; 16]));
+    let asset = AssetPermissions::elems((0..n_assets).map(|i| AssetID::new([i as u8; 16])));
     let portfolio = PortfolioPermissions::elems(
         (0..n_portfolios).map(|did| PortfolioId::user_portfolio(did.into(), PortfolioNumber(0))),
     );

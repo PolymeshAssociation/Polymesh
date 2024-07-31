@@ -110,7 +110,7 @@ where
     // Creates offchain legs and new portfolios for each leg
     let offchain_legs: Vec<Leg> = (0..o)
         .map(|i| {
-            let asset_id = [i as u8; 16];
+            let asset_id = [i as u8; 16].into();
             Leg::OffChain {
                 sender_identity: sender.did(),
                 receiver_identity: receiver.did(),
@@ -228,7 +228,7 @@ where
                 ONE_UNIT,
                 InstructionId(1),
                 i,
-                [i as u8; 16],
+                [i as u8; 16].into(),
             )
         })
         .collect();
@@ -455,7 +455,7 @@ benchmarks! {
                     ONE_UNIT,
                     InstructionId(1),
                     i,
-                    [i as u8; 16]
+                    [i as u8; 16].into()
                 )
             })
             .collect();
@@ -633,7 +633,7 @@ benchmarks! {
                     ONE_UNIT,
                     InstructionId(1),
                     i,
-                    [i as u8; 16]
+                    [i as u8; 16].into()
                 )
             })
             .collect();

@@ -946,7 +946,7 @@ fn secondary_key_not_authorized_for_asset_test() {
             let eve = User::new_with(alice.did, AccountKeyring::Eve);
             let asset_id = create_and_issue_sample_asset(&alice);
             let eve_permissions = Permissions {
-                asset: AssetPermissions::elems(vec![asset_id]),
+                asset: AssetPermissions::elems(vec![AssetID::new([0; 16])]),
                 ..Default::default()
             };
 
