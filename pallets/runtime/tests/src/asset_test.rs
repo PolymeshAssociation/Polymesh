@@ -17,7 +17,7 @@ use pallet_asset::{
     AssetMetadataLocalSpecs, AssetMetadataValues, AssetOwnershipRelation,
     AssetsExemptFromAffirmation, BalanceOf, Config as AssetConfig, CustomTypeIdSequence,
     CustomTypes, CustomTypesInverse, MandatoryMediators, PreApprovedAsset, SecurityToken,
-    SecurityTokens, SecurityTokensOwnedByuser, TickerRegistrationConfig,
+    SecurityTokens, SecurityTokensOwnedByUser, TickerRegistrationConfig,
 };
 use pallet_portfolio::{
     NextPortfolioNumber, PortfolioAssetBalances, PortfolioAssetCount, PortfolioLockedAssets,
@@ -284,7 +284,7 @@ fn issuers_can_create_and_rename_tokens() {
 
         // A correct entry is added
         assert_eq!(get_security_token(&asset_id), sample_security_token);
-        assert_eq!(SecurityTokensOwnedByuser::get(owner.did, asset_id), true);
+        assert_eq!(SecurityTokensOwnedByUser::get(owner.did, asset_id), true);
         assert_eq!(Asset::funding_round(asset_id), funding_round_name.clone());
 
         // Unauthorized agents cannot rename the token.
@@ -500,15 +500,15 @@ fn transfer_token_ownership() {
             "Authorization does not exist"
         );
 
-        assert_eq!(SecurityTokensOwnedByuser::get(owner.did, asset_id), true);
+        assert_eq!(SecurityTokensOwnedByUser::get(owner.did, asset_id), true);
 
         assert_ok!(Asset::accept_asset_ownership_transfer(
             alice.origin(),
             auth_id_alice
         ));
         assert_eq!(get_security_token(&asset_id).owner_did, alice.did);
-        assert_eq!(SecurityTokensOwnedByuser::get(owner.did, asset_id), false);
-        assert_eq!(SecurityTokensOwnedByuser::get(alice.did, asset_id), true);
+        assert_eq!(SecurityTokensOwnedByUser::get(owner.did, asset_id), false);
+        assert_eq!(SecurityTokensOwnedByUser::get(alice.did, asset_id), true);
 
         assert_ok!(ExternalAgents::unchecked_add_agent(
             asset_id,

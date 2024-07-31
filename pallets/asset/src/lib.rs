@@ -236,7 +236,7 @@ decl_storage! {
             double_map hasher(identity) IdentityId, hasher(blake2_128_concat) Ticker => bool;
 
         /// All security tokens owned by a user.
-        pub SecurityTokensOwnedByuser get(fn security_tokens_owned_by_user):
+        pub SecurityTokensOwnedByUser get(fn security_tokens_owned_by_user):
             double_map hasher(identity) IdentityId, hasher(blake2_128_concat) AssetID => bool;
 
         /// Maps all [`AssetID`] that are mapped to a [`Ticker`].
@@ -923,8 +923,8 @@ impl<T: Config> Module<T> {
 
             // Updates token ownership
             let previous_owner = security_token.owner_did;
-            SecurityTokensOwnedByuser::remove(previous_owner, asset_id);
-            SecurityTokensOwnedByuser::insert(caller_did, asset_id, true);
+            SecurityTokensOwnedByUser::remove(previous_owner, asset_id);
+            SecurityTokensOwnedByUser::insert(caller_did, asset_id, true);
 
             // Updates token details.
             security_token.owner_did = caller_did;
@@ -2287,7 +2287,7 @@ impl<T: Config> Module<T> {
             FundingRound::insert(asset_id, funding_round_name);
         }
 
-        SecurityTokensOwnedByuser::insert(caller_did, asset_id, true);
+        SecurityTokensOwnedByUser::insert(caller_did, asset_id, true);
         Self::deposit_event(RawEvent::AssetCreated(
             caller_did,
             asset_id,
