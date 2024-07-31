@@ -438,7 +438,7 @@ impl<AccountId> SecondaryKey<AccountId> {
 #[cfg(test)]
 mod tests {
     use super::{Permissions, PortfolioId, SecondaryKey, Signatory, SubsetRestriction};
-    use crate::IdentityId;
+    use crate::{asset::AssetID, IdentityId};
     use sp_core::sr25519::Public;
     use std::convert::{From, TryFrom};
 
@@ -450,7 +450,7 @@ mod tests {
         assert_eq!(rk1, rk2);
 
         let rk3_permissions = Permissions {
-            asset: SubsetRestriction::elem([0; 16]),
+            asset: SubsetRestriction::elem(AssetID::new([0; 16])),
             extrinsic: SubsetRestriction::Whole,
             portfolio: SubsetRestriction::elem(PortfolioId::default_portfolio(IdentityId::from(
                 1u128,
@@ -467,12 +467,12 @@ mod tests {
     #[test]
     fn has_permission_test() {
         let key = Public::from_raw([b'A'; 32]);
-        let asset_id = [0; 16];
-        let asset_id2 = [1; 16];
+        let asset_id = AssetID::new([0; 16]);
+        let asset_id2 = AssetID::new([1; 16]);
         let portfolio1 = PortfolioId::user_portfolio(IdentityId::default(), 1.into());
         let portfolio2 = PortfolioId::user_portfolio(IdentityId::default(), 2.into());
         let permissions = Permissions {
-            asset: SubsetRestriction::elem([0; 16]),
+            asset: SubsetRestriction::elem(AssetID::new([0; 16])),
             extrinsic: SubsetRestriction::Whole,
             portfolio: SubsetRestriction::elem(portfolio1),
         };

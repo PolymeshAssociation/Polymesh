@@ -13,6 +13,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
+
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
@@ -21,7 +24,28 @@ use sp_std::prelude::Vec;
 use crate::impl_checked_inc;
 
 /// An unique asset identifier.
-pub type AssetID = [u8; 16];
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq,  PartialOrd)]
+pub struct AssetID([u8; 16]);
+
+impl From<[u8; 16]> for AssetID {
+    fn from(value: [u8; 16]) -> Self {
+        AssetID(value)
+    }
+}
+
+impl AssetID {
+    /// Creates a new [`AssetID`] instance;
+    pub fn new(value: [u8; 16]) -> Self {
+        AssetID(value)
+    }
+
+    /// Converts [`AssetID`] type into a shared reference of bytes.
+    pub fn as_ref(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
 
 /// A per-asset checkpoint ID.
 #[derive(Encode, Decode, TypeInfo)]

@@ -551,7 +551,7 @@ fn transfer_token_ownership() {
         auth_id = Identity::add_auth(
             alice.did,
             Signatory::from(bob.did),
-            AuthorizationData::TransferAssetOwnership([0; 16]),
+            AuthorizationData::TransferAssetOwnership([0; 16].into()),
             Some(now() + 100),
         )
         .unwrap();
@@ -1035,7 +1035,7 @@ fn mesh_1531_ts_collission_regression_test() {
 //        let asset_id = create_and_issue_sample_asset(&alice);
 //
 //        let charlie_permissions = Permissions {
-//            asset: AssetPermissions::These(BTreeSet::from(asset_id)),
+//            asset: AssetPermissions::elems(vec![asset_id]),
 //            ..Default::default()
 //        };
 //        let charlie_as_secondary_key = SecondaryKey::new(bob.acc(), charlie_permissions);

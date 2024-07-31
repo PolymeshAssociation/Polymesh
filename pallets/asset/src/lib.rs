@@ -2206,7 +2206,7 @@ impl<T: Config> Module<T> {
 
     pub fn generate_asset_id(caller_did: IdentityId, update: bool) -> AssetID {
         let seed = Self::get_seed(update);
-        blake2_128(&(b"modlpy/pallet_asset", caller_did, seed).encode())
+        blake2_128(&(b"modlpy/pallet_asset", caller_did, seed).encode()).into()
     }
 
     fn get_seed(update: bool) -> [u8; 32] {
