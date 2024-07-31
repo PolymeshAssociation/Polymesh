@@ -13,16 +13,16 @@ use sp_std::convert::{From, TryFrom, TryInto};
 use sp_std::iter;
 
 use pallet_asset::{
-    AssetDocuments, AssetMetadataLocalKeyToName, AssetMetadataLocalNameToKey,
+    AssetDocuments, AssetIdentifiers, AssetMetadataLocalKeyToName, AssetMetadataLocalNameToKey,
     AssetMetadataLocalSpecs, AssetMetadataValues, AssetOwnershipRelation,
     AssetsExemptFromAffirmation, BalanceOf, Config as AssetConfig, CustomTypeIdSequence,
     CustomTypes, CustomTypesInverse, MandatoryMediators, PreApprovedAsset, SecurityToken,
     SecurityTokens, SecurityTokensOwnedByuser, TickerRegistrationConfig,
 };
-use pallet_statistics::AssetStats;
 use pallet_portfolio::{
     NextPortfolioNumber, PortfolioAssetBalances, PortfolioAssetCount, PortfolioLockedAssets,
 };
+use pallet_statistics::AssetStats;
 use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::traits::checkpoint::{
@@ -30,18 +30,19 @@ use polymesh_common_utilities::traits::checkpoint::{
 };
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{
-    AssetName, AssetType, CheckpointId, CustomAssetTypeId, FundingRoundName, NonFungibleType, AssetID
+    AssetID, AssetName, AssetType, CheckpointId, CustomAssetTypeId, FundingRoundName,
+    NonFungibleType,
 };
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataLockStatus, AssetMetadataName,
     AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
 };
 use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit, FixedOrVariableCalendarUnit};
-use polymesh_primitives::statistics::{Stat1stKey, Stat2ndKey};
 use polymesh_primitives::settlement::{
     InstructionId, Leg, SettlementType, VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::statistics::StatType;
+use polymesh_primitives::statistics::{Stat1stKey, Stat2ndKey};
 use polymesh_primitives::{
     AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
     DocumentId, Fund, FundDescription, IdentityId, Memo, Moment, NFTCollectionKeys, Permissions,
@@ -50,6 +51,10 @@ use polymesh_primitives::{
 };
 use sp_keyring::AccountKeyring;
 
+use crate::asset_pallet::setup::{
+    create_and_issue_sample_asset, create_and_issue_sample_asset_linked_to_ticker, create_asset,
+    ISSUE_AMOUNT,
+};
 use crate::ext_builder::{ExtBuilder, IdentityRecord};
 //use crate::nft::create_nft_collection;
 use crate::storage::{
@@ -80,23 +85,23 @@ type Settlement = pallet_settlement::Module<TestStorage>;
 
 const TOTAL_SUPPLY: u128 = 1_000_000_000;
 
-//pub fn now() -> u64 {
-//    Utc::now().timestamp() as _
-//}
-//
+pub(crate) fn now() -> u64 {
+    Utc::now().timestamp() as _
+}
+
 //pub fn set_time_to_now() {
 //    set_timestamp(now());
 //}
-//
-//fn slot_duration() -> u64 {
-//    pallet_babe::Pallet::<TestStorage>::slot_duration()
-//}
-//
-//pub(crate) fn set_timestamp(n: u64) {
-//    pallet_babe::CurrentSlot::<TestStorage>::set(Slot::from(n / slot_duration()));
-//    Timestamp::set_timestamp(n);
-//}
-//
+
+fn slot_duration() -> u64 {
+    pallet_babe::Pallet::<TestStorage>::slot_duration()
+}
+
+pub(crate) fn set_timestamp(n: u64) {
+    pallet_babe::CurrentSlot::<TestStorage>::set(Slot::from(n / slot_duration()));
+    Timestamp::set_timestamp(n);
+}
+
 //pub(crate) fn max_len() -> u32 {
 //    <TestStorage as pallet_base::Config>::MaxLen::get()
 //}
@@ -113,7 +118,10 @@ const TOTAL_SUPPLY: u128 = 1_000_000_000;
 //}
 
 pub(crate) fn statistics_investor_count(asset_id: AssetID) -> u128 {
-    AssetStats::get(Stat1stKey::investor_count(asset_id), Stat2ndKey::NoClaimStat)
+    AssetStats::get(
+        Stat1stKey::investor_count(asset_id),
+        Stat2ndKey::NoClaimStat,
+    )
 }
 
 /// Returns the [`SecurityToken`] associated to the given `asset_id`.
@@ -137,32 +145,6 @@ pub(crate) fn sample_security_token(token_owner_did: IdentityId) -> SecurityToke
 //    ticker
 //}
 
-//fn asset_with_ids(
-//    owner: User,
-//    ticker: Ticker,
-//    token: &SecurityToken,
-//    ids: Vec<AssetIdentifier>,
-//) -> DispatchResult {
-//    Asset::create_asset(
-//        owner.origin(),
-//        ticker.as_ref().into(),
-//        ticker,
-//        token.divisible,
-//        token.asset_type.clone(),
-//        ids,
-//        None,
-//    )?;
-//    enable_investor_count(ticker, owner);
-//    Asset::issue(
-//        owner.origin(),
-//        ticker,
-//        token.total_supply,
-//        PortfolioKind::Default,
-//    )?;
-//    assert_eq!(Asset::balance_of(&ticker, owner.did), token.total_supply);
-//    Ok(())
-//}
-//
 //pub(crate) fn basic_asset(owner: User, ticker: Ticker, token: &SecurityToken) -> DispatchResult {
 //    asset_with_ids(owner, ticker, token, vec![])
 //}
@@ -171,15 +153,6 @@ pub(crate) fn sample_security_token(token_owner_did: IdentityId) -> SecurityToke
 //    let r = a_token(owner.did);
 //    assert_ok!(basic_asset(owner, r.0, &r.1));
 //    r
-//}
-//
-//pub(crate) fn allow_all_transfers(ticker: Ticker, owner: User) {
-//    assert_ok!(ComplianceManager::add_compliance_requirement(
-//        owner.origin(),
-//        ticker,
-//        vec![],
-//        vec![]
-//    ));
 //}
 
 fn enable_investor_count(asset_id: AssetID, owner: User) {
@@ -190,24 +163,31 @@ fn enable_investor_count(asset_id: AssetID, owner: User) {
     ));
 }
 
-//pub(crate) fn transfer(ticker: Ticker, from: User, to: User, amount: u128) -> DispatchResult {
-//    let mut weight_meter = WeightMeter::max_limit_no_minimum();
-//    Asset::base_transfer(
-//        PortfolioId::default_portfolio(from.did),
-//        PortfolioId::default_portfolio(to.did),
-//        &ticker,
-//        amount,
-//        None,
-//        None,
-//        IdentityId::default(),
-//        &mut weight_meter,
-//    )
-//}
-//
-//fn cusip() -> AssetIdentifier {
-//    AssetIdentifier::cusip(*b"037833100").unwrap()
-//}
-//
+/// Transfers `amount` from `sender` default portfolio to `receiver` default portfolio.
+pub(crate) fn transfer(
+    asset_id: AssetID,
+    sender: User,
+    receiver: User,
+    amount: u128,
+) -> DispatchResult {
+    let mut weight_meter = WeightMeter::max_limit_no_minimum();
+    Asset::base_transfer(
+        PortfolioId::default_portfolio(sender.did),
+        PortfolioId::default_portfolio(receiver.did),
+        asset_id,
+        amount,
+        None,
+        None,
+        IdentityId::default(),
+        &mut weight_meter,
+    )
+}
+
+/// Returns [`AssetIdentifier::cusip`].
+fn cusip() -> AssetIdentifier {
+    AssetIdentifier::cusip(*b"037833100").unwrap()
+}
+
 //const ASSET_IDENTIFIERS: Vec<AssetIdentifier> = Vec::new();
 //const FUNDING_ROUND: Option<FundingRoundName> = None;
 //
@@ -323,81 +303,74 @@ fn issuers_can_create_and_rename_tokens() {
     });
 }
 
-//#[test]
-//fn valid_transfers_pass() {
-//    let eve = AccountKeyring::Eve.to_account_id();
-//    ExtBuilder::default()
-//        .cdd_providers(vec![eve.clone()])
-//        .build()
-//        .execute_with(|| {
-//            set_time_to_now();
-//
-//            let owner = User::new(AccountKeyring::Dave);
-//            let alice = User::new(AccountKeyring::Alice);
-//
-//            // Create asset.
-//            let (ticker, token) = a_token(owner.did);
-//            assert_ok!(basic_asset(owner, ticker, &token));
-//
-//            allow_all_transfers(ticker, owner);
-//
-//            // Should fail as sender matches receiver.
-//            let transfer = |from, to| transfer(ticker, from, to, 500);
-//            assert_noop!(
-//                transfer(owner, owner),
-//                PortfolioError::InvalidTransferSenderIdMatchesReceiverId
-//            );
-//            assert_ok!(transfer(owner, alice));
-//
-//            assert_eq!(Asset::balance_of(&ticker, owner.did), TOTAL_SUPPLY - 500);
-//            assert_eq!(Asset::balance_of(&ticker, alice.did), 500);
-//        })
-//}
-//
-//#[test]
-//fn issuers_can_redeem_tokens() {
-//    let alice = AccountKeyring::Alice.to_account_id();
-//    ExtBuilder::default()
-//        .cdd_providers(vec![alice.clone()])
-//        .build()
-//        .execute_with(|| {
-//            set_time_to_now();
-//
-//            let owner = User::new(AccountKeyring::Dave);
-//            let bob = User::new(AccountKeyring::Bob);
-//            let owner_portfolio_id = PortfolioId {
-//                did: owner.did,
-//                kind: PortfolioKind::Default,
-//            };
-//
-//            // Create asset.
-//            let (ticker, token) = a_token(owner.did);
-//            assert_ok!(basic_asset(owner, ticker, &token));
-//            assert_eq!(PortfolioAssetCount::get(owner_portfolio_id), 1);
-//
-//            assert_noop!(
-//                Asset::redeem(bob.origin(), ticker, token.total_supply),
-//                EAError::UnauthorizedAgent
-//            );
-//
-//            assert_noop!(
-//                Asset::redeem(owner.origin(), ticker, token.total_supply + 1),
-//                PortfolioError::InsufficientPortfolioBalance
-//            );
-//
-//            assert_ok!(Asset::redeem(owner.origin(), ticker, token.total_supply));
-//
-//            assert_eq!(PortfolioAssetCount::get(owner_portfolio_id), 0);
-//            assert_eq!(Asset::balance_of(&ticker, owner.did), 0);
-//            assert_eq!(get_security_token(&ticker).total_supply, 0);
-//
-//            assert_noop!(
-//                Asset::redeem(owner.origin(), ticker, 1),
-//                PortfolioError::InsufficientPortfolioBalance
-//            );
-//        })
-//}
-//
+#[test]
+fn valid_transfers_pass() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Dave);
+        let alice = User::new(AccountKeyring::Alice);
+
+        let asset_id = create_and_issue_sample_asset(&owner);
+
+        // Should fail as sender matches receiver.
+        let transfer = |from, to| transfer(asset_id, from, to, 500);
+
+        assert_noop!(
+            transfer(owner, owner),
+            PortfolioError::InvalidTransferSenderIdMatchesReceiverId
+        );
+        assert_ok!(transfer(owner, alice));
+
+        assert_eq!(Asset::balance_of(&asset_id, owner.did), ISSUE_AMOUNT - 500);
+        assert_eq!(Asset::balance_of(&asset_id, alice.did), 500);
+    })
+}
+
+#[test]
+fn issuers_can_redeem_tokens() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Dave);
+        let bob = User::new(AccountKeyring::Bob);
+        let owner_portfolio_id = PortfolioId {
+            did: owner.did,
+            kind: PortfolioKind::Default,
+        };
+
+        let asset_id = create_and_issue_sample_asset(&owner);
+        assert_eq!(PortfolioAssetCount::get(owner_portfolio_id), 1);
+
+        assert_noop!(
+            Asset::redeem(bob.origin(), asset_id, ISSUE_AMOUNT, PortfolioKind::Default),
+            EAError::UnauthorizedAgent
+        );
+
+        assert_noop!(
+            Asset::redeem(
+                owner.origin(),
+                asset_id,
+                ISSUE_AMOUNT + 1,
+                PortfolioKind::Default
+            ),
+            PortfolioError::InsufficientPortfolioBalance
+        );
+
+        assert_ok!(Asset::redeem(
+            owner.origin(),
+            asset_id,
+            ISSUE_AMOUNT,
+            PortfolioKind::Default
+        ));
+
+        assert_eq!(PortfolioAssetCount::get(owner_portfolio_id), 0);
+        assert_eq!(Asset::balance_of(&asset_id, owner.did), 0);
+        assert_eq!(get_security_token(&asset_id).total_supply, 0);
+
+        assert_noop!(
+            Asset::redeem(owner.origin(), asset_id, 1, PortfolioKind::Default),
+            PortfolioError::InsufficientPortfolioBalance
+        );
+    })
+}
+
 //fn default_transfer(from: User, to: User, ticker: Ticker, val: u128) {
 //    let mut weight_meter = WeightMeter::max_limit_no_minimum();
 //    assert_ok!(Asset::unverified_transfer_asset(
@@ -412,437 +385,364 @@ fn issuers_can_create_and_rename_tokens() {
 //    ));
 //}
 //
-//#[test]
-//fn checkpoints_fuzz_test() {
-//    println!("Starting");
-//    for _ in 0..10 {
-//        // When fuzzing in local, feel free to bump this number to add more fuzz runs.
-//        ExtBuilder::default().build().execute_with(|| {
-//            set_time_to_now();
-//
-//            let owner = User::new(AccountKeyring::Dave);
-//            let bob = User::new(AccountKeyring::Bob);
-//
-//            // Create asset.
-//            let (ticker, token) = a_token(owner.did);
-//            assert_ok!(basic_asset(owner, ticker, &token));
-//
-//            allow_all_transfers(ticker, owner);
-//
-//            let mut owner_balance: [u128; 100] = [TOTAL_SUPPLY; 100];
-//            let mut bob_balance: [u128; 100] = [0; 100];
-//            let mut rng = rand::thread_rng();
-//            for j in 1..100 {
-//                let transfers = rng.gen_range(0, 10);
-//                owner_balance[j] = owner_balance[j - 1];
-//                bob_balance[j] = bob_balance[j - 1];
-//                for _k in 0..transfers {
-//                    if j == 1 {
-//                        owner_balance[0] -= 1;
-//                        bob_balance[0] += 1;
-//                    }
-//                    owner_balance[j] -= 1;
-//                    bob_balance[j] += 1;
-//                    default_transfer(owner, bob, ticker, 1);
-//                }
-//                assert_ok!(Checkpoint::create_checkpoint(owner.origin(), ticker));
-//                let bal_at = |id, did| Asset::get_balance_at(ticker, did, CheckpointId(id));
-//                let check = |id, idx| {
-//                    assert_eq!(bal_at(id, owner.did), owner_balance[idx]);
-//                    assert_eq!(bal_at(id, bob.did), bob_balance[idx]);
-//                };
-//                let x: u64 = u64::try_from(j).unwrap();
-//                check(0, j);
-//                check(0, j);
-//                check(1, 1);
-//                check(x - 1, j - 1);
-//                check(x, j);
-//                check(x + 1, j);
-//                check(1000, j);
-//            }
-//        });
-//    }
-//}
-//
-//#[test]
-//fn controller_transfer() {
-//    let eve = AccountKeyring::Eve.to_account_id();
-//    ExtBuilder::default()
-//        .cdd_providers(vec![eve.clone()])
-//        .build()
-//        .execute_with(|| {
-//            set_time_to_now();
-//
-//            let owner = User::new(AccountKeyring::Dave);
-//            let alice = User::new(AccountKeyring::Alice);
-//
-//            // Create asset.
-//            let (ticker, token) = a_token(owner.did);
-//            assert_ok!(basic_asset(owner, ticker, &token));
-//
-//            allow_all_transfers(ticker, owner);
-//
-//            // Should fail as sender matches receiver.
-//            assert_noop!(
-//                transfer(ticker, owner, owner, 500),
-//                PortfolioError::InvalidTransferSenderIdMatchesReceiverId
-//            );
-//
-//            assert_ok!(transfer(ticker, owner, alice, 500));
-//
-//            let balance_of = |did| Asset::balance_of(&ticker, did);
-//            let balance_alice = balance_of(alice.did);
-//            let balance_owner = balance_of(owner.did);
-//            assert_eq!(balance_owner, TOTAL_SUPPLY - 500);
-//            assert_eq!(balance_alice, 500);
-//
-//            assert_ok!(Asset::controller_transfer(
-//                owner.origin(),
-//                ticker,
-//                100,
-//                PortfolioId::default_portfolio(alice.did),
-//            ));
-//            assert_eq!(balance_of(owner.did), balance_owner + 100);
-//            assert_eq!(balance_of(alice.did), balance_alice - 100);
-//        })
-//}
-//
-//#[test]
-//fn transfer_token_ownership() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        set_time_to_now();
-//
-//        let owner = User::new(AccountKeyring::Dave);
-//        let alice = User::new(AccountKeyring::Alice);
-//        let bob = User::new(AccountKeyring::Bob);
-//
-//        // Create asset.
-//        let (ticker, token) = a_token(owner.did);
-//        assert_ok!(basic_asset(owner, ticker, &token));
-//
-//        let auth_id_alice = Identity::add_auth(
-//            owner.did,
-//            Signatory::from(alice.did),
-//            AuthorizationData::TransferAssetOwnership(ticker),
-//            None,
-//        )
-//        .unwrap();
-//
-//        let auth_id_bob = Identity::add_auth(
-//            owner.did,
-//            Signatory::from(bob.did),
-//            AuthorizationData::TransferAssetOwnership(ticker),
-//            None,
-//        )
-//        .unwrap();
-//
-//        assert_eq!(get_security_token(&ticker).owner_did, owner.did);
-//
-//        assert_noop!(
-//            Asset::accept_asset_ownership_transfer(alice.origin(), auth_id_alice + 1),
-//            "Authorization does not exist"
-//        );
-//
-//        assert_eq!(
-//            Asset::asset_ownership_relation(owner.did, ticker),
-//            AssetOwnershipRelation::AssetOwned
-//        );
-//
-//        assert_ok!(Asset::accept_asset_ownership_transfer(
-//            alice.origin(),
-//            auth_id_alice
-//        ));
-//        assert_eq!(get_security_token(&ticker).owner_did, alice.did);
-//        assert_eq!(
-//            Asset::asset_ownership_relation(owner.did, ticker),
-//            AssetOwnershipRelation::NotOwned
-//        );
-//        assert_eq!(
-//            Asset::asset_ownership_relation(alice.did, ticker),
-//            AssetOwnershipRelation::AssetOwned
-//        );
-//
-//        assert_ok!(ExternalAgents::unchecked_add_agent(
-//            ticker,
-//            alice.did,
-//            AgentGroup::Full
-//        ));
-//        assert_ok!(ExternalAgents::abdicate(owner.origin(), ticker));
-//        assert_eq!(
-//            Asset::accept_asset_ownership_transfer(bob.origin(), auth_id_bob),
-//            Err(EAError::UnauthorizedAgent.into())
-//        );
-//
-//        let mut auth_id = Identity::add_auth(
-//            alice.did,
-//            Signatory::from(bob.did),
-//            AuthorizationData::TransferAssetOwnership(ticker),
-//            Some(now() - 100),
-//        )
-//        .unwrap();
-//
-//        assert_noop!(
-//            Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
-//            "Authorization expired"
-//        );
-//
-//        // Try accepting the wrong authorization type.
-//        auth_id = Identity::add_auth(
-//            alice.did,
-//            Signatory::from(bob.did),
-//            AuthorizationData::RotatePrimaryKey,
-//            Some(now() + 100),
-//        )
-//        .unwrap();
-//
-//        assert_eq!(
-//            Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
-//            Err(AuthorizationError::BadType.into())
-//        );
-//
-//        auth_id = Identity::add_auth(
-//            alice.did,
-//            Signatory::from(bob.did),
-//            AuthorizationData::TransferAssetOwnership(Ticker::from_slice_truncated(&[0x50][..])),
-//            Some(now() + 100),
-//        )
-//        .unwrap();
-//
-//        assert_eq!(
-//            Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
-//            Err(AssetError::NoSuchAsset.into())
-//        );
-//
-//        auth_id = Identity::add_auth(
-//            alice.did,
-//            Signatory::from(bob.did),
-//            AuthorizationData::TransferAssetOwnership(ticker),
-//            Some(now() + 100),
-//        )
-//        .unwrap();
-//
-//        assert_ok!(Asset::accept_asset_ownership_transfer(
-//            bob.origin(),
-//            auth_id
-//        ));
-//        assert_eq!(get_security_token(&ticker).owner_did, bob.did);
-//    })
-//}
-//
-//#[test]
-//fn update_identifiers() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let owner = User::new(AccountKeyring::Dave);
-//
-//        // Expected token entry
-//        let (ticker, token) = a_token(owner.did);
-//        assert!(!has_ticker_record(ticker));
-//
-//        let create = |idents| asset_with_ids(owner, ticker, &token, idents);
-//        let update = |idents| Asset::update_identifiers(owner.origin(), ticker, idents);
-//
-//        // Create: A correct entry was added.
-//        assert_ok!(create(vec![cusip()]));
-//        assert_eq!(get_security_token(&ticker), token);
-//        assert_eq!(Asset::identifiers(ticker), vec![cusip()]);
-//
-//        // Create: A bad entry was rejected.
-//        assert_noop!(
-//            update(vec![cusip(), AssetIdentifier::CUSIP(*b"aaaa_aaaa")]),
-//            AssetError::InvalidAssetIdentifier
-//        );
-//
-//        // Update: A bad entry was rejected.
-//        let mut updated_identifiers = vec![
-//            AssetIdentifier::cusip(*b"17275R102").unwrap(),
-//            AssetIdentifier::isin(*b"US0378331005").unwrap(),
-//            AssetIdentifier::CUSIP(*b"aaaa_aaaa"),
-//        ];
-//        assert_noop!(
-//            update(updated_identifiers.clone()),
-//            AssetError::InvalidAssetIdentifier
-//        );
-//
-//        // Update: A correct entry was added.
-//        updated_identifiers.pop().unwrap();
-//        assert_ok!(update(updated_identifiers.clone()));
-//        assert_eq!(Asset::identifiers(ticker), updated_identifiers);
-//    });
-//}
-//
-//#[test]
-//fn adding_removing_documents() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let owner = User::new(AccountKeyring::Dave);
-//
-//        // Create asset.
-//        let (ticker, token) = a_token(owner.did);
-//        assert!(!has_ticker_record(ticker));
-//        assert_ok!(basic_asset(owner, ticker, &token));
-//
-//        let documents = vec![
-//            Document {
-//                name: b"A".into(),
-//                uri: b"www.a.com".into(),
-//                content_hash: [1u8; 64][..].try_into().unwrap(),
-//                doc_type: Some(b"foo".into()),
-//                filing_date: Some(42),
-//            },
-//            Document {
-//                name: b"B".into(),
-//                uri: b"www.b.com".into(),
-//                content_hash: [2u8; 64][..].try_into().unwrap(),
-//                doc_type: None,
-//                filing_date: None,
-//            },
-//        ];
-//
-//        assert_ok!(Asset::add_documents(
-//            owner.origin(),
-//            documents.clone(),
-//            ticker
-//        ));
-//
-//        for (idx, doc) in documents.into_iter().enumerate() {
-//            assert_eq!(
-//                Some(doc),
-//                Asset::asset_documents(ticker, DocumentId(idx as u32))
-//            );
-//        }
-//
-//        assert_ok!(Asset::remove_documents(
-//            owner.origin(),
-//            (0..=1).map(DocumentId).collect(),
-//            ticker
-//        ));
-//
-//        assert_eq!(AssetDocuments::iter_prefix_values(ticker).count(), 0);
-//    });
-//}
-//
-//#[test]
-//fn freeze_unfreeze_asset() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        set_time_to_now();
-//
-//        let owner = User::new(AccountKeyring::Alice);
-//        let bob = User::new(AccountKeyring::Bob);
-//
-//        let (ticker, token) = a_token(owner.did);
-//        assert_ok!(basic_asset(owner, ticker, &token));
-//
-//        allow_all_transfers(ticker, owner);
-//
-//        assert_noop!(
-//            Asset::freeze(bob.origin(), ticker),
-//            EAError::UnauthorizedAgent
-//        );
-//        assert_noop!(
-//            Asset::unfreeze(owner.origin(), ticker),
-//            AssetError::NotFrozen
-//        );
-//        assert_ok!(Asset::freeze(owner.origin(), ticker));
-//        assert_noop!(
-//            Asset::freeze(owner.origin(), ticker),
-//            AssetError::AlreadyFrozen
-//        );
-//
-//        // Attempt to transfer token ownership.
-//        let auth_id = Identity::add_auth(
-//            owner.did,
-//            Signatory::from(bob.did),
-//            AuthorizationData::TransferAssetOwnership(ticker),
-//            None,
-//        )
-//        .unwrap();
-//        assert_ok!(Asset::accept_asset_ownership_transfer(
-//            bob.origin(),
-//            auth_id
-//        ));
-//
-//        // Not enough; bob needs to become an agent.
-//        assert_noop!(
-//            Asset::unfreeze(bob.origin(), ticker),
-//            EAError::UnauthorizedAgent
-//        );
-//
-//        assert_ok!(ExternalAgents::unchecked_add_agent(
-//            ticker,
-//            bob.did,
-//            AgentGroup::Full
-//        ));
-//        assert_ok!(Asset::unfreeze(bob.origin(), ticker));
-//        assert_noop!(Asset::unfreeze(bob.origin(), ticker), AssetError::NotFrozen);
-//    });
-//}
-//
-//#[test]
-//fn frozen_secondary_keys_create_asset() {
-//    ExtBuilder::default()
-//        .build()
-//        .execute_with(frozen_secondary_keys_create_asset_we);
-//}
-//
-//fn frozen_secondary_keys_create_asset_we() {
-//    // 0. Create identities.
-//    let alice = User::new(AccountKeyring::Alice);
-//    let bob = User::new_with(alice.did, AccountKeyring::Bob);
-//    let _charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
-//
-//    // 1. Add Bob as signatory to Alice ID.
-//    add_secondary_key(alice.did, bob.acc());
-//
-//    assert_ok!(Balances::transfer_with_memo(
-//        alice.origin(),
-//        bob.acc().into(),
-//        1_000,
-//        Some(Memo::from("Bob funding"))
-//    ));
-//
-//    // 2. Bob can create token
-//    let (ticker_1, token_1) = a_token(alice.did);
-//    assert_ok!(Asset::create_asset(
-//        bob.origin(),
-//        ticker_1.as_ref().into(),
-//        ticker_1,
-//        true,
-//        token_1.asset_type.clone(),
-//        vec![],
-//        None,
-//    ));
-//    assert_ok!(Asset::issue(
-//        bob.origin(),
-//        ticker_1,
-//        token_1.total_supply,
-//        PortfolioKind::Default
-//    ));
-//    assert_eq!(get_security_token(&ticker_1), token_1);
-//
-//    // 3. Alice freezes her secondary keys.
-//    assert_ok!(Identity::freeze_secondary_keys(alice.origin()));
-//
-//    // 4. Bob cannot create a token.
-//    let (_ticker_2, _token_2) = a_token(alice.did);
-//    // commenting this because `default_identity` feature is not allowing to access None identity.
-//    // let create_token_result = Asset::create_asset(
-//    //     Origin::signed(bob),
-//    //     token_2.name.clone(),
-//    //     ticker_2,
-//    //     token_2.total_supply,
-//    //     true,
-//    //     token_2.asset_type.clone(),
-//    //     vec![],
-//    //     None,
-//    // );
-//    // assert_noop!(
-//    //     create_token_result,
-//    //     DispatchError::Other("Current identity is none and key is not linked to any identity")
-//    // );
-//}
-//
-//fn ticker(name: &str) -> Ticker {
-//    Ticker::from_slice_truncated(name.as_bytes())
-//}
+#[test]
+fn checkpoints_fuzz_test() {
+    println!("Starting");
+    for _ in 0..10 {
+        // When fuzzing in local, feel free to bump this number to add more fuzz runs.
+        ExtBuilder::default().build().execute_with(|| {
+            set_timestamp(now());
+            let owner = User::new(AccountKeyring::Dave);
+            let bob = User::new(AccountKeyring::Bob);
+
+            let asset_id = create_and_issue_sample_asset(&owner);
+
+            let mut owner_balance: [u128; 100] = [ISSUE_AMOUNT; 100];
+            let mut bob_balance: [u128; 100] = [0; 100];
+            let mut rng = rand::thread_rng();
+            for j in 1..100 {
+                let transfers = rng.gen_range(0, 10);
+                owner_balance[j] = owner_balance[j - 1];
+                bob_balance[j] = bob_balance[j - 1];
+                for _k in 0..transfers {
+                    if j == 1 {
+                        owner_balance[0] -= 1;
+                        bob_balance[0] += 1;
+                    }
+                    owner_balance[j] -= 1;
+                    bob_balance[j] += 1;
+                    transfer(asset_id, owner, bob, 1).unwrap();
+                }
+                assert_ok!(Checkpoint::create_checkpoint(owner.origin(), asset_id));
+                let bal_at = |id, did| Asset::get_balance_at(asset_id, did, CheckpointId(id));
+                let check = |id, idx| {
+                    assert_eq!(bal_at(id, owner.did), owner_balance[idx]);
+                    assert_eq!(bal_at(id, bob.did), bob_balance[idx]);
+                };
+                let x: u64 = u64::try_from(j).unwrap();
+                check(0, j);
+                check(0, j);
+                check(1, 1);
+                check(x - 1, j - 1);
+                check(x, j);
+                check(x + 1, j);
+                check(1000, j);
+            }
+        });
+    }
+}
+
+#[test]
+fn controller_transfer() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Dave);
+        let alice = User::new(AccountKeyring::Alice);
+
+        let asset_id = create_and_issue_sample_asset(&owner);
+
+        // Should fail as sender matches receiver.
+        assert_noop!(
+            transfer(asset_id, owner, owner, 500),
+            PortfolioError::InvalidTransferSenderIdMatchesReceiverId
+        );
+
+        assert_ok!(transfer(asset_id, owner, alice, 500));
+
+        let balance_of = |did| Asset::balance_of(&asset_id, did);
+        let balance_alice = balance_of(alice.did);
+        let balance_owner = balance_of(owner.did);
+        assert_eq!(balance_owner, ISSUE_AMOUNT - 500);
+        assert_eq!(balance_alice, 500);
+
+        assert_ok!(Asset::controller_transfer(
+            owner.origin(),
+            asset_id,
+            100,
+            PortfolioId::default_portfolio(alice.did),
+        ));
+        assert_eq!(balance_of(owner.did), balance_owner + 100);
+        assert_eq!(balance_of(alice.did), balance_alice - 100);
+    })
+}
+
+#[test]
+fn transfer_token_ownership() {
+    ExtBuilder::default().build().execute_with(|| {
+        set_timestamp(now());
+
+        let owner = User::new(AccountKeyring::Dave);
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let ticker = Ticker::from_slice_truncated(b"MYTICKER");
+
+        let asset_id = create_and_issue_sample_asset_linked_to_ticker(&owner, ticker);
+
+        let auth_id_alice = Identity::add_auth(
+            owner.did,
+            Signatory::from(alice.did),
+            AuthorizationData::TransferAssetOwnership(asset_id),
+            None,
+        )
+        .unwrap();
+
+        let auth_id_bob = Identity::add_auth(
+            owner.did,
+            Signatory::from(bob.did),
+            AuthorizationData::TransferAssetOwnership(asset_id),
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(get_security_token(&asset_id).owner_did, owner.did);
+
+        assert_noop!(
+            Asset::accept_asset_ownership_transfer(alice.origin(), auth_id_alice + 1),
+            "Authorization does not exist"
+        );
+
+        assert_eq!(SecurityTokensOwnedByuser::get(owner.did, asset_id), true);
+
+        assert_ok!(Asset::accept_asset_ownership_transfer(
+            alice.origin(),
+            auth_id_alice
+        ));
+        assert_eq!(get_security_token(&asset_id).owner_did, alice.did);
+        assert_eq!(SecurityTokensOwnedByuser::get(owner.did, asset_id), false);
+        assert_eq!(SecurityTokensOwnedByuser::get(alice.did, asset_id), true);
+
+        assert_ok!(ExternalAgents::unchecked_add_agent(
+            asset_id,
+            alice.did,
+            AgentGroup::Full
+        ));
+        assert_ok!(ExternalAgents::abdicate(owner.origin(), asset_id));
+        assert_eq!(
+            Asset::accept_asset_ownership_transfer(bob.origin(), auth_id_bob),
+            Err(EAError::UnauthorizedAgent.into())
+        );
+
+        let mut auth_id = Identity::add_auth(
+            alice.did,
+            Signatory::from(bob.did),
+            AuthorizationData::TransferAssetOwnership(asset_id),
+            Some(now() - 100),
+        )
+        .unwrap();
+
+        assert_noop!(
+            Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
+            "Authorization expired"
+        );
+
+        // Try accepting the wrong authorization type.
+        auth_id = Identity::add_auth(
+            alice.did,
+            Signatory::from(bob.did),
+            AuthorizationData::RotatePrimaryKey,
+            Some(now() + 100),
+        )
+        .unwrap();
+
+        assert_eq!(
+            Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
+            Err(AuthorizationError::BadType.into())
+        );
+
+        auth_id = Identity::add_auth(
+            alice.did,
+            Signatory::from(bob.did),
+            AuthorizationData::TransferAssetOwnership([0; 16]),
+            Some(now() + 100),
+        )
+        .unwrap();
+
+        assert_eq!(
+            Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
+            Err(AssetError::NoSuchAsset.into())
+        );
+
+        auth_id = Identity::add_auth(
+            alice.did,
+            Signatory::from(bob.did),
+            AuthorizationData::TransferAssetOwnership(asset_id),
+            Some(now() + 100),
+        )
+        .unwrap();
+
+        assert_ok!(Asset::accept_asset_ownership_transfer(
+            bob.origin(),
+            auth_id
+        ));
+        assert_eq!(get_security_token(&asset_id).owner_did, bob.did);
+    })
+}
+
+#[test]
+fn update_identifiers() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Dave);
+
+        // Create: A correct entry was added.
+        let asset_ident = Some(vec![cusip()]);
+        let asset_id = create_asset(&owner, None, None, None, asset_ident, None, false, None);
+        assert_eq!(AssetIdentifiers::get(asset_id), vec![cusip()]);
+
+        let update = |idents| Asset::update_identifiers(owner.origin(), asset_id, idents);
+
+        // Create: A bad entry was rejected.
+        assert_noop!(
+            update(vec![cusip(), AssetIdentifier::CUSIP(*b"aaaa_aaaa")]),
+            AssetError::InvalidAssetIdentifier
+        );
+
+        // Update: A bad entry was rejected.
+        let mut updated_identifiers = vec![
+            AssetIdentifier::cusip(*b"17275R102").unwrap(),
+            AssetIdentifier::isin(*b"US0378331005").unwrap(),
+            AssetIdentifier::CUSIP(*b"aaaa_aaaa"),
+        ];
+        assert_noop!(
+            update(updated_identifiers.clone()),
+            AssetError::InvalidAssetIdentifier
+        );
+
+        // Update: A correct entry was added.
+        updated_identifiers.pop().unwrap();
+        assert_ok!(update(updated_identifiers.clone()));
+        assert_eq!(AssetIdentifiers::get(asset_id), updated_identifiers);
+    });
+}
+
+#[test]
+fn adding_removing_documents() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Dave);
+
+        let asset_id = create_and_issue_sample_asset(&owner);
+
+        let documents = vec![
+            Document {
+                name: b"A".into(),
+                uri: b"www.a.com".into(),
+                content_hash: [1u8; 64][..].try_into().unwrap(),
+                doc_type: Some(b"foo".into()),
+                filing_date: Some(42),
+            },
+            Document {
+                name: b"B".into(),
+                uri: b"www.b.com".into(),
+                content_hash: [2u8; 64][..].try_into().unwrap(),
+                doc_type: None,
+                filing_date: None,
+            },
+        ];
+
+        assert_ok!(Asset::add_documents(
+            owner.origin(),
+            documents.clone(),
+            asset_id
+        ));
+
+        for (idx, doc) in documents.into_iter().enumerate() {
+            assert_eq!(
+                Some(doc),
+                Asset::asset_documents(asset_id, DocumentId(idx as u32))
+            );
+        }
+
+        assert_ok!(Asset::remove_documents(
+            owner.origin(),
+            (0..=1).map(DocumentId).collect(),
+            asset_id
+        ));
+
+        assert_eq!(AssetDocuments::iter_prefix_values(asset_id).count(), 0);
+    });
+}
+
+#[test]
+fn freeze_unfreeze_asset() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+
+        let asset_id = create_and_issue_sample_asset(&owner);
+
+        assert_noop!(
+            Asset::freeze(bob.origin(), asset_id),
+            EAError::UnauthorizedAgent
+        );
+        assert_noop!(
+            Asset::unfreeze(owner.origin(), asset_id),
+            AssetError::NotFrozen
+        );
+        assert_ok!(Asset::freeze(owner.origin(), asset_id));
+        assert_noop!(
+            Asset::freeze(owner.origin(), asset_id),
+            AssetError::AlreadyFrozen
+        );
+
+        // Attempt to transfer token ownership.
+        let auth_id = Identity::add_auth(
+            owner.did,
+            Signatory::from(bob.did),
+            AuthorizationData::TransferAssetOwnership(asset_id),
+            None,
+        )
+        .unwrap();
+        assert_ok!(Asset::accept_asset_ownership_transfer(
+            bob.origin(),
+            auth_id
+        ));
+
+        // Not enough; bob needs to become an agent.
+        assert_noop!(
+            Asset::unfreeze(bob.origin(), asset_id),
+            EAError::UnauthorizedAgent
+        );
+
+        assert_ok!(ExternalAgents::unchecked_add_agent(
+            asset_id,
+            bob.did,
+            AgentGroup::Full
+        ));
+        assert_ok!(Asset::unfreeze(bob.origin(), asset_id));
+        assert_noop!(
+            Asset::unfreeze(bob.origin(), asset_id),
+            AssetError::NotFrozen
+        );
+    });
+}
+
+#[test]
+fn frozen_secondary_keys_create_asset_we() {
+    ExtBuilder::default().build().execute_with(|| {
+        // 0. Create identities.
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new_with(alice.did, AccountKeyring::Bob);
+        let _charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
+
+        // 1. Add Bob as signatory to Alice ID.
+        add_secondary_key(alice.did, bob.acc());
+
+        assert_ok!(Balances::transfer_with_memo(
+            alice.origin(),
+            bob.acc().into(),
+            1_000,
+            Some(Memo::from("Bob funding"))
+        ));
+
+        // 2. Bob can create token
+        let asset_id = create_and_issue_sample_asset(&alice);
+        assert_eq!(
+            get_security_token(&asset_id),
+            sample_security_token(alice.did)
+        );
+
+        // 3. Alice freezes her secondary keys.
+        assert_ok!(Identity::freeze_secondary_keys(alice.origin()));
+    });
+}
 //
 //fn default_reg_config() -> TickerRegistrationConfig<u64> {
 //    TickerRegistrationConfig {
@@ -875,391 +775,296 @@ fn issuers_can_create_and_rename_tokens() {
 //    with_asset_genesis(genesis).build().execute_with(|| {});
 //}
 //
-//// Test for the validating the code for unique investors and aggregation of balances.
-//#[ignore]
-//#[test]
-//fn check_unique_investor_count() {
-//    let cdd_provider = AccountKeyring::Charlie.to_account_id();
-//    ExtBuilder::default()
-//        .cdd_providers(vec![cdd_provider.clone()])
-//        .build()
-//        .execute_with(|| {
-//            let user = |key: AccountKeyring| {
-//                let _ = make_account_without_cdd(key.to_account_id()).unwrap();
-//                User::existing(key)
-//            };
-//            let alice = user(AccountKeyring::Alice);
-//            // Bob entity as investor in given ticker.
-//            let bob_1 = user(AccountKeyring::Bob);
-//            // Eve also comes under the `Bob` entity.
-//            let bob_2 = user(AccountKeyring::Eve);
 //
-//            let total_supply = 1_000_000_000;
-//
-//            let (ticker, mut token) = a_token(alice.did);
-//            token.total_supply = total_supply;
-//            assert_ok!(basic_asset(alice, ticker, &token));
-//
-//            // Verify the asset creation
-//            assert_eq!(get_security_token(&ticker), token);
-//
-//            // Verify the balance of the alice and the investor count for the asset.
-//            assert_eq!(Asset::balance_of(&ticker, alice.did), total_supply); // It should be equal to total supply.
-//            assert_eq!(Statistics::investor_count(ticker), 1);
-//
-//            // 1. Transfer some funds to bob_1.did.
-//
-//            // 1a). Add empty compliance requirement.
-//            allow_all_transfers(ticker, alice);
-//
-//            // 1b). Should fail when transferring funds to bob_1.did because it doesn't posses scope_claim.
-//            // portfolio Id -
-//            assert_noop!(
-//                transfer(ticker, alice, bob_1, 1000),
-//                AssetError::InvalidTransfer
-//            );
-//
-//            // 1d). Validate the storage changes.
-//            assert_eq!(Asset::balance_of(&ticker, bob_1.did), 0);
-//
-//            assert_eq!(Asset::balance_of(&ticker, &alice.did), total_supply);
-//
-//            // 1e). successfully transfer funds.
-//            assert_ok!(transfer(ticker, alice, bob_1, 1000));
-//
-//            // validate the storage changes for Bob.
-//            assert_eq!(Asset::balance_of(&ticker, &bob_1.did), 1000);
-//            assert_eq!(Statistics::investor_count(ticker), 2);
-//
-//            // validate the storage changes for Alice.
-//            assert_eq!(Asset::balance_of(&ticker, &alice.did), total_supply - 1000);
-//            assert_eq!(Asset::balance_of(&ticker, &alice.did), total_supply - 1000);
-//            assert_eq!(Statistics::investor_count(ticker), 2);
-//
-//            // 1f). successfully transfer funds.
-//            assert_ok!(transfer(ticker, alice, bob_2, 1000));
-//
-//            // validate the storage changes for Bob.
-//            assert_eq!(Asset::balance_of(&ticker, &bob_2.did), 1000);
-//            assert_eq!(Statistics::investor_count(ticker), 2);
-//        });
-//}
-//
-//#[test]
-//fn next_checkpoint_is_updated() {
-//    ExtBuilder::default()
-//        .build()
-//        .execute_with(next_checkpoint_is_updated_we);
-//}
-//
-//fn next_checkpoint_is_updated_we() {
-//    // 14 November 2023, 22:13 UTC (millisecs)
-//    let start: u64 = 1_700_000_000_000;
-//    // A period of 42 hours.
-//    let period = CalendarPeriod {
-//        unit: CalendarUnit::Hour,
-//        amount: 42,
-//    };
-//    // The increment in seconds.
-//    let period_secs = match period.to_recurring().unwrap().as_fixed_or_variable() {
-//        FixedOrVariableCalendarUnit::Fixed(secs) => secs,
-//        _ => panic!("period should be fixed"),
-//    };
-//    let period_ms = period_secs * 1000;
-//    set_timestamp(start);
-//    assert_eq!(start, <TestStorage as AssetConfig>::UnixTime::now());
-//
-//    let owner = User::new(AccountKeyring::Alice);
-//    let bob = User::new(AccountKeyring::Bob);
-//
-//    let (ticker, token) = a_token(owner.did);
-//    assert_ok!(basic_asset(owner, ticker, &token));
-//
-//    assert_eq!(Checkpoint::cached_next_checkpoints(ticker), None);
-//    let schedule = ScheduleCheckpoints::from_period(start, period, 5);
-//    assert_ok!(Checkpoint::set_schedules_max_complexity(
-//        root(),
-//        period.complexity()
-//    ));
-//    assert_ok!(Checkpoint::create_schedule(
-//        owner.origin(),
-//        ticker,
-//        schedule
-//    ));
-//    assert_ok!(Checkpoint::advance_update_balances(&ticker, &[]));
-//    let id = CheckpointId(1);
-//    assert_eq!(id, Checkpoint::checkpoint_id_sequence(&ticker));
-//    assert_eq!(start, Checkpoint::timestamps(ticker, id));
-//    let total_supply = token.total_supply;
-//    assert_eq!(total_supply, Checkpoint::total_supply_at(ticker, id));
-//    assert_eq!(total_supply, Asset::get_balance_at(ticker, owner.did, id));
-//    assert_eq!(0, Asset::get_balance_at(ticker, bob.did, id));
-//    let checkpoint2 = start + period_ms;
-//    assert_eq!(vec![Some(checkpoint2)], next_checkpoints(ticker));
-//    assert_eq!(vec![checkpoint2], checkpoint_ats(ticker));
-//
-//    let transfer = |at| {
-//        set_timestamp(at);
-//        default_transfer(owner, bob, ticker, total_supply / 2);
-//    };
-//
-//    // Make a transaction before the next timestamp.
-//    transfer(checkpoint2 - 1000);
-//    // Make another transaction at the checkpoint.
-//    // The updates are applied after the checkpoint is recorded.
-//    // After this transfer Alice's balance is 0.
-//    transfer(checkpoint2);
-//    // The balance after checkpoint 2.
-//    assert_eq!(0, Asset::balance_of(&ticker, owner.did));
-//    // Balances at checkpoint 2.
-//    let id = CheckpointId(2);
-//    assert_eq!(vec![start + 2 * period_ms], checkpoint_ats(ticker));
-//    assert_eq!(id, Checkpoint::checkpoint_id_sequence(&ticker));
-//    assert_eq!(start + period_ms, Checkpoint::timestamps(ticker, id));
-//    assert_eq!(
-//        total_supply / 2,
-//        Asset::get_balance_at(ticker, owner.did, id)
-//    );
-//    assert_eq!(total_supply / 2, Asset::get_balance_at(ticker, bob.did, id));
-//}
-//
-//#[test]
-//fn non_recurring_schedule_works() {
-//    ExtBuilder::default()
-//        .build()
-//        .execute_with(non_recurring_schedule_works_we);
-//}
-//
-//fn non_recurring_schedule_works_we() {
-//    // 14 November 2023, 22:13 UTC (millisecs)
-//    let start: u64 = 1_700_000_000_000;
-//    // Non-recuring schedule.
-//    let period = CalendarPeriod::default();
-//    set_timestamp(start);
-//    assert_eq!(start, <TestStorage as AssetConfig>::UnixTime::now());
-//
-//    let owner = User::new(AccountKeyring::Alice);
-//    let bob = User::new(AccountKeyring::Bob);
-//
-//    let (ticker, token) = a_token(owner.did);
-//    assert_ok!(basic_asset(owner, ticker, &token));
-//
-//    assert_eq!(Checkpoint::cached_next_checkpoints(ticker), None);
-//    let schedule = ScheduleCheckpoints::from_period(start, period, 10);
-//    assert_ok!(Checkpoint::set_schedules_max_complexity(
-//        root(),
-//        period.complexity()
-//    ));
-//    assert_ok!(Checkpoint::create_schedule(
-//        owner.origin(),
-//        ticker,
-//        schedule
-//    ));
-//    assert_ok!(Checkpoint::advance_update_balances(&ticker, &[]));
-//    let id = CheckpointId(1);
-//    assert_eq!(id, Checkpoint::checkpoint_id_sequence(&ticker));
-//    assert_eq!(start, Checkpoint::timestamps(ticker, id));
-//    let total_supply = token.total_supply;
-//    assert_eq!(total_supply, Checkpoint::total_supply_at(ticker, id));
-//    assert_eq!(total_supply, Asset::get_balance_at(ticker, owner.did, id));
-//    assert_eq!(0, Asset::get_balance_at(ticker, bob.did, id));
-//    // The schedule will not recur.
-//    assert_eq!(Checkpoint::cached_next_checkpoints(ticker), None);
-//}
-//
-//fn checkpoint_ats(ticker: Ticker) -> Vec<u64> {
-//    let cached = Checkpoint::cached_next_checkpoints(ticker).unwrap_or_default();
-//    cached.schedules.values().copied().collect()
-//}
-//
-//fn next_checkpoints(ticker: Ticker) -> Vec<Option<u64>> {
-//    let ScheduleId(id) = Checkpoint::schedule_id_sequence(ticker);
-//    (1..=id)
-//        .into_iter()
-//        .map(|id| Checkpoint::scheduled_checkpoints(ticker, ScheduleId(id)).and_then(|s| s.next()))
-//        .collect()
-//}
-//
-//#[test]
-//fn schedule_remaining_works() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let start = 1_000;
-//        set_timestamp(start);
-//
-//        let owner = User::new(AccountKeyring::Alice);
-//        let bob = User::new(AccountKeyring::Bob);
-//
-//        // Create the asset.
-//        let (ticker, token) = a_token(owner.did);
-//        assert_ok!(basic_asset(owner, ticker, &token));
-//
-//        let transfer = |at: Moment| {
-//            set_timestamp(at * 1_000);
-//            default_transfer(owner, bob, ticker, 1);
-//        };
-//        let collect_ts = |sh_id| {
-//            Checkpoint::schedule_points(ticker, sh_id)
-//                .into_iter()
-//                .map(|cp| Checkpoint::timestamps(ticker, cp))
-//                .collect::<Vec<_>>()
-//        };
-//
-//        // No schedules yet.
-//        assert_eq!(Checkpoint::cached_next_checkpoints(ticker), None);
-//
-//        // For simplicity, we use 1s = 1_000ms periods.
-//        let period = CalendarPeriod {
-//            unit: CalendarUnit::Second,
-//            amount: 1,
-//        };
-//
-//        // Allow such a schedule to be added on-chain. Otherwise, we'll have errors.
-//        assert_ok!(Checkpoint::set_schedules_max_complexity(
-//            root(),
-//            period.complexity()
-//        ));
-//
-//        // Create a schedule with one remaining and where `start == now`.
-//        let schedule = ScheduleCheckpoints::from_period(start, period, 1);
-//        assert_ok!(Checkpoint::create_schedule(
-//            owner.origin(),
-//            ticker,
-//            schedule
-//        ));
-//        assert_ok!(Checkpoint::advance_update_balances(&ticker, &[]));
-//
-//        // We had `remaining == 1` and `start == now`,
-//        // so since a CP was created, hence `remaining => 0`,
-//        // the schedule was immediately evicted.
-//        assert_eq!(Checkpoint::cached_next_checkpoints(ticker), None);
-//        assert_eq!(collect_ts(ScheduleId(1)), vec![start]);
-//
-//        // This time, we set `remaining == 5`, but we still have `start == now`,
-//        // thus one CP is immediately created, so `remaining => 4`.
-//        let schedule = ScheduleCheckpoints::from_period(start, period, 5);
-//        let remaining = schedule.len();
-//        let id2 = ScheduleId(2);
-//        let assert_ts = |ticks| {
-//            assert_eq!(
-//                collect_ts(id2),
-//                (1..=ticks).map(|x| x * 1_000).collect::<Vec<_>>()
-//            );
-//        };
-//        let assert_sh = |at: Moment, remaining| {
-//            let now = (at - 1) * 1_000;
-//            let mut schedule = schedule.clone();
-//            schedule.remove_expired(now);
-//            let chain = Checkpoint::scheduled_checkpoints(ticker, id2).unwrap_or_default();
-//            assert_eq!(chain, schedule);
-//            assert_eq!(chain.len(), remaining);
-//        };
-//        assert_ok!(Checkpoint::create_schedule(
-//            owner.origin(),
-//            ticker,
-//            schedule.clone()
-//        ));
-//        assert_ok!(Checkpoint::advance_update_balances(&ticker, &[]));
-//        assert_sh(2, 4);
-//        assert_ts(1);
-//
-//        // Transfer and move through the 2nd to 4th recurrences.
-//        for i in 2..5 {
-//            transfer(i);
-//            assert_sh(i + 1, remaining - i as usize);
-//            assert_ts(i);
-//        }
-//
-//        // Transfer and move to the 5th (last) recurrence.
-//        // We've to the point where there are no ticks left.
-//        transfer(5);
-//        assert_eq!(Checkpoint::cached_next_checkpoints(ticker), None);
-//        assert_ts(5);
-//    });
-//}
-//
-//#[test]
-//fn mesh_1531_ts_collission_regression_test() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        // Create the assets.
-//        let owner = User::new(AccountKeyring::Alice);
-//        let asset = |name: &[u8]| {
-//            let (ticker, token) = token(name, owner.did);
-//            assert_ok!(basic_asset(owner, ticker, &token));
-//            ticker
-//        };
-//        let alpha = asset(b"ALPHA");
-//        let beta = asset(b"BETA");
-//
-//        // First CP is made at 1s.
-//        let cp = CheckpointId(1);
-//        set_timestamp(1_000);
-//        let create = |ticker| Checkpoint::create_checkpoint(owner.origin(), ticker);
-//        assert_ok!(create(alpha));
-//        assert_eq!(Checkpoint::timestamps(alpha, cp), 1_000);
-//
-//        // Second CP is for beta, using same ID.
-//        set_timestamp(2_000);
-//        assert_ok!(create(beta));
-//        assert_eq!(Checkpoint::timestamps(alpha, cp), 1_000);
-//        assert_eq!(Checkpoint::timestamps(beta, cp), 2_000);
-//    });
-//}
-//
+
+#[test]
+fn next_checkpoint_is_updated_we() {
+    ExtBuilder::default().build().execute_with(|| {
+        // 14 November 2023, 22:13 UTC (millisecs)
+        let start: u64 = 1_700_000_000_000;
+        // A period of 42 hours.
+        let period = CalendarPeriod {
+            unit: CalendarUnit::Hour,
+            amount: 42,
+        };
+        // The increment in seconds.
+        let period_secs = match period.to_recurring().unwrap().as_fixed_or_variable() {
+            FixedOrVariableCalendarUnit::Fixed(secs) => secs,
+            _ => panic!("period should be fixed"),
+        };
+        let period_ms = period_secs * 1000;
+        set_timestamp(start);
+        assert_eq!(start, <TestStorage as AssetConfig>::UnixTime::now());
+
+        let owner = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+
+        let asset_id = create_and_issue_sample_asset(&owner);
+
+        assert_eq!(Checkpoint::cached_next_checkpoints(asset_id), None);
+        let schedule = ScheduleCheckpoints::from_period(start, period, 5);
+        assert_ok!(Checkpoint::set_schedules_max_complexity(
+            root(),
+            period.complexity()
+        ));
+        assert_ok!(Checkpoint::create_schedule(
+            owner.origin(),
+            asset_id,
+            schedule
+        ));
+        assert_ok!(Checkpoint::advance_update_balances(&asset_id, &[]));
+        let id = CheckpointId(1);
+        assert_eq!(id, Checkpoint::checkpoint_id_sequence(&asset_id));
+        assert_eq!(start, Checkpoint::timestamps(asset_id, id));
+        assert_eq!(ISSUE_AMOUNT, Checkpoint::total_supply_at(asset_id, id));
+        assert_eq!(ISSUE_AMOUNT, Asset::get_balance_at(asset_id, owner.did, id));
+        assert_eq!(0, Asset::get_balance_at(asset_id, bob.did, id));
+        let checkpoint2 = start + period_ms;
+        assert_eq!(vec![Some(checkpoint2)], next_checkpoints(asset_id));
+        assert_eq!(vec![checkpoint2], checkpoint_ats(asset_id));
+
+        let transfer = |at| {
+            set_timestamp(at);
+            transfer(asset_id, owner, bob, ISSUE_AMOUNT / 2).unwrap();
+        };
+
+        // Make a transaction before the next timestamp.
+        transfer(checkpoint2 - 1000);
+        // Make another transaction at the checkpoint.
+        // The updates are applied after the checkpoint is recorded.
+        // After this transfer Alice's balance is 0.
+        transfer(checkpoint2);
+        // The balance after checkpoint 2.
+        assert_eq!(0, Asset::balance_of(&asset_id, owner.did));
+        // Balances at checkpoint 2.
+        let id = CheckpointId(2);
+        assert_eq!(vec![start + 2 * period_ms], checkpoint_ats(asset_id));
+        assert_eq!(id, Checkpoint::checkpoint_id_sequence(&asset_id));
+        assert_eq!(start + period_ms, Checkpoint::timestamps(asset_id, id));
+        assert_eq!(
+            ISSUE_AMOUNT / 2,
+            Asset::get_balance_at(asset_id, owner.did, id)
+        );
+        assert_eq!(
+            ISSUE_AMOUNT / 2,
+            Asset::get_balance_at(asset_id, bob.did, id)
+        );
+    });
+}
+
+#[test]
+fn non_recurring_schedule_works_we() {
+    ExtBuilder::default().build().execute_with(|| {
+        // 14 November 2023, 22:13 UTC (millisecs)
+        let start: u64 = 1_700_000_000_000;
+        // Non-recuring schedule.
+        let period = CalendarPeriod::default();
+        set_timestamp(start);
+        assert_eq!(start, <TestStorage as AssetConfig>::UnixTime::now());
+
+        let owner = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+
+        let asset_id = create_and_issue_sample_asset(&owner);
+
+        assert_eq!(Checkpoint::cached_next_checkpoints(asset_id), None);
+        let schedule = ScheduleCheckpoints::from_period(start, period, 10);
+        assert_ok!(Checkpoint::set_schedules_max_complexity(
+            root(),
+            period.complexity()
+        ));
+        assert_ok!(Checkpoint::create_schedule(
+            owner.origin(),
+            asset_id,
+            schedule
+        ));
+        assert_ok!(Checkpoint::advance_update_balances(&asset_id, &[]));
+        let id = CheckpointId(1);
+        assert_eq!(id, Checkpoint::checkpoint_id_sequence(&asset_id));
+        assert_eq!(start, Checkpoint::timestamps(asset_id, id));
+        assert_eq!(ISSUE_AMOUNT, Checkpoint::total_supply_at(asset_id, id));
+        assert_eq!(ISSUE_AMOUNT, Asset::get_balance_at(asset_id, owner.did, id));
+        assert_eq!(0, Asset::get_balance_at(asset_id, bob.did, id));
+        // The schedule will not recur.
+        assert_eq!(Checkpoint::cached_next_checkpoints(asset_id), None);
+    });
+}
+
+fn checkpoint_ats(asset_id: AssetID) -> Vec<u64> {
+    let cached = Checkpoint::cached_next_checkpoints(asset_id).unwrap_or_default();
+    cached.schedules.values().copied().collect()
+}
+
+fn next_checkpoints(asset_id: AssetID) -> Vec<Option<u64>> {
+    let ScheduleId(id) = Checkpoint::schedule_id_sequence(asset_id);
+    (1..=id)
+        .into_iter()
+        .map(|id| {
+            Checkpoint::scheduled_checkpoints(asset_id, ScheduleId(id)).and_then(|s| s.next())
+        })
+        .collect()
+}
+
+#[test]
+fn schedule_remaining_works() {
+    ExtBuilder::default().build().execute_with(|| {
+        let start = 1_000;
+        set_timestamp(start);
+
+        let owner = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+
+        let asset_id = create_and_issue_sample_asset(&owner);
+
+        let transfer = |at: Moment| {
+            set_timestamp(at * 1_000);
+            transfer(asset_id, owner, bob, 1).unwrap();
+        };
+        let collect_ts = |sh_id| {
+            Checkpoint::schedule_points(asset_id, sh_id)
+                .into_iter()
+                .map(|cp| Checkpoint::timestamps(asset_id, cp))
+                .collect::<Vec<_>>()
+        };
+
+        // No schedules yet.
+        assert_eq!(Checkpoint::cached_next_checkpoints(asset_id), None);
+
+        // For simplicity, we use 1s = 1_000ms periods.
+        let period = CalendarPeriod {
+            unit: CalendarUnit::Second,
+            amount: 1,
+        };
+
+        // Allow such a schedule to be added on-chain. Otherwise, we'll have errors.
+        assert_ok!(Checkpoint::set_schedules_max_complexity(
+            root(),
+            period.complexity()
+        ));
+
+        // Create a schedule with one remaining and where `start == now`.
+        let schedule = ScheduleCheckpoints::from_period(start, period, 1);
+        assert_ok!(Checkpoint::create_schedule(
+            owner.origin(),
+            asset_id,
+            schedule
+        ));
+        assert_ok!(Checkpoint::advance_update_balances(&asset_id, &[]));
+
+        // We had `remaining == 1` and `start == now`,
+        // so since a CP was created, hence `remaining => 0`,
+        // the schedule was immediately evicted.
+        assert_eq!(Checkpoint::cached_next_checkpoints(asset_id), None);
+        assert_eq!(collect_ts(ScheduleId(1)), vec![start]);
+
+        // This time, we set `remaining == 5`, but we still have `start == now`,
+        // thus one CP is immediately created, so `remaining => 4`.
+        let schedule = ScheduleCheckpoints::from_period(start, period, 5);
+        let remaining = schedule.len();
+        let id2 = ScheduleId(2);
+        let assert_ts = |ticks| {
+            assert_eq!(
+                collect_ts(id2),
+                (1..=ticks).map(|x| x * 1_000).collect::<Vec<_>>()
+            );
+        };
+        let assert_sh = |at: Moment, remaining| {
+            let now = (at - 1) * 1_000;
+            let mut schedule = schedule.clone();
+            schedule.remove_expired(now);
+            let chain = Checkpoint::scheduled_checkpoints(asset_id, id2).unwrap_or_default();
+            assert_eq!(chain, schedule);
+            assert_eq!(chain.len(), remaining);
+        };
+        assert_ok!(Checkpoint::create_schedule(
+            owner.origin(),
+            asset_id,
+            schedule.clone()
+        ));
+        assert_ok!(Checkpoint::advance_update_balances(&asset_id, &[]));
+        assert_sh(2, 4);
+        assert_ts(1);
+
+        // Transfer and move through the 2nd to 4th recurrences.
+        for i in 2..5 {
+            transfer(i);
+            assert_sh(i + 1, remaining - i as usize);
+            assert_ts(i);
+        }
+
+        // Transfer and move to the 5th (last) recurrence.
+        // We've to the point where there are no ticks left.
+        transfer(5);
+        assert_eq!(Checkpoint::cached_next_checkpoints(asset_id), None);
+        assert_ts(5);
+    });
+}
+
+#[test]
+fn mesh_1531_ts_collission_regression_test() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Create the assets.
+        let owner = User::new(AccountKeyring::Alice);
+
+        let asset_id = create_and_issue_sample_asset(&owner);
+        let asset_id2 = create_and_issue_sample_asset(&owner);
+
+        // First CP is made at 1s.
+        let cp = CheckpointId(1);
+        set_timestamp(1_000);
+        let create = |asset_id| Checkpoint::create_checkpoint(owner.origin(), asset_id);
+        assert_ok!(create(asset_id));
+        assert_eq!(Checkpoint::timestamps(asset_id, cp), 1_000);
+
+        // Second CP is for beta, using same ID.
+        set_timestamp(2_000);
+        assert_ok!(create(asset_id2));
+        assert_eq!(Checkpoint::timestamps(asset_id, cp), 1_000);
+        assert_eq!(Checkpoint::timestamps(asset_id2, cp), 2_000);
+    });
+}
+
 //#[test]
 //fn secondary_key_not_authorized_for_asset_test() {
-//    let users @ [owner, all, not] = [
-//        AccountKeyring::Alice,
-//        AccountKeyring::Bob,
-//        AccountKeyring::Charlie,
-//    ];
-//    let invalid_names = [b"WPUSD1\0", &b"WPUSC\0\0", &b"WPUSD\01"];
-//    let invalid_tickers = invalid_names
-//        .iter()
-//        .filter_map(|name| Some(Ticker::from_slice_truncated(name.as_ref())));
+//    ExtBuilder::default().build().execute_with(|| {
+//        // NB `sk_not_permsissions` does not have enought asset permissions to issue `ticker`.
+//        let bob = User::new(AccountKeyring::Bob);
+//        let alice = User::new(AccountKeyring::Alice);
+//        let charlie = User::new(AccountKeyring::Charlie);
 //
-//    let secondary_keys = vec![
-//        SecondaryKey {
-//            key: not.to_account_id(),
-//            permissions: Permissions {
-//                asset: AssetPermissions::elems(invalid_tickers),
-//                ..Default::default()
-//            },
-//        },
-//        SecondaryKey {
-//            key: all.to_account_id(),
-//            permissions: Permissions::default(),
-//        },
-//    ];
+//        let asset_id = create_and_issue_sample_asset(&alice);
 //
-//    let owner = IdentityRecord::new(owner.to_account_id(), secondary_keys);
+//        let charlie_permissions = Permissions {
+//            asset: AssetPermissions::These(BTreeSet::from(asset_id)),
+//            ..Default::default()
+//        };
+//        let charlie_as_secondary_key = SecondaryKey::new(bob.acc(), charlie_permissions);
+//        let bob_as_secondary_key = SecondaryKey::new(bob.acc(), Permissions::default());
+//        let alice_id_record = IdentityRecord::new(
+//            alice.acc(),
+//            vec![charlie_as_secondary_key, bob_as_secondary_key],
+//        );
 //
-//    ExtBuilder::default()
-//        .add_regular_users(&[owner])
-//        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
-//        .build()
-//        .execute_with(|| {
-//            // NB `sk_not_permsissions` does not have enought asset permissions to issue `ticker`.
-//            let [owner, all, not] = users.map(User::existing);
-//            let (ticker, token) = token(b"WPUSD", owner.did);
-//            assert_ok!(basic_asset(owner, ticker, &token));
+//        let minted_value = 50_000u128.into();
+//        StoreCallMetadata::set_call_metadata(b"pallet_asset".into(), b"issuer".into());
+//        assert_noop!(
+//            Asset::issue(charlie.origin(), asset_id, minted_value, PortfolioKind::Default),
+//            pallet_external_agents::Error::<TestStorage>::SecondaryKeyNotAuthorizedForAsset
+//        );
 //
-//            let minted_value = 50_000u128.into();
-//            StoreCallMetadata::set_call_metadata(b"pallet_asset".into(), b"issuer".into());
-//            assert_noop!(
-//                Asset::issue(not.origin(), ticker, minted_value, PortfolioKind::Default),
-//                pallet_external_agents::Error::<TestStorage>::SecondaryKeyNotAuthorizedForAsset
-//            );
-//
-//            assert_ok!(Asset::issue(
-//                all.origin(),
-//                ticker,
-//                minted_value,
-//                PortfolioKind::Default
-//            ));
-//            assert_eq!(Asset::total_supply(&ticker), TOTAL_SUPPLY + minted_value);
-//        });
+//        assert_ok!(Asset::issue(
+//            bob.origin(),
+//            asset_id,
+//            minted_value,
+//            PortfolioKind::Default
+//        ));
+//        assert_eq!(
+//            get_security_token(&asset_id).total_supply,
+//            ISSUE_AMOUNT + minted_value
+//        );
+//    });
 //}
-//
+
 //#[test]
 //fn invalid_granularity_test() {
 //    test_with_owner(|owner| {

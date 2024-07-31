@@ -1,7 +1,7 @@
 use frame_support::assert_ok;
 
-use polymesh_primitives::asset::{AssetID, AssetType, NonFungibleType};
-use polymesh_primitives::{Balance, PortfolioKind, Ticker};
+use polymesh_primitives::asset::{AssetID, AssetType, FundingRoundName, NonFungibleType};
+use polymesh_primitives::{asset_identifier, AssetIdentifier, Balance, PortfolioKind, Ticker};
 
 use crate::storage::User;
 use crate::TestStorage;
@@ -83,6 +83,41 @@ pub fn create_and_issue_sample_nft(asset_owner: &User) -> AssetID {
         Vec::new(),
         PortfolioKind::Default
     ));
+
+    asset_id
+}
+
+/// Creates an asset setting the attributes for the [`SecurityToken`] using the values in the parameters.
+/// If `issue_tokens`` is `true` also mints [`ISSUE_AMOUNT`] tokens in the `issue_portfolio`.
+pub fn create_asset(
+    asset_owner: &User,
+    asset_name: Option<&[u8]>,
+    divisible: Option<bool>,
+    asset_type: Option<AssetType>,
+    asset_identifiers: Option<Vec<AssetIdentifier>>,
+    funding_round_name: Option<FundingRoundName>,
+    issue_tokens: bool,
+    issue_portfolio: Option<PortfolioKind>,
+) -> AssetID {
+    let asset_id = Asset::generate_asset_id(asset_owner.did, false);
+
+    assert_ok!(Asset::create_asset(
+        asset_owner.origin(),
+        asset_name.unwrap_or(b"MyAsset").into(),
+        divisible.unwrap_or(true),
+        asset_type.unwrap_or_default(),
+        asset_identifiers.unwrap_or_default(),
+        funding_round_name,
+    ));
+
+    if issue_tokens {
+        assert_ok!(Asset::issue(
+            asset_owner.origin(),
+            asset_id,
+            ISSUE_AMOUNT,
+            issue_portfolio.unwrap_or_default()
+        ));
+    }
 
     asset_id
 }
