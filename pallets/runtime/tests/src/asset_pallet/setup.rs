@@ -1,7 +1,7 @@
 use frame_support::assert_ok;
 
 use polymesh_primitives::asset::{AssetID, AssetType, FundingRoundName, NonFungibleType};
-use polymesh_primitives::{asset_identifier, AssetIdentifier, Balance, PortfolioKind, Ticker};
+use polymesh_primitives::{AssetIdentifier, Balance, PortfolioKind, Ticker};
 
 use crate::storage::User;
 use crate::TestStorage;

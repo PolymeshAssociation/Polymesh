@@ -162,7 +162,12 @@ fn issue_tokens_no_asset() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         assert_noop!(
-            Asset::issue(alice.origin(), [0; 16].into(), 1_000, PortfolioKind::Default),
+            Asset::issue(
+                alice.origin(),
+                [0; 16].into(),
+                1_000,
+                PortfolioKind::Default
+            ),
             ExternalAgentsError::UnauthorizedAgent
         );
     })

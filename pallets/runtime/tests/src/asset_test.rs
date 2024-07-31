@@ -1,12 +1,11 @@
 use chrono::prelude::Utc;
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::{assert_noop, assert_ok};
-use frame_support::{IterableStorageDoubleMap, StorageDoubleMap, StorageMap, StorageValue};
+use frame_support::{StorageDoubleMap, StorageMap, StorageValue};
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
 use rand::Rng;
 use sp_consensus_babe::Slot;
-use sp_io::hashing::keccak_256;
 use sp_runtime::AnySignature;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::{From, TryFrom, TryInto};
@@ -14,10 +13,9 @@ use sp_std::iter;
 
 use pallet_asset::{
     AssetDocuments, AssetIdentifiers, AssetMetadataLocalKeyToName, AssetMetadataLocalNameToKey,
-    AssetMetadataLocalSpecs, AssetMetadataValues, AssetOwnershipRelation,
-    AssetsExemptFromAffirmation, BalanceOf, Config as AssetConfig, CustomTypeIdSequence,
-    CustomTypes, CustomTypesInverse, MandatoryMediators, PreApprovedAsset, SecurityToken,
-    SecurityTokens, SecurityTokensOwnedByUser, TickerRegistrationConfig,
+    AssetMetadataLocalSpecs, AssetMetadataValues, AssetsExemptFromAffirmation, BalanceOf,
+    Config as AssetConfig, CustomTypeIdSequence, CustomTypes, CustomTypesInverse,
+    MandatoryMediators, PreApprovedAsset, SecurityToken, SecurityTokens, SecurityTokensOwnedByUser,
 };
 use pallet_portfolio::{
     NextPortfolioNumber, PortfolioAssetBalances, PortfolioAssetCount, PortfolioLockedAssets,
@@ -44,10 +42,9 @@ use polymesh_primitives::settlement::{
 use polymesh_primitives::statistics::StatType;
 use polymesh_primitives::statistics::{Stat1stKey, Stat2ndKey};
 use polymesh_primitives::{
-    AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
-    DocumentId, Fund, FundDescription, IdentityId, Memo, Moment, NFTCollectionKeys, Permissions,
-    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Signatory, Ticker,
-    WeightMeter,
+    AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document, DocumentId,
+    Fund, FundDescription, IdentityId, Memo, Moment, NFTCollectionKeys, Permissions, PortfolioId,
+    PortfolioKind, PortfolioName, PortfolioNumber, Signatory, Ticker, WeightMeter,
 };
 use sp_keyring::AccountKeyring;
 
@@ -55,10 +52,10 @@ use crate::asset_pallet::setup::{
     create_and_issue_sample_asset, create_and_issue_sample_asset_linked_to_ticker, create_asset,
     ISSUE_AMOUNT,
 };
-use crate::ext_builder::{ExtBuilder, IdentityRecord};
+use crate::ext_builder::ExtBuilder;
 //use crate::nft::create_nft_collection;
 use crate::storage::{
-    add_secondary_key, make_account_without_cdd, register_keyring_account, root, Checkpoint,
+    add_secondary_key, add_secondary_key_with_perms, register_keyring_account, root, Checkpoint,
     TestStorage, User,
 };
 
@@ -89,9 +86,9 @@ pub(crate) fn now() -> u64 {
     Utc::now().timestamp() as _
 }
 
-//pub fn set_time_to_now() {
-//    set_timestamp(now());
-//}
+pub fn set_time_to_now() {
+    set_timestamp(now());
+}
 
 fn slot_duration() -> u64 {
     pallet_babe::Pallet::<TestStorage>::slot_duration()
@@ -102,20 +99,20 @@ pub(crate) fn set_timestamp(n: u64) {
     Timestamp::set_timestamp(n);
 }
 
-//pub(crate) fn max_len() -> u32 {
-//    <TestStorage as pallet_base::Config>::MaxLen::get()
-//}
-//
-//pub(crate) fn max_len_bytes<R: From<Vec<u8>>>(add: u32) -> R {
-//    bytes_of_len(b'A', (max_len() + add) as usize)
-//}
-//
-//macro_rules! assert_too_long {
-//    ($e:expr) => {
-//        let e_result = $e;
-//        assert_noop!(e_result, pallet_base::Error::<TestStorage>::TooLong);
-//    };
-//}
+pub(crate) fn max_len() -> u32 {
+    <TestStorage as pallet_base::Config>::MaxLen::get()
+}
+
+pub(crate) fn max_len_bytes<R: From<Vec<u8>>>(add: u32) -> R {
+    bytes_of_len(b'A', (max_len() + add) as usize)
+}
+
+macro_rules! assert_too_long {
+    ($e:expr) => {
+        let e_result = $e;
+        assert_noop!(e_result, pallet_base::Error::<TestStorage>::TooLong);
+    };
+}
 
 pub(crate) fn statistics_investor_count(asset_id: AssetID) -> u128 {
     AssetStats::get(
@@ -133,27 +130,6 @@ pub(crate) fn get_security_token(asset_id: &AssetID) -> SecurityToken {
 pub(crate) fn sample_security_token(token_owner_did: IdentityId) -> SecurityToken {
     SecurityToken::new(TOTAL_SUPPLY, token_owner_did, true, AssetType::default())
 }
-
-//pub(crate) fn a_token(owner_did: IdentityId) -> (Ticker, SecurityToken) {
-//    token(b"A", owner_did)
-//}
-//
-//pub(crate) fn an_asset(owner: User, divisible: bool) -> Ticker {
-//    let (ticker, mut token) = a_token(owner.did);
-//    token.divisible = divisible;
-//    assert_ok!(basic_asset(owner, ticker, &token));
-//    ticker
-//}
-
-//pub(crate) fn basic_asset(owner: User, ticker: Ticker, token: &SecurityToken) -> DispatchResult {
-//    asset_with_ids(owner, ticker, token, vec![])
-//}
-//
-//pub(crate) fn create_token(owner: User) -> (Ticker, SecurityToken) {
-//    let r = a_token(owner.did);
-//    assert_ok!(basic_asset(owner, r.0, &r.1));
-//    r
-//}
 
 fn enable_investor_count(asset_id: AssetID, owner: User) {
     assert_ok!(Statistics::set_active_asset_stats(
@@ -188,58 +164,39 @@ fn cusip() -> AssetIdentifier {
     AssetIdentifier::cusip(*b"037833100").unwrap()
 }
 
-//const ASSET_IDENTIFIERS: Vec<AssetIdentifier> = Vec::new();
-//const FUNDING_ROUND: Option<FundingRoundName> = None;
-//
-//
-///// Generates a new portfolio for `owner` using the given `name`.
-//fn new_portfolio(owner: AccountId, name: &str) -> PortfolioId {
-//    let portfolio_name = PortfolioName::from(name);
-//    let did = Identity::get_identity(&owner).expect("User missing identity");
-//
-//    Portfolio::create_portfolio(Origin::signed(owner), portfolio_name.clone())
-//        .expect("New portfolio cannot be created");
-//
-//    let (portfolio_num, _) = pallet_portfolio::Portfolios::iter_prefix(&did)
-//        .find(|(_, name)| name == &portfolio_name)
-//        .unwrap();
-//
-//    PortfolioId::user_portfolio(did, portfolio_num)
-//}
-//
-///// Returns a `FundingRoundName` which exceeds the maximum length defined in `AssetConfig`.
-//fn exceeded_funding_round_name() -> FundingRoundName {
-//    let funding_round_max_length =
-//        <TestStorage as AssetConfig>::FundingRoundNameMaxLength::get() + 1;
-//
-//    iter::repeat(b'A')
-//        .take(funding_round_max_length as usize)
-//        .collect::<Vec<_>>()
-//        .into()
-//}
-//
-//pub fn next_schedule_id(ticker: Ticker) -> ScheduleId {
-//    let ScheduleId(id) = Checkpoint::schedule_id_sequence(ticker);
-//    ScheduleId(id + 1)
-//}
-//
-//#[track_caller]
-//pub fn check_schedules(ticker: Ticker, schedules: &[(ScheduleId, ScheduleCheckpoints)]) {
-//    let mut cached = NextCheckpoints::default();
-//    for (id, schedule) in schedules {
-//        assert_eq!(
-//            Checkpoint::scheduled_checkpoints(ticker, id).as_ref(),
-//            Some(schedule)
-//        );
-//        cached.add_schedule_next(*id, schedule.next().unwrap());
-//        cached.inc_total_pending(schedule.len() as u64);
-//    }
-//    if cached.is_empty() {
-//        assert_eq!(Checkpoint::cached_next_checkpoints(ticker), None);
-//    } else {
-//        assert_eq!(Checkpoint::cached_next_checkpoints(ticker), Some(cached));
-//    }
-//}
+/// Returns a `FundingRoundName` which exceeds the maximum length defined in `AssetConfig`.
+fn exceeded_funding_round_name() -> FundingRoundName {
+    let funding_round_max_length =
+        <TestStorage as AssetConfig>::FundingRoundNameMaxLength::get() + 1;
+
+    iter::repeat(b'A')
+        .take(funding_round_max_length as usize)
+        .collect::<Vec<_>>()
+        .into()
+}
+
+pub fn next_schedule_id(asset_id: AssetID) -> ScheduleId {
+    let ScheduleId(id) = Checkpoint::schedule_id_sequence(asset_id);
+    ScheduleId(id + 1)
+}
+
+#[track_caller]
+pub fn check_schedules(asset_id: AssetID, schedules: &[(ScheduleId, ScheduleCheckpoints)]) {
+    let mut cached = NextCheckpoints::default();
+    for (id, schedule) in schedules {
+        assert_eq!(
+            Checkpoint::scheduled_checkpoints(asset_id, id).as_ref(),
+            Some(schedule)
+        );
+        cached.add_schedule_next(*id, schedule.next().unwrap());
+        cached.inc_total_pending(schedule.len() as u64);
+    }
+    if cached.is_empty() {
+        assert_eq!(Checkpoint::cached_next_checkpoints(asset_id), None);
+    } else {
+        assert_eq!(Checkpoint::cached_next_checkpoints(asset_id), Some(cached));
+    }
+}
 
 #[test]
 fn check_the_test_hex() {
@@ -371,20 +328,6 @@ fn issuers_can_redeem_tokens() {
     })
 }
 
-//fn default_transfer(from: User, to: User, ticker: Ticker, val: u128) {
-//    let mut weight_meter = WeightMeter::max_limit_no_minimum();
-//    assert_ok!(Asset::unverified_transfer_asset(
-//        PortfolioId::default_portfolio(from.did),
-//        PortfolioId::default_portfolio(to.did),
-//        ticker,
-//        val,
-//        None,
-//        None,
-//        IdentityId::default(),
-//        &mut weight_meter
-//    ));
-//}
-//
 #[test]
 fn checkpoints_fuzz_test() {
     println!("Starting");
@@ -743,39 +686,6 @@ fn frozen_secondary_keys_create_asset_we() {
         assert_ok!(Identity::freeze_secondary_keys(alice.origin()));
     });
 }
-//
-//fn default_reg_config() -> TickerRegistrationConfig<u64> {
-//    TickerRegistrationConfig {
-//        max_ticker_length: 8,
-//        registration_length: Some(10000),
-//    }
-//}
-//
-//fn alice_secret_key() -> libsecp256k1::SecretKey {
-//    libsecp256k1::SecretKey::parse(&keccak_256(b"Alice")).unwrap()
-//}
-//
-//fn bob_secret_key() -> libsecp256k1::SecretKey {
-//    libsecp256k1::SecretKey::parse(&keccak_256(b"Bob")).unwrap()
-//}
-//
-//fn sorted<K: Ord + Clone, V>(iter: impl IntoIterator<Item = (K, V)>) -> Vec<(K, V)> {
-//    let mut vec: Vec<_> = iter.into_iter().collect();
-//    vec.sort_by_key(|x| x.0.clone());
-//    vec
-//}
-//
-//fn with_asset_genesis(genesis: AssetGenesis) -> ExtBuilder {
-//    ExtBuilder::default().adjust(Box::new(move |storage| {
-//        genesis.assimilate_storage(storage).unwrap();
-//    }))
-//}
-//
-//fn test_asset_genesis(genesis: AssetGenesis) {
-//    with_asset_genesis(genesis).build().execute_with(|| {});
-//}
-//
-//
 
 #[test]
 fn next_checkpoint_is_updated_we() {
@@ -1024,567 +934,540 @@ fn mesh_1531_ts_collission_regression_test() {
     });
 }
 
-//#[test]
-//fn secondary_key_not_authorized_for_asset_test() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        // NB `sk_not_permsissions` does not have enought asset permissions to issue `ticker`.
-//        let bob = User::new(AccountKeyring::Bob);
-//        let alice = User::new(AccountKeyring::Alice);
-//        let charlie = User::new(AccountKeyring::Charlie);
-//
-//        let asset_id = create_and_issue_sample_asset(&alice);
-//
-//        let charlie_permissions = Permissions {
-//            asset: AssetPermissions::elems(vec![asset_id]),
-//            ..Default::default()
-//        };
-//        let charlie_as_secondary_key = SecondaryKey::new(bob.acc(), charlie_permissions);
-//        let bob_as_secondary_key = SecondaryKey::new(bob.acc(), Permissions::default());
-//        let alice_id_record = IdentityRecord::new(
-//            alice.acc(),
-//            vec![charlie_as_secondary_key, bob_as_secondary_key],
-//        );
-//
-//        let minted_value = 50_000u128.into();
-//        StoreCallMetadata::set_call_metadata(b"pallet_asset".into(), b"issuer".into());
-//        assert_noop!(
-//            Asset::issue(charlie.origin(), asset_id, minted_value, PortfolioKind::Default),
-//            pallet_external_agents::Error::<TestStorage>::SecondaryKeyNotAuthorizedForAsset
-//        );
-//
-//        assert_ok!(Asset::issue(
-//            bob.origin(),
-//            asset_id,
-//            minted_value,
-//            PortfolioKind::Default
-//        ));
-//        assert_eq!(
-//            get_security_token(&asset_id).total_supply,
-//            ISSUE_AMOUNT + minted_value
-//        );
-//    });
-//}
+#[test]
+fn secondary_key_not_authorized_for_asset_test() {
+    let charlie = vec![AccountKeyring::Charlie.to_account_id()];
+    ExtBuilder::default()
+        .cdd_providers(charlie)
+        .build()
+        .execute_with(|| {
+            let alice = User::new(AccountKeyring::Alice);
+            let bob = User::new_with(alice.did, AccountKeyring::Bob);
+            let eve = User::new_with(alice.did, AccountKeyring::Eve);
+            let asset_id = create_and_issue_sample_asset(&alice);
+            let eve_permissions = Permissions {
+                asset: AssetPermissions::elems(vec![asset_id]),
+                ..Default::default()
+            };
 
-//#[test]
-//fn invalid_granularity_test() {
-//    test_with_owner(|owner| {
-//        let ticker = an_asset(owner, false);
-//        assert_noop!(
-//            Asset::issue(owner.origin(), ticker, 10_000, PortfolioKind::Default),
-//            AssetError::InvalidGranularity
-//        );
-//    })
-//}
-//
-//#[test]
-//fn create_asset_errors_test() {
-//    let owner = AccountKeyring::Alice.to_account_id();
-//    let other = AccountKeyring::Bob.to_account_id();
-//    let cdd = AccountKeyring::Eve.to_account_id();
-//
-//    ExtBuilder::default()
-//        .add_regular_users_from_accounts(&[owner.clone(), other.clone()])
-//        .cdd_providers(vec![cdd])
-//        .build()
-//        .execute_with(|| create_asset_errors(owner, other))
-//}
-//
-//fn bytes_of_len<R: From<Vec<u8>>>(e: u8, len: usize) -> R {
-//    iter::repeat(e).take(len).collect::<Vec<_>>().into()
-//}
-//
-//fn create_asset_errors(owner: AccountId, other: AccountId) {
-//    let o = Origin::signed(owner);
-//    let create = |ticker, name, is_divisible, funding_name| {
-//        Asset::create_asset(
-//            o.clone(),
-//            name,
-//            ticker,
-//            is_divisible,
-//            AssetType::default(),
-//            vec![],
-//            funding_name,
-//        )
-//    };
-//
-//    let ta = Ticker::from_slice_truncated(&b"A"[..]);
-//    let max_length = <TestStorage as AssetConfig>::AssetNameMaxLength::get() + 1;
-//    assert_noop!(
-//        create(ta, bytes_of_len(b'A', max_length as usize), true, None),
-//        AssetError::MaxLengthOfAssetNameExceeded
-//    );
-//
-//    let name: AssetName = ta.as_ref().into();
-//    assert_noop!(
-//        create(ta, name.clone(), true, Some(exceeded_funding_round_name()),),
-//        AssetError::FundingRoundNameMaxLengthExceeded,
-//    );
-//
-//    assert_ok!(create(ta, name.clone(), false, None));
-//    assert_noop!(
-//        Asset::issue(o.clone(), ta, 1_000, PortfolioKind::Default),
-//        AssetError::InvalidGranularity,
-//    );
-//
-//    let tb = Ticker::from_slice_truncated(&b"B"[..]);
-//    assert_ok!(create(tb, name.clone(), true, None));
-//    assert_noop!(
-//        Asset::issue(o.clone(), tb, u128::MAX, PortfolioKind::Default),
-//        AssetError::TotalSupplyAboveLimit,
-//    );
-//
-//    let o2 = Origin::signed(other);
-//    let tc = Ticker::from_slice_truncated(&b"C"[..]);
-//    assert_ok!(Asset::register_ticker(o2.clone(), tc));
-//    assert_noop!(
-//        create(tc, name, true, None),
-//        AssetError::TickerAlreadyRegistered
-//    );
-//}
-//
-//#[test]
-//fn asset_type_custom_too_long() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let user = User::new(AccountKeyring::Alice);
-//        let case = |add| Asset::register_custom_asset_type(user.origin(), max_len_bytes(add));
-//        assert_too_long!(case(1));
-//        assert_ok!(case(0));
-//    });
-//}
-//
-//#[test]
-//fn asset_type_custom_works() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let user = User::new(AccountKeyring::Alice);
-//        let register = |ty: &str| Asset::register_custom_asset_type(user.origin(), ty.into());
-//        let seq_is = |num| {
-//            assert_eq!(CustomTypeIdSequence::get().0, num);
-//        };
-//        let slot_has = |id, data: &str| {
-//            seq_is(id);
-//            let id = CustomAssetTypeId(id);
-//            let data = data.as_bytes();
-//            assert_eq!(CustomTypes::get(id), data);
-//            assert_eq!(CustomTypesInverse::get(data), Some(id));
-//        };
-//
-//        // Nothing so far. Generator (G) at 0.
-//        seq_is(0);
-//
-//        // Register first type. G -> 1.
-//        assert_ok!(register("foo"));
-//        slot_has(1, "foo");
-//
-//        // Register same type. G unmoved.
-//        assert_ok!(register("foo"));
-//        slot_has(1, "foo");
-//
-//        // Register different type. G -> 2.
-//        assert_ok!(register("bar"));
-//        slot_has(2, "bar");
-//
-//        // Register same type. G unmoved.
-//        assert_ok!(register("bar"));
-//        slot_has(2, "bar");
-//
-//        // Register different type. G -> 3.
-//        assert_ok!(register("foobar"));
-//        slot_has(3, "foobar");
-//
-//        // Set G to max. Next registration fails.
-//        CustomTypeIdSequence::put(CustomAssetTypeId(u32::MAX));
-//        assert_noop!(register("qux"), BaseError::CounterOverflow);
-//    });
-//}
-//
-//#[test]
-//fn invalid_custom_asset_type_check() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let owner = User::new(AccountKeyring::Dave);
-//
-//        // Create ticker.
-//        let (ticker, mut token) = a_token(owner.did);
-//
-//        let invalid_id = CustomAssetTypeId(1_000_000);
-//        token.asset_type = AssetType::Custom(invalid_id);
-//        assert_noop!(
-//            basic_asset(owner, ticker, &token),
-//            AssetError::InvalidCustomAssetTypeId
-//        );
-//    });
-//}
-//
-//#[test]
-//fn asset_doc_field_too_long() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let owner = User::new(AccountKeyring::Alice);
-//        let ticker = an_asset(owner, true);
-//        let add_doc = |doc| Asset::add_documents(owner.origin(), vec![doc], ticker);
-//        assert_too_long!(add_doc(Document {
-//            uri: max_len_bytes(1),
-//            ..<_>::default()
-//        }));
-//        assert_too_long!(add_doc(Document {
-//            name: max_len_bytes(1),
-//            ..<_>::default()
-//        }));
-//        assert_too_long!(add_doc(Document {
-//            doc_type: Some(max_len_bytes(1)),
-//            ..<_>::default()
-//        }));
-//        assert_ok!(add_doc(Document {
-//            uri: max_len_bytes(0),
-//            name: max_len_bytes(0),
-//            doc_type: Some(max_len_bytes(0)),
-//            ..<_>::default()
-//        }));
-//    });
-//}
-//
-//#[track_caller]
-//fn test_with_owner(test: impl FnOnce(User)) {
-//    let owner = AccountKeyring::Alice;
-//    ExtBuilder::default()
-//        .add_regular_users_from_accounts(&[owner.to_account_id()])
-//        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
-//        .build()
-//        .execute_with(|| test(User::existing(owner)));
-//}
-//
-//#[test]
-//fn set_funding_round_test() {
-//    test_with_owner(|owner| {
-//        let ticker = an_asset(owner, true);
-//        assert_noop!(
-//            Asset::set_funding_round(owner.origin(), ticker, exceeded_funding_round_name()),
-//            AssetError::FundingRoundNameMaxLengthExceeded
-//        );
-//        assert_ok!(Asset::set_funding_round(
-//            owner.origin(),
-//            ticker,
-//            FundingRoundName(b"VIP round".to_vec())
-//        ));
-//    })
-//}
-//
-//#[test]
-//fn update_identifiers_errors_test() {
-//    test_with_owner(|owner| {
-//        let ticker = an_asset(owner, true);
-//        let invalid_asset_ids = vec![
-//            AssetIdentifier::CUSIP(*b"037833108"),   // Invalid checksum.
-//            AssetIdentifier::CINS(*b"S08000AA7"),    // Invalid checksum.
-//            AssetIdentifier::ISIN(*b"US0378331004"), // Invalid checksum.
-//            AssetIdentifier::LEI(*b"549300GFX6WN7JDUSN37"), // Invalid checksum.
-//        ];
-//
-//        invalid_asset_ids.into_iter().for_each(|asset_id| {
-//            assert_noop!(
-//                Asset::update_identifiers(owner.origin(), ticker, vec![asset_id]),
-//                AssetError::InvalidAssetIdentifier
-//            );
-//        });
-//
-//        let valid_asset_ids = vec![AssetIdentifier::CUSIP(*b"037833100")];
-//        assert_ok!(Asset::update_identifiers(
-//            owner.origin(),
-//            ticker,
-//            valid_asset_ids
-//        ));
-//    })
-//}
-//
-//#[test]
-//fn issuers_can_redeem_tokens_from_portfolio() {
-//    let alice = AccountKeyring::Alice.to_account_id();
-//    ExtBuilder::default()
-//        .cdd_providers(vec![alice.clone()])
-//        .build()
-//        .execute_with(|| {
-//            set_time_to_now();
-//
-//            let owner = User::new(AccountKeyring::Dave);
-//            let bob = User::new(AccountKeyring::Bob);
-//
-//            // Create asset.
-//            let (ticker, token) = a_token(owner.did);
-//            assert_ok!(basic_asset(owner, ticker, &token));
-//
-//            let portfolio_name = PortfolioName(vec![65u8; 5]);
-//            let next_portfolio_num = NextPortfolioNumber::get(&owner.did);
-//            let portfolio = PortfolioId::default_portfolio(owner.did);
-//            let user_portfolio = PortfolioId::user_portfolio(owner.did, next_portfolio_num.clone());
-//            Portfolio::create_portfolio(owner.origin(), portfolio_name.clone()).unwrap();
-//
-//            Portfolio::move_portfolio_funds(
-//                owner.origin(),
-//                portfolio,
-//                user_portfolio,
-//                vec![Fund {
-//                    description: FundDescription::Fungible {
-//                        ticker,
-//                        amount: token.total_supply,
-//                    },
-//                    memo: None,
-//                }],
-//            )
-//            .unwrap();
-//
-//            assert_eq!(
-//                PortfolioAssetBalances::get(&portfolio, &ticker),
-//                0u32.into()
-//            );
-//            assert_eq!(
-//                PortfolioAssetBalances::get(&user_portfolio, &ticker),
-//                token.total_supply
-//            );
-//
-//            assert_noop!(
-//                Asset::redeem_from_portfolio(
-//                    bob.origin(),
-//                    ticker,
-//                    token.total_supply,
-//                    PortfolioKind::User(next_portfolio_num)
-//                ),
-//                EAError::UnauthorizedAgent
-//            );
-//
-//            assert_noop!(
-//                Asset::redeem_from_portfolio(
-//                    owner.origin(),
-//                    ticker,
-//                    token.total_supply + 1,
-//                    PortfolioKind::User(next_portfolio_num)
-//                ),
-//                PortfolioError::InsufficientPortfolioBalance
-//            );
-//
-//            assert_ok!(Asset::redeem_from_portfolio(
-//                owner.origin(),
-//                ticker,
-//                token.total_supply / 2,
-//                PortfolioKind::User(next_portfolio_num)
-//            ));
-//
-//            assert_eq!(
-//                Asset::balance_of(&ticker, owner.did),
-//                token.total_supply / 2
-//            );
-//            assert_eq!(get_security_token(&ticker).total_supply, token.total_supply / 2);
-//
-//            // Add auth for custody to be moved to bob
-//            let auth_id = Identity::add_auth(
-//                owner.did,
-//                Signatory::from(bob.did),
-//                AuthorizationData::PortfolioCustody(user_portfolio),
-//                None,
-//            )
-//            .unwrap();
-//
-//            // Check that bob accepts auth
-//            assert_ok!(Portfolio::accept_portfolio_custody(bob.origin(), auth_id));
-//
-//            assert_eq!(
-//                Portfolio::portfolio_custodian(user_portfolio),
-//                Some(bob.did)
-//            );
-//
-//            // Check error is given when unauthorized custodian tries to redeem from portfolio
-//            assert_noop!(
-//                Asset::redeem_from_portfolio(
-//                    owner.origin(),
-//                    ticker,
-//                    token.total_supply,
-//                    PortfolioKind::User(next_portfolio_num)
-//                ),
-//                PortfolioError::UnauthorizedCustodian
-//            );
-//
-//            // Remove bob as custodian
-//            assert_ok!(Portfolio::quit_portfolio_custody(
-//                bob.origin(),
-//                user_portfolio
-//            ));
-//
-//            assert_ok!(Asset::redeem_from_portfolio(
-//                owner.origin(),
-//                ticker,
-//                token.total_supply / 2,
-//                PortfolioKind::User(next_portfolio_num)
-//            ));
-//
-//            // Adds Bob as an external agent for the asset
-//            assert_ok!(ExternalAgents::unchecked_add_agent(
-//                ticker,
-//                bob.did,
-//                AgentGroup::Full
-//            ));
-//
-//            // Remove owner as agent
-//            assert_ok!(ExternalAgents::remove_agent(
-//                owner.origin(),
-//                ticker,
-//                owner.did
-//            ));
-//
-//            // Check error is given when unauthorized agent tries to redeem from portfolio
-//            assert_noop!(
-//                Asset::redeem_from_portfolio(
-//                    owner.origin(),
-//                    ticker,
-//                    1,
-//                    PortfolioKind::User(next_portfolio_num)
-//                ),
-//                EAError::UnauthorizedAgent
-//            );
-//        })
-//}
-//
-//#[test]
-//fn issuers_can_change_asset_type() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        set_time_to_now();
-//
-//        let owner = User::new(AccountKeyring::Dave);
-//        let alice = User::new(AccountKeyring::Alice);
-//
-//        // Create an asset
-//        let (ticker, token) = a_token(owner.did);
-//        assert_ok!(basic_asset(owner, ticker, &token));
-//
-//        // Only the asset issuer is allowed to update the asset type
-//        assert_noop!(
-//            Asset::update_asset_type(alice.origin(), ticker, AssetType::EquityPreferred),
-//            EAError::UnauthorizedAgent
-//        );
-//        // Invalid Custom type id must be rejected
-//        assert_noop!(
-//            Asset::update_asset_type(
-//                owner.origin(),
-//                ticker,
-//                AssetType::Custom(CustomAssetTypeId(1))
-//            ),
-//            AssetError::InvalidCustomAssetTypeId
-//        );
-//        // Owner of the asset must be able to change the asset type, as long as it's not an invalid custom type
-//        assert_ok!(Asset::update_asset_type(
-//            owner.origin(),
-//            ticker,
-//            AssetType::EquityPreferred
-//        ));
-//        assert_eq!(
-//            get_security_token(&ticker).asset_type,
-//            AssetType::EquityPreferred
-//        );
-//    })
-//}
-//
-///// Only metadata keys that already have a value set can be locked.
-//#[test]
-//fn prevent_locking_an_empty_key() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        set_time_to_now();
-//
-//        let alice = User::new(AccountKeyring::Alice);
-//        let ticker = an_asset(alice, true);
-//        let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
-//        let asset_metadata_spec = AssetMetadataSpec {
-//            url: None,
-//            description: None,
-//            type_def: None,
-//        };
-//        assert_ok!(Asset::register_asset_metadata_local_type(
-//            alice.origin(),
-//            ticker,
-//            asset_metadata_name.clone(),
-//            asset_metadata_spec
-//        ));
-//        let asset_metadata_detail = AssetMetadataValueDetail {
-//            expire: None,
-//            lock_status: AssetMetadataLockStatus::Locked,
-//        };
-//        let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
-//        assert_noop!(
-//            Asset::set_asset_metadata_details(
-//                alice.origin(),
-//                ticker,
-//                asset_metada_key,
-//                asset_metadata_detail
-//            ),
-//            AssetError::AssetMetadataValueIsEmpty
-//        );
-//    })
-//}
-//
-///// Only metadata keys that already exist can be deleted.
-//#[test]
-//fn remove_local_metadata_key_missing_key() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        set_time_to_now();
-//
-//        let alice = User::new(AccountKeyring::Alice);
-//        let ticker = an_asset(alice, true);
-//        let local_key = AssetMetadataLocalKey(1);
-//        assert_noop!(
-//            Asset::remove_local_metadata_key(alice.origin(), ticker, local_key),
-//            AssetError::AssetMetadataKeyIsMissing
-//        );
-//    })
-//}
-//
-///// Only metadata keys that are not locked can be deleted.
-//#[test]
-//fn remove_local_metadata_key_locked_value() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        set_time_to_now();
-//
-//        let alice = User::new(AccountKeyring::Alice);
-//        let ticker = an_asset(alice, true);
-//        let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
-//        let asset_metadata_spec = AssetMetadataSpec {
-//            url: None,
-//            description: None,
-//            type_def: None,
-//        };
-//        assert_ok!(Asset::register_asset_metadata_local_type(
-//            alice.origin(),
-//            ticker,
-//            asset_metadata_name.clone(),
-//            asset_metadata_spec
-//        ));
-//        let asset_metadata_detail = AssetMetadataValueDetail {
-//            expire: None,
-//            lock_status: AssetMetadataLockStatus::Locked,
-//        };
-//        let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
-//        assert_ok!(Asset::set_asset_metadata(
-//            alice.origin(),
-//            ticker,
-//            asset_metada_key.clone(),
-//            AssetMetadataValue(b"randomvalue".to_vec()),
-//            None,
-//        ));
-//        assert_ok!(Asset::set_asset_metadata_details(
-//            alice.origin(),
-//            ticker,
-//            asset_metada_key,
-//            asset_metadata_detail
-//        ));
-//        assert_noop!(
-//            Asset::remove_local_metadata_key(alice.origin(), ticker, AssetMetadataLocalKey(1)),
-//            AssetError::AssetMetadataValueIsLocked
-//        );
-//    })
-//}
-//
+            add_secondary_key(alice.did, bob.acc());
+            add_secondary_key_with_perms(alice.did, eve.acc(), eve_permissions);
+            StoreCallMetadata::set_call_metadata(b"pallet_asset".into(), b"issuer".into());
+
+            assert_noop!(
+                Asset::issue(eve.origin(), asset_id, 1_000, PortfolioKind::Default),
+                pallet_external_agents::Error::<TestStorage>::SecondaryKeyNotAuthorizedForAsset
+            );
+
+            assert_ok!(Asset::issue(
+                bob.origin(),
+                asset_id,
+                1_000,
+                PortfolioKind::Default
+            ));
+
+            assert_eq!(
+                get_security_token(&asset_id).total_supply,
+                ISSUE_AMOUNT + 1_000
+            );
+        });
+}
+
+#[test]
+fn invalid_granularity_test() {
+    test_with_owner(|owner| {
+        let asset_id = create_asset(&owner, None, Some(false), None, None, None, false, None);
+        assert_noop!(
+            Asset::issue(owner.origin(), asset_id, 10_000, PortfolioKind::Default),
+            AssetError::InvalidGranularity
+        );
+    })
+}
+
+fn bytes_of_len<R: From<Vec<u8>>>(e: u8, len: usize) -> R {
+    iter::repeat(e).take(len).collect::<Vec<_>>().into()
+}
+
+#[test]
+fn create_asset_errors() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+
+        let create = |name, is_divisible, funding_name| {
+            Asset::create_asset(
+                alice.origin(),
+                name,
+                is_divisible,
+                AssetType::default(),
+                vec![],
+                funding_name,
+            )
+        };
+
+        let max_length = <TestStorage as AssetConfig>::AssetNameMaxLength::get() + 1;
+        assert_noop!(
+            create(bytes_of_len(b'A', max_length as usize), true, None),
+            AssetError::MaxLengthOfAssetNameExceeded
+        );
+
+        assert_noop!(
+            create(b"MyAsset".into(), true, Some(exceeded_funding_round_name()),),
+            AssetError::FundingRoundNameMaxLengthExceeded,
+        );
+
+        let asset_id = create_asset(&alice, None, Some(false), None, None, None, false, None);
+        assert_noop!(
+            Asset::issue(
+                alice.origin().clone(),
+                asset_id,
+                1_000,
+                PortfolioKind::Default
+            ),
+            AssetError::InvalidGranularity,
+        );
+
+        let asset_id = create_asset(&alice, None, None, None, None, None, false, None);
+        assert_noop!(
+            Asset::issue(
+                alice.origin().clone(),
+                asset_id,
+                u128::MAX,
+                PortfolioKind::Default
+            ),
+            AssetError::TotalSupplyAboveLimit,
+        );
+    });
+}
+
+#[test]
+fn asset_type_custom_too_long() {
+    ExtBuilder::default().build().execute_with(|| {
+        let user = User::new(AccountKeyring::Alice);
+        let case = |add| Asset::register_custom_asset_type(user.origin(), max_len_bytes(add));
+        assert_too_long!(case(1));
+        assert_ok!(case(0));
+    });
+}
+
+#[test]
+fn asset_type_custom_works() {
+    ExtBuilder::default().build().execute_with(|| {
+        let user = User::new(AccountKeyring::Alice);
+        let register = |ty: &str| Asset::register_custom_asset_type(user.origin(), ty.into());
+        let seq_is = |num| {
+            assert_eq!(CustomTypeIdSequence::get().0, num);
+        };
+        let slot_has = |id, data: &str| {
+            seq_is(id);
+            let id = CustomAssetTypeId(id);
+            let data = data.as_bytes();
+            assert_eq!(CustomTypes::get(id), data);
+            assert_eq!(CustomTypesInverse::get(data), Some(id));
+        };
+
+        // Nothing so far. Generator (G) at 0.
+        seq_is(0);
+
+        // Register first type. G -> 1.
+        assert_ok!(register("foo"));
+        slot_has(1, "foo");
+
+        // Register same type. G unmoved.
+        assert_ok!(register("foo"));
+        slot_has(1, "foo");
+
+        // Register different type. G -> 2.
+        assert_ok!(register("bar"));
+        slot_has(2, "bar");
+
+        // Register same type. G unmoved.
+        assert_ok!(register("bar"));
+        slot_has(2, "bar");
+
+        // Register different type. G -> 3.
+        assert_ok!(register("foobar"));
+        slot_has(3, "foobar");
+
+        // Set G to max. Next registration fails.
+        CustomTypeIdSequence::put(CustomAssetTypeId(u32::MAX));
+        assert_noop!(register("qux"), BaseError::CounterOverflow);
+    });
+}
+
+#[test]
+fn invalid_custom_asset_type_check() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Dave);
+
+        assert_noop!(
+            Asset::create_asset(
+                owner.origin(),
+                b"MyAsset".into(),
+                true,
+                AssetType::Custom(CustomAssetTypeId(1_000_000)),
+                Vec::new(),
+                None,
+            ),
+            AssetError::InvalidCustomAssetTypeId
+        );
+    });
+}
+
+#[test]
+fn asset_doc_field_too_long() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Alice);
+        let asset_id = create_and_issue_sample_asset(&owner);
+        let add_doc = |doc| Asset::add_documents(owner.origin(), vec![doc], asset_id);
+        assert_too_long!(add_doc(Document {
+            uri: max_len_bytes(1),
+            ..<_>::default()
+        }));
+        assert_too_long!(add_doc(Document {
+            name: max_len_bytes(1),
+            ..<_>::default()
+        }));
+        assert_too_long!(add_doc(Document {
+            doc_type: Some(max_len_bytes(1)),
+            ..<_>::default()
+        }));
+        assert_ok!(add_doc(Document {
+            uri: max_len_bytes(0),
+            name: max_len_bytes(0),
+            doc_type: Some(max_len_bytes(0)),
+            ..<_>::default()
+        }));
+    });
+}
+
+#[track_caller]
+fn test_with_owner(test: impl FnOnce(User)) {
+    let owner = AccountKeyring::Alice;
+    ExtBuilder::default()
+        .add_regular_users_from_accounts(&[owner.to_account_id()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
+        .build()
+        .execute_with(|| test(User::existing(owner)));
+}
+
+#[test]
+fn set_funding_round_test() {
+    test_with_owner(|owner| {
+        let asset_id = create_and_issue_sample_asset(&owner);
+        assert_noop!(
+            Asset::set_funding_round(owner.origin(), asset_id, exceeded_funding_round_name()),
+            AssetError::FundingRoundNameMaxLengthExceeded
+        );
+        assert_ok!(Asset::set_funding_round(
+            owner.origin(),
+            asset_id,
+            FundingRoundName(b"VIP round".to_vec())
+        ));
+    })
+}
+
+#[test]
+fn update_identifiers_errors_test() {
+    test_with_owner(|owner| {
+        let asset_id = create_and_issue_sample_asset(&owner);
+        let invalid_asset_ids = vec![
+            AssetIdentifier::CUSIP(*b"037833108"),   // Invalid checksum.
+            AssetIdentifier::CINS(*b"S08000AA7"),    // Invalid checksum.
+            AssetIdentifier::ISIN(*b"US0378331004"), // Invalid checksum.
+            AssetIdentifier::LEI(*b"549300GFX6WN7JDUSN37"), // Invalid checksum.
+        ];
+
+        invalid_asset_ids.into_iter().for_each(|identifier| {
+            assert_noop!(
+                Asset::update_identifiers(owner.origin(), asset_id, vec![identifier]),
+                AssetError::InvalidAssetIdentifier
+            );
+        });
+
+        let valid_asset_ids = vec![AssetIdentifier::CUSIP(*b"037833100")];
+        assert_ok!(Asset::update_identifiers(
+            owner.origin(),
+            asset_id,
+            valid_asset_ids
+        ));
+    })
+}
+
+#[test]
+fn issuers_can_redeem_tokens_from_portfolio() {
+    let alice = AccountKeyring::Alice.to_account_id();
+    ExtBuilder::default()
+        .cdd_providers(vec![alice.clone()])
+        .build()
+        .execute_with(|| {
+            set_timestamp(now());
+
+            let owner = User::new(AccountKeyring::Dave);
+            let bob = User::new(AccountKeyring::Bob);
+
+            // Create asset.
+            let asset_id = create_and_issue_sample_asset(&owner);
+
+            let portfolio_name = PortfolioName(vec![65u8; 5]);
+            let next_portfolio_num = NextPortfolioNumber::get(&owner.did);
+            let portfolio = PortfolioId::default_portfolio(owner.did);
+            let user_portfolio = PortfolioId::user_portfolio(owner.did, next_portfolio_num.clone());
+            Portfolio::create_portfolio(owner.origin(), portfolio_name.clone()).unwrap();
+
+            Portfolio::move_portfolio_funds(
+                owner.origin(),
+                portfolio,
+                user_portfolio,
+                vec![Fund {
+                    description: FundDescription::Fungible {
+                        asset_id,
+                        amount: ISSUE_AMOUNT,
+                    },
+                    memo: None,
+                }],
+            )
+            .unwrap();
+
+            assert_eq!(
+                PortfolioAssetBalances::get(&portfolio, &asset_id),
+                0u32.into()
+            );
+            assert_eq!(
+                PortfolioAssetBalances::get(&user_portfolio, &asset_id),
+                ISSUE_AMOUNT
+            );
+
+            assert_noop!(
+                Asset::redeem(
+                    bob.origin(),
+                    asset_id,
+                    ISSUE_AMOUNT,
+                    PortfolioKind::User(next_portfolio_num)
+                ),
+                EAError::UnauthorizedAgent
+            );
+
+            assert_noop!(
+                Asset::redeem(
+                    owner.origin(),
+                    asset_id,
+                    ISSUE_AMOUNT + 1,
+                    PortfolioKind::User(next_portfolio_num)
+                ),
+                PortfolioError::InsufficientPortfolioBalance
+            );
+
+            assert_ok!(Asset::redeem(
+                owner.origin(),
+                asset_id,
+                ISSUE_AMOUNT / 2,
+                PortfolioKind::User(next_portfolio_num)
+            ));
+
+            assert_eq!(Asset::balance_of(&asset_id, owner.did), ISSUE_AMOUNT / 2);
+            assert_eq!(get_security_token(&asset_id).total_supply, ISSUE_AMOUNT / 2);
+
+            // Add auth for custody to be moved to bob
+            let auth_id = Identity::add_auth(
+                owner.did,
+                Signatory::from(bob.did),
+                AuthorizationData::PortfolioCustody(user_portfolio),
+                None,
+            )
+            .unwrap();
+
+            // Check that bob accepts auth
+            assert_ok!(Portfolio::accept_portfolio_custody(bob.origin(), auth_id));
+
+            assert_eq!(
+                Portfolio::portfolio_custodian(user_portfolio),
+                Some(bob.did)
+            );
+
+            // Check error is given when unauthorized custodian tries to redeem from portfolio
+            assert_noop!(
+                Asset::redeem(
+                    owner.origin(),
+                    asset_id,
+                    ISSUE_AMOUNT,
+                    PortfolioKind::User(next_portfolio_num)
+                ),
+                PortfolioError::UnauthorizedCustodian
+            );
+
+            // Remove bob as custodian
+            assert_ok!(Portfolio::quit_portfolio_custody(
+                bob.origin(),
+                user_portfolio
+            ));
+
+            assert_ok!(Asset::redeem(
+                owner.origin(),
+                asset_id,
+                ISSUE_AMOUNT / 2,
+                PortfolioKind::User(next_portfolio_num)
+            ));
+
+            // Adds Bob as an external agent for the asset
+            assert_ok!(ExternalAgents::unchecked_add_agent(
+                asset_id,
+                bob.did,
+                AgentGroup::Full
+            ));
+
+            // Remove owner as agent
+            assert_ok!(ExternalAgents::remove_agent(
+                owner.origin(),
+                asset_id,
+                owner.did
+            ));
+
+            // Check error is given when unauthorized agent tries to redeem from portfolio
+            assert_noop!(
+                Asset::redeem(
+                    owner.origin(),
+                    asset_id,
+                    1,
+                    PortfolioKind::User(next_portfolio_num)
+                ),
+                EAError::UnauthorizedAgent
+            );
+        })
+}
+
+#[test]
+fn issuers_can_change_asset_type() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Dave);
+        let alice = User::new(AccountKeyring::Alice);
+
+        // Create an asset
+        let asset_id = create_and_issue_sample_asset(&owner);
+
+        // Only the asset issuer is allowed to update the asset type
+        assert_noop!(
+            Asset::update_asset_type(alice.origin(), asset_id, AssetType::EquityPreferred),
+            EAError::UnauthorizedAgent
+        );
+        // Invalid Custom type id must be rejected
+        assert_noop!(
+            Asset::update_asset_type(
+                owner.origin(),
+                asset_id,
+                AssetType::Custom(CustomAssetTypeId(1))
+            ),
+            AssetError::InvalidCustomAssetTypeId
+        );
+        // Owner of the asset must be able to change the asset type, as long as it's not an invalid custom type
+        assert_ok!(Asset::update_asset_type(
+            owner.origin(),
+            asset_id,
+            AssetType::EquityPreferred
+        ));
+        assert_eq!(
+            get_security_token(&asset_id).asset_type,
+            AssetType::EquityPreferred
+        );
+    })
+}
+
+/// Only metadata keys that already have a value set can be locked.
+#[test]
+fn prevent_locking_an_empty_key() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let asset_id = create_and_issue_sample_asset(&alice);
+        let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
+        let asset_metadata_spec = AssetMetadataSpec {
+            url: None,
+            description: None,
+            type_def: None,
+        };
+        assert_ok!(Asset::register_asset_metadata_local_type(
+            alice.origin(),
+            asset_id,
+            asset_metadata_name.clone(),
+            asset_metadata_spec
+        ));
+        let asset_metadata_detail = AssetMetadataValueDetail {
+            expire: None,
+            lock_status: AssetMetadataLockStatus::Locked,
+        };
+        let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
+        assert_noop!(
+            Asset::set_asset_metadata_details(
+                alice.origin(),
+                asset_id,
+                asset_metada_key,
+                asset_metadata_detail
+            ),
+            AssetError::AssetMetadataValueIsEmpty
+        );
+    })
+}
+
+/// Only metadata keys that already exist can be deleted.
+#[test]
+fn remove_local_metadata_key_missing_key() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let asset_id = create_and_issue_sample_asset(&alice);
+        let local_key = AssetMetadataLocalKey(1);
+        assert_noop!(
+            Asset::remove_local_metadata_key(alice.origin(), asset_id, local_key),
+            AssetError::AssetMetadataKeyIsMissing
+        );
+    })
+}
+
+/// Only metadata keys that are not locked can be deleted.
+#[test]
+fn remove_local_metadata_key_locked_value() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let asset_id = create_and_issue_sample_asset(&alice);
+        let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
+        let asset_metadata_spec = AssetMetadataSpec {
+            url: None,
+            description: None,
+            type_def: None,
+        };
+        assert_ok!(Asset::register_asset_metadata_local_type(
+            alice.origin(),
+            asset_id,
+            asset_metadata_name.clone(),
+            asset_metadata_spec
+        ));
+        let asset_metadata_detail = AssetMetadataValueDetail {
+            expire: None,
+            lock_status: AssetMetadataLockStatus::Locked,
+        };
+        let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
+        assert_ok!(Asset::set_asset_metadata(
+            alice.origin(),
+            asset_id,
+            asset_metada_key.clone(),
+            AssetMetadataValue(b"randomvalue".to_vec()),
+            None,
+        ));
+        assert_ok!(Asset::set_asset_metadata_details(
+            alice.origin(),
+            asset_id,
+            asset_metada_key,
+            asset_metadata_detail
+        ));
+        assert_noop!(
+            Asset::remove_local_metadata_key(alice.origin(), asset_id, AssetMetadataLocalKey(1)),
+            AssetError::AssetMetadataValueIsLocked
+        );
+    })
+}
+
 ///// Only metadata keys that don't belong to NFT collections can be deleted.
 //#[test]
 //fn remove_nft_collection_metada_key() {
 //    ExtBuilder::default().build().execute_with(|| {
-//        set_time_to_now();
-//
 //        let alice = User::new(AccountKeyring::Alice);
-//        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
 //        let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
 //        let collection_keys: NFTCollectionKeys = vec![asset_metada_key.clone()].into();
 //        create_nft_collection(
@@ -1606,627 +1489,525 @@ fn mesh_1531_ts_collission_regression_test() {
 //        );
 //    })
 //}
-//
-///// Successfully deletes a local metadata key.
-//#[test]
-//fn remove_local_metadata_key() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        set_time_to_now();
-//
-//        let alice = User::new(AccountKeyring::Alice);
-//        let ticker = an_asset(alice, true);
-//        let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
-//        let asset_metadata_spec = AssetMetadataSpec {
-//            url: None,
-//            description: None,
-//            type_def: None,
-//        };
-//        assert_ok!(Asset::register_asset_metadata_local_type(
-//            alice.origin(),
-//            ticker,
-//            asset_metadata_name.clone(),
-//            asset_metadata_spec
-//        ));
-//        let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
-//        assert_ok!(Asset::set_asset_metadata(
-//            alice.origin(),
-//            ticker,
-//            asset_metada_key.clone(),
-//            AssetMetadataValue(b"randomvalue".to_vec()),
-//            None,
-//        ));
-//        assert_ok!(Asset::remove_local_metadata_key(
-//            alice.origin(),
-//            ticker,
-//            AssetMetadataLocalKey(1)
-//        ),);
-//        assert_eq!(
-//            AssetMetadataLocalKeyToName::get(&ticker, AssetMetadataLocalKey(1)),
-//            None
-//        );
-//        assert_eq!(
-//            AssetMetadataLocalNameToKey::get(&ticker, &asset_metadata_name),
-//            None
-//        );
-//        assert_eq!(
-//            AssetMetadataLocalSpecs::get(&ticker, &AssetMetadataLocalKey(1)),
-//            None
-//        );
-//        assert_eq!(AssetMetadataValues::get(&ticker, &asset_metada_key), None);
-//    })
-//}
-//
-///// Only metadata keys that already exist can have their value removed.
-//#[test]
-//fn remove_local_metadata_value_missing_key() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        set_time_to_now();
-//
-//        let alice = User::new(AccountKeyring::Alice);
-//        let ticker = an_asset(alice, true);
-//        assert_noop!(
-//            Asset::remove_metadata_value(
-//                alice.origin(),
-//                ticker,
-//                AssetMetadataKey::Local(AssetMetadataLocalKey(1))
-//            ),
-//            AssetError::AssetMetadataKeyIsMissing
-//        );
-//    })
-//}
-//
-///// Only metadata keys that are no locked can have their value removed.
-//#[test]
-//fn remove_local_metadata_value_locked_value() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        set_time_to_now();
-//
-//        let alice = User::new(AccountKeyring::Alice);
-//        let ticker = an_asset(alice, true);
-//        let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
-//        let asset_metadata_spec = AssetMetadataSpec {
-//            url: None,
-//            description: None,
-//            type_def: None,
-//        };
-//        assert_ok!(Asset::register_asset_metadata_local_type(
-//            alice.origin(),
-//            ticker,
-//            asset_metadata_name.clone(),
-//            asset_metadata_spec
-//        ));
-//        let asset_metadata_detail = AssetMetadataValueDetail {
-//            expire: None,
-//            lock_status: AssetMetadataLockStatus::Locked,
-//        };
-//        let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
-//        assert_ok!(Asset::set_asset_metadata(
-//            alice.origin(),
-//            ticker,
-//            asset_metada_key.clone(),
-//            AssetMetadataValue(b"randomvalue".to_vec()),
-//            None,
-//        ));
-//        assert_ok!(Asset::set_asset_metadata_details(
-//            alice.origin(),
-//            ticker,
-//            asset_metada_key,
-//            asset_metadata_detail
-//        ));
-//        assert_noop!(
-//            Asset::remove_metadata_value(alice.origin(), ticker, asset_metada_key),
-//            AssetError::AssetMetadataValueIsLocked
-//        );
-//    })
-//}
-//
-///// Successfully removes a metadata value.
-//#[test]
-//fn remove_metadata_value() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        set_time_to_now();
-//
-//        let alice = User::new(AccountKeyring::Alice);
-//        let ticker = an_asset(alice, true);
-//        let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
-//        let asset_metadata_spec = AssetMetadataSpec {
-//            url: None,
-//            description: None,
-//            type_def: None,
-//        };
-//        assert_ok!(Asset::register_asset_metadata_local_type(
-//            alice.origin(),
-//            ticker,
-//            asset_metadata_name.clone(),
-//            asset_metadata_spec.clone()
-//        ));
-//        let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
-//        assert_ok!(Asset::set_asset_metadata(
-//            alice.origin(),
-//            ticker,
-//            asset_metada_key.clone(),
-//            AssetMetadataValue(b"randomvalue".to_vec()),
-//            None,
-//        ));
-//        assert_ok!(Asset::remove_metadata_value(
-//            alice.origin(),
-//            ticker,
-//            asset_metada_key.clone(),
-//        ),);
-//        assert_eq!(
-//            AssetMetadataLocalKeyToName::get(&ticker, AssetMetadataLocalKey(1)),
-//            Some(asset_metadata_name.clone())
-//        );
-//        assert_eq!(
-//            AssetMetadataLocalNameToKey::get(&ticker, &asset_metadata_name),
-//            Some(AssetMetadataLocalKey(1))
-//        );
-//        assert_eq!(
-//            AssetMetadataLocalSpecs::get(&ticker, &AssetMetadataLocalKey(1)),
-//            Some(asset_metadata_spec)
-//        );
-//        assert_eq!(AssetMetadataValues::get(&ticker, &asset_metada_key), None);
-//    })
-//}
-//
-//#[test]
-//fn issue_token_unassigned_custody() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let issued_amount = ONE_UNIT;
-//        let alice = User::new(AccountKeyring::Alice);
-//        let ticker = Ticker::from_slice_truncated(b"TICKER");
-//        let alice_user_portfolio = PortfolioKind::User(PortfolioNumber(1));
-//
-//        assert_ok!(Portfolio::create_portfolio(
-//            alice.origin(),
-//            PortfolioName(b"AlicePortfolio".to_vec())
-//        ));
-//
-//        assert_ok!(Asset::create_asset(
-//            alice.origin(),
-//            ticker.as_ref().into(),
-//            ticker,
-//            true,
-//            AssetType::default(),
-//            Vec::new(),
-//            None,
-//        ));
-//        assert_ok!(Asset::issue(
-//            alice.origin(),
-//            ticker,
-//            issued_amount,
-//            alice_user_portfolio
-//        ));
-//        assert_eq!(BalanceOf::get(ticker, alice.did), issued_amount);
-//    })
-//}
-//
-//#[test]
-//fn redeem_token_unassigned_custody() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let issued_amount = ONE_UNIT;
-//        let alice = User::new(AccountKeyring::Alice);
-//        let ticker = Ticker::from_slice_truncated(b"TICKER");
-//
-//        assert_ok!(Asset::create_asset(
-//            alice.origin(),
-//            ticker.as_ref().into(),
-//            ticker,
-//            true,
-//            AssetType::default(),
-//            Vec::new(),
-//            None,
-//        ));
-//        assert_ok!(Asset::issue(
-//            alice.origin(),
-//            ticker,
-//            issued_amount,
-//            PortfolioKind::Default
-//        ));
-//        assert_ok!(Asset::redeem_from_portfolio(
-//            alice.origin(),
-//            ticker,
-//            issued_amount,
-//            PortfolioKind::Default
-//        ));
-//        assert_eq!(BalanceOf::get(ticker, alice.did), 0);
-//    })
-//}
-//
-//#[test]
-//fn redeem_token_assigned_custody() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let issued_amount = ONE_UNIT;
-//        let bob = User::new(AccountKeyring::Bob);
-//        let alice = User::new(AccountKeyring::Alice);
-//        let ticker = Ticker::from_slice_truncated(b"TICKER");
-//        let portfolio_id = PortfolioId::new(alice.did, PortfolioKind::Default);
-//
-//        assert_ok!(Asset::create_asset(
-//            alice.origin(),
-//            ticker.as_ref().into(),
-//            ticker,
-//            true,
-//            AssetType::default(),
-//            Vec::new(),
-//            None,
-//        ));
-//        // Change custody of the default portfolio
-//        let authorization_id = Identity::add_auth(
-//            alice.did,
-//            Signatory::from(bob.did),
-//            AuthorizationData::PortfolioCustody(portfolio_id),
-//            None,
-//        )
-//        .unwrap();
-//        assert_ok!(Portfolio::accept_portfolio_custody(
-//            bob.origin(),
-//            authorization_id
-//        ));
-//
-//        assert_ok!(Asset::issue(
-//            alice.origin(),
-//            ticker,
-//            issued_amount,
-//            PortfolioKind::Default
-//        ));
-//        assert_noop!(
-//            Asset::redeem_from_portfolio(
-//                alice.origin(),
-//                ticker,
-//                issued_amount,
-//                PortfolioKind::Default
-//            ),
-//            PortfolioError::UnauthorizedCustodian
-//        );
-//    })
-//}
-//fn pre_approve_ticker() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let ticker: Ticker = ticker("TICKER");
-//        let alice = User::new(AccountKeyring::Alice);
-//        Asset::pre_approve_ticker(alice.origin(), ticker).unwrap();
-//
-//        assert!(PreApprovedTicker::get(alice.did, ticker));
-//        assert!(!TickersExemptFromAffirmation::get(ticker));
-//        assert!(Asset::skip_ticker_affirmation(&alice.did, &ticker));
-//    });
-//}
-//
-//#[test]
-//fn remove_ticker_pre_approval() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let ticker: Ticker = ticker("TICKER");
-//        let alice = User::new(AccountKeyring::Alice);
-//        Asset::pre_approve_ticker(alice.origin(), ticker).unwrap();
-//        Asset::remove_ticker_pre_approval(alice.origin(), ticker).unwrap();
-//
-//        assert!(!PreApprovedTicker::get(alice.did, ticker));
-//        assert!(!TickersExemptFromAffirmation::get(ticker));
-//        assert!(!Asset::skip_ticker_affirmation(&alice.did, &ticker));
-//    });
-//}
-//
-//#[test]
-//fn unauthorized_custodian_ticker_exemption() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let ticker: Ticker = ticker("TICKER");
-//        let alice = User::new(AccountKeyring::Alice);
-//
-//        assert_noop!(
-//            Asset::exempt_ticker_affirmation(alice.origin(), ticker),
-//            DispatchError::BadOrigin
-//        );
-//        assert_ok!(Asset::exempt_ticker_affirmation(root(), ticker,),);
-//
-//        assert!(!PreApprovedTicker::get(alice.did, ticker));
-//        assert!(TickersExemptFromAffirmation::get(ticker));
-//        assert!(Asset::skip_ticker_affirmation(&alice.did, &ticker));
-//
-//        assert_noop!(
-//            Asset::remove_ticker_affirmation_exemption(alice.origin(), ticker),
-//            DispatchError::BadOrigin
-//        );
-//        assert_ok!(Asset::remove_ticker_affirmation_exemption(root(), ticker,),);
-//
-//        assert!(!PreApprovedTicker::get(alice.did, ticker));
-//        assert!(!TickersExemptFromAffirmation::get(ticker));
-//        assert!(!Asset::skip_ticker_affirmation(&alice.did, &ticker));
-//    });
-//}
-//
-//#[test]
-//fn unauthorized_add_mandatory_mediators() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let ticker: Ticker = ticker("TICKER");
-//        let bob = User::new(AccountKeyring::Bob);
-//        let alice = User::new(AccountKeyring::Alice);
-//        let max_mediators = <TestStorage as pallet_asset::Config>::MaxAssetMediators::get();
-//        let mediators: BTreeSet<IdentityId> = (0..max_mediators)
-//            .map(|i| IdentityId::from(i as u128))
-//            .collect();
-//
-//        assert_ok!(Asset::create_asset(
-//            alice.origin(),
-//            ticker.as_ref().into(),
-//            ticker,
-//            true,
-//            AssetType::default(),
-//            Vec::new(),
-//            None,
-//        ));
-//        assert_noop!(
-//            Asset::add_mandatory_mediators(bob.origin(), ticker, mediators.try_into().unwrap()),
-//            EAError::UnauthorizedAgent
-//        );
-//    });
-//}
-//
-//#[test]
-//fn successfully_add_mandatory_mediators() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let ticker: Ticker = ticker("TICKER");
-//        let alice = User::new(AccountKeyring::Alice);
-//        let max_mediators = <TestStorage as pallet_asset::Config>::MaxAssetMediators::get();
-//        let mediators: BTreeSet<IdentityId> = (0..max_mediators)
-//            .map(|i| IdentityId::from(i as u128))
-//            .collect();
-//
-//        assert_ok!(Asset::create_asset(
-//            alice.origin(),
-//            ticker.as_ref().into(),
-//            ticker,
-//            true,
-//            AssetType::default(),
-//            Vec::new(),
-//            None,
-//        ));
-//        assert_ok!(Asset::add_mandatory_mediators(
-//            alice.origin(),
-//            ticker,
-//            mediators.clone().try_into().unwrap()
-//        ));
-//
-//        assert_eq!(
-//            MandatoryMediators::<TestStorage>::get(&ticker).len(),
-//            mediators.len()
-//        );
-//        for mediator in mediators {
-//            assert!(MandatoryMediators::<TestStorage>::get(&ticker).contains(&mediator));
-//        }
-//    });
-//}
-//
-//#[test]
-//fn add_mandatory_mediators_exceed_limit() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let ticker: Ticker = ticker("TICKER");
-//        let alice = User::new(AccountKeyring::Alice);
-//        let max_mediators = <TestStorage as pallet_asset::Config>::MaxAssetMediators::get();
-//        let mediators: BTreeSet<IdentityId> = (0..max_mediators)
-//            .map(|i| IdentityId::from(i as u128))
-//            .collect();
-//
-//        assert_ok!(Asset::create_asset(
-//            alice.origin(),
-//            ticker.as_ref().into(),
-//            ticker,
-//            true,
-//            AssetType::default(),
-//            Vec::new(),
-//            None,
-//        ));
-//        assert_ok!(Asset::add_mandatory_mediators(
-//            alice.origin(),
-//            ticker,
-//            mediators.clone().try_into().unwrap()
-//        ));
-//
-//        let new_mediator = BTreeSet::from([IdentityId::from(max_mediators as u128)]);
-//        assert_noop!(
-//            Asset::add_mandatory_mediators(
-//                alice.origin(),
-//                ticker,
-//                new_mediator.try_into().unwrap()
-//            ),
-//            AssetError::NumberOfAssetMediatorsExceeded
-//        );
-//    });
-//}
-//
-//#[test]
-//fn unauthorized_remove_mediators() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let ticker: Ticker = ticker("TICKER");
-//        let bob = User::new(AccountKeyring::Bob);
-//        let alice = User::new(AccountKeyring::Alice);
-//        let max_mediators = <TestStorage as pallet_asset::Config>::MaxAssetMediators::get();
-//        let mediators: BTreeSet<IdentityId> = (0..max_mediators)
-//            .map(|i| IdentityId::from(i as u128))
-//            .collect();
-//
-//        assert_ok!(Asset::create_asset(
-//            alice.origin(),
-//            ticker.as_ref().into(),
-//            ticker,
-//            true,
-//            AssetType::default(),
-//            Vec::new(),
-//            None,
-//        ));
-//        assert_noop!(
-//            Asset::remove_mandatory_mediators(bob.origin(), ticker, mediators.try_into().unwrap()),
-//            EAError::UnauthorizedAgent
-//        );
-//    });
-//}
-//
-//#[test]
-//fn successfully_remove_mediators() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let ticker: Ticker = ticker("TICKER");
-//        let alice = User::new(AccountKeyring::Alice);
-//        let max_mediators = <TestStorage as pallet_asset::Config>::MaxAssetMediators::get();
-//        let mediators: BTreeSet<IdentityId> = (0..max_mediators)
-//            .map(|i| IdentityId::from(i as u128))
-//            .collect();
-//
-//        assert_ok!(Asset::create_asset(
-//            alice.origin(),
-//            ticker.as_ref().into(),
-//            ticker,
-//            true,
-//            AssetType::default(),
-//            Vec::new(),
-//            None,
-//        ));
-//        assert_ok!(Asset::add_mandatory_mediators(
-//            alice.origin(),
-//            ticker,
-//            mediators.clone().try_into().unwrap()
-//        ));
-//
-//        let remove_mediators = BTreeSet::from([IdentityId::from(0 as u128)]);
-//        assert_ok!(Asset::remove_mandatory_mediators(
-//            alice.origin(),
-//            ticker,
-//            remove_mediators.clone().try_into().unwrap()
-//        ),);
-//        assert_eq!(
-//            MandatoryMediators::<TestStorage>::get(&ticker).len(),
-//            mediators.len() - remove_mediators.len()
-//        );
-//        for mediator in remove_mediators {
-//            assert!(!MandatoryMediators::<TestStorage>::get(&ticker).contains(&mediator));
-//        }
-//    });
-//}
-//
-//#[test]
-//fn controller_transfer_locked_asset() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let bob = User::new(AccountKeyring::Bob);
-//        let alice = User::new(AccountKeyring::Alice);
-//        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
-//        let bob_default_portfolio = PortfolioId {
-//            did: bob.did,
-//            kind: PortfolioKind::Default,
-//        };
-//        let alice_default_portfolio = PortfolioId {
-//            did: alice.did,
-//            kind: PortfolioKind::Default,
-//        };
-//
-//        assert_ok!(Asset::create_asset(
-//            alice.origin(),
-//            ticker.as_ref().into(),
-//            ticker,
-//            true,
-//            AssetType::default(),
-//            Vec::new(),
-//            None,
-//        ));
-//        assert_ok!(Asset::issue(
-//            alice.origin(),
-//            ticker,
-//            1_000,
-//            PortfolioKind::Default
-//        ));
-//        let authorization_id = Identity::add_auth(
-//            alice.did,
-//            Signatory::from(bob.did),
-//            AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
-//            None,
-//        )
-//        .unwrap();
-//        assert_ok!(ExternalAgents::accept_become_agent(
-//            bob.origin(),
-//            authorization_id
-//        ));
-//        // Lock the asset by creating and affirming an instruction
-//        assert_ok!(Settlement::create_venue(
-//            alice.origin(),
-//            VenueDetails::default(),
-//            vec![alice.acc()],
-//            VenueType::Other
-//        ));
-//        assert_ok!(Settlement::add_instruction(
-//            alice.origin(),
-//            VenueId(0),
-//            SettlementType::SettleManual(System::block_number() + 1),
-//            None,
-//            None,
-//            vec![Leg::Fungible {
-//                sender: alice_default_portfolio,
-//                receiver: bob_default_portfolio,
-//                ticker: ticker,
-//                amount: 1_000,
-//            }],
-//            None,
-//        ));
-//        assert_ok!(Settlement::affirm_instruction(
-//            alice.origin(),
-//            InstructionId(0),
-//            vec![alice_default_portfolio]
-//        ),);
-//
-//        // Controller transfer should fail since the tokens are locked
-//        assert_noop!(
-//            Asset::controller_transfer(bob.origin(), ticker, 200, alice_default_portfolio),
-//            PortfolioError::InsufficientPortfolioBalance
-//        );
-//    });
-//}
-//
-//#[test]
-//fn issue_tokens_user_portfolio() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
-//        let alice = User::new(AccountKeyring::Alice);
-//        let alice_user_portfolio = PortfolioId {
-//            did: alice.did,
-//            kind: PortfolioKind::User(PortfolioNumber(1)),
-//        };
-//        let alice_default_portfolio = PortfolioId {
-//            did: alice.did,
-//            kind: PortfolioKind::Default,
-//        };
-//
-//        assert_ok!(Portfolio::create_portfolio(
-//            alice.origin(),
-//            PortfolioName(b"AliceUserPortfolio".to_vec())
-//        ));
-//        assert_ok!(Asset::create_asset(
-//            alice.origin(),
-//            ticker.as_ref().into(),
-//            ticker,
-//            true,
-//            AssetType::default(),
-//            Vec::new(),
-//            None,
-//        ));
-//        assert_ok!(Asset::issue(
-//            alice.origin(),
-//            ticker,
-//            1_000,
-//            PortfolioKind::User(PortfolioNumber(1))
-//        ));
-//
-//        assert_eq!(
-//            PortfolioAssetBalances::get(&alice_default_portfolio, &ticker),
-//            0
-//        );
-//        assert_eq!(
-//            PortfolioAssetBalances::get(&alice_user_portfolio, &ticker),
-//            1_000
-//        );
-//        assert_eq!(
-//            PortfolioLockedAssets::get(&alice_user_portfolio, &ticker),
-//            0
-//        );
-//        assert_eq!(BalanceOf::get(&ticker, &alice.did), 1_000);
-//        assert_eq!(Tokens::get(&ticker).unwrap().total_supply, 1_000);
-//        assert_eq!(PortfolioAssetCount::get(alice_user_portfolio), 1);
-//        assert_eq!(PortfolioAssetCount::get(alice_default_portfolio), 0);
-//    });
-//}
+
+/// Successfully deletes a local metadata key.
+#[test]
+fn remove_local_metadata_key() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let asset_id = create_and_issue_sample_asset(&alice);
+        let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
+        let asset_metadata_spec = AssetMetadataSpec {
+            url: None,
+            description: None,
+            type_def: None,
+        };
+        assert_ok!(Asset::register_asset_metadata_local_type(
+            alice.origin(),
+            asset_id,
+            asset_metadata_name.clone(),
+            asset_metadata_spec
+        ));
+        let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
+        assert_ok!(Asset::set_asset_metadata(
+            alice.origin(),
+            asset_id,
+            asset_metada_key.clone(),
+            AssetMetadataValue(b"randomvalue".to_vec()),
+            None,
+        ));
+        assert_ok!(Asset::remove_local_metadata_key(
+            alice.origin(),
+            asset_id,
+            AssetMetadataLocalKey(1)
+        ),);
+        assert_eq!(
+            AssetMetadataLocalKeyToName::get(&asset_id, AssetMetadataLocalKey(1)),
+            None
+        );
+        assert_eq!(
+            AssetMetadataLocalNameToKey::get(&asset_id, &asset_metadata_name),
+            None
+        );
+        assert_eq!(
+            AssetMetadataLocalSpecs::get(&asset_id, &AssetMetadataLocalKey(1)),
+            None
+        );
+        assert_eq!(AssetMetadataValues::get(&asset_id, &asset_metada_key), None);
+    })
+}
+
+/// Only metadata keys that already exist can have their value removed.
+#[test]
+fn remove_local_metadata_value_missing_key() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let asset_id = create_and_issue_sample_asset(&alice);
+        assert_noop!(
+            Asset::remove_metadata_value(
+                alice.origin(),
+                asset_id,
+                AssetMetadataKey::Local(AssetMetadataLocalKey(1))
+            ),
+            AssetError::AssetMetadataKeyIsMissing
+        );
+    })
+}
+
+/// Only metadata keys that are no locked can have their value removed.
+#[test]
+fn remove_local_metadata_value_locked_value() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let asset_id = create_and_issue_sample_asset(&alice);
+        let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
+        let asset_metadata_spec = AssetMetadataSpec {
+            url: None,
+            description: None,
+            type_def: None,
+        };
+        assert_ok!(Asset::register_asset_metadata_local_type(
+            alice.origin(),
+            asset_id,
+            asset_metadata_name.clone(),
+            asset_metadata_spec
+        ));
+        let asset_metadata_detail = AssetMetadataValueDetail {
+            expire: None,
+            lock_status: AssetMetadataLockStatus::Locked,
+        };
+        let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
+        assert_ok!(Asset::set_asset_metadata(
+            alice.origin(),
+            asset_id,
+            asset_metada_key.clone(),
+            AssetMetadataValue(b"randomvalue".to_vec()),
+            None,
+        ));
+        assert_ok!(Asset::set_asset_metadata_details(
+            alice.origin(),
+            asset_id,
+            asset_metada_key,
+            asset_metadata_detail
+        ));
+        assert_noop!(
+            Asset::remove_metadata_value(alice.origin(), asset_id, asset_metada_key),
+            AssetError::AssetMetadataValueIsLocked
+        );
+    })
+}
+
+/// Successfully removes a metadata value.
+#[test]
+fn remove_metadata_value() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let asset_id = create_and_issue_sample_asset(&alice);
+        let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
+        let asset_metadata_spec = AssetMetadataSpec {
+            url: None,
+            description: None,
+            type_def: None,
+        };
+        assert_ok!(Asset::register_asset_metadata_local_type(
+            alice.origin(),
+            asset_id,
+            asset_metadata_name.clone(),
+            asset_metadata_spec.clone()
+        ));
+        let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
+        assert_ok!(Asset::set_asset_metadata(
+            alice.origin(),
+            asset_id,
+            asset_metada_key.clone(),
+            AssetMetadataValue(b"randomvalue".to_vec()),
+            None,
+        ));
+        assert_ok!(Asset::remove_metadata_value(
+            alice.origin(),
+            asset_id,
+            asset_metada_key.clone(),
+        ),);
+        assert_eq!(
+            AssetMetadataLocalKeyToName::get(&asset_id, AssetMetadataLocalKey(1)),
+            Some(asset_metadata_name.clone())
+        );
+        assert_eq!(
+            AssetMetadataLocalNameToKey::get(&asset_id, &asset_metadata_name),
+            Some(AssetMetadataLocalKey(1))
+        );
+        assert_eq!(
+            AssetMetadataLocalSpecs::get(&asset_id, &AssetMetadataLocalKey(1)),
+            Some(asset_metadata_spec)
+        );
+        assert_eq!(AssetMetadataValues::get(&asset_id, &asset_metada_key), None);
+    })
+}
+
+#[test]
+fn issue_token_unassigned_custody() {
+    ExtBuilder::default().build().execute_with(|| {
+        let issued_amount = ONE_UNIT;
+        let alice = User::new(AccountKeyring::Alice);
+        let alice_user_portfolio = PortfolioKind::User(PortfolioNumber(1));
+
+        assert_ok!(Portfolio::create_portfolio(
+            alice.origin(),
+            PortfolioName(b"AlicePortfolio".to_vec())
+        ));
+
+        let asset_id = Asset::generate_asset_id(alice.did, false);
+        assert_ok!(Asset::create_asset(
+            alice.origin(),
+            b"MyAsset".into(),
+            true,
+            AssetType::default(),
+            Vec::new(),
+            None,
+        ));
+        assert_ok!(Asset::issue(
+            alice.origin(),
+            asset_id,
+            issued_amount,
+            alice_user_portfolio
+        ));
+        assert_eq!(BalanceOf::get(asset_id, alice.did), issued_amount);
+    })
+}
+
+#[test]
+fn redeem_token_unassigned_custody() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let asset_id = create_and_issue_sample_asset(&alice);
+        assert_ok!(Asset::redeem(
+            alice.origin(),
+            asset_id,
+            ISSUE_AMOUNT,
+            PortfolioKind::Default
+        ));
+        assert_eq!(BalanceOf::get(asset_id, alice.did), 0);
+    })
+}
+
+#[test]
+fn redeem_token_assigned_custody() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let portfolio_id = PortfolioId::new(alice.did, PortfolioKind::Default);
+
+        let asset_id = create_and_issue_sample_asset(&alice);
+        // Change custody of the default portfolio
+        let authorization_id = Identity::add_auth(
+            alice.did,
+            Signatory::from(bob.did),
+            AuthorizationData::PortfolioCustody(portfolio_id),
+            None,
+        )
+        .unwrap();
+        assert_ok!(Portfolio::accept_portfolio_custody(
+            bob.origin(),
+            authorization_id
+        ));
+
+        assert_noop!(
+            Asset::redeem(
+                alice.origin(),
+                asset_id,
+                ISSUE_AMOUNT,
+                PortfolioKind::Default
+            ),
+            PortfolioError::UnauthorizedCustodian
+        );
+    })
+}
+
+#[test]
+fn pre_approve_asset() {
+    ExtBuilder::default().build().execute_with(|| {
+        let asset_id = AssetID::new([0; 16]);
+        let alice = User::new(AccountKeyring::Alice);
+        Asset::pre_approve_asset(alice.origin(), asset_id).unwrap();
+
+        assert!(PreApprovedAsset::get(alice.did, asset_id));
+        assert!(!AssetsExemptFromAffirmation::get(asset_id));
+        assert!(Asset::skip_asset_affirmation(&alice.did, &asset_id));
+    });
+}
+
+#[test]
+fn remove_asset_pre_approval() {
+    ExtBuilder::default().build().execute_with(|| {
+        let asset_id = AssetID::new([0; 16]);
+        let alice = User::new(AccountKeyring::Alice);
+        Asset::pre_approve_asset(alice.origin(), asset_id).unwrap();
+        Asset::remove_asset_pre_approval(alice.origin(), asset_id).unwrap();
+
+        assert!(!PreApprovedAsset::get(alice.did, asset_id));
+        assert!(!AssetsExemptFromAffirmation::get(asset_id));
+        assert!(!Asset::skip_asset_affirmation(&alice.did, &asset_id));
+    });
+}
+
+#[test]
+fn unauthorized_custodian_ticker_exemption() {
+    ExtBuilder::default().build().execute_with(|| {
+        let asset_id = AssetID::new([0; 16]);
+        let alice = User::new(AccountKeyring::Alice);
+
+        assert_noop!(
+            Asset::exempt_asset_affirmation(alice.origin(), asset_id),
+            DispatchError::BadOrigin
+        );
+        assert_ok!(Asset::exempt_asset_affirmation(root(), asset_id,),);
+
+        assert!(!PreApprovedAsset::get(alice.did, asset_id));
+        assert!(AssetsExemptFromAffirmation::get(asset_id));
+        assert!(Asset::skip_asset_affirmation(&alice.did, &asset_id));
+
+        assert_noop!(
+            Asset::remove_asset_affirmation_exemption(alice.origin(), asset_id),
+            DispatchError::BadOrigin
+        );
+        assert_ok!(Asset::remove_asset_affirmation_exemption(root(), asset_id,),);
+
+        assert!(!PreApprovedAsset::get(alice.did, asset_id));
+        assert!(!AssetsExemptFromAffirmation::get(asset_id));
+        assert!(!Asset::skip_asset_affirmation(&alice.did, &asset_id));
+    });
+}
+
+#[test]
+fn unauthorized_add_mandatory_mediators() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let max_mediators = <TestStorage as pallet_asset::Config>::MaxAssetMediators::get();
+        let mediators: BTreeSet<IdentityId> = (0..max_mediators)
+            .map(|i| IdentityId::from(i as u128))
+            .collect();
+
+        let asset_id = create_and_issue_sample_asset(&alice);
+        assert_noop!(
+            Asset::add_mandatory_mediators(bob.origin(), asset_id, mediators.try_into().unwrap()),
+            EAError::UnauthorizedAgent
+        );
+    });
+}
+
+#[test]
+fn successfully_add_mandatory_mediators() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let max_mediators = <TestStorage as pallet_asset::Config>::MaxAssetMediators::get();
+        let mediators: BTreeSet<IdentityId> = (0..max_mediators)
+            .map(|i| IdentityId::from(i as u128))
+            .collect();
+
+        let asset_id = create_and_issue_sample_asset(&alice);
+        assert_ok!(Asset::add_mandatory_mediators(
+            alice.origin(),
+            asset_id,
+            mediators.clone().try_into().unwrap()
+        ));
+
+        assert_eq!(
+            MandatoryMediators::<TestStorage>::get(&asset_id).len(),
+            mediators.len()
+        );
+        for mediator in mediators {
+            assert!(MandatoryMediators::<TestStorage>::get(&asset_id).contains(&mediator));
+        }
+    });
+}
+
+#[test]
+fn add_mandatory_mediators_exceed_limit() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let max_mediators = <TestStorage as pallet_asset::Config>::MaxAssetMediators::get();
+        let mediators: BTreeSet<IdentityId> = (0..max_mediators)
+            .map(|i| IdentityId::from(i as u128))
+            .collect();
+
+        let asset_id = create_and_issue_sample_asset(&alice);
+        assert_ok!(Asset::add_mandatory_mediators(
+            alice.origin(),
+            asset_id,
+            mediators.clone().try_into().unwrap()
+        ));
+
+        let new_mediator = BTreeSet::from([IdentityId::from(max_mediators as u128)]);
+        assert_noop!(
+            Asset::add_mandatory_mediators(
+                alice.origin(),
+                asset_id,
+                new_mediator.try_into().unwrap()
+            ),
+            AssetError::NumberOfAssetMediatorsExceeded
+        );
+    });
+}
+
+#[test]
+fn unauthorized_remove_mediators() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let max_mediators = <TestStorage as pallet_asset::Config>::MaxAssetMediators::get();
+        let mediators: BTreeSet<IdentityId> = (0..max_mediators)
+            .map(|i| IdentityId::from(i as u128))
+            .collect();
+
+        let asset_id = create_and_issue_sample_asset(&alice);
+        assert_noop!(
+            Asset::remove_mandatory_mediators(
+                bob.origin(),
+                asset_id,
+                mediators.try_into().unwrap()
+            ),
+            EAError::UnauthorizedAgent
+        );
+    });
+}
+
+#[test]
+fn successfully_remove_mediators() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let max_mediators = <TestStorage as pallet_asset::Config>::MaxAssetMediators::get();
+        let mediators: BTreeSet<IdentityId> = (0..max_mediators)
+            .map(|i| IdentityId::from(i as u128))
+            .collect();
+
+        let asset_id = create_and_issue_sample_asset(&alice);
+        assert_ok!(Asset::add_mandatory_mediators(
+            alice.origin(),
+            asset_id,
+            mediators.clone().try_into().unwrap()
+        ));
+
+        let remove_mediators = BTreeSet::from([IdentityId::from(0 as u128)]);
+        assert_ok!(Asset::remove_mandatory_mediators(
+            alice.origin(),
+            asset_id,
+            remove_mediators.clone().try_into().unwrap()
+        ),);
+        assert_eq!(
+            MandatoryMediators::<TestStorage>::get(&asset_id).len(),
+            mediators.len() - remove_mediators.len()
+        );
+        for mediator in remove_mediators {
+            assert!(!MandatoryMediators::<TestStorage>::get(&asset_id).contains(&mediator));
+        }
+    });
+}
+
+#[test]
+fn controller_transfer_locked_asset() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let bob_default_portfolio = PortfolioId {
+            did: bob.did,
+            kind: PortfolioKind::Default,
+        };
+        let alice_default_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+
+        let asset_id = create_and_issue_sample_asset(&alice);
+        let authorization_id = Identity::add_auth(
+            alice.did,
+            Signatory::from(bob.did),
+            AuthorizationData::BecomeAgent(asset_id, AgentGroup::Full),
+            None,
+        )
+        .unwrap();
+        assert_ok!(ExternalAgents::accept_become_agent(
+            bob.origin(),
+            authorization_id
+        ));
+        // Lock the asset by creating and affirming an instruction
+        assert_ok!(Settlement::create_venue(
+            alice.origin(),
+            VenueDetails::default(),
+            vec![alice.acc()],
+            VenueType::Other
+        ));
+        assert_ok!(Settlement::add_instruction(
+            alice.origin(),
+            VenueId(0),
+            SettlementType::SettleManual(System::block_number() + 1),
+            None,
+            None,
+            vec![Leg::Fungible {
+                sender: alice_default_portfolio,
+                receiver: bob_default_portfolio,
+                asset_id,
+                amount: ISSUE_AMOUNT,
+            }],
+            None,
+        ));
+        assert_ok!(Settlement::affirm_instruction(
+            alice.origin(),
+            InstructionId(0),
+            vec![alice_default_portfolio]
+        ),);
+
+        // Controller transfer should fail since the tokens are locked
+        assert_noop!(
+            Asset::controller_transfer(bob.origin(), asset_id, 200, alice_default_portfolio),
+            PortfolioError::InsufficientPortfolioBalance
+        );
+    });
+}
+
+#[test]
+fn issue_tokens_user_portfolio() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let alice_user_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::User(PortfolioNumber(1)),
+        };
+        let alice_default_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+
+        assert_ok!(Portfolio::create_portfolio(
+            alice.origin(),
+            PortfolioName(b"AliceUserPortfolio".to_vec())
+        ));
+        let asset_id = create_asset(
+            &alice,
+            None,
+            None,
+            None,
+            None,
+            None,
+            true,
+            Some(PortfolioKind::User(PortfolioNumber(1))),
+        );
+
+        assert_eq!(
+            PortfolioAssetBalances::get(&alice_default_portfolio, &asset_id),
+            0
+        );
+        assert_eq!(
+            PortfolioAssetBalances::get(&alice_user_portfolio, &asset_id),
+            ISSUE_AMOUNT
+        );
+        assert_eq!(
+            PortfolioLockedAssets::get(&alice_user_portfolio, &asset_id),
+            0
+        );
+        assert_eq!(BalanceOf::get(&asset_id, &alice.did), ISSUE_AMOUNT);
+        assert_eq!(get_security_token(&asset_id).total_supply, ISSUE_AMOUNT);
+        assert_eq!(PortfolioAssetCount::get(alice_user_portfolio), 1);
+        assert_eq!(PortfolioAssetCount::get(alice_default_portfolio), 0);
+    });
+}
