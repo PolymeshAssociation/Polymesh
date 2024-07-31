@@ -524,6 +524,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
+                - 7.0-pre-release
       - build-docker-distroless:
           requires:
             - build
@@ -534,6 +535,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
+                - 7.0-pre-release
       - build-docker-arm64-debian:
           requires:
             - build-arm64
@@ -544,6 +546,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
+                - 7.0-pre-release
       - build-docker-arm64-distroless:
           requires:
             - build-arm64
@@ -554,6 +557,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
+                - 7.0-pre-release
       - publish-github-release:
           requires:
             - build
