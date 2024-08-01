@@ -3619,6 +3619,14 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       scaleValidatorCount: AugmentedSubmittable<(factor: Percent | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Percent]>;
       /**
+       * Changes commission rate which applies to all validators. Only Governance
+       * committee is allowed to change this value.
+       * 
+       * # Arguments
+       * * `new_cap` the new commission cap.
+       **/
+      setCommissionCap: AugmentedSubmittable<(newCap: Perbill | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Perbill]>;
+      /**
        * (Re-)set the controller of a stash.
        * 
        * Effects will be felt instantly (as soon as this function is completed successfully).

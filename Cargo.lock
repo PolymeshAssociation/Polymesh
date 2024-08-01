@@ -5434,6 +5434,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex",
+ "hex-literal 0.3.4",
  "log",
  "pallet-balances 0.1.0",
  "pallet-base",
@@ -6551,7 +6552,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh"
-version = "6.3.0"
+version = "6.3.3"
 dependencies = [
  "clap 4.4.11",
  "frame-benchmarking",

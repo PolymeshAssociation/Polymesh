@@ -1235,6 +1235,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InvalidNFTTransferFrozenAsset: AugmentedError<ApiType>;
       /**
+       * Ticker and NFT ticker don't match
+       **/
+      InvalidNFTTransferInconsistentTicker: AugmentedError<ApiType>;
+      /**
        * Failed to transfer an NFT - the number of nfts in the identity is insufficient.
        **/
       InvalidNFTTransferInsufficientCount: AugmentedError<ApiType>;
@@ -1906,9 +1910,17 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       CannotChillOther: AugmentedError<ApiType>;
       /**
+       * Validator commiission is above maximum.
+       **/
+      CommissionTooHigh: AugmentedError<ApiType>;
+      /**
        * Commission is too low. Must be at least `MinCommission`.
        **/
       CommissionTooLow: AugmentedError<ApiType>;
+      /**
+       * New commission must be different from previous commission.
+       **/
+      CommissionUnchanged: AugmentedError<ApiType>;
       /**
        * Duplicate index.
        **/

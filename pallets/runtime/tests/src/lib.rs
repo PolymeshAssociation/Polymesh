@@ -36,6 +36,7 @@ mod settlement_pallet;
 mod settlement_test;
 mod signed_extra;
 mod staking;
+mod staking_extra_tests;
 mod sto_test;
 mod transaction_payment_test;
 mod transfer_compliance_test;

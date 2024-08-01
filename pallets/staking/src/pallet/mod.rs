@@ -1310,6 +1310,15 @@ pub mod pallet {
 
             // Only check limits if they are not already a validator.
             if !Validators::<T>::contains_key(stash) {
+                // If this error is reached, we need to adjust the `MinValidatorBond` and start
+                // calling `chill_other`. Until then, we explicitly block new validators to protect
+                // the runtime.
+                if let Some(max_validators) = MaxValidatorsCount::<T>::get() {
+                    ensure!(
+                        Validators::<T>::count() < max_validators,
+                        Error::<T>::TooManyValidators
+                    );
+                }
                 // Ensure the identity doesn't run more validators than the intended count
                 ensure!(
                     stash_did_prefs.running_count < stash_did_prefs.intended_count,
@@ -1494,9 +1503,11 @@ pub mod pallet {
                 return Err(Error::<T>::AlreadyPaired.into());
             }
 
-            // Prevents stashes which are controllers from calling the extrinsic
-            if <Ledger<T>>::contains_key(&stash) {
-                return Err(Error::<T>::BadState.into());
+            // Prevents stashes which are controllers of another ledger from calling the extrinsic
+            if old_controller != stash {
+                if <Ledger<T>>::contains_key(&stash) {
+                    return Err(Error::<T>::BadState.into());
+                }
             }
 
             if controller != old_controller {
@@ -1796,14 +1807,19 @@ pub mod pallet {
         #[pallet::call_index(20)]
         #[pallet::weight(<T as Config>::WeightInfo::reap_stash(*num_slashing_spans))]
         pub fn reap_stash(
-            _origin: OriginFor<T>,
+            origin: OriginFor<T>,
             stash: T::AccountId,
             num_slashing_spans: u32,
         ) -> DispatchResultWithPostInfo {
-            ensure!(
-                T::Currency::total_balance(&stash) == T::Currency::minimum_balance(),
-                Error::<T>::FundedTarget
-            );
+            let _ = ensure_signed(origin)?;
+
+            let ed = T::Currency::minimum_balance();
+            let reapable = T::Currency::total_balance(&stash) <= ed
+                || Self::ledger(Self::bonded(stash.clone()).ok_or(Error::<T>::NotStash)?)
+                    .map(|l| l.total)
+                    .unwrap_or_default()
+                    < ed;
+            ensure!(reapable, Error::<T>::FundedTarget);
 
             Self::kill_stash(&stash, num_slashing_spans)?;
             T::Currency::remove_lock(STAKING_ID, &stash);
