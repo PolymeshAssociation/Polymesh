@@ -696,6 +696,17 @@ impl<T: Config> Pallet<T> {
         IdentityPallet::<T>::get_identity(multisig)
     }
 
+    fn ensure_max_signers(multisig: &T::AccountId, len: u64) -> Result<u64, DispatchError> {
+        let pending_num_of_signers = NumberOfSigners::<T>::get(&multisig)
+            .checked_add(len)
+            .ok_or(Error::<T>::TooManySigners)?;
+        ensure!(
+            pending_num_of_signers <= T::MaxSigners::get() as u64,
+            Error::<T>::TooManySigners
+        );
+        Ok(pending_num_of_signers)
+    }
+
     fn ensure_ms_admin(
         origin: T::RuntimeOrigin,
         multisig: &T::AccountId,
@@ -752,6 +763,9 @@ impl<T: Config> Pallet<T> {
         multisig: T::AccountId,
         signers: BoundedVec<T::AccountId, T::MaxSigners>,
     ) -> DispatchResult {
+        // Don't allow adding too many signers.
+        Self::ensure_max_signers(&multisig, signers.len() as u64)?;
+
         for signer in &signers {
             IdentityPallet::<T>::add_auth(
                 caller_did,
@@ -1067,13 +1081,17 @@ impl<T: Config> Pallet<T> {
                     Self::get_ms_did(&multisig).ok_or(Error::<T>::MultisigMissingIdentity)?;
                 IdentityPallet::<T>::ensure_auth_by(ms_identity, auth_by)?;
 
-                MultiSigSigners::<T>::insert(&multisig, &signer, true);
-                NumberOfSigners::<T>::mutate(&multisig, |x| *x += 1u64);
+                // Update number of signers for this multisig.
+                let pending_num_of_signers = Self::ensure_max_signers(&multisig, 1)?;
+                NumberOfSigners::<T>::insert(&multisig, pending_num_of_signers);
 
+                // Add and link the signer to the multisig.
+                MultiSigSigners::<T>::insert(&multisig, &signer, true);
                 IdentityPallet::<T>::add_key_record(
                     &signer,
                     KeyRecord::MultiSigSignerKey(multisig.clone()),
                 );
+
                 Self::deposit_event(Event::MultiSigSignerAdded {
                     caller_did: ms_identity,
                     multisig,

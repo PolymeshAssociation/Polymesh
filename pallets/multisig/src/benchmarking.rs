@@ -245,7 +245,7 @@ benchmarks! {
 
     add_multisig_signers {
         // Number of signers
-        let i in 1 .. T::MaxSigners::get() as u32;
+        let i in 1 .. (T::MaxSigners::get() - 1) as u32;
 
         let (alice, multisig, _, _, multisig_origin) = generate_multisig_for_alice::<T>(1, 1).unwrap();
         let (signers, _) = generate_signers::<T>(i as usize);
@@ -270,7 +270,7 @@ benchmarks! {
 
     add_multisig_signers_via_admin {
         // Number of signers
-        let i in 1 .. T::MaxSigners::get() as u32;
+        let i in 1 .. (T::MaxSigners::get() - 1) as u32;
 
         let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(1, 1).unwrap();
         init_admin(&multisig, &alice);
