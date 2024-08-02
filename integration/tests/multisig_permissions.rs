@@ -363,6 +363,63 @@ async fn multisig_as_secondary_key_change_identity() -> Result<()> {
 }
 
 #[tokio::test]
+async fn secondary_key_ms_make_primary() -> Result<()> {
+    let mut tester = PolymeshTester::new().await?;
+    // Create a user with secondary keys to be the MS creator.
+    let users = tester
+        .users_with_secondary_keys(&[("MS_make_primary_with_sk", 1)])
+        .await?;
+    let mut did1 = users[0].clone();
+    let sk = did1.get_sk(0)?.clone();
+
+    // Create a MS as a secondary key with no permissions.
+    let mut ms = MuliSigState::create_and_join_creator(&mut tester, &sk, 3, 2, false, None).await?;
+
+    // Need to fund the MultiSig so that it can't pay
+    // transaction fees.
+    let mut res_transfer = tester
+        .api
+        .call()
+        .balances()
+        .transfer(ms.account.into(), 10 * ONE_POLYX)?
+        .execute(&mut did1)
+        .await?;
+
+    // A secondary key can make the MS a primary.  If it
+    // has permissions to create the authorization.
+    let mut res_make_primary = ms.make_primary().await?;
+
+    // Wait for transfer and make primary.
+    res_transfer.ok().await?;
+    res_make_primary.ok().await?;
+
+    // Prepare `system.remark` call.
+    let remark_call = tester.api.call().system().remark(vec![])?;
+    // Prepare `settlement.create_venue` call.
+    let create_venue_call = tester.api.call().settlement().create_venue(
+        VenueDetails(vec![]),
+        vec![],
+        VenueType::Other,
+    )?;
+
+    let expected = vec![
+        true, // remark.
+        true, // create venue.  MS has full permissions as the primary key.
+    ];
+    let batch_call = tester.api.call().utility().force_batch(vec![
+        remark_call.runtime_call().clone(),
+        create_venue_call.runtime_call().clone(),
+    ])?;
+
+    let mut res = ms.run_proposal(batch_call).await?;
+    res.ok().await?;
+    let calls_ok = get_batch_results(&mut res).await?;
+    assert_eq!(calls_ok, expected);
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn secondary_key_creates_multisig() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     // Create a user with secondary keys to be the MS creator.
@@ -373,7 +430,7 @@ async fn secondary_key_creates_multisig() -> Result<()> {
     let sk = did1.get_sk(0)?.clone();
 
     // Create a MS as a secondary key with no permissions.
-    let mut ms = MuliSigState::create(&mut tester, &sk, 3, 2, None).await?;
+    let mut ms = MuliSigState::create_and_join_creator(&mut tester, &sk, 3, 2, false, None).await?;
 
     // Prepare `system.remark` call.
     let remark_call = tester.api.call().system().remark(vec![])?;
@@ -398,15 +455,26 @@ async fn secondary_key_creates_multisig() -> Result<()> {
     let calls_ok = get_batch_results(&mut res).await?;
     assert_eq!(calls_ok, expected);
 
+    Ok(())
+}
+
+#[tokio::test]
+async fn ms_make_secondary() -> Result<()> {
+    let mut tester = PolymeshTester::new().await?;
+    // Create a user with secondary keys to be the MS creator.
+    let users = tester
+        .users_with_secondary_keys(&[("MS_make_secondary_with_sk", 1)])
+        .await?;
+    let did1 = users[0].clone();
+    let sk = did1.get_sk(0)?.clone();
+
+    // Create a MS as a secondary key with no permissions.
+    let mut ms = MuliSigState::create_and_join_creator(&mut tester, &sk, 3, 2, false, None).await?;
+
     let whole = PermissionsBuilder::whole();
     // The MS is already a secondary key, it can't join again.
     let res = ms.make_secondary(Some(whole.into())).await;
     assert!(res.is_err());
-
-    // A secondary key can make the MS a primary.  If it
-    // has permissions to create the authorization.
-    let res = ms.make_primary().await?.ok().await;
-    assert!(res.is_ok());
 
     Ok(())
 }
