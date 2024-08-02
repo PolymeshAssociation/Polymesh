@@ -73,7 +73,8 @@ pub fn create_and_issue_sample_nft(asset_owner: &User) -> AssetID {
 
     assert_ok!(Nft::create_nft_collection(
         asset_owner.origin(),
-        asset_id,
+        Some(asset_id),
+        None,
         Vec::new().into(),
     ));
 
@@ -120,22 +121,4 @@ pub fn create_asset(
     }
 
     asset_id
-}
-
-use chrono::prelude::Utc;
-use sp_consensus_babe::Slot;
-
-type Timestamp = pallet_timestamp::Pallet<TestStorage>;
-
-pub fn now() -> u64 {
-    Utc::now().timestamp() as _
-}
-
-fn slot_duration() -> u64 {
-    pallet_babe::Pallet::<TestStorage>::slot_duration()
-}
-
-pub(crate) fn set_timestamp(n: u64) {
-    pallet_babe::CurrentSlot::<TestStorage>::set(Slot::from(n / slot_duration()));
-    Timestamp::set_timestamp(n);
 }

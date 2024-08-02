@@ -53,7 +53,7 @@ use crate::asset_pallet::setup::{
     ISSUE_AMOUNT,
 };
 use crate::ext_builder::ExtBuilder;
-//use crate::nft::create_nft_collection;
+use crate::nft::create_nft_collection;
 use crate::storage::{
     add_secondary_key, add_secondary_key_with_perms, register_keyring_account, root, Checkpoint,
     TestStorage, User,
@@ -1463,32 +1463,31 @@ fn remove_local_metadata_key_locked_value() {
     })
 }
 
-///// Only metadata keys that don't belong to NFT collections can be deleted.
-//#[test]
-//fn remove_nft_collection_metada_key() {
-//    ExtBuilder::default().build().execute_with(|| {
-//        let alice = User::new(AccountKeyring::Alice);
-//        let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
-//        let collection_keys: NFTCollectionKeys = vec![asset_metada_key.clone()].into();
-//        create_nft_collection(
-//            alice,
-//            ticker,
-//            AssetType::NonFungible(NonFungibleType::Derivative),
-//            collection_keys,
-//        );
-//        assert_ok!(Asset::set_asset_metadata(
-//            alice.origin(),
-//            ticker,
-//            asset_metada_key,
-//            AssetMetadataValue(b"randomvalue".to_vec()),
-//            None,
-//        ));
-//        assert_noop!(
-//            Asset::remove_local_metadata_key(alice.origin(), ticker, AssetMetadataLocalKey(1)),
-//            AssetError::AssetMetadataKeyBelongsToNFTCollection
-//        );
-//    })
-//}
+/// Only metadata keys that don't belong to NFT collections can be deleted.
+#[test]
+fn remove_nft_collection_metada_key() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
+        let collection_keys: NFTCollectionKeys = vec![asset_metada_key.clone()].into();
+        let asset_id = create_nft_collection(
+            alice,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
+        assert_ok!(Asset::set_asset_metadata(
+            alice.origin(),
+            asset_id,
+            asset_metada_key,
+            AssetMetadataValue(b"randomvalue".to_vec()),
+            None,
+        ));
+        assert_noop!(
+            Asset::remove_local_metadata_key(alice.origin(), asset_id, AssetMetadataLocalKey(1)),
+            AssetError::AssetMetadataKeyBelongsToNFTCollection
+        );
+    })
+}
 
 /// Successfully deletes a local metadata key.
 #[test]

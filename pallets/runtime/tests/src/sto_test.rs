@@ -5,13 +5,15 @@ use pallet_sto::{
     Fundraiser, FundraiserId, FundraiserName, FundraiserStatus, FundraiserTier, PriceTier,
     MAX_TIERS,
 };
-use polymesh_primitives::asset::AssetType;
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::settlement::{InstructionStatus, VenueDetails, VenueId, VenueType};
-use polymesh_primitives::{IdentityId, PortfolioId, PortfolioKind, Ticker, WeightMeter};
+use polymesh_primitives::{IdentityId, PortfolioId, WeightMeter};
 use sp_keyring::AccountKeyring;
 
-use super::asset_test::{allow_all_transfers, max_len_bytes, set_timestamp};
+use crate::asset_pallet::setup::create_and_issue_sample_asset;
+
+use super::asset_test::{max_len_bytes, set_timestamp};
 use super::storage::{make_account_with_portfolio, TestStorage, User};
 use super::{exec_noop, exec_ok, ExtBuilder};
 
@@ -68,49 +70,31 @@ fn stop_fundraiser_ext() {
     test(stop_fundraiser);
 }
 
-pub fn create_asset(origin: Origin, ticker: Ticker, supply: u128) {
-    assert_ok!(Asset::create_asset(
-        origin.clone(),
-        vec![b'A'].into(),
-        ticker,
-        true,
-        AssetType::default(),
-        vec![],
-        None,
-    ));
-    assert_ok!(Asset::issue(origin, ticker, supply, PortfolioKind::Default));
-}
-
 struct RaiseContext {
     alice: User,
     alice_portfolio: PortfolioId,
     bob: User,
     bob_portfolio: PortfolioId,
-    offering_ticker: Ticker,
-    raise_ticker: Option<Ticker>,
+    offering_asset: AssetID,
+    raise_asset: Option<AssetID>,
 }
 
-fn init_raise_context(offering_supply: u128, raise_supply_opt: Option<u128>) -> RaiseContext {
+fn init_raise_context() -> RaiseContext {
     let (alice, alice_portfolio) = make_account_with_portfolio(AccountKeyring::Alice);
     let (bob, bob_portfolio) = make_account_with_portfolio(AccountKeyring::Bob);
 
     // Register tokens
-    let offering_ticker = Ticker::from_slice_truncated(&[b'A'][..]);
-    create_asset(alice.origin(), offering_ticker, offering_supply);
+    let offering_asset = create_and_issue_sample_asset(&alice);
 
-    let raise_ticker = raise_supply_opt.map(|raise_supply| {
-        let raise_ticker = Ticker::from_slice_truncated(&[b'B'][..]);
-        create_asset(alice.origin(), raise_ticker, raise_supply);
-        raise_ticker
-    });
+    let raise_asset = Some(create_and_issue_sample_asset(&alice));
 
     RaiseContext {
         alice,
         alice_portfolio,
         bob,
         bob_portfolio,
-        offering_ticker,
-        raise_ticker,
+        offering_asset,
+        raise_asset,
     }
 }
 
@@ -121,25 +105,22 @@ fn raise_happy_path() {
         alice_portfolio,
         bob,
         bob_portfolio,
-        offering_ticker,
-        raise_ticker,
-    } = init_raise_context(1_000_000, Some(RAISE_SUPPLY));
-    let raise_ticker = raise_ticker.unwrap();
+        offering_asset,
+        raise_asset,
+    } = init_raise_context();
+    let raise_asset = raise_asset.unwrap();
 
     let mut weight_meter = WeightMeter::max_limit_no_minimum();
     assert_ok!(Asset::unverified_transfer_asset(
         alice_portfolio,
         bob_portfolio,
-        raise_ticker,
+        raise_asset,
         RAISE_SUPPLY,
         None,
         None,
         IdentityId::default(),
         &mut weight_meter
     ));
-
-    allow_all_transfers(offering_ticker, alice);
-    allow_all_transfers(raise_ticker, alice);
 
     // Register a venue
     let venue_counter = Settlement::venue_counter();
@@ -152,20 +133,20 @@ fn raise_happy_path() {
     ));
 
     let amount = 100u128;
-    let alice_init_offering = Asset::balance_of(&offering_ticker, alice.did);
-    let bob_init_offering = Asset::balance_of(&offering_ticker, bob.did);
-    let alice_init_raise = Asset::balance_of(&raise_ticker, alice.did);
-    let bob_init_raise = Asset::balance_of(&raise_ticker, bob.did);
+    let alice_init_offering = Asset::balance_of(&offering_asset, alice.did);
+    let bob_init_offering = Asset::balance_of(&offering_asset, bob.did);
+    let alice_init_raise = Asset::balance_of(&raise_asset, alice.did);
+    let bob_init_raise = Asset::balance_of(&raise_asset, bob.did);
 
     // Alice starts a fundraiser
-    let fundraiser_id = Sto::fundraiser_count(offering_ticker);
+    let fundraiser_id = Sto::fundraiser_count(offering_asset);
     let fundraiser_name: FundraiserName = max_len_bytes(0);
     exec_ok!(Sto::create_fundraiser(
         alice.origin(),
         alice_portfolio,
-        offering_ticker,
+        offering_asset,
         alice_portfolio,
-        raise_ticker,
+        raise_asset,
         vec![PriceTier {
             total: 1_000_000u128,
             price: 1_000_000u128,
@@ -179,13 +160,13 @@ fn raise_happy_path() {
 
     let check_fundraiser = |remaining| {
         assert_eq!(
-            Sto::fundraisers(offering_ticker, fundraiser_id),
+            Sto::fundraisers(offering_asset, fundraiser_id),
             Some(Fundraiser {
                 creator: alice.did,
                 offering_portfolio: alice_portfolio,
-                offering_asset: offering_ticker,
+                offering_asset,
                 raising_portfolio: alice_portfolio,
-                raising_asset: raise_ticker,
+                raising_asset: raise_asset,
                 tiers: vec![FundraiserTier {
                     total: 1_000_000u128,
                     remaining,
@@ -203,20 +184,17 @@ fn raise_happy_path() {
     check_fundraiser(1_000_000u128);
 
     assert_eq!(
-        Asset::balance_of(&offering_ticker, alice.did),
+        Asset::balance_of(&offering_asset, alice.did),
         alice_init_offering
     );
     assert_eq!(
-        Asset::balance_of(&offering_ticker, bob.did),
+        Asset::balance_of(&offering_asset, bob.did),
         bob_init_offering
     );
+    assert_eq!(Asset::balance_of(&raise_asset, alice.did), alice_init_raise);
+    assert_eq!(Asset::balance_of(&raise_asset, bob.did), bob_init_raise);
     assert_eq!(
-        Asset::balance_of(&raise_ticker, alice.did),
-        alice_init_raise
-    );
-    assert_eq!(Asset::balance_of(&raise_ticker, bob.did), bob_init_raise);
-    assert_eq!(
-        Sto::fundraiser_name(offering_ticker, fundraiser_id),
+        Sto::fundraiser_name(offering_asset, fundraiser_id),
         Some(fundraiser_name)
     );
     let sto_invest = |purchase_amount, max_price, err: Error| {
@@ -225,7 +203,7 @@ fn raise_happy_path() {
                 bob.origin(),
                 bob_portfolio,
                 bob_portfolio,
-                offering_ticker,
+                offering_asset,
                 fundraiser_id,
                 purchase_amount,
                 max_price,
@@ -249,7 +227,7 @@ fn raise_happy_path() {
         bob.origin(),
         bob_portfolio,
         bob_portfolio,
-        offering_ticker,
+        offering_asset,
         fundraiser_id,
         amount.into(),
         Some(1_000_000u128),
@@ -266,19 +244,19 @@ fn raise_happy_path() {
     );
 
     assert_eq!(
-        Asset::balance_of(&offering_ticker, alice.did),
+        Asset::balance_of(&offering_asset, alice.did),
         alice_init_offering - amount
     );
     assert_eq!(
-        Asset::balance_of(&offering_ticker, bob.did),
+        Asset::balance_of(&offering_asset, bob.did),
         bob_init_offering + amount
     );
     assert_eq!(
-        Asset::balance_of(&raise_ticker, alice.did),
+        Asset::balance_of(&raise_asset, alice.did),
         alice_init_raise + amount
     );
     assert_eq!(
-        Asset::balance_of(&raise_ticker, bob.did),
+        Asset::balance_of(&raise_asset, bob.did),
         bob_init_raise - amount
     );
 }
@@ -287,16 +265,34 @@ fn raise_unhappy_path() {
     let (alice, alice_portfolio) = make_account_with_portfolio(AccountKeyring::Alice);
     let (bob, bob_portfolio) = make_account_with_portfolio(AccountKeyring::Bob);
 
-    let offering_ticker = Ticker::from_slice_truncated(&[b'C'][..]);
-    let raise_ticker = Ticker::from_slice_truncated(&[b'D'][..]);
+    // Offering asset not created
+    assert_noop!(
+        Sto::create_fundraiser(
+            alice.origin(),
+            alice_portfolio,
+            [0; 16].into(),
+            alice_portfolio,
+            [1; 16].into(),
+            Vec::new(),
+            VenueId(0),
+            None,
+            None,
+            0,
+            b"Name".into(),
+        ),
+        EAError::UnauthorizedAgent
+    );
+
+    let offering_asset = create_and_issue_sample_asset(&alice);
+    let raise_asset = create_and_issue_sample_asset(&alice);
 
     let fundraise = |tiers, venue, name| {
         Sto::create_fundraiser(
             alice.origin(),
             alice_portfolio,
-            offering_ticker,
+            offering_asset,
             alice_portfolio,
-            raise_ticker,
+            raise_asset,
             tiers,
             venue,
             None,
@@ -337,15 +333,6 @@ fn raise_unhappy_path() {
         max_len_bytes(1)
     ));
 
-    // Offering asset not created
-    check_fundraiser(
-        default_tiers.clone(),
-        VenueId(0),
-        EAError::UnauthorizedAgent.into(),
-    );
-
-    create_asset(alice.origin(), offering_ticker, 1_000_000);
-
     // Venue does not exist
     check_venue(VenueId(0));
 
@@ -361,22 +348,17 @@ fn raise_unhappy_path() {
 
     let correct_venue = create_venue(alice, VenueType::Sto);
 
-    create_asset(alice.origin(), raise_ticker, 1_000_000);
-
     let mut weight_meter = WeightMeter::max_limit_no_minimum();
     assert_ok!(Asset::unverified_transfer_asset(
         alice_portfolio,
         bob_portfolio,
-        raise_ticker,
+        raise_asset,
         1_000_000,
         None,
         None,
         IdentityId::default(),
         &mut weight_meter
     ));
-
-    allow_all_transfers(offering_ticker, alice);
-    allow_all_transfers(raise_ticker, alice);
 
     // No prices
     check_fundraiser(vec![], correct_venue, Error::InvalidPriceTiers.into());
@@ -405,9 +387,9 @@ fn raise_unhappy_path() {
         Sto::create_fundraiser(
             alice.origin(),
             alice_portfolio,
-            offering_ticker,
+            offering_asset,
             alice_portfolio,
-            raise_ticker,
+            raise_asset,
             vec![PriceTier {
                 total: 100u128,
                 price: 1u128
@@ -426,10 +408,10 @@ fn invalid_fundraiser() {
     let RaiseContext {
         alice,
         alice_portfolio,
-        offering_ticker,
-        raise_ticker,
+        offering_asset,
+        raise_asset,
         ..
-    } = init_raise_context(1_000_000, Some(1_000_000));
+    } = init_raise_context();
 
     let venue_counter = Settlement::venue_counter();
     assert_ok!(Settlement::create_venue(
@@ -443,9 +425,9 @@ fn invalid_fundraiser() {
         Sto::create_fundraiser(
             alice.origin(),
             alice_portfolio,
-            offering_ticker,
+            offering_asset,
             alice_portfolio,
-            raise_ticker.unwrap(),
+            raise_asset.unwrap(),
             tiers,
             venue_counter,
             None,
@@ -492,7 +474,7 @@ fn invalid_fundraiser() {
 }
 
 fn basic_fundraiser() -> (FundraiserId, RaiseContext) {
-    let context = init_raise_context(1_000_000, Some(1_000_000));
+    let context = init_raise_context();
 
     let venue_counter = Settlement::venue_counter();
     assert_ok!(Settlement::create_venue(
@@ -501,13 +483,13 @@ fn basic_fundraiser() -> (FundraiserId, RaiseContext) {
         vec![AccountKeyring::Alice.to_account_id()],
         VenueType::Sto
     ));
-    let fundraiser_id = Sto::fundraiser_count(context.offering_ticker);
+    let fundraiser_id = Sto::fundraiser_count(context.offering_asset);
     assert_ok!(Sto::create_fundraiser(
         context.alice.origin(),
         context.alice_portfolio,
-        context.offering_ticker,
+        context.offering_asset,
         context.alice_portfolio,
-        context.raise_ticker.unwrap(),
+        context.raise_asset.unwrap(),
         vec![PriceTier { total: 1, price: 2 }],
         venue_counter,
         None,
@@ -523,7 +505,7 @@ fn fundraiser_expired() {
         fundraiser_id,
         RaiseContext {
             alice,
-            offering_ticker,
+            offering_asset,
             bob,
             bob_portfolio,
             ..
@@ -532,7 +514,7 @@ fn fundraiser_expired() {
 
     assert_ok!(Sto::modify_fundraiser_window(
         alice.origin(),
-        offering_ticker,
+        offering_asset,
         fundraiser_id,
         Timestamp::get(),
         Some(Timestamp::get() + 1)
@@ -543,7 +525,7 @@ fn fundraiser_expired() {
     assert_noop!(
         Sto::modify_fundraiser_window(
             alice.origin(),
-            offering_ticker,
+            offering_asset,
             fundraiser_id,
             Timestamp::get(),
             None
@@ -556,7 +538,7 @@ fn fundraiser_expired() {
             bob.origin(),
             bob_portfolio,
             bob_portfolio,
-            offering_ticker,
+            offering_asset,
             fundraiser_id,
             1000,
             None,
@@ -571,8 +553,8 @@ fn modifying_fundraiser_window() {
         fundraiser_id,
         RaiseContext {
             alice,
-            offering_ticker,
-            raise_ticker,
+            offering_asset,
+            raise_asset,
             ..
         },
     ) = basic_fundraiser();
@@ -581,7 +563,7 @@ fn modifying_fundraiser_window() {
     assert_noop!(
         Sto::modify_fundraiser_window(
             alice.origin(),
-            raise_ticker.unwrap(),
+            raise_asset.unwrap(),
             fundraiser_id,
             Timestamp::get(),
             None
@@ -593,7 +575,7 @@ fn modifying_fundraiser_window() {
     assert_noop!(
         Sto::modify_fundraiser_window(
             alice.origin(),
-            offering_ticker,
+            offering_asset,
             FundraiserId(u64::MAX),
             Timestamp::get(),
             None
@@ -602,7 +584,7 @@ fn modifying_fundraiser_window() {
     );
 
     let bad_modify_fundraiser_window = |start, end| {
-        Sto::modify_fundraiser_window(alice.origin(), offering_ticker, fundraiser_id, start, end)
+        Sto::modify_fundraiser_window(alice.origin(), offering_asset, fundraiser_id, start, end)
     };
 
     assert_ok!(bad_modify_fundraiser_window(0, None));
@@ -626,33 +608,33 @@ fn freeze_unfreeze_fundraiser() {
         fundraiser_id,
         RaiseContext {
             alice,
-            offering_ticker,
-            raise_ticker,
+            offering_asset,
+            raise_asset,
             ..
         },
     ) = basic_fundraiser();
 
     // Wrong ticker
     assert_noop!(
-        Sto::freeze_fundraiser(alice.origin(), raise_ticker.unwrap(), fundraiser_id,),
+        Sto::freeze_fundraiser(alice.origin(), raise_asset.unwrap(), fundraiser_id,),
         Error::FundraiserNotFound
     );
 
     // Bad fundraiser id
     assert_noop!(
-        Sto::freeze_fundraiser(alice.origin(), offering_ticker, FundraiserId(u64::MAX)),
+        Sto::freeze_fundraiser(alice.origin(), offering_asset, FundraiserId(u64::MAX)),
         Error::FundraiserNotFound
     );
 
     assert_ok!(Sto::freeze_fundraiser(
         alice.origin(),
-        offering_ticker,
+        offering_asset,
         fundraiser_id,
     ));
 
     assert_ok!(Sto::unfreeze_fundraiser(
         alice.origin(),
-        offering_ticker,
+        offering_asset,
         fundraiser_id,
     ));
 }
@@ -663,34 +645,34 @@ fn stop_fundraiser() {
         RaiseContext {
             alice,
             bob,
-            offering_ticker,
-            raise_ticker,
+            offering_asset,
+            raise_asset,
             ..
         },
     ) = basic_fundraiser();
 
     // Wrong ticker
     assert_noop!(
-        Sto::stop(alice.origin(), raise_ticker.unwrap(), fundraiser_id,),
+        Sto::stop(alice.origin(), raise_asset.unwrap(), fundraiser_id,),
         Error::FundraiserNotFound
     );
 
     // Bad fundraiser id
     assert_noop!(
-        Sto::stop(alice.origin(), offering_ticker, FundraiserId(u64::MAX)),
+        Sto::stop(alice.origin(), offering_asset, FundraiserId(u64::MAX)),
         Error::FundraiserNotFound
     );
 
     // Unauthorized
     assert_noop!(
-        Sto::stop(bob.origin(), offering_ticker, fundraiser_id),
+        Sto::stop(bob.origin(), offering_asset, fundraiser_id),
         EAError::UnauthorizedAgent
     );
 
-    assert_ok!(Sto::stop(alice.origin(), offering_ticker, fundraiser_id,));
+    assert_ok!(Sto::stop(alice.origin(), offering_asset, fundraiser_id,));
 
     assert_noop!(
-        Sto::stop(alice.origin(), offering_ticker, fundraiser_id,),
+        Sto::stop(alice.origin(), offering_asset, fundraiser_id,),
         Error::FundraiserClosed
     );
 }

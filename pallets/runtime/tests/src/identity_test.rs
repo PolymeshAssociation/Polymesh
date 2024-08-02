@@ -16,7 +16,6 @@ use frame_support::{
     assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency, StorageDoubleMap,
     StorageMap, StorageValue,
 };
-use pallet_asset::SecurityToken;
 use pallet_balances as balances;
 use pallet_identity::{ChildDid, CustomClaimIdSequence, CustomClaims, CustomClaimsInverse};
 use polymesh_common_utilities::{
@@ -1019,7 +1018,10 @@ pub(crate) fn test_with_bad_ext_perms(test: impl Fn(ExtrinsicPermissions)) {
 
 pub(crate) fn test_with_bad_perms(did: IdentityId, test: impl Fn(Permissions)) {
     test(Permissions {
-        asset: SubsetRestriction::elems((0..=MAX_ASSETS).map(|i| AssetID::new([i as u8; 16]))),
+        asset: SubsetRestriction::elems(
+            (0..=MAX_ASSETS)
+                .map(|i| AssetID::new([i.to_le_bytes(), [0; 8]].concat().try_into().unwrap())),
+        ),
         ..<_>::default()
     });
     test(Permissions {
