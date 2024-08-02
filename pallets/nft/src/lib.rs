@@ -15,7 +15,7 @@ use pallet_base::try_next_pre;
 use pallet_portfolio::{PortfolioLockedNFT, PortfolioNFT};
 use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
 pub use polymesh_common_utilities::traits::nft::{Config, Event, NFTTrait, WeightInfo};
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::{AssetID, AssetName, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
     NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTCount, NFTId, NFTMetadataAttribute, NFTs,
@@ -101,7 +101,8 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` - contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
-        /// * `asset_id` - the [`AssetID`] associated to the new collection.
+        /// * `asset_id` - optional [`AssetID`] associated to the new collection. `None` will create a new asset.
+        /// * `nft_type` - in case the asset hasn't been created yet, one will be created with the given type.
         /// * `collection_keys` - all mandatory metadata keys that the tokens in the collection must have.
         ///
         /// ## Errors
@@ -114,8 +115,13 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::create_nft_collection(collection_keys.len() as u32)]
-        pub fn create_nft_collection(origin, asset_id: AssetID, collection_keys: NFTCollectionKeys) -> DispatchResult {
-            Self::base_create_nft_collection(origin, asset_id, collection_keys)
+        pub fn create_nft_collection(
+            origin,
+            asset_id: Option<AssetID>,
+            nft_type: Option<NonFungibleType>,
+            collection_keys: NFTCollectionKeys
+        ) -> DispatchResult {
+            Self::base_create_nft_collection(origin, asset_id, nft_type, collection_keys)
         }
 
         /// Issues an NFT to the caller.
@@ -245,18 +251,30 @@ decl_error! {
 impl<T: Config> Module<T> {
     fn base_create_nft_collection(
         origin: T::RuntimeOrigin,
-        asset_id: AssetID,
+        asset_id: Option<AssetID>,
+        nft_type: Option<NonFungibleType>,
         collection_keys: NFTCollectionKeys,
     ) -> DispatchResult {
         // Verifies if the caller has asset permission and if the asset is an NFT.
-        let caller_did = {
-            match Asset::<T>::nft_asset(&asset_id) {
-                Some(is_nft_asset) => {
-                    ensure!(is_nft_asset, Error::<T>::InvalidAssetType);
-                    <ExternalAgents<T>>::ensure_agent_asset_perms(origin.clone(), asset_id)?
-                        .primary_did
+        let (create_asset, caller_did, asset_id) = {
+            match asset_id {
+                Some(asset_id) => match Asset::<T>::nft_asset(&asset_id) {
+                    Some(is_nft_asset) => {
+                        ensure!(is_nft_asset, Error::<T>::InvalidAssetType);
+                        let caller_did = <ExternalAgents<T>>::ensure_agent_asset_perms(
+                            origin.clone(),
+                            asset_id,
+                        )?
+                        .primary_did;
+                        (false, caller_did, asset_id)
+                    }
+                    None => return Err(Error::<T>::InvalidAssetID.into()),
+                },
+                None => {
+                    let caller_did = Identity::<T>::ensure_perms(origin.clone())?;
+                    let asset_id = Asset::<T>::generate_asset_id(caller_did, false);
+                    (true, caller_did, asset_id)
                 }
-                None => return Err(Error::<T>::InvalidAssetID.into()),
             }
         };
 
@@ -286,6 +304,19 @@ impl<T: Config> Module<T> {
                 Asset::<T>::check_asset_metadata_key_exists(&asset_id, key),
                 Error::<T>::UnregisteredMetadataKey
             )
+        }
+
+        // Creates an nft asset if it hasn't been created yet
+        if create_asset {
+            let nft_type = nft_type.ok_or(Error::<T>::InvalidAssetType)?;
+            Asset::<T>::create_asset(
+                origin,
+                AssetName(Vec::new()),
+                false,
+                AssetType::NonFungible(nft_type),
+                Vec::new(),
+                None,
+            )?;
         }
 
         // Creates the nft collection
