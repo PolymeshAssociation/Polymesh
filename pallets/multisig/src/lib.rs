@@ -312,9 +312,7 @@ pub mod pallet {
             signers: BoundedVec<T::AccountId, T::MaxSigners>,
         ) -> DispatchResultWithPostInfo {
             let multisig = ensure_signed(origin)?;
-            // Ensure the caller is a MultiSig and get it's DID.
-            let ms_did = Self::get_ms_did(&multisig).ok_or(Error::<T>::MultisigMissingIdentity)?;
-            Self::base_add_signers(ms_did, multisig, signers)?;
+            Self::base_add_signers(None, multisig, signers)?;
             Ok(().into())
         }
 
@@ -329,11 +327,8 @@ pub mod pallet {
             signers: BoundedVec<T::AccountId, T::MaxSigners>,
         ) -> DispatchResultWithPostInfo {
             let multisig = ensure_signed(origin)?;
-            // Ensure the caller is a MultiSig and get it's DID.
-            let ms_did = Self::get_ms_did(&multisig).ok_or(Error::<T>::MultisigMissingIdentity)?;
-
             // Remove the signers from the multisig.
-            Self::base_remove_signers(ms_did, multisig, signers)?;
+            Self::base_remove_signers(None, multisig, signers)?;
             Ok(().into())
         }
 
@@ -352,7 +347,7 @@ pub mod pallet {
             signers: BoundedVec<T::AccountId, T::MaxSigners>,
         ) -> DispatchResultWithPostInfo {
             let caller_did = Self::ensure_ms_admin(origin, &multisig)?;
-            Self::base_add_signers(caller_did, multisig, signers)?;
+            Self::base_add_signers(Some(caller_did), multisig, signers)?;
             Ok(().into())
         }
 
@@ -374,7 +369,7 @@ pub mod pallet {
             let caller_did = Self::ensure_ms_admin(origin, &multisig)?;
 
             // Remove the signers from the multisig.
-            Self::base_remove_signers(caller_did, multisig, signers)?;
+            Self::base_remove_signers(Some(caller_did), multisig, signers)?;
 
             Ok(().into())
         }
@@ -391,9 +386,7 @@ pub mod pallet {
             sigs_required: u64,
         ) -> DispatchResultWithPostInfo {
             let multisig = ensure_signed(origin)?;
-            Self::ensure_ms(&multisig)?;
-            let caller_did = Self::get_ms_did(&multisig).unwrap_or_default();
-            Self::base_change_multisig_required_signatures(caller_did, &multisig, sigs_required)?;
+            Self::base_change_multisig_required_signatures(None, &multisig, sigs_required)?;
             Ok(().into())
         }
 
@@ -411,7 +404,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let caller_did = Self::ensure_ms_admin(origin, &multisig)?;
             Self::base_change_multisig_required_signatures(
-                caller_did,
+                Some(caller_did),
                 &multisig,
                 signatures_required,
             )?;
@@ -691,9 +684,10 @@ impl<T: Config> Pallet<T> {
         PayingDid::<T>::get(multisig)
     }
 
-    pub fn get_ms_did(multisig: &T::AccountId) -> Option<IdentityId> {
-        Self::ensure_ms(multisig).ok()?;
+    pub fn ensure_ms_get_did(multisig: &T::AccountId) -> Result<IdentityId, DispatchError> {
+        Self::ensure_ms(multisig)?;
         IdentityPallet::<T>::get_identity(multisig)
+            .ok_or(Error::<T>::MultisigMissingIdentity.into())
     }
 
     fn ensure_max_signers(multisig: &T::AccountId, len: u64) -> Result<u64, DispatchError> {
@@ -758,15 +752,12 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn base_add_signers(
+    fn base_authorize_signers(
         caller_did: IdentityId,
-        multisig: T::AccountId,
-        signers: BoundedVec<T::AccountId, T::MaxSigners>,
+        multisig: &T::AccountId,
+        signers: &BoundedVec<T::AccountId, T::MaxSigners>,
     ) -> DispatchResult {
-        // Don't allow adding too many signers.
-        Self::ensure_max_signers(&multisig, signers.len() as u64)?;
-
-        for signer in &signers {
+        for signer in signers {
             IdentityPallet::<T>::add_auth(
                 caller_did,
                 Signatory::Account(signer.clone()),
@@ -774,8 +765,22 @@ impl<T: Config> Pallet<T> {
                 None,
             )?;
         }
+        Ok(())
+    }
+
+    fn base_add_signers(
+        caller_did: Option<IdentityId>,
+        multisig: T::AccountId,
+        signers: BoundedVec<T::AccountId, T::MaxSigners>,
+    ) -> DispatchResult {
+        // Ensure `multisig` is a MultiSig and get it's DID.
+        let ms_did = Self::ensure_ms_get_did(&multisig)?;
+        // Don't allow adding too many signers.
+        Self::ensure_max_signers(&multisig, signers.len() as u64)?;
+
+        Self::base_authorize_signers(ms_did, &multisig, &signers)?;
         Self::deposit_event(Event::MultiSigSignersAuthorized {
-            caller_did,
+            caller_did: caller_did.unwrap_or(ms_did),
             multisig,
             signers,
         });
@@ -783,10 +788,12 @@ impl<T: Config> Pallet<T> {
     }
 
     fn base_remove_signers(
-        caller_did: IdentityId,
+        caller_did: Option<IdentityId>,
         multisig: T::AccountId,
         signers: BoundedVec<T::AccountId, T::MaxSigners>,
     ) -> DispatchResult {
+        // Ensure `multisig` is a MultiSig and get it's DID.
+        let ms_did = Self::ensure_ms_get_did(&multisig)?;
         ensure!(
             Self::is_changing_signers_allowed(&multisig),
             Error::<T>::ChangeNotAllowed
@@ -807,7 +814,7 @@ impl<T: Config> Pallet<T> {
 
         NumberOfSigners::<T>::insert(&multisig, pending_num_of_signers);
         Self::deposit_event(Event::MultiSigSignersRemoved {
-            caller_did,
+            caller_did: caller_did.unwrap_or(ms_did),
             multisig: multisig.clone(),
             signers,
         });
@@ -832,14 +839,7 @@ impl<T: Config> Pallet<T> {
         // Ensure the `multisig` is unlinked.
         IdentityPallet::<T>::ensure_key_did_unlinked(&multisig)?;
 
-        for signer in &signers {
-            IdentityPallet::<T>::add_auth(
-                caller_did,
-                Signatory::Account(signer.clone()),
-                AuthorizationData::AddMultiSigSigner(multisig.clone()),
-                None,
-            )?;
-        }
+        Self::base_authorize_signers(caller_did, &multisig, &signers)?;
         MultiSigSignsRequired::<T>::insert(&multisig, &sigs_required);
         PayingDid::<T>::insert(&multisig, caller_did);
 
@@ -866,7 +866,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResultWithPostInfo {
         Self::ensure_ms_signer(multisig, &signer)?;
         let max_weight = proposal.get_dispatch_info().weight;
-        let caller_did = Self::get_ms_did(multisig).unwrap_or_default();
+        let caller_did = Self::ensure_ms_get_did(multisig)?;
         let proposal_id = Self::next_proposal_id(multisig);
 
         Proposals::<T>::insert(multisig, proposal_id, &*proposal);
@@ -893,6 +893,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResultWithPostInfo {
         Self::ensure_proposal_is_active(multisig, proposal_id)?;
         Self::ensure_ms_signer(multisig, &signer)?;
+        let caller_did = Self::ensure_ms_get_did(multisig)?;
         ensure!(
             !Self::votes((multisig, proposal_id), &signer),
             Error::<T>::AlreadyVoted
@@ -905,7 +906,6 @@ impl<T: Config> Pallet<T> {
         let mut vote_count = ProposalVoteCounts::<T>::try_get(multisig, proposal_id)
             .map_err(|_| Error::<T>::ProposalMissing)?;
         vote_count.approvals += 1u64;
-        let caller_did = Self::get_ms_did(multisig).unwrap_or_default();
         let execute_proposal = vote_count.approvals >= Self::ms_signs_required(multisig);
 
         // Update storage
@@ -1000,6 +1000,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         Self::ensure_proposal_is_active(multisig, proposal_id)?;
         Self::ensure_ms_signer(multisig, &signer)?;
+        let caller_did = Self::ensure_ms_get_did(multisig)?;
 
         let mut vote_count = ProposalVoteCounts::<T>::try_get(multisig, proposal_id)
             .map_err(|_| Error::<T>::ProposalMissing)?;
@@ -1013,7 +1014,6 @@ impl<T: Config> Pallet<T> {
             proposal_owner = true;
         }
 
-        let caller_did = Self::get_ms_did(multisig).unwrap_or_default();
         // emit proposal reject vote event.
         Self::deposit_event(Event::ProposalRejectionVote {
             caller_did,
@@ -1025,8 +1025,8 @@ impl<T: Config> Pallet<T> {
         Votes::<T>::insert((multisig, proposal_id), &signer, true);
         vote_count.rejections += 1u64;
 
-        let approvals_needed = Self::ms_signs_required(multisig.clone());
-        let ms_signers = Self::number_of_signers(multisig.clone());
+        let approvals_needed = Self::ms_signs_required(&multisig);
+        let ms_signers = Self::number_of_signers(&multisig);
         if vote_count.rejections > ms_signers.saturating_sub(approvals_needed) || proposal_owner {
             if proposal_owner {
                 vote_count.approvals = 0;
@@ -1053,7 +1053,7 @@ impl<T: Config> Pallet<T> {
             |data, auth_by| {
                 let multisig = extract_auth!(data, AddMultiSigSigner(ms));
 
-                Self::ensure_ms(&multisig)?;
+                let ms_identity = Self::ensure_ms_get_did(&multisig)?;
 
                 ensure!(
                     Self::is_changing_signers_allowed(&multisig),
@@ -1077,8 +1077,6 @@ impl<T: Config> Pallet<T> {
                     Error::<T>::MultisigNotAllowedToLinkToItself
                 );
 
-                let ms_identity =
-                    Self::get_ms_did(&multisig).ok_or(Error::<T>::MultisigMissingIdentity)?;
                 IdentityPallet::<T>::ensure_auth_by(ms_identity, auth_by)?;
 
                 // Update number of signers for this multisig.
@@ -1138,10 +1136,11 @@ impl<T: Config> Pallet<T> {
 
     // Changes the number of required signatures for the given `multisig` to `signatures_required`.
     fn base_change_multisig_required_signatures(
-        caller_did: IdentityId,
+        caller_did: Option<IdentityId>,
         multisig: &T::AccountId,
         signatures_required: u64,
     ) -> DispatchResult {
+        let ms_did = Self::ensure_ms_get_did(&multisig)?;
         let num_signers = NumberOfSigners::<T>::get(multisig);
         Self::ensure_sigs_in_bounds(num_signers, signatures_required)?;
         ensure!(
@@ -1150,7 +1149,7 @@ impl<T: Config> Pallet<T> {
         );
         MultiSigSignsRequired::<T>::insert(multisig, &signatures_required);
         Self::deposit_event(Event::MultiSigSignersRequiredChanged {
-            caller_did,
+            caller_did: caller_did.unwrap_or(ms_did),
             multisig: multisig.clone(),
             sigs_required: signatures_required,
         });
