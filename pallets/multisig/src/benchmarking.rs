@@ -71,6 +71,7 @@ fn generate_multisig_with_extra_signers<T: Config + TestUtilsFn<AccountIdOf<T>>>
         caller.origin.clone().into(),
         signers.clone(),
         num_of_signers_required.into(),
+        None,
     )
     .unwrap();
     Ok((multisig, signers, users))
@@ -83,6 +84,12 @@ pub type MultisigSetupResult<T, AccountId, MaxSigners> = (
     Vec<User<T>>,
     RawOrigin<AccountId>,
 );
+
+fn init_admin<T: Config + TestUtilsFn<AccountIdOf<T>>>(multisig: &T::AccountId, admin: &User<T>) {
+    let multisig_origin = RawOrigin::Signed(multisig.clone());
+    let admin_did = admin.did.expect("Admin must have a DID");
+    MultiSig::<T>::add_admin(multisig_origin.into(), admin_did).unwrap();
+}
 
 fn generate_multisig_for_alice_wo_accepting<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     total_signers: u32,
@@ -192,9 +199,10 @@ benchmarks! {
         // Number of signers
         let i in 1 .. T::MaxSigners::get() as u32;
         let (alice, multisig, signers, _, _) = generate_multisig_for_alice::<T>(i, 1).unwrap();
-    }: _(alice.origin(), signers, i as u64)
+        let whole = Permissions::default();
+    }: _(alice.origin(), signers, i as u64, Some(whole))
     verify {
-        assert!(CreatorDid::<T>::contains_key(multisig), "create_multisig");
+        assert!(PayingDid::<T>::contains_key(multisig), "create_multisig");
     }
 
     create_proposal {
@@ -260,11 +268,12 @@ benchmarks! {
         assert_number_of_signers!(1, multisig);
     }
 
-    add_multisig_signers_via_creator {
+    add_multisig_signers_via_admin {
         // Number of signers
         let i in 1 .. T::MaxSigners::get() as u32;
 
         let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(1, 1).unwrap();
+        init_admin(&multisig, &alice);
         let (signers, _) = generate_signers::<T>(i as usize);
         let last_signer = signers.last().cloned().unwrap();
         let original_last_auth = get_last_auth_id::<T>(&last_signer);
@@ -273,11 +282,12 @@ benchmarks! {
         assert!(original_last_auth < get_last_auth_id::<T>(&last_signer));
     }
 
-    remove_multisig_signers_via_creator {
+    remove_multisig_signers_via_admin {
         // Number of signers
         let i in 2 .. T::MaxSigners::get() as u32;
 
         let (alice, multisig, signers, _, _) = generate_multisig_for_alice::<T>(i, 1).unwrap();
+        init_admin(&multisig, &alice);
         let signers_to_remove = signers[1..].to_vec().try_into().unwrap();
         assert_number_of_signers!(i as u64, multisig.clone());
         let ephemeral_multisig = multisig.clone();
@@ -293,26 +303,18 @@ benchmarks! {
         assert!(MultiSigSignsRequired::<T>::get(&multisig) == 1);
     }
 
-    make_multisig_secondary {
-        let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(1, 1).unwrap();
-        let whole = Permissions::default();
-    }: _(alice.origin(), multisig.clone(), Some(whole))
-    verify {
-        assert!(Identity::<T>::is_secondary_key(alice.did(), &multisig));
-    }
+    change_sigs_required_via_admin {
+        let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(2, 2).unwrap();
+        init_admin(&multisig, &alice);
+    }: _(alice.origin(), multisig, 1)
 
-    make_multisig_primary {
-        let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(1, 1).unwrap();
-    }: _(alice.origin(), multisig.clone(), None)
-    verify {
-        assert!(Identity::<T>::get_primary_key(alice.did()) == Some(multisig));
-    }
+    add_admin {
+        let (alice, multisig, _, _, multisig_origin) = generate_multisig_for_alice::<T>(2, 2).unwrap();
+        let did = alice.did.expect("Alice must have a DID");
+    }: _(multisig_origin, did)
 
-    change_sigs_required_via_creator {
-        let (alice, multisig_account, _, _, _) = generate_multisig_for_alice::<T>(2, 2).unwrap();
-    }: _(alice.origin(), multisig_account, 1)
-
-    remove_creator_controls {
-        let (alice, multisig_account, _, _, _) = generate_multisig_for_alice::<T>(2, 2).unwrap();
-    }: _(alice.origin(), multisig_account)
+    remove_admin_via_admin {
+        let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(2, 2).unwrap();
+        init_admin(&multisig, &alice);
+    }: _(alice.origin(), multisig)
 }

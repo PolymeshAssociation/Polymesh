@@ -45,15 +45,11 @@
 //! account key.
 //! - `add_multisig_signer` - Adds a signer to the multisig.
 //! - `remove_multisig_signer` - Removes a signer from the multisig.
-//! - `add_multisig_signers_via_creator` - Adds a signer to the multisig when called by the
-//! creator of the multisig.
-//! - `remove_multisig_signers_via_creator` - Removes a signer from the multisig when called by the
-//! creator of the multisig.
+//! - `add_multisig_signers_via_admin` - Adds a signer to the multisig when called by the
+//! admin of the multisig.
+//! - `remove_multisig_signers_via_admin` - Removes a signer from the multisig when called by the
+//! admin of the multisig.
 //! - `change_sigs_required` - Changes the number of signers required to execute a transaction.
-//! - `make_multisig_secondary` - Adds a multisig as a secondary key of the current DID if the current DID is
-//! the creator of the multisig.
-//! - `make_multisig_primary` - Adds a multisig as the primary key of the current DID if the current DID
-//! is the creator of the multisig.
 //!
 //! ### Other Public Functions
 //!
@@ -189,33 +185,34 @@ pub mod pallet {
         /// # Arguments
         /// * `signers` - Signers of the multisig (They need to accept authorization before they are actually added).
         /// * `sigs_required` - Number of sigs required to process a multi-sig tx.
+        /// * `permissions` - optional custom permissions.  Only the primary key can provide custom permissions.
         #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::create_multisig(signers.len() as u32))]
         pub fn create_multisig(
             origin: OriginFor<T>,
             signers: BoundedVec<T::AccountId, T::MaxSigners>,
             sigs_required: u64,
+            permissions: Option<Permissions>,
         ) -> DispatchResultWithPostInfo {
-            let PermissionedCallOriginData {
-                sender,
-                primary_did,
-                ..
-            } = IdentityPallet::<T>::ensure_origin_call_permissions(origin)?;
+            let (caller, caller_did, permissions) = match permissions {
+                Some(permissions) => {
+                    // Only the primary key can add a secondary key with custom permissions.
+                    let (caller, did) = IdentityPallet::<T>::ensure_primary_key(origin)?;
+                    (caller, did, permissions)
+                }
+                None => {
+                    // Default to empty permissions for the new secondary key.
+                    let PermissionedCallOriginData {
+                        sender: caller,
+                        primary_did,
+                        ..
+                    } = IdentityPallet::<T>::ensure_origin_call_permissions(origin)?;
+                    (caller, primary_did, Permissions::empty())
+                }
+            };
             let signers_len: u64 = u64::try_from(signers.len()).unwrap_or_default();
             Self::ensure_sigs_in_bounds(signers_len, sigs_required)?;
-            let account_id = Self::base_create_multisig(
-                sender.clone(),
-                primary_did,
-                signers.as_slice(),
-                sigs_required,
-            )?;
-            Self::deposit_event(Event::MultiSigCreated {
-                caller_did: primary_did,
-                multisig: account_id,
-                caller: sender,
-                signers,
-                sigs_required,
-            });
+            Self::base_create_multisig(caller, caller_did, signers, sigs_required, permissions)?;
             Ok(().into())
         }
 
@@ -304,7 +301,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Adds signers to the multisig. This must be called by the multisig itself.
+        /// Adds signers to the multisig.  This must be called by the multisig itself.
         ///
         /// # Arguments
         /// * `signers` - Signers to add.
@@ -321,7 +318,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Removes signers from the multisig. This must be called by the multisig itself.
+        /// Removes signers from the multisig.  This must be called by the multisig itself.
         ///
         /// # Arguments
         /// * `signers` - Signers to remove.
@@ -340,7 +337,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Adds a signer to the multisig. This must be called by the creator identity of the
+        /// Adds a signer to the multisig.  This must be called by the admin identity of the
         /// multisig.
         ///
         /// # Arguments
@@ -348,41 +345,33 @@ pub mod pallet {
         /// * `signers` - Signers to add.
         ///
         #[pallet::call_index(7)]
-        #[pallet::weight(<T as Config>::WeightInfo::add_multisig_signers_via_creator(signers.len() as u32))]
-        pub fn add_multisig_signers_via_creator(
+        #[pallet::weight(<T as Config>::WeightInfo::add_multisig_signers_via_admin(signers.len() as u32))]
+        pub fn add_multisig_signers_via_admin(
             origin: OriginFor<T>,
             multisig: T::AccountId,
             signers: BoundedVec<T::AccountId, T::MaxSigners>,
         ) -> DispatchResultWithPostInfo {
-            let caller_did = Self::ensure_ms_creator(origin, &multisig)?;
-            ensure!(
-                !LostCreatorPrivileges::<T>::get(caller_did),
-                Error::<T>::CreatorControlsHaveBeenRemoved
-            );
+            let caller_did = Self::ensure_ms_admin(origin, &multisig)?;
             Self::base_add_signers(caller_did, multisig, signers)?;
             Ok(().into())
         }
 
         /// Removes a signer from the multisig.
-        /// This must be called by the creator identity of the multisig.
+        /// This must be called by the admin identity of the multisig.
         ///
         /// # Arguments
         /// * `multisig` - Address of the multisig.
         /// * `signers` - Signers to remove.
         ///
         #[pallet::call_index(8)]
-        #[pallet::weight(<T as Config>::WeightInfo::remove_multisig_signers_via_creator(signers.len() as u32))]
-        pub fn remove_multisig_signers_via_creator(
+        #[pallet::weight(<T as Config>::WeightInfo::remove_multisig_signers_via_admin(signers.len() as u32))]
+        pub fn remove_multisig_signers_via_admin(
             origin: OriginFor<T>,
             multisig: T::AccountId,
             signers: BoundedVec<T::AccountId, T::MaxSigners>,
         ) -> DispatchResultWithPostInfo {
-            // Ensure the caller is the creator and that they haven't lost permissions.
-            let caller_did = Self::ensure_ms_creator(origin, &multisig)?;
-            ensure!(
-                !LostCreatorPrivileges::<T>::get(caller_did),
-                Error::<T>::CreatorControlsHaveBeenRemoved
-            );
+            // Ensure the caller is the admin and that they haven't lost permissions.
+            let caller_did = Self::ensure_ms_admin(origin, &multisig)?;
 
             // Remove the signers from the multisig.
             Self::base_remove_signers(caller_did, multisig, signers)?;
@@ -390,7 +379,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Changes the number of signatures required by a multisig. This must be called by the
+        /// Changes the number of signatures required by a multisig.  This must be called by the
         /// multisig itself.
         ///
         /// # Arguments
@@ -408,84 +397,19 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Adds a multisig as a secondary key of current did if the current did is the creator of the
-        /// multisig.
-        ///
-        /// # Arguments
-        /// * `multisig` - multi sig address
-        /// * `permissions` - optional custom permissions.  Only the primary key can provide custom permissions.
-        ///
-        #[pallet::call_index(10)]
-        #[pallet::weight(<T as Config>::WeightInfo::make_multisig_secondary())]
-        pub fn make_multisig_secondary(
-            origin: OriginFor<T>,
-            multisig: T::AccountId,
-            permissions: Option<Permissions>,
-        ) -> DispatchResultWithPostInfo {
-            let (did, permissions) = match permissions {
-                Some(permissions) => {
-                    // Only the primary key can add a secondary key with custom permissions.
-                    let (_, did) = IdentityPallet::<T>::ensure_primary_key(origin)?;
-                    (did, permissions)
-                }
-                None => {
-                    // Default to empty permissions for the new secondary key.
-                    let (_, did) = IdentityPallet::<T>::ensure_did(origin)?;
-                    (did, Permissions::empty())
-                }
-            };
-
-            Self::ensure_ms(&multisig)?;
-            Self::verify_caller_is_creator(did, &multisig)?;
-
-            // Ensure the key is unlinked.
-            IdentityPallet::<T>::ensure_key_did_unlinked(&multisig)?;
-
-            // Add the multisig as a secondary key.
-            IdentityPallet::<T>::unsafe_join_identity(did, permissions, multisig);
-            Ok(().into())
-        }
-
-        /// Adds a multisig as the primary key of the current did if the current DID is the creator
-        /// of the multisig.
-        ///
-        /// # Arguments
-        /// * `multisig` - multi sig address
-        #[pallet::call_index(11)]
-        #[pallet::weight(<T as Config>::WeightInfo::make_multisig_primary())]
-        pub fn make_multisig_primary(
-            origin: OriginFor<T>,
-            multisig: T::AccountId,
-            optional_cdd_auth_id: Option<u64>,
-        ) -> DispatchResultWithPostInfo {
-            let did = Self::ensure_ms_creator(origin, &multisig)?;
-            Self::ensure_ms(&multisig)?;
-            IdentityPallet::<T>::common_rotate_primary_key(
-                did,
-                multisig,
-                None,
-                optional_cdd_auth_id,
-            )?;
-            Ok(().into())
-        }
-
-        /// Changes the number of signatures required by a multisig. This must be called by the creator of the multisig.
+        /// Changes the number of signatures required by a multisig.  This must be called by the admin of the multisig.
         ///
         /// # Arguments
         /// * `multisig` - The account identifier ([`AccountId`]) for the multi signature account.
         /// * `signatures_required` - The number of required signatures.
-        #[pallet::call_index(12)]
-        #[pallet::weight(<T as Config>::WeightInfo::change_sigs_required_via_creator())]
-        pub fn change_sigs_required_via_creator(
+        #[pallet::call_index(10)]
+        #[pallet::weight(<T as Config>::WeightInfo::change_sigs_required_via_admin())]
+        pub fn change_sigs_required_via_admin(
             origin: OriginFor<T>,
             multisig: T::AccountId,
             signatures_required: u64,
         ) -> DispatchResultWithPostInfo {
-            let caller_did = Self::ensure_ms_creator(origin, &multisig)?;
-            ensure!(
-                !LostCreatorPrivileges::<T>::get(caller_did),
-                Error::<T>::CreatorControlsHaveBeenRemoved
-            );
+            let caller_did = Self::ensure_ms_admin(origin, &multisig)?;
             Self::base_change_multisig_required_signatures(
                 caller_did,
                 &multisig,
@@ -494,16 +418,25 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Removes the creator ability to call `add_multisig_signers_via_creator`, `remove_multisig_signers_via_creator`
-        /// and `change_sigs_required_via_creator`.
-        #[pallet::call_index(13)]
-        #[pallet::weight(<T as Config>::WeightInfo::remove_creator_controls())]
-        pub fn remove_creator_controls(
+        /// Add an admin identity to the multisig.  This must be called by the multisig itself.
+        #[pallet::call_index(11)]
+        #[pallet::weight(<T as Config>::WeightInfo::add_admin())]
+        pub fn add_admin(origin: OriginFor<T>, admin: IdentityId) -> DispatchResultWithPostInfo {
+            let multisig = ensure_signed(origin)?;
+            Self::ensure_ms(&multisig)?;
+            AdminDid::<T>::insert(multisig, admin);
+            Ok(().into())
+        }
+
+        /// Removes the admin identity from the `multisig`.  This must be called by the admin of the multisig.
+        #[pallet::call_index(12)]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_admin_via_admin())]
+        pub fn remove_admin_via_admin(
             origin: OriginFor<T>,
             multisig: T::AccountId,
         ) -> DispatchResultWithPostInfo {
-            let caller_did = Self::ensure_ms_creator(origin, &multisig)?;
-            Self::base_remove_creator_controls(caller_did);
+            Self::ensure_ms_admin(origin, &multisig)?;
+            AdminDid::<T>::remove(multisig);
             Ok(().into())
         }
     }
@@ -610,8 +543,8 @@ pub mod pallet {
         AlreadyASigner,
         /// Couldn't charge fee for the transaction.
         FailedToChargeFee,
-        /// Identity provided is not the multisig's creator.
-        IdentityNotCreator,
+        /// Identity provided is not the multisig's admin.
+        IdentityNotAdmin,
         /// Changing multisig parameters not allowed since multisig is a primary key.
         ChangeNotAllowed,
         /// Signer is an account key that is already associated with a multisig.
@@ -632,8 +565,6 @@ pub mod pallet {
         MultisigMissingIdentity,
         /// Tried to remove more signers then the multisig has.
         TooManySigners,
-        /// The creator is no longer allowed to call via creator extrinsics.
-        CreatorControlsHaveBeenRemoved,
         /// A multisig proposal is not allowed to nest the approval & execution of
         /// another multisig proposal.
         MultiSigProposalNestingNotAllowed,
@@ -690,11 +621,19 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// The multisig creator's identity.
+    /// The multisig's paying identity.  The primary key of this identity
+    /// pays the transaction/protocal fees of the multisig proposals.
     ///
     /// multisig -> Option<IdentityId>.
     #[pallet::storage]
-    pub type CreatorDid<T: Config> = StorageMap<_, Identity, T::AccountId, IdentityId>;
+    pub type PayingDid<T: Config> = StorageMap<_, Identity, T::AccountId, IdentityId>;
+
+    /// The multisig's admin identity.  The primary key of this identity
+    /// has admin control over the multisig.
+    ///
+    /// multisig -> Option<IdentityId>.
+    #[pallet::storage]
+    pub type AdminDid<T: Config> = StorageMap<_, Identity, T::AccountId, IdentityId>;
 
     /// The count of approvals/rejections of a multisig proposal.
     ///
@@ -717,12 +656,6 @@ pub mod pallet {
         u64,
         ProposalState<T::Moment>,
     >;
-
-    /// Tracks creators who are no longer allowed to call via_creator extrinsics.
-    #[pallet::storage]
-    #[pallet::getter(fn lost_creator_privileges)]
-    pub type LostCreatorPrivileges<T: Config> =
-        StorageMap<_, Identity, IdentityId, bool, ValueQuery>;
 
     /// Proposal execution reentry guard.
     #[pallet::storage]
@@ -754,22 +687,28 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn get_ms_did(multisig: &T::AccountId) -> Option<IdentityId> {
-        IdentityPallet::<T>::get_identity(multisig).or_else(|| CreatorDid::<T>::get(multisig))
+    pub fn get_paying_did(multisig: &T::AccountId) -> Option<IdentityId> {
+        PayingDid::<T>::get(multisig)
     }
 
-    fn ensure_ms_creator(
+    pub fn get_ms_did(multisig: &T::AccountId) -> Option<IdentityId> {
+        Self::ensure_ms(multisig).ok()?;
+        IdentityPallet::<T>::get_identity(multisig)
+    }
+
+    fn ensure_ms_admin(
         origin: T::RuntimeOrigin,
         multisig: &T::AccountId,
     ) -> Result<IdentityId, DispatchError> {
-        let (_, did) = IdentityPallet::<T>::ensure_primary_key(origin)?;
-        Self::verify_caller_is_creator(did, multisig)?;
-        Ok(did)
+        let (_, caller_did) = IdentityPallet::<T>::ensure_primary_key(origin)?;
+        let admin_did = AdminDid::<T>::get(multisig);
+        ensure!(admin_did == Some(caller_did), Error::<T>::IdentityNotAdmin);
+        Ok(caller_did)
     }
 
-    fn ensure_ms(caller: &T::AccountId) -> DispatchResult {
+    fn ensure_ms(multisig: &T::AccountId) -> DispatchResult {
         ensure!(
-            MultiSigSignsRequired::<T>::contains_key(caller),
+            MultiSigSignsRequired::<T>::contains_key(multisig),
             Error::<T>::NoSuchMultisig
         );
         Ok(())
@@ -865,15 +804,21 @@ impl<T: Config> Pallet<T> {
     fn base_create_multisig(
         caller: T::AccountId,
         caller_did: IdentityId,
-        signers: &[T::AccountId],
+        signers: BoundedVec<T::AccountId, T::MaxSigners>,
         sigs_required: u64,
-    ) -> Result<T::AccountId, DispatchError> {
+        permissions: Permissions,
+    ) -> DispatchResult {
+        // Generate new MultiSig address.
         let new_nonce = Self::ms_nonce()
             .checked_add(1)
             .ok_or(Error::<T>::NonceOverflow)?;
         MultiSigNonce::<T>::put(new_nonce);
-        let multisig = Self::get_multisig_address(caller, new_nonce)?;
-        for signer in signers {
+        let multisig = Self::get_multisig_address(&caller, new_nonce)?;
+
+        // Ensure the `multisig` is unlinked.
+        IdentityPallet::<T>::ensure_key_did_unlinked(&multisig)?;
+
+        for signer in &signers {
             IdentityPallet::<T>::add_auth(
                 caller_did,
                 Signatory::Account(signer.clone()),
@@ -882,8 +827,20 @@ impl<T: Config> Pallet<T> {
             )?;
         }
         MultiSigSignsRequired::<T>::insert(&multisig, &sigs_required);
-        CreatorDid::<T>::insert(&multisig, caller_did);
-        Ok(multisig)
+        PayingDid::<T>::insert(&multisig, caller_did);
+
+        Self::deposit_event(Event::MultiSigCreated {
+            caller_did,
+            multisig: multisig.clone(),
+            caller,
+            signers,
+            sigs_required,
+        });
+
+        // Add the multisig as a secondary key.
+        IdentityPallet::<T>::unsafe_join_identity(caller_did, permissions, multisig);
+
+        Ok(())
     }
 
     // Creates a new proposal.
@@ -934,7 +891,7 @@ impl<T: Config> Pallet<T> {
         let mut vote_count = ProposalVoteCounts::<T>::try_get(multisig, proposal_id)
             .map_err(|_| Error::<T>::ProposalMissing)?;
         vote_count.approvals += 1u64;
-        let creator_did = Self::get_ms_did(multisig).unwrap_or_default();
+        let caller_did = Self::get_ms_did(multisig).unwrap_or_default();
         let execute_proposal = vote_count.approvals >= Self::ms_signs_required(multisig);
 
         // Update storage
@@ -942,13 +899,13 @@ impl<T: Config> Pallet<T> {
         ProposalVoteCounts::<T>::insert(multisig, proposal_id, vote_count);
         // emit proposal approval vote event.
         Self::deposit_event(Event::ProposalApprovalVote {
-            caller_did: creator_did,
+            caller_did: caller_did,
             multisig: multisig.clone(),
             signer,
             proposal_id,
         });
         if execute_proposal {
-            Self::execute_proposal(multisig, proposal_id, creator_did, max_weight)
+            Self::execute_proposal(multisig, proposal_id, caller_did, max_weight)
         } else {
             Ok(().into())
         }
@@ -958,12 +915,12 @@ impl<T: Config> Pallet<T> {
     fn execute_proposal(
         multisig: &T::AccountId,
         proposal_id: u64,
-        creator_did: IdentityId,
+        caller_did: IdentityId,
         max_weight: Weight,
     ) -> DispatchResultWithPostInfo {
         // emit proposal approved event
         Self::deposit_event(Event::ProposalApproved {
-            caller_did: creator_did,
+            caller_did,
             multisig: multisig.clone(),
             proposal_id,
         });
@@ -1008,7 +965,7 @@ impl<T: Config> Pallet<T> {
         };
 
         Self::deposit_event(Event::ProposalExecuted {
-            caller_did: creator_did,
+            caller_did,
             multisig: multisig.clone(),
             proposal_id,
             result,
@@ -1132,12 +1089,12 @@ impl<T: Config> Pallet<T> {
         // Nonce is always only incremented by small numbers and hence can never overflow 64 bits.
         // Also, this is just a helper function that does not modify state.
         let new_nonce = Self::ms_nonce() + 1;
-        Self::get_multisig_address(caller, new_nonce)
+        Self::get_multisig_address(&caller, new_nonce)
     }
 
     /// Constructs a multisig account given a nonce.
     pub fn get_multisig_address(
-        caller: T::AccountId,
+        caller: &T::AccountId,
         nonce: u64,
     ) -> Result<T::AccountId, DispatchError> {
         let h: T::Hash = T::Hashing::hash(&(b"MULTI_SIG", nonce, caller).encode());
@@ -1161,17 +1118,7 @@ impl<T: Config> Pallet<T> {
         true
     }
 
-    pub fn verify_caller_is_creator(
-        caller_did: IdentityId,
-        multisig: &T::AccountId,
-    ) -> DispatchResult {
-        let creator_did =
-            CreatorDid::<T>::try_get(multisig).map_err(|_| Error::<T>::MultisigMissingIdentity)?;
-        ensure!(creator_did == caller_did, Error::<T>::IdentityNotCreator);
-        Ok(())
-    }
-
-    /// Changes the number of required signatures for the given `multisig` to `signatures_required`.
+    // Changes the number of required signatures for the given `multisig` to `signatures_required`.
     fn base_change_multisig_required_signatures(
         caller_did: IdentityId,
         multisig: &T::AccountId,
@@ -1191,12 +1138,6 @@ impl<T: Config> Pallet<T> {
         });
         Ok(())
     }
-
-    /// Removes the creator ability to call `add_multisig_signers_via_creator`, `remove_multisig_signers_via_creator`
-    /// and `change_sigs_required_via_creator`.
-    fn base_remove_creator_controls(creator_did: IdentityId) {
-        LostCreatorPrivileges::<T>::insert(creator_did, true);
-    }
 }
 
 impl<T: Config> MultiSigSubTrait<T::AccountId> for Pallet<T> {
@@ -1207,6 +1148,7 @@ impl<T: Config> MultiSigSubTrait<T::AccountId> for Pallet<T> {
 
 pub mod migration {
     use super::*;
+    use frame_support::storage::StorageMap;
     use sp_runtime::runtime_logger::RuntimeLogger;
 
     mod v2 {
@@ -1219,6 +1161,8 @@ pub mod migration {
                 pub MultiSigTxDone: map hasher(identity) T::AccountId => u64;
 
                 pub MultiSigSigners: double_map hasher(identity) T::AccountId, hasher(twox_64_concat) Signatory<T::AccountId> => bool;
+
+                pub LostCreatorPrivileges: map hasher(identity) IdentityId => bool;
             }
         }
 
@@ -1276,17 +1220,22 @@ pub mod migration {
     }
 
     fn migrate_creator_did<T: Config>(weight: &mut Weight) {
-        log::info!(" >>> Migrate MultiSigToIdentity to CreatorDid");
+        log::info!(" >>> Migrate MultiSigToIdentity to PayingDid and AdminDid");
         let mut did_count = 0;
         let mut reads = 0;
         let mut writes = 0;
         v2::MultiSigToIdentity::<T>::drain().for_each(|(ms, did)| {
             reads += 1;
             did_count += 1;
-            CreatorDid::<T>::insert(ms, did);
+            PayingDid::<T>::insert(&ms, did);
             writes += 1;
+            let lost_creator_privileges = v2::LostCreatorPrivileges::take(did);
+            if !lost_creator_privileges {
+                AdminDid::<T>::insert(&ms, did);
+                writes += 1;
+            }
         });
         weight.saturating_accrue(DbWeight::get().reads_writes(reads, writes));
-        log::info!(" >>> {did_count} CreatorDids migrated.");
+        log::info!(" >>> {did_count} Creator Dids migrated.");
     }
 }

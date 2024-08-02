@@ -4,7 +4,7 @@ use super::{
     committee_test::gc_vmo,
     exec_noop, exec_ok,
     ext_builder::PROTOCOL_OP_BASE_FEE,
-    multisig::create_signers,
+    multisig::{create_multisig_default_perms, create_signers},
     storage::{
         account_from, add_secondary_key, add_secondary_key_with_perms, get_identity_id,
         get_last_auth_id, get_primary_key, get_secondary_keys, register_keyring_account,
@@ -704,13 +704,11 @@ fn do_remove_secondary_keys_test_with_externalities() {
     let dave_key = AccountKeyring::Dave.to_account_id();
     let ferdie_key = AccountKeyring::Ferdie.to_account_id();
 
-    let ms_address = MultiSig::get_next_multisig_address(alice.acc()).expect("Next MS");
-
-    assert_ok!(MultiSig::create_multisig(
-        alice.origin(),
+    let ms_address = create_multisig_default_perms(
+        alice.acc(),
         create_signers(vec![ferdie_key.clone(), dave_key.clone()]),
         1,
-    ));
+    );
     let auth_id = get_last_auth_id(&Signatory::Account(dave_key.clone()));
     assert_ok!(MultiSig::accept_multisig_signer(
         Origin::signed(dave_key.clone()),
@@ -718,8 +716,6 @@ fn do_remove_secondary_keys_test_with_externalities() {
     ));
 
     add_secondary_key(alice.did, bob.acc());
-
-    add_secondary_key(alice.did, ms_address.clone());
 
     // Fund the multisig
     assert_ok!(Balances::transfer(
@@ -812,13 +808,12 @@ fn leave_identity_test_with_externalities() {
     let dave_key = AccountKeyring::Dave.to_account_id();
     let ferdie_key = AccountKeyring::Ferdie.to_account_id();
 
-    let ms_address = MultiSig::get_next_multisig_address(alice.acc()).expect("Next MS");
-
-    assert_ok!(MultiSig::create_multisig(
-        alice.origin(),
+    let ms_address = create_multisig_default_perms(
+        alice.acc(),
         create_signers(vec![ferdie_key.clone(), dave_key.clone()]),
         1,
-    ));
+    );
+    let ms_sk = SecondaryKey::new(ms_address.clone(), Permissions::default());
     let auth_id = get_last_auth_id(&Signatory::Account(dave_key.clone()));
     assert_ok!(MultiSig::accept_multisig_signer(
         Origin::signed(dave_key.clone()),
@@ -828,19 +823,18 @@ fn leave_identity_test_with_externalities() {
     add_secondary_key_with_perms(alice.did, bob.acc(), Permissions::empty());
 
     // Check DidRecord.
-    assert_eq!(get_secondary_keys(alice.did), vec![bob_sk]);
+    assert_eq!(get_secondary_keys(alice.did), vec![bob_sk, ms_sk]);
     assert_eq!(Identity::get_identity(&bob.acc()), Some(alice.did));
 
     // Bob leaves
     assert_ok!(Identity::leave_identity_as_key(bob.origin()));
 
     // Check DidRecord.
-    assert_eq!(get_secondary_keys(alice.did).len(), 0);
+    assert_eq!(get_secondary_keys(alice.did).len(), 1);
     assert_eq!(Identity::get_identity(&bob.acc()), None);
     assert_eq!(Identity::get_identity(&dave_key), None);
-    assert_eq!(Identity::get_identity(&ms_address), None);
+    assert_eq!(Identity::get_identity(&ms_address), Some(alice.did));
 
-    add_secondary_key_with_perms(alice.did, ms_address.clone(), Permissions::empty());
     // send funds to multisig
     assert_ok!(Balances::transfer(
         alice.origin(),

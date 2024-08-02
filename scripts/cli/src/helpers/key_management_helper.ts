@@ -44,6 +44,6 @@ export async function createMultiSig(
   numOfSigners: number
 ): Promise<void> {
   const api = await ApiSingleton.getInstance();
-  const transaction = api.tx.multiSig.createMultisig(signatories, numOfSigners);
+  const transaction = api.tx.multiSig.createMultisig(signatories, numOfSigners, null);
   await sendTx(signer, transaction);
 }

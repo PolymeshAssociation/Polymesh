@@ -47,7 +47,7 @@ pub struct MuliSigState {
 }
 
 impl MuliSigState {
-    async fn create_and_join_creator(
+    pub async fn create_and_join_creator(
         tester: &mut PolymeshTester,
         creator: &AccountSigner,
         n_signers: usize,
@@ -55,22 +55,21 @@ impl MuliSigState {
         as_primary: bool,
         perms: Option<Permissions>,
     ) -> Result<MuliSigState> {
-        let mut ms = Self::create(tester, creator, n_signers, sigs_required).await?;
-        let mut res = if as_primary {
-            ms.make_primary().await?
-        } else {
-            ms.make_secondary(perms).await?
-        };
-        res.wait_in_block().await?;
+        let mut ms = Self::create(tester, creator, n_signers, sigs_required, perms).await?;
+        if as_primary {
+            let mut res = ms.make_primary().await?;
+            res.wait_in_block().await?;
+        }
 
         Ok(ms)
     }
 
-    async fn create(
+    pub async fn create(
         tester: &mut PolymeshTester,
         creator: &AccountSigner,
         n_signers: usize,
         sigs_required: u64,
+        perms: Option<Permissions>,
     ) -> Result<MuliSigState> {
         let mut creator = creator.clone();
         let mut signers = Vec::with_capacity(n_signers);
@@ -83,7 +82,11 @@ impl MuliSigState {
             .api
             .call()
             .multi_sig()
-            .create_multisig(signers.iter().map(|s| s.account()).collect(), sigs_required)?
+            .create_multisig(
+                signers.iter().map(|s| s.account()).collect(),
+                sigs_required,
+                perms,
+            )?
             .submit_and_watch(&mut creator)
             .await?;
         // Wait for finalization.
@@ -141,32 +144,60 @@ impl MuliSigState {
         })
     }
 
-    async fn make_primary(&mut self) -> Result<TransactionResults> {
-        let res = self
-            .api
-            .call()
-            .multi_sig()
-            .make_multisig_primary(self.account.clone(), None)?
-            .submit_and_watch(&mut self.creator)
-            .await?;
-        Ok(res)
+    pub async fn leave_did(&mut self) -> Result<TransactionResults> {
+        let leave_did_call = self.api.call().identity().leave_identity_as_key()?;
+        self.run_proposal(leave_did_call).await
     }
 
-    async fn make_secondary(
+    pub async fn make_primary(&mut self) -> Result<TransactionResults> {
+        let mut res = self
+            .api
+            .call()
+            .identity()
+            .add_authorization(
+                Signatory::Account(self.account.clone()),
+                AuthorizationData::RotatePrimaryKey,
+                None,
+            )?
+            .execute(&mut self.creator)
+            .await?;
+        let auth_id = get_auth_id(&mut res)
+            .await?
+            .expect("Missing RotatePrimaryKey auth id");
+
+        let rotate_primary_call = self
+            .api
+            .call()
+            .identity()
+            .accept_primary_key(auth_id, None)?;
+        self.run_proposal(rotate_primary_call).await
+    }
+
+    pub async fn make_secondary(
         &mut self,
         permissions: Option<Permissions>,
     ) -> Result<TransactionResults> {
-        let res = self
+        let perms = permissions.unwrap_or_else(|| PermissionsBuilder::empty().build());
+        let mut res = self
             .api
             .call()
-            .multi_sig()
-            .make_multisig_secondary(self.account.clone(), permissions)?
-            .submit_and_watch(&mut self.creator)
+            .identity()
+            .add_authorization(
+                Signatory::Account(self.account.clone()),
+                AuthorizationData::JoinIdentity(perms),
+                None,
+            )?
+            .execute(&mut self.creator)
             .await?;
-        Ok(res)
+        let auth_id = get_auth_id(&mut res)
+            .await?
+            .expect("Missing JoinIdentity auth id");
+
+        let join_did_call = self.api.call().identity().join_identity_as_key(auth_id)?;
+        self.run_proposal(join_did_call).await
     }
 
-    async fn create_proposal(&mut self, proposal: WrappedCall) -> Result<TransactionResults> {
+    pub async fn create_proposal(&mut self, proposal: WrappedCall) -> Result<TransactionResults> {
         let res = self
             .api
             .call()
@@ -177,7 +208,7 @@ impl MuliSigState {
         Ok(res)
     }
 
-    async fn run_proposal(&mut self, proposal: WrappedCall) -> Result<TransactionResults> {
+    pub async fn run_proposal(&mut self, proposal: WrappedCall) -> Result<TransactionResults> {
         // Create proposal with the first signer.
         let mut res = self.create_proposal(proposal).await?;
         res.wait_finalized().await?;
@@ -197,9 +228,14 @@ impl MuliSigState {
             // Find which approval call executed the proposal.
             for mut res in results {
                 res.wait_finalized().await?;
-                if let Some(result) = ms_proposal_executed(&mut res).await? {
-                    assert!(result, "Failed to execute proposal.");
-                    return Ok(res);
+                match ms_proposal_executed(&mut res).await? {
+                    Some(true) => {
+                        return Ok(res);
+                    }
+                    Some(false) => {
+                        return Err(anyhow!("MS proposal returned error"));
+                    }
+                    None => (),
                 }
             }
             Err(anyhow!("Failed to execute MS proposal"))
@@ -336,8 +372,8 @@ async fn secondary_key_creates_multisig() -> Result<()> {
     let did1 = users[0].clone();
     let sk = did1.get_sk(0)?.clone();
 
-    // Create a MS but don't link it to an identity.
-    let mut ms = MuliSigState::create(&mut tester, &sk, 3, 2).await?;
+    // Create a MS as a secondary key with no permissions.
+    let mut ms = MuliSigState::create(&mut tester, &sk, 3, 2, None).await?;
 
     // Prepare `system.remark` call.
     let remark_call = tester.api.call().system().remark(vec![])?;
@@ -350,7 +386,7 @@ async fn secondary_key_creates_multisig() -> Result<()> {
 
     let expected = vec![
         true,  // remark.
-        false, // create venue.  MS has no DID, so this fails.
+        false, // create venue.  MS has no permissions.
     ];
     let batch_call = tester.api.call().utility().force_batch(vec![
         remark_call.runtime_call().clone(),
@@ -362,14 +398,15 @@ async fn secondary_key_creates_multisig() -> Result<()> {
     let calls_ok = get_batch_results(&mut res).await?;
     assert_eq!(calls_ok, expected);
 
-    // A secondary key can't make the MS a primary.
-    let res = ms.make_primary().await?.ok().await;
+    let whole = PermissionsBuilder::whole();
+    // The MS is already a secondary key, it can't join again.
+    let res = ms.make_secondary(Some(whole.into())).await;
     assert!(res.is_err());
 
-    let whole = PermissionsBuilder::whole();
-    // A secondary key can't make the MS a secondary key with custom permissions.
-    let res = ms.make_secondary(Some(whole.into())).await?.ok().await;
-    assert!(res.is_err());
+    // A secondary key can make the MS a primary.  If it
+    // has permissions to create the authorization.
+    let res = ms.make_primary().await?.ok().await;
+    assert!(res.is_ok());
 
     Ok(())
 }

@@ -1,9 +1,9 @@
 use super::{
-    multisig::create_signers,
+    multisig::{create_multisig_default_perms, create_signers},
     storage::{get_last_auth_id, make_account_without_cdd, register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use frame_support::{assert_noop, assert_ok};
+use frame_support::assert_noop;
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
@@ -28,13 +28,11 @@ fn cdd_checks() {
         .build()
         .execute_with(|| {
             // alice does not have cdd
-            let (alice_signed, _) =
-                make_account_without_cdd(AccountKeyring::Alice.to_account_id()).unwrap();
+            make_account_without_cdd(AccountKeyring::Alice.to_account_id()).unwrap();
             let alice_account = AccountKeyring::Alice.to_account_id();
             let alice_signatory = Signatory::Account(alice_account.clone());
 
             // charlie has valid cdd
-            let charlie_signed = Origin::signed(AccountKeyring::Charlie.to_account_id());
             let _ = register_keyring_account(AccountKeyring::Charlie).unwrap();
             let charlie_account = AccountKeyring::Charlie.to_account_id();
             let charlie_signatory = Signatory::Account(charlie_account.clone());
@@ -77,11 +75,11 @@ fn cdd_checks() {
             );
 
             // call to accept being a multisig signer should fail when authorizer does not have a valid cdd (expired)
-            assert_ok!(MultiSig::create_multisig(
-                alice_signed.clone(),
+            create_multisig_default_perms(
+                alice_account.clone(),
                 create_signers(vec![alice_account.clone()]),
                 1,
-            ));
+            );
 
             let alice_auth_id = get_last_auth_id(&alice_signatory);
             assert_noop!(
@@ -124,11 +122,11 @@ fn cdd_checks() {
             );
 
             // check that authorisation can be removed correctly
-            assert_ok!(MultiSig::create_multisig(
-                charlie_signed.clone(),
+            create_multisig_default_perms(
+                charlie_account.clone(),
                 create_signers(vec![alice_account.clone()]),
                 1,
-            ));
+            );
             let alice_auth_id = get_last_auth_id(&alice_signatory);
 
             // call to remove authorisation with caller paying should fail if caller does not have a valid cdd
@@ -161,11 +159,11 @@ fn cdd_checks() {
             Context::set_current_identity::<Identity>(None);
 
             // create an authorisation where the target has a CDD claim and the issuer does not
-            assert_ok!(MultiSig::create_multisig(
-                alice_signed.clone(),
+            create_multisig_default_perms(
+                alice_account.clone(),
                 create_signers(vec![charlie_account.clone()]),
                 1,
-            ));
+            );
             let charlie_auth_id = get_last_auth_id(&charlie_signatory);
 
             // call to remove authorisation with issuer paying should fail if issuer does not have a valid cdd
@@ -199,11 +197,11 @@ fn cdd_checks() {
 
             // call to accept being a multisig signer should succeed when authorizer has a valid cdd but signer key does not
             // fee must be paid by multisig creator
-            assert_ok!(MultiSig::create_multisig(
-                charlie_signed.clone(),
+            create_multisig_default_perms(
+                charlie_account.clone(),
                 create_signers(vec![alice_account.clone()]),
                 1,
-            ));
+            );
             let alice_auth_id = get_last_auth_id(&alice_signatory);
 
             assert_eq!(

@@ -76,28 +76,51 @@ where
             None => {}
         }
 
-        // Returns signatory to charge fee if cdd is valid.
-        let check_cdd = |did: &IdentityId| {
+        // Check if the `did` has a valid CDD claim.
+        let check_did_cdd = |did: &IdentityId| {
             if Module::<A>::has_valid_cdd(*did) {
-                Context::set_current_identity::<Module<A>>(Some(*did));
-                Ok(Module::<A>::get_primary_key(*did))
+                Self::set_current_identity(did);
+                Ok(None)
             } else {
                 CDD_REQUIRED
             }
         };
 
+        // Check if the `did` has a valid CDD claim
+        // and return the primary key as the payer.
+        let did_primary_pays = |did: &IdentityId| {
+            check_did_cdd(did)?;
+            Ok(Module::<A>::get_primary_key(*did))
+        };
+
+        // Check if the `caller` key has a DID and a valid CDD claim.
+        // The caller is also the payer.
+        let caller_pays = |caller: &AccountId| {
+            match pallet_identity::Module::<A>::get_identity(caller) {
+                Some(did) => {
+                    check_did_cdd(&did)?;
+                    Ok(Some(caller.clone()))
+                }
+                // Return if there's no DID.
+                None => MISSING_ID,
+            }
+        };
+
         let handle_multisig = |multisig: &AccountId, caller: &AccountId| {
             if pallet_multisig::MultiSigSigners::<A>::contains_key(multisig, caller) {
-                match pallet_multisig::CreatorDid::<A>::try_get(multisig) {
-                    Ok(did) => check_cdd(&did),
-                    Err(_) => MISSING_ID,
+                let caller = caller_pays(multisig)?;
+                // If the `multisig` has a paying DID, then it's primary key pays.
+                match pallet_multisig::Pallet::<A>::get_paying_did(multisig) {
+                    Some(did) => Ok(Module::<A>::get_primary_key(did)),
+                    None => Ok(caller),
                 }
             } else {
                 MISSING_ID
             }
         };
 
-        // Returns signatory to charge fee if auth is valid.
+        // The primary key of the DID that created the authorization
+        // pays the fee to accept the authorization.
         let is_auth_valid = |acc: &AccountId, auth_id: &u64, call_type: CallType| {
             // Fetch the auth if it exists and has not expired.
             match Module::<A>::get_non_expired_auth(&Signatory::Account(acc.clone()), auth_id)
@@ -118,7 +141,7 @@ where
                     )
                     | (AuthorizationData::AddRelayerPayingKey(..), CallType::AcceptRelayerPayingKey)
                     | (_, CallType::RemoveAuthorization),
-                )) => check_cdd(&by),
+                )) => did_primary_pays(&by),
                 // None of the above apply, so error.
                 _ => INVALID_AUTH,
             }
@@ -170,15 +193,7 @@ where
             // All other calls.
             //
             // The external account must directly be linked to an identity with valid CDD.
-            _ => match pallet_identity::Module::<A>::get_identity(caller) {
-                Some(did) if pallet_identity::Module::<A>::has_valid_cdd(did) => {
-                    Self::set_current_identity(&did);
-                    Ok(Some(caller.clone()))
-                }
-                Some(_) => CDD_REQUIRED,
-                // Return if there's no DID.
-                None => MISSING_ID,
-            },
+            _ => caller_pays(caller),
         }
     }
 
