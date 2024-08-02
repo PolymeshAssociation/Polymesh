@@ -544,8 +544,8 @@ pub mod pallet {
         SignerAlreadyLinkedToMultisig,
         /// Signer is an account key that is already associated with an identity.
         SignerAlreadyLinkedToIdentity,
-        /// Multisig not allowed to add itself as a signer.
-        MultisigNotAllowedToLinkToItself,
+        /// A multisig can't be a signer of another multisig.
+        NestingNotAllowed,
         /// Proposal was rejected earlier
         ProposalAlreadyRejected,
         /// Proposal has expired
@@ -1053,6 +1053,11 @@ impl<T: Config> Pallet<T> {
             |data, auth_by| {
                 let multisig = extract_auth!(data, AddMultiSigSigner(ms));
 
+                // Don't allow a multisig to be a signer of another multisig.
+                // Nesting is not allowed.
+                ensure!(!Self::is_multisig(&signer), Error::<T>::NestingNotAllowed);
+
+                // Ensure the multisig has a DID and get it.
                 let ms_identity = Self::ensure_ms_get_did(&multisig)?;
 
                 ensure!(
@@ -1070,12 +1075,6 @@ impl<T: Config> Pallet<T> {
                 ensure!(!to_identity, Error::<T>::SignerAlreadyLinkedToIdentity);
                 // Don't allow a signer key that is already a signer to another multisig.
                 ensure!(!to_multisig, Error::<T>::SignerAlreadyLinkedToMultisig);
-                // Don't allow a multisig to add itself as a signer to itself
-                // NB - you can add a multisig as a signer to a different multisig
-                ensure!(
-                    signer != multisig,
-                    Error::<T>::MultisigNotAllowedToLinkToItself
-                );
 
                 IdentityPallet::<T>::ensure_auth_by(ms_identity, auth_by)?;
 
