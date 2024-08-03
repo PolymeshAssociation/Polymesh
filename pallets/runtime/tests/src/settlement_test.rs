@@ -35,12 +35,12 @@ use polymesh_primitives::settlement::{
 use polymesh_primitives::{
     AccountId, AuthorizationData, Balance, Claim, ClaimType, Condition, ConditionType, CountryCode,
     Fund, FundDescription, IdentityId, Memo, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs,
-    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, Scope, Signatory, Ticker,
-    TrustedFor, TrustedIssuer, WeightMeter,
+    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, Scope, Signatory, TrustedFor,
+    TrustedIssuer, WeightMeter,
 };
 use sp_keyring::AccountKeyring;
 
-use super::asset_pallet::setup::{create_and_issue_sample_asset, create_asset, ISSUE_AMOUNT};
+use super::asset_pallet::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
 use super::asset_test::max_len_bytes;
 use super::nft::{create_nft_collection, mint_nft};
 use super::settlement_pallet::setup::create_and_issue_sample_asset_with_venue;

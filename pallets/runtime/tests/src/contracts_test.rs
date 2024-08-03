@@ -10,7 +10,7 @@ use polymesh_contracts::{
 use sp_keyring::AccountKeyring;
 use sp_runtime::traits::Hash;
 
-use pallet_asset::{AssetOwnershipRelation, AssetOwnershipRelations};
+use pallet_asset::TickersOwnedByUser;
 use pallet_identity::ParentDid;
 use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_primitives::{Gas, Permissions, PortfolioPermissions, SubsetRestriction, Ticker};
@@ -192,10 +192,7 @@ fn chain_extension_calls() {
             None,
             register_ticker_input
         ),);
-        assert_eq!(
-            AssetOwnershipRelations::get(&alice.did, &ticker),
-            AssetOwnershipRelation::TickerOwned
-        );
+        assert_eq!(TickersOwnedByUser::get(&alice.did, ticker), true);
     })
 }
 
