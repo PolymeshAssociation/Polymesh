@@ -786,10 +786,11 @@ impl<T: Config> NFTTrait<T::RuntimeOrigin> for Module<T> {
     #[cfg(feature = "runtime-benchmarks")]
     fn create_nft_collection(
         origin: T::RuntimeOrigin,
-        asset_id: AssetID,
+        asset_id: Option<AssetID>,
+        nft_type: Option<NonFungibleType>,
         collection_keys: NFTCollectionKeys,
     ) -> DispatchResult {
-        Module::<T>::create_nft_collection(origin, asset_id, collection_keys)
+        Module::<T>::create_nft_collection(origin, asset_id, nft_type, collection_keys)
     }
 }
 
