@@ -18,7 +18,7 @@ use polymesh_primitives::PortfolioKind;
 
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
-use frame_support::traits::{Currency, Get, Randomness, UnixTime};
+use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::Vec;
@@ -79,9 +79,6 @@ pub trait Config:
 
     /// Maximum number of mediators for an asset.
     type MaxAssetMediators: Get<u32>;
-
-    /// Randomness source.
-    type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
 }
 
 decl_event! {

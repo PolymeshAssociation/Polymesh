@@ -85,7 +85,7 @@ use codec::{Decode, Encode};
 use core::mem;
 use currency::*;
 use frame_support::dispatch::{DispatchError, DispatchResult};
-use frame_support::traits::{Get, Randomness};
+use frame_support::traits::Get;
 use frame_support::BoundedBTreeSet;
 use frame_support::{decl_module, decl_storage, ensure};
 use frame_system::ensure_root;
@@ -245,7 +245,7 @@ decl_storage! {
         /// Maps all [`Ticker`] that are linked to an [`AssetID`].
         pub TickerAssetID get(fn ticker_asset_id): map hasher(blake2_128_concat) Ticker => Option<AssetID>;
 
-        pub RngNonce get(fn rng_nonce): u64;
+        pub RngNonce get(fn rng_none): map hasher(identity) IdentityId => u64;
 
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(4)): Version;
@@ -2205,24 +2205,18 @@ impl<T: Config> Module<T> {
     }
 
     pub fn generate_asset_id(caller_did: IdentityId, update: bool) -> AssetID {
-        let seed = Self::get_seed(update);
-        blake2_128(&(b"modlpy/pallet_asset", caller_did, seed).encode()).into()
+        let nonce = Self::get_nonce(&caller_did, update);
+        blake2_128(&(b"modlpy/pallet_asset", caller_did, nonce).encode()).into()
     }
 
-    fn get_seed(update: bool) -> [u8; 32] {
-        // Increase the nonce each time.
-        let nonce = RngNonce::get();
+    fn get_nonce(caller_did: &IdentityId, update: bool) -> u64 {
+        let nonce = RngNonce::get(caller_did);
+
         if update {
-            RngNonce::put(nonce.wrapping_add(1));
+            RngNonce::insert(caller_did, nonce.wrapping_add(1));
         }
 
-        // Use the `nonce` and chain randomness to generate a new seed.
-        let (random_hash, _) = T::Randomness::random(&(b"PalletAsset", nonce).encode());
-        let s = random_hash.as_ref();
-        let mut seed = [0u8; 32];
-        let len = seed.len().min(s.len());
-        seed[..len].copy_from_slice(&s[..len]);
-        seed
+        nonce
     }
 }
 
