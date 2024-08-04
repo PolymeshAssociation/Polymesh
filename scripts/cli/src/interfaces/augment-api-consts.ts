@@ -15,6 +15,7 @@ declare module '@polkadot/api-base/types/consts' {
       assetMetadataValueMaxLength: u32 & AugmentedConst<ApiType>;
       assetNameMaxLength: u32 & AugmentedConst<ApiType>;
       fundingRoundNameMaxLength: u32 & AugmentedConst<ApiType>;
+      maxAssetMediators: u32 & AugmentedConst<ApiType>;
       /**
        * Generic const
        **/
@@ -180,6 +181,7 @@ declare module '@polkadot/api-base/types/consts' {
     };
     identity: {
       initialPOLYX: u128 & AugmentedConst<ApiType>;
+      maxGivenAuths: u32 & AugmentedConst<ApiType>;
       /**
        * Generic const
        **/
@@ -230,9 +232,20 @@ declare module '@polkadot/api-base/types/consts' {
        **/
       [key: string]: Codec;
     };
+    settlement: {
+      maxNumberOfFungibleAssets: u32 & AugmentedConst<ApiType>;
+      maxNumberOfNFTs: u32 & AugmentedConst<ApiType>;
+      maxNumberOfNFTsPerLeg: u32 & AugmentedConst<ApiType>;
+      maxNumberOfOffChainAssets: u32 & AugmentedConst<ApiType>;
+      maxNumberOfVenueSigners: u32 & AugmentedConst<ApiType>;
+      /**
+       * Generic const
+       **/
+      [key: string]: Codec;
+    };
     staking: {
       /**
-       * Number of eras that staked funds must remain bonded for.
+       * Number of eras that staked funds must remain bonded for.]
        **/
       bondingDuration: u32 & AugmentedConst<ApiType>;
       /**
@@ -246,7 +259,7 @@ declare module '@polkadot/api-base/types/consts' {
        **/
       electionLookahead: u32 & AugmentedConst<ApiType>;
       /**
-       * Total year rewards that gets paid during fixed reward schedule.
+       * Yearly total reward amount that gets distributed when fixed rewards kicks in.
        **/
       fixedYearlyReward: u128 & AugmentedConst<ApiType>;
       /**
@@ -256,6 +269,10 @@ declare module '@polkadot/api-base/types/consts' {
        **/
       maxIterations: u32 & AugmentedConst<ApiType>;
       /**
+       * Maximum number of nominations per nominator.
+       **/
+      maxNominations: u32 & AugmentedConst<ApiType>;
+      /**
        * The maximum number of nominators rewarded for each validator.
        * 
        * For each validator only the `$MaxNominatorRewardedPerValidator` biggest stakers can claim
@@ -263,17 +280,29 @@ declare module '@polkadot/api-base/types/consts' {
        **/
       maxNominatorRewardedPerValidator: u32 & AugmentedConst<ApiType>;
       /**
-       * Maximum number of validators for each permissioned identity.
+       * The maximum number of `unlocking` chunks a [`StakingLedger`] can
+       * have. Effectively determines how many unique eras a staker may be
+       * unbonding in.
        * 
-       * Max number of validators count = `MaxValidatorPerIdentity * Self::validator_count()`.
+       * Note: `MaxUnlockingChunks` is used as the upper bound for the
+       * `BoundedVec` item `StakingLedger.unlocking`. Setting this value
+       * lower than the existing value can lead to inconsistencies in the
+       * `StakingLedger` and will need to be handled properly in a runtime
+       * migration. The test `reducing_max_unlocking_chunks_abrupt` shows
+       * this effect.
+       **/
+      maxUnlockingChunks: u32 & AugmentedConst<ApiType>;
+      /**
+       * Maximum amount of validators that can run by an identity.
+       * It will be MaxValidatorPerIdentity * Self::validator_count().
        **/
       maxValidatorPerIdentity: Permill & AugmentedConst<ApiType>;
       /**
-       * Maximum amount of `T::currency::total_issuance()` after that non-inflated rewards get paid.
+       * Maximum amount of total issuance after which fixed rewards kicks in.
        **/
       maxVariableInflationTotalIssuance: u128 & AugmentedConst<ApiType>;
       /**
-       * Minimum amount of POLYX that must be bonded for a new bond.
+       * Minimum bond amount.
        **/
       minimumBond: u128 & AugmentedConst<ApiType>;
       /**
@@ -287,11 +316,40 @@ declare module '@polkadot/api-base/types/consts' {
       /**
        * Number of eras that slashes are deferred by, after computation.
        * 
-       * This should be less than the bonding duration.
-       * Set to 0 if slashes should be applied immediately, without opportunity for
-       * intervention.
+       * This should be less than the bonding duration. Set to 0 if slashes
+       * should be applied immediately, without opportunity for intervention.
        **/
       slashDeferDuration: u32 & AugmentedConst<ApiType>;
+      /**
+       * Generic const
+       **/
+      [key: string]: Codec;
+    };
+    stateTrieMigration: {
+      /**
+       * Maximal number of bytes that a key can have.
+       * 
+       * FRAME itself does not limit the key length.
+       * The concrete value must therefore depend on your storage usage.
+       * A [`frame_support::storage::StorageNMap`] for example can have an arbitrary number of
+       * keys which are then hashed and concatenated, resulting in arbitrarily long keys.
+       * 
+       * Use the *state migration RPC* to retrieve the length of the longest key in your
+       * storage: <https://github.com/paritytech/substrate/issues/11642>
+       * 
+       * The migration will halt with a `Halted` event if this value is too small.
+       * Since there is no real penalty from over-estimating, it is advised to use a large
+       * value. The default is 512 byte.
+       * 
+       * Some key lengths for reference:
+       * - [`frame_support::storage::StorageValue`]: 32 byte
+       * - [`frame_support::storage::StorageMap`]: 64 byte
+       * - [`frame_support::storage::StorageDoubleMap`]: 96 byte
+       * 
+       * For more info see
+       * <https://www.shawntabrizi.com/substrate/querying-substrate-storage-via-rpc/>
+       **/
+      maxKeyLen: u32 & AugmentedConst<ApiType>;
       /**
        * Generic const
        **/
