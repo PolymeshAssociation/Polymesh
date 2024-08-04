@@ -635,6 +635,7 @@ impl<T: Config> Module<T> {
             callers_portfolio_kind,
             true,
         )?;
+
         // Verifies if all rules for transfering the NFTs are being respected
         Self::validate_nft_transfer(&source_portfolio, &caller_portfolio, &nfts, true, None)?;
         // Transfer ownership of the NFTs
