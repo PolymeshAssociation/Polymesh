@@ -1356,7 +1356,6 @@ fn expired_proposals() {
 fn multisig_nesting_not_allowed() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
-        let bob_signer = AccountKeyring::Bob.to_account_id();
         let dave = Origin::signed(AccountKeyring::Dave.to_account_id());
         let dave_signer = AccountKeyring::Dave.to_account_id();
 
