@@ -432,6 +432,28 @@ pub mod pallet {
             AdminDid::<T>::remove(multisig);
             Ok(().into())
         }
+
+        /// Removes the paying identity from the `multisig`.  This must be called by the multisig itself.
+        #[pallet::call_index(13)]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_payer())]
+        pub fn remove_payer(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            let multisig = ensure_signed(origin)?;
+            Self::ensure_ms(&multisig)?;
+            PayingDid::<T>::remove(multisig);
+            Ok(().into())
+        }
+
+        /// Removes the paying identity from the `multisig`.  This must be called by the paying identity of the multisig.
+        #[pallet::call_index(14)]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_payer_via_payer())]
+        pub fn remove_payer_via_payer(
+            origin: OriginFor<T>,
+            multisig: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            Self::ensure_ms_payer(origin, &multisig)?;
+            PayingDid::<T>::remove(multisig);
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
@@ -538,6 +560,8 @@ pub mod pallet {
         FailedToChargeFee,
         /// Identity provided is not the multisig's admin.
         IdentityNotAdmin,
+        /// Identity provided is not the multisig's payer.
+        IdentityNotPayer,
         /// Changing multisig parameters not allowed since multisig is a primary key.
         ChangeNotAllowed,
         /// Signer is an account key that is already associated with a multisig.
@@ -708,6 +732,16 @@ impl<T: Config> Pallet<T> {
         let (_, caller_did) = IdentityPallet::<T>::ensure_primary_key(origin)?;
         let admin_did = AdminDid::<T>::get(multisig);
         ensure!(admin_did == Some(caller_did), Error::<T>::IdentityNotAdmin);
+        Ok(caller_did)
+    }
+
+    fn ensure_ms_payer(
+        origin: T::RuntimeOrigin,
+        multisig: &T::AccountId,
+    ) -> Result<IdentityId, DispatchError> {
+        let (_, caller_did) = IdentityPallet::<T>::ensure_primary_key(origin)?;
+        let payer_did = PayingDid::<T>::get(multisig);
+        ensure!(payer_did == Some(caller_did), Error::<T>::IdentityNotPayer);
         Ok(caller_did)
     }
 

@@ -317,4 +317,12 @@ benchmarks! {
         let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(2, 2).unwrap();
         init_admin(&multisig, &alice);
     }: _(alice.origin(), multisig)
+
+    remove_payer {
+        let (alice, multisig, _, _, multisig_origin) = generate_multisig_for_alice::<T>(2, 2).unwrap();
+    }: _(multisig_origin)
+
+    remove_payer_via_payer {
+        let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(2, 2).unwrap();
+    }: _(alice.origin(), multisig)
 }
