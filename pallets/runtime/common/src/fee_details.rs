@@ -108,11 +108,11 @@ where
 
         let handle_multisig = |multisig: &AccountId, caller: &AccountId| {
             if pallet_multisig::MultiSigSigners::<A>::contains_key(multisig, caller) {
-                let caller = caller_pays(multisig)?;
+                let ms_pays = caller_pays(multisig)?;
                 // If the `multisig` has a paying DID, then it's primary key pays.
                 match pallet_multisig::Pallet::<A>::get_paying_did(multisig) {
                     Some(did) => Ok(Module::<A>::get_primary_key(did)),
-                    None => Ok(caller),
+                    None => Ok(ms_pays),
                 }
             } else {
                 MISSING_ID
@@ -147,13 +147,30 @@ where
             }
         };
 
+        let handle_multisig_auth =
+            |multisig: &AccountId, caller: &AccountId, auth_id: &u64, call_type: CallType| {
+                if pallet_multisig::MultiSigSigners::<A>::contains_key(multisig, caller) {
+                    is_auth_valid(multisig, auth_id, call_type)
+                } else {
+                    MISSING_ID
+                }
+            };
+
         // The CDD check and fee payer varies depending on the transaction.
         // This match covers all possible scenarios.
         match call.try_into() {
-            // Call made by a new Account key to accept invitation to become a secondary key
-            // of an existing multisig that has a valid CDD. The auth should be valid.
+            // Call made by a key to accept invitation to become a signing key
+            // of a multisig that has a valid CDD. The auth should be valid.
             Ok(Call::MultiSig(pallet_multisig::Call::accept_multisig_signer { auth_id })) => {
                 is_auth_valid(caller, auth_id, CallType::AcceptMultiSigSigner)
+            }
+            // Call made by a multisig signing key to accept invitation to become a secondary key
+            // of an existing identity that has a valid CDD. The auth should be valid.
+            Ok(Call::MultiSig(pallet_multisig::Call::approve_join_identity {
+                multisig,
+                auth_id,
+            })) => {
+                handle_multisig_auth(multisig, caller, auth_id, CallType::AcceptIdentitySecondary)
             }
             // Call made by a new Account key to accept invitation to become a secondary key
             // of an existing identity that has a valid CDD. The auth should be valid.

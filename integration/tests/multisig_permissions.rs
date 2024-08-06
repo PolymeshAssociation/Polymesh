@@ -208,6 +208,33 @@ impl MuliSigState {
         Ok(res)
     }
 
+    pub async fn join_identity(&mut self, auth_id: u64) -> Result<TransactionResults> {
+        let approve_join_call = self
+            .api
+            .call()
+            .multi_sig()
+            .approve_join_identity(self.account.clone(), auth_id)?;
+        let mut results = Vec::new();
+        for signer in &mut self.signers[0..self.sigs_required as usize] {
+            let res = approve_join_call.submit_and_watch(signer).await?;
+            results.push(res);
+        }
+        // Find which approval call executed the proposal.
+        for mut res in results {
+            res.wait_finalized().await?;
+            match ms_proposal_executed(&mut res).await? {
+                Some(true) => {
+                    return Ok(res);
+                }
+                Some(false) => {
+                    return Err(anyhow!("MS proposal returned error"));
+                }
+                None => (),
+            }
+        }
+        Err(anyhow!("Failed to execute MS proposal"))
+    }
+
     pub async fn run_proposal(&mut self, proposal: WrappedCall) -> Result<TransactionResults> {
         // Create proposal with the first signer.
         let mut res = self.create_proposal(proposal).await?;
@@ -474,6 +501,91 @@ async fn ms_make_secondary() -> Result<()> {
     let whole = PermissionsBuilder::whole();
     // The MS is already a secondary key, it can't join again.
     let res = ms.make_secondary(Some(whole.into())).await;
+    assert!(res.is_err());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn ms_change_identity() -> Result<()> {
+    let mut tester = PolymeshTester::new().await?;
+    let users = tester
+        .users(&["MultiSigChangeDID1", "MultiSigChangeDID2"])
+        .await?;
+    let did1 = users[0].clone();
+    let mut did2 = users[1].clone();
+
+    // Use the primary key of did1 to create a MS and join it do did1 as a secondary key.
+    let whole = PermissionsBuilder::whole();
+    let mut ms = MuliSigState::create_and_join_creator(
+        &mut tester,
+        &did1.primary_key,
+        3,
+        2,
+        false,
+        Some(whole.into()),
+    )
+    .await?;
+
+    // Leave the identity did1.
+    let mut res = ms.leave_did().await?;
+    res.wait_in_block().await?;
+
+    // Create JoinIdentity auth for the MS to join DID2 with no-permissions.
+    let mut res = tester
+        .api
+        .call()
+        .identity()
+        .add_authorization(
+            Signatory::Account(ms.account.clone()),
+            AuthorizationData::JoinIdentity(PermissionsBuilder::empty().build()),
+            None,
+        )?
+        .execute(&mut did2)
+        .await?;
+    let auth_id = get_auth_id(&mut res)
+        .await?
+        .expect("Missing JoinIdentity auth id");
+
+    // Join did2.  The primary key of did2 pays the tx fees.
+    let mut res = ms.join_identity(auth_id).await?;
+    res.ok().await?;
+
+    // Prepare `system.remark` call.
+    let remark_call = tester.api.call().system().remark(vec![])?;
+    // Should be able to run new proposals now.
+    let mut res = ms.run_proposal(remark_call).await?;
+    res.ok().await?;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn ms_needs_to_be_linked_to_an_identity() -> Result<()> {
+    let mut tester = PolymeshTester::new().await?;
+    let users = tester.users(&["MultiSigNeedsDID"]).await?;
+    let did = users[0].clone();
+
+    // Use the primary key of did1 to create a MS and join it do did1 as a secondary key.
+    let whole = PermissionsBuilder::whole();
+    let mut ms = MuliSigState::create_and_join_creator(
+        &mut tester,
+        &did.primary_key,
+        3,
+        2,
+        false,
+        Some(whole.into()),
+    )
+    .await?;
+
+    // Leave the identity.
+    let mut res = ms.leave_did().await?;
+    res.wait_in_block().await?;
+
+    // Prepare `system.remark` call.
+    let remark_call = tester.api.call().system().remark(vec![])?;
+    // Shouldn't be allowed, since the MS doesn't have a DID.
+    let res = ms.run_proposal(remark_call).await;
     assert!(res.is_err());
 
     Ok(())
