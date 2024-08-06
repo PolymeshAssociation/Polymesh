@@ -34,7 +34,8 @@ fn create_collection<T: Config>(collection_owner: &User<T>, n: u32) -> (AssetID,
     let collection_keys: NFTCollectionKeys = creates_keys_register_metadata_types::<T>(n);
     Module::<T>::create_nft_collection(
         collection_owner.origin.clone().into(),
-        asset_id,
+        Some(asset_id),
+        None,
         collection_keys,
     )
     .expect("failed to create nft collection");
@@ -143,15 +144,9 @@ benchmarks! {
         let n in 1..MAX_COLLECTION_KEYS;
 
         let user = user::<T>("target", 0);
-        let asset_id = create_and_issue_sample_asset::<T>(
-            &user,
-            false,
-            Some(AssetType::NonFungible(NonFungibleType::Invoice)),
-            b"MyNFT",
-            false,
-        );
+        let nft_type: Option<NonFungibleType> = Some(NonFungibleType::Derivative);
         let collection_keys: NFTCollectionKeys = creates_keys_register_metadata_types::<T>(n);
-    }: _(user.origin, asset_id, collection_keys)
+    }: _(user.origin, None, nft_type, collection_keys)
     verify {
         assert!(Collection::contains_key(NFTCollectionId(1)));
         assert_eq!(CollectionKeys::get(NFTCollectionId(1)).len(), n as usize);

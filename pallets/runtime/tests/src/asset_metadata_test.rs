@@ -1,16 +1,15 @@
 use super::{
-    asset_test::{create_token, set_timestamp},
+    asset_pallet::setup::create_and_issue_sample_asset,
+    asset_test::set_timestamp,
     exec_noop, exec_ok,
     storage::{TestStorage, User},
     ExtBuilder,
 };
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
-use polymesh_primitives::{
-    asset_metadata::{
-        AssetMetadataKey, AssetMetadataLockStatus, AssetMetadataName, AssetMetadataSpec,
-        AssetMetadataValue, AssetMetadataValueDetail,
-    },
-    Ticker,
+use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset_metadata::{
+    AssetMetadataKey, AssetMetadataLockStatus, AssetMetadataName, AssetMetadataSpec,
+    AssetMetadataValue, AssetMetadataValueDetail,
 };
 use sp_keyring::AccountKeyring;
 
@@ -76,19 +75,19 @@ fn make_metadata_type(name: &str) -> (AssetMetadataName, AssetMetadataSpec) {
 }
 
 /// Helper to register metadata type with the give name.
-fn register_metadata_type(owner: User, ticker: Option<Ticker>, name: &str) -> AssetMetadataKey {
+fn register_metadata_type(owner: User, asset_id: Option<AssetID>, name: &str) -> AssetMetadataKey {
     let (name, spec) = make_metadata_type(name);
 
-    if let Some(ticker) = ticker {
+    if let Some(asset_id) = asset_id {
         // Register local metadata type with asset owner.
         exec_ok!(Asset::register_asset_metadata_local_type(
             owner.origin(),
-            ticker,
+            asset_id,
             name.clone(),
             spec,
         ));
 
-        Asset::asset_metadata_local_name_to_key(ticker, name)
+        Asset::asset_metadata_local_name_to_key(asset_id, name)
             .map(AssetMetadataKey::from)
             .expect("Failed to register metadata")
     } else {
@@ -113,10 +112,10 @@ fn set_asset_metadata_local_type() {
         let other = User::new(AccountKeyring::Alice);
 
         // Create asset.
-        let (ticker, _) = create_token(owner);
+        let asset_id = create_and_issue_sample_asset(&owner);
 
         let global_key = register_metadata_type(owner, None, "TEST");
-        let local_key = register_metadata_type(owner, Some(ticker), "TEST");
+        let local_key = register_metadata_type(owner, Some(asset_id), "TEST");
 
         let value = AssetMetadataValue("cow".as_bytes().into());
         let details = Some(make_metadata_value_details(None, false));
@@ -125,7 +124,7 @@ fn set_asset_metadata_local_type() {
         exec_noop!(
             Asset::set_asset_metadata(
                 other.origin(),
-                ticker,
+                asset_id,
                 global_key,
                 value.clone(),
                 details.clone()
@@ -137,7 +136,7 @@ fn set_asset_metadata_local_type() {
         exec_noop!(
             Asset::set_asset_metadata(
                 other.origin(),
-                ticker,
+                asset_id,
                 local_key,
                 value.clone(),
                 details.clone()
@@ -153,7 +152,7 @@ fn set_asset_metadata_local_type() {
         exec_noop!(
             Asset::set_asset_metadata(
                 owner.origin(),
-                ticker,
+                asset_id,
                 global_key,
                 over_sized_value.clone(),
                 details.clone()
@@ -165,7 +164,7 @@ fn set_asset_metadata_local_type() {
         exec_noop!(
             Asset::set_asset_metadata(
                 owner.origin(),
-                ticker,
+                asset_id,
                 local_key,
                 over_sized_value.clone(),
                 details.clone()
@@ -176,7 +175,7 @@ fn set_asset_metadata_local_type() {
         // Set metadata value for global key.
         exec_ok!(Asset::set_asset_metadata(
             owner.origin(),
-            ticker,
+            asset_id,
             global_key,
             value.clone(),
             details.clone()
@@ -185,7 +184,7 @@ fn set_asset_metadata_local_type() {
         // Set metadata value for local key.
         exec_ok!(Asset::set_asset_metadata(
             owner.origin(),
-            ticker,
+            asset_id,
             local_key,
             value.clone(),
             details.clone()
@@ -198,7 +197,7 @@ fn set_asset_metadata_local_type() {
         exec_noop!(
             Asset::set_asset_metadata(
                 other.origin(),
-                ticker,
+                asset_id,
                 global_key,
                 value2.clone(),
                 details2.clone()
@@ -210,7 +209,7 @@ fn set_asset_metadata_local_type() {
         exec_noop!(
             Asset::set_asset_metadata(
                 other.origin(),
-                ticker,
+                asset_id,
                 local_key,
                 value2.clone(),
                 details2.clone()
@@ -221,7 +220,7 @@ fn set_asset_metadata_local_type() {
         // Update metadata value for global key.
         exec_ok!(Asset::set_asset_metadata(
             owner.origin(),
-            ticker,
+            asset_id,
             global_key,
             value2.clone(),
             details2.clone(),
@@ -230,7 +229,7 @@ fn set_asset_metadata_local_type() {
         // Update metadata value for local key.
         exec_ok!(Asset::set_asset_metadata(
             owner.origin(),
-            ticker,
+            asset_id,
             local_key,
             value2.clone(),
             details2.clone(),
@@ -241,7 +240,7 @@ fn set_asset_metadata_local_type() {
         exec_noop!(
             Asset::set_asset_metadata_details(
                 other.origin(),
-                ticker,
+                asset_id,
                 global_key,
                 details_locked.clone()
             ),
@@ -252,7 +251,7 @@ fn set_asset_metadata_local_type() {
         exec_noop!(
             Asset::set_asset_metadata_details(
                 other.origin(),
-                ticker,
+                asset_id,
                 local_key,
                 details_locked.clone()
             ),
@@ -262,7 +261,7 @@ fn set_asset_metadata_local_type() {
         // Lock metadata value for global key.
         exec_ok!(Asset::set_asset_metadata_details(
             owner.origin(),
-            ticker,
+            asset_id,
             global_key,
             details_locked.clone(),
         ));
@@ -270,7 +269,7 @@ fn set_asset_metadata_local_type() {
         // Lock metadata value for local key.
         exec_ok!(Asset::set_asset_metadata_details(
             owner.origin(),
-            ticker,
+            asset_id,
             local_key,
             details_locked.clone(),
         ));
@@ -282,7 +281,7 @@ fn set_asset_metadata_local_type() {
         exec_noop!(
             Asset::set_asset_metadata(
                 owner.origin(),
-                ticker,
+                asset_id,
                 global_key,
                 value3.clone(),
                 details3.clone(),
@@ -294,7 +293,7 @@ fn set_asset_metadata_local_type() {
         exec_noop!(
             Asset::set_asset_metadata(
                 owner.origin(),
-                ticker,
+                asset_id,
                 local_key,
                 value3.clone(),
                 details3.clone(),
@@ -311,7 +310,7 @@ fn register_and_set_local_asset_metadata() {
         let other = User::new(AccountKeyring::Alice);
 
         // Create asset.
-        let (ticker, _) = create_token(owner);
+        let asset_id = create_and_issue_sample_asset(&owner);
 
         let (name, spec) = make_metadata_type("TEST");
         let value = AssetMetadataValue("cow".as_bytes().into());
@@ -321,7 +320,7 @@ fn register_and_set_local_asset_metadata() {
         exec_noop!(
             Asset::register_and_set_local_asset_metadata(
                 other.origin(),
-                ticker,
+                asset_id,
                 name.clone(),
                 spec.clone(),
                 value.clone(),
@@ -333,7 +332,7 @@ fn register_and_set_local_asset_metadata() {
         // Register and set local metadata type with asset owner.
         exec_ok!(Asset::register_and_set_local_asset_metadata(
             owner.origin(),
-            ticker,
+            asset_id,
             name.clone(),
             spec.clone(),
             value.clone(),
@@ -344,7 +343,7 @@ fn register_and_set_local_asset_metadata() {
         exec_noop!(
             Asset::register_and_set_local_asset_metadata(
                 owner.origin(),
-                ticker,
+                asset_id,
                 name,
                 spec,
                 value,
@@ -362,7 +361,7 @@ fn register_asset_metadata_local_type() {
         let other = User::new(AccountKeyring::Alice);
 
         // Create asset.
-        let (ticker, _) = create_token(owner);
+        let asset_id = create_and_issue_sample_asset(&owner);
 
         let (name, spec) = make_metadata_type("TEST");
 
@@ -370,7 +369,7 @@ fn register_asset_metadata_local_type() {
         exec_noop!(
             Asset::register_asset_metadata_local_type(
                 other.origin(),
-                ticker,
+                asset_id,
                 name.clone(),
                 spec.clone(),
             ),
@@ -380,14 +379,14 @@ fn register_asset_metadata_local_type() {
         // Register local metadata type with asset owner.
         exec_ok!(Asset::register_asset_metadata_local_type(
             owner.origin(),
-            ticker,
+            asset_id,
             name.clone(),
             spec.clone(),
         ));
 
         // Try registering metadata with the same name.
         exec_noop!(
-            Asset::register_asset_metadata_local_type(owner.origin(), ticker, name, spec,),
+            Asset::register_asset_metadata_local_type(owner.origin(), asset_id, name, spec,),
             AssetError::AssetMetadataLocalKeyAlreadyExists
         );
     });
@@ -428,13 +427,13 @@ fn register_asset_metadata_local_type_limits() {
         let owner = User::new(AccountKeyring::Dave);
 
         // Create asset.
-        let (ticker, _) = create_token(owner);
+        let asset_id = create_and_issue_sample_asset(&owner);
 
         // Try registering metadata with over-sized values.
         let register_type = |name, url, desc, type_def, err: DispatchError| {
             let (name, spec) = make_metadata_type_sizes(name, url, desc, type_def);
             exec_noop!(
-                Asset::register_asset_metadata_local_type(owner.origin(), ticker, name, spec,),
+                Asset::register_asset_metadata_local_type(owner.origin(), asset_id, name, spec,),
                 err
             );
         };
@@ -511,10 +510,10 @@ fn check_locked_until() {
         let owner = User::new(AccountKeyring::Dave);
 
         // Create asset.
-        let (ticker, _) = create_token(owner);
+        let asset_id = create_and_issue_sample_asset(&owner);
 
         let global_key = register_metadata_type(owner, None, "TEST");
-        let local_key = register_metadata_type(owner, Some(ticker), "TEST");
+        let local_key = register_metadata_type(owner, Some(asset_id), "TEST");
 
         let value = AssetMetadataValue("cow".as_bytes().into());
         let details = Some(make_metadata_value_details(None, false));
@@ -522,7 +521,7 @@ fn check_locked_until() {
         // Set metadata value for global key.
         exec_ok!(Asset::set_asset_metadata(
             owner.origin(),
-            ticker,
+            asset_id,
             global_key,
             value.clone(),
             details.clone()
@@ -531,7 +530,7 @@ fn check_locked_until() {
         // Set metadata value for local key.
         exec_ok!(Asset::set_asset_metadata(
             owner.origin(),
-            ticker,
+            asset_id,
             local_key,
             value.clone(),
             details.clone()
@@ -546,7 +545,7 @@ fn check_locked_until() {
         // Lock metadata value for global key until `unlock_timestamp`.
         exec_ok!(Asset::set_asset_metadata_details(
             owner.origin(),
-            ticker,
+            asset_id,
             global_key,
             details_locked_until.clone(),
         ));
@@ -554,7 +553,7 @@ fn check_locked_until() {
         // Lock metadata value for local key until `unlock_timestamp`.
         exec_ok!(Asset::set_asset_metadata_details(
             owner.origin(),
-            ticker,
+            asset_id,
             local_key,
             details_locked_until.clone(),
         ));
@@ -566,7 +565,7 @@ fn check_locked_until() {
         exec_noop!(
             Asset::set_asset_metadata(
                 owner.origin(),
-                ticker,
+                asset_id,
                 global_key,
                 value2.clone(),
                 details2.clone(),
@@ -578,7 +577,7 @@ fn check_locked_until() {
         exec_noop!(
             Asset::set_asset_metadata(
                 owner.origin(),
-                ticker,
+                asset_id,
                 local_key,
                 value2.clone(),
                 details2.clone(),
@@ -592,7 +591,7 @@ fn check_locked_until() {
         // Updated unlocked metadata value for global key.
         exec_ok!(Asset::set_asset_metadata(
             owner.origin(),
-            ticker,
+            asset_id,
             global_key,
             value2.clone(),
             details2.clone()
@@ -601,7 +600,7 @@ fn check_locked_until() {
         // Updated unlocked metadata value for local key.
         exec_ok!(Asset::set_asset_metadata(
             owner.origin(),
-            ticker,
+            asset_id,
             local_key,
             value2.clone(),
             details2.clone()

@@ -1,7 +1,6 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
-import type { PortfolioId, Ticker } from "../types";
 import type { IdentityId } from "../interfaces";
-import { sendTx, keyToIdentityIds, ApiSingleton } from "../util/init";
+import { sendTx, ApiSingleton } from "../util/init";
 
 /**
  * @description Returns the next portfolio number
@@ -25,52 +24,6 @@ export async function createPortfolio(
     return true;
   } catch (err: unknown) {
     console.log(`Error: ${err}`);
-    return false;
-  }
-}
-
-/**
- * @description Moves portfolio funds
- */
-export async function movePortfolioFunds(
-  signer: KeyringPair,
-  primaryKey: KeyringPair,
-  ticker: Ticker,
-  amount: number
-): Promise<boolean> {
-  const api = await ApiSingleton.getInstance();
-  try {
-    const primaryKeyDid = await keyToIdentityIds(primaryKey.publicKey);
-    const signerDid = await keyToIdentityIds(signer.publicKey);
-    const portfolioNum = (await nextPortfolioNumber(signerDid)) - 1;
-
-    const from: PortfolioId = {
-      did: primaryKeyDid,
-      kind: { Default: "" },
-    };
-    const to: PortfolioId = {
-      did: signerDid,
-      kind: { User: portfolioNum },
-    };
-    const items = [
-      {
-        description: {
-          Fungible: {
-            ticker,
-            amount
-          }
-        },
-        memo: null,
-      },
-    ];
-
-    const transaction = api.tx.portfolio.movePortfolioFunds(from, to, items);
-    await sendTx(signer, transaction);
-    return true;
-  } catch (err: unknown) {
-    if (err instanceof Error) {
-      console.log(`Error: ${err.message}`);
-    }
     return false;
   }
 }

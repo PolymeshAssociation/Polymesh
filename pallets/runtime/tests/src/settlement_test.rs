@@ -22,7 +22,7 @@ use pallet_settlement::{
     UserVenues, VenueInstructions,
 };
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
-use polymesh_primitives::asset::{AssetType, NonFungibleType};
+use polymesh_primitives::asset::{AssetID, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
 };
@@ -35,13 +35,15 @@ use polymesh_primitives::settlement::{
 use polymesh_primitives::{
     AccountId, AuthorizationData, Balance, Claim, ClaimType, Condition, ConditionType, CountryCode,
     Fund, FundDescription, IdentityId, Memo, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs,
-    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, Scope, Signatory, Ticker,
-    TrustedFor, TrustedIssuer, WeightMeter,
+    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, Scope, Signatory, TrustedFor,
+    TrustedIssuer, WeightMeter,
 };
 use sp_keyring::AccountKeyring;
 
-use super::asset_test::{allow_all_transfers, max_len_bytes};
+use super::asset_pallet::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
+use super::asset_test::max_len_bytes;
 use super::nft::{create_nft_collection, mint_nft};
+use super::settlement_pallet::setup::create_and_issue_sample_asset_with_venue;
 use super::storage::{
     default_portfolio_vec, make_account_with_balance, user_portfolio_vec, TestStorage, User,
 };
@@ -65,9 +67,6 @@ type Error = pallet_settlement::Error<TestStorage>;
 type Scheduler = pallet_scheduler::Pallet<TestStorage>;
 type NFTError = pallet_nft::Error<TestStorage>;
 
-const TICKER: Ticker = Ticker::new_unchecked([b'A', b'C', b'M', b'E', 0, 0, 0, 0, 0, 0, 0, 0]);
-const TICKER2: Ticker = Ticker::new_unchecked([b'A', b'C', b'M', b'E', b'2', 0, 0, 0, 0, 0, 0, 0]);
-
 macro_rules! assert_add_claim {
     ($signer:expr, $target:expr, $claim:expr) => {
         assert_ok!(Identity::add_claim($signer, $target, $claim, None,));
@@ -86,32 +85,31 @@ macro_rules! assert_affirm_instruction {
 
 struct UserWithBalance {
     user: User,
-    init_balances: Vec<(Ticker, Balance)>,
+    init_balances: Vec<(AssetID, Balance)>,
 }
 
 impl UserWithBalance {
-    fn new(acc: AccountKeyring, tickers: &[Ticker]) -> Self {
-        let user = User::new(acc);
+    fn new(user: User, assets: &[AssetID]) -> Self {
         Self {
-            init_balances: tickers
+            init_balances: assets
                 .iter()
-                .map(|ticker| (*ticker, Asset::balance_of(ticker, user.did)))
+                .map(|asset_id| (*asset_id, Asset::balance_of(asset_id, user.did)))
                 .collect(),
             user,
         }
     }
 
     fn refresh_init_balances(&mut self) {
-        for (ticker, balance) in &mut self.init_balances {
-            *balance = Asset::balance_of(ticker, self.user.did);
+        for (asset_id, balance) in &mut self.init_balances {
+            *balance = Asset::balance_of(asset_id, self.user.did);
         }
     }
 
     #[track_caller]
-    fn init_balance(&self, ticker: &Ticker) -> Balance {
+    fn init_balance(&self, asset_id: &AssetID) -> Balance {
         self.init_balances
             .iter()
-            .find(|bs| bs.0 == *ticker)
+            .find(|bs| bs.0 == *asset_id)
             .unwrap()
             .1
     }
@@ -124,49 +122,49 @@ impl UserWithBalance {
     }
 
     #[track_caller]
-    fn assert_balance_unchanged(&self, ticker: &Ticker) {
-        assert_balance(ticker, &self.user, self.init_balance(ticker));
+    fn assert_balance_unchanged(&self, asset_id: &AssetID) {
+        assert_balance(asset_id, &self.user, self.init_balance(asset_id));
     }
 
     #[track_caller]
-    fn assert_balance_increased(&self, ticker: &Ticker, amount: Balance) {
-        assert_balance(ticker, &self.user, self.init_balance(ticker) + amount);
+    fn assert_balance_increased(&self, asset_id: &AssetID, amount: Balance) {
+        assert_balance(asset_id, &self.user, self.init_balance(asset_id) + amount);
     }
 
     #[track_caller]
-    fn assert_balance_decreased(&self, ticker: &Ticker, amount: Balance) {
-        assert_balance(ticker, &self.user, self.init_balance(ticker) - amount);
+    fn assert_balance_decreased(&self, asset_id: &AssetID, amount: Balance) {
+        assert_balance(asset_id, &self.user, self.init_balance(asset_id) - amount);
     }
 
     #[track_caller]
-    fn assert_portfolio_bal(&self, num: PortfolioNumber, balance: Balance) {
+    fn assert_portfolio_bal(&self, num: PortfolioNumber, balance: Balance, asset_id: &AssetID) {
         assert_eq!(
-            Portfolio::user_portfolio_balance(self.user.did, num, &TICKER),
+            Portfolio::user_portfolio_balance(self.user.did, num, asset_id),
             balance,
         );
     }
 
     #[track_caller]
-    fn assert_default_portfolio_bal(&self, balance: Balance) {
+    fn assert_default_portfolio_bal(&self, balance: Balance, asset_id: &AssetID) {
         assert_eq!(
-            Portfolio::default_portfolio_balance(self.user.did, &TICKER),
+            Portfolio::default_portfolio_balance(self.user.did, asset_id),
             balance,
         );
     }
 
     #[track_caller]
-    fn assert_default_portfolio_bal_unchanged(&self) {
-        self.assert_default_portfolio_bal(self.init_balance(&TICKER));
+    fn assert_default_portfolio_bal_unchanged(&self, asset_id: &AssetID) {
+        self.assert_default_portfolio_bal(self.init_balance(asset_id), asset_id);
     }
 
     #[track_caller]
-    fn assert_default_portfolio_bal_decreased(&self, amount: Balance) {
-        self.assert_default_portfolio_bal(self.init_balance(&TICKER) - amount);
+    fn assert_default_portfolio_bal_decreased(&self, amount: Balance, asset_id: &AssetID) {
+        self.assert_default_portfolio_bal(self.init_balance(asset_id) - amount, asset_id);
     }
 
     #[track_caller]
-    fn assert_default_portfolio_bal_increased(&self, amount: Balance) {
-        self.assert_default_portfolio_bal(self.init_balance(&TICKER) + amount);
+    fn assert_default_portfolio_bal_increased(&self, amount: Balance, asset_id: &AssetID) {
+        self.assert_default_portfolio_bal(self.init_balance(asset_id) + amount, asset_id);
     }
 }
 
@@ -176,41 +174,6 @@ impl Deref for UserWithBalance {
     fn deref(&self) -> &Self::Target {
         &self.user
     }
-}
-
-pub(crate) fn create_token_and_venue(ticker: Ticker, user: User) -> VenueId {
-    create_token(ticker, user);
-    create_venue(user)
-}
-
-pub(crate) fn create_token(ticker: Ticker, user: User) {
-    assert_ok!(Asset::create_asset(
-        user.origin(),
-        ticker.as_slice().into(),
-        ticker,
-        true,
-        AssetType::default(),
-        vec![],
-        None,
-    ));
-    assert_ok!(Asset::issue(
-        user.origin(),
-        ticker,
-        100_000,
-        PortfolioKind::Default
-    ));
-    allow_all_transfers(ticker, user);
-}
-
-pub(crate) fn create_venue(user: User) -> VenueId {
-    let venue_counter = Settlement::venue_counter();
-    assert_ok!(Settlement::create_venue(
-        user.origin(),
-        VenueDetails::default(),
-        vec![user.acc()],
-        VenueType::Other
-    ));
-    venue_counter
 }
 
 pub fn set_current_block_number(block: u32) {
@@ -314,9 +277,13 @@ fn test_with_cdd_provider(test: impl FnOnce(AccountId)) {
 #[test]
 fn basic_settlement() {
     test_with_cdd_provider(|_eve| {
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
-        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
+
+        let mut alice = UserWithBalance::new(alice, &[asset_id]);
+        let mut bob = UserWithBalance::new(bob, &[asset_id]);
+
         let instruction_id = Settlement::instruction_counter();
         let amount = 100u128;
         alice.refresh_init_balances();
@@ -331,7 +298,7 @@ fn basic_settlement() {
             vec![Leg::Fungible {
                 sender: PortfolioId::default_portfolio(alice.did),
                 receiver: PortfolioId::default_portfolio(bob.did),
-                ticker: TICKER,
+                asset_id,
                 amount
             }],
             None,
@@ -349,17 +316,20 @@ fn basic_settlement() {
 
         // Advances the block no. to execute the instruction.
         next_block();
-        alice.assert_balance_decreased(&TICKER, amount);
-        bob.assert_balance_increased(&TICKER, amount);
+        alice.assert_balance_decreased(&asset_id, amount);
+        bob.assert_balance_increased(&asset_id, amount);
     });
 }
 
 #[test]
 fn create_and_affirm_instruction() {
     test_with_cdd_provider(|_eve| {
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
-        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
+
+        let mut alice = UserWithBalance::new(alice, &[asset_id]);
+        let mut bob = UserWithBalance::new(bob, &[asset_id]);
         let instruction_id = Settlement::instruction_counter();
         let amount = 100u128;
         alice.refresh_init_balances();
@@ -375,7 +345,7 @@ fn create_and_affirm_instruction() {
                 vec![Leg::Fungible {
                     sender: PortfolioId::default_portfolio(alice.did),
                     receiver: PortfolioId::default_portfolio(bob.did),
-                    ticker: TICKER,
+                    asset_id,
                     amount,
                 }],
                 affirm_from_portfolio,
@@ -403,19 +373,22 @@ fn create_and_affirm_instruction() {
 
         // Advances the block no.
         next_block();
-        alice.assert_balance_decreased(&TICKER, amount);
-        bob.assert_balance_increased(&TICKER, amount);
+        alice.assert_balance_decreased(&asset_id, amount);
+        bob.assert_balance_increased(&asset_id, amount);
     });
 }
 
 #[test]
 fn overdraft_failure() {
     ExtBuilder::default().build().execute_with(|| {
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
-        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
+
+        let mut alice = UserWithBalance::new(alice, &[asset_id]);
+        let mut bob = UserWithBalance::new(bob, &[asset_id]);
         let instruction_id = Settlement::instruction_counter();
-        let amount = 100_000_000u128;
+        let amount = ISSUE_AMOUNT + 1;
         alice.refresh_init_balances();
         bob.refresh_init_balances();
 
@@ -428,7 +401,7 @@ fn overdraft_failure() {
             vec![Leg::Fungible {
                 sender: PortfolioId::default_portfolio(alice.did),
                 receiver: PortfolioId::default_portfolio(bob.did),
-                ticker: TICKER,
+                asset_id,
                 amount
             }],
             None,
@@ -451,10 +424,14 @@ fn overdraft_failure() {
 #[test]
 fn token_swap() {
     test_with_cdd_provider(|_eve| {
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER, TICKER2]);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER, TICKER2]);
-        let venue_counter = create_token_and_venue(TICKER, alice.user);
-        create_token(TICKER2, bob.user);
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
+        let asset_id2 = create_and_issue_sample_asset(&bob);
+
+        let mut alice = UserWithBalance::new(alice, &[asset_id, asset_id2]);
+        let mut bob = UserWithBalance::new(bob, &[asset_id, asset_id2]);
+
         let instruction_id = Settlement::instruction_counter();
         let amount = 100u128;
         alice.refresh_init_balances();
@@ -464,13 +441,13 @@ fn token_swap() {
             Leg::Fungible {
                 sender: PortfolioId::default_portfolio(alice.did),
                 receiver: PortfolioId::default_portfolio(bob.did),
-                ticker: TICKER,
+                asset_id,
                 amount,
             },
             Leg::Fungible {
                 sender: PortfolioId::default_portfolio(bob.did),
                 receiver: PortfolioId::default_portfolio(alice.did),
-                ticker: TICKER2,
+                asset_id: asset_id2,
                 amount,
             },
         ];
@@ -521,7 +498,7 @@ fn token_swap() {
         assert_leg_status(instruction_id, LegId(0), LegStatus::ExecutionPending);
         assert_leg_status(instruction_id, LegId(1), LegStatus::PendingTokenLock);
 
-        assert_locked_assets(&TICKER, &alice, amount);
+        assert_locked_assets(&asset_id, &alice, amount);
 
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -539,7 +516,7 @@ fn token_swap() {
         assert_leg_status(instruction_id, LegId(0), LegStatus::PendingTokenLock);
         assert_leg_status(instruction_id, LegId(1), LegStatus::PendingTokenLock);
 
-        assert_locked_assets(&TICKER, &alice, 0);
+        assert_locked_assets(&asset_id, &alice, 0);
         assert_affirm_instruction!(alice.origin(), instruction_id, alice.did);
 
         assert_affirms_pending(instruction_id, 1);
@@ -549,7 +526,7 @@ fn token_swap() {
         assert_leg_status(instruction_id, LegId(0), LegStatus::ExecutionPending);
         assert_leg_status(instruction_id, LegId(1), LegStatus::PendingTokenLock);
 
-        assert_locked_assets(&TICKER, &alice, amount);
+        assert_locked_assets(&asset_id, &alice, amount);
 
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -560,21 +537,25 @@ fn token_swap() {
         next_block();
         assert_user_affirms(instruction_id, &alice, AffirmationStatus::Unknown);
         assert_user_affirms(instruction_id, &bob, AffirmationStatus::Unknown);
-        assert_locked_assets(&TICKER, &alice, 0);
-        alice.assert_balance_decreased(&TICKER, amount);
-        alice.assert_balance_increased(&TICKER2, amount);
-        bob.assert_balance_increased(&TICKER, amount);
-        bob.assert_balance_decreased(&TICKER2, amount);
+        assert_locked_assets(&asset_id, &alice, 0);
+        alice.assert_balance_decreased(&asset_id, amount);
+        alice.assert_balance_increased(&asset_id2, amount);
+        bob.assert_balance_increased(&asset_id, amount);
+        bob.assert_balance_decreased(&asset_id2, amount);
     });
 }
 
 #[test]
 fn settle_on_block() {
     test_with_cdd_provider(|_eve| {
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER, TICKER2]);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER, TICKER2]);
-        let venue_counter = create_token_and_venue(TICKER, alice.user);
-        create_token(TICKER2, bob.user);
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
+        let asset_id2 = create_and_issue_sample_asset(&bob);
+
+        let mut alice = UserWithBalance::new(alice, &[asset_id, asset_id2]);
+        let mut bob = UserWithBalance::new(bob, &[asset_id, asset_id2]);
+
         let instruction_id = Settlement::instruction_counter();
         let block_number = System::block_number() + 1;
         let amount = 100u128;
@@ -585,13 +566,13 @@ fn settle_on_block() {
             Leg::Fungible {
                 sender: PortfolioId::default_portfolio(alice.did),
                 receiver: PortfolioId::default_portfolio(bob.did),
-                ticker: TICKER,
+                asset_id,
                 amount,
             },
             Leg::Fungible {
                 sender: PortfolioId::default_portfolio(bob.did),
                 receiver: PortfolioId::default_portfolio(alice.did),
-                ticker: TICKER2,
+                asset_id: asset_id2,
                 amount,
             },
         ];
@@ -645,7 +626,7 @@ fn settle_on_block() {
         assert_user_affirms(instruction_id, &bob, AffirmationStatus::Pending);
         assert_leg_status(instruction_id, LegId(0), LegStatus::ExecutionPending);
         assert_leg_status(instruction_id, LegId(1), LegStatus::PendingTokenLock);
-        assert_locked_assets(&TICKER, &alice, amount);
+        assert_locked_assets(&asset_id, &alice, amount);
 
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -657,8 +638,8 @@ fn settle_on_block() {
         assert_user_affirms(instruction_id, &bob, AffirmationStatus::Affirmed);
         assert_leg_status(instruction_id, LegId(0), LegStatus::ExecutionPending);
         assert_leg_status(instruction_id, LegId(1), LegStatus::ExecutionPending);
-        assert_locked_assets(&TICKER, &alice, amount);
-        assert_locked_assets(&TICKER2, &bob, amount);
+        assert_locked_assets(&asset_id, &alice, amount);
+        assert_locked_assets(&asset_id2, &bob, amount);
 
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -667,13 +648,13 @@ fn settle_on_block() {
         next_block();
         assert_user_affirms(instruction_id, &alice, AffirmationStatus::Unknown);
         assert_user_affirms(instruction_id, &bob, AffirmationStatus::Unknown);
-        assert_locked_assets(&TICKER, &alice, 0);
-        assert_locked_assets(&TICKER, &bob, 0);
+        assert_locked_assets(&asset_id, &alice, 0);
+        assert_locked_assets(&asset_id, &bob, 0);
 
-        alice.assert_balance_decreased(&TICKER, amount);
-        bob.assert_balance_increased(&TICKER, amount);
-        alice.assert_balance_increased(&TICKER2, amount);
-        bob.assert_balance_decreased(&TICKER2, amount);
+        alice.assert_balance_decreased(&asset_id, amount);
+        bob.assert_balance_increased(&asset_id, amount);
+        alice.assert_balance_increased(&asset_id2, amount);
+        bob.assert_balance_decreased(&asset_id2, amount);
     });
 }
 
@@ -681,18 +662,22 @@ fn settle_on_block() {
 fn failed_execution() {
     ExtBuilder::default().build().execute_with(|| {
         let dave: User = User::new(AccountKeyring::Dave);
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER, TICKER2]);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER, TICKER2]);
-        let venue_counter = create_token_and_venue(TICKER, alice.user);
-        create_token(TICKER2, bob.user);
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
+        let asset_id2 = create_and_issue_sample_asset(&bob);
+
+        let mut alice = UserWithBalance::new(alice, &[asset_id, asset_id2]);
+        let mut bob = UserWithBalance::new(bob, &[asset_id, asset_id2]);
+
         let instruction_id = Settlement::instruction_counter();
         assert_ok!(ComplianceManager::reset_asset_compliance(
             Origin::signed(AccountKeyring::Bob.to_account_id()),
-            TICKER2,
+            asset_id2,
         ));
         assert_ok!(ComplianceManager::add_compliance_requirement(
             bob.origin(),
-            TICKER2,
+            asset_id2,
             Vec::new(),
             vec![Condition {
                 condition_type: ConditionType::IsPresent(Claim::Jurisdiction(
@@ -714,13 +699,13 @@ fn failed_execution() {
             Leg::Fungible {
                 sender: PortfolioId::default_portfolio(alice.did),
                 receiver: PortfolioId::default_portfolio(bob.did),
-                ticker: TICKER,
+                asset_id,
                 amount,
             },
             Leg::Fungible {
                 sender: PortfolioId::default_portfolio(bob.did),
                 receiver: PortfolioId::default_portfolio(alice.did),
-                ticker: TICKER2,
+                asset_id: asset_id2,
                 amount,
             },
         ];
@@ -779,7 +764,7 @@ fn failed_execution() {
         assert_leg_status(instruction_id, LegId(1), LegStatus::PendingTokenLock);
 
         // Check that tokens are locked for settlement execution.
-        assert_locked_assets(&TICKER, &alice, amount);
+        assert_locked_assets(&asset_id, &alice, amount);
 
         // Ensure balances have not changed.
         alice.assert_all_balances_unchanged();
@@ -797,8 +782,8 @@ fn failed_execution() {
         assert_leg_status(instruction_id, LegId(1), LegStatus::ExecutionPending);
 
         // Check that tokens are locked for settlement execution.
-        assert_locked_assets(&TICKER, &alice, amount);
-        assert_locked_assets(&TICKER2, &bob, amount);
+        assert_locked_assets(&asset_id, &alice, amount);
+        assert_locked_assets(&asset_id2, &bob, amount);
 
         // Ensure balances have not changed.
         alice.assert_all_balances_unchanged();
@@ -813,8 +798,8 @@ fn failed_execution() {
         assert_instruction_status(instruction_id, InstructionStatus::Failed);
 
         // Check that tokens stay locked after settlement execution failure.
-        assert_locked_assets(&TICKER, &alice, amount);
-        assert_locked_assets(&TICKER2, &bob, amount);
+        assert_locked_assets(&asset_id, &alice, amount);
+        assert_locked_assets(&asset_id2, &bob, amount);
 
         // Ensure balances have not changed.
         alice.assert_all_balances_unchanged();
@@ -840,14 +825,14 @@ fn venue_filtering() {
     test_with_cdd_provider(|_eve| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
-        let venue_counter = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
         let block_number = System::block_number() + 1;
         let instruction_id = Settlement::instruction_counter();
 
         let legs = vec![Leg::Fungible {
             sender: PortfolioId::default_portfolio(alice.did),
             receiver: PortfolioId::default_portfolio(bob.did),
-            ticker: TICKER,
+            asset_id,
             amount: 10,
         }];
         assert_ok!(Settlement::add_instruction(
@@ -861,7 +846,7 @@ fn venue_filtering() {
         ));
         assert_ok!(Settlement::set_venue_filtering(
             alice.origin(),
-            TICKER,
+            asset_id,
             true
         ));
         assert_noop!(
@@ -878,7 +863,7 @@ fn venue_filtering() {
         );
         assert_ok!(Settlement::allow_venues(
             alice.origin(),
-            TICKER,
+            asset_id,
             vec![venue_counter]
         ));
         assert_ok!(Settlement::add_and_affirm_instruction(
@@ -897,15 +882,15 @@ fn venue_filtering() {
         assert_affirm_instruction!(bob.origin(), instruction_id.checked_inc().unwrap(), bob.did);
 
         next_block();
-        assert_eq!(Asset::balance_of(&TICKER, bob.did), 10);
+        assert_eq!(Asset::balance_of(&asset_id, bob.did), 10);
         assert_ok!(Settlement::disallow_venues(
             alice.origin(),
-            TICKER,
+            asset_id,
             vec![venue_counter]
         ));
         next_block();
         // Second instruction fails to settle due to venue being not whitelisted
-        assert_balance(&TICKER, &bob, 10)
+        assert_balance(&asset_id, &bob, 10)
     });
 }
 
@@ -923,53 +908,37 @@ fn basic_fuzzing() {
             vec![AccountKeyring::Alice.to_account_id()],
             VenueType::Other
         ));
-        let mut tickers = Vec::with_capacity(40);
+        let mut assets = Vec::with_capacity(40);
         let mut balances = HashMap::with_capacity(320);
         let users = vec![alice, bob, charlie, dave];
 
-        for ticker_id in 0..10 {
-            let mut create = |x: usize, user: User| {
-                let tn = format!("TOKEN{}", ticker_id * 4 + x);
-                tickers.push(Ticker::from_slice_truncated(tn.as_bytes()));
-                create_token(tickers[ticker_id * 4 + x], user);
-            };
-            create(0, alice);
-            create(1, bob);
-            create(2, charlie);
-            create(3, dave);
+        for _ in 0..10 {
+            assets.push(create_and_issue_sample_asset(&alice));
+            assets.push(create_and_issue_sample_asset(&bob));
+            assets.push(create_and_issue_sample_asset(&charlie));
+            assets.push(create_and_issue_sample_asset(&dave));
         }
 
         let block_number = System::block_number() + 1;
         let instruction_id = Settlement::instruction_counter();
 
         // initialize balances
-        for ticker_id in 0..10 {
+        for i in 0..10 {
             for user_id in 0..4 {
                 balances.insert(
-                    (tickers[ticker_id * 4 + user_id], users[user_id].did, "init").encode(),
-                    100_000,
+                    (assets[i * 4 + user_id], users[user_id].did, "init").encode(),
+                    ISSUE_AMOUNT,
                 );
                 balances.insert(
-                    (
-                        tickers[ticker_id * 4 + user_id],
-                        users[user_id].did,
-                        "final",
-                    )
-                        .encode(),
-                    100_000,
+                    (assets[i * 4 + user_id], users[user_id].did, "final").encode(),
+                    ISSUE_AMOUNT,
                 );
                 for k in 0..4 {
                     if user_id == k {
                         continue;
                     }
-                    balances.insert(
-                        (tickers[ticker_id * 4 + user_id], users[k].did, "init").encode(),
-                        0,
-                    );
-                    balances.insert(
-                        (tickers[ticker_id * 4 + user_id], users[k].did, "final").encode(),
-                        0,
-                    );
+                    balances.insert((assets[i * 4 + user_id], users[k].did, "init").encode(), 0);
+                    balances.insert((assets[i * 4 + user_id], users[k].did, "final").encode(), 0);
                 }
             }
         }
@@ -977,35 +946,30 @@ fn basic_fuzzing() {
         let mut legs = Vec::with_capacity(100);
         let mut legs_count: HashMap<IdentityId, u32> = HashMap::with_capacity(100);
         let mut locked_assets = HashMap::with_capacity(100);
-        for ticker_id in 0..10 {
+        for i in 0..10 {
             for user_id in 0..4 {
-                let mut final_i = 100_000;
+                let mut final_i = ISSUE_AMOUNT;
                 balances.insert(
-                    (tickers[ticker_id * 4 + user_id], users[user_id].did, "init").encode(),
-                    100_000,
+                    (assets[i * 4 + user_id], users[user_id].did, "init").encode(),
+                    ISSUE_AMOUNT,
                 );
                 for k in 0..4 {
                     if user_id == k {
                         continue;
                     }
-                    balances.insert(
-                        (tickers[ticker_id * 4 + user_id], users[k].did, "init").encode(),
-                        0,
-                    );
+                    balances.insert((assets[i * 4 + user_id], users[k].did, "init").encode(), 0);
                     if random() {
                         // This leg should happen
-                        balances.insert(
-                            (tickers[ticker_id * 4 + user_id], users[k].did, "final").encode(),
-                            1,
-                        );
+                        balances
+                            .insert((assets[i * 4 + user_id], users[k].did, "final").encode(), 1);
                         final_i -= 1;
                         *locked_assets
-                            .entry((users[user_id].did, tickers[ticker_id * 4 + user_id]))
+                            .entry((users[user_id].did, assets[i * 4 + user_id]))
                             .or_insert(0) += 1;
                         legs.push(Leg::Fungible {
                             sender: PortfolioId::default_portfolio(users[user_id].did),
                             receiver: PortfolioId::default_portfolio(users[k].did),
-                            ticker: tickers[ticker_id * 4 + user_id],
+                            asset_id: assets[i * 4 + user_id],
                             amount: 1,
                         });
                         *legs_count.entry(users[user_id].did).or_insert(0) += 1;
@@ -1015,12 +979,7 @@ fn basic_fuzzing() {
                     }
                 }
                 balances.insert(
-                    (
-                        tickers[ticker_id * 4 + user_id],
-                        users[user_id].did,
-                        "final",
-                    )
-                        .encode(),
+                    (assets[i * 4 + user_id], users[user_id].did, "final").encode(),
                     final_i,
                 );
                 if legs.len() >= 100 {
@@ -1057,22 +1016,25 @@ fn basic_fuzzing() {
         }
 
         fn check_locked_assets(
-            locked_assets: &HashMap<(IdentityId, Ticker), i32>,
-            tickers: &Vec<Ticker>,
+            locked_assets: &HashMap<(IdentityId, AssetID), i32>,
+            assets: &Vec<AssetID>,
             users: &Vec<User>,
         ) {
-            for ((did, ticker), balance) in locked_assets {
+            for ((did, asset_id), balance) in locked_assets {
                 assert_eq!(
-                    Portfolio::locked_assets(PortfolioId::default_portfolio(*did), ticker),
+                    Portfolio::locked_assets(PortfolioId::default_portfolio(*did), asset_id),
                     *balance as u128
                 );
             }
-            for ticker in tickers {
+            for asset_id in assets {
                 for user in users {
                     assert_eq!(
-                        Portfolio::locked_assets(PortfolioId::default_portfolio(user.did), &ticker),
+                        Portfolio::locked_assets(
+                            PortfolioId::default_portfolio(user.did),
+                            &asset_id
+                        ),
                         locked_assets
-                            .get(&(user.did, *ticker))
+                            .get(&(user.did, *asset_id))
                             .cloned()
                             .unwrap_or(0) as u128
                     );
@@ -1080,7 +1042,7 @@ fn basic_fuzzing() {
             }
         }
 
-        check_locked_assets(&locked_assets, &tickers, &users);
+        check_locked_assets(&locked_assets, &assets, &users);
 
         let fail: bool = random();
         let mut rng = thread_rng();
@@ -1101,36 +1063,46 @@ fn basic_fuzzing() {
                 Settlement::instruction_status(instruction_id),
                 InstructionStatus::Failed
             );
-            check_locked_assets(&locked_assets, &tickers, &users);
+            check_locked_assets(&locked_assets, &assets, &users);
         }
 
-        for ticker in &tickers {
+        for asset_id in &assets {
             for user in &users {
                 if fail {
                     assert_eq!(
-                        Asset::balance_of(&ticker, user.did),
+                        Asset::balance_of(&asset_id, user.did),
                         u128::try_from(
-                            *balances.get(&(ticker, user.did, "init").encode()).unwrap()
+                            *balances
+                                .get(&(asset_id, user.did, "init").encode())
+                                .unwrap()
                         )
                         .unwrap()
                     );
                     assert_eq!(
-                        Portfolio::locked_assets(PortfolioId::default_portfolio(user.did), &ticker),
+                        Portfolio::locked_assets(
+                            PortfolioId::default_portfolio(user.did),
+                            &asset_id
+                        ),
                         locked_assets
-                            .get(&(user.did, *ticker))
+                            .get(&(user.did, *asset_id))
                             .cloned()
                             .unwrap_or(0) as u128
                     );
                 } else {
                     assert_eq!(
-                        Asset::balance_of(&ticker, user.did),
+                        Asset::balance_of(&asset_id, user.did),
                         u128::try_from(
-                            *balances.get(&(ticker, user.did, "final").encode()).unwrap()
+                            *balances
+                                .get(&(asset_id, user.did, "final").encode())
+                                .unwrap()
                         )
                         .unwrap()
                     );
                     assert_eq!(
-                        Portfolio::locked_assets(PortfolioId::default_portfolio(user.did), &ticker),
+                        Portfolio::locked_assets(
+                            PortfolioId::default_portfolio(user.did),
+                            &asset_id
+                        ),
                         0
                     );
                 }
@@ -1149,10 +1121,10 @@ fn basic_fuzzing() {
             );
         }
 
-        for ticker in &tickers {
+        for asset_id in &assets {
             for user in &users {
                 assert_eq!(
-                    Portfolio::locked_assets(PortfolioId::default_portfolio(user.did), ticker),
+                    Portfolio::locked_assets(PortfolioId::default_portfolio(user.did), asset_id),
                     0
                 );
             }
@@ -1163,9 +1135,13 @@ fn basic_fuzzing() {
 #[test]
 fn claim_multiple_receipts_during_authorization() {
     ExtBuilder::default().build().execute_with(|| {
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
-        let venue_counter = create_venue(alice.user);
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
+        let asset_id2 = AssetID::new([0; 16]);
+
+        let mut alice = UserWithBalance::new(alice, &[asset_id]);
+        let mut bob = UserWithBalance::new(bob, &[asset_id]);
         let id = Settlement::instruction_counter();
         alice.refresh_init_balances();
         bob.refresh_init_balances();
@@ -1175,13 +1151,13 @@ fn claim_multiple_receipts_during_authorization() {
             Leg::OffChain {
                 sender_identity: alice.did,
                 receiver_identity: bob.did,
-                ticker: TICKER,
+                asset_id,
                 amount,
             },
             Leg::OffChain {
                 sender_identity: alice.did,
                 receiver_identity: bob.did,
-                ticker: TICKER2,
+                asset_id: asset_id2,
                 amount,
             },
         ];
@@ -1198,9 +1174,9 @@ fn claim_multiple_receipts_during_authorization() {
 
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
-        let msg1 = Receipt::new(0, id, LegId(0), alice.did, bob.did, TICKER, amount);
-        let msg2 = Receipt::new(0, id, LegId(1), alice.did, bob.did, TICKER2, amount);
-        let msg3 = Receipt::new(1, id, LegId(1), alice.did, bob.did, TICKER2, amount);
+        let msg1 = Receipt::new(0, id, LegId(0), alice.did, bob.did, asset_id, amount);
+        let msg2 = Receipt::new(0, id, LegId(1), alice.did, bob.did, asset_id2, amount);
+        let msg3 = Receipt::new(1, id, LegId(1), alice.did, bob.did, asset_id2, amount);
 
         assert_noop!(
             Settlement::affirm_with_receipts(
@@ -1272,7 +1248,7 @@ fn claim_multiple_receipts_during_authorization() {
             LegId(1),
             LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.to_account_id(), 1),
         );
-        assert_locked_assets(&TICKER, &alice, 0);
+        assert_locked_assets(&asset_id, &alice, 0);
 
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -1282,7 +1258,7 @@ fn claim_multiple_receipts_during_authorization() {
         next_block();
         assert_user_affirms(id, &alice, AffirmationStatus::Unknown);
         assert_user_affirms(id, &bob, AffirmationStatus::Unknown);
-        assert_locked_assets(&TICKER, &alice, 0);
+        assert_locked_assets(&asset_id, &alice, 0);
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
     });
@@ -1293,7 +1269,7 @@ fn overload_instruction() {
     test_with_cdd_provider(|_eve| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
-        let venue_counter = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
         let leg_limit =
             <TestStorage as pallet_settlement::Config>::MaxNumberOfFungibleAssets::get() as usize;
 
@@ -1301,7 +1277,7 @@ fn overload_instruction() {
             Leg::Fungible {
                 sender: PortfolioId::default_portfolio(alice.did),
                 receiver: PortfolioId::default_portfolio(bob.did),
-                ticker: TICKER,
+                asset_id,
                 amount: 1,
             };
             leg_limit + 1
@@ -1336,13 +1312,19 @@ fn overload_instruction() {
 fn encode_receipt() {
     ExtBuilder::default().build().execute_with(|| {
         let id = InstructionId(0);
-        let token_name = [0x01u8];
-        let ticker = Ticker::from_slice_truncated(&token_name[..]);
         let identity_id = IdentityId::try_from(
             "did:poly:0600000000000000000000000000000000000000000000000000000000000000",
         )
         .unwrap();
-        let msg1 = Receipt::new(0, id, LegId(0), identity_id, identity_id, ticker, 100);
+        let msg1 = Receipt::new(
+            0,
+            id,
+            LegId(0),
+            identity_id,
+            identity_id,
+            [0; 16].into(),
+            100,
+        );
         println!("{:?}", AccountKeyring::Alice.sign(&msg1.encode()));
     });
 }
@@ -1353,9 +1335,8 @@ fn test_weights_for_settlement_transaction() {
         .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
-            let alice = AccountKeyring::Alice.to_account_id();
-            let (alice_signed, alice_did) =
-                make_account_with_balance(alice.clone(), 10_000).unwrap();
+            let alice = User::new(AccountKeyring::Alice);
+            let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
             let bob = AccountKeyring::Bob.to_account_id();
             let (bob_signed, bob_did) = make_account_with_balance(bob, 10_000).unwrap();
@@ -1363,42 +1344,31 @@ fn test_weights_for_settlement_transaction() {
             let dave = AccountKeyring::Dave.to_account_id();
             let (dave_signed, dave_did) = make_account_with_balance(dave, 10_000).unwrap();
 
-            let venue_counter =
-                create_token_and_venue(TICKER, User::existing(AccountKeyring::Alice));
             let instruction_id = Settlement::instruction_counter();
 
-            // Get token Id.
-            let ticker_id = Identity::get_token_did(&TICKER).unwrap();
-
-            // Remove existing rules
-            assert_ok!(ComplianceManager::remove_compliance_requirement(
-                alice_signed.clone(),
-                TICKER,
-                1
-            ));
             // Add claim rules for settlement
             assert_ok!(ComplianceManager::add_compliance_requirement(
-                alice_signed.clone(),
-                TICKER,
+                alice.origin().clone(),
+                asset_id,
                 vec![
                     Condition::from_dids(
-                        ConditionType::IsPresent(Claim::Accredited(ticker_id.into())),
+                        ConditionType::IsPresent(Claim::Accredited(asset_id.into())),
                         &[dave_did]
                     ),
                     Condition::from_dids(
-                        ConditionType::IsAbsent(Claim::BuyLockup(ticker_id.into())),
+                        ConditionType::IsAbsent(Claim::BuyLockup(asset_id.into())),
                         &[dave_did]
                     )
                 ],
                 vec![
                     Condition::from_dids(
-                        ConditionType::IsPresent(Claim::Accredited(ticker_id.into())),
+                        ConditionType::IsPresent(Claim::Accredited(asset_id.into())),
                         &[dave_did]
                     ),
                     Condition::from_dids(
                         ConditionType::IsAnyOf(vec![
-                            Claim::BuyLockup(ticker_id.into()),
-                            Claim::KnowYourCustomer(ticker_id.into())
+                            Claim::BuyLockup(asset_id.into()),
+                            Claim::KnowYourCustomer(asset_id.into())
                         ]),
                         &[dave_did]
                     )
@@ -1409,31 +1379,31 @@ fn test_weights_for_settlement_transaction() {
             // For Alice
             assert_add_claim!(
                 dave_signed.clone(),
-                alice_did,
-                Claim::Accredited(ticker_id.into())
+                alice.did,
+                Claim::Accredited(asset_id.into())
             );
             // For Bob
             assert_add_claim!(
                 dave_signed.clone(),
                 bob_did,
-                Claim::Accredited(ticker_id.into())
+                Claim::Accredited(asset_id.into())
             );
             assert_add_claim!(
                 dave_signed.clone(),
                 bob_did,
-                Claim::KnowYourCustomer(ticker_id.into())
+                Claim::KnowYourCustomer(asset_id.into())
             );
 
             // Create instruction
             let legs = vec![Leg::Fungible {
-                sender: PortfolioId::default_portfolio(alice_did),
+                sender: PortfolioId::default_portfolio(alice.did),
                 receiver: PortfolioId::default_portfolio(bob_did),
-                ticker: TICKER,
+                asset_id,
                 amount: 100,
             }];
 
             assert_ok!(Settlement::add_instruction(
-                alice_signed.clone(),
+                alice.origin().clone(),
                 venue_counter,
                 SettlementType::SettleOnAffirmation,
                 None,
@@ -1442,14 +1412,14 @@ fn test_weights_for_settlement_transaction() {
                 None,
             ));
 
-            assert_affirm_instruction!(alice_signed.clone(), instruction_id, alice_did);
+            assert_affirm_instruction!(alice.origin().clone(), instruction_id, alice.did);
             set_current_block_number(100);
             assert_affirm_instruction!(bob_signed.clone(), instruction_id, bob_did);
 
             let mut weight_meter = WeightMeter::max_limit_no_minimum();
             assert_ok!(Asset::validate_asset_transfer(
-                &TICKER,
-                &PortfolioId::default_portfolio(alice_did),
+                asset_id,
+                &PortfolioId::default_portfolio(alice.did),
                 &PortfolioId::default_portfolio(bob_did),
                 100,
                 false,
@@ -1461,9 +1431,13 @@ fn test_weights_for_settlement_transaction() {
 #[test]
 fn cross_portfolio_settlement() {
     test_with_cdd_provider(|_eve| {
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
-        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
+
+        let mut alice = UserWithBalance::new(alice, &[asset_id]);
+        let mut bob = UserWithBalance::new(bob, &[asset_id]);
+
         let name = PortfolioName::from([42u8].to_vec());
         let num = Portfolio::next_portfolio_number(&bob.did);
         assert_ok!(Portfolio::create_portfolio(bob.origin(), name.clone()));
@@ -1482,25 +1456,25 @@ fn cross_portfolio_settlement() {
             vec![Leg::Fungible {
                 sender: PortfolioId::default_portfolio(alice.did),
                 receiver: PortfolioId::user_portfolio(bob.did, num),
-                ticker: TICKER,
+                asset_id,
                 amount,
             }],
             None,
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
-        alice.assert_default_portfolio_bal_unchanged();
-        bob.assert_default_portfolio_bal_unchanged();
-        bob.assert_portfolio_bal(num, 0);
+        alice.assert_default_portfolio_bal_unchanged(&asset_id);
+        bob.assert_default_portfolio_bal_unchanged(&asset_id);
+        bob.assert_portfolio_bal(num, 0, &asset_id);
 
-        assert_locked_assets(&TICKER, &alice, 0);
+        assert_locked_assets(&asset_id, &alice, 0);
         set_current_block_number(10);
 
         // Approved by Alice
         assert_affirm_instruction!(alice.origin(), instruction_id, alice.did);
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
-        assert_locked_assets(&TICKER, &alice, amount);
+        assert_locked_assets(&asset_id, &alice, amount);
         // Bob fails to approve the instruction with a
         // different portfolio than the one specified in the instruction
         next_block();
@@ -1523,26 +1497,30 @@ fn cross_portfolio_settlement() {
 
         // Instruction should've settled
         next_block();
-        alice.assert_balance_decreased(&TICKER, amount);
-        bob.assert_balance_increased(&TICKER, amount);
-        alice.assert_default_portfolio_bal_decreased(amount);
-        bob.assert_default_portfolio_bal_unchanged();
-        bob.assert_portfolio_bal(num, amount);
-        assert_locked_assets(&TICKER, &alice, 0);
+        alice.assert_balance_decreased(&asset_id, amount);
+        bob.assert_balance_increased(&asset_id, amount);
+        alice.assert_default_portfolio_bal_decreased(amount, &asset_id);
+        bob.assert_default_portfolio_bal_unchanged(&asset_id);
+        bob.assert_portfolio_bal(num, amount, &asset_id);
+        assert_locked_assets(&asset_id, &alice, 0);
     });
 }
 
 #[test]
 fn multiple_portfolio_settlement() {
     test_with_cdd_provider(|_eve| {
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
+
+        let mut alice = UserWithBalance::new(alice, &[asset_id]);
+        let mut bob = UserWithBalance::new(bob, &[asset_id]);
+
         let name = PortfolioName::from([42u8].to_vec());
         let alice_num = Portfolio::next_portfolio_number(&alice.did);
         let bob_num = Portfolio::next_portfolio_number(&bob.did);
         assert_ok!(Portfolio::create_portfolio(bob.origin(), name.clone()));
         assert_ok!(Portfolio::create_portfolio(alice.origin(), name.clone()));
-        let venue_counter = create_token_and_venue(TICKER, alice.user);
         let instruction_id = Settlement::instruction_counter();
         let amount = 100u128;
         alice.refresh_init_balances();
@@ -1559,13 +1537,13 @@ fn multiple_portfolio_settlement() {
                 Leg::Fungible {
                     sender: PortfolioId::user_portfolio(alice.did, alice_num),
                     receiver: PortfolioId::default_portfolio(bob.did),
-                    ticker: TICKER,
+                    asset_id,
                     amount,
                 },
                 Leg::Fungible {
                     sender: PortfolioId::default_portfolio(alice.did),
                     receiver: PortfolioId::user_portfolio(bob.did, bob_num),
-                    ticker: TICKER,
+                    asset_id,
                     amount,
                 }
             ],
@@ -1573,20 +1551,20 @@ fn multiple_portfolio_settlement() {
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
-        alice.assert_default_portfolio_bal_unchanged();
-        bob.assert_default_portfolio_bal_unchanged();
-        bob.assert_portfolio_bal(bob_num, 0);
-        assert_locked_assets(&TICKER, &alice, 0);
+        alice.assert_default_portfolio_bal_unchanged(&asset_id);
+        bob.assert_default_portfolio_bal_unchanged(&asset_id);
+        bob.assert_portfolio_bal(bob_num, 0, &asset_id);
+        assert_locked_assets(&asset_id, &alice, 0);
 
         // Alice approves the instruction from her default portfolio
         assert_affirm_instruction!(alice.origin(), instruction_id, alice.did);
 
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
-        alice.assert_default_portfolio_bal_unchanged();
-        bob.assert_default_portfolio_bal_unchanged();
-        bob.assert_portfolio_bal(bob_num, 0);
-        assert_locked_assets(&TICKER, &alice, amount);
+        alice.assert_default_portfolio_bal_unchanged(&asset_id);
+        bob.assert_default_portfolio_bal_unchanged(&asset_id);
+        bob.assert_portfolio_bal(bob_num, 0, &asset_id);
+        assert_locked_assets(&asset_id, &alice, amount);
 
         // Alice tries to withdraw affirmation from multiple portfolios where only one has been affirmed.
         assert_noop!(
@@ -1617,10 +1595,7 @@ fn multiple_portfolio_settlement() {
             PortfolioId::default_portfolio(alice.did),
             PortfolioId::user_portfolio(alice.did, alice_num),
             vec![Fund {
-                description: FundDescription::Fungible {
-                    ticker: TICKER,
-                    amount,
-                },
+                description: FundDescription::Fungible { asset_id, amount },
                 memo: None,
             }]
         ));
@@ -1633,13 +1608,13 @@ fn multiple_portfolio_settlement() {
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
-        alice.assert_default_portfolio_bal_decreased(amount);
-        alice.assert_portfolio_bal(alice_num, amount);
-        bob.assert_default_portfolio_bal_unchanged();
-        bob.assert_portfolio_bal(bob_num, 0);
-        assert_locked_assets(&TICKER, &alice, amount);
+        alice.assert_default_portfolio_bal_decreased(amount, &asset_id);
+        alice.assert_portfolio_bal(alice_num, amount, &asset_id);
+        bob.assert_default_portfolio_bal_unchanged(&asset_id);
+        bob.assert_portfolio_bal(bob_num, 0, &asset_id);
+        assert_locked_assets(&asset_id, &alice, amount);
         assert_eq!(
-            Portfolio::locked_assets(PortfolioId::user_portfolio(alice.did, alice_num), &TICKER),
+            Portfolio::locked_assets(PortfolioId::user_portfolio(alice.did, alice_num), &asset_id),
             amount
         );
 
@@ -1658,20 +1633,24 @@ fn multiple_portfolio_settlement() {
 
         // Instruction should've settled
         next_block();
-        alice.assert_balance_decreased(&TICKER, amount * 2);
-        bob.assert_balance_increased(&TICKER, amount * 2);
-        alice.assert_default_portfolio_bal_decreased(amount * 2);
-        bob.assert_default_portfolio_bal_increased(amount);
-        bob.assert_portfolio_bal(bob_num, amount);
-        assert_locked_assets(&TICKER, &alice, 0);
+        alice.assert_balance_decreased(&asset_id, amount * 2);
+        bob.assert_balance_increased(&asset_id, amount * 2);
+        alice.assert_default_portfolio_bal_decreased(amount * 2, &asset_id);
+        bob.assert_default_portfolio_bal_increased(amount, &asset_id);
+        bob.assert_portfolio_bal(bob_num, amount, &asset_id);
+        assert_locked_assets(&asset_id, &alice, 0);
     });
 }
 
 #[test]
 fn multiple_custodian_settlement() {
     test_with_cdd_provider(|_eve| {
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
+
+        let mut alice = UserWithBalance::new(alice, &[asset_id]);
+        let mut bob = UserWithBalance::new(bob, &[asset_id]);
 
         // Create portfolios
         let name = PortfolioName::from([42u8].to_vec());
@@ -1691,7 +1670,6 @@ fn multiple_custodian_settlement() {
         assert_ok!(Portfolio::accept_portfolio_custody(alice.origin(), auth_id));
 
         // Create a token
-        let venue_counter = create_token_and_venue(TICKER, alice.user);
         let instruction_id = Settlement::instruction_counter();
         let amount = 100u128;
         alice.refresh_init_balances();
@@ -1702,10 +1680,7 @@ fn multiple_custodian_settlement() {
             PortfolioId::default_portfolio(alice.did),
             PortfolioId::user_portfolio(alice.did, alice_num),
             vec![Fund {
-                description: FundDescription::Fungible {
-                    ticker: TICKER,
-                    amount,
-                },
+                description: FundDescription::Fungible { asset_id, amount },
                 memo: None,
             }]
         ));
@@ -1721,13 +1696,13 @@ fn multiple_custodian_settlement() {
                 Leg::Fungible {
                     sender: PortfolioId::user_portfolio(alice.did, alice_num),
                     receiver: PortfolioId::default_portfolio(bob.did),
-                    ticker: TICKER,
+                    asset_id,
                     amount,
                 },
                 Leg::Fungible {
                     sender: PortfolioId::default_portfolio(alice.did),
                     receiver: PortfolioId::user_portfolio(bob.did, bob_num),
-                    ticker: TICKER,
+                    asset_id,
                     amount,
                 }
             ],
@@ -1735,10 +1710,10 @@ fn multiple_custodian_settlement() {
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
-        alice.assert_default_portfolio_bal_decreased(amount);
-        bob.assert_default_portfolio_bal_unchanged();
-        bob.assert_portfolio_bal(bob_num, 0);
-        assert_locked_assets(&TICKER, &alice, 0);
+        alice.assert_default_portfolio_bal_decreased(amount, &asset_id);
+        bob.assert_default_portfolio_bal_unchanged(&asset_id);
+        bob.assert_portfolio_bal(bob_num, 0, &asset_id);
+        assert_locked_assets(&asset_id, &alice, 0);
 
         // Alice approves the instruction from both of her portfolios
         let portfolios_vec = vec![
@@ -1753,12 +1728,12 @@ fn multiple_custodian_settlement() {
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
-        alice.assert_default_portfolio_bal_decreased(amount);
-        bob.assert_default_portfolio_bal_unchanged();
-        bob.assert_portfolio_bal(bob_num, 0);
-        assert_locked_assets(&TICKER, &alice, amount);
+        alice.assert_default_portfolio_bal_decreased(amount, &asset_id);
+        bob.assert_default_portfolio_bal_unchanged(&asset_id);
+        bob.assert_portfolio_bal(bob_num, 0, &asset_id);
+        assert_locked_assets(&asset_id, &alice, amount);
         assert_eq!(
-            Portfolio::locked_assets(PortfolioId::user_portfolio(alice.did, alice_num), &TICKER),
+            Portfolio::locked_assets(PortfolioId::user_portfolio(alice.did, alice_num), &asset_id),
             amount
         );
 
@@ -1799,7 +1774,7 @@ fn multiple_custodian_settlement() {
             instruction_id,
             default_portfolio_vec(alice.did),
         ));
-        assert_locked_assets(&TICKER, &alice, 0);
+        assert_locked_assets(&asset_id, &alice, 0);
 
         // Alice can authorize instruction from remaining portfolios since she has the custody
         let portfolios_final = vec![
@@ -1815,12 +1790,12 @@ fn multiple_custodian_settlement() {
 
         // Instruction should've settled
         next_block();
-        alice.assert_balance_decreased(&TICKER, amount * 2);
-        bob.assert_balance_increased(&TICKER, amount * 2);
-        alice.assert_default_portfolio_bal_decreased(amount * 2);
-        bob.assert_default_portfolio_bal_increased(amount);
-        bob.assert_portfolio_bal(bob_num, amount);
-        assert_locked_assets(&TICKER, &alice, 0);
+        alice.assert_balance_decreased(&asset_id, amount * 2);
+        bob.assert_balance_increased(&asset_id, amount * 2);
+        alice.assert_default_portfolio_bal_decreased(amount * 2, &asset_id);
+        bob.assert_default_portfolio_bal_increased(amount, &asset_id);
+        bob.assert_portfolio_bal(bob_num, amount, &asset_id);
+        assert_locked_assets(&asset_id, &alice, 0);
     });
 }
 
@@ -1831,7 +1806,7 @@ fn reject_instruction() {
         let bob = User::new(AccountKeyring::Bob);
         let charlie = User::new(AccountKeyring::Charlie);
 
-        let venue_counter = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
         let amount = 100u128;
 
         let reject_instruction = |user: &User, instruction_id| {
@@ -1859,7 +1834,7 @@ fn reject_instruction() {
             );
         };
 
-        let instruction_id = create_instruction(&alice, &bob, venue_counter, TICKER, amount);
+        let instruction_id = create_instruction(&alice, &bob, venue_counter, asset_id, amount);
         assert_user_affirmations(
             instruction_id,
             AffirmationStatus::Affirmed,
@@ -1882,7 +1857,7 @@ fn reject_instruction() {
         );
 
         // Test that the receiver can also reject the instruction
-        let instruction_id2 = create_instruction(&alice, &bob, venue_counter, TICKER, amount);
+        let instruction_id2 = create_instruction(&alice, &bob, venue_counter, asset_id, amount);
 
         assert_ok!(reject_instruction(&bob, instruction_id2,));
         next_block();
@@ -1898,9 +1873,12 @@ fn reject_instruction() {
 #[test]
 fn dirty_storage_with_tx() {
     test_with_cdd_provider(|_eve| {
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
-        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
+
+        let mut alice = UserWithBalance::new(alice, &[asset_id]);
+        let mut bob = UserWithBalance::new(bob, &[asset_id]);
         let instruction_id = Settlement::instruction_counter();
         let amount1 = 100u128;
         let amount2 = 50u128;
@@ -1917,13 +1895,13 @@ fn dirty_storage_with_tx() {
                 Leg::Fungible {
                     sender: PortfolioId::default_portfolio(alice.did),
                     receiver: PortfolioId::default_portfolio(bob.did),
-                    ticker: TICKER,
+                    asset_id,
                     amount: amount1,
                 },
                 Leg::Fungible {
                     sender: PortfolioId::default_portfolio(alice.did),
                     receiver: PortfolioId::default_portfolio(bob.did),
-                    ticker: TICKER,
+                    asset_id,
                     amount: amount2,
                 }
             ],
@@ -1943,8 +1921,8 @@ fn dirty_storage_with_tx() {
         assert_eq!(InstructionLegs::iter_prefix(instruction_id).count(), 0);
 
         // Ensure proper balance transfers
-        alice.assert_balance_decreased(&TICKER, total_amount);
-        bob.assert_balance_increased(&TICKER, total_amount);
+        alice.assert_balance_decreased(&asset_id, total_amount);
+        bob.assert_balance_increased(&asset_id, total_amount);
     });
 }
 
@@ -1955,10 +1933,10 @@ fn reject_failed_instruction() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let venue_counter = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
         let amount = 100u128;
 
-        let instruction_id = create_instruction(&alice, &bob, venue_counter, TICKER, amount);
+        let instruction_id = create_instruction(&alice, &bob, venue_counter, asset_id, amount);
 
         assert_ok!(Settlement::affirm_instruction(
             bob.origin(),
@@ -1969,16 +1947,16 @@ fn reject_failed_instruction() {
         // Resume compliance to cause transfer failure.
         assert_ok!(ComplianceManager::resume_asset_compliance(
             alice.origin(),
-            TICKER
+            asset_id
         ));
         assert_ok!(ComplianceManager::reset_asset_compliance(
             alice.origin(),
-            TICKER
+            asset_id
         ));
 
         assert_ok!(ComplianceManager::add_compliance_requirement(
             alice.origin(),
-            TICKER,
+            asset_id,
             Vec::new(),
             vec![Condition {
                 condition_type: ConditionType::IsPresent(Claim::Jurisdiction(
@@ -2209,12 +2187,14 @@ fn assert_number_of_venue_signers() {
 }
 
 #[test]
-
 fn reject_instruction_with_zero_amount() {
     test_with_cdd_provider(|_eve| {
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
-        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
+
+        let mut alice = UserWithBalance::new(alice, &[asset_id]);
+        let mut bob = UserWithBalance::new(bob, &[asset_id]);
         let amount = 0u128;
 
         alice.refresh_init_balances();
@@ -2230,7 +2210,7 @@ fn reject_instruction_with_zero_amount() {
                 vec![Leg::Fungible {
                     sender: PortfolioId::default_portfolio(alice.did),
                     receiver: PortfolioId::default_portfolio(bob.did),
-                    ticker: TICKER,
+                    asset_id,
                     amount,
                 }],
                 None,
@@ -2242,11 +2222,15 @@ fn reject_instruction_with_zero_amount() {
     });
 }
 
+#[test]
 fn basic_settlement_with_memo() {
     test_with_cdd_provider(|_eve| {
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
-        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
+
+        let mut alice = UserWithBalance::new(alice, &[asset_id]);
+        let mut bob = UserWithBalance::new(bob, &[asset_id]);
         let instruction_id = Settlement::instruction_counter();
         let amount = 100u128;
         alice.refresh_init_balances();
@@ -2261,7 +2245,7 @@ fn basic_settlement_with_memo() {
             vec![Leg::Fungible {
                 sender: PortfolioId::default_portfolio(alice.did),
                 receiver: PortfolioId::default_portfolio(bob.did),
-                ticker: TICKER,
+                asset_id,
                 amount,
             }],
             Some(Memo::default()),
@@ -2282,8 +2266,8 @@ fn basic_settlement_with_memo() {
 
         // Advances the block no. to execute the instruction.
         next_block();
-        alice.assert_balance_decreased(&TICKER, amount);
-        bob.assert_balance_increased(&TICKER, amount);
+        alice.assert_balance_decreased(&asset_id, amount);
+        bob.assert_balance_increased(&asset_id, amount);
     });
 }
 
@@ -2291,7 +2275,7 @@ fn create_instruction(
     alice: &User,
     bob: &User,
     venue_counter: VenueId,
-    ticker: Ticker,
+    asset_id: AssetID,
     amount: u128,
 ) -> InstructionId {
     let instruction_id = Settlement::instruction_counter();
@@ -2305,7 +2289,7 @@ fn create_instruction(
         vec![Leg::Fungible {
             sender: PortfolioId::default_portfolio(alice.did),
             receiver: PortfolioId::default_portfolio(bob.did),
-            ticker,
+            asset_id,
             amount
         }],
         default_portfolio_vec(alice.did),
@@ -2317,9 +2301,12 @@ fn create_instruction(
 #[test]
 fn settle_manual_instruction() {
     test_with_cdd_provider(|_eve| {
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
-        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
+
+        let mut alice = UserWithBalance::new(alice, &[asset_id]);
+        let mut bob = UserWithBalance::new(bob, &[asset_id]);
         let instruction_id = Settlement::instruction_counter();
         let block_number = System::block_number() + 1;
         let amount = 10u128;
@@ -2329,7 +2316,7 @@ fn settle_manual_instruction() {
         let legs = vec![Leg::Fungible {
             sender: PortfolioId::default_portfolio(alice.did),
             receiver: PortfolioId::default_portfolio(bob.did),
-            ticker: TICKER,
+            asset_id,
             amount,
         }];
 
@@ -2411,22 +2398,27 @@ fn settle_manual_instruction() {
             None
         ));
         assert_user_affirms(instruction_id, &alice, AffirmationStatus::Unknown);
-        assert_locked_assets(&TICKER, &alice, 0);
+        assert_locked_assets(&asset_id, &alice, 0);
 
-        alice.assert_balance_decreased(&TICKER, amount);
-        bob.assert_balance_increased(&TICKER, amount);
+        alice.assert_balance_decreased(&asset_id, amount);
+        bob.assert_balance_increased(&asset_id, amount);
     });
 }
 
 #[test]
 fn settle_manual_instruction_with_portfolio() {
     test_with_cdd_provider(|_eve| {
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let charlie = User::new(AccountKeyring::Charlie);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
+
+        let mut alice = UserWithBalance::new(alice, &[asset_id]);
+        let mut bob = UserWithBalance::new(bob, &[asset_id]);
+        let charlie = UserWithBalance::new(charlie, &[asset_id]);
+
         let alice_portfolio = PortfolioId::default_portfolio(alice.did);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
-        let charlie = UserWithBalance::new(AccountKeyring::Charlie, &[TICKER]);
         let charlie_portfolio = PortfolioId::default_portfolio(charlie.did);
-        let venue_counter = create_token_and_venue(TICKER, alice.user);
         let instruction_id = Settlement::instruction_counter();
         let block_number = System::block_number() + 1;
         let amount = 10u128;
@@ -2436,7 +2428,7 @@ fn settle_manual_instruction_with_portfolio() {
         let legs = vec![Leg::Fungible {
             sender: alice_portfolio.clone(),
             receiver: PortfolioId::default_portfolio(bob.did),
-            ticker: TICKER,
+            asset_id,
             amount,
         }];
 
@@ -2518,10 +2510,10 @@ fn settle_manual_instruction_with_portfolio() {
             None
         ));
         assert_user_affirms(instruction_id, &alice, AffirmationStatus::Unknown);
-        assert_locked_assets(&TICKER, &alice, 0);
+        assert_locked_assets(&asset_id, &alice, 0);
 
-        alice.assert_balance_decreased(&TICKER, amount);
-        bob.assert_balance_increased(&TICKER, amount);
+        alice.assert_balance_decreased(&asset_id, amount);
+        bob.assert_balance_increased(&asset_id, amount);
 
         let mut system_events = System::events();
         assert_eq!(
@@ -2547,9 +2539,9 @@ fn add_nft_instruction_with_duplicated_nfts() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
-        let venue_counter = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
-        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1), NFTId(1)]);
+        let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1), NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
             sender: PortfolioId::default_portfolio(alice.did),
             receiver: PortfolioId::default_portfolio(bob.did),
@@ -2576,10 +2568,10 @@ fn add_nft_instruction_exceeding_nfts() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
-        let venue_counter = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let nfts = NFTs::new_unverified(
-            TICKER,
+            asset_id,
             vec![
                 NFTId(1),
                 NFTId(2),
@@ -2620,9 +2612,9 @@ fn add_nft_instruction() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
-        let venue_counter = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
-        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
             sender: PortfolioId::default_portfolio(alice.did),
             receiver: PortfolioId::default_portfolio(bob.did),
@@ -2649,9 +2641,8 @@ fn add_and_affirm_nft_instruction() {
         let bob: User = User::new(AccountKeyring::Bob);
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(
+        let asset_id = create_nft_collection(
             alice.clone(),
-            TICKER,
             AssetType::NonFungible(NonFungibleType::Derivative),
             collection_keys,
         );
@@ -2659,13 +2650,25 @@ fn add_and_affirm_nft_instruction() {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
         }];
-        mint_nft(alice.clone(), TICKER, nfts_metadata, PortfolioKind::Default);
-        ComplianceManager::pause_asset_compliance(alice.origin(), TICKER).unwrap();
-        let venue_id = create_venue(alice);
+        mint_nft(
+            alice.clone(),
+            asset_id,
+            nfts_metadata,
+            PortfolioKind::Default,
+        );
+        ComplianceManager::pause_asset_compliance(alice.origin(), asset_id).unwrap();
+        let venue_id = Settlement::venue_counter();
+        Settlement::create_venue(
+            alice.origin(),
+            VenueDetails::default(),
+            vec![alice.acc()],
+            VenueType::Other,
+        )
+        .unwrap();
 
         // Adds and affirms the instruction
         let instruction_id = Settlement::instruction_counter();
-        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
             sender: PortfolioId::default_portfolio(alice.did),
             receiver: PortfolioId::default_portfolio(bob.did),
@@ -2683,18 +2686,18 @@ fn add_and_affirm_nft_instruction() {
         ));
 
         // Before bob accepts the transaction balances must not be changed and the NFT must be locked.
-        assert_eq!(NumberOfNFTs::get(TICKER, alice.did), 1);
+        assert_eq!(NumberOfNFTs::get(asset_id, alice.did), 1);
         assert_eq!(
             PortfolioNFT::get(
                 PortfolioId::default_portfolio(alice.did),
-                (TICKER, NFTId(1))
+                (asset_id, NFTId(1))
             ),
             true
         );
         assert_eq!(
             PortfolioLockedNFT::get(
                 PortfolioId::default_portfolio(alice.did),
-                (TICKER, NFTId(1))
+                (asset_id, NFTId(1))
             ),
             true
         );
@@ -2706,28 +2709,34 @@ fn add_and_affirm_nft_instruction() {
             default_portfolio_vec(bob.did),
         ));
         next_block();
-        assert_eq!(NumberOfNFTs::get(TICKER, alice.did), 0);
-        assert_eq!(NumberOfNFTs::get(TICKER, bob.did), 1);
+        assert_eq!(NumberOfNFTs::get(asset_id, alice.did), 0);
+        assert_eq!(NumberOfNFTs::get(asset_id, bob.did), 1);
         assert_eq!(
             PortfolioNFT::get(
                 PortfolioId::default_portfolio(alice.did),
-                (TICKER, NFTId(1))
+                (asset_id, NFTId(1))
             ),
             false
         );
         assert_eq!(
-            PortfolioNFT::get(PortfolioId::default_portfolio(bob.did), (TICKER, NFTId(1))),
+            PortfolioNFT::get(
+                PortfolioId::default_portfolio(bob.did),
+                (asset_id, NFTId(1))
+            ),
             true
         );
         assert_eq!(
             PortfolioLockedNFT::get(
                 PortfolioId::default_portfolio(alice.did),
-                (TICKER, NFTId(1))
+                (asset_id, NFTId(1))
             ),
             false
         );
         assert_eq!(
-            PortfolioLockedNFT::get(PortfolioId::default_portfolio(bob.did), (TICKER, NFTId(1))),
+            PortfolioLockedNFT::get(
+                PortfolioId::default_portfolio(bob.did),
+                (asset_id, NFTId(1))
+            ),
             false
         );
     });
@@ -2742,9 +2751,8 @@ fn add_and_affirm_nft_not_owned() {
         let bob: User = User::new(AccountKeyring::Bob);
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(
+        let asset_id = create_nft_collection(
             alice.clone(),
-            TICKER,
             AssetType::NonFungible(NonFungibleType::Derivative),
             collection_keys,
         );
@@ -2752,11 +2760,23 @@ fn add_and_affirm_nft_not_owned() {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
         }];
-        mint_nft(alice.clone(), TICKER, nfts_metadata, PortfolioKind::Default);
-        let venue_id = create_venue(alice);
+        mint_nft(
+            alice.clone(),
+            asset_id,
+            nfts_metadata,
+            PortfolioKind::Default,
+        );
+        let venue_id = Settlement::venue_counter();
+        Settlement::create_venue(
+            alice.origin(),
+            VenueDetails::default(),
+            vec![alice.acc()],
+            VenueType::Other,
+        )
+        .unwrap();
 
         // Adds and affirms the instruction
-        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(2)]);
+        let nfts = NFTs::new_unverified(asset_id, vec![NFTId(2)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
             sender: PortfolioId::default_portfolio(alice.did),
             receiver: PortfolioId::default_portfolio(bob.did),
@@ -2787,9 +2807,8 @@ fn add_same_nft_different_legs() {
         let bob: User = User::new(AccountKeyring::Bob);
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(
+        let asset_id = create_nft_collection(
             alice.clone(),
-            TICKER,
             AssetType::NonFungible(NonFungibleType::Derivative),
             collection_keys,
         );
@@ -2799,24 +2818,36 @@ fn add_same_nft_different_legs() {
         }];
         mint_nft(
             alice.clone(),
-            TICKER,
+            asset_id,
             nfts_metadata.clone(),
             PortfolioKind::Default,
         );
-        mint_nft(alice.clone(), TICKER, nfts_metadata, PortfolioKind::Default);
-        let venue_id = create_venue(alice);
+        mint_nft(
+            alice.clone(),
+            asset_id,
+            nfts_metadata,
+            PortfolioKind::Default,
+        );
+        let venue_id = Settlement::venue_counter();
+        Settlement::create_venue(
+            alice.origin(),
+            VenueDetails::default(),
+            vec![alice.acc()],
+            VenueType::Other,
+        )
+        .unwrap();
 
         // Adds and affirms the instruction
         let legs: Vec<Leg> = vec![
             Leg::NonFungible {
                 sender: PortfolioId::default_portfolio(alice.did),
                 receiver: PortfolioId::default_portfolio(bob.did),
-                nfts: NFTs::new_unverified(TICKER, vec![NFTId(1)]),
+                nfts: NFTs::new_unverified(asset_id, vec![NFTId(1)]),
             },
             Leg::NonFungible {
                 sender: PortfolioId::default_portfolio(alice.did),
                 receiver: PortfolioId::default_portfolio(bob.did),
-                nfts: NFTs::new_unverified(TICKER, vec![NFTId(1)]),
+                nfts: NFTs::new_unverified(asset_id, vec![NFTId(1)]),
             },
         ];
         assert_noop!(
@@ -2845,9 +2876,8 @@ fn add_and_affirm_with_receipts_nfts() {
         let bob: User = User::new(AccountKeyring::Bob);
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(
+        let asset_id = create_nft_collection(
             alice.clone(),
-            TICKER,
             AssetType::NonFungible(NonFungibleType::Derivative),
             collection_keys,
         );
@@ -2855,14 +2885,26 @@ fn add_and_affirm_with_receipts_nfts() {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
         }];
-        mint_nft(alice.clone(), TICKER, nfts_metadata, PortfolioKind::Default);
-        let venue_id = create_venue(alice);
+        mint_nft(
+            alice.clone(),
+            asset_id,
+            nfts_metadata,
+            PortfolioKind::Default,
+        );
+        let venue_id = Settlement::venue_counter();
+        Settlement::create_venue(
+            alice.origin(),
+            VenueDetails::default(),
+            vec![alice.acc()],
+            VenueType::Other,
+        )
+        .unwrap();
 
         // Adds the instruction and fails to use a receipt
         let legs: Vec<Leg> = vec![Leg::NonFungible {
             sender: PortfolioId::default_portfolio(alice.did),
             receiver: PortfolioId::default_portfolio(bob.did),
-            nfts: NFTs::new_unverified(TICKER, vec![NFTId(1)]),
+            nfts: NFTs::new_unverified(asset_id, vec![NFTId(1)]),
         }];
         assert_ok!(Settlement::add_instruction(
             alice.origin(),
@@ -2884,7 +2926,8 @@ fn add_and_affirm_with_receipts_nfts() {
                     AccountKeyring::Alice.to_account_id(),
                     AccountKeyring::Alice
                         .sign(
-                            &Receipt::new(0, id, LegId(0), alice.did, bob.did, TICKER, 1).encode()
+                            &Receipt::new(0, id, LegId(0), alice.did, bob.did, asset_id, 1)
+                                .encode()
                         )
                         .into(),
                     None
@@ -2902,9 +2945,16 @@ fn add_instruction_unexpected_offchain_asset() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
-        let venue_counter = create_venue(alice);
+        let venue_counter = Settlement::venue_counter();
+        Settlement::create_venue(
+            alice.origin(),
+            VenueDetails::default(),
+            vec![alice.acc()],
+            VenueType::Other,
+        )
+        .unwrap();
 
-        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let nfts = NFTs::new_unverified([0; 16].into(), vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
             sender: PortfolioId::default_portfolio(alice.did),
             receiver: PortfolioId::default_portfolio(bob.did),
@@ -2926,7 +2976,7 @@ fn add_instruction_unexpected_offchain_asset() {
         let legs: Vec<Leg> = vec![Leg::Fungible {
             sender: PortfolioId::default_portfolio(alice.did),
             receiver: PortfolioId::default_portfolio(bob.did),
-            ticker: TICKER,
+            asset_id: [0; 16].into(),
             amount: 1,
         }];
         assert_noop!(
@@ -2951,17 +3001,17 @@ fn add_and_execute_offchain_instruction() {
         let alice = User::new(AccountKeyring::Alice);
         let dave = User::new(AccountKeyring::Dave);
         let bob = User::new(AccountKeyring::Bob);
-        let venue_id = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue_id) = create_and_issue_sample_asset_with_venue(&alice);
         let amount = 1;
         let id = InstructionId(0);
 
         let legs: Vec<Leg> = vec![Leg::OffChain {
             sender_identity: charlie.did,
             receiver_identity: bob.did,
-            ticker: TICKER,
+            asset_id,
             amount,
         }];
-        let receipt = Receipt::new(0, id, LegId(0), charlie.did, bob.did, TICKER, amount);
+        let receipt = Receipt::new(0, id, LegId(0), charlie.did, bob.did, asset_id, amount);
         let receipts_details = vec![ReceiptDetails::new(
             0,
             id,
@@ -3021,13 +3071,20 @@ fn affirm_offchain_asset_without_receipt() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
-        let venue = create_venue(alice);
+        let venue = Settlement::venue_counter();
+        Settlement::create_venue(
+            alice.origin(),
+            VenueDetails::default(),
+            vec![alice.acc()],
+            VenueType::Other,
+        )
+        .unwrap();
         let alice_portfolio = PortfolioId::default_portfolio(alice.did);
 
         let legs: Vec<Leg> = vec![Leg::OffChain {
             sender_identity: alice.did,
             receiver_identity: bob.did,
-            ticker: TICKER,
+            asset_id: [0; 16].into(),
             amount: 1,
         }];
         assert_ok!(Settlement::add_instruction(
@@ -3058,31 +3115,33 @@ fn add_instruction_with_offchain_assets() {
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
         let bob = User::new(AccountKeyring::Bob);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
-        let venue = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
+        let asset_id2 = AssetID::new([0; 16]);
+
         let instruction_memo = Some(Memo::default());
         Portfolio::create_portfolio(bob.origin(), b"BobUserPortfolio".into()).unwrap();
 
         // Both users have pre-affirmed the ticker
-        Asset::pre_approve_ticker(alice.origin(), TICKER2).unwrap();
-        Asset::pre_approve_ticker(bob.origin(), TICKER2).unwrap();
+        Asset::pre_approve_asset(alice.origin(), asset_id2).unwrap();
+        Asset::pre_approve_asset(bob.origin(), asset_id2).unwrap();
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
                 sender: alice_default_portfolio,
                 receiver: bob_default_portfolio,
-                ticker: TICKER,
+                asset_id,
                 amount: ONE_UNIT,
             },
             Leg::OffChain {
                 sender_identity: alice.did,
                 receiver_identity: bob.did,
-                ticker: TICKER2,
+                asset_id: asset_id2,
                 amount: ONE_UNIT,
             },
             Leg::OffChain {
                 sender_identity: alice.did,
                 receiver_identity: bob.did,
-                ticker: TICKER2,
+                asset_id: asset_id2,
                 amount: ONE_UNIT,
             },
         ];
@@ -3124,25 +3183,25 @@ fn add_instruction_with_pre_affirmed_tickers() {
         let bob = User::new(AccountKeyring::Bob);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let bob_user_porfolio = PortfolioId::user_portfolio(bob.did, PortfolioNumber(1));
-        let venue = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
         let instruction_memo = Some(Memo::default());
         Portfolio::create_portfolio(bob.origin(), b"BobUserPortfolio".into()).unwrap();
 
         // Both users have pre-affirmed the ticker
-        Asset::pre_approve_ticker(alice.origin(), TICKER).unwrap();
-        Asset::pre_approve_ticker(bob.origin(), TICKER).unwrap();
+        Asset::pre_approve_asset(alice.origin(), asset_id).unwrap();
+        Asset::pre_approve_asset(bob.origin(), asset_id).unwrap();
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
                 sender: alice_default_portfolio,
                 receiver: bob_default_portfolio,
-                ticker: TICKER,
+                asset_id,
                 amount: ONE_UNIT,
             },
             Leg::Fungible {
                 sender: alice_default_portfolio,
                 receiver: bob_user_porfolio,
-                ticker: TICKER,
+                asset_id,
                 amount: ONE_UNIT,
             },
         ];
@@ -3184,13 +3243,13 @@ fn add_instruction_with_pre_affirmed_tickers_with_assigned_custodian() {
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
         let bob_user_porfolio = PortfolioId::user_portfolio(bob.did, PortfolioNumber(1));
-        let venue = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
         let instruction_memo = Some(Memo::default());
         Portfolio::create_portfolio(bob.origin(), b"BobUserPortfolio".into()).unwrap();
 
         // Both users have pre-affirmed the ticker
-        Asset::pre_approve_ticker(alice.origin(), TICKER).unwrap();
-        Asset::pre_approve_ticker(bob.origin(), TICKER).unwrap();
+        Asset::pre_approve_asset(alice.origin(), asset_id).unwrap();
+        Asset::pre_approve_asset(bob.origin(), asset_id).unwrap();
 
         // Bob assigns a custodian to its user portfolio
         let authorization_id = Identity::add_auth(
@@ -3206,13 +3265,13 @@ fn add_instruction_with_pre_affirmed_tickers_with_assigned_custodian() {
             Leg::Fungible {
                 sender: alice_default_portfolio,
                 receiver: bob_default_portfolio,
-                ticker: TICKER,
+                asset_id,
                 amount: ONE_UNIT,
             },
             Leg::Fungible {
                 sender: alice_default_portfolio,
                 receiver: bob_user_porfolio,
-                ticker: TICKER,
+                asset_id,
                 amount: ONE_UNIT,
             },
         ];
@@ -3254,26 +3313,26 @@ fn add_instruction_with_pre_affirmed_portfolio() {
         let bob = User::new(AccountKeyring::Bob);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let bob_user_porfolio = PortfolioId::user_portfolio(bob.did, PortfolioNumber(1));
-        let venue = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
         let instruction_memo = Some(Memo::default());
         Portfolio::create_portfolio(bob.origin(), b"BobUserPortfolio".into()).unwrap();
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
         // Both users have pre-affirmed their user portfolios
-        Portfolio::pre_approve_portfolio(bob.origin(), TICKER, bob_user_porfolio).unwrap();
-        Portfolio::pre_approve_portfolio(alice.origin(), TICKER, alice_user_porfolio).unwrap();
+        Portfolio::pre_approve_portfolio(bob.origin(), asset_id, bob_user_porfolio).unwrap();
+        Portfolio::pre_approve_portfolio(alice.origin(), asset_id, alice_user_porfolio).unwrap();
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
                 sender: alice_user_porfolio,
                 receiver: bob_user_porfolio,
-                ticker: TICKER,
+                asset_id,
                 amount: ONE_UNIT,
             },
             Leg::Fungible {
                 sender: alice_default_portfolio,
                 receiver: bob_default_portfolio,
-                ticker: TICKER,
+                asset_id,
                 amount: ONE_UNIT,
             },
         ];
@@ -3317,26 +3376,26 @@ fn add_instruction_with_single_pre_affirmed() {
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
         let bob = User::new(AccountKeyring::Bob);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
-        let venue = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
         let instruction_memo = Some(Memo::default());
-        create_token(TICKER2, alice);
+        let asset_id2 = create_and_issue_sample_asset(&alice);
 
-        // Bob has pre-affirmed TICKER but not TICKER2
-        Asset::pre_approve_ticker(bob.origin(), TICKER).unwrap();
-        Asset::pre_approve_ticker(alice.origin(), TICKER).unwrap();
-        Asset::pre_approve_ticker(alice.origin(), TICKER2).unwrap();
+        // Bob has pre-affirmed asset_id but not asset_id2
+        Asset::pre_approve_asset(bob.origin(), asset_id).unwrap();
+        Asset::pre_approve_asset(alice.origin(), asset_id).unwrap();
+        Asset::pre_approve_asset(alice.origin(), asset_id2).unwrap();
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
                 sender: alice_default_portfolio,
                 receiver: bob_default_portfolio,
-                ticker: TICKER,
+                asset_id,
                 amount: ONE_UNIT,
             },
             Leg::Fungible {
                 sender: alice_default_portfolio,
                 receiver: bob_default_portfolio,
-                ticker: TICKER2,
+                asset_id: asset_id2,
                 amount: ONE_UNIT,
             },
         ];
@@ -3375,22 +3434,22 @@ fn manually_execute_failed_instruction() {
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
         let bob = User::new(AccountKeyring::Bob);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
-        let venue = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
         let instruction_memo = Some(Memo::default());
-        create_token(TICKER2, alice);
+        let asset_id2 = create_and_issue_sample_asset(&alice);
 
         // Creates and affirms an instruction and force a failed execution
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
                 sender: alice_default_portfolio,
                 receiver: bob_default_portfolio,
-                ticker: TICKER,
+                asset_id,
                 amount: 1,
             },
             Leg::Fungible {
                 sender: alice_default_portfolio,
                 receiver: bob_default_portfolio,
-                ticker: TICKER2,
+                asset_id: asset_id2,
                 amount: 1,
             },
         ];
@@ -3409,13 +3468,13 @@ fn manually_execute_failed_instruction() {
             InstructionId(0),
             vec![bob_default_portfolio],
         ));
-        assert_ok!(Asset::freeze(alice.origin(), TICKER));
+        assert_ok!(Asset::freeze(alice.origin(), asset_id));
         next_block();
         assert_instruction_status(InstructionId(0), InstructionStatus::Failed);
-        assert_eq!(BalanceOf::get(TICKER, alice.did), 100_000);
-        assert_eq!(BalanceOf::get(TICKER2, alice.did), 100_000);
+        assert_eq!(BalanceOf::get(asset_id, alice.did), ISSUE_AMOUNT);
+        assert_eq!(BalanceOf::get(asset_id2, alice.did), ISSUE_AMOUNT);
         // Executes the instruction once again, now successfully.
-        assert_ok!(Asset::unfreeze(alice.origin(), TICKER));
+        assert_ok!(Asset::unfreeze(alice.origin(), asset_id));
         assert_ok!(Settlement::execute_manual_instruction(
             alice.origin(),
             InstructionId(0),
@@ -3425,10 +3484,10 @@ fn manually_execute_failed_instruction() {
             0,
             None
         ));
-        assert_eq!(BalanceOf::get(TICKER, bob.did), 1);
-        assert_eq!(BalanceOf::get(TICKER2, bob.did), 1);
-        assert_eq!(BalanceOf::get(TICKER, alice.did), 99_999);
-        assert_eq!(BalanceOf::get(TICKER2, alice.did), 99_999);
+        assert_eq!(BalanceOf::get(asset_id, bob.did), 1);
+        assert_eq!(BalanceOf::get(asset_id2, bob.did), 1);
+        assert_eq!(BalanceOf::get(asset_id, alice.did), ISSUE_AMOUNT - 1);
+        assert_eq!(BalanceOf::get(asset_id2, alice.did), ISSUE_AMOUNT - 1);
         assert_instruction_status(
             InstructionId(0),
             InstructionStatus::Success(System::block_number()),
@@ -3442,17 +3501,17 @@ fn affirm_with_receipts_cost() {
         let charlie = User::new(AccountKeyring::Charlie);
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
-        let venue_id = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue_id) = create_and_issue_sample_asset_with_venue(&alice);
         let amount = 1;
         let id = InstructionId(0);
 
         let legs: Vec<Leg> = vec![Leg::OffChain {
             sender_identity: charlie.did,
             receiver_identity: bob.did,
-            ticker: TICKER,
+            asset_id,
             amount,
         }];
-        let receipt = Receipt::new(0, id, LegId(0), charlie.did, bob.did, TICKER, amount);
+        let receipt = Receipt::new(0, id, LegId(0), charlie.did, bob.did, asset_id, amount);
         let receipts_details = vec![ReceiptDetails::new(
             0,
             id,
@@ -3496,7 +3555,7 @@ fn affirm_instruction_cost() {
         let bob = User::new(AccountKeyring::Bob);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let bob_user_porfolio = PortfolioId::user_portfolio(bob.did, PortfolioNumber(1));
-        let venue = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
         let instruction_memo = Some(Memo::default());
         Portfolio::create_portfolio(bob.origin(), b"BobUserPortfolio".into()).unwrap();
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
@@ -3505,13 +3564,13 @@ fn affirm_instruction_cost() {
             Leg::Fungible {
                 sender: alice_user_porfolio,
                 receiver: bob_user_porfolio,
-                ticker: TICKER,
+                asset_id,
                 amount: ONE_UNIT,
             },
             Leg::Fungible {
                 sender: alice_default_portfolio,
                 receiver: bob_default_portfolio,
-                ticker: TICKER,
+                asset_id,
                 amount: ONE_UNIT,
             },
         ];
@@ -3558,13 +3617,13 @@ fn withdraw_affirmation_cost() {
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
         let bob = User::new(AccountKeyring::Bob);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
-        let venue = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
         let instruction_memo = Some(Memo::default());
 
         let legs: Vec<Leg> = vec![Leg::Fungible {
             sender: alice_default_portfolio,
             receiver: bob_default_portfolio,
-            ticker: TICKER,
+            asset_id,
             amount: 1,
         }];
         assert_ok!(Settlement::add_instruction(
@@ -3607,28 +3666,27 @@ fn reject_instruction_cost() {
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
         let bob = User::new(AccountKeyring::Bob);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
-        let venue = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
         let instruction_memo = Some(Memo::default());
 
-        create_nft_collection(
+        let asset_id2 = create_nft_collection(
             alice.clone(),
-            TICKER2,
             AssetType::NonFungible(NonFungibleType::Derivative),
             NFTCollectionKeys::default(),
         );
-        mint_nft(alice.clone(), TICKER2, Vec::new(), PortfolioKind::Default);
+        mint_nft(alice.clone(), asset_id2, Vec::new(), PortfolioKind::Default);
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
                 sender: alice_default_portfolio,
                 receiver: bob_default_portfolio,
-                ticker: TICKER,
+                asset_id,
                 amount: 1,
             },
             Leg::NonFungible {
                 sender: alice_default_portfolio,
                 receiver: bob_default_portfolio,
-                nfts: NFTs::new_unverified(TICKER2, vec![NFTId(1)]),
+                nfts: NFTs::new_unverified(asset_id2, vec![NFTId(1)]),
             },
         ];
         assert_ok!(Settlement::add_instruction(
@@ -3669,13 +3727,17 @@ fn add_instruction_with_mediators() {
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
 
-        let venue_counter = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let asset_mediator = BTreeSet::from([dave.did]);
-        Asset::add_mandatory_mediators(alice.origin(), TICKER, asset_mediator.try_into().unwrap())
-            .unwrap();
+        Asset::add_mandatory_mediators(
+            alice.origin(),
+            asset_id,
+            asset_mediator.try_into().unwrap(),
+        )
+        .unwrap();
 
-        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
             sender: PortfolioId::default_portfolio(alice.did),
             receiver: PortfolioId::default_portfolio(bob.did),
@@ -3717,9 +3779,9 @@ fn affirm_as_mediator_invalid_mediator() {
         let alice = User::new(AccountKeyring::Alice);
         let charlie = User::new(AccountKeyring::Charlie);
 
-        let venue_counter = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
-        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
             sender: PortfolioId::default_portfolio(alice.did),
             receiver: PortfolioId::default_portfolio(bob.did),
@@ -3752,9 +3814,9 @@ fn affirm_as_mediator() {
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
 
-        let venue_counter = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
-        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
             sender: PortfolioId::default_portfolio(alice.did),
             receiver: PortfolioId::default_portfolio(bob.did),
@@ -3801,9 +3863,9 @@ fn withdraw_as_mediator_invalid_mediator() {
         let alice = User::new(AccountKeyring::Alice);
         let charlie = User::new(AccountKeyring::Charlie);
 
-        let venue_counter = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
-        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
             sender: PortfolioId::default_portfolio(alice.did),
             receiver: PortfolioId::default_portfolio(bob.did),
@@ -3834,9 +3896,9 @@ fn withdraw_as_mediator_invalid_status() {
         let alice = User::new(AccountKeyring::Alice);
         let charlie = User::new(AccountKeyring::Charlie);
 
-        let venue_counter = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
-        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
             sender: PortfolioId::default_portfolio(alice.did),
             receiver: PortfolioId::default_portfolio(bob.did),
@@ -3869,9 +3931,9 @@ fn withdraw_affirmation_as_mediator() {
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
 
-        let venue_counter = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
-        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
             sender: PortfolioId::default_portfolio(alice.did),
             receiver: PortfolioId::default_portfolio(bob.did),
@@ -3923,12 +3985,12 @@ fn expired_affirmation_execution() {
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
 
-        let venue_counter = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let legs: Vec<Leg> = vec![Leg::Fungible {
             sender: alice_default_portfolio,
             receiver: bob_default_portfolio,
-            ticker: TICKER,
+            asset_id,
             amount: 1,
         }];
         assert_ok!(Settlement::add_instruction_with_mediators(
@@ -3991,9 +4053,9 @@ fn reject_instruction_as_mediator() {
         let alice = User::new(AccountKeyring::Alice);
         let charlie = User::new(AccountKeyring::Charlie);
 
-        let venue_counter = create_token_and_venue(TICKER, alice);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
-        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
             sender: PortfolioId::default_portfolio(alice.did),
             receiver: PortfolioId::default_portfolio(bob.did),
@@ -4111,8 +4173,8 @@ fn assert_instruction_status(
 }
 
 #[track_caller]
-fn assert_balance(ticker: &Ticker, user: &User, balance: Balance) {
-    assert_eq!(Asset::balance_of(&ticker, user.did), balance);
+fn assert_balance(asset_id: &AssetID, user: &User, balance: Balance) {
+    assert_eq!(Asset::balance_of(asset_id, user.did), balance);
 }
 
 #[track_caller]
@@ -4151,9 +4213,9 @@ fn assert_affirms_pending(instruction_id: InstructionId, pending: u64) {
 }
 
 #[track_caller]
-fn assert_locked_assets(ticker: &Ticker, user: &User, num_of_assets: Balance) {
+fn assert_locked_assets(asset_id: &AssetID, user: &User, num_of_assets: Balance) {
     assert_eq!(
-        Portfolio::locked_assets(PortfolioId::default_portfolio(user.did), ticker),
+        Portfolio::locked_assets(PortfolioId::default_portfolio(user.did), asset_id),
         num_of_assets
     );
 }

@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::asset::AssetID;
-use crate::{DispatchableName, IdentityId, PalletName, PortfolioId, SubsetRestriction, Ticker};
+use crate::{DispatchableName, IdentityId, PalletName, PortfolioId, SubsetRestriction};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
@@ -182,7 +182,7 @@ impl Permissions {
         });
 
         // Asset permissions complexity cost.
-        cost.saturating_add(self.asset.complexity().saturating_mul(size_of::<Ticker>()))
+        cost.saturating_add(self.asset.complexity().saturating_mul(size_of::<AssetID>()))
             // Portfolio permissions complexity cost.
             .saturating_add(
                 self.portfolio

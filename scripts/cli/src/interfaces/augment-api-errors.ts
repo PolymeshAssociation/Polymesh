@@ -19,6 +19,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       AssetAlreadyDivisible: AugmentedError<ApiType>;
       /**
+       * An unexpected error when generating a new asset ID.
+       **/
+      AssetIDGenerationError: AugmentedError<ApiType>;
+      /**
        * Asset Metadata Global type already exists.
        **/
       AssetMetadataGlobalKeyAlreadyExists: AugmentedError<ApiType>;
@@ -103,6 +107,14 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InvalidTransferFrozenAsset: AugmentedError<ApiType>;
       /**
+       * Failed to transfer the asset - receiver cdd is not valid.
+       **/
+      InvalidTransferInvalidReceiverCDD: AugmentedError<ApiType>;
+      /**
+       * Failed to transfer the asset - sender cdd is not valid.
+       **/
+      InvalidTransferInvalidSenderCDD: AugmentedError<ApiType>;
+      /**
        * Investor Uniqueness claims are not allowed for this asset.
        **/
       InvestorUniquenessClaimNotAllowed: AugmentedError<ApiType>;
@@ -111,7 +123,7 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       MaxLengthOfAssetNameExceeded: AugmentedError<ApiType>;
       /**
-       * No such token.
+       * No security token associated to the given asset ID.
        **/
       NoSuchAsset: AugmentedError<ApiType>;
       /**
@@ -143,13 +155,25 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       TickerFirstByteNotValid: AugmentedError<ApiType>;
       /**
+       * The given ticker is already linked to an asset.
+       **/
+      TickerIsAlreadyLinkedToAnAsset: AugmentedError<ApiType>;
+      /**
        * The ticker has non-alphanumeric parts.
        **/
       TickerNotAlphanumeric: AugmentedError<ApiType>;
       /**
+       * The ticker doesn't belong to the caller.
+       **/
+      TickerNotRegisteredToCaller: AugmentedError<ApiType>;
+      /**
        * Registration of ticker has expired.
        **/
       TickerRegistrationExpired: AugmentedError<ApiType>;
+      /**
+       * The ticker registration associated to the ticker was not found.
+       **/
+      TickerRegistrationNotFound: AugmentedError<ApiType>;
       /**
        * The ticker length is over the limit.
        **/
@@ -424,7 +448,7 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       ScheduleNotRemovable: AugmentedError<ApiType>;
       /**
-       * The new schedule would put the ticker over the maximum complexity allowed.
+       * The new schedule would put the asset over the maximum complexity allowed.
        **/
       SchedulesOverMaxComplexity: AugmentedError<ApiType>;
       /**
@@ -757,15 +781,15 @@ declare module '@polkadot/api-base/types/errors' {
     };
     externalAgents: {
       /**
-       * The provided `agent` is already an agent for the `Ticker`.
+       * The provided `agent` is already an agent for the `AssetID`.
        **/
       AlreadyAnAgent: AugmentedError<ApiType>;
       /**
-       * An AG with the given `AGId` did not exist for the `Ticker`.
+       * An AG with the given `AGId` did not exist for the `AssetID`.
        **/
       NoSuchAG: AugmentedError<ApiType>;
       /**
-       * The provided `agent` is not an agent for the `Ticker`.
+       * The provided `agent` is not an agent for the `AssetID`.
        **/
       NotAnAgent: AugmentedError<ApiType>;
       /**
@@ -1121,7 +1145,7 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       BalanceUnderflow: AugmentedError<ApiType>;
       /**
-       * The ticker is already associated to an NFT collection.
+       * The asset_id is already associated to an NFT collection.
        **/
       CollectionAlredyRegistered: AugmentedError<ApiType>;
       /**
@@ -1136,6 +1160,10 @@ declare module '@polkadot/api-base/types/errors' {
        * A duplicate metadata key has been passed as parameter.
        **/
       DuplicateMetadataKey: AugmentedError<ApiType>;
+      /**
+       * There's no asset associated to the given asset_id.
+       **/
+      InvalidAssetID: AugmentedError<ApiType>;
       /**
        * The asset must be of type non-fungible.
        **/
@@ -1165,6 +1193,14 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InvalidNFTTransferInsufficientCount: AugmentedError<ApiType>;
       /**
+       * The receiver has an invalid CDD.
+       **/
+      InvalidNFTTransferInvalidReceiverCDD: AugmentedError<ApiType>;
+      /**
+       * The sender has an invalid CDD.
+       **/
+      InvalidNFTTransferInvalidSenderCDD: AugmentedError<ApiType>;
+      /**
        * Failed to transfer an NFT - nft is locked.
        **/
       InvalidNFTTransferNFTIsLocked: AugmentedError<ApiType>;
@@ -1176,6 +1212,10 @@ declare module '@polkadot/api-base/types/errors' {
        * Failed to transfer an NFT - attempt to move to the same portfolio.
        **/
       InvalidNFTTransferSamePortfolio: AugmentedError<ApiType>;
+      /**
+       * The sender identity can't be the same as the receiver identity.
+       **/
+      InvalidNFTTransferSenderIdMatchesReceiverId: AugmentedError<ApiType>;
       /**
        * The maximum number of metadata keys was exceeded.
        **/
@@ -1766,7 +1806,7 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       UnexpectedLegStatus: AugmentedError<ApiType>;
       /**
-       * Ticker could not be found on chain.
+       * AssetID could not be found on chain.
        **/
       UnexpectedOFFChainAsset: AugmentedError<ApiType>;
       /**
@@ -1962,6 +2002,42 @@ declare module '@polkadot/api-base/types/errors' {
        * Too many nomination targets supplied.
        **/
       TooManyTargets: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
+    };
+    stateTrieMigration: {
+      /**
+       * Bad child root provided.
+       **/
+      BadChildRoot: AugmentedError<ApiType>;
+      /**
+       * Bad witness data provided.
+       **/
+      BadWitness: AugmentedError<ApiType>;
+      /**
+       * A key was longer than the configured maximum.
+       * 
+       * This means that the migration halted at the current [`Progress`] and
+       * can be resumed with a larger [`crate::Config::MaxKeyLen`] value.
+       * Retrying with the same [`crate::Config::MaxKeyLen`] value will not work.
+       * The value should only be increased to avoid a storage migration for the currently
+       * stored [`crate::Progress::LastKey`].
+       **/
+      KeyTooLong: AugmentedError<ApiType>;
+      /**
+       * Max signed limits not respected.
+       **/
+      MaxSignedLimits: AugmentedError<ApiType>;
+      /**
+       * submitter does not have enough funds.
+       **/
+      NotEnoughFunds: AugmentedError<ApiType>;
+      /**
+       * Signed migration is not allowed because the maximum limit is not set yet.
+       **/
+      SignedMigrationNotAllowed: AugmentedError<ApiType>;
       /**
        * Generic error
        **/

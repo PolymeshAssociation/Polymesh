@@ -616,7 +616,7 @@ benchmarks! {
         ).unwrap();
         let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(2));
         let collection_keys: NFTCollectionKeys = vec![asset_metada_key.clone()].into();
-        T::NFTFn::create_nft_collection(user.origin().into(), asset_id, collection_keys).unwrap();
+        T::NFTFn::create_nft_collection(user.origin().into(), Some(asset_id), None, collection_keys).unwrap();
     }: _(user.origin, asset_id, AssetMetadataLocalKey(1))
 
     remove_metadata_value {

@@ -7,8 +7,8 @@ use pallet_asset::{
 };
 use polymesh_primitives::{AuthorizationData, Signatory, Ticker};
 
-use super::setup::{create_and_issue_sample_asset_linked_to_ticker, now};
-use crate::asset_pallet::setup::set_timestamp;
+use super::setup::create_and_issue_sample_asset_linked_to_ticker;
+use crate::asset_test::{now, set_timestamp};
 use crate::storage::User;
 use crate::{ExtBuilder, TestStorage};
 

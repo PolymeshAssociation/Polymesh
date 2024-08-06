@@ -7,7 +7,7 @@ use pallet_portfolio::{
     PortfolioNFT, Portfolios, PreApprovedPortfolios,
 };
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
-use polymesh_primitives::asset::{AssetType, NonFungibleType};
+use polymesh_primitives::asset::{AssetID, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
 };
@@ -15,13 +15,13 @@ use polymesh_primitives::settlement::{Leg, SettlementType};
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, Fund, FundDescription, Memo, NFTCollectionKeys, NFTId,
     NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
-    Signatory, Ticker,
+    Signatory,
 };
 use sp_keyring::AccountKeyring;
 
-use super::asset_test::{create_token, max_len_bytes};
+use super::asset_pallet::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
+use super::asset_test::max_len_bytes;
 use super::nft::{create_nft_collection, mint_nft};
-use super::settlement_test::create_venue;
 use super::storage::{EventTest, System, TestStorage, User};
 use super::ExtBuilder;
 
@@ -31,8 +31,6 @@ type Identity = pallet_identity::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 type Settlement = pallet_settlement::Module<TestStorage>;
-
-const TICKER: Ticker = Ticker::new_unchecked([b'A', b'C', b'M', b'E', 0, 0, 0, 0, 0, 0, 0, 0]);
 
 fn create_portfolio() -> (User, PortfolioNumber) {
     let owner = User::new(AccountKeyring::Alice);
@@ -148,19 +146,19 @@ fn cannot_delete_portfolio_with_asset() {
         System::set_block_number(1); // This is needed to enable events.
 
         let (owner, num) = create_portfolio();
-        let (ticker, token) = create_token(owner);
+        let asset_id = create_and_issue_sample_asset(&owner);
         let owner_default_portfolio = PortfolioId::default_portfolio(owner.did);
         let owner_user_portfolio = PortfolioId::user_portfolio(owner.did, num);
 
         // Move funds to new portfolio
-        let move_amount = token.total_supply / 2;
+        let move_amount = ISSUE_AMOUNT / 2;
         assert_ok!(Portfolio::move_portfolio_funds(
             owner.origin(),
             owner_default_portfolio,
             owner_user_portfolio,
             vec![Fund {
                 description: FundDescription::Fungible {
-                    ticker,
+                    asset_id,
                     amount: move_amount,
                 },
                 memo: None,
@@ -172,7 +170,7 @@ fn cannot_delete_portfolio_with_asset() {
                 owner_default_portfolio,
                 owner_user_portfolio,
                 FundDescription::Fungible {
-                    ticker,
+                    asset_id,
                     amount: move_amount
                 },
                 None
@@ -181,20 +179,20 @@ fn cannot_delete_portfolio_with_asset() {
         );
         let ensure_balances = |default_portfolio_balance, user_portfolio_balance| {
             assert_eq!(
-                Portfolio::default_portfolio_balance(owner.did, &ticker),
+                Portfolio::default_portfolio_balance(owner.did, &asset_id),
                 default_portfolio_balance
             );
             assert_eq!(
-                Portfolio::user_portfolio_balance(owner.did, num, &ticker),
+                Portfolio::user_portfolio_balance(owner.did, num, &asset_id),
                 user_portfolio_balance
             );
         };
-        ensure_balances(token.total_supply - move_amount, move_amount);
+        ensure_balances(ISSUE_AMOUNT - move_amount, move_amount);
 
         // Cannot delete portfolio as it's non-empty.
         let delete = || Portfolio::delete_portfolio(owner.origin(), num);
         assert_noop!(delete(), Error::PortfolioNotEmpty);
-        ensure_balances(token.total_supply - move_amount, move_amount);
+        ensure_balances(ISSUE_AMOUNT - move_amount, move_amount);
 
         // Remove remaining funds.
         assert_ok!(Portfolio::move_portfolio_funds(
@@ -203,13 +201,13 @@ fn cannot_delete_portfolio_with_asset() {
             owner_default_portfolio,
             vec![Fund {
                 description: FundDescription::Fungible {
-                    ticker,
+                    asset_id,
                     amount: move_amount,
                 },
                 memo: None,
             }]
         ));
-        ensure_balances(token.total_supply, 0);
+        ensure_balances(ISSUE_AMOUNT, 0);
 
         // And now we can delete.
         assert_ok!(delete());
@@ -235,13 +233,13 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
 
     let (owner, num) = create_portfolio();
     let bob = User::new(AccountKeyring::Bob);
-    let (ticker, token) = create_token(owner);
+    let asset_id = create_and_issue_sample_asset(&owner);
     assert_eq!(
-        Portfolio::default_portfolio_balance(owner.did, &ticker),
-        token.total_supply,
+        Portfolio::default_portfolio_balance(owner.did, &asset_id),
+        ISSUE_AMOUNT,
     );
     assert_eq!(
-        Portfolio::user_portfolio_balance(owner.did, num, &ticker),
+        Portfolio::user_portfolio_balance(owner.did, num, &asset_id),
         0,
     );
 
@@ -256,8 +254,8 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
             owner_user_portfolio,
             vec![Fund {
                 description: FundDescription::Fungible {
-                    ticker,
-                    amount: token.total_supply * 2,
+                    asset_id,
+                    amount: ISSUE_AMOUNT * 2,
                 },
                 memo: memo.clone(),
             }]
@@ -272,7 +270,10 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
             owner_default_portfolio,
             owner_default_portfolio,
             vec![Fund {
-                description: FundDescription::Fungible { ticker, amount: 1 },
+                description: FundDescription::Fungible {
+                    asset_id,
+                    amount: 1
+                },
                 memo: memo.clone(),
             }]
         ),
@@ -282,7 +283,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
         Portfolio::ensure_portfolio_transfer_validity(
             &owner_default_portfolio,
             &owner_default_portfolio,
-            &ticker,
+            &asset_id,
             1,
         ),
         Error::InvalidTransferSenderIdMatchesReceiverId
@@ -293,7 +294,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
         Portfolio::ensure_portfolio_transfer_validity(
             &owner_default_portfolio,
             &PortfolioId::user_portfolio(bob.did, PortfolioNumber(666)),
-            &ticker,
+            &asset_id,
             1,
         ),
         Error::PortfolioDoesNotExist
@@ -306,7 +307,10 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
             owner_default_portfolio,
             owner_user_portfolio,
             vec![Fund {
-                description: FundDescription::Fungible { ticker, amount: 1 },
+                description: FundDescription::Fungible {
+                    asset_id,
+                    amount: 1
+                },
                 memo: memo.clone(),
             }]
         ),
@@ -314,14 +318,14 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
     );
 
     // Move an amount within bounds.
-    let move_amount = token.total_supply / 2;
+    let move_amount = ISSUE_AMOUNT / 2;
     assert_ok!(Portfolio::move_portfolio_funds(
         owner.origin(),
         owner_default_portfolio,
         owner_user_portfolio,
         vec![Fund {
             description: FundDescription::Fungible {
-                ticker,
+                asset_id,
                 amount: move_amount,
             },
             memo: memo.clone(),
@@ -333,7 +337,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
             owner_default_portfolio,
             owner_user_portfolio,
             FundDescription::Fungible {
-                ticker,
+                asset_id,
                 amount: move_amount
             },
             memo.clone()
@@ -341,11 +345,11 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
         System::events().last().unwrap().event,
     );
     assert_eq!(
-        Portfolio::default_portfolio_balance(owner.did, &ticker),
-        token.total_supply - move_amount,
+        Portfolio::default_portfolio_balance(owner.did, &asset_id),
+        ISSUE_AMOUNT - move_amount,
     );
     assert_eq!(
-        Portfolio::user_portfolio_balance(owner.did, num, &ticker),
+        Portfolio::user_portfolio_balance(owner.did, num, &asset_id),
         move_amount,
     );
 }
@@ -354,29 +358,29 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
 fn can_lock_unlock_assets() {
     ExtBuilder::default().build().execute_with(|| {
         let (owner, num) = create_portfolio();
-        let (ticker, token) = create_token(owner);
+        let asset_id = create_and_issue_sample_asset(&owner);
         assert_eq!(
-            Portfolio::default_portfolio_balance(owner.did, &ticker),
-            token.total_supply,
+            Portfolio::default_portfolio_balance(owner.did, &asset_id),
+            ISSUE_AMOUNT,
         );
 
         let owner_default_portfolio = PortfolioId::default_portfolio(owner.did);
         let owner_user_portfolio = PortfolioId::user_portfolio(owner.did, num);
 
         // Lock half of the tokens
-        let lock_amount = token.total_supply / 2;
+        let lock_amount = ISSUE_AMOUNT / 2;
         assert_ok!(Portfolio::lock_tokens(
             &owner_default_portfolio,
-            &ticker,
+            &asset_id,
             lock_amount
         ));
 
         assert_eq!(
-            Portfolio::default_portfolio_balance(owner.did, &ticker),
-            token.total_supply,
+            Portfolio::default_portfolio_balance(owner.did, &asset_id),
+            ISSUE_AMOUNT,
         );
         assert_eq!(
-            Portfolio::locked_assets(owner_default_portfolio, &ticker),
+            Portfolio::locked_assets(owner_default_portfolio, &asset_id),
             lock_amount,
         );
 
@@ -387,8 +391,8 @@ fn can_lock_unlock_assets() {
                 owner_user_portfolio,
                 vec![Fund {
                     description: FundDescription::Fungible {
-                        ticker,
-                        amount: token.total_supply,
+                        asset_id,
+                        amount: ISSUE_AMOUNT,
                     },
                     memo: None,
                 }]
@@ -403,22 +407,22 @@ fn can_lock_unlock_assets() {
             owner_user_portfolio,
             vec![Fund {
                 description: FundDescription::Fungible {
-                    ticker,
+                    asset_id,
                     amount: lock_amount,
                 },
                 memo: None,
             }]
         ));
         assert_eq!(
-            Portfolio::default_portfolio_balance(owner.did, &ticker),
-            token.total_supply - lock_amount,
+            Portfolio::default_portfolio_balance(owner.did, &asset_id),
+            ISSUE_AMOUNT - lock_amount,
         );
         assert_eq!(
-            Portfolio::user_portfolio_balance(owner.did, num, &ticker),
+            Portfolio::user_portfolio_balance(owner.did, num, &asset_id),
             lock_amount,
         );
         assert_eq!(
-            Portfolio::locked_assets(owner_default_portfolio, &ticker),
+            Portfolio::locked_assets(owner_default_portfolio, &asset_id),
             lock_amount,
         );
 
@@ -429,7 +433,10 @@ fn can_lock_unlock_assets() {
                 owner_default_portfolio,
                 owner_user_portfolio,
                 vec![Fund {
-                    description: FundDescription::Fungible { ticker, amount: 1 },
+                    description: FundDescription::Fungible {
+                        asset_id,
+                        amount: 1
+                    },
                     memo: None,
                 }]
             ),
@@ -439,20 +446,20 @@ fn can_lock_unlock_assets() {
         // Unlock tokens
         assert_ok!(Portfolio::unlock_tokens(
             &owner_default_portfolio,
-            &ticker,
+            &asset_id,
             lock_amount
         ));
 
         assert_eq!(
-            Portfolio::default_portfolio_balance(owner.did, &ticker),
-            token.total_supply - lock_amount,
+            Portfolio::default_portfolio_balance(owner.did, &asset_id),
+            ISSUE_AMOUNT - lock_amount,
         );
         assert_eq!(
-            Portfolio::user_portfolio_balance(owner.did, num, &ticker),
+            Portfolio::user_portfolio_balance(owner.did, num, &asset_id),
             lock_amount,
         );
         assert_eq!(
-            Portfolio::locked_assets(owner_default_portfolio, &ticker),
+            Portfolio::locked_assets(owner_default_portfolio, &asset_id),
             0,
         );
 
@@ -463,19 +470,22 @@ fn can_lock_unlock_assets() {
             owner_user_portfolio,
             vec![Fund {
                 description: FundDescription::Fungible {
-                    ticker,
-                    amount: token.total_supply - lock_amount,
+                    asset_id,
+                    amount: ISSUE_AMOUNT - lock_amount,
                 },
                 memo: None,
             }]
         ));
-        assert_eq!(Portfolio::default_portfolio_balance(owner.did, &ticker), 0,);
         assert_eq!(
-            Portfolio::user_portfolio_balance(owner.did, num, &ticker),
-            token.total_supply,
+            Portfolio::default_portfolio_balance(owner.did, &asset_id),
+            0,
         );
         assert_eq!(
-            Portfolio::locked_assets(owner_default_portfolio, &ticker),
+            Portfolio::user_portfolio_balance(owner.did, num, &asset_id),
+            ISSUE_AMOUNT,
+        );
+        assert_eq!(
+            Portfolio::locked_assets(owner_default_portfolio, &asset_id),
             0,
         );
     });
@@ -593,7 +603,6 @@ fn delete_portfolio_with_nfts() {
     ExtBuilder::default().build().execute_with(|| {
         // First we need to create a collection and mint one NFT
         let alice: User = User::new(AccountKeyring::Alice);
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         Portfolio::create_portfolio(
             alice.clone().origin(),
             PortfolioName(b"MyPortfolio".to_vec()),
@@ -601,9 +610,8 @@ fn delete_portfolio_with_nfts() {
         .unwrap();
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(
+        let asset_id = create_nft_collection(
             alice.clone(),
-            ticker,
             AssetType::NonFungible(NonFungibleType::Derivative),
             collection_keys,
         );
@@ -613,7 +621,7 @@ fn delete_portfolio_with_nfts() {
         }];
         mint_nft(
             alice.clone(),
-            ticker,
+            asset_id,
             nfts_metadata,
             PortfolioKind::User(PortfolioNumber(1)),
         );
@@ -637,12 +645,10 @@ fn delete_portfolio_with_locked_nfts() {
             PortfolioName(b"MyPortfolio".to_vec()),
         )
         .unwrap();
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(
+        let asset_id = create_nft_collection(
             alice.clone(),
-            ticker,
             AssetType::NonFungible(NonFungibleType::Derivative),
             collection_keys,
         );
@@ -652,13 +658,19 @@ fn delete_portfolio_with_locked_nfts() {
         }];
         mint_nft(
             alice.clone(),
-            ticker,
+            asset_id,
             nfts_metadata,
             PortfolioKind::User(PortfolioNumber(1)),
         );
-        let venue_id = create_venue(alice);
+        let venue_id = Settlement::venue_counter();
+        assert_ok!(Settlement::create_venue(
+            alice.origin(),
+            Default::default(),
+            vec![alice.acc()],
+            Default::default()
+        ));
         // Locks the NFT - Adds and affirms the instruction
-        let nfts = NFTs::new_unverified(ticker, vec![NFTId(1)]);
+        let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
             sender: PortfolioId::user_portfolio(alice.did, PortfolioNumber(1)),
             receiver: PortfolioId::default_portfolio(bob.did),
@@ -698,9 +710,8 @@ fn move_nft_not_in_portfolio() {
         };
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(
+        let asset_id = create_nft_collection(
             alice.clone(),
-            TICKER,
             AssetType::NonFungible(NonFungibleType::Derivative),
             collection_keys,
         );
@@ -710,14 +721,14 @@ fn move_nft_not_in_portfolio() {
         }];
         mint_nft(
             alice.clone(),
-            TICKER,
+            asset_id,
             nfts_metadata.clone(),
             PortfolioKind::Default,
         );
         Portfolio::create_portfolio(alice.origin(), PortfolioName(b"MyOwnPortfolio".to_vec()))
             .unwrap();
         // Attempts to move the NFT
-        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let funds = vec![Fund {
             description: FundDescription::NonFungible(nfts),
             memo: None,
@@ -750,9 +761,8 @@ fn move_portfolio_nfts() {
         };
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(
+        let asset_id = create_nft_collection(
             alice.clone(),
-            TICKER,
             AssetType::NonFungible(NonFungibleType::Derivative),
             collection_keys,
         );
@@ -762,17 +772,22 @@ fn move_portfolio_nfts() {
         }];
         mint_nft(
             alice.clone(),
-            TICKER,
+            asset_id,
             nfts_metadata.clone(),
             PortfolioKind::Default,
         );
-        mint_nft(alice.clone(), TICKER, nfts_metadata, PortfolioKind::Default);
+        mint_nft(
+            alice.clone(),
+            asset_id,
+            nfts_metadata,
+            PortfolioKind::Default,
+        );
         Portfolio::create_portfolio(alice.origin(), PortfolioName(b"MyOwnPortfolio".to_vec()))
             .unwrap();
         // Moves the NFT
         let nfts = vec![
-            NFTs::new_unverified(TICKER, vec![NFTId(1), NFTId(2), NFTId(1)]),
-            NFTs::new_unverified(TICKER, vec![NFTId(1)]),
+            NFTs::new_unverified(asset_id, vec![NFTId(1), NFTId(2), NFTId(1)]),
+            NFTs::new_unverified(asset_id, vec![NFTId(1)]),
         ];
         let funds = vec![
             Fund {
@@ -791,27 +806,27 @@ fn move_portfolio_nfts() {
             funds,
         ));
         assert_eq!(
-            PortfolioNFT::get(alice_default_portfolio, (TICKER, NFTId(1))),
+            PortfolioNFT::get(alice_default_portfolio, (asset_id, NFTId(1))),
             false
         );
         assert_eq!(
-            PortfolioNFT::get(alice_default_portfolio, (TICKER, NFTId(2))),
+            PortfolioNFT::get(alice_default_portfolio, (asset_id, NFTId(2))),
             false
         );
         assert_eq!(
-            PortfolioNFT::get(alice_custom_portfolio, (TICKER, NFTId(1))),
+            PortfolioNFT::get(alice_custom_portfolio, (asset_id, NFTId(1))),
             true
         );
         assert_eq!(
-            PortfolioNFT::get(alice_custom_portfolio, (TICKER, NFTId(2))),
+            PortfolioNFT::get(alice_custom_portfolio, (asset_id, NFTId(2))),
             true
         );
         assert_eq!(
-            NFTOwner::get(TICKER, NFTId(1)),
+            NFTOwner::get(asset_id, NFTId(1)),
             Some(alice_custom_portfolio)
         );
         assert_eq!(
-            NFTOwner::get(TICKER, NFTId(2)),
+            NFTOwner::get(asset_id, NFTId(2)),
             Some(alice_custom_portfolio)
         );
     });
@@ -829,9 +844,9 @@ fn move_more_funds() {
             did: alice.did,
             kind: PortfolioKind::User(PortfolioNumber(1)),
         };
-        let (ticker, _) = create_token(alice);
+        let asset_id = create_and_issue_sample_asset(&alice);
         assert_eq!(
-            PortfolioAssetBalances::get(&alice_default_portfolio, &ticker),
+            PortfolioAssetBalances::get(&alice_default_portfolio, &asset_id),
             1_000_000_000
         );
         assert_ok!(Portfolio::create_portfolio(
@@ -842,14 +857,14 @@ fn move_more_funds() {
         let funds = vec![
             Fund {
                 description: FundDescription::Fungible {
-                    ticker,
+                    asset_id,
                     amount: 1_000_000_000,
                 },
                 memo: None,
             },
             Fund {
                 description: FundDescription::Fungible {
-                    ticker,
+                    asset_id,
                     amount: 1_000_000_000,
                 },
                 memo: None,
@@ -879,14 +894,17 @@ fn empty_fungible_move() {
             did: alice.did,
             kind: PortfolioKind::User(PortfolioNumber(1)),
         };
-        let (ticker, _) = create_token(alice);
+        let asset_id = create_and_issue_sample_asset(&alice);
         assert_ok!(Portfolio::create_portfolio(
             alice.origin(),
             PortfolioName(b"MyOwnPortfolio".to_vec())
         ));
 
         let funds = vec![Fund {
-            description: FundDescription::Fungible { ticker, amount: 0 },
+            description: FundDescription::Fungible {
+                asset_id,
+                amount: 0,
+            },
             memo: None,
         }];
         assert_noop!(
@@ -913,14 +931,14 @@ fn empty_nft_move() {
             did: alice.did,
             kind: PortfolioKind::User(PortfolioNumber(1)),
         };
-        let (ticker, _) = create_token(alice);
+        let asset_id = create_and_issue_sample_asset(&alice);
         assert_ok!(Portfolio::create_portfolio(
             alice.origin(),
             PortfolioName(b"MyOwnPortfolio".to_vec())
         ));
 
         let funds = vec![Fund {
-            description: FundDescription::NonFungible(NFTs::new_unverified(ticker, Vec::new())),
+            description: FundDescription::NonFungible(NFTs::new_unverified(asset_id, Vec::new())),
             memo: None,
         }];
         assert_noop!(
@@ -943,17 +961,22 @@ fn pre_approve_portfolio() {
         let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
-        Portfolio::pre_approve_portfolio(alice.origin(), TICKER, alice_default_portfolio).unwrap();
+        let asset_id = AssetID::new([0; 16]);
+        Portfolio::pre_approve_portfolio(alice.origin(), asset_id, alice_default_portfolio)
+            .unwrap();
 
-        assert!(PreApprovedPortfolios::get(alice_default_portfolio, TICKER));
-        assert!(!PreApprovedPortfolios::get(alice_user_porfolio, TICKER));
+        assert!(PreApprovedPortfolios::get(
+            alice_default_portfolio,
+            asset_id
+        ));
+        assert!(!PreApprovedPortfolios::get(alice_user_porfolio, asset_id));
         assert!(!Portfolio::skip_portfolio_affirmation(
             &alice_user_porfolio,
-            &TICKER
+            &asset_id
         ));
         assert!(Portfolio::skip_portfolio_affirmation(
             &alice_default_portfolio,
-            &TICKER
+            &asset_id
         ));
     });
 }
@@ -966,19 +989,24 @@ fn remove_portfolio_pre_approval() {
         let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
-        Portfolio::pre_approve_portfolio(alice.origin(), TICKER, alice_default_portfolio).unwrap();
-        Portfolio::remove_portfolio_pre_approval(alice.origin(), TICKER, alice_default_portfolio)
+        let asset_id = AssetID::new([0; 16]);
+        Portfolio::pre_approve_portfolio(alice.origin(), asset_id, alice_default_portfolio)
+            .unwrap();
+        Portfolio::remove_portfolio_pre_approval(alice.origin(), asset_id, alice_default_portfolio)
             .unwrap();
 
-        assert!(!PreApprovedPortfolios::get(alice_default_portfolio, TICKER));
-        assert!(!PreApprovedPortfolios::get(alice_user_porfolio, TICKER));
+        assert!(!PreApprovedPortfolios::get(
+            alice_default_portfolio,
+            asset_id
+        ));
+        assert!(!PreApprovedPortfolios::get(alice_user_porfolio, asset_id));
         assert!(!Portfolio::skip_portfolio_affirmation(
             &alice_user_porfolio,
-            &TICKER
+            &asset_id
         ));
         assert!(!Portfolio::skip_portfolio_affirmation(
             &alice_default_portfolio,
-            &TICKER
+            &asset_id
         ));
     });
 }
@@ -992,21 +1020,22 @@ fn unauthorized_custodian_pre_approval() {
         let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
+        let asset_id = AssetID::new([0; 16]);
         assert_noop!(
-            Portfolio::pre_approve_portfolio(bob.origin(), TICKER, alice_user_porfolio),
+            Portfolio::pre_approve_portfolio(bob.origin(), asset_id, alice_user_porfolio),
             Error::UnauthorizedCustodian
         );
 
         set_custodian_ok(alice, bob, alice_user_porfolio);
 
         assert_noop!(
-            Portfolio::pre_approve_portfolio(eve.origin(), TICKER, alice_user_porfolio),
+            Portfolio::pre_approve_portfolio(eve.origin(), asset_id, alice_user_porfolio),
             Error::UnauthorizedCustodian
         );
 
         assert_ok!(Portfolio::pre_approve_portfolio(
             bob.origin(),
-            TICKER,
+            asset_id,
             alice_user_porfolio
         ),);
     });

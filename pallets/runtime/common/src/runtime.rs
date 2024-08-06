@@ -329,7 +329,6 @@ macro_rules! misc_pallet_impls {
             type CPWeightInfo = polymesh_weights::pallet_checkpoint::SubstrateWeight;
             type NFTFn = pallet_nft::Module<Runtime>;
             type MaxAssetMediators = MaxAssetMediators;
-            type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
         }
 
         impl polymesh_contracts::Config for Runtime {
