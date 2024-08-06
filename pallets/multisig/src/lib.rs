@@ -427,10 +427,18 @@ pub mod pallet {
         /// Add an admin identity to the multisig.  This must be called by the multisig itself.
         #[pallet::call_index(11)]
         #[pallet::weight(<T as Config>::WeightInfo::add_admin())]
-        pub fn add_admin(origin: OriginFor<T>, admin: IdentityId) -> DispatchResultWithPostInfo {
+        pub fn add_admin(
+            origin: OriginFor<T>,
+            admin_did: IdentityId,
+        ) -> DispatchResultWithPostInfo {
             let multisig = ensure_signed(origin)?;
-            Self::ensure_ms(&multisig)?;
-            AdminDid::<T>::insert(multisig, admin);
+            let caller_did = Self::ensure_ms_has_did(&multisig)?;
+            AdminDid::<T>::insert(&multisig, admin_did);
+            Self::deposit_event(Event::MultiSigAddedAdmin {
+                caller_did,
+                multisig,
+                admin_did,
+            });
             Ok(().into())
         }
 
@@ -441,8 +449,13 @@ pub mod pallet {
             origin: OriginFor<T>,
             multisig: T::AccountId,
         ) -> DispatchResultWithPostInfo {
-            Self::ensure_ms_admin(origin, &multisig)?;
-            AdminDid::<T>::remove(multisig);
+            let admin_did = Self::ensure_ms_admin(origin, &multisig)?;
+            AdminDid::<T>::remove(&multisig);
+            Self::deposit_event(Event::MultiSigRemovedAdmin {
+                caller_did: admin_did,
+                multisig,
+                admin_did,
+            });
             Ok(().into())
         }
 
@@ -451,8 +464,13 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::remove_payer())]
         pub fn remove_payer(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let multisig = ensure_signed(origin)?;
-            Self::ensure_ms(&multisig)?;
-            PayingDid::<T>::remove(multisig);
+            let caller_did = Self::ensure_ms_has_did(&multisig)?;
+            let paying_did = PayingDid::<T>::take(&multisig).ok_or(Error::<T>::NoPayingDid)?;
+            Self::deposit_event(Event::MultiSigRemovedPayingDid {
+                caller_did,
+                multisig,
+                paying_did,
+            });
             Ok(().into())
         }
 
@@ -463,8 +481,13 @@ pub mod pallet {
             origin: OriginFor<T>,
             multisig: T::AccountId,
         ) -> DispatchResultWithPostInfo {
-            Self::ensure_ms_payer(origin, &multisig)?;
-            PayingDid::<T>::remove(multisig);
+            let paying_did = Self::ensure_ms_payer(origin, &multisig)?;
+            PayingDid::<T>::remove(&multisig);
+            Self::deposit_event(Event::MultiSigRemovedPayingDid {
+                caller_did: paying_did,
+                multisig,
+                paying_did,
+            });
             Ok(().into())
         }
 
@@ -477,8 +500,8 @@ pub mod pallet {
         /// If quorum is reached, the join identity proposal will be immediately executed.
         #[pallet::call_index(15)]
         #[pallet::weight({
-          <T as Config>::WeightInfo::approve_join_identity()
-            .saturating_add(<T as Config>::WeightInfo::create_join_identity())
+          <T as Config>::WeightInfo::create_join_identity()
+            .saturating_add(<T as Config>::WeightInfo::approve_join_identity())
             .saturating_add(<T as Config>::WeightInfo::execute_proposal())
             .saturating_add(<T as Config>::WeightInfo::join_identity())
         })]
@@ -518,7 +541,7 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        /// Event emitted after creation of a multisig.
+        /// A Multisig has been created.
         MultiSigCreated {
             caller_did: IdentityId,
             multisig: T::AccountId,
@@ -526,76 +549,92 @@ pub mod pallet {
             signers: BoundedVec<T::AccountId, T::MaxSigners>,
             sigs_required: u64,
         },
-        /// Event emitted after adding a proposal.
+        /// A Multisig proposal has been created.
         ProposalAdded {
             caller_did: Option<IdentityId>,
             multisig: T::AccountId,
             proposal_id: u64,
         },
-        /// Event emitted when a proposal is executed.
+        /// A Multisig proposal has been executed.
         ProposalExecuted {
             caller_did: Option<IdentityId>,
             multisig: T::AccountId,
             proposal_id: u64,
             result: DispatchResult,
         },
-        /// Event emitted when a signer is added by accepting the authorization.
+        /// A new signer has been added to a Multisig.
         MultiSigSignerAdded {
             caller_did: IdentityId,
             multisig: T::AccountId,
             signer: T::AccountId,
         },
-        /// Event emitted when multisig signers are authorized to be added.
+        /// New keys have been authorized to be signers on a Multisig.
         MultiSigSignersAuthorized {
             caller_did: IdentityId,
             multisig: T::AccountId,
             signers: BoundedVec<T::AccountId, T::MaxSigners>,
         },
-        /// Event emitted when multisig signers are removed.
+        /// Signers have been removed from a Multisig.
         MultiSigSignersRemoved {
             caller_did: IdentityId,
             multisig: T::AccountId,
             signers: BoundedVec<T::AccountId, T::MaxSigners>,
         },
-        /// Event emitted when the number of required signers is changed.
+        /// A Multisig has changed its required number of approvals.
         MultiSigSignersRequiredChanged {
             caller_did: Option<IdentityId>,
             multisig: T::AccountId,
             sigs_required: u64,
         },
-        /// Event emitted when a vote is cast in favor of approving a proposal.
+        /// A signer has voted to approve a Multisig proposal.
         ProposalApprovalVote {
             caller_did: Option<IdentityId>,
             multisig: T::AccountId,
             signer: T::AccountId,
             proposal_id: u64,
         },
-        /// Event emitted when a vote is cast in favor of rejecting a proposal.
+        /// A signer has voted to reject a Multisig proposal.
         ProposalRejectionVote {
             caller_did: Option<IdentityId>,
             multisig: T::AccountId,
             signer: T::AccountId,
             proposal_id: u64,
         },
-        /// Event emitted when the proposal is approved.
+        /// A Multisig proposal has been approved.
         ProposalApproved {
             caller_did: Option<IdentityId>,
             multisig: T::AccountId,
             proposal_id: u64,
         },
-        /// Event emitted when a proposal is rejected.
+        /// A Multisig proposal has been rejected.
         ProposalRejected {
             caller_did: Option<IdentityId>,
             multisig: T::AccountId,
             proposal_id: u64,
+        },
+        /// A Multisig has added an admin DID.
+        MultiSigAddedAdmin {
+            caller_did: IdentityId,
+            multisig: T::AccountId,
+            admin_did: IdentityId,
+        },
+        /// A Multisig has removed it's admin DID.
+        MultiSigRemovedAdmin {
+            caller_did: IdentityId,
+            multisig: T::AccountId,
+            admin_did: IdentityId,
+        },
+        /// A Multisig has removed it's paying DID.
+        MultiSigRemovedPayingDid {
+            caller_did: IdentityId,
+            multisig: T::AccountId,
+            paying_did: IdentityId,
         },
     }
 
     /// Multisig module errors.
     #[pallet::error]
     pub enum Error<T> {
-        /// The multisig is not attached to a CDD'd identity.
-        CddMissing,
         /// The proposal does not exist.
         ProposalMissing,
         /// Multisig address.
@@ -615,8 +654,6 @@ pub mod pallet {
         AlreadyVoted,
         /// Already a signer.
         AlreadyASigner,
-        /// Couldn't charge fee for the transaction.
-        FailedToChargeFee,
         /// Identity provided is not the multisig's admin.
         IdentityNotAdmin,
         /// Identity provided is not the multisig's payer.
@@ -639,11 +676,10 @@ pub mod pallet {
         MaxWeightTooLow,
         /// Multisig is not attached to an identity
         MultisigMissingIdentity,
-        /// Tried to remove more signers then the multisig has.
+        /// Tried to add/remove too many signers.
         TooManySigners,
-        /// A multisig proposal is not allowed to nest the approval & execution of
-        /// another multisig proposal.
-        MultiSigProposalNestingNotAllowed,
+        /// Multisig doesn't have a paying DID.
+        NoPayingDid,
     }
 
     /// Nonce to ensure unique MultiSig addresses are generated; starts from 1.
@@ -1054,10 +1090,7 @@ impl<T: Config> Pallet<T> {
 
         let (result, actual_weight) = match with_call_metadata(proposal.get_call_metadata(), || {
             // Check execution reentry guard.
-            ensure!(
-                !Self::execution_reentry(),
-                Error::<T>::MultiSigProposalNestingNotAllowed,
-            );
+            ensure!(!Self::execution_reentry(), Error::<T>::NestingNotAllowed,);
 
             // Enable reentry guard before executing the proposal.
             ExecutionReentry::<T>::set(true);
