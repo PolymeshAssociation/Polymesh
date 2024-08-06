@@ -91,6 +91,24 @@ fn init_admin<T: Config + TestUtilsFn<AccountIdOf<T>>>(multisig: &T::AccountId, 
     MultiSig::<T>::add_admin(multisig_origin.into(), admin_did).unwrap();
 }
 
+fn init_join_identity<T: Config + TestUtilsFn<AccountIdOf<T>>>(
+    multisig: &T::AccountId,
+    admin: &User<T>,
+) -> u64 {
+    let multisig_origin = RawOrigin::Signed(multisig.clone());
+    let admin_did = admin.did.expect("Admin must have a DID");
+    Identity::<T>::leave_identity_as_key(multisig_origin.into()).unwrap();
+    let signatory = Signatory::Account(multisig.clone());
+    let auth_id = Identity::<T>::add_auth(
+        admin_did,
+        signatory,
+        AuthorizationData::JoinIdentity(Permissions::empty()),
+        None,
+    )
+    .unwrap();
+    auth_id
+}
+
 fn generate_multisig_for_alice_wo_accepting<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     total_signers: u32,
     signers_required: u32,
@@ -133,7 +151,10 @@ pub type ProposalSetupResult<T, AccountId, Proposal, MaxSigners> = (
 fn generate_multisig_and_proposal_for_alice<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     total_signers: u32,
     signers_required: u32,
-) -> Result<ProposalSetupResult<T, T::AccountId, T::Proposal, T::MaxSigners>, DispatchError> {
+) -> Result<
+    ProposalSetupResult<T, T::AccountId, <T as Config>::Proposal, T::MaxSigners>,
+    DispatchError,
+> {
     let (alice, multisig, signers, users, _) =
         generate_multisig_for_alice::<T>(total_signers, signers_required).unwrap();
     let proposal_id = MultiSig::<T>::next_proposal_id(multisig.clone());
@@ -152,7 +173,10 @@ fn generate_multisig_and_proposal_for_alice<T: Config + TestUtilsFn<AccountIdOf<
 fn generate_multisig_and_create_proposal<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     total_signers: u32,
     signers_required: u32,
-) -> Result<ProposalSetupResult<T, T::AccountId, T::Proposal, T::MaxSigners>, DispatchError> {
+) -> Result<
+    ProposalSetupResult<T, T::AccountId, <T as Config>::Proposal, T::MaxSigners>,
+    DispatchError,
+> {
     let (alice, multisig, signers, users, proposal_id, proposal, ephemeral_multisig) =
         generate_multisig_and_proposal_for_alice::<T>(total_signers, signers_required).unwrap();
     // Use the first signer to create the proposal.
@@ -223,7 +247,7 @@ benchmarks! {
         let (alice, multisig, signers, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(3, 3).unwrap();
         let did = alice.did.expect("Alice must have a DID");
     }: {
-      assert!(MultiSig::<T>::execute_proposal(&multisig, proposal_id, did, Weight::MAX).is_ok());
+      assert!(MultiSig::<T>::execute_proposal(&multisig, proposal_id, Some(did), Weight::MAX).is_ok());
     }
 
     reject {
@@ -325,4 +349,24 @@ benchmarks! {
     remove_payer_via_payer {
         let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(2, 2).unwrap();
     }: _(alice.origin(), multisig)
+
+    join_identity {
+        let (alice, multisig, _, users, multisig_origin) = generate_multisig_for_alice::<T>(4, 3).unwrap();
+        let auth_id = init_join_identity(&multisig, &alice);
+        // The first approval creates the proposal.
+        MultiSig::<T>::approve_join_identity(users[0].origin().into(), multisig.clone(), auth_id).unwrap();
+    }: _(multisig_origin, auth_id)
+
+    create_join_identity {
+        let (alice, multisig, _, users, multisig_origin) = generate_multisig_for_alice::<T>(4, 3).unwrap();
+        let auth_id = init_join_identity(&multisig, &alice);
+    }: approve_join_identity(users[0].origin(), multisig, auth_id)
+
+    approve_join_identity {
+        let (alice, multisig, _, users, multisig_origin) = generate_multisig_for_alice::<T>(4, 3).unwrap();
+        let auth_id = init_join_identity(&multisig, &alice);
+        // The first approval creates the proposal.
+        MultiSig::<T>::approve_join_identity(users[0].origin().into(), multisig.clone(), auth_id).unwrap();
+        // The second approval call just approves.
+    }: approve_join_identity(users[1].origin(), multisig, auth_id)
 }

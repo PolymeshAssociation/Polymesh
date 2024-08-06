@@ -77,7 +77,7 @@ use frame_support::dispatch::{
 };
 use frame_support::ensure;
 use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
-use frame_support::traits::{Get, GetCallMetadata};
+use frame_support::traits::{Get, GetCallMetadata, IsSubType, UnfilteredDispatchable};
 use frame_support::BoundedVec;
 use frame_system::ensure_signed;
 use sp_runtime::traits::{Dispatchable, Hash};
@@ -136,8 +136,21 @@ pub mod pallet {
     pub trait Config: frame_system::Config + IdentityConfig {
         /// The overarching event type.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+        /// The overarching call type for proposals.
+        type Proposal: Parameter
+            + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
+            + GetCallMetadata
+            + GetDispatchInfo
+            + From<Call<Self>>
+            + From<frame_system::Call<Self>>
+            + UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+            + IsSubType<Call<Self>>
+            + IsType<<Self as frame_system::Config>::RuntimeCall>;
+
         /// Weight information for extrinsics in the multisig pallet.
         type WeightInfo: WeightInfo;
+
         /// Maximum number of signers that can be added/removed in one call.
         #[pallet::constant]
         type MaxSigners: Get<u32>;
@@ -233,12 +246,12 @@ pub mod pallet {
         pub fn create_proposal(
             origin: OriginFor<T>,
             multisig: T::AccountId,
-            proposal: Box<T::Proposal>,
+            proposal: Box<<T as Config>::Proposal>,
             expiry: Option<T::Moment>,
         ) -> DispatchResultWithPostInfo {
             let signer = ensure_signed(origin)?;
             with_base_weight(<T as Config>::WeightInfo::create_proposal(), || {
-                Self::base_create_proposal(&multisig, signer, proposal, expiry)
+                Self::base_create_proposal(&multisig, signer, &proposal, expiry)
             })
         }
 
@@ -454,6 +467,52 @@ pub mod pallet {
             PayingDid::<T>::remove(multisig);
             Ok(().into())
         }
+
+        /// Approves a multisig join identity proposal.
+        ///
+        /// # Arguments
+        /// * `multisig` - MultiSig address.
+        /// * `auth_id` - The join identity authorization to approve.
+        ///
+        /// If quorum is reached, the join identity proposal will be immediately executed.
+        #[pallet::call_index(15)]
+        #[pallet::weight({
+          <T as Config>::WeightInfo::approve_join_identity()
+            .saturating_add(<T as Config>::WeightInfo::create_join_identity())
+            .saturating_add(<T as Config>::WeightInfo::execute_proposal())
+            .saturating_add(<T as Config>::WeightInfo::join_identity())
+        })]
+        pub fn approve_join_identity(
+            origin: OriginFor<T>,
+            multisig: T::AccountId,
+            auth_id: u64,
+        ) -> DispatchResultWithPostInfo {
+            let signer = ensure_signed(origin)?;
+            if let Some(proposal_id) = AuthToProposalId::<T>::get(&multisig, auth_id) {
+                let max_weight = <T as Config>::WeightInfo::join_identity();
+                with_base_weight(<T as Config>::WeightInfo::approve_join_identity(), || {
+                    Self::base_approve(&multisig, signer, proposal_id, max_weight)
+                })
+            } else {
+                let proposal = Call::<T>::join_identity { auth_id }.into();
+                let proposal_id = Self::next_proposal_id(&multisig);
+                AuthToProposalId::<T>::insert(&multisig, auth_id, proposal_id);
+                with_base_weight(<T as Config>::WeightInfo::create_join_identity(), || {
+                    Self::base_create_proposal(&multisig, signer, &proposal, None)
+                })
+            }
+        }
+
+        /// Accept a JoinIdentity authorization for this multisig.  This must be called by the multisig itself.
+        #[pallet::call_index(16)]
+        #[pallet::weight(<T as Config>::WeightInfo::join_identity())]
+        pub fn join_identity(origin: OriginFor<T>, auth_id: u64) -> DispatchResultWithPostInfo {
+            let multisig = ensure_signed(origin.clone())?;
+            Self::ensure_ms(&multisig)?;
+            AuthToProposalId::<T>::remove(multisig, auth_id);
+            pallet_identity::Module::<T>::join_identity(origin, auth_id)?;
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
@@ -469,13 +528,13 @@ pub mod pallet {
         },
         /// Event emitted after adding a proposal.
         ProposalAdded {
-            caller_did: IdentityId,
+            caller_did: Option<IdentityId>,
             multisig: T::AccountId,
             proposal_id: u64,
         },
         /// Event emitted when a proposal is executed.
         ProposalExecuted {
-            caller_did: IdentityId,
+            caller_did: Option<IdentityId>,
             multisig: T::AccountId,
             proposal_id: u64,
             result: DispatchResult,
@@ -500,33 +559,33 @@ pub mod pallet {
         },
         /// Event emitted when the number of required signers is changed.
         MultiSigSignersRequiredChanged {
-            caller_did: IdentityId,
+            caller_did: Option<IdentityId>,
             multisig: T::AccountId,
             sigs_required: u64,
         },
         /// Event emitted when a vote is cast in favor of approving a proposal.
         ProposalApprovalVote {
-            caller_did: IdentityId,
+            caller_did: Option<IdentityId>,
             multisig: T::AccountId,
             signer: T::AccountId,
             proposal_id: u64,
         },
         /// Event emitted when a vote is cast in favor of rejecting a proposal.
         ProposalRejectionVote {
-            caller_did: IdentityId,
+            caller_did: Option<IdentityId>,
             multisig: T::AccountId,
             signer: T::AccountId,
             proposal_id: u64,
         },
-        /// Event emitted when the proposal get approved.
+        /// Event emitted when the proposal is approved.
         ProposalApproved {
-            caller_did: IdentityId,
+            caller_did: Option<IdentityId>,
             multisig: T::AccountId,
             proposal_id: u64,
         },
         /// Event emitted when a proposal is rejected.
         ProposalRejected {
-            caller_did: IdentityId,
+            caller_did: Option<IdentityId>,
             multisig: T::AccountId,
             proposal_id: u64,
         },
@@ -617,11 +676,11 @@ pub mod pallet {
 
     /// Proposals presented for voting to a multisig.
     ///
-    /// multisig -> proposal id => Option<T::Proposal>.
+    /// multisig -> proposal id => Option<Proposal>.
     #[pallet::storage]
     #[pallet::getter(fn proposals)]
     pub type Proposals<T: Config> =
-        StorageDoubleMap<_, Twox64Concat, T::AccountId, Twox64Concat, u64, T::Proposal>;
+        StorageDoubleMap<_, Twox64Concat, T::AccountId, Twox64Concat, u64, <T as Config>::Proposal>;
 
     /// Individual multisig signer votes.
     ///
@@ -679,6 +738,13 @@ pub mod pallet {
     #[pallet::getter(fn execution_reentry)]
     pub(super) type ExecutionReentry<T: Config> = StorageValue<_, bool, ValueQuery>;
 
+    /// Pending join identity authorization proposals.
+    ///
+    /// multisig -> auth id => Option<proposal id>.
+    #[pallet::storage]
+    pub type AuthToProposalId<T: Config> =
+        StorageDoubleMap<_, Twox64Concat, T::AccountId, Twox64Concat, u64, u64>;
+
     /// The last transaction version, used for `on_runtime_upgrade`.
     #[pallet::storage]
     #[pallet::getter(fn transaction_version)]
@@ -708,10 +774,13 @@ impl<T: Config> Pallet<T> {
         PayingDid::<T>::get(multisig)
     }
 
-    pub fn ensure_ms_get_did(multisig: &T::AccountId) -> Result<IdentityId, DispatchError> {
+    pub fn ensure_ms_get_did(multisig: &T::AccountId) -> Result<Option<IdentityId>, DispatchError> {
         Self::ensure_ms(multisig)?;
-        IdentityPallet::<T>::get_identity(multisig)
-            .ok_or(Error::<T>::MultisigMissingIdentity.into())
+        Ok(IdentityPallet::<T>::get_identity(multisig))
+    }
+
+    pub fn ensure_ms_has_did(multisig: &T::AccountId) -> Result<IdentityId, DispatchError> {
+        Self::ensure_ms_get_did(multisig)?.ok_or(Error::<T>::MultisigMissingIdentity.into())
     }
 
     fn ensure_max_signers(multisig: &T::AccountId, len: u64) -> Result<u64, DispatchError> {
@@ -808,7 +877,7 @@ impl<T: Config> Pallet<T> {
         signers: BoundedVec<T::AccountId, T::MaxSigners>,
     ) -> DispatchResult {
         // Ensure `multisig` is a MultiSig and get it's DID.
-        let ms_did = Self::ensure_ms_get_did(&multisig)?;
+        let ms_did = Self::ensure_ms_has_did(&multisig)?;
         // Don't allow adding too many signers.
         Self::ensure_max_signers(&multisig, signers.len() as u64)?;
 
@@ -827,7 +896,7 @@ impl<T: Config> Pallet<T> {
         signers: BoundedVec<T::AccountId, T::MaxSigners>,
     ) -> DispatchResult {
         // Ensure `multisig` is a MultiSig and get it's DID.
-        let ms_did = Self::ensure_ms_get_did(&multisig)?;
+        let ms_did = Self::ensure_ms_has_did(&multisig)?;
         ensure!(
             Self::is_changing_signers_allowed(&multisig),
             Error::<T>::ChangeNotAllowed
@@ -895,7 +964,7 @@ impl<T: Config> Pallet<T> {
     fn base_create_proposal(
         multisig: &T::AccountId,
         signer: T::AccountId,
-        proposal: Box<T::Proposal>,
+        proposal: &<T as Config>::Proposal,
         expiry: Option<T::Moment>,
     ) -> DispatchResultWithPostInfo {
         Self::ensure_ms_signer(multisig, &signer)?;
@@ -947,7 +1016,7 @@ impl<T: Config> Pallet<T> {
         ProposalVoteCounts::<T>::insert(multisig, proposal_id, vote_count);
         // emit proposal approval vote event.
         Self::deposit_event(Event::ProposalApprovalVote {
-            caller_did: caller_did,
+            caller_did,
             multisig: multisig.clone(),
             signer,
             proposal_id,
@@ -963,7 +1032,7 @@ impl<T: Config> Pallet<T> {
     fn execute_proposal(
         multisig: &T::AccountId,
         proposal_id: u64,
-        caller_did: IdentityId,
+        caller_did: Option<IdentityId>,
         max_weight: Weight,
     ) -> DispatchResultWithPostInfo {
         // emit proposal approved event
@@ -1092,7 +1161,7 @@ impl<T: Config> Pallet<T> {
                 ensure!(!Self::is_multisig(&signer), Error::<T>::NestingNotAllowed);
 
                 // Ensure the multisig has a DID and get it.
-                let ms_identity = Self::ensure_ms_get_did(&multisig)?;
+                let ms_identity = Self::ensure_ms_has_did(&multisig)?;
 
                 ensure!(
                     Self::is_changing_signers_allowed(&multisig),
@@ -1182,7 +1251,7 @@ impl<T: Config> Pallet<T> {
         );
         MultiSigSignsRequired::<T>::insert(multisig, &signatures_required);
         Self::deposit_event(Event::MultiSigSignersRequiredChanged {
-            caller_did: caller_did.unwrap_or(ms_did),
+            caller_did: caller_did.or(ms_did),
             multisig: multisig.clone(),
             sigs_required: signatures_required,
         });
