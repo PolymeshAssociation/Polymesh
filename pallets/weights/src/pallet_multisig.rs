@@ -19,7 +19,7 @@
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2024-08-06, STEPS: `10`, REPEAT: 2, LOW RANGE: `[]`, HIGH RANGE: `[]`
-//! EXECUTION: Some(Native), WASM-EXECUTION: Compiled, CHAIN: None, DB CACHE: 512
+//! EXECUTION: Some(Wasm), WASM-EXECUTION: Compiled, CHAIN: None, DB CACHE: 512
 //! HOSTNAME: `trinity`, CPU: `AMD Ryzen 9 7950X 16-Core Processor`
 
 // Executed Command:
@@ -37,7 +37,9 @@
 // --heap-pages
 // 4096
 // --execution
-// native
+// wasm
+// --wasm-execution
+// compiled
 // --output
 // ./
 // --template
@@ -71,10 +73,10 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Proof Skipped: MultiSig MultiSigSignsRequired (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[1, 50]`.
     fn create_multisig(i: u32) -> Weight {
-        // Minimum execution time: 21_591 nanoseconds.
-        Weight::from_ref_time(19_882_067)
-            // Standard Error: 18_124
-            .saturating_add(Weight::from_ref_time(3_092_806).saturating_mul(i.into()))
+        // Minimum execution time: 43_291 nanoseconds.
+        Weight::from_ref_time(37_754_246)
+            // Standard Error: 77_459
+            .saturating_add(Weight::from_ref_time(9_761_442).saturating_mul(i.into()))
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(7))
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(i.into())))
@@ -100,8 +102,8 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Storage: MultiSig ProposalStates (r:0 w:1)
     // Proof Skipped: MultiSig ProposalStates (max_values: None, max_size: None, mode: Measured)
     fn create_proposal() -> Weight {
-        // Minimum execution time: 25_288 nanoseconds.
-        Weight::from_ref_time(27_221_000)
+        // Minimum execution time: 54_102 nanoseconds.
+        Weight::from_ref_time(65_152_000)
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(5))
     }
@@ -122,8 +124,8 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Storage: MultiSig ProposalVoteCounts (r:1 w:1)
     // Proof Skipped: MultiSig ProposalVoteCounts (max_values: None, max_size: None, mode: Measured)
     fn approve() -> Weight {
-        // Minimum execution time: 24_296 nanoseconds.
-        Weight::from_ref_time(25_077_000)
+        // Minimum execution time: 41_588 nanoseconds.
+        Weight::from_ref_time(46_487_000)
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -138,8 +140,8 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Storage: MultiSig ProposalStates (r:0 w:1)
     // Proof Skipped: MultiSig ProposalStates (max_values: None, max_size: None, mode: Measured)
     fn execute_proposal() -> Weight {
-        // Minimum execution time: 14_457 nanoseconds.
-        Weight::from_ref_time(15_088_000)
+        // Minimum execution time: 28_344 nanoseconds.
+        Weight::from_ref_time(33_964_000)
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(5))
     }
@@ -162,8 +164,8 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Storage: MultiSig Proposals (r:0 w:1)
     // Proof Skipped: MultiSig Proposals (max_values: None, max_size: None, mode: Measured)
     fn reject() -> Weight {
-        // Minimum execution time: 26_549 nanoseconds.
-        Weight::from_ref_time(28_082_000)
+        // Minimum execution time: 49_362 nanoseconds.
+        Weight::from_ref_time(53_670_000)
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().writes(4))
     }
@@ -188,8 +190,8 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Storage: Identity AuthorizationsGiven (r:0 w:1)
     // Proof Skipped: Identity AuthorizationsGiven (max_values: None, max_size: None, mode: Measured)
     fn accept_multisig_signer() -> Weight {
-        // Minimum execution time: 25_527 nanoseconds.
-        Weight::from_ref_time(28_533_000)
+        // Minimum execution time: 49_753 nanoseconds.
+        Weight::from_ref_time(55_834_000)
             .saturating_add(DbWeight::get().reads(11))
             .saturating_add(DbWeight::get().writes(6))
     }
@@ -211,10 +213,10 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity Authorizations (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[1, 49]`.
     fn add_multisig_signers(i: u32) -> Weight {
-        // Minimum execution time: 19_616 nanoseconds.
-        Weight::from_ref_time(18_005_110)
-            // Standard Error: 39_112
-            .saturating_add(Weight::from_ref_time(3_187_129).saturating_mul(i.into()))
+        // Minimum execution time: 35_657 nanoseconds.
+        Weight::from_ref_time(28_979_852)
+            // Standard Error: 89_427
+            .saturating_add(Weight::from_ref_time(9_858_473).saturating_mul(i.into()))
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(2))
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(i.into())))
@@ -233,10 +235,10 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Proof Skipped: MultiSig MultiSigSigners (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[2, 50]`.
     fn remove_multisig_signers(i: u32) -> Weight {
-        // Minimum execution time: 21_600 nanoseconds.
-        Weight::from_ref_time(12_661_922)
-            // Standard Error: 219_802
-            .saturating_add(Weight::from_ref_time(4_455_378).saturating_mul(i.into()))
+        // Minimum execution time: 37_000 nanoseconds.
+        Weight::from_ref_time(20_586_885)
+            // Standard Error: 102_667
+            .saturating_add(Weight::from_ref_time(8_394_732).saturating_mul(i.into()))
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(i.into())))
             .saturating_add(DbWeight::get().writes(3))
@@ -262,10 +264,10 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity Authorizations (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[1, 49]`.
     fn add_multisig_signers_via_admin(i: u32) -> Weight {
-        // Minimum execution time: 23_434 nanoseconds.
-        Weight::from_ref_time(21_369_515)
-            // Standard Error: 39_374
-            .saturating_add(Weight::from_ref_time(3_235_910).saturating_mul(i.into()))
+        // Minimum execution time: 42_510 nanoseconds.
+        Weight::from_ref_time(39_699_062)
+            // Standard Error: 86_701
+            .saturating_add(Weight::from_ref_time(9_651_683).saturating_mul(i.into()))
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().writes(2))
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(i.into())))
@@ -286,10 +288,10 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Proof Skipped: MultiSig MultiSigSigners (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[2, 50]`.
     fn remove_multisig_signers_via_admin(i: u32) -> Weight {
-        // Minimum execution time: 25_378 nanoseconds.
-        Weight::from_ref_time(17_917_120)
-            // Standard Error: 57_752
-            .saturating_add(Weight::from_ref_time(4_260_942).saturating_mul(i.into()))
+        // Minimum execution time: 43_562 nanoseconds.
+        Weight::from_ref_time(35_705_240)
+            // Standard Error: 149_622
+            .saturating_add(Weight::from_ref_time(8_263_545).saturating_mul(i.into()))
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(i.into())))
             .saturating_add(DbWeight::get().writes(3))
@@ -306,8 +308,8 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Storage: Identity CddAuthForPrimaryKeyRotation (r:1 w:0)
     // Proof Skipped: Identity CddAuthForPrimaryKeyRotation (max_values: Some(1), max_size: None, mode: Measured)
     fn change_sigs_required() -> Weight {
-        // Minimum execution time: 15_068 nanoseconds.
-        Weight::from_ref_time(16_852_000)
+        // Minimum execution time: 28_253 nanoseconds.
+        Weight::from_ref_time(30_617_000)
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -324,19 +326,23 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Storage: Identity CddAuthForPrimaryKeyRotation (r:1 w:0)
     // Proof Skipped: Identity CddAuthForPrimaryKeyRotation (max_values: Some(1), max_size: None, mode: Measured)
     fn change_sigs_required_via_admin() -> Weight {
-        // Minimum execution time: 19_246 nanoseconds.
-        Weight::from_ref_time(20_728_000)
+        // Minimum execution time: 32_020 nanoseconds.
+        Weight::from_ref_time(36_699_000)
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: MultiSig MultiSigSignsRequired (r:1 w:0)
     // Proof Skipped: MultiSig MultiSigSignsRequired (max_values: None, max_size: None, mode: Measured)
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: Identity IsDidFrozen (r:1 w:0)
+    // Proof Skipped: Identity IsDidFrozen (max_values: None, max_size: None, mode: Measured)
     // Storage: MultiSig AdminDid (r:0 w:1)
     // Proof Skipped: MultiSig AdminDid (max_values: None, max_size: None, mode: Measured)
     fn add_admin() -> Weight {
-        // Minimum execution time: 6_272 nanoseconds.
-        Weight::from_ref_time(9_418_000)
-            .saturating_add(DbWeight::get().reads(1))
+        // Minimum execution time: 21_090 nanoseconds.
+        Weight::from_ref_time(25_417_000)
+            .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
@@ -344,19 +350,23 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Storage: MultiSig AdminDid (r:1 w:1)
     // Proof Skipped: MultiSig AdminDid (max_values: None, max_size: None, mode: Measured)
     fn remove_admin_via_admin() -> Weight {
-        // Minimum execution time: 10_159 nanoseconds.
-        Weight::from_ref_time(11_151_000)
+        // Minimum execution time: 19_807 nanoseconds.
+        Weight::from_ref_time(24_145_000)
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: MultiSig MultiSigSignsRequired (r:1 w:0)
     // Proof Skipped: MultiSig MultiSigSignsRequired (max_values: None, max_size: None, mode: Measured)
-    // Storage: MultiSig PayingDid (r:0 w:1)
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: Identity IsDidFrozen (r:1 w:0)
+    // Proof Skipped: Identity IsDidFrozen (max_values: None, max_size: None, mode: Measured)
+    // Storage: MultiSig PayingDid (r:1 w:1)
     // Proof Skipped: MultiSig PayingDid (max_values: None, max_size: None, mode: Measured)
     fn remove_payer() -> Weight {
-        // Minimum execution time: 5_350 nanoseconds.
-        Weight::from_ref_time(5_871_000)
-            .saturating_add(DbWeight::get().reads(1))
+        // Minimum execution time: 22_462 nanoseconds.
+        Weight::from_ref_time(26_760_000)
+            .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
@@ -364,8 +374,8 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Storage: MultiSig PayingDid (r:1 w:1)
     // Proof Skipped: MultiSig PayingDid (max_values: None, max_size: None, mode: Measured)
     fn remove_payer_via_payer() -> Weight {
-        // Minimum execution time: 9_999 nanoseconds.
-        Weight::from_ref_time(10_299_000)
+        // Minimum execution time: 18_955 nanoseconds.
+        Weight::from_ref_time(27_732_000)
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -400,8 +410,8 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Storage: MultiSig AuthToProposalId (r:0 w:1)
     // Proof Skipped: MultiSig AuthToProposalId (max_values: None, max_size: None, mode: Measured)
     fn join_identity() -> Weight {
-        // Minimum execution time: 38_291 nanoseconds.
-        Weight::from_ref_time(54_121_000)
+        // Minimum execution time: 68_379 nanoseconds.
+        Weight::from_ref_time(74_179_000)
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(7))
     }
@@ -424,8 +434,8 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Storage: MultiSig ProposalStates (r:0 w:1)
     // Proof Skipped: MultiSig ProposalStates (max_values: None, max_size: None, mode: Measured)
     fn create_join_identity() -> Weight {
-        // Minimum execution time: 23_574 nanoseconds.
-        Weight::from_ref_time(25_358_000)
+        // Minimum execution time: 53_541 nanoseconds.
+        Weight::from_ref_time(59_011_000)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(6))
     }
@@ -446,8 +456,8 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Storage: MultiSig ProposalVoteCounts (r:1 w:1)
     // Proof Skipped: MultiSig ProposalVoteCounts (max_values: None, max_size: None, mode: Measured)
     fn approve_join_identity() -> Weight {
-        // Minimum execution time: 25_678 nanoseconds.
-        Weight::from_ref_time(30_507_000)
+        // Minimum execution time: 53_060 nanoseconds.
+        Weight::from_ref_time(54_292_000)
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().writes(2))
     }
