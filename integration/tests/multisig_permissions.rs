@@ -149,6 +149,22 @@ impl MuliSigState {
         self.run_proposal(leave_did_call).await
     }
 
+    pub async fn remove_payer(&mut self) -> Result<TransactionResults> {
+        let remove_payer_call = self.api.call().multi_sig().remove_payer()?;
+        self.run_proposal(remove_payer_call).await
+    }
+
+    pub async fn remove_payer_via_payer(&mut self) -> Result<TransactionResults> {
+        let res = self
+            .api
+            .call()
+            .multi_sig()
+            .remove_payer_via_payer(self.account.clone())?
+            .execute(&mut self.creator)
+            .await?;
+        Ok(res)
+    }
+
     pub async fn make_primary(&mut self) -> Result<TransactionResults> {
         let mut res = self
             .api
@@ -587,6 +603,100 @@ async fn ms_needs_to_be_linked_to_an_identity() -> Result<()> {
     // Shouldn't be allowed, since the MS doesn't have a DID.
     let res = ms.run_proposal(remark_call).await;
     assert!(res.is_err());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn ms_remove_payer() -> Result<()> {
+    let mut tester = PolymeshTester::new().await?;
+    let users = tester.users(&["MultiSigRemovePayer"]).await?;
+    let mut did = users[0].clone();
+
+    // Use the primary key of did1 to create a MS and join it do did1 as a secondary key.
+    let whole = PermissionsBuilder::whole();
+    let mut ms = MuliSigState::create_and_join_creator(
+        &mut tester,
+        &did.primary_key,
+        3,
+        2,
+        false,
+        Some(whole.into()),
+    )
+    .await?;
+
+    // Remove the paying DID.
+    let mut res = ms.remove_payer().await?;
+    res.wait_in_block().await?;
+
+    // Shouldn't be allowed, since the MS doesn't have any POLYX
+    // to pay the tx fees.
+    let remark_call = tester.api.call().system().remark(vec![])?;
+    let res = ms.run_proposal(remark_call).await;
+    assert!(res.is_err());
+
+    // Fund the MultiSig so that it can pay tx fees.
+    let mut res_transfer = tester
+        .api
+        .call()
+        .balances()
+        .transfer(ms.account.into(), 10 * ONE_POLYX)?
+        .execute(&mut did)
+        .await?;
+    // Wait for transfer.
+    res_transfer.ok().await?;
+
+    // Should be able to execute proposals now.
+    let remark_call = tester.api.call().system().remark(vec![])?;
+    let mut res = ms.run_proposal(remark_call).await?;
+    res.ok().await?;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn ms_remove_payer_via_payer() -> Result<()> {
+    let mut tester = PolymeshTester::new().await?;
+    let users = tester.users(&["MultiSigRemovePayerViaPayer"]).await?;
+    let mut did = users[0].clone();
+
+    // Use the primary key of did1 to create a MS and join it do did1 as a secondary key.
+    let whole = PermissionsBuilder::whole();
+    let mut ms = MuliSigState::create_and_join_creator(
+        &mut tester,
+        &did.primary_key,
+        3,
+        2,
+        false,
+        Some(whole.into()),
+    )
+    .await?;
+
+    // Remove the paying DID via the payer.
+    let mut res = ms.remove_payer_via_payer().await?;
+    res.wait_in_block().await?;
+
+    // Shouldn't be allowed, since the MS doesn't have any POLYX
+    // to pay the tx fees.
+    let remark_call = tester.api.call().system().remark(vec![])?;
+    let res = ms.run_proposal(remark_call).await;
+    assert!(res.is_err());
+
+    // Fund the MultiSig so that it can pay tx fees.
+    let mut res_transfer = tester
+        .api
+        .call()
+        .balances()
+        .transfer(ms.account.into(), 10 * ONE_POLYX)?
+        .execute(&mut did)
+        .await?;
+    // Wait for transfer.
+    res_transfer.ok().await?;
+
+    // Should be able to execute proposals now.
+    let remark_call = tester.api.call().system().remark(vec![])?;
+    let mut res = ms.run_proposal(remark_call).await?;
+    res.ok().await?;
 
     Ok(())
 }
