@@ -37,7 +37,7 @@ use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee as _, ProtocolOp
 use polymesh_common_utilities::traits::{
     AccountCallPermissionsData, CddAndFeeDetails, CheckAccountCallPermissions,
 };
-use polymesh_common_utilities::{Context, SystematicIssuers};
+use polymesh_common_utilities::SystematicIssuers;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
 };
@@ -870,7 +870,7 @@ impl<T: Config> Module<T> {
         origin: T::RuntimeOrigin,
     ) -> Result<(T::AccountId, IdentityId), DispatchError> {
         let sender = ensure_signed(origin)?;
-        let did = Context::current_identity_or::<Self>(&sender)?;
+        let did = Self::get_identity(&sender).ok_or(Error::<T>::MissingIdentity)?;
         Ok((sender, did))
     }
 

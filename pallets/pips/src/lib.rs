@@ -1168,6 +1168,7 @@ impl<T: Config> Module<T> {
                         T::UpgradeCommitteeVMO::ensure_origin(origin).map(|_| Committee::Upgrade)
                     })
                     .map(Proposer::Committee)?;
+                // TODO: I think we should use a fixed DID for each of the committees.
                 let did = Context::current_identity::<Identity<T>>()
                     .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
                 Ok((proposer, did))

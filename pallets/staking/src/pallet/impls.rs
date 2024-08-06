@@ -48,7 +48,7 @@ use sp_npos_elections::{
     to_support_map, Assignment, ElectionScore, EvaluateSupport, SupportMap, Supports,
 };
 
-use polymesh_common_utilities::Context;
+use polymesh_common_utilities::identity::IdentityFnTrait;
 use polymesh_primitives::IdentityId;
 
 use crate::_feps::NposSolution;
@@ -1061,7 +1061,7 @@ impl<T: Config> Pallet<T> {
             // NOTE: ledger must be updated prior to calling `Self::weight_of`.
             Self::update_ledger(&controller, &ledger);
 
-            let did = Context::current_identity::<T::IdentityFn>().unwrap_or_default();
+            let did = T::IdentityFn::get_identity(&ledger.stash).unwrap_or_default();
             Self::deposit_event(Event::<T>::Unbonded(did, ledger.stash.clone(), value));
         }
         Ok(())

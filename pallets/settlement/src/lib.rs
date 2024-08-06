@@ -71,7 +71,6 @@ use sp_std::vec;
 use pallet_asset::MandatoryMediators;
 use pallet_base::{ensure_string_limited, try_next_post};
 use polymesh_common_utilities::constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY;
-use polymesh_common_utilities::traits::identity::IdentityFnTrait;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 pub use polymesh_common_utilities::traits::settlement::{Event, RawEvent, WeightInfo};
 use polymesh_common_utilities::traits::{asset, compliance_manager, identity, nft, CommonConfig};
@@ -1996,7 +1995,7 @@ impl<T: Config> Module<T> {
         id: InstructionId,
         weight_meter: &mut WeightMeter,
     ) -> PostDispatchInfo {
-        let caller_did = Identity::<T>::current_identity().unwrap_or(SettlementDID.as_id());
+        let caller_did = SettlementDID.as_id();
         if let Err(e) = Self::execute_instruction_retryable(id, caller_did, weight_meter) {
             Self::deposit_event(RawEvent::FailedToExecuteInstruction(id, e));
         }
@@ -2551,7 +2550,7 @@ impl<T: Config> Module<T> {
 
     /// Returns an instance of [`ExecuteInstructionInfo`].
     pub fn execute_instruction_info(instruction_id: &InstructionId) -> ExecuteInstructionInfo {
-        let caller_did = Identity::<T>::current_identity().unwrap_or(SettlementDID.as_id());
+        let caller_did = SettlementDID.as_id();
         let instruction_asset_count = Self::get_instruction_asset_count(instruction_id);
         let mut weight_meter =
             WeightMeter::max_limit(Self::execute_scheduled_instruction_minimum_weight());

@@ -593,8 +593,8 @@ decl_error! {
     pub enum Error for Module<T: Config> {
         /// One secondary or primary key can only belong to one DID
         AlreadyLinked,
-        /// Missing current identity on the transaction
-        MissingCurrentIdentity,
+        /// Caller is missing an identity.
+        MissingIdentity,
         /// Signatory is not pre authorized by the identity
         Unauthorized,
         /// Account Id cannot be extracted from signer

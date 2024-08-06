@@ -20,7 +20,6 @@ use crate::{
 use frame_support::dispatch::DispatchResult;
 use frame_support::{ensure, StorageDoubleMap, StorageMap, StorageValue};
 use frame_system::ensure_signed;
-use polymesh_common_utilities::Context;
 use polymesh_primitives::{
     Authorization, AuthorizationData, AuthorizationError, IdentityId, Signatory,
 };
@@ -102,7 +101,8 @@ impl<T: Config> Module<T> {
             // If the sender is linked to an identity, ensure that it has relevant permissions
             pallet_permissions::Module::<T>::ensure_call_permissions(&sender)?.primary_did
         } else {
-            Context::current_identity_or::<Self>(&sender)?
+            // TODO: This should work for unlinked keys?
+            Self::get_identity(&sender).ok_or(Error::<T>::Unauthorized)?
         };
 
         let auth = Self::ensure_authorization(&target, auth_id)?;
