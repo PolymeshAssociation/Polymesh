@@ -9,7 +9,6 @@ use pallet_identity as identity;
 use pallet_multisig as multisig;
 use pallet_test_utils as test_utils;
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
-use polymesh_common_utilities::Context;
 use polymesh_primitives::{Signatory, TransactionError};
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
 use sp_keyring::AccountKeyring;
@@ -48,9 +47,6 @@ fn cdd_checks() {
                 Ok(Some(AccountKeyring::Alice.to_account_id()))
             );
 
-            // reset current identity context which is set as a side effect of get_valid_payer
-            Context::set_current_identity::<Identity>(None);
-
             // normal tx without cdd should fail
             assert_noop!(
                 CddHandler::get_valid_payer(
@@ -61,9 +57,6 @@ fn cdd_checks() {
                 ),
                 InvalidTransaction::Custom(TransactionError::CddRequired as u8)
             );
-
-            // reset current identity context which is set as a side effect of get_valid_payer
-            Context::set_current_identity::<Identity>(None);
 
             // call to accept being a multisig signer should fail when invalid auth
             assert_noop!(
@@ -91,9 +84,6 @@ fn cdd_checks() {
                 ),
                 InvalidTransaction::Custom(TransactionError::CddRequired as u8)
             );
-
-            // reset current identity context which is set as a side effect of get_valid_payer
-            Context::set_current_identity::<Identity>(None);
 
             // call to remove authorisation with issuer paying should fail if issuer does not have a valid cdd
             assert_noop!(
@@ -155,9 +145,6 @@ fn cdd_checks() {
                 Ok(Some(AccountKeyring::Charlie.to_account_id()))
             );
 
-            // reset current identity context which is set as a side effect of get_valid_payer
-            Context::set_current_identity::<Identity>(None);
-
             // create an authorisation where the target has a CDD claim and the issuer does not
             create_multisig_default_perms(
                 alice_account.clone(),
@@ -191,9 +178,6 @@ fn cdd_checks() {
                 ),
                 Ok(Some(AccountKeyring::Charlie.to_account_id()))
             );
-
-            // reset current identity context which is set as a side effect of get_valid_payer
-            Context::set_current_identity::<Identity>(None);
 
             // call to accept being a multisig signer should succeed when authorizer has a valid cdd but signer key does not
             // fee must be paid by multisig creator
