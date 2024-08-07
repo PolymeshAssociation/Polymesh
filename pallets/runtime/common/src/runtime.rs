@@ -503,6 +503,7 @@ macro_rules! misc_pallet_impls {
                     RuntimeCall::Utility(_) => true,
                     RuntimeCall::Session(_) => true,
                     RuntimeCall::Identity(call) => match call {
+                        pallet_identity::Call::accept_primary_key { .. } => true,
                         pallet_identity::Call::join_identity_as_key { .. } => true,
                         pallet_identity::Call::leave_identity_as_key { .. } => true,
                         _ => false,
