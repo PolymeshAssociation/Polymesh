@@ -286,15 +286,15 @@ decl_module! {
 
         type Error = Error<T>;
 
-        /// initialize the default event for this module
-        fn deposit_event() = default;
-
         const AssetNameMaxLength: u32 = T::AssetNameMaxLength::get();
         const FundingRoundNameMaxLength: u32 = T::FundingRoundNameMaxLength::get();
         const AssetMetadataNameMaxLength: u32 = T::AssetMetadataNameMaxLength::get();
         const AssetMetadataValueMaxLength: u32 = T::AssetMetadataValueMaxLength::get();
         const AssetMetadataTypeDefMaxLength: u32 = T::AssetMetadataTypeDefMaxLength::get();
         const MaxAssetMediators: u32 = T::MaxAssetMediators::get();
+
+        /// initialize the default event for this module
+        fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
             storage_migrate_on!(StorageVersion, 5, {

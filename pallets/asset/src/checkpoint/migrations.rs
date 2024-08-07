@@ -8,7 +8,7 @@ mod v1 {
     use polymesh_primitives::Ticker;
 
     decl_storage! {
-        trait Store for Module<T: Config> as Asset {
+        trait Store for Module<T: Config> as Checkpoint {
             // This storage changed the Ticker key to AssetID.
             pub TotalSupply get(fn total_supply_at):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) CheckpointId => polymesh_primitives::Balance;
