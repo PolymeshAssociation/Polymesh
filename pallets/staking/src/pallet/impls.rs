@@ -1061,7 +1061,7 @@ impl<T: Config> Pallet<T> {
             // NOTE: ledger must be updated prior to calling `Self::weight_of`.
             Self::update_ledger(&controller, &ledger);
 
-            let did = T::IdentityFn::get_identity(&ledger.stash).unwrap_or_default();
+            let did = T::IdentityFn::get_identity(&controller).unwrap_or_default();
             Self::deposit_event(Event::<T>::Unbonded(did, ledger.stash.clone(), value));
         }
         Ok(())
