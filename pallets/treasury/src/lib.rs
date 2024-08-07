@@ -47,7 +47,7 @@ use frame_support::{
 use frame_system::ensure_root;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    constants::TREASURY_PALLET_ID, traits::balances::Config as BalancesConfig, Context, GC_DID,
+    constants::TREASURY_PALLET_ID, traits::balances::Config as BalancesConfig, GC_DID,
 };
 use polymesh_primitives::{Beneficiary, IdentityId};
 use sp_runtime::traits::{AccountIdConversion, Saturating};
