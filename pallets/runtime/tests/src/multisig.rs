@@ -5,7 +5,6 @@ use frame_support::{
 
 use pallet_multisig::{self as multisig, AdminDid, ProposalStates, ProposalVoteCounts, Votes};
 use polymesh_common_utilities::constants::currency::POLY;
-use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_primitives::multisig::ProposalState;
 use polymesh_primitives::{AccountId, AuthorizationData, Permissions, SecondaryKey, Signatory};
 use sp_keyring::AccountKeyring;
@@ -179,7 +178,6 @@ fn join_multisig() {
 
         let ms_address =
             create_multisig_default_perms(alice.acc(), create_signers(vec![ms_address.clone()]), 1);
-        TestStorage::set_current_identity(&alice.did);
 
         // Testing that a multisig can't add itself as a signer.
         let ms_auth_id = Identity::add_auth(
