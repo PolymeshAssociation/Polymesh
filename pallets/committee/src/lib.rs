@@ -468,6 +468,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
             return;
         }
 
+        // TODO: Either remove or use a fixed DID?
         let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
         Self::finalize_proposal(approved, seats, ayes, nays, proposal, did);
         let event = RawEvent::FinalVotes(did, voting.index, proposal, voting.ayes, voting.nays);
@@ -656,6 +657,7 @@ impl<T: Config<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
         if let Some(curr_rc) = Self::release_coordinator() {
             if outgoing.contains(&curr_rc) {
                 <ReleaseCoordinator<I>>::kill();
+                // TODO: Either remove or use a fixed DID?
                 Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(
                     Context::current_identity::<Identity<T>>().unwrap_or_default(),
                     None,
