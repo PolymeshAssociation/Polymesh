@@ -235,9 +235,7 @@ impl<T: Config> OnUnbalanced<NegativeImbalanceOf<T>> for Module<T> {
         let numeric_amount = amount.peek();
 
         let _ = T::Currency::resolve_creating(&Self::account_id(), amount);
-        // TODO: Should we use a fixed value here?
-        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-        Self::deposit_event(RawEvent::TreasuryReimbursement(current_did, numeric_amount));
+        Self::deposit_event(RawEvent::TreasuryReimbursement(GC_DID, numeric_amount));
     }
 }
 
