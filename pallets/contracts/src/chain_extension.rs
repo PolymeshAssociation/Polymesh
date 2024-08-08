@@ -473,7 +473,7 @@ where
         with_call_metadata(call.get_call_metadata(), || {
             // Dispatch the call, avoiding use of `ext.call_runtime()`,
             // as that uses `CallFilter = Nothing`, which would case a problem for us.
-            call.dispatch(RawOrigin::Signed(addr.clone()).into())
+            call.dispatch(RawOrigin::Signed(addr).into())
         })
     });
 
