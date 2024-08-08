@@ -5591,6 +5591,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-balances 0.1.0",
  "pallet-base",
  "pallet-identity",
@@ -5601,6 +5602,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-arithmetic",
+ "sp-runtime",
  "sp-std 5.0.0",
 ]
 
