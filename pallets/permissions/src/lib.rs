@@ -30,18 +30,14 @@ use core::mem;
 use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    pallet_prelude::*,
-    traits::{CallMetadata, Contains, GetCallMetadata, OriginTrait},
+    traits::{CallMetadata, GetCallMetadata},
 };
-use frame_system::ensure_signed;
 use polymesh_common_utilities::traits::{AccountCallPermissionsData, CheckAccountCallPermissions};
 use polymesh_primitives::{ExtrinsicName, PalletName};
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
-    transaction_validity::{
-        InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
-    },
+    transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
 };
 use sp_std::{fmt, marker::PhantomData, result::Result, vec};
 
@@ -87,37 +83,6 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> Module<T> {
-    pub fn ensure_caller_permissions(
-        caller: &T::AccountId,
-        call: &<T as Config>::RuntimeCall,
-    ) -> Result<(), DispatchError> {
-        // Check if the call is whitelisted.
-        if T::WhitelistCallFilter::contains(call) {
-            // We don't need to check permissions.
-            return Ok(());
-        }
-        let metadata = call.get_call_metadata();
-        T::Checker::check_account_call_permissions(
-            caller,
-            || metadata.pallet_name.into(),
-            || metadata.function_name.into(),
-        )
-        .ok_or_else(|| Error::<T>::UnauthorizedCaller)?;
-        Ok(())
-    }
-
-    /// Apply call permissions to `origin`.
-    pub fn origin_call_permissions(origin: &mut T::RuntimeOrigin) {
-        if let Ok(signer) = ensure_signed(origin.clone()) {
-            origin.add_filter(move |call| {
-                let call = <T as Config>::RuntimeCall::from_ref(call);
-                Self::ensure_caller_permissions(&signer, call).is_ok()
-            })
-        }
-    }
-}
-
 /// A signed extension used in checking call permissions.
 #[derive(Encode, Decode, TypeInfo, Clone, Eq, PartialEq, Default)]
 #[scale_info(skip_type_params(T))]
@@ -157,10 +122,11 @@ impl<T: Config> StoreCallMetadata<T> {
 impl<T> SignedExtension for StoreCallMetadata<T>
 where
     T: Config + Send + Sync,
+    <T as frame_system::Config>::RuntimeCall: GetCallMetadata,
 {
     const IDENTIFIER: &'static str = "StoreCallMetadata";
     type AccountId = T::AccountId;
-    type Call = <T as Config>::RuntimeCall;
+    type Call = <T as frame_system::Config>::RuntimeCall;
     type AdditionalSigned = ();
     type Pre = ();
 
@@ -170,25 +136,21 @@ where
 
     fn validate(
         &self,
-        caller: &Self::AccountId,
-        call: &Self::Call,
+        _: &Self::AccountId,
+        _: &Self::Call,
         _: &DispatchInfoOf<Self::Call>,
         _: usize,
     ) -> TransactionValidity {
-        Module::<T>::ensure_caller_permissions(caller, call)
-            .map_err(|_| InvalidTransaction::BadSigner)?;
         Ok(ValidTransaction::default())
     }
 
     fn pre_dispatch(
         self,
-        caller: &Self::AccountId,
+        _: &Self::AccountId,
         call: &Self::Call,
         _: &DispatchInfoOf<Self::Call>,
         _: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
-        Module::<T>::ensure_caller_permissions(caller, call)
-            .map_err(|_| InvalidTransaction::BadSigner)?;
         let metadata = call.get_call_metadata();
         Self::set_call_metadata(metadata.pallet_name.into(), metadata.function_name.into());
         Ok(())
@@ -204,10 +166,6 @@ where
         Self::clear_call_metadata();
         Ok(())
     }
-}
-
-pub fn origin_call_filter<T: Config>(origin: &mut T::RuntimeOrigin) {
-    Module::<T>::origin_call_permissions(origin)
 }
 
 /// Transacts `tx` while setting the call metadata to that of `call` until the call is

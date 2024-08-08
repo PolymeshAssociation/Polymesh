@@ -492,50 +492,8 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_sto::SubstrateWeight;
         }
 
-        pub struct SecondaryKeyWhitelist;
-
-        impl frame_support::traits::Contains<RuntimeCall> for SecondaryKeyWhitelist {
-            fn contains(call: &RuntimeCall) -> bool {
-                match call {
-                    RuntimeCall::System(_) => true,
-                    RuntimeCall::Balances(_) => true,
-                    RuntimeCall::Staking(_) => true,
-                    RuntimeCall::Utility(_) => true,
-                    RuntimeCall::Session(_) => true,
-                    RuntimeCall::Identity(call) => match call {
-                        pallet_identity::Call::accept_primary_key { .. } => true,
-                        pallet_identity::Call::join_identity_as_key { .. } => true,
-                        pallet_identity::Call::leave_identity_as_key { .. } => true,
-                        _ => false,
-                    },
-                    RuntimeCall::MultiSig(call) => match call {
-                        pallet_multisig::Call::create_proposal { .. } => true,
-                        pallet_multisig::Call::approve { .. } => true,
-                        pallet_multisig::Call::reject { .. } => true,
-                        pallet_multisig::Call::accept_multisig_signer { .. } => true,
-                        pallet_multisig::Call::add_multisig_signers { .. } => true,
-                        pallet_multisig::Call::remove_multisig_signers { .. } => true,
-                        pallet_multisig::Call::add_multisig_signers_via_admin { .. } => true,
-                        pallet_multisig::Call::remove_multisig_signers_via_admin { .. } => true,
-                        pallet_multisig::Call::change_sigs_required { .. } => true,
-                        pallet_multisig::Call::change_sigs_required_via_admin { .. } => true,
-                        pallet_multisig::Call::add_admin { .. } => true,
-                        pallet_multisig::Call::remove_admin_via_admin { .. } => true,
-                        pallet_multisig::Call::remove_payer { .. } => true,
-                        pallet_multisig::Call::remove_payer_via_payer { .. } => true,
-                        pallet_multisig::Call::approve_join_identity { .. } => true,
-                        pallet_multisig::Call::join_identity { .. } => true,
-                        _ => false,
-                    },
-                    _ => false,
-                }
-            }
-        }
-
         impl polymesh_common_utilities::traits::permissions::Config for Runtime {
-            type RuntimeCall = RuntimeCall;
             type Checker = Identity;
-            type WhitelistCallFilter = SecondaryKeyWhitelist;
         }
 
         impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime

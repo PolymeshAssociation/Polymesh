@@ -15,7 +15,7 @@ use sp_core::crypto::UncheckedFrom;
 
 use pallet_contracts::chain_extension as ce;
 use pallet_contracts::Config as BConfig;
-use pallet_permissions::{origin_call_filter, with_call_metadata};
+use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::Context;
 
 use super::*;
@@ -470,12 +470,10 @@ where
     Module::<T>::deposit_event(Event::<T>::SCRuntimeCall(addr.clone(), extrinsic_id));
     // Dispatch call
     let result = with_payer::<T, _, _>(addr.clone(), || {
-        let mut origin = RawOrigin::Signed(addr.clone()).into();
-        origin_call_filter::<T>(&mut origin);
         with_call_metadata(call.get_call_metadata(), || {
             // Dispatch the call, avoiding use of `ext.call_runtime()`,
             // as that uses `CallFilter = Nothing`, which would case a problem for us.
-            call.dispatch(origin)
+            call.dispatch(RawOrigin::Signed(addr.clone()).into())
         })
     });
 

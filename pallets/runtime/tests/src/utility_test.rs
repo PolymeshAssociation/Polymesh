@@ -387,7 +387,8 @@ fn batch_secondary_with_permissions() {
             to_name: high_risk_name.clone(),
         }),
     ];
-    let expected_error: DispatchError = frame_system::Error::<TestStorage>::CallFiltered.into();
+    let expected_error: DispatchError =
+        pallet_permissions::Error::<TestStorage>::UnauthorizedCaller.into();
     assert_ok!(Utility::batch(bob.origin(), calls.clone()));
     assert_event_doesnt_exist!(EventTest::Utility(Event::BatchCompleted));
     assert_event_exists!(

@@ -13,23 +13,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use frame_support::{
-    dispatch::{Dispatchable, PostDispatchInfo},
-    pallet_prelude::*,
-    traits::GetCallMetadata,
-};
 use polymesh_primitives::{ExtrinsicName, IdentityId, PalletName, SecondaryKey};
 
 /// Permissions module configuration trait.
 pub trait Config: frame_system::Config {
-    /// The overarching call type.
-    type RuntimeCall: GetCallMetadata
-        + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
-        + IsType<<Self as frame_system::Config>::RuntimeCall>;
     /// The type that implements the permission check function.
     type Checker: CheckAccountCallPermissions<Self::AccountId>;
-    /// Whitelist calls.  Secondary key call permissions do not apply to these.
-    type WhitelistCallFilter: frame_support::traits::Contains<<Self as Config>::RuntimeCall>;
 }
 
 /// Result of `CheckAccountCallPermissions::check_account_call_permissions`.

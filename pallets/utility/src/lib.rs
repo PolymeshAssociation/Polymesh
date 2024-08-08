@@ -84,7 +84,7 @@ use sp_runtime::traits::{BadOrigin, Dispatchable};
 use sp_runtime::{traits::Verify, DispatchError, RuntimeDebug};
 use sp_std::prelude::*;
 
-use pallet_permissions::{origin_call_filter, with_call_metadata};
+use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::balances::{CheckCdd, Config as BalancesConfig};
 use polymesh_common_utilities::identity::{AuthorizationNonce, Config as IdentityConfig};
 use polymesh_common_utilities::Context;
@@ -313,7 +313,7 @@ pub mod pallet {
                 (dispatch_weight, dispatch_class)
             })]
         pub fn batch(
-            mut origin: OriginFor<T>,
+            origin: OriginFor<T>,
             calls: Vec<<T as Config>::RuntimeCall>,
         ) -> DispatchResultWithPostInfo {
             // Do not allow the `None` origin.
@@ -328,7 +328,6 @@ pub mod pallet {
                 Error::<T>::TooManyCalls
             );
 
-            origin_call_filter::<T>(&mut origin);
             // Track the actual weight of each of the batch calls.
             let mut weight = Weight::zero();
             for (index, call) in calls.into_iter().enumerate() {
@@ -402,13 +401,10 @@ pub mod pallet {
 
             <Nonces<T>>::insert(target.clone(), target_nonce + 1);
 
-            // Target origin with call filter.
-            let mut origin = RawOrigin::Signed(target.clone()).into();
-            origin_call_filter::<T>(&mut origin);
-
             let info = call.call.get_dispatch_info();
             // Dispatch the call with the `target` as the signed origin.
-            let result = Self::dispatch_call(origin, false, *call.call);
+            let result =
+                Self::dispatch_call(RawOrigin::Signed(target.clone()).into(), false, *call.call);
             // Get the actual weight of this call.
             let weight = extract_actual_weight(&result, &info);
 
@@ -471,7 +467,7 @@ pub mod pallet {
             );
 
             // POLYMESH: Create filtered origin here.
-            let mut filtered_origin = if is_root {
+            let filtered_origin = if is_root {
                 origin
             } else {
                 let mut filtered_origin = origin;
@@ -482,7 +478,6 @@ pub mod pallet {
                 });
                 filtered_origin
             };
-            origin_call_filter::<T>(&mut filtered_origin);
 
             // Track the actual weight of each of the batch calls.
             let mut weight = Weight::zero();
@@ -563,7 +558,7 @@ pub mod pallet {
                 (dispatch_weight, dispatch_class)
             })]
         pub fn force_batch(
-            mut origin: OriginFor<T>,
+            origin: OriginFor<T>,
             calls: Vec<<T as Config>::RuntimeCall>,
         ) -> DispatchResultWithPostInfo {
             // Do not allow the `None` origin.
@@ -578,7 +573,6 @@ pub mod pallet {
                 Error::<T>::TooManyCalls
             );
 
-            origin_call_filter::<T>(&mut origin);
             // Track the actual weight of each of the batch calls.
             let mut weight = Weight::zero();
             // Track failed dispatch occur.
@@ -839,12 +833,11 @@ impl<T: Config> Pallet<T> {
     }
 
     fn run_batch(
-        mut origin: T::RuntimeOrigin,
+        origin: T::RuntimeOrigin,
         is_root: bool,
         calls: Vec<<T as Config>::RuntimeCall>,
         stop_on_errors: bool,
     ) -> Event<T> {
-        origin_call_filter::<T>(&mut origin);
         let mut counts = EventCounts::with_capacity(calls.len());
         let mut errors = Vec::new();
         for (index, call) in calls.into_iter().enumerate() {
@@ -965,12 +958,11 @@ impl<T: Config> Pallet<T> {
     /// Dispatches `call` Setting CurrentPayer to `account_id`.
     /// The value is reset once the call is done.
     fn run_with_temporary_payer(
-        mut origin: T::RuntimeOrigin,
+        origin: T::RuntimeOrigin,
         account_id: Option<T::AccountId>,
         call: Box<<T as Config>::RuntimeCall>,
         bypass_filter: bool,
     ) -> Result<PostDispatchInfo, DispatchErrorWithPostInfo> {
-        origin_call_filter::<T>(&mut origin);
         // Hold the original value for payer.
         let original_payer = Context::current_payer::<Identity<T>>();
         // Temporarily change payer

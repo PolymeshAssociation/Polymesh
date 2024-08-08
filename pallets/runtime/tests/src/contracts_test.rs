@@ -178,7 +178,7 @@ fn chain_extension_calls() {
                 None,
                 register_ticker_input.clone()
             ),
-            frame_system::Error::<TestStorage>::CallFiltered,
+            pallet_permissions::Error::<TestStorage>::UnauthorizedCaller,
         ));
         // Successfull call
         assert_ok!(Identity::set_secondary_key_permissions(
