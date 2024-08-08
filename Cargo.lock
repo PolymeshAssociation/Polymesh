@@ -5300,6 +5300,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-base",
  "pallet-identity",
  "pallet-permissions",
@@ -5310,6 +5311,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_derive",
+ "sp-runtime",
  "sp-std 5.0.0",
 ]
 
