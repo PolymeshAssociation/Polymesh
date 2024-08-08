@@ -33,8 +33,9 @@ type Portfolio<T> = pallet_portfolio::Module<T>;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+mod migrations;
 
-storage_migration_ver!(3);
+storage_migration_ver!(4);
 
 decl_storage!(
     trait Store for Module<T: Config> as NFT {
@@ -75,7 +76,7 @@ decl_storage!(
         pub CurrentCollectionId get(fn current_collection_id): Option<NFTCollectionId>;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(3)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(4)): Version;
     }
 );
 
@@ -91,8 +92,8 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 3, {
-                migration::migrate_to_v3::<T>();
+            storage_migrate_on!(StorageVersion, 4, {
+                migrations::migrate_to_v4::<T>();
             });
             Weight::zero()
         }
