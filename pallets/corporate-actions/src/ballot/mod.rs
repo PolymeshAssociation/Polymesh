@@ -76,6 +76,7 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+mod migrations;
 
 use crate as ca;
 use ca::{CAId, CAKind, Config, CorporateAction};
@@ -93,7 +94,9 @@ use pallet_asset::checkpoint;
 use pallet_base::ensure_string_limited;
 use pallet_identity as identity;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
-use polymesh_primitives::{Balance, EventDid, IdentityId, Moment};
+use polymesh_primitives::{
+    storage_migrate_on, storage_migration_ver, Balance, EventDid, IdentityId, Moment,
+};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
@@ -245,6 +248,8 @@ pub trait WeightInfo {
     fn remove_ballot() -> Weight;
 }
 
+storage_migration_ver!(1);
+
 decl_storage! {
     trait Store for Module<T: Config> as CorporateBallot {
         /// Metadata of a corporate ballot.
@@ -293,6 +298,9 @@ decl_storage! {
         pub Votes get(fn votes):
             double_map hasher(blake2_128_concat) CAId, hasher(identity) IdentityId =>
                 Vec<BallotVote>;
+
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
     }
 }
 
@@ -301,6 +309,13 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion, 1, {
+                migrations::migrate_to_v1::<T>();
+            });
+            Weight::zero()
+        }
 
         /// Attach a corporate ballot to the CA identified by `ca_id`.
         ///

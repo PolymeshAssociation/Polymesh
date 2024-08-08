@@ -63,6 +63,7 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+mod migrations;
 
 use crate as ca;
 use ca::{CAId, Config, Tax};
@@ -84,8 +85,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::{
-    storage_migration_ver, Balance, EventDid, IdentityId, Moment, PortfolioId, PortfolioNumber,
-    SecondaryKey, WeightMeter,
+    storage_migrate_on, storage_migration_ver, Balance, EventDid, IdentityId, Moment, PortfolioId,
+    PortfolioNumber, SecondaryKey, WeightMeter,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
@@ -155,17 +156,24 @@ decl_storage! {
         HolderPaid get(fn holder_paid): map hasher(blake2_128_concat) (CAId, IdentityId) => bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
     }
 }
 
-storage_migration_ver!(0);
+storage_migration_ver!(1);
 
 decl_module! {
     pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion, 1, {
+                migrations::migrate_to_v1::<T>();
+            });
+            Weight::zero()
+        }
 
         /// Start and attach a capital distribution, to the CA identified by `ca_id`,
         /// with `amount` funds in `currency` withdrawn from `portfolio` belonging to `origin`'s DID.
