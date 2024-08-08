@@ -17,6 +17,7 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+mod migrations;
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
@@ -38,7 +39,7 @@ use polymesh_primitives::{storage_migration_ver, Balance, IdentityId, WeightMete
 type Identity<T> = pallet_identity::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
-storage_migration_ver!(1);
+storage_migration_ver!(2);
 
 decl_storage! {
     trait Store for Module<T: Config> as Statistics {
@@ -48,9 +49,7 @@ decl_storage! {
 
         /// Asset stats.
         pub AssetStats get(fn asset_stats):
-          double_map
-            hasher(blake2_128_concat) Stat1stKey,
-            hasher(blake2_128_concat) Stat2ndKey => u128;
+          double_map hasher(blake2_128_concat) Stat1stKey, hasher(blake2_128_concat) Stat2ndKey => u128;
 
         /// The [`AssetTransferCompliance`] for each [`AssetID`].
         pub AssetTransferCompliances get(fn asset_transfer_compliance):
@@ -58,14 +57,10 @@ decl_storage! {
 
         /// Entities exempt from a Transfer Compliance rule.
         pub TransferConditionExemptEntities get(fn transfer_condition_exempt_entities):
-            double_map
-                hasher(blake2_128_concat) TransferConditionExemptKey,
-                hasher(blake2_128_concat) IdentityId
-            =>
-                bool;
+            double_map hasher(blake2_128_concat) TransferConditionExemptKey, hasher(blake2_128_concat) IdentityId => bool;
 
         /// Storage migration version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
     }
 }
 
