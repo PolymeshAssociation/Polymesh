@@ -678,7 +678,7 @@ fn delete_portfolio_with_locked_nfts() {
         }];
         assert_ok!(Settlement::add_and_affirm_instruction(
             alice.origin(),
-            venue_id,
+            Some(venue_id),
             SettlementType::SettleOnAffirmation,
             None,
             None,

@@ -472,7 +472,7 @@ decl_module! {
 
                 let instruction_id = Settlement::<T>::base_add_instruction(
                     fundraiser.creator,
-                    fundraiser.venue_id,
+                    Some(fundraiser.venue_id),
                     SettlementType::SettleOnAffirmation,
                     None,
                     None,

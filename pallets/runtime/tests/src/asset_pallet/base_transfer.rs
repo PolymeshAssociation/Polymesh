@@ -219,7 +219,7 @@ fn base_transfer_locked_asset() {
         ));
         assert_ok!(Settlement::add_and_affirm_instruction(
             alice.origin(),
-            VenueId(0),
+            Some(VenueId(0)),
             SettlementType::SettleOnAffirmation,
             None,
             None,

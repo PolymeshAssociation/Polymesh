@@ -56,7 +56,7 @@ fn controller_transfer_locked_asset() {
         ));
         assert_ok!(Settlement::add_instruction(
             alice.origin(),
-            VenueId(0),
+            Some(VenueId(0)),
             SettlementType::SettleManual(System::block_number() + 1),
             None,
             None,
