@@ -274,7 +274,7 @@ jobs:
           working_directory: ./integration
       - run:
           name: Run polymesh-api integration tests.
-          command: cargo test --locked
+          command: cargo nextest run --locked
           working_directory: ./integration
           no_output_timeout: 30m
   integration-test:
