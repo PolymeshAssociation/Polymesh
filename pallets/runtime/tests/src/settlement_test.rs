@@ -35,8 +35,8 @@ use polymesh_primitives::settlement::{
 use polymesh_primitives::{
     AccountId, AuthorizationData, Balance, Claim, ClaimType, Condition, ConditionType, CountryCode,
     Fund, FundDescription, IdentityId, Memo, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs,
-    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, Scope, Signatory, TrustedFor,
-    TrustedIssuer, WeightMeter,
+    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, Scope, Signatory, Ticker,
+    TrustedFor, TrustedIssuer, WeightMeter,
 };
 use sp_keyring::AccountKeyring;
 
@@ -1137,8 +1137,9 @@ fn claim_multiple_receipts_during_authorization() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
+        let ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let ticker2 = Ticker::from_slice_truncated(b"TICKER2".as_ref());
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
-        let asset_id2 = AssetID::new([0; 16]);
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
         let mut bob = UserWithBalance::new(bob, &[asset_id]);
@@ -1151,13 +1152,13 @@ fn claim_multiple_receipts_during_authorization() {
             Leg::OffChain {
                 sender_identity: alice.did,
                 receiver_identity: bob.did,
-                asset_id,
+                ticker,
                 amount,
             },
             Leg::OffChain {
                 sender_identity: alice.did,
                 receiver_identity: bob.did,
-                asset_id: asset_id2,
+                ticker: ticker2,
                 amount,
             },
         ];
@@ -1174,9 +1175,9 @@ fn claim_multiple_receipts_during_authorization() {
 
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
-        let msg1 = Receipt::new(0, id, LegId(0), alice.did, bob.did, asset_id, amount);
-        let msg2 = Receipt::new(0, id, LegId(1), alice.did, bob.did, asset_id2, amount);
-        let msg3 = Receipt::new(1, id, LegId(1), alice.did, bob.did, asset_id2, amount);
+        let msg1 = Receipt::new(0, id, LegId(0), alice.did, bob.did, ticker, amount);
+        let msg2 = Receipt::new(0, id, LegId(1), alice.did, bob.did, ticker2, amount);
+        let msg3 = Receipt::new(1, id, LegId(1), alice.did, bob.did, ticker2, amount);
 
         assert_noop!(
             Settlement::affirm_with_receipts(
@@ -1322,7 +1323,7 @@ fn encode_receipt() {
             LegId(0),
             identity_id,
             identity_id,
-            [0; 16].into(),
+            Ticker::from_slice_truncated(b"TICKER".as_ref()),
             100,
         );
         println!("{:?}", AccountKeyring::Alice.sign(&msg1.encode()));
@@ -2872,6 +2873,7 @@ fn add_and_affirm_with_receipts_nfts() {
     test_with_cdd_provider(|_eve| {
         // First we need to create a collection, mint one NFT, and create a venue
         let id = InstructionId(0);
+        let ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let alice: User = User::new(AccountKeyring::Alice);
         let bob: User = User::new(AccountKeyring::Bob);
         let collection_keys: NFTCollectionKeys =
@@ -2926,8 +2928,7 @@ fn add_and_affirm_with_receipts_nfts() {
                     AccountKeyring::Alice.to_account_id(),
                     AccountKeyring::Alice
                         .sign(
-                            &Receipt::new(0, id, LegId(0), alice.did, bob.did, asset_id, 1)
-                                .encode()
+                            &Receipt::new(0, id, LegId(0), alice.did, bob.did, ticker, 1).encode()
                         )
                         .into(),
                     None
@@ -3001,17 +3002,18 @@ fn add_and_execute_offchain_instruction() {
         let alice = User::new(AccountKeyring::Alice);
         let dave = User::new(AccountKeyring::Dave);
         let bob = User::new(AccountKeyring::Bob);
-        let (asset_id, venue_id) = create_and_issue_sample_asset_with_venue(&alice);
+        let ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let (_, venue_id) = create_and_issue_sample_asset_with_venue(&alice);
         let amount = 1;
         let id = InstructionId(0);
 
         let legs: Vec<Leg> = vec![Leg::OffChain {
             sender_identity: charlie.did,
             receiver_identity: bob.did,
-            asset_id,
+            ticker,
             amount,
         }];
-        let receipt = Receipt::new(0, id, LegId(0), charlie.did, bob.did, asset_id, amount);
+        let receipt = Receipt::new(0, id, LegId(0), charlie.did, bob.did, ticker, amount);
         let receipts_details = vec![ReceiptDetails::new(
             0,
             id,
@@ -3084,7 +3086,7 @@ fn affirm_offchain_asset_without_receipt() {
         let legs: Vec<Leg> = vec![Leg::OffChain {
             sender_identity: alice.did,
             receiver_identity: bob.did,
-            asset_id: [0; 16].into(),
+            ticker: Ticker::from_slice_truncated(b"TICKER".as_ref()),
             amount: 1,
         }];
         assert_ok!(Settlement::add_instruction(
@@ -3135,13 +3137,13 @@ fn add_instruction_with_offchain_assets() {
             Leg::OffChain {
                 sender_identity: alice.did,
                 receiver_identity: bob.did,
-                asset_id: asset_id2,
+                ticker: Ticker::from_slice_truncated(b"TICKER2".as_ref()),
                 amount: ONE_UNIT,
             },
             Leg::OffChain {
                 sender_identity: alice.did,
                 receiver_identity: bob.did,
-                asset_id: asset_id2,
+                ticker: Ticker::from_slice_truncated(b"TICKER".as_ref()),
                 amount: ONE_UNIT,
             },
         ];
@@ -3501,17 +3503,18 @@ fn affirm_with_receipts_cost() {
         let charlie = User::new(AccountKeyring::Charlie);
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
-        let (asset_id, venue_id) = create_and_issue_sample_asset_with_venue(&alice);
+        let ticker = Ticker::from_slice_truncated(b"TICKER2".as_ref());
+        let (_, venue_id) = create_and_issue_sample_asset_with_venue(&alice);
         let amount = 1;
         let id = InstructionId(0);
 
         let legs: Vec<Leg> = vec![Leg::OffChain {
             sender_identity: charlie.did,
             receiver_identity: bob.did,
-            asset_id,
+            ticker,
             amount,
         }];
-        let receipt = Receipt::new(0, id, LegId(0), charlie.did, bob.did, asset_id, amount);
+        let receipt = Receipt::new(0, id, LegId(0), charlie.did, bob.did, ticker, amount);
         let receipts_details = vec![ReceiptDetails::new(
             0,
             id,

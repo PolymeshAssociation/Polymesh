@@ -31,7 +31,7 @@ use polymesh_common_utilities::constants::ENSURED_MAX_LEN;
 use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::settlement::ReceiptMetadata;
-use polymesh_primitives::{IdentityId, Memo, NFTId, NFTs, PortfolioId};
+use polymesh_primitives::{IdentityId, Memo, NFTId, NFTs, PortfolioId, Ticker};
 
 use crate::*;
 
@@ -110,11 +110,11 @@ where
     // Creates offchain legs and new portfolios for each leg
     let offchain_legs: Vec<Leg> = (0..o)
         .map(|i| {
-            let asset_id = [i as u8; 16].into();
+            let ticker = Ticker::from_slice_truncated(format!("OFFTICKER{}", i).as_bytes());
             Leg::OffChain {
                 sender_identity: sender.did(),
                 receiver_identity: receiver.did(),
-                asset_id,
+                ticker,
                 amount: ONE_UNIT,
             }
         })
@@ -228,7 +228,6 @@ where
                 ONE_UNIT,
                 InstructionId(1),
                 i,
-                [i as u8; 16].into(),
             )
         })
         .collect();
@@ -280,7 +279,6 @@ fn setup_receipt_details<T: Config>(
     amount: Balance,
     instruction_id: InstructionId,
     leg_id: u32,
-    asset_id: AssetID,
 ) -> ReceiptDetails<T::AccountId, T::OffChainSignature> {
     let receipt = Receipt::new(
         leg_id as u64,
@@ -288,7 +286,7 @@ fn setup_receipt_details<T: Config>(
         LegId(leg_id as u64),
         sender_identity,
         receiver_identity,
-        asset_id,
+        Ticker::from_slice_truncated(format!("OFFTICKER{}", leg_id).as_bytes()),
         amount,
     );
     let raw_signature: [u8; 64] = signer.sign(&receipt.encode()).unwrap().0;
@@ -455,7 +453,6 @@ benchmarks! {
                     ONE_UNIT,
                     InstructionId(1),
                     i,
-                    [i as u8; 16].into()
                 )
             })
             .collect();
@@ -633,7 +630,6 @@ benchmarks! {
                     ONE_UNIT,
                     InstructionId(1),
                     i,
-                    [i as u8; 16].into()
                 )
             })
             .collect();
