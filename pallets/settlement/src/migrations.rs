@@ -87,7 +87,7 @@ impl From<v2::Leg> for Leg {
                 Leg::OffChain {
                     sender_identity,
                     receiver_identity,
-                    asset_id: ticker.into(),
+                    ticker,
                     amount,
                 }
             }

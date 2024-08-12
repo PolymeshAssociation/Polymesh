@@ -34,12 +34,14 @@ use polymesh_primitives::statistics::{
 use polymesh_primitives::transfer_compliance::{
     AssetTransferCompliance, TransferCondition, TransferConditionExemptKey, TransferConditionResult,
 };
-use polymesh_primitives::{storage_migration_ver, Balance, IdentityId, WeightMeter};
+use polymesh_primitives::{
+    storage_migrate_on, storage_migration_ver, Balance, IdentityId, WeightMeter,
+};
 
 type Identity<T> = pallet_identity::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
-storage_migration_ver!(2);
+storage_migration_ver!(3);
 
 decl_storage! {
     trait Store for Module<T: Config> as Statistics {
@@ -60,7 +62,7 @@ decl_storage! {
             double_map hasher(blake2_128_concat) TransferConditionExemptKey, hasher(blake2_128_concat) IdentityId => bool;
 
         /// Storage migration version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(3)): Version;
     }
 }
 
@@ -68,11 +70,18 @@ decl_module! {
     pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
+        const MaxStatsPerAsset: u32 = T::MaxStatsPerAsset::get();
+        const MaxTransferConditionsPerAsset: u32 = T::MaxTransferConditionsPerAsset::get();
+
         /// initialize the default event for this module
         fn deposit_event() = default;
 
-        const MaxStatsPerAsset: u32 = T::MaxStatsPerAsset::get();
-        const MaxTransferConditionsPerAsset: u32 = T::MaxTransferConditionsPerAsset::get();
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion, 3, {
+                migrations::migrate_to_v3::<T>();
+            });
+            Weight::zero()
+        }
 
         /// Set the active asset stat_types.
         ///

@@ -250,6 +250,7 @@ impl<T, S> From<v6::Authorization<T, S>> for Authorization<T, S> {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn migrate_to_v7<T: Config>() {
     RuntimeLogger::init();
 

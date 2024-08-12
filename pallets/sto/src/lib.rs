@@ -45,7 +45,10 @@ use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::impl_checked_inc;
 use polymesh_primitives::settlement::{Leg, ReceiptDetails, SettlementType, VenueId, VenueType};
-use polymesh_primitives::{Balance, EventDid, IdentityId, PortfolioId, WeightMeter};
+use polymesh_primitives::{
+    storage_migrate_on, storage_migration_ver, Balance, EventDid, IdentityId, PortfolioId,
+    WeightMeter,
+};
 use polymesh_primitives_derive::VecU8StrongTyped;
 
 pub const MAX_TIERS: usize = 10;
@@ -242,6 +245,8 @@ decl_error! {
     }
 }
 
+storage_migration_ver!(1);
+
 decl_storage! {
     trait Store for Module<T: Config> as Sto {
         /// All fundraisers that are currently running.
@@ -264,6 +269,9 @@ decl_storage! {
                 hasher(blake2_128_concat) AssetID,
                 hasher(twox_64_concat) FundraiserId
                 => Option<FundraiserName>;
+
+        /// Storage migration version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
     }
 }
 
@@ -272,6 +280,13 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion, 1, {
+                migrations::migrate_to_v1::<T>();
+            });
+            Weight::zero()
+        }
 
         /// Create a new fundraiser.
         ///
