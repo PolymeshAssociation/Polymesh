@@ -134,6 +134,14 @@ pub(crate) fn migrate_to_v5<T: Config>() {
         BalanceOf::insert(asset_id, identity, balance);
     });
 
+    log::info!("Moving items from Identifiers to AssetIdentifiers");
+    v4::Identifiers::drain().for_each(|(ticker, identifiers)| {
+        let asset_id = ticker_to_asset_id
+            .entry(ticker)
+            .or_insert(AssetID::from(ticker));
+        AssetIdentifiers::insert(asset_id, identifiers);
+    });
+
     log::info!("Updating types for the FundingRound storage");
     v4::FundingRound::drain().for_each(|(ticker, name)| {
         let asset_id = ticker_to_asset_id
