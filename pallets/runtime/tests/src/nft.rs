@@ -48,7 +48,7 @@ fn create_collection_unregistered_ticker() {
         let nft_type = NonFungibleType::Derivative;
         let collection_keys: NFTCollectionKeys = vec![].into();
 
-        let asset_id = Asset::generate_asset_id(alice.did, false);
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(NFT::create_nft_collection(
             alice.origin(),
             None,
@@ -177,7 +177,7 @@ pub(crate) fn create_nft_collection(
     asset_type: AssetType,
     collection_keys: NFTCollectionKeys,
 ) -> AssetID {
-    let asset_id = Asset::generate_asset_id(owner.did, false);
+    let asset_id = Asset::generate_asset_id(owner.acc(), false);
     Asset::create_asset(
         owner.origin(),
         AssetName(b"Myasset".to_vec()),
@@ -453,7 +453,7 @@ fn burn_nft_collection_not_found() {
         assert_noop!(
             NFT::redeem_nft(
                 alice.origin(),
-                Asset::generate_asset_id(alice.did, false),
+                Asset::generate_asset_id(alice.acc(), false),
                 NFTId(1),
                 PortfolioKind::Default
             ),
@@ -603,7 +603,7 @@ fn transfer_nft_without_collection() {
             did: bob.did,
             kind: PortfolioKind::Default,
         };
-        let nfts = NFTs::new(Asset::generate_asset_id(alice.did, false), vec![NFTId(1)]).unwrap();
+        let nfts = NFTs::new(Asset::generate_asset_id(alice.acc(), false), vec![NFTId(1)]).unwrap();
 
         assert_noop!(
             with_transaction(|| {

@@ -271,9 +271,10 @@ impl<T: Config> Module<T> {
                     None => return Err(Error::<T>::InvalidAssetID.into()),
                 },
                 None => {
-                    let caller_did = Identity::<T>::ensure_perms(origin.clone())?;
-                    let asset_id = Asset::<T>::generate_asset_id(caller_did, false);
-                    (true, caller_did, asset_id)
+                    let caller_data =
+                        Identity::<T>::ensure_origin_call_permissions(origin.clone())?;
+                    let asset_id = Asset::<T>::generate_asset_id(caller_data.sender, false);
+                    (true, caller_data.primary_did, asset_id)
                 }
             }
         };

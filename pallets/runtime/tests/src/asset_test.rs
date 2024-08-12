@@ -215,7 +215,7 @@ fn check_the_test_hex() {
 fn issuers_can_create_and_rename_tokens() {
     ExtBuilder::default().build().execute_with(|| {
         let owner = User::new(AccountKeyring::Dave);
-        let asset_id = Asset::generate_asset_id(owner.did, false);
+        let asset_id = Asset::generate_asset_id(owner.acc(), false);
         let funding_round_name: FundingRoundName = b"MyFundingRound".into();
         let sample_security_token = sample_security_token(owner.did);
 
@@ -1655,7 +1655,7 @@ fn issue_token_unassigned_custody() {
             PortfolioName(b"AlicePortfolio".to_vec())
         ));
 
-        let asset_id = Asset::generate_asset_id(alice.did, false);
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
             alice.origin(),
             b"MyAsset".into(),

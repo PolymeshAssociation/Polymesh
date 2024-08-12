@@ -253,7 +253,7 @@ pub trait AssetFnTrait<Account, Origin> {
     ) -> DispatchResult;
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn generate_asset_id(caller_did: IdentityId) -> AssetID;
+    fn generate_asset_id(caller_acc: Account) -> AssetID;
 
     #[cfg(feature = "runtime-benchmarks")]
     fn register_asset_metadata_type(

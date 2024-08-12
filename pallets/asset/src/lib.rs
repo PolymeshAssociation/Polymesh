@@ -97,6 +97,7 @@ use sp_std::prelude::*;
 use pallet_base::{
     ensure_opt_string_limited, ensure_string_limited, try_next_pre, Error::CounterOverflow,
 };
+use pallet_identity::PermissionedCallOriginData;
 use pallet_portfolio::{Error as PortfolioError, PortfolioAssetBalances};
 use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
@@ -245,7 +246,7 @@ decl_storage! {
         /// Maps all [`Ticker`] that are linked to an [`AssetID`].
         pub TickerAssetID get(fn ticker_asset_id): map hasher(blake2_128_concat) Ticker => Option<AssetID>;
 
-        pub RngNonce get(fn rng_none): map hasher(identity) IdentityId => u64;
+        pub AssetNonce: map hasher(identity) T::AccountId => u64;
 
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(4)): Version;
@@ -949,10 +950,10 @@ impl<T: Config> Module<T> {
         funding_round_name: Option<FundingRoundName>,
     ) -> Result<IdentityId, DispatchError> {
         let caller_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
+        let caller_primary_did = caller_data.primary_did;
 
         Self::validate_and_create_asset(
-            caller_data.primary_did,
-            caller_data.secondary_key,
+            caller_data,
             asset_name,
             divisible,
             asset_type,
@@ -960,7 +961,7 @@ impl<T: Config> Module<T> {
             funding_round_name,
         )?;
 
-        Ok(caller_data.primary_did)
+        Ok(caller_primary_did)
     }
 
     /// Freezes or unfreezes transfers for the token associated to `asset_id`.
@@ -1255,8 +1256,7 @@ impl<T: Config> Module<T> {
         let asset_type = AssetType::Custom(custom_asset_type_id);
 
         Self::validate_and_create_asset(
-            caller_data.primary_did,
-            caller_data.secondary_key,
+            caller_data,
             asset_name,
             divisible,
             asset_type,
@@ -2133,19 +2133,18 @@ impl<T: Config> Module<T> {
 
     /// Calls [`Module::validate_asset_creation_rules`] and [`Module::unverified_create_asset`].
     fn validate_and_create_asset(
-        caller_primary_identity: IdentityId,
-        caller_secondary_key: Option<SecondaryKey<T::AccountId>>,
+        caller_data: PermissionedCallOriginData<T::AccountId>,
         asset_name: AssetName,
         divisible: bool,
         asset_type: AssetType,
         asset_identifiers: Vec<AssetIdentifier>,
         funding_round_name: Option<FundingRoundName>,
     ) -> DispatchResult {
-        let asset_id = Self::generate_asset_id(caller_primary_identity, true);
+        let asset_id = Self::generate_asset_id(caller_data.sender, true);
 
         Self::validate_asset_creation_rules(
-            caller_primary_identity,
-            caller_secondary_key,
+            caller_data.primary_did,
+            caller_data.secondary_key,
             &asset_id,
             &asset_name,
             &asset_type,
@@ -2154,7 +2153,7 @@ impl<T: Config> Module<T> {
         )?;
 
         Self::unverified_create_asset(
-            caller_primary_identity,
+            caller_data.primary_did,
             asset_id,
             divisible,
             asset_name,
@@ -2204,16 +2203,16 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    pub fn generate_asset_id(caller_did: IdentityId, update: bool) -> AssetID {
-        let nonce = Self::get_nonce(&caller_did, update);
-        blake2_128(&(b"modlpy/pallet_asset", caller_did, nonce).encode()).into()
+    pub fn generate_asset_id(caller_acc: T::AccountId, update: bool) -> AssetID {
+        let nonce = Self::get_nonce(&caller_acc, update);
+        blake2_128(&(b"modlpy/pallet_asset", caller_acc, nonce).encode()).into()
     }
 
-    fn get_nonce(caller_did: &IdentityId, update: bool) -> u64 {
-        let nonce = RngNonce::get(caller_did);
+    fn get_nonce(caller_acc: &T::AccountId, update: bool) -> u64 {
+        let nonce = AssetNonce::<T>::get(caller_acc);
 
         if update {
-            RngNonce::insert(caller_did, nonce.wrapping_add(1));
+            AssetNonce::<T>::insert(caller_acc, nonce.wrapping_add(1));
         }
 
         nonce
@@ -2631,8 +2630,8 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn generate_asset_id(caller_did: IdentityId) -> AssetID {
-        Self::generate_asset_id(caller_did, false)
+    fn generate_asset_id(caller_acc: T::AccountId) -> AssetID {
+        Self::generate_asset_id(caller_acc, false)
     }
 
     #[cfg(feature = "runtime-benchmarks")]

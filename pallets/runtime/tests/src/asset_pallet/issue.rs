@@ -61,7 +61,7 @@ fn issue_tokens_user_portfolio() {
             alice.origin(),
             PortfolioName(b"AliceUserPortfolio".to_vec())
         ));
-        let asset_id = Asset::generate_asset_id(alice.did, false);
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
             alice.origin(),
             b"MyAsset".into(),
@@ -100,7 +100,7 @@ fn issue_tokens_invalid_portfolio() {
         let alice = User::new(AccountKeyring::Alice);
         let alice_user_portfolio = PortfolioKind::User(PortfolioNumber(1));
 
-        let asset_id = Asset::generate_asset_id(alice.did, false);
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
             alice.origin(),
             b"MyAsset".into(),
@@ -124,7 +124,7 @@ fn issue_tokens_assigned_custody() {
         let alice = User::new(AccountKeyring::Alice);
         let portfolio_id = PortfolioId::new(alice.did, PortfolioKind::Default);
 
-        let asset_id = Asset::generate_asset_id(alice.did, false);
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
             alice.origin(),
             b"MyAsset".into(),
@@ -179,7 +179,7 @@ fn issue_tokens_no_auth() {
         let bob = User::new(AccountKeyring::Bob);
         let alice = User::new(AccountKeyring::Alice);
 
-        let asset_id = Asset::generate_asset_id(alice.did, false);
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
             alice.origin(),
             b"MyAsset".into(),
@@ -200,7 +200,7 @@ fn issue_tokens_not_granular() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
 
-        let asset_id = Asset::generate_asset_id(alice.did, false);
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
             alice.origin(),
             b"MyAsset".into(),
@@ -221,7 +221,7 @@ fn issue_tokens_invalid_token_type() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
 
-        let asset_id = Asset::generate_asset_id(alice.did, false);
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
             alice.origin(),
             b"MyAsset".into(),
