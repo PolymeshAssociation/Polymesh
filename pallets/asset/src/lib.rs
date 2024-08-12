@@ -903,23 +903,9 @@ impl<T: Config> Module<T> {
 
             // If the asset is linked to a unique ticker, the ticker registration must be updated.
             if let Some(ticker) = AssetIDTicker::get(&asset_id) {
-                UniqueTickerRegistration::<T>::try_mutate(
-                    &ticker,
-                    |ticker_registration| -> DispatchResult {
-                        match ticker_registration {
-                            Some(ticker_registration) => {
-                                // Removes the old owner
-                                TickersOwnedByUser::remove(ticker_registration.owner, ticker);
-                                // Adds the new owner
-                                TickersOwnedByUser::insert(caller_did, ticker, true);
-                                // Updates ticker registration
-                                ticker_registration.owner = caller_did;
-                                Ok(())
-                            }
-                            None => Err(Error::<T>::TickerRegistrationNotFound.into()),
-                        }
-                    },
-                )?;
+                let ticker_registration = UniqueTickerRegistration::<T>::try_get(&ticker)
+                    .map_err(|_| Error::<T>::TickerRegistrationNotFound)?;
+                Self::transfer_ticker(ticker_registration, ticker, caller_did);
             }
 
             // Updates token ownership
