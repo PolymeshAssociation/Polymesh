@@ -63,53 +63,74 @@ pub(crate) fn migrate_to_v1<T: Config>() {
     RuntimeLogger::init();
     let mut ticker_to_asset_id = BTreeMap::new();
 
+    let mut count = 0;
     log::info!("Updating types for the DefaultTargetIdentities storage");
     v0::DefaultTargetIdentities::drain().for_each(|(ticker, target_identities)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         DefaultTargetIdentities::insert(asset_id, target_identities);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the DefaultWithholdingTax storage");
     v0::DefaultWithholdingTax::drain().for_each(|(ticker, tax)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         DefaultWithholdingTax::insert(asset_id, tax);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the DidWithholdingTax storage");
     v0::DidWithholdingTax::drain().for_each(|(ticker, id_tax)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         DidWithholdingTax::insert(asset_id, id_tax);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the CAIdSequence storage");
     v0::CAIdSequence::drain().for_each(|(ticker, id_tax)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         CAIdSequence::insert(asset_id, id_tax);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the CorporateActions storage");
     v0::CorporateActions::drain().for_each(|(ticker, local_id, ca)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         CorporateActions::insert(asset_id, local_id, ca);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the CADocLink storage");
     v0::CADocLink::drain().for_each(|(ca_id, docs)| {
+        count += 1;
         CADocLink::insert(CAId::from(ca_id), docs);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the Details storage");
     v0::Details::drain().for_each(|(ca_id, details)| {
+        count += 1;
         Details::insert(CAId::from(ca_id), details);
     });
+    log::info!("{:?} items migrated", count);
 }

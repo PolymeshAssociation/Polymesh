@@ -103,29 +103,41 @@ pub(crate) fn migrate_to_v3<T: Config>() {
 
     // Removes all elements in the old storage and inserts it in the new storage
 
+    let mut count = 0;
     log::info!("Updating types for the ActiveAssetStats storage");
     v2::ActiveAssetStats::<T>::drain().for_each(|(scope, set)| {
+        count += 1;
         let set: BTreeSet<StatType> = set.into_iter().map(|v| v.into()).collect();
         let bounded_set = BoundedBTreeSet::try_from(set).unwrap_or_default();
         ActiveAssetStats::<T>::insert(AssetID::from(scope), bounded_set);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the AssetStats storage");
     v2::AssetStats::drain().for_each(|(stat1key, stat2key, v)| {
+        count += 1;
         AssetStats::insert(Stat1stKey::from(stat1key), stat2key, v);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the AssetTransferCompliances storage");
     v2::AssetTransferCompliances::<T>::drain().for_each(|(scope, compliance)| {
+        count += 1;
         AssetTransferCompliances::<T>::insert(AssetID::from(scope), compliance);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the TransferConditionExemptEntities storage");
     v2::TransferConditionExemptEntities::drain().for_each(|(exemption_key, did, exempt)| {
+        count += 1;
         TransferConditionExemptEntities::insert(
             TransferConditionExemptKey::from(exemption_key),
             did,
             exempt,
         );
     });
+    log::info!("{:?} items migrated", count);
 }

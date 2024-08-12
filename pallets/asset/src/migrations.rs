@@ -103,71 +103,97 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
     // Removes all elements in the old storage and inserts it in the new storage
 
+    let mut count = 0;
     log::info!("Moving items from Tickers to UniqueTickerRegistration");
     v4::Tickers::<T>::drain().for_each(|(ticker, ticker_registration)| {
+        count += 1;
         let asset_id = AssetID::from(ticker);
         ticker_to_asset_id.insert(ticker, asset_id);
         UniqueTickerRegistration::<T>::insert(ticker, ticker_registration);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Moving items from Tokens to SecurityTokens");
     v4::Tokens::drain().for_each(|(ticker, security_token)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         SecurityTokens::insert(asset_id, security_token);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the AssetNames storage");
     v4::AssetNames::drain().for_each(|(ticker, asset_name)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         AssetNames::insert(asset_id, asset_name);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the BalanceOf storage");
     v4::BalanceOf::drain().for_each(|(ticker, identity, balance)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         BalanceOf::insert(asset_id, identity, balance);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Moving items from Identifiers to AssetIdentifiers");
     v4::Identifiers::drain().for_each(|(ticker, identifiers)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         AssetIdentifiers::insert(asset_id, identifiers);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the FundingRound storage");
     v4::FundingRound::drain().for_each(|(ticker, name)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         FundingRound::insert(asset_id, name);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the IssuedInFundingRound storage");
     v4::IssuedInFundingRound::drain().for_each(|((ticker, name), balance)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         IssuedInFundingRound::insert((asset_id, name), balance);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the Frozen storage");
     v4::Frozen::drain().for_each(|(ticker, frozen)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         Frozen::insert(asset_id, frozen);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Moving items from AssetOwnershipRelations to TickersOwnedByUser and SecurityTokensOwnedByUser");
     v4::AssetOwnershipRelations::drain().for_each(|(owner_did, ticker, ownership_detail)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
@@ -183,118 +209,158 @@ pub(crate) fn migrate_to_v5<T: Config>() {
             AssetOwnershipRelation::NotOwned => {}
         }
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the AssetDocuments storage");
     v4::AssetDocuments::drain().for_each(|(ticker, doc_id, doc)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
 
         AssetDocuments::insert(asset_id, doc_id, doc);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the AssetDocumentsIdSequence storage");
     v4::AssetDocumentsIdSequence::drain().for_each(|(ticker, seq)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
 
         AssetDocumentsIdSequence::insert(asset_id, seq);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the AssetMetadataValues storage");
     v4::AssetMetadataValues::drain().for_each(|(ticker, key, value)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
 
         AssetMetadataValues::insert(asset_id, key, value);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the AssetMetadataValueDetails storage");
     v4::AssetMetadataValueDetails::<T>::drain().for_each(|(ticker, key, value)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
 
         AssetMetadataValueDetails::<T>::insert(asset_id, key, value);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the AssetMetadataLocalNameToKey storage");
     v4::AssetMetadataLocalNameToKey::drain().for_each(|(ticker, name, local_key)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
 
         AssetMetadataLocalNameToKey::insert(asset_id, name, local_key);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the AssetMetadataLocalKeyToName storage");
     v4::AssetMetadataLocalKeyToName::drain().for_each(|(ticker, local_key, name)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
 
         AssetMetadataLocalKeyToName::insert(asset_id, local_key, name);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the AssetMetadataLocalSpecs storage");
     v4::AssetMetadataLocalSpecs::drain().for_each(|(ticker, local_key, spec)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
 
         AssetMetadataLocalSpecs::insert(asset_id, local_key, spec);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the AssetMetadataNextLocalKey storage");
     v4::AssetMetadataNextLocalKey::drain().for_each(|(ticker, next)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
 
         AssetMetadataNextLocalKey::insert(asset_id, next);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Moving items from TickersExemptFromAffirmation to AssetsExemptFromAffirmation");
     v4::TickersExemptFromAffirmation::drain().for_each(|(ticker, exempt)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
 
         AssetsExemptFromAffirmation::insert(asset_id, exempt);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Moving items from PreApprovedTicker to PreApprovedAsset");
     v4::PreApprovedTicker::drain().for_each(|(did, ticker, approved)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
 
         PreApprovedAsset::insert(did, asset_id, approved);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the MandatoryMediators storage");
     v4::MandatoryMediators::<T>::drain().for_each(|(ticker, mediators)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
 
         MandatoryMediators::<T>::insert(asset_id, mediators);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the CurrentAssetMetadataLocalKey storage");
     v4::CurrentAssetMetadataLocalKey::drain().for_each(|(ticker, current_key)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
 
         CurrentAssetMetadataLocalKey::insert(asset_id, current_key);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Adding link from legacy tickers to an asset_id");
     for (ticker, asset_id) in ticker_to_asset_id.into_iter() {
+        count += 1;
         AssetIDTicker::insert(asset_id, ticker);
         TickerAssetID::insert(ticker, asset_id);
     }
+    log::info!("{:?} items migrated", count);
 }

@@ -53,13 +53,19 @@ impl From<v0::Distribution> for Distribution {
 pub(crate) fn migrate_to_v1<T: Config>() {
     RuntimeLogger::init();
 
+    let mut count = 0;
     log::info!("Updating types for the Distributions storage");
     v0::Distributions::drain().for_each(|(ca_id, distribution)| {
+        count += 1;
         Distributions::insert(CAId::from(ca_id), Distribution::from(distribution));
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the HolderPaid storage");
     v0::HolderPaid::drain().for_each(|((ca_id, did), paid)| {
+        count += 1;
         HolderPaid::insert((CAId::from(ca_id), did), paid);
     });
+    log::info!("{:?} items migrated", count);
 }

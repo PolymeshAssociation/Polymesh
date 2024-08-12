@@ -101,24 +101,33 @@ pub(crate) fn migrate_to_v3<T: Config>() {
 
     // Removes all elements in the old storage and inserts it in the new storage
 
+    let mut count = 0;
     log::info!("Updating types for the VenueFiltering storage");
     v2::VenueFiltering::drain().for_each(|(ticker, v)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         VenueFiltering::insert(asset_id, v);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the VenueAllowList storage");
     v2::VenueAllowList::drain().for_each(|(ticker, id, v)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         VenueAllowList::insert(asset_id, id, v);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the InstructionLegs storage");
     v2::InstructionLegs::drain().for_each(|(instruction_id, leg_id, leg)| {
+        count += 1;
         InstructionLegs::insert(instruction_id, leg_id, Leg::from(leg));
     });
+    log::info!("{:?} items migrated", count);
 }

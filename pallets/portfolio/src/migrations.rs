@@ -42,43 +42,58 @@ pub(crate) fn migrate_to_v3<T: Config>() {
 
     // Removes all elements in the old storage and inserts it in the new storage
 
+    let mut count = 0;
     log::info!("Updating types for the PortfolioAssetBalances storage");
     v2::PortfolioAssetBalances::drain().for_each(|(portfolio, ticker, balance)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         PortfolioAssetBalances::insert(portfolio, asset_id, balance);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the PortfolioLockedAssets storage");
     v2::PortfolioLockedAssets::drain().for_each(|(portfolio, ticker, balance)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         PortfolioLockedAssets::insert(portfolio, asset_id, balance);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the PortfolioNFT storage");
     v2::PortfolioNFT::drain().for_each(|(portfolio, (ticker, nft_id), v)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         PortfolioNFT::insert(portfolio, (asset_id, nft_id), v);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the PortfolioLockedNFT storage");
     v2::PortfolioLockedNFT::drain().for_each(|(portfolio, (ticker, nft_id), v)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         PortfolioLockedNFT::insert(portfolio, (asset_id, nft_id), v);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the PreApprovedPortfolios storage");
     v2::PreApprovedPortfolios::drain().for_each(|(portfolio, ticker, v)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         PreApprovedPortfolios::insert(portfolio, asset_id, v);
     });
+    log::info!("{:?} items migrated", count);
 }

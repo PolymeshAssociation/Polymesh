@@ -34,27 +34,36 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     // Removes all elements in the old storage and inserts it in the new storage
 
+    let mut count = 0;
     log::info!("Updating types for the Fundraisers storage");
     v0::Fundraisers::<T>::drain().for_each(|(ticker, id, fundraiser)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         Fundraisers::<T>::insert(asset_id, id, fundraiser);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the FundraiserCount storage");
     v0::FundraiserCount::drain().for_each(|(ticker, id)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         FundraiserCount::insert(asset_id, id);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the FundraiserNames storage");
     v0::FundraiserNames::drain().for_each(|(ticker, id, name)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         FundraiserNames::insert(asset_id, id, name);
     });
+    log::info!("{:?} items migrated", count);
 }

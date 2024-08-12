@@ -56,40 +56,55 @@ pub(crate) fn migrate_to_v4<T: Config>() {
 
     // Removes all elements in the old storage and inserts it in the new storage
 
+    let mut count = 0;
     log::info!("Updating types for the NumberOfNFTs storage");
     v3::NumberOfNFTs::drain().for_each(|(ticker, did, n)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         NumberOfNFTs::insert(asset_id, did, n);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the CollectionTicker storage");
     v3::CollectionTicker::drain().for_each(|(ticker, id)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         CollectionAsset::insert(asset_id, id);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the Collection storage");
     v3::Collection::drain().for_each(|(id, collection)| {
+        count += 1;
         Collection::insert(id, NFTCollection::from(collection));
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the NFTsInCollection storage");
     v3::NFTsInCollection::drain().for_each(|(ticker, n)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         NFTsInCollection::insert(asset_id, n);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the NFTOwner storage");
     v3::NFTOwner::drain().for_each(|(ticker, nft_id, portfolio)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         NFTOwner::insert(asset_id, nft_id, portfolio);
     });
+    log::info!("{:?} items migrated", count);
 }

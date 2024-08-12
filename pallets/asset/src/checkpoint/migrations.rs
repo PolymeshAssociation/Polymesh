@@ -62,83 +62,113 @@ pub(crate) fn migrate_to_v2<T: Config>() {
 
     // Removes all elements in the old storage and inserts it in the new storage
 
+    let mut count = 0;
     log::info!("Updating types for the TotalSupply storage");
     v1::TotalSupply::drain().for_each(|(ticker, checkpoint_id, balance)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         TotalSupply::insert(asset_id, checkpoint_id, balance);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the Balance storage");
     v1::Balance::drain().for_each(|((ticker, checkpoint_id), did, balance)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         Balance::insert((asset_id, checkpoint_id), did, balance);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the CheckpointIdSequence storage");
     v1::CheckpointIdSequence::drain().for_each(|(ticker, checkpoint_id)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         CheckpointIdSequence::insert(asset_id, checkpoint_id);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the BalanceUpdates storage");
     v1::BalanceUpdates::drain().for_each(|(ticker, did, checkpoint_id)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         BalanceUpdates::insert(asset_id, did, checkpoint_id);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the Timestamps storage");
     v1::Timestamps::drain().for_each(|(ticker, checkpoint_id, when)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         Timestamps::insert(asset_id, checkpoint_id, when);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the ScheduleIdSequence storage");
     v1::ScheduleIdSequence::drain().for_each(|(ticker, schedule_id)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         ScheduleIdSequence::insert(asset_id, schedule_id);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the CachedNextCheckpoints storage");
     v1::CachedNextCheckpoints::drain().for_each(|(ticker, next_checkpoint)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         CachedNextCheckpoints::insert(asset_id, next_checkpoint);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the ScheduledCheckpoints storage");
     v1::ScheduledCheckpoints::drain().for_each(|(ticker, schedule_id, next_checkpoint)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         ScheduledCheckpoints::insert(asset_id, schedule_id, next_checkpoint);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the ScheduleRefCount storage");
-    v1::ScheduleRefCount::drain().for_each(|(ticker, schedule_id, count)| {
+    v1::ScheduleRefCount::drain().for_each(|(ticker, schedule_id, ref_count)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
-        ScheduleRefCount::insert(asset_id, schedule_id, count);
+        ScheduleRefCount::insert(asset_id, schedule_id, ref_count);
     });
+    log::info!("{:?} items migrated", count);
 
+    let mut count = 0;
     log::info!("Updating types for the SchedulePoints storage");
     v1::SchedulePoints::drain().for_each(|(ticker, schedule_id, checkpoint_id)| {
+        count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
         SchedulePoints::insert(asset_id, schedule_id, checkpoint_id);
     });
+    log::info!("{:?} items migrated", count);
 }
