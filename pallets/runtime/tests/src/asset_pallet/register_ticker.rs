@@ -110,7 +110,7 @@ fn register_ticker_already_linked() {
     ExtBuilder::default().build().execute_with(|| {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
         let alice = User::new(AccountKeyring::Alice);
-        let asset_id = Asset::generate_asset_id(alice.did, false);
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
 
         assert_ok!(Asset::register_unique_ticker(alice.origin(), ticker,));
 

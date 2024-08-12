@@ -106,7 +106,7 @@ pub(crate) fn create_sample_asset<T: Config>(asset_owner: &User<T>, divisible: b
     let asset_identifiers = (0..MAX_IDENTIFIERS_PER_ASSET)
         .map(|_| AssetIdentifier::cusip(*b"17275R102").unwrap())
         .collect();
-    let asset_id = Module::<T>::generate_asset_id(asset_owner.did(), false);
+    let asset_id = Module::<T>::generate_asset_id(asset_owner.account(), false);
     Module::<T>::create_asset(
         asset_owner.origin.clone().into(),
         asset_name,
@@ -330,7 +330,7 @@ benchmarks! {
         let asset_identifiers: Vec<AssetIdentifier> = (0..i)
             .map(|_| AssetIdentifier::cusip(*b"17275R102").unwrap())
             .collect();
-        let asset_id = Module::<T>::generate_asset_id(alice.did(), false);
+        let asset_id = Module::<T>::generate_asset_id(alice.account(), false);
     }: _(alice.origin.clone(), asset_name.clone(), true, AssetType::default(), asset_identifiers.clone(), Some(funding_round_name.clone()))
     verify {
         assert_eq!(
@@ -585,7 +585,7 @@ benchmarks! {
         // Creates an asset of type NFT
         let user = user::<T>("target", 0);
         let asset_name = AssetName::from(b"MyAsset");
-        let asset_id = Module::<T>::generate_asset_id(user.did(), false);
+        let asset_id = Module::<T>::generate_asset_id(user.account(), false);
         Module::<T>::create_asset(
             user.origin().into(),
             asset_name,
@@ -623,7 +623,7 @@ benchmarks! {
         // Creates an asset of type NFT
         let user = user::<T>("target", 0);
         let asset_name = AssetName::from(b"MyAsset");
-        let asset_id = Module::<T>::generate_asset_id(user.did(), false);
+        let asset_id = Module::<T>::generate_asset_id(user.account(), false);
         Module::<T>::create_asset(
             user.origin().into(),
             asset_name,
@@ -708,7 +708,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let mediators: BTreeSet<IdentityId> = (0..n).map(|i| IdentityId::from(i as u128)).collect();
 
-        let asset_id = Module::<T>::generate_asset_id(alice.did(), false);
+        let asset_id = Module::<T>::generate_asset_id(alice.account(), false);
         Module::<T>::create_asset(
             alice.clone().origin().into(),
             AssetName::from(b"MyAsset"),
@@ -727,7 +727,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let mediators: BTreeSet<IdentityId> = (0..n).map(|i| IdentityId::from(i as u128)).collect();
 
-        let asset_id = Module::<T>::generate_asset_id(alice.did(), false);
+        let asset_id = Module::<T>::generate_asset_id(alice.account(), false);
         Module::<T>::create_asset(
             alice.clone().origin().into(),
             AssetName::from(b"MyAsset"),

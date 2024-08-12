@@ -140,7 +140,7 @@ fn attach<T: Config>(owner: &User<T>, ca_id: CAId) {
 }
 
 pub(crate) fn currency<T: Config>(owner: &User<T>) -> AssetID {
-    let asset_id = Asset::<T>::generate_asset_id(owner.did(), false);
+    let asset_id = Asset::<T>::generate_asset_id(owner.account(), false);
 
     Asset::<T>::create_asset(
         owner.origin().into(),

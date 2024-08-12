@@ -20,7 +20,7 @@ pub fn register_unique_ticker(ticker_owner: &User, ticker: Ticker) {
 /// Creates a divisible asset where all values for its attributes are set to their default values.
 /// The [`SecurityToken::total_supply`] will be set to [`ISSUE_AMOUNT`].
 pub fn create_and_issue_sample_asset(asset_owner: &User) -> AssetID {
-    let asset_id = Asset::generate_asset_id(asset_owner.did, false);
+    let asset_id = Asset::generate_asset_id(asset_owner.acc(), false);
 
     assert_ok!(Asset::create_asset(
         asset_owner.origin(),
@@ -60,7 +60,7 @@ pub fn create_and_issue_sample_asset_linked_to_ticker(
 
 /// Creates an NFT collection and mints one token. All values for its attributes are set to their default values.
 pub fn create_and_issue_sample_nft(asset_owner: &User) -> AssetID {
-    let asset_id = Asset::generate_asset_id(asset_owner.did, false);
+    let asset_id = Asset::generate_asset_id(asset_owner.acc(), false);
 
     assert_ok!(Asset::create_asset(
         asset_owner.origin(),
@@ -100,7 +100,7 @@ pub fn create_asset(
     issue_tokens: bool,
     issue_portfolio: Option<PortfolioKind>,
 ) -> AssetID {
-    let asset_id = Asset::generate_asset_id(asset_owner.did, false);
+    let asset_id = Asset::generate_asset_id(asset_owner.acc(), false);
 
     assert_ok!(Asset::create_asset(
         asset_owner.origin(),

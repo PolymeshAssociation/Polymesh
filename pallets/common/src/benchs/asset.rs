@@ -29,7 +29,7 @@ pub fn create_and_issue_sample_asset<T: Config>(
     asset_name: &[u8],
     issue_tokens: bool,
 ) -> AssetID {
-    let asset_id = T::AssetFn::generate_asset_id(asset_owner.did());
+    let asset_id = T::AssetFn::generate_asset_id(asset_owner.account());
 
     T::AssetFn::create_asset(
         asset_owner.origin().into(),

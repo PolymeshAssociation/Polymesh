@@ -121,7 +121,7 @@ pub fn create_and_issue_sample_asset<T: Config>(
     asset_owner: &User<T>,
     asset_name: Vec<u8>,
 ) -> AssetID {
-    let asset_id = T::Asset::generate_asset_id(asset_owner.did());
+    let asset_id = T::Asset::generate_asset_id(asset_owner.account());
     T::Asset::create_asset(
         asset_owner.origin.clone().into(),
         asset_name.into(),

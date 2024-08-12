@@ -121,7 +121,7 @@ fn base_transfer_invalid_granularity() {
             kind: PortfolioKind::Default,
         };
 
-        let asset_id = Asset::generate_asset_id(alice.did, false);
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
             alice.origin(),
             b"MyAsset".into(),
@@ -169,7 +169,7 @@ fn base_transfer_insufficient_balance() {
             kind: PortfolioKind::Default,
         };
 
-        let asset_id = Asset::generate_asset_id(alice.did, false);
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
             alice.origin(),
             b"MyAsset".into(),
