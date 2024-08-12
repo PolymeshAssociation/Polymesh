@@ -30,7 +30,7 @@ use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 
 use crate::asset::AssetID;
 use crate::constants::SETTLEMENT_INSTRUCTION_EXECUTION;
-use crate::{impl_checked_inc, Balance, IdentityId, NFTs, PortfolioId};
+use crate::{impl_checked_inc, Balance, IdentityId, NFTs, PortfolioId, Ticker};
 
 /// A global and unique venue ID.
 #[derive(Encode, Decode, TypeInfo)]
@@ -187,8 +187,8 @@ pub enum Leg {
         sender_identity: IdentityId,
         /// The [`IdentityId`] of the receiver.
         receiver_identity: IdentityId,
-        /// The [`AssetID`] for the off-chain asset.
-        asset_id: AssetID,
+        /// The [`Ticker`] for the off-chain asset.
+        ticker: Ticker,
         /// The amount transferred.
         amount: Balance,
     },
@@ -204,11 +204,11 @@ impl Leg {
     }
 
     /// Returns the [`AssetID`] of the asset in the given leg.
-    pub fn asset_id(&self) -> AssetID {
+    pub fn asset_id(&self) -> Option<&AssetID> {
         match self {
-            Leg::Fungible { asset_id, .. } => *asset_id,
-            Leg::NonFungible { nfts, .. } => *nfts.asset_id(),
-            Leg::OffChain { asset_id, .. } => *asset_id,
+            Leg::Fungible { asset_id, .. } => Some(asset_id),
+            Leg::NonFungible { nfts, .. } => Some(nfts.asset_id()),
+            Leg::OffChain { .. } => None,
         }
     }
 }
@@ -236,8 +236,8 @@ pub struct Receipt<Balance> {
     sender_identity: IdentityId,
     /// The [`IdentityId`] of the receiver.
     receiver_identity: IdentityId,
-    /// [`AssetID`] of the asset being transferred.
-    asset_id: AssetID,
+    /// [`Ticker`] of the asset being transferred.
+    ticker: Ticker,
     /// The amount transferred.
     amount: Balance,
 }
@@ -250,7 +250,7 @@ impl<Balance> Receipt<Balance> {
         leg_id: LegId,
         sender_identity: IdentityId,
         receiver_identity: IdentityId,
-        asset_id: AssetID,
+        ticker: Ticker,
         amount: Balance,
     ) -> Self {
         Receipt {
@@ -259,7 +259,7 @@ impl<Balance> Receipt<Balance> {
             leg_id,
             sender_identity,
             receiver_identity,
-            asset_id,
+            ticker,
             amount,
         }
     }

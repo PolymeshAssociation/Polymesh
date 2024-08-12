@@ -1072,24 +1072,32 @@ impl<T: Config> Module<T> {
 
         // Validates all legs and checks if they have been pre-affirmed
         for leg in legs {
-            let asset_id =
-                Self::ensure_valid_leg(leg, venue_id, &mut tickers, &mut instruction_asset_count)?;
-            match leg {
-                Leg::Fungible {
-                    sender, receiver, ..
+            Self::ensure_valid_leg(leg, venue_id, &mut tickers, &mut instruction_asset_count)?;
+
+            let (asset_id, sender, receiver) = {
+                match leg {
+                    Leg::Fungible {
+                        sender,
+                        receiver,
+                        asset_id,
+                        ..
+                    } => (asset_id, sender, receiver),
+                    Leg::NonFungible {
+                        sender,
+                        receiver,
+                        nfts,
+                    } => (nfts.asset_id(), sender, receiver),
+                    Leg::OffChain { .. } => continue,
                 }
-                | Leg::NonFungible {
-                    sender, receiver, ..
-                } => {
-                    portfolios_pending_approval.insert(*sender);
-                    if T::Portfolio::skip_portfolio_affirmation(receiver, &asset_id) {
-                        portfolios_pre_approved.insert(*receiver);
-                    } else {
-                        portfolios_pending_approval.insert(*receiver);
-                    }
-                }
-                Leg::OffChain { .. } => continue,
+            };
+
+            portfolios_pending_approval.insert(*sender);
+            if T::Portfolio::skip_portfolio_affirmation(receiver, asset_id) {
+                portfolios_pre_approved.insert(*receiver);
+            } else {
+                portfolios_pending_approval.insert(*receiver);
             }
+
             let asset_mediators = MandatoryMediators::<T>::get(asset_id);
             mediators.extend(asset_mediators.iter());
         }
@@ -1952,8 +1960,9 @@ impl<T: Config> Module<T> {
         // Avoids reading the storage multiple times for the same asset_id
         let mut tickers: BTreeSet<AssetID> = BTreeSet::new();
         for (_, leg) in instruction_legs {
-            let asset_id = leg.asset_id();
-            Self::ensure_venue_filtering(&mut tickers, asset_id, &venue_id)?;
+            if let Some(asset_id) = leg.asset_id() {
+                Self::ensure_venue_filtering(&mut tickers, *asset_id, &venue_id)?;
+            }
         }
         Ok(())
     }
@@ -1985,14 +1994,14 @@ impl<T: Config> Module<T> {
         PostDispatchInfo::from(Some(weight_meter.consumed()))
     }
 
-    /// Returns [`AssetID`] if the leg is valid, otherwise returns an error.
+    /// Returns `Ok` if the leg is valid, otherwise returns an error.
     /// See also: [`Module::ensure_valid_fungible_leg`], [`Module::ensure_valid_nft_leg`] and [`Module::ensure_valid_off_chain_leg`].
     fn ensure_valid_leg(
         leg: &Leg,
         venue_id: &VenueId,
         tickers: &mut BTreeSet<AssetID>,
         instruction_asset_count: &mut AssetCount,
-    ) -> Result<AssetID, DispatchError> {
+    ) -> DispatchResult {
         match leg {
             Leg::Fungible {
                 sender,
@@ -2005,7 +2014,7 @@ impl<T: Config> Module<T> {
                 instruction_asset_count
                     .try_add_fungible()
                     .map_err(|_| Error::<T>::MaxNumberOfFungibleAssetsExceeded)?;
-                Ok(*asset_id)
+                Ok(())
             }
             Leg::NonFungible {
                 sender,
@@ -2017,19 +2026,19 @@ impl<T: Config> Module<T> {
                 instruction_asset_count
                     .try_add_non_fungible(&nfts)
                     .map_err(|_| Error::<T>::MaxNumberOfNFTsExceeded)?;
-                Ok(*nfts.asset_id())
+                Ok(())
             }
             Leg::OffChain {
                 sender_identity,
                 receiver_identity,
-                asset_id,
                 amount,
+                ..
             } => {
                 Self::ensure_valid_off_chain_leg(sender_identity, receiver_identity, *amount)?;
                 instruction_asset_count
                     .try_add_off_chain()
                     .map_err(|_| Error::<T>::MaxNumberOfOffChainAssetsExceeded)?;
-                Ok(*asset_id)
+                Ok(())
             }
         }
     }
@@ -2236,7 +2245,7 @@ impl<T: Config> Module<T> {
                 Leg::OffChain {
                     sender_identity,
                     receiver_identity,
-                    asset_id,
+                    ticker,
                     amount,
                 } => {
                     ensure!(
@@ -2250,7 +2259,7 @@ impl<T: Config> Module<T> {
                         receipt_details.leg_id(),
                         sender_identity,
                         receiver_identity,
-                        asset_id,
+                        ticker,
                         amount,
                     );
                     ensure!(
