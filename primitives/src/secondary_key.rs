@@ -528,13 +528,11 @@ mod tests {
         let free_key = SecondaryKey::new(key.clone(), Permissions::default());
         let restricted_key = SecondaryKey::new(key, permissions.clone());
         assert!(free_key.has_asset_permission(asset_id2));
-        assert!(free_key
-            .has_extrinsic_permission(&"pallet".as_ref().into(), &"function".as_ref().into()));
+        assert!(free_key.has_extrinsic_permission(&"pallet".into(), &"function".into()));
         assert!(free_key.has_portfolio_permission(vec![portfolio1]));
         assert!(restricted_key.has_asset_permission(asset_id));
         assert!(!restricted_key.has_asset_permission(asset_id2));
-        assert!(restricted_key
-            .has_extrinsic_permission(&"pallet".as_ref().into(), &"function".as_ref().into()));
+        assert!(restricted_key.has_extrinsic_permission(&"pallet".into(), &"function".into()));
         assert!(restricted_key.has_portfolio_permission(vec![portfolio1]));
         assert!(!restricted_key.has_portfolio_permission(vec![portfolio2]));
     }

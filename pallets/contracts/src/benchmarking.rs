@@ -40,7 +40,7 @@ use polymesh_primitives::identity::limits::{
 use polymesh_primitives::secondary_key::ExtrinsicNames;
 use polymesh_primitives::{
     AssetPermissions, Balance, ExtrinsicName, ExtrinsicPermissions, PalletName, PalletPermissions,
-    Permissions, PortfolioId, PortfolioNumber, PortfolioPermissions, Ticker,
+    Permissions, PortfolioId, PortfolioNumber, PortfolioPermissions,
 };
 
 use crate::chain_extension::*;
