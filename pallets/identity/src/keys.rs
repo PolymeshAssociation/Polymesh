@@ -855,7 +855,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Ensures that `origin`'s key is the primary key of a DID.
-    fn ensure_primary_key(
+    pub fn ensure_primary_key(
         origin: T::RuntimeOrigin,
     ) -> Result<(T::AccountId, IdentityId), DispatchError> {
         let sender = ensure_signed(origin)?;

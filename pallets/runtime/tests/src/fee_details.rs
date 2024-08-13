@@ -1,4 +1,5 @@
 use super::{
+    multisig::create_signers,
     storage::{get_last_auth_id, make_account_without_cdd, register_keyring_account, TestStorage},
     ExtBuilder,
 };
@@ -14,7 +15,7 @@ use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
 use sp_keyring::AccountKeyring;
 use sp_runtime::transaction_validity::InvalidTransaction;
 
-type MultiSig = multisig::Module<TestStorage>;
+type MultiSig = multisig::Pallet<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
@@ -78,7 +79,7 @@ fn cdd_checks() {
             // call to accept being a multisig signer should fail when authorizer does not have a valid cdd (expired)
             assert_ok!(MultiSig::create_multisig(
                 alice_signed.clone(),
-                vec![alice_account.clone()],
+                create_signers(vec![alice_account.clone()]),
                 1,
             ));
 
@@ -125,7 +126,7 @@ fn cdd_checks() {
             // check that authorisation can be removed correctly
             assert_ok!(MultiSig::create_multisig(
                 charlie_signed.clone(),
-                vec![alice_account.clone()],
+                create_signers(vec![alice_account.clone()]),
                 1,
             ));
             let alice_auth_id = get_last_auth_id(&alice_signatory);
@@ -162,7 +163,7 @@ fn cdd_checks() {
             // create an authorisation where the target has a CDD claim and the issuer does not
             assert_ok!(MultiSig::create_multisig(
                 alice_signed.clone(),
-                vec![charlie_account.clone()],
+                create_signers(vec![charlie_account.clone()]),
                 1,
             ));
             let charlie_auth_id = get_last_auth_id(&charlie_signatory);
@@ -200,7 +201,7 @@ fn cdd_checks() {
             // fee must be paid by multisig creator
             assert_ok!(MultiSig::create_multisig(
                 charlie_signed.clone(),
-                vec![alice_account.clone()],
+                create_signers(vec![alice_account.clone()]),
                 1,
             ));
             let alice_auth_id = get_last_auth_id(&alice_signatory);

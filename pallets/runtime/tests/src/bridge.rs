@@ -18,7 +18,7 @@ type BridgeGenesis = bridge::GenesisConfig<TestStorage>;
 type Error = bridge::Error<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type Balances = pallet_balances::Module<TestStorage>;
-type MultiSig = pallet_multisig::Module<TestStorage>;
+type MultiSig = pallet_multisig::Pallet<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type System = frame_system::Pallet<TestStorage>;
 type Scheduler = pallet_scheduler::Pallet<TestStorage>;
@@ -117,7 +117,9 @@ fn signers_approve_bridge_tx(tx: BridgeTx, signers: &[AccountId]) -> BridgeTx {
             })
             .clone();
         assert_eq!(
-            MultiSig::proposal_detail(&controller, p_id).approvals,
+            MultiSig::proposal_vote_counts(&controller, p_id)
+                .unwrap()
+                .approvals,
             (i + 1) as u64
         );
     }

@@ -14,6 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use frame_benchmarking::benchmarks;
+use frame_support::storage::StorageDoubleMap;
 use frame_system::RawOrigin;
 
 use polymesh_common_utilities::benchs::{AccountIdOf, User, UserBuilder};
@@ -21,23 +22,25 @@ use polymesh_common_utilities::TestUtilsFn;
 
 use crate::*;
 
-pub type MultiSig<T> = crate::Module<T>;
+pub type MultiSig<T> = crate::Pallet<T>;
 pub type Identity<T> = pallet_identity::Module<T>;
 pub type Timestamp<T> = pallet_timestamp::Pallet<T>;
 
 fn generate_signers<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     n: usize,
-) -> (Vec<T::AccountId>, Vec<User<T>>) {
+) -> (BoundedVec<T::AccountId, T::MaxSigners>, Vec<User<T>>) {
     let mut users = Vec::with_capacity(n);
     let signers = (0..n)
         .into_iter()
         .map(|x| {
-            let user = <UserBuilder<T>>::default().seed(x as u32).build("key");
+            let user = UserBuilder::<T>::default().seed(x as u32).build("key");
             let account = user.account.clone();
             users.push(user);
             account
         })
-        .collect();
+        .collect::<Vec<_>>()
+        .try_into()
+        .unwrap();
     (signers, users)
 }
 
@@ -54,10 +57,17 @@ fn generate_multisig_with_extra_signers<T: Config + TestUtilsFn<AccountIdOf<T>>>
     caller: &User<T>,
     num_of_extra_signers: u32,
     num_of_signers_required: u32,
-) -> Result<(T::AccountId, Vec<T::AccountId>, Vec<User<T>>), DispatchError> {
+) -> Result<
+    (
+        T::AccountId,
+        BoundedVec<T::AccountId, T::MaxSigners>,
+        Vec<User<T>>,
+    ),
+    DispatchError,
+> {
     let (signers, users) = generate_signers::<T>(num_of_extra_signers as usize);
-    let multisig = <MultiSig<T>>::get_next_multisig_address(caller.account()).expect("Next MS");
-    <MultiSig<T>>::create_multisig(
+    let multisig = MultiSig::<T>::get_next_multisig_address(caller.account()).expect("Next MS");
+    MultiSig::<T>::create_multisig(
         caller.origin.clone().into(),
         signers.clone(),
         num_of_signers_required.into(),
@@ -66,10 +76,10 @@ fn generate_multisig_with_extra_signers<T: Config + TestUtilsFn<AccountIdOf<T>>>
     Ok((multisig, signers, users))
 }
 
-pub type MultisigSetupResult<T, AccountId> = (
+pub type MultisigSetupResult<T, AccountId, MaxSigners> = (
     User<T>,
     AccountId,
-    Vec<AccountId>,
+    BoundedVec<AccountId, MaxSigners>,
     Vec<User<T>>,
     RawOrigin<AccountId>,
 );
@@ -77,8 +87,8 @@ pub type MultisigSetupResult<T, AccountId> = (
 fn generate_multisig_for_alice_wo_accepting<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     total_signers: u32,
     signers_required: u32,
-) -> Result<MultisigSetupResult<T, T::AccountId>, DispatchError> {
-    let alice = <UserBuilder<T>>::default().generate_did().build("alice");
+) -> Result<MultisigSetupResult<T, T::AccountId, T::MaxSigners>, DispatchError> {
+    let alice = UserBuilder::<T>::default().generate_did().build("alice");
     let (multisig, signers, users) =
         generate_multisig_with_extra_signers::<T>(&alice, total_signers, signers_required).unwrap();
     Ok((
@@ -93,20 +103,20 @@ fn generate_multisig_for_alice_wo_accepting<T: Config + TestUtilsFn<AccountIdOf<
 fn generate_multisig_for_alice<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     total_signers: u32,
     signers_required: u32,
-) -> Result<MultisigSetupResult<T, T::AccountId>, DispatchError> {
+) -> Result<MultisigSetupResult<T, T::AccountId, T::MaxSigners>, DispatchError> {
     let (alice, multisig, signers, users, multisig_origin) =
         generate_multisig_for_alice_wo_accepting::<T>(total_signers, signers_required).unwrap();
     for signer in &signers {
         let auth_id = get_last_auth_id::<T>(signer);
-        <MultiSig<T>>::base_accept_multisig_signer(signer.clone(), auth_id).unwrap();
+        MultiSig::<T>::base_accept_multisig_signer(signer.clone(), auth_id).unwrap();
     }
     Ok((alice, multisig.clone(), signers, users, multisig_origin))
 }
 
-pub type ProposalSetupResult<T, AccountId, Proposal> = (
+pub type ProposalSetupResult<T, AccountId, Proposal, MaxSigners> = (
     User<T>,
     AccountId,
-    Vec<AccountId>,
+    BoundedVec<AccountId, MaxSigners>,
     Vec<User<T>>,
     u64,
     Box<Proposal>,
@@ -116,10 +126,10 @@ pub type ProposalSetupResult<T, AccountId, Proposal> = (
 fn generate_multisig_and_proposal_for_alice<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     total_signers: u32,
     signers_required: u32,
-) -> Result<ProposalSetupResult<T, T::AccountId, T::Proposal>, DispatchError> {
+) -> Result<ProposalSetupResult<T, T::AccountId, T::Proposal, T::MaxSigners>, DispatchError> {
     let (alice, multisig, signers, users, _) =
         generate_multisig_for_alice::<T>(total_signers, signers_required).unwrap();
-    let proposal_id = <MultiSig<T>>::ms_tx_done(multisig.clone());
+    let proposal_id = MultiSig::<T>::ms_tx_done(multisig.clone());
     let proposal = Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
     Ok((
         alice,
@@ -135,11 +145,11 @@ fn generate_multisig_and_proposal_for_alice<T: Config + TestUtilsFn<AccountIdOf<
 fn generate_multisig_and_create_proposal<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     total_signers: u32,
     signers_required: u32,
-) -> Result<ProposalSetupResult<T, T::AccountId, T::Proposal>, DispatchError> {
+) -> Result<ProposalSetupResult<T, T::AccountId, T::Proposal, T::MaxSigners>, DispatchError> {
     let (alice, multisig, signers, users, proposal_id, proposal, ephemeral_multisig) =
         generate_multisig_and_proposal_for_alice::<T>(total_signers, signers_required).unwrap();
     // Use the first signer to create the proposal.
-    <MultiSig<T>>::create_proposal(
+    MultiSig::<T>::create_proposal(
         users[0].origin().into(),
         multisig.clone(),
         proposal.clone(),
@@ -159,62 +169,60 @@ fn generate_multisig_and_create_proposal<T: Config + TestUtilsFn<AccountIdOf<T>>
 
 macro_rules! assert_proposal_created {
     ($proposal_id:ident, $multisig:ident) => {
-        assert!($proposal_id < <MultiSig<T>>::ms_tx_done($multisig));
+        assert!($proposal_id < MultiSig::<T>::ms_tx_done($multisig));
     };
 }
 
 macro_rules! assert_vote_cast {
     ($proposal_id:ident, $multisig:ident, $signatory:expr) => {
-        assert!(<MultiSig<T>>::votes(($multisig, $proposal_id), $signatory));
+        assert!(MultiSig::<T>::votes(($multisig, $proposal_id), $signatory));
     };
 }
 
 macro_rules! assert_number_of_signers {
     ($expected_number:expr, $multisig:expr) => {
-        assert!(<NumberOfSigners<T>>::get($multisig) == $expected_number);
+        assert!(NumberOfSigners::<T>::get($multisig) == $expected_number);
     };
 }
-
-const MAX_SIGNERS: u32 = 256;
 
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
     create_multisig {
         // Number of signers
-        let i in 1 .. MAX_SIGNERS;
+        let i in 1 .. T::MaxSigners::get() as u32;
         let (alice, multisig, signers, _, _) = generate_multisig_for_alice::<T>(i, 1).unwrap();
     }: _(alice.origin(), signers, i as u64)
     verify {
-        assert!(<CreatorDid<T>>::contains_key(multisig), "create_multisig");
+        assert!(CreatorDid::<T>::contains_key(multisig), "create_multisig");
     }
 
     create_or_approve_proposal {
-        let (alice, multisig, _, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(2, 1).unwrap();
+        let (alice, multisig, _, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(3, 3).unwrap();
     }: _(users[0].origin(), ephemeral_multisig, proposal, Some(1337u32.into()))
     verify {
         assert_proposal_created!(proposal_id, multisig);
     }
 
     create_proposal {
-        let (_, multisig, _, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(2, 1).unwrap();
+        let (_, multisig, _, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(3, 3).unwrap();
     }: _(users[0].origin(), ephemeral_multisig, proposal, Some(1337u32.into()))
     verify {
         assert_proposal_created!(proposal_id, multisig);
     }
 
     approve {
-        let (alice, multisig, signers, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(2, 2).unwrap();
-    }: _(users[1].origin(), ephemeral_multisig, proposal_id, Weight::MAX)
+        let (alice, multisig, signers, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(3, 3).unwrap();
+    }: _(users[2].origin(), ephemeral_multisig, proposal_id, Weight::MAX)
     verify {
         assert_vote_cast!(proposal_id, multisig, signers.last().unwrap());
     }
 
     execute_proposal {
-        let (alice, multisig, signers, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(2, 2).unwrap();
+        let (alice, multisig, signers, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(3, 3).unwrap();
         let did = alice.did.expect("Alice must have a DID");
     }: {
-      assert!(MultiSig::<T>::execute_proposal(multisig, proposal_id, did, Weight::MAX).is_ok());
+      assert!(MultiSig::<T>::execute_proposal(&multisig, proposal_id, did, Weight::MAX).is_ok());
     }
 
     reject {
@@ -234,27 +242,34 @@ benchmarks! {
         assert_number_of_signers!(1, multisig);
     }
 
-    add_multisig_signer {
+    add_multisig_signers {
+        // Number of signers
+        let i in 1 .. T::MaxSigners::get() as u32;
+
         let (alice, multisig, _, _, multisig_origin) = generate_multisig_for_alice::<T>(1, 1).unwrap();
-        let bob = <UserBuilder<T>>::default().build("bob").account();
-        let ephemeral_bob = bob.clone();
-        let original_last_auth = get_last_auth_id::<T>(&bob);
-    }: _(multisig_origin, ephemeral_bob)
+        let (signers, _) = generate_signers::<T>(i as usize);
+        let last_signer = signers.last().cloned().unwrap();
+        let original_last_auth = get_last_auth_id::<T>(&last_signer);
+    }: _(multisig_origin, signers)
     verify {
-        assert!(original_last_auth < get_last_auth_id::<T>(&bob));
+        assert!(original_last_auth < get_last_auth_id::<T>(&last_signer));
     }
 
-    remove_multisig_signer {
-        let (alice, multisig, signers, _, multisig_origin) = generate_multisig_for_alice::<T>(2, 1).unwrap();
-        assert_number_of_signers!(2, multisig.clone());
-    }: _(multisig_origin, signers[0].clone())
+    remove_multisig_signers {
+        // Number of signers
+        let i in 2 .. T::MaxSigners::get() as u32;
+
+        let (alice, multisig, signers, _, multisig_origin) = generate_multisig_for_alice::<T>(i, 1).unwrap();
+        let signers_to_remove = signers[1..].to_vec().try_into().unwrap();
+        assert_number_of_signers!(i as u64, multisig.clone());
+    }: _(multisig_origin, signers_to_remove)
     verify {
         assert_number_of_signers!(1, multisig);
     }
 
     add_multisig_signers_via_creator {
         // Number of signers
-        let i in 1 .. MAX_SIGNERS;
+        let i in 1 .. T::MaxSigners::get() as u32;
 
         let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(1, 1).unwrap();
         let (signers, _) = generate_signers::<T>(i as usize);
@@ -267,36 +282,37 @@ benchmarks! {
 
     remove_multisig_signers_via_creator {
         // Number of signers
-        let i in 1 .. MAX_SIGNERS;
+        let i in 2 .. T::MaxSigners::get() as u32;
 
-        let (alice, multisig, signers, _, _) = generate_multisig_for_alice::<T>(1 + i, 1).unwrap();
-        let signers_to_remove = signers[1..].to_vec();
-        assert_number_of_signers!(1 + i as u64, multisig.clone());
+        let (alice, multisig, signers, _, _) = generate_multisig_for_alice::<T>(i, 1).unwrap();
+        let signers_to_remove = signers[1..].to_vec().try_into().unwrap();
+        assert_number_of_signers!(i as u64, multisig.clone());
         let ephemeral_multisig = multisig.clone();
     }: _(alice.origin(), ephemeral_multisig, signers_to_remove)
     verify {
-        assert_number_of_signers!(1, multisig.clone());
+        assert_number_of_signers!(1, multisig);
     }
 
     change_sigs_required {
         let (_, multisig, _, _, multisig_origin) = generate_multisig_for_alice::<T>(2, 2).unwrap();
     }: _(multisig_origin, 1)
     verify {
-        assert!(<MultiSigSignsRequired<T>>::get(&multisig) == 1);
+        assert!(MultiSigSignsRequired::<T>::get(&multisig) == 1);
     }
 
     make_multisig_secondary {
         let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(1, 1).unwrap();
-    }: _(alice.origin(), multisig.clone())
+        let whole = Permissions::default();
+    }: _(alice.origin(), multisig.clone(), Some(whole))
     verify {
-        assert!(<Identity<T>>::is_secondary_key(alice.did(), &multisig));
+        assert!(Identity::<T>::is_secondary_key(alice.did(), &multisig));
     }
 
     make_multisig_primary {
         let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(1, 1).unwrap();
     }: _(alice.origin(), multisig.clone(), None)
     verify {
-        assert!(<Identity<T>>::get_primary_key(alice.did()) == Some(multisig));
+        assert!(Identity::<T>::get_primary_key(alice.did()) == Some(multisig));
     }
 
     change_sigs_required_via_creator {
