@@ -96,6 +96,9 @@ parameter_types! {
     pub const MaxNumberOfVenueSigners: u32 = 50;
     pub const MaxInstructionMediators: u32 = 4;
 
+    // Multisig
+    pub const MaxMultiSigSigners: u32 = 256;
+
     // I'm online:
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
 

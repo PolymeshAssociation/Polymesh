@@ -24,8 +24,12 @@ pub(crate) fn controller<T: Config>(config: &GenesisConfig<T>) -> Option<T::Acco
 
     let creator = config.creator.as_ref().expect("Bridge creator.");
 
-    let multisig_id = pallet_multisig::Module::<T>::create_multisig_account(
+    let creator_did = Context::current_identity_or::<Identity<T>>(creator)
+        .expect("bridge creator account has no identity");
+
+    let multisig_id = pallet_multisig::Pallet::<T>::base_create_multisig(
         creator.clone(),
+        creator_did,
         config.signers.as_slice(),
         config.signatures_required,
     )
@@ -40,12 +44,9 @@ pub(crate) fn controller<T: Config>(config: &GenesisConfig<T>) -> Option<T::Acco
         .next()
         .expect("cannot find bridge signer auth")
         .auth_id;
-        <pallet_multisig::Module<T>>::base_accept_multisig_signer(signer.clone(), last_auth)
+        pallet_multisig::Pallet::<T>::base_accept_multisig_signer(signer.clone(), last_auth)
             .expect("cannot accept bridge signer auth");
     }
-
-    let creator_did = Context::current_identity_or::<Identity<T>>(creator)
-        .expect("bridge creator account has no identity");
 
     Identity::<T>::unsafe_join_identity(creator_did, Permissions::default(), multisig_id.clone());
     log::info!("Joined identity {} as signer {}", creator_did, multisig_id);

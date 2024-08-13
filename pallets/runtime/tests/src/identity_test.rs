@@ -4,6 +4,7 @@ use super::{
     committee_test::gc_vmo,
     exec_noop, exec_ok,
     ext_builder::PROTOCOL_OP_BASE_FEE,
+    multisig::create_signers,
     storage::{
         account_from, add_secondary_key, add_secondary_key_with_perms, get_identity_id,
         get_last_auth_id, get_primary_key, get_secondary_keys, register_keyring_account,
@@ -49,7 +50,7 @@ type Balances = balances::Module<TestStorage>;
 type BaseError = pallet_base::Error<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type ParentDid = pallet_identity::ParentDid;
-type MultiSig = pallet_multisig::Module<TestStorage>;
+type MultiSig = pallet_multisig::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 
@@ -707,7 +708,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
 
     assert_ok!(MultiSig::create_multisig(
         alice.origin(),
-        vec![ferdie_key.clone(), dave_key.clone()],
+        create_signers(vec![ferdie_key.clone(), dave_key.clone()]),
         1,
     ));
     let auth_id = get_last_auth_id(&Signatory::Account(dave_key.clone()));
@@ -815,7 +816,7 @@ fn leave_identity_test_with_externalities() {
 
     assert_ok!(MultiSig::create_multisig(
         alice.origin(),
-        vec![ferdie_key.clone(), dave_key.clone()],
+        create_signers(vec![ferdie_key.clone(), dave_key.clone()]),
         1,
     ));
     let auth_id = get_last_auth_id(&Signatory::Account(dave_key.clone()));
