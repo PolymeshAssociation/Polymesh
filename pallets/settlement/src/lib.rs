@@ -48,6 +48,7 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+mod inst_migration;
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{
