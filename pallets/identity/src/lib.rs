@@ -107,9 +107,10 @@ use polymesh_common_utilities::traits::identity::{
 };
 use polymesh_common_utilities::{SystematicIssuers, GC_DID};
 use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, AssetPermissions, Authorization, AuthorizationData, AuthorizationType,
-    CddId, Claim, ClaimType, CustomClaimTypeId, DidRecord, ExtrinsicPermissions, IdentityClaim, IdentityId, KeyRecord,
-    Permissions, PortfolioPermissions, Scope, SecondaryKey, Signatory,
+    storage_migrate_on, storage_migration_ver, AssetPermissions, Authorization, AuthorizationData,
+    AuthorizationType, CddId, Claim, ClaimType, CustomClaimTypeId, DidRecord, ExtrinsicPermissions,
+    IdentityClaim, IdentityId, KeyRecord, Permissions, PortfolioPermissions, Scope, SecondaryKey,
+    Signatory,
 };
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;

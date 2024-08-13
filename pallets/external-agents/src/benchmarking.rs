@@ -18,9 +18,7 @@ use frame_benchmarking::benchmarks;
 use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, user, AccountIdOf, User};
 use polymesh_common_utilities::traits::asset::Config as Asset;
 use polymesh_common_utilities::TestUtilsFn;
-use polymesh_primitives::{
-    AuthorizationData, ExtrinsicPermissions, PalletName, PalletPermissions,
-};
+use polymesh_primitives::{AuthorizationData, ExtrinsicPermissions, PalletName, PalletPermissions};
 use sp_std::prelude::*;
 
 pub(crate) const SEED: u32 = 0;
