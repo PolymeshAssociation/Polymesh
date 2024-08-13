@@ -189,7 +189,7 @@ impl PalletPermissionsBuilder {
 
 #[derive(Clone, Default)]
 pub struct PermissionsBuilder {
-    asset: SubsetBuilder<Ticker>,
+    asset: SubsetBuilder<AssetID>,
     portfolio: SubsetBuilder<PortfolioId>,
     extrinsic: PalletPermissionsBuilder,
 }
@@ -211,7 +211,7 @@ impl PermissionsBuilder {
         }
     }
 
-    pub fn set_asset(&mut self, assets: &[Ticker], these: bool) {
+    pub fn set_asset(&mut self, assets: &[AssetID], these: bool) {
         self.asset.set(assets, these);
     }
 
