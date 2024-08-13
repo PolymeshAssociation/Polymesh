@@ -489,19 +489,6 @@ export interface DidStatus extends Enum {
   readonly type: 'Unknown' | 'Exists' | 'CddVerified';
 }
 
-/** @name DispatchableName */
-export interface DispatchableName extends Text {}
-
-/** @name DispatchableNames */
-export interface DispatchableNames extends Enum {
-  readonly isWhole: boolean;
-  readonly isThese: boolean;
-  readonly asThese: Vec<DispatchableName>;
-  readonly isExcept: boolean;
-  readonly asExcept: Vec<DispatchableName>;
-  readonly type: 'Whole' | 'These' | 'Except';
-}
-
 /** @name ExecuteInstructionInfo */
 export interface ExecuteInstructionInfo extends Struct {
   readonly fungible_tokens: u32;
@@ -511,13 +498,26 @@ export interface ExecuteInstructionInfo extends Struct {
   readonly error: Option<Text>;
 }
 
+/** @name ExtrinsicName */
+export interface ExtrinsicName extends Text {}
+
+/** @name ExtrinsicNames */
+export interface ExtrinsicNames extends Enum {
+  readonly isWhole: boolean;
+  readonly isThese: boolean;
+  readonly asThese: Vec<ExtrinsicName>;
+  readonly isExcept: boolean;
+  readonly asExcept: Vec<ExtrinsicName>;
+  readonly type: 'Whole' | 'These' | 'Except';
+}
+
 /** @name ExtrinsicPermissions */
 export interface ExtrinsicPermissions extends Enum {
   readonly isWhole: boolean;
   readonly isThese: boolean;
-  readonly asThese: Vec<PalletPermissions>;
+  readonly asThese: Vec<ITuple<[PalletName, PalletPermissions]>>;
   readonly isExcept: boolean;
-  readonly asExcept: Vec<PalletPermissions>;
+  readonly asExcept: Vec<ITuple<[PalletName, PalletPermissions]>>;
   readonly type: 'Whole' | 'These' | 'Except';
 }
 
@@ -617,8 +617,7 @@ export interface PalletName extends Text {}
 
 /** @name PalletPermissions */
 export interface PalletPermissions extends Struct {
-  readonly pallet_name: PalletName;
-  readonly dispatchable_names: DispatchableNames;
+  readonly extrinsics: ExtrinsicNames;
 }
 
 /** @name Percentage */
