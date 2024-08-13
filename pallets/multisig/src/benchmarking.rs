@@ -129,7 +129,7 @@ fn generate_multisig_and_proposal_for_alice<T: Config + TestUtilsFn<AccountIdOf<
 ) -> Result<ProposalSetupResult<T, T::AccountId, T::Proposal, T::MaxSigners>, DispatchError> {
     let (alice, multisig, signers, users, _) =
         generate_multisig_for_alice::<T>(total_signers, signers_required).unwrap();
-    let proposal_id = MultiSig::<T>::ms_tx_done(multisig.clone());
+    let proposal_id = MultiSig::<T>::next_proposal_id(multisig.clone());
     let proposal = Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
     Ok((
         alice,
@@ -169,7 +169,7 @@ fn generate_multisig_and_create_proposal<T: Config + TestUtilsFn<AccountIdOf<T>>
 
 macro_rules! assert_proposal_created {
     ($proposal_id:ident, $multisig:ident) => {
-        assert!($proposal_id < MultiSig::<T>::ms_tx_done($multisig));
+        assert!($proposal_id < MultiSig::<T>::next_proposal_id($multisig));
     };
 }
 
@@ -195,13 +195,6 @@ benchmarks! {
     }: _(alice.origin(), signers, i as u64)
     verify {
         assert!(CreatorDid::<T>::contains_key(multisig), "create_multisig");
-    }
-
-    create_or_approve_proposal {
-        let (alice, multisig, _, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(3, 3).unwrap();
-    }: _(users[0].origin(), ephemeral_multisig, proposal, Some(1337u32.into()))
-    verify {
-        assert_proposal_created!(proposal_id, multisig);
     }
 
     create_proposal {

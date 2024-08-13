@@ -226,59 +226,6 @@ fn change_multisig_sigs_required() {
 }
 
 #[test]
-fn create_or_approve_change_multisig_sigs_required() {
-    ExtBuilder::default().build().execute_with(|| {
-        let _alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
-        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
-        let charlie_signer = AccountKeyring::Charlie.to_account_id();
-
-        let ms_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id())
-            .expect("Next MS");
-        assert_ok!(MultiSig::create_multisig(
-            alice.clone(),
-            create_signers(vec![charlie_signer.clone(), bob_signer.clone()]),
-            2,
-        ));
-
-        let charlie_auth_id = get_last_auth_id(&charlie_signer);
-        assert_ok!(MultiSig::accept_multisig_signer(
-            charlie.clone(),
-            charlie_auth_id
-        ));
-
-        let bob_auth_id = get_last_auth_id(&bob_signer);
-        assert_ok!(MultiSig::accept_multisig_signer(bob.clone(), bob_auth_id));
-        assert_eq!(
-            MultiSig::ms_signers(ms_address.clone(), charlie_signer),
-            true
-        );
-        assert_eq!(MultiSig::ms_signers(ms_address.clone(), bob_signer), true);
-        let call = Box::new(RuntimeCall::MultiSig(
-            multisig::Call::change_sigs_required { sigs_required: 1 },
-        ));
-        assert_ok!(MultiSig::create_or_approve_proposal(
-            bob.clone(),
-            ms_address.clone(),
-            call.clone(),
-            None,
-        ));
-        next_block();
-        assert_eq!(MultiSig::ms_signs_required(ms_address.clone()), 2);
-        assert_ok!(MultiSig::create_or_approve_proposal(
-            charlie.clone(),
-            ms_address.clone(),
-            call,
-            None,
-        ));
-        next_block();
-        assert_eq!(MultiSig::ms_signs_required(ms_address), 1);
-    });
-}
-
-#[test]
 fn remove_multisig_signers() {
     ExtBuilder::default().build().execute_with(|| {
         let _alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
@@ -851,7 +798,7 @@ fn check_for_approval_closure() {
             None,
         ));
         next_block();
-        let proposal_id = MultiSig::ms_tx_done(ms_address.clone()) - 1;
+        let proposal_id = MultiSig::next_proposal_id(ms_address.clone()) - 1;
         let bob_auth_id = get_last_auth_id(&bob_signer.clone());
         let multi_purpose_nonce = Identity::multi_purpose_nonce();
 
@@ -920,14 +867,14 @@ fn reject_proposals() {
             call1,
             None,
         ));
-        let proposal_id1 = MultiSig::ms_tx_done(ms_address.clone()) - 1;
+        let proposal_id1 = MultiSig::next_proposal_id(ms_address.clone()) - 1;
         assert_ok!(MultiSig::create_proposal(
             ferdie.clone(),
             ms_address.clone(),
             call2,
             None,
         ));
-        let proposal_id2 = MultiSig::ms_tx_done(ms_address.clone()) - 1;
+        let proposal_id2 = MultiSig::next_proposal_id(ms_address.clone()) - 1;
 
         // Proposals can't be voted on even after rejection.
         assert_ok!(MultiSig::reject(
@@ -1283,7 +1230,7 @@ fn proposal_owner_rejection() {
             call1,
             None,
         ));
-        let proposal_id = MultiSig::ms_tx_done(ms_address.clone()) - 1;
+        let proposal_id = MultiSig::next_proposal_id(ms_address.clone()) - 1;
 
         // The owner of the proposal should be able to reject it if no one else has voted
         assert_ok!(MultiSig::reject(
@@ -1351,7 +1298,7 @@ fn proposal_owner_rejection_denied() {
             call1,
             None,
         ));
-        let proposal_id = MultiSig::ms_tx_done(ms_address.clone()) - 1;
+        let proposal_id = MultiSig::next_proposal_id(ms_address.clone()) - 1;
 
         // The owner of the proposal shouldn't be able to reject it since bob has already voted
         assert_ok!(MultiSig::reject(
@@ -1422,7 +1369,7 @@ fn expired_proposals() {
             Some(100u64),
         ));
 
-        let proposal_id = MultiSig::ms_tx_done(ms_address.clone()) - 1;
+        let proposal_id = MultiSig::next_proposal_id(ms_address.clone()) - 1;
         let mut vote_count =
             ProposalVoteCounts::<TestStorage>::get(&ms_address, proposal_id).unwrap();
         let mut proposal_state =
@@ -1564,12 +1511,12 @@ fn multisig_proposal_nesting_not_allowed() {
             None,
         ));
         // The top-level proposal should execute ok.
-        let proposal_id = MultiSig::ms_tx_done(ms1_address.clone()) - 1;
+        let proposal_id = MultiSig::next_proposal_id(ms1_address.clone()) - 1;
         let proposal_state = ProposalStates::<TestStorage>::get(&ms1_address, proposal_id).unwrap();
         assert_eq!(proposal_state, ProposalState::ExecutionSuccessful);
 
         // The nested proposal should fail.
-        let proposal_id = MultiSig::ms_tx_done(ms2_address.clone()) - 1;
+        let proposal_id = MultiSig::next_proposal_id(ms2_address.clone()) - 1;
         let proposal_state = ProposalStates::<TestStorage>::get(&ms2_address, proposal_id).unwrap();
         assert_eq!(proposal_state, ProposalState::ExecutionFailed);
     });
@@ -1588,6 +1535,9 @@ fn setup_multisig(
 
     for signer in signers {
         let auth_id = get_last_auth_id(&signer);
-        assert_ok!(MultiSig::base_accept_multisig_signer(signer, auth_id));
+        assert_ok!(MultiSig::accept_multisig_signer(
+            Origin::signed(signer),
+            auth_id
+        ));
     }
 }

@@ -22,7 +22,6 @@ use frame_support::pallet_prelude::Weight;
 
 pub trait WeightInfo {
     fn create_multisig(signers: u32) -> Weight;
-    fn create_or_approve_proposal() -> Weight;
     fn create_proposal() -> Weight;
     fn approve() -> Weight;
     fn execute_proposal() -> Weight;
