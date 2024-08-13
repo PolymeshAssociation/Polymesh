@@ -16,7 +16,6 @@ mod asset_pallet;
 mod asset_test;
 mod asset_metadata_test;
 mod balances_test;
-mod bridge;
 mod committee_test;
 mod compliance_manager_test;
 mod contracts_test;

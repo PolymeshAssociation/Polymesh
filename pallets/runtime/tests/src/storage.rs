@@ -285,8 +285,6 @@ frame_support::construct_runtime!(
         UpgradeCommitteeMembership: pallet_group::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 14,
 
         MultiSig: pallet_multisig::{Pallet, Call, Config, Storage, Event<T>} = 15,
-        // Bridge: Genesis config deps: Multisig, Identity,
-        Bridge: pallet_bridge::{Pallet, Call, Storage, Config<T>, Event<T>} = 16,
 
         // Staking: Genesis config deps: Balances, Indices, Identity, Babe, Timestamp, CddServiceProviders.
         Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 17,
@@ -332,9 +330,9 @@ frame_support::construct_runtime!(
         // Preimage register.  Used by `pallet_scheduler`.
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 48,
 
-        TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 50,
+        Nft: pallet_nft::{Pallet, Call, Storage, Event} = 49,
 
-        Nft: pallet_nft::{Pallet, Call, Storage, Event} = 51,
+        TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 200,
 
         // Testing only.
         Example: example::{Pallet, Call} = 201,
