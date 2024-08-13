@@ -25,18 +25,19 @@ sp-std = { version = "5.0.0", default-features = false }
 [features]
 default = ["std"]
 std = [
-		"frame-benchmarking?/std",
-		"codec/std",
-		"frame-support/std",
-		"frame-system/std",
-		"scale-info/std",
-		"sp-core/std",
-		"sp-io/std",
-		"sp-runtime/std",
-		"sp-std/std",
+	"frame-benchmarking?/std",
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "pallet-balances/std",
+	"pallet-identity/std"
 ]
 
 runtime-benchmarks = [

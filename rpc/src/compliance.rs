@@ -24,8 +24,9 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 
 pub use node_rpc_runtime_api::compliance::ComplianceApi as ComplianceRuntimeApi;
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::compliance_manager::ComplianceReport;
-use polymesh_primitives::{IdentityId, Ticker};
+use polymesh_primitives::IdentityId;
 
 use crate::Error;
 
@@ -34,7 +35,7 @@ pub trait ComplianceApi<BlockHash> {
     #[method(name = "compliance_complianceReport")]
     fn compliance_report(
         &self,
-        ticker: Ticker,
+        asset_id: AssetID,
         sender_identity: IdentityId,
         receiver_identity: IdentityId,
         at: Option<BlockHash>,
@@ -65,7 +66,7 @@ where
 {
     fn compliance_report(
         &self,
-        ticker: Ticker,
+        asset_id: AssetID,
         sender_identity: IdentityId,
         receiver_identity: IdentityId,
         at: Option<<Block as BlockT>::Hash>,
@@ -74,7 +75,7 @@ where
         // If the block hash is not supplied assume the best block.
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.compliance_report(at_hash, &ticker, &sender_identity, &receiver_identity)
+        api.compliance_report(at_hash, &asset_id, &sender_identity, &receiver_identity)
             .map_err(|e| {
                 CallError::Custom(ErrorObject::owned(
                     Error::RuntimeError.into(),

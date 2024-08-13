@@ -112,7 +112,7 @@ where
     C::Api: node_rpc::pips::PipsRuntimeApi<Block, AccountId>,
     C::Api: node_rpc::identity::IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, Moment>,
     C::Api: pallet_protocol_fee_rpc::ProtocolFeeRuntimeApi<Block>,
-    C::Api: node_rpc::asset::AssetRuntimeApi<Block, AccountId>,
+    C::Api: node_rpc::asset::AssetRuntimeApi<Block>,
     C::Api: pallet_group_rpc::GroupRuntimeApi<Block>,
     C::Api: BabeApi<Block>,
     C::Api: BlockBuilder<Block>,

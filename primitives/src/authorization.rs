@@ -13,16 +13,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{
-    agent::AgentGroup, identity_id::IdentityId, secondary_key::Permissions, Balance, PortfolioId,
-    Ticker,
-};
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchError;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::prelude::*;
+
+use crate::agent::AgentGroup;
+use crate::asset::AssetID;
+use crate::identity_id::IdentityId;
+use crate::secondary_key::Permissions;
+use crate::{Balance, PortfolioId, Ticker};
 
 /// Authorization data for two step processes.
 #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -40,14 +42,14 @@ pub enum AuthorizationData<AccountId> {
     AddMultiSigSigner(AccountId),
     /// Authorization to transfer a token's ownership
     /// Must be issued by the current owner of the asset
-    TransferAssetOwnership(Ticker),
+    TransferAssetOwnership(AssetID),
     /// Authorization to join an Identity
     /// Must be issued by the identity which is being joined
     JoinIdentity(Permissions),
     /// Authorization to take custody of a portfolio
     PortfolioCustody(PortfolioId),
-    /// Authorization to become an agent of the `Ticker` with the `AgentGroup`.
-    BecomeAgent(Ticker, AgentGroup),
+    /// Authorization to become an agent of the `AssetID` with the `AgentGroup`.
+    BecomeAgent(AssetID, AgentGroup),
     /// Add Relayer paying key to user key
     /// Must be issued by the paying key.
     /// `AddRelayerPayingKey(user_key, paying_key, polyx_limit)`

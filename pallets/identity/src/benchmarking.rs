@@ -17,6 +17,7 @@ use crate::*;
 
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
+use scale_info::prelude::format;
 use sp_core::H512;
 use sp_std::prelude::*;
 
@@ -24,6 +25,7 @@ use polymesh_common_utilities::benchs::{
     cdd_provider, user, user_without_did, AccountIdOf, UserBuilder,
 };
 use polymesh_common_utilities::traits::{identity::TargetIdAuthorization, TestUtilsFn};
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS, MAX_SECONDARY_KEYS,
 };
@@ -302,7 +304,7 @@ benchmarks! {
         // is covered.
 
         let asset = AssetPermissions::elems(
-            (0..a as u64).map(Ticker::generate_into)
+            (0..a as u64).map(|a| AssetID::new([a as u8; 16]))
         );
         let portfolio = PortfolioPermissions::elems(
             (0..p as u128).map(|did| {
@@ -311,13 +313,13 @@ benchmarks! {
         );
         let dispatchable_names = DispatchableNames::elems(
             (0..e as u64).map(|e| {
-                DispatchableName(Ticker::generate(e))
+                DispatchableName(format!("Calls{}", e).as_bytes().into())
             })
         );
         let extrinsic = ExtrinsicPermissions::elems(
             (0..l as u64).map(|p| {
                 PalletPermissions {
-                    pallet_name: PalletName(Ticker::generate(p)),
+                    pallet_name: PalletName(format!("Pallet{}", p).as_bytes().into()),
                     dispatchable_names: dispatchable_names.clone(),
                 }
             })

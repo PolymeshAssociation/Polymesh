@@ -13,38 +13,34 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use std::{convert::TryInto, sync::Arc};
+use std::sync::Arc;
 
-use codec::Codec;
-use frame_support::dispatch::result::Result;
 use frame_support::pallet_prelude::DispatchError;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
-use jsonrpsee::types::error::{CallError, ErrorCode, ErrorObject};
-use sp_api::{ApiExt, ProvideRuntimeApi};
+use jsonrpsee::types::error::{CallError, ErrorObject};
+use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_rpc::number;
 use sp_runtime::traits::Block as BlockT;
 
-pub use node_rpc_runtime_api::asset::{AssetApi as AssetRuntimeApi, CanTransferResult};
-use polymesh_primitives::asset::GranularCanTransferResult;
-use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
+pub use node_rpc_runtime_api::asset::AssetApi as AssetRuntimeApi;
+use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::{Balance, PortfolioId};
 
 use crate::Error;
 
 #[rpc(client, server)]
-pub trait AssetApi<BlockHash, AccountId> {
-    #[method(name = "asset_canTransferGranular")]
-    fn can_transfer_granular(
+pub trait AssetApi<BlockHash> {
+    #[method(name = "asset_transferReport")]
+    fn transfer_report(
         &self,
-        from_custodian: Option<IdentityId>,
-        from_portfolio: PortfolioId,
-        to_custodian: Option<IdentityId>,
-        to_portfolio: PortfolioId,
-        ticker: Ticker,
-        value: number::NumberOrHex,
+        sender_portfolio: PortfolioId,
+        receiver_portfolio: PortfolioId,
+        asset_id: AssetID,
+        transfer_value: Balance,
+        skip_locked_check: bool,
         at: Option<BlockHash>,
-    ) -> RpcResult<Result<GranularCanTransferResult, DispatchError>>;
+    ) -> RpcResult<Vec<DispatchError>>;
 }
 
 /// An implementation of asset specific RPC methods.
@@ -63,93 +59,37 @@ impl<T, U> Asset<T, U> {
     }
 }
 
-impl<C, Block, AccountId> AssetApiServer<<Block as BlockT>::Hash, AccountId> for Asset<C, Block>
+impl<T, Block> AssetApiServer<<Block as BlockT>::Hash> for Asset<T, Block>
 where
     Block: BlockT,
-    C: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
-    C::Api: AssetRuntimeApi<Block, AccountId>,
-    AccountId: Codec,
+    T: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
+    T::Api: AssetRuntimeApi<Block>,
 {
-    fn can_transfer_granular(
+    fn transfer_report(
         &self,
-        from_custodian: Option<IdentityId>,
-        from_portfolio: PortfolioId,
-        to_custodian: Option<IdentityId>,
-        to_portfolio: PortfolioId,
-        ticker: Ticker,
-        value: number::NumberOrHex,
+        sender_portfolio: PortfolioId,
+        receiver_portfolio: PortfolioId,
+        asset_id: AssetID,
+        transfer_value: Balance,
+        skip_locked_check: bool,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Result<GranularCanTransferResult, DispatchError>> {
-        // Make sure that value fits into 64 bits.
-        let value: u64 = value.try_into().map_err(|_| {
-            CallError::Custom(ErrorObject::owned(
-                ErrorCode::InvalidParams.code(),
-                format!("{:?} doesn't fit in 64 bit unsigned value", value),
-                None::<()>,
-            ))
-        })?;
-
+    ) -> RpcResult<Vec<DispatchError>> {
         let api = self.client.runtime_api();
         // If the block hash is not supplied assume the best block.
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
-        // Gets the api version, returns an error if not found.
-        let api_version = api
-            .api_version::<dyn AssetRuntimeApi<Block, AccountId>>(at_hash)
-            .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to find the api version",
-                    Some(e.to_string()),
-                ))
-            })?
-            .ok_or(CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Api version cannot be None",
-                Some("None version"),
-            )))?;
 
-        let api_call_result = {
-            if api_version >= 3 {
-                api.can_transfer_granular(
-                    at_hash,
-                    from_custodian,
-                    from_portfolio,
-                    to_custodian,
-                    to_portfolio,
-                    &ticker,
-                    value.into(),
-                )
-            } else if api_version == 2 {
-                #[allow(deprecated)]
-                api.can_transfer_granular_before_version_3(
-                    at_hash,
-                    from_custodian,
-                    from_portfolio,
-                    to_custodian,
-                    to_portfolio,
-                    &ticker,
-                    value.into(),
-                )
-                .map(|value| Ok(value))
-            } else {
-                #[allow(deprecated)]
-                api.can_transfer_granular_before_version_2(
-                    at_hash,
-                    from_custodian,
-                    from_portfolio,
-                    to_custodian,
-                    to_portfolio,
-                    &ticker,
-                    value.into(),
-                )
-                .map(|value| Ok(GranularCanTransferResult::from(value)))
-            }
-        };
-
-        api_call_result.map_err(|e| {
+        api.transfer_report(
+            at_hash,
+            sender_portfolio,
+            receiver_portfolio,
+            asset_id,
+            transfer_value,
+            skip_locked_check,
+        )
+        .map_err(|e| {
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
-                "Unable to call can_transfer_granular runtime",
+                "Unable to call asset_transfer_report runtime",
                 Some(e.to_string()),
             ))
             .into()

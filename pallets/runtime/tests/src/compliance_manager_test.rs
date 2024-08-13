@@ -6,16 +6,20 @@ use sp_std::prelude::*;
 use pallet_compliance_manager::Error as CMError;
 use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
 use polymesh_primitives::agent::AgentGroup;
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::compliance_manager::{
     ComplianceReport, ComplianceRequirement, ComplianceRequirementResult,
 };
 use polymesh_primitives::{
     AuthorizationData, Claim, ClaimType, Condition, ConditionType, CountryCode, IdentityId,
-    PortfolioId, Scope, Signatory, TargetIdentity, Ticker, TrustedFor, WeightMeter,
+    PortfolioId, Scope, Signatory, TargetIdentity, TrustedFor, WeightMeter,
 };
 use sp_keyring::AccountKeyring;
 
-use super::asset_test::{allow_all_transfers, create_token, set_timestamp};
+use crate::asset_pallet::setup::ISSUE_AMOUNT;
+
+use super::asset_pallet::setup::create_and_issue_sample_asset;
+use super::asset_test::set_timestamp;
 use super::storage::{set_curr_did, TestStorage, User};
 use super::ExtBuilder;
 
@@ -32,10 +36,10 @@ type ExternalAgents = pallet_external_agents::Module<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
 
 macro_rules! assert_invalid_transfer {
-    ($ticker:expr, $from:expr, $to:expr, $amount:expr) => {
+    ($asset_id:expr, $from:expr, $to:expr, $amount:expr) => {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert!(Asset::validate_asset_transfer(
-            &$ticker,
+            $asset_id,
             &PortfolioId::default_portfolio($from),
             &PortfolioId::default_portfolio($to),
             $amount,
@@ -47,10 +51,10 @@ macro_rules! assert_invalid_transfer {
 }
 
 macro_rules! assert_valid_transfer {
-    ($ticker:expr, $from:expr, $to:expr, $amount:expr) => {
+    ($asset_id:expr, $from:expr, $to:expr, $amount:expr) => {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_ok!(Asset::validate_asset_transfer(
-            &$ticker,
+            $asset_id,
             &PortfolioId::default_portfolio($from),
             &PortfolioId::default_portfolio($to),
             $amount,
@@ -66,8 +70,8 @@ macro_rules! assert_add_claim {
     };
 }
 
-fn get_latest_requirement_id(ticker: Ticker) -> u32 {
-    ComplianceManager::asset_compliance(ticker)
+fn get_latest_requirement_id(asset_id: AssetID) -> u32 {
+    ComplianceManager::asset_compliance(asset_id)
         .requirements
         .last()
         .map(|r| r.id)
@@ -90,7 +94,7 @@ fn should_add_and_verify_compliance_requirement_we() {
 
     assert_ok!(CDDGroup::reset_members(root, vec![cdd.did]));
     // Create & mint token
-    let (ticker, token) = create_token(owner);
+    let asset_id = create_and_issue_sample_asset(&owner);
 
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
@@ -98,7 +102,7 @@ fn should_add_and_verify_compliance_requirement_we() {
     Balances::make_free_balance_be(&claim_issuer.acc(), 1_000_000);
     let ferdie = User::new(AccountKeyring::Ferdie);
 
-    let claim = Claim::Blocked(ticker.into());
+    let claim = Claim::Blocked(asset_id.into());
     assert_ok!(Identity::add_claim(
         claim_issuer.origin(),
         owner.did,
@@ -137,7 +141,7 @@ fn should_add_and_verify_compliance_requirement_we() {
 
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.origin(),
-        ticker,
+        asset_id,
         vec![sender_condition.clone()],
         vec![receiver_condition1.clone(), receiver_condition2.clone()]
     ));
@@ -150,10 +154,10 @@ fn should_add_and_verify_compliance_requirement_we() {
     ));
 
     //Transfer tokens to investor - fails wrong Accredited scope
-    assert_invalid_transfer!(ticker, owner.did, token_rec.did, token.total_supply);
+    assert_invalid_transfer!(asset_id, owner.did, token_rec.did, ISSUE_AMOUNT);
     let get_result = || {
         ComplianceManager::compliance_report(
-            &ticker,
+            &asset_id,
             &owner.did,
             &token_rec.did,
             &mut WeightMeter::max_limit_no_minimum(),
@@ -233,7 +237,7 @@ fn should_add_and_verify_compliance_requirement_we() {
         Claim::Accredited(owner.scope()),
         None,
     ));
-    assert_invalid_transfer!(ticker, owner.did, token_rec.did, 10);
+    assert_invalid_transfer!(asset_id, owner.did, token_rec.did, 10);
     second_unpassed(get_result());
 
     // Now we add a claim from a trusted issuer, so the transfer will be valid.
@@ -243,7 +247,7 @@ fn should_add_and_verify_compliance_requirement_we() {
         Claim::Accredited(owner.scope()),
         None,
     ));
-    assert_valid_transfer!(ticker, owner.did, token_rec.did, 10);
+    assert_valid_transfer!(asset_id, owner.did, token_rec.did, 10);
     let compliance_report = get_result();
     assert!(compliance_report.is_any_requirement_satisfied());
     assert_eq!(
@@ -315,7 +319,7 @@ fn should_add_and_verify_compliance_requirement_we() {
         None,
     ));
 
-    assert_invalid_transfer!(ticker, owner.did, token_rec.did, 10);
+    assert_invalid_transfer!(asset_id, owner.did, token_rec.did, 10);
     let compliance_report = get_result();
     assert!(!compliance_report.is_any_requirement_satisfied());
     assert_eq!(
@@ -390,34 +394,34 @@ fn should_add_and_verify_compliance_requirement_we() {
     for _ in 0..2 {
         assert_ok!(ComplianceManager::add_compliance_requirement(
             owner.origin(),
-            ticker,
+            asset_id,
             comp_req.sender_conditions.clone(),
             comp_req.receiver_conditions.clone(),
         ));
     }
-    assert_eq!(get_latest_requirement_id(ticker), 3);
+    assert_eq!(get_latest_requirement_id(asset_id), 3);
     assert_ok!(ComplianceManager::remove_compliance_requirement(
         owner.origin(),
-        ticker,
+        asset_id,
         1
     )); // OK; latest == 3
-    assert_eq!(get_latest_requirement_id(ticker), 3);
+    assert_eq!(get_latest_requirement_id(asset_id), 3);
 
     // Try changing the removed compliance requirement.
     assert_noop!(
-        ComplianceManager::change_compliance_requirement(owner.origin(), ticker, comp_req),
+        ComplianceManager::change_compliance_requirement(owner.origin(), asset_id, comp_req),
         CMError::<TestStorage>::InvalidComplianceRequirementId
     ); // BAD OK; latest == 3, but 1 was just removed.
 
     assert_noop!(
-        ComplianceManager::remove_compliance_requirement(owner.origin(), ticker, 1),
+        ComplianceManager::remove_compliance_requirement(owner.origin(), asset_id, 1),
         CMError::<TestStorage>::InvalidComplianceRequirementId
     ); // BAD OK; latest == 3, but 1 was just removed.
     assert_noop!(
-        ComplianceManager::remove_compliance_requirement(owner.origin(), ticker, 1),
+        ComplianceManager::remove_compliance_requirement(owner.origin(), asset_id, 1),
         CMError::<TestStorage>::InvalidComplianceRequirementId
     );
-    assert_eq!(get_latest_requirement_id(ticker), 3);
+    assert_eq!(get_latest_requirement_id(asset_id), 3);
 }
 
 #[test]
@@ -431,13 +435,14 @@ fn should_replace_asset_compliance_we() {
     let owner = User::new(AccountKeyring::Alice);
 
     // Create & mint token
-    let (ticker, _) = create_token(owner);
+    let asset_id = create_and_issue_sample_asset(&owner);
+
+    ComplianceManager::add_compliance_requirement(owner.origin(), asset_id, vec![], vec![])
+        .unwrap();
 
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
-    allow_all_transfers(ticker, owner);
-
-    let asset_compliance = ComplianceManager::asset_compliance(ticker);
+    let asset_compliance = ComplianceManager::asset_compliance(asset_id);
     assert_eq!(asset_compliance.requirements.len(), 1);
 
     // Create three requirements with different requirement IDs.
@@ -454,11 +459,11 @@ fn should_replace_asset_compliance_we() {
 
     assert_ok!(ComplianceManager::replace_asset_compliance(
         owner.origin(),
-        ticker,
+        asset_id,
         new_asset_compliance.clone(),
     ));
 
-    let asset_compliance = ComplianceManager::asset_compliance(ticker);
+    let asset_compliance = ComplianceManager::asset_compliance(asset_id);
     assert_eq!(asset_compliance.requirements, new_asset_compliance);
 }
 
@@ -473,13 +478,14 @@ fn test_dedup_replace_asset_compliance_we() {
     let owner = User::new(AccountKeyring::Alice);
 
     // Create & mint token
-    let (ticker, _) = create_token(owner);
+    let asset_id = create_and_issue_sample_asset(&owner);
+
+    ComplianceManager::add_compliance_requirement(owner.origin(), asset_id, vec![], vec![])
+        .unwrap();
 
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
-    allow_all_transfers(ticker, owner);
-
-    let asset_compliance = ComplianceManager::asset_compliance(ticker);
+    let asset_compliance = ComplianceManager::asset_compliance(asset_id);
     assert_eq!(asset_compliance.requirements.len(), 1);
 
     let make_req = |id: u32| ComplianceRequirement {
@@ -492,7 +498,7 @@ fn test_dedup_replace_asset_compliance_we() {
     assert_noop!(
         ComplianceManager::replace_asset_compliance(
             owner.origin(),
-            ticker,
+            asset_id,
             vec![make_req(1), make_req(2), make_req(2),],
         ),
         CMError::<TestStorage>::DuplicateComplianceRequirements
@@ -502,7 +508,7 @@ fn test_dedup_replace_asset_compliance_we() {
     assert_noop!(
         ComplianceManager::replace_asset_compliance(
             owner.origin(),
-            ticker,
+            asset_id,
             vec![make_req(2), make_req(1), make_req(2),],
         ),
         CMError::<TestStorage>::DuplicateComplianceRequirements
@@ -520,21 +526,22 @@ fn should_reset_asset_compliance_we() {
     let owner = User::new(AccountKeyring::Alice);
 
     // Create & mint token
-    let (ticker, _) = create_token(owner);
+    let asset_id = create_and_issue_sample_asset(&owner);
+
+    ComplianceManager::add_compliance_requirement(owner.origin(), asset_id, vec![], vec![])
+        .unwrap();
 
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
-    allow_all_transfers(ticker, owner);
-
-    let asset_compliance = ComplianceManager::asset_compliance(ticker);
+    let asset_compliance = ComplianceManager::asset_compliance(asset_id);
     assert_eq!(asset_compliance.requirements.len(), 1);
 
     assert_ok!(ComplianceManager::reset_asset_compliance(
         owner.origin(),
-        ticker
+        asset_id
     ));
 
-    let asset_compliance_new = ComplianceManager::asset_compliance(ticker);
+    let asset_compliance_new = ComplianceManager::asset_compliance(asset_id);
     assert_eq!(asset_compliance_new.requirements.len(), 0);
 }
 
@@ -552,11 +559,11 @@ fn pause_resume_asset_compliance_we() {
     let receiver = User::new(AccountKeyring::Charlie);
 
     // 1. Create & mint token
-    let (ticker, _) = create_token(owner);
+    let asset_id = create_and_issue_sample_asset(&owner);
 
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
-    let claim = Claim::Blocked(ticker.into());
+    let claim = Claim::Blocked(asset_id.into());
     assert_ok!(Identity::add_claim(
         receiver.origin(),
         receiver.did.clone(),
@@ -575,32 +582,32 @@ fn pause_resume_asset_compliance_we() {
 
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.origin(),
-        ticker,
+        asset_id,
         vec![],
         receiver_conditions
     ));
 
     // 5. Verify pause/resume mechanism.
     // 5.1. Transfer should be cancelled.
-    assert_invalid_transfer!(ticker, owner.did, receiver.did, 10);
+    assert_invalid_transfer!(asset_id, owner.did, receiver.did, 10);
 
     set_curr_did(Some(owner.did));
     // 5.2. Pause asset compliance, and run the transaction.
     assert_ok!(ComplianceManager::pause_asset_compliance(
         owner.origin(),
-        ticker
+        asset_id
     ));
     set_curr_did(None);
-    assert_valid_transfer!(ticker, owner.did, receiver.did, 10);
+    assert_valid_transfer!(asset_id, owner.did, receiver.did, 10);
 
     set_curr_did(Some(owner.did));
     // 5.3. Resume asset compliance, and new transfer should fail again.
     assert_ok!(ComplianceManager::resume_asset_compliance(
         owner.origin(),
-        ticker
+        asset_id
     ));
     set_curr_did(None);
-    assert_invalid_transfer!(ticker, owner.did, receiver.did, 10);
+    assert_invalid_transfer!(asset_id, owner.did, receiver.did, 10);
 }
 
 #[test]
@@ -622,12 +629,12 @@ fn should_successfully_add_and_use_default_issuers_we() {
     assert_ok!(CDDGroup::reset_members(root, vec![trusted_issuer.did]));
 
     // 1. Create & mint token
-    let (ticker, _) = create_token(owner);
+    let asset_id = create_and_issue_sample_asset(&owner);
 
     /*
     assert_ok!(Asset::remove_primary_issuance_agent(
         owner.origin(),
-        ticker
+        asset_id
     ));
     */
 
@@ -635,7 +642,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
     assert_noop!(
         ComplianceManager::add_default_trusted_claim_issuer(
             owner.origin(),
-            ticker,
+            asset_id,
             IdentityId::from(1).into()
         ),
         CMError::<TestStorage>::DidNotExist
@@ -644,7 +651,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
     let add_issuer = |ti| {
         assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
             owner.origin(),
-            ticker,
+            asset_id,
             ti
         ));
     };
@@ -658,9 +665,9 @@ fn should_successfully_add_and_use_default_issuers_we() {
         add_issuer(ti);
     }
 
-    assert_eq!(ComplianceManager::trusted_claim_issuer(ticker).len(), 3);
+    assert_eq!(ComplianceManager::trusted_claim_issuer(asset_id).len(), 3);
     assert_eq!(
-        ComplianceManager::trusted_claim_issuer(ticker),
+        ComplianceManager::trusted_claim_issuer(asset_id),
         trusted_issuers
     );
     assert_ok!(Identity::add_claim(
@@ -681,7 +688,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
     let receiver_condition2 = ConditionType::IsPresent(claim_need_to_posses_2.clone()).into();
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.origin(),
-        ticker,
+        asset_id,
         vec![sender_condition],
         vec![receiver_condition1, receiver_condition2]
     ));
@@ -708,17 +715,17 @@ fn should_successfully_add_and_use_default_issuers_we() {
     provide_affiliated_claim(owner.did);
 
     // fail when token owner doesn't has the valid claim
-    assert_invalid_transfer!(ticker, owner.did, receiver.did, 100);
+    assert_invalid_transfer!(asset_id, owner.did, receiver.did, 100);
 
     // Right claim, but Eve not trusted for this asset.
     provide_accredited_claim(eve.origin());
 
-    assert_invalid_transfer!(ticker, owner.did, receiver.did, 100);
+    assert_invalid_transfer!(asset_id, owner.did, receiver.did, 100);
 
     // Right claim, and Ferdie is trusted for this asset.
     provide_accredited_claim(ferdie.origin());
 
-    assert_valid_transfer!(ticker, owner.did, receiver.did, 100);
+    assert_valid_transfer!(asset_id, owner.did, receiver.did, 100);
 }
 
 #[test]
@@ -743,23 +750,23 @@ fn should_modify_vector_of_trusted_issuer_we() {
     ));
 
     // 1. Create & mint token
-    let (ticker, _) = create_token(owner);
+    let asset_id = create_and_issue_sample_asset(&owner);
 
     assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
         owner.origin(),
-        ticker,
+        asset_id,
         trusted_issuer_1.issuer()
     ));
 
     assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
         owner.origin(),
-        ticker,
+        asset_id,
         trusted_issuer_2.issuer()
     ));
 
-    assert_eq!(ComplianceManager::trusted_claim_issuer(ticker).len(), 2);
+    assert_eq!(ComplianceManager::trusted_claim_issuer(asset_id).len(), 2);
     assert_eq!(
-        ComplianceManager::trusted_claim_issuer(ticker),
+        ComplianceManager::trusted_claim_issuer(asset_id),
         vec![trusted_issuer_1.issuer(), trusted_issuer_2.issuer()]
     );
 
@@ -777,7 +784,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     );
 
     // adding claim by trusted issuer 1
-    let claim = Claim::Blocked(ticker.into());
+    let claim = Claim::Blocked(asset_id.into());
     provide_claim(trusted_issuer_1.origin(), receiver.did, claim.clone());
 
     // adding claim by trusted issuer 2
@@ -808,28 +815,28 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.origin(),
-        ticker,
+        asset_id,
         x,
         y
     ));
 
-    assert_valid_transfer!(ticker, owner.did, receiver.did, 10);
+    assert_valid_transfer!(asset_id, owner.did, receiver.did, 10);
 
     // Remove the trusted issuer 1 from the list
     assert_ok!(ComplianceManager::remove_default_trusted_claim_issuer(
         owner.origin(),
-        ticker,
+        asset_id,
         trusted_issuer_1.did
     ));
 
-    assert_eq!(ComplianceManager::trusted_claim_issuer(ticker).len(), 1);
+    assert_eq!(ComplianceManager::trusted_claim_issuer(asset_id).len(), 1);
     assert_eq!(
-        ComplianceManager::trusted_claim_issuer(ticker),
+        ComplianceManager::trusted_claim_issuer(asset_id),
         vec![trusted_issuer_2.issuer()]
     );
 
     // Transfer should fail as issuer doesn't exist anymore but the compliance data still exist
-    assert_invalid_transfer!(ticker, owner.did, receiver.did, 500);
+    assert_invalid_transfer!(asset_id, owner.did, receiver.did, 500);
 
     // Change the compliance requirement to all the transfer happen again
 
@@ -852,11 +859,11 @@ fn should_modify_vector_of_trusted_issuer_we() {
         id: 1,
     };
 
-    // Failed because sender is not an agent of the ticker
+    // Failed because sender is not an agent of the asset_id
     assert_noop!(
         ComplianceManager::change_compliance_requirement(
             receiver.origin(),
-            ticker,
+            asset_id,
             compliance_requirement.clone()
         ),
         EAError::UnauthorizedAgent
@@ -872,7 +879,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     assert_noop!(
         ComplianceManager::change_compliance_requirement(
             owner.origin(),
-            ticker,
+            asset_id,
             compliance_requirement_failure.clone()
         ),
         CMError::<TestStorage>::InvalidComplianceRequirementId
@@ -881,12 +888,12 @@ fn should_modify_vector_of_trusted_issuer_we() {
     // Should successfully change the compliance requirement
     assert_ok!(ComplianceManager::change_compliance_requirement(
         owner.origin(),
-        ticker,
+        asset_id,
         compliance_requirement
     ));
 
     // Now the transfer should pass
-    assert_valid_transfer!(ticker, owner.did, receiver.did, 500);
+    assert_valid_transfer!(asset_id, owner.did, receiver.did, 500);
 }
 
 #[test]
@@ -903,7 +910,7 @@ fn jurisdiction_asset_compliance_we() {
     let user = User::new(AccountKeyring::Charlie);
 
     // 1. Create & mint token
-    let (ticker, _) = create_token(owner);
+    let asset_id = create_and_issue_sample_asset(&owner);
 
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::from(IdentityId::from(0));
@@ -922,13 +929,13 @@ fn jurisdiction_asset_compliance_we() {
     ];
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.origin(),
-        ticker,
+        asset_id,
         vec![],
         receiver_conditions
     ));
     // 3. Validate behaviour.
     // 3.1. Invalid transfer because missing jurisdiction.
-    assert_invalid_transfer!(ticker, owner.did, user.did, 10);
+    assert_invalid_transfer!(asset_id, owner.did, user.did, 10);
     // 3.2. Add jurisdiction and transfer will be OK.
     assert_ok!(Identity::add_claim(
         cdd.origin(),
@@ -936,7 +943,7 @@ fn jurisdiction_asset_compliance_we() {
         Claim::Jurisdiction(CountryCode::CA, scope.clone()),
         None
     ));
-    assert_valid_transfer!(ticker, owner.did, user.did, 10);
+    assert_valid_transfer!(asset_id, owner.did, user.did, 10);
     // 3.3. Add user to Blocked
     assert_ok!(Identity::add_claim(
         owner.origin(),
@@ -944,7 +951,7 @@ fn jurisdiction_asset_compliance_we() {
         Claim::Blocked(scope.clone()),
         None,
     ));
-    assert_invalid_transfer!(ticker, owner.did, user.did, 10);
+    assert_invalid_transfer!(asset_id, owner.did, user.did, 10);
 }
 
 #[test]
@@ -961,23 +968,23 @@ fn scope_asset_compliance_we() {
     let user = User::new(AccountKeyring::Charlie);
 
     // 1. Create a token.
-    let (ticker, _) = create_token(owner);
+    let asset_id = create_and_issue_sample_asset(&owner);
 
     // 2. Set up compliance requirements for Asset transfer.
-    let scope = Scope::Ticker(ticker);
+    let scope = Scope::Asset(asset_id);
     let receiver_conditions = vec![Condition::from_dids(
         ConditionType::IsPresent(Claim::Affiliate(scope.clone())),
         &[cdd.did],
     )];
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.origin(),
-        ticker,
+        asset_id,
         vec![],
         receiver_conditions
     ));
     // 3. Validate behaviour.
     // 3.1. Invalid transfer because missing jurisdiction.
-    assert_invalid_transfer!(ticker, owner.did, user.did, 10);
+    assert_invalid_transfer!(asset_id, owner.did, user.did, 10);
     // 3.2. Add jurisdiction and transfer will be OK.
     assert_ok!(Identity::add_claim(
         cdd.origin(),
@@ -985,14 +992,14 @@ fn scope_asset_compliance_we() {
         Claim::Affiliate(scope.clone()),
         None
     ));
-    assert_valid_transfer!(ticker, owner.did, user.did, 10);
+    assert_valid_transfer!(asset_id, owner.did, user.did, 10);
 }
 
 #[test]
 fn ensure_custom_scopes_limited() {
     ExtBuilder::default().build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
-        let (ticker, _) = create_token(owner);
+        let asset_id = create_and_issue_sample_asset(&owner);
 
         let fill = Condition::from_dids(
             ConditionType::IsIdentity(TargetIdentity::ExternalAgent),
@@ -1017,13 +1024,13 @@ fn ensure_custom_scopes_limited() {
         };
 
         let add =
-            |s, r| ComplianceManager::add_compliance_requirement(owner.origin(), ticker, s, r);
+            |s, r| ComplianceManager::add_compliance_requirement(owner.origin(), asset_id, s, r);
 
         let replace =
-            |cr| ComplianceManager::replace_asset_compliance(owner.origin(), ticker, vec![cr]);
+            |cr| ComplianceManager::replace_asset_compliance(owner.origin(), asset_id, vec![cr]);
 
         let change =
-            |cr| ComplianceManager::change_compliance_requirement(owner.origin(), ticker, cr);
+            |cr| ComplianceManager::change_compliance_requirement(owner.origin(), asset_id, cr);
 
         // Adding:
         // Check <= 32.
@@ -1071,9 +1078,9 @@ fn cm_test_case_9_we() {
     let issuer = User::new(AccountKeyring::Bob);
 
     // 1. Create a token.
-    let (ticker, _) = create_token(owner);
+    let asset_id = create_and_issue_sample_asset(&owner);
     // 2. Set up compliance requirements for Asset transfer.
-    let scope = Scope::Ticker(ticker);
+    let scope = Scope::Asset(asset_id);
     let receiver_conditions = vec![Condition::from_dids(
         ConditionType::IsAnyOf(vec![
             Claim::KnowYourCustomer(scope.clone()),
@@ -1085,7 +1092,7 @@ fn cm_test_case_9_we() {
     )];
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.origin(),
-        ticker,
+        asset_id,
         vec![],
         receiver_conditions
     ));
@@ -1098,9 +1105,9 @@ fn cm_test_case_9_we() {
 
     let get_compliance_report = |user: User, claim| {
         assert_ok!(Identity::add_claim(issuer.origin(), user.did, claim, None));
-        assert_valid_transfer!(ticker, owner.did, user.did, 100);
+        assert_valid_transfer!(asset_id, owner.did, user.did, 100);
         ComplianceManager::compliance_report(
-            &ticker,
+            &asset_id,
             &owner.did,
             &user.did,
             &mut WeightMeter::max_limit_no_minimum(),
@@ -1147,9 +1154,9 @@ fn cm_test_case_9_we() {
         .is_condition_satisfied());
 
     // 3.4 Ferdie has none of the required claims
-    assert_invalid_transfer!(ticker, owner.did, ferdie.did, 100);
+    assert_invalid_transfer!(asset_id, owner.did, ferdie.did, 100);
     let compliance_report = ComplianceManager::compliance_report(
-        &ticker,
+        &asset_id,
         &owner.did,
         &ferdie.did,
         &mut WeightMeter::max_limit_no_minimum(),
@@ -1183,9 +1190,9 @@ fn cm_test_case_11_we() {
     let issuer = User::new(AccountKeyring::Bob);
 
     // 1. Create a token.
-    let (ticker, _) = create_token(owner);
+    let asset_id = create_and_issue_sample_asset(&owner);
     // 2. Set up compliance requirements for Asset transfer.
-    let scope = Scope::Ticker(ticker);
+    let scope = Scope::Asset(asset_id);
     let receiver_conditions = vec![
         Condition::from_dids(
             ConditionType::IsAnyOf(vec![
@@ -1206,7 +1213,7 @@ fn cm_test_case_11_we() {
     ];
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.origin(),
-        ticker,
+        asset_id,
         vec![],
         receiver_conditions
     ));
@@ -1223,9 +1230,9 @@ fn cm_test_case_11_we() {
         Claim::KnowYourCustomer(scope.clone()),
         None
     ));
-    assert_valid_transfer!(ticker, owner.did, charlie.did, 100);
+    assert_valid_transfer!(asset_id, owner.did, charlie.did, 100);
     let result = ComplianceManager::verify_restriction_granular(
-        &ticker,
+        &asset_id,
         Some(owner.did),
         Some(charlie.did),
         &mut WeightMeter::max_limit_no_minimum(),
@@ -1250,9 +1257,9 @@ fn cm_test_case_11_we() {
         None
     ));
 
-    assert_invalid_transfer!(ticker, owner.did, dave.did, 100);
+    assert_invalid_transfer!(asset_id, owner.did, dave.did, 100);
     let result = ComplianceManager::verify_restriction_granular(
-        &ticker,
+        &asset_id,
         Some(owner.did),
         Some(dave.did),
         &mut WeightMeter::max_limit_no_minimum(),
@@ -1277,9 +1284,9 @@ fn cm_test_case_11_we() {
         None
     ));
 
-    assert_valid_transfer!(ticker, owner.did, eve.did, 100);
+    assert_valid_transfer!(asset_id, owner.did, eve.did, 100);
     let result = ComplianceManager::verify_restriction_granular(
-        &ticker,
+        &asset_id,
         Some(owner.did),
         Some(eve.did),
         &mut WeightMeter::max_limit_no_minimum(),
@@ -1306,9 +1313,9 @@ fn cm_test_case_13_we() {
     let issuer = User::new(AccountKeyring::Bob);
 
     // 1. Create a token.
-    let (ticker, _) = create_token(owner);
+    let asset_id = create_and_issue_sample_asset(&owner);
     // 2. Set up compliance requirements for Asset transfer.
-    let scope = Scope::Ticker(ticker);
+    let scope = Scope::Asset(asset_id);
     let receiver_conditions = vec![
         Condition::from_dids(
             ConditionType::IsPresent(Claim::KnowYourCustomer(scope.clone())),
@@ -1332,7 +1339,7 @@ fn cm_test_case_13_we() {
     ];
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.origin(),
-        ticker,
+        asset_id,
         vec![],
         receiver_conditions
     ));
@@ -1351,9 +1358,9 @@ fn cm_test_case_13_we() {
         None
     ));
 
-    assert_invalid_transfer!(ticker, owner.did, charlie.did, 100);
+    assert_invalid_transfer!(asset_id, owner.did, charlie.did, 100);
     let result = ComplianceManager::verify_restriction_granular(
-        &ticker,
+        &asset_id,
         None,
         Some(charlie.did),
         &mut WeightMeter::max_limit_no_minimum(),
@@ -1386,9 +1393,9 @@ fn cm_test_case_13_we() {
         None
     );
 
-    assert_invalid_transfer!(ticker, owner.did, dave.did, 100);
+    assert_invalid_transfer!(asset_id, owner.did, dave.did, 100);
     let result = ComplianceManager::verify_restriction_granular(
-        &ticker,
+        &asset_id,
         None,
         Some(dave.did),
         &mut WeightMeter::max_limit_no_minimum(),
@@ -1420,9 +1427,9 @@ fn cm_test_case_13_we() {
         None
     );
 
-    assert_valid_transfer!(ticker, owner.did, eve.did, 100);
+    assert_valid_transfer!(asset_id, owner.did, eve.did, 100);
     let result = ComplianceManager::verify_restriction_granular(
-        &ticker,
+        &asset_id,
         Some(owner.did),
         Some(eve.did),
         &mut WeightMeter::max_limit_no_minimum(),
@@ -1449,12 +1456,12 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     let other = User::new(AccountKeyring::Charlie);
 
     // 1. Create a token.
-    let (ticker, _) = create_token(owner);
+    let asset_id = create_and_issue_sample_asset(&owner);
 
     let auth_id = Identity::add_auth(
         owner.did,
         Signatory::from(issuer.did),
-        AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
+        AuthorizationData::BecomeAgent(asset_id, AgentGroup::Full),
         None,
     )
     .unwrap();
@@ -1466,7 +1473,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     // No compliance requirement is present, compliance should pass
     let mut weight_meter = WeightMeter::max_limit_no_minimum();
     assert_ok!(
-        ComplianceManager::is_compliant(&ticker, issuer.did, other.did, &mut weight_meter),
+        ComplianceManager::is_compliant(&asset_id, issuer.did, other.did, &mut weight_meter),
         true
     );
 
@@ -1481,13 +1488,13 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     // and receiver to be a specific other id.
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.origin(),
-        ticker,
+        asset_id,
         conditions(TargetIdentity::ExternalAgent),
         conditions(TargetIdentity::Specific(other.did)),
     ));
 
     let verify = |from: User, to: User, weight_meter: &mut WeightMeter| {
-        ComplianceManager::is_compliant(&ticker, from.did, to.did, weight_meter)
+        ComplianceManager::is_compliant(&asset_id, from.did, to.did, weight_meter)
     };
 
     // From primary issuance agent to the random guy should succeed
@@ -1511,9 +1518,9 @@ fn should_limit_compliance_requirements_complexity_we() {
     let owner = User::new(AccountKeyring::Alice);
 
     // 1. Create & mint token
-    let (ticker, _) = create_token(owner);
+    let asset_id = create_and_issue_sample_asset(&owner);
 
-    let scope = Scope::Ticker(ticker);
+    let scope = Scope::Asset(asset_id);
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
     let ty = ConditionType::IsPresent(Claim::KnowYourCustomer(scope.clone()));
@@ -1525,7 +1532,7 @@ fn should_limit_compliance_requirements_complexity_we() {
     assert_noop!(
         ComplianceManager::add_compliance_requirement(
             owner.origin(),
-            ticker,
+            asset_id,
             conditions_with_issuer.clone(),
             conditions_with_issuer.clone()
         ),
@@ -1535,7 +1542,7 @@ fn should_limit_compliance_requirements_complexity_we() {
     // Complexity = 30*1 + 15*0 = 30
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.origin(),
-        ticker,
+        asset_id,
         conditions_with_issuer.clone(),
         conditions_without_issuers,
     ));
@@ -1543,18 +1550,22 @@ fn should_limit_compliance_requirements_complexity_we() {
     // Complexity = 30*1 + 15*1 = 45
     assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
         owner.origin(),
-        ticker,
+        asset_id,
         owner.issuer(),
     ));
 
     // Complexity = 30*1 + 15*2 = 60
     let other = User::new(AccountKeyring::Bob);
     assert_noop!(
-        ComplianceManager::add_default_trusted_claim_issuer(owner.origin(), ticker, other.issuer(),),
+        ComplianceManager::add_default_trusted_claim_issuer(
+            owner.origin(),
+            asset_id,
+            other.issuer(),
+        ),
         CMError::<TestStorage>::ComplianceRequirementTooComplex
     );
 
-    let asset_compliance = ComplianceManager::asset_compliance(ticker);
+    let asset_compliance = ComplianceManager::asset_compliance(asset_id);
     assert_eq!(asset_compliance.requirements.len(), 1);
 }
 
@@ -1566,15 +1577,15 @@ fn check_new_return_type_of_rpc() {
         let receiver = User::new(AccountKeyring::Charlie);
 
         // 1. Create & mint token
-        let (ticker, _) = create_token(owner);
+        let asset_id = create_and_issue_sample_asset(&owner);
 
         Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
-        // Add empty rules
-        allow_all_transfers(ticker, owner);
+        ComplianceManager::add_compliance_requirement(owner.origin(), asset_id, vec![], vec![])
+            .unwrap();
 
         let result = ComplianceManager::verify_restriction_granular(
-            &ticker,
+            &asset_id,
             Some(owner.did),
             Some(receiver.did),
             &mut WeightMeter::max_limit_no_minimum(),
@@ -1593,6 +1604,6 @@ fn check_new_return_type_of_rpc() {
         assert_eq!(result.result, true);
 
         // Transfer should be valid as there are no restrictions.
-        assert_valid_transfer!(ticker, owner.did, receiver.did, 100);
+        assert_valid_transfer!(asset_id, owner.did, receiver.did, 100);
     });
 }

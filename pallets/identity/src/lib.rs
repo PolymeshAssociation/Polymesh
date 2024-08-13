@@ -93,15 +93,12 @@ use core::convert::From;
 
 use codec::{Decode, Encode};
 use frame_system::ensure_root;
-use sp_runtime::traits::Hash;
-use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
 
 use frame_support::dispatch::DispatchClass::{Normal, Operational};
 use frame_support::dispatch::{DispatchResult, Pays, Weight};
 use frame_support::traits::{ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers};
 use frame_support::{decl_error, decl_module, decl_storage};
-use polymesh_common_utilities::constants::did::SECURITY_TOKEN;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_common_utilities::traits::identity::{
     AuthorizationNonce, Config, CreateChildIdentityWithAuth, IdentityFnTrait, RawEvent,
@@ -111,7 +108,7 @@ use polymesh_common_utilities::{SystematicIssuers, GC_DID};
 use polymesh_primitives::{
     storage_migrate_on, storage_migration_ver, Authorization, AuthorizationData, AuthorizationType,
     CddId, Claim, ClaimType, CustomClaimTypeId, DidRecord, IdentityClaim, IdentityId, KeyRecord,
-    Permissions, Scope, SecondaryKey, Signatory, Ticker,
+    Permissions, Scope, SecondaryKey, Signatory,
 };
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
@@ -666,21 +663,6 @@ decl_error! {
 }
 
 impl<T: Config> Module<T> {
-    /// Only used by `create_asset` since `AssetDidRegistered` is defined here instead of there.
-    pub fn commit_token_did(did: IdentityId, ticker: Ticker) {
-        DidRecords::<T>::insert(did, DidRecord::default());
-        Self::deposit_event(RawEvent::AssetDidRegistered(did, ticker));
-    }
-
-    /// IMPORTANT: No state change is allowed in this function
-    /// because this function is used within the RPC calls
-    /// It is a helper function that can be used to get did for any asset
-    pub fn get_token_did(ticker: &Ticker) -> Result<IdentityId, &'static str> {
-        let mut buf = SECURITY_TOKEN.encode();
-        buf.append(&mut ticker.encode());
-        IdentityId::try_from(T::Hashing::hash(&buf[..]).as_ref())
-    }
-
     pub fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
         dids.into_iter()
             .map(|did| {

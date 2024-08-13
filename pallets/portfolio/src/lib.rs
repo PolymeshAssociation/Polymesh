@@ -32,9 +32,9 @@
 //!
 //! ### Public Functions
 //!
-//! - `default_portfolio_balance`: Returns the ticker balance of the identity's default portfolio.
-//! - `user_portfolio_balance`: Returns the ticker balance of an identity's user portfolio.
-//! - `set_portfolio_balance`: Sets the ticker balance of a portfolio.
+//! - `default_portfolio_balance`: Returns the asset balance of the identity's default portfolio.
+//! - `user_portfolio_balance`: Returns the asset balance of an identity's user portfolio.
+//! - `set_portfolio_balance`: Sets the asset balance of a portfolio.
 //! - `unchecked_transfer_portfolio_balance`: Transfers funds from one portfolio to another.
 //! - `ensure_portfolio_custody`: Makes sure that the given identity has custodian access over the portfolio.
 //! - `ensure_portfolio_transfer_validity`: Makes sure that a transfer between two portfolios is valid.
@@ -58,10 +58,11 @@ pub use polymesh_common_utilities::portfolio::{Config, Event, WeightInfo};
 use polymesh_common_utilities::traits::asset::AssetFnTrait;
 use polymesh_common_utilities::traits::nft::NFTTrait;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::{
     extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, Fund,
     FundDescription, IdentityId, NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
-    SecondaryKey, Ticker,
+    SecondaryKey,
 };
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -91,12 +92,12 @@ decl_storage! {
 
         /// The asset balances of portfolios.
         pub PortfolioAssetBalances get(fn portfolio_asset_balances):
-            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) Ticker => Balance;
+            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) AssetID => Balance;
 
         /// Amount of assets locked in a portfolio.
         /// These assets show up in portfolio balance but can not be transferred away.
         pub PortfolioLockedAssets get(fn locked_assets):
-            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) Ticker => Balance;
+            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) AssetID => Balance;
 
         /// The custodian of a particular portfolio. None implies that the identity owner is the custodian.
         pub PortfolioCustodian get(fn portfolio_custodian):
@@ -110,15 +111,15 @@ decl_storage! {
 
         /// The nft associated to the portfolio.
         pub PortfolioNFT get(fn portfolio_nft):
-            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) (Ticker, NFTId) => bool;
+            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) (AssetID, NFTId) => bool;
 
         /// All locked nft for a given portfolio.
         pub PortfolioLockedNFT get(fn portfolio_locked_nft):
-            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) (Ticker, NFTId) => bool;
+            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) (AssetID, NFTId) => bool;
 
-        /// All portfolios that don't need to affirm the receivement of a given ticker.
+        /// All portfolios that don't need to affirm the receivement of a given [`AssetID`].
         pub PreApprovedPortfolios get(fn pre_approved_portfolios):
-            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) Ticker => bool;
+            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) AssetID => bool;
 
         /// Custodians allowed to create and take custody of portfolios on an id's behalf.
         pub AllowedCustodians get(fn allowed_custodians):
@@ -310,7 +311,7 @@ decl_module! {
         /// * `DifferentIdentityPortfolios` if the sender and receiver portfolios belong to different identities
         /// * `UnauthorizedCustodian` if the caller is not the custodian of the from portfolio
         /// * `InsufficientPortfolioBalance` if the sender does not have enough free balance
-        /// * `NoDuplicateAssetsAllowed` the same ticker can't be repeated in the items vector.
+        /// * `NoDuplicateAssetsAllowed` the same asset can't be repeated in the items vector.
         /// * `InvalidTransferNFTNotOwned` if the caller is trying to move an NFT he doesn't own.
         /// * `InvalidTransferNFTIsLocked` if the caller is trying to move a locked NFT.
         ///
@@ -340,28 +341,28 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` - the secondary key of the sender.
-        /// * `ticker` - the [`Ticker`] that will be exempt from affirmation.
-        /// * `portfolio_id` - the [`PortfolioId`] that can receive `ticker` without affirmation.
+        /// * `asset_id` - the [`AssetID`] that will be exempt from affirmation.
+        /// * `portfolio_id` - the [`PortfolioId`] that can receive `asset_id` without affirmation.
         ///
         /// # Permissions
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::pre_approve_portfolio()]
-        pub fn pre_approve_portfolio(origin, ticker: Ticker, portfolio_id: PortfolioId) -> DispatchResult {
-            Self::base_pre_approve_portfolio(origin, &ticker, portfolio_id)
+        pub fn pre_approve_portfolio(origin, asset_id: AssetID, portfolio_id: PortfolioId) -> DispatchResult {
+            Self::base_pre_approve_portfolio(origin, asset_id, portfolio_id)
         }
 
         /// Removes the pre approval of an asset to a portfolio.
         ///
         /// # Arguments
         /// * `origin` - the secondary key of the sender.
-        /// * `ticker` - the [`Ticker`] that will be exempt from affirmation.
-        /// * `portfolio_id` - the [`PortfolioId`] that can receive `ticker` without affirmation.
+        /// * `asset_id` - the [`AssetID`] that will be exempt from affirmation.
+        /// * `portfolio_id` - the [`PortfolioId`] that can receive `asset_id` without affirmation.
         ///
         /// # Permissions
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::remove_portfolio_pre_approval()]
-        pub fn remove_portfolio_pre_approval(origin, ticker: Ticker, portfolio_id: PortfolioId) -> DispatchResult {
-            Self::base_remove_portfolio_pre_approval(origin, &ticker, portfolio_id)
+        pub fn remove_portfolio_pre_approval(origin, asset_id: AssetID, portfolio_id: PortfolioId) -> DispatchResult {
+            Self::base_remove_portfolio_pre_approval(origin, asset_id, portfolio_id)
         }
 
         /// Adds an identity that will be allowed to create and take custody of a portfolio under the caller's identity.
@@ -435,23 +436,23 @@ impl<T: Config> Module<T> {
         PortfolioCustodian::get(&pid).unwrap_or(pid.did)
     }
 
-    /// Returns the ticker balance of the identity's default portfolio.
-    pub fn default_portfolio_balance(did: IdentityId, ticker: &Ticker) -> Balance {
-        Self::portfolio_asset_balances(PortfolioId::default_portfolio(did), ticker)
+    /// Returns the asset balance of the identity's default portfolio.
+    pub fn default_portfolio_balance(did: IdentityId, asset_id: &AssetID) -> Balance {
+        Self::portfolio_asset_balances(PortfolioId::default_portfolio(did), asset_id)
     }
 
-    /// Returns the ticker balance of an identity's user portfolio.
+    /// Returns the asset balance of an identity's user portfolio.
     pub fn user_portfolio_balance(
         did: IdentityId,
         num: PortfolioNumber,
-        ticker: &Ticker,
+        asset_id: &AssetID,
     ) -> Balance {
-        Self::portfolio_asset_balances(PortfolioId::user_portfolio(did, num), ticker)
+        Self::portfolio_asset_balances(PortfolioId::user_portfolio(did, num), asset_id)
     }
 
-    /// Sets the ticker balance of the a portfolio to `new`.
-    pub fn set_portfolio_balance(pid: PortfolioId, ticker: &Ticker, new: Balance) {
-        PortfolioAssetBalances::mutate(&pid, ticker, |old| {
+    /// Sets the asset balance of the a portfolio to `new`.
+    pub fn set_portfolio_balance(pid: PortfolioId, asset_id: &AssetID, new: Balance) {
+        PortfolioAssetBalances::mutate(&pid, asset_id, |old| {
             Self::transition_asset_count(&pid, *old, new);
             *old = new;
         });
@@ -478,21 +479,21 @@ impl<T: Config> Module<T> {
     pub fn unchecked_transfer_portfolio_balance(
         from: &PortfolioId,
         to: &PortfolioId,
-        ticker: &Ticker,
+        asset_id: &AssetID,
         amount: Balance,
     ) {
-        PortfolioAssetBalances::mutate(from, ticker, |balance| {
+        PortfolioAssetBalances::mutate(from, asset_id, |balance| {
             let old = mem::replace(balance, balance.saturating_sub(amount));
             Self::transition_asset_count(from, old, *balance);
         });
 
-        PortfolioAssetBalances::mutate(to, ticker, |balance| {
+        PortfolioAssetBalances::mutate(to, asset_id, |balance| {
             let old = mem::replace(balance, balance.saturating_add(amount));
             Self::transition_asset_count(to, old, *balance);
         });
     }
 
-    /// Handle cases where the balance for a ticker goes to and from 0.
+    /// Handle cases where the balance for an asset goes to and from 0.
     fn transition_asset_count(pid: &PortfolioId, old: Balance, new: Balance) {
         match (old.is_zero(), new.is_zero()) {
             // 0 -> 1+, so increment count.
@@ -558,7 +559,7 @@ impl<T: Config> Module<T> {
     pub fn ensure_portfolio_transfer_validity(
         from_portfolio: &PortfolioId,
         to_portfolio: &PortfolioId,
-        ticker: &Ticker,
+        asset_id: &AssetID,
         amount: Balance,
     ) -> DispatchResult {
         // Transfers between the same identity should call move_portfolio_funds
@@ -572,14 +573,14 @@ impl<T: Config> Module<T> {
         Self::ensure_portfolio_validity(to_portfolio)?;
 
         // 3. Ensure sender has enough free balance
-        Self::ensure_sufficient_balance(&from_portfolio, ticker, amount)
+        Self::ensure_sufficient_balance(&from_portfolio, asset_id, amount)
     }
 
     /// Granular `ensure_portfolio_transfer_validity`.
     pub fn ensure_portfolio_transfer_validity_granular(
         from_portfolio: &PortfolioId,
         to_portfolio: &PortfolioId,
-        ticker: &Ticker,
+        asset_id: &AssetID,
         amount: Balance,
     ) -> PortfolioValidityResult {
         let receiver_is_same_portfolio = from_portfolio.did == to_portfolio.did;
@@ -588,7 +589,7 @@ impl<T: Config> Module<T> {
         let receiver_portfolio_does_not_exist =
             Self::ensure_portfolio_validity(to_portfolio).is_err();
         let sender_insufficient_balance =
-            Self::ensure_sufficient_balance(&from_portfolio, ticker, amount).is_err();
+            Self::ensure_sufficient_balance(&from_portfolio, asset_id, amount).is_err();
         PortfolioValidityResult {
             receiver_is_same_portfolio,
             sender_portfolio_does_not_exist,
@@ -605,19 +606,19 @@ impl<T: Config> Module<T> {
     /// Throws an error if enough free balance is not available.
     pub fn reduce_portfolio_balance(
         pid: &PortfolioId,
-        ticker: &Ticker,
+        asset_id: &AssetID,
         amount: Balance,
     ) -> DispatchResult {
         // Ensure portfolio has enough free balance
-        let total_balance = Self::portfolio_asset_balances(&pid, ticker);
-        let locked_balance = Self::locked_assets(&pid, ticker);
+        let total_balance = Self::portfolio_asset_balances(&pid, asset_id);
+        let locked_balance = Self::locked_assets(&pid, asset_id);
         let remaining_balance = total_balance
             .checked_sub(amount)
             .filter(|rb| rb >= &locked_balance)
             .ok_or(Error::<T>::InsufficientPortfolioBalance)?;
 
         // Update portfolio balance.
-        PortfolioAssetBalances::insert(pid, ticker, remaining_balance);
+        PortfolioAssetBalances::insert(pid, asset_id, remaining_balance);
         Self::transition_asset_count(pid, total_balance, remaining_balance);
 
         Ok(())
@@ -634,25 +635,25 @@ impl<T: Config> Module<T> {
         Self::ensure_user_portfolio_permission(secondary_key, portfolio)
     }
 
-    /// Ensure `portfolio` has sufficient balance of `ticker` to lock/withdraw `amount`.
+    /// Ensure `portfolio` has sufficient balance of `asset_id` to lock/withdraw `amount`.
     pub fn ensure_sufficient_balance(
         portfolio: &PortfolioId,
-        ticker: &Ticker,
+        asset_id: &AssetID,
         amount: Balance,
     ) -> DispatchResult {
-        T::Asset::ensure_granular(ticker, amount)?;
-        Self::portfolio_asset_balances(portfolio, ticker)
-            .saturating_sub(Self::locked_assets(portfolio, ticker))
+        T::Asset::ensure_granular(asset_id, amount)?;
+        Self::portfolio_asset_balances(portfolio, asset_id)
+            .saturating_sub(Self::locked_assets(portfolio, asset_id))
             .checked_sub(amount)
             .ok_or_else(|| Error::<T>::InsufficientPortfolioBalance.into())
             .map(drop)
     }
 
-    /// Locks `amount` of `ticker` in `portfolio` without checking that this is sane.
+    /// Locks `amount` of `asset_id` in `portfolio` without checking that this is sane.
     ///
     /// Locks are stacked so if there were X tokens already locked, there will now be X + N tokens locked
-    pub fn unchecked_lock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: Balance) {
-        PortfolioLockedAssets::mutate(portfolio, ticker, |l| *l = l.saturating_add(amount));
+    pub fn unchecked_lock_tokens(portfolio: &PortfolioId, asset_id: &AssetID, amount: Balance) {
+        PortfolioLockedAssets::mutate(portfolio, asset_id, |l| *l = l.saturating_add(amount));
     }
 
     fn base_accept_portfolio_custody(origin: T::RuntimeOrigin, auth_id: u64) -> DispatchResult {
@@ -716,21 +717,21 @@ impl<T: Config> Module<T> {
     /// Verifies if the sender has all funds for the transfer. For a fungible move to be valid, the sender must have sufficient balance, and for
     /// a non-fungible move, the NFTs must be owned by the sender and can't be locked.
     fn ensure_valid_funds(sender_portfolio: &PortfolioId, funds: &[Fund]) -> DispatchResult {
-        let mut unique_tickers = BTreeSet::new();
+        let mut unique_assets = BTreeSet::new();
         // Ensure there are sufficient funds for all moves
         for fund in funds {
             match &fund.description {
-                FundDescription::Fungible { ticker, amount } => {
+                FundDescription::Fungible { asset_id, amount } => {
                     ensure!(*amount > 0, Error::<T>::EmptyTransfer);
                     ensure!(
-                        unique_tickers.insert(ticker),
+                        unique_assets.insert(asset_id),
                         Error::<T>::NoDuplicateAssetsAllowed
                     );
-                    Self::ensure_sufficient_balance(sender_portfolio, &ticker, *amount)?;
+                    Self::ensure_sufficient_balance(sender_portfolio, &asset_id, *amount)?;
                 }
                 FundDescription::NonFungible(nfts) => {
                     ensure!(nfts.len() > 0, Error::<T>::EmptyTransfer);
-                    Self::ensure_valid_nfts(sender_portfolio, nfts.ticker(), nfts.ids())?;
+                    Self::ensure_valid_nfts(sender_portfolio, nfts.asset_id(), nfts.ids())?;
                 }
             }
         }
@@ -740,16 +741,16 @@ impl<T: Config> Module<T> {
     /// Verifies if the portfolio has the nfts and if they are not locked.
     fn ensure_valid_nfts(
         portfolio: &PortfolioId,
-        ticker: &Ticker,
+        asset_id: &AssetID,
         nft_ids: &[NFTId],
     ) -> DispatchResult {
         for nft_id in nft_ids {
             ensure!(
-                PortfolioNFT::contains_key(portfolio, (ticker, nft_id)),
+                PortfolioNFT::contains_key(portfolio, (asset_id, nft_id)),
                 Error::<T>::InvalidTransferNFTNotOwned
             );
             ensure!(
-                !PortfolioLockedNFT::contains_key(portfolio, (ticker, nft_id)),
+                !PortfolioLockedNFT::contains_key(portfolio, (asset_id, nft_id)),
                 Error::<T>::InvalidTransferNFTIsLocked
             );
         }
@@ -765,26 +766,26 @@ impl<T: Config> Module<T> {
     ) {
         for fund in funds {
             match fund.description {
-                FundDescription::Fungible { ticker, amount } => {
+                FundDescription::Fungible { asset_id, amount } => {
                     Self::unchecked_transfer_portfolio_balance(
                         &sender_portfolio,
                         &receiver_portfolio,
-                        &ticker,
+                        &asset_id,
                         amount,
                     );
                     Self::deposit_event(Event::FundsMovedBetweenPortfolios(
                         origin_did,
                         sender_portfolio,
                         receiver_portfolio,
-                        FundDescription::Fungible { ticker, amount },
+                        FundDescription::Fungible { asset_id, amount },
                         fund.memo,
                     ));
                 }
                 FundDescription::NonFungible(nfts) => {
                     for nft_id in nfts.ids() {
-                        PortfolioNFT::remove(&sender_portfolio, (nfts.ticker(), nft_id));
-                        PortfolioNFT::insert(&receiver_portfolio, (nfts.ticker(), nft_id), true);
-                        T::NFT::move_portfolio_owner(*nfts.ticker(), *nft_id, receiver_portfolio);
+                        PortfolioNFT::remove(&sender_portfolio, (nfts.asset_id(), nft_id));
+                        PortfolioNFT::insert(&receiver_portfolio, (nfts.asset_id(), nft_id), true);
+                        T::NFT::move_portfolio_owner(*nfts.asset_id(), *nft_id, receiver_portfolio);
                     }
                     Self::deposit_event(Event::FundsMovedBetweenPortfolios(
                         origin_did,
@@ -800,7 +801,7 @@ impl<T: Config> Module<T> {
 
     fn base_pre_approve_portfolio(
         origin: T::RuntimeOrigin,
-        ticker: &Ticker,
+        asset_id: AssetID,
         portfolio_id: PortfolioId,
     ) -> DispatchResult {
         let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
@@ -811,18 +812,18 @@ impl<T: Config> Module<T> {
             origin_data.secondary_key.as_ref(),
         )?;
 
-        PreApprovedPortfolios::insert(&portfolio_id, ticker, true);
+        PreApprovedPortfolios::insert(&portfolio_id, asset_id, true);
         Self::deposit_event(Event::PreApprovedPortfolio(
             origin_data.primary_did,
             portfolio_id,
-            *ticker,
+            asset_id,
         ));
         Ok(())
     }
 
     fn base_remove_portfolio_pre_approval(
         origin: T::RuntimeOrigin,
-        ticker: &Ticker,
+        asset_id: AssetID,
         portfolio_id: PortfolioId,
     ) -> DispatchResult {
         let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
@@ -833,11 +834,11 @@ impl<T: Config> Module<T> {
             origin_data.secondary_key.as_ref(),
         )?;
 
-        PreApprovedPortfolios::remove(&portfolio_id, ticker);
+        PreApprovedPortfolios::remove(&portfolio_id, asset_id);
         Self::deposit_event(Event::RevokePreApprovedPortfolio(
             origin_data.primary_did,
             portfolio_id,
-            *ticker,
+            asset_id,
         ));
         Ok(())
     }
@@ -896,9 +897,9 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Module<T> {
     ///
     /// # Errors
     /// * `InsufficientPortfolioBalance` if the portfolio does not have enough free balance to lock
-    fn lock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: Balance) -> DispatchResult {
-        Self::ensure_sufficient_balance(portfolio, ticker, amount)?;
-        Self::unchecked_lock_tokens(portfolio, ticker, amount);
+    fn lock_tokens(portfolio: &PortfolioId, asset_id: &AssetID, amount: Balance) -> DispatchResult {
+        Self::ensure_sufficient_balance(portfolio, asset_id, amount)?;
+        Self::unchecked_lock_tokens(portfolio, asset_id, amount);
         Ok(())
     }
 
@@ -909,13 +910,17 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Module<T> {
     ///
     /// # Errors
     /// * `InsufficientTokensLocked` if the portfolio does not have enough locked tokens to unlock
-    fn unlock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: Balance) -> DispatchResult {
+    fn unlock_tokens(
+        portfolio: &PortfolioId,
+        asset_id: &AssetID,
+        amount: Balance,
+    ) -> DispatchResult {
         // 1. Ensure portfolio has enough locked tokens
-        let locked = Self::locked_assets(portfolio, ticker);
+        let locked = Self::locked_assets(portfolio, asset_id);
         ensure!(locked >= amount, Error::<T>::InsufficientTokensLocked);
 
         // 2. Unlock tokens. Can not underflow due to above ensure.
-        PortfolioLockedAssets::insert(portfolio, ticker, locked - amount);
+        PortfolioLockedAssets::insert(portfolio, asset_id, locked - amount);
         Ok(())
     }
 
@@ -939,19 +944,19 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Module<T> {
     /// # Errors
     /// * `NFTAlreadyLocked` if the given nft is already locked.
     /// * `NFTNotFoundInPortfolio` if the given nft was not found in the portfolio.
-    fn lock_nft(portfolio_id: &PortfolioId, ticker: &Ticker, nft_id: &NFTId) -> DispatchResult {
+    fn lock_nft(portfolio_id: &PortfolioId, asset_id: &AssetID, nft_id: &NFTId) -> DispatchResult {
         // Verifies if the portfolio contains the NFT
         ensure!(
-            PortfolioNFT::contains_key(portfolio_id, (ticker, nft_id)),
+            PortfolioNFT::contains_key(portfolio_id, (asset_id, nft_id)),
             Error::<T>::NFTNotFoundInPortfolio
         );
         // Verifies if the nft is not locked
         ensure!(
-            !PortfolioLockedNFT::contains_key(portfolio_id, (ticker, nft_id)),
+            !PortfolioLockedNFT::contains_key(portfolio_id, (asset_id, nft_id)),
             Error::<T>::NFTAlreadyLocked
         );
         // Locks the nft
-        PortfolioLockedNFT::insert(portfolio_id, (ticker, nft_id), true);
+        PortfolioLockedNFT::insert(portfolio_id, (asset_id, nft_id), true);
         Ok(())
     }
 
@@ -959,27 +964,31 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Module<T> {
     ///
     /// # Errors
     /// * `NFTNotFoundInPortfolio` if the given nft was not found in the portfolio.
-    fn unlock_nft(portfolio_id: &PortfolioId, ticker: &Ticker, nft_id: &NFTId) -> DispatchResult {
+    fn unlock_nft(
+        portfolio_id: &PortfolioId,
+        asset_id: &AssetID,
+        nft_id: &NFTId,
+    ) -> DispatchResult {
         // Verifies if the locked NFT exist.
         ensure!(
-            PortfolioLockedNFT::contains_key(portfolio_id, (ticker, nft_id)),
+            PortfolioLockedNFT::contains_key(portfolio_id, (asset_id, nft_id)),
             Error::<T>::NFTNotLocked
         );
-        PortfolioLockedNFT::remove(portfolio_id, (ticker, nft_id));
+        PortfolioLockedNFT::remove(portfolio_id, (asset_id, nft_id));
         Ok(())
     }
 
-    fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, ticker: &Ticker) -> bool {
+    fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, asset_id: &AssetID) -> bool {
         if Self::portfolio_custodian(portfolio_id).is_some() {
-            if T::Asset::ticker_affirmation_exemption(ticker) {
+            if T::Asset::asset_affirmation_exemption(asset_id) {
                 return true;
             }
-            return PreApprovedPortfolios::get(portfolio_id, ticker);
+            return PreApprovedPortfolios::get(portfolio_id, asset_id);
         }
 
-        if T::Asset::skip_ticker_affirmation(&portfolio_id.did, ticker) {
+        if T::Asset::skip_asset_affirmation(&portfolio_id.did, asset_id) {
             return true;
         }
-        PreApprovedPortfolios::get(portfolio_id, ticker)
+        PreApprovedPortfolios::get(portfolio_id, asset_id)
     }
 }

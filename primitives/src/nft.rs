@@ -7,8 +7,9 @@ use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec::IntoIter;
 use sp_std::vec::Vec;
 
+use crate::asset::AssetID;
 use crate::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
-use crate::{impl_checked_inc, Ticker};
+use crate::impl_checked_inc;
 
 /// Controls the total number of NFTs per identity.
 pub type NFTCount = u64;
@@ -30,13 +31,13 @@ impl_checked_inc!(NFTId);
 #[derive(Clone, Debug, Decode, Default, Encode, PartialEq, TypeInfo)]
 pub struct NFTCollection {
     id: NFTCollectionId,
-    ticker: Ticker,
+    asset_id: AssetID,
 }
 
 impl NFTCollection {
     /// Creates a new `NFTCollection`.
-    pub fn new(id: NFTCollectionId, ticker: Ticker) -> Self {
-        Self { id, ticker }
+    pub fn new(id: NFTCollectionId, asset_id: AssetID) -> Self {
+        Self { id, asset_id }
     }
 
     /// Returns a reference to the `NFTCollectionId`.
@@ -44,38 +45,38 @@ impl NFTCollection {
         &self.id
     }
 
-    /// Returns a reference to the `Ticker` associated with the collection.
-    pub fn ticker(&self) -> &Ticker {
-        &self.ticker
+    /// Returns a reference to the [`AssetID`] associated with the collection.
+    pub fn asset_id(&self) -> &AssetID {
+        &self.asset_id
     }
 }
 
-/// Represent all NFT being transferred for a given [`Ticker`].
+/// Represent all NFT being transferred for a given [`AssetID`].
 #[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct NFTs {
-    ticker: Ticker,
+    asset_id: AssetID,
     ids: Vec<NFTId>,
 }
 
 impl NFTs {
     /// Creates an `NFTs` instance without checking for duplicate ids.
-    pub fn new_unverified(ticker: Ticker, ids: Vec<NFTId>) -> Self {
-        NFTs { ticker, ids }
+    pub fn new_unverified(asset_id: AssetID, ids: Vec<NFTId>) -> Self {
+        NFTs { asset_id, ids }
     }
 
     /// Creates an `NFTs` instance.
-    pub fn new(ticker: Ticker, ids: Vec<NFTId>) -> Result<Self, &'static str> {
+    pub fn new(asset_id: AssetID, ids: Vec<NFTId>) -> Result<Self, &'static str> {
         let unique_ids: BTreeSet<&NFTId> = ids.iter().collect();
         if unique_ids.len() != ids.len() {
             return Err("No duplicate NFTIds are allowed");
         }
-        Ok(NFTs { ticker, ids })
+        Ok(NFTs { asset_id, ids })
     }
 
-    /// Returns a reference to the Ticker of the `NFTs`.
-    pub fn ticker(&self) -> &Ticker {
-        &self.ticker
+    /// Returns a reference to the [`AssetID`] of the `NFTs`.
+    pub fn asset_id(&self) -> &AssetID {
+        &self.asset_id
     }
 
     /// Returns a slice of `NFTid`.

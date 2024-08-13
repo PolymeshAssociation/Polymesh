@@ -28,6 +28,7 @@ use sp_std::vec::Vec;
 
 use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 
+use crate::asset::AssetID;
 use crate::constants::SETTLEMENT_INSTRUCTION_EXECUTION;
 use crate::{impl_checked_inc, Balance, IdentityId, NFTs, PortfolioId, Ticker};
 
@@ -166,8 +167,8 @@ pub enum Leg {
         sender: PortfolioId,
         /// The [`PortfolioId`] of the receiver.
         receiver: PortfolioId,
-        /// The [`Ticker`] of the fungible token.
-        ticker: Ticker,
+        /// The [`AssetID`] of the fungible token.
+        asset_id: AssetID,
         /// The amount being transferred.
         amount: Balance,
     },
@@ -202,12 +203,12 @@ impl Leg {
         false
     }
 
-    /// Returns the [`Ticker`] of the asset in the given leg.
-    pub fn ticker(&self) -> Ticker {
+    /// Returns the [`AssetID`] of the asset in the given leg.
+    pub fn asset_id(&self) -> Option<&AssetID> {
         match self {
-            Leg::Fungible { ticker, .. } => *ticker,
-            Leg::NonFungible { nfts, .. } => *nfts.ticker(),
-            Leg::OffChain { ticker, .. } => *ticker,
+            Leg::Fungible { asset_id, .. } => Some(asset_id),
+            Leg::NonFungible { nfts, .. } => Some(nfts.asset_id()),
+            Leg::OffChain { .. } => None,
         }
     }
 }
@@ -460,7 +461,7 @@ pub struct InstructionInfo {
     instruction_asset_count: AssetCount,
     /// All portfolios that still need to affirm the instruction.
     portfolios_pending_approval: BTreeSet<PortfolioId>,
-    /// All portfolios that have pre-approved the transfer of a ticker.
+    /// All portfolios that have pre-approved the transfer of an asset.
     portfolios_pre_approved: BTreeSet<PortfolioId>,
     /// All mediators that need to affirm the instruction.
     mediators: BTreeSet<IdentityId>,

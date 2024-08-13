@@ -1,5 +1,6 @@
 {
   "types": {
+    "AssetID": "[u8; 16]",
     "IdentityId": "[u8; 32]",
     "Ticker": "[u8; 12]",
     "CddId": "[u8; 32]",
@@ -8,8 +9,8 @@
     "AssetPermissions": {
       "_enum": {
         "Whole": "",
-        "These": "Vec<Ticker>",
-        "Except": "Vec<Ticker>"
+        "These": "Vec<AssetID>",
+        "Except": "Vec<AssetID>"
       }
     },
     "PortfolioPermissions": {
@@ -313,7 +314,7 @@
     "Scope": {
       "_enum": {
         "Identity": "IdentityId",
-        "Ticker": "Ticker",
+        "Asset": "AssetID",
         "Custom": "Vec<u8>"
       }
     },
@@ -399,10 +400,10 @@
         "RotatePrimaryKey": "",
         "TransferTicker": "Ticker",
         "AddMultiSigSigner": "AccountId",
-        "TransferAssetOwnership": "Ticker",
+        "TransferAssetOwnership": "AssetID",
         "JoinIdentity": "Permissions",
         "PortfolioCustody": "PortfolioId",
-        "BecomeAgent": "(Ticker, AgentGroup)",
+        "BecomeAgent": "(AssetID, AgentGroup)",
         "AddRelayerPayingKey": "(AccountId, AccountId, Balance)",
         "RotatePrimaryKeyToSecondary": "Permissions"
       }
@@ -570,13 +571,13 @@
     },
     "NFTId": "u64",
     "NFTs": {
-      "ticker": "Ticker",
+      "asset_id": "AssetID",
       "ids": "Vec<NFTId>"
     },
     "FungibleLeg": {
       "sender": "PortfolioId",
       "receiver": "PortfolioId",
-      "ticker": "Ticker",
+      "asset_id": "AssetID",
       "amount": "Balance"
     },
     "NonFungibleLeg": {
@@ -587,7 +588,7 @@
     "OffChainLeg": {
       "sender_identity": "IdentityId",
       "receiver_identity": "IdentityId",
-      "ticker": "Ticker",
+      "asset_id": "AssetID",
       "amount": "Balance"
     },
     "Leg": {
@@ -652,22 +653,6 @@
           }
         ],
         "type": "CddStatus"
-      },
-      "getAssetDid": {
-        "description": "function is used to query the given ticker DID",
-        "params": [
-          {
-            "name": "ticker",
-            "type": "Ticker",
-            "isOptional": false
-          },
-          {
-            "name": "blockHash",
-            "type": "Hash",
-            "isOptional": true
-          }
-        ],
-        "type": "AssetDidResult"
       },
       "getDidRecords": {
         "description": "Used to get the did record values for a given DID",
@@ -847,37 +832,32 @@
       }
     },
     "asset": {
-      "canTransferGranular": {
-        "description": "Checks whether a transaction with given parameters can take place or not. The result is granular meaning each check is run and returned regardless of outcome.",
+      "transferReport": {
+        "description": "Returns a vector containing all errors for the transfer. An empty vec means there's no error.",
         "params": [
           {
-            "name": "from_custodian",
-            "type": "Option<IdentityId>",
-            "isOptional": false
-          },
-          {
-            "name": "from_portfolio",
+            "name": "sender_portfolio",
             "type": "PortfolioId",
             "isOptional": false
           },
           {
-            "name": "to_custodian",
-            "type": "Option<IdentityId>",
-            "isOptional": false
-          },
-          {
-            "name": "to_portfolio",
+            "name": "receiver_portfolio",
             "type": "PortfolioId",
             "isOptional": false
           },
           {
-            "name": "ticker",
-            "type": "Ticker",
+            "name": "asset_id",
+            "type": "AssetID",
             "isOptional": false
           },
           {
-            "name": "value",
+            "name": "transfer_value",
             "type": "Balance",
+            "isOptional": false
+          },
+          {
+            "name": "skip_locked_check",
+            "type": "bool",
             "isOptional": false
           },
           {
@@ -886,7 +866,7 @@
             "isOptional": true
           }
         ],
-        "type": "CanTransferGranularReturn"
+        "type": "Vec<DispatchError>"
       }
     },
     "group": {
@@ -1006,11 +986,11 @@
     },
     "compliance": {
       "complianceReport": {
-        "description": "Checks all compliance requirements for the given ticker.",
+        "description": "Checks all compliance requirements for the given asset.",
         "params": [
           {
-            "name": "ticker",
-            "type": "Ticker"
+            "name": "asset_id",
+            "type": "AssetID"
           },
           {
             "name": "sender_identity",
@@ -1029,38 +1009,34 @@
     "AssetApi": [
       {
         "methods": {
-          "can_transfer_granular": {
-            "description": "Checks whether a transaction with given parameters can take place or not. The result is granular meaning each check is run and returned regardless of outcome.",
+          "transfer_report": {
+            "description": "Returns a vector containing all errors for the transfer. An empty vec means there's no error.",
             "params": [
               {
-                "name": "from_custodian",
-                "type": "Option<IdentityId>"
-              },
-              {
-                "name": "from_portfolio",
+                "name": "sender_portfolio",
                 "type": "PortfolioId"
               },
               {
-                "name": "to_custodian",
-                "type": "Option<IdentityId>"
-              },
-              {
-                "name": "to_portfolio",
+                "name": "receiver_portfolio",
                 "type": "PortfolioId"
               },
               {
-                "name": "ticker",
-                "type": "Ticker"
+                "name": "asset_id",
+                "type": "AssetID"
               },
               {
-                "name": "value",
+                "name": "transfer_value",
                 "type": "Balance"
+              },
+              {
+                "name": "skip_locked_check",
+                "type": "bool"
               }
             ],
-            "type": "CanTransferGranularReturn"
+            "type": "Vec<DispatchError>"
           }
         },
-        "version": 3
+        "version": 4
       }
     ],
     "GroupApi": [
@@ -1096,16 +1072,6 @@
               }
             ],
             "type": "CddStatus"
-          },
-          "get_asset_did": {
-            "description": "function is used to query the given ticker DID",
-            "params": [
-              {
-                "name": "ticker",
-                "type": "Ticker"
-              }
-            ],
-            "type": "AssetDidResult"
           },
           "get_did_records": {
             "description": "Used to get the did record values for a given DID",
@@ -1323,11 +1289,11 @@
       {
         "methods": {
           "compliance_report": {
-            "description": "Checks all compliance requirements for the given ticker.",
+            "description": "Checks all compliance requirements for the given asset_id.",
             "params": [
               {
-                "name": "ticker",
-                "type": "Ticker"
+                "name": "asset_id",
+                "type": "AssetID"
               },
               {
                 "name": "sender_identity",

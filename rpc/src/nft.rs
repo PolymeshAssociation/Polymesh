@@ -15,7 +15,7 @@
 
 use std::sync::Arc;
 
-use frame_support::dispatch::DispatchResult;
+use frame_support::dispatch::DispatchError;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
 use jsonrpsee::types::error::{CallError, ErrorObject};
@@ -30,14 +30,15 @@ use crate::Error;
 
 #[rpc(client, server)]
 pub trait NFTApi<BlockHash> {
-    #[method(name = "nft_validateNFTTransfer")]
-    fn validate_nft_transfer(
+    #[method(name = "nft_transferReport")]
+    fn transfer_report(
         &self,
         sender_portfolio: PortfolioId,
         receiver_portfolio: PortfolioId,
         nfts: NFTs,
+        skip_locked_check: bool,
         at: Option<BlockHash>,
-    ) -> RpcResult<DispatchResult>;
+    ) -> RpcResult<Vec<DispatchError>>;
 }
 
 /// An implementation of NFT specific RPC methods.
@@ -62,25 +63,32 @@ where
     T: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
     T::Api: NFTRuntimeApi<Block>,
 {
-    fn validate_nft_transfer(
+    fn transfer_report(
         &self,
         sender_portfolio: PortfolioId,
         receiver_portfolio: PortfolioId,
         nfts: NFTs,
+        skip_locked_check: bool,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<DispatchResult> {
+    ) -> RpcResult<Vec<DispatchError>> {
         let api = self.client.runtime_api();
         // If the block hash is not supplied assume the best block.
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.validate_nft_transfer(at_hash, &sender_portfolio, &receiver_portfolio, &nfts)
-            .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to call validate_nft_transfer runtime",
-                    Some(e.to_string()),
-                ))
-                .into()
-            })
+        api.transfer_report(
+            at_hash,
+            sender_portfolio,
+            receiver_portfolio,
+            nfts,
+            skip_locked_check,
+        )
+        .map_err(|e| {
+            CallError::Custom(ErrorObject::owned(
+                Error::RuntimeError.into(),
+                "Unable to call validate_nft_transfer runtime",
+                Some(e.to_string()),
+            ))
+            .into()
+        })
     }
 }

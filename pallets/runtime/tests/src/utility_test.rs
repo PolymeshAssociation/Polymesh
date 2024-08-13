@@ -11,7 +11,7 @@ use frame_support::{
 use frame_system::{Call as SystemCall, EventRecord};
 use pallet_timestamp::Call as TimestampCall;
 
-use pallet_asset::Tickers;
+use pallet_asset::UniqueTickerRegistration;
 use pallet_balances::Call as BalancesCall;
 use pallet_pips::{ProposalState, SnapshotResult};
 use pallet_portfolio::Call as PortfolioCall;
@@ -1030,10 +1030,12 @@ fn as_derivative() {
         let derivative_alice_id = Identity::get_identity(&derivative_alice_account).unwrap();
         Balances::transfer(alice.origin(), derivative_alice_account.into(), 1_000_000).unwrap();
 
-        let call = RuntimeCall::Asset(pallet_asset::Call::register_ticker { ticker });
+        let call = RuntimeCall::Asset(pallet_asset::Call::register_unique_ticker { ticker });
         assert_ok!(Utility::as_derivative(alice.origin(), 1, Box::new(call)));
         assert_eq!(
-            Tickers::<TestStorage>::get(ticker).unwrap().owner,
+            UniqueTickerRegistration::<TestStorage>::get(ticker)
+                .unwrap()
+                .owner,
             derivative_alice_id
         );
     });

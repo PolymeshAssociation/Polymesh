@@ -50,7 +50,7 @@ fn call_system_remark(size: usize) -> <TestStorage as frame_system::Config>::Run
 
 fn call_asset_register_ticker(name: &[u8]) -> <TestStorage as frame_system::Config>::RuntimeCall {
     let ticker = Ticker::from_slice_truncated(name);
-    RuntimeCall::Asset(pallet_asset::Call::register_ticker { ticker })
+    RuntimeCall::Asset(pallet_asset::Call::register_unique_ticker { ticker })
 }
 
 fn call_relayer_remove_paying_key(

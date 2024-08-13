@@ -9,9 +9,7 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::{Block as BlockT, Zero};
 
 pub use node_rpc_runtime_api::identity::IdentityApi as IdentityRuntimeApi;
-pub use pallet_identity::types::{
-    AssetDidResult, CddStatus, DidStatus, KeyIdentityData, RpcDidRecords,
-};
+pub use pallet_identity::types::{CddStatus, DidStatus, KeyIdentityData, RpcDidRecords};
 use polymesh_primitives::{Authorization, AuthorizationType, IdentityClaim, Signatory};
 
 use super::Error;
@@ -29,10 +27,6 @@ pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, Moment> {
         buffer_time: Option<u64>,
         at: Option<BlockHash>,
     ) -> RpcResult<CddStatus>;
-
-    /// Below function is used to query the given ticker DID.
-    #[method(name = "identity_getAssetDid")]
-    fn get_asset_did(&self, ticker: Ticker, at: Option<BlockHash>) -> RpcResult<AssetDidResult>;
 
     /// DidRecords for a `did`
     #[method(name = "identity_getDidRecords")]
@@ -129,24 +123,6 @@ where
                 ))
                 .into()
             })
-    }
-
-    fn get_asset_did(
-        &self,
-        ticker: Ticker,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<AssetDidResult> {
-        let api = self.client.runtime_api();
-        // If the block hash is not supplied assume the best block.
-        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
-        api.get_asset_did(at_hash, ticker).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to fetch did of the given ticker",
-                Some(e.to_string()),
-            ))
-            .into()
-        })
     }
 
     fn get_did_records(

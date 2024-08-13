@@ -13,7 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::statistics::{v1, AssetScope, Percentage, StatClaim, StatOpType, StatType};
+use crate::asset::AssetID;
+use crate::statistics::{v1, Percentage, StatClaim, StatOpType, StatType};
 use crate::{ClaimType, IdentityId};
 use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::Get, BoundedBTreeSet};
@@ -49,7 +50,7 @@ pub enum TransferCondition {
 impl TransferCondition {
     /// Get StatType needed by this transfer condition.
     pub fn get_stat_type(&self) -> StatType {
-        let (op, claim_issuer) = match self {
+        let (operation_type, claim_issuer) = match self {
             Self::MaxInvestorCount(_) => (StatOpType::Count, None),
             Self::MaxInvestorOwnership(_) => (StatOpType::Balance, None),
             Self::ClaimCount(claim, issuer, _, _) => {
@@ -59,11 +60,14 @@ impl TransferCondition {
                 (StatOpType::Balance, Some((claim.claim_type(), *issuer)))
             }
         };
-        StatType { op, claim_issuer }
+        StatType {
+            operation_type,
+            claim_issuer,
+        }
     }
 
     /// Get TransferConditionExemptKey needed by this transfer condition.
-    pub fn get_exempt_key(&self, asset: AssetScope) -> TransferConditionExemptKey {
+    pub fn get_exempt_key(&self, asset_id: AssetID) -> TransferConditionExemptKey {
         let (op, claim_type) = match self {
             Self::MaxInvestorCount(_) => (StatOpType::Count, None),
             Self::MaxInvestorOwnership(_) => (StatOpType::Balance, None),
@@ -71,7 +75,7 @@ impl TransferCondition {
             Self::ClaimOwnership(claim, _, _, _) => (StatOpType::Balance, Some(claim.claim_type())),
         };
         TransferConditionExemptKey {
-            asset,
+            asset_id,
             op,
             claim_type,
         }
@@ -113,8 +117,8 @@ impl From<v1::TransferManagerResult> for TransferConditionResult {
 #[derive(Decode, Encode, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct TransferConditionExemptKey {
-    /// Asset scope.
-    pub asset: AssetScope,
+    /// The [`AssetID`] of the token.
+    pub asset_id: AssetID,
     /// Stats operation type.
     pub op: StatOpType,
     /// Claim type.

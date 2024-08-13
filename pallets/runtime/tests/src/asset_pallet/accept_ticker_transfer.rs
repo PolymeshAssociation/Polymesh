@@ -3,12 +3,12 @@ use frame_support::{StorageDoubleMap, StorageMap, StorageValue};
 use sp_keyring::AccountKeyring;
 
 use pallet_asset::{
-    AssetOwnershipRelation, AssetOwnershipRelations, TickerConfig, TickerRegistration, Tickers,
+    TickerConfig, TickerRegistration, TickersOwnedByUser, UniqueTickerRegistration,
 };
-use polymesh_primitives::asset::AssetType;
 use polymesh_primitives::{AuthorizationData, Signatory, Ticker};
 
-use crate::asset_test::{now, set_time_to_now};
+use super::setup::create_and_issue_sample_asset_linked_to_ticker;
+use crate::asset_test::{now, set_timestamp};
 use crate::storage::User;
 use crate::{ExtBuilder, TestStorage};
 
@@ -23,7 +23,7 @@ fn accept_ticker_transfer() {
         let alice = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
-        assert_ok!(Asset::register_ticker(alice.origin(), ticker,));
+        assert_ok!(Asset::register_unique_ticker(alice.origin(), ticker,));
         let auth_id = Identity::add_auth(
             alice.did,
             Signatory::from(bob.did),
@@ -34,16 +34,10 @@ fn accept_ticker_transfer() {
         assert_ok!(Asset::accept_ticker_transfer(bob.origin(), auth_id,),);
 
         let ticker_registration_config = TickerConfig::<TestStorage>::get();
+        assert_eq!(TickersOwnedByUser::get(bob.did, ticker), true);
+        assert_eq!(TickersOwnedByUser::get(alice.did, ticker), false);
         assert_eq!(
-            AssetOwnershipRelations::get(bob.did, ticker),
-            AssetOwnershipRelation::TickerOwned
-        );
-        assert_eq!(
-            AssetOwnershipRelations::get(alice.did, ticker),
-            AssetOwnershipRelation::NotOwned
-        );
-        assert_eq!(
-            Tickers::<TestStorage>::get(ticker).unwrap(),
+            UniqueTickerRegistration::<TestStorage>::get(ticker).unwrap(),
             TickerRegistration {
                 owner: bob.did,
                 expiry: ticker_registration_config.registration_length
@@ -59,7 +53,7 @@ fn accept_ticker_transfer_missing_auth() {
         let alice = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
-        assert_ok!(Asset::register_ticker(alice.origin(), ticker,));
+        assert_ok!(Asset::register_unique_ticker(alice.origin(), ticker,));
         assert_noop!(
             Asset::accept_ticker_transfer(bob.origin(), 1,),
             "Authorization does not exist"
@@ -74,16 +68,8 @@ fn accept_ticker_transfer_asset_exists() {
         let alice = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
-        assert_ok!(Asset::register_ticker(alice.origin(), ticker,));
-        assert_ok!(Asset::create_asset(
-            alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
-            true,
-            AssetType::default(),
-            Vec::new(),
-            None,
-        ));
+        create_and_issue_sample_asset_linked_to_ticker(&alice, ticker);
+
         let auth_id = Identity::add_auth(
             alice.did,
             Signatory::from(bob.did),
@@ -93,7 +79,7 @@ fn accept_ticker_transfer_asset_exists() {
         .unwrap();
         assert_noop!(
             Asset::accept_ticker_transfer(bob.origin(), auth_id,),
-            AssetError::AssetAlreadyCreated
+            AssetError::TickerIsAlreadyLinkedToAnAsset
         );
     });
 }
@@ -101,12 +87,12 @@ fn accept_ticker_transfer_asset_exists() {
 #[test]
 fn accept_ticker_transfer_auth_expired() {
     ExtBuilder::default().build().execute_with(|| {
-        set_time_to_now();
+        set_timestamp(now());
         let bob = User::new(AccountKeyring::Bob);
         let alice = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
-        assert_ok!(Asset::register_ticker(alice.origin(), ticker,));
+        assert_ok!(Asset::register_unique_ticker(alice.origin(), ticker,));
         let bob_auth_id = Identity::add_auth(
             alice.did,
             Signatory::from(bob.did),
@@ -152,7 +138,7 @@ fn accept_ticker_transfer_illegal_auth() {
         let alice = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
-        assert_ok!(Asset::register_ticker(alice.origin(), ticker,));
+        assert_ok!(Asset::register_unique_ticker(alice.origin(), ticker,));
         let bob_auth_id = Identity::add_auth(
             alice.did,
             Signatory::from(bob.did),
@@ -182,7 +168,7 @@ fn accept_ticker_transfer_bad_type() {
         let alice = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
-        assert_ok!(Asset::register_ticker(alice.origin(), ticker,));
+        assert_ok!(Asset::register_unique_ticker(alice.origin(), ticker,));
         let bob_auth_id = Identity::add_auth(
             alice.did,
             Signatory::from(bob.did),

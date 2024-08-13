@@ -4,3 +4,5 @@ mod controller_transfer;
 mod issue;
 mod register_metadata;
 mod register_ticker;
+
+pub(crate) mod setup;

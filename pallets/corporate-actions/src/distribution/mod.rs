@@ -47,7 +47,7 @@
 //!
 //! ### Terminology
 //!
-//! - **Currency:** The ticker being distributed to holders as a benefit, e.g., USDC or some such.
+//! - **Currency:** The asset being distributed to holders as a benefit, e.g., USDC or some such.
 //! - **Payment-at date:** The date at which benefits may be claimed by or pushed to holders.
 //! - **Expires-at date:** The date at which benefits are forfeit, and may be reclaimed by a permissioned external agent.
 //!
@@ -82,9 +82,10 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     with_transaction,
 };
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::{
     storage_migration_ver, Balance, EventDid, IdentityId, Moment, PortfolioId, PortfolioNumber,
-    SecondaryKey, Ticker, WeightMeter,
+    SecondaryKey, WeightMeter,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
@@ -111,7 +112,7 @@ pub struct Distribution {
     /// The portfolio to distribute from.
     pub from: PortfolioId,
     /// The currency that payouts happen in.
-    pub currency: Ticker,
+    pub currency: AssetID,
     /// Amount per share to pay out, in per-million,
     /// i.e. `1 / 10^6`th of one `currency` token.
     pub per_share: Balance,
@@ -182,7 +183,7 @@ decl_module! {
         /// which is now transferrable.
         ///
         /// ## Arguments
-        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.asset_id`.
         /// - `ca_id` identifies the CA to start a capital distribution for.
         /// - `portfolio` specifies the portfolio number of the agent to distribute `amount` from.
         /// - `currency` to withdraw and distribute from the `portfolio`.
@@ -194,7 +195,7 @@ decl_module! {
         ///    and may be reclaimed by `origin`.
         ///
         /// # Errors
-        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset_id`.
         /// - `ExpiryBeforePayment` if `expires_at.unwrap() <= payment_at`.
         /// - `NoSuchCA` if `ca_id` does not identify an existing CA.
         /// - `NoRecordDate` if CA has no record date.
@@ -214,7 +215,7 @@ decl_module! {
             origin,
             ca_id: CAId,
             portfolio: Option<PortfolioNumber>,
-            currency: Ticker,
+            currency: AssetID,
             per_share: Balance,
             amount: Balance,
             payment_at: Moment,
@@ -270,12 +271,12 @@ decl_module! {
         /// they are rounded down to a whole unit.
         ///
         /// ## Arguments
-        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.asset_id`.
         /// - `ca_id` identifies the CA with a capital distributions to push benefits for.
         /// - `holder` to push benefits to.
         ///
         /// # Errors
-        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset_id`.
         /// - `NoSuchDistribution` if there's no capital distribution for `ca_id`.
         /// - `CannotClaimBeforeStart` if `now < payment_at`.
         /// - `CannotClaimAfterExpiry` if `now > expiry_at.unwrap()`.
@@ -309,11 +310,11 @@ decl_module! {
         /// unlocking the full amount in the distributor portfolio.
         ///
         /// ## Arguments
-        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.asset_id`.
         /// - `ca_id` identifies the CA with a not-yet-started capital distribution to remove.
         ///
         /// # Errors
-        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset_id`.
         /// - `NoSuchDistribution` if there's no capital distribution for `ca_id`.
         /// - `DistributionStarted` if `payment_at <= now`.
         #[weight = <T as Config>::DistWeightInfo::remove_distribution()]
@@ -389,7 +390,7 @@ impl<T: Config> Module<T> {
         origin: T::RuntimeOrigin,
         ca_id: CAId,
         portfolio: Option<PortfolioNumber>,
-        currency: Ticker,
+        currency: AssetID,
         per_share: Balance,
         amount: Balance,
         payment_at: Moment,
@@ -399,7 +400,7 @@ impl<T: Config> Module<T> {
             primary_did: agent,
             secondary_key,
             ..
-        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ca_id.ticker)?;
+        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ca_id.asset_id)?;
 
         Self::unverified_distribute(
             agent,
@@ -425,7 +426,7 @@ impl<T: Config> Module<T> {
         ca_id: CAId,
         holder: IdentityId,
     ) -> DispatchResult {
-        let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
+        let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?.for_event();
         Self::transfer_benefit(agent, holder, ca_id)?;
         Ok(())
     }
@@ -437,7 +438,7 @@ impl<T: Config> Module<T> {
             primary_did: agent,
             secondary_key,
             ..
-        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ca_id.ticker)?;
+        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ca_id.asset_id)?;
         let dist = Self::ensure_distribution_exists(ca_id)?;
         ensure!(!dist.reclaimed, Error::<T>::AlreadyReclaimed);
         ensure!(
@@ -471,7 +472,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_remove_distribution(origin: T::RuntimeOrigin, ca_id: CAId) -> DispatchResult {
-        let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
+        let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?.for_event();
         let dist = Self::ensure_distribution_exists(ca_id)?;
         Self::unverified_remove_distribution(agent, ca_id, &dist)?;
 
@@ -556,7 +557,7 @@ impl<T: Config> Module<T> {
             <Asset<T>>::base_transfer(
                 dist.from,
                 to,
-                &dist.currency,
+                dist.currency,
                 gain,
                 None,
                 None,
@@ -620,7 +621,7 @@ impl<T: Config> Module<T> {
         secondary_key: Option<SecondaryKey<T::AccountId>>,
         ca_id: CAId,
         portfolio: Option<PortfolioNumber>,
-        currency: Ticker,
+        currency: AssetID,
         per_share: Balance,
         amount: Balance,
         payment_at: Moment,

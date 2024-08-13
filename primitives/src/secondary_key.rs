@@ -13,7 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{DispatchableName, IdentityId, PalletName, PortfolioId, SubsetRestriction, Ticker};
+use crate::asset::AssetID;
+use crate::{DispatchableName, IdentityId, PalletName, PortfolioId, SubsetRestriction};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
@@ -39,7 +40,7 @@ fn name_complexity(name: &[u8]) -> usize {
 }
 
 /// Asset permissions.
-pub type AssetPermissions = SubsetRestriction<Ticker>;
+pub type AssetPermissions = SubsetRestriction<AssetID>;
 
 /// A permission to call:
 ///
@@ -181,7 +182,7 @@ impl Permissions {
         });
 
         // Asset permissions complexity cost.
-        cost.saturating_add(self.asset.complexity().saturating_mul(size_of::<Ticker>()))
+        cost.saturating_add(self.asset.complexity().saturating_mul(size_of::<AssetID>()))
             // Portfolio permissions complexity cost.
             .saturating_add(
                 self.portfolio
@@ -403,7 +404,7 @@ impl<AccountId> SecondaryKey<AccountId> {
     }
 
     /// Checks if the given key has permission to access the given asset.
-    pub fn has_asset_permission(&self, asset: Ticker) -> bool {
+    pub fn has_asset_permission(&self, asset: AssetID) -> bool {
         self.permissions.asset.ge(&SubsetRestriction::elem(asset))
     }
 
@@ -437,7 +438,7 @@ impl<AccountId> SecondaryKey<AccountId> {
 #[cfg(test)]
 mod tests {
     use super::{Permissions, PortfolioId, SecondaryKey, Signatory, SubsetRestriction};
-    use crate::{IdentityId, Ticker};
+    use crate::{asset::AssetID, IdentityId};
     use sp_core::sr25519::Public;
     use std::convert::{From, TryFrom};
 
@@ -449,7 +450,7 @@ mod tests {
         assert_eq!(rk1, rk2);
 
         let rk3_permissions = Permissions {
-            asset: SubsetRestriction::elem(Ticker::from_slice_truncated(&[1][..])),
+            asset: SubsetRestriction::elem(AssetID::new([0; 16])),
             extrinsic: SubsetRestriction::Whole,
             portfolio: SubsetRestriction::elem(PortfolioId::default_portfolio(IdentityId::from(
                 1u128,
@@ -466,23 +467,23 @@ mod tests {
     #[test]
     fn has_permission_test() {
         let key = Public::from_raw([b'A'; 32]);
-        let ticker1 = Ticker::from_slice_truncated(&[1][..]);
-        let ticker2 = Ticker::from_slice_truncated(&[2][..]);
+        let asset_id = AssetID::new([0; 16]);
+        let asset_id2 = AssetID::new([1; 16]);
         let portfolio1 = PortfolioId::user_portfolio(IdentityId::default(), 1.into());
         let portfolio2 = PortfolioId::user_portfolio(IdentityId::default(), 2.into());
         let permissions = Permissions {
-            asset: SubsetRestriction::elem(ticker1),
+            asset: SubsetRestriction::elem(AssetID::new([0; 16])),
             extrinsic: SubsetRestriction::Whole,
             portfolio: SubsetRestriction::elem(portfolio1),
         };
         let free_key = SecondaryKey::new(key.clone(), Permissions::default());
         let restricted_key = SecondaryKey::new(key, permissions.clone());
-        assert!(free_key.has_asset_permission(ticker2));
+        assert!(free_key.has_asset_permission(asset_id2));
         assert!(free_key
             .has_extrinsic_permission(&b"pallet".as_ref().into(), &b"function".as_ref().into()));
         assert!(free_key.has_portfolio_permission(vec![portfolio1]));
-        assert!(restricted_key.has_asset_permission(ticker1));
-        assert!(!restricted_key.has_asset_permission(ticker2));
+        assert!(restricted_key.has_asset_permission(asset_id));
+        assert!(!restricted_key.has_asset_permission(asset_id2));
         assert!(restricted_key
             .has_extrinsic_permission(&b"pallet".as_ref().into(), &b"function".as_ref().into()));
         assert!(restricted_key.has_portfolio_permission(vec![portfolio1]));

@@ -2,14 +2,14 @@ use frame_support::{assert_noop, assert_ok};
 use frame_support::{StorageDoubleMap, StorageMap};
 use sp_keyring::AccountKeyring;
 
-use pallet_asset::{BalanceOf, Tokens};
+use pallet_asset::{BalanceOf, SecurityTokens};
 use pallet_portfolio::{PortfolioAssetBalances, PortfolioAssetCount, PortfolioLockedAssets};
 use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::{
     AuthorizationData, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, Signatory,
-    Ticker,
 };
 
+use super::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
 use crate::storage::User;
 use crate::{ExtBuilder, TestStorage};
 
@@ -29,34 +29,21 @@ fn issue_tokens_default_portfolio() {
             did: alice.did,
             kind: PortfolioKind::Default,
         };
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
-        assert_ok!(Asset::create_asset(
-            alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
-            true,
-            AssetType::default(),
-            Vec::new(),
-            None,
-        ));
-        assert_ok!(Asset::issue(
-            alice.origin(),
-            ticker,
-            1_000,
-            PortfolioKind::Default
-        ));
-
+        let asset_id = create_and_issue_sample_asset(&alice);
         assert_eq!(
-            PortfolioAssetBalances::get(&alice_default_portfolio, &ticker),
-            1_000
+            PortfolioAssetBalances::get(&alice_default_portfolio, &asset_id),
+            ISSUE_AMOUNT
         );
         assert_eq!(
-            PortfolioLockedAssets::get(&alice_default_portfolio, &ticker),
+            PortfolioLockedAssets::get(&alice_default_portfolio, &asset_id),
             0
         );
-        assert_eq!(BalanceOf::get(&ticker, &alice.did), 1_000);
-        assert_eq!(Tokens::get(&ticker).unwrap().total_supply, 1_000);
+        assert_eq!(BalanceOf::get(&asset_id, &alice.did), ISSUE_AMOUNT);
+        assert_eq!(
+            SecurityTokens::get(&asset_id).unwrap().total_supply,
+            ISSUE_AMOUNT
+        );
         assert_eq!(PortfolioAssetCount::get(alice_default_portfolio), 1);
     });
 }
@@ -69,38 +56,41 @@ fn issue_tokens_user_portfolio() {
             did: alice.did,
             kind: PortfolioKind::User(PortfolioNumber(1)),
         };
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
         assert_ok!(Portfolio::create_portfolio(
             alice.origin(),
             PortfolioName(b"AliceUserPortfolio".to_vec())
         ));
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
             alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
+            b"MyAsset".into(),
             true,
             AssetType::default(),
             Vec::new(),
             None,
         ));
+
         assert_ok!(Asset::issue(
             alice.origin(),
-            ticker,
-            1_000,
+            asset_id,
+            ISSUE_AMOUNT,
             PortfolioKind::User(PortfolioNumber(1))
         ));
 
         assert_eq!(
-            PortfolioAssetBalances::get(&alice_user_portfolio, &ticker),
-            1_000
+            PortfolioAssetBalances::get(&alice_user_portfolio, asset_id),
+            ISSUE_AMOUNT
         );
         assert_eq!(
-            PortfolioLockedAssets::get(&alice_user_portfolio, &ticker),
+            PortfolioLockedAssets::get(&alice_user_portfolio, asset_id),
             0
         );
-        assert_eq!(BalanceOf::get(&ticker, &alice.did), 1_000);
-        assert_eq!(Tokens::get(&ticker).unwrap().total_supply, 1_000);
+        assert_eq!(BalanceOf::get(asset_id, &alice.did), ISSUE_AMOUNT);
+        assert_eq!(
+            SecurityTokens::get(asset_id).unwrap().total_supply,
+            ISSUE_AMOUNT
+        );
     });
 }
 
@@ -108,13 +98,12 @@ fn issue_tokens_user_portfolio() {
 fn issue_tokens_invalid_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
-        let ticker = Ticker::from_slice_truncated(b"TICKER");
         let alice_user_portfolio = PortfolioKind::User(PortfolioNumber(1));
 
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
             alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
+            b"MyAsset".into(),
             true,
             AssetType::default(),
             Vec::new(),
@@ -122,7 +111,7 @@ fn issue_tokens_invalid_portfolio() {
         ));
 
         assert_noop!(
-            Asset::issue(alice.origin(), ticker, 1_000, alice_user_portfolio),
+            Asset::issue(alice.origin(), asset_id, 1_000, alice_user_portfolio),
             PortfolioError::PortfolioDoesNotExist
         );
     })
@@ -133,13 +122,12 @@ fn issue_tokens_assigned_custody() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(AccountKeyring::Bob);
         let alice = User::new(AccountKeyring::Alice);
-        let ticker = Ticker::from_slice_truncated(b"TICKER");
         let portfolio_id = PortfolioId::new(alice.did, PortfolioKind::Default);
 
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
             alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
+            b"MyAsset".into(),
             true,
             AssetType::default(),
             Vec::new(),
@@ -159,13 +147,13 @@ fn issue_tokens_assigned_custody() {
 
         assert_ok!(Asset::issue(
             alice.origin(),
-            ticker,
+            asset_id,
             1_000,
             PortfolioKind::Default
         ));
-        assert_eq!(BalanceOf::get(ticker, alice.did), 1_000);
-        assert_eq!(PortfolioAssetBalances::get(&portfolio_id, &ticker), 1_000);
-        assert_eq!(PortfolioAssetBalances::get(&portfolio_id, &ticker), 1_000);
+        assert_eq!(BalanceOf::get(asset_id, alice.did), 1_000);
+        assert_eq!(PortfolioAssetBalances::get(&portfolio_id, asset_id), 1_000);
+        assert_eq!(PortfolioAssetBalances::get(&portfolio_id, asset_id), 1_000);
     })
 }
 
@@ -173,10 +161,13 @@ fn issue_tokens_assigned_custody() {
 fn issue_tokens_no_asset() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
-        let ticker = Ticker::from_slice_truncated(b"TICKER");
-
         assert_noop!(
-            Asset::issue(alice.origin(), ticker, 1_000, PortfolioKind::Default),
+            Asset::issue(
+                alice.origin(),
+                [0; 16].into(),
+                1_000,
+                PortfolioKind::Default
+            ),
             ExternalAgentsError::UnauthorizedAgent
         );
     })
@@ -187,19 +178,18 @@ fn issue_tokens_no_auth() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(AccountKeyring::Bob);
         let alice = User::new(AccountKeyring::Alice);
-        let ticker = Ticker::from_slice_truncated(b"TICKER");
 
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
             alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
+            b"MyAsset".into(),
             true,
             AssetType::default(),
             Vec::new(),
             None,
         ));
         assert_noop!(
-            Asset::issue(bob.origin(), ticker, 1_000, PortfolioKind::Default),
+            Asset::issue(bob.origin(), asset_id, 1_000, PortfolioKind::Default),
             ExternalAgentsError::UnauthorizedAgent
         );
     })
@@ -209,19 +199,18 @@ fn issue_tokens_no_auth() {
 fn issue_tokens_not_granular() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
-        let ticker = Ticker::from_slice_truncated(b"TICKER");
 
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
             alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
+            b"MyAsset".into(),
             false,
             AssetType::default(),
             Vec::new(),
             None,
         ));
         assert_noop!(
-            Asset::issue(alice.origin(), ticker, 1_000, PortfolioKind::Default),
+            Asset::issue(alice.origin(), asset_id, 1_000, PortfolioKind::Default),
             AssetError::InvalidGranularity
         );
     })
@@ -231,19 +220,19 @@ fn issue_tokens_not_granular() {
 fn issue_tokens_invalid_token_type() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
-        let ticker = Ticker::from_slice_truncated(b"TICKER");
 
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
             alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
+            b"MyAsset".into(),
             true,
             AssetType::NonFungible(NonFungibleType::Invoice),
             Vec::new(),
             None,
         ));
+
         assert_noop!(
-            Asset::issue(alice.origin(), ticker, 1_000, PortfolioKind::Default),
+            Asset::issue(alice.origin(), asset_id, 1_000, PortfolioKind::Default),
             AssetError::UnexpectedNonFungibleToken
         );
     })

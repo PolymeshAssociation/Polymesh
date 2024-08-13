@@ -8,12 +8,11 @@ use pallet_asset::{
     AssetMetadataNextGlobalKey, AssetMetadataNextLocalKey, CurrentAssetMetadataGlobalKey,
     CurrentAssetMetadataLocalKey,
 };
-use polymesh_primitives::asset::AssetType;
 use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
 };
-use polymesh_primitives::Ticker;
 
+use super::setup::create_and_issue_sample_asset;
 use crate::storage::{root, User};
 use crate::{ExtBuilder, TestStorage};
 
@@ -73,50 +72,36 @@ fn register_multiple_global_metadata() {
 fn register_multiple_local_metadata() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
-        let ticker = Ticker::from_slice_truncated(b"TICKER");
-        assert_eq!(CurrentAssetMetadataLocalKey::get(ticker), None);
-        assert_eq!(
-            AssetMetadataNextLocalKey::get(ticker),
-            AssetMetadataLocalKey::default()
-        );
 
-        assert_ok!(Asset::create_asset(
-            alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
-            true,
-            AssetType::Derivative,
-            Vec::new(),
-            None,
-        ));
+        let asset_id = create_and_issue_sample_asset(&alice);
 
         let asset_metadata_name = AssetMetadataName(b"MyLocalKey".to_vec());
         let asset_metadata_spec = AssetMetadataSpec::default();
         assert_ok!(Asset::register_asset_metadata_local_type(
             alice.origin(),
-            ticker,
+            asset_id,
             asset_metadata_name.clone(),
             asset_metadata_spec.clone()
         ));
 
         assert_eq!(
-            CurrentAssetMetadataLocalKey::get(ticker),
+            CurrentAssetMetadataLocalKey::get(asset_id),
             Some(AssetMetadataLocalKey(1))
         );
         assert_eq!(
-            AssetMetadataNextLocalKey::get(ticker),
+            AssetMetadataNextLocalKey::get(asset_id),
             AssetMetadataLocalKey(1)
         );
         assert_eq!(
-            AssetMetadataLocalNameToKey::get(ticker, asset_metadata_name.clone()),
+            AssetMetadataLocalNameToKey::get(asset_id, asset_metadata_name.clone()),
             Some(AssetMetadataLocalKey(1))
         );
         assert_eq!(
-            AssetMetadataLocalKeyToName::get(ticker, AssetMetadataLocalKey(1)),
+            AssetMetadataLocalKeyToName::get(asset_id, AssetMetadataLocalKey(1)),
             Some(asset_metadata_name)
         );
         assert_eq!(
-            AssetMetadataLocalSpecs::get(ticker, AssetMetadataLocalKey(1)),
+            AssetMetadataLocalSpecs::get(asset_id, AssetMetadataLocalKey(1)),
             Some(asset_metadata_spec)
         );
 
@@ -124,16 +109,16 @@ fn register_multiple_local_metadata() {
         let asset_metadata_spec2 = AssetMetadataSpec::default();
         assert_ok!(Asset::register_asset_metadata_local_type(
             alice.origin(),
-            ticker,
+            asset_id,
             asset_metadata_name2.clone(),
             asset_metadata_spec2.clone()
         ));
         assert_eq!(
-            CurrentAssetMetadataLocalKey::get(ticker),
+            CurrentAssetMetadataLocalKey::get(asset_id),
             Some(AssetMetadataLocalKey(2))
         );
         assert_eq!(
-            AssetMetadataNextLocalKey::get(ticker),
+            AssetMetadataNextLocalKey::get(asset_id),
             AssetMetadataLocalKey(2)
         );
     })

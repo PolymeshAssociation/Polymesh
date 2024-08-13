@@ -1,13 +1,11 @@
 use codec::Codec;
-use pallet_identity::types::{
-    AssetDidResult, CddStatus, DidStatus, KeyIdentityData, RpcDidRecords,
-};
+use pallet_identity::types::{CddStatus, DidStatus, KeyIdentityData, RpcDidRecords};
 use polymesh_primitives::{Authorization, AuthorizationType, IdentityClaim, Signatory};
 use sp_std::prelude::*;
 
 sp_api::decl_runtime_apis! {
     /// Identity runtime API.
-    #[api_version(3)]
+    #[api_version(4)]
     pub trait IdentityApi<IdentityId, Ticker, AccountId, Moment> where
         IdentityId: Codec,
         Ticker: Codec,
@@ -16,9 +14,6 @@ sp_api::decl_runtime_apis! {
     {
         /// Returns CDD status of an identity
         fn is_identity_has_valid_cdd(did: IdentityId, buffer_time: Option<u64>) -> CddStatus;
-
-        /// Returns DID of an asset
-        fn get_asset_did(ticker: Ticker) -> AssetDidResult;
 
         /// Retrieve DidRecord for a given `did`.
         fn get_did_records(did: IdentityId) -> RpcDidRecords<AccountId>;
@@ -54,7 +49,6 @@ sp_api::decl_runtime_apis! {
         ///     ]
         ///   }'
         /// ```
-        #[api_version(3)]
         fn valid_cdd_claims(target_identity: IdentityId, cdd_checker_leeway: Option<u64>) -> Vec<IdentityClaim>;
     }
 }

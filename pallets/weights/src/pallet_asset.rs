@@ -71,7 +71,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity CurrentPayer (max_values: Some(1), max_size: None, mode: Measured)
     // Storage: Asset AssetOwnershipRelations (r:0 w:1)
     // Proof Skipped: Asset AssetOwnershipRelations (max_values: None, max_size: None, mode: Measured)
-    fn register_ticker() -> Weight {
+    fn register_unique_ticker() -> Weight {
         // Minimum execution time: 77_273 nanoseconds.
         Weight::from_ref_time(80_039_000)
             .saturating_add(DbWeight::get().reads(8))
@@ -215,11 +215,9 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: Asset AssetNames (r:0 w:1)
     // Proof Skipped: Asset AssetNames (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[1, 128]`.
-    fn rename_asset(n: u32) -> Weight {
+    fn rename_asset(_n: u32) -> Weight {
         // Minimum execution time: 56_274 nanoseconds.
         Weight::from_ref_time(76_579_415)
-            // Manually set weight for `n`
-            .saturating_add(Weight::from_ref_time(14_448).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -665,13 +663,13 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     }
     // Storage: Asset TickersExemptFromAffirmation (r:0 w:1)
     // Proof Skipped: Asset TickersExemptFromAffirmation (max_values: None, max_size: None, mode: Measured)
-    fn exempt_ticker_affirmation() -> Weight {
+    fn exempt_asset_affirmation() -> Weight {
         // Minimum execution time: 8_757 nanoseconds.
         Weight::from_ref_time(9_187_000).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Asset TickersExemptFromAffirmation (r:0 w:1)
     // Proof Skipped: Asset TickersExemptFromAffirmation (max_values: None, max_size: None, mode: Measured)
-    fn remove_ticker_affirmation_exemption() -> Weight {
+    fn remove_asset_affirmation_exemption() -> Weight {
         // Minimum execution time: 8_667 nanoseconds.
         Weight::from_ref_time(9_107_000).saturating_add(DbWeight::get().writes(1))
     }
@@ -679,7 +677,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
     // Storage: Asset PreApprovedTicker (r:0 w:1)
     // Proof Skipped: Asset PreApprovedTicker (max_values: None, max_size: None, mode: Measured)
-    fn pre_approve_ticker() -> Weight {
+    fn pre_approve_asset() -> Weight {
         // Minimum execution time: 26_530 nanoseconds.
         Weight::from_ref_time(36_167_000)
             .saturating_add(DbWeight::get().reads(1))
@@ -689,7 +687,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
     // Storage: Asset PreApprovedTicker (r:0 w:1)
     // Proof Skipped: Asset PreApprovedTicker (max_values: None, max_size: None, mode: Measured)
-    fn remove_ticker_pre_approval() -> Weight {
+    fn remove_asset_pre_approval() -> Weight {
         // Minimum execution time: 28_524 nanoseconds.
         Weight::from_ref_time(29_744_000)
             .saturating_add(DbWeight::get().reads(1))
@@ -741,5 +739,8 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(1))
             .saturating_add(Weight::from_proof_size(160).saturating_mul(n.into()))
+    }
+    fn link_ticker_to_asset_id() -> Weight {
+        Weight::zero()
     }
 }

@@ -7,7 +7,7 @@ import {
 } from "../util/init";
 import { createIdentities } from "../helpers/identity_helper";
 import { distributePolyBatch } from "../helpers/poly_helper";
-import { issueTokenToDid } from "../helpers/asset_helper";
+import { createTokenToDid } from "../helpers/asset_helper";
 
 // Disconnects api after all the tests have completed
 afterAll(async () => {
@@ -26,7 +26,7 @@ describe("6 - Create Assets Unit Test", () => {
       distributePolyBatch(alice, primaryKeys, transferAmount)
     ).resolves.not.toThrow();
     await expect(
-      issueTokenToDid(primaryKeys[0], ticker, 1000000, null)
+      createTokenToDid(primaryKeys[0], ticker, 1000000, null)
     ).resolves.not.toThrow();
   });
 });
