@@ -18,12 +18,14 @@ pallet-permissions = { path = "../permissions", default-features = false }
 # Other
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false }
+log = "0.4"
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 frame-system = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
+sp-runtime = { version = "7.0.0", default-features = false }
 sp-std = { version = "5.0.0", default-features = false }
 
 # Only in STD

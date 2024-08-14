@@ -74,6 +74,7 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+mod migrations;
 
 use codec::{Decode, Encode};
 use core::result::Result;
@@ -94,14 +95,14 @@ use polymesh_primitives::compliance_manager::{
     ConditionReport, ConditionResult, RequirementReport,
 };
 use polymesh_primitives::{
-    proposition, storage_migration_ver, Claim, Condition, ConditionType, Context, IdentityId,
-    TargetIdentity, TrustedFor, TrustedIssuer, WeightMeter,
+    proposition, storage_migrate_on, storage_migration_ver, Claim, Condition, ConditionType,
+    Context, IdentityId, TargetIdentity, TrustedFor, TrustedIssuer, WeightMeter,
 };
 
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 type Identity<T> = pallet_identity::Module<T>;
 
-storage_migration_ver!(0);
+storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Config> as ComplianceManager {
@@ -110,7 +111,7 @@ decl_storage! {
         /// List of trusted claim issuer [`AssetID`] -> Issuer Identity
         pub TrustedClaimIssuer get(fn trusted_claim_issuer): map hasher(blake2_128_concat) AssetID => Vec<TrustedIssuer>;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
     }
 }
 
@@ -138,9 +139,16 @@ decl_module! {
     pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
+        const MaxConditionComplexity: u32 = T::MaxConditionComplexity::get();
+
         fn deposit_event() = default;
 
-        const MaxConditionComplexity: u32 = T::MaxConditionComplexity::get();
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion, 1, {
+                migrations::migrate_to_v1::<T>();
+            });
+            Weight::zero()
+        }
 
         /// Adds a compliance requirement to an asset given by `asset_id`.
         /// If there are duplicate ClaimTypes for a particular trusted issuer, duplicates are removed.

@@ -44,10 +44,12 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+mod migrations;
 
 use codec::{Decode, Encode};
 use core::{iter, mem};
 use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::weights::Weight;
 use frame_support::{decl_error, decl_module, decl_storage, ensure};
 use sp_arithmetic::traits::Zero;
 use sp_std::collections::btree_set::BTreeSet;
@@ -60,9 +62,9 @@ use polymesh_common_utilities::traits::nft::NFTTrait;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::{
-    extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, Fund,
-    FundDescription, IdentityId, NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
-    SecondaryKey,
+    extract_auth, identity_id::PortfolioValidityResult, storage_migrate_on, storage_migration_ver,
+    Balance, Fund, FundDescription, IdentityId, NFTId, PortfolioId, PortfolioKind, PortfolioName,
+    PortfolioNumber, SecondaryKey,
 };
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -126,11 +128,11 @@ decl_storage! {
             double_map hasher(identity) IdentityId, hasher(identity) IdentityId => bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(3)): Version;
     }
 }
 
-storage_migration_ver!(2);
+storage_migration_ver!(3);
 
 decl_error! {
     pub enum Error for Module<T: Config> {
@@ -179,6 +181,13 @@ decl_module! {
 
         /// The event logger.
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion, 3, {
+                migrations::migrate_to_v3::<T>();
+            });
+            Weight::zero()
+        }
 
         /// Creates a portfolio with the given `name`.
         #[weight = <T as Config>::WeightInfo::create_portfolio()]

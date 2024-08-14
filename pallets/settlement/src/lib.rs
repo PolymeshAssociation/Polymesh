@@ -48,7 +48,7 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-mod inst_migration;
+mod migrations;
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{
@@ -85,7 +85,8 @@ use polymesh_primitives::settlement::{
     VenueId, VenueType,
 };
 use polymesh_primitives::{
-    storage_migration_ver, Balance, IdentityId, Memo, NFTs, PortfolioId, SecondaryKey, WeightMeter,
+    storage_migrate_on, storage_migration_ver, Balance, IdentityId, Memo, NFTs, PortfolioId,
+    SecondaryKey, WeightMeter,
 };
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -234,7 +235,7 @@ decl_error! {
     }
 }
 
-storage_migration_ver!(2);
+storage_migration_ver!(3);
 
 decl_storage! {
     trait Store for Module<T: Config> as Settlement {
@@ -288,8 +289,6 @@ decl_storage! {
         VenueCounter get(fn venue_counter) build(|_| VenueId(1u64)): VenueId;
         /// Number of instructions in the system (It's one more than the actual number)
         InstructionCounter get(fn instruction_counter) build(|_| InstructionId(1u64)): InstructionId;
-        /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
         /// Instruction memo
         pub InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<Memo>;
         /// Instruction statuses. instruction_id -> InstructionStatus
@@ -306,6 +305,8 @@ decl_storage! {
         /// The status for the mediators affirmation.
         pub InstructionMediatorsAffirmations get(fn venue_mediators_affirmations):
             double_map hasher(twox_64_concat) InstructionId, hasher(identity) IdentityId => MediatorAffirmationStatus<T::Moment>;
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(3)): Version;
     }
 }
 
@@ -320,6 +321,13 @@ decl_module! {
         const MaxNumberOfVenueSigners: u32 = T::MaxNumberOfVenueSigners::get();
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion, 3, {
+                migrations::migrate_to_v3::<T>();
+            });
+            Weight::zero()
+        }
 
         /// Registers a new venue.
         ///

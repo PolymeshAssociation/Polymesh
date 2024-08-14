@@ -84,6 +84,7 @@ pub mod benchmarking;
 mod auth;
 mod claims;
 mod keys;
+mod ticker_migrations;
 pub mod types;
 
 pub use polymesh_common_utilities::traits::identity::WeightInfo;
@@ -113,7 +114,7 @@ use polymesh_primitives::{
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 
-storage_migration_ver!(6);
+storage_migration_ver!(7);
 
 decl_storage! {
     trait Store for Module<T: Config> as Identity {
@@ -167,7 +168,7 @@ decl_storage! {
         pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(6)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(7)): Version;
 
         /// How many "strong" references to the account key.
         ///

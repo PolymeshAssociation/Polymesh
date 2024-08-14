@@ -79,6 +79,7 @@ pub mod benchmarking;
 pub mod checkpoint;
 
 mod error;
+mod migrations;
 mod types;
 
 use codec::{Decode, Encode};
@@ -86,6 +87,7 @@ use core::mem;
 use currency::*;
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Get;
+use frame_support::weights::Weight;
 use frame_support::BoundedBTreeSet;
 use frame_support::{decl_module, decl_storage, ensure};
 use frame_system::ensure_root;
@@ -115,9 +117,9 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::{
-    extract_auth, storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId,
-    IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, SecondaryKey, Ticker,
-    WeightMeter,
+    extract_auth, storage_migrate_on, storage_migration_ver, AssetIdentifier, Balance, Document,
+    DocumentId, IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, SecondaryKey,
+    Ticker, WeightMeter,
 };
 
 pub use error::Error;
@@ -132,7 +134,7 @@ type Identity<T> = pallet_identity::Module<T>;
 type Portfolio<T> = pallet_portfolio::Module<T>;
 type Statistics<T> = pallet_statistics::Module<T>;
 
-storage_migration_ver!(4);
+storage_migration_ver!(5);
 
 decl_storage! {
     trait Store for Module<T: Config> as Asset {
@@ -249,7 +251,7 @@ decl_storage! {
         pub AssetNonce: map hasher(identity) T::AccountId => u64;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(4)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(5)): Version;
     }
 
     add_extra_genesis {
@@ -284,15 +286,22 @@ decl_module! {
 
         type Error = Error<T>;
 
-        /// initialize the default event for this module
-        fn deposit_event() = default;
-
         const AssetNameMaxLength: u32 = T::AssetNameMaxLength::get();
         const FundingRoundNameMaxLength: u32 = T::FundingRoundNameMaxLength::get();
         const AssetMetadataNameMaxLength: u32 = T::AssetMetadataNameMaxLength::get();
         const AssetMetadataValueMaxLength: u32 = T::AssetMetadataValueMaxLength::get();
         const AssetMetadataTypeDefMaxLength: u32 = T::AssetMetadataTypeDefMaxLength::get();
         const MaxAssetMediators: u32 = T::MaxAssetMediators::get();
+
+        /// initialize the default event for this module
+        fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion, 5, {
+                migrations::migrate_to_v5::<T>();
+            });
+            Weight::zero()
+        }
 
         /// Registers a unique ticker or extends validity of an existing ticker.
         /// NB: Ticker validity does not get carry forward when renewing ticker.
