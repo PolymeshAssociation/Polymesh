@@ -90,6 +90,7 @@ pub mod benchmarking;
 
 pub mod ballot;
 pub mod distribution;
+mod migrations;
 
 use codec::{Decode, Encode};
 use distribution::WeightInfo as DistWeightInfoTrait;
@@ -110,8 +111,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::{
-    asset::CheckpointId, impl_checked_inc, storage_migration_ver, Balance, DocumentId, EventDid,
-    IdentityId, Moment, PortfolioNumber,
+    asset::CheckpointId, impl_checked_inc, storage_migrate_on, storage_migration_ver, Balance,
+    DocumentId, EventDid, IdentityId, Moment, PortfolioNumber,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
@@ -404,22 +405,30 @@ decl_storage! {
         pub Details get(fn details): map hasher(blake2_128_concat) CAId => CADetails;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
     }
 }
 
-storage_migration_ver!(0);
+storage_migration_ver!(1);
 
 // Public interface for this runtime module.
 decl_module! {
     pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
+        const MaxTargetIds: u32 = T::MaxTargetIds::get();
+        const MaxDidWhts: u32 = T::MaxDidWhts::get();
+
         /// initialize the default event for this module
         fn deposit_event() = default;
 
-        const MaxTargetIds: u32 = T::MaxTargetIds::get();
-        const MaxDidWhts: u32 = T::MaxDidWhts::get();
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion, 1, {
+                migrations::migrate_to_v1::<T>();
+            });
+            Weight::zero()
+        }
+
 
         /// Set the max `length` of `details` in terms of bytes.
         /// May only be called via a PIP.

@@ -51,11 +51,14 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+mod migrations;
 
+use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
+    weights::Weight,
 };
 use pallet_base::{try_next_post, try_next_pre};
 use pallet_identity::PermissionedCallOriginData;
@@ -64,13 +67,15 @@ use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::agent::{AGId, AgentGroup};
 use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::{
-    extract_auth, AuthorizationData, EventDid, ExtrinsicPermissions, IdentityId, PalletPermissions,
-    Signatory, SubsetRestriction,
+    extract_auth, storage_migrate_on, storage_migration_ver, AuthorizationData, EventDid,
+    ExtrinsicPermissions, IdentityId, PalletPermissions, Signatory, SubsetRestriction,
 };
 use sp_std::prelude::*;
 
 type Identity<T> = pallet_identity::Module<T>;
 type Permissions<T> = pallet_permissions::Module<T>;
+
+storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Config> as ExternalAgents {
@@ -107,6 +112,8 @@ decl_storage! {
                 hasher(blake2_128_concat) AssetID,
                 hasher(twox_64_concat) AGId
                 => Option<ExtrinsicPermissions>;
+
+        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
     }
 }
 
@@ -115,6 +122,13 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion, 1, {
+                migrations::migrate_to_v1::<T>();
+            });
+            Weight::zero()
+        }
 
         /// Creates a custom agent group (AG) for the given `asset_id`.
         ///

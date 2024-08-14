@@ -41,6 +41,7 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+mod migrations;
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -48,6 +49,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::UnixTime,
+    weights::Weight,
 };
 use frame_system::ensure_root;
 use sp_runtime::traits::SaturatedConversion;
@@ -64,14 +66,16 @@ use polymesh_common_utilities::{
     GC_DID,
 };
 use polymesh_primitives::asset::AssetID;
-use polymesh_primitives::{asset::CheckpointId, storage_migration_ver, IdentityId, Moment};
+use polymesh_primitives::{
+    asset::CheckpointId, storage_migrate_on, storage_migration_ver, IdentityId, Moment,
+};
 
 use crate::Config;
 
 type Asset<T> = crate::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
-storage_migration_ver!(1);
+storage_migration_ver!(2);
 
 decl_storage! {
     trait Store for Module<T: Config> as Checkpoint {
@@ -155,7 +159,7 @@ decl_storage! {
             double_map hasher(blake2_128_concat) AssetID, hasher(twox_64_concat) ScheduleId => Vec<CheckpointId>;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
     }
 }
 
@@ -164,6 +168,13 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion, 2, {
+                migrations::migrate_to_v2::<T>();
+            });
+            Weight::zero()
+        }
 
         /// Creates a single checkpoint at the current time.
         ///

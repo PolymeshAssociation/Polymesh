@@ -17,11 +17,13 @@
 use sp_runtime::{Deserialize, Serialize};
 
 use codec::{Decode, Encode};
-use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
+use sp_io::hashing::blake2_128;
 use sp_std::prelude::Vec;
 
 use crate::impl_checked_inc;
+use crate::ticker::Ticker;
+use polymesh_primitives_derive::VecU8StrongTyped;
 
 /// An unique asset identifier.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -44,6 +46,12 @@ impl AssetID {
     /// Converts [`AssetID`] type into a shared reference of bytes.
     pub fn as_ref(&self) -> &[u8] {
         self.0.as_ref()
+    }
+}
+
+impl From<Ticker> for AssetID {
+    fn from(ticker: Ticker) -> AssetID {
+        blake2_128(&(b"legacy_ticker", ticker).encode()).into()
     }
 }
 
