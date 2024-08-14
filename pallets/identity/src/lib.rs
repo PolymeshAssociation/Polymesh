@@ -126,9 +126,6 @@ decl_storage! {
         /// DID -> bool that indicates if secondary keys are frozen.
         pub IsDidFrozen get(fn is_did_frozen): map hasher(identity) IdentityId => bool;
 
-        /// It stores the current identity for current transaction.
-        pub CurrentDid: Option<IdentityId>;
-
         /// It stores the current gas fee payer for the current transaction
         pub CurrentPayer: Option<T::AccountId>;
 

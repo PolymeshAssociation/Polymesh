@@ -955,8 +955,8 @@ impl<T: Config> Pallet<T> {
             .map_err(|_| Error::<T>::UnableToDeriveAccountId.into())
     }
 
-    /// Dispatches `call` Setting CurrentDid and CurrentPayer to `did` and `account_id`.
-    /// The values are reset once the call is done.
+    /// Dispatches `call` Setting CurrentPayer to `account_id`.
+    /// The value is reset once the call is done.
     fn run_with_temporary_payer(
         origin: T::RuntimeOrigin,
         account_id: Option<T::AccountId>,

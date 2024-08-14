@@ -34,9 +34,7 @@ use polymesh_common_utilities::identity::{
 };
 use polymesh_common_utilities::multisig::MultiSigSubTrait as _;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee as _, ProtocolOp};
-use polymesh_common_utilities::traits::{
-    AccountCallPermissionsData, CheckAccountCallPermissions,
-};
+use polymesh_common_utilities::traits::{AccountCallPermissionsData, CheckAccountCallPermissions};
 use polymesh_common_utilities::SystematicIssuers;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
