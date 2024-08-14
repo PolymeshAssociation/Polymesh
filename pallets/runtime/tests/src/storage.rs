@@ -524,7 +524,6 @@ impl CddAndFeeDetails<AccountId, RuntimeCall> for TestStorage {
     fn get_payer_from_context() -> Option<AccountId> {
         Context::current_payer::<Identity>()
     }
-    fn set_current_identity(_did: &IdentityId) {}
 }
 
 pub struct WeightToFee;

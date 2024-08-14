@@ -35,7 +35,7 @@ use polymesh_common_utilities::identity::{
 use polymesh_common_utilities::multisig::MultiSigSubTrait as _;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee as _, ProtocolOp};
 use polymesh_common_utilities::traits::{
-    AccountCallPermissionsData, CddAndFeeDetails, CheckAccountCallPermissions,
+    AccountCallPermissionsData, CheckAccountCallPermissions,
 };
 use polymesh_common_utilities::SystematicIssuers;
 use polymesh_primitives::identity::limits::{
@@ -689,10 +689,6 @@ impl<T: Config> Module<T> {
             ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
             // Charge the protocol fee after all checks.
             T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSecondaryKeysWithAuthorization)?;
-            // Update current did of the transaction to the newly joined did.
-            // This comes handy when someone uses a batch transaction to leave their identity,
-            // join another identity, and then do something as the new identity.
-            T::CddHandler::set_current_identity(&target_did);
 
             Self::unsafe_join_identity(target_did, permissions, key);
             Ok(())

@@ -686,32 +686,12 @@ impl<T: Config> Module<T> {
     pub fn link_did(account: T::AccountId, did: IdentityId) {
         Self::add_key_record(&account, KeyRecord::PrimaryKey(did));
     }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    /// Sets the current did in the context
-    pub fn set_context_did(did: Option<IdentityId>) {
-        polymesh_common_utilities::Context::set_current_identity::<Self>(did);
-    }
 }
 
 impl<T: Config> IdentityFnTrait<T::AccountId> for Module<T> {
     /// Fetches identity of a key.
     fn get_identity(key: &T::AccountId) -> Option<IdentityId> {
         Self::get_identity(key)
-    }
-
-    /// Fetches the caller's identity from the context.
-    fn current_identity() -> Option<IdentityId> {
-        CurrentDid::get()
-    }
-
-    /// Sets the caller's identity in the context.
-    fn set_current_identity(id: Option<IdentityId>) {
-        if let Some(id) = id {
-            CurrentDid::put(id);
-        } else {
-            CurrentDid::kill();
-        }
     }
 
     /// Fetches the fee payer from the context.
