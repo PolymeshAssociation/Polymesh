@@ -116,7 +116,9 @@ use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
 use polymesh_common_utilities::traits::{
     balances::LockableCurrencyExt, governance_group::GovernanceGroupTrait, group::GroupTrait,
 };
-use polymesh_common_utilities::{with_transaction, CommonConfig, Context, MaybeBlock, GC_DID};
+use polymesh_common_utilities::{
+    with_transaction, CommonConfig, MaybeBlock, GC_DID, TECHNICAL_DID, UPGRADE_DID,
+};
 use polymesh_primitives::constants::{PIP_EXECUTION, PIP_EXPIRY};
 use polymesh_primitives::{impl_checked_inc, storage_migration_ver, Balance, IdentityId, Url};
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -1162,15 +1164,13 @@ impl<T: Config> Module<T> {
                 Ok((Proposer::Community(sender), did))
             }
             Err(_) => {
-                let proposer = T::TechnicalCommitteeVMO::ensure_origin(origin.clone())
-                    .map(|_| Committee::Technical)
+                let (proposer, did) = T::TechnicalCommitteeVMO::ensure_origin(origin.clone())
+                    .map(|_| (Committee::Technical, TECHNICAL_DID))
                     .or_else(|_| {
-                        T::UpgradeCommitteeVMO::ensure_origin(origin).map(|_| Committee::Upgrade)
+                        T::UpgradeCommitteeVMO::ensure_origin(origin)
+                            .map(|_| (Committee::Upgrade, UPGRADE_DID))
                     })
-                    .map(Proposer::Committee)?;
-                // TODO: I think we should use a fixed DID for each of the committees.
-                let did = Context::current_identity::<Identity<T>>()
-                    .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+                    .map(|(committee, did)| (Proposer::Committee(committee), did))?;
                 Ok((proposer, did))
             }
         }
