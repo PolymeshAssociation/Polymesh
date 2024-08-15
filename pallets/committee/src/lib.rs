@@ -75,7 +75,7 @@ use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember, MemberCount},
     identity::Config as IdentityConfig,
-    Context, MaybeBlock, SystematicIssuers, GC_DID,
+    MaybeBlock, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{storage_migration_ver, IdentityId};
 use scale_info::TypeInfo;
@@ -196,21 +196,21 @@ decl_event!(
         VoteRetracted(IdentityId, ProposalIndex, Hash, bool),
         /// Final votes on a motion (given hash)
         /// caller DID, ProposalIndex, Proposal hash, yes voters, no voter
-        FinalVotes(IdentityId, ProposalIndex, Hash, Vec<IdentityId>, Vec<IdentityId>),
+        FinalVotes(Option<IdentityId>, ProposalIndex, Hash, Vec<IdentityId>, Vec<IdentityId>),
         /// A motion was approved by the required threshold with the following
         /// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
         /// Parameters: caller DID, proposal hash, yay vote count, nay vote count, total seats.
-        Approved(IdentityId, Hash, MemberCount, MemberCount, MemberCount),
+        Approved(Option<IdentityId>, Hash, MemberCount, MemberCount, MemberCount),
         /// A motion was rejected by the required threshold with the following
         /// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
         /// Parameters: caller DID, proposal hash, yay vote count, nay vote count, total seats.
-        Rejected(IdentityId, Hash, MemberCount, MemberCount, MemberCount),
+        Rejected(Option<IdentityId>, Hash, MemberCount, MemberCount, MemberCount),
         /// A motion was executed; `DispatchResult` is `Ok(())` if returned without error.
         /// Parameters: caller DID, proposal hash, result of proposal dispatch.
-        Executed(IdentityId, Hash, DispatchResult),
+        Executed(Option<IdentityId>, Hash, DispatchResult),
         /// Release coordinator has been updated.
-        /// Parameters: caller DID, DID of the release coordinator.
-        ReleaseCoordinatorUpdated(IdentityId, Option<IdentityId>),
+        /// Parameters: DID of the release coordinator.
+        ReleaseCoordinatorUpdated(Option<IdentityId>),
         /// Proposal expiry time has been updated.
         /// Parameters: caller DID, new expiry time (if any).
         ExpiresAfterUpdated(IdentityId, MaybeBlock<BlockNumber>),
@@ -288,7 +288,7 @@ decl_module! {
             T::CommitteeOrigin::ensure_origin(origin)?;
             Self::ensure_did_is_member(&id)?;
             <ReleaseCoordinator<I>>::put(id);
-            Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(GC_DID, Some(id)));
+            Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(Some(id)));
         }
 
         /// Changes the time after which a proposal expires.
@@ -382,7 +382,7 @@ decl_module! {
             ));
 
             // 5. Check whether majority has been reached and if so, execute proposal.
-            Self::execute_if_passed(proposal);
+            Self::execute_if_passed(Some(did), proposal);
         }
     }
 }
@@ -449,7 +449,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
     }
 
     /// Accepts or rejects the proposal if its threshold is satisfied.
-    fn execute_if_passed(proposal: T::Hash) {
+    fn execute_if_passed(did: Option<IdentityId>, proposal: T::Hash) {
         let voting = match Self::voting(&proposal) {
             // Make sure we don't have an expired proposal at this point.
             Some(v) if Self::ensure_not_expired(&proposal, v.expiry).is_ok() => v,
@@ -468,7 +468,6 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
             return;
         }
 
-        let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
         Self::finalize_proposal(approved, seats, ayes, nays, proposal, did);
         let event = RawEvent::FinalVotes(did, voting.index, proposal, voting.ayes, voting.nays);
         Self::deposit_event(event);
@@ -496,7 +495,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
         yes_votes: MemberCount,
         no_votes: MemberCount,
         proposal: T::Hash,
-        current_did: IdentityId,
+        current_did: Option<IdentityId>,
     ) {
         let event = if approved {
             RawEvent::Approved
@@ -541,7 +540,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
         }
     }
 
-    fn execute(did: IdentityId, proposal: <T as Config<I>>::Proposal, hash: T::Hash) {
+    fn execute(did: Option<IdentityId>, proposal: <T as Config<I>>::Proposal, hash: T::Hash) {
         let origin = RawOrigin::Endorsed(PhantomData).into();
         let res = proposal.dispatch(origin).map_err(|e| e.error).map(drop);
         Self::deposit_event(RawEvent::Executed(did, hash, res));
@@ -573,7 +572,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
 
         // 3. Execute if committee is single member, and otherwise record the vote.
         if Self::seats() < 2 {
-            Self::execute(did, proposal, proposal_hash);
+            Self::execute(Some(did), proposal, proposal_hash);
         } else {
             let index = <ProposalCount<I>>::mutate(|i| mem::replace(i, *i + 1));
             <Proposals<T, I>>::append(proposal_hash);
@@ -650,16 +649,13 @@ impl<T: Config<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
                     .iter()
                     .any(|id| Self::remove_vote_from(*id, *proposal))
             })
-            .for_each(Self::execute_if_passed);
+            .for_each(|proposal| Self::execute_if_passed(None, proposal));
 
         // Double check if any `outgoing` is the Release coordinator.
         if let Some(curr_rc) = Self::release_coordinator() {
             if outgoing.contains(&curr_rc) {
                 <ReleaseCoordinator<I>>::kill();
-                Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(
-                    Context::current_identity::<Identity<T>>().unwrap_or_default(),
-                    None,
-                ));
+                Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(None));
             }
         }
 

@@ -900,18 +900,9 @@ impl<T: Config> Pallet<T> {
                 _ => None,
             }
         };
-        let behalf_identity = behalf_account_id
-            .clone()
-            .and_then(|acc| Identity::<T>::get_identity(&acc));
 
         let dispatch_info = call.get_dispatch_info();
-        let call_result = Self::run_with_temporary_did_and_payer(
-            as_origin,
-            behalf_account_id,
-            behalf_identity,
-            call,
-            true,
-        );
+        let call_result = Self::run_with_temporary_payer(as_origin, behalf_account_id, call, true);
         // Get the actual weight of this call.
         let weight = extract_actual_weight(&call_result, &dispatch_info);
 
@@ -936,17 +927,10 @@ impl<T: Config> Pallet<T> {
         origin.set_caller_from(frame_system::RawOrigin::Signed(
             derivative_account_id.clone(),
         ));
-        // Get the identity of the derivative account id
-        let derivative_did = Identity::<T>::get_identity(&derivative_account_id);
 
         let dispatch_info = call.get_dispatch_info();
-        let call_result = Self::run_with_temporary_did_and_payer(
-            origin,
-            Some(derivative_account_id),
-            derivative_did,
-            call,
-            false,
-        );
+        let call_result =
+            Self::run_with_temporary_payer(origin, Some(derivative_account_id), call, false);
 
         // Always take into account the base weight of this call and add the real weight of the dispatch.
         let mut weight = <T as Config>::WeightInfo::as_derivative()
@@ -971,20 +955,17 @@ impl<T: Config> Pallet<T> {
             .map_err(|_| Error::<T>::UnableToDeriveAccountId.into())
     }
 
-    /// Dispatches `call` Setting CurrentDid and CurrentPayer to `did` and `account_id`.
-    /// The values are reset once the call is done.
-    fn run_with_temporary_did_and_payer(
+    /// Dispatches `call` Setting CurrentPayer to `account_id`.
+    /// The value is reset once the call is done.
+    fn run_with_temporary_payer(
         origin: T::RuntimeOrigin,
         account_id: Option<T::AccountId>,
-        did: Option<IdentityId>,
         call: Box<<T as Config>::RuntimeCall>,
         bypass_filter: bool,
     ) -> Result<PostDispatchInfo, DispatchErrorWithPostInfo> {
-        // Hold the original value for payer and identity
+        // Hold the original value for payer.
         let original_payer = Context::current_payer::<Identity<T>>();
-        let original_did = Context::current_identity::<Identity<T>>();
-        // Temporarily change identity and payer
-        Context::set_current_identity::<Identity<T>>(did);
+        // Temporarily change payer
         Context::set_current_payer::<Identity<T>>(account_id);
         // dispatch the call
         let call_result = {
@@ -996,9 +977,8 @@ impl<T: Config> Pallet<T> {
                 }
             })
         };
-        // Restore the original payer and identity
+        // Restore the original payer
         Context::set_current_payer::<Identity<T>>(original_payer);
-        Context::set_current_identity::<Identity<T>>(original_did);
         call_result
     }
 }

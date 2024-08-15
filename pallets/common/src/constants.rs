@@ -33,6 +33,10 @@ pub mod did {
     pub const CLASSIC_MIGRATION_DID: &[u8; 32] = b"system:polymath_classic_mig\0\0\0\0\0";
     /// Fiat Currency Reservation DID
     pub const FIAT_TICKERS_RESERVATION_DID: &[u8; 32] = b"system:fiat_tickers_reservation\0";
+    /// Technical Committee DID.
+    pub const TECHNICAL_COMMITTEE_DID: &[u8; 32] = b"system:technical_committee\0\0\0\0\0\0";
+    /// Upgrade Committee DID.
+    pub const UPGRADE_COMMITTEE_DID: &[u8; 32] = b"system:upgrade_committee\0\0\0\0\0\0\0\0";
 }
 
 /// Priorities for the task that get scheduled.
@@ -41,8 +45,6 @@ pub mod queue_priority {
 
     /// Queue priority for the settlement instruction execution.
     pub const SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY: Priority = 100;
-    /// Queue priority for multisig action execution.
-    pub const MULTISIG_PROPOSAL_EXECUTION_PRIORITY: Priority = 101;
 }
 
 // ERC1400 transfer status codes

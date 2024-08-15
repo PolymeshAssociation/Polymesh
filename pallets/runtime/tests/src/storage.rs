@@ -218,6 +218,10 @@ parameter_types! {
     pub const MaxNumberOfFungibleAssets: u32 = 100;
     pub const MaxNumberOfNFTsPerLeg: u32 = 10;
     pub const MaxNumberOfNFTs: u32 = 100;
+
+    // Multisig
+    pub const MaxMultiSigSigners: u32 = 50;
+
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
     pub const MaxSetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
     pub const MaxAuthorities: u32 = 100_000;
@@ -281,8 +285,6 @@ frame_support::construct_runtime!(
         UpgradeCommitteeMembership: pallet_group::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 14,
 
         MultiSig: pallet_multisig::{Pallet, Call, Config, Storage, Event<T>} = 15,
-        // Bridge: Genesis config deps: Multisig, Identity,
-        Bridge: pallet_bridge::{Pallet, Call, Storage, Config<T>, Event<T>} = 16,
 
         // Staking: Genesis config deps: Balances, Indices, Identity, Babe, Timestamp, CddServiceProviders.
         Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 17,
@@ -328,9 +330,9 @@ frame_support::construct_runtime!(
         // Preimage register.  Used by `pallet_scheduler`.
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 48,
 
-        TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 50,
+        Nft: pallet_nft::{Pallet, Call, Storage, Event} = 49,
 
-        Nft: pallet_nft::{Pallet, Call, Storage, Event} = 51,
+        TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 200,
 
         // Testing only.
         Example: example::{Pallet, Call} = 201,
@@ -514,7 +516,6 @@ impl CddAndFeeDetails<AccountId, RuntimeCall> for TestStorage {
         Ok(Some(caller))
     }
     fn clear_context() {
-        Context::set_current_identity::<Identity>(None);
         Context::set_current_payer::<Identity>(None);
     }
     fn set_payer_context(payer: Option<AccountId>) {
@@ -522,9 +523,6 @@ impl CddAndFeeDetails<AccountId, RuntimeCall> for TestStorage {
     }
     fn get_payer_from_context() -> Option<AccountId> {
         Context::current_payer::<Identity>()
-    }
-    fn set_current_identity(did: &IdentityId) {
-        Context::set_current_identity::<Identity>(Some(*did));
     }
 }
 
@@ -623,7 +621,7 @@ impl committee::Config<committee::Instance4> for TestStorage {
 impl polymesh_common_utilities::traits::identity::Config for TestStorage {
     type RuntimeEvent = RuntimeEvent;
     type Proposal = RuntimeCall;
-    type MultiSig = multisig::Module<TestStorage>;
+    type MultiSig = multisig::Pallet<TestStorage>;
     type Portfolio = portfolio::Module<TestStorage>;
     type CddServiceProviders = CddServiceProvider;
     type Balances = balances::Module<TestStorage>;
@@ -923,10 +921,6 @@ pub fn make_remark_proposal() -> RuntimeCall {
         remark: vec![b'X'; 100],
     })
     .into()
-}
-
-pub(crate) fn set_curr_did(did: Option<IdentityId>) {
-    Context::set_current_identity::<Identity>(did);
 }
 
 #[macro_export]

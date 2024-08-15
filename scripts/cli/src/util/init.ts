@@ -114,8 +114,8 @@ export async function initMain(): Promise<KeyringPair[]> {
     genesisEntities = [
       await generateEntity("Alice"),
       await generateEntity("relay_1"),
-      await generateEntity("polymath_1"),
-      await generateEntity("polymath_2"),
+      await generateEntity("polymesh_1"),
+      await generateEntity("polymesh_2"),
       await generateEntity("Bob"),
     ];
   }
@@ -327,15 +327,6 @@ export async function generateOffchainKeys(keyType: string) {
   await cryptoWaitReady();
   const newPair = new Keyring({ type: "sr25519" }).addFromUri(PHRASE);
   await api.rpc.author.insertKey(keyType, PHRASE, u8aToHex(newPair.publicKey));
-}
-
-// Creates a Signatory Object
-export async function signatory(signer: KeyringPair, entity: KeyringPair) {
-  let entityDid = (await createIdentities(signer, [entity]))[0];
-  let signatoryObj = {
-    Identity: entityDid,
-  };
-  return signatoryObj;
 }
 
 export function getDefaultPortfolio(did: IdentityId) {

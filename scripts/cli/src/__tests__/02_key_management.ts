@@ -5,6 +5,7 @@ import {
   addSecondaryKeys,
   createMultiSig,
 } from "../helpers/key_management_helper";
+import type { AccountId } from "@polkadot/types/interfaces";
 
 // Disconnects api after all the tests have completed
 afterAll(async () => {
@@ -22,10 +23,7 @@ describe("2 - Key Management Unit Test", () => {
     const dave = await init.generateEntityFromUri("2_dave");
     const primaryKeys = await init.generateKeys(2, primaryDevSeed);
     const secondaryKeys = await init.generateKeys(2, secondaryDevSeed);
-    const bobSignatory = await init.signatory(alice, bob);
-    const charlieSignatory = await init.signatory(alice, charlie);
-    const daveSignatory = await init.signatory(alice, dave);
-    const signatoryArray = [bobSignatory, charlieSignatory, daveSignatory];
+    const signatoryArray = [bob.publicKey as AccountId, charlie.publicKey as AccountId, dave.publicKey as AccountId];
     const dids = await createIdentities(alice, primaryKeys);
     expect(dids).toBeTruthy();
     await expect(

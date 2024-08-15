@@ -248,14 +248,12 @@ jobs:
   rust-integration-test:
     docker:
       - image: polymeshassociation/rust:debian-nightly-2023-12-11
-    resource_class: medium+
+    resource_class: large
     environment:
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
     steps:
       - checkout
-      - setup-sccache
-      - restore-sccache-cache
       - attach_workspace:
           at: ./target/release
       - run:
@@ -271,11 +269,14 @@ jobs:
           command: ./reset_db.sh
           working_directory: ./integration
       - run:
+          name: Clear polymesh-api to force re-compile (chain metadata might have changed).
+          command: cargo clean -p polymesh-api
+          working_directory: ./integration
+      - run:
           name: Run polymesh-api integration tests.
           command: cargo nextest run --locked
           working_directory: ./integration
           no_output_timeout: 30m
-      - save-sccache-cache
   integration-test:
     docker:
       - image: node:18-bookworm

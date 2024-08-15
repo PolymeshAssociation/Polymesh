@@ -144,7 +144,11 @@ fn single_member_committee_works_we() {
     let hash = hash_enact_snapshot_results();
     let expected_event = EventRecord {
         phase: Phase::Initialization,
-        event: EventTest::PolymeshCommittee(CommitteeRawEvent::Executed(alice_did, hash, Ok(()))),
+        event: EventTest::PolymeshCommittee(CommitteeRawEvent::Executed(
+            Some(alice_did),
+            hash,
+            Ok(()),
+        )),
         topics: vec![],
     };
     assert_eq!(System::events().contains(&expected_event), true);
@@ -431,10 +435,9 @@ fn rage_quit_we() {
     // By quitting, only alice remains, so threshold passes, and therefore proposal is executed.
     check_scheduled(PipId(0));
     let hash = hash_enact_snapshot_results();
-    let did = IdentityId::default();
     let expected_event = EventRecord {
         phase: Phase::Initialization,
-        event: EventTest::PolymeshCommittee(CommitteeRawEvent::Executed(did, hash, Ok(()))),
+        event: EventTest::PolymeshCommittee(CommitteeRawEvent::Executed(None, hash, Ok(()))),
         topics: vec![],
     };
     assert_eq!(System::events().contains(&expected_event), true);

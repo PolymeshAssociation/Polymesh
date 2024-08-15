@@ -20,7 +20,6 @@ use crate::{
 use frame_support::dispatch::DispatchResult;
 use frame_support::{ensure, StorageDoubleMap, StorageMap, StorageValue};
 use frame_system::ensure_signed;
-use polymesh_common_utilities::Context;
 use polymesh_primitives::{
     Authorization, AuthorizationData, AuthorizationError, IdentityId, Signatory,
 };
@@ -100,15 +99,15 @@ impl<T: Config> Module<T> {
         let sender = ensure_signed(origin)?;
         let from_did = if <KeyRecords<T>>::contains_key(&sender) {
             // If the sender is linked to an identity, ensure that it has relevant permissions
-            pallet_permissions::Module::<T>::ensure_call_permissions(&sender)?.primary_did
+            Some(pallet_permissions::Module::<T>::ensure_call_permissions(&sender)?.primary_did)
         } else {
-            Context::current_identity_or::<Self>(&sender)?
+            None
         };
 
         let auth = Self::ensure_authorization(&target, auth_id)?;
-        let revoked = auth.authorized_by == from_did;
+        let revoked = Some(auth.authorized_by) == from_did;
         ensure!(
-            revoked || target.eq_either(&from_did, &sender),
+            revoked || target.eq_either(from_did, &sender),
             Error::<T>::Unauthorized
         );
         Self::unsafe_remove_auth(&target, auth_id, &auth.authorized_by, revoked);

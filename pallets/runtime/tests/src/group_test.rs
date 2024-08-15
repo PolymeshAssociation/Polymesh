@@ -1,5 +1,5 @@
 use super::{
-    storage::{get_identity_id, register_keyring_account, set_curr_did, TestStorage},
+    storage::{get_identity_id, register_keyring_account, TestStorage},
     ExtBuilder,
 };
 use pallet_group::{self as group};
@@ -49,9 +49,7 @@ fn add_member_works() {
 fn add_member_works_we() {
     let root = Origin::from(frame_system::RawOrigin::Root);
     let non_root = Origin::signed(AccountKeyring::Bob.to_account_id());
-    let non_root_did = get_identity_id(AccountKeyring::Alice).unwrap();
 
-    set_curr_did(Some(non_root_did));
     assert_noop!(
         CommitteeGroup::add_member(non_root, IdentityId::from(3)),
         DispatchError::BadOrigin
@@ -168,10 +166,6 @@ fn remove_member_works_we() {
     let root = Origin::from(frame_system::RawOrigin::Root);
     let non_root = Origin::signed(AccountKeyring::Charlie.to_account_id());
 
-    let non_root_did = get_identity_id(AccountKeyring::Alice).unwrap();
-
-    set_curr_did(Some(non_root_did));
-
     assert_noop!(
         CommitteeGroup::remove_member(non_root, IdentityId::from(3)),
         DispatchError::BadOrigin
@@ -206,9 +200,7 @@ fn swap_member_works_we() {
     let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
     let bob_id = get_identity_id(AccountKeyring::Bob).unwrap();
     let charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let non_root_did = get_identity_id(AccountKeyring::Charlie).unwrap();
 
-    set_curr_did(Some(non_root_did));
     assert_noop!(
         CommitteeGroup::swap_member(non_root, alice_id, IdentityId::from(5)),
         DispatchError::BadOrigin
@@ -280,7 +272,6 @@ fn rage_quit_we() {
 
     // Ferdie is NOT a member
     assert_eq!(CommitteeGroup::is_member(&ferdie_did), false);
-    set_curr_did(Some(ferdie_did));
     assert_noop!(
         CommitteeGroup::abdicate_membership(ferdie_signer),
         group::Error::<TestStorage, group::Instance1>::NoSuchMember
@@ -288,20 +279,17 @@ fn rage_quit_we() {
 
     // Bob quits, its vote should be removed.
     assert_eq!(CommitteeGroup::is_member(&bob_did), true);
-    set_curr_did(Some(bob_did));
     assert_ok!(CommitteeGroup::abdicate_membership(bob_signer.clone()));
     assert_eq!(CommitteeGroup::is_member(&bob_did), false);
 
     // Charlie quits, its vote should be removed and
     // propose should be accepted.
     assert_eq!(CommitteeGroup::is_member(&charlie_did), true);
-    set_curr_did(Some(charlie_did));
     assert_ok!(CommitteeGroup::abdicate_membership(charlie_signer.clone()));
     assert_eq!(CommitteeGroup::is_member(&charlie_did), false);
 
     // Alice should not quit because she is the last member.
     assert_eq!(CommitteeGroup::is_member(&alice_did), true);
-    set_curr_did(Some(alice_did));
     assert_noop!(
         CommitteeGroup::abdicate_membership(alice_signer),
         group::Error::<TestStorage, group::Instance1>::LastMemberCannotQuit

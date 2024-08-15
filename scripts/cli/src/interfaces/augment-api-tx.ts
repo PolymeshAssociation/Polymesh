@@ -2027,48 +2027,31 @@ declare module '@polkadot/api-base/types/submittable' {
     };
     multiSig: {
       /**
-       * Accepts a multisig signer authorization given to signer's identity.
-       * 
-       * # Arguments
-       * * `auth_id` - Auth id of the authorization.
-       * #[deprecated(since = "6.1.0", note = "Identity based signers not supported")]
-       **/
-      acceptMultisigSignerAsIdentity: AugmentedSubmittable<(authId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64]>;
-      /**
        * Accepts a multisig signer authorization given to signer's key (AccountId).
        * 
        * # Arguments
        * * `auth_id` - Auth id of the authorization.
        **/
-      acceptMultisigSignerAsKey: AugmentedSubmittable<(authId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64]>;
+      acceptMultisigSigner: AugmentedSubmittable<(authId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64]>;
       /**
        * Adds a signer to the multisig. This must be called by the multisig itself.
        * 
        * # Arguments
-       * * `signer` - Signatory to add.
+       * * `signer` - Signer to add.
        **/
-      addMultisigSigner: AugmentedSubmittable<(signer: PolymeshPrimitivesSecondaryKeySignatory | { Identity: any } | { Account: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesSecondaryKeySignatory]>;
+      addMultisigSigner: AugmentedSubmittable<(signer: AccountId32 | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32]>;
       /**
        * Adds a signer to the multisig. This must be called by the creator identity of the
        * multisig.
        * 
        * # Arguments
        * * `multisig` - Address of the multi sig
-       * * `signers` - Signatories to add.
+       * * `signers` - Signers to add.
        * 
        * # Weight
        * `900_000_000 + 3_000_000 * signers.len()`
        **/
-      addMultisigSignersViaCreator: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, signers: Vec<PolymeshPrimitivesSecondaryKeySignatory> | (PolymeshPrimitivesSecondaryKeySignatory | { Identity: any } | { Account: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [AccountId32, Vec<PolymeshPrimitivesSecondaryKeySignatory>]>;
-      /**
-       * Approves a multisig proposal using the caller's identity.
-       * 
-       * # Arguments
-       * * `multisig` - MultiSig address.
-       * * `proposal_id` - Proposal id to approve.
-       * If quorum is reached, the proposal will be immediately executed.
-       **/
-      approveAsIdentity: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposalId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u64]>;
+      addMultisigSignersViaCreator: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, signers: Vec<AccountId32> | (AccountId32 | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [AccountId32, Vec<AccountId32>]>;
       /**
        * Approves a multisig proposal using the caller's secondary key (`AccountId`).
        * 
@@ -2077,7 +2060,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * * `proposal_id` - Proposal id to approve.
        * If quorum is reached, the proposal will be immediately executed.
        **/
-      approveAsKey: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposalId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u64]>;
+      approve: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposalId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u64]>;
       /**
        * Changes the number of signatures required by a multisig. This must be called by the
        * multisig itself.
@@ -2101,7 +2084,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * * `signers` - Signers of the multisig (They need to accept authorization before they are actually added).
        * * `sigs_required` - Number of sigs required to process a multi-sig tx.
        **/
-      createMultisig: AugmentedSubmittable<(signers: Vec<PolymeshPrimitivesSecondaryKeySignatory> | (PolymeshPrimitivesSecondaryKeySignatory | { Identity: any } | { Account: any } | string | Uint8Array)[], sigsRequired: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Vec<PolymeshPrimitivesSecondaryKeySignatory>, u64]>;
+      createMultisig: AugmentedSubmittable<(signers: Vec<AccountId32> | (AccountId32 | string | Uint8Array)[], sigsRequired: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Vec<AccountId32>, u64]>;
       /**
        * Creates a multisig proposal if it hasn't been created or approves it if it has.
        * 
@@ -2111,21 +2094,9 @@ declare module '@polkadot/api-base/types/submittable' {
        * * `expiry` - Optional proposal expiry time.
        * * `auto_close` - Close proposal on receiving enough reject votes.
        * If this is 1 out of `m` multisig, the proposal will be immediately executed.
-       * #[deprecated(since = "6.0.0", note = "Please use the `create_proposal_as_identity` and `approve_as_identity` instead")]
+       * #[deprecated(since = "6.0.0", note = "Please use the `create_proposal` and `approve` instead")]
        **/
-      createOrApproveProposalAsIdentity: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposal: Call | { callIndex?: any; args?: any } | string | Uint8Array, expiry: Option<u64> | null | object | string | Uint8Array, autoClose: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, Call, Option<u64>, bool]>;
-      /**
-       * Creates a multisig proposal if it hasn't been created or approves it if it has.
-       * 
-       * # Arguments
-       * * `multisig` - MultiSig address.
-       * * `proposal` - Proposal to be voted on.
-       * * `expiry` - Optional proposal expiry time.
-       * * `auto_close` - Close proposal on receiving enough reject votes.
-       * If this is 1 out of `m` multisig, the proposal will be immediately executed.
-       * #[deprecated(since = "6.0.0", note = "Please use the `create_proposal_as_key` and `approve_as_key` instead")]
-       **/
-      createOrApproveProposalAsKey: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposal: Call | { callIndex?: any; args?: any } | string | Uint8Array, expiry: Option<u64> | null | object | string | Uint8Array, autoClose: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, Call, Option<u64>, bool]>;
+      createOrApproveProposal: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposal: Call | { callIndex?: any; args?: any } | string | Uint8Array, expiry: Option<u64> | null | object | string | Uint8Array, autoClose: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, Call, Option<u64>, bool]>;
       /**
        * Creates a multisig proposal
        * 
@@ -2136,18 +2107,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * * `auto_close` - Close proposal on receiving enough reject votes.
        * If this is 1 out of `m` multisig, the proposal will be immediately executed.
        **/
-      createProposalAsIdentity: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposal: Call | { callIndex?: any; args?: any } | string | Uint8Array, expiry: Option<u64> | null | object | string | Uint8Array, autoClose: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, Call, Option<u64>, bool]>;
-      /**
-       * Creates a multisig proposal
-       * 
-       * # Arguments
-       * * `multisig` - MultiSig address.
-       * * `proposal` - Proposal to be voted on.
-       * * `expiry` - Optional proposal expiry time.
-       * * `auto_close` - Close proposal on receiving enough reject votes.
-       * If this is 1 out of `m` multisig, the proposal will be immediately executed.
-       **/
-      createProposalAsKey: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposal: Call | { callIndex?: any; args?: any } | string | Uint8Array, expiry: Option<u64> | null | object | string | Uint8Array, autoClose: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, Call, Option<u64>, bool]>;
+      createProposal: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposal: Call | { callIndex?: any; args?: any } | string | Uint8Array, expiry: Option<u64> | null | object | string | Uint8Array, autoClose: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, Call, Option<u64>, bool]>;
       /**
        * Root callable extrinsic, used as an internal call for executing scheduled multisig proposal.
        **/
@@ -2169,15 +2129,6 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       makeMultisigSecondary: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32]>;
       /**
-       * Rejects a multisig proposal using the caller's identity.
-       * 
-       * # Arguments
-       * * `multisig` - MultiSig address.
-       * * `proposal_id` - Proposal id to reject.
-       * If quorum is reached, the proposal will be immediately executed.
-       **/
-      rejectAsIdentity: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposalId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u64]>;
-      /**
        * Rejects a multisig proposal using the caller's secondary key (`AccountId`).
        * 
        * # Arguments
@@ -2185,7 +2136,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * * `proposal_id` - Proposal id to reject.
        * If quorum is reached, the proposal will be immediately executed.
        **/
-      rejectAsKey: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposalId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u64]>;
+      reject: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposalId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u64]>;
       /**
        * Removes the creator ability to call `add_multisig_signers_via_creator`, `remove_multisig_signers_via_creator`
        * and `change_sigs_required_via_creator`.
@@ -2195,21 +2146,21 @@ declare module '@polkadot/api-base/types/submittable' {
        * Removes a signer from the multisig. This must be called by the multisig itself.
        * 
        * # Arguments
-       * * `signer` - Signatory to remove.
+       * * `signer` - Signer to remove.
        **/
-      removeMultisigSigner: AugmentedSubmittable<(signer: PolymeshPrimitivesSecondaryKeySignatory | { Identity: any } | { Account: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesSecondaryKeySignatory]>;
+      removeMultisigSigner: AugmentedSubmittable<(signer: AccountId32 | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32]>;
       /**
        * Removes a signer from the multisig.
        * This must be called by the creator identity of the multisig.
        * 
        * # Arguments
        * * `multisig` - Address of the multisig.
-       * * `signers` - Signatories to remove.
+       * * `signers` - Signers to remove.
        * 
        * # Weight
        * `900_000_000 + 3_000_000 * signers.len()`
        **/
-      removeMultisigSignersViaCreator: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, signers: Vec<PolymeshPrimitivesSecondaryKeySignatory> | (PolymeshPrimitivesSecondaryKeySignatory | { Identity: any } | { Account: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [AccountId32, Vec<PolymeshPrimitivesSecondaryKeySignatory>]>;
+      removeMultisigSignersViaCreator: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, signers: Vec<AccountId32> | (AccountId32 | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [AccountId32, Vec<AccountId32>]>;
       /**
        * Generic tx
        **/

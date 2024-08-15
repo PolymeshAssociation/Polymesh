@@ -17,7 +17,6 @@ use pallet_contracts::chain_extension as ce;
 use pallet_contracts::Config as BConfig;
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::Context;
-use polymesh_primitives::IdentityId;
 
 use super::*;
 
@@ -136,28 +135,12 @@ impl Into<i32> for FuncId {
     }
 }
 
-/// Returns the `contract`'s DID or errors.
-fn contract_did<T: Config>(contract: &T::AccountId) -> Result<IdentityId, DispatchError>
-where
-    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
-{
-    // N.B. it might be the case that the contract is a primary key due to rotation.
-    Ok(Identity::<T>::get_identity(contract).ok_or(Error::<T>::InstantiatorWithNoIdentity)?)
-}
-
-/// Run `with` while the current DID and Payer is temporarily set to the given one.
-fn with_did_and_payer<T: Config, W: FnOnce() -> R, R>(
-    did: IdentityId,
-    payer: T::AccountId,
-    with: W,
-) -> R {
+/// Run `with` while the current Payer is temporarily set to the given one.
+fn with_payer<T: Config, W: FnOnce() -> R, R>(payer: T::AccountId, with: W) -> R {
     let old_payer = Context::current_payer::<Identity<T>>();
-    let old_did = Context::current_identity::<Identity<T>>();
     Context::set_current_payer::<Identity<T>>(Some(payer));
-    Context::set_current_identity::<Identity<T>>(Some(did));
     let result = with();
     Context::set_current_payer::<Identity<T>>(old_payer);
-    Context::set_current_identity::<Identity<T>>(old_did);
     result
 }
 
@@ -486,7 +469,7 @@ where
     // Emit event for calling into the runtime
     Module::<T>::deposit_event(Event::<T>::SCRuntimeCall(addr.clone(), extrinsic_id));
     // Dispatch call
-    let result = with_did_and_payer::<T, _, _>(contract_did::<T>(&addr)?, addr.clone(), || {
+    let result = with_payer::<T, _, _>(addr.clone(), || {
         with_call_metadata(call.get_call_metadata(), || {
             // Dispatch the call, avoiding use of `ext.call_runtime()`,
             // as that uses `CallFilter = Nothing`, which would case a problem for us.
