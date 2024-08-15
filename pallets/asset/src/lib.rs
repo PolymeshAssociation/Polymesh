@@ -124,7 +124,7 @@ use polymesh_primitives::{
 
 pub use error::Error;
 pub use types::{
-    AssetOwnershipRelation, SecurityToken, TickerRegistration, TickerRegistrationConfig,
+    AssetDetails, AssetOwnershipRelation, TickerRegistration, TickerRegistrationConfig,
     TickerRegistrationStatus,
 };
 
@@ -142,8 +142,8 @@ decl_storage! {
         pub UniqueTickerRegistration get(fn unique_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<TickerRegistration<T::Moment>>;
         /// Returns [`TickerRegistrationConfig`] for assessing if a ticker is valid.
         pub TickerConfig get(fn ticker_registration_config) config(): TickerRegistrationConfig<T::Moment>;
-        /// Maps each [`AssetID`] to its underling [`SecurityToken`].
-        pub SecurityTokens get(fn security_tokens): map hasher(blake2_128_concat) AssetID => Option<SecurityToken>;
+        /// Maps each [`AssetID`] to its underling [`AssetDetails`].
+        pub Assets get(fn assets_details): map hasher(blake2_128_concat) AssetID => Option<AssetDetails>;
         /// Maps each [`AssetID`] to its underling [`AssetName`].
         pub AssetNames get(fn asset_names): map hasher(blake2_128_concat) AssetID => Option<AssetName>;
         /// Tracks the total [`Balance`] for each [`AssetID`] per [`IdentityId`].
@@ -248,6 +248,7 @@ decl_storage! {
         /// Maps all [`Ticker`] that are linked to an [`AssetID`].
         pub TickerAssetID get(fn ticker_asset_id): map hasher(blake2_128_concat) Ticker => Option<AssetID>;
 
+        /// A per account nonce that is used for generating an [`AssetID`].
         pub AssetNonce: map hasher(identity) T::AccountId => u64;
 
         /// Storage version.
@@ -341,14 +342,14 @@ decl_module! {
             Self::base_accept_token_ownership_transfer(origin, auth_id)
         }
 
-        /// Initializes a new [`SecurityToken`], with the initiating account as its owner.
+        /// Initializes a new [`AssetDetails`], with the initiating account as its owner.
         /// The total supply will initially be zero. To mint tokens, use [`Module::issue`].
         ///
         /// # Arguments
         /// * `origin`: contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
         /// * `asset_name`: the [`AssetName`] associated to the security token.
-        /// * `divisible`: sets [`SecurityToken::divisible`], where `true` means the token is divisible.
-        /// * `asset_type`: the [`AssetType`] that represents the security type of the [`SecurityToken`].
+        /// * `divisible`: sets [`AssetDetails::divisible`], where `true` means the token is divisible.
+        /// * `asset_type`: the [`AssetType`] that represents the security type of the [`AssetDetails`].
         /// * `asset_identifiers`: a vector of [`AssetIdentifier`].
         /// * `funding_round_name`: the name of the funding round ([`FundingRoundName`]).
         ///
@@ -451,7 +452,7 @@ decl_module! {
             Self::base_redeem(origin, asset_id, value, portfolio_kind, &mut weight_meter)
         }
 
-        /// If the token associated to `asset_id` is indivisible, sets [`SecurityToken::divisible`] to true.
+        /// If the token associated to `asset_id` is indivisible, sets [`AssetDetails::divisible`] to true.
         ///
         /// # Arguments
         /// * `origin`: is a signer that has permissions to act as an agent of `ticker`.
@@ -556,14 +557,14 @@ decl_module! {
             Ok(())
         }
 
-        /// Initializes a new [`SecurityToken`], with the initiating account as its owner.
+        /// Initializes a new [`AssetDetails`], with the initiating account as its owner.
         /// The total supply will initially be zero. To mint tokens, use [`Module::issue`].
         /// Note: Utility extrinsic to batch [`Module::create_asset`] and [`Module::register_custom_asset_type`].
         ///
         /// # Arguments
         /// * `origin`: contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
         /// * `asset_name`: the [`AssetName`] associated to the security token.
-        /// * `divisible`: sets [`SecurityToken::divisible`], where `true` means the token is divisible.
+        /// * `divisible`: sets [`AssetDetails::divisible`], where `true` means the token is divisible.
         /// * `custom_asset_type`: the custom asset type of the token.
         /// * `asset_identifiers`: a vector of [`AssetIdentifier`].
         /// * `funding_round_name`: the name of the funding round ([`FundingRoundName`]).
@@ -905,7 +906,7 @@ impl<T: Config> Module<T> {
         <Identity<T>>::accept_auth_with(&caller_did.into(), auth_id, |auth_data, auth_by| {
             let asset_id = extract_auth!(auth_data, TransferAssetOwnership(asset_id));
 
-            let mut security_token = Self::try_get_security_token(&asset_id)?;
+            let mut asset_details = Self::try_get_security_token(&asset_id)?;
 
             // Ensure the authorization was created by a permissioned agent.
             <ExternalAgents<T>>::ensure_agent_permissioned(&asset_id, auth_by)?;
@@ -918,13 +919,13 @@ impl<T: Config> Module<T> {
             }
 
             // Updates token ownership
-            let previous_owner = security_token.owner_did;
+            let previous_owner = asset_details.owner_did;
             SecurityTokensOwnedByUser::remove(previous_owner, asset_id);
             SecurityTokensOwnedByUser::insert(caller_did, asset_id, true);
 
             // Updates token details.
-            security_token.owner_did = caller_did;
-            SecurityTokens::insert(asset_id, security_token);
+            asset_details.owner_did = caller_did;
+            Assets::insert(asset_id, asset_details);
             Self::deposit_event(RawEvent::AssetOwnershipTransferred(
                 caller_did,
                 asset_id,
@@ -934,7 +935,7 @@ impl<T: Config> Module<T> {
         })
     }
 
-    /// If all rules for creating an asset are being respected, creates a new [`SecurityToken`].
+    /// If all rules for creating an asset are being respected, creates a new [`AssetDetails`].
     /// See also [`Module::validate_asset_creation_rules`].
     fn base_create_asset(
         origin: T::RuntimeOrigin,
@@ -1012,11 +1013,11 @@ impl<T: Config> Module<T> {
             false,
         )?;
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
-        let mut security_token = Self::try_get_security_token(&asset_id)?;
-        Self::validate_issuance_rules(&security_token, amount_to_issue)?;
+        let mut asset_details = Self::try_get_security_token(&asset_id)?;
+        Self::validate_issuance_rules(&asset_details, amount_to_issue)?;
         Self::unverified_issue_tokens(
             asset_id,
-            &mut security_token,
+            &mut asset_details,
             caller_portfolio,
             amount_to_issue,
             true,
@@ -1025,7 +1026,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Reduces `value` tokens from `portfolio_kind` and [`SecurityToken::total_supply`].
+    /// Reduces `value` tokens from `portfolio_kind` and [`AssetDetails::total_supply`].
     fn base_redeem(
         origin: T::RuntimeOrigin,
         asset_id: AssetID,
@@ -1040,18 +1041,18 @@ impl<T: Config> Module<T> {
             true,
         )?;
 
-        let mut security_token = Self::try_get_security_token(&asset_id)?;
-        Self::ensure_token_granular(&security_token, &value)?;
+        let mut asset_details = Self::try_get_security_token(&asset_id)?;
+        Self::ensure_token_granular(&asset_details, &value)?;
 
         // Ensures the token is fungible
         ensure!(
-            security_token.asset_type.is_fungible(),
+            asset_details.asset_type.is_fungible(),
             Error::<T>::UnexpectedNonFungibleToken
         );
 
         Portfolio::<T>::reduce_portfolio_balance(&portfolio, &asset_id, value)?;
 
-        security_token.total_supply = security_token
+        asset_details.total_supply = asset_details
             .total_supply
             .checked_sub(value)
             .ok_or(Error::<T>::TotalSupplyOverflow)?;
@@ -1065,7 +1066,7 @@ impl<T: Config> Module<T> {
 
         // Update identity balances and total supply
         BalanceOf::insert(asset_id, &portfolio.did, updated_balance);
-        SecurityTokens::insert(asset_id, security_token);
+        Assets::insert(asset_id, asset_details);
 
         // Update statistic info.
         Statistics::<T>::update_asset_stats(
@@ -1092,14 +1093,14 @@ impl<T: Config> Module<T> {
     fn base_make_divisible(origin: T::RuntimeOrigin, asset_id: AssetID) -> DispatchResult {
         let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
 
-        SecurityTokens::try_mutate(&asset_id, |security_token| -> DispatchResult {
-            let security_token = security_token.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
+        Assets::try_mutate(&asset_id, |asset_details| -> DispatchResult {
+            let asset_details = asset_details.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
             ensure!(
-                security_token.asset_type.is_fungible(),
+                asset_details.asset_type.is_fungible(),
                 Error::<T>::UnexpectedNonFungibleToken
             );
-            ensure!(!security_token.divisible, Error::<T>::AssetAlreadyDivisible);
-            security_token.divisible = true;
+            ensure!(!asset_details.divisible, Error::<T>::AssetAlreadyDivisible);
+            asset_details.divisible = true;
 
             Self::deposit_event(RawEvent::DivisibilityChanged(caller_did, asset_id, true));
             Ok(())
@@ -1376,7 +1377,7 @@ impl<T: Config> Module<T> {
         Self::ensure_asset_exists(&asset_id)?;
         Self::ensure_valid_asset_type(&asset_type)?;
         let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
-        SecurityTokens::try_mutate(&asset_id, |token| -> DispatchResult {
+        Assets::try_mutate(&asset_id, |token| -> DispatchResult {
             let token = token.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
             // Ensures that both parameters are non fungible types or if both are fungible types.
             ensure!(
@@ -1766,10 +1767,10 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns the [`SecurityToken`] associated to `asset_id`, if one exists. Otherwise, returns [`Error::NoSuchAsset`].
-    pub fn try_get_security_token(asset_id: &AssetID) -> Result<SecurityToken, DispatchError> {
-        let security_token = SecurityTokens::try_get(asset_id).or(Err(Error::<T>::NoSuchAsset))?;
-        Ok(security_token)
+    /// Returns the [`AssetDetails`] associated to `asset_id`, if one exists. Otherwise, returns [`Error::NoSuchAsset`].
+    pub fn try_get_security_token(asset_id: &AssetID) -> Result<AssetDetails, DispatchError> {
+        let asset_details = Assets::try_get(asset_id).or(Err(Error::<T>::NoSuchAsset))?;
+        Ok(asset_details)
     }
 
     /// Returns `Ok` if `funding_round_name` is valid. Otherwise, returns [`Error::FundingRoundNameMaxLengthExceeded`].
@@ -1838,17 +1839,17 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns `Ok` if [`SecurityToken::divisible`] or `value` % ONE_UNIT == 0. Otherwise, returns [`Error::<T>::InvalidGranularity`].
-    fn ensure_token_granular(security_token: &SecurityToken, value: &Balance) -> DispatchResult {
-        if security_token.divisible || value % ONE_UNIT == 0 {
+    /// Returns `Ok` if [`AssetDetails::divisible`] or `value` % ONE_UNIT == 0. Otherwise, returns [`Error::<T>::InvalidGranularity`].
+    fn ensure_token_granular(asset_details: &AssetDetails, value: &Balance) -> DispatchResult {
+        if asset_details.divisible || value % ONE_UNIT == 0 {
             return Ok(());
         }
         Err(Error::<T>::InvalidGranularity.into())
     }
 
-    /// Returns `true` if [`SecurityToken::divisible`], otherwise returns `false`.
+    /// Returns `true` if [`AssetDetails::divisible`], otherwise returns `false`.
     pub fn is_divisible(asset_id: &AssetID) -> bool {
-        SecurityTokens::get(asset_id)
+        Assets::get(asset_id)
             .map(|t| t.divisible)
             .unwrap_or_default()
     }
@@ -1868,12 +1869,9 @@ impl<T: Config> Module<T> {
         })
     }
 
-    /// Returns `Ok` if there is a [`SecurityToken`] associated to `asset_id`. Otherwise, returns [`Error::NoSuchAsset`].
+    /// Returns `Ok` if there is a [`AssetDetails`] associated to `asset_id`. Otherwise, returns [`Error::NoSuchAsset`].
     fn ensure_security_token_exists(asset_id: &AssetID) -> DispatchResult {
-        ensure!(
-            SecurityTokens::contains_key(asset_id),
-            Error::<T>::NoSuchAsset
-        );
+        ensure!(Assets::contains_key(asset_id), Error::<T>::NoSuchAsset);
         Ok(())
     }
 
@@ -1911,7 +1909,7 @@ impl<T: Config> Module<T> {
     /// Returns `None` if there's no asset associated to the given asset_id,
     /// returns Some(true) if the asset exists and is of type `AssetType::NonFungible`, and returns Some(false) otherwise.
     pub fn nft_asset(asset_id: &AssetID) -> Option<bool> {
-        let token = SecurityTokens::try_get(asset_id).ok()?;
+        let token = Assets::try_get(asset_id).ok()?;
         Some(token.asset_type.is_non_fungible())
     }
 
@@ -1937,9 +1935,9 @@ impl<T: Config> Module<T> {
         is_controller_transfer: bool,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        let security_token = Self::try_get_security_token(&asset_id)?;
+        let asset_details = Self::try_get_security_token(&asset_id)?;
         ensure!(
-            security_token.asset_type.is_fungible(),
+            asset_details.asset_type.is_fungible(),
             Error::<T>::UnexpectedNonFungibleToken
         );
 
@@ -1991,7 +1989,7 @@ impl<T: Config> Module<T> {
             Self::balance_of(asset_id, sender_portfolio.did),
             Self::balance_of(asset_id, receiver_portfolio.did),
             transfer_value,
-            security_token.total_supply,
+            asset_details.total_supply,
             weight_meter,
         )?;
 
@@ -2020,17 +2018,17 @@ impl<T: Config> Module<T> {
         let mut asset_transfer_errors = Vec::new();
 
         // If the security token doesn't exist or if the token is an NFT, there's no point in assessing anything else
-        let security_token = {
-            match SecurityTokens::try_get(asset_id) {
-                Ok(security_token) => security_token,
+        let asset_details = {
+            match Assets::try_get(asset_id) {
+                Ok(asset_details) => asset_details,
                 Err(_) => return vec![Error::<T>::NoSuchAsset.into()],
             }
         };
-        if !security_token.asset_type.is_fungible() {
+        if !asset_details.asset_type.is_fungible() {
             return vec![Error::<T>::UnexpectedNonFungibleToken.into()];
         }
 
-        if let Err(e) = Self::ensure_token_granular(&security_token, &transfer_value) {
+        if let Err(e) = Self::ensure_token_granular(&asset_details, &transfer_value) {
             asset_transfer_errors.push(e);
         }
 
@@ -2094,7 +2092,7 @@ impl<T: Config> Module<T> {
             sender_current_balance,
             receiver_current_balance,
             transfer_value,
-            security_token.total_supply,
+            asset_details.total_supply,
             weight_meter,
         ) {
             asset_transfer_errors.push(e);
@@ -2119,9 +2117,9 @@ impl<T: Config> Module<T> {
         asset_transfer_errors
     }
 
-    /// Returns [`SecurityToken::total_supply`] for the given `asset_id`.
+    /// Returns [`AssetDetails::total_supply`] for the given `asset_id`.
     pub fn total_supply(asset_id: &AssetID) -> Balance {
-        SecurityTokens::get(asset_id)
+        Assets::get(asset_id)
             .map(|t| t.total_supply)
             .unwrap_or_default()
     }
@@ -2162,17 +2160,17 @@ impl<T: Config> Module<T> {
 
     /// Returns `Ok` if all rules for issuing a token are satisfied.
     fn validate_issuance_rules(
-        security_token: &SecurityToken,
+        asset_details: &AssetDetails,
         amount_to_issue: Balance,
     ) -> DispatchResult {
         ensure!(
-            security_token.asset_type.is_fungible(),
+            asset_details.asset_type.is_fungible(),
             Error::<T>::UnexpectedNonFungibleToken
         );
 
-        Self::ensure_token_granular(security_token, &amount_to_issue)?;
+        Self::ensure_token_granular(asset_details, &amount_to_issue)?;
 
-        let new_supply = security_token
+        let new_supply = asset_details
             .total_supply
             .checked_add(amount_to_issue)
             .ok_or(Error::<T>::TotalSupplyOverflow)?;
@@ -2183,7 +2181,7 @@ impl<T: Config> Module<T> {
     /// Returns `Ok` if there's no token associated to `asset_id`. Otherwise, returns [`Error::AssetIDGenerationError`].
     fn ensure_new_asset_id(asset_id: &AssetID) -> DispatchResult {
         ensure!(
-            !SecurityTokens::contains_key(asset_id),
+            !Assets::contains_key(asset_id),
             Error::<T>::AssetIDGenerationError
         );
         Ok(())
@@ -2191,10 +2189,7 @@ impl<T: Config> Module<T> {
 
     /// Returns `Ok` if there's a token associated to `asset_id`. Otherwise, returns [`Error::NoSuchAsset`].
     fn ensure_asset_exists(asset_id: &AssetID) -> DispatchResult {
-        ensure!(
-            SecurityTokens::contains_key(asset_id),
-            Error::<T>::NoSuchAsset
-        );
+        ensure!(Assets::contains_key(asset_id), Error::<T>::NoSuchAsset);
         Ok(())
     }
 
@@ -2267,8 +2262,8 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         T::ProtocolFee::charge_fee(ProtocolOp::AssetCreateAsset)?;
 
-        let security_token = SecurityToken::new(Zero::zero(), caller_did, divisible, asset_type);
-        SecurityTokens::insert(asset_id, security_token);
+        let asset_details = AssetDetails::new(Zero::zero(), caller_did, divisible, asset_type);
+        Assets::insert(asset_id, asset_details);
 
         AssetNames::insert(asset_id, &asset_name);
         if let Some(funding_round_name) = funding_round_name.as_ref() {
@@ -2312,7 +2307,7 @@ impl<T: Config> Module<T> {
     /// Note: if `charge_fee`` is `true` [`ProtocolOp::AssetIssue`] is charged.
     fn unverified_issue_tokens(
         asset_id: AssetID,
-        security_token: &mut SecurityToken,
+        asset_details: &mut AssetDetails,
         issuer_portfolio: PortfolioId,
         amount_to_issue: Balance,
         charge_fee: bool,
@@ -2331,8 +2326,8 @@ impl<T: Config> Module<T> {
         let new_issuer_balance = current_issuer_balance + amount_to_issue;
         BalanceOf::insert(asset_id, issuer_portfolio.did, new_issuer_balance);
 
-        security_token.total_supply += amount_to_issue;
-        SecurityTokens::insert(asset_id, security_token);
+        asset_details.total_supply += amount_to_issue;
+        Assets::insert(asset_id, asset_details);
 
         // No check since the total balance is always <= the total supply
         let new_issuer_portfolio_balance =
@@ -2575,8 +2570,8 @@ impl<T: Config> Module<T> {
 
 impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
     fn ensure_granular(asset_id: &AssetID, value: Balance) -> DispatchResult {
-        let security_token = Self::try_get_security_token(&asset_id)?;
-        Self::ensure_token_granular(&security_token, &value)
+        let asset_details = Self::try_get_security_token(&asset_id)?;
+        Self::ensure_token_granular(&asset_details, &value)
     }
 
     fn skip_asset_affirmation(identity_id: &IdentityId, asset_id: &AssetID) -> bool {

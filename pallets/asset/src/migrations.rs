@@ -12,8 +12,8 @@ mod v4 {
             pub Tickers get(fn ticker_registration):
                 map hasher(blake2_128_concat) Ticker => Option<TickerRegistration<T::Moment>>;
 
-            // This storage was renamed to SecurityTokens and changed the Ticker key to AssetID.
-            pub Tokens get(fn tokens): map hasher(blake2_128_concat) Ticker => Option<SecurityToken>;
+            // This storage was renamed to Assets and changed the Ticker key to AssetID.
+            pub Tokens get(fn tokens): map hasher(blake2_128_concat) Ticker => Option<AssetDetails>;
 
             // This storage changed the Ticker key to AssetID.
             pub AssetNames get(fn asset_names):
@@ -114,13 +114,13 @@ pub(crate) fn migrate_to_v5<T: Config>() {
     log::info!("{:?} items migrated", count);
 
     let mut count = 0;
-    log::info!("Moving items from Tokens to SecurityTokens");
-    v4::Tokens::drain().for_each(|(ticker, security_token)| {
+    log::info!("Moving items from Tokens to Assets");
+    v4::Tokens::drain().for_each(|(ticker, asset_details)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
-        SecurityTokens::insert(asset_id, security_token);
+        Assets::insert(asset_id, asset_details);
     });
     log::info!("{:?} items migrated", count);
 

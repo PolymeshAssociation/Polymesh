@@ -98,7 +98,7 @@ fn set_ticker_registration_config<T: Config>() {
     });
 }
 
-/// Creates a new [`SecurityToken`] considering the worst case scenario.
+/// Creates a new [`AssetDetails`] considering the worst case scenario.
 pub(crate) fn create_sample_asset<T: Config>(asset_owner: &User<T>, divisible: bool) -> AssetID {
     let asset_name = AssetName::from(vec![b'N'; T::AssetNameMaxLength::get() as usize].as_slice());
     let funding_round_name =
@@ -303,7 +303,7 @@ benchmarks! {
     }: _(bob.origin.clone(), new_owner_auth_id)
     verify {
         assert_eq!(
-            SecurityTokens::get(&asset_id).unwrap().owner_did,
+            Assets::get(&asset_id).unwrap().owner_did,
             bob.did()
         );
         assert_eq!(
@@ -334,8 +334,8 @@ benchmarks! {
     }: _(alice.origin.clone(), asset_name.clone(), true, AssetType::default(), asset_identifiers.clone(), Some(funding_round_name.clone()))
     verify {
         assert_eq!(
-            SecurityTokens::get(&asset_id),
-            Some(SecurityToken::new(0, alice.did(), true, AssetType::default()))
+            Assets::get(&asset_id),
+            Some(AssetDetails::new(0, alice.did(), true, AssetType::default()))
         );
         assert_eq!(
             SecurityTokensOwnedByUser::get(alice.did(), &asset_id),
@@ -391,7 +391,7 @@ benchmarks! {
     }: _(alice.origin, asset_id, (1_000_000 * POLY).into(), portfolio_id.kind)
     verify {
         assert_eq!(
-            SecurityTokens::get(&asset_id).unwrap().total_supply,
+            Assets::get(&asset_id).unwrap().total_supply,
             (1_000_000 * POLY).into()
         );
     }
@@ -411,7 +411,7 @@ benchmarks! {
     }: _(alice.origin, asset_id, (600_000 * POLY).into(), portfolio_id.kind)
     verify {
         assert_eq!(
-            SecurityTokens::get(&asset_id).unwrap().total_supply,
+            Assets::get(&asset_id).unwrap().total_supply,
             (400_000 * POLY).into()
         );
     }
@@ -422,7 +422,7 @@ benchmarks! {
     }: _(alice.origin, asset_id)
     verify {
         assert_eq!(
-            SecurityTokens::get(&asset_id).unwrap().divisible,
+            Assets::get(&asset_id).unwrap().divisible,
             true
         );
     }
@@ -576,7 +576,7 @@ benchmarks! {
     }: _(alice.origin, asset_id, AssetType::EquityPreferred)
     verify {
         assert_eq!(
-            SecurityTokens::get(&asset_id).unwrap().asset_type,
+            Assets::get(&asset_id).unwrap().asset_type,
             AssetType::EquityPreferred
         );
     }

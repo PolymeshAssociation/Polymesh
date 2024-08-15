@@ -2122,7 +2122,7 @@ impl<T: Config> Module<T> {
 
     /// Returns true if the asset_id is on-chain and false otherwise.
     fn is_on_chain_asset(asset_id: &AssetID) -> bool {
-        pallet_asset::SecurityTokens::contains_key(asset_id)
+        pallet_asset::Assets::contains_key(asset_id)
     }
 
     fn base_execute_manual_instruction(

@@ -222,7 +222,7 @@ pub trait WeightInfo {
 }
 
 pub trait AssetFnTrait<Account, Origin> {
-    /// Returns `Ok` if [`SecurityToken::divisible`] or `value` % ONE_UNIT == 0.
+    /// Returns `Ok` if [`AssetDetails::divisible`] or `value` % ONE_UNIT == 0.
     fn ensure_granular(asset_id: &AssetID, value: Balance) -> DispatchResult;
 
     /// Returns `true` if the given `identity_id` is exempt from affirming the receivement of `asset_id`, otherwise returns `false`.

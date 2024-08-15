@@ -12,10 +12,11 @@ use sp_std::convert::{From, TryFrom, TryInto};
 use sp_std::iter;
 
 use pallet_asset::{
-    AssetDocuments, AssetIdentifiers, AssetMetadataLocalKeyToName, AssetMetadataLocalNameToKey,
-    AssetMetadataLocalSpecs, AssetMetadataValues, AssetsExemptFromAffirmation, BalanceOf,
-    Config as AssetConfig, CustomTypeIdSequence, CustomTypes, CustomTypesInverse,
-    MandatoryMediators, PreApprovedAsset, SecurityToken, SecurityTokens, SecurityTokensOwnedByUser,
+    AssetDetails, AssetDocuments, AssetIdentifiers, AssetMetadataLocalKeyToName,
+    AssetMetadataLocalNameToKey, AssetMetadataLocalSpecs, AssetMetadataValues, Assets,
+    AssetsExemptFromAffirmation, BalanceOf, Config as AssetConfig, CustomTypeIdSequence,
+    CustomTypes, CustomTypesInverse, MandatoryMediators, PreApprovedAsset,
+    SecurityTokensOwnedByUser,
 };
 use pallet_portfolio::{
     NextPortfolioNumber, PortfolioAssetBalances, PortfolioAssetCount, PortfolioLockedAssets,
@@ -121,14 +122,14 @@ pub(crate) fn statistics_investor_count(asset_id: AssetID) -> u128 {
     )
 }
 
-/// Returns the [`SecurityToken`] associated to the given `asset_id`.
-pub(crate) fn get_security_token(asset_id: &AssetID) -> SecurityToken {
-    SecurityTokens::get(asset_id).unwrap()
+/// Returns the [`AssetDetails`] associated to the given `asset_id`.
+pub(crate) fn get_security_token(asset_id: &AssetID) -> AssetDetails {
+    Assets::get(asset_id).unwrap()
 }
 
-/// Returns a [`SecurityToken`] where [`SecurityToken::total_supply`] is [`TOTAL_SUPPLY`] and the owner is `token_owner_did`.
-pub(crate) fn sample_security_token(token_owner_did: IdentityId) -> SecurityToken {
-    SecurityToken::new(TOTAL_SUPPLY, token_owner_did, true, AssetType::default())
+/// Returns a [`AssetDetails`] where [`AssetDetails::total_supply`] is [`TOTAL_SUPPLY`] and the owner is `token_owner_did`.
+pub(crate) fn sample_security_token(token_owner_did: IdentityId) -> AssetDetails {
+    AssetDetails::new(TOTAL_SUPPLY, token_owner_did, true, AssetType::default())
 }
 
 fn enable_investor_count(asset_id: AssetID, owner: User) {
