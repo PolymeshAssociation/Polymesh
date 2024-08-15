@@ -36,6 +36,12 @@ mod v3 {
             // This storage changed the Ticker key to AssetID.
             pub NFTOwner get(fn nft_owner):
                 double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) NFTId => Option<PortfolioId>;
+
+            // This storage has been removed.
+            pub NextCollectionId get(fn collection_id): NFTCollectionId;
+
+            // This storage has been removed.
+            pub NextNFTId get(fn nft_id): map hasher(blake2_128_concat) NFTCollectionId => NFTId;
         }
     }
 
@@ -107,4 +113,11 @@ pub(crate) fn migrate_to_v4<T: Config>() {
         NFTOwner::insert(asset_id, nft_id, portfolio);
     });
     log::info!("{:?} items migrated", count);
+
+    log::info!("NextCollectionId has been cleared");
+    v3::NextCollectionId::kill();
+
+    log::info!("Removing old NextNFTId storage");
+    let res = v3::NextNFTId::clear(u32::max_value(), None);
+    log::info!("{:?} items have been cleared", res.unique);
 }
