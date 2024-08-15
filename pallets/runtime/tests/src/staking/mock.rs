@@ -377,7 +377,6 @@ impl CddAndFeeDetails<AccountId, Call> for Test {
     fn get_payer_from_context() -> Option<AccountId> {
         None
     }
-    fn set_current_identity(_: &IdentityId) {}
 }
 
 impl SubsidiserTrait<AccountId> for Test {

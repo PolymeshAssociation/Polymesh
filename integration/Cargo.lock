@@ -3074,7 +3074,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api"
 version = "3.7.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=asset_id_v7#0262f3ca5259fc68ec1dd9edca0d62da2b984b8b"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=multisig_v7#4d3fed61ca530058e66e492906117cfe57dfc391"
 dependencies = [
  "async-trait",
  "ink",
@@ -3092,7 +3092,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-client"
 version = "3.7.1"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=asset_id_v7#0262f3ca5259fc68ec1dd9edca0d62da2b984b8b"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=multisig_v7#4d3fed61ca530058e66e492906117cfe57dfc391"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -3124,7 +3124,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-client-extras"
 version = "3.3.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=asset_id_v7#0262f3ca5259fc68ec1dd9edca0d62da2b984b8b"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=multisig_v7#4d3fed61ca530058e66e492906117cfe57dfc391"
 dependencies = [
  "parity-scale-codec",
  "polymesh-api",
@@ -3136,7 +3136,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-codegen"
 version = "3.4.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=asset_id_v7#0262f3ca5259fc68ec1dd9edca0d62da2b984b8b"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=multisig_v7#4d3fed61ca530058e66e492906117cfe57dfc391"
 dependencies = [
  "frame-metadata 15.1.0",
  "heck",
@@ -3155,7 +3155,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-codegen-macro"
 version = "3.4.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=asset_id_v7#0262f3ca5259fc68ec1dd9edca0d62da2b984b8b"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=multisig_v7#4d3fed61ca530058e66e492906117cfe57dfc391"
 dependencies = [
  "darling 0.14.4",
  "parity-scale-codec",
@@ -3169,7 +3169,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-ink"
 version = "1.3.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=asset_id_v7#0262f3ca5259fc68ec1dd9edca0d62da2b984b8b"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=multisig_v7#4d3fed61ca530058e66e492906117cfe57dfc391"
 dependencies = [
  "hex",
  "ink",
@@ -3183,7 +3183,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-tester"
 version = "0.6.1"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=asset_id_v7#0262f3ca5259fc68ec1dd9edca0d62da2b984b8b"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=multisig_v7#4d3fed61ca530058e66e492906117cfe57dfc391"
 dependencies = [
  "async-trait",
  "env_logger 0.9.3",

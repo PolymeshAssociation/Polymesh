@@ -316,10 +316,10 @@ where
     AccountId: PartialEq,
 {
     /// Checks if Signatory is either a particular Identity or a particular key
-    pub fn eq_either(&self, other_identity: &IdentityId, other_key: &AccountId) -> bool {
+    pub fn eq_either(&self, other_identity: Option<IdentityId>, other_key: &AccountId) -> bool {
         match self {
             Signatory::Account(ref key) => key == other_key,
-            Signatory::Identity(ref id) => id == other_identity,
+            Signatory::Identity(ref id) => Some(*id) == other_identity,
         }
     }
 

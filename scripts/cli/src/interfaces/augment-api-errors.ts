@@ -1067,10 +1067,6 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       IdentityNotCreator: AugmentedError<ApiType>;
       /**
-       * Current DID is missing
-       **/
-      MissingCurrentIdentity: AugmentedError<ApiType>;
-      /**
        * Multisig is not attached to an identity
        **/
       MultisigMissingIdentity: AugmentedError<ApiType>;
@@ -1119,9 +1115,9 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       ProposalMissing: AugmentedError<ApiType>;
       /**
-       * Too few or too many required signatures.
+       * Too few or too many required signers.
        **/
-      RequiredSignaturesOutOfBounds: AugmentedError<ApiType>;
+      RequiredSignersOutOfBounds: AugmentedError<ApiType>;
       /**
        * Signer is an account key that is already associated with an identity.
        **/

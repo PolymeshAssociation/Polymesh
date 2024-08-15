@@ -20,7 +20,7 @@ use crate::asset_pallet::setup::ISSUE_AMOUNT;
 
 use super::asset_pallet::setup::create_and_issue_sample_asset;
 use super::asset_test::set_timestamp;
-use super::storage::{set_curr_did, TestStorage, User};
+use super::storage::{TestStorage, User};
 use super::ExtBuilder;
 
 type Identity = pallet_identity::Module<TestStorage>;
@@ -591,22 +591,18 @@ fn pause_resume_asset_compliance_we() {
     // 5.1. Transfer should be cancelled.
     assert_invalid_transfer!(asset_id, owner.did, receiver.did, 10);
 
-    set_curr_did(Some(owner.did));
     // 5.2. Pause asset compliance, and run the transaction.
     assert_ok!(ComplianceManager::pause_asset_compliance(
         owner.origin(),
         asset_id
     ));
-    set_curr_did(None);
     assert_valid_transfer!(asset_id, owner.did, receiver.did, 10);
 
-    set_curr_did(Some(owner.did));
     // 5.3. Resume asset compliance, and new transfer should fail again.
     assert_ok!(ComplianceManager::resume_asset_compliance(
         owner.origin(),
         asset_id
     ));
-    set_curr_did(None);
     assert_invalid_transfer!(asset_id, owner.did, receiver.did, 10);
 }
 

@@ -1,35 +1,15 @@
 use crate::traits::identity::IdentityFnTrait;
-use polymesh_primitives::IdentityId;
-use sp_runtime::DispatchError;
 use sp_std::marker::PhantomData;
 
 /// Helper class to access to some context information.
 /// Currently it allows to access to
-///     - `current_identity` throught an `IdentityFnTrait`, because it is stored using extrinsics.
-///     .
+///     - `current_payer throught an `IdentityFnTrait`, because it is stored using extrinsics.
 #[derive(Default)]
 pub struct Context<AccountId> {
     _marker: PhantomData<AccountId>,
 }
 
 impl<AccountId> Context<AccountId> {
-    #[inline]
-    #[cfg(not(feature = "default_identity"))]
-    pub fn current_identity<I: IdentityFnTrait<AccountId>>() -> Option<IdentityId> {
-        I::current_identity()
-    }
-
-    #[inline]
-    #[cfg(feature = "default_identity")]
-    pub fn current_identity<I: IdentityFnTrait<AccountId>>() -> Option<IdentityId> {
-        I::current_identity().or_else(|| Some(IdentityId::default()))
-    }
-
-    #[inline]
-    pub fn set_current_identity<I: IdentityFnTrait<AccountId>>(id: Option<IdentityId>) {
-        I::set_current_identity(id)
-    }
-
     #[inline]
     pub fn current_payer<I: IdentityFnTrait<AccountId>>() -> Option<AccountId> {
         I::current_payer()
@@ -39,32 +19,6 @@ impl<AccountId> Context<AccountId> {
     pub fn set_current_payer<I: IdentityFnTrait<AccountId>>(payer: Option<AccountId>) {
         I::set_current_payer(payer)
     }
-
-    /// It gets the current identity and if it is none, it will use the identity from `key`.
-    /// This function is a helper tool for testing where SignedExtension is not used and
-    /// `current_identity` is always none.
-    #[cfg(not(feature = "default_identity"))]
-    pub fn current_identity_or<I: IdentityFnTrait<AccountId>>(
-        key: &AccountId,
-    ) -> Result<IdentityId, DispatchError> {
-        Self::current_identity::<I>()
-            .or_else(|| I::get_identity(key))
-            .ok_or_else(|| {
-                DispatchError::Other(
-                    "Current identity is none and key is not linked to any identity",
-                )
-            })
-    }
-
-    #[cfg(feature = "default_identity")]
-    pub fn current_identity_or<I: IdentityFnTrait<AccountId>>(
-        key: &AccountId,
-    ) -> Result<IdentityId, DispatchError> {
-        I::current_identity()
-            .or_else(|| I::get_identity(key))
-            .or_else(|| Some(IdentityId::default()))
-            .ok_or_else(|| DispatchError::Other("Unreachable code"))
-    }
 }
 
 #[cfg(test)]
@@ -72,13 +26,8 @@ mod test {
     use super::*;
     use polymesh_primitives::{AccountId, IdentityId};
 
-    use lazy_static::lazy_static;
     use sp_keyring::AccountKeyring;
     use std::{collections::BTreeMap, convert::From, sync::RwLock, thread};
-
-    lazy_static! {
-        pub static ref CURR_IDENTITY: RwLock<Option<IdentityId>> = RwLock::new(None);
-    }
 
     struct IdentityTest {}
 
@@ -99,16 +48,6 @@ mod test {
             }
         }
 
-        fn current_identity() -> Option<IdentityId> {
-            let r = CURR_IDENTITY.read().unwrap();
-            r.clone()
-        }
-
-        fn set_current_identity(id: Option<IdentityId>) {
-            let mut w = CURR_IDENTITY.write().unwrap();
-            *w = id;
-        }
-
         fn current_payer() -> Option<AccountId> {
             None
         }
@@ -118,56 +57,5 @@ mod test {
         fn has_valid_cdd(_target_did: IdentityId) -> bool {
             true
         }
-    }
-
-    #[test]
-    fn context_functions() -> Result<(), &'static str> {
-        assert_eq!(Context::current_identity::<IdentityTest>(), None);
-        Context::set_current_identity::<IdentityTest>(Some(IdentityId::from(42)));
-
-        let _ = thread::spawn(|| {
-            let id = Context::current_identity::<IdentityTest>();
-            assert_eq!(id, Some(IdentityId::from(42u128)));
-            Context::set_current_identity::<IdentityTest>(None);
-        })
-        .join()
-        .map_err(|_| "Poison error")?;
-
-        assert_eq!(Context::current_identity::<IdentityTest>(), None);
-
-        let _ = thread::spawn(|| {
-            let id = Context::current_identity::<IdentityTest>();
-            assert_eq!(id, None);
-            Context::set_current_identity::<IdentityTest>(Some(IdentityId::from(15)));
-        })
-        .join()
-        .map_err(|_| "Poison error")?;
-
-        assert_eq!(
-            Context::current_identity::<IdentityTest>(),
-            Some(IdentityId::from(15))
-        );
-
-        // Check "or" option.
-        let alice = AccountId::from(AccountKeyring::Alice.public().0);
-        assert_eq!(
-            Context::current_identity_or::<IdentityTest>(&alice),
-            Ok(IdentityId::from(15))
-        );
-        Context::set_current_identity::<IdentityTest>(None);
-        assert_eq!(
-            Context::current_identity_or::<IdentityTest>(&alice),
-            Ok(IdentityId::from(1))
-        );
-
-        let eve = AccountId::from(AccountKeyring::Eve.public().0);
-        assert_eq!(
-            Context::current_identity_or::<IdentityTest>(&eve),
-            Err(DispatchError::Other(
-                "Current identity is none and key is not linked to any identity"
-            ))
-        );
-
-        Ok(())
     }
 }
