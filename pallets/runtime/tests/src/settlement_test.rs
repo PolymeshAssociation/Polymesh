@@ -484,7 +484,10 @@ fn token_swap() {
         assert_instruction_details(instruction_id, instruction_details);
 
         assert_affirms_pending(instruction_id, 2);
-        assert_eq!(venue_instructions(venue_counter), vec![instruction_id]);
+        assert_eq!(
+            venue_instructions(venue_counter.unwrap()),
+            vec![instruction_id]
+        );
 
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -614,7 +617,10 @@ fn settle_on_block() {
         );
 
         assert_affirms_pending(instruction_id, 2);
-        assert_eq!(venue_instructions(venue_counter), vec![instruction_id]);
+        assert_eq!(
+            venue_instructions(venue_counter.unwrap()),
+            vec![instruction_id]
+        );
 
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -746,7 +752,10 @@ fn failed_execution() {
             instruction_details
         );
         assert_affirms_pending(instruction_id, 2);
-        assert_eq!(venue_instructions(venue_counter), vec![instruction_id]);
+        assert_eq!(
+            venue_instructions(venue_counter.unwrap()),
+            vec![instruction_id]
+        );
 
         // Ensure balances have not changed.
         alice.assert_all_balances_unchanged();
@@ -864,7 +873,7 @@ fn venue_filtering() {
         assert_ok!(Settlement::allow_venues(
             alice.origin(),
             asset_id,
-            vec![venue_counter]
+            vec![venue_counter.unwrap()]
         ));
         assert_ok!(Settlement::add_and_affirm_instruction(
             alice.origin(),
@@ -886,7 +895,7 @@ fn venue_filtering() {
         assert_ok!(Settlement::disallow_venues(
             alice.origin(),
             asset_id,
-            vec![venue_counter]
+            vec![venue_counter.unwrap()]
         ));
         next_block();
         // Second instruction fails to settle due to venue being not whitelisted
@@ -992,7 +1001,7 @@ fn basic_fuzzing() {
         }
         assert_ok!(Settlement::add_instruction(
             alice.origin(),
-            venue_counter,
+            Some(venue_counter),
             SettlementType::SettleOnBlock(block_number),
             None,
             None,
@@ -2275,7 +2284,7 @@ fn basic_settlement_with_memo() {
 fn create_instruction(
     alice: &User,
     bob: &User,
-    venue_counter: VenueId,
+    venue_counter: Option<VenueId>,
     asset_id: AssetID,
     amount: u128,
 ) -> InstructionId {
@@ -2677,7 +2686,7 @@ fn add_and_affirm_nft_instruction() {
         }];
         assert_ok!(Settlement::add_and_affirm_instruction(
             alice.origin(),
-            venue_id,
+            Some(venue_id),
             SettlementType::SettleOnAffirmation,
             None,
             None,
@@ -2786,7 +2795,7 @@ fn add_and_affirm_nft_not_owned() {
         assert_noop!(
             Settlement::add_and_affirm_instruction(
                 alice.origin(),
-                venue_id,
+                Some(venue_id),
                 SettlementType::SettleOnAffirmation,
                 None,
                 None,
@@ -2854,7 +2863,7 @@ fn add_same_nft_different_legs() {
         assert_noop!(
             Settlement::add_and_affirm_instruction(
                 alice.origin(),
-                venue_id,
+                Some(venue_id),
                 SettlementType::SettleOnAffirmation,
                 None,
                 None,
@@ -2910,7 +2919,7 @@ fn add_and_affirm_with_receipts_nfts() {
         }];
         assert_ok!(Settlement::add_instruction(
             alice.origin(),
-            venue_id,
+            Some(venue_id),
             SettlementType::SettleOnAffirmation,
             None,
             None,
@@ -2964,7 +2973,7 @@ fn add_instruction_unexpected_offchain_asset() {
         assert_noop!(
             Settlement::add_instruction(
                 alice.origin(),
-                venue_counter,
+                Some(venue_counter),
                 SettlementType::SettleOnAffirmation,
                 None,
                 None,
@@ -2983,7 +2992,7 @@ fn add_instruction_unexpected_offchain_asset() {
         assert_noop!(
             Settlement::add_instruction(
                 alice.origin(),
-                venue_counter,
+                Some(venue_counter),
                 SettlementType::SettleOnAffirmation,
                 None,
                 None,
@@ -3091,7 +3100,7 @@ fn affirm_offchain_asset_without_receipt() {
         }];
         assert_ok!(Settlement::add_instruction(
             alice.origin(),
-            venue,
+            Some(venue),
             SettlementType::SettleOnAffirmation,
             None,
             None,

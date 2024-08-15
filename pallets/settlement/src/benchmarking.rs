@@ -209,7 +209,7 @@ where
     );
     Module::<T>::add_instruction_with_mediators(
         sender.origin.clone().into(),
-        venue_id,
+        Some(venue_id),
         settlement_type,
         None,
         None,
@@ -436,7 +436,7 @@ benchmarks! {
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
         Module::<T>::add_instruction(
             alice.origin.clone().into(),
-            venue_id,
+            Some(venue_id),
             SettlementType::SettleOnAffirmation,
             None,
             None,
@@ -489,7 +489,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
-    }: _(alice.origin, venue_id, settlement_type, None, None, parameters.legs, memo)
+    }: _(alice.origin, Some(venue_id), settlement_type, None, None, parameters.legs, memo)
 
     add_and_affirm_instruction {
         // Number of fungible, non-fungible and offchain LEGS in the instruction
@@ -504,7 +504,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
-    }: _(alice.origin, venue_id, settlement_type, None, None, parameters.legs, parameters.portfolios.sdr_portfolios, memo)
+    }: _(alice.origin, Some(venue_id), settlement_type, None, None, parameters.legs, parameters.portfolios.sdr_portfolios, memo)
 
     affirm_instruction {
         // Number of fungible and non-fungible assets in the portfolios
@@ -519,7 +519,7 @@ benchmarks! {
         let parameters = setup_legs::<T>(&alice, &bob, f, n, T::MaxNumberOfOffChainAssets::get(), false, false);
         Module::<T>::add_instruction(
             alice.origin.clone().into(),
-            venue_id,
+            Some(venue_id),
             SettlementType::SettleOnAffirmation,
             None,
             None,
@@ -613,7 +613,7 @@ benchmarks! {
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
         Module::<T>::add_instruction(
             alice.origin.clone().into(),
-            venue_id,
+            Some(venue_id),
             SettlementType::SettleOnAffirmation,
             None,
             None,
@@ -650,7 +650,7 @@ benchmarks! {
         let parameters = setup_legs::<T>(&alice, &bob, f, n, T::MaxNumberOfOffChainAssets::get(), false, false);
         Module::<T>::add_instruction(
             alice.origin.clone().into(),
-            venue_id,
+            Some(venue_id),
             SettlementType::SettleOnAffirmation,
             None,
             None,
@@ -692,7 +692,7 @@ benchmarks! {
         let mediators: BTreeSet<IdentityId> = (0..m).map(|i| IdentityId::from(i as u128)).collect();
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
-    }: _(alice.origin, venue_id, settlement_type, None, None, parameters.legs, memo, mediators.try_into().unwrap())
+    }: _(alice.origin, Some(venue_id), settlement_type, None, None, parameters.legs, memo, mediators.try_into().unwrap())
 
     add_and_affirm_with_mediators {
         // Number of fungible, non-fungible, offchain legs and mediators
@@ -709,7 +709,7 @@ benchmarks! {
         let mediators: BTreeSet<IdentityId> = (0..m).map(|i| IdentityId::from(i as u128)).collect();
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
-    }: _(alice.origin, venue_id, settlement_type, None, None, parameters.legs, parameters.portfolios.sdr_portfolios, memo, mediators.try_into().unwrap())
+    }: _(alice.origin, Some(venue_id), settlement_type, None, None, parameters.legs, parameters.portfolios.sdr_portfolios, memo, mediators.try_into().unwrap())
 
     affirm_instruction_as_mediator {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
@@ -730,7 +730,7 @@ benchmarks! {
         );
         Module::<T>::add_instruction_with_mediators(
             alice.origin.clone().into(),
-            venue_id,
+            Some(venue_id),
             SettlementType::SettleOnAffirmation,
             None,
             None,
@@ -760,7 +760,7 @@ benchmarks! {
         );
         Module::<T>::add_instruction_with_mediators(
             alice.origin.clone().into(),
-            venue_id,
+            Some(venue_id),
             SettlementType::SettleOnAffirmation,
             None,
             None,

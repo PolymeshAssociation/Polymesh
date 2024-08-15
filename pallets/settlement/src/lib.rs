@@ -521,7 +521,7 @@ decl_module! {
         /// Adds a new instruction.
         ///
         /// # Arguments
-        /// * `venue_id`: The [`VenueId`] of the venue this instruction belongs to.
+        /// * `venue_id`: The optional [`VenueId`] of the venue this instruction belongs to.
         /// * `settlement_type`: The [`SettlementType`] specifying when the instruction should be settled.
         /// * `trade_date`: Optional date from which people can interact with this instruction.
         /// * `value_date`: Optional date after which the instruction should be settled (not enforced).
@@ -530,7 +530,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::add_instruction_legs(legs)]
         pub fn add_instruction(
             origin,
-            venue_id: VenueId,
+            venue_id: Option<VenueId>,
             settlement_type: SettlementType<T::BlockNumber>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
@@ -566,7 +566,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_legs(legs)]
         pub fn add_and_affirm_instruction(
             origin,
-            venue_id: VenueId,
+            venue_id: Option<VenueId>,
             settlement_type: SettlementType<T::BlockNumber>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
@@ -768,7 +768,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::add_instruction_with_mediators_legs(legs, mediators.len() as u32)]
         pub fn add_instruction_with_mediators(
             origin,
-            venue_id: VenueId,
+            venue_id: Option<VenueId>,
             settlement_type: SettlementType<T::BlockNumber>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
@@ -806,7 +806,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::add_and_affirm_with_mediators_legs(legs, mediators.len() as u32)]
         pub fn add_and_affirm_with_mediators(
             origin,
-            venue_id: VenueId,
+            venue_id: Option<VenueId>,
             settlement_type: SettlementType<T::BlockNumber>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
@@ -940,7 +940,7 @@ impl<T: Config> Module<T> {
 
     pub fn base_add_instruction(
         did: IdentityId,
-        venue_id: VenueId,
+        venue_id: Option<VenueId>,
         settlement_type: SettlementType<T::BlockNumber>,
         trade_date: Option<T::Moment>,
         value_date: Option<T::Moment>,
@@ -965,7 +965,9 @@ impl<T: Config> Module<T> {
         }
 
         // Ensure venue exists & sender is its creator.
-        Self::venue_for_management(venue_id, did)?;
+        if let Some(venue_id) = venue_id {
+            Self::venue_for_management(venue_id, did)?;
+        }
 
         // Verifies if all legs are valid.
         let mut instruction_info = Self::ensure_valid_legs(&legs, &venue_id)?;
@@ -1019,7 +1021,9 @@ impl<T: Config> Module<T> {
         if let Some(ref memo) = memo {
             InstructionMemos::insert(instruction_id, &memo);
         }
-        VenueInstructions::insert(venue_id, instruction_id, ());
+        if let Some(venue_id) = venue_id {
+            VenueInstructions::insert(venue_id, instruction_id, ());
+        }
 
         Self::deposit_event(RawEvent::InstructionCreated(
             did,
@@ -1065,7 +1069,7 @@ impl<T: Config> Module<T> {
     /// See also: [`Module::ensure_valid_fungible_leg`], [`Module::ensure_valid_nft_leg`] and [`Module::ensure_valid_off_chain_leg`].
     fn ensure_valid_legs(
         legs: &[Leg],
-        venue_id: &VenueId,
+        venue_id: &Option<VenueId>,
     ) -> Result<InstructionInfo, DispatchError> {
         // Tracks the number of fungible, non-fungible and offchain assets across the legs
         let mut instruction_asset_count = AssetCount::default();
@@ -1279,7 +1283,9 @@ impl<T: Config> Module<T> {
             ) {
                 Ok(_) => {
                     // Remove remaning storage
-                    VenueInstructions::remove(instruction_details.venue_id, instruction_id);
+                    if let Some(venue_id) = instruction_details.venue_id {
+                        VenueInstructions::remove(venue_id, instruction_id);
+                    }
                     let _ = InstructionLegStatus::<T>::clear_prefix(
                         instruction_id,
                         instruction_legs.len() as u32,
@@ -1455,7 +1461,9 @@ impl<T: Config> Module<T> {
     /// [`InstructionStatus::Rejected`].
     fn prune_rejected_instruction(instruction_id: InstructionId) {
         let instruction_details = InstructionDetails::<T>::take(&instruction_id);
-        VenueInstructions::remove(instruction_details.venue_id, instruction_id);
+        if let Some(venue_id) = instruction_details.venue_id {
+            VenueInstructions::remove(venue_id, instruction_id);
+        }
         InstructionAffirmsPending::remove(instruction_id);
         let _ = InstructionMediatorsAffirmations::<T>::clear_prefix(
             instruction_id,
@@ -1963,13 +1971,15 @@ impl<T: Config> Module<T> {
     /// in the venue allowed list.
     fn ensure_allowed_venue(
         instruction_legs: &[(LegId, Leg)],
-        venue_id: VenueId,
+        venue_id: Option<VenueId>,
     ) -> DispatchResult {
-        // Avoids reading the storage multiple times for the same asset_id
-        let mut tickers: BTreeSet<AssetID> = BTreeSet::new();
-        for (_, leg) in instruction_legs {
-            if let Some(asset_id) = leg.asset_id() {
-                Self::ensure_venue_filtering(&mut tickers, *asset_id, &venue_id)?;
+        if let Some(_) = venue_id {
+            // Avoids reading the storage multiple times for the same asset_id
+            let mut tickers: BTreeSet<AssetID> = BTreeSet::new();
+            for (_, leg) in instruction_legs {
+                if let Some(asset_id) = leg.asset_id() {
+                    Self::ensure_venue_filtering(&mut tickers, *asset_id, &venue_id)?;
+                }
             }
         }
         Ok(())
@@ -1979,13 +1989,15 @@ impl<T: Config> Module<T> {
     fn ensure_venue_filtering(
         tickers: &mut BTreeSet<AssetID>,
         asset_id: AssetID,
-        venue_id: &VenueId,
+        venue_id: &Option<VenueId>,
     ) -> DispatchResult {
-        if tickers.insert(asset_id) && Self::venue_filtering(asset_id) {
-            ensure!(
-                Self::venue_allow_list(asset_id, venue_id),
-                Error::<T>::UnauthorizedVenue
-            );
+        if let Some(venue_id) = venue_id {
+            if tickers.insert(asset_id) && Self::venue_filtering(asset_id) {
+                ensure!(
+                    Self::venue_allow_list(asset_id, venue_id),
+                    Error::<T>::UnauthorizedVenue
+                );
+            }
         }
         Ok(())
     }
@@ -2006,7 +2018,7 @@ impl<T: Config> Module<T> {
     /// See also: [`Module::ensure_valid_fungible_leg`], [`Module::ensure_valid_nft_leg`] and [`Module::ensure_valid_off_chain_leg`].
     fn ensure_valid_leg(
         leg: &Leg,
-        venue_id: &VenueId,
+        venue_id: &Option<VenueId>,
         tickers: &mut BTreeSet<AssetID>,
         instruction_asset_count: &mut AssetCount,
     ) -> DispatchResult {
@@ -2057,7 +2069,7 @@ impl<T: Config> Module<T> {
         tickers: &mut BTreeSet<AssetID>,
         asset_id: AssetID,
         amount: Balance,
-        venue_id: &VenueId,
+        venue_id: &Option<VenueId>,
     ) -> DispatchResult {
         ensure!(amount > 0, Error::<T>::ZeroAmount);
         ensure!(
@@ -2074,7 +2086,7 @@ impl<T: Config> Module<T> {
     fn ensure_valid_nft_leg(
         tickers: &mut BTreeSet<AssetID>,
         nfts: &NFTs,
-        venue_id: &VenueId,
+        venue_id: &Option<VenueId>,
     ) -> DispatchResult {
         ensure!(
             Self::is_on_chain_asset(nfts.asset_id()),
@@ -2151,12 +2163,22 @@ impl<T: Config> Module<T> {
             }
             None => {
                 // If the caller is not the venue creator, they should be a counter party in an offchain leg
-                if Self::venue_for_management(instruction_details.venue_id, caller_did).is_err() {
-                    ensure!(
-                        Self::is_offchain_party(&instruction_legs, &caller_did),
-                        Error::<T>::Unauthorized
-                    );
-                };
+                match instruction_details.venue_id {
+                    Some(venue_id) => {
+                        if Self::venue_for_management(venue_id, caller_did).is_err() {
+                            ensure!(
+                                Self::is_offchain_party(&instruction_legs, &caller_did),
+                                Error::<T>::Unauthorized
+                            );
+                        };
+                    }
+                    None => {
+                        ensure!(
+                            Self::is_offchain_party(&instruction_legs, &caller_did),
+                            Error::<T>::Unauthorized
+                        );
+                    }
+                }
             }
         }
 
@@ -2218,7 +2240,7 @@ impl<T: Config> Module<T> {
     /// if the receipt has not been used before, if the receipt's `leg_id` and `instruction_id` are referencing the
     /// correct instruction/leg and if its signature is valid.
     fn ensure_valid_receipts_details(
-        venue_id: VenueId,
+        venue_id: Option<VenueId>,
         instruction_id: InstructionId,
         receipts_details: &[ReceiptDetails<T::AccountId, T::OffChainSignature>],
     ) -> DispatchResult {
@@ -2238,10 +2260,14 @@ impl<T: Config> Module<T> {
                 unique_legs.insert(receipt_details.leg_id()),
                 Error::<T>::MultipleReceiptsForOneLeg
             );
-            ensure!(
-                Self::venue_signers(venue_id, receipt_details.signer()),
-                Error::<T>::UnauthorizedSigner
-            );
+
+            if let Some(venue_id) = venue_id {
+                ensure!(
+                    Self::venue_signers(venue_id, receipt_details.signer()),
+                    Error::<T>::UnauthorizedSigner
+                );
+            }
+
             ensure!(
                 !Self::receipts_used(receipt_details.signer(), &receipt_details.uid()),
                 Error::<T>::ReceiptAlreadyClaimed

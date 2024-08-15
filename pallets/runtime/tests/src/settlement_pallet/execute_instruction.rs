@@ -61,7 +61,10 @@ fn execute_instruction_storage_pruning() {
 
         // Asserts all storage have been pruned
         assert_eq!(InstructionAffirmsPending::get(instruction_id), 0);
-        assert_eq!(VenueInstructions::iter_prefix_values(venue_id).next(), None);
+        assert_eq!(
+            VenueInstructions::iter_prefix_values(venue_id.unwrap()).next(),
+            None
+        );
         assert_eq!(
             InstructionLegs::iter_prefix_values(instruction_id).next(),
             None
