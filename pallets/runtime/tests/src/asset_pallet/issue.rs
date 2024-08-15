@@ -2,7 +2,7 @@ use frame_support::{assert_noop, assert_ok};
 use frame_support::{StorageDoubleMap, StorageMap};
 use sp_keyring::AccountKeyring;
 
-use pallet_asset::{BalanceOf, SecurityTokens};
+use pallet_asset::{Assets, BalanceOf};
 use pallet_portfolio::{PortfolioAssetBalances, PortfolioAssetCount, PortfolioLockedAssets};
 use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::{
@@ -40,10 +40,7 @@ fn issue_tokens_default_portfolio() {
             0
         );
         assert_eq!(BalanceOf::get(&asset_id, &alice.did), ISSUE_AMOUNT);
-        assert_eq!(
-            SecurityTokens::get(&asset_id).unwrap().total_supply,
-            ISSUE_AMOUNT
-        );
+        assert_eq!(Assets::get(&asset_id).unwrap().total_supply, ISSUE_AMOUNT);
         assert_eq!(PortfolioAssetCount::get(alice_default_portfolio), 1);
     });
 }
@@ -87,10 +84,7 @@ fn issue_tokens_user_portfolio() {
             0
         );
         assert_eq!(BalanceOf::get(asset_id, &alice.did), ISSUE_AMOUNT);
-        assert_eq!(
-            SecurityTokens::get(asset_id).unwrap().total_supply,
-            ISSUE_AMOUNT
-        );
+        assert_eq!(Assets::get(asset_id).unwrap().total_supply, ISSUE_AMOUNT);
     });
 }
 

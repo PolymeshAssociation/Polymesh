@@ -11,7 +11,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     IterableStorageDoubleMap, StorageDoubleMap, StorageMap,
 };
-use pallet_asset::SecurityTokens;
+use pallet_asset::Assets;
 use pallet_corporate_actions::{
     ballot::{BallotMeta, BallotTimeRange, BallotVote, Motion, Votes},
     distribution::{self, Distribution, PER_SHARE_PRECISION},
@@ -2158,7 +2158,7 @@ fn dist_claim_rounding_indivisible() {
 
         // Make `currency` indivisible.
         // This the crucial aspect different about this test.
-        SecurityTokens::mutate(currency, |t| {
+        Assets::mutate(currency, |t| {
             if let Some(t) = t {
                 t.divisible = false;
             }

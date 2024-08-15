@@ -521,7 +521,7 @@ impl<T: Config> Module<T> {
     /// - mapping the the ID to the `time`.
     fn create_at(caller_did: Option<IdentityId>, asset_id: AssetID, id: CheckpointId, at: Moment) {
         // Record total supply at checkpoint ID.
-        let supply = <Asset<T>>::try_get_security_token(&asset_id)
+        let supply = <Asset<T>>::try_get_asset_details(&asset_id)
             .map(|t| t.total_supply)
             .unwrap_or_default();
         TotalSupply::insert(asset_id, id, supply);
