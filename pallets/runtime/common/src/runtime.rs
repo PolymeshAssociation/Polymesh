@@ -283,6 +283,7 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_multisig::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
+            type Proposal = RuntimeCall;
             type WeightInfo = polymesh_weights::pallet_multisig::SubstrateWeight;
             type MaxSigners = MaxMultiSigSigners;
         }

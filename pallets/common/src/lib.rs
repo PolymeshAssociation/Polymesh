@@ -140,6 +140,8 @@ impl SystematicIssuers {
 }
 
 pub const GC_DID: IdentityId = SystematicIssuers::Committee.as_id();
+pub const TECHNICAL_DID: IdentityId = IdentityId(*constants::did::TECHNICAL_COMMITTEE_DID);
+pub const UPGRADE_DID: IdentityId = IdentityId(*constants::did::UPGRADE_COMMITTEE_DID);
 
 /// Execute the supplied function in a new storage transaction,
 /// committing on `Ok(_)` and rolling back on `Err(_)`, returning the result.

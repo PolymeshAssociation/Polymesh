@@ -220,7 +220,7 @@ parameter_types! {
     pub const MaxNumberOfNFTs: u32 = 100;
 
     // Multisig
-    pub const MaxMultiSigSigners: u32 = 256;
+    pub const MaxMultiSigSigners: u32 = 50;
 
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
     pub const MaxSetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
@@ -516,7 +516,6 @@ impl CddAndFeeDetails<AccountId, RuntimeCall> for TestStorage {
         Ok(Some(caller))
     }
     fn clear_context() {
-        Context::set_current_identity::<Identity>(None);
         Context::set_current_payer::<Identity>(None);
     }
     fn set_payer_context(payer: Option<AccountId>) {
@@ -524,9 +523,6 @@ impl CddAndFeeDetails<AccountId, RuntimeCall> for TestStorage {
     }
     fn get_payer_from_context() -> Option<AccountId> {
         Context::current_payer::<Identity>()
-    }
-    fn set_current_identity(did: &IdentityId) {
-        Context::set_current_identity::<Identity>(Some(*did));
     }
 }
 
@@ -925,10 +921,6 @@ pub fn make_remark_proposal() -> RuntimeCall {
         remark: vec![b'X'; 100],
     })
     .into()
-}
-
-pub(crate) fn set_curr_did(did: Option<IdentityId>) {
-    Context::set_current_identity::<Identity>(did);
 }
 
 #[macro_export]

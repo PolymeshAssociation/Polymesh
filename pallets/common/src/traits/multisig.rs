@@ -29,13 +29,17 @@ pub trait WeightInfo {
     fn accept_multisig_signer() -> Weight;
     fn add_multisig_signers(signers: u32) -> Weight;
     fn remove_multisig_signers(signers: u32) -> Weight;
-    fn add_multisig_signers_via_creator(signers: u32) -> Weight;
-    fn remove_multisig_signers_via_creator(signers: u32) -> Weight;
+    fn add_multisig_signers_via_admin(signers: u32) -> Weight;
+    fn remove_multisig_signers_via_admin(signers: u32) -> Weight;
     fn change_sigs_required() -> Weight;
-    fn make_multisig_secondary() -> Weight;
-    fn make_multisig_primary() -> Weight;
-    fn change_sigs_required_via_creator() -> Weight;
-    fn remove_creator_controls() -> Weight;
+    fn change_sigs_required_via_admin() -> Weight;
+    fn add_admin() -> Weight;
+    fn remove_admin_via_admin() -> Weight;
+    fn remove_payer() -> Weight;
+    fn remove_payer_via_payer() -> Weight;
+    fn create_join_identity() -> Weight;
+    fn approve_join_identity() -> Weight;
+    fn join_identity() -> Weight;
 }
 
 /// This trait is used to add a signer to a multisig and enable unlinking multisig from an identity

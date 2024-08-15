@@ -47,7 +47,7 @@ pub struct MuliSigState {
 }
 
 impl MuliSigState {
-    async fn create_and_join_creator(
+    pub async fn create_and_join_creator(
         tester: &mut PolymeshTester,
         creator: &AccountSigner,
         n_signers: usize,
@@ -55,22 +55,21 @@ impl MuliSigState {
         as_primary: bool,
         perms: Option<Permissions>,
     ) -> Result<MuliSigState> {
-        let mut ms = Self::create(tester, creator, n_signers, sigs_required).await?;
-        let mut res = if as_primary {
-            ms.make_primary().await?
-        } else {
-            ms.make_secondary(perms).await?
-        };
-        res.wait_in_block().await?;
+        let mut ms = Self::create(tester, creator, n_signers, sigs_required, perms).await?;
+        if as_primary {
+            let mut res = ms.make_primary().await?;
+            res.wait_in_block().await?;
+        }
 
         Ok(ms)
     }
 
-    async fn create(
+    pub async fn create(
         tester: &mut PolymeshTester,
         creator: &AccountSigner,
         n_signers: usize,
         sigs_required: u64,
+        perms: Option<Permissions>,
     ) -> Result<MuliSigState> {
         let mut creator = creator.clone();
         let mut signers = Vec::with_capacity(n_signers);
@@ -83,7 +82,11 @@ impl MuliSigState {
             .api
             .call()
             .multi_sig()
-            .create_multisig(signers.iter().map(|s| s.account()).collect(), sigs_required)?
+            .create_multisig(
+                signers.iter().map(|s| s.account()).collect(),
+                sigs_required,
+                perms,
+            )?
             .submit_and_watch(&mut creator)
             .await?;
         // Wait for finalization.
@@ -141,32 +144,76 @@ impl MuliSigState {
         })
     }
 
-    async fn make_primary(&mut self) -> Result<TransactionResults> {
+    pub async fn leave_did(&mut self) -> Result<TransactionResults> {
+        let leave_did_call = self.api.call().identity().leave_identity_as_key()?;
+        self.run_proposal(leave_did_call).await
+    }
+
+    pub async fn remove_payer(&mut self) -> Result<TransactionResults> {
+        let remove_payer_call = self.api.call().multi_sig().remove_payer()?;
+        self.run_proposal(remove_payer_call).await
+    }
+
+    pub async fn remove_payer_via_payer(&mut self) -> Result<TransactionResults> {
         let res = self
             .api
             .call()
             .multi_sig()
-            .make_multisig_primary(self.account.clone(), None)?
-            .submit_and_watch(&mut self.creator)
+            .remove_payer_via_payer(self.account.clone())?
+            .execute(&mut self.creator)
             .await?;
         Ok(res)
     }
 
-    async fn make_secondary(
+    pub async fn make_primary(&mut self) -> Result<TransactionResults> {
+        let mut res = self
+            .api
+            .call()
+            .identity()
+            .add_authorization(
+                Signatory::Account(self.account.clone()),
+                AuthorizationData::RotatePrimaryKey,
+                None,
+            )?
+            .execute(&mut self.creator)
+            .await?;
+        let auth_id = get_auth_id(&mut res)
+            .await?
+            .expect("Missing RotatePrimaryKey auth id");
+
+        let rotate_primary_call = self
+            .api
+            .call()
+            .identity()
+            .accept_primary_key(auth_id, None)?;
+        self.run_proposal(rotate_primary_call).await
+    }
+
+    pub async fn make_secondary(
         &mut self,
         permissions: Option<Permissions>,
     ) -> Result<TransactionResults> {
-        let res = self
+        let perms = permissions.unwrap_or_else(|| PermissionsBuilder::empty().build());
+        let mut res = self
             .api
             .call()
-            .multi_sig()
-            .make_multisig_secondary(self.account.clone(), permissions)?
-            .submit_and_watch(&mut self.creator)
+            .identity()
+            .add_authorization(
+                Signatory::Account(self.account.clone()),
+                AuthorizationData::JoinIdentity(perms),
+                None,
+            )?
+            .execute(&mut self.creator)
             .await?;
-        Ok(res)
+        let auth_id = get_auth_id(&mut res)
+            .await?
+            .expect("Missing JoinIdentity auth id");
+
+        let join_did_call = self.api.call().identity().join_identity_as_key(auth_id)?;
+        self.run_proposal(join_did_call).await
     }
 
-    async fn create_proposal(&mut self, proposal: WrappedCall) -> Result<TransactionResults> {
+    pub async fn create_proposal(&mut self, proposal: WrappedCall) -> Result<TransactionResults> {
         let res = self
             .api
             .call()
@@ -177,7 +224,34 @@ impl MuliSigState {
         Ok(res)
     }
 
-    async fn run_proposal(&mut self, proposal: WrappedCall) -> Result<TransactionResults> {
+    pub async fn join_identity(&mut self, auth_id: u64) -> Result<TransactionResults> {
+        let approve_join_call = self
+            .api
+            .call()
+            .multi_sig()
+            .approve_join_identity(self.account.clone(), auth_id)?;
+        let mut results = Vec::new();
+        for signer in &mut self.signers[0..self.sigs_required as usize] {
+            let res = approve_join_call.submit_and_watch(signer).await?;
+            results.push(res);
+        }
+        // Find which approval call executed the proposal.
+        for mut res in results {
+            res.wait_finalized().await?;
+            match ms_proposal_executed(&mut res).await? {
+                Some(true) => {
+                    return Ok(res);
+                }
+                Some(false) => {
+                    return Err(anyhow!("MS proposal returned error"));
+                }
+                None => (),
+            }
+        }
+        Err(anyhow!("Failed to execute MS proposal"))
+    }
+
+    pub async fn run_proposal(&mut self, proposal: WrappedCall) -> Result<TransactionResults> {
         // Create proposal with the first signer.
         let mut res = self.create_proposal(proposal).await?;
         res.wait_finalized().await?;
@@ -197,9 +271,14 @@ impl MuliSigState {
             // Find which approval call executed the proposal.
             for mut res in results {
                 res.wait_finalized().await?;
-                if let Some(result) = ms_proposal_executed(&mut res).await? {
-                    assert!(result, "Failed to execute proposal.");
-                    return Ok(res);
+                match ms_proposal_executed(&mut res).await? {
+                    Some(true) => {
+                        return Ok(res);
+                    }
+                    Some(false) => {
+                        return Err(anyhow!("MS proposal returned error"));
+                    }
+                    None => (),
                 }
             }
             Err(anyhow!("Failed to execute MS proposal"))
@@ -327,6 +406,63 @@ async fn multisig_as_secondary_key_change_identity() -> Result<()> {
 }
 
 #[tokio::test]
+async fn secondary_key_ms_make_primary() -> Result<()> {
+    let mut tester = PolymeshTester::new().await?;
+    // Create a user with secondary keys to be the MS creator.
+    let users = tester
+        .users_with_secondary_keys(&[("MS_make_primary_with_sk", 1)])
+        .await?;
+    let mut did1 = users[0].clone();
+    let sk = did1.get_sk(0)?.clone();
+
+    // Create a MS as a secondary key with no permissions.
+    let mut ms = MuliSigState::create_and_join_creator(&mut tester, &sk, 3, 2, false, None).await?;
+
+    // Need to fund the MultiSig so that it can't pay
+    // transaction fees.
+    let mut res_transfer = tester
+        .api
+        .call()
+        .balances()
+        .transfer(ms.account.into(), 10 * ONE_POLYX)?
+        .execute(&mut did1)
+        .await?;
+
+    // A secondary key can make the MS a primary.  If it
+    // has permissions to create the authorization.
+    let mut res_make_primary = ms.make_primary().await?;
+
+    // Wait for transfer and make primary.
+    res_transfer.ok().await?;
+    res_make_primary.ok().await?;
+
+    // Prepare `system.remark` call.
+    let remark_call = tester.api.call().system().remark(vec![])?;
+    // Prepare `settlement.create_venue` call.
+    let create_venue_call = tester.api.call().settlement().create_venue(
+        VenueDetails(vec![]),
+        vec![],
+        VenueType::Other,
+    )?;
+
+    let expected = vec![
+        true, // remark.
+        true, // create venue.  MS has full permissions as the primary key.
+    ];
+    let batch_call = tester.api.call().utility().force_batch(vec![
+        remark_call.runtime_call().clone(),
+        create_venue_call.runtime_call().clone(),
+    ])?;
+
+    let mut res = ms.run_proposal(batch_call).await?;
+    res.ok().await?;
+    let calls_ok = get_batch_results(&mut res).await?;
+    assert_eq!(calls_ok, expected);
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn secondary_key_creates_multisig() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     // Create a user with secondary keys to be the MS creator.
@@ -336,8 +472,8 @@ async fn secondary_key_creates_multisig() -> Result<()> {
     let did1 = users[0].clone();
     let sk = did1.get_sk(0)?.clone();
 
-    // Create a MS but don't link it to an identity.
-    let mut ms = MuliSigState::create(&mut tester, &sk, 3, 2).await?;
+    // Create a MS as a secondary key with no permissions.
+    let mut ms = MuliSigState::create_and_join_creator(&mut tester, &sk, 3, 2, false, None).await?;
 
     // Prepare `system.remark` call.
     let remark_call = tester.api.call().system().remark(vec![])?;
@@ -350,7 +486,7 @@ async fn secondary_key_creates_multisig() -> Result<()> {
 
     let expected = vec![
         true,  // remark.
-        false, // create venue.  MS has no DID, so this fails.
+        false, // create venue.  MS has no permissions.
     ];
     let batch_call = tester.api.call().utility().force_batch(vec![
         remark_call.runtime_call().clone(),
@@ -362,14 +498,205 @@ async fn secondary_key_creates_multisig() -> Result<()> {
     let calls_ok = get_batch_results(&mut res).await?;
     assert_eq!(calls_ok, expected);
 
-    // A secondary key can't make the MS a primary.
-    let res = ms.make_primary().await?.ok().await;
-    assert!(res.is_err());
+    Ok(())
+}
+
+#[tokio::test]
+async fn ms_make_secondary() -> Result<()> {
+    let mut tester = PolymeshTester::new().await?;
+    // Create a user with secondary keys to be the MS creator.
+    let users = tester
+        .users_with_secondary_keys(&[("MS_make_secondary_with_sk", 1)])
+        .await?;
+    let did1 = users[0].clone();
+    let sk = did1.get_sk(0)?.clone();
+
+    // Create a MS as a secondary key with no permissions.
+    let mut ms = MuliSigState::create_and_join_creator(&mut tester, &sk, 3, 2, false, None).await?;
 
     let whole = PermissionsBuilder::whole();
-    // A secondary key can't make the MS a secondary key with custom permissions.
-    let res = ms.make_secondary(Some(whole.into())).await?.ok().await;
+    // The MS is already a secondary key, it can't join again.
+    let res = ms.make_secondary(Some(whole.into())).await;
     assert!(res.is_err());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn ms_change_identity() -> Result<()> {
+    let mut tester = PolymeshTester::new().await?;
+    let users = tester
+        .users(&["MultiSigChangeDID1", "MultiSigChangeDID2"])
+        .await?;
+    let did1 = users[0].clone();
+    let mut did2 = users[1].clone();
+
+    // Use the primary key of did1 to create a MS and join it do did1 as a secondary key.
+    let whole = PermissionsBuilder::whole();
+    let mut ms = MuliSigState::create_and_join_creator(
+        &mut tester,
+        &did1.primary_key,
+        3,
+        2,
+        false,
+        Some(whole.into()),
+    )
+    .await?;
+
+    // Leave the identity did1.
+    let mut res = ms.leave_did().await?;
+    res.wait_in_block().await?;
+
+    // Create JoinIdentity auth for the MS to join DID2 with no-permissions.
+    let mut res = tester
+        .api
+        .call()
+        .identity()
+        .add_authorization(
+            Signatory::Account(ms.account.clone()),
+            AuthorizationData::JoinIdentity(PermissionsBuilder::empty().build()),
+            None,
+        )?
+        .execute(&mut did2)
+        .await?;
+    let auth_id = get_auth_id(&mut res)
+        .await?
+        .expect("Missing JoinIdentity auth id");
+
+    // Join did2.  The primary key of did2 pays the tx fees.
+    let mut res = ms.join_identity(auth_id).await?;
+    res.ok().await?;
+
+    // Prepare `system.remark` call.
+    let remark_call = tester.api.call().system().remark(vec![])?;
+    // Should be able to run new proposals now.
+    let mut res = ms.run_proposal(remark_call).await?;
+    res.ok().await?;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn ms_needs_to_be_linked_to_an_identity() -> Result<()> {
+    let mut tester = PolymeshTester::new().await?;
+    let users = tester.users(&["MultiSigNeedsDID"]).await?;
+    let did = users[0].clone();
+
+    // Use the primary key of did1 to create a MS and join it do did1 as a secondary key.
+    let whole = PermissionsBuilder::whole();
+    let mut ms = MuliSigState::create_and_join_creator(
+        &mut tester,
+        &did.primary_key,
+        3,
+        2,
+        false,
+        Some(whole.into()),
+    )
+    .await?;
+
+    // Leave the identity.
+    let mut res = ms.leave_did().await?;
+    res.wait_in_block().await?;
+
+    // Prepare `system.remark` call.
+    let remark_call = tester.api.call().system().remark(vec![])?;
+    // Shouldn't be allowed, since the MS doesn't have a DID.
+    let res = ms.run_proposal(remark_call).await;
+    assert!(res.is_err());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn ms_remove_payer() -> Result<()> {
+    let mut tester = PolymeshTester::new().await?;
+    let users = tester.users(&["MultiSigRemovePayer"]).await?;
+    let mut did = users[0].clone();
+
+    // Use the primary key of did1 to create a MS and join it do did1 as a secondary key.
+    let whole = PermissionsBuilder::whole();
+    let mut ms = MuliSigState::create_and_join_creator(
+        &mut tester,
+        &did.primary_key,
+        3,
+        2,
+        false,
+        Some(whole.into()),
+    )
+    .await?;
+
+    // Remove the paying DID.
+    let mut res = ms.remove_payer().await?;
+    res.wait_in_block().await?;
+
+    // Shouldn't be allowed, since the MS doesn't have any POLYX
+    // to pay the tx fees.
+    let remark_call = tester.api.call().system().remark(vec![])?;
+    let res = ms.run_proposal(remark_call).await;
+    assert!(res.is_err());
+
+    // Fund the MultiSig so that it can pay tx fees.
+    let mut res_transfer = tester
+        .api
+        .call()
+        .balances()
+        .transfer(ms.account.into(), 10 * ONE_POLYX)?
+        .execute(&mut did)
+        .await?;
+    // Wait for transfer.
+    res_transfer.ok().await?;
+
+    // Should be able to execute proposals now.
+    let remark_call = tester.api.call().system().remark(vec![])?;
+    let mut res = ms.run_proposal(remark_call).await?;
+    res.ok().await?;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn ms_remove_payer_via_payer() -> Result<()> {
+    let mut tester = PolymeshTester::new().await?;
+    let users = tester.users(&["MultiSigRemovePayerViaPayer"]).await?;
+    let mut did = users[0].clone();
+
+    // Use the primary key of did1 to create a MS and join it do did1 as a secondary key.
+    let whole = PermissionsBuilder::whole();
+    let mut ms = MuliSigState::create_and_join_creator(
+        &mut tester,
+        &did.primary_key,
+        3,
+        2,
+        false,
+        Some(whole.into()),
+    )
+    .await?;
+
+    // Remove the paying DID via the payer.
+    let mut res = ms.remove_payer_via_payer().await?;
+    res.wait_in_block().await?;
+
+    // Shouldn't be allowed, since the MS doesn't have any POLYX
+    // to pay the tx fees.
+    let remark_call = tester.api.call().system().remark(vec![])?;
+    let res = ms.run_proposal(remark_call).await;
+    assert!(res.is_err());
+
+    // Fund the MultiSig so that it can pay tx fees.
+    let mut res_transfer = tester
+        .api
+        .call()
+        .balances()
+        .transfer(ms.account.into(), 10 * ONE_POLYX)?
+        .execute(&mut did)
+        .await?;
+    // Wait for transfer.
+    res_transfer.ok().await?;
+
+    // Should be able to execute proposals now.
+    let remark_call = tester.api.call().system().remark(vec![])?;
+    let mut res = ms.run_proposal(remark_call).await?;
+    res.ok().await?;
 
     Ok(())
 }

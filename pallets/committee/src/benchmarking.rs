@@ -64,7 +64,6 @@ where
     for i in 0..(PROPOSALS_MAX - 1) {
         let index = Module::<T, I>::proposal_count();
         let proposal = make_proposal::<T, I>(i).0;
-        identity::CurrentDid::put(users[0].did());
         Module::<T, I>::vote_or_propose(users[0].origin.clone().into(), true, Box::new(proposal))
             .unwrap();
         if users.len() > 1 {
@@ -74,7 +73,6 @@ where
             for (j, user) in users.iter().skip(1).take(i as usize).enumerate() {
                 // Vote for the proposal if it's not finalised.
                 if Module::<T, I>::voting(&hash).is_some() {
-                    identity::CurrentDid::put(user.did());
                     Module::<T, I>::vote(user.origin.clone().into(), hash, index, j % 2 != 0)
                         .unwrap();
                 }
@@ -180,7 +178,6 @@ benchmarks_instance! {
         let members = make_members_and_proposals::<T, I>().unwrap();
         let last_proposal_num = ProposalCount::<I>::get();
         let (proposal, hash) = make_proposal::<T, I>(PROPOSALS_MAX);
-        identity::CurrentDid::put(members[0].did());
     }: vote_or_propose(members[0].origin.clone(), true, Box::new(proposal.clone()))
     verify {
         // The proposal was stored.
@@ -193,7 +190,6 @@ benchmarks_instance! {
         let (proposal, hash) = make_proposal::<T, I>(0);
         let proposals = Proposals::<T, I>::get();
         assert!(proposals.contains(&hash), "cannot find the first proposal");
-        identity::CurrentDid::put(members[1].did());
         let member1 = members[1].origin.clone();
         let boxed_proposal = Box::new(proposal.clone());
     }: vote_or_propose(member1, true, boxed_proposal)
@@ -217,8 +213,6 @@ benchmarks_instance! {
         assert!(Proposals::<T, I>::get().contains(&hash), "vote_aye target proposal not found");
         let member = &members[PROPOSAL_ALMOST_APPROVED as usize + 1];
         let origin = member.origin.clone();
-        let did = member.did();
-        identity::CurrentDid::put(did);
     }: vote(origin, hash, PROPOSAL_ALMOST_APPROVED, true)
     verify {
         assert!(!Proposals::<T, I>::get().contains(&hash), "vote_aye target proposal not executed");
@@ -231,7 +225,6 @@ benchmarks_instance! {
         let member = &members[1];
         let origin = member.origin.clone();
         let did = member.did();
-        identity::CurrentDid::put(did);
     }: vote(origin, hash, first_proposal_num, false)
     verify {
         vote_verify::<T, I>(&did, hash, first_proposal_num, false).unwrap();
