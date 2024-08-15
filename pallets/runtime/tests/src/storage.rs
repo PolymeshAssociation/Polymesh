@@ -516,7 +516,6 @@ impl CddAndFeeDetails<AccountId, RuntimeCall> for TestStorage {
         Ok(Some(caller))
     }
     fn clear_context() {
-        Context::set_current_identity::<Identity>(None);
         Context::set_current_payer::<Identity>(None);
     }
     fn set_payer_context(payer: Option<AccountId>) {
@@ -524,9 +523,6 @@ impl CddAndFeeDetails<AccountId, RuntimeCall> for TestStorage {
     }
     fn get_payer_from_context() -> Option<AccountId> {
         Context::current_payer::<Identity>()
-    }
-    fn set_current_identity(did: &IdentityId) {
-        Context::set_current_identity::<Identity>(Some(*did));
     }
 }
 
@@ -925,10 +921,6 @@ pub fn make_remark_proposal() -> RuntimeCall {
         remark: vec![b'X'; 100],
     })
     .into()
-}
-
-pub(crate) fn set_curr_did(did: Option<IdentityId>) {
-    Context::set_current_identity::<Identity>(did);
 }
 
 #[macro_export]

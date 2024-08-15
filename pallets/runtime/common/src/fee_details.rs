@@ -79,7 +79,6 @@ where
         // Check if the `did` has a valid CDD claim.
         let check_did_cdd = |did: &IdentityId| {
             if Module::<A>::has_valid_cdd(*did) {
-                Self::set_current_identity(did);
                 Ok(None)
             } else {
                 CDD_REQUIRED
@@ -216,7 +215,6 @@ where
 
     /// Clears context. Should be called in post_dispatch
     fn clear_context() {
-        Context::set_current_identity::<pallet_identity::Module<A>>(None);
         Self::set_payer_context(None);
     }
 
@@ -228,10 +226,6 @@ where
     /// Fetches fee payer for further payments (forwarded calls)
     fn get_payer_from_context() -> Option<AccountId> {
         Context::current_payer::<pallet_identity::Module<A>>()
-    }
-
-    fn set_current_identity(did: &IdentityId) {
-        Context::set_current_identity::<pallet_identity::Module<A>>(Some(*did));
     }
 }
 

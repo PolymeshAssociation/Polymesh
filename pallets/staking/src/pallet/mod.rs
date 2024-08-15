@@ -54,8 +54,8 @@ use sp_runtime::traits::{AccountIdConversion, Dispatchable, Saturating};
 use sp_runtime::Permill;
 
 use polymesh_common_utilities::constants::GC_PALLET_ID;
-use polymesh_common_utilities::identity::Config as IdentityConfig;
-use polymesh_common_utilities::{Context, GC_DID};
+use polymesh_common_utilities::identity::{Config as IdentityConfig, IdentityFnTrait};
+use polymesh_common_utilities::GC_DID;
 use polymesh_primitives::{storage_migration_ver, IdentityId};
 
 use crate::types::{
@@ -1054,7 +1054,7 @@ pub mod pallet {
 
             // Polymesh Change: Add `stash`'s DID to event.
             // -----------------------------------------------------------------
-            let did = Context::current_identity::<T::IdentityFn>().unwrap_or_default();
+            let did = T::IdentityFn::get_identity(&stash).unwrap_or_default();
             Self::deposit_event(Event::<T>::Bonded(did, stash.clone(), value));
             // -----------------------------------------------------------------
 
@@ -1118,7 +1118,7 @@ pub mod pallet {
 
                 // Polymesh Change: Add `stash`'s DID to event.
                 // -----------------------------------------------------------------
-                let did = Context::current_identity::<T::IdentityFn>().unwrap_or_default();
+                let did = T::IdentityFn::get_identity(&stash).unwrap_or_default();
                 Self::deposit_event(Event::<T>::Bonded(did, stash.clone(), extra));
                 // -----------------------------------------------------------------
             }

@@ -603,7 +603,6 @@ fn do_add_secondary_keys_with_permissions_test() {
     assert_eq!(keys.len(), 1);
 
     // Try remove bob using alice
-    TestStorage::set_current_identity(&alice.did);
     assert_ok!(Identity::remove_secondary_keys(
         alice.origin(),
         vec![bob.acc()]
@@ -644,7 +643,6 @@ fn do_remove_secondary_keys_test() {
     assert_eq!(keys.len(), 2);
 
     // Try removing bob using alice.
-    TestStorage::set_current_identity(&alice.did);
     let remove_sk = |u: User| Identity::remove_secondary_keys(alice.origin(), vec![u.acc()]);
     assert_ok!(remove_sk(bob));
 
@@ -730,7 +728,6 @@ fn do_remove_secondary_keys_test_with_externalities() {
     assert_eq!(Identity::get_identity(&bob_key), Some(alice.did));
 
     // Try removing bob using charlie
-    TestStorage::set_current_identity(&charlie.did);
     assert_noop!(
         Identity::remove_secondary_keys(charlie.origin(), vec![bob.acc()]),
         Error::NotASigner
@@ -742,7 +739,6 @@ fn do_remove_secondary_keys_test_with_externalities() {
     assert_eq!(Identity::get_identity(&bob_key), Some(alice.did));
 
     // Try remove bob using alice
-    TestStorage::set_current_identity(&alice.did);
     assert_ok!(Identity::remove_secondary_keys(
         alice.origin(),
         vec![bob.acc()]
