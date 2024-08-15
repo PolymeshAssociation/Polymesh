@@ -66,7 +66,7 @@ decl_event!(
         /// (did, venue_id, instruction_id, settlement_type, trade_date, value_date, legs, memo)
         InstructionCreated(
             IdentityId,
-            VenueId,
+            Option<VenueId>,
             InstructionId,
             SettlementType<BlockNumber>,
             Option<Moment>,
