@@ -5,7 +5,7 @@ use super::*;
 
 mod v0 {
     use super::*;
-    use polymesh_primitives::Ticker;
+    use polymesh_primitives::{v6, Ticker};
 
     decl_storage! {
         trait Store for Module<T: Config> as ExternalAgents {
@@ -27,7 +27,7 @@ mod v0 {
 
             // This storage changed the Ticker key to AssetID.
             pub GroupPermissions get(fn permissions):
-                double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) AGId => Option<ExtrinsicPermissions>;
+                double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) AGId => Option<v6::ExtrinsicPermissions>;
         }
 
     }
@@ -92,7 +92,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         let asset_id = ticker_to_asset_id
             .entry(ticker)
             .or_insert(AssetID::from(ticker));
-        GroupPermissions::insert(asset_id, ag_id, ext_perms);
+        GroupPermissions::insert(asset_id, ag_id, ExtrinsicPermissions::from(ext_perms));
     });
     log::info!("{:?} items migrated", count);
 }

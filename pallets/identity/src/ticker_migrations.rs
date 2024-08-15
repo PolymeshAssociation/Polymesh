@@ -4,29 +4,26 @@ use super::*;
 
 mod v6 {
     use scale_info::TypeInfo;
-    use sp_std::collections::btree_set::BTreeSet;
 
     use super::*;
     use polymesh_primitives::{
-        agent::AgentGroup, Balance, CountryCode, ExtrinsicPermissions, Moment, PortfolioId,
-        PortfolioPermissions, Ticker,
+        agent::AgentGroup, v6::Permissions, Balance, CountryCode, Moment, PortfolioId, Ticker,
     };
 
-    #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+    #[derive(Encode, Decode, TypeInfo)]
     pub struct Claim2ndKey {
         pub issuer: IdentityId,
         pub scope: Option<Scope>,
     }
 
     #[derive(Encode, Decode, TypeInfo)]
-    #[derive(Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
     pub enum Scope {
         Identity(IdentityId),
         Ticker(Ticker),
         Custom(Vec<u8>),
     }
 
-    #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq)]
+    #[derive(Encode, Decode, TypeInfo)]
     pub struct IdentityClaim {
         pub claim_issuer: IdentityId,
         pub issuance_date: Moment,
@@ -35,7 +32,7 @@ mod v6 {
         pub claim: Claim,
     }
 
-    #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, Hash)]
+    #[derive(Encode, Decode, TypeInfo)]
     pub enum Claim {
         Accredited(Scope),
         Affiliate(Scope),
@@ -50,31 +47,13 @@ mod v6 {
     }
 
     #[derive(Encode, Decode, TypeInfo)]
-    #[derive(Clone, Debug, PartialEq, Eq)]
     pub enum KeyRecord<AccountId> {
         PrimaryKey(IdentityId),
         SecondaryKey(IdentityId, Permissions),
         MultiSigSignerKey(AccountId),
     }
 
-    #[derive(Decode, Encode, TypeInfo)]
-    #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-    pub struct Permissions {
-        pub asset: AssetPermissions,
-        pub extrinsic: ExtrinsicPermissions,
-        pub portfolio: PortfolioPermissions,
-    }
-
-    pub type AssetPermissions = SubsetRestriction;
-
-    #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-    pub enum SubsetRestriction {
-        Whole,
-        These(BTreeSet<Ticker>),
-        Except(BTreeSet<Ticker>),
-    }
-
-    #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Debug)]
+    #[derive(Encode, Decode, TypeInfo)]
     pub struct Authorization<AccountId, Moment> {
         pub authorization_data: AuthorizationData<AccountId>,
         pub authorized_by: IdentityId,
@@ -83,7 +62,7 @@ mod v6 {
         pub count: u32,
     }
 
-    #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+    #[derive(Encode, Decode, TypeInfo)]
     pub enum AuthorizationData<AccountId> {
         AttestPrimaryKeyRotation(IdentityId),
         RotatePrimaryKey,
@@ -165,44 +144,6 @@ impl From<v6::IdentityClaim> for IdentityClaim {
     }
 }
 
-use polymesh_primitives::AssetPermissions;
-
-impl From<v6::AssetPermissions> for AssetPermissions {
-    fn from(v6_asset_perms: v6::AssetPermissions) -> Self {
-        match v6_asset_perms {
-            v6::AssetPermissions::Whole => AssetPermissions::Whole,
-            v6::AssetPermissions::These(tickers) => {
-                AssetPermissions::These(tickers.into_iter().map(|t| t.into()).collect())
-            }
-            v6::AssetPermissions::Except(tickers) => {
-                AssetPermissions::Except(tickers.into_iter().map(|t| t.into()).collect())
-            }
-        }
-    }
-}
-
-impl From<v6::Permissions> for Permissions {
-    fn from(v6_perms: v6::Permissions) -> Self {
-        Permissions {
-            asset: v6_perms.asset.into(),
-            extrinsic: v6_perms.extrinsic,
-            portfolio: v6_perms.portfolio,
-        }
-    }
-}
-
-impl<T> From<v6::KeyRecord<T>> for KeyRecord<T> {
-    fn from(v6_key_record: v6::KeyRecord<T>) -> Self {
-        match v6_key_record {
-            v6::KeyRecord::PrimaryKey(did) => KeyRecord::PrimaryKey(did),
-            v6::KeyRecord::SecondaryKey(did, permissions) => {
-                KeyRecord::SecondaryKey(did, permissions.into())
-            }
-            v6::KeyRecord::MultiSigSignerKey(acc) => KeyRecord::MultiSigSignerKey(acc),
-        }
-    }
-}
-
 impl<T> From<v6::AuthorizationData<T>> for AuthorizationData<T> {
     fn from(v6_auth_data: v6::AuthorizationData<T>) -> Self {
         match v6_auth_data {
@@ -266,7 +207,22 @@ pub(crate) fn migrate_to_v7<T: Config>() {
 
     log::info!("Updating types for the KeyRecords storage");
     v6::KeyRecords::<T>::drain().for_each(|(acc_id, key_record)| {
-        KeyRecords::<T>::insert(acc_id, KeyRecord::from(key_record));
+        let key_record = match key_record {
+            v6::KeyRecord::PrimaryKey(did) => KeyRecord::PrimaryKey(did),
+            v6::KeyRecord::SecondaryKey(did, perms) => {
+                // Move secondary key permissions into split storage.
+                KeyAssetPermissions::<T>::insert(&acc_id, AssetPermissions::from(perms.asset));
+                KeyExtrinsicPermissions::<T>::insert(
+                    &acc_id,
+                    ExtrinsicPermissions::from(perms.extrinsic),
+                );
+                KeyPortfolioPermissions::<T>::insert(&acc_id, perms.portfolio);
+                // KeyRecord no longer has the permissions.
+                KeyRecord::SecondaryKey(did)
+            }
+            v6::KeyRecord::MultiSigSignerKey(acc) => KeyRecord::MultiSigSignerKey(acc),
+        };
+        KeyRecords::<T>::insert(acc_id, key_record);
     });
 
     log::info!("Updating types for the Authorizations storage");

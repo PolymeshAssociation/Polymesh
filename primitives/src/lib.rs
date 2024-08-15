@@ -148,6 +148,9 @@ pub use jurisdiction::CountryCode;
 /// Utilities for storage migration.
 pub mod migrate;
 
+/// Old v6 types.
+pub mod v6;
+
 /// This module contains entities related with secondary keys.
 pub mod secondary_key;
 pub use secondary_key::{
