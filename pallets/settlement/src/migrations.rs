@@ -36,6 +36,17 @@ mod v2 {
         pub ids: Vec<NFTId>,
     }
 
+    #[derive(Encode, Decode, TypeInfo)]
+    #[derive(Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+    pub struct Instruction<Moment, BlockNumber> {
+        pub instruction_id: InstructionId,
+        pub venue_id: VenueId,
+        pub settlement_type: SettlementType<BlockNumber>,
+        pub created_at: Option<Moment>,
+        pub trade_date: Option<Moment>,
+        pub value_date: Option<Moment>,
+    }
+
     decl_storage! {
         trait Store for Module<T: Config> as Settlement {
             // This storage changed the Ticker key to AssetID.
@@ -49,6 +60,9 @@ mod v2 {
             // This storage changed the Leg type.
             pub(crate) InstructionLegs get(fn instruction_legs):
                 double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => Option<Leg>;
+
+            pub(crate) InstructionDetails get(fn instruction_details):
+                map hasher(twox_64_concat) InstructionId => Instruction<T::Moment, T::BlockNumber>;
 
         }
     }
@@ -95,6 +109,19 @@ impl From<v2::Leg> for Leg {
     }
 }
 
+impl<T, S> From<v2::Instruction<T, S>> for Instruction<T, S> {
+    fn from(v2_instruction: v2::Instruction<T, S>) -> Instruction<T, S> {
+        Instruction {
+            instruction_id: v2_instruction.instruction_id,
+            venue_id: Some(v2_instruction.venue_id),
+            settlement_type: v2_instruction.settlement_type,
+            created_at: v2_instruction.created_at,
+            trade_date: v2_instruction.trade_date,
+            value_date: v2_instruction.value_date,
+        }
+    }
+}
+
 pub(crate) fn migrate_to_v3<T: Config>() {
     RuntimeLogger::init();
     let mut ticker_to_asset_id = BTreeMap::new();
@@ -128,6 +155,14 @@ pub(crate) fn migrate_to_v3<T: Config>() {
     v2::InstructionLegs::drain().for_each(|(instruction_id, leg_id, leg)| {
         count += 1;
         InstructionLegs::insert(instruction_id, leg_id, Leg::from(leg));
+    });
+    log::info!("{:?} items migrated", count);
+
+    let mut count = 0;
+    log::info!("Updating types for the InstructionDetails storage");
+    v2::InstructionDetails::<T>::drain().for_each(|(id, inst)| {
+        count += 1;
+        InstructionDetails::<T>::insert(id, Instruction::from(inst));
     });
     log::info!("{:?} items migrated", count);
 }

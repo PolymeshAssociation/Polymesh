@@ -146,7 +146,7 @@ pub struct Instruction<Moment, BlockNumber> {
     /// Unique instruction id. It is an auto incrementing number
     pub instruction_id: InstructionId,
     /// Id of the venue this instruction belongs to
-    pub venue_id: VenueId,
+    pub venue_id: Option<VenueId>,
     /// Type of settlement used for this instruction
     pub settlement_type: SettlementType<BlockNumber>,
     /// Date at which this instruction was created

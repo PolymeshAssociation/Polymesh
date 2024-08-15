@@ -12,7 +12,7 @@ type Nft = pallet_nft::Module<TestStorage>;
 type Settlement = pallet_settlement::Module<TestStorage>;
 
 /// Calls [`create_and_issue_sample_asset`] and creates a venue for `asset_owner`.
-pub fn create_and_issue_sample_asset_with_venue(asset_owner: &User) -> (AssetID, VenueId) {
+pub fn create_and_issue_sample_asset_with_venue(asset_owner: &User) -> (AssetID, Option<VenueId>) {
     let asset_id = create_and_issue_sample_asset(&asset_owner);
 
     let venue_id = Settlement::venue_counter();
@@ -23,5 +23,5 @@ pub fn create_and_issue_sample_asset_with_venue(asset_owner: &User) -> (AssetID,
         VenueType::Other
     ));
 
-    (asset_id, venue_id)
+    (asset_id, Some(venue_id))
 }
