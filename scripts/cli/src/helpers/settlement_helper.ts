@@ -83,7 +83,7 @@ export async function withdrawInstruction(
   did: IdentityId
 ): Promise<void> {
   const api = await ApiSingleton.getInstance();
-  const transaction = api.tx.settlement.withdrawInstruction(
+  const transaction = api.tx.settlement.withdrawAffirmation(
     instructionCounter,
     [getDefaultPortfolio(did)]
   );
@@ -178,46 +178,4 @@ export async function addGroupInstruction(
 
   await sendTx(signer, transaction);
   return instructionCounter;
-}
-
-/**
- * @description Creates a Claim Receipt
- * @param {KeyringPair} signer - KeyringPair
- * @param {IdentityId} signerDid - IdentityId
- * @param {IdentityId} receiverDid - IdentityId
- * @param {Ticker} ticker - Ticker
- * @param {Ticker} amount - number
- * @param {number} instructionCounter - number
- * @return {Promise<void>}
- */
-async function claimReceipt(
-  signer: KeyringPair,
-  signerDid: IdentityId,
-  receiverDid: IdentityId,
-  ticker: Ticker,
-  amount: number,
-  instructionCounter: number
-): Promise<void> {
-  const api = await ApiSingleton.getInstance();
-
-  let msg = {
-    receipt_uid: 0,
-    from: signerDid,
-    to: receiverDid,
-    asset: ticker,
-    amount: amount,
-  };
-
-  let receiptDetails = {
-    receipt_uid: 0,
-    leg_id: 0,
-    signer: signer.address,
-    signature: 1,
-  };
-
-  const transaction = api.tx.settlement.claimReceipt(
-    instructionCounter,
-    receiptDetails
-  );
-  await sendTx(signer, transaction);
 }

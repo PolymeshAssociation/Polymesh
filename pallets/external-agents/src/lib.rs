@@ -551,9 +551,6 @@ impl<T: Config> Module<T> {
     fn agent_permissions(asset_id: &AssetID, agent: IdentityId) -> ExtrinsicPermissions {
         let pallet = |p: &str| PalletPermissions::entire_pallet(p.into());
         let in_pallet = |p: &str, dns| PalletPermissions::new(p.into(), dns);
-        fn elems<T: Ord, const N: usize>(elems: [T; N]) -> SubsetRestriction<T> {
-            SubsetRestriction::elems(elems)
-        }
         match GroupOfAgent::get(asset_id, agent) {
             None => ExtrinsicPermissions::empty(),
             Some(AgentGroup::Full) => ExtrinsicPermissions::default(),
@@ -561,20 +558,22 @@ impl<T: Config> Module<T> {
                 GroupPermissions::get(asset_id, ag_id).unwrap_or_else(ExtrinsicPermissions::empty)
             }
             // Anything but extrinsics in this pallet.
-            Some(AgentGroup::ExceptMeta) => SubsetRestriction::except(pallet("ExternalAgents")),
+            Some(AgentGroup::ExceptMeta) => {
+                ExtrinsicPermissions::except([pallet("ExternalAgents")])
+            }
             // Pallets `CorporateAction`, `CorporateBallot`, and `CapitalDistribution`.
-            Some(AgentGroup::PolymeshV1CAA) => elems([
+            Some(AgentGroup::PolymeshV1CAA) => ExtrinsicPermissions::these([
                 pallet("CorporateAction"),
                 pallet("CorporateBallot"),
                 pallet("CapitalDistribution"),
             ]),
-            Some(AgentGroup::PolymeshV1PIA) => elems([
+            Some(AgentGroup::PolymeshV1PIA) => ExtrinsicPermissions::these([
                 // All in `Sto` except `Sto::invest`.
                 in_pallet("Sto", SubsetRestriction::except("invest".into())),
                 // Asset::{issue, redeem, controller_transfer}.
                 in_pallet(
                     "Asset",
-                    elems([
+                    SubsetRestriction::elems([
                         "issue".into(),
                         "redeem".into(),
                         "controller_transfer".into(),

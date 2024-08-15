@@ -11,7 +11,7 @@ use pallet_permissions::StoreCallMetadata;
 use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::{
     agent::{AGId, AgentGroup},
-    AuthorizationData, ExtrinsicPermissions, PalletPermissions, Signatory, SubsetRestriction,
+    AuthorizationData, ExtrinsicPermissions, PalletPermissions, Signatory,
 };
 use sp_keyring::AccountKeyring;
 
@@ -22,13 +22,13 @@ type Id = pallet_identity::Module<TestStorage>;
 
 fn set_extrinsic(name: &str) {
     StoreCallMetadata::<TestStorage>::set_call_metadata(
-        b"pallet_external_agent".into(),
+        "pallet_external_agent".into(),
         name.into(),
     );
 }
 
 fn make_perms(pallet: &str) -> ExtrinsicPermissions {
-    SubsetRestriction::elem(PalletPermissions::entire_pallet(pallet.into()))
+    ExtrinsicPermissions::these([PalletPermissions::entire_pallet(pallet.into())])
 }
 
 fn add_become_agent(

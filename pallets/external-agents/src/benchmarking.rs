@@ -18,8 +18,7 @@ use frame_benchmarking::benchmarks;
 use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, user, AccountIdOf, User};
 use polymesh_common_utilities::traits::asset::Config as Asset;
 use polymesh_common_utilities::TestUtilsFn;
-use polymesh_primitives::{AuthorizationData, ExtrinsicPermissions, PalletPermissions};
-use scale_info::prelude::format;
+use polymesh_primitives::{AuthorizationData, ExtrinsicPermissions, PalletName, PalletPermissions};
 use sp_std::prelude::*;
 
 pub(crate) const SEED: u32 = 0;
@@ -32,9 +31,8 @@ fn setup<T: Asset + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, AssetID) {
 }
 
 fn perms(n: u32) -> ExtrinsicPermissions {
-    ExtrinsicPermissions::elems(
-        (0..=n as u64)
-            .map(|w| PalletPermissions::entire_pallet(format!("Pallet{}", w).as_bytes().into())),
+    ExtrinsicPermissions::these(
+        (0..=n as u64).map(|w| (PalletName::generate(w), PalletPermissions::whole())),
     )
 }
 

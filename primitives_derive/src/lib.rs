@@ -11,6 +11,7 @@ mod migrate;
 mod ristretto_strong_typed;
 mod serialize_u8_strong_typed;
 mod slice_u8_strong_typed;
+mod string_strong_typed;
 mod vec_u8_strong_typed;
 
 use crate::{
@@ -18,7 +19,7 @@ use crate::{
     ristretto_strong_typed::impl_ristretto_strong_typed,
     serialize_u8_strong_typed::impl_serialize_u8_strong_typed,
     slice_u8_strong_typed::impl_slice_u8_strong_typed,
-    vec_u8_strong_typed::impl_vec_u8_strong_typed,
+    string_strong_typed::impl_string_strong_typed, vec_u8_strong_typed::impl_vec_u8_strong_typed,
 };
 
 /// Implements all utility method for *strong typed* based on `RistrettoPoint` inner type.
@@ -33,6 +34,13 @@ pub fn ristretto_strong_typed_derive(input: TokenStream) -> TokenStream {
 pub fn vec_u8_strong_typed_derive(input: TokenStream) -> TokenStream {
     let ast = syn::parse(input).unwrap();
     impl_vec_u8_strong_typed(&ast)
+}
+
+/// Implements all utility method for *strong typed* based on `String` inner type.
+#[proc_macro_derive(StringStrongTyped)]
+pub fn string_strong_typed_derive(input: TokenStream) -> TokenStream {
+    let ast = syn::parse(input).unwrap();
+    impl_string_strong_typed(&ast)
 }
 
 /// Implements all utility method for *strong typed* based on `[u8]` inner type.

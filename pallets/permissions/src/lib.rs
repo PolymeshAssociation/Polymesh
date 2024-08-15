@@ -20,6 +20,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
@@ -31,7 +33,7 @@ use frame_support::{
     traits::{CallMetadata, GetCallMetadata},
 };
 use polymesh_common_utilities::traits::{AccountCallPermissionsData, CheckAccountCallPermissions};
-use polymesh_primitives::{DispatchableName, PalletName};
+use polymesh_primitives::{ExtrinsicName, PalletName};
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
@@ -46,7 +48,7 @@ decl_storage! {
         /// The name of the current pallet (aka module name).
         pub CurrentPalletName get(fn current_pallet_name): PalletName;
         /// The name of the current function (aka extrinsic).
-        pub CurrentDispatchableName get(fn current_dispatchable_name): DispatchableName;
+        pub CurrentDispatchableName get(fn current_dispatchable_name): ExtrinsicName;
     }
 }
 
@@ -105,9 +107,9 @@ impl<T: Config> StoreCallMetadata<T> {
     }
 
     /// Stores call metadata in runtime storage.
-    pub fn set_call_metadata(pallet_name: PalletName, dispatchable_name: DispatchableName) {
+    pub fn set_call_metadata(pallet_name: PalletName, extrinsic_name: ExtrinsicName) {
         CurrentPalletName::put(pallet_name);
-        CurrentDispatchableName::put(dispatchable_name);
+        CurrentDispatchableName::put(extrinsic_name);
     }
 
     /// Erases call metadata from runtime storage.
@@ -150,10 +152,7 @@ where
         _: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
         let metadata = call.get_call_metadata();
-        Self::set_call_metadata(
-            metadata.pallet_name.as_bytes().into(),
-            metadata.function_name.as_bytes().into(),
-        );
+        Self::set_call_metadata(metadata.pallet_name.into(), metadata.function_name.into());
         Ok(())
     }
 
@@ -177,11 +176,9 @@ pub fn with_call_metadata<Succ, Err>(
     metadata: CallMetadata,
     tx: impl FnOnce() -> Result<Succ, Err>,
 ) -> Result<Succ, Err> {
-    // Set the dispatchable call metadata and save the current call metadata.
-    let (pallet_name, function_name) = swap_call_metadata(
-        metadata.pallet_name.as_bytes().into(),
-        metadata.function_name.as_bytes().into(),
-    );
+    // Set the extrinsic call metadata and save the current call metadata.
+    let (pallet_name, function_name) =
+        swap_call_metadata(metadata.pallet_name.into(), metadata.function_name.into());
     let result = tx();
     // Restore the current call metadata.
     let _ = swap_call_metadata(pallet_name, function_name);
@@ -192,10 +189,10 @@ pub fn with_call_metadata<Succ, Err>(
 /// replaced call metadata.
 pub fn swap_call_metadata(
     pallet_name: PalletName,
-    dispatchable_name: DispatchableName,
-) -> (PalletName, DispatchableName) {
+    extrinsic_name: ExtrinsicName,
+) -> (PalletName, ExtrinsicName) {
     (
         CurrentPalletName::mutate(|s| mem::replace(s, pallet_name)),
-        CurrentDispatchableName::mutate(|s| mem::replace(s, dispatchable_name)),
+        CurrentDispatchableName::mutate(|s| mem::replace(s, extrinsic_name)),
     )
 }

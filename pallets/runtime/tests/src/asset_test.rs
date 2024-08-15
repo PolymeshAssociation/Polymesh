@@ -953,7 +953,7 @@ fn secondary_key_not_authorized_for_asset_test() {
 
             add_secondary_key(alice.did, bob.acc());
             add_secondary_key_with_perms(alice.did, eve.acc(), eve_permissions);
-            StoreCallMetadata::set_call_metadata(b"pallet_asset".into(), b"issuer".into());
+            StoreCallMetadata::set_call_metadata("pallet_asset".into(), "issuer".into());
 
             assert_noop!(
                 Asset::issue(eve.origin(), asset_id, 1_000, PortfolioKind::Default),

@@ -27,7 +27,7 @@ import type { IdentityId } from "../interfaces";
 import { assert } from "chai";
 import { Option } from "@polkadot/types-codec";
 
-let block_sizes: Number[] = [];
+let block_sizes: number[] = [];
 let block_times: Number[] = [];
 let genesisEntities: KeyringPair[] = [];
 let synced_block = 0;
@@ -139,7 +139,7 @@ export async function generateEntity(name: string): Promise<KeyringPair> {
 }
 
 export async function generateKeys(
-  numberOfKeys: Number,
+  numberOfKeys: number,
   keyPrepend: String
 ): Promise<KeyringPair[]> {
   let keys = [];
@@ -224,7 +224,7 @@ export async function keyToIdentityIds(
     if (rec.isPrimaryKey) {
       return rec.asPrimaryKey;
     } else if (rec.isSecondaryKey) {
-      return rec.asSecondaryKey[0];
+      return rec.asSecondaryKey;
     }
   }
   return <IdentityId>(0 as unknown);

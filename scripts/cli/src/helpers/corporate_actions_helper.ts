@@ -48,7 +48,6 @@ export async function initiateCorporateAction(
   details: string,
   defaultWithholdingTax: string | null,
   withholdingTax: string | null,
-  targets: KeyringPair[] | null
 ) {
   const api = await ApiSingleton.getInstance();
   console.log("making checkpoint");
@@ -63,7 +62,7 @@ export async function initiateCorporateAction(
     details,
     defaultWithholdingTax,
     withholdingTax,
-    targets
+    null,
   );
   await sendTx(signer, transaction);
 }

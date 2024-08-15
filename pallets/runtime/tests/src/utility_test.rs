@@ -20,8 +20,8 @@ use pallet_utility::{
 };
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_primitives::{
-    AccountId, Balance, PalletPermissions, Permissions, PortfolioName, PortfolioNumber,
-    SubsetRestriction, Ticker,
+    AccountId, Balance, ExtrinsicPermissions, PalletPermissions, Permissions, PortfolioName,
+    PortfolioNumber, SubsetRestriction, Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_keyring::AccountKeyring;
@@ -342,17 +342,17 @@ fn batch_secondary_with_permissions() {
 
     // Set and check Bob's permissions.
     let bob_pallet_permissions = vec![
-        PalletPermissions::new(b"Identity".into(), SubsetRestriction::Whole),
+        PalletPermissions::new("Identity".into(), SubsetRestriction::Whole),
         PalletPermissions::new(
-            b"Portfolio".into(),
+            "Portfolio".into(),
             SubsetRestriction::elems(vec![
-                b"move_portfolio_funds".into(),
-                b"rename_portfolio".into(),
+                "move_portfolio_funds".into(),
+                "rename_portfolio".into(),
             ]),
         ),
     ];
     let bob_permissions = Permissions {
-        extrinsic: SubsetRestriction::These(bob_pallet_permissions.into_iter().collect()),
+        extrinsic: ExtrinsicPermissions::these(bob_pallet_permissions.into_iter()),
         ..Permissions::default()
     };
     assert_ok!(Identity::set_secondary_key_permissions(
@@ -361,14 +361,14 @@ fn batch_secondary_with_permissions() {
         bob_permissions,
     ));
     let bob_secondary_key = &get_secondary_keys(alice.did)[0];
-    let check_permission = |name: &[u8], t| {
+    let check_permission = |name: &str, t| {
         assert_eq!(
             t,
-            bob_secondary_key.has_extrinsic_permission(&b"Portfolio".into(), &name.into())
+            bob_secondary_key.has_extrinsic_permission(&"Portfolio".into(), &name.into())
         );
     };
-    check_permission(b"rename_portfolio", true);
-    check_permission(b"create_portfolio", false);
+    check_permission("rename_portfolio", true);
+    check_permission("create_portfolio", false);
 
     // Call a disallowed extrinsic.
     let high_risk_name: PortfolioName = b"high risk".into();
