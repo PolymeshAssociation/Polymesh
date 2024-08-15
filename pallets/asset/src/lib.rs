@@ -906,7 +906,7 @@ impl<T: Config> Module<T> {
         <Identity<T>>::accept_auth_with(&caller_did.into(), auth_id, |auth_data, auth_by| {
             let asset_id = extract_auth!(auth_data, TransferAssetOwnership(asset_id));
 
-            let mut asset_details = Self::try_get_security_token(&asset_id)?;
+            let mut asset_details = Self::try_get_asset_details(&asset_id)?;
 
             // Ensure the authorization was created by a permissioned agent.
             <ExternalAgents<T>>::ensure_agent_permissioned(&asset_id, auth_by)?;
@@ -1013,7 +1013,7 @@ impl<T: Config> Module<T> {
             false,
         )?;
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
-        let mut asset_details = Self::try_get_security_token(&asset_id)?;
+        let mut asset_details = Self::try_get_asset_details(&asset_id)?;
         Self::validate_issuance_rules(&asset_details, amount_to_issue)?;
         Self::unverified_issue_tokens(
             asset_id,
@@ -1041,7 +1041,7 @@ impl<T: Config> Module<T> {
             true,
         )?;
 
-        let mut asset_details = Self::try_get_security_token(&asset_id)?;
+        let mut asset_details = Self::try_get_asset_details(&asset_id)?;
         Self::ensure_token_granular(&asset_details, &value)?;
 
         // Ensures the token is fungible
@@ -1768,7 +1768,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns the [`AssetDetails`] associated to `asset_id`, if one exists. Otherwise, returns [`Error::NoSuchAsset`].
-    pub fn try_get_security_token(asset_id: &AssetID) -> Result<AssetDetails, DispatchError> {
+    pub fn try_get_asset_details(asset_id: &AssetID) -> Result<AssetDetails, DispatchError> {
         let asset_details = Assets::try_get(asset_id).or(Err(Error::<T>::NoSuchAsset))?;
         Ok(asset_details)
     }
@@ -1935,7 +1935,7 @@ impl<T: Config> Module<T> {
         is_controller_transfer: bool,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        let asset_details = Self::try_get_security_token(&asset_id)?;
+        let asset_details = Self::try_get_asset_details(&asset_id)?;
         ensure!(
             asset_details.asset_type.is_fungible(),
             Error::<T>::UnexpectedNonFungibleToken
@@ -2570,7 +2570,7 @@ impl<T: Config> Module<T> {
 
 impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
     fn ensure_granular(asset_id: &AssetID, value: Balance) -> DispatchResult {
-        let asset_details = Self::try_get_security_token(&asset_id)?;
+        let asset_details = Self::try_get_asset_details(&asset_id)?;
         Self::ensure_token_granular(&asset_details, &value)
     }
 

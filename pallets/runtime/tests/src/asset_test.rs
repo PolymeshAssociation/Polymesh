@@ -123,7 +123,7 @@ pub(crate) fn statistics_investor_count(asset_id: AssetID) -> u128 {
 }
 
 /// Returns the [`AssetDetails`] associated to the given `asset_id`.
-pub(crate) fn get_security_token(asset_id: &AssetID) -> AssetDetails {
+pub(crate) fn get_asset_details(asset_id: &AssetID) -> AssetDetails {
     Assets::get(asset_id).unwrap()
 }
 
@@ -241,7 +241,7 @@ fn issuers_can_create_and_rename_tokens() {
         assert_eq!(statistics_investor_count(asset_id), 1);
 
         // A correct entry is added
-        assert_eq!(get_security_token(&asset_id), sample_security_token);
+        assert_eq!(get_asset_details(&asset_id), sample_security_token);
         assert_eq!(SecurityTokensOwnedByUser::get(owner.did, asset_id), true);
         assert_eq!(Asset::funding_round(asset_id), funding_round_name.clone());
 
@@ -252,7 +252,7 @@ fn issuers_can_create_and_rename_tokens() {
             EAError::UnauthorizedAgent
         );
         // The token should remain unchanged in storage.
-        assert_eq!(get_security_token(&asset_id), sample_security_token);
+        assert_eq!(get_asset_details(&asset_id), sample_security_token);
         // Rename the token and check storage has been updated.
         let new: AssetName = [0x42].into();
         assert_ok!(Asset::rename_asset(owner.origin(), asset_id, new.clone()));
@@ -320,7 +320,7 @@ fn issuers_can_redeem_tokens() {
 
         assert_eq!(PortfolioAssetCount::get(owner_portfolio_id), 0);
         assert_eq!(Asset::balance_of(&asset_id, owner.did), 0);
-        assert_eq!(get_security_token(&asset_id).total_supply, 0);
+        assert_eq!(get_asset_details(&asset_id).total_supply, 0);
 
         assert_noop!(
             Asset::redeem(owner.origin(), asset_id, 1, PortfolioKind::Default),
@@ -437,7 +437,7 @@ fn transfer_token_ownership() {
         )
         .unwrap();
 
-        assert_eq!(get_security_token(&asset_id).owner_did, owner.did);
+        assert_eq!(get_asset_details(&asset_id).owner_did, owner.did);
 
         assert_noop!(
             Asset::accept_asset_ownership_transfer(alice.origin(), auth_id_alice + 1),
@@ -450,7 +450,7 @@ fn transfer_token_ownership() {
             alice.origin(),
             auth_id_alice
         ));
-        assert_eq!(get_security_token(&asset_id).owner_did, alice.did);
+        assert_eq!(get_asset_details(&asset_id).owner_did, alice.did);
         assert_eq!(SecurityTokensOwnedByUser::get(owner.did, asset_id), false);
         assert_eq!(SecurityTokensOwnedByUser::get(alice.did, asset_id), true);
 
@@ -517,7 +517,7 @@ fn transfer_token_ownership() {
             bob.origin(),
             auth_id
         ));
-        assert_eq!(get_security_token(&asset_id).owner_did, bob.did);
+        assert_eq!(get_asset_details(&asset_id).owner_did, bob.did);
     })
 }
 
@@ -679,7 +679,7 @@ fn frozen_secondary_keys_create_asset_we() {
         // 2. Bob can create token
         let asset_id = create_and_issue_sample_asset(&alice);
         assert_eq!(
-            get_security_token(&asset_id),
+            get_asset_details(&asset_id),
             sample_security_token(alice.did)
         );
 
@@ -968,7 +968,7 @@ fn secondary_key_not_authorized_for_asset_test() {
             ));
 
             assert_eq!(
-                get_security_token(&asset_id).total_supply,
+                get_asset_details(&asset_id).total_supply,
                 ISSUE_AMOUNT + 1_000
             );
         });
@@ -1266,7 +1266,7 @@ fn issuers_can_redeem_tokens_from_portfolio() {
             ));
 
             assert_eq!(Asset::balance_of(&asset_id, owner.did), ISSUE_AMOUNT / 2);
-            assert_eq!(get_security_token(&asset_id).total_supply, ISSUE_AMOUNT / 2);
+            assert_eq!(get_asset_details(&asset_id).total_supply, ISSUE_AMOUNT / 2);
 
             // Add auth for custody to be moved to bob
             let auth_id = Identity::add_auth(
@@ -1366,7 +1366,7 @@ fn issuers_can_change_asset_type() {
             AssetType::EquityPreferred
         ));
         assert_eq!(
-            get_security_token(&asset_id).asset_type,
+            get_asset_details(&asset_id).asset_type,
             AssetType::EquityPreferred
         );
     })
@@ -2006,7 +2006,7 @@ fn issue_tokens_user_portfolio() {
             0
         );
         assert_eq!(BalanceOf::get(&asset_id, &alice.did), ISSUE_AMOUNT);
-        assert_eq!(get_security_token(&asset_id).total_supply, ISSUE_AMOUNT);
+        assert_eq!(get_asset_details(&asset_id).total_supply, ISSUE_AMOUNT);
         assert_eq!(PortfolioAssetCount::get(alice_user_portfolio), 1);
         assert_eq!(PortfolioAssetCount::get(alice_default_portfolio), 0);
     });
