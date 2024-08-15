@@ -5187,6 +5187,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-asset",
  "pallet-balances 0.1.0",
  "pallet-base",
@@ -5267,6 +5268,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-asset",
  "pallet-balances 0.1.0",
  "pallet-base",
@@ -5334,6 +5336,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-base",
  "pallet-identity",
  "pallet-permissions",
@@ -5344,6 +5347,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_derive",
+ "sp-runtime",
  "sp-std 5.0.0",
 ]
 
@@ -5623,6 +5627,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-balances 0.1.0",
  "pallet-base",
  "pallet-identity",
@@ -5633,6 +5638,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-arithmetic",
+ "sp-runtime",
  "sp-std 5.0.0",
 ]
 
@@ -5912,6 +5918,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-asset",
  "pallet-balances 0.1.0",
  "pallet-base",
@@ -6552,7 +6559,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh"
-version = "6.3.3"
+version = "7.0.0"
 dependencies = [
  "clap 4.4.11",
  "frame-benchmarking",
@@ -6803,7 +6810,6 @@ dependencies = [
  "frame-system",
  "pallet-authorship",
  "pallet-balances 0.1.0",
- "pallet-bridge",
  "pallet-committee",
  "pallet-election-provider-multi-phase",
  "pallet-group-rpc-runtime-api",

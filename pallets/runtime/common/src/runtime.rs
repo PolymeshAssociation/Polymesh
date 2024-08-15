@@ -145,7 +145,6 @@ macro_rules! misc_pallet_impls {
                 use polymesh_runtime_common::fee_details::Call::*;
                 Ok(match call {
                     RuntimeCall::Identity(x) => Identity(x),
-                    RuntimeCall::Bridge(x) => Bridge(x),
                     RuntimeCall::MultiSig(x) => MultiSig(x),
                     RuntimeCall::Relayer(x) => Relayer(x),
                     _ => return Err(()),
@@ -283,16 +282,12 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_multisig::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
-            type Scheduler = Scheduler;
-            type SchedulerCall = RuntimeCall;
+            type Proposal = RuntimeCall;
             type WeightInfo = polymesh_weights::pallet_multisig::SubstrateWeight;
+            type MaxSigners = MaxMultiSigSigners;
         }
 
-        impl pallet_bridge::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
-            type Proposal = RuntimeCall;
-            type Scheduler = Scheduler;
-        }
+        impl pallet_bridge::Config for Runtime {}
 
         impl pallet_portfolio::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
@@ -683,7 +678,7 @@ macro_rules! runtime_apis {
         use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
-        use polymesh_primitives::asset::GranularCanTransferResult;
+        use polymesh_primitives::asset::AssetID;
         use polymesh_primitives::settlement::{InstructionId, ExecuteInstructionInfo, AffirmationCount};
         use polymesh_primitives::compliance_manager::{AssetComplianceResult, ComplianceReport};
         use polymesh_primitives::{
@@ -1019,12 +1014,6 @@ macro_rules! runtime_apis {
                         .ok_or_else(|| "Either cdd claim is expired or not yet provided to give identity".into())
                 }
 
-                /// RPC call to query the given ticker did
-                fn get_asset_did(ticker: Ticker) -> AssetDidResult {
-                    Identity::get_token_did(&ticker)
-                        .map_err(|_| "Error in computing the given ticker error".into())
-                }
-
                 /// Retrieve primary key and secondary keys for a given IdentityId
                 fn get_did_records(did: IdentityId) -> RpcDidRecords<polymesh_primitives::AccountId> {
                     Identity::get_did_records(did)
@@ -1054,25 +1043,21 @@ macro_rules! runtime_apis {
                 }
             }
 
-            impl rpc_api_asset::AssetApi<Block, polymesh_primitives::AccountId> for Runtime {
-                #[inline]
-                fn can_transfer_granular(
-                    from_custodian: Option<IdentityId>,
-                    from_portfolio: PortfolioId,
-                    to_custodian: Option<IdentityId>,
-                    to_portfolio: PortfolioId,
-                    ticker: &Ticker,
-                    value: Balance
-                ) -> FrameResult<GranularCanTransferResult, DispatchError>
-                {
+            impl rpc_api_asset::AssetApi<Block> for Runtime {
+                fn transfer_report(
+                    sender_portfolio: PortfolioId,
+                    receiver_portfolio: PortfolioId,
+                    asset_id: AssetID,
+                    transfer_value: Balance,
+                    skip_locked_check: bool,
+                ) -> Vec<DispatchError> {
                     let mut weight_meter = WeightMeter::max_limit_no_minimum();
-                    Asset::unsafe_can_transfer_granular(
-                        from_custodian,
-                        from_portfolio,
-                        to_custodian,
-                        to_portfolio,
-                        ticker,
-                        value,
+                    Asset::asset_transfer_report(
+                        &sender_portfolio,
+                        &receiver_portfolio,
+                        &asset_id,
+                        transfer_value,
+                        skip_locked_check,
                         &mut weight_meter
                     )
                 }
@@ -1094,18 +1079,19 @@ macro_rules! runtime_apis {
 
             impl node_rpc_runtime_api::nft::NFTApi<Block> for Runtime {
                 #[inline]
-                fn validate_nft_transfer(
-                    sender_portfolio: &PortfolioId,
-                    receiver_portfolio: &PortfolioId,
-                    nfts: &NFTs
-                ) -> frame_support::dispatch::DispatchResult {
+                fn transfer_report(
+                    sender_portfolio: PortfolioId,
+                    receiver_portfolio: PortfolioId,
+                    nfts: NFTs,
+                    skip_locked_check: bool,
+                ) -> Vec<DispatchError> {
                     let mut weight_meter = WeightMeter::max_limit_no_minimum();
-                    Nft::validate_nft_transfer(
-                        sender_portfolio,
-                        receiver_portfolio,
-                        nfts,
-                        false,
-                        Some(&mut weight_meter)
+                    Nft::nft_transfer_report(
+                        &sender_portfolio,
+                        &receiver_portfolio,
+                        &nfts,
+                        skip_locked_check,
+                        &mut weight_meter
                     )
                 }
             }
@@ -1143,13 +1129,13 @@ macro_rules! runtime_apis {
             impl node_rpc_runtime_api::compliance::ComplianceApi<Block> for Runtime {
                 #[inline]
                 fn compliance_report(
-                    ticker: &Ticker,
+                    asset_id: &AssetID,
                     sender_identity: &IdentityId,
                     receiver_identity: &IdentityId,
                 ) -> FrameResult<ComplianceReport, DispatchError> {
                     let mut weight_meter = WeightMeter::max_limit_no_minimum();
                     ComplianceManager::compliance_report(
-                        ticker,
+                        asset_id,
                         sender_identity,
                         receiver_identity,
                         &mut weight_meter

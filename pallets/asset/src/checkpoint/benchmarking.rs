@@ -13,31 +13,30 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use super::*;
-use crate::benchmarking::owned_ticker;
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
-use polymesh_common_utilities::{benchs::AccountIdOf, TestUtilsFn};
+
+use polymesh_common_utilities::{
+    benchs::{AccountIdOf, User, UserBuilder},
+    TestUtilsFn,
+};
+
+use super::*;
+use crate::benchmarking::create_sample_asset;
 
 const CP_BASE: u64 = 2000;
 
-fn init<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (RawOrigin<T::AccountId>, Ticker) {
+fn init_with_existing<T: Config>(asset_owner: &User<T>, existing: u64) -> AssetID {
     <pallet_timestamp::Now<T>>::set(1000u32.into());
-    let (owner, ticker) = owned_ticker::<T>();
-    (owner.origin(), ticker)
-}
-
-fn init_with_existing<T: Config + TestUtilsFn<AccountIdOf<T>>>(
-    existing: u64,
-) -> (RawOrigin<T::AccountId>, Ticker) {
-    let (owner, ticker) = init::<T>();
+    let asset_id = create_sample_asset::<T>(&asset_owner, true);
 
     for n in 0..existing {
         let schedule = ScheduleCheckpoints::new(CP_BASE + n);
-        Module::<T>::create_schedule(owner.clone().into(), ticker, schedule).unwrap();
+        Module::<T>::create_schedule(asset_owner.origin.clone().into(), asset_id, schedule)
+            .unwrap();
     }
 
-    (owner, ticker)
+    asset_id
 }
 
 benchmarks! {
@@ -49,13 +48,18 @@ benchmarks! {
     }
 
     create_checkpoint {
-        let (owner, ticker) = init::<T>();
-    }: _(owner, ticker)
+        <pallet_timestamp::Now<T>>::set(1000u32.into());
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let asset_id = create_sample_asset::<T>(&alice, true);
+    }: _(alice.origin, asset_id)
     verify {
-        assert_eq!(Module::<T>::checkpoint_id_sequence(ticker), CheckpointId(1))
+        assert_eq!(Module::<T>::checkpoint_id_sequence(asset_id), CheckpointId(1))
     }
 
     create_schedule {
+        <pallet_timestamp::Now<T>>::set(1000u32.into());
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+
         let max = Module::<T>::schedules_max_complexity();
         let schedule = ScheduleCheckpoints::new_checkpoints(
             (0..max).into_iter().map(|n| CP_BASE + n).collect()
@@ -67,19 +71,20 @@ benchmarks! {
             10 * max
         ).unwrap();
 
-        let (owner, ticker) = init_with_existing::<T>(max);
-    }: _(owner, ticker, schedule)
+        let asset_id = init_with_existing::<T>(&alice, max);
+    }: _(alice.origin, asset_id, schedule)
     verify {
-        assert_eq!(Module::<T>::schedule_id_sequence(ticker), ScheduleId(max + 1))
+        assert_eq!(Module::<T>::schedule_id_sequence(asset_id), ScheduleId(max + 1))
     }
 
     remove_schedule {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let max = Module::<T>::schedules_max_complexity();
 
         let id = ScheduleId(max);
-        let (owner, ticker) = init_with_existing::<T>(max);
-    }: _(owner, ticker, id)
+        let asset_id = init_with_existing::<T>(&alice, max);
+    }: _(alice.origin, asset_id, id)
     verify {
-        assert_eq!(Module::<T>::scheduled_checkpoints(ticker, id), None);
+        assert_eq!(Module::<T>::scheduled_checkpoints(asset_id, id), None);
     }
 }

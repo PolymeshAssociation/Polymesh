@@ -13,33 +13,33 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{DispatchableName, IdentityId, PalletName, PortfolioId, SubsetRestriction, Ticker};
+use crate::asset::AssetID;
+use crate::{ExtrinsicName, IdentityId, PalletName, PortfolioId, SubsetRestriction};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
     cmp::{Ord, Ordering, PartialOrd},
-    collections::btree_set::BTreeSet,
+    collections::btree_map::BTreeMap,
     convert::TryInto,
-    iter,
     mem::size_of,
 };
 
-// We need to set a minimum complexity for pallet/dispatchable names
+// We need to set a minimum complexity for pallet/extrinsic names
 // to limit the total number of memory allocations.  Since each name
 // requires an allocation.
 //
-// The average length of pallet/dispatchable names is 16.  So this
+// The average length of pallet/extrinsic names is 16.  So this
 // minimum complexity only penalizes short names.
 const MIN_NAME_COMPLEXITY: usize = 10;
-fn name_complexity(name: &[u8]) -> usize {
+fn name_complexity(name: &str) -> usize {
     // If the name length is lower then the minimum, then return the minimum.
     usize::max(name.len(), MIN_NAME_COMPLEXITY)
 }
 
 /// Asset permissions.
-pub type AssetPermissions = SubsetRestriction<Ticker>;
+pub type AssetPermissions = SubsetRestriction<AssetID>;
 
 /// A permission to call:
 ///
@@ -50,76 +50,156 @@ pub type AssetPermissions = SubsetRestriction<Ticker>;
 /// - all functions, using `SubsetRestriction::Whole`
 ///
 /// within some pallet.
-pub type DispatchableNames = SubsetRestriction<DispatchableName>;
+pub type ExtrinsicNames = SubsetRestriction<ExtrinsicName>;
 
-/// A permission to call a set of functions, as described by `dispatchable_names`,
+/// A permission to call a set of functions, as described by `extrinsics`,
 /// within a given pallet `pallet_name`.
 #[derive(Decode, Encode, TypeInfo)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PalletPermissions {
-    /// The name of a pallet.
-    pub pallet_name: PalletName,
     /// A subset of function names within the pallet.
-    pub dispatchable_names: DispatchableNames,
+    pub extrinsics: ExtrinsicNames,
 }
 
 impl PalletPermissions {
     /// Constructs new pallet permissions from given arguments.
     pub fn new(
-        pallet_name: PalletName,
-        dispatchable_names: SubsetRestriction<DispatchableName>,
-    ) -> Self {
-        PalletPermissions {
-            pallet_name,
-            dispatchable_names,
-        }
+        name: PalletName,
+        extrinsics: SubsetRestriction<ExtrinsicName>,
+    ) -> (PalletName, Self) {
+        (name, PalletPermissions { extrinsics })
     }
 
-    /// Constructs new pallet permissions for full access to pallet `pallet_name`.
-    pub fn entire_pallet(pallet_name: PalletName) -> Self {
+    /// Helper method used in tests.
+    pub fn entire_pallet(name: PalletName) -> (PalletName, Self) {
+        (
+            name,
+            PalletPermissions {
+                extrinsics: SubsetRestriction::Whole,
+            },
+        )
+    }
+
+    /// Constructs new pallet permissions for full access to a pallet.
+    pub fn whole() -> Self {
         PalletPermissions {
-            pallet_name,
-            dispatchable_names: SubsetRestriction::Whole,
+            extrinsics: SubsetRestriction::Whole,
         }
     }
 
     /// Returns the complexity of the pallet permissions.
     pub fn complexity(&self) -> usize {
-        self.dispatchable_names
-            .fold(name_complexity(&self.pallet_name), |cost, dispatch_name| {
-                cost.saturating_add(name_complexity(dispatch_name))
-            })
+        self.extrinsics.fold(0usize, |cost, extrinsic_name| {
+            cost.saturating_add(name_complexity(extrinsic_name))
+        })
     }
 
-    /// Return the number of dispatchable names.
-    pub fn dispatchables_len(&self) -> usize {
-        self.dispatchable_names.complexity()
+    /// Return the number of extrinsic names.
+    pub fn extrinsics_len(&self) -> usize {
+        self.extrinsics.complexity()
     }
 }
 
 /// Extrinsic permissions.
-pub type ExtrinsicPermissions = SubsetRestriction<PalletPermissions>;
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum ExtrinsicPermissions {
+    /// Allow the whole pallet.
+    #[default]
+    Whole,
+    /// Allow only these pallets.
+    These(BTreeMap<PalletName, PalletPermissions>),
+    /// Allow all pallets except these.
+    Except(BTreeMap<PalletName, PalletPermissions>),
+}
 
 impl ExtrinsicPermissions {
-    /// Returns `true` iff this permission set permits calling `pallet::dispatchable`.
-    pub fn sufficient_for(&self, pallet: &PalletName, dispatchable: &DispatchableName) -> bool {
-        let matches_any = |perms: &BTreeSet<PalletPermissions>| {
-            perms.iter().any(|perm| {
-                if &perm.pallet_name != pallet {
-                    return false;
-                }
-                match &perm.dispatchable_names {
-                    SubsetRestriction::Whole => true,
-                    SubsetRestriction::These(funcs) => funcs.contains(dispatchable),
-                    SubsetRestriction::Except(funcs) => !funcs.contains(dispatchable),
-                }
+    /// The empty permissions.
+    pub fn empty() -> Self {
+        Self::These(Default::default())
+    }
+
+    /// Constructs a permissions to allow everything except some pallets.
+    pub fn except(it: impl IntoIterator<Item = (PalletName, PalletPermissions)>) -> Self {
+        Self::Except(BTreeMap::from_iter(it))
+    }
+
+    /// Constructs a permissions to only allow these pallets.
+    pub fn these(it: impl IntoIterator<Item = (PalletName, PalletPermissions)>) -> Self {
+        Self::These(BTreeMap::from_iter(it))
+    }
+
+    /// Returns the complexity of the extrinsics permissions.
+    pub fn complexity(&self) -> usize {
+        self.inner()
+            .map(|perms| {
+                perms.iter().fold(0usize, |cost, (name, pallet)| {
+                    cost.saturating_add(name_complexity(name))
+                        .saturating_add(pallet.complexity())
+                })
             })
+            .unwrap_or(0)
+    }
+
+    /// Returns the length.
+    pub fn len(&self) -> usize {
+        self.inner().map(|perms| perms.len()).unwrap_or(0)
+    }
+
+    /// Returns the extrinsic count.
+    pub fn extrinsic_count(&self) -> usize {
+        self.inner()
+            .map(|perms| {
+                perms.values().fold(0usize, |cost, pallet| {
+                    cost.saturating_add(pallet.extrinsics_len())
+                })
+            })
+            .unwrap_or(0)
+    }
+
+    /// Returns `true` iff this permission set permits calling `pallet::extrinsic`.
+    pub fn sufficient_for(&self, pallet: &PalletName, extrinsic: &ExtrinsicName) -> bool {
+        let matches_any = |perms: &BTreeMap<PalletName, PalletPermissions>| {
+            perms
+                .get(pallet)
+                .map(|perm| match &perm.extrinsics {
+                    SubsetRestriction::Whole => true,
+                    SubsetRestriction::These(funcs) => funcs.contains(extrinsic),
+                    SubsetRestriction::Except(funcs) => !funcs.contains(extrinsic),
+                })
+                .unwrap_or(false)
         };
         match self {
-            SubsetRestriction::Whole => true,
-            SubsetRestriction::These(perms) => matches_any(perms),
-            SubsetRestriction::Except(perms) => !matches_any(perms),
+            Self::Whole => true,
+            Self::These(perms) => matches_any(perms),
+            Self::Except(perms) => !matches_any(perms),
+        }
+    }
+
+    /// Check that extrinsic permissions do not use the Except variant.
+    pub fn check_no_except_perms(&self) -> bool {
+        match self {
+            Self::These(pallet_permissions) => {
+                for (_, elem) in pallet_permissions {
+                    if let SubsetRestriction::Except(_) = elem.extrinsics {
+                        return false;
+                    }
+                }
+                true
+            }
+            Self::Except(_) => false,
+            Self::Whole => true,
+        }
+    }
+
+    /// Returns the inner describing finite sets if any.
+    pub fn inner(&self) -> Option<&BTreeMap<PalletName, PalletPermissions>> {
+        match self {
+            Self::Whole => None,
+            Self::These(pallets) => Some(pallets),
+            Self::Except(pallets) => Some(pallets),
         }
     }
 }
@@ -149,39 +229,29 @@ impl Permissions {
     pub fn empty() -> Self {
         Self {
             asset: SubsetRestriction::empty(),
-            extrinsic: SubsetRestriction::empty(),
+            extrinsic: ExtrinsicPermissions::empty(),
             portfolio: SubsetRestriction::empty(),
         }
     }
 
     /// Empty permissions apart from given extrinsic permissions.
     pub fn from_pallet_permissions(
-        pallet_permissions: impl IntoIterator<Item = PalletPermissions>,
+        pallet_permissions: impl IntoIterator<Item = (PalletName, PalletPermissions)>,
     ) -> Self {
         Self {
             asset: SubsetRestriction::empty(),
-            extrinsic: SubsetRestriction::These(pallet_permissions.into_iter().collect()),
+            extrinsic: ExtrinsicPermissions::These(pallet_permissions.into_iter().collect()),
             portfolio: SubsetRestriction::empty(),
         }
-    }
-
-    /// Adds extra extrinsic permissions to `self` for just one pallet. The result is stored in
-    /// `self`.
-    pub fn add_pallet_permissions(&mut self, pallet_permissions: PalletPermissions) {
-        self.extrinsic = self.extrinsic.union(&SubsetRestriction::These(
-            iter::once(pallet_permissions).collect(),
-        ));
     }
 
     /// Returns the complexity of the permissions.
     pub fn complexity(&self) -> usize {
         // Calculate the pallet/extrinsic permissions complexity cost.
-        let cost = self.extrinsic.fold(0usize, |cost, pallet| {
-            cost.saturating_add(pallet.complexity())
-        });
+        let cost = self.extrinsic.complexity();
 
         // Asset permissions complexity cost.
-        cost.saturating_add(self.asset.complexity().saturating_mul(size_of::<Ticker>()))
+        cost.saturating_add(self.asset.complexity().saturating_mul(size_of::<AssetID>()))
             // Portfolio permissions complexity cost.
             .saturating_add(
                 self.portfolio
@@ -199,13 +269,11 @@ impl Permissions {
         // Count the number of portfolios.
         let portfolios = self.portfolio.complexity().try_into().unwrap_or(u32::MAX);
         // Count the number of pallets.
-        let pallets = self.extrinsic.complexity().try_into().unwrap_or(u32::MAX);
+        let pallets = self.extrinsic.len().try_into().unwrap_or(u32::MAX);
         // Count the total number of extrinsics.
         let extrinsics = self
             .extrinsic
-            .fold(0usize, |count, pallet| {
-                count.saturating_add(pallet.dispatchables_len())
-            })
+            .extrinsic_count()
             .try_into()
             .unwrap_or(u32::MAX);
 
@@ -222,10 +290,10 @@ pub enum KeyRecord<AccountId> {
     ///
     /// (Key's identity)
     PrimaryKey(IdentityId),
-    /// Key is a secondary key with the given permissions.
+    /// Key is a secondary key and can have restricted permissions.
     ///
-    /// (Key's identity, key's permissions)
-    SecondaryKey(IdentityId, Permissions),
+    /// (Key's identity)
+    SecondaryKey(IdentityId),
     /// Key is a MuliSig signer key.
     ///
     /// (MultiSig account id)
@@ -244,7 +312,7 @@ impl<AccountId> KeyRecord<AccountId> {
 
     /// Check if the key is the secondary key and return the identity.
     pub fn is_secondary_key(&self) -> Option<IdentityId> {
-        if let Self::SecondaryKey(did, _) = self {
+        if let Self::SecondaryKey(did) = self {
             Some(*did)
         } else {
             None
@@ -255,7 +323,7 @@ impl<AccountId> KeyRecord<AccountId> {
     pub fn get_did_key_type(&self) -> Option<(IdentityId, bool)> {
         match self {
             Self::PrimaryKey(did) => Some((*did, true)),
-            Self::SecondaryKey(did, _) => Some((*did, false)),
+            Self::SecondaryKey(did) => Some((*did, false)),
             _ => None,
         }
     }
@@ -263,17 +331,8 @@ impl<AccountId> KeyRecord<AccountId> {
     /// Extract the identity if it is a primary/secondary key.
     pub fn as_did(&self) -> Option<IdentityId> {
         match self {
-            Self::PrimaryKey(did) | Self::SecondaryKey(did, _) => Some(*did),
+            Self::PrimaryKey(did) | Self::SecondaryKey(did) => Some(*did),
             _ => None,
-        }
-    }
-
-    /// Convert `KeyRecord` into a `SecondaryKey`, if it is a secondary key.
-    pub fn into_secondary_key(self, key: AccountId) -> Option<SecondaryKey<AccountId>> {
-        if let Self::SecondaryKey(_did, permissions) = self {
-            Some(SecondaryKey { key, permissions })
-        } else {
-            None
         }
     }
 }
@@ -315,10 +374,10 @@ where
     AccountId: PartialEq,
 {
     /// Checks if Signatory is either a particular Identity or a particular key
-    pub fn eq_either(&self, other_identity: &IdentityId, other_key: &AccountId) -> bool {
+    pub fn eq_either(&self, other_identity: Option<IdentityId>, other_key: &AccountId) -> bool {
         match self {
             Signatory::Account(ref key) => key == other_key,
-            Signatory::Identity(ref id) => id == other_identity,
+            Signatory::Identity(ref id) => Some(*id) == other_identity,
         }
     }
 
@@ -403,19 +462,13 @@ impl<AccountId> SecondaryKey<AccountId> {
     }
 
     /// Checks if the given key has permission to access the given asset.
-    pub fn has_asset_permission(&self, asset: Ticker) -> bool {
+    pub fn has_asset_permission(&self, asset: AssetID) -> bool {
         self.permissions.asset.ge(&SubsetRestriction::elem(asset))
     }
 
     /// Checks if the given key has permission to call the given extrinsic.
-    pub fn has_extrinsic_permission(
-        &self,
-        pallet: &PalletName,
-        dispatchable: &DispatchableName,
-    ) -> bool {
-        self.permissions
-            .extrinsic
-            .sufficient_for(pallet, dispatchable)
+    pub fn has_extrinsic_permission(&self, pallet: &PalletName, extrinsic: &ExtrinsicName) -> bool {
+        self.permissions.extrinsic.sufficient_for(pallet, extrinsic)
     }
 
     /// Checks if the given key has permission to access all given portfolios.
@@ -427,17 +480,14 @@ impl<AccountId> SecondaryKey<AccountId> {
     pub fn complexity(&self) -> usize {
         self.permissions.complexity()
     }
-
-    /// Make a `KeyRecord` for this SecondaryKey.
-    pub fn make_key_record(&self, did: IdentityId) -> KeyRecord<AccountId> {
-        KeyRecord::SecondaryKey(did, self.permissions.clone())
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Permissions, PortfolioId, SecondaryKey, Signatory, SubsetRestriction};
-    use crate::{IdentityId, Ticker};
+    use super::{
+        ExtrinsicPermissions, Permissions, PortfolioId, SecondaryKey, Signatory, SubsetRestriction,
+    };
+    use crate::{asset::AssetID, IdentityId};
     use sp_core::sr25519::Public;
     use std::convert::{From, TryFrom};
 
@@ -449,8 +499,8 @@ mod tests {
         assert_eq!(rk1, rk2);
 
         let rk3_permissions = Permissions {
-            asset: SubsetRestriction::elem(Ticker::from_slice_truncated(&[1][..])),
-            extrinsic: SubsetRestriction::Whole,
+            asset: SubsetRestriction::elem(AssetID::new([0; 16])),
+            extrinsic: ExtrinsicPermissions::Whole,
             portfolio: SubsetRestriction::elem(PortfolioId::default_portfolio(IdentityId::from(
                 1u128,
             ))),
@@ -466,25 +516,23 @@ mod tests {
     #[test]
     fn has_permission_test() {
         let key = Public::from_raw([b'A'; 32]);
-        let ticker1 = Ticker::from_slice_truncated(&[1][..]);
-        let ticker2 = Ticker::from_slice_truncated(&[2][..]);
+        let asset_id = AssetID::new([0; 16]);
+        let asset_id2 = AssetID::new([1; 16]);
         let portfolio1 = PortfolioId::user_portfolio(IdentityId::default(), 1.into());
         let portfolio2 = PortfolioId::user_portfolio(IdentityId::default(), 2.into());
         let permissions = Permissions {
-            asset: SubsetRestriction::elem(ticker1),
-            extrinsic: SubsetRestriction::Whole,
+            asset: SubsetRestriction::elem(AssetID::new([0; 16])),
+            extrinsic: ExtrinsicPermissions::Whole,
             portfolio: SubsetRestriction::elem(portfolio1),
         };
         let free_key = SecondaryKey::new(key.clone(), Permissions::default());
         let restricted_key = SecondaryKey::new(key, permissions.clone());
-        assert!(free_key.has_asset_permission(ticker2));
-        assert!(free_key
-            .has_extrinsic_permission(&b"pallet".as_ref().into(), &b"function".as_ref().into()));
+        assert!(free_key.has_asset_permission(asset_id2));
+        assert!(free_key.has_extrinsic_permission(&"pallet".into(), &"function".into()));
         assert!(free_key.has_portfolio_permission(vec![portfolio1]));
-        assert!(restricted_key.has_asset_permission(ticker1));
-        assert!(!restricted_key.has_asset_permission(ticker2));
-        assert!(restricted_key
-            .has_extrinsic_permission(&b"pallet".as_ref().into(), &b"function".as_ref().into()));
+        assert!(restricted_key.has_asset_permission(asset_id));
+        assert!(!restricted_key.has_asset_permission(asset_id2));
+        assert!(restricted_key.has_extrinsic_permission(&"pallet".into(), &"function".into()));
         assert!(restricted_key.has_portfolio_permission(vec![portfolio1]));
         assert!(!restricted_key.has_portfolio_permission(vec![portfolio2]));
     }

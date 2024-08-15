@@ -20,7 +20,9 @@ use sp_api_hidden_includes_decl_storage::hidden_include::traits::Get;
 use sp_std::prelude::*;
 
 use polymesh_common_utilities::asset::Config as AssetConfig;
-use polymesh_common_utilities::benchs::{make_asset, user, AccountIdOf, User, UserBuilder};
+use polymesh_common_utilities::benchs::{
+    create_and_issue_sample_asset, user, AccountIdOf, User, UserBuilder,
+};
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::{AuthorizationData, NFTs, PortfolioName, Signatory};
@@ -135,41 +137,39 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let alice_default_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::Default };
         let alice_custom_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::User(PortfolioNumber(1)) };
-        let nft_ticker: Ticker = Ticker::from_slice_truncated(b"TICKERNFT".as_ref());
         Module::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
         // Simulates minting - Adding the NFT pallet causes cyclic dependency
-        (1..n + 1).for_each(|id| PortfolioNFT::insert(alice_default_portfolio, (nft_ticker, NFTId(id.into())), true));
+        let nft_asset_id = AssetID::new([0; 16]);
+        (1..n + 1).for_each(|id| PortfolioNFT::insert(alice_default_portfolio, (nft_asset_id, NFTId(id.into())), true));
 
-        let nfts = NFTs::new_unverified(nft_ticker, (1..n + 1).map(|id| NFTId(id.into())).collect());
+        let nfts = NFTs::new_unverified(nft_asset_id, (1..n + 1).map(|id| NFTId(id.into())).collect());
         let mut funds = vec![Fund { description: FundDescription::NonFungible(nfts), memo: None }];
         for i in 0..f {
-            let ticker = make_asset(&alice, Some(format!("TICKER{}", i).as_bytes()));
-            funds.push(Fund { description: FundDescription::Fungible{ ticker, amount: ONE_UNIT }, memo: None })
+            let asset_id = create_and_issue_sample_asset(&alice, true, None, format!("TICKER{}", i).as_bytes(), true);
+            funds.push(Fund { description: FundDescription::Fungible{ asset_id, amount: ONE_UNIT }, memo: None })
         }
     }: _(alice.origin, alice_default_portfolio.clone(), alice_custom_portfolio.clone(), funds)
     verify {
         for i in 1..n + 1 {
-            assert_eq!(PortfolioNFT::get(&alice_default_portfolio, (&nft_ticker, NFTId(i as u64))), false);
-            assert_eq!(PortfolioNFT::get(&alice_custom_portfolio, (&nft_ticker, NFTId(i as u64))), true);
+            assert_eq!(PortfolioNFT::get(&alice_default_portfolio, (&nft_asset_id, NFTId(i as u64))), false);
+            assert_eq!(PortfolioNFT::get(&alice_custom_portfolio, (&nft_asset_id, NFTId(i as u64))), true);
         }
     }
 
     pre_approve_portfolio {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let alice_custom_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::User(PortfolioNumber(1)) };
-
         Module::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
-    }: _(alice.origin, ticker, alice_custom_portfolio)
+    }: _(alice.origin, [0; 16].into(), alice_custom_portfolio)
 
     remove_portfolio_pre_approval {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let alice_custom_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::User(PortfolioNumber(1)) };
 
+        let asset_id = AssetID::new([0; 16]);
         Module::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
-        Module::<T>::pre_approve_portfolio(alice.clone().origin().into(), ticker, alice_custom_portfolio).unwrap();
-    }: _(alice.origin, ticker, alice_custom_portfolio)
+        Module::<T>::pre_approve_portfolio(alice.clone().origin().into(), asset_id, alice_custom_portfolio).unwrap();
+    }: _(alice.origin, asset_id, alice_custom_portfolio)
 
     allow_identity_to_create_portfolios {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");

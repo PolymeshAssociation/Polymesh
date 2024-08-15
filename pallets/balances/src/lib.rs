@@ -183,7 +183,7 @@ use polymesh_common_utilities::{
         identity::IdentityFnTrait,
         NegativeImbalance, PositiveImbalance,
     },
-    Context, SystematicIssuers, GC_DID,
+    SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 use polymesh_primitives::{Balance, Memo};
@@ -348,8 +348,7 @@ decl_module! {
         ) {
             ensure_root(origin)?;
             let who = T::Lookup::lookup(who)?;
-            let caller_id = Context::current_identity_or::<T::IdentityFn>(&who)
-                .unwrap_or(GC_DID);
+            let caller_id = GC_DID;
 
             let (free, reserved) = Self::mutate_account(&who, |account| {
                 if new_free > account.free {
@@ -397,8 +396,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::burn_account_balance()]
         pub fn burn_account_balance(origin, amount: Balance) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&who)?;
-            let caller_id = Context::current_identity_or::<T::IdentityFn>(&who)?;
+            let caller_id = CallPermissions::<T>::ensure_call_permissions(&who)?.primary_did;
             // Withdraw the account balance and burn the resulting imbalance by dropping it.
             let _ = <Self as Currency<T::AccountId>>::withdraw(
                 &who,

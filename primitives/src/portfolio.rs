@@ -16,9 +16,9 @@
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
-use crate::asset::FundingRoundName;
+use crate::asset::{AssetID, FundingRoundName};
 use crate::settlement::InstructionId;
-use crate::{Balance, Memo, NFTs, Ticker};
+use crate::{Balance, Memo, NFTs};
 
 /// Describes what should be moved between portfolios. It can be either fungible or non-fungible tokens.
 #[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
@@ -34,12 +34,12 @@ pub struct Fund {
 pub enum FundDescription {
     /// Fungible token.
     Fungible {
-        /// The Ticker of the token.
-        ticker: Ticker,
+        /// The [`AssetID`] of the token.
+        asset_id: AssetID,
         /// The Balance being transfered.
         amount: Balance,
     },
-    /// Fungible token.
+    /// Non Fungible token.
     NonFungible(NFTs),
 }
 

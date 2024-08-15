@@ -77,4 +77,5 @@ std = [
     "pallet-utility/std",
     "polymesh-contracts/std",
     "polymesh-runtime-common/std",
+    "pallet-state-trie-migration/std"
 ]

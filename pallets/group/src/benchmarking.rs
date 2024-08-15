@@ -2,7 +2,7 @@ use crate::*;
 use polymesh_common_utilities::{
     benchs::{AccountIdOf, User, UserBuilder},
     group::{Config, GroupTrait},
-    Context, TestUtilsFn,
+    TestUtilsFn,
 };
 
 use frame_benchmarking::benchmarks_instance;
@@ -79,8 +79,6 @@ benchmarks_instance! {
             Module::<T,I>::disable_member(RawOrigin::Root.into(), *did, None, None)
                 .expect("Member cannot be disabled");
         });
-        Context::set_current_identity::<T::IdentityFn>(Some(new_member));
-
     }: _(RawOrigin::Root, new_member)
     verify {
         assert_eq!( Module::<T,I>::get_members().contains(&new_member), false);

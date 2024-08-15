@@ -47,7 +47,7 @@ use frame_support::{
 use frame_system::ensure_root;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    constants::TREASURY_PALLET_ID, traits::balances::Config as BalancesConfig, Context, GC_DID,
+    constants::TREASURY_PALLET_ID, traits::balances::Config as BalancesConfig, GC_DID,
 };
 use polymesh_primitives::{Beneficiary, IdentityId};
 use sp_runtime::traits::{AccountIdConversion, Saturating};
@@ -235,8 +235,7 @@ impl<T: Config> OnUnbalanced<NegativeImbalanceOf<T>> for Module<T> {
         let numeric_amount = amount.peek();
 
         let _ = T::Currency::resolve_creating(&Self::account_id(), amount);
-        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-        Self::deposit_event(RawEvent::TreasuryReimbursement(current_did, numeric_amount));
+        Self::deposit_event(RawEvent::TreasuryReimbursement(GC_DID, numeric_amount));
     }
 }
 

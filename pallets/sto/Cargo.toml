@@ -20,6 +20,7 @@ polymesh-primitives-derive = { path = "../../primitives_derive", default-feature
 
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
+log = "0.4.8"
 
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }

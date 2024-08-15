@@ -1,4 +1,5 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
+import type { Option, u64, u128 } from '@polkadot/types-codec';
 import type { Ticker, PriceTier, PortfolioId } from "../types";
 import { sendTx, ApiSingleton } from "../util/init";
 
@@ -10,8 +11,8 @@ export async function createFundraiser(
   raisingAsset: Ticker,
   tiers: PriceTier[],
   venueCounter: number,
-  start: string | object | Uint8Array | null,
-  end: string | object | Uint8Array | null,
+  start: Option<u64> | null,
+  end: Option<u64> | null,
   minimumInvestment: number,
   fundraiserName: string
 ) {
@@ -59,7 +60,7 @@ export async function modifyFundraiserWindow(
   offeringAsset: Ticker,
   fundraiserId: number,
   start: number,
-  end: string | object | Uint8Array | null
+  end: Option<u64> | null,
 ) {
   const api = await ApiSingleton.getInstance();
   const transaction = api.tx.sto.modifyFundraiserWindow(
@@ -88,7 +89,7 @@ export async function invest(
   offeringAsset: Ticker,
   fundraiserId: number,
   purchaseAmount: number,
-  maxPrice: string | object | Uint8Array | null,
+  maxPrice: Option<u128> | number,
   receipt: string | null
 ) {
   const api = await ApiSingleton.getInstance();

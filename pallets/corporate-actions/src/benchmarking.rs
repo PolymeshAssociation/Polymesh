@@ -18,8 +18,9 @@ use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 
 use pallet_asset::benchmarking::make_document;
-use polymesh_common_utilities::benchs::{make_asset, user, AccountIdOf, User};
+use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, user, AccountIdOf, User};
 use polymesh_common_utilities::TestUtilsFn;
+use polymesh_primitives::asset::{AssetID, AssetName};
 use polymesh_primitives::PortfolioKind;
 
 use crate::*;
@@ -37,12 +38,12 @@ const RD_SPEC2: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(3000));
 // NOTE(Centril): A non-owner CAA is the less complex code path.
 // Therefore, in general, we'll be using the owner as the CAA.
 
-fn setup<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
+fn setup<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, AssetID) {
     <pallet_timestamp::Now<T>>::set(1000u32.into());
 
     let owner = user("owner", SEED);
-    let ticker = make_asset::<T>(&owner, None);
-    (owner, ticker)
+    let asset_id = create_and_issue_sample_asset::<T>(&owner, true, None, b"SampleAsset", true);
+    (owner, asset_id)
 }
 
 fn target<T: Config + TestUtilsFn<AccountIdOf<T>>>(u: u32) -> IdentityId {
@@ -71,12 +72,12 @@ pub(crate) fn did_whts<T: Config + TestUtilsFn<AccountIdOf<T>>>(n: u32) -> Vec<(
 }
 
 fn init_did_whts<T: Config + TestUtilsFn<AccountIdOf<T>>>(
-    ticker: Ticker,
+    asset_id: AssetID,
     n: u32,
 ) -> Vec<(IdentityId, Tax)> {
     let mut whts = did_whts::<T>(n);
     whts.sort_by_key(|(did, _)| *did);
-    DidWithholdingTax::insert(ticker, whts.clone());
+    DidWithholdingTax::insert(asset_id, whts.clone());
     whts
 }
 
@@ -87,22 +88,22 @@ fn details(len: u32) -> CADetails {
         .into()
 }
 
-fn add_docs<T: Config>(origin: &T::RuntimeOrigin, ticker: Ticker, n: u32) -> Vec<DocumentId> {
+fn add_docs<T: Config>(origin: &T::RuntimeOrigin, asset_id: AssetID, n: u32) -> Vec<DocumentId> {
     let ids = (0..n).map(DocumentId).collect::<Vec<_>>();
     let docs = (0..n).map(|_| make_document()).collect::<Vec<_>>();
-    <Asset<T>>::add_documents(origin.clone(), docs, ticker).unwrap();
+    <Asset<T>>::add_documents(origin.clone(), docs, asset_id).unwrap();
     ids
 }
 
 pub(crate) fn setup_ca<T: Config + TestUtilsFn<AccountIdOf<T>>>(kind: CAKind) -> (User<T>, CAId) {
-    let (owner, ticker) = setup::<T>();
+    let (owner, asset_id) = setup::<T>();
 
     <pallet_timestamp::Now<T>>::set(1000u32.into());
 
     let origin: T::RuntimeOrigin = owner.origin().into();
     <Module<T>>::initiate_corporate_action(
         origin.clone(),
-        ticker,
+        asset_id,
         kind,
         1000,
         RD_SPEC,
@@ -113,10 +114,10 @@ pub(crate) fn setup_ca<T: Config + TestUtilsFn<AccountIdOf<T>>>(kind: CAKind) ->
     )
     .unwrap();
     let ca_id = CAId {
-        ticker,
+        asset_id,
         local_id: LocalCAId(0),
     };
-    let ids = add_docs::<T>(&origin, ticker, 1);
+    let ids = add_docs::<T>(&origin, asset_id, 1);
     <Module<T>>::link_ca_doc(origin.clone(), ca_id, ids).unwrap();
     (owner, ca_id)
 }
@@ -138,26 +139,28 @@ fn attach<T: Config>(owner: &User<T>, ca_id: CAId) {
     <Ballot<T>>::attach_ballot(owner.origin().into(), ca_id, range, meta, true).unwrap();
 }
 
-pub(crate) fn currency<T: Config>(owner: &User<T>) -> Ticker {
-    let currency = Ticker::from_slice_truncated(b"B" as &[_]);
+pub(crate) fn currency<T: Config>(owner: &User<T>) -> AssetID {
+    let asset_id = Asset::<T>::generate_asset_id(owner.account(), false);
+
     Asset::<T>::create_asset(
         owner.origin().into(),
-        currency.as_slice().into(),
-        currency,
+        AssetName::from(b"SampleAsset"),
         true,
         <_>::default(),
         vec![],
         None,
     )
-    .expect("Asset cannot be created");
+    .unwrap();
+
     Asset::<T>::issue(
         owner.origin().into(),
-        currency,
+        asset_id,
         1_000_000u32.into(),
         PortfolioKind::Default,
     )
-    .expect("Could not mint for asset");
-    currency
+    .unwrap();
+
+    asset_id
 }
 
 fn distribute<T: Config>(owner: &User<T>, ca_id: CAId) {
@@ -176,7 +179,7 @@ fn distribute<T: Config>(owner: &User<T>, ca_id: CAId) {
 }
 
 pub(crate) fn set_ca_targets<T: Config + TestUtilsFn<AccountIdOf<T>>>(ca_id: CAId, k: u32) {
-    CorporateActions::mutate(ca_id.ticker, ca_id.local_id, |ca| {
+    CorporateActions::mutate(ca_id.asset_id, ca_id.local_id, |ca| {
         let mut ids = target_ids::<T>(k, TargetTreatment::Exclude);
         ids.identities.sort();
         ca.as_mut().unwrap().targets = ids;
@@ -184,13 +187,13 @@ pub(crate) fn set_ca_targets<T: Config + TestUtilsFn<AccountIdOf<T>>>(ca_id: CAI
 }
 
 fn check_ca_created<T: Config>(ca_id: CAId) -> DispatchResult {
-    assert_eq!(CAIdSequence::get(ca_id.ticker).0, 1, "CA not created");
+    assert_eq!(CAIdSequence::get(ca_id.asset_id).0, 1, "CA not created");
     Ok(())
 }
 
 fn check_ca_exists<T: Config>(ca_id: CAId) -> DispatchResult {
     assert_eq!(
-        CorporateActions::get(ca_id.ticker, ca_id.local_id),
+        CorporateActions::get(ca_id.asset_id, ca_id.local_id),
         None,
         "CA not removed"
     );
@@ -198,7 +201,7 @@ fn check_ca_exists<T: Config>(ca_id: CAId) -> DispatchResult {
 }
 
 fn check_rd<T: Config>(ca_id: CAId) -> DispatchResult {
-    let rd = CorporateActions::get(ca_id.ticker, ca_id.local_id)
+    let rd = CorporateActions::get(ca_id.asset_id, ca_id.local_id)
         .unwrap()
         .record_date
         .unwrap()
@@ -218,76 +221,76 @@ benchmarks! {
     set_default_targets {
         let t in 0..MAX_TARGET_IDENTITIES;
 
-        let (owner, ticker) = setup::<T>();
+        let (owner, asset_id) = setup::<T>();
         let targets = target_ids::<T>(t, TargetTreatment::Exclude);
         let targets2 = targets.clone();
-    }: _(owner.origin(), ticker, targets)
+    }: _(owner.origin(), asset_id, targets)
     verify {
-        assert_eq!(DefaultTargetIdentities::get(ticker), targets2.dedup(), "Default targets not set");
+        assert_eq!(DefaultTargetIdentities::get(asset_id), targets2.dedup(), "Default targets not set");
     }
 
     set_default_withholding_tax {
-        let (owner, ticker) = setup::<T>();
-    }: _(owner.origin(), ticker, TAX)
+        let (owner, asset_id) = setup::<T>();
+    }: _(owner.origin(), asset_id, TAX)
     verify {
-        assert_eq!(DefaultWithholdingTax::get(ticker), TAX, "Default WHT not set");
+        assert_eq!(DefaultWithholdingTax::get(asset_id), TAX, "Default WHT not set");
     }
 
     set_did_withholding_tax {
         let w in 0..(MAX_DID_WHT_IDS - 1);
 
-        let (owner, ticker) = setup::<T>();
-        let mut whts = init_did_whts::<T>(ticker, w);
+        let (owner, asset_id) = setup::<T>();
+        let mut whts = init_did_whts::<T>(asset_id, w);
         let last = target::<T>(w + 1);
-    }: _(owner.origin(), ticker, last, Some(TAX))
+    }: _(owner.origin(), asset_id, last, Some(TAX))
     verify {
         whts.push((last, TAX));
         whts.sort_by_key(|(did, _)| *did);
-        assert_eq!(DidWithholdingTax::get(ticker), whts, "Wrong DID WHTs");
+        assert_eq!(DidWithholdingTax::get(asset_id), whts, "Wrong DID WHTs");
     }
 
     initiate_corporate_action_use_defaults {
         let w in 0..MAX_DID_WHT_IDS;
         let t in 0..MAX_TARGET_IDENTITIES;
 
-        let (owner, ticker) = setup::<T>();
+        let (owner, asset_id) = setup::<T>();
         let details = details(DETAILS_LEN);
-        let whts = init_did_whts::<T>(ticker, w);
+        let whts = init_did_whts::<T>(asset_id, w);
         let targets = target_ids::<T>(t, TargetTreatment::Exclude).dedup();
-        DefaultTargetIdentities::insert(ticker, targets);
+        DefaultTargetIdentities::insert(asset_id, targets);
     }: initiate_corporate_action(
-        owner.origin(), ticker, CAKind::Other, 1000, RD_SPEC, details, None, None, None
+        owner.origin(), asset_id, CAKind::Other, 1000, RD_SPEC, details, None, None, None
     )
     verify {
-        assert_eq!(CAIdSequence::get(ticker).0, 1, "CA not created");
+        assert_eq!(CAIdSequence::get(asset_id).0, 1, "CA not created");
     }
 
     initiate_corporate_action_provided {
         let w in 0..MAX_DID_WHT_IDS;
         let t in 0..MAX_TARGET_IDENTITIES;
 
-        let (owner, ticker) = setup::<T>();
+        let (owner, asset_id) = setup::<T>();
         let details = details(DETAILS_LEN);
         let whts = Some(did_whts::<T>(w));
         let targets = Some(target_ids::<T>(t, TargetTreatment::Exclude));
     }: initiate_corporate_action(
-        owner.origin(), ticker, CAKind::Other, 1000, RD_SPEC, details, targets, Some(TAX), whts
+        owner.origin(), asset_id, CAKind::Other, 1000, RD_SPEC, details, targets, Some(TAX), whts
     )
     verify {
-        assert_eq!(CAIdSequence::get(ticker).0, 1, "CA not created");
+        assert_eq!(CAIdSequence::get(asset_id).0, 1, "CA not created");
     }
 
     link_ca_doc {
         let d in 0..MAX_DOCS;
 
-        let (owner, ticker) = setup::<T>();
+        let (owner, asset_id) = setup::<T>();
         let origin: T::RuntimeOrigin = owner.origin().into();
-        let ids = add_docs::<T>(&origin, ticker, d);
+        let ids = add_docs::<T>(&origin, asset_id, d);
         let ids2 = ids.clone();
         <Module<T>>::initiate_corporate_action(
-            origin, ticker, CAKind::Other, 1000, None, "".into(), None, None, None
+            origin, asset_id, CAKind::Other, 1000, None, "".into(), None, None, None
         ).unwrap();
-        let ca_id = CAId { ticker, local_id: LocalCAId(0) };
+        let ca_id = CAId { asset_id, local_id: LocalCAId(0) };
     }: _(owner.origin(), ca_id, ids)
     verify {
         assert_eq!(CADocLink::get(ca_id), ids2, "Docs not linked")

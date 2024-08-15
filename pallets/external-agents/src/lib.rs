@@ -51,61 +51,69 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+mod migrations;
 
+use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
+    weights::Weight,
 };
 use pallet_base::{try_next_post, try_next_pre};
 use pallet_identity::PermissionedCallOriginData;
 pub use polymesh_common_utilities::traits::external_agents::{Config, Event, WeightInfo};
 use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::agent::{AGId, AgentGroup};
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::{
-    extract_auth, AuthorizationData, EventDid, ExtrinsicPermissions, IdentityId, PalletPermissions,
-    Signatory, SubsetRestriction, Ticker,
+    extract_auth, storage_migrate_on, storage_migration_ver, AuthorizationData, EventDid,
+    ExtrinsicPermissions, IdentityId, PalletPermissions, Signatory, SubsetRestriction,
 };
 use sp_std::prelude::*;
 
 type Identity<T> = pallet_identity::Module<T>;
 type Permissions<T> = pallet_permissions::Module<T>;
 
+storage_migration_ver!(1);
+
 decl_storage! {
     trait Store for Module<T: Config> as ExternalAgents {
-        /// The next per-`Ticker` AG ID in the sequence.
+        /// The next per-asset AG ID in the sequence.
         ///
-        /// The full ID is defined as a combination of `Ticker` and a number in this sequence,
+        /// The full ID is defined as a combination of `AssetID` and a number in this sequence,
         /// which starts from 1, rather than 0.
         pub AGIdSequence get(fn agent_group_id_sequence):
-            map hasher(blake2_128_concat) Ticker
+            map hasher(blake2_128_concat) AssetID
                 => AGId;
 
-        /// Maps an agent (`IdentityId`) to all all `Ticker`s they belong to, if any.
+        /// Maps an agent (`IdentityId`) to all assets they belong to, if any.
         pub AgentOf get(fn agent_of):
             double_map
                 hasher(blake2_128_concat) IdentityId,
-                hasher(blake2_128_concat) Ticker
+                hasher(blake2_128_concat) AssetID
                 => ();
 
-        /// Maps agents (`IdentityId`) for a `Ticker` to what AG they belong to, if any.
+        /// Maps agents (`IdentityId`) for an `AssetID` to what AG they belong to, if any.
         pub GroupOfAgent get(fn agents):
             double_map
-                hasher(blake2_128_concat) Ticker,
+                hasher(blake2_128_concat) AssetID,
                 hasher(twox_64_concat) IdentityId
                 => Option<AgentGroup>;
 
-        /// Maps a `Ticker` to the number of `Full` agents for it.
+        /// Maps an `AssetID` to the number of `Full` agents for it.
         pub NumFullAgents get(fn num_full_agents):
-            map hasher(blake2_128_concat) Ticker
+            map hasher(blake2_128_concat) AssetID
                 => u32;
 
-        /// For custom AGs of a `Ticker`, maps to what permissions an agent in that AG would have.
+        /// For custom AGs of an `AssetID`, maps to what permissions an agent in that AG would have.
         pub GroupPermissions get(fn permissions):
             double_map
-                hasher(blake2_128_concat) Ticker,
+                hasher(blake2_128_concat) AssetID,
                 hasher(twox_64_concat) AGId
                 => Option<ExtrinsicPermissions>;
+
+        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
     }
 }
 
@@ -115,14 +123,21 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Creates a custom agent group (AG) for the given `ticker`.
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion, 1, {
+                migrations::migrate_to_v1::<T>();
+            });
+            Weight::zero()
+        }
+
+        /// Creates a custom agent group (AG) for the given `asset_id`.
         ///
         /// The AG will have the permissions as given by `perms`.
         /// This new AG is then assigned `id = AGIdSequence::get() + 1` as its `AGId`,
-        /// which you can use as `AgentGroup::Custom(id)` when adding agents for `ticker`.
+        /// which you can use as `AgentGroup::Custom(id)` when adding agents for `asset_id`.
         ///
         /// # Arguments
-        /// - `ticker` to add the custom group for.
+        /// - `assetID` the [`AssetID] to add the custom group for.
         /// - `perms` that the new AG will have.
         ///
         /// # Errors
@@ -134,15 +149,15 @@ decl_module! {
         /// * Asset
         /// * Agent
         #[weight = <T as Config>::WeightInfo::create_group(perms.complexity() as u32)]
-        pub fn create_group(origin, ticker: Ticker, perms: ExtrinsicPermissions) -> DispatchResult {
-            Self::base_create_group(origin, ticker, perms).map(drop)
+        pub fn create_group(origin, asset_id: AssetID, perms: ExtrinsicPermissions) -> DispatchResult {
+            Self::base_create_group(origin, asset_id, perms).map(drop)
         }
 
-        /// Updates the permissions of the custom AG identified by `id`, for the given `ticker`.
+        /// Updates the permissions of the custom AG identified by `id`, for the given `asset_id`.
         ///
         /// # Arguments
-        /// - `ticker` the custom AG belongs to.
-        /// - `id` for the custom AG within `ticker`.
+        /// - `assetID` the [`AssetID] the custom AG belongs to.
+        /// - `id` for the custom AG within `asset_id`.
         /// - `perms` to update the custom AG to.
         ///
         /// # Errors
@@ -154,56 +169,56 @@ decl_module! {
         /// * Asset
         /// * Agent
         #[weight = <T as Config>::WeightInfo::set_group_permissions(perms.complexity() as u32)]
-        pub fn set_group_permissions(origin, ticker: Ticker, id: AGId, perms: ExtrinsicPermissions) -> DispatchResult {
-            Self::base_set_group_permissions(origin, ticker, id, perms)
+        pub fn set_group_permissions(origin, asset_id: AssetID, id: AGId, perms: ExtrinsicPermissions) -> DispatchResult {
+            Self::base_set_group_permissions(origin, asset_id, id, perms)
         }
 
-        /// Remove the given `agent` from `ticker`.
+        /// Remove the given `agent` from `asset_id`.
         ///
         /// # Arguments
-        /// - `ticker` that has the `agent` to remove.
-        /// - `agent` of `ticker` to remove.
+        /// - `assetID` the [`AssetID] that has the `agent` to remove.
+        /// - `agent` of `asset_id` to remove.
         ///
         /// # Errors
         /// - `UnauthorizedAgent` if `origin` was not authorized as an agent to call this.
-        /// - `NotAnAgent` if `agent` is not an agent of `ticker`.
+        /// - `NotAnAgent` if `agent` is not an agent of `asset_id`.
         /// - `RemovingLastFullAgent` if `agent` is the last full one.
         ///
         /// # Permissions
         /// * Asset
         /// * Agent
         #[weight = <T as Config>::WeightInfo::remove_agent()]
-        pub fn remove_agent(origin, ticker: Ticker, agent: IdentityId) -> DispatchResult {
-            Self::base_remove_agent(origin, ticker, agent)
+        pub fn remove_agent(origin, asset_id: AssetID, agent: IdentityId) -> DispatchResult {
+            Self::base_remove_agent(origin, asset_id, agent)
         }
 
-        /// Abdicate agentship for `ticker`.
+        /// Abdicate agentship for `asset_id`.
         ///
         /// # Arguments
-        /// - `ticker` of which the caller is an agent.
+        /// - `assetID` the [`AssetID] of which the caller is an agent.
         ///
         /// # Errors
-        /// - `NotAnAgent` if the caller is not an agent of `ticker`.
+        /// - `NotAnAgent` if the caller is not an agent of `asset_id`.
         /// - `RemovingLastFullAgent` if the caller is the last full agent.
         ///
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::abdicate()]
-        pub fn abdicate(origin, ticker: Ticker) -> DispatchResult {
-            Self::base_abdicate(origin, ticker)
+        pub fn abdicate(origin, asset_id: AssetID) -> DispatchResult {
+            Self::base_abdicate(origin, asset_id)
         }
 
-        /// Change the agent group that `agent` belongs to in `ticker`.
+        /// Change the agent group that `agent` belongs to in `asset_id`.
         ///
         /// # Arguments
-        /// - `ticker` that has the `agent`.
-        /// - `agent` of `ticker` to change the group for.
-        /// - `group` that `agent` will belong to in `ticker`.
+        /// - `assetID` the [`AssetID] that has the `agent`.
+        /// - `agent` of `asset_id` to change the group for.
+        /// - `group` that `agent` will belong to in `asset_id`.
         ///
         /// # Errors
         /// - `UnauthorizedAgent` if `origin` was not authorized as an agent to call this.
         /// - `NoSuchAG` if `id` does not identify a custom AG.
-        /// - `NotAnAgent` if `agent` is not an agent of `ticker`.
+        /// - `NotAnAgent` if `agent` is not an agent of `asset_id`.
         /// - `RemovingLastFullAgent` if `agent` was a `Full` one and is being demoted.
         ///
         /// # Permissions
@@ -213,12 +228,12 @@ decl_module! {
             AgentGroup::Custom(_) => <T as Config>::WeightInfo::change_group_custom(),
             _ => <T as Config>::WeightInfo::change_group_builtin(),
         }]
-        pub fn change_group(origin, ticker: Ticker, agent: IdentityId, group: AgentGroup) -> DispatchResult {
-            Self::base_change_group(origin, ticker, agent, group)
+        pub fn change_group(origin, asset_id: AssetID, agent: IdentityId, group: AgentGroup) -> DispatchResult {
+            Self::base_change_group(origin, asset_id, agent, group)
         }
 
         /// Accept an authorization by an agent "Alice" who issued `auth_id`
-        /// to also become an agent of the ticker Alice specified.
+        /// to also become an agent of the asset Alice specified.
         ///
         /// # Arguments
         /// - `auth_id` identifying the authorization to accept.
@@ -229,7 +244,7 @@ decl_module! {
         /// - `AuthorizationError::BadType` if `auth_id` was not for a `BecomeAgent` auth type.
         /// - `UnauthorizedAgent` if "Alice" is not permissioned to provide the auth.
         /// - `NoSuchAG` if the group referred to a custom that does not exist.
-        /// - `AlreadyAnAgent` if the caller is already an agent of the ticker.
+        /// - `AlreadyAnAgent` if the caller is already an agent of the asset.
         ///
         /// # Permissions
         /// * Agent
@@ -244,8 +259,14 @@ decl_module! {
         /// * Asset
         /// * Agent
         #[weight = <T as Config>::WeightInfo::create_group_and_add_auth(perms.complexity() as u32)]
-        pub fn create_group_and_add_auth(origin, ticker: Ticker, perms: ExtrinsicPermissions, target: IdentityId, expiry: Option<T::Moment>) -> DispatchResult {
-            Self::base_create_group_and_add_auth(origin, ticker, perms, target, expiry)
+        pub fn create_group_and_add_auth(
+            origin,
+            asset_id: AssetID,
+            perms: ExtrinsicPermissions,
+            target: IdentityId,
+            expiry: Option<T::Moment>
+        ) -> DispatchResult {
+            Self::base_create_group_and_add_auth(origin, asset_id, perms, target, expiry)
         }
 
         /// Utility extrinsic to batch `create_group` and  `change_group` for custom groups only.
@@ -254,21 +275,26 @@ decl_module! {
         /// * Asset
         /// * Agent
         #[weight = <T as Config>::WeightInfo::create_and_change_custom_group(perms.complexity() as u32)]
-        pub fn create_and_change_custom_group(origin, ticker: Ticker, perms: ExtrinsicPermissions, agent: IdentityId) -> DispatchResult {
-            with_transaction(|| Self::base_create_and_change_custom_group(origin, ticker, perms, agent))
+        pub fn create_and_change_custom_group(
+            origin,
+            asset_id: AssetID,
+            perms: ExtrinsicPermissions,
+            agent: IdentityId
+        ) -> DispatchResult {
+            with_transaction(|| Self::base_create_and_change_custom_group(origin, asset_id, perms, agent))
         }
     }
 }
 
 decl_error! {
     pub enum Error for Module<T: Config> {
-        /// An AG with the given `AGId` did not exist for the `Ticker`.
+        /// An AG with the given `AGId` did not exist for the `AssetID`.
         NoSuchAG,
         /// The agent is not authorized to call the current extrinsic.
         UnauthorizedAgent,
-        /// The provided `agent` is already an agent for the `Ticker`.
+        /// The provided `agent` is already an agent for the `AssetID`.
         AlreadyAnAgent,
-        /// The provided `agent` is not an agent for the `Ticker`.
+        /// The provided `agent` is not an agent for the `AssetID`.
         NotAnAgent,
         /// This agent is the last full one, and it's being removed,
         /// making the asset orphaned.
@@ -282,47 +308,47 @@ impl<T: Config> Module<T> {
     fn base_accept_become_agent(origin: T::RuntimeOrigin, auth_id: u64) -> DispatchResult {
         let to = Identity::<T>::ensure_perms(origin)?;
         Identity::<T>::accept_auth_with(&to.into(), auth_id, |data, from| {
-            let (ticker, group) = extract_auth!(data, BecomeAgent(t, ag));
+            let (asset_id, group) = extract_auth!(data, BecomeAgent(t, ag));
 
-            Self::ensure_agent_permissioned(ticker, from)?;
-            Self::ensure_agent_group_valid(ticker, group)?;
+            Self::ensure_agent_permissioned(&asset_id, from)?;
+            Self::ensure_agent_group_valid(&asset_id, group)?;
             ensure!(
-                GroupOfAgent::get(ticker, to).is_none(),
+                GroupOfAgent::get(&asset_id, to).is_none(),
                 Error::<T>::AlreadyAnAgent
             );
 
-            Self::unchecked_add_agent(ticker, to, group)?;
+            Self::unchecked_add_agent(asset_id, to, group)?;
             Ok(())
         })
     }
 
     fn base_create_group(
         origin: T::RuntimeOrigin,
-        ticker: Ticker,
+        asset_id: AssetID,
         perms: ExtrinsicPermissions,
     ) -> Result<(IdentityId, AGId), DispatchError> {
-        let did = Self::ensure_perms(origin, ticker)?;
+        let did = Self::ensure_perms(origin, asset_id)?;
         <Identity<T>>::ensure_extrinsic_perms_length_limited(&perms)?;
         // Fetch the AG id & advance the sequence.
-        let id = AGIdSequence::try_mutate(ticker, try_next_pre::<T, _>)?;
+        let id = AGIdSequence::try_mutate(asset_id, try_next_pre::<T, _>)?;
         // Commit & emit.
-        GroupPermissions::insert(ticker, id, perms.clone());
-        Self::deposit_event(Event::GroupCreated(did.for_event(), ticker, id, perms));
+        GroupPermissions::insert(asset_id, id, perms.clone());
+        Self::deposit_event(Event::GroupCreated(did.for_event(), asset_id, id, perms));
         Ok((did, id))
     }
 
     fn base_create_group_and_add_auth(
         origin: T::RuntimeOrigin,
-        ticker: Ticker,
+        asset_id: AssetID,
         perms: ExtrinsicPermissions,
         target: IdentityId,
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
-        let (did, ag_id) = Self::base_create_group(origin, ticker, perms)?;
+        let (did, ag_id) = Self::base_create_group(origin, asset_id, perms)?;
         <Identity<T>>::add_auth(
             did,
             Signatory::Identity(target),
-            AuthorizationData::BecomeAgent(ticker, AgentGroup::Custom(ag_id)),
+            AuthorizationData::BecomeAgent(asset_id, AgentGroup::Custom(ag_id)),
             expiry,
         )?;
         Ok(())
@@ -330,110 +356,110 @@ impl<T: Config> Module<T> {
 
     fn base_set_group_permissions(
         origin: T::RuntimeOrigin,
-        ticker: Ticker,
+        asset_id: AssetID,
         id: AGId,
         perms: ExtrinsicPermissions,
     ) -> DispatchResult {
-        let did = Self::ensure_perms(origin, ticker)?.for_event();
+        let did = Self::ensure_perms(origin, asset_id)?.for_event();
         <Identity<T>>::ensure_extrinsic_perms_length_limited(&perms)?;
-        Self::ensure_custom_agent_group_exists(ticker, &id)?;
+        Self::ensure_custom_agent_group_exists(&asset_id, &id)?;
 
         // Commit & emit.
-        GroupPermissions::insert(ticker, id, perms.clone());
-        Self::deposit_event(Event::GroupPermissionsUpdated(did, ticker, id, perms));
+        GroupPermissions::insert(asset_id, id, perms.clone());
+        Self::deposit_event(Event::GroupPermissionsUpdated(did, asset_id, id, perms));
         Ok(())
     }
 
     fn base_remove_agent(
         origin: T::RuntimeOrigin,
-        ticker: Ticker,
+        asset_id: AssetID,
         agent: IdentityId,
     ) -> DispatchResult {
-        let did = Self::ensure_perms(origin, ticker)?.for_event();
-        Self::try_mutate_agents_group(ticker, agent, None)?;
-        Self::deposit_event(Event::AgentRemoved(did, ticker, agent));
+        let did = Self::ensure_perms(origin, asset_id)?.for_event();
+        Self::try_mutate_agents_group(asset_id, agent, None)?;
+        Self::deposit_event(Event::AgentRemoved(did, asset_id, agent));
         Ok(())
     }
 
-    fn base_abdicate(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
-        let did = Self::ensure_asset_perms(origin, &ticker)?.primary_did;
-        Self::try_mutate_agents_group(ticker, did, None)?;
-        Self::deposit_event(Event::AgentRemoved(did.for_event(), ticker, did));
+    fn base_abdicate(origin: T::RuntimeOrigin, asset_id: AssetID) -> DispatchResult {
+        let did = Self::ensure_asset_perms(origin, asset_id)?.primary_did;
+        Self::try_mutate_agents_group(asset_id, did, None)?;
+        Self::deposit_event(Event::AgentRemoved(did.for_event(), asset_id, did));
         Ok(())
     }
 
     fn base_create_and_change_custom_group(
         origin: T::RuntimeOrigin,
-        ticker: Ticker,
+        asset_id: AssetID,
         perms: ExtrinsicPermissions,
         agent: IdentityId,
     ) -> DispatchResult {
-        let (did, ag_id) = Self::base_create_group(origin, ticker, perms)?;
-        Self::unsafe_change_group(did.for_event(), ticker, agent, AgentGroup::Custom(ag_id))
+        let (did, ag_id) = Self::base_create_group(origin, asset_id, perms)?;
+        Self::unsafe_change_group(did.for_event(), asset_id, agent, AgentGroup::Custom(ag_id))
     }
 
     fn base_change_group(
         origin: T::RuntimeOrigin,
-        ticker: Ticker,
+        asset_id: AssetID,
         agent: IdentityId,
         group: AgentGroup,
     ) -> DispatchResult {
-        let did = Self::ensure_perms(origin, ticker)?.for_event();
-        Self::unsafe_change_group(did, ticker, agent, group)
+        let did = Self::ensure_perms(origin, asset_id)?.for_event();
+        Self::unsafe_change_group(did, asset_id, agent, group)
     }
 
     fn unsafe_change_group(
         did: EventDid,
-        ticker: Ticker,
+        asset_id: AssetID,
         agent: IdentityId,
         group: AgentGroup,
     ) -> DispatchResult {
-        Self::ensure_agent_group_valid(ticker, group)?;
-        Self::try_mutate_agents_group(ticker, agent, Some(group))?;
-        Self::deposit_event(Event::GroupChanged(did, ticker, agent, group));
+        Self::ensure_agent_group_valid(&asset_id, group)?;
+        Self::try_mutate_agents_group(asset_id, agent, Some(group))?;
+        Self::deposit_event(Event::GroupChanged(did, asset_id, agent, group));
         Ok(())
     }
 
-    /// Ensure that `group` is a valid agent group for `ticker`.
-    fn ensure_agent_group_valid(ticker: Ticker, group: AgentGroup) -> DispatchResult {
+    /// Ensure that `group` is a valid agent group for `asset_id`.
+    fn ensure_agent_group_valid(asset_id: &AssetID, group: AgentGroup) -> DispatchResult {
         if let AgentGroup::Custom(id) = group {
-            Self::ensure_custom_agent_group_exists(ticker, &id)?;
+            Self::ensure_custom_agent_group_exists(asset_id, &id)?;
         }
         Ok(())
     }
 
-    /// Ensure that `id` identifies a custom AG of `ticker`.
-    fn ensure_custom_agent_group_exists(ticker: Ticker, id: &AGId) -> DispatchResult {
+    /// Ensure that `id` identifies a custom AG of `asset_id`.
+    fn ensure_custom_agent_group_exists(asset_id: &AssetID, id: &AGId) -> DispatchResult {
         ensure!(
-            (AGId(1)..=AGIdSequence::get(ticker)).contains(id),
+            (AGId(1)..=AGIdSequence::get(&asset_id)).contains(id),
             Error::<T>::NoSuchAG
         );
         Ok(())
     }
 
-    /// Ensure that `agent` is an agent of `ticker` and set the group to `group`.
+    /// Ensure that `agent` is an agent of `asset_id` and set the group to `group`.
     fn try_mutate_agents_group(
-        ticker: Ticker,
+        asset_id: AssetID,
         agent: IdentityId,
         group: Option<AgentGroup>,
     ) -> DispatchResult {
-        GroupOfAgent::try_mutate(ticker, agent, |slot| {
+        GroupOfAgent::try_mutate(asset_id, agent, |slot| {
             ensure!(slot.is_some(), Error::<T>::NotAnAgent);
 
             match (*slot, group) {
                 // Identity transition. No change in count.
                 (Some(AgentGroup::Full), Some(AgentGroup::Full)) => {}
                 // Demotion/Removal. Count is decrementing.
-                (Some(AgentGroup::Full), _) => Self::dec_full_count(ticker)?,
+                (Some(AgentGroup::Full), _) => Self::dec_full_count(asset_id)?,
                 // Promotion. Count is incrementing.
-                (_, Some(AgentGroup::Full)) => Self::inc_full_count(ticker)?,
+                (_, Some(AgentGroup::Full)) => Self::inc_full_count(asset_id)?,
                 // Just a change in groups.
                 _ => {}
             }
 
             // Removal
             if group.is_none() {
-                AgentOf::remove(agent, ticker);
+                AgentOf::remove(agent, asset_id);
             }
 
             *slot = group;
@@ -442,22 +468,22 @@ impl<T: Config> Module<T> {
     }
 
     pub fn unchecked_add_agent(
-        ticker: Ticker,
+        asset_id: AssetID,
         did: IdentityId,
         group: AgentGroup,
     ) -> DispatchResult {
         if let AgentGroup::Full = group {
-            Self::inc_full_count(ticker)?;
+            Self::inc_full_count(asset_id)?;
         }
-        GroupOfAgent::insert(ticker, did, group);
-        AgentOf::insert(did, ticker, ());
-        Self::deposit_event(Event::AgentAdded(did.for_event(), ticker, group));
+        GroupOfAgent::insert(asset_id, did, group);
+        AgentOf::insert(did, asset_id, ());
+        Self::deposit_event(Event::AgentAdded(did.for_event(), asset_id, group));
         Ok(())
     }
 
     /// Decrement the full agent count, or error on < 1.
-    fn dec_full_count(ticker: Ticker) -> DispatchResult {
-        NumFullAgents::try_mutate(ticker, |n| {
+    fn dec_full_count(asset_id: AssetID) -> DispatchResult {
+        NumFullAgents::try_mutate(asset_id, |n| {
             *n = n
                 .checked_sub(1)
                 .filter(|&x| x > 0)
@@ -467,25 +493,25 @@ impl<T: Config> Module<T> {
     }
 
     /// Increment the full agent count, or error on overflow.
-    fn inc_full_count(ticker: Ticker) -> DispatchResult {
-        NumFullAgents::try_mutate(ticker, try_next_post::<T, _>).map(drop)
+    fn inc_full_count(asset_id: AssetID) -> DispatchResult {
+        NumFullAgents::try_mutate(asset_id, try_next_post::<T, _>).map(drop)
     }
 
-    /// Ensures that `origin` is a permissioned agent for `ticker`.
+    /// Ensures that `origin` is a permissioned agent for `asset_id`.
     pub fn ensure_perms(
         origin: T::RuntimeOrigin,
-        ticker: Ticker,
+        asset_id: AssetID,
     ) -> Result<IdentityId, DispatchError> {
-        Self::ensure_agent_asset_perms(origin, ticker).map(|d| d.primary_did)
+        Self::ensure_agent_asset_perms(origin, asset_id).map(|d| d.primary_did)
     }
 
-    /// Ensures that `origin` is a permissioned agent for `ticker`.
+    /// Ensures that `origin` is a permissioned agent for `asset_id`.
     pub fn ensure_agent_asset_perms(
         origin: T::RuntimeOrigin,
-        ticker: Ticker,
+        asset_id: AssetID,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
-        let data = Self::ensure_asset_perms(origin, &ticker)?;
-        Self::ensure_agent_permissioned(ticker, data.primary_did)?;
+        let data = Self::ensure_asset_perms(origin, asset_id)?;
+        Self::ensure_agent_permissioned(&asset_id, data.primary_did)?;
         Ok(data)
     }
 
@@ -493,7 +519,7 @@ impl<T: Config> Module<T> {
     /// and the secondary key has relevant asset permissions.
     pub fn ensure_asset_perms(
         origin: T::RuntimeOrigin,
-        ticker: &Ticker,
+        asset_id: AssetID,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
         let data = <Identity<T>>::ensure_origin_call_permissions(origin)?;
         let skey = data.secondary_key.as_ref();
@@ -501,7 +527,7 @@ impl<T: Config> Module<T> {
         // If `secondary_key` is None, the caller is the primary key and has all permissions.
         if let Some(sk) = skey {
             ensure!(
-                sk.has_asset_permission(*ticker),
+                sk.has_asset_permission(asset_id),
                 Error::<T>::SecondaryKeyNotAuthorizedForAsset
             );
         }
@@ -509,10 +535,10 @@ impl<T: Config> Module<T> {
         Ok(data)
     }
 
-    /// Ensures that `agent` is permissioned for `ticker`.
-    pub fn ensure_agent_permissioned(ticker: Ticker, agent: IdentityId) -> DispatchResult {
+    /// Ensures that `agent` is permissioned for `asset_id`.
+    pub fn ensure_agent_permissioned(asset_id: &AssetID, agent: IdentityId) -> DispatchResult {
         ensure!(
-            Self::agent_permissions(ticker, agent).sufficient_for(
+            Self::agent_permissions(asset_id, agent).sufficient_for(
                 &<Permissions<T>>::current_pallet_name(),
                 &<Permissions<T>>::current_dispatchable_name()
             ),
@@ -521,34 +547,33 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns `agent`'s permission set in `ticker`.
-    fn agent_permissions(ticker: Ticker, agent: IdentityId) -> ExtrinsicPermissions {
+    /// Returns `agent`'s permission set in `asset_id`.
+    fn agent_permissions(asset_id: &AssetID, agent: IdentityId) -> ExtrinsicPermissions {
         let pallet = |p: &str| PalletPermissions::entire_pallet(p.into());
         let in_pallet = |p: &str, dns| PalletPermissions::new(p.into(), dns);
-        fn elems<T: Ord, const N: usize>(elems: [T; N]) -> SubsetRestriction<T> {
-            SubsetRestriction::elems(elems)
-        }
-        match GroupOfAgent::get(ticker, agent) {
+        match GroupOfAgent::get(asset_id, agent) {
             None => ExtrinsicPermissions::empty(),
             Some(AgentGroup::Full) => ExtrinsicPermissions::default(),
             Some(AgentGroup::Custom(ag_id)) => {
-                GroupPermissions::get(ticker, ag_id).unwrap_or_else(ExtrinsicPermissions::empty)
+                GroupPermissions::get(asset_id, ag_id).unwrap_or_else(ExtrinsicPermissions::empty)
             }
             // Anything but extrinsics in this pallet.
-            Some(AgentGroup::ExceptMeta) => SubsetRestriction::except(pallet("ExternalAgents")),
+            Some(AgentGroup::ExceptMeta) => {
+                ExtrinsicPermissions::except([pallet("ExternalAgents")])
+            }
             // Pallets `CorporateAction`, `CorporateBallot`, and `CapitalDistribution`.
-            Some(AgentGroup::PolymeshV1CAA) => elems([
+            Some(AgentGroup::PolymeshV1CAA) => ExtrinsicPermissions::these([
                 pallet("CorporateAction"),
                 pallet("CorporateBallot"),
                 pallet("CapitalDistribution"),
             ]),
-            Some(AgentGroup::PolymeshV1PIA) => elems([
+            Some(AgentGroup::PolymeshV1PIA) => ExtrinsicPermissions::these([
                 // All in `Sto` except `Sto::invest`.
                 in_pallet("Sto", SubsetRestriction::except("invest".into())),
                 // Asset::{issue, redeem, controller_transfer}.
                 in_pallet(
                     "Asset",
-                    elems([
+                    SubsetRestriction::elems([
                         "issue".into(),
                         "redeem".into(),
                         "controller_transfer".into(),

@@ -1,4 +1,4 @@
-use crate::asset_test::{a_token, an_asset, basic_asset};
+use crate::asset_pallet::setup::create_and_issue_sample_asset;
 use crate::ext_builder::ExtBuilder;
 use crate::identity_test::test_with_bad_ext_perms;
 use crate::storage::{TestStorage, User};
@@ -8,11 +8,10 @@ use frame_support::{
 };
 use pallet_external_agents::{AGIdSequence, AgentOf, GroupOfAgent, NumFullAgents};
 use pallet_permissions::StoreCallMetadata;
-use polymesh_common_utilities::constants::currency::POLY;
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::{
     agent::{AGId, AgentGroup},
-    AuthorizationData, ExtrinsicPermissions, PalletPermissions, Signatory, SubsetRestriction,
-    Ticker,
+    AuthorizationData, ExtrinsicPermissions, PalletPermissions, Signatory,
 };
 use sp_keyring::AccountKeyring;
 
@@ -23,23 +22,23 @@ type Id = pallet_identity::Module<TestStorage>;
 
 fn set_extrinsic(name: &str) {
     StoreCallMetadata::<TestStorage>::set_call_metadata(
-        b"pallet_external_agent".into(),
+        "pallet_external_agent".into(),
         name.into(),
     );
 }
 
 fn make_perms(pallet: &str) -> ExtrinsicPermissions {
-    SubsetRestriction::elem(PalletPermissions::entire_pallet(pallet.into()))
+    ExtrinsicPermissions::these([PalletPermissions::entire_pallet(pallet.into())])
 }
 
 fn add_become_agent(
-    ticker: Ticker,
+    asset_id: AssetID,
     from: User,
     to: User,
     group: AgentGroup,
     expected: DispatchResult,
 ) {
-    let data = AuthorizationData::BecomeAgent(ticker, group);
+    let data = AuthorizationData::BecomeAgent(asset_id, group);
     let sig = Signatory::Identity(to.did);
     let auth = Id::add_auth(from.did, sig, data, None).unwrap();
     match expected {
@@ -59,18 +58,28 @@ fn add_become_agent(
 fn create_group_set_perms_works() {
     ExtBuilder::default().build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
-        let (ticker, token) = a_token(owner.did);
 
-        let create = |perms| ExternalAgents::create_group(owner.origin(), ticker, perms);
+        assert_noop!(
+            ExternalAgents::create_group(owner.origin(), [0; 16].into(), <_>::default()),
+            Error::UnauthorizedAgent
+        );
+        assert_noop!(
+            ExternalAgents::set_group_permissions(
+                owner.origin(),
+                [0; 16].into(),
+                AGId(0),
+                <_>::default()
+            ),
+            Error::UnauthorizedAgent
+        );
+
+        let asset_id = create_and_issue_sample_asset(&owner);
+
+        let create = |perms| ExternalAgents::create_group(owner.origin(), asset_id, perms);
         let set =
-            |id, perms| ExternalAgents::set_group_permissions(owner.origin(), ticker, id, perms);
-
-        // No asset made, so no agents, so the "owner" is unauthorized now.
-        assert_noop!(create(<_>::default()), Error::UnauthorizedAgent);
-        assert_noop!(set(AGId(0), <_>::default()), Error::UnauthorizedAgent);
+            |id, perms| ExternalAgents::set_group_permissions(owner.origin(), asset_id, id, perms);
 
         // Make the asset. Let's test permissions length limits.
-        assert_ok!(basic_asset(owner, ticker, &token));
         test_with_bad_ext_perms(|perms| {
             assert_too_long!(create(perms.clone()));
             assert_too_long!(set(AGId(0), perms));
@@ -78,9 +87,9 @@ fn create_group_set_perms_works() {
 
         // Still, `other` doesn't have agent permissions.
         let other = User::new(AccountKeyring::Bob);
-        let other_create = |perms| ExternalAgents::create_group(other.origin(), ticker, perms);
+        let other_create = |perms| ExternalAgents::create_group(other.origin(), asset_id, perms);
         let other_set =
-            |id, perms| ExternalAgents::set_group_permissions(other.origin(), ticker, id, perms);
+            |id, perms| ExternalAgents::set_group_permissions(other.origin(), asset_id, id, perms);
         assert_noop!(other_create(<_>::default()), Error::UnauthorizedAgent);
         assert_noop!(other_set(AGId(1), <_>::default()), Error::UnauthorizedAgent);
 
@@ -90,30 +99,30 @@ fn create_group_set_perms_works() {
         }
 
         // Manipulate storage so that ID will overflow.
-        AGIdSequence::insert(ticker, AGId(u32::MAX));
+        AGIdSequence::insert(asset_id, AGId(u32::MAX));
         assert_noop!(create(<_>::default()), BaseError::CounterOverflow);
-        AGIdSequence::insert(ticker, AGId::default());
+        AGIdSequence::insert(asset_id, AGId::default());
 
         // Add a group successfully.
         let perms = make_perms("foo");
         assert_ok!(create(perms.clone()));
-        assert_eq!(Some(perms), ExternalAgents::permissions(ticker, AGId(1)));
-        assert_eq!(AGId(1), ExternalAgents::agent_group_id_sequence(ticker));
+        assert_eq!(Some(perms), ExternalAgents::permissions(asset_id, AGId(1)));
+        assert_eq!(AGId(1), ExternalAgents::agent_group_id_sequence(asset_id));
 
         // Now that the group does exist, modify its perms.
         let perms = make_perms("pallet_external_agent");
         assert_ok!(set(AGId(1), perms.clone()));
-        assert_eq!(Some(perms), ExternalAgents::permissions(ticker, AGId(1)));
+        assert_eq!(Some(perms), ExternalAgents::permissions(asset_id, AGId(1)));
 
         // Below we also test agent permissions checking logic.
 
         // Cheat a bit. Insert `other` as an agent but for a group that doesn't exist.
-        GroupOfAgent::insert(ticker, other.did, AgentGroup::Custom(AGId(2)));
+        GroupOfAgent::insert(asset_id, other.did, AgentGroup::Custom(AGId(2)));
         assert_noop!(other_create(<_>::default()), Error::UnauthorizedAgent);
         assert_noop!(other_set(AGId(1), <_>::default()), Error::UnauthorizedAgent);
 
         // This group we did just create.
-        GroupOfAgent::insert(ticker, other.did, AgentGroup::Custom(AGId(1)));
+        GroupOfAgent::insert(asset_id, other.did, AgentGroup::Custom(AGId(1)));
         assert_noop!(other_create(make_perms("foo")), Error::UnauthorizedAgent);
         set_extrinsic("create_group");
         assert_ok!(other_create(make_perms("foo")));
@@ -126,32 +135,41 @@ fn remove_abdicate_change_works() {
     ExtBuilder::default().build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
         let other = User::new(AccountKeyring::Bob);
-        let (ticker, token) = a_token(owner.did);
-
-        // Extrinsics under test:
-        let remove = |u: User, who| ExternalAgents::remove_agent(u.origin(), ticker, who);
-        let abdicate = |u: User| ExternalAgents::abdicate(u.origin(), ticker);
-        let change = |u: User, a, g| ExternalAgents::change_group(u.origin(), ticker, a, g);
-
-        // Granting helpers:
-        let grant =
-            |u: User, group| ExternalAgents::unchecked_add_agent(ticker, u.did, group).unwrap();
-        let grant_full = |u| grant(u, AgentGroup::Full);
-
-        // Asserts that `u` isn't an agent.
-        let assert_group = |u: User, g| assert_eq!(g, GroupOfAgent::get(ticker, u.did));
-        let assert_not_agent = |u| assert_group(u, None);
 
         // No asset made, so cannot remove non-agent.
-        assert_noop!(remove(owner, owner.did), Error::UnauthorizedAgent);
-        assert_noop!(abdicate(owner), Error::NotAnAgent);
         assert_noop!(
-            change(owner, owner.did, AgentGroup::Full),
+            ExternalAgents::remove_agent(owner.origin(), [0; 16].into(), other.did),
+            Error::UnauthorizedAgent
+        );
+        assert_noop!(
+            ExternalAgents::abdicate(owner.origin(), [0; 16].into()),
+            Error::NotAnAgent
+        );
+        assert_noop!(
+            ExternalAgents::change_group(
+                owner.origin(),
+                [0; 16].into(),
+                owner.did,
+                AgentGroup::Full
+            ),
             Error::UnauthorizedAgent
         );
 
-        // Make the asset.
-        assert_ok!(basic_asset(owner, ticker, &token));
+        let asset_id = create_and_issue_sample_asset(&owner);
+
+        // Extrinsics under test:
+        let remove = |u: User, who| ExternalAgents::remove_agent(u.origin(), asset_id, who);
+        let abdicate = |u: User| ExternalAgents::abdicate(u.origin(), asset_id);
+        let change = |u: User, a, g| ExternalAgents::change_group(u.origin(), asset_id, a, g);
+
+        // Granting helpers:
+        let grant =
+            |u: User, group| ExternalAgents::unchecked_add_agent(asset_id, u.did, group).unwrap();
+        let grant_full = |u| grant(u, AgentGroup::Full);
+
+        // Asserts that `u` isn't an agent.
+        let assert_group = |u: User, g| assert_eq!(g, GroupOfAgent::get(asset_id, u.did));
+        let assert_not_agent = |u| assert_group(u, None);
 
         // Asset exists, and owner is an agent, but other isn't, yet.
         assert_noop!(remove(owner, other.did), Error::NotAnAgent);
@@ -206,7 +224,7 @@ fn remove_abdicate_change_works() {
         // Make that AG.
         assert_ok!(ExternalAgents::create_group(
             owner.origin(),
-            ticker,
+            asset_id,
             <_>::default()
         ));
 
@@ -227,15 +245,15 @@ fn add_works() {
         let bob = User::new(AccountKeyring::Bob);
         let charlie = User::new(AccountKeyring::Charlie);
         let dave = User::new(AccountKeyring::Dave);
-        let ticker = an_asset(owner, false);
+        let asset_id = create_and_issue_sample_asset(&owner);
 
-        let check_num = |n| assert_eq!(ExternalAgents::num_full_agents(ticker), n);
+        let check_num = |n| assert_eq!(ExternalAgents::num_full_agents(asset_id), n);
 
         check_num(1);
 
         // Other is not an agent, so auths from them are not valid.
         add_become_agent(
-            ticker,
+            asset_id,
             bob,
             owner,
             AgentGroup::Full,
@@ -245,7 +263,7 @@ fn add_works() {
 
         // CAG is not valid
         add_become_agent(
-            ticker,
+            asset_id,
             owner,
             bob,
             AgentGroup::Custom(AGId(1)),
@@ -254,12 +272,16 @@ fn add_works() {
 
         // Make a CAG & Other an agent of it.
         let perms = make_perms("pallet_external_agent");
-        assert_ok!(ExternalAgents::create_group(owner.origin(), ticker, perms));
-        add_become_agent(ticker, owner, bob, AgentGroup::Custom(AGId(1)), Ok(()));
+        assert_ok!(ExternalAgents::create_group(
+            owner.origin(),
+            asset_id,
+            perms
+        ));
+        add_become_agent(asset_id, owner, bob, AgentGroup::Custom(AGId(1)), Ok(()));
 
         // Just made them an agent, cannot do it again.
         add_become_agent(
-            ticker,
+            asset_id,
             owner,
             bob,
             AgentGroup::Custom(AGId(1)),
@@ -267,13 +289,13 @@ fn add_works() {
         );
 
         // Add another full agent and make sure count is incremented.
-        add_become_agent(ticker, owner, charlie, AgentGroup::Full, Ok(()));
+        add_become_agent(asset_id, owner, charlie, AgentGroup::Full, Ok(()));
         check_num(2);
 
         // Force the count to overflow and test for graceful error.
-        NumFullAgents::insert(ticker, u32::MAX);
+        NumFullAgents::insert(asset_id, u32::MAX);
         add_become_agent(
-            ticker,
+            asset_id,
             owner,
             dave,
             AgentGroup::Full,
@@ -289,18 +311,14 @@ fn agent_of_mapping_works() {
         let bob = User::new(AccountKeyring::Bob);
         let charlie = User::new(AccountKeyring::Charlie);
         let dave = User::new(AccountKeyring::Dave);
-        let mut tickers = (b'A'..b'Z')
-            .map(|ticker| {
-                let ticker = Ticker::from_slice_truncated(&[ticker] as &[u8]);
-                crate::sto_test::create_asset(owner.origin(), ticker, POLY);
-                ticker
-            })
+        let mut assets = (b'A'..b'Z')
+            .map(|_| create_and_issue_sample_asset(&owner))
             .collect::<Vec<_>>();
-        tickers.sort();
+        assets.sort();
 
         let check = |user: User| {
             let mut agent_of_tickers = AgentOf::iter_prefix(user.did)
-                .map(|(ticker, _)| ticker)
+                .map(|(asset_id, _)| asset_id)
                 .collect::<Vec<_>>();
             let mut group_of_tickers = GroupOfAgent::iter()
                 .filter(|(_, d, _)| *d == user.did)
@@ -308,7 +326,7 @@ fn agent_of_mapping_works() {
                 .collect::<Vec<_>>();
             agent_of_tickers.sort();
             group_of_tickers.sort();
-            assert_eq!(agent_of_tickers, tickers);
+            assert_eq!(agent_of_tickers, assets);
             assert_eq!(agent_of_tickers, group_of_tickers);
         };
         let empty = |user: User| {
@@ -318,16 +336,16 @@ fn agent_of_mapping_works() {
                 .next()
                 .is_none());
         };
-        let remove = |ticker, user: User| {
-            assert_ok!(ExternalAgents::abdicate(user.origin(), ticker));
+        let remove = |asset_id, user: User| {
+            assert_ok!(ExternalAgents::abdicate(user.origin(), asset_id));
         };
 
         // Add EAs
-        for ticker in &tickers {
-            add_become_agent(*ticker, owner, bob, AgentGroup::Full, Ok(()));
-            add_become_agent(*ticker, owner, charlie, AgentGroup::ExceptMeta, Ok(()));
-            add_become_agent(*ticker, owner, dave, AgentGroup::PolymeshV1CAA, Ok(()));
-            assert_eq!(ExternalAgents::num_full_agents(ticker), 2);
+        for asset_id in &assets {
+            add_become_agent(*asset_id, owner, bob, AgentGroup::Full, Ok(()));
+            add_become_agent(*asset_id, owner, charlie, AgentGroup::ExceptMeta, Ok(()));
+            add_become_agent(*asset_id, owner, dave, AgentGroup::PolymeshV1CAA, Ok(()));
+            assert_eq!(ExternalAgents::num_full_agents(asset_id), 2);
         }
 
         // Check the reverse mappings
@@ -337,11 +355,11 @@ fn agent_of_mapping_works() {
         check(dave);
 
         // Remove EAs
-        for ticker in &tickers {
-            remove(*ticker, bob);
-            remove(*ticker, charlie);
-            remove(*ticker, dave);
-            assert_eq!(ExternalAgents::num_full_agents(ticker), 1);
+        for asset_id in &assets {
+            remove(*asset_id, bob);
+            remove(*asset_id, charlie);
+            remove(*asset_id, dave);
+            assert_eq!(ExternalAgents::num_full_agents(asset_id), 1);
         }
 
         // Check the reverse mappings are correct or empty
@@ -357,35 +375,37 @@ fn atredis_multi_group_perms() {
     ExtBuilder::default().build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
         let other = User::new(AccountKeyring::Bob);
-        let ticker = an_asset(owner, false);
+        let asset_id = create_and_issue_sample_asset(&owner);
 
         // Helpers for creating and setting permissions.
         let perms = make_perms("pallet_external_agent");
         let create = || {
             assert_ok!(ExternalAgents::create_group(
                 owner.origin(),
-                ticker,
+                asset_id,
                 perms.clone()
             ));
-            AGIdSequence::get(ticker)
+            AGIdSequence::get(asset_id)
         };
         let set =
-            |g| ExternalAgents::set_group_permissions(other.origin(), ticker, g, perms.clone());
+            |g| ExternalAgents::set_group_permissions(other.origin(), asset_id, g, perms.clone());
 
-        // Create two groups for `ticker`.
+        // Create two groups for `asset_id`.
         let a = create();
         let b = create();
 
         // Add `other` to group `a`.
         assert_ok!(ExternalAgents::unchecked_add_agent(
-            ticker,
+            asset_id,
             other.did,
             AgentGroup::Custom(a)
         ));
 
         // Confirm that `other` has access to `set_group_permissions`.
         set_extrinsic("set_group_permissions");
-        assert_ok!(ExternalAgents::ensure_agent_permissioned(ticker, other.did));
+        assert_ok!(ExternalAgents::ensure_agent_permissioned(
+            &asset_id, other.did
+        ));
         assert_ok!(set(a));
 
         // Although `other` isn't part of the second group,

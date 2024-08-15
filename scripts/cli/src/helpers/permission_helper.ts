@@ -5,9 +5,11 @@ import type {
   DocumentHash,
   DocumentName,
   Document,
-  PalletPermissions,
   These,
+  TheseMap,
   DispatchableName,
+  PalletName,
+  PalletPermissions,
 } from "../types";
 import { keyToIdentityIds, ApiSingleton } from "../util/init";
 import { nextPortfolioNumber } from "../helpers/portfolio_helper";
@@ -15,9 +17,9 @@ import { nextPortfolioNumber } from "../helpers/portfolio_helper";
 /**
  * @description Adds ticker to ticker array
  */
-export function setAsset(ticker: Ticker, assetArray: These<Ticker>): void {
-  assetArray.These.push(ticker);
-  assetArray.These.sort((a, b) => (a > b ? 1 : -1));
+export function setAsset(ticker: string, assets: These<Ticker>): void {
+  assets.These.push(ticker);
+  assets.These.sort((a, b) => (a > b ? 1 : -1));
 }
 
 /**
@@ -41,10 +43,10 @@ export function setDoc(
 }
 
 /**
- * @description Adds portfolio to portfolioArray
+ * @description Adds portfolio to portfolios
  */
 export async function setPortfolio(
-  portfolioArray: These<PortfolioId>,
+  portfolios: These<PortfolioId>,
   receiver: KeyringPair,
   type: "Default" | "User"
 ): Promise<void> {
@@ -58,14 +60,14 @@ export async function setPortfolio(
         did: receiverDid,
         kind: { User: portfolioNum },
       };
-      portfolioArray.These.push(userPortfolio);
+      portfolios.These.push(userPortfolio);
       break;
     default:
       let defaultPortfolio: PortfolioId = {
         did: receiverDid,
         kind: { Default: "" },
       };
-      portfolioArray.These.push(defaultPortfolio);
+      portfolios.These.push(defaultPortfolio);
       break;
   }
 }
@@ -74,21 +76,17 @@ export async function setPortfolio(
  * @description Adds extrinsic to extrinsic array
  */
 export function setExtrinsic(
-  extrinsicArray: These<PalletPermissions>,
+  extrinsics: TheseMap<PalletName, PalletPermissions>,
   palletName: string,
   dispatchName: string
 ): void {
-  for (const t of extrinsicArray.These) {
-    if (t.pallet_name == palletName) {
-      (t.dispatchable_names as These<DispatchableName>).These.push(
+  for (const t of extrinsics.These) {
+    if (t[0] == palletName) {
+      (t[1].extrinsics as These<DispatchableName>).These.push(
         dispatchName
       );
       return;
     }
   }
-  extrinsicArray.These.push({
-    pallet_name: palletName,
-    dispatchable_names: { These: [dispatchName] },
-  });
-  extrinsicArray.These.sort((a, b) => (a.pallet_name > b.pallet_name ? 1 : -1));
+  extrinsics.These.set(palletName, { extrinsics: { These: [dispatchName] }});
 }

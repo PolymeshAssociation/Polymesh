@@ -28,31 +28,22 @@ export async function addDocuments(
 /**
  * @description Issues a token to an Identity
  */
-export async function issueTokenToDid(
+export async function createTokenToDid(
   signer: KeyringPair,
-  ticker: Ticker,
+  asset_name: string,
   amount: number,
   fundingRound: string | null
 ): Promise<void> {
   const api = await ApiSingleton.getInstance();
-  assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
-  const tickerData = await api.query.asset.tickers(ticker);
 
-  if (tickerData.isEmpty) {
-    const createTx = api.tx.asset.createAsset(
-      ticker,
-      ticker,
-      true,
-      { EquityCommon: "" },
-      [],
-      fundingRound,
-    );
-    await sendTx(signer, createTx);
-    const issueTx = api.tx.asset.issue(ticker, amount, { Default: "" });
-    await sendTx(signer, issueTx);
-  } else {
-    console.log("ticker already reserved");
-  }
+  const createTx = api.tx.asset.createAsset(
+    asset_name,
+    true,
+    { EquityCommon: "" },
+    [],
+    fundingRound,
+  );
+  await sendTx(signer, createTx);
 }
 
 /**

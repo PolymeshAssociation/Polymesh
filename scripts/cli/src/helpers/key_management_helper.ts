@@ -1,6 +1,6 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { AccountId } from "@polkadot/types/interfaces";
-import type { Expiry, Permissions, Signatory } from "../types";
+import type { Expiry, Permissions } from "../types";
 import { sendTx, ApiSingleton } from "../util/init";
 
 /**
@@ -13,7 +13,7 @@ export async function addSecondaryKeys(
   const api = await ApiSingleton.getInstance();
   let totalPermissions: Permissions = {
     asset: { These: [] },
-    extrinsic: { These: [] },
+    extrinsic: { These: new Map() },
     portfolio: { These: [] },
   };
 
@@ -40,10 +40,10 @@ export async function addSecondaryKeys(
  */
 export async function createMultiSig(
   signer: KeyringPair,
-  signatories: Signatory[],
+  signatories: AccountId[],
   numOfSigners: number
 ): Promise<void> {
   const api = await ApiSingleton.getInstance();
-  const transaction = api.tx.multiSig.createMultisig(signatories, numOfSigners);
+  const transaction = api.tx.multiSig.createMultisig(signatories, numOfSigners, null);
   await sendTx(signer, transaction);
 }

@@ -19,9 +19,9 @@ pub use pallet_staking::StakerStatus;
 pub use runtime::{native_version, WASM_BINARY};
 
 pub use runtime::{
-    api, Asset, Authorship, Balances, BalancesCall, Bridge, CheckedExtrinsic, MinimumPeriod,
-    ProtocolFee, Runtime, RuntimeApi, RuntimeCall, SessionKeys, System, SystemCall,
-    TransactionPayment, UncheckedExtrinsic,
+    api, Asset, Authorship, Balances, BalancesCall, CheckedExtrinsic, MinimumPeriod, ProtocolFee,
+    Runtime, RuntimeApi, RuntimeCall, SessionKeys, System, SystemCall, TransactionPayment,
+    UncheckedExtrinsic,
 };
 
 pub use sp_runtime::{Perbill, Permill};

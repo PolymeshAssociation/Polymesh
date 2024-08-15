@@ -27,7 +27,7 @@ import type { IdentityId } from "../interfaces";
 import { assert } from "chai";
 import { Option } from "@polkadot/types-codec";
 
-let block_sizes: Number[] = [];
+let block_sizes: number[] = [];
 let block_times: Number[] = [];
 let genesisEntities: KeyringPair[] = [];
 let synced_block = 0;
@@ -114,8 +114,8 @@ export async function initMain(): Promise<KeyringPair[]> {
     genesisEntities = [
       await generateEntity("Alice"),
       await generateEntity("relay_1"),
-      await generateEntity("polymath_1"),
-      await generateEntity("polymath_2"),
+      await generateEntity("polymesh_1"),
+      await generateEntity("polymesh_2"),
       await generateEntity("Bob"),
     ];
   }
@@ -139,7 +139,7 @@ export async function generateEntity(name: string): Promise<KeyringPair> {
 }
 
 export async function generateKeys(
-  numberOfKeys: Number,
+  numberOfKeys: number,
   keyPrepend: String
 ): Promise<KeyringPair[]> {
   let keys = [];
@@ -224,7 +224,7 @@ export async function keyToIdentityIds(
     if (rec.isPrimaryKey) {
       return rec.asPrimaryKey;
     } else if (rec.isSecondaryKey) {
-      return rec.asSecondaryKey[0];
+      return rec.asSecondaryKey;
     }
   }
   return <IdentityId>(0 as unknown);
@@ -327,15 +327,6 @@ export async function generateOffchainKeys(keyType: string) {
   await cryptoWaitReady();
   const newPair = new Keyring({ type: "sr25519" }).addFromUri(PHRASE);
   await api.rpc.author.insertKey(keyType, PHRASE, u8aToHex(newPair.publicKey));
-}
-
-// Creates a Signatory Object
-export async function signatory(signer: KeyringPair, entity: KeyringPair) {
-  let entityDid = (await createIdentities(signer, [entity]))[0];
-  let signatoryObj = {
-    Identity: entityDid,
-  };
-  return signatoryObj;
 }
 
 export function getDefaultPortfolio(did: IdentityId) {

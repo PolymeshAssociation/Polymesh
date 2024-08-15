@@ -50,13 +50,16 @@ export interface AssetDidResult extends Enum {
   readonly type: 'Ok' | 'Err';
 }
 
+/** @name AssetID */
+export interface AssetID extends U8aFixed {}
+
 /** @name AssetPermissions */
 export interface AssetPermissions extends Enum {
   readonly isWhole: boolean;
   readonly isThese: boolean;
-  readonly asThese: Vec<Ticker>;
+  readonly asThese: Vec<AssetID>;
   readonly isExcept: boolean;
-  readonly asExcept: Vec<Ticker>;
+  readonly asExcept: Vec<AssetID>;
   readonly type: 'Whole' | 'These' | 'Except';
 }
 
@@ -78,13 +81,13 @@ export interface AuthorizationData extends Enum {
   readonly isAddMultiSigSigner: boolean;
   readonly asAddMultiSigSigner: AccountId;
   readonly isTransferAssetOwnership: boolean;
-  readonly asTransferAssetOwnership: Ticker;
+  readonly asTransferAssetOwnership: AssetID;
   readonly isJoinIdentity: boolean;
   readonly asJoinIdentity: Permissions;
   readonly isPortfolioCustody: boolean;
   readonly asPortfolioCustody: PortfolioId;
   readonly isBecomeAgent: boolean;
-  readonly asBecomeAgent: ITuple<[Ticker, AgentGroup]>;
+  readonly asBecomeAgent: ITuple<[AssetID, AgentGroup]>;
   readonly isAddRelayerPayingKey: boolean;
   readonly asAddRelayerPayingKey: ITuple<[AccountId, AccountId, Balance]>;
   readonly isRotatePrimaryKeyToSecondary: boolean;
@@ -486,19 +489,6 @@ export interface DidStatus extends Enum {
   readonly type: 'Unknown' | 'Exists' | 'CddVerified';
 }
 
-/** @name DispatchableName */
-export interface DispatchableName extends Text {}
-
-/** @name DispatchableNames */
-export interface DispatchableNames extends Enum {
-  readonly isWhole: boolean;
-  readonly isThese: boolean;
-  readonly asThese: Vec<DispatchableName>;
-  readonly isExcept: boolean;
-  readonly asExcept: Vec<DispatchableName>;
-  readonly type: 'Whole' | 'These' | 'Except';
-}
-
 /** @name ExecuteInstructionInfo */
 export interface ExecuteInstructionInfo extends Struct {
   readonly fungible_tokens: u32;
@@ -508,13 +498,26 @@ export interface ExecuteInstructionInfo extends Struct {
   readonly error: Option<Text>;
 }
 
+/** @name ExtrinsicName */
+export interface ExtrinsicName extends Text {}
+
+/** @name ExtrinsicNames */
+export interface ExtrinsicNames extends Enum {
+  readonly isWhole: boolean;
+  readonly isThese: boolean;
+  readonly asThese: Vec<ExtrinsicName>;
+  readonly isExcept: boolean;
+  readonly asExcept: Vec<ExtrinsicName>;
+  readonly type: 'Whole' | 'These' | 'Except';
+}
+
 /** @name ExtrinsicPermissions */
 export interface ExtrinsicPermissions extends Enum {
   readonly isWhole: boolean;
   readonly isThese: boolean;
-  readonly asThese: Vec<PalletPermissions>;
+  readonly asThese: Vec<ITuple<[PalletName, PalletPermissions]>>;
   readonly isExcept: boolean;
-  readonly asExcept: Vec<PalletPermissions>;
+  readonly asExcept: Vec<ITuple<[PalletName, PalletPermissions]>>;
   readonly type: 'Whole' | 'These' | 'Except';
 }
 
@@ -522,7 +525,7 @@ export interface ExtrinsicPermissions extends Enum {
 export interface FungibleLeg extends Struct {
   readonly sender: PortfolioId;
   readonly receiver: PortfolioId;
-  readonly ticker: Ticker;
+  readonly asset_id: AssetID;
   readonly amount: Balance;
 }
 
@@ -590,7 +593,7 @@ export interface NFTId extends u64 {}
 
 /** @name NFTs */
 export interface NFTs extends Struct {
-  readonly ticker: Ticker;
+  readonly asset_id: AssetID;
   readonly ids: Vec<NFTId>;
 }
 
@@ -605,7 +608,7 @@ export interface NonFungibleLeg extends Struct {
 export interface OffChainLeg extends Struct {
   readonly sender_identity: IdentityId;
   readonly receiver_identity: IdentityId;
-  readonly ticker: Ticker;
+  readonly asset_id: AssetID;
   readonly amount: Balance;
 }
 
@@ -614,8 +617,7 @@ export interface PalletName extends Text {}
 
 /** @name PalletPermissions */
 export interface PalletPermissions extends Struct {
-  readonly pallet_name: PalletName;
-  readonly dispatchable_names: DispatchableNames;
+  readonly extrinsics: ExtrinsicNames;
 }
 
 /** @name Percentage */
@@ -715,11 +717,11 @@ export interface RpcDidRecordsSuccess extends Struct {
 export interface Scope extends Enum {
   readonly isIdentity: boolean;
   readonly asIdentity: IdentityId;
-  readonly isTicker: boolean;
-  readonly asTicker: Ticker;
+  readonly isAsset: boolean;
+  readonly asAsset: AssetID;
   readonly isCustom: boolean;
   readonly asCustom: Bytes;
-  readonly type: 'Identity' | 'Ticker' | 'Custom';
+  readonly type: 'Identity' | 'Asset' | 'Custom';
 }
 
 /** @name SecondaryKey */

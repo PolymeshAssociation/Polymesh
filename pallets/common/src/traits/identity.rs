@@ -341,8 +341,6 @@ decl_event!(
 
 pub trait IdentityFnTrait<AccountId> {
     fn get_identity(key: &AccountId) -> Option<IdentityId>;
-    fn current_identity() -> Option<IdentityId>;
-    fn set_current_identity(id: Option<IdentityId>);
     fn current_payer() -> Option<AccountId>;
     fn set_current_payer(payer: Option<AccountId>);
 

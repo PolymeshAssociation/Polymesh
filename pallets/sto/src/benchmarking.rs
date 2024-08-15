@@ -10,9 +10,6 @@ use polymesh_primitives::TrustedIssuer;
 
 use crate::*;
 
-const OFFERING_TICKER: Ticker = Ticker::repeating(b'A');
-const RAISE_TICKER: Ticker = Ticker::repeating(b'B');
-
 pub type Asset<T> = pallet_asset::Module<T>;
 pub type ComplianceManager<T> = pallet_compliance_manager::Module<T>;
 pub type Identity<T> = pallet_identity::Module<T>;
@@ -25,37 +22,34 @@ struct SetupPortfolios {
     pub investor_offering_portfolio: PortfolioId,
     pub fundraiser_raising_portfolio: PortfolioId,
     pub investor_raising_portfolio: PortfolioId,
+    pub offering_asset_id: AssetID,
+    pub raising_asset_id: AssetID,
 }
 
-fn create_assets_and_compliance<T>(
-    fundraiser: &User<T>,
-    investor: &User<T>,
-    offering_ticker: Ticker,
-    raise_ticker: Ticker,
-) -> SetupPortfolios
+fn create_assets_and_compliance<T>(fundraiser: &User<T>, investor: &User<T>) -> SetupPortfolios
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
 {
-    let (fundraiser_offering_portfolio, investor_offering_portfolio, _) = setup_asset_transfer(
-        fundraiser,
-        investor,
-        offering_ticker,
-        Some(&format!("SdrPortfolio{:?}", offering_ticker)),
-        Some(&format!("RcvPortfolio{:?}", offering_ticker)),
-        false,
-        false,
-        0,
-    );
-    let (investor_raising_portfolio, fundraiser_raising_portfolio, _) = setup_asset_transfer(
-        investor,
-        fundraiser,
-        raise_ticker,
-        Some(&format!("SdrPortfolio{:?}", raise_ticker)),
-        Some(&format!("RcvPortfolio{:?}", raise_ticker)),
-        false,
-        false,
-        0,
-    );
+    let (fundraiser_offering_portfolio, investor_offering_portfolio, _, offering_asset_id) =
+        setup_asset_transfer(
+            fundraiser,
+            investor,
+            Some(&format!("SdrPortfolio{:?}", fundraiser.did())),
+            Some(&format!("RcvPortfolio{:?}", investor.did())),
+            false,
+            false,
+            0,
+        );
+    let (investor_raising_portfolio, fundraiser_raising_portfolio, _, raising_asset_id) =
+        setup_asset_transfer(
+            investor,
+            fundraiser,
+            Some(&format!("SdrPortfolio{:?}", investor.did())),
+            Some(&format!("RcvPortfolio{:?}", fundraiser.did())),
+            false,
+            false,
+            0,
+        );
 
     let trusted_user = UserBuilder::<T>::default()
         .generate_did()
@@ -63,13 +57,13 @@ where
     let trusted_issuer = TrustedIssuer::from(trusted_user.did());
     pallet_compliance_manager::Module::<T>::add_default_trusted_claim_issuer(
         fundraiser.origin().into(),
-        offering_ticker,
+        offering_asset_id,
         trusted_issuer.clone(),
     )
     .unwrap();
     pallet_compliance_manager::Module::<T>::add_default_trusted_claim_issuer(
         investor.origin().into(),
-        raise_ticker,
+        raising_asset_id,
         trusted_issuer,
     )
     .unwrap();
@@ -79,6 +73,8 @@ where
         investor_offering_portfolio,
         fundraiser_raising_portfolio,
         investor_raising_portfolio,
+        offering_asset_id,
+        raising_asset_id,
     }
 }
 
@@ -107,16 +103,15 @@ fn setup_fundraiser<T>(fundraiser: &User<T>, investor: &User<T>, tiers: u32) -> 
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
 {
-    let setup_portfolios =
-        create_assets_and_compliance::<T>(&fundraiser, &investor, OFFERING_TICKER, RAISE_TICKER);
+    let setup_portfolios = create_assets_and_compliance::<T>(&fundraiser, &investor);
     let venue_id = create_venue(&fundraiser).unwrap();
 
     <Sto<T>>::create_fundraiser(
         fundraiser.origin().into(),
         setup_portfolios.fundraiser_offering_portfolio,
-        OFFERING_TICKER,
+        setup_portfolios.offering_asset_id,
         setup_portfolios.fundraiser_raising_portfolio,
-        RAISE_TICKER,
+        setup_portfolios.raising_asset_id,
         generate_tiers(tiers),
         venue_id,
         None,
@@ -138,17 +133,16 @@ benchmarks! {
 
         let alice = <UserBuilder<T>>::default().generate_did().build("Alice");
         let bob = <UserBuilder<T>>::default().generate_did().build("Bob");
-        let setup_portfolios =
-            create_assets_and_compliance::<T>(&alice, &bob, OFFERING_TICKER, RAISE_TICKER);
+        let setup_portfolios = create_assets_and_compliance::<T>(&alice, &bob);
 
         let venue_id = create_venue(&alice).unwrap();
         let tiers = generate_tiers(i);
     }: _(
             alice.origin(),
             setup_portfolios.fundraiser_offering_portfolio,
-            OFFERING_TICKER,
+            setup_portfolios.offering_asset_id,
             setup_portfolios.fundraiser_raising_portfolio,
-            RAISE_TICKER,
+            setup_portfolios.raising_asset_id,
             tiers,
             venue_id,
             None,
@@ -157,7 +151,7 @@ benchmarks! {
             vec![].into()
         )
     verify {
-        assert!(FundraiserCount::get(OFFERING_TICKER) > FundraiserId(0), "create_fundraiser");
+        assert!(FundraiserCount::get(setup_portfolios.offering_asset_id) > FundraiserId(0), "create_fundraiser");
     }
 
     invest {
@@ -168,54 +162,54 @@ benchmarks! {
             bob.origin(),
             setup_portfolios.investor_offering_portfolio,
             setup_portfolios.investor_raising_portfolio,
-            OFFERING_TICKER,
+            setup_portfolios.offering_asset_id,
             FundraiserId(0),
             100,
             Some(1_000_000u128.into()),
             None
         )
     verify {
-        assert!(<Asset<T>>::balance_of(&OFFERING_TICKER, bob.did()) > 0u32.into(), "invest");
+        assert!(<Asset<T>>::balance_of(&setup_portfolios.offering_asset_id, bob.did()) > 0u32.into(), "invest");
     }
 
     freeze_fundraiser {
         let id = FundraiserId(0);
         let alice = <UserBuilder<T>>::default().generate_did().build("Alice");
         let bob = <UserBuilder<T>>::default().generate_did().build("Bob");
-        setup_fundraiser::<T>(&alice, &bob, 1);
-    }: _(alice.origin(), OFFERING_TICKER, id)
+        let setup_portfolios = setup_fundraiser::<T>(&alice, &bob, 1);
+    }: _(alice.origin(), setup_portfolios.offering_asset_id, id)
     verify {
-        assert_eq!(<Fundraisers<T>>::get(OFFERING_TICKER, id).unwrap().status, FundraiserStatus::Frozen, "freeze_fundraiser");
+        assert_eq!(<Fundraisers<T>>::get(setup_portfolios.offering_asset_id, id).unwrap().status, FundraiserStatus::Frozen, "freeze_fundraiser");
     }
 
     unfreeze_fundraiser {
         let id = FundraiserId(0);
         let alice = <UserBuilder<T>>::default().generate_did().build("Alice");
         let bob = <UserBuilder<T>>::default().generate_did().build("Bob");
-        setup_fundraiser::<T>(&alice, &bob, 1);
-        <Sto<T>>::freeze_fundraiser(alice.origin().into(), OFFERING_TICKER, id).unwrap();
-    }: _(alice.origin(), OFFERING_TICKER, id)
+        let setup_portfolios = setup_fundraiser::<T>(&alice, &bob, 1);
+        <Sto<T>>::freeze_fundraiser(alice.origin().into(), setup_portfolios.offering_asset_id, id).unwrap();
+    }: _(alice.origin(), setup_portfolios.offering_asset_id, id)
     verify {
-        assert_eq!(<Fundraisers<T>>::get(OFFERING_TICKER, id).unwrap().status, FundraiserStatus::Live, "unfreeze_fundraiser");
+        assert_eq!(<Fundraisers<T>>::get(setup_portfolios.offering_asset_id, id).unwrap().status, FundraiserStatus::Live, "unfreeze_fundraiser");
     }
 
     modify_fundraiser_window {
         let id = FundraiserId(0);
         let alice = <UserBuilder<T>>::default().generate_did().build("Alice");
         let bob = <UserBuilder<T>>::default().generate_did().build("Bob");
-        setup_fundraiser::<T>(&alice, &bob, 1);
-    }: _(alice.origin(), OFFERING_TICKER, id, 100u32.into(), Some(101u32.into()))
+        let setup_portfolios = setup_fundraiser::<T>(&alice, &bob, 1);
+    }: _(alice.origin(), setup_portfolios.offering_asset_id, id, 100u32.into(), Some(101u32.into()))
     verify {
-        assert_eq!(<Fundraisers<T>>::get(OFFERING_TICKER, id).unwrap().end, Some(101u32.into()), "modify_fundraiser_window");
+        assert_eq!(<Fundraisers<T>>::get(setup_portfolios.offering_asset_id, id).unwrap().end, Some(101u32.into()), "modify_fundraiser_window");
     }
 
     stop {
         let id = FundraiserId(0);
         let alice = <UserBuilder<T>>::default().generate_did().build("Alice");
         let bob = <UserBuilder<T>>::default().generate_did().build("Bob");
-        setup_fundraiser::<T>(&alice, &bob, 1);
-    }: _(alice.origin(), OFFERING_TICKER, id)
+        let setup_portfolios = setup_fundraiser::<T>(&alice, &bob, 1);
+    }: _(alice.origin(), setup_portfolios.offering_asset_id, id)
     verify {
-        assert!(<Fundraisers<T>>::get(OFFERING_TICKER, id).unwrap().is_closed(), "stop");
+        assert!(<Fundraisers<T>>::get(setup_portfolios.offering_asset_id, id).unwrap().is_closed(), "stop");
     }
 }

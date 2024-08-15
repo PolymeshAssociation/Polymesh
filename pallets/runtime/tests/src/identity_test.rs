@@ -1,8 +1,10 @@
 use super::{
-    asset_test::{basic_asset, max_len, max_len_bytes, set_timestamp, token},
+    asset_pallet::setup::create_and_issue_sample_asset,
+    asset_test::{max_len, max_len_bytes, set_timestamp},
     committee_test::gc_vmo,
     exec_noop, exec_ok,
     ext_builder::PROTOCOL_OP_BASE_FEE,
+    multisig::{create_multisig_default_perms, create_signers},
     storage::{
         account_from, add_secondary_key, add_secondary_key_with_perms, get_identity_id,
         get_last_auth_id, get_primary_key, get_secondary_keys, register_keyring_account,
@@ -15,7 +17,6 @@ use frame_support::{
     assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency, StorageDoubleMap,
     StorageMap, StorageValue,
 };
-use pallet_asset::SecurityToken;
 use pallet_balances as balances;
 use pallet_identity::{ChildDid, CustomClaimIdSequence, CustomClaims, CustomClaimsInverse};
 use polymesh_common_utilities::{
@@ -30,16 +31,18 @@ use polymesh_common_utilities::{
     },
     SystematicIssuers, GC_DID,
 };
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::{
     AccountId, AssetPermissions, AuthorizationData, AuthorizationType, Claim, ClaimType,
-    CustomClaimTypeId, DispatchableName, ExtrinsicPermissions, IdentityClaim, IdentityId,
-    KeyRecord, PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope,
-    SecondaryKey, Signatory, SubsetRestriction, Ticker, TransactionError,
+    CustomClaimTypeId, ExtrinsicName, ExtrinsicPermissions, IdentityClaim, IdentityId, KeyRecord,
+    PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope, SecondaryKey,
+    Signatory, SubsetRestriction, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
 use sp_core::H512;
 use sp_keyring::AccountKeyring;
 use sp_runtime::transaction_validity::InvalidTransaction;
+use sp_std::iter;
 use std::convert::From;
 
 type AuthorizationsGiven = pallet_identity::AuthorizationsGiven<TestStorage>;
@@ -48,7 +51,7 @@ type Balances = balances::Module<TestStorage>;
 type BaseError = pallet_base::Error<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type ParentDid = pallet_identity::ParentDid;
-type MultiSig = pallet_multisig::Module<TestStorage>;
+type MultiSig = pallet_multisig::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 
@@ -95,12 +98,6 @@ fn target_id_auth(user: User) -> (TargetIdAuthorization<u64>, u64) {
         },
         expires_at,
     )
-}
-
-fn create_new_token(name: &[u8], owner: User) -> (Ticker, SecurityToken) {
-    let r = token(name, owner.did);
-    assert_ok!(basic_asset(owner, r.0, &r.1));
-    r
 }
 
 macro_rules! assert_add_cdd_claim {
@@ -288,12 +285,8 @@ fn do_add_permissions_to_multiple_tokens() {
 
     // Create some tokens.
     let max_tokens = 20;
-    let tokens: Vec<Ticker> = (0..max_tokens)
-        .map(|i| {
-            let name = format!("TOKEN{}", i);
-            let (ticker, _) = create_new_token(name.as_bytes(), alice);
-            ticker
-        })
+    let tokens: Vec<AssetID> = (0..max_tokens)
+        .map(|_| create_and_issue_sample_asset(&alice))
         .collect();
 
     let test_set_perms = |asset| {
@@ -514,7 +507,7 @@ fn run_add_secondary_key_with_perm_test(
 
     let perm1 = Permissions::empty();
     let perm2 = Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
-        b"identity".into(),
+        "identity".into(),
     )]);
 
     // Count alice's secondary keys.
@@ -570,7 +563,7 @@ fn do_add_secondary_keys_with_permissions_test() {
     add_secondary_key(alice.did, bob.acc());
 
     let permissions = Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
-        b"identity".into(),
+        "identity".into(),
     )]);
     // Try adding bob again with custom permissions
     let auth_id = Identity::add_auth(
@@ -611,7 +604,6 @@ fn do_add_secondary_keys_with_permissions_test() {
     assert_eq!(keys.len(), 1);
 
     // Try remove bob using alice
-    TestStorage::set_current_identity(&alice.did);
     assert_ok!(Identity::remove_secondary_keys(
         alice.origin(),
         vec![bob.acc()]
@@ -652,7 +644,6 @@ fn do_remove_secondary_keys_test() {
     assert_eq!(keys.len(), 2);
 
     // Try removing bob using alice.
-    TestStorage::set_current_identity(&alice.did);
     let remove_sk = |u: User| Identity::remove_secondary_keys(alice.origin(), vec![u.acc()]);
     assert_ok!(remove_sk(bob));
 
@@ -662,7 +653,7 @@ fn do_remove_secondary_keys_test() {
         alice.origin(),
         bob.acc(),
         Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
-            b"identity".into(),
+            "identity".into(),
         )])
         .into(),
     );
@@ -710,26 +701,20 @@ fn do_remove_secondary_keys_test_with_externalities() {
     let bob = User::new_with(alice.did, AccountKeyring::Bob);
     let charlie = User::new(AccountKeyring::Charlie);
     let dave_key = AccountKeyring::Dave.to_account_id();
+    let ferdie_key = AccountKeyring::Ferdie.to_account_id();
 
-    let ms_address = MultiSig::get_next_multisig_address(alice.acc()).expect("Next MS");
-
-    assert_ok!(MultiSig::create_multisig(
-        alice.origin(),
-        vec![
-            Signatory::from(alice.did),
-            Signatory::Account(dave_key.clone())
-        ],
+    let ms_address = create_multisig_default_perms(
+        alice.acc(),
+        create_signers(vec![ferdie_key.clone(), dave_key.clone()]),
         1,
-    ));
+    );
     let auth_id = get_last_auth_id(&Signatory::Account(dave_key.clone()));
-    assert_ok!(MultiSig::unsafe_accept_multisig_signer(
-        Signatory::Account(dave_key.clone()),
+    assert_ok!(MultiSig::accept_multisig_signer(
+        Origin::signed(dave_key.clone()),
         auth_id
     ));
 
     add_secondary_key(alice.did, bob.acc());
-
-    add_secondary_key(alice.did, ms_address.clone());
 
     // Fund the multisig
     assert_ok!(Balances::transfer(
@@ -744,7 +729,6 @@ fn do_remove_secondary_keys_test_with_externalities() {
     assert_eq!(Identity::get_identity(&bob_key), Some(alice.did));
 
     // Try removing bob using charlie
-    TestStorage::set_current_identity(&charlie.did);
     assert_noop!(
         Identity::remove_secondary_keys(charlie.origin(), vec![bob.acc()]),
         Error::NotASigner
@@ -756,7 +740,6 @@ fn do_remove_secondary_keys_test_with_externalities() {
     assert_eq!(Identity::get_identity(&bob_key), Some(alice.did));
 
     // Try remove bob using alice
-    TestStorage::set_current_identity(&alice.did);
     assert_ok!(Identity::remove_secondary_keys(
         alice.origin(),
         vec![bob.acc()]
@@ -780,7 +763,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
 
     // Check multisig's signer
     assert_eq!(
-        MultiSig::ms_signers(ms_address.clone(), Signatory::Account(dave_key.clone())),
+        MultiSig::ms_signers(ms_address.clone(), dave_key.clone()),
         true
     );
 
@@ -803,10 +786,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
     assert_eq!(Identity::get_identity(&bob.acc()), None);
 
     // Check multisig's signer
-    assert_eq!(
-        MultiSig::ms_signers(ms_address.clone(), Signatory::Account(dave_key)),
-        true
-    );
+    assert_eq!(MultiSig::ms_signers(ms_address.clone(), dave_key), true);
 }
 
 #[test]
@@ -823,39 +803,35 @@ fn leave_identity_test_with_externalities() {
 
     let bob_sk = SecondaryKey::new(bob.acc(), Permissions::empty());
     let dave_key = AccountKeyring::Dave.to_account_id();
+    let ferdie_key = AccountKeyring::Ferdie.to_account_id();
 
-    let ms_address = MultiSig::get_next_multisig_address(alice.acc()).expect("Next MS");
-
-    assert_ok!(MultiSig::create_multisig(
-        alice.origin(),
-        vec![
-            Signatory::from(alice.did),
-            Signatory::Account(dave_key.clone())
-        ],
+    let ms_address = create_multisig_default_perms(
+        alice.acc(),
+        create_signers(vec![ferdie_key.clone(), dave_key.clone()]),
         1,
-    ));
+    );
+    let ms_sk = SecondaryKey::new(ms_address.clone(), Permissions::default());
     let auth_id = get_last_auth_id(&Signatory::Account(dave_key.clone()));
-    assert_ok!(MultiSig::unsafe_accept_multisig_signer(
-        Signatory::Account(dave_key.clone()),
+    assert_ok!(MultiSig::accept_multisig_signer(
+        Origin::signed(dave_key.clone()),
         auth_id
     ));
 
     add_secondary_key_with_perms(alice.did, bob.acc(), Permissions::empty());
 
     // Check DidRecord.
-    assert_eq!(get_secondary_keys(alice.did), vec![bob_sk]);
+    assert_eq!(get_secondary_keys(alice.did), vec![bob_sk, ms_sk]);
     assert_eq!(Identity::get_identity(&bob.acc()), Some(alice.did));
 
     // Bob leaves
     assert_ok!(Identity::leave_identity_as_key(bob.origin()));
 
     // Check DidRecord.
-    assert_eq!(get_secondary_keys(alice.did).len(), 0);
+    assert_eq!(get_secondary_keys(alice.did).len(), 1);
     assert_eq!(Identity::get_identity(&bob.acc()), None);
     assert_eq!(Identity::get_identity(&dave_key), None);
-    assert_eq!(Identity::get_identity(&ms_address), None);
+    assert_eq!(Identity::get_identity(&ms_address), Some(alice.did));
 
-    add_secondary_key_with_perms(alice.did, ms_address.clone(), Permissions::empty());
     // send funds to multisig
     assert_ok!(Balances::transfer(
         alice.origin(),
@@ -874,7 +850,7 @@ fn leave_identity_test_with_externalities() {
 
     // Check multisig's signer
     assert_eq!(
-        MultiSig::ms_signers(ms_address.clone(), Signatory::Account(dave_key.clone())),
+        MultiSig::ms_signers(ms_address.clone(), dave_key.clone()),
         true
     );
 
@@ -895,10 +871,7 @@ fn leave_identity_test_with_externalities() {
     assert_eq!(Identity::get_identity(&ms_address), None);
 
     // Check multisig's signer
-    assert_eq!(
-        MultiSig::ms_signers(ms_address.clone(), Signatory::Account(dave_key)),
-        true
-    );
+    assert_eq!(MultiSig::ms_signers(ms_address.clone(), dave_key), true);
 }
 
 #[test]
@@ -1001,33 +974,38 @@ fn one_step_join_id_with_ext() {
     );
 }
 
+pub(crate) fn max_len_string<R: From<String>>(add: u32) -> R {
+    iter::repeat('A')
+        .take((max_len() + add) as usize)
+        .collect::<String>()
+        .into()
+}
+
 pub(crate) fn test_with_bad_ext_perms(test: impl Fn(ExtrinsicPermissions)) {
-    test(SubsetRestriction::elems(
+    test(ExtrinsicPermissions::these(
         (0..=max_len() as u64)
-            .map(Ticker::generate)
-            .map(PalletName::from)
+            .map(PalletName::generate)
             .map(PalletPermissions::entire_pallet),
     ));
-    test(SubsetRestriction::elem(PalletPermissions::entire_pallet(
-        max_len_bytes(1),
-    )));
-    test(SubsetRestriction::elem(PalletPermissions::new(
+    test(ExtrinsicPermissions::these([
+        PalletPermissions::entire_pallet(max_len_string(1)),
+    ]));
+    test(ExtrinsicPermissions::these([PalletPermissions::new(
         "".into(),
-        SubsetRestriction::elems(
-            (0..=max_len() as u64)
-                .map(Ticker::generate)
-                .map(DispatchableName::from),
-        ),
-    )));
-    test(SubsetRestriction::elem(PalletPermissions::new(
+        SubsetRestriction::elems((0..=max_len() as u64).map(ExtrinsicName::generate)),
+    )]));
+    test(ExtrinsicPermissions::these([PalletPermissions::new(
         "".into(),
-        SubsetRestriction::elem(max_len_bytes(1)),
-    )));
+        SubsetRestriction::elem(max_len_string(1)),
+    )]));
 }
 
 pub(crate) fn test_with_bad_perms(did: IdentityId, test: impl Fn(Permissions)) {
     test(Permissions {
-        asset: SubsetRestriction::elems((0..=MAX_ASSETS).map(Ticker::generate_into)),
+        asset: SubsetRestriction::elems(
+            (0..=MAX_ASSETS)
+                .map(|i| AssetID::new([i.to_le_bytes(), [0; 8]].concat().try_into().unwrap())),
+        ),
         ..<_>::default()
     });
     test(Permissions {
@@ -1079,10 +1057,12 @@ fn add_secondary_keys_with_authorization_too_many_sks() {
         });
 
         // Populate with MAX_LEN secondary keys.
-        let key_record = KeyRecord::SecondaryKey(user.did, Permissions::empty());
+        let key_record = KeyRecord::SecondaryKey(user.did);
+        let perms = Permissions::empty();
         for idx in 0..max_len() {
             let key = account_from(idx as u64 + 100);
             Identity::add_key_record(&key, key_record.clone());
+            Identity::set_key_permissions(&key, &perms);
         }
 
         // No Secondary key limit.

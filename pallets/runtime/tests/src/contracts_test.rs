@@ -10,10 +10,12 @@ use polymesh_contracts::{
 use sp_keyring::AccountKeyring;
 use sp_runtime::traits::Hash;
 
-use pallet_asset::{AssetOwnershipRelation, AssetOwnershipRelations};
+use pallet_asset::TickersOwnedByUser;
 use pallet_identity::ParentDid;
 use polymesh_common_utilities::constants::currency::POLY;
-use polymesh_primitives::{Gas, Permissions, PortfolioPermissions, SubsetRestriction, Ticker};
+use polymesh_primitives::{
+    ExtrinsicPermissions, Gas, Permissions, PortfolioPermissions, SubsetRestriction, Ticker,
+};
 use polymesh_runtime_common::Currency;
 
 use crate::ext_builder::ExtBuilder;
@@ -67,7 +69,7 @@ fn deploy_as_secondary_key() {
         let permissions = Permissions {
             portfolio: PortfolioPermissions::Whole,
             asset: SubsetRestriction::empty(),
-            extrinsic: SubsetRestriction::empty(),
+            extrinsic: ExtrinsicPermissions::empty(),
         };
         let (code, _) = chain_extension();
         let salt = vec![0xFF];
@@ -116,7 +118,7 @@ fn chain_extension_calls() {
         let permissions = Permissions {
             portfolio: PortfolioPermissions::Whole,
             asset: SubsetRestriction::empty(),
-            extrinsic: SubsetRestriction::empty(),
+            extrinsic: ExtrinsicPermissions::empty(),
         };
         let (code, _) = chain_extension();
         let salt = vec![0xFF];
@@ -192,10 +194,7 @@ fn chain_extension_calls() {
             None,
             register_ticker_input
         ),);
-        assert_eq!(
-            AssetOwnershipRelations::get(&alice.did, &ticker),
-            AssetOwnershipRelation::TickerOwned
-        );
+        assert_eq!(TickersOwnedByUser::get(&alice.did, ticker), true);
     })
 }
 

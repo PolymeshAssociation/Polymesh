@@ -1,71 +1,77 @@
 // Auto-generated via `yarn polkadot-types-from-chain`, do not edit
 /* eslint-disable */
 
-import type { ApiTypes } from '@polkadot/api-base/types';
+// import type lookup before we augment - in some environments
+// this is required to allow for ambient/previous definitions
+import '@polkadot/api-base/types/events';
+
+import type { ApiTypes, AugmentedEvent } from '@polkadot/api-base/types';
 import type { BTreeSet, Bytes, Null, Option, Result, U8aFixed, Vec, bool, u128, u32, u64, u8 } from '@polkadot/types-codec';
 import type { ITuple } from '@polkadot/types-codec/types';
 import type { AccountId32, H256, Perbill, Permill } from '@polkadot/types/interfaces/runtime';
-import type { FrameSupportDispatchDispatchInfo, FrameSupportTokensMiscBalanceStatus, PalletBridgeBridgeTx, PalletBridgeHandledTxStatus, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCorporateAction, PalletCorporateActionsDistribution, PalletCorporateActionsTargetIdentities, PalletElectionProviderMultiPhaseElectionCompute, PalletElectionProviderMultiPhasePhase, PalletImOnlineSr25519AppSr25519Public, PalletPipsProposalData, PalletPipsProposalState, PalletPipsProposer, PalletPipsSnapshottedPip, PalletStakingExposure, PalletStakingForcing, PalletStakingSlashingSwitch, PalletStakingValidatorPrefs, PalletStateTrieMigrationError, PalletStateTrieMigrationMigrationCompute, PalletStoFundraiser, PolymeshCommonUtilitiesCheckpointScheduleCheckpoints, PolymeshCommonUtilitiesMaybeBlock, PolymeshContractsApi, PolymeshContractsChainExtensionExtrinsicId, PolymeshContractsChainVersion, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail, PolymeshPrimitivesAuthorizationAuthorizationData, PolymeshPrimitivesComplianceManagerComplianceRequirement, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesEventOnly, PolymeshPrimitivesIdentityClaim, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesMemo, PolymeshPrimitivesNftNfTs, PolymeshPrimitivesPortfolioFundDescription, PolymeshPrimitivesPortfolioPortfolioUpdateReason, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKey, PolymeshPrimitivesSecondaryKeyPermissions, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesSettlementLeg, PolymeshPrimitivesSettlementReceiptMetadata, PolymeshPrimitivesSettlementSettlementType, PolymeshPrimitivesSettlementVenueType, PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesStatisticsStatUpdate, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceTransferCondition, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, SpConsensusGrandpaAppPublic, SpNposElectionsElectionScore, SpRuntimeDispatchError } from '@polkadot/types/lookup';
+import type { FrameSupportDispatchDispatchInfo, FrameSupportTokensMiscBalanceStatus, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCorporateAction, PalletCorporateActionsDistribution, PalletCorporateActionsTargetIdentities, PalletElectionProviderMultiPhaseElectionCompute, PalletElectionProviderMultiPhasePhase, PalletImOnlineSr25519AppSr25519Public, PalletPipsProposalData, PalletPipsProposalState, PalletPipsProposer, PalletPipsSnapshottedPip, PalletStakingExposure, PalletStakingForcing, PalletStakingSlashingSwitch, PalletStakingValidatorPrefs, PalletStateTrieMigrationError, PalletStateTrieMigrationMigrationCompute, PalletStoFundraiser, PolymeshCommonUtilitiesCheckpointScheduleCheckpoints, PolymeshCommonUtilitiesMaybeBlock, PolymeshContractsApi, PolymeshContractsChainExtensionExtrinsicId, PolymeshContractsChainVersion, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetAssetID, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail, PolymeshPrimitivesAuthorizationAuthorizationData, PolymeshPrimitivesComplianceManagerComplianceRequirement, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesEventOnly, PolymeshPrimitivesIdentityClaim, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesMemo, PolymeshPrimitivesNftNfTs, PolymeshPrimitivesPortfolioFundDescription, PolymeshPrimitivesPortfolioPortfolioUpdateReason, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKey, PolymeshPrimitivesSecondaryKeyExtrinsicPermissions, PolymeshPrimitivesSecondaryKeyPermissions, PolymeshPrimitivesSettlementLeg, PolymeshPrimitivesSettlementReceiptMetadata, PolymeshPrimitivesSettlementSettlementType, PolymeshPrimitivesSettlementVenueType, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesStatisticsStatUpdate, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceTransferCondition, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, SpConsensusGrandpaAppPublic, SpNposElectionsElectionScore, SpRuntimeDispatchError } from '@polkadot/types/lookup';
+
+export type __AugmentedEvent<ApiType extends ApiTypes> = AugmentedEvent<ApiType>;
 
 declare module '@polkadot/api-base/types/events' {
-  export interface AugmentedEvents<ApiType extends ApiTypes> {
+  interface AugmentedEvents<ApiType extends ApiTypes> {
     asset: {
       /**
        * An asset has been added to the list of pre aprroved receivement (valid for all identities).
-       * Parameters: [`Ticker`] of the pre approved asset.
+       * Parameters: [`AssetID`] of the pre approved asset.
        **/
-      AssetAffirmationExemption: AugmentedEvent<ApiType, [PolymeshPrimitivesTicker]>;
+      AssetAffirmationExemption: AugmentedEvent<ApiType, [PolymeshPrimitivesAssetAssetID]>;
       /**
        * Emitted when Tokens were issued, redeemed or transferred.
-       * Contains the [`IdentityId`] of the receiver/issuer/redeemer, the [`Ticker`] for the token, the balance that was issued/transferred/redeemed,
+       * Contains the [`IdentityId`] of the receiver/issuer/redeemer, the [`AssetID`] for the token, the balance that was issued/transferred/redeemed,
        * the [`PortfolioId`] of the source, the [`PortfolioId`] of the destination and the [`PortfolioUpdateReason`].
        **/
-      AssetBalanceUpdated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, u128, Option<PolymeshPrimitivesIdentityIdPortfolioId>, Option<PolymeshPrimitivesIdentityIdPortfolioId>, PolymeshPrimitivesPortfolioPortfolioUpdateReason]>;
+      AssetBalanceUpdated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, u128, Option<PolymeshPrimitivesIdentityIdPortfolioId>, Option<PolymeshPrimitivesIdentityIdPortfolioId>, PolymeshPrimitivesPortfolioPortfolioUpdateReason]>;
       /**
        * Event for creation of the asset.
-       * caller DID/ owner DID, ticker, divisibility, asset type, beneficiary DID, asset name, identifiers, funding round
+       * caller DID/ owner DID, AssetID, divisibility, asset type, beneficiary DID, asset name, identifiers, funding round
        **/
-      AssetCreated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, bool, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesIdentityId, Bytes, Vec<PolymeshPrimitivesAssetIdentifier>, Option<Bytes>]>;
+      AssetCreated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, bool, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesIdentityId, Bytes, Vec<PolymeshPrimitivesAssetIdentifier>, Option<Bytes>]>;
       /**
        * An event emitted when an asset is frozen.
-       * Parameter: caller DID, ticker.
+       * Parameter: caller DID, AssetID.
        **/
-      AssetFrozen: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker]>;
+      AssetFrozen: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID]>;
       /**
        * An identity has added mandatory mediators to an asset.
-       * Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset, the identity of all mediators added.
+       * Parameters: [`IdentityId`] of caller, [`AssetID`] of the asset, the identity of all mediators added.
        **/
-      AssetMediatorsAdded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, BTreeSet<PolymeshPrimitivesIdentityId>]>;
+      AssetMediatorsAdded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, BTreeSet<PolymeshPrimitivesIdentityId>]>;
       /**
        * An identity has removed mediators from an asset.
-       * Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset, the identity of all mediators removed.
+       * Parameters: [`IdentityId`] of caller, [`AssetID`] of the asset, the identity of all mediators removed.
        **/
-      AssetMediatorsRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, BTreeSet<PolymeshPrimitivesIdentityId>]>;
+      AssetMediatorsRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, BTreeSet<PolymeshPrimitivesIdentityId>]>;
       /**
        * Emit when token ownership is transferred.
-       * caller DID / token ownership transferred to DID, ticker, from
+       * caller DID / token ownership transferred to DID, AssetID, from
        **/
-      AssetOwnershipTransferred: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, PolymeshPrimitivesIdentityId]>;
+      AssetOwnershipTransferred: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, PolymeshPrimitivesIdentityId]>;
       /**
        * An event emitted when a token is renamed.
-       * Parameters: caller DID, ticker, new token name.
+       * Parameters: caller DID, AssetID, new token name.
        **/
-      AssetRenamed: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, Bytes]>;
+      AssetRenamed: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, Bytes]>;
       /**
        * An event emitted when the type of an asset changed.
-       * Parameters: caller DID, ticker, new token type.
+       * Parameters: caller DID, AssetID, new token type.
        **/
-      AssetTypeChanged: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, PolymeshPrimitivesAssetAssetType]>;
+      AssetTypeChanged: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, PolymeshPrimitivesAssetAssetType]>;
       /**
        * An event emitted when an asset is unfrozen.
-       * Parameter: caller DID, ticker.
+       * Parameter: caller DID, AssetID.
        **/
-      AssetUnfrozen: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker]>;
+      AssetUnfrozen: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID]>;
       /**
        * Event for when a forced transfer takes place.
-       * caller DID/ controller DID, ticker, Portfolio of token holder, value.
+       * caller DID/ controller DID, ExtensionRemoved, Portfolio of token holder, value.
        **/
-      ControllerTransfer: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, PolymeshPrimitivesIdentityIdPortfolioId, u128]>;
+      ControllerTransfer: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, PolymeshPrimitivesIdentityIdPortfolioId, u128]>;
       /**
        * A custom asset type already exists on-chain.
        * caller DID, the ID of the custom asset type, the string contents registered.
@@ -78,52 +84,42 @@ declare module '@polkadot/api-base/types/events' {
       CustomAssetTypeRegistered: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, u32, Bytes]>;
       /**
        * Event for change in divisibility.
-       * caller DID, ticker, divisibility
+       * caller DID, AssetID, divisibility
        **/
-      DivisibilityChanged: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, bool]>;
+      DivisibilityChanged: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, bool]>;
       /**
        * A new document attached to an asset
        **/
-      DocumentAdded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, u32, PolymeshPrimitivesDocument]>;
+      DocumentAdded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, u32, PolymeshPrimitivesDocument]>;
       /**
        * A document removed from an asset
        **/
-      DocumentRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, u32]>;
+      DocumentRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, u32]>;
       /**
-       * A extension got removed.
-       * caller DID, ticker, AccountId
+       * An event carrying the name of the current funding round of an asset.
+       * Parameters: caller DID, AssetID, funding round name.
        **/
-      ExtensionRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, AccountId32]>;
-      /**
-       * An event carrying the name of the current funding round of a ticker.
-       * Parameters: caller DID, ticker, funding round name.
-       **/
-      FundingRoundSet: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, Bytes]>;
+      FundingRoundSet: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, Bytes]>;
       /**
        * Event emitted when any token identifiers are updated.
-       * caller DID, ticker, a vector of (identifier type, identifier value)
+       * caller DID, AssetID, a vector of (identifier type, identifier value)
        **/
-      IdentifiersUpdated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, Vec<PolymeshPrimitivesAssetIdentifier>]>;
-      /**
-       * is_issuable() output
-       * ticker, return value (true if issuable)
-       **/
-      IsIssuable: AugmentedEvent<ApiType, [PolymeshPrimitivesTicker, bool]>;
+      IdentifiersUpdated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, Vec<PolymeshPrimitivesAssetIdentifier>]>;
       /**
        * An event emitted when a local metadata key has been removed.
-       * Parameters: caller ticker, Local type name
+       * Parameters: caller AssetID, Local type name
        **/
-      LocalMetadataKeyDeleted: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, u64]>;
+      LocalMetadataKeyDeleted: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, u64]>;
       /**
        * An event emitted when a local metadata value has been removed.
-       * Parameters: caller ticker, Local type name
+       * Parameters: caller AssetID, Local type name
        **/
-      MetadataValueDeleted: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, PolymeshPrimitivesAssetMetadataAssetMetadataKey]>;
+      MetadataValueDeleted: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, PolymeshPrimitivesAssetMetadataAssetMetadataKey]>;
       /**
        * An identity has added an asset to the list of pre aprroved receivement.
-       * Parameters: [`IdentityId`] of caller, [`Ticker`] of the pre approved asset.
+       * Parameters: [`IdentityId`] of caller, [`AssetID`] of the pre approved asset.
        **/
-      PreApprovedAsset: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker]>;
+      PreApprovedAsset: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID]>;
       /**
        * Register asset metadata global type.
        * (Global type name, Global type key, type specs)
@@ -131,29 +127,34 @@ declare module '@polkadot/api-base/types/events' {
       RegisterAssetMetadataGlobalType: AugmentedEvent<ApiType, [Bytes, u64, PolymeshPrimitivesAssetMetadataAssetMetadataSpec]>;
       /**
        * Register asset metadata local type.
-       * (Caller DID, ticker, Local type name, Local type key, type specs)
+       * (Caller DID, AssetID, Local type name, Local type key, type specs)
        **/
-      RegisterAssetMetadataLocalType: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, Bytes, u64, PolymeshPrimitivesAssetMetadataAssetMetadataSpec]>;
+      RegisterAssetMetadataLocalType: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, Bytes, u64, PolymeshPrimitivesAssetMetadataAssetMetadataSpec]>;
       /**
        * An asset has been removed from the list of pre aprroved receivement (valid for all identities).
-       * Parameters: [`Ticker`] of the asset.
+       * Parameters: [`AssetID`] of the asset.
        **/
-      RemoveAssetAffirmationExemption: AugmentedEvent<ApiType, [PolymeshPrimitivesTicker]>;
+      RemoveAssetAffirmationExemption: AugmentedEvent<ApiType, [PolymeshPrimitivesAssetAssetID]>;
       /**
        * An identity has removed an asset to the list of pre aprroved receivement.
-       * Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset.
+       * Parameters: [`IdentityId`] of caller, [`AssetID`] of the asset.
        **/
-      RemovePreApprovedAsset: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker]>;
+      RemovePreApprovedAsset: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID]>;
       /**
        * Set asset metadata value.
-       * (Caller DID, ticker, metadata value, optional value details)
+       * (Caller DID, AssetID, metadata value, optional value details)
        **/
-      SetAssetMetadataValue: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, Bytes, Option<PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail>]>;
+      SetAssetMetadataValue: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, Bytes, Option<PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail>]>;
       /**
        * Set asset metadata value details (expire, lock status).
-       * (Caller DID, ticker, value details)
+       * (Caller DID, AssetID, value details)
        **/
-      SetAssetMetadataValueDetails: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail]>;
+      SetAssetMetadataValueDetails: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail]>;
+      /**
+       * An identity has linked a ticker to an asset.
+       * Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset, the asset identifier [`AssetID`].
+       **/
+      TickerLinkedToAsset: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, PolymeshPrimitivesAssetAssetID]>;
       /**
        * Emit when ticker is registered.
        * caller DID / ticker owner did, ticker, ticker owner, expiry
@@ -164,11 +165,6 @@ declare module '@polkadot/api-base/types/events' {
        * caller DID / ticker transferred to DID, ticker, from
        **/
       TickerTransferred: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, PolymeshPrimitivesIdentityId]>;
-      /**
-       * An additional event to Transfer; emitted when `transfer_with_data` is called.
-       * caller DID , ticker, from DID, to DID, value, data
-       **/
-      TransferWithData: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityId, u128, Bytes]>;
       /**
        * Generic event
        **/
@@ -216,81 +212,6 @@ declare module '@polkadot/api-base/types/events' {
        * An unexpected error happened that should be investigated.
        **/
       UnexpectedError: AugmentedEvent<ApiType, [Option<SpRuntimeDispatchError>]>;
-      /**
-       * Generic event
-       **/
-      [key: string]: AugmentedEvent<ApiType>;
-    };
-    bridge: {
-      /**
-       * Confirmation of Admin change.
-       **/
-      AdminChanged: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32]>;
-      /**
-       * Confirmation of POLYX upgrade on Polymesh from POLY tokens on Ethereum.
-       **/
-      Bridged: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PalletBridgeBridgeTx]>;
-      /**
-       * Bridge limit has been updated.
-       **/
-      BridgeLimitUpdated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, u128, u32]>;
-      /**
-       * Bridge Tx failed.  Recipient missing CDD or limit reached.
-       **/
-      BridgeTxFailed: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PalletBridgeBridgeTx, SpRuntimeDispatchError]>;
-      /**
-       * Bridge Tx Scheduled.
-       **/
-      BridgeTxScheduled: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PalletBridgeBridgeTx, u32]>;
-      /**
-       * Failed to schedule Bridge Tx.
-       **/
-      BridgeTxScheduleFailed: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PalletBridgeBridgeTx, Bytes]>;
-      /**
-       * Confirmation of a signer set change.
-       **/
-      ControllerChanged: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32]>;
-      /**
-       * Exemption status of an identity has been updated.
-       **/
-      ExemptedUpdated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityId, bool]>;
-      /**
-       * A new freeze admin has been added.
-       **/
-      FreezeAdminAdded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32]>;
-      /**
-       * A freeze admin has been removed.
-       **/
-      FreezeAdminRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32]>;
-      /**
-       * Notification of freezing the bridge.
-       **/
-      Frozen: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId]>;
-      /**
-       * Notification of freezing a transaction.
-       **/
-      FrozenTx: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PalletBridgeBridgeTx]>;
-      /**
-       * Confirmation of default timelock change.
-       **/
-      TimelockChanged: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, u32]>;
-      /**
-       * Notification of removing a transaction.
-       **/
-      TxRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PalletBridgeBridgeTx]>;
-      /**
-       * An event emitted after a vector of transactions is handled. The parameter is a vector of
-       * tuples of recipient account, its nonce, and the status of the processed transaction.
-       **/
-      TxsHandled: AugmentedEvent<ApiType, [Vec<ITuple<[AccountId32, u32, PalletBridgeHandledTxStatus]>>]>;
-      /**
-       * Notification of unfreezing the bridge.
-       **/
-      Unfrozen: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId]>;
-      /**
-       * Notification of unfreezing a transaction.
-       **/
-      UnfrozenTx: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PalletBridgeBridgeTx]>;
       /**
        * Generic event
        **/
@@ -370,11 +291,11 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * A checkpoint was created.
        * 
-       * (caller DID, ticker, checkpoint ID, total supply, checkpoint timestamp)
+       * (caller DID, AssetID, checkpoint ID, total supply, checkpoint timestamp)
        **/
-      CheckpointCreated: AugmentedEvent<ApiType, [Option<PolymeshPrimitivesIdentityId>, PolymeshPrimitivesTicker, u64, u128, u64]>;
+      CheckpointCreated: AugmentedEvent<ApiType, [Option<PolymeshPrimitivesIdentityId>, PolymeshPrimitivesAssetAssetID, u64, u128, u64]>;
       /**
-       * The maximum complexity for an arbitrary ticker's schedule set was changed.
+       * The maximum complexity for an arbitrary asset's schedule set was changed.
        * 
        * (GC DID, the new maximum)
        **/
@@ -382,15 +303,15 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * A checkpoint schedule was created.
        * 
-       * (caller DID, ticker, schedule id, schedule)
+       * (caller DID, AssetID, schedule id, schedule)
        **/
-      ScheduleCreated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, u64, PolymeshCommonUtilitiesCheckpointScheduleCheckpoints]>;
+      ScheduleCreated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, u64, PolymeshCommonUtilitiesCheckpointScheduleCheckpoints]>;
       /**
        * A checkpoint schedule was removed.
        * 
-       * (caller DID, ticker, schedule id, schedule)
+       * (caller DID, AssetID, schedule id, schedule)
        **/
-      ScheduleRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, u64, PolymeshCommonUtilitiesCheckpointScheduleCheckpoints]>;
+      ScheduleRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, u64, PolymeshCommonUtilitiesCheckpointScheduleCheckpoints]>;
       /**
        * Generic event
        **/
@@ -437,50 +358,50 @@ declare module '@polkadot/api-base/types/events' {
     };
     complianceManager: {
       /**
-       * Emitted when an asset compliance for a given ticker gets paused.
-       * (caller DID, Ticker).
+       * Emitted when an asset compliance for a given asset_id gets paused.
+       * (caller DID, AssetID).
        **/
-      AssetCompliancePaused: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker]>;
+      AssetCompliancePaused: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID]>;
       /**
        * Emitted when an asset compliance is replaced.
-       * Parameters: caller DID, ticker, new asset compliance.
+       * Parameters: caller DID, AssetID, new asset compliance.
        **/
-      AssetComplianceReplaced: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, Vec<PolymeshPrimitivesComplianceManagerComplianceRequirement>]>;
+      AssetComplianceReplaced: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, Vec<PolymeshPrimitivesComplianceManagerComplianceRequirement>]>;
       /**
-       * Emitted when an asset compliance of a ticker is reset.
-       * (caller DID, Ticker).
+       * Emitted when an asset compliance of a asset_id is reset.
+       * (caller DID, AssetID).
        **/
-      AssetComplianceReset: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker]>;
+      AssetComplianceReset: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID]>;
       /**
-       * Emitted when an asset compliance for a given ticker gets resume.
-       * (caller DID, Ticker).
+       * Emitted when an asset compliance for a given asset_id gets resume.
+       * (caller DID, AssetID).
        **/
-      AssetComplianceResumed: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker]>;
+      AssetComplianceResumed: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID]>;
       /**
        * Emitted when compliance requirement get modified/change.
-       * (caller DID, Ticker, ComplianceRequirement).
+       * (caller DID, AssetID, ComplianceRequirement).
        **/
-      ComplianceRequirementChanged: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, PolymeshPrimitivesComplianceManagerComplianceRequirement]>;
+      ComplianceRequirementChanged: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, PolymeshPrimitivesComplianceManagerComplianceRequirement]>;
       /**
        * Emitted when new compliance requirement is created.
-       * (caller DID, Ticker, ComplianceRequirement).
+       * (caller DID, AssetID, ComplianceRequirement).
        **/
-      ComplianceRequirementCreated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, PolymeshPrimitivesComplianceManagerComplianceRequirement]>;
+      ComplianceRequirementCreated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, PolymeshPrimitivesComplianceManagerComplianceRequirement]>;
       /**
        * Emitted when a compliance requirement is removed.
-       * (caller DID, Ticker, requirement_id).
+       * (caller DID, AssetID, requirement_id).
        **/
-      ComplianceRequirementRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, u32]>;
+      ComplianceRequirementRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, u32]>;
       /**
-       * Emitted when default claim issuer list for a given ticker gets added.
-       * (caller DID, Ticker, Added TrustedIssuer).
+       * Emitted when default claim issuer list for a given asset_id gets added.
+       * (caller DID, AssetID, Added TrustedIssuer).
        **/
-      TrustedDefaultClaimIssuerAdded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, PolymeshPrimitivesConditionTrustedIssuer]>;
+      TrustedDefaultClaimIssuerAdded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, PolymeshPrimitivesConditionTrustedIssuer]>;
       /**
-       * Emitted when default claim issuer list for a given ticker get removed.
-       * (caller DID, Ticker, Removed TrustedIssuer).
+       * Emitted when default claim issuer list for a given asset_id get removed.
+       * (caller DID, AssetID, Removed TrustedIssuer).
        **/
-      TrustedDefaultClaimIssuerRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, PolymeshPrimitivesIdentityId]>;
+      TrustedDefaultClaimIssuerRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, PolymeshPrimitivesIdentityId]>;
       /**
        * Generic event
        **/
@@ -496,23 +417,23 @@ declare module '@polkadot/api-base/types/events' {
        * calls. This is because on failure all storage changes including events are
        * rolled back.
        **/
-      Called: AugmentedEvent<ApiType, [AccountId32, AccountId32]>;
+      Called: AugmentedEvent<ApiType, [caller: AccountId32, contract: AccountId32], { caller: AccountId32, contract: AccountId32 }>;
       /**
        * A code with the specified hash was removed.
        **/
-      CodeRemoved: AugmentedEvent<ApiType, [H256]>;
+      CodeRemoved: AugmentedEvent<ApiType, [codeHash: H256], { codeHash: H256 }>;
       /**
        * Code with the specified hash has been stored.
        **/
-      CodeStored: AugmentedEvent<ApiType, [H256]>;
+      CodeStored: AugmentedEvent<ApiType, [codeHash: H256], { codeHash: H256 }>;
       /**
        * A contract's code was updated.
        **/
-      ContractCodeUpdated: AugmentedEvent<ApiType, [AccountId32, H256, H256]>;
+      ContractCodeUpdated: AugmentedEvent<ApiType, [contract: AccountId32, newCodeHash: H256, oldCodeHash: H256], { contract: AccountId32, newCodeHash: H256, oldCodeHash: H256 }>;
       /**
        * A custom event emitted by the contract.
        **/
-      ContractEmitted: AugmentedEvent<ApiType, [AccountId32, Bytes]>;
+      ContractEmitted: AugmentedEvent<ApiType, [contract: AccountId32, data: Bytes], { contract: AccountId32, data: Bytes }>;
       /**
        * A contract delegate called a code hash.
        * 
@@ -522,11 +443,11 @@ declare module '@polkadot/api-base/types/events' {
        * calls. This is because on failure all storage changes including events are
        * rolled back.
        **/
-      DelegateCalled: AugmentedEvent<ApiType, [AccountId32, H256]>;
+      DelegateCalled: AugmentedEvent<ApiType, [contract: AccountId32, codeHash: H256], { contract: AccountId32, codeHash: H256 }>;
       /**
        * Contract deployed by address at the specified address.
        **/
-      Instantiated: AugmentedEvent<ApiType, [AccountId32, AccountId32]>;
+      Instantiated: AugmentedEvent<ApiType, [deployer: AccountId32, contract: AccountId32], { deployer: AccountId32, contract: AccountId32 }>;
       /**
        * Contract has been removed.
        * 
@@ -535,7 +456,7 @@ declare module '@polkadot/api-base/types/events' {
        * The only way for a contract to be removed and emitting this event is by calling
        * `seal_terminate`.
        **/
-      Terminated: AugmentedEvent<ApiType, [AccountId32, AccountId32]>;
+      Terminated: AugmentedEvent<ApiType, [contract: AccountId32, beneficiary: AccountId32], { contract: AccountId32, beneficiary: AccountId32 }>;
       /**
        * Generic event
        **/
@@ -558,20 +479,20 @@ declare module '@polkadot/api-base/types/events' {
        **/
       CARemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesEventOnly, PalletCorporateActionsCaId]>;
       /**
-       * The set of default `TargetIdentities` for a ticker changed.
-       * (Agent DID, Ticker, New TargetIdentities)
+       * The set of default `TargetIdentities` for the asset changed.
+       * (Agent DID, AssetID, New TargetIdentities)
        **/
-      DefaultTargetIdentitiesChanged: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, PalletCorporateActionsTargetIdentities]>;
+      DefaultTargetIdentitiesChanged: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, PalletCorporateActionsTargetIdentities]>;
       /**
-       * The default withholding tax for a ticker changed.
-       * (Agent DID, Ticker, New Tax).
+       * The default withholding tax for the asset changed.
+       * (Agent DID, AssetID, New Tax).
        **/
-      DefaultWithholdingTaxChanged: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, Permill]>;
+      DefaultWithholdingTaxChanged: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, Permill]>;
       /**
-       * The withholding tax specific to a DID for a ticker changed.
-       * (Agent DID, Ticker, Taxed DID, New Tax).
+       * The withholding tax specific to a DID for the asset changed.
+       * (Agent DID, AssetID, Taxed DID, New Tax).
        **/
-      DidWithholdingTaxChanged: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, PolymeshPrimitivesIdentityId, Option<Permill>]>;
+      DidWithholdingTaxChanged: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, PolymeshPrimitivesIdentityId, Option<Permill>]>;
       /**
        * The maximum length of `details` in bytes was changed.
        * (GC DID, new length)
@@ -638,19 +559,19 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * The election has been finalized, with the given computation and score.
        **/
-      ElectionFinalized: AugmentedEvent<ApiType, [PalletElectionProviderMultiPhaseElectionCompute, SpNposElectionsElectionScore]>;
+      ElectionFinalized: AugmentedEvent<ApiType, [compute: PalletElectionProviderMultiPhaseElectionCompute, score: SpNposElectionsElectionScore], { compute: PalletElectionProviderMultiPhaseElectionCompute, score: SpNposElectionsElectionScore }>;
       /**
        * There was a phase transition in a given round.
        **/
-      PhaseTransitioned: AugmentedEvent<ApiType, [PalletElectionProviderMultiPhasePhase, PalletElectionProviderMultiPhasePhase, u32]>;
+      PhaseTransitioned: AugmentedEvent<ApiType, [from: PalletElectionProviderMultiPhasePhase, to: PalletElectionProviderMultiPhasePhase, round: u32], { from: PalletElectionProviderMultiPhasePhase, to: PalletElectionProviderMultiPhasePhase, round: u32 }>;
       /**
        * An account has been rewarded for their signed submission being finalized.
        **/
-      Rewarded: AugmentedEvent<ApiType, [AccountId32, u128]>;
+      Rewarded: AugmentedEvent<ApiType, [account: AccountId32, value: u128], { account: AccountId32, value: u128 }>;
       /**
        * An account has been slashed for submitting an invalid signed submission.
        **/
-      Slashed: AugmentedEvent<ApiType, [AccountId32, u128]>;
+      Slashed: AugmentedEvent<ApiType, [account: AccountId32, value: u128], { account: AccountId32, value: u128 }>;
       /**
        * A solution was stored with the given compute.
        * 
@@ -660,7 +581,7 @@ declare module '@polkadot/api-base/types/events' {
        * `T::ForceOrigin`. The `bool` is `true` when a previous solution was ejected to make
        * room for this one.
        **/
-      SolutionStored: AugmentedEvent<ApiType, [PalletElectionProviderMultiPhaseElectionCompute, Option<AccountId32>, bool]>;
+      SolutionStored: AugmentedEvent<ApiType, [compute: PalletElectionProviderMultiPhaseElectionCompute, origin: Option<AccountId32>, prevEjected: bool], { compute: PalletElectionProviderMultiPhaseElectionCompute, origin: Option<AccountId32>, prevEjected: bool }>;
       /**
        * Generic event
        **/
@@ -670,33 +591,33 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * An agent was added.
        * 
-       * (Caller/Agent DID, Agent's ticker, Agent's group)
+       * (Caller/Agent DID, Agent's AssetID, Agent's group)
        **/
-      AgentAdded: AugmentedEvent<ApiType, [PolymeshPrimitivesEventOnly, PolymeshPrimitivesTicker, PolymeshPrimitivesAgentAgentGroup]>;
+      AgentAdded: AugmentedEvent<ApiType, [PolymeshPrimitivesEventOnly, PolymeshPrimitivesAssetAssetID, PolymeshPrimitivesAgentAgentGroup]>;
       /**
        * An agent was removed.
        * 
-       * (Caller DID, Agent's ticker, Agent's DID)
+       * (Caller DID, Agent's AssetID, Agent's DID)
        **/
-      AgentRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesEventOnly, PolymeshPrimitivesTicker, PolymeshPrimitivesIdentityId]>;
+      AgentRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesEventOnly, PolymeshPrimitivesAssetAssetID, PolymeshPrimitivesIdentityId]>;
       /**
        * An agent's group was changed.
        * 
-       * (Caller DID, Agent's ticker, Agent's DID, The new group of the agent)
+       * (Caller DID, Agent's AssetID, Agent's DID, The new group of the agent)
        **/
-      GroupChanged: AugmentedEvent<ApiType, [PolymeshPrimitivesEventOnly, PolymeshPrimitivesTicker, PolymeshPrimitivesIdentityId, PolymeshPrimitivesAgentAgentGroup]>;
+      GroupChanged: AugmentedEvent<ApiType, [PolymeshPrimitivesEventOnly, PolymeshPrimitivesAssetAssetID, PolymeshPrimitivesIdentityId, PolymeshPrimitivesAgentAgentGroup]>;
       /**
        * An Agent Group was created.
        * 
-       * (Caller DID, AG's ticker, AG's ID, AG's permissions)
+       * (Caller DID, AG's AssetID, AG's ID, AG's permissions)
        **/
-      GroupCreated: AugmentedEvent<ApiType, [PolymeshPrimitivesEventOnly, PolymeshPrimitivesTicker, u32, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions]>;
+      GroupCreated: AugmentedEvent<ApiType, [PolymeshPrimitivesEventOnly, PolymeshPrimitivesAssetAssetID, u32, PolymeshPrimitivesSecondaryKeyExtrinsicPermissions]>;
       /**
        * An Agent Group's permissions was updated.
        * 
-       * (Caller DID, AG's ticker, AG's ID, AG's new permissions)
+       * (Caller DID, AG's AssetID, AG's ID, AG's new permissions)
        **/
-      GroupPermissionsUpdated: AugmentedEvent<ApiType, [PolymeshPrimitivesEventOnly, PolymeshPrimitivesTicker, u32, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions]>;
+      GroupPermissionsUpdated: AugmentedEvent<ApiType, [PolymeshPrimitivesEventOnly, PolymeshPrimitivesAssetAssetID, u32, PolymeshPrimitivesSecondaryKeyExtrinsicPermissions]>;
       /**
        * Generic event
        **/
@@ -706,7 +627,7 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * New authority set has been applied.
        **/
-      NewAuthorities: AugmentedEvent<ApiType, [Vec<ITuple<[SpConsensusGrandpaAppPublic, u64]>>]>;
+      NewAuthorities: AugmentedEvent<ApiType, [authoritySet: Vec<ITuple<[SpConsensusGrandpaAppPublic, u64]>>], { authoritySet: Vec<ITuple<[SpConsensusGrandpaAppPublic, u64]>> }>;
       /**
        * Current authority set has been paused.
        **/
@@ -861,11 +782,11 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * A new heartbeat was received from `AuthorityId`.
        **/
-      HeartbeatReceived: AugmentedEvent<ApiType, [PalletImOnlineSr25519AppSr25519Public]>;
+      HeartbeatReceived: AugmentedEvent<ApiType, [authorityId: PalletImOnlineSr25519AppSr25519Public], { authorityId: PalletImOnlineSr25519AppSr25519Public }>;
       /**
        * At the end of the session, at least one validator was found to be offline.
        **/
-      SomeOffline: AugmentedEvent<ApiType, [Vec<ITuple<[AccountId32, PalletStakingExposure]>>]>;
+      SomeOffline: AugmentedEvent<ApiType, [offline: Vec<ITuple<[AccountId32, PalletStakingExposure]>>], { offline: Vec<ITuple<[AccountId32, PalletStakingExposure]>> }>;
       /**
        * Generic event
        **/
@@ -875,15 +796,15 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * A account index was assigned.
        **/
-      IndexAssigned: AugmentedEvent<ApiType, [AccountId32, u32]>;
+      IndexAssigned: AugmentedEvent<ApiType, [who: AccountId32, index: u32], { who: AccountId32, index: u32 }>;
       /**
        * A account index has been freed up (unassigned).
        **/
-      IndexFreed: AugmentedEvent<ApiType, [u32]>;
+      IndexFreed: AugmentedEvent<ApiType, [index: u32], { index: u32 }>;
       /**
        * A account index has been frozen to its current account ID.
        **/
-      IndexFrozen: AugmentedEvent<ApiType, [u32, AccountId32]>;
+      IndexFrozen: AugmentedEvent<ApiType, [index: u32, who: AccountId32], { index: u32, who: AccountId32 }>;
       /**
        * Generic event
        **/
@@ -891,68 +812,61 @@ declare module '@polkadot/api-base/types/events' {
     };
     multiSig: {
       /**
-       * Event emitted after creation of a multisig.
-       * Arguments: caller DID, multisig address, signers (pending approval), signatures required.
+       * A Multisig has added an admin DID.
        **/
-      MultiSigCreated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, AccountId32, Vec<PolymeshPrimitivesSecondaryKeySignatory>, u64]>;
+      MultiSigAddedAdmin: AugmentedEvent<ApiType, [callerDid: PolymeshPrimitivesIdentityId, multisig: AccountId32, adminDid: PolymeshPrimitivesIdentityId], { callerDid: PolymeshPrimitivesIdentityId, multisig: AccountId32, adminDid: PolymeshPrimitivesIdentityId }>;
       /**
-       * Event emitted when the number of required signatures is changed.
-       * Arguments: caller DID, multisig, new required signatures.
+       * A Multisig has been created.
        **/
-      MultiSigSignaturesRequiredChanged: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, u64]>;
+      MultiSigCreated: AugmentedEvent<ApiType, [callerDid: PolymeshPrimitivesIdentityId, multisig: AccountId32, caller: AccountId32, signers: Vec<AccountId32>, sigsRequired: u64], { callerDid: PolymeshPrimitivesIdentityId, multisig: AccountId32, caller: AccountId32, signers: Vec<AccountId32>, sigsRequired: u64 }>;
       /**
-       * Event emitted when a signatory is added.
-       * Arguments: caller DID, multisig, added signer.
+       * A Multisig has removed it's admin DID.
        **/
-      MultiSigSignerAdded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, PolymeshPrimitivesSecondaryKeySignatory]>;
+      MultiSigRemovedAdmin: AugmentedEvent<ApiType, [callerDid: PolymeshPrimitivesIdentityId, multisig: AccountId32, adminDid: PolymeshPrimitivesIdentityId], { callerDid: PolymeshPrimitivesIdentityId, multisig: AccountId32, adminDid: PolymeshPrimitivesIdentityId }>;
       /**
-       * Event emitted when a multisig signatory is authorized to be added.
-       * Arguments: caller DID, multisig, authorized signer.
+       * A Multisig has removed it's paying DID.
        **/
-      MultiSigSignerAuthorized: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, PolymeshPrimitivesSecondaryKeySignatory]>;
+      MultiSigRemovedPayingDid: AugmentedEvent<ApiType, [callerDid: PolymeshPrimitivesIdentityId, multisig: AccountId32, payingDid: PolymeshPrimitivesIdentityId], { callerDid: PolymeshPrimitivesIdentityId, multisig: AccountId32, payingDid: PolymeshPrimitivesIdentityId }>;
       /**
-       * Event emitted when a multisig signatory is removed.
-       * Arguments: caller DID, multisig, removed signer.
+       * A new signer has been added to a Multisig.
        **/
-      MultiSigSignerRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, PolymeshPrimitivesSecondaryKeySignatory]>;
+      MultiSigSignerAdded: AugmentedEvent<ApiType, [callerDid: PolymeshPrimitivesIdentityId, multisig: AccountId32, signer: AccountId32], { callerDid: PolymeshPrimitivesIdentityId, multisig: AccountId32, signer: AccountId32 }>;
       /**
-       * Event emitted after adding a proposal.
-       * Arguments: caller DID, multisig, proposal ID.
+       * New keys have been authorized to be signers on a Multisig.
        **/
-      ProposalAdded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, u64]>;
+      MultiSigSignersAuthorized: AugmentedEvent<ApiType, [callerDid: PolymeshPrimitivesIdentityId, multisig: AccountId32, signers: Vec<AccountId32>], { callerDid: PolymeshPrimitivesIdentityId, multisig: AccountId32, signers: Vec<AccountId32> }>;
       /**
-       * Event emitted when the proposal get approved.
-       * Arguments: caller DID, multisig, authorized signer, proposal id.
+       * Signers have been removed from a Multisig.
        **/
-      ProposalApproved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, PolymeshPrimitivesSecondaryKeySignatory, u64]>;
+      MultiSigSignersRemoved: AugmentedEvent<ApiType, [callerDid: PolymeshPrimitivesIdentityId, multisig: AccountId32, signers: Vec<AccountId32>], { callerDid: PolymeshPrimitivesIdentityId, multisig: AccountId32, signers: Vec<AccountId32> }>;
       /**
-       * Event emitted when a proposal is executed.
-       * Arguments: caller DID, multisig, proposal ID, result.
+       * A Multisig has changed its required number of approvals.
        **/
-      ProposalExecuted: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, u64, bool]>;
+      MultiSigSignersRequiredChanged: AugmentedEvent<ApiType, [callerDid: Option<PolymeshPrimitivesIdentityId>, multisig: AccountId32, sigsRequired: u64], { callerDid: Option<PolymeshPrimitivesIdentityId>, multisig: AccountId32, sigsRequired: u64 }>;
       /**
-       * Event emitted when there's an error in proposal execution
+       * A Multisig proposal has been created.
        **/
-      ProposalExecutionFailed: AugmentedEvent<ApiType, [SpRuntimeDispatchError]>;
+      ProposalAdded: AugmentedEvent<ApiType, [callerDid: Option<PolymeshPrimitivesIdentityId>, multisig: AccountId32, proposalId: u64], { callerDid: Option<PolymeshPrimitivesIdentityId>, multisig: AccountId32, proposalId: u64 }>;
       /**
-       * Event emitted when a proposal failed to execute.
-       * Arguments: caller DID, multisig, proposal ID, error.
+       * A signer has voted to approve a Multisig proposal.
        **/
-      ProposalFailedToExecute: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, u64, SpRuntimeDispatchError]>;
+      ProposalApprovalVote: AugmentedEvent<ApiType, [callerDid: Option<PolymeshPrimitivesIdentityId>, multisig: AccountId32, signer: AccountId32, proposalId: u64], { callerDid: Option<PolymeshPrimitivesIdentityId>, multisig: AccountId32, signer: AccountId32, proposalId: u64 }>;
       /**
-       * Event emitted when a proposal is rejected.
-       * Arguments: caller DID, multisig, proposal ID.
+       * A Multisig proposal has been approved.
        **/
-      ProposalRejected: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, u64]>;
+      ProposalApproved: AugmentedEvent<ApiType, [callerDid: Option<PolymeshPrimitivesIdentityId>, multisig: AccountId32, proposalId: u64], { callerDid: Option<PolymeshPrimitivesIdentityId>, multisig: AccountId32, proposalId: u64 }>;
       /**
-       * Event emitted when a vote is cast in favor of rejecting a proposal.
-       * Arguments: caller DID, multisig, authorized signer, proposal id.
+       * A Multisig proposal has been executed.
        **/
-      ProposalRejectionVote: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, PolymeshPrimitivesSecondaryKeySignatory, u64]>;
+      ProposalExecuted: AugmentedEvent<ApiType, [callerDid: Option<PolymeshPrimitivesIdentityId>, multisig: AccountId32, proposalId: u64, result: Result<Null, SpRuntimeDispatchError>], { callerDid: Option<PolymeshPrimitivesIdentityId>, multisig: AccountId32, proposalId: u64, result: Result<Null, SpRuntimeDispatchError> }>;
       /**
-       * Scheduling of proposal fails.
+       * A Multisig proposal has been rejected.
        **/
-      SchedulingFailed: AugmentedEvent<ApiType, [SpRuntimeDispatchError]>;
+      ProposalRejected: AugmentedEvent<ApiType, [callerDid: Option<PolymeshPrimitivesIdentityId>, multisig: AccountId32, proposalId: u64], { callerDid: Option<PolymeshPrimitivesIdentityId>, multisig: AccountId32, proposalId: u64 }>;
+      /**
+       * A signer has voted to reject a Multisig proposal.
+       **/
+      ProposalRejectionVote: AugmentedEvent<ApiType, [callerDid: Option<PolymeshPrimitivesIdentityId>, multisig: AccountId32, signer: AccountId32, proposalId: u64], { callerDid: Option<PolymeshPrimitivesIdentityId>, multisig: AccountId32, signer: AccountId32, proposalId: u64 }>;
       /**
        * Generic event
        **/
@@ -962,7 +876,7 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * Emitted when a new nft collection is created.
        **/
-      NftCollectionCreated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, u64]>;
+      NftCollectionCreated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, u64]>;
       /**
        * Emitted when NFTs were issued, redeemed or transferred.
        * Contains the [`IdentityId`] of the receiver/issuer/redeemer, the [`NFTs`], the [`PortfolioId`] of the source, the [`PortfolioId`]
@@ -980,7 +894,7 @@ declare module '@polkadot/api-base/types/events' {
        * (kind-specific) time slot. This event is not deposited for duplicate slashes.
        * \[kind, timeslot\].
        **/
-      Offence: AugmentedEvent<ApiType, [U8aFixed, Bytes]>;
+      Offence: AugmentedEvent<ApiType, [kind: U8aFixed, timeslot: Bytes], { kind: U8aFixed, timeslot: Bytes }>;
       /**
        * Generic event
        **/
@@ -1090,12 +1004,12 @@ declare module '@polkadot/api-base/types/events' {
        * tally (yes votes, no votes and total seats given respectively as `MemberCount`).
        * Parameters: caller DID, proposal hash, yay vote count, nay vote count, total seats.
        **/
-      Approved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, H256, u32, u32, u32]>;
+      Approved: AugmentedEvent<ApiType, [Option<PolymeshPrimitivesIdentityId>, H256, u32, u32, u32]>;
       /**
        * A motion was executed; `DispatchResult` is `Ok(())` if returned without error.
        * Parameters: caller DID, proposal hash, result of proposal dispatch.
        **/
-      Executed: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, H256, Result<Null, SpRuntimeDispatchError>]>;
+      Executed: AugmentedEvent<ApiType, [Option<PolymeshPrimitivesIdentityId>, H256, Result<Null, SpRuntimeDispatchError>]>;
       /**
        * Proposal expiry time has been updated.
        * Parameters: caller DID, new expiry time (if any).
@@ -1105,7 +1019,7 @@ declare module '@polkadot/api-base/types/events' {
        * Final votes on a motion (given hash)
        * caller DID, ProposalIndex, Proposal hash, yes voters, no voter
        **/
-      FinalVotes: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, u32, H256, Vec<PolymeshPrimitivesIdentityId>, Vec<PolymeshPrimitivesIdentityId>]>;
+      FinalVotes: AugmentedEvent<ApiType, [Option<PolymeshPrimitivesIdentityId>, u32, H256, Vec<PolymeshPrimitivesIdentityId>, Vec<PolymeshPrimitivesIdentityId>]>;
       /**
        * A motion (given hash) has been proposed (by given account) with a threshold (given `MemberCount`).
        * Parameters: caller DID, proposal index, proposal hash.
@@ -1116,12 +1030,12 @@ declare module '@polkadot/api-base/types/events' {
        * tally (yes votes, no votes and total seats given respectively as `MemberCount`).
        * Parameters: caller DID, proposal hash, yay vote count, nay vote count, total seats.
        **/
-      Rejected: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, H256, u32, u32, u32]>;
+      Rejected: AugmentedEvent<ApiType, [Option<PolymeshPrimitivesIdentityId>, H256, u32, u32, u32]>;
       /**
        * Release coordinator has been updated.
-       * Parameters: caller DID, DID of the release coordinator.
+       * Parameters: DID of the release coordinator.
        **/
-      ReleaseCoordinatorUpdated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, Option<PolymeshPrimitivesIdentityId>]>;
+      ReleaseCoordinatorUpdated: AugmentedEvent<ApiType, [Option<PolymeshPrimitivesIdentityId>]>;
       /**
        * A motion (given hash) has been voted on by given account, leaving
        * a tally (yes votes, no votes and total seats given respectively as `MemberCount`).
@@ -1212,18 +1126,18 @@ declare module '@polkadot/api-base/types/events' {
        * # Parameters
        * * [`IdentityId`] of the caller.
        * * [`PortfolioId`] that will receive assets without explicit affirmation.
-       * * [`Ticker`] of the asset that has been exempt from explicit affirmation.
+       * * [`AssetID`] of the asset that has been exempt from explicit affirmation.
        **/
-      PreApprovedPortfolio: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesTicker]>;
+      PreApprovedPortfolio: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesAssetAssetID]>;
       /**
        * A portfolio has removed the approval of an asset.
        * 
        * # Parameters
        * * [`IdentityId`] of the caller.
        * * [`PortfolioId`] that had its pre approval revoked.
-       * * [`Ticker`] of the asset that had its pre approval revoked.
+       * * [`AssetID`] of the asset that had its pre approval revoked.
        **/
-      RevokePreApprovedPortfolio: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesTicker]>;
+      RevokePreApprovedPortfolio: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesAssetAssetID]>;
       /**
        * All non-default portfolio numbers and names of a DID.
        * 
@@ -1241,15 +1155,15 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * A preimage has ben cleared.
        **/
-      Cleared: AugmentedEvent<ApiType, [H256]>;
+      Cleared: AugmentedEvent<ApiType, [hash_: H256], { hash_: H256 }>;
       /**
        * A preimage has been noted.
        **/
-      Noted: AugmentedEvent<ApiType, [H256]>;
+      Noted: AugmentedEvent<ApiType, [hash_: H256], { hash_: H256 }>;
       /**
        * A preimage has been requested.
        **/
-      Requested: AugmentedEvent<ApiType, [H256]>;
+      Requested: AugmentedEvent<ApiType, [hash_: H256], { hash_: H256 }>;
       /**
        * Generic event
        **/
@@ -1307,27 +1221,27 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * The call for the provided hash was not found so the task has been aborted.
        **/
-      CallUnavailable: AugmentedEvent<ApiType, [ITuple<[u32, u32]>, Option<U8aFixed>]>;
+      CallUnavailable: AugmentedEvent<ApiType, [task: ITuple<[u32, u32]>, id: Option<U8aFixed>], { task: ITuple<[u32, u32]>, id: Option<U8aFixed> }>;
       /**
        * Canceled some task.
        **/
-      Canceled: AugmentedEvent<ApiType, [u32, u32]>;
+      Canceled: AugmentedEvent<ApiType, [when: u32, index: u32], { when: u32, index: u32 }>;
       /**
        * Dispatched some task.
        **/
-      Dispatched: AugmentedEvent<ApiType, [ITuple<[u32, u32]>, Option<U8aFixed>, Result<Null, SpRuntimeDispatchError>]>;
+      Dispatched: AugmentedEvent<ApiType, [task: ITuple<[u32, u32]>, id: Option<U8aFixed>, result: Result<Null, SpRuntimeDispatchError>], { task: ITuple<[u32, u32]>, id: Option<U8aFixed>, result: Result<Null, SpRuntimeDispatchError> }>;
       /**
        * The given task was unable to be renewed since the agenda is full at that block.
        **/
-      PeriodicFailed: AugmentedEvent<ApiType, [ITuple<[u32, u32]>, Option<U8aFixed>]>;
+      PeriodicFailed: AugmentedEvent<ApiType, [task: ITuple<[u32, u32]>, id: Option<U8aFixed>], { task: ITuple<[u32, u32]>, id: Option<U8aFixed> }>;
       /**
        * The given task can never be executed since it is overweight.
        **/
-      PermanentlyOverweight: AugmentedEvent<ApiType, [ITuple<[u32, u32]>, Option<U8aFixed>]>;
+      PermanentlyOverweight: AugmentedEvent<ApiType, [task: ITuple<[u32, u32]>, id: Option<U8aFixed>], { task: ITuple<[u32, u32]>, id: Option<U8aFixed> }>;
       /**
        * Scheduled some task.
        **/
-      Scheduled: AugmentedEvent<ApiType, [u32, u32]>;
+      Scheduled: AugmentedEvent<ApiType, [when: u32, index: u32], { when: u32, index: u32 }>;
       /**
        * Generic event
        **/
@@ -1338,7 +1252,7 @@ declare module '@polkadot/api-base/types/events' {
        * New session has happened. Note that the argument is the session index, not the
        * block number as the type might suggest.
        **/
-      NewSession: AugmentedEvent<ApiType, [u32]>;
+      NewSession: AugmentedEvent<ApiType, [sessionIndex: u32], { sessionIndex: u32 }>;
       /**
        * Generic event
        **/
@@ -1366,7 +1280,7 @@ declare module '@polkadot/api-base/types/events' {
        * A new instruction has been created
        * (did, venue_id, instruction_id, settlement_type, trade_date, value_date, legs, memo)
        **/
-      InstructionCreated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, u64, u64, PolymeshPrimitivesSettlementSettlementType, Option<u64>, Option<u64>, Vec<PolymeshPrimitivesSettlementLeg>, Option<PolymeshPrimitivesMemo>]>;
+      InstructionCreated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, Option<u64>, u64, PolymeshPrimitivesSettlementSettlementType, Option<u64>, Option<u64>, Vec<PolymeshPrimitivesSettlementLeg>, Option<PolymeshPrimitivesMemo>]>;
       /**
        * Instruction executed successfully(did, instruction_id)
        **/
@@ -1424,17 +1338,17 @@ declare module '@polkadot/api-base/types/events' {
        **/
       VenueDetailsUpdated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, u64, Bytes]>;
       /**
-       * Venue filtering has been enabled or disabled for a ticker (did, ticker, filtering_enabled)
+       * Venue filtering has been enabled or disabled for an asset (did, AssetID, filtering_enabled)
        **/
-      VenueFiltering: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, bool]>;
+      VenueFiltering: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, bool]>;
       /**
-       * Venues added to allow list (did, ticker, vec<venue_id>)
+       * Venues added to allow list (did, AssetID, vec<venue_id>)
        **/
-      VenuesAllowed: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, Vec<u64>]>;
+      VenuesAllowed: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, Vec<u64>]>;
       /**
-       * Venues added to block list (did, ticker, vec<venue_id>)
+       * Venues added to block list (did, AssetID, vec<venue_id>)
        **/
-      VenuesBlocked: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, Vec<u64>]>;
+      VenuesBlocked: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, Vec<u64>]>;
       /**
        * An existing venue's signers has been updated (did, venue_id, signers, update_type)
        **/
@@ -1444,9 +1358,9 @@ declare module '@polkadot/api-base/types/events' {
        **/
       VenueTypeUpdated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, u64, PolymeshPrimitivesSettlementVenueType]>;
       /**
-       * Venue not part of the token's allow list (did, Ticker, venue_id)
+       * Venue not part of the token's allow list (did, AssetID, venue_id)
        **/
-      VenueUnauthorized: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, u64]>;
+      VenueUnauthorized: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, u64]>;
       /**
        * Generic event
        **/
@@ -1459,74 +1373,74 @@ declare module '@polkadot/api-base/types/events' {
        * NOTE: This event is only emitted when funds are bonded via a dispatchable. Notably,
        * it will not be emitted for staking rewards when they are added to stake.
        **/
-      Bonded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, u128]>;
+      Bonded: AugmentedEvent<ApiType, [identity: PolymeshPrimitivesIdentityId, stash: AccountId32, amount: u128], { identity: PolymeshPrimitivesIdentityId, stash: AccountId32, amount: u128 }>;
       /**
        * An account has stopped participating as either a validator or nominator.
        **/
-      Chilled: AugmentedEvent<ApiType, [AccountId32]>;
+      Chilled: AugmentedEvent<ApiType, [stash: AccountId32], { stash: AccountId32 }>;
       /**
        * Commission cap has been updated.
        **/
-      CommissionCapUpdated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, Perbill, Perbill]>;
+      CommissionCapUpdated: AugmentedEvent<ApiType, [governanceCouncillDid: PolymeshPrimitivesIdentityId, oldCommissionCap: Perbill, newCommissionCap: Perbill], { governanceCouncillDid: PolymeshPrimitivesIdentityId, oldCommissionCap: Perbill, newCommissionCap: Perbill }>;
       /**
        * The era payout has been set; the first balance is the validator-payout; the second is
        * the remainder from the maximum amount of reward.
        **/
-      EraPaid: AugmentedEvent<ApiType, [u32, u128, u128]>;
+      EraPaid: AugmentedEvent<ApiType, [eraIndex: u32, validatorPayout: u128, remainder: u128], { eraIndex: u32, validatorPayout: u128, remainder: u128 }>;
       /**
        * A new force era mode was set.
        **/
-      ForceEra: AugmentedEvent<ApiType, [PalletStakingForcing]>;
+      ForceEra: AugmentedEvent<ApiType, [mode: PalletStakingForcing], { mode: PalletStakingForcing }>;
       /**
        * Remove the nominators from the valid nominators when there CDD expired.
        **/
-      InvalidatedNominators: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityId, Vec<AccountId32>]>;
+      InvalidatedNominators: AugmentedEvent<ApiType, [governanceCouncillDid: PolymeshPrimitivesIdentityId, governanceCouncillAccount: PolymeshPrimitivesIdentityId, expiredNominators: Vec<AccountId32>], { governanceCouncillDid: PolymeshPrimitivesIdentityId, governanceCouncillAccount: PolymeshPrimitivesIdentityId, expiredNominators: Vec<AccountId32> }>;
       /**
        * A nominator has been kicked from a validator.
        **/
-      Kicked: AugmentedEvent<ApiType, [AccountId32, AccountId32]>;
+      Kicked: AugmentedEvent<ApiType, [nominator: AccountId32, stash: AccountId32], { nominator: AccountId32, stash: AccountId32 }>;
       /**
        * User has updated their nominations.
        **/
-      Nominated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, Vec<AccountId32>]>;
+      Nominated: AugmentedEvent<ApiType, [nominatorIdentity: PolymeshPrimitivesIdentityId, stash: AccountId32, targets: Vec<AccountId32>], { nominatorIdentity: PolymeshPrimitivesIdentityId, stash: AccountId32, targets: Vec<AccountId32> }>;
       /**
        * An old slashing report from a prior era was discarded because it could
        * not be processed.
        **/
-      OldSlashingReportDiscarded: AugmentedEvent<ApiType, [u32]>;
+      OldSlashingReportDiscarded: AugmentedEvent<ApiType, [sessionIndex: u32], { sessionIndex: u32 }>;
       /**
        * The stakers' rewards are getting paid.
        **/
-      PayoutStarted: AugmentedEvent<ApiType, [u32, AccountId32]>;
+      PayoutStarted: AugmentedEvent<ApiType, [eraIndex: u32, validatorStash: AccountId32], { eraIndex: u32, validatorStash: AccountId32 }>;
       /**
        * An identity has issued a candidacy for becoming a validator.
        **/
-      PermissionedIdentityAdded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityId]>;
+      PermissionedIdentityAdded: AugmentedEvent<ApiType, [governanceCouncillDid: PolymeshPrimitivesIdentityId, validatorsIdentity: PolymeshPrimitivesIdentityId], { governanceCouncillDid: PolymeshPrimitivesIdentityId, validatorsIdentity: PolymeshPrimitivesIdentityId }>;
       /**
        * An identity has been removed from the permissioned identities pool.
        **/
-      PermissionedIdentityRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityId]>;
+      PermissionedIdentityRemoved: AugmentedEvent<ApiType, [governanceCouncillDid: PolymeshPrimitivesIdentityId, validatorsIdentity: PolymeshPrimitivesIdentityId], { governanceCouncillDid: PolymeshPrimitivesIdentityId, validatorsIdentity: PolymeshPrimitivesIdentityId }>;
       /**
        * The nominator has been rewarded by this amount.
        **/
-      Rewarded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, u128]>;
+      Rewarded: AugmentedEvent<ApiType, [identity: PolymeshPrimitivesIdentityId, stash: AccountId32, amount: u128], { identity: PolymeshPrimitivesIdentityId, stash: AccountId32, amount: u128 }>;
       /**
        * Reward scheduling interrupted.
        **/
-      RewardPaymentSchedulingInterrupted: AugmentedEvent<ApiType, [AccountId32, u32, SpRuntimeDispatchError]>;
+      RewardPaymentSchedulingInterrupted: AugmentedEvent<ApiType, [accountId: AccountId32, era: u32, error: SpRuntimeDispatchError], { accountId: AccountId32, era: u32, error: SpRuntimeDispatchError }>;
       /**
        * A staker (validator or nominator) has been slashed by the given amount.
        **/
-      Slashed: AugmentedEvent<ApiType, [AccountId32, u128]>;
+      Slashed: AugmentedEvent<ApiType, [staker: AccountId32, amount: u128], { staker: AccountId32, amount: u128 }>;
       /**
        * Slashing allowed has been updated.
        **/
-      SlashingAllowedForChanged: AugmentedEvent<ApiType, [PalletStakingSlashingSwitch]>;
+      SlashingAllowedForChanged: AugmentedEvent<ApiType, [slashingSwitch: PalletStakingSlashingSwitch], { slashingSwitch: PalletStakingSlashingSwitch }>;
       /**
        * A slash for the given validator, for the given percentage of their stake, at the given
        * era as been reported.
        **/
-      SlashReported: AugmentedEvent<ApiType, [AccountId32, Perbill, u32]>;
+      SlashReported: AugmentedEvent<ApiType, [validator: AccountId32, fraction: Perbill, slashEra: u32], { validator: AccountId32, fraction: Perbill, slashEra: u32 }>;
       /**
        * A new set of stakers was elected.
        **/
@@ -1538,16 +1452,16 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * An account has unbonded this amount.
        **/
-      Unbonded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, u128]>;
+      Unbonded: AugmentedEvent<ApiType, [identity: PolymeshPrimitivesIdentityId, stash: AccountId32, amount: u128], { identity: PolymeshPrimitivesIdentityId, stash: AccountId32, amount: u128 }>;
       /**
        * A validator has set their preferences.
        **/
-      ValidatorPrefsSet: AugmentedEvent<ApiType, [AccountId32, PalletStakingValidatorPrefs]>;
+      ValidatorPrefsSet: AugmentedEvent<ApiType, [stash: AccountId32, prefs: PalletStakingValidatorPrefs], { stash: AccountId32, prefs: PalletStakingValidatorPrefs }>;
       /**
        * An account has called `withdraw_unbonded` and removed unbonding chunks worth `Balance`
        * from the unlocking queue.
        **/
-      Withdrawn: AugmentedEvent<ApiType, [AccountId32, u128]>;
+      Withdrawn: AugmentedEvent<ApiType, [stash: AccountId32, amount: u128], { stash: AccountId32, amount: u128 }>;
       /**
        * Generic event
        **/
@@ -1561,16 +1475,16 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * Migration got halted due to an error or miss-configuration.
        **/
-      Halted: AugmentedEvent<ApiType, [PalletStateTrieMigrationError]>;
+      Halted: AugmentedEvent<ApiType, [error: PalletStateTrieMigrationError], { error: PalletStateTrieMigrationError }>;
       /**
        * Given number of `(top, child)` keys were migrated respectively, with the given
        * `compute`.
        **/
-      Migrated: AugmentedEvent<ApiType, [u32, u32, PalletStateTrieMigrationMigrationCompute]>;
+      Migrated: AugmentedEvent<ApiType, [top: u32, child: u32, compute: PalletStateTrieMigrationMigrationCompute], { top: u32, child: u32, compute: PalletStateTrieMigrationMigrationCompute }>;
       /**
        * Some account got slashed by the given amount.
        **/
-      Slashed: AugmentedEvent<ApiType, [AccountId32, u128]>;
+      Slashed: AugmentedEvent<ApiType, [who: AccountId32, amount: u128], { who: AccountId32, amount: u128 }>;
       /**
        * Generic event
        **/
@@ -1580,27 +1494,27 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * Asset stats updated.
        * 
-       * (Caller DID, Asset, Stat type, Updates)
+       * (Caller DID, AssetID, Stat type, Updates)
        **/
-      AssetStatsUpdated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStatType, Vec<PolymeshPrimitivesStatisticsStatUpdate>]>;
+      AssetStatsUpdated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, PolymeshPrimitivesStatisticsStatType, Vec<PolymeshPrimitivesStatisticsStatUpdate>]>;
       /**
        * Set Transfer compliance rules for asset.
        * 
-       * (Caller DID, Asset, Transfer conditions)
+       * (Caller DID, AssetID, Transfer conditions)
        **/
-      SetAssetTransferCompliance: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesStatisticsAssetScope, Vec<PolymeshPrimitivesTransferComplianceTransferCondition>]>;
+      SetAssetTransferCompliance: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, Vec<PolymeshPrimitivesTransferComplianceTransferCondition>]>;
       /**
        * Stat types added to asset.
        * 
-       * (Caller DID, Asset, Stat types)
+       * (Caller DID, AssetID, Stat types)
        **/
-      StatTypesAdded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesStatisticsAssetScope, Vec<PolymeshPrimitivesStatisticsStatType>]>;
+      StatTypesAdded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, Vec<PolymeshPrimitivesStatisticsStatType>]>;
       /**
        * Stat types removed from asset.
        * 
-       * (Caller DID, Asset, Stat types)
+       * (Caller DID, AssetID, Stat types)
        **/
-      StatTypesRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesStatisticsAssetScope, Vec<PolymeshPrimitivesStatisticsStatType>]>;
+      StatTypesRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetID, Vec<PolymeshPrimitivesStatisticsStatType>]>;
       /**
        * Add `IdentityId`s exempt for transfer conditions matching exempt key.
        * 
@@ -1648,7 +1562,7 @@ declare module '@polkadot/api-base/types/events' {
        * An investor invested in the fundraiser.
        * (Investor, fundraiser_id, offering token, raise token, offering_token_amount, raise_token_amount)
        **/
-      Invested: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, u64, PolymeshPrimitivesTicker, PolymeshPrimitivesTicker, u128, u128]>;
+      Invested: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, u64, PolymeshPrimitivesAssetAssetID, PolymeshPrimitivesAssetAssetID, u128, u128]>;
       /**
        * Generic event
        **/
@@ -1680,23 +1594,23 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * An extrinsic failed.
        **/
-      ExtrinsicFailed: AugmentedEvent<ApiType, [SpRuntimeDispatchError, FrameSupportDispatchDispatchInfo]>;
+      ExtrinsicFailed: AugmentedEvent<ApiType, [dispatchError: SpRuntimeDispatchError, dispatchInfo: FrameSupportDispatchDispatchInfo], { dispatchError: SpRuntimeDispatchError, dispatchInfo: FrameSupportDispatchDispatchInfo }>;
       /**
        * An extrinsic completed successfully.
        **/
-      ExtrinsicSuccess: AugmentedEvent<ApiType, [FrameSupportDispatchDispatchInfo]>;
+      ExtrinsicSuccess: AugmentedEvent<ApiType, [dispatchInfo: FrameSupportDispatchDispatchInfo], { dispatchInfo: FrameSupportDispatchDispatchInfo }>;
       /**
        * An account was reaped.
        **/
-      KilledAccount: AugmentedEvent<ApiType, [AccountId32]>;
+      KilledAccount: AugmentedEvent<ApiType, [account: AccountId32], { account: AccountId32 }>;
       /**
        * A new account was created.
        **/
-      NewAccount: AugmentedEvent<ApiType, [AccountId32]>;
+      NewAccount: AugmentedEvent<ApiType, [account: AccountId32], { account: AccountId32 }>;
       /**
        * On on-chain remark happened.
        **/
-      Remarked: AugmentedEvent<ApiType, [AccountId32, H256]>;
+      Remarked: AugmentedEvent<ApiType, [sender: AccountId32, hash_: H256], { sender: AccountId32, hash_: H256 }>;
       /**
        * Generic event
        **/
@@ -1708,12 +1622,12 @@ declare module '@polkadot/api-base/types/events' {
        * tally (yes votes, no votes and total seats given respectively as `MemberCount`).
        * Parameters: caller DID, proposal hash, yay vote count, nay vote count, total seats.
        **/
-      Approved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, H256, u32, u32, u32]>;
+      Approved: AugmentedEvent<ApiType, [Option<PolymeshPrimitivesIdentityId>, H256, u32, u32, u32]>;
       /**
        * A motion was executed; `DispatchResult` is `Ok(())` if returned without error.
        * Parameters: caller DID, proposal hash, result of proposal dispatch.
        **/
-      Executed: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, H256, Result<Null, SpRuntimeDispatchError>]>;
+      Executed: AugmentedEvent<ApiType, [Option<PolymeshPrimitivesIdentityId>, H256, Result<Null, SpRuntimeDispatchError>]>;
       /**
        * Proposal expiry time has been updated.
        * Parameters: caller DID, new expiry time (if any).
@@ -1723,7 +1637,7 @@ declare module '@polkadot/api-base/types/events' {
        * Final votes on a motion (given hash)
        * caller DID, ProposalIndex, Proposal hash, yes voters, no voter
        **/
-      FinalVotes: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, u32, H256, Vec<PolymeshPrimitivesIdentityId>, Vec<PolymeshPrimitivesIdentityId>]>;
+      FinalVotes: AugmentedEvent<ApiType, [Option<PolymeshPrimitivesIdentityId>, u32, H256, Vec<PolymeshPrimitivesIdentityId>, Vec<PolymeshPrimitivesIdentityId>]>;
       /**
        * A motion (given hash) has been proposed (by given account) with a threshold (given `MemberCount`).
        * Parameters: caller DID, proposal index, proposal hash.
@@ -1734,12 +1648,12 @@ declare module '@polkadot/api-base/types/events' {
        * tally (yes votes, no votes and total seats given respectively as `MemberCount`).
        * Parameters: caller DID, proposal hash, yay vote count, nay vote count, total seats.
        **/
-      Rejected: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, H256, u32, u32, u32]>;
+      Rejected: AugmentedEvent<ApiType, [Option<PolymeshPrimitivesIdentityId>, H256, u32, u32, u32]>;
       /**
        * Release coordinator has been updated.
-       * Parameters: caller DID, DID of the release coordinator.
+       * Parameters: DID of the release coordinator.
        **/
-      ReleaseCoordinatorUpdated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, Option<PolymeshPrimitivesIdentityId>]>;
+      ReleaseCoordinatorUpdated: AugmentedEvent<ApiType, [Option<PolymeshPrimitivesIdentityId>]>;
       /**
        * A motion (given hash) has been voted on by given account, leaving
        * a tally (yes votes, no votes and total seats given respectively as `MemberCount`).
@@ -1822,7 +1736,7 @@ declare module '@polkadot/api-base/types/events' {
        * A transaction fee `actual_fee`, of which `tip` was added to the minimum inclusion fee,
        * has been paid by `who`.
        **/
-      TransactionFeePaid: AugmentedEvent<ApiType, [AccountId32, u128, u128]>;
+      TransactionFeePaid: AugmentedEvent<ApiType, [who: AccountId32, actualFee: u128, tip: u128], { who: AccountId32, actualFee: u128, tip: u128 }>;
       /**
        * Generic event
        **/
@@ -1858,12 +1772,12 @@ declare module '@polkadot/api-base/types/events' {
        * tally (yes votes, no votes and total seats given respectively as `MemberCount`).
        * Parameters: caller DID, proposal hash, yay vote count, nay vote count, total seats.
        **/
-      Approved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, H256, u32, u32, u32]>;
+      Approved: AugmentedEvent<ApiType, [Option<PolymeshPrimitivesIdentityId>, H256, u32, u32, u32]>;
       /**
        * A motion was executed; `DispatchResult` is `Ok(())` if returned without error.
        * Parameters: caller DID, proposal hash, result of proposal dispatch.
        **/
-      Executed: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, H256, Result<Null, SpRuntimeDispatchError>]>;
+      Executed: AugmentedEvent<ApiType, [Option<PolymeshPrimitivesIdentityId>, H256, Result<Null, SpRuntimeDispatchError>]>;
       /**
        * Proposal expiry time has been updated.
        * Parameters: caller DID, new expiry time (if any).
@@ -1873,7 +1787,7 @@ declare module '@polkadot/api-base/types/events' {
        * Final votes on a motion (given hash)
        * caller DID, ProposalIndex, Proposal hash, yes voters, no voter
        **/
-      FinalVotes: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, u32, H256, Vec<PolymeshPrimitivesIdentityId>, Vec<PolymeshPrimitivesIdentityId>]>;
+      FinalVotes: AugmentedEvent<ApiType, [Option<PolymeshPrimitivesIdentityId>, u32, H256, Vec<PolymeshPrimitivesIdentityId>, Vec<PolymeshPrimitivesIdentityId>]>;
       /**
        * A motion (given hash) has been proposed (by given account) with a threshold (given `MemberCount`).
        * Parameters: caller DID, proposal index, proposal hash.
@@ -1884,12 +1798,12 @@ declare module '@polkadot/api-base/types/events' {
        * tally (yes votes, no votes and total seats given respectively as `MemberCount`).
        * Parameters: caller DID, proposal hash, yay vote count, nay vote count, total seats.
        **/
-      Rejected: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, H256, u32, u32, u32]>;
+      Rejected: AugmentedEvent<ApiType, [Option<PolymeshPrimitivesIdentityId>, H256, u32, u32, u32]>;
       /**
        * Release coordinator has been updated.
-       * Parameters: caller DID, DID of the release coordinator.
+       * Parameters: DID of the release coordinator.
        **/
-      ReleaseCoordinatorUpdated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, Option<PolymeshPrimitivesIdentityId>]>;
+      ReleaseCoordinatorUpdated: AugmentedEvent<ApiType, [Option<PolymeshPrimitivesIdentityId>]>;
       /**
        * A motion (given hash) has been voted on by given account, leaving
        * a tally (yes votes, no votes and total seats given respectively as `MemberCount`).
@@ -1969,7 +1883,7 @@ declare module '@polkadot/api-base/types/events' {
        * Batch of dispatches did not complete fully. Index of first failing dispatch given, as
        * well as the error.
        **/
-      BatchInterrupted: AugmentedEvent<ApiType, [u32, SpRuntimeDispatchError]>;
+      BatchInterrupted: AugmentedEvent<ApiType, [index: u32, error: SpRuntimeDispatchError], { index: u32, error: SpRuntimeDispatchError }>;
       /**
        * Batch of dispatches did not complete fully.
        * Includes a vector of event counts for each dispatch and
@@ -1987,7 +1901,7 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * A call was dispatched.
        **/
-      DispatchedAs: AugmentedEvent<ApiType, [Result<Null, SpRuntimeDispatchError>]>;
+      DispatchedAs: AugmentedEvent<ApiType, [result: Result<Null, SpRuntimeDispatchError>], { result: Result<Null, SpRuntimeDispatchError> }>;
       /**
        * A single item within a Batch of dispatches has completed with no error.
        **/
@@ -1995,12 +1909,12 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * A single item within a Batch of dispatches has completed with error.
        **/
-      ItemFailed: AugmentedEvent<ApiType, [SpRuntimeDispatchError]>;
+      ItemFailed: AugmentedEvent<ApiType, [error: SpRuntimeDispatchError], { error: SpRuntimeDispatchError }>;
       /**
        * Relayed transaction.
        * POLYMESH: event.
        **/
-      RelayedTx: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32, Result<Null, SpRuntimeDispatchError>]>;
+      RelayedTx: AugmentedEvent<ApiType, [callerDid: PolymeshPrimitivesIdentityId, target: AccountId32, result: Result<Null, SpRuntimeDispatchError>], { callerDid: PolymeshPrimitivesIdentityId, target: AccountId32, result: Result<Null, SpRuntimeDispatchError> }>;
       /**
        * Generic event
        **/

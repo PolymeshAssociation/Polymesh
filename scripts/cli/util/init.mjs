@@ -243,7 +243,7 @@ async function keyToIdentityIds(api, accountKey) {
     if (rec.isPrimaryKey) {
       return rec.asPrimaryKey.toHuman();
     } else if (rec.isPrimaryKey) {
-      return rec.asSecondaryKey[0].toHuman();
+      return rec.asSecondaryKey.toHuman();
     }
   }
   return "";

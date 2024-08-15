@@ -17,30 +17,23 @@
 
 //! Test utilities
 
+use std::collections::BTreeMap;
+
 use frame_election_provider_support::{onchain, SequentialPhragmen};
+use frame_support::dispatch::{DispatchInfo, DispatchResult, Weight};
+use frame_support::traits::{
+    ConstU32, Currency, EitherOfDiverse, FindAuthor, GenesisBuild, Get, Hooks, Imbalance,
+    KeyOwnerProofSystem, OnUnbalanced, OneSessionHandler,
+};
+use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{
-    assert_ok, ord_parameter_types, parameter_types,
-    traits::{
-        ConstU32, Currency, EitherOfDiverse, FindAuthor, GenesisBuild, Get, Hooks, Imbalance,
-        OnUnbalanced, OneSessionHandler,
-    },
-    weights::constants::RocksDbWeight,
+    assert_ok, ord_parameter_types, parameter_types, StorageDoubleMap, StorageMap,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_core::H256;
-use sp_io;
-use sp_runtime::{
-    curve::PiecewiseLinear,
-    testing::{Header, UintAuthorityId},
-    traits::{IdentityLookup, Zero},
-};
-
-use std::collections::BTreeMap;
-
-use frame_support::dispatch::{DispatchInfo, DispatchResult, Weight};
-use frame_support::traits::KeyOwnerProofSystem;
-use frame_support::{StorageDoubleMap, StorageMap};
-use sp_runtime::testing::TestXt;
+use sp_runtime::curve::PiecewiseLinear;
+use sp_runtime::testing::{Header, TestXt, UintAuthorityId};
+use sp_runtime::traits::{IdentityLookup, Zero};
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction};
 use sp_runtime::{KeyTypeId, Perbill};
 use sp_staking::offence::{DisableStrategy, OffenceDetails, OnOffenceHandler};
@@ -56,10 +49,11 @@ use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 use polymesh_common_utilities::traits::relayer::SubsidiserTrait;
 use polymesh_common_utilities::traits::CommonConfig;
 use polymesh_common_utilities::transaction_payment::ChargeTxFee;
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::identity_id::GenesisIdentityRecord;
 use polymesh_primitives::{
     Authorization, AuthorizationData, Claim, IdentityId, Moment, NFTId, Permissions, PortfolioId,
-    SecondaryKey, Signatory, Ticker,
+    SecondaryKey, Signatory,
 };
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
@@ -372,7 +366,6 @@ impl polymesh_common_utilities::transaction_payment::CddAndFeeDetails<AccountId,
     fn get_payer_from_context() -> Option<AccountId> {
         None
     }
-    fn set_current_identity(_: &IdentityId) {}
 }
 
 impl SubsidiserTrait<AccountId> for Test {
@@ -458,11 +451,11 @@ impl PortfolioSubTrait<AccountId> for Test {
         unimplemented!()
     }
 
-    fn lock_tokens(_: &PortfolioId, _: &Ticker, _: Balance) -> DispatchResult {
+    fn lock_tokens(_: &PortfolioId, _: &AssetID, _: Balance) -> DispatchResult {
         unimplemented!()
     }
 
-    fn unlock_tokens(_: &PortfolioId, _: &Ticker, _: Balance) -> DispatchResult {
+    fn unlock_tokens(_: &PortfolioId, _: &AssetID, _: Balance) -> DispatchResult {
         unimplemented!()
     }
 
@@ -474,15 +467,15 @@ impl PortfolioSubTrait<AccountId> for Test {
         unimplemented!()
     }
 
-    fn lock_nft(_: &PortfolioId, _: &Ticker, _: &NFTId) -> DispatchResult {
+    fn lock_nft(_: &PortfolioId, _: &AssetID, _: &NFTId) -> DispatchResult {
         unimplemented!()
     }
 
-    fn unlock_nft(_: &PortfolioId, _: &Ticker, _: &NFTId) -> DispatchResult {
+    fn unlock_nft(_: &PortfolioId, _: &AssetID, _: &NFTId) -> DispatchResult {
         unimplemented!()
     }
 
-    fn skip_portfolio_affirmation(_: &PortfolioId, _: &Ticker) -> bool {
+    fn skip_portfolio_affirmation(_: &PortfolioId, _: &AssetID) -> bool {
         unimplemented!()
     }
 }

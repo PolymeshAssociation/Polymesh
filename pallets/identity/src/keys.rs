@@ -15,11 +15,11 @@
 
 use crate::{
     types, AccountKeyRefCount, ChildDid, Config, CurrentAuthId, DidKeys, DidRecords, Error,
-    IsDidFrozen, KeyRecords, Module, MultiPurposeNonce, OffChainAuthorizationNonce,
-    OutdatedAuthorizations, ParentDid, PermissionedCallOriginData, RawEvent, RpcDidRecords,
+    IsDidFrozen, KeyAssetPermissions, KeyExtrinsicPermissions, KeyPortfolioPermissions, KeyRecords,
+    Module, MultiPurposeNonce, OffChainAuthorizationNonce, OutdatedAuthorizations, ParentDid,
+    PermissionedCallOriginData, RawEvent, RpcDidRecords,
 };
 use codec::{Decode, Encode as _};
-use core::mem;
 use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency as _, Get as _};
 use frame_support::{
@@ -34,16 +34,14 @@ use polymesh_common_utilities::identity::{
 };
 use polymesh_common_utilities::multisig::MultiSigSubTrait as _;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee as _, ProtocolOp};
-use polymesh_common_utilities::traits::{
-    AccountCallPermissionsData, CddAndFeeDetails, CheckAccountCallPermissions,
-};
-use polymesh_common_utilities::{Context, SystematicIssuers};
+use polymesh_common_utilities::traits::{AccountCallPermissionsData, CheckAccountCallPermissions};
+use polymesh_common_utilities::SystematicIssuers;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
 };
 use polymesh_primitives::{
-    extract_auth, AuthorizationData, DidRecord, DispatchableName, ExtrinsicPermissions, IdentityId,
-    KeyRecord, PalletName, Permissions, SecondaryKey, Signatory, SubsetRestriction,
+    extract_auth, AuthorizationData, DidRecord, ExtrinsicName, ExtrinsicPermissions, IdentityId,
+    KeyRecord, PalletName, Permissions, SecondaryKey, Signatory,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -88,7 +86,7 @@ impl<T: Config> Module<T> {
     pub fn get_identity(key: &T::AccountId) -> Option<IdentityId> {
         match KeyRecords::<T>::get(key)? {
             KeyRecord::PrimaryKey(did) => Some(did),
-            KeyRecord::SecondaryKey(did, _) if !Self::is_did_frozen(did) => Some(did),
+            KeyRecord::SecondaryKey(did) if !Self::is_did_frozen(did) => Some(did),
             // Is a multisig signer, or frozen secondary key.
             _ => None,
         }
@@ -122,11 +120,23 @@ impl<T: Config> Module<T> {
         primary_key.as_ref() == Some(key)
     }
 
+    /// Get the full permissions of a key.
+    pub fn get_key_permissions(key: &T::AccountId) -> Permissions {
+        Permissions {
+            asset: KeyAssetPermissions::<T>::get(key).unwrap_or_default(),
+            extrinsic: KeyExtrinsicPermissions::<T>::get(key).unwrap_or_default(),
+            portfolio: KeyPortfolioPermissions::<T>::get(key).unwrap_or_default(),
+        }
+    }
+
     /// RPC call to fetch some aggregate account data for fewer round trips.
     pub fn get_key_identity_data(acc: T::AccountId) -> Option<types::KeyIdentityData<IdentityId>> {
-        let (identity, permissions) = match KeyRecords::<T>::get(acc)? {
+        let (identity, permissions) = match KeyRecords::<T>::get(&acc)? {
             KeyRecord::PrimaryKey(did) => Some((did, None)),
-            KeyRecord::SecondaryKey(did, perms) => Some((did, Some(perms))),
+            KeyRecord::SecondaryKey(did) => {
+                let perms = Self::get_key_permissions(&acc);
+                Some((did, Some(perms)))
+            }
             // Is a multisig signer.
             _ => None,
         }?;
@@ -141,7 +151,7 @@ impl<T: Config> Module<T> {
     pub fn is_key_linked(acc: &T::AccountId) -> (bool, bool) {
         match KeyRecords::<T>::get(acc) {
             // Linked to an identity.
-            Some(KeyRecord::PrimaryKey(_)) | Some(KeyRecord::SecondaryKey(_, _)) => (true, false),
+            Some(KeyRecord::PrimaryKey(_)) | Some(KeyRecord::SecondaryKey(_)) => (true, false),
             // Is a multisig signer.
             Some(KeyRecord::MultiSigSignerKey(_)) => (false, true),
             None => (false, false),
@@ -157,7 +167,16 @@ impl<T: Config> Module<T> {
                 .take(RPC_MAX_KEYS)
                 .filter_map(|key| {
                     // Lookup the key's permissions and convert that into a `SecondaryKey` type.
-                    KeyRecords::<T>::get(&key).and_then(|r| r.into_secondary_key(key))
+                    KeyRecords::<T>::get(&key).and_then(|r| {
+                        if r.is_secondary_key().is_some() {
+                            Some(SecondaryKey {
+                                permissions: Self::get_key_permissions(&key),
+                                key,
+                            })
+                        } else {
+                            None
+                        }
+                    })
                 })
                 .collect();
             RpcDidRecords::Success {
@@ -206,6 +225,20 @@ impl<T: Config> Module<T> {
         !KeyRecords::<T>::contains_key(key)
     }
 
+    pub fn set_key_permissions(key: &T::AccountId, permissions: &Permissions) {
+        // Update secondary key's permissions.
+        KeyAssetPermissions::<T>::insert(key, &permissions.asset);
+        KeyExtrinsicPermissions::<T>::insert(key, &permissions.extrinsic);
+        KeyPortfolioPermissions::<T>::insert(key, &permissions.portfolio);
+    }
+
+    pub fn remove_key_permissions(key: &T::AccountId) {
+        // Remove the key's permissions.
+        KeyAssetPermissions::<T>::remove(key);
+        KeyExtrinsicPermissions::<T>::remove(key);
+        KeyPortfolioPermissions::<T>::remove(key);
+    }
+
     /// Add a `KeyRecord` for an `AccountId` key, if it doesn't exist.
     ///
     /// The `key` can be:
@@ -248,7 +281,9 @@ impl<T: Config> Module<T> {
                 DidKeys::<T>::remove(did1, key);
                 true
             }
-            Some(KeyRecord::SecondaryKey(did1, _)) if Some(did1) == did => {
+            Some(KeyRecord::SecondaryKey(did1)) if Some(did1) == did => {
+                // Remove the secondary key's permissions.
+                Self::remove_key_permissions(key);
                 // `did` must match the key's `did`.
                 // Remove the key from the Identity's list of keys.
                 DidKeys::<T>::remove(did1, key);
@@ -299,7 +334,7 @@ impl<T: Config> Module<T> {
                 // Already linked as a primary key.
                 (true, false)
             }
-            Some(KeyRecord::SecondaryKey(did, _)) => {
+            Some(KeyRecord::SecondaryKey(did)) => {
                 // Only allow if it is a secondary key of the `target_did`
                 (true, did == target_did)
             }
@@ -361,10 +396,8 @@ impl<T: Config> Module<T> {
 
         if let Some(perms) = new_permissions {
             // Convert old primary key to secondary key.
-            KeyRecords::<T>::insert(
-                &old_primary_key,
-                KeyRecord::SecondaryKey(target_did, perms.clone()),
-            );
+            KeyRecords::<T>::insert(&old_primary_key, KeyRecord::SecondaryKey(target_did));
+            Self::set_key_permissions(&old_primary_key, &perms);
 
             let sk = SecondaryKey::new(old_primary_key, perms);
             Self::deposit_event(RawEvent::SecondaryKeysAdded(target_did, vec![sk]));
@@ -415,18 +448,17 @@ impl<T: Config> Module<T> {
 
         Self::ensure_perms_length_limited(&permissions)?;
 
+        // Get old permissions.
+        let old_perms = Self::get_key_permissions(&key);
         // Update secondary key's permissions.
-        KeyRecords::<T>::mutate(&key, |record| {
-            if let Some(KeyRecord::SecondaryKey(_, perms)) = record {
-                let old_perms = mem::replace(perms, permissions.clone());
-                Self::deposit_event(RawEvent::SecondaryKeyPermissionsUpdated(
-                    did,
-                    key.clone(),
-                    old_perms,
-                    permissions,
-                ));
-            }
-        });
+        Self::set_key_permissions(&key, &permissions);
+
+        Self::deposit_event(RawEvent::SecondaryKeyPermissionsUpdated(
+            did,
+            key.clone(),
+            old_perms,
+            permissions,
+        ));
         Ok(())
     }
 
@@ -661,10 +693,8 @@ impl<T: Config> Module<T> {
             .collect();
 
         additional_keys_si.iter().for_each(|sk| {
-            Self::add_key_record(
-                &sk.key,
-                KeyRecord::SecondaryKey(did, sk.permissions.clone()),
-            );
+            Self::add_key_record(&sk.key, KeyRecord::SecondaryKey(did));
+            Self::set_key_permissions(&sk.key, &sk.permissions);
         });
         // 2.2. Update that identity's offchain authorization nonce.
         OffChainAuthorizationNonce::mutate(did, |nonce| *nonce = authorization.nonce + 1);
@@ -689,10 +719,6 @@ impl<T: Config> Module<T> {
             ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
             // Charge the protocol fee after all checks.
             T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSecondaryKeysWithAuthorization)?;
-            // Update current did of the transaction to the newly joined did.
-            // This comes handy when someone uses a batch transaction to leave their identity,
-            // join another identity, and then do something as the new identity.
-            T::CddHandler::set_current_identity(&target_did);
 
             Self::unsafe_join_identity(target_did, permissions, key);
             Ok(())
@@ -706,10 +732,8 @@ impl<T: Config> Module<T> {
         key: T::AccountId,
     ) {
         // Link the secondary key.
-        Self::add_key_record(
-            &key,
-            KeyRecord::SecondaryKey(target_did, permissions.clone()),
-        );
+        Self::add_key_record(&key, KeyRecord::SecondaryKey(target_did));
+        Self::set_key_permissions(&key, &permissions);
 
         let sk = SecondaryKey { key, permissions };
         Self::deposit_event(RawEvent::SecondaryKeysAdded(target_did, vec![sk]));
@@ -841,7 +865,8 @@ impl<T: Config> Module<T> {
         <Module<T>>::add_key_record(&primary_key, KeyRecord::PrimaryKey(id));
         // Link secondary keys.
         for sk in &secondary_keys {
-            Self::add_key_record(&sk.key, KeyRecord::SecondaryKey(id, sk.permissions.clone()));
+            Self::add_key_record(&sk.key, KeyRecord::SecondaryKey(id));
+            Self::set_key_permissions(&sk.key, &sk.permissions);
         }
 
         Self::deposit_event(RawEvent::DidCreated(id, primary_key, secondary_keys));
@@ -855,7 +880,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Ensures that `origin`'s key is the primary key of a DID.
-    fn ensure_primary_key(
+    pub fn ensure_primary_key(
         origin: T::RuntimeOrigin,
     ) -> Result<(T::AccountId, IdentityId), DispatchError> {
         let sender = ensure_signed(origin)?;
@@ -870,7 +895,7 @@ impl<T: Config> Module<T> {
         origin: T::RuntimeOrigin,
     ) -> Result<(T::AccountId, IdentityId), DispatchError> {
         let sender = ensure_signed(origin)?;
-        let did = Context::current_identity_or::<Self>(&sender)?;
+        let did = Self::get_identity(&sender).ok_or(Error::<T>::MissingIdentity)?;
         Ok((sender, did))
     }
 
@@ -907,34 +932,22 @@ impl<T: Config> Module<T> {
     // Ensures that extrinsic permissions do not use the Except variant
     // This is considered unsafe since extrinsic names can change or be replaced with newer versions
     pub fn ensure_no_except_perms(perms: &ExtrinsicPermissions) -> DispatchResult {
-        let _ = match perms {
-            SubsetRestriction::Except(_) => {
-                return Err(Error::<T>::ExceptNotAllowedForExtrinsics.into());
-            }
-            SubsetRestriction::These(pallet_permissions) => {
-                for elem in pallet_permissions {
-                    if let SubsetRestriction::Except(_) = elem.dispatchable_names {
-                        return Err(Error::<T>::ExceptNotAllowedForExtrinsics.into());
-                    }
-                }
-                return Ok(());
-            }
-            SubsetRestriction::Whole => {
-                return Ok(());
-            }
-        };
+        if !perms.check_no_except_perms() {
+            return Err(Error::<T>::ExceptNotAllowedForExtrinsics.into());
+        }
+        Ok(())
     }
 
     /// Ensures length limits are enforced in `perms`.
     pub fn ensure_extrinsic_perms_length_limited(perms: &ExtrinsicPermissions) -> DispatchResult {
         if let Some(set) = perms.inner() {
             ensure_custom_length_ok::<T>(set.len(), MAX_PALLETS)?;
-            for elem in set {
-                ensure_custom_string_limited::<T>(&elem.pallet_name, MAX_NAME_LEN)?;
-                if let Some(set) = elem.dispatchable_names.inner() {
+            for (name, elem) in set {
+                ensure_custom_string_limited::<T>(name.as_bytes(), MAX_NAME_LEN)?;
+                if let Some(set) = elem.extrinsics.inner() {
                     ensure_custom_length_ok::<T>(set.len(), MAX_EXTRINSICS)?;
                     for elem in set {
-                        ensure_custom_string_limited::<T>(elem, MAX_NAME_LEN)?;
+                        ensure_custom_string_limited::<T>(elem.as_bytes(), MAX_NAME_LEN)?;
                     }
                 }
             }
@@ -948,7 +961,7 @@ impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Module<T> {
     fn check_account_call_permissions(
         who: &T::AccountId,
         pallet_name: impl FnOnce() -> PalletName,
-        function_name: impl FnOnce() -> DispatchableName,
+        function_name: impl FnOnce() -> ExtrinsicName,
     ) -> Option<AccountCallPermissionsData<T::AccountId>> {
         let data = |did, secondary_key| AccountCallPermissionsData {
             primary_did: did,
@@ -959,7 +972,8 @@ impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Module<T> {
             // Primary keys do not have / require further permission checks.
             KeyRecord::PrimaryKey(did) => Some(data(did, None)),
             // Secondary Key. Ensure DID isn't frozen + key has sufficient permissions.
-            KeyRecord::SecondaryKey(did, permissions) if !Self::is_did_frozen(&did) => {
+            KeyRecord::SecondaryKey(did) if !Self::is_did_frozen(&did) => {
+                let permissions = Self::get_key_permissions(who);
                 let sk = SecondaryKey {
                     key: who.clone(),
                     permissions,

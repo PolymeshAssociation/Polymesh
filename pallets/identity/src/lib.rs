@@ -84,6 +84,7 @@ pub mod benchmarking;
 mod auth;
 mod claims;
 mod keys;
+mod ticker_migrations;
 pub mod types;
 
 pub use polymesh_common_utilities::traits::identity::WeightInfo;
@@ -93,15 +94,12 @@ use core::convert::From;
 
 use codec::{Decode, Encode};
 use frame_system::ensure_root;
-use sp_runtime::traits::Hash;
-use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
 
 use frame_support::dispatch::DispatchClass::{Normal, Operational};
 use frame_support::dispatch::{DispatchResult, Pays, Weight};
 use frame_support::traits::{ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers};
 use frame_support::{decl_error, decl_module, decl_storage};
-use polymesh_common_utilities::constants::did::SECURITY_TOKEN;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_common_utilities::traits::identity::{
     AuthorizationNonce, Config, CreateChildIdentityWithAuth, IdentityFnTrait, RawEvent,
@@ -109,14 +107,15 @@ use polymesh_common_utilities::traits::identity::{
 };
 use polymesh_common_utilities::{SystematicIssuers, GC_DID};
 use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, Authorization, AuthorizationData, AuthorizationType,
-    CddId, Claim, ClaimType, CustomClaimTypeId, DidRecord, IdentityClaim, IdentityId, KeyRecord,
-    Permissions, Scope, SecondaryKey, Signatory, Ticker,
+    storage_migrate_on, storage_migration_ver, AssetPermissions, Authorization, AuthorizationData,
+    AuthorizationType, CddId, Claim, ClaimType, CustomClaimTypeId, DidRecord, ExtrinsicPermissions,
+    IdentityClaim, IdentityId, KeyRecord, Permissions, PortfolioPermissions, Scope, SecondaryKey,
+    Signatory,
 };
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 
-storage_migration_ver!(6);
+storage_migration_ver!(7);
 
 decl_storage! {
     trait Store for Module<T: Config> as Identity {
@@ -127,9 +126,6 @@ decl_storage! {
 
         /// DID -> bool that indicates if secondary keys are frozen.
         pub IsDidFrozen get(fn is_did_frozen): map hasher(identity) IdentityId => bool;
-
-        /// It stores the current identity for current transaction.
-        pub CurrentDid: Option<IdentityId>;
 
         /// It stores the current gas fee payer for the current transaction
         pub CurrentPayer: Option<T::AccountId>;
@@ -143,9 +139,21 @@ decl_storage! {
         /// The next `CustomClaimTypeId`.
         pub CustomClaimIdSequence get(fn custom_claim_id_seq): CustomClaimTypeId;
 
-        /// Map from AccountId to `KeyRecord` that holds the key's identity and permissions.
+        /// Map from AccountId to `KeyRecord` that holds the key's type and identity.
         pub KeyRecords get(fn key_records):
             map hasher(twox_64_concat) T::AccountId => Option<KeyRecord<T::AccountId>>;
+
+        /// A secondary key's extrinsic permissions.
+        pub KeyExtrinsicPermissions get(fn key_extrinsic_permissions):
+            map hasher(twox_64_concat) T::AccountId => Option<ExtrinsicPermissions>;
+
+        /// A secondary key's asset permissions.
+        pub KeyAssetPermissions get(fn key_asset_permissions):
+            map hasher(twox_64_concat) T::AccountId => Option<AssetPermissions>;
+
+        /// A secondary key's portfolio permissions.
+        pub KeyPortfolioPermissions get(fn key_portfolio_permissions):
+            map hasher(twox_64_concat) T::AccountId => Option<PortfolioPermissions>;
 
         /// A reverse double map to allow finding all keys for an identity.
         pub DidKeys get(fn did_keys):
@@ -170,7 +178,7 @@ decl_storage! {
         pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(6)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(7)): Version;
 
         /// How many "strong" references to the account key.
         ///
@@ -244,7 +252,8 @@ decl_storage! {
                 );
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
                 let sk = SecondaryKey::from_account_id(secondary_account_id.clone());
-                <Module<T>>::add_key_record(secondary_account_id, sk.make_key_record(did));
+                <Module<T>>::add_key_record(secondary_account_id, KeyRecord::SecondaryKey(did));
+                <Module<T>>::set_key_permissions(&sk.key, &sk.permissions);
                 <Module<T>>::deposit_event(RawEvent::SecondaryKeysAdded(did, vec![sk]));
             }
         });
@@ -595,8 +604,8 @@ decl_error! {
     pub enum Error for Module<T: Config> {
         /// One secondary or primary key can only belong to one DID
         AlreadyLinked,
-        /// Missing current identity on the transaction
-        MissingCurrentIdentity,
+        /// Caller is missing an identity.
+        MissingIdentity,
         /// Signatory is not pre authorized by the identity
         Unauthorized,
         /// Account Id cannot be extracted from signer
@@ -666,21 +675,6 @@ decl_error! {
 }
 
 impl<T: Config> Module<T> {
-    /// Only used by `create_asset` since `AssetDidRegistered` is defined here instead of there.
-    pub fn commit_token_did(did: IdentityId, ticker: Ticker) {
-        DidRecords::<T>::insert(did, DidRecord::default());
-        Self::deposit_event(RawEvent::AssetDidRegistered(did, ticker));
-    }
-
-    /// IMPORTANT: No state change is allowed in this function
-    /// because this function is used within the RPC calls
-    /// It is a helper function that can be used to get did for any asset
-    pub fn get_token_did(ticker: &Ticker) -> Result<IdentityId, &'static str> {
-        let mut buf = SECURITY_TOKEN.encode();
-        buf.append(&mut ticker.encode());
-        IdentityId::try_from(T::Hashing::hash(&buf[..]).as_ref())
-    }
-
     pub fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
         dids.into_iter()
             .map(|did| {
@@ -703,32 +697,12 @@ impl<T: Config> Module<T> {
     pub fn link_did(account: T::AccountId, did: IdentityId) {
         Self::add_key_record(&account, KeyRecord::PrimaryKey(did));
     }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    /// Sets the current did in the context
-    pub fn set_context_did(did: Option<IdentityId>) {
-        polymesh_common_utilities::Context::set_current_identity::<Self>(did);
-    }
 }
 
 impl<T: Config> IdentityFnTrait<T::AccountId> for Module<T> {
     /// Fetches identity of a key.
     fn get_identity(key: &T::AccountId) -> Option<IdentityId> {
         Self::get_identity(key)
-    }
-
-    /// Fetches the caller's identity from the context.
-    fn current_identity() -> Option<IdentityId> {
-        CurrentDid::get()
-    }
-
-    /// Sets the caller's identity in the context.
-    fn set_current_identity(id: Option<IdentityId>) {
-        if let Some(id) = id {
-            CurrentDid::put(id);
-        } else {
-            CurrentDid::kill();
-        }
     }
 
     /// Fetches the fee payer from the context.

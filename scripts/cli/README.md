@@ -46,7 +46,6 @@ The test scripts include those named below, and most make up `npm test`:
  - 06_create_assets
  - 07_create_claim_compliance
  - 08_asset_minting
- - 09_bridge_transfer
  - 10_governance_management
  - 11_A_settlement
  - 11_B_settlement

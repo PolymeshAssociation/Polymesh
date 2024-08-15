@@ -23,7 +23,9 @@ use sp_std::prelude::*;
 
 use pallet_asset::benchmarking::setup_asset_transfer;
 use pallet_nft::benchmarking::setup_nft_transfer;
-use polymesh_common_utilities::benchs::{make_asset, AccountIdOf, User, UserBuilder};
+use polymesh_common_utilities::benchs::{
+    create_and_issue_sample_asset, AccountIdOf, User, UserBuilder,
+};
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::constants::ENSURED_MAX_LEN;
 use polymesh_common_utilities::TestUtilsFn;
@@ -86,8 +88,8 @@ fn create_venue_<T: Config>(did: IdentityId, signers: Vec<T::AccountId>) -> Venu
     venue_counter
 }
 
-pub fn create_asset_<T: Config>(owner: &User<T>) -> Ticker {
-    make_asset::<T>(owner, Some(&Ticker::generate(8u64)))
+pub fn create_asset_<T: Config>(owner: &User<T>) -> AssetID {
+    create_and_issue_sample_asset::<T>(owner, true, None, b"MyAsset", true)
 }
 
 fn setup_legs<T>(
@@ -112,7 +114,7 @@ where
             Leg::OffChain {
                 sender_identity: sender.did(),
                 receiver_identity: receiver.did(),
-                ticker: ticker.clone(),
+                ticker,
                 amount: ONE_UNIT,
             }
         })
@@ -121,13 +123,11 @@ where
     // Creates f assets, creates two portfolios, adds maximum compliance requirements, adds maximum transfer conditions and pauses them
     let fungible_legs: Vec<Leg> = (0..f)
         .map(|i| {
-            let ticker = Ticker::from_slice_truncated(format!("TICKER{}", i).as_bytes());
             let sdr_portfolio_name = format!("SdrPortfolioTicker{}", i);
             let rcv_portfolio_name = format!("RcvPortfolioTicker{}", i);
-            let (sdr_portfolio, rvc_portfolio, mut mediators) = setup_asset_transfer(
+            let (sdr_portfolio, rvc_portfolio, mut mediators, asset_id) = setup_asset_transfer(
                 sender,
                 receiver,
-                ticker,
                 Some(&sdr_portfolio_name),
                 Some(&rcv_portfolio_name),
                 pause_compliance,
@@ -140,7 +140,7 @@ where
             Leg::Fungible {
                 sender: sdr_portfolio,
                 receiver: rvc_portfolio,
-                ticker,
+                asset_id,
                 amount: ONE_UNIT,
             }
         })
@@ -149,13 +149,11 @@ where
     // Creates n collections, mints one NFT, creates two portfolios, adds maximum compliance requirements and pauses it
     let nft_legs: Vec<Leg> = (0..n)
         .map(|i| {
-            let ticker = Ticker::from_slice_truncated(format!("NFTTICKER{}", i).as_bytes());
             let sdr_portfolio_name = format!("SdrPortfolioNFTTicker{}", i);
             let rcv_portfolio_name = format!("RcvPortfolioNFTTicker{}", i);
-            let (sdr_portfolio, rcv_portfolio, mut mediators) = setup_nft_transfer(
+            let (asset_id, sdr_portfolio, rcv_portfolio, mut mediators) = setup_nft_transfer(
                 sender,
                 receiver,
-                ticker,
                 1,
                 Some(&sdr_portfolio_name),
                 Some(&rcv_portfolio_name),
@@ -168,7 +166,7 @@ where
             Leg::NonFungible {
                 sender: sdr_portfolio,
                 receiver: rcv_portfolio,
-                nfts: NFTs::new_unverified(ticker, vec![NFTId(1)]),
+                nfts: NFTs::new_unverified(asset_id, vec![NFTId(1)]),
             }
         })
         .collect();
@@ -211,7 +209,7 @@ where
     );
     Module::<T>::add_instruction_with_mediators(
         sender.origin.clone().into(),
-        venue_id,
+        Some(venue_id),
         settlement_type,
         None,
         None,
@@ -282,14 +280,13 @@ fn setup_receipt_details<T: Config>(
     instruction_id: InstructionId,
     leg_id: u32,
 ) -> ReceiptDetails<T::AccountId, T::OffChainSignature> {
-    let ticker = Ticker::from_slice_truncated(format!("OFFTICKER{}", leg_id).as_bytes());
     let receipt = Receipt::new(
         leg_id as u64,
         instruction_id,
         LegId(leg_id as u64),
         sender_identity,
         receiver_identity,
-        ticker,
+        Ticker::from_slice_truncated(format!("OFFTICKER{}", leg_id).as_bytes()),
         amount,
     );
     let raw_signature: [u8; 64] = signer.sign(&receipt.encode()).unwrap().0;
@@ -439,7 +436,7 @@ benchmarks! {
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
         Module::<T>::add_instruction(
             alice.origin.clone().into(),
-            venue_id,
+            Some(venue_id),
             SettlementType::SettleOnAffirmation,
             None,
             None,
@@ -455,7 +452,7 @@ benchmarks! {
                     bob.did(),
                     ONE_UNIT,
                     InstructionId(1),
-                    i
+                    i,
                 )
             })
             .collect();
@@ -492,7 +489,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
-    }: _(alice.origin, venue_id, settlement_type, None, None, parameters.legs, memo)
+    }: _(alice.origin, Some(venue_id), settlement_type, None, None, parameters.legs, memo)
 
     add_and_affirm_instruction {
         // Number of fungible, non-fungible and offchain LEGS in the instruction
@@ -507,7 +504,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
-    }: _(alice.origin, venue_id, settlement_type, None, None, parameters.legs, parameters.portfolios.sdr_portfolios, memo)
+    }: _(alice.origin, Some(venue_id), settlement_type, None, None, parameters.legs, parameters.portfolios.sdr_portfolios, memo)
 
     affirm_instruction {
         // Number of fungible and non-fungible assets in the portfolios
@@ -522,7 +519,7 @@ benchmarks! {
         let parameters = setup_legs::<T>(&alice, &bob, f, n, T::MaxNumberOfOffChainAssets::get(), false, false);
         Module::<T>::add_instruction(
             alice.origin.clone().into(),
-            venue_id,
+            Some(venue_id),
             SettlementType::SettleOnAffirmation,
             None,
             None,
@@ -616,7 +613,7 @@ benchmarks! {
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
         Module::<T>::add_instruction(
             alice.origin.clone().into(),
-            venue_id,
+            Some(venue_id),
             SettlementType::SettleOnAffirmation,
             None,
             None,
@@ -632,7 +629,7 @@ benchmarks! {
                     bob.did(),
                     ONE_UNIT,
                     InstructionId(1),
-                    i
+                    i,
                 )
             })
             .collect();
@@ -653,7 +650,7 @@ benchmarks! {
         let parameters = setup_legs::<T>(&alice, &bob, f, n, T::MaxNumberOfOffChainAssets::get(), false, false);
         Module::<T>::add_instruction(
             alice.origin.clone().into(),
-            venue_id,
+            Some(venue_id),
             SettlementType::SettleOnAffirmation,
             None,
             None,
@@ -695,7 +692,7 @@ benchmarks! {
         let mediators: BTreeSet<IdentityId> = (0..m).map(|i| IdentityId::from(i as u128)).collect();
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
-    }: _(alice.origin, venue_id, settlement_type, None, None, parameters.legs, memo, mediators.try_into().unwrap())
+    }: _(alice.origin, Some(venue_id), settlement_type, None, None, parameters.legs, memo, mediators.try_into().unwrap())
 
     add_and_affirm_with_mediators {
         // Number of fungible, non-fungible, offchain legs and mediators
@@ -712,7 +709,7 @@ benchmarks! {
         let mediators: BTreeSet<IdentityId> = (0..m).map(|i| IdentityId::from(i as u128)).collect();
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
-    }: _(alice.origin, venue_id, settlement_type, None, None, parameters.legs, parameters.portfolios.sdr_portfolios, memo, mediators.try_into().unwrap())
+    }: _(alice.origin, Some(venue_id), settlement_type, None, None, parameters.legs, parameters.portfolios.sdr_portfolios, memo, mediators.try_into().unwrap())
 
     affirm_instruction_as_mediator {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
@@ -733,7 +730,7 @@ benchmarks! {
         );
         Module::<T>::add_instruction_with_mediators(
             alice.origin.clone().into(),
-            venue_id,
+            Some(venue_id),
             SettlementType::SettleOnAffirmation,
             None,
             None,
@@ -763,7 +760,7 @@ benchmarks! {
         );
         Module::<T>::add_instruction_with_mediators(
             alice.origin.clone().into(),
-            venue_id,
+            Some(venue_id),
             SettlementType::SettleOnAffirmation,
             None,
             None,

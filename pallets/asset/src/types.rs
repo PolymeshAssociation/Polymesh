@@ -18,7 +18,7 @@ pub enum AssetOwnershipRelation {
 
 /// Stores the details of a security token.
 #[derive(Clone, Debug, Decode, Default, Encode, TypeInfo, PartialEq, Eq)]
-pub struct SecurityToken {
+pub struct AssetDetails {
     /// Total [`Balance`] that has been issued.
     pub total_supply: Balance,
     /// [`IdentityId`] of the token owner.
@@ -29,8 +29,8 @@ pub struct SecurityToken {
     pub asset_type: AssetType,
 }
 
-impl SecurityToken {
-    /// Creates a new [`SecurityToken`] instance.
+impl AssetDetails {
+    /// Creates a new [`AssetDetails`] instance.
     pub fn new(
         total_supply: Balance,
         owner_did: IdentityId,

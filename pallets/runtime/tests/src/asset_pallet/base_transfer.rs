@@ -3,13 +3,14 @@ use sp_keyring::AccountKeyring;
 
 use pallet_asset::BalanceOf;
 use pallet_portfolio::PortfolioAssetBalances;
-use polymesh_primitives::asset::{AssetType, NonFungibleType};
+use polymesh_primitives::asset::AssetType;
 use polymesh_primitives::settlement::{Leg, SettlementType, VenueDetails, VenueId, VenueType};
 use polymesh_primitives::{
     Claim, ClaimType, Condition, ConditionType, CountryCode, PortfolioId, PortfolioKind,
-    PortfolioName, PortfolioNumber, Scope, Ticker, TrustedFor, TrustedIssuer, WeightMeter,
+    PortfolioName, PortfolioNumber, Scope, TrustedFor, TrustedIssuer, WeightMeter,
 };
 
+use super::setup::{create_and_issue_sample_asset, create_and_issue_sample_nft, ISSUE_AMOUNT};
 use crate::storage::User;
 use crate::{ExtBuilder, TestStorage};
 
@@ -28,7 +29,6 @@ fn base_transfer() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(AccountKeyring::Bob);
         let alice = User::new(AccountKeyring::Alice);
-        let ticker = Ticker::from_slice_truncated(b"TICKER");
         let alice_default_portfolio = PortfolioId {
             did: alice.did,
             kind: PortfolioKind::Default,
@@ -42,46 +42,35 @@ fn base_transfer() {
             bob.origin(),
             PortfolioName(b"BobUserPortfolio".to_vec())
         ));
-        assert_ok!(Asset::create_asset(
-            alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
-            true,
-            AssetType::Derivative,
-            Vec::new(),
-            None,
-        ));
-        assert_ok!(Asset::issue(
-            alice.origin(),
-            ticker,
-            1_000,
-            PortfolioKind::Default
-        ),);
+        let asset_id = create_and_issue_sample_asset(&alice);
         assert_ok!(ComplianceManager::pause_asset_compliance(
             alice.origin(),
-            ticker
+            asset_id
         ),);
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_ok!(Asset::base_transfer(
             alice_default_portfolio,
             bob_user_portfolio,
-            &ticker,
-            1_000,
+            asset_id,
+            ISSUE_AMOUNT,
             None,
             None,
             alice.did,
             &mut weight_meter
         ),);
 
-        assert_eq!(BalanceOf::get(&ticker, &alice_default_portfolio.did), 0);
+        assert_eq!(BalanceOf::get(&asset_id, &alice_default_portfolio.did), 0);
         assert_eq!(
-            PortfolioAssetBalances::get(&alice_default_portfolio, &ticker),
+            PortfolioAssetBalances::get(&alice_default_portfolio, &asset_id),
             0
         );
-        assert_eq!(BalanceOf::get(&ticker, &bob_user_portfolio.did), 1_000);
         assert_eq!(
-            PortfolioAssetBalances::get(&bob_user_portfolio, &ticker),
-            1_000
+            BalanceOf::get(&asset_id, &bob_user_portfolio.did),
+            ISSUE_AMOUNT
+        );
+        assert_eq!(
+            PortfolioAssetBalances::get(&bob_user_portfolio, &asset_id),
+            ISSUE_AMOUNT
         );
     })
 }
@@ -91,7 +80,6 @@ fn base_transfer_invalid_token_type() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(AccountKeyring::Bob);
         let alice = User::new(AccountKeyring::Alice);
-        let ticker = Ticker::from_slice_truncated(b"TICKER");
         let bob_default_portfolio = PortfolioId {
             did: bob.did,
             kind: PortfolioKind::Default,
@@ -101,21 +89,13 @@ fn base_transfer_invalid_token_type() {
             kind: PortfolioKind::Default,
         };
 
-        assert_ok!(Asset::create_asset(
-            alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
-            true,
-            AssetType::NonFungible(NonFungibleType::Derivative),
-            Vec::new(),
-            None,
-        ));
+        let asset_id = create_and_issue_sample_nft(&alice);
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_noop!(
             Asset::base_transfer(
                 alice_default_portfolio,
                 bob_default_portfolio,
-                &ticker,
+                asset_id,
                 1,
                 None,
                 None,
@@ -132,7 +112,6 @@ fn base_transfer_invalid_granularity() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(AccountKeyring::Bob);
         let alice = User::new(AccountKeyring::Alice);
-        let ticker = Ticker::from_slice_truncated(b"TICKER");
         let bob_default_portfolio = PortfolioId {
             did: bob.did,
             kind: PortfolioKind::Default,
@@ -142,27 +121,29 @@ fn base_transfer_invalid_granularity() {
             kind: PortfolioKind::Default,
         };
 
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
             alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
+            b"MyAsset".into(),
             false,
-            AssetType::Derivative,
+            AssetType::default(),
             Vec::new(),
             None,
         ));
+
         assert_ok!(Asset::issue(
             alice.origin(),
-            ticker,
-            1_000_000,
+            asset_id,
+            ISSUE_AMOUNT,
             PortfolioKind::Default
-        ),);
+        ));
+
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_noop!(
             Asset::base_transfer(
                 alice_default_portfolio,
                 bob_default_portfolio,
-                &ticker,
+                asset_id,
                 1,
                 None,
                 None,
@@ -179,7 +160,6 @@ fn base_transfer_insufficient_balance() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(AccountKeyring::Bob);
         let alice = User::new(AccountKeyring::Alice);
-        let ticker = Ticker::from_slice_truncated(b"TICKER");
         let bob_default_portfolio = PortfolioId {
             did: bob.did,
             kind: PortfolioKind::Default,
@@ -189,12 +169,12 @@ fn base_transfer_insufficient_balance() {
             kind: PortfolioKind::Default,
         };
 
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
             alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
+            b"MyAsset".into(),
             true,
-            AssetType::Derivative,
+            AssetType::default(),
             Vec::new(),
             None,
         ));
@@ -203,7 +183,7 @@ fn base_transfer_insufficient_balance() {
             Asset::base_transfer(
                 alice_default_portfolio,
                 bob_default_portfolio,
-                &ticker,
+                asset_id,
                 1,
                 None,
                 None,
@@ -220,7 +200,6 @@ fn base_transfer_locked_asset() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(AccountKeyring::Bob);
         let alice = User::new(AccountKeyring::Alice);
-        let ticker = Ticker::from_slice_truncated(b"TICKER");
         let bob_default_portfolio = PortfolioId {
             did: bob.did,
             kind: PortfolioKind::Default,
@@ -230,21 +209,7 @@ fn base_transfer_locked_asset() {
             kind: PortfolioKind::Default,
         };
 
-        assert_ok!(Asset::create_asset(
-            alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
-            true,
-            AssetType::Derivative,
-            Vec::new(),
-            None,
-        ));
-        assert_ok!(Asset::issue(
-            alice.origin(),
-            ticker,
-            1_000,
-            PortfolioKind::Default
-        ),);
+        let asset_id = create_and_issue_sample_asset(&alice);
         // Lock the asset by creating and affirming an instruction
         assert_ok!(Settlement::create_venue(
             alice.origin(),
@@ -254,15 +219,15 @@ fn base_transfer_locked_asset() {
         ));
         assert_ok!(Settlement::add_and_affirm_instruction(
             alice.origin(),
-            VenueId(0),
+            Some(VenueId(0)),
             SettlementType::SettleOnAffirmation,
             None,
             None,
             vec![Leg::Fungible {
                 sender: alice_default_portfolio,
                 receiver: bob_default_portfolio,
-                ticker: ticker,
-                amount: 1_000,
+                asset_id,
+                amount: ISSUE_AMOUNT,
             }],
             vec![alice_default_portfolio],
             None,
@@ -272,7 +237,7 @@ fn base_transfer_locked_asset() {
             Asset::base_transfer(
                 alice_default_portfolio,
                 bob_default_portfolio,
-                &ticker,
+                asset_id,
                 1,
                 None,
                 None,
@@ -289,7 +254,6 @@ fn base_transfer_invalid_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(AccountKeyring::Bob);
         let alice = User::new(AccountKeyring::Alice);
-        let ticker = Ticker::from_slice_truncated(b"TICKER");
         let alice_default_portfolio = PortfolioId {
             did: alice.did,
             kind: PortfolioKind::Default,
@@ -299,27 +263,13 @@ fn base_transfer_invalid_portfolio() {
             kind: PortfolioKind::User(PortfolioNumber(1)),
         };
 
-        assert_ok!(Asset::create_asset(
-            alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
-            true,
-            AssetType::Derivative,
-            Vec::new(),
-            None,
-        ));
-        assert_ok!(Asset::issue(
-            alice.origin(),
-            ticker,
-            1_000,
-            PortfolioKind::Default
-        ),);
+        let asset_id = create_and_issue_sample_asset(&alice);
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_noop!(
             Asset::base_transfer(
                 alice_default_portfolio,
                 bob_user_portfolio,
-                &ticker,
+                asset_id,
                 1_000,
                 None,
                 None,
@@ -337,7 +287,6 @@ fn base_transfer_invalid_compliance() {
         let bob = User::new(AccountKeyring::Bob);
         let alice = User::new(AccountKeyring::Alice);
         let dave: User = User::new(AccountKeyring::Dave);
-        let ticker = Ticker::from_slice_truncated(b"TICKER");
         let alice_default_portfolio = PortfolioId {
             did: alice.did,
             kind: PortfolioKind::Default,
@@ -351,24 +300,10 @@ fn base_transfer_invalid_compliance() {
             bob.origin(),
             PortfolioName(b"BobUserPortfolio".to_vec())
         ));
-        assert_ok!(Asset::create_asset(
-            alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
-            true,
-            AssetType::Derivative,
-            Vec::new(),
-            None,
-        ));
-        assert_ok!(Asset::issue(
-            alice.origin(),
-            ticker,
-            1_000,
-            PortfolioKind::Default
-        ),);
+        let asset_id = create_and_issue_sample_asset(&alice);
         assert_ok!(ComplianceManager::add_compliance_requirement(
             alice.origin(),
-            ticker,
+            asset_id,
             Vec::new(),
             vec![Condition {
                 condition_type: ConditionType::IsPresent(Claim::Jurisdiction(
@@ -386,7 +321,7 @@ fn base_transfer_invalid_compliance() {
             Asset::base_transfer(
                 alice_default_portfolio,
                 bob_user_portfolio,
-                &ticker,
+                asset_id,
                 1_000,
                 None,
                 None,
@@ -403,7 +338,6 @@ fn base_transfer_frozen_asset() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(AccountKeyring::Bob);
         let alice = User::new(AccountKeyring::Alice);
-        let ticker = Ticker::from_slice_truncated(b"TICKER");
         let alice_default_portfolio = PortfolioId {
             did: alice.did,
             kind: PortfolioKind::Default,
@@ -417,28 +351,14 @@ fn base_transfer_frozen_asset() {
             bob.origin(),
             PortfolioName(b"BobUserPortfolio".to_vec())
         ));
-        assert_ok!(Asset::create_asset(
-            alice.origin(),
-            ticker.as_ref().into(),
-            ticker,
-            true,
-            AssetType::Derivative,
-            Vec::new(),
-            None,
-        ));
-        assert_ok!(Asset::issue(
-            alice.origin(),
-            ticker,
-            1_000,
-            PortfolioKind::Default
-        ),);
-        assert_ok!(Asset::freeze(alice.origin(), ticker,),);
+        let asset_id = create_and_issue_sample_asset(&alice);
+        assert_ok!(Asset::freeze(alice.origin(), asset_id,),);
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_noop!(
             Asset::base_transfer(
                 alice_default_portfolio,
                 bob_user_portfolio,
-                &ticker,
+                asset_id,
                 1_000,
                 None,
                 None,

@@ -5,11 +5,13 @@ use sp_std::prelude::*;
 use sp_std::vec::Vec;
 
 use pallet_asset::benchmarking::create_portfolio;
-use polymesh_common_utilities::benchs::{user, AccountIdOf, User, UserBuilder};
+use polymesh_common_utilities::benchs::{
+    create_and_issue_sample_asset, user, AccountIdOf, User, UserBuilder,
+};
 use polymesh_common_utilities::traits::asset::AssetFnTrait;
 use polymesh_common_utilities::traits::compliance_manager::ComplianceFnConfig;
 use polymesh_common_utilities::{with_transaction, TestUtilsFn};
-use polymesh_primitives::asset::NonFungibleType;
+use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataSpec, AssetMetadataValue,
 };
@@ -21,16 +23,23 @@ use crate::*;
 const MAX_COLLECTION_KEYS: u32 = 255;
 
 /// Creates an NFT collection with `n` global metadata keys.
-fn create_collection<T: Config>(
-    origin: T::RuntimeOrigin,
-    ticker: Ticker,
-    nft_type: Option<NonFungibleType>,
-    n: u32,
-) -> NFTCollectionId {
+fn create_collection<T: Config>(collection_owner: &User<T>, n: u32) -> (AssetID, NFTCollectionId) {
+    let asset_id = create_and_issue_sample_asset::<T>(
+        collection_owner,
+        false,
+        Some(AssetType::NonFungible(NonFungibleType::Invoice)),
+        b"MyNFT",
+        false,
+    );
     let collection_keys: NFTCollectionKeys = creates_keys_register_metadata_types::<T>(n);
-    Module::<T>::create_nft_collection(origin, ticker, nft_type, collection_keys)
-        .expect("failed to create nft collection");
-    Module::<T>::current_collection_id().unwrap()
+    Module::<T>::create_nft_collection(
+        collection_owner.origin.clone().into(),
+        Some(asset_id),
+        None,
+        collection_keys,
+    )
+    .expect("failed to create nft collection");
+    (asset_id, Module::<T>::current_collection_id().unwrap())
 }
 
 /// Creates a set of `NFTCollectionKeys` made of `n` global keys and registers `n` global asset metadata types.
@@ -53,17 +62,14 @@ fn creates_keys_register_metadata_types<T: Config>(n: u32) -> NFTCollectionKeys 
 }
 
 /// Creates an NFT collection with `n_keys` global metadata keys and issues `n_nfts`.
-pub fn create_collection_issue_nfts<T: Config>(
-    origin: T::RuntimeOrigin,
-    ticker: Ticker,
-    nft_type: Option<NonFungibleType>,
+fn create_collection_issue_nfts<T: Config>(
+    collection_owner: &User<T>,
     n_keys: u32,
     n_nfts: u32,
     portfolio_kind: PortfolioKind,
-) {
-    let collection_keys: NFTCollectionKeys = creates_keys_register_metadata_types::<T>(n_keys);
-    Module::<T>::create_nft_collection(origin.clone(), ticker, nft_type, collection_keys)
-        .expect("failed to create nft collection");
+) -> AssetID {
+    let (asset_id, _) = create_collection::<T>(collection_owner, n_keys);
+
     let metadata_attributes: Vec<NFTMetadataAttribute> = (1..n_keys + 1)
         .map(|key| NFTMetadataAttribute {
             key: AssetMetadataKey::Global(AssetMetadataGlobalKey(key.into())),
@@ -72,27 +78,28 @@ pub fn create_collection_issue_nfts<T: Config>(
         .collect();
     for _ in 0..n_nfts {
         Module::<T>::issue_nft(
-            origin.clone(),
-            ticker,
+            collection_owner.origin.clone().into(),
+            asset_id,
             metadata_attributes.clone(),
             portfolio_kind,
         )
         .expect("failed to mint nft");
     }
+
+    asset_id
 }
 
-/// Creates one NFT collection for `ticker`, mints `n_nfts` for that collection and
+/// Creates one NFT collection, mints `n_nfts` for that collection and
 /// sets up compliance rules.
 pub fn setup_nft_transfer<T>(
     sender: &User<T>,
     receiver: &User<T>,
-    ticker: Ticker,
     n_nfts: u32,
     sender_portfolio_name: Option<&str>,
     receiver_portolfio_name: Option<&str>,
     pause_compliance: bool,
     n_mediators: u8,
-) -> (PortfolioId, PortfolioId, Vec<User<T>>)
+) -> (AssetID, PortfolioId, PortfolioId, Vec<User<T>>)
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
 {
@@ -101,14 +108,7 @@ where
     let receiver_portfolio =
         create_portfolio::<T>(receiver, receiver_portolfio_name.unwrap_or("RcvPortfolio"));
 
-    create_collection_issue_nfts::<T>(
-        sender.origin().into(),
-        ticker,
-        Some(NonFungibleType::Derivative),
-        0,
-        n_nfts,
-        sender_portfolio.kind,
-    );
+    let asset_id = create_collection_issue_nfts::<T>(sender, 0, n_nfts, sender_portfolio.kind);
 
     // Sets mandatory mediators
     let mut asset_mediators = Vec::new();
@@ -117,19 +117,24 @@ where
             .map(|i| {
                 let mediator = UserBuilder::<T>::default()
                     .generate_did()
-                    .build(&format!("Mediator{:?}{}", ticker, i));
+                    .build(&format!("Mediator{:?}{}", asset_id, i));
                 asset_mediators.push(mediator.clone());
                 mediator.did()
             })
             .collect();
-        T::AssetFn::add_mandatory_mediators(sender.origin().into(), ticker, mediators_identity)
+        T::AssetFn::add_mandatory_mediators(sender.origin().into(), asset_id, mediators_identity)
             .unwrap();
     }
 
     // Adds the maximum number of compliance requirement
-    T::Compliance::setup_ticker_compliance(sender.did(), ticker, 50, pause_compliance);
+    T::Compliance::setup_asset_compliance(sender.did(), asset_id, 50, pause_compliance);
 
-    (sender_portfolio, receiver_portfolio, asset_mediators)
+    (
+        asset_id,
+        sender_portfolio,
+        receiver_portfolio,
+        asset_mediators,
+    )
 }
 
 benchmarks! {
@@ -139,10 +144,9 @@ benchmarks! {
         let n in 1..MAX_COLLECTION_KEYS;
 
         let user = user::<T>("target", 0);
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let nft_type: Option<NonFungibleType> = Some(NonFungibleType::Derivative);
         let collection_keys: NFTCollectionKeys = creates_keys_register_metadata_types::<T>(n);
-    }: _(user.origin, ticker, nft_type, collection_keys)
+    }: _(user.origin, None, nft_type, collection_keys)
     verify {
         assert!(Collection::contains_key(NFTCollectionId(1)));
         assert_eq!(CollectionKeys::get(NFTCollectionId(1)).len(), n as usize);
@@ -152,9 +156,7 @@ benchmarks! {
         let n in 1..MAX_COLLECTION_KEYS;
 
         let user = user::<T>("target", 0);
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let nft_type: Option<NonFungibleType> = Some(NonFungibleType::Derivative);
-        let collection_id = create_collection::<T>(user.origin().into(), ticker, nft_type, n);
+        let (asset_id, collection_id) = create_collection::<T>(&user, n);
         let metadata_attributes: Vec<NFTMetadataAttribute> = (1..n + 1)
             .map(|key| {
                 NFTMetadataAttribute{
@@ -163,7 +165,7 @@ benchmarks! {
                 }
             })
             .collect();
-    }: _(user.origin, ticker, metadata_attributes, PortfolioKind::Default)
+    }: _(user.origin, asset_id, metadata_attributes, PortfolioKind::Default)
     verify {
         for i in 1..n + 1 {
             assert!(
@@ -179,20 +181,9 @@ benchmarks! {
         let n in 1..MAX_COLLECTION_KEYS;
 
         let user = user::<T>("target", 0);
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let nft_type: Option<NonFungibleType> = Some(NonFungibleType::Derivative);
-        let collection_id = create_collection::<T>(user.origin().into(), ticker, nft_type, n);
+        let asset_id = create_collection_issue_nfts::<T>(&user, n, 1, PortfolioKind::Default);
 
-        let metadata_attributes: Vec<NFTMetadataAttribute> = (1..n + 1)
-            .map(|key| {
-                NFTMetadataAttribute{
-                    key: AssetMetadataKey::Global(AssetMetadataGlobalKey(key.into())),
-                    value: AssetMetadataValue(b"value".to_vec()),
-                }
-            })
-            .collect();
-        Module::<T>::issue_nft(user.origin().into(), ticker, metadata_attributes, PortfolioKind::Default).expect("failed to mint nft");
-    }: _(user.origin, ticker, NFTId(1), PortfolioKind::Default)
+    }: _(user.origin, asset_id, NFTId(1), PortfolioKind::Default)
     verify {
         for i in 1..n + 1 {
             assert!(
@@ -213,13 +204,11 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let nft_type: Option<NonFungibleType> = Some(NonFungibleType::Derivative);
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        let (sender_portfolio, receiver_portfolio, _) =
-            setup_nft_transfer::<T>(&alice, &bob, ticker, n, None, None, true, 0);
-        let nfts = NFTs::new_unverified(ticker, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
+        let (asset_id, sender_portfolio, receiver_portfolio, _) =
+            setup_nft_transfer::<T>(&alice, &bob, n, None, None, true, 0);
+        let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
     }: {
         with_transaction(|| {
             Module::<T>::base_nft_transfer(
@@ -240,12 +229,11 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        let (alice_user_portfolio, bob_user_portfolio, _) =
-            setup_nft_transfer::<T>(&alice, &bob, ticker, n, None, None, true, 0);
-        let nfts = NFTs::new_unverified(ticker, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
+        let (asset_id, alice_user_portfolio, bob_user_portfolio, _) =
+            setup_nft_transfer::<T>(&alice, &bob, n, None, None, true, 0);
+        let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
         with_transaction(|| {
             Module::<T>::base_nft_transfer(
                 alice_user_portfolio,
@@ -259,17 +247,17 @@ benchmarks! {
         })
         .unwrap();
         // Before the controller transfer all NFTs belong to bob
-        assert_eq!(NumberOfNFTs::get(nfts.ticker(), bob.did()), n as u64);
-        assert_eq!(NumberOfNFTs::get(nfts.ticker(), alice.did()), 0);
-    }: _(alice.origin.clone(), ticker, nfts.clone(), bob_user_portfolio, alice_user_portfolio.kind)
+        assert_eq!(NumberOfNFTs::get(nfts.asset_id(), bob.did()), n as u64);
+        assert_eq!(NumberOfNFTs::get(nfts.asset_id(), alice.did()), 0);
+    }: _(alice.origin.clone(), nfts.clone(), bob_user_portfolio, alice_user_portfolio.kind)
     verify {
-        assert_eq!(NumberOfNFTs::get(nfts.ticker(), bob.did()), 0);
-        assert_eq!(NumberOfNFTs::get(nfts.ticker(), alice.did()), n as u64);
+        assert_eq!(NumberOfNFTs::get(nfts.asset_id(), bob.did()), 0);
+        assert_eq!(NumberOfNFTs::get(nfts.asset_id(), alice.did()), n as u64);
         for i in 1..n + 1 {
-            assert!(PortfolioNFT::contains_key(alice_user_portfolio, (ticker, NFTId(i.into()))));
-            assert!(!PortfolioNFT::contains_key(bob_user_portfolio, (ticker, NFTId(i.into()))));
+            assert!(PortfolioNFT::contains_key(alice_user_portfolio, (asset_id, NFTId(i.into()))));
+            assert!(!PortfolioNFT::contains_key(bob_user_portfolio, (asset_id, NFTId(i.into()))));
         }
-        assert_eq!(NFTsInCollection::get(nfts.ticker()), n as u64);
+        assert_eq!(NFTsInCollection::get(nfts.asset_id()), n as u64);
     }
 
 }

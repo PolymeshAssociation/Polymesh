@@ -21,7 +21,7 @@
 //! so most module dispatchables must be called by an external agent with appropriate corporate actions permissions.
 //!
 //! The starting point of any CA begins with executing `initiate_corporate_action`,
-//! provided with the associated ticker, what sort of CA it is, e.g., a notice or a benefit,
+//! provided with the associated asset id, what sort of CA it is, e.g., a notice or a benefit,
 //! and when, if any, a checkpoint should be recorded, or was recorded, if an existing one is to be used.
 //! Additonally, free-form details, serving as on-chain documentation, may be provided.
 //!
@@ -72,12 +72,12 @@
 //!
 //! - `set_max_details_length(origin, length)` sets the maximum `length` in bytes for the `details` of any CA.
 //!    Must be called via the PIP process.
-//! - `set_default_targets(origin, ticker, targets)` sets the default `targets`
-//!    for all CAs associated with `ticker`.
-//! - `set_default_withholding_tax(origin, ticker, tax)` sets the default withholding tax
-//!    for every identity for all CAs associated with `ticker`.
-//! - `set_did_withholding_tax(origin, ticker, taxed_did, tax)` sets a withholding tax
-//!    for CAs associated with `ticker` and specific to `taxed_did` to `tax`,
+//! - `set_default_targets(origin, asset_id, targets)` sets the default `targets`
+//!    for all CAs associated with `asset_id`.
+//! - `set_default_withholding_tax(origin, asset_id, tax)` sets the default withholding tax
+//!    for every identity for all CAs associated with `asset_id`.
+//! - `set_did_withholding_tax(origin, asset_id, taxed_did, tax)` sets a withholding tax
+//!    for CAs associated with `asset_id` and specific to `taxed_did` to `tax`,
 //!    or resets the tax of `taxed_did` to the default if `tax` is `None`.
 //! - `initiate_corporate_action(...)` initates a corporate action.
 //! - `link_ca_doc(origin, id, docs)` is called by external agents to associate `docs` to the CA with `id`.
@@ -90,6 +90,7 @@ pub mod benchmarking;
 
 pub mod ballot;
 pub mod distribution;
+mod migrations;
 
 use codec::{Decode, Encode};
 use distribution::WeightInfo as DistWeightInfoTrait;
@@ -108,9 +109,10 @@ use polymesh_common_utilities::{
     balances::Config as BalancesConfig, identity::Config as IdentityConfig, traits::asset,
     traits::checkpoint::ScheduleId, with_transaction, GC_DID,
 };
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::{
-    asset::CheckpointId, impl_checked_inc, storage_migration_ver, Balance, DocumentId, EventDid,
-    IdentityId, Moment, PortfolioNumber, Ticker,
+    asset::CheckpointId, impl_checked_inc, storage_migrate_on, storage_migration_ver, Balance,
+    DocumentId, EventDid, IdentityId, Moment, PortfolioNumber,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
@@ -244,7 +246,7 @@ pub enum RecordDateSpec {
 }
 
 /// Details of a generic CA.
-/// The `(Ticker, ID)` denoting a unique identifier for the CA is stored as a key outside.
+/// The `(AssetID, ID)` denoting a unique identifier for the CA is stored as a key outside.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub struct CorporateAction {
     /// The kind of CA that this is.
@@ -273,8 +275,8 @@ impl CorporateAction {
     }
 }
 
-/// A `Ticker`-local CA ID.
-/// By *local*, we mean that the same number might be used for a different `Ticker`
+/// A `AssetID`-local CA ID.
+/// By *local*, we mean that the same number might be used for a different `AssetID`
 /// to uniquely identify a different CA.
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Default, Debug)]
 pub struct LocalCAId(pub u32);
@@ -283,15 +285,15 @@ impl_checked_inc!(LocalCAId);
 /// A unique global identifier for a CA.
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub struct CAId {
-    /// The `Ticker` component used to disambiguate the `local` one.
-    pub ticker: Ticker,
-    /// The per-`Ticker` local identifier.
+    /// The `[`AssetID`]` component used to disambiguate the `local` one.
+    pub asset_id: AssetID,
+    /// The per-`AssetID` local identifier.
     pub local_id: LocalCAId,
 }
 
 #[derive(Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub struct InitiateCorporateActionArgs {
-    ticker: Ticker,
+    asset_id: AssetID,
     kind: CAKind,
     decl_date: Moment,
     record_date: Option<RecordDateSpec>,
@@ -357,45 +359,45 @@ decl_storage! {
         /// [graphemes]: https://en.wikipedia.org/wiki/Grapheme
         pub MaxDetailsLength get(fn max_details_length) config(): u32;
 
-        /// The identities targeted by default for CAs for this ticker,
+        /// The identities targeted by default for CAs for this asset,
         /// either to be excluded or included.
         ///
-        /// (ticker => target identities)
-        pub DefaultTargetIdentities get(fn default_target_identities): map hasher(blake2_128_concat) Ticker => TargetIdentities;
+        /// (AssetID => target identities)
+        pub DefaultTargetIdentities get(fn default_target_identities): map hasher(blake2_128_concat) AssetID => TargetIdentities;
 
-        /// The default amount of tax to withhold ("withholding tax", WT) for this ticker when distributing dividends.
+        /// The default amount of tax to withhold ("withholding tax", WT) for this asset when distributing dividends.
         ///
         /// To understand withholding tax, e.g., let's assume that you hold ACME shares.
         /// ACME now decides to distribute 100 SEK to Alice.
         /// Alice lives in Sweden, so Skatteverket (the Swedish tax authority) wants 30% of that.
         /// Then those 100 * 30% are withheld from Alice, and ACME will send them to Skatteverket.
         ///
-        /// (ticker => % to withhold)
-        pub DefaultWithholdingTax get(fn default_withholding_tax): map hasher(blake2_128_concat) Ticker => Tax;
+        /// (AssetID => % to withhold)
+        pub DefaultWithholdingTax get(fn default_withholding_tax): map hasher(blake2_128_concat) AssetID => Tax;
 
-        /// The amount of tax to withhold ("withholding tax", WT) for a certain ticker x DID.
+        /// The amount of tax to withhold ("withholding tax", WT) for a certain AssetID x DID.
         /// If an entry exists for a certain DID, it overrides the default in `DefaultWithholdingTax`.
         ///
-        /// (ticker => [(did, % to withhold)]
-        pub DidWithholdingTax get(fn did_withholding_tax): map hasher(blake2_128_concat) Ticker => Vec<(IdentityId, Tax)>;
+        /// (AssetID => [(did, % to withhold)]
+        pub DidWithholdingTax get(fn did_withholding_tax): map hasher(blake2_128_concat) AssetID => Vec<(IdentityId, Tax)>;
 
-        /// The next per-`Ticker` CA ID in the sequence.
-        /// The full ID is defined as a combination of `Ticker` and a number in this sequence.
-        pub CAIdSequence get(fn ca_id_sequence): map hasher(blake2_128_concat) Ticker => LocalCAId;
+        /// The next per-`AssetID` CA ID in the sequence.
+        /// The full ID is defined as a combination of `AssetID` and a number in this sequence.
+        pub CAIdSequence get(fn ca_id_sequence): map hasher(blake2_128_concat) AssetID => LocalCAId;
 
         /// All recorded CAs thus far.
         /// Only generic information is stored here.
         /// Specific `CAKind`s, e.g., benefits and corporate ballots, may use additional on-chain storage.
         ///
-        /// (ticker => local ID => the corporate action)
+        /// (AssetID => local ID => the corporate action)
         pub CorporateActions get(fn corporate_actions):
-            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) LocalCAId => Option<CorporateAction>;
+            double_map hasher(blake2_128_concat) AssetID, hasher(twox_64_concat) LocalCAId => Option<CorporateAction>;
 
         /// Associations from CAs to `Document`s via their IDs.
         /// (CAId => [DocumentId])
         ///
-        /// The `CorporateActions` map stores `Ticker => LocalId => The CA`,
-        /// so we can infer `Ticker => CAId`. Therefore, we don't need a double map.
+        /// The `CorporateActions` map stores `AssetID => LocalId => The CA`,
+        /// so we can infer `AssetID => CAId`. Therefore, we don't need a double map.
         pub CADocLink get(fn ca_doc_link): map hasher(blake2_128_concat) CAId => Vec<DocumentId>;
 
         /// Associates details in free-form text with a CA by its ID.
@@ -403,22 +405,30 @@ decl_storage! {
         pub Details get(fn details): map hasher(blake2_128_concat) CAId => CADetails;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
     }
 }
 
-storage_migration_ver!(0);
+storage_migration_ver!(1);
 
 // Public interface for this runtime module.
 decl_module! {
     pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
+        const MaxTargetIds: u32 = T::MaxTargetIds::get();
+        const MaxDidWhts: u32 = T::MaxDidWhts::get();
+
         /// initialize the default event for this module
         fn deposit_event() = default;
 
-        const MaxTargetIds: u32 = T::MaxTargetIds::get();
-        const MaxDidWhts: u32 = T::MaxDidWhts::get();
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion, 1, {
+                migrations::migrate_to_v1::<T>();
+            });
+            Weight::zero()
+        }
+
 
         /// Set the max `length` of `details` in terms of bytes.
         /// May only be called via a PIP.
@@ -432,19 +442,19 @@ decl_module! {
         /// Set the default CA `TargetIdentities` to `targets`.
         ///
         /// ## Arguments
-        /// - `origin` which must be an external agent of `ticker` with relevant permissions.
-        /// - `ticker` for which the default identities are changing.
+        /// - `origin` which must be an external agent of `asset_id` with relevant permissions.
+        /// - `asset_id` for which the default identities are changing.
         /// - `targets` the default target identities for a CA.
         ///
         /// ## Errors
-        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset_id`.
         /// - `TooManyTargetIds` if `targets.identities.len() > T::MaxTargetIds::get()`.
         ///
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::set_default_targets(targets.identities.len() as u32)]
-        pub fn set_default_targets(origin, ticker: Ticker, targets: TargetIdentities) {
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+        pub fn set_default_targets(origin, asset_id: AssetID, targets: TargetIdentities) {
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
 
             Self::ensure_target_ids_limited(&targets)?;
 
@@ -452,49 +462,49 @@ decl_module! {
             let new = targets.dedup();
 
             // Commit + emit event.
-            DefaultTargetIdentities::mutate(ticker, |slot| *slot = new.clone());
-            Self::deposit_event(Event::DefaultTargetIdentitiesChanged(agent, ticker, new));
+            DefaultTargetIdentities::mutate(asset_id, |slot| *slot = new.clone());
+            Self::deposit_event(Event::DefaultTargetIdentitiesChanged(agent, asset_id, new));
         }
 
-        /// Set the default withholding tax for all DIDs and CAs relevant to this `ticker`.
+        /// Set the default withholding tax for all DIDs and CAs relevant to this `asset_id`.
         ///
         /// ## Arguments
-        /// - `origin` which must be an external agent of `ticker` with relevant permissions.
-        /// - `ticker` that the withholding tax will apply to.
+        /// - `origin` which must be an external agent of `asset_id` with relevant permissions.
+        /// - `asset_id` that the withholding tax will apply to.
         /// - `tax` that should be withheld when distributing dividends, etc.
         ///
         /// ## Errors
-        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset_id`.
         ///
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::set_default_withholding_tax()]
-        pub fn set_default_withholding_tax(origin, ticker: Ticker, tax: Tax) {
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
-            DefaultWithholdingTax::mutate(ticker, |slot| *slot = tax);
-            Self::deposit_event(Event::DefaultWithholdingTaxChanged(agent, ticker, tax));
+        pub fn set_default_withholding_tax(origin, asset_id: AssetID, tax: Tax) {
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            DefaultWithholdingTax::mutate(asset_id, |slot| *slot = tax);
+            Self::deposit_event(Event::DefaultWithholdingTaxChanged(agent, asset_id, tax));
         }
 
-        /// Set the withholding tax of `ticker` for `taxed_did` to `tax`.
-        /// If `Some(tax)`, this overrides the default withholding tax of `ticker` to `tax` for `taxed_did`.
+        /// Set the withholding tax of `asset_id` for `taxed_did` to `tax`.
+        /// If `Some(tax)`, this overrides the default withholding tax of `asset_id` to `tax` for `taxed_did`.
         /// Otherwise, if `None`, the default withholding tax will be used.
         ///
         /// ## Arguments
-        /// - `origin` which must be an external agent of `ticker` with relevant permissions.
-        /// - `ticker` that the withholding tax will apply to.
+        /// - `origin` which must be an external agent of `asset_id` with relevant permissions.
+        /// - `asset_id` that the withholding tax will apply to.
         /// - `taxed_did` that will have its withholding tax updated.
         /// - `tax` that should be withheld when distributing dividends, etc.
         ///
         /// ## Errors
-        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset_id`.
         /// - `TooManyDidTaxes` if `Some(tax)` and adding the override would go over the limit `MaxDidWhts`.
         ///
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::set_did_withholding_tax(T::MaxDidWhts::get())]
-        pub fn set_did_withholding_tax(origin, ticker: Ticker, taxed_did: IdentityId, tax: Option<Tax>) {
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
-            DidWithholdingTax::try_mutate(ticker, |whts| -> DispatchResult {
+        pub fn set_did_withholding_tax(origin, asset_id: AssetID, taxed_did: IdentityId, tax: Option<Tax>) {
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            DidWithholdingTax::try_mutate(asset_id, |whts| -> DispatchResult {
                 // We maintain sorted order, so we get O(log n) search but O(n) insertion/deletion.
                 // This is maintained to get O(log n) in capital distribution.
                 match (tax, whts.binary_search_by_key(&taxed_did, |(did, _)| *did)) {
@@ -508,14 +518,14 @@ decl_module! {
                 }
                 Ok(())
             })?;
-            Self::deposit_event(Event::DidWithholdingTaxChanged(agent, ticker, taxed_did, tax));
+            Self::deposit_event(Event::DidWithholdingTaxChanged(agent, asset_id, taxed_did, tax));
         }
 
-        /// Initiates a CA for `ticker` of `kind` with `details` and other provided arguments.
+        /// Initiates a CA for `asset_id` of `kind` with `details` and other provided arguments.
         ///
         /// ## Arguments
-        /// - `origin` which must be an external agent of `ticker` with relevant permissions.
-        /// - `ticker` that the CA is made for.
+        /// - `origin` which must be an external agent of `asset_id` with relevant permissions.
+        /// - `asset_id` that the CA is made for.
         /// - `kind` of CA being initiated.
         /// - `decl_date` of CA bring initialized.
         /// - `record_date`, if any, to calculate the impact of this CA.
@@ -530,8 +540,8 @@ decl_module! {
         ///
         /// # Errors
         /// - `DetailsTooLong` if `details.len()` goes beyond `max_details_length`.
-        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
-        /// - `CounterOverflow` in the unlikely event that so many CAs were created for this `ticker`,
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset_id`.
+        /// - `CounterOverflow` in the unlikely event that so many CAs were created for this `asset_id`,
         ///   that integer overflow would have occured if instead allowed.
         /// - `TooManyDidTaxes` if `withholding_tax.unwrap().len()` would go over the limit `MaxDidWhts`.
         /// - `DuplicateDidTax` if a DID is included more than once in `wt`.
@@ -544,7 +554,7 @@ decl_module! {
         #[weight = initiate_corporate_action_weight::<T>(targets, withholding_tax)]
         pub fn initiate_corporate_action(
             origin,
-            ticker: Ticker,
+            asset_id: AssetID,
             kind: CAKind,
             decl_date: Moment,
             record_date: Option<RecordDateSpec>,
@@ -554,11 +564,11 @@ decl_module! {
             withholding_tax: Option<Vec<(IdentityId, Tax)>>,
         ) -> DispatchResult {
             // Ensure that a permissioned agent is calling.
-            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
 
             Self::unsafe_initiate_corporate_action(
                 caller_did,
-                ticker,
+                asset_id,
                 kind,
                 decl_date,
                 record_date,
@@ -576,12 +586,12 @@ decl_module! {
         /// Once both exist, they can now be linked together.
         ///
         /// ## Arguments
-        /// - `origin` which must be an external agent of `id.ticker` with relevant permissions.
+        /// - `origin` which must be an external agent of `id.asset_id` with relevant permissions.
         /// - `id` of the CA to associate with `docs`.
         /// - `docs` to associate with the CA with `id`.
         ///
         /// # Errors
-        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset_id`.
         /// - `NoSuchCA` if `id` does not identify an existing CA.
         /// - `NoSuchDoc` if any of `docs` does not identify an existing document.
         ///
@@ -590,10 +600,10 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::link_ca_doc(docs.len() as u32)]
         pub fn link_ca_doc(origin, id: CAId, docs: Vec<DocumentId>) {
             // Ensure that a permissioned agent is calling and that CA and the docs exists.
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, id.ticker)?;
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, id.asset_id)?;
             Self::ensure_ca_exists(id)?;
             for doc in &docs {
-                <Asset<T>>::ensure_doc_exists(&id.ticker, doc)?;
+                <Asset<T>>::ensure_doc_exists(&id.asset_id, doc)?;
             }
 
             // Add the link and emit event.
@@ -610,11 +620,11 @@ decl_module! {
         /// `strong_ref_count(schedule_id)` decremented.
         ///
         /// ## Arguments
-        /// - `origin` which must be an external agent of `ca_id.ticker` with relevant permissions.
+        /// - `origin` which must be an external agent of `ca_id.asset_id` with relevant permissions.
         /// - `ca_id` of the CA to remove.
         ///
         /// # Errors
-        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset_id`.
         /// - `NoSuchCA` if `id` does not identify an existing CA.
         ///
         /// # Permissions
@@ -623,7 +633,7 @@ decl_module! {
             .max(<T as Config>::WeightInfo::remove_ca_with_dist())]
         pub fn remove_ca(origin, ca_id: CAId) {
             // Ensure origin is a permissioned agent + CA exists.
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?.for_event();
             let ca = Self::ensure_ca_exists(ca_id)?;
 
             // Remove associated services.
@@ -643,7 +653,7 @@ decl_module! {
 
             // Decrement, Remove, and Emit event.
             Self::dec_strong_ref_count(ca_id, ca.record_date);
-            CorporateActions::remove(ca_id.ticker, ca_id.local_id);
+            CorporateActions::remove(ca_id.asset_id, ca_id.local_id);
             CADocLink::remove(ca_id);
             Details::remove(ca_id);
             Self::deposit_event(Event::CARemoved(agent, ca_id));
@@ -652,13 +662,13 @@ decl_module! {
         /// Changes the record date of the CA identified by `ca_id`.
         ///
         /// ## Arguments
-        /// - `origin` which must be an external agent of `ca_id.ticker` with relevant permissions.
+        /// - `origin` which must be an external agent of `ca_id.asset_id` with relevant permissions.
         /// - `ca_id` of the CA to alter.
         /// - `record_date`, if any, to calculate the impact of the CA.
         ///    If provided, this results in a scheduled balance snapshot ("checkpoint") at the date.
         ///
         /// # Errors
-        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset_id`.
         /// - `NoSuchCA` if `id` does not identify an existing CA.
         /// - When `record_date.is_some()`, other errors due to checkpoint scheduling may occur.
         ///
@@ -668,7 +678,7 @@ decl_module! {
             .max(<T as Config>::WeightInfo::change_record_date_with_dist())]
         pub fn change_record_date(origin, ca_id: CAId, record_date: Option<RecordDateSpec>) {
             // Ensure origin is a permissioned agent + CA exists.
-            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?;
+            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?;
             let agent = caller_did.for_event();
             let mut ca = Self::ensure_ca_exists(ca_id)?;
 
@@ -676,7 +686,7 @@ decl_module! {
                 // If provided, either use the existing CP ID or schedule one to be made.
                 Self::dec_strong_ref_count(ca_id, ca.record_date);
                 ca.record_date = record_date
-                    .map(|date| Self::handle_record_date(caller_did, ca_id.ticker, date))
+                    .map(|date| Self::handle_record_date(caller_did, ca_id.asset_id, date))
                     .transpose()?;
 
                 // Ensure associated services allow changing the date.
@@ -699,7 +709,7 @@ decl_module! {
             })?;
 
             // Commit changes + emit event.
-            CorporateActions::insert(ca_id.ticker, ca_id.local_id, ca.clone());
+            CorporateActions::insert(ca_id.asset_id, ca_id.local_id, ca.clone());
             Self::deposit_event(Event::RecordDateChanged(agent, ca_id, ca));
         }
 
@@ -710,14 +720,14 @@ decl_module! {
             origin,
             ca_args: InitiateCorporateActionArgs,
             portfolio: Option<PortfolioNumber>,
-            currency: Ticker,
+            currency: AssetID,
             per_share: Balance,
             amount: Balance,
             payment_at: Moment,
             expires_at: Option<Moment>,
         ) -> DispatchResult {
             let InitiateCorporateActionArgs {
-                ticker,
+                asset_id,
                 kind,
                 decl_date,
                 record_date,
@@ -731,12 +741,12 @@ decl_module! {
                 primary_did: caller_did,
                 secondary_key,
                 ..
-            } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ticker)?;
+            } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, asset_id)?;
 
             with_transaction(|| {
                 let ca_id = Self::unsafe_initiate_corporate_action(
                     caller_did,
-                    ticker,
+                    asset_id,
                     kind,
                     decl_date,
                     record_date,
@@ -767,15 +777,15 @@ decl_event! {
         /// The maximum length of `details` in bytes was changed.
         /// (GC DID, new length)
         MaxDetailsLengthChanged(IdentityId, u32),
-        /// The set of default `TargetIdentities` for a ticker changed.
-        /// (Agent DID, Ticker, New TargetIdentities)
-        DefaultTargetIdentitiesChanged(IdentityId, Ticker, TargetIdentities),
-        /// The default withholding tax for a ticker changed.
-        /// (Agent DID, Ticker, New Tax).
-        DefaultWithholdingTaxChanged(IdentityId, Ticker, Tax),
-        /// The withholding tax specific to a DID for a ticker changed.
-        /// (Agent DID, Ticker, Taxed DID, New Tax).
-        DidWithholdingTaxChanged(IdentityId, Ticker, IdentityId, Option<Tax>),
+        /// The set of default `TargetIdentities` for the asset changed.
+        /// (Agent DID, AssetID, New TargetIdentities)
+        DefaultTargetIdentitiesChanged(IdentityId, AssetID, TargetIdentities),
+        /// The default withholding tax for the asset changed.
+        /// (Agent DID, AssetID, New Tax).
+        DefaultWithholdingTaxChanged(IdentityId, AssetID, Tax),
+        /// The withholding tax specific to a DID for the asset changed.
+        /// (Agent DID, AssetID, Taxed DID, New Tax).
+        DidWithholdingTaxChanged(IdentityId, AssetID, IdentityId, Option<Tax>),
         /// A CA was initiated.
         /// (Agent DID, CA id, the CA, the CA details)
         CAInitiated(EventDid, CAId, CorporateAction, CADetails),
@@ -823,7 +833,7 @@ decl_error! {
 impl<T: Config> Module<T> {
     fn unsafe_initiate_corporate_action(
         caller_did: IdentityId,
-        ticker: Ticker,
+        asset_id: AssetID,
         kind: CAKind,
         decl_date: Moment,
         record_date: Option<RecordDateSpec>,
@@ -840,9 +850,9 @@ impl<T: Config> Module<T> {
         );
 
         // Ensure that the next local CA ID doesn't overflow.
-        let mut next_id = CAIdSequence::get(ticker);
+        let mut next_id = CAIdSequence::get(asset_id);
         let local_id = try_next_post::<T, _>(&mut next_id)?;
-        let id = CAId { ticker, local_id };
+        let id = CAId { asset_id, local_id };
 
         // Ensure there are no duplicates in withholding tax overrides
         // and that we're within the limit.
@@ -870,7 +880,7 @@ impl<T: Config> Module<T> {
         let record_date = record_date
             .map(|date| {
                 with_transaction(|| -> Result<_, DispatchError> {
-                    let rd = Self::handle_record_date(caller_did, ticker, date)?;
+                    let rd = Self::handle_record_date(caller_did, asset_id, date)?;
                     ensure!(decl_date <= rd.date, Error::<T>::DeclDateAfterRecordDate);
                     Ok(rd)
                 })
@@ -878,15 +888,16 @@ impl<T: Config> Module<T> {
             .transpose()?;
 
         // Commit the next local CA ID.
-        CAIdSequence::insert(ticker, next_id);
+        CAIdSequence::insert(asset_id, next_id);
 
         // Use asset level defaults if data not provided here.
         let targets = targets
             .map(|t| t.dedup())
-            .unwrap_or_else(|| Self::default_target_identities(ticker));
+            .unwrap_or_else(|| Self::default_target_identities(asset_id));
         let default_withholding_tax =
-            default_withholding_tax.unwrap_or_else(|| Self::default_withholding_tax(ticker));
-        let withholding_tax = withholding_tax.unwrap_or_else(|| Self::did_withholding_tax(ticker));
+            default_withholding_tax.unwrap_or_else(|| Self::default_withholding_tax(asset_id));
+        let withholding_tax =
+            withholding_tax.unwrap_or_else(|| Self::did_withholding_tax(asset_id));
 
         // Commit CA to storage.
         let ca = CorporateAction {
@@ -897,7 +908,7 @@ impl<T: Config> Module<T> {
             default_withholding_tax,
             withholding_tax,
         };
-        CorporateActions::insert(ticker, id.local_id, ca.clone());
+        CorporateActions::insert(asset_id, id.local_id, ca.clone());
         Details::insert(id, details.clone());
 
         // Emit event.
@@ -937,13 +948,13 @@ impl<T: Config> Module<T> {
 
     /// Returns the balance for `did` at `cp`, if any, or `did`'s current balance otherwise.
     pub(crate) fn balance_at_cp(did: IdentityId, ca_id: CAId, cp: Option<CheckpointId>) -> Balance {
-        let ticker = ca_id.ticker;
+        let asset_id = ca_id.asset_id;
         match cp {
             // CP exists, use it.
-            Some(cp_id) => <Asset<T>>::get_balance_at(ticker, did, cp_id),
-            // Although record date has passed, no transfers have happened yet for `ticker`.
+            Some(cp_id) => <Asset<T>>::get_balance_at(asset_id, did, cp_id),
+            // Although record date has passed, no transfers have happened yet for `asset_id`.
             // Thus, there is no checkpoint ID, and we must use current balance instead.
-            None => <Asset<T>>::balance_of(ticker, did),
+            None => <Asset<T>>::balance_of(asset_id, did),
         }
     }
 
@@ -951,14 +962,14 @@ impl<T: Config> Module<T> {
     // Assumes the CA has a record date where `date <= now`.
     pub(crate) fn record_date_cp(ca: &CorporateAction, ca_id: CAId) -> Option<CheckpointId> {
         // Record date has passed by definition.
-        let ticker = ca_id.ticker;
+        let asset_id = ca_id.asset_id;
         match ca.record_date.unwrap().checkpoint {
             CACheckpoint::Existing(id) => Some(id),
             // For CAs, there can be more than one CP,
             // since you may attach a pre-existing and recurring schedule to it.
             // However, the record date stores the index for the CP,
             // assuming a transfer has happened since the record date.
-            CACheckpoint::Scheduled(id, idx) => <Checkpoint<T>>::schedule_points(ticker, id)
+            CACheckpoint::Scheduled(id, idx) => <Checkpoint<T>>::schedule_points(asset_id, id)
                 .get(idx as usize)
                 .copied(),
         }
@@ -977,7 +988,7 @@ impl<T: Config> Module<T> {
             ..
         }) = record_date
         {
-            <Checkpoint<T>>::dec_schedule_ref(&ca_id.ticker, sh_id);
+            <Checkpoint<T>>::dec_schedule_ref(&ca_id.asset_id, sh_id);
         }
     }
 
@@ -985,7 +996,7 @@ impl<T: Config> Module<T> {
     /// In the process, create a checkpoint schedule if needed.
     fn handle_record_date(
         caller_did: IdentityId,
-        ticker: Ticker,
+        asset_id: AssetID,
         date: RecordDateSpec,
     ) -> Result<RecordDate, DispatchError> {
         let (date, checkpoint) = match date {
@@ -993,7 +1004,8 @@ impl<T: Config> Module<T> {
                 // Create the schedule and extract the date + id.
                 // We set initial `strong_ref_count(id) <- 1`.
                 let date = date.into();
-                let (id, at) = <Checkpoint<T>>::base_create_schedule(caller_did, ticker, date, 1)?;
+                let (id, at) =
+                    <Checkpoint<T>>::base_create_schedule(caller_did, asset_id, date, 1)?;
                 // It might be the case that the CP was instantly created ^--.
                 // Or it might not have. In either case, it will end up at index 0.
                 (at, CACheckpoint::Scheduled(id, 0))
@@ -1001,20 +1013,20 @@ impl<T: Config> Module<T> {
             RecordDateSpec::ExistingSchedule(id) => {
                 // Ensure the schedule exists and extract the record date.
                 let (at, cp_at_idx) =
-                    <Checkpoint<T>>::ensure_schedule_next_checkpoint(&ticker, id)?;
+                    <Checkpoint<T>>::ensure_schedule_next_checkpoint(&asset_id, id)?;
                 // Schedule cannot be removable, otherwise the CP module may remove it,
                 // so we increment the strong reference count of `id`.
-                <Checkpoint<T>>::inc_schedule_ref(&ticker, id);
+                <Checkpoint<T>>::inc_schedule_ref(&asset_id, id);
                 (at, CACheckpoint::Scheduled(id, cp_at_idx))
             }
             RecordDateSpec::Existing(id) => {
                 // Ensure the CP exists.
                 ensure!(
-                    <Checkpoint<T>>::checkpoint_exists(&ticker, id),
+                    <Checkpoint<T>>::checkpoint_exists(&asset_id, id),
                     Error::<T>::NoSuchCheckpointId
                 );
                 (
-                    <Checkpoint<T>>::timestamps(ticker, id),
+                    <Checkpoint<T>>::timestamps(asset_id, id),
                     CACheckpoint::Existing(id),
                 )
             }
@@ -1024,7 +1036,7 @@ impl<T: Config> Module<T> {
 
     /// Ensure that a CA with `id` exists, returning it, and erroring otherwise.
     fn ensure_ca_exists(id: CAId) -> Result<CorporateAction, DispatchError> {
-        CorporateActions::get(id.ticker, id.local_id).ok_or_else(|| Error::<T>::NoSuchCA.into())
+        CorporateActions::get(id.asset_id, id.local_id).ok_or_else(|| Error::<T>::NoSuchCA.into())
     }
 }
 

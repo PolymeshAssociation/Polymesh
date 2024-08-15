@@ -57,7 +57,7 @@ use frame_support::traits::schedule::Anon;
 use frame_support::traits::schedule::{DispatchTime, HIGHEST_PRIORITY};
 use frame_support::traits::DefensiveSaturating;
 
-use polymesh_common_utilities::Context;
+use polymesh_common_utilities::identity::IdentityFnTrait;
 use polymesh_primitives::IdentityId;
 
 use crate::pallet::SlashingSwitch;
@@ -1173,7 +1173,8 @@ impl<T: Config> Pallet<T> {
 
             // Polymesh change
             // -----------------------------------------------------------------
-            let controller_did = Context::current_identity::<T::IdentityFn>().unwrap_or_default();
+            let controller_did =
+                T::IdentityFn::get_identity(&controller_account).unwrap_or_default();
             Self::deposit_event(Event::<T>::Unbonded {
                 identity: controller_did,
                 stash: ledger.stash.clone(),

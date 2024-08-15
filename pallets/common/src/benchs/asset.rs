@@ -1,6 +1,6 @@
 use sp_std::vec;
 
-use polymesh_primitives::asset::{AssetName, AssetType};
+use polymesh_primitives::asset::{AssetID, AssetName, AssetType};
 use polymesh_primitives::{PortfolioKind, Ticker};
 
 use crate::benchs::User;
@@ -9,46 +9,47 @@ use crate::traits::asset::{AssetFnTrait, Config};
 
 pub type ResultTicker = Result<Ticker, &'static str>;
 
-/// Create a ticker and register it.
-pub fn make_ticker<T: Config>(owner: T::RuntimeOrigin, opt_name: Option<&[u8]>) -> Ticker {
-    let ticker = match opt_name {
+/// Registers a unique ticker named `ticker_name` for `ticker_owner`.
+pub fn reg_unique_ticker<T: Config>(
+    ticker_owner: T::RuntimeOrigin,
+    ticker_name: Option<&[u8]>,
+) -> Ticker {
+    let ticker = match ticker_name {
         Some(name) => Ticker::from_slice_truncated(name),
-        _ => Ticker::repeating(b'A'),
+        None => Ticker::repeating(b'A'),
     };
-    T::AssetFn::register_ticker(owner, ticker).expect("Ticker cannot be registered");
+    T::AssetFn::register_unique_ticker(ticker_owner, ticker).unwrap();
     ticker
 }
 
-pub fn make_asset<T: Config>(owner: &User<T>, name: Option<&[u8]>) -> Ticker {
-    make_base_asset::<T>(owner, true, name)
-}
-
-pub fn make_indivisible_asset<T: Config>(owner: &User<T>, name: Option<&[u8]>) -> Ticker {
-    make_base_asset::<T>(owner, false, name)
-}
-
-fn make_base_asset<T: Config>(owner: &User<T>, divisible: bool, name: Option<&[u8]>) -> Ticker {
-    let ticker = make_ticker::<T>(owner.origin().into(), name);
-    let name: AssetName = ticker.as_slice().into();
+pub fn create_and_issue_sample_asset<T: Config>(
+    asset_owner: &User<T>,
+    divisible: bool,
+    asset_type: Option<AssetType>,
+    asset_name: &[u8],
+    issue_tokens: bool,
+) -> AssetID {
+    let asset_id = T::AssetFn::generate_asset_id(asset_owner.account());
 
     T::AssetFn::create_asset(
-        owner.origin().into(),
-        name.clone(),
-        ticker,
+        asset_owner.origin().into(),
+        AssetName::from(asset_name),
         divisible,
-        AssetType::default(),
+        asset_type.unwrap_or_default(),
         vec![],
         None,
     )
-    .expect("Asset cannot be created");
-
-    T::AssetFn::issue(
-        owner.origin().into(),
-        ticker,
-        (1_000_000 * POLY).into(),
-        PortfolioKind::Default,
-    )
     .unwrap();
 
-    ticker
+    if issue_tokens {
+        T::AssetFn::issue(
+            asset_owner.origin().into(),
+            asset_id,
+            (1_000_000 * POLY).into(),
+            PortfolioKind::Default,
+        )
+        .unwrap();
+    }
+
+    asset_id
 }

@@ -50,7 +50,7 @@ fn call_system_remark(size: usize) -> <TestStorage as frame_system::Config>::Run
 
 fn call_asset_register_ticker(name: &[u8]) -> <TestStorage as frame_system::Config>::RuntimeCall {
     let ticker = Ticker::from_slice_truncated(name);
-    RuntimeCall::Asset(pallet_asset::Call::register_ticker { ticker })
+    RuntimeCall::Asset(pallet_asset::Call::register_unique_ticker { ticker })
 }
 
 fn call_relayer_remove_paying_key(
@@ -105,7 +105,6 @@ fn setup_subsidy(user: User, payer: User, limit: Balance) {
     assert_subsidy(user, None);
 
     // `user` accepts the paying key.
-    TestStorage::set_current_identity(&user.did);
     let auth_id = get_last_auth_id(&Signatory::Account(user.acc()));
     assert_ok!(Relayer::accept_paying_key(user.origin(), auth_id));
 
@@ -137,7 +136,6 @@ fn do_basic_relayer_paying_key_test() {
     assert_subsidy(bob, None);
 
     // Bob accepts the paying key.
-    TestStorage::set_current_identity(&bob.did);
     let auth_id = get_last_auth_id(&Signatory::Account(bob.acc()));
     assert_ok!(Relayer::accept_paying_key(bob.origin(), auth_id));
 
@@ -156,7 +154,6 @@ fn do_basic_relayer_paying_key_test() {
     );
 
     // Alice updates the Polyx limit for Bob.  Allowed
-    TestStorage::set_current_identity(&alice.did);
     assert_ok!(Relayer::update_polyx_limit(
         alice.origin(),
         bob.acc(),
@@ -167,21 +164,18 @@ fn do_basic_relayer_paying_key_test() {
     assert_subsidy(bob, Some((alice, 10_000u128)));
 
     // Dave tries to remove the paying key from Bob's key.  Not allowed.
-    TestStorage::set_current_identity(&dave.did);
     assert_noop!(
         Relayer::remove_paying_key(dave.origin(), bob.acc(), alice.acc()),
         Error::NotAuthorizedForUserKey
     );
 
     // Dave tries to remove the wrong paying key from Bob's key.  Not allowed.
-    TestStorage::set_current_identity(&dave.did);
     assert_noop!(
         Relayer::remove_paying_key(dave.origin(), bob.acc(), dave.acc()),
         Error::NotPayingKey
     );
 
     // Alice tries to remove the paying key from Bob's key.  Allowed.
-    TestStorage::set_current_identity(&alice.did);
     assert_ok!(Relayer::remove_paying_key(
         alice.origin(),
         bob.acc(),
@@ -249,7 +243,6 @@ fn do_update_polyx_limit_test() {
     test_update(Sub, bob, 100, Err(Error::NotPayingKey), limit);
 
     // Alice updates the Polyx limit for Bob.  Allowed
-    TestStorage::set_current_identity(&alice.did);
     limit = 10_000;
     test_update(Set, alice, limit, Ok(()), limit);
 
@@ -291,11 +284,9 @@ fn do_accept_new_paying_key_test() {
     assert_subsidy(bob, Some((alice, 10u128)));
 
     // Add authorization for using Dave as the paying key for Bob.
-    TestStorage::set_current_identity(&dave.did);
     assert_ok!(Relayer::set_paying_key(dave.origin(), bob.acc(), 200u128));
 
     // Bob accepts Dave as his new subsidiser replacing Alice as the subsidiser.
-    TestStorage::set_current_identity(&bob.did);
     let auth_id = get_last_auth_id(&Signatory::Account(bob.acc()));
     assert_ok!(Relayer::accept_paying_key(bob.origin(), auth_id));
 
@@ -304,7 +295,6 @@ fn do_accept_new_paying_key_test() {
     assert_subsidy(bob, Some((dave, 200u128)));
 
     // Alice tries to remove the paying key from Bob's key.  Not allowed.
-    TestStorage::set_current_identity(&alice.did);
     assert_noop!(
         Relayer::remove_paying_key(alice.origin(), bob.acc(), dave.acc()),
         Error::NotAuthorizedForUserKey
@@ -325,7 +315,6 @@ fn do_user_remove_paying_key_test() {
     setup_subsidy(bob, alice, 2000);
 
     // Bob (user key) tries to remove the paying key from Bob's key.  Allowed.
-    TestStorage::set_current_identity(&bob.did);
     assert_ok!(Relayer::remove_paying_key(
         bob.origin(),
         bob.acc(),
@@ -351,7 +340,7 @@ fn relayer_user_key_missing_cdd_test() {
 fn do_relayer_user_key_missing_cdd_test() {
     let alice = User::new(AccountKeyring::Alice);
     let bob_acc = AccountKeyring::Bob.to_account_id();
-    let (bob_sign, bob_did) = make_account_without_cdd(bob_acc.clone()).unwrap();
+    let (bob_sign, _) = make_account_without_cdd(bob_acc.clone()).unwrap();
 
     // Add authorization for using Alice as the paying key for Bob.
     assert_ok!(Relayer::set_paying_key(
@@ -361,7 +350,6 @@ fn do_relayer_user_key_missing_cdd_test() {
     ));
 
     // Bob tries to accept the paying key, without having a CDD.
-    TestStorage::set_current_identity(&bob_did);
     let auth_id = get_last_auth_id(&Signatory::Account(bob_acc.clone()));
     assert_eq!(
         Relayer::accept_paying_key(bob_sign, auth_id),
@@ -386,7 +374,6 @@ fn do_relayer_paying_key_missing_cdd_test() {
 
     // Alice tries to accept the paying key, but the paying key
     // is without a CDD.
-    TestStorage::set_current_identity(&alice.did);
     let auth_id = get_last_auth_id(&Signatory::Account(alice.acc()));
     assert_eq!(
         Relayer::accept_paying_key(alice.origin(), auth_id),

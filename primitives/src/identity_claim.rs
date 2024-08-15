@@ -13,7 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{identity_id::IdentityId, impl_checked_inc, CddId, Moment, Ticker};
+use crate::asset::AssetID;
+use crate::{identity_id::IdentityId, impl_checked_inc, CddId, Moment};
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -33,12 +34,12 @@ impl_checked_inc!(CustomClaimTypeId);
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
-/// Scope: Almost all claim needs a valid scope.
+/// The scope of a claim.
 pub enum Scope {
     /// Scoped to an Identity
     Identity(IdentityId),
-    /// Scoped to a `Ticker`.
-    Ticker(Ticker),
+    /// Scoped to an asset.
+    Asset(AssetID),
     /// Scoped to arbitrary bytes
     Custom(Vec<u8>),
 }
@@ -49,9 +50,9 @@ impl From<IdentityId> for Scope {
     }
 }
 
-impl From<Ticker> for Scope {
-    fn from(ticker: Ticker) -> Self {
-        Self::Ticker(ticker)
+impl From<AssetID> for Scope {
+    fn from(asset_id: AssetID) -> Self {
+        Self::Asset(asset_id)
     }
 }
 
@@ -62,10 +63,10 @@ impl From<Vec<u8>> for Scope {
 }
 
 impl Scope {
-    /// Returns its inner content as a slice.
+    /// Returns its inner content as a slice of bytes.
     pub fn as_bytes(&self) -> &[u8] {
         match self {
-            Self::Ticker(ticker) => ticker.as_slice(),
+            Self::Asset(asset_id) => asset_id.as_ref(),
             Self::Identity(did) => did.as_bytes(),
             Self::Custom(data) => data.as_slice(),
         }

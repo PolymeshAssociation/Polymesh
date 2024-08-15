@@ -96,7 +96,7 @@ pub trait RuntimeApiCollection:
     + node_rpc_runtime_api::pips::PipsApi<Block, AccountId>
     + node_rpc_runtime_api::identity::IdentityApi<Block, IdentityId, Ticker, AccountId, Moment>
     + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
-    + node_rpc_runtime_api::asset::AssetApi<Block, AccountId>
+    + node_rpc_runtime_api::asset::AssetApi<Block>
     + pallet_group_rpc_runtime_api::GroupApi<Block>
     + node_rpc_runtime_api::nft::NFTApi<Block>
     + node_rpc_runtime_api::settlement::SettlementApi<Block>
@@ -122,7 +122,7 @@ where
         + node_rpc_runtime_api::pips::PipsApi<Block, AccountId>
         + node_rpc_runtime_api::identity::IdentityApi<Block, IdentityId, Ticker, AccountId, Moment>
         + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
-        + node_rpc_runtime_api::asset::AssetApi<Block, AccountId>
+        + node_rpc_runtime_api::asset::AssetApi<Block>
         + pallet_group_rpc_runtime_api::GroupApi<Block>
         + node_rpc_runtime_api::nft::NFTApi<Block>
         + node_rpc_runtime_api::settlement::SettlementApi<Block>,

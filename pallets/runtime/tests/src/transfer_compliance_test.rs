@@ -6,9 +6,11 @@ use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
 };
+use pallet_external_agents::Event;
+use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::{
     asset::AssetType, jurisdiction::CountryCode, statistics::*, transfer_compliance::*, AccountId,
-    Balance, Claim, ClaimType, IdentityId, PortfolioId, PortfolioKind, Scope, Ticker, WeightMeter,
+    Balance, Claim, ClaimType, IdentityId, PortfolioId, PortfolioKind, Scope, WeightMeter,
 };
 use sp_arithmetic::Permill;
 use sp_keyring::AccountKeyring;
@@ -21,6 +23,7 @@ type Statistics = pallet_statistics::Module<TestStorage>;
 type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
 type Error = pallet_statistics::Error<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
+type System = frame_system::Pallet<TestStorage>;
 
 const CDD_PROVIDER: AccountKeyring = AccountKeyring::Eve;
 
@@ -116,17 +119,13 @@ struct Batch {
 #[derive(Clone)]
 struct AssetTracker {
     name: String,
-    asset: Ticker,
+    asset_id: AssetID,
     total_supply: Balance,
-    pub asset_scope: AssetScope,
-
     issuers: HashMap<IdentityId, IssuerState>,
-
     owner_id: u64,
     investor_start_id: u64,
     investor_next_id: u64,
     investors: HashMap<u64, InvestorState>,
-
     active_stats: Vec<StatType>,
     transfer_conditions: Vec<TransferCondition>,
 }
@@ -135,21 +134,16 @@ impl AssetTracker {
     pub fn new() -> Self {
         let owner_id = 0;
         let name = "ACME";
-        let asset = Ticker::from_slice_truncated(name.as_bytes());
         let investor_start_id = owner_id + 1000;
         let mut tracker = Self {
             name: name.into(),
-            asset,
+            asset_id: [0; 16].into(),
             total_supply: 0,
-            asset_scope: AssetScope::from(asset),
-
             issuers: HashMap::new(),
-
             owner_id,
             investor_start_id,
             investor_next_id: investor_start_id,
             investors: HashMap::new(),
-
             active_stats: Vec::new(),
             transfer_conditions: Vec::new(),
         };
@@ -159,26 +153,37 @@ impl AssetTracker {
     }
 
     fn init(&mut self) {
+        System::set_block_number(1);
         // Create the owner investor state.
         self.create_investor(self.owner_id);
 
-        assert_ok!(Asset::create_asset(
+        Asset::create_asset(
             self.owner_origin(),
             format!("Token {}", self.name).into(),
-            self.asset,
             true,
             AssetType::default(),
             vec![],
             None,
-        ));
+        )
+        .unwrap();
 
-        self.allow_all_transfers();
+        let mut system_events = System::events();
+        self.asset_id = {
+            match system_events.pop().unwrap().event {
+                super::storage::EventTest::ExternalAgents(Event::AgentAdded(
+                    _did,
+                    asset_id,
+                    ..,
+                )) => asset_id,
+                _ => panic!("Unexpected event"),
+            }
+        };
     }
 
     pub fn set_active_stats(&mut self, active_stats: Vec<StatType>) {
         assert_ok!(Statistics::set_active_asset_stats(
             self.owner_origin(),
-            self.asset_scope,
+            self.asset_id,
             active_stats.clone().into_iter().collect(),
         ));
         self.active_stats = active_stats;
@@ -187,7 +192,7 @@ impl AssetTracker {
     pub fn set_transfer_conditions(&mut self, conditions: Vec<TransferCondition>) {
         assert_ok!(Statistics::set_asset_transfer_compliance(
             self.owner_origin(),
-            self.asset_scope,
+            self.asset_id,
             conditions.clone().into_iter().collect(),
         ));
         self.transfer_conditions = conditions;
@@ -210,7 +215,7 @@ impl AssetTracker {
     pub fn mint(&mut self, amount: Balance) {
         assert_ok!(Asset::issue(
             self.owner_origin(),
-            self.asset,
+            self.asset_id,
             amount,
             PortfolioKind::Default
         ));
@@ -231,7 +236,7 @@ impl AssetTracker {
     }
 
     pub fn make_claim(&self, claim_type: ClaimType, jur: Option<CountryCode>) -> Claim {
-        let scope = Scope::from(self.asset);
+        let scope = Scope::from(self.asset_id);
         match claim_type {
             ClaimType::Accredited => Claim::Accredited(scope),
             ClaimType::Affiliate => Claim::Affiliate(scope),
@@ -268,7 +273,7 @@ impl AssetTracker {
             .collect::<Vec<_>>();
         println!("investors = {:?}", investors);
         for condition in &self.transfer_conditions {
-            let exempt_key = condition.get_exempt_key(self.asset_scope);
+            let exempt_key = condition.get_exempt_key(self.asset_id);
             println!(" -- exempt={:?}", exempt_key);
             assert_ok!(Statistics::set_entities_exempt(
                 self.owner_origin(),
@@ -425,7 +430,7 @@ impl AssetTracker {
     pub fn allow_all_transfers(&self) {
         assert_ok!(ComplianceManager::add_compliance_requirement(
             self.owner().origin(),
-            self.asset,
+            self.asset_id,
             vec![],
             vec![]
         ));
@@ -441,7 +446,7 @@ impl AssetTracker {
         Asset::base_transfer(
             self.get_investor_portfolio(from),
             self.get_investor_portfolio(to),
-            &self.asset,
+            self.asset_id,
             amount,
             None,
             None,
@@ -486,7 +491,7 @@ impl AssetTracker {
 
     pub fn get_claim_stats(
         &self,
-        op: StatOpType,
+        operation_type: StatOpType,
         claim_type: ClaimType,
         has: bool,
         jur: Option<CountryCode>,
@@ -501,16 +506,16 @@ impl AssetTracker {
             .values()
             .filter(|issuer| issuer.is_trusted_for(&claim_type))
             .map(|i| Stat1stKey {
-                asset: self.asset_scope,
+                asset_id: self.asset_id,
                 stat_type: StatType {
-                    op,
+                    operation_type,
                     claim_issuer: Some((claim_type, i.issuer.did)),
                 },
             })
             .map(|key1| {
                 let claim_issuer = key1.stat_type.claim_issuer;
                 // Calculate the expected value.
-                let cal_value = match op {
+                let cal_value = match operation_type {
                     StatOpType::Count => self.calculate_stat_count(claim_issuer, &key2) as u128,
                     StatOpType::Balance => self.calculate_stat_balance(claim_issuer, &key2),
                 };
@@ -524,7 +529,7 @@ impl AssetTracker {
     #[track_caller]
     pub fn ensure_claim_stats(
         &self,
-        op: StatOpType,
+        operation_type: StatOpType,
         claim_type: ClaimType,
         has: bool,
         jur: Option<CountryCode>,
@@ -543,10 +548,13 @@ impl AssetTracker {
                 );
             }
         };
-        self.get_claim_stats(op, claim_type, has, jur)
+        self.get_claim_stats(operation_type, claim_type, has, jur)
             .into_iter()
             .for_each(|(cal, value)| {
-                println!("{:?}: {} = ({}, {})", op, claim_name, cal, value);
+                println!(
+                    "{:?}: {} = ({}, {})",
+                    operation_type, claim_name, cal, value
+                );
                 assert_eq!(cal, value);
             });
     }
@@ -554,12 +562,12 @@ impl AssetTracker {
     #[track_caller]
     pub fn ensure_asset_stat(&self, stat_type: &StatType) {
         let key1 = Stat1stKey {
-            asset: self.asset_scope,
+            asset_id: self.asset_id,
             stat_type: *stat_type,
         };
         for key2 in self.fetch_stats_key2(stat_type).iter() {
             let value = Statistics::asset_stats(key1, key2);
-            match (stat_type.op, stat_type.claim_issuer) {
+            match (stat_type.operation_type, stat_type.claim_issuer) {
                 (StatOpType::Count, claim_issuer) => {
                     let cal_value = self.calculate_stat_count(claim_issuer, &key2);
                     println!("Count[{:?}]: cal={:?}, stat={:?}", key2, cal_value, value);
@@ -644,11 +652,11 @@ fn multiple_stats_with_ext() {
 
     let mut stats = vec![
         StatType {
-            op: StatOpType::Count,
+            operation_type: StatOpType::Count,
             claim_issuer: None,
         },
         StatType {
-            op: StatOpType::Balance,
+            operation_type: StatOpType::Balance,
             claim_issuer: None,
         },
     ];
@@ -662,11 +670,11 @@ fn multiple_stats_with_ext() {
     for issuer in &issuers {
         for claim_type in &claim_types {
             stats.push(StatType {
-                op: StatOpType::Count,
+                operation_type: StatOpType::Count,
                 claim_issuer: Some((*claim_type, issuer.did)),
             });
             stats.push(StatType {
-                op: StatOpType::Balance,
+                operation_type: StatOpType::Balance,
                 claim_issuer: Some((*claim_type, issuer.did)),
             });
         }
@@ -735,7 +743,7 @@ fn max_investor_rule_with_ext() {
     let mut tracker = AssetTracker::new();
 
     let stats = vec![StatType {
-        op: StatOpType::Count,
+        operation_type: StatOpType::Count,
         claim_issuer: None,
     }];
     // Active stats.
@@ -773,7 +781,7 @@ fn max_investor_ownership_rule_with_ext() {
     let mut tracker = AssetTracker::new();
 
     let stats = vec![StatType {
-        op: StatOpType::Balance,
+        operation_type: StatOpType::Balance,
         claim_issuer: None,
     }];
     // Active stats.
@@ -822,7 +830,7 @@ fn claim_count_rule_with_ext() {
 
     // Active stats.
     let stats = vec![StatType {
-        op: StatOpType::Count,
+        operation_type: StatOpType::Count,
         claim_issuer: Some((ClaimType::Accredited, issuer.did)),
     }];
     tracker.set_active_stats(stats);
@@ -907,7 +915,7 @@ fn jurisdiction_count_rule_with_ext() {
 
     // Active stats.
     let stats = vec![StatType {
-        op: StatOpType::Count,
+        operation_type: StatOpType::Count,
         claim_issuer: Some((claim_type, issuer.did)),
     }];
     tracker.set_active_stats(stats);
@@ -993,7 +1001,7 @@ fn jurisdiction_ownership_rule_with_ext() {
 
     // Active stats.
     let stats = vec![StatType {
-        op: StatOpType::Balance,
+        operation_type: StatOpType::Balance,
         claim_issuer: Some((claim_type, issuer.did)),
     }];
     tracker.set_active_stats(stats);
@@ -1075,7 +1083,7 @@ fn ensure_invalid_set_active_stats_ext() {
     for i in 0u128..15u128 {
         // Active stats.
         stats.push(StatType {
-            op: StatOpType::Count,
+            operation_type: StatOpType::Count,
             claim_issuer: Some((claim_type, IdentityId::from(i))),
         });
     }
@@ -1084,7 +1092,7 @@ fn ensure_invalid_set_active_stats_ext() {
     assert_noop!(
         Statistics::set_active_asset_stats(
             tracker.owner_origin(),
-            tracker.asset_scope,
+            tracker.asset_id,
             stats.into_iter().collect(),
         ),
         Error::StatTypeLimitReached
@@ -1112,7 +1120,7 @@ fn ensure_invalid_transfer_conditions_ext() {
     assert_noop!(
         Statistics::set_asset_transfer_compliance(
             tracker.owner_origin(),
-            tracker.asset_scope,
+            tracker.asset_id,
             conditions.into_iter().collect(),
         ),
         Error::TransferConditionLimitReached
