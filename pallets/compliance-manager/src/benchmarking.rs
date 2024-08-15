@@ -116,7 +116,7 @@ fn split_conditions(count: u32) -> (u32, u32) {
     (s, r)
 }
 
-/// Creates a new [`SecurityToken`] and issues 1_000_000 tokens for that token.
+/// Creates a new [`AssetDetails`] and issues 1_000_000 tokens for that token.
 pub fn create_and_issue_sample_asset<T: Config>(
     asset_owner: &User<T>,
     asset_name: Vec<u8>,

@@ -23,7 +23,7 @@ use polymesh_primitives::{
 };
 use sp_keyring::AccountKeyring;
 
-use super::asset_test::{get_security_token, set_timestamp};
+use super::asset_test::{get_asset_details, set_timestamp};
 use crate::asset_pallet::setup::{create_and_issue_sample_asset, create_and_issue_sample_nft};
 use crate::ext_builder::ExtBuilder;
 use crate::storage::{TestStorage, User};
@@ -55,9 +55,9 @@ fn create_collection_unregistered_ticker() {
             Some(nft_type),
             collection_keys
         ));
-        assert_eq!(get_security_token(&asset_id).divisible, false);
+        assert_eq!(get_asset_details(&asset_id).divisible, false);
         assert_eq!(
-            get_security_token(&asset_id).asset_type,
+            get_asset_details(&asset_id).asset_type,
             AssetType::NonFungible(nft_type)
         );
     });
