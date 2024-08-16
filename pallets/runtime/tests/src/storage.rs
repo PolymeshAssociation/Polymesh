@@ -27,6 +27,7 @@ use sp_runtime::transaction_validity::{
     InvalidTransaction, TransactionPriority, TransactionValidity, ValidTransaction,
 };
 use sp_runtime::{create_runtime_str, AnySignature, KeyTypeId, Perbill, Permill};
+use sp_staking::{EraIndex, SessionIndex};
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::iter;
 use sp_version::RuntimeVersion;
@@ -201,8 +202,8 @@ parameter_types! {
     pub const Version: RuntimeVersion = VERSION;
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
     pub const SessionsPerEra: sp_staking::SessionIndex = 3;
-    pub const BondingDuration: pallet_staking::EraIndex = 7;
-    pub const SlashDeferDuration: pallet_staking::EraIndex = 4;
+    pub const BondingDuration: EraIndex = 7;
+    pub const SlashDeferDuration: EraIndex = 4;
     pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
     pub const MaxIterations: u32 = 10;
     pub MinSolutionScoreBump: Perbill = Perbill::from_rational(5u32, 10_000);
@@ -287,7 +288,7 @@ frame_support::construct_runtime!(
         MultiSig: pallet_multisig::{Pallet, Call, Config, Storage, Event<T>} = 15,
 
         // Staking: Genesis config deps: Balances, Indices, Identity, Babe, Timestamp, CddServiceProviders.
-        Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 17,
+        Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>} = 17,
         Offences: pallet_offences::{Pallet, Storage, Event} = 18,
 
         // Session: Genesis config deps: System.
@@ -338,6 +339,8 @@ frame_support::construct_runtime!(
         Example: example::{Pallet, Call} = 201,
 
         StateTrieMigration: pallet_state_trie_migration::{Pallet, Call, Storage, Event<T>} = 210,
+
+        ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
     }
 );
 
@@ -424,7 +427,6 @@ type Hash = H256;
 type Hashing = BlakeTwo256;
 type Lookup = IdentityLookup<AccountId>;
 type OffChainSignature = AnySignature;
-type SessionIndex = u32;
 type AuthorityId = <AnySignature as Verify>::Signer;
 pub(crate) type Balance = u128;
 
@@ -1038,4 +1040,19 @@ fn signed_extra(nonce: Index) -> SignedExtra {
         pallet_transaction_payment::ChargeTransactionPayment::from(0),
         pallet_permissions::StoreCallMetadata::new(),
     )
+}
+
+pub struct OnChainSeqPhragmen;
+
+impl frame_election_provider_support::onchain::Config for OnChainSeqPhragmen {
+    type System = Runtime;
+    type Solver = frame_election_provider_support::SequentialPhragmen<
+        polymesh_primitives::AccountId,
+        pallet_election_provider_multi_phase::SolutionAccuracyOf<Runtime>,
+    >;
+    type DataProvider = <Runtime as pallet_election_provider_multi_phase::Config>::DataProvider;
+    type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
+    type MaxWinners = <Runtime as pallet_election_provider_multi_phase::Config>::MaxWinners;
+    type VotersBound = polymesh_runtime_common::MaxOnChainElectingVoters;
+    type TargetsBound = polymesh_runtime_common::MaxOnChainElectableTargets;
 }

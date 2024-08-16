@@ -23,12 +23,14 @@ smallvec = "1.4.0"
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-sp-std = { version = "5.0.0", default-features = false }
-sp-runtime = { version = "7.0.0", default-features = false }
+frame-election-provider-support = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
-
 pallet-authorship = { version = "4.0.0-dev", default-features = false }
+pallet-election-provider-multi-phase = { version = "4.0.0-dev", default-features = false }
+sp-io = { version = "7.0.0", default-features = false }
+sp-std = { version = "5.0.0", default-features = false }
+sp-runtime = { version = "7.0.0", default-features = false }
 
 [features]
 equalize = []
@@ -48,6 +50,9 @@ std = [
     "polymesh-primitives/std",
     "sp-runtime/std",
     "sp-std/std",
+    "frame-election-provider-support/std",
+    "pallet-election-provider-multi-phase/std",
+    "sp-io/std"
 ]
 runtime-benchmarks = [
     "pallet-balances/runtime-benchmarks",
@@ -61,4 +66,6 @@ runtime-benchmarks = [
     "frame-support/runtime-benchmarks",
     "frame-system/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",
+    "frame-election-provider-support/runtime-benchmarks",
+    "pallet-election-provider-multi-phase/runtime-benchmarks",
 ]

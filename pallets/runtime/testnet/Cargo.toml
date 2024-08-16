@@ -79,6 +79,7 @@ sp-arithmetic = { version = "6.0.0", default-features = false }
 pallet-authorship = { version = "4.0.0-dev", default-features = false }
 pallet-contracts = { version = "4.0.0-dev", default-features = false }
 pallet-contracts-primitives = { version = "7.0.0", default-features = false}
+pallet-election-provider-multi-phase = { version = "4.0.0-dev", default-features = false }
 pallet-executive = { package = "frame-executive", version = "4.0.0-dev", default-features = false }
 pallet-grandpa = { version = "4.0.0-dev", default-features = false }
 pallet-im-online = { version = "4.0.0-dev", default-features = false }
@@ -94,6 +95,7 @@ pallet-scheduler = { version = "4.0.0-dev", default-features = false }
 pallet-staking-reward-curve = { version = "4.0.0-dev", default-features = false }
 pallet-state-trie-migration = { version = "4.0.0-dev", default-features = false }
 
+frame-election-provider-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system-rpc-runtime-api = { version = "4.0.0-dev", default-features = false }
@@ -115,9 +117,10 @@ no_std = [
     "u64_backend"
 ]
 std = [
-		"polymesh-build-tool/std",
+	"polymesh-build-tool/std",
     "u64_backend",
     "codec/std",
+    "frame-election-provider-support/std",
     "frame-support/std",
     "frame-system-rpc-runtime-api/std",
     "frame-system/std",
@@ -133,6 +136,7 @@ std = [
     "pallet-committee/std",
     "pallet-compliance-manager/std",
     "pallet-contracts/std",
+    "pallet-election-provider-multi-phase/std",
     "pallet-executive/std",
     "pallet-external-agents/std",
     "pallet-grandpa/std",
@@ -186,9 +190,11 @@ std = [
     "sp-std/std",
     "sp-transaction-pool/std",
     "sp-version/std",
-    "polymesh-contracts/std"
+    "polymesh-contracts/std",
 ]
 
 runtime-benchmarks = [
+    "frame-election-provider-support/runtime-benchmarks",
     "pallet-asset/runtime-benchmarks",
+    "pallet-election-provider-multi-phase/runtime-benchmarks",
 ]

@@ -22,9 +22,6 @@ pub mod fee_details;
 pub mod impls;
 pub mod runtime;
 
-pub use cdd_check::CddChecker;
-pub use sp_runtime::{Perbill, Permill};
-
 pub use frame_support::{
     dispatch::{DispatchClass, GetDispatchInfo, Weight},
     parameter_types,
@@ -38,11 +35,15 @@ pub use frame_support::{
     },
 };
 use frame_system::limits::{BlockLength, BlockWeights};
+use smallvec::smallvec;
+pub use sp_runtime::transaction_validity::TransactionPriority;
+pub use sp_runtime::{Perbill, Permill};
+
 use pallet_balances as balances;
 use polymesh_common_utilities::constants::currency::*;
 use polymesh_primitives::{Balance, BlockNumber, IdentityId, Moment};
-use smallvec::smallvec;
 
+pub use cdd_check::CddChecker;
 pub use impls::{Author, CurrencyToVoteHandler};
 
 pub type NegativeImbalance<T> =
@@ -61,6 +62,10 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// We allow for 2 seconds of compute with a 6 second average block time.
 const MAXIMUM_BLOCK_WEIGHT: Weight =
     Weight::from_ref_time(WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2)).set_proof_size(u64::MAX);
+
+/// Maximum number of iterations for balancing that will be executed in the embedded OCW
+/// miner of election provider multi phase.
+const MINER_MAX_ITERATIONS: u32 = 10;
 
 // TODO (miguel) Remove unused constants.
 parameter_types! {
@@ -137,10 +142,59 @@ parameter_types! {
         .get(DispatchClass::Normal)
         .max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
         .saturating_sub(BlockExecutionWeight::get());
+
+    // Staking constants
+    pub MaxNominations: u32 = 16;
+    pub HistoryDepth:u32 = 84;
+    pub MaxUnlockingChunks: u32 = 32;
+    pub MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
+
+    // Multi-phase election parameters
+    // Signed phase
+    pub const SignedPhase: u32 = 0;
+    pub const SignedPhaseBench: u32 = 1_200;
+    pub const SignedMaxSubmissions: u32 = 0;
+    pub const SignedMaxWeight: Weight = Weight::zero();
+    pub const SignedMaxRefunds: u32 = 0;
+    pub const SignedRewardBase: Balance = 0;
+    pub const SignedDepositBase: Balance = 0;
+    pub const SignedDepositByte: Balance = 0;
+    // Unsigned phase
+    pub const UnsignedPhase: u32 = 1_200;
+    pub BetterUnsignedThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
+    pub const MultiPhaseUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2 - 1u64;
+    // Fallback parameters
+    pub MaxOnChainElectingVoters: u32 = 5000;
+    pub MaxOnChainElectableTargets: u16 = 1250;
+    // Other config parameters
+    pub OffChainRepeat: BlockNumber = 5;
+    pub MaxElectingVoters: u32 = 40_000;
+    pub MaxElectableTargets: u16 = 10_000;
+    pub MaxActiveValidators: u32 = 1_000;
+    // Miner Config parameters
+    pub MinerMaxLength: u32 = Perbill::from_rational(9u32, 10) *
+        *RuntimeBlockLength::get()
+        .max
+        .get(DispatchClass::Normal);
+    pub MinerMaxWeight: Weight = RuntimeBlockWeights::get()
+        .get(DispatchClass::Normal)
+        .max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
+        .saturating_sub(BlockExecutionWeight::get());
 }
+
+frame_election_provider_support::generate_solution_type!(
+    #[compact]
+    pub struct NposSolution16::<
+        VoterIndex = u32,
+        TargetIndex = u16,
+        Accuracy = sp_runtime::PerU16,
+        MaxVoters = MaxElectingVoters,
+    >(16)
+);
 
 /// Converts Weight to Fee
 pub struct WeightToFee;
+
 impl WeightToFeePolynomial for WeightToFee {
     type Balance = Balance;
     /// We want a 0.03 POLYX fee per ExtrinsicBaseWeight.

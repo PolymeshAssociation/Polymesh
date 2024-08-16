@@ -5294,6 +5294,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-election-provider-multi-phase"
+version = "4.0.0-dev"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v6-monthly-2023-03#74ef745933703849d756dc16d41d938157d6943a"
+dependencies = [
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-election-provider-support-benchmarking",
+ "parity-scale-codec 3.6.9",
+ "rand 0.8.5",
+ "scale-info",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-npos-elections",
+ "sp-runtime",
+ "sp-std 5.0.0",
+ "strum",
+]
+
+[[package]]
+name = "pallet-election-provider-support-benchmarking"
+version = "4.0.0-dev"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v6-monthly-2023-03#74ef745933703849d756dc16d41d938157d6943a"
+dependencies = [
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-system",
+ "parity-scale-codec 3.6.9",
+ "sp-npos-elections",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-external-agents"
 version = "0.1.0"
 dependencies = [
@@ -6769,11 +6805,13 @@ dependencies = [
 name = "polymesh-runtime-common"
 version = "1.0.0"
 dependencies = [
+ "frame-election-provider-support",
  "frame-support",
  "frame-system",
  "pallet-authorship",
  "pallet-balances 0.1.0",
  "pallet-committee",
+ "pallet-election-provider-multi-phase",
  "pallet-group-rpc-runtime-api",
  "pallet-identity",
  "pallet-multisig",
@@ -6783,6 +6821,7 @@ dependencies = [
  "polymesh-common-utilities",
  "polymesh-primitives",
  "smallvec",
+ "sp-io",
  "sp-runtime",
  "sp-std 5.0.0",
 ]
@@ -6792,6 +6831,7 @@ name = "polymesh-runtime-develop"
 version = "0.1.0"
 dependencies = [
  "frame-benchmarking",
+ "frame-election-provider-support",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -6813,6 +6853,7 @@ dependencies = [
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-corporate-actions",
+ "pallet-election-provider-multi-phase",
  "pallet-external-agents",
  "pallet-grandpa",
  "pallet-group",
@@ -6878,6 +6919,7 @@ dependencies = [
 name = "polymesh-runtime-mainnet"
 version = "0.1.0"
 dependencies = [
+ "frame-election-provider-support",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -6897,6 +6939,7 @@ dependencies = [
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-corporate-actions",
+ "pallet-election-provider-multi-phase",
  "pallet-external-agents",
  "pallet-grandpa",
  "pallet-group",
@@ -6963,6 +7006,7 @@ dependencies = [
 name = "polymesh-runtime-testnet"
 version = "0.1.0"
 dependencies = [
+ "frame-election-provider-support",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -6982,6 +7026,7 @@ dependencies = [
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-corporate-actions",
+ "pallet-election-provider-multi-phase",
  "pallet-external-agents",
  "pallet-grandpa",
  "pallet-group",
@@ -7075,6 +7120,7 @@ dependencies = [
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-corporate-actions",
+ "pallet-election-provider-multi-phase",
  "pallet-external-agents",
  "pallet-grandpa",
  "pallet-group",
@@ -7142,6 +7188,7 @@ dependencies = [
  "sp-tracing",
  "sp-transaction-pool",
  "sp-version",
+ "substrate-test-utils",
  "wat",
 ]
 
@@ -10600,6 +10647,27 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-state-machine",
+]
+
+[[package]]
+name = "substrate-test-utils"
+version = "4.0.0-dev"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v6-monthly-2023-03#74ef745933703849d756dc16d41d938157d6943a"
+dependencies = [
+ "futures",
+ "substrate-test-utils-derive",
+ "tokio",
+]
+
+[[package]]
+name = "substrate-test-utils-derive"
+version = "0.10.0-dev"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v6-monthly-2023-03#74ef745933703849d756dc16d41d938157d6943a"
+dependencies = [
+ "proc-macro-crate 1.1.3",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]

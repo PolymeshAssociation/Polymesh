@@ -288,105 +288,32 @@ pub mod benchmarking;
 pub mod testing_utils;
 
 pub mod inflation;
-pub mod offchain_election;
+pub mod migrations;
 pub mod slashing;
 pub mod types;
 pub mod weights;
 
-mod pallet;
+pub mod pallet;
 
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
-    traits::{Currency, Get},
-    weights::Weight,
+    traits::{Currency, Defensive, Get},
     BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-    traits::{Convert, Saturating, StaticLookup, Zero},
-    Perbill, RuntimeDebug,
+    curve::PiecewiseLinear,
+    traits::{AtLeast32BitUnsigned, Convert, Saturating, StaticLookup, Zero},
+    Perbill, Perquintill, Rounding, RuntimeDebug,
 };
 use sp_staking::{
     offence::{Offence, OffenceError, ReportOffence},
-    SessionIndex,
+    EraIndex, SessionIndex,
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 pub use weights::WeightInfo;
 
-pub use pallet::pallet::*;
-
-use frame_election_provider_support::generate_solution_type;
-use frame_support::parameter_types;
-use frame_support::traits::LockIdentifier;
-use sp_runtime::PerU16;
-use sp_staking::offence::{DisableStrategy, OffenceDetails, OnOffenceHandler};
-use sp_std::mem::size_of;
-
-use crate::_feps::NposSolution;
-use crate::types::SlashingSwitch;
-
-// Polymesh Change: Constants and type definitions
-// -----------------------------------------------------------------
-const STAKING_ID: LockIdentifier = *b"staking ";
-pub const MAX_ALLOWED_VALIDATORS: u32 = 150;
-
-/// Data type used to index nominators in the compact type
-pub type NominatorIndex = u32;
-/// Data type used to index validators in the compact type.
-pub type ValidatorIndex = u16;
-
-// Ensure the size of both ValidatorIndex and NominatorIndex. They both need to be well below usize.
-static_assertions::const_assert!(size_of::<ValidatorIndex>() <= size_of::<usize>());
-static_assertions::const_assert!(size_of::<NominatorIndex>() <= size_of::<usize>());
-static_assertions::const_assert!(size_of::<ValidatorIndex>() <= size_of::<u32>());
-static_assertions::const_assert!(size_of::<NominatorIndex>() <= size_of::<u32>());
-
-/// Maximum number of stakers that can be stored in a snapshot.
-pub(crate) const MAX_VALIDATORS: usize = ValidatorIndex::max_value() as usize;
-pub(crate) const MAX_NOMINATORS: usize = NominatorIndex::max_value() as usize;
-
-/// Counter for the number of eras that have passed.
-pub type EraIndex = u32;
-
-// Note: Maximum nomination limit is set here -- 16.
-generate_solution_type!(
-    #[compact]
-    pub struct CompactAssignments::<
-        VoterIndex = NominatorIndex,
-        TargetIndex = ValidatorIndex,
-        Accuracy = OffchainAccuracy,
-        MaxVoters = frame_support::traits::ConstU32::<10_000>
-    >(16)
-);
-
-#[cfg(debug_assertions)]
-impl CompactAssignments {
-    pub fn push_votes1(&mut self, v: (NominatorIndex, ValidatorIndex)) {
-        self.votes1.push(v)
-    }
-
-    pub fn get_votes3(
-        &mut self,
-    ) -> &mut Vec<(
-        NominatorIndex,
-        [(ValidatorIndex, OffchainAccuracy); 2],
-        ValidatorIndex,
-    )> {
-        &mut self.votes3
-    }
-}
-
-/// Accuracy used for on-chain election.
-pub type ChainAccuracy = Perbill;
-
-/// Accuracy used for off-chain election. This better be small.
-pub type OffchainAccuracy = PerU16;
-
-parameter_types! {
-    pub MaxNominations: u32 = <CompactAssignments as NposSolution>::LIMIT as u32;
-    pub MaxUnlockingChunks: u32 = 32;
-}
-// -----------------------------------------------------------------
+pub use pallet::{pallet::*, *};
 
 pub(crate) const LOG_TARGET: &str = "runtime::staking";
 
@@ -401,14 +328,17 @@ macro_rules! log {
 	};
 }
 
+/// Maximum number of winners (aka. active validators), as defined in the election provider of this
+/// pallet.
+pub type MaxWinnersOf<T> = <<T as Config>::ElectionProvider as frame_election_provider_support::ElectionProviderBase>::MaxWinners;
+
 /// Counter for the number of "reward" points earned by a given validator.
 pub type RewardPoint = u32;
 
 /// The balance type of this pallet.
-pub type BalanceOf<T> =
-    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
-type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
+pub type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::PositiveImbalance;
 pub type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
@@ -482,6 +412,8 @@ pub enum RewardDestination<AccountId> {
     Controller,
     /// Pay into a specified account.
     Account(AccountId),
+    /// Receive no reward.
+    None,
 }
 
 impl<AccountId> Default for RewardDestination<AccountId> {
@@ -541,7 +473,8 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
     Encode,
     Decode,
     RuntimeDebugNoBound,
-    TypeInfo
+    TypeInfo,
+    MaxEncodedLen
 )]
 #[scale_info(skip_type_params(T))]
 pub struct StakingLedger<T: Config> {
@@ -558,10 +491,10 @@ pub struct StakingLedger<T: Config> {
     /// Any balance that is becoming free, which may eventually be transferred out of the stash
     /// (assuming it doesn't get slashed first). It is assumed that this will be treated as a first
     /// in, first out queue where the new (higher value) eras get pushed on the back.
-    pub unlocking: Vec<UnlockChunk<BalanceOf<T>>>,
+    pub unlocking: BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>,
     /// List of eras for which the stakers behind a validator have claimed rewards. Only updated
     /// for validators.
-    pub claimed_rewards: Vec<EraIndex>,
+    pub claimed_rewards: BoundedVec<EraIndex, T::HistoryDepth>,
 }
 
 impl<T: Config> StakingLedger<T> {
@@ -580,7 +513,7 @@ impl<T: Config> StakingLedger<T> {
     /// total by the sum of their balances.
     fn consolidate_unlocked(self, current_era: EraIndex) -> Self {
         let mut total = self.total;
-        let unlocking = self
+        let unlocking: BoundedVec<_, _> = self
             .unlocking
             .into_iter()
             .filter(|chunk| {
@@ -591,7 +524,11 @@ impl<T: Config> StakingLedger<T> {
                     false
                 }
             })
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>()
+            .try_into()
+            .expect(
+                "filtering items from a bounded vec always leaves length less than bounds. qed",
+            );
 
         Self {
             stash: self.stash,
@@ -654,48 +591,128 @@ impl<T: Config> StakingLedger<T> {
     /// applied.
     pub fn slash(
         &mut self,
-        mut value: BalanceOf<T>,
+        slash_amount: BalanceOf<T>,
         minimum_balance: BalanceOf<T>,
+        slash_era: EraIndex,
     ) -> BalanceOf<T> {
-        let pre_total = self.total;
-        let total = &mut self.total;
-        let active = &mut self.active;
+        if slash_amount.is_zero() {
+            return Zero::zero();
+        }
 
-        let slash_out_of = |total_remaining: &mut BalanceOf<T>,
-                            target: &mut BalanceOf<T>,
-                            value: &mut BalanceOf<T>| {
-            let mut slash_from_target = (*value).min(*target);
+        use sp_runtime::PerThing as _;
+        use sp_staking::OnStakerSlash as _;
+        let mut remaining_slash = slash_amount;
+        let pre_slash_total = self.total;
 
-            if !slash_from_target.is_zero() {
-                *target -= slash_from_target;
+        // for a `slash_era = x`, any chunk that is scheduled to be unlocked at era `x + 28`
+        // (assuming 28 is the bonding duration) onwards should be slashed.
+        let slashable_chunks_start = slash_era + T::BondingDuration::get();
 
-                // don't leave a dust balance in the staking system.
-                if *target <= minimum_balance {
-                    slash_from_target += *target;
-                    *value += sp_std::mem::replace(target, Zero::zero());
-                }
+        // `Some(ratio)` if this is proportional, with `ratio`, `None` otherwise. In both cases, we
+        // slash first the active chunk, and then `slash_chunks_priority`.
+        let (maybe_proportional, slash_chunks_priority) = {
+            if let Some(first_slashable_index) = self
+                .unlocking
+                .iter()
+                .position(|c| c.era >= slashable_chunks_start)
+            {
+                // If there exists a chunk who's after the first_slashable_start, then this is a
+                // proportional slash, because we want to slash active and these chunks
+                // proportionally.
 
-                *total_remaining = total_remaining.saturating_sub(slash_from_target);
-                *value -= slash_from_target;
+                // The indices of the first chunk after the slash up through the most recent chunk.
+                // (The most recent chunk is at greatest from this era)
+                let affected_indices = first_slashable_index..self.unlocking.len();
+                let unbonding_affected_balance =
+                    affected_indices
+                        .clone()
+                        .fold(BalanceOf::<T>::zero(), |sum, i| {
+                            if let Some(chunk) = self.unlocking.get(i).defensive() {
+                                sum.saturating_add(chunk.value)
+                            } else {
+                                sum
+                            }
+                        });
+                let affected_balance = self.active.saturating_add(unbonding_affected_balance);
+                let ratio = Perquintill::from_rational_with_rounding(
+                    slash_amount,
+                    affected_balance,
+                    Rounding::Up,
+                )
+                .unwrap_or_else(|_| Perquintill::one());
+                (
+                    Some(ratio),
+                    affected_indices
+                        .chain((0..first_slashable_index).rev())
+                        .collect::<Vec<_>>(),
+                )
+            } else {
+                // We just slash from the last chunk to the most recent one, if need be.
+                (None, (0..self.unlocking.len()).rev().collect::<Vec<_>>())
             }
         };
 
-        slash_out_of(total, active, &mut value);
+        // Helper to update `target` and the ledgers total after accounting for slashing `target`.
+        log!(
+            debug,
+            "slashing {:?} for era {:?} out of {:?}, priority: {:?}, proportional = {:?}",
+            slash_amount,
+            slash_era,
+            self,
+            slash_chunks_priority,
+            maybe_proportional,
+        );
 
-        let i = self
-            .unlocking
-            .iter_mut()
-            .map(|chunk| {
-                slash_out_of(total, &mut chunk.value, &mut value);
-                chunk.value
-            })
-            .take_while(|value| value.is_zero()) // take all fully-consumed chunks out.
-            .count();
+        let mut slash_out_of = |target: &mut BalanceOf<T>, slash_remaining: &mut BalanceOf<T>| {
+            let mut slash_from_target = if let Some(ratio) = maybe_proportional {
+                ratio.mul_ceil(*target)
+            } else {
+                *slash_remaining
+            }
+            // this is the total that that the slash target has. We can't slash more than
+            // this anyhow!
+            .min(*target)
+            // this is the total amount that we would have wanted to slash
+            // non-proportionally, a proportional slash should never exceed this either!
+            .min(*slash_remaining);
 
-        // kill all drained chunks.
-        let _ = self.unlocking.drain(..i);
+            // slash out from *target exactly `slash_from_target`.
+            *target = *target - slash_from_target;
+            if *target < minimum_balance {
+                // Slash the rest of the target if it's dust. This might cause the last chunk to be
+                // slightly under-slashed, by at most `MaxUnlockingChunks * ED`, which is not a big
+                // deal.
+                slash_from_target =
+                    sp_std::mem::replace(target, Zero::zero()).saturating_add(slash_from_target)
+            }
 
-        pre_total.saturating_sub(*total)
+            self.total = self.total.saturating_sub(slash_from_target);
+            *slash_remaining = slash_remaining.saturating_sub(slash_from_target);
+        };
+
+        // If this is *not* a proportional slash, the active will always wiped to 0.
+        slash_out_of(&mut self.active, &mut remaining_slash);
+
+        let mut slashed_unlocking = BTreeMap::<_, _>::new();
+        for i in slash_chunks_priority {
+            if remaining_slash.is_zero() {
+                break;
+            }
+
+            if let Some(chunk) = self.unlocking.get_mut(i).defensive() {
+                slash_out_of(&mut chunk.value, &mut remaining_slash);
+                // write the new slashed value of this chunk to the map.
+                slashed_unlocking.insert(chunk.era, chunk.value);
+            } else {
+                break;
+            }
+        }
+
+        // clean unlocking chunks that are set to zero.
+        self.unlocking.retain(|c| !c.value.is_zero());
+
+        T::OnStakerSlash::on_slash(&self.stash, self.active, &slashed_unlocking);
+        pre_slash_total.saturating_sub(self.total)
     }
 }
 
@@ -774,14 +791,14 @@ impl<AccountId, Balance: Default + HasCompact> Default for Exposure<AccountId, B
         Self {
             total: Default::default(),
             own: Default::default(),
-            others: Vec::new(),
+            others: vec![],
         }
     }
 }
 
 /// A pending slash record. The value of the slash has been computed but not applied yet,
 /// rather deferred for several eras.
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
     /// The stash ID of the offending validator.
     pub validator: AccountId,
@@ -848,6 +865,18 @@ where
     }
 }
 
+impl<AccountId> SessionInterface<AccountId> for () {
+    fn disable_validator(_: u32) -> bool {
+        true
+    }
+    fn validators() -> Vec<AccountId> {
+        Vec::new()
+    }
+    fn prune_historical_up_to(_: SessionIndex) {
+        ()
+    }
+}
+
 /// Handler for determining how much of a balance should be paid out on the current era.
 pub trait EraPayout<Balance> {
     /// Determine the payout for this era.
@@ -858,6 +887,8 @@ pub trait EraPayout<Balance> {
         total_staked: Balance,
         total_issuance: Balance,
         era_duration_millis: u64,
+        max_inflated_issuance: Balance,
+        non_inflated_yearly_reward: Balance,
     ) -> (Balance, Balance);
 }
 
@@ -866,8 +897,38 @@ impl<Balance: Default> EraPayout<Balance> for () {
         _total_staked: Balance,
         _total_issuance: Balance,
         _era_duration_millis: u64,
+        _max_inflated_issuance: Balance,
+        _non_inflated_yearly_reward: Balance,
     ) -> (Balance, Balance) {
         (Default::default(), Default::default())
+    }
+}
+
+/// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
+/// backwards compatibility.
+pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
+
+impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'static>>>
+    EraPayout<Balance> for ConvertCurve<T>
+{
+    fn era_payout(
+        total_staked: Balance,
+        total_issuance: Balance,
+        era_duration_millis: u64,
+        max_inflated_issuance: Balance,
+        non_inflated_yearly_reward: Balance,
+    ) -> (Balance, Balance) {
+        let (validator_payout, max_payout) = inflation::compute_total_payout(
+            T::get(),
+            total_staked,
+            total_issuance,
+            // Duration of era; more than u64::MAX is rewarded as u64::MAX.
+            era_duration_millis,
+            max_inflated_issuance,
+            non_inflated_yearly_reward,
+        );
+        let rest = max_payout.saturating_sub(validator_payout.clone());
+        (validator_payout, rest)
     }
 }
 
@@ -953,13 +1014,28 @@ where
         {
             R::report_offence(reporters, offence)
         } else {
-            <Pallet<T>>::deposit_event(Event::<T>::OldSlashingReportDiscarded(offence_session));
+            <Pallet<T>>::deposit_event(Event::<T>::OldSlashingReportDiscarded {
+                session_index: offence_session,
+            });
             Ok(())
         }
     }
 
     fn is_known_offence(offenders: &[Offender], time_slot: &O::TimeSlot) -> bool {
         R::is_known_offence(offenders, time_slot)
+    }
+}
+
+pub struct OnStakerSlashMock<T: Config>(core::marker::PhantomData<T>);
+
+impl<T: Config> sp_staking::OnStakerSlash<T::AccountId, T::CurrencyBalance>
+    for OnStakerSlashMock<T>
+{
+    fn on_slash(
+        _pool_account: &T::AccountId,
+        _slashed_bonded: T::CurrencyBalance,
+        _slashed_chunks: &BTreeMap<EraIndex, T::CurrencyBalance>,
+    ) {
     }
 }
 
@@ -974,247 +1050,9 @@ pub trait BenchmarkingConfig {
 /// A mock benchmarking config for pallet-staking.
 ///
 /// Should only be used for testing.
-#[cfg(feature = "std")]
-pub struct TestBenchmarkingConfig;
+pub struct SampleBenchmarkingConfig;
 
-#[cfg(feature = "std")]
-impl BenchmarkingConfig for TestBenchmarkingConfig {
+impl BenchmarkingConfig for SampleBenchmarkingConfig {
     type MaxValidators = frame_support::traits::ConstU32<100>;
     type MaxNominators = frame_support::traits::ConstU32<100>;
 }
-
-// Polymesh Change: Impl EventHandler, SessionManager, OnOffenceHandler
-// -----------------------------------------------------------------
-
-/// Add reward points to block authors: * 20 points to the block producer for producing a block
-/// in the chain,
-impl<T> pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Pallet<T>
-where
-    T: Config + pallet_authorship::Config + pallet_session::Config,
-{
-    fn note_author(author: T::AccountId) {
-        Self::reward_by_ids(vec![(author, 20)])
-    }
-}
-
-/// In this implementation `new_session(session)` must be called before `end_session(session-1)`
-/// i.e. the new session must be planned before the ending of the previous session.
-///
-/// Once the first new_session is planned, all session must start and then end in order, though
-/// some session can lag in between the newest session planned and the latest session started.
-impl<T: Config> pallet_session::SessionManager<T::AccountId> for Pallet<T>
-where
-    <T as frame_system::Config>::BlockNumber: core::fmt::Display,
-{
-    fn new_session(new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
-        log::trace!(
-            target: LOG_TARGET,
-            "[{}] planning new_session({})",
-            <frame_system::Pallet<T>>::block_number(),
-            new_index
-        );
-        Self::new_session(new_index)
-    }
-    fn start_session(start_index: SessionIndex) {
-        log::trace!(
-            target: LOG_TARGET,
-            "[{}] starting start_session({})",
-            <frame_system::Pallet<T>>::block_number(),
-            start_index
-        );
-        Self::start_session(start_index)
-    }
-    fn end_session(end_index: SessionIndex) {
-        log::trace!(
-            target: LOG_TARGET,
-            "[{}] ending end_session({})",
-            <frame_system::Pallet<T>>::block_number(),
-            end_index
-        );
-        Self::end_session(end_index)
-    }
-}
-
-impl<T: Config>
-    pallet_session::historical::SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>>
-    for Pallet<T>
-where
-    <T as frame_system::Config>::BlockNumber: core::fmt::Display,
-{
-    fn new_session(
-        new_index: SessionIndex,
-    ) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
-        <Self as pallet_session::SessionManager<_>>::new_session(new_index).map(|validators| {
-            let current_era = Self::current_era()
-                // Must be some as a new era has been created.
-                .unwrap_or(0);
-
-            validators
-                .into_iter()
-                .map(|v| {
-                    let exposure = Self::eras_stakers(current_era, &v);
-                    (v, exposure)
-                })
-                .collect()
-        })
-    }
-    fn start_session(start_index: SessionIndex) {
-        <Self as pallet_session::SessionManager<_>>::start_session(start_index)
-    }
-    fn end_session(end_index: SessionIndex) {
-        <Self as pallet_session::SessionManager<_>>::end_session(end_index)
-    }
-}
-
-/// This is intended to be used with `FilterHistoricalOffences`.
-impl<T: Config>
-    OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight>
-    for Pallet<T>
-where
-    T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
-    T: pallet_session::historical::Config<
-        FullIdentification = Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
-        FullIdentificationOf = ExposureOf<T>,
-    >,
-    T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
-    T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
-    T::ValidatorIdOf: Convert<
-        <T as frame_system::Config>::AccountId,
-        Option<<T as frame_system::Config>::AccountId>,
-    >,
-{
-    fn on_offence(
-        offenders: &[OffenceDetails<
-            T::AccountId,
-            pallet_session::historical::IdentificationTuple<T>,
-        >],
-        slash_fraction: &[Perbill],
-        slash_session: SessionIndex,
-        _disable_strategy: DisableStrategy,
-    ) -> Weight {
-        // Polymesh-Note:
-        // When slashing is off or allowed for none, set slash fraction to zero.
-        // ---------------------------------------------------------------------
-        let long_living_slash_fraction;
-        let slash_fraction = if Self::slashing_allowed_for() == SlashingSwitch::None {
-            long_living_slash_fraction = vec![Perbill::from_parts(0); slash_fraction.len()];
-            long_living_slash_fraction.as_slice()
-        } else {
-            slash_fraction
-        };
-        // ---------------------------------------------------------------------
-
-        let reward_proportion = SlashRewardFraction::<T>::get();
-        let mut consumed_weight = Weight::zero();
-        let mut add_db_reads_writes = |reads, writes| {
-            consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
-        };
-
-        let active_era = {
-            let active_era = Self::active_era();
-            add_db_reads_writes(1, 0);
-            if active_era.is_none() {
-                // this offence need not be re-submitted.
-                return consumed_weight;
-            }
-            active_era
-                .expect("value checked not to be `None`; qed")
-                .index
-        };
-        let active_era_start_session_index = Self::eras_start_session_index(active_era)
-            .unwrap_or_else(|| {
-                frame_support::print("Error: start_session_index must be set for current_era");
-                0
-            });
-        add_db_reads_writes(1, 0);
-
-        let window_start = active_era.saturating_sub(T::BondingDuration::get());
-
-        // fast path for active-era report - most likely.
-        // `slash_session` cannot be in a future active era. It must be in `active_era` or before.
-        let slash_era = if slash_session >= active_era_start_session_index {
-            active_era
-        } else {
-            let eras = BondedEras::<T>::get();
-            add_db_reads_writes(1, 0);
-
-            // reverse because it's more likely to find reports from recent eras.
-            match eras
-                .iter()
-                .rev()
-                .filter(|&&(_, ref sesh)| sesh <= &slash_session)
-                .next()
-            {
-                Some(&(ref slash_era, _)) => *slash_era,
-                // before bonding period. defensive - should be filtered out.
-                None => return consumed_weight,
-            }
-        };
-
-        <Self as Store>::EarliestUnappliedSlash::mutate(|earliest| {
-            if earliest.is_none() {
-                *earliest = Some(active_era)
-            }
-        });
-        add_db_reads_writes(1, 1);
-
-        let slash_defer_duration = T::SlashDeferDuration::get();
-
-        let invulnerables = Self::invulnerables();
-        add_db_reads_writes(1, 0);
-
-        for (details, slash_fraction) in offenders.iter().zip(slash_fraction) {
-            let (stash, exposure) = &details.offender;
-
-            // Skip if the validator is invulnerable.
-            if invulnerables.contains(stash) {
-                continue;
-            }
-
-            let unapplied = slashing::compute_slash::<T>(slashing::SlashParams {
-                stash,
-                slash: *slash_fraction,
-                exposure,
-                slash_era,
-                window_start,
-                now: active_era,
-                reward_proportion,
-            });
-
-            if let Some(mut unapplied) = unapplied {
-                let nominators_len = unapplied.others.len() as u64;
-                let reporters_len = details.reporters.len() as u64;
-
-                {
-                    let upper_bound = 1 /* Validator/NominatorSlashInEra */ + 2 /* fetch_spans */;
-                    let rw = upper_bound + nominators_len * upper_bound;
-                    add_db_reads_writes(rw, rw);
-                }
-                unapplied.reporters = details.reporters.clone();
-                if slash_defer_duration == 0 {
-                    // apply right away.
-                    slashing::apply_slash::<T>(unapplied, slash_era);
-                    {
-                        let slash_cost = (6, 5);
-                        let reward_cost = (2, 2);
-                        add_db_reads_writes(
-                            (1 + nominators_len) * slash_cost.0 + reward_cost.0 * reporters_len,
-                            (1 + nominators_len) * slash_cost.1 + reward_cost.1 * reporters_len,
-                        );
-                    }
-                } else {
-                    // defer to end of some `slash_defer_duration` from now.
-                    <Self as Store>::UnappliedSlashes::mutate(active_era, move |for_later| {
-                        for_later.push(unapplied)
-                    });
-                    add_db_reads_writes(1, 1);
-                }
-            } else {
-                add_db_reads_writes(4 /* fetch_spans */, 5 /* kick_out_if_recent */)
-            }
-        }
-
-        consumed_weight
-    }
-}
-// -----------------------------------------------------------------

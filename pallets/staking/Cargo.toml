@@ -61,8 +61,11 @@ std = [
 	"pallet-identity/std",
 	"pallet-babe/std",
 	"sp-arithmetic/std",
+	"rand_chacha",
+	"frame-benchmarking",
 ]
 runtime-benchmarks = [
+	"polymesh-common-utilities/runtime-benchmarks",
 	"frame-benchmarking",
 	"rand_chacha",
 ]
