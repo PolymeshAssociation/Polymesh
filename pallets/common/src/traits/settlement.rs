@@ -54,7 +54,7 @@ decl_event!(
         /// Venue not part of the token's allow list (did, AssetID, venue_id)
         VenueUnauthorized(IdentityId, AssetID, VenueId),
         /// Scheduling of instruction fails.
-        SchedulingFailed(DispatchError),
+        SchedulingFailed(InstructionId, DispatchError),
         /// Instruction is rescheduled.
         /// (caller DID, instruction_id)
         InstructionRescheduled(IdentityId, InstructionId),

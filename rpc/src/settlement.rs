@@ -39,7 +39,7 @@ pub trait SettlementApi<BlockHash> {
         &self,
         instruction_id: InstructionId,
         at: Option<BlockHash>,
-    ) -> RpcResult<ExecuteInstructionInfo>;
+    ) -> RpcResult<Option<ExecuteInstructionInfo>>;
 
     #[method(name = "settlement_getAffirmationCount")]
     fn get_affirmation_count(
@@ -91,7 +91,7 @@ where
         &self,
         instruction_id: InstructionId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<ExecuteInstructionInfo> {
+    ) -> RpcResult<Option<ExecuteInstructionInfo>> {
         let api = self.client.runtime_api();
         // If the block hash is not supplied assume the best block.
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);

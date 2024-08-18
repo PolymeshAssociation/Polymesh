@@ -1589,6 +1589,7 @@ impl<T: Config> Module<T> {
             call,
         ) {
             Self::deposit_event(RawEvent::SchedulingFailed(
+                id,
                 Error::<T>::FailedToSchedule.into(),
             ));
         }
@@ -2575,26 +2576,32 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns an instance of [`ExecuteInstructionInfo`].
-    pub fn execute_instruction_info(instruction_id: &InstructionId) -> ExecuteInstructionInfo {
+    pub fn execute_instruction_info(
+        instruction_id: &InstructionId,
+    ) -> Option<ExecuteInstructionInfo> {
+        if !InstructionDetails::<T>::contains_key(instruction_id) {
+            return None;
+        }
+
         let caller_did = SettlementDID.as_id();
         let instruction_asset_count = Self::get_instruction_asset_count(instruction_id);
         let mut weight_meter =
-            WeightMeter::max_limit(Self::execute_scheduled_instruction_minimum_weight());
+            WeightMeter::max_limit(Self::execute_manual_instruction_minimum_weight());
         match Self::execute_instruction_retryable(*instruction_id, caller_did, &mut weight_meter) {
-            Ok(_) => ExecuteInstructionInfo::new(
+            Ok(_) => Some(ExecuteInstructionInfo::new(
                 instruction_asset_count.fungible(),
                 instruction_asset_count.non_fungible(),
                 instruction_asset_count.off_chain(),
                 weight_meter.consumed(),
                 None,
-            ),
-            Err(e) => ExecuteInstructionInfo::new(
+            )),
+            Err(e) => Some(ExecuteInstructionInfo::new(
                 instruction_asset_count.fungible(),
                 instruction_asset_count.non_fungible(),
                 instruction_asset_count.off_chain(),
                 weight_meter.consumed(),
                 Some(e.into()),
-            ),
+            )),
         }
     }
 

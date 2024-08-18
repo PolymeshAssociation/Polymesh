@@ -1013,7 +1013,7 @@ macro_rules! runtime_apis {
                 #[inline]
                 fn get_execute_instruction_info(
                     instruction_id: &InstructionId
-                ) -> ExecuteInstructionInfo {
+                ) -> Option<ExecuteInstructionInfo> {
                     Settlement::execute_instruction_info(instruction_id)
                 }
 
