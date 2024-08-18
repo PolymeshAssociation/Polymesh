@@ -43,13 +43,6 @@ fn updating_controller() {
                 pallet_staking::RewardDestination::Controller
             ));
 
-            assert_ok!(
-                pallet_staking::Pallet::<TestStorage>::set_min_bond_threshold(
-                    Origin::root(),
-                    50_000
-                )
-            );
-
             assert_ok!(pallet_staking::Pallet::<TestStorage>::validate(
                 Origin::signed(alice.acc()),
                 pallet_staking::ValidatorPrefs::default()

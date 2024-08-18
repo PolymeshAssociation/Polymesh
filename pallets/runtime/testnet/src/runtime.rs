@@ -169,8 +169,8 @@ pallet_staking_reward_curve::build! {
 }
 parameter_types! {
     pub const SessionsPerEra: sp_staking::SessionIndex = 6;
-    pub const BondingDuration: pallet_staking::EraIndex = 28;
-    pub const SlashDeferDuration: pallet_staking::EraIndex = 14; // 1/2 the bonding duration.
+    pub const BondingDuration: sp_staking::EraIndex = 28;
+    pub const SlashDeferDuration: sp_staking::EraIndex = 14; // 1/2 the bonding duration.
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const MaxNominatorRewardedPerValidator: u32 = 2048;
     pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
@@ -358,7 +358,8 @@ construct_runtime!(
         Bridge: pallet_bridge::{Pallet, Storage} = 16,
 
         // Staking: Genesis config deps: Bridge, Balances, Indices, Identity, Babe, Timestamp, Committees
-        Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 17,
+        Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>} = 17,
+
         Offences: pallet_offences::{Pallet, Storage, Event} = 18,
 
         // Session: Genesis config deps: System.
@@ -403,6 +404,8 @@ construct_runtime!(
 
         Nft: pallet_nft::{Pallet, Call, Storage, Event} = 49,
 
+        ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 50,
+
         TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 200,
 
         StateTrieMigration: pallet_state_trie_migration::{Pallet, Call, Storage, Event<T> } = 210,
@@ -424,4 +427,19 @@ impl DryRunRuntimeUpgrade for Runtime {
     fn dry_run_runtime_upgrade() -> Weight {
         <AllPallets as OnRuntimeUpgrade>::on_runtime_upgrade()
     }
+}
+
+pub struct OnChainSeqPhragmen;
+
+impl frame_election_provider_support::onchain::Config for OnChainSeqPhragmen {
+    type System = Runtime;
+    type Solver = frame_election_provider_support::SequentialPhragmen<
+        polymesh_primitives::AccountId,
+        pallet_election_provider_multi_phase::SolutionAccuracyOf<Runtime>,
+    >;
+    type DataProvider = <Runtime as pallet_election_provider_multi_phase::Config>::DataProvider;
+    type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
+    type MaxWinners = <Runtime as pallet_election_provider_multi_phase::Config>::MaxWinners;
+    type VotersBound = polymesh_runtime_common::MaxOnChainElectingVoters;
+    type TargetsBound = polymesh_runtime_common::MaxOnChainElectableTargets;
 }

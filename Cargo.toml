@@ -25,6 +25,7 @@ pallet-babe = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", bra
 pallet-balances = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v6-monthly-2023-03" }
 pallet-contracts = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v6-monthly-2023-03" }
 pallet-contracts-primitives = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v6-monthly-2023-03" }
+pallet-election-provider-multi-phase = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v6-monthly-2023-03" }
 pallet-grandpa = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v6-monthly-2023-03" }
 pallet-im-online = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v6-monthly-2023-03" }
 pallet-indices = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v6-monthly-2023-03" }
@@ -102,6 +103,7 @@ substrate-prometheus-endpoint = { git = "https://github.com/PolymeshAssociation/
 substrate-build-script-utils = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v6-monthly-2023-03" }
 substrate-wasm-builder = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v6-monthly-2023-03" }
 substrate-test-client = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v6-monthly-2023-03" }
+substrate-test-utils = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v6-monthly-2023-03" }
 
 [workspace]
 members = [
@@ -223,6 +225,7 @@ pallet-authorship = { version = "4.0.0-dev", default-features = false }
 pallet-babe = { version = "4.0.0-dev", default-features = false }
 pallet-contracts = { version = "4.0.0-dev", default-features = false }
 pallet-contracts-primitives = { version = "7.0.0", default-features = false}
+pallet-election-provider-multi-phase = { version = "4.0.0-dev", default-features = false }
 pallet-executive = { package = "frame-executive", version = "4.0.0-dev", default-features = false }
 pallet-grandpa = { version = "4.0.0-dev", default-features = false }
 pallet-im-online = { version = "4.0.0-dev", default-features = false }

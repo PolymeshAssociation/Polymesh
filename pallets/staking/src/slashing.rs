@@ -50,23 +50,21 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-    BalanceOf, Config, Error, Exposure, NegativeImbalanceOf, Pallet, Perbill, SessionInterface,
-    Store, UnappliedSlash,
+    types::SlashingSwitch, BalanceOf, Config, Error, Exposure, NegativeImbalanceOf, Pallet,
+    Perbill, SessionInterface, SlashingAllowedFor, Store, UnappliedSlash,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
     ensure,
-    traits::{Currency, Get, Imbalance, OnUnbalanced},
+    traits::{Currency, Defensive, Get, Imbalance, OnUnbalanced},
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{Saturating, Zero},
     DispatchResult, RuntimeDebug,
 };
+use sp_staking::{offence::DisableStrategy, EraIndex};
 use sp_std::vec::Vec;
-
-use crate::types::SlashingSwitch;
-use crate::EraIndex;
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.
@@ -226,6 +224,8 @@ pub(crate) struct SlashParams<'a, T: 'a + Config> {
     /// The maximum percentage of a slash that ever gets paid out.
     /// This is f_inf in the paper.
     pub(crate) reward_proportion: Perbill,
+    /// When to disable offenders.
+    pub(crate) disable_strategy: DisableStrategy,
 }
 
 /// Computes a slash of a validator and nominators. It returns an unapplied
@@ -297,12 +297,13 @@ pub(crate) fn compute_slash<T: Config>(
         }
     }
 
-    add_offending_validator::<T>(params.stash, true);
+    let disable_when_slashed = params.disable_strategy != DisableStrategy::Never;
+    add_offending_validator::<T>(params.stash, disable_when_slashed);
 
-    // Polymesh Change: SlashingSwitch` decides whether nominator gets slashed.
+    // Polymesh change
     // -----------------------------------------------------------------
     let mut nominators_slashed = Vec::new();
-    if <Pallet<T>>::slashing_allowed_for() == SlashingSwitch::ValidatorAndNominator {
+    if SlashingAllowedFor::<T>::get() == SlashingSwitch::ValidatorAndNominator {
         reward_payout +=
             slash_nominators::<T>(params.clone(), prior_slash_p, &mut nominators_slashed);
     }
@@ -336,9 +337,8 @@ fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
         <Pallet<T>>::chill_stash(params.stash);
     }
 
-    // add the validator to the offenders list but since there's no slash being applied there's no
-    // need to disable the validator
-    add_offending_validator::<T>(params.stash, false);
+    let disable_without_slash = params.disable_strategy == DisableStrategy::Always;
+    add_offending_validator::<T>(params.stash, disable_without_slash);
 }
 
 /// Add the given validator to the offenders list and optionally disable it.
@@ -614,9 +614,9 @@ pub fn do_slash<T: Config>(
     value: BalanceOf<T>,
     reward_payout: &mut BalanceOf<T>,
     slashed_imbalance: &mut NegativeImbalanceOf<T>,
-    _slash_era: EraIndex,
+    slash_era: EraIndex,
 ) {
-    let controller = match <Pallet<T>>::bonded(stash) {
+    let controller = match <Pallet<T>>::bonded(stash).defensive() {
         None => return,
         Some(c) => c,
     };
@@ -626,7 +626,7 @@ pub fn do_slash<T: Config>(
         None => return, // nothing to do.
     };
 
-    let value = ledger.slash(value, T::Currency::minimum_balance());
+    let value = ledger.slash(value, T::Currency::minimum_balance(), slash_era);
 
     if !value.is_zero() {
         let (imbalance, missing) = T::Currency::slash(stash, value);
@@ -640,7 +640,10 @@ pub fn do_slash<T: Config>(
         <Pallet<T>>::update_ledger(&controller, &ledger);
 
         // trigger the event
-        <Pallet<T>>::deposit_event(super::Event::<T>::Slash(stash.clone(), value));
+        <Pallet<T>>::deposit_event(super::Event::<T>::Slashed {
+            staker: stash.clone(),
+            amount: value,
+        });
     }
 }
 
@@ -660,9 +663,9 @@ pub(crate) fn apply_slash<T: Config>(
         slash_era,
     );
 
-    // Polymesh Change: SlashingSwitch` decides whether nominator gets slashed.
+    // Polymesh change
     // -----------------------------------------------------------------
-    if <Pallet<T>>::slashing_allowed_for() == SlashingSwitch::ValidatorAndNominator {
+    if SlashingAllowedFor::<T>::get() == SlashingSwitch::ValidatorAndNominator {
         for &(ref nominator, nominator_slash) in &unapplied_slash.others {
             do_slash::<T>(
                 nominator,

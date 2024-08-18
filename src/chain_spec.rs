@@ -20,10 +20,8 @@ use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};
-use sp_runtime::{
-    traits::{AccountIdConversion, IdentifyAccount, Verify},
-    PerThing,
-};
+use sp_runtime::traits::{AccountIdConversion, IdentifyAccount, Verify};
+use sp_runtime::PerThing;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -370,13 +368,12 @@ macro_rules! session {
 macro_rules! staking {
     ($auths:expr, $stakers:expr, $cap:expr) => {
         pallet_staking::GenesisConfig {
-            minimum_validator_count: 1,
             validator_count: 40,
             validator_commission_cap: $cap,
+            minimum_validator_count: 1,
             stakers: $stakers,
             invulnerables: vec![],
             slash_reward_fraction: sp_runtime::Perbill::from_percent(10),
-            min_bond_threshold: 0, // Will be updated to 50,000 POLYX once network has stabalised, before external operators join
             ..Default::default()
         }
     };

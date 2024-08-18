@@ -48,499 +48,721 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
+use polymesh_runtime_common::{RocksDbWeight, Weight};
 
 /// Weights for pallet_staking using the Substrate node and recommended hardware.
 pub struct SubstrateWeight;
 impl pallet_staking::WeightInfo for SubstrateWeight {
-    // Storage: Staking Bonded (r:1 w:1)
-    // Storage: Staking Ledger (r:1 w:1)
-    // Storage: Staking CurrentEra (r:1 w:0)
-    // Storage: Staking HistoryDepth (r:1 w:0)
-    // Storage: Identity CurrentDid (r:1 w:0)
-    // Storage: Balances Locks (r:1 w:1)
-    // Storage: Staking Payee (r:0 w:1)
+    /// Storage: Staking Bonded (r:1 w:1)
+    /// Proof: Staking Bonded (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
+    /// Storage: Staking Ledger (r:1 w:1)
+    /// Proof: Staking Ledger (max_values: None, max_size: Some(1091), added: 3566, mode: MaxEncodedLen)
+    /// Storage: Staking CurrentEra (r:1 w:0)
+    /// Proof: Staking CurrentEra (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Balances Locks (r:1 w:1)
+    /// Proof: Balances Locks (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
+    /// Storage: Staking Payee (r:0 w:1)
+    /// Proof: Staking Payee (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     fn bond() -> Weight {
-        // Minimum execution time: 63_979 nanoseconds.
-        Weight::from_ref_time(64_590_000)
-            .saturating_add(DbWeight::get().reads(6))
-            .saturating_add(DbWeight::get().writes(4))
+        // Proof Size summary in bytes:
+        //  Measured:  `1079`
+        //  Estimated: `10386`
+        // Minimum execution time: 40_015 nanoseconds.
+        Weight::from_parts(40_601_000, 10386)
+            .saturating_add(RocksDbWeight::get().reads(4_u64))
+            .saturating_add(RocksDbWeight::get().writes(4_u64))
     }
-    // Storage: Staking EraElectionStatus (r:1 w:0)
-    // Storage: Staking Bonded (r:1 w:0)
-    // Storage: Staking Ledger (r:1 w:1)
-    // Storage: Identity CurrentDid (r:1 w:0)
-    // Storage: Balances Locks (r:1 w:1)
+    /// Storage: Staking Bonded (r:1 w:0)
+    /// Proof: Staking Bonded (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
+    /// Storage: Staking Ledger (r:1 w:1)
+    /// Proof: Staking Ledger (max_values: None, max_size: Some(1091), added: 3566, mode: MaxEncodedLen)
+    /// Storage: Balances Locks (r:1 w:1)
+    /// Proof: Balances Locks (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
+    /// Storage: VoterList ListNodes (r:3 w:3)
+    /// Proof: VoterList ListNodes (max_values: None, max_size: Some(154), added: 2629, mode: MaxEncodedLen)
+    /// Storage: VoterList ListBags (r:2 w:2)
+    /// Proof: VoterList ListBags (max_values: None, max_size: Some(82), added: 2557, mode: MaxEncodedLen)
     fn bond_extra() -> Weight {
-        // Minimum execution time: 60_962 nanoseconds.
-        Weight::from_ref_time(61_874_000)
-            .saturating_add(DbWeight::get().reads(5))
-            .saturating_add(DbWeight::get().writes(2))
+        // Proof Size summary in bytes:
+        //  Measured:  `2252`
+        //  Estimated: `22888`
+        // Minimum execution time: 74_781 nanoseconds.
+        Weight::from_parts(75_188_000, 22888)
+            .saturating_add(RocksDbWeight::get().reads(8_u64))
+            .saturating_add(RocksDbWeight::get().writes(7_u64))
     }
-    // Storage: Staking EraElectionStatus (r:1 w:0)
-    // Storage: Staking Ledger (r:1 w:1)
-    // Storage: Staking Validators (r:1 w:0)
-    // Storage: Staking CurrentEra (r:1 w:0)
-    // Storage: Balances Locks (r:1 w:1)
-    // Storage: System Account (r:1 w:1)
-    // Storage: Identity CurrentDid (r:1 w:0)
+    /// Storage: Staking Ledger (r:1 w:1)
+    /// Proof: Staking Ledger (max_values: None, max_size: Some(1091), added: 3566, mode: MaxEncodedLen)
+    /// Storage: Staking Nominators (r:1 w:0)
+    /// Proof: Staking Nominators (max_values: None, max_size: Some(558), added: 3033, mode: MaxEncodedLen)
+    /// Storage: Staking MinNominatorBond (r:1 w:0)
+    /// Proof: Staking MinNominatorBond (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
+    /// Storage: Staking CurrentEra (r:1 w:0)
+    /// Proof: Staking CurrentEra (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Balances Locks (r:1 w:1)
+    /// Proof: Balances Locks (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
+    /// Storage: System Account (r:1 w:1)
+    /// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
+    /// Storage: VoterList ListNodes (r:3 w:3)
+    /// Proof: VoterList ListNodes (max_values: None, max_size: Some(154), added: 2629, mode: MaxEncodedLen)
+    /// Storage: Staking Bonded (r:1 w:0)
+    /// Proof: Staking Bonded (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
+    /// Storage: VoterList ListBags (r:2 w:2)
+    /// Proof: VoterList ListBags (max_values: None, max_size: Some(82), added: 2557, mode: MaxEncodedLen)
     fn unbond() -> Weight {
-        // Minimum execution time: 58_888 nanoseconds.
-        Weight::from_ref_time(59_409_000)
-            .saturating_add(DbWeight::get().reads(7))
-            .saturating_add(DbWeight::get().writes(3))
+        // Proof Size summary in bytes:
+        //  Measured:  `2457`
+        //  Estimated: `29534`
+        // Minimum execution time: 81_299 nanoseconds.
+        Weight::from_parts(82_242_000, 29534)
+            .saturating_add(RocksDbWeight::get().reads(12_u64))
+            .saturating_add(RocksDbWeight::get().writes(8_u64))
     }
-    // Storage: Staking EraElectionStatus (r:1 w:0)
-    // Storage: Staking Ledger (r:1 w:1)
-    // Storage: Staking CurrentEra (r:1 w:0)
-    // Storage: Balances Locks (r:1 w:1)
-    // Storage: System Account (r:1 w:1)
+    /// Storage: Staking Ledger (r:1 w:1)
+    /// Proof: Staking Ledger (max_values: None, max_size: Some(1091), added: 3566, mode: MaxEncodedLen)
+    /// Storage: Staking CurrentEra (r:1 w:0)
+    /// Proof: Staking CurrentEra (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Balances Locks (r:1 w:1)
+    /// Proof: Balances Locks (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
+    /// Storage: System Account (r:1 w:1)
+    /// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
     /// The range of component `s` is `[0, 100]`.
     fn withdraw_unbonded_update(s: u32) -> Weight {
-        // Minimum execution time: 52_698 nanoseconds.
-        Weight::from_ref_time(55_473_095)
-            // Standard Error: 10_384
-            .saturating_add(Weight::from_ref_time(37_791).saturating_mul(s.into()))
-            .saturating_add(DbWeight::get().reads(5))
-            .saturating_add(DbWeight::get().writes(3))
+        // Proof Size summary in bytes:
+        //  Measured:  `1085`
+        //  Estimated: `10442`
+        // Minimum execution time: 31_479 nanoseconds.
+        Weight::from_parts(32_410_035, 10442)
+            // Standard Error: 313
+            .saturating_add(Weight::from_ref_time(9_090).saturating_mul(s.into()))
+            .saturating_add(RocksDbWeight::get().reads(4_u64))
+            .saturating_add(RocksDbWeight::get().writes(3_u64))
     }
-    // Storage: Staking EraElectionStatus (r:1 w:0)
-    // Storage: Staking Ledger (r:1 w:1)
-    // Storage: Staking CurrentEra (r:1 w:0)
-    // Storage: Staking Bonded (r:1 w:1)
-    // Storage: Staking SlashingSpans (r:1 w:0)
-    // Storage: System Account (r:1 w:1)
-    // Storage: Balances Locks (r:1 w:1)
-    // Storage: Staking Validators (r:0 w:1)
-    // Storage: Staking Payee (r:0 w:1)
-    // Storage: Staking Nominators (r:0 w:1)
-    // Storage: Staking SpanSlash (r:0 w:1)
+    /// Storage: Staking Ledger (r:1 w:1)
+    /// Proof: Staking Ledger (max_values: None, max_size: Some(1091), added: 3566, mode: MaxEncodedLen)
+    /// Storage: Staking CurrentEra (r:1 w:0)
+    /// Proof: Staking CurrentEra (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking Bonded (r:1 w:1)
+    /// Proof: Staking Bonded (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
+    /// Storage: Staking SlashingSpans (r:1 w:1)
+    /// Proof Skipped: Staking SlashingSpans (max_values: None, max_size: None, mode: Measured)
+    /// Storage: Staking Validators (r:1 w:0)
+    /// Proof: Staking Validators (max_values: None, max_size: Some(45), added: 2520, mode: MaxEncodedLen)
+    /// Storage: Staking Nominators (r:1 w:1)
+    /// Proof: Staking Nominators (max_values: None, max_size: Some(558), added: 3033, mode: MaxEncodedLen)
+    /// Storage: Staking CounterForNominators (r:1 w:1)
+    /// Proof: Staking CounterForNominators (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: VoterList ListNodes (r:2 w:2)
+    /// Proof: VoterList ListNodes (max_values: None, max_size: Some(154), added: 2629, mode: MaxEncodedLen)
+    /// Storage: VoterList ListBags (r:1 w:1)
+    /// Proof: VoterList ListBags (max_values: None, max_size: Some(82), added: 2557, mode: MaxEncodedLen)
+    /// Storage: VoterList CounterForListNodes (r:1 w:1)
+    /// Proof: VoterList CounterForListNodes (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: System Account (r:1 w:1)
+    /// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
+    /// Storage: Balances Locks (r:1 w:1)
+    /// Proof: Balances Locks (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
+    /// Storage: Staking Payee (r:0 w:1)
+    /// Proof: Staking Payee (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
+    /// Storage: Staking SpanSlash (r:0 w:100)
+    /// Proof: Staking SpanSlash (max_values: None, max_size: Some(76), added: 2551, mode: MaxEncodedLen)
     /// The range of component `s` is `[0, 100]`.
     fn withdraw_unbonded_kill(s: u32) -> Weight {
-        // Minimum execution time: 70_239 nanoseconds.
-        Weight::from_ref_time(75_825_109)
-            // Standard Error: 14_661
-            .saturating_add(Weight::from_ref_time(1_506_254).saturating_mul(s.into()))
-            .saturating_add(DbWeight::get().reads(7))
-            .saturating_add(DbWeight::get().writes(8))
-            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(s.into())))
+        // Proof Size summary in bytes:
+        //  Measured:  `2486 + s * (4 ±0)`
+        //  Estimated: `32303 + s * (4 ±0)`
+        // Minimum execution time: 71_968 nanoseconds.
+        Weight::from_parts(76_631_804, 32303)
+            // Standard Error: 1_613
+            .saturating_add(Weight::from_ref_time(1_058_968).saturating_mul(s.into()))
+            .saturating_add(RocksDbWeight::get().reads(13_u64))
+            .saturating_add(RocksDbWeight::get().writes(12_u64))
+            .saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(s.into())))
+            .saturating_add(Weight::from_proof_size(4).saturating_mul(s.into()))
     }
-    // Storage: Staking EraElectionStatus (r:1 w:0)
-    // Storage: Staking Ledger (r:1 w:0)
-    // Storage: Identity KeyRecords (r:1 w:0)
-    // Storage: Staking PermissionedIdentity (r:1 w:1)
-    // Storage: Staking MinimumBondThreshold (r:1 w:0)
-    // Storage: Staking ValidatorCommissionCap (r:1 w:0)
-    // Storage: Staking Validators (r:1 w:1)
-    // Storage: Identity AccountKeyRefCount (r:1 w:1)
-    // Storage: Staking Nominators (r:0 w:1)
+    /// Storage: Staking Ledger (r:1 w:0)
+    /// Proof: Staking Ledger (max_values: None, max_size: Some(1091), added: 3566, mode: MaxEncodedLen)
+    /// Storage: Staking MinValidatorBond (r:1 w:0)
+    /// Proof: Staking MinValidatorBond (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
+    /// Storage: Staking MinCommission (r:1 w:0)
+    /// Proof: Staking MinCommission (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking Validators (r:1 w:1)
+    /// Proof: Staking Validators (max_values: None, max_size: Some(45), added: 2520, mode: MaxEncodedLen)
+    /// Storage: Staking MaxValidatorsCount (r:1 w:0)
+    /// Proof: Staking MaxValidatorsCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking Nominators (r:1 w:0)
+    /// Proof: Staking Nominators (max_values: None, max_size: Some(558), added: 3033, mode: MaxEncodedLen)
+    /// Storage: Staking Bonded (r:1 w:0)
+    /// Proof: Staking Bonded (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
+    /// Storage: VoterList ListNodes (r:1 w:1)
+    /// Proof: VoterList ListNodes (max_values: None, max_size: Some(154), added: 2629, mode: MaxEncodedLen)
+    /// Storage: VoterList ListBags (r:1 w:1)
+    /// Proof: VoterList ListBags (max_values: None, max_size: Some(82), added: 2557, mode: MaxEncodedLen)
+    /// Storage: VoterList CounterForListNodes (r:1 w:1)
+    /// Proof: VoterList CounterForListNodes (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking CounterForValidators (r:1 w:1)
+    /// Proof: Staking CounterForValidators (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
     fn validate() -> Weight {
-        // Minimum execution time: 50_413 nanoseconds.
-        Weight::from_ref_time(50_854_000)
-            .saturating_add(DbWeight::get().reads(8))
-            .saturating_add(DbWeight::get().writes(4))
+        // Proof Size summary in bytes:
+        //  Measured:  `1446`
+        //  Estimated: `19359`
+        // Minimum execution time: 51_963 nanoseconds.
+        Weight::from_parts(52_418_000, 19359)
+            .saturating_add(RocksDbWeight::get().reads(11_u64))
+            .saturating_add(RocksDbWeight::get().writes(5_u64))
     }
-    // Storage: Staking MinimumBondThreshold (r:0 w:1)
-    fn set_min_bond_threshold() -> Weight {
-        // Minimum execution time: 17_182 nanoseconds.
-        Weight::from_ref_time(17_332_000).saturating_add(DbWeight::get().writes(1))
+    /// Storage: Staking Ledger (r:1 w:0)
+    /// Proof: Staking Ledger (max_values: None, max_size: Some(1091), added: 3566, mode: MaxEncodedLen)
+    /// Storage: Staking Nominators (r:128 w:128)
+    /// Proof: Staking Nominators (max_values: None, max_size: Some(558), added: 3033, mode: MaxEncodedLen)
+    /// The range of component `k` is `[1, 128]`.
+    fn kick(k: u32) -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `1292 + k * (601 ±0)`
+        //  Estimated: `3566 + k * (3033 ±0)`
+        // Minimum execution time: 25_685 nanoseconds.
+        Weight::from_parts(25_290_286, 3566)
+            // Standard Error: 5_164
+            .saturating_add(Weight::from_ref_time(6_445_608).saturating_mul(k.into()))
+            .saturating_add(RocksDbWeight::get().reads(1_u64))
+            .saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(k.into())))
+            .saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(k.into())))
+            .saturating_add(Weight::from_proof_size(3033).saturating_mul(k.into()))
     }
-    // Storage: Staking PermissionedIdentity (r:1 w:1)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Storage: Instance2Group InactiveMembers (r:1 w:0)
-    // Storage: Identity Claims (r:2 w:0)
-    // Storage: Staking ValidatorCount (r:1 w:0)
-    fn add_permissioned_validator() -> Weight {
-        // Minimum execution time: 49_461 nanoseconds.
-        Weight::from_ref_time(50_152_000)
-            .saturating_add(DbWeight::get().reads(7))
-            .saturating_add(DbWeight::get().writes(1))
-    }
-    // Storage: Staking PermissionedIdentity (r:1 w:1)
-    fn remove_permissioned_validator() -> Weight {
-        // Minimum execution time: 29_975 nanoseconds.
-        Weight::from_ref_time(30_777_000)
-            .saturating_add(DbWeight::get().reads(1))
-            .saturating_add(DbWeight::get().writes(1))
-    }
-    // Storage: Staking ValidatorCommissionCap (r:1 w:1)
-    // Storage: Staking Validators (r:2 w:1)
-    /// The range of component `m` is `[0, 150]`.
-    fn set_commission_cap(m: u32) -> Weight {
-        // Minimum execution time: 33_963 nanoseconds.
-        Weight::from_ref_time(23_510_002)
-            // Standard Error: 18_380
-            .saturating_add(Weight::from_ref_time(7_623_018).saturating_mul(m.into()))
-            .saturating_add(DbWeight::get().reads(3))
-            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(m.into())))
-            .saturating_add(DbWeight::get().writes(2))
-            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(m.into())))
-    }
-    // Storage: Staking EraElectionStatus (r:1 w:0)
-    // Storage: Staking Ledger (r:1 w:0)
-    // Storage: Staking Nominators (r:1 w:1)
-    // Storage: Identity KeyRecords (r:1 w:0)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Storage: Instance2Group InactiveMembers (r:1 w:0)
-    // Storage: Identity Claims (r:2 w:0)
-    // Storage: Staking Validators (r:2 w:1)
-    // Storage: Staking CurrentEra (r:1 w:0)
+    /// Storage: Staking Ledger (r:1 w:0)
+    /// Proof: Staking Ledger (max_values: None, max_size: Some(1091), added: 3566, mode: MaxEncodedLen)
+    /// Storage: Staking MinNominatorBond (r:1 w:0)
+    /// Proof: Staking MinNominatorBond (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
+    /// Storage: Staking Nominators (r:1 w:1)
+    /// Proof: Staking Nominators (max_values: None, max_size: Some(558), added: 3033, mode: MaxEncodedLen)
+    /// Storage: Staking MaxNominatorsCount (r:1 w:0)
+    /// Proof: Staking MaxNominatorsCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking Validators (r:17 w:0)
+    /// Proof: Staking Validators (max_values: None, max_size: Some(45), added: 2520, mode: MaxEncodedLen)
+    /// Storage: Staking CurrentEra (r:1 w:0)
+    /// Proof: Staking CurrentEra (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking Bonded (r:1 w:0)
+    /// Proof: Staking Bonded (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
+    /// Storage: VoterList ListNodes (r:2 w:2)
+    /// Proof: VoterList ListNodes (max_values: None, max_size: Some(154), added: 2629, mode: MaxEncodedLen)
+    /// Storage: VoterList ListBags (r:1 w:1)
+    /// Proof: VoterList ListBags (max_values: None, max_size: Some(82), added: 2557, mode: MaxEncodedLen)
+    /// Storage: VoterList CounterForListNodes (r:1 w:1)
+    /// Proof: VoterList CounterForListNodes (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking CounterForNominators (r:1 w:1)
+    /// Proof: Staking CounterForNominators (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
     /// The range of component `n` is `[1, 16]`.
     fn nominate(n: u32) -> Weight {
-        // Minimum execution time: 76_912 nanoseconds.
-        Weight::from_ref_time(75_251_141)
-            // Standard Error: 23_061
-            .saturating_add(Weight::from_ref_time(3_896_516).saturating_mul(n.into()))
-            .saturating_add(DbWeight::get().reads(11))
-            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
-            .saturating_add(DbWeight::get().writes(2))
+        // Proof Size summary in bytes:
+        //  Measured:  `1984 + n * (105 ±0)`
+        //  Estimated: `21988 + n * (2520 ±0)`
+        // Minimum execution time: 59_542 nanoseconds.
+        Weight::from_parts(57_558_678, 21988)
+            // Standard Error: 10_364
+            .saturating_add(Weight::from_ref_time(2_759_713).saturating_mul(n.into()))
+            .saturating_add(RocksDbWeight::get().reads(12_u64))
+            .saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(n.into())))
+            .saturating_add(RocksDbWeight::get().writes(6_u64))
+            .saturating_add(Weight::from_proof_size(2520).saturating_mul(n.into()))
     }
-    // Storage: Staking EraElectionStatus (r:1 w:0)
-    // Storage: Staking Ledger (r:1 w:0)
-    // Storage: Staking Validators (r:1 w:1)
-    // Storage: Staking Nominators (r:0 w:1)
+    /// Storage: Staking Ledger (r:1 w:0)
+    /// Proof: Staking Ledger (max_values: None, max_size: Some(1091), added: 3566, mode: MaxEncodedLen)
+    /// Storage: Staking Validators (r:1 w:0)
+    /// Proof: Staking Validators (max_values: None, max_size: Some(45), added: 2520, mode: MaxEncodedLen)
+    /// Storage: Staking Nominators (r:1 w:1)
+    /// Proof: Staking Nominators (max_values: None, max_size: Some(558), added: 3033, mode: MaxEncodedLen)
+    /// Storage: Staking CounterForNominators (r:1 w:1)
+    /// Proof: Staking CounterForNominators (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: VoterList ListNodes (r:2 w:2)
+    /// Proof: VoterList ListNodes (max_values: None, max_size: Some(154), added: 2629, mode: MaxEncodedLen)
+    /// Storage: VoterList ListBags (r:1 w:1)
+    /// Proof: VoterList ListBags (max_values: None, max_size: Some(82), added: 2557, mode: MaxEncodedLen)
+    /// Storage: VoterList CounterForListNodes (r:1 w:1)
+    /// Proof: VoterList CounterForListNodes (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
     fn chill() -> Weight {
-        // Minimum execution time: 28_182 nanoseconds.
-        Weight::from_ref_time(28_923_000)
-            .saturating_add(DbWeight::get().reads(3))
-            .saturating_add(DbWeight::get().writes(2))
+        // Proof Size summary in bytes:
+        //  Measured:  `1876`
+        //  Estimated: `17932`
+        // Minimum execution time: 52_132 nanoseconds.
+        Weight::from_parts(52_648_000, 17932)
+            .saturating_add(RocksDbWeight::get().reads(8_u64))
+            .saturating_add(RocksDbWeight::get().writes(6_u64))
     }
-    // Storage: Staking Ledger (r:1 w:0)
-    // Storage: Staking Payee (r:0 w:1)
+    /// Storage: Staking Ledger (r:1 w:0)
+    /// Proof: Staking Ledger (max_values: None, max_size: Some(1091), added: 3566, mode: MaxEncodedLen)
+    /// Storage: Staking Payee (r:0 w:1)
+    /// Proof: Staking Payee (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     fn set_payee() -> Weight {
-        // Minimum execution time: 21_490 nanoseconds.
-        Weight::from_ref_time(21_831_000)
-            .saturating_add(DbWeight::get().reads(1))
-            .saturating_add(DbWeight::get().writes(1))
+        // Proof Size summary in bytes:
+        //  Measured:  `840`
+        //  Estimated: `3566`
+        // Minimum execution time: 13_399 nanoseconds.
+        Weight::from_parts(13_567_000, 3566)
+            .saturating_add(RocksDbWeight::get().reads(1_u64))
+            .saturating_add(RocksDbWeight::get().writes(1_u64))
     }
-    // Storage: Staking Bonded (r:1 w:1)
-    // Storage: Staking Ledger (r:2 w:2)
+    /// Storage: Staking Bonded (r:1 w:1)
+    /// Proof: Staking Bonded (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
+    /// Storage: Staking Ledger (r:2 w:2)
+    /// Proof: Staking Ledger (max_values: None, max_size: Some(1091), added: 3566, mode: MaxEncodedLen)
     fn set_controller() -> Weight {
-        // Minimum execution time: 31_969 nanoseconds.
-        Weight::from_ref_time(32_259_000)
-            .saturating_add(DbWeight::get().reads(3))
-            .saturating_add(DbWeight::get().writes(3))
+        // Proof Size summary in bytes:
+        //  Measured:  `939`
+        //  Estimated: `9679`
+        // Minimum execution time: 20_425 nanoseconds.
+        Weight::from_parts(20_713_000, 9679)
+            .saturating_add(RocksDbWeight::get().reads(3_u64))
+            .saturating_add(RocksDbWeight::get().writes(3_u64))
     }
-    // Storage: Staking ValidatorCount (r:0 w:1)
-    /// The range of component `c` is `[0, 1000]`.
-    fn set_validator_count(c: u32) -> Weight {
-        // Minimum execution time: 6_743 nanoseconds.
-        Weight::from_ref_time(7_404_924)
-            // Standard Error: 70
-            .saturating_add(Weight::from_ref_time(4).saturating_mul(c.into()))
-            .saturating_add(DbWeight::get().writes(1))
+    /// Storage: Staking ValidatorCount (r:0 w:1)
+    /// Proof: Staking ValidatorCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    fn set_validator_count() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `0`
+        //  Estimated: `0`
+        // Minimum execution time: 3_069 nanoseconds.
+        Weight::from_ref_time(3_176_000).saturating_add(RocksDbWeight::get().writes(1_u64))
     }
-    // Storage: Staking ForceEra (r:0 w:1)
+    /// Storage: Staking ForceEra (r:0 w:1)
+    /// Proof: Staking ForceEra (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
     fn force_no_eras() -> Weight {
-        // Minimum execution time: 7_113 nanoseconds.
-        Weight::from_ref_time(7_374_000).saturating_add(DbWeight::get().writes(1))
+        // Proof Size summary in bytes:
+        //  Measured:  `0`
+        //  Estimated: `0`
+        // Minimum execution time: 11_386 nanoseconds.
+        Weight::from_ref_time(11_672_000).saturating_add(RocksDbWeight::get().writes(1_u64))
     }
-    // Storage: Staking ForceEra (r:0 w:1)
+    /// Storage: Staking ForceEra (r:0 w:1)
+    /// Proof: Staking ForceEra (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
     fn force_new_era() -> Weight {
-        // Minimum execution time: 6_792 nanoseconds.
-        Weight::from_ref_time(7_013_000).saturating_add(DbWeight::get().writes(1))
+        // Proof Size summary in bytes:
+        //  Measured:  `0`
+        //  Estimated: `0`
+        // Minimum execution time: 11_591 nanoseconds.
+        Weight::from_ref_time(11_799_000).saturating_add(RocksDbWeight::get().writes(1_u64))
     }
-    // Storage: Staking ForceEra (r:0 w:1)
+    /// Storage: Staking ForceEra (r:0 w:1)
+    /// Proof: Staking ForceEra (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
     fn force_new_era_always() -> Weight {
-        // Minimum execution time: 6_853 nanoseconds.
-        Weight::from_ref_time(7_033_000).saturating_add(DbWeight::get().writes(1))
+        // Proof Size summary in bytes:
+        //  Measured:  `0`
+        //  Estimated: `0`
+        // Minimum execution time: 11_553 nanoseconds.
+        Weight::from_ref_time(11_871_000).saturating_add(RocksDbWeight::get().writes(1_u64))
     }
-    // Storage: Staking Invulnerables (r:0 w:1)
+    /// Storage: Staking Invulnerables (r:0 w:1)
+    /// Proof Skipped: Staking Invulnerables (max_values: Some(1), max_size: None, mode: Measured)
     /// The range of component `v` is `[0, 1000]`.
     fn set_invulnerables(v: u32) -> Weight {
-        // Minimum execution time: 7_514 nanoseconds.
-        Weight::from_ref_time(7_638_784)
-            // Standard Error: 102
-            .saturating_add(Weight::from_ref_time(8_329).saturating_mul(v.into()))
-            .saturating_add(DbWeight::get().writes(1))
+        // Proof Size summary in bytes:
+        //  Measured:  `0`
+        //  Estimated: `0`
+        // Minimum execution time: 3_292 nanoseconds.
+        Weight::from_ref_time(3_754_352)
+            // Standard Error: 40
+            .saturating_add(Weight::from_ref_time(9_838).saturating_mul(v.into()))
+            .saturating_add(RocksDbWeight::get().writes(1_u64))
     }
-    // Storage: Staking Bonded (r:1 w:1)
-    // Storage: Staking SlashingSpans (r:1 w:0)
-    // Storage: System Account (r:1 w:1)
-    // Storage: Balances Locks (r:1 w:1)
-    // Storage: Staking Ledger (r:0 w:1)
-    // Storage: Staking Validators (r:0 w:1)
-    // Storage: Staking Payee (r:0 w:1)
-    // Storage: Staking Nominators (r:0 w:1)
-    // Storage: Staking SpanSlash (r:0 w:1)
+    /// Storage: Staking Bonded (r:1 w:1)
+    /// Proof: Staking Bonded (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
+    /// Storage: Staking SlashingSpans (r:1 w:1)
+    /// Proof Skipped: Staking SlashingSpans (max_values: None, max_size: None, mode: Measured)
+    /// Storage: Staking Validators (r:1 w:0)
+    /// Proof: Staking Validators (max_values: None, max_size: Some(45), added: 2520, mode: MaxEncodedLen)
+    /// Storage: Staking Nominators (r:1 w:1)
+    /// Proof: Staking Nominators (max_values: None, max_size: Some(558), added: 3033, mode: MaxEncodedLen)
+    /// Storage: Staking CounterForNominators (r:1 w:1)
+    /// Proof: Staking CounterForNominators (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: VoterList ListNodes (r:2 w:2)
+    /// Proof: VoterList ListNodes (max_values: None, max_size: Some(154), added: 2629, mode: MaxEncodedLen)
+    /// Storage: VoterList ListBags (r:1 w:1)
+    /// Proof: VoterList ListBags (max_values: None, max_size: Some(82), added: 2557, mode: MaxEncodedLen)
+    /// Storage: VoterList CounterForListNodes (r:1 w:1)
+    /// Proof: VoterList CounterForListNodes (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: System Account (r:1 w:1)
+    /// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
+    /// Storage: Balances Locks (r:1 w:1)
+    /// Proof: Balances Locks (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
+    /// Storage: Staking Ledger (r:0 w:1)
+    /// Proof: Staking Ledger (max_values: None, max_size: Some(1091), added: 3566, mode: MaxEncodedLen)
+    /// Storage: Staking Payee (r:0 w:1)
+    /// Proof: Staking Payee (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
+    /// Storage: Staking SpanSlash (r:0 w:100)
+    /// Proof: Staking SpanSlash (max_values: None, max_size: Some(76), added: 2551, mode: MaxEncodedLen)
     /// The range of component `s` is `[0, 100]`.
     fn force_unstake(s: u32) -> Weight {
-        // Minimum execution time: 50_323 nanoseconds.
-        Weight::from_ref_time(52_904_075)
-            // Standard Error: 4_324
-            .saturating_add(Weight::from_ref_time(1_515_165).saturating_mul(s.into()))
-            .saturating_add(DbWeight::get().reads(4))
-            .saturating_add(DbWeight::get().writes(8))
-            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(s.into())))
+        // Proof Size summary in bytes:
+        //  Measured:  `2178 + s * (4 ±0)`
+        //  Estimated: `27930 + s * (4 ±0)`
+        // Minimum execution time: 65_307 nanoseconds.
+        Weight::from_parts(70_227_980, 27930)
+            // Standard Error: 2_113
+            .saturating_add(Weight::from_ref_time(1_059_856).saturating_mul(s.into()))
+            .saturating_add(RocksDbWeight::get().reads(11_u64))
+            .saturating_add(RocksDbWeight::get().writes(12_u64))
+            .saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(s.into())))
+            .saturating_add(Weight::from_proof_size(4).saturating_mul(s.into()))
     }
-    // Storage: Staking UnappliedSlashes (r:1 w:1)
+    /// Storage: Staking UnappliedSlashes (r:1 w:1)
+    /// Proof Skipped: Staking UnappliedSlashes (max_values: None, max_size: None, mode: Measured)
     /// The range of component `s` is `[1, 1000]`.
     fn cancel_deferred_slash(s: u32) -> Weight {
-        // Minimum execution time: 97_870 nanoseconds.
-        Weight::from_ref_time(884_214_773)
-            // Standard Error: 73_183
-            .saturating_add(Weight::from_ref_time(4_668_406).saturating_mul(s.into()))
-            .saturating_add(DbWeight::get().reads(1))
-            .saturating_add(DbWeight::get().writes(1))
+        // Proof Size summary in bytes:
+        //  Measured:  `66671`
+        //  Estimated: `69146`
+        // Minimum execution time: 89_123 nanoseconds.
+        Weight::from_parts(890_989_741, 69146)
+            // Standard Error: 58_282
+            .saturating_add(Weight::from_ref_time(4_920_413).saturating_mul(s.into()))
+            .saturating_add(RocksDbWeight::get().reads(1_u64))
+            .saturating_add(RocksDbWeight::get().writes(1_u64))
     }
-    // Storage: Staking EraElectionStatus (r:1 w:0)
-    // Storage: Staking CurrentEra (r:1 w:0)
-    // Storage: Staking HistoryDepth (r:1 w:0)
-    // Storage: Staking ErasValidatorReward (r:1 w:0)
-    // Storage: Staking Bonded (r:2 w:0)
-    // Storage: Staking Ledger (r:1 w:1)
-    // Storage: Staking ErasStakersClipped (r:1 w:0)
-    // Storage: Staking ErasRewardPoints (r:1 w:0)
-    // Storage: Staking ErasValidatorPrefs (r:1 w:0)
-    // Storage: Staking Payee (r:2 w:0)
-    // Storage: System Account (r:3 w:3)
-    // Storage: Balances Locks (r:1 w:1)
-    // Storage: Identity KeyRecords (r:4 w:0)
-    // Storage: Identity IsDidFrozen (r:1 w:0)
-    /// The range of component `n` is `[1, 2048]`.
-    fn payout_stakers(n: u32) -> Weight {
-        // Minimum execution time: 1_003_723 nanoseconds.
-        Weight::from_ref_time(1_483_152_965)
-            // Standard Error: 152_019
-            .saturating_add(Weight::from_ref_time(48_944_980).saturating_mul(n.into()))
-            .saturating_add(DbWeight::get().reads(15))
-            .saturating_add(DbWeight::get().reads((6_u64).saturating_mul(n.into())))
-            .saturating_add(DbWeight::get().writes(4))
-            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
+    /// Storage: Staking CurrentEra (r:1 w:0)
+    /// Proof: Staking CurrentEra (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking ErasValidatorReward (r:1 w:0)
+    /// Proof: Staking ErasValidatorReward (max_values: None, max_size: Some(28), added: 2503, mode: MaxEncodedLen)
+    /// Storage: Staking Bonded (r:257 w:0)
+    /// Proof: Staking Bonded (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
+    /// Storage: Staking Ledger (r:1 w:1)
+    /// Proof: Staking Ledger (max_values: None, max_size: Some(1091), added: 3566, mode: MaxEncodedLen)
+    /// Storage: Staking ErasStakersClipped (r:1 w:0)
+    /// Proof Skipped: Staking ErasStakersClipped (max_values: None, max_size: None, mode: Measured)
+    /// Storage: Staking ErasRewardPoints (r:1 w:0)
+    /// Proof Skipped: Staking ErasRewardPoints (max_values: None, max_size: None, mode: Measured)
+    /// Storage: Staking ErasValidatorPrefs (r:1 w:0)
+    /// Proof: Staking ErasValidatorPrefs (max_values: None, max_size: Some(57), added: 2532, mode: MaxEncodedLen)
+    /// Storage: Staking Payee (r:257 w:0)
+    /// Proof: Staking Payee (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
+    /// Storage: System Account (r:257 w:257)
+    /// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
+    /// The range of component `n` is `[0, 256]`.
+    fn payout_stakers_dead_controller(n: u32) -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `20345 + n * (143 ±0)`
+        //  Estimated: `54756 + n * (8024 ±1)`
+        // Minimum execution time: 73_652 nanoseconds.
+        Weight::from_parts(127_839_483, 54756)
+            // Standard Error: 14_195
+            .saturating_add(Weight::from_ref_time(21_932_079).saturating_mul(n.into()))
+            .saturating_add(RocksDbWeight::get().reads(9_u64))
+            .saturating_add(RocksDbWeight::get().reads((3_u64).saturating_mul(n.into())))
+            .saturating_add(RocksDbWeight::get().writes(2_u64))
+            .saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(n.into())))
+            .saturating_add(Weight::from_proof_size(8024).saturating_mul(n.into()))
     }
-    // Storage: Staking EraElectionStatus (r:1 w:0)
-    // Storage: Staking CurrentEra (r:1 w:0)
-    // Storage: Staking HistoryDepth (r:1 w:0)
-    // Storage: Staking ErasValidatorReward (r:1 w:0)
-    // Storage: Staking Bonded (r:2 w:0)
-    // Storage: Staking Ledger (r:2 w:2)
-    // Storage: Staking ErasStakersClipped (r:1 w:0)
-    // Storage: Staking ErasRewardPoints (r:1 w:0)
-    // Storage: Staking ErasValidatorPrefs (r:1 w:0)
-    // Storage: Staking Payee (r:2 w:0)
-    // Storage: System Account (r:3 w:3)
-    // Storage: Balances Locks (r:2 w:2)
-    // Storage: Identity KeyRecords (r:3 w:0)
-    /// The range of component `n` is `[1, 2048]`.
-    fn payout_stakers_alive_controller(n: u32) -> Weight {
-        // Minimum execution time: 1_106_463 nanoseconds.
-        Weight::from_ref_time(1_328_865_997)
-            // Standard Error: 120_768
-            .saturating_add(Weight::from_ref_time(57_264_608).saturating_mul(n.into()))
-            .saturating_add(DbWeight::get().reads(15))
-            .saturating_add(DbWeight::get().reads((6_u64).saturating_mul(n.into())))
-            .saturating_add(DbWeight::get().writes(4))
-            .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
+    /// Storage: Staking CurrentEra (r:1 w:0)
+    /// Proof: Staking CurrentEra (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking ErasValidatorReward (r:1 w:0)
+    /// Proof: Staking ErasValidatorReward (max_values: None, max_size: Some(28), added: 2503, mode: MaxEncodedLen)
+    /// Storage: Staking Bonded (r:257 w:0)
+    /// Proof: Staking Bonded (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
+    /// Storage: Staking Ledger (r:257 w:257)
+    /// Proof: Staking Ledger (max_values: None, max_size: Some(1091), added: 3566, mode: MaxEncodedLen)
+    /// Storage: Staking ErasStakersClipped (r:1 w:0)
+    /// Proof Skipped: Staking ErasStakersClipped (max_values: None, max_size: None, mode: Measured)
+    /// Storage: Staking ErasRewardPoints (r:1 w:0)
+    /// Proof Skipped: Staking ErasRewardPoints (max_values: None, max_size: None, mode: Measured)
+    /// Storage: Staking ErasValidatorPrefs (r:1 w:0)
+    /// Proof: Staking ErasValidatorPrefs (max_values: None, max_size: Some(57), added: 2532, mode: MaxEncodedLen)
+    /// Storage: Staking Payee (r:257 w:0)
+    /// Proof: Staking Payee (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
+    /// Storage: System Account (r:257 w:257)
+    /// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
+    /// Storage: Balances Locks (r:257 w:257)
+    /// Proof: Balances Locks (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
+    /// The range of component `n` is `[0, 256]`.
+    fn payout_stakers_alive_staked(n: u32) -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `35099 + n * (465 ±0)`
+        //  Estimated: `83594 + n * (16026 ±0)`
+        // Minimum execution time: 94_560 nanoseconds.
+        Weight::from_parts(154_033_219, 83594)
+            // Standard Error: 26_663
+            .saturating_add(Weight::from_ref_time(31_269_223).saturating_mul(n.into()))
+            .saturating_add(RocksDbWeight::get().reads(10_u64))
+            .saturating_add(RocksDbWeight::get().reads((5_u64).saturating_mul(n.into())))
+            .saturating_add(RocksDbWeight::get().writes(3_u64))
+            .saturating_add(RocksDbWeight::get().writes((3_u64).saturating_mul(n.into())))
+            .saturating_add(Weight::from_proof_size(16026).saturating_mul(n.into()))
     }
-    // Storage: Staking EraElectionStatus (r:1 w:0)
-    // Storage: Staking Ledger (r:1 w:1)
-    // Storage: Balances Locks (r:1 w:1)
-    // Storage: System Account (r:1 w:1)
-    /// The range of component `u` is `[0, 1000]`.
+    /// Storage: Staking Ledger (r:1 w:1)
+    /// Proof: Staking Ledger (max_values: None, max_size: Some(1091), added: 3566, mode: MaxEncodedLen)
+    /// Storage: Balances Locks (r:1 w:1)
+    /// Proof: Balances Locks (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
+    /// Storage: System Account (r:1 w:1)
+    /// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
+    /// Storage: VoterList ListNodes (r:3 w:3)
+    /// Proof: VoterList ListNodes (max_values: None, max_size: Some(154), added: 2629, mode: MaxEncodedLen)
+    /// Storage: Staking Bonded (r:1 w:0)
+    /// Proof: Staking Bonded (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
+    /// Storage: VoterList ListBags (r:2 w:2)
+    /// Proof: VoterList ListBags (max_values: None, max_size: Some(82), added: 2557, mode: MaxEncodedLen)
     /// The range of component `l` is `[1, 32]`.
-    fn rebond(u: u32) -> Weight {
-        // Minimum execution time: 47_949 nanoseconds.
-        Weight::from_ref_time(49_739_043)
-            // Standard Error: 5_104
-            .saturating_add(Weight::from_ref_time(1_000).saturating_mul(u.into()))
-            .saturating_add(DbWeight::get().reads(4))
-            .saturating_add(DbWeight::get().writes(3))
+    fn rebond(l: u32) -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `2253 + l * (7 ±0)`
+        //  Estimated: `25491`
+        // Minimum execution time: 74_764 nanoseconds.
+        Weight::from_parts(75_814_067, 25491)
+            // Standard Error: 1_217
+            .saturating_add(Weight::from_ref_time(64_725).saturating_mul(l.into()))
+            .saturating_add(RocksDbWeight::get().reads(9_u64))
+            .saturating_add(RocksDbWeight::get().writes(8_u64))
     }
-    // Storage: Staking CurrentEra (r:1 w:0)
-    // Storage: Staking HistoryDepth (r:1 w:1)
-    // Storage: Staking ErasStakersClipped (r:0 w:2)
-    // Storage: Staking ErasValidatorPrefs (r:0 w:2)
-    // Storage: Staking ErasValidatorReward (r:0 w:1)
-    // Storage: Staking ErasRewardPoints (r:0 w:1)
-    // Storage: Staking ErasStakers (r:0 w:2)
-    // Storage: Staking ErasTotalStake (r:0 w:1)
-    // Storage: Staking ErasStartSessionIndex (r:0 w:1)
-    /// The range of component `e` is `[1, 100]`.
-    fn set_history_depth(e: u32) -> Weight {
-        // Minimum execution time: 42_097 nanoseconds.
-        Weight::from_ref_time(42_479_000)
-            // Standard Error: 71_075
-            .saturating_add(Weight::from_ref_time(23_670_060).saturating_mul(e.into()))
-            .saturating_add(DbWeight::get().reads(2))
-            .saturating_add(DbWeight::get().writes(4))
-            .saturating_add(DbWeight::get().writes((7_u64).saturating_mul(e.into())))
-    }
-    // Storage: System Account (r:1 w:1)
-    // Storage: Staking Bonded (r:1 w:1)
-    // Storage: Staking SlashingSpans (r:1 w:1)
-    // Storage: Balances Locks (r:1 w:1)
-    // Storage: Staking Ledger (r:0 w:1)
-    // Storage: Staking Validators (r:0 w:1)
-    // Storage: Staking Payee (r:0 w:1)
-    // Storage: Staking Nominators (r:0 w:1)
-    // Storage: Staking SpanSlash (r:0 w:1)
+    /// Storage: System Account (r:1 w:1)
+    /// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
+    /// Storage: Staking Bonded (r:1 w:1)
+    /// Proof: Staking Bonded (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
+    /// Storage: Staking Ledger (r:1 w:1)
+    /// Proof: Staking Ledger (max_values: None, max_size: Some(1091), added: 3566, mode: MaxEncodedLen)
+    /// Storage: Staking SlashingSpans (r:1 w:1)
+    /// Proof Skipped: Staking SlashingSpans (max_values: None, max_size: None, mode: Measured)
+    /// Storage: Staking Validators (r:1 w:0)
+    /// Proof: Staking Validators (max_values: None, max_size: Some(45), added: 2520, mode: MaxEncodedLen)
+    /// Storage: Staking Nominators (r:1 w:1)
+    /// Proof: Staking Nominators (max_values: None, max_size: Some(558), added: 3033, mode: MaxEncodedLen)
+    /// Storage: Staking CounterForNominators (r:1 w:1)
+    /// Proof: Staking CounterForNominators (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: VoterList ListNodes (r:2 w:2)
+    /// Proof: VoterList ListNodes (max_values: None, max_size: Some(154), added: 2629, mode: MaxEncodedLen)
+    /// Storage: VoterList ListBags (r:1 w:1)
+    /// Proof: VoterList ListBags (max_values: None, max_size: Some(82), added: 2557, mode: MaxEncodedLen)
+    /// Storage: VoterList CounterForListNodes (r:1 w:1)
+    /// Proof: VoterList CounterForListNodes (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Balances Locks (r:1 w:1)
+    /// Proof: Balances Locks (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
+    /// Storage: Staking Payee (r:0 w:1)
+    /// Proof: Staking Payee (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
+    /// Storage: Staking SpanSlash (r:0 w:100)
+    /// Proof: Staking SpanSlash (max_values: None, max_size: Some(76), added: 2551, mode: MaxEncodedLen)
     /// The range of component `s` is `[1, 100]`.
     fn reap_stash(s: u32) -> Weight {
-        // Minimum execution time: 60_181 nanoseconds.
-        Weight::from_ref_time(62_880_483)
-            // Standard Error: 2_922
-            .saturating_add(Weight::from_ref_time(1_565_560).saturating_mul(s.into()))
-            .saturating_add(DbWeight::get().reads(4))
-            .saturating_add(DbWeight::get().writes(8))
-            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(s.into())))
+        // Proof Size summary in bytes:
+        //  Measured:  `2486 + s * (4 ±0)`
+        //  Estimated: `31810 + s * (4 ±0)`
+        // Minimum execution time: 77_611 nanoseconds.
+        Weight::from_parts(79_760_034, 31810)
+            // Standard Error: 1_597
+            .saturating_add(Weight::from_ref_time(1_039_268).saturating_mul(s.into()))
+            .saturating_add(RocksDbWeight::get().reads(12_u64))
+            .saturating_add(RocksDbWeight::get().writes(12_u64))
+            .saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(s.into())))
+            .saturating_add(Weight::from_proof_size(4).saturating_mul(s.into()))
     }
-    // Storage: Staking CurrentEra (r:1 w:1)
-    // Storage: Staking HistoryDepth (r:1 w:0)
-    // Storage: Staking QueuedElected (r:1 w:0)
-    // Storage: Staking Validators (r:2 w:0)
-    // Storage: Staking Bonded (r:101 w:0)
-    // Storage: Staking Ledger (r:101 w:0)
-    // Storage: Staking MinimumBondThreshold (r:1 w:0)
-    // Storage: Identity KeyRecords (r:101 w:0)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Storage: Instance2Group InactiveMembers (r:1 w:0)
-    // Storage: Identity Claims (r:202 w:0)
-    // Storage: Staking PermissionedIdentity (r:1 w:0)
-    // Storage: Staking Nominators (r:101 w:0)
-    // Storage: Staking SlashingSpans (r:1 w:0)
-    // Storage: Staking MinimumValidatorCount (r:1 w:0)
-    // Storage: Staking ValidatorCount (r:1 w:0)
-    // Storage: Staking ErasStakersClipped (r:0 w:1)
-    // Storage: Staking ErasValidatorPrefs (r:0 w:1)
-    // Storage: Staking SnapshotValidators (r:0 w:1)
-    // Storage: Staking ErasStakers (r:0 w:1)
-    // Storage: Staking ErasTotalStake (r:0 w:1)
-    // Storage: Staking IsCurrentSessionFinal (r:0 w:1)
-    // Storage: Staking ErasStartSessionIndex (r:0 w:1)
-    // Storage: Staking QueuedScore (r:0 w:1)
-    // Storage: Staking EraElectionStatus (r:0 w:1)
-    // Storage: Staking SnapshotNominators (r:0 w:1)
+    /// Storage: VoterList CounterForListNodes (r:1 w:0)
+    /// Proof: VoterList CounterForListNodes (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: VoterList ListBags (r:200 w:0)
+    /// Proof: VoterList ListBags (max_values: None, max_size: Some(82), added: 2557, mode: MaxEncodedLen)
+    /// Storage: VoterList ListNodes (r:110 w:0)
+    /// Proof: VoterList ListNodes (max_values: None, max_size: Some(154), added: 2629, mode: MaxEncodedLen)
+    /// Storage: Staking Nominators (r:110 w:0)
+    /// Proof: Staking Nominators (max_values: None, max_size: Some(558), added: 3033, mode: MaxEncodedLen)
+    /// Storage: Staking Validators (r:11 w:0)
+    /// Proof: Staking Validators (max_values: None, max_size: Some(45), added: 2520, mode: MaxEncodedLen)
+    /// Storage: Staking Bonded (r:110 w:0)
+    /// Proof: Staking Bonded (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
+    /// Storage: Staking Ledger (r:110 w:0)
+    /// Proof: Staking Ledger (max_values: None, max_size: Some(1091), added: 3566, mode: MaxEncodedLen)
+    /// Storage: Staking CounterForValidators (r:1 w:0)
+    /// Proof: Staking CounterForValidators (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking ValidatorCount (r:1 w:0)
+    /// Proof: Staking ValidatorCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking MinimumValidatorCount (r:1 w:0)
+    /// Proof: Staking MinimumValidatorCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking CurrentEra (r:1 w:1)
+    /// Proof: Staking CurrentEra (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking ErasStakersClipped (r:0 w:10)
+    /// Proof Skipped: Staking ErasStakersClipped (max_values: None, max_size: None, mode: Measured)
+    /// Storage: Staking ErasValidatorPrefs (r:0 w:10)
+    /// Proof: Staking ErasValidatorPrefs (max_values: None, max_size: Some(57), added: 2532, mode: MaxEncodedLen)
+    /// Storage: Staking ErasStakers (r:0 w:10)
+    /// Proof Skipped: Staking ErasStakers (max_values: None, max_size: None, mode: Measured)
+    /// Storage: Staking ErasTotalStake (r:0 w:1)
+    /// Proof: Staking ErasTotalStake (max_values: None, max_size: Some(28), added: 2503, mode: MaxEncodedLen)
+    /// Storage: Staking ErasStartSessionIndex (r:0 w:1)
+    /// Proof: Staking ErasStartSessionIndex (max_values: None, max_size: Some(16), added: 2491, mode: MaxEncodedLen)
+    /// Storage: Staking MinimumActiveStake (r:0 w:1)
+    /// Proof: Staking MinimumActiveStake (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
     /// The range of component `v` is `[1, 10]`.
-    /// The range of component `n` is `[1, 100]`.
+    /// The range of component `n` is `[0, 100]`.
     fn new_era(v: u32, n: u32) -> Weight {
-        // Minimum execution time: 612_651 nanoseconds.
-        Weight::from_ref_time(613_213_000)
-            // Standard Error: 3_914_944
-            .saturating_add(Weight::from_ref_time(85_170_068).saturating_mul(v.into()))
-            // Standard Error: 402_138
-            .saturating_add(Weight::from_ref_time(35_397_639).saturating_mul(n.into()))
-            .saturating_add(DbWeight::get().reads(11))
-            .saturating_add(DbWeight::get().reads((8_u64).saturating_mul(v.into())))
-            .saturating_add(DbWeight::get().reads((6_u64).saturating_mul(n.into())))
-            .saturating_add(DbWeight::get().writes(8))
-            .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(v.into())))
+        // Proof Size summary in bytes:
+        //  Measured:  `0 + v * (3662 ±0) + n * (816 ±0)`
+        //  Estimated: `528203 + v * (16743 ±0) + n * (12947 ±0)`
+        // Minimum execution time: 489_824 nanoseconds.
+        Weight::from_parts(491_687_000, 528203)
+            // Standard Error: 1_787_577
+            .saturating_add(Weight::from_ref_time(58_719_498).saturating_mul(v.into()))
+            // Standard Error: 178_122
+            .saturating_add(Weight::from_ref_time(13_273_555).saturating_mul(n.into()))
+            .saturating_add(RocksDbWeight::get().reads(206_u64))
+            .saturating_add(RocksDbWeight::get().reads((5_u64).saturating_mul(v.into())))
+            .saturating_add(RocksDbWeight::get().reads((4_u64).saturating_mul(n.into())))
+            .saturating_add(RocksDbWeight::get().writes(4_u64))
+            .saturating_add(RocksDbWeight::get().writes((3_u64).saturating_mul(v.into())))
+            .saturating_add(Weight::from_proof_size(16743).saturating_mul(v.into()))
+            .saturating_add(Weight::from_proof_size(12947).saturating_mul(n.into()))
     }
-    // Storage: Staking EraElectionStatus (r:1 w:0)
-    // Storage: Staking CurrentEra (r:1 w:0)
-    // Storage: Staking HistoryDepth (r:1 w:0)
-    // Storage: Staking ErasValidatorReward (r:1 w:0)
-    // Storage: Staking Bonded (r:101 w:0)
-    // Storage: Staking Ledger (r:101 w:101)
-    // Storage: Staking ErasStakersClipped (r:1 w:0)
-    // Storage: Staking ErasRewardPoints (r:1 w:0)
-    // Storage: Staking ErasValidatorPrefs (r:1 w:0)
-    // Storage: Staking Payee (r:101 w:0)
-    // Storage: System Account (r:102 w:102)
-    // Storage: Balances Locks (r:101 w:101)
-    // Storage: Identity KeyRecords (r:102 w:0)
-    /// The range of component `v` is `[1, 10]`.
-    /// The range of component `n` is `[1, 100]`.
-    fn payout_all(v: u32, n: u32) -> Weight {
-        // Minimum execution time: 1_027_959 nanoseconds.
-        Weight::from_ref_time(1_028_740_000)
-            // Standard Error: 46_424_607
-            .saturating_add(Weight::from_ref_time(1_008_136_990).saturating_mul(v.into()))
-            // Standard Error: 4_768_680
-            .saturating_add(Weight::from_ref_time(130_031_197).saturating_mul(n.into()))
-            .saturating_add(DbWeight::get().reads(7))
-            .saturating_add(DbWeight::get().reads((8_u64).saturating_mul(v.into())))
-            .saturating_add(DbWeight::get().reads((6_u64).saturating_mul(n.into())))
-            .saturating_add(DbWeight::get().writes(1))
-            .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(v.into())))
-            .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
+    /// Storage: VoterList CounterForListNodes (r:1 w:0)
+    /// Proof: VoterList CounterForListNodes (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: VoterList ListBags (r:200 w:0)
+    /// Proof: VoterList ListBags (max_values: None, max_size: Some(82), added: 2557, mode: MaxEncodedLen)
+    /// Storage: VoterList ListNodes (r:2000 w:0)
+    /// Proof: VoterList ListNodes (max_values: None, max_size: Some(154), added: 2629, mode: MaxEncodedLen)
+    /// Storage: Staking Nominators (r:2000 w:0)
+    /// Proof: Staking Nominators (max_values: None, max_size: Some(558), added: 3033, mode: MaxEncodedLen)
+    /// Storage: Staking Validators (r:1000 w:0)
+    /// Proof: Staking Validators (max_values: None, max_size: Some(45), added: 2520, mode: MaxEncodedLen)
+    /// Storage: Staking Bonded (r:2000 w:0)
+    /// Proof: Staking Bonded (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
+    /// Storage: Staking Ledger (r:2000 w:0)
+    /// Proof: Staking Ledger (max_values: None, max_size: Some(1091), added: 3566, mode: MaxEncodedLen)
+    /// Storage: Staking MinimumActiveStake (r:0 w:1)
+    /// Proof: Staking MinimumActiveStake (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
+    /// The range of component `v` is `[500, 1000]`.
+    /// The range of component `n` is `[500, 1000]`.
+    fn get_npos_voters(v: u32, n: u32) -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `3167 + v * (459 ±0) + n * (1007 ±0)`
+        //  Estimated: `511899 + v * (14295 ±0) + n * (11775 ±0)`
+        // Minimum execution time: 23_373_467 nanoseconds.
+        Weight::from_parts(23_497_257_000, 511899)
+            // Standard Error: 299_205
+            .saturating_add(Weight::from_ref_time(3_434_000).saturating_mul(v.into()))
+            // Standard Error: 299_205
+            .saturating_add(Weight::from_ref_time(2_568_954).saturating_mul(n.into()))
+            .saturating_add(RocksDbWeight::get().reads(201_u64))
+            .saturating_add(RocksDbWeight::get().reads((5_u64).saturating_mul(v.into())))
+            .saturating_add(RocksDbWeight::get().reads((4_u64).saturating_mul(n.into())))
+            .saturating_add(RocksDbWeight::get().writes(1_u64))
+            .saturating_add(Weight::from_proof_size(14295).saturating_mul(v.into()))
+            .saturating_add(Weight::from_proof_size(11775).saturating_mul(n.into()))
     }
-    // Storage: Staking Bonded (r:1 w:0)
-    // Storage: Staking Ledger (r:1 w:1)
-    // Storage: System Account (r:1 w:1)
-    // Storage: Balances Locks (r:1 w:1)
-    /// The range of component `l` is `[1, 32]`.
-    fn do_slash(l: u32) -> Weight {
-        // Minimum execution time: 57_176 nanoseconds.
-        Weight::from_ref_time(59_802_895)
-            // Standard Error: 11_466
-            .saturating_add(Weight::from_ref_time(32_868).saturating_mul(l.into()))
-            .saturating_add(DbWeight::get().reads(4))
-            .saturating_add(DbWeight::get().writes(3))
+    /// Storage: Staking CounterForValidators (r:1 w:0)
+    /// Proof: Staking CounterForValidators (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking Validators (r:1001 w:0)
+    /// Proof: Staking Validators (max_values: None, max_size: Some(45), added: 2520, mode: MaxEncodedLen)
+    /// The range of component `v` is `[500, 1000]`.
+    fn get_npos_targets(v: u32) -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `983 + v * (50 ±0)`
+        //  Estimated: `3019 + v * (2520 ±0)`
+        // Minimum execution time: 3_882_120 nanoseconds.
+        Weight::from_parts(3_951_993_000, 3019)
+            // Standard Error: 46_729
+            .saturating_add(Weight::from_ref_time(2_856_043).saturating_mul(v.into()))
+            .saturating_add(RocksDbWeight::get().reads(2_u64))
+            .saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(v.into())))
+            .saturating_add(Weight::from_proof_size(2520).saturating_mul(v.into()))
     }
-    // Storage: Staking EraElectionStatus (r:1 w:0)
-    // Storage: Staking CurrentEra (r:1 w:0)
-    // Storage: Staking QueuedScore (r:1 w:1)
-    // Storage: Staking SnapshotValidators (r:1 w:0)
-    // Storage: Staking ValidatorCount (r:1 w:0)
-    // Storage: Staking SnapshotNominators (r:1 w:0)
-    // Storage: Staking Validators (r:500 w:0)
-    // Storage: Staking Nominators (r:500 w:0)
-    // Storage: Staking SlashingSpans (r:100 w:0)
-    // Storage: Staking Bonded (r:500 w:0)
-    // Storage: Staking Ledger (r:500 w:0)
-    // Storage: Staking QueuedElected (r:0 w:1)
-    /// The range of component `v` is `[1000, 2000]`.
-    /// The range of component `n` is `[1000, 2000]`.
-    /// The range of component `a` is `[200, 500]`.
-    /// The range of component `w` is `[16, 100]`.
-    fn submit_solution_better(v: u32, _n: u32, a: u32, w: u32) -> Weight {
-        // Minimum execution time: 14_586_378 nanoseconds.
-        Weight::from_ref_time(14_875_622_000)
-            // Standard Error: 93_923
-            .saturating_add(Weight::from_ref_time(355_707).saturating_mul(v.into()))
-            // Standard Error: 336_506
-            .saturating_add(Weight::from_ref_time(27_529_904).saturating_mul(a.into()))
-            .saturating_add(DbWeight::get().reads(6))
-            .saturating_add(DbWeight::get().reads((4_u64).saturating_mul(a.into())))
-            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(w.into())))
-            .saturating_add(DbWeight::get().writes(2))
+    /// Storage: Staking MinCommission (r:0 w:1)
+    /// Proof: Staking MinCommission (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking MinValidatorBond (r:0 w:1)
+    /// Proof: Staking MinValidatorBond (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
+    /// Storage: Staking MaxValidatorsCount (r:0 w:1)
+    /// Proof: Staking MaxValidatorsCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking ChillThreshold (r:0 w:1)
+    /// Proof: Staking ChillThreshold (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
+    /// Storage: Staking MaxNominatorsCount (r:0 w:1)
+    /// Proof: Staking MaxNominatorsCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking MinNominatorBond (r:0 w:1)
+    /// Proof: Staking MinNominatorBond (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
+    fn set_staking_configs_all_set() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `0`
+        //  Estimated: `0`
+        // Minimum execution time: 8_427 nanoseconds.
+        Weight::from_ref_time(8_794_000).saturating_add(RocksDbWeight::get().writes(6_u64))
     }
-    // Storage: Staking SlashingAllowedFor (r:0 w:1)
+    /// Storage: Staking MinCommission (r:0 w:1)
+    /// Proof: Staking MinCommission (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking MinValidatorBond (r:0 w:1)
+    /// Proof: Staking MinValidatorBond (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
+    /// Storage: Staking MaxValidatorsCount (r:0 w:1)
+    /// Proof: Staking MaxValidatorsCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking ChillThreshold (r:0 w:1)
+    /// Proof: Staking ChillThreshold (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
+    /// Storage: Staking MaxNominatorsCount (r:0 w:1)
+    /// Proof: Staking MaxNominatorsCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking MinNominatorBond (r:0 w:1)
+    /// Proof: Staking MinNominatorBond (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
+    fn set_staking_configs_all_remove() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `0`
+        //  Estimated: `0`
+        // Minimum execution time: 7_620 nanoseconds.
+        Weight::from_ref_time(7_901_000).saturating_add(RocksDbWeight::get().writes(6_u64))
+    }
+    /// Storage: Staking Ledger (r:1 w:0)
+    /// Proof: Staking Ledger (max_values: None, max_size: Some(1091), added: 3566, mode: MaxEncodedLen)
+    /// Storage: Staking Nominators (r:1 w:1)
+    /// Proof: Staking Nominators (max_values: None, max_size: Some(558), added: 3033, mode: MaxEncodedLen)
+    /// Storage: Staking ChillThreshold (r:1 w:0)
+    /// Proof: Staking ChillThreshold (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
+    /// Storage: Staking MaxNominatorsCount (r:1 w:0)
+    /// Proof: Staking MaxNominatorsCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking CounterForNominators (r:1 w:1)
+    /// Proof: Staking CounterForNominators (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking MinNominatorBond (r:1 w:0)
+    /// Proof: Staking MinNominatorBond (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
+    /// Storage: Staking Validators (r:1 w:0)
+    /// Proof: Staking Validators (max_values: None, max_size: Some(45), added: 2520, mode: MaxEncodedLen)
+    /// Storage: VoterList ListNodes (r:2 w:2)
+    /// Proof: VoterList ListNodes (max_values: None, max_size: Some(154), added: 2629, mode: MaxEncodedLen)
+    /// Storage: VoterList ListBags (r:1 w:1)
+    /// Proof: VoterList ListBags (max_values: None, max_size: Some(82), added: 2557, mode: MaxEncodedLen)
+    /// Storage: VoterList CounterForListNodes (r:1 w:1)
+    /// Proof: VoterList CounterForListNodes (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    fn chill_other() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `2031`
+        //  Estimated: `19438`
+        // Minimum execution time: 66_188 nanoseconds.
+        Weight::from_parts(66_767_000, 19438)
+            .saturating_add(RocksDbWeight::get().reads(11_u64))
+            .saturating_add(RocksDbWeight::get().writes(6_u64))
+    }
+    /// Storage: Staking MinCommission (r:1 w:0)
+    /// Proof: Staking MinCommission (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    /// Storage: Staking Validators (r:1 w:1)
+    /// Proof: Staking Validators (max_values: None, max_size: Some(45), added: 2520, mode: MaxEncodedLen)
+    fn force_apply_min_commission() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `694`
+        //  Estimated: `3019`
+        // Minimum execution time: 14_703 nanoseconds.
+        Weight::from_parts(15_031_000, 3019)
+            .saturating_add(RocksDbWeight::get().reads(2_u64))
+            .saturating_add(RocksDbWeight::get().writes(1_u64))
+    }
+    /// Storage: Staking MinCommission (r:0 w:1)
+    /// Proof: Staking MinCommission (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+    fn set_min_commission() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `0`
+        //  Estimated: `0`
+        // Minimum execution time: 4_518 nanoseconds.
+        Weight::from_ref_time(4_656_000).saturating_add(RocksDbWeight::get().writes(1_u64))
+    }
+    fn add_permissioned_validator() -> Weight {
+        Weight::zero()
+    }
+    fn remove_permissioned_validator() -> Weight {
+        Weight::zero()
+    }
     fn change_slashing_allowed_for() -> Weight {
-        // Minimum execution time: 18_825 nanoseconds.
-        Weight::from_ref_time(19_806_000).saturating_add(DbWeight::get().writes(1))
+        Weight::zero()
     }
-    // Storage: Staking ValidatorCount (r:1 w:0)
-    // Storage: Staking PermissionedIdentity (r:1 w:1)
     fn update_permissioned_validator_intended_count() -> Weight {
-        // Minimum execution time: 24_676 nanoseconds.
-        Weight::from_ref_time(25_327_000)
-            .saturating_add(DbWeight::get().reads(2))
-            .saturating_add(DbWeight::get().writes(1))
+        Weight::zero()
     }
-    // Storage: Staking ValidatorCount (r:1 w:1)
-    fn increase_validator_count() -> Weight {
-        // Minimum execution time: 17_052 nanoseconds.
-        Weight::from_ref_time(17_312_000)
-            .saturating_add(DbWeight::get().reads(1))
-            .saturating_add(DbWeight::get().writes(1))
+    fn chill_from_governance(_n: u32) -> Weight {
+        Weight::zero()
     }
-    // Storage: Staking ValidatorCount (r:1 w:1)
-    fn scale_validator_count() -> Weight {
-        // Minimum execution time: 16_821 nanoseconds.
-        Weight::from_ref_time(17_493_000)
-            .saturating_add(DbWeight::get().reads(1))
-            .saturating_add(DbWeight::get().writes(1))
+    fn set_commission_cap(_n: u32) -> Weight {
+        Weight::zero()
     }
-    // Storage: Staking EraElectionStatus (r:1 w:0)
-    // Storage: Staking PermissionedIdentity (r:1 w:1)
-    // Storage: Identity KeyRecords (r:1 w:0)
-    // Storage: Identity IsDidFrozen (r:1 w:0)
-    // Storage: Staking Validators (r:1 w:1)
-    // Storage: Identity AccountKeyRefCount (r:1 w:1)
-    // Storage: Staking Nominators (r:0 w:1)
-    /// The range of component `s` is `[1, 100]`.
-    fn chill_from_governance(s: u32) -> Weight {
-        // Minimum execution time: 54_241 nanoseconds.
-        Weight::from_ref_time(60_823_853)
-            // Standard Error: 45_698
-            .saturating_add(Weight::from_ref_time(17_368_108).saturating_mul(s.into()))
-            .saturating_add(DbWeight::get().reads(3))
-            .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(s.into())))
-            .saturating_add(DbWeight::get().writes(1))
-            .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(s.into())))
+    fn validate_cdd_expiry_nominators(_n: u32) -> Weight {
+        Weight::zero()
     }
 }

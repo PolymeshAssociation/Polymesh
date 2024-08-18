@@ -166,6 +166,99 @@ declare module '@polkadot/api-base/types/consts' {
        **/
       [key: string]: Codec;
     };
+    electionProviderMultiPhase: {
+      /**
+       * The minimum amount of improvement to the solution score that defines a solution as
+       * "better" in the Signed phase.
+       **/
+      betterSignedThreshold: Perbill & AugmentedConst<ApiType>;
+      /**
+       * The minimum amount of improvement to the solution score that defines a solution as
+       * "better" in the Unsigned phase.
+       **/
+      betterUnsignedThreshold: Perbill & AugmentedConst<ApiType>;
+      /**
+       * The maximum number of electable targets to put in the snapshot.
+       **/
+      maxElectableTargets: u16 & AugmentedConst<ApiType>;
+      /**
+       * The maximum number of electing voters to put in the snapshot. At the moment, snapshots
+       * are only over a single block, but once multi-block elections are introduced they will
+       * take place over multiple blocks.
+       **/
+      maxElectingVoters: u32 & AugmentedConst<ApiType>;
+      /**
+       * The maximum number of winners that can be elected by this `ElectionProvider`
+       * implementation.
+       * 
+       * Note: This must always be greater or equal to `T::DataProvider::desired_targets()`.
+       **/
+      maxWinners: u32 & AugmentedConst<ApiType>;
+      minerMaxLength: u32 & AugmentedConst<ApiType>;
+      minerMaxVotesPerVoter: u32 & AugmentedConst<ApiType>;
+      minerMaxWeight: SpWeightsWeightV2Weight & AugmentedConst<ApiType>;
+      /**
+       * The priority of the unsigned transaction submitted in the unsigned-phase
+       **/
+      minerTxPriority: u64 & AugmentedConst<ApiType>;
+      /**
+       * The repeat threshold of the offchain worker.
+       * 
+       * For example, if it is 5, that means that at least 5 blocks will elapse between attempts
+       * to submit the worker's solution.
+       **/
+      offchainRepeat: u32 & AugmentedConst<ApiType>;
+      /**
+       * Base deposit for a signed solution.
+       **/
+      signedDepositBase: u128 & AugmentedConst<ApiType>;
+      /**
+       * Per-byte deposit for a signed solution.
+       **/
+      signedDepositByte: u128 & AugmentedConst<ApiType>;
+      /**
+       * Per-weight deposit for a signed solution.
+       **/
+      signedDepositWeight: u128 & AugmentedConst<ApiType>;
+      /**
+       * The maximum amount of unchecked solutions to refund the call fee for.
+       **/
+      signedMaxRefunds: u32 & AugmentedConst<ApiType>;
+      /**
+       * Maximum number of signed submissions that can be queued.
+       * 
+       * It is best to avoid adjusting this during an election, as it impacts downstream data
+       * structures. In particular, `SignedSubmissionIndices<T>` is bounded on this value. If you
+       * update this value during an election, you _must_ ensure that
+       * `SignedSubmissionIndices.len()` is less than or equal to the new value. Otherwise,
+       * attempts to submit new solutions may cause a runtime panic.
+       **/
+      signedMaxSubmissions: u32 & AugmentedConst<ApiType>;
+      /**
+       * Maximum weight of a signed solution.
+       * 
+       * If [`Config::MinerConfig`] is being implemented to submit signed solutions (outside of
+       * this pallet), then [`MinerConfig::solution_weight`] is used to compare against
+       * this value.
+       **/
+      signedMaxWeight: SpWeightsWeightV2Weight & AugmentedConst<ApiType>;
+      /**
+       * Duration of the signed phase.
+       **/
+      signedPhase: u32 & AugmentedConst<ApiType>;
+      /**
+       * Base reward for a signed solution
+       **/
+      signedRewardBase: u128 & AugmentedConst<ApiType>;
+      /**
+       * Duration of the unsigned phase.
+       **/
+      unsignedPhase: u32 & AugmentedConst<ApiType>;
+      /**
+       * Generic const
+       **/
+      [key: string]: Codec;
+    };
     grandpa: {
       /**
        * Max Authorities in use
@@ -261,29 +354,36 @@ declare module '@polkadot/api-base/types/consts' {
     };
     staking: {
       /**
-       * Number of eras that staked funds must remain bonded for.]
+       * Number of eras that staked funds must remain bonded for.
        **/
       bondingDuration: u32 & AugmentedConst<ApiType>;
-      /**
-       * The number of blocks before the end of the era from which election submissions are allowed.
-       * 
-       * Setting this to zero will disable the offchain compute and only on-chain seq-phragmen will
-       * be used.
-       * 
-       * This is bounded by being within the last session. Hence, setting it to a value more than the
-       * length of a session will be pointless.
-       **/
-      electionLookahead: u32 & AugmentedConst<ApiType>;
       /**
        * Yearly total reward amount that gets distributed when fixed rewards kicks in.
        **/
       fixedYearlyReward: u128 & AugmentedConst<ApiType>;
       /**
-       * Maximum number of balancing iterations to run in the offchain submission.
+       * Number of eras to keep in history.
        * 
-       * If set to 0, balance_solution will not be executed at all.
+       * Following information is kept for eras in `[current_era -
+       * HistoryDepth, current_era]`: `ErasStakers`, `ErasStakersClipped`,
+       * `ErasValidatorPrefs`, `ErasValidatorReward`, `ErasRewardPoints`,
+       * `ErasTotalStake`, `ErasStartSessionIndex`,
+       * `StakingLedger.claimed_rewards`.
+       * 
+       * Must be more than the number of eras delayed by session.
+       * I.e. active era must always be in history. I.e. `active_era >
+       * current_era - history_depth` must be guaranteed.
+       * 
+       * If migrating an existing pallet from storage value to config value,
+       * this should be set to same value or greater as in storage.
+       * 
+       * Note: `HistoryDepth` is used as the upper bound for the `BoundedVec`
+       * item `StakingLedger.claimed_rewards`. Setting this value lower than
+       * the existing value can lead to inconsistencies in the
+       * `StakingLedger` and will need to be handled properly in a migration.
+       * The test `reducing_history_depth_abrupt` shows this effect.
        **/
-      maxIterations: u32 & AugmentedConst<ApiType>;
+      historyDepth: u32 & AugmentedConst<ApiType>;
       /**
        * Maximum number of nominations per nominator.
        **/
@@ -291,8 +391,8 @@ declare module '@polkadot/api-base/types/consts' {
       /**
        * The maximum number of nominators rewarded for each validator.
        * 
-       * For each validator only the `$MaxNominatorRewardedPerValidator` biggest stakers can claim
-       * their reward. This used to limit the i/o cost for the nominator payout.
+       * For each validator only the `$MaxNominatorRewardedPerValidator` biggest stakers can
+       * claim their reward. This used to limit the i/o cost for the nominator payout.
        **/
       maxNominatorRewardedPerValidator: u32 & AugmentedConst<ApiType>;
       /**
@@ -317,14 +417,6 @@ declare module '@polkadot/api-base/types/consts' {
        * Maximum amount of total issuance after which fixed rewards kicks in.
        **/
       maxVariableInflationTotalIssuance: u128 & AugmentedConst<ApiType>;
-      /**
-       * Minimum bond amount.
-       **/
-      minimumBond: u128 & AugmentedConst<ApiType>;
-      /**
-       * The threshold of improvement that should be provided for a new solution to be accepted.
-       **/
-      minSolutionScoreBump: Perbill & AugmentedConst<ApiType>;
       /**
        * Number of sessions per era.
        **/
