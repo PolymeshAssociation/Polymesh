@@ -89,6 +89,9 @@ mod v4 {
             // This storage changed the Ticker key to AssetID.
             pub CurrentAssetMetadataLocalKey get(fn current_asset_metadata_local_key):
                 map hasher(blake2_128_concat) Ticker => Option<AssetMetadataLocalKey>;
+
+            // This storage has been removed.
+            pub AssetMetadataNextGlobalKey get(fn asset_metadata_next_global_key): AssetMetadataGlobalKey;
         }
     }
 
@@ -355,4 +358,7 @@ pub(crate) fn migrate_to_v5<T: Config>() {
         TickerAssetID::insert(ticker, asset_id);
     }
     log::info!("{:?} items migrated", count);
+
+    log::info!("AssetMetadataNextGlobalKey has been cleared");
+    v4::AssetMetadataNextGlobalKey::kill();
 }
