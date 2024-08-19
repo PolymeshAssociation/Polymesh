@@ -24,6 +24,7 @@ use polymesh_primitives::settlement::{
 use polymesh_primitives::PortfolioId;
 
 sp_api::decl_runtime_apis! {
+    #[api_version(2)]
     pub trait SettlementApi {
         /// Returns an [`ExecuteInstructionInfo`] instance containing the consumed weight and the number of fungible and non fungible
         /// tokens in the instruction. Executing an instruction includes verifying the compliance and transfer restrictions of all assets
@@ -37,7 +38,7 @@ sp_api::decl_runtime_apis! {
         ///     "params": [1]
         ///   }'
         /// ```
-        fn get_execute_instruction_info(instruction_id: &InstructionId) -> ExecuteInstructionInfo;
+        fn get_execute_instruction_info(instruction_id: &InstructionId) -> Option<ExecuteInstructionInfo>;
 
         /// Returns an [`AffirmationCount`] instance containing the number of assets being sent/received from `portfolios`,
         /// and the number of off-chain assets in the instruction.

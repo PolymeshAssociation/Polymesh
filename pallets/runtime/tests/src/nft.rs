@@ -4,7 +4,7 @@ use frame_support::{assert_noop, assert_ok, StorageDoubleMap, StorageMap};
 
 use pallet_nft::{
     Collection, CollectionKeys, CurrentCollectionId, CurrentNFTId, MetadataValue, NFTOwner,
-    NFTsInCollection, NextCollectionId, NextNFTId, NumberOfNFTs,
+    NFTsInCollection, NumberOfNFTs,
 };
 use pallet_portfolio::PortfolioNFT;
 use polymesh_common_utilities::traits::nft::Event;
@@ -209,7 +209,6 @@ pub(crate) fn create_nft_collection(
     ));
     assert!(Collection::contains_key(NFTCollectionId(1)));
     assert_eq!(CollectionKeys::get(NFTCollectionId(1)).len(), n_keys);
-    assert_eq!(NextCollectionId::get(), NFTCollectionId(1));
     assert_eq!(CurrentCollectionId::get(), Some(NFTCollectionId(1)));
 
     asset_id
@@ -424,7 +423,6 @@ fn mint_nft_successfully() {
             NFTOwner::get(asset_id, NFTId(1)),
             Some(alice_default_portfolio)
         );
-        assert_eq!(NextNFTId::get(NFTCollectionId(1)), NFTId(1));
         assert_eq!(CurrentNFTId::get(NFTCollectionId(1)), Some(NFTId(1)));
     });
 }
@@ -578,9 +576,7 @@ fn burn_nft() {
             (&asset_id, NFTId(1))
         ),);
         assert_eq!(NFTOwner::get(asset_id, NFTId(1)), None);
-        assert_eq!(NextNFTId::get(NFTCollectionId(1)), NFTId(1));
         assert_eq!(CurrentNFTId::get(NFTCollectionId(1)), Some(NFTId(1)));
-        assert_eq!(NextCollectionId::get(), NFTCollectionId(1));
         assert_eq!(CurrentCollectionId::get(), Some(NFTCollectionId(1)));
     });
 }

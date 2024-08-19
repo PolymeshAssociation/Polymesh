@@ -5,8 +5,7 @@ use sp_keyring::AccountKeyring;
 use pallet_asset::{
     AssetMetadataGlobalKeyToName, AssetMetadataGlobalNameToKey, AssetMetadataGlobalSpecs,
     AssetMetadataLocalKeyToName, AssetMetadataLocalNameToKey, AssetMetadataLocalSpecs,
-    AssetMetadataNextGlobalKey, AssetMetadataNextLocalKey, CurrentAssetMetadataGlobalKey,
-    CurrentAssetMetadataLocalKey,
+    CurrentAssetMetadataGlobalKey, CurrentAssetMetadataLocalKey,
 };
 use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
@@ -22,10 +21,6 @@ type Asset = pallet_asset::Module<TestStorage>;
 fn register_multiple_global_metadata() {
     ExtBuilder::default().build().execute_with(|| {
         assert_eq!(CurrentAssetMetadataGlobalKey::get(), None);
-        assert_eq!(
-            AssetMetadataNextGlobalKey::get(),
-            AssetMetadataGlobalKey::default()
-        );
 
         let asset_metadata_name = AssetMetadataName(b"MyGlobalKey".to_vec());
         let asset_metadata_spec = AssetMetadataSpec::default();
@@ -39,7 +34,6 @@ fn register_multiple_global_metadata() {
             CurrentAssetMetadataGlobalKey::get(),
             Some(AssetMetadataGlobalKey(1))
         );
-        assert_eq!(AssetMetadataNextGlobalKey::get(), AssetMetadataGlobalKey(1));
         assert_eq!(
             AssetMetadataGlobalNameToKey::get(asset_metadata_name.clone()),
             Some(AssetMetadataGlobalKey(1))
@@ -64,7 +58,6 @@ fn register_multiple_global_metadata() {
             CurrentAssetMetadataGlobalKey::get(),
             Some(AssetMetadataGlobalKey(2))
         );
-        assert_eq!(AssetMetadataNextGlobalKey::get(), AssetMetadataGlobalKey(2));
     })
 }
 
@@ -87,10 +80,6 @@ fn register_multiple_local_metadata() {
         assert_eq!(
             CurrentAssetMetadataLocalKey::get(asset_id),
             Some(AssetMetadataLocalKey(1))
-        );
-        assert_eq!(
-            AssetMetadataNextLocalKey::get(asset_id),
-            AssetMetadataLocalKey(1)
         );
         assert_eq!(
             AssetMetadataLocalNameToKey::get(asset_id, asset_metadata_name.clone()),
@@ -116,10 +105,6 @@ fn register_multiple_local_metadata() {
         assert_eq!(
             CurrentAssetMetadataLocalKey::get(asset_id),
             Some(AssetMetadataLocalKey(2))
-        );
-        assert_eq!(
-            AssetMetadataNextLocalKey::get(asset_id),
-            AssetMetadataLocalKey(2)
         );
     })
 }

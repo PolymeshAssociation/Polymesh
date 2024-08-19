@@ -70,7 +70,7 @@ mod v4 {
             pub AssetMetadataLocalSpecs get(fn asset_metadata_local_specs):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) AssetMetadataLocalKey => Option<AssetMetadataSpec>;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage has been removed.
             pub AssetMetadataNextLocalKey get(fn asset_metadata_next_local_key):
                 map hasher(blake2_128_concat) Ticker => AssetMetadataLocalKey;
 
@@ -89,6 +89,9 @@ mod v4 {
             // This storage changed the Ticker key to AssetID.
             pub CurrentAssetMetadataLocalKey get(fn current_asset_metadata_local_key):
                 map hasher(blake2_128_concat) Ticker => Option<AssetMetadataLocalKey>;
+
+            // This storage has been removed.
+            pub AssetMetadataNextGlobalKey get(fn asset_metadata_next_global_key): AssetMetadataGlobalKey;
         }
     }
 
@@ -295,17 +298,9 @@ pub(crate) fn migrate_to_v5<T: Config>() {
     });
     log::info!("{:?} items migrated", count);
 
-    let mut count = 0;
-    log::info!("Updating types for the AssetMetadataNextLocalKey storage");
-    v4::AssetMetadataNextLocalKey::drain().for_each(|(ticker, next)| {
-        count += 1;
-        let asset_id = ticker_to_asset_id
-            .entry(ticker)
-            .or_insert(AssetID::from(ticker));
-
-        AssetMetadataNextLocalKey::insert(asset_id, next);
-    });
-    log::info!("{:?} items migrated", count);
+    log::info!("Removing old AssetMetadataNextLocalKey storage");
+    let res = v4::AssetMetadataNextLocalKey::clear(u32::max_value(), None);
+    log::info!("{:?} items have been cleared", res.unique);
 
     let mut count = 0;
     log::info!("Moving items from TickersExemptFromAffirmation to AssetsExemptFromAffirmation");
@@ -363,4 +358,7 @@ pub(crate) fn migrate_to_v5<T: Config>() {
         TickerAssetID::insert(ticker, asset_id);
     }
     log::info!("{:?} items migrated", count);
+
+    log::info!("AssetMetadataNextGlobalKey has been cleared");
+    v4::AssetMetadataNextGlobalKey::kill();
 }

@@ -206,15 +206,6 @@ decl_storage! {
         pub AssetMetadataGlobalSpecs get(fn asset_metadata_global_specs):
             map hasher(twox_64_concat) AssetMetadataGlobalKey => Option<AssetMetadataSpec>;
 
-        /// Next Asset Metadata Local Key.
-        #[deprecated]
-        pub AssetMetadataNextLocalKey get(fn asset_metadata_next_local_key):
-            map hasher(blake2_128_concat) AssetID => AssetMetadataLocalKey;
-
-        /// Next Asset Metadata Global Key.
-        #[deprecated]
-        pub AssetMetadataNextGlobalKey get(fn asset_metadata_next_global_key): AssetMetadataGlobalKey;
-
         /// A list of assets that exempt all users from affirming its receivement.
         pub AssetsExemptFromAffirmation get(fn assets_exempt_from_affirmation):
             map hasher(blake2_128_concat) AssetID => bool;
@@ -1356,7 +1347,6 @@ impl<T: Config> Module<T> {
 
         // Next global key.
         let key = Self::update_current_asset_metadata_global_key()?;
-        AssetMetadataNextGlobalKey::set(key);
 
         // Store global key <-> name mapping.
         AssetMetadataGlobalNameToKey::insert(&name, key);
@@ -2508,7 +2498,6 @@ impl<T: Config> Module<T> {
 
         // Next local key for asset.
         let key = Self::update_current_asset_metadata_local_key(&asset_id)?;
-        AssetMetadataNextLocalKey::insert(asset_id, key);
 
         // Store local key <-> name mapping.
         AssetMetadataLocalNameToKey::insert(asset_id, &name, key);
