@@ -160,7 +160,6 @@ parameter_types! {
     pub const SignedDepositBase: Balance = 0;
     pub const SignedDepositByte: Balance = 0;
     // Unsigned phase
-    pub const UnsignedPhase: u32 = 1_200;
     pub BetterUnsignedThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
     pub const MultiPhaseUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2 - 1u64;
     // Fallback parameters
