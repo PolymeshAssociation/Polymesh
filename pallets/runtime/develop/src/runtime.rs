@@ -174,7 +174,7 @@ parameter_types! {
     pub const BondingDuration: sp_staking::EraIndex = 7;
     pub const SlashDeferDuration: sp_staking::EraIndex = 4;
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
-    pub const MaxNominatorRewardedPerValidator: u32 = 2048;
+    pub const MaxNominatorRewardedPerValidator: u32 = 1_024;
     pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
     pub const UnsignedPhase: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
     pub const MaxIterations: u32 = 10;
