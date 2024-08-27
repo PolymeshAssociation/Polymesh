@@ -583,7 +583,7 @@ macro_rules! misc_pallet_impls {
             // Something that can estimate the fee of a call (used when submitting a solution for the signed phase)
             type EstimateCallFee = polymesh_runtime_common::impls::EstimateCallFeeMax;
             // Duration of the unsigned phase
-            type UnsignedPhase = polymesh_runtime_common::UnsignedPhase;
+            type UnsignedPhase = UnsignedPhase;
             #[cfg(not(feature = "runtime-benchmarks"))]
             // Duration of the signed phase
             type SignedPhase = polymesh_runtime_common::SignedPhase;
