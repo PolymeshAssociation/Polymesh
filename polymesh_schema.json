@@ -893,7 +893,7 @@
       }
     },
     "nft": {
-      "nft_transferReport": {
+      "transferReport": {
         "description": "Returns a vector containing all errors for the transfer. An empty vec means there's no error.",
         "params": [
           {
