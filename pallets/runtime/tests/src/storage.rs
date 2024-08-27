@@ -204,10 +204,10 @@ parameter_types! {
     pub const SessionsPerEra: sp_staking::SessionIndex = 3;
     pub const BondingDuration: EraIndex = 7;
     pub const SlashDeferDuration: EraIndex = 4;
-    pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
+    pub const UnsignedPhase: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
     pub const MaxIterations: u32 = 10;
     pub MinSolutionScoreBump: Perbill = Perbill::from_rational(5u32, 10_000);
-    pub const MaxNominatorRewardedPerValidator: u32 = 2048;
+    pub const MaxNominatorRewardedPerValidator: u32 = 1_024;
     pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
     pub const IndexDeposit: Balance = DOLLARS;
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
