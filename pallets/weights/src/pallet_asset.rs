@@ -692,9 +692,10 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: Asset MandatoryMediators (r:1 w:1)
     // Proof Skipped: Asset MandatoryMediators (max_values: None, max_size: None, mode: Measured)
     /// The range of component `n` is `[1, 4]`.
-    fn add_mandatory_mediators(_n: u32) -> Weight {
+    fn add_mandatory_mediators(n: u32) -> Weight {
         // Minimum execution time: 34_282 nanoseconds.
         Weight::from_ref_time(38_142_950)
+            .saturating_add(Weight::from_ref_time(281_996).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(1))
     }

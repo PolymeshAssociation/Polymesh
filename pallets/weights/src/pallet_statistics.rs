@@ -228,9 +228,12 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
     // Storage: Statistics ActiveAssetStats (r:1 w:0)
     // Proof Skipped: Statistics ActiveAssetStats (max_values: None, max_size: None, mode: Measured)
     /// The range of component `a` is `[1, 10]`.
-    fn active_asset_statistics_load(_a: u32) -> Weight {
-        // Minimum execution time: 7_601 nanoseconds.
-        Weight::from_ref_time(8_667_722).saturating_add(DbWeight::get().reads(1))
+    fn active_asset_statistics_load(a: u32) -> Weight {
+        // Minimum execution time: 12_595 nanoseconds.
+        Weight::from_ref_time(14_421_204)
+            // Standard Error: 24_708
+            .saturating_add(Weight::from_ref_time(23_673).saturating_mul(a.into()))
+            .saturating_add(DbWeight::get().reads(1))
     }
     // Storage: Statistics TransferConditionExemptEntities (r:1 w:0)
     // Proof Skipped: Statistics TransferConditionExemptEntities (max_values: None, max_size: None, mode: Measured)
