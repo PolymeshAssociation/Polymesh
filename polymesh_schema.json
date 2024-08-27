@@ -893,8 +893,8 @@
       }
     },
     "nft": {
-      "validateNFTTransfer": {
-        "description": "Verifies if and the sender and receiver are not the same, if both have valid balances, if the sender owns the nft, and if all compliance rules are being respected.",
+      "transferReport": {
+        "description": "Returns a vector containing all errors for the transfer. An empty vec means there's no error.",
         "params": [
           {
             "name": "sender_portfolio",
@@ -912,12 +912,17 @@
             "isOptional": false
           },
           {
+            "name": "skip_locked_check",
+            "type": "bool",
+            "isOptional": false
+          },
+          {
             "name": "blockHash",
             "type": "Hash",
             "isOptional": true
           }
         ],
-        "type": "DispatchResult"
+        "type": "Vec<DispatchError>"
       }
     },
     "settlement": {
@@ -935,7 +940,7 @@
             "isOptional": true
           }
         ],
-        "type": "ExecuteInstructionInfo"
+        "type": "Option<ExecuteInstructionInfo>"
       },
       "getAffirmationCount": {
         "description": "Returns an instance of AffirmationCount, which holds the asset count for both the sender and receiver and the number of offchain assets in the instruction",
@@ -1135,14 +1140,14 @@
             "type": "Vec<IdentityClaim>"
           }
         },
-        "version": 3
+        "version": 4
       }
     ],
     "NFTApi": [
       {
         "methods": {
-          "validate_nft_transfer": {
-            "description": "Verifies if and the sender and receiver are not the same, if both have valid balances, if the sender owns the nft, and if all compliance rules are being respected.",
+          "transfer_report": {
+            "description": "Returns a vector containing all errors for the transfer. An empty vec means there's no error.",
             "params": [
               {
                 "name": "sender_portfolio",
@@ -1155,12 +1160,16 @@
               {
                 "name": "nfts",
                 "type": "NFTs"
+              },
+              {
+                "name": "skip_locked_check",
+                "type": "bool"
               }
             ],
-            "type": "DispatchResult"
+            "type": "Vec<DispatchError>"
           }
         },
-        "version": 1
+        "version": 2
       }
     ],
     "SettlementApi": [
@@ -1174,7 +1183,7 @@
                 "type": "InstructionId"
               }
             ],
-            "type": "ExecuteInstructionInfo"
+            "type": "Option<ExecuteInstructionInfo>"
           },
           "get_affirmation_count": {
             "description": "Returns an AffirmationCount instance containing the number of assets being sent/received from portfolios, and the number of off-chain assets in the instruction.",
@@ -1215,7 +1224,7 @@
             "type": "Vec<DispatchError>"
           }
         },
-        "version": 1
+        "version": 2
       }
     ],
     "PipsApi": [
@@ -1306,7 +1315,7 @@
             "type": "Result<ComplianceReport, DispatchError>"
           }
         },
-        "version": 1
+        "version": 2
       }
     ]
   },
