@@ -207,7 +207,6 @@ pub trait WeightInfo {
     fn register_and_set_local_asset_metadata() -> Weight;
     fn register_asset_metadata_local_type() -> Weight;
     fn register_asset_metadata_global_type() -> Weight;
-    fn redeem_from_portfolio() -> Weight;
     fn update_asset_type() -> Weight;
     fn remove_local_metadata_key() -> Weight;
     fn remove_metadata_value() -> Weight;
