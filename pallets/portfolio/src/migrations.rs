@@ -1,3 +1,4 @@
+use frame_support::storage::migration::move_prefix;
 use sp_runtime::runtime_logger::RuntimeLogger;
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -10,23 +11,23 @@ mod v2 {
     decl_storage! {
         trait Store for Module<T: Config> as Portfolio {
             // This storage changed the Ticker key to AssetID.
-            pub PortfolioAssetBalances get(fn portfolio_asset_balances):
+            pub OldPortfolioAssetBalances get(fn portfolio_asset_balances):
                 double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) Ticker => Balance;
 
             // This storage changed the Ticker key to AssetID.
-            pub PortfolioLockedAssets get(fn locked_assets):
+            pub OldPortfolioLockedAssets get(fn locked_assets):
                 double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) Ticker => Balance;
 
             // This storage changed the Ticker key to AssetID.
-            pub PortfolioNFT get(fn portfolio_nft):
+            pub OldPortfolioNFT get(fn portfolio_nft):
                 double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) (Ticker, NFTId) => bool;
 
             // This storage changed the Ticker key to AssetID.
-            pub PortfolioLockedNFT get(fn portfolio_locked_nft):
+            pub OldPortfolioLockedNFT get(fn portfolio_locked_nft):
                 double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) (Ticker, NFTId) => bool;
 
             // This storage changed the Ticker key to AssetID.
-            pub PreApprovedPortfolios get(fn pre_approved_portfolios):
+            pub OldPreApprovedPortfolios get(fn pre_approved_portfolios):
                 double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) Ticker => bool;
         }
     }
@@ -44,7 +45,11 @@ pub(crate) fn migrate_to_v3<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the PortfolioAssetBalances storage");
-    v2::PortfolioAssetBalances::drain().for_each(|(portfolio, ticker, balance)| {
+    move_prefix(
+        &PortfolioAssetBalances::final_prefix(),
+        &v2::OldPortfolioAssetBalances::final_prefix(),
+    );
+    v2::OldPortfolioAssetBalances::drain().for_each(|(portfolio, ticker, balance)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -55,7 +60,11 @@ pub(crate) fn migrate_to_v3<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the PortfolioLockedAssets storage");
-    v2::PortfolioLockedAssets::drain().for_each(|(portfolio, ticker, balance)| {
+    move_prefix(
+        &PortfolioLockedAssets::final_prefix(),
+        &v2::OldPortfolioLockedAssets::final_prefix(),
+    );
+    v2::OldPortfolioLockedAssets::drain().for_each(|(portfolio, ticker, balance)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -66,7 +75,11 @@ pub(crate) fn migrate_to_v3<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the PortfolioNFT storage");
-    v2::PortfolioNFT::drain().for_each(|(portfolio, (ticker, nft_id), v)| {
+    move_prefix(
+        &PortfolioNFT::final_prefix(),
+        &v2::OldPortfolioNFT::final_prefix(),
+    );
+    v2::OldPortfolioNFT::drain().for_each(|(portfolio, (ticker, nft_id), v)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -77,7 +90,11 @@ pub(crate) fn migrate_to_v3<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the PortfolioLockedNFT storage");
-    v2::PortfolioLockedNFT::drain().for_each(|(portfolio, (ticker, nft_id), v)| {
+    move_prefix(
+        &PortfolioLockedNFT::final_prefix(),
+        &v2::OldPortfolioLockedNFT::final_prefix(),
+    );
+    v2::OldPortfolioLockedNFT::drain().for_each(|(portfolio, (ticker, nft_id), v)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -88,7 +105,11 @@ pub(crate) fn migrate_to_v3<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the PreApprovedPortfolios storage");
-    v2::PreApprovedPortfolios::drain().for_each(|(portfolio, ticker, v)| {
+    move_prefix(
+        &PortfolioLockedNFT::final_prefix(),
+        &v2::OldPortfolioLockedNFT::final_prefix(),
+    );
+    v2::OldPreApprovedPortfolios::drain().for_each(|(portfolio, ticker, v)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)

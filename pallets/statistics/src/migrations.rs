@@ -1,3 +1,4 @@
+use frame_support::storage::migration::move_prefix;
 use frame_support::BoundedBTreeSet;
 use sp_runtime::runtime_logger::RuntimeLogger;
 
@@ -40,19 +41,19 @@ mod v2 {
     decl_storage! {
         trait Store for Module<T: Config> as Statistics {
             // This storage changed the AssetScope type.
-            pub ActiveAssetStats get(fn active_asset_stats):
+            pub OldActiveAssetStats get(fn active_asset_stats):
                 map hasher(blake2_128_concat) AssetScope => BoundedBTreeSet<StatType, T::MaxStatsPerAsset>;
 
             // This storage changed the Stat1stKey type.
-            pub AssetStats get(fn asset_stats):
+            pub OldAssetStats get(fn asset_stats):
               double_map hasher(blake2_128_concat) Stat1stKey, hasher(blake2_128_concat) Stat2ndKey => u128;
 
             // This storage changed the AssetScope type.
-            pub AssetTransferCompliances get(fn asset_transfer_compliance):
+            pub OldAssetTransferCompliances get(fn asset_transfer_compliance):
                 map hasher(blake2_128_concat) AssetScope => AssetTransferCompliance<T::MaxTransferConditionsPerAsset>;
 
             // This storage changed the TransferConditionExemptKey type.
-            pub TransferConditionExemptEntities get(fn transfer_condition_exempt_entities):
+            pub OldTransferConditionExemptEntities get(fn transfer_condition_exempt_entities):
                 double_map hasher(blake2_128_concat) TransferConditionExemptKey, hasher(blake2_128_concat) IdentityId => bool;
         }
     }
@@ -105,7 +106,11 @@ pub(crate) fn migrate_to_v3<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the ActiveAssetStats storage");
-    v2::ActiveAssetStats::<T>::drain().for_each(|(scope, set)| {
+    move_prefix(
+        &ActiveAssetStats::<T>::final_prefix(),
+        &v2::OldActiveAssetStats::<T>::final_prefix(),
+    );
+    v2::OldActiveAssetStats::<T>::drain().for_each(|(scope, set)| {
         count += 1;
         let set: BTreeSet<StatType> = set.into_iter().map(|v| v.into()).collect();
         let bounded_set = BoundedBTreeSet::try_from(set).unwrap_or_default();
@@ -115,7 +120,11 @@ pub(crate) fn migrate_to_v3<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the AssetStats storage");
-    v2::AssetStats::drain().for_each(|(stat1key, stat2key, v)| {
+    move_prefix(
+        &AssetStats::final_prefix(),
+        &v2::OldAssetStats::final_prefix(),
+    );
+    v2::OldAssetStats::drain().for_each(|(stat1key, stat2key, v)| {
         count += 1;
         AssetStats::insert(Stat1stKey::from(stat1key), stat2key, v);
     });
@@ -123,7 +132,11 @@ pub(crate) fn migrate_to_v3<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the AssetTransferCompliances storage");
-    v2::AssetTransferCompliances::<T>::drain().for_each(|(scope, compliance)| {
+    move_prefix(
+        &AssetTransferCompliances::<T>::final_prefix(),
+        &v2::OldAssetTransferCompliances::<T>::final_prefix(),
+    );
+    v2::OldAssetTransferCompliances::<T>::drain().for_each(|(scope, compliance)| {
         count += 1;
         AssetTransferCompliances::<T>::insert(AssetID::from(scope), compliance);
     });
@@ -131,7 +144,11 @@ pub(crate) fn migrate_to_v3<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the TransferConditionExemptEntities storage");
-    v2::TransferConditionExemptEntities::drain().for_each(|(exemption_key, did, exempt)| {
+    move_prefix(
+        &TransferConditionExemptEntities::final_prefix(),
+        &v2::OldTransferConditionExemptEntities::final_prefix(),
+    );
+    v2::OldTransferConditionExemptEntities::drain().for_each(|(exemption_key, did, exempt)| {
         count += 1;
         TransferConditionExemptEntities::insert(
             TransferConditionExemptKey::from(exemption_key),

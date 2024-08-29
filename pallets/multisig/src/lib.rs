@@ -1300,7 +1300,9 @@ impl<T: Config> MultiSigSubTrait<T::AccountId> for Pallet<T> {
 
 pub mod migration {
     use super::*;
+    use frame_support::storage::migration::move_prefix;
     use frame_support::storage::StorageMap;
+    use frame_support::storage::StoragePrefixedMap;
     use sp_runtime::runtime_logger::RuntimeLogger;
 
     mod v2 {
@@ -1312,7 +1314,7 @@ pub mod migration {
                 pub MultiSigToIdentity : map hasher(identity) T::AccountId => IdentityId;
                 pub MultiSigTxDone: map hasher(identity) T::AccountId => u64;
 
-                pub MultiSigSigners: double_map hasher(identity) T::AccountId, hasher(twox_64_concat) Signatory<T::AccountId> => bool;
+                pub OldMultiSigSigners: double_map hasher(identity) T::AccountId, hasher(twox_64_concat) Signatory<T::AccountId> => bool;
 
                 pub LostCreatorPrivileges: map hasher(identity) IdentityId => bool;
             }
@@ -1339,7 +1341,11 @@ pub mod migration {
         let mut sig_count = 0;
         let mut reads = 0;
         let mut writes = 0;
-        v2::MultiSigSigners::<T>::drain().for_each(|(ms, signer, value)| {
+        move_prefix(
+            &MultiSigSigners::<T>::final_prefix(),
+            &v2::OldMultiSigSigners::<T>::final_prefix(),
+        );
+        v2::OldMultiSigSigners::<T>::drain().for_each(|(ms, signer, value)| {
             reads += 1;
             sig_count += 1;
             match signer {
