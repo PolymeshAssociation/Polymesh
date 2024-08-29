@@ -1,3 +1,4 @@
+use frame_support::storage::migration::move_prefix;
 use sp_runtime::runtime_logger::RuntimeLogger;
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -18,7 +19,7 @@ mod v3 {
     decl_storage! {
         trait Store for Module<T: Config> as NFT {
             // This storage changed the Ticker key to AssetID.
-            pub NumberOfNFTs get(fn balance_of):
+            pub OldNumberOfNFTs get(fn balance_of):
                 double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => NFTCount;
 
             // This storage changed the Ticker key to AssetID.
@@ -30,11 +31,11 @@ mod v3 {
                 map hasher(blake2_128_concat) NFTCollectionId => NFTCollection;
 
             // This storage changed the Ticker key to AssetID.
-            pub NFTsInCollection get(fn nfts_in_collection):
+            pub OldNFTsInCollection get(fn nfts_in_collection):
                 map hasher(blake2_128_concat) Ticker => NFTCount;
 
             // This storage changed the Ticker key to AssetID.
-            pub NFTOwner get(fn nft_owner):
+            pub OldNFTOwner get(fn nft_owner):
                 double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) NFTId => Option<PortfolioId>;
 
             // This storage has been removed.
@@ -64,7 +65,11 @@ pub(crate) fn migrate_to_v4<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the NumberOfNFTs storage");
-    v3::NumberOfNFTs::drain().for_each(|(ticker, did, n)| {
+    move_prefix(
+        &NumberOfNFTs::final_prefix(),
+        &v3::OldNumberOfNFTs::final_prefix(),
+    );
+    v3::OldNumberOfNFTs::drain().for_each(|(ticker, did, n)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -94,7 +99,11 @@ pub(crate) fn migrate_to_v4<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the NFTsInCollection storage");
-    v3::NFTsInCollection::drain().for_each(|(ticker, n)| {
+    move_prefix(
+        &NFTsInCollection::final_prefix(),
+        &v3::OldNFTsInCollection::final_prefix(),
+    );
+    v3::OldNFTsInCollection::drain().for_each(|(ticker, n)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -105,7 +114,8 @@ pub(crate) fn migrate_to_v4<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the NFTOwner storage");
-    v3::NFTOwner::drain().for_each(|(ticker, nft_id, portfolio)| {
+    move_prefix(&NFTOwner::final_prefix(), &v3::OldNFTOwner::final_prefix());
+    v3::OldNFTOwner::drain().for_each(|(ticker, nft_id, portfolio)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
