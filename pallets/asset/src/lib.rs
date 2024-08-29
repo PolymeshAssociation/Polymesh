@@ -143,14 +143,14 @@ decl_storage! {
         /// Returns [`TickerRegistrationConfig`] for assessing if a ticker is valid.
         pub TickerConfig get(fn ticker_registration_config) config(): TickerRegistrationConfig<T::Moment>;
         /// Maps each [`AssetID`] to its underling [`AssetDetails`].
-        pub Assets get(fn assets_details): map hasher(blake2_128_concat) AssetID => Option<AssetDetails>;
+        pub Assets get(fn assets_details): map hasher(identity) AssetID => Option<AssetDetails>;
         /// Maps each [`AssetID`] to its underling [`AssetName`].
-        pub AssetNames get(fn asset_names): map hasher(blake2_128_concat) AssetID => Option<AssetName>;
+        pub AssetNames get(fn asset_names): map hasher(identity) AssetID => Option<AssetName>;
         /// Tracks the total [`Balance`] for each [`AssetID`] per [`IdentityId`].
         // NB: It is safe to use `identity` hasher here because assets can not be distributed to non-existent identities.
-        pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) AssetID, hasher(identity) IdentityId => Balance;
+        pub BalanceOf get(fn balance_of): double_map hasher(identity) AssetID, hasher(identity) IdentityId => Balance;
         /// Maps each [`AssetID`] to its asset identifiers ([`AssetIdentifier`]).
-        pub AssetIdentifiers get(fn asset_identifiers): map hasher(blake2_128_concat) AssetID => Vec<AssetIdentifier>;
+        pub AssetIdentifiers get(fn asset_identifiers): map hasher(identity) AssetID => Vec<AssetIdentifier>;
 
         /// The next `AssetType::Custom` ID in the sequence.
         ///
@@ -162,29 +162,29 @@ decl_storage! {
         pub CustomTypesInverse get(fn custom_types_inverse): map hasher(blake2_128_concat) Vec<u8> => Option<CustomAssetTypeId>;
 
         /// Maps each [`AssetID`] to the name of its founding round ([`FundingRoundName`]).
-        pub FundingRound get(fn funding_round): map hasher(blake2_128_concat) AssetID => FundingRoundName;
+        pub FundingRound get(fn funding_round): map hasher(identity) AssetID => FundingRoundName;
         /// The total [`Balance`] of tokens issued in all recorded funding rounds ([`FundingRoundName`]).
-        pub IssuedInFundingRound get(fn issued_in_funding_round): map hasher(blake2_128_concat) (AssetID, FundingRoundName) => Balance;
+        pub IssuedInFundingRound get(fn issued_in_funding_round): map hasher(identity) (AssetID, FundingRoundName) => Balance;
         /// Returns `true` if transfers for the token associated to [`AssetID`] are frozen. Otherwise, returns `false`.
-        pub Frozen get(fn frozen): map hasher(blake2_128_concat) AssetID => bool;
+        pub Frozen get(fn frozen): map hasher(identity) AssetID => bool;
         /// All [`Document`] attached to an asset.
         pub AssetDocuments get(fn asset_documents):
-            double_map hasher(blake2_128_concat) AssetID, hasher(twox_64_concat) DocumentId => Option<Document>;
+            double_map hasher(identity) AssetID, hasher(twox_64_concat) DocumentId => Option<Document>;
         /// [`DocumentId`] counter per [`AssetID`].
-        pub AssetDocumentsIdSequence get(fn asset_documents_id_sequence): map hasher(blake2_128_concat) AssetID => DocumentId;
+        pub AssetDocumentsIdSequence get(fn asset_documents_id_sequence): map hasher(identity) AssetID => DocumentId;
 
         /// Metatdata values for an asset.
         pub AssetMetadataValues get(fn asset_metadata_values):
-            double_map hasher(blake2_128_concat) AssetID, hasher(twox_64_concat) AssetMetadataKey =>
+            double_map hasher(identity) AssetID, hasher(twox_64_concat) AssetMetadataKey =>
                 Option<AssetMetadataValue>;
         /// Details for an asset's Metadata values.
         pub AssetMetadataValueDetails get(fn asset_metadata_value_details):
-            double_map hasher(blake2_128_concat) AssetID, hasher(twox_64_concat) AssetMetadataKey =>
+            double_map hasher(identity) AssetID, hasher(twox_64_concat) AssetMetadataKey =>
                 Option<AssetMetadataValueDetail<T::Moment>>;
 
         /// Asset Metadata Local Name -> Key.
         pub AssetMetadataLocalNameToKey get(fn asset_metadata_local_name_to_key):
-            double_map hasher(blake2_128_concat) AssetID, hasher(blake2_128_concat) AssetMetadataName =>
+            double_map hasher(identity) AssetID, hasher(blake2_128_concat) AssetMetadataName =>
                 Option<AssetMetadataLocalKey>;
         /// Asset Metadata Global Name -> Key.
         pub AssetMetadataGlobalNameToKey get(fn asset_metadata_global_name_to_key):
@@ -200,7 +200,7 @@ decl_storage! {
 
         /// Asset Metadata Local Key specs.
         pub AssetMetadataLocalSpecs get(fn asset_metadata_local_specs):
-            double_map hasher(blake2_128_concat) AssetID, hasher(twox_64_concat) AssetMetadataLocalKey =>
+            double_map hasher(identity) AssetID, hasher(twox_64_concat) AssetMetadataLocalKey =>
                 Option<AssetMetadataSpec>;
         /// Asset Metadata Global Key specs.
         pub AssetMetadataGlobalSpecs get(fn asset_metadata_global_specs):
@@ -208,19 +208,19 @@ decl_storage! {
 
         /// A list of assets that exempt all users from affirming its receivement.
         pub AssetsExemptFromAffirmation get(fn assets_exempt_from_affirmation):
-            map hasher(blake2_128_concat) AssetID => bool;
+            map hasher(identity) AssetID => bool;
 
         /// All assets that don't need an affirmation to be received by an identity.
         pub PreApprovedAsset get(fn pre_approved_asset):
-            double_map hasher(identity) IdentityId, hasher(blake2_128_concat) AssetID => bool;
+            double_map hasher(identity) IdentityId, hasher(identity) AssetID => bool;
 
         /// The list of mandatory mediators for every ticker.
         pub MandatoryMediators get(fn mandatory_mediators):
-            map hasher(blake2_128_concat) AssetID => BoundedBTreeSet<IdentityId, T::MaxAssetMediators>;
+            map hasher(identity) AssetID => BoundedBTreeSet<IdentityId, T::MaxAssetMediators>;
 
         /// The last [`AssetMetadataLocalKey`] used for [`AssetID`].
         pub CurrentAssetMetadataLocalKey get(fn current_asset_metadata_local_key):
-            map hasher(blake2_128_concat) AssetID => Option<AssetMetadataLocalKey>;
+            map hasher(identity) AssetID => Option<AssetMetadataLocalKey>;
 
         /// The last [`AssetMetadataGlobalKey`] used for a global key.
         pub CurrentAssetMetadataGlobalKey get(fn current_asset_metadata_global_key): Option<AssetMetadataGlobalKey>;
@@ -231,10 +231,10 @@ decl_storage! {
 
         /// All security tokens owned by a user.
         pub SecurityTokensOwnedByUser get(fn security_tokens_owned_by_user):
-            double_map hasher(identity) IdentityId, hasher(blake2_128_concat) AssetID => bool;
+            double_map hasher(identity) IdentityId, hasher(identity) AssetID => bool;
 
         /// Maps all [`AssetID`] that are mapped to a [`Ticker`].
-        pub AssetIDTicker get(fn asset_id_ticker): map hasher(blake2_128_concat) AssetID => Option<Ticker>;
+        pub AssetIDTicker get(fn asset_id_ticker): map hasher(identity) AssetID => Option<Ticker>;
 
         /// Maps all [`Ticker`] that are linked to an [`AssetID`].
         pub TickerAssetID get(fn ticker_asset_id): map hasher(blake2_128_concat) Ticker => Option<AssetID>;

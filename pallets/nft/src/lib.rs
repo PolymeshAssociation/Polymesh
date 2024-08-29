@@ -40,10 +40,10 @@ storage_migration_ver!(4);
 decl_storage!(
     trait Store for Module<T: Config> as NFT {
         /// The total number of NFTs per identity.
-        pub NumberOfNFTs get(fn balance_of): double_map hasher(blake2_128_concat) AssetID, hasher(identity) IdentityId => NFTCount;
+        pub NumberOfNFTs get(fn balance_of): double_map hasher(identity) AssetID, hasher(identity) IdentityId => NFTCount;
 
         /// The collection id corresponding to each asset.
-        pub CollectionAsset get(fn collection_asset): map hasher(blake2_128_concat) AssetID => NFTCollectionId;
+        pub CollectionAsset get(fn collection_asset): map hasher(identity) AssetID => NFTCollectionId;
 
         /// All collection details for a given collection id.
         pub Collection get(fn nft_collection): map hasher(blake2_128_concat) NFTCollectionId => NFTCollection;
@@ -56,10 +56,10 @@ decl_storage!(
             double_map hasher(blake2_128_concat) (NFTCollectionId, NFTId), hasher(blake2_128_concat) AssetMetadataKey => AssetMetadataValue;
 
         /// The total number of NFTs in a collection
-        pub NFTsInCollection get(fn nfts_in_collection): map hasher(blake2_128_concat) AssetID => NFTCount;
+        pub NFTsInCollection get(fn nfts_in_collection): map hasher(identity) AssetID => NFTCount;
 
         /// Tracks the owner of an NFT
-        pub NFTOwner get(fn nft_owner): double_map hasher(blake2_128_concat) AssetID, hasher(blake2_128_concat) NFTId => Option<PortfolioId>;
+        pub NFTOwner get(fn nft_owner): double_map hasher(identity) AssetID, hasher(blake2_128_concat) NFTId => Option<PortfolioId>;
 
         /// The last `NFTId` used for an NFT.
         pub CurrentNFTId get(fn current_nft_id): map hasher(blake2_128_concat) NFTCollectionId => Option<NFTId>;

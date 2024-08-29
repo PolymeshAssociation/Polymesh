@@ -94,12 +94,12 @@ decl_storage! {
 
         /// The asset balances of portfolios.
         pub PortfolioAssetBalances get(fn portfolio_asset_balances):
-            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) AssetID => Balance;
+            double_map hasher(twox_64_concat) PortfolioId, hasher(identity) AssetID => Balance;
 
         /// Amount of assets locked in a portfolio.
         /// These assets show up in portfolio balance but can not be transferred away.
         pub PortfolioLockedAssets get(fn locked_assets):
-            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) AssetID => Balance;
+            double_map hasher(twox_64_concat) PortfolioId, hasher(identity) AssetID => Balance;
 
         /// The custodian of a particular portfolio. None implies that the identity owner is the custodian.
         pub PortfolioCustodian get(fn portfolio_custodian):
@@ -113,15 +113,15 @@ decl_storage! {
 
         /// The nft associated to the portfolio.
         pub PortfolioNFT get(fn portfolio_nft):
-            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) (AssetID, NFTId) => bool;
+            double_map hasher(twox_64_concat) PortfolioId, hasher(twox_64_concat) (AssetID, NFTId) => bool;
 
         /// All locked nft for a given portfolio.
         pub PortfolioLockedNFT get(fn portfolio_locked_nft):
-            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) (AssetID, NFTId) => bool;
+            double_map hasher(twox_64_concat) PortfolioId, hasher(twox_64_concat) (AssetID, NFTId) => bool;
 
         /// All portfolios that don't need to affirm the receivement of a given [`AssetID`].
         pub PreApprovedPortfolios get(fn pre_approved_portfolios):
-            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) AssetID => bool;
+            double_map hasher(twox_64_concat) PortfolioId, hasher(identity) AssetID => bool;
 
         /// Custodians allowed to create and take custody of portfolios on an id's behalf.
         pub AllowedCustodians get(fn allowed_custodians):
