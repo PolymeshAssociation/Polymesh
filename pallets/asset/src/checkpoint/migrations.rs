@@ -1,3 +1,4 @@
+use frame_support::storage::migration::move_prefix;
 use sp_runtime::runtime_logger::RuntimeLogger;
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -10,43 +11,43 @@ mod v1 {
     decl_storage! {
         trait Store for Module<T: Config> as Checkpoint {
             // This storage changed the Ticker key to AssetID.
-            pub TotalSupply get(fn total_supply_at):
+            pub OldTotalSupply get(fn total_supply_at):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) CheckpointId => polymesh_primitives::Balance;
 
             // This storage changed the Ticker key to AssetID.
-            pub Balance get(fn balance_at_checkpoint):
+            pub OldBalance get(fn balance_at_checkpoint):
                 double_map hasher(blake2_128_concat) (Ticker, CheckpointId), hasher(twox_64_concat) IdentityId => polymesh_primitives::Balance;
 
             // This storage changed the Ticker key to AssetID.
-            pub CheckpointIdSequence get(fn checkpoint_id_sequence):
+            pub OldCheckpointIdSequence get(fn checkpoint_id_sequence):
                 map hasher(blake2_128_concat) Ticker => CheckpointId;
 
             // This storage changed the Ticker key to AssetID.
-            pub BalanceUpdates get(fn balance_updates):
+            pub OldBalanceUpdates get(fn balance_updates):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) IdentityId => Vec<CheckpointId>;
 
             // This storage changed the Ticker key to AssetID.
-            pub Timestamps get(fn timestamps):
+            pub OldTimestamps get(fn timestamps):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) CheckpointId => Moment;
 
             // This storage changed the Ticker key to AssetID.
-            pub ScheduleIdSequence get(fn schedule_id_sequence):
+            pub OldScheduleIdSequence get(fn schedule_id_sequence):
                 map hasher(blake2_128_concat) Ticker => ScheduleId;
 
             // This storage changed the Ticker key to AssetID.
-            pub CachedNextCheckpoints get(fn cached_next_checkpoints):
+            pub OldCachedNextCheckpoints get(fn cached_next_checkpoints):
                 map hasher(blake2_128_concat) Ticker => Option<NextCheckpoints>;
 
             // This storage changed the Ticker key to AssetID.
-            pub ScheduledCheckpoints get(fn scheduled_checkpoints):
+            pub OldScheduledCheckpoints get(fn scheduled_checkpoints):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) ScheduleId => Option<ScheduleCheckpoints>;
 
             // This storage changed the Ticker key to AssetID.
-            pub ScheduleRefCount get(fn schedule_ref_count):
+            pub OldScheduleRefCount get(fn schedule_ref_count):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) ScheduleId => u32;
 
             // This storage changed the Ticker key to AssetID.
-            pub SchedulePoints get(fn schedule_points):
+            pub OldSchedulePoints get(fn schedule_points):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) ScheduleId => Vec<CheckpointId>;
         }
     }
@@ -64,7 +65,11 @@ pub(crate) fn migrate_to_v2<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the TotalSupply storage");
-    v1::TotalSupply::drain().for_each(|(ticker, checkpoint_id, balance)| {
+    move_prefix(
+        &TotalSupply::final_prefix(),
+        &v1::OldTotalSupply::final_prefix(),
+    );
+    v1::OldTotalSupply::drain().for_each(|(ticker, checkpoint_id, balance)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -75,7 +80,8 @@ pub(crate) fn migrate_to_v2<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the Balance storage");
-    v1::Balance::drain().for_each(|((ticker, checkpoint_id), did, balance)| {
+    move_prefix(&Balance::final_prefix(), &v1::OldBalance::final_prefix());
+    v1::OldBalance::drain().for_each(|((ticker, checkpoint_id), did, balance)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -86,7 +92,11 @@ pub(crate) fn migrate_to_v2<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the CheckpointIdSequence storage");
-    v1::CheckpointIdSequence::drain().for_each(|(ticker, checkpoint_id)| {
+    move_prefix(
+        &CheckpointIdSequence::final_prefix(),
+        &v1::OldCheckpointIdSequence::final_prefix(),
+    );
+    v1::OldCheckpointIdSequence::drain().for_each(|(ticker, checkpoint_id)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -97,7 +107,11 @@ pub(crate) fn migrate_to_v2<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the BalanceUpdates storage");
-    v1::BalanceUpdates::drain().for_each(|(ticker, did, checkpoint_id)| {
+    move_prefix(
+        &BalanceUpdates::final_prefix(),
+        &v1::OldBalanceUpdates::final_prefix(),
+    );
+    v1::OldBalanceUpdates::drain().for_each(|(ticker, did, checkpoint_id)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -108,7 +122,11 @@ pub(crate) fn migrate_to_v2<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the Timestamps storage");
-    v1::Timestamps::drain().for_each(|(ticker, checkpoint_id, when)| {
+    move_prefix(
+        &Timestamps::final_prefix(),
+        &v1::OldTimestamps::final_prefix(),
+    );
+    v1::OldTimestamps::drain().for_each(|(ticker, checkpoint_id, when)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -119,7 +137,11 @@ pub(crate) fn migrate_to_v2<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the ScheduleIdSequence storage");
-    v1::ScheduleIdSequence::drain().for_each(|(ticker, schedule_id)| {
+    move_prefix(
+        &ScheduleIdSequence::final_prefix(),
+        &v1::OldScheduleIdSequence::final_prefix(),
+    );
+    v1::OldScheduleIdSequence::drain().for_each(|(ticker, schedule_id)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -130,7 +152,11 @@ pub(crate) fn migrate_to_v2<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the CachedNextCheckpoints storage");
-    v1::CachedNextCheckpoints::drain().for_each(|(ticker, next_checkpoint)| {
+    move_prefix(
+        &CachedNextCheckpoints::final_prefix(),
+        &v1::OldCachedNextCheckpoints::final_prefix(),
+    );
+    v1::OldCachedNextCheckpoints::drain().for_each(|(ticker, next_checkpoint)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -141,7 +167,11 @@ pub(crate) fn migrate_to_v2<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the ScheduledCheckpoints storage");
-    v1::ScheduledCheckpoints::drain().for_each(|(ticker, schedule_id, next_checkpoint)| {
+    move_prefix(
+        &ScheduledCheckpoints::final_prefix(),
+        &v1::OldScheduledCheckpoints::final_prefix(),
+    );
+    v1::OldScheduledCheckpoints::drain().for_each(|(ticker, schedule_id, next_checkpoint)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -152,7 +182,11 @@ pub(crate) fn migrate_to_v2<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the ScheduleRefCount storage");
-    v1::ScheduleRefCount::drain().for_each(|(ticker, schedule_id, ref_count)| {
+    move_prefix(
+        &ScheduleRefCount::final_prefix(),
+        &v1::OldScheduleRefCount::final_prefix(),
+    );
+    v1::OldScheduleRefCount::drain().for_each(|(ticker, schedule_id, ref_count)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -163,7 +197,11 @@ pub(crate) fn migrate_to_v2<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the SchedulePoints storage");
-    v1::SchedulePoints::drain().for_each(|(ticker, schedule_id, checkpoint_id)| {
+    move_prefix(
+        &SchedulePoints::final_prefix(),
+        &v1::OldSchedulePoints::final_prefix(),
+    );
+    v1::OldSchedulePoints::drain().for_each(|(ticker, schedule_id, checkpoint_id)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
