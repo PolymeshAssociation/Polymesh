@@ -1,3 +1,4 @@
+use frame_support::storage::migration::move_prefix;
 use sp_runtime::runtime_logger::RuntimeLogger;
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -16,31 +17,31 @@ pub(crate) mod v0 {
     decl_storage! {
         trait Store for Module<T: Config> as CorporateAction {
             // This storage changed the Ticker key to AssetID.
-            pub DefaultTargetIdentities get(fn default_target_identities):
+            pub OldDefaultTargetIdentities get(fn default_target_identities):
                 map hasher(blake2_128_concat) Ticker => TargetIdentities;
 
             // This storage changed the Ticker key to AssetID.
-            pub DefaultWithholdingTax get(fn default_withholding_tax):
+            pub OldDefaultWithholdingTax get(fn default_withholding_tax):
                 map hasher(blake2_128_concat) Ticker => Tax;
 
             // This storage changed the Ticker key to AssetID.
-            pub DidWithholdingTax get(fn did_withholding_tax):
+            pub OldDidWithholdingTax get(fn did_withholding_tax):
                 map hasher(blake2_128_concat) Ticker => Vec<(IdentityId, Tax)>;
 
             // This storage changed the Ticker key to AssetID.
-            pub CAIdSequence get(fn ca_id_sequence):
+            pub OldCAIdSequence get(fn ca_id_sequence):
                 map hasher(blake2_128_concat) Ticker => LocalCAId;
 
             // This storage changed the Ticker key to AssetID.
-            pub CorporateActions get(fn corporate_actions):
+            pub OldCorporateActions get(fn corporate_actions):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) LocalCAId => Option<CorporateAction>;
 
             // The CAId type has been updated.
-            pub CADocLink get(fn ca_doc_link):
+            pub OldCADocLink get(fn ca_doc_link):
                 map hasher(blake2_128_concat) CAId => Vec<DocumentId>;
 
             // The CAId type has been updated.
-            pub Details get(fn details):
+            pub OldDetails get(fn details):
                 map hasher(blake2_128_concat) CAId => CADetails;
         }
     }
@@ -65,7 +66,11 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the DefaultTargetIdentities storage");
-    v0::DefaultTargetIdentities::drain().for_each(|(ticker, target_identities)| {
+    move_prefix(
+        &DefaultTargetIdentities::final_prefix(),
+        &v0::OldDefaultTargetIdentities::final_prefix(),
+    );
+    v0::OldDefaultTargetIdentities::drain().for_each(|(ticker, target_identities)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -76,7 +81,11 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the DefaultWithholdingTax storage");
-    v0::DefaultWithholdingTax::drain().for_each(|(ticker, tax)| {
+    move_prefix(
+        &DefaultWithholdingTax::final_prefix(),
+        &v0::OldDefaultWithholdingTax::final_prefix(),
+    );
+    v0::OldDefaultWithholdingTax::drain().for_each(|(ticker, tax)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -87,7 +96,11 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the DidWithholdingTax storage");
-    v0::DidWithholdingTax::drain().for_each(|(ticker, id_tax)| {
+    move_prefix(
+        &DidWithholdingTax::final_prefix(),
+        &v0::OldDidWithholdingTax::final_prefix(),
+    );
+    v0::OldDidWithholdingTax::drain().for_each(|(ticker, id_tax)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -98,7 +111,11 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the CAIdSequence storage");
-    v0::CAIdSequence::drain().for_each(|(ticker, id_tax)| {
+    move_prefix(
+        &CAIdSequence::final_prefix(),
+        &v0::OldCAIdSequence::final_prefix(),
+    );
+    v0::OldCAIdSequence::drain().for_each(|(ticker, id_tax)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -109,7 +126,11 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the CorporateActions storage");
-    v0::CorporateActions::drain().for_each(|(ticker, local_id, ca)| {
+    move_prefix(
+        &CorporateActions::final_prefix(),
+        &v0::OldCorporateActions::final_prefix(),
+    );
+    v0::OldCorporateActions::drain().for_each(|(ticker, local_id, ca)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -120,7 +141,11 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the CADocLink storage");
-    v0::CADocLink::drain().for_each(|(ca_id, docs)| {
+    move_prefix(
+        &CADocLink::final_prefix(),
+        &v0::OldCADocLink::final_prefix(),
+    );
+    v0::OldCADocLink::drain().for_each(|(ca_id, docs)| {
         count += 1;
         CADocLink::insert(CAId::from(ca_id), docs);
     });
@@ -128,7 +153,8 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the Details storage");
-    v0::Details::drain().for_each(|(ca_id, details)| {
+    move_prefix(&Details::final_prefix(), &v0::OldDetails::final_prefix());
+    v0::OldDetails::drain().for_each(|(ca_id, details)| {
         count += 1;
         Details::insert(CAId::from(ca_id), details);
     });
