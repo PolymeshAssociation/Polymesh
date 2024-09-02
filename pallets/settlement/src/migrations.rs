@@ -1,3 +1,4 @@
+use frame_support::storage::migration::move_prefix;
 use sp_runtime::runtime_logger::RuntimeLogger;
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -50,11 +51,11 @@ mod v2 {
     decl_storage! {
         trait Store for Module<T: Config> as Settlement {
             // This storage changed the Ticker key to AssetID.
-            pub(crate) VenueFiltering get(fn venue_filtering):
+            pub(crate) OldVenueFiltering get(fn venue_filtering):
                 map hasher(blake2_128_concat) Ticker => bool;
 
             // This storage changed the Ticker key to AssetID.
-            pub(crate) VenueAllowList get(fn venue_allow_list):
+            pub(crate) OldVenueAllowList get(fn venue_allow_list):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) VenueId => bool;
 
             // This storage changed the Leg type.
@@ -130,7 +131,11 @@ pub(crate) fn migrate_to_v3<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the VenueFiltering storage");
-    v2::VenueFiltering::drain().for_each(|(ticker, v)| {
+    move_prefix(
+        &VenueFiltering::final_prefix(),
+        &v2::OldVenueFiltering::final_prefix(),
+    );
+    v2::OldVenueFiltering::drain().for_each(|(ticker, v)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -141,7 +146,11 @@ pub(crate) fn migrate_to_v3<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the VenueAllowList storage");
-    v2::VenueAllowList::drain().for_each(|(ticker, id, v)| {
+    move_prefix(
+        &VenueAllowList::final_prefix(),
+        &v2::OldVenueAllowList::final_prefix(),
+    );
+    v2::OldVenueAllowList::drain().for_each(|(ticker, id, v)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)

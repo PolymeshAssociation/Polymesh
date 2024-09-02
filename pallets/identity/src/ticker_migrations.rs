@@ -1,3 +1,4 @@
+use frame_support::storage::migration::move_prefix;
 use sp_runtime::runtime_logger::RuntimeLogger;
 
 use super::*;
@@ -79,7 +80,7 @@ mod v6 {
     decl_storage! {
         trait Store for Module<T: Config> as Identity {
             // This storage changed the Ticker key to AssetID.
-            pub Claims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => Option<IdentityClaim>;
+            pub OldClaims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => Option<IdentityClaim>;
 
             pub KeyRecords get(fn key_records):
                 map hasher(twox_64_concat) T::AccountId => Option<KeyRecord<T::AccountId>>;
@@ -197,7 +198,8 @@ pub(crate) fn migrate_to_v7<T: Config>() {
 
     // Removes all elements in the old storage and inserts it in the new storage
     log::info!("Updating types for the Claims storage");
-    v6::Claims::drain().for_each(|(claim1key, claim2key, id_claim)| {
+    move_prefix(&Claims::final_prefix(), &v6::OldClaims::final_prefix());
+    v6::OldClaims::drain().for_each(|(claim1key, claim2key, id_claim)| {
         Claims::insert(
             claim1key,
             Claim2ndKey::from(claim2key),

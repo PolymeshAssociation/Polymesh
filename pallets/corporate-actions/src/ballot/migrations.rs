@@ -1,3 +1,4 @@
+use frame_support::storage::migration::move_prefix;
 use sp_runtime::runtime_logger::RuntimeLogger;
 
 use super::*;
@@ -8,25 +9,25 @@ mod v0 {
     decl_storage! {
         trait Store for Module<T: Config> as CorporateBallot {
             // The CAId type has changed.
-            pub Metas get(fn metas):
+            pub OldMetas get(fn metas):
                 map hasher(blake2_128_concat) crate::migrations::v0::CAId => Option<BallotMeta>;
 
             // The CAId type has changed.
-            pub TimeRanges get(fn time_ranges):
+            pub OldTimeRanges get(fn time_ranges):
                 map hasher(blake2_128_concat) crate::migrations::v0::CAId => Option<BallotTimeRange>;
 
             // The CAId type has changed.
-            pub MotionNumChoices get(fn motion_choices):
+            pub OldMotionNumChoices get(fn motion_choices):
                 map hasher(blake2_128_concat) crate::migrations::v0::CAId => Vec<u16>;
 
             // The CAId type has changed.
-            pub RCV get(fn rcv): map hasher(blake2_128_concat) crate::migrations::v0::CAId => bool;
+            pub OldRCV get(fn rcv): map hasher(blake2_128_concat) crate::migrations::v0::CAId => bool;
 
             // The CAId type has changed.
-            pub Results get(fn results): map hasher(blake2_128_concat) crate::migrations::v0::CAId => Vec<Balance>;
+            pub OldResults get(fn results): map hasher(blake2_128_concat) crate::migrations::v0::CAId => Vec<Balance>;
 
             // The CAId type has changed.
-            pub Votes get(fn votes):
+            pub OldVotes get(fn votes):
                 double_map hasher(blake2_128_concat) crate::migrations::v0::CAId, hasher(identity) IdentityId => Vec<BallotVote>;
 
         }
@@ -42,7 +43,8 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the Metas storage");
-    v0::Metas::drain().for_each(|(ca_id, ballot)| {
+    move_prefix(&Metas::final_prefix(), &v0::OldMetas::final_prefix());
+    v0::OldMetas::drain().for_each(|(ca_id, ballot)| {
         count += 1;
         Metas::insert(CAId::from(ca_id), ballot);
     });
@@ -50,7 +52,11 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the TimeRanges storage");
-    v0::TimeRanges::drain().for_each(|(ca_id, range)| {
+    move_prefix(
+        &TimeRanges::final_prefix(),
+        &v0::OldTimeRanges::final_prefix(),
+    );
+    v0::OldTimeRanges::drain().for_each(|(ca_id, range)| {
         count += 1;
         TimeRanges::insert(CAId::from(ca_id), range);
     });
@@ -58,7 +64,11 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the MotionNumChoices storage");
-    v0::MotionNumChoices::drain().for_each(|(ca_id, choices)| {
+    move_prefix(
+        &MotionNumChoices::final_prefix(),
+        &v0::OldMotionNumChoices::final_prefix(),
+    );
+    v0::OldMotionNumChoices::drain().for_each(|(ca_id, choices)| {
         count += 1;
         MotionNumChoices::insert(CAId::from(ca_id), choices);
     });
@@ -66,7 +76,8 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the RCV storage");
-    v0::RCV::drain().for_each(|(ca_id, rcv)| {
+    move_prefix(&RCV::final_prefix(), &v0::OldRCV::final_prefix());
+    v0::OldRCV::drain().for_each(|(ca_id, rcv)| {
         count += 1;
         RCV::insert(CAId::from(ca_id), rcv);
     });
@@ -74,7 +85,8 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the Results storage");
-    v0::Results::drain().for_each(|(ca_id, balances)| {
+    move_prefix(&Results::final_prefix(), &v0::OldResults::final_prefix());
+    v0::OldResults::drain().for_each(|(ca_id, balances)| {
         count += 1;
         Results::insert(CAId::from(ca_id), balances);
     });
@@ -82,7 +94,8 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the Votes storage");
-    v0::Votes::drain().for_each(|(ca_id, did, vote)| {
+    move_prefix(&Votes::final_prefix(), &v0::OldVotes::final_prefix());
+    v0::OldVotes::drain().for_each(|(ca_id, did, vote)| {
         count += 1;
         Votes::insert(CAId::from(ca_id), did, vote);
     });

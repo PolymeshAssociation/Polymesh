@@ -1,3 +1,4 @@
+use frame_support::storage::migration::move_prefix;
 use sp_runtime::runtime_logger::RuntimeLogger;
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -10,23 +11,23 @@ mod v0 {
     decl_storage! {
         trait Store for Module<T: Config> as ExternalAgents {
             // This storage changed the Ticker key to AssetID.
-            pub AGIdSequence get(fn agent_group_id_sequence):
+            pub OldAGIdSequence get(fn agent_group_id_sequence):
                 map hasher(blake2_128_concat) Ticker => AGId;
 
             // This storage changed the Ticker key to AssetID.
-            pub AgentOf get(fn agent_of):
+            pub OldAgentOf get(fn agent_of):
                 double_map hasher(blake2_128_concat) IdentityId, hasher(blake2_128_concat) Ticker => ();
 
             // This storage changed the Ticker key to AssetID.
-            pub GroupOfAgent get(fn agents):
+            pub OldGroupOfAgent get(fn agents):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) IdentityId => Option<AgentGroup>;
 
             // This storage changed the Ticker key to AssetID.
-            pub NumFullAgents get(fn num_full_agents):
+            pub OldNumFullAgents get(fn num_full_agents):
                 map hasher(blake2_128_concat) Ticker => u32;
 
             // This storage changed the Ticker key to AssetID.
-            pub GroupPermissions get(fn permissions):
+            pub OldGroupPermissions get(fn permissions):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) AGId => Option<v6::ExtrinsicPermissions>;
         }
 
@@ -43,7 +44,11 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the AGIdSequence storage");
-    v0::AGIdSequence::drain().for_each(|(ticker, ag_id)| {
+    move_prefix(
+        &AGIdSequence::final_prefix(),
+        &v0::OldAGIdSequence::final_prefix(),
+    );
+    v0::OldAGIdSequence::drain().for_each(|(ticker, ag_id)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -54,7 +59,8 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the AgentOf storage");
-    v0::AgentOf::drain().for_each(|(did, ticker, empty)| {
+    move_prefix(&AgentOf::final_prefix(), &v0::OldAgentOf::final_prefix());
+    v0::OldAgentOf::drain().for_each(|(did, ticker, empty)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -65,7 +71,11 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the GroupOfAgent storage");
-    v0::GroupOfAgent::drain().for_each(|(ticker, did, group)| {
+    move_prefix(
+        &GroupOfAgent::final_prefix(),
+        &v0::OldGroupOfAgent::final_prefix(),
+    );
+    v0::OldGroupOfAgent::drain().for_each(|(ticker, did, group)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -76,7 +86,11 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the NumFullAgents storage");
-    v0::NumFullAgents::drain().for_each(|(ticker, n)| {
+    move_prefix(
+        &NumFullAgents::final_prefix(),
+        &v0::OldNumFullAgents::final_prefix(),
+    );
+    v0::OldNumFullAgents::drain().for_each(|(ticker, n)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -87,7 +101,11 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the GroupPermissions storage");
-    v0::GroupPermissions::drain().for_each(|(ticker, ag_id, ext_perms)| {
+    move_prefix(
+        &GroupPermissions::final_prefix(),
+        &v0::OldGroupPermissions::final_prefix(),
+    );
+    v0::OldGroupPermissions::drain().for_each(|(ticker, ag_id, ext_perms)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
