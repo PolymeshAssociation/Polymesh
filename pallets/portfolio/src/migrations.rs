@@ -106,8 +106,8 @@ pub(crate) fn migrate_to_v3<T: Config>() {
     let mut count = 0;
     log::info!("Updating types for the PreApprovedPortfolios storage");
     move_prefix(
-        &PortfolioLockedNFT::final_prefix(),
-        &v2::OldPortfolioLockedNFT::final_prefix(),
+        &PreApprovedPortfolios::final_prefix(),
+        &v2::OldPreApprovedPortfolios::final_prefix(),
     );
     v2::OldPreApprovedPortfolios::drain().for_each(|(portfolio, ticker, v)| {
         count += 1;
