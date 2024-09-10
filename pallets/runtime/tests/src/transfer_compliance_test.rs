@@ -468,7 +468,10 @@ impl AssetTracker {
 
     #[track_caller]
     pub fn ensure_invalid_transfer(&mut self, from: u64, to: u64, amount: u128) {
-        assert_noop!(self.do_transfer(from, to, amount), Error::InvalidTransfer);
+        assert_noop!(
+            self.do_transfer(from, to, amount),
+            Error::InvalidTransferStatisticsFailure
+        );
     }
 
     pub fn fetch_stats_key2(&self, stat_type: &StatType) -> Vec<Stat2ndKey> {

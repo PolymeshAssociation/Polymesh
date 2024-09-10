@@ -680,6 +680,7 @@ macro_rules! runtime_apis {
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
         use polymesh_primitives::asset::AssetID;
         use polymesh_primitives::settlement::{InstructionId, ExecuteInstructionInfo, AffirmationCount};
+        use polymesh_primitives::transfer_compliance::TransferCondition;
         use polymesh_primitives::compliance_manager::{AssetComplianceResult, ComplianceReport};
         use polymesh_primitives::{
             asset::CheckpointId, IdentityId, Index, NFTs,PortfolioId, Signatory, Ticker,
@@ -1138,6 +1139,25 @@ macro_rules! runtime_apis {
                         asset_id,
                         sender_identity,
                         receiver_identity,
+                        &mut weight_meter
+                    )
+                }
+            }
+
+            impl node_rpc_runtime_api::statistics::StatisticsApi<Block> for Runtime {
+                #[inline]
+                fn transfer_restrictions_report(
+                    asset_id: AssetID,
+                    sender_did: &IdentityId,
+                    receiver_did: &IdentityId,
+                    transfer_amount: Balance,
+                ) -> FrameResult<Vec<TransferCondition>, DispatchError> {
+                    let mut weight_meter = WeightMeter::max_limit_no_minimum();
+                    Statistics::transfer_restrictions_report(
+                        asset_id,
+                        sender_did,
+                        receiver_did,
+                        transfer_amount,
                         &mut weight_meter
                     )
                 }
