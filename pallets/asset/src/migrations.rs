@@ -1,3 +1,4 @@
+use frame_support::storage::migration::move_prefix;
 use sp_runtime::runtime_logger::RuntimeLogger;
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -16,11 +17,11 @@ mod v4 {
             pub Tokens get(fn tokens): map hasher(blake2_128_concat) Ticker => Option<AssetDetails>;
 
             // This storage changed the Ticker key to AssetID.
-            pub AssetNames get(fn asset_names):
+            pub OldAssetNames get(fn asset_names):
                 map hasher(blake2_128_concat) Ticker => Option<AssetName>;
 
             // This storage changed the Ticker key to AssetID.
-            pub BalanceOf get(fn balance_of):
+            pub OldBalanceOf get(fn balance_of):
                 double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => Balance;
 
             // This storage was renamed to AssetIdentifiers and changed the Ticker key to AssetID.
@@ -28,46 +29,46 @@ mod v4 {
                 map hasher(blake2_128_concat) Ticker => Vec<AssetIdentifier>;
 
             // This storage changed the Ticker key to AssetID.
-            pub FundingRound get(fn funding_round):
+            pub OldFundingRound get(fn funding_round):
                 map hasher(blake2_128_concat) Ticker => FundingRoundName;
 
             // This storage changed the Ticker key to AssetID.
-            pub IssuedInFundingRound get(fn issued_in_funding_round):
+            pub OldIssuedInFundingRound get(fn issued_in_funding_round):
                 map hasher(blake2_128_concat) (Ticker, FundingRoundName) => Balance;
 
             // This storage changed the Ticker key to AssetID.
-            pub Frozen get(fn frozen): map hasher(blake2_128_concat) Ticker => bool;
+            pub OldFrozen get(fn frozen): map hasher(blake2_128_concat) Ticker => bool;
 
             // This storage was split into TickersOwnedByUser and SecurityTokensOwnedByUser.
             pub AssetOwnershipRelations get(fn asset_ownership_relation):
                 double_map hasher(identity) IdentityId, hasher(blake2_128_concat) Ticker => AssetOwnershipRelation;
 
             // This storage changed the Ticker key to AssetID.
-            pub AssetDocuments get(fn asset_documents):
+            pub OldAssetDocuments get(fn asset_documents):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) DocumentId => Option<Document>;
 
             // This storage changed the Ticker key to AssetID.
-            pub AssetDocumentsIdSequence get(fn asset_documents_id_sequence):
+            pub OldAssetDocumentsIdSequence get(fn asset_documents_id_sequence):
                 map hasher(blake2_128_concat) Ticker => DocumentId;
 
             // This storage changed the Ticker key to AssetID.
-            pub AssetMetadataValues get(fn asset_metadata_values):
+            pub OldAssetMetadataValues get(fn asset_metadata_values):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) AssetMetadataKey => Option<AssetMetadataValue>;
 
             // This storage changed the Ticker key to AssetID.
-            pub AssetMetadataValueDetails get(fn asset_metadata_value_details):
+            pub OldAssetMetadataValueDetails get(fn asset_metadata_value_details):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) AssetMetadataKey => Option<AssetMetadataValueDetail<T::Moment>>;
 
             // This storage changed the Ticker key to AssetID.
-            pub AssetMetadataLocalNameToKey get(fn asset_metadata_local_name_to_key):
+            pub OldAssetMetadataLocalNameToKey get(fn asset_metadata_local_name_to_key):
                 double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) AssetMetadataName => Option<AssetMetadataLocalKey>;
 
             // This storage changed the Ticker key to AssetID.
-            pub AssetMetadataLocalKeyToName get(fn asset_metadata_local_key_to_name):
+            pub OldAssetMetadataLocalKeyToName get(fn asset_metadata_local_key_to_name):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) AssetMetadataLocalKey => Option<AssetMetadataName>;
 
             // This storage changed the Ticker key to AssetID.
-            pub AssetMetadataLocalSpecs get(fn asset_metadata_local_specs):
+            pub OldAssetMetadataLocalSpecs get(fn asset_metadata_local_specs):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) AssetMetadataLocalKey => Option<AssetMetadataSpec>;
 
             // This storage has been removed.
@@ -83,11 +84,11 @@ mod v4 {
                 double_map hasher(identity) IdentityId, hasher(blake2_128_concat) Ticker => bool;
 
             // This storage changed the Ticker key to AssetID.
-            pub MandatoryMediators get(fn mandatory_mediators):
+            pub OldMandatoryMediators get(fn mandatory_mediators):
                 map hasher(blake2_128_concat) Ticker => BoundedBTreeSet<IdentityId, T::MaxAssetMediators>;
 
             // This storage changed the Ticker key to AssetID.
-            pub CurrentAssetMetadataLocalKey get(fn current_asset_metadata_local_key):
+            pub OldCurrentAssetMetadataLocalKey get(fn current_asset_metadata_local_key):
                 map hasher(blake2_128_concat) Ticker => Option<AssetMetadataLocalKey>;
 
             // This storage has been removed.
@@ -129,7 +130,11 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the AssetNames storage");
-    v4::AssetNames::drain().for_each(|(ticker, asset_name)| {
+    move_prefix(
+        &AssetNames::final_prefix(),
+        &v4::OldAssetNames::final_prefix(),
+    );
+    v4::OldAssetNames::drain().for_each(|(ticker, asset_name)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -140,7 +145,11 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the BalanceOf storage");
-    v4::BalanceOf::drain().for_each(|(ticker, identity, balance)| {
+    move_prefix(
+        &BalanceOf::final_prefix(),
+        &v4::OldBalanceOf::final_prefix(),
+    );
+    v4::OldBalanceOf::drain().for_each(|(ticker, identity, balance)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -162,7 +171,11 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the FundingRound storage");
-    v4::FundingRound::drain().for_each(|(ticker, name)| {
+    move_prefix(
+        &FundingRound::final_prefix(),
+        &v4::OldFundingRound::final_prefix(),
+    );
+    v4::OldFundingRound::drain().for_each(|(ticker, name)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -173,7 +186,11 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the IssuedInFundingRound storage");
-    v4::IssuedInFundingRound::drain().for_each(|((ticker, name), balance)| {
+    move_prefix(
+        &IssuedInFundingRound::final_prefix(),
+        &v4::OldIssuedInFundingRound::final_prefix(),
+    );
+    v4::OldIssuedInFundingRound::drain().for_each(|((ticker, name), balance)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -184,7 +201,8 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the Frozen storage");
-    v4::Frozen::drain().for_each(|(ticker, frozen)| {
+    move_prefix(&Frozen::final_prefix(), &v4::OldFrozen::final_prefix());
+    v4::OldFrozen::drain().for_each(|(ticker, frozen)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -216,7 +234,11 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the AssetDocuments storage");
-    v4::AssetDocuments::drain().for_each(|(ticker, doc_id, doc)| {
+    move_prefix(
+        &AssetDocuments::final_prefix(),
+        &v4::OldAssetDocuments::final_prefix(),
+    );
+    v4::OldAssetDocuments::drain().for_each(|(ticker, doc_id, doc)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -228,7 +250,11 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the AssetDocumentsIdSequence storage");
-    v4::AssetDocumentsIdSequence::drain().for_each(|(ticker, seq)| {
+    move_prefix(
+        &AssetDocumentsIdSequence::final_prefix(),
+        &v4::OldAssetDocumentsIdSequence::final_prefix(),
+    );
+    v4::OldAssetDocumentsIdSequence::drain().for_each(|(ticker, seq)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -240,7 +266,11 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the AssetMetadataValues storage");
-    v4::AssetMetadataValues::drain().for_each(|(ticker, key, value)| {
+    move_prefix(
+        &AssetMetadataValues::final_prefix(),
+        &v4::OldAssetMetadataValues::final_prefix(),
+    );
+    v4::OldAssetMetadataValues::drain().for_each(|(ticker, key, value)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -252,7 +282,11 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the AssetMetadataValueDetails storage");
-    v4::AssetMetadataValueDetails::<T>::drain().for_each(|(ticker, key, value)| {
+    move_prefix(
+        &AssetMetadataValueDetails::<T>::final_prefix(),
+        &v4::OldAssetMetadataValueDetails::<T>::final_prefix(),
+    );
+    v4::OldAssetMetadataValueDetails::<T>::drain().for_each(|(ticker, key, value)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -264,7 +298,11 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the AssetMetadataLocalNameToKey storage");
-    v4::AssetMetadataLocalNameToKey::drain().for_each(|(ticker, name, local_key)| {
+    move_prefix(
+        &AssetMetadataLocalNameToKey::final_prefix(),
+        &v4::OldAssetMetadataLocalNameToKey::final_prefix(),
+    );
+    v4::OldAssetMetadataLocalNameToKey::drain().for_each(|(ticker, name, local_key)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -276,7 +314,11 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the AssetMetadataLocalKeyToName storage");
-    v4::AssetMetadataLocalKeyToName::drain().for_each(|(ticker, local_key, name)| {
+    move_prefix(
+        &AssetMetadataLocalKeyToName::final_prefix(),
+        &v4::OldAssetMetadataLocalKeyToName::final_prefix(),
+    );
+    v4::OldAssetMetadataLocalKeyToName::drain().for_each(|(ticker, local_key, name)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -288,7 +330,11 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the AssetMetadataLocalSpecs storage");
-    v4::AssetMetadataLocalSpecs::drain().for_each(|(ticker, local_key, spec)| {
+    move_prefix(
+        &AssetMetadataLocalSpecs::final_prefix(),
+        &v4::OldAssetMetadataLocalSpecs::final_prefix(),
+    );
+    v4::OldAssetMetadataLocalSpecs::drain().for_each(|(ticker, local_key, spec)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -328,7 +374,11 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the MandatoryMediators storage");
-    v4::MandatoryMediators::<T>::drain().for_each(|(ticker, mediators)| {
+    move_prefix(
+        &MandatoryMediators::<T>::final_prefix(),
+        &v4::OldMandatoryMediators::<T>::final_prefix(),
+    );
+    v4::OldMandatoryMediators::<T>::drain().for_each(|(ticker, mediators)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -340,7 +390,11 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the CurrentAssetMetadataLocalKey storage");
-    v4::CurrentAssetMetadataLocalKey::drain().for_each(|(ticker, current_key)| {
+    move_prefix(
+        &CurrentAssetMetadataLocalKey::final_prefix(),
+        &v4::OldCurrentAssetMetadataLocalKey::final_prefix(),
+    );
+    v4::OldCurrentAssetMetadataLocalKey::drain().for_each(|(ticker, current_key)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)

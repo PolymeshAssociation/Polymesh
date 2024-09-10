@@ -1,3 +1,4 @@
+use frame_support::storage::migration::move_prefix;
 use sp_runtime::runtime_logger::RuntimeLogger;
 
 use super::*;
@@ -21,11 +22,11 @@ mod v0 {
     decl_storage! {
         trait Store for Module<T: Config> as CapitalDistribution {
             // CAId and Distribution have changed types.
-            pub(crate) Distributions get(fn distributions):
+            pub(crate) OldDistributions get(fn distributions):
                 map hasher(blake2_128_concat) crate::migrations::v0::CAId => Option<Distribution>;
 
             // The CAId type has changed.
-            pub(crate) HolderPaid get(fn holder_paid):
+            pub(crate) OldHolderPaid get(fn holder_paid):
                 map hasher(blake2_128_concat) (crate::migrations::v0::CAId, IdentityId) => bool;
         }
     }
@@ -55,7 +56,11 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the Distributions storage");
-    v0::Distributions::drain().for_each(|(ca_id, distribution)| {
+    move_prefix(
+        &Distributions::final_prefix(),
+        &v0::OldDistributions::final_prefix(),
+    );
+    v0::OldDistributions::drain().for_each(|(ca_id, distribution)| {
         count += 1;
         Distributions::insert(CAId::from(ca_id), Distribution::from(distribution));
     });
@@ -63,7 +68,11 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the HolderPaid storage");
-    v0::HolderPaid::drain().for_each(|((ca_id, did), paid)| {
+    move_prefix(
+        &HolderPaid::final_prefix(),
+        &v0::OldHolderPaid::final_prefix(),
+    );
+    v0::OldHolderPaid::drain().for_each(|((ca_id, did), paid)| {
         count += 1;
         HolderPaid::insert((CAId::from(ca_id), did), paid);
     });
