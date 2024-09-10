@@ -1,3 +1,4 @@
+use frame_support::storage::migration::move_prefix;
 use sp_runtime::runtime_logger::RuntimeLogger;
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -65,11 +66,11 @@ mod v0 {
         trait Store for Module<T: Config> as ComplianceManager {
             // This storage changed the Ticker key to AssetID.
             // The Scope type, which is inside the compliance codition, has also been changed.
-            pub AssetCompliances get(fn asset_compliance):
+            pub OldAssetCompliances get(fn asset_compliance):
                 map hasher(blake2_128_concat) Ticker => AssetCompliance;
 
             // This storage changed the Ticker key to AssetID.
-            pub TrustedClaimIssuer get(fn trusted_claim_issuer):
+            pub OldTrustedClaimIssuer get(fn trusted_claim_issuer):
                 map hasher(blake2_128_concat) Ticker => Vec<TrustedIssuer>;
         }
     }
@@ -170,7 +171,11 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the AssetCompliances storage");
-    v0::AssetCompliances::drain().for_each(|(ticker, compliance)| {
+    move_prefix(
+        &AssetCompliances::final_prefix(),
+        &v0::OldAssetCompliances::final_prefix(),
+    );
+    v0::OldAssetCompliances::drain().for_each(|(ticker, compliance)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
@@ -181,7 +186,11 @@ pub(crate) fn migrate_to_v1<T: Config>() {
 
     let mut count = 0;
     log::info!("Updating types for the TrustedClaimIssuer storage");
-    v0::TrustedClaimIssuer::drain().for_each(|(ticker, trusted_issuers)| {
+    move_prefix(
+        &TrustedClaimIssuer::final_prefix(),
+        &v0::OldTrustedClaimIssuer::final_prefix(),
+    );
+    v0::OldTrustedClaimIssuer::drain().for_each(|(ticker, trusted_issuers)| {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
