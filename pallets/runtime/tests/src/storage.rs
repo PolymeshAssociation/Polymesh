@@ -338,8 +338,6 @@ frame_support::construct_runtime!(
         // Testing only.
         Example: example::{Pallet, Call} = 201,
 
-        StateTrieMigration: pallet_state_trie_migration::{Pallet, Call, Storage, Event<T>} = 210,
-
         ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
     }
 );
