@@ -14,7 +14,7 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
     AssetMetadataValue,
 };
-use polymesh_primitives::settlement::InstructionId;
+use polymesh_primitives::settlement::{InstructionId, Leg, SettlementType};
 use polymesh_primitives::{
     AuthorizationData, Claim, ClaimType, Condition, ConditionType, CountryCode, IdentityId,
     NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId,
@@ -35,6 +35,7 @@ type NFT = pallet_nft::Module<TestStorage>;
 type NFTError = pallet_nft::Error<TestStorage>;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
+type Settlement = pallet_settlement::Module<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 
 /// Successfully creates an NFT collection and an Asset.
@@ -1173,6 +1174,120 @@ fn controller_transfer_unauthorized_agent2() {
                 PortfolioKind::Default
             ),
             NFTError::InvalidNFTTransferInconsistentTicker
+        );
+    });
+}
+
+#[test]
+fn redeem_locked_nft() {
+    ExtBuilder::default().build().execute_with(|| {
+        // First we need to create a collection and mint one NFT
+        let bob: User = User::new(AccountKeyring::Bob);
+        let alice: User = User::new(AccountKeyring::Alice);
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let legs: Vec<Leg> = vec![Leg::NonFungible {
+            sender: PortfolioId::default_portfolio(alice.did),
+            receiver: PortfolioId::default_portfolio(bob.did),
+            nfts: NFTs::new_unverified(ticker, vec![NFTId(1)]),
+        }];
+
+        create_nft_collection(
+            alice.clone(),
+            ticker.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            Vec::new().into(),
+        );
+        mint_nft(
+            alice.clone(),
+            ticker.clone(),
+            Vec::new(),
+            PortfolioKind::Default,
+        );
+
+        let venue_id = Settlement::venue_counter();
+        assert_ok!(Settlement::create_venue(
+            alice.origin(),
+            Default::default(),
+            vec![alice.acc()],
+            Default::default(),
+        ));
+
+        assert_ok!(Settlement::add_and_affirm_instruction(
+            alice.origin(),
+            venue_id,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs,
+            vec![PortfolioId::default_portfolio(alice.did)],
+            None,
+        ));
+
+        assert_noop!(
+            NFT::redeem_nft(alice.origin(), ticker, NFTId(1), PortfolioKind::Default),
+            NFTError::NFTIsLocked
+        );
+    });
+}
+
+#[test]
+fn reject_instruction_with_locked_asset() {
+    ExtBuilder::default().build().execute_with(|| {
+        // First we need to create a collection and mint one NFT
+        let bob: User = User::new(AccountKeyring::Bob);
+        let alice: User = User::new(AccountKeyring::Alice);
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let legs: Vec<Leg> = vec![Leg::NonFungible {
+            sender: PortfolioId::default_portfolio(alice.did),
+            receiver: PortfolioId::default_portfolio(bob.did),
+            nfts: NFTs::new_unverified(ticker, vec![NFTId(1)]),
+        }];
+
+        create_nft_collection(
+            alice.clone(),
+            ticker.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            Vec::new().into(),
+        );
+        mint_nft(
+            alice.clone(),
+            ticker.clone(),
+            Vec::new(),
+            PortfolioKind::Default,
+        );
+
+        let venue_id = Settlement::venue_counter();
+        assert_ok!(Settlement::create_venue(
+            alice.origin(),
+            Default::default(),
+            vec![alice.acc()],
+            Default::default(),
+        ));
+
+        assert_ok!(Settlement::add_and_affirm_instruction(
+            alice.origin(),
+            venue_id,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs,
+            vec![PortfolioId::default_portfolio(alice.did)],
+            None,
+        ));
+
+        // Force token redemption
+        pallet_portfolio::PortfolioLockedNFT::remove(
+            PortfolioId::default_portfolio(alice.did),
+            (ticker, NFTId(1)),
+        );
+
+        assert_noop!(
+            Settlement::reject_instruction(
+                alice.origin(),
+                InstructionId(0),
+                PortfolioId::default_portfolio(alice.did),
+            ),
+            PortfolioError::NFTNotLocked
         );
     });
 }
