@@ -138,7 +138,7 @@ parameter_types! {
     pub MaxOutLen: u32 = 8 * 1024;
 
     // NFT:
-    pub const MaxNumberOfCollectionKeys: u8 = u8::MAX;
+    pub const MaxNumberOfCollectionKeys: u8 = 20;
 
     // Portfolio:
     pub const MaxNumberOfFungibleMoves: u32 = 10;
