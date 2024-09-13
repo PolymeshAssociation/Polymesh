@@ -1,7 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::dispatch::{
+    DispatchError, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo,
+};
+use frame_support::storage::child::KillStorageResult;
 use frame_support::storage::StorageDoubleMap;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
@@ -51,7 +54,8 @@ decl_storage!(
         pub CollectionKeys get(fn collection_keys): map hasher(blake2_128_concat) NFTCollectionId => BTreeSet<AssetMetadataKey>;
 
         /// The metadata value of an nft given its collection id, token id and metadata key.
-        pub MetadataValue get(fn metadata_value): double_map hasher(blake2_128_concat) (NFTCollectionId, NFTId), hasher(blake2_128_concat) AssetMetadataKey => AssetMetadataValue;
+        pub MetadataValue get(fn metadata_value):
+            double_map hasher(blake2_128_concat) (NFTCollectionId, NFTId), hasher(blake2_128_concat) AssetMetadataKey => AssetMetadataValue;
 
         /// The next available id for an NFT collection.
         #[deprecated]
@@ -156,7 +160,7 @@ decl_module! {
         /// * Asset
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::redeem_nft(T::MaxNumberOfCollectionKeys::get() as u32)]
-        pub fn redeem_nft(origin, ticker: Ticker, nft_id: NFTId, portfolio_kind: PortfolioKind) -> DispatchResult {
+        pub fn redeem_nft(origin, ticker: Ticker, nft_id: NFTId, portfolio_kind: PortfolioKind) -> DispatchResultWithPostInfo {
             Self::base_redeem_nft(origin, ticker, nft_id, portfolio_kind)
         }
 
@@ -241,6 +245,8 @@ decl_error! {
         InvalidNFTTransferInvalidSenderCDD,
         /// Ticker and NFT ticker don't match
         InvalidNFTTransferInconsistentTicker,
+        /// The NFT is locked.
+        NFTIsLocked
     }
 }
 
@@ -404,7 +410,7 @@ impl<T: Config> Module<T> {
         ticker: Ticker,
         nft_id: NFTId,
         portfolio_kind: PortfolioKind,
-    ) -> DispatchResult {
+    ) -> DispatchResultWithPostInfo {
         // Verifies if the collection exists
         let collection_id =
             CollectionTicker::try_get(&ticker).map_err(|_| Error::<T>::CollectionNotFound)?;
@@ -422,6 +428,10 @@ impl<T: Config> Module<T> {
             PortfolioNFT::contains_key(&caller_portfolio, (&ticker, &nft_id)),
             Error::<T>::NFTNotFound
         );
+        ensure!(
+            !PortfolioLockedNFT::contains_key(&caller_portfolio, (&ticker, &nft_id)),
+            Error::<T>::NFTIsLocked
+        );
 
         // Burns the NFT
         let new_supply = NFTsInCollection::get(&ticker)
@@ -433,9 +443,14 @@ impl<T: Config> Module<T> {
         NFTsInCollection::insert(&ticker, new_supply);
         NumberOfNFTs::insert(&ticker, &caller_portfolio.did, new_balance);
         PortfolioNFT::remove(&caller_portfolio, (&ticker, &nft_id));
-        #[allow(deprecated)]
-        MetadataValue::remove_prefix((&collection_id, &nft_id), None);
         NFTOwner::remove(ticker, nft_id);
+        let removed_keys = {
+            #[allow(deprecated)]
+            match MetadataValue::remove_prefix((&collection_id, &nft_id), None) {
+                KillStorageResult::AllRemoved(n) => n,
+                KillStorageResult::SomeRemaining(n) => n,
+            }
+        };
 
         Self::deposit_event(Event::NFTPortfolioUpdated(
             caller_portfolio.did,
@@ -444,7 +459,9 @@ impl<T: Config> Module<T> {
             None,
             PortfolioUpdateReason::Redeemed,
         ));
-        Ok(())
+        Ok(PostDispatchInfo::from(Some(
+            <T as Config>::WeightInfo::redeem_nft(removed_keys),
+        )))
     }
 
     /// Tranfer ownership of all NFTs.

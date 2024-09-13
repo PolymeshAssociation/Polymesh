@@ -18,7 +18,7 @@ use polymesh_primitives::{IdentityId, PortfolioKind, WeightMeter};
 
 use crate::*;
 
-const MAX_COLLECTION_KEYS: u32 = 255;
+const MAX_COLLECTION_KEYS: u32 = 20;
 
 /// Creates an NFT collection with `n` global metadata keys.
 fn create_collection<T: Config>(

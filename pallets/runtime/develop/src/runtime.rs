@@ -57,7 +57,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
     // N.B. `d` is unpinned from the binary version
-    spec_version: 6_003_030,
+    spec_version: 6_003_040,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 4,
@@ -140,7 +140,7 @@ parameter_types! {
     pub MaxOutLen: u32 = 8 * 1024;
 
     // NFT:
-    pub const MaxNumberOfCollectionKeys: u8 = u8::MAX;
+    pub const MaxNumberOfCollectionKeys: u8 = 20;
 
     // Portfolio:
     pub const MaxNumberOfFungibleMoves: u32 = 10;
