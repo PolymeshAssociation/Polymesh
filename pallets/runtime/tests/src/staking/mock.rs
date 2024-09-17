@@ -451,6 +451,10 @@ impl PortfolioSubTrait<AccountId> for Test {
         unimplemented!()
     }
 
+    fn ensure_portfolio_validity(_: PortfolioId) -> DispatchResult {
+        unimplemented!()
+    }
+    
     fn lock_tokens(_: &PortfolioId, _: &AssetID, _: Balance) -> DispatchResult {
         unimplemented!()
     }
