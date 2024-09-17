@@ -18,7 +18,7 @@ decl_error! {
         TickerAlreadyRegistered,
         /// The total supply is above the limit.
         TotalSupplyAboveLimit,
-        /// No security token associated to the given asset ID.
+        /// No token associated to the given asset ID.
         NoSuchAsset,
         /// The token is already frozen.
         AlreadyFrozen,

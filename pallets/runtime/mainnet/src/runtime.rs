@@ -387,8 +387,6 @@ construct_runtime!(
         Nft: pallet_nft::{Pallet, Call, Storage, Event} = 49,
 
         ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 50,
-
-        StateTrieMigration: pallet_state_trie_migration::{Pallet, Call, Storage, Event<T> } = 210,
     }
 );
 
