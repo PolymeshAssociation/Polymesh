@@ -76,7 +76,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns `Err(DidDoesNotExist)` unless `id` has an associated record.
-    pub(crate) fn ensure_id_record_exists(id: IdentityId) -> DispatchResult {
+    pub fn ensure_id_record_exists(id: IdentityId) -> DispatchResult {
         ensure!(Self::is_identity_exists(&id), Error::<T>::DidDoesNotExist);
         Ok(())
     }
