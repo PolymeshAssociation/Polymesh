@@ -204,13 +204,6 @@ impl<T: Config> Module<T> {
             <AccountKeyRefCount<T>>::get(key) == 0,
             Error::<T>::AccountKeyIsBeingUsed
         );
-        // Do not allow unlinking MultiSig keys with balance >= 1 POLYX.
-        if T::MultiSig::is_multisig(key) {
-            ensure!(
-                T::Balances::total_balance(key) < T::MultiSigBalanceLimit::get(),
-                Error::<T>::MultiSigHasBalance
-            );
-        }
         Ok(())
     }
 
