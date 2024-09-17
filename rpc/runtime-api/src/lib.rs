@@ -22,4 +22,5 @@ pub mod identity;
 pub mod nft;
 pub mod pips;
 pub mod settlement;
+pub mod statistics;
 pub mod transaction_payment;

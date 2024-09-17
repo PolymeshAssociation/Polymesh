@@ -147,7 +147,7 @@ impl From<AssetCompliance> for AssetComplianceResult {
 #[derive(Encode, Decode, TypeInfo)]
 pub struct ComplianceReport {
     /// Set to `true` if any requirement is satisfied.
-    any_requirement_satistifed: bool,
+    any_requirement_satisfied: bool,
     /// Set to `true` if the asset compliance is paused.
     paused_compliance: bool,
     /// All [`RequirementReport`] containg the info for each of the asset's requirement.
@@ -158,19 +158,19 @@ impl ComplianceReport {
     /// Creates a new [`ComplianceReport`] instance.
     pub fn new(
         requirements: Vec<RequirementReport>,
-        any_requirement_satistifed: bool,
+        any_requirement_satisfied: bool,
         paused_compliance: bool,
     ) -> Self {
         Self {
-            any_requirement_satistifed,
+            any_requirement_satisfied,
             paused_compliance,
             requirements,
         }
     }
 
-    /// Returns [`Self::any_requirement_satistifed`].
+    /// Returns [`Self::any_requirement_satisfied`].
     pub fn is_any_requirement_satisfied(&self) -> bool {
-        self.any_requirement_satistifed
+        self.any_requirement_satisfied
     }
 
     /// Returns the [`RequirementReport`] for the given `index`.

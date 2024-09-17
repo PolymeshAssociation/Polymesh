@@ -34,9 +34,10 @@ jobs:
           echo - prop: ${{ steps.srtool_build.outputs.proposal_hash }}
           echo "Runtime location: ${{ steps.srtool_build.outputs.wasm }}"
       - name: Archive Runtime
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.chain }}-runtime-${{ github.sha }}
           path: |
             ${{ steps.srtool_build.outputs.wasm }}
+            ${{ steps.srtool_build.outputs.wasm_compressed }}
             ${{ matrix.chain }}-srtool-digest.json

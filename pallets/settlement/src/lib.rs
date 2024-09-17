@@ -230,7 +230,9 @@ decl_error! {
         /// The mediator's expiry date must be in the future.
         InvalidExpiryDate,
         /// The expiry date for the mediator's affirmation has passed.
-        MediatorAffirmationExpired
+        MediatorAffirmationExpired,
+        /// Offchain assets must have a venue.
+        OffChainAssetsMustHaveAVenue,
     }
 }
 
@@ -2059,6 +2061,7 @@ impl<T: Config> Module<T> {
                 amount,
                 ..
             } => {
+                ensure!(venue_id.is_some(), Error::<T>::OffChainAssetsMustHaveAVenue);
                 Self::ensure_valid_off_chain_leg(sender_identity, receiver_identity, *amount)?;
                 instruction_asset_count
                     .try_add_off_chain()

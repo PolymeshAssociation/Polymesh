@@ -18,7 +18,6 @@ pallet-preimage = { version = "4.0.0-dev", default-features = false }
 pallet-scheduler = { version = "4.0.0-dev", default-features = false }
 pallet-session = { version = "4.0.0-dev", default-features = false }
 sp-std = { version = "5.0.0", default-features = false }
-pallet-state-trie-migration = { version = "4.0.0-dev", default-features = false }
 
 # our pallets
 pallet-asset = { path = "../asset", default-features = false }
@@ -77,5 +76,4 @@ std = [
     "pallet-utility/std",
     "polymesh-contracts/std",
     "polymesh-runtime-common/std",
-    "pallet-state-trie-migration/std"
 ]
