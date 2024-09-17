@@ -100,7 +100,6 @@ sp-std = { version = "5.0.0", default-features = false }
 sp-transaction-pool = { version = "4.0.0-dev", default-features = false }
 sp-version = { version = "5.0.0", default-features = false }
 sp-keyring = { version = "7.0.0" }
-pallet-state-trie-migration = { version = "4.0.0-dev", default-features = false }
 substrate-test-utils = { version = "4.0.0-dev", default-features = false }
 
 [dev-dependencies]

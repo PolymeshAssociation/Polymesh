@@ -96,7 +96,6 @@ sp-staking = { version = "4.0.0-dev", default-features = false }
 sp-std = { version = "5.0.0", default-features = false }
 sp-transaction-pool = { version = "4.0.0-dev", default-features = false }
 sp-version = { version = "5.0.0", default-features = false }
-pallet-state-trie-migration = { version = "4.0.0-dev", default-features = false }
 
 [build-dependencies]
 polymesh-build-tool = { path = "../build_tool", default-features = false }
@@ -158,7 +157,6 @@ std = [
     "pallet-staking/std",
     "pallet-statistics/std",
     "pallet-sto/std",
-    "pallet-state-trie-migration/std",
     "pallet-sudo/std",
     "pallet-timestamp/std",
     "pallet-transaction-payment/std",
