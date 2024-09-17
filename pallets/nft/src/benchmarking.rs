@@ -183,7 +183,7 @@ benchmarks! {
         let user = user::<T>("target", 0);
         let asset_id = create_collection_issue_nfts::<T>(&user, n, 1, PortfolioKind::Default);
 
-    }: _(user.origin, asset_id, NFTId(1), PortfolioKind::Default)
+    }: _(user.origin, asset_id, NFTId(1), PortfolioKind::Default, None)
     verify {
         for i in 1..n + 1 {
             assert!(
