@@ -521,9 +521,11 @@ fn rotate_multisig_primary_key_with_balance() {
         .unwrap();
 
         // Succeeds
-        assert_ok!(
-            Identity::accept_primary_key(Origin::signed(charlie_key.clone()), auth_id, None)
-        );
+        assert_ok!(Identity::accept_primary_key(
+            Origin::signed(charlie_key.clone()),
+            auth_id,
+            None
+        ));
     });
 }
 
