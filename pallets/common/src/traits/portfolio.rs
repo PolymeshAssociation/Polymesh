@@ -38,6 +38,12 @@ pub trait PortfolioSubTrait<AccountId> {
     /// * `custodian` - DID of the custodian
     fn ensure_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult;
 
+    /// Ensure that the `portfolio` exists.
+    ///
+    /// # Arguments
+    /// * `portfolio` - Portfolio to check
+    fn ensure_portfolio_validity(portfolio: &PortfolioId) -> DispatchResult;
+
     /// Locks some tokens of a portfolio
     ///
     /// # Arguments

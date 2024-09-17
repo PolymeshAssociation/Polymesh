@@ -1104,6 +1104,10 @@ impl<T: Config> Module<T> {
                     Leg::OffChain { .. } => continue,
                 }
             };
+            Identity::<T>::ensure_id_record_exists(sender.did)?;
+            Identity::<T>::ensure_id_record_exists(receiver.did)?;
+            T::Portfolio::ensure_portfolio_validity(sender)?;
+            T::Portfolio::ensure_portfolio_validity(receiver)?;
 
             portfolios_pending_approval.insert(*sender);
             if T::Portfolio::skip_portfolio_affirmation(receiver, asset_id) {

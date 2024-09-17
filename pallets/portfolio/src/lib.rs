@@ -933,6 +933,11 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Module<T> {
         Ok(())
     }
 
+    /// Ensure that the `portfolio` exists.
+    fn ensure_portfolio_validity(portfolio: &PortfolioId) -> DispatchResult {
+        Self::ensure_portfolio_validity(portfolio)
+    }
+
     /// Ensures that the portfolio's custody is with the provided identity
     fn ensure_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult {
         Self::ensure_portfolio_custody(portfolio, custodian)
