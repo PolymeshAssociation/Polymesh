@@ -17,7 +17,7 @@
 use polymesh_primitives::PortfolioKind;
 
 use frame_support::decl_event;
-use frame_support::dispatch::DispatchResult;
+use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
 use sp_std::collections::btree_set::BTreeSet;
@@ -229,6 +229,12 @@ pub trait AssetFnTrait<Account, Origin> {
 
     /// Returns `true` if the receivement of `asset_id` is exempt from being affirmed, otherwise returns `false`.
     fn asset_affirmation_exemption(asset_id: &AssetID) -> bool;
+
+    /// Returns the `did` balance for the given `asset_id`.
+    fn asset_balance(asset_id: &AssetID, did: &IdentityId) -> Balance;
+
+    /// Returns the total supply for the given `asset_id`.
+    fn asset_total_supply(asset_id: &AssetID) -> Result<Balance, DispatchError>;
 
     #[cfg(feature = "runtime-benchmarks")]
     fn register_unique_ticker(origin: Origin, ticker: Ticker) -> DispatchResult;
