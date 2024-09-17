@@ -264,17 +264,14 @@ pub mod pallet {
         ///
         /// If quorum is reached, the proposal will be immediately executed.
         #[pallet::call_index(2)]
-        #[pallet::weight({
-          <T as Config>::WeightInfo::approve()
-            .saturating_add(<T as Config>::WeightInfo::execute_proposal())
-            .saturating_add(*max_weight)
-        })]
+        #[pallet::weight(<T as Config>::WeightInfo::approve_and_execute(max_weight))]
         pub fn approve(
             origin: OriginFor<T>,
             multisig: T::AccountId,
             proposal_id: u64,
-            max_weight: Weight,
+            max_weight: Option<Weight>,
         ) -> DispatchResultWithPostInfo {
+            let max_weight = <T as Config>::WeightInfo::default_max_weight(&max_weight);
             let signer = ensure_signed(origin)?;
             with_base_weight(<T as Config>::WeightInfo::approve(), || {
                 Self::base_approve(&multisig, signer, proposal_id, max_weight)
