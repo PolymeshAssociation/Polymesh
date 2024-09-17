@@ -1272,9 +1272,12 @@ impl<T: Config> Module<T> {
             let instruction_details = InstructionDetails::<T>::take(instruction_id);
             Self::ensure_allowed_venue(&instruction_legs, instruction_details.venue_id)?;
 
-            // Attempts to release the locks and transfer all fungible an non fungible assets
+            // Attempts to release the locks
+            Self::release_locks(instruction_id, &instruction_legs)?;
+
+            // Transfer all fungible an non fungible assets
             let instruction_memo = InstructionMemos::get(&instruction_id);
-            match Self::release_asset_locks_and_transfer_pending_legs(
+            match Self::transfer_pending_legs(
                 instruction_id,
                 &instruction_legs,
                 instruction_memo,
@@ -1399,14 +1402,13 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn release_asset_locks_and_transfer_pending_legs(
+    fn transfer_pending_legs(
         instruction_id: InstructionId,
         instruction_legs: &[(LegId, Leg)],
         instruction_memo: Option<Memo>,
         caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> Result<(), LegId> {
-        Self::unchecked_release_locks(instruction_id, instruction_legs);
         for (leg_id, leg) in instruction_legs {
             if Self::instruction_leg_status(instruction_id, leg_id) == LegStatus::ExecutionPending {
                 match leg {
@@ -1544,17 +1546,13 @@ impl<T: Config> Module<T> {
         Ok(filtered_legs)
     }
 
-    fn unchecked_release_locks(id: InstructionId, instruction_legs: &[(LegId, Leg)]) {
+    fn release_locks(id: InstructionId, instruction_legs: &[(LegId, Leg)]) -> DispatchResult {
         for (leg_id, leg) in instruction_legs {
-            match Self::instruction_leg_status(id, leg_id) {
-                LegStatus::ExecutionPending => {
-                    // This can never return an error since the settlement module
-                    // must've locked these tokens when instruction was affirmed
-                    let _ = Self::unlock_via_leg(&leg);
-                }
-                LegStatus::ExecutionToBeSkipped(_, _) | LegStatus::PendingTokenLock => {}
+            if let LegStatus::ExecutionPending = Self::instruction_leg_status(id, leg_id) {
+                Self::unlock_via_leg(&leg)?;
             }
         }
+        Ok(())
     }
 
     /// Schedule a given instruction to be executed on the next block only if the
@@ -1936,7 +1934,7 @@ impl<T: Config> Module<T> {
             }
         };
         // All checks have been made - write to storage
-        Self::unchecked_release_locks(instruction_id, &legs);
+        Self::release_locks(instruction_id, &legs)?;
         let _ = T::Scheduler::cancel_named(instruction_id.execution_name());
         // Remove all data from storage
         Self::prune_rejected_instruction(instruction_id);
