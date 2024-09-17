@@ -26,13 +26,14 @@ use frame_support::weights::Weight;
 use frame_support::{decl_error, decl_module, decl_storage, ensure, BoundedBTreeSet};
 use sp_std::{collections::btree_set::BTreeSet, vec, vec::Vec};
 
+use polymesh_common_utilities::asset::AssetFnTrait;
 pub use polymesh_common_utilities::traits::statistics::{Config, Event, WeightInfo};
 use polymesh_primitives::asset::AssetID;
 use polymesh_primitives::statistics::{
     Percentage, Stat1stKey, Stat2ndKey, StatOpType, StatType, StatUpdate,
 };
 use polymesh_primitives::transfer_compliance::{
-    AssetTransferCompliance, TransferCondition, TransferConditionExemptKey, TransferConditionResult,
+    AssetTransferCompliance, TransferCondition, TransferConditionExemptKey,
 };
 use polymesh_primitives::{
     storage_migrate_on, storage_migration_ver, Balance, IdentityId, WeightMeter,
@@ -900,52 +901,56 @@ impl<T: Config> Module<T> {
                 change_investors_count,
                 weight_meter,
             )? {
-                return Err(Error::<T>::InvalidTransfer.into());
+                return Err(Error::<T>::InvalidTransferStatisticsFailure.into());
             }
         }
 
         Ok(())
     }
 
-    /// Get the results of all transfer restrictions for a transfer.
-    pub fn get_transfer_restrictions_results(
+    /// Returns a vector containing all [`TransferCondition`] that are not being respected for the transfer. An empty vec means there's no error.
+    pub fn transfer_restrictions_report(
         asset_id: AssetID,
-        from_did: &IdentityId,
-        to_did: &IdentityId,
-        from_balance: Balance,
-        to_balance: Balance,
-        amount: Balance,
-        total_supply: Balance,
+        sender_did: &IdentityId,
+        receiver_did: &IdentityId,
+        transfer_amount: Balance,
         weight_meter: &mut WeightMeter,
-    ) -> Result<Vec<TransferConditionResult>, DispatchError> {
-        let tm = AssetTransferCompliances::<T>::get(&asset_id);
+    ) -> Result<Vec<TransferCondition>, DispatchError> {
+        let mut failed_conditions = Vec::new();
 
-        // Pre-Calculate the investor count changes.
+        let asset_total_supply = T::Asset::asset_total_supply(&asset_id)?;
+        let asset_compliance = AssetTransferCompliances::<T>::get(&asset_id);
+
+        if asset_compliance.paused {
+            return Ok(failed_conditions);
+        }
+
+        let sender_current_balance = T::Asset::asset_balance(&asset_id, sender_did);
+        let receiver_current_balance = T::Asset::asset_balance(&asset_id, receiver_did);
+
         let count_changes = Self::investor_count_changes(
-            Some(from_balance.saturating_sub(amount)),
-            Some(to_balance.saturating_add(amount)),
-            amount,
+            Some(sender_current_balance.saturating_sub(transfer_amount)),
+            Some(receiver_current_balance.saturating_add(transfer_amount)),
+            transfer_amount,
         );
 
-        let mut transfer_conditions = Vec::new();
-        for condition in tm.requirements {
-            let condition_holds = Self::check_transfer_condition(
+        for condition in asset_compliance.requirements {
+            if !Self::check_transfer_condition(
                 &condition,
                 asset_id,
-                from_did,
-                to_did,
-                to_balance,
-                amount,
-                total_supply,
+                sender_did,
+                receiver_did,
+                receiver_current_balance,
+                transfer_amount,
+                asset_total_supply,
                 count_changes,
                 weight_meter,
-            )?;
-            transfer_conditions.push(TransferConditionResult {
-                condition,
-                result: condition_holds,
-            });
+            )? {
+                failed_conditions.push(condition);
+            }
         }
-        Ok(transfer_conditions)
+
+        Ok(failed_conditions)
     }
 
     /// Consumes from `weight_meter` the given `weight`.
@@ -960,8 +965,8 @@ impl<T: Config> Module<T> {
 decl_error! {
     /// Statistics module errors.
     pub enum Error for Module<T: Config> {
-        /// Transfer not allowed.
-        InvalidTransfer,
+        /// Invalid transfer [`TransferCondition`] not respected.
+        InvalidTransferStatisticsFailure,
         /// StatType is not enabled.
         StatTypeMissing,
         /// StatType is needed by TransferCondition.
@@ -973,6 +978,6 @@ decl_error! {
         /// The limit of TransferConditions allowed for an asset has been reached.
         TransferConditionLimitReached,
         /// The maximum weight limit for executing the function was exceeded.
-        WeightLimitExceeded
+        WeightLimitExceeded,
     }
 }

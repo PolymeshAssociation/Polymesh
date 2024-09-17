@@ -2574,6 +2574,14 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
         AssetsExemptFromAffirmation::get(asset_id)
     }
 
+    fn asset_balance(asset_id: &AssetID, did: &IdentityId) -> Balance {
+        BalanceOf::get(asset_id, did)
+    }
+
+    fn asset_total_supply(asset_id: &AssetID) -> Result<Balance, DispatchError> {
+        Ok(Self::try_get_asset_details(&asset_id)?.total_supply)
+    }
+
     #[cfg(feature = "runtime-benchmarks")]
     fn register_unique_ticker(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
         Self::register_unique_ticker(origin, ticker)
