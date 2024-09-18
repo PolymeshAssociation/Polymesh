@@ -32,7 +32,6 @@ use polymesh_common_utilities::group::GroupTrait;
 use polymesh_common_utilities::identity::{
     CreateChildIdentityWithAuth, SecondaryKeyWithAuth, TargetIdAuthorization,
 };
-use polymesh_common_utilities::multisig::MultiSigSubTrait as _;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee as _, ProtocolOp};
 use polymesh_common_utilities::traits::{AccountCallPermissionsData, CheckAccountCallPermissions};
 use polymesh_common_utilities::SystematicIssuers;
@@ -76,7 +75,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns `Err(DidDoesNotExist)` unless `id` has an associated record.
-    pub(crate) fn ensure_id_record_exists(id: IdentityId) -> DispatchResult {
+    pub fn ensure_id_record_exists(id: IdentityId) -> DispatchResult {
         ensure!(Self::is_identity_exists(&id), Error::<T>::DidDoesNotExist);
         Ok(())
     }
@@ -204,13 +203,6 @@ impl<T: Config> Module<T> {
             <AccountKeyRefCount<T>>::get(key) == 0,
             Error::<T>::AccountKeyIsBeingUsed
         );
-        // Do not allow unlinking MultiSig keys with balance >= 1 POLYX.
-        if T::MultiSig::is_multisig(key) {
-            ensure!(
-                T::Balances::total_balance(key) < T::MultiSigBalanceLimit::get(),
-                Error::<T>::MultiSigHasBalance
-            );
-        }
         Ok(())
     }
 

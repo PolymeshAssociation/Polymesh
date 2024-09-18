@@ -4100,6 +4100,43 @@ fn reject_instruction_as_mediator() {
     });
 }
 
+#[test]
+fn missing_venue_for_offchain_asset() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+
+        let (asset_id, _) = create_and_issue_sample_asset_with_venue(&alice);
+
+        let legs: Vec<Leg> = vec![
+            Leg::Fungible {
+                sender: PortfolioId::default_portfolio(alice.did),
+                receiver: PortfolioId::default_portfolio(bob.did),
+                asset_id,
+                amount: 1_000_000,
+            },
+            Leg::OffChain {
+                sender_identity: alice.did,
+                receiver_identity: bob.did,
+                ticker: Ticker::from_slice_truncated(b"MYASSET"),
+                amount: 1_000_000,
+            },
+        ];
+        assert_noop!(
+            Settlement::add_instruction(
+                alice.origin(),
+                None,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                legs,
+                None,
+            ),
+            Error::OffChainAssetsMustHaveAVenue
+        );
+    });
+}
+
 /// Asserts the storage has been updated after adding an instruction.
 /// While each portfolio in `portfolios_pending_approval` must have a pending `AffirmationStatus`, each portfolio in `portfolios_pre_approved`
 /// must have an affirmed status. The number of pending affirmations must be equal to the number of portfolios in `portfolios_pending_approval` + the number of offchain legs,

@@ -238,7 +238,7 @@ benchmarks! {
 
     approve {
         let (alice, multisig, signers, users, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(3, 3).unwrap();
-    }: _(users[2].origin(), ephemeral_multisig, proposal_id, Weight::MAX)
+    }: _(users[2].origin(), ephemeral_multisig, proposal_id, None)
     verify {
         assert_vote_cast!(proposal_id, multisig, signers.last().unwrap());
     }

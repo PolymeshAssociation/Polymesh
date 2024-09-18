@@ -310,7 +310,6 @@ impl polymesh_common_utilities::traits::identity::Config for Test {
     type IdentityFn = pallet_identity::Module<Test>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
-    type MultiSigBalanceLimit = polymesh_runtime_common::MultiSigBalanceLimit;
     type MaxGivenAuths = MaxGivenAuths;
 }
 
@@ -448,6 +447,10 @@ impl MultiSigSubTrait<AccountId> for Test {
 
 impl PortfolioSubTrait<AccountId> for Test {
     fn ensure_portfolio_custody(_: PortfolioId, _: IdentityId) -> DispatchResult {
+        unimplemented!()
+    }
+
+    fn ensure_portfolio_validity(_: &PortfolioId) -> DispatchResult {
         unimplemented!()
     }
 
