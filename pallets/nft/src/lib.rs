@@ -446,14 +446,6 @@ impl<T: Config> Module<T> {
             Error::<T>::NFTIsLocked
         );
 
-        let actual_keys = CollectionKeys::get(collection_id).len();
-        if let Some(number_of_keys) = number_of_keys {
-            ensure!(
-                usize::from(number_of_keys) >= actual_keys,
-                Error::<T>::NumberOfKeysIsLessThanExpected,
-            );
-        }
-
         // Burns the NFT
         let new_supply = NFTsInCollection::get(&asset_id)
             .checked_sub(1)
@@ -465,8 +457,13 @@ impl<T: Config> Module<T> {
         NumberOfNFTs::insert(&asset_id, &caller_portfolio.did, new_balance);
         PortfolioNFT::remove(&caller_portfolio, (&asset_id, &nft_id));
         NFTOwner::remove(asset_id, nft_id);
-        #[allow(deprecated)]
-        MetadataValue::remove_prefix((&collection_id, &nft_id), None);
+        let removed_keys = MetadataValue::drain_prefix((&collection_id, &nft_id)).count();
+        if let Some(number_of_keys) = number_of_keys {
+            ensure!(
+                usize::from(number_of_keys) >= removed_keys,
+                Error::<T>::NumberOfKeysIsLessThanExpected,
+            );
+        }
 
         Self::deposit_event(Event::NFTPortfolioUpdated(
             caller_portfolio.did,
@@ -476,7 +473,7 @@ impl<T: Config> Module<T> {
             PortfolioUpdateReason::Redeemed,
         ));
         Ok(PostDispatchInfo::from(Some(
-            <T as Config>::WeightInfo::redeem_nft(actual_keys as u32),
+            <T as Config>::WeightInfo::redeem_nft(removed_keys as u32),
         )))
     }
 
