@@ -1,6 +1,6 @@
 use frame_support::{
     assert_err, assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop,
-    dispatch::DispatchResult, dispatch::Weight, BoundedVec,
+    dispatch::DispatchResult, BoundedVec,
 };
 
 use pallet_multisig::{self as multisig, AdminDid, ProposalStates, ProposalVoteCounts, Votes};
@@ -246,7 +246,7 @@ fn change_multisig_sigs_required() {
             charlie.clone(),
             ms_address.clone(),
             0,
-            Weight::MAX
+            None
         ));
         next_block();
         assert_eq!(MultiSig::ms_signs_required(ms_address), 1);
@@ -770,7 +770,7 @@ fn check_for_approval_closure() {
         let multi_purpose_nonce = Identity::multi_purpose_nonce();
 
         assert_storage_noop!(assert_err_ignore_postinfo!(
-            MultiSig::approve(dave.clone(), ms_address.clone(), proposal_id, Weight::MAX),
+            MultiSig::approve(dave.clone(), ms_address.clone(), proposal_id, None),
             Error::ProposalAlreadyExecuted
         ));
 
@@ -856,7 +856,7 @@ fn reject_proposals() {
             proposal_id1
         ));
         assert_storage_noop!(assert_err_ignore_postinfo!(
-            MultiSig::approve(dave.clone(), ms_address.clone(), proposal_id1, Weight::MAX),
+            MultiSig::approve(dave.clone(), ms_address.clone(), proposal_id1, None),
             Error::ProposalAlreadyRejected
         ));
         let vote_count1 =
@@ -884,7 +884,7 @@ fn reject_proposals() {
             proposal_id2
         ));
         assert_storage_noop!(assert_err_ignore_postinfo!(
-            MultiSig::approve(dave.clone(), ms_address.clone(), proposal_id2, Weight::MAX),
+            MultiSig::approve(dave.clone(), ms_address.clone(), proposal_id2, None),
             Error::ProposalAlreadyRejected
         ));
 
@@ -1301,7 +1301,7 @@ fn expired_proposals() {
             bob.clone(),
             ms_address.clone(),
             proposal_id,
-            Weight::MAX
+            None
         ));
 
         vote_count = ProposalVoteCounts::<TestStorage>::get(&ms_address, proposal_id).unwrap();
@@ -1317,12 +1317,7 @@ fn expired_proposals() {
         // Approval fails when proposal has expired
         set_timestamp(expires_at);
         assert_noop!(
-            MultiSig::approve(
-                charlie.clone(),
-                ms_address.clone(),
-                proposal_id,
-                Weight::MAX
-            ),
+            MultiSig::approve(charlie.clone(), ms_address.clone(), proposal_id, None),
             Error::ProposalExpired
         );
 
@@ -1342,7 +1337,7 @@ fn expired_proposals() {
             charlie,
             ms_address.clone(),
             proposal_id,
-            Weight::MAX
+            None
         ));
 
         vote_count = ProposalVoteCounts::<TestStorage>::get(&ms_address, proposal_id).unwrap();

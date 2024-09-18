@@ -38,4 +38,3 @@ sp-consensus-babe = { version = "0.10.0-dev" }
 sp-keystore = { version = "0.13.0" }
 sp-runtime = { version = "7.0.0" }
 substrate-frame-rpc-system = { version = "4.0.0-dev" }
-substrate-state-trie-migration-rpc = { version = "4.0.0-dev" }

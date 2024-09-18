@@ -406,8 +406,6 @@ construct_runtime!(
         ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 50,
 
         TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 200,
-
-        StateTrieMigration: pallet_state_trie_migration::{Pallet, Call, Storage, Event<T> } = 210,
     }
 );
 

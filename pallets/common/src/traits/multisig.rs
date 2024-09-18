@@ -40,6 +40,19 @@ pub trait WeightInfo {
     fn create_join_identity() -> Weight;
     fn approve_join_identity() -> Weight;
     fn join_identity() -> Weight;
+
+    fn default_max_weight(max_weight: &Option<Weight>) -> Weight {
+        max_weight.unwrap_or_else(|| {
+            // TODO: Use a better default weight.
+            Self::create_proposal()
+        })
+    }
+
+    fn approve_and_execute(max_weight: &Option<Weight>) -> Weight {
+        Self::approve()
+            .saturating_add(Self::execute_proposal())
+            .saturating_add(Self::default_max_weight(max_weight))
+    }
 }
 
 /// This trait is used to add a signer to a multisig and enable unlinking multisig from an identity

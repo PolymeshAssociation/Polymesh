@@ -262,7 +262,7 @@ impl MuliSigState {
                 self.api
                     .call()
                     .multi_sig()
-                    .approve(self.account.clone(), id, weight)?;
+                    .approve(self.account.clone(), id, Some(weight))?;
             let mut results = Vec::new();
             for signer in &mut self.signers[1..self.sigs_required as usize] {
                 let res = approve_call.submit_and_watch(signer).await?;
