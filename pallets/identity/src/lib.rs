@@ -646,8 +646,6 @@ decl_error! {
         NotASigner,
         /// Cannot convert a `T::AccountId` to `AnySignature::Signer::AccountId`.
         CannotDecodeSignerAccountId,
-        /// Multisig can not be unlinked from an identity while it still holds POLYX - Not Used
-        MultiSigHasBalance,
         /// The account key is being used, it can't be unlinked.
         AccountKeyIsBeingUsed,
         /// A custom scope is too long.
