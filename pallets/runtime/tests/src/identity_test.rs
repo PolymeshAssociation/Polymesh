@@ -750,12 +750,6 @@ fn do_remove_secondary_keys_test_with_externalities() {
     assert_eq!(Identity::get_identity(&ms_address), Some(alice.did));
     assert_eq!(Identity::get_identity(&bob_key), None);
 
-    // Try removing multisig while it has funds
-    assert_noop!(
-        Identity::remove_secondary_keys(alice.origin(), vec![ms_address.clone()]),
-        Error::MultiSigHasBalance
-    );
-
     // Check DidRecord.
     assert_eq!(Identity::get_identity(&dave_key), None);
     assert_eq!(Identity::get_identity(&ms_address), Some(alice.did));
@@ -838,11 +832,6 @@ fn leave_identity_test_with_externalities() {
         ms_address.clone().into(),
         2 * POLY
     ));
-    // multisig tries leaving identity while it has funds
-    assert_noop!(
-        Identity::leave_identity_as_key(Origin::signed(ms_address.clone())),
-        Error::MultiSigHasBalance
-    );
 
     // Check DidRecord.
     assert_eq!(Identity::get_identity(&dave_key), None);

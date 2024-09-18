@@ -519,11 +519,13 @@ fn rotate_multisig_primary_key_with_balance() {
             None,
         )
         .unwrap();
-        // Fails because the current MultiSig primary_key has a balance.
-        assert_eq!(
-            Identity::accept_primary_key(Origin::signed(charlie_key.clone()), auth_id, None),
-            Err(IdError::MultiSigHasBalance.into()),
-        );
+
+        // Succeeds
+        assert_ok!(Identity::accept_primary_key(
+            Origin::signed(charlie_key.clone()),
+            auth_id,
+            None
+        ));
     });
 }
 

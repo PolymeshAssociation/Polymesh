@@ -222,7 +222,6 @@ impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type IdentityFn = pallet_identity::Module<Runtime>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
-    type MultiSigBalanceLimit = polymesh_runtime_common::MultiSigBalanceLimit;
     type MaxGivenAuths = MaxGivenAuths;
 }
 

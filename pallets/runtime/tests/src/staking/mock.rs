@@ -310,7 +310,6 @@ impl polymesh_common_utilities::traits::identity::Config for Test {
     type IdentityFn = pallet_identity::Module<Test>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
-    type MultiSigBalanceLimit = polymesh_runtime_common::MultiSigBalanceLimit;
     type MaxGivenAuths = MaxGivenAuths;
 }
 
