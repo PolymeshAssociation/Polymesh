@@ -14,7 +14,7 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
     AssetMetadataValue,
 };
-use polymesh_primitives::settlement::InstructionId;
+use polymesh_primitives::settlement::{InstructionId, Leg, SettlementType};
 use polymesh_primitives::{
     AuthorizationData, Claim, ClaimType, Condition, ConditionType, CountryCode, IdentityId,
     NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId,
@@ -36,6 +36,7 @@ type NFT = pallet_nft::Module<TestStorage>;
 type NFTError = pallet_nft::Error<TestStorage>;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
+type Settlement = pallet_settlement::Module<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 
 /// Successfully creates an NFT collection and an Asset.
@@ -453,7 +454,8 @@ fn burn_nft_collection_not_found() {
                 alice.origin(),
                 Asset::generate_asset_id(alice.acc(), false),
                 NFTId(1),
-                PortfolioKind::Default
+                PortfolioKind::Default,
+                None
             ),
             NFTError::CollectionNotFound
         );
@@ -477,7 +479,13 @@ fn burn_nft_not_found() {
         );
 
         assert_noop!(
-            NFT::redeem_nft(alice.origin(), asset_id, NFTId(1), PortfolioKind::Default),
+            NFT::redeem_nft(
+                alice.origin(),
+                asset_id,
+                NFTId(1),
+                PortfolioKind::Default,
+                None
+            ),
             NFTError::NFTNotFound
         );
     });
@@ -527,7 +535,13 @@ fn burn_nft_no_custody() {
         .unwrap();
 
         assert_noop!(
-            NFT::redeem_nft(alice.origin(), asset_id, NFTId(1), PortfolioKind::Default),
+            NFT::redeem_nft(
+                alice.origin(),
+                asset_id,
+                NFTId(1),
+                PortfolioKind::Default,
+                None
+            ),
             PortfolioError::UnauthorizedCustodian
         );
     });
@@ -563,7 +577,8 @@ fn burn_nft() {
             alice.origin(),
             asset_id,
             NFTId(1),
-            PortfolioKind::Default
+            PortfolioKind::Default,
+            None
         ));
         assert!(!MetadataValue::contains_key(
             (NFTCollectionId(1), NFTId(1)),
@@ -1090,6 +1105,139 @@ fn controller_transfer_nft_not_owned() {
                 PortfolioKind::Default
             ),
             NFTError::InvalidNFTTransferInsufficientCount
+        );
+    });
+}
+
+#[test]
+fn redeem_wrong_number_of_keys() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice: User = User::new(AccountKeyring::Alice);
+
+        let collection_keys: NFTCollectionKeys = vec![
+            AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            AssetMetadataKey::Local(AssetMetadataLocalKey(2)),
+        ]
+        .into();
+        let asset_id = create_nft_collection(
+            alice.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![
+            NFTMetadataAttribute {
+                key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+                value: AssetMetadataValue(b"test".to_vec()),
+            },
+            NFTMetadataAttribute {
+                key: AssetMetadataKey::Local(AssetMetadataLocalKey(2)),
+                value: AssetMetadataValue(b"test".to_vec()),
+            },
+        ];
+        mint_nft(
+            alice.clone(),
+            asset_id,
+            nfts_metadata,
+            PortfolioKind::Default,
+        );
+
+        assert_noop!(
+            NFT::redeem_nft(
+                alice.origin(),
+                asset_id,
+                NFTId(1),
+                PortfolioKind::Default,
+                Some(1)
+            ),
+            NFTError::NumberOfKeysIsLessThanExpected
+        );
+    });
+}
+
+#[test]
+fn redeem_locked_nft() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob: User = User::new(AccountKeyring::Bob);
+        let alice: User = User::new(AccountKeyring::Alice);
+
+        let asset_id = create_nft_collection(
+            alice.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            Vec::new().into(),
+        );
+        mint_nft(alice.clone(), asset_id, Vec::new(), PortfolioKind::Default);
+
+        let legs: Vec<Leg> = vec![Leg::NonFungible {
+            sender: PortfolioId::default_portfolio(alice.did),
+            receiver: PortfolioId::default_portfolio(bob.did),
+            nfts: NFTs::new_unverified(asset_id, vec![NFTId(1)]),
+        }];
+        assert_ok!(Settlement::add_and_affirm_instruction(
+            alice.origin(),
+            None,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs,
+            vec![PortfolioId::default_portfolio(alice.did)],
+            None,
+        ));
+
+        assert_noop!(
+            NFT::redeem_nft(
+                alice.origin(),
+                asset_id,
+                NFTId(1),
+                PortfolioKind::Default,
+                None
+            ),
+            NFTError::NFTIsLocked
+        );
+    });
+}
+
+#[test]
+fn reject_instruction_with_locked_asset() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob: User = User::new(AccountKeyring::Bob);
+        let alice: User = User::new(AccountKeyring::Alice);
+
+        let asset_id = create_nft_collection(
+            alice.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            Vec::new().into(),
+        );
+        mint_nft(alice.clone(), asset_id, Vec::new(), PortfolioKind::Default);
+
+        let legs: Vec<Leg> = vec![Leg::NonFungible {
+            sender: PortfolioId::default_portfolio(alice.did),
+            receiver: PortfolioId::default_portfolio(bob.did),
+            nfts: NFTs::new_unverified(asset_id, vec![NFTId(1)]),
+        }];
+        assert_ok!(Settlement::add_and_affirm_instruction(
+            alice.origin(),
+            None,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs,
+            vec![PortfolioId::default_portfolio(alice.did)],
+            None,
+        ));
+
+        // Force token redemption
+        pallet_portfolio::PortfolioLockedNFT::remove(
+            PortfolioId::default_portfolio(alice.did),
+            (asset_id, NFTId(1)),
+        );
+
+        assert_noop!(
+            Settlement::reject_instruction(
+                alice.origin(),
+                InstructionId(0),
+                PortfolioId::default_portfolio(alice.did),
+            ),
+            PortfolioError::NFTNotLocked
         );
     });
 }

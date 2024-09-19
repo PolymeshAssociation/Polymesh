@@ -1,7 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::dispatch::{
+    DispatchError, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo,
+};
 use frame_support::storage::StorageDoubleMap;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
@@ -154,9 +156,20 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::redeem_nft(T::MaxNumberOfCollectionKeys::get() as u32)]
-        pub fn redeem_nft(origin, asset_id: AssetID, nft_id: NFTId, portfolio_kind: PortfolioKind) -> DispatchResult {
-            Self::base_redeem_nft(origin, asset_id, nft_id, portfolio_kind)
+        #[weight = <T as Config>::WeightInfo::redeem_nft(
+            number_of_keys.map_or(
+                u32::from(T::MaxNumberOfCollectionKeys::get()),
+                |v| u32::from(v)
+            )
+        )]
+        pub fn redeem_nft(
+            origin,
+            asset_id: AssetID,
+            nft_id: NFTId,
+            portfolio_kind: PortfolioKind,
+            number_of_keys: Option<u8>
+        ) -> DispatchResultWithPostInfo {
+            Self::base_redeem_nft(origin, asset_id, nft_id, portfolio_kind, number_of_keys)
         }
 
         /// Forces the transfer of NFTs from a given portfolio to the caller's portfolio.
@@ -237,7 +250,11 @@ decl_error! {
         /// The sender has an invalid CDD.
         InvalidNFTTransferInvalidSenderCDD,
         /// There's no asset associated to the given asset_id.
-        InvalidAssetID
+        InvalidAssetID,
+        /// The NFT is locked.
+        NFTIsLocked,
+        /// The number of keys in the collection is greater than the input.
+        NumberOfKeysIsLessThanExpected,
     }
 }
 
@@ -405,7 +422,8 @@ impl<T: Config> Module<T> {
         asset_id: AssetID,
         nft_id: NFTId,
         portfolio_kind: PortfolioKind,
-    ) -> DispatchResult {
+        number_of_keys: Option<u8>,
+    ) -> DispatchResultWithPostInfo {
         // Verifies if the collection exists
         let collection_id =
             CollectionAsset::try_get(&asset_id).map_err(|_| Error::<T>::CollectionNotFound)?;
@@ -423,6 +441,10 @@ impl<T: Config> Module<T> {
             PortfolioNFT::contains_key(&caller_portfolio, (&asset_id, &nft_id)),
             Error::<T>::NFTNotFound
         );
+        ensure!(
+            !PortfolioLockedNFT::contains_key(&caller_portfolio, (&asset_id, &nft_id)),
+            Error::<T>::NFTIsLocked
+        );
 
         // Burns the NFT
         let new_supply = NFTsInCollection::get(&asset_id)
@@ -434,9 +456,14 @@ impl<T: Config> Module<T> {
         NFTsInCollection::insert(&asset_id, new_supply);
         NumberOfNFTs::insert(&asset_id, &caller_portfolio.did, new_balance);
         PortfolioNFT::remove(&caller_portfolio, (&asset_id, &nft_id));
-        #[allow(deprecated)]
-        MetadataValue::remove_prefix((&collection_id, &nft_id), None);
         NFTOwner::remove(asset_id, nft_id);
+        let removed_keys = MetadataValue::drain_prefix((&collection_id, &nft_id)).count();
+        if let Some(number_of_keys) = number_of_keys {
+            ensure!(
+                usize::from(number_of_keys) >= removed_keys,
+                Error::<T>::NumberOfKeysIsLessThanExpected,
+            );
+        }
 
         Self::deposit_event(Event::NFTPortfolioUpdated(
             caller_portfolio.did,
@@ -445,7 +472,9 @@ impl<T: Config> Module<T> {
             None,
             PortfolioUpdateReason::Redeemed,
         ));
-        Ok(())
+        Ok(PostDispatchInfo::from(Some(
+            <T as Config>::WeightInfo::redeem_nft(removed_keys as u32),
+        )))
     }
 
     /// Tranfer ownership of all NFTs.
