@@ -677,6 +677,10 @@ pub mod pallet {
         TooManySigners,
         /// Multisig doesn't have a paying DID.
         NoPayingDid,
+        /// Expiry must be in the future.
+        InvalidExpiryDate,
+        /// The proposal has been invalidated after a multisg update.
+        InvalidatedProposal,
     }
 
     /// Nonce to ensure unique MultiSig addresses are generated; starts from 1.
@@ -783,6 +787,14 @@ pub mod pallet {
     #[pallet::getter(fn transaction_version)]
     pub(super) type TransactionVersion<T: Config> = StorageValue<_, u32, ValueQuery>;
 
+    /// The last proposal id before the multisig changed signers or signatures required.
+    ///
+    /// multisig => Option<proposal id>
+    #[pallet::storage]
+    #[pallet::getter(fn last_invalid_proposal)]
+    pub type LastInvalidProposal<T: Config> =
+        StorageMap<_, Identity, T::AccountId, u64, OptionQuery>;
+
     /// Storage version.
     #[pallet::storage]
     #[pallet::getter(fn storage_version)]
@@ -876,8 +888,12 @@ impl<T: Config> Pallet<T> {
             Some(ProposalState::ExecutionSuccessful | ProposalState::ExecutionFailed) => {
                 Err(Error::<T>::ProposalAlreadyExecuted.into())
             }
-            Some(ProposalState::Active { until: None }) => Ok(()),
+            Some(ProposalState::Active { until: None }) => {
+                Self::ensure_valid_proposal(multisig, proposal_id)?;
+                Ok(())
+            }
             Some(ProposalState::Active { until: Some(until) }) => {
+                Self::ensure_valid_proposal(multisig, proposal_id)?;
                 // Ensure proposal is not expired
                 ensure!(
                     until > pallet_timestamp::Pallet::<T>::get(),
@@ -915,6 +931,7 @@ impl<T: Config> Pallet<T> {
         Self::ensure_max_signers(&multisig, signers.len() as u64)?;
 
         Self::base_authorize_signers(ms_did, &multisig, &signers)?;
+        Self::set_invalid_proposals(&multisig);
         Self::deposit_event(Event::MultiSigSignersAuthorized {
             caller_did: caller_did.unwrap_or(ms_did),
             multisig,
@@ -949,6 +966,7 @@ impl<T: Config> Pallet<T> {
         }
 
         NumberOfSigners::<T>::insert(&multisig, pending_num_of_signers);
+        Self::set_invalid_proposals(&multisig);
         Self::deposit_event(Event::MultiSigSignersRemoved {
             caller_did: caller_did.unwrap_or(ms_did),
             multisig: multisig.clone(),
@@ -1004,6 +1022,7 @@ impl<T: Config> Pallet<T> {
         let max_weight = proposal.get_dispatch_info().weight;
         let caller_did = Self::ensure_ms_get_did(multisig)?;
         let proposal_id = Self::next_proposal_id(multisig);
+        Self::ensure_valid_expiry(&expiry)?;
 
         Proposals::<T>::insert(multisig, proposal_id, &*proposal);
         ProposalVoteCounts::<T>::insert(multisig, proposal_id, ProposalVoteCount::default());
@@ -1280,12 +1299,47 @@ impl<T: Config> Pallet<T> {
             Error::<T>::ChangeNotAllowed
         );
         MultiSigSignsRequired::<T>::insert(multisig, &signatures_required);
+        Self::set_invalid_proposals(&multisig);
         Self::deposit_event(Event::MultiSigSignersRequiredChanged {
             caller_did: caller_did.or(ms_did),
             multisig: multisig.clone(),
             sigs_required: signatures_required,
         });
         Ok(())
+    }
+
+    /// Returns `Ok` if `expiry` is in the future. Otherwise, returns [`Error::InvalidExpiryDate`].
+    fn ensure_valid_expiry(expiry: &Option<T::Moment>) -> DispatchResult {
+        if let Some(expiry) = expiry {
+            ensure!(
+                expiry > &pallet_timestamp::Pallet::<T>::get(),
+                Error::<T>::InvalidExpiryDate
+            );
+        }
+        Ok(())
+    }
+
+    /// Returns `Ok` if `proposal_id` is valid. Otherwise, returns [`InvalidatedProposal`].
+    fn ensure_valid_proposal(multisig: &T::AccountId, proposal_id: u64) -> DispatchResult {
+        if let Some(last_invalid_proposal) = Self::last_invalid_proposal(multisig) {
+            ensure!(
+                proposal_id > last_invalid_proposal,
+                Error::<T>::InvalidatedProposal
+            );
+        }
+        Ok(())
+    }
+
+    /// Sets [`LastInvalidProposal`] with the proposal id of the last proposal.
+    fn set_invalid_proposals(multisig: &T::AccountId) {
+        let next_proposal_id = Self::next_proposal_id(multisig);
+
+        // There are no proposals for the multisig
+        if next_proposal_id == 0 {
+            return;
+        }
+
+        LastInvalidProposal::<T>::insert(multisig, next_proposal_id.saturating_sub(1));
     }
 }
 
