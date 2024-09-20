@@ -1319,7 +1319,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Returns `Ok` if `proposal_id` is valid. Otherwise, returns [`InvalidatedProposal`].
+    /// Returns `Ok` if `proposal_id` is valid. Otherwise, returns [`Error::InvalidatedProposal`].
     fn ensure_valid_proposal(multisig: &T::AccountId, proposal_id: u64) -> DispatchResult {
         if let Some(last_invalid_proposal) = Self::last_invalid_proposal(multisig) {
             ensure!(
