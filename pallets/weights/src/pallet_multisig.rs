@@ -471,4 +471,18 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().writes(2))
     }
+    // Storage: MultiSig MultiSigSignsRequired (r:1 w:0)
+    // Proof Skipped: MultiSig MultiSigSignsRequired (max_values: None, max_size: None, mode: Measured)
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: Identity IsDidFrozen (r:1 w:0)
+    // Proof Skipped: Identity IsDidFrozen (max_values: None, max_size: None, mode: Measured)
+    // Storage: MultiSig AdminDid (r:1 w:1)
+    // Proof Skipped: MultiSig AdminDid (max_values: None, max_size: None, mode: Measured)
+    fn remove_admin() -> Weight {
+        // Minimum execution time: 29_555 nanoseconds.
+        Weight::from_ref_time(29_694_000)
+            .saturating_add(DbWeight::get().reads(4))
+            .saturating_add(DbWeight::get().writes(1))
+    }
 }

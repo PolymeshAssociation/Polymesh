@@ -1255,6 +1255,48 @@ fn proposal_owner_rejection_denied() {
     });
 }
 
+#[test]
+fn remove_admin_successfully() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Multisig creator
+        let alice = User::new(AccountKeyring::Alice);
+        // Multisig signers
+        let ferdie_signer = AccountKeyring::Ferdie.to_account_id();
+        let bob_signer = AccountKeyring::Bob.to_account_id();
+        let charlie_signer = AccountKeyring::Charlie.to_account_id();
+
+        let ms_address = create_multisig_default_perms(
+            alice.acc(),
+            create_signers(vec![ferdie_signer, bob_signer.clone(), charlie_signer]),
+            2,
+        );
+        assert!(AdminDid::<TestStorage>::get(&ms_address).is_some());
+
+        assert_ok!(MultiSig::remove_admin(Origin::signed(ms_address.clone())));
+        assert!(AdminDid::<TestStorage>::get(ms_address).is_none())
+    });
+}
+
+#[test]
+fn remove_admin_not_multsig() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Multisig creator
+        let alice = User::new(AccountKeyring::Alice);
+        // Multisig signers
+        let ferdie_signer = AccountKeyring::Ferdie.to_account_id();
+        let bob_signer = AccountKeyring::Bob.to_account_id();
+        let charlie_signer = AccountKeyring::Charlie.to_account_id();
+
+        create_multisig_default_perms(
+            alice.acc(),
+            create_signers(vec![ferdie_signer, bob_signer.clone(), charlie_signer]),
+            2,
+        );
+
+        assert_noop!(MultiSig::remove_admin(alice.origin()), Error::NoSuchMultisig);
+    });
+}
+
 fn expired_proposals() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);

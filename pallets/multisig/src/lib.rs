@@ -451,7 +451,7 @@ pub mod pallet {
             Self::deposit_event(Event::MultiSigRemovedAdmin {
                 caller_did: admin_did,
                 multisig,
-                admin_did,
+                admin_did: Some(admin_did),
             });
             Ok(().into())
         }
@@ -531,6 +531,21 @@ pub mod pallet {
             Self::ensure_ms(&multisig)?;
             AuthToProposalId::<T>::remove(multisig, auth_id);
             pallet_identity::Module::<T>::join_identity(origin, auth_id)?;
+            Ok(().into())
+        }
+
+        /// Removes the admin identity from the `multisig`.  This must be called by the multisig itself.
+        #[pallet::call_index(17)]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_admin())]
+        pub fn remove_admin(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            let multisig = ensure_signed(origin)?;
+            let caller_did = Self::ensure_ms_has_did(&multisig)?;
+            let admin_did = AdminDid::<T>::take(&multisig);
+            Self::deposit_event(Event::MultiSigRemovedAdmin {
+                caller_did,
+                multisig,
+                admin_did,
+            });
             Ok(().into())
         }
     }
@@ -619,7 +634,7 @@ pub mod pallet {
         MultiSigRemovedAdmin {
             caller_did: IdentityId,
             multisig: T::AccountId,
-            admin_did: IdentityId,
+            admin_did: Option<IdentityId>,
         },
         /// A Multisig has removed it's paying DID.
         MultiSigRemovedPayingDid {
