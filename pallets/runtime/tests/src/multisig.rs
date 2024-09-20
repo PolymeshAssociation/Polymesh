@@ -1293,7 +1293,10 @@ fn remove_admin_not_multsig() {
             2,
         );
 
-        assert_noop!(MultiSig::remove_admin(alice.origin()), Error::NoSuchMultisig);
+        assert_noop!(
+            MultiSig::remove_admin(alice.origin()),
+            Error::NoSuchMultisig
+        );
     });
 }
 
