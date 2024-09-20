@@ -38,8 +38,7 @@ For more details on monitoring infrastructure for nodes and running an operator 
 
 ## Polymesh Testnet
 
-The Testnet does not offer incentives to users to participate and test with it. It has a simple onboarding process (no-KYC required) and a bridge allowing test KOVAN based POLY to be bridged to testnet POLYX.
-
+The Testnet does not offer incentives to users to participate and test with it. It has a simple onboarding process (no-KYC required).
 The testnet also includes the `testUtils` pallet that allows easier onboarding for testing, and in addition each new account will receive 100,000 POLYX for testing purposes.
 
 To run a node which connects to the Testnet, you can start your node with:
@@ -51,8 +50,6 @@ To run a node which connects to the Testnet, you can start your node with:
 ## Polymesh Mainnet
 
 The public mainnet is the official Polymesh blockchain. Onboarding requires users to go through a simple KYC process (called Customer Due Diligence or CDD) in order to access the network.
-
-ERC20 POLY can be bridged from Ethereum to the Polymesh Mainnet.
 
 To run a node which connects to the Mainnet, you can start your node with:
 
