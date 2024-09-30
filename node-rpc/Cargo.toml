@@ -35,6 +35,6 @@ sp-block-builder = { version = "4.0.0-dev" }
 sp-blockchain = { version = "4.0.0-dev" }
 sp-consensus = { version = "0.10.0-dev" }
 sp-consensus-babe = { version = "0.10.0-dev" }
-sp-keystore = { version = "0.13.0" }
-sp-runtime = { version = "7.0.0" }
+sp-keystore = { version = "0.27.0" }
+sp-runtime = { version = "24.0.0" }
 substrate-frame-rpc-system = { version = "4.0.0-dev" }
