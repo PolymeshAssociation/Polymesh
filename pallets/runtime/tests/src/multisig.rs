@@ -1530,6 +1530,7 @@ fn invalidate_proposals_add_signer() {
         let bob_key = AccountKeyring::Bob.to_account_id();
         let ferdie_key = AccountKeyring::Ferdie.to_account_id();
         let ferdie = Origin::signed(ferdie_key.clone());
+        let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
         let charlie_key = AccountKeyring::Charlie.to_account_id();
 
         let ms_address = setup_multisig(alice.acc(), 2, create_signers(vec![ferdie_key, bob_key]));
@@ -1548,7 +1549,15 @@ fn invalidate_proposals_add_signer() {
         assert_ok!(MultiSig::add_multisig_signers_via_admin(
             alice.origin(),
             ms_address.clone(),
-            create_signers(vec![charlie_key])
+            create_signers(vec![charlie_key.clone()])
+        ));
+
+        assert_eq!(LastInvalidProposal::<TestStorage>::get(&ms_address), None);
+
+        let charlie_auth_id = get_last_auth_id(&charlie_key);
+        assert_ok!(MultiSig::accept_multisig_signer(
+            charlie.clone(),
+            charlie_auth_id
         ));
 
         assert_eq!(

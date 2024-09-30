@@ -451,7 +451,7 @@ pub mod pallet {
             Self::deposit_event(Event::MultiSigRemovedAdmin {
                 caller_did: admin_did,
                 multisig,
-                admin_did: Some(admin_did),
+                admin_did,
             });
             Ok(().into())
         }
@@ -540,7 +540,7 @@ pub mod pallet {
         pub fn remove_admin(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let multisig = ensure_signed(origin)?;
             let caller_did = Self::ensure_ms_has_did(&multisig)?;
-            let admin_did = AdminDid::<T>::take(&multisig);
+            let admin_did = AdminDid::<T>::take(&multisig).ok_or(Error::<T>::AdminNotFound)?;
             Self::deposit_event(Event::MultiSigRemovedAdmin {
                 caller_did,
                 multisig,
@@ -634,7 +634,7 @@ pub mod pallet {
         MultiSigRemovedAdmin {
             caller_did: IdentityId,
             multisig: T::AccountId,
-            admin_did: Option<IdentityId>,
+            admin_did: IdentityId,
         },
         /// A Multisig has removed it's paying DID.
         MultiSigRemovedPayingDid {
@@ -696,6 +696,8 @@ pub mod pallet {
         InvalidExpiryDate,
         /// The proposal has been invalidated after a multisg update.
         InvalidatedProposal,
+        /// Multisig has not admin.
+        AdminNotFound,
     }
 
     /// Nonce to ensure unique MultiSig addresses are generated; starts from 1.
@@ -946,7 +948,6 @@ impl<T: Config> Pallet<T> {
         Self::ensure_max_signers(&multisig, signers.len() as u64)?;
 
         Self::base_authorize_signers(ms_did, &multisig, &signers)?;
-        Self::set_invalid_proposals(&multisig);
         Self::deposit_event(Event::MultiSigSignersAuthorized {
             caller_did: caller_did.unwrap_or(ms_did),
             multisig,
@@ -1244,6 +1245,8 @@ impl<T: Config> Pallet<T> {
                 ensure!(!to_multisig, Error::<T>::SignerAlreadyLinkedToMultisig);
 
                 IdentityPallet::<T>::ensure_auth_by(ms_identity, auth_by)?;
+
+                Self::set_invalid_proposals(&multisig);
 
                 // Update number of signers for this multisig.
                 let pending_num_of_signers = Self::ensure_max_signers(&multisig, 1)?;
