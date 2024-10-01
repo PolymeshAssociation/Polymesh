@@ -100,8 +100,8 @@ use frame_support::traits::schedule::{
 };
 use frame_support::traits::{Currency, EnsureOrigin, Get, LockIdentifier, WithdrawReasons};
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
-use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use frame_system::pallet_prelude::BlockNumberFor;
+use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero};
