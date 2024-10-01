@@ -653,6 +653,7 @@ pub mod pallet {
     // -----------------------------------------------------------------
 
     #[pallet::genesis_config]
+    #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T: Config> {
         pub validator_count: u32,
         pub minimum_validator_count: u32,
@@ -673,27 +674,6 @@ pub mod pallet {
         pub max_nominator_count: Option<u32>,
         pub slashing_allowed_for: SlashingSwitch,
         pub validator_commission_cap: Perbill,
-    }
-
-    #[cfg(feature = "std")]
-    impl<T: Config> Default for GenesisConfig<T> {
-        fn default() -> Self {
-            GenesisConfig {
-                validator_count: Default::default(),
-                minimum_validator_count: Default::default(),
-                invulnerables: Default::default(),
-                force_era: Default::default(),
-                slash_reward_fraction: Default::default(),
-                canceled_payout: Default::default(),
-                stakers: Default::default(),
-                min_nominator_bond: Default::default(),
-                min_validator_bond: Default::default(),
-                max_validator_count: None,
-                max_nominator_count: None,
-                slashing_allowed_for: Default::default(),
-                validator_commission_cap: Default::default(),
-            }
-        }
     }
 
     #[pallet::genesis_build]

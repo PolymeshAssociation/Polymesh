@@ -62,6 +62,7 @@ use frame_support::{
     decl_error, decl_module, decl_storage, ensure, BoundedBTreeSet, IterableStorageDoubleMap,
 };
 use frame_system::{ensure_root, RawOrigin};
+use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::traits::{One, Verify};
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::TryFrom;
@@ -118,7 +119,7 @@ pub trait Config:
     type Proposal: From<Call<Self>> + Into<<Self as identity::Config>::Proposal>;
 
     /// Scheduler of settlement instructions.
-    type Scheduler: Named<Self::BlockNumber, <Self as Config>::Proposal, Self::SchedulerOrigin>;
+    type Scheduler: Named<BlockNumberFor<Self>, <Self as Config>::Proposal, Self::SchedulerOrigin>;
 
     /// Maximum number of fungible assets that can be in a single instruction.
     type MaxNumberOfFungibleAssets: Get<u32>;

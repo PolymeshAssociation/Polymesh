@@ -101,6 +101,7 @@ use frame_support::traits::schedule::{
 use frame_support::traits::{Currency, EnsureOrigin, Get, LockIdentifier, WithdrawReasons};
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
+use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero};
@@ -405,7 +406,7 @@ pub trait Config:
     + pallet_base::Config
 {
     /// Currency type for this module.
-    type Currency: LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>;
+    type Currency: LockableCurrencyExt<Self::AccountId, Moment = BlockNumberFor<Self>>;
 
     /// Origin for enacting results for PIPs (reject, approve, skip, etc.).
     type VotingMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -429,7 +430,7 @@ pub trait Config:
     /// instances, the names of scheduled tasks should be guaranteed to be unique in this
     /// pallet. Names cannot be just PIP IDs because names of executed and expired PIPs should be
     /// different.
-    type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
+    type Scheduler: ScheduleNamed<BlockNumberFor<Self>, Self::SchedulerCall, Self::SchedulerOrigin>;
 
     /// A call type used by the scheduler.
     type SchedulerCall: From<Call<Self>> + Into<<Self as IdentityConfig>::Proposal>;
@@ -529,7 +530,7 @@ decl_event!(
     pub enum Event<T>
     where
         <T as frame_system::Config>::AccountId,
-        <T as frame_system::Config>::BlockNumber,
+        BlockNumber = BlockNumberFor<T>,
     {
         /// Pruning Historical PIPs is enabled or disabled (caller DID, old value, new value)
         HistoricalPipsPruned(IdentityId, bool, bool),

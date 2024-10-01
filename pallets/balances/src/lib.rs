@@ -127,7 +127,7 @@
 //! use frame_support::traits::{WithdrawReasons, LockableCurrency};
 //! use sp_runtime::traits::Bounded;
 //! pub trait Trait: frame_system::Config {
-//! type Currency: LockableCurrency<Self::AccountId, Moment=Self::BlockNumber>;
+//! type Currency: LockableCurrency<Self::AccountId, Moment=BlockNumberFor<Self>>;
 //! }
 //! # struct StakingLedger<T: Trait> {
 //!     # stash: <T as frame_system::Config>::AccountId,
