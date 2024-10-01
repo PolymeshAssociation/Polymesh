@@ -447,11 +447,11 @@ decl_storage! {
         pub MinimumProposalDeposit get(fn min_proposal_deposit) config(): Balance;
 
         /// Default enactment period that will be use after a proposal is accepted by GC.
-        pub DefaultEnactmentPeriod get(fn default_enactment_period) config(): T::BlockNumber;
+        pub DefaultEnactmentPeriod get(fn default_enactment_period) config(): BlockNumberFor<T>;
 
         /// How many blocks will it take, after a `Pending` PIP expires,
         /// assuming it has not transitioned to another `ProposalState`?
-        pub PendingPipExpiry get(fn pending_pip_expiry) config(): MaybeBlock<T::BlockNumber>;
+        pub PendingPipExpiry get(fn pending_pip_expiry) config(): MaybeBlock<BlockNumberFor<T>>;
 
         /// Maximum times a PIP can be skipped before triggering `CannotSkipPip` in `enact_snapshot_results`.
         pub MaxPipSkipCount get(fn max_pip_skip_count) config(): SkippedCount;
@@ -470,7 +470,7 @@ decl_storage! {
         ActivePipCount get(fn active_pip_count): u32;
 
         /// The metadata of the active proposals.
-        pub ProposalMetadata get(fn proposal_metadata): map hasher(twox_64_concat) PipId => Option<PipsMetadata<T::BlockNumber>>;
+        pub ProposalMetadata get(fn proposal_metadata): map hasher(twox_64_concat) PipId => Option<PipsMetadata<BlockNumberFor<T>>>;
 
         /// Those who have locked a deposit.
         /// proposal (id, proposer) -> deposit
@@ -489,7 +489,7 @@ decl_storage! {
         pub ProposalVotes get(fn proposal_vote): double_map hasher(twox_64_concat) PipId, hasher(twox_64_concat) T::AccountId => Option<Vote>;
 
         /// Maps PIPs to the block at which they will be executed, if any.
-        pub PipToSchedule get(fn pip_to_schedule): map hasher(twox_64_concat) PipId => Option<T::BlockNumber>;
+        pub PipToSchedule get(fn pip_to_schedule): map hasher(twox_64_concat) PipId => Option<BlockNumberFor<T>>;
 
         /// A live priority queue (lowest priority at index 0)
         /// of pending PIPs up to the active limit.
@@ -507,7 +507,7 @@ decl_storage! {
         pub SnapshotQueue get(fn snapshot_queue): Vec<SnapshottedPip>;
 
         /// The metadata of the snapshot, if there is one.
-        pub SnapshotMeta get(fn snapshot_metadata): Option<SnapshotMetadata<T::BlockNumber, T::AccountId>>;
+        pub SnapshotMeta get(fn snapshot_metadata): Option<SnapshotMetadata<BlockNumberFor<T>, T::AccountId>>;
 
         /// The number of times a certain PIP has been skipped.
         /// Once a (configurable) threshhold is exceeded, a PIP cannot be skipped again.
@@ -673,7 +673,7 @@ decl_module! {
         /// # Arguments
         /// * `duration` the new default enactment period it takes for a scheduled PIP to be executed.
         #[weight = (<T as Config>::WeightInfo::set_default_enactment_period(), Operational)]
-        pub fn set_default_enactment_period(origin, duration: T::BlockNumber) {
+        pub fn set_default_enactment_period(origin, duration: BlockNumberFor<T>) {
             Self::config::<DefaultEnactmentPeriod<T>, _, _>(origin, duration, RawEvent::DefaultEnactmentPeriodChanged)?;
         }
 
@@ -684,7 +684,7 @@ decl_module! {
         /// # Arguments
         /// * `expiry` the block-time it takes for a still-`Pending` PIP to expire.
         #[weight = (<T as Config>::WeightInfo::set_pending_pip_expiry(), Operational)]
-        pub fn set_pending_pip_expiry(origin, expiry: MaybeBlock<T::BlockNumber>) {
+        pub fn set_pending_pip_expiry(origin, expiry: MaybeBlock<BlockNumberFor<T>>) {
             Self::config::<PendingPipExpiry<T>, _, _>(origin, expiry, RawEvent::PendingPipExpiryChanged)?;
         }
 
@@ -956,7 +956,7 @@ decl_module! {
         /// * `RescheduleNotByReleaseCoordinator` unless triggered by release coordinator.
         /// * `IncorrectProposalState` unless the proposal was in a scheduled state.
         #[weight = (<T as Config>::WeightInfo::reschedule_execution(), Operational)]
-        pub fn reschedule_execution(origin, id: PipId, until: Option<T::BlockNumber>) {
+        pub fn reschedule_execution(origin, id: PipId, until: Option<BlockNumberFor<T>>) {
             let did = Identity::<T>::ensure_perms(origin)?;
 
             // Ensure origin is release coordinator.
@@ -1284,7 +1284,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Emit event based on a `result` from scheduling a PIP for execution.
-    fn handle_exec_scheduling_result<A, B>(id: PipId, at: T::BlockNumber, result: Result<A, B>) {
+    fn handle_exec_scheduling_result<A, B>(id: PipId, at: BlockNumberFor<T>, result: Result<A, B>) {
         Self::deposit_event(match result {
             Err(_) => RawEvent::ExecutionSchedulingFailed(GC_DID, id, at),
             Ok(_) => RawEvent::ExecutionScheduled(GC_DID, id, at),
@@ -1292,7 +1292,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Adds a PIP expiry call to the PIP expiry schedule.
-    fn schedule_pip_for_expiry(id: PipId, at: T::BlockNumber) {
+    fn schedule_pip_for_expiry(id: PipId, at: BlockNumberFor<T>) {
         let did = GC_DID;
         let call = Call::<T>::expire_scheduled_pip { did, id }.into();
         let event = match T::Scheduler::schedule_named(

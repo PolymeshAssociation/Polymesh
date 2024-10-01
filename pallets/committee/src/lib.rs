@@ -70,6 +70,7 @@ use frame_support::{
     ensure,
     traits::{ChangeMembers, EnsureOrigin, InitializeMembers},
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
@@ -160,7 +161,7 @@ decl_storage! {
         /// Actual proposal for a given hash.
         pub ProposalOf get(fn proposal_of): map hasher(identity) T::Hash => Option<<T as Config<I>>::Proposal>;
         /// PolymeshVotes on a given proposal, if it is ongoing.
-        pub Voting get(fn voting): map hasher(identity) T::Hash => Option<PolymeshVotes<T::BlockNumber>>;
+        pub Voting get(fn voting): map hasher(identity) T::Hash => Option<PolymeshVotes<BlockNumberFor<T>>>;
         /// Proposals so far.
         pub ProposalCount get(fn proposal_count): u32;
         /// The current members of the committee.
@@ -170,7 +171,7 @@ decl_storage! {
         /// Release coordinator.
         pub ReleaseCoordinator get(fn release_coordinator) config(): Option<IdentityId>;
         /// Time after which a proposal will expire.
-        pub ExpiresAfter get(fn expires_after) config(): MaybeBlock<T::BlockNumber>;
+        pub ExpiresAfter get(fn expires_after) config(): MaybeBlock<BlockNumberFor<T>>;
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(0)): Version;
     }
@@ -182,7 +183,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T, I> where
         <T as frame_system::Config>::Hash,
-        BlockNumber = <T as frame_system::Config>::BlockNumber,
+        BlockNumber = BlockNumberFor<T>,
     {
         /// A motion (given hash) has been proposed (by given account) with a threshold (given `MemberCount`).
         /// Parameters: caller DID, proposal index, proposal hash.
@@ -299,7 +300,7 @@ decl_module! {
             <T as Config<I>>::WeightInfo::set_expires_after(),
             DispatchClass::Operational
         )]
-        pub fn set_expires_after(origin, expiry: MaybeBlock<T::BlockNumber>) {
+        pub fn set_expires_after(origin, expiry: MaybeBlock<BlockNumberFor<T>>) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             <ExpiresAfter<T, I>>::put(expiry);
             Self::deposit_event(RawEvent::ExpiresAfterUpdated(GC_DID, expiry));
@@ -392,7 +393,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
     fn ensure_proposal(
         hash: &T::Hash,
         idx: ProposalIndex,
-    ) -> Result<PolymeshVotes<T::BlockNumber>, DispatchError> {
+    ) -> Result<PolymeshVotes<BlockNumberFor<T>>, DispatchError> {
         let voting = Self::voting(&hash).ok_or(Error::<T, I>::NoSuchProposal)?;
         ensure!(voting.index == idx, Error::<T, I>::MismatchedVotingIndex);
         Ok(voting)
@@ -528,7 +529,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
     /// As a side-effect, on error, any existing proposal data is pruned.
     fn ensure_not_expired(
         proposal: &T::Hash,
-        expiry: MaybeBlock<T::BlockNumber>,
+        expiry: MaybeBlock<BlockNumberFor<T>>,
     ) -> Result<(), Error<T, I>> {
         match expiry {
             MaybeBlock::Some(e) if e <= frame_system::Pallet::<T>::block_number() => {

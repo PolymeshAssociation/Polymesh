@@ -509,7 +509,7 @@ impl<T: Config> Pallet<T> {
             let next_block_number = <frame_system::Pallet<T>>::block_number() + 1u32.into();
             for (index, validator_id) in T::SessionInterface::validators().into_iter().enumerate() {
                 let schedule_block_number =
-                    next_block_number + index.saturated_into::<T::BlockNumber>();
+                    next_block_number + index.saturated_into::<BlockNumberFor<T>>();
                 match T::RewardScheduler::schedule(
                     DispatchTime::At(schedule_block_number),
                     None,
@@ -1265,7 +1265,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
         Ok(Self::get_npos_targets(None))
     }
 
-    fn next_election_prediction(now: T::BlockNumber) -> T::BlockNumber {
+    fn next_election_prediction(now: BlockNumberFor<T>) -> T::BlockNumber {
         let current_era = Self::current_era().unwrap_or(0);
         let current_session = Self::current_planned_session();
         let current_era_start_session_index =
@@ -1282,7 +1282,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
         let session_length = T::NextNewSession::average_session_length();
 
-        let sessions_left: T::BlockNumber = match ForceEra::<T>::get() {
+        let sessions_left: BlockNumberFor<T> = match ForceEra::<T>::get() {
             Forcing::ForceNone => Bounded::max_value(),
             Forcing::ForceNew | Forcing::ForceAlways => Zero::zero(),
             Forcing::NotForcing if era_progress >= T::SessionsPerEra::get() => Zero::zero(),
@@ -1498,7 +1498,7 @@ impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, 
 
 /// Add reward points to block authors:
 /// * 20 points to the block producer for producing a (non-uncle) block in the relay chain,
-impl<T> pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Pallet<T>
+impl<T> pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T>
 where
     T: Config + pallet_authorship::Config + pallet_session::Config,
 {
