@@ -696,7 +696,7 @@ pub mod pallet {
         InvalidExpiryDate,
         /// The proposal has been invalidated after a multisg update.
         InvalidatedProposal,
-        /// Multisig has not admin.
+        /// Multisig has no admin.
         AdminNotFound,
     }
 
