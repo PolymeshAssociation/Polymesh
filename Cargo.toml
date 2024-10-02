@@ -36,6 +36,7 @@ pallet-session = { git = "https://github.com/PolymeshAssociation/substrate", bra
 pallet-staking-reward-curve = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03-test-s390x" }
 pallet-timestamp = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03-test-s390x" }
 pallet-treasury = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03-test-s390x" }
+pallet-state-trie-migration = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03-test-s390x" }
 sc-authority-discovery = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03-test-s390x" }
 sc-basic-authorship = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03-test-s390x" }
 sc-block-builder = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-v6-monthly-2023-03-test-s390x" }
@@ -103,8 +104,6 @@ substrate-wasm-builder = { git = "https://github.com/PolymeshAssociation/substra
 
 [workspace]
 members = [
-    "bin/bench",
-    "bin/testing",
     "node-rpc",
     "pallets/asset",
     "pallets/balances",
