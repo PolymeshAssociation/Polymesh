@@ -40,6 +40,7 @@ pub trait WeightInfo {
     fn create_join_identity() -> Weight;
     fn approve_join_identity() -> Weight;
     fn join_identity() -> Weight;
+    fn remove_admin() -> Weight;
 
     fn default_max_weight(max_weight: &Option<Weight>) -> Weight {
         max_weight.unwrap_or_else(|| {
