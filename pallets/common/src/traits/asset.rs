@@ -218,6 +218,7 @@ pub trait WeightInfo {
     fn add_mandatory_mediators(n: u32) -> Weight;
     fn remove_mandatory_mediators(n: u32) -> Weight;
     fn link_ticker_to_asset_id() -> Weight;
+    fn unlink_ticker_from_asset_id() -> Weight;
 }
 
 pub trait AssetFnTrait<Account, Origin> {

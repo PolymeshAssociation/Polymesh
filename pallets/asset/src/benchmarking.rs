@@ -752,4 +752,17 @@ benchmarks! {
         let asset_id = create_sample_asset::<T>(&alice, true);
         let ticker = reg_unique_ticker::<T>(alice.origin().into(), None);
     }: _(alice.origin, ticker, asset_id)
+
+    unlink_ticker_from_asset_id {
+        set_ticker_registration_config::<T>();
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let asset_id = create_sample_asset::<T>(&alice, true);
+        let ticker = reg_unique_ticker::<T>(alice.origin().into(), None);
+        Module::<T>::link_ticker_to_asset_id(
+            alice.clone().origin().into(),
+            ticker,
+            asset_id
+        )
+        .unwrap();
+    }: _(alice.origin, ticker, asset_id)
 }
