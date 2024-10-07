@@ -7,6 +7,7 @@ mod macros;
 #[cfg(not(feature = "as-library"))]
 use alloc::vec;
 use alloc::vec::Vec;
+use scale::Encode;
 
 pub use polymesh_api::ink::basic_types::IdentityId;
 pub use polymesh_api::ink::extension::PolymeshEnvironment;
@@ -29,6 +30,7 @@ pub use polymesh_api::polymesh::types::polymesh_primitives::settlement::{
     InstructionId, Leg, SettlementType, VenueDetails, VenueId, VenueType,
 };
 pub use polymesh_api::polymesh::Api;
+use polymesh_api_ink::blake2_128;
 
 pub const API_VERSION: ContractRuntimeApi = ContractRuntimeApi {
     desc: *b"POLY",
@@ -388,7 +390,9 @@ upgradable_api! {
                 let api = Api::new();
 
                 let contract_account = ink::env::account_id::<PolymeshEnvironment>();
-                let asset_id = unimplemented!();
+                let nonce = api.query().asset().asset_nonce(contract_account)?;
+                let asset_id =
+                    blake2_128(&(b"modlpy/pallet_asset", contract_account, nonce).encode());
 
                 api.call()
                     .asset()
@@ -398,7 +402,7 @@ upgradable_api! {
                 if let Some(amount_to_issue) = amount_to_issue {
                     api.call()
                         .asset()
-                        .issue(asset_id, amount_to_issue, PortfolioKind::Default)
+                        .issue(AssetID(asset_id), amount_to_issue, PortfolioKind::Default)
                         .submit()?;
                 }
 

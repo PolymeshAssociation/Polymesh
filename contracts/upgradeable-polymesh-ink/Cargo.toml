@@ -32,8 +32,8 @@ as-library = []
 
 std = [
     "ink/std",
+    "polymesh-api/std",
     "scale/std",
     "scale-info/std",
-    "polymesh-api/std",
 ]
 ink-as-dependency = []
