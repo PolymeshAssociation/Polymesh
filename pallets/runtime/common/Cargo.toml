@@ -28,9 +28,9 @@ frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 pallet-authorship = { version = "4.0.0-dev", default-features = false }
 pallet-election-provider-multi-phase = { version = "4.0.0-dev", default-features = false }
-sp-io = { version = "7.0.0", default-features = false }
-sp-std = { version = "5.0.0", default-features = false }
-sp-runtime = { version = "7.0.0", default-features = false }
+sp-io = { version = "23.0.0", default-features = false }
+sp-std = { version = "8.0.0", default-features = false }
+sp-runtime = { version = "24.0.0", default-features = false }
 
 [features]
 equalize = []

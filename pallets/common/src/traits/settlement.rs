@@ -1,6 +1,7 @@
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchError;
 use frame_support::weights::Weight;
+use frame_system::pallet_prelude::BlockNumberFor;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec::Vec;
 
@@ -15,7 +16,7 @@ decl_event!(
     pub enum Event<T>
     where
         Moment = <T as pallet_timestamp::Config>::Moment,
-        BlockNumber = <T as frame_system::Config>::BlockNumber,
+        BlockNumber = BlockNumberFor<T>,
         AccountId = <T as frame_system::Config>::AccountId,
     {
         /// A new venue has been created (did, venue_id, details, type)

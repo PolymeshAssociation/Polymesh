@@ -17,11 +17,11 @@ log = "0.4.8"
 # Substrate
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
-sp-core = { version = "7.0.0", default-features = false }
-sp-std = { version = "5.0.0", default-features = false }
-sp-io = { version = "7.0.0", default-features = false}
-sp-runtime = { version = "7.0.0", default-features = false }
-sp-arithmetic = { version = "6.0.0", default-features = false }
+sp-core = { version = "21.0.0", default-features = false }
+sp-std = { version = "8.0.0", default-features = false }
+sp-io = { version = "23.0.0", default-features = false}
+sp-runtime = { version = "24.0.0", default-features = false }
+sp-arithmetic = { version = "16.0.0", default-features = false }
 sp-staking = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
@@ -38,7 +38,7 @@ rand_chacha = { version = "0.2", default-features = false, optional = true }
 
 [dev-dependencies]
 pallet-staking-reward-curve = { version = "4.0.0-dev", default-features = false }
-sp-tracing = "6.0.0"
+sp-tracing = "10.0.0"
 
 [features]
 default = ["std"]

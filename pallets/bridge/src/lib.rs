@@ -20,6 +20,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::{decl_module, decl_storage};
+use frame_system::pallet_prelude::BlockNumberFor;
 use polymesh_primitives::{storage_migration_ver, Balance, IdentityId};
 use scale_info::TypeInfo;
 use sp_core::H256;
@@ -97,7 +98,7 @@ decl_storage! {
                 hasher(blake2_128_concat) T::AccountId,
                 hasher(blake2_128_concat) u32
             =>
-                BridgeTxDetail<T::BlockNumber>;
+                BridgeTxDetail<BlockNumberFor<T>>;
 
         /// The admin key.
         Admin get(fn admin): Option<T::AccountId>;
@@ -110,15 +111,15 @@ decl_storage! {
 
         /// The bridge transaction timelock period, in blocks, since the acceptance of the
         /// transaction proposal during which the admin key can freeze the transaction.
-        Timelock get(fn timelock) config(): T::BlockNumber;
+        Timelock get(fn timelock) config(): BlockNumberFor<T>;
 
         /// The maximum number of bridged POLYX per identity within a set interval of
         /// blocks. Fields: POLYX amount and the block interval duration.
-        BridgeLimit get(fn bridge_limit) config(): (Balance, T::BlockNumber);
+        BridgeLimit get(fn bridge_limit) config(): (Balance, BlockNumberFor<T>);
 
         /// Amount of POLYX bridged by the identity in last block interval. Fields: the bridged
         /// amount and the last interval number.
-        PolyxBridged get(fn polyx_bridged): map hasher(identity) IdentityId => (Balance, T::BlockNumber);
+        PolyxBridged get(fn polyx_bridged): map hasher(identity) IdentityId => (Balance, BlockNumberFor<T>);
 
         /// Identities not constrained by the bridge limit.
         BridgeLimitExempted get(fn bridge_exempted): map hasher(twox_64_concat) IdentityId => bool;

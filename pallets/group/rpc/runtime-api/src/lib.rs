@@ -5,11 +5,12 @@ use polymesh_common_utilities::traits::group::InactiveMember;
 use polymesh_primitives::{IdentityId, Moment};
 
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::{prelude::*, vec::Vec};
 
-#[derive(Eq, PartialEq, Encode, Decode)]
+#[derive(Eq, PartialEq, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct Member {
