@@ -1,15 +1,27 @@
 use frame_support::storage::migration::move_prefix;
 use sp_runtime::runtime_logger::RuntimeLogger;
 
+use polymesh_primitives::SubsetRestriction;
+
 use super::*;
 
 mod v6 {
     use scale_info::TypeInfo;
+    use sp_std::collections::btree_set::BTreeSet;
 
     use super::*;
-    use polymesh_primitives::{
-        agent::AgentGroup, v6::Permissions, Balance, CountryCode, Moment, PortfolioId, Ticker,
-    };
+    use polymesh_primitives::agent::AgentGroup;
+    use polymesh_primitives::v6::Permissions;
+    use polymesh_primitives::{Balance, CountryCode, Moment, PortfolioId, Ticker};
+
+    #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+    pub enum SubsetRestriction<A: Ord> {
+        Whole,
+        These(BTreeSet<A>),
+        Except(BTreeSet<A>),
+    }
+
+    pub type AssetPermissions = SubsetRestriction<Ticker>;
 
     #[derive(Encode, Decode, TypeInfo)]
     pub struct Claim2ndKey {
@@ -87,6 +99,9 @@ mod v6 {
 
             pub Authorizations get(fn authorizations):
                 double_map hasher(blake2_128_concat) Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Option<Authorization<T::AccountId, T::Moment>>;
+
+            pub OldKeyAssetPermissions get(fn key_asset_permissions):
+                map hasher(twox_64_concat) T::AccountId => Option<AssetPermissions>;
         }
     }
 
@@ -192,11 +207,25 @@ impl<T, S> From<v6::Authorization<T, S>> for Authorization<T, S> {
     }
 }
 
-#[allow(dead_code)]
+impl From<v6::AssetPermissions> for AssetPermissions {
+    fn from(v6_asset_permissions: v6::AssetPermissions) -> Self {
+        match v6_asset_permissions {
+            v6::SubsetRestriction::Whole => SubsetRestriction::Whole,
+            v6::SubsetRestriction::These(ticker_set) => {
+                SubsetRestriction::These(ticker_set.into_iter().map(|t| t.into()).collect())
+            }
+            v6::SubsetRestriction::Except(ticker_set) => {
+                SubsetRestriction::Except(ticker_set.into_iter().map(|t| t.into()).collect())
+            }
+        }
+    }
+}
+
 pub(crate) fn migrate_to_v7<T: Config>() {
     RuntimeLogger::init();
 
     // Removes all elements in the old storage and inserts it in the new storage
+    let mut count = 0;
     log::info!("Updating types for the Claims storage");
     move_prefix(&Claims::final_prefix(), &v6::OldClaims::final_prefix());
     v6::OldClaims::drain().for_each(|(claim1key, claim2key, id_claim)| {
@@ -205,8 +234,11 @@ pub(crate) fn migrate_to_v7<T: Config>() {
             Claim2ndKey::from(claim2key),
             IdentityClaim::from(id_claim),
         );
+        count += 1;
     });
+    log::info!("Migrated {:?} Identity.Claims entries.", count);
 
+    let mut count = 0;
     log::info!("Updating types for the KeyRecords storage");
     v6::KeyRecords::<T>::drain().for_each(|(acc_id, key_record)| {
         let key_record = match key_record {
@@ -225,10 +257,27 @@ pub(crate) fn migrate_to_v7<T: Config>() {
             v6::KeyRecord::MultiSigSignerKey(acc) => KeyRecord::MultiSigSignerKey(acc),
         };
         KeyRecords::<T>::insert(acc_id, key_record);
+        count += 1;
     });
+    log::info!("Migrated {:?} Identity.KeyRecords entries.", count);
 
+    let mut count = 0;
     log::info!("Updating types for the Authorizations storage");
     v6::Authorizations::<T>::drain().for_each(|(acc, n, auth)| {
         Authorizations::<T>::insert(acc, n, Authorization::from(auth));
+        count += 1;
     });
+    log::info!("Migrated {:?} Identity.Authorizations entries.", count);
+
+    let mut count = 0;
+    log::info!("Updating types for the KeyAssetPermissions storage");
+    move_prefix(
+        &KeyAssetPermissions::<T>::final_prefix(),
+        &v6::OldKeyAssetPermissions::<T>::final_prefix(),
+    );
+    v6::OldKeyAssetPermissions::<T>::drain().for_each(|(acc, asset_permissions)| {
+        KeyAssetPermissions::<T>::insert(acc, AssetPermissions::from(asset_permissions));
+        count += 1;
+    });
+    log::info!("Migrated {:?} Identity.KeyAssetPermissions entries.", count);
 }
