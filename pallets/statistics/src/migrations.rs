@@ -116,7 +116,7 @@ pub(crate) fn migrate_to_v3<T: Config>() {
         let bounded_set = BoundedBTreeSet::try_from(set).unwrap_or_default();
         ActiveAssetStats::<T>::insert(AssetID::from(scope), bounded_set);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Statistics.ActiveAssetStats entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the AssetStats storage");
@@ -128,7 +128,7 @@ pub(crate) fn migrate_to_v3<T: Config>() {
         count += 1;
         AssetStats::insert(Stat1stKey::from(stat1key), stat2key, v);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Statistics.AssetStats entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the AssetTransferCompliances storage");
@@ -140,7 +140,10 @@ pub(crate) fn migrate_to_v3<T: Config>() {
         count += 1;
         AssetTransferCompliances::<T>::insert(AssetID::from(scope), compliance);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!(
+        "Migrated {:?} Statistics.AssetTransferCompliances entries.",
+        count
+    );
 
     let mut count = 0;
     log::info!("Updating types for the TransferConditionExemptEntities storage");
@@ -156,5 +159,8 @@ pub(crate) fn migrate_to_v3<T: Config>() {
             exempt,
         );
     });
-    log::info!("{:?} items migrated", count);
+    log::info!(
+        "Migrated {:?} Statistics.TransferConditionExemptEntities entries.",
+        count
+    );
 }

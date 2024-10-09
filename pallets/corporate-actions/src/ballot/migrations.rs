@@ -48,7 +48,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         Metas::insert(CAId::from(ca_id), ballot);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Ballot.Metas entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the TimeRanges storage");
@@ -60,7 +60,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         TimeRanges::insert(CAId::from(ca_id), range);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Ballot.TimeRanges entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the MotionNumChoices storage");
@@ -72,7 +72,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         MotionNumChoices::insert(CAId::from(ca_id), choices);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Ballot.MotionNumChoices entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the RCV storage");
@@ -81,7 +81,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         RCV::insert(CAId::from(ca_id), rcv);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Ballot.RCV entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the Results storage");
@@ -90,7 +90,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         Results::insert(CAId::from(ca_id), balances);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Ballot.Results entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the Votes storage");
@@ -99,5 +99,5 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         Votes::insert(CAId::from(ca_id), did, vote);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Ballot.Votes entries.", count);
 }

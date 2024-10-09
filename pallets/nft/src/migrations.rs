@@ -76,7 +76,7 @@ pub(crate) fn migrate_to_v4<T: Config>() {
             .or_insert(AssetID::from(ticker));
         NumberOfNFTs::insert(asset_id, did, n);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} NFT.NumberOfNFTs entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the CollectionTicker storage");
@@ -87,7 +87,7 @@ pub(crate) fn migrate_to_v4<T: Config>() {
             .or_insert(AssetID::from(ticker));
         CollectionAsset::insert(asset_id, id);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} NFT.CollectionTicker entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the Collection storage");
@@ -95,7 +95,7 @@ pub(crate) fn migrate_to_v4<T: Config>() {
         count += 1;
         Collection::insert(id, NFTCollection::from(collection));
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} NFT.Collection entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the NFTsInCollection storage");
@@ -110,7 +110,7 @@ pub(crate) fn migrate_to_v4<T: Config>() {
             .or_insert(AssetID::from(ticker));
         NFTsInCollection::insert(asset_id, n);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} NFT.NFTsInCollection entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the NFTOwner storage");
@@ -122,12 +122,12 @@ pub(crate) fn migrate_to_v4<T: Config>() {
             .or_insert(AssetID::from(ticker));
         NFTOwner::insert(asset_id, nft_id, portfolio);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} NFT.NFTOwner entries.", count);
 
     log::info!("NextCollectionId has been cleared");
     v3::NextCollectionId::kill();
 
     log::info!("Removing old NextNFTId storage");
     let res = v3::NextNFTId::clear(u32::max_value(), None);
-    log::info!("{:?} items have been cleared", res.unique);
+    log::info!("{:?} NFT.NextNFTId items have been cleared", res.unique);
 }

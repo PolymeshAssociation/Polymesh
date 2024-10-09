@@ -1428,7 +1428,7 @@ pub mod migration {
             }
         });
         weight.saturating_accrue(DbWeight::get().reads_writes(reads, writes));
-        log::info!(" >>> {sig_count} Signers migrated.");
+        log::info!(" >>> {sig_count} Multisig.Signers migrated.");
     }
 
     fn migrate_tx_done<T: Config>(weight: &mut Weight) {
@@ -1443,7 +1443,7 @@ pub mod migration {
             writes += 1;
         });
         weight.saturating_accrue(DbWeight::get().reads_writes(reads, writes));
-        log::info!(" >>> {count} NextProposalId migrated.");
+        log::info!(" >>> {count} Multisig.NextProposalId migrated.");
     }
 
     fn migrate_creator_did<T: Config>(weight: &mut Weight) {
@@ -1463,6 +1463,6 @@ pub mod migration {
             }
         });
         weight.saturating_accrue(DbWeight::get().reads_writes(reads, writes));
-        log::info!(" >>> {did_count} Creator Dids migrated.");
+        log::info!(" >>> {did_count} Multisig.Creator Dids migrated.");
     }
 }

@@ -8,7 +8,7 @@ mod v0 {
     use super::*;
     use polymesh_primitives::Ticker;
 
-    #[derive(Clone, Debug, Decode, Default, Encode, PartialEq, TypeInfo)]
+    #[derive(Clone, Decode, Default, Encode, PartialEq, TypeInfo)]
     pub struct Fundraiser<Moment> {
         pub creator: IdentityId,
         pub offering_portfolio: PortfolioId,
