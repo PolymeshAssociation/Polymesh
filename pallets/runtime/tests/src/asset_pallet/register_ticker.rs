@@ -152,7 +152,7 @@ fn register_ticker_too_long() {
 }
 
 #[test]
-fn register_ticker_already_expired() {
+fn register_ticker_already_registered() {
     ExtBuilder::default().build().execute_with(|| {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER00");
         let bob = User::new(AccountKeyring::Bob);

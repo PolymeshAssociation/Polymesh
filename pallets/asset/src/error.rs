@@ -99,6 +99,10 @@ decl_error! {
         /// An unexpected error when generating a new asset ID.
         AssetIDGenerationError,
         /// The ticker doesn't belong to the caller.
-        TickerNotRegisteredToCaller
+        TickerNotRegisteredToCaller,
+        /// The given asset is already linked to a ticker.
+        AssetIsAlreadyLinkedToATicker,
+        /// The given ticker is not linked to the given asset.
+        TickerIsNotLinkedToTheAsset
     }
 }

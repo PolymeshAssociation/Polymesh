@@ -740,4 +740,26 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(3))
     }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
+    // Proof Skipped: ExternalAgents GroupOfAgent (max_values: None, max_size: None, mode: Measured)
+    // Storage: Permissions CurrentPalletName (r:1 w:0)
+    // Proof Skipped: Permissions CurrentPalletName (max_values: Some(1), max_size: None, mode: Measured)
+    // Storage: Permissions CurrentDispatchableName (r:1 w:0)
+    // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
+    // Storage: Asset UniqueTickerRegistration (r:1 w:1)
+    // Proof Skipped: Asset UniqueTickerRegistration (max_values: None, max_size: None, mode: Measured)
+    // Storage: Asset TickerAssetID (r:1 w:1)
+    // Proof Skipped: Asset TickerAssetID (max_values: None, max_size: None, mode: Measured)
+    // Storage: Asset TickersOwnedByUser (r:0 w:1)
+    // Proof Skipped: Asset TickersOwnedByUser (max_values: None, max_size: None, mode: Measured)
+    // Storage: Asset AssetIDTicker (r:0 w:1)
+    // Proof Skipped: Asset AssetIDTicker (max_values: None, max_size: None, mode: Measured)
+    fn unlink_ticker_from_asset_id() -> Weight {
+        // Minimum execution time: 50_587 nanoseconds.
+        Weight::from_ref_time(53_381_000)
+            .saturating_add(DbWeight::get().reads(6))
+            .saturating_add(DbWeight::get().writes(4))
+    }
 }

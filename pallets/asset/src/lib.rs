@@ -837,6 +837,20 @@ decl_module! {
         pub fn link_ticker_to_asset_id(origin, ticker: Ticker, asset_id: AssetID) {
             Self::base_link_ticker_to_asset_id(origin, ticker, asset_id)?;
         }
+
+        /// Removes the link between a ticker and an asset.
+        ///
+        /// # Arguments
+        /// * `origin`: the secondary key of the sender.
+        /// * `ticker`: the [`Ticker`] that will be unlinked from the given `asset_id`.
+        /// * `asset_id`: the [`AssetID`] that will be unlink from `ticker`.
+        ///
+        /// # Permissions
+        /// * Asset
+        #[weight = <T as Config>::WeightInfo::unlink_ticker_from_asset_id()]
+        pub fn unlink_ticker_from_asset_id(origin, ticker: Ticker, asset_id: AssetID) {
+            Self::base_unlink_ticker_from_asset_id(origin, ticker, asset_id)?;
+        }
     }
 }
 
@@ -959,7 +973,7 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
 
-        Self::ensure_security_token_exists(&asset_id)?;
+        Self::ensure_asset_exists(&asset_id)?;
 
         if freeze {
             ensure!(Frozen::get(&asset_id) == false, Error::<T>::AlreadyFrozen);
@@ -981,7 +995,7 @@ impl<T: Config> Module<T> {
         asset_name: AssetName,
     ) -> DispatchResult {
         Self::ensure_valid_asset_name(&asset_name)?;
-        Self::ensure_security_token_exists(&asset_id)?;
+        Self::ensure_asset_exists(&asset_id)?;
 
         let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
 
@@ -1608,19 +1622,51 @@ impl<T: Config> Module<T> {
                         ticker_registration.expiry = None;
                         Ok(())
                     }
-                    None => return Err(Error::<T>::TickerRegistrationNotFound.into()),
+                    None => Err(Error::<T>::TickerRegistrationNotFound.into()),
                 }
             },
         )?;
         // The ticker can't be linked to any other asset
+        Self::ensure_ticker_not_linked(&ticker)?;
+        // The asset can't be linked to any other ticker
         ensure!(
-            !TickerAssetID::contains_key(ticker),
-            Error::<T>::TickerIsAlreadyLinkedToAnAsset
+            !AssetIDTicker::contains_key(asset_id),
+            Error::<T>::AssetIsAlreadyLinkedToATicker
         );
         // Links the ticker to the asset
         TickerAssetID::insert(ticker, asset_id);
         AssetIDTicker::insert(asset_id, ticker);
         Self::deposit_event(RawEvent::TickerLinkedToAsset(caller_did, ticker, asset_id));
+        Ok(())
+    }
+
+    pub fn base_unlink_ticker_from_asset_id(
+        origin: T::RuntimeOrigin,
+        ticker: Ticker,
+        asset_id: AssetID,
+    ) -> DispatchResult {
+        // Verifies if the caller has the correct permissions for this asset
+        let caller_did = ExternalAgents::<T>::ensure_perms(origin, asset_id)?;
+
+        // The caller must own the ticker
+        let ticker_registration = UniqueTickerRegistration::<T>::take(ticker)
+            .ok_or(Error::<T>::TickerRegistrationNotFound)?;
+        ensure!(
+            ticker_registration.owner == caller_did,
+            Error::<T>::TickerNotRegisteredToCaller
+        );
+
+        // The ticker must be linked to the given asset
+        ensure!(
+            TickerAssetID::get(ticker) == Some(asset_id),
+            Error::<T>::TickerIsNotLinkedToTheAsset
+        );
+
+        // Removes the storage links
+        TickersOwnedByUser::remove(caller_did, ticker);
+        TickerAssetID::remove(ticker);
+        AssetIDTicker::remove(asset_id);
+
         Ok(())
     }
 }
@@ -1857,12 +1903,6 @@ impl<T: Config> Module<T> {
         AssetMetadataValueDetails::<T>::get(asset_id, key).map_or(false, |details| {
             details.is_locked(<pallet_timestamp::Pallet<T>>::get())
         })
-    }
-
-    /// Returns `Ok` if there is a [`AssetDetails`] associated to `asset_id`. Otherwise, returns [`Error::NoSuchAsset`].
-    fn ensure_security_token_exists(asset_id: &AssetID) -> DispatchResult {
-        ensure!(Assets::contains_key(asset_id), Error::<T>::NoSuchAsset);
-        Ok(())
     }
 
     /// Ensure asset metadata `value` is within the global limit.
