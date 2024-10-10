@@ -321,6 +321,7 @@ decl_module! {
         const MaxNumberOfFungibleAssets: u32 = T::MaxNumberOfFungibleAssets::get();
         const MaxNumberOfNFTsPerLeg: u32 = T::MaxNumberOfNFTsPerLeg::get();
         const MaxNumberOfNFTs: u32 = T::MaxNumberOfNFTs::get();
+        const MaxNumberOfPortfolios: u32 = T::MaxNumberOfPortfolios::get();
         const MaxNumberOfVenueSigners: u32 = T::MaxNumberOfVenueSigners::get();
 
         fn deposit_event() = default;
