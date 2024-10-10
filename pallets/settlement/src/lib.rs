@@ -393,7 +393,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::affirm_with_receipts_input(None)]
+        #[weight = <T as Config>::WeightInfo::affirm_with_receipts_input(None, portfolios.len() as u32)]
         pub fn affirm_with_receipts(
             origin,
             id: InstructionId,
@@ -555,7 +555,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_legs(legs)]
+        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_legs(legs, portfolios.len() as u32)]
         pub fn add_and_affirm_instruction(
             origin,
             venue_id: VenueId,
@@ -595,7 +595,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::affirm_instruction_input(None)]
+        #[weight = <T as Config>::WeightInfo::affirm_instruction_input(None, portfolios.len() as u32)]
         pub fn affirm_instruction(origin, id: InstructionId, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
             Self::affirm_and_maybe_schedule_instruction(
                 origin,
@@ -613,7 +613,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::withdraw_affirmation_input(None)]
+        #[weight = <T as Config>::WeightInfo::withdraw_affirmation_input(None, portfolios.len() as u32)]
         pub fn withdraw_affirmation(origin, id: InstructionId, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
             Self::base_withdraw_affirmation(origin, id, portfolios, None)
         }
@@ -658,7 +658,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::affirm_with_receipts_input(*number_of_assets)]
+        #[weight = <T as Config>::WeightInfo::affirm_with_receipts_input(*number_of_assets, portfolios.len() as u32)]
         pub fn affirm_with_receipts_with_count(
             origin,
             id: InstructionId,
@@ -687,7 +687,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::affirm_instruction_input(*number_of_assets)]
+        #[weight = <T as Config>::WeightInfo::affirm_instruction_input(*number_of_assets, portfolios.len() as u32)]
         pub fn affirm_instruction_with_count(
             origin,
             id: InstructionId,
@@ -736,7 +736,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::withdraw_affirmation_input(*number_of_assets)]
+        #[weight = <T as Config>::WeightInfo::withdraw_affirmation_input(*number_of_assets, portfolios.len() as u32)]
         pub fn withdraw_affirmation_with_count(
             origin,
             id: InstructionId,
@@ -795,7 +795,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::add_and_affirm_with_mediators_legs(legs, mediators.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::add_and_affirm_with_mediators_legs(legs, portfolios.len() as u32, mediators.len() as u32)]
         pub fn add_and_affirm_with_mediators(
             origin,
             venue_id: VenueId,
@@ -860,7 +860,7 @@ decl_module! {
         /// * `number_of_assets` - an optional [`AssetCount`] that will be used for a precise fee estimation before executing the extrinsic.
         ///
         /// Note: calling the rpc method `get_execute_instruction_info` returns an instance of [`ExecuteInstructionInfo`], which contain the asset count.
-        #[weight = <T as Config>::WeightInfo::reject_instruction_input(None, true)]
+        #[weight = <T as Config>::WeightInfo::reject_instruction_input(*number_of_assets, true)]
         pub fn reject_instruction_as_mediator(
             origin,
             instruction_id: InstructionId,
@@ -2460,7 +2460,7 @@ impl<T: Config> Module<T> {
     ) -> Weight {
         let affirmation_count =
             AffirmationCount::new(sender_asset_count, receiver_asset_count, n_offchain);
-        <T as Config>::WeightInfo::affirm_with_receipts_input(Some(affirmation_count))
+        <T as Config>::WeightInfo::affirm_with_receipts_input(Some(affirmation_count), 0)
     }
 
     /// Returns the weight for calling `affirm_instruction` while considering the `sender_asset_count` for the sender and`receiver_asset_count`
@@ -2470,7 +2470,7 @@ impl<T: Config> Module<T> {
         receiver_asset_count: AssetCount,
     ) -> Weight {
         let affirmation_count = AffirmationCount::new(sender_asset_count, receiver_asset_count, 0);
-        <T as Config>::WeightInfo::affirm_instruction_input(Some(affirmation_count))
+        <T as Config>::WeightInfo::affirm_instruction_input(Some(affirmation_count), 0)
     }
 
     /// Returns the weight for calling `withdraw_affirmation` while considering the `sender_asset_count` for the sender and`receiver_asset_count`
@@ -2482,7 +2482,7 @@ impl<T: Config> Module<T> {
     ) -> Weight {
         let affirmation_count =
             AffirmationCount::new(sender_asset_count, receiver_asset_count, n_offchain);
-        <T as Config>::WeightInfo::withdraw_affirmation_input(Some(affirmation_count))
+        <T as Config>::WeightInfo::withdraw_affirmation_input(Some(affirmation_count), 0)
     }
 
     /// Returns the weight for calling `reject_instruction_weight` with the number of assets in `instruction_asset_count`.

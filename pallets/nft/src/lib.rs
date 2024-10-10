@@ -4,7 +4,6 @@ use codec::{Decode, Encode};
 use frame_support::dispatch::{
     DispatchError, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo,
 };
-use frame_support::storage::child::KillStorageResult;
 use frame_support::storage::StorageDoubleMap;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
@@ -444,13 +443,7 @@ impl<T: Config> Module<T> {
         NumberOfNFTs::insert(&ticker, &caller_portfolio.did, new_balance);
         PortfolioNFT::remove(&caller_portfolio, (&ticker, &nft_id));
         NFTOwner::remove(ticker, nft_id);
-        let removed_keys = {
-            #[allow(deprecated)]
-            match MetadataValue::remove_prefix((&collection_id, &nft_id), None) {
-                KillStorageResult::AllRemoved(n) => n,
-                KillStorageResult::SomeRemaining(n) => n,
-            }
-        };
+        let removed_keys = MetadataValue::drain_prefix((&collection_id, &nft_id)).count();
 
         Self::deposit_event(Event::NFTPortfolioUpdated(
             caller_portfolio.did,
@@ -460,7 +453,7 @@ impl<T: Config> Module<T> {
             PortfolioUpdateReason::Redeemed,
         ));
         Ok(PostDispatchInfo::from(Some(
-            <T as Config>::WeightInfo::redeem_nft(removed_keys),
+            <T as Config>::WeightInfo::redeem_nft(removed_keys as u32),
         )))
     }
 
