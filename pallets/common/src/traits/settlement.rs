@@ -118,20 +118,24 @@ pub trait WeightInfo {
     fn withdraw_affirmation_as_mediator() -> Weight;
     fn reject_instruction_as_mediator(f: u32, n: u32, o: u32) -> Weight;
 
-    fn add_and_affirm_with_mediators_legs(legs: &[Leg], n_mediators: u32) -> Weight {
-        let (f, n, o) = Self::get_transfer_by_asset(legs);
+    fn add_and_affirm_with_mediators_legs(
+        legs: &[Leg],
+        portfolios: u32,
+        n_mediators: u32,
+    ) -> Weight {
+        let (f, n, o) = Self::get_transfer_by_asset(legs, portfolios);
         Self::add_and_affirm_with_mediators(f, n, o, n_mediators)
     }
     fn add_instruction_with_mediators_legs(legs: &[Leg], n_mediators: u32) -> Weight {
-        let (f, n, o) = Self::get_transfer_by_asset(legs);
+        let (f, n, o) = Self::get_transfer_by_asset(legs, 0);
         Self::add_instruction_with_mediators(f, n, o, n_mediators)
     }
     fn add_instruction_legs(legs: &[Leg]) -> Weight {
-        let (f, n, o) = Self::get_transfer_by_asset(legs);
+        let (f, n, o) = Self::get_transfer_by_asset(legs, 0);
         Self::add_instruction(f, n, o)
     }
-    fn add_and_affirm_instruction_legs(legs: &[Leg]) -> Weight {
-        let (f, n, o) = Self::get_transfer_by_asset(legs);
+    fn add_and_affirm_instruction_legs(legs: &[Leg], portfolios: u32) -> Weight {
+        let (f, n, o) = Self::get_transfer_by_asset(legs, portfolios);
         Self::add_and_affirm_instruction(f, n, o)
     }
     fn execute_manual_weight_limit(
@@ -145,18 +149,29 @@ pub trait WeightInfo {
         }
         Self::execute_manual_instruction(*f, *n, *o)
     }
-    fn get_transfer_by_asset(legs: &[Leg]) -> (u32, u32, u32) {
+    fn get_transfer_by_asset(legs: &[Leg], portfolios: u32) -> (u32, u32, u32) {
         let asset_count =
             AssetCount::try_from_legs(legs).unwrap_or(AssetCount::new(1024, 1024, 1024));
-        (
-            asset_count.fungible(),
-            asset_count.non_fungible(),
-            asset_count.off_chain(),
-        )
+        let f = asset_count.fungible();
+        let n = asset_count.non_fungible();
+        let max_portfolios = (f.saturating_add(n)).saturating_mul(2); // 2 portfolios per leg.  (f+n = max legs).
+        if portfolios > max_portfolios {
+            // Too many portfolios, return worse-case count based on portfolio count.
+            return (portfolios, portfolios, 1024);
+        }
+        (f, n, asset_count.off_chain())
     }
-    fn affirm_with_receipts_input(affirmation_count: Option<AffirmationCount>) -> Weight {
+    fn affirm_with_receipts_input(
+        affirmation_count: Option<AffirmationCount>,
+        portfolios: u32,
+    ) -> Weight {
         match affirmation_count {
             Some(affirmation_count) => {
+                let max_portfolios = affirmation_count.max_portfolios();
+                if portfolios > max_portfolios {
+                    // Too many portfolios, return worse-case weight based on portfolio count.
+                    return Self::affirm_with_receipts(portfolios, portfolios, 10);
+                }
                 // The weight for the assets being sent
                 let sender_asset_count = affirmation_count.sender_asset_count();
                 let sender_side_weight = Self::affirm_with_receipts(
@@ -178,12 +193,27 @@ pub trait WeightInfo {
                     .saturating_add(receiver_side_weight)
                     .saturating_sub(duplicated_weight)
             }
-            None => Self::affirm_with_receipts(10, 100, 10),
+            None => {
+                if portfolios > (10 + 100) * 2 {
+                    // Too many portfolios, return worse-case weight based on portfolio count.
+                    Self::affirm_with_receipts(portfolios, portfolios, 10)
+                } else {
+                    Self::affirm_with_receipts(10, 100, 10)
+                }
+            }
         }
     }
-    fn affirm_instruction_input(affirmation_count: Option<AffirmationCount>) -> Weight {
+    fn affirm_instruction_input(
+        affirmation_count: Option<AffirmationCount>,
+        portfolios: u32,
+    ) -> Weight {
         match affirmation_count {
             Some(affirmation_count) => {
+                let max_portfolios = affirmation_count.max_portfolios();
+                if portfolios > max_portfolios {
+                    // Too many portfolios, return worse-case weight based on portfolio count.
+                    return Self::affirm_instruction(portfolios, portfolios);
+                }
                 // The weight for the assets being sent
                 let sender_asset_count = affirmation_count.sender_asset_count();
                 let sender_side_weight = Self::affirm_instruction(
@@ -203,12 +233,27 @@ pub trait WeightInfo {
                     .saturating_add(receiver_side_weight)
                     .saturating_sub(duplicated_weight)
             }
-            None => Self::affirm_instruction(10, 100),
+            None => {
+                if portfolios > (10 + 100) * 2 {
+                    // Too many portfolios, return worse-case weight based on portfolio count.
+                    Self::affirm_instruction(portfolios, portfolios)
+                } else {
+                    Self::affirm_instruction(10, 100)
+                }
+            }
         }
     }
-    fn withdraw_affirmation_input(affirmation_count: Option<AffirmationCount>) -> Weight {
+    fn withdraw_affirmation_input(
+        affirmation_count: Option<AffirmationCount>,
+        portfolios: u32,
+    ) -> Weight {
         match affirmation_count {
             Some(affirmation_count) => {
+                let max_portfolios = affirmation_count.max_portfolios();
+                if portfolios > max_portfolios {
+                    // Too many portfolios, return worse-case weight based on portfolio count.
+                    return Self::withdraw_affirmation(portfolios, portfolios, 10);
+                }
                 // The weight for the assets being sent
                 let sender_asset_count = affirmation_count.sender_asset_count();
                 let sender_side_weight = Self::withdraw_affirmation(
@@ -230,7 +275,14 @@ pub trait WeightInfo {
                     .saturating_add(receiver_side_weight)
                     .saturating_sub(duplicated_weight)
             }
-            None => Self::withdraw_affirmation(10, 100, 10),
+            None => {
+                if portfolios > (10 + 100) * 2 {
+                    // Too many portfolios, return worse-case weight based on portfolio count.
+                    Self::withdraw_affirmation(portfolios, portfolios, 10)
+                } else {
+                    Self::withdraw_affirmation(10, 100, 10)
+                }
+            }
         }
     }
     fn reject_instruction_input(asset_count: Option<AssetCount>, as_mediator: bool) -> Weight {
