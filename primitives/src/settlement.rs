@@ -356,6 +356,13 @@ impl AssetCount {
         }
     }
 
+    /// The maximum number of unique portfolios.
+    pub fn max_portfolios(&self) -> u32 {
+        self.fungible
+            .saturating_add(self.non_fungible)
+            .saturating_mul(2)
+    }
+
     /// Returns the number of fungible transfers.
     pub fn fungible(&self) -> u32 {
         self.fungible
@@ -662,6 +669,13 @@ impl AffirmationCount {
     /// The number of off-chain assets in the instruction.
     pub fn offchain_count(&self) -> u32 {
         self.offchain_count
+    }
+
+    /// The maximum number of unique portfolios.
+    pub fn max_portfolios(&self) -> u32 {
+        self.sender_asset_count
+            .max_portfolios()
+            .saturating_add(self.receiver_asset_count.max_portfolios())
     }
 }
 
