@@ -182,7 +182,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
             .or_insert(AssetID::from(ticker));
         AssetCompliances::insert(asset_id, AssetCompliance::from(compliance));
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Compliance.AssetCompliances entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the TrustedClaimIssuer storage");
@@ -197,5 +197,8 @@ pub(crate) fn migrate_to_v1<T: Config>() {
             .or_insert(AssetID::from(ticker));
         TrustedClaimIssuer::insert(asset_id, trusted_issuers);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!(
+        "Migrated {:?} Compliance.TrustedClaimIssuer entries.",
+        count
+    );
 }

@@ -56,7 +56,10 @@ pub(crate) fn migrate_to_v3<T: Config>() {
             .or_insert(AssetID::from(ticker));
         PortfolioAssetBalances::insert(portfolio, asset_id, balance);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!(
+        "Migrated {:?} Portoflio.PortfolioAssetBalances entries.",
+        count
+    );
 
     let mut count = 0;
     log::info!("Updating types for the PortfolioLockedAssets storage");
@@ -71,7 +74,10 @@ pub(crate) fn migrate_to_v3<T: Config>() {
             .or_insert(AssetID::from(ticker));
         PortfolioLockedAssets::insert(portfolio, asset_id, balance);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!(
+        "Migrated {:?} Portoflio.PortfolioLockedAssets entries.",
+        count
+    );
 
     let mut count = 0;
     log::info!("Updating types for the PortfolioNFT storage");
@@ -86,7 +92,7 @@ pub(crate) fn migrate_to_v3<T: Config>() {
             .or_insert(AssetID::from(ticker));
         PortfolioNFT::insert(portfolio, (asset_id, nft_id), v);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Portoflio.PortfolioNFT entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the PortfolioLockedNFT storage");
@@ -101,7 +107,7 @@ pub(crate) fn migrate_to_v3<T: Config>() {
             .or_insert(AssetID::from(ticker));
         PortfolioLockedNFT::insert(portfolio, (asset_id, nft_id), v);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Portoflio.PortfolioLockedNFT entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the PreApprovedPortfolios storage");
@@ -116,5 +122,8 @@ pub(crate) fn migrate_to_v3<T: Config>() {
             .or_insert(AssetID::from(ticker));
         PreApprovedPortfolios::insert(portfolio, asset_id, v);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!(
+        "Migrated {:?} Portoflio.PreApprovedPortfolios entries.",
+        count
+    );
 }

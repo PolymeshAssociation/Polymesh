@@ -55,7 +55,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
             .or_insert(AssetID::from(ticker));
         AGIdSequence::insert(asset_id, ag_id);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} EA.AGIdSequence entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the AgentOf storage");
@@ -67,7 +67,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
             .or_insert(AssetID::from(ticker));
         AgentOf::insert(did, asset_id, empty);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} EA.AgentOf entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the GroupOfAgent storage");
@@ -82,7 +82,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
             .or_insert(AssetID::from(ticker));
         GroupOfAgent::insert(asset_id, did, group);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} EA.GroupOfAgent entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the NumFullAgents storage");
@@ -97,7 +97,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
             .or_insert(AssetID::from(ticker));
         NumFullAgents::insert(asset_id, n);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} EA.NumFullAgents entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the GroupPermissions storage");
@@ -112,5 +112,5 @@ pub(crate) fn migrate_to_v1<T: Config>() {
             .or_insert(AssetID::from(ticker));
         GroupPermissions::insert(asset_id, ag_id, ExtrinsicPermissions::from(ext_perms));
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} EA.GroupPermissions entries.", count);
 }

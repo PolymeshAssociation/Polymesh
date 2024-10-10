@@ -77,7 +77,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
             .or_insert(AssetID::from(ticker));
         DefaultTargetIdentities::insert(asset_id, target_identities);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} CA.DefaultTargetIdentities entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the DefaultWithholdingTax storage");
@@ -92,7 +92,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
             .or_insert(AssetID::from(ticker));
         DefaultWithholdingTax::insert(asset_id, tax);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} CA.DefaultWithholdingTax entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the DidWithholdingTax storage");
@@ -107,7 +107,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
             .or_insert(AssetID::from(ticker));
         DidWithholdingTax::insert(asset_id, id_tax);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} CA.DidWithholdingTax entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the CAIdSequence storage");
@@ -122,7 +122,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
             .or_insert(AssetID::from(ticker));
         CAIdSequence::insert(asset_id, id_tax);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} CA.CAIdSequence entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the CorporateActions storage");
@@ -137,7 +137,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
             .or_insert(AssetID::from(ticker));
         CorporateActions::insert(asset_id, local_id, ca);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} CA.CorporateActions entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the CADocLink storage");
@@ -149,7 +149,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         CADocLink::insert(CAId::from(ca_id), docs);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} CA.CADocLink entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the Details storage");
@@ -158,5 +158,5 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         Details::insert(CAId::from(ca_id), details);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} CA.Details entries.", count);
 }

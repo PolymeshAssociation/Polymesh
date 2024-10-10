@@ -142,7 +142,7 @@ pub(crate) fn migrate_to_v3<T: Config>() {
             .or_insert(AssetID::from(ticker));
         VenueFiltering::insert(asset_id, v);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Settlement.VenueFiltering entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the VenueAllowList storage");
@@ -157,7 +157,7 @@ pub(crate) fn migrate_to_v3<T: Config>() {
             .or_insert(AssetID::from(ticker));
         VenueAllowList::insert(asset_id, id, v);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Settlement.VenueAllowList entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the InstructionLegs storage");
@@ -165,7 +165,7 @@ pub(crate) fn migrate_to_v3<T: Config>() {
         count += 1;
         InstructionLegs::insert(instruction_id, leg_id, Leg::from(leg));
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Settlement.InstructionLegs entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the InstructionDetails storage");
@@ -173,5 +173,8 @@ pub(crate) fn migrate_to_v3<T: Config>() {
         count += 1;
         InstructionDetails::<T>::insert(id, Instruction::from(inst));
     });
-    log::info!("{:?} items migrated", count);
+    log::info!(
+        "Migrated {:?} Settlement.InstructionDetails entries.",
+        count
+    );
 }

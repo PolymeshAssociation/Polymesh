@@ -115,7 +115,7 @@ pub(crate) fn migrate_to_v5<T: Config>() {
         ticker_to_asset_id.insert(ticker, asset_id);
         UniqueTickerRegistration::<T>::insert(ticker, ticker_registration);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Asset.Tickers entries.", count);
 
     let mut count = 0;
     log::info!("Moving items from Tokens to Assets");
@@ -126,7 +126,7 @@ pub(crate) fn migrate_to_v5<T: Config>() {
             .or_insert(AssetID::from(ticker));
         Assets::insert(asset_id, asset_details);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Asset.Tokens entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the AssetNames storage");
@@ -141,7 +141,7 @@ pub(crate) fn migrate_to_v5<T: Config>() {
             .or_insert(AssetID::from(ticker));
         AssetNames::insert(asset_id, asset_name);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Asset.AssetNames entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the BalanceOf storage");
@@ -156,7 +156,7 @@ pub(crate) fn migrate_to_v5<T: Config>() {
             .or_insert(AssetID::from(ticker));
         BalanceOf::insert(asset_id, identity, balance);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Asset.BalanceOf entries.", count);
 
     let mut count = 0;
     log::info!("Moving items from Identifiers to AssetIdentifiers");
@@ -167,7 +167,7 @@ pub(crate) fn migrate_to_v5<T: Config>() {
             .or_insert(AssetID::from(ticker));
         AssetIdentifiers::insert(asset_id, identifiers);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Asset.Identifiers entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the FundingRound storage");
@@ -182,7 +182,7 @@ pub(crate) fn migrate_to_v5<T: Config>() {
             .or_insert(AssetID::from(ticker));
         FundingRound::insert(asset_id, name);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Asset.FundingRound entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the IssuedInFundingRound storage");
@@ -197,7 +197,7 @@ pub(crate) fn migrate_to_v5<T: Config>() {
             .or_insert(AssetID::from(ticker));
         IssuedInFundingRound::insert((asset_id, name), balance);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Asset.IssuedInFundingRound entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the Frozen storage");
@@ -209,7 +209,7 @@ pub(crate) fn migrate_to_v5<T: Config>() {
             .or_insert(AssetID::from(ticker));
         Frozen::insert(asset_id, frozen);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Asset.Frozen entries.", count);
 
     let mut count = 0;
     log::info!("Moving items from AssetOwnershipRelations to TickersOwnedByUser and SecurityTokensOwnedByUser");
@@ -230,7 +230,7 @@ pub(crate) fn migrate_to_v5<T: Config>() {
             AssetOwnershipRelation::NotOwned => {}
         }
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Asset.AssetOwnershipRelation entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the AssetDocuments storage");
@@ -246,7 +246,7 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
         AssetDocuments::insert(asset_id, doc_id, doc);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Asset.AssetDocuments entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the AssetDocumentsIdSequence storage");
@@ -262,7 +262,10 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
         AssetDocumentsIdSequence::insert(asset_id, seq);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!(
+        "Migrated {:?} Asset.AssetDocumentsIdSequence entries.",
+        count
+    );
 
     let mut count = 0;
     log::info!("Updating types for the AssetMetadataValues storage");
@@ -278,7 +281,7 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
         AssetMetadataValues::insert(asset_id, key, value);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Asset.AssetMetadataValues entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the AssetMetadataValueDetails storage");
@@ -294,7 +297,10 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
         AssetMetadataValueDetails::<T>::insert(asset_id, key, value);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!(
+        "Migrated {:?} Asset.AssetMetadataValueDetails entries.",
+        count
+    );
 
     let mut count = 0;
     log::info!("Updating types for the AssetMetadataLocalNameToKey storage");
@@ -310,7 +316,10 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
         AssetMetadataLocalNameToKey::insert(asset_id, name, local_key);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!(
+        "Migrated {:?} Asset.AssetMetadataLocalNameToKey entries.",
+        count
+    );
 
     let mut count = 0;
     log::info!("Updating types for the AssetMetadataLocalKeyToName storage");
@@ -326,7 +335,10 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
         AssetMetadataLocalKeyToName::insert(asset_id, local_key, name);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!(
+        "Migrated {:?} Asset.AssetMetadataLocalKeyToName entries.",
+        count
+    );
 
     let mut count = 0;
     log::info!("Updating types for the AssetMetadataLocalSpecs storage");
@@ -342,11 +354,17 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
         AssetMetadataLocalSpecs::insert(asset_id, local_key, spec);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!(
+        "Migrated {:?} Asset.AssetMetadataLocalSpecs entries.",
+        count
+    );
 
     log::info!("Removing old AssetMetadataNextLocalKey storage");
     let res = v4::AssetMetadataNextLocalKey::clear(u32::max_value(), None);
-    log::info!("{:?} items have been cleared", res.unique);
+    log::info!(
+        "Cleared {:?} items from Asset.AssetMetadataNextLocalKey",
+        res.unique
+    );
 
     let mut count = 0;
     log::info!("Moving items from TickersExemptFromAffirmation to AssetsExemptFromAffirmation");
@@ -358,7 +376,10 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
         AssetsExemptFromAffirmation::insert(asset_id, exempt);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!(
+        "Migrated {:?} Asset.TickersExemptFromAffirmation entries.",
+        count
+    );
 
     let mut count = 0;
     log::info!("Moving items from PreApprovedTicker to PreApprovedAsset");
@@ -370,7 +391,7 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
         PreApprovedAsset::insert(did, asset_id, approved);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Asset.PreApprovedTicker entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the MandatoryMediators storage");
@@ -386,7 +407,7 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
         MandatoryMediators::<T>::insert(asset_id, mediators);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Asset.MandatoryMediators entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the CurrentAssetMetadataLocalKey storage");
@@ -402,7 +423,10 @@ pub(crate) fn migrate_to_v5<T: Config>() {
 
         CurrentAssetMetadataLocalKey::insert(asset_id, current_key);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!(
+        "Migrated {:?} Asset.CurrentAssetMetadataLocalKey entries.",
+        count
+    );
 
     let mut count = 0;
     log::info!("Adding link from legacy tickers to an asset_id");
@@ -411,7 +435,10 @@ pub(crate) fn migrate_to_v5<T: Config>() {
         AssetIDTicker::insert(asset_id, ticker);
         TickerAssetID::insert(ticker, asset_id);
     }
-    log::info!("{:?} items migrated", count);
+    log::info!(
+        "Added {:?} Asset.TickerAssetID/AssetIDTicker entries",
+        count
+    );
 
     log::info!("AssetMetadataNextGlobalKey has been cleared");
     v4::AssetMetadataNextGlobalKey::kill();
