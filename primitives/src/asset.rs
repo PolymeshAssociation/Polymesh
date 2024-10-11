@@ -32,7 +32,11 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 pub struct AssetID([u8; 16]);
 
 impl From<[u8; 16]> for AssetID {
-    fn from(value: [u8; 16]) -> Self {
+    fn from(mut value: [u8; 16]) -> Self {
+        // Version 8.
+        value[6] = (value[6] & 0x0f) | 0x80;
+        // Standard RFC4122 variant (bits 10xx)
+        value[8] = (value[8] & 0x3f) | 0x80;
         AssetID(value)
     }
 }
@@ -40,7 +44,7 @@ impl From<[u8; 16]> for AssetID {
 impl AssetID {
     /// Creates a new [`AssetID`] instance;
     pub fn new(value: [u8; 16]) -> Self {
-        AssetID(value)
+        value.into()
     }
 
     /// Converts [`AssetID`] type into a shared reference of bytes.
