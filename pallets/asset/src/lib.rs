@@ -2224,8 +2224,9 @@ impl<T: Config> Module<T> {
     }
 
     pub fn generate_asset_id(caller_acc: T::AccountId, update: bool) -> AssetID {
+        let genesis_hash = frame_system::Pallet::<T>::block_hash(T::BlockNumber::zero());
         let nonce = Self::get_nonce(&caller_acc, update);
-        blake2_128(&(b"modlpy/pallet_asset", caller_acc, nonce).encode()).into()
+        blake2_128(&(b"modlpy/pallet_asset", genesis_hash, caller_acc, nonce).encode()).into()
     }
 
     fn get_nonce(caller_acc: &T::AccountId, update: bool) -> u64 {
