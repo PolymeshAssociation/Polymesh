@@ -56,8 +56,8 @@ use crate::asset_pallet::setup::{
 use crate::ext_builder::ExtBuilder;
 use crate::nft::create_nft_collection;
 use crate::storage::{
-    add_secondary_key, add_secondary_key_with_perms, register_keyring_account, root, Checkpoint,
-    TestStorage, User,
+    add_secondary_key, add_secondary_key_with_perms, default_portfolio_btreeset,
+    register_keyring_account, root, Checkpoint, TestStorage, User,
 };
 
 type BaseError = pallet_base::Error<TestStorage>;
@@ -1954,7 +1954,7 @@ fn controller_transfer_locked_asset() {
         assert_ok!(Settlement::affirm_instruction(
             alice.origin(),
             InstructionId(0),
-            vec![alice_default_portfolio]
+            default_portfolio_btreeset(alice.did),
         ),);
 
         // Controller transfer should fail since the tokens are locked
