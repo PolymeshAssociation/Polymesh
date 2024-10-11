@@ -23,7 +23,7 @@ use crate::*;
 const MAX_COLLECTION_KEYS: u32 = 255;
 
 /// Creates an NFT collection with `n` global metadata keys.
-fn create_collection<T: Config>(collection_owner: &User<T>, n: u32) -> (AssetID, NFTCollectionId) {
+fn create_collection<T: Config>(collection_owner: &User<T>, n: u32) -> (AssetId, NFTCollectionId) {
     let asset_id = create_and_issue_sample_asset::<T>(
         collection_owner,
         false,
@@ -67,7 +67,7 @@ fn create_collection_issue_nfts<T: Config>(
     n_keys: u32,
     n_nfts: u32,
     portfolio_kind: PortfolioKind,
-) -> AssetID {
+) -> AssetId {
     let (asset_id, _) = create_collection::<T>(collection_owner, n_keys);
 
     let metadata_attributes: Vec<NFTMetadataAttribute> = (1..n_keys + 1)
@@ -99,7 +99,7 @@ pub fn setup_nft_transfer<T>(
     receiver_portolfio_name: Option<&str>,
     pause_compliance: bool,
     n_mediators: u8,
-) -> (AssetID, PortfolioId, PortfolioId, Vec<User<T>>)
+) -> (AssetId, PortfolioId, PortfolioId, Vec<User<T>>)
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
 {

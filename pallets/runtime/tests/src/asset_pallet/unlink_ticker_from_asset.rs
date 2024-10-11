@@ -2,7 +2,7 @@ use frame_support::{assert_noop, assert_ok};
 use frame_support::{StorageDoubleMap, StorageMap};
 use sp_keyring::AccountKeyring;
 
-use pallet_asset::{AssetIDTicker, TickerAssetID, TickersOwnedByUser, UniqueTickerRegistration};
+use pallet_asset::{AssetIdTicker, TickerAssetId, TickersOwnedByUser, UniqueTickerRegistration};
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::{AuthorizationData, Signatory, Ticker};
 
@@ -45,8 +45,8 @@ fn unlink_ticker_from_asset_id_successfully() {
             asset_id
         ));
 
-        assert_eq!(TickerAssetID::get(ticker), None);
-        assert_eq!(AssetIDTicker::get(asset_id), None);
+        assert_eq!(TickerAssetId::get(ticker), None);
+        assert_eq!(AssetIdTicker::get(asset_id), None);
         assert_eq!(UniqueTickerRegistration::<TestStorage>::get(ticker), None);
         assert_eq!(TickersOwnedByUser::get(alice.did, ticker), false);
     });

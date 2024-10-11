@@ -5,7 +5,7 @@ use pallet_sto::{
     Fundraiser, FundraiserId, FundraiserName, FundraiserStatus, FundraiserTier, PriceTier,
     MAX_TIERS,
 };
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::settlement::{InstructionStatus, VenueDetails, VenueId, VenueType};
 use polymesh_primitives::{IdentityId, PortfolioId, WeightMeter};
@@ -75,8 +75,8 @@ struct RaiseContext {
     alice_portfolio: PortfolioId,
     bob: User,
     bob_portfolio: PortfolioId,
-    offering_asset: AssetID,
-    raise_asset: Option<AssetID>,
+    offering_asset: AssetId,
+    raise_asset: Option<AssetId>,
 }
 
 fn init_raise_context() -> RaiseContext {

@@ -24,7 +24,7 @@ use polymesh_common_utilities::benchs::{
     cdd_provider, user, user_without_did, AccountIdOf, UserBuilder,
 };
 use polymesh_common_utilities::traits::{identity::TargetIdAuthorization, TestUtilsFn};
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS, MAX_SECONDARY_KEYS,
 };
@@ -303,7 +303,7 @@ benchmarks! {
         // is covered.
 
         let asset = AssetPermissions::elems(
-            (0..a as u64).map(|a| AssetID::new([a as u8; 16]))
+            (0..a as u64).map(|a| AssetId::new([a as u8; 16]))
         );
         let portfolio = PortfolioPermissions::elems(
             (0..p as u128).map(|did| {

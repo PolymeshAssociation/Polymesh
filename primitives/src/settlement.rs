@@ -28,7 +28,7 @@ use sp_std::vec::Vec;
 
 use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 
-use crate::asset::AssetID;
+use crate::asset::AssetId;
 use crate::constants::SETTLEMENT_INSTRUCTION_EXECUTION;
 use crate::{impl_checked_inc, Balance, IdentityId, NFTs, PortfolioId, Ticker};
 
@@ -167,8 +167,8 @@ pub enum Leg {
         sender: PortfolioId,
         /// The [`PortfolioId`] of the receiver.
         receiver: PortfolioId,
-        /// The [`AssetID`] of the fungible token.
-        asset_id: AssetID,
+        /// The [`AssetId`] of the fungible token.
+        asset_id: AssetId,
         /// The amount being transferred.
         amount: Balance,
     },
@@ -203,8 +203,8 @@ impl Leg {
         false
     }
 
-    /// Returns the [`AssetID`] of the asset in the given leg.
-    pub fn asset_id(&self) -> Option<&AssetID> {
+    /// Returns the [`AssetId`] of the asset in the given leg.
+    pub fn asset_id(&self) -> Option<&AssetId> {
         match self {
             Leg::Fungible { asset_id, .. } => Some(asset_id),
             Leg::NonFungible { nfts, .. } => Some(nfts.asset_id()),

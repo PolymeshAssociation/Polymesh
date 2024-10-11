@@ -29,32 +29,32 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode, TypeInfo)]
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct AssetID([u8; 16]);
+pub struct AssetId([u8; 16]);
 
-impl From<[u8; 16]> for AssetID {
+impl From<[u8; 16]> for AssetId {
     fn from(mut value: [u8; 16]) -> Self {
         // Version 8.
         value[6] = (value[6] & 0x0f) | 0x80;
         // Standard RFC4122 variant (bits 10xx)
         value[8] = (value[8] & 0x3f) | 0x80;
-        AssetID(value)
+        AssetId(value)
     }
 }
 
-impl AssetID {
-    /// Creates a new [`AssetID`] instance;
+impl AssetId {
+    /// Creates a new [`AssetId`] instance;
     pub fn new(value: [u8; 16]) -> Self {
         value.into()
     }
 
-    /// Converts [`AssetID`] type into a shared reference of bytes.
+    /// Converts [`AssetId`] type into a shared reference of bytes.
     pub fn as_ref(&self) -> &[u8] {
         self.0.as_ref()
     }
 }
 
-impl From<Ticker> for AssetID {
-    fn from(ticker: Ticker) -> AssetID {
+impl From<Ticker> for AssetId {
+    fn from(ticker: Ticker) -> AssetId {
         blake2_128(&(b"legacy_ticker", ticker).encode()).into()
     }
 }

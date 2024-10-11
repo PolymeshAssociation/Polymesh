@@ -65,7 +65,7 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     GC_DID,
 };
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
     asset::CheckpointId, storage_migrate_on, storage_migration_ver, IdentityId, Moment,
 };
@@ -83,38 +83,38 @@ decl_storage! {
 
         /// Total supply of the token at the checkpoint.
         ///
-        /// ([`AssetID`], checkpointId) -> total supply at given checkpoint
+        /// ([`AssetId`], checkpointId) -> total supply at given checkpoint
         pub TotalSupply get(fn total_supply_at):
-            double_map hasher(blake2_128_concat) AssetID, hasher(twox_64_concat) CheckpointId => polymesh_primitives::Balance;
+            double_map hasher(blake2_128_concat) AssetId, hasher(twox_64_concat) CheckpointId => polymesh_primitives::Balance;
 
         /// Balance of a DID at a checkpoint.
         ///
-        /// ([`AssetID`], did, checkpoint ID) -> Balance of a DID at a checkpoint
+        /// ([`AssetId`], did, checkpoint ID) -> Balance of a DID at a checkpoint
         pub Balance get(fn balance_at_checkpoint):
-            double_map hasher(blake2_128_concat) (AssetID, CheckpointId), hasher(twox_64_concat) IdentityId => polymesh_primitives::Balance;
+            double_map hasher(blake2_128_concat) (AssetId, CheckpointId), hasher(twox_64_concat) IdentityId => polymesh_primitives::Balance;
 
         // ------------------------ Checkpoint storage -------------------------
 
         /// Checkpoints ID generator sequence.
         /// ID of first checkpoint is 1 instead of 0.
         ///
-        /// ([`AssetID`]) -> no. of checkpoints
+        /// ([`AssetId`]) -> no. of checkpoints
         pub CheckpointIdSequence get(fn checkpoint_id_sequence):
-            map hasher(blake2_128_concat) AssetID => CheckpointId;
+            map hasher(blake2_128_concat) AssetId => CheckpointId;
 
         /// Checkpoints where a DID's balance was updated.
-        /// ([`AssetID`], did) -> [checkpoint ID where user balance changed]
+        /// ([`AssetId`], did) -> [checkpoint ID where user balance changed]
         pub BalanceUpdates get(fn balance_updates):
-            double_map hasher(blake2_128_concat) AssetID, hasher(twox_64_concat) IdentityId => Vec<CheckpointId>;
+            double_map hasher(blake2_128_concat) AssetId, hasher(twox_64_concat) IdentityId => Vec<CheckpointId>;
 
         /// Checkpoint timestamps.
         ///
         /// Every schedule-originated checkpoint maps its ID to its due time.
         /// Every checkpoint manually created maps its ID to the time of recording.
         ///
-        /// ([`AssetID`]) -> (checkpoint ID) -> checkpoint timestamp
+        /// ([`AssetId`]) -> (checkpoint ID) -> checkpoint timestamp
         pub Timestamps get(fn timestamps):
-            double_map hasher(blake2_128_concat) AssetID, hasher(twox_64_concat) CheckpointId => Moment;
+            double_map hasher(blake2_128_concat) AssetId, hasher(twox_64_concat) CheckpointId => Moment;
 
         // -------------------- Checkpoint Schedule storage --------------------
 
@@ -123,23 +123,23 @@ decl_storage! {
 
         /// Checkpoint schedule ID sequence for assets.
         ///
-        /// ([`AssetID`]) -> schedule ID
+        /// ([`AssetId`]) -> schedule ID
         pub ScheduleIdSequence get(fn schedule_id_sequence):
-            map hasher(blake2_128_concat) AssetID => ScheduleId;
+            map hasher(blake2_128_concat) AssetId => ScheduleId;
 
         /// Cached next checkpoint for each schedule.
         ///
         /// This is used to quickly find the next checkpoint from a asset's schedules.
         ///
-        /// ([`AssetID`]) -> next checkpoints
+        /// ([`AssetId`]) -> next checkpoints
         pub CachedNextCheckpoints get(fn cached_next_checkpoints):
-            map hasher(blake2_128_concat) AssetID => Option<NextCheckpoints>;
+            map hasher(blake2_128_concat) AssetId => Option<NextCheckpoints>;
 
         /// Scheduled checkpoints.
         ///
-        /// ([`AssetID`], schedule ID) -> schedule checkpoints
+        /// ([`AssetId`], schedule ID) -> schedule checkpoints
         pub ScheduledCheckpoints get(fn scheduled_checkpoints):
-            double_map hasher(blake2_128_concat) AssetID, hasher(twox_64_concat) ScheduleId => Option<ScheduleCheckpoints>;
+            double_map hasher(blake2_128_concat) AssetId, hasher(twox_64_concat) ScheduleId => Option<ScheduleCheckpoints>;
 
         /// How many "strong" references are there to a given `ScheduleId`?
         ///
@@ -148,15 +148,15 @@ decl_storage! {
         /// Thus, as long as `strong_ref_count(schedule_id) > 0`,
         /// `remove_schedule(schedule_id)` will error.
         ///
-        /// ([`AssetID`], schedule ID) -> strong ref count
+        /// ([`AssetId`], schedule ID) -> strong ref count
         pub ScheduleRefCount get(fn schedule_ref_count):
-            double_map hasher(blake2_128_concat) AssetID, hasher(twox_64_concat) ScheduleId => u32;
+            double_map hasher(blake2_128_concat) AssetId, hasher(twox_64_concat) ScheduleId => u32;
 
         /// All the checkpoints a given schedule originated.
         ///
-        /// ([`AssetID`], schedule ID) -> [checkpoint ID]
+        /// ([`AssetId`], schedule ID) -> [checkpoint ID]
         pub SchedulePoints get(fn schedule_points):
-            double_map hasher(blake2_128_concat) AssetID, hasher(twox_64_concat) ScheduleId => Vec<CheckpointId>;
+            double_map hasher(blake2_128_concat) AssetId, hasher(twox_64_concat) ScheduleId => Vec<CheckpointId>;
 
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
@@ -186,7 +186,7 @@ decl_module! {
         /// - `UnauthorizedAgent` if the DID of `origin` isn't a permissioned agent for `asset_id`.
         /// - `CounterOverflow` if the total checkpoint counter would overflow.
         #[weight = T::CPWeightInfo::create_checkpoint()]
-        pub fn create_checkpoint(origin, asset_id: AssetID) {
+        pub fn create_checkpoint(origin, asset_id: AssetId) {
             let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
             Self::create_at_by(caller_did, asset_id, Self::now_unix())?;
         }
@@ -227,7 +227,7 @@ decl_module! {
         #[weight = T::CPWeightInfo::create_schedule()]
         pub fn create_schedule(
             origin,
-            asset_id: AssetID,
+            asset_id: AssetId,
             schedule: ScheduleCheckpoints,
         ) -> DispatchResult {
             let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
@@ -252,7 +252,7 @@ decl_module! {
         #[weight = T::CPWeightInfo::remove_schedule()]
         pub fn remove_schedule(
             origin,
-            asset_id: AssetID,
+            asset_id: AssetId,
             id: ScheduleId,
         ) -> DispatchResult {
             let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
@@ -280,7 +280,7 @@ decl_error! {
 
 impl<T: Config> Module<T> {
     /// Does checkpoint with ID `cp_id` exist for `asset_id`?
-    pub fn checkpoint_exists(asset_id: &AssetID, cp: CheckpointId) -> bool {
+    pub fn checkpoint_exists(asset_id: &AssetId, cp: CheckpointId) -> bool {
         cp > CheckpointId(0) && cp <= CheckpointIdSequence::get(asset_id)
     }
 
@@ -294,7 +294,7 @@ impl<T: Config> Module<T> {
     /// N.B. in case of `None`, you likely want the current balance instead.
     /// To compute that, use `Asset::get_balance_at(asset_id, did, cp)`, which calls into here.
     pub fn balance_at(
-        asset_id: AssetID,
+        asset_id: AssetId,
         did: IdentityId,
         cp: CheckpointId,
     ) -> Option<polymesh_primitives::Balance> {
@@ -316,7 +316,7 @@ impl<T: Config> Module<T> {
     /// Advances checkpoints for `asset_id`,
     /// and for each DID in `updates`, sets their balance to the one provided.
     pub fn advance_update_balances(
-        asset_id: &AssetID,
+        asset_id: &AssetId,
         updates: &[(IdentityId, polymesh_primitives::Balance)],
     ) -> DispatchResult {
         Self::advance_schedules(asset_id)?;
@@ -329,7 +329,7 @@ impl<T: Config> Module<T> {
     /// # Assumption
     ///
     /// * When minting, the total supply of `asset_id` is updated **after** this function is called.
-    fn update_balances(asset_id: &AssetID, updates: &[(IdentityId, polymesh_primitives::Balance)]) {
+    fn update_balances(asset_id: &AssetId, updates: &[(IdentityId, polymesh_primitives::Balance)]) {
         let last_cp = CheckpointIdSequence::get(asset_id);
         if last_cp < CheckpointId(1) {
             return;
@@ -344,7 +344,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Advance all checkpoint schedules for `asset_id`.
-    fn advance_schedules(asset_id: &AssetID) -> DispatchResult {
+    fn advance_schedules(asset_id: &AssetId) -> DispatchResult {
         // Check if there are any pending checkpoints.
         let mut cached = match CachedNextCheckpoints::try_get(asset_id) {
             Ok(cached) => cached,
@@ -416,7 +416,7 @@ impl<T: Config> Module<T> {
     /// in the future at either a fixed time or at intervals.
     pub fn base_create_schedule(
         caller_did: IdentityId,
-        asset_id: AssetID,
+        asset_id: AssetId,
         schedule: ScheduleCheckpoints,
         ref_count: u32,
     ) -> Result<(ScheduleId, Moment), DispatchError> {
@@ -467,7 +467,7 @@ impl<T: Config> Module<T> {
 
     pub fn base_remove_schedule(
         caller_did: IdentityId,
-        asset_id: AssetID,
+        asset_id: AssetId,
         id: ScheduleId,
     ) -> DispatchResult {
         // Ensure that the schedule exists.
@@ -503,7 +503,7 @@ impl<T: Config> Module<T> {
     /// The ID of the new checkpoint is returned.
     fn create_at_by(
         caller_did: IdentityId,
-        asset_id: AssetID,
+        asset_id: AssetId,
         at: Moment,
     ) -> Result<CheckpointId, DispatchError> {
         let id = try_next_pre::<T, _>(&mut CheckpointIdSequence::get(asset_id))?;
@@ -519,14 +519,14 @@ impl<T: Config> Module<T> {
     /// Creating a checkpoint entails:
     /// - recording the total supply,
     /// - mapping the the ID to the `time`.
-    fn create_at(caller_did: Option<IdentityId>, asset_id: AssetID, id: CheckpointId, at: Moment) {
+    fn create_at(caller_did: Option<IdentityId>, asset_id: AssetId, id: CheckpointId, at: Moment) {
         // Record total supply at checkpoint ID.
         let supply = <Asset<T>>::try_get_asset_details(&asset_id)
             .map(|t| t.total_supply)
             .unwrap_or_default();
         TotalSupply::insert(asset_id, id, supply);
 
-        // Relate AssetID -> ID -> time.
+        // Relate AssetId -> ID -> time.
         Timestamps::insert(asset_id, id, at);
 
         // Emit event & we're done.
@@ -536,18 +536,18 @@ impl<T: Config> Module<T> {
     }
 
     /// Increment the schedule ref count.
-    pub fn inc_schedule_ref(asset_id: &AssetID, id: ScheduleId) {
+    pub fn inc_schedule_ref(asset_id: &AssetId, id: ScheduleId) {
         ScheduleRefCount::mutate(asset_id, id, |c| *c = c.saturating_add(1));
     }
 
     /// Decrement the schedule ref count.
-    pub fn dec_schedule_ref(asset_id: &AssetID, id: ScheduleId) {
+    pub fn dec_schedule_ref(asset_id: &AssetId, id: ScheduleId) {
         ScheduleRefCount::mutate(asset_id, id, |c| *c = c.saturating_sub(1));
     }
 
     /// Ensure the schedule exists and get the next checkpoint.
     pub fn ensure_schedule_next_checkpoint(
-        asset_id: &AssetID,
+        asset_id: &AssetId,
         id: ScheduleId,
     ) -> Result<(Moment, u64), DispatchError> {
         let schedule =
