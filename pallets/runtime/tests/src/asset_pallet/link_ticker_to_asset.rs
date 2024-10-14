@@ -2,7 +2,7 @@ use frame_support::StorageMap;
 use frame_support::{assert_noop, assert_ok};
 use sp_keyring::AccountKeyring;
 
-use pallet_asset::{AssetIDTicker, TickerAssetID};
+use pallet_asset::{AssetIdTicker, TickerAssetId};
 use polymesh_primitives::Ticker;
 
 use crate::asset_test::{now, set_timestamp};
@@ -37,8 +37,8 @@ fn link_ticker_to_asset_id_successfully() {
             asset_id
         ));
 
-        assert_eq!(TickerAssetID::get(ticker), Some(asset_id));
-        assert_eq!(AssetIDTicker::get(asset_id), Some(ticker));
+        assert_eq!(TickerAssetId::get(ticker), Some(asset_id));
+        assert_eq!(AssetIdTicker::get(asset_id), Some(ticker));
     });
 }
 
@@ -232,7 +232,7 @@ fn link_ticker_to_asset_id_after_unlink() {
             asset_id
         ));
 
-        assert_eq!(TickerAssetID::get(ticker_1), Some(asset_id));
-        assert_eq!(AssetIDTicker::get(asset_id), Some(ticker_1));
+        assert_eq!(TickerAssetId::get(ticker_1), Some(asset_id));
+        assert_eq!(AssetIdTicker::get(asset_id), Some(ticker_1));
     });
 }

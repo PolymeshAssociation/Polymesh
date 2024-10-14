@@ -6,7 +6,7 @@ use super::{
     ExtBuilder,
 };
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLockStatus, AssetMetadataName, AssetMetadataSpec,
     AssetMetadataValue, AssetMetadataValueDetail,
@@ -75,7 +75,7 @@ fn make_metadata_type(name: &str) -> (AssetMetadataName, AssetMetadataSpec) {
 }
 
 /// Helper to register metadata type with the give name.
-fn register_metadata_type(owner: User, asset_id: Option<AssetID>, name: &str) -> AssetMetadataKey {
+fn register_metadata_type(owner: User, asset_id: Option<AssetId>, name: &str) -> AssetMetadataKey {
     let (name, spec) = make_metadata_type(name);
 
     if let Some(asset_id) = asset_id {

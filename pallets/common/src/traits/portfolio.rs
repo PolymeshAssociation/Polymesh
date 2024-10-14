@@ -22,7 +22,7 @@ use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::pallet_prelude::Get;
 use frame_support::weights::Weight;
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
     Balance, Fund, FundDescription, IdentityId, Memo, NFTId, PortfolioId, PortfolioName,
     PortfolioNumber, SecondaryKey,
@@ -48,20 +48,20 @@ pub trait PortfolioSubTrait<AccountId> {
     ///
     /// # Arguments
     /// * `portfolio` - Portfolio to lock tokens
-    /// * `asset_id` - [`AssetID`] of the token to lock
+    /// * `asset_id` - [`AssetId`] of the token to lock
     /// * `amount` - Amount of tokens to lock
 
-    fn lock_tokens(portfolio: &PortfolioId, asset_id: &AssetID, amount: Balance) -> DispatchResult;
+    fn lock_tokens(portfolio: &PortfolioId, asset_id: &AssetId, amount: Balance) -> DispatchResult;
 
     /// Unlocks some tokens of a portfolio
     ///
     /// # Arguments
     /// * `portfolio` - Portfolio to unlock tokens
-    /// * asset_id` - [`AssetID`] of the token to unlock
+    /// * asset_id` - [`AssetId`] of the token to unlock
     /// * `amount` - Amount of tokens to unlock
     fn unlock_tokens(
         portfolio: &PortfolioId,
-        asset_id: &AssetID,
+        asset_id: &AssetId,
         amount: Balance,
     ) -> DispatchResult;
 
@@ -82,21 +82,21 @@ pub trait PortfolioSubTrait<AccountId> {
     ///
     /// # Arguments
     /// * `portfolio_id` - PortfolioId that contains the nft to be locked.
-    /// asset_id` - [`AssetID`] of the NFT.
+    /// asset_id` - [`AssetId`] of the NFT.
     /// * `nft_id` - the id of the nft to be unlocked.
-    fn lock_nft(portfolio_id: &PortfolioId, asset_id: &AssetID, nft_id: &NFTId) -> DispatchResult;
+    fn lock_nft(portfolio_id: &PortfolioId, asset_id: &AssetId, nft_id: &NFTId) -> DispatchResult;
 
     /// Unlocks the given nft.
     ///
     /// # Arguments
     /// * `portfolio_id` - PortfolioId that contains the locked nft.
-    /// asset_id` - [`AssetID`] of the NFT.
+    /// asset_id` - [`AssetId`] of the NFT.
     /// * `nft_id` - the id of the nft to be unlocked.
-    fn unlock_nft(portfolio_id: &PortfolioId, asset_id: &AssetID, nft_id: &NFTId)
+    fn unlock_nft(portfolio_id: &PortfolioId, asset_id: &AssetId, nft_id: &NFTId)
         -> DispatchResult;
 
     /// Returns `true` if the portfolio has pre-approved the receivement of `asset_id`, otherwise returns `false`.
-    fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, asset_id: &AssetID) -> bool;
+    fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, asset_id: &AssetId) -> bool;
 }
 
 pub trait WeightInfo {
@@ -185,22 +185,22 @@ decl_event! {
         /// # Parameters
         /// * [`IdentityId`] of the caller.
         /// * [`PortfolioId`] that will receive assets without explicit affirmation.
-        /// * [`AssetID`] of the asset that has been exempt from explicit affirmation.
+        /// * [`AssetId`] of the asset that has been exempt from explicit affirmation.
         PreApprovedPortfolio(
             IdentityId,
             PortfolioId,
-            AssetID
+            AssetId
         ),
         /// A portfolio has removed the approval of an asset.
         ///
         /// # Parameters
         /// * [`IdentityId`] of the caller.
         /// * [`PortfolioId`] that had its pre approval revoked.
-        /// * [`AssetID`] of the asset that had its pre approval revoked.
+        /// * [`AssetId`] of the asset that had its pre approval revoked.
         RevokePreApprovedPortfolio(
             IdentityId,
             PortfolioId,
-            AssetID
+            AssetId
         )
     }
 }

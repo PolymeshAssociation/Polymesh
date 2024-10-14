@@ -63,8 +63,8 @@ mod v2 {
     }
 }
 
-impl From<v2::AssetScope> for AssetID {
-    fn from(v2_asset_scope: v2::AssetScope) -> AssetID {
+impl From<v2::AssetScope> for AssetId {
+    fn from(v2_asset_scope: v2::AssetScope) -> AssetId {
         match v2_asset_scope {
             v2::AssetScope::Ticker(ticker) => ticker.into(),
         }
@@ -114,7 +114,7 @@ pub(crate) fn migrate_to_v3<T: Config>() {
         count += 1;
         let set: BTreeSet<StatType> = set.into_iter().map(|v| v.into()).collect();
         let bounded_set = BoundedBTreeSet::try_from(set).unwrap_or_default();
-        ActiveAssetStats::<T>::insert(AssetID::from(scope), bounded_set);
+        ActiveAssetStats::<T>::insert(AssetId::from(scope), bounded_set);
     });
     log::info!("Migrated {:?} Statistics.ActiveAssetStats entries.", count);
 
@@ -138,7 +138,7 @@ pub(crate) fn migrate_to_v3<T: Config>() {
     );
     v2::OldAssetTransferCompliances::<T>::drain().for_each(|(scope, compliance)| {
         count += 1;
-        AssetTransferCompliances::<T>::insert(AssetID::from(scope), compliance);
+        AssetTransferCompliances::<T>::insert(AssetId::from(scope), compliance);
     });
     log::info!(
         "Migrated {:?} Statistics.AssetTransferCompliances entries.",

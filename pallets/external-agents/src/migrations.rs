@@ -10,23 +10,23 @@ mod v0 {
 
     decl_storage! {
         trait Store for Module<T: Config> as ExternalAgents {
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldAGIdSequence get(fn agent_group_id_sequence):
                 map hasher(blake2_128_concat) Ticker => AGId;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldAgentOf get(fn agent_of):
                 double_map hasher(blake2_128_concat) IdentityId, hasher(blake2_128_concat) Ticker => ();
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldGroupOfAgent get(fn agents):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) IdentityId => Option<AgentGroup>;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldNumFullAgents get(fn num_full_agents):
                 map hasher(blake2_128_concat) Ticker => u32;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldGroupPermissions get(fn permissions):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) AGId => Option<v6::ExtrinsicPermissions>;
         }
@@ -52,7 +52,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         AGIdSequence::insert(asset_id, ag_id);
     });
     log::info!("Migrated {:?} EA.AGIdSequence entries.", count);
@@ -64,7 +64,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         AgentOf::insert(did, asset_id, empty);
     });
     log::info!("Migrated {:?} EA.AgentOf entries.", count);
@@ -79,7 +79,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         GroupOfAgent::insert(asset_id, did, group);
     });
     log::info!("Migrated {:?} EA.GroupOfAgent entries.", count);
@@ -94,7 +94,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         NumFullAgents::insert(asset_id, n);
     });
     log::info!("Migrated {:?} EA.NumFullAgents entries.", count);
@@ -109,7 +109,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         GroupPermissions::insert(asset_id, ag_id, ExtrinsicPermissions::from(ext_perms));
     });
     log::info!("Migrated {:?} EA.GroupPermissions entries.", count);

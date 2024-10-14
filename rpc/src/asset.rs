@@ -24,7 +24,7 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 
 pub use node_rpc_runtime_api::asset::AssetApi as AssetRuntimeApi;
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{Balance, PortfolioId};
 
 use crate::Error;
@@ -36,7 +36,7 @@ pub trait AssetApi<BlockHash> {
         &self,
         sender_portfolio: PortfolioId,
         receiver_portfolio: PortfolioId,
-        asset_id: AssetID,
+        asset_id: AssetId,
         transfer_value: Balance,
         skip_locked_check: bool,
         at: Option<BlockHash>,
@@ -69,7 +69,7 @@ where
         &self,
         sender_portfolio: PortfolioId,
         receiver_portfolio: PortfolioId,
-        asset_id: AssetID,
+        asset_id: AssetId,
         transfer_value: Balance,
         skip_locked_check: bool,
         at: Option<<Block as BlockT>::Hash>,

@@ -10,43 +10,43 @@ mod v1 {
 
     decl_storage! {
         trait Store for Module<T: Config> as Checkpoint {
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldTotalSupply get(fn total_supply_at):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) CheckpointId => polymesh_primitives::Balance;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldBalance get(fn balance_at_checkpoint):
                 double_map hasher(blake2_128_concat) (Ticker, CheckpointId), hasher(twox_64_concat) IdentityId => polymesh_primitives::Balance;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldCheckpointIdSequence get(fn checkpoint_id_sequence):
                 map hasher(blake2_128_concat) Ticker => CheckpointId;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldBalanceUpdates get(fn balance_updates):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) IdentityId => Vec<CheckpointId>;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldTimestamps get(fn timestamps):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) CheckpointId => Moment;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldScheduleIdSequence get(fn schedule_id_sequence):
                 map hasher(blake2_128_concat) Ticker => ScheduleId;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldCachedNextCheckpoints get(fn cached_next_checkpoints):
                 map hasher(blake2_128_concat) Ticker => Option<NextCheckpoints>;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldScheduledCheckpoints get(fn scheduled_checkpoints):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) ScheduleId => Option<ScheduleCheckpoints>;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldScheduleRefCount get(fn schedule_ref_count):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) ScheduleId => u32;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldSchedulePoints get(fn schedule_points):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) ScheduleId => Vec<CheckpointId>;
         }
@@ -73,7 +73,7 @@ pub(crate) fn migrate_to_v2<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         TotalSupply::insert(asset_id, checkpoint_id, balance);
     });
     log::info!("{:?} items migrated", count);
@@ -85,7 +85,7 @@ pub(crate) fn migrate_to_v2<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         Balance::insert((asset_id, checkpoint_id), did, balance);
     });
     log::info!("{:?} items migrated", count);
@@ -100,7 +100,7 @@ pub(crate) fn migrate_to_v2<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         CheckpointIdSequence::insert(asset_id, checkpoint_id);
     });
     log::info!("{:?} items migrated", count);
@@ -115,7 +115,7 @@ pub(crate) fn migrate_to_v2<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         BalanceUpdates::insert(asset_id, did, checkpoint_id);
     });
     log::info!("{:?} items migrated", count);
@@ -130,7 +130,7 @@ pub(crate) fn migrate_to_v2<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         Timestamps::insert(asset_id, checkpoint_id, when);
     });
     log::info!("{:?} items migrated", count);
@@ -145,7 +145,7 @@ pub(crate) fn migrate_to_v2<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         ScheduleIdSequence::insert(asset_id, schedule_id);
     });
     log::info!("{:?} items migrated", count);
@@ -160,7 +160,7 @@ pub(crate) fn migrate_to_v2<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         CachedNextCheckpoints::insert(asset_id, next_checkpoint);
     });
     log::info!("{:?} items migrated", count);
@@ -175,7 +175,7 @@ pub(crate) fn migrate_to_v2<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         ScheduledCheckpoints::insert(asset_id, schedule_id, next_checkpoint);
     });
     log::info!("{:?} items migrated", count);
@@ -190,7 +190,7 @@ pub(crate) fn migrate_to_v2<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         ScheduleRefCount::insert(asset_id, schedule_id, ref_count);
     });
     log::info!("{:?} items migrated", count);
@@ -205,7 +205,7 @@ pub(crate) fn migrate_to_v2<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         SchedulePoints::insert(asset_id, schedule_id, checkpoint_id);
     });
     log::info!("{:?} items migrated", count);
