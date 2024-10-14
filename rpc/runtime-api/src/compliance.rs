@@ -17,7 +17,7 @@
 
 use frame_support::dispatch::DispatchError;
 
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::compliance_manager::ComplianceReport;
 use polymesh_primitives::IdentityId;
 
@@ -40,7 +40,7 @@ sp_api::decl_runtime_apis! {
         ///   }'
         /// ```
         fn compliance_report(
-            asset_id: &AssetID,
+            asset_id: &AssetId,
             sender_identity: &IdentityId,
             receiver_identity: &IdentityId
         ) -> Result<ComplianceReport, DispatchError>;

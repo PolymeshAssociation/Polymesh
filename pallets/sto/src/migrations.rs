@@ -25,15 +25,15 @@ mod v0 {
 
     decl_storage! {
         trait Store for Module<T: Config> as Sto {
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub(crate) OldFundraisers get(fn fundraisers):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) FundraiserId => Option<Fundraiser<T::Moment>>;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub(crate) OldFundraiserCount get(fn fundraiser_count):
                 map hasher(blake2_128_concat) Ticker => FundraiserId;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub(crate) OldFundraiserNames get(fn fundraiser_name):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) FundraiserId => Option<FundraiserName>;
         }
@@ -49,9 +49,9 @@ impl<T> From<v0::Fundraiser<T>> for Fundraiser<T> {
         Fundraiser {
             creator: v0_fundraiser.creator,
             offering_portfolio: v0_fundraiser.offering_portfolio,
-            offering_asset: AssetID::from(v0_fundraiser.offering_asset),
+            offering_asset: AssetId::from(v0_fundraiser.offering_asset),
             raising_portfolio: v0_fundraiser.raising_portfolio,
-            raising_asset: AssetID::from(v0_fundraiser.raising_asset),
+            raising_asset: AssetId::from(v0_fundraiser.raising_asset),
             tiers: v0_fundraiser.tiers,
             venue_id: v0_fundraiser.venue_id,
             start: v0_fundraiser.start,
@@ -78,7 +78,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         Fundraisers::<T>::insert(asset_id, id, Fundraiser::from(fundraiser));
     });
     log::info!("Migrated {:?} Sto.Fundraiser entries.", count);
@@ -93,7 +93,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         FundraiserCount::insert(asset_id, id);
     });
     log::info!("Migrated {:?} Sto.FundraiserCount entries.", count);
@@ -108,7 +108,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         FundraiserNames::insert(asset_id, id, name);
     });
     log::info!("Migrated {:?} Sto.FundraiserNames entries.", count);

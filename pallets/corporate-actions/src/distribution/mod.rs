@@ -83,7 +83,7 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     with_transaction,
 };
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
     storage_migrate_on, storage_migration_ver, Balance, EventDid, IdentityId, Moment, PortfolioId,
     PortfolioNumber, SecondaryKey, WeightMeter,
@@ -113,7 +113,7 @@ pub struct Distribution {
     /// The portfolio to distribute from.
     pub from: PortfolioId,
     /// The currency that payouts happen in.
-    pub currency: AssetID,
+    pub currency: AssetId,
     /// Amount per share to pay out, in per-million,
     /// i.e. `1 / 10^6`th of one `currency` token.
     pub per_share: Balance,
@@ -223,7 +223,7 @@ decl_module! {
             origin,
             ca_id: CAId,
             portfolio: Option<PortfolioNumber>,
-            currency: AssetID,
+            currency: AssetId,
             per_share: Balance,
             amount: Balance,
             payment_at: Moment,
@@ -398,7 +398,7 @@ impl<T: Config> Module<T> {
         origin: T::RuntimeOrigin,
         ca_id: CAId,
         portfolio: Option<PortfolioNumber>,
-        currency: AssetID,
+        currency: AssetId,
         per_share: Balance,
         amount: Balance,
         payment_at: Moment,
@@ -629,7 +629,7 @@ impl<T: Config> Module<T> {
         secondary_key: Option<SecondaryKey<T::AccountId>>,
         ca_id: CAId,
         portfolio: Option<PortfolioNumber>,
-        currency: AssetID,
+        currency: AssetId,
         per_share: Balance,
         amount: Balance,
         payment_at: Moment,

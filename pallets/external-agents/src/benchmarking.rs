@@ -24,7 +24,7 @@ use sp_std::prelude::*;
 pub(crate) const SEED: u32 = 0;
 const MAX_PALLETS: u32 = 19;
 
-fn setup<T: Asset + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, AssetID) {
+fn setup<T: Asset + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, AssetId) {
     let owner = user("owner", SEED);
     let asset_id = create_and_issue_sample_asset::<T>(&owner, true, None, b"SampleAsset", false);
     (owner, asset_id)
@@ -38,7 +38,7 @@ fn perms(n: u32) -> ExtrinsicPermissions {
 
 fn add_auth<T: Asset + TestUtilsFn<AccountIdOf<T>>>(
     owner: &User<T>,
-    asset_id: AssetID,
+    asset_id: AssetId,
 ) -> (User<T>, u64) {
     let other = user("other", SEED);
     let auth_id = pallet_identity::Module::<T>::add_auth(
@@ -51,14 +51,14 @@ fn add_auth<T: Asset + TestUtilsFn<AccountIdOf<T>>>(
     (other, auth_id)
 }
 
-fn setup_removal<T: Asset + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, User<T>, AssetID) {
+fn setup_removal<T: Asset + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, User<T>, AssetId) {
     let (owner, asset_id) = setup::<T>();
     let (other, auth_id) = add_auth::<T>(&owner, asset_id);
     Module::<T>::accept_become_agent(other.origin().into(), auth_id).unwrap();
     (owner, other, asset_id)
 }
 
-fn custom_group<T: Config>(owner: User<T>, asset_id: AssetID) {
+fn custom_group<T: Config>(owner: User<T>, asset_id: AssetId) {
     Module::<T>::create_group(owner.origin().into(), asset_id, <_>::default()).unwrap();
 }
 

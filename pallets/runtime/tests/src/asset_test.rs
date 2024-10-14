@@ -29,7 +29,7 @@ use polymesh_common_utilities::traits::checkpoint::{
 };
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{
-    AssetID, AssetName, AssetType, CheckpointId, CustomAssetTypeId, FundingRoundName,
+    AssetId, AssetName, AssetType, CheckpointId, CustomAssetTypeId, FundingRoundName,
     NonFungibleType,
 };
 use polymesh_primitives::asset_metadata::{
@@ -115,7 +115,7 @@ macro_rules! assert_too_long {
     };
 }
 
-pub(crate) fn statistics_investor_count(asset_id: AssetID) -> u128 {
+pub(crate) fn statistics_investor_count(asset_id: AssetId) -> u128 {
     AssetStats::get(
         Stat1stKey::investor_count(asset_id),
         Stat2ndKey::NoClaimStat,
@@ -123,7 +123,7 @@ pub(crate) fn statistics_investor_count(asset_id: AssetID) -> u128 {
 }
 
 /// Returns the [`AssetDetails`] associated to the given `asset_id`.
-pub(crate) fn get_asset_details(asset_id: &AssetID) -> AssetDetails {
+pub(crate) fn get_asset_details(asset_id: &AssetId) -> AssetDetails {
     Assets::get(asset_id).unwrap()
 }
 
@@ -132,7 +132,7 @@ pub(crate) fn sample_security_token(token_owner_did: IdentityId) -> AssetDetails
     AssetDetails::new(TOTAL_SUPPLY, token_owner_did, true, AssetType::default())
 }
 
-fn enable_investor_count(asset_id: AssetID, owner: User) {
+fn enable_investor_count(asset_id: AssetId, owner: User) {
     assert_ok!(Statistics::set_active_asset_stats(
         owner.origin(),
         asset_id,
@@ -142,7 +142,7 @@ fn enable_investor_count(asset_id: AssetID, owner: User) {
 
 /// Transfers `amount` from `sender` default portfolio to `receiver` default portfolio.
 pub(crate) fn transfer(
-    asset_id: AssetID,
+    asset_id: AssetId,
     sender: User,
     receiver: User,
     amount: u128,
@@ -176,13 +176,13 @@ fn exceeded_funding_round_name() -> FundingRoundName {
         .into()
 }
 
-pub fn next_schedule_id(asset_id: AssetID) -> ScheduleId {
+pub fn next_schedule_id(asset_id: AssetId) -> ScheduleId {
     let ScheduleId(id) = Checkpoint::schedule_id_sequence(asset_id);
     ScheduleId(id + 1)
 }
 
 #[track_caller]
-pub fn check_schedules(asset_id: AssetID, schedules: &[(ScheduleId, ScheduleCheckpoints)]) {
+pub fn check_schedules(asset_id: AssetId, schedules: &[(ScheduleId, ScheduleCheckpoints)]) {
     let mut cached = NextCheckpoints::default();
     for (id, schedule) in schedules {
         assert_eq!(
@@ -801,12 +801,12 @@ fn non_recurring_schedule_works_we() {
     });
 }
 
-fn checkpoint_ats(asset_id: AssetID) -> Vec<u64> {
+fn checkpoint_ats(asset_id: AssetId) -> Vec<u64> {
     let cached = Checkpoint::cached_next_checkpoints(asset_id).unwrap_or_default();
     cached.schedules.values().copied().collect()
 }
 
-fn next_checkpoints(asset_id: AssetID) -> Vec<Option<u64>> {
+fn next_checkpoints(asset_id: AssetId) -> Vec<Option<u64>> {
     let ScheduleId(id) = Checkpoint::schedule_id_sequence(asset_id);
     (1..=id)
         .into_iter()
@@ -947,7 +947,7 @@ fn secondary_key_not_authorized_for_asset_test() {
             let eve = User::new_with(alice.did, AccountKeyring::Eve);
             let asset_id = create_and_issue_sample_asset(&alice);
             let eve_permissions = Permissions {
-                asset: AssetPermissions::elems(vec![AssetID::new([0; 16])]),
+                asset: AssetPermissions::elems(vec![AssetId::new([0; 16])]),
                 ..Default::default()
             };
 
@@ -1726,7 +1726,7 @@ fn redeem_token_assigned_custody() {
 #[test]
 fn pre_approve_asset() {
     ExtBuilder::default().build().execute_with(|| {
-        let asset_id = AssetID::new([0; 16]);
+        let asset_id = AssetId::new([0; 16]);
         let alice = User::new(AccountKeyring::Alice);
         Asset::pre_approve_asset(alice.origin(), asset_id).unwrap();
 
@@ -1739,7 +1739,7 @@ fn pre_approve_asset() {
 #[test]
 fn remove_asset_pre_approval() {
     ExtBuilder::default().build().execute_with(|| {
-        let asset_id = AssetID::new([0; 16]);
+        let asset_id = AssetId::new([0; 16]);
         let alice = User::new(AccountKeyring::Alice);
         Asset::pre_approve_asset(alice.origin(), asset_id).unwrap();
         Asset::remove_asset_pre_approval(alice.origin(), asset_id).unwrap();
@@ -1753,7 +1753,7 @@ fn remove_asset_pre_approval() {
 #[test]
 fn unauthorized_custodian_ticker_exemption() {
     ExtBuilder::default().build().execute_with(|| {
-        let asset_id = AssetID::new([0; 16]);
+        let asset_id = AssetId::new([0; 16]);
         let alice = User::new(AccountKeyring::Alice);
 
         assert_noop!(

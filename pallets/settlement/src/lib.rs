@@ -76,7 +76,7 @@ pub use polymesh_common_utilities::traits::settlement::{Event, RawEvent, WeightI
 use polymesh_common_utilities::traits::{asset, compliance_manager, identity, nft, CommonConfig};
 use polymesh_common_utilities::with_transaction;
 use polymesh_common_utilities::SystematicIssuers::Settlement as SettlementDID;
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::settlement::{
     AffirmationCount, AffirmationStatus, AssetCount, ExecuteInstructionInfo, FilteredLegs,
     Instruction, InstructionId, InstructionInfo, InstructionStatus, Leg, LegId, LegStatus,
@@ -200,7 +200,7 @@ decl_error! {
         MaxNumberOfOffChainAssetsExceeded,
         /// The given number of fungible transfers was underestimated.
         NumberOfFungibleTransfersUnderestimated,
-        /// AssetID could not be found on chain.
+        /// AssetId could not be found on chain.
         UnexpectedOFFChainAsset,
         /// Off-Chain assets cannot be locked.
         OffChainAssetCantBeLocked,
@@ -283,11 +283,11 @@ decl_storage! {
             double_map hasher(twox_64_concat) PortfolioId, hasher(twox_64_concat) InstructionId => AffirmationStatus;
         /// Tracks redemption of receipts. (signer, receipt_uid) -> receipt_used
         ReceiptsUsed get(fn receipts_used): double_map hasher(twox_64_concat) T::AccountId, hasher(blake2_128_concat) u64 => bool;
-        /// Tracks if a token has enabled filtering venues that can create instructions involving their token. AssetID -> filtering_enabled
-        VenueFiltering get(fn venue_filtering): map hasher(blake2_128_concat) AssetID => bool;
+        /// Tracks if a token has enabled filtering venues that can create instructions involving their token. AssetId -> filtering_enabled
+        VenueFiltering get(fn venue_filtering): map hasher(blake2_128_concat) AssetId => bool;
         /// Venues that are allowed to create instructions involving a particular asset. Only used if filtering is enabled.
-        /// ([`AssetID`], venue_id) -> allowed
-        VenueAllowList get(fn venue_allow_list): double_map hasher(blake2_128_concat) AssetID, hasher(twox_64_concat) VenueId => bool;
+        /// ([`AssetId`], venue_id) -> allowed
+        VenueAllowList get(fn venue_allow_list): double_map hasher(blake2_128_concat) AssetId, hasher(twox_64_concat) VenueId => bool;
         /// Number of venues in the system (It's one more than the actual number)
         VenueCounter get(fn venue_counter) build(|_| VenueId(1u64)): VenueId;
         /// Number of instructions in the system (It's one more than the actual number)
@@ -425,13 +425,13 @@ decl_module! {
         /// Enables or disabled venue filtering for a token.
         ///
         /// # Arguments
-        /// * `asset_id` - AssetID of the token in question.
+        /// * `asset_id` - AssetId of the token in question.
         /// * `enabled` - Boolean that decides if the filtering should be enabled.
         ///
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::set_venue_filtering()]
-        pub fn set_venue_filtering(origin, asset_id: AssetID, enabled: bool) {
+        pub fn set_venue_filtering(origin, asset_id: AssetId, enabled: bool) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
             if enabled {
                 VenueFiltering::insert(asset_id, enabled);
@@ -443,13 +443,13 @@ decl_module! {
 
         /// Allows additional venues to create instructions involving an asset.
         ///
-        /// * `asset_id` - AssetID of the token in question.
+        /// * `asset_id` - AssetId of the token in question.
         /// * `venues` - Array of venues that are allowed to create instructions for the token in question.
         ///
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::allow_venues(venues.len() as u32)]
-        pub fn allow_venues(origin, asset_id: AssetID, venues: Vec<VenueId>) {
+        pub fn allow_venues(origin, asset_id: AssetId, venues: Vec<VenueId>) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
             for venue in &venues {
                 VenueAllowList::insert(&asset_id, venue, true);
@@ -459,13 +459,13 @@ decl_module! {
 
         /// Revokes permission given to venues for creating instructions involving a particular asset.
         ///
-        /// * `asset_id` - AssetID of the token in question.
+        /// * `asset_id` - AssetId of the token in question.
         /// * `venues` - Array of venues that are no longer allowed to create instructions for the token in question.
         ///
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::disallow_venues(venues.len() as u32)]
-        pub fn disallow_venues(origin, asset_id: AssetID, venues: Vec<VenueId>) {
+        pub fn disallow_venues(origin, asset_id: AssetId, venues: Vec<VenueId>) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
             for venue in &venues {
                 VenueAllowList::remove(&asset_id, venue);
@@ -1978,7 +1978,7 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         if let Some(_) = venue_id {
             // Avoids reading the storage multiple times for the same asset_id
-            let mut tickers: BTreeSet<AssetID> = BTreeSet::new();
+            let mut tickers: BTreeSet<AssetId> = BTreeSet::new();
             for (_, leg) in instruction_legs {
                 if let Some(asset_id) = leg.asset_id() {
                     Self::ensure_venue_filtering(&mut tickers, *asset_id, &venue_id)?;
@@ -1990,8 +1990,8 @@ impl<T: Config> Module<T> {
 
     /// If `tickers` doesn't contain the given `asset_id` and venue_filtering is enabled, ensures that venue_id is in the allowed list
     fn ensure_venue_filtering(
-        tickers: &mut BTreeSet<AssetID>,
-        asset_id: AssetID,
+        tickers: &mut BTreeSet<AssetId>,
+        asset_id: AssetId,
         venue_id: &Option<VenueId>,
     ) -> DispatchResult {
         if let Some(venue_id) = venue_id {
@@ -2022,7 +2022,7 @@ impl<T: Config> Module<T> {
     fn ensure_valid_leg(
         leg: &Leg,
         venue_id: &Option<VenueId>,
-        tickers: &mut BTreeSet<AssetID>,
+        tickers: &mut BTreeSet<AssetId>,
         instruction_asset_count: &mut AssetCount,
     ) -> DispatchResult {
         match leg {
@@ -2070,8 +2070,8 @@ impl<T: Config> Module<T> {
     /// Ensures all checks needed for a fungible leg hold. This includes making sure that the `amount` being
     /// transferred is not zero, that `asset_id` exists on chain and that `venue_id` is allowed.
     fn ensure_valid_fungible_leg(
-        tickers: &mut BTreeSet<AssetID>,
-        asset_id: AssetID,
+        tickers: &mut BTreeSet<AssetId>,
+        asset_id: AssetId,
         amount: Balance,
         venue_id: &Option<VenueId>,
     ) -> DispatchResult {
@@ -2088,7 +2088,7 @@ impl<T: Config> Module<T> {
     /// transferred is within the defined limits, that there are no duplicate NFTs in the same leg, that `asset_id` exists on chain,
     /// and that `venue_id` is allowed.
     fn ensure_valid_nft_leg(
-        tickers: &mut BTreeSet<AssetID>,
+        tickers: &mut BTreeSet<AssetId>,
         nfts: &NFTs,
         venue_id: &Option<VenueId>,
     ) -> DispatchResult {
@@ -2136,7 +2136,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns true if the asset_id is on-chain and false otherwise.
-    fn is_on_chain_asset(asset_id: &AssetID) -> bool {
+    fn is_on_chain_asset(asset_id: &AssetId) -> bool {
         pallet_asset::Assets::contains_key(asset_id)
     }
 

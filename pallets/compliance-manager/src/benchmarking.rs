@@ -120,7 +120,7 @@ fn split_conditions(count: u32) -> (u32, u32) {
 pub fn create_and_issue_sample_asset<T: Config>(
     asset_owner: &User<T>,
     asset_name: Vec<u8>,
-) -> AssetID {
+) -> AssetId {
     let asset_id = T::Asset::generate_asset_id(asset_owner.account());
     T::Asset::create_asset(
         asset_owner.origin.clone().into(),
@@ -146,7 +146,7 @@ pub fn create_and_issue_sample_asset<T: Config>(
 /// This struct helps to simplify the parameter copy/pass during the benchmarks.
 struct ComplianceRequirementInfo<T: Config> {
     pub owner: User<T>,
-    pub asset_id: AssetID,
+    pub asset_id: AssetId,
     pub sender_conditions: Vec<Condition>,
     pub receiver_conditions: Vec<Condition>,
 }
@@ -249,7 +249,7 @@ fn add_identity_claim<T: Config>(id: IdentityId, claim: Claim, trusted_issuer_id
 
 /// Adds `external_agent_id` as an enternal agent for `ticker`.
 fn add_external_agent<T>(
-    asset_id: AssetID,
+    asset_id: AssetId,
     ticker_owner: IdentityId,
     external_agent_id: IdentityId,
     external_agent_origin: T::RuntimeOrigin,
@@ -269,7 +269,7 @@ fn add_external_agent<T>(
 
 fn setup_is_condition_satisfied<T>(
     sender: &User<T>,
-    asset_id: AssetID,
+    asset_id: AssetId,
     n_claims: u32,
     n_issuers: u32,
     read_trusted_issuers_storage: bool,
@@ -316,7 +316,7 @@ where
 /// Adds `n` requirements for `asset_id` and pauses compliance if `pause_compliance` is true.
 pub fn setup_asset_compliance<T: Config>(
     caller_did: IdentityId,
-    asset_id: AssetID,
+    asset_id: AssetId,
     n: u32,
     pause_compliance: bool,
 ) {

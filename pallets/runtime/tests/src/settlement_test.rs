@@ -22,7 +22,7 @@ use pallet_settlement::{
     UserVenues, VenueInstructions,
 };
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
-use polymesh_primitives::asset::{AssetID, AssetType, NonFungibleType};
+use polymesh_primitives::asset::{AssetId, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
 };
@@ -86,11 +86,11 @@ macro_rules! assert_affirm_instruction {
 
 struct UserWithBalance {
     user: User,
-    init_balances: Vec<(AssetID, Balance)>,
+    init_balances: Vec<(AssetId, Balance)>,
 }
 
 impl UserWithBalance {
-    fn new(user: User, assets: &[AssetID]) -> Self {
+    fn new(user: User, assets: &[AssetId]) -> Self {
         Self {
             init_balances: assets
                 .iter()
@@ -107,7 +107,7 @@ impl UserWithBalance {
     }
 
     #[track_caller]
-    fn init_balance(&self, asset_id: &AssetID) -> Balance {
+    fn init_balance(&self, asset_id: &AssetId) -> Balance {
         self.init_balances
             .iter()
             .find(|bs| bs.0 == *asset_id)
@@ -123,22 +123,22 @@ impl UserWithBalance {
     }
 
     #[track_caller]
-    fn assert_balance_unchanged(&self, asset_id: &AssetID) {
+    fn assert_balance_unchanged(&self, asset_id: &AssetId) {
         assert_balance(asset_id, &self.user, self.init_balance(asset_id));
     }
 
     #[track_caller]
-    fn assert_balance_increased(&self, asset_id: &AssetID, amount: Balance) {
+    fn assert_balance_increased(&self, asset_id: &AssetId, amount: Balance) {
         assert_balance(asset_id, &self.user, self.init_balance(asset_id) + amount);
     }
 
     #[track_caller]
-    fn assert_balance_decreased(&self, asset_id: &AssetID, amount: Balance) {
+    fn assert_balance_decreased(&self, asset_id: &AssetId, amount: Balance) {
         assert_balance(asset_id, &self.user, self.init_balance(asset_id) - amount);
     }
 
     #[track_caller]
-    fn assert_portfolio_bal(&self, num: PortfolioNumber, balance: Balance, asset_id: &AssetID) {
+    fn assert_portfolio_bal(&self, num: PortfolioNumber, balance: Balance, asset_id: &AssetId) {
         assert_eq!(
             Portfolio::user_portfolio_balance(self.user.did, num, asset_id),
             balance,
@@ -146,7 +146,7 @@ impl UserWithBalance {
     }
 
     #[track_caller]
-    fn assert_default_portfolio_bal(&self, balance: Balance, asset_id: &AssetID) {
+    fn assert_default_portfolio_bal(&self, balance: Balance, asset_id: &AssetId) {
         assert_eq!(
             Portfolio::default_portfolio_balance(self.user.did, asset_id),
             balance,
@@ -154,17 +154,17 @@ impl UserWithBalance {
     }
 
     #[track_caller]
-    fn assert_default_portfolio_bal_unchanged(&self, asset_id: &AssetID) {
+    fn assert_default_portfolio_bal_unchanged(&self, asset_id: &AssetId) {
         self.assert_default_portfolio_bal(self.init_balance(asset_id), asset_id);
     }
 
     #[track_caller]
-    fn assert_default_portfolio_bal_decreased(&self, amount: Balance, asset_id: &AssetID) {
+    fn assert_default_portfolio_bal_decreased(&self, amount: Balance, asset_id: &AssetId) {
         self.assert_default_portfolio_bal(self.init_balance(asset_id) - amount, asset_id);
     }
 
     #[track_caller]
-    fn assert_default_portfolio_bal_increased(&self, amount: Balance, asset_id: &AssetID) {
+    fn assert_default_portfolio_bal_increased(&self, amount: Balance, asset_id: &AssetId) {
         self.assert_default_portfolio_bal(self.init_balance(asset_id) + amount, asset_id);
     }
 }
@@ -1026,8 +1026,8 @@ fn basic_fuzzing() {
         }
 
         fn check_locked_assets(
-            locked_assets: &HashMap<(IdentityId, AssetID), i32>,
-            assets: &Vec<AssetID>,
+            locked_assets: &HashMap<(IdentityId, AssetId), i32>,
+            assets: &Vec<AssetId>,
             users: &Vec<User>,
         ) {
             for ((did, asset_id), balance) in locked_assets {
@@ -2298,7 +2298,7 @@ fn create_instruction(
     alice: &User,
     bob: &User,
     venue_counter: Option<VenueId>,
-    asset_id: AssetID,
+    asset_id: AssetId,
     amount: u128,
 ) -> InstructionId {
     let instruction_id = Settlement::instruction_counter();
@@ -3139,7 +3139,7 @@ fn add_instruction_with_offchain_assets() {
         let bob = User::new(AccountKeyring::Bob);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
-        let asset_id2 = AssetID::new([0; 16]);
+        let asset_id2 = AssetId::new([0; 16]);
 
         let instruction_memo = Some(Memo::default());
         Portfolio::create_portfolio(bob.origin(), b"BobUserPortfolio".into()).unwrap();
@@ -4239,7 +4239,7 @@ fn assert_instruction_status(
 }
 
 #[track_caller]
-fn assert_balance(asset_id: &AssetID, user: &User, balance: Balance) {
+fn assert_balance(asset_id: &AssetId, user: &User, balance: Balance) {
     assert_eq!(Asset::balance_of(asset_id, user.did), balance);
 }
 
@@ -4279,7 +4279,7 @@ fn assert_affirms_pending(instruction_id: InstructionId, pending: u64) {
 }
 
 #[track_caller]
-fn assert_locked_assets(asset_id: &AssetID, user: &User, num_of_assets: Balance) {
+fn assert_locked_assets(asset_id: &AssetId, user: &User, num_of_assets: Balance) {
     assert_eq!(
         Portfolio::locked_assets(PortfolioId::default_portfolio(user.did), asset_id),
         num_of_assets

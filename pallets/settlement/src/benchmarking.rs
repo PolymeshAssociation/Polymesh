@@ -106,7 +106,7 @@ fn create_venue_<T: Config>(did: IdentityId, signers: Vec<T::AccountId>) -> Venu
     venue_counter
 }
 
-pub fn create_asset_<T: Config>(owner: &User<T>) -> AssetID {
+pub fn create_asset_<T: Config>(owner: &User<T>) -> AssetId {
     create_and_issue_sample_asset::<T>(owner, true, None, b"MyAsset", true)
 }
 

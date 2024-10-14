@@ -18,7 +18,7 @@
 use frame_support::dispatch::DispatchError;
 use sp_std::vec::Vec;
 
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::transfer_compliance::TransferCondition;
 use polymesh_primitives::{Balance, IdentityId};
 
@@ -27,7 +27,7 @@ sp_api::decl_runtime_apis! {
     pub trait StatisticsApi {
         /// Returns a vector containing all [`TransferCondition`] that are not being respected for the transfer. An empty vec means there's no error.
         fn transfer_restrictions_report(
-            asset_id: AssetID,
+            asset_id: AssetId,
             sender_did: &IdentityId,
             receiver_did: &IdentityId,
             transfer_amount: Balance,
