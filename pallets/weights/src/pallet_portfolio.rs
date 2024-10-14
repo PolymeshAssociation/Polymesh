@@ -61,9 +61,12 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Proof Skipped: Portfolio NextPortfolioNumber (max_values: None, max_size: None, mode: Measured)
     // Storage: Portfolio Portfolios (r:0 w:1)
     // Proof Skipped: Portfolio Portfolios (max_values: None, max_size: None, mode: Measured)
-    fn create_portfolio() -> Weight {
+    /// The range of component `l` is `[1, 500]`.
+    fn create_portfolio(l: u32) -> Weight {
         // Minimum execution time: 39_290 nanoseconds.
         Weight::from_ref_time(47_172_000)
+            // Standard Error: 356
+            .saturating_add(Weight::from_ref_time(7_568).saturating_mul(l.into()))
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().writes(3))
     }

@@ -69,13 +69,13 @@
 mod benchmarking;
 
 use codec::{Decode, Encode};
+use frame_support::dispatch::DispatchClass;
 use frame_support::dispatch::{extract_actual_weight, GetDispatchInfo, PostDispatchInfo};
 use frame_support::dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, Weight};
 use frame_support::ensure;
-use frame_support::storage::{with_transaction, TransactionOutcome};
 use frame_support::traits::GetCallMetadata;
 use frame_support::traits::{IsSubType, OriginTrait, UnfilteredDispatchable};
-use frame_system::{ensure_root, ensure_signed, Pallet as System, RawOrigin};
+use frame_system::{ensure_root, ensure_signed, RawOrigin};
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_io::hashing::blake2_256;
@@ -197,20 +197,6 @@ pub mod pallet {
             target: T::AccountId,
             result: DispatchResult,
         },
-        /// Batch of dispatches did not complete fully.
-        /// Includes a vector of event counts for each dispatch and
-        /// the index of the first failing dispatch as well as the error.
-        /// POLYMESH: event deprecated.
-        BatchInterruptedOld(EventCounts, ErrorAt),
-        /// Batch of dispatches did not complete fully.
-        /// Includes a vector of event counts for each call and
-        /// a vector of any failed dispatches with their indices and associated error.
-        /// POLYMESH: event deprecated.
-        BatchOptimisticFailed(EventCounts, Vec<ErrorAt>),
-        /// Batch of dispatches completed fully with no error.
-        /// Includes a vector of event counts for each dispatch.
-        /// POLYMESH: event deprecated.
-        BatchCompletedOld(EventCounts),
     }
 
     // Align the call size to 1KB. As we are currently compiling the runtime for native/wasm
@@ -295,23 +281,10 @@ pub mod pallet {
         /// event is deposited.
         #[pallet::call_index(0)]
         #[pallet::weight({
-                let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
-                let dispatch_weight = dispatch_infos.iter()
-                    .map(|di| di.weight)
-                    .fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
-                    .saturating_add(<T as Config>::WeightInfo::batch(calls.len() as u32));
-                let dispatch_class = {
-                    let all_operational = dispatch_infos.iter()
-                        .map(|di| di.class)
-                        .all(|class| class == DispatchClass::Operational);
-                    if all_operational {
-                        DispatchClass::Operational
-                    } else {
-                        DispatchClass::Normal
-                    }
-                };
-                (dispatch_weight, dispatch_class)
-            })]
+            let (dispatch_weight, dispatch_class) = Pallet::<T>::weight_and_dispatch_class(&calls);
+            let dispatch_weight = dispatch_weight.saturating_add(<T as Config>::WeightInfo::batch(calls.len() as u32));
+            (dispatch_weight, dispatch_class)
+        })]
         pub fn batch(
             origin: OriginFor<T>,
             calls: Vec<<T as Config>::RuntimeCall>,
@@ -345,13 +318,13 @@ pub mod pallet {
                     let base_weight =
                         <T as Config>::WeightInfo::batch(index.saturating_add(1) as u32);
                     // Return the actual used weight + base_weight of this call.
-                    return Ok(Some(base_weight + weight).into());
+                    return Ok(Some(base_weight.saturating_add(weight)).into());
                 }
                 Self::deposit_event(Event::<T>::ItemCompleted);
             }
             Self::deposit_event(Event::<T>::BatchCompleted);
             let base_weight = <T as Config>::WeightInfo::batch(calls_len as u32);
-            Ok(Some(base_weight + weight).into())
+            Ok(Some(base_weight.saturating_add(weight)).into())
         }
 
         /// Relay a call for a target from an origin
@@ -433,23 +406,10 @@ pub mod pallet {
         /// - O(C) where C is the number of calls to be batched.
         #[pallet::call_index(2)]
         #[pallet::weight({
-                let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
-                let dispatch_weight = dispatch_infos.iter()
-                    .map(|di| di.weight)
-                    .fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
-                    .saturating_add(<T as Config>::WeightInfo::batch_all(calls.len() as u32));
-                let dispatch_class = {
-                    let all_operational = dispatch_infos.iter()
-                        .map(|di| di.class)
-                        .all(|class| class == DispatchClass::Operational);
-                    if all_operational {
-                        DispatchClass::Operational
-                    } else {
-                        DispatchClass::Normal
-                    }
-                };
-                (dispatch_weight, dispatch_class)
-            })]
+            let (dispatch_weight, dispatch_class) = Pallet::<T>::weight_and_dispatch_class(&calls);
+            let dispatch_weight = dispatch_weight.saturating_add(<T as Config>::WeightInfo::batch_all(calls.len() as u32));
+            (dispatch_weight, dispatch_class)
+        })]
         pub fn batch_all(
             origin: OriginFor<T>,
             calls: Vec<<T as Config>::RuntimeCall>,
@@ -492,7 +452,7 @@ pub mod pallet {
                     let base_weight =
                         <T as Config>::WeightInfo::batch_all(index.saturating_add(1) as u32);
                     // Return the actual used weight + base_weight of this call.
-                    err.post_info = Some(base_weight + weight).into();
+                    err.post_info = Some(base_weight.saturating_add(weight)).into();
                     err
                 })?;
                 Self::deposit_event(Event::<T>::ItemCompleted);
@@ -540,23 +500,10 @@ pub mod pallet {
         /// - O(C) where C is the number of calls to be batched.
         #[pallet::call_index(4)]
         #[pallet::weight({
-                let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
-                let dispatch_weight = dispatch_infos.iter()
-                    .map(|di| di.weight)
-                    .fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
-                    .saturating_add(<T as Config>::WeightInfo::force_batch(calls.len() as u32));
-                let dispatch_class = {
-                    let all_operational = dispatch_infos.iter()
-                        .map(|di| di.class)
-                        .all(|class| class == DispatchClass::Operational);
-                    if all_operational {
-                        DispatchClass::Operational
-                    } else {
-                        DispatchClass::Normal
-                    }
-                };
-                (dispatch_weight, dispatch_class)
-            })]
+            let (dispatch_weight, dispatch_class) = Pallet::<T>::weight_and_dispatch_class(&calls);
+            let dispatch_weight = dispatch_weight.saturating_add(<T as Config>::WeightInfo::force_batch(calls.len() as u32));
+            (dispatch_weight, dispatch_class)
+        })]
         pub fn force_batch(
             origin: OriginFor<T>,
             calls: Vec<<T as Config>::RuntimeCall>,
@@ -618,184 +565,13 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Dispatch multiple calls from the sender's origin.
-        ///
-        /// This will execute until the first one fails and then stop.
-        ///
-        /// May be called from root or a signed origin.
-        ///
-        ///# Parameters
-        /// - `calls`: The calls to be dispatched from the same origin.
-        ///
-        /// # Weight
-        /// - The sum of the weights of the `calls`.
-        /// - One event.
-        ///
-        /// This will return `Ok` in all circumstances except an unsigned origin. To determine the success of the batch, an
-        /// event is deposited. If a call failed and the batch was interrupted, then the
-        /// `BatchInterruptedOld` event is deposited, along with the number of successful calls made
-        /// and the error of the failed call. If all were successful, then the `BatchCompletedOld`
-        /// event is deposited.
-        ///
-        /// POLYMESH: Renamed from `batch` and deprecated.
-        #[pallet::call_index(6)]
-        #[pallet::weight({
-                let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
-                let dispatch_weight = dispatch_infos.iter()
-                    .map(|di| di.weight)
-                    .fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
-                    .saturating_add(<T as Config>::WeightInfo::batch_old(calls.len() as u32));
-                let dispatch_class = {
-                    let all_operational = dispatch_infos.iter()
-                        .map(|di| di.class)
-                        .all(|class| class == DispatchClass::Operational);
-                    if all_operational {
-                        DispatchClass::Operational
-                    } else {
-                        DispatchClass::Normal
-                    }
-                };
-                (dispatch_weight, dispatch_class)
-            })]
-        #[allow(deprecated)]
-        #[deprecated(note = "Please use `batch` instead.")]
-        pub fn batch_old(
-            origin: OriginFor<T>,
-            calls: Vec<<T as Config>::RuntimeCall>,
-        ) -> DispatchResult {
-            let is_root = Self::ensure_root_or_signed(origin.clone())?;
-
-            // Run batch
-            Self::deposit_event(Self::run_batch(origin, is_root, calls, true));
-            Ok(())
-        }
-
-        /// Dispatch multiple calls from the sender's origin.
-        ///
-        /// This will execute all calls, in order, stopping at the first failure,
-        /// in which case the state changes are rolled back.
-        /// On failure, an event `BatchInterruptedOld(failure_idx, error)` is deposited.
-        ///
-        /// May be called from root or a signed origin.
-        ///
-        ///# Parameters
-        /// - `calls`: The calls to be dispatched from the same origin.
-        ///
-        /// # Weight
-        /// - The sum of the weights of the `calls`.
-        /// - One event.
-        ///
-        /// This will return `Ok` in all circumstances except an unsigned origin.
-        /// To determine the success of the batch, an event is deposited.
-        /// If any call failed, then `BatchInterruptedOld` is deposited.
-        /// If all were successful, then the `BatchCompletedOld` event is deposited.
-        ///
-        /// POLYMESH: deprecated.
-        #[pallet::call_index(7)]
-        #[pallet::weight({
-                let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
-                let dispatch_weight = dispatch_infos.iter()
-                    .map(|di| di.weight)
-                    .fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
-                    .saturating_add(<T as Config>::WeightInfo::batch_atomic(calls.len() as u32));
-                let dispatch_class = {
-                    let all_operational = dispatch_infos.iter()
-                        .map(|di| di.class)
-                        .all(|class| class == DispatchClass::Operational);
-                    if all_operational {
-                        DispatchClass::Operational
-                    } else {
-                        DispatchClass::Normal
-                    }
-                };
-                (dispatch_weight, dispatch_class)
-            })]
-        #[allow(deprecated)]
-        #[deprecated(note = "Please use `batch_all` instead.")]
-        pub fn batch_atomic(
-            origin: OriginFor<T>,
-            calls: Vec<<T as Config>::RuntimeCall>,
-        ) -> DispatchResult {
-            let is_root = Self::ensure_root_or_signed(origin.clone())?;
-
-            // Run batch inside a transaction
-            Self::deposit_event(with_transaction(
-                || -> TransactionOutcome<Result<_, DispatchError>> {
-                    // Run batch.
-                    match Self::run_batch(origin, is_root, calls, true) {
-                        ev @ Event::<T>::BatchCompletedOld(_) => TransactionOutcome::Commit(Ok(ev)),
-                        ev => {
-                            // Batch didn't complete.  Rollback transaction.
-                            TransactionOutcome::Rollback(Ok(ev))
-                        }
-                    }
-                },
-            )?);
-            Ok(())
-        }
-
-        /// Dispatch multiple calls from the sender's origin.
-        ///
-        /// This will execute all calls, in order, irrespective of failures.
-        /// Any failures will be available in a `BatchOptimisticFailed` event.
-        ///
-        /// May be called from root or a signed origin.
-        ///
-        ///# Parameters
-        /// - `calls`: The calls to be dispatched from the same origin.
-        ///
-        ///
-        /// # Weight
-        /// - The sum of the weights of the `calls`.
-        /// - One event.
-        ///
-        /// This will return `Ok` in all circumstances except an unsigned origin.
-        /// To determine the success of the batch, an event is deposited.
-        /// If any call failed, then `BatchOptimisticFailed` is deposited,
-        /// with a vector of event counts for each call as well as a vector
-        /// of errors.
-        /// If all were successful, then the `BatchCompletedOld` event is deposited.
-        ///
-        /// POLYMESH: deprecated.
-        #[pallet::call_index(8)]
-        #[pallet::weight({
-                let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
-                let dispatch_weight = dispatch_infos.iter()
-                    .map(|di| di.weight)
-                    .fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
-                    .saturating_add(<T as Config>::WeightInfo::batch_optimistic(calls.len() as u32));
-                let dispatch_class = {
-                    let all_operational = dispatch_infos.iter()
-                        .map(|di| di.class)
-                        .all(|class| class == DispatchClass::Operational);
-                    if all_operational {
-                        DispatchClass::Operational
-                    } else {
-                        DispatchClass::Normal
-                    }
-                };
-                (dispatch_weight, dispatch_class)
-            })]
-        #[allow(deprecated)]
-        #[deprecated(note = "Please use `force_batch` instead.")]
-        pub fn batch_optimistic(
-            origin: OriginFor<T>,
-            calls: Vec<<T as Config>::RuntimeCall>,
-        ) -> DispatchResult {
-            let is_root = Self::ensure_root_or_signed(origin.clone())?;
-
-            // Optimistically (hey, it's in the function name, :wink:) assume no errors.
-            Self::deposit_event(Self::run_batch(origin, is_root, calls, false));
-            Ok(())
-        }
-
         /// Send a call through an indexed pseudonym of the sender.
         ///
         /// Filter from origin are passed along. The call will be dispatched with an origin which
         /// use the same filter as the origin of this call.
         ///
         /// The dispatch origin for this call must be _Signed_.
-        #[pallet::call_index(9)]
+        #[pallet::call_index(6)]
         #[pallet::weight({
             let dispatch_info = call.get_dispatch_info();
 			(
@@ -812,6 +588,29 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             Self::base_as_derivative(origin, index, call)
         }
+    }
+}
+
+impl<T: Config> Pallet<T> {
+    /// Get the accumulated `weight` and the dispatch class for the given `calls`.
+    fn weight_and_dispatch_class(calls: &[<T as Config>::RuntimeCall]) -> (Weight, DispatchClass) {
+        let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info());
+        let (dispatch_weight, dispatch_class) = dispatch_infos.fold(
+            (Weight::zero(), DispatchClass::Operational),
+            |(total_weight, dispatch_class): (Weight, DispatchClass), di| {
+                (
+                    total_weight.saturating_add(di.weight),
+                    // If not all are `Operational`, we want to use `DispatchClass::Normal`.
+                    if di.class == DispatchClass::Normal {
+                        di.class
+                    } else {
+                        dispatch_class
+                    },
+                )
+            },
+        );
+
+        (dispatch_weight, dispatch_class)
     }
 }
 
@@ -832,38 +631,6 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    fn run_batch(
-        origin: T::RuntimeOrigin,
-        is_root: bool,
-        calls: Vec<<T as Config>::RuntimeCall>,
-        stop_on_errors: bool,
-    ) -> Event<T> {
-        let mut counts = EventCounts::with_capacity(calls.len());
-        let mut errors = Vec::new();
-        for (index, call) in calls.into_iter().enumerate() {
-            let count = System::<T>::event_count();
-
-            // Dispatch the call in a modified metadata context.
-            let res = Self::dispatch_call(origin.clone(), is_root, call);
-            counts.push(System::<T>::event_count().saturating_sub(count));
-
-            // Handle call error.
-            if let Err(e) = res {
-                let err_at = (index as u32, e.error);
-                if stop_on_errors {
-                    // Interrupt the batch on first error.
-                    return Event::<T>::BatchInterruptedOld(counts, err_at);
-                }
-                errors.push(err_at);
-            }
-        }
-        if errors.is_empty() {
-            Event::<T>::BatchCompletedOld(counts)
-        } else {
-            Event::<T>::BatchOptimisticFailed(counts, errors)
-        }
-    }
-
     /// Ensure `origin` is Root, if not return a fix small weight.
     pub(crate) fn ensure_root(origin: T::RuntimeOrigin) -> DispatchResultWithPostInfo {
         // Ensure the origin is Root.
@@ -875,14 +642,6 @@ impl<T: Config> Pallet<T> {
             });
         }
         Ok(().into())
-    }
-
-    fn ensure_root_or_signed(origin: T::RuntimeOrigin) -> Result<bool, DispatchError> {
-        let is_root = ensure_root(origin.clone()).is_ok();
-        if !is_root {
-            ensure_signed(origin)?;
-        }
-        Ok(is_root)
     }
 
     fn base_dispatch_as(
