@@ -121,11 +121,6 @@ fn funded_user<T: Config + TestUtilsFn<AccountIdOf<T>>>(seed: u32) -> User<T> {
     user
 }
 
-/// Returns the free balance of `acc`.
-fn free_balance<T: Config>(acc: &T::AccountId) -> Balance {
-    T::Currency::free_balance(&acc)
-}
-
 /// The `user` instantiates `wasm.code` as the contract with `salt`.
 /// Returns the address of the new contract.
 fn instantiate<T: Config>(user: &User<T>, wasm: WasmModule<T>, salt: Vec<u8>) -> T::AccountId
@@ -471,57 +466,40 @@ benchmarks! {
         System::<T>::remark(origin, remark).unwrap();
     }
 
-    // Use a dummy contract constructor to measure the overhead.
-    // `s`: Size of the salt in kilobytes.
-    instantiate_with_hash_perms {
-        let s in 0 .. max_pages::<T>() * 64 * 1024;
-        let other_salt = vec![42u8; s as usize];
+    base_weight_with_hash {
+            let i in 0 .. max_pages::<T>() * 64 * 1024;
+            let s in 0 .. max_pages::<T>() * 64 * 1024;
+            let input = vec![42u8; i as usize];
+            let salt = vec![42u8; s as usize];
 
         // Have the user instantiate a dummy contract.
         let wasm = WasmModule::<T>::dummy();
-        let hash = wasm.hash.clone();
+        let code = Code::Existing(wasm.hash.clone());
 
-        // Pre-instantiate a contract so that one with the hash exists.
-        let contract = Contract::<T>::new(wasm);
-        let user = contract.caller;
-
-        // Calculate new contract's address.
-        let addr = FrameContracts::<T>::contract_address(&user.account(), &hash, &[], &other_salt);
-    }: _(user.origin(), ENDOWMENT, Weight::MAX, None, hash, vec![], other_salt, Permissions::default())
-    verify {
-        // Ensure contract has the full value.
-        assert_eq!(free_balance::<T>(&addr), ENDOWMENT + 1 as Balance);
+        let user = funded_user::<T>(SEED);
+        let caller = user.account();
+        let perms = Some(Permissions::default());
+    }: {
+        Module::<T>::base_weight_and_contract_address(&caller, &code, &input, &salt, perms.as_ref())
     }
 
-    // This constructs a contract that is maximal expensive to instrument.
-    // It creates a maximum number of metering blocks per byte.
-    // The size of the salt influences the runtime because is is hashed in order to
-    // determine the contract address. All code is generated to the `call` function so that
-    // we don't benchmark the actual execution of this code but merely what it takes to load
-    // a code of that size into the sandbox.
-    //
-    // `c`: Size of the code in kilobytes.
-    // `s`: Size of the salt in kilobytes.
-    //
-    // # Note
-    //
-    // We cannot let `c` grow to the maximum code size because the code is not allowed
-    // to be larger than the maximum size **after instrumentation**.
-    instantiate_with_code_perms {
-        let c in 0 .. Perbill::from_percent(49).mul_ceil(T::MaxCodeLen::get());
-        let s in 0 .. max_pages::<T>() * 64 * 1024;
-        let salt = vec![42u8; s as usize];
+    base_weight_with_code {
+            let c in 0 .. Perbill::from_percent(49).mul_ceil(T::MaxCodeLen::get());
+            let i in 0 .. max_pages::<T>() * 64 * 1024;
+            let s in 0 .. max_pages::<T>() * 64 * 1024;
 
-        // Construct a user doing everything.
-        let user = funded_user::<T>(SEED);
+            let input = vec![42u8; i as usize];
+            let salt = vec![42u8; s as usize];
 
-        // Construct the contract code + get addr.
+        // Create a dummy contract.
         let wasm = WasmModule::<T>::sized(c, Location::Deploy);
-        let addr = FrameContracts::<T>::contract_address(&user.account(), &wasm.hash, &[], &salt);
-    }: _(user.origin(), ENDOWMENT, Weight::MAX, None, wasm.code, vec![], salt, Permissions::default())
-    verify {
-        // Ensure contract has the full value.
-        assert_eq!(free_balance::<T>(&addr), ENDOWMENT + 1 as Balance);
+        let code = Code::Upload(wasm.code.clone());
+
+        let user = funded_user::<T>(SEED);
+        let caller = user.account();
+        let perms = Some(Permissions::default());
+    }: {
+        Module::<T>::base_weight_and_contract_address(&caller, &code, &input, &salt, perms.as_ref())
     }
 
     update_call_runtime_whitelist {
@@ -532,40 +510,33 @@ benchmarks! {
             .collect();
     }: _(RawOrigin::Root, updates)
 
-    instantiate_with_code_as_primary_key {
-        let c in 0 .. Perbill::from_percent(49).mul_ceil(T::MaxCodeLen::get());
-        let s in 0 .. max_pages::<T>() * 64 * 1024;
-
+    link_contract_as_secondary_key {
         let alice = UserBuilder::<T>::default()
             .generate_did()
             .become_cdd_provider()
             .build("Alice");
         T::Currency::make_free_balance_be(&alice.account(), 1_000_000 * POLY);
-
-        let salt = vec![42u8; s as usize];
-        let wasm = WasmModule::<T>::sized(c, Location::Deploy);
-        let addr = FrameContracts::<T>::contract_address(&alice.account(), &wasm.hash, &[], &salt);
-    }: _(alice.origin(), ENDOWMENT, Weight::MAX, None, wasm.code, vec![], salt)
-    verify {
-        assert_eq!(free_balance::<T>(&addr), ENDOWMENT + 1 as Balance);
-    }
-
-    instantiate_with_hash_as_primary_key {
-        let s in 0 .. max_pages::<T>() * 64 * 1024;
-        let salt = vec![42u8; s as usize];
+        let caller = alice.account();
 
         let wasm = WasmModule::<T>::dummy();
-        let hash = wasm.hash.clone();
+        let addr = FrameContracts::<T>::contract_address(&caller, &wasm.hash, &[], &[]);
+        let perms = Some(Permissions::default());
+    }: {
+        Module::<T>::link_contract_to_did(&caller, addr, perms, false)?;
+    }
 
-        // Pre-instantiate a contract so that one with the hash exists.
-        let contract = Contract::<T>::new(wasm);
-        let user = contract.caller;
+    link_contract_as_primary_key {
+        let alice = UserBuilder::<T>::default()
+            .generate_did()
+            .become_cdd_provider()
+            .build("Alice");
+        T::Currency::make_free_balance_be(&alice.account(), 1_000_000 * POLY);
+        let caller = alice.account();
 
-        // Calculate new contract's address.
-        let addr = FrameContracts::<T>::contract_address(&user.account(), &hash, &[], &salt);
-    }: _(user.origin(), ENDOWMENT, Weight::MAX, None, hash, vec![], salt)
-    verify {
-        assert_eq!(free_balance::<T>(&addr), ENDOWMENT + 1 as Balance);
+        let wasm = WasmModule::<T>::dummy();
+        let addr = FrameContracts::<T>::contract_address(&caller, &wasm.hash, &[], &[]);
+    }: {
+        Module::<T>::link_contract_to_did(&caller, addr, None, true)?;
     }
 
     upgrade_api {
