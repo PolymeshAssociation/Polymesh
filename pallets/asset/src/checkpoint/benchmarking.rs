@@ -26,7 +26,7 @@ use crate::benchmarking::create_sample_asset;
 
 const CP_BASE: u64 = 2000;
 
-fn init_with_existing<T: Config>(asset_owner: &User<T>, existing: u64) -> AssetID {
+fn init_with_existing<T: Config>(asset_owner: &User<T>, existing: u64) -> AssetId {
     <pallet_timestamp::Now<T>>::set(1000u32.into());
     let asset_id = create_sample_asset::<T>(&asset_owner, true);
 

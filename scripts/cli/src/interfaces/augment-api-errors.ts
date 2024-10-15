@@ -27,7 +27,7 @@ declare module '@polkadot/api-base/types/errors' {
       /**
        * An unexpected error when generating a new asset ID.
        **/
-      AssetIDGenerationError: AugmentedError<ApiType>;
+      AssetIdGenerationError: AugmentedError<ApiType>;
       /**
        * Asset Metadata Global type already exists.
        **/
@@ -783,15 +783,15 @@ declare module '@polkadot/api-base/types/errors' {
     };
     externalAgents: {
       /**
-       * The provided `agent` is already an agent for the `AssetID`.
+       * The provided `agent` is already an agent for the `AssetId`.
        **/
       AlreadyAnAgent: AugmentedError<ApiType>;
       /**
-       * An AG with the given `AGId` did not exist for the `AssetID`.
+       * An AG with the given `AGId` did not exist for the `AssetId`.
        **/
       NoSuchAG: AugmentedError<ApiType>;
       /**
-       * The provided `agent` is not an agent for the `AssetID`.
+       * The provided `agent` is not an agent for the `AssetId`.
        **/
       NotAnAgent: AugmentedError<ApiType>;
       /**
@@ -1154,7 +1154,7 @@ declare module '@polkadot/api-base/types/errors' {
       /**
        * There's no asset associated to the given asset_id.
        **/
-      InvalidAssetID: AugmentedError<ApiType>;
+      InvalidAssetId: AugmentedError<ApiType>;
       /**
        * The asset must be of type non-fungible.
        **/
@@ -1801,7 +1801,7 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       UnexpectedLegStatus: AugmentedError<ApiType>;
       /**
-       * AssetID could not be found on chain.
+       * AssetId could not be found on chain.
        **/
       UnexpectedOFFChainAsset: AugmentedError<ApiType>;
       /**

@@ -22,8 +22,8 @@ struct SetupPortfolios {
     pub investor_offering_portfolio: PortfolioId,
     pub fundraiser_raising_portfolio: PortfolioId,
     pub investor_raising_portfolio: PortfolioId,
-    pub offering_asset_id: AssetID,
-    pub raising_asset_id: AssetID,
+    pub offering_asset_id: AssetId,
+    pub raising_asset_id: AssetId,
 }
 
 fn create_assets_and_compliance<T>(fundraiser: &User<T>, investor: &User<T>) -> SetupPortfolios

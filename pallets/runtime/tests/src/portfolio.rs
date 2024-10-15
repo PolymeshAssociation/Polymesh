@@ -7,7 +7,7 @@ use pallet_portfolio::{
     PortfolioNFT, Portfolios, PreApprovedPortfolios,
 };
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
-use polymesh_primitives::asset::{AssetID, AssetType, NonFungibleType};
+use polymesh_primitives::asset::{AssetId, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
 };
@@ -961,7 +961,7 @@ fn pre_approve_portfolio() {
         let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
-        let asset_id = AssetID::new([0; 16]);
+        let asset_id = AssetId::new([0; 16]);
         Portfolio::pre_approve_portfolio(alice.origin(), asset_id, alice_default_portfolio)
             .unwrap();
 
@@ -989,7 +989,7 @@ fn remove_portfolio_pre_approval() {
         let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
-        let asset_id = AssetID::new([0; 16]);
+        let asset_id = AssetId::new([0; 16]);
         Portfolio::pre_approve_portfolio(alice.origin(), asset_id, alice_default_portfolio)
             .unwrap();
         Portfolio::remove_portfolio_pre_approval(alice.origin(), asset_id, alice_default_portfolio)
@@ -1020,7 +1020,7 @@ fn unauthorized_custodian_pre_approval() {
         let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
-        let asset_id = AssetID::new([0; 16]);
+        let asset_id = AssetId::new([0; 16]);
         assert_noop!(
             Portfolio::pre_approve_portfolio(bob.origin(), asset_id, alice_user_porfolio),
             Error::UnauthorizedCustodian

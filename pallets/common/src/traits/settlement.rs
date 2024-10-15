@@ -4,7 +4,7 @@ use frame_support::weights::Weight;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec::Vec;
 
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::settlement::{
     AffirmationCount, AssetCount, InstructionId, Leg, LegId, ReceiptMetadata, SettlementType,
     VenueDetails, VenueId, VenueType,
@@ -39,20 +39,20 @@ decl_event!(
             AccountId,
             Option<ReceiptMetadata>,
         ),
-        /// Venue filtering has been enabled or disabled for an asset (did, AssetID, filtering_enabled)
-        VenueFiltering(IdentityId, AssetID, bool),
-        /// Venues added to allow list (did, AssetID, vec<venue_id>)
-        VenuesAllowed(IdentityId, AssetID, Vec<VenueId>),
-        /// Venues added to block list (did, AssetID, vec<venue_id>)
-        VenuesBlocked(IdentityId, AssetID, Vec<VenueId>),
+        /// Venue filtering has been enabled or disabled for an asset (did, AssetId, filtering_enabled)
+        VenueFiltering(IdentityId, AssetId, bool),
+        /// Venues added to allow list (did, AssetId, vec<venue_id>)
+        VenuesAllowed(IdentityId, AssetId, Vec<VenueId>),
+        /// Venues added to block list (did, AssetId, vec<venue_id>)
+        VenuesBlocked(IdentityId, AssetId, Vec<VenueId>),
         /// Execution of a leg failed (did, instruction_id, leg_id)
         LegFailedExecution(IdentityId, InstructionId, LegId),
         /// Instruction failed execution (did, instruction_id)
         InstructionFailed(IdentityId, InstructionId),
         /// Instruction executed successfully(did, instruction_id)
         InstructionExecuted(IdentityId, InstructionId),
-        /// Venue not part of the token's allow list (did, AssetID, venue_id)
-        VenueUnauthorized(IdentityId, AssetID, VenueId),
+        /// Venue not part of the token's allow list (did, AssetId, venue_id)
+        VenueUnauthorized(IdentityId, AssetId, VenueId),
         /// Scheduling of instruction fails.
         SchedulingFailed(InstructionId, DispatchError),
         /// Instruction is rescheduled.

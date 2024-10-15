@@ -16,23 +16,23 @@ pub(crate) mod v0 {
 
     decl_storage! {
         trait Store for Module<T: Config> as CorporateAction {
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldDefaultTargetIdentities get(fn default_target_identities):
                 map hasher(blake2_128_concat) Ticker => TargetIdentities;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldDefaultWithholdingTax get(fn default_withholding_tax):
                 map hasher(blake2_128_concat) Ticker => Tax;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldDidWithholdingTax get(fn did_withholding_tax):
                 map hasher(blake2_128_concat) Ticker => Vec<(IdentityId, Tax)>;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldCAIdSequence get(fn ca_id_sequence):
                 map hasher(blake2_128_concat) Ticker => LocalCAId;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldCorporateActions get(fn corporate_actions):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) LocalCAId => Option<CorporateAction>;
 
@@ -54,7 +54,7 @@ pub(crate) mod v0 {
 impl From<v0::CAId> for CAId {
     fn from(v0_ca_id: v0::CAId) -> Self {
         Self {
-            asset_id: AssetID::from(v0_ca_id.ticker),
+            asset_id: AssetId::from(v0_ca_id.ticker),
             local_id: v0_ca_id.local_id,
         }
     }
@@ -74,7 +74,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         DefaultTargetIdentities::insert(asset_id, target_identities);
     });
     log::info!("Migrated {:?} CA.DefaultTargetIdentities entries.", count);
@@ -89,7 +89,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         DefaultWithholdingTax::insert(asset_id, tax);
     });
     log::info!("Migrated {:?} CA.DefaultWithholdingTax entries.", count);
@@ -104,7 +104,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         DidWithholdingTax::insert(asset_id, id_tax);
     });
     log::info!("Migrated {:?} CA.DidWithholdingTax entries.", count);
@@ -119,7 +119,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         CAIdSequence::insert(asset_id, id_tax);
     });
     log::info!("Migrated {:?} CA.CAIdSequence entries.", count);
@@ -134,7 +134,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         CorporateActions::insert(asset_id, local_id, ca);
     });
     log::info!("Migrated {:?} CA.CorporateActions entries.", count);

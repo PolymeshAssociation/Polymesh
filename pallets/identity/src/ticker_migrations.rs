@@ -79,7 +79,7 @@ mod v6 {
 
     decl_storage! {
         trait Store for Module<T: Config> as Identity {
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldClaims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => Option<IdentityClaim>;
 
             pub KeyRecords get(fn key_records):

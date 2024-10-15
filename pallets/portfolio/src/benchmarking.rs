@@ -140,7 +140,7 @@ benchmarks! {
         let alice_custom_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::User(PortfolioNumber(1)) };
         Module::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
         // Simulates minting - Adding the NFT pallet causes cyclic dependency
-        let nft_asset_id = AssetID::new([0; 16]);
+        let nft_asset_id = AssetId::new([0; 16]);
         (1..n + 1).for_each(|id| PortfolioNFT::insert(alice_default_portfolio, (nft_asset_id, NFTId(id.into())), true));
 
         let nfts = NFTs::new_unverified(nft_asset_id, (1..n + 1).map(|id| NFTId(id.into())).collect());
@@ -167,7 +167,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let alice_custom_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::User(PortfolioNumber(1)) };
 
-        let asset_id = AssetID::new([0; 16]);
+        let asset_id = AssetId::new([0; 16]);
         Module::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
         Module::<T>::pre_approve_portfolio(alice.clone().origin().into(), asset_id, alice_custom_portfolio).unwrap();
     }: _(alice.origin, asset_id, alice_custom_portfolio)

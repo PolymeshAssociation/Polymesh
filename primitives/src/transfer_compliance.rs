@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::asset::AssetID;
+use crate::asset::AssetId;
 use crate::statistics::{v1, Percentage, StatClaim, StatOpType, StatType};
 use crate::{ClaimType, IdentityId};
 use codec::{Decode, Encode};
@@ -67,7 +67,7 @@ impl TransferCondition {
     }
 
     /// Get TransferConditionExemptKey needed by this transfer condition.
-    pub fn get_exempt_key(&self, asset_id: AssetID) -> TransferConditionExemptKey {
+    pub fn get_exempt_key(&self, asset_id: AssetId) -> TransferConditionExemptKey {
         let (op, claim_type) = match self {
             Self::MaxInvestorCount(_) => (StatOpType::Count, None),
             Self::MaxInvestorOwnership(_) => (StatOpType::Balance, None),
@@ -117,8 +117,8 @@ impl From<v1::TransferManagerResult> for TransferConditionResult {
 #[derive(Decode, Encode, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct TransferConditionExemptKey {
-    /// The [`AssetID`] of the token.
-    pub asset_id: AssetID,
+    /// The [`AssetId`] of the token.
+    pub asset_id: AssetId,
     /// Stats operation type.
     pub op: StatOpType,
     /// Claim type.

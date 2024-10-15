@@ -64,12 +64,12 @@ mod v0 {
 
     decl_storage! {
         trait Store for Module<T: Config> as ComplianceManager {
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             // The Scope type, which is inside the compliance codition, has also been changed.
             pub OldAssetCompliances get(fn asset_compliance):
                 map hasher(blake2_128_concat) Ticker => AssetCompliance;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldTrustedClaimIssuer get(fn trusted_claim_issuer):
                 map hasher(blake2_128_concat) Ticker => Vec<TrustedIssuer>;
         }
@@ -84,7 +84,7 @@ impl From<v0::Scope> for Scope {
     fn from(v0_scope: v0::Scope) -> Self {
         match v0_scope {
             v0::Scope::Identity(did) => Scope::Identity(did),
-            v0::Scope::Ticker(ticker) => Scope::Asset(AssetID::from(ticker)),
+            v0::Scope::Ticker(ticker) => Scope::Asset(AssetId::from(ticker)),
             v0::Scope::Custom(bytes) => Scope::Custom(bytes),
         }
     }
@@ -179,7 +179,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         AssetCompliances::insert(asset_id, AssetCompliance::from(compliance));
     });
     log::info!("Migrated {:?} Compliance.AssetCompliances entries.", count);
@@ -194,7 +194,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         TrustedClaimIssuer::insert(asset_id, trusted_issuers);
     });
     log::info!(
