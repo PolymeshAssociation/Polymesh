@@ -101,9 +101,6 @@ pub trait WeightInfo {
     // POLYMESH:
     fn ensure_root() -> Weight;
     fn relay_tx() -> Weight;
-    fn batch_old(c: u32) -> Weight;
-    fn batch_atomic(c: u32) -> Weight;
-    fn batch_optimistic(c: u32) -> Weight;
     fn as_derivative() -> Weight;
 }
 
