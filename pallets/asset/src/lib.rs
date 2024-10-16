@@ -565,8 +565,11 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::create_asset(
             asset_name.len() as u32,
             asset_identifiers.len() as u32,
-            funding_round_name.as_ref().map_or(0, |name| name.len()) as u32
-        ) + <T as Config>::WeightInfo::register_custom_asset_type(custom_asset_type.len() as u32)]
+            funding_round_name.as_ref().map_or(0, |name| name.len()) as u32,
+        )
+        .saturating_add(<T as Config>::WeightInfo::register_custom_asset_type(
+            custom_asset_type.len() as u32,
+        ))]
         pub fn create_asset_with_custom_type(
             origin,
             asset_name: AssetName,

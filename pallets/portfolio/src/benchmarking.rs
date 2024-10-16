@@ -67,13 +67,14 @@ benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> + AssetConfig }
 
     create_portfolio {
-        let target = user::<T>("target", 0);
-        let did = target.did();
-        let portfolio_name = PortfolioName(vec![65u8; PORTFOLIO_NAME_LEN]);
-        let next_portfolio_num = NextPortfolioNumber::get(&did);
-    }: _(target.origin, portfolio_name.clone())
+        let l in 1..PORTFOLIO_NAME_LEN.try_into().unwrap();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let next_portfolio_num = NextPortfolioNumber::get(alice.did());
+        let portfolio_name = PortfolioName(vec![65; l as usize]);
+    }: _(alice.origin.clone(), portfolio_name.clone())
     verify {
-        assert_eq!(Portfolios::get(&did, &next_portfolio_num), Some(portfolio_name));
+        assert_eq!(Portfolios::get(alice.did(), next_portfolio_num), Some(portfolio_name));
     }
 
     delete_portfolio {
