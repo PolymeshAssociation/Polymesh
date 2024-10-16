@@ -568,7 +568,7 @@ pub mod pallet {
         /// use the same filter as the origin of this call.
         ///
         /// The dispatch origin for this call must be _Signed_.
-        #[pallet::call_index(6)]
+        #[pallet::call_index(9)]
         #[pallet::weight({
             let dispatch_info = call.get_dispatch_info();
 			(
