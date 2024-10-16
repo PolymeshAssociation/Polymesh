@@ -1666,7 +1666,9 @@ impl<T: Config> Module<T> {
         TickersOwnedByUser::remove(caller_did, ticker);
         TickerAssetId::remove(ticker);
         AssetIdTicker::remove(asset_id);
-
+        Self::deposit_event(RawEvent::TickerUnlinkedFromAsset(
+            caller_did, ticker, asset_id,
+        ));
         Ok(())
     }
 }

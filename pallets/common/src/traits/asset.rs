@@ -182,6 +182,9 @@ decl_event! {
         /// An identity has linked a ticker to an asset.
         /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset, the asset identifier [`AssetId`].
         TickerLinkedToAsset(IdentityId, Ticker, AssetId),
+        /// An identity has unlinked a ticker from an asset.
+        /// Parameters: [`IdentityId`] of caller, unlinked [`Ticker`], the asset identifier [`AssetId`].
+        TickerUnlinkedFromAsset(IdentityId, Ticker, AssetId),
     }
 }
 
