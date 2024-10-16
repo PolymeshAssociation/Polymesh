@@ -29,9 +29,6 @@ use polymesh_common_utilities::traits::TestUtilsFn;
 
 use super::*;
 
-// POLYMESH:
-const MAX_CALLS: u32 = 30;
-
 const SEED: u32 = 0;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
@@ -149,45 +146,6 @@ benchmarks! {
         let u = UserBuilder::<T>::default().generate_did().build("ALICE");
     }: {
         assert!(Pallet::<T>::ensure_root(u.origin.into()).is_err());
-    }
-
-    // POLYMESH:
-    batch_old {
-        let c in 0..MAX_CALLS;
-
-        let u = UserBuilder::<T>::default().generate_did().build("ALICE");
-        let calls = make_calls::<T>(c);
-
-    }: _(u.origin, calls)
-    verify {
-        // NB In this case we are using `frame_system::Call::<T>::remark` which makes *no DB
-        // operations*. This helps us to fetch the DB read/write ops only from `batch` instead of
-        // its batched calls.
-        // So there is no way to verify it.
-        // The following cases use `balances::transfer` to be able to verify their outputs.
-    }
-
-    // POLYMESH:
-    batch_atomic {
-        let c in 0..MAX_CALLS;
-
-        let alice = UserBuilder::<T>::default().generate_did().build("ALICE");
-        let calls = make_calls::<T>(c);
-    }: _(alice.origin, calls)
-    verify {
-        // NB see comment at `batch` verify section.
-    }
-
-    // POLYMESH:
-    batch_optimistic {
-        let c in 0..MAX_CALLS;
-
-        let alice = UserBuilder::<T>::default().generate_did().build("ALICE");
-        let calls = make_calls::<T>(c);
-
-    }: _(alice.origin, calls)
-    verify {
-        // NB see comment at `batch` verify section.
     }
 
     // POLYMESH:

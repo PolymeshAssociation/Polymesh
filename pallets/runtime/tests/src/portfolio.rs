@@ -1118,3 +1118,15 @@ fn create_custody_portfolio_revoke_permission() {
         );
     });
 }
+
+#[test]
+fn allow_identity_to_create_portfolios_not_allowed() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+
+        assert_noop!(
+            Portfolio::allow_identity_to_create_portfolios(alice.origin(), alice.did),
+            Error::SelfAdditionNotAllowed
+        );
+    });
+}
