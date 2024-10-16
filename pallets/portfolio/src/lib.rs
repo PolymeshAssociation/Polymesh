@@ -171,7 +171,9 @@ decl_error! {
         /// The caller doesn't have permission to create portfolios on the owner's behalf.
         MissingOwnersPermission,
         /// The sender identity can't be the same as the receiver identity.
-        InvalidTransferSenderIdMatchesReceiverId
+        InvalidTransferSenderIdMatchesReceiverId,
+        /// Adding itself as an AllowedCustodian is not permitted.
+        SelfAdditionNotAllowed
     }
 }
 
@@ -190,7 +192,7 @@ decl_module! {
         }
 
         /// Creates a portfolio with the given `name`.
-        #[weight = <T as Config>::WeightInfo::create_portfolio()]
+        #[weight = <T as Config>::WeightInfo::create_portfolio(name.len() as u32)]
         pub fn create_portfolio(origin, name: PortfolioName) -> DispatchResult {
             let callers_did = Identity::<T>::ensure_perms(origin)?;
             Self::base_create_portfolio(callers_did, name)
@@ -857,6 +859,10 @@ impl<T: Config> Module<T> {
         trusted_identity: IdentityId,
     ) -> DispatchResult {
         let callers_did = Identity::<T>::ensure_perms(origin)?;
+        ensure!(
+            callers_did != trusted_identity,
+            Error::<T>::SelfAdditionNotAllowed
+        );
         AllowedCustodians::insert(callers_did, trusted_identity, true);
         Ok(())
     }

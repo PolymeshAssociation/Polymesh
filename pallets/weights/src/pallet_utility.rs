@@ -128,45 +128,6 @@ impl pallet_utility::WeightInfo for SubstrateWeight {
         // Minimum execution time: 732 nanoseconds.
         Weight::from_ref_time(793_000)
     }
-    // Storage: Permissions CurrentPalletName (r:1 w:1)
-    // Proof Skipped: Permissions CurrentPalletName (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Permissions CurrentDispatchableName (r:1 w:1)
-    // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
-    /// The range of component `c` is `[0, 30]`.
-    fn batch_old(c: u32) -> Weight {
-        // Minimum execution time: 9_093 nanoseconds.
-        Weight::from_ref_time(14_138_346)
-            // Standard Error: 52_467
-            .saturating_add(Weight::from_ref_time(10_800_694).saturating_mul(c.into()))
-            .saturating_add(DbWeight::get().reads(2))
-            .saturating_add(DbWeight::get().writes(2))
-    }
-    // Storage: Permissions CurrentPalletName (r:1 w:1)
-    // Proof Skipped: Permissions CurrentPalletName (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Permissions CurrentDispatchableName (r:1 w:1)
-    // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
-    /// The range of component `c` is `[0, 30]`.
-    fn batch_atomic(c: u32) -> Weight {
-        // Minimum execution time: 10_366 nanoseconds.
-        Weight::from_ref_time(17_579_219)
-            // Standard Error: 49_493
-            .saturating_add(Weight::from_ref_time(10_695_749).saturating_mul(c.into()))
-            .saturating_add(DbWeight::get().reads(2))
-            .saturating_add(DbWeight::get().writes(2))
-    }
-    // Storage: Permissions CurrentPalletName (r:1 w:1)
-    // Proof Skipped: Permissions CurrentPalletName (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Permissions CurrentDispatchableName (r:1 w:1)
-    // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
-    /// The range of component `c` is `[0, 30]`.
-    fn batch_optimistic(c: u32) -> Weight {
-        // Minimum execution time: 8_483 nanoseconds.
-        Weight::from_ref_time(14_635_522)
-            // Standard Error: 48_924
-            .saturating_add(Weight::from_ref_time(10_810_780).saturating_mul(c.into()))
-            .saturating_add(DbWeight::get().reads(2))
-            .saturating_add(DbWeight::get().writes(2))
-    }
     // Storage: Identity CurrentPayer (r:1 w:1)
     // Proof Skipped: Identity CurrentPayer (max_values: Some(1), max_size: None, mode: Measured)
     // Storage: Permissions CurrentPalletName (r:1 w:1)
