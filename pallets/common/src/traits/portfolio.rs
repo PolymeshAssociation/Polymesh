@@ -100,7 +100,7 @@ pub trait PortfolioSubTrait<AccountId> {
 }
 
 pub trait WeightInfo {
-    fn create_portfolio() -> Weight;
+    fn create_portfolio(l: u32) -> Weight;
     fn delete_portfolio() -> Weight;
     fn rename_portfolio(i: u32) -> Weight;
     fn quit_portfolio_custody() -> Weight;
