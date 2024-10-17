@@ -8,7 +8,7 @@ use polymesh_primitives::settlement::{
 use polymesh_primitives::{AuthorizationData, PortfolioId, PortfolioKind, Signatory};
 
 use super::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
-use crate::storage::User;
+use crate::storage::{default_portfolio_btreeset, User};
 use crate::{ExtBuilder, TestStorage};
 
 type Asset = pallet_asset::Module<TestStorage>;
@@ -71,7 +71,7 @@ fn controller_transfer_locked_asset() {
         assert_ok!(Settlement::affirm_instruction(
             alice.origin(),
             InstructionId(0),
-            vec![alice_default_portfolio]
+            default_portfolio_btreeset(alice.did),
         ),);
 
         // Controller transfer should fail since the tokens are locked

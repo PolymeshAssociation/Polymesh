@@ -506,7 +506,7 @@ decl_module! {
                     None
                 )?;
 
-                let portfolios = vec![investment_portfolio, funding_portfolio];
+                let portfolios = [investment_portfolio, funding_portfolio].iter().copied().collect::<BTreeSet<_>>();
                 Settlement::<T>::affirm_and_execute_instruction(
                     origin,
                     instruction_id,
