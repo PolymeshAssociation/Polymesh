@@ -532,7 +532,7 @@ impl<T: Config> Module<T> {
         <CA<T>>::ensure_ca_targets(&ca, &holder)?;
 
         // Extract CP + total supply at the record date.
-        let cp_id = <CA<T>>::record_date_cp(&ca, ca_id);
+        let cp_id = <CA<T>>::record_date_cp(&ca, ca_id)?;
 
         // Compute `balance * amount / supply`, i.e. DID's benefit.
         let balance = <CA<T>>::balance_at_cp(holder, ca_id, cp_id);

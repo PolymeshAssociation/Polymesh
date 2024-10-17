@@ -448,7 +448,7 @@ decl_module! {
 
             // Extract `did`'s balance at the record date.
             // Record date has passed by definition.
-            let cp_id = <CA<T>>::record_date_cp(&ca, ca_id);
+            let cp_id = <CA<T>>::record_date_cp(&ca, ca_id)?;
             let available_power = <CA<T>>::balance_at_cp(did, ca_id, cp_id);
 
             // Ensure the total balance used in each motion doesn't exceed caller's voting power.
