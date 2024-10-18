@@ -4,9 +4,9 @@ extern crate alloc;
 
 mod macros;
 
+use alloc::collections::BTreeSet;
 #[cfg(not(feature = "as-library"))]
 use alloc::vec;
-use alloc::vec::Vec;
 use scale::Encode;
 
 pub use polymesh_api::ink::basic_types::IdentityId;
@@ -16,7 +16,7 @@ pub use polymesh_api::polymesh::types::pallet_corporate_actions;
 pub use polymesh_api::polymesh::types::pallet_corporate_actions::CAId;
 pub use polymesh_api::polymesh::types::polymesh_contracts::Api as ContractRuntimeApi;
 pub use polymesh_api::polymesh::types::polymesh_primitives::asset::{
-    AssetID, AssetName, AssetType, CheckpointId,
+    AssetId, AssetName, AssetType, CheckpointId,
 };
 pub use polymesh_api::polymesh::types::polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataValue,
@@ -125,7 +125,7 @@ pub type Timestamp = <PolymeshEnvironment as ink::env::Environment>::Timestamp;
 #[derive(Debug, scale::Encode, scale::Decode)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub struct DistributionSummary {
-    pub currency: AssetID,
+    pub currency: AssetId,
     pub per_share: Balance,
     pub reclaimed: bool,
     pub payment_at: Timestamp,
@@ -147,11 +147,11 @@ impl From<pallet_corporate_actions::distribution::Distribution> for Distribution
 #[derive(Debug, scale::Encode, scale::Decode)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub struct SimpleDividend {
-    pub asset_id: AssetID,
+    pub asset_id: AssetId,
     pub decl_date: Timestamp,
     pub record_date: Timestamp,
     pub portfolio: Option<PortfolioNumber>,
-    pub currency: AssetID,
+    pub currency: AssetId,
     pub per_share: Balance,
     pub amount: Balance,
     pub payment_at: Timestamp,
@@ -262,7 +262,7 @@ upgradable_api! {
             pub fn portfolio_asset_balances(
                 &self,
                 portfolio_id: PortfolioId,
-                asset_id: AssetID
+                asset_id: AssetId
             ) -> PolymeshResult<Balance> {
                 let api = Api::new();
 
@@ -313,7 +313,7 @@ upgradable_api! {
                 &self,
                 venue_id: Option<VenueId>,
                 legs: Vec<Leg>,
-                portfolios: Vec<PortfolioId>
+                portfolios: BTreeSet<PortfolioId>
             ) -> PolymeshResult<()> {
                 let api = Api::new();
 
@@ -356,7 +356,7 @@ upgradable_api! {
             #[ink(message)]
             pub fn asset_issue(
                 &self,
-                asset_id: AssetID,
+                asset_id: AssetId,
                 amount_to_issue: Balance,
                 portfolio_kind: PortfolioKind
             ) -> PolymeshResult<()> {
@@ -369,7 +369,7 @@ upgradable_api! {
             #[ink(message)]
             pub fn asset_redeem(
                 &self,
-                asset_id: AssetID,
+                asset_id: AssetId,
                 amount_to_redeem: Balance,
                 portfolio_kind: PortfolioKind
             ) -> PolymeshResult<()> {
@@ -389,10 +389,7 @@ upgradable_api! {
             ) -> PolymeshResult<()> {
                 let api = Api::new();
 
-                let contract_account = ink::env::account_id::<PolymeshEnvironment>();
-                let nonce = api.query().asset().asset_nonce(contract_account)?;
-                let asset_id =
-                    blake2_128(&(b"modlpy/pallet_asset", contract_account, nonce).encode());
+                let asset_id = Self::get_asset_id(&api)?;
 
                 api.call()
                     .asset()
@@ -402,7 +399,7 @@ upgradable_api! {
                 if let Some(amount_to_issue) = amount_to_issue {
                     api.call()
                         .asset()
-                        .issue(AssetID(asset_id), amount_to_issue, PortfolioKind::Default)
+                        .issue(asset_id, amount_to_issue, PortfolioKind::Default)
                         .submit()?;
                 }
 
@@ -413,7 +410,7 @@ upgradable_api! {
             #[ink(message)]
             pub fn asset_balance_of(
                 &self,
-                asset_id: AssetID,
+                asset_id: AssetId,
                 did: IdentityId
             ) -> PolymeshResult<Balance> {
                 let api = Api::new();
@@ -425,7 +422,7 @@ upgradable_api! {
             #[ink(message)]
             pub fn asset_total_supply(
                 &self,
-                asset_id: AssetID
+                asset_id: AssetId
             ) -> PolymeshResult<Balance> {
                 let api = Api::new();
 
@@ -498,7 +495,7 @@ upgradable_api! {
                 &self,
                 venue_id: Option<VenueId>,
                 legs: Vec<Leg>,
-                portfolios: Vec<PortfolioId>
+                portfolios: BTreeSet<PortfolioId>
             ) -> PolymeshResult<InstructionId> {
                 let api = Api::new();
 
@@ -552,7 +549,7 @@ upgradable_api! {
             #[ink(message)]
             pub fn asset_metadata_local_name_to_key(
                 &self,
-                asset_id: AssetID,
+                asset_id: AssetId,
                 asset_metadata_name: AssetMetadataName
             ) -> PolymeshResult<Option<AssetMetadataLocalKey>> {
                 Ok(Api::new()
@@ -565,7 +562,7 @@ upgradable_api! {
             #[ink(message)]
             pub fn asset_metadata_value(
                 &self,
-                asset_id: AssetID,
+                asset_id: AssetId,
                 asset_metadata_key: AssetMetadataKey
             ) -> PolymeshResult<Option<AssetMetadataValue>> {
                 Ok(Api::new()
@@ -578,7 +575,7 @@ upgradable_api! {
             #[ink(message)]
             pub fn nft_owner(
               &self,
-              asset_id: AssetID,
+              asset_id: AssetId,
               nft: NFTId,
             ) -> PolymeshResult<Option<PortfolioId>> {
                 let api = Api::new();
@@ -590,7 +587,7 @@ upgradable_api! {
             pub fn holds_nfts(
               &self,
               portfolio_id: PortfolioId,
-              asset_id: AssetID,
+              asset_id: AssetId,
               nfts: Vec<NFTId>,
             ) -> PolymeshResult<()> {
                 let api = Api::new();
@@ -627,6 +624,16 @@ upgradable_api! {
                 api.runtime()
                     .get_key_did(acc)?
                     .ok_or(PolymeshError::MissingIdentity)
+            }
+
+            /// Returns the [`AssetID`] for the next asset created by the contract account.
+            pub fn get_asset_id(api: &Api) -> Result<AssetId, PolymeshError> {
+                let genesis_hash = ink::env::block_hash(0);
+                let contract_account = ink::env::account_id::<PolymeshEnvironment>();
+                let nonce = api.query().asset().asset_nonce(contract_account)?;
+                let asset_id
+                    = blake2_128(&(b"modlpy/pallet_asset", genesis_hash, contract_account, nonce).encode());
+                Ok(AssetId(asset_id))
             }
         }
     }
