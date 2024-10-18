@@ -292,6 +292,9 @@ decl_module! {
             storage_migrate_on!(StorageVersion, 5, {
                 migrations::migrate_to_v5::<T>();
             });
+            // Only needed on staging, but safe to run on other networks.
+            migrations::migrate_to_v5_fixup_asset_id_maps::<T>();
+
             Weight::zero()
         }
 
