@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 pub use frame_benchmarking::{account, benchmarks};
-use frame_support::traits::Get;
+use frame_support::traits::{Get, TryCollect};
 use frame_system::RawOrigin;
 use scale_info::prelude::format;
 use sp_core::sr25519::Signature;
@@ -60,12 +60,30 @@ pub struct Parameters<T: Config> {
     pub asset_mediators: Vec<User<T>>,
 }
 
+impl<T: Config> Parameters<T> {
+    pub fn sdr_portfolios(&self) -> BoundedBTreeSet<PortfolioId, T::MaxNumberOfPortfolios> {
+        self.portfolios
+            .sdr_portfolios
+            .clone()
+            .into_iter()
+            .try_collect()
+            .expect("shouldn't be too many")
+    }
+
+    pub fn rcv_portfolios(&self) -> BoundedBTreeSet<PortfolioId, T::MaxNumberOfPortfolios> {
+        self.portfolios
+            .rcv_portfolios
+            .clone()
+            .into_iter()
+            .try_collect()
+            .expect("shouldn't be too many")
+    }
+}
+
 #[derive(Default)]
 pub struct Portfolios {
     pub sdr_portfolios: Vec<PortfolioId>,
-    pub sdr_receipt_portfolios: Vec<PortfolioId>,
     pub rcv_portfolios: Vec<PortfolioId>,
-    pub rcv_receipt_portfolios: Vec<PortfolioId>,
 }
 
 fn creator<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> User<T> {
@@ -231,11 +249,7 @@ where
             )
         })
         .collect();
-    let sdr_portfolios = [
-        parameters.portfolios.sdr_portfolios.clone(),
-        parameters.portfolios.sdr_receipt_portfolios.clone(),
-    ]
-    .concat();
+    let sdr_portfolios = parameters.sdr_portfolios();
     Module::<T>::affirm_with_receipts(
         sender.origin.clone().into(),
         InstructionId(1),
@@ -243,11 +257,7 @@ where
         sdr_portfolios,
     )
     .unwrap();
-    let rcv_portfolios = [
-        parameters.portfolios.rcv_portfolios.clone(),
-        parameters.portfolios.rcv_receipt_portfolios.clone(),
-    ]
-    .concat();
+    let rcv_portfolios = parameters.rcv_portfolios();
     Module::<T>::affirm_with_receipts(
         receiver.origin.clone().into(),
         InstructionId(1),
@@ -434,6 +444,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
+        let portfolios = parameters.sdr_portfolios();
         Module::<T>::add_instruction(
             alice.origin.clone().into(),
             Some(venue_id),
@@ -456,8 +467,6 @@ benchmarks! {
                 )
             })
             .collect();
-        let portfolios =
-            [parameters.portfolios.sdr_portfolios, parameters.portfolios.sdr_receipt_portfolios].concat();
     }: _(alice.origin, InstructionId(1), receipt_details, portfolios)
 
     execute_manual_instruction {
@@ -504,7 +513,8 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
-    }: _(alice.origin, Some(venue_id), settlement_type, None, None, parameters.legs, parameters.portfolios.sdr_portfolios, memo)
+        let portfolios = parameters.sdr_portfolios();
+    }: _(alice.origin, Some(venue_id), settlement_type, None, None, parameters.legs, portfolios, memo)
 
     affirm_instruction {
         // Number of fungible and non-fungible assets in the portfolios
@@ -517,6 +527,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, T::MaxNumberOfOffChainAssets::get(), false, false);
+        let portfolios = parameters.sdr_portfolios();
         Module::<T>::add_instruction(
             alice.origin.clone().into(),
             Some(venue_id),
@@ -526,7 +537,7 @@ benchmarks! {
             parameters.legs,
             memo,
         ).unwrap();
-    }: _(alice.origin, InstructionId(1), parameters.portfolios.sdr_portfolios)
+    }: _(alice.origin, InstructionId(1), portfolios)
 
     withdraw_affirmation {
         // Number of fungible, non-fungible and offchain LEGS in the portfolios
@@ -542,8 +553,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
 
         let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, false, false);
-        let portfolios =
-            [parameters.portfolios.sdr_portfolios, parameters.portfolios.sdr_receipt_portfolios].concat();
+        let portfolios = parameters.sdr_portfolios();
     }: _(alice.origin, InstructionId(1),  portfolios)
 
     reject_instruction {
@@ -560,8 +570,6 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
 
         let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, false, false);
-        let portfolios =
-            [parameters.portfolios.sdr_portfolios.clone(), parameters.portfolios.sdr_receipt_portfolios].concat();
     }: _(alice.origin, InstructionId(1), parameters.portfolios.sdr_portfolios[0])
 
     execute_instruction_paused {
@@ -611,6 +619,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
+        let portfolios = parameters.rcv_portfolios();
         Module::<T>::add_instruction(
             alice.origin.clone().into(),
             Some(venue_id),
@@ -633,8 +642,6 @@ benchmarks! {
                 )
             })
             .collect();
-        let portfolios =
-            [parameters.portfolios.rcv_portfolios, parameters.portfolios.rcv_receipt_portfolios].concat();
     }: affirm_with_receipts(bob.origin, InstructionId(1), receipt_details, portfolios)
 
     affirm_instruction_rcv {
@@ -648,6 +655,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, T::MaxNumberOfOffChainAssets::get(), false, false);
+        let portfolios = parameters.rcv_portfolios();
         Module::<T>::add_instruction(
             alice.origin.clone().into(),
             Some(venue_id),
@@ -657,7 +665,7 @@ benchmarks! {
             parameters.legs,
             memo,
         ).unwrap();
-    }: affirm_instruction(bob.origin, InstructionId(1), parameters.portfolios.rcv_portfolios)
+    }: affirm_instruction(bob.origin, InstructionId(1), portfolios)
 
     withdraw_affirmation_rcv {
         // Number of fungible, non-fungible and offchain LEGS in the portfolios
@@ -673,8 +681,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
 
         let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, false, false);
-        let portfolios =
-            [parameters.portfolios.rcv_portfolios, parameters.portfolios.rcv_receipt_portfolios].concat();
+        let portfolios = parameters.rcv_portfolios();
     }: withdraw_affirmation(bob.origin, InstructionId(1),  portfolios)
 
     add_instruction_with_mediators {
@@ -709,7 +716,8 @@ benchmarks! {
         let mediators: BTreeSet<IdentityId> = (0..m).map(|i| IdentityId::from(i as u128)).collect();
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
-    }: _(alice.origin, Some(venue_id), settlement_type, None, None, parameters.legs, parameters.portfolios.sdr_portfolios, memo, mediators.try_into().unwrap())
+        let portfolios = parameters.sdr_portfolios();
+    }: _(alice.origin, Some(venue_id), settlement_type, None, None, parameters.legs, portfolios, memo, mediators.try_into().unwrap())
 
     affirm_instruction_as_mediator {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");

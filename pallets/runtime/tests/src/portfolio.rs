@@ -22,7 +22,7 @@ use sp_keyring::AccountKeyring;
 use super::asset_pallet::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
 use super::asset_test::max_len_bytes;
 use super::nft::{create_nft_collection, mint_nft};
-use super::storage::{EventTest, System, TestStorage, User};
+use super::storage::{user_portfolio_btreeset, EventTest, System, TestStorage, User};
 use super::ExtBuilder;
 
 type Asset = pallet_asset::Module<TestStorage>;
@@ -683,7 +683,7 @@ fn delete_portfolio_with_locked_nfts() {
             None,
             None,
             legs,
-            vec![PortfolioId::user_portfolio(alice.did, PortfolioNumber(1))],
+            user_portfolio_btreeset(alice.did, PortfolioNumber(1)),
             Some(Memo::default()),
         ));
 
