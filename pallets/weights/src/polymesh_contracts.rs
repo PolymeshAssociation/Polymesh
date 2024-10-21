@@ -593,4 +593,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(14))
             .saturating_add(DbWeight::get().writes(5))
     }
+    fn chain_extension_get_next_asset_id(_r: u32) -> Weight {
+        Weight::zero()
+    }
 }

@@ -75,6 +75,7 @@ pub use chain_extension::{ExtrinsicId, PolymeshExtension};
 use pallet_contracts::Config as BConfig;
 use pallet_contracts_primitives::{Code, ContractResult};
 use pallet_identity::ParentDid;
+use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::traits::identity::{
     Config as IdentityConfig, WeightInfo as IdentityWeightInfo,
 };
@@ -240,6 +241,7 @@ pub trait WeightInfo {
     fn instantiate_with_code_as_primary_key(code_len: u32, salt_len: u32) -> Weight;
     fn instantiate_with_hash_as_primary_key(salt_len: u32) -> Weight;
     fn chain_extension_get_latest_api_upgrade(r: u32) -> Weight;
+    fn chain_extension_get_next_asset_id(r: u32) -> Weight;
     fn upgrade_api() -> Weight;
 
     /// Computes the cost of instantiating where `code_len`
@@ -305,6 +307,10 @@ pub trait WeightInfo {
     fn get_latest_api_upgrade() -> Weight {
         cost_batched!(chain_extension_get_latest_api_upgrade)
     }
+
+    fn get_next_asset_id() -> Weight {
+        cost_batched!(chain_extension_get_next_asset_id)
+    }
 }
 
 /// The `Config` trait for the smart contracts pallet.
@@ -320,6 +326,9 @@ pub trait Config:
 
     /// Max value that can be returned from the ChainExtension.
     type MaxOutLen: Get<u32>;
+
+    /// Asset module trait
+    type Asset: AssetFnTrait<Self::AccountId, Self::RuntimeOrigin>;
 
     /// The weight configuration for the pallet.
     type WeightInfo: WeightInfo;
