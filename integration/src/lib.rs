@@ -182,7 +182,7 @@ impl PalletPermissionsBuilder {
 
 #[derive(Clone, Default)]
 pub struct PermissionsBuilder {
-    asset: SubsetBuilder<AssetID>,
+    asset: SubsetBuilder<AssetId>,
     portfolio: SubsetBuilder<PortfolioId>,
     extrinsic: PalletPermissionsBuilder,
 }
@@ -204,7 +204,7 @@ impl PermissionsBuilder {
         }
     }
 
-    pub fn set_asset(&mut self, assets: &[AssetID], these: bool) {
+    pub fn set_asset(&mut self, assets: &[AssetId], these: bool) {
         self.asset.set(assets, these);
     }
 
@@ -263,6 +263,20 @@ pub async fn get_auth_id(res: &mut TransactionResults) -> Result<Option<u64>> {
             match &rec.event {
                 RuntimeEvent::Identity(IdentityEvent::AuthorizationAdded(_, _, _, auth, _, _)) => {
                     return Ok(Some(*auth));
+                }
+                _ => (),
+            }
+        }
+    }
+    Ok(None)
+}
+
+pub async fn get_contract_address(res: &mut TransactionResults) -> Result<Option<AccountId>> {
+    if let Some(events) = res.events().await? {
+        for rec in &events.0 {
+            match &rec.event {
+                RuntimeEvent::Contracts(ContractsEvent::Instantiated { contract, .. }) => {
+                    return Ok(Some(*contract));
                 }
                 _ => (),
             }

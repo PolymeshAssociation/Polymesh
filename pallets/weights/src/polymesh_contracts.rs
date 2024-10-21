@@ -368,65 +368,31 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
         // Minimum execution time: 2_093 nanoseconds.
         Weight::from_ref_time(2_909_155)
     }
-    // Storage: Identity KeyRecords (r:3 w:1)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
-    // Storage: Contracts CodeStorage (r:1 w:0)
-    // Proof: Contracts CodeStorage (max_values: None, max_size: Some(126001), added: 128476, mode: MaxEncodedLen)
-    // Storage: System Account (r:3 w:3)
-    // Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
-    // Storage: Contracts Nonce (r:1 w:1)
-    // Proof: Contracts Nonce (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: Contracts ContractInfoOf (r:1 w:1)
-    // Proof: Contracts ContractInfoOf (max_values: None, max_size: Some(290), added: 2765, mode: MaxEncodedLen)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: Identity IsDidFrozen (r:1 w:0)
-    // Proof Skipped: Identity IsDidFrozen (max_values: None, max_size: None, mode: Measured)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Proof Skipped: Instance2Group ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Identity Claims (r:2 w:0)
-    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
-    // Storage: Contracts OwnerInfoOf (r:1 w:1)
-    // Proof: Contracts OwnerInfoOf (max_values: None, max_size: Some(88), added: 2563, mode: MaxEncodedLen)
-    // Storage: System EventTopics (r:2 w:2)
-    // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity DidKeys (r:0 w:1)
-    // Proof Skipped: Identity DidKeys (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity KeyPortfolioPermissions (r:0 w:1)
-    // Proof Skipped: Identity KeyPortfolioPermissions (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity KeyExtrinsicPermissions (r:0 w:1)
-    // Proof Skipped: Identity KeyExtrinsicPermissions (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity KeyAssetPermissions (r:0 w:1)
-    // Proof Skipped: Identity KeyAssetPermissions (max_values: None, max_size: None, mode: Measured)
+    /// The range of component `i` is `[0, 1048576]`.
     /// The range of component `s` is `[0, 1048576]`.
-    fn instantiate_with_hash_perms(s: u32) -> Weight {
-        // Minimum execution time: 403_410 nanoseconds.
-        Weight::from_ref_time(426_230_660)
-            // Standard Error: 4
-            .saturating_add(Weight::from_ref_time(2_726).saturating_mul(s.into()))
-            .saturating_add(DbWeight::get().reads(17))
-            .saturating_add(DbWeight::get().writes(13))
+    fn base_weight_with_hash(i: u32, s: u32) -> Weight {
+        // Minimum execution time: 960_746 nanoseconds.
+        Weight::from_ref_time(40_570_806)
+            // Standard Error: 2
+            .saturating_add(Weight::from_ref_time(867).saturating_mul(i.into()))
+            // Standard Error: 2
+            .saturating_add(Weight::from_ref_time(955).saturating_mul(s.into()))
     }
-    // Storage: Identity KeyRecords (r:3 w:1)
+    /// The range of component `c` is `[0, 61717]`.
+    /// The range of component `i` is `[0, 1048576]`.
+    /// The range of component `s` is `[0, 1048576]`.
+    fn base_weight_with_code(c: u32, i: u32, s: u32) -> Weight {
+        // Minimum execution time: 1_007_560 nanoseconds.
+        Weight::from_ref_time(17_914_552)
+            // Standard Error: 45
+            .saturating_add(Weight::from_ref_time(1_330).saturating_mul(c.into()))
+            // Standard Error: 2
+            .saturating_add(Weight::from_ref_time(864).saturating_mul(i.into()))
+            // Standard Error: 2
+            .saturating_add(Weight::from_ref_time(951).saturating_mul(s.into()))
+    }
+    // Storage: Identity KeyRecords (r:2 w:1)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
-    // Storage: Contracts OwnerInfoOf (r:1 w:1)
-    // Proof: Contracts OwnerInfoOf (max_values: None, max_size: Some(88), added: 2563, mode: MaxEncodedLen)
-    // Storage: System Account (r:3 w:3)
-    // Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
-    // Storage: Contracts Nonce (r:1 w:1)
-    // Proof: Contracts Nonce (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: Contracts ContractInfoOf (r:1 w:1)
-    // Proof: Contracts ContractInfoOf (max_values: None, max_size: Some(290), added: 2765, mode: MaxEncodedLen)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: Identity IsDidFrozen (r:1 w:0)
-    // Proof Skipped: Identity IsDidFrozen (max_values: None, max_size: None, mode: Measured)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Proof Skipped: Instance2Group ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Identity Claims (r:2 w:0)
-    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
-    // Storage: System EventTopics (r:3 w:3)
-    // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
     // Storage: Identity DidKeys (r:0 w:1)
     // Proof Skipped: Identity DidKeys (max_values: None, max_size: None, mode: Measured)
     // Storage: Identity KeyPortfolioPermissions (r:0 w:1)
@@ -435,21 +401,35 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity KeyExtrinsicPermissions (max_values: None, max_size: None, mode: Measured)
     // Storage: Identity KeyAssetPermissions (r:0 w:1)
     // Proof Skipped: Identity KeyAssetPermissions (max_values: None, max_size: None, mode: Measured)
-    // Storage: Contracts CodeStorage (r:0 w:1)
-    // Proof: Contracts CodeStorage (max_values: None, max_size: Some(126001), added: 128476, mode: MaxEncodedLen)
-    // Storage: Contracts PristineCode (r:0 w:1)
-    // Proof: Contracts PristineCode (max_values: None, max_size: Some(125988), added: 128463, mode: MaxEncodedLen)
-    /// The range of component `c` is `[0, 61717]`.
-    /// The range of component `s` is `[0, 1048576]`.
-    fn instantiate_with_code_perms(c: u32, s: u32) -> Weight {
-        // Minimum execution time: 3_335_726 nanoseconds.
-        Weight::from_ref_time(626_137_371)
-            // Standard Error: 302
-            .saturating_add(Weight::from_ref_time(107_506).saturating_mul(c.into()))
-            // Standard Error: 17
-            .saturating_add(Weight::from_ref_time(2_679).saturating_mul(s.into()))
-            .saturating_add(DbWeight::get().reads(17))
-            .saturating_add(DbWeight::get().writes(16))
+    fn link_contract_as_secondary_key() -> Weight {
+        // Minimum execution time: 18_033 nanoseconds.
+        Weight::from_ref_time(18_404_000)
+            .saturating_add(DbWeight::get().reads(2))
+            .saturating_add(DbWeight::get().writes(5))
+    }
+    // Storage: Identity KeyRecords (r:2 w:1)
+    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: Identity ParentDid (r:1 w:1)
+    // Proof Skipped: Identity ParentDid (max_values: None, max_size: None, mode: Measured)
+    // Storage: ProtocolFee Coefficient (r:1 w:0)
+    // Proof Skipped: ProtocolFee Coefficient (max_values: Some(1), max_size: None, mode: Measured)
+    // Storage: ProtocolFee BaseFees (r:1 w:0)
+    // Proof Skipped: ProtocolFee BaseFees (max_values: None, max_size: None, mode: Measured)
+    // Storage: Identity MultiPurposeNonce (r:1 w:1)
+    // Proof Skipped: Identity MultiPurposeNonce (max_values: Some(1), max_size: None, mode: Measured)
+    // Storage: System ParentHash (r:1 w:0)
+    // Proof: System ParentHash (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
+    // Storage: Identity DidRecords (r:1 w:1)
+    // Proof Skipped: Identity DidRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: Identity DidKeys (r:0 w:1)
+    // Proof Skipped: Identity DidKeys (max_values: None, max_size: None, mode: Measured)
+    // Storage: Identity ChildDid (r:0 w:1)
+    // Proof Skipped: Identity ChildDid (max_values: None, max_size: None, mode: Measured)
+    fn link_contract_as_primary_key() -> Weight {
+        // Minimum execution time: 32_310 nanoseconds.
+        Weight::from_ref_time(32_881_000)
+            .saturating_add(DbWeight::get().reads(8))
+            .saturating_add(DbWeight::get().writes(6))
     }
     // Storage: PolymeshContracts CallRuntimeWhitelist (r:0 w:2000)
     // Proof Skipped: PolymeshContracts CallRuntimeWhitelist (max_values: None, max_size: None, mode: Measured)
@@ -460,101 +440,6 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
             // Standard Error: 2_097
             .saturating_add(Weight::from_ref_time(1_640_807).saturating_mul(u.into()))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(u.into())))
-    }
-    // Storage: Identity KeyRecords (r:3 w:1)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity ParentDid (r:1 w:1)
-    // Proof Skipped: Identity ParentDid (max_values: None, max_size: None, mode: Measured)
-    // Storage: ProtocolFee Coefficient (r:1 w:0)
-    // Proof Skipped: ProtocolFee Coefficient (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: ProtocolFee BaseFees (r:1 w:0)
-    // Proof Skipped: ProtocolFee BaseFees (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity MultiPurposeNonce (r:1 w:1)
-    // Proof Skipped: Identity MultiPurposeNonce (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: System ParentHash (r:1 w:0)
-    // Proof: System ParentHash (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
-    // Storage: Identity DidRecords (r:1 w:1)
-    // Proof Skipped: Identity DidRecords (max_values: None, max_size: None, mode: Measured)
-    // Storage: Contracts OwnerInfoOf (r:1 w:1)
-    // Proof: Contracts OwnerInfoOf (max_values: None, max_size: Some(88), added: 2563, mode: MaxEncodedLen)
-    // Storage: System Account (r:3 w:3)
-    // Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
-    // Storage: Contracts Nonce (r:1 w:1)
-    // Proof: Contracts Nonce (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: Contracts ContractInfoOf (r:1 w:1)
-    // Proof: Contracts ContractInfoOf (max_values: None, max_size: Some(290), added: 2765, mode: MaxEncodedLen)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Proof Skipped: Instance2Group ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Identity Claims (r:3 w:0)
-    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
-    // Storage: System EventTopics (r:3 w:3)
-    // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity DidKeys (r:0 w:1)
-    // Proof Skipped: Identity DidKeys (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity ChildDid (r:0 w:1)
-    // Proof Skipped: Identity ChildDid (max_values: None, max_size: None, mode: Measured)
-    // Storage: Contracts CodeStorage (r:0 w:1)
-    // Proof: Contracts CodeStorage (max_values: None, max_size: Some(126001), added: 128476, mode: MaxEncodedLen)
-    // Storage: Contracts PristineCode (r:0 w:1)
-    // Proof: Contracts PristineCode (max_values: None, max_size: Some(125988), added: 128463, mode: MaxEncodedLen)
-    /// The range of component `c` is `[0, 61717]`.
-    /// The range of component `s` is `[0, 1048576]`.
-    fn instantiate_with_code_as_primary_key(c: u32, s: u32) -> Weight {
-        // Minimum execution time: 3_367_714 nanoseconds.
-        Weight::from_ref_time(601_623_986)
-            // Standard Error: 368
-            .saturating_add(Weight::from_ref_time(107_633).saturating_mul(c.into()))
-            // Standard Error: 21
-            .saturating_add(Weight::from_ref_time(2_738).saturating_mul(s.into()))
-            .saturating_add(DbWeight::get().reads(23))
-            .saturating_add(DbWeight::get().writes(17))
-    }
-    // Storage: Identity KeyRecords (r:3 w:1)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity ParentDid (r:1 w:1)
-    // Proof Skipped: Identity ParentDid (max_values: None, max_size: None, mode: Measured)
-    // Storage: ProtocolFee Coefficient (r:1 w:0)
-    // Proof Skipped: ProtocolFee Coefficient (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: ProtocolFee BaseFees (r:1 w:0)
-    // Proof Skipped: ProtocolFee BaseFees (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity MultiPurposeNonce (r:1 w:1)
-    // Proof Skipped: Identity MultiPurposeNonce (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: System ParentHash (r:1 w:0)
-    // Proof: System ParentHash (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
-    // Storage: Identity DidRecords (r:1 w:1)
-    // Proof Skipped: Identity DidRecords (max_values: None, max_size: None, mode: Measured)
-    // Storage: Contracts CodeStorage (r:1 w:0)
-    // Proof: Contracts CodeStorage (max_values: None, max_size: Some(126001), added: 128476, mode: MaxEncodedLen)
-    // Storage: System Account (r:3 w:3)
-    // Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
-    // Storage: Contracts Nonce (r:1 w:1)
-    // Proof: Contracts Nonce (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: Contracts ContractInfoOf (r:1 w:1)
-    // Proof: Contracts ContractInfoOf (max_values: None, max_size: Some(290), added: 2765, mode: MaxEncodedLen)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Proof Skipped: Instance2Group ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Identity Claims (r:3 w:0)
-    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
-    // Storage: Contracts OwnerInfoOf (r:1 w:1)
-    // Proof: Contracts OwnerInfoOf (max_values: None, max_size: Some(88), added: 2563, mode: MaxEncodedLen)
-    // Storage: System EventTopics (r:2 w:2)
-    // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity DidKeys (r:0 w:1)
-    // Proof Skipped: Identity DidKeys (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity ChildDid (r:0 w:1)
-    // Proof Skipped: Identity ChildDid (max_values: None, max_size: None, mode: Measured)
-    /// The range of component `s` is `[0, 1048576]`.
-    fn instantiate_with_hash_as_primary_key(s: u32) -> Weight {
-        // Minimum execution time: 426_324 nanoseconds.
-        Weight::from_ref_time(466_149_541)
-            // Standard Error: 4
-            .saturating_add(Weight::from_ref_time(2_715).saturating_mul(s.into()))
-            .saturating_add(DbWeight::get().reads(23))
-            .saturating_add(DbWeight::get().writes(14))
     }
     // Storage: PolymeshContracts ApiNextUpgrade (r:0 w:1)
     // Proof Skipped: PolymeshContracts ApiNextUpgrade (max_values: None, max_size: None, mode: Measured)

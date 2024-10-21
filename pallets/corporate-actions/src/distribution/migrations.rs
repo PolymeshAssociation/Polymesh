@@ -64,7 +64,7 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         Distributions::insert(CAId::from(ca_id), Distribution::from(distribution));
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Distribution.Distributions entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the HolderPaid storage");
@@ -76,5 +76,5 @@ pub(crate) fn migrate_to_v1<T: Config>() {
         count += 1;
         HolderPaid::insert((CAId::from(ca_id), did), paid);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Distribution.HolderPaid entries.", count);
 }

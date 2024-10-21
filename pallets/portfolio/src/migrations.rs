@@ -10,23 +10,23 @@ mod v2 {
 
     decl_storage! {
         trait Store for Module<T: Config> as Portfolio {
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldPortfolioAssetBalances get(fn portfolio_asset_balances):
                 double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) Ticker => Balance;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldPortfolioLockedAssets get(fn locked_assets):
                 double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) Ticker => Balance;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldPortfolioNFT get(fn portfolio_nft):
                 double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) (Ticker, NFTId) => bool;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldPortfolioLockedNFT get(fn portfolio_locked_nft):
                 double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) (Ticker, NFTId) => bool;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldPreApprovedPortfolios get(fn pre_approved_portfolios):
                 double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) Ticker => bool;
         }
@@ -53,10 +53,13 @@ pub(crate) fn migrate_to_v3<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         PortfolioAssetBalances::insert(portfolio, asset_id, balance);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!(
+        "Migrated {:?} Portoflio.PortfolioAssetBalances entries.",
+        count
+    );
 
     let mut count = 0;
     log::info!("Updating types for the PortfolioLockedAssets storage");
@@ -68,10 +71,13 @@ pub(crate) fn migrate_to_v3<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         PortfolioLockedAssets::insert(portfolio, asset_id, balance);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!(
+        "Migrated {:?} Portoflio.PortfolioLockedAssets entries.",
+        count
+    );
 
     let mut count = 0;
     log::info!("Updating types for the PortfolioNFT storage");
@@ -83,10 +89,10 @@ pub(crate) fn migrate_to_v3<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         PortfolioNFT::insert(portfolio, (asset_id, nft_id), v);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Portoflio.PortfolioNFT entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the PortfolioLockedNFT storage");
@@ -98,10 +104,10 @@ pub(crate) fn migrate_to_v3<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         PortfolioLockedNFT::insert(portfolio, (asset_id, nft_id), v);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Portoflio.PortfolioLockedNFT entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the PreApprovedPortfolios storage");
@@ -113,8 +119,11 @@ pub(crate) fn migrate_to_v3<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         PreApprovedPortfolios::insert(portfolio, asset_id, v);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!(
+        "Migrated {:?} Portoflio.PreApprovedPortfolios entries.",
+        count
+    );
 }

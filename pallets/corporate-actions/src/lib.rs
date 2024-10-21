@@ -109,7 +109,7 @@ use polymesh_common_utilities::{
     balances::Config as BalancesConfig, identity::Config as IdentityConfig, traits::asset,
     traits::checkpoint::ScheduleId, with_transaction, GC_DID,
 };
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
     asset::CheckpointId, impl_checked_inc, storage_migrate_on, storage_migration_ver, Balance,
     DocumentId, EventDid, IdentityId, Moment, PortfolioNumber,
@@ -246,7 +246,7 @@ pub enum RecordDateSpec {
 }
 
 /// Details of a generic CA.
-/// The `(AssetID, ID)` denoting a unique identifier for the CA is stored as a key outside.
+/// The `(AssetId, ID)` denoting a unique identifier for the CA is stored as a key outside.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub struct CorporateAction {
     /// The kind of CA that this is.
@@ -275,8 +275,8 @@ impl CorporateAction {
     }
 }
 
-/// A `AssetID`-local CA ID.
-/// By *local*, we mean that the same number might be used for a different `AssetID`
+/// A `AssetId`-local CA ID.
+/// By *local*, we mean that the same number might be used for a different `AssetId`
 /// to uniquely identify a different CA.
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Default, Debug)]
 pub struct LocalCAId(pub u32);
@@ -285,15 +285,15 @@ impl_checked_inc!(LocalCAId);
 /// A unique global identifier for a CA.
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub struct CAId {
-    /// The `[`AssetID`]` component used to disambiguate the `local` one.
-    pub asset_id: AssetID,
-    /// The per-`AssetID` local identifier.
+    /// The `[`AssetId`]` component used to disambiguate the `local` one.
+    pub asset_id: AssetId,
+    /// The per-`AssetId` local identifier.
     pub local_id: LocalCAId,
 }
 
 #[derive(Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub struct InitiateCorporateActionArgs {
-    asset_id: AssetID,
+    asset_id: AssetId,
     kind: CAKind,
     decl_date: Moment,
     record_date: Option<RecordDateSpec>,
@@ -362,8 +362,8 @@ decl_storage! {
         /// The identities targeted by default for CAs for this asset,
         /// either to be excluded or included.
         ///
-        /// (AssetID => target identities)
-        pub DefaultTargetIdentities get(fn default_target_identities): map hasher(blake2_128_concat) AssetID => TargetIdentities;
+        /// (AssetId => target identities)
+        pub DefaultTargetIdentities get(fn default_target_identities): map hasher(blake2_128_concat) AssetId => TargetIdentities;
 
         /// The default amount of tax to withhold ("withholding tax", WT) for this asset when distributing dividends.
         ///
@@ -372,32 +372,32 @@ decl_storage! {
         /// Alice lives in Sweden, so Skatteverket (the Swedish tax authority) wants 30% of that.
         /// Then those 100 * 30% are withheld from Alice, and ACME will send them to Skatteverket.
         ///
-        /// (AssetID => % to withhold)
-        pub DefaultWithholdingTax get(fn default_withholding_tax): map hasher(blake2_128_concat) AssetID => Tax;
+        /// (AssetId => % to withhold)
+        pub DefaultWithholdingTax get(fn default_withholding_tax): map hasher(blake2_128_concat) AssetId => Tax;
 
-        /// The amount of tax to withhold ("withholding tax", WT) for a certain AssetID x DID.
+        /// The amount of tax to withhold ("withholding tax", WT) for a certain AssetId x DID.
         /// If an entry exists for a certain DID, it overrides the default in `DefaultWithholdingTax`.
         ///
-        /// (AssetID => [(did, % to withhold)]
-        pub DidWithholdingTax get(fn did_withholding_tax): map hasher(blake2_128_concat) AssetID => Vec<(IdentityId, Tax)>;
+        /// (AssetId => [(did, % to withhold)]
+        pub DidWithholdingTax get(fn did_withholding_tax): map hasher(blake2_128_concat) AssetId => Vec<(IdentityId, Tax)>;
 
-        /// The next per-`AssetID` CA ID in the sequence.
-        /// The full ID is defined as a combination of `AssetID` and a number in this sequence.
-        pub CAIdSequence get(fn ca_id_sequence): map hasher(blake2_128_concat) AssetID => LocalCAId;
+        /// The next per-`AssetId` CA ID in the sequence.
+        /// The full ID is defined as a combination of `AssetId` and a number in this sequence.
+        pub CAIdSequence get(fn ca_id_sequence): map hasher(blake2_128_concat) AssetId => LocalCAId;
 
         /// All recorded CAs thus far.
         /// Only generic information is stored here.
         /// Specific `CAKind`s, e.g., benefits and corporate ballots, may use additional on-chain storage.
         ///
-        /// (AssetID => local ID => the corporate action)
+        /// (AssetId => local ID => the corporate action)
         pub CorporateActions get(fn corporate_actions):
-            double_map hasher(blake2_128_concat) AssetID, hasher(twox_64_concat) LocalCAId => Option<CorporateAction>;
+            double_map hasher(blake2_128_concat) AssetId, hasher(twox_64_concat) LocalCAId => Option<CorporateAction>;
 
         /// Associations from CAs to `Document`s via their IDs.
         /// (CAId => [DocumentId])
         ///
-        /// The `CorporateActions` map stores `AssetID => LocalId => The CA`,
-        /// so we can infer `AssetID => CAId`. Therefore, we don't need a double map.
+        /// The `CorporateActions` map stores `AssetId => LocalId => The CA`,
+        /// so we can infer `AssetId => CAId`. Therefore, we don't need a double map.
         pub CADocLink get(fn ca_doc_link): map hasher(blake2_128_concat) CAId => Vec<DocumentId>;
 
         /// Associates details in free-form text with a CA by its ID.
@@ -453,7 +453,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::set_default_targets(targets.identities.len() as u32)]
-        pub fn set_default_targets(origin, asset_id: AssetID, targets: TargetIdentities) {
+        pub fn set_default_targets(origin, asset_id: AssetId, targets: TargetIdentities) {
             let agent = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
 
             Self::ensure_target_ids_limited(&targets)?;
@@ -479,7 +479,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::set_default_withholding_tax()]
-        pub fn set_default_withholding_tax(origin, asset_id: AssetID, tax: Tax) {
+        pub fn set_default_withholding_tax(origin, asset_id: AssetId, tax: Tax) {
             let agent = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
             DefaultWithholdingTax::mutate(asset_id, |slot| *slot = tax);
             Self::deposit_event(Event::DefaultWithholdingTaxChanged(agent, asset_id, tax));
@@ -502,7 +502,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::set_did_withholding_tax(T::MaxDidWhts::get())]
-        pub fn set_did_withholding_tax(origin, asset_id: AssetID, taxed_did: IdentityId, tax: Option<Tax>) {
+        pub fn set_did_withholding_tax(origin, asset_id: AssetId, taxed_did: IdentityId, tax: Option<Tax>) {
             let agent = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
             DidWithholdingTax::try_mutate(asset_id, |whts| -> DispatchResult {
                 // We maintain sorted order, so we get O(log n) search but O(n) insertion/deletion.
@@ -554,7 +554,7 @@ decl_module! {
         #[weight = initiate_corporate_action_weight::<T>(targets, withholding_tax)]
         pub fn initiate_corporate_action(
             origin,
-            asset_id: AssetID,
+            asset_id: AssetId,
             kind: CAKind,
             decl_date: Moment,
             record_date: Option<RecordDateSpec>,
@@ -720,7 +720,7 @@ decl_module! {
             origin,
             ca_args: InitiateCorporateActionArgs,
             portfolio: Option<PortfolioNumber>,
-            currency: AssetID,
+            currency: AssetId,
             per_share: Balance,
             amount: Balance,
             payment_at: Moment,
@@ -778,14 +778,14 @@ decl_event! {
         /// (GC DID, new length)
         MaxDetailsLengthChanged(IdentityId, u32),
         /// The set of default `TargetIdentities` for the asset changed.
-        /// (Agent DID, AssetID, New TargetIdentities)
-        DefaultTargetIdentitiesChanged(IdentityId, AssetID, TargetIdentities),
+        /// (Agent DID, AssetId, New TargetIdentities)
+        DefaultTargetIdentitiesChanged(IdentityId, AssetId, TargetIdentities),
         /// The default withholding tax for the asset changed.
-        /// (Agent DID, AssetID, New Tax).
-        DefaultWithholdingTaxChanged(IdentityId, AssetID, Tax),
+        /// (Agent DID, AssetId, New Tax).
+        DefaultWithholdingTaxChanged(IdentityId, AssetId, Tax),
         /// The withholding tax specific to a DID for the asset changed.
-        /// (Agent DID, AssetID, Taxed DID, New Tax).
-        DidWithholdingTaxChanged(IdentityId, AssetID, IdentityId, Option<Tax>),
+        /// (Agent DID, AssetId, Taxed DID, New Tax).
+        DidWithholdingTaxChanged(IdentityId, AssetId, IdentityId, Option<Tax>),
         /// A CA was initiated.
         /// (Agent DID, CA id, the CA, the CA details)
         CAInitiated(EventDid, CAId, CorporateAction, CADetails),
@@ -833,7 +833,7 @@ decl_error! {
 impl<T: Config> Module<T> {
     fn unsafe_initiate_corporate_action(
         caller_did: IdentityId,
-        asset_id: AssetID,
+        asset_id: AssetId,
         kind: CAKind,
         decl_date: Moment,
         record_date: Option<RecordDateSpec>,
@@ -960,18 +960,21 @@ impl<T: Config> Module<T> {
 
     // Extract checkpoint ID for the CA's record date, if any.
     // Assumes the CA has a record date where `date <= now`.
-    pub(crate) fn record_date_cp(ca: &CorporateAction, ca_id: CAId) -> Option<CheckpointId> {
+    pub(crate) fn record_date_cp(
+        ca: &CorporateAction,
+        ca_id: CAId,
+    ) -> Result<Option<CheckpointId>, DispatchError> {
         // Record date has passed by definition.
         let asset_id = ca_id.asset_id;
-        match ca.record_date.unwrap().checkpoint {
-            CACheckpoint::Existing(id) => Some(id),
+        match ca.record_date.ok_or(Error::<T>::NoRecordDate)?.checkpoint {
+            CACheckpoint::Existing(id) => Ok(Some(id)),
             // For CAs, there can be more than one CP,
             // since you may attach a pre-existing and recurring schedule to it.
             // However, the record date stores the index for the CP,
             // assuming a transfer has happened since the record date.
-            CACheckpoint::Scheduled(id, idx) => <Checkpoint<T>>::schedule_points(asset_id, id)
+            CACheckpoint::Scheduled(id, idx) => Ok(<Checkpoint<T>>::schedule_points(asset_id, id)
                 .get(idx as usize)
-                .copied(),
+                .copied()),
         }
     }
 
@@ -996,7 +999,7 @@ impl<T: Config> Module<T> {
     /// In the process, create a checkpoint schedule if needed.
     fn handle_record_date(
         caller_did: IdentityId,
-        asset_id: AssetID,
+        asset_id: AssetId,
         date: RecordDateSpec,
     ) -> Result<RecordDate, DispatchError> {
         let (date, checkpoint) = match date {

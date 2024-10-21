@@ -18,23 +18,23 @@ mod v3 {
 
     decl_storage! {
         trait Store for Module<T: Config> as NFT {
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldNumberOfNFTs get(fn balance_of):
                 double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => NFTCount;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub CollectionTicker get(fn collection_ticker):
                 map hasher(blake2_128_concat) Ticker => NFTCollectionId;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub Collection get(fn nft_collection):
                 map hasher(blake2_128_concat) NFTCollectionId => NFTCollection;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldNFTsInCollection get(fn nfts_in_collection):
                 map hasher(blake2_128_concat) Ticker => NFTCount;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldNFTOwner get(fn nft_owner):
                 double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) NFTId => Option<PortfolioId>;
 
@@ -73,10 +73,10 @@ pub(crate) fn migrate_to_v4<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         NumberOfNFTs::insert(asset_id, did, n);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} NFT.NumberOfNFTs entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the CollectionTicker storage");
@@ -84,10 +84,10 @@ pub(crate) fn migrate_to_v4<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         CollectionAsset::insert(asset_id, id);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} NFT.CollectionTicker entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the Collection storage");
@@ -95,7 +95,7 @@ pub(crate) fn migrate_to_v4<T: Config>() {
         count += 1;
         Collection::insert(id, NFTCollection::from(collection));
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} NFT.Collection entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the NFTsInCollection storage");
@@ -107,10 +107,10 @@ pub(crate) fn migrate_to_v4<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         NFTsInCollection::insert(asset_id, n);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} NFT.NFTsInCollection entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the NFTOwner storage");
@@ -119,15 +119,15 @@ pub(crate) fn migrate_to_v4<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         NFTOwner::insert(asset_id, nft_id, portfolio);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} NFT.NFTOwner entries.", count);
 
     log::info!("NextCollectionId has been cleared");
     v3::NextCollectionId::kill();
 
     log::info!("Removing old NextNFTId storage");
     let res = v3::NextNFTId::clear(u32::max_value(), None);
-    log::info!("{:?} items have been cleared", res.unique);
+    log::info!("{:?} NFT.NextNFTId items have been cleared", res.unique);
 }

@@ -273,8 +273,8 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 6, {
-                migration::migrate_to_v6::<T>();
+            storage_migrate_on!(StorageVersion, 7, {
+                ticker_migrations::migrate_to_v7::<T>();
             });
             Weight::zero()
         }
@@ -752,40 +752,5 @@ fn revoke_claim_class(claim_type: ClaimType) -> frame_support::dispatch::Dispatc
     match claim_type {
         ClaimType::CustomerDueDiligence => Operational,
         _ => Normal,
-    }
-}
-
-pub mod migration {
-    use hex_literal::hex;
-    use sp_runtime::runtime_logger::RuntimeLogger;
-
-    use super::*;
-
-    pub fn migrate_to_v6<T: Config>() {
-        RuntimeLogger::init();
-        log::info!(" >>> Updating account ref");
-
-        // Hex for key 2EGKNqWLx2VhjgFZ6BwXZ9Tf6jQXzWjW4cNvE2Bd24z85xfq
-        if let Ok(key_1) = Decode::decode(
-            &mut hex!("50631df3b9b6a7a7d8893ae3959b3d9ca1f266ca05ea6e007cdaeb8adbae9805").as_ref(),
-        ) {
-            crate::Module::<T>::remove_account_key_ref_count(&key_1);
-        }
-
-        // Hex for key 2DR8JZWwJ7jDSHYDKoaV7Bfi6dyoQ6FkBx4KYB5owtjiFgj5
-        if let Ok(key_2) = Decode::decode(
-            &mut hex!("2aded091e73417dd618c66a10175df84cd76803ad9a87a62cb986d2e84e6d43c").as_ref(),
-        ) {
-            crate::Module::<T>::remove_account_key_ref_count(&key_2);
-        };
-
-        // Hex for key 2G3CJWkzusVqtxYoofCjGqwxgjFYJS6Rxvg8supREvQBmtvy
-        if let Ok(key_3) = Decode::decode(
-            &mut hex!("9ed994211b1b54a39a2ff9f4d94f6ca0a2da5411bfc266f8236425c2efd0876c").as_ref(),
-        ) {
-            crate::Module::<T>::remove_account_key_ref_count(&key_3);
-        }
-
-        log::info!(" >>> Account ref has been updated");
     }
 }

@@ -483,6 +483,7 @@ macro_rules! misc_pallet_impls {
             type MaxNumberOfNFTsPerLeg = MaxNumberOfNFTsPerLeg;
             type MaxNumberOfNFTs = MaxNumberOfNFTs;
             type MaxNumberOfOffChainAssets = MaxNumberOfOffChainAssets;
+            type MaxNumberOfPortfolios = MaxNumberOfPortfolios;
             type MaxNumberOfVenueSigners = MaxNumberOfVenueSigners;
             type MaxInstructionMediators = MaxInstructionMediators;
         }
@@ -667,7 +668,7 @@ macro_rules! runtime_apis {
         use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
-        use polymesh_primitives::asset::AssetID;
+        use polymesh_primitives::asset::AssetId;
         use polymesh_primitives::settlement::{InstructionId, ExecuteInstructionInfo, AffirmationCount};
         use polymesh_primitives::transfer_compliance::TransferCondition;
         use polymesh_primitives::compliance_manager::{AssetComplianceResult, ComplianceReport};
@@ -1037,7 +1038,7 @@ macro_rules! runtime_apis {
                 fn transfer_report(
                     sender_portfolio: PortfolioId,
                     receiver_portfolio: PortfolioId,
-                    asset_id: AssetID,
+                    asset_id: AssetId,
                     transfer_value: Balance,
                     skip_locked_check: bool,
                 ) -> Vec<DispatchError> {
@@ -1119,7 +1120,7 @@ macro_rules! runtime_apis {
             impl node_rpc_runtime_api::compliance::ComplianceApi<Block> for Runtime {
                 #[inline]
                 fn compliance_report(
-                    asset_id: &AssetID,
+                    asset_id: &AssetId,
                     sender_identity: &IdentityId,
                     receiver_identity: &IdentityId,
                 ) -> FrameResult<ComplianceReport, DispatchError> {
@@ -1136,7 +1137,7 @@ macro_rules! runtime_apis {
             impl node_rpc_runtime_api::statistics::StatisticsApi<Block> for Runtime {
                 #[inline]
                 fn transfer_restrictions_report(
-                    asset_id: AssetID,
+                    asset_id: AssetId,
                     sender_did: &IdentityId,
                     receiver_did: &IdentityId,
                     transfer_amount: Balance,

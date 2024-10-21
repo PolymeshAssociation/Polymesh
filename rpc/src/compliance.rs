@@ -24,7 +24,7 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 
 pub use node_rpc_runtime_api::compliance::ComplianceApi as ComplianceRuntimeApi;
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::compliance_manager::ComplianceReport;
 use polymesh_primitives::IdentityId;
 
@@ -35,7 +35,7 @@ pub trait ComplianceApi<BlockHash> {
     #[method(name = "compliance_complianceReport")]
     fn compliance_report(
         &self,
-        asset_id: AssetID,
+        asset_id: AssetId,
         sender_identity: IdentityId,
         receiver_identity: IdentityId,
         at: Option<BlockHash>,
@@ -66,7 +66,7 @@ where
 {
     fn compliance_report(
         &self,
-        asset_id: AssetID,
+        asset_id: AssetId,
         sender_identity: IdentityId,
         receiver_identity: IdentityId,
         at: Option<<Block as BlockT>::Hash>,

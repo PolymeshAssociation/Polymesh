@@ -24,7 +24,7 @@ use polymesh_common_utilities::{
     constants::currency::ONE_UNIT,
     traits::checkpoint::{ScheduleCheckpoints, ScheduleId},
 };
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
     agent::AgentGroup, asset::CheckpointId, AuthorizationData, Claim, ClaimType, Condition,
     ConditionType, CountryCode, Document, DocumentId, IdentityId, Moment, PortfolioId,
@@ -64,7 +64,7 @@ const P50: Permill = Permill::from_percent(50);
 const P75: Permill = Permill::from_percent(75);
 
 #[track_caller]
-fn test(logic: impl FnOnce(AssetID, [User; 3])) {
+fn test(logic: impl FnOnce(AssetId, [User; 3])) {
     ExtBuilder::default()
         .cdd_providers(vec![CDDP.to_account_id()])
         .build()
@@ -85,7 +85,7 @@ fn test(logic: impl FnOnce(AssetID, [User; 3])) {
 }
 
 #[track_caller]
-fn currency_test(logic: impl FnOnce(AssetID, AssetID, [User; 3])) {
+fn currency_test(logic: impl FnOnce(AssetId, AssetId, [User; 3])) {
     test(|asset_id, users @ [owner, ..]| {
         set_schedule_complexity();
 
@@ -96,17 +96,17 @@ fn currency_test(logic: impl FnOnce(AssetID, AssetID, [User; 3])) {
     });
 }
 
-fn transfer_amount(asset_id: &AssetID, from: User, to: User, amount: u128) {
+fn transfer_amount(asset_id: &AssetId, from: User, to: User, amount: u128) {
     assert_ok!(crate::asset_test::transfer(*asset_id, from, to, amount));
 }
 
 const AMOUNT: u128 = 500;
 
-fn transfer(asset_id: &AssetID, from: User, to: User) {
+fn transfer(asset_id: &AssetId, from: User, to: User) {
     transfer_amount(asset_id, from, to, AMOUNT);
 }
 
-fn add_caa_auth(asset_id: AssetID, from: User, to: User) -> u64 {
+fn add_caa_auth(asset_id: AssetId, from: User, to: User) -> u64 {
     let sig: Signatory<_> = to.did.into();
     let data = AuthorizationData::BecomeAgent(asset_id, AgentGroup::Full);
     assert_ok!(Identity::add_authorization(
@@ -121,7 +121,7 @@ fn add_caa_auth(asset_id: AssetID, from: User, to: User) -> u64 {
         .auth_id
 }
 
-fn transfer_caa(asset_id: AssetID, from: User, to: User) -> DispatchResult {
+fn transfer_caa(asset_id: AssetId, from: User, to: User) -> DispatchResult {
     let auth_id = add_caa_auth(asset_id, from, to);
     ExternalAgents::accept_become_agent(to.origin(), auth_id)?;
     ExternalAgents::abdicate(from.origin(), asset_id)?;
@@ -136,7 +136,7 @@ fn get_ca(id: CAId) -> Option<CorporateAction> {
 
 fn init_ca(
     owner: User,
-    asset_id: AssetID,
+    asset_id: AssetId,
     kind: CAKind,
     date: Option<RecordDateSpec>,
     details: String,
@@ -164,7 +164,7 @@ fn init_ca(
 
 fn basic_ca(
     owner: User,
-    asset_id: AssetID,
+    asset_id: AssetId,
     targets: Option<TargetIdentities>,
     default_wht: Option<Tax>,
     wht: Option<Vec<(IdentityId, Tax)>>,
@@ -181,11 +181,11 @@ fn basic_ca(
     )
 }
 
-fn dated_ca(owner: User, asset_id: AssetID, kind: CAKind, rd: Option<RecordDateSpec>) -> CAResult {
+fn dated_ca(owner: User, asset_id: AssetId, kind: CAKind, rd: Option<RecordDateSpec>) -> CAResult {
     init_ca(owner, asset_id, kind, rd, <_>::default(), None, None, None)
 }
 
-fn moment_ca(owner: User, asset_id: AssetID, kind: CAKind, rd: Option<Moment>) -> CAResult {
+fn moment_ca(owner: User, asset_id: AssetId, kind: CAKind, rd: Option<Moment>) -> CAResult {
     dated_ca(owner, asset_id, kind, rd.map(RecordDateSpec::Scheduled))
 }
 
@@ -194,7 +194,7 @@ fn set_schedule_complexity() {
     assert_ok!(Checkpoint::set_schedules_max_complexity(root(), 1000));
 }
 
-fn next_ca_id(asset_id: AssetID) -> CAId {
+fn next_ca_id(asset_id: AssetId) -> CAId {
     let local_id = CA::ca_id_sequence(asset_id);
     CAId { asset_id, local_id }
 }
@@ -702,7 +702,7 @@ fn initiate_corporate_action_targets() {
     });
 }
 
-fn add_doc(owner: User, asset_id: AssetID) {
+fn add_doc(owner: User, asset_id: AssetId) {
     let doc = Document {
         name: b"foo".into(),
         uri: b"https://example.com".into(),
@@ -1089,7 +1089,7 @@ fn attach_ballot_only_notice() {
     });
 }
 
-fn notice_ca(owner: User, asset_id: AssetID, rd: Option<Moment>) -> Result<CAId, DispatchError> {
+fn notice_ca(owner: User, asset_id: AssetId, rd: Option<Moment>) -> Result<CAId, DispatchError> {
     let id = next_ca_id(asset_id);
     moment_ca(owner, asset_id, CAKind::IssuerNotice, rd)?;
     Ok(id)
@@ -1674,7 +1674,7 @@ fn vote_works() {
     });
 }
 
-fn vote_cp_test(mk_ca: impl FnOnce(AssetID, User) -> CAId) {
+fn vote_cp_test(mk_ca: impl FnOnce(AssetId, User) -> CAId) {
     test(|asset_id, [owner, other, voter]| {
         set_schedule_complexity();
 
@@ -1728,7 +1728,7 @@ fn vote_scheduled_checkpoint() {
     vote_cp_test(|asset_id, owner| notice_ca(owner, asset_id, Some(2000)).unwrap());
 }
 
-fn dist_ca(owner: User, asset_id: AssetID, rd: Option<Moment>) -> Result<CAId, DispatchError> {
+fn dist_ca(owner: User, asset_id: AssetId, rd: Option<Moment>) -> Result<CAId, DispatchError> {
     let id = next_ca_id(asset_id);
     moment_ca(owner, asset_id, CAKind::UnpredictableBenefit, rd)?;
     Ok(id)
@@ -2252,7 +2252,7 @@ fn dist_claim_no_remaining() {
     });
 }
 
-fn dist_claim_cp_test(mk_ca: impl FnOnce(AssetID, User) -> CAId) {
+fn dist_claim_cp_test(mk_ca: impl FnOnce(AssetId, User) -> CAId) {
     currency_test(|asset_id, currency, [owner, other, claimant]| {
         // Owner ==[500]==> Voter.
         transfer(&asset_id, owner, claimant);

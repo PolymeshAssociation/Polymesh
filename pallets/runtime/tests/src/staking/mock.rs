@@ -49,7 +49,7 @@ use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 use polymesh_common_utilities::traits::relayer::SubsidiserTrait;
 use polymesh_common_utilities::traits::CommonConfig;
 use polymesh_common_utilities::transaction_payment::ChargeTxFee;
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::identity_id::GenesisIdentityRecord;
 use polymesh_primitives::{
     Authorization, AuthorizationData, Claim, IdentityId, Moment, NFTId, Permissions, PortfolioId,
@@ -454,11 +454,11 @@ impl PortfolioSubTrait<AccountId> for Test {
         unimplemented!()
     }
 
-    fn lock_tokens(_: &PortfolioId, _: &AssetID, _: Balance) -> DispatchResult {
+    fn lock_tokens(_: &PortfolioId, _: &AssetId, _: Balance) -> DispatchResult {
         unimplemented!()
     }
 
-    fn unlock_tokens(_: &PortfolioId, _: &AssetID, _: Balance) -> DispatchResult {
+    fn unlock_tokens(_: &PortfolioId, _: &AssetId, _: Balance) -> DispatchResult {
         unimplemented!()
     }
 
@@ -470,15 +470,15 @@ impl PortfolioSubTrait<AccountId> for Test {
         unimplemented!()
     }
 
-    fn lock_nft(_: &PortfolioId, _: &AssetID, _: &NFTId) -> DispatchResult {
+    fn lock_nft(_: &PortfolioId, _: &AssetId, _: &NFTId) -> DispatchResult {
         unimplemented!()
     }
 
-    fn unlock_nft(_: &PortfolioId, _: &AssetID, _: &NFTId) -> DispatchResult {
+    fn unlock_nft(_: &PortfolioId, _: &AssetId, _: &NFTId) -> DispatchResult {
         unimplemented!()
     }
 
-    fn skip_portfolio_affirmation(_: &PortfolioId, _: &AssetID) -> bool {
+    fn skip_portfolio_affirmation(_: &PortfolioId, _: &AssetId) -> bool {
         unimplemented!()
     }
 }

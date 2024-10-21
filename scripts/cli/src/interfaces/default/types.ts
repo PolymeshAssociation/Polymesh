@@ -50,16 +50,16 @@ export interface AssetDidResult extends Enum {
   readonly type: 'Ok' | 'Err';
 }
 
-/** @name AssetID */
-export interface AssetID extends U8aFixed {}
+/** @name AssetId */
+export interface AssetId extends U8aFixed {}
 
 /** @name AssetPermissions */
 export interface AssetPermissions extends Enum {
   readonly isWhole: boolean;
   readonly isThese: boolean;
-  readonly asThese: Vec<AssetID>;
+  readonly asThese: Vec<AssetId>;
   readonly isExcept: boolean;
-  readonly asExcept: Vec<AssetID>;
+  readonly asExcept: Vec<AssetId>;
   readonly type: 'Whole' | 'These' | 'Except';
 }
 
@@ -81,13 +81,13 @@ export interface AuthorizationData extends Enum {
   readonly isAddMultiSigSigner: boolean;
   readonly asAddMultiSigSigner: AccountId;
   readonly isTransferAssetOwnership: boolean;
-  readonly asTransferAssetOwnership: AssetID;
+  readonly asTransferAssetOwnership: AssetId;
   readonly isJoinIdentity: boolean;
   readonly asJoinIdentity: Permissions;
   readonly isPortfolioCustody: boolean;
   readonly asPortfolioCustody: PortfolioId;
   readonly isBecomeAgent: boolean;
-  readonly asBecomeAgent: ITuple<[AssetID, AgentGroup]>;
+  readonly asBecomeAgent: ITuple<[AssetId, AgentGroup]>;
   readonly isAddRelayerPayingKey: boolean;
   readonly asAddRelayerPayingKey: ITuple<[AccountId, AccountId, Balance]>;
   readonly isRotatePrimaryKeyToSecondary: boolean;
@@ -525,7 +525,7 @@ export interface ExtrinsicPermissions extends Enum {
 export interface FungibleLeg extends Struct {
   readonly sender: PortfolioId;
   readonly receiver: PortfolioId;
-  readonly asset_id: AssetID;
+  readonly asset_id: AssetId;
   readonly amount: Balance;
 }
 
@@ -593,7 +593,7 @@ export interface NFTId extends u64 {}
 
 /** @name NFTs */
 export interface NFTs extends Struct {
-  readonly asset_id: AssetID;
+  readonly asset_id: AssetId;
   readonly ids: Vec<NFTId>;
 }
 
@@ -608,7 +608,7 @@ export interface NonFungibleLeg extends Struct {
 export interface OffChainLeg extends Struct {
   readonly sender_identity: IdentityId;
   readonly receiver_identity: IdentityId;
-  readonly asset_id: AssetID;
+  readonly asset_id: AssetId;
   readonly amount: Balance;
 }
 
@@ -718,7 +718,7 @@ export interface Scope extends Enum {
   readonly isIdentity: boolean;
   readonly asIdentity: IdentityId;
   readonly isAsset: boolean;
-  readonly asAsset: AssetID;
+  readonly asAsset: AssetId;
   readonly isCustom: boolean;
   readonly asCustom: Bytes;
   readonly type: 'Identity' | 'Asset' | 'Custom';

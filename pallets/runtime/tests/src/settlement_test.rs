@@ -5,8 +5,8 @@ use std::ops::Deref;
 use codec::Encode;
 use frame_support::dispatch::DispatchErrorWithPostInfo;
 use frame_support::{
-    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop,
-    IterableStorageDoubleMap, StorageDoubleMap, StorageMap,
+    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, traits::TryCollect,
+    BoundedBTreeSet, IterableStorageDoubleMap, StorageDoubleMap, StorageMap,
 };
 use rand::{prelude::*, thread_rng};
 use sp_runtime::{AccountId32, AnySignature};
@@ -22,7 +22,7 @@ use pallet_settlement::{
     UserVenues, VenueInstructions,
 };
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
-use polymesh_primitives::asset::{AssetID, AssetType, NonFungibleType};
+use polymesh_primitives::asset::{AssetId, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
 };
@@ -45,7 +45,8 @@ use super::asset_test::max_len_bytes;
 use super::nft::{create_nft_collection, mint_nft};
 use super::settlement_pallet::setup::create_and_issue_sample_asset_with_venue;
 use super::storage::{
-    default_portfolio_vec, make_account_with_balance, user_portfolio_vec, TestStorage, User,
+    default_portfolio_btreeset, make_account_with_balance, user_portfolio_btreeset,
+    vec_to_btreeset, TestStorage, User,
 };
 use super::{next_block, ExtBuilder};
 
@@ -78,18 +79,18 @@ macro_rules! assert_affirm_instruction {
         assert_ok!(Settlement::affirm_instruction(
             $signer,
             $instruction_id,
-            default_portfolio_vec($did),
+            default_portfolio_btreeset($did),
         ));
     };
 }
 
 struct UserWithBalance {
     user: User,
-    init_balances: Vec<(AssetID, Balance)>,
+    init_balances: Vec<(AssetId, Balance)>,
 }
 
 impl UserWithBalance {
-    fn new(user: User, assets: &[AssetID]) -> Self {
+    fn new(user: User, assets: &[AssetId]) -> Self {
         Self {
             init_balances: assets
                 .iter()
@@ -106,7 +107,7 @@ impl UserWithBalance {
     }
 
     #[track_caller]
-    fn init_balance(&self, asset_id: &AssetID) -> Balance {
+    fn init_balance(&self, asset_id: &AssetId) -> Balance {
         self.init_balances
             .iter()
             .find(|bs| bs.0 == *asset_id)
@@ -122,22 +123,22 @@ impl UserWithBalance {
     }
 
     #[track_caller]
-    fn assert_balance_unchanged(&self, asset_id: &AssetID) {
+    fn assert_balance_unchanged(&self, asset_id: &AssetId) {
         assert_balance(asset_id, &self.user, self.init_balance(asset_id));
     }
 
     #[track_caller]
-    fn assert_balance_increased(&self, asset_id: &AssetID, amount: Balance) {
+    fn assert_balance_increased(&self, asset_id: &AssetId, amount: Balance) {
         assert_balance(asset_id, &self.user, self.init_balance(asset_id) + amount);
     }
 
     #[track_caller]
-    fn assert_balance_decreased(&self, asset_id: &AssetID, amount: Balance) {
+    fn assert_balance_decreased(&self, asset_id: &AssetId, amount: Balance) {
         assert_balance(asset_id, &self.user, self.init_balance(asset_id) - amount);
     }
 
     #[track_caller]
-    fn assert_portfolio_bal(&self, num: PortfolioNumber, balance: Balance, asset_id: &AssetID) {
+    fn assert_portfolio_bal(&self, num: PortfolioNumber, balance: Balance, asset_id: &AssetId) {
         assert_eq!(
             Portfolio::user_portfolio_balance(self.user.did, num, asset_id),
             balance,
@@ -145,7 +146,7 @@ impl UserWithBalance {
     }
 
     #[track_caller]
-    fn assert_default_portfolio_bal(&self, balance: Balance, asset_id: &AssetID) {
+    fn assert_default_portfolio_bal(&self, balance: Balance, asset_id: &AssetId) {
         assert_eq!(
             Portfolio::default_portfolio_balance(self.user.did, asset_id),
             balance,
@@ -153,17 +154,17 @@ impl UserWithBalance {
     }
 
     #[track_caller]
-    fn assert_default_portfolio_bal_unchanged(&self, asset_id: &AssetID) {
+    fn assert_default_portfolio_bal_unchanged(&self, asset_id: &AssetId) {
         self.assert_default_portfolio_bal(self.init_balance(asset_id), asset_id);
     }
 
     #[track_caller]
-    fn assert_default_portfolio_bal_decreased(&self, amount: Balance, asset_id: &AssetID) {
+    fn assert_default_portfolio_bal_decreased(&self, amount: Balance, asset_id: &AssetId) {
         self.assert_default_portfolio_bal(self.init_balance(asset_id) - amount, asset_id);
     }
 
     #[track_caller]
-    fn assert_default_portfolio_bal_increased(&self, amount: Balance, asset_id: &AssetID) {
+    fn assert_default_portfolio_bal_increased(&self, amount: Balance, asset_id: &AssetId) {
         self.assert_default_portfolio_bal(self.init_balance(asset_id) + amount, asset_id);
     }
 }
@@ -356,11 +357,11 @@ fn create_and_affirm_instruction() {
         // If affirmation fails, the instruction should be rolled back.
         // i.e. this tx should be a no-op.
         assert_noop!(
-            add_and_affirm_tx(user_portfolio_vec(alice.did, 1u64.into())),
+            add_and_affirm_tx(user_portfolio_btreeset(alice.did, 1u64.into())),
             Error::UnexpectedAffirmationStatus
         );
 
-        assert_ok!(add_and_affirm_tx(default_portfolio_vec(alice.did)));
+        assert_ok!(add_and_affirm_tx(default_portfolio_btreeset(alice.did)));
 
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -412,7 +413,7 @@ fn overdraft_failure() {
             Settlement::affirm_instruction(
                 alice.origin(),
                 instruction_id,
-                default_portfolio_vec(alice.did),
+                default_portfolio_btreeset(alice.did),
             ),
             PortfolioError::InsufficientPortfolioBalance
         );
@@ -509,7 +510,7 @@ fn token_swap() {
         assert_ok!(Settlement::withdraw_affirmation(
             alice.origin(),
             instruction_id,
-            default_portfolio_vec(alice.did),
+            default_portfolio_btreeset(alice.did),
         ));
 
         assert_affirms_pending(instruction_id, 2);
@@ -684,7 +685,7 @@ fn failed_execution() {
         assert_ok!(ComplianceManager::add_compliance_requirement(
             bob.origin(),
             asset_id2,
-            Vec::new(),
+            Default::default(),
             vec![Condition {
                 condition_type: ConditionType::IsPresent(Claim::Jurisdiction(
                     CountryCode::BR,
@@ -882,7 +883,7 @@ fn venue_filtering() {
             None,
             None,
             legs.clone(),
-            default_portfolio_vec(alice.did),
+            default_portfolio_btreeset(alice.did),
             None,
         ));
 
@@ -1017,7 +1018,7 @@ fn basic_fuzzing() {
                     assert_ok!(Settlement::withdraw_affirmation(
                         user.origin(),
                         instruction_id,
-                        default_portfolio_vec(user.did),
+                        default_portfolio_btreeset(user.did),
                     ));
                 }
             }
@@ -1025,8 +1026,8 @@ fn basic_fuzzing() {
         }
 
         fn check_locked_assets(
-            locked_assets: &HashMap<(IdentityId, AssetID), i32>,
-            assets: &Vec<AssetID>,
+            locked_assets: &HashMap<(IdentityId, AssetId), i32>,
+            assets: &Vec<AssetId>,
             users: &Vec<User>,
         ) {
             for ((did, asset_id), balance) in locked_assets {
@@ -1060,7 +1061,7 @@ fn basic_fuzzing() {
             assert_ok!(Settlement::withdraw_affirmation(
                 users[failed_user].origin(),
                 instruction_id,
-                default_portfolio_vec(users[failed_user].did),
+                default_portfolio_btreeset(users[failed_user].did),
             ));
             locked_assets.retain(|(did, _), _| *did != users[failed_user].did);
         }
@@ -1210,7 +1211,7 @@ fn claim_multiple_receipts_during_authorization() {
                         None
                     ),
                 ],
-                Vec::new(),
+                Default::default(),
             ),
             Error::DuplicateReceiptUid
         );
@@ -1236,7 +1237,7 @@ fn claim_multiple_receipts_during_authorization() {
                     None
                 ),
             ],
-            Vec::new(),
+            Default::default(),
         ));
 
         assert_affirms_pending(id, 0);
@@ -1492,7 +1493,7 @@ fn cross_portfolio_settlement() {
             Settlement::affirm_instruction(
                 bob.origin(),
                 instruction_id,
-                default_portfolio_vec(bob.did),
+                default_portfolio_btreeset(bob.did),
             ),
             Error::UnexpectedAffirmationStatus
         );
@@ -1502,7 +1503,7 @@ fn cross_portfolio_settlement() {
         assert_ok!(Settlement::affirm_instruction(
             bob.origin(),
             instruction_id,
-            user_portfolio_vec(bob.did, num),
+            user_portfolio_btreeset(bob.did, num),
         ));
 
         // Instruction should've settled
@@ -1581,10 +1582,10 @@ fn multiple_portfolio_settlement() {
             Settlement::withdraw_affirmation(
                 alice.origin(),
                 instruction_id,
-                vec![
+                vec_to_btreeset(vec![
                     PortfolioId::default_portfolio(alice.did),
                     PortfolioId::user_portfolio(alice.did, alice_num)
-                ],
+                ]),
             ),
             Error::UnexpectedAffirmationStatus
         );
@@ -1594,7 +1595,7 @@ fn multiple_portfolio_settlement() {
             Settlement::affirm_instruction(
                 alice.origin(),
                 instruction_id,
-                user_portfolio_vec(alice.did, alice_num),
+                user_portfolio_btreeset(alice.did, alice_num),
             ),
             PortfolioError::InsufficientPortfolioBalance
         );
@@ -1614,7 +1615,7 @@ fn multiple_portfolio_settlement() {
         assert_ok!(Settlement::affirm_instruction(
             alice.origin(),
             instruction_id,
-            user_portfolio_vec(alice.did, alice_num),
+            user_portfolio_btreeset(alice.did, alice_num),
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -1629,16 +1630,19 @@ fn multiple_portfolio_settlement() {
         );
 
         // Bob approves the instruction with both of his portfolios in a single transaction
-        let portfolios_vec = vec![
+        let portfolios_set: BoundedBTreeSet<_, _> = [
             PortfolioId::default_portfolio(bob.did),
             PortfolioId::user_portfolio(bob.did, bob_num),
-        ];
+        ]
+        .into_iter()
+        .try_collect()
+        .expect("Two portfolios isn't too many");
 
         next_block();
         assert_ok!(Settlement::affirm_instruction(
             bob.origin(),
             instruction_id,
-            portfolios_vec,
+            portfolios_set,
         ));
 
         // Instruction should've settled
@@ -1726,15 +1730,18 @@ fn multiple_custodian_settlement() {
         assert_locked_assets(&asset_id, &alice, 0);
 
         // Alice approves the instruction from both of her portfolios
-        let portfolios_vec = vec![
+        let portfolios_set: BoundedBTreeSet<_, _> = [
             PortfolioId::default_portfolio(alice.did),
             PortfolioId::user_portfolio(alice.did, alice_num),
-        ];
+        ]
+        .into_iter()
+        .try_collect()
+        .expect("Two portfolios isn't too many");
         set_current_block_number(10);
         assert_ok!(Settlement::affirm_instruction(
             alice.origin(),
             instruction_id,
-            portfolios_vec.clone(),
+            portfolios_set.clone(),
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -1758,10 +1765,13 @@ fn multiple_custodian_settlement() {
         assert_ok!(Portfolio::accept_portfolio_custody(bob.origin(), auth_id2));
 
         // Bob fails to approve the instruction with both of his portfolios since he doesn't have custody for the second one
-        let portfolios_bob = vec![
+        let portfolios_bob: BoundedBTreeSet<_, _> = [
             PortfolioId::default_portfolio(bob.did),
             PortfolioId::user_portfolio(bob.did, bob_num),
-        ];
+        ]
+        .into_iter()
+        .try_collect()
+        .expect("Two portfolios isn't too many");
         assert_noop!(
             Settlement::affirm_instruction(bob.origin(), instruction_id, portfolios_bob),
             PortfolioError::UnauthorizedCustodian
@@ -1774,7 +1784,7 @@ fn multiple_custodian_settlement() {
         // Alice fails to deny the instruction from both her portfolios since she doesn't have the custody
         next_block();
         assert_noop!(
-            Settlement::withdraw_affirmation(alice.origin(), instruction_id, portfolios_vec,),
+            Settlement::withdraw_affirmation(alice.origin(), instruction_id, portfolios_set,),
             PortfolioError::UnauthorizedCustodian
         );
 
@@ -1782,15 +1792,18 @@ fn multiple_custodian_settlement() {
         assert_ok!(Settlement::withdraw_affirmation(
             alice.origin(),
             instruction_id,
-            default_portfolio_vec(alice.did),
+            default_portfolio_btreeset(alice.did),
         ));
         assert_locked_assets(&asset_id, &alice, 0);
 
         // Alice can authorize instruction from remaining portfolios since she has the custody
-        let portfolios_final = vec![
+        let portfolios_final: BoundedBTreeSet<_, _> = [
             PortfolioId::default_portfolio(alice.did),
             PortfolioId::user_portfolio(bob.did, bob_num),
-        ];
+        ]
+        .into_iter()
+        .try_collect()
+        .expect("Two portfolios isn't too many");
         next_block();
         assert_ok!(Settlement::affirm_instruction(
             alice.origin(),
@@ -1951,7 +1964,7 @@ fn reject_failed_instruction() {
         assert_ok!(Settlement::affirm_instruction(
             bob.origin(),
             instruction_id,
-            default_portfolio_vec(bob.did),
+            default_portfolio_btreeset(bob.did),
         ));
 
         // Resume compliance to cause transfer failure.
@@ -1967,7 +1980,7 @@ fn reject_failed_instruction() {
         assert_ok!(ComplianceManager::add_compliance_requirement(
             alice.origin(),
             asset_id,
-            Vec::new(),
+            Default::default(),
             vec![Condition {
                 condition_type: ConditionType::IsPresent(Claim::Jurisdiction(
                     CountryCode::BR,
@@ -2285,7 +2298,7 @@ fn create_instruction(
     alice: &User,
     bob: &User,
     venue_counter: Option<VenueId>,
-    asset_id: AssetID,
+    asset_id: AssetId,
     amount: u128,
 ) -> InstructionId {
     let instruction_id = Settlement::instruction_counter();
@@ -2302,7 +2315,7 @@ fn create_instruction(
             asset_id,
             amount
         }],
-        default_portfolio_vec(alice.did),
+        default_portfolio_btreeset(alice.did),
         None,
     ));
     instruction_id
@@ -2691,7 +2704,7 @@ fn add_and_affirm_nft_instruction() {
             None,
             None,
             legs,
-            default_portfolio_vec(alice.did),
+            default_portfolio_btreeset(alice.did),
             Some(Memo::default()),
         ));
 
@@ -2716,7 +2729,7 @@ fn add_and_affirm_nft_instruction() {
         assert_ok!(Settlement::affirm_instruction(
             bob.origin(),
             instruction_id,
-            default_portfolio_vec(bob.did),
+            default_portfolio_btreeset(bob.did),
         ));
         next_block();
         assert_eq!(NumberOfNFTs::get(asset_id, alice.did), 0);
@@ -2800,7 +2813,7 @@ fn add_and_affirm_nft_not_owned() {
                 None,
                 None,
                 legs,
-                default_portfolio_vec(alice.did),
+                default_portfolio_btreeset(alice.did),
                 Some(Memo::default()),
             ),
             PortfolioError::NFTNotFoundInPortfolio
@@ -2868,7 +2881,7 @@ fn add_same_nft_different_legs() {
                 None,
                 None,
                 legs,
-                default_portfolio_vec(alice.did),
+                default_portfolio_btreeset(alice.did),
                 Some(Memo::default()),
             ),
             PortfolioError::NFTAlreadyLocked
@@ -2942,7 +2955,7 @@ fn add_and_affirm_with_receipts_nfts() {
                         .into(),
                     None
                 )],
-                Vec::new(),
+                Default::default(),
             ),
             Error::ReceiptForInvalidLegType
         );
@@ -3045,7 +3058,7 @@ fn add_and_execute_offchain_instruction() {
             alice.origin(),
             id,
             receipts_details,
-            Vec::new(),
+            Default::default(),
         ),);
         next_block();
 
@@ -3090,7 +3103,6 @@ fn affirm_offchain_asset_without_receipt() {
             VenueType::Other,
         )
         .unwrap();
-        let alice_portfolio = PortfolioId::default_portfolio(alice.did);
 
         let legs: Vec<Leg> = vec![Leg::OffChain {
             sender_identity: alice.did,
@@ -3111,7 +3123,7 @@ fn affirm_offchain_asset_without_receipt() {
             Settlement::affirm_instruction(
                 alice.origin(),
                 InstructionId(0),
-                vec![alice_portfolio],
+                default_portfolio_btreeset(alice.did),
             ),
             Error::UnexpectedAffirmationStatus
         );
@@ -3127,7 +3139,7 @@ fn add_instruction_with_offchain_assets() {
         let bob = User::new(AccountKeyring::Bob);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
-        let asset_id2 = AssetID::new([0; 16]);
+        let asset_id2 = AssetId::new([0; 16]);
 
         let instruction_memo = Some(Memo::default());
         Portfolio::create_portfolio(bob.origin(), b"BobUserPortfolio".into()).unwrap();
@@ -3471,13 +3483,13 @@ fn manually_execute_failed_instruction() {
             None,
             None,
             legs.clone(),
-            vec![alice_default_portfolio],
+            default_portfolio_btreeset(alice.did),
             instruction_memo.clone(),
         ));
         assert_ok!(Settlement::affirm_instruction(
             bob.origin(),
             InstructionId(0),
-            vec![bob_default_portfolio],
+            default_portfolio_btreeset(bob.did),
         ));
         assert_ok!(Asset::freeze(alice.origin(), asset_id));
         next_block();
@@ -3549,7 +3561,7 @@ fn affirm_with_receipts_cost() {
                 alice.origin(),
                 id,
                 receipts_details,
-                Vec::new(),
+                Default::default(),
                 Some(affirmation_count)
             ),
             Error::NumberOfOffChainTransfersUnderestimated
@@ -3602,7 +3614,7 @@ fn affirm_instruction_cost() {
             Settlement::affirm_instruction_with_count(
                 alice.origin(),
                 InstructionId(0),
-                vec![alice_user_porfolio, alice_default_portfolio],
+                vec_to_btreeset(vec![alice_user_porfolio, alice_default_portfolio]),
                 Some(affirmation_count)
             ),
             Error::NumberOfFungibleTransfersUnderestimated
@@ -3613,7 +3625,7 @@ fn affirm_instruction_cost() {
             Settlement::affirm_instruction_with_count(
                 bob.origin(),
                 InstructionId(0),
-                vec![bob_user_porfolio, bob_default_portfolio],
+                vec_to_btreeset(vec![bob_user_porfolio, bob_default_portfolio]),
                 Some(affirmation_count)
             ),
             Error::NumberOfFungibleTransfersUnderestimated
@@ -3653,7 +3665,7 @@ fn withdraw_affirmation_cost() {
         assert_ok!(Settlement::affirm_instruction_with_count(
             alice.origin(),
             InstructionId(0),
-            vec![alice_default_portfolio],
+            default_portfolio_btreeset(alice.did),
             Some(affirmation_count)
         ),);
         let affirmation_count =
@@ -3662,7 +3674,7 @@ fn withdraw_affirmation_cost() {
             Settlement::withdraw_affirmation_with_count(
                 alice.origin(),
                 InstructionId(0),
-                vec![alice_default_portfolio],
+                default_portfolio_btreeset(alice.did),
                 Some(affirmation_count)
             ),
             Error::NumberOfFungibleTransfersUnderestimated
@@ -3686,7 +3698,12 @@ fn reject_instruction_cost() {
             AssetType::NonFungible(NonFungibleType::Derivative),
             NFTCollectionKeys::default(),
         );
-        mint_nft(alice.clone(), asset_id2, Vec::new(), PortfolioKind::Default);
+        mint_nft(
+            alice.clone(),
+            asset_id2,
+            Default::default(),
+            PortfolioKind::Default,
+        );
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
@@ -4018,12 +4035,12 @@ fn expired_affirmation_execution() {
         assert_ok!(Settlement::affirm_instruction(
             alice.origin(),
             InstructionId(0),
-            vec![alice_default_portfolio]
+            default_portfolio_btreeset(alice.did),
         ),);
         assert_ok!(Settlement::affirm_instruction(
             bob.origin(),
             InstructionId(0),
-            vec![bob_default_portfolio]
+            default_portfolio_btreeset(bob.did),
         ),);
         assert_ok!(Settlement::affirm_instruction_as_mediator(
             charlie.origin(),
@@ -4222,7 +4239,7 @@ fn assert_instruction_status(
 }
 
 #[track_caller]
-fn assert_balance(asset_id: &AssetID, user: &User, balance: Balance) {
+fn assert_balance(asset_id: &AssetId, user: &User, balance: Balance) {
     assert_eq!(Asset::balance_of(asset_id, user.did), balance);
 }
 
@@ -4262,7 +4279,7 @@ fn assert_affirms_pending(instruction_id: InstructionId, pending: u64) {
 }
 
 #[track_caller]
-fn assert_locked_assets(asset_id: &AssetID, user: &User, num_of_assets: Balance) {
+fn assert_locked_assets(asset_id: &AssetId, user: &User, num_of_assets: Balance) {
     assert_eq!(
         Portfolio::locked_assets(PortfolioId::default_portfolio(user.did), asset_id),
         num_of_assets

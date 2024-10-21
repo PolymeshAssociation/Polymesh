@@ -27,5 +27,5 @@ sp-runtime = "29.0"
 sp-keyring = "29.0"
 sp-weights = "25.0"
 
-polymesh-api = { version = "3.8.0", features = ["download_metadata"] }
-polymesh-api-tester = { version = "0.7.1", default-features = false, features = ["download_metadata", "polymesh_v7"] }
+polymesh-api = { version = "3.8.1", features = ["download_metadata"] }
+polymesh-api-tester = { version = "0.7.3", default-features = false, features = ["download_metadata", "polymesh_v7"] }

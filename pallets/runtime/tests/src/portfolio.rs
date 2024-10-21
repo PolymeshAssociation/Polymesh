@@ -7,7 +7,7 @@ use pallet_portfolio::{
     PortfolioNFT, Portfolios, PreApprovedPortfolios,
 };
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
-use polymesh_primitives::asset::{AssetID, AssetType, NonFungibleType};
+use polymesh_primitives::asset::{AssetId, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
 };
@@ -22,7 +22,7 @@ use sp_keyring::AccountKeyring;
 use super::asset_pallet::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
 use super::asset_test::max_len_bytes;
 use super::nft::{create_nft_collection, mint_nft};
-use super::storage::{EventTest, System, TestStorage, User};
+use super::storage::{user_portfolio_btreeset, EventTest, System, TestStorage, User};
 use super::ExtBuilder;
 
 type Asset = pallet_asset::Module<TestStorage>;
@@ -683,7 +683,7 @@ fn delete_portfolio_with_locked_nfts() {
             None,
             None,
             legs,
-            vec![PortfolioId::user_portfolio(alice.did, PortfolioNumber(1))],
+            user_portfolio_btreeset(alice.did, PortfolioNumber(1)),
             Some(Memo::default()),
         ));
 
@@ -961,7 +961,7 @@ fn pre_approve_portfolio() {
         let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
-        let asset_id = AssetID::new([0; 16]);
+        let asset_id = AssetId::new([0; 16]);
         Portfolio::pre_approve_portfolio(alice.origin(), asset_id, alice_default_portfolio)
             .unwrap();
 
@@ -989,7 +989,7 @@ fn remove_portfolio_pre_approval() {
         let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
-        let asset_id = AssetID::new([0; 16]);
+        let asset_id = AssetId::new([0; 16]);
         Portfolio::pre_approve_portfolio(alice.origin(), asset_id, alice_default_portfolio)
             .unwrap();
         Portfolio::remove_portfolio_pre_approval(alice.origin(), asset_id, alice_default_portfolio)
@@ -1020,7 +1020,7 @@ fn unauthorized_custodian_pre_approval() {
         let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
-        let asset_id = AssetID::new([0; 16]);
+        let asset_id = AssetId::new([0; 16]);
         assert_noop!(
             Portfolio::pre_approve_portfolio(bob.origin(), asset_id, alice_user_porfolio),
             Error::UnauthorizedCustodian
@@ -1115,6 +1115,18 @@ fn create_custody_portfolio_revoke_permission() {
         assert_noop!(
             Portfolio::create_custody_portfolio(bob.origin(), alice.did, portfolio_name),
             Error::MissingOwnersPermission
+        );
+    });
+}
+
+#[test]
+fn allow_identity_to_create_portfolios_not_allowed() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+
+        assert_noop!(
+            Portfolio::allow_identity_to_create_portfolios(alice.origin(), alice.did),
+            Error::SelfAdditionNotAllowed
         );
     });
 }

@@ -24,7 +24,7 @@ use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::Vec;
 
 use polymesh_primitives::asset::{
-    AssetID, AssetName, AssetType, CustomAssetTypeId, FundingRoundName,
+    AssetId, AssetName, AssetType, CustomAssetTypeId, FundingRoundName,
 };
 use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
@@ -87,14 +87,14 @@ decl_event! {
         Moment = <T as pallet_timestamp::Config>::Moment,
     {
         /// Event for creation of the asset.
-        /// caller DID/ owner DID, AssetID, divisibility, asset type, beneficiary DID, asset name, identifiers, funding round
-        AssetCreated(IdentityId, AssetID, bool, AssetType, IdentityId, AssetName, Vec<AssetIdentifier>, Option<FundingRoundName>),
+        /// caller DID/ owner DID, AssetId, divisibility, asset type, beneficiary DID, asset name, identifiers, funding round
+        AssetCreated(IdentityId, AssetId, bool, AssetType, IdentityId, AssetName, Vec<AssetIdentifier>, Option<FundingRoundName>),
         /// Event emitted when any token identifiers are updated.
-        /// caller DID, AssetID, a vector of (identifier type, identifier value)
-        IdentifiersUpdated(IdentityId, AssetID, Vec<AssetIdentifier>),
+        /// caller DID, AssetId, a vector of (identifier type, identifier value)
+        IdentifiersUpdated(IdentityId, AssetId, Vec<AssetIdentifier>),
         /// Event for change in divisibility.
-        /// caller DID, AssetID, divisibility
-        DivisibilityChanged(IdentityId, AssetID, bool),
+        /// caller DID, AssetId, divisibility
+        DivisibilityChanged(IdentityId, AssetId, bool),
         /// Emit when ticker is registered.
         /// caller DID / ticker owner did, ticker, ticker owner, expiry
         TickerRegistered(IdentityId, Ticker, Option<Moment>),
@@ -102,27 +102,27 @@ decl_event! {
         /// caller DID / ticker transferred to DID, ticker, from
         TickerTransferred(IdentityId, Ticker, IdentityId),
         /// Emit when token ownership is transferred.
-        /// caller DID / token ownership transferred to DID, AssetID, from
-        AssetOwnershipTransferred(IdentityId, AssetID, IdentityId),
+        /// caller DID / token ownership transferred to DID, AssetId, from
+        AssetOwnershipTransferred(IdentityId, AssetId, IdentityId),
         /// An event emitted when an asset is frozen.
-        /// Parameter: caller DID, AssetID.
-        AssetFrozen(IdentityId, AssetID),
+        /// Parameter: caller DID, AssetId.
+        AssetFrozen(IdentityId, AssetId),
         /// An event emitted when an asset is unfrozen.
-        /// Parameter: caller DID, AssetID.
-        AssetUnfrozen(IdentityId, AssetID),
+        /// Parameter: caller DID, AssetId.
+        AssetUnfrozen(IdentityId, AssetId),
         /// An event emitted when a token is renamed.
-        /// Parameters: caller DID, AssetID, new token name.
-        AssetRenamed(IdentityId, AssetID, AssetName),
+        /// Parameters: caller DID, AssetId, new token name.
+        AssetRenamed(IdentityId, AssetId, AssetName),
         /// An event carrying the name of the current funding round of an asset.
-        /// Parameters: caller DID, AssetID, funding round name.
-        FundingRoundSet(IdentityId, AssetID, FundingRoundName),
+        /// Parameters: caller DID, AssetId, funding round name.
+        FundingRoundSet(IdentityId, AssetId, FundingRoundName),
         /// A new document attached to an asset
-        DocumentAdded(IdentityId, AssetID, DocumentId, Document),
+        DocumentAdded(IdentityId, AssetId, DocumentId, Document),
         /// A document removed from an asset
-        DocumentRemoved(IdentityId, AssetID, DocumentId),
+        DocumentRemoved(IdentityId, AssetId, DocumentId),
         /// Event for when a forced transfer takes place.
         /// caller DID/ controller DID, ExtensionRemoved, Portfolio of token holder, value.
-        ControllerTransfer(IdentityId, AssetID, PortfolioId, Balance),
+        ControllerTransfer(IdentityId, AssetId, PortfolioId, Balance),
         /// A custom asset type already exists on-chain.
         /// caller DID, the ID of the custom asset type, the string contents registered.
         CustomAssetTypeExists(IdentityId, CustomAssetTypeId, Vec<u8>),
@@ -130,58 +130,61 @@ decl_event! {
         /// caller DID, the ID of the custom asset type, the string contents registered.
         CustomAssetTypeRegistered(IdentityId, CustomAssetTypeId, Vec<u8>),
         /// Set asset metadata value.
-        /// (Caller DID, AssetID, metadata value, optional value details)
-        SetAssetMetadataValue(IdentityId, AssetID, AssetMetadataValue, Option<AssetMetadataValueDetail<Moment>>),
+        /// (Caller DID, AssetId, metadata value, optional value details)
+        SetAssetMetadataValue(IdentityId, AssetId, AssetMetadataValue, Option<AssetMetadataValueDetail<Moment>>),
         /// Set asset metadata value details (expire, lock status).
-        /// (Caller DID, AssetID, value details)
-        SetAssetMetadataValueDetails(IdentityId, AssetID, AssetMetadataValueDetail<Moment>),
+        /// (Caller DID, AssetId, value details)
+        SetAssetMetadataValueDetails(IdentityId, AssetId, AssetMetadataValueDetail<Moment>),
         /// Register asset metadata local type.
-        /// (Caller DID, AssetID, Local type name, Local type key, type specs)
-        RegisterAssetMetadataLocalType(IdentityId, AssetID, AssetMetadataName, AssetMetadataLocalKey, AssetMetadataSpec),
+        /// (Caller DID, AssetId, Local type name, Local type key, type specs)
+        RegisterAssetMetadataLocalType(IdentityId, AssetId, AssetMetadataName, AssetMetadataLocalKey, AssetMetadataSpec),
         /// Register asset metadata global type.
         /// (Global type name, Global type key, type specs)
         RegisterAssetMetadataGlobalType(AssetMetadataName, AssetMetadataGlobalKey, AssetMetadataSpec),
         /// An event emitted when the type of an asset changed.
-        /// Parameters: caller DID, AssetID, new token type.
-        AssetTypeChanged(IdentityId, AssetID, AssetType),
+        /// Parameters: caller DID, AssetId, new token type.
+        AssetTypeChanged(IdentityId, AssetId, AssetType),
         /// An event emitted when a local metadata key has been removed.
-        /// Parameters: caller AssetID, Local type name
-        LocalMetadataKeyDeleted(IdentityId, AssetID, AssetMetadataLocalKey),
+        /// Parameters: caller AssetId, Local type name
+        LocalMetadataKeyDeleted(IdentityId, AssetId, AssetMetadataLocalKey),
         /// An event emitted when a local metadata value has been removed.
-        /// Parameters: caller AssetID, Local type name
-        MetadataValueDeleted(IdentityId, AssetID, AssetMetadataKey),
+        /// Parameters: caller AssetId, Local type name
+        MetadataValueDeleted(IdentityId, AssetId, AssetMetadataKey),
         /// Emitted when Tokens were issued, redeemed or transferred.
-        /// Contains the [`IdentityId`] of the receiver/issuer/redeemer, the [`AssetID`] for the token, the balance that was issued/transferred/redeemed,
+        /// Contains the [`IdentityId`] of the receiver/issuer/redeemer, the [`AssetId`] for the token, the balance that was issued/transferred/redeemed,
         /// the [`PortfolioId`] of the source, the [`PortfolioId`] of the destination and the [`PortfolioUpdateReason`].
         AssetBalanceUpdated(
             IdentityId,
-            AssetID,
+            AssetId,
             Balance,
             Option<PortfolioId>,
             Option<PortfolioId>,
             PortfolioUpdateReason,
         ),
         /// An asset has been added to the list of pre aprroved receivement (valid for all identities).
-        /// Parameters: [`AssetID`] of the pre approved asset.
-        AssetAffirmationExemption(AssetID),
+        /// Parameters: [`AssetId`] of the pre approved asset.
+        AssetAffirmationExemption(AssetId),
         /// An asset has been removed from the list of pre aprroved receivement (valid for all identities).
-        /// Parameters: [`AssetID`] of the asset.
-        RemoveAssetAffirmationExemption(AssetID),
+        /// Parameters: [`AssetId`] of the asset.
+        RemoveAssetAffirmationExemption(AssetId),
         /// An identity has added an asset to the list of pre aprroved receivement.
-        /// Parameters: [`IdentityId`] of caller, [`AssetID`] of the pre approved asset.
-        PreApprovedAsset(IdentityId, AssetID),
+        /// Parameters: [`IdentityId`] of caller, [`AssetId`] of the pre approved asset.
+        PreApprovedAsset(IdentityId, AssetId),
         /// An identity has removed an asset to the list of pre aprroved receivement.
-        /// Parameters: [`IdentityId`] of caller, [`AssetID`] of the asset.
-        RemovePreApprovedAsset(IdentityId, AssetID),
+        /// Parameters: [`IdentityId`] of caller, [`AssetId`] of the asset.
+        RemovePreApprovedAsset(IdentityId, AssetId),
         /// An identity has added mandatory mediators to an asset.
-        /// Parameters: [`IdentityId`] of caller, [`AssetID`] of the asset, the identity of all mediators added.
-        AssetMediatorsAdded(IdentityId, AssetID, BTreeSet<IdentityId>),
+        /// Parameters: [`IdentityId`] of caller, [`AssetId`] of the asset, the identity of all mediators added.
+        AssetMediatorsAdded(IdentityId, AssetId, BTreeSet<IdentityId>),
         /// An identity has removed mediators from an asset.
-        /// Parameters: [`IdentityId`] of caller, [`AssetID`] of the asset, the identity of all mediators removed.
-        AssetMediatorsRemoved(IdentityId, AssetID, BTreeSet<IdentityId>),
+        /// Parameters: [`IdentityId`] of caller, [`AssetId`] of the asset, the identity of all mediators removed.
+        AssetMediatorsRemoved(IdentityId, AssetId, BTreeSet<IdentityId>),
         /// An identity has linked a ticker to an asset.
-        /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset, the asset identifier [`AssetID`].
-        TickerLinkedToAsset(IdentityId, Ticker, AssetID),
+        /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset, the asset identifier [`AssetId`].
+        TickerLinkedToAsset(IdentityId, Ticker, AssetId),
+        /// An identity has unlinked a ticker from an asset.
+        /// Parameters: [`IdentityId`] of caller, unlinked [`Ticker`], the asset identifier [`AssetId`].
+        TickerUnlinkedFromAsset(IdentityId, Ticker, AssetId),
     }
 }
 
@@ -218,26 +221,27 @@ pub trait WeightInfo {
     fn add_mandatory_mediators(n: u32) -> Weight;
     fn remove_mandatory_mediators(n: u32) -> Weight;
     fn link_ticker_to_asset_id() -> Weight;
+    fn unlink_ticker_from_asset_id() -> Weight;
 }
 
 pub trait AssetFnTrait<Account, Origin> {
     /// Returns `Ok` if [`AssetDetails::divisible`] or `value` % ONE_UNIT == 0.
-    fn ensure_granular(asset_id: &AssetID, value: Balance) -> DispatchResult;
+    fn ensure_granular(asset_id: &AssetId, value: Balance) -> DispatchResult;
 
     /// Returns `true` if the given `identity_id` is exempt from affirming the receivement of `asset_id`, otherwise returns `false`.
-    fn skip_asset_affirmation(identity_id: &IdentityId, asset_id: &AssetID) -> bool;
+    fn skip_asset_affirmation(identity_id: &IdentityId, asset_id: &AssetId) -> bool;
 
     /// Returns `true` if the receivement of `asset_id` is exempt from being affirmed, otherwise returns `false`.
-    fn asset_affirmation_exemption(asset_id: &AssetID) -> bool;
+    fn asset_affirmation_exemption(asset_id: &AssetId) -> bool;
 
     /// Returns the `did` balance for the given `asset_id`.
-    fn asset_balance(asset_id: &AssetID, did: &IdentityId) -> Balance;
+    fn asset_balance(asset_id: &AssetId, did: &IdentityId) -> Balance;
 
     /// Returns the total supply for the given `asset_id`.
-    fn asset_total_supply(asset_id: &AssetID) -> Result<Balance, DispatchError>;
+    fn asset_total_supply(asset_id: &AssetId) -> Result<Balance, DispatchError>;
 
     /// Returns the next [`AssetID`] for the `caller_acc`.
-    fn generate_asset_id(caller_acc: Account) -> AssetID;
+    fn generate_asset_id(caller_acc: Account) -> AssetId;
 
     #[cfg(feature = "runtime-benchmarks")]
     fn register_unique_ticker(origin: Origin, ticker: Ticker) -> DispatchResult;
@@ -255,7 +259,7 @@ pub trait AssetFnTrait<Account, Origin> {
     #[cfg(feature = "runtime-benchmarks")]
     fn issue(
         origin: Origin,
-        asset_id: AssetID,
+        asset_id: AssetId,
         amount: Balance,
         portfolio_kind: PortfolioKind,
     ) -> DispatchResult;
@@ -263,7 +267,7 @@ pub trait AssetFnTrait<Account, Origin> {
     #[cfg(feature = "runtime-benchmarks")]
     fn register_asset_metadata_type(
         origin: Origin,
-        asset_id: Option<AssetID>,
+        asset_id: Option<AssetId>,
         name: AssetMetadataName,
         spec: AssetMetadataSpec,
     ) -> DispatchResult;
@@ -271,7 +275,7 @@ pub trait AssetFnTrait<Account, Origin> {
     #[cfg(feature = "runtime-benchmarks")]
     fn add_mandatory_mediators(
         origin: Origin,
-        asset_id: AssetID,
+        asset_id: AssetId,
         mediators: BTreeSet<IdentityId>,
     ) -> DispatchResult;
 }

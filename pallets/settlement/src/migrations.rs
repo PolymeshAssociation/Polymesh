@@ -50,11 +50,11 @@ mod v2 {
 
     decl_storage! {
         trait Store for Module<T: Config> as Settlement {
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub(crate) OldVenueFiltering get(fn venue_filtering):
                 map hasher(blake2_128_concat) Ticker => bool;
 
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub(crate) OldVenueAllowList get(fn venue_allow_list):
                 double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) VenueId => bool;
 
@@ -139,10 +139,10 @@ pub(crate) fn migrate_to_v3<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         VenueFiltering::insert(asset_id, v);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Settlement.VenueFiltering entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the VenueAllowList storage");
@@ -154,10 +154,10 @@ pub(crate) fn migrate_to_v3<T: Config>() {
         count += 1;
         let asset_id = ticker_to_asset_id
             .entry(ticker)
-            .or_insert(AssetID::from(ticker));
+            .or_insert(AssetId::from(ticker));
         VenueAllowList::insert(asset_id, id, v);
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Settlement.VenueAllowList entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the InstructionLegs storage");
@@ -165,7 +165,7 @@ pub(crate) fn migrate_to_v3<T: Config>() {
         count += 1;
         InstructionLegs::insert(instruction_id, leg_id, Leg::from(leg));
     });
-    log::info!("{:?} items migrated", count);
+    log::info!("Migrated {:?} Settlement.InstructionLegs entries.", count);
 
     let mut count = 0;
     log::info!("Updating types for the InstructionDetails storage");
@@ -173,5 +173,8 @@ pub(crate) fn migrate_to_v3<T: Config>() {
         count += 1;
         InstructionDetails::<T>::insert(id, Instruction::from(inst));
     });
-    log::info!("{:?} items migrated", count);
+    log::info!(
+        "Migrated {:?} Settlement.InstructionDetails entries.",
+        count
+    );
 }

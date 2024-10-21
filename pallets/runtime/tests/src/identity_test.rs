@@ -31,7 +31,7 @@ use polymesh_common_utilities::{
     },
     SystematicIssuers, GC_DID,
 };
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
     AccountId, AssetPermissions, AuthorizationData, AuthorizationType, Claim, ClaimType,
     CustomClaimTypeId, ExtrinsicName, ExtrinsicPermissions, IdentityClaim, IdentityId, KeyRecord,
@@ -285,7 +285,7 @@ fn do_add_permissions_to_multiple_tokens() {
 
     // Create some tokens.
     let max_tokens = 20;
-    let tokens: Vec<AssetID> = (0..max_tokens)
+    let tokens: Vec<AssetId> = (0..max_tokens)
         .map(|_| create_and_issue_sample_asset(&alice))
         .collect();
 
@@ -993,7 +993,7 @@ pub(crate) fn test_with_bad_perms(did: IdentityId, test: impl Fn(Permissions)) {
     test(Permissions {
         asset: SubsetRestriction::elems(
             (0..=MAX_ASSETS)
-                .map(|i| AssetID::new([i.to_le_bytes(), [0; 8]].concat().try_into().unwrap())),
+                .map(|i| AssetId::new([i.to_le_bytes(), [0; 8]].concat().try_into().unwrap())),
         ),
         ..<_>::default()
     });
