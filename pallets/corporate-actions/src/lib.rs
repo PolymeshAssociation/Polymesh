@@ -960,18 +960,21 @@ impl<T: Config> Module<T> {
 
     // Extract checkpoint ID for the CA's record date, if any.
     // Assumes the CA has a record date where `date <= now`.
-    pub(crate) fn record_date_cp(ca: &CorporateAction, ca_id: CAId) -> Option<CheckpointId> {
+    pub(crate) fn record_date_cp(
+        ca: &CorporateAction,
+        ca_id: CAId,
+    ) -> Result<Option<CheckpointId>, DispatchError> {
         // Record date has passed by definition.
         let asset_id = ca_id.asset_id;
-        match ca.record_date.unwrap().checkpoint {
-            CACheckpoint::Existing(id) => Some(id),
+        match ca.record_date.ok_or(Error::<T>::NoRecordDate)?.checkpoint {
+            CACheckpoint::Existing(id) => Ok(Some(id)),
             // For CAs, there can be more than one CP,
             // since you may attach a pre-existing and recurring schedule to it.
             // However, the record date stores the index for the CP,
             // assuming a transfer has happened since the record date.
-            CACheckpoint::Scheduled(id, idx) => <Checkpoint<T>>::schedule_points(asset_id, id)
+            CACheckpoint::Scheduled(id, idx) => Ok(<Checkpoint<T>>::schedule_points(asset_id, id)
                 .get(idx as usize)
-                .copied(),
+                .copied()),
         }
     }
 
