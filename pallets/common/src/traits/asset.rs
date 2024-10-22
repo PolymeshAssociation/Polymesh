@@ -240,6 +240,9 @@ pub trait AssetFnTrait<Account, Origin> {
     /// Returns the total supply for the given `asset_id`.
     fn asset_total_supply(asset_id: &AssetId) -> Result<Balance, DispatchError>;
 
+    /// Returns the next [`AssetID`] for the `caller_acc`.
+    fn generate_asset_id(caller_acc: Account) -> AssetId;
+
     #[cfg(feature = "runtime-benchmarks")]
     fn register_unique_ticker(origin: Origin, ticker: Ticker) -> DispatchResult;
 
@@ -260,9 +263,6 @@ pub trait AssetFnTrait<Account, Origin> {
         amount: Balance,
         portfolio_kind: PortfolioKind,
     ) -> DispatchResult;
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn generate_asset_id(caller_acc: Account) -> AssetId;
 
     #[cfg(feature = "runtime-benchmarks")]
     fn register_asset_metadata_type(

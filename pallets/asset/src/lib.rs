@@ -2631,6 +2631,10 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
         Ok(Self::try_get_asset_details(&asset_id)?.total_supply)
     }
 
+    fn generate_asset_id(caller_acc: T::AccountId) -> AssetId {
+        Self::generate_asset_id(caller_acc, false)
+    }
+
     #[cfg(feature = "runtime-benchmarks")]
     fn register_unique_ticker(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
         Self::register_unique_ticker(origin, ticker)
@@ -2663,11 +2667,6 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
         portfolio_kind: PortfolioKind,
     ) -> DispatchResult {
         Self::issue(origin, asset_id, amount, portfolio_kind)
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn generate_asset_id(caller_acc: T::AccountId) -> AssetId {
-        Self::generate_asset_id(caller_acc, false)
     }
 
     #[cfg(feature = "runtime-benchmarks")]

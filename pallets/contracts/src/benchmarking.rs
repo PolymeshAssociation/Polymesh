@@ -583,4 +583,12 @@ benchmarks! {
             output_len
         );
     }: { contract.call(); }
+
+    chain_extension_get_next_asset_id {
+        let r in 0..CHAIN_EXTENSION_BATCHES;
+
+        let contract = Contract::<T>::chain_extension(r * CHAIN_EXTENSION_BATCH_SIZE, FuncId::GetNextAssetId, vec![], 16);
+    }: {
+        contract.call();
+    }
 }
