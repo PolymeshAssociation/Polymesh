@@ -502,10 +502,10 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
     /// The range of component `r` is `[0, 20]`.
     fn chain_extension_get_next_asset_id(r: u32) -> Weight {
-        // Minimum execution time: 439_911 nanoseconds.
-        Weight::from_ref_time(463_918_835)
-            // Standard Error: 196_399
-            .saturating_add(Weight::from_ref_time(421_094_204).saturating_mul(r.into()))
+        // Minimum execution time: 440_982 nanoseconds.
+        Weight::from_ref_time(504_848_619)
+            // Standard Error: 499_607
+            .saturating_add(Weight::from_ref_time(440_856_433).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(14))
             .saturating_add(DbWeight::get().writes(3))
     }

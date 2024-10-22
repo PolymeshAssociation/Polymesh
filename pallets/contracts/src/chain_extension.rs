@@ -520,7 +520,7 @@ where
     // Charge weight.
     env.charge_weight(<T as Config>::WeightInfo::get_next_asset_id())?;
 
-    let caller_account: T::AccountId = env.ext().caller().clone();
+    let caller_account: T::AccountId = env.read_as()?;
     trace!(
         target: "runtime",
         "PolymeshExtension contract GetNextAssetId: caller_account={caller_account:?}",

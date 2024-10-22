@@ -587,7 +587,12 @@ benchmarks! {
     chain_extension_get_next_asset_id {
         let r in 0..CHAIN_EXTENSION_BATCHES;
 
-        let contract = Contract::<T>::chain_extension(r * CHAIN_EXTENSION_BATCH_SIZE, FuncId::GetNextAssetId, vec![], 16);
+        let encoded_input = (0..r * CHAIN_EXTENSION_BATCH_SIZE)
+            .map(|i| funded_user::<T>(SEED + i).account().encode())
+            .collect::<Vec<_>>();
+        let input_bytes =  encoded_input.iter().flat_map(|a| a.clone()).collect::<Vec<_>>();
+
+        let contract = Contract::<T>::chain_extension(r * CHAIN_EXTENSION_BATCH_SIZE, FuncId::GetNextAssetId, input_bytes, 16);
     }: {
         contract.call();
     }
