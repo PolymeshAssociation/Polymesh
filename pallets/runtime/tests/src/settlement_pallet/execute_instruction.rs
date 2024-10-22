@@ -189,13 +189,6 @@ fn execute_instruction_storage_rollback() {
         );
         assert_eq!(
             system_events.pop().unwrap().event,
-            crate::storage::EventTest::Settlement(RawEvent::InstructionFailed(
-                SettlementDID.as_id(),
-                instruction_id
-            ))
-        );
-        assert_eq!(
-            system_events.pop().unwrap().event,
             crate::storage::EventTest::Settlement(RawEvent::LegFailedExecution(
                 SettlementDID.as_id(),
                 instruction_id,

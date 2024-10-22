@@ -47,8 +47,6 @@ decl_event!(
         VenuesBlocked(IdentityId, AssetId, Vec<VenueId>),
         /// Execution of a leg failed (did, instruction_id, leg_id)
         LegFailedExecution(IdentityId, InstructionId, LegId),
-        /// Instruction failed execution (did, instruction_id)
-        InstructionFailed(IdentityId, InstructionId),
         /// Instruction executed successfully(did, instruction_id)
         InstructionExecuted(IdentityId, InstructionId),
         /// Venue not part of the token's allow list (did, AssetId, venue_id)
