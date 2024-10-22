@@ -93,12 +93,27 @@ mod v4 {
 
             // This storage has been removed.
             pub AssetMetadataNextGlobalKey get(fn asset_metadata_next_global_key): AssetMetadataGlobalKey;
+
+            pub AssetIDTicker get(fn asset_id_ticker): map hasher(blake2_128_concat) AssetId => Option<Ticker>;
+            pub TickerAssetID get(fn ticker_asset_id): map hasher(blake2_128_concat) Ticker => Option<AssetId>;
         }
     }
 
     decl_module! {
         pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin { }
     }
+}
+
+pub(crate) fn migrate_to_v5_fixup_asset_id_maps<T: Config>() {
+    // Move renamed storage maps.
+    move_prefix(
+        &v4::AssetIDTicker::final_prefix(),
+        &AssetIdTicker::final_prefix(),
+    );
+    move_prefix(
+        &v4::TickerAssetID::final_prefix(),
+        &TickerAssetId::final_prefix(),
+    );
 }
 
 pub(crate) fn migrate_to_v5<T: Config>() {

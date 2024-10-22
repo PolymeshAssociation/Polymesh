@@ -16,7 +16,7 @@ use polymesh_primitives::PortfolioId;
 
 use super::setup::create_and_issue_sample_asset_with_venue;
 use crate::asset_pallet::setup::create_and_issue_sample_asset;
-use crate::storage::User;
+use crate::storage::{default_portfolio_btreeset, User};
 use crate::{next_block, ExtBuilder, TestStorage};
 
 type Settlement = pallet_settlement::Module<TestStorage>;
@@ -50,12 +50,12 @@ fn execute_instruction_storage_pruning() {
         assert_ok!(Settlement::affirm_instruction(
             alice.origin(),
             instruction_id,
-            vec![alice_default_portfolio]
+            default_portfolio_btreeset(alice.did),
         ));
         assert_ok!(Settlement::affirm_instruction(
             bob.origin(),
             instruction_id,
-            vec![bob_default_portfolio]
+            default_portfolio_btreeset(bob.did),
         ));
         next_block();
 
@@ -144,12 +144,12 @@ fn execute_instruction_storage_rollback() {
         assert_ok!(Settlement::affirm_instruction(
             alice.origin(),
             instruction_id,
-            vec![alice_default_portfolio]
+            default_portfolio_btreeset(alice.did),
         ));
         assert_ok!(Settlement::affirm_instruction(
             bob.origin(),
             instruction_id,
-            vec![bob_default_portfolio]
+            default_portfolio_btreeset(bob.did),
         ));
         // Removes asset_id2 balance to force an error
         BalanceOf::insert(asset_id2, alice.did, 0);
