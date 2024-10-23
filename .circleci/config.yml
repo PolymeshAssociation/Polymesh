@@ -84,9 +84,10 @@ jobs:
       - run:
           name: Copy binary to assets
           command: cp ./target/release/polymesh ./assets/polymesh
-      - run:
-          name: Copy wasm to assets
-          command: cp ./target/release/wbuild/polymesh*/*wasm ./assets/
+      ## This has been commented out due to deterministic wasm build step added
+      # - run:
+      #     name: Copy wasm to assets
+      #     command: cp ./target/release/wbuild/polymesh*/*wasm ./assets/
       - persist_to_workspace:
           root: ./assets
           paths:
@@ -169,6 +170,105 @@ jobs:
           paths:
             - polymesh-benchmarks
       - save-sccache-cache
+
+  deterministic-wasm-build:
+    parameters:
+      chain:
+        type: enum
+        enum:
+          - "testnet"
+          - "mainnet"
+          - "develop"
+        default: "mainnet"
+        description: "Name of the chain, ie. mainnet"
+      package:
+        type: string
+        default: "wasm"
+        description: >
+          Runtime package to build, ie. polkadot-runtime.
+          If your runtime follows this pattern, you don't have and should not provide this input.
+
+          If not provided, it will be set to <chain>-runtime
+      image:
+        type: string
+        default: "paritytech/srtool"
+        description: >
+          You can use an alternate image, use with caution!
+      tag:
+        type: string
+        default: "latest"
+        description: "Tag of the srtool image to use. Omit to use the latest (recommended)"
+      workdir:
+        type: string
+        default: "."
+        description: "Path of the project, this is where your main Cargo.toml is located."
+      runtime_dir:
+        type: string
+        default: "runtime/testnet"
+        description: "Location of the runtime in your repo. The default is 'runtime/<chain_name>'"
+      profile:
+        type: string
+        default: "release"
+        description: "Which profile to use with cargo build."
+      build_opts:
+        type: string
+        default: " "
+        description: "Additional options to pass to cargo build."
+      parachain_pallet_id:
+        type: string
+        default: "0x01"
+        description: "The patachain's pallet id."
+      authorize_upgrade_prefix:
+        type: string
+        default: "0x02"
+        description: "The authorize_upgrade call ID."
+
+    docker:
+      - image: <<parameters.image>>:<<parameters.tag>>
+    resource_class: xlarge
+    working_directory: /build
+    environment:
+      # https://github.com/paritytech/polkadot-sdk/pull/2217
+      WASM_BUILD_STD: "0"
+
+      PACKAGE: <<parameters.package>>
+      RUNTIME_DIR: <<parameters.runtime_dir>>
+      BUILD_OPTS: <<parameters.build_opts>>
+      PARACHAIN_PALLET_ID: <<parameters.parachain_pallet_id>>
+      AUTHORIZE_UPGRADE_PREFIX: <<parameters.authorize_upgrade_prefix>>
+      PROFILE: <<parameters.profile>>
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./assets
+      - run:
+          name: Use rust-toolchain.toml
+          command: cp rust-toolchain.toml pallets/runtime/<<parameters.chain>>/rust-toolchain.toml
+      - run:
+          name: Build the deterministic wasm binary
+          command: | 
+            CMD="/srtool/build --app --json -cM"
+            stdbuf -oL $CMD | {
+              while IFS= read -r line
+              do
+                echo ║ $line
+                JSON="$line"
+              done
+
+              echo "========================================="
+              echo $JSON | jq .
+              echo "========================================="
+              echo $JSON | jq . > ./assets/<<parameters.chain>>-srtool-digest.json
+              echo "prop: $(echo $JSON | jq -r .runtimes.compact.prop)"
+              cp $(echo $JSON | jq -r .runtimes.compact.wasm) ./assets/polymesh_runtime_<<parameters.chain>>.compact.wasm
+              echo "========================================="
+            }
+      - persist_to_workspace:
+          root: ./assets
+          paths:
+              - .
+
+
   benchmark:
     docker:
       - image: debian:stable
@@ -474,10 +574,18 @@ jobs:
             cd assets
             VERSION=$(./polymesh --version | cut -d " " -f2)
             mv ./polymesh ./polymesh-${VERSION}
+            sha256sum ./polymesh-${VERSION} > ./polymesh-${VERSION}.sha256
             mv ./polymesh-arm64 ./polymesh-${VERSION}-arm64
-            zip -rm ./polymesh-${VERSION}.zip ./polymesh-${VERSION}
-            zip -rm ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-arm64
-            zip -rm ./polymesh-${VERSION}-wasm.zip ./*.wasm
+            sha256sum ./polymesh-${VERSION}-arm64 > ./polymesh-${VERSION}-arm64.sha256
+            zip -rm ./polymesh-${VERSION}.zip ./polymesh-${VERSION} ./polymesh-${VERSION}.sha256
+            zip -T ./polymesh-${VERSION}.zip
+            zip -rm ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-arm64 ./polymesh-${VERSION}-arm64.sha256
+            zip -T ./polymesh-${VERSION}-linux-arm64.zip
+            for file in *.wasm; do sha256sum "$file" > "${file}.sha256"; done
+            zip -rm ./polymesh-${VERSION}-wasm.zip ./*.wasm ./*.wasm.sha256
+            zip -T ./polymesh-${VERSION}-wasm.zip
+            sha256sum ./polymesh-${VERSION}.zip ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-wasm.zip | sed 's/^/sha256: /' > ./polymesh-${VERSION}.CHECKSUMS
+            sha512sum ./polymesh-${VERSION}.zip ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-wasm.zip | sed 's/^/sha512: /' >> ./polymesh-${VERSION}.CHECKSUMS
             ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -prerelease -delete v${VERSION} ./
 
 workflows:
@@ -559,9 +667,42 @@ workflows:
           requires:
             - build
             - build-arm64
+            - deterministic-wasm-build-mainnet
+            - deterministic-wasm-build-testnet
+            - deterministic-wasm-build-develop
           filters:
             branches:
               only:
                 - mainnet
                 - testnet
                 - staging
+      - deterministic-wasm-build:
+          name: deterministic-wasm-build-testnet
+          filters:
+            branches:
+              only:
+                - testnet
+          chain: testnet
+          package: polymesh-runtime-testnet
+          runtime_dir: pallets/runtime/testnet
+          tag: 1.81.0
+      - deterministic-wasm-build:
+          name: deterministic-wasm-build-mainnet
+          filters:
+            branches:
+              only:
+                - mainnet
+          chain: mainnet
+          package: polymesh-runtime-mainnet
+          runtime_dir: pallets/runtime/mainnet
+          tag: 1.81.0
+      - deterministic-wasm-build:
+          name: deterministic-wasm-build-develop
+          filters:
+            branches:
+              only:
+                - develop
+          chain: develop
+          package: polymesh-runtime-develop
+          runtime_dir: pallets/runtime/develop
+          tag: 1.81.0
