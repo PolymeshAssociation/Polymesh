@@ -61,6 +61,7 @@ use frame_support::weights::Weight;
 use frame_support::{
     decl_error, decl_module, decl_storage, ensure, BoundedBTreeSet, IterableStorageDoubleMap,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use frame_system::{ensure_root, RawOrigin};
 use sp_runtime::traits::{One, Verify};
 use sp_std::collections::btree_set::BTreeSet;
@@ -118,7 +119,7 @@ pub trait Config:
     type Proposal: From<Call<Self>> + Into<<Self as identity::Config>::Proposal>;
 
     /// Scheduler of settlement instructions.
-    type Scheduler: Named<Self::BlockNumber, <Self as Config>::Proposal, Self::SchedulerOrigin>;
+    type Scheduler: Named<BlockNumberFor<Self>, <Self as Config>::Proposal, Self::SchedulerOrigin>;
 
     /// Maximum number of fungible assets that can be in a single instruction.
     type MaxNumberOfFungibleAssets: Get<u32>;
@@ -268,7 +269,7 @@ decl_storage! {
             double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) VenueId => ();
         /// Details about an instruction. instruction_id -> instruction_details
         pub InstructionDetails get(fn instruction_details):
-            map hasher(twox_64_concat) InstructionId => Instruction<T::Moment, T::BlockNumber>;
+            map hasher(twox_64_concat) InstructionId => Instruction<T::Moment, BlockNumberFor<T>>;
         /// Status of a leg under an instruction. (instruction_id, leg_id) -> LegStatus
         pub InstructionLegStatus get(fn instruction_leg_status):
             double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => LegStatus<T::AccountId>;
@@ -296,7 +297,7 @@ decl_storage! {
         pub InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<Memo>;
         /// Instruction statuses. instruction_id -> InstructionStatus
         pub InstructionStatuses get(fn instruction_status):
-            map hasher(twox_64_concat) InstructionId => InstructionStatus<T::BlockNumber>;
+            map hasher(twox_64_concat) InstructionId => InstructionStatus<BlockNumberFor<T>>;
         /// Legs under an instruction. (instruction_id, leg_id) -> Leg
         pub InstructionLegs get(fn instruction_legs):
             double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => Option<Leg>;
@@ -536,7 +537,7 @@ decl_module! {
         pub fn add_instruction(
             origin,
             venue_id: Option<VenueId>,
-            settlement_type: SettlementType<T::BlockNumber>,
+            settlement_type: SettlementType<BlockNumberFor<T>>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
@@ -572,7 +573,7 @@ decl_module! {
         pub fn add_and_affirm_instruction(
             origin,
             venue_id: Option<VenueId>,
-            settlement_type: SettlementType<T::BlockNumber>,
+            settlement_type: SettlementType<BlockNumberFor<T>>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
@@ -773,7 +774,7 @@ decl_module! {
         pub fn add_instruction_with_mediators(
             origin,
             venue_id: Option<VenueId>,
-            settlement_type: SettlementType<T::BlockNumber>,
+            settlement_type: SettlementType<BlockNumberFor<T>>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
@@ -811,7 +812,7 @@ decl_module! {
         pub fn add_and_affirm_with_mediators(
             origin,
             venue_id: Option<VenueId>,
-            settlement_type: SettlementType<T::BlockNumber>,
+            settlement_type: SettlementType<BlockNumberFor<T>>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
@@ -924,7 +925,7 @@ impl<T: Config> Module<T> {
         origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
         is_execute: bool,
-    ) -> EnsureValidInstructionResult<T::AccountId, T::Moment, T::BlockNumber> {
+    ) -> EnsureValidInstructionResult<T::AccountId, T::Moment, BlockNumberFor<T>> {
         let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
         Ok((
             origin_data.primary_did,
@@ -944,7 +945,7 @@ impl<T: Config> Module<T> {
     pub fn base_add_instruction(
         did: IdentityId,
         venue_id: Option<VenueId>,
-        settlement_type: SettlementType<T::BlockNumber>,
+        settlement_type: SettlementType<BlockNumberFor<T>>,
         trade_date: Option<T::Moment>,
         value_date: Option<T::Moment>,
         legs: Vec<Leg>,
@@ -1183,7 +1184,7 @@ impl<T: Config> Module<T> {
     fn ensure_instruction_validity(
         id: InstructionId,
         is_execute: bool,
-    ) -> Result<Instruction<T::Moment, T::BlockNumber>, DispatchError> {
+    ) -> Result<Instruction<T::Moment, BlockNumberFor<T>>, DispatchError> {
         let details = Self::instruction_details(id);
         ensure!(
             Self::instruction_status(id) != InstructionStatus::Unknown,
@@ -1579,7 +1580,7 @@ impl<T: Config> Module<T> {
     /// for the given block so there are chances where the instruction execution block no. may drift.
     pub(crate) fn schedule_instruction(
         id: InstructionId,
-        execution_at: T::BlockNumber,
+        execution_at: BlockNumberFor<T>,
         weight_limit: Weight,
     ) {
         let call = Call::<T>::execute_scheduled_instruction { id, weight_limit }.into();
@@ -1790,7 +1791,7 @@ impl<T: Config> Module<T> {
     fn execute_settle_on_affirmation_instruction(
         id: InstructionId,
         affirms_pending: u64,
-        settlement_type: SettlementType<T::BlockNumber>,
+        settlement_type: SettlementType<BlockNumberFor<T>>,
         caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {

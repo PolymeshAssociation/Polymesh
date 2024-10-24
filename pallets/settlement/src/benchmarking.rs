@@ -202,7 +202,7 @@ where
 fn setup_execute_instruction<T>(
     sender: &User<T>,
     receiver: &User<T>,
-    settlement_type: SettlementType<T::BlockNumber>,
+    settlement_type: SettlementType<BlockNumberFor<T>>,
     venue_id: VenueId,
     f: u32,
     n: u32,

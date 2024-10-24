@@ -63,7 +63,7 @@ mod v2 {
                 double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => Option<Leg>;
 
             pub(crate) InstructionDetails get(fn instruction_details):
-                map hasher(twox_64_concat) InstructionId => Instruction<T::Moment, T::BlockNumber>;
+                map hasher(twox_64_concat) InstructionId => Instruction<T::Moment, BlockNumberFor<T>>;
 
         }
     }
