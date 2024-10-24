@@ -259,8 +259,8 @@ jobs:
               echo $JSON | jq .
               echo "========================================="
               echo $JSON | jq . > ./assets/<<parameters.chain>>-srtool-digest.json
-              echo "prop: $(echo $JSON | jq -r .runtimes.compact.prop)"
-              cp $(echo $JSON | jq -r .runtimes.compact.wasm) ./assets/polymesh_runtime_<<parameters.chain>>.compact.wasm
+              echo "prop: $(echo $JSON | jq -r .runtimes.compressed.prop)"
+              cp $(echo $JSON | jq -r .runtimes.compressed.wasm) ./assets/polymesh_runtime_<<parameters.chain>>.compact.compressed.wasm
               echo "========================================="
             }
       - persist_to_workspace:
@@ -573,17 +573,25 @@ jobs:
             go install github.com/tcnksm/ghr@latest
             cd assets
             VERSION=$(./polymesh --version | cut -d " " -f2)
+
+            # polymesh x86_64
             mv ./polymesh ./polymesh-${VERSION}
             sha256sum ./polymesh-${VERSION} > ./polymesh-${VERSION}.sha256
-            mv ./polymesh-arm64 ./polymesh-${VERSION}-arm64
-            sha256sum ./polymesh-${VERSION}-arm64 > ./polymesh-${VERSION}-arm64.sha256
             zip -rm ./polymesh-${VERSION}.zip ./polymesh-${VERSION} ./polymesh-${VERSION}.sha256
             zip -T ./polymesh-${VERSION}.zip
+
+            # polymesh arm64
+            mv ./polymesh-arm64 ./polymesh-${VERSION}-arm64
+            sha256sum ./polymesh-${VERSION}-arm64 > ./polymesh-${VERSION}-arm64.sha256
             zip -rm ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-arm64 ./polymesh-${VERSION}-arm64.sha256
             zip -T ./polymesh-${VERSION}-linux-arm64.zip
+
+            # polymesh wasm
             for file in *.wasm; do sha256sum "$file" > "${file}.sha256"; done
             zip -rm ./polymesh-${VERSION}-wasm.zip ./*.wasm ./*.wasm.sha256 ./*-srtool-digest.json
             zip -T ./polymesh-${VERSION}-wasm.zip
+
+            # checksum file
             sha256sum ./polymesh-${VERSION}.zip ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-wasm.zip | sed 's/^/sha256: /' > ./polymesh-${VERSION}.CHECKSUMS
             sha512sum ./polymesh-${VERSION}.zip ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-wasm.zip | sed 's/^/sha512: /' >> ./polymesh-${VERSION}.CHECKSUMS
             ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -prerelease -delete v${VERSION} ./
