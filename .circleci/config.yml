@@ -582,7 +582,7 @@ jobs:
             zip -rm ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-arm64 ./polymesh-${VERSION}-arm64.sha256
             zip -T ./polymesh-${VERSION}-linux-arm64.zip
             for file in *.wasm; do sha256sum "$file" > "${file}.sha256"; done
-            zip -rm ./polymesh-${VERSION}-wasm.zip ./*.wasm ./*.wasm.sha256
+            zip -rm ./polymesh-${VERSION}-wasm.zip ./*.wasm ./*.wasm.sha256 ./*-srtool-digest.json
             zip -T ./polymesh-${VERSION}-wasm.zip
             sha256sum ./polymesh-${VERSION}.zip ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-wasm.zip | sed 's/^/sha256: /' > ./polymesh-${VERSION}.CHECKSUMS
             sha512sum ./polymesh-${VERSION}.zip ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-wasm.zip | sed 's/^/sha512: /' >> ./polymesh-${VERSION}.CHECKSUMS
@@ -669,7 +669,6 @@ workflows:
             - build-arm64
             - deterministic-wasm-build-mainnet
             - deterministic-wasm-build-testnet
-            - deterministic-wasm-build-develop
           filters:
             branches:
               only:
@@ -681,7 +680,9 @@ workflows:
           filters:
             branches:
               only:
+                - mainnet
                 - testnet
+                - staging
           chain: testnet
           package: polymesh-runtime-testnet
           runtime_dir: pallets/runtime/testnet
@@ -692,6 +693,8 @@ workflows:
             branches:
               only:
                 - mainnet
+                - testnet
+                - staging
           chain: mainnet
           package: polymesh-runtime-mainnet
           runtime_dir: pallets/runtime/mainnet
