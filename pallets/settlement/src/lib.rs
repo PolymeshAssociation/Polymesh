@@ -1322,7 +1322,6 @@ impl<T: Config> Module<T> {
                 instruction_id,
                 failed_leg_id,
             ));
-            Self::deposit_event(RawEvent::InstructionFailed(caller_did, instruction_id));
         }
 
         tx_result
