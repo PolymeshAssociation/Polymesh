@@ -303,9 +303,49 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_external_agents::SubstrateWeight;
         }
 
+        pub struct SubsidyFilter;
+
+        impl SubsidyFilter {
+            fn allowed(call: &RuntimeCall, nested: bool) -> bool {
+                match call {
+                    RuntimeCall::Asset(_) => true,
+                    RuntimeCall::ComplianceManager(_) => true,
+                    RuntimeCall::CorporateAction(_) => true,
+                    RuntimeCall::ExternalAgents(_) => true,
+                    RuntimeCall::Portfolio(_) => true,
+                    RuntimeCall::Settlement(_) => true,
+                    RuntimeCall::Statistics(_) => true,
+                    RuntimeCall::Sto(_) => true,
+                    RuntimeCall::Balances(_) => true,
+                    RuntimeCall::Identity(_) => true,
+                    // Allow non-nested batch calls.
+                    RuntimeCall::Utility(call) if nested == false => match call {
+                        // Limit batch size to 5.
+                        pallet_utility::Call::batch { calls } if calls.len() <= 5 => {
+                            for call in calls {
+                                if !Self::allowed(call, true) {
+                                    return false;
+                                }
+                            }
+                            true
+                        }
+                        _ => false,
+                    },
+                    _ => false,
+                }
+            }
+        }
+
+        impl frame_support::traits::Contains<RuntimeCall> for SubsidyFilter {
+            fn contains(call: &RuntimeCall) -> bool {
+                Self::allowed(call, false)
+            }
+        }
+
         impl pallet_relayer::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type WeightInfo = polymesh_weights::pallet_relayer::SubstrateWeight;
+            type SubsidyCallFilter = SubsidyFilter;
         }
 
         impl pallet_asset::Config for Runtime {

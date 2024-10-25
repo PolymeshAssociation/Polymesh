@@ -342,7 +342,7 @@ pub trait Config: frame_system::Config + pallet_timestamp::Config {
     // Polymesh note: This was specifically added for Polymesh
     /// Connection to the `Relayer` pallet.
     /// Used to charge transaction fees to a subsidiser, if any, instead of the payer.
-    type Subsidiser: SubsidiserTrait<Self::AccountId>;
+    type Subsidiser: SubsidiserTrait<Self::AccountId, Self::RuntimeCall>;
 
     // Polymesh note: This was specifically added for Polymesh
     /// CDD providers group.
@@ -730,12 +730,7 @@ where
             T::CddHandler::get_valid_payer(call, &who)?.ok_or(InvalidTransaction::Payment)?;
 
         // Check if the payer is being subsidised.
-        let metadata = call.get_call_metadata();
-        let subsidiser = T::Subsidiser::check_subsidy(
-            &payer_key,
-            fee.into(),
-            Some(metadata.pallet_name.as_bytes()),
-        )?;
+        let subsidiser = T::Subsidiser::check_subsidy(&payer_key, fee.into(), Some(call))?;
 
         // key to pay the fee.
         let fee_key = subsidiser.as_ref().unwrap_or(&payer_key);

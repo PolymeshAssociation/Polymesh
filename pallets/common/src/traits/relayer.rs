@@ -1,4 +1,4 @@
-use crate::{traits::identity, CommonConfig};
+use crate::traits::identity;
 use frame_support::{decl_event, weights::Weight};
 use polymesh_primitives::{Balance, EventDid};
 use sp_runtime::transaction_validity::InvalidTransaction;
@@ -12,13 +12,14 @@ pub trait WeightInfo {
     fn decrease_polyx_limit() -> Weight;
 }
 
-pub trait SubsidiserTrait<AccountId> {
+pub trait SubsidiserTrait<AccountId, RuntimeCall> {
     /// Check if a `user_key` has a subsidiser and that the subsidy can pay the `fee`.
     fn check_subsidy(
         user_key: &AccountId,
         fee: Balance,
-        pallet: Option<&[u8]>,
+        call: Option<&RuntimeCall>,
     ) -> Result<Option<AccountId>, InvalidTransaction>;
+
     /// Debit `fee` from the remaining balance of the subsidy for `user_key`.
     fn debit_subsidy(
         user_key: &AccountId,
@@ -26,11 +27,13 @@ pub trait SubsidiserTrait<AccountId> {
     ) -> Result<Option<AccountId>, InvalidTransaction>;
 }
 
-pub trait Config: CommonConfig + identity::Config {
+pub trait Config: frame_system::Config + identity::Config {
     /// The overarching event type.
     type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
-
+    /// Subsidy pallet weights.
     type WeightInfo: WeightInfo;
+    /// Subsidy call filter.
+    type SubsidyCallFilter: frame_support::traits::Contains<Self::RuntimeCall>;
 }
 
 decl_event! {
