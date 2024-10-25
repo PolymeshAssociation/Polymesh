@@ -367,11 +367,11 @@ impl polymesh_common_utilities::transaction_payment::CddAndFeeDetails<AccountId,
     }
 }
 
-impl SubsidiserTrait<AccountId> for Test {
+impl SubsidiserTrait<AccountId, RuntimeCall> for Test {
     fn check_subsidy(
         _: &AccountId,
         _: Balance,
-        _: Option<&[u8]>,
+        _: Option<&RuntimeCall>,
     ) -> Result<Option<AccountId>, InvalidTransaction> {
         Ok(None)
     }
