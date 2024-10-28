@@ -55,7 +55,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
     // N.B. `d` is unpinned from the binary version
-    spec_version: 7_000_003,
+    spec_version: 7_000_004,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 7,
