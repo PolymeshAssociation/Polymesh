@@ -35,28 +35,33 @@ type Error = pallet_relayer::Error<TestStorage>;
 // Relayer Test Helper functions
 // =======================================
 
-fn call_balance_transfer(val: Balance) -> <TestStorage as frame_system::Config>::RuntimeCall {
+fn call_balance_transfer(val: Balance) -> RuntimeCall {
     RuntimeCall::Balances(pallet_balances::Call::transfer {
         dest: MultiAddress::Id(AccountKeyring::Alice.to_account_id()),
         value: val,
     })
 }
 
-fn call_system_remark(size: usize) -> <TestStorage as frame_system::Config>::RuntimeCall {
+fn call_system_remark(size: usize) -> RuntimeCall {
     RuntimeCall::System(frame_system::Call::remark {
         remark: vec![0; size],
     })
 }
 
-fn call_asset_register_ticker(name: &[u8]) -> <TestStorage as frame_system::Config>::RuntimeCall {
+fn call_utility_batch(calls: Vec<RuntimeCall>) -> RuntimeCall {
+    RuntimeCall::Utility(pallet_utility::Call::batch { calls })
+}
+
+fn call_utility_batch_all(calls: Vec<RuntimeCall>) -> RuntimeCall {
+    RuntimeCall::Utility(pallet_utility::Call::batch_all { calls })
+}
+
+fn call_asset_register_ticker(name: &[u8]) -> RuntimeCall {
     let ticker = Ticker::from_slice_truncated(name);
     RuntimeCall::Asset(pallet_asset::Call::register_unique_ticker { ticker })
 }
 
-fn call_relayer_remove_paying_key(
-    user_key: AccountId,
-    paying_key: AccountId,
-) -> <TestStorage as frame_system::Config>::RuntimeCall {
+fn call_relayer_remove_paying_key(user_key: AccountId, paying_key: AccountId) -> RuntimeCall {
     RuntimeCall::Relayer(pallet_relayer::Call::remove_paying_key {
         user_key,
         paying_key,
@@ -93,6 +98,27 @@ fn assert_subsidy(user: User, subsidy: Option<(User, Balance)>) {
         get_subsidy(user).map(|s| (s.paying_key, s.remaining)),
         subsidy.map(|s| (s.0.acc(), s.1))
     );
+}
+
+fn assert_invalid_subsidy_call(caller: &AccountId, call: &RuntimeCall) {
+    let len = 10;
+    let expected_err = TransactionValidityError::Invalid(InvalidTransaction::Custom(
+        TransactionError::PalletNotSubsidised as u8,
+    ));
+
+    // test `validate`
+    let pre_err = ChargeTransactionPayment::from(0)
+        .validate(caller, call, &info_from_weight(5), len)
+        .map(|_| ())
+        .unwrap_err();
+    assert_eq!(pre_err, expected_err);
+
+    // test `pre_dispatch`
+    let pre_err = ChargeTransactionPayment::from(0)
+        .pre_dispatch(caller, call, &info_from_weight(5), len)
+        .map(|_| ())
+        .unwrap_err();
+    assert_eq!(pre_err, expected_err);
 }
 
 /// Setup a subsidy with the `payer` paying for the `user`.
@@ -504,6 +530,109 @@ fn do_relayer_transaction_and_protocol_fees_test() {
     let transaction_fee = TransactionPayment::compute_fee(len as u32, &call_info, 0);
     assert!(transaction_fee > 0);
     let protocol_fee = ProtocolFee::compute_fee(&[ProtocolOp::AssetRegisterTicker]);
+    assert!(protocol_fee > 0);
+    let total_fee = transaction_fee + protocol_fee;
+
+    // 1. Call `pre_dispatch`.
+    let pre = ChargeTransactionPayment::from(0)
+        .pre_dispatch(&bob.acc(), &call, &call_info, len)
+        .unwrap();
+
+    // 2. Execute extrinsic.
+    assert_ok!(call.dispatch(bob.origin()));
+
+    // 3. Call `post_dispatch`.
+    assert!(ChargeTransactionPayment::post_dispatch(
+        Some(pre),
+        &call_info,
+        &post_info_from_weight(50),
+        len,
+        &Ok(())
+    )
+    .is_ok());
+
+    // Verify that the correct fee was deducted from alice's balance
+    // and Bob's subsidy's remaining POLYX.
+    assert_eq!(diff_balance(), (total_fee, total_fee));
+}
+
+#[test]
+fn relayer_batched_subsidy_calls_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .transaction_fees(5, 1, 1)
+        .build()
+        .execute_with(&do_relayer_batched_subsidy_calls_test);
+}
+fn do_relayer_batched_subsidy_calls_test() {
+    let bob = User::new(AccountKeyring::Bob);
+    let alice = User::new(AccountKeyring::Alice);
+
+    let prev_balance = Balances::free_balance(&alice.acc());
+    let remaining = 2_000 * POLY;
+
+    setup_subsidy(bob, alice, remaining);
+
+    let diff_balance = || {
+        let curr_balance = Balances::free_balance(&alice.acc());
+        let curr_remaining = get_subsidy(bob).map(|s| s.remaining).unwrap();
+        (prev_balance - curr_balance, remaining - curr_remaining)
+    };
+
+    let len = 10;
+
+    // Pallet System is not subsidised.
+    let call = call_utility_batch(vec![call_system_remark(42)]);
+    assert_invalid_subsidy_call(&bob.acc(), &call);
+
+    // No charge to subsidiser balance or subsidy remaining POLYX.
+    assert_eq!(diff_balance(), (0, 0));
+
+    // Large batches are not allowed.
+    let call = call_utility_batch(vec![
+        call_asset_register_ticker(b"A"),
+        call_asset_register_ticker(b"B"),
+        call_asset_register_ticker(b"C"),
+        call_asset_register_ticker(b"D"),
+        call_asset_register_ticker(b"E"),
+        // Too many calls.
+        call_asset_register_ticker(b"F"),
+    ]);
+    assert_invalid_subsidy_call(&bob.acc(), &call);
+
+    // No charge to subsidiser balance or subsidy remaining POLYX.
+    assert_eq!(diff_balance(), (0, 0));
+
+    // Nested batches are not allowed.
+    let call = call_utility_batch(vec![call_utility_batch(vec![call_asset_register_ticker(
+        b"A",
+    )])]);
+    assert_invalid_subsidy_call(&bob.acc(), &call);
+
+    // No charge to subsidiser balance or subsidy remaining POLYX.
+    assert_eq!(diff_balance(), (0, 0));
+
+    //
+    // Bob registers a some tickers with the transaction and protocol fees paid by subsidiser.
+    //
+    let call = call_utility_batch_all(vec![
+        call_asset_register_ticker(b"A"),
+        call_asset_register_ticker(b"B"),
+        call_asset_register_ticker(b"C"),
+        call_asset_register_ticker(b"D"),
+        call_asset_register_ticker(b"E"),
+    ]);
+    let call_info = info_from_weight(100);
+    // 0. Calculate fees for registering an asset ticker.
+    let transaction_fee = TransactionPayment::compute_fee(len as u32, &call_info, 0);
+    assert!(transaction_fee > 0);
+    let protocol_fee = ProtocolFee::compute_fee(&[
+        ProtocolOp::AssetRegisterTicker,
+        ProtocolOp::AssetRegisterTicker,
+        ProtocolOp::AssetRegisterTicker,
+        ProtocolOp::AssetRegisterTicker,
+        ProtocolOp::AssetRegisterTicker,
+    ]);
     assert!(protocol_fee > 0);
     let total_fee = transaction_fee + protocol_fee;
 

@@ -303,9 +303,64 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_external_agents::SubstrateWeight;
         }
 
+        pub struct SubsidyFilter;
+
+        impl SubsidyFilter {
+            fn allowed_batch(calls: &[RuntimeCall]) -> bool {
+                // Limit batch size to 5.
+                if calls.len() > 5 {
+                    return false;
+                }
+                for call in calls {
+                    // Check if the call is allowed inside a batch.
+                    if !Self::allowed(call, true) {
+                        return false;
+                    }
+                }
+                true
+            }
+
+            fn allowed(call: &RuntimeCall, nested: bool) -> bool {
+                match call {
+                    RuntimeCall::Asset(_) => true,
+                    RuntimeCall::ComplianceManager(_) => true,
+                    RuntimeCall::CorporateAction(_) => true,
+                    RuntimeCall::ExternalAgents(_) => true,
+                    RuntimeCall::Portfolio(_) => true,
+                    RuntimeCall::Settlement(_) => true,
+                    RuntimeCall::Statistics(_) => true,
+                    RuntimeCall::Sto(_) => true,
+                    RuntimeCall::Balances(_) => true,
+                    RuntimeCall::Identity(_) => true,
+                    // Allow non-nested batch calls.
+                    RuntimeCall::Utility(call) if nested == false => match call {
+                        // Limit batch size to 5.
+                        pallet_utility::Call::batch { calls } => {
+                            Self::allowed_batch(&calls)
+                        }
+                        pallet_utility::Call::batch_all { calls } => {
+                            Self::allowed_batch(&calls)
+                        }
+                        pallet_utility::Call::force_batch { calls } => {
+                            Self::allowed_batch(&calls)
+                        }
+                        _ => false,
+                    },
+                    _ => false,
+                }
+            }
+        }
+
+        impl frame_support::traits::Contains<RuntimeCall> for SubsidyFilter {
+            fn contains(call: &RuntimeCall) -> bool {
+                Self::allowed(call, false)
+            }
+        }
+
         impl pallet_relayer::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type WeightInfo = polymesh_weights::pallet_relayer::SubstrateWeight;
+            type SubsidyCallFilter = SubsidyFilter;
         }
 
         impl pallet_asset::Config for Runtime {
