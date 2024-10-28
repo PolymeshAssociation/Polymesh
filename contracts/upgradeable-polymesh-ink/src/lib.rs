@@ -8,14 +8,14 @@ use alloc::collections::BTreeSet;
 #[cfg(not(feature = "as-library"))]
 use alloc::vec;
 
-pub use polymesh_api::ink::basic_types::IdentityId;
+pub use polymesh_api::ink::basic_types::{AssetId, IdentityId};
 pub use polymesh_api::ink::extension::PolymeshEnvironment;
 pub use polymesh_api::ink::Error as PolymeshInkError;
 pub use polymesh_api::polymesh::types::pallet_corporate_actions;
 pub use polymesh_api::polymesh::types::pallet_corporate_actions::CAId;
 pub use polymesh_api::polymesh::types::polymesh_contracts::Api as ContractRuntimeApi;
 pub use polymesh_api::polymesh::types::polymesh_primitives::asset::{
-    AssetId, AssetName, AssetType, CheckpointId,
+    AssetName, AssetType, CheckpointId,
 };
 pub use polymesh_api::polymesh::types::polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataValue,
@@ -626,7 +626,8 @@ upgradable_api! {
 
             /// Returns the next [`AssetId`] for the given `account_id`.
             pub fn get_asset_id(account_id: AccountId) -> PolymeshResult<AssetId> {
-                Self::get_next_asset_id(account_id)
+                let api = Api::new();
+                Ok(api.runtime().get_next_asset_id(account_id)?)
             }
         }
     }
