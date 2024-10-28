@@ -8,6 +8,8 @@ use alloc::collections::BTreeSet;
 #[cfg(not(feature = "as-library"))]
 use alloc::vec;
 
+use alloc::vec::Vec;
+
 pub use polymesh_api::ink::basic_types::{AssetId, IdentityId};
 pub use polymesh_api::ink::extension::PolymeshEnvironment;
 pub use polymesh_api::ink::Error as PolymeshInkError;
