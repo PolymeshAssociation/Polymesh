@@ -52,6 +52,10 @@ fn call_utility_batch(calls: Vec<RuntimeCall>) -> RuntimeCall {
     RuntimeCall::Utility(pallet_utility::Call::batch { calls })
 }
 
+fn call_utility_batch_all(calls: Vec<RuntimeCall>) -> RuntimeCall {
+    RuntimeCall::Utility(pallet_utility::Call::batch_all { calls })
+}
+
 fn call_asset_register_ticker(name: &[u8]) -> RuntimeCall {
     let ticker = Ticker::from_slice_truncated(name);
     RuntimeCall::Asset(pallet_asset::Call::register_unique_ticker { ticker })
@@ -94,6 +98,27 @@ fn assert_subsidy(user: User, subsidy: Option<(User, Balance)>) {
         get_subsidy(user).map(|s| (s.paying_key, s.remaining)),
         subsidy.map(|s| (s.0.acc(), s.1))
     );
+}
+
+fn assert_invalid_subsidy_call(caller: &AccountId, call: &RuntimeCall) {
+    let len = 10;
+    let expected_err = TransactionValidityError::Invalid(InvalidTransaction::Custom(
+        TransactionError::PalletNotSubsidised as u8,
+    ));
+
+    // test `validate`
+    let pre_err = ChargeTransactionPayment::from(0)
+        .validate(caller, call, &info_from_weight(5), len)
+        .map(|_| ())
+        .unwrap_err();
+    assert_eq!(pre_err, expected_err);
+
+    // test `pre_dispatch`
+    let pre_err = ChargeTransactionPayment::from(0)
+        .pre_dispatch(caller, call, &info_from_weight(5), len)
+        .map(|_| ())
+        .unwrap_err();
+    assert_eq!(pre_err, expected_err);
 }
 
 /// Setup a subsidy with the `payer` paying for the `user`.
@@ -555,25 +580,10 @@ fn do_relayer_batched_subsidy_calls_test() {
     };
 
     let len = 10;
-    let expected_err = TransactionValidityError::Invalid(InvalidTransaction::Custom(
-        TransactionError::PalletNotSubsidised as u8,
-    ));
 
     // Pallet System is not subsidised.
     let call = call_utility_batch(vec![call_system_remark(42)]);
-    // test `validate`
-    let pre_err = ChargeTransactionPayment::from(0)
-        .validate(&bob.acc(), &call, &info_from_weight(5), len)
-        .map(|_| ())
-        .unwrap_err();
-    assert_eq!(pre_err, expected_err);
-
-    // test `pre_dispatch`
-    let pre_err = ChargeTransactionPayment::from(0)
-        .pre_dispatch(&bob.acc(), &call, &info_from_weight(5), len)
-        .map(|_| ())
-        .unwrap_err();
-    assert_eq!(pre_err, expected_err);
+    assert_invalid_subsidy_call(&bob.acc(), &call);
 
     // No charge to subsidiser balance or subsidy remaining POLYX.
     assert_eq!(diff_balance(), (0, 0));
@@ -588,19 +598,16 @@ fn do_relayer_batched_subsidy_calls_test() {
         // Too many calls.
         call_asset_register_ticker(b"F"),
     ]);
-    // test `validate`
-    let pre_err = ChargeTransactionPayment::from(0)
-        .validate(&bob.acc(), &call, &info_from_weight(5), len)
-        .map(|_| ())
-        .unwrap_err();
-    assert_eq!(pre_err, expected_err);
+    assert_invalid_subsidy_call(&bob.acc(), &call);
 
-    // test `pre_dispatch`
-    let pre_err = ChargeTransactionPayment::from(0)
-        .pre_dispatch(&bob.acc(), &call, &info_from_weight(5), len)
-        .map(|_| ())
-        .unwrap_err();
-    assert_eq!(pre_err, expected_err);
+    // No charge to subsidiser balance or subsidy remaining POLYX.
+    assert_eq!(diff_balance(), (0, 0));
+
+    // Nested batches are not allowed.
+    let call = call_utility_batch(vec![call_utility_batch(vec![call_asset_register_ticker(
+        b"A",
+    )])]);
+    assert_invalid_subsidy_call(&bob.acc(), &call);
 
     // No charge to subsidiser balance or subsidy remaining POLYX.
     assert_eq!(diff_balance(), (0, 0));
@@ -608,7 +615,7 @@ fn do_relayer_batched_subsidy_calls_test() {
     //
     // Bob registers a some tickers with the transaction and protocol fees paid by subsidiser.
     //
-    let call = call_utility_batch(vec![
+    let call = call_utility_batch_all(vec![
         call_asset_register_ticker(b"A"),
         call_asset_register_ticker(b"B"),
         call_asset_register_ticker(b"C"),
