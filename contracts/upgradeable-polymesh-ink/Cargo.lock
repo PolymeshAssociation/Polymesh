@@ -2860,8 +2860,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api"
-version = "3.8.1"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=new-chain-extension#e8ef355af8913afd99fa30e95fd4d3da66f55beb"
+version = "3.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2af6fb58c1f9734edeb3adf9e17e6b6e07a3cdb5fa1bb922aaaf22cfd3bb3bba"
 dependencies = [
  "ink",
  "log",
@@ -2875,8 +2876,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-client"
-version = "3.7.1"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=new-chain-extension#e8ef355af8913afd99fa30e95fd4d3da66f55beb"
+version = "3.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11d5af8138ea299d6d24c06d41a6506717a4a44b29ddf005059245a1fa3ef5c3"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -2907,8 +2909,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-codegen"
-version = "3.5.2"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=new-chain-extension#e8ef355af8913afd99fa30e95fd4d3da66f55beb"
+version = "3.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b734215680e3a1cebed8d3852d1899a96842865c9e076904cf1b832b0f1fe370"
 dependencies = [
  "frame-metadata 15.1.0",
  "heck",
@@ -2926,8 +2929,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-codegen-macro"
-version = "3.5.2"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=new-chain-extension#e8ef355af8913afd99fa30e95fd4d3da66f55beb"
+version = "3.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e9c138a371c4e48a695cec75febba8070a613d94c45031e2281715e904faf53"
 dependencies = [
  "darling 0.14.4",
  "parity-scale-codec",
@@ -2940,8 +2944,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-ink"
-version = "1.3.1"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=new-chain-extension#e8ef355af8913afd99fa30e95fd4d3da66f55beb"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fef72aba71c295abec42ec3f1b645be12ae2295316c4f8098584dc48d6c5a814"
 dependencies = [
  "hex",
  "ink",
