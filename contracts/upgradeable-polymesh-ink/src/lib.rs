@@ -387,7 +387,7 @@ upgradable_api! {
             ) -> PolymeshResult<()> {
                 let api = Api::new();
 
-                let asset_id = Self::get_asset_id()?;
+                let asset_id = Self::get_asset_id(ink::env::account_id::<PolymeshEnvironment>())?;
 
                 api.call()
                     .asset()
@@ -624,8 +624,9 @@ upgradable_api! {
                     .ok_or(PolymeshError::MissingIdentity)
             }
 
-            pub fn get_asset_id() -> PolymeshResult<AssetId> {
-                unimplemented!()
+            /// Returns the next [`AssetId`] for the given `account_id`.
+            pub fn get_asset_id(account_id: AccountId) -> PolymeshResult<AssetId> {
+                Self::get_next_asset_id(account_id)
             }
         }
     }
