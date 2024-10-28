@@ -306,6 +306,20 @@ macro_rules! misc_pallet_impls {
         pub struct SubsidyFilter;
 
         impl SubsidyFilter {
+            fn allowed_batch(calls: &[RuntimeCall]) -> bool {
+                // Limit batch size to 5.
+                if calls.len() > 5 {
+                    return false;
+                }
+                for call in calls {
+                    // Check if the call is allowed inside a batch.
+                    if !Self::allowed(call, true) {
+                        return false;
+                    }
+                }
+                true
+            }
+
             fn allowed(call: &RuntimeCall, nested: bool) -> bool {
                 match call {
                     RuntimeCall::Asset(_) => true,
@@ -321,13 +335,14 @@ macro_rules! misc_pallet_impls {
                     // Allow non-nested batch calls.
                     RuntimeCall::Utility(call) if nested == false => match call {
                         // Limit batch size to 5.
-                        pallet_utility::Call::batch { calls } if calls.len() <= 5 => {
-                            for call in calls {
-                                if !Self::allowed(call, true) {
-                                    return false;
-                                }
-                            }
-                            true
+                        pallet_utility::Call::batch { calls } => {
+                            Self::allowed_batch(&calls)
+                        }
+                        pallet_utility::Call::batch_all { calls } => {
+                            Self::allowed_batch(&calls)
+                        }
+                        pallet_utility::Call::force_batch { calls } => {
+                            Self::allowed_batch(&calls)
                         }
                         _ => false,
                     },
