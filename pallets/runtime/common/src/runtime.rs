@@ -307,8 +307,8 @@ macro_rules! misc_pallet_impls {
 
         impl SubsidyFilter {
             fn allowed_batch(calls: &[RuntimeCall]) -> bool {
-                // Limit batch size to 5.
-                if calls.len() > 5 {
+                // Limit batch size to 7.
+                if calls.len() > 7 {
                     return false;
                 }
                 for call in calls {

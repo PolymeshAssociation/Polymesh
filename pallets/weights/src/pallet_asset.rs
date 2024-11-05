@@ -164,9 +164,10 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[1, 128]`.
     /// The range of component `i` is `[1, 512]`.
     /// The range of component `f` is `[1, 128]`.
-    fn create_asset(_n: u32, i: u32, f: u32) -> Weight {
+    fn create_asset(n: u32, i: u32, f: u32) -> Weight {
         // Minimum execution time: 79_620 nanoseconds.
         Weight::from_ref_time(84_893_228)
+            .saturating_add(Weight::from_ref_time(20_181).saturating_mul(n.into()))
             // Standard Error: 2_282
             .saturating_add(Weight::from_ref_time(66_647).saturating_mul(i.into()))
             // Standard Error: 9_149
