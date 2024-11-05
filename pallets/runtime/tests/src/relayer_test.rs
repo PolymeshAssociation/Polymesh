@@ -595,8 +595,10 @@ fn do_relayer_batched_subsidy_calls_test() {
         call_asset_register_ticker(b"C"),
         call_asset_register_ticker(b"D"),
         call_asset_register_ticker(b"E"),
-        // Too many calls.
         call_asset_register_ticker(b"F"),
+        call_asset_register_ticker(b"G"),
+        // Too many calls.
+        call_asset_register_ticker(b"H"),
     ]);
     assert_invalid_subsidy_call(&bob.acc(), &call);
 
