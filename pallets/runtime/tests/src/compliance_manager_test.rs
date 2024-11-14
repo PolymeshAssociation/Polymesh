@@ -6,7 +6,7 @@ use sp_std::prelude::*;
 use pallet_compliance_manager::Error as CMError;
 use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
 use polymesh_primitives::agent::AgentGroup;
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::compliance_manager::{
     ComplianceReport, ComplianceRequirement, ComplianceRequirementResult,
 };
@@ -70,7 +70,7 @@ macro_rules! assert_add_claim {
     };
 }
 
-fn get_latest_requirement_id(asset_id: AssetID) -> u32 {
+fn get_latest_requirement_id(asset_id: AssetId) -> u32 {
     ComplianceManager::asset_compliance(asset_id)
         .requirements
         .last()

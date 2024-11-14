@@ -5,7 +5,8 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use polymesh_api::{
-    ink::{basic_types::IdentityId, extension::PolymeshEnvironment, Error as PolymeshInkError},
+    ink::{basic_types::{AssetId, IdentityId},
+    extension::PolymeshEnvironment, Error as PolymeshInkError},
     polymesh::types::{
         polymesh_contracts::Api as ContractRuntimeApi,
         polymesh_primitives::{
@@ -71,6 +72,14 @@ mod runtime_tester {
         }
 
         #[ink(message)]
+        pub fn get_next_asset_id(&self, account: AccountId) -> Result<AssetId> {
+            let api = Api::new();
+            api.runtime()
+                .get_next_asset_id(account)
+                .map_err(|err| Error::PolymeshRuntime(err))
+        }
+
+        #[ink(message)]
         pub fn get_spec_version(&self) -> Result<u32> {
             Self::env()
                 .extension()
@@ -95,11 +104,11 @@ mod runtime_tester {
         }
 
         #[ink(message)]
-        pub fn asset_balance_of(&self, ticker: Ticker, did: IdentityId) -> Result<u128> {
+        pub fn asset_balance_of(&self, asset: AssetId, did: IdentityId) -> Result<u128> {
             let api = Api::new();
             api.query()
                 .asset()
-                .balance_of(ticker, did)
+                .balance_of(asset, did)
                 .map_err(|err| Error::PolymeshRuntime(err))
         }
 
@@ -107,21 +116,21 @@ mod runtime_tester {
         pub fn portfolio_asset_balance(
             &self,
             portfolio: PortfolioId,
-            ticker: Ticker,
+            asset: AssetId,
         ) -> Result<u128> {
             let api = Api::new();
             api.query()
                 .portfolio()
-                .portfolio_asset_balances(portfolio, ticker)
+                .portfolio_asset_balances(portfolio, asset)
                 .map_err(|err| Error::PolymeshRuntime(err))
         }
 
         #[ink(message)]
-        pub fn register_ticker(&mut self, ticker: Ticker) -> Result<()> {
+        pub fn register_unique_ticker(&mut self, ticker: Ticker) -> Result<()> {
             let api = Api::new();
             api.call()
                 .asset()
-                .register_ticker(ticker)
+                .register_unique_ticker(ticker)
                 .submit()
                 .map_err(|err| Error::PolymeshRuntime(err))
         }
@@ -149,19 +158,22 @@ mod runtime_tester {
         fn create_asset(
             &mut self,
             name: AssetName,
-            ticker: Ticker,
             asset_type: AssetType,
             supply: u128,
         ) -> Result<()> {
             let api = Api::new();
+            let account = ink::env::account_id::<PolymeshEnvironment>();
+            let asset = api.runtime()
+                .get_next_asset_id(account)
+                .map_err(|err| Error::PolymeshRuntime(err))?;
             api.call()
                 .asset()
-                .create_asset(name, ticker.clone(), true, asset_type, vec![], None)
+                .create_asset(name, true, asset_type, vec![], None)
                 .submit()
                 .map_err(|err| Error::PolymeshRuntime(err))?;
             api.call()
                 .asset()
-                .issue(ticker, supply, PortfolioKind::Default)
+                .issue(asset, supply, PortfolioKind::Default)
                 .submit()
                 .map_err(|err| Error::PolymeshRuntime(err))
         }
@@ -171,11 +183,10 @@ mod runtime_tester {
         pub fn create_asset_and_issue(
             &mut self,
             name: AssetName,
-            ticker: Ticker,
             asset_type: AssetType,
             supply: u128,
         ) -> Result<()> {
-            self.create_asset(name, ticker, asset_type, supply)
+            self.create_asset(name, asset_type, supply)
         }
 
         #[ink(message, payable)]
@@ -183,7 +194,6 @@ mod runtime_tester {
         pub fn payable_create_asset_and_issue(
             &mut self,
             name: AssetName,
-            ticker: Ticker,
             asset_type: AssetType,
             supply: u128,
         ) -> Result<()> {
@@ -191,7 +201,7 @@ mod runtime_tester {
             if transferred < CREATE_ASSET_FEE {
                 return Err(Error::InsufficientTransferValue(CREATE_ASSET_FEE));
             }
-            self.create_asset(name, ticker, asset_type, supply)
+            self.create_asset(name, asset_type, supply)
         }
 
         #[ink(message)]

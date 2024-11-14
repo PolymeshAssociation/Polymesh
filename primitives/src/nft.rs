@@ -7,7 +7,7 @@ use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec::IntoIter;
 use sp_std::vec::Vec;
 
-use crate::asset::AssetID;
+use crate::asset::AssetId;
 use crate::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use crate::impl_checked_inc;
 
@@ -31,12 +31,12 @@ impl_checked_inc!(NFTId);
 #[derive(Clone, Debug, Decode, Default, Encode, PartialEq, TypeInfo)]
 pub struct NFTCollection {
     id: NFTCollectionId,
-    asset_id: AssetID,
+    asset_id: AssetId,
 }
 
 impl NFTCollection {
     /// Creates a new `NFTCollection`.
-    pub fn new(id: NFTCollectionId, asset_id: AssetID) -> Self {
+    pub fn new(id: NFTCollectionId, asset_id: AssetId) -> Self {
         Self { id, asset_id }
     }
 
@@ -45,28 +45,28 @@ impl NFTCollection {
         &self.id
     }
 
-    /// Returns a reference to the [`AssetID`] associated with the collection.
-    pub fn asset_id(&self) -> &AssetID {
+    /// Returns a reference to the [`AssetId`] associated with the collection.
+    pub fn asset_id(&self) -> &AssetId {
         &self.asset_id
     }
 }
 
-/// Represent all NFT being transferred for a given [`AssetID`].
+/// Represent all NFT being transferred for a given [`AssetId`].
 #[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct NFTs {
-    asset_id: AssetID,
+    asset_id: AssetId,
     ids: Vec<NFTId>,
 }
 
 impl NFTs {
     /// Creates an `NFTs` instance without checking for duplicate ids.
-    pub fn new_unverified(asset_id: AssetID, ids: Vec<NFTId>) -> Self {
+    pub fn new_unverified(asset_id: AssetId, ids: Vec<NFTId>) -> Self {
         NFTs { asset_id, ids }
     }
 
     /// Creates an `NFTs` instance.
-    pub fn new(asset_id: AssetID, ids: Vec<NFTId>) -> Result<Self, &'static str> {
+    pub fn new(asset_id: AssetId, ids: Vec<NFTId>) -> Result<Self, &'static str> {
         let unique_ids: BTreeSet<&NFTId> = ids.iter().collect();
         if unique_ids.len() != ids.len() {
             return Err("No duplicate NFTIds are allowed");
@@ -74,8 +74,8 @@ impl NFTs {
         Ok(NFTs { asset_id, ids })
     }
 
-    /// Returns a reference to the [`AssetID`] of the `NFTs`.
-    pub fn asset_id(&self) -> &AssetID {
+    /// Returns a reference to the [`AssetId`] of the `NFTs`.
+    pub fn asset_id(&self) -> &AssetId {
         &self.asset_id
     }
 

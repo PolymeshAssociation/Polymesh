@@ -1,6 +1,6 @@
 use frame_support::assert_ok;
 
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::settlement::{VenueDetails, VenueId, VenueType};
 
 use crate::asset_pallet::setup::create_and_issue_sample_asset;
@@ -12,7 +12,7 @@ type Nft = pallet_nft::Module<TestStorage>;
 type Settlement = pallet_settlement::Module<TestStorage>;
 
 /// Calls [`create_and_issue_sample_asset`] and creates a venue for `asset_owner`.
-pub fn create_and_issue_sample_asset_with_venue(asset_owner: &User) -> (AssetID, Option<VenueId>) {
+pub fn create_and_issue_sample_asset_with_venue(asset_owner: &User) -> (AssetId, Option<VenueId>) {
     let asset_id = create_and_issue_sample_asset(&asset_owner);
 
     let venue_id = Settlement::venue_counter();

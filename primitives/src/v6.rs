@@ -1,6 +1,6 @@
 #![allow(missing_docs)]
 
-use crate::asset::AssetID;
+use crate::asset::AssetId;
 use crate::ticker::Ticker;
 use crate::{PortfolioPermissions, SubsetRestriction};
 #[cfg(not(feature = "std"))]
@@ -57,7 +57,7 @@ pub struct PalletPermissions {
 
 pub type AssetPermissions = SubsetRestriction<Ticker>;
 
-impl From<SubsetRestriction<Ticker>> for SubsetRestriction<AssetID> {
+impl From<SubsetRestriction<Ticker>> for SubsetRestriction<AssetId> {
     fn from(old: SubsetRestriction<Ticker>) -> Self {
         match old {
             SubsetRestriction::Whole => SubsetRestriction::Whole,

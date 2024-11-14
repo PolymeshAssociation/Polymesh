@@ -82,7 +82,7 @@ fn make_transfer_conditions(stats: &BTreeSet<StatType>, count: u32) -> BTreeSet<
         .collect()
 }
 
-fn init_asset<T: Asset + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, AssetID) {
+fn init_asset<T: Asset + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, AssetId) {
     let owner = UserBuilder::<T>::default().generate_did().build("OWNER");
     let asset_id = create_and_issue_sample_asset::<T>(&owner, true, None, b"MyAsset", true);
     (owner, asset_id)
@@ -93,7 +93,7 @@ fn init_transfer_conditions<T: Config + Asset + TestUtilsFn<AccountIdOf<T>>>(
     count_conditions: u32,
 ) -> (
     User<T>,
-    AssetID,
+    AssetId,
     BTreeSet<StatType>,
     BTreeSet<TransferCondition>,
 ) {
@@ -119,7 +119,7 @@ fn init_exempts<T: Config + Asset + TestUtilsFn<AccountIdOf<T>>>(
 /// Exempts `exempt_user_id` to follow a transfer condition of claim type `Accredited` for `ticker`.
 pub fn set_transfer_exception<T: Config>(
     origin: T::RuntimeOrigin,
-    asset_id: AssetID,
+    asset_id: AssetId,
     exempt_user_id: IdentityId,
 ) {
     let transfer_exception = TransferConditionExemptKey {
@@ -152,7 +152,7 @@ pub fn add_identity_claim<T: Config>(id: IdentityId, claim: Claim, issuer_id: Id
 pub fn setup_transfer_restrictions<T: Config>(
     origin: T::RuntimeOrigin,
     sender_id: IdentityId,
-    asset_id: AssetID,
+    asset_id: AssetId,
     n: u32,
     pause_restrictions: bool,
 ) {
@@ -461,7 +461,7 @@ benchmarks! {
 
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let asset_id = AssetID::new([i as u8; 16]);
+        let asset_id = AssetId::new([i as u8; 16]);
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         let transfer_conditions: BTreeSet<TransferCondition> = (0..i)
@@ -488,7 +488,7 @@ benchmarks! {
         let a in 1..T::MaxStatsPerAsset::get();
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let asset_id = AssetID::new([a as u8; 16]);
+        let asset_id = AssetId::new([a as u8; 16]);
 
         let statistics: BTreeSet<StatType> = (0..a)
             .map(|a| StatType {
@@ -505,7 +505,7 @@ benchmarks! {
     is_exempt {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let asset_id = AssetID::new([0 as u8; 16]);
+        let asset_id = AssetId::new([0 as u8; 16]);
         let statistic_claim = StatClaim::Jurisdiction(Some(CountryCode::BR));
         let transfer_condition = TransferCondition::ClaimOwnership(statistic_claim, alice.did(), Permill::zero(), Permill::zero());
         TransferConditionExemptEntities::insert(transfer_condition.get_exempt_key(asset_id.clone()), bob.did(), true);

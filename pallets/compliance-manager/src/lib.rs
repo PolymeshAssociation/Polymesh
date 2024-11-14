@@ -89,7 +89,7 @@ use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 pub use polymesh_common_utilities::traits::compliance_manager::{
     ComplianceFnConfig, Config, Event, WeightInfo,
 };
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::compliance_manager::{
     AssetCompliance, AssetComplianceResult, ComplianceReport, ComplianceRequirement,
     ConditionReport, ConditionResult, RequirementReport,
@@ -106,10 +106,10 @@ storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Config> as ComplianceManager {
-        /// Compliance for an asset ([`AssetID`] -> [`AssetCompliance`])
-        pub AssetCompliances get(fn asset_compliance): map hasher(blake2_128_concat) AssetID => AssetCompliance;
-        /// List of trusted claim issuer [`AssetID`] -> Issuer Identity
-        pub TrustedClaimIssuer get(fn trusted_claim_issuer): map hasher(blake2_128_concat) AssetID => Vec<TrustedIssuer>;
+        /// Compliance for an asset ([`AssetId`] -> [`AssetCompliance`])
+        pub AssetCompliances get(fn asset_compliance): map hasher(blake2_128_concat) AssetId => AssetCompliance;
+        /// List of trusted claim issuer [`AssetId`] -> Issuer Identity
+        pub TrustedClaimIssuer get(fn trusted_claim_issuer): map hasher(blake2_128_concat) AssetId => Vec<TrustedIssuer>;
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
     }
@@ -164,7 +164,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::add_compliance_requirement_full(&sender_conditions, &receiver_conditions)]
         pub fn add_compliance_requirement(
             origin,
-            asset_id: AssetID,
+            asset_id: AssetId,
             sender_conditions: Vec<Condition>,
             receiver_conditions: Vec<Condition>
         ) -> DispatchResult {
@@ -182,7 +182,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::remove_compliance_requirement()]
-        pub fn remove_compliance_requirement(origin, asset_id: AssetID, id: u32) {
+        pub fn remove_compliance_requirement(origin, asset_id: AssetId, id: u32) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
 
             AssetCompliances::try_mutate(asset_id, |AssetCompliance { requirements, .. }| {
@@ -211,7 +211,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::replace_asset_compliance_full(&asset_compliance)]
-        pub fn replace_asset_compliance(origin, asset_id: AssetID, asset_compliance: Vec<ComplianceRequirement>) {
+        pub fn replace_asset_compliance(origin, asset_id: AssetId, asset_compliance: Vec<ComplianceRequirement>) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
 
             // Ensure `Scope::Custom(..)`s are limited.
@@ -244,7 +244,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::reset_asset_compliance()]
-        pub fn reset_asset_compliance(origin, asset_id: AssetID) {
+        pub fn reset_asset_compliance(origin, asset_id: AssetId) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
             AssetCompliances::remove(asset_id);
             Self::deposit_event(Event::AssetComplianceReset(did, asset_id));
@@ -259,7 +259,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::pause_asset_compliance()]
-        pub fn pause_asset_compliance(origin, asset_id: AssetID) {
+        pub fn pause_asset_compliance(origin, asset_id: AssetId) {
             let did = Self::pause_resume_asset_compliance(origin, asset_id, true)?;
             Self::deposit_event(Event::AssetCompliancePaused(did, asset_id));
         }
@@ -273,7 +273,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::resume_asset_compliance()]
-        pub fn resume_asset_compliance(origin, asset_id: AssetID) {
+        pub fn resume_asset_compliance(origin, asset_id: AssetId) {
             let did = Self::pause_resume_asset_compliance(origin, asset_id, false)?;
             Self::deposit_event(Event::AssetComplianceResumed(did, asset_id));
         }
@@ -288,7 +288,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::add_default_trusted_claim_issuer()]
-        pub fn add_default_trusted_claim_issuer(origin, asset_id: AssetID, issuer: TrustedIssuer) -> DispatchResult {
+        pub fn add_default_trusted_claim_issuer(origin, asset_id: AssetId, issuer: TrustedIssuer) -> DispatchResult {
             let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
             Self::base_add_default_trusted_claim_issuer(caller_did, asset_id, issuer)
         }
@@ -303,7 +303,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::remove_default_trusted_claim_issuer()]
-        pub fn remove_default_trusted_claim_issuer(origin, asset_id: AssetID, issuer: IdentityId) {
+        pub fn remove_default_trusted_claim_issuer(origin, asset_id: AssetId, issuer: IdentityId) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
             TrustedClaimIssuer::try_mutate(asset_id, |issuers| {
                 let len = issuers.len();
@@ -324,7 +324,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::change_compliance_requirement_full(&new_req)]
-        pub fn change_compliance_requirement(origin, asset_id: AssetID, new_req: ComplianceRequirement) {
+        pub fn change_compliance_requirement(origin, asset_id: AssetId, new_req: ComplianceRequirement) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
 
             // Ensure `Scope::Custom(..)`s are limited.
@@ -356,7 +356,7 @@ impl<T: Config> Module<T> {
     /// Adds a compliance requirement to the given `asset_id`.
     fn base_add_compliance_requirement(
         caller_did: IdentityId,
-        asset_id: AssetID,
+        asset_id: AssetId,
         sender_conditions: Vec<Condition>,
         receiver_conditions: Vec<Condition>,
     ) -> DispatchResult {
@@ -394,7 +394,7 @@ impl<T: Config> Module<T> {
     /// Adds a `issuer` as a default trusted claim issuer for `asset_id`.
     fn base_add_default_trusted_claim_issuer(
         caller_did: IdentityId,
-        asset_id: AssetID,
+        asset_id: AssetId,
         issuer: TrustedIssuer,
     ) -> DispatchResult {
         ensure!(
@@ -456,7 +456,7 @@ impl<T: Config> Module<T> {
     /// or otherwise returns the default trusted issuers for `asset_id`.
     /// Defaults are cached in `slot`.
     fn issuers_for<'a>(
-        asset_id: &AssetID,
+        asset_id: &AssetId,
         condition: &'a Condition,
         slot: &'a mut Option<Vec<TrustedIssuer>>,
     ) -> &'a [TrustedIssuer] {
@@ -471,7 +471,7 @@ impl<T: Config> Module<T> {
     /// Default trusted issuers, if fetched, are cached in `slot`.
     fn fetch_context<'a>(
         id: IdentityId,
-        asset_id: &AssetID,
+        asset_id: &AssetId,
         slot: &'a mut Option<Vec<TrustedIssuer>>,
         condition: &'a Condition,
         weight_meter: &mut WeightMeter,
@@ -532,7 +532,7 @@ impl<T: Config> Module<T> {
 
     /// Loads the context for each condition in `conditions` and verifies that all of them evaluate to `true`.
     fn are_all_conditions_satisfied(
-        asset_id: &AssetID,
+        asset_id: &AssetId,
         did: IdentityId,
         conditions: &[Condition],
         weight_meter: &mut WeightMeter,
@@ -548,7 +548,7 @@ impl<T: Config> Module<T> {
 
     /// Checks whether the given condition is satisfied or not.
     fn is_condition_satisfied(
-        asset_id: &AssetID,
+        asset_id: &AssetId,
         did: IdentityId,
         condition: &Condition,
         slot: &mut Option<Vec<TrustedIssuer>>,
@@ -563,7 +563,7 @@ impl<T: Config> Module<T> {
     /// As a side-effect, each condition will be updated with its result,
     /// implying strict (non-lazy) evaluation of the conditions.
     fn evaluate_conditions(
-        asset_id: &AssetID,
+        asset_id: &AssetId,
         did: IdentityId,
         conditions: &mut [ConditionResult],
         weight_meter: &mut WeightMeter,
@@ -586,7 +586,7 @@ impl<T: Config> Module<T> {
     /// Pauses or resumes the asset compliance.
     fn pause_resume_asset_compliance(
         origin: T::RuntimeOrigin,
-        asset_id: AssetID,
+        asset_id: AssetId,
         pause: bool,
     ) -> Result<IdentityId, DispatchError> {
         let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
@@ -595,7 +595,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Compute the id of the last requirement in an asset's compliance rules.
-    fn get_latest_requirement_id(asset_id: AssetID) -> u32 {
+    fn get_latest_requirement_id(asset_id: AssetId) -> u32 {
         Self::asset_compliance(asset_id)
             .requirements
             .last()
@@ -607,7 +607,7 @@ impl<T: Config> Module<T> {
     /// is within the maximum condition complexity allowed.
     pub fn verify_compliance_complexity(
         asset_compliance: &[ComplianceRequirement],
-        asset_id: AssetID,
+        asset_id: AssetId,
         add: usize,
     ) -> DispatchResult {
         let count = TrustedClaimIssuer::decode_len(asset_id)
@@ -680,7 +680,7 @@ impl<T: Config> Module<T> {
 
     // Returns `true` if any requirement is satisfied, otherwise returns `false`.
     fn is_any_requirement_compliant(
-        asset_id: &AssetID,
+        asset_id: &AssetId,
         requirements: &[ComplianceRequirement],
         sender_did: IdentityId,
         receiver_did: IdentityId,
@@ -709,7 +709,7 @@ impl<T: Config> Module<T> {
 
 impl<T: Config> ComplianceFnConfig for Module<T> {
     fn is_compliant(
-        asset_id: &AssetID,
+        asset_id: &AssetId,
         sender_did: IdentityId,
         receiver_did: IdentityId,
         weight_meter: &mut WeightMeter,
@@ -734,7 +734,7 @@ impl<T: Config> ComplianceFnConfig for Module<T> {
     /// this does not care if the requirements are paused or not. It is meant to be
     /// called only in failure conditions
     fn verify_restriction_granular(
-        asset_id: &AssetID,
+        asset_id: &AssetId,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
         weight_meter: &mut WeightMeter,
@@ -764,7 +764,7 @@ impl<T: Config> ComplianceFnConfig for Module<T> {
     #[cfg(feature = "runtime-benchmarks")]
     fn setup_asset_compliance(
         caller_did: IdentityId,
-        asset_id: AssetID,
+        asset_id: AssetId,
         n: u32,
         pause_compliance: bool,
     ) {
@@ -779,7 +779,7 @@ impl<T: Config> ComplianceFnConfig for Module<T> {
 impl<T: Config> Module<T> {
     /// Returns a [`ComplianceReport`] for the given `asset_id`.
     pub fn compliance_report(
-        asset_id: &AssetID,
+        asset_id: &AssetId,
         sender_identity: &IdentityId,
         receiver_identity: &IdentityId,
         weight_meter: &mut WeightMeter,
@@ -834,7 +834,7 @@ impl<T: Config> Module<T> {
 
     /// Returns all [`ConditionReport`] for the given `conditions`.
     fn get_conditions_report(
-        asset_id: &AssetID,
+        asset_id: &AssetId,
         identity: IdentityId,
         conditions: Vec<Condition>,
         requirement_satisfied: &mut bool,

@@ -28,7 +28,7 @@ use sp_std::{collections::btree_set::BTreeSet, vec, vec::Vec};
 
 use polymesh_common_utilities::asset::AssetFnTrait;
 pub use polymesh_common_utilities::traits::statistics::{Config, Event, WeightInfo};
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::statistics::{
     Percentage, Stat1stKey, Stat2ndKey, StatOpType, StatType, StatUpdate,
 };
@@ -46,17 +46,17 @@ storage_migration_ver!(3);
 
 decl_storage! {
     trait Store for Module<T: Config> as Statistics {
-        /// Maps a set of [`StatType`] for each [`AssetID`].
+        /// Maps a set of [`StatType`] for each [`AssetId`].
         pub ActiveAssetStats get(fn active_asset_stats):
-            map hasher(blake2_128_concat) AssetID => BoundedBTreeSet<StatType, T::MaxStatsPerAsset>;
+            map hasher(blake2_128_concat) AssetId => BoundedBTreeSet<StatType, T::MaxStatsPerAsset>;
 
         /// Asset stats.
         pub AssetStats get(fn asset_stats):
           double_map hasher(blake2_128_concat) Stat1stKey, hasher(blake2_128_concat) Stat2ndKey => u128;
 
-        /// The [`AssetTransferCompliance`] for each [`AssetID`].
+        /// The [`AssetTransferCompliance`] for each [`AssetId`].
         pub AssetTransferCompliances get(fn asset_transfer_compliance):
-            map hasher(blake2_128_concat) AssetID => AssetTransferCompliance<T::MaxTransferConditionsPerAsset>;
+            map hasher(blake2_128_concat) AssetId => AssetTransferCompliance<T::MaxTransferConditionsPerAsset>;
 
         /// Entities exempt from a Transfer Compliance rule.
         pub TransferConditionExemptEntities get(fn transfer_condition_exempt_entities):
@@ -88,7 +88,7 @@ decl_module! {
         ///
         /// # Arguments
         /// - `origin` - a signer that has permissions to act as an agent of `asset_id`.
-        /// - `asset_id` - the [`AssetID`] to change the active stats on.
+        /// - `asset_id` - the [`AssetId`] to change the active stats on.
         /// - `stat_types` - the new stat types to replace any existing types.
         ///
         /// # Errors
@@ -100,7 +100,7 @@ decl_module! {
         /// - Agent
         /// - Asset
         #[weight = <T as Config>::WeightInfo::set_active_asset_stats(stat_types.len() as u32)]
-        pub fn set_active_asset_stats(origin, asset_id: AssetID, stat_types: BTreeSet<StatType>) {
+        pub fn set_active_asset_stats(origin, asset_id: AssetId, stat_types: BTreeSet<StatType>) {
             Self::base_set_active_asset_stats(origin, asset_id, stat_types)?;
         }
 
@@ -108,7 +108,7 @@ decl_module! {
         ///
         /// # Arguments
         /// - `origin` - a signer that has permissions to act as an agent of `asset_id`.
-        /// - `asset_id` - the [`AssetID`] to change the active stats on.
+        /// - `asset_id` - the [`AssetId`] to change the active stats on.
         /// - `stat_type` - stat type to update.
         /// - `values` - Updated values for `stat_type`.
         ///
@@ -120,7 +120,7 @@ decl_module! {
         /// - Agent
         /// - Asset
         #[weight = <T as Config>::WeightInfo::batch_update_asset_stats(values.len() as u32)]
-        pub fn batch_update_asset_stats(origin, asset_id: AssetID, stat_type: StatType, values: BTreeSet<StatUpdate>) {
+        pub fn batch_update_asset_stats(origin, asset_id: AssetId, stat_type: StatType, values: BTreeSet<StatUpdate>) {
             Self::base_batch_update_asset_stats(origin, asset_id, stat_type, values)?;
         }
 
@@ -128,7 +128,7 @@ decl_module! {
         ///
         /// # Arguments
         /// - `origin` - a signer that has permissions to act as an agent of `asset_id`.
-        /// - `asset_id` - the [`AssetID`] to change the active stats on.
+        /// - `asset_id` - the [`AssetId`] to change the active stats on.
         /// - `transfer_conditions` - the new transfer condition to replace any existing conditions.
         ///
         /// # Errors
@@ -140,7 +140,7 @@ decl_module! {
         /// - Agent
         /// - Asset
         #[weight = <T as Config>::WeightInfo::set_asset_transfer_compliance(transfer_conditions.len() as u32)]
-        pub fn set_asset_transfer_compliance(origin, asset_id: AssetID, transfer_conditions: BTreeSet<TransferCondition>) {
+        pub fn set_asset_transfer_compliance(origin, asset_id: AssetId, transfer_conditions: BTreeSet<TransferCondition>) {
             Self::base_set_asset_transfer_compliance(origin, asset_id, transfer_conditions)?;
         }
 
@@ -168,18 +168,18 @@ decl_module! {
 impl<T: Config> Module<T> {
     fn ensure_asset_perms(
         origin: T::RuntimeOrigin,
-        asset_id: AssetID,
+        asset_id: AssetId,
     ) -> Result<IdentityId, DispatchError> {
         <ExternalAgents<T>>::ensure_perms(origin, asset_id)
     }
 
-    fn is_asset_stat_active(asset_id: &AssetID, stat_type: &StatType) -> bool {
+    fn is_asset_stat_active(asset_id: &AssetId, stat_type: &StatType) -> bool {
         Self::active_asset_stats(asset_id).contains(stat_type)
     }
 
     fn base_set_active_asset_stats(
         origin: T::RuntimeOrigin,
-        asset_id: AssetID,
+        asset_id: AssetId,
         stat_types: BTreeSet<StatType>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
@@ -240,7 +240,7 @@ impl<T: Config> Module<T> {
 
     fn base_batch_update_asset_stats(
         origin: T::RuntimeOrigin,
-        asset_id: AssetID,
+        asset_id: AssetId,
         stat_type: StatType,
         values: BTreeSet<StatUpdate>,
     ) -> DispatchResult {
@@ -278,7 +278,7 @@ impl<T: Config> Module<T> {
 
     fn base_set_asset_transfer_compliance(
         origin: T::RuntimeOrigin,
-        asset_id: AssetID,
+        asset_id: AssetId,
         transfer_conditions: BTreeSet<TransferCondition>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
@@ -486,7 +486,7 @@ impl<T: Config> Module<T> {
 
     /// Update asset stats.
     pub fn update_asset_stats(
-        asset_id: AssetID,
+        asset_id: AssetId,
         from_did: Option<&IdentityId>,
         to_did: Option<&IdentityId>,
         from_balance: Option<Balance>,
@@ -751,7 +751,7 @@ impl<T: Config> Module<T> {
     /// Check transfer condition.
     fn check_transfer_condition(
         condition: &TransferCondition,
-        asset_id: AssetID,
+        asset_id: AssetId,
         from_did: &IdentityId,
         to_did: &IdentityId,
         to_balance: Balance,
@@ -820,7 +820,7 @@ impl<T: Config> Module<T> {
     /// is in the exemption list or if [`TransferCondition`] operation is of type [`StatOpType::Balance`] and
     /// `receiver_did` is in the exemption list, otherwise returns `false`.
     fn is_exempt(
-        asset_id: AssetID,
+        asset_id: AssetId,
         transfer_condition: &TransferCondition,
         sender_did: &IdentityId,
         receiver_did: &IdentityId,
@@ -841,7 +841,7 @@ impl<T: Config> Module<T> {
 
     /// Verify transfer restrictions for a transfer.
     pub fn verify_transfer_restrictions(
-        asset_id: AssetID,
+        asset_id: AssetId,
         sender_did: &IdentityId,
         receiver_did: &IdentityId,
         sender_balance: Balance,
@@ -873,7 +873,7 @@ impl<T: Config> Module<T> {
     /// Returns `true` if all `requirements` are met, otherwise returns `false`.
     fn verify_requirements<S: Get<u32>>(
         transfer_conditions: &BoundedBTreeSet<TransferCondition, S>,
-        asset_id: AssetID,
+        asset_id: AssetId,
         sender_did: &IdentityId,
         receiver_did: &IdentityId,
         sender_balance: Balance,
@@ -910,7 +910,7 @@ impl<T: Config> Module<T> {
 
     /// Returns a vector containing all [`TransferCondition`] that are not being respected for the transfer. An empty vec means there's no error.
     pub fn transfer_restrictions_report(
-        asset_id: AssetID,
+        asset_id: AssetId,
         sender_did: &IdentityId,
         receiver_did: &IdentityId,
         transfer_amount: Balance,

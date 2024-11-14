@@ -94,7 +94,7 @@ use codec::{Decode, Encode, FullCodec};
 use core::{cmp::Ordering, mem};
 use frame_support::dispatch::DispatchClass::Operational;
 use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo, Weight};
-use frame_support::storage::{IterableStorageMap, StorageValue};
+use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap, StorageValue};
 use frame_support::traits::schedule::{
     DispatchTime, Named as ScheduleNamed, Priority, HARD_DEADLINE,
 };
@@ -926,7 +926,7 @@ decl_module! {
             ensure!(Self::is_active(proposal_state), Error::<T>::IncorrectProposalState);
             Self::maybe_unschedule_pip(id, proposal_state);
             Self::maybe_unsnapshot_pip(id, proposal_state);
-            Self::unsafe_reject_proposal(GC_DID, id);
+            Self::unsafe_reject_proposal(GC_DID, id)?;
         }
 
         /// Prune the PIP given by the `id`, refunding any funds not already refunded.
@@ -943,7 +943,7 @@ decl_module! {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             let proposal_state = Self::proposal_state(id).ok_or(Error::<T>::NoSuchProposal)?;
             ensure!(!Self::is_active(proposal_state), Error::<T>::IncorrectProposalState);
-            Self::prune_data(GC_DID, id, proposal_state, true);
+            Self::prune_data(GC_DID, id, proposal_state, true)?;
         }
 
         /// Updates the execution schedule of the PIP given by `id`.
@@ -1097,7 +1097,7 @@ decl_module! {
 
                 // Reject proposals as instructed & refund.
                 for pip_id in to_reject.iter().copied() {
-                    Self::unsafe_reject_proposal(GC_DID, pip_id);
+                    Self::unsafe_reject_proposal(GC_DID, pip_id)?;
                 }
 
                 // Approve proposals as instructed.
@@ -1127,7 +1127,7 @@ decl_module! {
             ensure_root(origin)?;
             if Self::is_proposal_state(id, ProposalState::Pending).is_ok() {
                 Self::maybe_unsnapshot_pip(id, ProposalState::Pending);
-                Self::maybe_prune(did, id, ProposalState::Expired);
+                Self::maybe_prune(did, id, ProposalState::Expired)?;
             }
         }
     }
@@ -1177,24 +1177,23 @@ impl<T: Config> Module<T> {
     }
 
     /// Rejects the given `id`, refunding the deposit, and possibly pruning the proposal's data.
-    fn unsafe_reject_proposal(did: IdentityId, id: PipId) {
-        Self::maybe_prune(did, id, ProposalState::Rejected);
+    fn unsafe_reject_proposal(did: IdentityId, id: PipId) -> DispatchResult {
+        Self::maybe_prune(did, id, ProposalState::Rejected)?;
+        Ok(())
     }
 
     /// Refunds any tokens used to vote or bond a proposal.
     ///
     /// This operation is idempotent wrt. chain state,
     /// i.e., once run, refunding again will refund nothing.
-    fn refund_proposal(did: IdentityId, id: PipId) {
-        // TODO: use `drain_prefix` instead, to avoid the `remove_prefix` call.
-        let total_refund =
-            <Deposits<T>>::iter_prefix_values(id).fold(0u32.into(), |acc, depo_info| {
-                Self::reduce_lock(&depo_info.owner, depo_info.amount).unwrap();
-                depo_info.amount.saturating_add(acc)
-            });
-        #[allow(deprecated)]
-        <Deposits<T>>::remove_prefix(id, None);
+    fn refund_proposal(did: IdentityId, id: PipId) -> DispatchResult {
+        let mut total_refund = 0;
+        for (_, deposit) in Deposits::<T>::drain_prefix(id) {
+            Self::reduce_lock(&deposit.owner, deposit.amount)?;
+            total_refund = total_refund.saturating_add(deposit.amount);
+        }
         Self::deposit_event(RawEvent::ProposalRefund(did, id, total_refund));
+        Ok(())
     }
 
     /// Unschedule PIP with given `id` if it's scheduled for execution.
@@ -1231,8 +1230,8 @@ impl<T: Config> Module<T> {
     ///
     /// For efficiency, some data (e.g., re. execution schedules) is not removed in this function,
     /// but is removed in functions executing this one.
-    fn prune_data(did: IdentityId, id: PipId, state: ProposalState, prune: bool) {
-        Self::refund_proposal(did, id);
+    fn prune_data(did: IdentityId, id: PipId, state: ProposalState, prune: bool) -> DispatchResult {
+        Self::refund_proposal(did, id)?;
         Self::decrement_count_if_active(state);
         if prune {
             ProposalResult::remove(id);
@@ -1247,13 +1246,15 @@ impl<T: Config> Module<T> {
             <ProposalStates>::remove(id);
         }
         Self::deposit_event(RawEvent::PipClosed(did, id, prune));
+        Ok(())
     }
 
     /// First set the state to `new_state`
     /// and then possibly prune (nearly) all the PIP data, if configuration allows.
-    fn maybe_prune(did: IdentityId, id: PipId, new_state: ProposalState) {
+    fn maybe_prune(did: IdentityId, id: PipId, new_state: ProposalState) -> DispatchResult {
         Self::update_proposal_state(did, id, new_state);
-        Self::prune_data(did, id, new_state, Self::prune_historical_pips());
+        Self::prune_data(did, id, new_state, Self::prune_historical_pips())?;
+        Ok(())
     }
 
     /// Add a PIP execution call to the PIP execution schedule.
@@ -1322,7 +1323,7 @@ impl<T: Config> Module<T> {
         let res = proposal.proposal.dispatch(system::RawOrigin::Root.into());
         let weight = res.unwrap_or_else(|e| e.post_info).actual_weight;
         let new_state = res.map_or(ProposalState::Failed, |_| ProposalState::Executed);
-        Self::maybe_prune(GC_DID, id, new_state);
+        Self::maybe_prune(GC_DID, id, new_state)?;
         Ok(Some(weight.unwrap_or(Weight::zero())).into())
     }
 

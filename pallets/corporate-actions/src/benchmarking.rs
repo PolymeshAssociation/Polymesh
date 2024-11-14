@@ -20,7 +20,7 @@ use frame_system::RawOrigin;
 use pallet_asset::benchmarking::make_document;
 use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, user, AccountIdOf, User};
 use polymesh_common_utilities::TestUtilsFn;
-use polymesh_primitives::asset::{AssetID, AssetName};
+use polymesh_primitives::asset::{AssetId, AssetName};
 use polymesh_primitives::PortfolioKind;
 
 use crate::*;
@@ -38,7 +38,7 @@ const RD_SPEC2: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(3000));
 // NOTE(Centril): A non-owner CAA is the less complex code path.
 // Therefore, in general, we'll be using the owner as the CAA.
 
-fn setup<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, AssetID) {
+fn setup<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, AssetId) {
     <pallet_timestamp::Now<T>>::set(1000u32.into());
 
     let owner = user("owner", SEED);
@@ -72,7 +72,7 @@ pub(crate) fn did_whts<T: Config + TestUtilsFn<AccountIdOf<T>>>(n: u32) -> Vec<(
 }
 
 fn init_did_whts<T: Config + TestUtilsFn<AccountIdOf<T>>>(
-    asset_id: AssetID,
+    asset_id: AssetId,
     n: u32,
 ) -> Vec<(IdentityId, Tax)> {
     let mut whts = did_whts::<T>(n);
@@ -88,7 +88,7 @@ fn details(len: u32) -> CADetails {
         .into()
 }
 
-fn add_docs<T: Config>(origin: &T::RuntimeOrigin, asset_id: AssetID, n: u32) -> Vec<DocumentId> {
+fn add_docs<T: Config>(origin: &T::RuntimeOrigin, asset_id: AssetId, n: u32) -> Vec<DocumentId> {
     let ids = (0..n).map(DocumentId).collect::<Vec<_>>();
     let docs = (0..n).map(|_| make_document()).collect::<Vec<_>>();
     <Asset<T>>::add_documents(origin.clone(), docs, asset_id).unwrap();
@@ -139,7 +139,7 @@ fn attach<T: Config>(owner: &User<T>, ca_id: CAId) {
     <Ballot<T>>::attach_ballot(owner.origin().into(), ca_id, range, meta, true).unwrap();
 }
 
-pub(crate) fn currency<T: Config>(owner: &User<T>) -> AssetID {
+pub(crate) fn currency<T: Config>(owner: &User<T>) -> AssetId {
     let asset_id = Asset::<T>::generate_asset_id(owner.account(), false);
 
     Asset::<T>::create_asset(

@@ -7,7 +7,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
 };
 use pallet_external_agents::Event;
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
     asset::AssetType, jurisdiction::CountryCode, statistics::*, transfer_compliance::*, AccountId,
     Balance, Claim, ClaimType, IdentityId, PortfolioId, PortfolioKind, Scope, WeightMeter,
@@ -119,7 +119,7 @@ struct Batch {
 #[derive(Clone)]
 struct AssetTracker {
     name: String,
-    asset_id: AssetID,
+    asset_id: AssetId,
     total_supply: Balance,
     issuers: HashMap<IdentityId, IssuerState>,
     owner_id: u64,

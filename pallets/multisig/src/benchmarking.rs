@@ -369,4 +369,9 @@ benchmarks! {
         MultiSig::<T>::approve_join_identity(users[0].origin().into(), multisig.clone(), auth_id).unwrap();
         // The second approval call just approves.
     }: approve_join_identity(users[1].origin(), multisig, auth_id)
+
+    remove_admin {
+        let (alice, multisig, _, _, multisig_origin) = generate_multisig_for_alice::<T>(2, 2).unwrap();
+        init_admin(&multisig, &alice);
+    }: _(multisig_origin)
 }

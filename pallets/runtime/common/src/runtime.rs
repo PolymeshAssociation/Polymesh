@@ -303,9 +303,64 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_external_agents::SubstrateWeight;
         }
 
+        pub struct SubsidyFilter;
+
+        impl SubsidyFilter {
+            fn allowed_batch(calls: &[RuntimeCall]) -> bool {
+                // Limit batch size to 7.
+                if calls.len() > 7 {
+                    return false;
+                }
+                for call in calls {
+                    // Check if the call is allowed inside a batch.
+                    if !Self::allowed(call, true) {
+                        return false;
+                    }
+                }
+                true
+            }
+
+            fn allowed(call: &RuntimeCall, nested: bool) -> bool {
+                match call {
+                    RuntimeCall::Asset(_) => true,
+                    RuntimeCall::ComplianceManager(_) => true,
+                    RuntimeCall::CorporateAction(_) => true,
+                    RuntimeCall::ExternalAgents(_) => true,
+                    RuntimeCall::Portfolio(_) => true,
+                    RuntimeCall::Settlement(_) => true,
+                    RuntimeCall::Statistics(_) => true,
+                    RuntimeCall::Sto(_) => true,
+                    RuntimeCall::Balances(_) => true,
+                    RuntimeCall::Identity(_) => true,
+                    // Allow non-nested batch calls.
+                    RuntimeCall::Utility(call) if nested == false => match call {
+                        // Limit batch size to 7.
+                        pallet_utility::Call::batch { calls } => {
+                            Self::allowed_batch(&calls)
+                        }
+                        pallet_utility::Call::batch_all { calls } => {
+                            Self::allowed_batch(&calls)
+                        }
+                        pallet_utility::Call::force_batch { calls } => {
+                            Self::allowed_batch(&calls)
+                        }
+                        _ => false,
+                    },
+                    _ => false,
+                }
+            }
+        }
+
+        impl frame_support::traits::Contains<RuntimeCall> for SubsidyFilter {
+            fn contains(call: &RuntimeCall) -> bool {
+                Self::allowed(call, false)
+            }
+        }
+
         impl pallet_relayer::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type WeightInfo = polymesh_weights::pallet_relayer::SubstrateWeight;
+            type SubsidyCallFilter = SubsidyFilter;
         }
 
         impl pallet_asset::Config for Runtime {
@@ -329,6 +384,7 @@ macro_rules! misc_pallet_impls {
             type RuntimeEvent = RuntimeEvent;
             type MaxInLen = MaxInLen;
             type MaxOutLen = MaxOutLen;
+            type Asset = pallet_asset::Module<Runtime>;
             type WeightInfo = polymesh_weights::polymesh_contracts::SubstrateWeight;
         }
 
@@ -482,6 +538,7 @@ macro_rules! misc_pallet_impls {
             type MaxNumberOfNFTsPerLeg = MaxNumberOfNFTsPerLeg;
             type MaxNumberOfNFTs = MaxNumberOfNFTs;
             type MaxNumberOfOffChainAssets = MaxNumberOfOffChainAssets;
+            type MaxNumberOfPortfolios = MaxNumberOfPortfolios;
             type MaxNumberOfVenueSigners = MaxNumberOfVenueSigners;
             type MaxInstructionMediators = MaxInstructionMediators;
         }
@@ -666,7 +723,7 @@ macro_rules! runtime_apis {
         use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
-        use polymesh_primitives::asset::AssetID;
+        use polymesh_primitives::asset::AssetId;
         use polymesh_primitives::settlement::{InstructionId, ExecuteInstructionInfo, AffirmationCount};
         use polymesh_primitives::transfer_compliance::TransferCondition;
         use polymesh_primitives::compliance_manager::{AssetComplianceResult, ComplianceReport};
@@ -1036,7 +1093,7 @@ macro_rules! runtime_apis {
                 fn transfer_report(
                     sender_portfolio: PortfolioId,
                     receiver_portfolio: PortfolioId,
-                    asset_id: AssetID,
+                    asset_id: AssetId,
                     transfer_value: Balance,
                     skip_locked_check: bool,
                 ) -> Vec<DispatchError> {
@@ -1118,7 +1175,7 @@ macro_rules! runtime_apis {
             impl node_rpc_runtime_api::compliance::ComplianceApi<Block> for Runtime {
                 #[inline]
                 fn compliance_report(
-                    asset_id: &AssetID,
+                    asset_id: &AssetId,
                     sender_identity: &IdentityId,
                     receiver_identity: &IdentityId,
                 ) -> FrameResult<ComplianceReport, DispatchError> {
@@ -1135,7 +1192,7 @@ macro_rules! runtime_apis {
             impl node_rpc_runtime_api::statistics::StatisticsApi<Block> for Runtime {
                 #[inline]
                 fn transfer_restrictions_report(
-                    asset_id: AssetID,
+                    asset_id: AssetId,
                     sender_did: &IdentityId,
                     receiver_did: &IdentityId,
                     transfer_amount: Balance,

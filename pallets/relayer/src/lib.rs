@@ -48,6 +48,7 @@ use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure, fail,
+    traits::{Contains, GetCallMetadata},
 };
 use frame_system::ensure_signed;
 use pallet_identity::PermissionedCallOriginData;
@@ -452,21 +453,6 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn ensure_pallet_is_subsidised(pallet: &[u8]) -> Result<Option<()>, InvalidTransaction> {
-        match pallet {
-            // These pallets are subsidised by the paying key.
-            b"Asset" | b"ComplianceManager" | b"CorporateAction" | b"ExternalAgents"
-            | b"Permissions" | b"Portfolio" | b"Settlement" | b"Statistics" | b"Sto"
-            | b"Balances" | b"Identity" => Ok(Some(())),
-            // The user key needs to pay for `remove_paying_key` call.
-            b"Relayer" => Ok(None),
-            // Reject all other pallets.
-            _ => fail!(InvalidTransaction::Custom(
-                TransactionError::PalletNotSubsidised as u8
-            )),
-        }
-    }
-
     fn get_subsidy(
         user_key: &T::AccountId,
         fee: Balance,
@@ -483,16 +469,48 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> SubsidiserTrait<T::AccountId> for Module<T> {
+impl<T: Config> Module<T>
+where
+    <T as frame_system::Config>::RuntimeCall: GetCallMetadata,
+{
+    fn ensure_subsidy_call(
+        call: &<T as frame_system::Config>::RuntimeCall,
+    ) -> Result<bool, InvalidTransaction> {
+        // Check if the call is allowed to be subsidised.
+        if T::SubsidyCallFilter::contains(call) {
+            Ok(true)
+        } else {
+            let metadata = call.get_call_metadata();
+            if metadata.pallet_name == "Relayer" {
+                // The user key needs to pay for `remove_paying_key` call.
+                Ok(false)
+            } else {
+                Err(InvalidTransaction::Custom(
+                    TransactionError::PalletNotSubsidised as u8,
+                ))
+            }
+        }
+    }
+}
+
+impl<T: Config> SubsidiserTrait<T::AccountId, <T as frame_system::Config>::RuntimeCall>
+    for Module<T>
+where
+    <T as frame_system::Config>::RuntimeCall: GetCallMetadata,
+{
     fn check_subsidy(
         user_key: &T::AccountId,
         fee: Balance,
-        pallet: Option<&[u8]>,
+        call: Option<&<T as frame_system::Config>::RuntimeCall>,
     ) -> Result<Option<T::AccountId>, InvalidTransaction> {
-        match (Self::get_subsidy(user_key, fee)?, pallet) {
-            (Some(s), Some(pallet)) => {
-                // Ensure that the current pallet can be subsidised.
-                Ok(Self::ensure_pallet_is_subsidised(pallet)?.map(|_| s.paying_key))
+        match (Self::get_subsidy(user_key, fee)?, call) {
+            (Some(s), Some(call)) => {
+                // Ensure the call can be subsidised.
+                if !Self::ensure_subsidy_call(call)? {
+                    // The caller must pay for the transaction themselves.
+                    return Ok(None);
+                }
+                Ok(Some(s.paying_key))
             }
             (Some(s), None) => {
                 // No pallet restriction applied (protocol fees).

@@ -81,6 +81,7 @@ pub enum FuncId {
     KeyHasher(KeyHasher, HashSize),
     GetLatestApiUpgrade,
     CallRuntimeWithError,
+    GetNextAssetId,
 }
 
 impl FuncId {
@@ -101,6 +102,7 @@ impl FuncId {
                 0x12 => Some(Self::KeyHasher(KeyHasher::Twox, HashSize::B256)),
                 0x13 => Some(Self::GetLatestApiUpgrade),
                 0x14 => Some(Self::CallRuntimeWithError),
+                0x15 => Some(Self::GetNextAssetId),
                 _ => None,
             },
             _ => None,
@@ -123,6 +125,7 @@ impl Into<u32> for FuncId {
             Self::KeyHasher(KeyHasher::Twox, HashSize::B256) => (0x0000, 0x12),
             Self::GetLatestApiUpgrade => (0x0000, 0x13),
             Self::CallRuntimeWithError => (0x0000, 0x14),
+            Self::GetNextAssetId => (0x0000, 0x15),
         };
         (ext_id << 16) + func_id
     }
@@ -506,6 +509,40 @@ where
     Ok(ce::RetVal::Converging(0))
 }
 
+fn get_next_asset_id<T, E>(env: ce::Environment<E, ce::InitState>) -> ce::Result<ce::RetVal>
+where
+    T: Config,
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+    E: ce::Ext<T = T>,
+{
+    let mut env = env.buf_in_buf_out();
+
+    // Charge weight.
+    env.charge_weight(<T as Config>::WeightInfo::get_next_asset_id())?;
+
+    let caller_account: T::AccountId = env.read_as()?;
+    trace!(
+        target: "runtime",
+        "PolymeshExtension contract GetNextAssetId: caller_account={caller_account:?}",
+    );
+    let asset_id = T::Asset::generate_asset_id(caller_account);
+    trace!(
+        target: "runtime",
+        "PolymeshExtension contract GetNextAssetId: asset_id={asset_id:?}",
+    );
+    let encoded = asset_id.encode();
+    env.write(&encoded, false, None).map_err(|err| {
+        trace!(
+            target: "runtime",
+            "PolymeshExtension failed to write asset_id value into contract memory:{:?}",
+            err
+        );
+        Error::<T>::ReadStorageFailed
+    })?;
+
+    Ok(ce::RetVal::Converging(0))
+}
+
 #[derive(Clone, Copy, Default)]
 pub struct PolymeshExtension;
 
@@ -550,6 +587,7 @@ where
             Some(FuncId::KeyHasher(hasher, size)) => key_hasher(env, hasher, size),
             Some(FuncId::GetLatestApiUpgrade) => get_latest_api_upgrade(env),
             Some(FuncId::CallRuntimeWithError) => call_runtime(env, true),
+            Some(FuncId::GetNextAssetId) => get_next_asset_id(env),
             None => {
                 trace!(
                     target: "runtime",

@@ -7,26 +7,11 @@ use polymesh_api::{
         secondary_key::Signatory,
         settlement::{VenueDetails, VenueType},
     },
-    TransactionResults,
 };
 use sp_core::Encode;
 use sp_weights::Weight;
 
 use integration::*;
-
-async fn get_contract_address(res: &mut TransactionResults) -> Result<Option<AccountId>> {
-    if let Some(events) = res.events().await? {
-        for rec in &events.0 {
-            match &rec.event {
-                RuntimeEvent::Contracts(ContractsEvent::Instantiated { contract, .. }) => {
-                    return Ok(Some(*contract));
-                }
-                _ => (),
-            }
-        }
-    }
-    Ok(None)
-}
 
 #[tokio::test]
 async fn contract_as_secondary_key_change_identity() -> Result<()> {

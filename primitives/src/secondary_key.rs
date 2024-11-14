@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::asset::AssetID;
+use crate::asset::AssetId;
 use crate::{ExtrinsicName, IdentityId, PalletName, PortfolioId, SubsetRestriction};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -39,7 +39,7 @@ fn name_complexity(name: &str) -> usize {
 }
 
 /// Asset permissions.
-pub type AssetPermissions = SubsetRestriction<AssetID>;
+pub type AssetPermissions = SubsetRestriction<AssetId>;
 
 /// A permission to call:
 ///
@@ -251,7 +251,7 @@ impl Permissions {
         let cost = self.extrinsic.complexity();
 
         // Asset permissions complexity cost.
-        cost.saturating_add(self.asset.complexity().saturating_mul(size_of::<AssetID>()))
+        cost.saturating_add(self.asset.complexity().saturating_mul(size_of::<AssetId>()))
             // Portfolio permissions complexity cost.
             .saturating_add(
                 self.portfolio
@@ -462,7 +462,7 @@ impl<AccountId> SecondaryKey<AccountId> {
     }
 
     /// Checks if the given key has permission to access the given asset.
-    pub fn has_asset_permission(&self, asset: AssetID) -> bool {
+    pub fn has_asset_permission(&self, asset: AssetId) -> bool {
         self.permissions.asset.ge(&SubsetRestriction::elem(asset))
     }
 
@@ -487,7 +487,7 @@ mod tests {
     use super::{
         ExtrinsicPermissions, Permissions, PortfolioId, SecondaryKey, Signatory, SubsetRestriction,
     };
-    use crate::{asset::AssetID, IdentityId};
+    use crate::{asset::AssetId, IdentityId};
     use sp_core::sr25519::Public;
     use std::convert::{From, TryFrom};
 
@@ -499,7 +499,7 @@ mod tests {
         assert_eq!(rk1, rk2);
 
         let rk3_permissions = Permissions {
-            asset: SubsetRestriction::elem(AssetID::new([0; 16])),
+            asset: SubsetRestriction::elem(AssetId::new([0; 16])),
             extrinsic: ExtrinsicPermissions::Whole,
             portfolio: SubsetRestriction::elem(PortfolioId::default_portfolio(IdentityId::from(
                 1u128,
@@ -516,12 +516,12 @@ mod tests {
     #[test]
     fn has_permission_test() {
         let key = Public::from_raw([b'A'; 32]);
-        let asset_id = AssetID::new([0; 16]);
-        let asset_id2 = AssetID::new([1; 16]);
+        let asset_id = AssetId::new([0; 16]);
+        let asset_id2 = AssetId::new([1; 16]);
         let portfolio1 = PortfolioId::user_portfolio(IdentityId::default(), 1.into());
         let portfolio2 = PortfolioId::user_portfolio(IdentityId::default(), 2.into());
         let permissions = Permissions {
-            asset: SubsetRestriction::elem(AssetID::new([0; 16])),
+            asset: SubsetRestriction::elem(AssetId::new([0; 16])),
             extrinsic: ExtrinsicPermissions::Whole,
             portfolio: SubsetRestriction::elem(portfolio1),
         };

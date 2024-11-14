@@ -17,7 +17,7 @@ use pallet_base::try_next_pre;
 use pallet_portfolio::{PortfolioLockedNFT, PortfolioNFT};
 use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
 pub use polymesh_common_utilities::traits::nft::{Config, Event, NFTTrait, WeightInfo};
-use polymesh_primitives::asset::{AssetID, AssetName, AssetType, NonFungibleType};
+use polymesh_primitives::asset::{AssetId, AssetName, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
     NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTCount, NFTId, NFTMetadataAttribute, NFTs,
@@ -42,10 +42,10 @@ storage_migration_ver!(4);
 decl_storage!(
     trait Store for Module<T: Config> as NFT {
         /// The total number of NFTs per identity.
-        pub NumberOfNFTs get(fn balance_of): double_map hasher(blake2_128_concat) AssetID, hasher(identity) IdentityId => NFTCount;
+        pub NumberOfNFTs get(fn balance_of): double_map hasher(blake2_128_concat) AssetId, hasher(identity) IdentityId => NFTCount;
 
         /// The collection id corresponding to each asset.
-        pub CollectionAsset get(fn collection_asset): map hasher(blake2_128_concat) AssetID => NFTCollectionId;
+        pub CollectionAsset get(fn collection_asset): map hasher(blake2_128_concat) AssetId => NFTCollectionId;
 
         /// All collection details for a given collection id.
         pub Collection get(fn nft_collection): map hasher(blake2_128_concat) NFTCollectionId => NFTCollection;
@@ -58,10 +58,10 @@ decl_storage!(
             double_map hasher(blake2_128_concat) (NFTCollectionId, NFTId), hasher(blake2_128_concat) AssetMetadataKey => AssetMetadataValue;
 
         /// The total number of NFTs in a collection
-        pub NFTsInCollection get(fn nfts_in_collection): map hasher(blake2_128_concat) AssetID => NFTCount;
+        pub NFTsInCollection get(fn nfts_in_collection): map hasher(blake2_128_concat) AssetId => NFTCount;
 
         /// Tracks the owner of an NFT
-        pub NFTOwner get(fn nft_owner): double_map hasher(blake2_128_concat) AssetID, hasher(blake2_128_concat) NFTId => Option<PortfolioId>;
+        pub NFTOwner get(fn nft_owner): double_map hasher(blake2_128_concat) AssetId, hasher(blake2_128_concat) NFTId => Option<PortfolioId>;
 
         /// The last `NFTId` used for an NFT.
         pub CurrentNFTId get(fn current_nft_id): map hasher(blake2_128_concat) NFTCollectionId => Option<NFTId>;
@@ -96,7 +96,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` - contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
-        /// * `asset_id` - optional [`AssetID`] associated to the new collection. `None` will create a new asset.
+        /// * `asset_id` - optional [`AssetId`] associated to the new collection. `None` will create a new asset.
         /// * `nft_type` - in case the asset hasn't been created yet, one will be created with the given type.
         /// * `collection_keys` - all mandatory metadata keys that the tokens in the collection must have.
         ///
@@ -112,7 +112,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::create_nft_collection(collection_keys.len() as u32)]
         pub fn create_nft_collection(
             origin,
-            asset_id: Option<AssetID>,
+            asset_id: Option<AssetId>,
             nft_type: Option<NonFungibleType>,
             collection_keys: NFTCollectionKeys
         ) -> DispatchResult {
@@ -123,7 +123,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` - is a signer that has permissions to act as an agent of `asset_id`.
-        /// * `asset_id` - the [`AssetID`] of the NFT collection.
+        /// * `asset_id` - the [`AssetId`] of the NFT collection.
         /// * `nft_metadata_attributes` - all mandatory metadata keys and values for the NFT.
         /// - `portfolio_kind` - the portfolio that will receive the minted nft.
         ///
@@ -137,7 +137,7 @@ decl_module! {
         /// * Asset
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::issue_nft(nft_metadata_attributes.len() as u32)]
-        pub fn issue_nft(origin, asset_id: AssetID, nft_metadata_attributes: Vec<NFTMetadataAttribute>, portfolio_kind: PortfolioKind) -> DispatchResult {
+        pub fn issue_nft(origin, asset_id: AssetId, nft_metadata_attributes: Vec<NFTMetadataAttribute>, portfolio_kind: PortfolioKind) -> DispatchResult {
             Self::base_issue_nft(origin, asset_id, nft_metadata_attributes, portfolio_kind)
         }
 
@@ -145,7 +145,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` - is a signer that has permissions to act as an agent of `asset_id`.
-        /// * `asset_id` - the [`AssetID`] of the NFT collection.
+        /// * `asset_id` - the [`AssetId`] of the NFT collection.
         /// * `nft_id` - the id of the NFT to be burned.
         /// * `portfolio_kind` - the portfolio that contains the nft.
         ///
@@ -164,7 +164,7 @@ decl_module! {
         )]
         pub fn redeem_nft(
             origin,
-            asset_id: AssetID,
+            asset_id: AssetId,
             nft_id: NFTId,
             portfolio_kind: PortfolioKind,
             number_of_keys: Option<u8>
@@ -250,7 +250,7 @@ decl_error! {
         /// The sender has an invalid CDD.
         InvalidNFTTransferInvalidSenderCDD,
         /// There's no asset associated to the given asset_id.
-        InvalidAssetID,
+        InvalidAssetId,
         /// The NFT is locked.
         NFTIsLocked,
         /// The number of keys in the collection is greater than the input.
@@ -261,7 +261,7 @@ decl_error! {
 impl<T: Config> Module<T> {
     fn base_create_nft_collection(
         origin: T::RuntimeOrigin,
-        asset_id: Option<AssetID>,
+        asset_id: Option<AssetId>,
         nft_type: Option<NonFungibleType>,
         collection_keys: NFTCollectionKeys,
     ) -> DispatchResult {
@@ -278,7 +278,7 @@ impl<T: Config> Module<T> {
                         .primary_did;
                         (false, caller_did, asset_id)
                     }
-                    None => return Err(Error::<T>::InvalidAssetID.into()),
+                    None => return Err(Error::<T>::InvalidAssetId.into()),
                 },
                 None => {
                     let caller_data =
@@ -347,7 +347,7 @@ impl<T: Config> Module<T> {
 
     fn base_issue_nft(
         origin: T::RuntimeOrigin,
-        asset_id: AssetID,
+        asset_id: AssetId,
         metadata_attributes: Vec<NFTMetadataAttribute>,
         portfolio_kind: PortfolioKind,
     ) -> DispatchResult {
@@ -419,7 +419,7 @@ impl<T: Config> Module<T> {
 
     fn base_redeem_nft(
         origin: T::RuntimeOrigin,
-        asset_id: AssetID,
+        asset_id: AssetId,
         nft_id: NFTId,
         portfolio_kind: PortfolioKind,
         number_of_keys: Option<u8>,
@@ -791,7 +791,7 @@ impl<T: Config> Module<T> {
 }
 
 impl<T: Config> NFTTrait<T::RuntimeOrigin> for Module<T> {
-    fn is_collection_key(asset_id: &AssetID, metadata_key: &AssetMetadataKey) -> bool {
+    fn is_collection_key(asset_id: &AssetId, metadata_key: &AssetMetadataKey) -> bool {
         match CollectionAsset::try_get(asset_id) {
             Ok(collection_id) => {
                 let key_set = CollectionKeys::get(&collection_id);
@@ -801,14 +801,14 @@ impl<T: Config> NFTTrait<T::RuntimeOrigin> for Module<T> {
         }
     }
 
-    fn move_portfolio_owner(asset_id: AssetID, nft_id: NFTId, new_owner_portfolio: PortfolioId) {
+    fn move_portfolio_owner(asset_id: AssetId, nft_id: NFTId, new_owner_portfolio: PortfolioId) {
         NFTOwner::insert(asset_id, nft_id, new_owner_portfolio);
     }
 
     #[cfg(feature = "runtime-benchmarks")]
     fn create_nft_collection(
         origin: T::RuntimeOrigin,
-        asset_id: Option<AssetID>,
+        asset_id: Option<AssetId>,
         nft_type: Option<NonFungibleType>,
         collection_keys: NFTCollectionKeys,
     ) -> DispatchResult {

@@ -17,7 +17,7 @@
 use frame_support::pallet_prelude::DispatchError;
 use sp_std::vec::Vec;
 
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{Balance, PortfolioId};
 
 /// The maximum number of DIDs allowed in a `balance_at` RPC query.
@@ -48,7 +48,7 @@ sp_api::decl_runtime_apis! {
         fn transfer_report(
             sender_portfolio: PortfolioId,
             receiver_portfolio: PortfolioId,
-            asset_id: AssetID,
+            asset_id: AssetId,
             transfer_value: Balance,
             skip_locked_check: bool,
         ) -> Vec<DispatchError>;

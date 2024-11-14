@@ -16,7 +16,7 @@
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
-use crate::asset::{AssetID, FundingRoundName};
+use crate::asset::{AssetId, FundingRoundName};
 use crate::settlement::InstructionId;
 use crate::{Balance, Memo, NFTs};
 
@@ -34,8 +34,8 @@ pub struct Fund {
 pub enum FundDescription {
     /// Fungible token.
     Fungible {
-        /// The [`AssetID`] of the token.
-        asset_id: AssetID,
+        /// The [`AssetId`] of the token.
+        asset_id: AssetId,
         /// The Balance being transfered.
         amount: Balance,
     },

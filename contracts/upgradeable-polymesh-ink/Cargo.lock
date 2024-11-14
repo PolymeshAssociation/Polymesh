@@ -2860,9 +2860,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api"
-version = "3.7.0"
+version = "3.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5d34d9613892e5ac056767d1cfb2e7c81b3fbdaa5b6acccb9c814fb30739243"
+checksum = "2af6fb58c1f9734edeb3adf9e17e6b6e07a3cdb5fa1bb922aaaf22cfd3bb3bba"
 dependencies = [
  "ink",
  "log",
@@ -2876,9 +2876,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-client"
-version = "3.5.0"
+version = "3.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8eeaf5221a7283339f60dc17fcfd8abc62108276963d1cf47c632066dbd98b99"
+checksum = "11d5af8138ea299d6d24c06d41a6506717a4a44b29ddf005059245a1fa3ef5c3"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -2909,9 +2909,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-codegen"
-version = "3.4.0"
+version = "3.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d606f18f3c4c6597966b9de2b66ea187b240b98f32cababd198c13956d36321"
+checksum = "b734215680e3a1cebed8d3852d1899a96842865c9e076904cf1b832b0f1fe370"
 dependencies = [
  "frame-metadata 15.1.0",
  "heck",
@@ -2929,9 +2929,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-codegen-macro"
-version = "3.4.0"
+version = "3.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aad3f36c9e13a40c2f69c7ebccf1bf3c8b363e0f41d9c2cadbcdd374a92cd45a"
+checksum = "8e9c138a371c4e48a695cec75febba8070a613d94c45031e2281715e904faf53"
 dependencies = [
  "darling 0.14.4",
  "parity-scale-codec",
@@ -2944,9 +2944,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-ink"
-version = "1.3.0"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72de63407e8102a3c1b69f901bf45fefe036d566a58d95c0e2e32d3e27422e17"
+checksum = "fef72aba71c295abec42ec3f1b645be12ae2295316c4f8098584dc48d6c5a814"
 dependencies = [
  "hex",
  "ink",
@@ -2965,7 +2965,6 @@ dependencies = [
  "parity-scale-codec",
  "paste",
  "polymesh-api",
- "polymesh-api-ink",
  "scale-info",
 ]
 

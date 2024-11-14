@@ -1,6 +1,6 @@
 [package]
 name = "polymesh-ink"
-version = "3.3.0"
+version = "3.4.0"
 authors = ["PolymeshAssociation"]
 edition = "2021"
 license = "Apache-2.0"
@@ -11,14 +11,11 @@ homepage = "https://github.com/PolymeshAssociation/Polymesh"
 
 [dependencies]
 ink = { version = "4.3", default-features = false }
-
+paste = "1.0"
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
 
-polymesh-api = { version = "3.7", default-features = false, features = ["ink"] }
-polymesh-api-ink = { version = "1.3.0", default-features = false, features = ["use_call_runtime_with_error"] }
-
-paste = "1.0"
+polymesh-api = { version = "3.9.1", default-features = false, features = ["ink", "polymesh_v7"] }
 
 [lib]
 path = "src/lib.rs"
@@ -34,8 +31,8 @@ as-library = []
 
 std = [
     "ink/std",
+    "polymesh-api/std",
     "scale/std",
     "scale-info/std",
-    "polymesh-api/std",
 ]
 ink-as-dependency = []

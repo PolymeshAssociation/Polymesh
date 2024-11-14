@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::asset::AssetID;
+use crate::asset::AssetId;
 use crate::{Claim, ClaimType, CountryCode, IdentityId, Scope};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -69,8 +69,8 @@ impl StatType {
 #[derive(Decode, Encode, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Stat1stKey {
-    /// The [`AssetID`] of the token.
-    pub asset_id: AssetID,
+    /// The [`AssetId`] of the token.
+    pub asset_id: AssetId,
     /// The [`StatType`] of the statistic.
     pub stat_type: StatType,
 }
@@ -78,7 +78,7 @@ pub struct Stat1stKey {
 impl Stat1stKey {
     /// Returns a [`Stat1stKey`] instance where [`Stat1stKey::asset_id`] is set to `asset_id` and
     /// [`Stat1stKey::stat_type`] is set to [`StatType::investor_count`].
-    pub fn investor_count(asset_id: AssetID) -> Self {
+    pub fn investor_count(asset_id: AssetId) -> Self {
         Self {
             asset_id,
             stat_type: StatType::investor_count(),

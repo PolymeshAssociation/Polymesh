@@ -9,7 +9,7 @@ use pallet_nft::{
 use pallet_portfolio::PortfolioNFT;
 use polymesh_common_utilities::traits::nft::Event;
 use polymesh_common_utilities::with_transaction;
-use polymesh_primitives::asset::{AssetID, AssetName, AssetType, NonFungibleType};
+use polymesh_primitives::asset::{AssetId, AssetName, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
     AssetMetadataValue,
@@ -26,7 +26,7 @@ use sp_keyring::AccountKeyring;
 use super::asset_test::{get_asset_details, set_timestamp};
 use crate::asset_pallet::setup::{create_and_issue_sample_asset, create_and_issue_sample_nft};
 use crate::ext_builder::ExtBuilder;
-use crate::storage::{TestStorage, User};
+use crate::storage::{default_portfolio_btreeset, TestStorage, User};
 
 type Asset = pallet_asset::Module<TestStorage>;
 type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
@@ -177,7 +177,7 @@ pub(crate) fn create_nft_collection(
     owner: User,
     asset_type: AssetType,
     collection_keys: NFTCollectionKeys,
-) -> AssetID {
+) -> AssetId {
     let asset_id = Asset::generate_asset_id(owner.acc(), false);
     Asset::create_asset(
         owner.origin(),
@@ -430,7 +430,7 @@ fn mint_nft_successfully() {
 
 pub(crate) fn mint_nft(
     user: User,
-    asset_id: AssetID,
+    asset_id: AssetId,
     metadata_atributes: Vec<NFTMetadataAttribute>,
     portfolio_kind: PortfolioKind,
 ) {
@@ -1179,7 +1179,7 @@ fn redeem_locked_nft() {
             None,
             None,
             legs,
-            vec![PortfolioId::default_portfolio(alice.did)],
+            default_portfolio_btreeset(alice.did),
             None,
         ));
 
@@ -1221,7 +1221,7 @@ fn reject_instruction_with_locked_asset() {
             None,
             None,
             legs,
-            vec![PortfolioId::default_portfolio(alice.did)],
+            default_portfolio_btreeset(alice.did),
             None,
         ));
 

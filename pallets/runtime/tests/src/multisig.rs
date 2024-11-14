@@ -3,7 +3,9 @@ use frame_support::{
     dispatch::DispatchResult, BoundedVec,
 };
 
-use pallet_multisig::{self as multisig, AdminDid, ProposalStates, ProposalVoteCounts, Votes};
+use pallet_multisig::{
+    self as multisig, AdminDid, LastInvalidProposal, ProposalStates, ProposalVoteCounts, Votes,
+};
 use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_primitives::multisig::ProposalState;
 use polymesh_primitives::{AccountId, AuthorizationData, Permissions, SecondaryKey, Signatory};
@@ -1253,6 +1255,51 @@ fn proposal_owner_rejection_denied() {
     });
 }
 
+#[test]
+fn remove_admin_successfully() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Multisig creator
+        let alice = User::new(AccountKeyring::Alice);
+        // Multisig signers
+        let ferdie_signer = AccountKeyring::Ferdie.to_account_id();
+        let bob_signer = AccountKeyring::Bob.to_account_id();
+        let charlie_signer = AccountKeyring::Charlie.to_account_id();
+
+        let ms_address = create_multisig_default_perms(
+            alice.acc(),
+            create_signers(vec![ferdie_signer, bob_signer.clone(), charlie_signer]),
+            2,
+        );
+        assert!(AdminDid::<TestStorage>::get(&ms_address).is_some());
+
+        assert_ok!(MultiSig::remove_admin(Origin::signed(ms_address.clone())));
+        assert!(AdminDid::<TestStorage>::get(ms_address).is_none())
+    });
+}
+
+#[test]
+fn remove_admin_not_multsig() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Multisig creator
+        let alice = User::new(AccountKeyring::Alice);
+        // Multisig signers
+        let ferdie_signer = AccountKeyring::Ferdie.to_account_id();
+        let bob_signer = AccountKeyring::Bob.to_account_id();
+        let charlie_signer = AccountKeyring::Charlie.to_account_id();
+
+        create_multisig_default_perms(
+            alice.acc(),
+            create_signers(vec![ferdie_signer, bob_signer.clone(), charlie_signer]),
+            2,
+        );
+
+        assert_noop!(
+            MultiSig::remove_admin(alice.origin()),
+            Error::NoSuchMultisig
+        );
+    });
+}
+
 fn expired_proposals() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
@@ -1391,6 +1438,270 @@ fn multisig_nesting_not_allowed() {
         assert_eq!(
             MultiSig::ms_signers(ms2_address.clone(), ms1_address.clone()),
             false
+        );
+    });
+}
+
+#[test]
+fn create_expired_proposal() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob_key = AccountKeyring::Bob.to_account_id();
+        let ferdie_key = AccountKeyring::Ferdie.to_account_id();
+        let ferdie = Origin::signed(ferdie_key.clone());
+        let charlie_key = AccountKeyring::Charlie.to_account_id();
+
+        let ms_address = setup_multisig(
+            alice.acc(),
+            3,
+            create_signers(vec![ferdie_key, bob_key, charlie_key]),
+        );
+
+        let expires_at = 100u64;
+        let call = Box::new(RuntimeCall::MultiSig(
+            multisig::Call::change_sigs_required { sigs_required: 2 },
+        ));
+
+        set_timestamp(expires_at);
+
+        assert_eq!(
+            MultiSig::create_proposal(ferdie.clone(), ms_address.clone(), call, Some(100u64),)
+                .unwrap_err()
+                .error,
+            Error::InvalidExpiryDate.into()
+        )
+    });
+}
+
+#[test]
+fn invalidate_proposals_change_sigs_required() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob_key = AccountKeyring::Bob.to_account_id();
+        let ferdie_key = AccountKeyring::Ferdie.to_account_id();
+        let ferdie = Origin::signed(ferdie_key.clone());
+        let charlie_key = AccountKeyring::Charlie.to_account_id();
+
+        let ms_address = setup_multisig(
+            alice.acc(),
+            3,
+            create_signers(vec![ferdie_key, bob_key, charlie_key]),
+        );
+
+        let call = Box::new(RuntimeCall::MultiSig(
+            multisig::Call::change_sigs_required { sigs_required: 2 },
+        ));
+
+        assert_ok!(MultiSig::create_proposal(
+            ferdie.clone(),
+            ms_address.clone(),
+            call,
+            None
+        ));
+
+        assert_ok!(MultiSig::change_sigs_required_via_admin(
+            alice.origin(),
+            ms_address.clone(),
+            2
+        ));
+
+        assert_eq!(
+            LastInvalidProposal::<TestStorage>::get(&ms_address),
+            Some(0)
+        );
+
+        assert_eq!(
+            MultiSig::approve(ferdie.clone(), ms_address.clone(), 0, None)
+                .unwrap_err()
+                .error,
+            Error::InvalidatedProposal.into()
+        );
+        assert_eq!(
+            MultiSig::reject(ferdie, ms_address, 0).unwrap_err().error,
+            Error::InvalidatedProposal.into()
+        );
+    });
+}
+
+#[test]
+fn invalidate_proposals_add_signer() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob_key = AccountKeyring::Bob.to_account_id();
+        let ferdie_key = AccountKeyring::Ferdie.to_account_id();
+        let ferdie = Origin::signed(ferdie_key.clone());
+        let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
+        let charlie_key = AccountKeyring::Charlie.to_account_id();
+
+        let ms_address = setup_multisig(alice.acc(), 2, create_signers(vec![ferdie_key, bob_key]));
+
+        let call = Box::new(RuntimeCall::MultiSig(
+            multisig::Call::change_sigs_required { sigs_required: 2 },
+        ));
+
+        assert_ok!(MultiSig::create_proposal(
+            ferdie.clone(),
+            ms_address.clone(),
+            call,
+            None
+        ));
+
+        assert_ok!(MultiSig::add_multisig_signers_via_admin(
+            alice.origin(),
+            ms_address.clone(),
+            create_signers(vec![charlie_key.clone()])
+        ));
+
+        assert_eq!(LastInvalidProposal::<TestStorage>::get(&ms_address), None);
+
+        let charlie_auth_id = get_last_auth_id(&charlie_key);
+        assert_ok!(MultiSig::accept_multisig_signer(
+            charlie.clone(),
+            charlie_auth_id
+        ));
+
+        assert_eq!(
+            LastInvalidProposal::<TestStorage>::get(&ms_address),
+            Some(0)
+        );
+
+        assert_eq!(
+            MultiSig::approve(ferdie.clone(), ms_address.clone(), 0, None)
+                .unwrap_err()
+                .error,
+            Error::InvalidatedProposal.into()
+        );
+        assert_eq!(
+            MultiSig::reject(ferdie, ms_address, 0).unwrap_err().error,
+            Error::InvalidatedProposal.into()
+        );
+    });
+}
+
+#[test]
+fn invalidate_proposals_remove_signer() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob_key = AccountKeyring::Bob.to_account_id();
+        let ferdie_key = AccountKeyring::Ferdie.to_account_id();
+        let ferdie = Origin::signed(ferdie_key.clone());
+        let charlie_key = AccountKeyring::Charlie.to_account_id();
+
+        let ms_address = setup_multisig(
+            alice.acc(),
+            2,
+            create_signers(vec![ferdie_key, bob_key, charlie_key.clone()]),
+        );
+
+        let call = Box::new(RuntimeCall::MultiSig(
+            multisig::Call::change_sigs_required { sigs_required: 2 },
+        ));
+
+        assert_ok!(MultiSig::create_proposal(
+            ferdie.clone(),
+            ms_address.clone(),
+            call,
+            None
+        ));
+
+        assert_ok!(MultiSig::remove_multisig_signers_via_admin(
+            alice.origin(),
+            ms_address.clone(),
+            create_signers(vec![charlie_key])
+        ));
+
+        assert_eq!(
+            LastInvalidProposal::<TestStorage>::get(&ms_address),
+            Some(0)
+        );
+
+        assert_eq!(
+            MultiSig::approve(ferdie.clone(), ms_address.clone(), 0, None)
+                .unwrap_err()
+                .error,
+            Error::InvalidatedProposal.into()
+        );
+        assert_eq!(
+            MultiSig::reject(ferdie, ms_address, 0).unwrap_err().error,
+            Error::InvalidatedProposal.into()
+        );
+    });
+}
+
+#[test]
+fn invalidate_proposals_via_executed_proposal() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
+        let bob_signer = AccountKeyring::Bob.to_account_id();
+        let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
+        let charlie_signer = AccountKeyring::Charlie.to_account_id();
+
+        let ms_address = create_multisig_default_perms(
+            alice.acc(),
+            create_signers(vec![charlie_signer.clone(), bob_signer.clone()]),
+            2,
+        );
+
+        let charlie_auth_id = get_last_auth_id(&charlie_signer);
+        assert_ok!(MultiSig::accept_multisig_signer(
+            charlie.clone(),
+            charlie_auth_id
+        ));
+
+        let bob_auth_id = get_last_auth_id(&bob_signer);
+        assert_ok!(MultiSig::accept_multisig_signer(bob.clone(), bob_auth_id));
+
+        let call = Box::new(RuntimeCall::MultiSig(
+            multisig::Call::change_sigs_required { sigs_required: 1 },
+        ));
+        assert_ok!(MultiSig::create_proposal(
+            bob.clone(),
+            ms_address.clone(),
+            call.clone(),
+            None,
+        ));
+
+        assert_ok!(MultiSig::create_proposal(
+            bob.clone(),
+            ms_address.clone(),
+            call.clone(),
+            None,
+        ));
+
+        assert_ok!(MultiSig::create_proposal(
+            bob.clone(),
+            ms_address.clone(),
+            call,
+            None,
+        ));
+
+        assert_ok!(MultiSig::approve(
+            charlie.clone(),
+            ms_address.clone(),
+            0,
+            None
+        ));
+
+        // At this point the proposal of id 0 executes
+        next_block();
+
+        // All other proposals must have been invalidated
+        assert_eq!(
+            LastInvalidProposal::<TestStorage>::get(&ms_address),
+            Some(2)
+        );
+        assert_eq!(
+            MultiSig::approve(charlie.clone(), ms_address.clone(), 1, None)
+                .unwrap_err()
+                .error,
+            Error::InvalidatedProposal.into()
+        );
+        assert_eq!(
+            MultiSig::reject(charlie.clone(), ms_address, 2)
+                .unwrap_err()
+                .error,
+            Error::InvalidatedProposal.into()
         );
     });
 }

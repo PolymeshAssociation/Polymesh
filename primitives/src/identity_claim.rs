@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::asset::AssetID;
+use crate::asset::AssetId;
 use crate::{identity_id::IdentityId, impl_checked_inc, CddId, Moment};
 
 use codec::{Decode, Encode};
@@ -39,7 +39,7 @@ pub enum Scope {
     /// Scoped to an Identity
     Identity(IdentityId),
     /// Scoped to an asset.
-    Asset(AssetID),
+    Asset(AssetId),
     /// Scoped to arbitrary bytes
     Custom(Vec<u8>),
 }
@@ -50,8 +50,8 @@ impl From<IdentityId> for Scope {
     }
 }
 
-impl From<AssetID> for Scope {
-    fn from(asset_id: AssetID) -> Self {
+impl From<AssetId> for Scope {
+    fn from(asset_id: AssetId) -> Self {
         Self::Asset(asset_id)
     }
 }

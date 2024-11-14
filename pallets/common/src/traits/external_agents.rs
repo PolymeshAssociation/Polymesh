@@ -1,6 +1,6 @@
 use frame_support::{decl_event, weights::Weight};
 use polymesh_primitives::agent::{AGId, AgentGroup};
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{EventDid, ExtrinsicPermissions, IdentityId};
 
 pub trait WeightInfo {
@@ -26,27 +26,27 @@ decl_event! {
     pub enum Event {
         /// An Agent Group was created.
         ///
-        /// (Caller DID, AG's AssetID, AG's ID, AG's permissions)
-        GroupCreated(EventDid, AssetID, AGId, ExtrinsicPermissions),
+        /// (Caller DID, AG's AssetId, AG's ID, AG's permissions)
+        GroupCreated(EventDid, AssetId, AGId, ExtrinsicPermissions),
 
         /// An Agent Group's permissions was updated.
         ///
-        /// (Caller DID, AG's AssetID, AG's ID, AG's new permissions)
-        GroupPermissionsUpdated(EventDid, AssetID, AGId, ExtrinsicPermissions),
+        /// (Caller DID, AG's AssetId, AG's ID, AG's new permissions)
+        GroupPermissionsUpdated(EventDid, AssetId, AGId, ExtrinsicPermissions),
 
         /// An agent was added.
         ///
-        /// (Caller/Agent DID, Agent's AssetID, Agent's group)
-        AgentAdded(EventDid, AssetID, AgentGroup),
+        /// (Caller/Agent DID, Agent's AssetId, Agent's group)
+        AgentAdded(EventDid, AssetId, AgentGroup),
 
         /// An agent was removed.
         ///
-        /// (Caller DID, Agent's AssetID, Agent's DID)
-        AgentRemoved(EventDid, AssetID, IdentityId),
+        /// (Caller DID, Agent's AssetId, Agent's DID)
+        AgentRemoved(EventDid, AssetId, IdentityId),
 
         /// An agent's group was changed.
         ///
-        /// (Caller DID, Agent's AssetID, Agent's DID, The new group of the agent)
-        GroupChanged(EventDid, AssetID, IdentityId, AgentGroup),
+        /// (Caller DID, Agent's AssetId, Agent's DID, The new group of the agent)
+        GroupChanged(EventDid, AssetId, IdentityId, AgentGroup),
     }
 }

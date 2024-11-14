@@ -1,6 +1,6 @@
 {
   "types": {
-    "AssetID": "[u8; 16]",
+    "AssetId": "[u8; 16]",
     "IdentityId": "[u8; 32]",
     "Ticker": "[u8; 12]",
     "CddId": "[u8; 32]",
@@ -9,8 +9,8 @@
     "AssetPermissions": {
       "_enum": {
         "Whole": "",
-        "These": "Vec<AssetID>",
-        "Except": "Vec<AssetID>"
+        "These": "Vec<AssetId>",
+        "Except": "Vec<AssetId>"
       }
     },
     "PortfolioPermissions": {
@@ -313,7 +313,7 @@
     "Scope": {
       "_enum": {
         "Identity": "IdentityId",
-        "Asset": "AssetID",
+        "Asset": "AssetId",
         "Custom": "Vec<u8>"
       }
     },
@@ -399,10 +399,10 @@
         "RotatePrimaryKey": "",
         "TransferTicker": "Ticker",
         "AddMultiSigSigner": "AccountId",
-        "TransferAssetOwnership": "AssetID",
+        "TransferAssetOwnership": "AssetId",
         "JoinIdentity": "Permissions",
         "PortfolioCustody": "PortfolioId",
-        "BecomeAgent": "(AssetID, AgentGroup)",
+        "BecomeAgent": "(AssetId, AgentGroup)",
         "AddRelayerPayingKey": "(AccountId, AccountId, Balance)",
         "RotatePrimaryKeyToSecondary": "Permissions"
       }
@@ -570,13 +570,13 @@
     },
     "NFTId": "u64",
     "NFTs": {
-      "asset_id": "AssetID",
+      "asset_id": "AssetId",
       "ids": "Vec<NFTId>"
     },
     "FungibleLeg": {
       "sender": "PortfolioId",
       "receiver": "PortfolioId",
-      "asset_id": "AssetID",
+      "asset_id": "AssetId",
       "amount": "Balance"
     },
     "NonFungibleLeg": {
@@ -587,7 +587,7 @@
     "OffChainLeg": {
       "sender_identity": "IdentityId",
       "receiver_identity": "IdentityId",
-      "asset_id": "AssetID",
+      "asset_id": "AssetId",
       "amount": "Balance"
     },
     "Leg": {
@@ -846,7 +846,7 @@
           },
           {
             "name": "asset_id",
-            "type": "AssetID",
+            "type": "AssetId",
             "isOptional": false
           },
           {
@@ -994,7 +994,7 @@
         "params": [
           {
             "name": "asset_id",
-            "type": "AssetID"
+            "type": "AssetId"
           },
           {
             "name": "sender_identity",
@@ -1026,7 +1026,7 @@
               },
               {
                 "name": "asset_id",
-                "type": "AssetID"
+                "type": "AssetId"
               },
               {
                 "name": "transfer_value",
@@ -1301,7 +1301,7 @@
             "params": [
               {
                 "name": "asset_id",
-                "type": "AssetID"
+                "type": "AssetId"
               },
               {
                 "name": "sender_identity",
@@ -1326,7 +1326,7 @@
             "params": [
               {
                 "name": "asset_id",
-                "type": "AssetID"
+                "type": "AssetId"
               },
               {
                 "name": "sender_did",

@@ -7,9 +7,9 @@ mod v6 {
     use scale_info::TypeInfo;
 
     use super::*;
-    use polymesh_primitives::{
-        agent::AgentGroup, v6::Permissions, Balance, CountryCode, Moment, PortfolioId, Ticker,
-    };
+    use polymesh_primitives::agent::AgentGroup;
+    use polymesh_primitives::v6::Permissions;
+    use polymesh_primitives::{Balance, CountryCode, Moment, PortfolioId, Ticker};
 
     #[derive(Encode, Decode, TypeInfo)]
     pub struct Claim2ndKey {
@@ -79,7 +79,7 @@ mod v6 {
 
     decl_storage! {
         trait Store for Module<T: Config> as Identity {
-            // This storage changed the Ticker key to AssetID.
+            // This storage changed the Ticker key to AssetId.
             pub OldClaims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => Option<IdentityClaim>;
 
             pub KeyRecords get(fn key_records):
@@ -192,11 +192,11 @@ impl<T, S> From<v6::Authorization<T, S>> for Authorization<T, S> {
     }
 }
 
-#[allow(dead_code)]
 pub(crate) fn migrate_to_v7<T: Config>() {
     RuntimeLogger::init();
 
     // Removes all elements in the old storage and inserts it in the new storage
+    let mut count = 0;
     log::info!("Updating types for the Claims storage");
     move_prefix(&Claims::final_prefix(), &v6::OldClaims::final_prefix());
     v6::OldClaims::drain().for_each(|(claim1key, claim2key, id_claim)| {
@@ -205,8 +205,11 @@ pub(crate) fn migrate_to_v7<T: Config>() {
             Claim2ndKey::from(claim2key),
             IdentityClaim::from(id_claim),
         );
+        count += 1;
     });
+    log::info!("Migrated {:?} Identity.Claims entries.", count);
 
+    let mut count = 0;
     log::info!("Updating types for the KeyRecords storage");
     v6::KeyRecords::<T>::drain().for_each(|(acc_id, key_record)| {
         let key_record = match key_record {
@@ -225,10 +228,15 @@ pub(crate) fn migrate_to_v7<T: Config>() {
             v6::KeyRecord::MultiSigSignerKey(acc) => KeyRecord::MultiSigSignerKey(acc),
         };
         KeyRecords::<T>::insert(acc_id, key_record);
+        count += 1;
     });
+    log::info!("Migrated {:?} Identity.KeyRecords entries.", count);
 
+    let mut count = 0;
     log::info!("Updating types for the Authorizations storage");
     v6::Authorizations::<T>::drain().for_each(|(acc, n, auth)| {
         Authorizations::<T>::insert(acc, n, Authorization::from(auth));
+        count += 1;
     });
+    log::info!("Migrated {:?} Identity.Authorizations entries.", count);
 }

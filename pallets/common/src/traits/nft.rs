@@ -8,7 +8,7 @@ use polymesh_primitives::nft::NFTCollectionKeys;
 use frame_support::decl_event;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::asset_metadata::AssetMetadataKey;
 use polymesh_primitives::nft::{NFTCollectionId, NFTs};
 use polymesh_primitives::{IdentityId, NFTId, PortfolioId, PortfolioUpdateReason};
@@ -33,7 +33,7 @@ pub trait Config:
 decl_event!(
     pub enum Event {
         /// Emitted when a new nft collection is created.
-        NftCollectionCreated(IdentityId, AssetID, NFTCollectionId),
+        NftCollectionCreated(IdentityId, AssetId, NFTCollectionId),
         /// Emitted when NFTs were issued, redeemed or transferred.
         /// Contains the [`IdentityId`] of the receiver/issuer/redeemer, the [`NFTs`], the [`PortfolioId`] of the source, the [`PortfolioId`]
         /// of the destination and the [`PortfolioUpdateReason`].
@@ -57,14 +57,14 @@ pub trait WeightInfo {
 
 pub trait NFTTrait<Origin> {
     /// Returns `true` if the given `metadata_key` is a mandatory key for the `asset_id` NFT collection.
-    fn is_collection_key(asset_id: &AssetID, metadata_key: &AssetMetadataKey) -> bool;
+    fn is_collection_key(asset_id: &AssetId, metadata_key: &AssetMetadataKey) -> bool;
     /// Updates the NFTOwner storage after moving funds.
-    fn move_portfolio_owner(asset_id: AssetID, nft_id: NFTId, new_owner_portfolio: PortfolioId);
+    fn move_portfolio_owner(asset_id: AssetId, nft_id: NFTId, new_owner_portfolio: PortfolioId);
 
     #[cfg(feature = "runtime-benchmarks")]
     fn create_nft_collection(
         origin: Origin,
-        asset_id: Option<AssetID>,
+        asset_id: Option<AssetId>,
         nft_type: Option<NonFungibleType>,
         collection_keys: NFTCollectionKeys,
     ) -> DispatchResult;

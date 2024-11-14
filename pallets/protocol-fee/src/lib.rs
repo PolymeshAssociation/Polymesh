@@ -77,7 +77,7 @@ pub trait Config: frame_system::Config + IdentityConfig {
     type WeightInfo: WeightInfo;
     /// Connection to the `Relayer` pallet.
     /// Used to charge protocol fees to a subsidiser, if any, instead of the payer.
-    type Subsidiser: SubsidiserTrait<Self::AccountId>;
+    type Subsidiser: SubsidiserTrait<Self::AccountId, Self::RuntimeCall>;
 }
 
 decl_error! {

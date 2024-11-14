@@ -1,6 +1,6 @@
 use frame_support::assert_ok;
 
-use polymesh_primitives::asset::{AssetID, AssetType, FundingRoundName, NonFungibleType};
+use polymesh_primitives::asset::{AssetId, AssetType, FundingRoundName, NonFungibleType};
 use polymesh_primitives::{AssetIdentifier, Balance, PortfolioKind, Ticker};
 
 use crate::storage::User;
@@ -19,7 +19,7 @@ pub fn register_unique_ticker(ticker_owner: &User, ticker: Ticker) {
 
 /// Creates a divisible asset where all values for its attributes are set to their default values.
 /// The [`AssetDetails::total_supply`] will be set to [`ISSUE_AMOUNT`].
-pub fn create_and_issue_sample_asset(asset_owner: &User) -> AssetID {
+pub fn create_and_issue_sample_asset(asset_owner: &User) -> AssetId {
     let asset_id = Asset::generate_asset_id(asset_owner.acc(), false);
 
     assert_ok!(Asset::create_asset(
@@ -45,7 +45,7 @@ pub fn create_and_issue_sample_asset(asset_owner: &User) -> AssetID {
 pub fn create_and_issue_sample_asset_linked_to_ticker(
     asset_owner: &User,
     ticker: Ticker,
-) -> AssetID {
+) -> AssetId {
     register_unique_ticker(asset_owner, ticker);
     let asset_id = create_and_issue_sample_asset(asset_owner);
 
@@ -59,7 +59,7 @@ pub fn create_and_issue_sample_asset_linked_to_ticker(
 }
 
 /// Creates an NFT collection and mints one token. All values for its attributes are set to their default values.
-pub fn create_and_issue_sample_nft(asset_owner: &User) -> AssetID {
+pub fn create_and_issue_sample_nft(asset_owner: &User) -> AssetId {
     let asset_id = Asset::generate_asset_id(asset_owner.acc(), false);
 
     assert_ok!(Asset::create_asset(
@@ -99,7 +99,7 @@ pub fn create_asset(
     funding_round_name: Option<FundingRoundName>,
     issue_tokens: bool,
     issue_portfolio: Option<PortfolioKind>,
-) -> AssetID {
+) -> AssetId {
     let asset_id = Asset::generate_asset_id(asset_owner.acc(), false);
 
     assert_ok!(Asset::create_asset(

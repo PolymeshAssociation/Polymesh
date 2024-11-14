@@ -20,7 +20,7 @@ use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use sp_std::prelude::*;
 
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::compliance_manager::{AssetComplianceResult, ComplianceRequirement};
 use polymesh_primitives::condition::{conditions_total_counts, Condition};
 use polymesh_primitives::{IdentityId, TrustedIssuer, WeightMeter};
@@ -50,32 +50,32 @@ pub trait Config:
 decl_event!(
     pub enum Event {
         /// Emitted when new compliance requirement is created.
-        /// (caller DID, AssetID, ComplianceRequirement).
-        ComplianceRequirementCreated(IdentityId, AssetID, ComplianceRequirement),
+        /// (caller DID, AssetId, ComplianceRequirement).
+        ComplianceRequirementCreated(IdentityId, AssetId, ComplianceRequirement),
         /// Emitted when a compliance requirement is removed.
-        /// (caller DID, AssetID, requirement_id).
-        ComplianceRequirementRemoved(IdentityId, AssetID, u32),
+        /// (caller DID, AssetId, requirement_id).
+        ComplianceRequirementRemoved(IdentityId, AssetId, u32),
         /// Emitted when an asset compliance is replaced.
-        /// Parameters: caller DID, AssetID, new asset compliance.
-        AssetComplianceReplaced(IdentityId, AssetID, Vec<ComplianceRequirement>),
+        /// Parameters: caller DID, AssetId, new asset compliance.
+        AssetComplianceReplaced(IdentityId, AssetId, Vec<ComplianceRequirement>),
         /// Emitted when an asset compliance of a asset_id is reset.
-        /// (caller DID, AssetID).
-        AssetComplianceReset(IdentityId, AssetID),
+        /// (caller DID, AssetId).
+        AssetComplianceReset(IdentityId, AssetId),
         /// Emitted when an asset compliance for a given asset_id gets resume.
-        /// (caller DID, AssetID).
-        AssetComplianceResumed(IdentityId, AssetID),
+        /// (caller DID, AssetId).
+        AssetComplianceResumed(IdentityId, AssetId),
         /// Emitted when an asset compliance for a given asset_id gets paused.
-        /// (caller DID, AssetID).
-        AssetCompliancePaused(IdentityId, AssetID),
+        /// (caller DID, AssetId).
+        AssetCompliancePaused(IdentityId, AssetId),
         /// Emitted when compliance requirement get modified/change.
-        /// (caller DID, AssetID, ComplianceRequirement).
-        ComplianceRequirementChanged(IdentityId, AssetID, ComplianceRequirement),
+        /// (caller DID, AssetId, ComplianceRequirement).
+        ComplianceRequirementChanged(IdentityId, AssetId, ComplianceRequirement),
         /// Emitted when default claim issuer list for a given asset_id gets added.
-        /// (caller DID, AssetID, Added TrustedIssuer).
-        TrustedDefaultClaimIssuerAdded(IdentityId, AssetID, TrustedIssuer),
+        /// (caller DID, AssetId, Added TrustedIssuer).
+        TrustedDefaultClaimIssuerAdded(IdentityId, AssetId, TrustedIssuer),
         /// Emitted when default claim issuer list for a given asset_id get removed.
-        /// (caller DID, AssetID, Removed TrustedIssuer).
-        TrustedDefaultClaimIssuerRemoved(IdentityId, AssetID, IdentityId),
+        /// (caller DID, AssetId, Removed TrustedIssuer).
+        TrustedDefaultClaimIssuerRemoved(IdentityId, AssetId, IdentityId),
     }
 );
 
@@ -83,14 +83,14 @@ pub trait ComplianceFnConfig {
     /// Returns `true` if there are no requirements or if any requirement is satisfied.
     /// Otherwise, returns `false`.
     fn is_compliant(
-        asset_id: &AssetID,
+        asset_id: &AssetId,
         sender_did: IdentityId,
         receiver_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> Result<bool, DispatchError>;
 
     fn verify_restriction_granular(
-        asset_id: &AssetID,
+        asset_id: &AssetId,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
         weight_meter: &mut WeightMeter,
@@ -99,7 +99,7 @@ pub trait ComplianceFnConfig {
     #[cfg(feature = "runtime-benchmarks")]
     fn setup_asset_compliance(
         caler_did: IdentityId,
-        asset_id: AssetID,
+        asset_id: AssetId,
         n: u32,
         pause_compliance: bool,
     );

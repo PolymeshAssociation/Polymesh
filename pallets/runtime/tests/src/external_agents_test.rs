@@ -8,7 +8,7 @@ use frame_support::{
 };
 use pallet_external_agents::{AGIdSequence, AgentOf, GroupOfAgent, NumFullAgents};
 use pallet_permissions::StoreCallMetadata;
-use polymesh_primitives::asset::AssetID;
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
     agent::{AGId, AgentGroup},
     AuthorizationData, ExtrinsicPermissions, PalletPermissions, Signatory,
@@ -32,7 +32,7 @@ fn make_perms(pallet: &str) -> ExtrinsicPermissions {
 }
 
 fn add_become_agent(
-    asset_id: AssetID,
+    asset_id: AssetId,
     from: User,
     to: User,
     group: AgentGroup,

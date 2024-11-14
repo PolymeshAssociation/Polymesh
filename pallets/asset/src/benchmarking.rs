@@ -99,7 +99,7 @@ fn set_ticker_registration_config<T: Config>() {
 }
 
 /// Creates a new [`AssetDetails`] considering the worst case scenario.
-pub(crate) fn create_sample_asset<T: Config>(asset_owner: &User<T>, divisible: bool) -> AssetID {
+pub(crate) fn create_sample_asset<T: Config>(asset_owner: &User<T>, divisible: bool) -> AssetId {
     let asset_name = AssetName::from(vec![b'N'; T::AssetNameMaxLength::get() as usize].as_slice());
     let funding_round_name =
         FundingRoundName::from(vec![b'F'; T::FundingRoundNameMaxLength::get() as usize].as_slice());
@@ -120,7 +120,7 @@ pub(crate) fn create_sample_asset<T: Config>(asset_owner: &User<T>, divisible: b
     asset_id
 }
 
-pub(crate) fn create_and_issue_sample_asset<T: Config>(asset_owner: &User<T>) -> AssetID {
+pub(crate) fn create_and_issue_sample_asset<T: Config>(asset_owner: &User<T>) -> AssetId {
     let asset_id = create_sample_asset::<T>(asset_owner, true);
     Module::<T>::issue(
         asset_owner.origin().into(),
@@ -143,7 +143,7 @@ pub fn setup_asset_transfer<T>(
     pause_compliance: bool,
     pause_restrictions: bool,
     n_mediators: u8,
-) -> (PortfolioId, PortfolioId, Vec<User<T>>, AssetID)
+) -> (PortfolioId, PortfolioId, Vec<User<T>>, AssetId)
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
 {
@@ -217,7 +217,7 @@ pub fn create_portfolio<T: Config>(user: &User<T>, portofolio_name: &str) -> Por
 /// Moves `amount` from the user's default portfolio to `destination_portfolio`.
 fn move_from_default_portfolio<T: Config>(
     user: &User<T>,
-    asset_id: AssetID,
+    asset_id: AssetId,
     amount: Balance,
     destination_portfolio: PortfolioId,
 ) {
@@ -751,5 +751,18 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
         let ticker = reg_unique_ticker::<T>(alice.origin().into(), None);
+    }: _(alice.origin, ticker, asset_id)
+
+    unlink_ticker_from_asset_id {
+        set_ticker_registration_config::<T>();
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let asset_id = create_sample_asset::<T>(&alice, true);
+        let ticker = reg_unique_ticker::<T>(alice.origin().into(), None);
+        Module::<T>::link_ticker_to_asset_id(
+            alice.clone().origin().into(),
+            ticker,
+            asset_id
+        )
+        .unwrap();
     }: _(alice.origin, ticker, asset_id)
 }

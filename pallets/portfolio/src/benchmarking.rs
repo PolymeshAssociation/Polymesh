@@ -67,13 +67,14 @@ benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> + AssetConfig }
 
     create_portfolio {
-        let target = user::<T>("target", 0);
-        let did = target.did();
-        let portfolio_name = PortfolioName(vec![65u8; PORTFOLIO_NAME_LEN]);
-        let next_portfolio_num = NextPortfolioNumber::get(&did);
-    }: _(target.origin, portfolio_name.clone())
+        let l in 1..PORTFOLIO_NAME_LEN.try_into().unwrap();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let next_portfolio_num = NextPortfolioNumber::get(alice.did());
+        let portfolio_name = PortfolioName(vec![65; l as usize]);
+    }: _(alice.origin.clone(), portfolio_name.clone())
     verify {
-        assert_eq!(Portfolios::get(&did, &next_portfolio_num), Some(portfolio_name));
+        assert_eq!(Portfolios::get(alice.did(), next_portfolio_num), Some(portfolio_name));
     }
 
     delete_portfolio {
@@ -139,7 +140,7 @@ benchmarks! {
         let alice_custom_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::User(PortfolioNumber(1)) };
         Module::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
         // Simulates minting - Adding the NFT pallet causes cyclic dependency
-        let nft_asset_id = AssetID::new([0; 16]);
+        let nft_asset_id = AssetId::new([0; 16]);
         (1..n + 1).for_each(|id| PortfolioNFT::insert(alice_default_portfolio, (nft_asset_id, NFTId(id.into())), true));
 
         let nfts = NFTs::new_unverified(nft_asset_id, (1..n + 1).map(|id| NFTId(id.into())).collect());
@@ -166,7 +167,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let alice_custom_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::User(PortfolioNumber(1)) };
 
-        let asset_id = AssetID::new([0; 16]);
+        let asset_id = AssetId::new([0; 16]);
         Module::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
         Module::<T>::pre_approve_portfolio(alice.clone().origin().into(), asset_id, alice_custom_portfolio).unwrap();
     }: _(alice.origin, asset_id, alice_custom_portfolio)

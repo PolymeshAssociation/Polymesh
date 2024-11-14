@@ -30,7 +30,7 @@ const MAX_DID_WHT_IDS: u32 = 1000;
 fn portfolio<T: Config>(
     owner: &User<T>,
     pnum: PortfolioNumber,
-    asset_id: AssetID,
+    asset_id: AssetId,
     amount: Balance,
 ) {
     let did = owner.did();
@@ -48,7 +48,7 @@ fn portfolio<T: Config>(
     .unwrap();
 }
 
-fn dist<T: Config + TestUtilsFn<AccountIdOf<T>>>(target_ids: u32) -> (User<T>, CAId, AssetID) {
+fn dist<T: Config + TestUtilsFn<AccountIdOf<T>>>(target_ids: u32) -> (User<T>, CAId, AssetId) {
     let (owner, ca_id) = setup_ca::<T>(CAKind::UnpredictableBenefit);
 
     let currency = currency::<T>(&owner);

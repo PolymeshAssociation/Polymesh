@@ -1,6 +1,6 @@
 use sp_std::vec;
 
-use polymesh_primitives::asset::{AssetID, AssetName, AssetType};
+use polymesh_primitives::asset::{AssetId, AssetName, AssetType};
 use polymesh_primitives::{PortfolioKind, Ticker};
 
 use crate::benchs::User;
@@ -28,7 +28,7 @@ pub fn create_and_issue_sample_asset<T: Config>(
     asset_type: Option<AssetType>,
     asset_name: &[u8],
     issue_tokens: bool,
-) -> AssetID {
+) -> AssetId {
     let asset_id = T::AssetFn::generate_asset_id(asset_owner.account());
 
     T::AssetFn::create_asset(

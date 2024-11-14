@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 use crate::agent::AgentGroup;
-use crate::asset::AssetID;
+use crate::asset::AssetId;
 use crate::identity_id::IdentityId;
 use crate::secondary_key::Permissions;
 use crate::{Balance, PortfolioId, Ticker};
@@ -42,14 +42,14 @@ pub enum AuthorizationData<AccountId> {
     AddMultiSigSigner(AccountId),
     /// Authorization to transfer a token's ownership
     /// Must be issued by the current owner of the asset
-    TransferAssetOwnership(AssetID),
+    TransferAssetOwnership(AssetId),
     /// Authorization to join an Identity
     /// Must be issued by the identity which is being joined
     JoinIdentity(Permissions),
     /// Authorization to take custody of a portfolio
     PortfolioCustody(PortfolioId),
-    /// Authorization to become an agent of the `AssetID` with the `AgentGroup`.
-    BecomeAgent(AssetID, AgentGroup),
+    /// Authorization to become an agent of the `AssetId` with the `AgentGroup`.
+    BecomeAgent(AssetId, AgentGroup),
     /// Add Relayer paying key to user key
     /// Must be issued by the paying key.
     /// `AddRelayerPayingKey(user_key, paying_key, polyx_limit)`

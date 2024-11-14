@@ -11,7 +11,7 @@ use polymesh_primitives::{
 };
 
 use super::setup::{create_and_issue_sample_asset, create_and_issue_sample_nft, ISSUE_AMOUNT};
-use crate::storage::User;
+use crate::storage::{default_portfolio_btreeset, User};
 use crate::{ExtBuilder, TestStorage};
 
 type Asset = pallet_asset::Module<TestStorage>;
@@ -229,7 +229,7 @@ fn base_transfer_locked_asset() {
                 asset_id,
                 amount: ISSUE_AMOUNT,
             }],
-            vec![alice_default_portfolio],
+            default_portfolio_btreeset(alice.did),
             None,
         ));
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
