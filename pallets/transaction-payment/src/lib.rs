@@ -53,14 +53,15 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-    decl_event, decl_module, decl_storage,
     dispatch::{
         DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays, PostDispatchInfo,
         Weight,
     },
+    pallet_prelude::*,
     traits::{Currency, Get, GetCallMetadata},
-    weights::{WeightToFee, WeightToFeeCoefficient, WeightToFeePolynomial},
+    weights::{WeightToFee, WeightToFeePolynomial},
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use polymesh_common_utilities::traits::{
     group::GroupTrait,
     identity::IdentityFnTrait,
@@ -85,13 +86,15 @@ use sp_std::prelude::*;
 mod payment;
 mod types;
 
-pub use payment::*;
+pub use pallet::*;
+pub use payment::{CurrencyAdapter, OnChargeTransaction};
 pub use types::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
 
 /// Fee multiplier.
 pub type Multiplier = FixedU128;
 
-type BalanceOf<T> = <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
+type BalanceOf<T> =
+    <<T as crate::pallet::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 
 /// A struct to update the weight multiplier per block. It implements `Convert<Multiplier,
 /// Multiplier>`, meaning that it can convert the previous multiplier to the next one. This should
@@ -287,129 +290,146 @@ where
 }
 
 /// Storage releases of the pallet.
-#[derive(
-    Encode,
-    Decode,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    RuntimeDebug,
-    TypeInfo,
-    MaxEncodedLen
-)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Copy, Default, Eq, MaxEncodedLen, PartialEq, RuntimeDebug)]
 enum Releases {
     /// Original version of the pallet.
+    #[default]
     V1Ancient,
     /// One that bumps the usage to FixedU128 from FixedI128.
     V2,
 }
 
-impl Default for Releases {
-    fn default() -> Self {
-        Releases::V1Ancient
-    }
-}
+const MULTIPLIER_DEFAULT_VALUE: Multiplier = Multiplier::from_u32(1);
 
-pub trait Config: frame_system::Config + pallet_timestamp::Config {
-    /// The overarching event type.
-    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
 
-    /// The currency type in which fees will be paid.
-    type Currency: Currency<Self::AccountId> + Send + Sync;
+    #[pallet::pallet]
+    #[pallet::generate_store(pub(super) trait Store)]
+    pub struct Pallet<T>(_);
 
-    /// Handler for withdrawing, refunding and depositing the transaction fee.
-    /// Transaction fees are withdrawn before the transaction is executed.
-    /// After the transaction was executed the transaction weight can be
-    /// adjusted, depending on the used resources by the transaction. If the
-    /// transaction weight is lower than expected, parts of the transaction fee
-    /// might be refunded. In the end the fees can be deposited.
-    type OnChargeTransaction: OnChargeTransaction<Self>;
+    #[pallet::config]
+    pub trait Config: frame_system::Config + pallet_timestamp::Config {
+        /// The overarching event type.
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-    /// The fee to be paid for making a transaction; the per-byte portion.
-    type TransactionByteFee: Get<BalanceOf<Self>>;
+        /// The currency type in which fees will be paid.
+        type Currency: Currency<Self::AccountId> + Send + Sync;
 
-    /// Convert a weight value into a deductible fee based on the currency type.
-    type WeightToFee: WeightToFeePolynomial<Balance = BalanceOf<Self>>;
-
-    /// Update the multiplier of the next block, based on the previous block's weight.
-    type FeeMultiplierUpdate: MultiplierUpdate;
-
-    // Polymesh note: This was specifically added for Polymesh
-    /// Fetch the signatory to charge fee from. Also sets fee payer and identity in context.
-    type CddHandler: CddAndFeeDetails<Self::AccountId, Self::RuntimeCall>;
-
-    // Polymesh note: This was specifically added for Polymesh
-    /// Connection to the `Relayer` pallet.
-    /// Used to charge transaction fees to a subsidiser, if any, instead of the payer.
-    type Subsidiser: SubsidiserTrait<Self::AccountId, Self::RuntimeCall>;
-
-    // Polymesh note: This was specifically added for Polymesh
-    /// CDD providers group.
-    type CddProviders: GroupTrait<Self::Moment>;
-
-    // Polymesh note: This was specifically added for Polymesh
-    /// Governance committee.
-    type GovernanceCommittee: GroupTrait<Self::Moment>;
-
-    // Polymesh note: This was specifically added for Polymesh
-    /// Identity functionality.
-    type Identity: IdentityFnTrait<Self::AccountId>;
-}
-
-decl_storage! {
-    trait Store for Module<T: Config> as TransactionPayment {
-        pub NextFeeMultiplier get(fn next_fee_multiplier): Multiplier = Multiplier::saturating_from_integer(1);
-
-        StorageVersion build(|_: &GenesisConfig| Releases::V2): Releases;
-    }
-}
-
-decl_event! {
-    pub enum Event<T>
-    where
-        Balance = BalanceOf<T>,
-        AccountId = <T as frame_system::Config>::AccountId,
-    {
-        /// A transaction fee `actual_fee`, of which `tip` was added to the minimum inclusion fee,
-        /// has been paid by `who`.
-        TransactionFeePaid { who: AccountId, actual_fee: Balance, tip: Balance },
-    }
-}
-
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
-        fn deposit_event() = default;
+        /// Handler for withdrawing, refunding and depositing the transaction fee.
+        /// Transaction fees are withdrawn before the transaction is executed.
+        /// After the transaction was executed the transaction weight can be
+        /// adjusted, depending on the used resources by the transaction. If the
+        /// transaction weight is lower than expected, parts of the transaction fee
+        /// might be refunded. In the end the fees can be deposited.
+        type OnChargeTransaction: OnChargeTransaction<Self>;
 
         /// The fee to be paid for making a transaction; the per-byte portion.
-        const TransactionByteFee: BalanceOf<T> = T::TransactionByteFee::get();
+        type TransactionByteFee: Get<BalanceOf<Self>>;
 
-        /// The polynomial that is applied in order to derive fee from weight.
-        const WeightToFee: Vec<WeightToFeeCoefficient<BalanceOf<T>>> =
-            T::WeightToFee::polynomial().to_vec();
+        /// Convert a weight value into a deductible fee based on the currency type.
+        type WeightToFee: WeightToFeePolynomial<Balance = BalanceOf<Self>>;
 
-        // Polymesh specific change: Fee multiplier update has been disabled for the testnet.
+        /// Update the multiplier of the next block, based on the previous block's weight.
+        type FeeMultiplierUpdate: MultiplierUpdate;
 
+        // Polymesh note: This was specifically added for Polymesh
+        /// Fetch the signatory to charge fee from. Also sets fee payer and identity in context.
+        type CddHandler: CddAndFeeDetails<Self::AccountId, Self::RuntimeCall>;
+
+        // Polymesh note: This was specifically added for Polymesh
+        /// Connection to the `Relayer` pallet.
+        /// Used to charge transaction fees to a subsidiser, if any, instead of the payer.
+        type Subsidiser: SubsidiserTrait<Self::AccountId, Self::RuntimeCall>;
+
+        // Polymesh note: This was specifically added for Polymesh
+        /// CDD providers group.
+        type CddProviders: GroupTrait<Self::Moment>;
+
+        // Polymesh note: This was specifically added for Polymesh
+        /// Governance committee.
+        type GovernanceCommittee: GroupTrait<Self::Moment>;
+
+        // Polymesh note: This was specifically added for Polymesh
+        /// Identity functionality.
+        type Identity: IdentityFnTrait<Self::AccountId>;
+    }
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
+        /// A transaction fee `actual_fee`, of which `tip` was added to the minimum inclusion fee,
+        /// has been paid by `who`.
+        TransactionFeePaid {
+            who: T::AccountId,
+            actual_fee: BalanceOf<T>,
+            tip: BalanceOf<T>,
+        },
+    }
+
+    #[pallet::type_value]
+    pub fn NextFeeMultiplierOnEmpty() -> Multiplier {
+        MULTIPLIER_DEFAULT_VALUE
+    }
+
+    #[pallet::storage]
+    #[pallet::getter(fn next_fee_multiplier)]
+    pub type NextFeeMultiplier<T> =
+        StorageValue<_, Multiplier, ValueQuery, NextFeeMultiplierOnEmpty>;
+
+    #[pallet::storage]
+    pub(super) type StorageVersion<T: Config> = StorageValue<_, Releases, ValueQuery>;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig {
+        pub multiplier: Multiplier,
+    }
+
+    #[cfg(feature = "std")]
+    impl Default for GenesisConfig {
+        fn default() -> Self {
+            Self {
+                multiplier: MULTIPLIER_DEFAULT_VALUE,
+            }
+        }
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+        fn build(&self) {
+            StorageVersion::<T>::put(Releases::V2);
+            NextFeeMultiplier::<T>::put(self.multiplier);
+        }
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn integrity_test() {
             // given weight == u64, we build multipliers from `diff` of two weight values, which can
             // at most be maximum block weight. Make sure that this can fit in a multiplier without
             // loss.
             assert!(
-                <Multiplier as sp_runtime::traits::Bounded>::max_value() >=
-                Multiplier::checked_from_integer::<u64>(
-                    T::BlockWeights::get().max_block.ref_time()
-                ).unwrap(),
+                <Multiplier as sp_runtime::traits::Bounded>::max_value()
+                    >= Multiplier::checked_from_integer::<u64>(
+                        T::BlockWeights::get().max_block.ref_time()
+                    )
+                    .unwrap(),
             );
 
             // This is the minimum value of the multiplier. Make sure that if we collapse to this
             // value, we can recover with a reasonable amount of traffic. For this test we assert
             // that if we collapse to minimum, the trend will be positive with a weight value
             // which is 1% more than the target.
-            let target = T::FeeMultiplierUpdate::target() *
-                T::BlockWeights::get().get(DispatchClass::Normal).max_total.expect(
-                    "Setting `max_total` for `Normal` dispatch class is not compatible with \
-                    `transaction-payment` pallet."
-                );
+            let target = T::FeeMultiplierUpdate::target()
+                * T::BlockWeights::get()
+                    .get(DispatchClass::Normal)
+                    .max_total
+                    .expect(
+                        "Setting `max_total` for `Normal` dispatch class is not compatible with \
+                    `transaction-payment` pallet.",
+                    );
 
             // add 1 percent;
             let addition = target / 100;
@@ -430,7 +450,9 @@ decl_module! {
 
                 <frame_system::Pallet<T>>::set_block_consumed_resources(target, 0);
                 let next = T::FeeMultiplierUpdate::convert(min_value);
-                assert!(next > min_value, "The minimum bound of the multiplier is too low. When \
+                assert!(
+                    next > min_value,
+                    "The minimum bound of the multiplier is too low. When \
                     block saturation is more than target by 1% and multiplier is minimal then \
                     the multiplier doesn't increase."
                 );
@@ -439,7 +461,7 @@ decl_module! {
     }
 }
 
-impl<T: Config> Module<T>
+impl<T: Config> Pallet<T>
 where
     BalanceOf<T>: FixedPointOperand,
 {
@@ -665,11 +687,11 @@ where
     /// Polymesh-Note :- Change for the supporting the test
     #[cfg(debug_assertions)]
     pub fn put_next_fee_multiplier(m: Multiplier) {
-        NextFeeMultiplier::put(m)
+        NextFeeMultiplier::<T>::put(m)
     }
 }
 
-impl<T> Convert<Weight, BalanceOf<T>> for Module<T>
+impl<T> Convert<Weight, BalanceOf<T>> for Pallet<T>
 where
     T: Config,
     BalanceOf<T>: FixedPointOperand,
@@ -680,7 +702,7 @@ where
     /// share that the weight contributes to the overall fee of a transaction. It is mainly
     /// for informational purposes and not used in the actual fee calculation.
     fn convert(weight: Weight) -> BalanceOf<T> {
-        NextFeeMultiplier::get().saturating_mul_int(Self::weight_to_fee(weight))
+        NextFeeMultiplier::<T>::get().saturating_mul_int(Self::weight_to_fee(weight))
     }
 }
 
@@ -715,7 +737,7 @@ where
         len: usize,
     ) -> Result<WithdrawFeeInfo<T, T::AccountId>, TransactionValidityError> {
         let tip = self.0;
-        let fee = Module::<T>::compute_fee(len as u32, info, tip);
+        let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
 
         // Polymesh: Changed how the tx fee payer is selected.
 
@@ -852,7 +874,7 @@ where
             Some(pre) => pre,
             None => return Ok(()),
         };
-        let actual_fee = Module::<T>::compute_actual_fee(len as u32, info, post_info, tip);
+        let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, post_info, tip);
 
         // Fee returned to original payer.
         // If payer context is empty, the fee is returned to the caller account.
@@ -872,7 +894,7 @@ where
         T::OnChargeTransaction::correct_and_deposit_fee(
             &fee_key, info, post_info, actual_fee, tip, imbalance,
         )?;
-        Module::<T>::deposit_event(Event::<T>::TransactionFeePaid {
+        Pallet::<T>::deposit_event(Event::<T>::TransactionFeePaid {
             who: fee_key,
             actual_fee,
             tip,
@@ -885,7 +907,7 @@ where
 }
 
 // Polymesh note: This was specifically added for Polymesh
-impl<T: Config> ChargeTxFee for Module<T>
+impl<T: Config> ChargeTxFee for Pallet<T>
 where
     BalanceOf<T>: FixedPointOperand,
     T::RuntimeCall: Dispatchable<Info = DispatchInfo>,

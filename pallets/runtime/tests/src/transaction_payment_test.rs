@@ -28,7 +28,7 @@ fn call() -> <TestStorage as frame_system::Config>::RuntimeCall {
 
 type Balances = pallet_balances::Module<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
-type TransactionPayment = pallet_transaction_payment::Module<TestStorage>;
+type TransactionPayment = pallet_transaction_payment::Pallet<TestStorage>;
 
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
 pub fn info_from_weight(w: u64) -> DispatchInfo {

@@ -28,7 +28,7 @@ type Identity = pallet_identity::Module<TestStorage>;
 type AccountKeyRefCount = pallet_identity::AccountKeyRefCount<TestStorage>;
 type Balances = pallet_balances::Module<TestStorage>;
 type ProtocolFee = pallet_protocol_fee::Module<TestStorage>;
-type TransactionPayment = pallet_transaction_payment::Module<TestStorage>;
+type TransactionPayment = pallet_transaction_payment::Pallet<TestStorage>;
 type ChargeTransactionPayment = pallet_transaction_payment::ChargeTransactionPayment<TestStorage>;
 type Error = pallet_relayer::Error<TestStorage>;
 
