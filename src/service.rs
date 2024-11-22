@@ -330,6 +330,7 @@ where
     })
 }
 
+#[allow(dead_code)]
 pub struct NewFullBase<R, D>
 where
     R: ConstructRuntimeApi<Block, FullClient<R, D>> + Send + Sync + 'static,
