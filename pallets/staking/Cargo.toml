@@ -69,3 +69,4 @@ runtime-benchmarks = [
 	"frame-benchmarking",
 	"rand_chacha",
 ]
+try-runtime = []

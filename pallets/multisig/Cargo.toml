@@ -55,3 +55,4 @@ runtime-benchmarks = [
 	"polymesh-primitives/runtime-benchmarks",
 	"polymesh-common-utilities/runtime-benchmarks",
 ]
+try-runtime = []
