@@ -393,15 +393,6 @@ where
         Vec::default(),
     ));
 
-    #[cfg(feature = "cli")]
-    config.network.request_response_protocols.push(
-        sc_consensus_grandpa_warp_sync::request_response_config_for_chain(
-            &config,
-            task_manager.spawn_handle(),
-            backend.clone(),
-        ),
-    );
-
     let (network, system_rpc_tx, tx_handler_controller, network_starter) =
         sc_service::build_network(sc_service::BuildNetworkParams {
             config: &config,
