@@ -19,7 +19,7 @@ pallet-nft = { path = "../nft", default-features = false }
 
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { workspace = true, default-features = false, features = ["derive"] }
 hex-literal = "0.2.1"
 hex = { version = "0.4.2", optional = true }
 log = "0.4.8"

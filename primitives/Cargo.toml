@@ -23,7 +23,7 @@ polymesh-primitives-derive = { version = "0.1.0", path = "../primitives_derive",
 schnorrkel = { version = "0.11", default-features = false }
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { workspace = true, default-features = false, features = ["derive"] }
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 scale-info = { version = "2.0", default-features = false, features = ["derive", "decode"] }
