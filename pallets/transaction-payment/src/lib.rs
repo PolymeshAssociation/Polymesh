@@ -61,7 +61,7 @@ use frame_support::{
     traits::{Currency, Get, GetCallMetadata},
     weights::{WeightToFee, WeightToFeeCoefficient, WeightToFeePolynomial},
 };
-use frame_system::pallet_prelude::BlockNumberFor;
+use frame_system::pallet_prelude::{BlockNumberFor, OriginFor};
 use polymesh_common_utilities::traits::{
     group::GroupTrait,
     identity::IdentityFnTrait,
@@ -384,12 +384,19 @@ pub mod pallet {
     pub type NextFeeMultiplier<T> =
         StorageValue<_, Multiplier, ValueQuery, NextFeeMultiplierOnEmpty>;
 
+    #[cfg(feature = "disable_fees")]
+    #[pallet::storage]
+    #[pallet::getter(fn disable_fees)]
+    pub type DisableFees<T: Config> = StorageValue<_, bool, ValueQuery>;
+
     #[pallet::storage]
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Releases, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig {
         pub multiplier: Multiplier,
+        #[cfg(feature = "disable_fees")]
+        pub disable_fees: bool,
     }
 
     #[cfg(feature = "std")]
@@ -397,6 +404,8 @@ pub mod pallet {
         fn default() -> Self {
             Self {
                 multiplier: MULTIPLIER_DEFAULT_VALUE,
+                #[cfg(feature = "disable_fees")]
+                disable_fees: false,
             }
         }
     }
@@ -406,6 +415,8 @@ pub mod pallet {
         fn build(&self) {
             StorageVersion::<T>::put(Releases::V2);
             NextFeeMultiplier::<T>::put(self.multiplier);
+            #[cfg(feature = "disable_fees")]
+            DisableFees::<T>::put(self.disable_fees);
         }
     }
 
@@ -462,6 +473,18 @@ pub mod pallet {
                     the multiplier doesn't increase."
                 );
             })
+        }
+    }
+
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        #[pallet::call_index(0)]
+        #[pallet::weight(Weight::from_ref_time(25_000_000))]
+        pub fn set_disable_fees(origin: OriginFor<T>, _value: bool) -> DispatchResult {
+            frame_system::ensure_root(origin)?;
+            #[cfg(feature = "disable_fees")]
+            DisableFees::<T>::put(_value);
+            Ok(())
         }
     }
 }
@@ -647,6 +670,14 @@ where
         pays_fee: Pays,
         class: DispatchClass,
     ) -> FeeDetails<BalanceOf<T>> {
+        #[cfg(feature = "disable_fees")]
+        if Self::disable_fees() {
+            return FeeDetails {
+                inclusion_fee: None,
+                tip: 0u32.into(),
+            };
+        }
+
         if pays_fee == Pays::Yes {
             // the adjustable part of the fee.
             let unadjusted_weight_fee = Self::weight_to_fee(weight);
