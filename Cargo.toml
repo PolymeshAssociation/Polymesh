@@ -328,7 +328,7 @@ sc-sync-state-rpc = { version = "0.10.0-dev" }
 grandpa = { package = "sc-consensus-grandpa", version = "0.10.0-dev" }
 
 # Substrate
-codec = { workspace = true, package = "parity-scale-codec" }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }

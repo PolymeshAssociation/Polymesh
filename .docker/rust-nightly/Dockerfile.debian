@@ -21,8 +21,9 @@ RUN apt update && \
   apt autoremove -y && \
   apt clean
 RUN rustup toolchain install $TOOLCHAIN && \
-  cargo +$TOOLCHAIN install rustfilt cargo-binutils && \
+  rustup default $TOOLCHAIN && \
+  cargo install rustfilt cargo-binutils && \
   rustup component add rustfmt clippy llvm-tools-preview && \
-  rustup component add rustfmt clippy llvm-tools-preview --toolchain $TOOLCHAIN && \
-  rustup target add wasm32-unknown-unknown --toolchain $TOOLCHAIN && \
+  rustup target add wasm32-unknown-unknown && \
+  cargo install cargo-outdated && \
   cargo install sccache cargo-sonar cargo-audit cargo-deny cargo-outdated cargo-nextest --locked
