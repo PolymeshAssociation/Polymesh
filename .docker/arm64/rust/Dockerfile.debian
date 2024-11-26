@@ -21,6 +21,6 @@ RUN apt update && \
   apt autoremove -y && \
   apt clean
 RUN rustup toolchain install $TOOLCHAIN && \
+  rustup default $TOOLCHAIN && \
   rustup target add wasm32-unknown-unknown && \
-  rustup target add wasm32-unknown-unknown --toolchain $TOOLCHAIN && \
   cargo install sccache --locked

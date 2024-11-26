@@ -57,7 +57,7 @@ serde_json = '1.0.48'
 log = "0.4.8"
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { workspace = true, default-features = false, features = ["derive"] }
 frame-benchmarking = { version = "4.0.0-dev", optional = true }
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
@@ -179,3 +179,4 @@ std = [
 runtime-benchmarks = [
     "frame-benchmarking/runtime-benchmarks",
 ]
+try-runtime = []
