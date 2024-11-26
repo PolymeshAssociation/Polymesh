@@ -59,7 +59,7 @@ use frame_support::{
     },
     pallet_prelude::*,
     traits::{Currency, Get, GetCallMetadata},
-    weights::{WeightToFee, WeightToFeePolynomial},
+    weights::{WeightToFee, WeightToFeeCoefficient, WeightToFeePolynomial},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use polymesh_common_utilities::traits::{
@@ -327,6 +327,7 @@ pub mod pallet {
         type OnChargeTransaction: OnChargeTransaction<Self>;
 
         /// The fee to be paid for making a transaction; the per-byte portion.
+        #[pallet::constant]
         type TransactionByteFee: Get<BalanceOf<Self>>;
 
         /// Convert a weight value into a deductible fee based on the currency type.
@@ -355,6 +356,10 @@ pub mod pallet {
         // Polymesh note: This was specifically added for Polymesh
         /// Identity functionality.
         type Identity: IdentityFnTrait<Self::AccountId>;
+
+        /// The polynomial that is applied in order to derive fee from weight.
+        #[pallet::constant]
+        type WeightToFeeConst: Get<Vec<WeightToFeeCoefficient<BalanceOf<Self>>>>;
     }
 
     #[pallet::event]
