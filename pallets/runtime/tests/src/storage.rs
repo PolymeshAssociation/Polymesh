@@ -797,7 +797,7 @@ pub fn make_account_without_cdd(
 > {
     let signed_id = RuntimeOrigin::signed(id.clone());
     Balances::make_free_balance_be(&id, 10_000_000);
-    let did = Identity::_register_did(id.clone(), vec![], None).expect("did");
+    let did = Identity::register_did_without_cdd(id.clone(), vec![], None).expect("did");
     Ok((signed_id, did))
 }
 
