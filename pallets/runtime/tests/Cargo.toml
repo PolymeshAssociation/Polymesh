@@ -37,7 +37,6 @@ pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
 polymesh-common-utilities = { path = "../../common", default-features = false }
 polymesh-contracts = { path = "../../contracts", default-features = false }
-polymesh-extensions = { path = "../extensions", default-features = false }
 polymesh-primitives = { path = "../../../primitives", default-features = false }
 polymesh-runtime-common = { path = "../common", default-features = false, features = ["testing"] }
 polymesh-runtime-develop = { path = "../develop" }

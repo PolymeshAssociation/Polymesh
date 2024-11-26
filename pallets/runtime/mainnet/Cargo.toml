@@ -10,7 +10,6 @@ build = "build.rs"
 [dependencies]
 # Common
 polymesh-common-utilities = { path = "../../common", default-features = false }
-polymesh-extensions = { path = "../extensions", default-features = false }
 polymesh-primitives = { path = "../../../primitives", default-features = false }
 polymesh-runtime-common = { path = "../common", default-features = false}
 polymesh-weights = { path = "../../weights", default-features = false }
