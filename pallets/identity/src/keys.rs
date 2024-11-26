@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    types, AccountKeyRefCount, ChildDid, Config, CurrentAuthId, DidKeys, DidRecords, Error,
+    types, AccountKeyRefCount, ChildDid, Claim, Config, CurrentAuthId, DidKeys, DidRecords, Error,
     IsDidFrozen, KeyAssetPermissions, KeyExtrinsicPermissions, KeyPortfolioPermissions, KeyRecords,
     Module, MultiPurposeNonce, OffChainAuthorizationNonce, OutdatedAuthorizations, ParentDid,
     PermissionedCallOriginData, RawEvent, RpcDidRecords,
@@ -39,8 +39,8 @@ use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
 };
 use polymesh_primitives::{
-    extract_auth, AuthorizationData, DidRecord, ExtrinsicName, ExtrinsicPermissions, IdentityId,
-    KeyRecord, PalletName, Permissions, SecondaryKey, Signatory,
+    extract_auth, AuthorizationData, CddId, DidRecord, ExtrinsicName, ExtrinsicPermissions,
+    IdentityId, KeyRecord, PalletName, Permissions, SecondaryKey, Signatory,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -835,6 +835,20 @@ impl<T: Config> Module<T> {
             let data = AuthorizationData::JoinIdentity(sk.permissions.clone());
             Self::add_auth(did, signer, data, None)?;
         }
+        Ok(did)
+    }
+
+    /// For testing/benchmarking only.
+    /// Registers a did with a self CDD claim.
+    //#[cfg(feature = "runtime-benchmarks")]
+    pub fn testing_cdd_register_did(
+        sender: T::AccountId,
+        secondary_keys: Vec<SecondaryKey<T::AccountId>>,
+    ) -> Result<IdentityId, DispatchError> {
+        let did = Self::register_did_without_cdd(sender, secondary_keys, None)?;
+        // Add a self CDD claim.
+        let cdd = Claim::CustomerDueDiligence(CddId::default());
+        Self::base_add_claim(did, cdd, did, None)?;
         Ok(did)
     }
 

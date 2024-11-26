@@ -17,8 +17,7 @@ use frame_benchmarking::benchmarks;
 use frame_support::storage::StorageDoubleMap;
 use frame_system::RawOrigin;
 
-use polymesh_common_utilities::benchs::{AccountIdOf, User, UserBuilder};
-use polymesh_common_utilities::TestUtilsFn;
+use polymesh_common_utilities::benchs::{User, UserBuilder};
 
 use crate::*;
 
@@ -26,7 +25,7 @@ pub type MultiSig<T> = crate::Pallet<T>;
 pub type Identity<T> = pallet_identity::Module<T>;
 pub type Timestamp<T> = pallet_timestamp::Pallet<T>;
 
-fn generate_signers<T: Config + TestUtilsFn<AccountIdOf<T>>>(
+fn generate_signers<T: Config>(
     n: usize,
 ) -> (BoundedVec<T::AccountId, T::MaxSigners>, Vec<User<T>>) {
     let mut users = Vec::with_capacity(n);
@@ -53,7 +52,7 @@ fn get_last_auth_id<T: Config>(account: &T::AccountId) -> u64 {
         .unwrap_or(0)
 }
 
-fn generate_multisig_with_extra_signers<T: Config + TestUtilsFn<AccountIdOf<T>>>(
+fn generate_multisig_with_extra_signers<T: Config>(
     caller: &User<T>,
     num_of_extra_signers: u32,
     num_of_signers_required: u32,
@@ -85,16 +84,13 @@ pub type MultisigSetupResult<T, AccountId, MaxSigners> = (
     RawOrigin<AccountId>,
 );
 
-fn init_admin<T: Config + TestUtilsFn<AccountIdOf<T>>>(multisig: &T::AccountId, admin: &User<T>) {
+fn init_admin<T: Config>(multisig: &T::AccountId, admin: &User<T>) {
     let multisig_origin = RawOrigin::Signed(multisig.clone());
     let admin_did = admin.did.expect("Admin must have a DID");
     MultiSig::<T>::add_admin(multisig_origin.into(), admin_did).unwrap();
 }
 
-fn init_join_identity<T: Config + TestUtilsFn<AccountIdOf<T>>>(
-    multisig: &T::AccountId,
-    admin: &User<T>,
-) -> u64 {
+fn init_join_identity<T: Config>(multisig: &T::AccountId, admin: &User<T>) -> u64 {
     let multisig_origin = RawOrigin::Signed(multisig.clone());
     let admin_did = admin.did.expect("Admin must have a DID");
     Identity::<T>::leave_identity_as_key(multisig_origin.into()).unwrap();
@@ -109,7 +105,7 @@ fn init_join_identity<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     auth_id
 }
 
-fn generate_multisig_for_alice_wo_accepting<T: Config + TestUtilsFn<AccountIdOf<T>>>(
+fn generate_multisig_for_alice_wo_accepting<T: Config>(
     total_signers: u32,
     signers_required: u32,
 ) -> Result<MultisigSetupResult<T, T::AccountId, T::MaxSigners>, DispatchError> {
@@ -125,7 +121,7 @@ fn generate_multisig_for_alice_wo_accepting<T: Config + TestUtilsFn<AccountIdOf<
     ))
 }
 
-fn generate_multisig_for_alice<T: Config + TestUtilsFn<AccountIdOf<T>>>(
+fn generate_multisig_for_alice<T: Config>(
     total_signers: u32,
     signers_required: u32,
 ) -> Result<MultisigSetupResult<T, T::AccountId, T::MaxSigners>, DispatchError> {
@@ -148,7 +144,7 @@ pub type ProposalSetupResult<T, AccountId, Proposal, MaxSigners> = (
     AccountId,
 );
 
-fn generate_multisig_and_proposal_for_alice<T: Config + TestUtilsFn<AccountIdOf<T>>>(
+fn generate_multisig_and_proposal_for_alice<T: Config>(
     total_signers: u32,
     signers_required: u32,
 ) -> Result<
@@ -170,7 +166,7 @@ fn generate_multisig_and_proposal_for_alice<T: Config + TestUtilsFn<AccountIdOf<
     ))
 }
 
-fn generate_multisig_and_create_proposal<T: Config + TestUtilsFn<AccountIdOf<T>>>(
+fn generate_multisig_and_create_proposal<T: Config>(
     total_signers: u32,
     signers_required: u32,
 ) -> Result<
@@ -217,8 +213,6 @@ macro_rules! assert_number_of_signers {
 }
 
 benchmarks! {
-    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
-
     create_multisig {
         // Number of signers
         let i in 1 .. T::MaxSigners::get() as u32;

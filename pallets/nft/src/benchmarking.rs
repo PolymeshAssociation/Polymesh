@@ -5,12 +5,10 @@ use sp_std::prelude::*;
 use sp_std::vec::Vec;
 
 use pallet_asset::benchmarking::create_portfolio;
-use polymesh_common_utilities::benchs::{
-    create_and_issue_sample_asset, user, AccountIdOf, User, UserBuilder,
-};
+use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, user, User, UserBuilder};
 use polymesh_common_utilities::traits::asset::AssetFnTrait;
 use polymesh_common_utilities::traits::compliance_manager::ComplianceFnConfig;
-use polymesh_common_utilities::{with_transaction, TestUtilsFn};
+use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataSpec, AssetMetadataValue,
@@ -101,7 +99,7 @@ pub fn setup_nft_transfer<T>(
     n_mediators: u8,
 ) -> (AssetId, PortfolioId, PortfolioId, Vec<User<T>>)
 where
-    T: Config + TestUtilsFn<AccountIdOf<T>>,
+    T: Config,
 {
     let sender_portfolio =
         create_portfolio::<T>(sender, sender_portfolio_name.unwrap_or("SenderPortfolio"));
@@ -138,8 +136,6 @@ where
 }
 
 benchmarks! {
-    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
-
     create_nft_collection {
         let n in 1..MAX_COLLECTION_KEYS;
 

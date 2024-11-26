@@ -20,11 +20,8 @@ use sp_api_hidden_includes_decl_storage::hidden_include::traits::Get;
 use sp_std::prelude::*;
 
 use polymesh_common_utilities::asset::Config as AssetConfig;
-use polymesh_common_utilities::benchs::{
-    create_and_issue_sample_asset, user, AccountIdOf, User, UserBuilder,
-};
+use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, user, User, UserBuilder};
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
-use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::{AuthorizationData, NFTs, PortfolioName, Signatory};
 
 use crate::*;
@@ -33,7 +30,7 @@ const PORTFOLIO_NAME_LEN: usize = 500;
 
 fn owner_portfolio<T>() -> (User<T>, PortfolioId)
 where
-    T: Config + TestUtilsFn<<T as frame_system::Config>::AccountId>,
+    T: Config,
 {
     let owner = user::<T>("owner", 0);
 
@@ -64,7 +61,7 @@ fn assert_custodian<T: Config>(pid: PortfolioId, custodian: &User<T>, holds: boo
 }
 
 benchmarks! {
-    where_clause { where T: TestUtilsFn<AccountIdOf<T>> + AssetConfig }
+    where_clause { where T: AssetConfig }
 
     create_portfolio {
         let l in 1..PORTFOLIO_NAME_LEN.try_into().unwrap();

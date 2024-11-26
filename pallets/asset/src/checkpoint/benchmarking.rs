@@ -16,10 +16,7 @@
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 
-use polymesh_common_utilities::{
-    benchs::{AccountIdOf, User, UserBuilder},
-    TestUtilsFn,
-};
+use polymesh_common_utilities::benchs::{User, UserBuilder};
 
 use super::*;
 use crate::benchmarking::create_sample_asset;
@@ -40,8 +37,6 @@ fn init_with_existing<T: Config>(asset_owner: &User<T>, existing: u64) -> AssetI
 }
 
 benchmarks! {
-    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
-
     set_schedules_max_complexity {}: _(RawOrigin::Root, 7)
     verify {
         assert_eq!(Module::<T>::schedules_max_complexity(), 7)

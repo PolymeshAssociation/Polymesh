@@ -3,8 +3,7 @@ use frame_support::dispatch::DispatchError;
 use scale_info::prelude::format;
 
 use pallet_asset::benchmarking::setup_asset_transfer;
-use polymesh_common_utilities::benchs::{AccountIdOf, User, UserBuilder};
-use polymesh_common_utilities::TestUtilsFn;
+use polymesh_common_utilities::benchs::{User, UserBuilder};
 use polymesh_primitives::settlement::VenueDetails;
 use polymesh_primitives::TrustedIssuer;
 
@@ -28,7 +27,7 @@ struct SetupPortfolios {
 
 fn create_assets_and_compliance<T>(fundraiser: &User<T>, investor: &User<T>) -> SetupPortfolios
 where
-    T: Config + TestUtilsFn<AccountIdOf<T>>,
+    T: Config,
 {
     let (fundraiser_offering_portfolio, investor_offering_portfolio, _, offering_asset_id) =
         setup_asset_transfer(
@@ -101,7 +100,7 @@ fn create_venue<T: Config>(user: &User<T>) -> Result<VenueId, DispatchError> {
 
 fn setup_fundraiser<T>(fundraiser: &User<T>, investor: &User<T>, tiers: u32) -> SetupPortfolios
 where
-    T: Config + TestUtilsFn<AccountIdOf<T>>,
+    T: Config,
 {
     let setup_portfolios = create_assets_and_compliance::<T>(&fundraiser, &investor);
     let venue_id = create_venue(&fundraiser).unwrap();
@@ -125,8 +124,6 @@ where
 }
 
 benchmarks! {
-    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
-
     create_fundraiser {
         // Number of tiers
         let i in 1 .. MAX_TIERS as u32;

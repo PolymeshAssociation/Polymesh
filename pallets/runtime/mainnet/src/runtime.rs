@@ -191,10 +191,7 @@ parameter_types! {
 
 polymesh_runtime_common::misc_pallet_impls!();
 
-type CddHandler = polymesh_runtime_common::fee_details::CddHandler<
-    Runtime,
-    polymesh_runtime_common::fee_details::Noop,
->;
+type CddHandler = polymesh_runtime_common::fee_details::CddHandler<Runtime>;
 
 impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
