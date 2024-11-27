@@ -584,7 +584,7 @@ macro_rules! misc_pallet_impls {
                     frame_system::CheckGenesis::new(),
                     frame_system::CheckEra::from(generic::Era::mortal(period, current_block)),
                     frame_system::CheckNonce::from(nonce),
-                    polymesh_extensions::CheckWeight::new(),
+                    frame_system::CheckWeight::new(),
                     pallet_transaction_payment::ChargeTransactionPayment::from(tip),
                     pallet_permissions::StoreCallMetadata::new(),
                 );
@@ -749,7 +749,7 @@ macro_rules! runtime_apis {
             frame_system::CheckGenesis<Runtime>,
             frame_system::CheckEra<Runtime>,
             frame_system::CheckNonce<Runtime>,
-            polymesh_extensions::CheckWeight<Runtime>,
+            frame_system::CheckWeight<Runtime>,
             pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
             pallet_permissions::StoreCallMetadata<Runtime>,
         );
