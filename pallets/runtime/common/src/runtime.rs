@@ -174,6 +174,7 @@ macro_rules! misc_pallet_impls {
             type GovernanceCommittee = PolymeshCommittee;
             type CddProviders = CddServiceProviders;
             type Identity = Identity;
+            type WeightToFeeConst = polymesh_runtime_common::WeightToFee;
         }
 
         impl polymesh_common_utilities::traits::CommonConfig for Runtime {

@@ -109,6 +109,7 @@ polymesh-build-tool = { path = "../build_tool", default-features = false }
 
 [features]
 default = ["std", "equalize"]
+disable_fees = ["pallet-transaction-payment/disable_fees"]
 equalize = []
 
 ci-runtime = []

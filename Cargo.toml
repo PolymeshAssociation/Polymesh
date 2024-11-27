@@ -361,6 +361,12 @@ substrate-build-script-utils = { version = "3.0.0" }
 
 [features]
 default = ["std"]
+disable_fees = [
+    "pallet-transaction-payment/disable_fees", 
+    "polymesh-runtime-develop/disable_fees", 
+    "polymesh-runtime-mainnet/disable_fees",
+    "polymesh-runtime-testnet/disable_fees",
+]
 running-ci = [ "polymesh-runtime-develop/running-ci" ]
 default_identity = [ "polymesh-common-utilities/default_identity" ]
 runtime-benchmarks = [
