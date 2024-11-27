@@ -7,7 +7,9 @@ use polymesh_runtime_develop::{
 };
 
 use frame_support::dispatch::{DispatchClass, DispatchInfo, Weight};
-use frame_system::{CheckEra, CheckGenesis, CheckNonce, CheckSpecVersion, CheckTxVersion};
+use frame_system::{
+    CheckEra, CheckGenesis, CheckNonce, CheckSpecVersion, CheckTxVersion, CheckWeight,
+};
 use sp_io::TestExternalities;
 use sp_runtime::{generic, traits::SignedExtension};
 use sp_std::convert::From;
@@ -33,7 +35,7 @@ fn make_signed_extra(current_block: u64, period: u64, nonce: Index, tip: u128) -
         CheckGenesis::<Runtime>::new(),
         CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
         CheckNonce::<Runtime>::from(nonce),
-        polymesh_extensions::CheckWeight::<Runtime>::new(),
+        CheckWeight::<Runtime>::new(),
         pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
         pallet_permissions::StoreCallMetadata::<Runtime>::new(),
     )

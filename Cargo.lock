@@ -6208,7 +6208,6 @@ dependencies = [
  "parity-scale-codec 3.6.9",
  "polymesh-common-utilities",
  "polymesh-contracts",
- "polymesh-extensions",
  "polymesh-node-rpc",
  "polymesh-primitives",
  "polymesh-runtime-common",
@@ -6320,22 +6319,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "polymesh-extensions"
-version = "0.1.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-permissions",
- "pallet-transaction-payment",
- "parity-scale-codec 3.6.9",
- "polymesh-common-utilities",
- "polymesh-primitives",
- "scale-info",
- "sp-runtime",
- "sp-std",
 ]
 
 [[package]]
@@ -6496,7 +6479,6 @@ dependencies = [
  "polymesh-build-tool",
  "polymesh-common-utilities",
  "polymesh-contracts",
- "polymesh-extensions",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-weights",
@@ -6580,7 +6562,6 @@ dependencies = [
  "polymesh-build-tool",
  "polymesh-common-utilities",
  "polymesh-contracts",
- "polymesh-extensions",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-weights",
@@ -6666,7 +6647,6 @@ dependencies = [
  "polymesh-build-tool",
  "polymesh-common-utilities",
  "polymesh-contracts",
- "polymesh-extensions",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-weights",
@@ -6759,7 +6739,6 @@ dependencies = [
  "polymesh-common-utilities",
  "polymesh-contracts",
  "polymesh-exec-macro",
- "polymesh-extensions",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-runtime-develop",
