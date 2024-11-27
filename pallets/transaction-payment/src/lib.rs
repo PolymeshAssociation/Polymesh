@@ -24,7 +24,7 @@
 //! This pallet provides the basic logic needed to pay the absolute minimum amount needed for a
 //! transaction to be included. This includes:
 //!   - _base fee_: This is the minimum amount a user pays for a transaction. It is declared
-//! 	as a base _weight_ in the runtime and converted to a fee using `WeightToFee`.
+//!     as a base _weight_ in the runtime and converted to a fee using `WeightToFee`.
 //!   - _weight fee_: A fee proportional to amount of weight a transaction consumes.
 //!   - _length fee_: A fee proportional to the encoded length of the transaction.
 //!   - _tip_: An optional tip. Tip increases the priority of the transaction, giving it a higher
@@ -40,7 +40,7 @@
 //!   ```
 //!
 //!   - `targeted_fee_adjustment`: This is a multiplier that can tune the final fee based on
-//! 	the congestion of the network.
+//!     the congestion of the network.
 //!
 //! Additionally, this pallet allows one to configure:
 //!   - The mapping between one unit of weight to one unit of fee via [`Config::WeightToFee`].
@@ -102,15 +102,15 @@ type BalanceOf<T> =
 /// system pallet.
 ///
 /// given:
-/// 	s = previous block weight
-/// 	s'= ideal block weight
-/// 	m = maximum block weight
-///		diff = (s - s')/m
-///		v = 0.00001
-///		t1 = (v * diff)
-///		t2 = (v * diff)^2 / 2
-///	then:
-/// 	next_multiplier = prev_multiplier * (1 + t1 + t2)
+///     s = previous block weight
+///     s'= ideal block weight
+///     m = maximum block weight
+///     diff = (s - s')/m
+///     v = 0.00001
+///     t1 = (v * diff)
+///     t2 = (v * diff)^2 / 2
+/// then:
+///     next_multiplier = prev_multiplier * (1 + t1 + t2)
 ///
 /// Where `(s', v)` must be given as the `Get` implementation of the `T` generic type. Moreover, `M`
 /// must provide the minimum allowed value for the multiplier. Note that a runtime should ensure
@@ -213,7 +213,7 @@ where
         let normal_max_weight = weights
             .get(DispatchClass::Normal)
             .max_total
-            .unwrap_or_else(|| weights.max_block);
+            .unwrap_or(weights.max_block);
         let current_block_weight = <frame_system::Pallet<T>>::block_weight();
         let normal_block_weight = current_block_weight
             .get(DispatchClass::Normal)
@@ -784,7 +784,7 @@ where
 
         // Get the payer for this transaction.
         let payer_key =
-            T::CddHandler::get_valid_payer(call, &who)?.ok_or(InvalidTransaction::Payment)?;
+            T::CddHandler::get_valid_payer(call, who)?.ok_or(InvalidTransaction::Payment)?;
 
         // Check if the payer is being subsidised.
         let subsidiser = T::Subsidiser::check_subsidy(&payer_key, fee.into(), Some(call))?;
@@ -826,7 +826,7 @@ where
         };
 
         is_valid_tip
-            .then(|| self.0)
+            .then_some(self.0)
             .ok_or(TransactionValidityError::Invalid(
                 InvalidTransaction::Custom(TransactionError::ZeroTip as u8),
             ))
@@ -948,7 +948,7 @@ where
     T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 {
     fn charge_fee(len: u32, info: DispatchInfoOf<T::RuntimeCall>) -> TransactionValidity {
-        let fee = Self::compute_fee(len as u32, &info, 0u32.into());
+        let fee = Self::compute_fee(len, &info, 0u32.into());
         if let Some(payer) = T::CddHandler::get_payer_from_context() {
             T::OnChargeTransaction::charge_fee(&payer, fee)?;
         }

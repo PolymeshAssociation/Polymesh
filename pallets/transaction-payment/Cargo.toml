@@ -42,3 +42,4 @@ std = [
 	"frame-system/std",
 	"pallet-timestamp/std",
 ]
+try-runtime = []
