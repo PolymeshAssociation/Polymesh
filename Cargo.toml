@@ -189,7 +189,6 @@ polymesh-common-utilities = { path = "pallets/common", default-features = false 
 polymesh-runtime-common = { path = "pallets/runtime/common", default-features = false }
 polymesh-primitives = { path = "primitives", default-features = false }
 polymesh-weights = { path = "pallets/weights/", default-features = false }
-polymesh-extensions = { path = "pallets/runtime/extensions", default-features = false }
 
 # RPC
 node-rpc = { path = "rpc" }
@@ -281,7 +280,6 @@ polymesh-contracts = { workspace = true, default-features = false }
 polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false }
-polymesh-extensions = { workspace = true, default-features = false }
 
 # RPC
 node-rpc = { workspace = true }
