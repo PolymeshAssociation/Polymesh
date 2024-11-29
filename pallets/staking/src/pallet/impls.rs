@@ -58,6 +58,7 @@ use frame_support::traits::schedule::{DispatchTime, HIGHEST_PRIORITY};
 use frame_support::traits::DefensiveSaturating;
 
 use polymesh_common_utilities::identity::IdentityFnTrait;
+use polymesh_common_utilities::GC_DID;
 use polymesh_primitives::IdentityId;
 
 use crate::pallet::SlashingSwitch;
