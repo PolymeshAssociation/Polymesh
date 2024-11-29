@@ -889,29 +889,35 @@ impl<T: Config> Pallet<T> {
             };
 
             if let Some(Nominations { targets, .. }) = <Nominators<T>>::get(&voter) {
-                let voter_weight = weight_of(&voter);
-                if !targets.is_empty() {
-                    all_voters.push((voter.clone(), voter_weight, targets));
-                    nominators_taken.saturating_inc();
-                } else {
-                    // Technically should never happen, but not much we can do about it.
+                if Self::is_nominator_compliant(&voter) {
+                    let voter_weight = weight_of(&voter);
+                    if !targets.is_empty() {
+                        all_voters.push((voter.clone(), voter_weight, targets));
+                        nominators_taken.saturating_inc();
+                    } else {
+                        // Technically should never happen, but not much we can do about it.
+                    }
+                    min_active_stake = if voter_weight < min_active_stake {
+                        voter_weight
+                    } else {
+                        min_active_stake
+                    };
                 }
-                min_active_stake = if voter_weight < min_active_stake {
-                    voter_weight
-                } else {
-                    min_active_stake
-                };
             } else if Validators::<T>::contains_key(&voter) {
-                // if this voter is a validator:
-                let self_vote = (
-                    voter.clone(),
-                    weight_of(&voter),
-                    vec![voter.clone()]
-                        .try_into()
-                        .expect("`MaxVotesPerVoter` must be greater than or equal to 1"),
-                );
-                all_voters.push(self_vote);
-                validators_taken.saturating_inc();
+                if Self::is_validator_compliant(&voter)
+                    && Self::is_validator_active_balance_valid(&voter)
+                {
+                    // if this voter is a validator:
+                    let self_vote = (
+                        voter.clone(),
+                        weight_of(&voter),
+                        vec![voter.clone()]
+                            .try_into()
+                            .expect("`MaxVotesPerVoter` must be greater than or equal to 1"),
+                    );
+                    all_voters.push(self_vote);
+                    validators_taken.saturating_inc();
+                }
             } else {
                 // this can only happen if: 1. there a bug in the bags-list (or whatever is the
                 // sorted list) logic and the state of the two pallets is no longer compatible, or
@@ -975,7 +981,7 @@ impl<T: Config> Pallet<T> {
 
             if Validators::<T>::contains_key(&target) {
                 if Self::is_validator_compliant(&target)
-                    && Self::is_active_balance_above_min_bond(&target)
+                    && Self::is_validator_active_balance_valid(&target)
                 {
                     all_targets.push(target);
                 }
@@ -1095,8 +1101,8 @@ impl<T: Config> Pallet<T> {
     // Polymesh change
     // -----------------------------------------------------------------
 
-    /// Returns `true` if active balance is above . Otherwise, returns `false`.
-    pub(crate) fn is_active_balance_above_min_bond(who: &T::AccountId) -> bool {
+    /// Returns `true` if active balance is above [`MinValidatorBond`]. Otherwise, returns `false`.
+    pub(crate) fn is_validator_active_balance_valid(who: &T::AccountId) -> bool {
         if let Some(controller) = Self::bonded(&who) {
             if let Some(ledger) = Self::ledger(&controller) {
                 return ledger.active >= MinValidatorBond::<T>::get();
@@ -1107,10 +1113,16 @@ impl<T: Config> Pallet<T> {
 
     /// Returns `true` if `stash` has a valid cdd claim and is permissioned. Otherwise, returns `false`.
     pub(crate) fn is_validator_compliant(stash: &T::AccountId) -> bool {
-        pallet_identity::Module::<T>::get_identity(&stash).map_or(false, |id| {
+        pallet_identity::Module::<T>::get_identity(stash).map_or(false, |id| {
             pallet_identity::Module::<T>::has_valid_cdd(id)
                 && Self::permissioned_identity(id).is_some()
         })
+    }
+
+    /// Returns `true` if `who` has a valid cdd claim. Otherwise, returns `false`.
+    pub(crate) fn is_nominator_compliant(who: &T::AccountId) -> bool {
+        pallet_identity::Module::<T>::get_identity(who)
+            .map_or(false, |id| pallet_identity::Module::<T>::has_valid_cdd(id))
     }
 
     pub(crate) fn get_bonding_duration_period() -> u64 {
