@@ -1217,12 +1217,6 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         T::AdminOrigin::ensure_origin(origin)?;
 
-        // Checks that the identity is allowed to run operator/validator nodes.
-        ensure!(
-            Self::permissioned_identity(&identity).is_some(),
-            Error::<T>::IdentityNotFound
-        );
-
         for key in &stash_keys {
             let key_did = pallet_identity::Module::<T>::get_identity(&key);
             // Checks if the stash key identity is the same as the identity given.
