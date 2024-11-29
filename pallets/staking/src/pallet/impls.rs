@@ -973,7 +973,11 @@ impl<T: Config> Pallet<T> {
             };
 
             if Validators::<T>::contains_key(&target) {
-                all_targets.push(target);
+                if Self::is_validator_compliant(&target)
+                    && Self::is_active_balance_above_min_bond(&target)
+                {
+                    all_targets.push(target);
+                }
             }
         }
 
@@ -1089,6 +1093,25 @@ impl<T: Config> Pallet<T> {
 
     // Polymesh change
     // -----------------------------------------------------------------
+
+    /// Returns `true` if active balance is above . Otherwise, returns `false`.
+    pub(crate) fn is_active_balance_above_min_bond(who: &T::AccountId) -> bool {
+        if let Some(controller) = Self::bonded(&who) {
+            if let Some(ledger) = Self::ledger(&controller) {
+                return ledger.active >= MinValidatorBond::<T>::get();
+            }
+        }
+        false
+    }
+
+    /// Returns `true` if `stash` has a valid cdd claim and is permissioned. Otherwise, returns `false`.
+    pub(crate) fn is_validator_compliant(stash: &T::AccountId) -> bool {
+        pallet_identity::Module::<T>::get_identity(&stash).map_or(false, |id| {
+            pallet_identity::Module::<T>::has_valid_cdd(id)
+                && Self::permissioned_identity(id).is_some()
+        })
+    }
+
     pub(crate) fn get_bonding_duration_period() -> u64 {
         (T::SessionsPerEra::get()  * T::BondingDuration::get()) as u64 // total session
             * T::EpochDuration::get() // session length
@@ -1216,6 +1239,11 @@ impl<T: Config> Pallet<T> {
 
         // Change identity status to be Non-Permissioned
         PermissionedIdentity::<T>::remove(&identity);
+
+        Self::deposit_event(Event::<T>::PermissionedIdentityRemoved {
+            governance_councill_did: GC_DID,
+            validators_identity: identity,
+        });
         Ok(())
     }
 
