@@ -27,7 +27,7 @@ mod test {
     use polymesh_primitives::{AccountId, IdentityId};
 
     use sp_keyring::AccountKeyring;
-    use std::{collections::BTreeMap, convert::From, sync::RwLock, thread};
+    use std::{collections::BTreeMap, convert::From};
 
     struct IdentityTest {}
 

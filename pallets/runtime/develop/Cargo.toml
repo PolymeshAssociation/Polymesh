@@ -13,7 +13,6 @@ polymesh-common-utilities = { path = "../../common", default-features = false }
 polymesh-runtime-common = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../../primitives", default-features = false }
 polymesh-weights = { path = "../../weights", default-features = false }
-polymesh-extensions = { path = "../extensions", default-features = false }
 
 # Our pallets
 pallet-asset = { path = "../../asset", default-features = false }
@@ -50,7 +49,7 @@ serde = { version = "1.0.104", default-features = false }
 log = "0.4.8"
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { workspace = true, default-features = false, features = ["derive"] }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
 sp-core = { version = "7.0.0", default-features = false }
 sp-std = { version = "5.0.0", default-features = false }
@@ -110,6 +109,7 @@ polymesh-build-tool = { path = "../build_tool", default-features = false }
 
 [features]
 default = ["std", "equalize"]
+disable_fees = ["pallet-transaction-payment/disable_fees"]
 equalize = []
 
 ci-runtime = []
@@ -199,7 +199,6 @@ std = [
     "sp-transaction-pool/std",
     "sp-version/std",
     "polymesh-contracts/std",
-    "polymesh-extensions/std",
 ]
 runtime-benchmarks = [
 	"getrandom/js",

@@ -1053,7 +1053,7 @@ fn signed_extra(nonce: Index) -> SignedExtra {
         frame_system::CheckGenesis::new(),
         frame_system::CheckEra::from(Era::mortal(256, 0)),
         frame_system::CheckNonce::from(nonce),
-        polymesh_extensions::CheckWeight::new(),
+        frame_system::CheckWeight::new(),
         pallet_transaction_payment::ChargeTransactionPayment::from(0),
         pallet_permissions::StoreCallMetadata::new(),
     )

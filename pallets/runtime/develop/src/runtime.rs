@@ -385,7 +385,7 @@ construct_runtime!(
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 5,
 
         // TransactionPayment: Genesis config dependencies: Balance.
-        TransactionPayment: pallet_transaction_payment::{Pallet, Event<T>, Storage} = 6,
+        TransactionPayment: pallet_transaction_payment::{Pallet, Call, Event<T>, Storage} = 6,
 
         // Identity: Genesis config deps: Timestamp.
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>, Config<T>} = 7,
@@ -470,6 +470,7 @@ construct_runtime!(
 polymesh_runtime_common::runtime_apis! {
     #[cfg(feature = "runtime-benchmarks")]
     impl frame_benchmarking::Benchmark<Block> for Runtime {
+        #[allow(non_local_definitions)]
         fn dispatch_benchmark(
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {

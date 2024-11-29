@@ -864,6 +864,10 @@ impl<T: Config> Module<T> {
             Error::<T>::SelfAdditionNotAllowed
         );
         AllowedCustodians::insert(callers_did, trusted_identity, true);
+        Self::deposit_event(Event::AllowIdentityToCreatePortfolios(
+            callers_did,
+            trusted_identity,
+        ));
         Ok(())
     }
 
@@ -873,6 +877,10 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         let callers_did = Identity::<T>::ensure_perms(origin)?;
         AllowedCustodians::remove(callers_did, identity);
+        Self::deposit_event(Event::RevokeCreatePortfoliosPermission(
+            callers_did,
+            identity,
+        ));
         Ok(())
     }
 

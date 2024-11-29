@@ -16,7 +16,7 @@ serde = { version = "1.0.112", default-features = false }
 serde_derive = { version = "1.0.112", optional = true, default-features = false}
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { workspace = true, default-features = false, features = ["derive"] }
 sp-core = { version = "7.0.0", default-features = false }
 sp-io = { version = "7.0.0", default-features = false }
 sp-std = { version = "5.0.0", default-features = false }
