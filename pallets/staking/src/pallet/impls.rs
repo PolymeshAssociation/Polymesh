@@ -889,10 +889,7 @@ impl<T: Config> Pallet<T> {
             };
 
             if let Some(Nominations { targets, .. }) = <Nominators<T>>::get(&voter) {
-                if !targets.is_empty() {
-                    nominators_seen.saturating_inc();
-                }
-
+                nominators_seen.saturating_inc();
                 if Self::is_nominator_compliant(&voter) {
                     let voter_weight = weight_of(&voter);
                     if !targets.is_empty() {
