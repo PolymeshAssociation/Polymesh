@@ -529,7 +529,7 @@ fn do_relayer_transaction_and_protocol_fees_test() {
     // 0. Calculate fees for registering an asset ticker.
     let transaction_fee = TransactionPayment::compute_fee(len as u32, &call_info, 0);
     assert!(transaction_fee > 0);
-    let protocol_fee = ProtocolFee::compute_fee(&[ProtocolOp::AssetRegisterTicker]);
+    let protocol_fee = ProtocolFee::compute_fee(&[ProtocolOp::AssetRegisterUniqueTicker]);
     assert!(protocol_fee > 0);
     let total_fee = transaction_fee + protocol_fee;
 

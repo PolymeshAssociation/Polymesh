@@ -27,6 +27,6 @@ benchmarks! {
 
     change_base_fee {
         let origin = RawOrigin::Root;
-        let op = ProtocolOp::AssetRegisterTicker;
+        let op = ProtocolOp::AssetRegisterUniqueTicker;
     }: _(origin, op, 0)
 }
