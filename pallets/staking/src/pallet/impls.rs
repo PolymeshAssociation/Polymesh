@@ -872,8 +872,8 @@ impl<T: Config> Pallet<T> {
         let weight_of = Self::weight_of_fn();
 
         let mut voters_seen = 0u32;
-        let mut validators_taken = 0u32;
-        let mut nominators_taken = 0u32;
+        let mut validators_seen = 0u32;
+        let mut nominators_seen = 0u32;
         let mut min_active_stake = u64::MAX;
 
         let mut sorted_voters = T::VoterList::iter();
@@ -889,13 +889,14 @@ impl<T: Config> Pallet<T> {
             };
 
             if let Some(Nominations { targets, .. }) = <Nominators<T>>::get(&voter) {
+                if !targets.is_empty() {
+                    nominators_seen.saturating_inc();
+                }
+
                 if Self::is_nominator_compliant(&voter) {
                     let voter_weight = weight_of(&voter);
                     if !targets.is_empty() {
                         all_voters.push((voter.clone(), voter_weight, targets));
-                        nominators_taken.saturating_inc();
-                    } else {
-                        // Technically should never happen, but not much we can do about it.
                     }
                     min_active_stake = if voter_weight < min_active_stake {
                         voter_weight
@@ -904,6 +905,7 @@ impl<T: Config> Pallet<T> {
                     };
                 }
             } else if Validators::<T>::contains_key(&voter) {
+                validators_seen.saturating_inc();
                 if Self::is_validator_compliant(&voter)
                     && Self::is_validator_active_balance_valid(&voter)
                 {
@@ -916,7 +918,6 @@ impl<T: Config> Pallet<T> {
                             .expect("`MaxVotesPerVoter` must be greater than or equal to 1"),
                     );
                     all_voters.push(self_vote);
-                    validators_taken.saturating_inc();
                 }
             } else {
                 // this can only happen if: 1. there a bug in the bags-list (or whatever is the
@@ -936,8 +937,8 @@ impl<T: Config> Pallet<T> {
         debug_assert!(all_voters.capacity() == max_allowed_len);
 
         Self::register_weight(<T as Config>::WeightInfo::get_npos_voters(
-            validators_taken,
-            nominators_taken,
+            validators_seen,
+            nominators_seen,
         ));
 
         let min_active_stake: T::CurrencyBalance = if all_voters.len() == 0 {
@@ -952,8 +953,8 @@ impl<T: Config> Pallet<T> {
             info,
             "generated {} npos voters, {} from validators and {} nominators",
             all_voters.len(),
-            validators_taken,
-            nominators_taken
+            validators_seen,
+            nominators_seen
         );
 
         all_voters
@@ -966,6 +967,7 @@ impl<T: Config> Pallet<T> {
         let max_allowed_len = maybe_max_len.unwrap_or_else(|| T::TargetList::count() as usize);
         let mut all_targets = Vec::<T::AccountId>::with_capacity(max_allowed_len);
         let mut targets_seen = 0;
+        let mut validators_seen = 0;
 
         let mut targets_iter = T::TargetList::iter();
         while all_targets.len() < max_allowed_len
@@ -980,6 +982,7 @@ impl<T: Config> Pallet<T> {
             };
 
             if Validators::<T>::contains_key(&target) {
+                validators_seen.saturating_inc();
                 if Self::is_validator_compliant(&target)
                     && Self::is_validator_active_balance_valid(&target)
                 {
@@ -988,9 +991,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        Self::register_weight(<T as Config>::WeightInfo::get_npos_targets(
-            all_targets.len() as u32,
-        ));
+        Self::register_weight(<T as Config>::WeightInfo::get_npos_targets(validators_seen));
         log!(info, "generated {} npos targets", all_targets.len());
 
         all_targets
