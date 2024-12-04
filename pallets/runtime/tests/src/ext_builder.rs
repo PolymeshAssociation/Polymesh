@@ -59,7 +59,7 @@ pub struct MockProtocolBaseFees(pub Vec<(ProtocolOp, u128)>);
 impl Default for MockProtocolBaseFees {
     fn default() -> Self {
         let ops = vec![
-            ProtocolOp::AssetRegisterTicker,
+            ProtocolOp::AssetRegisterUniqueTicker,
             ProtocolOp::AssetIssue,
             ProtocolOp::AssetAddDocuments,
             ProtocolOp::AssetCreateAsset,

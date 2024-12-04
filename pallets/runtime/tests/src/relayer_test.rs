@@ -629,11 +629,11 @@ fn do_relayer_batched_subsidy_calls_test() {
     let transaction_fee = TransactionPayment::compute_fee(len as u32, &call_info, 0);
     assert!(transaction_fee > 0);
     let protocol_fee = ProtocolFee::compute_fee(&[
-        ProtocolOp::AssetRegisterTicker,
-        ProtocolOp::AssetRegisterTicker,
-        ProtocolOp::AssetRegisterTicker,
-        ProtocolOp::AssetRegisterTicker,
-        ProtocolOp::AssetRegisterTicker,
+        ProtocolOp::AssetRegisterUniqueTicker,
+        ProtocolOp::AssetRegisterUniqueTicker,
+        ProtocolOp::AssetRegisterUniqueTicker,
+        ProtocolOp::AssetRegisterUniqueTicker,
+        ProtocolOp::AssetRegisterUniqueTicker,
     ]);
     assert!(protocol_fee > 0);
     let total_fee = transaction_fee + protocol_fee;

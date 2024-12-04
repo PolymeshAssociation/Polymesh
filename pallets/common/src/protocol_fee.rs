@@ -24,7 +24,7 @@ use sp_runtime::{Deserialize, Serialize};
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum ProtocolOp {
-    AssetRegisterTicker,
+    AssetRegisterUniqueTicker,
     AssetIssue,
     AssetAddDocuments,
     AssetCreateAsset,

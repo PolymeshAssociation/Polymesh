@@ -2254,7 +2254,7 @@ impl<T: Config> Module<T> {
 
 impl<T: Config> Module<T> {
     /// All storage writes for registering `ticker` to `owner` with an optional `expiry`.
-    /// Note: If `charge_fee` is `true` one fee is charged ([`ProtocolOp::AssetRegisterTicker`]).
+    /// Note: If `charge_fee` is `true` one fee is charged ([`ProtocolOp::AssetRegisterUniqueTicker`]).
     fn unverified_register_ticker(
         ticker: Ticker,
         owner: IdentityId,
@@ -2262,7 +2262,7 @@ impl<T: Config> Module<T> {
         charge_fee: bool,
     ) -> DispatchResult {
         if charge_fee {
-            T::ProtocolFee::charge_fee(ProtocolOp::AssetRegisterTicker)?;
+            T::ProtocolFee::charge_fee(ProtocolOp::AssetRegisterUniqueTicker)?;
         }
 
         // If the ticker was already registered, removes the previous owner
@@ -2289,7 +2289,7 @@ impl<T: Config> Module<T> {
     }
 
     /// All storage writes for creating an asset.
-    /// Note: two fees are charged ([`ProtocolOp::AssetCreateAsset`] and [`ProtocolOp::AssetRegisterTicker`]).
+    /// Note: two fees are charged ([`ProtocolOp::AssetCreateAsset`] and [`ProtocolOp::AssetRegisterUniqueTicker`]).
     fn unverified_create_asset(
         caller_did: IdentityId,
         asset_id: AssetId,

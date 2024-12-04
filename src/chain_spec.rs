@@ -428,7 +428,7 @@ macro_rules! committee {
 fn protocol_fees() -> Vec<(ProtocolOp, u128)> {
     vec![
         (ProtocolOp::AssetCreateAsset, 2_500 * 1_000_000),
-        (ProtocolOp::AssetRegisterTicker, 500 * 1_000_000),
+        (ProtocolOp::AssetRegisterUniqueTicker, 500 * 1_000_000),
     ]
 }
 
