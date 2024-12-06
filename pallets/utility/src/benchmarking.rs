@@ -24,8 +24,7 @@ use frame_system::RawOrigin;
 use sp_core::sr25519::Signature;
 use sp_runtime::MultiSignature;
 
-use polymesh_common_utilities::benchs::{user, AccountIdOf, User, UserBuilder};
-use polymesh_common_utilities::traits::TestUtilsFn;
+use polymesh_common_utilities::benchs::{user, User, UserBuilder};
 
 use super::*;
 
@@ -44,7 +43,7 @@ fn make_calls<T: Config>(c: u32) -> Vec<<T as Config>::RuntimeCall> {
 }
 
 // POLYMESH:
-fn make_relay_tx_users<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, User<T>) {
+fn make_relay_tx_users<T: Config>() -> (User<T>, User<T>) {
     let alice = UserBuilder::<T>::default()
         .balance(1_000_000u32)
         .generate_did()
@@ -58,7 +57,7 @@ fn make_relay_tx_users<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, U
 }
 
 // POLYMESH:
-fn remark_call_builder<T: Config + TestUtilsFn<AccountIdOf<T>>>(
+fn remark_call_builder<T: Config>(
     signer: &User<T>,
     _: T::AccountId,
 ) -> (UniqueCall<<T as Config>::RuntimeCall>, Vec<u8>) {
@@ -79,7 +78,7 @@ fn remark_call_builder<T: Config + TestUtilsFn<AccountIdOf<T>>>(
 }
 
 benchmarks! {
-    where_clause { where T: TestUtilsFn<AccountIdOf<T>>, <T::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin: Clone }
+    where_clause { where <T::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin: Clone }
     batch {
         let c in 0 .. 1000;
         let mut calls: Vec<<T as Config>::RuntimeCall> = Vec::new();

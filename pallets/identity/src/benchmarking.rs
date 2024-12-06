@@ -20,10 +20,8 @@ use frame_system::RawOrigin;
 use sp_core::H512;
 use sp_std::prelude::*;
 
-use polymesh_common_utilities::benchs::{
-    cdd_provider, user, user_without_did, AccountIdOf, UserBuilder,
-};
-use polymesh_common_utilities::traits::{identity::TargetIdAuthorization, TestUtilsFn};
+use polymesh_common_utilities::benchs::{cdd_provider, user, user_without_did, UserBuilder};
+use polymesh_common_utilities::traits::identity::TargetIdAuthorization;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS, MAX_SECONDARY_KEYS,
@@ -49,8 +47,6 @@ pub fn generate_secondary_keys<T: Config>(n: usize) -> Vec<SecondaryKey<T::Accou
 }
 
 benchmarks! {
-    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
-
     create_child_identity {
         // Create parent identity.
         let parent = user::<T>("parent", 0);

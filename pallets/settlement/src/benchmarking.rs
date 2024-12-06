@@ -23,12 +23,9 @@ use sp_std::prelude::*;
 
 use pallet_asset::benchmarking::setup_asset_transfer;
 use pallet_nft::benchmarking::setup_nft_transfer;
-use polymesh_common_utilities::benchs::{
-    create_and_issue_sample_asset, AccountIdOf, User, UserBuilder,
-};
+use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, User, UserBuilder};
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::constants::ENSURED_MAX_LEN;
-use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::settlement::ReceiptMetadata;
 use polymesh_primitives::{IdentityId, Memo, NFTId, NFTs, PortfolioId, Ticker};
@@ -86,7 +83,7 @@ pub struct Portfolios {
     pub rcv_portfolios: Vec<PortfolioId>,
 }
 
-fn creator<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> User<T> {
+fn creator<T: Config>() -> User<T> {
     UserBuilder::<T>::default().generate_did().build("creator")
 }
 
@@ -120,7 +117,7 @@ fn setup_legs<T>(
     pause_restrictions: bool,
 ) -> Parameters<T>
 where
-    T: Config + TestUtilsFn<AccountIdOf<T>>,
+    T: Config,
 {
     let mut portfolios = Portfolios::default();
     let mut asset_mediators = Vec::new();
@@ -212,7 +209,7 @@ fn setup_execute_instruction<T>(
     pause_restrictions: bool,
 ) -> Parameters<T>
 where
-    T: Config + TestUtilsFn<AccountIdOf<T>>,
+    T: Config,
 {
     let (m_user, m_identity) = set_instruction_mediators::<T>(m);
     // Creates the instruction. All assets, collections, portfolios and rules are created here.
@@ -314,7 +311,7 @@ fn setup_receipt_details<T: Config>(
 
 fn set_instruction_mediators<T>(m: u32) -> (Vec<User<T>>, BTreeSet<IdentityId>)
 where
-    T: Config + TestUtilsFn<AccountIdOf<T>>,
+    T: Config,
 {
     let m_user: Vec<User<T>> = (0..m)
         .map(|i| {
@@ -328,7 +325,7 @@ where
 }
 
 benchmarks! {
-    where_clause { where T: TestUtilsFn<AccountIdOf<T>>, T: pallet_scheduler::Config }
+    where_clause { where T: pallet_scheduler::Config }
 
     create_venue {
         // Variations for the venue_details length.

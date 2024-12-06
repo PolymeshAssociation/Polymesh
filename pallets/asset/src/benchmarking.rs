@@ -21,11 +21,10 @@ use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{convert::TryInto, iter, prelude::*};
 
 use pallet_statistics::benchmarking::setup_transfer_restrictions;
-use polymesh_common_utilities::benchs::{reg_unique_ticker, user, AccountIdOf, User, UserBuilder};
+use polymesh_common_utilities::benchs::{reg_unique_ticker, user, User, UserBuilder};
 use polymesh_common_utilities::constants::currency::{ONE_UNIT, POLY};
 use polymesh_common_utilities::traits::compliance_manager::ComplianceFnConfig;
 use polymesh_common_utilities::traits::nft::NFTTrait;
-use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{AssetName, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
@@ -145,7 +144,7 @@ pub fn setup_asset_transfer<T>(
     n_mediators: u8,
 ) -> (PortfolioId, PortfolioId, Vec<User<T>>, AssetId)
 where
-    T: Config + TestUtilsFn<AccountIdOf<T>>,
+    T: Config,
 {
     let sender_portfolio =
         create_portfolio::<T>(sender, sender_portfolio_name.unwrap_or("SenderPortfolio"));
@@ -237,8 +236,6 @@ fn move_from_default_portfolio<T: Config>(
 }
 
 benchmarks! {
-    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
-
     register_unique_ticker {
         // For the worst case ticker must be of length `TICKER_LEN`
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");

@@ -127,7 +127,6 @@ frame_support::construct_runtime!(
         Treasury: pallet_treasury::{Pallet, Call, Event<T>},
         PolymeshCommittee: pallet_committee::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
         Pips: pallet_pips::{Pallet, Call, Storage, Event<T>, Config<T>},
-        TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T>},
         Base: pallet_base::{Pallet, Call, Event},
     }
 );
@@ -346,11 +345,6 @@ impl pallet_preimage::Config for Test {
     type ManagerOrigin = EnsureRoot<AccountId>;
     type BaseDeposit = PreimageBaseDeposit;
     type ByteDeposit = PreimageByteDeposit;
-}
-
-impl pallet_test_utils::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = polymesh_weights::pallet_test_utils::SubstrateWeight;
 }
 
 impl polymesh_common_utilities::transaction_payment::CddAndFeeDetails<AccountId, Call> for Test {
@@ -1457,7 +1451,7 @@ pub fn make_account_with_balance(
         return (signed_account, account_did);
     }
 
-    TestUtils::register_did(signed_account.clone(), vec![]).unwrap();
+    Identity::testing_cdd_register_did(account_id.clone(), vec![]).unwrap();
     let account_did = Identity::get_identity(&account_id).unwrap();
 
     (signed_account, account_did)

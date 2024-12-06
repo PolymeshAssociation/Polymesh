@@ -18,8 +18,7 @@ use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 
 use pallet_asset::benchmarking::make_document;
-use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, user, AccountIdOf, User};
-use polymesh_common_utilities::TestUtilsFn;
+use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, user, User};
 use polymesh_primitives::asset::{AssetId, AssetName};
 use polymesh_primitives::PortfolioKind;
 
@@ -38,7 +37,7 @@ const RD_SPEC2: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(3000));
 // NOTE(Centril): A non-owner CAA is the less complex code path.
 // Therefore, in general, we'll be using the owner as the CAA.
 
-fn setup<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, AssetId) {
+fn setup<T: Config>() -> (User<T>, AssetId) {
     <pallet_timestamp::Now<T>>::set(1000u32.into());
 
     let owner = user("owner", SEED);
@@ -46,14 +45,11 @@ fn setup<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, AssetId) {
     (owner, asset_id)
 }
 
-fn target<T: Config + TestUtilsFn<AccountIdOf<T>>>(u: u32) -> IdentityId {
+fn target<T: Config>(u: u32) -> IdentityId {
     user::<T>("target", u).did()
 }
 
-pub(crate) fn target_ids<T: Config + TestUtilsFn<AccountIdOf<T>>>(
-    n: u32,
-    treatment: TargetTreatment,
-) -> TargetIdentities {
+pub(crate) fn target_ids<T: Config>(n: u32, treatment: TargetTreatment) -> TargetIdentities {
     let identities = (0..n)
         .map(target::<T>)
         .flat_map(|did| iter::repeat(did).take(2))
@@ -64,17 +60,14 @@ pub(crate) fn target_ids<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     }
 }
 
-pub(crate) fn did_whts<T: Config + TestUtilsFn<AccountIdOf<T>>>(n: u32) -> Vec<(IdentityId, Tax)> {
+pub(crate) fn did_whts<T: Config>(n: u32) -> Vec<(IdentityId, Tax)> {
     (0..n)
         .map(target::<T>)
         .map(|did| (did, TAX))
         .collect::<Vec<_>>()
 }
 
-fn init_did_whts<T: Config + TestUtilsFn<AccountIdOf<T>>>(
-    asset_id: AssetId,
-    n: u32,
-) -> Vec<(IdentityId, Tax)> {
+fn init_did_whts<T: Config>(asset_id: AssetId, n: u32) -> Vec<(IdentityId, Tax)> {
     let mut whts = did_whts::<T>(n);
     whts.sort_by_key(|(did, _)| *did);
     DidWithholdingTax::insert(asset_id, whts.clone());
@@ -95,7 +88,7 @@ fn add_docs<T: Config>(origin: &T::RuntimeOrigin, asset_id: AssetId, n: u32) -> 
     ids
 }
 
-pub(crate) fn setup_ca<T: Config + TestUtilsFn<AccountIdOf<T>>>(kind: CAKind) -> (User<T>, CAId) {
+pub(crate) fn setup_ca<T: Config>(kind: CAKind) -> (User<T>, CAId) {
     let (owner, asset_id) = setup::<T>();
 
     <pallet_timestamp::Now<T>>::set(1000u32.into());
@@ -178,7 +171,7 @@ fn distribute<T: Config>(owner: &User<T>, ca_id: CAId) {
     .unwrap();
 }
 
-pub(crate) fn set_ca_targets<T: Config + TestUtilsFn<AccountIdOf<T>>>(ca_id: CAId, k: u32) {
+pub(crate) fn set_ca_targets<T: Config>(ca_id: CAId, k: u32) {
     CorporateActions::mutate(ca_id.asset_id, ca_id.local_id, |ca| {
         let mut ids = target_ids::<T>(k, TargetTreatment::Exclude);
         ids.identities.sort();
@@ -211,8 +204,6 @@ fn check_rd<T: Config>(ca_id: CAId) -> DispatchResult {
 }
 
 benchmarks! {
-    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
-
     set_max_details_length {}: _(RawOrigin::Root, 100)
     verify {
         assert_eq!(MaxDetailsLength::get(), 100, "Wrong length set");

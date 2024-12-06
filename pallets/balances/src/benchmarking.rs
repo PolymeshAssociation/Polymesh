@@ -21,18 +21,13 @@ use super::*;
 use crate::Module as Balances;
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
-use polymesh_common_utilities::{
-    benchs::{AccountIdOf, UserBuilder},
-    traits::TestUtilsFn,
-};
+use polymesh_common_utilities::benchs::UserBuilder;
 
 fn make_worst_memo() -> Option<Memo> {
     Some(Memo([7u8; 32]))
 }
 
 benchmarks! {
-    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
-
     // Benchmark `transfer` extrinsic with the worst possible conditions:
     // * Transfer will create the recipient account.
     transfer {

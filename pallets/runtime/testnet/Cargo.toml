@@ -41,7 +41,6 @@ pallet-transaction-payment = { path = "../../transaction-payment", default-featu
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
 pallet-sudo = { path = "../../sudo", default-features = false }
-pallet-test-utils = { path = "../../test-utils", default-features = false }
 polymesh-contracts = { path = "../../contracts", default-features = false }
 
 # RPC
@@ -162,7 +161,6 @@ std = [
     "pallet-staking/std",
     "pallet-statistics/std",
     "pallet-sudo/std",
-    "pallet-test-utils/std",
     "pallet-timestamp/std",
     "pallet-transaction-payment/std",
     "pallet-treasury/std",
