@@ -31,7 +31,6 @@ pallet-staking-rpc-runtime-api = { path = "../../staking/rpc/runtime-api", defau
 pallet-statistics = { path = "../../statistics", default-features = false }
 pallet-sto = { path = "../../sto", default-features = false }
 pallet-sudo = { path = "../../sudo", default-features = false }
-pallet-test-utils = { path = "../../test-utils", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }

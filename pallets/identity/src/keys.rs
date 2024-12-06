@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    types, AccountKeyRefCount, ChildDid, Config, CurrentAuthId, DidKeys, DidRecords, Error,
+    types, AccountKeyRefCount, ChildDid, Claim, Config, CurrentAuthId, DidKeys, DidRecords, Error,
     IsDidFrozen, KeyAssetPermissions, KeyExtrinsicPermissions, KeyPortfolioPermissions, KeyRecords,
     Module, MultiPurposeNonce, OffChainAuthorizationNonce, OutdatedAuthorizations, ParentDid,
     PermissionedCallOriginData, RawEvent, RpcDidRecords,
@@ -39,8 +39,8 @@ use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
 };
 use polymesh_primitives::{
-    extract_auth, AuthorizationData, DidRecord, ExtrinsicName, ExtrinsicPermissions, IdentityId,
-    KeyRecord, PalletName, Permissions, SecondaryKey, Signatory,
+    extract_auth, AuthorizationData, CddId, DidRecord, ExtrinsicName, ExtrinsicPermissions,
+    IdentityId, KeyRecord, PalletName, Permissions, SecondaryKey, Signatory,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -644,9 +644,17 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         let (_, did) = Self::ensure_primary_key(origin)?;
 
-        // 0. Check expiration
+        // Check expiration
         let now = <pallet_timestamp::Pallet<T>>::get();
         ensure!(now < expires_at, Error::<T>::AuthorizationExpired);
+
+        // Charge the fee.
+        T::ProtocolFee::batch_charge_fee(
+            ProtocolOp::IdentityAddSecondaryKeysWithAuthorization,
+            keys.len(),
+        )?;
+
+        // Create authorization data that the keys need to sign.
         let authorization = TargetIdAuthorization {
             target_id: did,
             nonce: Self::offchain_authorization_nonce(did),
@@ -654,41 +662,44 @@ impl<T: Config> Module<T> {
         };
         let auth_encoded = authorization.encode();
 
-        // 1. Verify signatures.
-        for si_with_auth in keys.iter() {
-            let si: SecondaryKey<T::AccountId> = si_with_auth.secondary_key.clone();
+        // Verify signatures.
+        let mut additional_keys_si = Vec::with_capacity(keys.len());
+        let mut seen = BTreeSet::new();
+        for si_with_auth in keys {
+            let SecondaryKeyWithAuth {
+                secondary_key,
+                auth_signature,
+            } = si_with_auth;
 
-            Self::ensure_perms_length_limited(&si.permissions)?;
+            // Check for duplicate keys.
+            ensure!(!seen.contains(&secondary_key.key), Error::<T>::DuplicateKey);
+            seen.insert(secondary_key.key.clone());
 
-            // 1.1. Constraint 1-to-1 account to DID.
-            Self::ensure_key_did_unlinked(&si.key)?;
+            Self::ensure_perms_length_limited(&secondary_key.permissions)?;
 
-            // 1.2. Verify the signature.
-            let signature = AnySignature::from(Signature::from_h512(si_with_auth.auth_signature));
+            // Constraint 1-to-1 account to DID.
+            Self::ensure_key_did_unlinked(&secondary_key.key)?;
+
+            // Verify the signature.
+            let signature = AnySignature::from(Signature::from_h512(auth_signature));
             let signer: <<AnySignature as Verify>::Signer as IdentifyAccount>::AccountId =
-                Decode::decode(&mut &si.key.encode()[..])
+                Decode::decode(&mut &secondary_key.key.encode()[..])
                     .map_err(|_| Error::<T>::CannotDecodeSignerAccountId)?;
             ensure!(
                 signature.verify(auth_encoded.as_slice(), &signer),
                 Error::<T>::InvalidAuthorizationSignature
             );
-        }
-        // 1.999. Charge the fee.
-        T::ProtocolFee::batch_charge_fee(
-            ProtocolOp::IdentityAddSecondaryKeysWithAuthorization,
-            keys.len(),
-        )?;
-        // 2.1. Link keys to identity
-        let additional_keys_si: Vec<_> = keys
-            .into_iter()
-            .map(|si_with_auth| si_with_auth.secondary_key)
-            .collect();
 
-        additional_keys_si.iter().for_each(|sk| {
+            additional_keys_si.push(secondary_key);
+        }
+
+        // Link keys to identity
+        for sk in &additional_keys_si {
             Self::add_key_record(&sk.key, KeyRecord::SecondaryKey(did));
             Self::set_key_permissions(&sk.key, &sk.permissions);
-        });
-        // 2.2. Update that identity's offchain authorization nonce.
+        }
+
+        // Update that identity's offchain authorization nonce.
         OffChainAuthorizationNonce::mutate(did, |nonce| *nonce = authorization.nonce + 1);
 
         Self::deposit_event(RawEvent::SecondaryKeysAdded(did, additional_keys_si));
@@ -786,45 +797,58 @@ impl<T: Config> Module<T> {
     }
 
     /// Registers a did without adding a CDD claim for it.
-    pub fn _register_did(
+    pub fn register_did_without_cdd(
         sender: T::AccountId,
         secondary_keys: Vec<SecondaryKey<T::AccountId>>,
         protocol_fee_data: Option<ProtocolOp>,
     ) -> Result<IdentityId, DispatchError> {
-        // 1 Check constraints.
-        // Primary key is not linked to any identity.
+        // Ensure primary key is not linked to any identity.
         Self::ensure_key_did_unlinked(&sender)?;
-        // Primary key is not part of secondary keys.
-        ensure!(
-            !secondary_keys.iter().any(|sk| sk.key == sender),
-            Error::<T>::SecondaryKeysContainPrimaryKey
-        );
-
-        let did = Self::make_did()?;
-
-        // Secondary keys can be linked to the new identity.
+        // Check for duplicate secondary keys and ensure they are not the primary key.
+        let mut seen = BTreeSet::new();
         for sk in &secondary_keys {
-            Self::ensure_key_did_unlinked(&sk.key)?;
+            // Ensure the key is not the primary key.
+            ensure!(sk.key != sender, Error::<T>::SecondaryKeysContainPrimaryKey);
+            // Ensure the key is not duplicated.
+            ensure!(!seen.contains(&sk.key), Error::<T>::DuplicateKey);
+            seen.insert(sk.key.clone());
         }
+
+        // Create a new identity.
+        let did = Self::make_did()?;
 
         // Charge the given fee.
         if let Some(op) = protocol_fee_data {
             T::ProtocolFee::charge_fee(op)?;
         }
 
-        // 2. Apply changes to our extrinsic.
-        // 2.1. Create a new identity record and link the primary key.
+        // Link the primary key.
         Self::add_key_record(&sender, KeyRecord::PrimaryKey(did));
-        // 2.2. Give `InitialPOLYX` to the primary key for testing.
+
+        // Give `InitialPOLYX` to the primary key for testing.
         let _ = T::Balances::deposit_creating(&sender, T::InitialPOLYX::get());
         Self::deposit_event(RawEvent::DidCreated(did, sender, secondary_keys.clone()));
 
-        // 2.3. add pre-authorized secondary keys.
+        // Add join identity authorizations for secondary keys.
         for sk in secondary_keys {
             let signer = Signatory::Account(sk.key.clone());
             let data = AuthorizationData::JoinIdentity(sk.permissions.clone());
             Self::add_auth(did, signer, data, None)?;
         }
+        Ok(did)
+    }
+
+    /// For testing/benchmarking only.
+    /// Registers a did with a self CDD claim.
+    //#[cfg(feature = "runtime-benchmarks")]
+    pub fn testing_cdd_register_did(
+        sender: T::AccountId,
+        secondary_keys: Vec<SecondaryKey<T::AccountId>>,
+    ) -> Result<IdentityId, DispatchError> {
+        let did = Self::register_did_without_cdd(sender, secondary_keys, None)?;
+        // Add a self CDD claim.
+        let cdd = Claim::CustomerDueDiligence(CddId::default());
+        Self::base_add_claim(did, cdd, did, None)?;
         Ok(did)
     }
 

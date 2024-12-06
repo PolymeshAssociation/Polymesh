@@ -7,7 +7,6 @@ use frame_support::assert_noop;
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use pallet_test_utils as test_utils;
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_primitives::{Signatory, TransactionError};
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
@@ -35,17 +34,6 @@ fn cdd_checks() {
             let _ = register_keyring_account(AccountKeyring::Charlie).unwrap();
             let charlie_account = AccountKeyring::Charlie.to_account_id();
             let charlie_signatory = Signatory::Account(charlie_account.clone());
-
-            // register did bypasses cdd checks
-            assert_eq!(
-                CddHandler::get_valid_payer(
-                    &RuntimeCall::TestUtils(test_utils::Call::register_did {
-                        secondary_keys: Default::default()
-                    }),
-                    &alice_account
-                ),
-                Ok(Some(AccountKeyring::Alice.to_account_id()))
-            );
 
             // normal tx without cdd should fail
             assert_noop!(

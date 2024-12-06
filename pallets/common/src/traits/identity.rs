@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo, Weight};
+use frame_support::dispatch::{DispatchError, GetDispatchInfo, PostDispatchInfo, Weight};
 use frame_support::traits::{Currency, EnsureOrigin, Get, GetCallMetadata};
 use frame_support::{decl_event, Parameter};
 use scale_info::TypeInfo;
@@ -342,4 +342,10 @@ pub trait IdentityFnTrait<AccountId> {
 
     /// Provides the DID status for the given DID
     fn has_valid_cdd(target_did: IdentityId) -> bool;
+
+    /// Creates a new did and attaches a CDD claim.
+    fn testing_cdd_register_did(
+        target: AccountId,
+        secondary_keys: sp_std::vec::Vec<SecondaryKey<AccountId>>,
+    ) -> Result<IdentityId, DispatchError>;
 }

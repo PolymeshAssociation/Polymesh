@@ -17,21 +17,21 @@ use crate::*;
 
 use frame_benchmarking::benchmarks;
 use polymesh_common_utilities::{
-    benchs::{user, AccountIdOf, User},
-    traits::{relayer::Config, TestUtilsFn},
+    benchs::{user, User},
+    traits::relayer::Config,
 };
 
 type Relayer<T> = crate::Module<T>;
 
 pub(crate) const SEED: u32 = 0;
 
-fn setup_users<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, User<T>) {
+fn setup_users<T: Config>() -> (User<T>, User<T>) {
     let payer = user::<T>("payer", SEED);
     let user = user::<T>("user", SEED);
     (payer, user)
 }
 
-fn setup_paying_key<T: Config + TestUtilsFn<AccountIdOf<T>>>(limit: u128) -> (User<T>, User<T>) {
+fn setup_paying_key<T: Config>(limit: u128) -> (User<T>, User<T>) {
     let (payer, user) = setup_users::<T>();
     // accept paying key
     <Relayer<T>>::auth_accept_paying_key(
@@ -46,10 +46,7 @@ fn setup_paying_key<T: Config + TestUtilsFn<AccountIdOf<T>>>(limit: u128) -> (Us
 }
 
 #[track_caller]
-fn assert_subsidy<T: Config + TestUtilsFn<AccountIdOf<T>>>(
-    user: User<T>,
-    subsidy: Option<(User<T>, Balance)>,
-) {
+fn assert_subsidy<T: Config>(user: User<T>, subsidy: Option<(User<T>, Balance)>) {
     let expect = subsidy.map(|(payer, limit)| Subsidy {
         paying_key: payer.account(),
         remaining: limit,
@@ -58,7 +55,7 @@ fn assert_subsidy<T: Config + TestUtilsFn<AccountIdOf<T>>>(
 }
 
 benchmarks! {
-    where_clause { where T: Config, T: TestUtilsFn<AccountIdOf<T>> }
+    where_clause { where T: Config }
 
     set_paying_key {
         let (payer, user) = setup_users::<T>();

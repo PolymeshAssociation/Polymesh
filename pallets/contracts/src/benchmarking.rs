@@ -16,7 +16,7 @@
 use codec::Encode;
 use frame_benchmarking::{account, benchmarks};
 use frame_support::{storage::unhashed, traits::tokens::currency::Currency};
-use frame_system::{Config as SysTrait, Pallet as System, RawOrigin};
+use frame_system::{Pallet as System, RawOrigin};
 use pallet_contracts::benchmarking::code::body::DynInstr::{Counter, Regular};
 use pallet_contracts::benchmarking::code::{
     body, max_pages, DataSegment, ImportedFunction, ImportedMemory, Location, ModuleDefinition,
@@ -29,10 +29,9 @@ use sp_std::prelude::*;
 use wasm_instrument::parity_wasm::elements::{Instruction, ValueType};
 
 use pallet_identity::ParentDid;
-use polymesh_common_utilities::benchs::{cdd_provider, user, AccountIdOf, User, UserBuilder};
+use polymesh_common_utilities::benchs::{cdd_provider, user, User, UserBuilder};
 use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_common_utilities::group::GroupTrait;
-use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
@@ -56,8 +55,7 @@ const SALT_BYTE: u8 = 0xFF;
 
 pub struct BenchmarkContractPolymeshHooks;
 
-impl<T: Config + TestUtilsFn<<T as SysTrait>::AccountId>> pallet_contracts::PolymeshHooks<T>
-    for BenchmarkContractPolymeshHooks
+impl<T: Config> pallet_contracts::PolymeshHooks<T> for BenchmarkContractPolymeshHooks
 where
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
@@ -115,7 +113,7 @@ fn salt() -> Vec<u8> {
 }
 
 /// Create a funded user used by all benchmarks.
-fn funded_user<T: Config + TestUtilsFn<AccountIdOf<T>>>(seed: u32) -> User<T> {
+fn funded_user<T: Config>(seed: u32) -> User<T> {
     let user = user::<T>("actor", seed);
     T::Currency::make_free_balance_be(&user.account(), 1_000_000 * POLY);
     user
@@ -182,7 +180,7 @@ struct Contract<T: Config> {
 
 impl<T> Contract<T>
 where
-    T: Config + TestUtilsFn<AccountIdOf<T>>,
+    T: Config,
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
     pub fn new(wasm: WasmModule<T>) -> Self {
@@ -319,7 +317,6 @@ where
 benchmarks! {
     where_clause { where
         T: frame_system::Config,
-        T: TestUtilsFn<AccountIdOf<T>>,
         T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
     }
 

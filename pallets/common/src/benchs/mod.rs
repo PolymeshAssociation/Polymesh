@@ -20,32 +20,22 @@ mod user;
 pub use user::{PublicKey, SecretKey, User};
 
 mod user_builder;
-pub use user_builder::{AccountIdOf, UserBuilder};
+pub use user_builder::UserBuilder;
 
-use crate::traits::{identity::Config, TestUtilsFn};
-use frame_system::Config as SysTrait;
+use crate::traits::identity::Config;
 
-pub fn user<T: Config + TestUtilsFn<<T as SysTrait>::AccountId>>(
-    prefix: &'static str,
-    u: u32,
-) -> User<T> {
+pub fn user<T: Config>(prefix: &'static str, u: u32) -> User<T> {
     UserBuilder::<T>::default()
         .generate_did()
         .seed(u)
         .build(prefix)
 }
 
-pub fn user_without_did<T: Config + TestUtilsFn<<T as SysTrait>::AccountId>>(
-    prefix: &'static str,
-    u: u32,
-) -> User<T> {
+pub fn user_without_did<T: Config>(prefix: &'static str, u: u32) -> User<T> {
     UserBuilder::<T>::default().seed(u).build(prefix)
 }
 
-pub fn cdd_provider<T: Config + TestUtilsFn<<T as SysTrait>::AccountId>>(
-    prefix: &'static str,
-    u: u32,
-) -> User<T> {
+pub fn cdd_provider<T: Config>(prefix: &'static str, u: u32) -> User<T> {
     UserBuilder::<T>::default()
         .generate_did()
         .seed(u)

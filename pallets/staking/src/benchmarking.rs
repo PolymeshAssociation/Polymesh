@@ -52,8 +52,7 @@ type MaxNominators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig
 
 use frame_support::StorageDoubleMap;
 
-use polymesh_common_utilities::benchs::{AccountIdOf, User, UserBuilder};
-use polymesh_common_utilities::TestUtilsFn;
+use polymesh_common_utilities::benchs::{User, UserBuilder};
 use polymesh_primitives::identity_claim::ClaimType;
 use polymesh_primitives::{IdentityId, Permissions};
 
@@ -107,7 +106,7 @@ pub fn create_validator_with_nominators<T>(
     balance: Option<u32>,
 ) -> Result<(User<T>, Vec<(User<T>, User<T>)>), &'static str>
 where
-    T: Config + TestUtilsFn<AccountIdOf<T>>,
+    T: Config,
 {
     // Clean up any existing state.
     clear_validators_and_nominators::<T>();
@@ -185,8 +184,6 @@ where
 const USER_SEED: u32 = 999666;
 
 benchmarks! {
-    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
-
     bond {
         let stash = create_funded_user::<T>("stash", USER_SEED, 100);
         let controller = create_funded_user::<T>("controller", USER_SEED, 100);

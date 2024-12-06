@@ -7,42 +7,6 @@ use polymesh_common_utilities::{traits::transaction_payment::CddAndFeeDetails, C
 use polymesh_primitives::{AccountId, AuthorizationData, IdentityId, Signatory, TransactionError};
 use sp_runtime::transaction_validity::InvalidTransaction;
 
-/// A `CddHandler` that considers `TestUtils`.
-pub type DevCddHandler<A> = CddHandler<A, WithTestUtils<A>>;
-
-/// Hook for `CddHandler`'s `get_valid_payer`.
-pub trait GetValidPayerHook<C> {
-    /// Gets called by `CddHandler::get_valid_payer` as a pre-processing step.
-    fn get_valid_payer(call: &C, caller: &AccountId) -> Option<ValidPayerResult>;
-}
-
-/// Provides a hook to deal with `TestUtils::register_did`.
-pub struct WithTestUtils<A>(PhantomData<A>);
-
-impl<C, A> GetValidPayerHook<C> for WithTestUtils<A>
-where
-    for<'a> &'a pallet_test_utils::Call<A>: TryFrom<&'a C>,
-    A: pallet_test_utils::Config,
-{
-    fn get_valid_payer(call: &C, caller: &AccountId) -> Option<ValidPayerResult> {
-        match <&pallet_test_utils::Call<A>>::try_from(call) {
-            // Register did call.
-            // all did registration should go through CDD
-            Ok(pallet_test_utils::Call::register_did { .. }) => Some(Ok(Some(caller.clone()))),
-            _ => None,
-        }
-    }
-}
-
-/// Provides a hook that does nothing.
-pub struct Noop;
-
-impl<C> GetValidPayerHook<C> for Noop {
-    fn get_valid_payer(_: &C, _: &AccountId) -> Option<ValidPayerResult> {
-        None
-    }
-}
-
 /// The set of `Call`s from pallets that `CddHandler` recognizes specially.
 pub enum Call<'a, R>
 where
@@ -55,11 +19,10 @@ where
 
 /// The implementation of `CddAndFeeDetails` for the chain.
 #[derive(Default, Encode, Decode, Clone, Eq, PartialEq)]
-pub struct CddHandler<A, H>(PhantomData<(A, H)>);
+pub struct CddHandler<A>(PhantomData<A>);
 
-impl<C, A, H> CddAndFeeDetails<AccountId, C> for CddHandler<A, H>
+impl<C, A> CddAndFeeDetails<AccountId, C> for CddHandler<A>
 where
-    H: GetValidPayerHook<C>,
     for<'a> Call<'a, A>: TryFrom<&'a C>,
     A: Config<AccountId = AccountId> + pallet_multisig::Config + pallet_relayer::Config,
 {
@@ -71,11 +34,6 @@ where
     /// However, this does not set the payer context since that is meant to remain constant
     /// throughout the transaction. This function can also be used to simply check CDD and update identity context.
     fn get_valid_payer(call: &C, caller: &AccountId) -> ValidPayerResult {
-        match H::get_valid_payer(call, caller) {
-            Some(r) => return r,
-            None => {}
-        }
-
         // Check if the `did` has a valid CDD claim.
         let check_did_cdd = |did: &IdentityId| {
             if Module::<A>::has_valid_cdd(*did) {

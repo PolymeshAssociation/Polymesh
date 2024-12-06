@@ -97,7 +97,7 @@ use frame_system::ensure_root;
 use sp_std::prelude::*;
 
 use frame_support::dispatch::DispatchClass::{Normal, Operational};
-use frame_support::dispatch::{DispatchResult, Pays, Weight};
+use frame_support::dispatch::{DispatchError, DispatchResult, Pays, Weight};
 use frame_support::traits::{ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers};
 use frame_support::{decl_error, decl_module, decl_storage};
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
@@ -720,6 +720,14 @@ impl<T: Config> IdentityFnTrait<T::AccountId> for Module<T> {
     /// Provides the DID status for the given DID
     fn has_valid_cdd(target_did: IdentityId) -> bool {
         Self::has_valid_cdd(target_did)
+    }
+
+    /// Creates a new did and attaches a CDD claim.
+    fn testing_cdd_register_did(
+        target: T::AccountId,
+        secondary_keys: Vec<SecondaryKey<T::AccountId>>,
+    ) -> Result<IdentityId, DispatchError> {
+        Self::testing_cdd_register_did(target, secondary_keys)
     }
 }
 
