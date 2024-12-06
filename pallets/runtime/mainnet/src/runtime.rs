@@ -191,10 +191,7 @@ parameter_types! {
 
 polymesh_runtime_common::misc_pallet_impls!();
 
-type CddHandler = polymesh_runtime_common::fee_details::CddHandler<
-    Runtime,
-    polymesh_runtime_common::fee_details::Noop,
->;
+type CddHandler = polymesh_runtime_common::fee_details::CddHandler<Runtime>;
 
 impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
@@ -310,7 +307,7 @@ construct_runtime!(
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 5,
 
         // TransactionPayment: Genesis config dependencies: Balance.
-        TransactionPayment: pallet_transaction_payment::{Pallet, Event<T>, Storage} = 6,
+        TransactionPayment: pallet_transaction_payment::{Pallet, Call, Event<T>, Storage} = 6,
 
         // Identity: Genesis config deps: Timestamp.
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>, Config<T>} = 7,

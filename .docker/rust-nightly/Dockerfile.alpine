@@ -19,5 +19,6 @@ RUN apk add --no-cache \
         protobuf \
         rsync
 RUN rustup toolchain install $TOOLCHAIN && \
-        rustup target add wasm32-unknown-unknown --toolchain $TOOLCHAIN
+  rustup default $TOOLCHAIN && \
+  rustup target add wasm32-unknown-unknown
 

@@ -201,7 +201,25 @@ decl_event! {
             IdentityId,
             PortfolioId,
             AssetId
-        )
+        ),
+        /// Allow another identity to create portfolios.
+        ///
+        /// # Parameters
+        /// * [`IdentityId`] of the caller.
+        /// * [`IdentityId`] allowed to create portfolios.
+        AllowIdentityToCreatePortfolios(
+            IdentityId,
+            IdentityId,
+        ),
+        /// Revoke another identities permission to create portfolios.
+        ///
+        /// # Parameters
+        /// * [`IdentityId`] of the caller.
+        /// * [`IdentityId`] permissions to create portfolios is revoked.
+        RevokeCreatePortfoliosPermission(
+            IdentityId,
+            IdentityId,
+        ),
     }
 }
 

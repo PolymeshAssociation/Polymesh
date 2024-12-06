@@ -1012,6 +1012,44 @@ pub(crate) fn test_with_bad_perms(did: IdentityId, test: impl Fn(Permissions)) {
     });
 }
 
+// Test for DuplicateKey error in `add_secondary_keys_with_authorization`.
+#[test]
+fn add_secondary_keys_with_authorization_duplicate_keys() {
+    ExtBuilder::default().build().execute_with(|| {
+        let user = User::new(AccountKeyring::Alice);
+        let bob = User::new_with(user.did, AccountKeyring::Bob);
+
+        let expires_at = 100;
+        let auth = || {
+            let auth = TargetIdAuthorization {
+                target_id: user.did,
+                nonce: Identity::offchain_authorization_nonce(user.did),
+                expires_at,
+            };
+            auth.encode()
+        };
+
+        let auth_encoded = auth();
+        let auth_signature = H512::from(bob.ring.sign(&auth_encoded));
+
+        let secondary_key = SecondaryKey::new(bob.acc(), Permissions::default());
+        let auths = vec![
+            SecondaryKeyWithAuth {
+                auth_signature,
+                secondary_key: secondary_key.clone(),
+            },
+            SecondaryKeyWithAuth {
+                auth_signature,
+                secondary_key,
+            },
+        ];
+        assert_noop!(
+            Identity::add_secondary_keys_with_authorization(user.origin(), auths, expires_at),
+            Error::DuplicateKey
+        );
+    });
+}
+
 #[test]
 fn add_secondary_keys_with_authorization_too_many_sks() {
     ExtBuilder::default().build().execute_with(|| {
@@ -1531,6 +1569,26 @@ fn cdd_register_did_test_we() {
         dave_auth_id
     ));
     assert_eq!(get_secondary_keys(charlie_id), vec![dave_si.clone()]);
+}
+
+// Test for the DuplicateKey error in `cdd_register_did`.
+#[test]
+fn cdd_register_did_duplicate_keys_test() {
+    ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
+        .build()
+        .execute_with(|| {
+            let cdd = Origin::signed(AccountKeyring::Eve.to_account_id());
+            let alice = AccountKeyring::Alice.to_account_id();
+            let bob_acc = AccountKeyring::Bob.to_account_id();
+
+            let secondary_key = SecondaryKey::new(bob_acc, Permissions::default());
+            let secondary_keys = vec![secondary_key.clone().into(), secondary_key.into()];
+            assert_noop!(
+                Identity::cdd_register_did(cdd, alice, secondary_keys),
+                Error::DuplicateKey
+            );
+        });
 }
 
 #[test]

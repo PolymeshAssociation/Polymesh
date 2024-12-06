@@ -386,7 +386,7 @@ impl<T: Config> Module<T> {
     /// claims.
     /// - `target_account` (primary key of the new Identity) can be linked to just one and only
     /// one identity.
-    /// - External secondary keys can be linked to just one identity.
+    /// - `secondary_keys` list of secondary keys with their permissions.
     pub fn base_cdd_register_did(
         origin: T::RuntimeOrigin,
         target_account: T::AccountId,
@@ -403,7 +403,7 @@ impl<T: Config> Module<T> {
         }
 
         // Register Identity
-        let target_did = Self::_register_did(
+        let target_did = Self::register_did_without_cdd(
             target_account,
             secondary_keys,
             Some(ProtocolOp::IdentityCddRegisterDid),

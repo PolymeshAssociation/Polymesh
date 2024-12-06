@@ -25,7 +25,7 @@ pub mod runtime;
 pub use frame_support::{
     dispatch::{DispatchClass, GetDispatchInfo, Weight},
     parameter_types,
-    traits::Currency,
+    traits::{Currency, Get},
     weights::{
         constants::{
             WEIGHT_REF_TIME_PER_MICROS, WEIGHT_REF_TIME_PER_MILLIS, WEIGHT_REF_TIME_PER_NANOS,
@@ -208,6 +208,12 @@ impl WeightToFeePolynomial for WeightToFee {
             coeff_integer: 0u128, // Coefficient is zero.
             negative: false,
         }]
+    }
+}
+
+impl Get<Vec<WeightToFeeCoefficient<Balance>>> for WeightToFee {
+    fn get() -> Vec<WeightToFeeCoefficient<Balance>> {
+        Self::polynomial().to_vec()
     }
 }
 

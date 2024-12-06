@@ -17,7 +17,6 @@ use crate::{
     traits::{
         group::GroupTrait,
         identity::{Config, IdentityFnTrait},
-        TestUtilsFn,
     },
 };
 use schnorrkel::{ExpansionMode, MiniSecretKey};
@@ -28,8 +27,6 @@ use frame_system::RawOrigin;
 use polymesh_primitives::IdentityId;
 use sp_io::hashing::blake2_256;
 use sp_std::prelude::*;
-
-pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
 pub struct UserBuilder<T: Config> {
     account: Option<T::AccountId>,
@@ -48,7 +45,7 @@ macro_rules! self_update {
     }};
 }
 
-impl<T: Config + TestUtilsFn<AccountIdOf<T>>> UserBuilder<T> {
+impl<T: Config> UserBuilder<T> {
     /// Create an account based on the builder configuration.
     pub fn build(self, name: &str) -> User<T> {
         let (account, secret) = self
@@ -79,8 +76,10 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> UserBuilder<T> {
 
     /// Create a DID for account `acc` using the specified investor ID.
     fn make_did(acc: T::AccountId) -> IdentityId {
-        let _ = T::register_did(acc.clone(), vec![]);
-        T::IdentityFn::get_identity(&acc).unwrap()
+        match T::IdentityFn::testing_cdd_register_did(acc.clone(), vec![]) {
+            Ok(did) => did,
+            _ => T::IdentityFn::get_identity(&acc).unwrap(),
+        }
     }
 }
 

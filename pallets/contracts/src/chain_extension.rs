@@ -147,53 +147,6 @@ fn with_payer<T: Config, W: FnOnce() -> R, R>(payer: T::AccountId, with: W) -> R
     result
 }
 
-// This is used to convert the `OldCallRuntime` to `CallRuntime`.
-struct ChainInput<'a, 'b> {
-    input1: &'a [u8],
-    input2: &'b [u8],
-}
-
-impl<'a, 'b> ChainInput<'a, 'b> {
-    pub fn len(&self) -> usize {
-        self.input1.len() + self.input2.len()
-    }
-}
-
-impl<'a, 'b> codec::Input for ChainInput<'a, 'b> {
-    fn remaining_len(&mut self) -> Result<Option<usize>, codec::Error> {
-        Ok(Some(self.len()))
-    }
-
-    fn read(&mut self, into: &mut [u8]) -> Result<(), codec::Error> {
-        let len = into.len();
-        let in1_len = self.input1.len();
-        let in2_len = self.input2.len();
-        if len > (in1_len + in2_len) {
-            return Err("Not enough data to fill buffer".into());
-        }
-        // `input1` still has bytes, read from it first.
-        if in1_len > 0 {
-            let off = in1_len.min(len);
-            // Split `into` buffer into two parts.
-            let (into1, into2) = into.split_at_mut(off);
-            // Read from `input1`.
-            let len = into1.len();
-            into1.copy_from_slice(&self.input1[..len]);
-            self.input1 = &self.input1[len..];
-            // Read from `input2`.
-            let len = into2.len();
-            into2.copy_from_slice(&self.input2[..len]);
-            self.input2 = &self.input2[len..];
-        } else {
-            // `input1` is empty, only read from `input2`.
-            let len = into.len();
-            into.copy_from_slice(&self.input2[..len]);
-            self.input2 = &self.input2[len..];
-        }
-        Ok(())
-    }
-}
-
 fn read_storage<T, E>(env: ce::Environment<E, ce::InitState>) -> ce::Result<ce::RetVal>
 where
     T: Config,

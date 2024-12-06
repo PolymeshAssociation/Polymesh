@@ -13,7 +13,7 @@ serde = { version = "1.0.112", default-features = false }
 serde_derive = { version = "1.0.112", optional = true, default-features = false}
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { workspace = true, default-features = false, features = ["derive"] }
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 pallet-timestamp = { version = "4.0.0-dev", default-features = false }
@@ -27,7 +27,7 @@ sp-std = { version = "5.0.0", default-features = false }
 
 # Benchmarks
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
-schnorrkel = { version = "0.10.1", default-features = false, optional = true }
+schnorrkel = { version = "0.11", default-features = false, optional = true }
 
 [dev-dependencies]
 lazy_static = { version = "1.4.0", default-features = false }
@@ -37,8 +37,8 @@ sp-keyring = { version = "7.0.0" }
 default = ["std", "equalize"]
 
 # Backends
-u32_backend = [ "schnorrkel/u32_backend"]
-u64_backend = [ "schnorrkel/u64_backend"]
+u32_backend = []
+u64_backend = []
 
 equalize = []
 default_identity = []

@@ -31,13 +31,11 @@ pallet-staking-rpc-runtime-api = { path = "../../staking/rpc/runtime-api", defau
 pallet-statistics = { path = "../../statistics", default-features = false }
 pallet-sto = { path = "../../sto", default-features = false }
 pallet-sudo = { path = "../../sudo", default-features = false }
-pallet-test-utils = { path = "../../test-utils", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
 polymesh-common-utilities = { path = "../../common", default-features = false }
 polymesh-contracts = { path = "../../contracts", default-features = false }
-polymesh-extensions = { path = "../extensions", default-features = false }
 polymesh-primitives = { path = "../../../primitives", default-features = false }
 polymesh-runtime-common = { path = "../common", default-features = false, features = ["testing"] }
 polymesh-runtime-develop = { path = "../develop" }
@@ -57,7 +55,7 @@ serde_json = '1.0.48'
 log = "0.4.8"
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { workspace = true, default-features = false, features = ["derive"] }
 frame-benchmarking = { version = "4.0.0-dev", optional = true }
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
@@ -179,3 +177,4 @@ std = [
 runtime-benchmarks = [
     "frame-benchmarking/runtime-benchmarks",
 ]
+try-runtime = []

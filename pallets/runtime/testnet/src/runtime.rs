@@ -194,17 +194,7 @@ parameter_types! {
 
 polymesh_runtime_common::misc_pallet_impls!();
 
-type CddHandler = polymesh_runtime_common::fee_details::DevCddHandler<Runtime>;
-
-impl<'a> TryFrom<&'a RuntimeCall> for &'a pallet_test_utils::Call<Runtime> {
-    type Error = ();
-    fn try_from(call: &'a RuntimeCall) -> Result<&'a pallet_test_utils::Call<Runtime>, ()> {
-        match call {
-            RuntimeCall::TestUtils(x) => Ok(x),
-            _ => Err(()),
-        }
-    }
-}
+type CddHandler = polymesh_runtime_common::fee_details::CddHandler<Runtime>;
 
 impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
@@ -304,11 +294,6 @@ impl pallet_group::Config<pallet_group::Instance2> for Runtime {
     type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
 }
 
-impl pallet_test_utils::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = polymesh_weights::pallet_test_utils::SubstrateWeight;
-}
-
 pub type AllModulesExported = AllPalletsWithSystem;
 
 construct_runtime!(
@@ -328,7 +313,7 @@ construct_runtime!(
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 5,
 
         // TransactionPayment: Genesis config dependencies: Balance.
-        TransactionPayment: pallet_transaction_payment::{Pallet, Event<T>, Storage} = 6,
+        TransactionPayment: pallet_transaction_payment::{Pallet, Call, Event<T>, Storage} = 6,
 
         // Identity: Genesis config deps: Timestamp.
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>, Config<T>} = 7,
@@ -405,8 +390,6 @@ construct_runtime!(
         Nft: pallet_nft::{Pallet, Call, Storage, Event} = 49,
 
         ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 50,
-
-        TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 200,
     }
 );
 

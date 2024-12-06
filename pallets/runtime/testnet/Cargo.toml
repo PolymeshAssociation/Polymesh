@@ -13,7 +13,6 @@ polymesh-common-utilities = { path = "../../common", default-features = false }
 polymesh-runtime-common = { path = "../common", default-features = false}
 polymesh-primitives = { path = "../../../primitives", default-features = false }
 polymesh-weights = { path = "../../weights", default-features = false }
-polymesh-extensions = { path = "../extensions", default-features = false }
 
 # Our pallets
 pallet-asset = { path = "../../asset", default-features = false }
@@ -42,7 +41,6 @@ pallet-transaction-payment = { path = "../../transaction-payment", default-featu
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
 pallet-sudo = { path = "../../sudo", default-features = false }
-pallet-test-utils = { path = "../../test-utils", default-features = false }
 polymesh-contracts = { path = "../../contracts", default-features = false }
 
 # RPC
@@ -57,7 +55,7 @@ serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true }
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { workspace = true, default-features = false, features = ["derive"] }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
 sp-core = { version = "7.0.0", default-features = false }
 sp-std = { version = "5.0.0", default-features = false }
@@ -105,6 +103,7 @@ polymesh-build-tool = { path = "../build_tool", default-features = false }
 
 [features]
 default = ["std", "equalize"]
+disable_fees = ["pallet-transaction-payment/disable_fees"]
 equalize = []
 
 # Backends
@@ -162,7 +161,6 @@ std = [
     "pallet-staking/std",
     "pallet-statistics/std",
     "pallet-sudo/std",
-    "pallet-test-utils/std",
     "pallet-timestamp/std",
     "pallet-transaction-payment/std",
     "pallet-treasury/std",

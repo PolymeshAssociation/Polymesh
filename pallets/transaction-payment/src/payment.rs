@@ -1,5 +1,5 @@
 /// ! Traits and default implementation for paying transaction fees.
-use crate::Config;
+use crate::pallet::Config;
 
 use codec::FullCodec;
 use sp_runtime::{

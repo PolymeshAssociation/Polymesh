@@ -10,7 +10,6 @@ build = "build.rs"
 [dependencies]
 # Common
 polymesh-common-utilities = { path = "../../common", default-features = false }
-polymesh-extensions = { path = "../extensions", default-features = false }
 polymesh-primitives = { path = "../../../primitives", default-features = false }
 polymesh-runtime-common = { path = "../common", default-features = false}
 polymesh-weights = { path = "../../weights", default-features = false }
@@ -57,7 +56,7 @@ serde_derive = { version = "1.0.104", optional = true }
 smallvec = "1.4.0"
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { workspace = true, default-features = false, features = ["derive"] }
 frame-election-provider-support = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
@@ -102,6 +101,7 @@ polymesh-build-tool = { path = "../build_tool", default-features = false }
 
 [features]
 default = ["std", "equalize"]
+disable_fees = ["pallet-transaction-payment/disable_fees"]
 equalize = []
 
 # Backends

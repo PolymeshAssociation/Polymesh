@@ -13,8 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use frame_support::dispatch::DispatchResult;
-use polymesh_primitives::{secondary_key::SecondaryKey, traits::BlockRewardsReserveCurrency};
+use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 
 pub trait CommonConfig: frame_system::Config + permissions::Config {
     type BlockRewardsReserve: BlockRewardsReserveCurrency<NegativeImbalance<Self>>;
@@ -41,14 +40,6 @@ pub use permissions::{AccountCallPermissionsData, CheckAccountCallPermissions};
 pub mod relayer;
 pub mod settlement;
 pub mod statistics;
-
-pub trait TestUtilsFn<AccountId> {
-    /// Creates a new did and attaches a CDD claim to it.
-    fn register_did(
-        target: AccountId,
-        secondary_keys: sp_std::vec::Vec<SecondaryKey<AccountId>>,
-    ) -> DispatchResult;
-}
 
 pub mod base {
     use frame_support::decl_event;

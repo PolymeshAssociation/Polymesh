@@ -13,7 +13,7 @@ log = "0.4.8"
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false}
 
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { workspace = true, default-features = false, features = ["derive"] }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
 sp-core = { version = "7.0.0", default-features = false }
 sp-std = {  version = "5.0.0", default-features = false }
