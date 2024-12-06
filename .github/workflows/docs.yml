@@ -22,7 +22,7 @@ jobs:
     - name: Install rust toolchain
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: nightly-2023-12-11
+        toolchain: nightly-2024-11-14
         target: wasm32-unknown-unknown
         override: true
         default: true
@@ -31,7 +31,7 @@ jobs:
       run: sudo apt-get install -y protobuf-compiler
 
     - name: Build docs
-      run: BUILD_DUMMY_WASM_BINARY=1 cargo doc --no-deps --workspace --release --exclude node-bench --exclude node-executor --exclude node-testing --exclude crypto-cli
+      run: SKIP_WASM_BUILD=1 cargo doc --no-deps --workspace --release --exclude node-bench --exclude node-executor --exclude node-testing --exclude crypto-cli
 
     - name: Add index file
       run: echo "<html lang='en'><head><meta http-equiv='refresh' content='0; URL=./polymesh/index.html'></head></html>" > ./target/doc/index.html
