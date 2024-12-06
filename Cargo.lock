@@ -5662,24 +5662,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-test-utils"
-version = "0.1.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-identity",
- "pallet-permissions",
- "parity-scale-codec 3.6.9",
- "polymesh-common-utilities",
- "polymesh-primitives",
- "scale-info",
- "serde",
- "serde_derive",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-timestamp"
 version = "4.0.0-dev"
 source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v6-monthly-2023-03#74ef745933703849d756dc16d41d938157d6943a"
@@ -6425,7 +6407,6 @@ dependencies = [
  "pallet-identity",
  "pallet-multisig",
  "pallet-relayer",
- "pallet-test-utils",
  "parity-scale-codec 3.6.9",
  "polymesh-common-utilities",
  "polymesh-primitives",
@@ -6490,7 +6471,6 @@ dependencies = [
  "pallet-statistics",
  "pallet-sto",
  "pallet-sudo",
- "pallet-test-utils",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-treasury",
@@ -6659,7 +6639,6 @@ dependencies = [
  "pallet-statistics",
  "pallet-sto",
  "pallet-sudo",
- "pallet-test-utils",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-treasury",
@@ -6751,7 +6730,6 @@ dependencies = [
  "pallet-statistics",
  "pallet-sto",
  "pallet-sudo",
- "pallet-test-utils",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-treasury",
@@ -6825,7 +6803,6 @@ dependencies = [
  "pallet-staking",
  "pallet-statistics",
  "pallet-sto",
- "pallet-test-utils",
  "pallet-timestamp",
  "pallet-treasury",
  "pallet-utility",

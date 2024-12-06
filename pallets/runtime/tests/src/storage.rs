@@ -335,8 +335,6 @@ frame_support::construct_runtime!(
 
         Nft: pallet_nft::{Pallet, Call, Storage, Event} = 49,
 
-        TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 200,
-
         // Testing only.
         Example: example::{Pallet, Call} = 201,
 
@@ -706,11 +704,6 @@ impl pips::Config for TestStorage {
     type SchedulerCall = RuntimeCall;
 }
 
-impl pallet_test_utils::Config for TestStorage {
-    type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = polymesh_weights::pallet_test_utils::SubstrateWeight;
-}
-
 impl pallet_sudo::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
@@ -777,7 +770,7 @@ pub fn make_account_with_balance(
             did
         }
         _ => {
-            let _ = TestUtils::register_did(signed_id.clone(), vec![])
+            let _ = Identity::testing_cdd_register_did(id.clone(), vec![])
                 .map_err(|_| "Register DID failed")?;
             Identity::get_identity(&id).unwrap()
         }
@@ -797,7 +790,7 @@ pub fn make_account_without_cdd(
 > {
     let signed_id = RuntimeOrigin::signed(id.clone());
     Balances::make_free_balance_be(&id, 10_000_000);
-    let did = Identity::_register_did(id.clone(), vec![], None).expect("did");
+    let did = Identity::register_did_without_cdd(id.clone(), vec![], None).expect("did");
     Ok((signed_id, did))
 }
 

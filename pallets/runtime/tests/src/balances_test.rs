@@ -4,7 +4,6 @@ use super::{
 };
 use pallet_balances as balances;
 use pallet_identity as identity;
-use pallet_test_utils as test_utils;
 use polymesh_common_utilities::traits::balances::RawEvent as BalancesRawEvent;
 use polymesh_runtime_develop::{runtime, Runtime};
 
@@ -43,12 +42,9 @@ fn signed_extension_charge_transaction_payment_work() {
         .build()
         .execute_with(|| {
             let len = 10;
-            let alice_pub = AccountKeyring::Alice.to_account_id();
             let alice_id = AccountKeyring::Alice.to_account_id();
 
-            let call = runtime::RuntimeCall::TestUtils(test_utils::Call::register_did {
-                secondary_keys: vec![],
-            });
+            let call = runtime::RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
 
             assert!(
                 <ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
@@ -60,7 +56,7 @@ fn signed_extension_charge_transaction_payment_work() {
                 )
                 .is_ok()
             );
-            assert_eq!(Balances::free_balance(&alice_pub), 100 - 20 - 25);
+            assert_eq!(Balances::free_balance(&alice_id), 100 - 20 - 25);
             assert!(
                 <ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
                     ChargeTransactionPayment::from(0 /* 0 tip */),
@@ -71,7 +67,7 @@ fn signed_extension_charge_transaction_payment_work() {
                 )
                 .is_ok()
             );
-            assert_eq!(Balances::free_balance(&alice_pub), 100 - 20 - 25 - 20 - 15);
+            assert_eq!(Balances::free_balance(&alice_id), 100 - 20 - 25 - 20 - 15);
         });
 }
 
@@ -83,11 +79,9 @@ fn tipping_fails() {
         .monied(true)
         .build()
         .execute_with(|| {
-            let call = runtime::RuntimeCall::TestUtils(test_utils::Call::register_did {
-                secondary_keys: vec![],
-            });
-            let len = 10;
             let alice_id = AccountKeyring::Alice.to_account_id();
+            let call = runtime::RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+            let len = 10;
             assert!(
                 <ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
                     ChargeTransactionPayment::from(5 /* 5 tip */),

@@ -36,8 +36,7 @@ const SEED: u32 = 0;
 
 // Polymesh change
 // -----------------------------------------------------------------
-use polymesh_common_utilities::benchs::{AccountIdOf, User, UserBuilder};
-use polymesh_common_utilities::TestUtilsFn;
+use polymesh_common_utilities::benchs::{User, UserBuilder};
 use polymesh_primitives::{AuthorizationData, Permissions, Signatory};
 // -----------------------------------------------------------------
 
@@ -57,7 +56,7 @@ pub fn clear_validators_and_nominators<T: Config>() {
 /// Grab a funded user.
 pub fn create_funded_user<T>(string: &'static str, n: u32, balance: u32) -> User<T>
 where
-    T: Config + TestUtilsFn<AccountIdOf<T>>,
+    T: Config,
 {
     // Polymesh change
     // -----------------------------------------------------------------
@@ -77,7 +76,7 @@ pub fn create_stash_controller<T>(
     destination: RewardDestination<T::AccountId>,
 ) -> Result<(User<T>, User<T>), &'static str>
 where
-    T: Config + TestUtilsFn<AccountIdOf<T>>,
+    T: Config,
 {
     let stash = create_funded_user::<T>("stash", n, balance);
     let controller = UserBuilder::<T>::default()
@@ -115,7 +114,7 @@ pub fn create_stash_and_dead_controller<T: Config>(
     destination: RewardDestination<T::AccountId>,
 ) -> Result<(User<T>, User<T>), &'static str>
 where
-    T: Config + TestUtilsFn<AccountIdOf<T>>,
+    T: Config,
 {
     let stash = create_funded_user::<T>("stash", n, balance);
     let controller_account: T::AccountId = account("controller", n, 100);
@@ -154,7 +153,7 @@ pub fn create_validators<T>(
     balance: u32,
 ) -> Result<Vec<AccountIdLookupOf<T>>, &'static str>
 where
-    T: Config + TestUtilsFn<AccountIdOf<T>>,
+    T: Config,
 {
     create_validators_with_seed::<T>(max, balance, 0)
 }
@@ -166,7 +165,7 @@ pub fn create_validators_with_seed<T>(
     seed: u32,
 ) -> Result<Vec<AccountIdLookupOf<T>>, &'static str>
 where
-    T: Config + TestUtilsFn<AccountIdOf<T>>,
+    T: Config,
 {
     Staking::<T>::set_commission_cap(RawOrigin::Root.into(), Perbill::from_percent(50)).unwrap();
     let mut validators: Vec<AccountIdLookupOf<T>> = Vec::with_capacity(max as usize);
@@ -211,7 +210,7 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
     to_nominate: Option<u32>,
 ) -> Result<Vec<AccountIdLookupOf<T>>, &'static str>
 where
-    T: Config + TestUtilsFn<AccountIdOf<T>>,
+    T: Config,
 {
     clear_validators_and_nominators::<T>();
 

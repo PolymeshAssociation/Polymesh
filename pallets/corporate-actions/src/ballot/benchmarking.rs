@@ -17,10 +17,7 @@ use super::*;
 use crate::benchmarking::{set_ca_targets, setup_ca};
 use core::iter;
 use frame_benchmarking::benchmarks;
-use polymesh_common_utilities::{
-    benchs::{AccountIdOf, User},
-    TestUtilsFn,
-};
+use polymesh_common_utilities::benchs::User;
 
 const MAX_CHOICES: u32 = 1000;
 const MAX_TARGETS: u32 = 1000;
@@ -43,10 +40,7 @@ fn meta(n_motions: u32, n_choices: u32) -> BallotMeta {
     }
 }
 
-fn attach<T: Config + TestUtilsFn<AccountIdOf<T>>>(
-    n_motions: u32,
-    n_choices: u32,
-) -> (User<T>, CAId) {
+fn attach<T: Config>(n_motions: u32, n_choices: u32) -> (User<T>, CAId) {
     let meta = meta(n_motions, n_choices);
     let (owner, ca_id) = setup_ca::<T>(CAKind::IssuerNotice);
     <Module<T>>::attach_ballot(owner.origin().into(), ca_id, RANGE, meta, true).unwrap();
@@ -54,8 +48,6 @@ fn attach<T: Config + TestUtilsFn<AccountIdOf<T>>>(
 }
 
 benchmarks! {
-    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
-
     attach_ballot {
         let c in 0..MAX_CHOICES;
 

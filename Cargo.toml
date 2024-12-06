@@ -140,7 +140,6 @@ members = [
     "pallets/transaction-payment",
     "pallets/treasury",
     "pallets/utility",
-    "pallets/test-utils",
     "pallets/weights",
     "primitives",
     "primitives/asset-metadata",
@@ -177,7 +176,6 @@ pallet-sto = { path = "pallets/sto", default-features = false }
 pallet-settlement = { path = "pallets/settlement", default-features = false }
 pallet-staking = { path = "pallets/staking", default-features = false }
 pallet-statistics = { path = "pallets/statistics", default-features = false }
-pallet-test-utils = { path = "pallets/test-utils", default-features = false }
 pallet-transaction-payment = { path = "pallets/transaction-payment", default-features = false }
 pallet-treasury = { path = "pallets/treasury", default-features = false }
 pallet-utility = { path = "pallets/utility", default-features = false }

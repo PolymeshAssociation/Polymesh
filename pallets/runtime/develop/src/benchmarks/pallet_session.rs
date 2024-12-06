@@ -29,7 +29,6 @@ use frame_system::RawOrigin;
 use pallet_session::{Call, Pallet as Session};
 use pallet_staking::benchmarking::create_validator_with_nominators;
 use pallet_staking::RewardDestination;
-use polymesh_common_utilities::{benchs::AccountIdOf, TestUtilsFn};
 use sp_runtime::traits::TrailingZeroInput;
 use sp_std::prelude::*;
 use sp_std::vec;
@@ -54,7 +53,7 @@ struct ValidatorInfo<T: Config> {
     proof: Vec<u8>,
 }
 
-impl<T: Config + TestUtilsFn<AccountIdOf<T>>> ValidatorInfo<T> {
+impl<T: Config> ValidatorInfo<T> {
     pub fn build(nominators: u32) -> Result<ValidatorInfo<T>, &'static str>
     where
         <<T as pallet_staking::Config>::Currency as Currency<
@@ -92,7 +91,6 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> ValidatorInfo<T> {
 benchmarks! {
     where_clause {
         where
-            T: TestUtilsFn<AccountIdOf<T>>,
             <<T as pallet_staking::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance: From<u128>,
     }
 
