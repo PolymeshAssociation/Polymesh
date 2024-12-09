@@ -91,7 +91,7 @@ jobs:
       - persist_to_workspace:
           root: ./assets
           paths:
-              - .
+            - .
       - save-sccache-cache
   build-ci:
     docker:
@@ -118,7 +118,7 @@ jobs:
       - persist_to_workspace:
           root: ./assets
           paths:
-              - .
+            - .
   build-arm64:
     docker:
       - image: polymeshassociation/rust-arm64:debian-nightly-2024-11-14
@@ -144,7 +144,7 @@ jobs:
       - persist_to_workspace:
           root: ./assets
           paths:
-              - .
+            - .
       - save-sccache-cache
   benchmark-build:
     docker:
@@ -246,7 +246,7 @@ jobs:
           command: cp rust-toolchain.toml pallets/runtime/<<parameters.chain>>/rust-toolchain.toml
       - run:
           name: Build the deterministic wasm binary
-          command: | 
+          command: |
             CMD="/srtool/build --app --json -cM"
             stdbuf -oL $CMD | {
               while IFS= read -r line
@@ -266,8 +266,41 @@ jobs:
       - persist_to_workspace:
           root: ./assets
           paths:
-              - .
+            - .
 
+  check_api:
+    docker:
+      - image: polymeshassociation/rust:debian-nightly-2024-11-14
+    resource_class: small
+    environment:
+      VERBOSE: "1"
+      RUSTFLAGS: "-D warnings"
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./assets
+      - run:
+          name: Start Polymesh dev chain
+          command: |
+            ./assets/polymesh --chain dev \
+              --no-prometheus --no-telemetry --tmp \
+              --wasm-execution compiled \
+              --pool-limit 100000 &
+      - run:
+          name: Build metadata-tools
+          command: |
+            cd metadata-tools
+            cargo build --release
+      - run:
+          name: Run metadata-tools check
+          command: |
+            ./metadata-tools/target/release/metadata-tools check .metadata ws://localhost:9944 | tee api_change_report.txt
+      - run:
+          name: Fail if metadata-tools check failed
+          command: test ${PIPESTATUS[0]} -eq 0
+      - store_artifacts:
+          path: api_change_report.txt
+          destination: api_change_report.txt
 
   benchmark:
     docker:
@@ -296,7 +329,7 @@ jobs:
       - restore-sccache-cache
       - run:
           name: Run migration tests
-          command:  cargo test -p migration-tests --lib -- --nocapture
+          command: cargo test -p migration-tests --lib -- --nocapture
           no_output_timeout: 30m
       - save-sccache-cache
   test:
@@ -717,3 +750,6 @@ workflows:
           package: polymesh-runtime-develop
           runtime_dir: pallets/runtime/develop
           tag: 1.81.0
+      - check_api:
+          requires:
+            - build
