@@ -281,11 +281,12 @@ jobs:
           at: ./assets
       - run:
           name: Start Polymesh dev chain
-          command: |
+          command: >-
             ./assets/polymesh --chain dev \
               --no-prometheus --no-telemetry --tmp \
               --wasm-execution compiled \
-              --pool-limit 100000 &
+              --pool-limit 100000
+          background: true
       - run:
           name: Build metadata-tools
           command: |
