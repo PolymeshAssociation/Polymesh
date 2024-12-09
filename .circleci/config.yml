@@ -309,13 +309,73 @@ jobs:
       - run:
           name: Run metadata-tools check
           command: |
-            ./assets/metadata-tools check .metadata ws://localhost:9944 | tee api_change_report.txt
+            ./assets/metadata-tools check .metadata ws://localhost:9944 | tee runtime_dev_api_report.txt
       - run:
           name: Fail if metadata-tools check failed
           command: test ${PIPESTATUS[0]} -eq 0
       - store_artifacts:
-          path: api_change_report.txt
-          destination: api_change_report.txt
+          path: runtime_dev_api_report.txt
+          destination: runtime_dev_api_report.txt
+
+  check_testnet_api:
+    docker:
+      - image: debian:stable
+    resource_class: small
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./assets
+      - run:
+          name: Start Polymesh testnet chain
+          command: >-
+            ./assets/polymesh --chain testnet \
+              --no-prometheus --no-telemetry --tmp \
+              --wasm-execution compiled \
+              --pool-limit 100000
+          background: true
+      - run:
+          name: Wait for chain to start
+          command: sleep 30
+      - run:
+          name: Run metadata-tools check
+          command: |
+            ./assets/metadata-tools check .metadata ws://localhost:9944 | tee runtime_testnet_api_report.txt
+      - run:
+          name: Fail if metadata-tools check failed
+          command: test ${PIPESTATUS[0]} -eq 0
+      - store_artifacts:
+          path: runtime_testnet_api_report.txt
+          destination: runtime_testnet_api_report.txt
+
+  check_mainnet_api:
+    docker:
+      - image: debian:stable
+    resource_class: small
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./assets
+      - run:
+          name: Start Polymesh mainnet chain
+          command: >-
+            ./assets/polymesh --chain mainnet \
+              --no-prometheus --no-telemetry --tmp \
+              --wasm-execution compiled \
+              --pool-limit 100000
+          background: true
+      - run:
+          name: Wait for chain to start
+          command: sleep 30
+      - run:
+          name: Run metadata-tools check
+          command: |
+            ./assets/metadata-tools check .metadata ws://localhost:9944 | tee runtime_mainnet_api_report.txt
+      - run:
+          name: Fail if metadata-tools check failed
+          command: test ${PIPESTATUS[0]} -eq 0
+      - store_artifacts:
+          path: runtime_mainnet_api_report.txt
+          destination: runtime_mainnet_api_report.txt
 
   benchmark:
     docker:
@@ -767,6 +827,14 @@ workflows:
           tag: 1.81.0
       - metadata-tools-build
       - check_dev_api:
+          requires:
+            - metadata-tools-build
+            - build
+      - check_testnet_api:
+          requires:
+            - metadata-tools-build
+            - build
+      - check_mainnet_api:
           requires:
             - metadata-tools-build
             - build
