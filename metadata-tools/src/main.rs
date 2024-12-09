@@ -110,7 +110,7 @@ async fn make_rpc_request<R: DeserializeOwned>(
     }
 }
 
-async fn load_metadata(path_or_url: &str) -> Result<RuntimeMetadata> {
+async fn read_metadata(path_or_url: &str) -> Result<Vec<u8>> {
     if let Some(_) = is_rpc_url(path_or_url) {
         let response: String = make_rpc_request(
             path_or_url,
@@ -118,17 +118,17 @@ async fn load_metadata(path_or_url: &str) -> Result<RuntimeMetadata> {
             jsonrpsee::core::rpc_params![],
         )
         .await?;
-        let data = hex::decode(response.trim_start_matches("0x"))?;
-        let prefixed = RuntimeMetadataPrefixed::decode(&mut &data[..])
-            .context("Failed to decode metadata from RPC response")?;
-        Ok(prefixed.1)
+        Ok(hex::decode(response.trim_start_matches("0x"))?)
     } else {
-        let data =
-            read(path_or_url).with_context(|| format!("Failed to read file: {}", path_or_url))?;
-        let prefixed = RuntimeMetadataPrefixed::decode(&mut &data[..])
-            .with_context(|| format!("Failed to decode metadata from: {}", path_or_url))?;
-        Ok(prefixed.1)
+        Ok(read(path_or_url).with_context(|| format!("Failed to read file: {}", path_or_url))?)
     }
+}
+
+async fn load_metadata(path_or_url: &str) -> Result<RuntimeMetadata> {
+    let data = read_metadata(path_or_url).await?;
+    let prefixed = RuntimeMetadataPrefixed::decode(&mut &data[..])
+        .with_context(|| format!("Failed to decode metadata from: {}", path_or_url))?;
+    Ok(prefixed.1)
 }
 
 async fn generate_default_filename(rpc_url: &str, output_folder: Option<&str>) -> Result<String> {
@@ -152,15 +152,14 @@ async fn download_metadata(
     output_file: Option<&str>,
     output_folder: Option<&str>,
 ) -> Result<()> {
-    let metadata = load_metadata(rpc_url).await?;
-    let encoded_metadata = codec::Encode::encode(&RuntimeMetadataPrefixed(1, metadata));
+    let metadata = read_metadata(rpc_url).await?;
 
     let output_path = match output_file {
         Some(path) => path.to_string(),
         None => generate_default_filename(rpc_url, output_folder).await?,
     };
 
-    write(&output_path, encoded_metadata)
+    write(&output_path, metadata)
         .with_context(|| format!("Failed to write file: {}", output_path))?;
     println!("{output_path}");
     Ok(())
@@ -229,7 +228,7 @@ fn diff_metadata(metadata_a: RuntimeMetadata, metadata_b: RuntimeMetadata) -> Re
     Ok(())
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
     env_logger::init();
 
