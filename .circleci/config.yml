@@ -268,7 +268,7 @@ jobs:
           paths:
             - .
 
-  check_api:
+  metadata-tools-build:
     docker:
       - image: polymeshassociation/rust:debian-nightly-2024-11-14
     resource_class: small
@@ -276,8 +276,25 @@ jobs:
       - checkout
       - setup-sccache
       - restore-sccache-cache
+      - run:
+          name: Build metadata-tools
+          command: |
+            cd metadata-tools
+            cargo build --release
+      - persist_to_workspace:
+          root: ./metadata-tools
+          paths:
+            - target/release/metadata-tools
+      - save-sccache-cache
+
+  check_api:
+    docker:
+      - image: debian:stable
+    resource_class: small
+    steps:
+      - checkout
       - attach_workspace:
-          at: ./assets
+          at: ./
       - run:
           name: Start Polymesh dev chain
           command: >-
@@ -287,10 +304,8 @@ jobs:
               --pool-limit 100000
           background: true
       - run:
-          name: Build metadata-tools
-          command: |
-            cd metadata-tools
-            cargo build --release
+          name: Wait for chain to start
+          command: sleep 30
       - run:
           name: Run metadata-tools check
           command: |
@@ -301,7 +316,6 @@ jobs:
       - store_artifacts:
           path: api_change_report.txt
           destination: api_change_report.txt
-      - save-sccache-cache
 
   benchmark:
     docker:
@@ -751,6 +765,8 @@ workflows:
           package: polymesh-runtime-develop
           runtime_dir: pallets/runtime/develop
           tag: 1.81.0
+      - metadata-tools-build
       - check_api:
           requires:
+            - metadata-tools-build
             - build
