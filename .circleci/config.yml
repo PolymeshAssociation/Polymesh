@@ -328,7 +328,7 @@ jobs:
       - run:
           name: Start Polymesh testnet chain
           command: >-
-            ./assets/polymesh --chain testnet \
+            ./assets/polymesh --chain testnet-dev \
               --no-prometheus --no-telemetry --tmp \
               --wasm-execution compiled \
               --pool-limit 100000
@@ -358,7 +358,7 @@ jobs:
       - run:
           name: Start Polymesh mainnet chain
           command: >-
-            ./assets/polymesh --chain mainnet \
+            ./assets/polymesh --chain mainnet-dev \
               --no-prometheus --no-telemetry --tmp \
               --wasm-execution compiled \
               --pool-limit 100000
