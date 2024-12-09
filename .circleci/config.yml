@@ -272,11 +272,10 @@ jobs:
     docker:
       - image: polymeshassociation/rust:debian-nightly-2024-11-14
     resource_class: small
-    environment:
-      VERBOSE: "1"
-      RUSTFLAGS: "-D warnings"
     steps:
       - checkout
+      - setup-sccache
+      - restore-sccache-cache
       - attach_workspace:
           at: ./assets
       - run:
@@ -302,6 +301,7 @@ jobs:
       - store_artifacts:
           path: api_change_report.txt
           destination: api_change_report.txt
+      - save-sccache-cache
 
   benchmark:
     docker:
