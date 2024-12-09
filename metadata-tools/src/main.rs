@@ -8,6 +8,7 @@ use jsonrpsee::ws_client::WsClientBuilder;
 use serde::de::DeserializeOwned;
 use sp_version::RuntimeVersion;
 use std::fs::{read, write};
+use std::path::PathBuf;
 use std::process;
 use substrate_differ::differs::reduced::reduced_diff_result::ReducedDiffResult;
 use substrate_differ::differs::reduced::reduced_runtime::ReducedRuntime;
@@ -55,6 +56,10 @@ enum Commands {
         /// Output file path to save the metadata (default: {spec_name}_{spec_version}.meta)
         #[arg(value_name = "OUTPUT_FILE")]
         output_file: Option<String>,
+
+        /// Output folder to save metadata in a structured format: {output_folder}/{spec_name}/{spec_version}.meta
+        #[arg(long, value_name = "OUTPUT_FOLDER")]
+        output_folder: Option<String>,
     },
     /// Get runtime version from a Substrate node
     RuntimeVersion {
@@ -64,6 +69,16 @@ enum Commands {
         /// Select a specific field to display
         #[arg(long = "field", value_enum)]
         field: Option<RuntimeVersionField>,
+    },
+    /// Check compatibility between node metadata and stored metadata
+    Check {
+        /// Folder containing stored metadata files
+        #[arg(value_name = "METADATA_FOLDER")]
+        metadata_folder: String,
+
+        /// RPC URL of the Substrate node (default: ws://localhost:9944)
+        #[arg(value_name = "RPC_URL", default_value = "ws://localhost:9944")]
+        rpc_url: String,
     },
 }
 
@@ -116,21 +131,33 @@ async fn load_metadata(path_or_url: &str) -> Result<RuntimeMetadata> {
     }
 }
 
-async fn generate_default_filename(rpc_url: &str) -> Result<String> {
+async fn generate_default_filename(rpc_url: &str, output_folder: Option<&str>) -> Result<String> {
     let version = get_runtime_version(rpc_url).await?;
-    Ok(format!(
-        "{}_{}.meta",
-        version.spec_name, version.spec_version
-    ))
+
+    match output_folder {
+        Some(folder) => {
+            let spec_folder = format!("{}/{}", folder, version.spec_name);
+            std::fs::create_dir_all(&spec_folder)?;
+            Ok(format!("{}/{}.meta", spec_folder, version.spec_version))
+        }
+        None => Ok(format!(
+            "{}_{}.meta",
+            version.spec_name, version.spec_version
+        )),
+    }
 }
 
-async fn download_metadata(rpc_url: &str, output_file: Option<&str>) -> Result<()> {
+async fn download_metadata(
+    rpc_url: &str,
+    output_file: Option<&str>,
+    output_folder: Option<&str>,
+) -> Result<()> {
     let metadata = load_metadata(rpc_url).await?;
     let encoded_metadata = codec::Encode::encode(&RuntimeMetadataPrefixed(1, metadata));
 
     let output_path = match output_file {
         Some(path) => path.to_string(),
-        None => generate_default_filename(rpc_url).await?,
+        None => generate_default_filename(rpc_url, output_folder).await?,
     };
 
     write(&output_path, encoded_metadata)
@@ -148,6 +175,60 @@ async fn get_runtime_version(rpc_url: &str) -> Result<RuntimeVersion> {
     .await
 }
 
+fn find_latest_metadata(metadata_folder: &str, spec_name: &str) -> Result<Option<PathBuf>> {
+    let spec_folder = PathBuf::from(metadata_folder).join(spec_name);
+    if !spec_folder.exists() {
+        return Ok(None);
+    }
+
+    let mut versions: Vec<(u32, PathBuf)> = Vec::new();
+    for entry in std::fs::read_dir(spec_folder)? {
+        let entry = entry?;
+        let path = entry.path();
+        if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+            if let Ok(version) = stem.parse::<u32>() {
+                versions.push((version, path));
+            }
+        }
+    }
+
+    if versions.is_empty() {
+        Ok(None)
+    } else {
+        versions.sort_by_key(|(v, _)| *v);
+        Ok(Some(versions.last().unwrap().1.clone()))
+    }
+}
+
+fn find_version_metadata(
+    metadata_folder: &str,
+    spec_name: &str,
+    spec_version: u32,
+) -> Result<Option<PathBuf>> {
+    let path = PathBuf::from(metadata_folder)
+        .join(spec_name)
+        .join(format!("{}.meta", spec_version));
+
+    if path.exists() {
+        Ok(Some(path))
+    } else {
+        Ok(None)
+    }
+}
+
+fn diff_metadata(metadata_a: RuntimeMetadata, metadata_b: RuntimeMetadata) -> Result<()> {
+    let ra = ReducedRuntime::from(&metadata_a);
+    let rb = ReducedRuntime::from(&metadata_b);
+
+    let results = ReducedDiffResult::new(ra, rb);
+    println!("{results}");
+
+    if !results.compatible() {
+        process::exit(1);
+    }
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     env_logger::init();
@@ -161,23 +242,14 @@ async fn main() -> Result<()> {
         } => {
             let metadata_a = load_metadata(&metadata_a).await?;
             let metadata_b = load_metadata(&metadata_b).await?;
-
-            let ra = ReducedRuntime::from(&metadata_a);
-            let rb = ReducedRuntime::from(&metadata_b);
-
-            let results = ReducedDiffResult::new(ra, rb);
-            println!("{results}");
-
-            // Exit with error code 1 if metadata is not compatible
-            if !results.compatible() {
-                process::exit(1);
-            }
+            diff_metadata(metadata_a, metadata_b)?;
         }
         Commands::Download {
             rpc_url,
             output_file,
+            output_folder,
         } => {
-            download_metadata(&rpc_url, output_file.as_deref()).await?;
+            download_metadata(&rpc_url, output_file.as_deref(), output_folder.as_deref()).await?;
         }
         Commands::RuntimeVersion { rpc_url, field } => {
             let version = get_runtime_version(&rpc_url).await?;
@@ -198,6 +270,32 @@ async fn main() -> Result<()> {
                     println!("state_version: {}", version.state_version);
                 }
             }
+        }
+        Commands::Check {
+            metadata_folder,
+            rpc_url,
+        } => {
+            let version = get_runtime_version(&rpc_url).await?;
+            let current_metadata = load_metadata(&rpc_url).await?;
+
+            let stored_path =
+                find_version_metadata(&metadata_folder, &version.spec_name, version.spec_version)?
+                    .or_else(|| {
+                        find_latest_metadata(&metadata_folder, &version.spec_name)
+                            .ok()
+                            .flatten()
+                    })
+                    .context("No metadata file found")?;
+
+            println!(
+                "Comparing node spec version {} with stored spec version {}",
+                version.spec_version,
+                stored_path.file_stem().unwrap().to_str().unwrap()
+            );
+            println!("Using stored metadata: {}", stored_path.display());
+            let stored_metadata = load_metadata(stored_path.to_str().unwrap()).await?;
+
+            diff_metadata(stored_metadata, current_metadata)?;
         }
     }
 
