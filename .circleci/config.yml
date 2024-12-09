@@ -282,19 +282,19 @@ jobs:
             cd metadata-tools
             cargo build --release
       - persist_to_workspace:
-          root: ./metadata-tools
+          root: ./metadata-tools/target/release/
           paths:
-            - target/release/metadata-tools
+            - metadata-tools
       - save-sccache-cache
 
-  check_api:
+  check_dev_api:
     docker:
       - image: debian:stable
     resource_class: small
     steps:
       - checkout
       - attach_workspace:
-          at: ./
+          at: ./assets
       - run:
           name: Start Polymesh dev chain
           command: >-
@@ -309,7 +309,7 @@ jobs:
       - run:
           name: Run metadata-tools check
           command: |
-            ./metadata-tools/target/release/metadata-tools check .metadata ws://localhost:9944 | tee api_change_report.txt
+            ./assets/metadata-tools check .metadata ws://localhost:9944 | tee api_change_report.txt
       - run:
           name: Fail if metadata-tools check failed
           command: test ${PIPESTATUS[0]} -eq 0
@@ -766,7 +766,7 @@ workflows:
           runtime_dir: pallets/runtime/develop
           tag: 1.81.0
       - metadata-tools-build
-      - check_api:
+      - check_dev_api:
           requires:
             - metadata-tools-build
             - build
