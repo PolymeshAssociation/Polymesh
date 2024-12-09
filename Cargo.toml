@@ -149,7 +149,8 @@ members = [
 ]
 exclude = [
     "contracts",
-    "integration"
+    "integration",
+    "metadata-tools"
 ]
 
 ## Keep common dependencies here.
