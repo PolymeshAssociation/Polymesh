@@ -390,6 +390,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "blake3"
+version = "1.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8ee0c1824c4dea5b5f81736aff91bae041d2c07ee1192bec91054e10e3e601e"
+dependencies = [
+ "arrayref",
+ "arrayvec",
+ "cc",
+ "cfg-if",
+ "constant_time_eq",
+]
+
+[[package]]
 name = "block-buffer"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3316,8 +3329,9 @@ dependencies = [
 [[package]]
 name = "substrate-differ"
 version = "0.21.3"
-source = "git+https://github.com/PolymeshAssociation/subwasm.git?branch=polymesh#c934a612c565d84bc9729c8f0e4e22ba9704cbd4"
+source = "git+https://github.com/PolymeshAssociation/subwasm.git?branch=polymesh#ee52a00d74a5dc6a444f5b8a2d96f0231a36489b"
 dependencies = [
+ "blake3",
  "comparable",
  "document-features",
  "frame-metadata",
