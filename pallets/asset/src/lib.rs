@@ -134,7 +134,7 @@ type Identity<T> = pallet_identity::Module<T>;
 type Portfolio<T> = pallet_portfolio::Module<T>;
 type Statistics<T> = pallet_statistics::Module<T>;
 
-storage_migration_ver!(5);
+storage_migration_ver!(6);
 
 decl_storage! {
     trait Store for Module<T: Config> as Asset {
@@ -243,7 +243,7 @@ decl_storage! {
         pub AssetNonce: map hasher(identity) T::AccountId => u64;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(5)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(6)): Version;
     }
 
     add_extra_genesis {
@@ -289,11 +289,9 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 5, {
-                migrations::migrate_to_v5::<T>();
+            storage_migrate_on!(StorageVersion, 6, {
+                migrations::migrate_to_v6::<T>();
             });
-            // Only needed on staging, but safe to run on other networks.
-            migrations::migrate_to_v5_fixup_asset_id_maps::<T>();
 
             Weight::zero()
         }
