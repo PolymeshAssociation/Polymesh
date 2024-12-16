@@ -6,6 +6,7 @@ use super::*;
 pub(crate) fn migrate_to_v6<T: Config>() {
     RuntimeLogger::init();
 
+    log::info!("Running Migration for removing asset_id/tickers mappings.");
     let mut remove_mappings = BTreeMap::new();
 
     for (asset_id, ticker) in AssetIdTicker::iter() {
@@ -14,6 +15,7 @@ pub(crate) fn migrate_to_v6<T: Config>() {
         }
     }
 
+    log::info!("{:?} mappings will be removed.", remove_mappings.len());
     for (asset_id, ticker) in remove_mappings {
         AssetIdTicker::remove(asset_id);
         TickerAssetId::remove(ticker);
@@ -27,4 +29,6 @@ pub(crate) fn migrate_to_v6<T: Config>() {
             }
         });
     }
+
+    log::info!("Migration has finished running.");
 }
