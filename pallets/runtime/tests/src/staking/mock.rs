@@ -486,7 +486,7 @@ impl CheckCdd<AccountId> for Test {
     }
 }
 
-impl polymesh_common_utilities::traits::permissions::Config for Test {
+impl pallet_permissions::Config for Test {
     type Checker = Identity;
 }
 

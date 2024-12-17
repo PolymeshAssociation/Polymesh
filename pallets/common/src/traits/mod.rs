@@ -15,7 +15,7 @@
 
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 
-pub trait CommonConfig: frame_system::Config + permissions::Config {
+pub trait CommonConfig: frame_system::Config + pallet_permissions::Config {
     type BlockRewardsReserve: BlockRewardsReserveCurrency<NegativeImbalance<Self>>;
 }
 
@@ -35,8 +35,6 @@ pub mod nft;
 pub mod portfolio;
 pub mod transaction_payment;
 pub use transaction_payment::{CddAndFeeDetails, ChargeTxFee};
-pub mod permissions;
-pub use permissions::{AccountCallPermissionsData, CheckAccountCallPermissions};
 pub mod relayer;
 pub mod settlement;
 pub mod statistics;

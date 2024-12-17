@@ -27,13 +27,13 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use pallet_base::{ensure_custom_length_ok, ensure_custom_string_limited};
+use pallet_permissions::{AccountCallPermissionsData, CheckAccountCallPermissions};
 use polymesh_common_utilities::constants::did::USER;
 use polymesh_common_utilities::group::GroupTrait;
 use polymesh_common_utilities::identity::{
     CreateChildIdentityWithAuth, SecondaryKeyWithAuth, TargetIdAuthorization,
 };
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee as _, ProtocolOp};
-use polymesh_common_utilities::traits::{AccountCallPermissionsData, CheckAccountCallPermissions};
 use polymesh_common_utilities::SystematicIssuers;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,

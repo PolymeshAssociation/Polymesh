@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 # Common
-polymesh-common-utilities = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 
 # Other
@@ -31,7 +30,6 @@ only-staking = []
 std = [
     "codec/std",
     "frame-support/std",
-    "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "serde/std",
     "sp-runtime/std",
@@ -39,5 +37,4 @@ std = [
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
-    "polymesh-common-utilities/runtime-benchmarks",
 ]

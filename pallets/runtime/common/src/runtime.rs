@@ -549,7 +549,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_sto::SubstrateWeight;
         }
 
-        impl polymesh_common_utilities::traits::permissions::Config for Runtime {
+        impl pallet_permissions::Config for Runtime {
             type Checker = Identity;
         }
 
