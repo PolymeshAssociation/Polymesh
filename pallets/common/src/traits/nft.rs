@@ -14,10 +14,10 @@ use polymesh_primitives::nft::{NFTCollectionId, NFTs};
 use polymesh_primitives::{IdentityId, NFTId, PortfolioId, PortfolioUpdateReason};
 
 use crate::compliance_manager::ComplianceFnConfig;
-use crate::{asset, base, identity, portfolio};
+use crate::{asset, identity, portfolio};
 
 pub trait Config:
-    frame_system::Config + base::Config + asset::Config + identity::Config + portfolio::Config
+    frame_system::Config + asset::Config + identity::Config + portfolio::Config
 {
     type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 

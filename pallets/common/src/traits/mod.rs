@@ -40,27 +40,3 @@ pub use permissions::{AccountCallPermissionsData, CheckAccountCallPermissions};
 pub mod relayer;
 pub mod settlement;
 pub mod statistics;
-
-pub mod base {
-    use frame_support::decl_event;
-    use frame_support::dispatch::DispatchError;
-    use frame_support::traits::Get;
-
-    decl_event! {
-        pub enum Event {
-            /// An unexpected error happened that should be investigated.
-            UnexpectedError(Option<DispatchError>),
-        }
-    }
-
-    pub trait Config: frame_system::Config {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
-
-        /// The maximum length governing `TooLong`.
-        ///
-        /// How lengths are computed to compare against this value is situation based.
-        /// For example, you could halve it, double it, compute a sum for some tree of strings, etc.
-        type MaxLen: Get<u32>;
-    }
-}

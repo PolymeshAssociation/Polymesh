@@ -17,7 +17,7 @@
 //!
 //! The interface allows to accept portfolio custody
 
-use crate::{asset::AssetFnTrait, base, identity, nft::NFTTrait, CommonConfig};
+use crate::{asset::AssetFnTrait, identity, nft::NFTTrait, CommonConfig};
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::pallet_prelude::Get;
@@ -117,7 +117,7 @@ pub trait WeightInfo {
     fn create_custody_portfolio() -> Weight;
 }
 
-pub trait Config: CommonConfig + identity::Config + base::Config {
+pub trait Config: CommonConfig + identity::Config {
     type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     type WeightInfo: WeightInfo;
     /// Asset module.

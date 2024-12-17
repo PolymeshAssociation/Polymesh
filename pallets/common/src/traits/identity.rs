@@ -167,7 +167,7 @@ pub trait WeightInfo {
 }
 
 /// The module's configuration trait.
-pub trait Config: CommonConfig + pallet_timestamp::Config + crate::traits::base::Config {
+pub trait Config: CommonConfig + pallet_timestamp::Config + pallet_base::Config {
     /// The overarching event type.
     type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     /// An extrinsic call.

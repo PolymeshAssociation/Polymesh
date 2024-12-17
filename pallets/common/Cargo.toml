@@ -8,6 +8,9 @@ edition = "2021"
 polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
 
+# Our Pallets
+pallet-base = { workspace = true, default-features = false  }
+
 # Other
 serde = { version = "1.0.112", default-features = false }
 serde_derive = { version = "1.0.112", optional = true, default-features = false}
@@ -50,6 +53,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-timestamp/std",
+	"pallet-base/std",
 	"polymesh-primitives/std",
 	"serde/std",
 	"serde_derive",

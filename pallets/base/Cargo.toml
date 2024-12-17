@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 polymesh-primitives = { workspace = true, default-features = false }
-polymesh-common-utilities = { workspace = true, default-features = false }
 
 # Others
 serde = { version = "1.0.104", default-features = false }
@@ -34,5 +33,4 @@ std = [
     "frame-system/std",
     "sp-std/std",
     "polymesh-primitives/std",
-    "polymesh-common-utilities/std",
 ]
