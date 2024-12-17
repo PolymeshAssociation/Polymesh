@@ -20,7 +20,7 @@
 use std::collections::BTreeMap;
 
 use frame_election_provider_support::{onchain, SequentialPhragmen};
-use frame_support::dispatch::{DispatchInfo, DispatchResult, Weight};
+use frame_support::dispatch::{DispatchResult, Weight};
 use frame_support::traits::{
     ConstU32, Currency, EitherOfDiverse, FindAuthor, GenesisBuild, Get, Hooks, Imbalance,
     KeyOwnerProofSystem, OnUnbalanced, OneSessionHandler,
@@ -34,7 +34,7 @@ use sp_core::H256;
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::testing::{Header, TestXt, UintAuthorityId};
 use sp_runtime::traits::{IdentityLookup, Zero};
-use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction};
+use sp_runtime::transaction_validity::InvalidTransaction;
 use sp_runtime::{KeyTypeId, Perbill};
 use sp_staking::offence::{DisableStrategy, OffenceDetails, OnOffenceHandler};
 use sp_staking::{EraIndex, SessionIndex};
@@ -46,7 +46,6 @@ use polymesh_common_utilities::traits::group::{GroupTrait, InactiveMember};
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 use polymesh_common_utilities::traits::relayer::SubsidiserTrait;
 use polymesh_common_utilities::traits::CommonConfig;
-use polymesh_common_utilities::transaction_payment::ChargeTxFee;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::identity_id::GenesisIdentityRecord;
@@ -296,7 +295,6 @@ impl polymesh_common_utilities::traits::identity::Config for Test {
     type Proposal = RuntimeCall;
     type CddServiceProviders = pallet_group::Module<Test, pallet_group::Instance2>;
     type Balances = Balances;
-    type ChargeTxFeeTarget = Test;
     type CddHandler = Test;
     type Public = UintAuthorityId;
     type OffChainSignature = sp_runtime::testing::TestSignature;
@@ -368,12 +366,6 @@ impl SubsidiserTrait<AccountId, RuntimeCall> for Test {
     }
     fn debit_subsidy(_: &AccountId, _: Balance) -> Result<Option<AccountId>, InvalidTransaction> {
         Ok(None)
-    }
-}
-
-impl ChargeTxFee for Test {
-    fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
-        Ok(ValidTransaction::default())
     }
 }
 

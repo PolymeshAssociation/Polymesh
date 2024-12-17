@@ -34,7 +34,7 @@ pub mod multisig;
 pub mod nft;
 pub mod portfolio;
 pub mod transaction_payment;
-pub use transaction_payment::{CddAndFeeDetails, ChargeTxFee};
+pub use transaction_payment::CddAndFeeDetails;
 pub mod relayer;
 pub mod settlement;
 pub mod statistics;

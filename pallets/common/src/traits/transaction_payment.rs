@@ -1,5 +1,4 @@
-use frame_support::dispatch::DispatchInfo;
-use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity};
+use sp_runtime::transaction_validity::InvalidTransaction;
 
 // Polymesh note: This was specifically added for Polymesh
 pub trait CddAndFeeDetails<AccountId, Call> {
@@ -10,9 +9,4 @@ pub trait CddAndFeeDetails<AccountId, Call> {
     fn clear_context();
     fn set_payer_context(payer: Option<AccountId>);
     fn get_payer_from_context() -> Option<AccountId>;
-}
-
-// Polymesh note: This was specifically added for Polymesh
-pub trait ChargeTxFee {
-    fn charge_fee(len: u32, info: DispatchInfo) -> TransactionValidity;
 }

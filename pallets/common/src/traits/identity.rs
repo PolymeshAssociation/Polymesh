@@ -31,8 +31,7 @@ use polymesh_primitives::{
 };
 
 use crate::traits::group::GroupTrait;
-use crate::traits::transaction_payment::{CddAndFeeDetails, ChargeTxFee};
-use crate::traits::CommonConfig;
+use crate::traits::transaction_payment::CddAndFeeDetails;
 
 pub type AuthorizationNonce = u64;
 
@@ -164,7 +163,9 @@ pub trait WeightInfo {
 }
 
 /// The module's configuration trait.
-pub trait Config: CommonConfig + pallet_timestamp::Config + pallet_base::Config {
+pub trait Config:
+    frame_system::Config + pallet_timestamp::Config + pallet_base::Config + pallet_permissions::Config
+{
     /// The overarching event type.
     type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     /// An extrinsic call.
@@ -179,8 +180,6 @@ pub trait Config: CommonConfig + pallet_timestamp::Config + pallet_base::Config 
     type CddServiceProviders: GroupTrait<Self::Moment>;
     /// Balances module
     type Balances: Currency<Self::AccountId, Balance = Balance>;
-    /// Charges fee for forwarded call
-    type ChargeTxFeeTarget: ChargeTxFee;
     /// Used to check and update CDD
     type CddHandler: CddAndFeeDetails<Self::AccountId, <Self as frame_system::Config>::RuntimeCall>;
 

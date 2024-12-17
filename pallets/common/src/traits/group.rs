@@ -14,6 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::identity::Config as IdentityConfig;
+use crate::traits::CommonConfig;
 
 use polymesh_primitives::IdentityId;
 
@@ -91,7 +92,7 @@ pub trait WeightInfo {
     fn abdicate_membership() -> Weight;
 }
 
-pub trait Config<I>: frame_system::Config + pallet_timestamp::Config + IdentityConfig {
+pub trait Config<I>: CommonConfig + pallet_timestamp::Config + IdentityConfig {
     /// The overarching event type.
     type RuntimeEvent: From<Event<Self, I>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 

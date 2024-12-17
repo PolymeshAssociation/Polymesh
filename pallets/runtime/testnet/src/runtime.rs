@@ -201,7 +201,6 @@ impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type Proposal = RuntimeCall;
     type CddServiceProviders = CddServiceProviders;
     type Balances = pallet_balances::Module<Runtime>;
-    type ChargeTxFeeTarget = TransactionPayment;
     type CddHandler = CddHandler;
     type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = MultiSignature;
