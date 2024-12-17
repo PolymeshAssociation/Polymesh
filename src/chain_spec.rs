@@ -3,13 +3,13 @@ use grandpa::AuthorityId as GrandpaId;
 use pallet_asset::TickerRegistrationConfig;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_staking::StakerStatus;
-use polymesh_common_utilities::MaybeBlock;
 use polymesh_primitives::{
     asset_metadata::{AssetMetadataName, AssetMetadataSpec},
     constants::{currency::ONE_POLY, TREASURY_PALLET_ID},
     identity_id::GenesisIdentityRecord,
     protocol_fee::ProtocolOp,
-    AccountId, IdentityId, Moment, PosRatio, SecondaryKey, Signature, SystematicIssuers, Ticker,
+    AccountId, IdentityId, MaybeBlock, Moment, PosRatio, SecondaryKey, Signature,
+    SystematicIssuers, Ticker,
 };
 use sc_chain_spec::{ChainSpecExtension, ChainType};
 use sc_service::Properties;

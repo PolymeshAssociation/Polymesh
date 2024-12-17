@@ -21,11 +21,8 @@ use frame_support::{
     traits::UnfilteredDispatchable,
 };
 use frame_system::RawOrigin;
-use polymesh_common_utilities::{
-    benchs::{user, User},
-    MaybeBlock,
-};
-use polymesh_primitives::{SystematicIssuers, GC_DID};
+use polymesh_common_utilities::benchs::{user, User};
+use polymesh_primitives::{MaybeBlock, SystematicIssuers, GC_DID};
 use rand::{seq::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sp_std::{

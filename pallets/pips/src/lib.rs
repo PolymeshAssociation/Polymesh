@@ -112,11 +112,11 @@ use polymesh_common_utilities::traits::balances::LockableCurrencyExt;
 use polymesh_common_utilities::traits::governance_group::GovernanceGroupTrait;
 use polymesh_common_utilities::traits::group::GroupTrait;
 use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
-use polymesh_common_utilities::{CommonConfig, MaybeBlock};
+use polymesh_common_utilities::CommonConfig;
 use polymesh_primitives::constants::PIP_MAX_REPORTING_SIZE;
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::{storage_migration_ver, with_transaction};
-use polymesh_primitives::{Balance, IdentityId, Url};
+use polymesh_primitives::{Balance, IdentityId, MaybeBlock, Url};
 use polymesh_primitives::{GC_DID, TECHNICAL_DID, UPGRADE_DID};
 use polymesh_runtime_common::PipsEnactSnapshotMaximumWeight;
 

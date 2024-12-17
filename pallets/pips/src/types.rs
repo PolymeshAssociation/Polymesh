@@ -25,9 +25,8 @@ use sp_core::H256;
 use sp_std::convert::From;
 use sp_std::vec::Vec;
 
-use polymesh_common_utilities::MaybeBlock;
 use polymesh_primitives::constants::{PIP_EXECUTION, PIP_EXPIRY};
-use polymesh_primitives::{impl_checked_inc, Balance, Url};
+use polymesh_primitives::{impl_checked_inc, Balance, MaybeBlock, Url};
 use polymesh_primitives_derive::VecU8StrongTyped;
 
 /// The highest priorities, from `HIGHEST_PRIORITY`(=0) to `HARD_DEADLINE`(=63), enforce the execution of

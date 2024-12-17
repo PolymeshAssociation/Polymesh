@@ -75,9 +75,10 @@ use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember, MemberCount},
     identity::Config as IdentityConfig,
-    MaybeBlock,
 };
-use polymesh_primitives::{storage_migration_ver, IdentityId, SystematicIssuers, GC_DID};
+use polymesh_primitives::{
+    storage_migration_ver, IdentityId, MaybeBlock, SystematicIssuers, GC_DID,
+};
 use scale_info::TypeInfo;
 use sp_runtime::traits::Hash;
 use sp_std::{prelude::*, vec};

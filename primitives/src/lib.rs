@@ -26,6 +26,8 @@ use alloc::{
     string::{String, ToString},
 };
 use codec::{Decode, Encode};
+use core::ops::Add;
+use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use polymesh_primitives_derive::{SliceU8StrongTyped, StringStrongTyped, VecU8StrongTyped};
 use scale_info::TypeInfo;
@@ -62,6 +64,50 @@ pub type Index = u32;
 
 /// Alias for Gas.
 pub type Gas = Weight;
+
+/// Use `GetExtra` as the trait bounds for pallet `Config` parameters
+/// that will be used for bounded collections.
+pub trait GetExtra<T>: Get<T> + Clone + core::fmt::Debug + Default + PartialEq + Eq {}
+
+/// ConstSize type wrapper.
+///
+/// This allows the use of Bounded collections in extrinsic parameters.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub struct ConstSize<const T: u32>;
+
+impl<const T: u32> Get<u32> for ConstSize<T> {
+    fn get() -> u32 {
+        T
+    }
+}
+
+impl<const T: u32> GetExtra<u32> for ConstSize<T> {}
+
+/// Either a block number, or nothing.
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum MaybeBlock<BlockNumber> {
+    /// Has a block number.
+    Some(BlockNumber),
+    /// No block number.
+    None,
+}
+
+impl<T> Default for MaybeBlock<T> {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl<T: Add<Output = T>> Add<T> for MaybeBlock<T> {
+    type Output = Self;
+    fn add(self, rhs: T) -> Self::Output {
+        match self {
+            MaybeBlock::Some(lhs) => MaybeBlock::Some(lhs + rhs),
+            MaybeBlock::None => MaybeBlock::None,
+        }
+    }
+}
 
 /// A positive coefficient: a pair of a numerator and a denominator. Defaults to `(1, 1)`.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
