@@ -47,14 +47,13 @@ use pallet_session::historical as pallet_session_historical;
 use pallet_transaction_payment::RuntimeDispatchInfo;
 use pallet_utility;
 use polymesh_common_utilities::traits::group::GroupTrait;
-use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::Context;
 use polymesh_primitives::constants::currency::{DOLLARS, POLY};
 use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::settlement::Leg;
 use polymesh_primitives::{
-    AccountId, Authorization, AuthorizationData, BlockNumber, Claim, Moment,
-    Permissions as AuthPermissions, PortfolioNumber, Scope, SecondaryKey, TrustedFor,
+    traits::CddAndFeeDetails, AccountId, Authorization, AuthorizationData, BlockNumber, Claim,
+    Moment, Permissions as AuthPermissions, PortfolioNumber, Scope, SecondaryKey, TrustedFor,
     TrustedIssuer,
 };
 use polymesh_runtime_common::merge_active_and_inactive;

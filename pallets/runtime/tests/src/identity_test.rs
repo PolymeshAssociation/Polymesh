@@ -25,15 +25,14 @@ use polymesh_common_utilities::traits::{
         Config as IdentityConfig, CreateChildIdentityWithAuth, RawEvent, SecondaryKeyWithAuth,
         TargetIdAuthorization,
     },
-    transaction_payment::CddAndFeeDetails,
 };
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
-    constants::currency::POLY, AccountId, AssetPermissions, AuthorizationData, AuthorizationType,
-    Claim, ClaimType, CustomClaimTypeId, ExtrinsicName, ExtrinsicPermissions, IdentityClaim,
-    IdentityId, KeyRecord, PalletName, PalletPermissions, Permissions, PortfolioId,
-    PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction, SystematicIssuers, Ticker,
-    TransactionError, GC_DID,
+    constants::currency::POLY, traits::CddAndFeeDetails, AccountId, AssetPermissions,
+    AuthorizationData, AuthorizationType, Claim, ClaimType, CustomClaimTypeId, ExtrinsicName,
+    ExtrinsicPermissions, IdentityClaim, IdentityId, KeyRecord, PalletName, PalletPermissions,
+    Permissions, PortfolioId, PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction,
+    SystematicIssuers, Ticker, TransactionError, GC_DID,
 };
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
 use sp_core::H512;

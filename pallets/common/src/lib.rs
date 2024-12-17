@@ -18,7 +18,7 @@
 pub mod traits;
 pub use traits::{
     asset, balances, compliance_manager, governance_group, group, identity, multisig, nft,
-    portfolio, transaction_payment, CommonConfig,
+    portfolio, CommonConfig,
 };
 pub mod context;
 pub use context::Context;

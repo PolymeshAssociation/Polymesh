@@ -18,10 +18,9 @@ use pallet_portfolio::Call as PortfolioCall;
 use pallet_utility::{
     self as utility, Call as UtilityCall, Config as UtilityConfig, Event, UniqueCall, WeightInfo,
 };
-use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_primitives::{
-    AccountId, Balance, ExtrinsicPermissions, PalletPermissions, Permissions, PortfolioName,
-    PortfolioNumber, SubsetRestriction, Ticker,
+    traits::CddAndFeeDetails, AccountId, Balance, ExtrinsicPermissions, PalletPermissions,
+    Permissions, PortfolioName, PortfolioNumber, SubsetRestriction, Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_keyring::AccountKeyring;

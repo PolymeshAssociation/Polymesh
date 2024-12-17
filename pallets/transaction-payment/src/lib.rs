@@ -63,9 +63,8 @@ use frame_support::{
 use frame_system::pallet_prelude::{BlockNumberFor, OriginFor};
 use polymesh_common_utilities::traits::{
     group::GroupTrait, identity::IdentityFnTrait, relayer::SubsidiserTrait,
-    transaction_payment::CddAndFeeDetails,
 };
-use polymesh_primitives::TransactionError;
+use polymesh_primitives::{traits::CddAndFeeDetails, TransactionError};
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{

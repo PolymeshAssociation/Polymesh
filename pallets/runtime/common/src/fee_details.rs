@@ -3,8 +3,10 @@ use core::convert::{TryFrom, TryInto};
 use core::marker::PhantomData;
 use pallet_identity::Module;
 use polymesh_common_utilities::traits::identity::Config;
-use polymesh_common_utilities::{traits::transaction_payment::CddAndFeeDetails, Context};
-use polymesh_primitives::{AccountId, AuthorizationData, IdentityId, Signatory, TransactionError};
+use polymesh_common_utilities::Context;
+use polymesh_primitives::{
+    traits::CddAndFeeDetails, AccountId, AuthorizationData, IdentityId, Signatory, TransactionError,
+};
 use sp_runtime::transaction_validity::InvalidTransaction;
 
 /// The set of `Call`s from pallets that `CddHandler` recognizes specially.

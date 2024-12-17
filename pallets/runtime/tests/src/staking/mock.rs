@@ -342,7 +342,7 @@ impl pallet_preimage::Config for Test {
     type ByteDeposit = PreimageByteDeposit;
 }
 
-impl polymesh_common_utilities::transaction_payment::CddAndFeeDetails<AccountId, Call> for Test {
+impl polymesh_primitives::traits::CddAndFeeDetails<AccountId, Call> for Test {
     fn get_valid_payer(
         _: &Call,
         _: &AccountId,
