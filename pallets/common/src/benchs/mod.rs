@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 mod asset;
-pub use asset::{create_and_issue_sample_asset, reg_unique_ticker, ResultTicker};
+pub use asset::{create_and_issue_sample_asset, reg_unique_ticker};
 
 mod user;
 pub use user::{PublicKey, SecretKey, User};

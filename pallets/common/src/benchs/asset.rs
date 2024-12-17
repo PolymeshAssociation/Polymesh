@@ -7,8 +7,6 @@ use polymesh_primitives::{PortfolioKind, Ticker};
 use crate::benchs::User;
 use crate::traits::asset::{AssetFnTrait, Config};
 
-pub type ResultTicker = Result<Ticker, &'static str>;
-
 /// Registers a unique ticker named `ticker_name` for `ticker_owner`.
 pub fn reg_unique_ticker<T: Config>(
     ticker_owner: T::RuntimeOrigin,
