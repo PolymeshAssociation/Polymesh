@@ -24,21 +24,37 @@ use sp_runtime::{Deserialize, Serialize};
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum ProtocolOp {
+    /// Fee charged when registering a new ticker.
     AssetRegisterTicker,
+    /// Fee charged when issuing assets.
     AssetIssue,
+    /// Fee charged when adding documents to an asset.
     AssetAddDocuments,
+    /// Fee charged when creating a new asset.
     AssetCreateAsset,
+    /// Fee charged when creating a checkpoint schedule.
     CheckpointCreateSchedule,
+    /// Fee charged when adding compliance requirements.
     ComplianceManagerAddComplianceRequirement,
+    /// Fee charged when registering a DID through CDD.
     IdentityCddRegisterDid,
+    /// Fee charged when adding a claim to an identity.
     IdentityAddClaim,
+    /// Fee charged when adding secondary keys with authorization.
     IdentityAddSecondaryKeysWithAuthorization,
+    /// Fee charged when making a proposal in PIPs.
     PipsPropose,
+    /// Fee charged when uploading contract code.
     ContractsPutCode,
+    /// Fee charged when attaching a ballot to corporate actions.
     CorporateBallotAttachBallot,
+    /// Fee charged when distributing capital.
     CapitalDistributionDistribute,
+    /// Fee charged when creating an NFT collection.
     NFTCreateCollection,
+    /// Fee charged when minting NFTs.
     NFTMint,
+    /// Fee charged when creating a child identity.
     IdentityCreateChildIdentity,
 }
 

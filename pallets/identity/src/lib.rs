@@ -99,12 +99,12 @@ use frame_support::dispatch::DispatchClass::{Normal, Operational};
 use frame_support::dispatch::{DispatchError, DispatchResult, Pays, Weight};
 use frame_support::traits::{ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers};
 use frame_support::{decl_error, decl_module, decl_storage};
-use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_common_utilities::traits::identity::{
     AuthorizationNonce, Config, CreateChildIdentityWithAuth, IdentityFnTrait, RawEvent,
     SecondaryKeyWithAuth,
 };
 use polymesh_common_utilities::{SystematicIssuers, GC_DID};
+use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::{
     storage_migration_ver, AssetPermissions, Authorization, AuthorizationData, AuthorizationType,
     CddId, Claim, ClaimType, CustomClaimTypeId, DidRecord, ExtrinsicPermissions, IdentityClaim,

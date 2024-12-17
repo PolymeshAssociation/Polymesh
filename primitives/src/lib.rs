@@ -145,6 +145,9 @@ pub use identity_claim::{Claim, ClaimType, CustomClaimTypeId, IdentityClaim, Sco
 pub mod jurisdiction;
 pub use jurisdiction::CountryCode;
 
+/// Protocol fees
+pub mod protocol_fee;
+
 /// Utilities for storage migration.
 pub mod migrate;
 

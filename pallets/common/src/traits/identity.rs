@@ -26,8 +26,8 @@ use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
 };
 use polymesh_primitives::{
-    secondary_key::SecondaryKey, AuthorizationData, Balance, CustomClaimTypeId, IdentityClaim,
-    IdentityId, Permissions, Ticker,
+    protocol_fee::ChargeProtocolFee, secondary_key::SecondaryKey, AuthorizationData, Balance,
+    CustomClaimTypeId, IdentityClaim, IdentityId, Permissions, Ticker,
 };
 
 use crate::traits::group::GroupTrait;
@@ -35,7 +35,6 @@ use crate::traits::multisig::MultiSigSubTrait;
 use crate::traits::portfolio::PortfolioSubTrait;
 use crate::traits::transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use crate::traits::CommonConfig;
-use crate::ChargeProtocolFee;
 
 pub type AuthorizationNonce = u64;
 

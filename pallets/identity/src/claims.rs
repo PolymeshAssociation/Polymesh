@@ -25,7 +25,6 @@ use frame_system::ensure_root;
 use pallet_base::{ensure_string_limited, try_next_pre};
 
 use polymesh_common_utilities::{
-    protocol_fee::ProtocolOp,
     traits::{
         group::{GroupTrait, InactiveMember},
         identity::{Config, RawEvent},
@@ -34,7 +33,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::identity_claim::CustomClaimTypeId;
 use polymesh_primitives::{
-    CddId, Claim, ClaimType, IdentityClaim, IdentityId, Scope, SecondaryKey,
+    protocol_fee::ProtocolOp, CddId, Claim, ClaimType, IdentityClaim, IdentityId, Scope,
+    SecondaryKey,
 };
 use sp_runtime::traits::{CheckedAdd, SaturatedConversion, Zero};
 use sp_std::prelude::*;

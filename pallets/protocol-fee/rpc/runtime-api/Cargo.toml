@@ -8,7 +8,7 @@ edition = "2021"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-polymesh-common-utilities = { path = "../../../common", default-features = false }
+polymesh-primitives = { workspace = true, default-features = false }
 
 # General
 serde = { version = "1.0.104", optional = true, features = ["derive"] }
@@ -25,5 +25,5 @@ std = [
     "sp-api/std",
     "codec/std",
     "sp-runtime/std",
-    "polymesh-common-utilities/std"
+    "polymesh-primitives/std",
 ]

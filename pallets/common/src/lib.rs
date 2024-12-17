@@ -25,9 +25,6 @@ pub use traits::{
 pub mod context;
 pub use context::Context;
 
-pub mod protocol_fee;
-pub use protocol_fee::ChargeProtocolFee;
-
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchs;
 

@@ -5383,7 +5383,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "pallet-identity",
  "parity-scale-codec 3.6.9",
  "polymesh-common-utilities",
  "polymesh-primitives",
@@ -5405,7 +5404,7 @@ dependencies = [
  "node-rpc",
  "pallet-protocol-fee-rpc-runtime-api",
  "parity-scale-codec 3.6.9",
- "polymesh-common-utilities",
+ "polymesh-primitives",
  "serde",
  "sp-api",
  "sp-blockchain",
@@ -5420,7 +5419,7 @@ name = "pallet-protocol-fee-rpc-runtime-api"
 version = "0.1.0"
 dependencies = [
  "parity-scale-codec 3.6.9",
- "polymesh-common-utilities",
+ "polymesh-primitives",
  "serde",
  "sp-api",
  "sp-runtime",

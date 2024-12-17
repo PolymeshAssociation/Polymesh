@@ -28,7 +28,7 @@ use pallet_session::historical as pallet_session_historical;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use polymesh_common_utilities::constants::currency::*;
 use polymesh_common_utilities::constants::ENSURED_MAX_LEN;
-use polymesh_common_utilities::protocol_fee::ProtocolOp;
+use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::settlement::Leg;
 use polymesh_primitives::{Balance, BlockNumber, Moment};
 use polymesh_runtime_common::impls::Author;

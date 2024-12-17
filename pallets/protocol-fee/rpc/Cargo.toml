@@ -20,7 +20,7 @@ frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 
 node-rpc = { path = "../../../rpc" }
-polymesh-common-utilities = { path = "../../common", default-features = false }
+polymesh-primitives = { workspace = true, default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { path = "./runtime-api" }
 
 # General

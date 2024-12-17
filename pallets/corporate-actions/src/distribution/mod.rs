@@ -77,13 +77,11 @@ use frame_support::{
 use pallet_asset::{self as asset, checkpoint};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
-    constants::currency::ONE_UNIT,
-    portfolio::PortfolioSubTrait,
-    protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    with_transaction,
+    constants::currency::ONE_UNIT, portfolio::PortfolioSubTrait, with_transaction,
 };
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
     storage_migration_ver, Balance, EventDid, IdentityId, Moment, PortfolioId, PortfolioNumber,
     SecondaryKey, WeightMeter,
 };

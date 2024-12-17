@@ -7,7 +7,6 @@ edition = "2021"
 [dependencies]
 polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-common-utilities = { path = "../common", default-features = false }
-pallet-identity = { path = "../identity", default-features = false  }
 
 # General
 serde = { version = "1.0.104", default-features = false }
@@ -33,7 +32,6 @@ std = [
     "frame-benchmarking/std",
     "frame-support/std",
     "frame-system/std",
-    "pallet-identity/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "serde/std",

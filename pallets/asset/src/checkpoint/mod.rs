@@ -60,11 +60,9 @@ pub use polymesh_common_utilities::traits::checkpoint::{Event, WeightInfo};
 use polymesh_common_utilities::traits::checkpoint::{
     NextCheckpoints, ScheduleCheckpoints, ScheduleId,
 };
-use polymesh_common_utilities::{
-    protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    GC_DID,
-};
+use polymesh_common_utilities::GC_DID;
 use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::{asset::CheckpointId, storage_migration_ver, IdentityId, Moment};
 
 use crate::Config;
