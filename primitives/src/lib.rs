@@ -296,6 +296,20 @@ impl ExtrinsicName {
     }
 }
 
+/// Execute the supplied function in a new storage transaction,
+/// committing on `Ok(_)` and rolling back on `Err(_)`, returning the result.
+///
+/// Transactions can be arbitrarily nested with commits happening to the parent.
+pub fn with_transaction<T, E: From<frame_support::dispatch::DispatchError>>(
+    tx: impl FnOnce() -> Result<T, E>,
+) -> Result<T, E> {
+    use frame_support::storage::{with_transaction, TransactionOutcome};
+    with_transaction(|| match tx() {
+        r @ Ok(_) => TransactionOutcome::Commit(r),
+        r @ Err(_) => TransactionOutcome::Rollback(r),
+    })
+}
+
 /// Compile time assert.
 #[macro_export]
 macro_rules! const_assert {

@@ -39,7 +39,8 @@ use polymesh_primitives::IdentityId;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_runtime::{DispatchError, DispatchResult};
+
+pub use polymesh_primitives::with_transaction;
 
 /// Use `GetExtra` as the trait bounds for pallet `Config` parameters
 /// that will be used for bounded collections.
@@ -142,30 +143,6 @@ impl SystematicIssuers {
 pub const GC_DID: IdentityId = SystematicIssuers::Committee.as_id();
 pub const TECHNICAL_DID: IdentityId = IdentityId(*constants::did::TECHNICAL_COMMITTEE_DID);
 pub const UPGRADE_DID: IdentityId = IdentityId(*constants::did::UPGRADE_COMMITTEE_DID);
-
-/// Execute the supplied function in a new storage transaction,
-/// committing on `Ok(_)` and rolling back on `Err(_)`, returning the result.
-///
-/// Transactions can be arbitrarily nested with commits happening to the parent.
-pub fn with_transaction<T, E: From<DispatchError>>(
-    tx: impl FnOnce() -> Result<T, E>,
-) -> Result<T, E> {
-    use frame_support::storage::{with_transaction, TransactionOutcome};
-    with_transaction(|| match tx() {
-        r @ Ok(_) => TransactionOutcome::Commit(r),
-        r @ Err(_) => TransactionOutcome::Rollback(r),
-    })
-}
-
-/// In one transaction, execute the supplied function `tx` on each element in `iter`.
-///
-/// See `with_transaction` for details.
-pub fn with_each_transaction<A>(
-    iter: impl IntoIterator<Item = A>,
-    tx: impl FnMut(A) -> DispatchResult,
-) -> DispatchResult {
-    with_transaction(|| iter.into_iter().try_for_each(tx))
-}
 
 /// Either a block number, or nothing.
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
