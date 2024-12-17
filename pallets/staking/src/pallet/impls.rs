@@ -57,7 +57,7 @@ use frame_support::traits::schedule::Anon;
 use frame_support::traits::schedule::{DispatchTime, HIGHEST_PRIORITY};
 use frame_support::traits::DefensiveSaturating;
 
-use polymesh_common_utilities::identity::IdentityFnTrait;
+use polymesh_primitives::traits::IdentityFnTrait;
 use polymesh_primitives::IdentityId;
 use polymesh_primitives::GC_DID;
 

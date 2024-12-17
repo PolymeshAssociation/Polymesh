@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::{DispatchError, GetDispatchInfo, PostDispatchInfo, Weight};
+use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo, Weight};
 use frame_support::traits::{Currency, EnsureOrigin, Get, GetCallMetadata};
 use frame_support::{decl_event, Parameter};
 use scale_info::TypeInfo;
@@ -25,9 +25,12 @@ use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
 };
 use polymesh_primitives::{
-    identity::SecondaryKeyWithAuth, protocol_fee::ChargeProtocolFee, secondary_key::SecondaryKey,
-    traits::group::GroupTrait, traits::CddAndFeeDetails, AuthorizationData, Balance,
-    CustomClaimTypeId, IdentityClaim, IdentityId, Permissions, Ticker,
+    identity::SecondaryKeyWithAuth,
+    protocol_fee::ChargeProtocolFee,
+    secondary_key::SecondaryKey,
+    traits::group::GroupTrait,
+    traits::{CddAndFeeDetails, IdentityFnTrait},
+    AuthorizationData, Balance, CustomClaimTypeId, IdentityClaim, IdentityId, Permissions, Ticker,
 };
 
 pub trait WeightInfo {
@@ -279,18 +282,3 @@ decl_event!(
         ChildDidUnlinked(IdentityId, IdentityId, IdentityId),
     }
 );
-
-pub trait IdentityFnTrait<AccountId> {
-    fn get_identity(key: &AccountId) -> Option<IdentityId>;
-    fn current_payer() -> Option<AccountId>;
-    fn set_current_payer(payer: Option<AccountId>);
-
-    /// Provides the DID status for the given DID
-    fn has_valid_cdd(target_did: IdentityId) -> bool;
-
-    /// Creates a new did and attaches a CDD claim.
-    fn testing_cdd_register_did(
-        target: AccountId,
-        secondary_keys: sp_std::vec::Vec<SecondaryKey<AccountId>>,
-    ) -> Result<IdentityId, DispatchError>;
-}

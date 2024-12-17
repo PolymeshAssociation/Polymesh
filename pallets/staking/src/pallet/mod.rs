@@ -56,10 +56,10 @@ use frame_system::offchain::SendTransactionTypes;
 use sp_runtime::traits::{AccountIdConversion, Dispatchable};
 use sp_runtime::Permill;
 
-use polymesh_common_utilities::identity::{Config as IdentityConfig, IdentityFnTrait};
+use polymesh_common_utilities::identity::Config as IdentityConfig;
 use polymesh_primitives::constants::GC_PALLET_ID;
 use polymesh_primitives::GC_DID;
-use polymesh_primitives::{storage_migration_ver, IdentityId};
+use polymesh_primitives::{storage_migration_ver, traits::IdentityFnTrait, IdentityId};
 
 use crate::types::{PermissionedIdentityPrefs, SlashingSwitch};
 // -----------------------------------------------------------------

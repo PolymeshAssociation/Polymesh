@@ -14,7 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::Balance;
+use crate::{secondary_key::SecondaryKey, Balance, IdentityId};
+use frame_support::dispatch::DispatchError;
 use sp_runtime::transaction_validity::InvalidTransaction;
 
 pub mod group;
@@ -28,6 +29,21 @@ pub trait CddAndFeeDetails<AccountId, Call> {
     fn clear_context();
     fn set_payer_context(payer: Option<AccountId>);
     fn get_payer_from_context() -> Option<AccountId>;
+}
+
+pub trait IdentityFnTrait<AccountId> {
+    fn get_identity(key: &AccountId) -> Option<IdentityId>;
+    fn current_payer() -> Option<AccountId>;
+    fn set_current_payer(payer: Option<AccountId>);
+
+    /// Provides the DID status for the given DID
+    fn has_valid_cdd(target_did: IdentityId) -> bool;
+
+    /// Creates a new did and attaches a CDD claim.
+    fn testing_cdd_register_did(
+        target: AccountId,
+        secondary_keys: sp_std::vec::Vec<SecondaryKey<AccountId>>,
+    ) -> Result<IdentityId, DispatchError>;
 }
 
 /// A currency that has a block rewards reserve.

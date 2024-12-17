@@ -61,9 +61,9 @@ use frame_support::{
     weights::{WeightToFee, WeightToFeeCoefficient, WeightToFeePolynomial},
 };
 use frame_system::pallet_prelude::{BlockNumberFor, OriginFor};
-use polymesh_common_utilities::traits::{identity::IdentityFnTrait, relayer::SubsidiserTrait};
+use polymesh_common_utilities::traits::relayer::SubsidiserTrait;
 use polymesh_primitives::{
-    traits::{group::GroupTrait, CddAndFeeDetails},
+    traits::{group::GroupTrait, CddAndFeeDetails, IdentityFnTrait},
     TransactionError,
 };
 use scale_info::TypeInfo;

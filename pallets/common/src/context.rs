@@ -1,4 +1,4 @@
-use crate::traits::identity::IdentityFnTrait;
+use polymesh_primitives::traits::IdentityFnTrait;
 use sp_std::marker::PhantomData;
 
 /// Helper class to access to some context information.
