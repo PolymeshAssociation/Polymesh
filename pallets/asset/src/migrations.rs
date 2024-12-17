@@ -17,6 +17,12 @@ pub(crate) fn migrate_to_v6<T: Config>() {
 
     log::info!("{:?} mappings will be removed.", remove_mappings.len());
     for (asset_id, ticker) in remove_mappings {
+        log::info!(
+            "AssetId: {:?} Ticker: {:?} have been unlinked",
+            asset_id,
+            ticker
+        );
+
         AssetIdTicker::remove(asset_id);
         TickerAssetId::remove(ticker);
 
