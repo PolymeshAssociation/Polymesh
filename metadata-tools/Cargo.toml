@@ -1,0 +1,21 @@
+[package]
+name = "metadata-tools"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.0", features = ["derive"] }
+frame-metadata = { version = "16.0", features = ["std", "legacy"] }
+codec = { package = "parity-scale-codec", version = "3.0" }
+anyhow = "1.0"
+substrate-differ = { git = "https://github.com/PolymeshAssociation/subwasm.git", branch = "polymesh", default-features = false, features = ["v14", "reduced"] }
+jsonrpsee = { version = "0.24.7", features = [
+    "http-client",
+    "ws-client",
+] }
+hex = "0.4.3"
+tokio = { version = "1.42.0", features = ["rt"] }
+serde = "1.0.215"
+sp-version = { version = "35.0.0", default-features = false, features = ["std"] }
+serde_json = "1.0.133"
+env_logger = { version = "0.11.5", default-features = false }
