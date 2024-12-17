@@ -43,7 +43,6 @@ use pallet_corporate_actions::ballot as corporate_ballots;
 use pallet_corporate_actions::distribution as capital_distributions;
 use pallet_group as group;
 use pallet_identity as identity;
-use pallet_multisig as multisig;
 use pallet_pips as pips;
 use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
@@ -621,7 +620,6 @@ impl committee::Config<committee::Instance4> for TestStorage {
 impl polymesh_common_utilities::traits::identity::Config for TestStorage {
     type RuntimeEvent = RuntimeEvent;
     type Proposal = RuntimeCall;
-    type MultiSig = multisig::Pallet<TestStorage>;
     type Portfolio = portfolio::Module<TestStorage>;
     type CddServiceProviders = CddServiceProvider;
     type Balances = balances::Module<TestStorage>;

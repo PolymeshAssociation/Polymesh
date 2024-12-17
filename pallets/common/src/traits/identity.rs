@@ -31,7 +31,6 @@ use polymesh_primitives::{
 };
 
 use crate::traits::group::GroupTrait;
-use crate::traits::multisig::MultiSigSubTrait;
 use crate::traits::portfolio::PortfolioSubTrait;
 use crate::traits::transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use crate::traits::CommonConfig;
@@ -177,8 +176,6 @@ pub trait Config: CommonConfig + pallet_timestamp::Config + pallet_base::Config 
         > + GetCallMetadata
         + GetDispatchInfo
         + From<frame_system::Call<Self>>;
-    /// MultiSig module
-    type MultiSig: MultiSigSubTrait<Self::AccountId>;
     /// Portfolio module. Required to accept portfolio custody transfers.
     type Portfolio: PortfolioSubTrait<Self::AccountId>;
     /// Group module

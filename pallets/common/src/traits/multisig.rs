@@ -55,9 +55,3 @@ pub trait WeightInfo {
             .saturating_add(Self::default_max_weight(max_weight))
     }
 }
-
-/// This trait is used to add a signer to a multisig and enable unlinking multisig from an identity
-pub trait MultiSigSubTrait<AccountId> {
-    /// Returns `true` if the given `account_id` is a multisign account, otherwise returns `false`.
-    fn is_multisig(account_id: &AccountId) -> bool;
-}

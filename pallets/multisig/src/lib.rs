@@ -85,7 +85,7 @@ use sp_std::prelude::*;
 
 use pallet_identity::PermissionedCallOriginData;
 use pallet_permissions::with_call_metadata;
-pub use polymesh_common_utilities::multisig::{MultiSigSubTrait, WeightInfo};
+pub use polymesh_common_utilities::multisig::WeightInfo;
 use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
 use polymesh_primitives::multisig::{ProposalState, ProposalVoteCount};
 use polymesh_primitives::{
@@ -1354,9 +1354,7 @@ impl<T: Config> Pallet<T> {
 
         LastInvalidProposal::<T>::insert(multisig, next_proposal_id.saturating_sub(1));
     }
-}
 
-impl<T: Config> MultiSigSubTrait<T::AccountId> for Pallet<T> {
     fn is_multisig(account_id: &T::AccountId) -> bool {
         MultiSigSignsRequired::<T>::contains_key(account_id)
     }

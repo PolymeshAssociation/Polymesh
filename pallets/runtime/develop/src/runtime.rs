@@ -197,7 +197,6 @@ pub type CddHandler = polymesh_runtime_common::fee_details::CddHandler<Runtime>;
 impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Proposal = RuntimeCall;
-    type MultiSig = MultiSig;
     type Portfolio = Portfolio;
     type CddServiceProviders = CddServiceProviders;
     type Balances = pallet_balances::Module<Runtime>;

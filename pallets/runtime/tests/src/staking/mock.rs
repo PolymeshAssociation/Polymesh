@@ -43,7 +43,6 @@ use pallet_staking::types::SlashingSwitch;
 use pallet_staking::{self as pallet_staking, *};
 use polymesh_common_utilities::traits::balances::{AccountData, CheckCdd};
 use polymesh_common_utilities::traits::group::{GroupTrait, InactiveMember};
-use polymesh_common_utilities::traits::multisig::MultiSigSubTrait;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 use polymesh_common_utilities::traits::relayer::SubsidiserTrait;
 use polymesh_common_utilities::traits::CommonConfig;
@@ -295,7 +294,6 @@ impl pallet_protocol_fee::Config for Test {
 impl polymesh_common_utilities::traits::identity::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Proposal = RuntimeCall;
-    type MultiSig = Test;
     type Portfolio = Test;
     type CddServiceProviders = pallet_group::Module<Test, pallet_group::Instance2>;
     type Balances = Balances;
@@ -429,12 +427,6 @@ impl GroupTrait<Moment> for Test {
     }
 
     fn is_member_expired(_member: &InactiveMember<Moment>, _now: Moment) -> bool {
-        false
-    }
-}
-
-impl MultiSigSubTrait<AccountId> for Test {
-    fn is_multisig(_account: &AccountId) -> bool {
         false
     }
 }
