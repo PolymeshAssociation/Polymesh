@@ -23,8 +23,9 @@ use frame_support::{
 use frame_system::RawOrigin;
 use polymesh_common_utilities::{
     benchs::{user, User},
-    MaybeBlock, SystematicIssuers, GC_DID,
+    MaybeBlock,
 };
+use polymesh_primitives::{SystematicIssuers, GC_DID};
 use rand::{seq::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sp_std::{

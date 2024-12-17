@@ -21,7 +21,7 @@ use sp_std::prelude::*;
 
 use polymesh_common_utilities::asset::Config as AssetConfig;
 use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, user, User, UserBuilder};
-use polymesh_common_utilities::constants::currency::ONE_UNIT;
+use polymesh_primitives::constants::currency::ONE_UNIT;
 use polymesh_primitives::{AuthorizationData, NFTs, PortfolioName, Signatory};
 
 use crate::*;

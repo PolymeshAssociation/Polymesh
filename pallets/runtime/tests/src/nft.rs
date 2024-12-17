@@ -8,7 +8,6 @@ use pallet_nft::{
 };
 use pallet_portfolio::PortfolioNFT;
 use polymesh_common_utilities::traits::nft::Event;
-use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::asset::{AssetId, AssetName, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
@@ -16,8 +15,8 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::settlement::{InstructionId, Leg, SettlementType};
 use polymesh_primitives::{
-    AuthorizationData, Claim, ClaimType, Condition, ConditionType, CountryCode, IdentityId,
-    NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId,
+    with_transaction, AuthorizationData, Claim, ClaimType, Condition, ConditionType, CountryCode,
+    IdentityId, NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId,
     PortfolioKind, PortfolioNumber, PortfolioUpdateReason, Scope, Signatory, TrustedFor,
     TrustedIssuer, WeightMeter,
 };

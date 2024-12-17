@@ -19,24 +19,21 @@ use frame_support::{
 };
 use pallet_balances as balances;
 use pallet_identity::{ChildDid, CustomClaimIdSequence, CustomClaims, CustomClaimsInverse};
-use polymesh_common_utilities::{
-    constants::currency::POLY,
-    traits::{
-        group::GroupTrait,
-        identity::{
-            Config as IdentityConfig, CreateChildIdentityWithAuth, RawEvent, SecondaryKeyWithAuth,
-            TargetIdAuthorization,
-        },
-        transaction_payment::CddAndFeeDetails,
+use polymesh_common_utilities::traits::{
+    group::GroupTrait,
+    identity::{
+        Config as IdentityConfig, CreateChildIdentityWithAuth, RawEvent, SecondaryKeyWithAuth,
+        TargetIdAuthorization,
     },
-    SystematicIssuers, GC_DID,
+    transaction_payment::CddAndFeeDetails,
 };
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
-    AccountId, AssetPermissions, AuthorizationData, AuthorizationType, Claim, ClaimType,
-    CustomClaimTypeId, ExtrinsicName, ExtrinsicPermissions, IdentityClaim, IdentityId, KeyRecord,
-    PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope, SecondaryKey,
-    Signatory, SubsetRestriction, Ticker, TransactionError,
+    constants::currency::POLY, AccountId, AssetPermissions, AuthorizationData, AuthorizationType,
+    Claim, ClaimType, CustomClaimTypeId, ExtrinsicName, ExtrinsicPermissions, IdentityClaim,
+    IdentityId, KeyRecord, PalletName, PalletPermissions, Permissions, PortfolioId,
+    PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction, SystematicIssuers, Ticker,
+    TransactionError, GC_DID,
 };
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
 use sp_core::H512;

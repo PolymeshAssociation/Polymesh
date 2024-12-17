@@ -103,13 +103,13 @@ use polymesh_common_utilities::traits::identity::{
     AuthorizationNonce, Config, CreateChildIdentityWithAuth, IdentityFnTrait, RawEvent,
     SecondaryKeyWithAuth,
 };
-use polymesh_common_utilities::{SystematicIssuers, GC_DID};
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::{
     storage_migration_ver, AssetPermissions, Authorization, AuthorizationData, AuthorizationType,
     CddId, Claim, ClaimType, CustomClaimTypeId, DidRecord, ExtrinsicPermissions, IdentityClaim,
     IdentityId, KeyRecord, Permissions, PortfolioPermissions, Scope, SecondaryKey, Signatory,
 };
+use polymesh_primitives::{SystematicIssuers, GC_DID};
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 
@@ -213,7 +213,7 @@ decl_storage! {
         // Secondary keys of identities at genesis. `identities` have to be initialised.
         config(secondary_keys): Vec<(T::AccountId, IdentityId)>;
         build(|config: &GenesisConfig<T>| {
-            polymesh_common_utilities::SYSTEMATIC_ISSUERS
+            polymesh_primitives::SYSTEMATIC_ISSUERS
                 .iter()
                 .copied()
                 .for_each(<Module<T>>::register_systematic_id);

@@ -106,12 +106,12 @@ use pallet_base::try_next_post;
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::{
     balances::Config as BalancesConfig, identity::Config as IdentityConfig, traits::asset,
-    traits::checkpoint::ScheduleId, with_transaction, GC_DID,
+    traits::checkpoint::ScheduleId,
 };
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
-    asset::CheckpointId, impl_checked_inc, storage_migration_ver, Balance, DocumentId, EventDid,
-    IdentityId, Moment, PortfolioNumber,
+    asset::CheckpointId, impl_checked_inc, storage_migration_ver, with_transaction, Balance,
+    DocumentId, EventDid, IdentityId, Moment, PortfolioNumber, GC_DID,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;

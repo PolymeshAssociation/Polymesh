@@ -177,16 +177,13 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 pub use polymesh_common_utilities::traits::balances::WeightInfo;
-use polymesh_common_utilities::{
-    traits::{
-        balances::{AccountData, BalancesTrait, CheckCdd, RawEvent, Reasons},
-        identity::IdentityFnTrait,
-        NegativeImbalance, PositiveImbalance,
-    },
-    SystematicIssuers, GC_DID,
+use polymesh_common_utilities::traits::{
+    balances::{AccountData, BalancesTrait, CheckCdd, RawEvent, Reasons},
+    identity::IdentityFnTrait,
+    NegativeImbalance, PositiveImbalance,
 };
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
-use polymesh_primitives::{Balance, Memo};
+use polymesh_primitives::{Balance, Memo, SystematicIssuers, GC_DID};
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{AccountIdConversion, StaticLookup, Zero},

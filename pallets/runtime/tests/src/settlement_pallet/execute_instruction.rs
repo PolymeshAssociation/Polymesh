@@ -8,11 +8,11 @@ use pallet_settlement::{
     InstructionLegs, InstructionMediatorsAffirmations, InstructionStatuses, OffChainAffirmations,
     RawEvent, UserAffirmations, VenueInstructions,
 };
-use polymesh_common_utilities::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::settlement::{
     AffirmationStatus, Instruction, InstructionId, InstructionStatus, Leg, LegId, SettlementType,
 };
 use polymesh_primitives::PortfolioId;
+use polymesh_primitives::SystematicIssuers::Settlement as SettlementDID;
 
 use super::setup::create_and_issue_sample_asset_with_venue;
 use crate::asset_pallet::setup::create_and_issue_sample_asset;

@@ -20,15 +20,12 @@ use pallet_corporate_actions::{
     TargetTreatment::{Exclude, Include},
     Tax,
 };
-use polymesh_common_utilities::{
-    constants::currency::ONE_UNIT,
-    traits::checkpoint::{ScheduleCheckpoints, ScheduleId},
-};
+use polymesh_common_utilities::traits::checkpoint::{ScheduleCheckpoints, ScheduleId};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
-    agent::AgentGroup, asset::CheckpointId, AuthorizationData, Claim, ClaimType, Condition,
-    ConditionType, CountryCode, Document, DocumentId, IdentityId, Moment, PortfolioId,
-    PortfolioNumber, Scope, Signatory, TrustedFor, TrustedIssuer,
+    agent::AgentGroup, asset::CheckpointId, constants::currency::ONE_UNIT, AuthorizationData,
+    Claim, ClaimType, Condition, ConditionType, CountryCode, Document, DocumentId, IdentityId,
+    Moment, PortfolioId, PortfolioNumber, Scope, Signatory, TrustedFor, TrustedIssuer,
 };
 use sp_arithmetic::Permill;
 use sp_keyring::AccountKeyring;

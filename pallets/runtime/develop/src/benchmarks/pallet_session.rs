@@ -33,7 +33,7 @@ use sp_runtime::traits::TrailingZeroInput;
 use sp_std::prelude::*;
 use sp_std::vec;
 
-use polymesh_common_utilities::constants::currency::POLY;
+use polymesh_primitives::constants::currency::POLY;
 
 pub struct Pallet<T: Config>(Session<T>);
 pub trait Config:

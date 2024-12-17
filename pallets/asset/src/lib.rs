@@ -105,7 +105,6 @@ use pallet_identity::PermissionedCallOriginData;
 use pallet_portfolio::{Error as PortfolioError, PortfolioAssetBalances};
 use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
-use polymesh_common_utilities::constants::*;
 pub use polymesh_common_utilities::traits::asset::{Config, Event, RawEvent, WeightInfo};
 use polymesh_common_utilities::traits::nft::NFTTrait;
 use polymesh_primitives::agent::AgentGroup;
@@ -116,6 +115,7 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
     AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
 };
+use polymesh_primitives::constants::*;
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::{
@@ -255,7 +255,7 @@ decl_storage! {
         build(|config: &GenesisConfig<T>| {
             // Reserving country currency logic
             let fiat_tickers_reservation_did =
-                polymesh_common_utilities::SystematicIssuers::FiatTickersReservation.as_id();
+                polymesh_primitives::SystematicIssuers::FiatTickersReservation.as_id();
             for currency_ticker in &config.reserved_country_currency_codes {
                 let _ = <Module<T>>::unverified_register_ticker(
                     *currency_ticker,

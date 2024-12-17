@@ -40,7 +40,7 @@ pub use sp_runtime::transaction_validity::TransactionPriority;
 pub use sp_runtime::{Perbill, Permill};
 
 use pallet_balances as balances;
-use polymesh_common_utilities::constants::currency::*;
+use polymesh_primitives::constants::currency::*;
 use polymesh_primitives::{Balance, BlockNumber, IdentityId, Moment};
 
 pub use cdd_check::CddChecker;

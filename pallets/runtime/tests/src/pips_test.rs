@@ -19,8 +19,8 @@ use pallet_pips::{
     VotingResult,
 };
 use pallet_treasury as treasury;
-use polymesh_common_utilities::{MaybeBlock, GC_DID};
-use polymesh_primitives::{AccountId, BlockNumber, Url};
+use polymesh_common_utilities::MaybeBlock;
+use polymesh_primitives::{AccountId, BlockNumber, Url, GC_DID};
 use sp_keyring::AccountKeyring;
 use std::ops::Deref;
 

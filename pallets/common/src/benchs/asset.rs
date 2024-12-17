@@ -1,10 +1,10 @@
 use sp_std::vec;
 
 use polymesh_primitives::asset::{AssetId, AssetName, AssetType};
+use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::{PortfolioKind, Ticker};
 
 use crate::benchs::User;
-use crate::constants::currency::POLY;
 use crate::traits::asset::{AssetFnTrait, Config};
 
 pub type ResultTicker = Result<Ticker, &'static str>;

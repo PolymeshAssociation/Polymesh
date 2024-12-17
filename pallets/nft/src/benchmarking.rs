@@ -8,13 +8,12 @@ use pallet_asset::benchmarking::create_portfolio;
 use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, user, User, UserBuilder};
 use polymesh_common_utilities::traits::asset::AssetFnTrait;
 use polymesh_common_utilities::traits::compliance_manager::ComplianceFnConfig;
-use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataSpec, AssetMetadataValue,
 };
 use polymesh_primitives::nft::{NFTCollectionId, NFTCollectionKeys, NFTId};
-use polymesh_primitives::{IdentityId, PortfolioKind, WeightMeter};
+use polymesh_primitives::{with_transaction, IdentityId, PortfolioKind, WeightMeter};
 
 use crate::*;
 

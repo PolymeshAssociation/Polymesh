@@ -9,11 +9,11 @@ use frame_support::{
 };
 use frame_system;
 use pallet_relayer::Subsidy;
-use polymesh_common_utilities::{
-    constants::currency::POLY, protocol_fee::ProtocolOp,
-    traits::transaction_payment::CddAndFeeDetails,
+use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
+use polymesh_primitives::{
+    constants::currency::POLY, protocol_fee::ProtocolOp, AccountId, Balance, Signatory, Ticker,
+    TransactionError,
 };
-use polymesh_primitives::{AccountId, Balance, Signatory, Ticker, TransactionError};
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall as DevRuntimeCall};
 use sp_keyring::AccountKeyring;
 use sp_runtime::{

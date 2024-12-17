@@ -22,7 +22,6 @@ use sp_std::{convert::TryInto, iter, prelude::*};
 
 use pallet_statistics::benchmarking::setup_transfer_restrictions;
 use polymesh_common_utilities::benchs::{reg_unique_ticker, user, User, UserBuilder};
-use polymesh_common_utilities::constants::currency::{ONE_UNIT, POLY};
 use polymesh_common_utilities::traits::compliance_manager::ComplianceFnConfig;
 use polymesh_common_utilities::traits::nft::NFTTrait;
 use polymesh_primitives::agent::AgentGroup;
@@ -31,6 +30,7 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataDescription, AssetMetadataKey, AssetMetadataName, AssetMetadataSpec,
     AssetMetadataValue, AssetMetadataValueDetail,
 };
+use polymesh_primitives::constants::currency::{ONE_UNIT, POLY};
 use polymesh_primitives::ticker::TICKER_LEN;
 use polymesh_primitives::{
     AuthorizationData, Fund, FundDescription, IdentityId, NFTCollectionKeys, PortfolioKind,

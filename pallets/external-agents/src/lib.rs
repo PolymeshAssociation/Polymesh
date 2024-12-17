@@ -62,12 +62,11 @@ use frame_support::{
 use pallet_base::{try_next_post, try_next_pre};
 use pallet_identity::PermissionedCallOriginData;
 pub use polymesh_common_utilities::traits::external_agents::{Config, Event, WeightInfo};
-use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::agent::{AGId, AgentGroup};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
-    extract_auth, storage_migration_ver, AuthorizationData, EventDid, ExtrinsicPermissions,
-    IdentityId, PalletPermissions, Signatory, SubsetRestriction,
+    extract_auth, storage_migration_ver, with_transaction, AuthorizationData, EventDid,
+    ExtrinsicPermissions, IdentityId, PalletPermissions, Signatory, SubsetRestriction,
 };
 use sp_std::prelude::*;
 

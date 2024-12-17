@@ -47,11 +47,11 @@ use frame_support::{
 use frame_system::ensure_root;
 use polymesh_common_utilities::{
     identity::Config as IdentityConfig, traits::relayer::SubsidiserTrait,
-    transaction_payment::CddAndFeeDetails, GC_DID,
+    transaction_payment::CddAndFeeDetails,
 };
 use polymesh_primitives::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    Balance, IdentityId, PosRatio,
+    Balance, IdentityId, PosRatio, GC_DID,
 };
 use sp_runtime::{traits::Zero, Perbill};
 use sp_std::vec;

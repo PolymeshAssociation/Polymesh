@@ -234,6 +234,7 @@ pub mod settlement;
 
 /// Constants definitions.
 pub mod constants;
+pub use constants::{SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS, TECHNICAL_DID, UPGRADE_DID};
 
 /// Multisig type definitions.
 pub mod multisig;

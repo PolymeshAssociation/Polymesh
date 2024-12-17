@@ -12,9 +12,9 @@ use sp_runtime::traits::Hash;
 
 use pallet_asset::TickersOwnedByUser;
 use pallet_identity::ParentDid;
-use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_primitives::{
-    ExtrinsicPermissions, Gas, Permissions, PortfolioPermissions, SubsetRestriction, Ticker,
+    constants::currency::POLY, ExtrinsicPermissions, Gas, Permissions, PortfolioPermissions,
+    SubsetRestriction, Ticker,
 };
 use polymesh_runtime_common::Currency;
 

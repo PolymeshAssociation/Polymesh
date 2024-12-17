@@ -4,8 +4,8 @@ use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
 
 use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, User, UserBuilder};
-use polymesh_common_utilities::constants::currency::{ONE_UNIT, POLY};
 use polymesh_common_utilities::traits::asset::Config as Asset;
+use polymesh_primitives::constants::currency::{ONE_UNIT, POLY};
 use polymesh_primitives::{jurisdiction::*, statistics::*, Claim, ClaimType, Scope};
 
 use crate::*;
