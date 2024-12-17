@@ -28,12 +28,12 @@ use frame_support::{
 use frame_system::ensure_signed;
 use pallet_base::{ensure_custom_length_ok, ensure_custom_string_limited};
 use pallet_permissions::{AccountCallPermissionsData, CheckAccountCallPermissions};
-use polymesh_common_utilities::identity::{
-    CreateChildIdentityWithAuth, SecondaryKeyWithAuth, TargetIdAuthorization,
-};
 use polymesh_primitives::constants::did::USER;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
+};
+use polymesh_primitives::identity::{
+    CreateChildIdentityWithAuth, SecondaryKeyWithAuth, TargetIdAuthorization,
 };
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee as _, ProtocolOp};
 use polymesh_primitives::SystematicIssuers;

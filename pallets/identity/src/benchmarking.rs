@@ -21,16 +21,15 @@ use sp_core::H512;
 use sp_std::prelude::*;
 
 use polymesh_common_utilities::benchs::{cdd_provider, user, user_without_did, UserBuilder};
-use polymesh_common_utilities::traits::identity::TargetIdAuthorization;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS, MAX_SECONDARY_KEYS,
 };
 use polymesh_primitives::secondary_key::ExtrinsicNames;
 use polymesh_primitives::{
-    AssetPermissions, AuthorizationData, Claim, CountryCode, ExtrinsicName, ExtrinsicPermissions,
-    PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, PortfolioPermissions,
-    Scope, SecondaryKey, Signatory,
+    identity::TargetIdAuthorization, AssetPermissions, AuthorizationData, Claim, CountryCode,
+    ExtrinsicName, ExtrinsicPermissions, PalletName, PalletPermissions, Permissions, PortfolioId,
+    PortfolioNumber, PortfolioPermissions, Scope, SecondaryKey, Signatory,
 };
 
 const SEED: u32 = 0;
