@@ -118,6 +118,9 @@ pub trait Config:
     /// Scheduler of settlement instructions.
     type Scheduler: Named<Self::BlockNumber, <Self as Config>::Proposal, Self::SchedulerOrigin>;
 
+    /// Portfolio module.
+    type Portfolio: PortfolioSubTrait<Self::AccountId>;
+
     /// Maximum number of fungible assets that can be in a single instruction.
     type MaxNumberOfFungibleAssets: Get<u32>;
 

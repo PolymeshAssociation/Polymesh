@@ -294,7 +294,6 @@ impl pallet_protocol_fee::Config for Test {
 impl polymesh_common_utilities::traits::identity::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Proposal = RuntimeCall;
-    type Portfolio = Test;
     type CddServiceProviders = pallet_group::Module<Test, pallet_group::Instance2>;
     type Balances = Balances;
     type ChargeTxFeeTarget = Test;

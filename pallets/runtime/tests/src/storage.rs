@@ -44,7 +44,6 @@ use pallet_corporate_actions::distribution as capital_distributions;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
-use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
 use pallet_session::historical as pallet_session_historical;
 use pallet_transaction_payment::RuntimeDispatchInfo;
@@ -620,7 +619,6 @@ impl committee::Config<committee::Instance4> for TestStorage {
 impl polymesh_common_utilities::traits::identity::Config for TestStorage {
     type RuntimeEvent = RuntimeEvent;
     type Proposal = RuntimeCall;
-    type Portfolio = portfolio::Module<TestStorage>;
     type CddServiceProviders = CddServiceProvider;
     type Balances = balances::Module<TestStorage>;
     type ChargeTxFeeTarget = TestStorage;
