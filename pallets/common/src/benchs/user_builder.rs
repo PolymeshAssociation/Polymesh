@@ -14,16 +14,14 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 use crate::{
     benchs::{SecretKey, User},
-    traits::{
-        group::GroupTrait,
-        identity::{Config, IdentityFnTrait},
-    },
+    traits::identity::{Config, IdentityFnTrait},
 };
 use schnorrkel::{ExpansionMode, MiniSecretKey};
 
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
+use polymesh_primitives::traits::group::GroupTrait;
 use polymesh_primitives::IdentityId;
 use sp_io::hashing::blake2_256;
 use sp_std::prelude::*;

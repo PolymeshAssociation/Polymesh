@@ -218,7 +218,7 @@ impl Get<Vec<WeightToFeeCoefficient<Balance>>> for WeightToFee {
 }
 
 use pallet_group_rpc_runtime_api::Member;
-use polymesh_common_utilities::traits::group::InactiveMember;
+use polymesh_primitives::traits::group::InactiveMember;
 use sp_std::{convert::From, prelude::*};
 
 /// It merges actives and in-actives members.

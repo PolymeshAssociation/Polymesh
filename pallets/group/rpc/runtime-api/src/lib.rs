@@ -1,7 +1,7 @@
 //! Runtime API definition for group module.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use polymesh_common_utilities::traits::group::InactiveMember;
+use polymesh_primitives::traits::group::InactiveMember;
 use polymesh_primitives::{IdentityId, Moment};
 
 use codec::{Decode, Encode};

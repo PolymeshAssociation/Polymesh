@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 // This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymesh Association
 
@@ -15,6 +16,8 @@
 
 use crate::Balance;
 use sp_runtime::transaction_validity::InvalidTransaction;
+
+pub mod group;
 
 // Polymesh note: This was specifically added for Polymesh
 pub trait CddAndFeeDetails<AccountId, Call> {

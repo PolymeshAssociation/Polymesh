@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::traits::group::GroupTrait;
+use polymesh_primitives::traits::group::GroupTrait;
 use polymesh_primitives::IdentityId;
 
 pub trait GovernanceGroupTrait<Moment: PartialOrd + Copy>: GroupTrait<Moment> {

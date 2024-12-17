@@ -72,12 +72,12 @@ use frame_support::{
 };
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    governance_group::GovernanceGroupTrait,
-    group::{GroupTrait, InactiveMember, MemberCount},
-    identity::Config as IdentityConfig,
+    governance_group::GovernanceGroupTrait, identity::Config as IdentityConfig,
 };
 use polymesh_primitives::{
-    storage_migration_ver, IdentityId, MaybeBlock, SystematicIssuers, GC_DID,
+    storage_migration_ver,
+    traits::group::{GroupTrait, InactiveMember, MemberCount},
+    IdentityId, MaybeBlock, SystematicIssuers, GC_DID,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::Hash;

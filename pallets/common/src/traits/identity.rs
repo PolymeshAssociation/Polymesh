@@ -26,11 +26,10 @@ use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
 };
 use polymesh_primitives::{
-    protocol_fee::ChargeProtocolFee, secondary_key::SecondaryKey, traits::CddAndFeeDetails,
-    AuthorizationData, Balance, CustomClaimTypeId, IdentityClaim, IdentityId, Permissions, Ticker,
+    protocol_fee::ChargeProtocolFee, secondary_key::SecondaryKey, traits::group::GroupTrait,
+    traits::CddAndFeeDetails, AuthorizationData, Balance, CustomClaimTypeId, IdentityClaim,
+    IdentityId, Permissions, Ticker,
 };
-
-use crate::traits::group::GroupTrait;
 
 pub type AuthorizationNonce = u64;
 

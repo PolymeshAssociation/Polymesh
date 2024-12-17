@@ -1,8 +1,9 @@
 use crate::*;
 use polymesh_common_utilities::{
     benchs::{User, UserBuilder},
-    group::{Config, GroupTrait},
+    group::Config,
 };
+use polymesh_primitives::traits::group::GroupTrait;
 
 use frame_benchmarking::benchmarks_instance;
 use frame_system::RawOrigin;
