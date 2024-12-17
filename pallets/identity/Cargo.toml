@@ -5,7 +5,6 @@ authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
-pallet-balances = { path = "../balances", default-features = false }
 pallet-base = { path = "../base", default-features = false }
 pallet-permissions = { path = "../permissions", default-features = false }
 polymesh-common-utilities = { path = "../common", default-features = false }
@@ -50,7 +49,6 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "pallet-base/std",
-    "pallet-balances/std",
     "pallet-permissions/std",
     "pallet-timestamp/std",
     "polymesh-common-utilities/std",
