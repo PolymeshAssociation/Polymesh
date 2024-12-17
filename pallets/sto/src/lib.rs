@@ -25,7 +25,6 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-mod migrations;
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
@@ -46,8 +45,7 @@ use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::impl_checked_inc;
 use polymesh_primitives::settlement::{Leg, ReceiptDetails, SettlementType, VenueId, VenueType};
 use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, Balance, EventDid, IdentityId, PortfolioId,
-    WeightMeter,
+    storage_migration_ver, Balance, EventDid, IdentityId, PortfolioId, WeightMeter,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 
@@ -282,9 +280,6 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 1, {
-                migrations::migrate_to_v1::<T>();
-            });
             Weight::zero()
         }
 

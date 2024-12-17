@@ -17,7 +17,6 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-mod migrations;
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
@@ -35,9 +34,7 @@ use polymesh_primitives::statistics::{
 use polymesh_primitives::transfer_compliance::{
     AssetTransferCompliance, TransferCondition, TransferConditionExemptKey,
 };
-use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, Balance, IdentityId, WeightMeter,
-};
+use polymesh_primitives::{storage_migration_ver, Balance, IdentityId, WeightMeter};
 
 type Identity<T> = pallet_identity::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
@@ -78,9 +75,6 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 3, {
-                migrations::migrate_to_v3::<T>();
-            });
             Weight::zero()
         }
 

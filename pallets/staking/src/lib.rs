@@ -288,7 +288,6 @@ pub mod benchmarking;
 pub mod testing_utils;
 
 pub mod inflation;
-pub mod migrations;
 pub mod slashing;
 pub mod types;
 pub mod weights;

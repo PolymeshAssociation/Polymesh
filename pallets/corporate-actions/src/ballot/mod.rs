@@ -76,7 +76,6 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-mod migrations;
 
 use crate as ca;
 use ca::{CAId, CAKind, Config, CorporateAction};
@@ -94,9 +93,7 @@ use pallet_asset::checkpoint;
 use pallet_base::ensure_string_limited;
 use pallet_identity as identity;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
-use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, Balance, EventDid, IdentityId, Moment,
-};
+use polymesh_primitives::{storage_migration_ver, Balance, EventDid, IdentityId, Moment};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
@@ -311,9 +308,6 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 1, {
-                migrations::migrate_to_v1::<T>();
-            });
             Weight::zero()
         }
 
