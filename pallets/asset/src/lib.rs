@@ -106,9 +106,7 @@ use pallet_base::{
 };
 use pallet_identity::PermissionedCallOriginData;
 use pallet_portfolio::{Error as PortfolioError, PortfolioAssetBalances};
-use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
 pub use polymesh_common_utilities::traits::asset::{Config, Event, RawEvent, WeightInfo};
-use polymesh_common_utilities::traits::nft::NFTTrait;
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{
     AssetId, AssetName, AssetType, CheckpointId, CustomAssetTypeId, FundingRoundName,
@@ -120,7 +118,7 @@ use polymesh_primitives::asset_metadata::{
 use polymesh_primitives::constants::*;
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::settlement::InstructionId;
-use polymesh_primitives::traits::AssetFnTrait;
+use polymesh_primitives::traits::{AssetFnTrait, ComplianceFnConfig, NFTTrait};
 use polymesh_primitives::{
     extract_auth, storage_migrate_on, storage_migration_ver, AssetIdentifier, Balance, Document,
     DocumentId, IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, SecondaryKey,

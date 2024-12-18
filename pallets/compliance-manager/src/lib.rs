@@ -84,9 +84,7 @@ use frame_support::{decl_error, decl_module, decl_storage, ensure};
 use sp_std::{convert::From, prelude::*};
 
 use pallet_base::ensure_length_ok;
-pub use polymesh_common_utilities::traits::compliance_manager::{
-    ComplianceFnConfig, Config, Event, WeightInfo,
-};
+pub use polymesh_common_utilities::traits::compliance_manager::{Config, Event, WeightInfo};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::compliance_manager::{
     AssetCompliance, AssetComplianceResult, ComplianceReport, ComplianceRequirement,
@@ -94,8 +92,8 @@ use polymesh_primitives::compliance_manager::{
 };
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::{
-    proposition, storage_migration_ver, Claim, Condition, ConditionType, Context, IdentityId,
-    TargetIdentity, TrustedFor, TrustedIssuer, WeightMeter,
+    proposition, storage_migration_ver, traits::ComplianceFnConfig, Claim, Condition,
+    ConditionType, Context, IdentityId, TargetIdentity, TrustedFor, TrustedIssuer, WeightMeter,
 };
 
 type ExternalAgents<T> = pallet_external_agents::Module<T>;

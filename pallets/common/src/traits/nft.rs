@@ -1,19 +1,11 @@
-#[cfg(feature = "runtime-benchmarks")]
-use frame_support::dispatch::DispatchResult;
-#[cfg(feature = "runtime-benchmarks")]
-use polymesh_primitives::asset::NonFungibleType;
-#[cfg(feature = "runtime-benchmarks")]
-use polymesh_primitives::nft::NFTCollectionKeys;
-
 use frame_support::decl_event;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::asset_metadata::AssetMetadataKey;
 use polymesh_primitives::nft::{NFTCollectionId, NFTs};
-use polymesh_primitives::{IdentityId, NFTId, PortfolioId, PortfolioUpdateReason};
+use polymesh_primitives::traits::ComplianceFnConfig;
+use polymesh_primitives::{IdentityId, PortfolioId, PortfolioUpdateReason};
 
-use crate::compliance_manager::ComplianceFnConfig;
 use crate::{asset, portfolio};
 
 pub trait Config:
@@ -53,19 +45,4 @@ pub trait WeightInfo {
     fn redeem_nft(n: u32) -> Weight;
     fn base_nft_transfer(n: u32) -> Weight;
     fn controller_transfer(n: u32) -> Weight;
-}
-
-pub trait NFTTrait<Origin> {
-    /// Returns `true` if the given `metadata_key` is a mandatory key for the `asset_id` NFT collection.
-    fn is_collection_key(asset_id: &AssetId, metadata_key: &AssetMetadataKey) -> bool;
-    /// Updates the NFTOwner storage after moving funds.
-    fn move_portfolio_owner(asset_id: AssetId, nft_id: NFTId, new_owner_portfolio: PortfolioId);
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn create_nft_collection(
-        origin: Origin,
-        asset_id: Option<AssetId>,
-        nft_type: Option<NonFungibleType>,
-        collection_keys: NFTCollectionKeys,
-    ) -> DispatchResult;
 }

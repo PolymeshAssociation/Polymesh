@@ -69,7 +69,6 @@ use sp_std::vec;
 
 use pallet_asset::MandatoryMediators;
 use pallet_base::{ensure_string_limited, try_next_post};
-use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 pub use polymesh_common_utilities::traits::settlement::{Event, RawEvent, WeightInfo};
 use polymesh_common_utilities::traits::{asset, compliance_manager, nft, CommonConfig};
 use polymesh_primitives::asset::AssetId;
@@ -83,7 +82,8 @@ use polymesh_primitives::settlement::{
 use polymesh_primitives::with_transaction;
 use polymesh_primitives::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::{
-    storage_migration_ver, Balance, IdentityId, Memo, NFTs, PortfolioId, SecondaryKey, WeightMeter,
+    storage_migration_ver, traits::PortfolioSubTrait, Balance, IdentityId, Memo, NFTs, PortfolioId,
+    SecondaryKey, WeightMeter,
 };
 
 type Identity<T> = pallet_identity::Module<T>;

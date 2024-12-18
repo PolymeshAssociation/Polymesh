@@ -15,8 +15,7 @@ use sp_std::{vec, vec::Vec};
 use pallet_asset::Frozen;
 use pallet_base::try_next_pre;
 use pallet_portfolio::{PortfolioLockedNFT, PortfolioNFT};
-use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
-pub use polymesh_common_utilities::traits::nft::{Config, Event, NFTTrait, WeightInfo};
+pub use polymesh_common_utilities::traits::nft::{Config, Event, WeightInfo};
 use polymesh_primitives::asset::{AssetId, AssetName, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
@@ -24,8 +23,9 @@ use polymesh_primitives::nft::{
 };
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::{
-    storage_migration_ver, IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason,
-    WeightMeter,
+    storage_migration_ver,
+    traits::{ComplianceFnConfig, NFTTrait},
+    IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, WeightMeter,
 };
 
 type Asset<T> = pallet_asset::Module<T>;

@@ -13,27 +13,25 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use core::result::Result;
 use frame_support::decl_event;
-use frame_support::dispatch::DispatchError;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use sp_std::prelude::*;
 
 use pallet_external_agents::Config as EAConfig;
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::compliance_manager::{AssetComplianceResult, ComplianceRequirement};
+use polymesh_primitives::compliance_manager::ComplianceRequirement;
 use polymesh_primitives::condition::{conditions_total_counts, Condition};
 use polymesh_primitives::traits::AssetFnConfig;
-use polymesh_primitives::{IdentityId, TrustedIssuer, WeightMeter};
+use polymesh_primitives::{IdentityId, TrustedIssuer};
 
 use crate::balances::Config as BalancesConfig;
-use crate::traits::CommonConfig;
 
 /// The module's configuration trait.
 pub trait Config:
     pallet_timestamp::Config
-    + CommonConfig
+    + frame_system::Config
+    + pallet_permissions::Config
     + BalancesConfig
     + pallet_identity::Config
     + EAConfig
@@ -80,32 +78,6 @@ decl_event!(
         TrustedDefaultClaimIssuerRemoved(IdentityId, AssetId, IdentityId),
     }
 );
-
-pub trait ComplianceFnConfig {
-    /// Returns `true` if there are no requirements or if any requirement is satisfied.
-    /// Otherwise, returns `false`.
-    fn is_compliant(
-        asset_id: &AssetId,
-        sender_did: IdentityId,
-        receiver_did: IdentityId,
-        weight_meter: &mut WeightMeter,
-    ) -> Result<bool, DispatchError>;
-
-    fn verify_restriction_granular(
-        asset_id: &AssetId,
-        from_did_opt: Option<IdentityId>,
-        to_did_opt: Option<IdentityId>,
-        weight_meter: &mut WeightMeter,
-    ) -> Result<AssetComplianceResult, DispatchError>;
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn setup_asset_compliance(
-        caler_did: IdentityId,
-        asset_id: AssetId,
-        n: u32,
-        pause_compliance: bool,
-    );
-}
 
 pub trait WeightInfo {
     fn add_compliance_requirement(c: u32) -> Weight;

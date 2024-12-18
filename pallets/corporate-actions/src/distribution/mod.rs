@@ -76,13 +76,14 @@ use frame_support::{
 };
 use pallet_asset::{self as asset, checkpoint};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
-use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
     constants::currency::ONE_UNIT,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    storage_migration_ver, with_transaction, Balance, EventDid, IdentityId, Moment, PortfolioId,
-    PortfolioNumber, SecondaryKey, WeightMeter,
+    storage_migration_ver,
+    traits::PortfolioSubTrait,
+    with_transaction, Balance, EventDid, IdentityId, Moment, PortfolioId, PortfolioNumber,
+    SecondaryKey, WeightMeter,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;

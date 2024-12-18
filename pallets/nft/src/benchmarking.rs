@@ -5,14 +5,13 @@ use sp_std::vec::Vec;
 
 use pallet_asset::benchmarking::create_portfolio;
 use pallet_identity::benchmarking::{user, User, UserBuilder};
-use polymesh_common_utilities::traits::compliance_manager::ComplianceFnConfig;
 use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataSpec, AssetMetadataValue,
 };
 use polymesh_primitives::bench::create_and_issue_sample_asset;
 use polymesh_primitives::nft::{NFTCollectionId, NFTCollectionKeys, NFTId};
-use polymesh_primitives::traits::AssetFnTrait;
+use polymesh_primitives::traits::{AssetFnTrait, ComplianceFnConfig};
 use polymesh_primitives::{with_transaction, IdentityId, PortfolioKind, WeightMeter};
 
 use crate::*;

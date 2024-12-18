@@ -38,14 +38,13 @@ use sp_std::prelude::*;
 use pallet_base::try_next_post;
 use pallet_identity::PermissionedCallOriginData;
 use pallet_settlement::VenueInfo;
-use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_common_utilities::traits::portfolio;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::impl_checked_inc;
 use polymesh_primitives::settlement::{Leg, ReceiptDetails, SettlementType, VenueId, VenueType};
 use polymesh_primitives::{
-    storage_migration_ver, with_transaction, Balance, EventDid, IdentityId, PortfolioId,
-    WeightMeter,
+    storage_migration_ver, traits::PortfolioSubTrait, with_transaction, Balance, EventDid,
+    IdentityId, PortfolioId, WeightMeter,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 

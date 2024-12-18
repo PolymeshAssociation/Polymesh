@@ -27,14 +27,13 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
     AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
 };
-use polymesh_primitives::traits::AssetFnConfig;
+use polymesh_primitives::traits::{AssetFnConfig, ComplianceFnConfig, NFTTrait};
 use polymesh_primitives::{
     AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, PortfolioUpdateReason,
     Ticker,
 };
 
-use crate::traits::nft::NFTTrait;
-use crate::traits::{checkpoint, compliance_manager, portfolio, statistics};
+use crate::traits::{checkpoint, portfolio, statistics};
 
 /// The module's configuration trait.
 pub trait Config:
@@ -47,7 +46,7 @@ pub trait Config:
 
     type Currency: Currency<Self::AccountId>;
 
-    type ComplianceManager: compliance_manager::ComplianceFnConfig;
+    type ComplianceManager: ComplianceFnConfig;
 
     /// Time used in computation of checkpoints.
     type UnixTime: UnixTime;

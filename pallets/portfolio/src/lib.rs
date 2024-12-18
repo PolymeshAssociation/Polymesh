@@ -56,13 +56,14 @@ use sp_std::prelude::*;
 
 use pallet_identity::PermissionedCallOriginData;
 pub use polymesh_common_utilities::portfolio::{Config, Event, WeightInfo};
-use polymesh_common_utilities::traits::nft::NFTTrait;
-use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
-    extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver,
-    traits::AssetFnTrait, Balance, Fund, FundDescription, IdentityId, NFTId, PortfolioId,
-    PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey,
+    extract_auth,
+    identity_id::PortfolioValidityResult,
+    storage_migration_ver,
+    traits::{AssetFnTrait, NFTTrait, PortfolioSubTrait},
+    Balance, Fund, FundDescription, IdentityId, NFTId, PortfolioId, PortfolioKind, PortfolioName,
+    PortfolioNumber, SecondaryKey,
 };
 
 type Identity<T> = pallet_identity::Module<T>;

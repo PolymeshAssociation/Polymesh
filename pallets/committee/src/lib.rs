@@ -70,10 +70,12 @@ use frame_support::{
     ensure,
     traits::{ChangeMembers, EnsureOrigin, InitializeMembers},
 };
-use polymesh_common_utilities::governance_group::GovernanceGroupTrait;
 use polymesh_primitives::{
     storage_migration_ver,
-    traits::group::{GroupTrait, InactiveMember, MemberCount},
+    traits::{
+        group::{GroupTrait, InactiveMember, MemberCount},
+        GovernanceGroupTrait,
+    },
     IdentityId, MaybeBlock, SystematicIssuers, GC_DID,
 };
 use scale_info::TypeInfo;
