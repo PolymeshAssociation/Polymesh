@@ -85,6 +85,9 @@ mod auth;
 mod claims;
 mod keys;
 
+mod context;
+pub use context::Context;
+
 pub mod types;
 pub use types::{Claim1stKey, Claim2ndKey, DidStatus, PermissionedCallOriginData, RpcDidRecords};
 

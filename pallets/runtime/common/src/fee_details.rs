@@ -1,8 +1,7 @@
 use codec::{Decode, Encode};
 use core::convert::{TryFrom, TryInto};
 use core::marker::PhantomData;
-use pallet_identity::{Config as IdentityConfig, Module as Identity};
-use polymesh_common_utilities::Context;
+use pallet_identity::{Config as IdentityConfig, Context, Module as Identity};
 use polymesh_primitives::{
     traits::CddAndFeeDetails, AccountId, AuthorizationData, IdentityId, Signatory, TransactionError,
 };

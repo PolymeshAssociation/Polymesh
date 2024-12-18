@@ -78,10 +78,7 @@
 pub mod benchmarking;
 
 use pallet_identity as identity;
-pub use polymesh_common_utilities::{
-    group::{Config, RawEvent, WeightInfo},
-    Context,
-};
+pub use polymesh_common_utilities::group::{Config, RawEvent, WeightInfo};
 use polymesh_primitives::{
     committee::COMMITTEE_MEMBERS_MAX,
     traits::group::{GroupTrait, InactiveMember, MemberCount},
