@@ -26,7 +26,6 @@ pub mod asset;
 pub mod balances;
 pub mod checkpoint;
 pub mod compliance_manager;
-pub mod group;
 pub mod nft;
 pub mod portfolio;
 pub mod settlement;
