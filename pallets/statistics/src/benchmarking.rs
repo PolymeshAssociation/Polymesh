@@ -4,8 +4,8 @@ use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
 
 use pallet_identity::benchmarking::{User, UserBuilder};
-use polymesh_common_utilities::benchs::create_and_issue_sample_asset;
 use polymesh_common_utilities::traits::asset::Config as Asset;
+use polymesh_primitives::bench::create_and_issue_sample_asset;
 use polymesh_primitives::constants::currency::{ONE_UNIT, POLY};
 use polymesh_primitives::{jurisdiction::*, statistics::*, Claim, ClaimType, Scope};
 
@@ -83,7 +83,8 @@ fn make_transfer_conditions(stats: &BTreeSet<StatType>, count: u32) -> BTreeSet<
 
 fn init_asset<T: Asset>() -> (User<T>, AssetId) {
     let owner = UserBuilder::<T>::default().generate_did().build("OWNER");
-    let asset_id = create_and_issue_sample_asset::<T>(&owner, true, None, b"MyAsset", true);
+    let asset_id =
+        create_and_issue_sample_asset::<T>(owner.account(), true, None, b"MyAsset", true);
     (owner, asset_id)
 }
 
@@ -251,7 +252,7 @@ benchmarks! {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        let asset_id = create_and_issue_sample_asset::<T>(&alice, true, None, b"MyAsset", true);
+        let asset_id = create_and_issue_sample_asset::<T>(alice.account(), true, None, b"MyAsset", true);
         let transfer_condition = TransferCondition::MaxInvestorCount(1);
         let changes = if a == 1 { Some((false, true)) } else { Some((true, true)) };
     }: {
@@ -273,7 +274,7 @@ benchmarks! {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        let asset_id = create_and_issue_sample_asset::<T>(&alice, true, None, b"MyAsset", true);
+        let asset_id = create_and_issue_sample_asset::<T>(alice.account(), true, None, b"MyAsset", true);
         let transfer_condition = TransferCondition::MaxInvestorOwnership(Permill::one());
     }: {
         assert!(Module::<T>::check_transfer_condition(
@@ -297,7 +298,7 @@ benchmarks! {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        let asset_id = create_and_issue_sample_asset::<T>(&alice, true, None, b"MyAsset", true);
+        let asset_id = create_and_issue_sample_asset::<T>(alice.account(), true, None, b"MyAsset", true);
         let changes = if c == 0 { None } else { Some((false, false)) };
         let transfer_condition =
             TransferCondition::ClaimCount(StatClaim::Accredited(true), alice.did(), 0, Some(1));
@@ -320,7 +321,7 @@ benchmarks! {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        let asset_id = create_and_issue_sample_asset::<T>(&alice, true, None, b"MyAsset", true);
+        let asset_id = create_and_issue_sample_asset::<T>(alice.account(), true, None, b"MyAsset", true);
         let transfer_condition =
             TransferCondition::ClaimCount(StatClaim::Accredited(true), alice.did(), 0, Some(1));
     }: {
@@ -345,7 +346,7 @@ benchmarks! {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        let asset_id = create_and_issue_sample_asset::<T>(&alice, true, None, b"MyAsset", true);
+        let asset_id = create_and_issue_sample_asset::<T>(alice.account(), true, None, b"MyAsset", true);
         let transfer_condition =
             TransferCondition::ClaimOwnership(StatClaim::Accredited(true), IdentityId::from(0), Permill::zero(), Permill::one());
         if a == 1 {
@@ -382,7 +383,7 @@ benchmarks! {
         };
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        let asset_id = create_and_issue_sample_asset::<T>(&alice, true, None, b"MyAsset", true);
+        let asset_id = create_and_issue_sample_asset::<T>(alice.account(), true, None, b"MyAsset", true);
         let key1 = Stat1stKey { asset_id, stat_type };
 
         let changes = {
@@ -422,7 +423,7 @@ benchmarks! {
         let stat_type = StatType{operation_type: StatOpType::Balance, claim_issuer: Some((ClaimType::Accredited, issuer_id))};
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        let asset_id = create_and_issue_sample_asset::<T>(&alice, true, None, b"MyAsset", true);
+        let asset_id = create_and_issue_sample_asset::<T>(alice.account(), true, None, b"MyAsset", true);
         let key1 = Stat1stKey { asset_id, stat_type };
         let (from_balance, to_balance) = {
             if a == 0 {

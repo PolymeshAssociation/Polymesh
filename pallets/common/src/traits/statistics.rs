@@ -1,8 +1,9 @@
-use crate::asset::AssetFnTrait;
+use crate::traits::external_agents::Config as EAConfig;
 use frame_support::decl_event;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::traits::AssetFnConfig;
 use polymesh_primitives::{
     statistics::{StatType, StatUpdate},
     transfer_compliance::{TransferCondition, TransferConditionExemptKey},
@@ -12,12 +13,10 @@ use sp_std::vec::Vec;
 
 /// The main trait for statistics module
 pub trait Config:
-    frame_system::Config + pallet_identity::Config + crate::traits::external_agents::Config
+    frame_system::Config + pallet_identity::Config + EAConfig + AssetFnConfig
 {
     /// The overarching event type.
     type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
-    /// Asset module.
-    type Asset: AssetFnTrait<Self::AccountId, Self::RuntimeOrigin>;
     /// Maximum stats that can be enabled for an Asset.
     type MaxStatsPerAsset: Get<u32>;
     /// Maximum transfer conditions that can be enabled for an Asset.

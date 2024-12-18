@@ -13,11 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#[cfg(feature = "runtime-benchmarks")]
-use polymesh_primitives::PortfolioKind;
-
 use frame_support::decl_event;
-use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
 use sp_std::collections::btree_set::BTreeSet;
@@ -30,6 +26,7 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
     AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
 };
+use polymesh_primitives::traits::AssetFnConfig;
 use polymesh_primitives::{
     AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, PortfolioUpdateReason,
     Ticker,
@@ -40,7 +37,11 @@ use crate::traits::{checkpoint, compliance_manager, external_agents, portfolio, 
 
 /// The module's configuration trait.
 pub trait Config:
-    crate::balances::Config + external_agents::Config + statistics::Config + portfolio::Config
+    crate::balances::Config
+    + external_agents::Config
+    + statistics::Config
+    + portfolio::Config
+    + AssetFnConfig
 {
     /// The overarching event type.
     type RuntimeEvent: From<Event<Self>>
@@ -68,8 +69,6 @@ pub trait Config:
 
     /// Max length for the Asset Metadata type definition.
     type AssetMetadataTypeDefMaxLength: Get<u32>;
-
-    type AssetFn: AssetFnTrait<Self::AccountId, Self::RuntimeOrigin>;
 
     type WeightInfo: WeightInfo;
 
@@ -222,60 +221,4 @@ pub trait WeightInfo {
     fn remove_mandatory_mediators(n: u32) -> Weight;
     fn link_ticker_to_asset_id() -> Weight;
     fn unlink_ticker_from_asset_id() -> Weight;
-}
-
-pub trait AssetFnTrait<Account, Origin> {
-    /// Returns `Ok` if [`AssetDetails::divisible`] or `value` % ONE_UNIT == 0.
-    fn ensure_granular(asset_id: &AssetId, value: Balance) -> DispatchResult;
-
-    /// Returns `true` if the given `identity_id` is exempt from affirming the receivement of `asset_id`, otherwise returns `false`.
-    fn skip_asset_affirmation(identity_id: &IdentityId, asset_id: &AssetId) -> bool;
-
-    /// Returns `true` if the receivement of `asset_id` is exempt from being affirmed, otherwise returns `false`.
-    fn asset_affirmation_exemption(asset_id: &AssetId) -> bool;
-
-    /// Returns the `did` balance for the given `asset_id`.
-    fn asset_balance(asset_id: &AssetId, did: &IdentityId) -> Balance;
-
-    /// Returns the total supply for the given `asset_id`.
-    fn asset_total_supply(asset_id: &AssetId) -> Result<Balance, DispatchError>;
-
-    /// Returns the next [`AssetID`] for the `caller_acc`.
-    fn generate_asset_id(caller_acc: Account) -> AssetId;
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn register_unique_ticker(origin: Origin, ticker: Ticker) -> DispatchResult;
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn create_asset(
-        origin: Origin,
-        asset_name: AssetName,
-        divisible: bool,
-        asset_type: AssetType,
-        asset_identifiers: Vec<AssetIdentifier>,
-        funding_round: Option<FundingRoundName>,
-    ) -> DispatchResult;
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn issue(
-        origin: Origin,
-        asset_id: AssetId,
-        amount: Balance,
-        portfolio_kind: PortfolioKind,
-    ) -> DispatchResult;
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn register_asset_metadata_type(
-        origin: Origin,
-        asset_id: Option<AssetId>,
-        name: AssetMetadataName,
-        spec: AssetMetadataSpec,
-    ) -> DispatchResult;
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn add_mandatory_mediators(
-        origin: Origin,
-        asset_id: AssetId,
-        mediators: BTreeSet<IdentityId>,
-    ) -> DispatchResult;
 }

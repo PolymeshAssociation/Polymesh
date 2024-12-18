@@ -80,6 +80,9 @@
 pub mod benchmarking;
 pub mod checkpoint;
 
+#[cfg(feature = "runtime-benchmarks")]
+use frame_system::RawOrigin;
+
 mod error;
 mod migrations;
 mod types;
@@ -103,7 +106,6 @@ use pallet_base::{
 };
 use pallet_identity::PermissionedCallOriginData;
 use pallet_portfolio::{Error as PortfolioError, PortfolioAssetBalances};
-use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
 pub use polymesh_common_utilities::traits::asset::{Config, Event, RawEvent, WeightInfo};
 use polymesh_common_utilities::traits::nft::NFTTrait;
@@ -118,6 +120,7 @@ use polymesh_primitives::asset_metadata::{
 use polymesh_primitives::constants::*;
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::settlement::InstructionId;
+use polymesh_primitives::traits::AssetFnTrait;
 use polymesh_primitives::{
     extract_auth, storage_migrate_on, storage_migration_ver, AssetIdentifier, Balance, Document,
     DocumentId, IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, SecondaryKey,
@@ -2863,7 +2866,7 @@ impl<T: Config> Module<T> {
 // Trait implementation!
 //==========================================================================
 
-impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
+impl<T: Config> AssetFnTrait<T::AccountId> for Module<T> {
     fn ensure_granular(asset_id: &AssetId, value: Balance) -> DispatchResult {
         let asset_details = Self::try_get_asset_details(&asset_id)?;
         Self::ensure_asset_granular(&asset_details, &value)
@@ -2893,21 +2896,23 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn register_unique_ticker(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
-        Self::register_unique_ticker(origin, ticker)
+    fn register_unique_ticker(caller: T::AccountId, ticker: Ticker) -> DispatchResult {
+        let origin = RawOrigin::Signed(caller);
+        Self::register_unique_ticker(origin.into(), ticker)
     }
 
     #[cfg(feature = "runtime-benchmarks")]
     fn create_asset(
-        origin: T::RuntimeOrigin,
+        caller: T::AccountId,
         asset_name: AssetName,
         divisible: bool,
         asset_type: AssetType,
         asset_identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
     ) -> DispatchResult {
+        let origin = RawOrigin::Signed(caller);
         Self::create_asset(
-            origin,
+            origin.into(),
             asset_name,
             divisible,
             asset_type,
@@ -2918,35 +2923,44 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
 
     #[cfg(feature = "runtime-benchmarks")]
     fn issue(
-        origin: T::RuntimeOrigin,
+        caller: T::AccountId,
         asset_id: AssetId,
         amount: Balance,
         portfolio_kind: PortfolioKind,
     ) -> DispatchResult {
-        Self::issue(origin, asset_id, amount, portfolio_kind)
+        let origin = RawOrigin::Signed(caller);
+        Self::issue(origin.into(), asset_id, amount, portfolio_kind)
     }
 
     #[cfg(feature = "runtime-benchmarks")]
     fn register_asset_metadata_type(
-        origin: T::RuntimeOrigin,
-        asset_id: Option<AssetId>,
+        asset_and_caller: Option<(AssetId, T::AccountId)>,
         name: AssetMetadataName,
         spec: AssetMetadataSpec,
     ) -> DispatchResult {
-        match asset_id {
-            Some(asset_id) => {
-                Self::register_asset_metadata_local_type(origin, asset_id, name, spec)
+        match asset_and_caller {
+            Some((asset_id, caller)) => {
+                let origin = RawOrigin::Signed(caller);
+                Self::register_asset_metadata_local_type(origin.into(), asset_id, name, spec)
             }
-            None => Self::register_asset_metadata_global_type(origin, name, spec),
+            None => {
+                let origin = RawOrigin::Root;
+                Self::register_asset_metadata_global_type(origin.into(), name, spec)
+            }
         }
     }
 
     #[cfg(feature = "runtime-benchmarks")]
     fn add_mandatory_mediators(
-        origin: T::RuntimeOrigin,
+        caller: T::AccountId,
         asset_id: AssetId,
         mediators: BTreeSet<IdentityId>,
     ) -> DispatchResult {
-        Self::add_mandatory_mediators(origin, asset_id, mediators.try_into().unwrap_or_default())
+        let origin = RawOrigin::Signed(caller);
+        Self::add_mandatory_mediators(
+            origin.into(),
+            asset_id,
+            mediators.try_into().unwrap_or_default(),
+        )
     }
 }

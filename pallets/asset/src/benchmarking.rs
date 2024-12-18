@@ -22,7 +22,6 @@ use sp_std::{convert::TryInto, iter, prelude::*};
 
 use pallet_identity::benchmarking::{user, User, UserBuilder};
 use pallet_statistics::benchmarking::setup_transfer_restrictions;
-use polymesh_common_utilities::benchs::reg_unique_ticker;
 use polymesh_common_utilities::traits::compliance_manager::ComplianceFnConfig;
 use polymesh_common_utilities::traits::nft::NFTTrait;
 use polymesh_primitives::agent::AgentGroup;
@@ -31,6 +30,7 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataDescription, AssetMetadataKey, AssetMetadataName, AssetMetadataSpec,
     AssetMetadataValue, AssetMetadataValueDetail,
 };
+use polymesh_primitives::bench::reg_unique_ticker;
 use polymesh_primitives::constants::currency::{ONE_UNIT, POLY};
 use polymesh_primitives::ticker::TICKER_LEN;
 use polymesh_primitives::{
@@ -259,7 +259,7 @@ benchmarks! {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
 
-        let ticker = reg_unique_ticker::<T>(alice.origin().into(), None);
+        let ticker = reg_unique_ticker::<T>(alice.account(), None);
         let new_owner_auth_id = pallet_identity::Module::<T>::add_auth(
             alice.did(),
             Signatory::from(bob.did()),
@@ -288,7 +288,7 @@ benchmarks! {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
-        let ticker = reg_unique_ticker::<T>(alice.origin().into(), None);
+        let ticker = reg_unique_ticker::<T>(alice.account(), None);
         Module::<T>::link_ticker_to_asset_id(alice.origin().into(), ticker, asset_id).unwrap();
 
         let new_owner_auth_id = pallet_identity::Module::<T>::add_auth(
@@ -748,14 +748,14 @@ benchmarks! {
         set_ticker_registration_config::<T>();
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
-        let ticker = reg_unique_ticker::<T>(alice.origin().into(), None);
+        let ticker = reg_unique_ticker::<T>(alice.account(), None);
     }: _(alice.origin, ticker, asset_id)
 
     unlink_ticker_from_asset_id {
         set_ticker_registration_config::<T>();
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
-        let ticker = reg_unique_ticker::<T>(alice.origin().into(), None);
+        let ticker = reg_unique_ticker::<T>(alice.account(), None);
         Module::<T>::link_ticker_to_asset_id(
             alice.clone().origin().into(),
             ticker,

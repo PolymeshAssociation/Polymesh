@@ -56,14 +56,13 @@ use sp_std::prelude::*;
 
 use pallet_identity::PermissionedCallOriginData;
 pub use polymesh_common_utilities::portfolio::{Config, Event, WeightInfo};
-use polymesh_common_utilities::traits::asset::AssetFnTrait;
 use polymesh_common_utilities::traits::nft::NFTTrait;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
-    extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, Fund,
-    FundDescription, IdentityId, NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
-    SecondaryKey,
+    extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver,
+    traits::AssetFnTrait, Balance, Fund, FundDescription, IdentityId, NFTId, PortfolioId,
+    PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey,
 };
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -648,7 +647,7 @@ impl<T: Config> Module<T> {
         asset_id: &AssetId,
         amount: Balance,
     ) -> DispatchResult {
-        T::Asset::ensure_granular(asset_id, amount)?;
+        T::AssetFn::ensure_granular(asset_id, amount)?;
         Self::portfolio_asset_balances(portfolio, asset_id)
             .saturating_sub(Self::locked_assets(portfolio, asset_id))
             .checked_sub(amount)
@@ -1004,13 +1003,13 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Module<T> {
 
     fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, asset_id: &AssetId) -> bool {
         if Self::portfolio_custodian(portfolio_id).is_some() {
-            if T::Asset::asset_affirmation_exemption(asset_id) {
+            if T::AssetFn::asset_affirmation_exemption(asset_id) {
                 return true;
             }
             return PreApprovedPortfolios::get(portfolio_id, asset_id);
         }
 
-        if T::Asset::skip_asset_affirmation(&portfolio_id.did, asset_id) {
+        if T::AssetFn::skip_asset_affirmation(&portfolio_id.did, asset_id) {
             return true;
         }
         PreApprovedPortfolios::get(portfolio_id, asset_id)

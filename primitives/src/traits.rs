@@ -18,7 +18,9 @@ use crate::{secondary_key::SecondaryKey, Balance, IdentityId};
 use frame_support::dispatch::DispatchError;
 use sp_runtime::transaction_validity::InvalidTransaction;
 
+mod asset;
 pub mod group;
+pub use asset::*;
 
 // Polymesh note: This was specifically added for Polymesh
 pub trait CddAndFeeDetails<AccountId, Call> {

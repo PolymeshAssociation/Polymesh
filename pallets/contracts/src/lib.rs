@@ -77,7 +77,7 @@ use pallet_contracts::weights::WeightInfo as FrameWeightInfo;
 use pallet_contracts::Config as BConfig;
 use pallet_contracts_primitives::Code;
 use pallet_identity::{Config as IdentityConfig, ParentDid, WeightInfo as IdentityWeightInfo};
-use polymesh_common_utilities::asset::AssetFnTrait;
+use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait};
 use polymesh_primitives::{storage_migration_ver, Balance, Permissions};
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -296,7 +296,7 @@ pub trait WeightInfo {
 
 /// The `Config` trait for the smart contracts pallet.
 pub trait Config:
-    IdentityConfig + BConfig<Currency = Self::Balances> + frame_system::Config
+    IdentityConfig + BConfig<Currency = Self::Balances> + frame_system::Config + AssetFnConfig
 {
     /// The overarching event type.
     type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
@@ -307,9 +307,6 @@ pub trait Config:
 
     /// Max value that can be returned from the ChainExtension.
     type MaxOutLen: Get<u32>;
-
-    /// Asset module trait
-    type Asset: AssetFnTrait<Self::AccountId, Self::RuntimeOrigin>;
 
     /// The weight configuration for the pallet.
     type WeightInfo: WeightInfo;

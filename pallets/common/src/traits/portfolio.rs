@@ -17,12 +17,13 @@
 //!
 //! The interface allows to accept portfolio custody
 
-use crate::{asset::AssetFnTrait, nft::NFTTrait, CommonConfig};
+use crate::{nft::NFTTrait, CommonConfig};
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::pallet_prelude::Get;
 use frame_support::weights::Weight;
 use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::traits::AssetFnConfig;
 use polymesh_primitives::{
     Balance, Fund, FundDescription, IdentityId, Memo, NFTId, PortfolioId, PortfolioName,
     PortfolioNumber, SecondaryKey,
@@ -117,11 +118,9 @@ pub trait WeightInfo {
     fn create_custody_portfolio() -> Weight;
 }
 
-pub trait Config: CommonConfig + pallet_identity::Config {
+pub trait Config: CommonConfig + pallet_identity::Config + AssetFnConfig {
     type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     type WeightInfo: WeightInfo;
-    /// Asset module.
-    type Asset: AssetFnTrait<Self::AccountId, Self::RuntimeOrigin>;
     /// Maximum number of fungible assets that can be moved in a single transfer call.
     type MaxNumberOfFungibleMoves: Get<u32>;
     /// Maximum number of NFTs that can be moved in a single transfer call.

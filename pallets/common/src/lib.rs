@@ -22,6 +22,3 @@ pub use traits::{
 };
 pub mod context;
 pub use context::Context;
-
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchs;

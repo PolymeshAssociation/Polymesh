@@ -218,6 +218,10 @@ pub use authorization::{Authorization, AuthorizationData, AuthorizationError, Au
 /// Pub Traits
 pub mod traits;
 
+/// Benchmarking helpers.
+#[cfg(feature = "runtime-benchmarks")]
+pub mod bench;
+
 pub mod ticker;
 pub use ticker::Ticker;
 

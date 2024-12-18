@@ -16,8 +16,8 @@
 use crate::*;
 use frame_benchmarking::benchmarks;
 use pallet_identity::benchmarking::{user, User};
-use polymesh_common_utilities::benchs::create_and_issue_sample_asset;
 use polymesh_common_utilities::traits::asset::Config as Asset;
+use polymesh_primitives::bench::create_and_issue_sample_asset;
 use polymesh_primitives::{AuthorizationData, ExtrinsicPermissions, PalletName, PalletPermissions};
 use sp_std::prelude::*;
 
@@ -26,7 +26,8 @@ const MAX_PALLETS: u32 = 19;
 
 fn setup<T: Asset>() -> (User<T>, AssetId) {
     let owner = user("owner", SEED);
-    let asset_id = create_and_issue_sample_asset::<T>(&owner, true, None, b"SampleAsset", false);
+    let asset_id =
+        create_and_issue_sample_asset::<T>(owner.account(), true, None, b"SampleAsset", false);
     (owner, asset_id)
 }
 

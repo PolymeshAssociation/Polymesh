@@ -1,19 +1,18 @@
 use frame_benchmarking::benchmarks;
-use frame_system::RawOrigin;
 use scale_info::prelude::format;
 use sp_std::prelude::*;
 use sp_std::vec::Vec;
 
 use pallet_asset::benchmarking::create_portfolio;
 use pallet_identity::benchmarking::{user, User, UserBuilder};
-use polymesh_common_utilities::benchs::create_and_issue_sample_asset;
-use polymesh_common_utilities::traits::asset::AssetFnTrait;
 use polymesh_common_utilities::traits::compliance_manager::ComplianceFnConfig;
 use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataSpec, AssetMetadataValue,
 };
+use polymesh_primitives::bench::create_and_issue_sample_asset;
 use polymesh_primitives::nft::{NFTCollectionId, NFTCollectionKeys, NFTId};
+use polymesh_primitives::traits::AssetFnTrait;
 use polymesh_primitives::{with_transaction, IdentityId, PortfolioKind, WeightMeter};
 
 use crate::*;
@@ -23,7 +22,7 @@ const MAX_COLLECTION_KEYS: u32 = 255;
 /// Creates an NFT collection with `n` global metadata keys.
 fn create_collection<T: Config>(collection_owner: &User<T>, n: u32) -> (AssetId, NFTCollectionId) {
     let asset_id = create_and_issue_sample_asset::<T>(
-        collection_owner,
+        collection_owner.account(),
         false,
         Some(AssetType::NonFungible(NonFungibleType::Invoice)),
         b"MyNFT",
@@ -49,7 +48,6 @@ fn creates_keys_register_metadata_types<T: Config>(n: u32) -> NFTCollectionKeys 
     for i in 1..n + 1 {
         let asset_metadata_name = format!("key{}", i).as_bytes().to_vec();
         T::AssetFn::register_asset_metadata_type(
-            RawOrigin::Root.into(),
             None,
             asset_metadata_name.into(),
             AssetMetadataSpec::default(),
@@ -120,7 +118,7 @@ where
                 mediator.did()
             })
             .collect();
-        T::AssetFn::add_mandatory_mediators(sender.origin().into(), asset_id, mediators_identity)
+        T::AssetFn::add_mandatory_mediators(sender.account(), asset_id, mediators_identity)
             .unwrap();
     }
 

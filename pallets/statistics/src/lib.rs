@@ -25,12 +25,12 @@ use frame_support::weights::Weight;
 use frame_support::{decl_error, decl_module, decl_storage, ensure, BoundedBTreeSet};
 use sp_std::{collections::btree_set::BTreeSet, vec, vec::Vec};
 
-use polymesh_common_utilities::asset::AssetFnTrait;
 pub use polymesh_common_utilities::traits::statistics::{Config, Event, WeightInfo};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::statistics::{
     Percentage, Stat1stKey, Stat2ndKey, StatOpType, StatType, StatUpdate,
 };
+use polymesh_primitives::traits::AssetFnTrait;
 use polymesh_primitives::transfer_compliance::{
     AssetTransferCompliance, TransferCondition, TransferConditionExemptKey,
 };
@@ -912,15 +912,15 @@ impl<T: Config> Module<T> {
     ) -> Result<Vec<TransferCondition>, DispatchError> {
         let mut failed_conditions = Vec::new();
 
-        let asset_total_supply = T::Asset::asset_total_supply(&asset_id)?;
+        let asset_total_supply = T::AssetFn::asset_total_supply(&asset_id)?;
         let asset_compliance = AssetTransferCompliances::<T>::get(&asset_id);
 
         if asset_compliance.paused {
             return Ok(failed_conditions);
         }
 
-        let sender_current_balance = T::Asset::asset_balance(&asset_id, sender_did);
-        let receiver_current_balance = T::Asset::asset_balance(&asset_id, receiver_did);
+        let sender_current_balance = T::AssetFn::asset_balance(&asset_id, sender_did);
+        let receiver_current_balance = T::AssetFn::asset_balance(&asset_id, receiver_did);
 
         let count_changes = Self::investor_count_changes(
             Some(sender_current_balance.saturating_sub(transfer_amount)),

@@ -23,22 +23,24 @@ use sp_std::prelude::*;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::compliance_manager::{AssetComplianceResult, ComplianceRequirement};
 use polymesh_primitives::condition::{conditions_total_counts, Condition};
+use polymesh_primitives::traits::AssetFnConfig;
 use polymesh_primitives::{IdentityId, TrustedIssuer, WeightMeter};
 
-use crate::asset::AssetFnTrait;
 use crate::balances::Config as BalancesConfig;
 use crate::traits::external_agents::Config as EAConfig;
 use crate::traits::CommonConfig;
 
 /// The module's configuration trait.
 pub trait Config:
-    pallet_timestamp::Config + CommonConfig + BalancesConfig + pallet_identity::Config + EAConfig
+    pallet_timestamp::Config
+    + CommonConfig
+    + BalancesConfig
+    + pallet_identity::Config
+    + EAConfig
+    + AssetFnConfig
 {
     /// The overarching event type.
     type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
-
-    /// Asset module
-    type Asset: AssetFnTrait<Self::AccountId, Self::RuntimeOrigin>;
 
     /// Weight details of all extrinsic
     type WeightInfo: WeightInfo;

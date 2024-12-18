@@ -22,7 +22,6 @@ use pallet_portfolio::{
     NextPortfolioNumber, PortfolioAssetBalances, PortfolioAssetCount, PortfolioLockedAssets,
 };
 use pallet_statistics::AssetStats;
-use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::traits::checkpoint::{
     NextCheckpoints, ScheduleCheckpoints, ScheduleId,
 };
@@ -42,6 +41,7 @@ use polymesh_primitives::settlement::{
 };
 use polymesh_primitives::statistics::StatType;
 use polymesh_primitives::statistics::{Stat1stKey, Stat2ndKey};
+use polymesh_primitives::traits::AssetFnTrait;
 use polymesh_primitives::{
     AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document, DocumentId,
     Fund, FundDescription, IdentityId, Memo, Moment, NFTCollectionKeys, Permissions, PortfolioId,

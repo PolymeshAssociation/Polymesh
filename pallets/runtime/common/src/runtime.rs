@@ -292,7 +292,6 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_portfolio::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
-            type Asset = Asset;
             type WeightInfo = polymesh_weights::pallet_portfolio::SubstrateWeight;
             type MaxNumberOfFungibleMoves = MaxNumberOfFungibleMoves;
             type MaxNumberOfNFTsMoves = MaxNumberOfNFTsMoves;
@@ -364,6 +363,10 @@ macro_rules! misc_pallet_impls {
             type SubsidyCallFilter = SubsidyFilter;
         }
 
+        impl polymesh_primitives::traits::AssetFnConfig for Runtime {
+            type AssetFn = Asset;
+        }
+
         impl pallet_asset::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type Currency = Balances;
@@ -374,7 +377,6 @@ macro_rules! misc_pallet_impls {
             type AssetMetadataNameMaxLength = AssetMetadataNameMaxLength;
             type AssetMetadataValueMaxLength = AssetMetadataValueMaxLength;
             type AssetMetadataTypeDefMaxLength = AssetMetadataTypeDefMaxLength;
-            type AssetFn = Asset;
             type WeightInfo = polymesh_weights::pallet_asset::SubstrateWeight;
             type CPWeightInfo = polymesh_weights::pallet_checkpoint::SubstrateWeight;
             type NFTFn = pallet_nft::Module<Runtime>;
@@ -385,7 +387,6 @@ macro_rules! misc_pallet_impls {
             type RuntimeEvent = RuntimeEvent;
             type MaxInLen = MaxInLen;
             type MaxOutLen = MaxOutLen;
-            type Asset = pallet_asset::Module<Runtime>;
             type WeightInfo = polymesh_weights::polymesh_contracts::SubstrateWeight;
         }
 
@@ -422,7 +423,6 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_compliance_manager::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
-            type Asset = Asset;
             type WeightInfo = polymesh_weights::pallet_compliance_manager::SubstrateWeight;
             type MaxConditionComplexity = MaxConditionComplexity;
         }
@@ -438,7 +438,6 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_statistics::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
-            type Asset = Asset;
             type MaxStatsPerAsset = MaxStatsPerAsset;
             type MaxTransferConditionsPerAsset = MaxTransferConditionsPerAsset;
             type WeightInfo = polymesh_weights::pallet_statistics::SubstrateWeight;

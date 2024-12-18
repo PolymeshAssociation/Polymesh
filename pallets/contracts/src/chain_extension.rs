@@ -478,7 +478,7 @@ where
         target: "runtime",
         "PolymeshExtension contract GetNextAssetId: caller_account={caller_account:?}",
     );
-    let asset_id = T::Asset::generate_asset_id(caller_account);
+    let asset_id = T::AssetFn::generate_asset_id(caller_account);
     trace!(
         target: "runtime",
         "PolymeshExtension contract GetNextAssetId: asset_id={asset_id:?}",
