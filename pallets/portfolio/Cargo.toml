@@ -6,11 +6,9 @@ edition = "2021"
 
 [dependencies]
 # Common
-polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 
 # Our Pallets
-pallet-balances = { workspace = true, default-features = false  }
 pallet-base = { workspace = true, default-features = false  }
 pallet-identity = { workspace = true, default-features = false  }
 pallet-permissions = { workspace = true, default-features = false }
@@ -41,14 +39,14 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "pallet-base/std",
-    "pallet-balances/std",
     "pallet-identity/std",
     "pallet-permissions/std",
-    "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "serde/std",
     "sp-std/std",
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
+    "pallet-identity/runtime-benchmarks",
+    "pallet-permissions/runtime-benchmarks",
 ]

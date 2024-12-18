@@ -20,7 +20,6 @@ use sp_api_hidden_includes_decl_storage::hidden_include::traits::Get;
 use sp_std::prelude::*;
 
 use pallet_identity::benchmarking::{user, User, UserBuilder};
-use polymesh_common_utilities::asset::Config as AssetConfig;
 use polymesh_primitives::bench::create_and_issue_sample_asset;
 use polymesh_primitives::constants::currency::ONE_UNIT;
 use polymesh_primitives::{AuthorizationData, NFTs, PortfolioName, Signatory};
@@ -62,8 +61,6 @@ fn assert_custodian<T: Config>(pid: PortfolioId, custodian: &User<T>, holds: boo
 }
 
 benchmarks! {
-    where_clause { where T: AssetConfig }
-
     create_portfolio {
         let l in 1..PORTFOLIO_NAME_LEN.try_into().unwrap();
 

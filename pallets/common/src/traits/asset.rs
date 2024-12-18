@@ -33,11 +33,11 @@ use polymesh_primitives::{
     Ticker,
 };
 
-use crate::traits::{checkpoint, portfolio, statistics};
+use crate::traits::{checkpoint, statistics};
 
 /// The module's configuration trait.
 pub trait Config:
-    crate::balances::Config + EAConfig + statistics::Config + portfolio::Config + AssetFnConfig
+    crate::balances::Config + EAConfig + statistics::Config + pallet_portfolio::Config + AssetFnConfig
 {
     /// The overarching event type.
     type RuntimeEvent: From<Event<Self>>

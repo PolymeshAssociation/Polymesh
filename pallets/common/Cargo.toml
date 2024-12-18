@@ -13,6 +13,7 @@ pallet-base = { workspace = true, default-features = false  }
 pallet-permissions = { workspace = true, default-features = false  }
 pallet-identity = { workspace = true, default-features = false  }
 pallet-external-agents = { workspace = true, default-features = false  }
+pallet-portfolio = { workspace = true, default-features = false  }
 
 # Other
 serde = { version = "1.0.112", default-features = false }
@@ -60,6 +61,7 @@ std = [
 	"pallet-permissions/std",
 	"pallet-identity/std",
 	"pallet-external-agents/std",
+	"pallet-portfolio/std",
 	"polymesh-primitives/std",
 	"serde/std",
 	"serde_derive",
@@ -75,5 +77,6 @@ runtime-benchmarks = [
 	"pallet-permissions/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
 	"pallet-external-agents/runtime-benchmarks",
+	"pallet-portfolio/runtime-benchmarks",
 	"schnorrkel",
 ]

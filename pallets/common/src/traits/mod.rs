@@ -26,6 +26,5 @@ pub mod asset;
 pub mod balances;
 pub mod checkpoint;
 pub mod compliance_manager;
-pub mod portfolio;
 pub mod settlement;
 pub mod statistics;
