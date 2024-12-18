@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 polymesh-common-utilities = { workspace = true, default-features = false }
-pallet-balances = { workspace = true, default-features = false  }
 pallet-base = { workspace = true, default-features = false  }
 pallet-identity = { workspace = true, default-features = false  }
 pallet-asset = { workspace = true, default-features = false  }
@@ -14,7 +13,7 @@ pallet-external-agents = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-primitives-derive = { workspace = true, default-features = false }
 pallet-compliance-manager = { workspace = true, default-features = false }
-pallet-statistics = { workspace = true, default-features = false }
+pallet-permissions = { workspace = true, default-features = false }
 pallet-nft = { workspace = true, default-features = false }
 
 serde = { version = "1.0.104", default-features = false }
@@ -50,11 +49,10 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "pallet-base/std",
-    "pallet-balances/std",
     "pallet-asset/std",
     "pallet-identity/std",
     "pallet-timestamp/std",
-    "pallet-statistics/std",
+    "pallet-permissions/std",
     "polymesh-common-utilities/std",
     "pallet-compliance-manager/std",
     "polymesh-primitives/std",
