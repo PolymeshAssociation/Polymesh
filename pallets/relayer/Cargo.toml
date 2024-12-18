@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 pallet-identity = { workspace = true, default-features = false}
-polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false}
 
 # Substrate
@@ -31,9 +30,7 @@ std = [
     "sp-std/std",
     "pallet-identity/std",
     "polymesh-primitives/std",
-    "polymesh-common-utilities/std",
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
-    "polymesh-common-utilities/runtime-benchmarks",
 ]

@@ -46,10 +46,9 @@ use frame_support::{
 };
 use frame_system::ensure_root;
 use pallet_identity::Config as IdentityConfig;
-use polymesh_common_utilities::traits::relayer::SubsidiserTrait;
 use polymesh_primitives::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    traits::CddAndFeeDetails,
+    traits::{CddAndFeeDetails, SubsidiserTrait},
     Balance, IdentityId, PosRatio, GC_DID,
 };
 use sp_runtime::{traits::Zero, Perbill};

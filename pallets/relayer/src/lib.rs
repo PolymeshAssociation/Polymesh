@@ -45,24 +45,68 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_error, decl_module, decl_storage,
+    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure, fail,
     traits::{Contains, GetCallMetadata},
+    weights::Weight,
 };
 use frame_system::ensure_signed;
 use pallet_identity::PermissionedCallOriginData;
-pub use polymesh_common_utilities::traits::relayer::{
-    Config, Event, RawEvent, SubsidiserTrait, WeightInfo,
-};
 use polymesh_primitives::{
-    extract_auth, AuthorizationData, Balance, IdentityId, Signatory, TransactionError,
+    extract_auth, traits::SubsidiserTrait, AuthorizationData, Balance, EventDid, IdentityId,
+    Signatory, TransactionError,
 };
 use scale_info::TypeInfo;
 use sp_runtime::transaction_validity::InvalidTransaction;
 use sp_std::vec;
 
 type Identity<T> = pallet_identity::Module<T>;
+
+pub trait WeightInfo {
+    fn set_paying_key() -> Weight;
+    fn accept_paying_key() -> Weight;
+    fn remove_paying_key() -> Weight;
+    fn update_polyx_limit() -> Weight;
+    fn increase_polyx_limit() -> Weight;
+    fn decrease_polyx_limit() -> Weight;
+}
+
+pub trait Config: frame_system::Config + pallet_identity::Config {
+    /// The overarching event type.
+    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+    /// Subsidy pallet weights.
+    type WeightInfo: WeightInfo;
+    /// Subsidy call filter.
+    type SubsidyCallFilter: frame_support::traits::Contains<Self::RuntimeCall>;
+}
+
+decl_event! {
+    pub enum Event<T>
+    where
+        AccountId = <T as frame_system::Config>::AccountId,
+    {
+        /// Authorization given for `paying_key` to `user_key`.
+        ///
+        /// (Caller DID, User Key, Paying Key, Initial POLYX limit, Auth ID)
+        AuthorizedPayingKey(EventDid, AccountId, AccountId, Balance, u64),
+
+        /// Accepted paying key.
+        ///
+        /// (Caller DID, User Key, Paying Key)
+        AcceptedPayingKey(EventDid, AccountId, AccountId),
+
+        /// Removed paying key.
+        ///
+        /// (Caller DID, User Key, Paying Key)
+        RemovedPayingKey(EventDid, AccountId, AccountId),
+
+        /// Updated polyx limit.
+        ///
+        /// (Caller DID, User Key, Paying Key, POLYX limit, old remaining POLYX)
+        UpdatedPolyxLimit(EventDid, AccountId, AccountId, Balance, Balance),
+    }
+}
 
 /// A Subsidy for transaction and protocol fees.
 ///

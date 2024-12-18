@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 polymesh-primitives = { workspace = true, default-features = false }
-polymesh-common-utilities = { workspace = true, default-features = false }
 
 # Our Pallets
 pallet-identity = { workspace = true, default-features = false  }
@@ -35,7 +34,6 @@ std = [
     "frame-benchmarking/std",
     "frame-support/std",
     "frame-system/std",
-    "polymesh-common-utilities/std",
     "polymesh-primitives/std",
 		"pallet-identity/std",
     "serde/std",

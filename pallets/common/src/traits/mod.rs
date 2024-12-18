@@ -31,6 +31,5 @@ pub mod group;
 pub mod multisig;
 pub mod nft;
 pub mod portfolio;
-pub mod relayer;
 pub mod settlement;
 pub mod statistics;

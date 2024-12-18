@@ -48,6 +48,21 @@ pub trait IdentityFnTrait<AccountId> {
     ) -> Result<IdentityId, DispatchError>;
 }
 
+pub trait SubsidiserTrait<AccountId, RuntimeCall> {
+    /// Check if a `user_key` has a subsidiser and that the subsidy can pay the `fee`.
+    fn check_subsidy(
+        user_key: &AccountId,
+        fee: Balance,
+        call: Option<&RuntimeCall>,
+    ) -> Result<Option<AccountId>, InvalidTransaction>;
+
+    /// Debit `fee` from the remaining balance of the subsidy for `user_key`.
+    fn debit_subsidy(
+        user_key: &AccountId,
+        fee: Balance,
+    ) -> Result<Option<AccountId>, InvalidTransaction>;
+}
+
 /// A currency that has a block rewards reserve.
 pub trait BlockRewardsReserveCurrency<NegativeImbalance> {
     /// An instance of `Drop` for positive imbalance.
