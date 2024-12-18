@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 polymesh-primitives = { workspace = true, default-features = false }
-polymesh-common-utilities = { workspace = true, default-features = false }
 pallet-external-agents = { workspace = true, default-features = false }
 pallet-identity = { workspace = true, default-features = false }
 
@@ -55,8 +54,11 @@ std = [
 	"frame-system/std",
 	"pallet-timestamp/std",
 	"polymesh-primitives/std",
+	"pallet-identity/std",
 	"pallet-external-agents/std",
 ]
 runtime-benchmarks = [
-    "frame-benchmarking",
+  "frame-benchmarking",
+	"pallet-identity/runtime-benchmarks",
+	"pallet-external-agents/runtime-benchmarks",
 ]
