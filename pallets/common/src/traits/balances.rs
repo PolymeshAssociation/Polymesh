@@ -17,10 +17,10 @@ use crate::traits::{CommonConfig, NegativeImbalance};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
     decl_event,
-    dispatch::{DispatchError, DispatchResult},
+    dispatch::DispatchResult,
     traits::{
-        BalanceStatus as Status, ExistenceRequirement, Get, LockIdentifier, LockableCurrency,
-        OnUnbalanced, StoredMap, WithdrawReasons,
+        BalanceStatus as Status, Get, LockIdentifier, LockableCurrency, OnUnbalanced, StoredMap,
+        WithdrawReasons,
     },
     weights::Weight,
 };
@@ -174,15 +174,6 @@ pub trait Config: CommonConfig + pallet_identity::Config {
     /// The maximum number of locks that should exist on an account.
     /// Not strictly enforced, but used for weight estimation.
     type MaxLocks: Get<u32>;
-}
-
-pub trait BalancesTrait<A, NI> {
-    fn withdraw(
-        who: &A,
-        value: Balance,
-        reasons: WithdrawReasons,
-        _liveness: ExistenceRequirement,
-    ) -> sp_std::result::Result<NI, DispatchError>;
 }
 
 pub trait CheckCdd<AccountId> {

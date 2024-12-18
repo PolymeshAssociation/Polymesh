@@ -178,7 +178,7 @@ use frame_support::{
 use frame_system::{self as system, ensure_root, ensure_signed};
 pub use polymesh_common_utilities::traits::balances::WeightInfo;
 use polymesh_common_utilities::traits::{
-    balances::{AccountData, BalancesTrait, CheckCdd, RawEvent, Reasons},
+    balances::{AccountData, CheckCdd, RawEvent, Reasons},
     NegativeImbalance, PositiveImbalance,
 };
 use polymesh_primitives::traits::{BlockRewardsReserveCurrency, IdentityFnTrait};
@@ -687,20 +687,6 @@ impl<T: Config> Module<T> {
         ));
 
         Ok(())
-    }
-}
-
-impl<T> BalancesTrait<T::AccountId, NegativeImbalance<T>> for Module<T>
-where
-    T: Config,
-{
-    fn withdraw(
-        who: &T::AccountId,
-        value: Balance,
-        reasons: WithdrawReasons,
-        liveness: ExistenceRequirement,
-    ) -> sp_std::result::Result<NegativeImbalance<T>, DispatchError> {
-        <Self as Currency<T::AccountId>>::withdraw(who, value, reasons, liveness)
     }
 }
 
