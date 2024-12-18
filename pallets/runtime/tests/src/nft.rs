@@ -2,12 +2,12 @@ use chrono::prelude::Utc;
 use frame_support::storage::StorageValue;
 use frame_support::{assert_noop, assert_ok, StorageDoubleMap, StorageMap};
 
+use pallet_nft::Event;
 use pallet_nft::{
     Collection, CollectionKeys, CurrentCollectionId, CurrentNFTId, MetadataValue, NFTOwner,
     NFTsInCollection, NumberOfNFTs,
 };
 use pallet_portfolio::PortfolioNFT;
-use polymesh_common_utilities::traits::nft::Event;
 use polymesh_primitives::asset::{AssetId, AssetName, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
