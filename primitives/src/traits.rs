@@ -40,6 +40,11 @@ pub trait CddAndFeeDetails<AccountId, Call> {
     fn get_payer_from_context() -> Option<AccountId>;
 }
 
+pub trait CheckCdd<AccountId> {
+    fn check_key_cdd(key: &AccountId) -> bool;
+    fn get_key_cdd_did(key: &AccountId) -> Option<IdentityId>;
+}
+
 pub trait IdentityFnTrait<AccountId> {
     fn get_identity(key: &AccountId) -> Option<IdentityId>;
     fn current_payer() -> Option<AccountId>;

@@ -86,8 +86,8 @@ use sp_std::prelude::*;
 
 use pallet_identity::{Config as IdentityConfig, Context};
 use pallet_permissions::with_call_metadata;
-use polymesh_common_utilities::balances::{CheckCdd, Config as BalancesConfig};
-use polymesh_primitives::{identity::AuthorizationNonce, IdentityId};
+use polymesh_common_utilities::balances::Config as BalancesConfig;
+use polymesh_primitives::{identity::AuthorizationNonce, traits::CheckCdd, IdentityId};
 
 type Identity<T> = pallet_identity::Module<T>;
 

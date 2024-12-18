@@ -24,7 +24,7 @@ use frame_support::{
     },
     weights::Weight,
 };
-use polymesh_primitives::{Balance, IdentityId, Memo};
+use polymesh_primitives::{traits::CheckCdd, Balance, IdentityId, Memo};
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 use sp_std::ops::BitOr;
@@ -174,11 +174,6 @@ pub trait Config: CommonConfig + pallet_identity::Config {
     /// The maximum number of locks that should exist on an account.
     /// Not strictly enforced, but used for weight estimation.
     type MaxLocks: Get<u32>;
-}
-
-pub trait CheckCdd<AccountId> {
-    fn check_key_cdd(key: &AccountId) -> bool;
-    fn get_key_cdd_did(key: &AccountId) -> Option<IdentityId>;
 }
 
 /// Additional functionality atop `LockableCurrency` allowing a local,

@@ -41,7 +41,7 @@ use sp_staking::{EraIndex, SessionIndex};
 
 use pallet_staking::types::SlashingSwitch;
 use pallet_staking::{self as pallet_staking, *};
-use polymesh_common_utilities::traits::balances::{AccountData, CheckCdd};
+use polymesh_common_utilities::traits::balances::AccountData;
 use polymesh_common_utilities::traits::CommonConfig;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::constants::currency::POLY;
@@ -49,7 +49,7 @@ use polymesh_primitives::identity_id::GenesisIdentityRecord;
 use polymesh_primitives::{
     traits::{
         group::{GroupTrait, InactiveMember},
-        PortfolioSubTrait, SubsidiserTrait,
+        CheckCdd, PortfolioSubTrait, SubsidiserTrait,
     },
     Authorization, AuthorizationData, Claim, IdentityId, Moment, NFTId, Permissions, PortfolioId,
     SecondaryKey, Signatory,
