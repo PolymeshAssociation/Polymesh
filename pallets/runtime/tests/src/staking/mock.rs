@@ -39,10 +39,10 @@ use sp_runtime::{KeyTypeId, Perbill};
 use sp_staking::offence::{DisableStrategy, OffenceDetails, OnOffenceHandler};
 use sp_staking::{EraIndex, SessionIndex};
 
+use pallet_balances::AccountData;
+use pallet_balances::BlockRewardConfig;
 use pallet_staking::types::SlashingSwitch;
 use pallet_staking::{self as pallet_staking, *};
-use polymesh_common_utilities::traits::balances::AccountData;
-use polymesh_common_utilities::traits::CommonConfig;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::identity_id::GenesisIdentityRecord;
@@ -190,7 +190,7 @@ impl pallet_base::Config for Test {
     type MaxLen = MaxLen;
 }
 
-impl CommonConfig for Test {
+impl BlockRewardConfig for Test {
     type BlockRewardsReserve = pallet_balances::Module<Test>;
 }
 

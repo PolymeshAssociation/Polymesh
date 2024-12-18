@@ -5,7 +5,6 @@ authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
-polymesh-common-utilities = { workspace = true, default-features = false  }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-primitives-derive = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false }
@@ -60,7 +59,6 @@ std = [
     "pallet-identity/std",
     "pallet-timestamp/std",
     "pallet-treasury/std",
-    "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "polymesh-runtime-common/std",
     "serde/std",

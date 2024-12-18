@@ -13,15 +13,5 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use polymesh_primitives::traits::BlockRewardsReserveCurrency;
-
-pub trait CommonConfig: Sized {
-    type BlockRewardsReserve: BlockRewardsReserveCurrency<NegativeImbalance<Self>>;
-}
-
-pub mod imbalances;
-pub use imbalances::{NegativeImbalance, PositiveImbalance};
-
 pub mod asset;
-pub mod balances;
 pub mod checkpoint;

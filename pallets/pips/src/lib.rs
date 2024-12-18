@@ -106,9 +106,9 @@ use sp_std::convert::From;
 use sp_std::vec::Vec;
 use sp_version::RuntimeVersion;
 
+use pallet_balances::LockableCurrencyExt;
 use pallet_base::{ensure_opt_string_limited, try_next_post};
 use pallet_identity::{Config as IdentityConfig, PermissionedCallOriginData};
-use polymesh_common_utilities::traits::balances::LockableCurrencyExt;
 use polymesh_primitives::constants::PIP_MAX_REPORTING_SIZE;
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::traits::group::GroupTrait;
