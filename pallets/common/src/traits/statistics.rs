@@ -12,7 +12,7 @@ use sp_std::vec::Vec;
 
 /// The main trait for statistics module
 pub trait Config:
-    frame_system::Config + crate::traits::identity::Config + crate::traits::external_agents::Config
+    frame_system::Config + pallet_identity::Config + crate::traits::external_agents::Config
 {
     /// The overarching event type.
     type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;

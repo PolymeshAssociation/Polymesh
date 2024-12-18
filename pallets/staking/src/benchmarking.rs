@@ -52,7 +52,7 @@ type MaxNominators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig
 
 use frame_support::StorageDoubleMap;
 
-use polymesh_common_utilities::benchs::{User, UserBuilder};
+use pallet_identity::benchmarking::{User, UserBuilder};
 use polymesh_primitives::identity_claim::ClaimType;
 use polymesh_primitives::{IdentityId, Permissions};
 

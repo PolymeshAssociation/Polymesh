@@ -5,10 +5,9 @@ authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
-pallet-base = { path = "../base", default-features = false }
-pallet-permissions = { path = "../permissions", default-features = false }
-polymesh-common-utilities = { path = "../common", default-features = false }
-polymesh-primitives = { path = "../../primitives", default-features = false }
+pallet-base = { workspace = true, default-features = false }
+pallet-permissions = { workspace = true, default-features = false }
+polymesh-primitives = { workspace = true, default-features = false }
 
 # Others
 log = "0.4.8"
@@ -51,7 +50,6 @@ std = [
     "pallet-base/std",
     "pallet-permissions/std",
     "pallet-timestamp/std",
-    "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "serde/std",
     "serde_derive",
@@ -64,7 +62,6 @@ std = [
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
-    "polymesh-common-utilities/runtime-benchmarks",
     "schnorrkel",
     "hex",
 ]

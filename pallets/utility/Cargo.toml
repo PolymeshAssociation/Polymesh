@@ -5,11 +5,12 @@ authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
-pallet-balances = { path = "../balances", default-features = false }
-pallet-permissions = { path = "../permissions", default-features = false }
-polymesh-common-utilities = { path = "../common", default-features = false }
-pallet-identity = { path = "../identity", default-features = false }
-polymesh-primitives = { path = "../../primitives", default-features = false }
+# Out Pallets
+pallet-balances = { workspace = true, default-features = false }
+pallet-permissions = { workspace = true, default-features = false }
+polymesh-common-utilities = { workspace = true, default-features = false }
+pallet-identity = { workspace = true, default-features = false }
+polymesh-primitives = { workspace = true, default-features = false }
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
@@ -37,7 +38,7 @@ std = [
 	"polymesh-common-utilities/std",
 	"polymesh-primitives/std",
 	"pallet-balances/std",
-	"pallet-identity/std"
+	"pallet-identity/std",
 ]
 
 runtime-benchmarks = [

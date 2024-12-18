@@ -1,4 +1,3 @@
-use crate::traits::identity;
 use frame_support::{decl_event, weights::Weight};
 use polymesh_primitives::{Balance, EventDid};
 use sp_runtime::transaction_validity::InvalidTransaction;
@@ -27,7 +26,7 @@ pub trait SubsidiserTrait<AccountId, RuntimeCall> {
     ) -> Result<Option<AccountId>, InvalidTransaction>;
 }
 
-pub trait Config: frame_system::Config + identity::Config {
+pub trait Config: frame_system::Config + pallet_identity::Config {
     /// The overarching event type.
     type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     /// Subsidy pallet weights.

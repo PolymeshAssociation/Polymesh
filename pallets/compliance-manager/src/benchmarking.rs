@@ -16,9 +16,9 @@
 use frame_benchmarking::benchmarks;
 use scale_info::prelude::format;
 
+use pallet_identity::benchmarking::{User, UserBuilder};
+use pallet_identity::Config as IdentityConfig;
 use polymesh_common_utilities::asset::AssetFnTrait;
-use polymesh_common_utilities::benchs::{User, UserBuilder};
-use polymesh_common_utilities::identity::Config as IdentityConfig;
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::{
     asset::AssetType, AuthorizationData, ClaimType, CountryCode, PortfolioKind, Scope,

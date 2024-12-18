@@ -83,10 +83,9 @@ use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
 
-use pallet_identity::PermissionedCallOriginData;
+use pallet_identity::{Config as IdentityConfig, PermissionedCallOriginData};
 use pallet_permissions::with_call_metadata;
 pub use polymesh_common_utilities::multisig::WeightInfo;
-use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
 use polymesh_primitives::multisig::{ProposalState, ProposalVoteCount};
 use polymesh_primitives::{
     extract_auth, storage_migration_ver, AuthorizationData, IdentityId, KeyRecord, Permissions,

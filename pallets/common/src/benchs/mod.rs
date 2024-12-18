@@ -16,29 +16,4 @@
 mod asset;
 pub use asset::{create_and_issue_sample_asset, reg_unique_ticker};
 
-mod user;
-pub use user::{PublicKey, SecretKey, User};
-
-mod user_builder;
-pub use user_builder::UserBuilder;
-
-use crate::traits::identity::Config;
-
-pub fn user<T: Config>(prefix: &'static str, u: u32) -> User<T> {
-    UserBuilder::<T>::default()
-        .generate_did()
-        .seed(u)
-        .build(prefix)
-}
-
-pub fn user_without_did<T: Config>(prefix: &'static str, u: u32) -> User<T> {
-    UserBuilder::<T>::default().seed(u).build(prefix)
-}
-
-pub fn cdd_provider<T: Config>(prefix: &'static str, u: u32) -> User<T> {
-    UserBuilder::<T>::default()
-        .generate_did()
-        .seed(u)
-        .become_cdd_provider()
-        .build(prefix)
-}
+pub use pallet_identity::benchmarking::{cdd_provider, user, user_without_did, User, UserBuilder};

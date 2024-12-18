@@ -103,10 +103,9 @@ use frame_support::{
 use frame_system::ensure_root;
 use pallet_asset::checkpoint;
 use pallet_base::try_next_post;
-use pallet_identity::PermissionedCallOriginData;
+use pallet_identity::{Config as IdentityConfig, PermissionedCallOriginData};
 use polymesh_common_utilities::{
-    balances::Config as BalancesConfig, identity::Config as IdentityConfig, traits::asset,
-    traits::checkpoint::ScheduleId,
+    balances::Config as BalancesConfig, traits::asset, traits::checkpoint::ScheduleId,
 };
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{

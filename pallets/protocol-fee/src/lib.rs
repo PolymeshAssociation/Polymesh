@@ -45,9 +45,8 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::ensure_root;
-use polymesh_common_utilities::{
-    identity::Config as IdentityConfig, traits::relayer::SubsidiserTrait,
-};
+use pallet_identity::Config as IdentityConfig;
+use polymesh_common_utilities::traits::relayer::SubsidiserTrait;
 use polymesh_primitives::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::CddAndFeeDetails,

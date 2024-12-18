@@ -6,17 +6,17 @@ edition = "2021"
 
 [dependencies]
 # Common
-polymesh-primitives = { path = "../../primitives", default-features = false }
-polymesh-common-utilities = { path = "../common", default-features = false }
+polymesh-primitives = { workspace = true, default-features = false }
+polymesh-common-utilities = { workspace = true, default-features = false }
 
 # Our pallets
-pallet-base = { path = "../base", default-features = false }
-pallet-external-agents = { path = "../external-agents", default-features = false }
-pallet-identity = { path = "../identity", default-features = false  }
-pallet-permissions = { path = "../permissions", default-features = false }
+pallet-base = { workspace = true, default-features = false }
+pallet-external-agents = { workspace = true, default-features = false }
+pallet-identity = { workspace = true, default-features = false  }
+pallet-permissions = { workspace = true, default-features = false }
 ## Only for benchmarks
-pallet-asset = { path = "../asset", optional = true, default-features = false }
-pallet-balances = { path = "../balances", optional = true, default-features = false }
+pallet-asset = { workspace = true, optional = true, default-features = false }
+pallet-balances = { workspace = true, optional = true, default-features = false }
 
 # Other
 serde = { version = "1.0.104", default-features = false }

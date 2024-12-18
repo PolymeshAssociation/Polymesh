@@ -193,7 +193,7 @@ polymesh_runtime_common::misc_pallet_impls!();
 
 type CddHandler = polymesh_runtime_common::fee_details::CddHandler<Runtime>;
 
-impl polymesh_common_utilities::traits::identity::Config for Runtime {
+impl pallet_identity::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Proposal = RuntimeCall;
     type CddServiceProviders = CddServiceProviders;

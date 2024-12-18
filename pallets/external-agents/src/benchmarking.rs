@@ -15,7 +15,8 @@
 
 use crate::*;
 use frame_benchmarking::benchmarks;
-use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, user, User};
+use pallet_identity::benchmarking::{user, User};
+use polymesh_common_utilities::benchs::create_and_issue_sample_asset;
 use polymesh_common_utilities::traits::asset::Config as Asset;
 use polymesh_primitives::{AuthorizationData, ExtrinsicPermissions, PalletName, PalletPermissions};
 use sp_std::prelude::*;

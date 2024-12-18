@@ -12,19 +12,52 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
-use crate::{
-    benchs::{SecretKey, User},
-    traits::identity::Config,
-};
-use schnorrkel::{ExpansionMode, MiniSecretKey};
 
+use crate::Config;
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use polymesh_primitives::traits::{group::GroupTrait, IdentityFnTrait};
-use polymesh_primitives::IdentityId;
+use polymesh_primitives::{crypto::native_schnorrkel, IdentityId};
+use schnorrkel::keys::SecretKey;
+use schnorrkel::{ExpansionMode, MiniSecretKey};
+use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
+use sp_runtime::traits::StaticLookup;
 use sp_std::prelude::*;
+
+/// Helper class to create accounts and its DID to simplify benchmarks and UT.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct User<T: Config> {
+    pub account: T::AccountId,
+    pub secret: Option<SecretKey>,
+    pub origin: RawOrigin<T::AccountId>,
+    pub did: Option<IdentityId>,
+}
+
+impl<T: Config> User<T> {
+    pub fn did(&self) -> IdentityId {
+        self.did.expect("User without DID")
+    }
+
+    pub fn account(&self) -> T::AccountId {
+        self.account.clone()
+    }
+
+    pub fn origin(&self) -> RawOrigin<T::AccountId> {
+        self.origin.clone()
+    }
+
+    pub fn lookup(&self) -> <T::Lookup as StaticLookup>::Source {
+        T::Lookup::unlookup(self.account.clone())
+    }
+
+    pub fn sign(&self, message: &[u8]) -> Option<Signature> {
+        self.secret
+            .as_ref()
+            .and_then(|sk| native_schnorrkel::sign(sk.to_bytes(), message))
+    }
+}
 
 pub struct UserBuilder<T: Config> {
     account: Option<T::AccountId>,
@@ -138,4 +171,23 @@ impl<T: Config> Default for UserBuilder<T> {
             as_cdd_provider: false,
         }
     }
+}
+
+pub fn user<T: Config>(prefix: &'static str, u: u32) -> User<T> {
+    UserBuilder::<T>::default()
+        .generate_did()
+        .seed(u)
+        .build(prefix)
+}
+
+pub fn user_without_did<T: Config>(prefix: &'static str, u: u32) -> User<T> {
+    UserBuilder::<T>::default().seed(u).build(prefix)
+}
+
+pub fn cdd_provider<T: Config>(prefix: &'static str, u: u32) -> User<T> {
+    UserBuilder::<T>::default()
+        .generate_did()
+        .seed(u)
+        .become_cdd_provider()
+        .build(prefix)
 }

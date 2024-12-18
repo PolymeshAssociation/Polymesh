@@ -3,7 +3,8 @@ use sp_runtime::Permill;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
 
-use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, User, UserBuilder};
+use pallet_identity::benchmarking::{User, UserBuilder};
+use polymesh_common_utilities::benchs::create_and_issue_sample_asset;
 use polymesh_common_utilities::traits::asset::Config as Asset;
 use polymesh_primitives::constants::currency::{ONE_UNIT, POLY};
 use polymesh_primitives::{jurisdiction::*, statistics::*, Claim, ClaimType, Scope};

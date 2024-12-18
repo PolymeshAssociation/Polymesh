@@ -19,7 +19,7 @@ use frame_support::{
 };
 use pallet_balances as balances;
 use pallet_identity::{ChildDid, CustomClaimIdSequence, CustomClaims, CustomClaimsInverse};
-use polymesh_common_utilities::traits::identity::{Config as IdentityConfig, RawEvent};
+use pallet_identity::{Config as IdentityConfig, RawEvent};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
     constants::currency::POLY,

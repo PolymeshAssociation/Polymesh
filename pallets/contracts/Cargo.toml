@@ -21,11 +21,11 @@ sp-runtime = { version = "7.0.0", default-features = false }
 sp-std = { version = "5.0.0", default-features = false }
 
 # Polymesh specific
-pallet-base = { path = "../base", default-features = false }
-pallet-identity = { path = "../identity", default-features = false }
-pallet-permissions = { path = "../permissions", default-features = false }
-polymesh-primitives = { path = "../../primitives", default-features = false }
-polymesh-common-utilities = { path = "../common", default-features = false }
+pallet-base = { workspace = true, default-features = false }
+pallet-identity = { workspace = true, default-features = false }
+pallet-permissions = { workspace = true, default-features = false }
+polymesh-primitives = { workspace = true, default-features = false }
+polymesh-common-utilities = { workspace = true, default-features = false }
 
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
 

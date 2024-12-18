@@ -13,8 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use pallet_identity as identity;
-use polymesh_common_utilities::traits::{balances::CheckCdd, identity::Config as IdentityConfig};
+use pallet_identity::{Config as IdentityConfig, Module as Identity};
+use polymesh_common_utilities::traits::balances::CheckCdd;
 use polymesh_primitives::IdentityId;
 
 pub struct CddChecker<R>(sp_std::marker::PhantomData<R>);
@@ -28,7 +28,6 @@ where
     }
 
     fn get_key_cdd_did(key: &<R as frame_system::Config>::AccountId) -> Option<IdentityId> {
-        identity::Module::<R>::get_identity(key)
-            .filter(|&did| identity::Module::<R>::has_valid_cdd(did))
+        Identity::<R>::get_identity(key).filter(|&did| Identity::<R>::has_valid_cdd(did))
     }
 }

@@ -9,8 +9,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # Common
-polymesh-primitives = { path = "../../../../primitives", default-features = false}
-polymesh-common-utilities = { path = "../../../common", default-features = false }
+polymesh-primitives = { workspace = true, default-features = false}
+polymesh-common-utilities = { workspace = true, default-features = false }
 
 # Others
 serde = { version = "1.0.104", optional = true, features = ["derive"] }

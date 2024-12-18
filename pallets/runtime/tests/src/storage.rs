@@ -607,7 +607,7 @@ impl committee::Config<committee::Instance4> for TestStorage {
     type WeightInfo = polymesh_weights::pallet_committee::SubstrateWeight;
 }
 
-impl polymesh_common_utilities::traits::identity::Config for TestStorage {
+impl pallet_identity::Config for TestStorage {
     type RuntimeEvent = RuntimeEvent;
     type Proposal = RuntimeCall;
     type CddServiceProviders = CddServiceProvider;

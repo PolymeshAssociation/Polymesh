@@ -28,8 +28,8 @@ use sp_runtime::Perbill;
 use sp_std::prelude::*;
 use wasm_instrument::parity_wasm::elements::{Instruction, ValueType};
 
+use pallet_identity::benchmarking::{cdd_provider, user, User, UserBuilder};
 use pallet_identity::ParentDid;
-use polymesh_common_utilities::benchs::{cdd_provider, user, User, UserBuilder};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::identity::limits::{

@@ -107,10 +107,9 @@ use sp_std::vec::Vec;
 use sp_version::RuntimeVersion;
 
 use pallet_base::{ensure_opt_string_limited, try_next_post};
-use pallet_identity::PermissionedCallOriginData;
+use pallet_identity::{Config as IdentityConfig, PermissionedCallOriginData};
 use polymesh_common_utilities::traits::balances::LockableCurrencyExt;
 use polymesh_common_utilities::traits::governance_group::GovernanceGroupTrait;
-use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
 use polymesh_common_utilities::CommonConfig;
 use polymesh_primitives::constants::PIP_MAX_REPORTING_SIZE;
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};

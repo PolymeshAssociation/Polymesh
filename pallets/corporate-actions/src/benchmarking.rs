@@ -18,7 +18,8 @@ use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 
 use pallet_asset::benchmarking::make_document;
-use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, user, User};
+use pallet_identity::benchmarking::{user, User};
+use polymesh_common_utilities::benchs::create_and_issue_sample_asset;
 use polymesh_primitives::asset::{AssetId, AssetName};
 use polymesh_primitives::PortfolioKind;
 

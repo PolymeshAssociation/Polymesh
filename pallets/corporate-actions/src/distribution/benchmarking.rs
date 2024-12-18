@@ -16,7 +16,7 @@
 use frame_benchmarking::benchmarks;
 
 use pallet_compliance_manager::Module as ComplianceManager;
-use polymesh_common_utilities::benchs::{user, User};
+use pallet_identity::benchmarking::{user, User};
 use polymesh_primitives::{Fund, FundDescription, PortfolioId, PortfolioNumber};
 
 use super::*;

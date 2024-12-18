@@ -76,11 +76,8 @@ pub use chain_extension::{ExtrinsicId, PolymeshExtension};
 use pallet_contracts::weights::WeightInfo as FrameWeightInfo;
 use pallet_contracts::Config as BConfig;
 use pallet_contracts_primitives::Code;
-use pallet_identity::ParentDid;
+use pallet_identity::{Config as IdentityConfig, ParentDid, WeightInfo as IdentityWeightInfo};
 use polymesh_common_utilities::asset::AssetFnTrait;
-use polymesh_common_utilities::traits::identity::{
-    Config as IdentityConfig, WeightInfo as IdentityWeightInfo,
-};
 use polymesh_primitives::{storage_migration_ver, Balance, Permissions};
 
 type Identity<T> = pallet_identity::Module<T>;

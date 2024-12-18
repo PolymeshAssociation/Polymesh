@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::traits::{identity::Config as IdentityConfig, CommonConfig, NegativeImbalance};
+use crate::traits::{CommonConfig, NegativeImbalance};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
     decl_event,
@@ -151,7 +151,7 @@ pub trait WeightInfo {
     fn burn_account_balance() -> Weight;
 }
 
-pub trait Config: CommonConfig + IdentityConfig {
+pub trait Config: CommonConfig + pallet_identity::Config {
     /// The means of storing the balances of an account.
     type AccountStore: StoredMap<Self::AccountId, AccountData>;
 

@@ -36,7 +36,7 @@ const SEED: u32 = 0;
 
 // Polymesh change
 // -----------------------------------------------------------------
-use polymesh_common_utilities::benchs::{User, UserBuilder};
+use pallet_identity::benchmarking::{User, UserBuilder};
 use polymesh_primitives::{AuthorizationData, Permissions, Signatory};
 // -----------------------------------------------------------------
 

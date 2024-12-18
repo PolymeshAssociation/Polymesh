@@ -5,7 +5,8 @@ use sp_std::prelude::*;
 use sp_std::vec::Vec;
 
 use pallet_asset::benchmarking::create_portfolio;
-use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, user, User, UserBuilder};
+use pallet_identity::benchmarking::{user, User, UserBuilder};
+use polymesh_common_utilities::benchs::create_and_issue_sample_asset;
 use polymesh_common_utilities::traits::asset::AssetFnTrait;
 use polymesh_common_utilities::traits::compliance_manager::ComplianceFnConfig;
 use polymesh_primitives::asset::{AssetType, NonFungibleType};

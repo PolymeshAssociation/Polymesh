@@ -17,10 +17,6 @@ use crate::*;
 
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
-use sp_core::H512;
-use sp_std::prelude::*;
-
-use polymesh_common_utilities::benchs::{cdd_provider, user, user_without_did, UserBuilder};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS, MAX_SECONDARY_KEYS,
@@ -31,8 +27,13 @@ use polymesh_primitives::{
     ExtrinsicName, ExtrinsicPermissions, PalletName, PalletPermissions, Permissions, PortfolioId,
     PortfolioNumber, PortfolioPermissions, Scope, SecondaryKey, Signatory,
 };
+use sp_core::H512;
+use sp_std::prelude::*;
 
 const SEED: u32 = 0;
+
+mod user;
+pub use user::*;
 
 pub fn generate_secondary_keys<T: Config>(n: usize) -> Vec<SecondaryKey<T::AccountId>> {
     let mut secondary_keys = Vec::with_capacity(n);

@@ -27,13 +27,12 @@ use polymesh_primitives::{IdentityId, TrustedIssuer, WeightMeter};
 
 use crate::asset::AssetFnTrait;
 use crate::balances::Config as BalancesConfig;
-use crate::identity::Config as IdentityConfig;
 use crate::traits::external_agents::Config as EAConfig;
 use crate::traits::CommonConfig;
 
 /// The module's configuration trait.
 pub trait Config:
-    pallet_timestamp::Config + CommonConfig + BalancesConfig + IdentityConfig + EAConfig
+    pallet_timestamp::Config + CommonConfig + BalancesConfig + pallet_identity::Config + EAConfig
 {
     /// The overarching event type.
     type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;

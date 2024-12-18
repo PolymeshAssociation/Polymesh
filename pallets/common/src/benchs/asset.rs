@@ -4,8 +4,8 @@ use polymesh_primitives::asset::{AssetId, AssetName, AssetType};
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::{PortfolioKind, Ticker};
 
-use crate::benchs::User;
 use crate::traits::asset::{AssetFnTrait, Config};
+use pallet_identity::benchmarking::User;
 
 /// Registers a unique ticker named `ticker_name` for `ticker_owner`.
 pub fn reg_unique_ticker<T: Config>(

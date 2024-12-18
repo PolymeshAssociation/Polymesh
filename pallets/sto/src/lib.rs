@@ -39,7 +39,7 @@ use pallet_base::try_next_post;
 use pallet_identity::PermissionedCallOriginData;
 use pallet_settlement::VenueInfo;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
-use polymesh_common_utilities::traits::{identity, portfolio};
+use polymesh_common_utilities::traits::portfolio;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::impl_checked_inc;
 use polymesh_primitives::settlement::{Leg, ReceiptDetails, SettlementType, VenueId, VenueType};
@@ -169,7 +169,7 @@ pub trait WeightInfo {
 
 pub trait Config:
     frame_system::Config
-    + identity::Config
+    + pallet_identity::Config
     + pallet_settlement::Config
     + portfolio::Config
     + pallet_base::Config

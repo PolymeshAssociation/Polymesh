@@ -5,10 +5,10 @@ authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
-polymesh-primitives = { path = "../../primitives", default-features = false }
-polymesh-common-utilities = { path = "../common", default-features = false }
-pallet-external-agents = { path = "../external-agents", default-features = false }
-pallet-identity = { path = "../identity", default-features = false }
+polymesh-primitives = { workspace = true, default-features = false }
+polymesh-common-utilities = { workspace = true, default-features = false }
+pallet-external-agents = { workspace = true, default-features = false }
+pallet-identity = { workspace = true, default-features = false }
 
 # Other
 log = "0.4.8"

@@ -1,8 +1,6 @@
 use crate::*;
-use polymesh_common_utilities::{
-    benchs::{User, UserBuilder},
-    group::Config,
-};
+use pallet_identity::benchmarking::{User, UserBuilder};
+use polymesh_common_utilities::traits::group::Config;
 use polymesh_primitives::traits::group::GroupTrait;
 
 use frame_benchmarking::benchmarks_instance;

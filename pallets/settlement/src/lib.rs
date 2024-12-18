@@ -71,7 +71,7 @@ use pallet_asset::MandatoryMediators;
 use pallet_base::{ensure_string_limited, try_next_post};
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 pub use polymesh_common_utilities::traits::settlement::{Event, RawEvent, WeightInfo};
-use polymesh_common_utilities::traits::{asset, compliance_manager, identity, nft, CommonConfig};
+use polymesh_common_utilities::traits::{asset, compliance_manager, nft, CommonConfig};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY;
 use polymesh_primitives::settlement::{
@@ -105,7 +105,7 @@ pub trait Config:
     + CommonConfig
     + compliance_manager::Config
     + frame_system::Config
-    + identity::Config
+    + pallet_identity::Config
     + nft::Config
     + pallet_timestamp::Config
 {
@@ -113,7 +113,7 @@ pub trait Config:
     type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 
     /// A call type used by the scheduler.
-    type Proposal: From<Call<Self>> + Into<<Self as identity::Config>::Proposal>;
+    type Proposal: From<Call<Self>> + Into<<Self as pallet_identity::Config>::Proposal>;
 
     /// Scheduler of settlement instructions.
     type Scheduler: Named<Self::BlockNumber, <Self as Config>::Proposal, Self::SchedulerOrigin>;

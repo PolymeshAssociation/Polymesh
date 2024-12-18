@@ -20,8 +20,8 @@ frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 
 # Common
-node-rpc = { path = "../../../rpc" }
-polymesh-primitives = { package = "polymesh-primitives", path = "../../../primitives", default-features = false}
+node-rpc = { workspace = true }
+polymesh-primitives = { workspace = true, default-features = false}
 
 # RPC
 pallet-group-rpc-runtime-api = { version = "2.0.0", path = "./runtime-api" }

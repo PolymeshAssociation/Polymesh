@@ -21,7 +21,7 @@ use frame_support::{
     StorageValue,
 };
 use frame_system::RawOrigin as SystemOrigin;
-use polymesh_common_utilities::benchs::{user, User};
+use pallet_identity::benchmarking::{user, User};
 use polymesh_primitives::committee::COMMITTEE_MEMBERS_MAX;
 use polymesh_primitives::MaybeBlock;
 use sp_std::prelude::*;

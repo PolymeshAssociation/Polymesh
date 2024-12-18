@@ -22,8 +22,9 @@ use sp_runtime::MultiSignature;
 use sp_std::prelude::*;
 
 use pallet_asset::benchmarking::setup_asset_transfer;
+use pallet_identity::benchmarking::{User, UserBuilder};
 use pallet_nft::benchmarking::setup_nft_transfer;
-use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, User, UserBuilder};
+use polymesh_common_utilities::benchs::create_and_issue_sample_asset;
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::constants::currency::ONE_UNIT;
 use polymesh_primitives::constants::ENSURED_MAX_LEN;

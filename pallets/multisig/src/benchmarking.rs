@@ -17,7 +17,7 @@ use frame_benchmarking::benchmarks;
 use frame_support::storage::StorageDoubleMap;
 use frame_system::RawOrigin;
 
-use polymesh_common_utilities::benchs::{User, UserBuilder};
+use pallet_identity::benchmarking::{User, UserBuilder};
 
 use crate::*;
 

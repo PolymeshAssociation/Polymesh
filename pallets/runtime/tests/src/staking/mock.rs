@@ -290,7 +290,7 @@ impl pallet_protocol_fee::Config for Test {
     type Subsidiser = Test;
 }
 
-impl polymesh_common_utilities::traits::identity::Config for Test {
+impl pallet_identity::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Proposal = RuntimeCall;
     type CddServiceProviders = pallet_group::Module<Test, pallet_group::Instance2>;

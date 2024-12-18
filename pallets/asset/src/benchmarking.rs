@@ -20,8 +20,9 @@ use scale_info::prelude::format;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{convert::TryInto, iter, prelude::*};
 
+use pallet_identity::benchmarking::{user, User, UserBuilder};
 use pallet_statistics::benchmarking::setup_transfer_restrictions;
-use polymesh_common_utilities::benchs::{reg_unique_ticker, user, User, UserBuilder};
+use polymesh_common_utilities::benchs::reg_unique_ticker;
 use polymesh_common_utilities::traits::compliance_manager::ComplianceFnConfig;
 use polymesh_common_utilities::traits::nft::NFTTrait;
 use polymesh_primitives::agent::AgentGroup;

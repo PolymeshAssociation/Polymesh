@@ -29,7 +29,6 @@ pub mod compliance_manager;
 pub mod external_agents;
 pub mod governance_group;
 pub mod group;
-pub mod identity;
 pub mod multisig;
 pub mod nft;
 pub mod portfolio;

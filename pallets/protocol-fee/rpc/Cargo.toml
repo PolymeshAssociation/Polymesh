@@ -19,9 +19,9 @@ sp-std = {version = "5.0.0", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 
-node-rpc = { path = "../../../rpc" }
+node-rpc = { workspace = true }
 polymesh-primitives = { workspace = true, default-features = false }
-pallet-protocol-fee-rpc-runtime-api = { path = "./runtime-api" }
+pallet-protocol-fee-rpc-runtime-api = { workspace = true }
 
 # General
 serde = { version = "1.0.104", features = ["derive"] }
