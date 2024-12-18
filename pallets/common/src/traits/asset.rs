@@ -37,11 +37,7 @@ use crate::traits::checkpoint;
 
 /// The module's configuration trait.
 pub trait Config:
-    crate::balances::Config
-    + EAConfig
-    + pallet_statistics::Config
-    + pallet_portfolio::Config
-    + AssetFnConfig
+    EAConfig + pallet_statistics::Config + pallet_portfolio::Config + AssetFnConfig
 {
     /// The overarching event type.
     type RuntimeEvent: From<Event<Self>>

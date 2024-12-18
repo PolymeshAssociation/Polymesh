@@ -14,7 +14,6 @@ pallet-identity = { workspace = true, default-features = false  }
 pallet-permissions = { workspace = true, default-features = false }
 pallet-portfolio = { workspace = true, default-features = false  }
 pallet-settlement = { workspace = true, default-features = false  }
-polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-primitives-derive = { workspace = true, default-features = false }
 
@@ -56,7 +55,6 @@ std = [
     "frame-system/std",
     "frame-support/std",
     "frame-benchmarking/std",
-    "polymesh-common-utilities/std",
     "pallet-base/std",
     "pallet-balances/std",
     "polymesh-primitives/std",

@@ -15,7 +15,7 @@
 
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 
-pub trait CommonConfig: frame_system::Config + pallet_permissions::Config {
+pub trait CommonConfig: Sized {
     type BlockRewardsReserve: BlockRewardsReserveCurrency<NegativeImbalance<Self>>;
 }
 
