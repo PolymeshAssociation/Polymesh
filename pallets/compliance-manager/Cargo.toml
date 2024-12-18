@@ -7,16 +7,12 @@ edition = "2021"
 [dependencies]
 # Common
 polymesh-primitives = { workspace = true, default-features = false }
-polymesh-common-utilities = { workspace = true, default-features = false }
 
 # Our pallets
 pallet-base = { workspace = true, default-features = false }
 pallet-external-agents = { workspace = true, default-features = false }
 pallet-identity = { workspace = true, default-features = false  }
 pallet-permissions = { workspace = true, default-features = false }
-## Only for benchmarks
-pallet-asset = { workspace = true, optional = true, default-features = false }
-pallet-balances = { workspace = true, optional = true, default-features = false }
 
 # Other
 serde = { version = "1.0.104", default-features = false }
@@ -61,12 +57,9 @@ std = [
     "pallet-base/std",
     "pallet-external-agents/std",
     "pallet-timestamp/std",
-    "polymesh-common-utilities/std",
     "polymesh-primitives/std",
 ]
 
 runtime-benchmarks = [
     "frame-benchmarking",
-    "pallet-asset/runtime-benchmarks",
-    "pallet-balances/runtime-benchmarks",
 ]

@@ -70,7 +70,7 @@ use sp_std::vec;
 
 use pallet_asset::MandatoryMediators;
 use pallet_base::{ensure_string_limited, try_next_post};
-use polymesh_common_utilities::traits::{asset, compliance_manager};
+use polymesh_common_utilities::traits::asset;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY;
 use polymesh_primitives::settlement::{
@@ -402,7 +402,7 @@ pub trait WeightInfo {
 pub trait Config:
     asset::Config
     + frame_system::Config
-    + compliance_manager::Config
+    + pallet_compliance_manager::Config
     + frame_system::Config
     + pallet_identity::Config
     + pallet_permissions::Config

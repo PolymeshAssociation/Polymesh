@@ -16,4 +16,4 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod traits;
-pub use traits::{asset, balances, compliance_manager, CommonConfig};
+pub use traits::{asset, balances, CommonConfig};

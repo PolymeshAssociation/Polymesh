@@ -25,4 +25,3 @@ pub use imbalances::{NegativeImbalance, PositiveImbalance};
 pub mod asset;
 pub mod balances;
 pub mod checkpoint;
-pub mod compliance_manager;
