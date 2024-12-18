@@ -26,7 +26,6 @@ pub mod asset;
 pub mod balances;
 pub mod checkpoint;
 pub mod compliance_manager;
-pub mod external_agents;
 pub mod governance_group;
 pub mod group;
 pub mod multisig;

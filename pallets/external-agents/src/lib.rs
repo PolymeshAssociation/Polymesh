@@ -54,19 +54,20 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_error, decl_module, decl_storage,
+    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
     weights::Weight,
 };
 use pallet_base::{try_next_post, try_next_pre};
-use pallet_identity::PermissionedCallOriginData;
-pub use polymesh_common_utilities::traits::external_agents::{Config, Event, WeightInfo};
+use pallet_identity::{Config as IdentityConfig, PermissionedCallOriginData};
+use pallet_permissions::Config as PermConfig;
 use polymesh_primitives::agent::{AGId, AgentGroup};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
-    extract_auth, storage_migration_ver, with_transaction, AuthorizationData, EventDid,
-    ExtrinsicPermissions, IdentityId, PalletPermissions, Signatory, SubsetRestriction,
+    extract_auth, storage_migration_ver, traits::AssetFnConfig, with_transaction,
+    AuthorizationData, EventDid, ExtrinsicPermissions, IdentityId, PalletPermissions, Signatory,
+    SubsetRestriction,
 };
 use sp_std::prelude::*;
 
@@ -74,6 +75,54 @@ type Identity<T> = pallet_identity::Module<T>;
 type Permissions<T> = pallet_permissions::Module<T>;
 
 storage_migration_ver!(1);
+
+pub trait WeightInfo {
+    fn create_group(p: u32) -> Weight;
+    fn create_group_and_add_auth(p: u32) -> Weight;
+    fn create_and_change_custom_group(p: u32) -> Weight;
+    fn set_group_permissions(p: u32) -> Weight;
+    fn remove_agent() -> Weight;
+    fn abdicate() -> Weight;
+    fn change_group_builtin() -> Weight;
+    fn change_group_custom() -> Weight;
+    fn accept_become_agent() -> Weight;
+}
+
+pub trait Config: frame_system::Config + PermConfig + IdentityConfig + AssetFnConfig {
+    /// The overarching event type.
+    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+
+    type WeightInfo: WeightInfo;
+}
+
+decl_event! {
+    pub enum Event {
+        /// An Agent Group was created.
+        ///
+        /// (Caller DID, AG's AssetId, AG's ID, AG's permissions)
+        GroupCreated(EventDid, AssetId, AGId, ExtrinsicPermissions),
+
+        /// An Agent Group's permissions was updated.
+        ///
+        /// (Caller DID, AG's AssetId, AG's ID, AG's new permissions)
+        GroupPermissionsUpdated(EventDid, AssetId, AGId, ExtrinsicPermissions),
+
+        /// An agent was added.
+        ///
+        /// (Caller/Agent DID, Agent's AssetId, Agent's group)
+        AgentAdded(EventDid, AssetId, AgentGroup),
+
+        /// An agent was removed.
+        ///
+        /// (Caller DID, Agent's AssetId, Agent's DID)
+        AgentRemoved(EventDid, AssetId, IdentityId),
+
+        /// An agent's group was changed.
+        ///
+        /// (Caller DID, Agent's AssetId, Agent's DID, The new group of the agent)
+        GroupChanged(EventDid, AssetId, IdentityId, AgentGroup),
+    }
+}
 
 decl_storage! {
     trait Store for Module<T: Config> as ExternalAgents {

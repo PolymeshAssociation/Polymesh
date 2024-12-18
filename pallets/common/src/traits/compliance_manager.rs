@@ -20,6 +20,7 @@ use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use sp_std::prelude::*;
 
+use pallet_external_agents::Config as EAConfig;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::compliance_manager::{AssetComplianceResult, ComplianceRequirement};
 use polymesh_primitives::condition::{conditions_total_counts, Condition};
@@ -27,7 +28,6 @@ use polymesh_primitives::traits::AssetFnConfig;
 use polymesh_primitives::{IdentityId, TrustedIssuer, WeightMeter};
 
 use crate::balances::Config as BalancesConfig;
-use crate::traits::external_agents::Config as EAConfig;
 use crate::traits::CommonConfig;
 
 /// The module's configuration trait.

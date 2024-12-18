@@ -8,7 +8,6 @@ edition = "2021"
 # Common
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-primitives-derive = { workspace = true, default-features = false }
-polymesh-common-utilities = { workspace = true, default-features = false }
 
 # Our Pallets
 pallet-base = { workspace = true, default-features = false }
@@ -40,13 +39,11 @@ std = [
     "frame-system/std",
     "pallet-base/std",
     "pallet-identity/std",
-    "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "serde/std",
     "serde_derive",
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
-    "polymesh-common-utilities/runtime-benchmarks",
     "pallet-identity/runtime-benchmarks",
 ]

@@ -1,7 +1,7 @@
-use crate::traits::external_agents::Config as EAConfig;
 use frame_support::decl_event;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
+use pallet_external_agents::Config as EAConfig;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::traits::AssetFnConfig;
 use polymesh_primitives::{

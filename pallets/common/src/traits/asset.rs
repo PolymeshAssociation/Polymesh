@@ -19,6 +19,7 @@ use frame_support::weights::Weight;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::Vec;
 
+use pallet_external_agents::Config as EAConfig;
 use polymesh_primitives::asset::{
     AssetId, AssetName, AssetType, CustomAssetTypeId, FundingRoundName,
 };
@@ -33,15 +34,11 @@ use polymesh_primitives::{
 };
 
 use crate::traits::nft::NFTTrait;
-use crate::traits::{checkpoint, compliance_manager, external_agents, portfolio, statistics};
+use crate::traits::{checkpoint, compliance_manager, portfolio, statistics};
 
 /// The module's configuration trait.
 pub trait Config:
-    crate::balances::Config
-    + external_agents::Config
-    + statistics::Config
-    + portfolio::Config
-    + AssetFnConfig
+    crate::balances::Config + EAConfig + statistics::Config + portfolio::Config + AssetFnConfig
 {
     /// The overarching event type.
     type RuntimeEvent: From<Event<Self>>
