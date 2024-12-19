@@ -366,7 +366,6 @@ disable_fees = [
     "polymesh-runtime-testnet/disable_fees",
 ]
 running-ci = [ "polymesh-runtime-develop/running-ci" ]
-default_identity = []
 runtime-benchmarks = [
     "frame-benchmarking/runtime-benchmarks",
     "frame-benchmarking-cli/runtime-benchmarks",

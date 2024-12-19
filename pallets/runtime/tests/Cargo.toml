@@ -107,8 +107,6 @@ sp-tracing = { version = "6.0.0", default-features = false, features = ["std"] }
 [features]
 default = ["std", "testing", "equalize"]
 
-default_identity = []
-
 testing = []
 equalize = []
 only-staking = []

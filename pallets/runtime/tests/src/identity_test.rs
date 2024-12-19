@@ -368,11 +368,10 @@ fn freeze_secondary_keys_with_externalities() {
     ));
 
     // unfreeze all
-    // commenting this because `default_identity` feature is not allowing to access None identity.
-    // assert_noop!(
-    //     Identity::unfreeze_secondary_keys(bob.clone()),
-    //     DispatchError::Other("Current identity is none and key is not linked to any identity")
-    // );
+    assert_noop!(
+        Identity::unfreeze_secondary_keys(bob.origin()),
+        Error::KeyNotAllowed
+    );
     assert_ok!(Identity::unfreeze_secondary_keys(alice.origin()));
 
     assert_eq!(is_auth(dave.acc()), true);

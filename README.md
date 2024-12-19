@@ -156,7 +156,7 @@ and to display log files you can use:
 Unit tests are packaged with the Rust code. To run these, you can execute:
 
 ```bash
-cargo test --package polymesh-runtime-tests  --features default_identity
+cargo test --package polymesh-runtime-tests
 cargo test --package pallet-staking
 cargo test --package pallet-balances
 cargo test --package polymesh-primitives

@@ -426,7 +426,6 @@ jobs:
             --package polymesh-runtime-tests
             --package pallet-balances:0.1.0
             --package asset-metadata
-            --features default_identity
           no_output_timeout: 30m
       - save-sccache-cache
   coverage:
