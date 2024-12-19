@@ -44,7 +44,6 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-mod migrations;
 
 use codec::{Decode, Encode};
 use core::{iter, mem};
@@ -62,9 +61,9 @@ use polymesh_common_utilities::traits::nft::NFTTrait;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
-    extract_auth, identity_id::PortfolioValidityResult, storage_migrate_on, storage_migration_ver,
-    Balance, Fund, FundDescription, IdentityId, NFTId, PortfolioId, PortfolioKind, PortfolioName,
-    PortfolioNumber, SecondaryKey,
+    extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, Fund,
+    FundDescription, IdentityId, NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
+    SecondaryKey,
 };
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -185,9 +184,6 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 3, {
-                migrations::migrate_to_v3::<T>();
-            });
             Weight::zero()
         }
 

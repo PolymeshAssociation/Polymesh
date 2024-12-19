@@ -84,7 +84,6 @@ pub mod benchmarking;
 mod auth;
 mod claims;
 mod keys;
-mod ticker_migrations;
 pub mod types;
 
 pub use polymesh_common_utilities::traits::identity::WeightInfo;
@@ -107,10 +106,9 @@ use polymesh_common_utilities::traits::identity::{
 };
 use polymesh_common_utilities::{SystematicIssuers, GC_DID};
 use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, AssetPermissions, Authorization, AuthorizationData,
-    AuthorizationType, CddId, Claim, ClaimType, CustomClaimTypeId, DidRecord, ExtrinsicPermissions,
-    IdentityClaim, IdentityId, KeyRecord, Permissions, PortfolioPermissions, Scope, SecondaryKey,
-    Signatory,
+    storage_migration_ver, AssetPermissions, Authorization, AuthorizationData, AuthorizationType,
+    CddId, Claim, ClaimType, CustomClaimTypeId, DidRecord, ExtrinsicPermissions, IdentityClaim,
+    IdentityId, KeyRecord, Permissions, PortfolioPermissions, Scope, SecondaryKey, Signatory,
 };
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
@@ -273,9 +271,6 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 7, {
-                ticker_migrations::migrate_to_v7::<T>();
-            });
             Weight::zero()
         }
 
