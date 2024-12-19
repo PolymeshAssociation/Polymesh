@@ -109,7 +109,6 @@ members = [
     "pallets/base",
     "pallets/bridge",
     "pallets/committee",
-    "pallets/common",
     "pallets/compliance-manager",
     "pallets/contracts",
     "pallets/corporate-actions",
@@ -185,7 +184,6 @@ pallet-sudo = { path = "pallets/sudo", default-features = false }
 polymesh-contracts = { path = "pallets/contracts", default-features = false }
 
 # Common
-polymesh-common-utilities = { path = "pallets/common", default-features = false }
 polymesh-runtime-common = { path = "pallets/runtime/common", default-features = false }
 polymesh-primitives = { path = "primitives", default-features = false }
 polymesh-primitives-derive = { path = "primitives_derive", default-features = false }
@@ -278,7 +276,6 @@ pallet-staking = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
-polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false }
 
@@ -369,7 +366,7 @@ disable_fees = [
     "polymesh-runtime-testnet/disable_fees",
 ]
 running-ci = [ "polymesh-runtime-develop/running-ci" ]
-default_identity = [ "polymesh-common-utilities/default_identity" ]
+default_identity = []
 runtime-benchmarks = [
     "frame-benchmarking/runtime-benchmarks",
     "frame-benchmarking-cli/runtime-benchmarks",
@@ -381,6 +378,5 @@ runtime-benchmarks = [
 ci-runtime = [ "polymesh-runtime-develop/ci-runtime" ]
 
 std = [
-    "polymesh-common-utilities/std",
     "serde/std"
 ]

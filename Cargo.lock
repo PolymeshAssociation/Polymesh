@@ -6177,7 +6177,6 @@ dependencies = [
  "pallet-sudo",
  "pallet-transaction-payment",
  "parity-scale-codec 3.6.9",
- "polymesh-common-utilities",
  "polymesh-contracts",
  "polymesh-node-rpc",
  "polymesh-primitives",
@@ -6231,34 +6230,6 @@ name = "polymesh-build-tool"
 version = "0.1.0"
 dependencies = [
  "substrate-wasm-builder",
-]
-
-[[package]]
-name = "polymesh-common-utilities"
-version = "0.1.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "lazy_static",
- "pallet-external-agents",
- "pallet-portfolio",
- "pallet-statistics",
- "pallet-timestamp",
- "parity-scale-codec 3.6.9",
- "polymesh-primitives",
- "polymesh-primitives-derive",
- "scale-info",
- "schnorrkel 0.11.4",
- "serde",
- "serde_derive",
- "sp-api",
- "sp-arithmetic",
- "sp-core",
- "sp-io",
- "sp-keyring",
- "sp-runtime",
- "sp-std",
 ]
 
 [[package]]
