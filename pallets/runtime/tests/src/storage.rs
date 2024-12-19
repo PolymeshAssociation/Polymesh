@@ -614,7 +614,7 @@ impl pallet_identity::Config for TestStorage {
     type CddHandler = TestStorage;
     type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = MultiSignature;
-    type ProtocolFee = protocol_fee::Module<TestStorage>;
+    type ProtocolFee = protocol_fee::Pallet<TestStorage>;
     type GCVotingMajorityOrigin = VMO<committee::Instance1>;
     type WeightInfo = polymesh_weights::pallet_identity::SubstrateWeight;
     type IdentityFn = identity::Module<TestStorage>;

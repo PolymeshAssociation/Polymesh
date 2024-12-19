@@ -25,7 +25,7 @@ use alloc::{
     format,
     string::{String, ToString},
 };
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::Add;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
@@ -111,7 +111,7 @@ impl<T: Add<Output = T>> Add<T> for MaybeBlock<T> {
 
 /// A positive coefficient: a pair of a numerator and a denominator. Defaults to `(1, 1)`.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PosRatio(pub u32, pub u32);
 

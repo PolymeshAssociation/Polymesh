@@ -39,7 +39,6 @@
 pub mod benchmarking;
 
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReasons},
     weights::Weight,
@@ -65,21 +64,30 @@ pub trait WeightInfo {
     fn change_base_fee() -> Weight;
 }
 
-pub trait Config: frame_system::Config + IdentityConfig {
-    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
-    /// The currency type in which fees will be paid.
-    type Currency: Currency<Self::AccountId, Balance = Balance> + Send + Sync;
-    /// Handler for the unbalanced reduction when taking protocol fees.
-    type OnProtocolFeePayment: OnUnbalanced<NegativeImbalanceOf<Self>>;
-    /// Weight calaculation.
-    type WeightInfo: WeightInfo;
-    /// Connection to the `Relayer` pallet.
-    /// Used to charge protocol fees to a subsidiser, if any, instead of the payer.
-    type Subsidiser: SubsidiserTrait<Self::AccountId, Self::RuntimeCall>;
-}
+pub use pallet::*;
 
-decl_error! {
-    pub enum Error for Module<T: Config> {
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
+
+    #[pallet::config]
+    pub trait Config: frame_system::Config + IdentityConfig {
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        /// The currency type in which fees will be paid.
+        type Currency: Currency<Self::AccountId, Balance = Balance> + Send + Sync;
+        /// Handler for the unbalanced reduction when taking protocol fees.
+        type OnProtocolFeePayment: OnUnbalanced<NegativeImbalanceOf<Self>>;
+        /// Weight calaculation.
+        type WeightInfo: WeightInfo;
+        /// Connection to the `Relayer` pallet.
+        /// Used to charge protocol fees to a subsidiser, if any, instead of the payer.
+        type Subsidiser: SubsidiserTrait<Self::AccountId, Self::RuntimeCall>;
+    }
+
+    #[pallet::error]
+    pub enum Error<T> {
         /// Insufficient account balance to pay the fee.
         InsufficientAccountBalance,
         /// Not able to handled the imbalances
@@ -87,67 +95,93 @@ decl_error! {
         /// Insufficient subsidy balance to pay the fee.
         InsufficientSubsidyBalance,
     }
-}
 
-decl_storage! {
-    trait Store for Module<T: Config> as ProtocolFee {
-        /// The mapping of operation names to the base fees of those operations.
-        pub BaseFees get(fn base_fees) config(): map hasher(twox_64_concat) ProtocolOp => Balance;
-        /// The fee coefficient as a positive rational (numerator, denominator).
-        pub Coefficient get(fn coefficient) config() build(|config: &GenesisConfig| {
-            if config.coefficient.1 == 0 {
-                PosRatio(1, 1)
-            } else {
-                config.coefficient
-            }
-        }): PosRatio;
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    /// The mapping of operation names to the base fees of those operations.
+    #[pallet::storage]
+    #[pallet::getter(fn base_fees)]
+    pub type BaseFees<T: Config> = StorageMap<_, Twox64Concat, ProtocolOp, Balance, ValueQuery>;
+
+    /// The fee coefficient as a positive rational (numerator, denominator).
+    #[pallet::storage]
+    #[pallet::getter(fn coefficient)]
+    pub type Coefficient<T: Config> = StorageValue<_, PosRatio, ValueQuery>;
+
+    #[pallet::genesis_config]
+    #[derive(Default)]
+    pub struct GenesisConfig {
+        pub base_fees: Vec<(ProtocolOp, Balance)>,
+        pub coefficient: PosRatio,
     }
-}
 
-decl_event! {
-    pub enum Event<T> where
-        AccountId = <T as frame_system::Config>::AccountId,
-    {
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+        fn build(&self) {
+            // Set initial base fees
+            for (op, fee) in &self.base_fees {
+                BaseFees::<T>::insert(op, fee);
+            }
+
+            // Set initial coefficient
+            if self.coefficient.1 == 0 {
+                Coefficient::<T>::put(&PosRatio(1, 1));
+            } else {
+                Coefficient::<T>::put(&self.coefficient);
+            }
+        }
+    }
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
         /// The protocol fee of an operation.
         FeeSet(IdentityId, Balance),
         /// The fee coefficient.
         CoefficientSet(IdentityId, PosRatio),
         /// Fee charged.
-        FeeCharged(AccountId, Balance),
+        FeeCharged(T::AccountId, Balance),
     }
-}
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
-        type Error = Error<T>;
-
-        fn deposit_event() = default;
-
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Changes the fee coefficient for the root origin.
         ///
         /// # Errors
         /// * `BadOrigin` - Only root allowed.
-        #[weight = <T as Config>::WeightInfo::change_coefficient()]
-        pub fn change_coefficient(origin, coefficient: PosRatio) {
+        #[pallet::weight(<T as Config>::WeightInfo::change_coefficient())]
+        #[pallet::call_index(0)]
+        pub fn change_coefficient(
+            origin: OriginFor<T>,
+            coefficient: PosRatio,
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            Coefficient::put(&coefficient);
+            Coefficient::<T>::put(&coefficient);
             Self::deposit_event(Event::<T>::CoefficientSet(GC_DID, coefficient));
+            Ok(().into())
         }
 
         /// Changes the a base fee for the root origin.
         ///
         /// # Errors
         /// * `BadOrigin` - Only root allowed.
-        #[weight = <T as Config>::WeightInfo::change_base_fee()]
-        pub fn change_base_fee(origin, op: ProtocolOp, base_fee: Balance) {
+        #[pallet::weight(<T as Config>::WeightInfo::change_base_fee())]
+        #[pallet::call_index(1)]
+        pub fn change_base_fee(
+            origin: OriginFor<T>,
+            op: ProtocolOp,
+            base_fee: Balance,
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            BaseFees::insert(op, &base_fee);
+            BaseFees::<T>::insert(op, &base_fee);
             Self::deposit_event(Event::<T>::FeeSet(GC_DID, base_fee));
+            Ok(().into())
         }
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     /// Computes the fee of the operation as `(base_fee * coefficient.0) / coefficient.1`.
     pub fn compute_fee(ops: &[ProtocolOp]) -> Balance {
         let coefficient = Self::coefficient();
@@ -209,7 +243,7 @@ impl<T: Config> Module<T> {
         )
         .map_err(|_| Error::<T>::InsufficientAccountBalance)?;
 
-        Self::deposit_event(RawEvent::FeeCharged(fee_key, fee));
+        Self::deposit_event(Event::<T>::FeeCharged(fee_key, fee));
         Ok(ret)
     }
 
@@ -222,7 +256,7 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> ChargeProtocolFee<T::AccountId> for Module<T> {
+impl<T: Config> ChargeProtocolFee<T::AccountId> for Pallet<T> {
     fn charge_fee(op: ProtocolOp) -> DispatchResult {
         Self::charge_fees(&[op])
     }

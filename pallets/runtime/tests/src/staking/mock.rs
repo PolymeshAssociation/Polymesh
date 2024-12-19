@@ -299,7 +299,7 @@ impl pallet_identity::Config for Test {
     type CddHandler = Test;
     type Public = UintAuthorityId;
     type OffChainSignature = sp_runtime::testing::TestSignature;
-    type ProtocolFee = pallet_protocol_fee::Module<Test>;
+    type ProtocolFee = pallet_protocol_fee::Pallet<Test>;
     type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type WeightInfo = polymesh_weights::pallet_identity::SubstrateWeight;
     type IdentityFn = pallet_identity::Module<Test>;

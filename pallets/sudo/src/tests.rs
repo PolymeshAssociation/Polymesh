@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2020-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,10 +18,10 @@
 //! Tests for the module.
 
 use super::*;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, weights::Weight};
 use mock::{
-    new_test_ext, Logger, LoggerCall, RuntimeCall, RuntimeEvent, RuntimeOrigin, Sudo, SudoCall,
-    System, Test,
+    new_test_ext, Logger, LoggerCall, RuntimeCall, RuntimeEvent as TestEvent, RuntimeOrigin, Sudo,
+    SudoCall, System, Test,
 };
 
 #[test]
@@ -73,8 +73,9 @@ fn sudo_emits_events_correctly() {
             weight: Weight::from_ref_time(1),
         }));
         assert_ok!(Sudo::sudo(RuntimeOrigin::signed(1), call));
-        let expected_event = RuntimeEvent::Sudo(RawEvent::Sudid(Ok(())));
-        assert!(System::events().iter().any(|a| a.event == expected_event));
+        System::assert_has_event(TestEvent::Sudo(Event::Sudid {
+            sudo_result: Ok(()),
+        }));
     })
 }
 
@@ -119,7 +120,7 @@ fn sudo_unchecked_weight_basics() {
         }));
         let sudo_unchecked_weight_call = SudoCall::sudo_unchecked_weight {
             call,
-            _weight: Weight::from_ref_time(1_000),
+            weight: Weight::from_ref_time(1_000),
         };
         let info = sudo_unchecked_weight_call.get_dispatch_info();
         assert_eq!(info.weight, Weight::from_ref_time(1_000));
@@ -142,8 +143,9 @@ fn sudo_unchecked_weight_emits_events_correctly() {
             call,
             Weight::from_ref_time(1_000)
         ));
-        let expected_event = RuntimeEvent::Sudo(RawEvent::Sudid(Ok(())));
-        assert!(System::events().iter().any(|a| a.event == expected_event));
+        System::assert_has_event(TestEvent::Sudo(Event::Sudid {
+            sudo_result: Ok(()),
+        }));
     })
 }
 
@@ -156,7 +158,8 @@ fn set_key_basics() {
     });
 
     new_test_ext(1).execute_with(|| {
-        // A non-root `key` will trigger a `RequireSudo` error and a non-root `key` cannot change the root `key`.
+        // A non-root `key` will trigger a `RequireSudo` error and a non-root `key` cannot change
+        // the root `key`.
         assert_noop!(
             Sudo::set_key(RuntimeOrigin::signed(2), 3),
             DispatchErrorWithPostInfo {
@@ -175,12 +178,14 @@ fn set_key_emits_events_correctly() {
 
         // A root `key` can change the root `key`.
         assert_ok!(Sudo::set_key(RuntimeOrigin::signed(1), 2));
-        let expected_event = RuntimeEvent::Sudo(RawEvent::KeyChanged(Some(1)));
-        assert!(System::events().iter().any(|a| a.event == expected_event));
+        System::assert_has_event(TestEvent::Sudo(Event::KeyChanged {
+            old_sudoer: Some(1),
+        }));
         // Double check.
         assert_ok!(Sudo::set_key(RuntimeOrigin::signed(2), 4));
-        let expected_event = RuntimeEvent::Sudo(RawEvent::KeyChanged(Some(2)));
-        assert!(System::events().iter().any(|a| a.event == expected_event));
+        System::assert_has_event(TestEvent::Sudo(Event::KeyChanged {
+            old_sudoer: Some(2),
+        }));
     });
 }
 
@@ -233,7 +238,8 @@ fn sudo_as_emits_events_correctly() {
             weight: Weight::from_ref_time(1),
         }));
         assert_ok!(Sudo::sudo_as(RuntimeOrigin::signed(1), 2, call));
-        let expected_event = RuntimeEvent::Sudo(RawEvent::SudoAsDone(Ok(())));
-        assert!(System::events().iter().any(|a| a.event == expected_event));
+        System::assert_has_event(TestEvent::Sudo(Event::SudoAsDone {
+            sudo_result: Ok(()),
+        }));
     });
 }

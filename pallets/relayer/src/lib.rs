@@ -43,9 +43,8 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure, fail,
     traits::{Contains, GetCallMetadata},
@@ -61,7 +60,7 @@ use scale_info::TypeInfo;
 use sp_runtime::transaction_validity::InvalidTransaction;
 use sp_std::vec;
 
-type Identity<T> = pallet_identity::Module<T>;
+type Identity<T> = pallet_identity::Pallet<T>;
 
 pub trait WeightInfo {
     fn set_paying_key() -> Weight;
@@ -72,84 +71,100 @@ pub trait WeightInfo {
     fn decrease_polyx_limit() -> Weight;
 }
 
-pub trait Config: frame_system::Config + pallet_identity::Config {
-    /// The overarching event type.
-    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
-    /// Subsidy pallet weights.
-    type WeightInfo: WeightInfo;
-    /// Subsidy call filter.
-    type SubsidyCallFilter: frame_support::traits::Contains<Self::RuntimeCall>;
-}
+pub use pallet::*;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-decl_event! {
-    pub enum Event<T>
-    where
-        AccountId = <T as frame_system::Config>::AccountId,
-    {
+    #[pallet::config]
+    pub trait Config: frame_system::Config + pallet_identity::Config {
+        /// The overarching event type.
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        /// Subsidy pallet weights.
+        type WeightInfo: WeightInfo;
+        /// Subsidy call filter.
+        type SubsidyCallFilter: frame_support::traits::Contains<Self::RuntimeCall>;
+    }
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
         /// Authorization given for `paying_key` to `user_key`.
         ///
         /// (Caller DID, User Key, Paying Key, Initial POLYX limit, Auth ID)
-        AuthorizedPayingKey(EventDid, AccountId, AccountId, Balance, u64),
+        AuthorizedPayingKey(EventDid, T::AccountId, T::AccountId, Balance, u64),
 
         /// Accepted paying key.
         ///
         /// (Caller DID, User Key, Paying Key)
-        AcceptedPayingKey(EventDid, AccountId, AccountId),
+        AcceptedPayingKey(EventDid, T::AccountId, T::AccountId),
 
         /// Removed paying key.
         ///
         /// (Caller DID, User Key, Paying Key)
-        RemovedPayingKey(EventDid, AccountId, AccountId),
+        RemovedPayingKey(EventDid, T::AccountId, T::AccountId),
 
         /// Updated polyx limit.
         ///
         /// (Caller DID, User Key, Paying Key, POLYX limit, old remaining POLYX)
-        UpdatedPolyxLimit(EventDid, AccountId, AccountId, Balance, Balance),
+        UpdatedPolyxLimit(EventDid, T::AccountId, T::AccountId, Balance, Balance),
     }
-}
 
-/// A Subsidy for transaction and protocol fees.
-///
-/// This holds the subsidiser's paying key and the remaining POLYX balance
-/// available for subsidising transaction and protocol fees.
-#[derive(Encode, Decode, TypeInfo)]
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Subsidy<Acc> {
-    /// The subsidiser's paying key.
-    pub paying_key: Acc,
-    /// How much POLYX is remaining for subsidising transaction and protocol fees.
-    pub remaining: Balance,
-}
-
-/// Update action for subsidy POLYX limit.
-enum UpdateAction {
-    /// Set the current subsidy limit to `amount`.
-    Set,
-    /// Add `amount` to the current subsidy limit.
-    Add,
-    /// Subtract `amount` from the current subsidy limit.
-    Sub,
-}
-
-decl_storage! {
-    trait Store for Module<T: Config> as Relayer {
-        /// The subsidy for a `user_key` if they are being subsidised,
-        /// as a map `user_key` => `Subsidy`.
-        ///
-        /// A key can only have one subsidy at a time.  To change subsidisers
-        /// a key needs to call `remove_paying_key` to remove the current subsidy,
-        /// before they can accept a new subsidiser.
-        pub Subsidies get(fn subsidies):
-            map hasher(blake2_128_concat) T::AccountId => Option<Subsidy<T::AccountId>>;
+    /// A Subsidy for transaction and protocol fees.
+    ///
+    /// This holds the subsidiser's paying key and the remaining POLYX balance
+    /// available for subsidising transaction and protocol fees.
+    #[derive(
+        Encode,
+        Decode,
+        TypeInfo,
+        Clone,
+        Debug,
+        Default,
+        PartialEq,
+        Eq,
+        PartialOrd,
+        Ord,
+        MaxEncodedLen
+    )]
+    pub struct Subsidy<Acc> {
+        /// The subsidiser's paying key.
+        pub paying_key: Acc,
+        /// How much POLYX is remaining for subsidising transaction and protocol fees.
+        pub remaining: Balance,
     }
-}
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
-        type Error = Error<T>;
+    /// Update action for subsidy POLYX limit.
+    #[derive(Copy, Clone)]
+    pub enum UpdateAction {
+        /// Set the current subsidy limit to `amount`.
+        Set,
+        /// Add `amount` to the current subsidy limit.
+        Add,
+        /// Subtract `amount` from the current subsidy limit.
+        Sub,
+    }
 
-        fn deposit_event() = default;
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
 
+    /// The subsidy for a `user_key` if they are being subsidised,
+    /// as a map `user_key` => `Subsidy`.
+    ///
+    /// A key can only have one subsidy at a time.  To change subsidisers
+    /// a key needs to call `remove_paying_key` to remove the current subsidy,
+    /// before they can accept a new subsidiser.
+    #[pallet::storage]
+    pub type Subsidies<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, Subsidy<T::AccountId>, OptionQuery>;
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Creates an authorization to allow `user_key` to accept the caller (`origin == paying_key`) as their subsidiser.
         ///
         /// # Arguments
@@ -158,8 +173,13 @@ decl_module! {
         ///
         /// # Errors
         /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
-        #[weight = <T as Config>::WeightInfo::set_paying_key()]
-        pub fn set_paying_key(origin, user_key: T::AccountId, polyx_limit: Balance) -> DispatchResult {
+        #[pallet::call_index(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_paying_key())]
+        pub fn set_paying_key(
+            origin: OriginFor<T>,
+            user_key: T::AccountId,
+            polyx_limit: Balance,
+        ) -> DispatchResult {
             Self::base_set_paying_key(origin, user_key, polyx_limit)
         }
 
@@ -177,8 +197,9 @@ decl_module! {
         /// - `UserKeyCddMissing` if the `user_key` is not attached to a CDD'd identity.
         /// - `PayingKeyCddMissing` if the `paying_key` is not attached to a CDD'd identity.
         /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
-        #[weight = <T as Config>::WeightInfo::accept_paying_key()]
-        pub fn accept_paying_key(origin, auth_id: u64) -> DispatchResult {
+        #[pallet::call_index(1)]
+        #[pallet::weight(<T as Config>::WeightInfo::accept_paying_key())]
+        pub fn accept_paying_key(origin: OriginFor<T>, auth_id: u64) -> DispatchResult {
             Self::base_accept_paying_key(origin, auth_id)
         }
 
@@ -193,8 +214,13 @@ decl_module! {
         /// - `NoPayingKey` if the `user_key` doesn't have a `paying_key`.
         /// - `NotPayingKey` if the `paying_key` doesn't match the current `paying_key`.
         /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
-        #[weight = <T as Config>::WeightInfo::remove_paying_key()]
-        pub fn remove_paying_key(origin, user_key: T::AccountId, paying_key: T::AccountId) -> DispatchResult {
+        #[pallet::call_index(2)]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_paying_key())]
+        pub fn remove_paying_key(
+            origin: OriginFor<T>,
+            user_key: T::AccountId,
+            paying_key: T::AccountId,
+        ) -> DispatchResult {
             Self::base_remove_paying_key(origin, user_key, paying_key)
         }
 
@@ -208,8 +234,13 @@ decl_module! {
         /// - `NoPayingKey` if the `user_key` doesn't have a `paying_key`.
         /// - `NotPayingKey` if `origin` doesn't match the current `paying_key`.
         /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
-        #[weight = <T as Config>::WeightInfo::update_polyx_limit()]
-        pub fn update_polyx_limit(origin, user_key: T::AccountId, polyx_limit: Balance) -> DispatchResult {
+        #[pallet::call_index(3)]
+        #[pallet::weight(<T as Config>::WeightInfo::update_polyx_limit())]
+        pub fn update_polyx_limit(
+            origin: OriginFor<T>,
+            user_key: T::AccountId,
+            polyx_limit: Balance,
+        ) -> DispatchResult {
             Self::base_update_polyx_limit(origin, user_key, UpdateAction::Set, polyx_limit)
         }
 
@@ -224,8 +255,13 @@ decl_module! {
         /// - `NotPayingKey` if `origin` doesn't match the current `paying_key`.
         /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
         /// - `Overlow` if the subsidy's remaining POLYX would have overflowed `u128::MAX`.
-        #[weight = <T as Config>::WeightInfo::increase_polyx_limit()]
-        pub fn increase_polyx_limit(origin, user_key: T::AccountId, amount: Balance) -> DispatchResult {
+        #[pallet::call_index(4)]
+        #[pallet::weight(<T as Config>::WeightInfo::increase_polyx_limit())]
+        pub fn increase_polyx_limit(
+            origin: OriginFor<T>,
+            user_key: T::AccountId,
+            amount: Balance,
+        ) -> DispatchResult {
             Self::base_update_polyx_limit(origin, user_key, UpdateAction::Add, amount)
         }
 
@@ -240,15 +276,19 @@ decl_module! {
         /// - `NotPayingKey` if `origin` doesn't match the current `paying_key`.
         /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
         /// - `Overlow` if the subsidy has less then `amount` POLYX remaining.
-        #[weight = <T as Config>::WeightInfo::decrease_polyx_limit()]
-        pub fn decrease_polyx_limit(origin, user_key: T::AccountId, amount: Balance) -> DispatchResult {
+        #[pallet::call_index(5)]
+        #[pallet::weight(<T as Config>::WeightInfo::decrease_polyx_limit())]
+        pub fn decrease_polyx_limit(
+            origin: OriginFor<T>,
+            user_key: T::AccountId,
+            amount: Balance,
+        ) -> DispatchResult {
             Self::base_update_polyx_limit(origin, user_key, UpdateAction::Sub, amount)
         }
     }
-}
 
-decl_error! {
-    pub enum Error for Module<T: Config> {
+    #[pallet::error]
+    pub enum Error<T> {
         /// The `user_key` is not attached to a CDD'd identity.
         UserKeyCddMissing,
         /// The `user_key` is not attached to a CDD'd identity.
@@ -266,7 +306,7 @@ decl_error! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     fn base_set_paying_key(
         origin: T::RuntimeOrigin,
         user_key: T::AccountId,
@@ -304,7 +344,7 @@ impl<T: Config> Module<T> {
                 polyx_limit,
             )?;
 
-            Self::deposit_event(RawEvent::AcceptedPayingKey(
+            Self::deposit_event(Event::AcceptedPayingKey(
                 user_did.for_event(),
                 user_key,
                 paying_key,
@@ -345,7 +385,7 @@ impl<T: Config> Module<T> {
         // Remove paying key for user key.
         <Subsidies<T>>::remove(&user_key);
 
-        Self::deposit_event(RawEvent::RemovedPayingKey(
+        Self::deposit_event(Event::RemovedPayingKey(
             sender_did.for_event(),
             user_key,
             paying_key,
@@ -382,7 +422,7 @@ impl<T: Config> Module<T> {
         subsidy.remaining = new_remaining;
         <Subsidies<T>>::insert(&user_key, subsidy);
 
-        Self::deposit_event(RawEvent::UpdatedPolyxLimit(
+        Self::deposit_event(Event::UpdatedPolyxLimit(
             paying_did.for_event(),
             user_key,
             paying_key,
@@ -409,7 +449,7 @@ impl<T: Config> Module<T> {
             ),
             None,
         )?;
-        Self::deposit_event(RawEvent::AuthorizedPayingKey(
+        Self::deposit_event(Event::AuthorizedPayingKey(
             from.for_event(),
             user_key,
             paying_key,
@@ -444,7 +484,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Validate and accept a `paying_key` for the `user_key`.
-    fn auth_accept_paying_key(
+    pub(crate) fn auth_accept_paying_key(
         user_did: IdentityId,
         from: IdentityId,
         user_key: T::AccountId,
@@ -472,7 +512,7 @@ impl<T: Config> Module<T> {
             // Decrease old paying key usage.
             <Identity<T>>::remove_account_key_ref_count(&subsidy.paying_key);
 
-            Self::deposit_event(RawEvent::RemovedPayingKey(
+            Self::deposit_event(Event::RemovedPayingKey(
                 user_did.for_event(),
                 user_key.clone(),
                 subsidy.paying_key,
@@ -513,7 +553,7 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> Module<T>
+impl<T: Config> Pallet<T>
 where
     <T as frame_system::Config>::RuntimeCall: GetCallMetadata,
 {
@@ -538,7 +578,7 @@ where
 }
 
 impl<T: Config> SubsidiserTrait<T::AccountId, <T as frame_system::Config>::RuntimeCall>
-    for Module<T>
+    for Pallet<T>
 where
     <T as frame_system::Config>::RuntimeCall: GetCallMetadata,
 {

@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2020-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,61 +17,88 @@
 
 //! Test utilities
 
+use super::*;
 use crate as sudo;
-use frame_support::{parameter_types, weights::Weight};
+use frame_support::traits::{ConstU32, ConstU64, Contains, GenesisBuild};
 use sp_core::H256;
 use sp_io;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
-    Perbill,
 };
 
 // Logger module to track execution.
+#[frame_support::pallet]
 pub mod logger {
-    use frame_support::{decl_event, decl_module, decl_storage, weights::Weight};
-    use frame_system::{ensure_root, ensure_signed};
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
+    #[pallet::config]
     pub trait Config: frame_system::Config {
-        type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
     }
 
-    decl_storage! {
-        trait Store for Module<T: Config> as Logger {
-            AccountLog get(fn account_log): Vec<T::AccountId>;
-            I32Log get(fn i32_log): Vec<i32>;
+    #[pallet::pallet]
+    pub struct Pallet<T>(PhantomData<T>);
+
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        #[pallet::call_index(0)]
+        #[pallet::weight(*weight)]
+        pub fn privileged_i32_log(
+            origin: OriginFor<T>,
+            i: i32,
+            weight: Weight,
+        ) -> DispatchResultWithPostInfo {
+            // Ensure that the `origin` is `Root`.
+            ensure_root(origin)?;
+            <I32Log<T>>::try_append(i).map_err(|_| "could not append")?;
+            Self::deposit_event(Event::AppendI32 { value: i, weight });
+            Ok(().into())
+        }
+
+        #[pallet::call_index(1)]
+        #[pallet::weight(*weight)]
+        pub fn non_privileged_log(
+            origin: OriginFor<T>,
+            i: i32,
+            weight: Weight,
+        ) -> DispatchResultWithPostInfo {
+            // Ensure that the `origin` is some signed account.
+            let sender = ensure_signed(origin)?;
+            <I32Log<T>>::try_append(i).map_err(|_| "could not append")?;
+            <AccountLog<T>>::try_append(sender.clone()).map_err(|_| "could not append")?;
+            Self::deposit_event(Event::AppendI32AndAccount {
+                sender,
+                value: i,
+                weight,
+            });
+            Ok(().into())
         }
     }
 
-    decl_event! {
-        pub enum Event<T> where AccountId = <T as frame_system::Config>::AccountId {
-            AppendI32(i32, Weight),
-            AppendI32AndAccount(AccountId, i32, Weight),
-        }
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
+        AppendI32 {
+            value: i32,
+            weight: Weight,
+        },
+        AppendI32AndAccount {
+            sender: T::AccountId,
+            value: i32,
+            weight: Weight,
+        },
     }
 
-    decl_module! {
-        pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::RuntimeOrigin {
-            fn deposit_event() = default;
+    #[pallet::storage]
+    #[pallet::getter(fn account_log)]
+    pub(super) type AccountLog<T: Config> =
+        StorageValue<_, BoundedVec<T::AccountId, ConstU32<1_000>>, ValueQuery>;
 
-            #[weight = *weight]
-            fn privileged_i32_log(origin, i: i32, weight: Weight){
-                // Ensure that the `origin` is `Root`.
-                ensure_root(origin)?;
-                <I32Log>::append(i);
-                Self::deposit_event(RawEvent::AppendI32(i, weight));
-            }
-
-            #[weight = *weight]
-            fn non_privileged_log(origin, i: i32, weight: Weight){
-                // Ensure that the `origin` is some signed account.
-                let sender = ensure_signed(origin)?;
-                <I32Log>::append(i);
-                <AccountLog<T>>::append(sender.clone());
-                Self::deposit_event(RawEvent::AppendI32AndAccount(sender, i, weight));
-            }
-        }
-    }
+    #[pallet::storage]
+    #[pallet::getter(fn i32_log)]
+    pub(super) type I32Log<T> = StorageValue<_, BoundedVec<i32, ConstU32<1_000>>, ValueQuery>;
 }
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -89,17 +116,18 @@ frame_support::construct_runtime!(
     }
 );
 
-parameter_types! {
-    pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = Weight::from_ref_time(1024);
-    pub const MaximumBlockLength: u32 = 2 * 1024;
-    pub const AvailableBlockRatio: Perbill = Perbill::one();
+pub struct BlockEverything;
+impl Contains<RuntimeCall> for BlockEverything {
+    fn contains(_: &RuntimeCall) -> bool {
+        false
+    }
 }
 
 impl frame_system::Config for Test {
-    type BaseCallFilter = frame_support::traits::Everything;
+    type BaseCallFilter = BlockEverything;
     type BlockWeights = ();
     type BlockLength = ();
+    type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
     type Index = u64;
@@ -110,26 +138,27 @@ impl frame_system::Config for Test {
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
     type RuntimeEvent = RuntimeEvent;
-    type BlockHashCount = BlockHashCount;
-    type DbWeight = ();
+    type BlockHashCount = ConstU64<250>;
     type Version = ();
     type PalletInfo = PalletInfo;
     type AccountData = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
-    type OnSetCode = ();
     type SS58Prefix = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type OnSetCode = ();
+    type MaxConsumers = ConstU32<16>;
 }
 
-impl sudo::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type RuntimeCall = RuntimeCall;
-}
-
+// Implement the logger module's `Config` on the Test runtime.
 impl logger::Config for Test {
     type RuntimeEvent = RuntimeEvent;
+}
+
+// Implement the sudo module's `Config` on the Test runtime.
+impl Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
 }
 
 // New types for dispatchable functions.

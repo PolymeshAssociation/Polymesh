@@ -202,7 +202,7 @@ impl pallet_identity::Config for Runtime {
     type CddHandler = CddHandler;
     type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = MultiSignature;
-    type ProtocolFee = pallet_protocol_fee::Module<Runtime>;
+    type ProtocolFee = pallet_protocol_fee::Pallet<Runtime>;
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
     type WeightInfo = polymesh_weights::pallet_identity::SubstrateWeight;
     type IdentityFn = pallet_identity::Module<Runtime>;

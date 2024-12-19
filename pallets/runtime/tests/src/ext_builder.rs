@@ -393,12 +393,11 @@ impl ExtBuilder {
     }
 
     fn build_protocol_fee_genesis(&self, storage: &mut Storage) {
-        pallet_protocol_fee::GenesisConfig {
+        let genesis = pallet_protocol_fee::GenesisConfig {
             base_fees: self.protocol_base_fees.0.clone(),
             coefficient: self.protocol_coefficient,
-        }
-        .assimilate_storage(storage)
-        .unwrap();
+        };
+        GenesisBuild::<TestStorage>::assimilate_storage(&genesis, storage).unwrap();
     }
 
     fn build_pips_genesis(&self, storage: &mut Storage) {
