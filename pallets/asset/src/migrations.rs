@@ -31,13 +31,15 @@ pub(crate) fn migrate_to_v6<T: Config>() {
             .map(|x| <pallet_timestamp::Pallet<T>>::get() + x);
         UniqueTickerRegistration::<T>::mutate(ticker, |registration| {
             if let Some(registration) = registration {
-                registration.expiry = new_expiry;
+                if registration.expiry.is_some() {
+                    registration.expiry = new_expiry;
 
-                Module::<T>::deposit_event(RawEvent::TickerRegistered(
-                    registration.owner,
-                    ticker,
-                    new_expiry,
-                ));
+                    Module::<T>::deposit_event(RawEvent::TickerRegistered(
+                        registration.owner,
+                        ticker,
+                        new_expiry,
+                    ));
+                }
             }
         });
     }
