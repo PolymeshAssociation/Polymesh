@@ -5,7 +5,6 @@ authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
-polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 
 pallet-balances = { workspace = true, default-features = false  }
@@ -45,7 +44,6 @@ std = [
     "pallet-group-rpc-runtime-api/std",
     "pallet-identity/std",
     "pallet-multisig/std",
-    "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "sp-runtime/std",
     "sp-std/std",
@@ -59,7 +57,6 @@ runtime-benchmarks = [
     "pallet-identity/runtime-benchmarks",
     "pallet-multisig/runtime-benchmarks",
     "pallet-relayer/runtime-benchmarks",
-    "polymesh-common-utilities/runtime-benchmarks",
     "polymesh-primitives/runtime-benchmarks",
     "frame-support/runtime-benchmarks",
     "frame-system/runtime-benchmarks",

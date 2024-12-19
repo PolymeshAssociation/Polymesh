@@ -9,7 +9,6 @@ build = "build.rs"
 
 [dependencies]
 # Common
-polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false}
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-weights = { workspace = true, default-features = false }
@@ -165,7 +164,6 @@ std = [
     "pallet-transaction-payment/std",
     "pallet-treasury/std",
     "pallet-utility/std",
-    "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "polymesh-runtime-common/std",
     "polymesh-weights/std",

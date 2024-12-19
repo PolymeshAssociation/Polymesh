@@ -9,9 +9,6 @@ polymesh-primitives = { workspace = true, default-features = false }
 polymesh-primitives-derive = { workspace = true, default-features = false }
 
 # Our Pallets
-pallet-base = { workspace = true, default-features = false  }
-pallet-permissions = { workspace = true, default-features = false  }
-pallet-identity = { workspace = true, default-features = false  }
 pallet-external-agents = { workspace = true, default-features = false  }
 pallet-portfolio = { workspace = true, default-features = false  }
 pallet-statistics = { workspace = true, default-features = false  }
@@ -58,9 +55,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-timestamp/std",
-	"pallet-base/std",
-	"pallet-permissions/std",
-	"pallet-identity/std",
 	"pallet-external-agents/std",
 	"pallet-portfolio/std",
 	"pallet-statistics/std",
@@ -76,8 +70,6 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
-	"pallet-permissions/runtime-benchmarks",
-	"pallet-identity/runtime-benchmarks",
 	"pallet-external-agents/runtime-benchmarks",
 	"pallet-portfolio/runtime-benchmarks",
 	"pallet-statistics/runtime-benchmarks",
