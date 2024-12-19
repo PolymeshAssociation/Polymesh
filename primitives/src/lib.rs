@@ -218,6 +218,9 @@ pub use authorization::{Authorization, AuthorizationData, AuthorizationError, Au
 /// Pub Traits
 pub mod traits;
 
+/// Checkpoint types.
+pub mod checkpoint;
+
 /// Benchmarking helpers.
 #[cfg(feature = "runtime-benchmarks")]
 pub mod bench;

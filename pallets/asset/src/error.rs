@@ -1,8 +1,6 @@
 use frame_support::decl_error;
 
-use polymesh_common_utilities::traits::asset::Config;
-
-use crate::Module;
+use crate::{Config, Module};
 
 decl_error! {
     pub enum Error for Module<T: Config> {

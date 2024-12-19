@@ -14,6 +14,3 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-
-pub mod traits;
-pub use traits::asset;

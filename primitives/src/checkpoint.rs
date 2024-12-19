@@ -1,13 +1,13 @@
+#![allow(missing_docs)]
+
 use codec::{Decode, Encode};
-use frame_support::decl_event;
-use frame_support::weights::Weight;
-use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::calendar::{CalendarPeriod, CheckpointSchedule};
-use polymesh_primitives::{asset::CheckpointId, impl_checked_inc, Balance, IdentityId, Moment};
 use scale_info::TypeInfo;
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::Vec;
+
+use crate::calendar::{CalendarPeriod, CheckpointSchedule};
+use crate::{impl_checked_inc, Moment};
 
 /// ID of a `StoredSchedule`.
 #[derive(Encode, Decode, TypeInfo)]
@@ -179,36 +179,5 @@ impl NextCheckpoints {
             // Need to recalculate the next cp.
             self.recal_next();
         }
-    }
-}
-
-pub trait WeightInfo {
-    fn create_checkpoint() -> Weight;
-    fn set_schedules_max_complexity() -> Weight;
-    fn create_schedule() -> Weight;
-    fn remove_schedule() -> Weight;
-}
-
-decl_event! {
-    pub enum Event {
-        /// A checkpoint was created.
-        ///
-        /// (caller DID, AssetId, checkpoint ID, total supply, checkpoint timestamp)
-        CheckpointCreated(Option<IdentityId>, AssetId, CheckpointId, Balance, Moment),
-
-        /// The maximum complexity for an arbitrary asset's schedule set was changed.
-        ///
-        /// (GC DID, the new maximum)
-        MaximumSchedulesComplexityChanged(IdentityId, u64),
-
-        /// A checkpoint schedule was created.
-        ///
-        /// (caller DID, AssetId, schedule id, schedule)
-        ScheduleCreated(IdentityId, AssetId, ScheduleId, ScheduleCheckpoints),
-
-        /// A checkpoint schedule was removed.
-        ///
-        /// (caller DID, AssetId, schedule id, schedule)
-        ScheduleRemoved(IdentityId, AssetId, ScheduleId, ScheduleCheckpoints),
     }
 }

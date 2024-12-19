@@ -44,7 +44,7 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_error, decl_module, decl_storage,
+    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::UnixTime,
@@ -56,14 +56,11 @@ use sp_std::prelude::*;
 use sp_std::vec;
 
 use pallet_base::try_next_pre;
-pub use polymesh_common_utilities::traits::checkpoint::{Event, WeightInfo};
-use polymesh_common_utilities::traits::checkpoint::{
-    NextCheckpoints, ScheduleCheckpoints, ScheduleId,
-};
-use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::asset::{AssetId, CheckpointId};
+use polymesh_primitives::checkpoint::{NextCheckpoints, ScheduleCheckpoints, ScheduleId};
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::GC_DID;
-use polymesh_primitives::{asset::CheckpointId, storage_migration_ver, IdentityId, Moment};
+use polymesh_primitives::{storage_migration_ver, IdentityId, Moment};
 
 use crate::Config;
 
@@ -71,6 +68,37 @@ type Asset<T> = crate::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
 storage_migration_ver!(2);
+
+pub trait WeightInfo {
+    fn create_checkpoint() -> Weight;
+    fn set_schedules_max_complexity() -> Weight;
+    fn create_schedule() -> Weight;
+    fn remove_schedule() -> Weight;
+}
+
+decl_event! {
+    pub enum Event {
+        /// A checkpoint was created.
+        ///
+        /// (caller DID, AssetId, checkpoint ID, total supply, checkpoint timestamp)
+        CheckpointCreated(Option<IdentityId>, AssetId, CheckpointId, polymesh_primitives::Balance, Moment),
+
+        /// The maximum complexity for an arbitrary asset's schedule set was changed.
+        ///
+        /// (GC DID, the new maximum)
+        MaximumSchedulesComplexityChanged(IdentityId, u64),
+
+        /// A checkpoint schedule was created.
+        ///
+        /// (caller DID, AssetId, schedule id, schedule)
+        ScheduleCreated(IdentityId, AssetId, ScheduleId, ScheduleCheckpoints),
+
+        /// A checkpoint schedule was removed.
+        ///
+        /// (caller DID, AssetId, schedule id, schedule)
+        ScheduleRemoved(IdentityId, AssetId, ScheduleId, ScheduleCheckpoints),
+    }
+}
 
 decl_storage! {
     trait Store for Module<T: Config> as Checkpoint {
