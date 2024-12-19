@@ -53,21 +53,21 @@
 //!
 //! ### Dispatchable Functions
 //!
-//! - [add_compliance_requirement](Module::add_compliance_requirement) - Adds a new compliance requirement to an asset's compliance.
-//! - [remove_compliance_requirement](Module::remove_compliance_requirement) - Removes a compliance requirement from an asset's compliance.
-//! - [reset_asset_compliance](Module::reset_asset_compliance) - Resets(remove) an asset's compliance.
-//! - [pause_asset_compliance](Module::pause_asset_compliance) - Pauses the evaluation of asset compliance for an asset  before executing a
+//! - [add_compliance_requirement](Pallet::add_compliance_requirement) - Adds a new compliance requirement to an asset's compliance.
+//! - [remove_compliance_requirement](Pallet::remove_compliance_requirement) - Removes a compliance requirement from an asset's compliance.
+//! - [reset_asset_compliance](Pallet::reset_asset_compliance) - Resets(remove) an asset's compliance.
+//! - [pause_asset_compliance](Pallet::pause_asset_compliance) - Pauses the evaluation of asset compliance for an asset  before executing a
 //! transaction.
-//! - [add_default_trusted_claim_issuer](Module::add_default_trusted_claim_issuer) - Adds a default
+//! - [add_default_trusted_claim_issuer](Pallet::add_default_trusted_claim_issuer) - Adds a default
 //!  trusted claim issuer for a given asset.
-//! - [remove_default_trusted_claim_issuer](Module::remove_default_trusted_claim_issuer) - Removes
+//! - [remove_default_trusted_claim_issuer](Pallet::remove_default_trusted_claim_issuer) - Removes
 //!  the default claim issuer.
-//! - [change_compliance_requirement](Module::change_compliance_requirement) - Updates a compliance requirement, based on its id.
+//! - [change_compliance_requirement](Pallet::change_compliance_requirement) - Updates a compliance requirement, based on its id.
 //! based on its id for a given asset.
 //!
 //! ### Public Functions
 //!
-//! - [verify_restriction](Module::verify_restriction) - Checks if a transfer is a valid transfer and returns the result
+//! - [verify_restriction](Pallet::verify_restriction) - Checks if a transfer is a valid transfer and returns the result
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -98,8 +98,8 @@ use polymesh_primitives::{
 };
 use sp_std::{convert::From, prelude::*};
 
-type ExternalAgents<T> = pallet_external_agents::Module<T>;
-type Identity<T> = pallet_identity::Module<T>;
+type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
+type Identity<T> = pallet_identity::Pallet<T>;
 
 storage_migration_ver!(1);
 
@@ -209,7 +209,7 @@ pub trait WeightInfo {
 }
 
 decl_storage! {
-    trait Store for Module<T: Config> as ComplianceManager {
+    trait Store for Pallet<T: Config> as ComplianceManager {
         /// Compliance for an asset ([`AssetId`] -> [`AssetCompliance`])
         pub AssetCompliances get(fn asset_compliance): map hasher(blake2_128_concat) AssetId => AssetCompliance;
         /// List of trusted claim issuer [`AssetId`] -> Issuer Identity
@@ -220,7 +220,7 @@ decl_storage! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Config> {
+    pub enum Error for Pallet<T: Config> {
         /// User is not authorized.
         Unauthorized,
         /// Did not exist.
@@ -453,7 +453,7 @@ decl_module! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     /// Adds a compliance requirement to the given `asset_id`.
     fn base_add_compliance_requirement(
         caller_did: IdentityId,
@@ -808,7 +808,7 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> ComplianceFnConfig for Module<T> {
+impl<T: Config> ComplianceFnConfig for Pallet<T> {
     fn is_compliant(
         asset_id: &AssetId,
         sender_did: IdentityId,
@@ -877,7 +877,7 @@ impl<T: Config> ComplianceFnConfig for Module<T> {
 // All RPC functions!
 //==========================================================================
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     /// Returns a [`ComplianceReport`] for the given `asset_id`.
     pub fn compliance_report(
         asset_id: &AssetId,

@@ -15,7 +15,7 @@ use super::setup::create_and_issue_sample_asset;
 use crate::storage::{root, User};
 use crate::{ExtBuilder, TestStorage};
 
-type Asset = pallet_asset::Module<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
 
 #[test]
 fn register_multiple_global_metadata() {

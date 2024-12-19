@@ -66,7 +66,7 @@ use polymesh_primitives::{
     PortfolioName, PortfolioNumber, SecondaryKey,
 };
 
-type Identity<T> = pallet_identity::Module<T>;
+type Identity<T> = pallet_identity::Pallet<T>;
 
 fn count_token_moves(funds: &[Fund]) -> (u32, u32) {
     let mut fungible_moves = 0;
@@ -209,7 +209,7 @@ decl_event! {
 }
 
 decl_storage! {
-    trait Store for Module<T: Config> as Portfolio {
+    trait Store for Pallet<T: Config> as Portfolio {
         /// The next portfolio sequence number of an identity.
         pub NextPortfolioNumber get(fn next_portfolio_number):
             map hasher(identity) IdentityId => PortfolioNumber;
@@ -274,7 +274,7 @@ decl_storage! {
 storage_migration_ver!(3);
 
 decl_error! {
-    pub enum Error for Module<T: Config> {
+    pub enum Error for Pallet<T: Config> {
         /// The portfolio doesn't exist.
         PortfolioDoesNotExist,
         /// Insufficient balance for a transaction.
@@ -555,7 +555,7 @@ decl_module! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     /// Creates a portfolio named `portfolio_name` owned by `portfolio_owner_id`.
     fn base_create_portfolio(
         portfolio_owner_id: IdentityId,
@@ -1049,7 +1049,7 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> PortfolioSubTrait<T::AccountId> for Module<T> {
+impl<T: Config> PortfolioSubTrait<T::AccountId> for Pallet<T> {
     /// Locks some user tokens so that they can not be used for transfers.
     /// This is used internally by the settlement engine to prevent users from using the same funds
     /// in multiple ongoing settlements

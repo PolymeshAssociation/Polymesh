@@ -19,7 +19,7 @@
 use serde::{Deserialize, Serialize};
 
 use codec::alloc::string::ToString;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
 use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
@@ -33,7 +33,7 @@ use crate::constants::SETTLEMENT_INSTRUCTION_EXECUTION;
 use crate::{impl_checked_inc, Balance, IdentityId, NFTs, PortfolioId, Ticker};
 
 /// A global and unique venue ID.
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct VenueId(pub u64);
 impl_checked_inc!(VenueId);

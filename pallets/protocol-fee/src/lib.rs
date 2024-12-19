@@ -24,14 +24,14 @@
 //!
 //! ### Dispatchable Functions
 //!
-//! - [change_coefficient](Module::change_coefficient) - It changes the fee coefficient.
-//! - [change_base_fee](Module::change_base_fee) - It changes the base fee.
+//! - [change_coefficient](Pallet::change_coefficient) - It changes the fee coefficient.
+//! - [change_base_fee](Pallet::change_base_fee) - It changes the base fee.
 //!
 //! ### Public Functions
 //!
-//! - [compute_fee](Module::compute_fee) - It computes the fee of the operation.
-//! - [charge_fee](Module::charge_fee) - It calculates the fee and charges it.
-//! - [batch_charge_fee](Module::batch_charge_fee) - It calculates the fee and charges it on a batch operation.
+//! - [compute_fee](Pallet::compute_fee) - It computes the fee of the operation.
+//! - [charge_fee](Pallet::charge_fee) - It calculates the fee and charges it.
+//! - [batch_charge_fee](Pallet::batch_charge_fee) - It calculates the fee and charges it on a batch operation.
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 

@@ -59,7 +59,7 @@ where
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
     fn check_call_permissions(caller: &T::AccountId) -> DispatchResult {
-        pallet_permissions::Module::<T>::ensure_call_permissions(caller)?;
+        pallet_permissions::Pallet::<T>::ensure_call_permissions(caller)?;
         Ok(())
     }
 
@@ -90,14 +90,14 @@ where
         let cdd_provider_origin = {
             match T::CddServiceProviders::get_members().first() {
                 Some(cdd_did) => {
-                    let cdd_acc = pallet_identity::Module::<T>::get_primary_key(*cdd_did).unwrap();
+                    let cdd_acc = pallet_identity::Pallet::<T>::get_primary_key(*cdd_did).unwrap();
                     RawOrigin::Signed(cdd_acc).into()
                 }
                 None => cdd_provider::<T>("cdd", 0).origin.into(),
             }
         };
 
-        pallet_identity::Module::<T>::cdd_register_did_with_cdd(
+        pallet_identity::Pallet::<T>::cdd_register_did_with_cdd(
             cdd_provider_origin,
             account_id.into(),
             Vec::new(),
@@ -476,7 +476,7 @@ benchmarks! {
         let caller = user.account();
         let perms = Some(Permissions::default());
     }: {
-        Module::<T>::base_weight_and_contract_address(&caller, &code, &input, &salt, perms.as_ref())
+        Pallet::<T>::base_weight_and_contract_address(&caller, &code, &input, &salt, perms.as_ref())
     }
 
     base_weight_with_code {
@@ -495,7 +495,7 @@ benchmarks! {
         let caller = user.account();
         let perms = Some(Permissions::default());
     }: {
-        Module::<T>::base_weight_and_contract_address(&caller, &code, &input, &salt, perms.as_ref())
+        Pallet::<T>::base_weight_and_contract_address(&caller, &code, &input, &salt, perms.as_ref())
     }
 
     update_call_runtime_whitelist {
@@ -518,7 +518,7 @@ benchmarks! {
         let addr = FrameContracts::<T>::contract_address(&caller, &wasm.hash, &[], &[]);
         let perms = Some(Permissions::default());
     }: {
-        Module::<T>::link_contract_to_did(&caller, addr, perms, false)?;
+        Pallet::<T>::link_contract_to_did(&caller, addr, perms, false)?;
     }
 
     link_contract_as_primary_key {
@@ -532,7 +532,7 @@ benchmarks! {
         let wasm = WasmModule::<T>::dummy();
         let addr = FrameContracts::<T>::contract_address(&caller, &wasm.hash, &[], &[]);
     }: {
-        Module::<T>::link_contract_to_did(&caller, addr, None, true)?;
+        Pallet::<T>::link_contract_to_did(&caller, addr, None, true)?;
     }
 
     upgrade_api {
@@ -559,7 +559,7 @@ benchmarks! {
         let output_len: u32 = api_code_hash.hash.as_ref().len() as u32;
         let api = Api::new(*b"POLY", current_spec_version);
 
-        Module::<T>::upgrade_api(
+        Pallet::<T>::upgrade_api(
             RawOrigin::Root.into(),
             api.clone(),
             next_upgrade.clone(),

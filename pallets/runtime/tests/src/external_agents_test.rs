@@ -15,10 +15,10 @@ use polymesh_primitives::{
 };
 use sp_keyring::AccountKeyring;
 
-type ExternalAgents = pallet_external_agents::Module<TestStorage>;
+type ExternalAgents = pallet_external_agents::Pallet<TestStorage>;
 type BaseError = pallet_base::Error<TestStorage>;
 type Error = pallet_external_agents::Error<TestStorage>;
-type Id = pallet_identity::Module<TestStorage>;
+type Id = pallet_identity::Pallet<TestStorage>;
 
 fn set_extrinsic(name: &str) {
     StoreCallMetadata::<TestStorage>::set_call_metadata(

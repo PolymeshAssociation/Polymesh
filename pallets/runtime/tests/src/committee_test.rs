@@ -20,10 +20,10 @@ use sp_keyring::AccountKeyring;
 use sp_runtime::traits::Hash;
 use std::convert::TryFrom;
 
-type Committee = committee::Module<TestStorage, committee::Instance1>;
-type CommitteeGroup = group::Module<TestStorage, group::Instance1>;
+type Committee = committee::Pallet<TestStorage, committee::Instance1>;
+type CommitteeGroup = group::Pallet<TestStorage, group::Instance1>;
 type System = frame_system::Pallet<TestStorage>;
-type Identity = identity::Module<TestStorage>;
+type Identity = identity::Pallet<TestStorage>;
 type Pips = pallet_pips::Pallet<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 

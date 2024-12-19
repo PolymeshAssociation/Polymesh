@@ -36,14 +36,14 @@ where
 
     let name = PortfolioName(vec![65u8; PORTFOLIO_NAME_LEN as usize]);
     let num = NextPortfolioNumber::get(&owner.did());
-    Module::<T>::create_portfolio(owner.origin.clone().into(), name.clone()).unwrap();
+    Pallet::<T>::create_portfolio(owner.origin.clone().into(), name.clone()).unwrap();
     let pid = PortfolioId::user_portfolio(owner.did(), num.clone());
 
     (owner, pid)
 }
 
 fn add_auth<T: Config>(owner: &User<T>, custodian: &User<T>, pid: PortfolioId) -> u64 {
-    pallet_identity::Module::<T>::add_auth(
+    pallet_identity::Pallet::<T>::add_auth(
         owner.did(),
         Signatory::from(custodian.did()),
         AuthorizationData::PortfolioCustody(pid),
@@ -77,7 +77,7 @@ benchmarks! {
         let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; 5]);
         let next_portfolio_num = NextPortfolioNumber::get(&did);
-        Module::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone()).unwrap();
+        Pallet::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone()).unwrap();
         assert_eq!(Portfolios::get(&did, &next_portfolio_num), Some(portfolio_name));
     }: _(target.origin, next_portfolio_num.clone())
     verify {
@@ -92,7 +92,7 @@ benchmarks! {
         let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; i as usize]);
         let next_portfolio_num = NextPortfolioNumber::get(&did);
-        Module::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone()).unwrap();
+        Pallet::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone()).unwrap();
         assert_eq!(Portfolios::get(&did, &next_portfolio_num), Some(portfolio_name));
         let new_name = PortfolioName(vec![66u8; i as usize]);
 
@@ -107,7 +107,7 @@ benchmarks! {
         // Transfer the custody of the portfolio from `owner` to `custodian`.
         let custodian = user::<T>("custodian", 0);
         let auth_id = add_auth::<T>(&owner, &custodian, user_portfolio);
-        Module::<T>::accept_portfolio_custody(custodian.origin.clone().into(), auth_id)?;
+        Pallet::<T>::accept_portfolio_custody(custodian.origin.clone().into(), auth_id)?;
 
         assert_custodian::<T>(user_portfolio, &custodian, true);
     }: _(custodian.origin.clone(), user_portfolio)
@@ -133,7 +133,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let alice_default_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::Default };
         let alice_custom_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::User(PortfolioNumber(1)) };
-        Module::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
+        Pallet::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
         // Simulates minting - Adding the NFT pallet causes cyclic dependency
         let nft_asset_id = AssetId::new([0; 16]);
         (1..n + 1).for_each(|id| PortfolioNFT::insert(alice_default_portfolio, (nft_asset_id, NFTId(id.into())), true));
@@ -155,7 +155,7 @@ benchmarks! {
     pre_approve_portfolio {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let alice_custom_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::User(PortfolioNumber(1)) };
-        Module::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
+        Pallet::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
     }: _(alice.origin, [0; 16].into(), alice_custom_portfolio)
 
     remove_portfolio_pre_approval {
@@ -163,8 +163,8 @@ benchmarks! {
         let alice_custom_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::User(PortfolioNumber(1)) };
 
         let asset_id = AssetId::new([0; 16]);
-        Module::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
-        Module::<T>::pre_approve_portfolio(alice.clone().origin().into(), asset_id, alice_custom_portfolio).unwrap();
+        Pallet::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
+        Pallet::<T>::pre_approve_portfolio(alice.clone().origin().into(), asset_id, alice_custom_portfolio).unwrap();
     }: _(alice.origin, asset_id, alice_custom_portfolio)
 
     allow_identity_to_create_portfolios {
@@ -181,6 +181,6 @@ benchmarks! {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let portfolio_name = PortfolioName("AliceOwnsBobControls".as_bytes().to_vec());
-        Module::<T>::allow_identity_to_create_portfolios(alice.clone().origin().into(), bob.did()).unwrap();
+        Pallet::<T>::allow_identity_to_create_portfolios(alice.clone().origin().into(), bob.did()).unwrap();
     }: _(bob.origin, alice.did(), portfolio_name)
 }

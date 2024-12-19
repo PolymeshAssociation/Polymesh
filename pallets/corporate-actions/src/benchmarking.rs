@@ -96,7 +96,7 @@ pub(crate) fn setup_ca<T: Config>(kind: CAKind) -> (User<T>, CAId) {
     <pallet_timestamp::Now<T>>::set(1000u32.into());
 
     let origin: T::RuntimeOrigin = owner.origin().into();
-    <Module<T>>::initiate_corporate_action(
+    <Pallet<T>>::initiate_corporate_action(
         origin.clone(),
         asset_id,
         kind,
@@ -113,7 +113,7 @@ pub(crate) fn setup_ca<T: Config>(kind: CAKind) -> (User<T>, CAId) {
         local_id: LocalCAId(0),
     };
     let ids = add_docs::<T>(&origin, asset_id, 1);
-    <Module<T>>::link_ca_doc(origin.clone(), ca_id, ids).unwrap();
+    <Pallet<T>>::link_ca_doc(origin.clone(), ca_id, ids).unwrap();
     (owner, ca_id)
 }
 
@@ -280,7 +280,7 @@ benchmarks! {
         let origin: T::RuntimeOrigin = owner.origin().into();
         let ids = add_docs::<T>(&origin, asset_id, d);
         let ids2 = ids.clone();
-        <Module<T>>::initiate_corporate_action(
+        <Pallet<T>>::initiate_corporate_action(
             origin, asset_id, CAKind::Other, 1000, None, "".into(), None, None, None
         ).unwrap();
         let ca_id = CAId { asset_id, local_id: LocalCAId(0) };

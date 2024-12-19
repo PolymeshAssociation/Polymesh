@@ -60,18 +60,18 @@ where
     );
     // Leave space for one additional proposal to be created
     for i in 0..(PROPOSALS_MAX - 1) {
-        let index = Module::<T, I>::proposal_count();
+        let index = Pallet::<T, I>::proposal_count();
         let proposal = make_proposal::<T, I>(i).0;
-        Module::<T, I>::vote_or_propose(users[0].origin.clone().into(), true, Box::new(proposal))
+        Pallet::<T, I>::vote_or_propose(users[0].origin.clone().into(), true, Box::new(proposal))
             .unwrap();
         if users.len() > 1 {
-            let hash = *Module::<T, I>::proposals().last().unwrap();
+            let hash = *Pallet::<T, I>::proposals().last().unwrap();
             // cast min(user.len(), N) - 1 additional votes for proposal #N
             // alternating nay, aye, nay, aye...
             for (j, user) in users.iter().skip(1).take(i as usize).enumerate() {
                 // Vote for the proposal if it's not finalised.
-                if Module::<T, I>::voting(&hash).is_some() {
-                    Module::<T, I>::vote(user.origin.clone().into(), hash, index, j % 2 != 0)
+                if Pallet::<T, I>::voting(&hash).is_some() {
+                    Pallet::<T, I>::vote(user.origin.clone().into(), hash, index, j % 2 != 0)
                         .unwrap();
                 }
             }
@@ -91,7 +91,7 @@ where
         .collect();
     let mut dids: Vec<_> = members.iter().map(|m| m.did()).collect();
     dids.sort();
-    Module::<T, I>::change_members_sorted(&dids, &[], &dids);
+    Pallet::<T, I>::change_members_sorted(&dids, &[], &dids);
     make_proposals_and_vote::<T, I>(&members).unwrap();
     Ok(members)
 }
@@ -138,7 +138,7 @@ benchmarks_instance! {
         call.dispatch_bypass_filter(origin).unwrap();
     }
     verify {
-        assert_eq!(Module::<T, _>::vote_threshold(), (n, d), "incorrect vote threshold");
+        assert_eq!(Pallet::<T, _>::vote_threshold(), (n, d), "incorrect vote threshold");
     }
 
     set_release_coordinator {
@@ -147,7 +147,7 @@ benchmarks_instance! {
             .collect();
         dids.sort();
         let coordinator = dids.last().unwrap().clone();
-        Module::<T, I>::change_members_sorted(&dids, &[], &dids);
+        Pallet::<T, I>::change_members_sorted(&dids, &[], &dids);
         let origin = T::CommitteeOrigin::try_successful_origin().unwrap();
         let call = Call::<T, I>::set_release_coordinator { id: coordinator };
     }: {
@@ -155,7 +155,7 @@ benchmarks_instance! {
     }
     verify {
         assert_eq!(
-            Module::<T, _>::release_coordinator(), Some(coordinator),
+            Pallet::<T, _>::release_coordinator(), Some(coordinator),
             "incorrect release coordinator"
         );
     }
@@ -168,7 +168,7 @@ benchmarks_instance! {
         call.dispatch_bypass_filter(origin).unwrap();
     }
     verify {
-        assert_eq!(Module::<T, _>::expires_after(), maybe_block, "incorrect expiration");
+        assert_eq!(Pallet::<T, _>::expires_after(), maybe_block, "incorrect expiration");
     }
 
     vote_or_propose_new_proposal {
@@ -194,7 +194,7 @@ benchmarks_instance! {
         if COMMITTEE_MEMBERS_MAX <= 4 {
             // Proposal was executed.
             assert!(
-                Module::<T, _>::voting(&hash).is_none(),
+                Pallet::<T, _>::voting(&hash).is_none(),
                 "votes are present on an executed existing proposal"
             );
         } else {

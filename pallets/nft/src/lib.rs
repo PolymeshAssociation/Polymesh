@@ -29,10 +29,10 @@ use polymesh_primitives::{
     IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, WeightMeter,
 };
 
-type Asset<T> = pallet_asset::Module<T>;
-type ExternalAgents<T> = pallet_external_agents::Module<T>;
-type Identity<T> = pallet_identity::Module<T>;
-type Portfolio<T> = pallet_portfolio::Module<T>;
+type Asset<T> = pallet_asset::Pallet<T>;
+type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
+type Identity<T> = pallet_identity::Pallet<T>;
+type Portfolio<T> = pallet_portfolio::Pallet<T>;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -79,7 +79,7 @@ decl_event!(
 );
 
 decl_storage!(
-    trait Store for Module<T: Config> as NFT {
+    trait Store for Pallet<T: Config> as NFT {
         /// The total number of NFTs per identity.
         pub NumberOfNFTs get(fn balance_of): double_map hasher(blake2_128_concat) AssetId, hasher(identity) IdentityId => NFTCount;
 
@@ -232,7 +232,7 @@ decl_module! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Config> {
+    pub enum Error for Pallet<T: Config> {
         /// An overflow while calculating the balance.
         BalanceOverflow,
         /// An underflow while calculating the balance.
@@ -294,7 +294,7 @@ decl_error! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     fn base_create_nft_collection(
         origin: T::RuntimeOrigin,
         asset_id: Option<AssetId>,
@@ -826,7 +826,7 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> NFTTrait<T::RuntimeOrigin> for Module<T> {
+impl<T: Config> NFTTrait<T::RuntimeOrigin> for Pallet<T> {
     fn is_collection_key(asset_id: &AssetId, metadata_key: &AssetMetadataKey) -> bool {
         match CollectionAsset::try_get(asset_id) {
             Ok(collection_id) => {
@@ -848,6 +848,6 @@ impl<T: Config> NFTTrait<T::RuntimeOrigin> for Module<T> {
         nft_type: Option<NonFungibleType>,
         collection_keys: NFTCollectionKeys,
     ) -> DispatchResult {
-        Module::<T>::create_nft_collection(origin, asset_id, nft_type, collection_keys)
+        Pallet::<T>::create_nft_collection(origin, asset_id, nft_type, collection_keys)
     }
 }

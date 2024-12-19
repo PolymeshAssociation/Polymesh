@@ -17,10 +17,10 @@ use sp_keyring::AccountKeyring;
 use std::collections::{HashMap, HashSet};
 
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
-type Identity = pallet_identity::Module<TestStorage>;
-type Asset = pallet_asset::Module<TestStorage>;
-type Statistics = pallet_statistics::Module<TestStorage>;
-type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
+type Identity = pallet_identity::Pallet<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
+type Statistics = pallet_statistics::Pallet<TestStorage>;
+type ComplianceManager = pallet_compliance_manager::Pallet<TestStorage>;
 type Error = pallet_statistics::Error<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;

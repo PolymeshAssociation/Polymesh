@@ -19,53 +19,49 @@
 //!
 //! Currently, the module contains:
 //! - `Error::TooLong` and `ensure_*` functions to conveniently check data types for length.
-//! - `Event::UnexpectedError` and `emit_unexpected_error` to embed an error for manual inspection.
 //!
 //! There are currently no extrinsics or storage items in the base module.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use core::mem;
-use frame_support::decl_event;
 use frame_support::dispatch::{DispatchError, DispatchResult};
-use frame_support::traits::{Get, StorageInfo, StorageInfoTrait};
-use frame_support::{decl_error, decl_module, ensure};
+use frame_support::ensure;
+use frame_support::traits::Get;
 use polymesh_primitives::checked_inc::CheckedInc;
-use sp_std::{vec, vec::Vec};
 
-pub trait Config: frame_system::Config {
-    /// The overarching event type.
-    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+pub use pallet::*;
 
-    /// The maximum length governing `TooLong`.
-    ///
-    /// How lengths are computed to compare against this value is situation based.
-    /// For example, you could halve it, double it, compute a sum for some tree of strings, etc.
-    type MaxLen: Get<u32>;
-}
+#[frame_support::pallet]
+pub mod pallet {
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
-        type Error = Error<T>;
-        fn deposit_event() = default;
-        const MaxLen: u32 = T::MaxLen::get();
+    #[pallet::config]
+    pub trait Config: frame_system::Config {
+        /// The overarching event type.
+        type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+        /// The maximum length governing `TooLong`.
+        ///
+        /// How lengths are computed to compare against this value is situation based.
+        /// For example, you could halve it, double it, compute a sum for some tree of strings, etc.
+        #[pallet::constant]
+        type MaxLen: Get<u32>;
     }
-}
 
-/// Emit an unexpected error event that should be investigated manually
-pub fn emit_unexpected_error<T: Config>(error: Option<DispatchError>) {
-    Module::<T>::deposit_event(Event::UnexpectedError(error));
-}
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
 
-decl_event! {
+    #[pallet::event]
     pub enum Event {
         /// An unexpected error happened that should be investigated.
+        /// TODO: Unused, remove it.
         UnexpectedError(Option<DispatchError>),
     }
-}
 
-decl_error! {
-    pub enum Error for Module<T: Config> {
+    #[pallet::error]
+    pub enum Error<T> {
         /// Exceeded a generic length limit.
         /// The limit could be for any sort of lists of things, including a string.
         TooLong,
@@ -77,6 +73,12 @@ decl_error! {
         /// so these corner cases need to be covered with an error variant.
         CounterOverflow,
     }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {}
 }
 
 /// Ensure that the `len` provided is within the generic length limit.
@@ -121,10 +123,4 @@ pub fn try_next_post<T: Config, I: CheckedInc>(seq: &mut I) -> Result<I, Dispatc
     seq.checked_inc()
         .map(|x| mem::replace(seq, x))
         .ok_or_else(|| Error::<T>::CounterOverflow.into())
-}
-
-impl<T: Config> StorageInfoTrait for Module<T> {
-    fn storage_info() -> Vec<StorageInfo> {
-        Vec::new()
-    }
 }

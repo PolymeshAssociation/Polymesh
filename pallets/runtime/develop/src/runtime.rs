@@ -198,14 +198,14 @@ impl pallet_identity::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Proposal = RuntimeCall;
     type CddServiceProviders = CddServiceProviders;
-    type Balances = pallet_balances::Module<Runtime>;
+    type Balances = pallet_balances::Pallet<Runtime>;
     type CddHandler = CddHandler;
     type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = MultiSignature;
     type ProtocolFee = pallet_protocol_fee::Pallet<Runtime>;
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
     type WeightInfo = polymesh_weights::pallet_identity::SubstrateWeight;
-    type IdentityFn = pallet_identity::Module<Runtime>;
+    type IdentityFn = pallet_identity::Pallet<Runtime>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
     type MaxGivenAuths = MaxGivenAuths;

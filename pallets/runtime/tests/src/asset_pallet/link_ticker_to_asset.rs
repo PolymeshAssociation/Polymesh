@@ -9,7 +9,7 @@ use crate::asset_test::{now, set_timestamp};
 use crate::storage::User;
 use crate::{ExtBuilder, TestStorage};
 
-type Asset = pallet_asset::Module<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
 type ExternalAgentsError = pallet_external_agents::Error<TestStorage>;
 

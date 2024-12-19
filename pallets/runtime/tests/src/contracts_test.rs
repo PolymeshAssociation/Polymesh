@@ -28,7 +28,7 @@ use crate::storage::{root, TestStorage, User};
 
 const GAS_LIMIT: Gas = Weight::from_ref_time(100_000_000_000).set_proof_size(3 * 1024 * 1024);
 
-type Asset = pallet_asset::Module<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
 type FrameContracts = pallet_contracts::Pallet<TestStorage>;
 type BaseContractsError = pallet_contracts::Error<TestStorage>;
 type CodeHash = <Hashing as Hash>::Output;
@@ -37,7 +37,7 @@ type Contracts = polymesh_contracts::Pallet<TestStorage>;
 type ContractsError = polymesh_contracts::Error<TestStorage>;
 type MaxInLen = <TestStorage as polymesh_contracts::Config>::MaxInLen;
 type Balances = pallet_balances::Pallet<TestStorage>;
-type Identity = pallet_identity::Module<TestStorage>;
+type Identity = pallet_identity::Pallet<TestStorage>;
 type IdentityError = pallet_identity::Error<TestStorage>;
 type PolymeshContracts = polymesh_contracts::Pallet<TestStorage>;
 

@@ -15,7 +15,7 @@
 
 use crate::{
     Claim1stKey, Claim2ndKey, Claims, Config, CustomClaimIdSequence, CustomClaims,
-    CustomClaimsInverse, DidRecords, Error, Event, Module, ParentDid, RawEvent,
+    CustomClaimsInverse, DidRecords, Error, Event, Pallet, ParentDid, RawEvent,
 };
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -127,7 +127,7 @@ impl<T: Config> CddClaimChecker<T> {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     /// Ensure that any `Scope::Custom(data)` is limited to 32 characters.
     pub fn ensure_custom_scopes_limited(claim: &Claim) -> DispatchResult {
         if let Some(Scope::Custom(data)) = claim.as_scope() {

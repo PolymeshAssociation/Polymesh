@@ -18,7 +18,7 @@
 //! Balances pallet benchmarking.
 
 use super::*;
-use crate::Module as Balances;
+use crate::Pallet as Balances;
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 use pallet_identity::benchmarking::UserBuilder;

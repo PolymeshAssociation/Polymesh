@@ -732,7 +732,7 @@ pub mod pallet {
                 sender: voter,
                 primary_did,
                 ..
-            } = pallet_identity::Module::<T>::ensure_origin_call_permissions(origin)?;
+            } = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
 
             let pip = Self::proposals(id).ok_or(Error::<T>::NoSuchProposal)?;
 
@@ -876,7 +876,7 @@ pub mod pallet {
             id: PipId,
             until: Option<T::BlockNumber>,
         ) -> DispatchResult {
-            let did = pallet_identity::Module::<T>::ensure_perms(origin)?;
+            let did = pallet_identity::Pallet::<T>::ensure_perms(origin)?;
 
             // Ensure origin is release coordinator.
             ensure!(
@@ -911,7 +911,7 @@ pub mod pallet {
         #[pallet::weight((<T as Config>::WeightInfo::clear_snapshot(), Operational))]
         pub fn clear_snapshot(origin: OriginFor<T>) -> DispatchResult {
             // 1. Check that a GC member is executing this.
-            let did = pallet_identity::Module::<T>::ensure_perms(origin)?;
+            let did = pallet_identity::Pallet::<T>::ensure_perms(origin)?;
             ensure!(
                 T::GovernanceCommittee::is_member(&did),
                 Error::<T>::NotACommitteeMember
@@ -942,7 +942,7 @@ pub mod pallet {
                 sender: made_by,
                 primary_did: did,
                 ..
-            } = pallet_identity::Module::<T>::ensure_origin_call_permissions(origin)?;
+            } = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
             ensure!(
                 T::GovernanceCommittee::is_member(&did),
                 Error::<T>::NotACommitteeMember
@@ -1113,7 +1113,7 @@ impl<T: Config> Pallet<T> {
         match ensure_signed(origin.clone()) {
             Ok(sender) => {
                 let did =
-                    pallet_permissions::Module::<T>::ensure_call_permissions(&sender)?.primary_did;
+                    pallet_permissions::Pallet::<T>::ensure_call_permissions(&sender)?.primary_did;
                 Ok((Proposer::Community(sender), did))
             }
             Err(_) => {

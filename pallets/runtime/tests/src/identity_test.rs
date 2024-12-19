@@ -39,10 +39,10 @@ use sp_std::iter;
 use std::convert::From;
 
 type AuthorizationsGiven = pallet_identity::AuthorizationsGiven<TestStorage>;
-type Asset = pallet_asset::Module<TestStorage>;
-type Balances = balances::Module<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
+type Balances = balances::Pallet<TestStorage>;
 type BaseError = pallet_base::Error<TestStorage>;
-type Identity = pallet_identity::Module<TestStorage>;
+type Identity = pallet_identity::Pallet<TestStorage>;
 type ParentDid = pallet_identity::ParentDid;
 type MultiSig = pallet_multisig::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;

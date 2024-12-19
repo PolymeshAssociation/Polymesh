@@ -101,10 +101,10 @@ use sp_runtime::traits::Zero;
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
-type Identity<T> = identity::Module<T>;
-type Checkpoint<T> = checkpoint::Module<T>;
-type CA<T> = ca::Module<T>;
-type ExternalAgents<T> = pallet_external_agents::Module<T>;
+type Identity<T> = identity::Pallet<T>;
+type Checkpoint<T> = checkpoint::Pallet<T>;
+type CA<T> = ca::Pallet<T>;
+type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
 
 /// A wrapper for a motion title.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -248,7 +248,7 @@ pub trait WeightInfo {
 storage_migration_ver!(1);
 
 decl_storage! {
-    trait Store for Module<T: Config> as CorporateBallot {
+    trait Store for Pallet<T: Config> as CorporateBallot {
         /// Metadata of a corporate ballot.
         ///
         /// (CAId) => BallotMeta
@@ -605,7 +605,7 @@ decl_event! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Config> {
+    pub enum Error for Pallet<T: Config> {
         /// A corporate ballot was made for a non `IssuerNotice` CA.
         CANotNotice,
         /// A corporate ballot already exists for this CA.
@@ -637,7 +637,7 @@ decl_error! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     /// Ensure the ballot hasn't started and remove it.
     pub(crate) fn remove_ballot_base(
         agent: EventDid,

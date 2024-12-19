@@ -16,7 +16,7 @@
 use crate::{
     types, AccountKeyRefCount, ChildDid, Claim, Config, CurrentAuthId, DidKeys, DidRecords, Error,
     IsDidFrozen, KeyAssetPermissions, KeyExtrinsicPermissions, KeyPortfolioPermissions, KeyRecords,
-    Module, MultiPurposeNonce, OffChainAuthorizationNonce, OutdatedAuthorizations, ParentDid,
+    MultiPurposeNonce, OffChainAuthorizationNonce, OutdatedAuthorizations, Pallet, ParentDid,
     PermissionedCallOriginData, RawEvent, RpcDidRecords,
 };
 use codec::{Decode, Encode as _};
@@ -57,7 +57,7 @@ const MAX_PERMISSION_COMPLEXITY: usize = 1_000_000;
 
 type System<T> = frame_system::Pallet<T>;
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     /// Does the identity given by `did` exist?
     pub fn is_identity_exists(did: &IdentityId) -> bool {
         DidRecords::<T>::contains_key(did)
@@ -877,7 +877,7 @@ impl<T: Config> Module<T> {
         secondary_keys: Vec<SecondaryKey<T::AccountId>>,
     ) {
         // Link primary key.
-        <Module<T>>::add_key_record(&primary_key, KeyRecord::PrimaryKey(id));
+        <Pallet<T>>::add_key_record(&primary_key, KeyRecord::PrimaryKey(id));
         // Link secondary keys.
         for sk in &secondary_keys {
             Self::add_key_record(&sk.key, KeyRecord::SecondaryKey(id));
@@ -922,7 +922,7 @@ impl<T: Config> Module<T> {
         let AccountCallPermissionsData {
             primary_did,
             secondary_key,
-        } = pallet_permissions::Module::<T>::ensure_call_permissions(&sender)?;
+        } = pallet_permissions::Pallet::<T>::ensure_call_permissions(&sender)?;
         Ok(PermissionedCallOriginData {
             sender,
             primary_did,
@@ -971,7 +971,7 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Module<T> {
+impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Pallet<T> {
     // For weighting purposes, the function reads 4 storage values.
     fn check_account_call_permissions(
         who: &T::AccountId,

@@ -151,7 +151,7 @@ struct ComplianceRequirementInfo<T: Config> {
 impl<T: Config> ComplianceRequirementInfo<T> {
     pub fn add_default_trusted_claim_issuer(self: &Self, i: u32) {
         make_issuers::<T>(i, None).into_iter().for_each(|issuer| {
-            Module::<T>::add_default_trusted_claim_issuer(
+            Pallet::<T>::add_default_trusted_claim_issuer(
                 self.owner.origin.clone().into(),
                 self.asset_id,
                 issuer,
@@ -197,7 +197,7 @@ impl<T: Config> ComplianceRequirementBuilder<T> {
     /// Register the compliance requirement in the module.
     pub fn add_compliance_requirement(mut self: Self) -> Self {
         assert!(!self.has_been_added, "Compliance has been added before");
-        Module::<T>::add_compliance_requirement(
+        Pallet::<T>::add_compliance_requirement(
             self.info.owner.origin.clone().into(),
             self.info.asset_id.clone(),
             self.info.sender_conditions.clone(),
@@ -235,7 +235,7 @@ fn conditions_bench(conditions: Vec<Condition>) {
 
 /// Adds `claim` issued by `trusted_issuer_id` to `id`.
 fn add_identity_claim<T: Config>(id: IdentityId, claim: Claim, trusted_issuer_id: IdentityId) {
-    pallet_identity::Module::<T>::unverified_add_claim_with_scope(
+    pallet_identity::Pallet::<T>::unverified_add_claim_with_scope(
         id,
         claim.clone(),
         claim.as_scope().cloned(),
@@ -253,14 +253,14 @@ fn add_external_agent<T>(
 ) where
     T: Config,
 {
-    let auth_id = pallet_identity::Module::<T>::add_auth(
+    let auth_id = pallet_identity::Pallet::<T>::add_auth(
         ticker_owner,
         external_agent_id.into(),
         AuthorizationData::BecomeAgent(asset_id, AgentGroup::Full),
         None,
     )
     .unwrap();
-    pallet_external_agents::Module::<T>::accept_become_agent(external_agent_origin, auth_id)
+    pallet_external_agents::Pallet::<T>::accept_become_agent(external_agent_origin, auth_id)
         .unwrap();
 }
 
@@ -296,7 +296,7 @@ where
     if read_trusted_issuers_storage {
         // Adds all trusted issuers as the default for the asset_id
         trusted_issuers.into_iter().for_each(|trusted_issuer| {
-            Module::<T>::base_add_default_trusted_claim_issuer(
+            Pallet::<T>::base_add_default_trusted_claim_issuer(
                 sender.did(),
                 asset_id,
                 trusted_issuer,
@@ -327,7 +327,7 @@ pub fn setup_asset_compliance<T: Config>(
             ConditionType::IsNoneOf(claims),
             trusted_issuers,
         )];
-        Module::<T>::base_add_compliance_requirement(
+        Pallet::<T>::base_add_compliance_requirement(
             caller_did,
             asset_id,
             sender_conditions,
@@ -361,7 +361,7 @@ benchmarks! {
 
     }: _(d.owner.origin, d.asset_id, d.sender_conditions.clone(), d.receiver_conditions.clone())
     verify {
-        let req = Module::<T>::asset_compliance(d.asset_id).requirements.pop().unwrap();
+        let req = Pallet::<T>::asset_compliance(d.asset_id).requirements.pop().unwrap();
         assert_eq!( req.sender_conditions, d.sender_conditions, "Sender conditions not expected");
         assert_eq!( req.receiver_conditions, d.receiver_conditions, "Sender conditions not expected");
     }
@@ -374,10 +374,10 @@ benchmarks! {
             .add_compliance_requirement().build();
 
         // Remove the latest one.
-        let id = Module::<T>::get_latest_requirement_id(d.asset_id);
+        let id = Pallet::<T>::get_latest_requirement_id(d.asset_id);
     }: _(d.owner.origin, d.asset_id, id)
     verify {
-        let is_removed = Module::<T>::asset_compliance(d.asset_id)
+        let is_removed = Pallet::<T>::asset_compliance(d.asset_id)
             .requirements
             .into_iter()
             .find(|r| r.id == id)
@@ -393,19 +393,19 @@ benchmarks! {
             .add_compliance_requirement().build();
     }: _(d.owner.origin, d.asset_id)
     verify {
-        assert!( Module::<T>::asset_compliance(d.asset_id).paused, "Asset compliance is not paused");
+        assert!( Pallet::<T>::asset_compliance(d.asset_id).paused, "Asset compliance is not paused");
     }
 
     resume_asset_compliance {
         let d = ComplianceRequirementBuilder::<T>::new(2, 2)
             .add_compliance_requirement().build();
 
-        Module::<T>::pause_asset_compliance(
+        Pallet::<T>::pause_asset_compliance(
             d.owner.origin.clone().into(),
             d.asset_id.clone()).unwrap();
     }: _(d.owner.origin, d.asset_id)
     verify {
-        assert!( !Module::<T>::asset_compliance(d.asset_id).paused, "Asset compliance is paused");
+        assert!( !Pallet::<T>::asset_compliance(d.asset_id).paused, "Asset compliance is paused");
     }
 
     add_default_trusted_claim_issuer {
@@ -419,7 +419,7 @@ benchmarks! {
         let new_issuer = make_issuer::<T>(MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS, None);
     }: _(d.owner.origin, d.asset_id, new_issuer.clone())
     verify {
-        let trusted_issuers = Module::<T>::trusted_claim_issuer(d.asset_id);
+        let trusted_issuers = Pallet::<T>::trusted_claim_issuer(d.asset_id);
         assert!(
             trusted_issuers.contains(&new_issuer),
             "Default trusted claim issuer was not added");
@@ -434,10 +434,10 @@ benchmarks! {
         d.add_default_trusted_claim_issuer(MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS);
 
         // Delete the latest trusted issuer.
-        let issuer = Module::<T>::trusted_claim_issuer(d.asset_id).pop().unwrap();
+        let issuer = Pallet::<T>::trusted_claim_issuer(d.asset_id).pop().unwrap();
     }: _(d.owner.origin, d.asset_id, issuer.issuer.clone())
     verify {
-        let trusted_issuers = Module::<T>::trusted_claim_issuer(d.asset_id);
+        let trusted_issuers = Pallet::<T>::trusted_claim_issuer(d.asset_id);
         assert!(
             !trusted_issuers.contains(&issuer),
             "Default trusted claim issuer was not removed"
@@ -454,7 +454,7 @@ benchmarks! {
             .add_compliance_requirement().build();
 
         // Change the latest one.
-        let id = Module::<T>::get_latest_requirement_id(d.asset_id);
+        let id = Pallet::<T>::get_latest_requirement_id(d.asset_id);
 
         // Build a new set of compliance requirements.
         let (sender_count, receiver_count) = split_conditions(c);
@@ -466,7 +466,7 @@ benchmarks! {
         };
     }: _(d.owner.origin, d.asset_id, new_req.clone())
     verify {
-        let req = Module::<T>::asset_compliance(d.asset_id)
+        let req = Pallet::<T>::asset_compliance(d.asset_id)
             .requirements
             .into_iter()
             .find(|req| req.id == new_req.id)
@@ -490,7 +490,7 @@ benchmarks! {
 
         // Add more requirements to the asset, if `c > 1`.
         (1..c).for_each( |_i| {
-            let _ = Module::<T>::add_compliance_requirement(
+            let _ = Pallet::<T>::add_compliance_requirement(
                 d.owner.origin.clone().into(),
                 d.asset_id.clone(),
                 sender_conditions.clone(),
@@ -506,7 +506,7 @@ benchmarks! {
             }}).collect::<Vec<_>>();
     }: _(d.owner.origin, d.asset_id, asset_compliance.clone())
     verify {
-        let reqs = Module::<T>::asset_compliance(d.asset_id).requirements;
+        let reqs = Pallet::<T>::asset_compliance(d.asset_id).requirements;
         assert_eq!( reqs, asset_compliance, "Asset compliance was not replaced");
     }
 
@@ -519,7 +519,7 @@ benchmarks! {
     }: _(d.owner.origin, d.asset_id)
     verify {
         assert!(
-            Module::<T>::asset_compliance(d.asset_id).requirements.is_empty(),
+            Pallet::<T>::asset_compliance(d.asset_id).requirements.is_empty(),
             "Compliance Requeriment was not reset");
     }
 
@@ -537,7 +537,7 @@ benchmarks! {
         let condition = setup_is_condition_satisfied::<T>(&alice, asset_id, 1, c, t == 1);
     }: {
         assert!(
-            Module::<T>::is_condition_satisfied(
+            Pallet::<T>::is_condition_satisfied(
                 &asset_id,
                 alice.did(),
                 &condition,
@@ -571,7 +571,7 @@ benchmarks! {
         };
     }: {
         assert!(
-            Module::<T>::is_condition_satisfied(
+            Pallet::<T>::is_condition_satisfied(
                 &asset_id,
                 alice.did(),
                 &condition,
@@ -603,7 +603,7 @@ benchmarks! {
     }: {
         // We want this to return false to make sure it loops through all requirements
         assert!(
-            !Module::<T>::is_any_requirement_compliant(
+            !Pallet::<T>::is_any_requirement_compliant(
                 &asset_id,
                 &requirements,
                 alice.did(),

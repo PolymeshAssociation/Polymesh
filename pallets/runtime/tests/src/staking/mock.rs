@@ -191,7 +191,7 @@ impl pallet_base::Config for Test {
 }
 
 impl BlockRewardConfig for Test {
-    type BlockRewardsReserve = pallet_balances::Module<Test>;
+    type BlockRewardsReserve = pallet_balances::Pallet<Test>;
 }
 
 impl pallet_balances::Config for Test {
@@ -238,7 +238,7 @@ impl pallet_session::historical::Config for Test {
 }
 
 impl pallet_pips::Config for Test {
-    type Currency = pallet_balances::Module<Self>;
+    type Currency = pallet_balances::Pallet<Self>;
     type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type GovernanceCommittee = crate::storage::Committee;
     type TechnicalCommitteeVMO = frame_system::EnsureRoot<AccountId>;
@@ -251,7 +251,7 @@ impl pallet_pips::Config for Test {
 
 impl pallet_treasury::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type Currency = pallet_balances::Module<Self>;
+    type Currency = pallet_balances::Pallet<Self>;
     type WeightInfo = polymesh_weights::pallet_treasury::SubstrateWeight;
 }
 
@@ -294,7 +294,7 @@ impl pallet_protocol_fee::Config for Test {
 impl pallet_identity::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Proposal = RuntimeCall;
-    type CddServiceProviders = pallet_group::Module<Test, pallet_group::Instance2>;
+    type CddServiceProviders = pallet_group::Pallet<Test, pallet_group::Instance2>;
     type Balances = Balances;
     type CddHandler = Test;
     type Public = UintAuthorityId;
@@ -302,7 +302,7 @@ impl pallet_identity::Config for Test {
     type ProtocolFee = pallet_protocol_fee::Pallet<Test>;
     type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type WeightInfo = polymesh_weights::pallet_identity::SubstrateWeight;
-    type IdentityFn = pallet_identity::Module<Test>;
+    type IdentityFn = pallet_identity::Pallet<Test>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
     type MaxGivenAuths = MaxGivenAuths;
@@ -991,7 +991,7 @@ impl ExtBuilder {
     }
 }
 
-pub type Group = pallet_group::Module<Test, pallet_group::Instance2>;
+pub type Group = pallet_group::Pallet<Test, pallet_group::Instance2>;
 
 pub fn provide_did_to_user(account: AccountId) -> bool {
     if pallet_identity::KeyRecords::<Test>::contains_key(&account) {
@@ -1005,7 +1005,7 @@ pub fn provide_did_to_user(account: AccountId) -> bool {
         "CDD provider account not mapped to identity"
     );
 
-    let cdd_did = pallet_identity::Module::<Test>::get_identity(&cdd_account_id)
+    let cdd_did = pallet_identity::Pallet::<Test>::get_identity(&cdd_account_id)
         .expect("CDD provider missing identity");
     assert!(
         pallet_identity::DidRecords::<Test>::contains_key(&cdd_did),
@@ -1018,14 +1018,14 @@ pub fn provide_did_to_user(account: AccountId) -> bool {
         "CDD identity primary key mismatch"
     );
     assert!(
-        pallet_identity::Module::<Test>::cdd_register_did(cdd.clone(), account, vec![]).is_ok(),
+        pallet_identity::Pallet::<Test>::cdd_register_did(cdd.clone(), account, vec![]).is_ok(),
         "Error in registering the DID"
     );
 
-    let did = pallet_identity::Module::<Test>::get_identity(&account)
+    let did = pallet_identity::Pallet::<Test>::get_identity(&account)
         .expect("DID not find in the storage");
     assert!(
-        pallet_identity::Module::<Test>::add_claim(
+        pallet_identity::Pallet::<Test>::add_claim(
             cdd.clone(),
             did,
             Claim::CustomerDueDiligence(Default::default()),
@@ -1039,9 +1039,9 @@ pub fn provide_did_to_user(account: AccountId) -> bool {
 
 pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
     if !get_identity(to_secondary_key) {
-        pallet_identity::Module::<Test>::get_identity(&stash_key).unwrap();
+        pallet_identity::Pallet::<Test>::get_identity(&stash_key).unwrap();
         assert!(
-            pallet_identity::Module::<Test>::add_authorization(
+            pallet_identity::Pallet::<Test>::add_authorization(
                 RuntimeOrigin::signed(stash_key),
                 Signatory::Account(to_secondary_key),
                 AuthorizationData::JoinIdentity(Permissions::default()),
@@ -1052,7 +1052,7 @@ pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
         );
 
         let auth_id = get_last_auth_id(&Signatory::Account(to_secondary_key));
-        assert_ok!(pallet_identity::Module::<Test>::join_identity_as_key(
+        assert_ok!(pallet_identity::Pallet::<Test>::join_identity_as_key(
             RuntimeOrigin::signed(to_secondary_key),
             auth_id
         ));

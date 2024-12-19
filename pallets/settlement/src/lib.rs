@@ -85,11 +85,11 @@ use polymesh_primitives::{
     SecondaryKey, WeightMeter,
 };
 
-type Identity<T> = pallet_identity::Module<T>;
+type Identity<T> = pallet_identity::Pallet<T>;
 type System<T> = frame_system::Pallet<T>;
-type Asset<T> = pallet_asset::Module<T>;
-type ExternalAgents<T> = pallet_external_agents::Module<T>;
-type Nft<T> = pallet_nft::Module<T>;
+type Asset<T> = pallet_asset::Pallet<T>;
+type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
+type Nft<T> = pallet_nft::Pallet<T>;
 type EnsureValidInstructionResult<AccountId, Moment, BlockNumber> = Result<
     (
         IdentityId,
@@ -447,7 +447,7 @@ pub trait Config:
 
 decl_error! {
     /// Errors for the Settlement module.
-    pub enum Error for Module<T: Config> {
+    pub enum Error for Pallet<T: Config> {
         /// Venue does not exist.
         InvalidVenue,
         /// Sender does not have required permissions.
@@ -542,7 +542,7 @@ decl_error! {
 storage_migration_ver!(3);
 
 decl_storage! {
-    trait Store for Module<T: Config> as Settlement {
+    trait Store for Pallet<T: Config> as Settlement {
         /// Info about a venue. venue_id -> venue
         pub VenueInfo get(fn venue_info): map hasher(twox_64_concat) VenueId => Option<Venue>;
 
@@ -1179,7 +1179,7 @@ decl_module! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     fn lock_via_leg(leg: &Leg) -> DispatchResult {
         match leg {
             Leg::Fungible {
@@ -1366,7 +1366,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns [`InstructionInfo`] if all legs are valid, otherwise returns an error.
-    /// See also: [`Module::ensure_valid_fungible_leg`], [`Module::ensure_valid_nft_leg`] and [`Module::ensure_valid_off_chain_leg`].
+    /// See also: [`Pallet::ensure_valid_fungible_leg`], [`Pallet::ensure_valid_nft_leg`] and [`Pallet::ensure_valid_off_chain_leg`].
     fn ensure_valid_legs(
         legs: &[Leg],
         venue_id: &Option<VenueId>,
@@ -2314,7 +2314,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns `Ok` if the leg is valid, otherwise returns an error.
-    /// See also: [`Module::ensure_valid_fungible_leg`], [`Module::ensure_valid_nft_leg`] and [`Module::ensure_valid_off_chain_leg`].
+    /// See also: [`Pallet::ensure_valid_fungible_leg`], [`Pallet::ensure_valid_nft_leg`] and [`Pallet::ensure_valid_off_chain_leg`].
     fn ensure_valid_leg(
         leg: &Leg,
         venue_id: &Option<VenueId>,

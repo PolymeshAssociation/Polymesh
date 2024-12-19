@@ -338,14 +338,14 @@ pub trait Config: frame_system::Config + IdentityConfig + pallet_asset::Config {
     type DistWeightInfo: distribution::WeightInfo;
 }
 
-type Asset<T> = pallet_asset::Module<T>;
-type Ballot<T> = ballot::Module<T>;
-type Checkpoint<T> = checkpoint::Module<T>;
-type Distribution<T> = distribution::Module<T>;
-type ExternalAgents<T> = pallet_external_agents::Module<T>;
+type Asset<T> = pallet_asset::Pallet<T>;
+type Ballot<T> = ballot::Pallet<T>;
+type Checkpoint<T> = checkpoint::Pallet<T>;
+type Distribution<T> = distribution::Pallet<T>;
+type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
 
 decl_storage! {
-    trait Store for Module<T: Config> as CorporateAction {
+    trait Store for Pallet<T: Config> as CorporateAction {
         /// Determines the maximum number of bytes that the free-form `details` of a CA can store.
         ///
         /// Note that this is not the number of `char`s or the number of [graphemes].
@@ -749,7 +749,7 @@ decl_module! {
                     withholding_tax
                 )?;
 
-                <distribution::Module<T>>::unverified_distribute(
+                <distribution::Pallet<T>>::unverified_distribute(
                     caller_did,
                     secondary_key,
                     ca_id,
@@ -794,7 +794,7 @@ decl_event! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Config> {
+    pub enum Error for Pallet<T: Config> {
         /// The `details` of a CA exceeded the max allowed length.
         DetailsTooLong,
         /// A withholding tax override for a given DID was specified more than once.
@@ -823,7 +823,7 @@ decl_error! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     fn unsafe_initiate_corporate_action(
         caller_did: IdentityId,
         asset_id: AssetId,

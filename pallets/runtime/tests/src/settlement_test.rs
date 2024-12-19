@@ -50,19 +50,19 @@ use super::storage::{
 };
 use super::{next_block, ExtBuilder};
 
-type Identity = pallet_identity::Module<TestStorage>;
-type Balances = pallet_balances::Module<TestStorage>;
-type Asset = pallet_asset::Module<TestStorage>;
-type Portfolio = pallet_portfolio::Module<TestStorage>;
+type Identity = pallet_identity::Pallet<TestStorage>;
+type Balances = pallet_balances::Pallet<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
+type Portfolio = pallet_portfolio::Pallet<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
-type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
+type ComplianceManager = pallet_compliance_manager::Pallet<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type Moment = <TestStorage as pallet_timestamp::Config>::Moment;
 type BlockNumber = <TestStorage as frame_system::Config>::BlockNumber;
-type Settlement = pallet_settlement::Module<TestStorage>;
+type Settlement = pallet_settlement::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 type Error = pallet_settlement::Error<TestStorage>;
 type Scheduler = pallet_scheduler::Pallet<TestStorage>;

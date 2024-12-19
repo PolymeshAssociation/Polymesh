@@ -36,8 +36,8 @@ use polymesh_primitives::transfer_compliance::{
 };
 use polymesh_primitives::{storage_migration_ver, Balance, IdentityId, WeightMeter};
 
-type Identity<T> = pallet_identity::Module<T>;
-type ExternalAgents<T> = pallet_external_agents::Module<T>;
+type Identity<T> = pallet_identity::Pallet<T>;
+type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
 
 storage_migration_ver!(3);
 
@@ -107,7 +107,7 @@ decl_event!(
 );
 
 decl_storage! {
-    trait Store for Module<T: Config> as Statistics {
+    trait Store for Pallet<T: Config> as Statistics {
         /// Maps a set of [`StatType`] for each [`AssetId`].
         pub ActiveAssetStats get(fn active_asset_stats):
             map hasher(blake2_128_concat) AssetId => BoundedBTreeSet<StatType, T::MaxStatsPerAsset>;
@@ -224,7 +224,7 @@ decl_module! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     fn ensure_asset_perms(
         origin: T::RuntimeOrigin,
         asset_id: AssetId,
@@ -1023,7 +1023,7 @@ impl<T: Config> Module<T> {
 
 decl_error! {
     /// Statistics module errors.
-    pub enum Error for Module<T: Config> {
+    pub enum Error for Pallet<T: Config> {
         /// Invalid transfer [`TransferCondition`] not respected.
         InvalidTransferStatisticsFailure,
         /// StatType is not enabled.

@@ -154,7 +154,7 @@ pub struct PolymeshVotes<BlockNumber> {
 storage_migration_ver!(0);
 
 decl_storage! {
-    trait Store for Module<T: Config<I>, I: Instance=DefaultInstance> as Committee {
+    trait Store for Pallet<T: Config<I>, I: Instance=DefaultInstance> as Committee {
         /// The hashes of the active proposals.
         pub Proposals get(fn proposals): Vec<T::Hash>;
         /// Actual proposal for a given hash.
@@ -221,7 +221,7 @@ decl_event!(
 );
 
 decl_error! {
-    pub enum Error for Module<T: Config<I>, I: Instance> {
+    pub enum Error for Pallet<T: Config<I>, I: Instance> {
         /// Duplicate votes are not allowed.
         DuplicateVote,
         /// A DID isn't part of the committee.
@@ -246,7 +246,7 @@ decl_error! {
     }
 }
 
-type Identity<T> = pallet_identity::Module<T>;
+type Identity<T> = pallet_identity::Pallet<T>;
 
 decl_module! {
     pub struct Module<T: Config<I>, I: Instance=DefaultInstance> for enum Call where origin: <T as Config<I>>::RuntimeOrigin {
@@ -387,7 +387,7 @@ decl_module! {
     }
 }
 
-impl<T: Config<I>, I: Instance> Module<T, I> {
+impl<T: Config<I>, I: Instance> Pallet<T, I> {
     /// Ensure proposal with `hash` exists and has index `idx`.
     fn ensure_proposal(
         hash: &T::Hash,
@@ -593,7 +593,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
     }
 }
 
-impl<T: Config<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
+impl<T: Config<I>, I: Instance> GroupTrait<T::Moment> for Pallet<T, I> {
     /// Retrieve all members of this committee
     fn get_members() -> Vec<IdentityId> {
         Self::members()
@@ -616,7 +616,7 @@ impl<T: Config<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
     }
 }
 
-impl<T: Config<I>, I: Instance> GovernanceGroupTrait<T::Moment> for Module<T, I> {
+impl<T: Config<I>, I: Instance> GovernanceGroupTrait<T::Moment> for Pallet<T, I> {
     fn release_coordinator() -> Option<IdentityId> {
         Self::release_coordinator()
     }
@@ -630,7 +630,7 @@ impl<T: Config<I>, I: Instance> GovernanceGroupTrait<T::Moment> for Module<T, I>
     }
 }
 
-impl<T: Config<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
+impl<T: Config<I>, I: Instance> ChangeMembers<IdentityId> for Pallet<T, I> {
     /// This function is called when the group updates its members, and it executes the following
     /// actions:
     /// * It removes outgoing member's vote of each current proposal.
@@ -666,7 +666,7 @@ impl<T: Config<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
     }
 }
 
-impl<T: Config<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
+impl<T: Config<I>, I: Instance> InitializeMembers<IdentityId> for Pallet<T, I> {
     /// Initializes the members and adds the Systemic CDD claim (issued by
     /// `SystematicIssuers::Committee`).
     fn initialize_members(members: &[IdentityId]) {

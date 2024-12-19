@@ -942,7 +942,7 @@ benchmarks! {
             let key = UserBuilder::<T>::default().seed(x).balance(10_000u32).build("key");
             let _ = T::Currency::issue(10_000u32.into());
 
-            pallet_identity::Module::<T>::unsafe_join_identity(
+            pallet_identity::Pallet::<T>::unsafe_join_identity(
                 validator.did(),
                 Permissions::default(),
                 key.account.clone()

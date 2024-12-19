@@ -27,15 +27,15 @@ use crate::asset_pallet::setup::{create_and_issue_sample_asset, create_and_issue
 use crate::ext_builder::ExtBuilder;
 use crate::storage::{default_portfolio_btreeset, TestStorage, User};
 
-type Asset = pallet_asset::Module<TestStorage>;
-type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
+type ComplianceManager = pallet_compliance_manager::Pallet<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
-type Identity = pallet_identity::Module<TestStorage>;
-type NFT = pallet_nft::Module<TestStorage>;
+type Identity = pallet_identity::Pallet<TestStorage>;
+type NFT = pallet_nft::Pallet<TestStorage>;
 type NFTError = pallet_nft::Error<TestStorage>;
-type Portfolio = pallet_portfolio::Module<TestStorage>;
+type Portfolio = pallet_portfolio::Pallet<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
-type Settlement = pallet_settlement::Module<TestStorage>;
+type Settlement = pallet_settlement::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 
 /// Successfully creates an NFT collection and an Asset.

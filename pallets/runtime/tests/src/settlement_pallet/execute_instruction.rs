@@ -19,7 +19,7 @@ use crate::asset_pallet::setup::create_and_issue_sample_asset;
 use crate::storage::{default_portfolio_btreeset, User};
 use crate::{next_block, ExtBuilder, TestStorage};
 
-type Settlement = pallet_settlement::Module<TestStorage>;
+type Settlement = pallet_settlement::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 
 #[test]

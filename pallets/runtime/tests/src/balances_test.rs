@@ -17,9 +17,9 @@ use polymesh_primitives::{traits::BlockRewardsReserveCurrency, Memo};
 use sp_keyring::AccountKeyring;
 use sp_runtime::traits::SignedExtension;
 
-pub type Balances = balances::Module<TestStorage>;
+pub type Balances = balances::Pallet<TestStorage>;
 pub type System = frame_system::Pallet<TestStorage>;
-type Identity = identity::Module<TestStorage>;
+type Identity = identity::Pallet<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type Error = balances::Error<TestStorage>;
 

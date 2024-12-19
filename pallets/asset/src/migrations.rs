@@ -34,7 +34,7 @@ pub(crate) fn migrate_to_v6<T: Config>() {
                 if registration.expiry.is_some() {
                     registration.expiry = new_expiry;
 
-                    Module::<T>::deposit_event(RawEvent::TickerRegistered(
+                    Pallet::<T>::deposit_event(RawEvent::TickerRegistered(
                         registration.owner,
                         ticker,
                         new_expiry,

@@ -80,7 +80,7 @@ use pallet_identity::{Config as IdentityConfig, ParentDid, WeightInfo as Identit
 use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait};
 use polymesh_primitives::{storage_migration_ver, Balance, Permissions};
 
-type Identity<T> = pallet_identity::Module<T>;
+type Identity<T> = pallet_identity::Pallet<T>;
 type IdentityError<T> = pallet_identity::Error<T>;
 type FrameContracts<T> = pallet_contracts::Pallet<T>;
 type CodeHash<T> = <T as frame_system::Config>::Hash;
@@ -171,7 +171,7 @@ where
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
     fn check_call_permissions(caller: &T::AccountId) -> DispatchResult {
-        pallet_permissions::Module::<T>::ensure_call_permissions(caller)?;
+        pallet_permissions::Pallet::<T>::ensure_call_permissions(caller)?;
         Ok(())
     }
 
@@ -328,7 +328,7 @@ decl_event! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Config> where T::AccountId: UncheckedFrom<T::Hash>, T::AccountId: AsRef<[u8]> {
+    pub enum Error for Pallet<T: Config> where T::AccountId: UncheckedFrom<T::Hash>, T::AccountId: AsRef<[u8]> {
         /// Invalid `func_id` provided from contract.
         InvalidFuncId,
         /// Failed to decode a valid `RuntimeCall`.
@@ -360,7 +360,7 @@ decl_error! {
 storage_migration_ver!(1);
 
 decl_storage! {
-    trait Store for Module<T: Config> as PolymeshContracts where T::AccountId: UncheckedFrom<T::Hash>, T::AccountId: AsRef<[u8]> {
+    trait Store for Pallet<T: Config> as PolymeshContracts where T::AccountId: UncheckedFrom<T::Hash>, T::AccountId: AsRef<[u8]> {
         /// Whitelist of extrinsics allowed to be called from contracts.
         pub CallRuntimeWhitelist get(fn call_runtime_whitelist):
             map hasher(identity) ExtrinsicId => bool;
@@ -434,7 +434,7 @@ decl_module! {
         /// - All the errors in `pallet_contracts::Call::instantiate_with_code` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = Module::<T>::weight_instantiate_with_code(code.len() as u32, data.len() as u32, salt.len() as u32, Some(perms)).saturating_add(*gas_limit)]
+        #[weight = Pallet::<T>::weight_instantiate_with_code(code.len() as u32, data.len() as u32, salt.len() as u32, Some(perms)).saturating_add(*gas_limit)]
         pub fn instantiate_with_code_perms(
             origin,
             endowment: Balance,
@@ -485,7 +485,7 @@ decl_module! {
         /// - All the errors in `pallet_contracts::Call::instantiate` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = Module::<T>::weight_instantiate_with_hash(data.len() as u32, salt.len() as u32, Some(perms)).saturating_add(*gas_limit)]
+        #[weight = Pallet::<T>::weight_instantiate_with_hash(data.len() as u32, salt.len() as u32, Some(perms)).saturating_add(*gas_limit)]
         pub fn instantiate_with_hash_perms(
             origin,
             endowment: Balance,
@@ -531,7 +531,7 @@ decl_module! {
         /// - `data`: The input data to pass to the contract constructor.
         /// - `salt`: Used for contract address derivation. By varying this, the same `code` can be used under the same identity.
         ///
-        #[weight = Module::<T>::weight_instantiate_with_code(code.len() as u32, data.len() as u32, salt.len() as u32, None).saturating_add(*gas_limit)]
+        #[weight = Pallet::<T>::weight_instantiate_with_code(code.len() as u32, data.len() as u32, salt.len() as u32, None).saturating_add(*gas_limit)]
         pub fn instantiate_with_code_as_primary_key(
             origin,
             endowment: Balance,
@@ -568,7 +568,7 @@ decl_module! {
         /// - `data`: The input data to pass to the contract constructor.
         /// - `salt`: used for contract address derivation. By varying this, the same `code` can be used under the same identity.
         ///
-        #[weight = Module::<T>::weight_instantiate_with_hash(data.len() as u32, salt.len() as u32, None).saturating_add(*gas_limit)]
+        #[weight = Pallet::<T>::weight_instantiate_with_hash(data.len() as u32, salt.len() as u32, None).saturating_add(*gas_limit)]
         pub fn instantiate_with_hash_as_primary_key(
             origin,
             endowment: Balance,
@@ -602,7 +602,7 @@ decl_module! {
     }
 }
 
-impl<T: Config> Module<T>
+impl<T: Config> Pallet<T>
 where
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
@@ -708,7 +708,7 @@ where
         deploy_as_child_identity: bool,
     ) -> Result<(), DispatchErrorWithPostInfo> {
         // Ensure we have perms + we'll need sender & DID.
-        let caller = pallet_permissions::Module::<T>::ensure_call_permissions(caller)?;
+        let caller = pallet_permissions::Pallet::<T>::ensure_call_permissions(caller)?;
 
         // Ensure contract is not linked to a DID
         Identity::<T>::ensure_key_did_unlinked(&contract)?;

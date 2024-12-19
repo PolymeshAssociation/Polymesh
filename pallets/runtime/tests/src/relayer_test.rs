@@ -24,9 +24,9 @@ use sp_runtime::{
 
 type Relayer = pallet_relayer::Pallet<TestStorage>;
 type Subsidies = pallet_relayer::Subsidies<TestStorage>;
-type Identity = pallet_identity::Module<TestStorage>;
+type Identity = pallet_identity::Pallet<TestStorage>;
 type AccountKeyRefCount = pallet_identity::AccountKeyRefCount<TestStorage>;
-type Balances = pallet_balances::Module<TestStorage>;
+type Balances = pallet_balances::Pallet<TestStorage>;
 type ProtocolFee = pallet_protocol_fee::Pallet<TestStorage>;
 type TransactionPayment = pallet_transaction_payment::Pallet<TestStorage>;
 type ChargeTransactionPayment = pallet_transaction_payment::ChargeTransactionPayment<TestStorage>;

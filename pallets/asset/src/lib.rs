@@ -131,11 +131,11 @@ pub use types::{
     TickerRegistrationStatus,
 };
 
-type Checkpoint<T> = checkpoint::Module<T>;
-type ExternalAgents<T> = pallet_external_agents::Module<T>;
-type Identity<T> = pallet_identity::Module<T>;
-type Portfolio<T> = pallet_portfolio::Module<T>;
-type Statistics<T> = pallet_statistics::Module<T>;
+type Checkpoint<T> = checkpoint::Pallet<T>;
+type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
+type Identity<T> = pallet_identity::Pallet<T>;
+type Portfolio<T> = pallet_portfolio::Pallet<T>;
+type Statistics<T> = pallet_statistics::Pallet<T>;
 
 storage_migration_ver!(6);
 
@@ -323,7 +323,7 @@ pub trait WeightInfo {
     fn unlink_ticker_from_asset_id() -> Weight;
 }
 decl_storage! {
-    trait Store for Module<T: Config> as Asset {
+    trait Store for Pallet<T: Config> as Asset {
         /// Maps each [`Ticker`] to its registration details ([`TickerRegistration`]).
         pub UniqueTickerRegistration get(fn unique_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<TickerRegistration<T::Moment>>;
         /// Returns [`TickerRegistrationConfig`] for assessing if a ticker is valid.
@@ -441,7 +441,7 @@ decl_storage! {
             let fiat_tickers_reservation_did =
                 polymesh_primitives::SystematicIssuers::FiatTickersReservation.as_id();
             for currency_ticker in &config.reserved_country_currency_codes {
-                let _ = <Module<T>>::unverified_register_ticker(
+                let _ = <Pallet<T>>::unverified_register_ticker(
                     *currency_ticker,
                     fiat_tickers_reservation_did,
                     None,
@@ -451,7 +451,7 @@ decl_storage! {
 
             // Register Asset Metadata.
             for (name, spec) in &config.asset_metadata {
-                <Module<T>>::base_register_asset_metadata_global_type(name.clone(), spec.clone())
+                <Pallet<T>>::base_register_asset_metadata_global_type(name.clone(), spec.clone())
                     .expect("Shouldn't fail");
             }
         });
@@ -545,7 +545,7 @@ decl_module! {
 
         /// Creates a new asset.
         ///
-        /// The total supply will initially be zero. To mint tokens, use [`Module::issue`].
+        /// The total supply will initially be zero. To mint tokens, use [`Pallet::issue`].
         ///
         /// # Arguments
         /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
@@ -865,7 +865,7 @@ decl_module! {
 
         /// Creates a new asset with a new custom asset type.
         ///
-        /// The total supply will initially be zero. To mint tokens, use [`Module::issue`].
+        /// The total supply will initially be zero. To mint tokens, use [`Pallet::issue`].
         ///
         /// # Arguments
         /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
@@ -1305,7 +1305,7 @@ decl_module! {
 // All base functions!
 //==========================================================================
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     /// Registers `ticker` to the caller.
     fn base_register_unique_ticker(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
         let caller_did = Identity::<T>::ensure_perms(origin)?;
@@ -1388,7 +1388,7 @@ impl<T: Config> Module<T> {
     }
 
     /// If all rules for creating an asset are being respected, creates a new [`AssetDetails`].
-    /// See also [`Module::validate_asset_creation_rules`].
+    /// See also [`Pallet::validate_asset_creation_rules`].
     fn base_create_asset(
         origin: T::RuntimeOrigin,
         asset_name: AssetName,
@@ -2124,7 +2124,7 @@ impl<T: Config> Module<T> {
 // All validattion functions!
 //==========================================================================
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     /// Returns [`TickerRegistrationStatus`] if all registration rules are satisfied.
     fn validate_ticker_registration_rules(
         ticker: &Ticker,
@@ -2603,7 +2603,7 @@ impl<T: Config> Module<T> {
             .unwrap_or_default()
     }
 
-    /// Calls [`Module::validate_asset_creation_rules`] and [`Module::unverified_create_asset`].
+    /// Calls [`Pallet::validate_asset_creation_rules`] and [`Pallet::unverified_create_asset`].
     fn validate_and_create_asset(
         caller_data: PermissionedCallOriginData<T::AccountId>,
         asset_name: AssetName,
@@ -2693,7 +2693,7 @@ impl<T: Config> Module<T> {
 // All Storage Writes!
 //==========================================================================
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     /// All storage writes for registering `ticker` to `owner` with an optional `expiry`.
     /// Note: If `charge_fee` is `true` one fee is charged ([`ProtocolOp::AssetRegisterTicker`]).
     fn unverified_register_ticker(
@@ -3047,7 +3047,7 @@ impl<T: Config> Module<T> {
 // Trait implementation!
 //==========================================================================
 
-impl<T: Config> AssetFnTrait<T::AccountId> for Module<T> {
+impl<T: Config> AssetFnTrait<T::AccountId> for Pallet<T> {
     fn ensure_granular(asset_id: &AssetId, value: Balance) -> DispatchResult {
         let asset_details = Self::try_get_asset_details(&asset_id)?;
         Self::ensure_asset_granular(&asset_details, &value)

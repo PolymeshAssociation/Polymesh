@@ -64,8 +64,8 @@ use polymesh_primitives::{storage_migration_ver, IdentityId, Moment};
 
 use crate::Config;
 
-type Asset<T> = crate::Module<T>;
-type ExternalAgents<T> = pallet_external_agents::Module<T>;
+type Asset<T> = crate::Pallet<T>;
+type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
 
 storage_migration_ver!(2);
 
@@ -101,7 +101,7 @@ decl_event! {
 }
 
 decl_storage! {
-    trait Store for Module<T: Config> as Checkpoint {
+    trait Store for Pallet<T: Config> as Checkpoint {
         // --------------------- Supply / Balance storage ----------------------
 
         /// Total supply of the token at the checkpoint.
@@ -282,7 +282,7 @@ decl_module! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Config> {
+    pub enum Error for Pallet<T: Config> {
         /// A checkpoint schedule does not exist for the asset.
         NoSuchSchedule,
         /// A checkpoint schedule is not removable as `ref_count(schedule_id) > 0`.
@@ -298,7 +298,7 @@ decl_error! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     /// Does checkpoint with ID `cp_id` exist for `asset_id`?
     pub fn checkpoint_exists(asset_id: &AssetId, cp: CheckpointId) -> bool {
         cp > CheckpointId(0) && cp <= CheckpointIdSequence::get(asset_id)

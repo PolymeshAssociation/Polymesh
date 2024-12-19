@@ -13,8 +13,8 @@ use sp_keyring::AccountKeyring;
 use sp_runtime::transaction_validity::InvalidTransaction;
 
 type MultiSig = multisig::Pallet<TestStorage>;
-type Balances = balances::Module<TestStorage>;
-type Identity = identity::Module<TestStorage>;
+type Balances = balances::Pallet<TestStorage>;
+type Identity = identity::Pallet<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 
 #[test]

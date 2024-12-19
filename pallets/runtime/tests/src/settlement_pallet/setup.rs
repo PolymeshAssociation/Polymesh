@@ -7,9 +7,9 @@ use crate::asset_pallet::setup::create_and_issue_sample_asset;
 use crate::storage::User;
 use crate::TestStorage;
 
-type Asset = pallet_asset::Module<TestStorage>;
-type Nft = pallet_nft::Module<TestStorage>;
-type Settlement = pallet_settlement::Module<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
+type Nft = pallet_nft::Pallet<TestStorage>;
+type Settlement = pallet_settlement::Pallet<TestStorage>;
 
 /// Calls [`create_and_issue_sample_asset`] and creates a venue for `asset_owner`.
 pub fn create_and_issue_sample_asset_with_venue(asset_owner: &User) -> (AssetId, Option<VenueId>) {

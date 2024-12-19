@@ -71,8 +71,8 @@ use polymesh_primitives::{
 };
 use sp_std::prelude::*;
 
-type Identity<T> = pallet_identity::Module<T>;
-type Permissions<T> = pallet_permissions::Module<T>;
+type Identity<T> = pallet_identity::Pallet<T>;
+type Permissions<T> = pallet_permissions::Pallet<T>;
 
 storage_migration_ver!(1);
 
@@ -125,7 +125,7 @@ decl_event! {
 }
 
 decl_storage! {
-    trait Store for Module<T: Config> as ExternalAgents {
+    trait Store for Pallet<T: Config> as ExternalAgents {
         /// The next per-asset AG ID in the sequence.
         ///
         /// The full ID is defined as a combination of `AssetId` and a number in this sequence,
@@ -331,7 +331,7 @@ decl_module! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Config> {
+    pub enum Error for Pallet<T: Config> {
         /// An AG with the given `AGId` did not exist for the `AssetId`.
         NoSuchAG,
         /// The agent is not authorized to call the current extrinsic.
@@ -348,7 +348,7 @@ decl_error! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     fn base_accept_become_agent(origin: T::RuntimeOrigin, auth_id: u64) -> DispatchResult {
         let to = Identity::<T>::ensure_perms(origin)?;
         Identity::<T>::accept_auth_with(&to.into(), auth_id, |data, from| {

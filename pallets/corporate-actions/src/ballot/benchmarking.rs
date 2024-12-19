@@ -43,7 +43,7 @@ fn meta(n_motions: u32, n_choices: u32) -> BallotMeta {
 fn attach<T: Config>(n_motions: u32, n_choices: u32) -> (User<T>, CAId) {
     let meta = meta(n_motions, n_choices);
     let (owner, ca_id) = setup_ca::<T>(CAKind::IssuerNotice);
-    <Module<T>>::attach_ballot(owner.origin().into(), ca_id, RANGE, meta, true).unwrap();
+    <Pallet<T>>::attach_ballot(owner.origin().into(), ca_id, RANGE, meta, true).unwrap();
     (owner, ca_id)
 }
 
@@ -78,7 +78,7 @@ benchmarks! {
             .collect::<Vec<_>>();
 
         // Vote already to force a longer code path.
-        <Module<T>>::vote(owner.origin().into(), ca_id, votes.clone()).unwrap();
+        <Pallet<T>>::vote(owner.origin().into(), ca_id, votes.clone()).unwrap();
         let results = votes.iter().map(|v| v.power).collect::<Vec<_>>();
     }: _(owner.origin(), ca_id, votes)
     verify {

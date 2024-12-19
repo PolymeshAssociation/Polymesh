@@ -295,7 +295,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_portfolio::SubstrateWeight;
             type MaxNumberOfFungibleMoves = MaxNumberOfFungibleMoves;
             type MaxNumberOfNFTsMoves = MaxNumberOfNFTsMoves;
-            type NFT = pallet_nft::Module<Runtime>;
+            type NFT = pallet_nft::Pallet<Runtime>;
         }
 
         impl pallet_external_agents::Config for Runtime {
@@ -370,7 +370,7 @@ macro_rules! misc_pallet_impls {
         impl pallet_asset::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type Currency = Balances;
-            type ComplianceManager = pallet_compliance_manager::Module<Runtime>;
+            type ComplianceManager = pallet_compliance_manager::Pallet<Runtime>;
             type UnixTime = pallet_timestamp::Pallet<Runtime>;
             type AssetNameMaxLength = AssetNameMaxLength;
             type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
@@ -379,7 +379,7 @@ macro_rules! misc_pallet_impls {
             type AssetMetadataTypeDefMaxLength = AssetMetadataTypeDefMaxLength;
             type WeightInfo = polymesh_weights::pallet_asset::SubstrateWeight;
             type CPWeightInfo = polymesh_weights::pallet_checkpoint::SubstrateWeight;
-            type NFTFn = pallet_nft::Module<Runtime>;
+            type NFTFn = pallet_nft::Pallet<Runtime>;
             type MaxAssetMediators = MaxAssetMediators;
         }
 
@@ -617,7 +617,7 @@ macro_rules! misc_pallet_impls {
         impl pallet_nft::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type WeightInfo = polymesh_weights::pallet_nft::SubstrateWeight;
-            type Compliance = pallet_compliance_manager::Module<Runtime>;
+            type Compliance = pallet_compliance_manager::Pallet<Runtime>;
             type MaxNumberOfCollectionKeys = MaxNumberOfCollectionKeys;
             type MaxNumberOfNFTsCount = MaxNumberOfNFTsPerLeg;
         }

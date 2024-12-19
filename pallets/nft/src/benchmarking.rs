@@ -28,14 +28,14 @@ fn create_collection<T: Config>(collection_owner: &User<T>, n: u32) -> (AssetId,
         false,
     );
     let collection_keys: NFTCollectionKeys = creates_keys_register_metadata_types::<T>(n);
-    Module::<T>::create_nft_collection(
+    Pallet::<T>::create_nft_collection(
         collection_owner.origin.clone().into(),
         Some(asset_id),
         None,
         collection_keys,
     )
     .expect("failed to create nft collection");
-    (asset_id, Module::<T>::current_collection_id().unwrap())
+    (asset_id, Pallet::<T>::current_collection_id().unwrap())
 }
 
 /// Creates a set of `NFTCollectionKeys` made of `n` global keys and registers `n` global asset metadata types.
@@ -72,7 +72,7 @@ fn create_collection_issue_nfts<T: Config>(
         })
         .collect();
     for _ in 0..n_nfts {
-        Module::<T>::issue_nft(
+        Pallet::<T>::issue_nft(
             collection_owner.origin.clone().into(),
             asset_id,
             metadata_attributes.clone(),
@@ -204,7 +204,7 @@ benchmarks! {
         let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
     }: {
         with_transaction(|| {
-            Module::<T>::base_nft_transfer(
+            Pallet::<T>::base_nft_transfer(
                 sender_portfolio,
                 receiver_portfolio,
                 nfts,
@@ -228,7 +228,7 @@ benchmarks! {
             setup_nft_transfer::<T>(&alice, &bob, n, None, None, true, 0);
         let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
         with_transaction(|| {
-            Module::<T>::base_nft_transfer(
+            Pallet::<T>::base_nft_transfer(
                 alice_user_portfolio,
                 bob_user_portfolio,
                 nfts.clone(),

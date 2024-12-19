@@ -191,7 +191,7 @@ use sp_runtime::{
 use sp_std::ops::BitOr;
 use sp_std::{cmp, mem, prelude::*, result};
 
-type CallPermissions<T> = pallet_permissions::Module<T>;
+type CallPermissions<T> = pallet_permissions::Pallet<T>;
 
 pub trait BlockRewardConfig: Sized {
     type BlockRewardsReserve: BlockRewardsReserveCurrency<NegativeImbalance<Self>>;
@@ -365,7 +365,7 @@ pub trait LockableCurrencyExt<AccountId>: LockableCurrency<AccountId, Balance = 
     ) -> DispatchResult;
 }
 decl_error! {
-    pub enum Error for Module<T: Config> {
+    pub enum Error for Pallet<T: Config> {
         /// Account liquidity restrictions prevent withdrawal
         LiquidityRestrictions,
         /// Got an overflow after adding
@@ -392,7 +392,7 @@ pub struct BalanceLock<Balance> {
 }
 
 decl_storage! {
-    trait Store for Module<T: Config> as Balances {
+    trait Store for Pallet<T: Config> as Balances {
         /// The total units issued in the system.
         pub TotalIssuance get(fn total_issuance) build(|config: &GenesisConfig<T>| {
             let f = |u: Balance, &v| u + v;
@@ -577,7 +577,7 @@ decl_module! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     // PRIVATE MUTABLES
 
     /// Get the free balance of an account.
@@ -860,7 +860,7 @@ impl<T: Config> Module<T> {
 }
 
 // Polymesh modified code. Managed BRR related functions.
-impl<T: Config> BlockRewardsReserveCurrency<NegativeImbalance<T>> for Module<T> {
+impl<T: Config> BlockRewardsReserveCurrency<NegativeImbalance<T>> for Pallet<T> {
     // Polymesh modified code. Drop behavious modified to reduce BRR balance instead of inflating total supply.
     fn drop_positive_imbalance(mut amount: Balance) {
         if amount.is_zero() {
@@ -924,7 +924,7 @@ impl<T: Config> BlockRewardsReserveCurrency<NegativeImbalance<T>> for Module<T> 
     }
 }
 
-impl<T: Config> Currency<T::AccountId> for Module<T> {
+impl<T: Config> Currency<T::AccountId> for Pallet<T> {
     type Balance = Balance;
     type PositiveImbalance = PositiveImbalance<T>;
     type NegativeImbalance = NegativeImbalance<T>;
@@ -1174,7 +1174,7 @@ impl<T: Config> Currency<T::AccountId> for Module<T> {
     }
 }
 
-impl<T: Config> ReservableCurrency<T::AccountId> for Module<T> {
+impl<T: Config> ReservableCurrency<T::AccountId> for Pallet<T> {
     /// Check if `who` can reserve `value` from their free balance.
     ///
     /// Always `true` if value to be reserved is zero.
@@ -1328,7 +1328,7 @@ impl<T: Config> ReservableCurrency<T::AccountId> for Module<T> {
     }
 }
 
-impl<T: Config> LockableCurrency<T::AccountId> for Module<T> {
+impl<T: Config> LockableCurrency<T::AccountId> for Pallet<T> {
     type Moment = T::BlockNumber;
 
     type MaxLocks = T::MaxLocks;
@@ -1390,7 +1390,7 @@ impl<T: Config> LockableCurrency<T::AccountId> for Module<T> {
     }
 }
 
-impl<T: Config> LockableCurrencyExt<T::AccountId> for Module<T> {
+impl<T: Config> LockableCurrencyExt<T::AccountId> for Pallet<T> {
     fn reduce_lock(id: LockIdentifier, who: &T::AccountId, amount: Balance) -> DispatchResult {
         if amount.is_zero() {
             return Ok(());
@@ -1445,7 +1445,7 @@ impl<T: Config> LockableCurrencyExt<T::AccountId> for Module<T> {
     }
 }
 
-impl<T: Config> fungible::Inspect<T::AccountId> for Module<T> {
+impl<T: Config> fungible::Inspect<T::AccountId> for Pallet<T> {
     type Balance = Balance;
 
     fn total_issuance() -> Self::Balance {

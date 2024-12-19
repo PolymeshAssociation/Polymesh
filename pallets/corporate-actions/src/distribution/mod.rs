@@ -89,12 +89,12 @@ use sp_runtime::traits::Zero;
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
-type Asset<T> = asset::Module<T>;
-type Checkpoint<T> = checkpoint::Module<T>;
-type ExternalAgents<T> = pallet_external_agents::Module<T>;
-type CA<T> = ca::Module<T>;
-type Identity<T> = identity::Module<T>;
-type Portfolio<T> = pallet_portfolio::Module<T>;
+type Asset<T> = asset::Pallet<T>;
+type Checkpoint<T> = checkpoint::Pallet<T>;
+type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
+type CA<T> = ca::Pallet<T>;
+type Identity<T> = identity::Pallet<T>;
+type Portfolio<T> = pallet_portfolio::Pallet<T>;
 
 /// The value `per_share` must take to get 1 `currency`.
 pub const PER_SHARE_PRECISION: Balance = 1_000_000;
@@ -139,7 +139,7 @@ pub trait WeightInfo {
 }
 
 decl_storage! {
-    trait Store for Module<T: Config> as CapitalDistribution {
+    trait Store for Pallet<T: Config> as CapitalDistribution {
         /// All capital distributions, tied to their respective corporate actions (CAs).
         ///
         /// (CAId) => Distribution
@@ -350,7 +350,7 @@ decl_event! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Config> {
+    pub enum Error for Pallet<T: Config> {
         /// A capital distribution was made for a non-benefit CA.
         CANotBenefit,
         /// A distribution already exists for this CA.
@@ -385,7 +385,7 @@ decl_error! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     fn base_distribute(
         origin: T::RuntimeOrigin,
         ca_id: CAId,

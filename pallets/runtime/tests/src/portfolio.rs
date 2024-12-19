@@ -24,12 +24,12 @@ use super::nft::{create_nft_collection, mint_nft};
 use super::storage::{user_portfolio_btreeset, EventTest, System, TestStorage, User};
 use super::ExtBuilder;
 
-type Asset = pallet_asset::Module<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
 type Error = pallet_portfolio::Error<TestStorage>;
-type Identity = pallet_identity::Module<TestStorage>;
+type Identity = pallet_identity::Pallet<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
-type Portfolio = pallet_portfolio::Module<TestStorage>;
-type Settlement = pallet_settlement::Module<TestStorage>;
+type Portfolio = pallet_portfolio::Pallet<TestStorage>;
+type Settlement = pallet_settlement::Pallet<TestStorage>;
 
 fn create_portfolio() -> (User, PortfolioNumber) {
     let owner = User::new(AccountKeyring::Alice);

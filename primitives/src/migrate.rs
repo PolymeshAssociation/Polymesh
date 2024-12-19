@@ -1,254 +1,94 @@
 // This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
-// Copyright (c) 2020 Polymesh Association
-
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 3.
-
-// This program is distributed in the hope that it will be useful, but
-// WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-// General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program. If not, see <http://www.gnu.org/licenses/>.
-
-//! Defines a trait and implementations for storage migration.
+// Copyright (c) Polymesh Association
 
 use codec::{Decode, Encode};
-use frame_support::migration::{put_storage_value, storage_iter, storage_key_iter};
-use frame_support::storage::unhashed;
-use frame_support::{ReversibleStorageHasher, StorageHasher, Twox128};
-use sp_std::vec::Vec;
+use frame_support::{
+    storage::migration::take_storage_value,
+    traits::{GetStorageVersion, PalletInfoAccess, StorageVersion},
+    weights::Weight,
+};
 
-/// A migration error type.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
-pub enum MigrationError<T> {
-    /// Error during decodification of raw key.
-    DecodeKey(Vec<u8>),
-    /// Wrapper of the Error in the map function.
-    Map(T),
-}
+/// Old Polymesh storage version type.
+#[derive(Encode, Decode)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
+pub struct OldVersion(pub u8);
 
-/// A data type which is migrating through `migrate` to a new type as defined by `Into`.
-pub trait Migrate: Decode {
-    /// The new type to migrate into.
-    type Into: Encode;
-
-    /// An external context / data source to feed into the migration process.
-    /// This could e.g., be per key, or some sort of global data.
-    type Context;
-
-    /// Migrate the current type to `Into` if possible,
-    /// using the given `context` as an external data source.
-    ///
-    /// For simplicity, we assume that migrations are fallible in the type system,
-    /// although they may in fact not be for certain data types.
-    fn migrate(self, context: Self::Context) -> Option<Self::Into>;
-}
-
-/// The empty context, used by default unless a context is specified.
-#[derive(Copy, Clone, Default)]
-pub struct Empty;
-
-impl<T: Migrate> Migrate for Vec<T>
-where
-    T::Context: Clone,
-{
-    type Into = Vec<T::Into>;
-    type Context = T::Context;
-
-    fn migrate(self, context: Self::Context) -> Option<Self::Into> {
-        // Heuristic: let's assume migration is successful for everything.
-        let mut vec = Vec::with_capacity(self.len());
-        for old in self {
-            vec.push(old.migrate(context.clone())?);
-        }
-        Some(vec)
+/// Helper function to migrate an instance pallet from Frame v1 to v2.
+pub fn frame_v2_instance_migrate<P: PalletInfoAccess + GetStorageVersion, I: 'static>(
+    old_storage_name: &str,
+    target_version: StorageVersion,
+) -> Weight {
+    let instance_name = core::any::type_name::<I>();
+    if let Some((_, old_instance_name)) = instance_name.rsplit_once("::") {
+        let old_pallet_name =
+            scale_info::prelude::format!("{}{}", old_instance_name, old_storage_name);
+        frame_v2_migrate::<P>(&old_pallet_name, target_version)
+    } else {
+        log::warn!(
+            "Failed to extract instance name for pallet: P={}, I={}",
+            P::name(),
+            instance_name
+        );
+        Weight::zero()
     }
 }
 
-impl<T: Migrate> Migrate for Option<T> {
-    type Into = Option<T::Into>;
-    type Context = T::Context;
-
-    fn migrate(self, context: Self::Context) -> Option<Self::Into> {
-        self.map(|val| val.migrate(context))
+/// Helper function to migrate a pallet from Frame v1 to v2.
+///
+/// # Arguments
+/// * `old_pallet_name` - The old storage prefix of the pallet
+/// * `version` - The target storage version
+///
+/// # Returns
+/// * `Weight` - The weight consumed by the migration
+pub fn frame_v2_migrate<P: PalletInfoAccess + GetStorageVersion>(
+    old_pallet_name: &str,
+    target_version: StorageVersion,
+) -> Weight {
+    let mut weight = Weight::zero();
+    let pallet_name = P::name();
+    // Check if we need to perform the migration
+    let current_version = <P as GetStorageVersion>::on_chain_storage_version();
+    if current_version >= target_version {
+        // No migration needed
+        return weight;
     }
-}
+    log::info!(
+        "Migrating storage for pallet {} from version {:?} to version {:?}",
+        pallet_name,
+        current_version,
+        target_version
+    );
+    weight += Weight::from_ref_time(1_000);
+    // Update the storage version
+    target_version.put::<P>();
 
-/// Migrate the values with old type `T` in `module::item` to `T::Into`.
-///
-/// Migrations resulting in `old.migrate() == None` are silently dropped from storage.
-pub fn migrate_map<T: Migrate, C: FnMut(&[u8]) -> T::Context>(
-    module: &[u8],
-    item: &[u8],
-    derive_context: C,
-) {
-    migrate_map_rename::<T, C>(module, module, item, item, derive_context)
-}
-
-/// Migrate the values with old type `T` in `module::item` to `T::Into` in `module::new_item`.
-///
-/// Migrations resulting in `old.migrate() == None` are silently dropped from storage.
-pub fn migrate_map_rename<T: Migrate, C: FnMut(&[u8]) -> T::Context>(
-    module: &[u8],
-    new_module: &[u8],
-    item: &[u8],
-    new_item: &[u8],
-    mut derive_context: C,
-) {
-    storage_iter::<T>(module, item)
-        .drain()
-        .filter_map(|(key, old)| {
-            let new = old.migrate(derive_context(&key))?;
-            Some((key, new))
-        })
-        .for_each(|(key, new)| put_storage_value(new_module, new_item, &key, new));
-}
-
-/// Migrate the key & value of a map `KO, VO` to key & value of type `KN, VN` via `map`.
-/// The map is located in `module::item` and the new map will migrate to `module::new_item`.
-/// This assumes that the hashers are all the same, which is the common case.
-pub fn migrate_map_keys_and_value<VO, VN, H, KO, KN, F>(
-    module: &[u8],
-    item: &[u8],
-    new_item: &[u8],
-    mut map: F,
-) where
-    F: FnMut(KO, VO) -> Option<(KN, VN)>,
-    VO: Decode + Encode,
-    VN: Encode + Decode,
-    H: ReversibleStorageHasher,
-    KO: Decode,
-    KN: Decode + Encode,
-{
-    storage_key_iter::<KO, VO, H>(module, item)
-        .drain()
-        .filter_map(|(key, val)| map(key, val))
-        .for_each(|(kn, vn)| {
-            let kn = kn.using_encoded(H::hash);
-            let kn = kn.as_ref();
-            put_storage_value(module, new_item, kn, vn);
-        })
-}
-
-/// Decode, if possible, the keys of a double map,
-/// with K1 (hashed with `H1`) & K2 (hashed with `H2`) as keys from `raw`.
-pub fn decode_double_key<
-    H1: ReversibleStorageHasher,
-    K1: Decode,
-    H2: ReversibleStorageHasher,
-    K2: Decode,
->(
-    raw: &[u8],
-) -> Option<(K1, K2)> {
-    let mut unhashed_key = H1::reverse(raw);
-    let k1 = K1::decode(&mut unhashed_key).ok()?;
-    let mut raw_k2 = H2::reverse(unhashed_key);
-    let k2 = K2::decode(&mut raw_k2).ok()?;
-    Some((k1, k2))
-}
-
-/// Encode keys of a double map `k1` (using hasher `H1) & `k2` (using hasher `H2`).
-pub fn encode_double_key<H1: StorageHasher, K1: Encode, H2: StorageHasher, K2: Encode>(
-    k1: K1,
-    k2: K2,
-) -> Vec<u8> {
-    let k1 = k1.using_encoded(H1::hash);
-    let k2 = k2.using_encoded(H2::hash);
-    let k1 = k1.as_ref();
-    let k2 = k2.as_ref();
-    let mut key = Vec::with_capacity(k1.len() + k2.len());
-    key.extend_from_slice(k1);
-    key.extend_from_slice(k2);
-    key
-}
-
-/// Migrate the keys and values of a double map `K1, K2` + `V1` to
-/// keys and values of type `KN1, KN2` + `V2` via `map`.
-/// The `map` function may fail, in which entries are dropped silently.
-/// The double map is located in `module::item`.
-/// `H1` and `H2` are the hashers used with `K1` and `K2` respectively.
-pub fn migrate_double_map<V1, V2, H1, K1, H2, K2, KN1, KN2, F>(
-    module: &[u8],
-    item: &[u8],
-    mut map: F,
-) where
-    F: FnMut(K1, K2, V1) -> Option<(KN1, KN2, V2)>,
-    V1: Decode,
-    V2: Encode,
-    H1: ReversibleStorageHasher,
-    H2: ReversibleStorageHasher,
-    K1: Decode,
-    K2: Decode,
-    KN1: Encode,
-    KN2: Encode,
-{
-    let old_key_values = storage_iter::<V1>(module, item)
-        .drain()
-        .filter_map(|(raw_key, value)| {
-            let (k1, k2) = decode_double_key::<H1, _, H2, _>(&raw_key)?;
-            let (kn1, kn2, value) = map(k1, k2, value)?;
-            Some((encode_double_key::<H1, _, H2, _>(kn1, kn2), value))
-        });
-
-    for (key, value) in old_key_values {
-        put_storage_value(module, item, &key, value);
+    // Remove old `StorageVersion` item.
+    const STORAGE_VERSION_KEY: &[u8] = b"StorageVersion";
+    if let Some(OldVersion(old_version)) =
+        take_storage_value(old_pallet_name.as_bytes(), STORAGE_VERSION_KEY, &[])
+    {
+        log::info!(
+            "Removing old `StorageVersion` item from pallet {}, old version was {}",
+            pallet_name,
+            old_version
+        );
     }
-}
 
-/// Migrate the values of a double map indexed by keys `K1` and `K2`.
-/// The `map` function transform previous value `V1` into a `V2`.
-/// The double map is located in `module::item`.
-/// `H1` and `H2` are the hashers used with `K1` and `K2` respectively.
-///
-/// It is an optimization to avoid `collect` and it also allows the caller to manage errors during
-/// the migration.
-pub fn migrate_double_map_only_values<'a, V1, V2, H1, K1, H2, K2, F, E>(
-    module: &'a [u8],
-    item: &'a [u8],
-    f: F,
-) -> impl 'a + Iterator<Item = Result<(), MigrationError<E>>>
-where
-    F: 'a + Fn(K1, K2, V1) -> Result<V2, E>,
-    K1: Decode,
-    K2: Decode,
-    H1: ReversibleStorageHasher,
-    H2: ReversibleStorageHasher,
-    V1: 'a + Decode,
-    V2: Encode,
-    E: Encode + Decode,
-{
-    storage_iter::<V1>(module, item).map(move |(raw_key, value)| {
-        let (k1, k2) = decode_double_key::<H1, K1, H2, K2>(&raw_key)
-            .ok_or_else(|| MigrationError::DecodeKey(raw_key.clone()))?;
-        let new_value = f(k1, k2, value).map_err(|e| MigrationError::Map(e))?;
-        put_storage_value(module, item, &raw_key, new_value);
+    // If pallet names differ, migrate the storage
+    if old_pallet_name != pallet_name {
+        log::info!(
+            "Migrating pallet from prefix '{}' to prefix '{}'",
+            old_pallet_name,
+            pallet_name
+        );
+        // Move the pallet storage from the old prefix to the new one
+        frame_support::storage::migration::move_pallet(
+            old_pallet_name.as_bytes(),
+            pallet_name.as_bytes(),
+        );
+        weight += Weight::from_ref_time(100_000_000);
+    }
 
-        Ok(())
-    })
-}
-
-/// Kill a storage item from a module
-pub fn kill_item(module: &[u8], item: &[u8]) {
-    let mut prefix = [0u8; 32];
-    prefix[0..16].copy_from_slice(&Twox128::hash(module));
-    prefix[16..32].copy_from_slice(&Twox128::hash(item));
-    #[allow(deprecated)]
-    unhashed::kill_prefix(&prefix, None);
-}
-
-/// Moves a single or double map storage item under a new module prefix and removes the map from
-/// the old module prefix.
-///
-/// Migrations mapping to `None` are silently dropped from storage.
-pub fn move_map_rename_module<T: Decode + Encode>(
-    old_module: &[u8],
-    new_module: &[u8],
-    item: &[u8],
-) {
-    storage_iter::<T>(old_module, item)
-        .drain()
-        .for_each(|(key, val)| put_storage_value(new_module, item, &key, val));
+    weight
 }

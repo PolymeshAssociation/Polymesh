@@ -13,13 +13,13 @@ use super::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
 use crate::storage::User;
 use crate::{ExtBuilder, TestStorage};
 
-type Asset = pallet_asset::Module<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
 type ExternalAgentsError = pallet_external_agents::Error<TestStorage>;
-type Identity = pallet_identity::Module<TestStorage>;
-type Portfolio = pallet_portfolio::Module<TestStorage>;
+type Identity = pallet_identity::Pallet<TestStorage>;
+type Portfolio = pallet_portfolio::Pallet<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
-type Settlement = pallet_settlement::Module<TestStorage>;
+type Settlement = pallet_settlement::Pallet<TestStorage>;
 
 #[test]
 fn issue_tokens_default_portfolio() {

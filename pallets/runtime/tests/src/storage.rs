@@ -492,7 +492,7 @@ thread_local! {
 }
 
 pub type NegativeImbalance<T> =
-    <balances::Module<T> as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+    <balances::Pallet<T> as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 type CddHandler = TestStorage;
 impl CddAndFeeDetails<AccountId, RuntimeCall> for TestStorage {
@@ -536,8 +536,8 @@ impl group::Config<group::Instance1> for TestStorage {
     type RemoveOrigin = EnsureRoot<AccountId>;
     type SwapOrigin = EnsureRoot<AccountId>;
     type ResetOrigin = EnsureRoot<AccountId>;
-    type MembershipInitialized = committee::Module<TestStorage, committee::Instance1>;
-    type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
+    type MembershipInitialized = committee::Pallet<TestStorage, committee::Instance1>;
+    type MembershipChanged = committee::Pallet<TestStorage, committee::Instance1>;
     type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
 }
 
@@ -548,8 +548,8 @@ impl group::Config<group::Instance2> for TestStorage {
     type RemoveOrigin = EnsureRoot<AccountId>;
     type SwapOrigin = EnsureRoot<AccountId>;
     type ResetOrigin = EnsureRoot<AccountId>;
-    type MembershipInitialized = identity::Module<TestStorage>;
-    type MembershipChanged = identity::Module<TestStorage>;
+    type MembershipInitialized = identity::Pallet<TestStorage>;
+    type MembershipChanged = identity::Pallet<TestStorage>;
     type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
 }
 
@@ -610,14 +610,14 @@ impl pallet_identity::Config for TestStorage {
     type RuntimeEvent = RuntimeEvent;
     type Proposal = RuntimeCall;
     type CddServiceProviders = CddServiceProvider;
-    type Balances = balances::Module<TestStorage>;
+    type Balances = balances::Pallet<TestStorage>;
     type CddHandler = TestStorage;
     type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = MultiSignature;
     type ProtocolFee = protocol_fee::Pallet<TestStorage>;
     type GCVotingMajorityOrigin = VMO<committee::Instance1>;
     type WeightInfo = polymesh_weights::pallet_identity::SubstrateWeight;
-    type IdentityFn = identity::Module<TestStorage>;
+    type IdentityFn = identity::Pallet<TestStorage>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
     type MaxGivenAuths = MaxGivenAuths;
@@ -678,7 +678,7 @@ impl pallet_session::SessionManager<AccountId> for TestSessionManager {
 }
 
 impl pips::Config for TestStorage {
-    type Currency = balances::Module<Self>;
+    type Currency = balances::Pallet<Self>;
     type VotingMajorityOrigin = VMO<committee::Instance1>;
     type GovernanceCommittee = Committee;
     type TechnicalCommitteeVMO = VMO<committee::Instance3>;
@@ -696,12 +696,12 @@ impl pallet_sudo::Config for Runtime {
 
 polymesh_runtime_common::misc_pallet_impls!();
 
-pub type GovernanceCommittee = group::Module<TestStorage, group::Instance1>;
-pub type CddServiceProvider = group::Module<TestStorage, group::Instance2>;
-pub type Committee = committee::Module<TestStorage, committee::Instance1>;
-pub type DefaultCommittee = committee::Module<TestStorage, committee::DefaultInstance>;
-//pub type WrapperContracts = polymesh_contracts::Module<TestStorage>;
-pub type CorporateActions = corporate_actions::Module<TestStorage>;
+pub type GovernanceCommittee = group::Pallet<TestStorage, group::Instance1>;
+pub type CddServiceProvider = group::Pallet<TestStorage, group::Instance2>;
+pub type Committee = committee::Pallet<TestStorage, committee::Instance1>;
+pub type DefaultCommittee = committee::Pallet<TestStorage, committee::DefaultInstance>;
+//pub type WrapperContracts = polymesh_contracts::Pallet<TestStorage>;
+pub type CorporateActions = corporate_actions::Pallet<TestStorage>;
 
 pub fn make_account(
     id: AccountId,

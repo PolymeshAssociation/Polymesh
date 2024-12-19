@@ -1,9 +1,9 @@
 use frame_support::decl_error;
 
-use crate::{Config, Module};
+use crate::{Config, Pallet};
 
 decl_error! {
-    pub enum Error for Module<T: Config> {
+    pub enum Error for Pallet<T: Config> {
         /// The user is not authorized.
         Unauthorized,
         /// The token has already been created.

@@ -6336,6 +6336,7 @@ dependencies = [
  "frame-system",
  "hex",
  "libsecp256k1",
+ "log",
  "parity-scale-codec 3.6.9",
  "polymesh-primitives-derive",
  "rand 0.8.5",

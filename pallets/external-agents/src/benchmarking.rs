@@ -38,7 +38,7 @@ fn perms(n: u32) -> ExtrinsicPermissions {
 
 fn add_auth<T: Config>(owner: &User<T>, asset_id: AssetId) -> (User<T>, u64) {
     let other = user("other", SEED);
-    let auth_id = pallet_identity::Module::<T>::add_auth(
+    let auth_id = pallet_identity::Pallet::<T>::add_auth(
         owner.did(),
         other.did().into(),
         AuthorizationData::BecomeAgent(asset_id, AgentGroup::Full),
@@ -51,12 +51,12 @@ fn add_auth<T: Config>(owner: &User<T>, asset_id: AssetId) -> (User<T>, u64) {
 fn setup_removal<T: Config>() -> (User<T>, User<T>, AssetId) {
     let (owner, asset_id) = setup::<T>();
     let (other, auth_id) = add_auth::<T>(&owner, asset_id);
-    Module::<T>::accept_become_agent(other.origin().into(), auth_id).unwrap();
+    Pallet::<T>::accept_become_agent(other.origin().into(), auth_id).unwrap();
     (owner, other, asset_id)
 }
 
 fn custom_group<T: Config>(owner: User<T>, asset_id: AssetId) {
-    Module::<T>::create_group(owner.origin().into(), asset_id, <_>::default()).unwrap();
+    Pallet::<T>::create_group(owner.origin().into(), asset_id, <_>::default()).unwrap();
 }
 
 benchmarks! {

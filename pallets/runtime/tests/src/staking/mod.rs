@@ -51,7 +51,7 @@ macro_rules! assert_add_permissioned_validator {
     ($acc_id:expr) => {
         assert_ok!(Staking::add_permissioned_validator(
             RuntimeOrigin::root(),
-            pallet_identity::Module::<Test>::get_identity($acc_id).unwrap(),
+            pallet_identity::Pallet::<Test>::get_identity($acc_id).unwrap(),
             None
         ));
     };

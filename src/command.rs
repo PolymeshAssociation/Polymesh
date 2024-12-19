@@ -82,9 +82,25 @@ impl SubstrateCli for Cli {
             "STAGING" | "staging" => Box::new(chain_spec::testnet::ChainSpec::from_json_bytes(
                 &include_bytes!("./chain_specs/staging_raw.json")[..],
             )?),
-            path => Box::new(chain_spec::mainnet::ChainSpec::from_json_file(
-                std::path::PathBuf::from(path),
-            )?),
+            path => {
+                if let Some(path) = path.strip_prefix("dev:") {
+                    Box::new(chain_spec::general::ChainSpec::from_json_file(
+                        std::path::PathBuf::from(path),
+                    )?)
+                } else if let Some(path) = path.strip_prefix("testnet:") {
+                    Box::new(chain_spec::testnet::ChainSpec::from_json_file(
+                        std::path::PathBuf::from(path),
+                    )?)
+                } else if let Some(path) = path.strip_prefix("mainnet:") {
+                    Box::new(chain_spec::mainnet::ChainSpec::from_json_file(
+                        std::path::PathBuf::from(path),
+                    )?)
+                } else {
+                    Box::new(chain_spec::mainnet::ChainSpec::from_json_file(
+                        std::path::PathBuf::from(path),
+                    )?)
+                }
+            }
         })
     }
 

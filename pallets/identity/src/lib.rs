@@ -376,7 +376,7 @@ decl_event!(
 );
 
 decl_storage! {
-    trait Store for Module<T: Config> as Identity {
+    trait Store for Pallet<T: Config> as Identity {
 
         /// DID -> identity info
         pub DidRecords get(fn did_records):
@@ -476,7 +476,7 @@ decl_storage! {
             polymesh_primitives::SYSTEMATIC_ISSUERS
                 .iter()
                 .copied()
-                .for_each(<Module<T>>::register_systematic_id);
+                .for_each(<Pallet<T>>::register_systematic_id);
 
             // Add CDD claims to Treasury & BRR
             let sys_issuers_with_cdd = [SystematicIssuers::Treasury, SystematicIssuers::BlockRewardReserve, SystematicIssuers::Settlement];
@@ -484,35 +484,35 @@ decl_storage! {
                 .map(|iss| iss.as_id())
                 .collect::<Vec<_>>();
 
-            <Module<T>>::add_systematic_cdd_claims(&id_with_cdd, SystematicIssuers::CDDProvider);
+            <Pallet<T>>::add_systematic_cdd_claims(&id_with_cdd, SystematicIssuers::CDDProvider);
 
             //  Other
             for gen_id in &config.identities {
                 let cdd_claim = Claim::CustomerDueDiligence(CddId::default());
                 // Direct storage change for registering the DID and providing the claim
-                <Module<T>>::ensure_no_id_record(gen_id.did).unwrap();
+                <Pallet<T>>::ensure_no_id_record(gen_id.did).unwrap();
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
                 let expiry = gen_id.cdd_claim_expiry.iter().map(|m| T::Moment::from(*m as u32)).next();
                 if let Some(primary_key) = &gen_id.primary_key {
-                    <Module<T>>::do_register_id(primary_key.clone(), gen_id.did, gen_id.secondary_keys.clone());
+                    <Pallet<T>>::do_register_id(primary_key.clone(), gen_id.did, gen_id.secondary_keys.clone());
                 }
                 for issuer in &gen_id.issuers {
-                    <Module<T>>::unverified_add_claim_with_scope(gen_id.did, cdd_claim.clone(), None, *issuer, expiry);
+                    <Pallet<T>>::unverified_add_claim_with_scope(gen_id.did, cdd_claim.clone(), None, *issuer, expiry);
                 }
             }
 
             for &(ref secondary_account_id, did) in &config.secondary_keys {
                 // Direct storage change for attaching some secondary keys to identities
-                <Module<T>>::ensure_id_record_exists(did).unwrap();
+                <Pallet<T>>::ensure_id_record_exists(did).unwrap();
                 assert!(
-                    <Module<T>>::can_add_key_record(secondary_account_id),
+                    <Pallet<T>>::can_add_key_record(secondary_account_id),
                     "Secondary key already linked"
                 );
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
                 let sk = SecondaryKey::from_account_id(secondary_account_id.clone());
-                <Module<T>>::add_key_record(secondary_account_id, KeyRecord::SecondaryKey(did));
-                <Module<T>>::set_key_permissions(&sk.key, &sk.permissions);
-                <Module<T>>::deposit_event(RawEvent::SecondaryKeysAdded(did, vec![sk]));
+                <Pallet<T>>::add_key_record(secondary_account_id, KeyRecord::SecondaryKey(did));
+                <Pallet<T>>::set_key_permissions(&sk.key, &sk.permissions);
+                <Pallet<T>>::deposit_event(RawEvent::SecondaryKeysAdded(did, vec![sk]));
             }
         });
     }
@@ -856,7 +856,7 @@ decl_module! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Config> {
+    pub enum Error for Pallet<T: Config> {
         /// One secondary or primary key can only belong to one DID
         AlreadyLinked,
         /// Caller is missing an identity.
@@ -927,7 +927,7 @@ decl_error! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     pub fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
         dids.into_iter()
             .map(|did| {
@@ -952,7 +952,7 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> IdentityFnTrait<T::AccountId> for Module<T> {
+impl<T: Config> IdentityFnTrait<T::AccountId> for Pallet<T> {
     /// Fetches identity of a key.
     fn get_identity(key: &T::AccountId) -> Option<IdentityId> {
         Self::get_identity(key)
@@ -987,7 +987,7 @@ impl<T: Config> IdentityFnTrait<T::AccountId> for Module<T> {
 }
 
 /// Used by the CDD Providers group
-impl<T: Config> ChangeMembers<IdentityId> for Module<T> {
+impl<T: Config> ChangeMembers<IdentityId> for Pallet<T> {
     /// Updates systematic CDDs of members of a group.
     fn change_members_sorted(
         incoming: &[IdentityId],
@@ -1002,7 +1002,7 @@ impl<T: Config> ChangeMembers<IdentityId> for Module<T> {
 }
 
 /// Used by the CDD Providers group
-impl<T: Config> InitializeMembers<IdentityId> for Module<T> {
+impl<T: Config> InitializeMembers<IdentityId> for Pallet<T> {
     /// Initializes members of a group by adding systematic claims for them.
     fn initialize_members(members: &[IdentityId]) {
         Self::add_systematic_cdd_claims(members, SystematicIssuers::CDDProvider);

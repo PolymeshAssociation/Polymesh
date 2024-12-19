@@ -15,7 +15,7 @@
 
 use frame_benchmarking::benchmarks;
 
-use pallet_compliance_manager::Module as ComplianceManager;
+use pallet_compliance_manager::Pallet as ComplianceManager;
 use pallet_identity::benchmarking::{user, User};
 use polymesh_primitives::{Fund, FundDescription, PortfolioId, PortfolioNumber};
 
@@ -55,7 +55,7 @@ fn dist<T: Config>(target_ids: u32) -> (User<T>, CAId, AssetId) {
     let pnum = 1u64.into();
     portfolio::<T>(&owner, pnum, currency, amount);
 
-    <Module<T>>::distribute(
+    <Pallet<T>>::distribute(
         owner.origin().into(),
         ca_id,
         Some(pnum),

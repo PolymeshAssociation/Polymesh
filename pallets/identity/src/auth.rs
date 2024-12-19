@@ -15,7 +15,7 @@
 
 use crate::{
     AuthorizationType, Authorizations, AuthorizationsGiven, Config, CurrentAuthId, Error,
-    KeyRecords, Module, NumberOfGivenAuths, RawEvent,
+    KeyRecords, NumberOfGivenAuths, Pallet, RawEvent,
 };
 use frame_support::dispatch::DispatchResult;
 use frame_support::{ensure, StorageDoubleMap, StorageMap, StorageValue};
@@ -27,7 +27,7 @@ use sp_core::Get;
 use sp_runtime::DispatchError;
 use sp_std::vec::Vec;
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     /// Adds an authorization.
     pub(crate) fn base_add_authorization(
         origin: T::RuntimeOrigin,
@@ -99,7 +99,7 @@ impl<T: Config> Module<T> {
         let sender = ensure_signed(origin)?;
         let from_did = if <KeyRecords<T>>::contains_key(&sender) {
             // If the sender is linked to an identity, ensure that it has relevant permissions
-            Some(pallet_permissions::Module::<T>::ensure_call_permissions(&sender)?.primary_did)
+            Some(pallet_permissions::Pallet::<T>::ensure_call_permissions(&sender)?.primary_did)
         } else {
             None
         };

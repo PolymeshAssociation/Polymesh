@@ -59,25 +59,25 @@ use crate::storage::{
 };
 
 type BaseError = pallet_base::Error<TestStorage>;
-type Identity = pallet_identity::Module<TestStorage>;
-type Balances = pallet_balances::Module<TestStorage>;
-type Asset = pallet_asset::Module<TestStorage>;
+type Identity = pallet_identity::Pallet<TestStorage>;
+type Balances = pallet_balances::Pallet<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
-type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
-type Portfolio = pallet_portfolio::Module<TestStorage>;
+type ComplianceManager = pallet_compliance_manager::Pallet<TestStorage>;
+type Portfolio = pallet_portfolio::Pallet<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type DidRecords = pallet_identity::DidRecords<TestStorage>;
-type Statistics = pallet_statistics::Module<TestStorage>;
+type Statistics = pallet_statistics::Pallet<TestStorage>;
 type AssetGenesis = pallet_asset::GenesisConfig<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
-type ExternalAgents = pallet_external_agents::Module<TestStorage>;
+type ExternalAgents = pallet_external_agents::Pallet<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
 type FeeError = pallet_protocol_fee::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type StoreCallMetadata = pallet_permissions::StoreCallMetadata<TestStorage>;
-type Settlement = pallet_settlement::Module<TestStorage>;
+type Settlement = pallet_settlement::Pallet<TestStorage>;
 
 const TOTAL_SUPPLY: u128 = 1_000_000_000;
 
