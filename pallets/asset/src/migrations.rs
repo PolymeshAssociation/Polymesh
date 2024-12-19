@@ -15,6 +15,9 @@ pub(crate) fn migrate_to_v6<T: Config>() {
         }
     }
 
+    let new_expiry = TickerConfig::<T>::get()
+        .registration_length
+        .map(|x| <pallet_timestamp::Pallet<T>>::get() + x);
     log::info!("{:?} mappings will be removed.", remove_mappings.len());
     for (asset_id, ticker) in remove_mappings {
         log::info!(
@@ -26,9 +29,6 @@ pub(crate) fn migrate_to_v6<T: Config>() {
         AssetIdTicker::remove(asset_id);
         TickerAssetId::remove(ticker);
 
-        let new_expiry = TickerConfig::<T>::get()
-            .registration_length
-            .map(|x| <pallet_timestamp::Pallet<T>>::get() + x);
         UniqueTickerRegistration::<T>::mutate(ticker, |registration| {
             if let Some(registration) = registration {
                 if registration.expiry.is_some() {
