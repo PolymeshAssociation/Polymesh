@@ -32,6 +32,12 @@ pub(crate) fn migrate_to_v6<T: Config>() {
         UniqueTickerRegistration::<T>::mutate(ticker, |registration| {
             if let Some(registration) = registration {
                 registration.expiry = new_expiry;
+
+                Module::<T>::deposit_event(RawEvent::TickerRegistered(
+                    registration.owner,
+                    ticker,
+                    new_expiry,
+                ));
             }
         });
     }
