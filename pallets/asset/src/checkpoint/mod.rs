@@ -41,7 +41,6 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-mod migrations;
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -66,9 +65,7 @@ use polymesh_common_utilities::{
     GC_DID,
 };
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::{
-    asset::CheckpointId, storage_migrate_on, storage_migration_ver, IdentityId, Moment,
-};
+use polymesh_primitives::{asset::CheckpointId, storage_migration_ver, IdentityId, Moment};
 
 use crate::Config;
 
@@ -170,9 +167,6 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 2, {
-                migrations::migrate_to_v2::<T>();
-            });
             Weight::zero()
         }
 

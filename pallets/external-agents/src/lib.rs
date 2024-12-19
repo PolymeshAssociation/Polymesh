@@ -51,7 +51,6 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-mod migrations;
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -67,8 +66,8 @@ use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::agent::{AGId, AgentGroup};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
-    extract_auth, storage_migrate_on, storage_migration_ver, AuthorizationData, EventDid,
-    ExtrinsicPermissions, IdentityId, PalletPermissions, Signatory, SubsetRestriction,
+    extract_auth, storage_migration_ver, AuthorizationData, EventDid, ExtrinsicPermissions,
+    IdentityId, PalletPermissions, Signatory, SubsetRestriction,
 };
 use sp_std::prelude::*;
 
@@ -124,9 +123,6 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 1, {
-                migrations::migrate_to_v1::<T>();
-            });
             Weight::zero()
         }
 

@@ -74,7 +74,6 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-mod migrations;
 
 use codec::{Decode, Encode};
 use core::result::Result;
@@ -95,8 +94,8 @@ use polymesh_primitives::compliance_manager::{
     ConditionReport, ConditionResult, RequirementReport,
 };
 use polymesh_primitives::{
-    proposition, storage_migrate_on, storage_migration_ver, Claim, Condition, ConditionType,
-    Context, IdentityId, TargetIdentity, TrustedFor, TrustedIssuer, WeightMeter,
+    proposition, storage_migration_ver, Claim, Condition, ConditionType, Context, IdentityId,
+    TargetIdentity, TrustedFor, TrustedIssuer, WeightMeter,
 };
 
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
@@ -144,9 +143,6 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 1, {
-                migrations::migrate_to_v1::<T>();
-            });
             Weight::zero()
         }
 

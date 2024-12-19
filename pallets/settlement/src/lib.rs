@@ -48,7 +48,6 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-mod migrations;
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{
@@ -84,8 +83,7 @@ use polymesh_primitives::settlement::{
     VenueId, VenueType,
 };
 use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, Balance, IdentityId, Memo, NFTs, PortfolioId,
-    SecondaryKey, WeightMeter,
+    storage_migration_ver, Balance, IdentityId, Memo, NFTs, PortfolioId, SecondaryKey, WeightMeter,
 };
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -327,9 +325,6 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 3, {
-                migrations::migrate_to_v3::<T>();
-            });
             Weight::zero()
         }
 
