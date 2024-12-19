@@ -15,61 +15,63 @@
 
 //! # Asset Module
 //!
-//! The Asset module is one place to create the security tokens on the Polymesh blockchain.
-//! The module provides based functionality related to security tokens.
-//! Functions in the module differentiate between tokens using its `Ticker`.
-//! In Ethereum analogy every token has different smart contract address which act as the unique identity
-//! of the token while here token lives at low-level where token ticker act as the differentiator.
+//! The Asset module provides functionality for creating and managing assets on the Polymesh blockchain.
+//! In Ethereum analogies, assets are similar to ERC-20 tokens.  On Polymesh assets are uniquely identified by their `AssetId`
+//! instead of a contract address.
 //!
 //! ## Overview
 //!
-//! The Asset module provides functions for:
+//! The Asset module allows users to:
 //!
-//! - Creating the tokens.
-//! - Creation of checkpoints on the token level.
-//! - Management of the token (Document mgt etc).
-//! - Transfer/redeem functionality of the token.
+//! - Register unique tickers for assets.
+//! - Create new assets with specified properties such as divisibility and custom types.
+//! - Manage asset ownership and transfer ownership to other identities.
+//! - Issue and redeem tokens for assets.
+//! - Freeze and unfreeze asset transfers and minting.
+//! - Rename assets and update their metadata.
+//! - Add and remove documents associated with assets.
+//! - Set and update funding rounds for assets.
+//! - Link and unlink tickers to asset IDs.
+//! - Pre-approve asset receivements and manage mandatory mediators for assets.
+//! - Ensure compliance with asset transfer rules and restrictions.
 //!
 //! ## Interface
 //!
 //! ### Dispatchable Functions
 //!
-//! - `register_ticker` - Used to either register a new ticker or extend registration of an existing ticker.
-//! - `accept_ticker_transfer` - Used to accept a ticker transfer authorization.
-//! - `accept_asset_ownership_transfer` - Used to accept the token transfer authorization.
-//! - `create_asset` - Initializes a new security token.
-//! - `freeze` - Freezes transfers and minting of a given token.
-//! - `unfreeze` - Unfreezes transfers and minting of a given token.
-//! - `rename_asset` - Renames a given asset.
-//! - `controller_transfer` - Forces a transfer between two DID.
-//! - `issue` - Function is used to issue(or mint) new tokens to the caller.
-//! - `redeem` - Redeems tokens from the caller's default portfolio.
-//! - `make_divisible` - Change the divisibility of the token to divisible.
-//! - `can_transfer` - Checks whether a transaction with given parameters can take place or not.
-//! - `add_documents` - Add documents for a given token.
-//! - `remove_documents` - Remove documents for a given token.
-//! - `set_funding_round` - Sets the name of the current funding round.
-//! - `update_identifiers` - Updates the asset identifiers.
-//! - `set_asset_metadata` - Set asset metadata value.
-//! - `set_asset_metadata_details` - Set asset metadata value details (expire, lock status).
-//! - `register_asset_metadata_local_type` - Register asset metadata local type.
-//! - `register_asset_metadata_global_type` - Register asset metadata global type.
-//! - `redeem_from_portfolio` - Redeems tokens from the caller's portfolio.
-//!
-//! ### Public Functions
-//!
-//! - `ticker_registration` - Provide ticker registration details.
-//! - `ticker_registration_config` - Provide the ticker registration configuration details.
-//! - `token_details` - Returns details of the token.
-//! - `balance_of` - Returns the balance of the DID corresponds to the ticker.
-//! - `identifiers` - It provides the identifiers for a given ticker.
-//! - `total_checkpoints_of` - Returns the checkpoint Id.
-//! - `total_supply_at` - Returns the total supply at a given checkpoint.
-//! - `extension_details` - It provides the list of Smart extension added for the given tokens.
-//! - `extensions` - It provides the list of Smart extension added for the given tokens and for the given type.
-//! - `frozen` - It tells whether the given ticker is frozen or not.
-//! - `total_supply` - It provides the total supply of a ticker.
-//! - `get_balance_at` - It provides the balance of a DID at a certain checkpoint.
+//! - `register_unique_ticker` - Registers or extends the registration of a ticker.
+//! - `accept_ticker_transfer` - Accepts a ticker transfer authorization.
+//! - `accept_asset_ownership_transfer` - Accepts an asset ownership transfer authorization.
+//! - `create_asset` - Creates a new asset.
+//! - `freeze` - Freezes transfers and minting of an asset.
+//! - `unfreeze` - Unfreezes transfers and minting of an asset.
+//! - `rename_asset` - Renames an asset.
+//! - `controller_transfer` - Forces a transfer between two DIDs.
+//! - `issue` - Issues new tokens for an asset.
+//! - `redeem` - Redeems tokens from an asset.
+//! - `set_asset_metadata` - Sets metadata for an asset.
+//! - `set_asset_metadata_details` - Sets metadata details for an asset.
+//! - `register_and_set_local_asset_metadata` - Registers and sets local metadata for an asset.
+//! - `register_asset_metadata_local_type` - Registers a local metadata type for an asset.
+//! - `register_asset_metadata_global_type` - Registers a global metadata type.
+//! - `remove_metadata_value` - Removes metadata value for an asset.
+//! - `remove_local_metadata_key` - Removes a local metadata key for an asset.
+//! - `update_asset_type` - Updates the type of an asset.
+//! - `add_documents` - Adds documents to an asset.
+//! - `remove_documents` - Removes documents from an asset.
+//! - `set_funding_round` - Sets the funding round for an asset.
+//! - `make_divisible` - Makes an asset divisible.
+//! - `pre_approve_asset` - Pre-approves the receivement of an asset.
+//! - `remove_asset_pre_approval` - Removes the pre-approval of an asset.
+//! - `exempt_asset_affirmation` - Exempts an asset from affirmation.
+//! - `remove_asset_affirmation_exemption` - Removes the affirmation exemption of an asset.
+//! - `add_mandatory_mediators` - Adds mandatory mediators for an asset.
+//! - `remove_mandatory_mediators` - Removes mandatory mediators from an asset.
+//! - `link_ticker_to_asset_id` - Links a ticker to an asset ID.
+//! - `unlink_ticker_from_asset_id` - Unlinks a ticker from an asset ID.
+//! - `create_asset_with_custom_type` - Creates an asset with a custom type.
+//! - `register_custom_asset_type` - Registers a new custom asset type.
+//! - `update_identifiers` - Updates the identifiers for an asset.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -165,7 +167,7 @@ decl_storage! {
         pub FundingRound get(fn funding_round): map hasher(blake2_128_concat) AssetId => FundingRoundName;
         /// The total [`Balance`] of tokens issued in all recorded funding rounds ([`FundingRoundName`]).
         pub IssuedInFundingRound get(fn issued_in_funding_round): map hasher(blake2_128_concat) (AssetId, FundingRoundName) => Balance;
-        /// Returns `true` if transfers for the token associated to [`AssetId`] are frozen. Otherwise, returns `false`.
+        /// Returns `true` if transfers for the asset are frozen. Otherwise, returns `false`.
         pub Frozen get(fn frozen): map hasher(blake2_128_concat) AssetId => bool;
         /// All [`Document`] attached to an asset.
         pub AssetDocuments get(fn asset_documents):
@@ -229,7 +231,7 @@ decl_storage! {
         pub TickersOwnedByUser get(fn tickers_owned_by_user):
             double_map hasher(identity) IdentityId, hasher(blake2_128_concat) Ticker => bool;
 
-        /// All security tokens owned by a user.
+        /// All assets owned by a user.
         pub SecurityTokensOwnedByUser get(fn security_tokens_owned_by_user):
             double_map hasher(identity) IdentityId, hasher(blake2_128_concat) AssetId => bool;
 
@@ -296,15 +298,22 @@ decl_module! {
             Weight::zero()
         }
 
-        /// Registers a unique ticker or extends validity of an existing ticker.
-        /// NB: Ticker validity does not get carry forward when renewing ticker.
+        /// Registers a unique ticker or extends the validity of an existing ticker.
+        ///
+        /// This function allows the caller to register a new ticker or extend the registration
+        /// of an existing ticker. The ticker validity does not carry forward when renewing.
         ///
         /// # Arguments
-        /// * `origin`: it contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
-        /// * `ticker`: [`Ticker`] to register.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `ticker` - The ticker to register.
         ///
-        /// # Permissions
-        /// * Asset
+        /// # Events
+        /// * `TickerRegistered` - When a ticker is successfully registered.
+        ///
+        /// # Errors
+        /// * `TickerAlreadyRegistered` - If the ticker is already registered.
+        /// * `TickerTooLong` - If the ticker length exceeds the maximum allowed length.
+        /// * `InvalidTickerCharacter` - If the ticker contains invalid characters.
         #[weight = <T as Config>::WeightInfo::register_unique_ticker()]
         pub fn register_unique_ticker(origin, ticker: Ticker) -> DispatchResult {
             Self::base_register_unique_ticker(origin, ticker)
@@ -316,37 +325,59 @@ decl_module! {
         /// NB: To reject the transfer, call remove auth function in identity module.
         ///
         /// # Arguments
-        /// * `origin`: it contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
-        /// * `auth_id`: authorization ID of ticker transfer authorization.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `auth_id` - Authorization ID of ticker transfer authorization.
+        ///
+        /// # Events
+        /// * `TickerTransferred` - When a ticker is successfully transferred.
+        ///
+        /// # Errors
+        /// * `TickerRegistrationNotFound` - If the ticker registration is not found.
+        /// * `TickerIsAlreadyLinkedToAnAsset` - If the ticker is already linked to an asset.
         #[weight = <T as Config>::WeightInfo::accept_ticker_transfer()]
         pub fn accept_ticker_transfer(origin, auth_id: u64) -> DispatchResult {
             Self::base_accept_ticker_transfer(origin, auth_id)
         }
 
-        /// This function is used to accept a token ownership transfer.
+        /// Accepts an asset ownership transfer.
+        ///
+        /// Consumes the authorization `auth_id` (see `pallet_identity::consume_auth`).
         /// NB: To reject the transfer, call remove auth function in identity module.
         ///
         /// # Arguments
-        /// * `origin`: it contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
-        /// * `auth_id`: authorization ID of the token ownership transfer authorization.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `auth_id` - Authorization ID of the asset ownership transfer authorization.
+        ///
+        /// # Events
+        /// * `AssetOwnershipTransferred` - When a asset ownership is successfully transferred.
+        ///
+        /// # Errors
+        /// * `TickerRegistrationNotFound` - If the ticker registration is not found.
+        /// * `TickerIsAlreadyLinkedToAnAsset` - If the ticker is already linked to an asset.
         #[weight = <T as Config>::WeightInfo::accept_asset_ownership_transfer()]
         pub fn accept_asset_ownership_transfer(origin, auth_id: u64) -> DispatchResult {
-            Self::base_accept_token_ownership_transfer(origin, auth_id)
+            Self::base_accept_asset_ownership_transfer(origin, auth_id)
         }
 
-        /// Initializes a new [`AssetDetails`], with the initiating account as its owner.
+        /// Creates a new asset.
+        ///
         /// The total supply will initially be zero. To mint tokens, use [`Module::issue`].
         ///
         /// # Arguments
-        /// * `origin`: contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
-        /// * `asset_name`: the [`AssetName`] associated to the security token.
-        /// * `divisible`: sets [`AssetDetails::divisible`], where `true` means the token is divisible.
-        /// * `asset_type`: the [`AssetType`] that represents the security type of the [`AssetDetails`].
-        /// * `asset_identifiers`: a vector of [`AssetIdentifier`].
-        /// * `funding_round_name`: the name of the funding round ([`FundingRoundName`]).
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_name` - The [`AssetName`] of the new asset.
+        /// * `divisible` - Sets [`AssetDetails::divisible`], where `true` means the asset is divisible.
+        /// * `asset_type` - The [`AssetType`] of the new asset.
+        /// * `asset_identifiers` - A vector of [`AssetIdentifier`].
+        /// * `funding_round_name` - The name of the funding round ([`FundingRoundName`]).
         ///
-        /// ## Permissions
-        /// * Portfolio
+        /// # Events
+        /// * `AssetCreated` - When a new asset is successfully created.
+        ///
+        /// # Errors
+        /// * `MaxLengthOfAssetNameExceeded` - If the asset name length exceeds the maximum allowed length.
+        /// * `InvalidCustomAssetTypeId` - If the custom asset type ID is invalid.
+        /// * `InvalidAssetIdentifier` - If any of the asset identifiers are invalid.
         #[weight = <T as Config>::WeightInfo::create_asset(
             asset_name.len() as u32,
             asset_identifiers.len() as u32,
@@ -371,41 +402,68 @@ decl_module! {
             Ok(())
         }
 
-        /// Freezes transfers of a given token.
+        /// Freezes transfers of a given asset.
+        ///
+        /// This function allows the asset issuer or an external agent to freeze transfers of a given asset.
         ///
         /// # Arguments
-        /// * `origin`: the secondary key of the sender.
-        /// * `asset_id`: the [`AssetId`] associated to the token.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The asset to freeze.
         ///
         /// # Permissions
         /// * Asset
+        ///
+        /// # Events
+        /// * `AssetFrozen` - When an asset is successfully frozen.
+        ///
+        /// # Errors
+        /// * `NoSuchAsset` - If the asset does not exist.
+        /// * `AlreadyFrozen` - If the asset is already frozen.
         #[weight = <T as Config>::WeightInfo::freeze()]
         pub fn freeze(origin, asset_id: AssetId) -> DispatchResult {
             Self::base_set_freeze(origin, asset_id, true)
         }
 
-        /// Unfreezes transfers of a given token.
+        /// Unfreezes transfers of a given asset.
+        ///
+        /// This function allows the asset issuer or an external agent to unfreeze transfers of a given asset.
         ///
         /// # Arguments
-        /// * `origin`: the secondary key of the sender.
-        /// * `asset_id`: the [`AssetId`] associated to the token.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The asset to unfreeze.
         ///
         /// # Permissions
         /// * Asset
+        ///
+        /// # Events
+        /// * `AssetUnfrozen` - When an asset is successfully unfrozen.
+        ///
+        /// # Errors
+        /// * `NoSuchAsset` - If the asset does not exist.
+        /// * `NotFrozen` - If the asset is not frozen.
         #[weight = <T as Config>::WeightInfo::unfreeze()]
         pub fn unfreeze(origin, asset_id: AssetId) -> DispatchResult {
             Self::base_set_freeze(origin, asset_id, false)
         }
 
-        /// Updates the [`AssetName`] associated to a security token.
+        /// Updates the [`AssetName`] associated to an asset.
+        ///
+        /// This function allows the asset issuer or an external agent to update the name of an asset.
         ///
         /// # Arguments
-        /// * `origin`: the secondary key of the sender.
-        /// * `asset_id`: the [`AssetId`] associated to the token.
-        /// * `asset_name`: the [`AssetName`] that will be associated to the token.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The [`AssetId`] associated to the asset.
+        /// * `asset_name` - The new [`AssetName`] that will be associated to the asset.
         ///
         /// # Permissions
         /// * Asset
+        ///
+        /// # Events
+        /// * `AssetRenamed` - When an asset is successfully renamed.
+        ///
+        /// # Errors
+        /// * `MaxLengthOfAssetNameExceeded` - If the asset name length exceeds the maximum allowed length.
+        /// * `NoSuchAsset` - If the asset does not exist.
         #[weight = <T as Config>::WeightInfo::rename_asset(asset_name.len() as u32)]
         pub fn rename_asset(origin, asset_id: AssetId, asset_name: AssetName) -> DispatchResult {
             Self::base_rename_asset(origin, asset_id, asset_name)
@@ -413,73 +471,116 @@ decl_module! {
 
         /// Issue (i.e mint) new tokens to the caller, which must be an authorized external agent.
         ///
+        /// This function allows the asset issuer or an external agent to mint new tokens for a given asset.
+        ///
         /// # Arguments
         /// * `origin`: A signer that has permissions to act as an agent of `ticker`.
-        /// * `asset_id`: the [`AssetId`] associated to the token.
+        /// * `asset_id`: the [`AssetId`] associated to the asset.
         /// * `amount`: The amount of tokens that will be issued.
         /// * `portfolio_kind`: The [`PortfolioKind`] of the portfolio that will receive the minted tokens.
         ///
         /// # Permissions
         /// * Asset
         /// * Portfolio
+        ///
+        /// # Events
+        /// * `AssetBalanceUpdated` - When the asset balance is successfully updated.
+        ///
+        /// # Errors
+        /// * `UnexpectedNonFungibleToken` - If the asset is a non-fungible token.
+        /// * `InvalidGranularity` - If the amount to issue does not meet the granularity requirements.
+        /// * `TotalSupplyOverflow` - If the total supply exceeds the maximum allowed limit.
         #[weight = <T as Config>::WeightInfo::issue()]
         pub fn issue(origin, asset_id: AssetId, amount: Balance, portfolio_kind: PortfolioKind) -> DispatchResult {
             Self::base_issue(origin, asset_id, amount, portfolio_kind)
         }
 
-        /// Redeems (i.e burns) existing tokens by reducing the balance of the caller's portfolio and the total supply of the token.
+        /// Redeems (i.e burns) existing tokens by reducing the balance of the caller's portfolio and the total supply of the asset.
+        ///
+        /// This function allows the asset issuer or an external agent to redeem tokens from a given asset.
         ///
         /// # Arguments
         /// * `origin`: is a signer that has permissions to act as an agent of `asset_id`.
-        /// * `asset_id`: the [`AssetId`] associated to the token.
+        /// * `asset_id`: the [`AssetId`] associated to the asset.
         /// * `value`: amount of tokens to redeem.
         /// * `portfolio_kind`: the [`PortfolioKind`] that will have its balance reduced.
         ///
         /// # Permissions
         /// * Asset
         /// * Portfolio
+        ///
+        /// # Events
+        /// * `AssetBalanceUpdated` - When the asset balance is successfully updated.
+        ///
+        /// # Errors
+        /// * `UnexpectedNonFungibleToken` - If the asset is a non-fungible token.
+        /// * `InvalidGranularity` - If the value to redeem does not meet the granularity requirements.
+        /// * `TotalSupplyOverflow` - If the total supply exceeds the maximum allowed limit.
         #[weight = <T as Config>::WeightInfo::redeem()]
         pub fn redeem(origin, asset_id: AssetId, value: Balance, portfolio_kind: PortfolioKind) -> DispatchResult {
             let mut weight_meter = WeightMeter::max_limit_no_minimum();
             Self::base_redeem(origin, asset_id, value, portfolio_kind, &mut weight_meter)
         }
 
-        /// If the token associated to `asset_id` is indivisible, sets [`AssetDetails::divisible`] to true.
+        /// If the asset associated to `asset_id` is indivisible, sets [`AssetDetails::divisible`] to true.
+        ///
+        /// This function allows the asset issuer or an external agent to make an indivisible asset divisible.
         ///
         /// # Arguments
-        /// * `origin`: is a signer that has permissions to act as an agent of `ticker`.
-        /// * `asset_id`: the [`AssetId`] associated to the token.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The [`AssetId`] associated to the asset.
         ///
         /// # Permissions
         /// * Asset
+        ///
+        /// # Events
+        /// * `DivisibilityChanged` - When the divisibility of an asset is successfully changed.
+        ///
+        /// # Errors
+        /// * `NoSuchAsset` - If the asset does not exist.
+        /// * `UnexpectedNonFungibleToken` - If the asset is a non-fungible token.
+        /// * `AssetAlreadyDivisible` - If the asset is already divisible.
         #[weight = <T as Config>::WeightInfo::make_divisible()]
         pub fn make_divisible(origin, asset_id: AssetId) -> DispatchResult {
             Self::base_make_divisible(origin, asset_id)
         }
 
-        /// Add documents for a given token.
+        /// Add documents for a given asset.
+        ///
+        /// This function allows the asset issuer or an external agent to add documents to an asset.
         ///
         /// # Arguments
-        /// * `origin`: is a signer that has permissions to act as an agent of `asset_id`.
-        /// * `asset_id`: the [`AssetId`] associated to the token.
-        /// * `docs`: documents to be attached to the token.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The [`AssetId`] associated to the asset.
+        /// * `docs` - Documents to be attached to the asset.
         ///
         /// # Permissions
         /// * Asset
+        ///
+        /// # Events
+        /// * `DocumentAdded` - When a document is successfully added to an asset.
+        ///
+        /// # Errors
+        /// * `CounterOverflow` - If the document ID counter overflows.
         #[weight = <T as Config>::WeightInfo::add_documents(docs.len() as u32)]
         pub fn add_documents(origin, docs: Vec<Document>, asset_id: AssetId) -> DispatchResult {
             Self::base_add_documents(origin, docs, asset_id)
         }
 
-        /// Remove documents for a given token.
+        /// Remove documents for a given asset.
+        ///
+        /// This function allows the asset issuer or an external agent to remove documents from an asset.
         ///
         /// # Arguments
-        /// * `origin`: is a signer that has permissions to act as an agent of `asset_id`.
-        /// * `asset_id`: the [`AssetId`] associated to the token.
-        /// * `docs_id`: a vector of all [`DocumentId`] that will be removed from the token.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The [`AssetId`] associated to the asset.
+        /// * `docs_id` - A vector of all [`DocumentId`] that will be removed from the asset.
         ///
         /// # Permissions
         /// * Asset
+        ///
+        /// # Events
+        /// * `DocumentRemoved` - When a document is successfully removed from an asset.
         #[weight = <T as Config>::WeightInfo::remove_documents(docs_id.len() as u32)]
         pub fn remove_documents(origin, docs_id: Vec<DocumentId>, asset_id: AssetId) -> DispatchResult {
             Self::base_remove_documents(origin, docs_id, asset_id)
@@ -487,27 +588,43 @@ decl_module! {
 
         /// Sets the name of the current funding round.
         ///
+        /// This function allows the asset issuer or an external agent to set the name of the current funding round for an asset.
+        ///
         /// # Arguments
-        /// * `origin`:  a signer that has permissions to act as an agent of `asset_id`.
-        /// * `asset_id`: the [`AssetId`] associated to the token.
-        /// * `founding_round_name`: the [`FoundingRoundName`] of the current funding round.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The [`AssetId`] associated to the asset.
+        /// * `funding_round_name` - The [`FundingRoundName`] of the current funding round.
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::set_funding_round(founding_round_name.len() as u32)]
-        pub fn set_funding_round(origin, asset_id: AssetId, founding_round_name: FundingRoundName) -> DispatchResult {
-            Self::base_set_funding_round(origin, asset_id, founding_round_name)
+        ///
+        /// # Events
+        /// * `FundingRoundSet` - When the funding round name is successfully set.
+        ///
+        /// # Errors
+        /// * `FundingRoundNameMaxLengthExceeded` - If the funding round name length exceeds the maximum allowed length.
+        #[weight = <T as Config>::WeightInfo::set_funding_round(funding_round_name.len() as u32)]
+        pub fn set_funding_round(origin, asset_id: AssetId, funding_round_name: FundingRoundName) -> DispatchResult {
+            Self::base_set_funding_round(origin, asset_id, funding_round_name)
         }
 
-        /// Updates the asset identifiers associated to the token.
+        /// Updates the asset identifiers associated to the asset.
+        ///
+        /// This function allows the asset issuer or an external agent to update the asset identifiers for an asset.
         ///
         /// # Arguments
-        /// * `origin`: a signer that has permissions to act as an agent of `asset_id`.
-        /// * `asset_id`: the [`AssetId`] associated to the token.
-        /// * `asset_identifiers`: a vector of [`AssetIdentifier`] that will be associated to the token.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The [`AssetId`] associated to the asset.
+        /// * `asset_identifiers` - A vector of [`AssetIdentifier`] that will be associated to the asset.
         ///
         /// # Permissions
         /// * Asset
+        ///
+        /// # Events
+        /// * `IdentifiersUpdated` - When the asset identifiers are successfully updated.
+        ///
+        /// # Errors
+        /// * `InvalidAssetIdentifier` - If any of the asset identifiers are invalid.
         #[weight = <T as Config>::WeightInfo::update_identifiers(asset_identifiers.len() as u32)]
         pub fn update_identifiers(
             origin,
@@ -517,17 +634,27 @@ decl_module! {
             Self::base_update_identifiers(origin, asset_id, asset_identifiers)
         }
 
-        /// Forces a transfer of token from `from_portfolio` to the caller's default portfolio.
+        /// Forces a transfer of tokens from `from_portfolio` to the caller's default portfolio.
+        ///
+        /// This function allows the asset issuer or an external agent to force a transfer of tokens from one portfolio to another.
         ///
         /// # Arguments
-        /// * `origin`: a signer that has permissions to act as an agent of `asset_id`.
-        /// * `asset_id`: the [`AssetId`] associated to the token.
-        /// * `value`:  the [`Balance`] of tokens that will be transferred.
-        /// * `from_portfolio`: the [`PortfolioId`] that will have its balance reduced.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The [`AssetId`] associated to the asset.
+        /// * `value` - The [`Balance`] of tokens that will be transferred.
+        /// * `from_portfolio` - The [`PortfolioId`] that will have its balance reduced.
         ///
         /// # Permissions
         /// * Asset
         /// * Portfolio
+        ///
+        /// # Events
+        /// * `ControllerTransfer` - When tokens are successfully transferred.
+        ///
+        /// # Errors
+        /// * `UnexpectedNonFungibleToken` - If the asset is a non-fungible token.
+        /// * `InvalidGranularity` - If the amount to transfer does not meet the granularity requirements.
+        /// * `TotalSupplyOverflow` - If the total supply exceeds the maximum allowed limit.
         #[weight = <T as Config>::WeightInfo::controller_transfer()]
         pub fn controller_transfer(origin, asset_id: AssetId, value: Balance, from_portfolio: PortfolioId) -> DispatchResult {
             let mut weight_meter = WeightMeter::max_limit_no_minimum();
@@ -536,33 +663,44 @@ decl_module! {
 
         /// Registers a custom asset type.
         ///
-        /// The provided `ty` will be bound to an ID in storage.
-        /// The ID can then be used in `AssetType::Custom`.
-        /// Should the `ty` already exist in storage, no second ID is assigned to it.
-        ///
         /// # Arguments
-        /// * `origin`: who called the extrinsic.
-        /// * `ty`: contains the string representation of the asset type.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `ty` - Contains the string representation of the asset type.
+        ///
+        /// # Events
+        /// * `CustomAssetTypeRegistered` - When a new custom asset type is successfully registered.
+        /// * `CustomAssetTypeAlreadyRegistered` - When the custom asset type is already registered.
+        ///
+        /// # Errors
+        /// * `TooLong` - If the custom asset type length exceeds the maximum allowed length.
         #[weight = <T as Config>::WeightInfo::register_custom_asset_type(ty.len() as u32)]
         pub fn register_custom_asset_type(origin, ty: Vec<u8>) -> DispatchResult {
             Self::base_register_custom_asset_type(origin, ty)?;
             Ok(())
         }
 
-        /// Initializes a new [`AssetDetails`], with the initiating account as its owner.
+        /// Creates a new asset with a new custom asset type.
+        ///
         /// The total supply will initially be zero. To mint tokens, use [`Module::issue`].
-        /// Note: Utility extrinsic to batch [`Module::create_asset`] and [`Module::register_custom_asset_type`].
         ///
         /// # Arguments
-        /// * `origin`: contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
-        /// * `asset_name`: the [`AssetName`] associated to the security token.
-        /// * `divisible`: sets [`AssetDetails::divisible`], where `true` means the token is divisible.
-        /// * `custom_asset_type`: the custom asset type of the token.
-        /// * `asset_identifiers`: a vector of [`AssetIdentifier`].
-        /// * `funding_round_name`: the name of the funding round ([`FundingRoundName`]).
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_name` - The [`AssetName`] of the new asset.
+        /// * `divisible` - Sets [`AssetDetails::divisible`], where `true` means the asset is divisible.
+        /// * `custom_asset_type` - The custom asset type of the asset.
+        /// * `asset_identifiers` - A vector of [`AssetIdentifier`].
+        /// * `funding_round_name` - The name of the funding round ([`FundingRoundName`]).
         ///
-        /// ## Permissions
-        /// * Portfolio
+        /// # Events
+        /// * `AssetCreated` - When a new asset is successfully created.
+        /// * `CustomAssetTypeRegistered` - When a new custom asset type is successfully registered.
+        /// * `CustomAssetTypeAlreadyRegistered` - When the custom asset type is already registered.
+        ///
+        /// # Errors
+        /// * `MaxLengthOfAssetNameExceeded` - If the asset name length exceeds the maximum allowed length.
+        /// * `InvalidCustomAssetTypeId` - If the custom asset type ID is invalid.
+        /// * `InvalidAssetIdentifier` - If any of the asset identifiers are invalid.
+        /// * `TooLong` - If the custom asset type length exceeds the maximum allowed length.
         #[weight = <T as Config>::WeightInfo::create_asset(
             asset_name.len() as u32,
             asset_identifiers.len() as u32,
@@ -592,16 +730,25 @@ decl_module! {
 
         /// Set asset metadata value.
         ///
+        /// This function allows the asset issuer or an external agent to set metadata for an asset.
+        ///
         /// # Arguments
-        /// * `origin`: is a signer that has permissions to act as an agent of `asset_id`.
-        /// * `asset_id`: the [`AssetId`] associated to the token.
-        /// * `key`: the [`AssetMetadataKey`] associated to the token.
-        /// * `value`: the [`AssetMetadataValue`] of the given metadata key.
-        /// * `details`: optional [`AssetMetadataValueDetail`] (expire, lock status).
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The [`AssetId`] associated to the asset.
+        /// * `key` - The [`AssetMetadataKey`] associated to the asset.
+        /// * `value` - The [`AssetMetadataValue`] of the given metadata key.
+        /// * `details` - Optional [`AssetMetadataValueDetail`] (expire, lock status).
         ///
         /// # Permissions
-        /// * Agent
         /// * Asset
+        ///
+        /// # Events
+        /// * `SetAssetMetadataValue` - When the asset metadata value is successfully set.
+        ///
+        /// # Errors
+        /// * `AssetMetadataKeyIsMissing` - If the metadata key is missing.
+        /// * `AssetMetadataValueIsLocked` - If the metadata value is locked.
+        /// * `AssetMetadataValueMaxLengthExceeded` - If the metadata value length exceeds the maximum allowed length.
         #[weight = <T as Config>::WeightInfo::set_asset_metadata()]
         pub fn set_asset_metadata(
             origin,
@@ -615,15 +762,24 @@ decl_module! {
 
         /// Set asset metadata value details (expire, lock status).
         ///
+        /// This function allows the asset issuer or an external agent to set metadata details for an asset.
+        ///
         /// # Arguments
-        /// * `origin`: is a signer that has permissions to act as an agent of `asset_id`.
-        /// * `asset_id`: the [`AssetId`] associated to the token.
-        /// * `key`: the [`AssetMetadataKey`] associated to the token.
-        /// * `details`: the [`AssetMetadataValueDetail`] (expire, lock status) that will be associated to the token.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The [`AssetId`] associated to the asset.
+        /// * `key` - The [`AssetMetadataKey`] associated to the asset.
+        /// * `details` - The [`AssetMetadataValueDetail`] (expire, lock status) that will be associated to the asset.
         ///
         /// # Permissions
-        /// * Agent
         /// * Asset
+        ///
+        /// # Events
+        /// * `SetAssetMetadataValueDetails` - When the asset metadata value details are successfully set.
+        ///
+        /// # Errors
+        /// * `AssetMetadataKeyIsMissing` - If the metadata key is missing.
+        /// * `AssetMetadataValueIsLocked` - If the metadata value is locked.
+        /// * `AssetMetadataValueIsEmpty` - If the metadata value is empty.
         #[weight = <T as Config>::WeightInfo::set_asset_metadata_details()]
         pub fn set_asset_metadata_details(
             origin,
@@ -636,17 +792,27 @@ decl_module! {
 
         /// Registers and set local asset metadata.
         ///
+        /// This function allows the asset issuer or an external agent to register and set local metadata for an asset.
+        ///
         /// # Arguments
-        /// * `origin`: is a signer that has permissions to act as an agent of `asset_id`.
-        /// * `asset_id`: the [`AssetId`] associated to the token.
-        /// * `name`: the [`AssetMetadataName`].
-        /// * `spec`: the asset metadata specifications ([`AssetMetadataSpec`]).
-        /// * `value`: the [`AssetMetadataValue`] of the given metadata key.
-        /// * `details`: optional [`AssetMetadataValueDetail`] (expire, lock status).
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The [`AssetId`] associated to the asset.
+        /// * `name` - The [`AssetMetadataName`].
+        /// * `spec` - The asset metadata specifications ([`AssetMetadataSpec`]).
+        /// * `value` - The [`AssetMetadataValue`] of the given metadata key.
+        /// * `details` - Optional [`AssetMetadataValueDetail`] (expire, lock status).
         ///
         /// # Permissions
-        /// * Agent
         /// * Asset
+        ///
+        /// # Events
+        /// * `RegisterAssetMetadataLocalType` - When the local asset metadata type is successfully registered.
+        /// * `SetAssetMetadataValue` - When the asset metadata value is successfully set.
+        ///
+        /// # Errors
+        /// * `AssetMetadataLocalKeyAlreadyExists` - If the local metadata key already exists.
+        /// * `AssetMetadataValueIsLocked` - If the metadata value is locked.
+        /// * `AssetMetadataValueMaxLengthExceeded` - If the metadata value length exceeds the maximum allowed length.
         #[weight = <T as Config>::WeightInfo::register_and_set_local_asset_metadata()]
         pub fn register_and_set_local_asset_metadata(
             origin,
@@ -661,15 +827,24 @@ decl_module! {
 
         /// Registers asset metadata local type.
         ///
+        /// This function allows the asset issuer or an external agent to register a local metadata type for an asset.
+        ///
         /// # Arguments
-        /// * `origin`: is a signer that has permissions to act as an agent of `asset_id`.
-        /// * `asset_id`: the [`AssetId`] associated to the token.
-        /// * `name`: the [`AssetMetadataName`].
-        /// * `spec`: the asset metadata specifications ([`AssetMetadataSpec`]).
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The [`AssetId`] associated to the asset.
+        /// * `name` - The [`AssetMetadataName`].
+        /// * `spec` - The asset metadata specifications ([`AssetMetadataSpec`]).
         ///
         /// # Permissions
-        /// * Agent
         /// * Asset
+        ///
+        /// # Events
+        /// * `RegisterAssetMetadataLocalType` - When the local asset metadata type is successfully registered.
+        ///
+        /// # Errors
+        /// * `AssetMetadataLocalKeyAlreadyExists` - If the local metadata key already exists.
+        /// * `AssetMetadataNameMaxLengthExceeded` - If the metadata name length exceeds the maximum allowed length.
+        /// * `AssetMetadataTypeDefMaxLengthExceeded` - If the metadata type definition length exceeds the maximum allowed length.
         #[weight = <T as Config>::WeightInfo::register_asset_metadata_local_type()]
         pub fn register_asset_metadata_local_type(
             origin,
@@ -682,10 +857,20 @@ decl_module! {
 
         /// Registers asset metadata global type.
         ///
+        /// This function allows the root origin to register a global metadata type.
+        ///
         /// # Arguments
-        /// * `origin`: is a signer that has permissions to act as an agent of `asset_id`.
-        /// * `name`: the [`AssetMetadataName`].
-        /// * `spec`: the asset metadata specifications ([`AssetMetadataSpec`]).
+        /// * `origin` - The root origin.
+        /// * `name` - The [`AssetMetadataName`].
+        /// * `spec` - The asset metadata specifications ([`AssetMetadataSpec`]).
+        ///
+        /// # Events
+        /// * `RegisterAssetMetadataGlobalType` - When the global asset metadata type is successfully registered.
+        ///
+        /// # Errors
+        /// * `AssetMetadataGlobalKeyAlreadyExists` - If the global metadata key already exists.
+        /// * `AssetMetadataNameMaxLengthExceeded` - If the metadata name length exceeds the maximum allowed length.
+        /// * `AssetMetadataTypeDefMaxLengthExceeded` - If the metadata type definition length exceeds the maximum allowed length.
         #[weight = <T as Config>::WeightInfo::register_asset_metadata_global_type()]
         pub fn register_asset_metadata_global_type(
             origin,
@@ -700,13 +885,23 @@ decl_module! {
 
         /// Updates the type of an asset.
         ///
+        /// This function allows the asset issuer or an external agent to update the type of an asset.
+        ///
         /// # Arguments
-        /// * `origin`: it contains the secondary key of the sender
-        /// * `asset_id`: the [`AssetId`] associated to the token.
-        /// * `asset_type`: the new [`AssetType`] of the token.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The [`AssetId`] associated to the asset.
+        /// * `asset_type` - The new [`AssetType`] of the asset.
         ///
         /// # Permissions
         /// * Asset
+        ///
+        /// # Events
+        /// * `AssetTypeChanged` - When the asset type is successfully changed.
+        ///
+        /// # Errors
+        /// * `NoSuchAsset` - If the asset does not exist.
+        /// * `InvalidCustomAssetTypeId` - If the custom asset type ID is invalid.
+        /// * `IncompatibleAssetTypeUpdate` - If the new asset type is incompatible with the existing asset type.
         #[weight = <T as Config>::WeightInfo::update_asset_type()]
         pub fn update_asset_type(origin, asset_id: AssetId, asset_type: AssetType) -> DispatchResult {
             Self::base_update_asset_type(origin, asset_id, asset_type)
@@ -714,13 +909,23 @@ decl_module! {
 
         /// Removes the asset metadata key and value of a local key.
         ///
+        /// This function allows the asset issuer or an external agent to remove a local metadata key and its value for an asset.
+        ///
         /// # Arguments
-        /// * `origin`: the secondary key of the sender.
-        /// * `asset_id`: the [`AssetId`] associated to the local metadata key.
-        /// * `local_key`: the [`AssetMetadataLocalKey`] that will be removed.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The [`AssetId`] associated to the local metadata key.
+        /// * `local_key` - The [`AssetMetadataLocalKey`] that will be removed.
         ///
         /// # Permissions
         /// * Asset
+        ///
+        /// # Events
+        /// * `LocalMetadataKeyDeleted` - When the local metadata key is successfully deleted.
+        ///
+        /// # Errors
+        /// * `AssetMetadataKeyIsMissing` - If the local metadata key is missing.
+        /// * `AssetMetadataValueIsLocked` - If the metadata value is locked.
+        /// * `AssetMetadataKeyBelongsToNFTCollection` - If the metadata key belongs to an NFT collection.
         #[weight = <T as Config>::WeightInfo::remove_local_metadata_key()]
         pub fn remove_local_metadata_key(origin, asset_id: AssetId, local_key: AssetMetadataLocalKey) -> DispatchResult {
             Self::base_remove_local_metadata_key(origin, asset_id, local_key)
@@ -728,13 +933,22 @@ decl_module! {
 
         /// Removes the asset metadata value of a metadata key.
         ///
+        /// This function allows the asset issuer or an external agent to remove a metadata value for an asset.
+        ///
         /// # Arguments
-        /// * `origin`: the secondary key of the sender.
-        /// * `asset_id`: the [`AssetId`] associated to the metadata key.
-        /// * `metadata_key`: the [`AssetMetadataKey`] that will have its value deleted.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The [`AssetId`] associated to the metadata key.
+        /// * `metadata_key` - The [`AssetMetadataKey`] that will have its value deleted.
         ///
         /// # Permissions
         /// * Asset
+        ///
+        /// # Events
+        /// * `MetadataValueDeleted` - When the metadata value is successfully deleted.
+        ///
+        /// # Errors
+        /// * `AssetMetadataKeyIsMissing` - If the metadata key is missing.
+        /// * `AssetMetadataValueIsLocked` - If the metadata value is locked.
         #[weight = <T as Config>::WeightInfo::remove_metadata_value()]
         pub fn remove_metadata_value(origin, asset_id: AssetId, metadata_key: AssetMetadataKey) -> DispatchResult {
             Self::base_remove_metadata_value(origin, asset_id, metadata_key)
@@ -742,12 +956,14 @@ decl_module! {
 
         /// Pre-approves the receivement of the asset for all identities.
         ///
-        /// # Arguments
-        /// * `origin`: the secondary key of the sender.
-        /// * `asset_id`: the [`AssetId`] that will be exempt from affirmation.
+        /// This function allows the root origin to pre-approve the receivement of an asset for all identities.
         ///
-        /// # Permissions
-        /// * Root
+        /// # Arguments
+        /// * `origin` - The root origin.
+        /// * `asset_id` - The [`AssetId`] that will be exempt from affirmation.
+        ///
+        /// # Events
+        /// * `AssetAffirmationExemption` - When the asset is successfully exempted from affirmation.
         #[weight = <T as Config>::WeightInfo::exempt_asset_affirmation()]
         pub fn exempt_asset_affirmation(origin, asset_id: AssetId) -> DispatchResult {
             Self::base_exempt_asset_affirmation(origin, asset_id)
@@ -755,12 +971,14 @@ decl_module! {
 
         /// Removes the pre-approval of the asset for all identities.
         ///
-        /// # Arguments
-        /// * `origin`: the secondary key of the sender.
-        /// * `asset_id`: the [`AssetId`] that will have its exemption removed.
+        /// This function allows the root origin to remove the pre-approval of an asset for all identities.
         ///
-        /// # Permissions
-        /// * Root
+        /// # Arguments
+        /// * `origin` - The root origin.
+        /// * `asset_id` - The [`AssetId`] that will have its exemption removed.
+        ///
+        /// # Events
+        /// * `RemoveAssetAffirmationExemption` - When the asset's affirmation exemption is successfully removed.
         #[weight = <T as Config>::WeightInfo::remove_asset_affirmation_exemption()]
         pub fn remove_asset_affirmation_exemption(origin, asset_id: AssetId) -> DispatchResult {
             Self::base_remove_asset_affirmation_exemption(origin, asset_id)
@@ -769,38 +987,52 @@ decl_module! {
         /// Pre-approves the receivement of an asset.
         ///
         /// # Arguments
-        /// * `origin`: the secondary key of the sender.
-        /// * `asset_id`: the [`AssetId`] that will be exempt from affirmation.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The [`AssetId`] that will be exempt from affirmation.
         ///
         /// # Permissions
         /// * Asset
+        ///
+        /// # Events
+        /// * `PreApprovedAsset` - When the asset is successfully pre-approved for receivement.
         #[weight = <T as Config>::WeightInfo::pre_approve_asset()]
         pub fn pre_approve_asset(origin, asset_id: AssetId) -> DispatchResult {
             Self::base_pre_approve_asset(origin, asset_id)
         }
 
-        /// Removes the pre approval of an asset.
+        /// Removes the pre-approval of an asset.
         ///
         /// # Arguments
-        /// * `origin` - the secondary key of the sender.
-        /// * `asset_id`: the [`AssetId`] that will have its exemption removed.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The [`AssetId`] that will have its exemption removed.
         ///
         /// # Permissions
         /// * Asset
+        ///
+        /// # Events
+        /// * `RemovePreApprovedAsset` - When the asset's pre-approval is successfully removed.
         #[weight = <T as Config>::WeightInfo::remove_asset_pre_approval()]
         pub fn remove_asset_pre_approval(origin, asset_id: AssetId) -> DispatchResult {
             Self::base_remove_asset_pre_approval(origin, asset_id)
         }
 
-        /// Sets all identities in the `mediators` set as mandatory mediators for any instruction transfering `asset_id`.
+        /// Sets all identities in the `mediators` set as mandatory mediators for any instruction transferring `asset_id`.
+        ///
+        /// This function allows the asset issuer or an external agent to add mandatory mediators for an asset.
         ///
         /// # Arguments
-        /// * `origin`: The secondary key of the sender.
-        /// * `asset_id`: the [`AssetId`] of the asset that will require the mediators.
-        /// * `mediators`: A set of [`IdentityId`] of all the mandatory mediators for the given ticker.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The [`AssetId`] of the asset that will require the mediators.
+        /// * `mediators` - A set of [`IdentityId`] of all the mandatory mediators for the given ticker.
         ///
         /// # Permissions
         /// * Asset
+        ///
+        /// # Events
+        /// * `AssetMediatorsAdded` - When the mandatory mediators are successfully added.
+        ///
+        /// # Errors
+        /// * `NumberOfAssetMediatorsExceeded` - If the number of mandatory mediators exceeds the maximum allowed limit.
         #[weight = <T as Config>::WeightInfo::add_mandatory_mediators(mediators.len() as u32)]
         pub fn add_mandatory_mediators(
             origin,
@@ -812,13 +1044,18 @@ decl_module! {
 
         /// Removes all identities in the `mediators` set from the mandatory mediators list for the given `asset_id`.
         ///
+        /// This function allows the asset issuer or an external agent to remove mandatory mediators for an asset.
+        ///
         /// # Arguments
-        /// * `origin`: the secondary key of the sender.
-        /// * `asset_id`: the [`AssetId`] of the asset that will have mediators removed.
-        /// * `mediators`: A set of [`IdentityId`] of all the mediators that will be removed from the mandatory mediators list.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The [`AssetId`] of the asset that will have mediators removed.
+        /// * `mediators` - A set of [`IdentityId`] of all the mediators that will be removed from the mandatory mediators list.
         ///
         /// # Permissions
         /// * Asset
+        ///
+        /// # Events
+        /// * `AssetMediatorsRemoved` - When the mandatory mediators are successfully removed.
         #[weight = <T as Config>::WeightInfo::remove_mandatory_mediators(mediators.len() as u32)]
         pub fn remove_mandatory_mediators(
             origin,
@@ -830,13 +1067,25 @@ decl_module! {
 
         /// Establishes a connection between a ticker and an AssetId.
         ///
+        /// This function allows the asset issuer or an external agent to link a ticker to an asset.
+        ///
         /// # Arguments
-        /// * `origin`: the secondary key of the sender.
-        /// * `ticker`: the [`Ticker`] that will be linked to the given `asset_id`.
-        /// * `asset_id`: the [`AssetId`] that will be connected to `ticker`.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `ticker` - The [`Ticker`] that will be linked to the given `asset_id`.
+        /// * `asset_id` - The [`AssetId`] that will be connected to `ticker`.
         ///
         /// # Permissions
         /// * Asset
+        ///
+        /// # Events
+        /// * `TickerLinkedToAsset` - When the ticker is successfully linked to the asset.
+        ///
+        /// # Errors
+        /// * `TickerNotRegisteredToCaller` - If the ticker is not registered to the caller.
+        /// * `TickerRegistrationExpired` - If the ticker registration has expired.
+        /// * `TickerRegistrationNotFound` - If the ticker registration is not found.
+        /// * `TickerIsAlreadyLinkedToAnAsset` - If the ticker is already linked to an asset.
+        /// * `AssetIsAlreadyLinkedToATicker` - If the asset is already linked to a ticker.
         #[weight = <T as Config>::WeightInfo::link_ticker_to_asset_id()]
         pub fn link_ticker_to_asset_id(origin, ticker: Ticker, asset_id: AssetId) {
             Self::base_link_ticker_to_asset_id(origin, ticker, asset_id)?;
@@ -844,13 +1093,23 @@ decl_module! {
 
         /// Removes the link between a ticker and an asset.
         ///
+        /// This function allows the asset issuer or an external agent to unlink a ticker from an asset.
+        ///
         /// # Arguments
-        /// * `origin`: the secondary key of the sender.
-        /// * `ticker`: the [`Ticker`] that will be unlinked from the given `asset_id`.
-        /// * `asset_id`: the [`AssetId`] that will be unlink from `ticker`.
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `ticker` - The [`Ticker`] that will be unlinked from the given `asset_id`.
+        /// * `asset_id` - The [`AssetId`] that will be unlinked from `ticker`.
         ///
         /// # Permissions
         /// * Asset
+        ///
+        /// # Events
+        /// * `TickerUnlinkedFromAsset` - When the ticker is successfully unlinked from the asset.
+        ///
+        /// # Errors
+        /// * `TickerNotRegisteredToCaller` - If the ticker is not registered to the caller.
+        /// * `TickerRegistrationNotFound` - If the ticker registration is not found.
+        /// * `TickerIsNotLinkedToTheAsset` - If the ticker is not linked to the asset.
         #[weight = <T as Config>::WeightInfo::unlink_ticker_from_asset_id()]
         pub fn unlink_ticker_from_asset_id(origin, ticker: Ticker, asset_id: AssetId) {
             Self::base_unlink_ticker_from_asset_id(origin, ticker, asset_id)?;
@@ -905,8 +1164,8 @@ impl<T: Config> Module<T> {
         })
     }
 
-    /// Accept and process a token ownership transfer.
-    fn base_accept_token_ownership_transfer(
+    /// Accept and process an asset ownership transfer.
+    fn base_accept_asset_ownership_transfer(
         origin: T::RuntimeOrigin,
         auth_id: u64,
     ) -> DispatchResult {
@@ -927,12 +1186,12 @@ impl<T: Config> Module<T> {
                 Self::transfer_ticker(ticker_registration, ticker, caller_did);
             }
 
-            // Updates token ownership
+            // Updates asset ownership
             let previous_owner = asset_details.owner_did;
             SecurityTokensOwnedByUser::remove(previous_owner, asset_id);
             SecurityTokensOwnedByUser::insert(caller_did, asset_id, true);
 
-            // Updates token details.
+            // Updates asset details.
             asset_details.owner_did = caller_did;
             Assets::insert(asset_id, asset_details);
             Self::deposit_event(RawEvent::AssetOwnershipTransferred(
@@ -969,7 +1228,7 @@ impl<T: Config> Module<T> {
         Ok(caller_primary_did)
     }
 
-    /// Freezes or unfreezes transfers for the token associated to `asset_id`.
+    /// Freezes or unfreezes transfers for the asset associated to `asset_id`.
     fn base_set_freeze(
         origin: T::RuntimeOrigin,
         asset_id: AssetId,
@@ -992,7 +1251,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// If `asset_name` is valid, updates the [`AssetName`] of the underling token given by `asset_id`.
+    /// If `asset_name` is valid, updates the [`AssetName`] of the underling asset given by `asset_id`.
     fn base_rename_asset(
         origin: T::RuntimeOrigin,
         asset_id: AssetId,
@@ -1051,9 +1310,9 @@ impl<T: Config> Module<T> {
         )?;
 
         let mut asset_details = Self::try_get_asset_details(&asset_id)?;
-        Self::ensure_token_granular(&asset_details, &value)?;
+        Self::ensure_asset_granular(&asset_details, &value)?;
 
-        // Ensures the token is fungible
+        // Ensures the asset is fungible
         ensure!(
             asset_details.asset_type.is_fungible(),
             Error::<T>::UnexpectedNonFungibleToken
@@ -1385,14 +1644,14 @@ impl<T: Config> Module<T> {
         Self::ensure_asset_exists(&asset_id)?;
         Self::ensure_valid_asset_type(&asset_type)?;
         let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
-        Assets::try_mutate(&asset_id, |token| -> DispatchResult {
-            let token = token.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
+        Assets::try_mutate(&asset_id, |asset| -> DispatchResult {
+            let asset = asset.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
             // Ensures that both parameters are non fungible types or if both are fungible types.
             ensure!(
-                token.asset_type.is_fungible() == asset_type.is_fungible(),
+                asset.asset_type.is_fungible() == asset_type.is_fungible(),
                 Error::<T>::IncompatibleAssetTypeUpdate
             );
-            token.asset_type = asset_type;
+            asset.asset_type = asset_type;
             Ok(())
         })?;
         Self::deposit_event(RawEvent::AssetTypeChanged(did, asset_id, asset_type));
@@ -1738,7 +1997,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns `Ok` if `ticker` length is less or equal to `max_ticker_length`. Otherwise, returns [`Error::TickerTooLong`].
+    /// Returns `Ok` if `ticker` length is less or equal to `max_ticker_length`. Otherwise, returns [`Error::<T>::TickerTooLong`].
     fn ensure_ticker_length(ticker: &Ticker, max_ticker_length: u8) -> DispatchResult {
         ensure!(
             ticker.len() <= max_ticker_length as usize,
@@ -1809,13 +2068,13 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns the [`AssetDetails`] associated to `asset_id`, if one exists. Otherwise, returns [`Error::NoSuchAsset`].
+    /// Returns the [`AssetDetails`] associated to `asset_id`, if one exists. Otherwise, returns [`Error::<T>::NoSuchAsset`].
     pub fn try_get_asset_details(asset_id: &AssetId) -> Result<AssetDetails, DispatchError> {
         let asset_details = Assets::try_get(asset_id).or(Err(Error::<T>::NoSuchAsset))?;
         Ok(asset_details)
     }
 
-    /// Returns `Ok` if `funding_round_name` is valid. Otherwise, returns [`Error::FundingRoundNameMaxLengthExceeded`].
+    /// Returns `Ok` if `funding_round_name` is valid. Otherwise, returns [`Error::<T>::FundingRoundNameMaxLengthExceeded`].
     fn ensure_valid_funding_round_name(funding_round_name: &FundingRoundName) -> DispatchResult {
         ensure!(
             funding_round_name.len() <= T::FundingRoundNameMaxLength::get() as usize,
@@ -1844,7 +2103,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns `Ok` if all `asset_identifiers` are valid. Otherwise, returns [`Error::InvalidAssetIdentifier`].
+    /// Returns `Ok` if all `asset_identifiers` are valid. Otherwise, returns [`Error::<T>::InvalidAssetIdentifier`].
     fn ensure_valid_asset_identifiers(asset_identifiers: &[AssetIdentifier]) -> DispatchResult {
         ensure!(
             asset_identifiers.iter().all(|i| i.is_valid()),
@@ -1882,7 +2141,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns `Ok` if [`AssetDetails::divisible`] or `value` % ONE_UNIT == 0. Otherwise, returns [`Error::<T>::InvalidGranularity`].
-    fn ensure_token_granular(asset_details: &AssetDetails, value: &Balance) -> DispatchResult {
+    fn ensure_asset_granular(asset_details: &AssetDetails, value: &Balance) -> DispatchResult {
         if asset_details.divisible || value % ONE_UNIT == 0 {
             return Ok(());
         }
@@ -1945,8 +2204,8 @@ impl<T: Config> Module<T> {
     /// Returns `None` if there's no asset associated to the given asset_id,
     /// returns Some(true) if the asset exists and is of type `AssetType::NonFungible`, and returns Some(false) otherwise.
     pub fn nft_asset(asset_id: &AssetId) -> Option<bool> {
-        let token = Assets::try_get(asset_id).ok()?;
-        Some(token.asset_type.is_non_fungible())
+        let asset = Assets::try_get(asset_id).ok()?;
+        Some(asset.asset_type.is_non_fungible())
     }
 
     /// Ensure that the document `doc` exists for `ticker`.
@@ -2053,7 +2312,7 @@ impl<T: Config> Module<T> {
     ) -> Vec<DispatchError> {
         let mut asset_transfer_errors = Vec::new();
 
-        // If the security token doesn't exist or if the token is an NFT, there's no point in assessing anything else
+        // If the asset doesn't exist or is an NFT, there's no point in assessing anything else
         let asset_details = {
             match Assets::try_get(asset_id) {
                 Ok(asset_details) => asset_details,
@@ -2064,7 +2323,7 @@ impl<T: Config> Module<T> {
             return vec![Error::<T>::UnexpectedNonFungibleToken.into()];
         }
 
-        if let Err(e) = Self::ensure_token_granular(&asset_details, &transfer_value) {
+        if let Err(e) = Self::ensure_asset_granular(&asset_details, &transfer_value) {
             asset_transfer_errors.push(e);
         }
 
@@ -2194,7 +2453,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns `Ok` if all rules for issuing a token are satisfied.
+    /// Returns `Ok` if all rules for issuing a tokens are satisfied.
     fn validate_issuance_rules(
         asset_details: &AssetDetails,
         amount_to_issue: Balance,
@@ -2204,7 +2463,7 @@ impl<T: Config> Module<T> {
             Error::<T>::UnexpectedNonFungibleToken
         );
 
-        Self::ensure_token_granular(asset_details, &amount_to_issue)?;
+        Self::ensure_asset_granular(asset_details, &amount_to_issue)?;
 
         let new_supply = asset_details
             .total_supply
@@ -2214,7 +2473,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns `Ok` if there's no token associated to `asset_id`. Otherwise, returns [`Error::AssetIdGenerationError`].
+    /// Returns `Ok` if there's no asset associated to `asset_id`. Otherwise, returns [`Error::<T>::AssetIdGenerationError`].
     fn ensure_new_asset_id(asset_id: &AssetId) -> DispatchResult {
         ensure!(
             !Assets::contains_key(asset_id),
@@ -2223,7 +2482,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns `Ok` if there's a token associated to `asset_id`. Otherwise, returns [`Error::NoSuchAsset`].
+    /// Returns `Ok` if there's a asset associated to `asset_id`. Otherwise, returns [`Error::<T>::NoSuchAsset`].
     fn ensure_asset_exists(asset_id: &AssetId) -> DispatchResult {
         ensure!(Assets::contains_key(asset_id), Error::<T>::NoSuchAsset);
         Ok(())
@@ -2340,7 +2599,7 @@ impl<T: Config> Module<T> {
         ));
     }
 
-    /// All storage writes for issuing a token.
+    /// All storage writes for issuing tokens.
     /// Note: if `charge_fee`` is `true` [`ProtocolOp::AssetIssue`] is charged.
     fn unverified_issue_tokens(
         asset_id: AssetId,
@@ -2607,7 +2866,7 @@ impl<T: Config> Module<T> {
 impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
     fn ensure_granular(asset_id: &AssetId, value: Balance) -> DispatchResult {
         let asset_details = Self::try_get_asset_details(&asset_id)?;
-        Self::ensure_token_granular(&asset_details, &value)
+        Self::ensure_asset_granular(&asset_details, &value)
     }
 
     fn skip_asset_affirmation(identity_id: &IdentityId, asset_id: &AssetId) -> bool {
