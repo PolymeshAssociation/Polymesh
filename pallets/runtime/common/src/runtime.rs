@@ -427,6 +427,14 @@ macro_rules! misc_pallet_impls {
             type MaxConditionComplexity = MaxConditionComplexity;
         }
 
+        impl pallet_capital_distribution::Config for Runtime {
+            type RuntimeEvent = RuntimeEvent;
+        }
+
+        impl pallet_corporate_ballot::Config for Runtime {
+            type RuntimeEvent = RuntimeEvent;
+        }
+
         impl pallet_corporate_actions::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type MaxTargetIds = MaxTargetIds;

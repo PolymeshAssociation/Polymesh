@@ -91,10 +91,9 @@ pub mod benchmarking;
 pub mod ballot;
 pub mod distribution;
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use distribution::WeightInfo as DistWeightInfoTrait;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
@@ -115,11 +114,28 @@ use scale_info::TypeInfo;
 use sp_arithmetic::Permill;
 use sp_std::prelude::*;
 
+storage_migration_ver!(1);
+
+/// Combinded config traits of the corporate actions and distribution pallets.
+pub trait CAConfig: Config + distribution::Config + ballot::Config {}
+
+impl<T: Config + distribution::Config + ballot::Config> CAConfig for T {}
+
 /// Representation of a % to tax, with 10^6 precision.
 pub type Tax = Permill;
 
 /// How should `identities` in `TargetIdentities` be used?
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
+#[derive(
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Encode,
+    Decode,
+    TypeInfo,
+    MaxEncodedLen,
+    Debug
+)]
 pub enum TargetTreatment {
     /// Only those identities should be included.
     Include,
@@ -170,7 +186,17 @@ impl TargetIdentities {
 }
 
 /// The kind of a `CorporateAction`.
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Encode,
+    Decode,
+    TypeInfo,
+    MaxEncodedLen,
+    Debug
+)]
 pub enum CAKind {
     /// A predictable benefit.
     /// These are known at the time the asset is created.
@@ -206,7 +232,17 @@ impl CAKind {
 pub struct CADetails(pub Vec<u8>);
 
 /// Defines how to identify a CA's associated checkpoint, if any.
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Encode,
+    Decode,
+    TypeInfo,
+    MaxEncodedLen,
+    Debug
+)]
 pub enum CACheckpoint {
     /// CA uses a record date scheduled to occur in the future.
     /// Checkpoint ID will be taken after the record date.
@@ -221,7 +257,17 @@ pub enum CACheckpoint {
 
 /// Defines the record date, at which impact should be calculated,
 /// along with checkpoint info to assess the impact at the date.
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Encode,
+    Decode,
+    TypeInfo,
+    MaxEncodedLen,
+    Debug
+)]
 pub struct RecordDate {
     /// When the impact should be calculated, or already has.
     pub date: Moment,
@@ -230,7 +276,17 @@ pub struct RecordDate {
 }
 
 /// Input specification of the record date used to derive impact for a CA.
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Encode,
+    Decode,
+    TypeInfo,
+    MaxEncodedLen,
+    Debug
+)]
 pub enum RecordDateSpec {
     /// Record date is in the future.
     /// A checkpoint should be created.
@@ -274,12 +330,33 @@ impl CorporateAction {
 /// A `AssetId`-local CA ID.
 /// By *local*, we mean that the same number might be used for a different `AssetId`
 /// to uniquely identify a different CA.
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Default, Debug)]
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Encode,
+    Decode,
+    TypeInfo,
+    MaxEncodedLen,
+    Default,
+    Debug
+)]
 pub struct LocalCAId(pub u32);
 impl_checked_inc!(LocalCAId);
 
 /// A unique global identifier for a CA.
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Encode,
+    Decode,
+    TypeInfo,
+    MaxEncodedLen,
+    Debug
+)]
 pub struct CAId {
     /// The `[`AssetId`]` component used to disambiguate the `local` one.
     pub asset_id: AssetId,
@@ -314,122 +391,162 @@ pub trait WeightInfo {
     fn change_record_date_with_dist() -> Weight;
 }
 
-/// The module's configuration trait.
-pub trait Config: frame_system::Config + IdentityConfig + pallet_asset::Config {
-    /// The overarching event type.
-    type RuntimeEvent: From<Event>
-        + From<ballot::Event>
-        + From<distribution::Event>
-        + Into<<Self as frame_system::Config>::RuntimeEvent>;
-
-    /// Max number of DID specified in `TargetIdentities`.
-    type MaxTargetIds: Get<u32>;
-
-    /// Max number of per-DID withholding tax overrides.
-    type MaxDidWhts: Get<u32>;
-
-    /// Weight information for extrinsics in the corporate actions pallet.
-    type WeightInfo: WeightInfo;
-
-    /// Weight information for extrinsics in the corporate ballot pallet.
-    type BallotWeightInfo: ballot::WeightInfo;
-
-    /// Weight information for extrinsics in the capital distribution pallet.
-    type DistWeightInfo: distribution::WeightInfo;
-}
-
 type Asset<T> = pallet_asset::Pallet<T>;
 type Ballot<T> = ballot::Pallet<T>;
 type Checkpoint<T> = checkpoint::Pallet<T>;
 type Distribution<T> = distribution::Pallet<T>;
 type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
 
-decl_storage! {
-    trait Store for Pallet<T: Config> as CorporateAction {
-        /// Determines the maximum number of bytes that the free-form `details` of a CA can store.
-        ///
-        /// Note that this is not the number of `char`s or the number of [graphemes].
-        /// While this may be unnatural in terms of human understanding of a text's length,
-        /// it more closely reflects actual storage costs (`'a'` is cheaper to store than an emoji).
-        ///
-        /// [graphemes]: https://en.wikipedia.org/wiki/Grapheme
-        pub MaxDetailsLength get(fn max_details_length) config(): u32;
+pub use pallet::*;
 
-        /// The identities targeted by default for CAs for this asset,
-        /// either to be excluded or included.
-        ///
-        /// (AssetId => target identities)
-        pub DefaultTargetIdentities get(fn default_target_identities): map hasher(blake2_128_concat) AssetId => TargetIdentities;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::{ValueQuery, *};
+    use frame_system::pallet_prelude::*;
 
-        /// The default amount of tax to withhold ("withholding tax", WT) for this asset when distributing dividends.
-        ///
-        /// To understand withholding tax, e.g., let's assume that you hold ACME shares.
-        /// ACME now decides to distribute 100 SEK to Alice.
-        /// Alice lives in Sweden, so Skatteverket (the Swedish tax authority) wants 30% of that.
-        /// Then those 100 * 30% are withheld from Alice, and ACME will send them to Skatteverket.
-        ///
-        /// (AssetId => % to withhold)
-        pub DefaultWithholdingTax get(fn default_withholding_tax): map hasher(blake2_128_concat) AssetId => Tax;
+    #[pallet::config]
+    pub trait Config: frame_system::Config + IdentityConfig + pallet_asset::Config {
+        /// The overarching event type.
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        /// The amount of tax to withhold ("withholding tax", WT) for a certain AssetId x DID.
-        /// If an entry exists for a certain DID, it overrides the default in `DefaultWithholdingTax`.
-        ///
-        /// (AssetId => [(did, % to withhold)]
-        pub DidWithholdingTax get(fn did_withholding_tax): map hasher(blake2_128_concat) AssetId => Vec<(IdentityId, Tax)>;
+        /// Max number of DID specified in `TargetIdentities`.
+        #[pallet::constant]
+        type MaxTargetIds: Get<u32>;
 
-        /// The next per-`AssetId` CA ID in the sequence.
-        /// The full ID is defined as a combination of `AssetId` and a number in this sequence.
-        pub CAIdSequence get(fn ca_id_sequence): map hasher(blake2_128_concat) AssetId => LocalCAId;
+        /// Max number of per-DID withholding tax overrides.
+        #[pallet::constant]
+        type MaxDidWhts: Get<u32>;
 
-        /// All recorded CAs thus far.
-        /// Only generic information is stored here.
-        /// Specific `CAKind`s, e.g., benefits and corporate ballots, may use additional on-chain storage.
-        ///
-        /// (AssetId => local ID => the corporate action)
-        pub CorporateActions get(fn corporate_actions):
-            double_map hasher(blake2_128_concat) AssetId, hasher(twox_64_concat) LocalCAId => Option<CorporateAction>;
+        /// Weight information for extrinsics in the corporate actions pallet.
+        type WeightInfo: WeightInfo;
 
-        /// Associations from CAs to `Document`s via their IDs.
-        /// (CAId => [DocumentId])
-        ///
-        /// The `CorporateActions` map stores `AssetId => LocalId => The CA`,
-        /// so we can infer `AssetId => CAId`. Therefore, we don't need a double map.
-        pub CADocLink get(fn ca_doc_link): map hasher(blake2_128_concat) CAId => Vec<DocumentId>;
+        /// Weight information for extrinsics in the corporate ballot pallet.
+        type BallotWeightInfo: ballot::WeightInfo;
 
-        /// Associates details in free-form text with a CA by its ID.
-        /// (CAId => CADetails)
-        pub Details get(fn details): map hasher(blake2_128_concat) CAId => CADetails;
-
-        /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
+        /// Weight information for extrinsics in the capital distribution pallet.
+        type DistWeightInfo: distribution::WeightInfo;
     }
-}
 
-storage_migration_ver!(1);
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
 
-// Public interface for this runtime module.
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
-        type Error = Error<T>;
+    /// Determines the maximum number of bytes that the free-form `details` of a CA can store.
+    ///
+    /// Note that this is not the number of `char`s or the number of [graphemes].
+    /// While this may be unnatural in terms of human understanding of a text's length,
+    /// it more closely reflects actual storage costs (`'a'` is cheaper to store than an emoji).
+    ///
+    /// [graphemes]: https://en.wikipedia.org/wiki/Grapheme
+    #[pallet::storage]
+    #[pallet::getter(fn max_details_length)]
+    pub type MaxDetailsLength<T> = StorageValue<_, u32, ValueQuery>;
 
-        const MaxTargetIds: u32 = T::MaxTargetIds::get();
-        const MaxDidWhts: u32 = T::MaxDidWhts::get();
+    /// The identities targeted by default for CAs for this asset,
+    /// either to be excluded or included.
+    ///
+    /// (AssetId => target identities)
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn default_target_identities)]
+    pub type DefaultTargetIdentities<T> =
+        StorageMap<_, Blake2_128Concat, AssetId, TargetIdentities, ValueQuery>;
 
-        /// initialize the default event for this module
-        fn deposit_event() = default;
+    /// The default amount of tax to withhold ("withholding tax", WT) for this asset when distributing dividends.
+    ///
+    /// To understand withholding tax, e.g., let's assume that you hold ACME shares.
+    /// ACME now decides to distribute 100 SEK to Alice.
+    /// Alice lives in Sweden, so Skatteverket (the Swedish tax authority) wants 30% of that.
+    /// Then those 100 * 30% are withheld from Alice, and ACME will send them to Skatteverket.
+    ///
+    /// (AssetId => % to withhold)
+    #[pallet::storage]
+    #[pallet::getter(fn default_withholding_tax)]
+    pub type DefaultWithholdingTax<T> = StorageMap<_, Blake2_128Concat, AssetId, Tax, ValueQuery>;
 
-        fn on_runtime_upgrade() -> Weight {
-            Weight::zero()
+    /// The amount of tax to withhold ("withholding tax", WT) for a certain AssetId x DID.
+    /// If an entry exists for a certain DID, it overrides the default in `DefaultWithholdingTax`.
+    ///
+    /// (AssetId => [(did, % to withhold)]
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn did_withholding_tax)]
+    pub type DidWithholdingTax<T> =
+        StorageMap<_, Blake2_128Concat, AssetId, Vec<(IdentityId, Tax)>, ValueQuery>;
+
+    /// The next per-`AssetId` CA ID in the sequence.
+    /// The full ID is defined as a combination of `AssetId` and a number in this sequence.
+    #[pallet::storage]
+    #[pallet::getter(fn ca_id_sequence)]
+    pub type CAIdSequence<T> = StorageMap<_, Blake2_128Concat, AssetId, LocalCAId, ValueQuery>;
+
+    /// All recorded CAs thus far.
+    /// Only generic information is stored here.
+    /// Specific `CAKind`s, e.g., benefits and corporate ballots, may use additional on-chain storage.
+    ///
+    /// (AssetId => local ID => the corporate action)
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn corporate_actions)]
+    pub type CorporateActions<T> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        Twox64Concat,
+        LocalCAId,
+        CorporateAction,
+        OptionQuery,
+    >;
+
+    /// Associations from CAs to `Document`s via their IDs.
+    /// (CAId => [DocumentId])
+    ///
+    /// The `CorporateActions` map stores `AssetId => LocalId => The CA`,
+    /// so we can infer `AssetId => CAId`. Therefore, we don't need a double map.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn ca_doc_link)]
+    pub type CADocLink<T> = StorageMap<_, Blake2_128Concat, CAId, Vec<DocumentId>, ValueQuery>;
+
+    /// Associates details in free-form text with a CA by its ID.
+    /// (CAId => CADetails)
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn record_dates)]
+    pub type Details<T> = StorageMap<_, Blake2_128Concat, CAId, CADetails, ValueQuery>;
+
+    /// Storage version.
+    #[pallet::storage]
+    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
+
+    #[pallet::genesis_config]
+    #[derive(Default)]
+    pub struct GenesisConfig {
+        pub max_details_length: u32,
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+        fn build(&self) {
+            StorageVersion::<T>::put(Version::new(1));
+            MaxDetailsLength::<T>::put(self.max_details_length);
         }
+    }
 
-
+    #[pallet::call]
+    impl<T: Config> Pallet<T>
+    where
+        T: CAConfig,
+    {
         /// Set the max `length` of `details` in terms of bytes.
         /// May only be called via a PIP.
-        #[weight = <T as Config>::WeightInfo::set_max_details_length()]
-        pub fn set_max_details_length(origin, length: u32) {
+        #[pallet::weight(<T as Config>::WeightInfo::set_max_details_length())]
+        #[pallet::call_index(0)]
+        pub fn set_max_details_length(origin: OriginFor<T>, length: u32) -> DispatchResult {
             ensure_root(origin)?;
-            MaxDetailsLength::put(length);
+            MaxDetailsLength::<T>::put(length);
             Self::deposit_event(Event::MaxDetailsLengthChanged(GC_DID, length));
+            Ok(())
         }
 
         /// Set the default CA `TargetIdentities` to `targets`.
@@ -445,8 +562,13 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::set_default_targets(targets.identities.len() as u32)]
-        pub fn set_default_targets(origin, asset_id: AssetId, targets: TargetIdentities) {
+        #[pallet::weight(<T as Config>::WeightInfo::set_default_targets(targets.identities.len() as u32))]
+        #[pallet::call_index(1)]
+        pub fn set_default_targets(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            targets: TargetIdentities,
+        ) -> DispatchResult {
             let agent = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
 
             Self::ensure_target_ids_limited(&targets)?;
@@ -455,8 +577,9 @@ decl_module! {
             let new = targets.dedup();
 
             // Commit + emit event.
-            DefaultTargetIdentities::mutate(asset_id, |slot| *slot = new.clone());
+            DefaultTargetIdentities::<T>::mutate(asset_id, |slot| *slot = new.clone());
             Self::deposit_event(Event::DefaultTargetIdentitiesChanged(agent, asset_id, new));
+            Ok(())
         }
 
         /// Set the default withholding tax for all DIDs and CAs relevant to this `asset_id`.
@@ -471,11 +594,17 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::set_default_withholding_tax()]
-        pub fn set_default_withholding_tax(origin, asset_id: AssetId, tax: Tax) {
+        #[pallet::weight(<T as Config>::WeightInfo::set_default_withholding_tax())]
+        #[pallet::call_index(2)]
+        pub fn set_default_withholding_tax(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            tax: Tax,
+        ) -> DispatchResult {
             let agent = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
-            DefaultWithholdingTax::mutate(asset_id, |slot| *slot = tax);
+            DefaultWithholdingTax::<T>::mutate(asset_id, |slot| *slot = tax);
             Self::deposit_event(Event::DefaultWithholdingTaxChanged(agent, asset_id, tax));
+            Ok(())
         }
 
         /// Set the withholding tax of `asset_id` for `taxed_did` to `tax`.
@@ -494,10 +623,16 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::set_did_withholding_tax(T::MaxDidWhts::get())]
-        pub fn set_did_withholding_tax(origin, asset_id: AssetId, taxed_did: IdentityId, tax: Option<Tax>) {
+        #[pallet::weight(<T as Config>::WeightInfo::set_did_withholding_tax(T::MaxDidWhts::get()))]
+        #[pallet::call_index(3)]
+        pub fn set_did_withholding_tax(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            taxed_did: IdentityId,
+            tax: Option<Tax>,
+        ) -> DispatchResult {
             let agent = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
-            DidWithholdingTax::try_mutate(asset_id, |whts| -> DispatchResult {
+            DidWithholdingTax::<T>::try_mutate(asset_id, |whts| -> DispatchResult {
                 // We maintain sorted order, so we get O(log n) search but O(n) insertion/deletion.
                 // This is maintained to get O(log n) in capital distribution.
                 match (tax, whts.binary_search_by_key(&taxed_did, |(did, _)| *did)) {
@@ -511,7 +646,10 @@ decl_module! {
                 }
                 Ok(())
             })?;
-            Self::deposit_event(Event::DidWithholdingTaxChanged(agent, asset_id, taxed_did, tax));
+            Self::deposit_event(Event::DidWithholdingTaxChanged(
+                agent, asset_id, taxed_did, tax,
+            ));
+            Ok(())
         }
 
         /// Initiates a CA for `asset_id` of `kind` with `details` and other provided arguments.
@@ -544,9 +682,10 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = initiate_corporate_action_weight::<T>(targets, withholding_tax)]
+        #[pallet::weight(initiate_corporate_action_weight::<T>(targets, withholding_tax))]
+        #[pallet::call_index(4)]
         pub fn initiate_corporate_action(
-            origin,
+            origin: OriginFor<T>,
             asset_id: AssetId,
             kind: CAKind,
             decl_date: Moment,
@@ -569,7 +708,8 @@ decl_module! {
                 targets,
                 default_withholding_tax,
                 withholding_tax,
-            ).map(drop)
+            )
+            .map(drop)
         }
 
         /// Link the given CA `id` to the given `docs`.
@@ -590,8 +730,13 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::link_ca_doc(docs.len() as u32)]
-        pub fn link_ca_doc(origin, id: CAId, docs: Vec<DocumentId>) {
+        #[pallet::weight(<T as Config>::WeightInfo::link_ca_doc(docs.len() as u32))]
+        #[pallet::call_index(5)]
+        pub fn link_ca_doc(
+            origin: OriginFor<T>,
+            id: CAId,
+            docs: Vec<DocumentId>,
+        ) -> DispatchResult {
             // Ensure that a permissioned agent is calling and that CA and the docs exists.
             let agent = <ExternalAgents<T>>::ensure_perms(origin, id.asset_id)?;
             Self::ensure_ca_exists(id)?;
@@ -600,8 +745,9 @@ decl_module! {
             }
 
             // Add the link and emit event.
-            CADocLink::mutate(id, |slot| *slot = docs.clone());
+            CADocLink::<T>::mutate(id, |slot| *slot = docs.clone());
             Self::deposit_event(Event::CALinkedToDoc(agent, id, docs));
+            Ok(())
         }
 
         /// Removes the CA identified by `ca_id`.
@@ -622,9 +768,10 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::remove_ca_with_ballot()
-            .max(<T as Config>::WeightInfo::remove_ca_with_dist())]
-        pub fn remove_ca(origin, ca_id: CAId) {
+        #[pallet::weight(<T as Config>::WeightInfo::remove_ca_with_ballot()
+            .max(<T as Config>::WeightInfo::remove_ca_with_dist()))]
+        #[pallet::call_index(6)]
+        pub fn remove_ca(origin: OriginFor<T>, ca_id: CAId) -> DispatchResult {
             // Ensure origin is a permissioned agent + CA exists.
             let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?.for_event();
             let ca = Self::ensure_ca_exists(ca_id)?;
@@ -646,10 +793,11 @@ decl_module! {
 
             // Decrement, Remove, and Emit event.
             Self::dec_strong_ref_count(ca_id, ca.record_date);
-            CorporateActions::remove(ca_id.asset_id, ca_id.local_id);
-            CADocLink::remove(ca_id);
-            Details::remove(ca_id);
+            CorporateActions::<T>::remove(ca_id.asset_id, ca_id.local_id);
+            CADocLink::<T>::remove(ca_id);
+            Details::<T>::remove(ca_id);
             Self::deposit_event(Event::CARemoved(agent, ca_id));
+            Ok(())
         }
 
         /// Changes the record date of the CA identified by `ca_id`.
@@ -667,9 +815,14 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::change_record_date_with_ballot()
-            .max(<T as Config>::WeightInfo::change_record_date_with_dist())]
-        pub fn change_record_date(origin, ca_id: CAId, record_date: Option<RecordDateSpec>) {
+        #[pallet::weight(<T as Config>::WeightInfo::change_record_date_with_ballot()
+            .max(<T as Config>::WeightInfo::change_record_date_with_dist()))]
+        #[pallet::call_index(7)]
+        pub fn change_record_date(
+            origin: OriginFor<T>,
+            ca_id: CAId,
+            record_date: Option<RecordDateSpec>,
+        ) -> DispatchResult {
             // Ensure origin is a permissioned agent + CA exists.
             let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?;
             let agent = caller_did.for_event();
@@ -702,15 +855,17 @@ decl_module! {
             })?;
 
             // Commit changes + emit event.
-            CorporateActions::insert(ca_id.asset_id, ca_id.local_id, ca.clone());
+            CorporateActions::<T>::insert(ca_id.asset_id, ca_id.local_id, ca.clone());
             Self::deposit_event(Event::RecordDateChanged(agent, ca_id, ca));
+            Ok(())
         }
 
         /// Utility extrinsic to batch `initiate_corporate_action` and `distribute`
-         #[weight = initiate_corporate_action_weight::<T>(&ca_args.targets, &ca_args.withholding_tax)
-            .saturating_add(<T as Config>::DistWeightInfo::distribute())]
+        #[pallet::weight(initiate_corporate_action_weight::<T>(&ca_args.targets, &ca_args.withholding_tax)
+            .saturating_add(<T as Config>::DistWeightInfo::distribute()))]
+        #[pallet::call_index(8)]
         pub fn initiate_corporate_action_and_distribute(
-            origin,
+            origin: OriginFor<T>,
             ca_args: InitiateCorporateActionArgs,
             portfolio: Option<PortfolioNumber>,
             currency: AssetId,
@@ -727,7 +882,7 @@ decl_module! {
                 details,
                 targets,
                 default_withholding_tax,
-                withholding_tax
+                withholding_tax,
             } = ca_args;
 
             let PermissionedCallOriginData {
@@ -746,7 +901,7 @@ decl_module! {
                     details,
                     targets,
                     default_withholding_tax,
-                    withholding_tax
+                    withholding_tax,
                 )?;
 
                 <distribution::Pallet<T>>::unverified_distribute(
@@ -763,10 +918,10 @@ decl_module! {
             })
         }
     }
-}
 
-decl_event! {
-    pub enum Event {
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
         /// The maximum length of `details` in bytes was changed.
         /// (GC DID, new length)
         MaxDetailsLengthChanged(IdentityId, u32),
@@ -791,10 +946,9 @@ decl_event! {
         /// A CA's record date changed.
         RecordDateChanged(EventDid, CAId, CorporateAction),
     }
-}
 
-decl_error! {
-    pub enum Error for Pallet<T: Config> {
+    #[pallet::error]
+    pub enum Error<T> {
         /// The `details` of a CA exceeded the max allowed length.
         DetailsTooLong,
         /// A withholding tax override for a given DID was specified more than once.
@@ -843,7 +997,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure that the next local CA ID doesn't overflow.
-        let mut next_id = CAIdSequence::get(asset_id);
+        let mut next_id = CAIdSequence::<T>::get(asset_id);
         let local_id = try_next_post::<T, _>(&mut next_id)?;
         let id = CAId { asset_id, local_id };
 
@@ -881,7 +1035,7 @@ impl<T: Config> Pallet<T> {
             .transpose()?;
 
         // Commit the next local CA ID.
-        CAIdSequence::insert(asset_id, next_id);
+        CAIdSequence::<T>::insert(asset_id, next_id);
 
         // Use asset level defaults if data not provided here.
         let targets = targets
@@ -901,8 +1055,8 @@ impl<T: Config> Pallet<T> {
             default_withholding_tax,
             withholding_tax,
         };
-        CorporateActions::insert(asset_id, id.local_id, ca.clone());
-        Details::insert(id, details.clone());
+        CorporateActions::<T>::insert(asset_id, id.local_id, ca.clone());
+        Details::<T>::insert(id, details.clone());
 
         // Emit event.
         Self::deposit_event(Event::CAInitiated(agent, id, ca, details));
@@ -1032,7 +1186,8 @@ impl<T: Config> Pallet<T> {
 
     /// Ensure that a CA with `id` exists, returning it, and erroring otherwise.
     fn ensure_ca_exists(id: CAId) -> Result<CorporateAction, DispatchError> {
-        CorporateActions::get(id.asset_id, id.local_id).ok_or_else(|| Error::<T>::NoSuchCA.into())
+        CorporateActions::<T>::get(id.asset_id, id.local_id)
+            .ok_or_else(|| Error::<T>::NoSuchCA.into())
     }
 }
 

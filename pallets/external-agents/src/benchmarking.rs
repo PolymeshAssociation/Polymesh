@@ -67,10 +67,10 @@ benchmarks! {
 
         let perms = perms(p);
         let (owner, asset_id) = setup::<T>();
-        assert_eq!(AGId(0), AGIdSequence::get(asset_id));
+        assert_eq!(AGId(0), AGIdSequence::<T>::get(asset_id));
     }: _(owner.origin, asset_id, perms)
     verify {
-        assert_eq!(AGId(1), AGIdSequence::get(asset_id));
+        assert_eq!(AGId(1), AGIdSequence::<T>::get(asset_id));
     }
 
     set_group_permissions {
@@ -83,21 +83,21 @@ benchmarks! {
         let perms2 = perms.clone();
     }: _(owner.origin(), asset_id, AGId(1), perms)
     verify {
-        assert_eq!(Some(perms2), GroupPermissions::get(asset_id, AGId(1)));
+        assert_eq!(Some(perms2), GroupPermissions::<T>::get(asset_id, AGId(1)));
     }
 
     remove_agent {
         let (owner, other, asset_id) = setup_removal::<T>();
     }: _(owner.origin(), asset_id, other.did())
     verify {
-        assert_eq!(None, GroupOfAgent::get(asset_id, other.did()));
+        assert_eq!(None, GroupOfAgent::<T>::get(asset_id, other.did()));
     }
 
     abdicate {
         let (_, other, asset_id) = setup_removal::<T>();
     }: _(other.origin(), asset_id)
     verify {
-        assert_eq!(None, GroupOfAgent::get(asset_id, other.did()));
+        assert_eq!(None, GroupOfAgent::<T>::get(asset_id, other.did()));
     }
 
     change_group_custom {
@@ -106,14 +106,14 @@ benchmarks! {
         let group = AgentGroup::Custom(AGId(1));
     }: change_group(owner.origin(), asset_id, other.did(), group)
     verify {
-        assert_eq!(Some(group), GroupOfAgent::get(asset_id, other.did()));
+        assert_eq!(Some(group), GroupOfAgent::<T>::get(asset_id, other.did()));
     }
 
     change_group_builtin {
         let (owner, other, asset_id) = setup_removal::<T>();
     }: change_group(owner.origin(), asset_id, other.did(), AgentGroup::ExceptMeta)
     verify {
-        assert_eq!(Some(AgentGroup::ExceptMeta), GroupOfAgent::get(asset_id, other.did()));
+        assert_eq!(Some(AgentGroup::ExceptMeta), GroupOfAgent::<T>::get(asset_id, other.did()));
     }
 
     accept_become_agent {
@@ -121,7 +121,7 @@ benchmarks! {
         let (other, auth_id) = add_auth::<T>(&owner, asset_id);
     }: _(other.origin(), auth_id)
     verify {
-        assert!(GroupOfAgent::get(asset_id, other.did()).is_some());
+        assert!(GroupOfAgent::<T>::get(asset_id, other.did()).is_some());
     }
 
     create_group_and_add_auth {
@@ -129,20 +129,20 @@ benchmarks! {
 
         let perms = perms(p);
         let (owner, asset_id) = setup::<T>();
-        assert_eq!(AGId(0), AGIdSequence::get(asset_id));
+        assert_eq!(AGId(0), AGIdSequence::<T>::get(asset_id));
     }: _(owner.origin, asset_id, perms, owner.did(), None)
     verify {
-        assert_eq!(AGId(1), AGIdSequence::get(asset_id));
+        assert_eq!(AGId(1), AGIdSequence::<T>::get(asset_id));
     }
 
     create_and_change_custom_group {
         let p in 0..MAX_PALLETS;
         let perms = perms(p);
         let (owner, other, asset_id) = setup_removal::<T>();
-        assert_eq!(AGId(0), AGIdSequence::get(asset_id));
+        assert_eq!(AGId(0), AGIdSequence::<T>::get(asset_id));
     }: _(owner.origin, asset_id, perms, other.did())
     verify {
-        assert_eq!(AGId(1), AGIdSequence::get(asset_id));
+        assert_eq!(AGId(1), AGIdSequence::<T>::get(asset_id));
     }
 
 }

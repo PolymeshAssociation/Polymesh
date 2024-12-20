@@ -3,10 +3,7 @@ use crate::ext_builder::ExtBuilder;
 use crate::identity_test::test_with_bad_ext_perms;
 use crate::storage::{TestStorage, User};
 use frame_support::dispatch::DispatchResult;
-use frame_support::{
-    assert_noop, assert_ok, IterableStorageDoubleMap, StorageDoubleMap, StorageMap,
-};
-use pallet_external_agents::{AGIdSequence, AgentOf, GroupOfAgent, NumFullAgents};
+use frame_support::{assert_noop, assert_ok};
 use pallet_permissions::StoreCallMetadata;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
@@ -19,6 +16,11 @@ type ExternalAgents = pallet_external_agents::Pallet<TestStorage>;
 type BaseError = pallet_base::Error<TestStorage>;
 type Error = pallet_external_agents::Error<TestStorage>;
 type Id = pallet_identity::Pallet<TestStorage>;
+
+type AGIdSequence = pallet_external_agents::AGIdSequence<TestStorage>;
+type AgentOf = pallet_external_agents::AgentOf<TestStorage>;
+type GroupOfAgent = pallet_external_agents::GroupOfAgent<TestStorage>;
+type NumFullAgents = pallet_external_agents::NumFullAgents<TestStorage>;
 
 fn set_extrinsic(name: &str) {
     StoreCallMetadata::<TestStorage>::set_call_metadata(

@@ -21,7 +21,7 @@ use polymesh_primitives::{Fund, FundDescription, PortfolioId, PortfolioNumber};
 
 use super::*;
 use crate::benchmarking::{currency, did_whts, set_ca_targets, setup_ca, SEED};
-use crate::{CAKind, CorporateActions};
+use crate::{CAConfig, CAKind, CorporateActions};
 
 const MAX_TARGETS: u32 = 1000;
 const MAX_DID_WHT_IDS: u32 = 1000;
@@ -47,7 +47,7 @@ fn portfolio<T: Config>(
     .unwrap();
 }
 
-fn dist<T: Config>(target_ids: u32) -> (User<T>, CAId, AssetId) {
+fn dist<T: CAConfig>(target_ids: u32) -> (User<T>, CAId, AssetId) {
     let (owner, ca_id) = setup_ca::<T>(CAKind::UnpredictableBenefit);
 
     let currency = currency::<T>(&owner);
@@ -72,13 +72,13 @@ fn dist<T: Config>(target_ids: u32) -> (User<T>, CAId, AssetId) {
     (owner, ca_id, currency)
 }
 
-fn prepare_transfer<T: Config + pallet_compliance_manager::Config>(
+fn prepare_transfer<T: CAConfig + pallet_compliance_manager::Config>(
     target_ids: u32,
     did_whts_num: u32,
 ) -> (User<T>, User<T>, CAId) {
     let (owner, ca_id, currency) = dist::<T>(target_ids);
 
-    CorporateActions::mutate(ca_id.asset_id, ca_id.local_id, |ca| {
+    CorporateActions::<T>::mutate(ca_id.asset_id, ca_id.local_id, |ca| {
         let mut whts = did_whts::<T>(did_whts_num);
         whts.sort_by_key(|(did, _)| *did);
         ca.as_mut().unwrap().withholding_tax = whts;
@@ -100,7 +100,7 @@ fn prepare_transfer<T: Config + pallet_compliance_manager::Config>(
 
 benchmarks! {
     where_clause { where
-        T: pallet_compliance_manager::Config,
+        T: CAConfig + pallet_compliance_manager::Config,
     }
 
     distribute {
@@ -112,7 +112,7 @@ benchmarks! {
         portfolio::<T>(&owner, pnum, currency, amount);
     }: _(owner.origin(), ca_id, Some(pnum), currency, per_share, amount, 3000, Some(4000))
     verify {
-        assert!(Distributions::get(ca_id).is_some(), "distribution not created");
+        assert!(Distributions::<T>::get(ca_id).is_some(), "distribution not created");
     }
 
     claim {
@@ -122,7 +122,7 @@ benchmarks! {
         let (_, holder, ca_id) = prepare_transfer::<T>(t, w);
     }: _(holder.origin(), ca_id)
     verify {
-        assert!(HolderPaid::get((ca_id, holder.did())), "not paid");
+        assert!(HolderPaid::<T>::get((ca_id, holder.did())), "not paid");
     }
 
     push_benefit {
@@ -132,7 +132,7 @@ benchmarks! {
         let (owner, holder, ca_id) = prepare_transfer::<T>(t, w);
     }: _(owner.origin(), ca_id, holder.did())
     verify {
-        assert!(HolderPaid::get((ca_id, holder.did())), "not paid");
+        assert!(HolderPaid::<T>::get((ca_id, holder.did())), "not paid");
     }
 
     reclaim {
@@ -141,13 +141,13 @@ benchmarks! {
         <pallet_timestamp::Now<T>>::set(5000u32.into());
     }: _(owner.origin(), ca_id)
     verify {
-        assert!(Distributions::get(ca_id).unwrap().reclaimed, "not reclaimed");
+        assert!(Distributions::<T>::get(ca_id).unwrap().reclaimed, "not reclaimed");
     }
 
     remove_distribution {
         let (owner, ca_id, currency) = dist::<T>(0);
     }: _(owner.origin(), ca_id)
     verify {
-        assert!(Distributions::get(ca_id).is_none(), "not removed");
+        assert!(Distributions::<T>::get(ca_id).is_none(), "not removed");
     }
 }

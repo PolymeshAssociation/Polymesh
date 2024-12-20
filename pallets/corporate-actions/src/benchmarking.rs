@@ -72,7 +72,7 @@ pub(crate) fn did_whts<T: Config>(n: u32) -> Vec<(IdentityId, Tax)> {
 fn init_did_whts<T: Config>(asset_id: AssetId, n: u32) -> Vec<(IdentityId, Tax)> {
     let mut whts = did_whts::<T>(n);
     whts.sort_by_key(|(did, _)| *did);
-    DidWithholdingTax::insert(asset_id, whts.clone());
+    DidWithholdingTax::<T>::insert(asset_id, whts.clone());
     whts
 }
 
@@ -90,7 +90,7 @@ fn add_docs<T: Config>(origin: &T::RuntimeOrigin, asset_id: AssetId, n: u32) -> 
     ids
 }
 
-pub(crate) fn setup_ca<T: Config>(kind: CAKind) -> (User<T>, CAId) {
+pub(crate) fn setup_ca<T: CAConfig>(kind: CAKind) -> (User<T>, CAId) {
     let (owner, asset_id) = setup::<T>();
 
     <pallet_timestamp::Now<T>>::set(1000u32.into());
@@ -117,7 +117,7 @@ pub(crate) fn setup_ca<T: Config>(kind: CAKind) -> (User<T>, CAId) {
     (owner, ca_id)
 }
 
-fn attach<T: Config>(owner: &User<T>, ca_id: CAId) {
+fn attach<T: CAConfig>(owner: &User<T>, ca_id: CAId) {
     let range = ballot::BallotTimeRange {
         start: 4000,
         end: 5000,
@@ -158,7 +158,7 @@ pub(crate) fn currency<T: Config>(owner: &User<T>) -> AssetId {
     asset_id
 }
 
-fn distribute<T: Config>(owner: &User<T>, ca_id: CAId) {
+fn distribute<T: CAConfig + crate::distribution::Config>(owner: &User<T>, ca_id: CAId) {
     let currency = currency::<T>(owner);
     <Distribution<T>>::distribute(
         owner.origin().into(),
@@ -174,7 +174,7 @@ fn distribute<T: Config>(owner: &User<T>, ca_id: CAId) {
 }
 
 pub(crate) fn set_ca_targets<T: Config>(ca_id: CAId, k: u32) {
-    CorporateActions::mutate(ca_id.asset_id, ca_id.local_id, |ca| {
+    CorporateActions::<T>::mutate(ca_id.asset_id, ca_id.local_id, |ca| {
         let mut ids = target_ids::<T>(k, TargetTreatment::Exclude);
         ids.identities.sort();
         ca.as_mut().unwrap().targets = ids;
@@ -182,13 +182,17 @@ pub(crate) fn set_ca_targets<T: Config>(ca_id: CAId, k: u32) {
 }
 
 fn check_ca_created<T: Config>(ca_id: CAId) -> DispatchResult {
-    assert_eq!(CAIdSequence::get(ca_id.asset_id).0, 1, "CA not created");
+    assert_eq!(
+        CAIdSequence::<T>::get(ca_id.asset_id).0,
+        1,
+        "CA not created"
+    );
     Ok(())
 }
 
 fn check_ca_exists<T: Config>(ca_id: CAId) -> DispatchResult {
     assert_eq!(
-        CorporateActions::get(ca_id.asset_id, ca_id.local_id),
+        CorporateActions::<T>::get(ca_id.asset_id, ca_id.local_id),
         None,
         "CA not removed"
     );
@@ -196,7 +200,7 @@ fn check_ca_exists<T: Config>(ca_id: CAId) -> DispatchResult {
 }
 
 fn check_rd<T: Config>(ca_id: CAId) -> DispatchResult {
-    let rd = CorporateActions::get(ca_id.asset_id, ca_id.local_id)
+    let rd = CorporateActions::<T>::get(ca_id.asset_id, ca_id.local_id)
         .unwrap()
         .record_date
         .unwrap()
@@ -206,9 +210,11 @@ fn check_rd<T: Config>(ca_id: CAId) -> DispatchResult {
 }
 
 benchmarks! {
+    where_clause {  where T: CAConfig }
+
     set_max_details_length {}: _(RawOrigin::Root, 100)
     verify {
-        assert_eq!(MaxDetailsLength::get(), 100, "Wrong length set");
+        assert_eq!(MaxDetailsLength::<T>::get(), 100, "Wrong length set");
     }
 
     set_default_targets {
@@ -219,14 +225,14 @@ benchmarks! {
         let targets2 = targets.clone();
     }: _(owner.origin(), asset_id, targets)
     verify {
-        assert_eq!(DefaultTargetIdentities::get(asset_id), targets2.dedup(), "Default targets not set");
+        assert_eq!(DefaultTargetIdentities::<T>::get(asset_id), targets2.dedup(), "Default targets not set");
     }
 
     set_default_withholding_tax {
         let (owner, asset_id) = setup::<T>();
     }: _(owner.origin(), asset_id, TAX)
     verify {
-        assert_eq!(DefaultWithholdingTax::get(asset_id), TAX, "Default WHT not set");
+        assert_eq!(DefaultWithholdingTax::<T>::get(asset_id), TAX, "Default WHT not set");
     }
 
     set_did_withholding_tax {
@@ -239,7 +245,7 @@ benchmarks! {
     verify {
         whts.push((last, TAX));
         whts.sort_by_key(|(did, _)| *did);
-        assert_eq!(DidWithholdingTax::get(asset_id), whts, "Wrong DID WHTs");
+        assert_eq!(DidWithholdingTax::<T>::get(asset_id), whts, "Wrong DID WHTs");
     }
 
     initiate_corporate_action_use_defaults {
@@ -250,12 +256,12 @@ benchmarks! {
         let details = details(DETAILS_LEN);
         let whts = init_did_whts::<T>(asset_id, w);
         let targets = target_ids::<T>(t, TargetTreatment::Exclude).dedup();
-        DefaultTargetIdentities::insert(asset_id, targets);
+        DefaultTargetIdentities::<T>::insert(asset_id, targets);
     }: initiate_corporate_action(
         owner.origin(), asset_id, CAKind::Other, 1000, RD_SPEC, details, None, None, None
     )
     verify {
-        assert_eq!(CAIdSequence::get(asset_id).0, 1, "CA not created");
+        assert_eq!(CAIdSequence::<T>::get(asset_id).0, 1, "CA not created");
     }
 
     initiate_corporate_action_provided {
@@ -270,7 +276,7 @@ benchmarks! {
         owner.origin(), asset_id, CAKind::Other, 1000, RD_SPEC, details, targets, Some(TAX), whts
     )
     verify {
-        assert_eq!(CAIdSequence::get(asset_id).0, 1, "CA not created");
+        assert_eq!(CAIdSequence::<T>::get(asset_id).0, 1, "CA not created");
     }
 
     link_ca_doc {
@@ -286,7 +292,7 @@ benchmarks! {
         let ca_id = CAId { asset_id, local_id: LocalCAId(0) };
     }: _(owner.origin(), ca_id, ids)
     verify {
-        assert_eq!(CADocLink::get(ca_id), ids2, "Docs not linked")
+        assert_eq!(CADocLink::<T>::get(ca_id), ids2, "Docs not linked")
     }
 
     remove_ca_with_ballot {
