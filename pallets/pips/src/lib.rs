@@ -125,8 +125,9 @@ use polymesh_primitives::{impl_checked_inc, storage_migration_ver, Balance, Iden
 use polymesh_primitives_derive::VecU8StrongTyped;
 use polymesh_runtime_common::PipsEnactSnapshotMaximumWeight;
 
-use crate::types::{DepositInfo, PipsMetadata, SnapshotId, SnapshottedPip};
-use crate::types::{PipDescription, PipId, ProposalData, ProposalState, Proposer};
+use crate::types::SnapshotMetadata;
+use crate::types::{DepositInfo, Pip, PipsMetadata, SnapshotId, SnapshottedPip, VotingResult};
+use crate::types::{PipDescription, PipId, ProposalData, ProposalState, Proposer, Vote};
 
 storage_migration_ver!(2);
 
@@ -318,15 +319,15 @@ pub mod pallet {
             + Into<<Self as polymesh_common_utilities::traits::identity::Config>::Proposal>;
     }
 
-    /// Set to `true` if historical PIP data must be removed.
+    /// Set to `true` if historical PIPs data must be removed.
     #[pallet::storage]
     #[pallet::getter(fn prune_historical_pips)]
-    pub type PruneHistoricalPips<T> = StorageValue<_, bool, ValueQuery>;
+    pub type PruneHistoricalPips<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     /// The minimum amount to be used as a deposit for community PIP creation.
     #[pallet::storage]
     #[pallet::getter(fn min_proposal_deposit)]
-    pub type MinimumProposalDeposit<T> = StorageValue<_, Balance, ValueQuery>;
+    pub type MinimumProposalDeposit<T: Config> = StorageValue<_, Balance, ValueQuery>;
 
     /// Default enactment period that will be use after a proposal is accepted by GC.
     #[pallet::storage]
@@ -335,35 +336,34 @@ pub mod pallet {
 
     /// Number of blocks it will take, after a `Pending` PIP expires, assuming it has not transitioned to another `ProposalState`.
     #[pallet::storage]
+    #[pallet::unbounded]
     #[pallet::getter(fn pending_pip_expiry)]
-    pub type PendingPipExpiry<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+    pub type PendingPipExpiry<T: Config> = StorageValue<_, MaybeBlock<T::BlockNumber>, ValueQuery>;
 
     /// Maximum times a PIP can be skipped before triggering `CannotSkipPip` in `enact_snapshot_results`.
     #[pallet::storage]
     #[pallet::getter(fn max_pip_skip_count)]
-    pub type MaxPipSkipCount<T> = StorageValue<_, u8, ValueQuery>;
+    pub type MaxPipSkipCount<T: Config> = StorageValue<_, u8, ValueQuery>;
 
     /// The maximum allowed number for active PIPs. Once reached, new PIPs cannot be proposed by community members.
     #[pallet::storage]
     #[pallet::getter(fn active_pip_limit)]
-    pub type ActivePipLimit<T> = StorageValue<_, u32, ValueQuery>;
+    pub type ActivePipLimit<T: Config> = StorageValue<_, u32, ValueQuery>;
 
     /// Proposal's identifier.
     #[pallet::storage]
-    #[pallet::unbounded]
     #[pallet::getter(fn pip_id_sequence)]
-    pub type PipIdSequence<T> = StorageValue<_, PipId, ValueQuery>;
+    pub type PipIdSequence<T: Config> = StorageValue<_, PipId, ValueQuery>;
 
     /// Snaphot's identifier.
     #[pallet::storage]
-    #[pallet::unbounded]
     #[pallet::getter(fn snapshot_id_sequence)]
-    pub type SnapshotIdSequence<T> = StorageValue<_, SnapshotId, ValueQuery>;
+    pub type SnapshotIdSequence<T: Config> = StorageValue<_, SnapshotId, ValueQuery>;
 
     /// Total count of pending or scheduled PIPs.
     #[pallet::storage]
     #[pallet::getter(fn active_pip_count)]
-    pub type ActivePipCount<T> = StorageValue<_, u32, ValueQuery>;
+    pub type ActivePipCount<T: Config> = StorageValue<_, u32, ValueQuery>;
 
     /// The [`PipsMetadata`] for each proposal ([`PipId`]).
     #[pallet::storage]
@@ -374,7 +374,6 @@ pub mod pallet {
 
     /// All locked [`DepositInfo`] per [`PipId`] for each account.
     #[pallet::storage]
-    #[pallet::unbounded]
     #[pallet::getter(fn deposits)]
     pub type Deposits<T: Config> = StorageDoubleMap<
         _,
@@ -385,6 +384,82 @@ pub mod pallet {
         DepositInfo<T::AccountId>,
         OptionQuery,
     >;
+
+    /// The [`Pip`] for each proposal ([`PipId`]).
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn proposals)]
+    pub type Proposals<T: Config> =
+        StorageMap<_, Twox64Concat, PipId, Pip<T::Proposal, T::AccountId>, OptionQuery>;
+
+    /// The [`VotingResult`] for each proposal ([`PipId`]).
+    #[pallet::storage]
+    #[pallet::getter(fn proposal_result)]
+    pub type ProposalResult<T: Config> =
+        StorageMap<_, Twox64Concat, PipId, VotingResult, ValueQuery>;
+
+    /// The Votes ([`Vote`]) for each proposal ([`PipId`]) per account.
+    #[pallet::storage]
+    #[pallet::getter(fn proposal_vote)]
+    pub type ProposalVotes<T: Config> =
+        StorageDoubleMap<_, Twox64Concat, PipId, Twox64Concat, T::AccountId, Vote, OptionQuery>;
+
+    /// Maps PIPs to the block at which they will be executed.
+    #[pallet::storage]
+    #[pallet::getter(fn pip_to_schedule)]
+    pub type PipToSchedule<T: Config> =
+        StorageMap<_, Twox64Concat, PipId, T::BlockNumber, OptionQuery>;
+
+    /// A live priority queue (lowest priority at index 0)
+    /// of pending PIPs up to the active limit.
+    /// Priority is defined by the `weight` in the `SnapshottedPip`.
+    ///
+    /// Unlike `SnapshotQueue`, this queue is live, getting updated with each vote cast.
+    /// The snapshot is therefore essentially a point-in-time clone of this queue.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn live_queue)]
+    pub type LiveQueue<T> = StorageValue<_, Vec<SnapshottedPip>, ValueQuery>;
+
+    /// The priority queue (lowest priority at index 0) of PIPs at the point of snapshotting.
+    /// Priority is defined by the `weight` in the `SnapshottedPip`.
+    ///
+    /// A queued PIP can be skipped. Doing so bumps the `pip_skip_count`.
+    /// Once a (configurable) threshhold is exceeded, a PIP cannot be skipped again.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn snapshot_queue)]
+    pub type SnapshotQueue<T> = StorageValue<_, Vec<SnapshottedPip>, ValueQuery>;
+
+    /// The [`SnapshotMetadata`].
+    #[pallet::storage]
+    #[pallet::getter(fn snapshot_metadata)]
+    pub type SnapshotMeta<T: Config> =
+        StorageValue<_, SnapshotMetadata<T::BlockNumber, T::AccountId>, OptionQuery>;
+
+    /// The number of times a certain PIP has been skipped.
+    /// Once a (configurable) threshhold is exceeded, a PIP cannot be skipped again.
+    #[pallet::storage]
+    #[pallet::getter(fn pip_skip_count)]
+    pub type PipSkipCount<T: Config> = StorageMap<_, Twox64Concat, PipId, u8, OptionQuery>;
+
+    /// All existing PIPs where the proposer is a committee.
+    /// This list is a cache of all ids in `Proposals` with `Proposer::Committee(_)`.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn committee_pips)]
+    pub type CommitteePips<T> = StorageValue<_, Vec<PipId>, ValueQuery>;
+
+    /// The ([`ProposalState`]) of a given PIP ([`PipId`]).
+    #[pallet::storage]
+    #[pallet::getter(fn proposal_state)]
+    pub type ProposalStates<T: Config> =
+        StorageMap<_, Twox64Concat, PipId, ProposalState, OptionQuery>;
+
+    /// Storage version.
+    #[pallet::storage]
+    #[pallet::getter(fn storage_version)]
+    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {}

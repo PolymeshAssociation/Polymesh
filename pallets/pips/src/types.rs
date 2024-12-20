@@ -16,7 +16,7 @@
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use core::cmp::Ordering;
 use frame_support::traits::LockIdentifier;
 use scale_info::TypeInfo;
@@ -38,7 +38,7 @@ pub struct PipDescription(pub Vec<u8>);
 
 /// The global and unique identitifer of a Polymesh Improvement Proposal (PIP).
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, TypeInfo)]
+#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct PipId(pub u32);
 impl_checked_inc!(PipId);
@@ -57,7 +57,8 @@ impl PipId {
 
 /// Represents a proposal
 #[cfg_attr(feature = "std", derive(Debug))]
-#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Pip<Proposal, AccountId> {
     /// The proposal's unique id.
     pub id: PipId,
@@ -95,7 +96,8 @@ pub enum ProposalData {
 }
 
 /// The various sorts of committees that can make a PIP.
-#[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Committee {
     /// The technical committee.
     Technical,
@@ -104,7 +106,8 @@ pub enum Committee {
 }
 
 /// The proposer of a certain PIP.
-#[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Proposer<AccountId> {
     /// The proposer is of the community.
     Community(AccountId),
@@ -114,7 +117,8 @@ pub enum Proposer<AccountId> {
 
 /// Represents a proposal metadata
 #[cfg_attr(feature = "std", derive(Debug))]
-#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct PipsMetadata<BlockNumber> {
     /// The proposal's unique id.
     pub id: PipId,
@@ -140,7 +144,8 @@ pub struct PipsMetadata<BlockNumber> {
 
 /// For keeping track of proposal being voted on.
 #[cfg_attr(feature = "std", derive(Debug))]
-#[derive(Clone, Copy, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
 pub struct VotingResult {
     /// The current set of voters that approved with their stake.
     pub ayes_count: u32,
@@ -152,7 +157,8 @@ pub struct VotingResult {
 
 /// A "vote" or "signal" on a PIP to move it up or down the review queue.
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-#[derive(Clone, Copy, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub struct Vote(
     /// `true` if there's agreement.
     pub bool,
@@ -168,7 +174,7 @@ pub struct VoteByPip<VoteType> {
 }
 
 /// The state a PIP is in.
-#[derive(Decode, Encode, TypeInfo)]
+#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum ProposalState {
     /// Initial state. Proposal is open to voting.
@@ -188,7 +194,8 @@ pub enum ProposalState {
 
 /// Information about deposit.
 #[cfg_attr(feature = "std", derive(Debug))]
-#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct DepositInfo<AccountId> {
     /// Owner of the deposit.
     pub owner: AccountId,
@@ -198,7 +205,7 @@ pub struct DepositInfo<AccountId> {
 
 /// ID of the taken snapshot in a sequence.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, TypeInfo)]
+#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct SnapshotId(pub u32);
 impl_checked_inc!(SnapshotId);
@@ -206,7 +213,8 @@ impl_checked_inc!(SnapshotId);
 /// A snapshot's metadata, containing when it was created and who triggered it.
 /// The priority queue is stored separately (see `SnapshottedPip`).
 #[cfg_attr(feature = "std", derive(Debug))]
-#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct SnapshotMetadata<BlockNumber, AccountId> {
     /// The block when the snapshot was made.
     pub created_at: BlockNumber,
@@ -218,7 +226,8 @@ pub struct SnapshotMetadata<BlockNumber, AccountId> {
 
 /// A PIP in the snapshot's priority queue for consideration by the GC.
 #[cfg_attr(feature = "std", derive(Debug))]
-#[derive(Clone, Copy, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub struct SnapshottedPip {
     /// Identifies the PIP this refers to.
     pub id: PipId,
