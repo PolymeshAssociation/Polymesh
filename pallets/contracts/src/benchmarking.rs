@@ -15,6 +15,7 @@
 
 use codec::Encode;
 use frame_benchmarking::{account, benchmarks};
+use frame_support::StorageMap;
 use frame_support::{storage::unhashed, traits::tokens::currency::Currency};
 use frame_system::{Pallet as System, RawOrigin};
 use pallet_contracts::benchmarking::code::body::DynInstr::{Counter, Regular};
@@ -65,10 +66,10 @@ where
 
     fn on_instantiate_transfer(caller: &T::AccountId, contract: &T::AccountId) -> DispatchResult {
         // Get the caller's identity.
-        let did =
-            Identity::<T>::get_identity(&caller).ok_or(Error::<T>::InstantiatorWithNoIdentity)?;
+        let did = IdentityPallet::<T>::get_identity(&caller)
+            .ok_or(Error::<T>::InstantiatorWithNoIdentity)?;
         // Check if contact is already linked.
-        match Identity::<T>::get_identity(&contract) {
+        match IdentityPallet::<T>::get_identity(&contract) {
             Some(contract_did) => {
                 if contract_did != did && ParentDid::get(contract_did) != Some(did) {
                     // Contract address already linked to a different identity.
@@ -80,7 +81,11 @@ where
             }
             None => {
                 // Linked new contract address to caller's identity.  With empty permissions.
-                Identity::<T>::unsafe_join_identity(did, Permissions::empty(), contract.clone());
+                IdentityPallet::<T>::unsafe_join_identity(
+                    did,
+                    Permissions::empty(),
+                    contract.clone(),
+                );
                 Ok(())
             }
         }
@@ -357,7 +362,7 @@ benchmarks! {
             .map(|i| {
                 let primary_user = funded_user::<T>(SEED + i);
                 let secondary_key: T::AccountId = account("key", i, SEED);
-                Identity::<T>::unsafe_join_identity(
+                IdentityPallet::<T>::unsafe_join_identity(
                     primary_user.did(),
                     secondary_key_permission.clone(),
                     secondary_key.clone(),

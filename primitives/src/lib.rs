@@ -84,7 +84,17 @@ impl<const T: u32> Get<u32> for ConstSize<T> {
 impl<const T: u32> GetExtra<u32> for ConstSize<T> {}
 
 /// Either a block number, or nothing.
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Encode,
+    Decode,
+    MaxEncodedLen,
+    TypeInfo,
+    Debug
+)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum MaybeBlock<BlockNumber> {
     /// Has a block number.

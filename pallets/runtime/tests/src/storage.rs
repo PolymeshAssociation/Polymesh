@@ -302,7 +302,7 @@ frame_support::construct_runtime!(
         Asset: pallet_asset::{Pallet, Call, Storage, Config<T>, Event<T>} = 26,
         CapitalDistribution: pallet_capital_distribution::{Pallet, Call, Storage, Event<T>, Config} = 27,
         Checkpoint: pallet_checkpoint::{Pallet, Call, Storage, Event, Config} = 28,
-        ComplianceManager: pallet_compliance_manager::{Pallet, Call, Storage, Event} = 29,
+        ComplianceManager: pallet_compliance_manager::{Pallet, Call, Storage, Event<T>} = 29,
         CorporateAction: pallet_corporate_actions::{Pallet, Call, Storage, Event<T>, Config} = 30,
         CorporateBallot: pallet_corporate_ballot::{Pallet, Call, Storage, Event<T>, Config} = 31,
         Permissions: pallet_permissions::{Pallet, Storage} = 32,
@@ -327,7 +327,7 @@ frame_support::construct_runtime!(
         // Preimage register.  Used by `pallet_scheduler`.
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 48,
 
-        Nft: pallet_nft::{Pallet, Call, Storage, Event} = 49,
+        Nft: pallet_nft::{Pallet, Call, Storage, Event<T>} = 49,
 
         // Testing only.
         Example: example::{Pallet, Call} = 201,
@@ -699,7 +699,6 @@ polymesh_runtime_common::misc_pallet_impls!();
 pub type GovernanceCommittee = group::Pallet<TestStorage, group::Instance1>;
 pub type CddServiceProvider = group::Pallet<TestStorage, group::Instance2>;
 pub type Committee = committee::Pallet<TestStorage, committee::Instance1>;
-pub type DefaultCommittee = committee::Pallet<TestStorage, committee::DefaultInstance>;
 //pub type WrapperContracts = polymesh_contracts::Pallet<TestStorage>;
 pub type CorporateActions = corporate_actions::Pallet<TestStorage>;
 

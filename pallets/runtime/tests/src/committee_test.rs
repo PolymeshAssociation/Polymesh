@@ -10,7 +10,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
 };
 use frame_system::{EventRecord, Phase};
-use pallet_committee::{self as committee, PolymeshVotes, RawEvent as CommitteeRawEvent};
+use pallet_committee::{self as committee, Event as CommitteeRawEvent, PolymeshVotes};
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips::{PipId, ProposalState, SnapshotResult};

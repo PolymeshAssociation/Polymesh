@@ -14,11 +14,10 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::*;
-use frame_benchmarking::benchmarks_instance;
+use frame_benchmarking::benchmarks_instance_pallet;
 use frame_support::{
     dispatch::DispatchResult,
     traits::{ChangeMembers, UnfilteredDispatchable},
-    StorageValue,
 };
 use frame_system::RawOrigin as SystemOrigin;
 use pallet_identity::benchmarking::{user, User};
@@ -38,7 +37,7 @@ fn make_proposal<T, I>(
     <T as frame_system::Config>::Hash,
 )
 where
-    I: Instance,
+    I: 'static,
     T: Config<I>,
 {
     let bytes: [u8; 4] = n.to_be_bytes();
@@ -50,7 +49,7 @@ where
 
 fn make_proposals_and_vote<T, I>(users: &[User<T>]) -> DispatchResult
 where
-    I: Instance,
+    I: 'static,
     T: Config<I>,
     <T as Config<I>>::RuntimeOrigin: From<SystemOrigin<T::AccountId>>,
 {
@@ -82,7 +81,7 @@ where
 
 fn make_members_and_proposals<T, I>() -> Result<Vec<User<T>>, DispatchError>
 where
-    I: Instance,
+    I: 'static,
     T: Config<I>,
     <T as Config<I>>::RuntimeOrigin: From<SystemOrigin<T::AccountId>>,
 {
@@ -103,7 +102,7 @@ fn vote_verify<T, I>(
     vote: bool,
 ) -> DispatchResult
 where
-    I: Instance,
+    I: 'static,
     T: Config<I>,
 {
     if COMMITTEE_MEMBERS_MAX > 4 || (COMMITTEE_MEMBERS_MAX == 4 && !vote) {
@@ -123,7 +122,7 @@ where
     Ok(())
 }
 
-benchmarks_instance! {
+benchmarks_instance_pallet! {
     where_clause {
         where
             <T as Config<I>>::RuntimeOrigin: From<SystemOrigin<T::AccountId>>,
@@ -173,7 +172,7 @@ benchmarks_instance! {
 
     vote_or_propose_new_proposal {
         let members = make_members_and_proposals::<T, I>().unwrap();
-        let last_proposal_num = ProposalCount::<I>::get();
+        let last_proposal_num = ProposalCount::<T, I>::get();
         let (proposal, hash) = make_proposal::<T, I>(PROPOSALS_MAX);
     }: vote_or_propose(members[0].origin.clone(), true, Box::new(proposal.clone()))
     verify {

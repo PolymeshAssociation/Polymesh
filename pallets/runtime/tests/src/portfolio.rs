@@ -821,11 +821,11 @@ fn move_portfolio_nfts() {
             true
         );
         assert_eq!(
-            NFTOwner::get(asset_id, NFTId(1)),
+            NFTOwner::<TestStorage>::get(asset_id, NFTId(1)),
             Some(alice_custom_portfolio)
         );
         assert_eq!(
-            NFTOwner::get(asset_id, NFTId(2)),
+            NFTOwner::<TestStorage>::get(asset_id, NFTId(2)),
             Some(alice_custom_portfolio)
         );
     });

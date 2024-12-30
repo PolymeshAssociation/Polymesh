@@ -141,8 +141,8 @@ benchmarks! {
         let collection_keys: NFTCollectionKeys = creates_keys_register_metadata_types::<T>(n);
     }: _(user.origin, None, nft_type, collection_keys)
     verify {
-        assert!(Collection::contains_key(NFTCollectionId(1)));
-        assert_eq!(CollectionKeys::get(NFTCollectionId(1)).len(), n as usize);
+        assert!(Collection::<T>::contains_key(NFTCollectionId(1)));
+        assert_eq!(CollectionKeys::<T>::get(NFTCollectionId(1)).len(), n as usize);
     }
 
     issue_nft {
@@ -162,7 +162,7 @@ benchmarks! {
     verify {
         for i in 1..n + 1 {
             assert!(
-                MetadataValue::contains_key(
+                MetadataValue::<T>::contains_key(
                     (NFTCollectionId(1), NFTId(1)),
                     AssetMetadataKey::Global(AssetMetadataGlobalKey(i.into()))
                 )
@@ -180,7 +180,7 @@ benchmarks! {
     verify {
         for i in 1..n + 1 {
             assert!(
-                !MetadataValue::contains_key(
+                !MetadataValue::<T>::contains_key(
                     (NFTCollectionId(1), NFTId(1)),
                     AssetMetadataKey::Global(AssetMetadataGlobalKey(i.into()))
                 )
@@ -240,17 +240,17 @@ benchmarks! {
         })
         .unwrap();
         // Before the controller transfer all NFTs belong to bob
-        assert_eq!(NumberOfNFTs::get(nfts.asset_id(), bob.did()), n as u64);
-        assert_eq!(NumberOfNFTs::get(nfts.asset_id(), alice.did()), 0);
+        assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), bob.did()), n as u64);
+        assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), alice.did()), 0);
     }: _(alice.origin.clone(), nfts.clone(), bob_user_portfolio, alice_user_portfolio.kind)
     verify {
-        assert_eq!(NumberOfNFTs::get(nfts.asset_id(), bob.did()), 0);
-        assert_eq!(NumberOfNFTs::get(nfts.asset_id(), alice.did()), n as u64);
+        assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), bob.did()), 0);
+        assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), alice.did()), n as u64);
         for i in 1..n + 1 {
             assert!(PortfolioNFT::contains_key(alice_user_portfolio, (asset_id, NFTId(i.into()))));
             assert!(!PortfolioNFT::contains_key(bob_user_portfolio, (asset_id, NFTId(i.into()))));
         }
-        assert_eq!(NFTsInCollection::get(nfts.asset_id()), n as u64);
+        assert_eq!(NFTsInCollection::<T>::get(nfts.asset_id()), n as u64);
     }
 
 }
