@@ -2159,7 +2159,7 @@ fn dist_claim_rounding_indivisible() {
 
         // Make `currency` indivisible.
         // This the crucial aspect different about this test.
-        Assets::mutate(currency, |t| {
+        Assets::<TestStorage>::mutate(currency, |t| {
             if let Some(t) = t {
                 t.divisible = false;
             }

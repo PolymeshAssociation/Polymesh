@@ -59,13 +59,16 @@ fn base_transfer() {
             &mut weight_meter
         ),);
 
-        assert_eq!(BalanceOf::get(&asset_id, &alice_default_portfolio.did), 0);
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(&asset_id, &alice_default_portfolio.did),
+            0
+        );
         assert_eq!(
             PortfolioAssetBalances::get(&alice_default_portfolio, &asset_id),
             0
         );
         assert_eq!(
-            BalanceOf::get(&asset_id, &bob_user_portfolio.did),
+            BalanceOf::<TestStorage>::get(&asset_id, &bob_user_portfolio.did),
             ISSUE_AMOUNT
         );
         assert_eq!(

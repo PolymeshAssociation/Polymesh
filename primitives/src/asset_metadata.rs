@@ -69,7 +69,7 @@ impl From<AssetMetadataGlobalKey> for AssetMetadataKey {
 pub struct AssetMetadataValue(pub Vec<u8>);
 
 /// Asset Metadata Value details.
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct AssetMetadataValueDetail<Moment> {
     /// Optional expire date for the value.
@@ -94,7 +94,7 @@ impl<Moment: PartialOrd> AssetMetadataValueDetail<Moment> {
 }
 
 /// Asset Metadata Lock Status
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AssetMetadataLockStatus<Moment> {
     /// Can be changed by asset issuer.

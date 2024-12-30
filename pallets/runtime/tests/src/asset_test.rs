@@ -1,7 +1,7 @@
 use chrono::prelude::Utc;
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::{assert_noop, assert_ok};
-use frame_support::{StorageDoubleMap, StorageMap, StorageValue};
+use frame_support::{StorageDoubleMap, StorageMap};
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
 use rand::Rng;
@@ -70,7 +70,7 @@ type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type DidRecords = pallet_identity::DidRecords<TestStorage>;
 type Statistics = pallet_statistics::Pallet<TestStorage>;
-type AssetGenesis = pallet_asset::GenesisConfig<TestStorage>;
+type AssetGenesis = pallet_asset::GenesisConfig;
 type System = frame_system::Pallet<TestStorage>;
 type ExternalAgents = pallet_external_agents::Pallet<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
@@ -122,7 +122,7 @@ pub(crate) fn statistics_investor_count(asset_id: AssetId) -> u128 {
 
 /// Returns the [`AssetDetails`] associated to the given `asset_id`.
 pub(crate) fn get_asset_details(asset_id: &AssetId) -> AssetDetails {
-    Assets::get(asset_id).unwrap()
+    Assets::<TestStorage>::get(asset_id).unwrap()
 }
 
 /// Returns a [`AssetDetails`] where [`AssetDetails::total_supply`] is [`TOTAL_SUPPLY`] and the owner is `token_owner_did`.
@@ -240,7 +240,10 @@ fn issuers_can_create_and_rename_tokens() {
 
         // A correct entry is added
         assert_eq!(get_asset_details(&asset_id), sample_security_token);
-        assert_eq!(SecurityTokensOwnedByUser::get(owner.did, asset_id), true);
+        assert_eq!(
+            SecurityTokensOwnedByUser::<TestStorage>::get(owner.did, asset_id),
+            true
+        );
         assert_eq!(Asset::funding_round(asset_id), funding_round_name.clone());
 
         // Unauthorized agents cannot rename the token.
@@ -442,15 +445,24 @@ fn transfer_token_ownership() {
             "Authorization does not exist"
         );
 
-        assert_eq!(SecurityTokensOwnedByUser::get(owner.did, asset_id), true);
+        assert_eq!(
+            SecurityTokensOwnedByUser::<TestStorage>::get(owner.did, asset_id),
+            true
+        );
 
         assert_ok!(Asset::accept_asset_ownership_transfer(
             alice.origin(),
             auth_id_alice
         ));
         assert_eq!(get_asset_details(&asset_id).owner_did, alice.did);
-        assert_eq!(SecurityTokensOwnedByUser::get(owner.did, asset_id), false);
-        assert_eq!(SecurityTokensOwnedByUser::get(alice.did, asset_id), true);
+        assert_eq!(
+            SecurityTokensOwnedByUser::<TestStorage>::get(owner.did, asset_id),
+            false
+        );
+        assert_eq!(
+            SecurityTokensOwnedByUser::<TestStorage>::get(alice.did, asset_id),
+            true
+        );
 
         assert_ok!(ExternalAgents::unchecked_add_agent(
             asset_id,
@@ -527,7 +539,10 @@ fn update_identifiers() {
         // Create: A correct entry was added.
         let asset_ident = Some(vec![cusip()]);
         let asset_id = create_asset(&owner, None, None, None, asset_ident, None, false, None);
-        assert_eq!(AssetIdentifiers::get(asset_id), vec![cusip()]);
+        assert_eq!(
+            AssetIdentifiers::<TestStorage>::get(asset_id),
+            vec![cusip()]
+        );
 
         let update = |idents| Asset::update_identifiers(owner.origin(), asset_id, idents);
 
@@ -551,7 +566,10 @@ fn update_identifiers() {
         // Update: A correct entry was added.
         updated_identifiers.pop().unwrap();
         assert_ok!(update(updated_identifiers.clone()));
-        assert_eq!(AssetIdentifiers::get(asset_id), updated_identifiers);
+        assert_eq!(
+            AssetIdentifiers::<TestStorage>::get(asset_id),
+            updated_identifiers
+        );
     });
 }
 
@@ -598,7 +616,10 @@ fn adding_removing_documents() {
             asset_id
         ));
 
-        assert_eq!(AssetDocuments::iter_prefix_values(asset_id).count(), 0);
+        assert_eq!(
+            AssetDocuments::<TestStorage>::iter_prefix_values(asset_id).count(),
+            0
+        );
     });
 }
 
@@ -1054,14 +1075,14 @@ fn asset_type_custom_works() {
         let user = User::new(AccountKeyring::Alice);
         let register = |ty: &str| Asset::register_custom_asset_type(user.origin(), ty.into());
         let seq_is = |num| {
-            assert_eq!(CustomTypeIdSequence::get().0, num);
+            assert_eq!(CustomTypeIdSequence::<TestStorage>::get().0, num);
         };
         let slot_has = |id, data: &str| {
             seq_is(id);
             let id = CustomAssetTypeId(id);
             let data = data.as_bytes();
-            assert_eq!(CustomTypes::get(id), data);
-            assert_eq!(CustomTypesInverse::get(data), Some(id));
+            assert_eq!(CustomTypes::<TestStorage>::get(id), data);
+            assert_eq!(CustomTypesInverse::<TestStorage>::get(data), Some(id));
         };
 
         // Nothing so far. Generator (G) at 0.
@@ -1088,7 +1109,7 @@ fn asset_type_custom_works() {
         slot_has(3, "foobar");
 
         // Set G to max. Next registration fails.
-        CustomTypeIdSequence::put(CustomAssetTypeId(u32::MAX));
+        CustomTypeIdSequence::<TestStorage>::put(CustomAssetTypeId(u32::MAX));
         assert_noop!(register("qux"), BaseError::CounterOverflow);
     });
 }
@@ -1520,18 +1541,21 @@ fn remove_local_metadata_key() {
             AssetMetadataLocalKey(1)
         ),);
         assert_eq!(
-            AssetMetadataLocalKeyToName::get(&asset_id, AssetMetadataLocalKey(1)),
+            AssetMetadataLocalKeyToName::<TestStorage>::get(&asset_id, AssetMetadataLocalKey(1)),
             None
         );
         assert_eq!(
-            AssetMetadataLocalNameToKey::get(&asset_id, &asset_metadata_name),
+            AssetMetadataLocalNameToKey::<TestStorage>::get(&asset_id, &asset_metadata_name),
             None
         );
         assert_eq!(
-            AssetMetadataLocalSpecs::get(&asset_id, &AssetMetadataLocalKey(1)),
+            AssetMetadataLocalSpecs::<TestStorage>::get(&asset_id, &AssetMetadataLocalKey(1)),
             None
         );
-        assert_eq!(AssetMetadataValues::get(&asset_id, &asset_metada_key), None);
+        assert_eq!(
+            AssetMetadataValues::<TestStorage>::get(&asset_id, &asset_metada_key),
+            None
+        );
     })
 }
 
@@ -1627,18 +1651,21 @@ fn remove_metadata_value() {
             asset_metada_key.clone(),
         ),);
         assert_eq!(
-            AssetMetadataLocalKeyToName::get(&asset_id, AssetMetadataLocalKey(1)),
+            AssetMetadataLocalKeyToName::<TestStorage>::get(&asset_id, AssetMetadataLocalKey(1)),
             Some(asset_metadata_name.clone())
         );
         assert_eq!(
-            AssetMetadataLocalNameToKey::get(&asset_id, &asset_metadata_name),
+            AssetMetadataLocalNameToKey::<TestStorage>::get(&asset_id, &asset_metadata_name),
             Some(AssetMetadataLocalKey(1))
         );
         assert_eq!(
-            AssetMetadataLocalSpecs::get(&asset_id, &AssetMetadataLocalKey(1)),
+            AssetMetadataLocalSpecs::<TestStorage>::get(&asset_id, &AssetMetadataLocalKey(1)),
             Some(asset_metadata_spec)
         );
-        assert_eq!(AssetMetadataValues::get(&asset_id, &asset_metada_key), None);
+        assert_eq!(
+            AssetMetadataValues::<TestStorage>::get(&asset_id, &asset_metada_key),
+            None
+        );
     })
 }
 
@@ -1669,7 +1696,10 @@ fn issue_token_unassigned_custody() {
             issued_amount,
             alice_user_portfolio
         ));
-        assert_eq!(BalanceOf::get(asset_id, alice.did), issued_amount);
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(asset_id, alice.did),
+            issued_amount
+        );
     })
 }
 
@@ -1684,7 +1714,7 @@ fn redeem_token_unassigned_custody() {
             ISSUE_AMOUNT,
             PortfolioKind::Default
         ));
-        assert_eq!(BalanceOf::get(asset_id, alice.did), 0);
+        assert_eq!(BalanceOf::<TestStorage>::get(asset_id, alice.did), 0);
     })
 }
 
@@ -1728,8 +1758,8 @@ fn pre_approve_asset() {
         let alice = User::new(AccountKeyring::Alice);
         Asset::pre_approve_asset(alice.origin(), asset_id).unwrap();
 
-        assert!(PreApprovedAsset::get(alice.did, asset_id));
-        assert!(!AssetsExemptFromAffirmation::get(asset_id));
+        assert!(PreApprovedAsset::<TestStorage>::get(alice.did, asset_id));
+        assert!(!AssetsExemptFromAffirmation::<TestStorage>::get(asset_id));
         assert!(Asset::skip_asset_affirmation(&alice.did, &asset_id));
     });
 }
@@ -1742,8 +1772,8 @@ fn remove_asset_pre_approval() {
         Asset::pre_approve_asset(alice.origin(), asset_id).unwrap();
         Asset::remove_asset_pre_approval(alice.origin(), asset_id).unwrap();
 
-        assert!(!PreApprovedAsset::get(alice.did, asset_id));
-        assert!(!AssetsExemptFromAffirmation::get(asset_id));
+        assert!(!PreApprovedAsset::<TestStorage>::get(alice.did, asset_id));
+        assert!(!AssetsExemptFromAffirmation::<TestStorage>::get(asset_id));
         assert!(!Asset::skip_asset_affirmation(&alice.did, &asset_id));
     });
 }
@@ -1760,8 +1790,8 @@ fn unauthorized_custodian_ticker_exemption() {
         );
         assert_ok!(Asset::exempt_asset_affirmation(root(), asset_id,),);
 
-        assert!(!PreApprovedAsset::get(alice.did, asset_id));
-        assert!(AssetsExemptFromAffirmation::get(asset_id));
+        assert!(!PreApprovedAsset::<TestStorage>::get(alice.did, asset_id));
+        assert!(AssetsExemptFromAffirmation::<TestStorage>::get(asset_id));
         assert!(Asset::skip_asset_affirmation(&alice.did, &asset_id));
 
         assert_noop!(
@@ -1770,8 +1800,8 @@ fn unauthorized_custodian_ticker_exemption() {
         );
         assert_ok!(Asset::remove_asset_affirmation_exemption(root(), asset_id,),);
 
-        assert!(!PreApprovedAsset::get(alice.did, asset_id));
-        assert!(!AssetsExemptFromAffirmation::get(asset_id));
+        assert!(!PreApprovedAsset::<TestStorage>::get(alice.did, asset_id));
+        assert!(!AssetsExemptFromAffirmation::<TestStorage>::get(asset_id));
         assert!(!Asset::skip_asset_affirmation(&alice.did, &asset_id));
     });
 }
@@ -2003,7 +2033,10 @@ fn issue_tokens_user_portfolio() {
             PortfolioLockedAssets::get(&alice_user_portfolio, &asset_id),
             0
         );
-        assert_eq!(BalanceOf::get(&asset_id, &alice.did), ISSUE_AMOUNT);
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(&asset_id, &alice.did),
+            ISSUE_AMOUNT
+        );
         assert_eq!(get_asset_details(&asset_id).total_supply, ISSUE_AMOUNT);
         assert_eq!(PortfolioAssetCount::get(alice_user_portfolio), 1);
         assert_eq!(PortfolioAssetCount::get(alice_default_portfolio), 0);

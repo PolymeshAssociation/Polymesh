@@ -3494,8 +3494,14 @@ fn manually_execute_failed_instruction() {
         assert_ok!(Asset::freeze(alice.origin(), asset_id));
         next_block();
         assert_instruction_status(InstructionId(0), InstructionStatus::Failed);
-        assert_eq!(BalanceOf::get(asset_id, alice.did), ISSUE_AMOUNT);
-        assert_eq!(BalanceOf::get(asset_id2, alice.did), ISSUE_AMOUNT);
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(asset_id, alice.did),
+            ISSUE_AMOUNT
+        );
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(asset_id2, alice.did),
+            ISSUE_AMOUNT
+        );
         // Executes the instruction once again, now successfully.
         assert_ok!(Asset::unfreeze(alice.origin(), asset_id));
         assert_ok!(Settlement::execute_manual_instruction(
@@ -3507,10 +3513,16 @@ fn manually_execute_failed_instruction() {
             0,
             None
         ));
-        assert_eq!(BalanceOf::get(asset_id, bob.did), 1);
-        assert_eq!(BalanceOf::get(asset_id2, bob.did), 1);
-        assert_eq!(BalanceOf::get(asset_id, alice.did), ISSUE_AMOUNT - 1);
-        assert_eq!(BalanceOf::get(asset_id2, alice.did), ISSUE_AMOUNT - 1);
+        assert_eq!(BalanceOf::<TestStorage>::get(asset_id, bob.did), 1);
+        assert_eq!(BalanceOf::<TestStorage>::get(asset_id2, bob.did), 1);
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(asset_id, alice.did),
+            ISSUE_AMOUNT - 1
+        );
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(asset_id2, alice.did),
+            ISSUE_AMOUNT - 1
+        );
         assert_instruction_status(
             InstructionId(0),
             InstructionStatus::Success(System::block_number()),

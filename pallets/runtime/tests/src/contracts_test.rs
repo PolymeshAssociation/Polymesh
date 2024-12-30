@@ -1,8 +1,7 @@
 use codec::Encode;
 use frame_support::dispatch::{DispatchError, Weight};
 use frame_support::{
-    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, StorageDoubleMap,
-    StorageMap,
+    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, StorageMap,
 };
 use polymesh_contracts::{
     Api, ApiCodeHash, ApiNextUpgrade, ChainVersion, ExtrinsicId, NextUpgrade,
@@ -194,7 +193,10 @@ fn chain_extension_calls() {
             None,
             register_ticker_input
         ),);
-        assert_eq!(TickersOwnedByUser::get(&alice.did, ticker), true);
+        assert_eq!(
+            TickersOwnedByUser::<TestStorage>::get(&alice.did, ticker),
+            true
+        );
     })
 }
 

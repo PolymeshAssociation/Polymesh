@@ -152,7 +152,7 @@ fn execute_instruction_storage_rollback() {
             default_portfolio_btreeset(bob.did),
         ));
         // Removes asset_id2 balance to force an error
-        BalanceOf::insert(asset_id2, alice.did, 0);
+        BalanceOf::<TestStorage>::insert(asset_id2, alice.did, 0);
         next_block();
         // Asserts storage has not changed
         assert_eq!(

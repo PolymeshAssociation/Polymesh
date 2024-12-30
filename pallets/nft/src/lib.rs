@@ -5,8 +5,8 @@ use frame_support::dispatch::{
 };
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
+use frame_support::StorageDoubleMap as _;
 use frame_support::{ensure, require_transactional};
-use frame_support::{StorageDoubleMap as _, StorageMap as _};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{vec, vec::Vec};
@@ -53,6 +53,7 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config
         + pallet_asset::Config
+        + pallet_asset::checkpoint::Config
         + pallet_identity::Config
         + pallet_portfolio::Config
     {
@@ -649,7 +650,7 @@ impl<T: Config> Pallet<T> {
 
         // Verifies that the asset is not frozen
         ensure!(
-            !Frozen::get(nfts.asset_id()),
+            !Frozen::<T>::get(nfts.asset_id()),
             Error::<T>::InvalidNFTTransferFrozenAsset
         );
 
@@ -778,7 +779,7 @@ impl<T: Config> Pallet<T> {
             return vec![Error::<T>::InvalidNFTTransferCollectionNotFound.into()];
         }
 
-        if Frozen::get(nfts.asset_id()) {
+        if Frozen::<T>::get(nfts.asset_id()) {
             nft_transfer_errors.push(Error::<T>::InvalidNFTTransferFrozenAsset.into());
         }
 
