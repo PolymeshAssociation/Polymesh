@@ -39,7 +39,7 @@ use super::{assert_event_doesnt_exist, assert_event_exists, assert_last_event, E
 type Error = utility::Error<TestStorage>;
 
 type Balances = pallet_balances::Module<TestStorage>;
-type Pips = pallet_pips::Module<TestStorage>;
+type Pips = pallet_pips::Pallet<TestStorage>;
 type Committee = pallet_committee::Module<TestStorage, pallet_committee::Instance1>;
 
 fn consensus_call(call: RuntimeCall, signers: &[User]) {

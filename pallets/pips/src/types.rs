@@ -18,18 +18,30 @@ use serde::{Deserialize, Serialize};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::cmp::Ordering;
+use frame_support::traits::schedule::{Priority, HARD_DEADLINE};
 use frame_support::traits::LockIdentifier;
 use scale_info::TypeInfo;
 use sp_core::H256;
-use sp_runtime::traits::Saturating;
 use sp_std::convert::From;
+use sp_std::vec::Vec;
 
 use polymesh_common_utilities::MaybeBlock;
 use polymesh_primitives::constants::{PIP_EXECUTION, PIP_EXPIRY};
 use polymesh_primitives::{impl_checked_inc, Balance, Url};
 use polymesh_primitives_derive::VecU8StrongTyped;
 
-const PIPS_LOCK_ID: LockIdentifier = *b"pips    ";
+/// The highest priorities, from `HIGHEST_PRIORITY`(=0) to `HARD_DEADLINE`(=63), enforce the execution of
+/// the scheduler task even if there is not enough free space in the block to allocate it.
+/// Scheduler also enforces the execution of the first priority task for the corresponding
+/// block, and it will re-schedule any pending task into the next block if there is not enough space in
+/// the current one.
+/// This `MAX_NORMAL_PRIORITY` is the highest priority where:
+///     - Scheduler will NOT enforce the execution of the scheduled task, and
+///     - The task could be re-scheduled to the next bock.
+/// In substrate, normal priorities come from `HARD_DEADLINE + 1`(=64) to `LOWEST_PRIORITY`(=255).
+pub const MAX_NORMAL_PRIORITY: Priority = HARD_DEADLINE + 1;
+
+pub(crate) const PIPS_LOCK_ID: LockIdentifier = *b"pips    ";
 
 /// A wrapper for a proposal description.
 #[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
@@ -239,7 +251,7 @@ pub struct SnapshottedPip {
 
 /// Defines sorting order for PIP priority queues, with highest priority *last*.
 /// Having higher prio last allows efficient tail popping, so we have a LIFO structure.
-fn compare_spip(l: &SnapshottedPip, r: &SnapshottedPip) -> Ordering {
+pub(crate) fn compare_spip(l: &SnapshottedPip, r: &SnapshottedPip) -> Ordering {
     let (l_dir, l_stake) = l.weight;
     let (r_dir, r_stake) = r.weight;
     l_dir

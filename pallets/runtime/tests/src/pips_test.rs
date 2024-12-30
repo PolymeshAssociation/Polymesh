@@ -11,13 +11,12 @@ use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
     traits::{LockableCurrency, WithdrawReasons},
-    StorageDoubleMap, StorageValue,
 };
 use frame_system::{self, EventRecord};
 use pallet_pips::{
-    DepositInfo, LiveQueue, Pip, PipDescription, PipId, PipsMetadata, ProposalState, Proposer,
-    RawEvent as Event, SnapshotId, SnapshotMetadata, SnapshotResult, SnapshottedPip, Vote,
-    VoteCount, VotingResult,
+    DepositInfo, Event, LiveQueue, Pip, PipDescription, PipId, PipsMetadata, ProposalState,
+    Proposer, SnapshotId, SnapshotMetadata, SnapshotResult, SnapshottedPip, Vote, VoteCount,
+    VotingResult,
 };
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{MaybeBlock, GC_DID};
@@ -27,7 +26,7 @@ use std::ops::Deref;
 
 type System = frame_system::Pallet<TestStorage>;
 type Balances = pallet_balances::Module<TestStorage>;
-type Pips = pallet_pips::Module<TestStorage>;
+type Pips = pallet_pips::Pallet<TestStorage>;
 type Group = pallet_group::Module<TestStorage, pallet_group::Instance1>;
 type Committee = pallet_committee::Module<TestStorage, pallet_committee::Instance1>;
 type Treasury = treasury::Module<TestStorage>;
@@ -1848,7 +1847,7 @@ fn propose_dupe_live_insert_panics() {
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         // Manipulate storage to provoke panic in `insert_live_queue`.
-        LiveQueue::mutate(|queue| *queue = vec![spip(0, true, 0)]);
+        LiveQueue::<TestStorage>::mutate(|queue| *queue = vec![spip(0, true, 0)]);
 
         // Triggers a panic, assertion never reached.
         assert_ok!(community_proposal(User::new(AccountKeyring::Alice), 0));
