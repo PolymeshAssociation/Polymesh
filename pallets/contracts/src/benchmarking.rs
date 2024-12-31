@@ -15,7 +15,6 @@
 
 use codec::Encode;
 use frame_benchmarking::{account, benchmarks};
-use frame_support::StorageMap;
 use frame_support::{storage::unhashed, traits::tokens::currency::Currency};
 use frame_system::{Pallet as System, RawOrigin};
 use pallet_contracts::benchmarking::code::body::DynInstr::{Counter, Regular};
@@ -71,7 +70,7 @@ where
         // Check if contact is already linked.
         match IdentityPallet::<T>::get_identity(&contract) {
             Some(contract_did) => {
-                if contract_did != did && ParentDid::get(contract_did) != Some(did) {
+                if contract_did != did && ParentDid::<T>::get(contract_did) != Some(did) {
                     // Contract address already linked to a different identity.
                     Err(IdentityError::<T>::AlreadyLinked.into())
                 } else {

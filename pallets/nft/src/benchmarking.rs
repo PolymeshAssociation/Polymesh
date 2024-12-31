@@ -247,8 +247,8 @@ benchmarks! {
         assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), bob.did()), 0);
         assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), alice.did()), n as u64);
         for i in 1..n + 1 {
-            assert!(PortfolioNFT::contains_key(alice_user_portfolio, (asset_id, NFTId(i.into()))));
-            assert!(!PortfolioNFT::contains_key(bob_user_portfolio, (asset_id, NFTId(i.into()))));
+            assert!(PortfolioNFT::<T>::contains_key(alice_user_portfolio, (asset_id, NFTId(i.into()))));
+            assert!(!PortfolioNFT::<T>::contains_key(bob_user_portfolio, (asset_id, NFTId(i.into()))));
         }
         assert_eq!(NFTsInCollection::<T>::get(nfts.asset_id()), n as u64);
     }

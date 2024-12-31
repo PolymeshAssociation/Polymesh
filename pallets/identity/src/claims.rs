@@ -15,11 +15,11 @@
 
 use crate::{
     Claim1stKey, Claim2ndKey, Claims, Config, CustomClaimIdSequence, CustomClaims,
-    CustomClaimsInverse, DidRecords, Error, Event, Pallet, ParentDid, RawEvent,
+    CustomClaimsInverse, DidRecords, Error, Event, Pallet, ParentDid,
 };
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure, StorageDoubleMap, StorageMap, StorageValue,
+    ensure,
 };
 use frame_system::ensure_root;
 use pallet_base::{ensure_string_limited, try_next_pre};
@@ -203,7 +203,7 @@ impl<T: Config> Pallet<T> {
             // we will initialize the `parent_claims` iterator.
             if first_call {
                 first_call = false;
-                parent_claims = ParentDid::get(did).map(|parent_did| {
+                parent_claims = ParentDid::<T>::get(did).map(|parent_did| {
                     Self::fetch_base_claims(parent_did, ClaimType::CustomerDueDiligence)
                 });
             }
@@ -239,7 +239,7 @@ impl<T: Config> Pallet<T> {
         target: IdentityId,
         claim_type: ClaimType,
     ) -> impl Iterator<Item = IdentityClaim> + 'a {
-        Claims::iter_prefix_values(Claim1stKey { target, claim_type })
+        Claims::<T>::iter_prefix_values(Claim1stKey { target, claim_type })
     }
 
     /// It fetches an specific `claim_type` claim type for target identity `id`, which was issued
@@ -252,7 +252,7 @@ impl<T: Config> Pallet<T> {
     ) -> Option<IdentityClaim> {
         let pk = Claim1stKey { target, claim_type };
         let sk = Claim2ndKey { issuer, scope };
-        Claims::get(&pk, &sk)
+        Claims::<T>::get(&pk, &sk)
     }
 
     /// It adds a new claim without any previous security check.
@@ -265,7 +265,7 @@ impl<T: Config> Pallet<T> {
         let inner_scope = claim.as_scope().cloned();
         if let ClaimType::Custom(id) = claim.claim_type() {
             ensure!(
-                CustomClaims::contains_key(id),
+                CustomClaims::<T>::contains_key(id),
                 Error::<T>::CustomClaimTypeDoesNotExist
             );
         }
@@ -296,8 +296,8 @@ impl<T: Config> Pallet<T> {
             claim,
         };
 
-        Claims::insert(&pk, &sk, id_claim.clone());
-        Self::deposit_event(RawEvent::ClaimAdded(target, id_claim));
+        Claims::<T>::insert(&pk, &sk, id_claim.clone());
+        Self::deposit_event(Event::ClaimAdded(target, id_claim));
     }
 
     /// Returns claim keys.
@@ -336,9 +336,9 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let (pk, sk) = Self::get_claim_keys(target, claim_type, issuer, scope);
         // Remove the claim.
-        let claim = Claims::take(&pk, &sk).ok_or(Error::<T>::ClaimDoesNotExist)?;
+        let claim = Claims::<T>::take(&pk, &sk).ok_or(Error::<T>::ClaimDoesNotExist)?;
         // Emit claim revoked event.
-        Self::deposit_event(RawEvent::ClaimRevoked(target, claim));
+        Self::deposit_event(Event::ClaimRevoked(target, claim));
         Ok(())
     }
 
@@ -422,7 +422,7 @@ impl<T: Config> Pallet<T> {
         );
 
         T::CddServiceProviders::disable_member(cdd, expiry, Some(disable_from))?;
-        Self::deposit_event(RawEvent::CddClaimsInvalidated(cdd, disable_from));
+        Self::deposit_event(Event::CddClaimsInvalidated(cdd, disable_from));
         Ok(())
     }
 
@@ -459,13 +459,13 @@ impl<T: Config> Pallet<T> {
     fn unsafe_register_custom_claim_type(ty: Vec<u8>) -> Result<CustomClaimTypeId, DispatchError> {
         ensure_string_limited::<T>(&ty)?;
         ensure!(
-            !CustomClaimsInverse::contains_key(&ty),
+            !CustomClaimsInverse::<T>::contains_key(&ty),
             Error::<T>::CustomClaimTypeAlreadyExists
         );
 
-        let id = CustomClaimIdSequence::try_mutate(try_next_pre::<T, _>)?;
-        CustomClaimsInverse::insert(&ty, id);
-        CustomClaims::insert(id, ty);
+        let id = CustomClaimIdSequence::<T>::try_mutate(try_next_pre::<T, _>)?;
+        CustomClaimsInverse::<T>::insert(&ty, id);
+        CustomClaims::<T>::insert(id, ty);
         Ok(id)
     }
 

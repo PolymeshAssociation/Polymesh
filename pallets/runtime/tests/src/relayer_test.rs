@@ -5,7 +5,6 @@ use super::{
 use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchInfo, Pays, PostDispatchInfo, Weight},
-    StorageMap,
 };
 use frame_system;
 use pallet_relayer::Subsidy;

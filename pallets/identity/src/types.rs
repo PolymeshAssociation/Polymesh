@@ -1,6 +1,6 @@
 //! Runtime API definition for Identity module.
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use polymesh_primitives::{ClaimType, IdentityId, Permissions, Scope, SecondaryKey};
 use scale_info::TypeInfo;
 use sp_std::{prelude::*, vec::Vec};
@@ -30,7 +30,7 @@ pub enum RpcDidRecords<AccountId> {
     IdNotFound,
 }
 
-#[derive(Encode, Decode, PartialEq, Eq)]
+#[derive(Encode, Decode, MaxEncodedLen, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum DidStatus {
     Unknown,
@@ -63,7 +63,18 @@ pub struct PermissionedCallOriginData<AccountId> {
     pub secondary_key: Option<SecondaryKey<AccountId>>,
 }
 
-#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(
+    Encode,
+    Decode,
+    MaxEncodedLen,
+    TypeInfo,
+    Clone,
+    PartialEq,
+    Eq,
+    Debug,
+    PartialOrd,
+    Ord
+)]
 pub struct Claim1stKey {
     pub target: IdentityId,
     pub claim_type: ClaimType,

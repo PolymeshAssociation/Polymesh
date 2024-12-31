@@ -94,7 +94,6 @@ use frame_support::ensure;
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
 use frame_support::BoundedBTreeSet;
-use frame_support::StorageDoubleMap as _;
 use frame_system::ensure_root;
 use sp_io::hashing::blake2_128;
 use sp_runtime::traits::Zero;
@@ -2941,7 +2940,7 @@ impl<T: AssetConfig> Pallet<T> {
         }
 
         if skip_locked_check {
-            if PortfolioAssetBalances::get(sender_portfolio, asset_id) < transfer_value {
+            if PortfolioAssetBalances::<T>::get(sender_portfolio, asset_id) < transfer_value {
                 asset_transfer_errors
                     .push(PortfolioError::<T>::InsufficientPortfolioBalance.into());
             }

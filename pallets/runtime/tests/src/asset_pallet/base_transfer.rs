@@ -1,4 +1,4 @@
-use frame_support::{assert_noop, assert_ok, StorageDoubleMap};
+use frame_support::{assert_noop, assert_ok};
 use sp_keyring::AccountKeyring;
 
 use pallet_asset::BalanceOf;
@@ -64,7 +64,7 @@ fn base_transfer() {
             0
         );
         assert_eq!(
-            PortfolioAssetBalances::get(&alice_default_portfolio, &asset_id),
+            PortfolioAssetBalances::<TestStorage>::get(&alice_default_portfolio, &asset_id),
             0
         );
         assert_eq!(
@@ -72,7 +72,7 @@ fn base_transfer() {
             ISSUE_AMOUNT
         );
         assert_eq!(
-            PortfolioAssetBalances::get(&bob_user_portfolio, &asset_id),
+            PortfolioAssetBalances::<TestStorage>::get(&bob_user_portfolio, &asset_id),
             ISSUE_AMOUNT
         );
     })
