@@ -157,7 +157,6 @@ pub mod pallet {
     use super::*;
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub(crate) trait Store)]
     pub struct Pallet<T>(_);
 
     #[pallet::error]
