@@ -279,3 +279,26 @@ pub enum SnapshotResult {
     /// or fail if the threshold for maximum skips is exceeded.
     Skip,
 }
+
+#[cfg(test)]
+mod test {
+    use crate::PipId;
+
+    #[test]
+    fn compare_spip_works() {
+        let mk = |id, sign, power| super::SnapshottedPip {
+            id: PipId(id),
+            weight: (sign, power),
+        };
+        let a = mk(4, true, 50);
+        let b = mk(3, true, 50);
+        let c = mk(5, true, 50);
+        let d = mk(6, false, 0);
+        let e = mk(7, true, 0);
+        let f = mk(8, false, 50);
+        let g = mk(9, true, 100);
+        let mut queue = vec![a, c, d, b, e, g, f];
+        queue.sort_unstable_by(super::compare_spip);
+        assert_eq!(queue, vec![f, d, e, c, a, b, g]);
+    }
+}

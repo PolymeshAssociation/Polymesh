@@ -126,6 +126,7 @@ pub use crate::types::{Pip, PipDescription, PipsMetadata, SnapshotId, SnapshotMe
 pub use crate::types::{PipId, ProposalState, Proposer, SnapshotResult, Vote, VoteCount};
 pub use pallet::*;
 
+type SkippedCount = u8;
 type System<T> = frame_system::Pallet<T>;
 
 storage_migration_ver!(2);
@@ -245,7 +246,7 @@ pub mod pallet {
         ),
         /// The maximum times a PIP can be skipped was changed.
         /// (caller DID, old value, new value)
-        MaxPipSkipCountChanged(IdentityId, u8, u8),
+        MaxPipSkipCountChanged(IdentityId, SkippedCount, SkippedCount),
         /// The maximum number of active PIPs was changed.
         /// (caller DID, old value, new value)
         ActivePipLimitChanged(IdentityId, u32, u32),
@@ -258,13 +259,13 @@ pub mod pallet {
         SnapshotTaken(IdentityId, SnapshotId, Vec<SnapshottedPip>),
         /// A PIP in the snapshot queue was skipped.
         /// (gc_did, pip_id, new_skip_count)
-        PipSkipped(IdentityId, PipId, u8),
+        PipSkipped(IdentityId, PipId, SkippedCount),
         /// Results (e.g., approved, rejected, and skipped), were enacted for some PIPs.
         /// (gc_did, snapshot_id_opt, skipped_pips_with_new_count, rejected_pips, approved_pips)
         SnapshotResultsEnacted(
             IdentityId,
             Option<SnapshotId>,
-            Vec<(PipId, u8)>,
+            Vec<(PipId, SkippedCount)>,
             Vec<PipId>,
             Vec<PipId>,
         ),
@@ -333,7 +334,7 @@ pub mod pallet {
     /// Maximum times a PIP can be skipped before triggering `CannotSkipPip` in `enact_snapshot_results`.
     #[pallet::storage]
     #[pallet::getter(fn max_pip_skip_count)]
-    pub type MaxPipSkipCount<T: Config> = StorageValue<_, u8, ValueQuery>;
+    pub type MaxPipSkipCount<T: Config> = StorageValue<_, SkippedCount, ValueQuery>;
 
     /// The maximum allowed number for active PIPs. Once reached, new PIPs cannot be proposed by community members.
     #[pallet::storage]
@@ -431,7 +432,7 @@ pub mod pallet {
     /// Once a (configurable) threshhold is exceeded, a PIP cannot be skipped again.
     #[pallet::storage]
     #[pallet::getter(fn pip_skip_count)]
-    pub type PipSkipCount<T: Config> = StorageMap<_, Twox64Concat, PipId, u8, ValueQuery>;
+    pub type PipSkipCount<T: Config> = StorageMap<_, Twox64Concat, PipId, SkippedCount, ValueQuery>;
 
     /// All existing PIPs where the proposer is a committee.
     /// This list is a cache of all ids in `Proposals` with `Proposer::Committee(_)`.
@@ -451,6 +452,7 @@ pub mod pallet {
     #[pallet::getter(fn storage_version)]
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
 
+    #[derive(frame_support::DefaultNoBound)]
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub prune_historical_pips: bool,
@@ -459,20 +461,6 @@ pub mod pallet {
         pub pending_pip_expiry: MaybeBlock<T::BlockNumber>,
         pub max_pip_skip_count: u8,
         pub active_pip_limit: u32,
-    }
-
-    #[cfg(feature = "std")]
-    impl<T: Config> Default for GenesisConfig<T> {
-        fn default() -> Self {
-            Self {
-                prune_historical_pips: false,
-                min_proposal_deposit: 0,
-                default_enactment_period: T::BlockNumber::from(0u32),
-                pending_pip_expiry: MaybeBlock::None,
-                max_pip_skip_count: 0,
-                active_pip_limit: 0,
-            }
-        }
     }
 
     #[pallet::genesis_build]
@@ -567,7 +555,7 @@ pub mod pallet {
         /// * `max` skips before a PIP cannot be skipped by GC anymore.
         #[pallet::call_index(4)]
         #[pallet::weight((<T as Config>::WeightInfo::set_max_pip_skip_count(), Operational))]
-        pub fn set_max_pip_skip_count(origin: OriginFor<T>, max: u8) -> DispatchResult {
+        pub fn set_max_pip_skip_count(origin: OriginFor<T>, max: SkippedCount) -> DispatchResult {
             ensure_root(origin)?;
             let old_value = MaxPipSkipCount::<T>::get();
             MaxPipSkipCount::<T>::put(max);
@@ -856,7 +844,7 @@ pub mod pallet {
             Ok(())
         }
 
-        // Prune the PIP given by the `id`, refunding any funds not already refunded.
+        /// Prune the PIP given by the `id`, refunding any funds not already refunded.
         /// The PIP may not be active
         ///
         /// This function is intended for storage garbage collection purposes.
