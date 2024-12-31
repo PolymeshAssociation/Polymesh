@@ -24,7 +24,7 @@ serde_derive = { version = "1.0.104", optional = true, default-features = false 
 log = "0.4"
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { workspace = true, default-features = false, features = ["derive"] }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
 sp-arithmetic = { version = "6.0.0", default-features = false }
 sp-core = { version = "7.0.0", default-features = false }

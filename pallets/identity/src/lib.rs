@@ -84,7 +84,6 @@ pub mod benchmarking;
 mod auth;
 mod claims;
 mod keys;
-mod ticker_migrations;
 pub mod types;
 
 pub use polymesh_common_utilities::traits::identity::WeightInfo;
@@ -97,7 +96,7 @@ use frame_system::ensure_root;
 use sp_std::prelude::*;
 
 use frame_support::dispatch::DispatchClass::{Normal, Operational};
-use frame_support::dispatch::{DispatchResult, Pays, Weight};
+use frame_support::dispatch::{DispatchError, DispatchResult, Pays, Weight};
 use frame_support::traits::{ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers};
 use frame_support::{decl_error, decl_module, decl_storage};
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
@@ -107,10 +106,9 @@ use polymesh_common_utilities::traits::identity::{
 };
 use polymesh_common_utilities::{SystematicIssuers, GC_DID};
 use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, AssetPermissions, Authorization, AuthorizationData,
-    AuthorizationType, CddId, Claim, ClaimType, CustomClaimTypeId, DidRecord, ExtrinsicPermissions,
-    IdentityClaim, IdentityId, KeyRecord, Permissions, PortfolioPermissions, Scope, SecondaryKey,
-    Signatory,
+    storage_migration_ver, AssetPermissions, Authorization, AuthorizationData, AuthorizationType,
+    CddId, Claim, ClaimType, CustomClaimTypeId, DidRecord, ExtrinsicPermissions, IdentityClaim,
+    IdentityId, KeyRecord, Permissions, PortfolioPermissions, Scope, SecondaryKey, Signatory,
 };
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
@@ -273,9 +271,6 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 7, {
-                ticker_migrations::migrate_to_v7::<T>();
-            });
             Weight::zero()
         }
 
@@ -720,6 +715,14 @@ impl<T: Config> IdentityFnTrait<T::AccountId> for Module<T> {
     /// Provides the DID status for the given DID
     fn has_valid_cdd(target_did: IdentityId) -> bool {
         Self::has_valid_cdd(target_did)
+    }
+
+    /// Creates a new did and attaches a CDD claim.
+    fn testing_cdd_register_did(
+        target: T::AccountId,
+        secondary_keys: Vec<SecondaryKey<T::AccountId>>,
+    ) -> Result<IdentityId, DispatchError> {
+        Self::testing_cdd_register_did(target, secondary_keys)
     }
 }
 

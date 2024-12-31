@@ -17,8 +17,8 @@ use frame_benchmarking::benchmarks;
 use scale_info::prelude::format;
 
 use polymesh_common_utilities::asset::AssetFnTrait;
-use polymesh_common_utilities::benchs::{AccountIdOf, User, UserBuilder};
-use polymesh_common_utilities::{identity::Config as IdentityConfig, TestUtilsFn};
+use polymesh_common_utilities::benchs::{User, UserBuilder};
+use polymesh_common_utilities::identity::Config as IdentityConfig;
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::{
     asset::AssetType, AuthorizationData, ClaimType, CountryCode, PortfolioKind, Scope,
@@ -53,10 +53,7 @@ const CLAIM_TYPES: &[ClaimType] = &[
 ];
 
 /// Create a token issuer trusted for `Any`.
-pub fn make_issuer<T: IdentityConfig + TestUtilsFn<AccountIdOf<T>>>(
-    id: u32,
-    claim_type_len: Option<usize>,
-) -> TrustedIssuer {
+pub fn make_issuer<T: IdentityConfig>(id: u32, claim_type_len: Option<usize>) -> TrustedIssuer {
     let u = UserBuilder::<T>::default()
         .generate_did()
         .seed(id)
@@ -80,7 +77,7 @@ pub fn make_issuer<T: IdentityConfig + TestUtilsFn<AccountIdOf<T>>>(
 ///   - It could have more complexity if `TrustedIssuer::trusted_for` is a vector but not on
 ///   benchmarking of add/remove. That could be useful for benchmarking executions/evaluation of
 ///   complience requiriments.
-pub fn make_issuers<T: IdentityConfig + TestUtilsFn<AccountIdOf<T>>>(
+pub fn make_issuers<T: IdentityConfig>(
     s: u32,
     claim_type_len: Option<usize>,
 ) -> Vec<TrustedIssuer> {
@@ -151,7 +148,7 @@ struct ComplianceRequirementInfo<T: Config> {
     pub receiver_conditions: Vec<Condition>,
 }
 
-impl<T: Config + TestUtilsFn<AccountIdOf<T>>> ComplianceRequirementInfo<T> {
+impl<T: Config> ComplianceRequirementInfo<T> {
     pub fn add_default_trusted_claim_issuer(self: &Self, i: u32) {
         make_issuers::<T>(i, None).into_iter().for_each(|issuer| {
             Module::<T>::add_default_trusted_claim_issuer(
@@ -169,7 +166,7 @@ struct ComplianceRequirementBuilder<T: Config> {
     has_been_added: bool,
 }
 
-impl<T: Config + TestUtilsFn<AccountIdOf<T>>> ComplianceRequirementBuilder<T> {
+impl<T: Config> ComplianceRequirementBuilder<T> {
     pub fn new(trusted_issuer_count: u32, conditions_count: u32) -> Self {
         // split the number of conditions between the sender and receiver.
         let (sender_count, receiver_count) = split_conditions(conditions_count);
@@ -216,7 +213,7 @@ impl<T: Config> ComplianceRequirementBuilder<T> {
     }
 }
 
-fn setup_conditions_bench<T: Config + TestUtilsFn<AccountIdOf<T>>>(
+fn setup_conditions_bench<T: Config>(
     conditions: u32,
     claims: u32,
     issuers: u32,
@@ -275,7 +272,7 @@ fn setup_is_condition_satisfied<T>(
     read_trusted_issuers_storage: bool,
 ) -> Condition
 where
-    T: Config + TestUtilsFn<AccountIdOf<T>>,
+    T: Config,
 {
     let claims: Vec<Claim> = (0..n_claims)
         .map(|i| Claim::Jurisdiction(CountryCode::BR, Scope::Custom(vec![i as u8])))
@@ -345,8 +342,6 @@ pub fn setup_asset_compliance<T: Config>(
 }
 
 benchmarks! {
-    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
-
     condition_costs {
         let a in 1..MAX_CONDITIONS;
         let b in 1..MAX_CONDITION_TYPE_CLAIMS;

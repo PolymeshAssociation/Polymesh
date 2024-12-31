@@ -24,8 +24,8 @@ use polymesh_primitives::nft::{
 };
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, IdentityId, Memo, PortfolioId, PortfolioKind,
-    PortfolioUpdateReason, WeightMeter,
+    storage_migration_ver, IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason,
+    WeightMeter,
 };
 
 type Asset<T> = pallet_asset::Module<T>;
@@ -35,7 +35,6 @@ type Portfolio<T> = pallet_portfolio::Module<T>;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-mod migrations;
 
 storage_migration_ver!(4);
 
@@ -86,9 +85,6 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 4, {
-                migrations::migrate_to_v4::<T>();
-            });
             Weight::zero()
         }
 

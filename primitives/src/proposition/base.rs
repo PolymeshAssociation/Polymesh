@@ -174,13 +174,6 @@ mod tests {
 
     type Iter = IntoIter<Claim>;
 
-    struct Dummy;
-    impl<C> Proposition<C> for Dummy {
-        fn evaluate(&self, _: Context<C>) -> bool {
-            false
-        }
-    }
-
     fn mk_ctx(claims: Vec<Claim>) -> Context<Iter> {
         Context {
             claims: claims.into_iter(),

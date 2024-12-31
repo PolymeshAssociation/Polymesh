@@ -16,8 +16,7 @@
 use frame_benchmarking::benchmarks;
 
 use pallet_compliance_manager::Module as ComplianceManager;
-use polymesh_common_utilities::benchs::{user, AccountIdOf, User};
-use polymesh_common_utilities::TestUtilsFn;
+use polymesh_common_utilities::benchs::{user, User};
 use polymesh_primitives::{Fund, FundDescription, PortfolioId, PortfolioNumber};
 
 use super::*;
@@ -48,7 +47,7 @@ fn portfolio<T: Config>(
     .unwrap();
 }
 
-fn dist<T: Config + TestUtilsFn<AccountIdOf<T>>>(target_ids: u32) -> (User<T>, CAId, AssetId) {
+fn dist<T: Config>(target_ids: u32) -> (User<T>, CAId, AssetId) {
     let (owner, ca_id) = setup_ca::<T>(CAKind::UnpredictableBenefit);
 
     let currency = currency::<T>(&owner);
@@ -73,7 +72,7 @@ fn dist<T: Config + TestUtilsFn<AccountIdOf<T>>>(target_ids: u32) -> (User<T>, C
     (owner, ca_id, currency)
 }
 
-fn prepare_transfer<T: Config + pallet_compliance_manager::Config + TestUtilsFn<AccountIdOf<T>>>(
+fn prepare_transfer<T: Config + pallet_compliance_manager::Config>(
     target_ids: u32,
     did_whts_num: u32,
 ) -> (User<T>, User<T>, CAId) {
@@ -102,7 +101,6 @@ fn prepare_transfer<T: Config + pallet_compliance_manager::Config + TestUtilsFn<
 benchmarks! {
     where_clause { where
         T: pallet_compliance_manager::Config,
-        T: TestUtilsFn<AccountIdOf<T>>,
     }
 
     distribute {

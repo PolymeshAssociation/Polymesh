@@ -1,6 +1,6 @@
 [package]
 name = "polymesh"
-version = "7.0.0"
+version = "7.1.0"
 authors = ["PolymeshAssociation"]
 build = "build.rs"
 edition = "2021"
@@ -140,7 +140,6 @@ members = [
     "pallets/transaction-payment",
     "pallets/treasury",
     "pallets/utility",
-    "pallets/test-utils",
     "pallets/weights",
     "primitives",
     "primitives/asset-metadata",
@@ -150,7 +149,8 @@ members = [
 ]
 exclude = [
     "contracts",
-    "integration"
+    "integration",
+    "metadata-tools"
 ]
 
 ## Keep common dependencies here.
@@ -177,7 +177,6 @@ pallet-sto = { path = "pallets/sto", default-features = false }
 pallet-settlement = { path = "pallets/settlement", default-features = false }
 pallet-staking = { path = "pallets/staking", default-features = false }
 pallet-statistics = { path = "pallets/statistics", default-features = false }
-pallet-test-utils = { path = "pallets/test-utils", default-features = false }
 pallet-transaction-payment = { path = "pallets/transaction-payment", default-features = false }
 pallet-treasury = { path = "pallets/treasury", default-features = false }
 pallet-utility = { path = "pallets/utility", default-features = false }
@@ -189,7 +188,6 @@ polymesh-common-utilities = { path = "pallets/common", default-features = false 
 polymesh-runtime-common = { path = "pallets/runtime/common", default-features = false }
 polymesh-primitives = { path = "primitives", default-features = false }
 polymesh-weights = { path = "pallets/weights/", default-features = false }
-polymesh-extensions = { path = "pallets/runtime/extensions", default-features = false }
 
 # RPC
 node-rpc = { path = "rpc" }
@@ -281,7 +279,6 @@ polymesh-contracts = { workspace = true, default-features = false }
 polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false }
-polymesh-extensions = { workspace = true, default-features = false }
 
 # RPC
 node-rpc = { workspace = true }
@@ -328,7 +325,7 @@ sc-sync-state-rpc = { version = "0.10.0-dev" }
 grandpa = { package = "sc-consensus-grandpa", version = "0.10.0-dev" }
 
 # Substrate
-codec = { workspace = true, package = "parity-scale-codec" }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
@@ -363,6 +360,12 @@ substrate-build-script-utils = { version = "3.0.0" }
 
 [features]
 default = ["std"]
+disable_fees = [
+    "pallet-transaction-payment/disable_fees", 
+    "polymesh-runtime-develop/disable_fees", 
+    "polymesh-runtime-mainnet/disable_fees",
+    "polymesh-runtime-testnet/disable_fees",
+]
 running-ci = [ "polymesh-runtime-develop/running-ci" ]
 default_identity = [ "polymesh-common-utilities/default_identity" ]
 runtime-benchmarks = [

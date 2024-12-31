@@ -39,7 +39,7 @@ commands:
 jobs:
   lint:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2023-12-11
+      - image: polymeshassociation/rust:debian-nightly-2024-11-14
     resource_class: small
     environment:
       VERBOSE: "1"
@@ -53,7 +53,7 @@ jobs:
           command: ./scripts/check_spec_and_cargo_version.sh
   check-storage-version:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2023-12-11
+      - image: polymeshassociation/rust:debian-nightly-2024-11-14
     resource_class: small
     environment:
       VERBOSE: "1"
@@ -64,7 +64,7 @@ jobs:
           command: ./scripts/check_storage_versions.sh
   build:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2023-12-11
+      - image: polymeshassociation/rust:debian-nightly-2024-11-14
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -91,11 +91,11 @@ jobs:
       - persist_to_workspace:
           root: ./assets
           paths:
-              - .
+            - .
       - save-sccache-cache
   build-ci:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2023-12-11
+      - image: polymeshassociation/rust:debian-nightly-2024-11-14
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -118,10 +118,10 @@ jobs:
       - persist_to_workspace:
           root: ./assets
           paths:
-              - .
+            - .
   build-arm64:
     docker:
-      - image: polymeshassociation/rust-arm64:debian-nightly-2023-12-11
+      - image: polymeshassociation/rust-arm64:debian-nightly-2024-11-14
     resource_class: arm.xlarge
     environment:
       - VERBOSE: "1"
@@ -144,11 +144,11 @@ jobs:
       - persist_to_workspace:
           root: ./assets
           paths:
-              - .
+            - .
       - save-sccache-cache
   benchmark-build:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2023-12-11
+      - image: polymeshassociation/rust:debian-nightly-2024-11-14
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -246,7 +246,7 @@ jobs:
           command: cp rust-toolchain.toml pallets/runtime/<<parameters.chain>>/rust-toolchain.toml
       - run:
           name: Build the deterministic wasm binary
-          command: | 
+          command: |
             CMD="/srtool/build --app --json -cM"
             stdbuf -oL $CMD | {
               while IFS= read -r line
@@ -266,8 +266,107 @@ jobs:
       - persist_to_workspace:
           root: ./assets
           paths:
-              - .
+            - .
 
+  metadata-tools-build:
+    docker:
+      - image: polymeshassociation/rust:debian-nightly-2024-11-14
+    resource_class: small
+    steps:
+      - checkout
+      - setup-sccache
+      - restore-sccache-cache
+      - run:
+          name: Build metadata-tools
+          command: |
+            cd metadata-tools
+            cargo build --release
+      - persist_to_workspace:
+          root: ./metadata-tools/target/release/
+          paths:
+            - metadata-tools
+      - save-sccache-cache
+
+  check_dev_api:
+    docker:
+      - image: debian:stable
+    resource_class: small
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./assets
+      - run:
+          name: Start Polymesh dev chain
+          command: >-
+            ./assets/polymesh --chain dev \
+              --no-prometheus --no-telemetry --tmp \
+              --wasm-execution compiled \
+              --pool-limit 100000
+          background: true
+      - run:
+          name: Wait for chain to start
+          command: sleep 30
+      - run:
+          name: Run metadata-tools check
+          command: |
+            ./assets/metadata-tools check .metadata ws://localhost:9944 | tee runtime_dev_api_report.txt || true
+      - store_artifacts:
+          path: runtime_dev_api_report.txt
+          destination: runtime_dev_api_report.txt
+
+  check_testnet_api:
+    docker:
+      - image: debian:stable
+    resource_class: small
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./assets
+      - run:
+          name: Start Polymesh testnet chain
+          command: >-
+            ./assets/polymesh --chain testnet-dev \
+              --no-prometheus --no-telemetry --tmp \
+              --wasm-execution compiled \
+              --pool-limit 100000
+          background: true
+      - run:
+          name: Wait for chain to start
+          command: sleep 30
+      - run:
+          name: Run metadata-tools check
+          command: |
+            ./assets/metadata-tools check .metadata ws://localhost:9944 | tee runtime_testnet_api_report.txt
+      - store_artifacts:
+          path: runtime_testnet_api_report.txt
+          destination: runtime_testnet_api_report.txt
+
+  check_mainnet_api:
+    docker:
+      - image: debian:stable
+    resource_class: small
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./assets
+      - run:
+          name: Start Polymesh mainnet chain
+          command: >-
+            ./assets/polymesh --chain mainnet-dev \
+              --no-prometheus --no-telemetry --tmp \
+              --wasm-execution compiled \
+              --pool-limit 100000
+          background: true
+      - run:
+          name: Wait for chain to start
+          command: sleep 30
+      - run:
+          name: Run metadata-tools check
+          command: |
+            ./assets/metadata-tools check .metadata ws://localhost:9944 | tee runtime_mainnet_api_report.txt
+      - store_artifacts:
+          path: runtime_mainnet_api_report.txt
+          destination: runtime_mainnet_api_report.txt
 
   benchmark:
     docker:
@@ -284,7 +383,7 @@ jobs:
           no_output_timeout: 30m
   migration-tests:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2023-12-11
+      - image: polymeshassociation/rust:debian-nightly-2024-11-14
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -296,12 +395,12 @@ jobs:
       - restore-sccache-cache
       - run:
           name: Run migration tests
-          command:  cargo test -p migration-tests --lib -- --nocapture
+          command: cargo test -p migration-tests --lib -- --nocapture
           no_output_timeout: 30m
       - save-sccache-cache
   test:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2023-12-11
+      - image: polymeshassociation/rust:debian-nightly-2024-11-14
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -332,7 +431,7 @@ jobs:
       - save-sccache-cache
   coverage:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2023-12-11
+      - image: polymeshassociation/rust:debian-nightly-2024-11-14
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -347,7 +446,7 @@ jobs:
       - save-sccache-cache
   rust-integration-test:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2023-12-11
+      - image: polymeshassociation/rust:debian-nightly-2024-11-14
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -407,7 +506,7 @@ jobs:
           no_output_timeout: 10m
   clippy:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2023-12-11
+      - image: polymeshassociation/rust:debian-nightly-2024-11-14
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -717,3 +816,16 @@ workflows:
           package: polymesh-runtime-develop
           runtime_dir: pallets/runtime/develop
           tag: 1.81.0
+      - metadata-tools-build
+      - check_dev_api:
+          requires:
+            - metadata-tools-build
+            - build
+      - check_testnet_api:
+          requires:
+            - metadata-tools-build
+            - build
+      - check_mainnet_api:
+          requires:
+            - metadata-tools-build
+            - build

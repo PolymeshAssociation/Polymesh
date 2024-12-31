@@ -3,11 +3,9 @@ use sp_runtime::Permill;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
 
-use polymesh_common_utilities::benchs::{
-    create_and_issue_sample_asset, AccountIdOf, User, UserBuilder,
-};
+use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, User, UserBuilder};
 use polymesh_common_utilities::constants::currency::{ONE_UNIT, POLY};
-use polymesh_common_utilities::traits::{asset::Config as Asset, TestUtilsFn};
+use polymesh_common_utilities::traits::asset::Config as Asset;
 use polymesh_primitives::{jurisdiction::*, statistics::*, Claim, ClaimType, Scope};
 
 use crate::*;
@@ -82,13 +80,13 @@ fn make_transfer_conditions(stats: &BTreeSet<StatType>, count: u32) -> BTreeSet<
         .collect()
 }
 
-fn init_asset<T: Asset + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, AssetId) {
+fn init_asset<T: Asset>() -> (User<T>, AssetId) {
     let owner = UserBuilder::<T>::default().generate_did().build("OWNER");
     let asset_id = create_and_issue_sample_asset::<T>(&owner, true, None, b"MyAsset", true);
     (owner, asset_id)
 }
 
-fn init_transfer_conditions<T: Config + Asset + TestUtilsFn<AccountIdOf<T>>>(
+fn init_transfer_conditions<T: Config + Asset>(
     count_stats: u32,
     count_conditions: u32,
 ) -> (
@@ -103,7 +101,7 @@ fn init_transfer_conditions<T: Config + Asset + TestUtilsFn<AccountIdOf<T>>>(
     (owner, asset_id, stats, conditions)
 }
 
-fn init_exempts<T: Config + Asset + TestUtilsFn<AccountIdOf<T>>>(
+fn init_exempts<T: Config + Asset>(
     count: u32,
 ) -> (User<T>, TransferConditionExemptKey, BTreeSet<IdentityId>) {
     let (owner, asset_id) = init_asset::<T>();
@@ -198,7 +196,7 @@ mod limits {
 }
 
 benchmarks! {
-    where_clause { where T: Asset, T: TestUtilsFn<AccountIdOf<T>> }
+    where_clause { where T: Asset }
 
     set_active_asset_stats {
         let i in 1..T::MaxStatsPerAsset::get().saturating_sub(1);

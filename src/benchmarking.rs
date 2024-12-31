@@ -135,7 +135,7 @@ pub fn create_benchmark_extrinsic<R, D: NativeExecutionDispatch + 'static>(
             best_block.saturated_into(),
         )),
         frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
-        polymesh_extensions::CheckWeight::new(),
+        frame_system::CheckWeight::new(),
         pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
         pallet_permissions::StoreCallMetadata::new(),
     );

@@ -8,7 +8,6 @@ pub use sp_runtime::BuildStorage;
 
 use codec::Encode;
 use core::convert::TryFrom;
-use frame_support::dispatch::DispatchResult;
 use frame_support::traits::KeyOwnerProofSystem;
 use frame_support::weights::Weight;
 use frame_support::{construct_runtime, parameter_types};
@@ -30,9 +29,8 @@ pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFe
 use polymesh_common_utilities::constants::currency::*;
 use polymesh_common_utilities::constants::ENSURED_MAX_LEN;
 use polymesh_common_utilities::protocol_fee::ProtocolOp;
-use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::settlement::Leg;
-use polymesh_primitives::{AccountId, Balance, BlockNumber, Moment};
+use polymesh_primitives::{Balance, BlockNumber, Moment};
 use polymesh_runtime_common::impls::Author;
 use polymesh_runtime_common::merge_active_and_inactive;
 use polymesh_runtime_common::runtime::{GovernanceCommittee, BENCHMARK_MAX_INCREASE, VMO};
@@ -57,7 +55,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
     // N.B. `d` is unpinned from the binary version
-    spec_version: 7_000_005,
+    spec_version: 7_001_000,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 7,
@@ -194,17 +192,7 @@ parameter_types! {
 
 polymesh_runtime_common::misc_pallet_impls!();
 
-pub type CddHandler = polymesh_runtime_common::fee_details::DevCddHandler<Runtime>;
-
-impl<'a> TryFrom<&'a RuntimeCall> for &'a pallet_test_utils::Call<Runtime> {
-    type Error = ();
-    fn try_from(call: &'a RuntimeCall) -> Result<&'a pallet_test_utils::Call<Runtime>, ()> {
-        match call {
-            RuntimeCall::TestUtils(x) => Ok(x),
-            _ => Err(()),
-        }
-    }
-}
+pub type CddHandler = polymesh_runtime_common::fee_details::CddHandler<Runtime>;
 
 impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
@@ -305,24 +293,9 @@ impl pallet_group::Config<pallet_group::Instance2> for Runtime {
     type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
 }
 
-impl pallet_test_utils::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = polymesh_weights::pallet_test_utils::SubstrateWeight;
-}
-
 impl pallet_sudo::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
-}
-
-/// NB It is needed by benchmarks, in order to use `UserBuilder`.
-impl TestUtilsFn<AccountId> for Runtime {
-    fn register_did(
-        target: AccountId,
-        secondary_keys: Vec<polymesh_primitives::secondary_key::SecondaryKey<AccountId>>,
-    ) -> DispatchResult {
-        <TestUtils as TestUtilsFn<AccountId>>::register_did(target, secondary_keys)
-    }
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -362,7 +335,6 @@ mod benches {
         [pallet_grandpa, Grandpa]
         [pallet_scheduler, Scheduler]
         [pallet_staking, Staking]
-        [pallet_test_utils, TestUtils]
         [polymesh_contracts, PolymeshContracts]
         [pallet_nft, Nft]
         [pallet_contracts, Contracts]
@@ -385,7 +357,7 @@ construct_runtime!(
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 5,
 
         // TransactionPayment: Genesis config dependencies: Balance.
-        TransactionPayment: pallet_transaction_payment::{Pallet, Event<T>, Storage} = 6,
+        TransactionPayment: pallet_transaction_payment::{Pallet, Call, Event<T>, Storage} = 6,
 
         // Identity: Genesis config deps: Timestamp.
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>, Config<T>} = 7,
@@ -462,14 +434,13 @@ construct_runtime!(
         Nft: pallet_nft::{Pallet, Call, Storage, Event} = 49,
 
         ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 50,
-
-        TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 200,
     }
 );
 
 polymesh_runtime_common::runtime_apis! {
     #[cfg(feature = "runtime-benchmarks")]
     impl frame_benchmarking::Benchmark<Block> for Runtime {
+        #[allow(non_local_definitions)]
         fn dispatch_benchmark(
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {

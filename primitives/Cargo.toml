@@ -20,10 +20,10 @@ either = { version = "1.6.1", default-features = false }
 polymesh-primitives-derive = { version = "0.1.0", path = "../primitives_derive", default-features = false }
 
 # Crypto
-schnorrkel = { version = "0.10.1", default-features = false }
+schnorrkel = { version = "0.11", default-features = false }
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { workspace = true, default-features = false, features = ["derive"] }
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 scale-info = { version = "2.0", default-features = false, features = ["derive", "decode"] }
@@ -45,7 +45,7 @@ serde_json = { version = "1.0", features = ["arbitrary_precision"] }
 default = ["std"]
 
 # Backends
-u64_backend = ["schnorrkel/u64_backend"]
+u64_backend = []
 
 no_std = ["u64_backend"]
 

@@ -76,7 +76,6 @@ use frame_support::dispatch::{
     Weight,
 };
 use frame_support::ensure;
-use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::{Get, GetCallMetadata, IsSubType, UnfilteredDispatchable};
 use frame_support::BoundedVec;
 use frame_system::ensure_signed;
@@ -90,8 +89,8 @@ pub use polymesh_common_utilities::multisig::{MultiSigSubTrait, WeightInfo};
 use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
 use polymesh_primitives::multisig::{ProposalState, ProposalVoteCount};
 use polymesh_primitives::{
-    extract_auth, storage_migrate_on, storage_migration_ver, AuthorizationData, IdentityId,
-    KeyRecord, Permissions, Signatory,
+    extract_auth, storage_migration_ver, AuthorizationData, IdentityId, KeyRecord, Permissions,
+    Signatory,
 };
 //use polymesh_runtime_common::RocksDbWeight as DbWeight;
 use frame_support::weights::constants::RocksDbWeight as DbWeight;
@@ -158,7 +157,6 @@ pub mod pallet {
 
     #[pallet::pallet]
     #[pallet::without_storage_info]
-    #[pallet::generate_store(pub(super) trait Store)]
     pub struct Pallet<T>(PhantomData<T>);
 
     #[pallet::hooks]
@@ -184,9 +182,6 @@ pub mod pallet {
                 weight.saturating_accrue(DbWeight::get().reads_writes(removed as _, removed as _));
             }
 
-            storage_migrate_on!(StorageVersion<T>, 3, {
-                migration::migrate_to_v3::<T>(&mut weight);
-            });
             weight
         }
     }
@@ -1364,105 +1359,5 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> MultiSigSubTrait<T::AccountId> for Pallet<T> {
     fn is_multisig(account_id: &T::AccountId) -> bool {
         MultiSigSignsRequired::<T>::contains_key(account_id)
-    }
-}
-
-pub mod migration {
-    use super::*;
-    use frame_support::storage::migration::move_prefix;
-    use frame_support::storage::StorageMap;
-    use frame_support::storage::StoragePrefixedMap;
-    use sp_runtime::runtime_logger::RuntimeLogger;
-
-    mod v2 {
-        use super::*;
-        use frame_support::{decl_module, decl_storage};
-
-        decl_storage! {
-            trait Store for Module<T: Config> as MultiSig {
-                pub MultiSigToIdentity : map hasher(identity) T::AccountId => IdentityId;
-                pub MultiSigTxDone: map hasher(identity) T::AccountId => u64;
-
-                pub OldMultiSigSigners: double_map hasher(identity) T::AccountId, hasher(twox_64_concat) Signatory<T::AccountId> => bool;
-
-                pub LostCreatorPrivileges: map hasher(identity) IdentityId => bool;
-            }
-        }
-
-        decl_module! {
-            pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin { }
-        }
-    }
-
-    pub fn migrate_to_v3<T: Config>(weight: &mut Weight) {
-        RuntimeLogger::init();
-        // Remove old storage.
-        polymesh_primitives::migrate::kill_item(b"MultiSig", b"ProposalDetail");
-        polymesh_primitives::migrate::kill_item(b"MultiSig", b"ProposalIds");
-
-        migrate_signers::<T>(weight);
-        migrate_creator_did::<T>(weight);
-        migrate_tx_done::<T>(weight);
-    }
-
-    fn migrate_signers<T: Config>(weight: &mut Weight) {
-        log::info!(" >>> Migrate Signatory values to only AccountId");
-        let mut sig_count = 0;
-        let mut reads = 0;
-        let mut writes = 0;
-        move_prefix(
-            &MultiSigSigners::<T>::final_prefix(),
-            &v2::OldMultiSigSigners::<T>::final_prefix(),
-        );
-        v2::OldMultiSigSigners::<T>::drain().for_each(|(ms, signer, value)| {
-            reads += 1;
-            sig_count += 1;
-            match signer {
-                Signatory::Account(signer) => {
-                    writes += 1;
-                    MultiSigSigners::<T>::insert(ms, signer, value);
-                }
-                _ => {
-                    // Shouldn't be any Identity signatories.
-                }
-            }
-        });
-        weight.saturating_accrue(DbWeight::get().reads_writes(reads, writes));
-        log::info!(" >>> {sig_count} Multisig.Signers migrated.");
-    }
-
-    fn migrate_tx_done<T: Config>(weight: &mut Weight) {
-        log::info!(" >>> Migrate MultiSigTxDone to NextProposalId");
-        let mut count = 0;
-        let mut reads = 0;
-        let mut writes = 0;
-        v2::MultiSigTxDone::<T>::drain().for_each(|(ms, next_id)| {
-            reads += 1;
-            count += 1;
-            NextProposalId::<T>::insert(ms, next_id);
-            writes += 1;
-        });
-        weight.saturating_accrue(DbWeight::get().reads_writes(reads, writes));
-        log::info!(" >>> {count} Multisig.NextProposalId migrated.");
-    }
-
-    fn migrate_creator_did<T: Config>(weight: &mut Weight) {
-        log::info!(" >>> Migrate MultiSigToIdentity to PayingDid and AdminDid");
-        let mut did_count = 0;
-        let mut reads = 0;
-        let mut writes = 0;
-        v2::MultiSigToIdentity::<T>::drain().for_each(|(ms, did)| {
-            reads += 1;
-            did_count += 1;
-            PayingDid::<T>::insert(&ms, did);
-            writes += 1;
-            let lost_creator_privileges = v2::LostCreatorPrivileges::take(did);
-            if !lost_creator_privileges {
-                AdminDid::<T>::insert(&ms, did);
-                writes += 1;
-            }
-        });
-        weight.saturating_accrue(DbWeight::get().reads_writes(reads, writes));
-        log::info!(" >>> {did_count} Multisig.Creator Dids migrated.");
     }
 }

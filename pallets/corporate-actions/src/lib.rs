@@ -90,7 +90,6 @@ pub mod benchmarking;
 
 pub mod ballot;
 pub mod distribution;
-mod migrations;
 
 use codec::{Decode, Encode};
 use distribution::WeightInfo as DistWeightInfoTrait;
@@ -111,8 +110,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
-    asset::CheckpointId, impl_checked_inc, storage_migrate_on, storage_migration_ver, Balance,
-    DocumentId, EventDid, IdentityId, Moment, PortfolioNumber,
+    asset::CheckpointId, impl_checked_inc, storage_migration_ver, Balance, DocumentId, EventDid,
+    IdentityId, Moment, PortfolioNumber,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
@@ -423,9 +422,6 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 1, {
-                migrations::migrate_to_v1::<T>();
-            });
             Weight::zero()
         }
 

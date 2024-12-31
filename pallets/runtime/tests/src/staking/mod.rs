@@ -6994,7 +6994,7 @@ fn chill_from_governance() {
             // No longer permissioned identity
             assert_noop!(
                 Staking::chill_from_governance(RuntimeOrigin::root(), entity_id, vec![50, 60]),
-                Error::<Test>::IdentityNotFound
+                Error::<Test>::ValidatorNotFound
             );
 
             // 70 stash and 71 controller
