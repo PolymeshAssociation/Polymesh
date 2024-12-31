@@ -471,6 +471,7 @@ pub mod pallet {
             PendingPipExpiry::<T>::put(self.pending_pip_expiry);
             MaxPipSkipCount::<T>::put(self.max_pip_skip_count);
             ActivePipLimit::<T>::put(self.active_pip_limit);
+            StorageVersion::<T>::put(Version::new(2));
         }
     }
 
