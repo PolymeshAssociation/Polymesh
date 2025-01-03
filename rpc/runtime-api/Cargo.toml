@@ -25,7 +25,7 @@ pallet-identity = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 
 # Other
-serde = { version = "1.0.104", optional = true, features = ["derive"] }
+serde = { version = "1.0.104", default-features = false, optional = true, features = ["derive"] }
 
 [dev-dependencies]
 serde_json = "1.0.41"
