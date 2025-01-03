@@ -27,7 +27,7 @@ polymesh-primitives = { workspace = true, default-features = false}
 pallet-group-rpc-runtime-api = { workspace = true, default-features = false }
 
 # Others
-serde = { version = "1.0.104", features = ["derive"] }
+serde = { version = "1.0.104", default-features = false, features = ["derive"] }
 
 [features]
 default = ["std"]

@@ -9,10 +9,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # Common
-polymesh-primitives = { workspace = true, default-features = false}
+polymesh-primitives = { workspace = true, default-features = false }
 
 # Others
-serde = { version = "1.0.104", optional = true, features = ["derive"] }
+serde = { version = "1.0.104", default-features = false, optional = true, features = ["derive"] }
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
