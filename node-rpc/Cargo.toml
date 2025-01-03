@@ -12,28 +12,28 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 
-polymesh-primitives = { path = "../primitives", default-features = false }
-pallet-group-rpc = { path = "../pallets/group/rpc" }
-pallet-protocol-fee-rpc = {  path = "../pallets/protocol-fee/rpc" }
-node-rpc = { path = "../rpc" }
+polymesh-primitives = { workspace = true, default-features = false }
+pallet-group-rpc = { workspace = true }
+pallet-protocol-fee-rpc = {  workspace = true }
+node-rpc = { workspace = true }
 
-sc-chain-spec = { version = "4.0.0-dev" }
-sc-client-api = { version = "4.0.0-dev" }
-sc-consensus-babe = { version = "0.10.0-dev" }
-sc-consensus-babe-rpc = { version = "0.10.0-dev" }
-sc-consensus-epochs = { version = "0.10.0-dev" }
-sc-consensus-grandpa = { version = "0.10.0-dev" }
-sc-consensus-grandpa-rpc = { version = "0.10.0-dev" }
-sc-rpc = { version = "4.0.0-dev" }
-sc-rpc-api = { version = "0.10.0-dev" }
-sc-rpc-spec-v2 = { version = "0.10.0-dev" }
-sc-sync-state-rpc = { version = "0.10.0-dev" }
-sc-transaction-pool-api = { version = "4.0.0-dev" }
-sp-api = { version = "4.0.0-dev" }
-sp-block-builder = { version = "4.0.0-dev" }
-sp-blockchain = { version = "4.0.0-dev" }
-sp-consensus = { version = "0.10.0-dev" }
-sp-consensus-babe = { version = "0.10.0-dev" }
-sp-keystore = { version = "0.13.0" }
-sp-runtime = { version = "7.0.0" }
-substrate-frame-rpc-system = { version = "4.0.0-dev" }
+sc-chain-spec = { workspace = true }
+sc-client-api = { workspace = true }
+sc-consensus-babe = { workspace = true }
+sc-consensus-babe-rpc = { workspace = true }
+sc-consensus-epochs = { workspace = true }
+sc-consensus-grandpa = { workspace = true }
+sc-consensus-grandpa-rpc = { workspace = true }
+sc-rpc = { workspace = true }
+sc-rpc-api = { workspace = true }
+sc-rpc-spec-v2 = { workspace = true }
+sc-sync-state-rpc = { workspace = true }
+sc-transaction-pool-api = { workspace = true }
+sp-api = { workspace = true }
+sp-block-builder = { workspace = true }
+sp-blockchain = { workspace = true }
+sp-consensus = { workspace = true }
+sp-consensus-babe = { workspace = true }
+sp-keystore = { workspace = true }
+sp-runtime = { workspace = true }
+substrate-frame-rpc-system = { workspace = true }

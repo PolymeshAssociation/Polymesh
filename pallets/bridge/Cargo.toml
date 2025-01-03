@@ -14,15 +14,15 @@ pallet-multisig = { workspace = true, default-features = false }
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
-scale-info = { version = "2.0", default-features = false, features = ["derive"] }
-sp-core = { version = "7.0.0", default-features = false }
-sp-std = { version = "5.0.0", default-features = false }
-sp-runtime = { version = "7.0.0", default-features = false }
-frame-support = { version = "4.0.0-dev", default-features = false }
-frame-system = { version = "4.0.0-dev", default-features = false }
-pallet-scheduler = { version = "4.0.0-dev", default-features = false }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
+sp-core = { workspace = true, default-features = false }
+sp-std = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
+frame-support = { workspace = true, default-features = false }
+frame-system = { workspace = true, default-features = false }
+pallet-scheduler = { workspace = true, default-features = false }
 
-frame-benchmarking = { version = "4.0.0-dev", optional = true }
+frame-benchmarking = { workspace = true, optional = true }
 
 # Other
 serde = { version = "1.0.104", default-features = false }
