@@ -13,7 +13,7 @@ pallet-staking = { workspace = true, default-features = false }
 
 # General
 static_assertions = "1.1.0"
-serde = { version = "1.0.104", optional = true }
+serde = { version = "1.0.104", default-features = false, optional = true }
 log = "0.4.8"
 
 # Substrate
@@ -40,7 +40,7 @@ rand_chacha = { version = "0.2", default-features = false, optional = true }
 
 [dev-dependencies]
 pallet-staking-reward-curve = { workspace = true, default-features = false }
-sp-tracing = "6.0.0"
+sp-tracing = { workspace = true }
 
 [features]
 default = ["std"]
