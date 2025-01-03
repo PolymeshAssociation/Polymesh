@@ -50,51 +50,50 @@ pallet-protocol-fee-rpc-runtime-api = { workspace = true, default-features = fal
 
 # Others
 log = "0.4.8"
-lazy_static = { version = "1.4.0", default-features = false }
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true }
 smallvec = "1.4.0"
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
-frame-election-provider-support = { version = "4.0.0-dev", default-features = false }
-frame-support = { version = "4.0.0-dev", default-features = false }
-frame-system = { version = "4.0.0-dev", default-features = false }
-frame-system-rpc-runtime-api = { version = "4.0.0-dev", default-features = false }
-pallet-authority-discovery = { version = "4.0.0-dev", default-features = false }
-pallet-authorship = { version = "4.0.0-dev", default-features = false }
-pallet-babe = { version = "4.0.0-dev", default-features = false }
-pallet-contracts = { version = "4.0.0-dev", default-features = false }
-pallet-contracts-primitives = { version = "7.0.0", default-features = false}
-pallet-election-provider-multi-phase = { version = "4.0.0-dev", default-features = false }
-pallet-executive = { package = "frame-executive", version = "4.0.0-dev", default-features = false }
-pallet-grandpa = { version = "4.0.0-dev", default-features = false }
-pallet-im-online = { version = "4.0.0-dev", default-features = false }
-pallet-indices = { version = "4.0.0-dev", default-features = false }
-pallet-offences = { version = "4.0.0-dev", default-features = false }
-pallet-preimage = { version = "4.0.0-dev", default-features = false }
-pallet-insecure-randomness-collective-flip = { version = "4.0.0-dev", default-features = false }
-pallet-scheduler = { version = "4.0.0-dev", default-features = false }
-pallet-session = { version = "4.0.0-dev", default-features = false }
-pallet-staking-reward-curve = { version = "4.0.0-dev", default-features = false }
-pallet-timestamp = { version = "4.0.0-dev", default-features = false }
-scale-info = { version = "2.0", default-features = false, features = ["derive"] }
-sp-api = { version = "4.0.0-dev", default-features = false }
-sp-arithmetic = { version = "6.0.0", default-features = false }
-sp-authority-discovery = { version = "4.0.0-dev", default-features = false }
-sp-block-builder = { version = "4.0.0-dev", default-features = false }
-sp-consensus-babe = { version = "0.10.0-dev", default-features = false }
-sp-consensus-grandpa = { version = "4.0.0-dev", default-features = false }
-sp-core = { version = "7.0.0", default-features = false }
-sp-inherents = { version = "4.0.0-dev", default-features = false }
-sp-io = { version = "7.0.0", default-features = false }
-sp-offchain = { version = "4.0.0-dev", default-features = false }
-sp-runtime = { version = "7.0.0", default-features = false }
-sp-session = { version = "4.0.0-dev", default-features = false }
-sp-staking = { version = "4.0.0-dev", default-features = false }
-sp-std = { version = "5.0.0", default-features = false }
-sp-transaction-pool = { version = "4.0.0-dev", default-features = false }
-sp-version = { version = "5.0.0", default-features = false }
+frame-election-provider-support = { workspace = true, default-features = false }
+frame-support = { workspace = true, default-features = false }
+frame-executive = { workspace = true, default-features = false }
+frame-system = { workspace = true, default-features = false }
+frame-system-rpc-runtime-api = { workspace = true, default-features = false }
+pallet-authority-discovery = { workspace = true, default-features = false }
+pallet-authorship = { workspace = true, default-features = false }
+pallet-babe = { workspace = true, default-features = false }
+pallet-contracts = { workspace = true, default-features = false }
+pallet-contracts-primitives = { workspace = true, default-features = false}
+pallet-election-provider-multi-phase = { workspace = true, default-features = false }
+pallet-grandpa = { workspace = true, default-features = false }
+pallet-im-online = { workspace = true, default-features = false }
+pallet-indices = { workspace = true, default-features = false }
+pallet-offences = { workspace = true, default-features = false }
+pallet-preimage = { workspace = true, default-features = false }
+pallet-insecure-randomness-collective-flip = { workspace = true, default-features = false }
+pallet-scheduler = { workspace = true, default-features = false }
+pallet-session = { workspace = true, default-features = false }
+pallet-staking-reward-curve = { workspace = true, default-features = false }
+pallet-timestamp = { workspace = true, default-features = false }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
+sp-api = { workspace = true, default-features = false }
+sp-arithmetic = { workspace = true, default-features = false }
+sp-authority-discovery = { workspace = true, default-features = false }
+sp-block-builder = { workspace = true, default-features = false }
+sp-consensus-babe = { workspace = true, default-features = false }
+sp-consensus-grandpa = { workspace = true, default-features = false }
+sp-core = { workspace = true, default-features = false }
+sp-inherents = { workspace = true, default-features = false }
+sp-io = { workspace = true, default-features = false }
+sp-offchain = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
+sp-session = { workspace = true, default-features = false }
+sp-staking = { workspace = true, default-features = false }
+sp-std = { workspace = true, default-features = false }
+sp-transaction-pool = { workspace = true, default-features = false }
+sp-version = { workspace = true, default-features = false }
 
 [build-dependencies]
 polymesh-build-tool = { workspace = true, default-features = false }
@@ -131,7 +130,7 @@ std = [
     "pallet-compliance-manager/std",
     "pallet-contracts/std",
     "pallet-election-provider-multi-phase/std",
-    "pallet-executive/std",
+    "frame-executive/std",
     "pallet-external-agents/std",
     "pallet-grandpa/std",
     "pallet-group-rpc-runtime-api/std",

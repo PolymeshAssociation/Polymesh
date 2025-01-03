@@ -10,25 +10,25 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true, default-features = false, features = ["derive"] }
 jsonrpsee = { version = "0.16.2", features = ["server", "macros"] }
-sp-api = { version = "4.0.0-dev", default-features = false }
-sp-blockchain = { version = "4.0.0-dev" }
-sp-core = { version = "7.0.0", default-features = false }
-sp-rpc = { version = "6.0.0" }
-sp-runtime = { version = "7.0.0", default-features = false }
-sp-std = {version = "5.0.0", default-features = false }
-sp-weights = { version = "4.0.0", default-features = false }
-frame-support = { version = "4.0.0-dev", default-features = false }
-frame-system = { version = "4.0.0-dev", default-features = false }
+sp-api = { workspace = true, default-features = false }
+sp-blockchain = { workspace = true }
+sp-core = { workspace = true, default-features = false }
+sp-rpc = { workspace = true }
+sp-runtime = { workspace = true, default-features = false }
+sp-std = { workspace = true, default-features = false }
+sp-weights = { workspace = true, default-features = false }
+frame-support = { workspace = true, default-features = false }
+frame-system = { workspace = true, default-features = false }
 
-node-rpc-runtime-api = { path = "./runtime-api", default-features = false }
+node-rpc-runtime-api = { workspace = true, default-features = false }
 
-pallet-compliance-manager = { path = "../pallets/compliance-manager", default-features = false }
-pallet-pips = { path = "../pallets/pips", default-features = false }
-polymesh-primitives = { path = "../primitives", default-features = false }
+pallet-compliance-manager = { workspace = true, default-features = false }
+pallet-pips = { workspace = true, default-features = false }
+polymesh-primitives = { workspace = true, default-features = false }
 
-pallet-portfolio = { path = "../pallets/portfolio", default-features = false }
-pallet-identity = { path = "../pallets/identity", default-features = false }
-pallet-transaction-payment = { path = "../pallets/transaction-payment", default-features = false }
+pallet-portfolio = { workspace = true, default-features = false }
+pallet-identity = { workspace = true, default-features = false }
+pallet-transaction-payment = { workspace = true, default-features = false }
 
 # Others
 serde = { version = "1.0.104", optional = true, features = ["derive"] }

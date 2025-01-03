@@ -7,7 +7,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-substrate-wasm-builder = { version = "5.0.0-dev", default-features = false}
+substrate-wasm-builder = { workspace = true, default-features = false}
 
 [features]
 default = ["std"]

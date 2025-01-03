@@ -207,7 +207,12 @@ polymesh-build-tool = { path = "pallets/runtime/build_tool", default-features = 
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
+frame-system-benchmarking = { version = "4.0.0-dev", default-features = false }
 frame-system-rpc-runtime-api = { version = "4.0.0-dev", default-features = false }
+frame-election-provider-support = { version = "4.0.0-dev", default-features = false }
+frame-benchmarking = { version = "4.0.0-dev", default-features = false }
+frame-benchmarking-cli = { version = "4.0.0-dev", default-features = false }
+frame-executive = { version = "4.0.0-dev", default-features = false }
 pallet-authority-discovery = { version = "4.0.0-dev", default-features = false }
 pallet-authorship = { version = "4.0.0-dev", default-features = false }
 pallet-babe = { version = "4.0.0-dev", default-features = false }
@@ -215,7 +220,6 @@ pallet-balances = { version = "4.0.0-dev", default-features = false }
 pallet-contracts = { version = "4.0.0-dev", default-features = false }
 pallet-contracts-primitives = { version = "7.0.0", default-features = false}
 pallet-election-provider-multi-phase = { version = "4.0.0-dev", default-features = false }
-pallet-executive = { package = "frame-executive", version = "4.0.0-dev", default-features = false }
 pallet-grandpa = { version = "4.0.0-dev", default-features = false }
 pallet-im-online = { version = "4.0.0-dev", default-features = false }
 pallet-indices = { version = "4.0.0-dev", default-features = false }
@@ -230,6 +234,7 @@ pallet-staking-reward-curve = { version = "4.0.0-dev", default-features = false 
 pallet-timestamp = { version = "4.0.0-dev", default-features = false }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
 sp-api = { version = "4.0.0-dev", default-features = false }
+sp-application-crypto = { version = "7.0.0", default-features = false }
 sp-arithmetic = { version = "6.0.0", default-features = false }
 sp-authority-discovery = { version = "4.0.0-dev", default-features = false }
 sp-block-builder = { version = "4.0.0-dev", default-features = false }
@@ -239,10 +244,13 @@ sp-consensus-babe = { version = "0.10.0-dev", default-features = false }
 sp-consensus-slots = { version = "0.10.0-dev", default-features = false }
 sp-consensus-grandpa = { version = "4.0.0-dev", default-features = false }
 sp-keyring = { version = "7.0.0", default-features = false }
+sp-keystore = { version = "0.13.0", default-features = false }
 sp-core = { version = "7.0.0", default-features = false }
+sp-rpc = { version = "6.0.0" }
 sp-inherents = { version = "4.0.0-dev", default-features = false }
 sp-transaction-storage-proof = { version = "4.0.0-dev", default-features = false }
 sp-io = { version = "7.0.0", default-features = false }
+sp-npos-elections = { version = "4.0.0-dev", default-features = false }
 sp-offchain = { version = "4.0.0-dev", default-features = false }
 sp-runtime = { version = "7.0.0", default-features = false }
 sp-runtime-interface = { version = "7.0.0", default-features = false }
@@ -251,7 +259,38 @@ sp-session = { version = "4.0.0-dev", default-features = false }
 sp-staking = { version = "4.0.0-dev", default-features = false }
 sp-std = { version = "5.0.0", default-features = false }
 sp-transaction-pool = { version = "4.0.0-dev", default-features = false }
+sp-weights = { version = "4.0.0", default-features = false }
 sp-version = { version = "5.0.0", default-features = false }
+sp-tracing = { version = "6.0.0", default-features = false, features = ["std"] }
+substrate-test-utils = { version = "4.0.0-dev", default-features = false }
+substrate-wasm-builder = { version = "5.0.0-dev", default-features = false }
+substrate-frame-rpc-system = { version = "4.0.0-dev", default-features = false }
+
+# Substrate client deps.
+sc-authority-discovery = "0.10.0-dev"
+sc-basic-authorship = "0.10.0-dev"
+sc-chain-spec = "4.0.0-dev"
+sc-cli = { version = "0.10.0-dev" }
+sc-client-api = "4.0.0-dev"
+sc-client-db = { version = "0.10.0-dev", default-features = false }
+sc-consensus = "0.10.0-dev"
+sc-consensus-babe = "0.10.0-dev"
+sc-consensus-babe-rpc = "0.10.0-dev"
+sc-consensus-epochs = { version = "0.10.0-dev" }
+sc-consensus-grandpa = "0.10.0-dev"
+sc-consensus-grandpa-rpc = "0.10.0-dev"
+sc-consensus-slots = "0.10.0-dev"
+sc-executor = { version = "0.10.0-dev" }
+sc-network = "0.10.0-dev"
+sc-network-common = { version = "0.10.0-dev" }
+sc-rpc = "4.0.0-dev"
+sc-rpc-api = { version = "0.10.0-dev" }
+sc-rpc-spec-v2 = { version = "0.10.0-dev" }
+sc-service = { version = "0.10.0-dev" }
+sc-telemetry = "4.0.0-dev"
+sc-transaction-pool = "4.0.0-dev"
+sc-transaction-pool-api = { version = "4.0.0-dev" }
+sc-sync-state-rpc = { version = "0.10.0-dev" }
 
 # Crypto
 rand = { version = "0.8", default-features = false }
@@ -304,23 +343,23 @@ clap = { version = "4.0.9", features = ["derive"] }
 rustc-hex = "2.1.0"
 
 # Substrate client deps.
-sc-authority-discovery = "0.10.0-dev"
-sc-basic-authorship = "0.10.0-dev"
-sc-chain-spec = "4.0.0-dev"
-sc-cli = { version = "0.10.0-dev" }
-sc-client-api = "4.0.0-dev"
-sc-client-db = { version = "0.10.0-dev", default-features = false }
-sc-consensus = "0.10.0-dev"
-sc-consensus-babe = "0.10.0-dev"
-sc-consensus-slots = "0.10.0-dev"
-sc-executor = { version = "0.10.0-dev" }
-sc-network = "0.10.0-dev"
-sc-network-common = { version = "0.10.0-dev" }
-sc-rpc = "4.0.0-dev"
-sc-service = { version = "0.10.0-dev" }
-sc-telemetry = "4.0.0-dev"
-sc-transaction-pool = "4.0.0-dev"
-sc-sync-state-rpc = { version = "0.10.0-dev" }
+sc-authority-discovery = { workspace = true }
+sc-basic-authorship = { workspace = true }
+sc-chain-spec = { workspace = true }
+sc-cli = { workspace = true }
+sc-client-api = { workspace = true }
+sc-client-db = { workspace = true, default-features = false }
+sc-consensus = { workspace = true }
+sc-consensus-babe = { workspace = true }
+sc-consensus-slots = { workspace = true }
+sc-executor = { workspace = true }
+sc-network = { workspace = true }
+sc-network-common = { workspace = true }
+sc-rpc = { workspace = true }
+sc-service = { workspace = true }
+sc-telemetry = { workspace = true }
+sc-transaction-pool = { workspace = true }
+sc-sync-state-rpc = { workspace = true }
 grandpa = { package = "sc-consensus-grandpa", version = "0.10.0-dev" }
 
 # Substrate
@@ -351,8 +390,8 @@ sp-session = { workspace = true }
 sp-transaction-pool = { workspace = true }
 
 # These dependencies are used for runtime benchmarking
-frame-benchmarking = "4.0.0-dev"
-frame-benchmarking-cli = "4.0.0-dev"
+frame-benchmarking = { workspace = true }
+frame-benchmarking-cli = { workspace = true }
 
 [build-dependencies]
 substrate-build-script-utils = { version = "3.0.0" }
