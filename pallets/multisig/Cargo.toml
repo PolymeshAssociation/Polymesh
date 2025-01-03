@@ -17,17 +17,17 @@ serde = { version = "1.0.104", default-features = false }
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
-scale-info = { version = "2.0", default-features = false, features = ["derive"] }
-sp-runtime = { version = "7.0.0", default-features = false }
-sp-std = { version = "5.0.0", default-features = false }
-sp-core = { version = "7.0.0", default-features = false }
-sp-version = { version = "5.0.0", default-features = false }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
+sp-runtime = { workspace = true, default-features = false }
+sp-std = { workspace = true, default-features = false }
+sp-core = { workspace = true, default-features = false }
+sp-version = { workspace = true, default-features = false }
 
-frame-system = { version = "4.0.0-dev", default-features = false }
-frame-support = { version = "4.0.0-dev", default-features = false }
-frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
+frame-system = { workspace = true, default-features = false }
+frame-support = { workspace = true, default-features = false }
+frame-benchmarking = { workspace = true, default-features = false, optional = true }
 
-pallet-timestamp = { version = "4.0.0-dev", default-features = false }
+pallet-timestamp = { workspace = true, default-features = false }
 
 [features]
 equalize = []

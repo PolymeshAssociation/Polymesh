@@ -784,7 +784,7 @@ macro_rules! runtime_apis {
         /// Extrinsic type that has already been checked.
         pub type CheckedExtrinsic = generic::CheckedExtrinsic<polymesh_primitives::AccountId, RuntimeCall, SignedExtra>;
         /// Executive: handles dispatch to the various modules.
-        pub type Executive = pallet_executive::Executive<
+        pub type Executive = frame_executive::Executive<
             Runtime,
             Block,
             frame_system::ChainContext<Runtime>,
