@@ -25,4 +25,4 @@ polymesh-primitives = { workspace = true, default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { workspace = true }
 
 # General
-serde = { version = "1.0.104", features = ["derive"] }
+serde = { version = "1.0.104", default-features = false, features = ["derive"] }
