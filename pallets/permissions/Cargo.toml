@@ -13,14 +13,14 @@ serde = { version = "1.0.104", default-features = false }
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
-frame-system = { version = "4.0.0-dev", default-features = false }
-frame-support = { version = "4.0.0-dev", default-features = false }
-scale-info = { version = "2.0", default-features = false, features = ["derive"] }
-sp-runtime = { version = "7.0.0", default-features = false }
-sp-std = { version = "5.0.0", default-features = false }
+frame-system = { workspace = true, default-features = false }
+frame-support = { workspace = true, default-features = false }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
+sp-runtime = { workspace = true, default-features = false }
+sp-std = { workspace = true, default-features = false }
 
 # Only for benchmarking
-frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
+frame-benchmarking = { workspace = true, default-features = false, optional = true }
 
 [features]
 equalize = []

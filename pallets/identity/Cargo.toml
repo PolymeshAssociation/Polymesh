@@ -23,7 +23,7 @@ schnorrkel = { version = "0.11", default-features = false, optional = true }
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
 frame-support = { workspace = true, default-features = false }
-scale-info = { version = "2.0", default-features = false, features = [
+scale-info = { workspace = true, default-features = false, features = [
     "derive",
 ] }
 frame-system = { workspace = true, default-features = false }
@@ -36,7 +36,7 @@ sp-std = { workspace = true, default-features = false }
 sp-version = { workspace = true, default-features = false }
 
 # Only Benchmarking
-frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
+frame-benchmarking = { workspace = true, default-features = false, optional = true }
 hex = { version = "^0.4.0", default-features = false, features = [
     "alloc",
 ], optional = true }
