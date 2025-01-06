@@ -1,6 +1,6 @@
 use pallet_group as group;
 use pallet_identity as identity;
-use polymesh_primitives::{identity_id::GenesisIdentityRecord, AccountId, IdentityId, Index};
+use polymesh_primitives::{identity_id::GenesisIdentityRecord, AccountId, IdentityId, Nonce};
 use polymesh_runtime_develop::{
     runtime::{RuntimeCall, SignedExtra},
     Runtime,
@@ -27,7 +27,7 @@ pub fn make_call() -> (<Runtime as frame_system::Config>::RuntimeCall, usize) {
 ///     - Transaction `priority` == `tip`.
 ///     - Only `Operational` transactions could have `tip` != 0.
 ///     - `Normal` transactions have `priority` == 0, as `tip` == 0.
-fn make_signed_extra(current_block: u64, period: u64, nonce: Index, tip: u128) -> SignedExtra {
+fn make_signed_extra(current_block: u64, period: u64, nonce: Nonce, tip: u128) -> SignedExtra {
     (
         CheckSpecVersion::<Runtime>::new(),
         CheckTxVersion::<Runtime>::new(),
