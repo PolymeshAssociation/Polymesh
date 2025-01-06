@@ -513,8 +513,8 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
 
-    #[derive(frame_support::DefaultNoBound)]
     #[pallet::genesis_config]
+    #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T: Config> {
         pub prune_historical_pips: bool,
         pub min_proposal_deposit: Balance,
@@ -525,7 +525,7 @@ pub mod pallet {
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             PruneHistoricalPips::<T>::put(self.prune_historical_pips);
             MinimumProposalDeposit::<T>::put(self.min_proposal_deposit);
