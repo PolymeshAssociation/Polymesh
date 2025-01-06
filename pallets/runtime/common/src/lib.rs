@@ -96,11 +96,15 @@ parameter_types! {
     /// Number of block delay an extrinsic claim surcharge has.
     pub const SignedClaimHandicap: u32 = 2;
     /// The balance every contract needs to deposit to stay alive indefinitely.
-    pub const DepositPerContract: u128 = 10 * CENTS;
+    pub const DepositPerContract: Balance = 10 * CENTS;
     /// The balance a contract needs to deposit per storage item to stay alive indefinitely.
-    pub const DepositPerItem: u128 = deposit(1, 0);
+    pub const DepositPerItem: Balance = deposit(1, 0);
     /// The balance a contract needs to deposit per storage byte to stay alive indefinitely.
-    pub const DepositPerByte: u128 = deposit(0, 1);
+    pub const DepositPerByte: Balance = deposit(0, 1);
+    /// The code hash lookup deposit.
+    pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
+    /// The default deposit limit.
+    pub const DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
     /// The maximum nesting level of a call/instantiate stack.
     pub const ContractsMaxDepth: u32 = 32;
     /// The maximum size of a storage value and event payload in bytes.
