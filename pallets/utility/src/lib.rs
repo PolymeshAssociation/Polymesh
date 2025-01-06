@@ -105,7 +105,7 @@ pub trait WeightInfo {
 }
 
 // POLYMESH:
-pub const MIN_WEIGHT: Weight = Weight::from_ref_time(1_000_000);
+pub const MIN_WEIGHT: Weight = Weight::from_parts(1_000_000, 0);
 
 // POLYMESH: Used for permission checks.
 type CallPermissions<T> = pallet_permissions::Pallet<T>;

@@ -68,9 +68,9 @@ impl pallet_external_agents::WeightInfo for SubstrateWeight {
     /// The range of component `p` is `[0, 19]`.
     fn create_group(p: u32) -> Weight {
         // Minimum execution time: 35_183 nanoseconds.
-        Weight::from_ref_time(39_772_344)
+        Weight::from_parts(39_772_344, 0)
             // Standard Error: 28_474
-            .saturating_add(Weight::from_ref_time(569_661).saturating_mul(p.into()))
+            .saturating_add(Weight::from_parts(569_661, 0).saturating_mul(p.into()))
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -89,9 +89,9 @@ impl pallet_external_agents::WeightInfo for SubstrateWeight {
     /// The range of component `p` is `[0, 19]`.
     fn set_group_permissions(p: u32) -> Weight {
         // Minimum execution time: 35_944 nanoseconds.
-        Weight::from_ref_time(39_599_164)
+        Weight::from_parts(39_599_164, 0)
             // Standard Error: 18_415
-            .saturating_add(Weight::from_ref_time(653_565).saturating_mul(p.into()))
+            .saturating_add(Weight::from_parts(653_565, 0).saturating_mul(p.into()))
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -109,7 +109,7 @@ impl pallet_external_agents::WeightInfo for SubstrateWeight {
     // Proof Skipped: ExternalAgents AgentOf (max_values: None, max_size: None, mode: Measured)
     fn remove_agent() -> Weight {
         // Minimum execution time: 44_916 nanoseconds.
-        Weight::from_ref_time(45_919_000)
+        Weight::from_parts(45_919_000, 0)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -123,7 +123,7 @@ impl pallet_external_agents::WeightInfo for SubstrateWeight {
     // Proof Skipped: ExternalAgents AgentOf (max_values: None, max_size: None, mode: Measured)
     fn abdicate() -> Weight {
         // Minimum execution time: 35_794 nanoseconds.
-        Weight::from_ref_time(39_620_000)
+        Weight::from_parts(39_620_000, 0)
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -141,7 +141,7 @@ impl pallet_external_agents::WeightInfo for SubstrateWeight {
     // Proof Skipped: ExternalAgents NumFullAgents (max_values: None, max_size: None, mode: Measured)
     fn change_group_custom() -> Weight {
         // Minimum execution time: 46_660 nanoseconds.
-        Weight::from_ref_time(50_255_000)
+        Weight::from_parts(50_255_000, 0)
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -157,7 +157,7 @@ impl pallet_external_agents::WeightInfo for SubstrateWeight {
     // Proof Skipped: ExternalAgents NumFullAgents (max_values: None, max_size: None, mode: Measured)
     fn change_group_builtin() -> Weight {
         // Minimum execution time: 42_934 nanoseconds.
-        Weight::from_ref_time(43_255_000)
+        Weight::from_parts(43_255_000, 0)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -183,7 +183,7 @@ impl pallet_external_agents::WeightInfo for SubstrateWeight {
     // Proof Skipped: ExternalAgents AgentOf (max_values: None, max_size: None, mode: Measured)
     fn accept_become_agent() -> Weight {
         // Minimum execution time: 69_164 nanoseconds.
-        Weight::from_ref_time(71_556_000)
+        Weight::from_parts(71_556_000, 0)
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(6))
     }
@@ -210,9 +210,9 @@ impl pallet_external_agents::WeightInfo for SubstrateWeight {
     /// The range of component `p` is `[0, 19]`.
     fn create_group_and_add_auth(p: u32) -> Weight {
         // Minimum execution time: 52_729 nanoseconds.
-        Weight::from_ref_time(57_036_314)
+        Weight::from_parts(57_036_314, 0)
             // Standard Error: 26_050
-            .saturating_add(Weight::from_ref_time(570_204).saturating_mul(p.into()))
+            .saturating_add(Weight::from_parts(570_204, 0).saturating_mul(p.into()))
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(6))
     }
@@ -233,9 +233,9 @@ impl pallet_external_agents::WeightInfo for SubstrateWeight {
     /// The range of component `p` is `[0, 19]`.
     fn create_and_change_custom_group(p: u32) -> Weight {
         // Minimum execution time: 60_300 nanoseconds.
-        Weight::from_ref_time(63_331_883)
+        Weight::from_parts(63_331_883, 0)
             // Standard Error: 32_956
-            .saturating_add(Weight::from_ref_time(563_391).saturating_mul(p.into()))
+            .saturating_add(Weight::from_parts(563_391, 0).saturating_mul(p.into()))
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(4))
     }

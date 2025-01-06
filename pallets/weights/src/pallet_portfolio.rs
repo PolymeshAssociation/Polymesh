@@ -64,9 +64,9 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     /// The range of component `l` is `[1, 500]`.
     fn create_portfolio(l: u32) -> Weight {
         // Minimum execution time: 29_945 nanoseconds.
-        Weight::from_ref_time(37_050_913)
+        Weight::from_parts(37_050_913, 0)
             // Standard Error: 2_500
-            .saturating_add(Weight::from_ref_time(8_946).saturating_mul(l.into()))
+            .saturating_add(Weight::from_parts(8_946, 0).saturating_mul(l.into()))
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -88,7 +88,7 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Proof Skipped: Portfolio NameToNumber (max_values: None, max_size: None, mode: Measured)
     fn delete_portfolio() -> Weight {
         // Minimum execution time: 61_051 nanoseconds.
-        Weight::from_ref_time(69_163_000)
+        Weight::from_parts(69_163_000, 0)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(5))
     }
@@ -101,9 +101,9 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     /// The range of component `i` is `[1, 500]`.
     fn rename_portfolio(i: u32) -> Weight {
         // Minimum execution time: 36_695 nanoseconds.
-        Weight::from_ref_time(41_059_117)
+        Weight::from_parts(41_059_117, 0)
             // Standard Error: 1_347
-            .saturating_add(Weight::from_ref_time(20_675).saturating_mul(i.into()))
+            .saturating_add(Weight::from_parts(20_675, 0).saturating_mul(i.into()))
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -115,7 +115,7 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Proof Skipped: Portfolio PortfoliosInCustody (max_values: None, max_size: None, mode: Measured)
     fn quit_portfolio_custody() -> Weight {
         // Minimum execution time: 36_354 nanoseconds.
-        Weight::from_ref_time(40_070_000)
+        Weight::from_parts(40_070_000, 0)
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -135,7 +135,7 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity AuthorizationsGiven (max_values: None, max_size: None, mode: Measured)
     fn accept_portfolio_custody() -> Weight {
         // Minimum execution time: 59_127 nanoseconds.
-        Weight::from_ref_time(59_309_000)
+        Weight::from_parts(59_309_000, 0)
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(6))
     }
@@ -163,11 +163,11 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[1, 100]`.
     fn move_portfolio_funds(f: u32, n: u32) -> Weight {
         // Minimum execution time: 324_106 nanoseconds.
-        Weight::from_ref_time(69_877_225)
+        Weight::from_parts(69_877_225, 0)
             // Standard Error: 363_511
-            .saturating_add(Weight::from_ref_time(24_738_302).saturating_mul(f.into()))
+            .saturating_add(Weight::from_parts(24_738_302, 0).saturating_mul(f.into()))
             // Standard Error: 34_158
-            .saturating_add(Weight::from_ref_time(14_948_726).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(14_948_726, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().reads((4_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(n.into())))
@@ -185,7 +185,7 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Proof Skipped: Portfolio PreApprovedPortfolios (max_values: None, max_size: None, mode: Measured)
     fn pre_approve_portfolio() -> Weight {
         // Minimum execution time: 28_823 nanoseconds.
-        Weight::from_ref_time(34_331_000)
+        Weight::from_parts(34_331_000, 0)
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -199,7 +199,7 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Proof Skipped: Portfolio PreApprovedPortfolios (max_values: None, max_size: None, mode: Measured)
     fn remove_portfolio_pre_approval() -> Weight {
         // Minimum execution time: 28_793 nanoseconds.
-        Weight::from_ref_time(30_766_000)
+        Weight::from_parts(30_766_000, 0)
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -209,7 +209,7 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Proof Skipped: Portfolio AllowedCustodians (max_values: None, max_size: None, mode: Measured)
     fn allow_identity_to_create_portfolios() -> Weight {
         // Minimum execution time: 15_053 nanoseconds.
-        Weight::from_ref_time(16_504_000)
+        Weight::from_parts(16_504_000, 0)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -219,7 +219,7 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Proof Skipped: Portfolio AllowedCustodians (max_values: None, max_size: None, mode: Measured)
     fn revoke_create_portfolios_permission() -> Weight {
         // Minimum execution time: 15_784 nanoseconds.
-        Weight::from_ref_time(17_936_000)
+        Weight::from_parts(17_936_000, 0)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -239,7 +239,7 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Proof Skipped: Portfolio Portfolios (max_values: None, max_size: None, mode: Measured)
     fn create_custody_portfolio() -> Weight {
         // Minimum execution time: 46_910 nanoseconds.
-        Weight::from_ref_time(48_954_000)
+        Weight::from_parts(48_954_000, 0)
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(5))
     }

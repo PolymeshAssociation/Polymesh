@@ -57,7 +57,7 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     // Proof: Pips PruneHistoricalPips (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
     fn set_prune_historical_pips() -> Weight {
         // Minimum execution time: 17_519 nanoseconds.
-        Weight::from_ref_time(17_652_000)
+        Weight::from_parts(17_652_000, 0)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -65,7 +65,7 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     // Proof: Pips MinimumProposalDeposit (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
     fn set_min_proposal_deposit() -> Weight {
         // Minimum execution time: 20_637 nanoseconds.
-        Weight::from_ref_time(21_244_000)
+        Weight::from_parts(21_244_000, 0)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -73,7 +73,7 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     // Proof: Pips DefaultEnactmentPeriod (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
     fn set_default_enactment_period() -> Weight {
         // Minimum execution time: 20_395 nanoseconds.
-        Weight::from_ref_time(20_535_000)
+        Weight::from_parts(20_535_000, 0)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -81,7 +81,7 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     // Proof Skipped: Pips PendingPipExpiry (max_values: Some(1), max_size: None, mode: Measured)
     fn set_pending_pip_expiry() -> Weight {
         // Minimum execution time: 21_154 nanoseconds.
-        Weight::from_ref_time(21_741_000)
+        Weight::from_parts(21_741_000, 0)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -89,7 +89,7 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     // Proof: Pips MaxPipSkipCount (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
     fn set_max_pip_skip_count() -> Weight {
         // Minimum execution time: 17_035 nanoseconds.
-        Weight::from_ref_time(17_344_000)
+        Weight::from_parts(17_344_000, 0)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -97,7 +97,7 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     // Proof: Pips ActivePipLimit (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
     fn set_active_pip_limit() -> Weight {
         // Minimum execution time: 19_938 nanoseconds.
-        Weight::from_ref_time(20_366_000)
+        Weight::from_parts(20_366_000, 0)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -137,7 +137,7 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     // Proof: Pips ProposalStates (max_values: None, max_size: Some(13), added: 2488, mode: MaxEncodedLen)
     fn propose_from_community() -> Weight {
         // Minimum execution time: 129_932 nanoseconds.
-        Weight::from_ref_time(130_345_000)
+        Weight::from_parts(130_345_000, 0)
             .saturating_add(DbWeight::get().reads(13))
             .saturating_add(DbWeight::get().writes(11))
     }
@@ -161,7 +161,7 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     // Proof: Pips ProposalStates (max_values: None, max_size: Some(13), added: 2488, mode: MaxEncodedLen)
     fn propose_from_committee() -> Weight {
         // Minimum execution time: 65_140 nanoseconds.
-        Weight::from_ref_time(65_704_000)
+        Weight::from_parts(65_704_000, 0)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(6))
     }
@@ -181,7 +181,7 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     // Proof Skipped: Pips LiveQueue (max_values: Some(1), max_size: None, mode: Measured)
     fn vote() -> Weight {
         // Minimum execution time: 108_219 nanoseconds.
-        Weight::from_ref_time(115_627_000)
+        Weight::from_parts(115_627_000, 0)
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(4))
     }
@@ -199,7 +199,7 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     // Proof: Pips PipToSchedule (max_values: None, max_size: Some(16), added: 2491, mode: MaxEncodedLen)
     fn approve_committee_proposal() -> Weight {
         // Minimum execution time: 65_605 nanoseconds.
-        Weight::from_ref_time(67_197_000)
+        Weight::from_parts(67_197_000, 0)
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(4))
     }
@@ -227,7 +227,7 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     // Proof: Pips ProposalResult (max_values: None, max_size: Some(52), added: 2527, mode: MaxEncodedLen)
     fn reject_proposal() -> Weight {
         // Minimum execution time: 85_835 nanoseconds.
-        Weight::from_ref_time(87_787_000)
+        Weight::from_parts(87_787_000, 0)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(9))
     }
@@ -247,7 +247,7 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     // Proof: Pips ProposalResult (max_values: None, max_size: Some(52), added: 2527, mode: MaxEncodedLen)
     fn prune_proposal() -> Weight {
         // Minimum execution time: 61_597 nanoseconds.
-        Weight::from_ref_time(62_681_000)
+        Weight::from_parts(62_681_000, 0)
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(7))
     }
@@ -265,7 +265,7 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     // Proof: Pips PipToSchedule (max_values: None, max_size: Some(16), added: 2491, mode: MaxEncodedLen)
     fn reschedule_execution() -> Weight {
         // Minimum execution time: 77_090 nanoseconds.
-        Weight::from_ref_time(77_456_000)
+        Weight::from_parts(77_456_000, 0)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(4))
     }
@@ -279,7 +279,7 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     // Proof Skipped: Pips SnapshotQueue (max_values: Some(1), max_size: None, mode: Measured)
     fn clear_snapshot() -> Weight {
         // Minimum execution time: 39_778 nanoseconds.
-        Weight::from_ref_time(40_192_000)
+        Weight::from_parts(40_192_000, 0)
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -297,7 +297,7 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     // Proof: Pips SnapshotMeta (max_values: Some(1), max_size: Some(40), added: 535, mode: MaxEncodedLen)
     fn snapshot() -> Weight {
         // Minimum execution time: 62_355 nanoseconds.
-        Weight::from_ref_time(70_260_000)
+        Weight::from_parts(70_260_000, 0)
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -332,13 +332,13 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     /// The range of component `s` is `[0, 33]`.
     fn enact_snapshot_results(a: u32, r: u32, s: u32) -> Weight {
         // Minimum execution time: 977_352 nanoseconds.
-        Weight::from_ref_time(159_135_641)
+        Weight::from_parts(159_135_641, 0)
             // Standard Error: 45_263
-            .saturating_add(Weight::from_ref_time(38_431_937).saturating_mul(a.into()))
+            .saturating_add(Weight::from_parts(38_431_937, 0).saturating_mul(a.into()))
             // Standard Error: 45_263
-            .saturating_add(Weight::from_ref_time(16_926_524).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(16_926_524, 0).saturating_mul(r.into()))
             // Standard Error: 45_263
-            .saturating_add(Weight::from_ref_time(7_970_390).saturating_mul(s.into()))
+            .saturating_add(Weight::from_parts(7_970_390, 0).saturating_mul(s.into()))
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(a.into())))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(r.into())))
@@ -370,7 +370,7 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     // Proof: Pips ProposalResult (max_values: None, max_size: Some(52), added: 2527, mode: MaxEncodedLen)
     fn execute_scheduled_pip() -> Weight {
         // Minimum execution time: 110_098 nanoseconds.
-        Weight::from_ref_time(111_819_000)
+        Weight::from_parts(111_819_000, 0)
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(9))
     }
@@ -400,7 +400,7 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     // Proof: Pips ProposalResult (max_values: None, max_size: Some(52), added: 2527, mode: MaxEncodedLen)
     fn expire_scheduled_pip() -> Weight {
         // Minimum execution time: 128_188 nanoseconds.
-        Weight::from_ref_time(129_249_000)
+        Weight::from_parts(129_249_000, 0)
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(10))
     }
@@ -420,11 +420,11 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     /// The range of component `v` is `[0, 128]`.
     fn remove_pending_storage(r: u32, v: u32) -> Weight {
         // Minimum execution time: 739_279 nanoseconds.
-        Weight::from_ref_time(63_144_485)
+        Weight::from_parts(63_144_485, 0)
             // Standard Error: 18_226
-            .saturating_add(Weight::from_ref_time(24_421_417).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(24_421_417, 0).saturating_mul(r.into()))
             // Standard Error: 18_226
-            .saturating_add(Weight::from_ref_time(5_613_829).saturating_mul(v.into()))
+            .saturating_add(Weight::from_parts(5_613_829, 0).saturating_mul(v.into()))
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(r.into())))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(v.into())))

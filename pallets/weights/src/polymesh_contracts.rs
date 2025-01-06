@@ -79,11 +79,11 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     /// The range of component `v` is `[1, 8192]`.
     fn chain_extension_read_storage(k: u32, v: u32) -> Weight {
         // Minimum execution time: 420_509 nanoseconds.
-        Weight::from_ref_time(441_154_010)
+        Weight::from_parts(441_154_010, 0)
             // Standard Error: 270
-            .saturating_add(Weight::from_ref_time(4_894).saturating_mul(k.into()))
+            .saturating_add(Weight::from_parts(4_894, 0).saturating_mul(k.into()))
             // Standard Error: 270
-            .saturating_add(Weight::from_ref_time(980).saturating_mul(v.into()))
+            .saturating_add(Weight::from_parts(980, 0).saturating_mul(v.into()))
             .saturating_add(DbWeight::get().reads(13))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -108,9 +108,9 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn chain_extension_get_version(r: u32) -> Weight {
         // Minimum execution time: 404_026 nanoseconds.
-        Weight::from_ref_time(430_717_810)
+        Weight::from_parts(430_717_810, 0)
             // Standard Error: 116_585
-            .saturating_add(Weight::from_ref_time(57_558_916).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(57_558_916, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -135,9 +135,9 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[1, 20]`.
     fn chain_extension_get_key_did(r: u32) -> Weight {
         // Minimum execution time: 1_221_859 nanoseconds.
-        Weight::from_ref_time(23_864_904)
+        Weight::from_parts(23_864_904, 0)
             // Standard Error: 2_525_338
-            .saturating_add(Weight::from_ref_time(870_955_515).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(870_955_515, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().reads((200_u64).saturating_mul(r.into())))
             .saturating_add(DbWeight::get().writes(3))
@@ -163,9 +163,9 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn chain_extension_hash_twox_64(r: u32) -> Weight {
         // Minimum execution time: 407_721 nanoseconds.
-        Weight::from_ref_time(436_149_077)
+        Weight::from_parts(436_149_077, 0)
             // Standard Error: 136_925
-            .saturating_add(Weight::from_ref_time(78_627_903).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(78_627_903, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -190,9 +190,9 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 64]`.
     fn chain_extension_hash_twox_64_per_kb(n: u32) -> Weight {
         // Minimum execution time: 493_259 nanoseconds.
-        Weight::from_ref_time(545_127_910)
+        Weight::from_parts(545_127_910, 0)
             // Standard Error: 65_828
-            .saturating_add(Weight::from_ref_time(27_618_039).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(27_618_039, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -217,9 +217,9 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn chain_extension_hash_twox_128(r: u32) -> Weight {
         // Minimum execution time: 403_573 nanoseconds.
-        Weight::from_ref_time(444_653_976)
+        Weight::from_parts(444_653_976, 0)
             // Standard Error: 133_724
-            .saturating_add(Weight::from_ref_time(78_972_384).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(78_972_384, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -244,9 +244,9 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 64]`.
     fn chain_extension_hash_twox_128_per_kb(n: u32) -> Weight {
         // Minimum execution time: 490_355 nanoseconds.
-        Weight::from_ref_time(549_217_273)
+        Weight::from_parts(549_217_273, 0)
             // Standard Error: 60_751
-            .saturating_add(Weight::from_ref_time(34_565_161).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(34_565_161, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -271,9 +271,9 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn chain_extension_hash_twox_256(r: u32) -> Weight {
         // Minimum execution time: 412_718 nanoseconds.
-        Weight::from_ref_time(440_860_388)
+        Weight::from_parts(440_860_388, 0)
             // Standard Error: 110_188
-            .saturating_add(Weight::from_ref_time(85_042_455).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(85_042_455, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -298,9 +298,9 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 64]`.
     fn chain_extension_hash_twox_256_per_kb(n: u32) -> Weight {
         // Minimum execution time: 498_587 nanoseconds.
-        Weight::from_ref_time(553_931_299)
+        Weight::from_parts(553_931_299, 0)
             // Standard Error: 63_823
-            .saturating_add(Weight::from_ref_time(48_829_146).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(48_829_146, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -333,9 +333,9 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[1, 8188]`.
     fn chain_extension_call_runtime(n: u32) -> Weight {
         // Minimum execution time: 445_737 nanoseconds.
-        Weight::from_ref_time(480_099_782)
+        Weight::from_parts(480_099_782, 0)
             // Standard Error: 375
-            .saturating_add(Weight::from_ref_time(555).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(555, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(16))
             .saturating_add(DbWeight::get().writes(6))
     }
@@ -359,46 +359,46 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
     fn dummy_contract() -> Weight {
         // Minimum execution time: 242_023 nanoseconds.
-        Weight::from_ref_time(246_270_000)
+        Weight::from_parts(246_270_000, 0)
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
     /// The range of component `n` is `[1, 8188]`.
     fn basic_runtime_call(_n: u32) -> Weight {
         // Minimum execution time: 1_963 nanoseconds.
-        Weight::from_ref_time(3_024_347)
+        Weight::from_parts(3_024_347, 0)
     }
     /// The range of component `i` is `[0, 1048576]`.
     /// The range of component `s` is `[0, 1048576]`.
     fn base_weight_with_hash(i: u32, s: u32) -> Weight {
         // Minimum execution time: 1_154_999 nanoseconds.
-        Weight::from_ref_time(73_388_718)
+        Weight::from_parts(73_388_718, 0)
             // Standard Error: 10
-            .saturating_add(Weight::from_ref_time(1_019).saturating_mul(i.into()))
+            .saturating_add(Weight::from_parts(1_019, 0).saturating_mul(i.into()))
             // Standard Error: 10
-            .saturating_add(Weight::from_ref_time(1_157).saturating_mul(s.into()))
+            .saturating_add(Weight::from_parts(1_157, 0).saturating_mul(s.into()))
     }
     /// The range of component `c` is `[0, 61717]`.
     /// The range of component `i` is `[0, 1048576]`.
     /// The range of component `s` is `[0, 1048576]`.
     fn base_weight_with_code(c: u32, i: u32, s: u32) -> Weight {
         // Minimum execution time: 1_206_667 nanoseconds.
-        Weight::from_ref_time(67_372_302)
+        Weight::from_parts(67_372_302, 0)
             // Standard Error: 167
-            .saturating_add(Weight::from_ref_time(1_447).saturating_mul(c.into()))
+            .saturating_add(Weight::from_parts(1_447, 0).saturating_mul(c.into()))
             // Standard Error: 9
-            .saturating_add(Weight::from_ref_time(996).saturating_mul(i.into()))
+            .saturating_add(Weight::from_parts(996, 0).saturating_mul(i.into()))
             // Standard Error: 9
-            .saturating_add(Weight::from_ref_time(1_137).saturating_mul(s.into()))
+            .saturating_add(Weight::from_parts(1_137, 0).saturating_mul(s.into()))
     }
     // Storage: PolymeshContracts CallRuntimeWhitelist (r:0 w:2000)
     // Proof Skipped: PolymeshContracts CallRuntimeWhitelist (max_values: None, max_size: None, mode: Measured)
     /// The range of component `u` is `[0, 2000]`.
     fn update_call_runtime_whitelist(u: u32) -> Weight {
         // Minimum execution time: 3_936 nanoseconds.
-        Weight::from_ref_time(4_167_000)
+        Weight::from_parts(4_167_000, 0)
             // Standard Error: 2_190
-            .saturating_add(Weight::from_ref_time(1_653_031).saturating_mul(u.into()))
+            .saturating_add(Weight::from_parts(1_653_031, 0).saturating_mul(u.into()))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(u.into())))
     }
     // Storage: Identity KeyRecords (r:2 w:1)
@@ -413,7 +413,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity KeyAssetPermissions (max_values: None, max_size: None, mode: Measured)
     fn link_contract_as_secondary_key() -> Weight {
         // Minimum execution time: 26_339 nanoseconds.
-        Weight::from_ref_time(28_423_000)
+        Weight::from_parts(28_423_000, 0)
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(5))
     }
@@ -437,7 +437,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity ChildDid (max_values: None, max_size: None, mode: Measured)
     fn link_contract_as_primary_key() -> Weight {
         // Minimum execution time: 47_721 nanoseconds.
-        Weight::from_ref_time(52_568_000)
+        Weight::from_parts(52_568_000, 0)
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().writes(6))
     }
@@ -445,7 +445,7 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Proof Skipped: PolymeshContracts ApiNextUpgrade (max_values: None, max_size: None, mode: Measured)
     fn upgrade_api() -> Weight {
         // Minimum execution time: 12_098 nanoseconds.
-        Weight::from_ref_time(13_571_000).saturating_add(DbWeight::get().writes(1))
+        Weight::from_parts(13_571_000, 0).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:2 w:0)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
@@ -472,9 +472,9 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn chain_extension_get_latest_api_upgrade(r: u32) -> Weight {
         // Minimum execution time: 402_874 nanoseconds.
-        Weight::from_ref_time(468_862_333)
+        Weight::from_parts(468_862_333, 0)
             // Standard Error: 1_989_018
-            .saturating_add(Weight::from_ref_time(376_144_330).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(376_144_330, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(14))
             .saturating_add(DbWeight::get().writes(5))
     }
@@ -503,9 +503,9 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn chain_extension_get_next_asset_id(r: u32) -> Weight {
         // Minimum execution time: 413_229 nanoseconds.
-        Weight::from_ref_time(437_313_575)
+        Weight::from_parts(437_313_575, 0)
             // Standard Error: 863_761
-            .saturating_add(Weight::from_ref_time(428_114_434).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(428_114_434, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(14))
             .saturating_add(DbWeight::get().writes(3))
     }

@@ -57,7 +57,7 @@ impl pallet_asset::checkpoint::WeightInfo for SubstrateWeight {
     // Proof Skipped: Checkpoint SchedulesMaxComplexity (max_values: Some(1), max_size: None, mode: Measured)
     fn set_schedules_max_complexity() -> Weight {
         // Minimum execution time: 11_066 nanoseconds.
-        Weight::from_ref_time(11_147_000).saturating_add(DbWeight::get().writes(1))
+        Weight::from_parts(11_147_000, 0).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
@@ -79,7 +79,7 @@ impl pallet_asset::checkpoint::WeightInfo for SubstrateWeight {
     // Proof Skipped: Checkpoint Timestamps (max_values: None, max_size: None, mode: Measured)
     fn create_checkpoint() -> Weight {
         // Minimum execution time: 58_728 nanoseconds.
-        Weight::from_ref_time(64_186_000)
+        Weight::from_parts(64_186_000, 0)
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -109,7 +109,7 @@ impl pallet_asset::checkpoint::WeightInfo for SubstrateWeight {
     // Proof Skipped: Checkpoint ScheduleRefCount (max_values: None, max_size: None, mode: Measured)
     fn create_schedule() -> Weight {
         // Minimum execution time: 81_152 nanoseconds.
-        Weight::from_ref_time(97_196_000)
+        Weight::from_parts(97_196_000, 0)
             .saturating_add(DbWeight::get().reads(10))
             .saturating_add(DbWeight::get().writes(4))
     }
@@ -129,7 +129,7 @@ impl pallet_asset::checkpoint::WeightInfo for SubstrateWeight {
     // Proof Skipped: Checkpoint CachedNextCheckpoints (max_values: None, max_size: None, mode: Measured)
     fn remove_schedule() -> Weight {
         // Minimum execution time: 69_505 nanoseconds.
-        Weight::from_ref_time(72_329_000)
+        Weight::from_parts(72_329_000, 0)
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(3))
     }

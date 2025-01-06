@@ -57,7 +57,7 @@ impl pallet_corporate_actions::WeightInfo for SubstrateWeight {
     // Proof Skipped: CorporateAction MaxDetailsLength (max_values: Some(1), max_size: None, mode: Measured)
     fn set_max_details_length() -> Weight {
         // Minimum execution time: 9_604 nanoseconds.
-        Weight::from_ref_time(10_586_000).saturating_add(DbWeight::get().writes(1))
+        Weight::from_parts(10_586_000, 0).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
@@ -72,9 +72,9 @@ impl pallet_corporate_actions::WeightInfo for SubstrateWeight {
     /// The range of component `t` is `[0, 500]`.
     fn set_default_targets(t: u32) -> Weight {
         // Minimum execution time: 34_903 nanoseconds.
-        Weight::from_ref_time(43_628_601)
+        Weight::from_parts(43_628_601, 0)
             // Standard Error: 2_349
-            .saturating_add(Weight::from_ref_time(313_974).saturating_mul(t.into()))
+            .saturating_add(Weight::from_parts(313_974, 0).saturating_mul(t.into()))
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -90,7 +90,7 @@ impl pallet_corporate_actions::WeightInfo for SubstrateWeight {
     // Proof Skipped: CorporateAction DefaultWithholdingTax (max_values: None, max_size: None, mode: Measured)
     fn set_default_withholding_tax() -> Weight {
         // Minimum execution time: 35_834 nanoseconds.
-        Weight::from_ref_time(40_821_000)
+        Weight::from_parts(40_821_000, 0)
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -107,9 +107,9 @@ impl pallet_corporate_actions::WeightInfo for SubstrateWeight {
     /// The range of component `w` is `[0, 999]`.
     fn set_did_withholding_tax(w: u32) -> Weight {
         // Minimum execution time: 37_276 nanoseconds.
-        Weight::from_ref_time(58_202_009)
+        Weight::from_parts(58_202_009, 0)
             // Standard Error: 1_772
-            .saturating_add(Weight::from_ref_time(68_189).saturating_mul(w.into()))
+            .saturating_add(Weight::from_parts(68_189, 0).saturating_mul(w.into()))
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -155,11 +155,11 @@ impl pallet_corporate_actions::WeightInfo for SubstrateWeight {
     /// The range of component `t` is `[0, 500]`.
     fn initiate_corporate_action_use_defaults(w: u32, t: u32) -> Weight {
         // Minimum execution time: 164_487 nanoseconds.
-        Weight::from_ref_time(132_794_590)
+        Weight::from_parts(132_794_590, 0)
             // Standard Error: 1_984
-            .saturating_add(Weight::from_ref_time(71_890).saturating_mul(w.into()))
+            .saturating_add(Weight::from_parts(71_890, 0).saturating_mul(w.into()))
             // Standard Error: 3_966
-            .saturating_add(Weight::from_ref_time(72_435).saturating_mul(t.into()))
+            .saturating_add(Weight::from_parts(72_435, 0).saturating_mul(t.into()))
             .saturating_add(DbWeight::get().reads(15))
             .saturating_add(DbWeight::get().writes(7))
     }
@@ -199,11 +199,11 @@ impl pallet_corporate_actions::WeightInfo for SubstrateWeight {
     /// The range of component `t` is `[0, 500]`.
     fn initiate_corporate_action_provided(w: u32, t: u32) -> Weight {
         // Minimum execution time: 268_151 nanoseconds.
-        Weight::from_ref_time(140_602_268)
+        Weight::from_parts(140_602_268, 0)
             // Standard Error: 2_141
-            .saturating_add(Weight::from_ref_time(140_908).saturating_mul(w.into()))
+            .saturating_add(Weight::from_parts(140_908, 0).saturating_mul(w.into()))
             // Standard Error: 4_281
-            .saturating_add(Weight::from_ref_time(278_367).saturating_mul(t.into()))
+            .saturating_add(Weight::from_parts(278_367, 0).saturating_mul(t.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(7))
     }
@@ -224,9 +224,9 @@ impl pallet_corporate_actions::WeightInfo for SubstrateWeight {
     /// The range of component `d` is `[0, 1000]`.
     fn link_ca_doc(d: u32) -> Weight {
         // Minimum execution time: 42_243 nanoseconds.
-        Weight::from_ref_time(42_443_000)
+        Weight::from_parts(42_443_000, 0)
             // Standard Error: 7_796
-            .saturating_add(Weight::from_ref_time(4_013_372).saturating_mul(d.into()))
+            .saturating_add(Weight::from_parts(4_013_372, 0).saturating_mul(d.into()))
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(d.into())))
             .saturating_add(DbWeight::get().writes(1))
@@ -259,7 +259,7 @@ impl pallet_corporate_actions::WeightInfo for SubstrateWeight {
     // Proof Skipped: CorporateBallot RCV (max_values: None, max_size: None, mode: Measured)
     fn remove_ca_with_ballot() -> Weight {
         // Minimum execution time: 87_891 nanoseconds.
-        Weight::from_ref_time(107_050_000)
+        Weight::from_parts(107_050_000, 0)
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().writes(8))
     }
@@ -287,7 +287,7 @@ impl pallet_corporate_actions::WeightInfo for SubstrateWeight {
     // Proof Skipped: CorporateAction CADocLink (max_values: None, max_size: None, mode: Measured)
     fn remove_ca_with_dist() -> Weight {
         // Minimum execution time: 80_921 nanoseconds.
-        Weight::from_ref_time(85_537_000)
+        Weight::from_parts(85_537_000, 0)
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(6))
     }
@@ -321,7 +321,7 @@ impl pallet_corporate_actions::WeightInfo for SubstrateWeight {
     // Proof Skipped: Checkpoint ScheduledCheckpoints (max_values: None, max_size: None, mode: Measured)
     fn change_record_date_with_ballot() -> Weight {
         // Minimum execution time: 99_510 nanoseconds.
-        Weight::from_ref_time(102_093_000)
+        Weight::from_parts(102_093_000, 0)
             .saturating_add(DbWeight::get().reads(13))
             .saturating_add(DbWeight::get().writes(6))
     }
@@ -355,7 +355,7 @@ impl pallet_corporate_actions::WeightInfo for SubstrateWeight {
     // Proof Skipped: Checkpoint ScheduledCheckpoints (max_values: None, max_size: None, mode: Measured)
     fn change_record_date_with_dist() -> Weight {
         // Minimum execution time: 100_200 nanoseconds.
-        Weight::from_ref_time(101_983_000)
+        Weight::from_parts(101_983_000, 0)
             .saturating_add(DbWeight::get().reads(13))
             .saturating_add(DbWeight::get().writes(6))
     }

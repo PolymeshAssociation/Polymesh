@@ -57,7 +57,7 @@ impl pallet_committee::WeightInfo for SubstrateWeight {
     // Proof Skipped: Instance1Committee VoteThreshold (max_values: Some(1), max_size: None, mode: Measured)
     fn set_vote_threshold() -> Weight {
         // Minimum execution time: 10_135 nanoseconds.
-        Weight::from_ref_time(11_227_000).saturating_add(DbWeight::get().writes(1))
+        Weight::from_parts(11_227_000, 0).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Instance1Committee Members (r:1 w:0)
     // Proof Skipped: Instance1Committee Members (max_values: Some(1), max_size: None, mode: Measured)
@@ -65,7 +65,7 @@ impl pallet_committee::WeightInfo for SubstrateWeight {
     // Proof Skipped: Instance1Committee ReleaseCoordinator (max_values: Some(1), max_size: None, mode: Measured)
     fn set_release_coordinator() -> Weight {
         // Minimum execution time: 48_141 nanoseconds.
-        Weight::from_ref_time(53_229_000)
+        Weight::from_parts(53_229_000, 0)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -73,7 +73,7 @@ impl pallet_committee::WeightInfo for SubstrateWeight {
     // Proof Skipped: Instance1Committee ExpiresAfter (max_values: Some(1), max_size: None, mode: Measured)
     fn set_expires_after() -> Weight {
         // Minimum execution time: 9_975 nanoseconds.
-        Weight::from_ref_time(11_197_000).saturating_add(DbWeight::get().writes(1))
+        Weight::from_parts(11_197_000, 0).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Instance1Committee Voting (r:1 w:1)
     // Proof Skipped: Instance1Committee Voting (max_values: None, max_size: None, mode: Measured)
@@ -91,7 +91,7 @@ impl pallet_committee::WeightInfo for SubstrateWeight {
     // Proof Skipped: Instance1Committee ExpiresAfter (max_values: Some(1), max_size: None, mode: Measured)
     fn vote_or_propose_new_proposal() -> Weight {
         // Minimum execution time: 149_715 nanoseconds.
-        Weight::from_ref_time(156_454_000)
+        Weight::from_parts(156_454_000, 0)
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(4))
     }
@@ -105,7 +105,7 @@ impl pallet_committee::WeightInfo for SubstrateWeight {
     // Proof Skipped: Instance1Committee VoteThreshold (max_values: Some(1), max_size: None, mode: Measured)
     fn vote_or_propose_existing_proposal() -> Weight {
         // Minimum execution time: 119_660 nanoseconds.
-        Weight::from_ref_time(135_473_000)
+        Weight::from_parts(135_473_000, 0)
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -123,7 +123,7 @@ impl pallet_committee::WeightInfo for SubstrateWeight {
     // Proof Skipped: Instance1Committee Proposals (max_values: Some(1), max_size: None, mode: Measured)
     fn vote_aye() -> Weight {
         // Minimum execution time: 266_349 nanoseconds.
-        Weight::from_ref_time(275_382_000)
+        Weight::from_parts(275_382_000, 0)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -137,7 +137,7 @@ impl pallet_committee::WeightInfo for SubstrateWeight {
     // Proof Skipped: Instance1Committee VoteThreshold (max_values: Some(1), max_size: None, mode: Measured)
     fn vote_nay() -> Weight {
         // Minimum execution time: 107_030 nanoseconds.
-        Weight::from_ref_time(109_584_000)
+        Weight::from_parts(109_584_000, 0)
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(1))
     }

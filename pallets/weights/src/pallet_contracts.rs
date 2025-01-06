@@ -57,16 +57,16 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     // Proof: Contracts DeletionQueue (max_values: Some(1), max_size: Some(133122), added: 133617, mode: Measured)
     fn on_process_deletion_queue_batch() -> Weight {
         // Minimum execution time: 4_196 nanoseconds.
-        Weight::from_ref_time(4_566_000).saturating_add(DbWeight::get().reads(1))
+        Weight::from_parts(4_566_000, 0).saturating_add(DbWeight::get().reads(1))
     }
     // Storage: Skipped Metadata (r:0 w:0)
     // Proof Skipped: Skipped Metadata (max_values: None, max_size: None, mode: Measured)
     /// The range of component `k` is `[0, 1024]`.
     fn on_initialize_per_trie_key(k: u32) -> Weight {
         // Minimum execution time: 16_224 nanoseconds.
-        Weight::from_ref_time(16_555_000)
+        Weight::from_parts(16_555_000, 0)
             // Standard Error: 2_656
-            .saturating_add(Weight::from_ref_time(1_115_916).saturating_mul(k.into()))
+            .saturating_add(Weight::from_parts(1_115_916, 0).saturating_mul(k.into()))
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(k.into())))
             .saturating_add(DbWeight::get().writes(1))
@@ -77,9 +77,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `q` is `[0, 1024]`.
     fn on_initialize_per_queue_item(q: u32) -> Weight {
         // Minimum execution time: 4_497 nanoseconds.
-        Weight::from_ref_time(12_720_933)
+        Weight::from_parts(12_720_933, 0)
             // Standard Error: 9_880
-            .saturating_add(Weight::from_ref_time(1_979_223).saturating_mul(q.into()))
+            .saturating_add(Weight::from_parts(1_979_223, 0).saturating_mul(q.into()))
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -90,9 +90,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `c` is `[0, 61717]`.
     fn reinstrument(c: u32) -> Weight {
         // Minimum execution time: 37_846 nanoseconds.
-        Weight::from_ref_time(57_885_785)
+        Weight::from_parts(57_885_785, 0)
             // Standard Error: 136
-            .saturating_add(Weight::from_ref_time(57_096).saturating_mul(c.into()))
+            .saturating_add(Weight::from_parts(57_096, 0).saturating_mul(c.into()))
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -117,9 +117,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `c` is `[0, 125952]`.
     fn call_with_code_per_byte(c: u32) -> Weight {
         // Minimum execution time: 415_913 nanoseconds.
-        Weight::from_ref_time(456_003_585)
+        Weight::from_parts(456_003_585, 0)
             // Standard Error: 41
-            .saturating_add(Weight::from_ref_time(31_632).saturating_mul(c.into()))
+            .saturating_add(Weight::from_parts(31_632, 0).saturating_mul(c.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(4))
     }
@@ -160,13 +160,13 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `s` is `[0, 1048576]`.
     fn instantiate_with_code(c: u32, i: u32, s: u32) -> Weight {
         // Minimum execution time: 3_269_226 nanoseconds.
-        Weight::from_ref_time(534_469_642)
+        Weight::from_parts(534_469_642, 0)
             // Standard Error: 282
-            .saturating_add(Weight::from_ref_time(105_094).saturating_mul(c.into()))
+            .saturating_add(Weight::from_parts(105_094, 0).saturating_mul(c.into()))
             // Standard Error: 16
-            .saturating_add(Weight::from_ref_time(1_295).saturating_mul(i.into()))
+            .saturating_add(Weight::from_parts(1_295, 0).saturating_mul(i.into()))
             // Standard Error: 16
-            .saturating_add(Weight::from_ref_time(1_449).saturating_mul(s.into()))
+            .saturating_add(Weight::from_parts(1_449, 0).saturating_mul(s.into()))
             .saturating_add(DbWeight::get().reads(16))
             .saturating_add(DbWeight::get().writes(15))
     }
@@ -204,11 +204,11 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `s` is `[0, 1048576]`.
     fn instantiate(i: u32, s: u32) -> Weight {
         // Minimum execution time: 1_839_605 nanoseconds.
-        Weight::from_ref_time(424_244_743)
+        Weight::from_parts(424_244_743, 0)
             // Standard Error: 7
-            .saturating_add(Weight::from_ref_time(1_353).saturating_mul(i.into()))
+            .saturating_add(Weight::from_parts(1_353, 0).saturating_mul(i.into()))
             // Standard Error: 7
-            .saturating_add(Weight::from_ref_time(1_445).saturating_mul(s.into()))
+            .saturating_add(Weight::from_parts(1_445, 0).saturating_mul(s.into()))
             .saturating_add(DbWeight::get().reads(16))
             .saturating_add(DbWeight::get().writes(12))
     }
@@ -232,7 +232,7 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
     fn call() -> Weight {
         // Minimum execution time: 354_541 nanoseconds.
-        Weight::from_ref_time(373_550_000)
+        Weight::from_parts(373_550_000, 0)
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(4))
     }
@@ -249,9 +249,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `c` is `[0, 61717]`.
     fn upload_code(c: u32) -> Weight {
         // Minimum execution time: 552_677 nanoseconds.
-        Weight::from_ref_time(483_663_371)
+        Weight::from_parts(483_663_371, 0)
             // Standard Error: 231
-            .saturating_add(Weight::from_ref_time(99_121).saturating_mul(c.into()))
+            .saturating_add(Weight::from_parts(99_121, 0).saturating_mul(c.into()))
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().writes(4))
     }
@@ -267,7 +267,7 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     // Proof: Contracts PristineCode (max_values: None, max_size: Some(125988), added: 128463, mode: Measured)
     fn remove_code() -> Weight {
         // Minimum execution time: 43_706 nanoseconds.
-        Weight::from_ref_time(45_318_000)
+        Weight::from_parts(45_318_000, 0)
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().writes(4))
     }
@@ -279,7 +279,7 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     // Proof Skipped: System EventTopics (max_values: None, max_size: None, mode: Measured)
     fn set_code() -> Weight {
         // Minimum execution time: 39_510 nanoseconds.
-        Weight::from_ref_time(40_220_000)
+        Weight::from_parts(40_220_000, 0)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(6))
     }
@@ -304,9 +304,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_caller(r: u32) -> Weight {
         // Minimum execution time: 402_952 nanoseconds.
-        Weight::from_ref_time(433_384_068)
+        Weight::from_parts(433_384_068, 0)
             // Standard Error: 119_548
-            .saturating_add(Weight::from_ref_time(35_038_013).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(35_038_013, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -331,9 +331,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_is_contract(r: u32) -> Weight {
         // Minimum execution time: 400_320 nanoseconds.
-        Weight::from_ref_time(244_494_088)
+        Weight::from_parts(244_494_088, 0)
             // Standard Error: 965_160
-            .saturating_add(Weight::from_ref_time(322_072_864).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(322_072_864, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().reads((80_u64).saturating_mul(r.into())))
             .saturating_add(DbWeight::get().writes(3))
@@ -359,9 +359,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_code_hash(r: u32) -> Weight {
         // Minimum execution time: 402_373 nanoseconds.
-        Weight::from_ref_time(186_896_462)
+        Weight::from_parts(186_896_462, 0)
             // Standard Error: 1_455_479
-            .saturating_add(Weight::from_ref_time(426_181_718).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(426_181_718, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().reads((80_u64).saturating_mul(r.into())))
             .saturating_add(DbWeight::get().writes(3))
@@ -387,9 +387,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_own_code_hash(r: u32) -> Weight {
         // Minimum execution time: 400_470 nanoseconds.
-        Weight::from_ref_time(425_030_035)
+        Weight::from_parts(425_030_035, 0)
             // Standard Error: 138_254
-            .saturating_add(Weight::from_ref_time(48_072_386).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(48_072_386, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -414,9 +414,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_caller_is_origin(r: u32) -> Weight {
         // Minimum execution time: 395_382 nanoseconds.
-        Weight::from_ref_time(421_607_312)
+        Weight::from_parts(421_607_312, 0)
             // Standard Error: 89_893
-            .saturating_add(Weight::from_ref_time(11_186_383).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(11_186_383, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -441,9 +441,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_address(r: u32) -> Weight {
         // Minimum execution time: 399_168 nanoseconds.
-        Weight::from_ref_time(428_371_820)
+        Weight::from_parts(428_371_820, 0)
             // Standard Error: 129_246
-            .saturating_add(Weight::from_ref_time(34_999_207).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(34_999_207, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -468,9 +468,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_gas_left(r: u32) -> Weight {
         // Minimum execution time: 398_837 nanoseconds.
-        Weight::from_ref_time(431_153_666)
+        Weight::from_parts(431_153_666, 0)
             // Standard Error: 119_073
-            .saturating_add(Weight::from_ref_time(34_435_906).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(34_435_906, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -495,9 +495,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_balance(r: u32) -> Weight {
         // Minimum execution time: 395_643 nanoseconds.
-        Weight::from_ref_time(394_743_078)
+        Weight::from_parts(394_743_078, 0)
             // Standard Error: 1_055_960
-            .saturating_add(Weight::from_ref_time(190_373_824).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(190_373_824, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(13))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -522,9 +522,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_value_transferred(r: u32) -> Weight {
         // Minimum execution time: 436_795 nanoseconds.
-        Weight::from_ref_time(443_881_640)
+        Weight::from_parts(443_881_640, 0)
             // Standard Error: 156_759
-            .saturating_add(Weight::from_ref_time(33_196_438).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(33_196_438, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -549,9 +549,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_minimum_balance(r: u32) -> Weight {
         // Minimum execution time: 398_657 nanoseconds.
-        Weight::from_ref_time(420_094_398)
+        Weight::from_parts(420_094_398, 0)
             // Standard Error: 118_316
-            .saturating_add(Weight::from_ref_time(34_990_002).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(34_990_002, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -576,9 +576,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_block_number(r: u32) -> Weight {
         // Minimum execution time: 410_875 nanoseconds.
-        Weight::from_ref_time(441_455_942)
+        Weight::from_parts(441_455_942, 0)
             // Standard Error: 134_442
-            .saturating_add(Weight::from_ref_time(32_884_725).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(32_884_725, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -603,9 +603,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_now(r: u32) -> Weight {
         // Minimum execution time: 397_644 nanoseconds.
-        Weight::from_ref_time(432_177_372)
+        Weight::from_parts(432_177_372, 0)
             // Standard Error: 167_055
-            .saturating_add(Weight::from_ref_time(35_306_394).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(35_306_394, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -632,9 +632,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_weight_to_fee(r: u32) -> Weight {
         // Minimum execution time: 396_464 nanoseconds.
-        Weight::from_ref_time(435_733_297)
+        Weight::from_parts(435_733_297, 0)
             // Standard Error: 174_804
-            .saturating_add(Weight::from_ref_time(123_625_988).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(123_625_988, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(13))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -659,9 +659,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_gas(r: u32) -> Weight {
         // Minimum execution time: 239_389 nanoseconds.
-        Weight::from_ref_time(265_777_374)
+        Weight::from_parts(265_777_374, 0)
             // Standard Error: 105_317
-            .saturating_add(Weight::from_ref_time(8_650_419).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(8_650_419, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -686,9 +686,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_input(r: u32) -> Weight {
         // Minimum execution time: 396_805 nanoseconds.
-        Weight::from_ref_time(425_704_592)
+        Weight::from_parts(425_704_592, 0)
             // Standard Error: 109_330
-            .saturating_add(Weight::from_ref_time(25_480_169).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(25_480_169, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -713,9 +713,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 1024]`.
     fn seal_input_per_kb(n: u32) -> Weight {
         // Minimum execution time: 429_292 nanoseconds.
-        Weight::from_ref_time(434_224_318)
+        Weight::from_parts(434_224_318, 0)
             // Standard Error: 13_292
-            .saturating_add(Weight::from_ref_time(8_023_407).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(8_023_407, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -740,9 +740,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 1]`.
     fn seal_return(r: u32) -> Weight {
         // Minimum execution time: 390_716 nanoseconds.
-        Weight::from_ref_time(416_694_979)
+        Weight::from_parts(416_694_979, 0)
             // Standard Error: 5_011_570
-            .saturating_add(Weight::from_ref_time(2_163_020).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(2_163_020, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -767,9 +767,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 1024]`.
     fn seal_return_per_kb(n: u32) -> Weight {
         // Minimum execution time: 400_910 nanoseconds.
-        Weight::from_ref_time(427_468_421)
+        Weight::from_parts(427_468_421, 0)
             // Standard Error: 3_837
-            .saturating_add(Weight::from_ref_time(167_988).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(167_988, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -798,9 +798,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 1]`.
     fn seal_terminate(r: u32) -> Weight {
         // Minimum execution time: 397_435 nanoseconds.
-        Weight::from_ref_time(421_207_891)
+        Weight::from_parts(421_207_891, 0)
             // Standard Error: 3_910_120
-            .saturating_add(Weight::from_ref_time(137_996_441).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(137_996_441, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().reads((10_u64).saturating_mul(r.into())))
             .saturating_add(DbWeight::get().writes(3))
@@ -829,9 +829,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_random(r: u32) -> Weight {
         // Minimum execution time: 397_695 nanoseconds.
-        Weight::from_ref_time(412_770_588)
+        Weight::from_parts(412_770_588, 0)
             // Standard Error: 642_546
-            .saturating_add(Weight::from_ref_time(203_884_444).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(203_884_444, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(13))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -856,9 +856,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_deposit_event(r: u32) -> Weight {
         // Minimum execution time: 393_819 nanoseconds.
-        Weight::from_ref_time(446_560_511)
+        Weight::from_parts(446_560_511, 0)
             // Standard Error: 488_344
-            .saturating_add(Weight::from_ref_time(335_162_778).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(335_162_778, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -884,11 +884,11 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 16]`.
     fn seal_deposit_event_per_topic_and_kb(t: u32, n: u32) -> Weight {
         // Minimum execution time: 1_428_819 nanoseconds.
-        Weight::from_ref_time(761_625_462)
+        Weight::from_parts(761_625_462, 0)
             // Standard Error: 1_279_372
-            .saturating_add(Weight::from_ref_time(254_451_907).saturating_mul(t.into()))
+            .saturating_add(Weight::from_parts(254_451_907, 0).saturating_mul(t.into()))
             // Standard Error: 348_731
-            .saturating_add(Weight::from_ref_time(45_728_474).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(45_728_474, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().reads((80_u64).saturating_mul(t.into())))
             .saturating_add(DbWeight::get().writes(3))
@@ -915,9 +915,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_debug_message(r: u32) -> Weight {
         // Minimum execution time: 245_528 nanoseconds.
-        Weight::from_ref_time(265_421_577)
+        Weight::from_parts(265_421_577, 0)
             // Standard Error: 98_182
-            .saturating_add(Weight::from_ref_time(16_600_590).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(16_600_590, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(11))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -942,9 +942,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `i` is `[0, 1024]`.
     fn seal_debug_message_per_kb(i: u32) -> Weight {
         // Minimum execution time: 493_851 nanoseconds.
-        Weight::from_ref_time(519_807_397)
+        Weight::from_parts(519_807_397, 0)
             // Standard Error: 3_527
-            .saturating_add(Weight::from_ref_time(689_766).saturating_mul(i.into()))
+            .saturating_add(Weight::from_parts(689_766, 0).saturating_mul(i.into()))
             .saturating_add(DbWeight::get().reads(11))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -953,9 +953,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 10]`.
     fn seal_set_storage(r: u32) -> Weight {
         // Minimum execution time: 399_327 nanoseconds.
-        Weight::from_ref_time(344_064_063)
+        Weight::from_parts(344_064_063, 0)
             // Standard Error: 1_115_209
-            .saturating_add(Weight::from_ref_time(507_996_691).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(507_996_691, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().reads((80_u64).saturating_mul(r.into())))
             .saturating_add(DbWeight::get().writes(3))
@@ -966,9 +966,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 8]`.
     fn seal_set_storage_per_new_kb(n: u32) -> Weight {
         // Minimum execution time: 599_178 nanoseconds.
-        Weight::from_ref_time(800_911_862)
+        Weight::from_parts(800_911_862, 0)
             // Standard Error: 2_292_239
-            .saturating_add(Weight::from_ref_time(83_258_764).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(83_258_764, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(60))
             .saturating_add(DbWeight::get().reads((7_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(51))
@@ -979,9 +979,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 8]`.
     fn seal_set_storage_per_old_kb(n: u32) -> Weight {
         // Minimum execution time: 599_007 nanoseconds.
-        Weight::from_ref_time(742_152_135)
+        Weight::from_parts(742_152_135, 0)
             // Standard Error: 1_499_953
-            .saturating_add(Weight::from_ref_time(63_045_162).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(63_045_162, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(59))
             .saturating_add(DbWeight::get().reads((7_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(50))
@@ -992,9 +992,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 10]`.
     fn seal_clear_storage(r: u32) -> Weight {
         // Minimum execution time: 398_537 nanoseconds.
-        Weight::from_ref_time(342_623_318)
+        Weight::from_parts(342_623_318, 0)
             // Standard Error: 1_005_340
-            .saturating_add(Weight::from_ref_time(498_984_244).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(498_984_244, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().reads((80_u64).saturating_mul(r.into())))
             .saturating_add(DbWeight::get().writes(3))
@@ -1005,9 +1005,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 8]`.
     fn seal_clear_storage_per_kb(n: u32) -> Weight {
         // Minimum execution time: 562_752 nanoseconds.
-        Weight::from_ref_time(721_851_483)
+        Weight::from_parts(721_851_483, 0)
             // Standard Error: 1_833_772
-            .saturating_add(Weight::from_ref_time(62_110_653).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(62_110_653, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(58))
             .saturating_add(DbWeight::get().reads((7_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(49))
@@ -1018,9 +1018,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 10]`.
     fn seal_get_storage(r: u32) -> Weight {
         // Minimum execution time: 398_046 nanoseconds.
-        Weight::from_ref_time(345_192_832)
+        Weight::from_parts(345_192_832, 0)
             // Standard Error: 980_010
-            .saturating_add(Weight::from_ref_time(420_438_228).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(420_438_228, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().reads((80_u64).saturating_mul(r.into())))
             .saturating_add(DbWeight::get().writes(3))
@@ -1030,9 +1030,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 8]`.
     fn seal_get_storage_per_kb(n: u32) -> Weight {
         // Minimum execution time: 541_391 nanoseconds.
-        Weight::from_ref_time(682_834_854)
+        Weight::from_parts(682_834_854, 0)
             // Standard Error: 1_569_125
-            .saturating_add(Weight::from_ref_time(130_478_381).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(130_478_381, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(59))
             .saturating_add(DbWeight::get().reads((7_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(3))
@@ -1042,9 +1042,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 10]`.
     fn seal_contains_storage(r: u32) -> Weight {
         // Minimum execution time: 399_078 nanoseconds.
-        Weight::from_ref_time(351_894_096)
+        Weight::from_parts(351_894_096, 0)
             // Standard Error: 1_062_878
-            .saturating_add(Weight::from_ref_time(402_826_637).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(402_826_637, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().reads((80_u64).saturating_mul(r.into())))
             .saturating_add(DbWeight::get().writes(3))
@@ -1054,9 +1054,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 8]`.
     fn seal_contains_storage_per_kb(n: u32) -> Weight {
         // Minimum execution time: 535_192 nanoseconds.
-        Weight::from_ref_time(664_758_693)
+        Weight::from_parts(664_758_693, 0)
             // Standard Error: 1_380_264
-            .saturating_add(Weight::from_ref_time(55_148_742).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(55_148_742, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(58))
             .saturating_add(DbWeight::get().reads((7_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(3))
@@ -1066,9 +1066,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 10]`.
     fn seal_take_storage(r: u32) -> Weight {
         // Minimum execution time: 398_837 nanoseconds.
-        Weight::from_ref_time(336_379_766)
+        Weight::from_parts(336_379_766, 0)
             // Standard Error: 1_144_458
-            .saturating_add(Weight::from_ref_time(516_948_294).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(516_948_294, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().reads((80_u64).saturating_mul(r.into())))
             .saturating_add(DbWeight::get().writes(3))
@@ -1079,9 +1079,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 8]`.
     fn seal_take_storage_per_kb(n: u32) -> Weight {
         // Minimum execution time: 570_674 nanoseconds.
-        Weight::from_ref_time(742_446_013)
+        Weight::from_parts(742_446_013, 0)
             // Standard Error: 1_979_836
-            .saturating_add(Weight::from_ref_time(136_197_558).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(136_197_558, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(59))
             .saturating_add(DbWeight::get().reads((7_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(50))
@@ -1108,9 +1108,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_transfer(r: u32) -> Weight {
         // Minimum execution time: 401_222 nanoseconds.
-        Weight::from_ref_time(419_377_000)
+        Weight::from_parts(419_377_000, 0)
             // Standard Error: 5_384_995
-            .saturating_add(Weight::from_ref_time(4_205_493_450).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(4_205_493_450, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(13))
             .saturating_add(DbWeight::get().reads((320_u64).saturating_mul(r.into())))
             .saturating_add(DbWeight::get().writes(4))
@@ -1137,9 +1137,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_call(r: u32) -> Weight {
         // Minimum execution time: 401_251 nanoseconds.
-        Weight::from_ref_time(406_889_000)
+        Weight::from_parts(406_889_000, 0)
             // Standard Error: 16_965_406
-            .saturating_add(Weight::from_ref_time(29_549_960_620).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(29_549_960_620, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(13))
             .saturating_add(DbWeight::get().reads((480_u64).saturating_mul(r.into())))
             .saturating_add(DbWeight::get().writes(3))
@@ -1166,9 +1166,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_delegate_call(r: u32) -> Weight {
         // Minimum execution time: 418_888 nanoseconds.
-        Weight::from_ref_time(428_462_000)
+        Weight::from_parts(428_462_000, 0)
             // Standard Error: 11_082_090
-            .saturating_add(Weight::from_ref_time(26_523_250_583).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(26_523_250_583, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().reads((150_u64).saturating_mul(r.into())))
             .saturating_add(DbWeight::get().writes(3))
@@ -1196,9 +1196,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `c` is `[0, 1024]`.
     fn seal_call_per_transfer_clone_kb(t: u32, c: u32) -> Weight {
         // Minimum execution time: 3_719_880 nanoseconds.
-        Weight::from_ref_time(16_024_523_241)
+        Weight::from_parts(16_024_523_241, 0)
             // Standard Error: 37_975
-            .saturating_add(Weight::from_ref_time(8_483_948).saturating_mul(c.into()))
+            .saturating_add(Weight::from_parts(8_483_948, 0).saturating_mul(c.into()))
             .saturating_add(DbWeight::get().reads(493))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(t.into())))
             .saturating_add(DbWeight::get().writes(163))
@@ -1236,9 +1236,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_instantiate(r: u32) -> Weight {
         // Minimum execution time: 408_952 nanoseconds.
-        Weight::from_ref_time(417_795_000)
+        Weight::from_parts(417_795_000, 0)
             // Standard Error: 63_972_123
-            .saturating_add(Weight::from_ref_time(44_427_256_573).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(44_427_256_573, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(14))
             .saturating_add(DbWeight::get().reads((640_u64).saturating_mul(r.into())))
             .saturating_add(DbWeight::get().writes(5))
@@ -1279,13 +1279,13 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `s` is `[0, 960]`.
     fn seal_instantiate_per_transfer_input_salt_kb(t: u32, i: u32, s: u32) -> Weight {
         // Minimum execution time: 127_621_399 nanoseconds.
-        Weight::from_ref_time(26_707_412_172)
+        Weight::from_parts(26_707_412_172, 0)
             // Standard Error: 112_882_618
-            .saturating_add(Weight::from_ref_time(2_160_248_963).saturating_mul(t.into()))
+            .saturating_add(Weight::from_parts(2_160_248_963, 0).saturating_mul(t.into()))
             // Standard Error: 179_125
-            .saturating_add(Weight::from_ref_time(103_883_925).saturating_mul(i.into()))
+            .saturating_add(Weight::from_parts(103_883_925, 0).saturating_mul(i.into()))
             // Standard Error: 179_125
-            .saturating_add(Weight::from_ref_time(104_574_561).saturating_mul(s.into()))
+            .saturating_add(Weight::from_parts(104_574_561, 0).saturating_mul(s.into()))
             .saturating_add(DbWeight::get().reads(495))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(t.into())))
             .saturating_add(DbWeight::get().writes(726))
@@ -1312,9 +1312,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 1]`.
     fn seal_hash_sha2_256(r: u32) -> Weight {
         // Minimum execution time: 395_081 nanoseconds.
-        Weight::from_ref_time(420_563_212)
+        Weight::from_parts(420_563_212, 0)
             // Standard Error: 5_442_436
-            .saturating_add(Weight::from_ref_time(36_454_120).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(36_454_120, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -1339,9 +1339,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 1024]`.
     fn seal_hash_sha2_256_per_kb(n: u32) -> Weight {
         // Minimum execution time: 446_798 nanoseconds.
-        Weight::from_ref_time(377_592_578)
+        Weight::from_parts(377_592_578, 0)
             // Standard Error: 64_257
-            .saturating_add(Weight::from_ref_time(62_093_877).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(62_093_877, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -1366,9 +1366,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 1]`.
     fn seal_hash_keccak_256(r: u32) -> Weight {
         // Minimum execution time: 395_573 nanoseconds.
-        Weight::from_ref_time(418_488_726)
+        Weight::from_parts(418_488_726, 0)
             // Standard Error: 3_899_669
-            .saturating_add(Weight::from_ref_time(86_279_939).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(86_279_939, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -1393,9 +1393,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 1024]`.
     fn seal_hash_keccak_256_per_kb(n: u32) -> Weight {
         // Minimum execution time: 483_343 nanoseconds.
-        Weight::from_ref_time(448_380_075)
+        Weight::from_parts(448_380_075, 0)
             // Standard Error: 80_439
-            .saturating_add(Weight::from_ref_time(224_354_532).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(224_354_532, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -1420,9 +1420,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 1]`.
     fn seal_hash_blake2_256(r: u32) -> Weight {
         // Minimum execution time: 393_860 nanoseconds.
-        Weight::from_ref_time(419_515_104)
+        Weight::from_parts(419_515_104, 0)
             // Standard Error: 4_367_873
-            .saturating_add(Weight::from_ref_time(52_698_228).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(52_698_228, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -1447,9 +1447,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 1024]`.
     fn seal_hash_blake2_256_per_kb(n: u32) -> Weight {
         // Minimum execution time: 449_562 nanoseconds.
-        Weight::from_ref_time(308_507_545)
+        Weight::from_parts(308_507_545, 0)
             // Standard Error: 81_633
-            .saturating_add(Weight::from_ref_time(87_987_668).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(87_987_668, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -1474,9 +1474,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 1]`.
     fn seal_hash_blake2_128(r: u32) -> Weight {
         // Minimum execution time: 395_933 nanoseconds.
-        Weight::from_ref_time(419_926_441)
+        Weight::from_parts(419_926_441, 0)
             // Standard Error: 4_731_591
-            .saturating_add(Weight::from_ref_time(57_855_224).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(57_855_224, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -1501,9 +1501,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 1024]`.
     fn seal_hash_blake2_128_per_kb(n: u32) -> Weight {
         // Minimum execution time: 457_575 nanoseconds.
-        Weight::from_ref_time(352_603_205)
+        Weight::from_parts(352_603_205, 0)
             // Standard Error: 37_067
-            .saturating_add(Weight::from_ref_time(87_784_334).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(87_784_334, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -1528,9 +1528,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 1]`.
     fn seal_ecdsa_recover(r: u32) -> Weight {
         // Minimum execution time: 399_558 nanoseconds.
-        Weight::from_ref_time(425_561_678)
+        Weight::from_parts(425_561_678, 0)
             // Standard Error: 4_624_024
-            .saturating_add(Weight::from_ref_time(3_679_707_987).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(3_679_707_987, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -1555,9 +1555,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 1]`.
     fn seal_ecdsa_to_eth_address(r: u32) -> Weight {
         // Minimum execution time: 398_717 nanoseconds.
-        Weight::from_ref_time(424_055_413)
+        Weight::from_parts(424_055_413, 0)
             // Standard Error: 4_632_408
-            .saturating_add(Weight::from_ref_time(864_389_919).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(864_389_919, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -1584,9 +1584,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_set_code_hash(r: u32) -> Weight {
         // Minimum execution time: 403_505 nanoseconds.
-        Weight::from_ref_time(417_356_000)
+        Weight::from_parts(417_356_000, 0)
             // Standard Error: 5_645_961
-            .saturating_add(Weight::from_ref_time(2_122_644_945).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(2_122_644_945, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().reads((225_u64).saturating_mul(r.into())))
             .saturating_add(DbWeight::get().writes(3))
@@ -1613,9 +1613,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_reentrance_count(r: u32) -> Weight {
         // Minimum execution time: 403_195 nanoseconds.
-        Weight::from_ref_time(425_364_083)
+        Weight::from_parts(425_364_083, 0)
             // Standard Error: 110_462
-            .saturating_add(Weight::from_ref_time(11_248_571).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(11_248_571, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -1640,9 +1640,9 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_account_reentrance_count(r: u32) -> Weight {
         // Minimum execution time: 399_949 nanoseconds.
-        Weight::from_ref_time(482_447_140)
+        Weight::from_parts(482_447_140, 0)
             // Standard Error: 261_088
-            .saturating_add(Weight::from_ref_time(23_808_762).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(23_808_762, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -1669,374 +1669,374 @@ impl pallet_contracts::weights::WeightInfo for SubstrateWeight {
     /// The range of component `r` is `[0, 20]`.
     fn seal_instantiation_nonce(r: u32) -> Weight {
         // Minimum execution time: 398_967 nanoseconds.
-        Weight::from_ref_time(424_793_253)
+        Weight::from_parts(424_793_253, 0)
             // Standard Error: 108_421
-            .saturating_add(Weight::from_ref_time(9_435_694).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(9_435_694, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(13))
             .saturating_add(DbWeight::get().writes(4))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64const(r: u32) -> Weight {
         // Minimum execution time: 1_432 nanoseconds.
-        Weight::from_ref_time(2_976_570)
+        Weight::from_parts(2_976_570, 0)
             // Standard Error: 6_517
-            .saturating_add(Weight::from_ref_time(407_720).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(407_720, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64load(r: u32) -> Weight {
         // Minimum execution time: 1_872 nanoseconds.
-        Weight::from_ref_time(3_589_790)
+        Weight::from_parts(3_589_790, 0)
             // Standard Error: 10_171
-            .saturating_add(Weight::from_ref_time(965_092).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(965_092, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64store(r: u32) -> Weight {
         // Minimum execution time: 1_893 nanoseconds.
-        Weight::from_ref_time(4_203_087)
+        Weight::from_parts(4_203_087, 0)
             // Standard Error: 15_164
-            .saturating_add(Weight::from_ref_time(1_005_754).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(1_005_754, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_select(r: u32) -> Weight {
         // Minimum execution time: 1_563 nanoseconds.
-        Weight::from_ref_time(4_260_035)
+        Weight::from_parts(4_260_035, 0)
             // Standard Error: 6_545
-            .saturating_add(Weight::from_ref_time(994_576).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(994_576, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_if(r: u32) -> Weight {
         // Minimum execution time: 1_602 nanoseconds.
-        Weight::from_ref_time(2_086_898)
+        Weight::from_parts(2_086_898, 0)
             // Standard Error: 10_617
-            .saturating_add(Weight::from_ref_time(1_108_430).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(1_108_430, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_br(r: u32) -> Weight {
         // Minimum execution time: 1_652 nanoseconds.
-        Weight::from_ref_time(3_437_688)
+        Weight::from_parts(3_437_688, 0)
             // Standard Error: 6_796
-            .saturating_add(Weight::from_ref_time(604_159).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(604_159, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_br_if(r: u32) -> Weight {
         // Minimum execution time: 1_543 nanoseconds.
-        Weight::from_ref_time(3_054_930)
+        Weight::from_parts(3_054_930, 0)
             // Standard Error: 6_967
-            .saturating_add(Weight::from_ref_time(828_109).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(828_109, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_br_table(r: u32) -> Weight {
         // Minimum execution time: 1_512 nanoseconds.
-        Weight::from_ref_time(3_958_018)
+        Weight::from_parts(3_958_018, 0)
             // Standard Error: 7_334
-            .saturating_add(Weight::from_ref_time(1_014_253).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(1_014_253, 0).saturating_mul(r.into()))
     }
     /// The range of component `e` is `[1, 256]`.
     fn instr_br_table_per_entry(e: u32) -> Weight {
         // Minimum execution time: 3_275 nanoseconds.
-        Weight::from_ref_time(4_240_081)
+        Weight::from_parts(4_240_081, 0)
             // Standard Error: 633
-            .saturating_add(Weight::from_ref_time(5_530).saturating_mul(e.into()))
+            .saturating_add(Weight::from_parts(5_530, 0).saturating_mul(e.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_call(r: u32) -> Weight {
         // Minimum execution time: 1_552 nanoseconds.
-        Weight::from_ref_time(2_373_478)
+        Weight::from_parts(2_373_478, 0)
             // Standard Error: 14_786
-            .saturating_add(Weight::from_ref_time(4_184_040).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(4_184_040, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_call_indirect(r: u32) -> Weight {
         // Minimum execution time: 1_822 nanoseconds.
-        Weight::from_ref_time(3_560_351)
+        Weight::from_parts(3_560_351, 0)
             // Standard Error: 17_730
-            .saturating_add(Weight::from_ref_time(5_295_361).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(5_295_361, 0).saturating_mul(r.into()))
     }
     /// The range of component `p` is `[0, 128]`.
     fn instr_call_indirect_per_param(p: u32) -> Weight {
         // Minimum execution time: 7_711 nanoseconds.
-        Weight::from_ref_time(10_202_976)
+        Weight::from_parts(10_202_976, 0)
             // Standard Error: 2_580
-            .saturating_add(Weight::from_ref_time(206_299).saturating_mul(p.into()))
+            .saturating_add(Weight::from_parts(206_299, 0).saturating_mul(p.into()))
     }
     /// The range of component `l` is `[0, 1024]`.
     fn instr_call_per_local(l: u32) -> Weight {
         // Minimum execution time: 5_448 nanoseconds.
-        Weight::from_ref_time(7_501_165)
+        Weight::from_parts(7_501_165, 0)
             // Standard Error: 700
-            .saturating_add(Weight::from_ref_time(56_053).saturating_mul(l.into()))
+            .saturating_add(Weight::from_parts(56_053, 0).saturating_mul(l.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_local_get(r: u32) -> Weight {
         // Minimum execution time: 3_015 nanoseconds.
-        Weight::from_ref_time(3_824_613)
+        Weight::from_parts(3_824_613, 0)
             // Standard Error: 4_987
-            .saturating_add(Weight::from_ref_time(327_097).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(327_097, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_local_set(r: u32) -> Weight {
         // Minimum execution time: 3_015 nanoseconds.
-        Weight::from_ref_time(4_139_308)
+        Weight::from_parts(4_139_308, 0)
             // Standard Error: 4_601
-            .saturating_add(Weight::from_ref_time(387_086).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(387_086, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_local_tee(r: u32) -> Weight {
         // Minimum execution time: 3_065 nanoseconds.
-        Weight::from_ref_time(4_332_200)
+        Weight::from_parts(4_332_200, 0)
             // Standard Error: 5_916
-            .saturating_add(Weight::from_ref_time(499_864).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(499_864, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_global_get(r: u32) -> Weight {
         // Minimum execution time: 1_773 nanoseconds.
-        Weight::from_ref_time(2_883_358)
+        Weight::from_parts(2_883_358, 0)
             // Standard Error: 6_315
-            .saturating_add(Weight::from_ref_time(854_932).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(854_932, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_global_set(r: u32) -> Weight {
         // Minimum execution time: 1_803 nanoseconds.
-        Weight::from_ref_time(3_279_564)
+        Weight::from_parts(3_279_564, 0)
             // Standard Error: 9_167
-            .saturating_add(Weight::from_ref_time(965_926).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(965_926, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_memory_current(r: u32) -> Weight {
         // Minimum execution time: 1_853 nanoseconds.
-        Weight::from_ref_time(3_473_218)
+        Weight::from_parts(3_473_218, 0)
             // Standard Error: 6_816
-            .saturating_add(Weight::from_ref_time(653_966).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(653_966, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 1]`.
     fn instr_memory_grow(r: u32) -> Weight {
         // Minimum execution time: 1_502 nanoseconds.
-        Weight::from_ref_time(1_900_710)
+        Weight::from_parts(1_900_710, 0)
             // Standard Error: 129_819
-            .saturating_add(Weight::from_ref_time(171_899_955).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(171_899_955, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64clz(r: u32) -> Weight {
         // Minimum execution time: 1_603 nanoseconds.
-        Weight::from_ref_time(3_177_847)
+        Weight::from_parts(3_177_847, 0)
             // Standard Error: 6_026
-            .saturating_add(Weight::from_ref_time(723_996).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(723_996, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64ctz(r: u32) -> Weight {
         // Minimum execution time: 1_542 nanoseconds.
-        Weight::from_ref_time(3_119_678)
+        Weight::from_parts(3_119_678, 0)
             // Standard Error: 6_196
-            .saturating_add(Weight::from_ref_time(727_216).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(727_216, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64popcnt(r: u32) -> Weight {
         // Minimum execution time: 1_552 nanoseconds.
-        Weight::from_ref_time(3_448_117)
+        Weight::from_parts(3_448_117, 0)
             // Standard Error: 6_549
-            .saturating_add(Weight::from_ref_time(721_565).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(721_565, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64eqz(r: u32) -> Weight {
         // Minimum execution time: 1_533 nanoseconds.
-        Weight::from_ref_time(3_114_032)
+        Weight::from_parts(3_114_032, 0)
             // Standard Error: 6_329
-            .saturating_add(Weight::from_ref_time(703_819).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(703_819, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64extendsi32(r: u32) -> Weight {
         // Minimum execution time: 1_622 nanoseconds.
-        Weight::from_ref_time(3_161_830)
+        Weight::from_parts(3_161_830, 0)
             // Standard Error: 5_953
-            .saturating_add(Weight::from_ref_time(736_429).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(736_429, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64extendui32(r: u32) -> Weight {
         // Minimum execution time: 1_523 nanoseconds.
-        Weight::from_ref_time(2_798_383)
+        Weight::from_parts(2_798_383, 0)
             // Standard Error: 7_100
-            .saturating_add(Weight::from_ref_time(734_258).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(734_258, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i32wrapi64(r: u32) -> Weight {
         // Minimum execution time: 1_532 nanoseconds.
-        Weight::from_ref_time(3_073_472)
+        Weight::from_parts(3_073_472, 0)
             // Standard Error: 6_735
-            .saturating_add(Weight::from_ref_time(762_407).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(762_407, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64eq(r: u32) -> Weight {
         // Minimum execution time: 1_452 nanoseconds.
-        Weight::from_ref_time(4_360_231)
+        Weight::from_parts(4_360_231, 0)
             // Standard Error: 6_452
-            .saturating_add(Weight::from_ref_time(817_666).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(817_666, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64ne(r: u32) -> Weight {
         // Minimum execution time: 1_492 nanoseconds.
-        Weight::from_ref_time(4_142_518)
+        Weight::from_parts(4_142_518, 0)
             // Standard Error: 5_983
-            .saturating_add(Weight::from_ref_time(812_616).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(812_616, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64lts(r: u32) -> Weight {
         // Minimum execution time: 1_512 nanoseconds.
-        Weight::from_ref_time(3_928_570)
+        Weight::from_parts(3_928_570, 0)
             // Standard Error: 6_698
-            .saturating_add(Weight::from_ref_time(826_335).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(826_335, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64ltu(r: u32) -> Weight {
         // Minimum execution time: 1_563 nanoseconds.
-        Weight::from_ref_time(4_196_087)
+        Weight::from_parts(4_196_087, 0)
             // Standard Error: 7_462
-            .saturating_add(Weight::from_ref_time(828_280).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(828_280, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64gts(r: u32) -> Weight {
         // Minimum execution time: 1_543 nanoseconds.
-        Weight::from_ref_time(4_073_228)
+        Weight::from_parts(4_073_228, 0)
             // Standard Error: 6_635
-            .saturating_add(Weight::from_ref_time(800_911).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(800_911, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64gtu(r: u32) -> Weight {
         // Minimum execution time: 1_442 nanoseconds.
-        Weight::from_ref_time(4_119_237)
+        Weight::from_parts(4_119_237, 0)
             // Standard Error: 7_041
-            .saturating_add(Weight::from_ref_time(827_018).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(827_018, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64les(r: u32) -> Weight {
         // Minimum execution time: 1_452 nanoseconds.
-        Weight::from_ref_time(3_845_638)
+        Weight::from_parts(3_845_638, 0)
             // Standard Error: 5_829
-            .saturating_add(Weight::from_ref_time(825_088).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(825_088, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64leu(r: u32) -> Weight {
         // Minimum execution time: 1_552 nanoseconds.
-        Weight::from_ref_time(4_458_429)
+        Weight::from_parts(4_458_429, 0)
             // Standard Error: 6_406
-            .saturating_add(Weight::from_ref_time(797_368).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(797_368, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64ges(r: u32) -> Weight {
         // Minimum execution time: 1_522 nanoseconds.
-        Weight::from_ref_time(4_139_462)
+        Weight::from_parts(4_139_462, 0)
             // Standard Error: 7_744
-            .saturating_add(Weight::from_ref_time(842_176).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(842_176, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64geu(r: u32) -> Weight {
         // Minimum execution time: 1_553 nanoseconds.
-        Weight::from_ref_time(4_083_952)
+        Weight::from_parts(4_083_952, 0)
             // Standard Error: 6_565
-            .saturating_add(Weight::from_ref_time(815_484).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(815_484, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64add(r: u32) -> Weight {
         // Minimum execution time: 1_632 nanoseconds.
-        Weight::from_ref_time(3_998_358)
+        Weight::from_parts(3_998_358, 0)
             // Standard Error: 7_613
-            .saturating_add(Weight::from_ref_time(814_574).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(814_574, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64sub(r: u32) -> Weight {
         // Minimum execution time: 1_672 nanoseconds.
-        Weight::from_ref_time(3_986_269)
+        Weight::from_parts(3_986_269, 0)
             // Standard Error: 6_328
-            .saturating_add(Weight::from_ref_time(801_303).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(801_303, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64mul(r: u32) -> Weight {
         // Minimum execution time: 1_482 nanoseconds.
-        Weight::from_ref_time(3_864_893)
+        Weight::from_parts(3_864_893, 0)
             // Standard Error: 7_094
-            .saturating_add(Weight::from_ref_time(798_064).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(798_064, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64divs(r: u32) -> Weight {
         // Minimum execution time: 1_502 nanoseconds.
-        Weight::from_ref_time(3_931_121)
+        Weight::from_parts(3_931_121, 0)
             // Standard Error: 7_138
-            .saturating_add(Weight::from_ref_time(1_038_410).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(1_038_410, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64divu(r: u32) -> Weight {
         // Minimum execution time: 1_552 nanoseconds.
-        Weight::from_ref_time(3_615_189)
+        Weight::from_parts(3_615_189, 0)
             // Standard Error: 8_099
-            .saturating_add(Weight::from_ref_time(1_032_527).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(1_032_527, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64rems(r: u32) -> Weight {
         // Minimum execution time: 1_552 nanoseconds.
-        Weight::from_ref_time(4_078_735)
+        Weight::from_parts(4_078_735, 0)
             // Standard Error: 7_090
-            .saturating_add(Weight::from_ref_time(980_061).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(980_061, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64remu(r: u32) -> Weight {
         // Minimum execution time: 1_462 nanoseconds.
-        Weight::from_ref_time(3_788_425)
+        Weight::from_parts(3_788_425, 0)
             // Standard Error: 8_167
-            .saturating_add(Weight::from_ref_time(982_236).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(982_236, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64and(r: u32) -> Weight {
         // Minimum execution time: 1_673 nanoseconds.
-        Weight::from_ref_time(3_848_049)
+        Weight::from_parts(3_848_049, 0)
             // Standard Error: 5_806
-            .saturating_add(Weight::from_ref_time(783_981).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(783_981, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64or(r: u32) -> Weight {
         // Minimum execution time: 1_652 nanoseconds.
-        Weight::from_ref_time(3_872_354)
+        Weight::from_parts(3_872_354, 0)
             // Standard Error: 5_947
-            .saturating_add(Weight::from_ref_time(808_090).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(808_090, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64xor(r: u32) -> Weight {
         // Minimum execution time: 1_502 nanoseconds.
-        Weight::from_ref_time(3_971_389)
+        Weight::from_parts(3_971_389, 0)
             // Standard Error: 6_872
-            .saturating_add(Weight::from_ref_time(809_865).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(809_865, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64shl(r: u32) -> Weight {
         // Minimum execution time: 1_482 nanoseconds.
-        Weight::from_ref_time(3_887_491)
+        Weight::from_parts(3_887_491, 0)
             // Standard Error: 6_699
-            .saturating_add(Weight::from_ref_time(793_761).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(793_761, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64shrs(r: u32) -> Weight {
         // Minimum execution time: 1_543 nanoseconds.
-        Weight::from_ref_time(3_998_830)
+        Weight::from_parts(3_998_830, 0)
             // Standard Error: 6_515
-            .saturating_add(Weight::from_ref_time(798_548).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(798_548, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64shru(r: u32) -> Weight {
         // Minimum execution time: 1_472 nanoseconds.
-        Weight::from_ref_time(3_974_694)
+        Weight::from_parts(3_974_694, 0)
             // Standard Error: 7_624
-            .saturating_add(Weight::from_ref_time(792_433).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(792_433, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64rotl(r: u32) -> Weight {
         // Minimum execution time: 1_533 nanoseconds.
-        Weight::from_ref_time(4_062_456)
+        Weight::from_parts(4_062_456, 0)
             // Standard Error: 7_297
-            .saturating_add(Weight::from_ref_time(800_364).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(800_364, 0).saturating_mul(r.into()))
     }
     /// The range of component `r` is `[0, 50]`.
     fn instr_i64rotr(r: u32) -> Weight {
         // Minimum execution time: 1_542 nanoseconds.
-        Weight::from_ref_time(3_696_987)
+        Weight::from_parts(3_696_987, 0)
             // Standard Error: 6_337
-            .saturating_add(Weight::from_ref_time(801_635).saturating_mul(r.into()))
+            .saturating_add(Weight::from_parts(801_635, 0).saturating_mul(r.into()))
     }
 }

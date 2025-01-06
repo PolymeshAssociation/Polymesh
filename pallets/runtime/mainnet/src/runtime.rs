@@ -134,7 +134,7 @@ parameter_types! {
 
     // Contracts:
     pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
-    pub DeletionWeightLimit: Weight = Weight::from_ref_time(500_000_000_000);
+    pub DeletionWeightLimit: Weight = Weight::from_parts(500_000_000_000, 0);
     pub DeletionQueueDepth: u32 = 1024;
     pub MaxInLen: u32 = 8 * 1024;
     pub MaxOutLen: u32 = 8 * 1024;

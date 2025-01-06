@@ -63,7 +63,7 @@ pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// We allow for 2 seconds of compute with a 6 second average block time.
 const MAXIMUM_BLOCK_WEIGHT: Weight =
-    Weight::from_ref_time(WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2)).set_proof_size(u64::MAX);
+    Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2), u64::MAX);
 
 /// Maximum number of iterations for balancing that will be executed in the embedded OCW
 /// miner of election provider multi phase.
@@ -83,9 +83,9 @@ parameter_types! {
     /// Blocks can be of upto 10 MB in size.
     pub const MaximumBlockLength: u32 = 10 * 1024 * 1024;
     /// 20 ms is needed to create a block.
-    pub const BlockExecutionWeight: Weight = Weight::from_ref_time(WEIGHT_REF_TIME_PER_MILLIS.saturating_mul(20));
+    pub const BlockExecutionWeight: Weight = Weight::from_parts(WEIGHT_REF_TIME_PER_MILLIS.saturating_mul(20), 0);
     /// 0.65 ms is needed to process an empty extrinsic.
-    pub const ExtrinsicBaseWeight: Weight = Weight::from_ref_time(WEIGHT_REF_TIME_PER_MICROS.saturating_mul(650));
+    pub const ExtrinsicBaseWeight: Weight = Weight::from_parts(WEIGHT_REF_TIME_PER_MICROS.saturating_mul(650), 0);
     /// This implies a 100 POLYX fee per MB of transaction length
     pub const TransactionByteFee: Balance = 10 * MILLICENTS;
     /// We want the noop transaction to cost 0.03 POLYX

@@ -59,15 +59,15 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     /// The range of component `d` is `[1, 10]`.
     fn condition_costs(a: u32, b: u32, c: u32, d: u32) -> Weight {
         // Minimum execution time: 10_175 nanoseconds.
-        Weight::from_ref_time(10_696_000)
+        Weight::from_parts(10_696_000, 0)
             // Standard Error: 62_942
-            .saturating_add(Weight::from_ref_time(4_457_478).saturating_mul(a.into()))
+            .saturating_add(Weight::from_parts(4_457_478, 0).saturating_mul(a.into()))
             // Standard Error: 62_942
-            .saturating_add(Weight::from_ref_time(496_104).saturating_mul(b.into()))
+            .saturating_add(Weight::from_parts(496_104, 0).saturating_mul(b.into()))
             // Standard Error: 62_942
-            .saturating_add(Weight::from_ref_time(1_188_416).saturating_mul(c.into()))
+            .saturating_add(Weight::from_parts(1_188_416, 0).saturating_mul(c.into()))
             // Manually set for `d`
-            .saturating_add(Weight::from_ref_time(721_394).saturating_mul(d.into()))
+            .saturating_add(Weight::from_parts(721_394, 0).saturating_mul(d.into()))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
@@ -88,9 +88,9 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     /// The range of component `c` is `[1, 6]`.
     fn add_compliance_requirement(c: u32) -> Weight {
         // Minimum execution time: 56_464 nanoseconds.
-        Weight::from_ref_time(61_594_226)
+        Weight::from_parts(61_594_226, 0)
             // Standard Error: 149_493
-            .saturating_add(Weight::from_ref_time(1_040_910).saturating_mul(c.into()))
+            .saturating_add(Weight::from_parts(1_040_910, 0).saturating_mul(c.into()))
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -106,7 +106,7 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     // Proof Skipped: ComplianceManager AssetCompliances (max_values: None, max_size: None, mode: Measured)
     fn remove_compliance_requirement() -> Weight {
         // Minimum execution time: 42_534 nanoseconds.
-        Weight::from_ref_time(45_248_000)
+        Weight::from_parts(45_248_000, 0)
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -122,7 +122,7 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     // Proof Skipped: ComplianceManager AssetCompliances (max_values: None, max_size: None, mode: Measured)
     fn pause_asset_compliance() -> Weight {
         // Minimum execution time: 45_218 nanoseconds.
-        Weight::from_ref_time(48_943_000)
+        Weight::from_parts(48_943_000, 0)
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -138,7 +138,7 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     // Proof Skipped: ComplianceManager AssetCompliances (max_values: None, max_size: None, mode: Measured)
     fn resume_asset_compliance() -> Weight {
         // Minimum execution time: 40_681 nanoseconds.
-        Weight::from_ref_time(41_382_000)
+        Weight::from_parts(41_382_000, 0)
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -158,7 +158,7 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     // Proof Skipped: ComplianceManager AssetCompliances (max_values: None, max_size: None, mode: Measured)
     fn add_default_trusted_claim_issuer() -> Weight {
         // Minimum execution time: 55_262 nanoseconds.
-        Weight::from_ref_time(56_735_000)
+        Weight::from_parts(56_735_000, 0)
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -174,7 +174,7 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     // Proof Skipped: ComplianceManager TrustedClaimIssuer (max_values: None, max_size: None, mode: Measured)
     fn remove_default_trusted_claim_issuer() -> Weight {
         // Minimum execution time: 39_650 nanoseconds.
-        Weight::from_ref_time(41_631_000)
+        Weight::from_parts(41_631_000, 0)
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -193,9 +193,9 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     /// The range of component `c` is `[1, 6]`.
     fn change_compliance_requirement(c: u32) -> Weight {
         // Minimum execution time: 50_094 nanoseconds.
-        Weight::from_ref_time(53_594_702)
+        Weight::from_parts(53_594_702, 0)
             // Standard Error: 148_982
-            .saturating_add(Weight::from_ref_time(1_820_606).saturating_mul(c.into()))
+            .saturating_add(Weight::from_parts(1_820_606, 0).saturating_mul(c.into()))
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -214,9 +214,9 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     /// The range of component `c` is `[0, 2]`.
     fn replace_asset_compliance(c: u32) -> Weight {
         // Minimum execution time: 47_191 nanoseconds.
-        Weight::from_ref_time(51_858_764)
+        Weight::from_parts(51_858_764, 0)
             // Standard Error: 325_921
-            .saturating_add(Weight::from_ref_time(10_811_499).saturating_mul(c.into()))
+            .saturating_add(Weight::from_parts(10_811_499, 0).saturating_mul(c.into()))
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -232,7 +232,7 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     // Proof Skipped: ComplianceManager AssetCompliances (max_values: None, max_size: None, mode: Measured)
     fn reset_asset_compliance() -> Weight {
         // Minimum execution time: 34_480 nanoseconds.
-        Weight::from_ref_time(36_745_000)
+        Weight::from_parts(36_745_000, 0)
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -246,11 +246,11 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     /// The range of component `t` is `[0, 1]`.
     fn is_condition_satisfied(c: u32, t: u32) -> Weight {
         // Minimum execution time: 19_079 nanoseconds.
-        Weight::from_ref_time(19_800_000)
+        Weight::from_parts(19_800_000, 0)
             // Standard Error: 2_678
-            .saturating_add(Weight::from_ref_time(4_485_426).saturating_mul(c.into()))
+            .saturating_add(Weight::from_parts(4_485_426, 0).saturating_mul(c.into()))
             // Standard Error: 1_155_484
-            .saturating_add(Weight::from_ref_time(13_588_582).saturating_mul(t.into()))
+            .saturating_add(Weight::from_parts(13_588_582, 0).saturating_mul(t.into()))
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(c.into())))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(t.into())))
@@ -260,16 +260,16 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     /// The range of component `e` is `[0, 1]`.
     fn is_identity_condition(e: u32) -> Weight {
         // Minimum execution time: 600 nanoseconds.
-        Weight::from_ref_time(1_073_485)
+        Weight::from_parts(1_073_485, 0)
             // Standard Error: 57_226
-            .saturating_add(Weight::from_ref_time(9_208_847).saturating_mul(e.into()))
+            .saturating_add(Weight::from_parts(9_208_847, 0).saturating_mul(e.into()))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(e.into())))
     }
     /// The range of component `i` is `[0, 10000]`.
     fn is_any_requirement_compliant(i: u32) -> Weight {
         // Minimum execution time: 611 nanoseconds.
-        Weight::from_ref_time(4_210_562)
+        Weight::from_parts(4_210_562, 0)
             // Standard Error: 197
-            .saturating_add(Weight::from_ref_time(111_013).saturating_mul(i.into()))
+            .saturating_add(Weight::from_parts(111_013, 0).saturating_mul(i.into()))
     }
 }

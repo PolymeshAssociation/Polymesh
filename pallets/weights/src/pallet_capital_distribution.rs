@@ -81,7 +81,7 @@ impl pallet_corporate_actions::distribution::WeightInfo for SubstrateWeight {
     // Proof Skipped: ProtocolFee BaseFees (max_values: None, max_size: None, mode: Measured)
     fn distribute() -> Weight {
         // Minimum execution time: 81_412 nanoseconds.
-        Weight::from_ref_time(91_938_000)
+        Weight::from_parts(91_938_000, 0)
             .saturating_add(DbWeight::get().reads(13))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -125,11 +125,11 @@ impl pallet_corporate_actions::distribution::WeightInfo for SubstrateWeight {
     /// The range of component `w` is `[0, 1000]`.
     fn claim(t: u32, w: u32) -> Weight {
         // Minimum execution time: 282_282 nanoseconds.
-        Weight::from_ref_time(295_677_207)
+        Weight::from_parts(295_677_207, 0)
             // Standard Error: 2_270
-            .saturating_add(Weight::from_ref_time(37_836).saturating_mul(t.into()))
+            .saturating_add(Weight::from_parts(37_836, 0).saturating_mul(t.into()))
             // Standard Error: 2_270
-            .saturating_add(Weight::from_ref_time(13_878).saturating_mul(w.into()))
+            .saturating_add(Weight::from_parts(13_878, 0).saturating_mul(w.into()))
             .saturating_add(DbWeight::get().reads(24))
             .saturating_add(DbWeight::get().writes(7))
     }
@@ -179,11 +179,11 @@ impl pallet_corporate_actions::distribution::WeightInfo for SubstrateWeight {
     /// The range of component `w` is `[0, 1000]`.
     fn push_benefit(t: u32, w: u32) -> Weight {
         // Minimum execution time: 299_609 nanoseconds.
-        Weight::from_ref_time(292_208_631)
+        Weight::from_parts(292_208_631, 0)
             // Standard Error: 2_178
-            .saturating_add(Weight::from_ref_time(45_439).saturating_mul(t.into()))
+            .saturating_add(Weight::from_parts(45_439, 0).saturating_mul(t.into()))
             // Standard Error: 2_178
-            .saturating_add(Weight::from_ref_time(29_985).saturating_mul(w.into()))
+            .saturating_add(Weight::from_parts(29_985, 0).saturating_mul(w.into()))
             .saturating_add(DbWeight::get().reads(27))
             .saturating_add(DbWeight::get().writes(7))
     }
@@ -205,7 +205,7 @@ impl pallet_corporate_actions::distribution::WeightInfo for SubstrateWeight {
     // Proof Skipped: Portfolio PortfolioLockedAssets (max_values: None, max_size: None, mode: Measured)
     fn reclaim() -> Weight {
         // Minimum execution time: 59_550 nanoseconds.
-        Weight::from_ref_time(63_365_000)
+        Weight::from_parts(63_365_000, 0)
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -225,7 +225,7 @@ impl pallet_corporate_actions::distribution::WeightInfo for SubstrateWeight {
     // Proof Skipped: Portfolio PortfolioLockedAssets (max_values: None, max_size: None, mode: Measured)
     fn remove_distribution() -> Weight {
         // Minimum execution time: 57_575 nanoseconds.
-        Weight::from_ref_time(59_079_000)
+        Weight::from_parts(59_079_000, 0)
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(2))
     }

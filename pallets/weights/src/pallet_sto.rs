@@ -82,9 +82,9 @@ impl pallet_sto::WeightInfo for SubstrateWeight {
     /// The range of component `i` is `[1, 10]`.
     fn create_fundraiser(i: u32) -> Weight {
         // Minimum execution time: 92_389 nanoseconds.
-        Weight::from_ref_time(96_229_792)
+        Weight::from_parts(96_229_792, 0)
             // Standard Error: 44_701
-            .saturating_add(Weight::from_ref_time(91_319).saturating_mul(i.into()))
+            .saturating_add(Weight::from_parts(91_319, 0).saturating_mul(i.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(4))
     }
@@ -164,7 +164,7 @@ impl pallet_sto::WeightInfo for SubstrateWeight {
     // Proof: Settlement InstructionLegStatus (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     fn invest_onchain() -> Weight {
         // Minimum execution time: 286_101 nanoseconds.
-        Weight::from_ref_time(301_972_000)
+        Weight::from_parts(301_972_000, 0)
             .saturating_add(DbWeight::get().reads(131))
             .saturating_add(DbWeight::get().writes(50))
     }
@@ -250,7 +250,7 @@ impl pallet_sto::WeightInfo for SubstrateWeight {
     // Proof: Settlement InstructionLegStatus (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     fn invest_offchain() -> Weight {
         // Minimum execution time: 222_178 nanoseconds.
-        Weight::from_ref_time(230_675_000)
+        Weight::from_parts(230_675_000, 0)
             .saturating_add(DbWeight::get().reads(76))
             .saturating_add(DbWeight::get().writes(29))
     }
@@ -266,7 +266,7 @@ impl pallet_sto::WeightInfo for SubstrateWeight {
     // Proof Skipped: Sto Fundraisers (max_values: None, max_size: None, mode: Measured)
     fn freeze_fundraiser() -> Weight {
         // Minimum execution time: 45_648 nanoseconds.
-        Weight::from_ref_time(46_720_000)
+        Weight::from_parts(46_720_000, 0)
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -282,7 +282,7 @@ impl pallet_sto::WeightInfo for SubstrateWeight {
     // Proof Skipped: Sto Fundraisers (max_values: None, max_size: None, mode: Measured)
     fn unfreeze_fundraiser() -> Weight {
         // Minimum execution time: 45_308 nanoseconds.
-        Weight::from_ref_time(46_350_000)
+        Weight::from_parts(46_350_000, 0)
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -300,7 +300,7 @@ impl pallet_sto::WeightInfo for SubstrateWeight {
     // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
     fn modify_fundraiser_window() -> Weight {
         // Minimum execution time: 53_299 nanoseconds.
-        Weight::from_ref_time(53_841_000)
+        Weight::from_parts(53_841_000, 0)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -314,7 +314,7 @@ impl pallet_sto::WeightInfo for SubstrateWeight {
     // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
     fn stop() -> Weight {
         // Minimum execution time: 48_333 nanoseconds.
-        Weight::from_ref_time(48_753_000)
+        Weight::from_parts(48_753_000, 0)
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -326,7 +326,7 @@ impl pallet_sto::WeightInfo for SubstrateWeight {
     // Proof: Sto FundraiserOffchainAsset (max_values: None, max_size: Some(60), added: 2535, mode: MaxEncodedLen)
     fn enable_offchain_funding() -> Weight {
         // Minimum execution time: 9_769 nanoseconds.
-        Weight::from_ref_time(10_771_000)
+        Weight::from_parts(10_771_000, 0)
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(1))
     }

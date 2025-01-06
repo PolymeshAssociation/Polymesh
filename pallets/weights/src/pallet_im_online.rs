@@ -67,11 +67,11 @@ impl pallet_im_online::WeightInfo for SubstrateWeight {
     /// The range of component `e` is `[1, 100]`.
     fn validate_unsigned_and_then_heartbeat(k: u32, e: u32) -> Weight {
         // Minimum execution time: 145_118 nanoseconds.
-        Weight::from_ref_time(132_204_244)
+        Weight::from_parts(132_204_244, 0)
             // Standard Error: 1_389
-            .saturating_add(Weight::from_ref_time(24_270).saturating_mul(k.into()))
+            .saturating_add(Weight::from_parts(24_270, 0).saturating_mul(k.into()))
             // Standard Error: 14_024
-            .saturating_add(Weight::from_ref_time(542_646).saturating_mul(e.into()))
+            .saturating_add(Weight::from_parts(542_646, 0).saturating_mul(e.into()))
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(1))
     }
