@@ -61,7 +61,7 @@ impl pallet_session::WeightInfo for SubstrateWeight {
     // Proof Skipped: Session KeyOwner (max_values: None, max_size: None, mode: Measured)
     fn set_keys() -> Weight {
         // Minimum execution time: 58_137 nanoseconds.
-        Weight::from_ref_time(58_958_000)
+        Weight::from_parts(58_958_000)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(5))
     }
@@ -73,7 +73,7 @@ impl pallet_session::WeightInfo for SubstrateWeight {
     // Proof Skipped: Session KeyOwner (max_values: None, max_size: None, mode: Measured)
     fn purge_keys() -> Weight {
         // Minimum execution time: 41_422 nanoseconds.
-        Weight::from_ref_time(42_874_000)
+        Weight::from_parts(42_874_000)
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(5))
     }

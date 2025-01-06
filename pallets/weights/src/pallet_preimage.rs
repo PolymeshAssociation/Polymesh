@@ -60,9 +60,9 @@ impl pallet_preimage::WeightInfo for SubstrateWeight {
     /// The range of component `s` is `[0, 4194304]`.
     fn note_preimage(s: u32) -> Weight {
         // Minimum execution time: 28_203 nanoseconds.
-        Weight::from_ref_time(28_254_999)
+        Weight::from_parts(28_254_999)
             // Standard Error: 2
-            .saturating_add(Weight::from_ref_time(1_501).saturating_mul(s.into()))
+            .saturating_add(Weight::from_parts(1_501).saturating_mul(s.into()))
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -73,9 +73,9 @@ impl pallet_preimage::WeightInfo for SubstrateWeight {
     /// The range of component `s` is `[0, 4194304]`.
     fn note_requested_preimage(s: u32) -> Weight {
         // Minimum execution time: 17_937 nanoseconds.
-        Weight::from_ref_time(1_683_598)
+        Weight::from_parts(1_683_598)
             // Standard Error: 4
-            .saturating_add(Weight::from_ref_time(1_510).saturating_mul(s.into()))
+            .saturating_add(Weight::from_parts(1_510).saturating_mul(s.into()))
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -86,9 +86,9 @@ impl pallet_preimage::WeightInfo for SubstrateWeight {
     /// The range of component `s` is `[0, 4194304]`.
     fn note_no_deposit_preimage(s: u32) -> Weight {
         // Minimum execution time: 17_246 nanoseconds.
-        Weight::from_ref_time(9_678_129)
+        Weight::from_parts(9_678_129)
             // Standard Error: 1
-            .saturating_add(Weight::from_ref_time(1_499).saturating_mul(s.into()))
+            .saturating_add(Weight::from_parts(1_499).saturating_mul(s.into()))
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -98,7 +98,7 @@ impl pallet_preimage::WeightInfo for SubstrateWeight {
     // Proof: Preimage PreimageFor (max_values: None, max_size: Some(4194344), added: 4196819, mode: MaxEncodedLen)
     fn unnote_preimage() -> Weight {
         // Minimum execution time: 45_098 nanoseconds.
-        Weight::from_ref_time(46_080_000)
+        Weight::from_parts(46_080_000)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -108,7 +108,7 @@ impl pallet_preimage::WeightInfo for SubstrateWeight {
     // Proof: Preimage PreimageFor (max_values: None, max_size: Some(4194344), added: 4196819, mode: MaxEncodedLen)
     fn unnote_no_deposit_preimage() -> Weight {
         // Minimum execution time: 33_671 nanoseconds.
-        Weight::from_ref_time(37_296_000)
+        Weight::from_parts(37_296_000)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -116,7 +116,7 @@ impl pallet_preimage::WeightInfo for SubstrateWeight {
     // Proof: Preimage StatusFor (max_values: None, max_size: Some(91), added: 2566, mode: MaxEncodedLen)
     fn request_preimage() -> Weight {
         // Minimum execution time: 34_522 nanoseconds.
-        Weight::from_ref_time(37_426_000)
+        Weight::from_parts(37_426_000)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -124,7 +124,7 @@ impl pallet_preimage::WeightInfo for SubstrateWeight {
     // Proof: Preimage StatusFor (max_values: None, max_size: Some(91), added: 2566, mode: MaxEncodedLen)
     fn request_no_deposit_preimage() -> Weight {
         // Minimum execution time: 25_468 nanoseconds.
-        Weight::from_ref_time(27_331_000)
+        Weight::from_parts(27_331_000)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -132,7 +132,7 @@ impl pallet_preimage::WeightInfo for SubstrateWeight {
     // Proof: Preimage StatusFor (max_values: None, max_size: Some(91), added: 2566, mode: MaxEncodedLen)
     fn request_unnoted_preimage() -> Weight {
         // Minimum execution time: 18_768 nanoseconds.
-        Weight::from_ref_time(22_253_000)
+        Weight::from_parts(22_253_000)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -140,7 +140,7 @@ impl pallet_preimage::WeightInfo for SubstrateWeight {
     // Proof: Preimage StatusFor (max_values: None, max_size: Some(91), added: 2566, mode: MaxEncodedLen)
     fn request_requested_preimage() -> Weight {
         // Minimum execution time: 12_048 nanoseconds.
-        Weight::from_ref_time(13_801_000)
+        Weight::from_parts(13_801_000)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -150,7 +150,7 @@ impl pallet_preimage::WeightInfo for SubstrateWeight {
     // Proof: Preimage PreimageFor (max_values: None, max_size: Some(4194344), added: 4196819, mode: MaxEncodedLen)
     fn unrequest_preimage() -> Weight {
         // Minimum execution time: 42_694 nanoseconds.
-        Weight::from_ref_time(43_585_000)
+        Weight::from_parts(43_585_000)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -158,7 +158,7 @@ impl pallet_preimage::WeightInfo for SubstrateWeight {
     // Proof: Preimage StatusFor (max_values: None, max_size: Some(91), added: 2566, mode: MaxEncodedLen)
     fn unrequest_unnoted_preimage() -> Weight {
         // Minimum execution time: 10_756 nanoseconds.
-        Weight::from_ref_time(12_919_000)
+        Weight::from_parts(12_919_000)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -166,7 +166,7 @@ impl pallet_preimage::WeightInfo for SubstrateWeight {
     // Proof: Preimage StatusFor (max_values: None, max_size: Some(91), added: 2566, mode: MaxEncodedLen)
     fn unrequest_multi_referenced_preimage() -> Weight {
         // Minimum execution time: 9_925 nanoseconds.
-        Weight::from_ref_time(11_037_000)
+        Weight::from_parts(11_037_000)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }

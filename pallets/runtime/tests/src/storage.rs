@@ -430,7 +430,7 @@ pub(crate) type Balance = u128;
 parameter_types! {
     pub MaximumExtrinsicWeight: Weight = AvailableBlockRatio::get()
         .saturating_sub(Perbill::from_percent(10)) * MaximumBlockWeight::get();
-    pub const BlockExecutionWeight: Weight = Weight::from_ref_time(10);
+    pub const BlockExecutionWeight: Weight = Weight::from_parts(10, 0);
     pub TransactionByteFee: Balance = TRANSACTION_BYTE_FEE.with(|v| *v.borrow());
     pub ExtrinsicBaseWeight: Weight = EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow());
     pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight {
@@ -486,7 +486,7 @@ parameter_types! {
     pub const MaxValueSize: u32 = 16_384;
 
     pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
-    pub DeletionWeightLimit: Weight = Weight::from_ref_time(500_000_000_000);
+    pub DeletionWeightLimit: Weight = Weight::from_parts(500_000_000_000, 0);
     pub DeletionQueueDepth: u32 = 1024;
     pub MaxInLen: u32 = 8 * 1024;
     pub MaxOutLen: u32 = 8 * 1024;

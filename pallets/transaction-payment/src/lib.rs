@@ -475,7 +475,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::from_ref_time(25_000_000))]
+        #[pallet::weight(Weight::from_parts(25_000_000, 0))]
         pub fn set_disable_fees(origin: OriginFor<T>, _value: bool) -> DispatchResult {
             frame_system::ensure_root(origin)?;
             #[cfg(feature = "disable_fees")]

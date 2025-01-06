@@ -151,10 +151,10 @@ parameter_types! {
     pub const MaxLocks: u32 = 1024;
     pub const MaxReserves: u32 = 50;
     pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = Weight::from_ref_time(1024);
+    pub const MaximumBlockWeight: Weight = Weight::from_parts(1024, 0);
     pub BlockWeights: frame_system::limits::BlockWeights =
         frame_system::limits::BlockWeights::simple_max(
-            Weight::from_ref_time(frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND * 2)
+            Weight::from_parts(frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND * 2, 0)
         );
 }
 

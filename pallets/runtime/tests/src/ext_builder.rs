@@ -123,7 +123,7 @@ thread_local! {
 impl ExtBuilder {
     /// Sets the minimum weight for the extrinsic (see also `weight_fee`).
     pub fn base_weight(mut self, extrinsic_base_weight: u64) -> Self {
-        self.extrinsic_base_weight = Weight::from_ref_time(extrinsic_base_weight);
+        self.extrinsic_base_weight = Weight::from_parts(extrinsic_base_weight, 0);
         self
     }
 

@@ -57,7 +57,7 @@ impl pallet_committee::WeightInfo for SubstrateWeight {
     // Proof: PolymeshCommittee VoteThreshold (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
     fn set_vote_threshold() -> Weight {
         // Minimum execution time: 7_591 nanoseconds.
-        Weight::from_ref_time(9_164_000).saturating_add(DbWeight::get().writes(1))
+        Weight::from_parts(9_164_000).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: PolymeshCommittee Members (r:1 w:0)
     // Proof Skipped: PolymeshCommittee Members (max_values: Some(1), max_size: None, mode: Measured)
@@ -65,7 +65,7 @@ impl pallet_committee::WeightInfo for SubstrateWeight {
     // Proof: PolymeshCommittee ReleaseCoordinator (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
     fn set_release_coordinator() -> Weight {
         // Minimum execution time: 39_479 nanoseconds.
-        Weight::from_ref_time(42_193_000)
+        Weight::from_parts(42_193_000)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -73,7 +73,7 @@ impl pallet_committee::WeightInfo for SubstrateWeight {
     // Proof: PolymeshCommittee ExpiresAfter (max_values: Some(1), max_size: Some(5), added: 500, mode: MaxEncodedLen)
     fn set_expires_after() -> Weight {
         // Minimum execution time: 7_782 nanoseconds.
-        Weight::from_ref_time(8_012_000).saturating_add(DbWeight::get().writes(1))
+        Weight::from_parts(8_012_000).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: PolymeshCommittee Voting (r:1 w:1)
     // Proof Skipped: PolymeshCommittee Voting (max_values: None, max_size: None, mode: Measured)
@@ -97,7 +97,7 @@ impl pallet_committee::WeightInfo for SubstrateWeight {
     // Proof: PolymeshCommittee ExpiresAfter (max_values: Some(1), max_size: Some(5), added: 500, mode: MaxEncodedLen)
     fn vote_or_propose_new_proposal() -> Weight {
         // Minimum execution time: 175_102 nanoseconds.
-        Weight::from_ref_time(187_271_000)
+        Weight::from_parts(187_271_000)
             .saturating_add(DbWeight::get().reads(11))
             .saturating_add(DbWeight::get().writes(4))
     }
@@ -117,7 +117,7 @@ impl pallet_committee::WeightInfo for SubstrateWeight {
     // Proof: PolymeshCommittee VoteThreshold (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
     fn vote_or_propose_existing_proposal() -> Weight {
         // Minimum execution time: 148_123 nanoseconds.
-        Weight::from_ref_time(167_150_000)
+        Weight::from_parts(167_150_000)
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -141,7 +141,7 @@ impl pallet_committee::WeightInfo for SubstrateWeight {
     // Proof Skipped: PolymeshCommittee Proposals (max_values: Some(1), max_size: None, mode: Measured)
     fn vote_aye() -> Weight {
         // Minimum execution time: 277_426 nanoseconds.
-        Weight::from_ref_time(283_316_000)
+        Weight::from_parts(283_316_000)
             .saturating_add(DbWeight::get().reads(10))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -161,7 +161,7 @@ impl pallet_committee::WeightInfo for SubstrateWeight {
     // Proof: PolymeshCommittee VoteThreshold (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
     fn vote_nay() -> Weight {
         // Minimum execution time: 128_122 nanoseconds.
-        Weight::from_ref_time(135_624_000)
+        Weight::from_parts(135_624_000)
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().writes(1))
     }

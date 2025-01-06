@@ -71,14 +71,14 @@ fn call_relayer_remove_paying_key(user_key: AccountId, paying_key: AccountId) ->
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
 pub fn info_from_weight(w: u64) -> DispatchInfo {
     DispatchInfo {
-        weight: Weight::from_ref_time(w),
+        weight: Weight::from_parts(w, 0),
         ..Default::default()
     }
 }
 
 fn post_info_from_weight(w: u64) -> PostDispatchInfo {
     PostDispatchInfo {
-        actual_weight: Some(Weight::from_ref_time(w)),
+        actual_weight: Some(Weight::from_parts(w, 0)),
         pays_fee: Pays::Yes,
     }
 }

@@ -65,7 +65,7 @@ impl pallet_relayer::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity Authorizations (max_values: None, max_size: None, mode: Measured)
     fn set_paying_key() -> Weight {
         // Minimum execution time: 31_176 nanoseconds.
-        Weight::from_ref_time(34_031_000)
+        Weight::from_parts(34_031_000)
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().writes(4))
     }
@@ -91,7 +91,7 @@ impl pallet_relayer::WeightInfo for SubstrateWeight {
     // Proof: Identity AuthorizationsGiven (max_values: None, max_size: Some(81), added: 2556, mode: MaxEncodedLen)
     fn accept_paying_key() -> Weight {
         // Minimum execution time: 84_136 nanoseconds.
-        Weight::from_ref_time(90_736_000)
+        Weight::from_parts(90_736_000)
             .saturating_add(DbWeight::get().reads(14))
             .saturating_add(DbWeight::get().writes(6))
     }
@@ -109,7 +109,7 @@ impl pallet_relayer::WeightInfo for SubstrateWeight {
     // Proof: Identity AccountKeyRefCount (max_values: None, max_size: Some(56), added: 2531, mode: MaxEncodedLen)
     fn remove_paying_key() -> Weight {
         // Minimum execution time: 50_606 nanoseconds.
-        Weight::from_ref_time(52_769_000)
+        Weight::from_parts(52_769_000)
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -125,7 +125,7 @@ impl pallet_relayer::WeightInfo for SubstrateWeight {
     // Proof: Relayer Subsidies (max_values: None, max_size: Some(96), added: 2571, mode: MaxEncodedLen)
     fn update_polyx_limit() -> Weight {
         // Minimum execution time: 42_553 nanoseconds.
-        Weight::from_ref_time(44_527_000)
+        Weight::from_parts(44_527_000)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -141,7 +141,7 @@ impl pallet_relayer::WeightInfo for SubstrateWeight {
     // Proof: Relayer Subsidies (max_values: None, max_size: Some(96), added: 2571, mode: MaxEncodedLen)
     fn increase_polyx_limit() -> Weight {
         // Minimum execution time: 42_513 nanoseconds.
-        Weight::from_ref_time(47_992_000)
+        Weight::from_parts(47_992_000)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -157,7 +157,7 @@ impl pallet_relayer::WeightInfo for SubstrateWeight {
     // Proof: Relayer Subsidies (max_values: None, max_size: Some(96), added: 2571, mode: MaxEncodedLen)
     fn decrease_polyx_limit() -> Weight {
         // Minimum execution time: 42_264 nanoseconds.
-        Weight::from_ref_time(47_942_000)
+        Weight::from_parts(47_942_000)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(1))
     }
