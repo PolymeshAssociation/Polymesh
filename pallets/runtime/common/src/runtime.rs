@@ -107,6 +107,7 @@ macro_rules! misc_pallet_impls {
             type DisabledValidators = Session;
 
             type MaxAuthorities = MaxAuthorities;
+            type MaxNominators = MaxNominatorRewardedPerValidator;
             type KeyOwnerProof =
               <Historical as KeyOwnerProofSystem<(sp_core::crypto::KeyTypeId, pallet_babe::AuthorityId)>>::Proof;
             type EquivocationReportSystem =
@@ -231,7 +232,7 @@ macro_rules! misc_pallet_impls {
             type Currency = Balances;
             type CurrencyBalance = Balance;
             type UnixTime = Timestamp;
-            type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
+            type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
             type ElectionProvider = ElectionProviderMultiPhase;
             type GenesisElectionProvider = Self::ElectionProvider;
             type MaxNominations = polymesh_runtime_common::MaxNominations;
@@ -252,7 +253,7 @@ macro_rules! misc_pallet_impls {
             type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
             type TargetList = pallet_staking::UseValidatorsMap<Self>;
             type MaxUnlockingChunks = polymesh_runtime_common::MaxUnlockingChunks;
-            type OnStakerSlash = pallet_staking::OnStakerSlashMock<Self>;
+            type EventListeners = ();
             type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
             type WeightInfo = polymesh_weights::pallet_staking::SubstrateWeight;
             type Permissioned = Validators;
@@ -522,6 +523,7 @@ macro_rules! misc_pallet_impls {
 
             type WeightInfo = ();
             type MaxAuthorities = MaxAuthorities;
+            type MaxNominators = MaxNominatorRewardedPerValidator;
             type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
             type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(sp_core::crypto::KeyTypeId, pallet_grandpa::AuthorityId)>>::Proof;
             type EquivocationReportSystem =
@@ -701,21 +703,22 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
             type AccountId = polymesh_primitives::AccountId;
-	        type MaxLength = polymesh_runtime_common::MinerMaxLength;
-	        type MaxWeight = polymesh_runtime_common::MinerMaxWeight;
-	        type Solution = polymesh_runtime_common::NposSolution16;
-	        type MaxVotesPerVoter =
-	            <<Self as pallet_election_provider_multi_phase::Config>::DataProvider as frame_election_provider_support::ElectionDataProvider>::MaxVotesPerVoter;
+	          type MaxLength = polymesh_runtime_common::MinerMaxLength;
+	          type MaxWeight = polymesh_runtime_common::MinerMaxWeight;
+	          type Solution = polymesh_runtime_common::NposSolution16;
+	          type MaxVotesPerVoter =
+	              <<Self as pallet_election_provider_multi_phase::Config>::DataProvider as frame_election_provider_support::ElectionDataProvider>::MaxVotesPerVoter;
+            type MaxWinners = polymesh_runtime_common::MaxActiveValidators;
 
-	        // The unsigned submissions have to respect the weight of the submit_unsigned call, thus their
-	        // weight estimate function is wired to this call's weight.
-	        fn solution_weight(v: u32, t: u32, a: u32, d: u32) -> Weight {
-	        	<
-	        		<Self as pallet_election_provider_multi_phase::Config>::WeightInfo
-	        		as
-	        		pallet_election_provider_multi_phase::WeightInfo
-	        	>::submit_unsigned(v, t, a, d)
-	        }
+	          // The unsigned submissions have to respect the weight of the submit_unsigned call, thus their
+	          // weight estimate function is wired to this call's weight.
+	          fn solution_weight(v: u32, t: u32, a: u32, d: u32) -> Weight {
+	          	<
+	          		<Self as pallet_election_provider_multi_phase::Config>::WeightInfo
+	          		as
+	          		pallet_election_provider_multi_phase::WeightInfo
+	          	>::submit_unsigned(v, t, a, d)
+	          }
         }
     };
 }
