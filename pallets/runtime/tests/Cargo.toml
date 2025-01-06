@@ -37,7 +37,7 @@ pallet-utility = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
 polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
-polymesh-runtime-common = { workspace = true, default-features = false, features = ["testing"] }
+polymesh-runtime-common = { workspace = true, default-features = false }
 polymesh-runtime-develop = { workspace = true }
 polymesh-weights = { workspace = true, default-features = false }
 polymesh-exec-macro = { path = "exec_macro" }
@@ -107,7 +107,9 @@ sp-tracing = { workspace = true, default-features = false, features = ["std"] }
 [features]
 default = ["std", "testing", "equalize"]
 
-testing = []
+testing = [
+  "pallet-staking/testing",
+]
 equalize = []
 only-staking = []
 

@@ -16,7 +16,7 @@
 use super::*;
 use testing_utils::*;
 
-use frame_support::traits::{Currency, Get};
+use frame_support::traits::Currency;
 use sp_runtime::{
     traits::{One, StaticLookup},
     Perbill, Saturating,
@@ -30,12 +30,12 @@ pub use frame_benchmarking::v1::{
 use frame_system::RawOrigin;
 
 use pallet_staking::{
-    CurrentEra, EraRewardPoints, ErasRewardPoints, ErasValidatorReward, RewardDestination,
+    CurrentEra, EraRewardPoints, ErasRewardPoints, ErasValidatorReward, Nominators,
+    RewardDestination,
 };
 
 use crate::types::SlashingSwitch;
 use pallet_identity::benchmarking::UserBuilder;
-use polymesh_primitives::identity_claim::ClaimType;
 use polymesh_primitives::IdentityId;
 use polymesh_primitives::Permissions;
 
@@ -49,7 +49,8 @@ pub fn get_did<T: Config>(who: &T::AccountId) -> IdentityId {
 pub fn create_validator_with_nominators<T: Config>(
     n: u32,
     upper_bound: u32,
-    dead: bool,
+    dead_controller: bool,
+    unique_controller: bool,
     destination: RewardDestination<T::AccountId>,
 ) -> Result<(T::AccountId, Vec<(T::AccountId, T::AccountId)>), &'static str> {
     // Clean up any existing state.
@@ -57,7 +58,12 @@ pub fn create_validator_with_nominators<T: Config>(
     let mut points_total = 0;
     let mut points_individual = Vec::new();
 
-    let (v_stash, v_controller) = create_stash_controller::<T>(0, 100, destination.clone())?;
+    let (v_stash, v_controller) = if unique_controller {
+        create_unique_stash_controller::<T>(0, 100, destination.clone(), false)?
+    } else {
+        create_stash_controller::<T>(0, 100, destination.clone())?
+    };
+
     let validator_prefs = ValidatorPrefs {
         commission: Perbill::from_percent(50),
         ..Default::default()
@@ -74,10 +80,10 @@ pub fn create_validator_with_nominators<T: Config>(
 
     // Give the validator n nominators, but keep total users in the system the same.
     for i in 0..upper_bound {
-        let (n_stash, n_controller) = if !dead {
+        let (n_stash, n_controller) = if !dead_controller {
             create_stash_controller::<T>(u32::MAX - i, 100, destination.clone())?
         } else {
-            create_stash_and_dead_controller::<T>(u32::MAX - i, 100, destination.clone())?
+            create_unique_stash_controller::<T>(u32::MAX - i, 100, destination.clone(), true)?
         };
         if i < n {
             StakingPallet::<T>::nominate(
@@ -187,7 +193,6 @@ benchmarks! {
         let mut signatories = Vec::new();
         for x in 0 .. s {
             let key = UserBuilder::<T>::default().seed(x).balance(10_000u32).build("key").account();
-            let key_lookup = T::Lookup::unlookup(key.clone());
             let _ = T::Currency::issue(10_000u32.into());
 
             let did = get_did::<T>(&validator);
@@ -198,7 +203,6 @@ benchmarks! {
             );
             StakingPallet::<T>::bond(
                 RawOrigin::Signed(key.clone()).into(),
-                key_lookup,
                 2_000_000u32.into(),
                 RewardDestination::Staked
             )
@@ -240,38 +244,5 @@ benchmarks! {
                 ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() }
             );
         });
-    }
-
-    validate_cdd_expiry_nominators {
-        let n in 1 .. T::MaxNominations::get();
-
-        clear_validators_and_nominators::<T>();
-
-        let (validator, nominators) = create_validator_with_nominators::<T>(
-            n,
-            T::MaxNominatorRewardedPerValidator::get() as u32,
-            true,
-            RewardDestination::Controller,
-        )?;
-
-        for nominator in &nominators {
-            let did = get_did::<T>(&nominator.0);
-            let claim_first = pallet_identity::Claim1stKey {
-                target: did,
-                claim_type: ClaimType::CustomerDueDiligence
-            };
-            let _ = pallet_identity::Claims::<T>::clear_prefix(claim_first, 1, None);
-        }
-
-        let nominators: Vec<T::AccountId> = nominators.iter().map(|x| x.0.clone()).collect();
-        for nominator in &nominators {
-            assert!(Nominators::<T>::contains_key(nominator));
-        }
-
-    }: _(RawOrigin::Root, nominators.clone())
-    verify {
-        for nominator in nominators {
-            assert!(!Nominators::<T>::contains_key(nominator));
-        }
     }
 }

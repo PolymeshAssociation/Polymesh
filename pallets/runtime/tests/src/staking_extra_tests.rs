@@ -38,7 +38,6 @@ fn updating_controller() {
 
             assert_ok!(pallet_staking::Pallet::<TestStorage>::bond(
                 alice.origin(),
-                sp_runtime::MultiAddress::Id(alice.acc()),
                 10_000_000,
                 pallet_staking::RewardDestination::Controller
             ));
@@ -80,10 +79,5 @@ fn updating_controller() {
                     None
                 )
             );
-
-            assert_ok!(pallet_staking::Pallet::<TestStorage>::set_controller(
-                alice.origin(),
-                sp_runtime::MultiAddress::Id(eve.acc()),
-            ));
         });
 }
