@@ -106,24 +106,11 @@ macro_rules! misc_pallet_impls {
             type EpochChangeTrigger = pallet_babe::ExternalTrigger;
             type DisabledValidators = Session;
 
-            type KeyOwnerProofSystem = Historical;
-
-            type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
-                sp_core::crypto::KeyTypeId,
-                pallet_babe::AuthorityId,
-            )>>::Proof;
-
-            type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
-                sp_core::crypto::KeyTypeId,
-                pallet_babe::AuthorityId,
-            )>>::IdentificationTuple;
-
-            type HandleEquivocation = pallet_babe::EquivocationHandler<
-                Self::KeyOwnerIdentification,
-                Offences,
-                ReportLongevity,
-            >;
             type MaxAuthorities = MaxAuthorities;
+            type KeyOwnerProof =
+              <Historical as KeyOwnerProofSystem<(sp_core::crypto::KeyTypeId, pallet_babe::AuthorityId)>>::Proof;
+            type EquivocationReportSystem =
+              pallet_babe::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
         }
 
         impl pallet_indices::Config for Runtime {
@@ -512,8 +499,6 @@ macro_rules! misc_pallet_impls {
             type OnOffenceHandler = Staking;
         }
 
-        type GrandpaKey = (sp_core::crypto::KeyTypeId, pallet_grandpa::AuthorityId);
-
         impl pallet_im_online::Config for Runtime {
             type AuthorityId = pallet_im_online::sr25519::AuthorityId;
             type RuntimeEvent = RuntimeEvent;
@@ -530,23 +515,12 @@ macro_rules! misc_pallet_impls {
         impl pallet_grandpa::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
 
-            type KeyOwnerProofSystem = Historical;
-
-            type KeyOwnerProof =
-                <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<GrandpaKey>>::Proof;
-
-            type KeyOwnerIdentification =
-                <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<GrandpaKey>>::IdentificationTuple;
-
-            type HandleEquivocation = pallet_grandpa::EquivocationHandler<
-                Self::KeyOwnerIdentification,
-                Offences,
-                ReportLongevity,
-            >;
-
             type WeightInfo = ();
             type MaxAuthorities = MaxAuthorities;
             type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
+            type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(sp_core::crypto::KeyTypeId, pallet_grandpa::AuthorityId)>>::Proof;
+            type EquivocationReportSystem =
+              pallet_grandpa::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
         }
 
         impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
