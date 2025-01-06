@@ -352,11 +352,14 @@ pub mod pallet {
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
 
     #[pallet::genesis_config]
-    #[derive(Default)]
-    pub struct GenesisConfig;
+    #[derive(frame_support::DefaultNoBound)]
+    pub struct GenesisConfig<T> {
+        #[serde(skip)]
+        pub _config: sp_std::marker::PhantomData<T>,
+    }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             StorageVersion::<T>::put(Version::new(1));
         }

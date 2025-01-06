@@ -427,7 +427,7 @@ pub mod pallet {
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             let f = |u: Balance, &v| u + v;
             let total: Balance = self.balances.iter().map(|(_, v)| v).fold(Zero::zero(), f);

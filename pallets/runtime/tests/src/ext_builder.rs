@@ -1,6 +1,5 @@
 use crate::TestStorage;
 use frame_support::dispatch::Weight;
-use frame_support::pallet_prelude::GenesisBuild;
 use pallet_asset::{self as asset, TickerRegistrationConfig};
 use pallet_balances as balances;
 use pallet_committee as committee;
@@ -14,7 +13,7 @@ use polymesh_primitives::{
 };
 use sp_io::TestExternalities;
 use sp_keyring::AccountKeyring;
-use sp_runtime::Storage;
+use sp_runtime::{BuildStorage, Storage};
 use sp_std::prelude::Vec;
 use sp_std::{cell::RefCell, convert::From, iter};
 
@@ -326,12 +325,14 @@ impl ExtBuilder {
             max_ticker_length: 8,
             registration_length: Some(10000),
         };
-        let genesis = asset::GenesisConfig {
+        asset::GenesisConfig::<TestStorage> {
             ticker_registration_config,
             reserved_country_currency_codes: vec![],
             asset_metadata: vec![],
-        };
-        GenesisBuild::<TestStorage>::assimilate_storage(&genesis, storage).unwrap();
+            ..Default::default()
+        }
+        .assimilate_storage(storage)
+        .unwrap();
     }
 
     /// For each `cdd_providers`:
@@ -392,11 +393,13 @@ impl ExtBuilder {
     }
 
     fn build_protocol_fee_genesis(&self, storage: &mut Storage) {
-        let genesis = pallet_protocol_fee::GenesisConfig {
+        pallet_protocol_fee::GenesisConfig::<TestStorage> {
             base_fees: self.protocol_base_fees.0.clone(),
             coefficient: self.protocol_coefficient,
-        };
-        GenesisBuild::<TestStorage>::assimilate_storage(&genesis, storage).unwrap();
+            ..Default::default()
+        }
+        .assimilate_storage(storage)
+        .unwrap();
     }
 
     fn build_pips_genesis(&self, storage: &mut Storage) {
@@ -476,8 +479,8 @@ impl ExtBuilder {
             .collect();
 
         // Create storage and assimilate each genesis.
-        let mut storage = frame_system::GenesisConfig::default()
-            .build_storage::<TestStorage>()
+        let mut storage = frame_system::GenesisConfig::<TestStorage>::default()
+            .build_storage()
             .expect("TestStorage cannot build its own storage");
 
         self.build_identity_genesis(&mut storage, identities);

@@ -133,6 +133,7 @@ macro_rules! asset {
             ticker_registration_config: ticker_registration_config(),
             reserved_country_currency_codes: currency_codes(),
             asset_metadata: asset_metadata(),
+            ..Default::default()
         }
     };
 }
@@ -176,6 +177,7 @@ macro_rules! checkpoint {
         };
         pallet_asset::checkpoint::GenesisConfig {
             schedules_max_complexity: period.complexity(),
+            ..Default::default()
         }
     }};
 }
@@ -343,9 +345,10 @@ fn dev_genesis_processed_data(
     (vec![identity], stakers, balances)
 }
 
-fn frame(wasm_binary: Option<&[u8]>) -> frame_system::GenesisConfig {
+fn frame<T: frame_system::Config>(wasm_binary: Option<&[u8]>) -> frame_system::GenesisConfig<T> {
     frame_system::GenesisConfig {
         code: wasm_binary.expect("WASM binary was not generated").to_vec(),
+        ..Default::default()
     }
 }
 
@@ -359,6 +362,7 @@ macro_rules! session {
                     (x.0.clone(), x.0.clone(), sks)
                 })
                 .collect::<Vec<_>>(),
+            ..Default::default()
         }
     };
 }
@@ -409,6 +413,7 @@ macro_rules! pips {
             max_pip_skip_count: 2,
             active_pip_limit: $limit,
             pending_pip_expiry: $expiry,
+            ..Default::default()
         }
     };
 }
@@ -418,7 +423,7 @@ macro_rules! group_membership {
         pallet_group::GenesisConfig {
             active_members_limit: 20,
             active_members: vec![$(IdentityId::from($member)),*],
-            phantom: Default::default(),
+            ..Default::default()
         }
     };
 }
@@ -427,6 +432,7 @@ macro_rules! corporate_actions {
     () => {
         pallet_corporate_actions::GenesisConfig {
             max_details_length: 1024,
+            ..Default::default()
         }
     };
 }
@@ -441,7 +447,7 @@ macro_rules! committee {
             members: vec![],
             release_coordinator: IdentityId::from($rc),
             expires_after: <_>::default(),
-            phantom: Default::default(),
+            ..Default::default()
         }
     };
 }
@@ -458,6 +464,7 @@ macro_rules! protocol_fee {
         pallet_protocol_fee::GenesisConfig {
             base_fees: protocol_fees(),
             coefficient: PosRatio(1, 1),
+            ..Default::default()
         }
     };
 }
@@ -473,6 +480,7 @@ macro_rules! polymesh_contracts {
                 .expect("Wrong Length - should be length 4"),
             upgradable_major: 7,
             upgradable_owner: $root_key,
+            ..Default::default()
         }
     };
 }
@@ -494,7 +502,7 @@ pub mod general {
     use super::*;
     use polymesh_runtime_develop::{self as rt, constants::time};
 
-    pub type ChainSpec = GenericChainSpec<rt::runtime::GenesisConfig>;
+    pub type ChainSpec = GenericChainSpec<rt::runtime::RuntimeGenesisConfig>;
 
     session_keys!();
 
@@ -504,7 +512,7 @@ pub mod general {
         other_funded_accounts: Vec<AccountId>,
         treasury_amount: u128,
         key_amount: u128,
-    ) -> rt::runtime::GenesisConfig {
+    ) -> rt::runtime::RuntimeGenesisConfig {
         let (identities, stakers, balances) = dev_genesis_processed_data(
             &initial_authorities,
             other_funded_accounts,
@@ -512,7 +520,7 @@ pub mod general {
             key_amount,
         );
 
-        rt::runtime::GenesisConfig {
+        rt::runtime::RuntimeGenesisConfig {
             system: frame(rt::WASM_BINARY),
             asset: asset!(),
             checkpoint: checkpoint!(),
@@ -524,6 +532,7 @@ pub mod general {
             indices: pallet_indices::GenesisConfig { indices: vec![] },
             sudo: pallet_sudo::GenesisConfig {
                 key: Some(root_key.clone()),
+                ..Default::default()
             },
             session: session!(initial_authorities, session_keys),
             validators: validators!(stakers, PerThing::from_rational(1u64, 4u64)),
@@ -534,6 +543,7 @@ pub mod general {
             babe: pallet_babe::GenesisConfig {
                 authorities: vec![],
                 epoch_config: Some(rt::runtime::BABE_GENESIS_EPOCH_CONFIG),
+                ..Default::default()
             },
             grandpa: Default::default(),
             /*
@@ -567,7 +577,7 @@ pub mod general {
         }
     }
 
-    fn develop_genesis() -> rt::runtime::GenesisConfig {
+    fn develop_genesis() -> rt::runtime::RuntimeGenesisConfig {
         genesis(
             vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("Alice"),
@@ -586,7 +596,7 @@ pub mod general {
         name: &str,
         id: &str,
         ctype: ChainType,
-        genesis: impl 'static + Sync + Send + Fn() -> rt::runtime::GenesisConfig,
+        genesis: impl 'static + Sync + Send + Fn() -> rt::runtime::RuntimeGenesisConfig,
     ) -> ChainSpec {
         let props = Some(polymesh_props(42));
         ChainSpec::from_genesis(
@@ -612,7 +622,7 @@ pub mod general {
         )
     }
 
-    fn local_genesis() -> rt::runtime::GenesisConfig {
+    fn local_genesis() -> rt::runtime::RuntimeGenesisConfig {
         genesis(
             vec![
                 get_authority_keys_from_seed("Alice", false),
@@ -640,7 +650,7 @@ pub mod testnet {
     use super::*;
     use polymesh_runtime_testnet::{self as rt, constants::time};
 
-    pub type ChainSpec = GenericChainSpec<rt::runtime::GenesisConfig>;
+    pub type ChainSpec = GenericChainSpec<rt::runtime::RuntimeGenesisConfig>;
 
     session_keys!();
 
@@ -649,7 +659,7 @@ pub mod testnet {
         root_key: AccountId,
         treasury_amount: u128,
         key_amount: u128,
-    ) -> rt::runtime::GenesisConfig {
+    ) -> rt::runtime::RuntimeGenesisConfig {
         let (identities, stakers, balances) = genesis_processed_data(
             &initial_authorities,
             root_key.clone(),
@@ -657,7 +667,7 @@ pub mod testnet {
             key_amount,
         );
 
-        rt::runtime::GenesisConfig {
+        rt::runtime::RuntimeGenesisConfig {
             system: frame(rt::WASM_BINARY),
             asset: asset!(),
             checkpoint: checkpoint!(),
@@ -676,6 +686,7 @@ pub mod testnet {
             babe: pallet_babe::GenesisConfig {
                 authorities: vec![],
                 epoch_config: Some(rt::runtime::BABE_GENESIS_EPOCH_CONFIG),
+                ..Default::default()
             },
             grandpa: Default::default(),
             /*
@@ -709,7 +720,7 @@ pub mod testnet {
         }
     }
 
-    fn bootstrap_genesis() -> rt::runtime::GenesisConfig {
+    fn bootstrap_genesis() -> rt::runtime::RuntimeGenesisConfig {
         genesis(
             vec![
                 get_authority_keys_from_seed("Alice", false),
@@ -749,7 +760,7 @@ pub mod testnet {
         )
     }
 
-    fn develop_genesis() -> rt::runtime::GenesisConfig {
+    fn develop_genesis() -> rt::runtime::RuntimeGenesisConfig {
         genesis(
             vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("Eve"),
@@ -775,7 +786,7 @@ pub mod testnet {
         )
     }
 
-    fn local_genesis() -> rt::runtime::GenesisConfig {
+    fn local_genesis() -> rt::runtime::RuntimeGenesisConfig {
         genesis(
             vec![
                 get_authority_keys_from_seed("Alice", false),
@@ -810,7 +821,7 @@ pub mod mainnet {
     use super::*;
     use polymesh_runtime_mainnet::{self as rt, constants::time};
 
-    pub type ChainSpec = GenericChainSpec<rt::runtime::GenesisConfig>;
+    pub type ChainSpec = GenericChainSpec<rt::runtime::RuntimeGenesisConfig>;
 
     session_keys!();
 
@@ -819,7 +830,7 @@ pub mod mainnet {
         root_key: AccountId,
         treasury_amount: u128,
         key_amount: u128,
-    ) -> rt::runtime::GenesisConfig {
+    ) -> rt::runtime::RuntimeGenesisConfig {
         let (identities, stakers, balances) = genesis_processed_data(
             &initial_authorities,
             root_key.clone(),
@@ -827,7 +838,7 @@ pub mod mainnet {
             key_amount,
         );
 
-        rt::runtime::GenesisConfig {
+        rt::runtime::RuntimeGenesisConfig {
             system: frame(rt::WASM_BINARY),
             asset: asset!(),
             checkpoint: checkpoint!(),
@@ -846,6 +857,7 @@ pub mod mainnet {
             babe: pallet_babe::GenesisConfig {
                 authorities: vec![],
                 epoch_config: Some(rt::runtime::BABE_GENESIS_EPOCH_CONFIG),
+                ..Default::default()
             },
             grandpa: Default::default(),
             /*
@@ -879,7 +891,7 @@ pub mod mainnet {
         }
     }
 
-    fn bootstrap_genesis() -> rt::runtime::GenesisConfig {
+    fn bootstrap_genesis() -> rt::runtime::RuntimeGenesisConfig {
         genesis(
             vec![
                 get_authority_keys_from_seed("Alice", false),
@@ -927,7 +939,7 @@ pub mod mainnet {
         )
     }
 
-    fn develop_genesis() -> rt::runtime::GenesisConfig {
+    fn develop_genesis() -> rt::runtime::RuntimeGenesisConfig {
         genesis(
             vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("Eve"),
@@ -953,7 +965,7 @@ pub mod mainnet {
         )
     }
 
-    fn local_genesis() -> rt::runtime::GenesisConfig {
+    fn local_genesis() -> rt::runtime::RuntimeGenesisConfig {
         genesis(
             vec![
                 get_authority_keys_from_seed("Alice", false),
@@ -989,7 +1001,7 @@ pub mod general {
     use super::*;
     use polymesh_runtime_develop::{self as rt, constants::time};
 
-    pub type ChainSpec = GenericChainSpec<rt::runtime::GenesisConfig>;
+    pub type ChainSpec = GenericChainSpec<rt::runtime::RuntimeGenesisConfig>;
 
     session_keys!();
 
@@ -998,7 +1010,7 @@ pub mod general {
         root_key: AccountId,
         treasury_amount: u128,
         key_amount: u128,
-    ) -> rt::runtime::GenesisConfig {
+    ) -> rt::runtime::RuntimeGenesisConfig {
         let (identities, stakers, balances) = genesis_processed_data(
             &initial_authorities,
             root_key.clone(),
@@ -1006,7 +1018,7 @@ pub mod general {
             key_amount,
         );
 
-        rt::runtime::GenesisConfig {
+        rt::runtime::RuntimeGenesisConfig {
             system: frame(rt::WASM_BINARY),
             asset: asset!(),
             checkpoint: checkpoint!(),
@@ -1018,6 +1030,7 @@ pub mod general {
             indices: pallet_indices::GenesisConfig { indices: vec![] },
             sudo: pallet_sudo::GenesisConfig {
                 key: Some(root_key.clone()),
+                ..Default::default()
             },
             session: session!(initial_authorities, session_keys),
             validators: validators!(stakers, PerThing::zero()),
@@ -1028,6 +1041,7 @@ pub mod general {
             babe: pallet_babe::GenesisConfig {
                 authorities: vec![],
                 epoch_config: Some(rt::runtime::BABE_GENESIS_EPOCH_CONFIG),
+                ..Default::default()
             },
             grandpa: Default::default(),
             /*
@@ -1061,7 +1075,7 @@ pub mod general {
         }
     }
 
-    fn develop_genesis() -> rt::runtime::GenesisConfig {
+    fn develop_genesis() -> rt::runtime::RuntimeGenesisConfig {
         genesis(
             vec![get_authority_keys_from_seed("Bob", false)],
             seeded_acc_id("Alice"),
@@ -1087,7 +1101,7 @@ pub mod general {
         )
     }
 
-    fn local_genesis() -> rt::runtime::GenesisConfig {
+    fn local_genesis() -> rt::runtime::RuntimeGenesisConfig {
         genesis(
             vec![
                 get_authority_keys_from_seed("Alice", false),

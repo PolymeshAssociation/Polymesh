@@ -185,15 +185,17 @@ pub mod pallet {
     pub type ValidatorCommissionCap<T: Config> = StorageValue<_, Perbill, ValueQuery>;
 
     #[pallet::genesis_config]
-    #[derive(Default)]
-    pub struct GenesisConfig {
+    #[derive(frame_support::DefaultNoBound)]
+    pub struct GenesisConfig<T> {
         pub validators: Vec<IdentityId>,
         pub slashing_allowed_for: SlashingSwitch,
         pub validator_commission_cap: Perbill,
+        #[serde(skip)]
+        pub _config: sp_std::marker::PhantomData<T>,
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             SlashingAllowedFor::<T>::put(self.slashing_allowed_for);
             ValidatorCommissionCap::<T>::put(self.validator_commission_cap);
