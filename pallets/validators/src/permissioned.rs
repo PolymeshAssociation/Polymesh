@@ -8,13 +8,10 @@ use frame_support::traits::schedule::Anon;
 use frame_support::traits::schedule::{DispatchTime, HIGHEST_PRIORITY};
 use frame_support::traits::Currency;
 
-use polymesh_primitives::constants::GC_PALLET_ID;
 use polymesh_primitives::IdentityId;
 use polymesh_primitives::GC_DID;
 #[cfg(feature = "runtime-benchmarks")]
 use polymesh_primitives::{traits::IdentityFnTrait, AuthorizationData, Permissions, Signatory};
-
-use sp_runtime::traits::AccountIdConversion;
 
 use pallet_staking::{PermissionedStaking, WhoToSlash};
 
@@ -278,56 +275,6 @@ impl<T: Config> Pallet<T> {
         Pallet::<T>::deposit_event(Event::<T>::PermissionedIdentityRemoved {
             governance_councill_did: GC_DID,
             validators_identity: identity,
-        });
-        Ok(())
-    }
-
-    pub(crate) fn base_validate_cdd_expiry_nominators(
-        origin: OriginFor<T>,
-        targets: Vec<T::AccountId>,
-    ) -> DispatchResult {
-        ensure_root(origin.clone())?;
-
-        ensure!(!targets.is_empty(), StakingError::<T>::EmptyTargets);
-
-        let mut expired_nominators = Vec::new();
-        // Iterate provided list of accountIds (These accountIds should be stash type account).
-        for target in targets
-            .iter()
-            // Nominator must be vouching for someone.
-            .filter(|target| Nominators::<T>::get(target).is_some())
-            // Access the DIDs of the nominators whose CDDs have expired.
-            .filter(|target| {
-                // Fetch all the claim values provided by the trusted service providers
-                // There is a possibility that nominator will have more than one claim for the same key,
-                // So we iterate all of them and if any one of the claim value doesn't expire then nominator posses
-                // valid CDD otherwise it will be removed from the pool of the nominators.
-                // If the target has no DID, it's also removed.
-                pallet_identity::Pallet::<T>::get_identity(&target)
-                    .filter(|did| pallet_identity::Pallet::<T>::has_valid_cdd(*did))
-                    .is_none()
-            })
-        {
-            // Un-bonding the balance that bonded with the controller account of a Stash account
-            // This unbonded amount only be accessible after completion of the BondingDuration
-            // Controller account need to call the dispatchable function `withdraw_unbond` to withdraw fund.
-
-            let controller = Bonded::<T>::get(target).ok_or(StakingError::<T>::NotStash)?;
-            let mut ledger =
-                Ledger::<T>::get(&controller).ok_or(StakingError::<T>::NotController)?;
-            let active_balance = ledger.active;
-            if ledger.unlocking.len() < T::MaxUnlockingChunks::get() as usize {
-                StakingPallet::<T>::unbond_balance(controller, &mut ledger, active_balance)?;
-
-                expired_nominators.push(target.clone());
-                // Free the nominator from the valid nominator list
-                <Nominators<T>>::remove(target);
-            }
-        }
-        Pallet::<T>::deposit_event(Event::<T>::InvalidatedNominators {
-            governance_councill_did: GC_DID,
-            governance_councill_account: GC_PALLET_ID.into_account_truncating(),
-            expired_nominators: expired_nominators,
         });
         Ok(())
     }

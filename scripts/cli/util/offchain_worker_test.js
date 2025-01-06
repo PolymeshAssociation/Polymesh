@@ -52,7 +52,7 @@ async function main() {
     await reqImports["authorizeJoinToIdentities"]( api, stash_nominators, nominator_dids, controller_keys);
     await reqImports["blockTillPoolEmpty"](api);
 
-    await addNominator(api, controller_keys, stash_nominators, testEntities[0], validators_key);
+    await addNominator(api, stash_nominators, testEntities[0], validators_key);
     await reqImports["blockTillPoolEmpty"](api);
 
     subscribeCddOffchainWorker(api);
@@ -110,25 +110,19 @@ async function getExpiries(api, length) {
     return expiries;
 }
 
-async function addNominator(api, controller, stash, from, validator) {
+async function addNominator(api, stash, from, validator) {
     let transfer_amount = new BN(1).mul(new BN(10).pow(new BN(6)));
     let operators = [validator[0].address, validator[1].address];
     let bond_amount = new BN(3).mul(new BN(10).pow(new BN(6)));
 
     // bond nominator first
     for (let i = 0; i < stash.length; i++) {
-        const tx = api.tx.staking.bond(controller[i].address, bond_amount, "Controller");
+        const tx = api.tx.staking.bond(bond_amount, "Controller");
+        await reqImports["signAndSendTransaction"](tx, stash[i]);
+        const tx = api.tx.staking.nominate(operators);
         await reqImports["signAndSendTransaction"](tx, stash[i]);
     }
     await reqImports["blockTillPoolEmpty"](api);
-    // fund controller keys
-    await reqImports["distributePolyBatch"](api, controller, transfer_amount, from);
-    await reqImports["blockTillPoolEmpty"](api);
-
-    for (let i = 0; i < controller.length; i++) {
-        const tx = api.tx.staking.nominate(operators);
-        await reqImports["signAndSendTransaction"](tx, controller[i]);
-    }
 }
 
 async function subscribeCddOffchainWorker(api) {

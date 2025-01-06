@@ -27,7 +27,7 @@ async function main(): Promise<void> {
     // Add as secondary key to the existing did who wants to be a potential nominator
     await addSecondaryKeys(stash_nominators, controller_keys);
     await authorizeJoinToIdentities(stash_nominators, controller_keys);
-    await addNominator(controller_keys, stash_nominators, alice, validators_key);
+    await addNominator(stash_nominators, alice, validators_key);
     init.subscribeCddOffchainWorker(); 
 }
 

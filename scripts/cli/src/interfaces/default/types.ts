@@ -1,16 +1,16 @@
 // Auto-generated via `yarn polkadot-types-from-defs`, do not edit
 /* eslint-disable */
 
-import type { Bytes, Enum, Option, Struct, Text, U8aFixed, Vec, bool, u32, u64 } from '@polkadot/types-codec';
+import type { BTreeMap, BTreeSet, Bytes, Enum, Option, Struct, Text, U8aFixed, Vec, bool, u128, u32, u64 } from '@polkadot/types-codec';
 import type { ITuple } from '@polkadot/types-codec/types';
-import type { AccountId, Balance, Permill, Weight } from '@polkadot/types/interfaces/runtime';
+import type { AccountId, AccountId32, Balance, Permill, Weight } from '@polkadot/types/interfaces/runtime';
 import type { DispatchError } from '@polkadot/types/interfaces/system';
 
 /** @name AffirmationCount */
 export interface AffirmationCount extends Struct {
-  readonly sender_asset_count: AssetCount;
-  readonly receiver_asset_count: AssetCount;
-  readonly offchain_count: u32;
+  readonly senderAssetCount: AssetCount;
+  readonly receiverAssetCount: AssetCount;
+  readonly offchainCount: u32;
 }
 
 /** @name AgentGroup */
@@ -36,9 +36,9 @@ export interface AssetComplianceResult extends Struct {
 
 /** @name AssetCount */
 export interface AssetCount extends Struct {
-  readonly fungible_tokens: u32;
-  readonly non_fungible_tokens: u32;
-  readonly off_chain_assets: u32;
+  readonly fungibleTokens: u32;
+  readonly nonFungibleTokens: u32;
+  readonly offChainAssets: u32;
 }
 
 /** @name AssetDidResult */
@@ -50,25 +50,23 @@ export interface AssetDidResult extends Enum {
   readonly type: 'Ok' | 'Err';
 }
 
-/** @name AssetId */
-export interface AssetId extends U8aFixed {}
-
 /** @name AssetPermissions */
 export interface AssetPermissions extends Enum {
   readonly isWhole: boolean;
   readonly isThese: boolean;
-  readonly asThese: Vec<AssetId>;
+  readonly asThese: BTreeSet<PolymeshAssetId>;
   readonly isExcept: boolean;
-  readonly asExcept: Vec<AssetId>;
+  readonly asExcept: BTreeSet<PolymeshAssetId>;
   readonly type: 'Whole' | 'These' | 'Except';
 }
 
 /** @name Authorization */
 export interface Authorization extends Struct {
-  readonly authorization_data: AuthorizationData;
-  readonly authorized_by: IdentityId;
-  readonly expiry: Option<Moment>;
-  readonly auth_id: u64;
+  readonly authorizationData: AuthorizationData;
+  readonly authorizedBy: IdentityId;
+  readonly expiry: Option<PolymeshMoment>;
+  readonly authId: u64;
+  readonly count: u32;
 }
 
 /** @name AuthorizationData */
@@ -81,15 +79,15 @@ export interface AuthorizationData extends Enum {
   readonly isAddMultiSigSigner: boolean;
   readonly asAddMultiSigSigner: AccountId;
   readonly isTransferAssetOwnership: boolean;
-  readonly asTransferAssetOwnership: AssetId;
+  readonly asTransferAssetOwnership: PolymeshAssetId;
   readonly isJoinIdentity: boolean;
   readonly asJoinIdentity: Permissions;
   readonly isPortfolioCustody: boolean;
   readonly asPortfolioCustody: PortfolioId;
   readonly isBecomeAgent: boolean;
-  readonly asBecomeAgent: ITuple<[AssetId, AgentGroup]>;
+  readonly asBecomeAgent: ITuple<[PolymeshAssetId, AgentGroup]>;
   readonly isAddRelayerPayingKey: boolean;
-  readonly asAddRelayerPayingKey: ITuple<[AccountId, AccountId, Balance]>;
+  readonly asAddRelayerPayingKey: ITuple<[AccountId32, AccountId32, u128]>;
   readonly isRotatePrimaryKeyToSecondary: boolean;
   readonly asRotatePrimaryKeyToSecondary: Permissions;
   readonly type: 'AttestPrimaryKeyRotation' | 'RotatePrimaryKey' | 'TransferTicker' | 'AddMultiSigSigner' | 'TransferAssetOwnership' | 'JoinIdentity' | 'PortfolioCustody' | 'BecomeAgent' | 'AddRelayerPayingKey' | 'RotatePrimaryKeyToSecondary';
@@ -177,22 +175,22 @@ export interface ClaimType extends Enum {
 
 /** @name ComplianceReport */
 export interface ComplianceReport extends Struct {
-  readonly any_requirement_satistifed: bool;
-  readonly paused_compliance: bool;
+  readonly anyRequirementSatisfied: bool;
+  readonly pausedCompliance: bool;
   readonly requirements: Vec<RequirementReport>;
 }
 
 /** @name ComplianceRequirementResult */
 export interface ComplianceRequirementResult extends Struct {
-  readonly sender_conditions: Vec<ConditionResult>;
-  readonly receiver_conditions: Vec<ConditionResult>;
+  readonly senderConditions: Vec<ConditionResult>;
+  readonly receiverConditions: Vec<ConditionResult>;
   readonly id: u32;
   readonly result: bool;
 }
 
 /** @name Condition */
 export interface Condition extends Struct {
-  readonly condition_type: ConditionType;
+  readonly conditionType: ConditionType;
   readonly issuers: Vec<TrustedIssuer>;
 }
 
@@ -491,10 +489,10 @@ export interface DidStatus extends Enum {
 
 /** @name ExecuteInstructionInfo */
 export interface ExecuteInstructionInfo extends Struct {
-  readonly fungible_tokens: u32;
-  readonly non_fungible_tokens: u32;
-  readonly off_chain_assets: u32;
-  readonly consumed_weight: Weight;
+  readonly fungibleTokens: u32;
+  readonly nonFungibleTokens: u32;
+  readonly offChainAssets: u32;
+  readonly consumedWeight: Weight;
   readonly error: Option<Text>;
 }
 
@@ -505,9 +503,9 @@ export interface ExtrinsicName extends Text {}
 export interface ExtrinsicNames extends Enum {
   readonly isWhole: boolean;
   readonly isThese: boolean;
-  readonly asThese: Vec<ExtrinsicName>;
+  readonly asThese: BTreeSet<ExtrinsicName>;
   readonly isExcept: boolean;
-  readonly asExcept: Vec<ExtrinsicName>;
+  readonly asExcept: BTreeSet<ExtrinsicName>;
   readonly type: 'Whole' | 'These' | 'Except';
 }
 
@@ -515,9 +513,9 @@ export interface ExtrinsicNames extends Enum {
 export interface ExtrinsicPermissions extends Enum {
   readonly isWhole: boolean;
   readonly isThese: boolean;
-  readonly asThese: Vec<ITuple<[PalletName, PalletPermissions]>>;
+  readonly asThese: BTreeMap<PalletName,PalletPermissions>;
   readonly isExcept: boolean;
-  readonly asExcept: Vec<ITuple<[PalletName, PalletPermissions]>>;
+  readonly asExcept: BTreeMap<PalletName,PalletPermissions>;
   readonly type: 'Whole' | 'These' | 'Except';
 }
 
@@ -525,33 +523,33 @@ export interface ExtrinsicPermissions extends Enum {
 export interface FungibleLeg extends Struct {
   readonly sender: PortfolioId;
   readonly receiver: PortfolioId;
-  readonly asset_id: AssetId;
+  readonly assetId: PolymeshAssetId;
   readonly amount: Balance;
 }
 
 /** @name GranularCanTransferResult */
 export interface GranularCanTransferResult extends Struct {
-  readonly invalid_granularity: bool;
-  readonly self_transfer: bool;
-  readonly invalid_receiver_cdd: bool;
-  readonly invalid_sender_cdd: bool;
-  readonly receiver_custodian_error: bool;
-  readonly sender_custodian_error: bool;
-  readonly sender_insufficient_balance: bool;
-  readonly portfolio_validity_result: PortfolioValidityResult;
-  readonly asset_frozen: bool;
-  readonly transfer_condition_result: Vec<TransferConditionResult>;
-  readonly compliance_result: AssetComplianceResult;
+  readonly invalidGranularity: bool;
+  readonly selfTransfer: bool;
+  readonly invalidReceiverCdd: bool;
+  readonly invalidSenderCdd: bool;
+  readonly receiverCustodianError: bool;
+  readonly senderCustodianError: bool;
+  readonly senderInsufficientBalance: bool;
+  readonly portfolioValidityResult: PortfolioValidityResult;
+  readonly assetFrozen: bool;
+  readonly transferConditionResult: Vec<TransferConditionResult>;
+  readonly complianceResult: AssetComplianceResult;
   readonly result: bool;
-  readonly consumed_weight: Option<Weight>;
+  readonly consumedWeight: Option<Weight>;
 }
 
 /** @name IdentityClaim */
 export interface IdentityClaim extends Struct {
-  readonly claim_issuer: IdentityId;
-  readonly issuance_date: Moment;
-  readonly last_update_date: Moment;
-  readonly expiry: Option<Moment>;
+  readonly claimIssuer: IdentityId;
+  readonly issuanceDate: PolymeshMoment;
+  readonly lastUpdateDate: PolymeshMoment;
+  readonly expiry: Option<PolymeshMoment>;
   readonly claim: Claim;
 }
 
@@ -581,19 +579,16 @@ export interface Leg extends Enum {
 /** @name Member */
 export interface Member extends Struct {
   readonly id: IdentityId;
-  readonly expiry_at: Option<Moment>;
-  readonly inactive_from: Option<Moment>;
+  readonly expiryAt: Option<PolymeshMoment>;
+  readonly inactiveFrom: Option<PolymeshMoment>;
 }
-
-/** @name Moment */
-export interface Moment extends u64 {}
 
 /** @name NFTId */
 export interface NFTId extends u64 {}
 
 /** @name NFTs */
 export interface NFTs extends Struct {
-  readonly asset_id: AssetId;
+  readonly assetId: PolymeshAssetId;
   readonly ids: Vec<NFTId>;
 }
 
@@ -606,9 +601,9 @@ export interface NonFungibleLeg extends Struct {
 
 /** @name OffChainLeg */
 export interface OffChainLeg extends Struct {
-  readonly sender_identity: IdentityId;
-  readonly receiver_identity: IdentityId;
-  readonly asset_id: AssetId;
+  readonly senderIdentity: IdentityId;
+  readonly receiverIdentity: IdentityId;
+  readonly ticker: Ticker;
   readonly amount: Balance;
 }
 
@@ -633,6 +628,12 @@ export interface Permissions extends Struct {
 /** @name PipId */
 export interface PipId extends u32 {}
 
+/** @name PolymeshAssetId */
+export interface PolymeshAssetId extends U8aFixed {}
+
+/** @name PolymeshMoment */
+export interface PolymeshMoment extends u64 {}
+
 /** @name PortfolioId */
 export interface PortfolioId extends Struct {
   readonly did: IdentityId;
@@ -654,18 +655,18 @@ export interface PortfolioNumber extends u64 {}
 export interface PortfolioPermissions extends Enum {
   readonly isWhole: boolean;
   readonly isThese: boolean;
-  readonly asThese: Vec<PortfolioId>;
+  readonly asThese: BTreeSet<PortfolioId>;
   readonly isExcept: boolean;
-  readonly asExcept: Vec<PortfolioId>;
+  readonly asExcept: BTreeSet<PortfolioId>;
   readonly type: 'Whole' | 'These' | 'Except';
 }
 
 /** @name PortfolioValidityResult */
 export interface PortfolioValidityResult extends Struct {
-  readonly receiver_is_same_portfolio: bool;
-  readonly sender_portfolio_does_not_exist: bool;
-  readonly receiver_portfolio_does_not_exist: bool;
-  readonly sender_insufficient_balance: bool;
+  readonly receiverIsSamePortfolio: bool;
+  readonly senderPortfolioDoesNotExist: bool;
+  readonly receiverPortfolioDoesNotExist: bool;
+  readonly senderInsufficientBalance: bool;
   readonly result: bool;
 }
 
@@ -692,10 +693,10 @@ export interface ProtocolOp extends Enum {
 
 /** @name RequirementReport */
 export interface RequirementReport extends Struct {
-  readonly requirement_satisfied: bool;
+  readonly requirementSatisfied: bool;
   readonly id: u32;
-  readonly sender_conditions: Vec<ConditionReport>;
-  readonly receiver_conditions: Vec<ConditionReport>;
+  readonly senderConditions: Vec<ConditionReport>;
+  readonly receiverConditions: Vec<ConditionReport>;
 }
 
 /** @name RpcDidRecords */
@@ -709,8 +710,8 @@ export interface RpcDidRecords extends Enum {
 
 /** @name RpcDidRecordsSuccess */
 export interface RpcDidRecordsSuccess extends Struct {
-  readonly primary_key: AccountId;
-  readonly secondary_keys: Vec<SecondaryKey>;
+  readonly primaryKey: AccountId;
+  readonly secondaryKeys: Vec<SecondaryKey>;
 }
 
 /** @name Scope */
@@ -718,7 +719,7 @@ export interface Scope extends Enum {
   readonly isIdentity: boolean;
   readonly asIdentity: IdentityId;
   readonly isAsset: boolean;
-  readonly asAsset: AssetId;
+  readonly asAsset: PolymeshAssetId;
   readonly isCustom: boolean;
   readonly asCustom: Bytes;
   readonly type: 'Identity' | 'Asset' | 'Custom';
@@ -791,7 +792,7 @@ export interface TrustedFor extends Enum {
 /** @name TrustedIssuer */
 export interface TrustedIssuer extends Struct {
   readonly issuer: IdentityId;
-  readonly trusted_for: TrustedFor;
+  readonly trustedFor: TrustedFor;
 }
 
 /** @name VoteCount */

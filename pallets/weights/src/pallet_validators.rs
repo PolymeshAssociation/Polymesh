@@ -133,43 +133,4 @@ impl pallet_validators::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes(2))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(m.into())))
     }
-    // Storage: Staking Nominators (r:16 w:16)
-    // Proof: Staking Nominators (max_values: None, max_size: Some(558), added: 3033, mode: MaxEncodedLen)
-    // Storage: Identity KeyRecords (r:32 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Proof Skipped: Instance2Group ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Identity Claims (r:16 w:0)
-    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity ParentDid (r:16 w:0)
-    // Proof Skipped: Identity ParentDid (max_values: None, max_size: None, mode: Measured)
-    // Storage: Staking Bonded (r:16 w:0)
-    // Proof: Staking Bonded (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
-    // Storage: Staking Ledger (r:16 w:16)
-    // Proof: Staking Ledger (max_values: None, max_size: Some(1091), added: 3566, mode: MaxEncodedLen)
-    // Storage: Staking MinNominatorBond (r:1 w:0)
-    // Proof: Staking MinNominatorBond (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
-    // Storage: Staking CurrentEra (r:1 w:0)
-    // Proof: Staking CurrentEra (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-    // Storage: Balances Locks (r:16 w:16)
-    // Proof Skipped: Balances Locks (max_values: None, max_size: None, mode: Measured)
-    // Storage: System Account (r:16 w:16)
-    // Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
-    // Storage: Identity IsDidFrozen (r:16 w:0)
-    // Proof Skipped: Identity IsDidFrozen (max_values: None, max_size: None, mode: Measured)
-    // Storage: Staking CounterForNominators (r:1 w:1)
-    // Proof: Staking CounterForNominators (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-    /// The range of component `n` is `[1, 16]`.
-    fn validate_cdd_expiry_nominators(n: u32) -> Weight {
-        // Minimum execution time: 211_797 nanoseconds.
-        Weight::from_parts(153_423_017, 0)
-            // Standard Error: 176_413
-            .saturating_add(Weight::from_parts(82_196_945, 0).saturating_mul(n.into()))
-            .saturating_add(DbWeight::get().reads(5))
-            .saturating_add(DbWeight::get().reads((10_u64).saturating_mul(n.into())))
-            .saturating_add(DbWeight::get().writes(1))
-            .saturating_add(DbWeight::get().writes((4_u64).saturating_mul(n.into())))
-    }
 }
