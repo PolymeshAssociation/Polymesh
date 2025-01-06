@@ -422,7 +422,7 @@ pub mod pallet {
                     owner.clone(),
                     self.upgradable_code.clone(),
                     None,
-                    Determinism::Deterministic,
+                    Determinism::Enforced,
                 )
                 .unwrap();
                 log::info!("Uploaded upgradeable code: {}", code_result.code_hash);

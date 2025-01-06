@@ -417,13 +417,12 @@ macro_rules! misc_pallet_impls {
             type CallFilter = frame_support::traits::Nothing;
             type DepositPerItem = polymesh_runtime_common::DepositPerItem;
             type DepositPerByte = polymesh_runtime_common::DepositPerByte;
+            type DefaultDepositLimit = polymesh_runtime_common::DefaultDepositLimit;
             type CallStack = [pallet_contracts::Frame<Self>; 5];
             type WeightPrice = pallet_transaction_payment::Pallet<Self>;
             type WeightInfo = polymesh_weights::pallet_contracts::SubstrateWeight;
             type ChainExtension = polymesh_contracts::PolymeshExtension;
             type Schedule = Schedule;
-            type DeletionQueueDepth = DeletionQueueDepth;
-            type DeletionWeightLimit = DeletionWeightLimit;
             type AddressGenerator = pallet_contracts::DefaultAddressGenerator;
             #[cfg(not(feature = "runtime-benchmarks"))]
             type PolymeshHooks = polymesh_contracts::ContractPolymeshHooks;
@@ -433,6 +432,16 @@ macro_rules! misc_pallet_impls {
             type MaxStorageKeyLen = frame_support::traits::ConstU32<128>;
             type UnsafeUnstableInterface = frame_support::traits::ConstBool<false>;
             type MaxDebugBufferLen = frame_support::traits::ConstU32<{ 2 * 1024 * 1024 }>;
+            #[cfg(not(feature = "runtime-benchmarks"))]
+            type Migrations = (
+                pallet_contracts::migration::v11::Migration<Runtime>,
+                pallet_contracts::migration::v12::Migration<Runtime>,
+                pallet_contracts::migration::v13::Migration<Runtime>,
+            );
+            #[cfg(feature = "runtime-benchmarks")]
+            type Migrations = pallet_contracts::migration::codegen::BenchMigrations;
+            type MaxDelegateDependencies = frame_support::traits::ConstU32<32>;
+            type CodeHashLockupDepositPercent = polymesh_runtime_common::CodeHashLockupDepositPercent;
         }
 
         impl pallet_compliance_manager::Config for Runtime {
@@ -799,6 +808,11 @@ macro_rules! runtime_apis {
             )
         >;
 
+        type EventRecord = frame_system::EventRecord<
+            <Runtime as frame_system::Config>::RuntimeEvent,
+            <Runtime as frame_system::Config>::Hash,
+        >;
+
         sp_api::impl_runtime_apis! {
             impl sp_api::Core<Block> for Runtime {
                 fn version() -> RuntimeVersion {
@@ -817,6 +831,14 @@ macro_rules! runtime_apis {
             impl sp_api::Metadata<Block> for Runtime {
                 fn metadata() -> sp_core::OpaqueMetadata {
                     sp_core::OpaqueMetadata::new(Runtime::metadata().into())
+                }
+
+                fn metadata_at_version(version: u32) -> Option<sp_core::OpaqueMetadata> {
+                  Runtime::metadata_at_version(version)
+                }
+
+                fn metadata_versions() -> sp_std::vec::Vec<u32> {
+                  Runtime::metadata_versions()
                 }
             }
 
@@ -957,6 +979,7 @@ macro_rules! runtime_apis {
                 Balance,
                 BlockNumber,
                 polymesh_primitives::Hash,
+                EventRecord,
             > for Runtime {
                 fn call(
                     origin: polymesh_primitives::AccountId,
@@ -965,9 +988,19 @@ macro_rules! runtime_apis {
                     gas_limit: Option<Weight>,
                     storage_deposit_limit: Option<Balance>,
                     input_data: Vec<u8>,
-                ) -> pallet_contracts_primitives::ContractExecResult<Balance> {
+                ) -> pallet_contracts_primitives::ContractExecResult<Balance, EventRecord> {
                     let gas_limit = gas_limit.unwrap_or(polymesh_runtime_common::RuntimeBlockWeights::get().max_block);
-                    Contracts::bare_call(origin, dest, value, gas_limit, storage_deposit_limit, input_data, true, pallet_contracts::Determinism::Deterministic)
+                    Contracts::bare_call(
+                        origin,
+                        dest,
+                        value,
+                        gas_limit,
+                        storage_deposit_limit,
+                        input_data,
+                        pallet_contracts::DebugInfo::UnsafeDebug,
+                        pallet_contracts::CollectEvents::UnsafeCollect,
+                        pallet_contracts::Determinism::Enforced,
+                    )
                 }
 
                 fn instantiate(
@@ -978,9 +1011,19 @@ macro_rules! runtime_apis {
                     code: pallet_contracts_primitives::Code<polymesh_primitives::Hash>,
                     data: Vec<u8>,
                     salt: Vec<u8>,
-                ) -> pallet_contracts_primitives::ContractInstantiateResult<polymesh_primitives::AccountId, Balance> {
+                ) -> pallet_contracts_primitives::ContractInstantiateResult<polymesh_primitives::AccountId, Balance, EventRecord> {
                     let gas_limit = gas_limit.unwrap_or(polymesh_runtime_common::RuntimeBlockWeights::get().max_block);
-                    Contracts::bare_instantiate(origin, value, gas_limit, storage_deposit_limit, code, data, salt, true)
+                    Contracts::bare_instantiate(
+                        origin,
+                        value,
+                        gas_limit,
+                        storage_deposit_limit,
+                        code,
+                        data,
+                        salt,
+                        pallet_contracts::DebugInfo::UnsafeDebug,
+                        pallet_contracts::CollectEvents::UnsafeCollect,
+                    )
                 }
 
                 fn upload_code(
