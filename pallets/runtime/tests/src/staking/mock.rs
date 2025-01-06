@@ -22,8 +22,8 @@ use std::collections::BTreeMap;
 use frame_election_provider_support::{onchain, SequentialPhragmen};
 use frame_support::dispatch::{DispatchResult, Weight};
 use frame_support::traits::{
-    ConstU32, Currency, EitherOfDiverse, FindAuthor, GenesisBuild, Get, Hooks, Imbalance,
-    KeyOwnerProofSystem, OnUnbalanced, OneSessionHandler,
+    ConstU32, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, KeyOwnerProofSystem,
+    OnUnbalanced, OneSessionHandler,
 };
 use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{assert_ok, ord_parameter_types, parameter_types};
@@ -33,6 +33,7 @@ use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::testing::{Header, TestXt, UintAuthorityId};
 use sp_runtime::traits::{IdentityLookup, Zero};
 use sp_runtime::transaction_validity::InvalidTransaction;
+use sp_runtime::BuildStorage;
 use sp_runtime::{KeyTypeId, Perbill};
 use sp_staking::offence::{DisableStrategy, OffenceDetails, OnOffenceHandler};
 use sp_staking::{EraIndex, SessionIndex};
@@ -107,8 +108,8 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-        Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned},
+        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Babe: pallet_babe::{Pallet, Call, Storage, Config<T>, ValidateUnsigned},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         Authorship: pallet_authorship,
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
@@ -118,7 +119,7 @@ frame_support::construct_runtime!(
         Historical: pallet_session::historical::{Pallet},
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>, Config<T>},
         CddServiceProviders: pallet_group::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
-        ProtocolFee: pallet_protocol_fee::{Pallet, Call, Storage, Event<T>, Config},
+        ProtocolFee: pallet_protocol_fee::{Pallet, Call, Storage, Event<T>, Config<T>},
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
         Treasury: pallet_treasury::{Pallet, Call, Event<T>},
@@ -756,11 +757,11 @@ impl ExtBuilder {
     }
     fn build(self) -> sp_io::TestExternalities {
         sp_tracing::try_init_simple();
-        let mut storage = frame_system::GenesisConfig::default()
-            .build_storage::<Test>()
+        let mut storage = frame_system::GenesisConfig::<Test>::default()
+            .build_storage()
             .unwrap();
 
-        let _ = pallet_balances::GenesisConfig::<Test> {
+        pallet_balances::GenesisConfig::<Test> {
             balances: vec![
                 (1, 10 * self.balance_factor),
                 (2, 20 * self.balance_factor),
@@ -792,7 +793,7 @@ impl ExtBuilder {
                 (999, 1_000_000_000_000),
             ],
         }
-        .assimilate_storage(&mut storage);
+        .assimilate_storage(&mut storage).unwrap();
 
         pallet_group::GenesisConfig::<Test, pallet_group::Instance2> {
             active_members_limit: u32::MAX,
@@ -943,7 +944,7 @@ impl ExtBuilder {
             stakers.extend(self.stakers)
         }
 
-        let genesis = pallet_validators::GenesisConfig {
+        pallet_validators::GenesisConfig::<Test> {
             validators: stakers
                 .iter()
                 .filter_map(|(did, _stash, _controller, _balance, status)| {
@@ -956,10 +957,10 @@ impl ExtBuilder {
                 .collect::<Vec<_>>(),
             slashing_allowed_for: self.slashing_allowed_for,
             ..Default::default()
-        };
-        GenesisBuild::<Test>::assimilate_storage(&genesis, &mut storage).unwrap();
+        }
+        .assimilate_storage(&mut storage).unwrap();
 
-        let _ = pallet_staking::GenesisConfig::<Test> {
+        pallet_staking::GenesisConfig::<Test> {
             stakers: stakers
                 .iter()
                 .map(|(_, stash, controller, balance, status)| {
@@ -979,7 +980,7 @@ impl ExtBuilder {
             min_validator_bond: self.min_validator_bond,
             ..Default::default()
         }
-        .assimilate_storage(&mut storage);
+        .assimilate_storage(&mut storage).unwrap();
 
         let _ = pallet_session::GenesisConfig::<Test> {
             keys: if self.has_stakers {
