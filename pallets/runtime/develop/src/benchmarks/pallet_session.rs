@@ -24,6 +24,7 @@
 use codec::Decode;
 use frame_benchmarking::benchmarks;
 use frame_support::traits::{Currency, Get, OnInitialize};
+use frame_system::pallet_prelude::BlockNumberFor;
 use frame_system::RawOrigin;
 use pallet_session::{Call, Pallet as Session};
 use pallet_staking::benchmarking::create_validator_with_nominators;
@@ -38,8 +39,8 @@ pub trait Config:
 {
 }
 
-impl<T: Config> OnInitialize<T::BlockNumber> for Pallet<T> {
-    fn on_initialize(n: T::BlockNumber) -> frame_support::weights::Weight {
+impl<T: Config> OnInitialize<BlockNumberFor<T>> for Pallet<T> {
+    fn on_initialize(n: BlockNumberFor<T>) -> frame_support::weights::Weight {
         Session::<T>::on_initialize(n)
     }
 }
