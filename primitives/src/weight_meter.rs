@@ -69,16 +69,16 @@ impl WeightMeter {
 
     /// Consumes the given weight after checking that it can be consumed. Returns an error otherwise.
     pub fn check_accrue(&mut self, weight: Weight) -> Result<(), String> {
-        if !self.meter.check_accrue(weight) {
-            return Err(String::from("Maximum weight limit exceeded"));
-        }
+        self.meter
+            .try_consume(weight)
+            .map_err(|_| "Maximum weight limit exceeded")?;
         Ok(())
     }
 
     /// Consumes the given `weight`.
     /// If the new consumed weight is greater than the limit, consumed will be set to limit and an error will be returned.
     pub fn consume_weight_until_limit(&mut self, weight: Weight) -> Result<(), String> {
-        if !self.meter.check_accrue(weight) {
+        if self.check_accrue(weight).is_err() {
             self.meter.consume(self.meter.remaining());
             return Err(String::from("Maximum weight limit exceeded"));
         }
