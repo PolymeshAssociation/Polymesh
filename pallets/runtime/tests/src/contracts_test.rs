@@ -23,7 +23,7 @@ use crate::storage::{root, TestStorage, User};
 // and instead focus on the particulars of our contracts pallet.
 // This includes testing CDD, permissions, and what the chain extension does.
 
-const GAS_LIMIT: Gas = Weight::from_ref_time(100_000_000_000).set_proof_size(3 * 1024 * 1024);
+const GAS_LIMIT: Gas = Weight::from_parts(100_000_000_000, 3 * 1024 * 1024);
 
 type Asset = pallet_asset::Pallet<TestStorage>;
 type FrameContracts = pallet_contracts::Pallet<TestStorage>;

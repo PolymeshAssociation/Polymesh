@@ -124,7 +124,7 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
 
-    pub const MIN_WEIGHT: Weight = Weight::from_ref_time(1_000);
+    pub const MIN_WEIGHT: Weight = Weight::from_parts(1_000, 0);
 
     #[pallet::config]
     pub trait Config: frame_system::Config {

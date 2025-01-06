@@ -57,7 +57,7 @@ impl pallet_asset::checkpoint::WeightInfo for SubstrateWeight {
     // Proof: Checkpoint SchedulesMaxComplexity (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
     fn set_schedules_max_complexity() -> Weight {
         // Minimum execution time: 8_703 nanoseconds.
-        Weight::from_ref_time(9_895_000).saturating_add(DbWeight::get().writes(1))
+        Weight::from_parts(9_895_000).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
@@ -83,7 +83,7 @@ impl pallet_asset::checkpoint::WeightInfo for SubstrateWeight {
     // Proof: Checkpoint Timestamps (max_values: None, max_size: Some(56), added: 2531, mode: MaxEncodedLen)
     fn create_checkpoint() -> Weight {
         // Minimum execution time: 68_784 nanoseconds.
-        Weight::from_ref_time(70_386_000)
+        Weight::from_parts(70_386_000)
             .saturating_add(DbWeight::get().reads(10))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -117,7 +117,7 @@ impl pallet_asset::checkpoint::WeightInfo for SubstrateWeight {
     // Proof: Checkpoint ScheduleRefCount (max_values: None, max_size: Some(52), added: 2527, mode: MaxEncodedLen)
     fn create_schedule() -> Weight {
         // Minimum execution time: 88_713 nanoseconds.
-        Weight::from_ref_time(93_971_000)
+        Weight::from_parts(93_971_000)
             .saturating_add(DbWeight::get().reads(13))
             .saturating_add(DbWeight::get().writes(4))
     }
@@ -143,7 +143,7 @@ impl pallet_asset::checkpoint::WeightInfo for SubstrateWeight {
     // Proof Skipped: Checkpoint CachedNextCheckpoints (max_values: None, max_size: None, mode: Measured)
     fn remove_schedule() -> Weight {
         // Minimum execution time: 82_724 nanoseconds.
-        Weight::from_ref_time(85_929_000)
+        Weight::from_parts(85_929_000)
             .saturating_add(DbWeight::get().reads(11))
             .saturating_add(DbWeight::get().writes(3))
     }

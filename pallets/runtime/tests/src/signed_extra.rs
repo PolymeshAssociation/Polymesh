@@ -121,7 +121,7 @@ fn normal_tx() -> Result<(), String> {
     let user = AccountKeyring::Alice.to_account_id();
     let (call, len) = make_call();
     let info = DispatchInfo {
-        weight: Weight::from_ref_time(100),
+        weight: Weight::from_parts(100, 0),
         ..Default::default()
     };
 
@@ -151,7 +151,7 @@ fn operational_tx() -> Result<(), String> {
     let user: AccountId = AccountKeyring::Alice.public().into();
     let (call, len) = make_call();
     let info = DispatchInfo {
-        weight: Weight::from_ref_time(100),
+        weight: Weight::from_parts(100, 0),
         class: DispatchClass::Operational,
         ..Default::default()
     };

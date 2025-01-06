@@ -59,12 +59,12 @@ impl pallet_timestamp::WeightInfo for SubstrateWeight {
     // Proof: Babe CurrentSlot (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
     fn set() -> Weight {
         // Minimum execution time: 10_857 nanoseconds.
-        Weight::from_ref_time(11_727_000)
+        Weight::from_parts(11_727_000)
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(1))
     }
     fn on_finalize() -> Weight {
         // Minimum execution time: 6_660 nanoseconds.
-        Weight::from_ref_time(7_100_000)
+        Weight::from_parts(7_100_000)
     }
 }

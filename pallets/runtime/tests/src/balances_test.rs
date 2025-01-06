@@ -22,7 +22,7 @@ type Error = balances::Error<TestStorage>;
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
 pub fn info_from_weight(w: u64) -> DispatchInfo {
     DispatchInfo {
-        weight: Weight::from_ref_time(w),
+        weight: Weight::from_parts(w, 0),
         ..Default::default()
     }
 }

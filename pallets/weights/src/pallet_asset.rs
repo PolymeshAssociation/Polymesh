@@ -77,7 +77,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: Asset TickersOwnedByUser (max_values: None, max_size: Some(61), added: 2536, mode: MaxEncodedLen)
     fn register_unique_ticker() -> Weight {
         // Minimum execution time: 63_726 nanoseconds.
-        Weight::from_ref_time(67_341_000)
+        Weight::from_parts(67_341_000)
             .saturating_add(DbWeight::get().reads(11))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -105,7 +105,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: Asset TickersOwnedByUser (max_values: None, max_size: Some(61), added: 2536, mode: MaxEncodedLen)
     fn accept_ticker_transfer() -> Weight {
         // Minimum execution time: 76_204 nanoseconds.
-        Weight::from_ref_time(87_151_000)
+        Weight::from_parts(87_151_000)
             .saturating_add(DbWeight::get().reads(10))
             .saturating_add(DbWeight::get().writes(6))
     }
@@ -143,7 +143,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: Asset SecurityTokensOwnedByUser (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     fn accept_asset_ownership_transfer() -> Weight {
         // Minimum execution time: 98_809 nanoseconds.
-        Weight::from_ref_time(102_734_000)
+        Weight::from_parts(102_734_000)
             .saturating_add(DbWeight::get().reads(14))
             .saturating_add(DbWeight::get().writes(9))
     }
@@ -186,13 +186,13 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[1, 128]`.
     fn create_asset(n: u32, i: u32, f: u32) -> Weight {
         // Minimum execution time: 90_306 nanoseconds.
-        Weight::from_ref_time(97_355_043)
+        Weight::from_parts(97_355_043)
             // Standard Error: 11_077
-            .saturating_add(Weight::from_ref_time(1_694).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(1_694).saturating_mul(n.into()))
             // Standard Error: 2_763
-            .saturating_add(Weight::from_ref_time(81_643).saturating_mul(i.into()))
+            .saturating_add(Weight::from_parts(81_643).saturating_mul(i.into()))
             // Standard Error: 11_077
-            .saturating_add(Weight::from_ref_time(4_720).saturating_mul(f.into()))
+            .saturating_add(Weight::from_parts(4_720).saturating_mul(f.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(9))
     }
@@ -216,7 +216,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: Asset Frozen (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     fn freeze() -> Weight {
         // Minimum execution time: 56_755 nanoseconds.
-        Weight::from_ref_time(60_942_000)
+        Weight::from_parts(60_942_000)
             .saturating_add(DbWeight::get().reads(10))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -240,7 +240,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: Asset Frozen (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     fn unfreeze() -> Weight {
         // Minimum execution time: 55_072 nanoseconds.
-        Weight::from_ref_time(58_598_000)
+        Weight::from_parts(58_598_000)
             .saturating_add(DbWeight::get().reads(10))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -265,9 +265,9 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[1, 128]`.
     fn rename_asset(n: u32) -> Weight {
         // Minimum execution time: 51_837 nanoseconds.
-        Weight::from_ref_time(59_367_944)
+        Weight::from_parts(59_367_944)
             // Standard Error: 5_348
-            .saturating_add(Weight::from_ref_time(8_093).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(8_093).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -311,7 +311,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof Skipped: Asset IssuedInFundingRound (max_values: None, max_size: None, mode: Measured)
     fn issue() -> Weight {
         // Minimum execution time: 103_145 nanoseconds.
-        Weight::from_ref_time(108_733_000)
+        Weight::from_parts(108_733_000)
             .saturating_add(DbWeight::get().reads(20))
             .saturating_add(DbWeight::get().writes(5))
     }
@@ -349,7 +349,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: Statistics ActiveAssetStats (max_values: None, max_size: Some(423), added: 2898, mode: MaxEncodedLen)
     fn redeem() -> Weight {
         // Minimum execution time: 92_739 nanoseconds.
-        Weight::from_ref_time(95_493_000)
+        Weight::from_parts(95_493_000)
             .saturating_add(DbWeight::get().reads(17))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -371,7 +371,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof Skipped: Asset Assets (max_values: None, max_size: None, mode: Measured)
     fn make_divisible() -> Weight {
         // Minimum execution time: 51_687 nanoseconds.
-        Weight::from_ref_time(54_251_000)
+        Weight::from_parts(54_251_000)
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -400,9 +400,9 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     /// The range of component `d` is `[1, 64]`.
     fn add_documents(d: u32) -> Weight {
         // Minimum execution time: 65_490 nanoseconds.
-        Weight::from_ref_time(66_672_016)
+        Weight::from_parts(66_672_016)
             // Standard Error: 40_736
-            .saturating_add(Weight::from_ref_time(11_127_312).saturating_mul(d.into()))
+            .saturating_add(Weight::from_parts(11_127_312).saturating_mul(d.into()))
             .saturating_add(DbWeight::get().reads(11))
             .saturating_add(DbWeight::get().writes(1))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(d.into())))
@@ -426,9 +426,9 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     /// The range of component `d` is `[1, 64]`.
     fn remove_documents(d: u32) -> Weight {
         // Minimum execution time: 38_247 nanoseconds.
-        Weight::from_ref_time(41_300_548)
+        Weight::from_parts(41_300_548)
             // Standard Error: 23_228
-            .saturating_add(Weight::from_ref_time(6_206_348).saturating_mul(d.into()))
+            .saturating_add(Weight::from_parts(6_206_348).saturating_mul(d.into()))
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(d.into())))
     }
@@ -451,9 +451,9 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[1, 128]`.
     fn set_funding_round(f: u32) -> Weight {
         // Minimum execution time: 46_250 nanoseconds.
-        Weight::from_ref_time(53_301_698)
+        Weight::from_parts(53_301_698)
             // Standard Error: 3_823
-            .saturating_add(Weight::from_ref_time(5_302).saturating_mul(f.into()))
+            .saturating_add(Weight::from_parts(5_302).saturating_mul(f.into()))
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -476,9 +476,9 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     /// The range of component `i` is `[1, 512]`.
     fn update_identifiers(i: u32) -> Weight {
         // Minimum execution time: 48_783 nanoseconds.
-        Weight::from_ref_time(54_715_281)
+        Weight::from_parts(54_715_281)
             // Standard Error: 2_741
-            .saturating_add(Weight::from_ref_time(59_353).saturating_mul(i.into()))
+            .saturating_add(Weight::from_parts(59_353).saturating_mul(i.into()))
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -514,7 +514,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: Statistics ActiveAssetStats (max_values: None, max_size: Some(423), added: 2898, mode: MaxEncodedLen)
     fn controller_transfer() -> Weight {
         // Minimum execution time: 130_507 nanoseconds.
-        Weight::from_ref_time(170_727_000)
+        Weight::from_parts(170_727_000)
             .saturating_add(DbWeight::get().reads(18))
             .saturating_add(DbWeight::get().writes(5))
     }
@@ -535,9 +535,9 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[1, 2048]`.
     fn register_custom_asset_type(n: u32) -> Weight {
         // Minimum execution time: 45_658 nanoseconds.
-        Weight::from_ref_time(51_602_738)
+        Weight::from_parts(51_602_738)
             // Standard Error: 702
-            .saturating_add(Weight::from_ref_time(7_076).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(7_076).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -563,7 +563,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof Skipped: Asset AssetMetadataValues (max_values: None, max_size: None, mode: Measured)
     fn set_asset_metadata() -> Weight {
         // Minimum execution time: 70_646 nanoseconds.
-        Weight::from_ref_time(76_696_000)
+        Weight::from_parts(76_696_000)
             .saturating_add(DbWeight::get().reads(10))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -587,7 +587,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: Asset AssetMetadataValueDetails (max_values: None, max_size: Some(67), added: 2542, mode: MaxEncodedLen)
     fn set_asset_metadata_details() -> Weight {
         // Minimum execution time: 62_383 nanoseconds.
-        Weight::from_ref_time(70_946_000)
+        Weight::from_parts(70_946_000)
             .saturating_add(DbWeight::get().reads(10))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -619,7 +619,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof Skipped: Asset AssetMetadataLocalSpecs (max_values: None, max_size: None, mode: Measured)
     fn register_and_set_local_asset_metadata() -> Weight {
         // Minimum execution time: 100_911 nanoseconds.
-        Weight::from_ref_time(108_373_000)
+        Weight::from_parts(108_373_000)
             .saturating_add(DbWeight::get().reads(11))
             .saturating_add(DbWeight::get().writes(6))
     }
@@ -647,7 +647,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof Skipped: Asset AssetMetadataLocalSpecs (max_values: None, max_size: None, mode: Measured)
     fn register_asset_metadata_local_type() -> Weight {
         // Minimum execution time: 75_253 nanoseconds.
-        Weight::from_ref_time(81_022_000)
+        Weight::from_parts(81_022_000)
             .saturating_add(DbWeight::get().reads(10))
             .saturating_add(DbWeight::get().writes(4))
     }
@@ -661,7 +661,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof Skipped: Asset AssetMetadataGlobalSpecs (max_values: None, max_size: None, mode: Measured)
     fn register_asset_metadata_global_type() -> Weight {
         // Minimum execution time: 34_301 nanoseconds.
-        Weight::from_ref_time(38_698_000)
+        Weight::from_parts(38_698_000)
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(4))
     }
@@ -683,7 +683,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
     fn update_asset_type() -> Weight {
         // Minimum execution time: 53_871 nanoseconds.
-        Weight::from_ref_time(58_538_000)
+        Weight::from_parts(58_538_000)
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -717,7 +717,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof Skipped: Asset AssetMetadataLocalSpecs (max_values: None, max_size: None, mode: Measured)
     fn remove_local_metadata_key() -> Weight {
         // Minimum execution time: 78_718 nanoseconds.
-        Weight::from_ref_time(83_675_000)
+        Weight::from_parts(83_675_000)
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(5))
     }
@@ -743,7 +743,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof Skipped: Asset AssetMetadataValues (max_values: None, max_size: None, mode: Measured)
     fn remove_metadata_value() -> Weight {
         // Minimum execution time: 59_940 nanoseconds.
-        Weight::from_ref_time(62_985_000)
+        Weight::from_parts(62_985_000)
             .saturating_add(DbWeight::get().reads(10))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -779,7 +779,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: Statistics ActiveAssetStats (max_values: None, max_size: Some(423), added: 2898, mode: MaxEncodedLen)
     fn base_transfer() -> Weight {
         // Minimum execution time: 161_463 nanoseconds.
-        Weight::from_ref_time(173_099_000)
+        Weight::from_parts(173_099_000)
             .saturating_add(DbWeight::get().reads(21))
             .saturating_add(DbWeight::get().writes(5))
     }
@@ -787,13 +787,13 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: Asset AssetsExemptFromAffirmation (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     fn exempt_asset_affirmation() -> Weight {
         // Minimum execution time: 11_076 nanoseconds.
-        Weight::from_ref_time(12_279_000).saturating_add(DbWeight::get().writes(1))
+        Weight::from_parts(12_279_000).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Asset AssetsExemptFromAffirmation (r:0 w:1)
     // Proof: Asset AssetsExemptFromAffirmation (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     fn remove_asset_affirmation_exemption() -> Weight {
         // Minimum execution time: 11_106 nanoseconds.
-        Weight::from_ref_time(11_667_000).saturating_add(DbWeight::get().writes(1))
+        Weight::from_parts(11_667_000).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
@@ -807,7 +807,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: Asset PreApprovedAsset (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     fn pre_approve_asset() -> Weight {
         // Minimum execution time: 35_714 nanoseconds.
-        Weight::from_ref_time(37_156_000)
+        Weight::from_parts(37_156_000)
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -823,7 +823,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: Asset PreApprovedAsset (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     fn remove_asset_pre_approval() -> Weight {
         // Minimum execution time: 35_304 nanoseconds.
-        Weight::from_ref_time(39_419_000)
+        Weight::from_parts(39_419_000)
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -846,9 +846,9 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[1, 4]`.
     fn add_mandatory_mediators(n: u32) -> Weight {
         // Minimum execution time: 50_326 nanoseconds.
-        Weight::from_ref_time(56_082_500)
+        Weight::from_parts(56_082_500)
             // Standard Error: 232_681
-            .saturating_add(Weight::from_ref_time(421_968).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(421_968).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -871,9 +871,9 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[1, 4]`.
     fn remove_mandatory_mediators(n: u32) -> Weight {
         // Minimum execution time: 51_087 nanoseconds.
-        Weight::from_ref_time(56_207_675)
+        Weight::from_parts(56_207_675)
             // Standard Error: 227_232
-            .saturating_add(Weight::from_ref_time(585_583).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(585_583).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -899,7 +899,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: Asset AssetIdTicker (max_values: None, max_size: Some(44), added: 2519, mode: MaxEncodedLen)
     fn link_ticker_to_asset_id() -> Weight {
         // Minimum execution time: 64_497 nanoseconds.
-        Weight::from_ref_time(65_049_000)
+        Weight::from_parts(65_049_000)
             .saturating_add(DbWeight::get().reads(11))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -927,7 +927,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: Asset AssetIdTicker (max_values: None, max_size: Some(44), added: 2519, mode: MaxEncodedLen)
     fn unlink_ticker_from_asset_id() -> Weight {
         // Minimum execution time: 65_029 nanoseconds.
-        Weight::from_ref_time(75_212_000)
+        Weight::from_parts(75_212_000)
             .saturating_add(DbWeight::get().reads(10))
             .saturating_add(DbWeight::get().writes(4))
     }
@@ -937,7 +937,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof Skipped: Asset AssetMetadataGlobalSpecs (max_values: None, max_size: None, mode: Measured)
     fn update_global_metadata_spec() -> Weight {
         // Minimum execution time: 40_751 nanoseconds.
-        Weight::from_ref_time(44_277_000)
+        Weight::from_parts(44_277_000)
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(1))
     }

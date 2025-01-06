@@ -57,12 +57,12 @@ impl pallet_protocol_fee::WeightInfo for SubstrateWeight {
     // Proof: ProtocolFee Coefficient (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
     fn change_coefficient() -> Weight {
         // Minimum execution time: 7_911 nanoseconds.
-        Weight::from_ref_time(8_202_000).saturating_add(DbWeight::get().writes(1))
+        Weight::from_parts(8_202_000).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: ProtocolFee BaseFees (r:0 w:1)
     // Proof: ProtocolFee BaseFees (max_values: None, max_size: Some(25), added: 2500, mode: MaxEncodedLen)
     fn change_base_fee() -> Weight {
         // Minimum execution time: 8_643 nanoseconds.
-        Weight::from_ref_time(10_145_000).saturating_add(DbWeight::get().writes(1))
+        Weight::from_parts(10_145_000).saturating_add(DbWeight::get().writes(1))
     }
 }

@@ -98,9 +98,9 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[1, 255]`.
     fn create_nft_collection(n: u32) -> Weight {
         // Minimum execution time: 129_685 nanoseconds.
-        Weight::from_ref_time(137_525_691)
+        Weight::from_parts(137_525_691)
             // Standard Error: 10_618
-            .saturating_add(Weight::from_ref_time(2_504_965).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(2_504_965).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(14))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(12))
@@ -138,9 +138,9 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[1, 255]`.
     fn issue_nft(n: u32) -> Weight {
         // Minimum execution time: 78_757 nanoseconds.
-        Weight::from_ref_time(82_036_303)
+        Weight::from_parts(82_036_303)
             // Standard Error: 10_808
-            .saturating_add(Weight::from_ref_time(3_094_813).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(3_094_813).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(13))
             .saturating_add(DbWeight::get().writes(5))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
@@ -178,9 +178,9 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[1, 255]`.
     fn redeem_nft(n: u32) -> Weight {
         // Minimum execution time: 94_061 nanoseconds.
-        Weight::from_ref_time(87_454_675)
+        Weight::from_parts(87_454_675)
             // Standard Error: 8_486
-            .saturating_add(Weight::from_ref_time(4_722_602).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(4_722_602).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(15))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(4))
@@ -209,9 +209,9 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[1, 10]`.
     fn base_nft_transfer(n: u32) -> Weight {
         // Minimum execution time: 125_458 nanoseconds.
-        Weight::from_ref_time(119_702_844)
+        Weight::from_parts(119_702_844)
             // Standard Error: 99_329
-            .saturating_add(Weight::from_ref_time(13_378_308).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(13_378_308).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(11))
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(2))
@@ -248,9 +248,9 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[1, 10]`.
     fn controller_transfer(n: u32) -> Weight {
         // Minimum execution time: 93_139 nanoseconds.
-        Weight::from_ref_time(85_640_069)
+        Weight::from_parts(85_640_069)
             // Standard Error: 91_703
-            .saturating_add(Weight::from_ref_time(13_802_261).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(13_802_261).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(13))
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(2))

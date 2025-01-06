@@ -57,7 +57,7 @@ impl pallet_group::WeightInfo for SubstrateWeight {
     // Proof: CddServiceProviders ActiveMembersLimit (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
     fn set_active_members_limit() -> Weight {
         // Minimum execution time: 11_367 nanoseconds.
-        Weight::from_ref_time(12_679_000)
+        Weight::from_parts(12_679_000)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -71,7 +71,7 @@ impl pallet_group::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
     fn add_member() -> Weight {
         // Minimum execution time: 90_075 nanoseconds.
-        Weight::from_ref_time(93_540_000)
+        Weight::from_parts(93_540_000)
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -81,7 +81,7 @@ impl pallet_group::WeightInfo for SubstrateWeight {
     // Proof Skipped: CddServiceProviders InactiveMembers (max_values: Some(1), max_size: None, mode: Measured)
     fn remove_member() -> Weight {
         // Minimum execution time: 73_841 nanoseconds.
-        Weight::from_ref_time(87_891_000)
+        Weight::from_parts(87_891_000)
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -95,7 +95,7 @@ impl pallet_group::WeightInfo for SubstrateWeight {
     // Proof Skipped: CddServiceProviders InactiveMembers (max_values: Some(1), max_size: None, mode: Measured)
     fn disable_member() -> Weight {
         // Minimum execution time: 96_736 nanoseconds.
-        Weight::from_ref_time(104_937_000)
+        Weight::from_parts(104_937_000)
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -107,7 +107,7 @@ impl pallet_group::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
     fn swap_member() -> Weight {
         // Minimum execution time: 116_275 nanoseconds.
-        Weight::from_ref_time(123_114_000)
+        Weight::from_parts(123_114_000)
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -122,9 +122,9 @@ impl pallet_group::WeightInfo for SubstrateWeight {
     /// The range of component `m` is `[1, 1000]`.
     fn reset_members(m: u32) -> Weight {
         // Minimum execution time: 43_455 nanoseconds.
-        Weight::from_ref_time(46_159_000)
+        Weight::from_parts(46_159_000)
             // Standard Error: 18_045
-            .saturating_add(Weight::from_ref_time(13_558_073).saturating_mul(m.into()))
+            .saturating_add(Weight::from_parts(13_558_073).saturating_mul(m.into()))
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(m.into())))
             .saturating_add(DbWeight::get().writes(2))
@@ -142,7 +142,7 @@ impl pallet_group::WeightInfo for SubstrateWeight {
     // Proof: Identity DidRecords (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     fn abdicate_membership() -> Weight {
         // Minimum execution time: 139_349 nanoseconds.
-        Weight::from_ref_time(143_084_000)
+        Weight::from_parts(143_084_000)
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(2))
     }
