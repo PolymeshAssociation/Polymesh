@@ -3,7 +3,7 @@
 use futures::stream::StreamExt;
 use polymesh_node_rpc as node_rpc;
 pub use polymesh_primitives::{
-    AccountId, Balance, Block, IdentityId, Index as Nonce, Moment, Ticker,
+    AccountId, Balance, Block, IdentityId, Nonce, Moment, Ticker,
 };
 pub use polymesh_runtime_develop;
 pub use polymesh_runtime_mainnet;

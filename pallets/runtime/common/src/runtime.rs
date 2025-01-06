@@ -61,8 +61,8 @@ macro_rules! misc_pallet_impls {
             type RuntimeCall = RuntimeCall;
             /// The lookup mechanism to get account ID from whatever is passed in dispatchers.
             type Lookup = Indices;
-            /// The index type for storing how many extrinsics an account has signed.
-            type Index = polymesh_primitives::Index;
+            /// The nonce type for storing how many extrinsics an account has signed.
+            type Nonce = polymesh_primitives::Nonce;
             /// The type for hashing blocks and tries.
             type Hash = polymesh_primitives::Hash;
             /// The hashing algorithm used.
@@ -585,7 +585,7 @@ macro_rules! misc_pallet_impls {
                 call: RuntimeCall,
                 public: <polymesh_primitives::Signature as Verify>::Signer,
                 account: polymesh_primitives::AccountId,
-                nonce: polymesh_primitives::Index,
+                nonce: polymesh_primitives::Nonce,
             ) -> Option<(
                 RuntimeCall,
                 <UncheckedExtrinsic as Extrinsic>::SignaturePayload,
@@ -752,7 +752,7 @@ macro_rules! runtime_apis {
         use polymesh_primitives::settlement::{InstructionId, ExecuteInstructionInfo};
         use polymesh_primitives::transfer_compliance::TransferCondition;
         use polymesh_primitives::compliance_manager::{AssetComplianceResult, ComplianceReport};
-        use polymesh_primitives::{IdentityId, Index, NFTs, PortfolioId};
+        use polymesh_primitives::{IdentityId, Nonce, NFTs, PortfolioId};
         use polymesh_primitives::{Signatory, Ticker, WeightMeter, IdentityClaim};
 
         /// The address format for describing accounts.
@@ -942,8 +942,8 @@ macro_rules! runtime_apis {
                 }
             }
 
-            impl frame_system_rpc_runtime_api::AccountNonceApi<Block, polymesh_primitives::AccountId, Index> for Runtime {
-                fn account_nonce(account: polymesh_primitives::AccountId) -> Index {
+            impl frame_system_rpc_runtime_api::AccountNonceApi<Block, polymesh_primitives::AccountId, Nonce> for Runtime {
+                fn account_nonce(account: polymesh_primitives::AccountId) -> Nonce {
                     System::account_nonce(account)
                 }
             }
