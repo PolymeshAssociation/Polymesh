@@ -77,7 +77,7 @@ impl<AccountId> AuthorizationData<AccountId> {
 }
 
 /// Type of authorization.
-#[derive(Eq, PartialEq, Encode, Decode, Clone)]
+#[derive(Eq, PartialEq, Encode, Decode, TypeInfo, Clone)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum AuthorizationType {
     /// CDD Authorization to rotate primary key.

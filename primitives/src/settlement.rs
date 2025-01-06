@@ -760,7 +760,7 @@ impl AffirmationCount {
 /// Stores the number of fungible, non fungible and offchain assets in an instruction, the consumed weight for executing the instruction,
 /// and if executing the instruction would fail, the error thrown.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode)]
+#[derive(Decode, Encode, TypeInfo)]
 pub struct ExecuteInstructionInfo {
     /// Number of fungible tokens in the instruction.
     fungible_tokens: u32,
