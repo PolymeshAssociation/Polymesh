@@ -148,7 +148,7 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
             .enumerate()
         {
             let schedule_block_number =
-                next_block_number + index.saturated_into::<T::BlockNumber>();
+                next_block_number + index.saturated_into::<BlockNumberFor<T>>();
             match T::RewardScheduler::schedule(
                     DispatchTime::At(schedule_block_number),
                     None,

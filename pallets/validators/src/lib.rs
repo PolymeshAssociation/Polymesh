@@ -165,7 +165,7 @@ pub mod pallet {
         type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 
         /// To schedule the rewards for the stakers after the end of era.
-        type RewardScheduler: Anon<Self::BlockNumber, <Self as Config>::Call, Self::PalletsOrigin>;
+        type RewardScheduler: Anon<BlockNumberFor<Self>, <Self as Config>::Call, Self::PalletsOrigin>;
     }
 
     /// Entities that are allowed to run operator/validator nodes.

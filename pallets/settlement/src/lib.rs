@@ -159,7 +159,7 @@ pub mod pallet {
             IdentityId,
             Option<VenueId>,
             InstructionId,
-            SettlementType<T::BlockNumber>,
+            SettlementType<BlockNumberFor<T>>,
             Option<T::Moment>,
             Option<T::Moment>,
             Vec<Leg>,
@@ -425,7 +425,11 @@ pub mod pallet {
         type Proposal: From<Call<Self>> + Into<<Self as pallet_identity::Config>::Proposal>;
 
         /// Scheduler of settlement instructions.
-        type Scheduler: Named<Self::BlockNumber, <Self as Config>::Proposal, Self::SchedulerOrigin>;
+        type Scheduler: Named<
+            BlockNumberFor<Self>,
+            <Self as Config>::Proposal,
+            Self::SchedulerOrigin,
+        >;
 
         /// Portfolio module.
         type Portfolio: PortfolioSubTrait<Self::AccountId>;
@@ -612,7 +616,7 @@ pub mod pallet {
         _,
         Twox64Concat,
         InstructionId,
-        Instruction<T::Moment, T::BlockNumber>,
+        Instruction<T::Moment, BlockNumberFor<T>>,
         ValueQuery,
     >;
 
@@ -689,8 +693,13 @@ pub mod pallet {
 
     /// Instruction statuses. instruction_id -> InstructionStatus
     #[pallet::storage]
-    pub type InstructionStatuses<T: Config> =
-        StorageMap<_, Twox64Concat, InstructionId, InstructionStatus<T::BlockNumber>, ValueQuery>;
+    pub type InstructionStatuses<T: Config> = StorageMap<
+        _,
+        Twox64Concat,
+        InstructionId,
+        InstructionStatus<BlockNumberFor<T>>,
+        ValueQuery,
+    >;
 
     /// Legs under an instruction. (instruction_id, leg_id) -> Leg
     #[pallet::storage]
@@ -1017,7 +1026,7 @@ pub mod pallet {
         pub fn add_instruction(
             origin: OriginFor<T>,
             venue_id: Option<VenueId>,
-            settlement_type: SettlementType<T::BlockNumber>,
+            settlement_type: SettlementType<BlockNumberFor<T>>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
@@ -1055,7 +1064,7 @@ pub mod pallet {
         pub fn add_and_affirm_instruction(
             origin: OriginFor<T>,
             venue_id: Option<VenueId>,
-            settlement_type: SettlementType<T::BlockNumber>,
+            settlement_type: SettlementType<BlockNumberFor<T>>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
@@ -1297,7 +1306,7 @@ pub mod pallet {
         pub fn add_instruction_with_mediators(
             origin: OriginFor<T>,
             venue_id: Option<VenueId>,
-            settlement_type: SettlementType<T::BlockNumber>,
+            settlement_type: SettlementType<BlockNumberFor<T>>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
@@ -1337,7 +1346,7 @@ pub mod pallet {
         pub fn add_and_affirm_with_mediators(
             origin: OriginFor<T>,
             venue_id: Option<VenueId>,
-            settlement_type: SettlementType<T::BlockNumber>,
+            settlement_type: SettlementType<BlockNumberFor<T>>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
@@ -1502,7 +1511,7 @@ impl<T: Config> Pallet<T> {
         origin: OriginFor<T>,
         id: InstructionId,
         is_execute: bool,
-    ) -> EnsureValidInstructionResult<T::AccountId, T::Moment, T::BlockNumber> {
+    ) -> EnsureValidInstructionResult<T::AccountId, T::Moment, BlockNumberFor<T>> {
         let origin_data = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
         Ok((
             origin_data.primary_did,
@@ -1521,7 +1530,7 @@ impl<T: Config> Pallet<T> {
     pub fn base_add_instruction(
         did: IdentityId,
         venue_id: Option<VenueId>,
-        settlement_type: SettlementType<T::BlockNumber>,
+        settlement_type: SettlementType<BlockNumberFor<T>>,
         trade_date: Option<T::Moment>,
         value_date: Option<T::Moment>,
         legs: Vec<Leg>,
@@ -1772,7 +1781,7 @@ impl<T: Config> Pallet<T> {
     fn ensure_instruction_validity(
         id: InstructionId,
         is_execute: bool,
-    ) -> Result<Instruction<T::Moment, T::BlockNumber>, DispatchError> {
+    ) -> Result<Instruction<T::Moment, BlockNumberFor<T>>, DispatchError> {
         let details = InstructionDetails::<T>::get(id);
         ensure!(
             InstructionStatuses::<T>::get(id) != InstructionStatus::Unknown,
@@ -2170,7 +2179,7 @@ impl<T: Config> Pallet<T> {
     /// for the given block so there are chances where the instruction execution block no. may drift.
     pub(crate) fn schedule_instruction(
         id: InstructionId,
-        execution_at: T::BlockNumber,
+        execution_at: BlockNumberFor<T>,
         weight_limit: Weight,
     ) {
         let call = Call::<T>::execute_scheduled_instruction { id, weight_limit }.into();
@@ -2376,7 +2385,7 @@ impl<T: Config> Pallet<T> {
     fn execute_settle_on_affirmation_instruction(
         id: InstructionId,
         affirms_pending: u64,
-        settlement_type: SettlementType<T::BlockNumber>,
+        settlement_type: SettlementType<BlockNumberFor<T>>,
         caller_did: IdentityId,
     ) -> DispatchResult {
         // We assume `settlement_type == SettleOnAffirmation`,
@@ -2844,7 +2853,7 @@ impl<T: Config> Pallet<T> {
 
     /// Returns `Ok` if [`SettlementType::SettleManual`] and the `block_number` is reached.
     fn ensure_manual_settlement_type(
-        settlement_type: SettlementType<T::BlockNumber>,
+        settlement_type: SettlementType<BlockNumberFor<T>>,
     ) -> DispatchResult {
         if let SettlementType::SettleManual(block_number) = settlement_type {
             ensure!(

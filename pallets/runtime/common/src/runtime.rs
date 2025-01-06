@@ -63,15 +63,12 @@ macro_rules! misc_pallet_impls {
             type Lookup = Indices;
             /// The index type for storing how many extrinsics an account has signed.
             type Index = polymesh_primitives::Index;
-            /// The index type for blocks.
-            type BlockNumber = polymesh_primitives::BlockNumber;
             /// The type for hashing blocks and tries.
             type Hash = polymesh_primitives::Hash;
             /// The hashing algorithm used.
             type Hashing = sp_runtime::traits::BlakeTwo256;
-            /// The header type.
-            type Header =
-                sp_runtime::generic::Header<polymesh_primitives::BlockNumber, BlakeTwo256>;
+            /// The block type.
+            type Block = Block;
             /// The ubiquitous event type.
             type RuntimeEvent = RuntimeEvent;
             /// The ubiquitous origin type.
