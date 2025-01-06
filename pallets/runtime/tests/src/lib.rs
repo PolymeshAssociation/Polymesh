@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 #![cfg(test)]
+// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
+#![recursion_limit = "1024"]
 
 pub mod storage;
 pub use storage::{
