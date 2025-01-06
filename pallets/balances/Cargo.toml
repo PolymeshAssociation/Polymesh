@@ -49,6 +49,7 @@ std = [
 	"sp-arithmetic/std",
 	"frame-system/std",
 	"frame-support/std",
+	"frame-benchmarking?/std",
 	"pallet-timestamp/std",
 	"polymesh-primitives/std",
 	"pallet-permissions/std",

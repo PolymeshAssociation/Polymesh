@@ -172,7 +172,13 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{
-        tokens::{fungible, BalanceStatus as Status, DepositConsequence, WithdrawConsequence},
+        tokens::{
+            fungible, BalanceStatus as Status, DepositConsequence,
+            Fortitude::{self, Polite},
+            Preservation::{self, Expendable, Preserve, Protect},
+            Provenance::{self, Minted},
+            WithdrawConsequence,
+        },
         Currency, ExistenceRequirement, Get, Imbalance, LockIdentifier, LockableCurrency,
         OnUnbalanced, ReservableCurrency, SignedImbalance, StoredMap, WithdrawReasons,
     },
@@ -184,7 +190,7 @@ use polymesh_primitives::traits::{BlockRewardsReserveCurrency, CheckCdd, Identit
 use polymesh_primitives::{Balance, IdentityId, Memo, SystematicIssuers, GC_DID};
 use scale_info::TypeInfo;
 use sp_runtime::{
-    traits::{AccountIdConversion, StaticLookup, Zero},
+    traits::{AccountIdConversion, Saturating, StaticLookup, Zero},
     RuntimeDebug,
 };
 use sp_std::ops::BitOr;
@@ -286,6 +292,8 @@ impl BitOr for Reasons {
 }
 
 pub use pallet::*;
+
+const LOG_TARGET: &str = "runtime::balances";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -433,15 +441,16 @@ pub mod pallet {
             let total: Balance = self.balances.iter().map(|(_, v)| v).fold(Zero::zero(), f);
             TotalIssuance::<T>::put(total);
 
-            for (who, free) in &self.balances {
-                T::AccountStore::insert(
+            for &(ref who, free) in &self.balances {
+                frame_system::Pallet::<T>::inc_providers(who);
+                assert!(T::AccountStore::insert(
                     who,
                     AccountData {
-                        free: *free,
+                        free,
                         ..Default::default()
                     },
                 )
-                .unwrap();
+                .is_ok());
             }
         }
     }
@@ -572,7 +581,7 @@ pub mod pallet {
                 account.reserved = new_reserved;
 
                 (account.free, account.reserved)
-            });
+            })?;
             Self::deposit_event(Event::BalanceSet(caller_id, who, free, reserved));
             Ok(())
         }
@@ -627,7 +636,9 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    // PRIVATE MUTABLES
+    fn ed() -> Balance {
+        T::ExistentialDeposit::get()
+    }
 
     /// Get the free balance of an account.
     pub fn free_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> Balance {
@@ -662,28 +673,17 @@ impl<T: Config> Pallet<T> {
         T::AccountStore::get(&who)
     }
 
-    /// Places the `free` and `reserved` parts of `new` into `account`. Also does any steps needed
-    /// after mutating an account. This includes DustRemoval unbalancing, in the case than the `new`
-    /// account's total balance is non-zero but below ED.
-    ///
-    /// Returns the final free balance, iff the account was previously of total balance zero, known
-    /// as its "endowment".
-    fn post_mutation(_who: &T::AccountId, new: AccountData) -> Option<AccountData> {
-        // Polymesh modified code. Removed Existential Deposit logic
-        Some(new)
-    }
-
     fn deposit_consequence(
         _who: &T::AccountId,
         amount: Balance,
         account: &AccountData,
-        mint: bool,
+        provence: Provenance,
     ) -> DepositConsequence {
         if amount.is_zero() {
             return DepositConsequence::Success;
         }
 
-        if mint && TotalIssuance::<T>::get().checked_add(amount).is_none() {
+        if provence == Minted && TotalIssuance::<T>::get().checked_add(amount).is_none() {
             return DepositConsequence::Overflow;
         }
 
@@ -717,7 +717,7 @@ impl<T: Config> Pallet<T> {
 
         let new_total_balance = match account.total().checked_sub(amount) {
             Some(x) => x,
-            None => return WithdrawConsequence::NoFunds,
+            None => return WithdrawConsequence::BalanceLow,
         };
 
         // Provider restriction - total account balance cannot be reduced to zero if it cannot
@@ -738,7 +738,7 @@ impl<T: Config> Pallet<T> {
         // Enough free funds to have them be reduced.
         let new_free_balance = match account.free.checked_sub(amount) {
             Some(b) => b,
-            None => return WithdrawConsequence::NoFunds,
+            None => return WithdrawConsequence::BalanceLow,
         };
 
         // Eventual free funds must be no less than the frozen balance.
@@ -757,39 +757,72 @@ impl<T: Config> Pallet<T> {
     ///
     /// NOTE: LOW-LEVEL: This will not attempt to maintain total issuance. It is expected that
     /// the caller will do this.
-    pub fn mutate_account<R>(who: &T::AccountId, f: impl FnOnce(&mut AccountData) -> R) -> R {
+    pub fn mutate_account<R>(
+        who: &T::AccountId,
+        f: impl FnOnce(&mut AccountData) -> R,
+    ) -> Result<R, DispatchError> {
         Self::try_mutate_account(who, |a, _| -> Result<R, DispatchError> { Ok(f(a)) })
-            .expect("Error is infallible; qed")
     }
 
-    /// Mutate an account to some new value, or delete it entirely with `None`.
-    /// This will do nothing if the result of `f` is an `Err`.
+    /// Mutate an account to some new value, or delete it entirely with `None`. Will enforce
+    /// `ExistentialDeposit` law, annulling the account as needed. This will do nothing if the
+    /// result of `f` is an `Err`.
+    ///
+    /// It returns both the result from the closure, and an optional amount of dust
+    /// which should be handled once it is known that all nested mutates that could affect
+    /// storage items what the dust handler touches have completed.
     ///
     /// NOTE: Doesn't do any preparatory work for creating a new account, so should only be used
     /// when it is known that the account already exists.
     ///
     /// NOTE: LOW-LEVEL: This will not attempt to maintain total issuance. It is expected that
     /// the caller will do this.
-    fn try_mutate_account<R, E: From<DispatchError>>(
+    pub(crate) fn try_mutate_account<R, E: From<DispatchError>>(
         who: &T::AccountId,
         f: impl FnOnce(&mut AccountData, bool) -> Result<R, E>,
     ) -> Result<R, E> {
-        T::AccountStore::try_mutate_exists(who, |maybe_account| {
+        let result = T::AccountStore::try_mutate_exists(who, |maybe_account| {
             let is_new = maybe_account.is_none();
             let mut account = maybe_account.take().unwrap_or_default();
-            f(&mut account, is_new).map(move |result| {
-                let maybe_endowed = if is_new { Some(account.free) } else { None };
-                // `post_mutation` always return the same account store
-                *maybe_account = Self::post_mutation(who, account);
-                (maybe_endowed, result)
-            })
-        })
-        .map(|(maybe_endowed, result)| {
+            let did_provide = frame_system::Pallet::<T>::providers(who) > 0;
+            let did_consume =
+                !is_new && (!account.reserved.is_zero() || !account.frozen(Reasons::All).is_zero());
+
+            let result = f(&mut account, is_new)?;
+
+            let does_provide = account.free >= Self::ed();
+            let does_consume =
+                !account.reserved.is_zero() || !account.frozen(Reasons::All).is_zero();
+
+            if !did_provide && does_provide {
+                frame_system::Pallet::<T>::inc_providers(who);
+            }
+            if did_consume && !does_consume {
+                frame_system::Pallet::<T>::dec_consumers(who);
+            }
+            if !did_consume && does_consume {
+                frame_system::Pallet::<T>::inc_consumers(who)?;
+            }
+            // POLYMESH: We don't reap accounts, so we don't need to dec_providers.
+            // A account's provider count is increased when the account is created and
+            // the account is never removed, so the provider count will never decrease.
+            //if did_provide && !does_provide {
+            //    frame_system::Pallet::<T>::dec_providers(who);
+            //}
+
+            let maybe_endowed = if is_new { Some(account.free) } else { None };
+
+            // Polymesh-note: Removed dust code.
+            *maybe_account = Some(account);
+            Ok((maybe_endowed, result))
+        });
+        result.map(|(maybe_endowed, result)| {
             if let Some(endowed) = maybe_endowed {
-                // Polymesh-note: Modified the code in the favour of Polymesh code base
+                // Polymesh-note: Add DID to event.
                 let who_id = T::IdentityFn::get_identity(who);
                 Self::deposit_event(Event::Endowed(who_id, who.clone(), endowed));
             }
+            // Polymesh-note: Removed dust code.
             result
         })
     }
@@ -803,7 +836,7 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        Self::mutate_account(who, |b| {
+        let res = Self::mutate_account(who, |b| {
             b.misc_frozen = Zero::zero();
             b.fee_frozen = Zero::zero();
             for l in locks.iter() {
@@ -815,6 +848,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
         });
+        debug_assert!(res.is_ok());
 
         let existed = Locks::<T>::contains_key(who);
         if locks.is_empty() {
@@ -826,8 +860,15 @@ impl<T: Config> Pallet<T> {
             }
         } else {
             Locks::<T>::insert(who, locks);
-            if !existed {
-                let _ = system::Pallet::<T>::inc_consumers(who);
+            if !existed && system::Pallet::<T>::inc_consumers_without_limit(who).is_err() {
+                // No providers for the locks. This is impossible under normal circumstances
+                // since the funds that are under the lock will themselves be stored in the
+                // account and therefore will need a reference.
+                log::warn!(
+                    target: LOG_TARGET,
+                    "Warning: Attempt to introduce lock consumer reference, yet no providers. \
+                    This is unexpected but should be safe."
+                );
             }
         }
     }
@@ -1080,22 +1121,18 @@ impl<T: Config> Currency<T::AccountId> for Pallet<T> {
             return (NegativeImbalance::zero(), value);
         }
 
-        Self::mutate_account(who, |account| {
-            let free_slash = cmp::min(account.free, value);
-            account.free -= free_slash;
+        let result =
+            match Self::try_mutate_account(who, |account, _is_new| -> Result<_, DispatchError> {
+                let actual = cmp::min(account.free, value);
+                account.free.saturating_reduce(actual);
 
-            let remaining_slash = value - free_slash;
-            if !remaining_slash.is_zero() {
-                let reserved_slash = cmp::min(account.reserved, remaining_slash);
-                account.reserved -= reserved_slash;
-                (
-                    NegativeImbalance::new(free_slash + reserved_slash),
-                    remaining_slash - reserved_slash,
-                )
-            } else {
-                (NegativeImbalance::new(value), Zero::zero())
-            }
-        })
+                let remaining = value.saturating_sub(actual);
+                Ok((NegativeImbalance::new(value), remaining))
+            }) {
+                Ok(x) => x,
+                Err(_) => (NegativeImbalance::zero(), value),
+            };
+        result
     }
 
     /// Deposit some `value` into the free balance of an existing target account `who`.
@@ -1261,14 +1298,22 @@ impl<T: Config> ReservableCurrency<T::AccountId> for Pallet<T> {
             return value;
         }
 
-        let actual = Self::mutate_account(who, |account| {
+        let actual = match Self::mutate_account(who, |account| {
             let actual = cmp::min(account.reserved, value);
             account.reserved -= actual;
             // defensive only: this can never fail since total issuance which is at least free+reserved
             // fits into the same data type.
             account.free = account.free.saturating_add(actual);
             actual
-        });
+        }) {
+            Ok(x) => x,
+            Err(_) => {
+                // This should never happen since we don't alter the total amount in the account.
+                // If it ever does, then we should fail gracefully though, indicating that nothing
+                // could be done.
+                return value;
+            }
+        };
 
         Self::deposit_event(Event::Unreserved(who.clone(), actual));
         value - actual
@@ -1289,12 +1334,15 @@ impl<T: Config> ReservableCurrency<T::AccountId> for Pallet<T> {
             return (NegativeImbalance::zero(), value);
         }
 
-        Self::mutate_account(who, |account| {
+        match Self::mutate_account(who, |account| {
             // underflow should never happen, but it if does, there's nothing to be done here.
             let actual = cmp::min(account.reserved, value);
             account.reserved -= actual;
             (NegativeImbalance::new(actual), value - actual)
-        })
+        }) {
+            Ok(x) => x,
+            Err(_) => (NegativeImbalance::zero(), value),
+        }
     }
 
     /// Move the reserved balance of one account into the balance of another, according to `status`.
@@ -1485,25 +1533,45 @@ impl<T: Config> fungible::Inspect<T::AccountId> for Pallet<T> {
     fn minimum_balance() -> Self::Balance {
         T::ExistentialDeposit::get()
     }
-    fn balance(who: &T::AccountId) -> Self::Balance {
+    fn total_balance(who: &T::AccountId) -> Self::Balance {
         Self::account(who).total()
     }
-    fn reducible_balance(who: &T::AccountId, keep_alive: bool) -> Self::Balance {
-        let a = Self::account(who);
-        // Liquid balance is what is neither reserved nor locked/frozen.
-        let liquid = a.free.saturating_sub(a.fee_frozen.max(a.misc_frozen));
-        if frame_system::Pallet::<T>::can_dec_provider(who) && !keep_alive {
-            liquid
-        } else {
-            // `must_remain_to_exist` is the part of liquid balance which must remain to keep total
-            // over ED.
-            let must_remain_to_exist =
-                T::ExistentialDeposit::get().saturating_sub(a.total() - liquid);
-            liquid.saturating_sub(must_remain_to_exist)
-        }
+    fn balance(who: &T::AccountId) -> Self::Balance {
+        Self::account(who).free
     }
-    fn can_deposit(who: &T::AccountId, amount: Self::Balance, mint: bool) -> DepositConsequence {
-        Self::deposit_consequence(who, amount, &Self::account(who), mint)
+    fn reducible_balance(
+        who: &T::AccountId,
+        preservation: Preservation,
+        force: Fortitude,
+    ) -> Self::Balance {
+        let a = Self::account(who);
+        let mut untouchable = Zero::zero();
+        if force == Polite {
+            // Frozen balance applies to total.  Anything on hold therefore gets discounted from the
+            // limit given by the freezes.
+            untouchable = a.frozen(Reasons::All).saturating_sub(a.reserved);
+        }
+        // If we want to keep our provider ref..
+        if preservation == Preserve
+          // ..or we don't want the account to die and our provider ref is needed for it to live..
+          || preservation == Protect && !a.free.is_zero() &&
+            frame_system::Pallet::<T>::providers(who) == 1
+          // ..or we don't care about the account dying but our provider ref is required..
+          || preservation == Expendable && !a.free.is_zero() &&
+            !frame_system::Pallet::<T>::can_dec_provider(who)
+        {
+            // ..then the ED needed.
+            untouchable = untouchable.max(T::ExistentialDeposit::get());
+        }
+        // Liquid balance is what is neither on hold nor frozen/required for provider.
+        a.free.saturating_sub(untouchable)
+    }
+    fn can_deposit(
+        who: &T::AccountId,
+        amount: Self::Balance,
+        provence: Provenance,
+    ) -> DepositConsequence {
+        Self::deposit_consequence(who, amount, &Self::account(who), provence)
     }
     fn can_withdraw(
         who: &T::AccountId,
