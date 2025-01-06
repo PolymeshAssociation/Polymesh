@@ -33,7 +33,7 @@
 use std::sync::Arc;
 
 use jsonrpsee::RpcModule;
-use polymesh_primitives::{AccountId, Block, BlockNumber, Hash, IdentityId, Index, Moment, Ticker};
+use polymesh_primitives::{AccountId, Block, BlockNumber, Hash, IdentityId, Moment, Nonce, Ticker};
 use sc_client_api::AuxStore;
 use sc_consensus_babe::{BabeConfiguration, Epoch};
 use sc_consensus_epochs::SharedEpochChanges;
@@ -106,7 +106,7 @@ where
         + Sync
         + Send
         + 'static,
-    C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
+    C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
     C::Api: node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block>,
     C::Api: node_rpc::pips::PipsRuntimeApi<Block, AccountId>,
     C::Api: node_rpc::identity::IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, Moment>,

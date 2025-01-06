@@ -1026,7 +1026,7 @@ fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
 }
 
 /// Returns transaction extra.
-fn signed_extra(nonce: Index) -> SignedExtra {
+fn signed_extra(nonce: Nonce) -> SignedExtra {
     (
         frame_system::CheckSpecVersion::new(),
         frame_system::CheckTxVersion::new(),
