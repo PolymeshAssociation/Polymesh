@@ -12,10 +12,9 @@ use frame_system::{
     CheckEra, CheckGenesis, CheckNonce, CheckSpecVersion, CheckTxVersion, CheckWeight,
 };
 use sp_io::TestExternalities;
-use sp_runtime::{generic, traits::SignedExtension};
-use sp_std::convert::From;
-
 use sp_keyring::AccountKeyring;
+use sp_runtime::{generic, traits::SignedExtension, BuildStorage};
+use sp_std::convert::From;
 
 pub fn make_call() -> (<Runtime as frame_system::Config>::RuntimeCall, usize) {
     (
@@ -75,7 +74,7 @@ fn make_min_storage() -> Result<TestExternalities, String> {
         .map(|gen_id| gen_id.did)
         .collect::<Vec<_>>();
 
-    let mut storage = frame_system::GenesisConfig::default().build_storage::<Runtime>()?;
+    let mut storage = frame_system::GenesisConfig::<Runtime>::default().build_storage()?;
 
     // Balances
     pallet_balances::GenesisConfig::<Runtime> {

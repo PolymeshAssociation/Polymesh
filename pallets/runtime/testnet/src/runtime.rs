@@ -307,8 +307,8 @@ construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic
     {
 
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>} = 0,
-        Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned} = 1,
+        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
+        Babe: pallet_babe::{Pallet, Call, Storage, Config<T>, ValidateUnsigned} = 1,
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 2,
         Indices: pallet_indices::{Pallet, Call, Storage, Config<T>, Event<T>} = 3,
         Authorship: pallet_authorship = 4,
@@ -342,7 +342,7 @@ construct_runtime!(
         // UpgradeCommitteeMembership: Genesis config deps: UpgradeCommittee, Identity
         UpgradeCommitteeMembership: pallet_group::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 14,
 
-        MultiSig: pallet_multisig::{Pallet, Call, Config, Storage, Event<T>} = 15,
+        MultiSig: pallet_multisig::{Pallet, Call, Config<T>, Storage, Event<T>} = 15,
 
         Validators: pallet_validators = 16,
         Staking: pallet_staking = 17,
@@ -351,8 +351,8 @@ construct_runtime!(
 
         // Session: Genesis config deps: System.
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 19,
-        AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config} = 20,
-        Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event} = 21,
+        AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config<T>} = 20,
+        Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config<T>, Event} = 21,
         Historical: pallet_session_historical::{Pallet} = 22,
         ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 23,
         RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip::{Pallet, Storage} = 24,
@@ -361,19 +361,19 @@ construct_runtime!(
         // Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>} = 25,
 
         // Asset: Genesis config deps: Timestamp,
-        Asset: pallet_asset::{Pallet, Call, Storage, Config, Event<T>} = 26,
-        CapitalDistribution: pallet_capital_distribution::{Pallet, Call, Storage, Event<T>, Config} = 27,
-        Checkpoint: pallet_checkpoint::{Pallet, Call, Storage, Event<T>, Config} = 28,
+        Asset: pallet_asset::{Pallet, Call, Storage, Config<T>, Event<T>} = 26,
+        CapitalDistribution: pallet_capital_distribution::{Pallet, Call, Storage, Event<T>, Config<T>} = 27,
+        Checkpoint: pallet_checkpoint::{Pallet, Call, Storage, Event<T>, Config<T>} = 28,
         ComplianceManager: pallet_compliance_manager::{Pallet, Call, Storage, Event<T>} = 29,
-        CorporateAction: pallet_corporate_actions::{Pallet, Call, Storage, Event<T>, Config} = 30,
-        CorporateBallot: pallet_corporate_ballot::{Pallet, Call, Storage, Event<T>, Config} = 31,
+        CorporateAction: pallet_corporate_actions::{Pallet, Call, Storage, Event<T>, Config<T>} = 30,
+        CorporateBallot: pallet_corporate_ballot::{Pallet, Call, Storage, Event<T>, Config<T>} = 31,
         Permissions: pallet_permissions::{Pallet} = 32,
         Pips: pallet_pips::{Pallet, Call, Storage, Event<T>, Config<T>} = 33,
-        Portfolio: pallet_portfolio::{Pallet, Call, Storage, Event<T>, Config} = 34,
-        ProtocolFee: pallet_protocol_fee::{Pallet, Call, Storage, Event<T>, Config} = 35,
+        Portfolio: pallet_portfolio::{Pallet, Call, Storage, Event<T>, Config<T>} = 34,
+        ProtocolFee: pallet_protocol_fee::{Pallet, Call, Storage, Event<T>, Config<T>} = 35,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 36,
-        Settlement: pallet_settlement::{Pallet, Call, Storage, Event<T>, Config} = 37,
-        Statistics: pallet_statistics::{Pallet, Call, Storage, Event<T>, Config} = 38,
+        Settlement: pallet_settlement::{Pallet, Call, Storage, Event<T>, Config<T>} = 37,
+        Statistics: pallet_statistics::{Pallet, Call, Storage, Event<T>, Config<T>} = 38,
         Sto: pallet_sto::{Pallet, Call, Storage, Event<T>} = 39,
         Treasury: pallet_treasury::{Pallet, Call, Event<T>} = 40,
         Utility: pallet_utility::{Pallet, Call, Storage, Event<T>} = 41,

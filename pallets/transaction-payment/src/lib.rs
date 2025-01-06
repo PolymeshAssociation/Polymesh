@@ -386,25 +386,28 @@ pub mod pallet {
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Releases, ValueQuery>;
 
     #[pallet::genesis_config]
-    pub struct GenesisConfig {
+    pub struct GenesisConfig<T> {
         pub multiplier: Multiplier,
         #[cfg(feature = "disable_fees")]
         pub disable_fees: bool,
+        #[serde(skip)]
+        pub _config: sp_std::marker::PhantomData<T>,
     }
 
     #[cfg(feature = "std")]
-    impl Default for GenesisConfig {
+    impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self {
                 multiplier: MULTIPLIER_DEFAULT_VALUE,
                 #[cfg(feature = "disable_fees")]
                 disable_fees: false,
+                _config: Default::default(),
             }
         }
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             StorageVersion::<T>::put(Releases::V2);
             NextFeeMultiplier::<T>::put(self.multiplier);
