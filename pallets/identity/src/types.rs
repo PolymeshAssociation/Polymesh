@@ -17,7 +17,7 @@ pub fn zero_account_id<AccountId: Decode>() -> AccountId {
 }
 
 /// A result of execution of get_votes.
-#[derive(Eq, PartialEq, Encode, Decode)]
+#[derive(Eq, PartialEq, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub enum RpcDidRecords<AccountId> {
@@ -30,7 +30,7 @@ pub enum RpcDidRecords<AccountId> {
     IdNotFound,
 }
 
-#[derive(Encode, Decode, MaxEncodedLen, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum DidStatus {
     Unknown,
@@ -39,7 +39,7 @@ pub enum DidStatus {
 }
 
 /// Aggregate information about an `AccountId` in relation to an `IdentityId`.
-#[derive(Eq, PartialEq, Encode, Decode)]
+#[derive(Eq, PartialEq, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct KeyIdentityData<IdentityId> {
     /// The identity of the provided `AccountId`.
