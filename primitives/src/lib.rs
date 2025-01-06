@@ -59,8 +59,8 @@ pub type ChainId = u32;
 /// A hash of some data used by the relay chain.
 pub type Hash = sp_core::H256;
 
-/// Index of a transaction in the relay chain. 32-bit should be plenty.
-pub type Index = u32;
+/// Nonce of a transaction. 32-bit should be plenty.
+pub type Nonce = u32;
 
 /// Alias for Gas.
 pub type Gas = Weight;
