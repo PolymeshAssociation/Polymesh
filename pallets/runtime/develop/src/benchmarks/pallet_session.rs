@@ -62,6 +62,7 @@ impl<T: Config> ValidatorInfo<T> {
             nominators,
             <T as pallet_staking::Config>::MaxNominations::get(),
             false,
+            false,
             RewardDestination::Staked,
         )
         .unwrap()

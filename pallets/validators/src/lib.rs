@@ -50,8 +50,8 @@ use polymesh_primitives::{IdentityId, GC_DID};
 
 pub(crate) use pallet_staking::{
     ActiveEraInfo, BalanceOf, Bonded, Config as StakingConfig, EraPayout, Error as StakingError,
-    Ledger, MinValidatorBond, Nominators, Pallet as StakingPallet, SessionInterface as _,
-    ValidatorCount, ValidatorPrefs, Validators, WeightInfo as _,
+    Ledger, MinValidatorBond, Pallet as StakingPallet, SessionInterface as _, ValidatorCount,
+    ValidatorPrefs, Validators, WeightInfo as _,
 };
 
 use types::{PermissionedIdentityPrefs, SlashingSwitch};
@@ -77,7 +77,6 @@ pub trait WeightInfo {
     fn update_permissioned_validator_intended_count() -> Weight;
     fn chill_from_governance(n: u32) -> Weight;
     fn set_commission_cap(n: u32) -> Weight;
-    fn validate_cdd_expiry_nominators(n: u32) -> Weight;
 }
 
 mod migrations {
@@ -165,7 +164,11 @@ pub mod pallet {
         type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 
         /// To schedule the rewards for the stakers after the end of era.
-        type RewardScheduler: Anon<BlockNumberFor<Self>, <Self as Config>::Call, Self::PalletsOrigin>;
+        type RewardScheduler: Anon<
+            BlockNumberFor<Self>,
+            <Self as Config>::Call,
+            Self::PalletsOrigin,
+        >;
     }
 
     /// Entities that are allowed to run operator/validator nodes.
@@ -261,8 +264,6 @@ pub mod pallet {
         StashIdentityDoesNotExist,
         /// Validator's stash identity is not permissioned.
         StashIdentityNotPermissioned,
-        /// Nominator stash has not gone through CDD.
-        StashIdentityNotCDDed,
         /// Permissioned validator already exists.
         IdentityIsAlreadyPermissioned,
         /// Identity has not gone throught CDD.
@@ -317,21 +318,7 @@ pub mod pallet {
             Self::base_remove_permissioned_validator(origin, identity)
         }
 
-        /// Validate the nominators CDD expiry time.
-        ///
-        /// If an account from a given set of address is nominating then check the CDD expiry time
-        /// of it and if it is expired then the account should be unbonded and removed from the
-        /// nominating process.
         #[pallet::call_index(2)]
-        #[pallet::weight(<T as Config>::WeightInfo::validate_cdd_expiry_nominators(targets.len() as u32))]
-        pub fn validate_cdd_expiry_nominators(
-            origin: OriginFor<T>,
-            targets: Vec<T::AccountId>,
-        ) -> DispatchResult {
-            Self::base_validate_cdd_expiry_nominators(origin, targets)
-        }
-
-        #[pallet::call_index(3)]
         #[pallet::weight(<T as StakingConfig>::WeightInfo::payout_stakers_alive_staked(
             T::MaxNominatorRewardedPerValidator::get()
         ))]
@@ -344,7 +331,7 @@ pub mod pallet {
         }
 
         /// Switch slashing status on the basis of given `slashing_switch`. Can only be called by root.
-        #[pallet::call_index(4)]
+        #[pallet::call_index(3)]
         #[pallet::weight(<T as Config>::WeightInfo::change_slashing_allowed_for())]
         pub fn change_slashing_allowed_for(
             origin: OriginFor<T>,
@@ -354,7 +341,7 @@ pub mod pallet {
         }
 
         /// Sets the intended count to `new_intended_count` for the given `identity`.
-        #[pallet::call_index(5)]
+        #[pallet::call_index(4)]
         #[pallet::weight(<T as Config>::WeightInfo::update_permissioned_validator_intended_count())]
         pub fn update_permissioned_validator_intended_count(
             origin: OriginFor<T>,
@@ -369,7 +356,7 @@ pub mod pallet {
         }
 
         /// Governance council forcefully chills a validator. Effects will be felt at the beginning of the next era.
-        #[pallet::call_index(6)]
+        #[pallet::call_index(5)]
         #[pallet::weight(<T as Config>::WeightInfo::chill_from_governance(stash_keys.len() as u32))]
         pub fn chill_from_governance(
             origin: OriginFor<T>,
@@ -384,7 +371,7 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `new_cap` the new commission cap.
-        #[pallet::call_index(7)]
+        #[pallet::call_index(6)]
         #[pallet::weight(<T as Config>::WeightInfo::set_commission_cap(150))]
         pub fn set_commission_cap(origin: OriginFor<T>, new_cap: Perbill) -> DispatchResult {
             Self::base_set_commission_cap(origin, new_cap)

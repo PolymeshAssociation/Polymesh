@@ -30,7 +30,7 @@ use frame_support::{assert_ok, ord_parameter_types, parameter_types};
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_core::H256;
 use sp_runtime::curve::PiecewiseLinear;
-use sp_runtime::testing::{Header, TestXt, UintAuthorityId};
+use sp_runtime::testing::{TestXt, UintAuthorityId};
 use sp_runtime::traits::{IdentityLookup, Zero};
 use sp_runtime::transaction_validity::InvalidTransaction;
 use sp_runtime::BuildStorage;
@@ -536,7 +536,6 @@ parameter_types! {
     pub static HistoryDepth: u32 = 80;
     pub static MaxUnlockingChunks: u32 = 32;
     pub static RewardOnUnbalanceWasCalled: bool = false;
-    pub static LedgerSlashPerEra: (BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) = (Zero::zero(), BTreeMap::new());
     pub static MaxWinners: u32 = 100;
 }
 
@@ -559,8 +558,14 @@ impl OnUnbalanced<PositiveImbalanceOf<Test>> for MockReward {
     }
 }
 
-pub struct OnStakerSlashMock<T: Config>(core::marker::PhantomData<T>);
-impl<T: Config> sp_staking::OnStakerSlash<AccountId, Balance> for OnStakerSlashMock<T> {
+parameter_types! {
+  pub static LedgerSlashPerEra:
+    (BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) =
+    (Zero::zero(), BTreeMap::new());
+}
+
+pub struct EventListenerMock;
+impl sp_staking::OnStakingUpdate<AccountId, Balance> for EventListenerMock {
     fn on_slash(
         _pool_account: &AccountId,
         slashed_bonded: Balance,
@@ -574,7 +579,7 @@ impl pallet_staking::Config for Test {
     type Currency = Balances;
     type CurrencyBalance = Balance;
     type UnixTime = Timestamp;
-    type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
+    type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
     type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
     type GenesisElectionProvider = Self::ElectionProvider;
     type MaxNominations = MaxNominations;
@@ -595,7 +600,7 @@ impl pallet_staking::Config for Test {
     type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
     type TargetList = pallet_staking::UseValidatorsMap<Self>;
     type MaxUnlockingChunks = MaxUnlockingChunks;
-    type OnStakerSlash = OnStakerSlashMock<Self>;
+    type EventListeners = EventListenerMock;
     type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
     type WeightInfo = polymesh_weights::pallet_staking::SubstrateWeight;
     type Permissioned = Validators;
@@ -782,7 +787,8 @@ impl ExtBuilder {
                 (999, 1_000_000_000_000),
             ],
         }
-        .assimilate_storage(&mut storage).unwrap();
+        .assimilate_storage(&mut storage)
+        .unwrap();
 
         pallet_group::GenesisConfig::<Test, pallet_group::Instance2> {
             active_members_limit: u32::MAX,
@@ -947,7 +953,8 @@ impl ExtBuilder {
             slashing_allowed_for: self.slashing_allowed_for,
             ..Default::default()
         }
-        .assimilate_storage(&mut storage).unwrap();
+        .assimilate_storage(&mut storage)
+        .unwrap();
 
         pallet_staking::GenesisConfig::<Test> {
             stakers: stakers
@@ -969,7 +976,8 @@ impl ExtBuilder {
             min_validator_bond: self.min_validator_bond,
             ..Default::default()
         }
-        .assimilate_storage(&mut storage).unwrap();
+        .assimilate_storage(&mut storage)
+        .unwrap();
 
         let _ = pallet_session::GenesisConfig::<Test> {
             keys: if self.has_stakers {
@@ -1089,36 +1097,28 @@ pub(crate) fn current_era() -> EraIndex {
     Staking::current_era().unwrap()
 }
 
-pub(crate) fn bond(stash: AccountId, ctrl: AccountId, val: Balance) {
-    let _ = Balances::make_free_balance_be(&stash, val);
-    let _ = Balances::make_free_balance_be(&ctrl, val);
+pub(crate) fn bond(who: AccountId, val: Balance) {
+    let _ = Balances::make_free_balance_be(&who, val);
 
-    provide_did_to_user(stash);
-    add_secondary_key(stash, ctrl);
+    provide_did_to_user(who);
 
-    if Staking::bonded(&stash).is_none() {
+    if Staking::bonded(&who).is_none() {
         assert_ok!(Staking::bond(
-            RuntimeOrigin::signed(stash),
-            ctrl,
+            RuntimeOrigin::signed(who),
             val,
             RewardDestination::Controller,
         ));
     }
 }
 
-pub(crate) fn bond_validator(stash: AccountId, ctrl: AccountId, val: Balance) {
-    bond_validator_with_intended_count(stash, ctrl, val, None)
+pub(crate) fn bond_validator(who: AccountId, val: Balance) {
+    bond_validator_with_intended_count(who, val, None)
 }
 
-pub fn bond_validator_with_intended_count(
-    stash: AccountId,
-    ctrl: AccountId,
-    val: Balance,
-    i_count: Option<u32>,
-) {
-    bond(stash, ctrl, val);
+pub fn bond_validator_with_intended_count(who: AccountId, val: Balance, i_count: Option<u32>) {
+    bond(who, val);
 
-    let stash_id = Identity::get_identity(&stash).unwrap();
+    let stash_id = Identity::get_identity(&who).unwrap();
     if Validators::permissioned_identity(stash_id).is_none() {
         assert_ok!(Validators::add_permissioned_validator(
             frame_system::RawOrigin::Root.into(),
@@ -1128,24 +1128,19 @@ pub fn bond_validator_with_intended_count(
     }
 
     assert_ok!(Staking::validate(
-        RuntimeOrigin::signed(ctrl),
+        RuntimeOrigin::signed(who),
         ValidatorPrefs::default()
     ));
     assert_ok!(Session::set_keys(
-        RuntimeOrigin::signed(ctrl),
-        SessionKeys { other: ctrl.into() },
+        RuntimeOrigin::signed(who),
+        SessionKeys { other: who.into() },
         vec![]
     ));
 }
 
-pub(crate) fn bond_nominator(
-    stash: AccountId,
-    ctrl: AccountId,
-    val: Balance,
-    target: Vec<AccountId>,
-) {
-    bond(stash, ctrl, val);
-    assert_ok!(Staking::nominate(RuntimeOrigin::signed(ctrl), target));
+pub(crate) fn bond_nominator(who: AccountId, val: Balance, target: Vec<AccountId>) {
+    bond(who, val);
+    assert_ok!(Staking::nominate(RuntimeOrigin::signed(who), target));
 }
 
 /// Progress to the given block, triggering session and era changes as we progress.
@@ -1401,10 +1396,9 @@ pub fn get_identity(key: AccountId) -> bool {
     pallet_identity::KeyRecords::<Test>::contains_key(&key)
 }
 
-pub fn bond_nominator_cdd(stash: AccountId, ctrl: AccountId, val: Balance, target: Vec<AccountId>) {
-    provide_did_to_user(stash);
-    add_secondary_key(stash, ctrl);
-    bond_nominator(stash, ctrl, val, target);
+pub fn bond_nominator_cdd(who: AccountId, val: Balance, target: Vec<AccountId>) {
+    provide_did_to_user(who);
+    bond_nominator(who, val, target);
 }
 
 // `iter_prefix_values` has no guarantee that it will iterate in a sequential
@@ -1485,19 +1479,16 @@ pub fn run_to_block_scheduler(n: u64) {
 }
 
 pub fn bond_nominator_with_expiry(acc: u64, val: u128, claim_expiry: u64, target: Vec<AccountId>) {
-    // a = controller
-    // a + 1 = stash
-    let controller = acc;
-    let stash = acc + 1;
+    // a = stash
+    let stash = acc;
     let _ = Balances::make_free_balance_be(&(stash), val);
     assert_ok!(Staking::bond(
         Origin::signed(stash),
-        controller,
         val,
         RewardDestination::Controller
     ));
     create_did_and_add_claim_with_expiry(stash, claim_expiry);
-    assert_ok!(Staking::nominate(Origin::signed(controller), target));
+    assert_ok!(Staking::nominate(Origin::signed(stash), target));
 }
 
 pub fn create_did_and_add_claim_with_expiry(stash: AccountId, expiry: u64) {

@@ -46,6 +46,7 @@ sp-tracing = { workspace = true }
 default = ["std"]
 no_std = []
 std = [
+  "frame-benchmarking?/std",
 	"polymesh-primitives/std",
 	"serde",
 	"codec/std",
@@ -66,9 +67,11 @@ std = [
 	"rand_chacha",
 ]
 runtime-benchmarks = [
-	"frame-benchmarking",
-	"pallet-staking/runtime-benchmarks",
-	"pallet-identity/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+  "frame-election-provider-support/runtime-benchmarks",
 	"rand_chacha",
+  "sp-staking/runtime-benchmarks",
+	"polymesh-primitives/runtime-benchmarks",
+  "pallet-identity/runtime-benchmarks",
 ]
 try-runtime = []
