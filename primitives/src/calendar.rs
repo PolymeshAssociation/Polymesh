@@ -1,4 +1,4 @@
-use chrono::{Datelike, NaiveDate, NaiveDateTime};
+use chrono::{DateTime, Datelike, NaiveDate};
 use codec::{Decode, Encode};
 use core::num::NonZeroU64;
 use scale_info::TypeInfo;
@@ -201,14 +201,13 @@ fn next_checkpoint_secs(
         }
         FixedOrVariableCalendarUnit::Variable(variable_unit) => {
             // The period is of variable length.
-            let date_time_start = NaiveDateTime::from_timestamp_opt(i64::try_from(start).ok()?, 0)?;
-            let date_start = date_time_start.date();
+            let date_time_start = DateTime::from_timestamp(i64::try_from(start).ok()?, 0)?;
+            let date_start = date_time_start.date_naive();
             let year_start = date_start.year();
             let month_start = date_start.month();
             let day_start = date_start.day();
-            let date_time_now =
-                NaiveDateTime::from_timestamp_opt(i64::try_from(now_as_secs_utc).ok()?, 0)?;
-            let date_now = date_time_now.date();
+            let date_time_now = DateTime::from_timestamp(i64::try_from(now_as_secs_utc).ok()?, 0)?;
+            let date_now = date_time_now.date_naive();
             let date_next = match variable_unit {
                 VariableCalendarUnit::Month => {
                     // Convert the base unit amount to match the type of month.
@@ -261,7 +260,13 @@ fn next_checkpoint_secs(
                     )?
                 }
             };
-            Moment::try_from(date_next.and_time(date_time_start.time()).timestamp()).ok()
+            Moment::try_from(
+                date_next
+                    .and_time(date_time_start.time())
+                    .and_utc()
+                    .timestamp(),
+            )
+            .ok()
         }
     }
 }
