@@ -348,11 +348,7 @@ mod benches {
 }
 
 construct_runtime!(
-    pub enum Runtime where
-        Block = Block,
-        NodeBlock = polymesh_primitives::Block,
-        UncheckedExtrinsic = UncheckedExtrinsic
-    {
+    pub struct Runtime {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
         Babe: pallet_babe::{Pallet, Call, Storage, Config<T>, ValidateUnsigned} = 1,
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 2,
