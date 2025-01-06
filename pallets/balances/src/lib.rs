@@ -127,7 +127,7 @@
 //! use frame_support::traits::{WithdrawReasons, LockableCurrency};
 //! use sp_runtime::traits::Bounded;
 //! pub trait Trait: frame_system::Config {
-//! type Currency: LockableCurrency<Self::AccountId, Moment=Self::BlockNumber>;
+//! type Currency: LockableCurrency<Self::AccountId, Moment=frame_system::pallet_prelude::BlockNumberFor<Self>>;
 //! }
 //! # struct StakingLedger<T: Trait> {
 //!     # stash: <T as frame_system::Config>::AccountId,
@@ -178,6 +178,7 @@ use frame_support::{
     },
     weights::Weight,
 };
+use frame_system::pallet_prelude::*;
 use frame_system::{self as system, ensure_root, ensure_signed};
 use polymesh_primitives::traits::{BlockRewardsReserveCurrency, CheckCdd, IdentityFnTrait};
 use polymesh_primitives::{Balance, IdentityId, Memo, SystematicIssuers, GC_DID};
@@ -290,7 +291,6 @@ pub use pallet::*;
 pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
-    use frame_system::pallet_prelude::*;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -1360,7 +1360,7 @@ impl<T: Config> ReservableCurrency<T::AccountId> for Pallet<T> {
 }
 
 impl<T: Config> LockableCurrency<T::AccountId> for Pallet<T> {
-    type Moment = T::BlockNumber;
+    type Moment = BlockNumberFor<T>;
 
     type MaxLocks = T::MaxLocks;
 

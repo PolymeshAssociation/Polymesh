@@ -99,15 +99,11 @@ pub fn is_disabled(controller: AccountId) -> bool {
     Session::disabled_validators().contains(&validator_index)
 }
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type Call = RuntimeCall;
 
 frame_support::construct_runtime!(
-    pub enum Test where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum Test
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Babe: pallet_babe::{Pallet, Call, Storage, Config<T>, ValidateUnsigned},
@@ -165,13 +161,12 @@ impl frame_system::Config for Test {
     type DbWeight = RocksDbWeight;
     type RuntimeOrigin = RuntimeOrigin;
     type Index = AccountIndex;
-    type BlockNumber = BlockNumber;
     type RuntimeCall = RuntimeCall;
     type Hash = H256;
     type Hashing = ::sp_runtime::traits::BlakeTwo256;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
+    type Block = Block;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();

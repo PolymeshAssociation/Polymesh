@@ -184,7 +184,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::unbounded]
     pub type Voting<T: Config<I>, I: 'static = ()> =
-        StorageMap<_, Identity, T::Hash, PolymeshVotes<T::BlockNumber>, OptionQuery>;
+        StorageMap<_, Identity, T::Hash, PolymeshVotes<BlockNumberFor<T>>, OptionQuery>;
 
     /// Proposals so far.
     #[pallet::storage]
@@ -207,7 +207,7 @@ pub mod pallet {
     /// Time after which a proposal will expire.
     #[pallet::storage]
     pub type ExpiresAfter<T: Config<I>, I: 'static = ()> =
-        StorageValue<_, MaybeBlock<T::BlockNumber>, ValueQuery>;
+        StorageValue<_, MaybeBlock<BlockNumberFor<T>>, ValueQuery>;
 
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
@@ -215,7 +215,7 @@ pub mod pallet {
         pub members: Vec<IdentityId>,
         pub vote_threshold: (u32, u32),
         pub release_coordinator: IdentityId,
-        pub expires_after: MaybeBlock<T::BlockNumber>,
+        pub expires_after: MaybeBlock<BlockNumberFor<T>>,
         #[serde(skip)]
         pub phantom: PhantomData<(T, I)>,
     }
@@ -307,10 +307,7 @@ pub mod pallet {
         ReleaseCoordinatorUpdated(Option<IdentityId>),
         /// Proposal expiry time has been updated.
         /// Parameters: caller DID, new expiry time (if any).
-        ExpiresAfterUpdated(
-            IdentityId,
-            MaybeBlock<<T as frame_system::Config>::BlockNumber>,
-        ),
+        ExpiresAfterUpdated(IdentityId, MaybeBlock<BlockNumberFor<T>>),
         /// Voting threshold has been updated
         /// Parameters: caller DID, numerator, denominator
         VoteThresholdUpdated(IdentityId, u32, u32),
@@ -385,7 +382,7 @@ pub mod pallet {
         #[pallet::call_index(2)]
         pub fn set_expires_after(
             origin: OriginFor<T>,
-            expiry: MaybeBlock<T::BlockNumber>,
+            expiry: MaybeBlock<BlockNumberFor<T>>,
         ) -> DispatchResult {
             T::CommitteeOrigin::ensure_origin(origin)?;
             <ExpiresAfter<T, I>>::put(expiry);
@@ -489,7 +486,7 @@ pub mod pallet {
         fn ensure_proposal(
             hash: &T::Hash,
             idx: ProposalIndex,
-        ) -> Result<PolymeshVotes<T::BlockNumber>, DispatchError> {
+        ) -> Result<PolymeshVotes<BlockNumberFor<T>>, DispatchError> {
             let voting = Voting::<T, I>::get(&hash).ok_or(Error::<T, I>::NoSuchProposal)?;
             ensure!(voting.index == idx, Error::<T, I>::MismatchedVotingIndex);
             Ok(voting)
@@ -623,7 +620,7 @@ pub mod pallet {
         /// As a side-effect, on error, any existing proposal data is pruned.
         fn ensure_not_expired(
             proposal: &T::Hash,
-            expiry: MaybeBlock<T::BlockNumber>,
+            expiry: MaybeBlock<BlockNumberFor<T>>,
         ) -> Result<(), Error<T, I>> {
             match expiry {
                 MaybeBlock::Some(e) if e <= frame_system::Pallet::<T>::block_number() => {

@@ -8,6 +8,7 @@ use frame_support::{
     assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, traits::TryCollect,
     BoundedBTreeSet,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use rand::{prelude::*, thread_rng};
 use sp_runtime::{AccountId32, AnySignature};
 use sp_std::collections::btree_set::BTreeSet;
@@ -64,7 +65,7 @@ type AssetError = pallet_asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type Moment = <TestStorage as pallet_timestamp::Config>::Moment;
-type BlockNumber = <TestStorage as frame_system::Config>::BlockNumber;
+type BlockNumber = BlockNumberFor<TestStorage>;
 type Settlement = pallet_settlement::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 type Error = pallet_settlement::Error<TestStorage>;
