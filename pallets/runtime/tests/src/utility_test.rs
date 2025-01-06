@@ -486,8 +486,8 @@ fn sub_batch_with_signed_filters() {
 fn sub_batch_handles_weight_refund() {
     new_test_ext().execute_with(|| {
         let charlie = User::new(AccountKeyring::Charlie);
-        let start_weight = Weight::from_ref_time(100);
-        let end_weight = Weight::from_ref_time(75);
+        let start_weight = Weight::from_parts(100, 0);
+        let end_weight = Weight::from_parts(75, 0);
         let diff = start_weight - end_weight;
         let batch_len = 4;
 
@@ -629,8 +629,8 @@ fn sub_batch_all_revert() {
 fn sub_batch_all_handles_weight_refund() {
     new_test_ext().execute_with(|| {
         let charlie = User::new(AccountKeyring::Charlie).balance(10);
-        let start_weight = Weight::from_ref_time(100);
-        let end_weight = Weight::from_ref_time(75);
+        let start_weight = Weight::from_parts(100, 0);
+        let end_weight = Weight::from_parts(75, 0);
         let diff = start_weight - end_weight;
         let batch_len = 4;
 
@@ -776,7 +776,7 @@ fn sub_force_batch_works() {
             charlie.origin(),
             vec![
                 transfer(ferdie.acc(), 5),
-                call_foobar(true, Weight::from_ref_time(75), None),
+                call_foobar(true, Weight::from_parts(75, 0), None),
                 transfer(ferdie.acc(), 10),
                 transfer(ferdie.acc(), 5),
             ]

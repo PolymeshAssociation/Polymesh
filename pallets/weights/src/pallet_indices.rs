@@ -57,7 +57,7 @@ impl pallet_indices::WeightInfo for SubstrateWeight {
     // Proof: Indices Accounts (max_values: None, max_size: Some(69), added: 2544, mode: MaxEncodedLen)
     fn claim() -> Weight {
         // Minimum execution time: 21_533 nanoseconds.
-        Weight::from_ref_time(23_345_000)
+        Weight::from_parts(23_345_000)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -67,7 +67,7 @@ impl pallet_indices::WeightInfo for SubstrateWeight {
     // Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
     fn transfer() -> Weight {
         // Minimum execution time: 27_992 nanoseconds.
-        Weight::from_ref_time(28_453_000)
+        Weight::from_parts(28_453_000)
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -75,7 +75,7 @@ impl pallet_indices::WeightInfo for SubstrateWeight {
     // Proof: Indices Accounts (max_values: None, max_size: Some(69), added: 2544, mode: MaxEncodedLen)
     fn free() -> Weight {
         // Minimum execution time: 22_544 nanoseconds.
-        Weight::from_ref_time(23_596_000)
+        Weight::from_parts(23_596_000)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -85,7 +85,7 @@ impl pallet_indices::WeightInfo for SubstrateWeight {
     // Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
     fn force_transfer() -> Weight {
         // Minimum execution time: 25_859 nanoseconds.
-        Weight::from_ref_time(27_191_000)
+        Weight::from_parts(27_191_000)
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -93,7 +93,7 @@ impl pallet_indices::WeightInfo for SubstrateWeight {
     // Proof: Indices Accounts (max_values: None, max_size: Some(69), added: 2544, mode: MaxEncodedLen)
     fn freeze() -> Weight {
         // Minimum execution time: 21_382 nanoseconds.
-        Weight::from_ref_time(22_584_000)
+        Weight::from_parts(22_584_000)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }

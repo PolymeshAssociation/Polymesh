@@ -62,9 +62,9 @@ impl pallet_treasury::WeightInfo for SubstrateWeight {
     /// The range of component `b` is `[1, 128]`.
     fn disbursement(b: u32) -> Weight {
         // Minimum execution time: 48_413 nanoseconds.
-        Weight::from_ref_time(1_635_177)
+        Weight::from_parts(1_635_177)
             // Standard Error: 40_618
-            .saturating_add(Weight::from_ref_time(29_261_008).saturating_mul(b.into()))
+            .saturating_add(Weight::from_parts(29_261_008).saturating_mul(b.into()))
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(b.into())))
             .saturating_add(DbWeight::get().writes(1))
@@ -82,7 +82,7 @@ impl pallet_treasury::WeightInfo for SubstrateWeight {
     // Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
     fn reimbursement() -> Weight {
         // Minimum execution time: 60_631 nanoseconds.
-        Weight::from_ref_time(64_196_000)
+        Weight::from_parts(64_196_000)
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().writes(2))
     }

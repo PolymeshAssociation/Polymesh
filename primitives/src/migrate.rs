@@ -59,7 +59,7 @@ pub fn frame_v2_migrate<P: PalletInfoAccess + GetStorageVersion>(
         current_version,
         target_version
     );
-    weight += Weight::from_ref_time(1_000);
+    weight += Weight::from_parts(1_000, 0);
     // Update the storage version
     target_version.put::<P>();
 
@@ -87,7 +87,7 @@ pub fn frame_v2_migrate<P: PalletInfoAccess + GetStorageVersion>(
             old_pallet_name.as_bytes(),
             pallet_name.as_bytes(),
         );
-        weight += Weight::from_ref_time(100_000_000);
+        weight += Weight::from_parts(100_000_000, 0);
     }
 
     weight

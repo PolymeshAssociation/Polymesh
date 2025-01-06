@@ -87,7 +87,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Proof: Identity ChildDid (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     fn create_child_identity() -> Weight {
         // Minimum execution time: 90_245 nanoseconds.
-        Weight::from_ref_time(93_110_000)
+        Weight::from_parts(93_110_000)
             .saturating_add(DbWeight::get().reads(13))
             .saturating_add(DbWeight::get().writes(10))
     }
@@ -120,9 +120,9 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     /// The range of component `i` is `[0, 100]`.
     fn create_child_identities(i: u32) -> Weight {
         // Minimum execution time: 42_053 nanoseconds.
-        Weight::from_ref_time(89_970_948)
+        Weight::from_parts(89_970_948)
             // Standard Error: 110_748
-            .saturating_add(Weight::from_ref_time(144_106_906).saturating_mul(i.into()))
+            .saturating_add(Weight::from_parts(144_106_906).saturating_mul(i.into()))
             .saturating_add(DbWeight::get().reads(11))
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(i.into())))
             .saturating_add(DbWeight::get().writes(2))
@@ -142,7 +142,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Proof: Identity ChildDid (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     fn unlink_child_identity() -> Weight {
         // Minimum execution time: 42_594 nanoseconds.
-        Weight::from_ref_time(46_139_000)
+        Weight::from_parts(46_139_000)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -177,9 +177,9 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     /// The range of component `i` is `[0, 200]`.
     fn cdd_register_did(i: u32) -> Weight {
         // Minimum execution time: 61_382 nanoseconds.
-        Weight::from_ref_time(90_535_438)
+        Weight::from_parts(90_535_438)
             // Standard Error: 24_037
-            .saturating_add(Weight::from_ref_time(12_786_370).saturating_mul(i.into()))
+            .saturating_add(Weight::from_parts(12_786_370).saturating_mul(i.into()))
             .saturating_add(DbWeight::get().reads(13))
             .saturating_add(DbWeight::get().writes(6))
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(i.into())))
@@ -194,7 +194,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
     fn invalidate_cdd_claims() -> Weight {
         // Minimum execution time: 44_958 nanoseconds.
-        Weight::from_ref_time(45_719_000)
+        Weight::from_parts(45_719_000)
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -223,9 +223,9 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     /// The range of component `i` is `[0, 200]`.
     fn remove_secondary_keys(i: u32) -> Weight {
         // Minimum execution time: 34_331 nanoseconds.
-        Weight::from_ref_time(47_714_873)
+        Weight::from_parts(47_714_873)
             // Standard Error: 42_063
-            .saturating_add(Weight::from_ref_time(17_971_373).saturating_mul(i.into()))
+            .saturating_add(Weight::from_parts(17_971_373).saturating_mul(i.into()))
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(i.into())))
             .saturating_add(DbWeight::get().writes((6_u64).saturating_mul(i.into())))
@@ -252,7 +252,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Proof: Identity DidKeys (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     fn accept_primary_key() -> Weight {
         // Minimum execution time: 89_375 nanoseconds.
-        Weight::from_ref_time(102_884_000)
+        Weight::from_parts(102_884_000)
             .saturating_add(DbWeight::get().reads(11))
             .saturating_add(DbWeight::get().writes(11))
     }
@@ -282,7 +282,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity KeyAssetPermissions (max_values: None, max_size: None, mode: Measured)
     fn rotate_primary_key_to_secondary() -> Weight {
         // Minimum execution time: 88_903 nanoseconds.
-        Weight::from_ref_time(90_485_000)
+        Weight::from_parts(90_485_000)
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(13))
     }
@@ -290,7 +290,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Proof: Identity CddAuthForPrimaryKeyRotation (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
     fn change_cdd_requirement_for_mk_rotation() -> Weight {
         // Minimum execution time: 7_832 nanoseconds.
-        Weight::from_ref_time(9_915_000).saturating_add(DbWeight::get().writes(1))
+        Weight::from_parts(9_915_000).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity Authorizations (r:1 w:1)
     // Proof Skipped: Identity Authorizations (max_values: None, max_size: None, mode: Measured)
@@ -324,7 +324,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity KeyAssetPermissions (max_values: None, max_size: None, mode: Measured)
     fn join_identity_as_key() -> Weight {
         // Minimum execution time: 81_021 nanoseconds.
-        Weight::from_ref_time(98_688_000)
+        Weight::from_parts(98_688_000)
             .saturating_add(DbWeight::get().reads(11))
             .saturating_add(DbWeight::get().writes(8))
     }
@@ -350,7 +350,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity KeyAssetPermissions (max_values: None, max_size: None, mode: Measured)
     fn leave_identity_as_key() -> Weight {
         // Minimum execution time: 53_390 nanoseconds.
-        Weight::from_ref_time(55_673_000)
+        Weight::from_parts(55_673_000)
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(5))
     }
@@ -370,7 +370,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Proof: ProtocolFee BaseFees (max_values: None, max_size: Some(25), added: 2500, mode: MaxEncodedLen)
     fn add_claim() -> Weight {
         // Minimum execution time: 55_724 nanoseconds.
-        Weight::from_ref_time(58_708_000)
+        Weight::from_parts(58_708_000)
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -384,7 +384,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
     fn revoke_claim() -> Weight {
         // Minimum execution time: 37_626 nanoseconds.
-        Weight::from_ref_time(39_549_000)
+        Weight::from_parts(39_549_000)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -398,7 +398,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
     fn revoke_claim_by_index() -> Weight {
         // Minimum execution time: 38_788 nanoseconds.
-        Weight::from_ref_time(41_122_000)
+        Weight::from_parts(41_122_000)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -418,7 +418,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity KeyPortfolioPermissions (max_values: None, max_size: None, mode: Measured)
     fn set_secondary_key_permissions() -> Weight {
         // Minimum execution time: 61_172 nanoseconds.
-        Weight::from_ref_time(68_212_000)
+        Weight::from_parts(68_212_000)
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -428,15 +428,15 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     /// The range of component `e` is `[0, 80]`.
     fn permissions_cost(a: u32, p: u32, l: u32, e: u32) -> Weight {
         // Minimum execution time: 227_893 nanoseconds.
-        Weight::from_ref_time(228_884_000)
+        Weight::from_parts(228_884_000)
             // Manually set for `a`
-            .saturating_add(Weight::from_ref_time(100_000).saturating_mul(a.into()))
+            .saturating_add(Weight::from_parts(100_000, 0).saturating_mul(a.into()))
             // Manually set for `p`
-            .saturating_add(Weight::from_ref_time(100_000).saturating_mul(p.into()))
+            .saturating_add(Weight::from_parts(100_000).saturating_mul(p.into()))
             // Standard Error: 179_834
-            .saturating_add(Weight::from_ref_time(15_417_476).saturating_mul(l.into()))
+            .saturating_add(Weight::from_parts(15_417_476).saturating_mul(l.into()))
             // Standard Error: 179_834
-            .saturating_add(Weight::from_ref_time(14_255_820).saturating_mul(e.into()))
+            .saturating_add(Weight::from_parts(14_255_820).saturating_mul(e.into()))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
@@ -450,7 +450,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Proof: Identity IsDidFrozen (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     fn freeze_secondary_keys() -> Weight {
         // Minimum execution time: 33_650 nanoseconds.
-        Weight::from_ref_time(36_594_000)
+        Weight::from_parts(36_594_000)
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -466,7 +466,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Proof: Identity IsDidFrozen (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     fn unfreeze_secondary_keys() -> Weight {
         // Minimum execution time: 32_278 nanoseconds.
-        Weight::from_ref_time(33_901_000)
+        Weight::from_parts(33_901_000)
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -488,7 +488,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity Authorizations (max_values: None, max_size: None, mode: Measured)
     fn add_authorization() -> Weight {
         // Minimum execution time: 44_296 nanoseconds.
-        Weight::from_ref_time(46_550_000)
+        Weight::from_parts(46_550_000)
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(4))
     }
@@ -510,7 +510,7 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Proof: Identity AuthorizationsGiven (max_values: None, max_size: Some(81), added: 2556, mode: MaxEncodedLen)
     fn remove_authorization() -> Weight {
         // Minimum execution time: 51_007 nanoseconds.
-        Weight::from_ref_time(53_551_000)
+        Weight::from_parts(53_551_000)
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -539,9 +539,9 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     /// The range of component `i` is `[0, 200]`.
     fn add_secondary_keys_with_authorization(i: u32) -> Weight {
         // Minimum execution time: 47_481 nanoseconds.
-        Weight::from_ref_time(57_963_316)
+        Weight::from_parts(57_963_316)
             // Standard Error: 40_840
-            .saturating_add(Weight::from_ref_time(132_436_689).saturating_mul(i.into()))
+            .saturating_add(Weight::from_parts(132_436_689).saturating_mul(i.into()))
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(i.into())))
             .saturating_add(DbWeight::get().writes(1))
@@ -564,9 +564,9 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[1, 2048]`.
     fn register_custom_claim_type(n: u32) -> Weight {
         // Minimum execution time: 41_543 nanoseconds.
-        Weight::from_ref_time(47_530_945)
+        Weight::from_parts(47_530_945)
             // Standard Error: 631
-            .saturating_add(Weight::from_ref_time(6_764).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(6_764).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(3))
     }

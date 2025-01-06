@@ -65,7 +65,7 @@ impl pallet_validators::WeightInfo for SubstrateWeight {
     // Proof: Staking ValidatorCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
     fn add_permissioned_validator() -> Weight {
         // Minimum execution time: 41_553 nanoseconds.
-        Weight::from_ref_time(46_099_000)
+        Weight::from_parts(46_099_000, 0)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -73,7 +73,7 @@ impl pallet_validators::WeightInfo for SubstrateWeight {
     // Proof Skipped: Staking PermissionedIdentity (max_values: None, max_size: None, mode: Measured)
     fn remove_permissioned_validator() -> Weight {
         // Minimum execution time: 21_923 nanoseconds.
-        Weight::from_ref_time(23_775_000)
+        Weight::from_parts(23_775_000, 0)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -81,7 +81,7 @@ impl pallet_validators::WeightInfo for SubstrateWeight {
     // Proof: Staking SlashingAllowedFor (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
     fn change_slashing_allowed_for() -> Weight {
         // Minimum execution time: 8_042 nanoseconds.
-        Weight::from_ref_time(8_202_000).saturating_add(DbWeight::get().writes(1))
+        Weight::from_parts(8_202_000, 0).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Staking ValidatorCount (r:1 w:0)
     // Proof: Staking ValidatorCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
@@ -89,7 +89,7 @@ impl pallet_validators::WeightInfo for SubstrateWeight {
     // Proof Skipped: Staking PermissionedIdentity (max_values: None, max_size: None, mode: Measured)
     fn update_permissioned_validator_intended_count() -> Weight {
         // Minimum execution time: 15_513 nanoseconds.
-        Weight::from_ref_time(16_815_000)
+        Weight::from_parts(16_815_000, 0)
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -110,9 +110,9 @@ impl pallet_validators::WeightInfo for SubstrateWeight {
     /// The range of component `s` is `[1, 100]`.
     fn chill_from_governance(s: u32) -> Weight {
         // Minimum execution time: 63_263 nanoseconds.
-        Weight::from_ref_time(39_954_272)
+        Weight::from_parts(39_954_272, 0)
             // Standard Error: 31_787
-            .saturating_add(Weight::from_ref_time(29_199_031).saturating_mul(s.into()))
+            .saturating_add(Weight::from_parts(29_199_031, 0).saturating_mul(s.into()))
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().reads((4_u64).saturating_mul(s.into())))
             .saturating_add(DbWeight::get().writes(2))
@@ -125,9 +125,9 @@ impl pallet_validators::WeightInfo for SubstrateWeight {
     /// The range of component `m` is `[0, 150]`.
     fn set_commission_cap(m: u32) -> Weight {
         // Minimum execution time: 26_039 nanoseconds.
-        Weight::from_ref_time(36_161_210)
+        Weight::from_parts(36_161_210, 0)
             // Standard Error: 11_245
-            .saturating_add(Weight::from_ref_time(4_450_891).saturating_mul(m.into()))
+            .saturating_add(Weight::from_parts(4_450_891, 0).saturating_mul(m.into()))
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(m.into())))
             .saturating_add(DbWeight::get().writes(2))
@@ -164,9 +164,9 @@ impl pallet_validators::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[1, 16]`.
     fn validate_cdd_expiry_nominators(n: u32) -> Weight {
         // Minimum execution time: 211_797 nanoseconds.
-        Weight::from_ref_time(153_423_017)
+        Weight::from_parts(153_423_017, 0)
             // Standard Error: 176_413
-            .saturating_add(Weight::from_ref_time(82_196_945).saturating_mul(n.into()))
+            .saturating_add(Weight::from_parts(82_196_945, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().reads((10_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(1))

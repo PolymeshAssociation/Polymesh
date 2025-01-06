@@ -60,9 +60,9 @@ impl pallet_utility::WeightInfo for SubstrateWeight {
     /// The range of component `c` is `[0, 1000]`.
     fn batch(c: u32) -> Weight {
         // Minimum execution time: 7_120 nanoseconds.
-        Weight::from_ref_time(40_789_048)
+        Weight::from_parts(40_789_048)
             // Standard Error: 6_442
-            .saturating_add(Weight::from_ref_time(11_967_780).saturating_mul(c.into()))
+            .saturating_add(Weight::from_parts(11_967_780).saturating_mul(c.into()))
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -73,9 +73,9 @@ impl pallet_utility::WeightInfo for SubstrateWeight {
     /// The range of component `c` is `[0, 1000]`.
     fn batch_all(c: u32) -> Weight {
         // Minimum execution time: 7_411 nanoseconds.
-        Weight::from_ref_time(30_708_916)
+        Weight::from_parts(30_708_916)
             // Standard Error: 7_425
-            .saturating_add(Weight::from_ref_time(12_017_560).saturating_mul(c.into()))
+            .saturating_add(Weight::from_parts(12_017_560).saturating_mul(c.into()))
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -87,7 +87,7 @@ impl pallet_utility::WeightInfo for SubstrateWeight {
     // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
     fn dispatch_as() -> Weight {
         // Minimum execution time: 22_684 nanoseconds.
-        Weight::from_ref_time(23_825_000)
+        Weight::from_parts(23_825_000)
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().writes(3))
     }
@@ -98,9 +98,9 @@ impl pallet_utility::WeightInfo for SubstrateWeight {
     /// The range of component `c` is `[0, 1000]`.
     fn force_batch(c: u32) -> Weight {
         // Minimum execution time: 7_602 nanoseconds.
-        Weight::from_ref_time(37_888_291)
+        Weight::from_parts(37_888_291)
             // Standard Error: 7_863
-            .saturating_add(Weight::from_ref_time(12_095_202).saturating_mul(c.into()))
+            .saturating_add(Weight::from_parts(12_095_202).saturating_mul(c.into()))
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -120,13 +120,13 @@ impl pallet_utility::WeightInfo for SubstrateWeight {
     // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
     fn relay_tx() -> Weight {
         // Minimum execution time: 189_003 nanoseconds.
-        Weight::from_ref_time(196_184_000)
+        Weight::from_parts(196_184_000)
             .saturating_add(DbWeight::get().reads(11))
             .saturating_add(DbWeight::get().writes(3))
     }
     fn ensure_root() -> Weight {
         // Minimum execution time: 671 nanoseconds.
-        Weight::from_ref_time(841_000)
+        Weight::from_parts(841_000)
     }
     // Storage: Identity CurrentPayer (r:1 w:1)
     // Proof: Identity CurrentPayer (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
@@ -136,7 +136,7 @@ impl pallet_utility::WeightInfo for SubstrateWeight {
     // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
     fn as_derivative() -> Weight {
         // Minimum execution time: 19_970 nanoseconds.
-        Weight::from_ref_time(23_145_000)
+        Weight::from_parts(23_145_000)
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().writes(3))
     }
