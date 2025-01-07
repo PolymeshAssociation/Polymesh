@@ -51,7 +51,7 @@ use polymesh_primitives::{
     Balance, IdentityId, PosRatio, GC_DID,
 };
 use sp_runtime::{traits::Zero, Perbill};
-use sp_std::vec;
+use sp_std::vec::Vec;
 
 type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
