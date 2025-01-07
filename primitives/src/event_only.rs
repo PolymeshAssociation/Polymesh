@@ -17,12 +17,11 @@
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 /// A protective newtype around any type,
 /// signalling that the contained element is only for use by events.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Debug)]
 pub struct EventOnly<T>(T);

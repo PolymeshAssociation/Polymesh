@@ -13,14 +13,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
-
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::cmp::Ordering;
 use frame_support::traits::schedule::{Priority, HARD_DEADLINE};
 use frame_support::traits::LockIdentifier;
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_core::H256;
 use sp_std::convert::From;
 use sp_std::vec::Vec;
@@ -48,7 +46,7 @@ pub(crate) const PIPS_LOCK_ID: LockIdentifier = *b"pips    ";
 pub struct PipDescription(pub Vec<u8>);
 
 /// The global and unique identitifer of a Polymesh Improvement Proposal (PIP).
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct PipId(pub u32);
@@ -81,7 +79,8 @@ pub struct Pip<Proposal, AccountId> {
 
 /// A result of execution of get_votes.
 
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Serialize, Deserialize)]
 #[derive(Decode, Encode, TypeInfo, MaxEncodedLen, Eq, PartialEq)]
 pub enum VoteCount {
     /// Proposal was found and has the following votes.
@@ -167,7 +166,8 @@ pub struct VotingResult {
 }
 
 /// A "vote" or "signal" on a PIP to move it up or down the review queue.
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Serialize, Deserialize)]
 #[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct Vote(
@@ -177,7 +177,8 @@ pub struct Vote(
     pub Balance,
 );
 
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Serialize, Deserialize)]
 #[derive(Clone, Decode, Encode, Eq, PartialEq)]
 pub struct VoteByPip<VoteType> {
     pub pip: PipId,
@@ -215,7 +216,7 @@ pub struct DepositInfo<AccountId> {
 }
 
 /// ID of the taken snapshot in a sequence.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct SnapshotId(pub u32);

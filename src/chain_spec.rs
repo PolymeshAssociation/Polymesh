@@ -14,14 +14,13 @@ use polymesh_primitives::{
 use sc_chain_spec::{ChainSpecExtension, ChainType};
 use sc_service::Properties;
 use sc_telemetry::TelemetryEndpoints;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{AccountIdConversion, IdentifyAccount, Verify};
 use sp_runtime::PerThing;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 use std::convert::TryInto;
 
 // The URL for the telemetry server.
@@ -147,7 +146,7 @@ fn ticker_registration_config() -> TickerRegistrationConfig<Moment> {
 
 fn currency_codes() -> Vec<Ticker> {
     // Fiat Currency Struct
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    #[derive(Serialize, Deserialize)]
     #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
     pub struct FiatCurrency<String> {
         pub codes: Vec<String>,

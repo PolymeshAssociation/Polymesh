@@ -94,9 +94,8 @@ use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::{storage_migration_ver, Balance, EventDid, IdentityId, Moment};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_runtime::traits::Zero;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 type Checkpoint<T> = checkpoint::Pallet<T>;
@@ -104,25 +103,25 @@ type CA<T> = ca::Pallet<T>;
 type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
 
 /// A wrapper for a motion title.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, PartialEq, Eq, Hash, Default, Debug)]
 pub struct MotionTitle(pub Vec<u8>);
 
 /// A wrapper for a motion info link.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, PartialEq, Eq, Hash, Default, Debug)]
 pub struct MotionInfoLink(pub Vec<u8>);
 
 /// A wrapper for a choice's title.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, PartialEq, Eq, Hash, Default, Debug)]
 pub struct ChoiceTitle(pub Vec<u8>);
 
 /// Details about motions
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Clone, PartialEq, Eq, Default, Debug, Encode, Decode, TypeInfo)]
 pub struct Motion {
     /// Title of the motion
@@ -137,7 +136,7 @@ pub struct Motion {
 }
 
 /// A wrapper for a ballot's title.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Default)]
 pub struct BallotTitle(pub Vec<u8>);
@@ -149,7 +148,7 @@ pub struct BallotTitle(pub Vec<u8>);
 /// When the metadata has been committed to chain,
 /// the needed numbers aforementioned are cached away,
 /// and the metadata is not read on-chain again.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Clone, PartialEq, Eq, Debug, Encode, TypeInfo, Decode, Default)]
 pub struct BallotMeta {
     /// The ballot's title.
@@ -168,7 +167,7 @@ impl BallotMeta {
 }
 
 /// Timestamp range details about vote start / end.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(
     Copy,
     Clone,
@@ -190,7 +189,7 @@ pub struct BallotTimeRange {
 }
 
 /// A vote cast on some choice in some motion in a ballot.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(
     Copy,
     Clone,

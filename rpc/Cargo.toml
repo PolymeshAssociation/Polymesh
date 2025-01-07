@@ -31,7 +31,7 @@ pallet-identity = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 
 # Others
-serde = { version = "1.0.104", default-features = false, optional = true, features = ["derive"] }
+serde = { version = "1.0.104", default-features = false, features = ["alloc", "derive"] }
 
 [features]
 default = ["std"]
@@ -45,7 +45,7 @@ std = [
     "pallet-portfolio/std",
     "pallet-transaction-payment/std",
     "polymesh-primitives/std",
-    "serde",
+    "serde/std",
     "sp-api/std",
     "sp-core/std",
     "sp-runtime/std",

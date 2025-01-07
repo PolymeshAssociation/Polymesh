@@ -17,15 +17,14 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 macro_rules! country_codes {
     ( $([$discr:expr,$alpha2:ident, $alpha3:ident, $un:literal, $($extra:expr),*]),* $(,)? ) => {
         /// Existing country codes according to ISO-3166-1.
         #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Decode, Encode, MaxEncodedLen, TypeInfo, Hash)]
-        #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+        #[derive(Serialize, Deserialize)]
         pub enum CountryCode {
         $(
             $(#[doc=$extra])*
