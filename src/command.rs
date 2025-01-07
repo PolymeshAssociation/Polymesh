@@ -24,7 +24,7 @@ use crate::service::{
     TestnetExecutor,
 };
 use frame_benchmarking_cli::*;
-use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
+use sc_cli::{Result, SubstrateCli};
 use sc_service::{Configuration, TaskManager};
 use sp_keyring::Sr25519Keyring;
 
@@ -102,14 +102,6 @@ impl SubstrateCli for Cli {
                 }
             }
         })
-    }
-
-    fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-        match chain_spec.network() {
-            Network::Testnet => &polymesh_runtime_testnet::runtime::VERSION,
-            Network::Mainnet => &polymesh_runtime_mainnet::runtime::VERSION,
-            Network::Other => &polymesh_runtime_develop::runtime::VERSION,
-        }
     }
 }
 
@@ -216,7 +208,7 @@ pub fn run() -> Result<()> {
                                 .into());
                         }
 
-                        cmd.run::<Block, service::GeneralExecutor>(config)
+                        cmd.run::<Block, service::EHF>(config)
                     }
                     (BenchmarkCmd::Block(cmd), Network::Other) => {
                         let FullServiceComponents { client, .. } =
