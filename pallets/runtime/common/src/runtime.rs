@@ -515,7 +515,6 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_im_online::SubstrateWeight;
             type MaxKeys = MaxKeys;
             type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
-            type MaxPeerDataEncodingSize = MaxPeerDataEncodingSize;
         }
 
         impl pallet_grandpa::Config for Runtime {
