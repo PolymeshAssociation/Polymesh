@@ -12,7 +12,7 @@ pub(crate) fn impl_deserialize_u8_strong_typed(ast: &syn::DeriveInput) -> TokenS
             {
                 let r = sp_core::bytes::deserialize(deserializer)?;
                 Decode::decode(&mut &r[..])
-                    .map_err(|e| serde::de::Error::custom(format!("Decode error: {}", e)))
+                    .map_err(|e| serde::de::Error::custom(scale_info::prelude::format!("Decode error: {}", e)))
             }
         }
     };

@@ -127,10 +127,8 @@ impl AsRef<[u8]> for DocumentHash {
 // Serde support
 // ======================
 
-#[cfg(feature = "std")]
 use serde::{de::Error as SerdeError, Deserialize, Deserializer, Serialize, Serializer};
 
-#[cfg(feature = "std")]
 impl Serialize for DocumentHash {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -141,7 +139,6 @@ impl Serialize for DocumentHash {
     }
 }
 
-#[cfg(feature = "std")]
 impl<'de> Deserialize<'de> for DocumentHash {
     #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>

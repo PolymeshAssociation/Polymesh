@@ -849,15 +849,11 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Registers the systematic issuer with its DID.
-    #[allow(dead_code)]
-    pub(crate) fn register_systematic_id(issuer: SystematicIssuers)
-    where
-        T::AccountId: core::fmt::Display,
-    {
+    pub(crate) fn register_systematic_id(issuer: SystematicIssuers) {
         let acc = issuer.as_pallet_id().into_account_truncating();
         let id = issuer.as_id();
         log::info!(
-            "Register Systematic id {} with account {} as {}",
+            "Register Systematic id {} with account {:?} as {}",
             issuer,
             acc,
             id
@@ -867,7 +863,6 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Registers `primary_key` as `id` identity.
-    #[allow(dead_code)]
     pub(crate) fn do_register_id(
         primary_key: T::AccountId,
         id: IdentityId,

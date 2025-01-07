@@ -81,9 +81,8 @@ use polymesh_primitives::{
     EventDid, IdentityId, Moment, PortfolioId, PortfolioNumber, SecondaryKey, WeightMeter,
 };
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_runtime::traits::Zero;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 storage_migration_ver!(1);
@@ -101,7 +100,7 @@ pub const PER_SHARE_PRECISION: Balance = 1_000_000;
 /// A capital distribution's various details.
 ///
 /// All information contained is used by on-chain logic.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(
     Copy,
     Clone,

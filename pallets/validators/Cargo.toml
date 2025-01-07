@@ -13,7 +13,7 @@ pallet-staking = { workspace = true, default-features = false }
 
 # General
 static_assertions = "1.1.0"
-serde = { version = "1.0.104", default-features = false, optional = true }
+serde = { version = "1.0.104", default-features = false, features = ["alloc", "derive"] }
 log = "0.4.8"
 
 # Substrate
@@ -48,7 +48,7 @@ no_std = []
 std = [
   "frame-benchmarking?/std",
 	"polymesh-primitives/std",
-	"serde",
+	"serde/std",
 	"codec/std",
 	"sp-std/std",
 	"sp-npos-elections/std",

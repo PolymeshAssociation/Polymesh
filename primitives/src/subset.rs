@@ -16,8 +16,7 @@
 use codec::{Decode, Encode};
 use core::ops::Sub;
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use sp_std::{
     collections::btree_set::BTreeSet,
     iter::{self, FromIterator},
@@ -25,7 +24,7 @@ use sp_std::{
 
 /// Ordering in a lattice, for example, the lattice of subsets of a set.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub enum LatticeOrdering {
     /// Inclusion of the first subset `A` into the second subset `B`.
     /// That is, `A ⊂ B`.
@@ -50,7 +49,7 @@ pub trait LatticeOrd {
 /// considered to be bigger than any finite set of its elements. This is true for infinite
 /// sets. When talking about finite sets, we have to add that they are _open_.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub enum SubsetRestriction<A: Ord> {
     /// No restrictions, the whole set.
     Whole,

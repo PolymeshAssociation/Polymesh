@@ -16,13 +16,12 @@
 use crate::condition::{conditions_total_counts, Condition};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 /// A compliance requirement.
 /// All sender and receiver conditions of the same compliance requirement must be true in order to execute the transfer.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Eq, Debug)]
 pub struct ComplianceRequirement {
     /// List of sender conditions
@@ -62,7 +61,8 @@ impl ComplianceRequirement {
 }
 
 /// A compliance requirement along with its evaluation result
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Hash)]
 pub struct ComplianceRequirementResult {
     /// List of sender conditions
@@ -88,7 +88,8 @@ impl From<ComplianceRequirement> for ComplianceRequirementResult {
 }
 
 /// An individual condition along with its evaluation result
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Hash)]
 pub struct ConditionResult {
     /// Condition being evaluated
@@ -107,7 +108,8 @@ impl From<Condition> for ConditionResult {
 }
 
 /// List of compliance requirements associated to an asset.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Eq)]
 pub struct AssetCompliance {
     /// This flag indicates if asset compliance should be enforced
@@ -117,7 +119,8 @@ pub struct AssetCompliance {
 }
 
 /// Asset compliance and it's evaluation result.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Hash)]
 pub struct AssetComplianceResult {
     /// This flag indicates if asset compliance should be enforced.
@@ -143,7 +146,8 @@ impl From<AssetCompliance> for AssetComplianceResult {
 }
 
 /// Holds detailed information for all asset's requirements.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, TypeInfo)]
 pub struct ComplianceReport {
     /// Set to `true` if any requirement is satisfied.
@@ -180,7 +184,8 @@ impl ComplianceReport {
 }
 
 /// Holds the information for an individual asset requirement.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, TypeInfo)]
 pub struct RequirementReport {
     /// Set to `true` if all conditions are satisfied.
@@ -226,7 +231,8 @@ impl RequirementReport {
 }
 
 /// Holds the information for an individual condition.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, TypeInfo)]
 pub struct ConditionReport {
     /// Set to `true` if the condition is satisfied.
