@@ -200,21 +200,12 @@ pub mod pallet {
     pub type ActiveMembersLimit<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, ValueQuery>;
 
     #[pallet::genesis_config]
+    #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
         pub active_members_limit: u32,
         pub active_members: Vec<IdentityId>,
+        #[serde(skip)]
         pub phantom: PhantomData<(T, I)>,
-    }
-
-    #[cfg(feature = "std")]
-    impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
-        fn default() -> Self {
-            Self {
-                active_members_limit: 0,
-                active_members: vec![],
-                phantom: Default::default(),
-            }
-        }
     }
 
     #[pallet::genesis_build]
