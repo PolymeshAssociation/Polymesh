@@ -224,7 +224,6 @@ parameter_types! {
     pub const MaxAuthorities: u32 = 100_000;
     pub const MaxKeys: u32 = 10_000;
     pub const MaxPeerInHeartbeats: u32 = 10_000;
-    pub const MaxPeerDataEncodingSize: u32 = 1_000;
     pub const ReportLongevity: u64 =
         BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
     pub const MaxNumberOfCollectionKeys: u8 = u8::MAX;
