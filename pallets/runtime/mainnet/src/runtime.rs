@@ -47,6 +47,7 @@ use crate::constants::time::*;
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 /// Runtime version.
+#[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("polymesh_mainnet"),
     impl_name: create_runtime_str!("polymesh_mainnet"),
