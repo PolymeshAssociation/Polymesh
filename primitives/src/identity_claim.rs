@@ -18,20 +18,19 @@ use crate::{identity_id::IdentityId, impl_checked_inc, CddId, Moment};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use sp_std::{convert::From, prelude::*};
 
 use super::jurisdiction::CountryCode;
 
 /// The ID of a custom claim type.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
 pub struct CustomClaimTypeId(pub u32);
 impl_checked_inc!(CustomClaimTypeId);
 
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
 /// The scope of a claim.
@@ -74,7 +73,7 @@ impl Scope {
 }
 
 /// All possible claims in polymesh
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum Claim {
     /// User is Accredited.
@@ -139,7 +138,7 @@ impl Claim {
 }
 
 /// Claim type represent the claim without its data.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
 pub enum ClaimType {
@@ -166,7 +165,8 @@ pub enum ClaimType {
 }
 
 /// All information of a particular claim
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq)]
 pub struct IdentityClaim {
     /// Issuer of the claim

@@ -1,20 +1,19 @@
 use crate::impl_checked_inc;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 /// A `Ticker`-local Agent Group ID.
 /// By *local*, we mean that the same number might be used for a different `Ticker`
 /// to uniquely identify a different Agent Group.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct AGId(pub u32);
 impl_checked_inc!(AGId);
 
 /// The available set of agent groups.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum AgentGroup {

@@ -1,5 +1,4 @@
 use codec::MaxEncodedLen;
-#[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
 use codec::{Decode, Encode};
@@ -46,7 +45,7 @@ impl_checked_inc!(NFTCollectionId);
     PartialEq,
     TypeInfo
 )]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct NFTId(pub u64);
 impl_checked_inc!(NFTId);
 
@@ -85,7 +84,7 @@ impl NFTCollection {
 
 /// Represent all NFT being transferred for a given [`AssetId`].
 #[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct NFTs {
     asset_id: AssetId,
     ids: Vec<NFTId>,

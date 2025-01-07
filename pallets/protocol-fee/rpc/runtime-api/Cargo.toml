@@ -12,7 +12,7 @@ polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 
 # General
-serde = { version = "1.0.104", default-features = false, optional = true, features = ["derive"] }
+serde = { version = "1.0.104", default-features = false, features = ["alloc", "derive"] }
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
@@ -23,7 +23,7 @@ scale-info = { workspace = true, default-features = false, features = ["derive",
 [features]
 default = ["std"]
 std = [
-    "serde",
+    "serde/std",
     "sp-api/std",
     "codec/std",
     "sp-runtime/std",

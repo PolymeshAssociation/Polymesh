@@ -17,15 +17,14 @@ use crate::asset::AssetId;
 use crate::{Claim, ClaimType, CountryCode, IdentityId, Scope};
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use sp_std::{hash::Hash, hash::Hasher, ops::Deref, ops::DerefMut, prelude::*};
 
 /// Transfer manager percentage
 pub type Percentage = sp_arithmetic::Permill;
 
 /// Stats Operation type.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum StatOpType {
@@ -36,7 +35,7 @@ pub enum StatOpType {
 }
 
 /// The statistic type.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StatType {
@@ -158,7 +157,7 @@ impl From<&StatClaim> for Stat2ndKey {
 
 /// Stats supported claims.
 ///
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum StatClaim {
@@ -212,7 +211,7 @@ pub mod v1 {
     pub type Percentage = HashablePermill;
 
     /// Wrapper around `sp_arithmetic::Permill`
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    #[derive(Serialize, Deserialize)]
     #[derive(Decode, Encode, TypeInfo)]
     #[derive(Copy, Clone, Debug, Eq, PartialOrd, Ord, Default)]
     pub struct HashablePermill(pub sp_arithmetic::Permill);
@@ -245,7 +244,7 @@ pub mod v1 {
     }
 
     /// Transfer managers that can be attached to a Token for compliance.
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    #[derive(Serialize, Deserialize)]
     #[derive(Decode, Encode, TypeInfo)]
     #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
     pub enum TransferManager {
@@ -256,7 +255,7 @@ pub mod v1 {
     }
 
     /// Result of a transfer manager check.
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    #[derive(Serialize, Deserialize)]
     #[derive(Decode, Encode, TypeInfo)]
     #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
     pub struct TransferManagerResult {
