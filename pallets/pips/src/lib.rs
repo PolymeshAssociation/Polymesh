@@ -48,16 +48,14 @@
 //!
 //! - `set_prune_historical_pips` - Change whether historical PIPs are pruned
 //! - `set_min_proposal_deposit` - Change the minimum deposit to create a proposal
-//! - `set_pending_pip_expiry` - Change the amount of blocks after which a pending PIP is expired
 //! - `set_default_enactment_period` - Change the period after which the proposal is executed
+//! - `set_pending_pip_expiry` - Change the amount of blocks after which a pending PIP is expired
 //! - `set_max_pip_skip_count` - Change the maximum times a PIP can be skipped
 //! - `set_active_pip_limit` - Change the maximum number of concurrently active PIPs
 //!
 //! #### Other Functions
 //!
 //! - `propose` - Token holders can propose a new PIP
-//! - `amend_proposal` - Allows the creator of a proposal to amend the proposal details
-//! - `cancel_proposal` - Allows the creator of a proposal to cancel the proposal
 //! - `vote` - Token holders can vote on a PIP
 //! - `approve_committee_proposal` - Allows the GC to approve a committee proposal
 //! - `reject_proposal` - Reject an active proposal and refund deposits
@@ -549,8 +547,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Change whether completed PIPs (Polymesh Improvement Proposals) are pruned from storage.
-        /// This function can only be called by the root origin.
+        /// Sets the pruning setting for historical PIPs. This function can only be called by the root origin.
         ///
         /// # Arguments
         /// * `origin` - The origin of the call, which must be the root.
@@ -571,7 +568,7 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Change the minimum proposal deposit amount required to start a proposal. Can only be called by root.
+        /// Changes the minimum proposal deposit amount required to start a proposal. This function can only be called by the root origin.
         ///
         /// # Arguments
         /// * `origin` - The origin of the call, which must be the root.
@@ -594,11 +591,11 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Change the default enactment period. Can only be called by root.
+        /// Changes the default enactment period. This function can only be called by the root origin.
         ///
         /// # Arguments
         /// * `origin` - The origin of the call, which must be the root.
-        /// * `duration` - The new default enactment period it takes for a scheduled PIP to be executed.
+        /// * `period` - The new default enactment period.
         ///
         /// # Events
         /// * `DefaultEnactmentPeriodChanged` - Emitted when the default enactment period is changed, containing the old and new values.
@@ -620,12 +617,17 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Change the amount of blocks after which a pending PIP is expired.
-        /// If `expiry` is `None` then PIPs never expire.
-        /// Can only be called by root.
+        /// Sets the expiry duration (in blocks) for pending PIPs. This function can only be called by the root origin.
         ///
         /// # Arguments
-        /// * `expiry` the block-time it takes for a still-`Pending` PIP to expire.
+        /// * `origin` - The origin of the call, which must be the root.
+        /// * `expiry` - The new expiry duration for pending PIPs. If `None`, PIPs never expire.
+        ///
+        /// # Events
+        /// * `PendingPipExpiryChanged` - Emitted when the pending PIP expiry duration is changed, containing the old and new values.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the call is not made by the root origin.
         #[pallet::call_index(3)]
         #[pallet::weight((<T as Config>::WeightInfo::set_pending_pip_expiry(), Operational))]
         pub fn set_pending_pip_expiry(
@@ -639,15 +641,14 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Change the maximum skip count (`max_pip_skip_count`).
-        /// This function can only be called by the root origin.
+        /// Sets the maximum number of times a PIP can be skipped. This function can only be called by the root origin.
         ///
         /// # Arguments
         /// * `origin` - The origin of the call, which must be the root.
-        /// * `max` - The new maximum number of skips allowed before a PIP cannot be skipped by the Governance Committee (GC) anymore.
+        /// * `max` - The new maximum skip count for PIPs.
         ///
         /// # Events
-        /// * `MaxPipSkipCountChanged` - Emitted when the maximum skip count is changed, containing the old and new values.
+        /// * `MaxPipSkipCountChanged` - Emitted when the maximum PIP skip count is changed, containing the old and new values.
         ///
         /// # Errors
         /// * `BadOrigin` - If the call is not made by the root origin.
@@ -661,11 +662,17 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Change the maximum number of active PIPs before community members cannot propose anything.
-        /// Can only be called by root.
+        /// Sets the limit on the number of active PIPs. This function can only be called by the root origin.
         ///
         /// # Arguments
-        /// * `limit` of concurrent active PIPs.
+        /// * `origin` - The origin of the call, which must be the root.
+        /// * `limit` - The new limit on the number of active PIPs.
+        ///
+        /// # Events
+        /// * `ActivePipLimitChanged` - Emitted when the active PIP limit is changed, containing the old and new values.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the call is not made by the root origin.
         #[pallet::call_index(5)]
         #[pallet::weight((<T as Config>::WeightInfo::set_active_pip_limit(), Operational))]
         pub fn set_active_pip_limit(origin: OriginFor<T>, limit: u32) -> DispatchResult {
@@ -676,15 +683,21 @@ pub mod pallet {
             Ok(())
         }
 
-        /// A network member creates a PIP by submitting a dispatchable which
-        /// changes the network in someway. A minimum deposit is required to open a new proposal.
+        /// Proposes a new PIP by submitting a dispatchable which changes the network.
         ///
         /// # Arguments
-        /// * `proposer` is either a signing key or committee.
-        ///    Used to understand whether this is a committee proposal and verified against `origin`.
-        /// * `proposal` a dispatchable call
-        /// * `deposit` minimum deposit value, which is ignored if `proposer` is a committee.
-        /// * `url` a link to a website for proposal discussion
+        /// * `origin` - The origin of the call.
+        /// * `proposal` - The dispatchable call.
+        /// * `deposit` - The deposit amount for the proposal.
+        /// * `url` - A link to a website for proposal discussion.
+        /// * `description` - A short description of the proposal.
+        ///
+        /// # Events
+        /// * `ProposalCreated`.
+        ///
+        /// # Errors
+        /// * `IncorrectDeposit` - If the deposit amount is less than the required minimum.
+        /// * `TooManyActivePips` - If the number of active PIPs exceeds the maximum.
         #[pallet::call_index(6)]
         #[pallet::weight(<T as Config>::WeightInfo::propose_from_community())]
         pub fn propose(
@@ -806,8 +819,8 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Vote either in favor (`aye_or_nay` == true) or against a PIP with `id`.
-        /// The "convinction" or strength of the vote is given by `deposit`, which is reserved.
+        /// Casts a vote either in favor or against a PIP with `id`.
+        /// The "conviction" or strength of the vote is given by `deposit`, which is reserved.
         ///
         /// Note that `vote` is *not* additive.
         /// That is, `vote(id, true, 50)` followed by `vote(id, true, 40)`
@@ -815,15 +828,20 @@ pub mod pallet {
         /// To add atop of existing votes, you'll need `existing_deposit + addition`.
         ///
         /// # Arguments
-        /// * `id`, proposal id
-        /// * `aye_or_nay`, a bool representing for or against vote
-        /// * `deposit`, the "conviction" with which the vote is made.
+        /// * `origin` - The origin of the call.
+        /// * `id` - The proposal ID to vote on.
+        /// * `aye_or_nay` - A boolean representing a vote in favor (`true`) or against (`false`).
+        /// * `deposit` - The "conviction" or strength of the vote, represented by the amount of deposit.
+        ///
+        /// # Events
+        /// * `Voted` - Emitted when a vote is successfully cast.
         ///
         /// # Errors
-        /// * `NoSuchProposal` if `id` doesn't reference a valid PIP.
-        /// * `NotFromCommunity` if proposal was made by a committee.
-        /// * `IncorrectProposalState` if PIP isn't pending.
-        /// * `InsufficientDeposit` if `origin` cannot reserve `deposit - old_deposit`.
+        /// * `NoSuchProposal` - If the `id` does not reference a valid PIP.
+        /// * `NotFromCommunity` - If the proposal was made by a committee.
+        /// * `IncorrectProposalState` - If the PIP is not in a pending state.
+        /// * `InsufficientDeposit` - If the `origin` cannot reserve the required deposit.
+        /// * `IncorrectDeposit` - If the deposit amount is less than the required minimum.
         #[pallet::call_index(7)]
         #[pallet::weight(<T as Config>::WeightInfo::vote())]
         pub fn vote(
@@ -893,11 +911,20 @@ pub mod pallet {
 
         /// Approves the pending committee PIP given by the `id`.
         ///
+        /// This function can only be called by a Governance Committee (GC) voting majority.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be a GC voting majority.
+        /// * `id` - The proposal ID of the PIP to be approved.
+        ///
         /// # Errors
-        /// * `BadOrigin` unless a GC voting majority executes this function.
-        /// * `NoSuchProposal` if the PIP with `id` doesn't exist.
-        /// * `IncorrectProposalState` if the proposal isn't pending.
-        /// * `NotByCommittee` if the proposal isn't by a committee.
+        /// * `BadOrigin` - If the call is not made by a GC voting majority.
+        /// * `NoSuchProposal` - If the PIP with the given `id` does not exist.
+        /// * `IncorrectProposalState` - If the proposal is not in a pending state.
+        /// * `NotByCommittee` - If the proposal was not made by a committee.
+        ///
+        /// # Notes
+        /// This function schedules the PIP for execution if all checks pass.
         #[pallet::call_index(8)]
         #[pallet::weight((<T as Config>::WeightInfo::approve_committee_proposal(), Operational))]
         pub fn approve_committee_proposal(origin: OriginFor<T>, id: PipId) -> DispatchResult {
@@ -919,14 +946,24 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Rejects the PIP given by the `id`, refunding any bonded funds,
-        /// assuming it hasn't been cancelled or executed.
-        /// Note that proposals scheduled-for-execution can also be rejected.
+        /// Rejects the PIP given by the `id`. Bonded funds will be refunded, assuming it hasn't
+        /// been cancelled or executed.
+        ///
+        /// This function can only be called by a Governance Committee (GC) voting majority.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be a GC voting majority.
+        /// * `id` - The proposal ID of the PIP to be rejected.
         ///
         /// # Errors
-        /// * `BadOrigin` unless a GC voting majority executes this function.
-        /// * `NoSuchProposal` if the PIP with `id` doesn't exist.
-        /// * `IncorrectProposalState` if the proposal was cancelled or executed.
+        /// * `BadOrigin` - If the call is not made by a GC voting majority.
+        /// * `NoSuchProposal` - If the PIP with the given `id` does not exist.
+        /// * `IncorrectProposalState` - If the proposal was cancelled or executed.
+        ///
+        /// # Notes
+        /// This function will unschedule the PIP if it was scheduled for execution and will
+        /// unsnapshot the PIP if it was part of a snapshot. It will also handle the rejection
+        /// of the proposal and refund any bonded funds.
         #[pallet::call_index(9)]
         #[pallet::weight((<T as Config>::WeightInfo::reject_proposal(), Operational))]
         pub fn reject_proposal(origin: OriginFor<T>, id: PipId) -> DispatchResult {
@@ -942,15 +979,21 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Prune the PIP given by the `id`, refunding any funds not already refunded.
-        /// The PIP may not be active
+        /// Prunes the PIP given by the `id`. The PIP must not be active.
         ///
-        /// This function is intended for storage garbage collection purposes.
+        /// This function is intended for storage garbage collection purposes and can only be called by a Governance Committee (GC) voting majority.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be a GC voting majority.
+        /// * `id` - The proposal ID of the PIP to be pruned.
         ///
         /// # Errors
-        /// * `BadOrigin` unless a GC voting majority executes this function.
-        /// * `NoSuchProposal` if the PIP with `id` doesn't exist.
-        /// * `IncorrectProposalState` if the proposal is active.
+        /// * `BadOrigin` - If the call is not made by a GC voting majority.
+        /// * `NoSuchProposal` - If the PIP with the given `id` does not exist.
+        /// * `IncorrectProposalState` - If the proposal is active.
+        ///
+        /// # Notes
+        /// This function will remove the PIP from storage and refund any remaining bonded funds.
         #[pallet::call_index(10)]
         #[pallet::weight((<T as Config>::WeightInfo::prune_proposal(), Operational))]
         pub fn prune_proposal(origin: OriginFor<T>, id: PipId) -> DispatchResult {
@@ -965,14 +1008,18 @@ pub mod pallet {
         }
 
         /// Updates the execution schedule of the PIP given by `id`.
+        /// This function can only be called by the release coordinator.
         ///
         /// # Arguments
-        /// * `until` defines the future block where the enactment period will finished.
-        ///    `None` value means that enactment period is going to finish in the next block.
+        /// * `origin` - The origin of the call, which must be the release coordinator.
+        /// * `id` - The proposal ID of the PIP to be rescheduled.
+        /// * `until` - An optional future block number where the enactment period will finish.
+        ///    If `None`, the enactment period will finish in the next block.
         ///
         /// # Errors
-        /// * `RescheduleNotByReleaseCoordinator` unless triggered by release coordinator.
-        /// * `IncorrectProposalState` unless the proposal was in a scheduled state.
+        /// * `RescheduleNotByReleaseCoordinator` - If the call is not made by the release coordinator.
+        /// * `IncorrectProposalState` - If the proposal is not in a scheduled state.
+        /// * `InvalidFutureBlockNumber` - If the provided block number is not a valid future block number.
         #[pallet::call_index(11)]
         #[pallet::weight((<T as Config>::WeightInfo::reschedule_execution(), Operational))]
         pub fn reschedule_execution(
@@ -1009,8 +1056,16 @@ pub mod pallet {
 
         /// Clears the snapshot and emits the event `SnapshotCleared`.
         ///
+        /// This function can only be called by a Governance Committee (GC) member.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be a GC member.
+        ///
+        /// # Events
+        /// * `SnapshotCleared` - Emitted when the snapshot is successfully cleared, containing the ID of the cleared snapshot.
+        ///
         /// # Errors
-        /// * `NotACommitteeMember` - triggered when a non-GC-member executes the function.
+        /// * `NotACommitteeMember` - If the call is not made by a GC member.
         #[pallet::call_index(12)]
         #[pallet::weight((<T as Config>::WeightInfo::clear_snapshot(), Operational))]
         pub fn clear_snapshot(origin: OriginFor<T>) -> DispatchResult {
@@ -1033,11 +1088,19 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Takes a new snapshot of the current list of active && pending PIPs.
+        /// Takes a new snapshot of the current list of active and pending PIPs.
         /// The PIPs are then sorted into a priority queue based on each PIP's weight.
         ///
+        /// This function can only be called by a Governance Committee (GC) member.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be a GC member.
+        ///
+        /// # Events
+        /// * `SnapshotTaken` - Emitted when a snapshot is successfully taken, containing the ID of the snapshot and the queue of PIPs.
+        ///
         /// # Errors
-        /// * `NotACommitteeMember` - triggered when a non-GC-member executes the function.
+        /// * `NotACommitteeMember` - If the call is not made by a GC member.
         #[pallet::call_index(13)]
         #[pallet::weight((<T as Config>::WeightInfo::snapshot(), Operational))]
         pub fn snapshot(origin: OriginFor<T>) -> DispatchResult {
@@ -1069,23 +1132,32 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Enacts `results` for the PIPs in the snapshot queue.
+        /// Enacts the results for the PIPs in the snapshot queue.
+        ///
         /// The snapshot will be available for further enactments until it is cleared.
         ///
-        /// The `results` are encoded a list of `(id, result)` where `result` is applied to `id`.
+        /// The `results` parameter is a list of `(id, result)` tuples where `result` is applied to the PIP with the given `id`.
         /// Note that the snapshot priority queue is encoded with the *lowest priority first*.
-        /// so `results = [(id, Approve)]` will approve `SnapshotQueue[SnapshotQueue.len() - 1]`.
+        /// For example, `results = [(id, Approve)]` will approve `SnapshotQueue[SnapshotQueue.len() - 1]`.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be a GC voting majority.
+        /// * `results` - A vector of tuples where each tuple contains a PIP ID and a `SnapshotResult` (either `Approve`, `Reject`, or `Skip`).
+        ///
+        /// # Events
+        /// * `SnapshotResultsEnacted` - Emitted when the snapshot results are successfully enacted, containing the ID of the snapshot and the actions taken.
         ///
         /// # Errors
-        /// * `BadOrigin` - unless a GC voting majority executes this function.
-        /// * `CannotSkipPip` - a given PIP has already been skipped too many times.
-        /// * `SnapshotResultTooLarge` - on len(results) > len(snapshot_queue).
-        /// * `SnapshotIdMismatch` - if:
-        ///   ```text
-        ///    ∃ (i ∈ 0..SnapshotQueue.len()).
-        ///      results[i].0 ≠ SnapshotQueue[SnapshotQueue.len() - i].id
-        ///   ```
-        ///    This is protects against clearing queue while GC is voting.
+        /// * `BadOrigin` - If the call is not made by a GC voting majority.
+        /// * `CannotSkipPip` - If a given PIP has already been skipped too many times.
+        /// * `SnapshotResultTooLarge` - If the length of `results` is greater than the length of the snapshot queue.
+        /// * `SnapshotIdMismatch` - If there is a mismatch between the PIP IDs in `results` and the snapshot queue.
+        ///
+        /// # Notes
+        /// This function will:
+        /// - Update the skip counts for PIPs that are skipped.
+        /// - Reject PIPs that are marked for rejection and refund any bonded funds.
+        /// - Approve PIPs that are marked for approval and schedule them for execution.
         #[pallet::call_index(14)]
         #[pallet::weight((enact_snapshot_results_weight::<T>(&results), Operational))]
         pub fn enact_snapshot_results(
@@ -1171,7 +1243,19 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Internal dispatchable that handles execution of a PIP.
+        /// Executes a scheduled PIP (Polymesh Improvement Proposal).
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the root.
+        /// * `id` - The unique identifier of the PIP to be executed.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the call is not made by the root origin.
+        ///
+        /// # Notes
+        /// This function will:
+        /// - Remove the PIP from the scheduling queue.
+        /// - Execute the proposal associated with the PIP.
         #[pallet::call_index(15)]
         #[pallet::weight((<T as Config>::WeightInfo::execute_scheduled_pip(), Operational))]
         pub fn execute_scheduled_pip(
@@ -1183,7 +1267,21 @@ pub mod pallet {
             Self::execute_proposal(id)
         }
 
-        /// Internal dispatchable that handles expiration of a PIP.
+        /// Expires a scheduled PIP (Polymesh Improvement Proposal).
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the root.
+        /// * `did` - The identity ID of the entity initiating the expiration.
+        /// * `id` - The unique identifier of the PIP to be expired.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the call is not made by the root origin.
+        ///
+        /// # Notes
+        /// This function will:
+        /// - Check if the PIP is in a pending state.
+        /// - Unsnapshot the PIP if it was part of a snapshot.
+        /// - Prune the PIP data if it is in an expired state.
         #[pallet::call_index(16)]
         #[pallet::weight((<T as Config>::WeightInfo::expire_scheduled_pip(), Operational))]
         pub fn expire_scheduled_pip(
