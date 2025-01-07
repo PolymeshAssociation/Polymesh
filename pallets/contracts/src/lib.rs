@@ -65,7 +65,6 @@ use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_system::ensure_root;
 use frame_system::ensure_signed;
-#[cfg(feature = "std")]
 use pallet_contracts::Determinism;
 use scale_info::TypeInfo;
 use sp_core::crypto::UncheckedFrom;
@@ -425,7 +424,7 @@ pub mod pallet {
                     Determinism::Enforced,
                 )
                 .unwrap();
-                log::info!("Uploaded upgradeable code: {}", code_result.code_hash);
+                log::info!("Uploaded upgradeable code: {:?}", code_result.code_hash);
                 let api_code_hash = ApiCodeHash::new(code_result.code_hash);
                 let api = Api::new(self.upgradable_description, self.upgradable_major);
                 CurrentApiHash::<T>::insert(&api, &api_code_hash);
