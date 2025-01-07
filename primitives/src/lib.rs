@@ -31,9 +31,8 @@ use frame_support::parameter_types;
 use frame_support::traits::Get;
 use polymesh_primitives_derive::{SliceU8StrongTyped, StringStrongTyped, VecU8StrongTyped};
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_runtime::{generic, traits::BlakeTwo256, MultiSignature};
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::Vec;
 
 /// An index to a block.
@@ -95,7 +94,7 @@ impl<const T: u32> GetExtra<u32> for ConstSize<T> {}
     TypeInfo,
     Debug
 )]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub enum MaybeBlock<BlockNumber> {
     /// Has a block number.
     Some(BlockNumber),
@@ -120,7 +119,7 @@ impl<T: Add<Output = T>> Add<T> for MaybeBlock<T> {
 }
 
 /// A positive coefficient: a pair of a numerator and a denominator. Defaults to `(1, 1)`.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PosRatio(pub u32, pub u32);
@@ -343,13 +342,13 @@ pub struct Memo(pub [u8; 32]);
 /// Url for linking to off-chain resources.
 #[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct Url(#[cfg_attr(feature = "std", serde(with = "serde_bytes"))] pub Vec<u8>);
+#[derive(Serialize, Deserialize)]
+pub struct Url(#[serde(with = "serde_bytes")] pub Vec<u8>);
 
 /// The name of a pallet.
 #[derive(Encode, Decode, TypeInfo, StringStrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct PalletName(pub String);
 
 impl PalletName {
@@ -362,7 +361,7 @@ impl PalletName {
 /// The name of an extrinsic within a pallet.
 #[derive(Encode, Decode, TypeInfo, StringStrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct ExtrinsicName(pub String);
 
 impl ExtrinsicName {

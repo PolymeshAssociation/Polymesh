@@ -3,10 +3,8 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use polymesh_primitives::{ClaimType, IdentityId, Permissions, Scope, SecondaryKey};
 use scale_info::TypeInfo;
-use sp_std::{prelude::*, vec::Vec};
-
-#[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+use sp_std::{prelude::*, vec::Vec};
 
 pub type Error = Vec<u8>;
 pub type CddStatus = Result<IdentityId, Error>;
@@ -18,8 +16,9 @@ pub fn zero_account_id<AccountId: Decode>() -> AccountId {
 
 /// A result of execution of get_votes.
 #[derive(Eq, PartialEq, Encode, Decode, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum RpcDidRecords<AccountId> {
     /// Id was found and has the following primary key and secondary keys.
     Success {
@@ -31,7 +30,8 @@ pub enum RpcDidRecords<AccountId> {
 }
 
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Serialize, Deserialize)]
 pub enum DidStatus {
     Unknown,
     Exists,
@@ -40,7 +40,7 @@ pub enum DidStatus {
 
 /// Aggregate information about an `AccountId` in relation to an `IdentityId`.
 #[derive(Eq, PartialEq, Encode, Decode, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct KeyIdentityData<IdentityId> {
     /// The identity of the provided `AccountId`.
     pub identity: IdentityId,

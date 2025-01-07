@@ -15,7 +15,6 @@
 
 //! Ticker symbol
 use codec::{Decode, Encode, MaxEncodedLen};
-#[cfg(feature = "std")]
 use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongTyped};
 use scale_info::TypeInfo;
 
@@ -31,10 +30,7 @@ pub const TICKER_LEN: usize = 12;
 /// representation using [`Ticker::canonize`].
 #[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(
-    feature = "std",
-    derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)
-)]
+#[derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)]
 pub struct Ticker([u8; TICKER_LEN]);
 
 impl Default for Ticker {

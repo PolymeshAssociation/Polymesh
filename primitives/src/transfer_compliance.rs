@@ -19,12 +19,11 @@ use crate::{ClaimType, IdentityId};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{pallet_prelude::Get, BoundedBTreeSet};
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 /// Transfer condition.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TransferCondition {
@@ -94,7 +93,7 @@ impl From<v1::TransferManager> for TransferCondition {
 }
 
 /// Result of a transfer condition check.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Decode, Encode, TypeInfo)]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TransferConditionResult {

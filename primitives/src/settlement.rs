@@ -15,7 +15,6 @@
 
 //! Shareable types.
 
-#[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
 use codec::alloc::string::ToString;
@@ -160,7 +159,7 @@ pub struct LegId(pub u64);
 impl_checked_inc!(LegId);
 
 /// A global and unique instruction ID.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct InstructionId(pub u64);
@@ -192,7 +191,7 @@ pub struct Instruction<Moment, BlockNumber> {
 }
 
 /// Defines a [`Leg`] (i.e the action of a settlement).
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
 pub enum Leg {
     /// Fungible token
@@ -394,7 +393,7 @@ impl<AccountId, OffChainSignature> ReceiptDetails<AccountId, OffChainSignature> 
 }
 
 /// Stores the number of fungible, non fungible and offchain transfers in a set of legs.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(
     Clone,
     Copy,
@@ -698,7 +697,7 @@ impl FilteredLegs {
 }
 
 /// Holds the [`AssetCount`] for both the sender and receiver side and the number of offchain assets.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(
     Clone,
     Copy,
@@ -759,7 +758,7 @@ impl AffirmationCount {
 
 /// Stores the number of fungible, non fungible and offchain assets in an instruction, the consumed weight for executing the instruction,
 /// and if executing the instruction would fail, the error thrown.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Decode, Encode, TypeInfo)]
 pub struct ExecuteInstructionInfo {
     /// Number of fungible tokens in the instruction.

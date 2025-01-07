@@ -1,6 +1,3 @@
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
-
 use codec::{Decode, DecodeLimit, Encode};
 use frame_support::dispatch::{DispatchError, Dispatchable, GetDispatchInfo};
 use frame_support::ensure;
@@ -11,6 +8,7 @@ use frame_system::RawOrigin;
 use scale_info::prelude::format;
 use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_core::crypto::UncheckedFrom;
 
 use pallet_contracts::chain_extension as ce;
@@ -27,7 +25,7 @@ const MAX_DECODE_DEPTH: u32 = 10;
 
 /// ExtrinsicId
 #[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ExtrinsicId(u8, u8);
 
