@@ -127,7 +127,7 @@ impl From<UintAuthorityId> for MockSessionKeys {
 type Runtime = TestStorage;
 
 // example module to test behaviors.
-#[frame_support::pallet]
+#[frame_support::pallet(dev_mode)]
 pub mod example {
     use frame_support::{dispatch::WithPostDispatchInfo, pallet_prelude::*};
     use frame_system::pallet_prelude::*;
