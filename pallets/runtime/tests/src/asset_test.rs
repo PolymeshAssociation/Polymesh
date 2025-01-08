@@ -1,8 +1,6 @@
 use chrono::prelude::Utc;
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::{assert_noop, assert_ok};
-use hex_literal::hex;
-use ink_primitives::hash as FunctionSelectorHasher;
 use rand::Rng;
 use sp_consensus_babe::Slot;
 use sp_runtime::AnySignature;
@@ -203,19 +201,6 @@ pub fn check_schedules(asset_id: AssetId, schedules: &[(ScheduleId, ScheduleChec
             Some(cached)
         );
     }
-}
-
-#[test]
-fn check_the_test_hex() {
-    ExtBuilder::default().build().execute_with(|| {
-        let selector: [u8; 4] = (FunctionSelectorHasher::keccak256("verify_transfer".as_bytes())
-            [0..4])
-            .try_into()
-            .unwrap();
-        println!("{:#X}", u32::from_be_bytes(selector));
-        let data = hex!("D9386E41");
-        println!("{:?}", data);
-    });
 }
 
 #[test]
