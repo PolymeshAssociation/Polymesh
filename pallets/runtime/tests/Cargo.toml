@@ -46,7 +46,6 @@ polymesh-exec-macro = { path = "exec_macro" }
 serde = { version = "1.0.104", default-features = false }
 rand = { version = "0.7.3", default-features = false }
 chrono = { version = "0.4", default-features = false }
-hex-literal = "0.3.0"
 smallvec = "1.4.1"
 lazy_static = "1.4.0"
 parking_lot = "0.12.0"
@@ -62,7 +61,6 @@ frame-executive = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
 frame-system-rpc-runtime-api = { workspace = true, default-features = false }
 frame-election-provider-support = { workspace = true, default-features = false }
-ink_primitives = { version = "4.3.0", default-features = false }
 pallet-authority-discovery = { workspace = true, default-features = false }
 pallet-authorship = { workspace = true, default-features = false }
 pallet-babe = { workspace = true, default-features = false }
@@ -125,7 +123,6 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "frame-election-provider-support/std",
-    "ink_primitives/std",
     "pallet-asset/std",
     "pallet-authorship/std",
     "pallet-base/std",
