@@ -1,14 +1,14 @@
 use codec::Codec;
 
 pub use pallet_transaction_payment::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
-use polymesh_primitives::Balance;
+use polymesh_primitives::{Balance, OldWeight};
 
 sp_api::decl_runtime_apis! {
     #[api_version(2)]
     pub trait TransactionPaymentApi
     {
         #[changed_in(2)]
-        fn query_info(uxt: Block::Extrinsic, len: u32) -> RuntimeDispatchInfo<Balance, sp_weights::OldWeight>;
+        fn query_info(uxt: Block::Extrinsic, len: u32) -> RuntimeDispatchInfo<Balance, OldWeight>;
         fn query_info(uxt: Block::Extrinsic, len: u32) -> RuntimeDispatchInfo<Balance>;
         fn query_fee_details(uxt: Block::Extrinsic, len: u32) -> FeeDetails<Balance>;
     }
