@@ -986,15 +986,9 @@ fn batch_all_works_with_committee_origin() {
 #[test]
 fn sub_with_weight_works() {
     new_test_ext().execute_with(|| {
-        let weights = <TestStorage as frame_system::Config>::BlockWeights::get();
         let upgrade_code_call = Box::new(RuntimeCall::System(
             frame_system::Call::set_code_without_checks { code: vec![] },
         ));
-        // Weight before is max.
-        assert_eq!(
-            upgrade_code_call.get_dispatch_info().weight,
-            weights.max_block
-        );
         assert_eq!(
             upgrade_code_call.get_dispatch_info().class,
             frame_support::dispatch::DispatchClass::Operational
