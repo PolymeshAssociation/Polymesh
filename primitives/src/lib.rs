@@ -25,13 +25,14 @@ use alloc::{
     format,
     string::{String, ToString},
 };
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{CompactAs, Decode, Encode, MaxEncodedLen};
 use core::ops::Add;
 use frame_support::parameter_types;
 use frame_support::traits::Get;
 use polymesh_primitives_derive::{SliceU8StrongTyped, StringStrongTyped, VecU8StrongTyped};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
+use sp_debug_derive::RuntimeDebug;
 use sp_runtime::{generic, traits::BlakeTwo256, MultiSignature};
 use sp_std::prelude::Vec;
 
@@ -370,6 +371,27 @@ impl ExtrinsicName {
         Self(format!("E{n}"))
     }
 }
+
+/// The old weight type.
+///
+/// NOTE: This type exists purely for compatibility purposes! Use [`weight_v2::Weight`] in all other
+/// cases.
+#[derive(
+    Decode,
+    Encode,
+    CompactAs,
+    PartialEq,
+    Eq,
+    Clone,
+    Copy,
+    RuntimeDebug,
+    Default,
+    MaxEncodedLen,
+    TypeInfo
+)]
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct OldWeight(pub u64);
 
 /// Execute the supplied function in a new storage transaction,
 /// committing on `Ok(_)` and rolling back on `Err(_)`, returning the result.
