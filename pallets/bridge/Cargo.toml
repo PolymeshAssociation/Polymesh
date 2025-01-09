@@ -22,19 +22,20 @@ frame-support = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
 pallet-scheduler = { workspace = true, default-features = false }
 
-frame-benchmarking = { workspace = true, optional = true }
+frame-benchmarking = { workspace = true, default-features = false, optional = true }
 
 # Other
 serde = { version = "1.0.104", default-features = false }
 log = "0.4.8"
 
 [features]
+default = ["std", "equalize"]
+
 equalize = []
 only-staking = []
-default = ["std", "equalize"]
 no_std = []
 std = [
-    "frame-benchmarking/std",
+    "frame-benchmarking?/std",
     "frame-support/std",
     "frame-system/std",
     "pallet-base/std",
