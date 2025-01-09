@@ -100,9 +100,6 @@ frame-benchmarking = { workspace = true, default-features = false, optional = tr
 frame-system-benchmarking = { workspace = true, default-features = false, optional = true }
 hex-literal = { version = "0.3.1", optional = true }
 
-# Import 'getrandom' here to enable feature `getrandom/js` for wasm builds.
-getrandom = { version = "0.2.6", default-features = false, optional = true }
-
 [build-dependencies]
 polymesh-build-tool = { workspace = true, default-features = false }
 
@@ -122,7 +119,7 @@ no_std = [
 ]
 
 std = [
-	"polymesh-build-tool/std",
+    "polymesh-build-tool/std",
     "u64_backend",
     "codec/std",
     "frame-benchmarking?/std",
@@ -199,7 +196,6 @@ std = [
     "polymesh-contracts/std",
 ]
 runtime-benchmarks = [
-	"getrandom/js",
     "frame-benchmarking/runtime-benchmarks",
     "frame-support/runtime-benchmarks",
     "frame-system-benchmarking/runtime-benchmarks",
