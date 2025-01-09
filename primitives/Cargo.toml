@@ -31,6 +31,7 @@ scale-info = { workspace = true, default-features = false, features = ["derive",
 sp-application-crypto = { workspace = true, default-features = false, optional = true }
 sp-arithmetic = { workspace = true, default-features = false }
 sp-core = { workspace = true, default-features = false }
+sp-debug-derive = { workspace = true, default-features = false }
 sp-io = { workspace = true, default-features = false }
 sp-runtime = { workspace = true, default-features = false }
 sp-runtime-interface = { workspace = true, default-features = false }

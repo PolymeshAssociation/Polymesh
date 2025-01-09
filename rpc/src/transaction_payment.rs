@@ -16,23 +16,21 @@
 
 //! RPC interface for the transaction payment module.
 
-use std::{convert::TryInto, sync::Arc};
-
 use codec::Decode;
 use jsonrpsee::core::{Error as JsonRpseeError, RpcResult};
 use jsonrpsee::proc_macros::rpc;
 use jsonrpsee::types::error::{CallError, ErrorCode, ErrorObject};
+pub use node_rpc_runtime_api::transaction_payment::{
+    FeeDetails, InclusionFee, RuntimeDispatchInfo,
+    TransactionPaymentApi as TransactionPaymentRuntimeApi,
+};
+use polymesh_primitives::{Balance, OldWeight};
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
 use sp_rpc::number::NumberOrHex;
 use sp_runtime::traits::Block as BlockT;
-
-pub use node_rpc_runtime_api::transaction_payment::{
-    FeeDetails, InclusionFee, RuntimeDispatchInfo,
-    TransactionPaymentApi as TransactionPaymentRuntimeApi,
-};
-use polymesh_primitives::Balance;
+use std::{convert::TryInto, sync::Arc};
 
 use super::Error;
 
@@ -67,10 +65,8 @@ impl<C, P> TransactionPayment<C, P> {
 }
 
 impl<C, Block>
-    TransactionPaymentApiServer<
-        <Block as BlockT>::Hash,
-        RuntimeDispatchInfo<Balance, sp_weights::OldWeight>,
-    > for TransactionPayment<C, Block>
+    TransactionPaymentApiServer<<Block as BlockT>::Hash, RuntimeDispatchInfo<Balance, OldWeight>>
+    for TransactionPayment<C, Block>
 where
     Block: BlockT,
     C: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
@@ -80,7 +76,7 @@ where
         &self,
         encoded_xt: Bytes,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<RuntimeDispatchInfo<Balance, sp_weights::OldWeight>> {
+    ) -> RpcResult<RuntimeDispatchInfo<Balance, OldWeight>> {
         let api = self.client.runtime_api();
         let at_hash = at.unwrap_or_else(|| {
             // If the block hash is not supplied assume the best block.
@@ -126,7 +122,7 @@ where
                 .map_err(|e| map_err(e, "Unable to query dispatch info."))?;
 
             Ok(RuntimeDispatchInfo {
-                weight: sp_weights::OldWeight(res.weight.ref_time()),
+                weight: OldWeight(res.weight.ref_time()),
                 class: res.class,
                 partial_fee: res.partial_fee,
             })
