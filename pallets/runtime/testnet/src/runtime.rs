@@ -152,6 +152,10 @@ parameter_types! {
     pub const MigrationSignedDepositPerItem: Balance = 0;
     pub const MigrationSignedDepositBase: Balance = 0;
     pub const MaxKeyLen: u32 = 2048;
+
+    // PIPs
+    pub const MaxRefundsAndVotesPruned: u32 = 128;
+    pub const MaxPendingQueueLen: u32 = 128;
 }
 
 /// 100% goes to the block author.
@@ -276,6 +280,8 @@ impl pallet_pips::Config for Runtime {
     type WeightInfo = polymesh_weights::pallet_pips::SubstrateWeight;
     type Scheduler = Scheduler;
     type SchedulerCall = RuntimeCall;
+    type MaxRefundsAndVotesPruned = MaxRefundsAndVotesPruned;
+    type MaxPendingQueueLen = MaxPendingQueueLen;
 }
 
 /// CddProviders instance of group

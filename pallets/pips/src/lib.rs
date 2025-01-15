@@ -80,7 +80,7 @@ use frame_support::pallet_prelude::*;
 use frame_support::storage::types::StorageValue;
 use frame_support::traits::schedule::{DispatchTime, Named};
 use frame_support::traits::{Currency, EnsureOrigin, Get, WithdrawReasons};
-use frame_system::pallet_prelude::OriginFor;
+use frame_system::pallet_prelude::{BlockNumberFor, OriginFor};
 use frame_system::{ensure_root, ensure_signed, RawOrigin};
 use sp_runtime::traits::{BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero};
 use sp_runtime::DispatchError;
@@ -123,14 +123,15 @@ pub trait WeightInfo {
     fn propose_from_committee() -> Weight;
     fn vote() -> Weight;
     fn approve_committee_proposal() -> Weight;
-    fn reject_proposal() -> Weight;
-    fn prune_proposal() -> Weight;
+    fn reject_proposal(v: u32) -> Weight;
+    fn prune_proposal(v: u32) -> Weight;
     fn reschedule_execution() -> Weight;
     fn clear_snapshot() -> Weight;
-    fn snapshot() -> Weight;
+    fn snapshot(v: u32) -> Weight;
     fn enact_snapshot_results(a: u32, r: u32, s: u32) -> Weight;
-    fn execute_scheduled_pip() -> Weight;
-    fn expire_scheduled_pip() -> Weight;
+    fn execute_scheduled_pip(v: u32) -> Weight;
+    fn expire_scheduled_pip(v: u32) -> Weight;
+    fn remove_pending_storage(v: u32) -> Weight;
 }
 
 #[frame_support::pallet]
@@ -181,6 +182,8 @@ pub mod pallet {
         ScheduledProposalDoesntExist,
         /// A proposal that is not in a scheduled state cannot be executed.
         ProposalNotInScheduledState,
+        /// The pending queue is full, try again later.
+        PendingQueueIsFull,
     }
 
     #[pallet::event]
@@ -377,64 +380,59 @@ pub mod pallet {
         type Scheduler: Named<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
         /// A call type used by the scheduler.
         type SchedulerCall: From<Call<Self>> + Into<<Self as IdentityConfig>::Proposal>;
+        /// The maximum number of votes that can be pruned at once.
+        #[pallet::constant]
+        type MaxRefundsAndVotesPruned: Get<u32>;
+        /// The maximum number of pips that can be pending refunds/pruning at the same time.
+        #[pallet::constant]
+        type MaxPendingQueueLen: Get<u32>;
     }
 
     /// Set to `true` if historical PIPs data must be removed.
     #[pallet::storage]
-    #[pallet::getter(fn prune_historical_pips)]
     pub type PruneHistoricalPips<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     /// The minimum amount to be used as a deposit for community PIP creation.
     #[pallet::storage]
-    #[pallet::getter(fn min_proposal_deposit)]
     pub type MinimumProposalDeposit<T: Config> = StorageValue<_, Balance, ValueQuery>;
 
     /// Default enactment period that will be use after a proposal is accepted by GC.
     #[pallet::storage]
-    #[pallet::getter(fn default_enactment_period)]
     pub type DefaultEnactmentPeriod<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
     /// Number of blocks it will take, after a `Pending` PIP expires, assuming it has not transitioned to another `ProposalState`.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn pending_pip_expiry)]
     pub type PendingPipExpiry<T: Config> = StorageValue<_, MaybeBlock<T::BlockNumber>, ValueQuery>;
 
     /// Maximum times a PIP can be skipped before triggering `CannotSkipPip` in `enact_snapshot_results`.
     #[pallet::storage]
-    #[pallet::getter(fn max_pip_skip_count)]
     pub type MaxPipSkipCount<T: Config> = StorageValue<_, SkippedCount, ValueQuery>;
 
     /// The maximum allowed number for active PIPs. Once reached, new PIPs cannot be proposed by community members.
     #[pallet::storage]
-    #[pallet::getter(fn active_pip_limit)]
     pub type ActivePipLimit<T: Config> = StorageValue<_, u32, ValueQuery>;
 
     /// Proposal's identifier.
     #[pallet::storage]
-    #[pallet::getter(fn pip_id_sequence)]
     pub type PipIdSequence<T: Config> = StorageValue<_, PipId, ValueQuery>;
 
     /// Snaphot's identifier.
     #[pallet::storage]
-    #[pallet::getter(fn snapshot_id_sequence)]
     pub type SnapshotIdSequence<T: Config> = StorageValue<_, SnapshotId, ValueQuery>;
 
     /// Total count of pending or scheduled PIPs.
     #[pallet::storage]
-    #[pallet::getter(fn active_pip_count)]
     pub type ActivePipCount<T: Config> = StorageValue<_, u32, ValueQuery>;
 
     /// The [`PipsMetadata`] for each proposal ([`PipId`]).
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn proposal_metadata)]
     pub type ProposalMetadata<T: Config> =
         StorageMap<_, Twox64Concat, PipId, PipsMetadata<T::BlockNumber>, OptionQuery>;
 
     /// All locked [`DepositInfo`] per [`PipId`] for each account.
     #[pallet::storage]
-    #[pallet::getter(fn deposits)]
     pub type Deposits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
@@ -448,25 +446,21 @@ pub mod pallet {
     /// The [`Pip`] for each proposal ([`PipId`]).
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn proposals)]
     pub type Proposals<T: Config> =
         StorageMap<_, Twox64Concat, PipId, Pip<T::Proposal, T::AccountId>, OptionQuery>;
 
     /// The [`VotingResult`] for each proposal ([`PipId`]).
     #[pallet::storage]
-    #[pallet::getter(fn proposal_result)]
     pub type ProposalResult<T: Config> =
         StorageMap<_, Twox64Concat, PipId, VotingResult, ValueQuery>;
 
     /// The Votes ([`Vote`]) for each proposal ([`PipId`]) per account.
     #[pallet::storage]
-    #[pallet::getter(fn proposal_vote)]
     pub type ProposalVotes<T: Config> =
         StorageDoubleMap<_, Twox64Concat, PipId, Twox64Concat, T::AccountId, Vote, OptionQuery>;
 
     /// Maps PIPs to the block at which they will be executed.
     #[pallet::storage]
-    #[pallet::getter(fn pip_to_schedule)]
     pub type PipToSchedule<T: Config> =
         StorageMap<_, Twox64Concat, PipId, T::BlockNumber, OptionQuery>;
 
@@ -478,7 +472,6 @@ pub mod pallet {
     /// The snapshot is therefore essentially a point-in-time clone of this queue.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn live_queue)]
     pub type LiveQueue<T: Config> = StorageValue<_, Vec<SnapshottedPip>, ValueQuery>;
 
     /// The priority queue (lowest priority at index 0) of PIPs at the point of snapshotting.
@@ -488,37 +481,41 @@ pub mod pallet {
     /// Once a (configurable) threshhold is exceeded, a PIP cannot be skipped again.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn snapshot_queue)]
     pub type SnapshotQueue<T: Config> = StorageValue<_, Vec<SnapshottedPip>, ValueQuery>;
 
     /// The [`SnapshotMetadata`].
     #[pallet::storage]
-    #[pallet::getter(fn snapshot_metadata)]
     pub type SnapshotMeta<T: Config> =
         StorageValue<_, SnapshotMetadata<T::BlockNumber, T::AccountId>, OptionQuery>;
 
     /// The number of times a certain PIP has been skipped.
     /// Once a (configurable) threshhold is exceeded, a PIP cannot be skipped again.
     #[pallet::storage]
-    #[pallet::getter(fn pip_skip_count)]
     pub type PipSkipCount<T: Config> = StorageMap<_, Twox64Concat, PipId, SkippedCount, ValueQuery>;
 
     /// All existing PIPs where the proposer is a committee.
     /// This list is a cache of all ids in `Proposals` with `Proposer::Committee(_)`.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn committee_pips)]
     pub type CommitteePips<T: Config> = StorageValue<_, Vec<PipId>, ValueQuery>;
 
     /// The ([`ProposalState`]) of a given PIP ([`PipId`]).
     #[pallet::storage]
-    #[pallet::getter(fn proposal_state)]
     pub type ProposalStates<T: Config> =
         StorageMap<_, Twox64Concat, PipId, ProposalState, OptionQuery>;
 
+    /// All PIPs that still require refunds.
+    #[pallet::storage]
+    pub type PendingRefunds<T: Config> =
+        StorageValue<_, BoundedVec<PipId, T::MaxPendingQueueLen>, ValueQuery>;
+
+    /// All PIPs that still require to prune votes.
+    #[pallet::storage]
+    pub type VotesToBePruned<T: Config> =
+        StorageValue<_, BoundedVec<PipId, T::MaxPendingQueueLen>, ValueQuery>;
+
     /// Storage version.
     #[pallet::storage]
-    #[pallet::getter(fn storage_version)]
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
 
     #[derive(frame_support::DefaultNoBound)]
@@ -542,6 +539,13 @@ pub mod pallet {
             MaxPipSkipCount::<T>::put(self.max_pip_skip_count);
             ActivePipLimit::<T>::put(self.active_pip_limit);
             StorageVersion::<T>::put(Version::new(2));
+        }
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_idle(_now: BlockNumberFor<T>, _remaining_weight: Weight) -> Weight {
+            Self::remove_pending_storage()
         }
     }
 
@@ -733,7 +737,7 @@ pub mod pallet {
 
                 // Pre conditions: caller must have min balance.
                 ensure!(
-                    deposit >= Self::min_proposal_deposit(),
+                    deposit >= MinimumProposalDeposit::<T>::get(),
                     Error::<T>::IncorrectDeposit
                 );
 
@@ -752,7 +756,7 @@ pub mod pallet {
 
             // Construct and add PIP to storage.
             let created_at = System::<T>::block_number();
-            let expiry = Self::pending_pip_expiry() + created_at;
+            let expiry = PendingPipExpiry::<T>::get() + created_at;
             let transaction_version =
                 <T::Version as Get<RuntimeVersion>>::get().transaction_version;
             let proposal_data = Self::reportable_proposal_data(&*proposal);
@@ -856,7 +860,7 @@ pub mod pallet {
                 ..
             } = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
 
-            let pip = Self::proposals(id).ok_or(Error::<T>::NoSuchProposal)?;
+            let pip = Proposals::<T>::get(id).ok_or(Error::<T>::NoSuchProposal)?;
 
             // Proposal must be from the community.
             let proposer = match pip.proposer {
@@ -868,7 +872,7 @@ pub mod pallet {
                 // a) Deposit must be above minimum.
                 // Note that proposer can still vote against their own PIP.
                 ensure!(
-                    deposit >= Self::min_proposal_deposit(),
+                    deposit >= MinimumProposalDeposit::<T>::get(),
                     Error::<T>::IncorrectDeposit
                 );
             }
@@ -880,7 +884,7 @@ pub mod pallet {
 
             with_transaction(|| {
                 // Reserve the deposit, or refund if needed.
-                let curr_deposit = Self::deposits(id, &voter)
+                let curr_deposit = Deposits::<T>::get(id, &voter)
                     .map(|d| d.amount)
                     .unwrap_or_default();
                 if deposit < curr_deposit {
@@ -935,7 +939,7 @@ pub mod pallet {
             Self::is_proposal_state(id, ProposalState::Pending)?;
 
             // Ensure proposal is by committee.
-            let pip = Self::proposals(id).ok_or(Error::<T>::NoSuchProposal)?;
+            let pip = Proposals::<T>::get(id).ok_or(Error::<T>::NoSuchProposal)?;
             ensure!(
                 matches!(pip.proposer, Proposer::Committee(_)),
                 Error::<T>::NotByCommittee
@@ -965,18 +969,18 @@ pub mod pallet {
         /// unsnapshot the PIP if it was part of a snapshot. It will also handle the rejection
         /// of the proposal and refund any bonded funds.
         #[pallet::call_index(9)]
-        #[pallet::weight((<T as Config>::WeightInfo::reject_proposal(), Operational))]
-        pub fn reject_proposal(origin: OriginFor<T>, id: PipId) -> DispatchResult {
+        #[pallet::weight((<T as Config>::WeightInfo::reject_proposal(T::MaxRefundsAndVotesPruned::get()), Operational))]
+        pub fn reject_proposal(origin: OriginFor<T>, id: PipId) -> DispatchResultWithPostInfo {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
-            let proposal_state = Self::proposal_state(id).ok_or(Error::<T>::NoSuchProposal)?;
+            let proposal_state = ProposalStates::<T>::get(id).ok_or(Error::<T>::NoSuchProposal)?;
             ensure!(
                 Self::is_active(proposal_state),
                 Error::<T>::IncorrectProposalState
             );
             Self::maybe_unschedule_pip(id, proposal_state);
             Self::maybe_unsnapshot_pip(id, proposal_state);
-            Self::unsafe_reject_proposal(GC_DID, id)?;
-            Ok(())
+            let n_votes = Self::unsafe_reject_proposal(GC_DID, id)?;
+            Ok(Some(<T as Config>::WeightInfo::reject_proposal(n_votes)).into())
         }
 
         /// Prunes the PIP given by the `id`. The PIP must not be active.
@@ -995,16 +999,16 @@ pub mod pallet {
         /// # Notes
         /// This function will remove the PIP from storage and refund any remaining bonded funds.
         #[pallet::call_index(10)]
-        #[pallet::weight((<T as Config>::WeightInfo::prune_proposal(), Operational))]
-        pub fn prune_proposal(origin: OriginFor<T>, id: PipId) -> DispatchResult {
+        #[pallet::weight((<T as Config>::WeightInfo::prune_proposal(T::MaxRefundsAndVotesPruned::get()), Operational))]
+        pub fn prune_proposal(origin: OriginFor<T>, id: PipId) -> DispatchResultWithPostInfo {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
-            let proposal_state = Self::proposal_state(id).ok_or(Error::<T>::NoSuchProposal)?;
+            let proposal_state = ProposalStates::<T>::get(id).ok_or(Error::<T>::NoSuchProposal)?;
             ensure!(
                 !Self::is_active(proposal_state),
                 Error::<T>::IncorrectProposalState
             );
-            Self::prune_data(GC_DID, id, proposal_state, true)?;
-            Ok(())
+            let n_votes = Self::prune_data(GC_DID, id, proposal_state, true)?;
+            Ok(Some(<T as Config>::WeightInfo::prune_proposal(n_votes)).into())
         }
 
         /// Updates the execution schedule of the PIP given by `id`.
@@ -1102,7 +1106,7 @@ pub mod pallet {
         /// # Errors
         /// * `NotACommitteeMember` - If the call is not made by a GC member.
         #[pallet::call_index(13)]
-        #[pallet::weight((<T as Config>::WeightInfo::snapshot(), Operational))]
+        #[pallet::weight((<T as Config>::WeightInfo::snapshot(T::MaxRefundsAndVotesPruned::get()), Operational))]
         pub fn snapshot(origin: OriginFor<T>) -> DispatchResult {
             // Ensure a GC member is executing this.
             let PermissionedCallOriginData {
@@ -1159,14 +1163,14 @@ pub mod pallet {
         /// - Reject PIPs that are marked for rejection and refund any bonded funds.
         /// - Approve PIPs that are marked for approval and schedule them for execution.
         #[pallet::call_index(14)]
-        #[pallet::weight((enact_snapshot_results_weight::<T>(&results), Operational))]
+        #[pallet::weight((enact_snapshot_results_weight::<T>(results), Operational))]
         pub fn enact_snapshot_results(
             origin: OriginFor<T>,
             results: Vec<(PipId, SnapshotResult)>,
         ) -> DispatchResult {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
 
-            let max_pip_skip_count = Self::max_pip_skip_count();
+            let max_pip_skip_count = MaxPipSkipCount::<T>::get();
 
             SnapshotQueue::<T>::try_mutate(|queue| {
                 let mut to_bump_skipped = Vec::new();
@@ -1227,7 +1231,7 @@ pub mod pallet {
                     Self::schedule_pip_for_execution(pip_id);
                 }
 
-                let id = Self::snapshot_metadata().map(|m| m.id);
+                let id = SnapshotMeta::<T>::get().map(|m| m.id);
                 let event = Event::SnapshotResultsEnacted(
                     GC_DID,
                     id,
@@ -1257,7 +1261,7 @@ pub mod pallet {
         /// - Remove the PIP from the scheduling queue.
         /// - Execute the proposal associated with the PIP.
         #[pallet::call_index(15)]
-        #[pallet::weight((<T as Config>::WeightInfo::execute_scheduled_pip(), Operational))]
+        #[pallet::weight((<T as Config>::WeightInfo::execute_scheduled_pip(T::MaxRefundsAndVotesPruned::get()), Operational))]
         pub fn execute_scheduled_pip(
             origin: OriginFor<T>,
             id: PipId,
@@ -1283,18 +1287,24 @@ pub mod pallet {
         /// - Unsnapshot the PIP if it was part of a snapshot.
         /// - Prune the PIP data if it is in an expired state.
         #[pallet::call_index(16)]
-        #[pallet::weight((<T as Config>::WeightInfo::expire_scheduled_pip(), Operational))]
+        #[pallet::weight((<T as Config>::WeightInfo::expire_scheduled_pip(T::MaxRefundsAndVotesPruned::get()), Operational))]
         pub fn expire_scheduled_pip(
             origin: OriginFor<T>,
             did: IdentityId,
             id: PipId,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            if Self::is_proposal_state(id, ProposalState::Pending).is_ok() {
-                Self::maybe_unsnapshot_pip(id, ProposalState::Pending);
-                Self::maybe_prune(did, id, ProposalState::Expired)?;
-            }
-            Ok(())
+
+            let n_votes = {
+                if Self::is_proposal_state(id, ProposalState::Pending).is_ok() {
+                    Self::maybe_unsnapshot_pip(id, ProposalState::Pending);
+                    Self::maybe_prune(did, id, ProposalState::Expired)?
+                } else {
+                    0
+                }
+            };
+
+            Ok(Some(<T as Config>::WeightInfo::expire_scheduled_pip(n_votes)).into())
         }
     }
 }
@@ -1379,7 +1389,7 @@ impl<T: Config> Pallet<T> {
 
     /// Changes the vote of `voter` to `vote`, if any.
     fn unsafe_vote(id: PipId, voter: T::AccountId, vote: Vote) -> DispatchResult {
-        let mut stats = Self::proposal_result(id);
+        let mut stats = ProposalResult::<T>::get(id);
 
         // Update the vote and get the old one, if any, in which case also remove it from stats.
         if let Some(Vote(direction, deposit)) = ProposalVotes::<T>::get(id, voter.clone()) {
@@ -1445,7 +1455,7 @@ impl<T: Config> Pallet<T> {
 
     /// Returns `Ok(_)` iff `id` has `state`.
     fn is_proposal_state(id: PipId, state: ProposalState) -> DispatchResult {
-        let proposal_state = Self::proposal_state(id).ok_or(Error::<T>::NoSuchProposal)?;
+        let proposal_state = ProposalStates::<T>::get(id).ok_or(Error::<T>::NoSuchProposal)?;
         ensure!(proposal_state == state, Error::<T>::IncorrectProposalState);
         Ok(())
     }
@@ -1480,7 +1490,7 @@ impl<T: Config> Pallet<T> {
     fn schedule_pip_for_execution(id: PipId) {
         // The enactment period is at least 1 block,
         // as you can only schedule calls for future blocks.
-        let at = Self::default_enactment_period()
+        let at = DefaultEnactmentPeriod::<T>::get()
             .max(One::one())
             .saturating_add(System::<T>::block_number());
 
@@ -1566,9 +1576,9 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Rejects the given `id`, refunding the deposit, and possibly pruning the proposal's data.
-    fn unsafe_reject_proposal(did: IdentityId, id: PipId) -> DispatchResult {
-        Self::maybe_prune(did, id, ProposalState::Rejected)?;
-        Ok(())
+    fn unsafe_reject_proposal(did: IdentityId, id: PipId) -> Result<u32, DispatchError> {
+        let n_votes = Self::maybe_prune(did, id, ProposalState::Rejected)?;
+        Ok(n_votes)
     }
 
     /// Remove the PIP with `id` from the `ExecutionSchedule` at `block_no`.
@@ -1581,55 +1591,98 @@ impl<T: Config> Pallet<T> {
 
     /// First set the state to `new_state`
     /// and then possibly prune (nearly) all the PIP data, if configuration allows.
-    fn maybe_prune(did: IdentityId, id: PipId, new_state: ProposalState) -> DispatchResult {
+    fn maybe_prune(
+        did: IdentityId,
+        id: PipId,
+        new_state: ProposalState,
+    ) -> Result<u32, DispatchError> {
         Self::update_proposal_state(did, id, new_state);
-        Self::prune_data(did, id, new_state, Self::prune_historical_pips())?;
-        Ok(())
+        let n_votes = Self::prune_data(did, id, new_state, PruneHistoricalPips::<T>::get())?;
+        Ok(n_votes)
     }
 
-    /// Prunes (nearly) all data associated with a proposal, removing it from storage.
+    /// This function performs the following steps:
+    /// 1. Refunds the proposal's deposit.
+    /// 2. Decrements the active proposal count if the proposal's state is active.
+    /// 3. If `prune` is true, removes various data associated with the proposal from storage.
+    /// 4. Returns the number of votes refunded.
     ///
-    /// For efficiency, some data (e.g., re. execution schedules) is not removed in this function,
-    /// but is removed in functions executing this one.
-    fn prune_data(did: IdentityId, id: PipId, state: ProposalState, prune: bool) -> DispatchResult {
-        Self::refund_proposal(did, id)?;
+    /// The data removed includes:
+    /// - Proposal results
+    /// - Votes associated with the proposal
+    /// - Proposal metadata
+    /// - Committee PIPs if the proposal was made by a committee
+    /// - The proposal itself
+    /// - PIP skip count
+    /// - Proposal states
+    ///
+    /// For efficiency, some data (e.g., related to execution schedules) is not removed in this function,
+    /// but is removed in functions that execute this one.
+    fn prune_data(
+        did: IdentityId,
+        pip_id: PipId,
+        state: ProposalState,
+        prune: bool,
+    ) -> Result<u32, DispatchError> {
+        let n_votes = Self::refund_proposal(did, pip_id)?;
         Self::decrement_count_if_active(state);
         if prune {
-            ProposalResult::<T>::remove(id);
-            #[allow(deprecated)]
-            ProposalVotes::<T>::remove_prefix(id, None);
-            ProposalMetadata::<T>::remove(id);
-            if let Some(Proposer::Committee(_)) = Self::proposals(id).map(|p| p.proposer) {
-                CommitteePips::<T>::mutate(|list| list.retain(|&i| i != id));
+            ProposalResult::<T>::remove(pip_id);
+            Self::vote_pruning(pip_id)?;
+            ProposalMetadata::<T>::remove(pip_id);
+            if let Some(Proposer::Committee(_)) = Proposals::<T>::get(pip_id).map(|p| p.proposer) {
+                CommitteePips::<T>::mutate(|list| list.retain(|&i| i != pip_id));
             }
-            Proposals::<T>::remove(id);
-            PipSkipCount::<T>::remove(id);
-            ProposalStates::<T>::remove(id);
+            Proposals::<T>::remove(pip_id);
+            PipSkipCount::<T>::remove(pip_id);
+            ProposalStates::<T>::remove(pip_id);
         }
-        Self::deposit_event(Event::PipClosed(did, id, prune));
-        Ok(())
+        Self::deposit_event(Event::PipClosed(did, pip_id, prune));
+        Ok(n_votes)
     }
 
-    /// Refunds any tokens used to vote or bond a proposal.
-    ///
-    /// This operation is idempotent wrt. chain state,
-    /// i.e., once run, refunding again will refund nothing.
-    fn refund_proposal(did: IdentityId, id: PipId) -> DispatchResult {
-        let mut total_refund = 0;
-        for (_, deposit) in Deposits::<T>::drain_prefix(id) {
-            Self::reduce_lock(&deposit.owner, deposit.amount)?;
-            total_refund = total_refund.saturating_add(deposit.amount);
+    /// Refunds up to [`MaxDepositsRefunded`] deposits for the given `pip_id`.
+    /// Returns the number of refunds processed (it should be the same as the number of votes or equal to MaxRefundsAndVotesPruned).
+    fn refund_proposal(did: IdentityId, pip_id: PipId) -> Result<u32, DispatchError> {
+        let max_refunds = T::MaxRefundsAndVotesPruned::get() as usize;
+
+        let mut n_refunds = 0;
+        let mut refunded_amount = 0;
+        for (_, deposit_info) in Deposits::<T>::drain_prefix(pip_id).take(max_refunds) {
+            n_refunds = n_refunds.saturating_add(1);
+            Self::reduce_lock(&deposit_info.owner, deposit_info.amount)?;
+            refunded_amount = refunded_amount.saturating_add(deposit_info.amount);
         }
-        Self::deposit_event(Event::ProposalRefund(did, id, total_refund));
+
+        // Checks if there are more deposits to refund
+        if Deposits::<T>::iter_prefix(pip_id).next().is_some() {
+            PendingRefunds::<T>::try_mutate(|v| v.try_push(pip_id))
+                .map_err(|_| Error::<T>::PendingQueueIsFull)?;
+        }
+
+        Self::deposit_event(Event::ProposalRefund(did, pip_id, refunded_amount));
+        Ok(n_refunds)
+    }
+
+    /// Prunes up to [`MaxVotesPruned`] from the given `pip_id`.
+    fn vote_pruning(pip_id: PipId) -> DispatchResult {
+        let max_votes_pruned = T::MaxRefundsAndVotesPruned::get();
+
+        let removal_results = ProposalVotes::<T>::clear_prefix(pip_id, max_votes_pruned, None);
+        // Checks if there are more votes to prune
+        if removal_results.maybe_cursor.is_some() {
+            VotesToBePruned::<T>::try_mutate(|v| v.try_push(pip_id))
+                .map_err(|_| Error::<T>::PendingQueueIsFull)?;
+        }
         Ok(())
     }
 
     /// Execute the PIP given by `id`.
     /// Returns an error if the PIP doesn't exist or is not scheduled.
     fn execute_proposal(id: PipId) -> DispatchResultWithPostInfo {
-        let proposal = Self::proposals(id).ok_or(Error::<T>::ScheduledProposalDoesntExist)?;
+        let proposal = Proposals::<T>::get(id).ok_or(Error::<T>::ScheduledProposalDoesntExist)?;
         let proposal_state =
-            Self::proposal_state(id).ok_or(Error::<T>::ScheduledProposalDoesntExist)?;
+            ProposalStates::<T>::get(id).ok_or(Error::<T>::ScheduledProposalDoesntExist)?;
         ensure!(
             proposal_state == ProposalState::Scheduled,
             Error::<T>::ProposalNotInScheduledState
@@ -1639,8 +1692,13 @@ impl<T: Config> Pallet<T> {
             .dispatch(frame_system::RawOrigin::Root.into());
         let weight = res.unwrap_or_else(|e| e.post_info).actual_weight;
         let new_state = res.map_or(ProposalState::Failed, |_| ProposalState::Executed);
-        Self::maybe_prune(GC_DID, id, new_state)?;
-        Ok(Some(weight.unwrap_or(Weight::zero())).into())
+        let n_votes = Self::maybe_prune(GC_DID, id, new_state)?;
+        let weight =
+            weight.map(|v| v.max(<T as Config>::WeightInfo::execute_scheduled_pip(n_votes)));
+        Ok(
+            Some(weight.unwrap_or(<T as Config>::WeightInfo::execute_scheduled_pip(n_votes)))
+                .into(),
+        )
     }
 
     /// Retrieve votes for a proposal represented by PipId `id`.
@@ -1652,7 +1710,7 @@ impl<T: Config> Pallet<T> {
             return VoteCount::ProposalNotFound;
         }
 
-        let voting = Self::proposal_result(id);
+        let voting = ProposalResult::<T>::get(id);
         VoteCount::ProposalFound {
             ayes: voting.ayes_stake,
             nays: voting.nays_stake,
@@ -1662,7 +1720,7 @@ impl<T: Config> Pallet<T> {
     /// Retrieve proposals `address` voted on
     pub fn voted_on(address: T::AccountId) -> Vec<PipId> {
         Proposals::<T>::iter()
-            .filter_map(|(_, pip)| Self::proposal_vote(pip.id, &address).map(|_| pip.id))
+            .filter_map(|(_, pip)| ProposalVotes::<T>::get(pip.id, &address).map(|_| pip.id))
             .collect::<Vec<_>>()
     }
 
@@ -1672,6 +1730,51 @@ impl<T: Config> Pallet<T> {
             .filter(|(_, pip)| pip.proposer == proposer)
             .map(|(_, pip)| pip.id)
             .collect()
+    }
+
+    /// Clears from storage any pending refunds and votes.
+    pub(crate) fn remove_pending_storage() -> Weight {
+        let clear_max = T::MaxRefundsAndVotesPruned::get();
+
+        let mut n_votes: u32 = 0;
+        // Checks if there are any pending refunds to be processed
+        if let Some(pip_id) = PendingRefunds::<T>::get().first() {
+            let mut refunded_amount = 0;
+            for (_, deposit_info) in Deposits::<T>::drain_prefix(pip_id).take(clear_max as usize) {
+                n_votes += 1;
+                match Self::reduce_lock(&deposit_info.owner, deposit_info.amount) {
+                    Ok(_) => {
+                        refunded_amount = refunded_amount.saturating_add(deposit_info.amount);
+                    }
+                    Err(_) => {
+                        log::error!(
+                            "Failed to refund deposit for PIP: {:?} Owner: {:?} Amount: {}",
+                            pip_id,
+                            deposit_info.owner,
+                            deposit_info.amount
+                        );
+                    }
+                }
+            }
+
+            // Checks if all deposits have been refunded. If so, removes the PIP from the queue.
+            if Deposits::<T>::iter_prefix(pip_id).next().is_none() {
+                PendingRefunds::<T>::mutate(|v| v.remove(0));
+            }
+
+            Self::deposit_event(Event::ProposalRefund(GC_DID, *pip_id, refunded_amount));
+        }
+
+        // Checks if there are any votes to be pruned
+        if let Some(pip_id) = VotesToBePruned::<T>::get().first() {
+            let removal_results = ProposalVotes::<T>::clear_prefix(pip_id, clear_max, None);
+            // Checks if all votes have been pruned. If so, removes the PIP from the queue.
+            if removal_results.maybe_cursor.is_none() {
+                VotesToBePruned::<T>::mutate(|v| v.remove(0));
+            }
+        }
+
+        <T as Config>::WeightInfo::remove_pending_storage(n_votes)
     }
 }
 

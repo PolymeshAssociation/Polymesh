@@ -144,6 +144,10 @@ parameter_types! {
     // Portfolio:
     pub const MaxNumberOfFungibleMoves: u32 = 10;
     pub const MaxNumberOfNFTsMoves: u32 = 100;
+
+    // PIPs
+    pub const MaxRefundsAndVotesPruned: u32 = 128;
+    pub const MaxPendingQueueLen: u32 = 128;
 }
 
 /// 100% goes to the block author.
@@ -273,6 +277,8 @@ impl pallet_pips::Config for Runtime {
     type WeightInfo = polymesh_weights::pallet_pips::SubstrateWeight;
     type Scheduler = Scheduler;
     type SchedulerCall = RuntimeCall;
+    type MaxRefundsAndVotesPruned = MaxRefundsAndVotesPruned;
+    type MaxPendingQueueLen = MaxPendingQueueLen;
 }
 
 /// CddProviders instance of group
