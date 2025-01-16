@@ -1873,7 +1873,6 @@ fn expiry_works() {
 }
 
 #[test]
-#[should_panic = "called `Result::unwrap_err()` on an `Ok` value: 0"]
 fn propose_dupe_live_insert_panics() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
@@ -1882,8 +1881,11 @@ fn propose_dupe_live_insert_panics() {
         // Manipulate storage to provoke panic in `insert_live_queue`.
         LiveQueue::<TestStorage>::mutate(|queue| *queue = vec![spip(0, true, 0)]);
 
-        // Triggers a panic, assertion never reached.
-        assert_ok!(community_proposal(User::new(AccountKeyring::Alice), 0));
+        // Returns an error since pip_id is already in the live queue
+        assert_eq!(
+            community_proposal(User::new(AccountKeyring::Alice), 0).unwrap_err(),
+            Error::InvalidPipId.into()
+        );
     });
 }
 

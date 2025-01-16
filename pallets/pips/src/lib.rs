@@ -184,6 +184,8 @@ pub mod pallet {
         ProposalNotInScheduledState,
         /// The pending queue is full, try again later.
         PendingQueueIsFull,
+        /// Invalid PIP ID. Pip id was not expected to be in the live queue.
+        InvalidPipId,
     }
 
     #[pallet::event]
@@ -804,7 +806,7 @@ pub mod pallet {
                 Self::unsafe_vote(id, proposer.clone(), Vote(true, deposit))?;
 
                 // Adjust live queue.
-                Self::insert_live_queue(id);
+                Self::insert_live_queue(id)?;
             } else {
                 CommitteePips::<T>::append(id);
             }
@@ -1421,20 +1423,25 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Insert a new PIP into the live queue.
-    ///
-    /// The `id` should not exist in the queue previously.
-    /// Panics if it did.
-    fn insert_live_queue(id: PipId) {
-        let new = Self::aggregate_result(id);
-        LiveQueue::<T>::mutate(|queue| {
-            // Inserting a new PIP entails that `id` is nowhere to be found.
-            // It follows that binary search will return `Err(_)`.
-            let pos = queue
-                .binary_search_by(|res| compare_spip(res, &new))
-                .unwrap_err();
-            queue.insert(pos, new);
-        });
+    /// Insert a new PIP into the live queue. Returns [`Error::<T>::InvalidPIPID`] if `pip_id` is not unique.
+    fn insert_live_queue(pip_id: PipId) -> DispatchResult {
+        let new_snapshotted_pip = Self::aggregate_result(pip_id);
+
+        LiveQueue::<T>::try_mutate(|live_queue| -> DispatchResult {
+            match live_queue.binary_search_by(|res| compare_spip(res, &new_snapshotted_pip)) {
+                Ok(_) => {
+                    // This is a bug, as the PIP ID should be unique
+                    Err(Error::<T>::InvalidPipId.into())
+                }
+                Err(pos) => {
+                    // PIP ID is new. Insert it into the queue
+                    live_queue.insert(pos, new_snapshotted_pip);
+                    Ok(())
+                }
+            }
+        })?;
+
+        Ok(())
     }
 
     /// Construct a `SnapshottedPip` from a `PipId`.
