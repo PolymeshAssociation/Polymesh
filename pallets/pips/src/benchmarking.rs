@@ -58,7 +58,7 @@ use limits::*;
 pub const MAX_SKIPPED_COUNT: u8 = 255;
 
 fn zeroize_deposit<T: Config>() {
-    Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into()).unwrap();
+    Pallet::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into()).unwrap();
 }
 
 /// Makes a proposal.
@@ -95,7 +95,7 @@ fn cast_votes<T: Config>(
     aye_or_nay: bool,
 ) -> DispatchResult {
     for (_, origin, _) in voters {
-        Module::<T>::vote(origin.clone().into(), id, aye_or_nay, 1u32.into()).unwrap();
+        Pallet::<T>::vote(origin.clone().into(), id, aye_or_nay, 1u32.into()).unwrap();
     }
     Ok(())
 }
@@ -104,7 +104,7 @@ fn cast_votes<T: Config>(
 fn pips_and_votes_setup<T: Config>(
     approve_only: bool,
 ) -> Result<(RawOrigin<T::AccountId>, IdentityId), DispatchError> {
-    Module::<T>::set_active_pip_limit(RawOrigin::Root.into(), PROPOSALS_NUM as u32).unwrap();
+    Pallet::<T>::set_active_pip_limit(RawOrigin::Root.into(), PROPOSALS_NUM as u32).unwrap();
     zeroize_deposit::<T>();
     let (voters_a_num, voters_b_num) = if approve_only {
         (VOTERS_A_NUM + VOTERS_B_NUM, 0)
@@ -123,7 +123,7 @@ fn pips_and_votes_setup<T: Config>(
         } else {
             (origin.clone(), did)
         };
-        Module::<T>::propose(
+        Pallet::<T>::propose(
             proposer_origin.into(),
             proposal,
             42u32.into(),
@@ -148,7 +148,7 @@ fn enact_call<T: Config>(num_approves: usize, num_rejects: usize, num_skips: usi
         .chain(iter::repeat(SnapshotResult::Skip).take(num_skips))
         .collect();
     snapshot_results.shuffle(&mut rng);
-    let results = Module::<T>::snapshot_queue()
+    let results = Pallet::<T>::snapshot_queue()
         .iter()
         .rev()
         .map(|s| s.id)
@@ -158,7 +158,7 @@ fn enact_call<T: Config>(num_approves: usize, num_rejects: usize, num_skips: usi
 }
 
 fn propose_verify<T: Config>(url: Url, description: PipDescription) -> DispatchResult {
-    let meta = Module::<T>::proposal_metadata(PipId(0)).unwrap();
+    let meta = Pallet::<T>::proposal_metadata(PipId(0)).unwrap();
     assert_eq!(PipId(0), meta.id, "incorrect meta.id");
     assert_eq!(Some(url), meta.url, "incorrect meta.url");
     assert_eq!(
@@ -173,7 +173,7 @@ fn execute_verify<T: Config>(state: ProposalState, err: &'static str) -> Dispatc
     if Proposals::<T>::contains_key(PipId(0)) {
         assert_eq!(
             state,
-            Module::<T>::proposal_state(PipId(0)).unwrap(),
+            Pallet::<T>::proposal_state(PipId(0)).unwrap(),
             "{}",
             err
         );
@@ -186,7 +186,7 @@ benchmarks! {
         let origin = RawOrigin::Root;
     }: _(origin, true)
     verify {
-        assert!(PruneHistoricalPips::get(), "set_prune_historical_pips didn't work");
+        assert!(PruneHistoricalPips::<T>::get(), "set_prune_historical_pips didn't work");
     }
 
     set_min_proposal_deposit {
@@ -194,7 +194,7 @@ benchmarks! {
         let deposit = 42u32.into();
     }: _(origin, deposit)
     verify {
-        assert_eq!(deposit, MinimumProposalDeposit::get(), "incorrect MinimumProposalDeposit");
+        assert_eq!(deposit, MinimumProposalDeposit::<T>::get(), "incorrect MinimumProposalDeposit");
     }
 
     set_default_enactment_period {
@@ -218,7 +218,7 @@ benchmarks! {
         let count = 42.try_into().unwrap();
     }: _(origin, count)
     verify {
-        assert_eq!(count, MaxPipSkipCount::get(), "incorrect MaxPipSkipCount");
+        assert_eq!(count, MaxPipSkipCount::<T>::get(), "incorrect MaxPipSkipCount");
     }
 
     set_active_pip_limit {
@@ -226,7 +226,7 @@ benchmarks! {
         let pip_limit = 42;
     }: _(origin, pip_limit)
     verify {
-        assert_eq!(pip_limit, ActivePipLimit::get(), "incorrect ActivePipLimit");
+        assert_eq!(pip_limit, ActivePipLimit::<T>::get(), "incorrect ActivePipLimit");
     }
 
     propose_from_community {
@@ -261,7 +261,7 @@ benchmarks! {
         let proposer = user::<T>("proposer", 0);
         let (proposal, url, description) = make_proposal::<T>();
         zeroize_deposit::<T>();
-        Module::<T>::propose(
+        Pallet::<T>::propose(
             proposer.origin().into(),
             proposal,
             42u32.into(),
@@ -278,7 +278,7 @@ benchmarks! {
         let voter = user::<T>("voter", 0);
         let voter_deposit = 43u32.into();
         // Cast an opposite vote.
-        Module::<T>::vote(voter.origin().into(), id, false, voter_deposit).unwrap();
+        Pallet::<T>::vote(voter.origin().into(), id, false, voter_deposit).unwrap();
         let origin = voter.origin();
     }: _(origin, id, true, voter_deposit)
     verify {
@@ -308,12 +308,12 @@ benchmarks! {
     }
 
     reject_proposal {
-        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true).unwrap();
+        Pallet::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true).unwrap();
         let user = user::<T>("proposer", 0);
         zeroize_deposit::<T>();
         let (proposal, url, description) = make_proposal::<T>();
         let deposit = 42u32.into();
-        Module::<T>::propose(
+        Pallet::<T>::propose(
             user.origin().into(),
             proposal,
             deposit,
@@ -332,11 +332,11 @@ benchmarks! {
     }
 
     prune_proposal {
-        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), false).unwrap();
+        Pallet::<T>::set_prune_historical_pips(RawOrigin::Root.into(), false).unwrap();
         let user = user::<T>("proposer", 0);
         zeroize_deposit::<T>();
         let (proposal, url, description) = make_proposal::<T>();
-        Module::<T>::propose(
+        Pallet::<T>::propose(
             user.origin().into(),
             proposal,
             42u32.into(),
@@ -360,7 +360,7 @@ benchmarks! {
         let user = user::<T>("proposer", 0);
         zeroize_deposit::<T>();
         let (proposal, url, description) = make_proposal::<T>();
-        Module::<T>::propose(
+        Pallet::<T>::propose(
             user.origin().into(),
             proposal,
             42u32.into(),
@@ -369,7 +369,7 @@ benchmarks! {
         ).unwrap();
         let id = PipId(0);
         T::GovernanceCommittee::bench_set_release_coordinator(user.did());
-        Module::<T>::snapshot(user.origin().into()).unwrap();
+        Pallet::<T>::snapshot(user.origin().into()).unwrap();
         let vmo_origin = T::VotingMajorityOrigin::try_successful_origin().unwrap();
         let enact_call = Call::<T>::enact_snapshot_results { results: vec![(id, SnapshotResult::Approve)] };
         enact_call.dispatch_bypass_filter(vmo_origin).unwrap();
@@ -384,7 +384,7 @@ benchmarks! {
         let user = user::<T>("proposer", 0);
         zeroize_deposit::<T>();
         let (proposal, url, description) = make_proposal::<T>();
-        Module::<T>::propose(
+        Pallet::<T>::propose(
             user.origin().into(),
             proposal,
             42u32.into(),
@@ -392,7 +392,7 @@ benchmarks! {
             Some(description.clone())
         ).unwrap();
         T::GovernanceCommittee::bench_set_release_coordinator(user.did());
-        Module::<T>::snapshot(user.origin().into()).unwrap();
+        Pallet::<T>::snapshot(user.origin().into()).unwrap();
         assert!(SnapshotMeta::<T>::get().is_some(), "missing a snapshot before clear_snapshot");
         let origin = user.origin();
     }: _(origin)
@@ -416,12 +416,12 @@ benchmarks! {
         // The number of Skip results.
         let s in 0..PROPOSALS_NUM as u32 / 3;
 
-        Module::<T>::set_max_pip_skip_count(RawOrigin::Root.into(), MAX_SKIPPED_COUNT).unwrap();
+        Pallet::<T>::set_max_pip_skip_count(RawOrigin::Root.into(), MAX_SKIPPED_COUNT).unwrap();
         let (origin0, did0) = pips_and_votes_setup::<T>(true).unwrap();
 
         // snapshot
         T::GovernanceCommittee::bench_set_release_coordinator(did0);
-        Module::<T>::snapshot(origin0.into()).unwrap();
+        Pallet::<T>::snapshot(origin0.into()).unwrap();
 
         // enact
         let enact_origin = T::VotingMajorityOrigin::try_successful_origin().unwrap();
@@ -431,21 +431,21 @@ benchmarks! {
     }
     verify {
         assert_eq!(
-            Module::<T>::snapshot_queue().len(), PROPOSALS_NUM - (a + r + s) as usize,
+            Pallet::<T>::snapshot_queue().len(), PROPOSALS_NUM - (a + r + s) as usize,
             "incorrect snapshot queue after enact_snapshot_results"
         );
     }
 
     execute_scheduled_pip {
         // set up
-        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true).unwrap();
+        Pallet::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true).unwrap();
         let (origin0, did0) = pips_and_votes_setup::<T>(true).unwrap();
 
         // snapshot
         T::GovernanceCommittee::bench_set_release_coordinator(did0);
-        Module::<T>::snapshot(origin0.into()).unwrap();
+        Pallet::<T>::snapshot(origin0.into()).unwrap();
         assert!(
-            Module::<T>::snapshot_queue().len() == PROPOSALS_NUM as usize,
+            Pallet::<T>::snapshot_queue().len() == PROPOSALS_NUM as usize,
             "wrong snapshot queue length"
         );
 
@@ -463,17 +463,17 @@ benchmarks! {
 
     expire_scheduled_pip {
         // set up
-        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true).unwrap();
+        Pallet::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true).unwrap();
         let (origin0, did0) = pips_and_votes_setup::<T>(true).unwrap();
 
         // snapshot
         T::GovernanceCommittee::bench_set_release_coordinator(did0);
-        Module::<T>::snapshot(origin0.into()).unwrap();
+        Pallet::<T>::snapshot(origin0.into()).unwrap();
 
         let id = PipId(0);
 
         assert_eq!(
-            ProposalState::Pending, Module::<T>::proposal_state(id).unwrap(),
+            ProposalState::Pending, Pallet::<T>::proposal_state(id).unwrap(),
             "incorrect proposal state before expiration"
         );
 

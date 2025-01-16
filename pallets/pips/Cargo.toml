@@ -49,6 +49,7 @@ default = ["std", "equalize"]
 no_std = []
 only-staking = []
 running-ci = []
+try-runtime = ["frame-support/try-runtime"]
 std = [
     "codec/std",
     "frame-support/std",

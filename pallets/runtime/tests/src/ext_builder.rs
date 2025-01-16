@@ -1,5 +1,6 @@
 use crate::TestStorage;
 use frame_support::dispatch::Weight;
+use frame_support::pallet_prelude::GenesisBuild;
 use pallet_asset::{self as asset, TickerRegistrationConfig};
 use pallet_balances as balances;
 use pallet_committee as committee;
