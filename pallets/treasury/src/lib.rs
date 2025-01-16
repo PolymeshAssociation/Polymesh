@@ -45,11 +45,9 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::ensure_root;
+use pallet_balances::Config as BalancesConfig;
 use pallet_identity as identity;
-use polymesh_common_utilities::{
-    constants::TREASURY_PALLET_ID, traits::balances::Config as BalancesConfig, GC_DID,
-};
-use polymesh_primitives::{Beneficiary, IdentityId};
+use polymesh_primitives::{constants::TREASURY_PALLET_ID, Beneficiary, IdentityId, GC_DID};
 use sp_runtime::traits::{AccountIdConversion, Saturating};
 use sp_std::prelude::*;
 

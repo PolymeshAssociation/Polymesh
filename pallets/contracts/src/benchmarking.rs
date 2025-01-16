@@ -28,18 +28,17 @@ use sp_runtime::Perbill;
 use sp_std::prelude::*;
 use wasm_instrument::parity_wasm::elements::{Instruction, ValueType};
 
+use pallet_identity::benchmarking::{cdd_provider, user, User, UserBuilder};
 use pallet_identity::ParentDid;
-use polymesh_common_utilities::benchs::{cdd_provider, user, User, UserBuilder};
-use polymesh_common_utilities::constants::currency::POLY;
-use polymesh_common_utilities::group::GroupTrait;
 use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
 };
 use polymesh_primitives::secondary_key::ExtrinsicNames;
 use polymesh_primitives::{
-    AssetPermissions, Balance, ExtrinsicName, ExtrinsicPermissions, PalletName, PalletPermissions,
-    Permissions, PortfolioId, PortfolioNumber, PortfolioPermissions,
+    traits::group::GroupTrait, AssetPermissions, Balance, ExtrinsicName, ExtrinsicPermissions,
+    PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, PortfolioPermissions,
 };
 
 use crate::chain_extension::*;

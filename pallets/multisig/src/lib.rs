@@ -83,10 +83,8 @@ use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
 
-use pallet_identity::PermissionedCallOriginData;
+use pallet_identity::{Config as IdentityConfig, PermissionedCallOriginData};
 use pallet_permissions::with_call_metadata;
-pub use polymesh_common_utilities::multisig::{MultiSigSubTrait, WeightInfo};
-use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
 use polymesh_primitives::multisig::{ProposalState, ProposalVoteCount};
 use polymesh_primitives::{
     extract_auth, storage_migration_ver, AuthorizationData, IdentityId, KeyRecord, Permissions,
@@ -94,6 +92,42 @@ use polymesh_primitives::{
 };
 //use polymesh_runtime_common::RocksDbWeight as DbWeight;
 use frame_support::weights::constants::RocksDbWeight as DbWeight;
+
+pub trait WeightInfo {
+    fn create_multisig(signers: u32) -> Weight;
+    fn create_proposal() -> Weight;
+    fn approve() -> Weight;
+    fn execute_proposal() -> Weight;
+    fn reject() -> Weight;
+    fn accept_multisig_signer() -> Weight;
+    fn add_multisig_signers(signers: u32) -> Weight;
+    fn remove_multisig_signers(signers: u32) -> Weight;
+    fn add_multisig_signers_via_admin(signers: u32) -> Weight;
+    fn remove_multisig_signers_via_admin(signers: u32) -> Weight;
+    fn change_sigs_required() -> Weight;
+    fn change_sigs_required_via_admin() -> Weight;
+    fn add_admin() -> Weight;
+    fn remove_admin_via_admin() -> Weight;
+    fn remove_payer() -> Weight;
+    fn remove_payer_via_payer() -> Weight;
+    fn create_join_identity() -> Weight;
+    fn approve_join_identity() -> Weight;
+    fn join_identity() -> Weight;
+    fn remove_admin() -> Weight;
+
+    fn default_max_weight(max_weight: &Option<Weight>) -> Weight {
+        max_weight.unwrap_or_else(|| {
+            // TODO: Use a better default weight.
+            Self::create_proposal()
+        })
+    }
+
+    fn approve_and_execute(max_weight: &Option<Weight>) -> Weight {
+        Self::approve()
+            .saturating_add(Self::execute_proposal())
+            .saturating_add(Self::default_max_weight(max_weight))
+    }
+}
 
 type IdentityPallet<T> = pallet_identity::Module<T>;
 
@@ -1354,9 +1388,7 @@ impl<T: Config> Pallet<T> {
 
         LastInvalidProposal::<T>::insert(multisig, next_proposal_id.saturating_sub(1));
     }
-}
 
-impl<T: Config> MultiSigSubTrait<T::AccountId> for Pallet<T> {
     fn is_multisig(account_id: &T::AccountId) -> bool {
         MultiSigSignsRequired::<T>::contains_key(account_id)
     }

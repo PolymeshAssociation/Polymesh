@@ -5,11 +5,10 @@ authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
-polymesh-common-utilities = { path = "../common", default-features = false }
-polymesh-primitives = { path = "../../primitives", default-features = false }
-pallet-balances = { path = "../balances", default-features = false  }
-pallet-permissions = { path = "../permissions", default-features = false }
-pallet-identity = { path = "../identity", default-features = false  }
+polymesh-primitives = { workspace = true, default-features = false }
+pallet-balances = { workspace = true, default-features = false  }
+pallet-permissions = { workspace = true, default-features = false }
+pallet-identity = { workspace = true, default-features = false  }
 
 # General
 serde = { version = "1.0.104", default-features = false }
@@ -48,7 +47,6 @@ std = [
 	"sp-api/std",
 	"frame-system/std",
 	"frame-support/std",
-	"polymesh-common-utilities/std",
 	"pallet-balances/std",
 	"polymesh-primitives/std",
 	"pallet-identity/std",
@@ -56,5 +54,4 @@ std = [
 
 runtime-benchmarks = [
     "frame-benchmarking",
-    "polymesh-common-utilities/runtime-benchmarks",
 ]

@@ -32,8 +32,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{CallMetadata, GetCallMetadata},
 };
-use polymesh_common_utilities::traits::{AccountCallPermissionsData, CheckAccountCallPermissions};
-use polymesh_primitives::{ExtrinsicName, PalletName};
+use polymesh_primitives::{ExtrinsicName, IdentityId, PalletName, SecondaryKey};
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
@@ -41,7 +40,38 @@ use sp_runtime::{
 };
 use sp_std::{fmt, marker::PhantomData, result::Result, vec};
 
-pub use polymesh_common_utilities::traits::permissions::Config;
+/// Permissions module configuration trait.
+pub trait Config: frame_system::Config {
+    /// The type that implements the permission check function.
+    type Checker: CheckAccountCallPermissions<Self::AccountId>;
+}
+
+/// Result of `CheckAccountCallPermissions::check_account_call_permissions`.
+pub struct AccountCallPermissionsData<AccountId> {
+    /// The primary identity of the call.
+    pub primary_did: IdentityId,
+    /// The secondary key of the call, if it is defined.
+    pub secondary_key: Option<SecondaryKey<AccountId>>,
+}
+
+/// A permission checker for calls from accounts to extrinsics.
+pub trait CheckAccountCallPermissions<AccountId> {
+    /// Checks whether `who` can call the current extrinsic represented by `pallet_name` and
+    /// `function_name`.
+    ///
+    /// Returns:
+    ///
+    /// - `Some(data)` where `data` contains the primary identity ID on behalf of which the caller
+    /// is allowed to make this call and the secondary key of the caller if the caller is a
+    /// secondary key of the primary identity.
+    ///
+    /// - `None` if the call is not allowed.
+    fn check_account_call_permissions(
+        who: &AccountId,
+        pallet_name: impl FnOnce() -> PalletName,
+        function_name: impl FnOnce() -> ExtrinsicName,
+    ) -> Option<AccountCallPermissionsData<AccountId>>;
+}
 
 decl_storage! {
     trait Store for Module<T: Config> as Permissions {

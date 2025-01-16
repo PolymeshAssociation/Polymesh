@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::convert::From;
 
 use codec::Encode;
-use frame_support::dispatch::{DispatchInfo, DispatchResult, Weight};
+use frame_support::dispatch::{DispatchResult, Weight};
 use frame_support::traits::{
     Currency, Imbalance, KeyOwnerProofSystem, OnInitialize, OnUnbalanced, TryCollect,
 };
@@ -26,9 +26,7 @@ use sp_runtime::traits::{
     BlakeTwo256, Block as BlockT, Extrinsic, IdentityLookup, NumberFor, OpaqueKeys, StaticLookup,
     Verify,
 };
-use sp_runtime::transaction_validity::{
-    InvalidTransaction, TransactionPriority, TransactionValidity, ValidTransaction,
-};
+use sp_runtime::transaction_validity::{InvalidTransaction, TransactionPriority};
 use sp_runtime::{create_runtime_str, AnySignature, KeyTypeId, Perbill, Permill};
 use sp_staking::{EraIndex, SessionIndex};
 use sp_version::RuntimeVersion;
@@ -42,21 +40,17 @@ use pallet_corporate_actions as corporate_actions;
 use pallet_corporate_actions::ballot as corporate_ballots;
 use pallet_corporate_actions::distribution as capital_distributions;
 use pallet_group as group;
-use pallet_identity as identity;
-use pallet_multisig as multisig;
+use pallet_identity::{self as identity, Context};
 use pallet_pips as pips;
-use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
 use pallet_session::historical as pallet_session_historical;
 use pallet_transaction_payment::RuntimeDispatchInfo;
 use pallet_utility;
-use polymesh_common_utilities::constants::currency::{DOLLARS, POLY};
-use polymesh_common_utilities::protocol_fee::ProtocolOp;
-use polymesh_common_utilities::traits::group::GroupTrait;
-use polymesh_common_utilities::traits::transaction_payment::{CddAndFeeDetails, ChargeTxFee};
-use polymesh_common_utilities::Context;
+use polymesh_primitives::constants::currency::{DOLLARS, POLY};
+use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::settlement::Leg;
 use polymesh_primitives::{
+    traits::{group::GroupTrait, CddAndFeeDetails},
     AccountId, Authorization, AuthorizationData, BlockNumber, Claim, Moment,
     Permissions as AuthPermissions, PortfolioNumber, Scope, SecondaryKey, TrustedFor,
     TrustedIssuer,
@@ -500,12 +494,6 @@ thread_local! {
 pub type NegativeImbalance<T> =
     <balances::Module<T> as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
-impl ChargeTxFee for TestStorage {
-    fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
-        Ok(ValidTransaction::default())
-    }
-}
-
 type CddHandler = TestStorage;
 impl CddAndFeeDetails<AccountId, RuntimeCall> for TestStorage {
     fn get_valid_payer(
@@ -618,14 +606,11 @@ impl committee::Config<committee::Instance4> for TestStorage {
     type WeightInfo = polymesh_weights::pallet_committee::SubstrateWeight;
 }
 
-impl polymesh_common_utilities::traits::identity::Config for TestStorage {
+impl pallet_identity::Config for TestStorage {
     type RuntimeEvent = RuntimeEvent;
     type Proposal = RuntimeCall;
-    type MultiSig = multisig::Pallet<TestStorage>;
-    type Portfolio = portfolio::Module<TestStorage>;
     type CddServiceProviders = CddServiceProvider;
     type Balances = balances::Module<TestStorage>;
-    type ChargeTxFeeTarget = TestStorage;
     type CddHandler = TestStorage;
     type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = MultiSignature;

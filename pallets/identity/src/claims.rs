@@ -14,8 +14,8 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    Claim1stKey, Claim2ndKey, Claims, CustomClaimIdSequence, CustomClaims, CustomClaimsInverse,
-    DidRecords, Error, Event, Module, ParentDid,
+    Claim1stKey, Claim2ndKey, Claims, Config, CustomClaimIdSequence, CustomClaims,
+    CustomClaimsInverse, DidRecords, Error, Event, Module, ParentDid, RawEvent,
 };
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -24,17 +24,11 @@ use frame_support::{
 use frame_system::ensure_root;
 use pallet_base::{ensure_string_limited, try_next_pre};
 
-use polymesh_common_utilities::{
-    protocol_fee::ProtocolOp,
-    traits::{
-        group::{GroupTrait, InactiveMember},
-        identity::{Config, RawEvent},
-    },
-    SystematicIssuers,
-};
 use polymesh_primitives::identity_claim::CustomClaimTypeId;
 use polymesh_primitives::{
-    CddId, Claim, ClaimType, IdentityClaim, IdentityId, Scope, SecondaryKey,
+    protocol_fee::ProtocolOp,
+    traits::group::{GroupTrait, InactiveMember},
+    CddId, Claim, ClaimType, IdentityClaim, IdentityId, Scope, SecondaryKey, SystematicIssuers,
 };
 use sp_runtime::traits::{CheckedAdd, SaturatedConversion, Zero};
 use sp_std::prelude::*;

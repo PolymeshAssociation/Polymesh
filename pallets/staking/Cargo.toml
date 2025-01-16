@@ -5,9 +5,8 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 
 [dependencies]
-polymesh-primitives = { path = "../../primitives", default-features = false }
-polymesh-common-utilities = { path = "../common", default-features = false }
-pallet-identity = { path = "../identity", default-features = false}
+polymesh-primitives = { workspace = true, default-features = false }
+pallet-identity = { workspace = true, default-features = false}
 
 # General
 static_assertions = "1.1.0"
@@ -44,7 +43,6 @@ sp-tracing = "6.0.0"
 default = ["std"]
 no_std = []
 std = [
-	"polymesh-common-utilities/std",
 	"polymesh-primitives/std",
 	"serde",
 	"codec/std",
@@ -65,7 +63,6 @@ std = [
 	"frame-benchmarking",
 ]
 runtime-benchmarks = [
-	"polymesh-common-utilities/runtime-benchmarks",
 	"frame-benchmarking",
 	"rand_chacha",
 ]

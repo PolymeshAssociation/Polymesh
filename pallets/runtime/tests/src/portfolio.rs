@@ -6,16 +6,15 @@ use pallet_portfolio::{
     AllowedCustodians, Event, NameToNumber, PortfolioAssetBalances, PortfolioCustodian,
     PortfolioNFT, Portfolios, PreApprovedPortfolios,
 };
-use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::asset::{AssetId, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
 };
 use polymesh_primitives::settlement::{Leg, SettlementType};
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, Fund, FundDescription, Memo, NFTCollectionKeys, NFTId,
-    NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
-    Signatory,
+    traits::PortfolioSubTrait, AuthorizationData, AuthorizationError, Fund, FundDescription, Memo,
+    NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind,
+    PortfolioName, PortfolioNumber, Signatory,
 };
 use sp_keyring::AccountKeyring;
 

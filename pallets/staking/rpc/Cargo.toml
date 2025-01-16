@@ -22,5 +22,5 @@ frame-system = { version = "4.0.0-dev", default-features = false }
 # General
 serde = { version = "1.0.104", features = ["derive"] }
 
-node-rpc = { path = "../../../rpc" }
+node-rpc = { workspace = true }
 pallet-staking-rpc-runtime-api = { version = "2.0.0", path = "./runtime-api" }

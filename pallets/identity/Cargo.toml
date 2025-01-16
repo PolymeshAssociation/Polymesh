@@ -5,16 +5,14 @@ authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
-pallet-balances = { path = "../balances", default-features = false }
-pallet-base = { path = "../base", default-features = false }
-pallet-permissions = { path = "../permissions", default-features = false }
-polymesh-common-utilities = { path = "../common", default-features = false }
-polymesh-primitives = { path = "../../primitives", default-features = false }
+pallet-base = { workspace = true, default-features = false }
+pallet-permissions = { workspace = true, default-features = false }
+polymesh-primitives = { workspace = true, default-features = false }
 
 # Others
 log = "0.4.8"
 serde = { version = "1.0.104", default-features = false }
-serde_derive = { version = "1.0.104", optional = true, default-features = false  }
+serde_derive = { version = "1.0.104", optional = true, default-features = false }
 either = { version = "1.6.1", default-features = false }
 hex-literal = "0.3.0"
 
@@ -23,20 +21,24 @@ schnorrkel = { version = "0.11", default-features = false, optional = true }
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
-frame-support = { version = "4.0.0-dev", default-features = false }
-scale-info = { version = "2.0", default-features = false, features = ["derive"] }
-frame-system = { version = "4.0.0-dev", default-features = false }
-pallet-timestamp = { version = "4.0.0-dev", default-features = false }
-sp-api = { version = "4.0.0-dev", default-features = false }
-sp-core = { version = "7.0.0", default-features = false }
-sp-io = { version = "7.0.0", default-features = false }
-sp-runtime = { version = "7.0.0", default-features = false }
-sp-std = { version = "5.0.0", default-features = false }
-sp-version = { version = "5.0.0", default-features = false }
+frame-support = { workspace = true, default-features = false }
+scale-info = { version = "2.0", default-features = false, features = [
+    "derive",
+] }
+frame-system = { workspace = true, default-features = false }
+pallet-timestamp = { workspace = true, default-features = false }
+sp-api = { workspace = true, default-features = false }
+sp-core = { workspace = true, default-features = false }
+sp-io = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
+sp-std = { workspace = true, default-features = false }
+sp-version = { workspace = true, default-features = false }
 
 # Only Benchmarking
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
-hex = { version = "^0.4.0", default-features = false, features = ["alloc"], optional = true }
+hex = { version = "^0.4.0", default-features = false, features = [
+    "alloc",
+], optional = true }
 
 [features]
 equalize = []
@@ -50,10 +52,8 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "pallet-base/std",
-    "pallet-balances/std",
     "pallet-permissions/std",
     "pallet-timestamp/std",
-    "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "serde/std",
     "serde_derive",
@@ -64,9 +64,4 @@ std = [
     "sp-std/std",
     "sp-version/std",
 ]
-runtime-benchmarks = [
-    "frame-benchmarking",
-    "polymesh-common-utilities/runtime-benchmarks",
-    "schnorrkel",
-    "hex",
-]
+runtime-benchmarks = ["frame-benchmarking", "schnorrkel", "hex"]

@@ -21,10 +21,8 @@ use frame_support::{
     traits::UnfilteredDispatchable,
 };
 use frame_system::RawOrigin;
-use polymesh_common_utilities::{
-    benchs::{user, User},
-    MaybeBlock, SystematicIssuers, GC_DID,
-};
+use pallet_identity::benchmarking::{user, User};
+use polymesh_primitives::{MaybeBlock, SystematicIssuers, GC_DID};
 use rand::{seq::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sp_std::{

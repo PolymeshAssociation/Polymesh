@@ -14,8 +14,7 @@ use pallet_committee::{self as committee, PolymeshVotes, RawEvent as CommitteeRa
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips::{PipId, ProposalState, SnapshotResult};
-use polymesh_common_utilities::MaybeBlock;
-use polymesh_primitives::IdentityId;
+use polymesh_primitives::{IdentityId, MaybeBlock};
 use sp_core::H256;
 use sp_keyring::AccountKeyring;
 use sp_runtime::traits::Hash;

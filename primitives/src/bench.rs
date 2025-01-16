@@ -1,17 +1,17 @@
+#![allow(missing_docs)]
+
+use crate::{
+    asset::{AssetId, AssetName, AssetType},
+    constants::currency::POLY,
+    traits::{AssetFnConfig, AssetFnTrait},
+    PortfolioKind, Ticker,
+};
 use sp_std::vec;
 
-use polymesh_primitives::asset::{AssetId, AssetName, AssetType};
-use polymesh_primitives::{PortfolioKind, Ticker};
-
-use crate::benchs::User;
-use crate::constants::currency::POLY;
-use crate::traits::asset::{AssetFnTrait, Config};
-
-pub type ResultTicker = Result<Ticker, &'static str>;
-
 /// Registers a unique ticker named `ticker_name` for `ticker_owner`.
-pub fn reg_unique_ticker<T: Config>(
-    ticker_owner: T::RuntimeOrigin,
+#[cfg(feature = "runtime-benchmarks")]
+pub fn reg_unique_ticker<T: AssetFnConfig>(
+    ticker_owner: T::AccountId,
     ticker_name: Option<&[u8]>,
 ) -> Ticker {
     let ticker = match ticker_name {
@@ -22,17 +22,18 @@ pub fn reg_unique_ticker<T: Config>(
     ticker
 }
 
-pub fn create_and_issue_sample_asset<T: Config>(
-    asset_owner: &User<T>,
+#[cfg(feature = "runtime-benchmarks")]
+pub fn create_and_issue_sample_asset<T: AssetFnConfig>(
+    asset_owner: T::AccountId,
     divisible: bool,
     asset_type: Option<AssetType>,
     asset_name: &[u8],
     issue_tokens: bool,
 ) -> AssetId {
-    let asset_id = T::AssetFn::generate_asset_id(asset_owner.account());
+    let asset_id = T::AssetFn::generate_asset_id(asset_owner.clone());
 
     T::AssetFn::create_asset(
-        asset_owner.origin().into(),
+        asset_owner.clone(),
         AssetName::from(asset_name),
         divisible,
         asset_type.unwrap_or_default(),
@@ -43,7 +44,7 @@ pub fn create_and_issue_sample_asset<T: Config>(
 
     if issue_tokens {
         T::AssetFn::issue(
-            asset_owner.origin().into(),
+            asset_owner,
             asset_id,
             (1_000_000 * POLY).into(),
             PortfolioKind::Default,

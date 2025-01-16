@@ -7,7 +7,9 @@ use frame_support::dispatch::{
 use frame_support::storage::StorageDoubleMap;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use frame_support::{decl_error, decl_module, decl_storage, ensure, require_transactional};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, ensure, require_transactional,
+};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{vec, vec::Vec};
@@ -15,8 +17,6 @@ use sp_std::{vec, vec::Vec};
 use pallet_asset::Frozen;
 use pallet_base::try_next_pre;
 use pallet_portfolio::{PortfolioLockedNFT, PortfolioNFT};
-use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
-pub use polymesh_common_utilities::traits::nft::{Config, Event, NFTTrait, WeightInfo};
 use polymesh_primitives::asset::{AssetId, AssetName, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
@@ -24,8 +24,9 @@ use polymesh_primitives::nft::{
 };
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::{
-    storage_migration_ver, IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason,
-    WeightMeter,
+    storage_migration_ver,
+    traits::{ComplianceFnConfig, NFTTrait},
+    IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, WeightMeter,
 };
 
 type Asset<T> = pallet_asset::Module<T>;
@@ -37,6 +38,45 @@ type Portfolio<T> = pallet_portfolio::Module<T>;
 pub mod benchmarking;
 
 storage_migration_ver!(4);
+
+pub trait WeightInfo {
+    fn create_nft_collection(n: u32) -> Weight;
+    fn issue_nft(n: u32) -> Weight;
+    fn redeem_nft(n: u32) -> Weight;
+    fn base_nft_transfer(n: u32) -> Weight;
+    fn controller_transfer(n: u32) -> Weight;
+}
+
+pub trait Config:
+    frame_system::Config + pallet_asset::Config + pallet_identity::Config + pallet_portfolio::Config
+{
+    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+
+    type WeightInfo: WeightInfo;
+
+    type Compliance: ComplianceFnConfig;
+
+    type MaxNumberOfCollectionKeys: Get<u8>;
+
+    type MaxNumberOfNFTsCount: Get<u32>;
+}
+
+decl_event!(
+    pub enum Event {
+        /// Emitted when a new nft collection is created.
+        NftCollectionCreated(IdentityId, AssetId, NFTCollectionId),
+        /// Emitted when NFTs were issued, redeemed or transferred.
+        /// Contains the [`IdentityId`] of the receiver/issuer/redeemer, the [`NFTs`], the [`PortfolioId`] of the source, the [`PortfolioId`]
+        /// of the destination and the [`PortfolioUpdateReason`].
+        NFTPortfolioUpdated(
+            IdentityId,
+            NFTs,
+            Option<PortfolioId>,
+            Option<PortfolioId>,
+            PortfolioUpdateReason,
+        ),
+    }
+);
 
 decl_storage!(
     trait Store for Module<T: Config> as NFT {

@@ -5,17 +5,16 @@ authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
-polymesh-common-utilities = { path = "../common", default-features = false  }
-polymesh-primitives = { path = "../../primitives", default-features = false }
-polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
-polymesh-runtime-common = { path = "../runtime/common", default-features = false }
+polymesh-primitives = { workspace = true, default-features = false }
+polymesh-primitives-derive = { workspace = true, default-features = false }
+polymesh-runtime-common = { workspace = true, default-features = false }
 
-pallet-group = { path = "../group", default-features = false }
-pallet-identity = { path = "../identity", default-features = false }
-pallet-balances = { path = "../balances", default-features = false }
-pallet-base = { path = "../base", default-features = false }
-pallet-permissions = { path = "../permissions", default-features = false }
-pallet-treasury = { path = "../treasury", default-features = false }
+pallet-group = { workspace = true, default-features = false }
+pallet-identity = { workspace = true, default-features = false }
+pallet-balances = { workspace = true, default-features = false }
+pallet-base = { workspace = true, default-features = false }
+pallet-permissions = { workspace = true, default-features = false }
+pallet-treasury = { workspace = true, default-features = false }
 
 # General
 serde = { version = "1.0.104", default-features = false }
@@ -41,7 +40,7 @@ pallet-timestamp = { version = "4.0.0-dev", default-features = false }
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
 rand = { version = "0.8.2", default-features = false, optional = true }
 rand_chacha = { version = "0.3.0", default-features = false, optional = true }
-pallet-committee = { path = "../committee", default-features = false, optional = true }
+pallet-committee = { workspace = true, default-features = false, optional = true }
 
 [features]
 equalize = []
@@ -60,7 +59,6 @@ std = [
     "pallet-identity/std",
     "pallet-timestamp/std",
     "pallet-treasury/std",
-    "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "polymesh-runtime-common/std",
     "serde/std",

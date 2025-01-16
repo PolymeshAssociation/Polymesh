@@ -19,9 +19,9 @@ use scale_info::prelude::format;
 use sp_api_hidden_includes_decl_storage::hidden_include::traits::Get;
 use sp_std::prelude::*;
 
-use polymesh_common_utilities::asset::Config as AssetConfig;
-use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, user, User, UserBuilder};
-use polymesh_common_utilities::constants::currency::ONE_UNIT;
+use pallet_identity::benchmarking::{user, User, UserBuilder};
+use polymesh_primitives::bench::create_and_issue_sample_asset;
+use polymesh_primitives::constants::currency::ONE_UNIT;
 use polymesh_primitives::{AuthorizationData, NFTs, PortfolioName, Signatory};
 
 use crate::*;
@@ -61,8 +61,6 @@ fn assert_custodian<T: Config>(pid: PortfolioId, custodian: &User<T>, holds: boo
 }
 
 benchmarks! {
-    where_clause { where T: AssetConfig }
-
     create_portfolio {
         let l in 1..PORTFOLIO_NAME_LEN.try_into().unwrap();
 
@@ -143,7 +141,7 @@ benchmarks! {
         let nfts = NFTs::new_unverified(nft_asset_id, (1..n + 1).map(|id| NFTId(id.into())).collect());
         let mut funds = vec![Fund { description: FundDescription::NonFungible(nfts), memo: None }];
         for i in 0..f {
-            let asset_id = create_and_issue_sample_asset(&alice, true, None, format!("TICKER{}", i).as_bytes(), true);
+            let asset_id = create_and_issue_sample_asset::<T>(alice.account(), true, None, format!("TICKER{}", i).as_bytes(), true);
             funds.push(Fund { description: FundDescription::Fungible{ asset_id, amount: ONE_UNIT }, memo: None })
         }
     }: _(alice.origin, alice_default_portfolio.clone(), alice_custom_portfolio.clone(), funds)

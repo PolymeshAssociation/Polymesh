@@ -21,7 +21,7 @@ use super::*;
 use crate::Module as Balances;
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
-use polymesh_common_utilities::benchs::UserBuilder;
+use pallet_identity::benchmarking::UserBuilder;
 
 fn make_worst_memo() -> Option<Memo> {
     Some(Memo([7u8; 32]))

@@ -5,17 +5,15 @@ authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
-polymesh-common-utilities = { path = "../common", default-features = false }
-pallet-balances = { path = "../balances", default-features = false  }
-pallet-base = { path = "../base", default-features = false  }
-pallet-identity = { path = "../identity", default-features = false  }
-pallet-asset = { path = "../asset", default-features = false  }
-pallet-external-agents = { path = "../external-agents", default-features = false }
-polymesh-primitives = { path = "../../primitives", default-features = false }
-polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
-pallet-compliance-manager = { path = "../compliance-manager", default-features = false }
-pallet-statistics = { path = "../statistics", default-features = false }
-pallet-nft = { path = "../nft", default-features = false }
+pallet-base = { workspace = true, default-features = false  }
+pallet-identity = { workspace = true, default-features = false  }
+pallet-asset = { workspace = true, default-features = false  }
+pallet-external-agents = { workspace = true, default-features = false }
+polymesh-primitives = { workspace = true, default-features = false }
+polymesh-primitives-derive = { workspace = true, default-features = false }
+pallet-compliance-manager = { workspace = true, default-features = false }
+pallet-permissions = { workspace = true, default-features = false }
+pallet-nft = { workspace = true, default-features = false }
 
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
@@ -50,12 +48,10 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "pallet-base/std",
-    "pallet-balances/std",
     "pallet-asset/std",
     "pallet-identity/std",
     "pallet-timestamp/std",
-    "pallet-statistics/std",
-    "polymesh-common-utilities/std",
+    "pallet-permissions/std",
     "pallet-compliance-manager/std",
     "polymesh-primitives/std",
     "serde/std",

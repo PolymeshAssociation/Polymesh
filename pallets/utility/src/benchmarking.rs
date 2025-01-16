@@ -24,7 +24,7 @@ use frame_system::RawOrigin;
 use sp_core::sr25519::Signature;
 use sp_runtime::MultiSignature;
 
-use polymesh_common_utilities::benchs::{user, User, UserBuilder};
+use pallet_identity::benchmarking::{user, User, UserBuilder};
 
 use super::*;
 

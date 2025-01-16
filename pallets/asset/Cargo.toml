@@ -6,19 +6,17 @@ edition = "2021"
 
 [dependencies]
 # Common
-polymesh-primitives = { path = "../../primitives", default-features = false }
-polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
-polymesh-common-utilities = { path = "../common", default-features = false }
+polymesh-primitives = { workspace = true, default-features = false }
+polymesh-primitives-derive = { workspace = true, default-features = false }
 
 # Our Pallets
-pallet-balances = { path = "../balances", default-features = false  }
-pallet-base = { path = "../base", default-features = false  }
-pallet-external-agents = { path = "../external-agents", default-features = false }
-pallet-identity = { path = "../identity", default-features = false }
-pallet-permissions = { path = "../permissions", default-features = false }
-pallet-portfolio = { path = "../portfolio", default-features = false }
-pallet-statistics = { path = "../statistics", default-features = false }
-polymesh-runtime-common = { path = "../runtime/common", default-features = false }
+pallet-base = { workspace = true, default-features = false  }
+pallet-external-agents = { workspace = true, default-features = false }
+pallet-identity = { workspace = true, default-features = false }
+pallet-permissions = { workspace = true, default-features = false }
+pallet-portfolio = { workspace = true, default-features = false }
+pallet-statistics = { workspace = true, default-features = false }
+polymesh-runtime-common = { workspace = true, default-features = false }
 
 # Other
 serde = { version = "1.0.104", default-features = false }
@@ -54,12 +52,10 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "pallet-base/std",
-    "pallet-balances/std",
     "pallet-identity/std",
     "pallet-portfolio/std",
     "pallet-timestamp/std",
     "pallet-external-agents/std",
-    "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "polymesh-runtime-common/std",
     "rustc-hex/std",
@@ -75,6 +71,5 @@ std = [
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
-    "polymesh-common-utilities/runtime-benchmarks",
     "pallet-identity/runtime-benchmarks",
 ]

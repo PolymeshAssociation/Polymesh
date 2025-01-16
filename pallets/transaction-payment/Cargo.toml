@@ -6,8 +6,7 @@ edition = "2021"
 
 [dependencies]
 # Our deps
-polymesh-primitives = { path = "../../primitives", default-features = false  }
-polymesh-common-utilities = { path = "../common", default-features = false }
+polymesh-primitives = { workspace = true, default-features = false  }
 
 # General
 serde = { version = "1.0.104", default-features = false, optional = true }
@@ -33,7 +32,6 @@ no_std = []
 std = [
 	"serde",
 	"polymesh-primitives/std",
-	"polymesh-common-utilities/std",
 	"codec/std",
 	"sp-api/std",
 	"sp-std/std",

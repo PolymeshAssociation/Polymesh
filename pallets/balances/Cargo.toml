@@ -5,9 +5,10 @@ authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
-pallet-permissions = { path = "../permissions", default-features = false }
-polymesh-common-utilities = { path = "../common", default-features = false }
-polymesh-primitives = { path = "../../primitives", default-features = false }
+# Our pallets
+pallet-permissions = { workspace = true, default-features = false }
+pallet-identity = { workspace = true, default-features = false }
+polymesh-primitives = { workspace = true, default-features = false }
 
 log = "0.4.8"
 serde = { version = "1.0.104", default-features = false }
@@ -21,6 +22,7 @@ sp-io = { version = "7.0.0", default-features = false }
 sp-runtime = { version = "7.0.0", default-features = false }
 sp-version = { version = "5.0.0", default-features = false }
 sp-api = { version = "4.0.0-dev", default-features = false }
+sp-arithmetic = { version = "6.0.0", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 
@@ -44,13 +46,16 @@ std = [
 	"sp-runtime/std",
 	"sp-version/std",
 	"sp-api/std",
+	"sp-arithmetic/std",
 	"frame-system/std",
 	"frame-support/std",
 	"pallet-timestamp/std",
-	"polymesh-common-utilities/std",
 	"polymesh-primitives/std",
+	"pallet-permissions/std",
+	"pallet-identity/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
-	"polymesh-common-utilities/runtime-benchmarks"
+	"pallet-permissions/runtime-benchmarks",
+	"pallet-identity/runtime-benchmarks",
 ]

@@ -26,12 +26,23 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use core::mem;
+use frame_support::decl_event;
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::{Get, StorageInfo, StorageInfoTrait};
 use frame_support::{decl_error, decl_module, ensure};
-pub use polymesh_common_utilities::traits::base::{Config, Event};
 use polymesh_primitives::checked_inc::CheckedInc;
 use sp_std::{vec, vec::Vec};
+
+pub trait Config: frame_system::Config {
+    /// The overarching event type.
+    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+
+    /// The maximum length governing `TooLong`.
+    ///
+    /// How lengths are computed to compare against this value is situation based.
+    /// For example, you could halve it, double it, compute a sum for some tree of strings, etc.
+    type MaxLen: Get<u32>;
+}
 
 decl_module! {
     pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
@@ -44,6 +55,13 @@ decl_module! {
 /// Emit an unexpected error event that should be investigated manually
 pub fn emit_unexpected_error<T: Config>(error: Option<DispatchError>) {
     Module::<T>::deposit_event(Event::UnexpectedError(error));
+}
+
+decl_event! {
+    pub enum Event {
+        /// An unexpected error happened that should be investigated.
+        UnexpectedError(Option<DispatchError>),
+    }
 }
 
 decl_error! {

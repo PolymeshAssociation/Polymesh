@@ -17,7 +17,7 @@ use super::*;
 use crate::benchmarking::{set_ca_targets, setup_ca};
 use core::iter;
 use frame_benchmarking::benchmarks;
-use polymesh_common_utilities::benchs::User;
+use pallet_identity::benchmarking::User;
 
 const MAX_CHOICES: u32 = 1000;
 const MAX_TARGETS: u32 = 1000;

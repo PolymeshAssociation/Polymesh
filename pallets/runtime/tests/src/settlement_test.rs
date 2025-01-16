@@ -21,12 +21,12 @@ use pallet_settlement::{
     InstructionMemos, NumberOfVenueSigners, OffChainAffirmations, RawEvent, UserAffirmations,
     UserVenues, VenueInstructions,
 };
-use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_primitives::asset::{AssetId, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
 };
 use polymesh_primitives::checked_inc::CheckedInc;
+use polymesh_primitives::constants::currency::ONE_UNIT;
 use polymesh_primitives::settlement::{
     AffirmationCount, AffirmationStatus, AssetCount, Instruction, InstructionId, InstructionStatus,
     Leg, LegId, LegStatus, MediatorAffirmationStatus, Receipt, ReceiptDetails, SettlementType,

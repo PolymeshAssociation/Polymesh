@@ -1,16 +1,16 @@
 use codec::{Decode, Encode};
 use core::convert::{TryFrom, TryInto};
 use core::marker::PhantomData;
-use pallet_identity::Module;
-use polymesh_common_utilities::traits::identity::Config;
-use polymesh_common_utilities::{traits::transaction_payment::CddAndFeeDetails, Context};
-use polymesh_primitives::{AccountId, AuthorizationData, IdentityId, Signatory, TransactionError};
+use pallet_identity::{Config as IdentityConfig, Context, Module as Identity};
+use polymesh_primitives::{
+    traits::CddAndFeeDetails, AccountId, AuthorizationData, IdentityId, Signatory, TransactionError,
+};
 use sp_runtime::transaction_validity::InvalidTransaction;
 
 /// The set of `Call`s from pallets that `CddHandler` recognizes specially.
 pub enum Call<'a, R>
 where
-    R: Config + pallet_multisig::Config + pallet_relayer::Config,
+    R: IdentityConfig + pallet_multisig::Config + pallet_relayer::Config,
 {
     MultiSig(&'a pallet_multisig::Call<R>),
     Identity(&'a pallet_identity::Call<R>),
@@ -24,7 +24,7 @@ pub struct CddHandler<A>(PhantomData<A>);
 impl<C, A> CddAndFeeDetails<AccountId, C> for CddHandler<A>
 where
     for<'a> Call<'a, A>: TryFrom<&'a C>,
-    A: Config<AccountId = AccountId> + pallet_multisig::Config + pallet_relayer::Config,
+    A: IdentityConfig<AccountId = AccountId> + pallet_multisig::Config + pallet_relayer::Config,
 {
     /// Check if there's an eligible payer with valid CDD.
     /// Return the payer if found or else an error.
@@ -36,7 +36,7 @@ where
     fn get_valid_payer(call: &C, caller: &AccountId) -> ValidPayerResult {
         // Check if the `did` has a valid CDD claim.
         let check_did_cdd = |did: &IdentityId| {
-            if Module::<A>::has_valid_cdd(*did) {
+            if Identity::<A>::has_valid_cdd(*did) {
                 Ok(None)
             } else {
                 CDD_REQUIRED
@@ -47,13 +47,13 @@ where
         // and return the primary key as the payer.
         let did_primary_pays = |did: &IdentityId| {
             check_did_cdd(did)?;
-            Ok(Module::<A>::get_primary_key(*did))
+            Ok(Identity::<A>::get_primary_key(*did))
         };
 
         // Check if the `caller` key has a DID and a valid CDD claim.
         // The caller is also the payer.
         let caller_pays = |caller: &AccountId| {
-            match pallet_identity::Module::<A>::get_identity(caller) {
+            match Identity::<A>::get_identity(caller) {
                 Some(did) => {
                     check_did_cdd(&did)?;
                     Ok(Some(caller.clone()))
@@ -68,7 +68,7 @@ where
                 let ms_pays = caller_pays(multisig)?;
                 // If the `multisig` has a paying DID, then it's primary key pays.
                 match pallet_multisig::Pallet::<A>::get_paying_did(multisig) {
-                    Some(did) => Ok(Module::<A>::get_primary_key(did)),
+                    Some(did) => Ok(Identity::<A>::get_primary_key(did)),
                     None => Ok(ms_pays),
                 }
             } else {
@@ -80,7 +80,7 @@ where
         // pays the fee to accept the authorization.
         let is_auth_valid = |acc: &AccountId, auth_id: &u64, call_type: CallType| {
             // Fetch the auth if it exists and has not expired.
-            match Module::<A>::get_non_expired_auth(&Signatory::Account(acc.clone()), auth_id)
+            match Identity::<A>::get_non_expired_auth(&Signatory::Account(acc.clone()), auth_id)
                 .map(|auth| (auth.authorized_by, (auth.authorization_data, call_type)))
             {
                 // Different auths have different authorization data requirements.
@@ -178,12 +178,12 @@ where
 
     /// Sets payer in context. Should be called by the signed extension that first charges fee.
     fn set_payer_context(payer: Option<AccountId>) {
-        Context::set_current_payer::<pallet_identity::Module<A>>(payer);
+        Context::set_current_payer::<Identity<A>>(payer);
     }
 
     /// Fetches fee payer for further payments (forwarded calls)
     fn get_payer_from_context() -> Option<AccountId> {
-        Context::current_payer::<pallet_identity::Module<A>>()
+        Context::current_payer::<Identity<A>>()
     }
 }
 

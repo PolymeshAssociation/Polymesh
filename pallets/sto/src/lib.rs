@@ -38,14 +38,12 @@ use sp_std::prelude::*;
 use pallet_base::try_next_post;
 use pallet_identity::PermissionedCallOriginData;
 use pallet_settlement::VenueInfo;
-use polymesh_common_utilities::portfolio::PortfolioSubTrait;
-use polymesh_common_utilities::traits::{identity, portfolio};
-use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::impl_checked_inc;
 use polymesh_primitives::settlement::{Leg, ReceiptDetails, SettlementType, VenueId, VenueType};
 use polymesh_primitives::{
-    storage_migration_ver, Balance, EventDid, IdentityId, PortfolioId, WeightMeter,
+    storage_migration_ver, traits::PortfolioSubTrait, with_transaction, Balance, EventDid,
+    IdentityId, PortfolioId, WeightMeter,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 
@@ -169,9 +167,9 @@ pub trait WeightInfo {
 
 pub trait Config:
     frame_system::Config
-    + identity::Config
+    + pallet_identity::Config
     + pallet_settlement::Config
-    + portfolio::Config
+    + pallet_portfolio::Config
     + pallet_base::Config
 {
     /// The overarching event type.

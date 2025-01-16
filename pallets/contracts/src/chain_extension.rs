@@ -15,8 +15,8 @@ use sp_core::crypto::UncheckedFrom;
 
 use pallet_contracts::chain_extension as ce;
 use pallet_contracts::Config as BConfig;
+use pallet_identity::Context;
 use pallet_permissions::with_call_metadata;
-use polymesh_common_utilities::Context;
 
 use super::*;
 
@@ -478,7 +478,7 @@ where
         target: "runtime",
         "PolymeshExtension contract GetNextAssetId: caller_account={caller_account:?}",
     );
-    let asset_id = T::Asset::generate_asset_id(caller_account);
+    let asset_id = T::AssetFn::generate_asset_id(caller_account);
     trace!(
         target: "runtime",
         "PolymeshExtension contract GetNextAssetId: asset_id={asset_id:?}",

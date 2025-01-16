@@ -40,7 +40,7 @@ pub use sp_runtime::transaction_validity::TransactionPriority;
 pub use sp_runtime::{Perbill, Permill};
 
 use pallet_balances as balances;
-use polymesh_common_utilities::constants::currency::*;
+use polymesh_primitives::constants::currency::*;
 use polymesh_primitives::{Balance, BlockNumber, IdentityId, Moment};
 
 pub use cdd_check::CddChecker;
@@ -218,7 +218,7 @@ impl Get<Vec<WeightToFeeCoefficient<Balance>>> for WeightToFee {
 }
 
 use pallet_group_rpc_runtime_api::Member;
-use polymesh_common_utilities::traits::group::InactiveMember;
+use polymesh_primitives::traits::group::InactiveMember;
 use sp_std::{convert::From, prelude::*};
 
 /// It merges actives and in-actives members.

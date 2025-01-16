@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::traits::CommonConfig;
+use crate::BlockRewardConfig;
 use core::marker::PhantomData;
 use frame_support::traits::{Imbalance, SameOrOther, TryDrop};
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
@@ -27,28 +27,28 @@ use sp_std::{mem, result};
 /// Opaque, move-only struct with private fields that serves as a token denoting that
 /// funds have been created without any equal and opposite accounting.
 #[must_use]
-pub struct PositiveImbalance<T: CommonConfig>(Balance, PhantomData<T>);
+pub struct PositiveImbalance<T: BlockRewardConfig>(Balance, PhantomData<T>);
 
-impl<T: CommonConfig> Default for PositiveImbalance<T> {
+impl<T: BlockRewardConfig> Default for PositiveImbalance<T> {
     fn default() -> Self {
         Self::new(<_>::default())
     }
 }
 
-impl<T: CommonConfig> PositiveImbalance<T> {
+impl<T: BlockRewardConfig> PositiveImbalance<T> {
     /// Create a new positive imbalance from a balance.
     pub fn new(amount: Balance) -> Self {
         PositiveImbalance(amount, PhantomData)
     }
 }
 
-impl<T: CommonConfig> TryDrop for PositiveImbalance<T> {
+impl<T: BlockRewardConfig> TryDrop for PositiveImbalance<T> {
     fn try_drop(self) -> result::Result<(), Self> {
         self.drop_zero()
     }
 }
 
-impl<T: CommonConfig> Imbalance<Balance> for PositiveImbalance<T> {
+impl<T: BlockRewardConfig> Imbalance<Balance> for PositiveImbalance<T> {
     type Opposite = NegativeImbalance<T>;
 
     fn zero() -> Self {
@@ -101,7 +101,7 @@ impl<T: CommonConfig> Imbalance<Balance> for PositiveImbalance<T> {
     }
 }
 
-impl<T: CommonConfig> Drop for PositiveImbalance<T> {
+impl<T: BlockRewardConfig> Drop for PositiveImbalance<T> {
     /// Basic drop handler will just square up the total issuance.
     fn drop(&mut self) {
         T::BlockRewardsReserve::drop_positive_imbalance(self.0);
@@ -111,28 +111,28 @@ impl<T: CommonConfig> Drop for PositiveImbalance<T> {
 /// Opaque, move-only struct with private fields that serves as a token denoting that
 /// funds have been destroyed without any equal and opposite accounting.
 #[must_use]
-pub struct NegativeImbalance<T: CommonConfig>(Balance, PhantomData<T>);
+pub struct NegativeImbalance<T: BlockRewardConfig>(Balance, PhantomData<T>);
 
-impl<T: CommonConfig> Default for NegativeImbalance<T> {
+impl<T: BlockRewardConfig> Default for NegativeImbalance<T> {
     fn default() -> Self {
         Self::new(<_>::default())
     }
 }
 
-impl<T: CommonConfig> NegativeImbalance<T> {
+impl<T: BlockRewardConfig> NegativeImbalance<T> {
     /// Create a new negative imbalance from a balance.
     pub fn new(amount: Balance) -> Self {
         NegativeImbalance(amount, PhantomData)
     }
 }
 
-impl<T: CommonConfig> TryDrop for NegativeImbalance<T> {
+impl<T: BlockRewardConfig> TryDrop for NegativeImbalance<T> {
     fn try_drop(self) -> result::Result<(), Self> {
         self.drop_zero()
     }
 }
 
-impl<T: CommonConfig> Imbalance<Balance> for NegativeImbalance<T> {
+impl<T: BlockRewardConfig> Imbalance<Balance> for NegativeImbalance<T> {
     type Opposite = PositiveImbalance<T>;
 
     fn zero() -> Self {
@@ -185,7 +185,7 @@ impl<T: CommonConfig> Imbalance<Balance> for NegativeImbalance<T> {
     }
 }
 
-impl<T: CommonConfig> Drop for NegativeImbalance<T> {
+impl<T: BlockRewardConfig> Drop for NegativeImbalance<T> {
     /// Basic drop handler will just square up the total issuance.
     fn drop(&mut self) {
         T::BlockRewardsReserve::drop_negative_imbalance(self.0);

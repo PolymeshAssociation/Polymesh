@@ -17,7 +17,7 @@ use crate::*;
 
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
-use polymesh_common_utilities::benchs::UserBuilder;
+use pallet_identity::benchmarking::UserBuilder;
 use sp_std::vec::Vec;
 
 const MAX_BENEFICIARIES: u32 = 128;

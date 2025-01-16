@@ -4,15 +4,15 @@ use frame_support::{assert_noop, assert_ok};
 use sp_std::prelude::*;
 
 use pallet_compliance_manager::Error as CMError;
-use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::compliance_manager::{
     ComplianceReport, ComplianceRequirement, ComplianceRequirementResult,
 };
 use polymesh_primitives::{
-    AuthorizationData, Claim, ClaimType, Condition, ConditionType, CountryCode, IdentityId,
-    PortfolioId, Scope, Signatory, TargetIdentity, TrustedFor, WeightMeter,
+    traits::ComplianceFnConfig, AuthorizationData, Claim, ClaimType, Condition, ConditionType,
+    CountryCode, IdentityId, PortfolioId, Scope, Signatory, TargetIdentity, TrustedFor,
+    WeightMeter,
 };
 use sp_keyring::AccountKeyring;
 

@@ -84,36 +84,294 @@ pub mod benchmarking;
 mod auth;
 mod claims;
 mod keys;
-pub mod types;
 
-pub use polymesh_common_utilities::traits::identity::WeightInfo;
+mod context;
+pub use context::Context;
+
+pub mod types;
 pub use types::{Claim1stKey, Claim2ndKey, DidStatus, PermissionedCallOriginData, RpcDidRecords};
 
-use core::convert::From;
-
 use codec::{Decode, Encode};
-use frame_system::ensure_root;
-use sp_std::prelude::*;
-
+use core::convert::From;
 use frame_support::dispatch::DispatchClass::{Normal, Operational};
-use frame_support::dispatch::{DispatchError, DispatchResult, Pays, Weight};
-use frame_support::traits::{ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers};
-use frame_support::{decl_error, decl_module, decl_storage};
-use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
-use polymesh_common_utilities::traits::identity::{
-    AuthorizationNonce, Config, CreateChildIdentityWithAuth, IdentityFnTrait, RawEvent,
-    SecondaryKeyWithAuth,
+use frame_support::dispatch::{
+    DispatchError, DispatchResult, GetDispatchInfo, Pays, PostDispatchInfo, Weight,
 };
-use polymesh_common_utilities::{SystematicIssuers, GC_DID};
+use frame_support::traits::{
+    ChangeMembers, Currency, EnsureOrigin, Get, GetCallMetadata, InitializeMembers,
+};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, Parameter};
+use frame_system::ensure_root;
+use polymesh_primitives::identity::limits::{
+    MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
+};
 use polymesh_primitives::{
-    storage_migration_ver, AssetPermissions, Authorization, AuthorizationData, AuthorizationType,
-    CddId, Claim, ClaimType, CustomClaimTypeId, DidRecord, ExtrinsicPermissions, IdentityClaim,
-    IdentityId, KeyRecord, Permissions, PortfolioPermissions, Scope, SecondaryKey, Signatory,
+    identity::{AuthorizationNonce, CreateChildIdentityWithAuth, SecondaryKeyWithAuth},
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
+    storage_migration_ver,
+    traits::group::GroupTrait,
+    traits::{CddAndFeeDetails, IdentityFnTrait},
+    AssetPermissions, Authorization, AuthorizationData, AuthorizationType, Balance, CddId, Claim,
+    ClaimType, CustomClaimTypeId, DidRecord, ExtrinsicPermissions, IdentityClaim, IdentityId,
+    KeyRecord, Permissions, PortfolioPermissions, Scope, SecondaryKey, Signatory, Ticker,
 };
-
-pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
+use polymesh_primitives::{SystematicIssuers, GC_DID};
+use scale_info::TypeInfo;
+use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
+use sp_std::prelude::*;
+use sp_std::vec::Vec;
 
 storage_migration_ver!(7);
+
+pub trait WeightInfo {
+    fn create_child_identity() -> Weight;
+    fn create_child_identities(i: u32) -> Weight;
+    fn unlink_child_identity() -> Weight;
+    fn cdd_register_did(i: u32) -> Weight;
+    fn invalidate_cdd_claims() -> Weight;
+    fn remove_secondary_keys(i: u32) -> Weight;
+    fn accept_primary_key() -> Weight;
+    fn rotate_primary_key_to_secondary() -> Weight;
+    fn change_cdd_requirement_for_mk_rotation() -> Weight;
+    fn join_identity_as_key() -> Weight;
+    fn leave_identity_as_key() -> Weight;
+    fn add_claim() -> Weight;
+    fn revoke_claim() -> Weight;
+    fn set_secondary_key_permissions() -> Weight;
+    /// Complexity Parameters:
+    /// `a` = Number of (A)ssets
+    /// `p` = Number of (P)ortfolios
+    /// `l` = Number of pa(L)lets
+    /// `e` = Number of (E)xtrinsics
+    fn permissions_cost(a: u32, p: u32, l: u32, e: u32) -> Weight;
+
+    fn permissions_cost_perms(perms: &Permissions) -> Weight {
+        let (assets, portfolios, pallets, extrinsics) = perms.counts();
+
+        if assets > MAX_ASSETS as u32
+            || portfolios > MAX_PORTFOLIOS as u32
+            || pallets > MAX_PALLETS as u32
+            || extrinsics > MAX_EXTRINSICS as u32
+        {
+            return Weight::MAX;
+        }
+
+        Self::permissions_cost(
+            assets.max(1),
+            portfolios.max(1),
+            pallets.max(1),
+            extrinsics.max(1),
+        )
+    }
+
+    fn freeze_secondary_keys() -> Weight;
+    fn unfreeze_secondary_keys() -> Weight;
+    fn add_authorization() -> Weight;
+    fn remove_authorization() -> Weight;
+    fn add_secondary_keys_with_authorization(n: u32) -> Weight;
+    fn revoke_claim_by_index() -> Weight;
+    fn register_custom_claim_type(n: u32) -> Weight;
+
+    /// Add complexity cost of Permissions to `add_secondary_keys_with_authorization` extrinsic.
+    fn add_secondary_keys_full<AccountId>(
+        additional_keys: &[SecondaryKeyWithAuth<AccountId>],
+    ) -> Weight {
+        Self::add_secondary_keys_perms_cost(
+            additional_keys
+                .iter()
+                .map(|auth| &auth.secondary_key.permissions),
+        )
+    }
+
+    /// Add complexity cost of Permissions to `add_secondary_keys_with_authorization` extrinsic.
+    fn add_secondary_keys_perms_cost<'a>(
+        perms: impl ExactSizeIterator<Item = &'a Permissions>,
+    ) -> Weight {
+        let len_cost = Self::add_secondary_keys_with_authorization(perms.len() as u32);
+        perms.fold(len_cost, |cost, key| {
+            cost.saturating_add(Self::permissions_cost_perms(key))
+        })
+    }
+
+    /// Add complexity cost of Permissions to `add_authorization` extrinsic.
+    fn add_authorization_full<AccountId>(data: &AuthorizationData<AccountId>) -> Weight {
+        let perm_cost = match data {
+            AuthorizationData::JoinIdentity(perms) => Self::permissions_cost_perms(perms),
+            _ => Weight::zero(),
+        };
+        perm_cost.saturating_add(Self::add_authorization())
+    }
+
+    /// Add complexity cost of Permissions to `set_secondary_key_permissions` extrinsic.
+    fn set_secondary_key_permissions_full(perms: &Permissions) -> Weight {
+        Self::permissions_cost_perms(perms).saturating_add(Self::set_secondary_key_permissions())
+    }
+}
+
+/// The module's configuration trait.
+pub trait Config:
+    frame_system::Config + pallet_timestamp::Config + pallet_base::Config + pallet_permissions::Config
+{
+    /// The overarching event type.
+    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+    /// An extrinsic call.
+    type Proposal: Parameter
+        + Dispatchable<
+            RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin,
+            PostInfo = PostDispatchInfo,
+        > + GetCallMetadata
+        + GetDispatchInfo
+        + From<frame_system::Call<Self>>;
+    /// Group module
+    type CddServiceProviders: GroupTrait<Self::Moment>;
+    /// Balances module
+    type Balances: Currency<Self::AccountId, Balance = Balance>;
+    /// Used to check and update CDD
+    type CddHandler: CddAndFeeDetails<Self::AccountId, <Self as frame_system::Config>::RuntimeCall>;
+
+    type Public: IdentifyAccount<AccountId = Self::AccountId>;
+    type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode + TypeInfo;
+    type ProtocolFee: ChargeProtocolFee<Self::AccountId>;
+
+    /// Origin for Governance Committee voting majority origin.
+    type GCVotingMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+    /// Weight information for extrinsics in the identity pallet.
+    type WeightInfo: WeightInfo;
+
+    /// Identity functions
+    type IdentityFn: IdentityFnTrait<Self::AccountId>;
+
+    /// A type for identity-mapping the `Origin` type. Used by the scheduler.
+    type SchedulerOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
+
+    /// POLYX given to primary keys of all new Identities
+    type InitialPOLYX: Get<<Self::Balances as Currency<Self::AccountId>>::Balance>;
+
+    /// Maximum number of authorizations an identity can give.
+    type MaxGivenAuths: Get<u32>;
+}
+
+decl_event!(
+    pub enum Event<T>
+    where
+        AccountId = <T as frame_system::Config>::AccountId,
+        Moment = <T as pallet_timestamp::Config>::Moment,
+    {
+        /// Identity created.
+        ///
+        /// (DID, primary key, secondary keys)
+        DidCreated(IdentityId, AccountId, Vec<SecondaryKey<AccountId>>),
+
+        /// Secondary keys added to identity.
+        ///
+        /// (DID, new keys)
+        SecondaryKeysAdded(IdentityId, Vec<SecondaryKey<AccountId>>),
+
+        /// Secondary keys removed from identity.
+        ///
+        /// (DID, the keys that got removed)
+        SecondaryKeysRemoved(IdentityId, Vec<AccountId>),
+
+        /// A secondary key left their identity.
+        ///
+        /// (DID, secondary key)
+        SecondaryKeyLeftIdentity(IdentityId, AccountId),
+
+        /// Secondary key permissions updated.
+        ///
+        /// (DID, updated secondary key, previous permissions, new permissions)
+        SecondaryKeyPermissionsUpdated(IdentityId, AccountId, Permissions, Permissions),
+
+        /// Primary key of identity changed.
+        ///
+        /// (DID, old primary key account ID, new ID)
+        PrimaryKeyUpdated(IdentityId, AccountId, AccountId),
+
+        /// Claim added to identity.
+        ///
+        /// (DID, claim)
+        ClaimAdded(IdentityId, IdentityClaim),
+
+        /// Claim revoked from identity.
+        ///
+        /// (DID, claim)
+        ClaimRevoked(IdentityId, IdentityClaim),
+
+        /// Asset's identity registered.
+        ///
+        /// (Asset DID, ticker)
+        AssetDidRegistered(IdentityId, Ticker),
+
+        /// New authorization added.
+        ///
+        /// (authorised_by, target_did, target_key, auth_id, authorization_data, expiry)
+        AuthorizationAdded(
+            IdentityId,
+            Option<IdentityId>,
+            Option<AccountId>,
+            u64,
+            AuthorizationData<AccountId>,
+            Option<Moment>,
+        ),
+
+        /// Authorization revoked by the authorizer.
+        ///
+        /// (authorized_identity, authorized_key, auth_id)
+        AuthorizationRevoked(Option<IdentityId>, Option<AccountId>, u64),
+
+        /// Authorization rejected by the user who was authorized.
+        ///
+        /// (authorized_identity, authorized_key, auth_id)
+        AuthorizationRejected(Option<IdentityId>, Option<AccountId>, u64),
+
+        /// Authorization consumed.
+        ///
+        /// (authorized_identity, authorized_key, auth_id)
+        AuthorizationConsumed(Option<IdentityId>, Option<AccountId>, u64),
+
+        /// Accepting Authorization retry limit reached.
+        ///
+        /// (authorized_identity, authorized_key, auth_id)
+        AuthorizationRetryLimitReached(Option<IdentityId>, Option<AccountId>, u64),
+
+        /// CDD requirement for updating primary key changed.
+        ///
+        /// (new_requirement)
+        CddRequirementForPrimaryKeyUpdated(bool),
+
+        /// CDD claims generated by `IdentityId` (a CDD Provider) have been invalidated from
+        /// `Moment`.
+        ///
+        /// (CDD provider DID, disable from date)
+        CddClaimsInvalidated(IdentityId, Moment),
+
+        /// All Secondary keys of the identity ID are frozen.
+        ///
+        /// (DID)
+        SecondaryKeysFrozen(IdentityId),
+
+        /// All Secondary keys of the identity ID are unfrozen.
+        ///
+        /// (DID)
+        SecondaryKeysUnfrozen(IdentityId),
+
+        /// A new CustomClaimType was added.
+        ///
+        /// (DID, id, Type)
+        CustomClaimTypeAdded(IdentityId, CustomClaimTypeId, Vec<u8>),
+
+        /// Child identity created.
+        ///
+        /// (Parent DID, Child DID, primary key)
+        ChildDidCreated(IdentityId, IdentityId, AccountId),
+
+        /// Child identity unlinked from parent identity.
+        ///
+        /// (Caller DID, Parent DID, Child DID)
+        ChildDidUnlinked(IdentityId, IdentityId, IdentityId),
+    }
+);
 
 decl_storage! {
     trait Store for Module<T: Config> as Identity {
@@ -213,7 +471,7 @@ decl_storage! {
         // Secondary keys of identities at genesis. `identities` have to be initialised.
         config(secondary_keys): Vec<(T::AccountId, IdentityId)>;
         build(|config: &GenesisConfig<T>| {
-            polymesh_common_utilities::SYSTEMATIC_ISSUERS
+            polymesh_primitives::SYSTEMATIC_ISSUERS
                 .iter()
                 .copied()
                 .for_each(<Module<T>>::register_systematic_id);

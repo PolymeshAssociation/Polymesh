@@ -26,6 +26,8 @@ use alloc::{
     string::{String, ToString},
 };
 use codec::{Decode, Encode};
+use core::ops::Add;
+use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use polymesh_primitives_derive::{SliceU8StrongTyped, StringStrongTyped, VecU8StrongTyped};
 use scale_info::TypeInfo;
@@ -62,6 +64,50 @@ pub type Index = u32;
 
 /// Alias for Gas.
 pub type Gas = Weight;
+
+/// Use `GetExtra` as the trait bounds for pallet `Config` parameters
+/// that will be used for bounded collections.
+pub trait GetExtra<T>: Get<T> + Clone + core::fmt::Debug + Default + PartialEq + Eq {}
+
+/// ConstSize type wrapper.
+///
+/// This allows the use of Bounded collections in extrinsic parameters.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub struct ConstSize<const T: u32>;
+
+impl<const T: u32> Get<u32> for ConstSize<T> {
+    fn get() -> u32 {
+        T
+    }
+}
+
+impl<const T: u32> GetExtra<u32> for ConstSize<T> {}
+
+/// Either a block number, or nothing.
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum MaybeBlock<BlockNumber> {
+    /// Has a block number.
+    Some(BlockNumber),
+    /// No block number.
+    None,
+}
+
+impl<T> Default for MaybeBlock<T> {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl<T: Add<Output = T>> Add<T> for MaybeBlock<T> {
+    type Output = Self;
+    fn add(self, rhs: T) -> Self::Output {
+        match self {
+            MaybeBlock::Some(lhs) => MaybeBlock::Some(lhs + rhs),
+            MaybeBlock::None => MaybeBlock::None,
+        }
+    }
+}
 
 /// A positive coefficient: a pair of a numerator and a denominator. Defaults to `(1, 1)`.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -145,6 +191,9 @@ pub use identity_claim::{Claim, ClaimType, CustomClaimTypeId, IdentityClaim, Sco
 pub mod jurisdiction;
 pub use jurisdiction::CountryCode;
 
+/// Protocol fees
+pub mod protocol_fee;
+
 /// Utilities for storage migration.
 pub mod migrate;
 
@@ -168,6 +217,13 @@ pub use authorization::{Authorization, AuthorizationData, AuthorizationError, Au
 
 /// Pub Traits
 pub mod traits;
+
+/// Checkpoint types.
+pub mod checkpoint;
+
+/// Benchmarking helpers.
+#[cfg(feature = "runtime-benchmarks")]
+pub mod bench;
 
 pub mod ticker;
 pub use ticker::Ticker;
@@ -231,6 +287,7 @@ pub mod settlement;
 
 /// Constants definitions.
 pub mod constants;
+pub use constants::{SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS, TECHNICAL_DID, UPGRADE_DID};
 
 /// Multisig type definitions.
 pub mod multisig;
@@ -294,6 +351,20 @@ impl ExtrinsicName {
     pub fn generate(n: u64) -> Self {
         Self(format!("E{n}"))
     }
+}
+
+/// Execute the supplied function in a new storage transaction,
+/// committing on `Ok(_)` and rolling back on `Err(_)`, returning the result.
+///
+/// Transactions can be arbitrarily nested with commits happening to the parent.
+pub fn with_transaction<T, E: From<frame_support::dispatch::DispatchError>>(
+    tx: impl FnOnce() -> Result<T, E>,
+) -> Result<T, E> {
+    use frame_support::storage::{with_transaction, TransactionOutcome};
+    with_transaction(|| match tx() {
+        r @ Ok(_) => TransactionOutcome::Commit(r),
+        r @ Err(_) => TransactionOutcome::Rollback(r),
+    })
 }
 
 /// Compile time assert.

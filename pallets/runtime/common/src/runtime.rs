@@ -91,7 +91,7 @@ macro_rules! misc_pallet_impls {
             /// What to do if an account is fully reaped from the system.
             type OnKilledAccount = ();
             /// The data to be stored in an account.
-            type AccountData = polymesh_common_utilities::traits::balances::AccountData;
+            type AccountData = pallet_balances::AccountData;
             type SystemWeightInfo = polymesh_weights::frame_system::SubstrateWeight;
             type OnSetCode = ();
             type MaxConsumers = frame_support::traits::ConstU32<16>;
@@ -177,7 +177,7 @@ macro_rules! misc_pallet_impls {
             type WeightToFeeConst = polymesh_runtime_common::WeightToFee;
         }
 
-        impl polymesh_common_utilities::traits::CommonConfig for Runtime {
+        impl pallet_balances::BlockRewardConfig for Runtime {
             type BlockRewardsReserve = pallet_balances::Pallet<Runtime>;
         }
 
@@ -292,7 +292,6 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_portfolio::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
-            type Asset = Asset;
             type WeightInfo = polymesh_weights::pallet_portfolio::SubstrateWeight;
             type MaxNumberOfFungibleMoves = MaxNumberOfFungibleMoves;
             type MaxNumberOfNFTsMoves = MaxNumberOfNFTsMoves;
@@ -364,6 +363,10 @@ macro_rules! misc_pallet_impls {
             type SubsidyCallFilter = SubsidyFilter;
         }
 
+        impl polymesh_primitives::traits::AssetFnConfig for Runtime {
+            type AssetFn = Asset;
+        }
+
         impl pallet_asset::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type Currency = Balances;
@@ -374,7 +377,6 @@ macro_rules! misc_pallet_impls {
             type AssetMetadataNameMaxLength = AssetMetadataNameMaxLength;
             type AssetMetadataValueMaxLength = AssetMetadataValueMaxLength;
             type AssetMetadataTypeDefMaxLength = AssetMetadataTypeDefMaxLength;
-            type AssetFn = Asset;
             type WeightInfo = polymesh_weights::pallet_asset::SubstrateWeight;
             type CPWeightInfo = polymesh_weights::pallet_checkpoint::SubstrateWeight;
             type NFTFn = pallet_nft::Module<Runtime>;
@@ -385,7 +387,6 @@ macro_rules! misc_pallet_impls {
             type RuntimeEvent = RuntimeEvent;
             type MaxInLen = MaxInLen;
             type MaxOutLen = MaxOutLen;
-            type Asset = pallet_asset::Module<Runtime>;
             type WeightInfo = polymesh_weights::polymesh_contracts::SubstrateWeight;
         }
 
@@ -422,7 +423,6 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_compliance_manager::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
-            type Asset = Asset;
             type WeightInfo = polymesh_weights::pallet_compliance_manager::SubstrateWeight;
             type MaxConditionComplexity = MaxConditionComplexity;
         }
@@ -438,7 +438,6 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_statistics::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
-            type Asset = Asset;
             type MaxStatsPerAsset = MaxStatsPerAsset;
             type MaxTransferConditionsPerAsset = MaxTransferConditionsPerAsset;
             type WeightInfo = polymesh_weights::pallet_statistics::SubstrateWeight;
@@ -535,6 +534,7 @@ macro_rules! misc_pallet_impls {
             type Proposal = RuntimeCall;
             type Scheduler = Scheduler;
             type WeightInfo = polymesh_weights::pallet_settlement::SubstrateWeight;
+            type Portfolio = Portfolio;
             type MaxNumberOfFungibleAssets = MaxNumberOfFungibleAssets;
             type MaxNumberOfNFTsPerLeg = MaxNumberOfNFTsPerLeg;
             type MaxNumberOfNFTs = MaxNumberOfNFTs;
@@ -549,7 +549,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_sto::SubstrateWeight;
         }
 
-        impl polymesh_common_utilities::traits::permissions::Config for Runtime {
+        impl pallet_permissions::Config for Runtime {
             type Checker = Identity;
         }
 

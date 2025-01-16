@@ -20,7 +20,7 @@
 use std::collections::BTreeMap;
 
 use frame_election_provider_support::{onchain, SequentialPhragmen};
-use frame_support::dispatch::{DispatchInfo, DispatchResult, Weight};
+use frame_support::dispatch::{DispatchResult, Weight};
 use frame_support::traits::{
     ConstU32, Currency, EitherOfDiverse, FindAuthor, GenesisBuild, Get, Hooks, Imbalance,
     KeyOwnerProofSystem, OnUnbalanced, OneSessionHandler,
@@ -34,24 +34,23 @@ use sp_core::H256;
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::testing::{Header, TestXt, UintAuthorityId};
 use sp_runtime::traits::{IdentityLookup, Zero};
-use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction};
+use sp_runtime::transaction_validity::InvalidTransaction;
 use sp_runtime::{KeyTypeId, Perbill};
 use sp_staking::offence::{DisableStrategy, OffenceDetails, OnOffenceHandler};
 use sp_staking::{EraIndex, SessionIndex};
 
+use pallet_balances::AccountData;
+use pallet_balances::BlockRewardConfig;
 use pallet_staking::types::SlashingSwitch;
 use pallet_staking::{self as pallet_staking, *};
-use polymesh_common_utilities::constants::currency::POLY;
-use polymesh_common_utilities::traits::balances::{AccountData, CheckCdd};
-use polymesh_common_utilities::traits::group::{GroupTrait, InactiveMember};
-use polymesh_common_utilities::traits::multisig::MultiSigSubTrait;
-use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
-use polymesh_common_utilities::traits::relayer::SubsidiserTrait;
-use polymesh_common_utilities::traits::CommonConfig;
-use polymesh_common_utilities::transaction_payment::ChargeTxFee;
 use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::identity_id::GenesisIdentityRecord;
 use polymesh_primitives::{
+    traits::{
+        group::{GroupTrait, InactiveMember},
+        CheckCdd, PortfolioSubTrait, SubsidiserTrait,
+    },
     Authorization, AuthorizationData, Claim, IdentityId, Moment, NFTId, Permissions, PortfolioId,
     SecondaryKey, Signatory,
 };
@@ -191,7 +190,7 @@ impl pallet_base::Config for Test {
     type MaxLen = MaxLen;
 }
 
-impl CommonConfig for Test {
+impl BlockRewardConfig for Test {
     type BlockRewardsReserve = pallet_balances::Module<Test>;
 }
 
@@ -292,14 +291,11 @@ impl pallet_protocol_fee::Config for Test {
     type Subsidiser = Test;
 }
 
-impl polymesh_common_utilities::traits::identity::Config for Test {
+impl pallet_identity::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Proposal = RuntimeCall;
-    type MultiSig = Test;
-    type Portfolio = Test;
     type CddServiceProviders = pallet_group::Module<Test, pallet_group::Instance2>;
     type Balances = Balances;
-    type ChargeTxFeeTarget = Test;
     type CddHandler = Test;
     type Public = UintAuthorityId;
     type OffChainSignature = sp_runtime::testing::TestSignature;
@@ -347,7 +343,7 @@ impl pallet_preimage::Config for Test {
     type ByteDeposit = PreimageByteDeposit;
 }
 
-impl polymesh_common_utilities::transaction_payment::CddAndFeeDetails<AccountId, Call> for Test {
+impl polymesh_primitives::traits::CddAndFeeDetails<AccountId, Call> for Test {
     fn get_valid_payer(
         _: &Call,
         _: &AccountId,
@@ -371,12 +367,6 @@ impl SubsidiserTrait<AccountId, RuntimeCall> for Test {
     }
     fn debit_subsidy(_: &AccountId, _: Balance) -> Result<Option<AccountId>, InvalidTransaction> {
         Ok(None)
-    }
-}
-
-impl ChargeTxFee for Test {
-    fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
-        Ok(ValidTransaction::default())
     }
 }
 
@@ -433,12 +423,6 @@ impl GroupTrait<Moment> for Test {
     }
 }
 
-impl MultiSigSubTrait<AccountId> for Test {
-    fn is_multisig(_account: &AccountId) -> bool {
-        false
-    }
-}
-
 impl PortfolioSubTrait<AccountId> for Test {
     fn ensure_portfolio_custody(_: PortfolioId, _: IdentityId) -> DispatchResult {
         unimplemented!()
@@ -486,7 +470,7 @@ impl CheckCdd<AccountId> for Test {
     }
 }
 
-impl polymesh_common_utilities::traits::permissions::Config for Test {
+impl pallet_permissions::Config for Test {
     type Checker = Identity;
 }
 

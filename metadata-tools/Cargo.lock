@@ -3329,7 +3329,7 @@ dependencies = [
 [[package]]
 name = "substrate-differ"
 version = "0.21.3"
-source = "git+https://github.com/PolymeshAssociation/subwasm.git?branch=polymesh#ee52a00d74a5dc6a444f5b8a2d96f0231a36489b"
+source = "git+https://github.com/PolymeshAssociation/subwasm.git?branch=polymesh#dd073b20a410e6d1444e7f022ed84b5b57eb1c73"
 dependencies = [
  "blake3",
  "comparable",

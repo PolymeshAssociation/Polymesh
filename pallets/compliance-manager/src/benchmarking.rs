@@ -16,10 +16,10 @@
 use frame_benchmarking::benchmarks;
 use scale_info::prelude::format;
 
-use polymesh_common_utilities::asset::AssetFnTrait;
-use polymesh_common_utilities::benchs::{User, UserBuilder};
-use polymesh_common_utilities::identity::Config as IdentityConfig;
+use pallet_identity::benchmarking::{User, UserBuilder};
+use pallet_identity::Config as IdentityConfig;
 use polymesh_primitives::agent::AgentGroup;
+use polymesh_primitives::traits::AssetFnTrait;
 use polymesh_primitives::{
     asset::AssetType, AuthorizationData, ClaimType, CountryCode, PortfolioKind, Scope,
     TargetIdentity, TrustedFor, TrustedIssuer, WeightMeter,
@@ -118,9 +118,9 @@ pub fn create_and_issue_sample_asset<T: Config>(
     asset_owner: &User<T>,
     asset_name: Vec<u8>,
 ) -> AssetId {
-    let asset_id = T::Asset::generate_asset_id(asset_owner.account());
-    T::Asset::create_asset(
-        asset_owner.origin.clone().into(),
+    let asset_id = T::AssetFn::generate_asset_id(asset_owner.account());
+    T::AssetFn::create_asset(
+        asset_owner.account(),
         asset_name.into(),
         true,
         AssetType::default(),
@@ -129,8 +129,8 @@ pub fn create_and_issue_sample_asset<T: Config>(
     )
     .unwrap();
 
-    T::Asset::issue(
-        asset_owner.origin.clone().into(),
+    T::AssetFn::issue(
+        asset_owner.account(),
         asset_id,
         1_000_000 as u128,
         PortfolioKind::Default,

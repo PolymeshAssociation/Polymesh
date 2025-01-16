@@ -16,10 +16,7 @@
 use crate::*;
 
 use frame_benchmarking::benchmarks;
-use polymesh_common_utilities::{
-    benchs::{user, User},
-    traits::relayer::Config,
-};
+use pallet_identity::benchmarking::{user, User};
 
 type Relayer<T> = crate::Module<T>;
 

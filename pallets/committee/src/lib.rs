@@ -70,14 +70,14 @@ use frame_support::{
     ensure,
     traits::{ChangeMembers, EnsureOrigin, InitializeMembers},
 };
-use pallet_identity as identity;
-use polymesh_common_utilities::{
-    governance_group::GovernanceGroupTrait,
-    group::{GroupTrait, InactiveMember, MemberCount},
-    identity::Config as IdentityConfig,
-    MaybeBlock, SystematicIssuers, GC_DID,
+use polymesh_primitives::{
+    storage_migration_ver,
+    traits::{
+        group::{GroupTrait, InactiveMember, MemberCount},
+        GovernanceGroupTrait,
+    },
+    IdentityId, MaybeBlock, SystematicIssuers, GC_DID,
 };
-use polymesh_primitives::{storage_migration_ver, IdentityId};
 use scale_info::TypeInfo;
 use sp_runtime::traits::Hash;
 use sp_std::{prelude::*, vec};
@@ -101,7 +101,7 @@ pub trait WeightInfo {
 pub type ProposalIndex = u32;
 
 /// The committee trait.
-pub trait Config<I: 'static = ()>: frame_system::Config + IdentityConfig {
+pub trait Config<I: 'static = ()>: frame_system::Config + pallet_identity::Config {
     /// The outer origin type.
     type RuntimeOrigin: From<RawOrigin<Self::AccountId, I>>
         + Into<<Self as frame_system::Config>::RuntimeOrigin>;
@@ -246,7 +246,7 @@ decl_error! {
     }
 }
 
-type Identity<T> = identity::Module<T>;
+type Identity<T> = pallet_identity::Module<T>;
 
 decl_module! {
     pub struct Module<T: Config<I>, I: Instance=DefaultInstance> for enum Call where origin: <T as Config<I>>::RuntimeOrigin {
@@ -661,8 +661,8 @@ impl<T: Config<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
 
         // Add/remove Systematic CDD claims for new/removed members.
         let issuer = SystematicIssuers::Committee;
-        <identity::Module<T>>::add_systematic_cdd_claims(incoming, issuer);
-        <identity::Module<T>>::revoke_systematic_cdd_claims(outgoing, issuer);
+        <Identity<T>>::add_systematic_cdd_claims(incoming, issuer);
+        <Identity<T>>::revoke_systematic_cdd_claims(outgoing, issuer);
     }
 }
 
@@ -677,7 +677,7 @@ impl<T: Config<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
             <Members<I>>::get().is_empty(),
             "Members are already initialized!"
         );
-        <identity::Module<T>>::add_systematic_cdd_claims(members, SystematicIssuers::Committee);
+        <Identity<T>>::add_systematic_cdd_claims(members, SystematicIssuers::Committee);
         <Members<I>>::put(members);
     }
 }

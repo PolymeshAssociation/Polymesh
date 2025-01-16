@@ -18,8 +18,9 @@ use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 
 use pallet_asset::benchmarking::make_document;
-use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, user, User};
+use pallet_identity::benchmarking::{user, User};
 use polymesh_primitives::asset::{AssetId, AssetName};
+use polymesh_primitives::bench::create_and_issue_sample_asset;
 use polymesh_primitives::PortfolioKind;
 
 use crate::*;
@@ -41,7 +42,8 @@ fn setup<T: Config>() -> (User<T>, AssetId) {
     <pallet_timestamp::Now<T>>::set(1000u32.into());
 
     let owner = user("owner", SEED);
-    let asset_id = create_and_issue_sample_asset::<T>(&owner, true, None, b"SampleAsset", true);
+    let asset_id =
+        create_and_issue_sample_asset::<T>(owner.account(), true, None, b"SampleAsset", true);
     (owner, asset_id)
 }
 

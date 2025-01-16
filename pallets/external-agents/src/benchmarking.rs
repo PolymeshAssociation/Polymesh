@@ -15,17 +15,18 @@
 
 use crate::*;
 use frame_benchmarking::benchmarks;
-use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, user, User};
-use polymesh_common_utilities::traits::asset::Config as Asset;
+use pallet_identity::benchmarking::{user, User};
+use polymesh_primitives::bench::create_and_issue_sample_asset;
 use polymesh_primitives::{AuthorizationData, ExtrinsicPermissions, PalletName, PalletPermissions};
 use sp_std::prelude::*;
 
 pub(crate) const SEED: u32 = 0;
 const MAX_PALLETS: u32 = 19;
 
-fn setup<T: Asset>() -> (User<T>, AssetId) {
+fn setup<T: Config>() -> (User<T>, AssetId) {
     let owner = user("owner", SEED);
-    let asset_id = create_and_issue_sample_asset::<T>(&owner, true, None, b"SampleAsset", false);
+    let asset_id =
+        create_and_issue_sample_asset::<T>(owner.account(), true, None, b"SampleAsset", false);
     (owner, asset_id)
 }
 
@@ -35,7 +36,7 @@ fn perms(n: u32) -> ExtrinsicPermissions {
     )
 }
 
-fn add_auth<T: Asset>(owner: &User<T>, asset_id: AssetId) -> (User<T>, u64) {
+fn add_auth<T: Config>(owner: &User<T>, asset_id: AssetId) -> (User<T>, u64) {
     let other = user("other", SEED);
     let auth_id = pallet_identity::Module::<T>::add_auth(
         owner.did(),
@@ -47,7 +48,7 @@ fn add_auth<T: Asset>(owner: &User<T>, asset_id: AssetId) -> (User<T>, u64) {
     (other, auth_id)
 }
 
-fn setup_removal<T: Asset>() -> (User<T>, User<T>, AssetId) {
+fn setup_removal<T: Config>() -> (User<T>, User<T>, AssetId) {
     let (owner, asset_id) = setup::<T>();
     let (other, auth_id) = add_auth::<T>(&owner, asset_id);
     Module::<T>::accept_become_agent(other.origin().into(), auth_id).unwrap();
@@ -59,7 +60,7 @@ fn custom_group<T: Config>(owner: User<T>, asset_id: AssetId) {
 }
 
 benchmarks! {
-    where_clause { where T: Asset }
+    where_clause { where T: Config }
 
     create_group {
         let p in 0..MAX_PALLETS;

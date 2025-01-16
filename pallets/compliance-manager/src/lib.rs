@@ -80,28 +80,133 @@ use core::result::Result;
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use frame_support::{decl_error, decl_module, decl_storage, ensure};
-use sp_std::{convert::From, prelude::*};
-
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use pallet_base::ensure_length_ok;
-use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
-pub use polymesh_common_utilities::traits::compliance_manager::{
-    ComplianceFnConfig, Config, Event, WeightInfo,
-};
+use pallet_external_agents::Config as EAConfig;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::compliance_manager::{
     AssetCompliance, AssetComplianceResult, ComplianceReport, ComplianceRequirement,
     ConditionReport, ConditionResult, RequirementReport,
 };
+use polymesh_primitives::condition::{conditions_total_counts, Condition};
+use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::{
-    proposition, storage_migration_ver, Claim, Condition, ConditionType, Context, IdentityId,
-    TargetIdentity, TrustedFor, TrustedIssuer, WeightMeter,
+    proposition, storage_migration_ver,
+    traits::{AssetFnConfig, ComplianceFnConfig},
+    Claim, ConditionType, Context, IdentityId, TargetIdentity, TrustedFor, TrustedIssuer,
+    WeightMeter,
 };
+use sp_std::{convert::From, prelude::*};
 
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 type Identity<T> = pallet_identity::Module<T>;
 
 storage_migration_ver!(1);
+
+/// The module's configuration trait.
+pub trait Config:
+    pallet_timestamp::Config
+    + frame_system::Config
+    + pallet_permissions::Config
+    + pallet_identity::Config
+    + EAConfig
+    + AssetFnConfig
+{
+    /// The overarching event type.
+    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+
+    /// Weight details of all extrinsic
+    type WeightInfo: WeightInfo;
+
+    /// The maximum claim reads that are allowed to happen in worst case of a condition resolution
+    type MaxConditionComplexity: Get<u32>;
+}
+
+decl_event!(
+    pub enum Event {
+        /// Emitted when new compliance requirement is created.
+        /// (caller DID, AssetId, ComplianceRequirement).
+        ComplianceRequirementCreated(IdentityId, AssetId, ComplianceRequirement),
+        /// Emitted when a compliance requirement is removed.
+        /// (caller DID, AssetId, requirement_id).
+        ComplianceRequirementRemoved(IdentityId, AssetId, u32),
+        /// Emitted when an asset compliance is replaced.
+        /// Parameters: caller DID, AssetId, new asset compliance.
+        AssetComplianceReplaced(IdentityId, AssetId, Vec<ComplianceRequirement>),
+        /// Emitted when an asset compliance of a asset_id is reset.
+        /// (caller DID, AssetId).
+        AssetComplianceReset(IdentityId, AssetId),
+        /// Emitted when an asset compliance for a given asset_id gets resume.
+        /// (caller DID, AssetId).
+        AssetComplianceResumed(IdentityId, AssetId),
+        /// Emitted when an asset compliance for a given asset_id gets paused.
+        /// (caller DID, AssetId).
+        AssetCompliancePaused(IdentityId, AssetId),
+        /// Emitted when compliance requirement get modified/change.
+        /// (caller DID, AssetId, ComplianceRequirement).
+        ComplianceRequirementChanged(IdentityId, AssetId, ComplianceRequirement),
+        /// Emitted when default claim issuer list for a given asset_id gets added.
+        /// (caller DID, AssetId, Added TrustedIssuer).
+        TrustedDefaultClaimIssuerAdded(IdentityId, AssetId, TrustedIssuer),
+        /// Emitted when default claim issuer list for a given asset_id get removed.
+        /// (caller DID, AssetId, Removed TrustedIssuer).
+        TrustedDefaultClaimIssuerRemoved(IdentityId, AssetId, IdentityId),
+    }
+);
+
+pub trait WeightInfo {
+    fn add_compliance_requirement(c: u32) -> Weight;
+    fn remove_compliance_requirement() -> Weight;
+    fn pause_asset_compliance() -> Weight;
+    fn resume_asset_compliance() -> Weight;
+    fn add_default_trusted_claim_issuer() -> Weight;
+    fn remove_default_trusted_claim_issuer() -> Weight;
+    fn change_compliance_requirement(c: u32) -> Weight;
+    fn replace_asset_compliance(c: u32) -> Weight;
+    fn reset_asset_compliance() -> Weight;
+    fn is_condition_satisfied(c: u32, t: u32) -> Weight;
+    fn is_identity_condition(e: u32) -> Weight;
+    fn is_any_requirement_compliant(i: u32) -> Weight;
+
+    fn condition_costs(conditions: u32, claims: u32, issuers: u32, claim_types: u32) -> Weight;
+
+    fn add_compliance_requirement_full(sender: &[Condition], receiver: &[Condition]) -> Weight {
+        let (condtions, claims, issuers, claim_types) =
+            conditions_total_counts(sender.iter().chain(receiver.iter()));
+        Self::add_compliance_requirement(condtions).saturating_add(Self::condition_costs(
+            0,
+            claims,
+            issuers,
+            claim_types,
+        ))
+    }
+
+    fn change_compliance_requirement_full(req: &ComplianceRequirement) -> Weight {
+        let (conditions, claims, issuers, claim_types) = req.counts();
+        Self::change_compliance_requirement(conditions).saturating_add(Self::condition_costs(
+            0,
+            claims,
+            issuers,
+            claim_types,
+        ))
+    }
+
+    fn replace_asset_compliance_full(reqs: &[ComplianceRequirement]) -> Weight {
+        let (conditions, claims, issuers, claim_types) =
+            conditions_total_counts(reqs.iter().flat_map(|req| req.conditions()));
+        Self::replace_asset_compliance(reqs.len() as u32).saturating_add(Self::condition_costs(
+            conditions,
+            claims,
+            issuers,
+            claim_types,
+        ))
+    }
+
+    fn is_any_requirement_compliant_loop(i: u32) -> Weight {
+        Self::is_any_requirement_compliant(i)
+            .saturating_sub(Self::is_identity_condition(0).saturating_mul(i.into()))
+    }
+}
 
 decl_storage! {
     trait Store for Module<T: Config> as ComplianceManager {

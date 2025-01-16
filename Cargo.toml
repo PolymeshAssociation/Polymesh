@@ -109,7 +109,6 @@ members = [
     "pallets/base",
     "pallets/bridge",
     "pallets/committee",
-    "pallets/common",
     "pallets/compliance-manager",
     "pallets/contracts",
     "pallets/corporate-actions",
@@ -142,6 +141,7 @@ members = [
     "pallets/utility",
     "pallets/weights",
     "primitives",
+    "primitives_derive",
     "primitives/asset-metadata",
     "rpc",
     "rpc/runtime-api",
@@ -184,20 +184,20 @@ pallet-sudo = { path = "pallets/sudo", default-features = false }
 polymesh-contracts = { path = "pallets/contracts", default-features = false }
 
 # Common
-polymesh-common-utilities = { path = "pallets/common", default-features = false }
 polymesh-runtime-common = { path = "pallets/runtime/common", default-features = false }
 polymesh-primitives = { path = "primitives", default-features = false }
+polymesh-primitives-derive = { path = "primitives_derive", default-features = false }
 polymesh-weights = { path = "pallets/weights/", default-features = false }
 
 # RPC
-node-rpc = { path = "rpc" }
-node-rpc-runtime-api = { path = "rpc/runtime-api" }
-pallet-group-rpc = { path = "pallets/group/rpc" }
-pallet-group-rpc-runtime-api = { path = "pallets/group/rpc/runtime-api" }
-pallet-protocol-fee-rpc = { path = "pallets/protocol-fee/rpc" }
-pallet-protocol-fee-rpc-runtime-api = { path = "pallets/protocol-fee/rpc/runtime-api" }
-pallet-staking-rpc-runtime-api = { path = "pallets/staking/rpc/runtime-api" }
-polymesh-node-rpc = { path = "node-rpc" }
+node-rpc = { path = "rpc", default-features = false }
+node-rpc-runtime-api = { path = "rpc/runtime-api", default-features = false }
+pallet-group-rpc = { path = "pallets/group/rpc", default-features = false }
+pallet-group-rpc-runtime-api = { path = "pallets/group/rpc/runtime-api", default-features = false }
+pallet-protocol-fee-rpc = { path = "pallets/protocol-fee/rpc", default-features = false }
+pallet-protocol-fee-rpc-runtime-api = { path = "pallets/protocol-fee/rpc/runtime-api", default-features = false }
+pallet-staking-rpc-runtime-api = { path = "pallets/staking/rpc/runtime-api", default-features = false }
+polymesh-node-rpc = { path = "node-rpc", default-features = false }
 
 # Runtimes
 polymesh-runtime-develop = { path = "pallets/runtime/develop" }
@@ -276,7 +276,6 @@ pallet-staking = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
-polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false }
 
@@ -367,7 +366,6 @@ disable_fees = [
     "polymesh-runtime-testnet/disable_fees",
 ]
 running-ci = [ "polymesh-runtime-develop/running-ci" ]
-default_identity = [ "polymesh-common-utilities/default_identity" ]
 runtime-benchmarks = [
     "frame-benchmarking/runtime-benchmarks",
     "frame-benchmarking-cli/runtime-benchmarks",
@@ -379,6 +377,5 @@ runtime-benchmarks = [
 ci-runtime = [ "polymesh-runtime-develop/ci-runtime" ]
 
 std = [
-    "polymesh-common-utilities/std",
     "serde/std"
 ]

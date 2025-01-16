@@ -19,24 +19,17 @@ use frame_support::{
 };
 use pallet_balances as balances;
 use pallet_identity::{ChildDid, CustomClaimIdSequence, CustomClaims, CustomClaimsInverse};
-use polymesh_common_utilities::{
-    constants::currency::POLY,
-    traits::{
-        group::GroupTrait,
-        identity::{
-            Config as IdentityConfig, CreateChildIdentityWithAuth, RawEvent, SecondaryKeyWithAuth,
-            TargetIdAuthorization,
-        },
-        transaction_payment::CddAndFeeDetails,
-    },
-    SystematicIssuers, GC_DID,
-};
+use pallet_identity::{Config as IdentityConfig, RawEvent};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
+    constants::currency::POLY,
+    identity::{CreateChildIdentityWithAuth, SecondaryKeyWithAuth, TargetIdAuthorization},
+    traits::group::GroupTrait,
+    traits::CddAndFeeDetails,
     AccountId, AssetPermissions, AuthorizationData, AuthorizationType, Claim, ClaimType,
     CustomClaimTypeId, ExtrinsicName, ExtrinsicPermissions, IdentityClaim, IdentityId, KeyRecord,
     PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope, SecondaryKey,
-    Signatory, SubsetRestriction, Ticker, TransactionError,
+    Signatory, SubsetRestriction, SystematicIssuers, Ticker, TransactionError, GC_DID,
 };
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
 use sp_core::H512;
@@ -375,11 +368,10 @@ fn freeze_secondary_keys_with_externalities() {
     ));
 
     // unfreeze all
-    // commenting this because `default_identity` feature is not allowing to access None identity.
-    // assert_noop!(
-    //     Identity::unfreeze_secondary_keys(bob.clone()),
-    //     DispatchError::Other("Current identity is none and key is not linked to any identity")
-    // );
+    assert_noop!(
+        Identity::unfreeze_secondary_keys(bob.origin()),
+        Error::KeyNotAllowed
+    );
     assert_ok!(Identity::unfreeze_secondary_keys(alice.origin()));
 
     assert_eq!(is_auth(dave.acc()), true);

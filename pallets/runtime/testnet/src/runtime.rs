@@ -32,9 +32,9 @@ use pallet_session::historical as pallet_session_historical;
 pub use pallet_staking::StakerStatus;
 pub use pallet_timestamp::Call as TimestampCall;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
-use polymesh_common_utilities::constants::currency::*;
-use polymesh_common_utilities::constants::ENSURED_MAX_LEN;
-use polymesh_common_utilities::protocol_fee::ProtocolOp;
+use polymesh_primitives::constants::currency::*;
+use polymesh_primitives::constants::ENSURED_MAX_LEN;
+use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::settlement::Leg;
 use polymesh_primitives::{Balance, BlockNumber, Moment};
 use polymesh_runtime_common::impls::Author;
@@ -196,14 +196,11 @@ polymesh_runtime_common::misc_pallet_impls!();
 
 type CddHandler = polymesh_runtime_common::fee_details::CddHandler<Runtime>;
 
-impl polymesh_common_utilities::traits::identity::Config for Runtime {
+impl pallet_identity::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Proposal = RuntimeCall;
-    type MultiSig = MultiSig;
-    type Portfolio = Portfolio;
     type CddServiceProviders = CddServiceProviders;
     type Balances = pallet_balances::Module<Runtime>;
-    type ChargeTxFeeTarget = TransactionPayment;
     type CddHandler = CddHandler;
     type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = MultiSignature;

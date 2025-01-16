@@ -2,9 +2,8 @@ use super::{
     storage::{register_keyring_account, EventTest, TestStorage},
     ExtBuilder,
 };
-use pallet_balances as balances;
+use pallet_balances::{self as balances, RawEvent as BalancesRawEvent};
 use pallet_identity as identity;
-use polymesh_common_utilities::traits::balances::RawEvent as BalancesRawEvent;
 use polymesh_runtime_develop::{runtime, Runtime};
 
 use frame_support::{

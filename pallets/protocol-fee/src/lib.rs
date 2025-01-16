@@ -45,14 +45,12 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::ensure_root;
-use polymesh_common_utilities::{
-    identity::Config as IdentityConfig,
+use pallet_identity::Config as IdentityConfig;
+use polymesh_primitives::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    traits::relayer::SubsidiserTrait,
-    transaction_payment::CddAndFeeDetails,
-    GC_DID,
+    traits::{CddAndFeeDetails, SubsidiserTrait},
+    Balance, IdentityId, PosRatio, GC_DID,
 };
-use polymesh_primitives::{Balance, IdentityId, PosRatio};
 use sp_runtime::{traits::Zero, Perbill};
 use sp_std::vec;
 

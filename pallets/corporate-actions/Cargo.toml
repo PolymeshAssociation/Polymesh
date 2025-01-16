@@ -6,17 +6,15 @@ edition = "2021"
 
 [dependencies]
 # Common
-polymesh-primitives = { path = "../../primitives", default-features = false }
-polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
-polymesh-common-utilities = { path = "../common", default-features = false }
+polymesh-primitives = { workspace = true, default-features = false }
+polymesh-primitives-derive = { workspace = true, default-features = false }
 
 # Our Pallets
-pallet-balances = { path = "../balances", default-features = false }
-pallet-base = { path = "../base", default-features = false }
-pallet-external-agents = { path = "../external-agents", default-features = false }
-pallet-identity = { path = "../identity", default-features = false }
-pallet-asset = { path = "../asset", default-features = false }
-pallet-portfolio = { path = "../portfolio", default-features = false }
+pallet-base = { workspace = true, default-features = false }
+pallet-external-agents = { workspace = true, default-features = false }
+pallet-identity = { workspace = true, default-features = false }
+pallet-asset = { workspace = true, default-features = false }
+pallet-portfolio = { workspace = true, default-features = false }
 
 # Other
 serde = { version = "1.0.104", default-features = false }
@@ -38,7 +36,7 @@ frame-support = { version = "4.0.0-dev", default-features = false }
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
 pallet-timestamp = { version = "4.0.0-dev", default-features = false }
 
-pallet-compliance-manager = { path = "../compliance-manager", default-features = false, optional = true }
+pallet-compliance-manager = { workspace = true, default-features = false, optional = true }
 
 [features]
 default = ["std"]
@@ -49,12 +47,10 @@ std = [
     "frame-system/std",
     "pallet-asset/std",
     "pallet-base/std",
-    "pallet-balances/std",
     "pallet-external-agents/std",
     "pallet-identity/std",
     "pallet-portfolio/std",
     "pallet-timestamp/std",
-    "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "serde/std",
     "serde_derive",

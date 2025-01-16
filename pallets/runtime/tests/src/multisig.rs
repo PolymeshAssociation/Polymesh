@@ -6,7 +6,7 @@ use frame_support::{
 use pallet_multisig::{
     self as multisig, AdminDid, LastInvalidProposal, ProposalStates, ProposalVoteCounts, Votes,
 };
-use polymesh_common_utilities::constants::currency::POLY;
+use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::multisig::ProposalState;
 use polymesh_primitives::{AccountId, AuthorizationData, Permissions, SecondaryKey, Signatory};
 use sp_keyring::AccountKeyring;

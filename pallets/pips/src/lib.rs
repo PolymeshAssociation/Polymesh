@@ -106,18 +106,16 @@ use sp_std::convert::From;
 use sp_std::vec::Vec;
 use sp_version::RuntimeVersion;
 
+use pallet_balances::LockableCurrencyExt;
 use pallet_base::{ensure_opt_string_limited, try_next_post};
-use pallet_identity::PermissionedCallOriginData;
-use polymesh_common_utilities::constants::PIP_MAX_REPORTING_SIZE;
-use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
-use polymesh_common_utilities::traits::balances::LockableCurrencyExt;
-use polymesh_common_utilities::traits::governance_group::GovernanceGroupTrait;
-use polymesh_common_utilities::traits::group::GroupTrait;
-use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
-use polymesh_common_utilities::{with_transaction, CommonConfig, MaybeBlock};
-use polymesh_common_utilities::{GC_DID, TECHNICAL_DID, UPGRADE_DID};
-use polymesh_primitives::storage_migration_ver;
-use polymesh_primitives::{Balance, IdentityId, Url};
+use pallet_identity::{Config as IdentityConfig, PermissionedCallOriginData};
+use polymesh_primitives::constants::PIP_MAX_REPORTING_SIZE;
+use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
+use polymesh_primitives::traits::group::GroupTrait;
+use polymesh_primitives::traits::GovernanceGroupTrait;
+use polymesh_primitives::{storage_migration_ver, with_transaction};
+use polymesh_primitives::{Balance, IdentityId, MaybeBlock, Url};
+use polymesh_primitives::{GC_DID, TECHNICAL_DID, UPGRADE_DID};
 use polymesh_runtime_common::PipsEnactSnapshotMaximumWeight;
 
 use crate::types::{compare_spip, ProposalData, MAX_NORMAL_PRIORITY, PIPS_LOCK_ID};
@@ -280,11 +278,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config:
-        frame_system::Config
-        + pallet_timestamp::Config
-        + IdentityConfig
-        + CommonConfig
-        + pallet_base::Config
+        frame_system::Config + pallet_timestamp::Config + IdentityConfig + pallet_base::Config
     {
         /// Currency type for this module.
         type Currency: LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>;

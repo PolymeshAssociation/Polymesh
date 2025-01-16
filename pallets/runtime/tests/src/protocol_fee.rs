@@ -4,9 +4,8 @@ use super::{
     ExtBuilder,
 };
 use frame_support::{assert_noop, assert_ok};
-use polymesh_common_utilities::{
-    protocol_fee::ProtocolOp, traits::transaction_payment::CddAndFeeDetails,
-};
+use polymesh_primitives::protocol_fee::ProtocolOp;
+use polymesh_primitives::traits::CddAndFeeDetails;
 use sp_keyring::AccountKeyring;
 
 type Error = pallet_protocol_fee::Error<TestStorage>;

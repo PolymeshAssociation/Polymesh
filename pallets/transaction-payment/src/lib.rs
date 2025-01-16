@@ -16,7 +16,6 @@
 
 // Modified by Polymesh Association - 13rd March 2020
 // - Charge fee from the identity in the signed extension
-// - Introduce `ChargeTxFee` trait to compute and charge transaction fee for Multisig.
 // - Tips have been removed.
 
 //! # Transaction Payment Module
@@ -62,13 +61,10 @@ use frame_support::{
     weights::{WeightToFee, WeightToFeeCoefficient, WeightToFeePolynomial},
 };
 use frame_system::pallet_prelude::{BlockNumberFor, OriginFor};
-use polymesh_common_utilities::traits::{
-    group::GroupTrait,
-    identity::IdentityFnTrait,
-    relayer::SubsidiserTrait,
-    transaction_payment::{CddAndFeeDetails, ChargeTxFee},
+use polymesh_primitives::{
+    traits::{group::GroupTrait, CddAndFeeDetails, IdentityFnTrait, SubsidiserTrait},
+    TransactionError,
 };
-use polymesh_primitives::TransactionError;
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{
@@ -938,20 +934,5 @@ where
         // It clears the identity and payer in the context after transaction.
         T::CddHandler::clear_context();
         Ok(())
-    }
-}
-
-// Polymesh note: This was specifically added for Polymesh
-impl<T: Config> ChargeTxFee for Pallet<T>
-where
-    BalanceOf<T>: FixedPointOperand,
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
-{
-    fn charge_fee(len: u32, info: DispatchInfoOf<T::RuntimeCall>) -> TransactionValidity {
-        let fee = Self::compute_fee(len, &info, 0u32.into());
-        if let Some(payer) = T::CddHandler::get_payer_from_context() {
-            T::OnChargeTransaction::charge_fee(&payer, fee)?;
-        }
-        Ok(ValidTransaction::default())
     }
 }

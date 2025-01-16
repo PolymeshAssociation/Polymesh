@@ -3,7 +3,7 @@ use frame_support::dispatch::DispatchError;
 use scale_info::prelude::format;
 
 use pallet_asset::benchmarking::setup_asset_transfer;
-use polymesh_common_utilities::benchs::{User, UserBuilder};
+use pallet_identity::benchmarking::{User, UserBuilder};
 use polymesh_primitives::settlement::VenueDetails;
 use polymesh_primitives::TrustedIssuer;
 

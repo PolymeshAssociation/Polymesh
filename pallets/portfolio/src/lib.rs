@@ -48,25 +48,165 @@ pub mod benchmarking;
 use codec::{Decode, Encode};
 use core::{iter, mem};
 use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::pallet_prelude::Get;
 use frame_support::weights::Weight;
-use frame_support::{decl_error, decl_module, decl_storage, ensure};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use sp_arithmetic::traits::Zero;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
 
 use pallet_identity::PermissionedCallOriginData;
-pub use polymesh_common_utilities::portfolio::{Config, Event, WeightInfo};
-use polymesh_common_utilities::traits::asset::AssetFnTrait;
-use polymesh_common_utilities::traits::nft::NFTTrait;
-use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
-    extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, Fund,
-    FundDescription, IdentityId, NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
-    SecondaryKey,
+    extract_auth,
+    identity_id::PortfolioValidityResult,
+    storage_migration_ver,
+    traits::{AssetFnConfig, AssetFnTrait, NFTTrait, PortfolioSubTrait},
+    Balance, Fund, FundDescription, IdentityId, Memo, NFTId, PortfolioId, PortfolioKind,
+    PortfolioName, PortfolioNumber, SecondaryKey,
 };
 
 type Identity<T> = pallet_identity::Module<T>;
+
+fn count_token_moves(funds: &[Fund]) -> (u32, u32) {
+    let mut fungible_moves = 0;
+    let mut nfts_moves = 0;
+    for fund in funds {
+        match &fund.description {
+            FundDescription::Fungible { .. } => {
+                fungible_moves += 1;
+            }
+            FundDescription::NonFungible(nfts) => {
+                nfts_moves += nfts.len();
+            }
+        }
+    }
+    (fungible_moves, nfts_moves as u32)
+}
+
+pub trait WeightInfo {
+    fn create_portfolio(l: u32) -> Weight;
+    fn delete_portfolio() -> Weight;
+    fn rename_portfolio(i: u32) -> Weight;
+    fn quit_portfolio_custody() -> Weight;
+    fn accept_portfolio_custody() -> Weight;
+    fn pre_approve_portfolio() -> Weight;
+    fn remove_portfolio_pre_approval() -> Weight;
+    fn move_portfolio(funds: &[Fund]) -> Weight {
+        let (f, n) = count_token_moves(funds);
+        Self::move_portfolio_funds(f, n)
+    }
+    fn move_portfolio_funds(f: u32, u: u32) -> Weight;
+    fn allow_identity_to_create_portfolios() -> Weight;
+    fn revoke_create_portfolios_permission() -> Weight;
+    fn create_custody_portfolio() -> Weight;
+}
+
+pub trait Config:
+    frame_system::Config + pallet_permissions::Config + pallet_identity::Config + AssetFnConfig
+{
+    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+    type WeightInfo: WeightInfo;
+    /// Maximum number of fungible assets that can be moved in a single transfer call.
+    type MaxNumberOfFungibleMoves: Get<u32>;
+    /// Maximum number of NFTs that can be moved in a single transfer call.
+    type MaxNumberOfNFTsMoves: Get<u32>;
+    /// NFT module - required for updating the ownership of an NFT.
+    type NFT: NFTTrait<Self::RuntimeOrigin>;
+}
+
+decl_event! {
+    pub enum Event {
+        /// The portfolio has been successfully created.
+        ///
+        /// # Parameters
+        /// * origin DID
+        /// * portfolio number
+        /// * portfolio name
+        PortfolioCreated(IdentityId, PortfolioNumber, PortfolioName),
+        /// The portfolio has been successfully removed.
+        ///
+        /// # Parameters
+        /// * origin DID
+        /// * portfolio number
+        PortfolioDeleted(IdentityId, PortfolioNumber),
+        /// The portfolio identified with `num` has been renamed to `name`.
+        ///
+        /// # Parameters
+        /// * origin DID
+        /// * portfolio number
+        /// * portfolio name
+        PortfolioRenamed(IdentityId, PortfolioNumber, PortfolioName),
+        /// All non-default portfolio numbers and names of a DID.
+        ///
+        /// # Parameters
+        /// * origin DID
+        /// * vector of number-name pairs
+        UserPortfolios(IdentityId, Vec<(PortfolioNumber, PortfolioName)>),
+        /// Custody of a portfolio has been given to a different identity
+        ///
+        /// # Parameters
+        /// * origin DID
+        /// * portfolio id
+        /// * portfolio custodian did
+        PortfolioCustodianChanged(IdentityId, PortfolioId, IdentityId),
+        /// Funds have moved between portfolios
+        ///
+        /// # Parameters
+        /// * Origin DID.
+        /// * Source portfolio.
+        /// * Destination portfolio.
+        /// * The type of fund that was moved.
+        /// * Optional memo for the move.
+        FundsMovedBetweenPortfolios(
+            IdentityId,
+            PortfolioId,
+            PortfolioId,
+            FundDescription,
+            Option<Memo>
+        ),
+        /// A portfolio has pre approved the receivement of an asset.
+        ///
+        /// # Parameters
+        /// * [`IdentityId`] of the caller.
+        /// * [`PortfolioId`] that will receive assets without explicit affirmation.
+        /// * [`AssetId`] of the asset that has been exempt from explicit affirmation.
+        PreApprovedPortfolio(
+            IdentityId,
+            PortfolioId,
+            AssetId
+        ),
+        /// A portfolio has removed the approval of an asset.
+        ///
+        /// # Parameters
+        /// * [`IdentityId`] of the caller.
+        /// * [`PortfolioId`] that had its pre approval revoked.
+        /// * [`AssetId`] of the asset that had its pre approval revoked.
+        RevokePreApprovedPortfolio(
+            IdentityId,
+            PortfolioId,
+            AssetId
+        ),
+        /// Allow another identity to create portfolios.
+        ///
+        /// # Parameters
+        /// * [`IdentityId`] of the caller.
+        /// * [`IdentityId`] allowed to create portfolios.
+        AllowIdentityToCreatePortfolios(
+            IdentityId,
+            IdentityId,
+        ),
+        /// Revoke another identities permission to create portfolios.
+        ///
+        /// # Parameters
+        /// * [`IdentityId`] of the caller.
+        /// * [`IdentityId`] permissions to create portfolios is revoked.
+        RevokeCreatePortfoliosPermission(
+            IdentityId,
+            IdentityId,
+        ),
+    }
+}
 
 decl_storage! {
     trait Store for Module<T: Config> as Portfolio {
@@ -648,7 +788,7 @@ impl<T: Config> Module<T> {
         asset_id: &AssetId,
         amount: Balance,
     ) -> DispatchResult {
-        T::Asset::ensure_granular(asset_id, amount)?;
+        T::AssetFn::ensure_granular(asset_id, amount)?;
         Self::portfolio_asset_balances(portfolio, asset_id)
             .saturating_sub(Self::locked_assets(portfolio, asset_id))
             .checked_sub(amount)
@@ -1004,13 +1144,13 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Module<T> {
 
     fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, asset_id: &AssetId) -> bool {
         if Self::portfolio_custodian(portfolio_id).is_some() {
-            if T::Asset::asset_affirmation_exemption(asset_id) {
+            if T::AssetFn::asset_affirmation_exemption(asset_id) {
                 return true;
             }
             return PreApprovedPortfolios::get(portfolio_id, asset_id);
         }
 
-        if T::Asset::skip_asset_affirmation(&portfolio_id.did, asset_id) {
+        if T::AssetFn::skip_asset_affirmation(&portfolio_id.did, asset_id) {
             return true;
         }
         PreApprovedPortfolios::get(portfolio_id, asset_id)

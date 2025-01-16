@@ -22,11 +22,12 @@ use sp_runtime::MultiSignature;
 use sp_std::prelude::*;
 
 use pallet_asset::benchmarking::setup_asset_transfer;
+use pallet_identity::benchmarking::{User, UserBuilder};
 use pallet_nft::benchmarking::setup_nft_transfer;
-use polymesh_common_utilities::benchs::{create_and_issue_sample_asset, User, UserBuilder};
-use polymesh_common_utilities::constants::currency::ONE_UNIT;
-use polymesh_common_utilities::constants::ENSURED_MAX_LEN;
+use polymesh_primitives::bench::create_and_issue_sample_asset;
 use polymesh_primitives::checked_inc::CheckedInc;
+use polymesh_primitives::constants::currency::ONE_UNIT;
+use polymesh_primitives::constants::ENSURED_MAX_LEN;
 use polymesh_primitives::settlement::ReceiptMetadata;
 use polymesh_primitives::{IdentityId, Memo, NFTId, NFTs, PortfolioId, Ticker};
 
@@ -104,7 +105,7 @@ fn create_venue_<T: Config>(did: IdentityId, signers: Vec<T::AccountId>) -> Venu
 }
 
 pub fn create_asset_<T: Config>(owner: &User<T>) -> AssetId {
-    create_and_issue_sample_asset::<T>(owner, true, None, b"MyAsset", true)
+    create_and_issue_sample_asset::<T>(owner.account(), true, None, b"MyAsset", true)
 }
 
 fn setup_legs<T>(

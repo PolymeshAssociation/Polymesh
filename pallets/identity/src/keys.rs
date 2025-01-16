@@ -27,20 +27,19 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use pallet_base::{ensure_custom_length_ok, ensure_custom_string_limited};
-use polymesh_common_utilities::constants::did::USER;
-use polymesh_common_utilities::group::GroupTrait;
-use polymesh_common_utilities::identity::{
-    CreateChildIdentityWithAuth, SecondaryKeyWithAuth, TargetIdAuthorization,
-};
-use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee as _, ProtocolOp};
-use polymesh_common_utilities::traits::{AccountCallPermissionsData, CheckAccountCallPermissions};
-use polymesh_common_utilities::SystematicIssuers;
+use pallet_permissions::{AccountCallPermissionsData, CheckAccountCallPermissions};
+use polymesh_primitives::constants::did::USER;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
 };
+use polymesh_primitives::identity::{
+    CreateChildIdentityWithAuth, SecondaryKeyWithAuth, TargetIdAuthorization,
+};
+use polymesh_primitives::protocol_fee::{ChargeProtocolFee as _, ProtocolOp};
+use polymesh_primitives::SystematicIssuers;
 use polymesh_primitives::{
-    extract_auth, AuthorizationData, CddId, DidRecord, ExtrinsicName, ExtrinsicPermissions,
-    IdentityId, KeyRecord, PalletName, Permissions, SecondaryKey, Signatory,
+    extract_auth, traits::group::GroupTrait, AuthorizationData, CddId, DidRecord, ExtrinsicName,
+    ExtrinsicPermissions, IdentityId, KeyRecord, PalletName, Permissions, SecondaryKey, Signatory,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
