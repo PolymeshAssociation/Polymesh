@@ -15,11 +15,11 @@ use frame_support::{
 use frame_system::{self, EventRecord};
 use pallet_pips::{
     ActivePipCount, ActivePipLimit, CommitteePips, DefaultEnactmentPeriod, DepositInfo, Event,
-    LiveQueue, MaxPipSkipCount, MinimumProposalDeposit, PendingPipExpiry, Pip, PipDescription,
-    PipId, PipIdSequence, PipSkipCount, PipToSchedule, PipsMetadata, ProposalMetadata,
-    ProposalResult, ProposalState, ProposalStates, Proposals, Proposer, PruneHistoricalPips,
-    SnapshotId, SnapshotMeta, SnapshotMetadata, SnapshotQueue, SnapshotResult, SnapshottedPip,
-    Vote, VoteCount, VotingResult,
+    LiveQueue, MaxPipSkipCount, MinimumProposalDeposit, PendingPipExpiry, PendingRefunds, Pip,
+    PipDescription, PipId, PipIdSequence, PipSkipCount, PipToSchedule, PipsMetadata,
+    ProposalMetadata, ProposalResult, ProposalState, ProposalStates, ProposalVotes, Proposals,
+    Proposer, PruneHistoricalPips, SnapshotId, SnapshotMeta, SnapshotMetadata, SnapshotQueue,
+    SnapshotResult, SnapshottedPip, Vote, VoteCount, VotesToBePruned, VotingResult,
 };
 use pallet_treasury as treasury;
 use polymesh_primitives::{AccountId, BlockNumber, MaybeBlock, Url, GC_DID};
@@ -2009,5 +2009,79 @@ fn pips_rpcs() {
             vec![pip_id1, pip_id0],
         );
         assert_eq!(Pips::voted_on(bob.acc()), vec![pip_id1, pip_id0]);
+    });
+}
+
+#[test]
+fn prune_data_with_leftover() {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
+        System::set_block_number(1);
+
+        // Creates a proposal and 3 users vote on it
+        let bob = User::new(AccountKeyring::Bob);
+        let dave = User::new(AccountKeyring::Dave);
+        let alice = User::new(AccountKeyring::Alice);
+        let charlie = User::new(AccountKeyring::Charlie);
+
+        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        assert_ok!(community_proposal(alice, 0));
+        assert_ok!(Pips::vote(bob.origin(), PipId(0), true, 100));
+        assert_ok!(Pips::vote(dave.origin(), PipId(0), true, 100));
+        assert_ok!(Pips::vote(charlie.origin(), PipId(0), true, 100));
+        assert_eq!(Deposits::iter_prefix_values(PipId(0)).count(), 4);
+        assert_eq!(
+            ProposalVotes::<TestStorage>::iter_prefix_values(PipId(0)).count(),
+            4
+        );
+        assert!(Proposals::<TestStorage>::get(PipId(0)).is_some());
+
+        // Reject proposal - 2 accounts are refunded and 4 votes have to be pruned
+        assert_ok!(Pips::set_prune_historical_pips(root(), false));
+        assert_ok!(Pips::reject_proposal(gc_vmo(), PipId(0)));
+        assert_eq!(
+            PendingRefunds::<TestStorage>::get().first(),
+            Some(&PipId(0))
+        );
+        assert_eq!(VotesToBePruned::<TestStorage>::get().first(), None);
+        assert_eq!(Deposits::iter_prefix_values(PipId(0)).count(), 2);
+        assert_eq!(
+            ProposalVotes::<TestStorage>::iter_prefix_values(PipId(0)).count(),
+            4
+        );
+        assert!(Proposals::<TestStorage>::get(PipId(0)).is_some());
+
+        // Prune proposal - 2 accounts are refunded and 2 votes are pruned
+        assert_ok!(Pips::prune_proposal(gc_vmo(), PipId(0)));
+        assert_eq!(
+            VotesToBePruned::<TestStorage>::get().first(),
+            Some(&PipId(0))
+        );
+        assert_eq!(
+            PendingRefunds::<TestStorage>::get().first(),
+            Some(&PipId(0))
+        );
+        assert_eq!(
+            ProposalVotes::<TestStorage>::iter_prefix_values(PipId(0)).count(),
+            2
+        );
+        assert_eq!(Deposits::iter_prefix_values(PipId(0)).count(), 0);
+        assert_eq!(ProposalMetadata::<TestStorage>::get(PipId(0)), None);
+        assert_eq!(Proposals::<TestStorage>::get(PipId(0)), None);
+        assert_eq!(PipSkipCount::<TestStorage>::get(PipId(0)), 0);
+        assert_eq!(ProposalStates::<TestStorage>::get(PipId(0)), None);
+        assert_eq!(
+            ProposalResult::<TestStorage>::get(PipId(0)),
+            VotingResult::default()
+        );
+
+        // On idle execution, the remaining votes are pruned
+        Pips::remove_pending_storage();
+        assert_eq!(PendingRefunds::<TestStorage>::get().first(), None);
+        assert_eq!(Deposits::iter_prefix_values(PipId(0)).count(), 0);
+        assert_eq!(VotesToBePruned::<TestStorage>::get().first(), None);
+        assert_eq!(
+            ProposalVotes::<TestStorage>::iter_prefix_values(PipId(0)).count(),
+            0
+        );
     });
 }

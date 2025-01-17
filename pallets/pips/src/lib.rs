@@ -1631,11 +1631,11 @@ impl<T: Config> Pallet<T> {
         state: ProposalState,
         prune: bool,
     ) -> Result<u32, DispatchError> {
-        let n_votes = Self::refund_proposal(did, pip_id)?;
+        let n_refunds = Self::refund_proposal(did, pip_id)?;
         Self::decrement_count_if_active(state);
         if prune {
             ProposalResult::<T>::remove(pip_id);
-            Self::vote_pruning(pip_id)?;
+            let n_pruned_votes = Self::vote_pruning(pip_id)?;
             ProposalMetadata::<T>::remove(pip_id);
             if let Some(Proposer::Committee(_)) = Proposals::<T>::get(pip_id).map(|p| p.proposer) {
                 CommitteePips::<T>::mutate(|list| list.retain(|&i| i != pip_id));
@@ -1643,9 +1643,13 @@ impl<T: Config> Pallet<T> {
             Proposals::<T>::remove(pip_id);
             PipSkipCount::<T>::remove(pip_id);
             ProposalStates::<T>::remove(pip_id);
+
+            Self::deposit_event(Event::PipClosed(did, pip_id, prune));
+            Ok(n_refunds.max(n_pruned_votes))
+        } else {
+            Self::deposit_event(Event::PipClosed(did, pip_id, prune));
+            Ok(n_refunds)
         }
-        Self::deposit_event(Event::PipClosed(did, pip_id, prune));
-        Ok(n_votes)
     }
 
     /// Refunds up to [`MaxDepositsRefunded`] deposits for the given `pip_id`.
@@ -1672,16 +1676,20 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Prunes up to [`MaxVotesPruned`] from the given `pip_id`.
-    fn vote_pruning(pip_id: PipId) -> DispatchResult {
+    fn vote_pruning(pip_id: PipId) -> Result<u32, DispatchError> {
         let max_votes_pruned = T::MaxRefundsAndVotesPruned::get();
 
-        let removal_results = ProposalVotes::<T>::clear_prefix(pip_id, max_votes_pruned, None);
+        let n_pruned_votes = ProposalVotes::<T>::drain_prefix(pip_id)
+            .take(max_votes_pruned as usize)
+            .count() as u32;
+
         // Checks if there are more votes to prune
-        if removal_results.maybe_cursor.is_some() {
+        if ProposalVotes::<T>::iter_prefix(pip_id).next().is_some() {
             VotesToBePruned::<T>::try_mutate(|v| v.try_push(pip_id))
                 .map_err(|_| Error::<T>::PendingQueueIsFull)?;
         }
-        Ok(())
+
+        Ok(n_pruned_votes)
     }
 
     /// Execute the PIP given by `id`.
@@ -1740,15 +1748,15 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Clears from storage any pending refunds and votes.
-    pub(crate) fn remove_pending_storage() -> Weight {
+    pub fn remove_pending_storage() -> Weight {
         let clear_max = T::MaxRefundsAndVotesPruned::get();
 
-        let mut n_votes: u32 = 0;
+        let mut n_refunds: u32 = 0;
         // Checks if there are any pending refunds to be processed
         if let Some(pip_id) = PendingRefunds::<T>::get().first() {
             let mut refunded_amount = 0;
             for (_, deposit_info) in Deposits::<T>::drain_prefix(pip_id).take(clear_max as usize) {
-                n_votes += 1;
+                n_refunds += 1;
                 match Self::reduce_lock(&deposit_info.owner, deposit_info.amount) {
                     Ok(_) => {
                         refunded_amount = refunded_amount.saturating_add(deposit_info.amount);
@@ -1773,15 +1781,19 @@ impl<T: Config> Pallet<T> {
         }
 
         // Checks if there are any votes to be pruned
+        let mut n_pruned_votes: u32 = 0;
         if let Some(pip_id) = VotesToBePruned::<T>::get().first() {
-            let removal_results = ProposalVotes::<T>::clear_prefix(pip_id, clear_max, None);
+            n_pruned_votes = ProposalVotes::<T>::drain_prefix(pip_id)
+                .take(clear_max as usize)
+                .count() as u32;
+
             // Checks if all votes have been pruned. If so, removes the PIP from the queue.
-            if removal_results.maybe_cursor.is_none() {
+            if ProposalVotes::<T>::iter_prefix(pip_id).next().is_none() {
                 VotesToBePruned::<T>::mutate(|v| v.remove(0));
             }
         }
 
-        <T as Config>::WeightInfo::remove_pending_storage(n_votes)
+        <T as Config>::WeightInfo::remove_pending_storage(n_refunds.max(n_pruned_votes))
     }
 }
 

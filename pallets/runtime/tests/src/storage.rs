@@ -240,7 +240,7 @@ parameter_types! {
     pub const MaxKeyLen: u32 = 2048;
 
     // PIPs
-    pub const MaxRefundsAndVotesPruned: u32 = 128;
+    pub const MaxRefundsAndVotesPruned: u32 = 2;
     pub const MaxPendingQueueLen: u32 = 128;
 }
 
