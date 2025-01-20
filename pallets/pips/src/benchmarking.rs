@@ -18,16 +18,15 @@ use crate::*;
 use frame_benchmarking::benchmarks;
 use frame_support::{dispatch::DispatchResult, traits::UnfilteredDispatchable};
 use frame_system::RawOrigin;
-use pallet_identity::benchmarking::{user, User, UserBuilder};
-use polymesh_primitives::{MaybeBlock, SystematicIssuers, GC_DID};
 use rand::{seq::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use scale_info::prelude::format;
-use sp_std::{
-    convert::{TryFrom, TryInto},
-    iter,
-    prelude::*,
-};
+use sp_std::convert::{TryFrom, TryInto};
+use sp_std::iter;
+use sp_std::prelude::*;
+
+use pallet_identity::benchmarking::{user, User, UserBuilder};
+use polymesh_primitives::{MaybeBlock, SystematicIssuers, GC_DID};
 
 #[cfg(feature = "running-ci")]
 mod limits {
@@ -279,9 +278,7 @@ benchmarks! {
     }
 
     reject_proposal {
-        let v in 0..T::MaxRefundsAndVotesPruned::get() as u32;
-
-        vote_setup::<T>(1, v);
+        vote_setup::<T>(1, T::MaxRefundsAndVotesPruned::get());
 
         Pallet::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true).unwrap();
 
@@ -295,9 +292,7 @@ benchmarks! {
     }
 
     prune_proposal {
-        let v in 0..T::MaxRefundsAndVotesPruned::get() as u32;
-
-        vote_setup::<T>(1, v);
+        vote_setup::<T>(1, T::MaxRefundsAndVotesPruned::get());
 
         let origin = T::VotingMajorityOrigin::try_successful_origin().unwrap();
         let reject_call = Call::<T>::reject_proposal { id: PipId(0) };
@@ -356,9 +351,7 @@ benchmarks! {
     }
 
     snapshot {
-        let v in 0..T::MaxRefundsAndVotesPruned::get() as u32;
-
-        vote_setup::<T>(1, v);
+        vote_setup::<T>(1, T::MaxRefundsAndVotesPruned::get());
         let user = user::<T>("release_coordinator", 0);
         T::GovernanceCommittee::bench_set_release_coordinator(user.did());
     }: _(user.origin())
@@ -393,10 +386,8 @@ benchmarks! {
     }
 
     execute_scheduled_pip {
-        let v in 0..T::MaxRefundsAndVotesPruned::get() as u32;
-
         Pallet::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true).unwrap();
-        vote_setup::<T>(PROPOSALS_NUM, v);
+        vote_setup::<T>(PROPOSALS_NUM, T::MaxRefundsAndVotesPruned::get());
 
         // Adds a user to the governance committee and captures a snapshot
         let user = user::<T>("release_coordinator", 0);
@@ -414,10 +405,8 @@ benchmarks! {
     }
 
     expire_scheduled_pip {
-        let v in 0..T::MaxRefundsAndVotesPruned::get() as u32;
-
         Pallet::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true).unwrap();
-        vote_setup::<T>(PROPOSALS_NUM, v);
+        vote_setup::<T>(PROPOSALS_NUM, T::MaxRefundsAndVotesPruned::get());
 
         // Adds a user to the governance committee and captures a snapshot
         let user = user::<T>("release_coordinator", 0);
@@ -431,14 +420,27 @@ benchmarks! {
     }
 
     remove_pending_storage {
+        let r in 0..T::MaxRefundsAndVotesPruned::get() as u32;
         let v in 0..T::MaxRefundsAndVotesPruned::get() as u32;
 
-        vote_setup::<T>(1, v);
+        for i in 0..r {
+            let user = UserBuilder::<T>::default().generate_did().build(&format!("Voter{}", i));
+            Pallet::<T>::increase_lock(&user.account(), 1_000).unwrap();
+            Deposits::<T>::insert(PipId(0), user.account(), DepositInfo { owner: user.account(), amount: 1_000 });
+        }
 
-        // Manually add a proposal to the pending storage queue.
-        PendingRefunds::<T>::set(BoundedVec::try_from(vec![PipId(0)]).unwrap());
-        VotesToBePruned::<T>::set(BoundedVec::try_from(vec![PipId(0)]).unwrap());
+        for i in 0..v {
+            let user = UserBuilder::<T>::default().generate_did().build(&format!("Voter{}", i));
+            ProposalVotes::<T>::insert(PipId(0), user.account(), Vote(true, 1_000));
+        }
 
+        if r > 0 {
+            PendingRefunds::<T>::insert(PipId(0), true);
+        }
+
+        if v > 0 {
+            VotesToBePruned::<T>::insert(PipId(0), true);
+        }
     }: {
         Pallet::<T>::remove_pending_storage();
     }

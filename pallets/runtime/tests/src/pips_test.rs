@@ -1132,9 +1132,16 @@ fn cannot_reject_incorrect_state() {
 
 fn assert_pruned(id: PipId) {
     assert_eq!(ProposalMetadata::<TestStorage>::get(id), None);
-    assert_eq!(Deposits::iter_prefix_values(id).count(), 0);
+    assert_eq!(Deposits::iter_prefix_values(id).count(), 1);
+    assert_eq!(PendingRefunds::<TestStorage>::get(id), Some(true));
+    assert_eq!(VotesToBePruned::<TestStorage>::get(id), Some(true));
     assert_eq!(Proposals::<TestStorage>::get(id), None);
-    assert_vote_details(id, VotingResult::default(), vec![], vec![]);
+    assert_vote_details(
+        id,
+        VotingResult::default(),
+        vec![Deposits::iter_prefix_values(id).next().unwrap()],
+        Votes::iter_prefix_values(id).collect::<Vec<_>>(),
+    );
     assert_eq!(PipToSchedule::<TestStorage>::get(id), None);
     // TODO: Check that the PIP has been removed from the schedule. This should be easily done after
     // fixing this issue: https://github.com/PolymeshAssociation/substrate/issues/7449
@@ -1173,10 +1180,10 @@ fn can_prune_states_that_cannot_be_rejected() {
         assert_eq!(ActivePipCount::<TestStorage>::get(), 1);
         fast_forward_blocks(DefaultEnactmentPeriod::<TestStorage>::get() + 1);
         assert_state(id, false, ProposalState::Executed);
-        assert_balance(proposer.acc(), init_bal, 0);
+        assert_balance(proposer.acc(), init_bal, 200);
         assert_eq!(ActivePipCount::<TestStorage>::get(), 0);
         assert_ok!(Pips::prune_proposal(gc_vmo(), id));
-        assert_balance(proposer.acc(), init_bal, 0);
+        assert_balance(proposer.acc(), init_bal, 200);
         assert_pruned(id);
 
         // Can prune failed:
@@ -1189,7 +1196,7 @@ fn can_prune_states_that_cannot_be_rejected() {
             None,
             None
         ));
-        assert_balance(proposer.acc(), init_bal, 300);
+        assert_balance(proposer.acc(), init_bal, 300 + 200);
         assert_eq!(PipIdSequence::<TestStorage>::get(), PipId(2));
         assert_eq!(ActivePipCount::<TestStorage>::get(), 1);
         assert_ok!(Pips::snapshot(member.origin()));
@@ -1198,28 +1205,28 @@ fn can_prune_states_that_cannot_be_rejected() {
             vec![(id, SnapshotResult::Approve)]
         ));
         assert_state(id, false, ProposalState::Scheduled);
-        assert_balance(proposer.acc(), init_bal, 300);
+        assert_balance(proposer.acc(), init_bal, 300 + 200);
         assert_eq!(ActivePipCount::<TestStorage>::get(), 1);
         fast_forward_blocks(DefaultEnactmentPeriod::<TestStorage>::get() + 1);
         assert_state(id, false, ProposalState::Failed);
-        assert_balance(proposer.acc(), init_bal, 0);
+        assert_balance(proposer.acc(), init_bal, 300 + 200);
         assert_eq!(ActivePipCount::<TestStorage>::get(), 0);
         assert_ok!(Pips::prune_proposal(gc_vmo(), id));
-        assert_balance(proposer.acc(), init_bal, 0);
+        assert_balance(proposer.acc(), init_bal, 300 + 200);
         assert_pruned(id);
 
         // Can prune rejected:
         let id = PipId(2);
         assert_ok!(community_proposal(proposer, 400));
-        assert_balance(proposer.acc(), init_bal, 400);
+        assert_balance(proposer.acc(), init_bal, 300 + 200 + 400);
         assert_eq!(PipIdSequence::<TestStorage>::get(), PipId(3));
         assert_eq!(ActivePipCount::<TestStorage>::get(), 1);
         assert_ok!(Pips::reject_proposal(gc_vmo(), id));
-        assert_balance(proposer.acc(), init_bal, 0);
+        assert_balance(proposer.acc(), init_bal, 300 + 200 + 400);
         assert_state(id, false, ProposalState::Rejected);
         assert_eq!(ActivePipCount::<TestStorage>::get(), 0);
         assert_ok!(Pips::prune_proposal(gc_vmo(), id));
-        assert_balance(proposer.acc(), init_bal, 0);
+        assert_balance(proposer.acc(), init_bal, 300 + 200 + 400);
         assert_pruned(id);
     });
 }
@@ -1304,8 +1311,9 @@ fn reject_proposal_works() {
             ProposalStates::<TestStorage>::get(id).unwrap(),
             ProposalState::Rejected
         );
-        assert_balance(proposer.acc(), init_bal, 0);
-        assert_eq!(Deposits::iter_prefix_values(id).count(), 0);
+        assert_balance(proposer.acc(), init_bal, 50);
+        assert_eq!(Deposits::iter_prefix_values(id).count(), 1);
+        assert_eq!(PendingRefunds::<TestStorage>::get(id), Some(true));
         // We keep this info for posterity.
         assert_eq!(Votes::iter_prefix_values(id).count(), 1);
         assert_eq!(ProposalResult::<TestStorage>::get(id), result);
@@ -1314,7 +1322,7 @@ fn reject_proposal_works() {
 
         // Alice starts a proposal with some deposit.
         assert_ok!(community_proposal(proposer, 60));
-        assert_balance(proposer.acc(), init_bal, 60);
+        assert_balance(proposer.acc(), init_bal, 60 + 50);
         let result = VotingResult {
             ayes_count: 1,
             ayes_stake: 60,
@@ -1347,11 +1355,12 @@ fn reject_proposal_works() {
             ProposalStates::<TestStorage>::get(id).unwrap(),
             ProposalState::Rejected
         );
-        assert_balance(proposer.acc(), init_bal, 0);
-        assert_eq!(Deposits::iter_prefix_values(id).count(), 0);
+        assert_balance(proposer.acc(), init_bal, 60 + 50);
+        assert_eq!(Deposits::iter_prefix_values(id).count(), 1);
         // We keep this info for posterity.
         assert_eq!(Votes::iter_prefix_values(id).count(), 1);
         assert_eq!(ProposalResult::<TestStorage>::get(id), result);
+        assert_eq!(PendingRefunds::<TestStorage>::get(id), Some(true));
     });
 }
 
@@ -2034,37 +2043,30 @@ fn prune_data_with_leftover() {
             4
         );
         assert!(Proposals::<TestStorage>::get(PipId(0)).is_some());
+        assert_eq!(VotesToBePruned::<TestStorage>::get(PipId(0)), None);
+        assert_eq!(PendingRefunds::<TestStorage>::get(PipId(0)), None);
 
-        // Reject proposal - 2 accounts are refunded and 4 votes have to be pruned
+        // Reject proposal - Adds the proposal to the pending refund queue
         assert_ok!(Pips::set_prune_historical_pips(root(), false));
         assert_ok!(Pips::reject_proposal(gc_vmo(), PipId(0)));
-        assert_eq!(
-            PendingRefunds::<TestStorage>::get().first(),
-            Some(&PipId(0))
-        );
-        assert_eq!(VotesToBePruned::<TestStorage>::get().first(), None);
-        assert_eq!(Deposits::iter_prefix_values(PipId(0)).count(), 2);
+        assert_eq!(PendingRefunds::<TestStorage>::get(PipId(0)), Some(true));
+        assert_eq!(VotesToBePruned::<TestStorage>::get(PipId(0)), None);
+        assert_eq!(Deposits::iter_prefix_values(PipId(0)).count(), 4);
         assert_eq!(
             ProposalVotes::<TestStorage>::iter_prefix_values(PipId(0)).count(),
             4
         );
         assert!(Proposals::<TestStorage>::get(PipId(0)).is_some());
 
-        // Prune proposal - 2 accounts are refunded and 2 votes are pruned
+        // Prune proposal - Adds the poposal to the Votes to be pruned queue
         assert_ok!(Pips::prune_proposal(gc_vmo(), PipId(0)));
-        assert_eq!(
-            VotesToBePruned::<TestStorage>::get().first(),
-            Some(&PipId(0))
-        );
-        assert_eq!(
-            PendingRefunds::<TestStorage>::get().first(),
-            Some(&PipId(0))
-        );
+        assert_eq!(VotesToBePruned::<TestStorage>::get(PipId(0)), Some(true));
+        assert_eq!(PendingRefunds::<TestStorage>::get(PipId(0)), Some(true));
         assert_eq!(
             ProposalVotes::<TestStorage>::iter_prefix_values(PipId(0)).count(),
-            2
+            4
         );
-        assert_eq!(Deposits::iter_prefix_values(PipId(0)).count(), 0);
+        assert_eq!(Deposits::iter_prefix_values(PipId(0)).count(), 4);
         assert_eq!(ProposalMetadata::<TestStorage>::get(PipId(0)), None);
         assert_eq!(Proposals::<TestStorage>::get(PipId(0)), None);
         assert_eq!(PipSkipCount::<TestStorage>::get(PipId(0)), 0);
@@ -2074,11 +2076,21 @@ fn prune_data_with_leftover() {
             VotingResult::default()
         );
 
-        // On idle execution, the remaining votes are pruned
+        // On idle execution, Refunds 2 accounts and prune 2 votes
         Pips::remove_pending_storage();
-        assert_eq!(PendingRefunds::<TestStorage>::get().first(), None);
+        assert_eq!(PendingRefunds::<TestStorage>::get(PipId(0)), Some(true));
+        assert_eq!(Deposits::iter_prefix_values(PipId(0)).count(), 2);
+        assert_eq!(VotesToBePruned::<TestStorage>::get(PipId(0)), Some(true));
+        assert_eq!(
+            ProposalVotes::<TestStorage>::iter_prefix_values(PipId(0)).count(),
+            2
+        );
+
+        // On idle execution, Refunds 2 accounts and prune 2 votes
+        Pips::remove_pending_storage();
+        assert_eq!(PendingRefunds::<TestStorage>::get(PipId(0)), None);
         assert_eq!(Deposits::iter_prefix_values(PipId(0)).count(), 0);
-        assert_eq!(VotesToBePruned::<TestStorage>::get().first(), None);
+        assert_eq!(VotesToBePruned::<TestStorage>::get(PipId(0)), None);
         assert_eq!(
             ProposalVotes::<TestStorage>::iter_prefix_values(PipId(0)).count(),
             0
