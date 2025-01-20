@@ -241,7 +241,6 @@ parameter_types! {
 
     // PIPs
     pub const MaxRefundsAndVotesPruned: u32 = 2;
-    pub const MaxPendingQueueLen: u32 = 128;
 }
 
 frame_support::construct_runtime!(
@@ -692,7 +691,6 @@ impl pips::Config for TestStorage {
     type Scheduler = Scheduler;
     type SchedulerCall = RuntimeCall;
     type MaxRefundsAndVotesPruned = MaxRefundsAndVotesPruned;
-    type MaxPendingQueueLen = MaxPendingQueueLen;
 }
 
 impl pallet_sudo::Config for Runtime {

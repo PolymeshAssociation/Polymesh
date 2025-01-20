@@ -246,7 +246,6 @@ impl pallet_pips::Config for Test {
     type Scheduler = Scheduler;
     type SchedulerCall = RuntimeCall;
     type MaxRefundsAndVotesPruned = MaxRefundsAndVotesPruned;
-    type MaxPendingQueueLen = MaxPendingQueueLen;
 }
 
 impl pallet_treasury::Config for Test {
@@ -264,7 +263,6 @@ parameter_types! {
     pub const MinimumPeriod: u64 = 5;
     // PIPs
     pub const MaxRefundsAndVotesPruned: u32 = 128;
-    pub const MaxPendingQueueLen: u32 = 128;
 }
 
 impl pallet_timestamp::Config for Test {

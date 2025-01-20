@@ -182,8 +182,6 @@ pub mod pallet {
         ScheduledProposalDoesntExist,
         /// A proposal that is not in a scheduled state cannot be executed.
         ProposalNotInScheduledState,
-        /// The pending queue is full, try again later.
-        PendingQueueIsFull,
         /// Invalid PIP ID. Pip id was not expected to be in the live queue.
         InvalidPipId,
     }
@@ -385,9 +383,6 @@ pub mod pallet {
         /// The maximum number of votes that can be pruned at once.
         #[pallet::constant]
         type MaxRefundsAndVotesPruned: Get<u32>;
-        /// The maximum number of pips that can be pending refunds/pruning at the same time.
-        #[pallet::constant]
-        type MaxPendingQueueLen: Get<u32>;
     }
 
     /// Set to `true` if historical PIPs data must be removed.
