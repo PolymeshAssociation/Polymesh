@@ -737,13 +737,11 @@ impl<T: Config> Pallet<T> {
         let sender_old_balance = PortfolioAssetBalances::<T>::get(from, asset_id);
         let sender_new_balance = sender_old_balance.saturating_sub(amount);
         Self::set_portfolio_balance(from, asset_id, sender_new_balance);
-        Self::transition_asset_count(&from, sender_old_balance, sender_new_balance);
 
         // Adds the amount to the receiver
         let rcv_old_balance = PortfolioAssetBalances::<T>::get(to, asset_id);
         let rcv_new_balance = rcv_old_balance.saturating_add(amount);
         Self::set_portfolio_balance(to, asset_id, rcv_new_balance);
-        Self::transition_asset_count(&to, rcv_old_balance, rcv_new_balance);
     }
 
     /// Handle cases where the balance for an asset goes to and from 0.
@@ -871,7 +869,6 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::InsufficientPortfolioBalance)?;
 
         Self::set_portfolio_balance(pid, asset_id, remaining_balance);
-        Self::transition_asset_count(&pid, total_balance, remaining_balance);
         Ok(())
     }
 
