@@ -763,4 +763,17 @@ benchmarks! {
         )
         .unwrap();
     }: _(alice.origin, ticker, asset_id)
+
+    update_global_metadata_spec {
+        let asset_metadata_name = make_metadata_name::<T>();
+        let asset_metadata_spec = make_metadata_spec::<T>();
+
+        Pallet::<T>::register_asset_metadata_global_type(
+            RawOrigin::Root.into(),
+            asset_metadata_name.clone(),
+            asset_metadata_spec.clone()
+        )
+        .unwrap();
+    }: _(RawOrigin::Root, asset_metadata_name, asset_metadata_spec)
+
 }

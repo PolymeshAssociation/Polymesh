@@ -120,8 +120,8 @@ use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait, ComplianceFnConfig, NFTTrait};
 use polymesh_primitives::{
     extract_auth, storage_migrate_on, storage_migration_ver, AssetIdentifier, Balance, Document,
-    DocumentId, IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, SecondaryKey,
-    Ticker, WeightMeter,
+    DocumentId, IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, Ticker,
+    WeightMeter,
 };
 
 pub use types::{
@@ -327,6 +327,9 @@ pub mod pallet {
         /// An identity has unlinked a ticker from an asset.
         /// Parameters: [`IdentityId`] of caller, unlinked [`Ticker`], the asset identifier [`AssetId`].
         TickerUnlinkedFromAsset(IdentityId, Ticker, AssetId),
+        /// Asset Global Metadata Spec has been Updated.
+        /// Parameters: [`AssetMetadataName`] of the metadata, [`AssetMetadataSpec`] of the metadata.
+        GlobalMetadataSpecUpdated(AssetMetadataName, AssetMetadataSpec),
     }
 
     /// Map each [`Ticker`] to its registration details ([`TickerRegistration`]).
@@ -1563,6 +1566,30 @@ pub mod pallet {
             Self::base_unlink_ticker_from_asset_id(origin, ticker, asset_id)?;
             Ok(())
         }
+
+        /// Updates the global metadata specification.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_metadata_name` - The [`AssetMetadataName`] associated with the global metadata.
+        /// * `asset_metadata_spec` - The new [`AssetMetadataSpec`] that will be associated with the global metadata.
+        ///
+        /// # Events
+        /// * `GlobalMetadataSpecUpdated` - When the global metadata specification is successfully updated.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the origin is not authorized.
+        /// * `TooLong` - If the metadata url or description length exceeds the maximum allowed length.
+        /// * `AssetMetadataTypeDefMaxLengthExceeded` - If the metadata type definition length exceeds the maximum allowed length.
+        #[pallet::call_index(33)]
+        #[pallet::weight(<T as Config>::WeightInfo::update_global_metadata_spec())]
+        pub fn update_global_metadata_spec(
+            origin: OriginFor<T>,
+            asset_metadata_name: AssetMetadataName,
+            asset_metadata_spec: AssetMetadataSpec,
+        ) -> DispatchResult {
+            Self::base_update_global_metadata_spec(origin, asset_metadata_name, asset_metadata_spec)
+        }
     }
 
     #[pallet::error]
@@ -1701,6 +1728,7 @@ pub mod pallet {
         fn remove_mandatory_mediators(n: u32) -> Weight;
         fn link_ticker_to_asset_id() -> Weight;
         fn unlink_ticker_from_asset_id() -> Weight;
+        fn update_global_metadata_spec() -> Weight;
     }
 }
 
@@ -2520,6 +2548,37 @@ impl<T: AssetConfig> Pallet<T> {
         Self::deposit_event(Event::TickerUnlinkedFromAsset(caller_did, ticker, asset_id));
         Ok(())
     }
+
+    /// Updates the global metadata spec. This function is only callable by the root account.
+    fn base_update_global_metadata_spec(
+        origin: T::RuntimeOrigin,
+        asset_metadata_name: AssetMetadataName,
+        asset_metadata_spec: AssetMetadataSpec,
+    ) -> DispatchResult {
+        ensure_root(origin)?;
+
+        let metadata_key = AssetMetadataGlobalNameToKey::<T>::get(&asset_metadata_name)
+            .ok_or(Error::<T>::AssetMetadataKeyIsMissing)?;
+
+        Self::ensure_asset_metadata_spec_limited(&asset_metadata_spec)?;
+
+        AssetMetadataGlobalSpecs::<T>::try_mutate(metadata_key, |spec| -> DispatchResult {
+            match spec {
+                Some(spec) => {
+                    *spec = asset_metadata_spec.clone();
+                    Ok(())
+                }
+                None => Err(Error::<T>::AssetMetadataKeyIsMissing.into()),
+            }
+        })?;
+
+        Self::deposit_event(Event::GlobalMetadataSpecUpdated(
+            asset_metadata_name,
+            asset_metadata_spec,
+        ));
+
+        Ok(())
+    }
 }
 
 //==========================================================================
@@ -2626,8 +2685,6 @@ impl<T: AssetConfig> Pallet<T> {
 
     /// Returns [`TickerRegistrationStatus`] if all rules for creating an asset are satisfied.
     fn validate_asset_creation_rules(
-        caller_did: IdentityId,
-        secondary_key: Option<SecondaryKey<T::AccountId>>,
         asset_id: &AssetId,
         asset_name: &AssetName,
         asset_type: &AssetType,
@@ -2643,13 +2700,6 @@ impl<T: AssetConfig> Pallet<T> {
 
         // Ensure there's no pre-existing entry for the `asset_id`
         Self::ensure_new_asset_id(asset_id)?;
-
-        // Ensure that the caller has relevant portfolio permissions
-        Portfolio::<T>::ensure_portfolio_custody_and_permission(
-            PortfolioId::default_portfolio(caller_did),
-            caller_did,
-            secondary_key.as_ref(),
-        )?;
 
         Ok(())
     }
@@ -3017,8 +3067,6 @@ impl<T: AssetConfig> Pallet<T> {
         let asset_id = Self::generate_asset_id(caller_data.sender, true);
 
         Self::validate_asset_creation_rules(
-            caller_data.primary_did,
-            caller_data.secondary_key,
             &asset_id,
             &asset_name,
             &asset_type,

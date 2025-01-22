@@ -696,12 +696,17 @@ impl<T: Config> Pallet<T> {
         Self::portfolio_asset_balances(PortfolioId::user_portfolio(did, num), asset_id)
     }
 
-    /// Sets the asset balance of the a portfolio to `new`.
-    pub fn set_portfolio_balance(pid: PortfolioId, asset_id: &AssetId, new: Balance) {
-        PortfolioAssetBalances::<T>::mutate(&pid, asset_id, |old| {
-            Self::transition_asset_count(&pid, *old, new);
-            *old = new;
-        });
+    /// Sets the asset balance of the  portfolio to `new_balance`.
+    pub fn set_portfolio_balance(pid: PortfolioId, asset_id: &AssetId, new_balance: Balance) {
+        let old_balance = PortfolioAssetBalances::<T>::get(&pid, asset_id);
+
+        if new_balance.is_zero() {
+            PortfolioAssetBalances::<T>::remove(&pid, asset_id);
+        } else {
+            PortfolioAssetBalances::<T>::insert(pid, asset_id, new_balance);
+        }
+
+        Self::transition_asset_count(&pid, old_balance, new_balance);
     }
 
     /// Returns the next portfolio number of a given identity and increments the stored number.
@@ -728,15 +733,23 @@ impl<T: Config> Pallet<T> {
         asset_id: &AssetId,
         amount: Balance,
     ) {
-        PortfolioAssetBalances::<T>::mutate(from, asset_id, |balance| {
-            let old = mem::replace(balance, balance.saturating_sub(amount));
-            Self::transition_asset_count(from, old, *balance);
-        });
+        // Subtracts the amount from the sender
+        let sender_old_balance = PortfolioAssetBalances::<T>::get(from, asset_id);
+        let sender_new_balance = sender_old_balance.saturating_sub(amount);
+        if sender_new_balance.is_zero() {
+            PortfolioAssetBalances::<T>::remove(from, asset_id);
+        } else {
+            PortfolioAssetBalances::<T>::insert(from, asset_id, sender_new_balance);
+        }
+        Self::transition_asset_count(from, sender_old_balance, sender_new_balance);
 
-        PortfolioAssetBalances::<T>::mutate(to, asset_id, |balance| {
-            let old = mem::replace(balance, balance.saturating_add(amount));
-            Self::transition_asset_count(to, old, *balance);
-        });
+        // Adds the amount to the receiver
+        let rcv_old_balance = PortfolioAssetBalances::<T>::get(to, asset_id);
+        let rcv_new_balance = rcv_old_balance.saturating_add(amount);
+        if !rcv_new_balance.is_zero() {
+            PortfolioAssetBalances::<T>::insert(to, asset_id, rcv_new_balance);
+        }
+        Self::transition_asset_count(to, rcv_old_balance, rcv_new_balance);
     }
 
     /// Handle cases where the balance for an asset goes to and from 0.
@@ -864,7 +877,12 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::InsufficientPortfolioBalance)?;
 
         // Update portfolio balance.
-        PortfolioAssetBalances::<T>::insert(pid, asset_id, remaining_balance);
+        if remaining_balance.is_zero() {
+            PortfolioAssetBalances::<T>::remove(pid, asset_id);
+        } else {
+            PortfolioAssetBalances::<T>::insert(pid, asset_id, remaining_balance);
+        }
+
         Self::transition_asset_count(pid, total_balance, remaining_balance);
 
         Ok(())
@@ -1182,7 +1200,12 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Pallet<T> {
         ensure!(locked >= amount, Error::<T>::InsufficientTokensLocked);
 
         // 2. Unlock tokens. Can not underflow due to above ensure.
-        PortfolioLockedAssets::<T>::insert(portfolio, asset_id, locked - amount);
+        if (locked - amount) == 0 {
+            PortfolioLockedAssets::<T>::remove(portfolio, asset_id);
+        } else {
+            PortfolioLockedAssets::<T>::insert(portfolio, asset_id, locked - amount);
+        }
+
         Ok(())
     }
 
