@@ -696,12 +696,12 @@ impl<T: Config> Pallet<T> {
         Self::portfolio_asset_balances(PortfolioId::user_portfolio(did, num), asset_id)
     }
 
-    /// Sets the asset balance of the  portfolio to `new_balance`.
-    pub fn set_portfolio_balance(pid: PortfolioId, asset_id: &AssetId, new_balance: Balance) {
-        let old_balance = PortfolioAssetBalances::<T>::get(&pid, asset_id);
+    /// Sets the asset balance of the specified portfolio to `new_balance`.
+    pub fn set_portfolio_balance(pid: PortfolioId, asset_id: AssetId, new_balance: Balance) {
+        let old_balance = PortfolioAssetBalances::<T>::get(&pid, &asset_id);
 
         if new_balance.is_zero() {
-            PortfolioAssetBalances::<T>::remove(&pid, asset_id);
+            PortfolioAssetBalances::<T>::remove(&pid, &asset_id);
         } else {
             PortfolioAssetBalances::<T>::insert(pid, asset_id, new_balance);
         }
@@ -728,28 +728,22 @@ impl<T: Config> Pallet<T> {
     /// This function does not do any data validity checks.
     /// The caller must make sure that the portfolio, custodianship and free balance are valid before calling this function.
     pub fn unchecked_transfer_portfolio_balance(
-        from: &PortfolioId,
-        to: &PortfolioId,
-        asset_id: &AssetId,
+        from: PortfolioId,
+        to: PortfolioId,
+        asset_id: AssetId,
         amount: Balance,
     ) {
         // Subtracts the amount from the sender
         let sender_old_balance = PortfolioAssetBalances::<T>::get(from, asset_id);
         let sender_new_balance = sender_old_balance.saturating_sub(amount);
-        if sender_new_balance.is_zero() {
-            PortfolioAssetBalances::<T>::remove(from, asset_id);
-        } else {
-            PortfolioAssetBalances::<T>::insert(from, asset_id, sender_new_balance);
-        }
-        Self::transition_asset_count(from, sender_old_balance, sender_new_balance);
+        Self::set_portfolio_balance(from, asset_id, sender_new_balance);
+        Self::transition_asset_count(&from, sender_old_balance, sender_new_balance);
 
         // Adds the amount to the receiver
         let rcv_old_balance = PortfolioAssetBalances::<T>::get(to, asset_id);
         let rcv_new_balance = rcv_old_balance.saturating_add(amount);
-        if !rcv_new_balance.is_zero() {
-            PortfolioAssetBalances::<T>::insert(to, asset_id, rcv_new_balance);
-        }
-        Self::transition_asset_count(to, rcv_old_balance, rcv_new_balance);
+        Self::set_portfolio_balance(to, asset_id, rcv_new_balance);
+        Self::transition_asset_count(&to, rcv_old_balance, rcv_new_balance);
     }
 
     /// Handle cases where the balance for an asset goes to and from 0.
@@ -864,8 +858,8 @@ impl<T: Config> Pallet<T> {
     /// Reduces the balance of a portfolio.
     /// Throws an error if enough free balance is not available.
     pub fn reduce_portfolio_balance(
-        pid: &PortfolioId,
-        asset_id: &AssetId,
+        pid: PortfolioId,
+        asset_id: AssetId,
         amount: Balance,
     ) -> DispatchResult {
         // Ensure portfolio has enough free balance
@@ -876,15 +870,8 @@ impl<T: Config> Pallet<T> {
             .filter(|rb| rb >= &locked_balance)
             .ok_or(Error::<T>::InsufficientPortfolioBalance)?;
 
-        // Update portfolio balance.
-        if remaining_balance.is_zero() {
-            PortfolioAssetBalances::<T>::remove(pid, asset_id);
-        } else {
-            PortfolioAssetBalances::<T>::insert(pid, asset_id, remaining_balance);
-        }
-
-        Self::transition_asset_count(pid, total_balance, remaining_balance);
-
+        Self::set_portfolio_balance(pid, asset_id, remaining_balance);
+        Self::transition_asset_count(&pid, total_balance, remaining_balance);
         Ok(())
     }
 
@@ -1032,9 +1019,9 @@ impl<T: Config> Pallet<T> {
             match fund.description {
                 FundDescription::Fungible { asset_id, amount } => {
                     Self::unchecked_transfer_portfolio_balance(
-                        &sender_portfolio,
-                        &receiver_portfolio,
-                        &asset_id,
+                        sender_portfolio,
+                        receiver_portfolio,
+                        asset_id,
                         amount,
                     );
                     Self::deposit_event(Event::FundsMovedBetweenPortfolios(

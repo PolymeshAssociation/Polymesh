@@ -1936,7 +1936,7 @@ impl<T: AssetConfig> Pallet<T> {
             Error::<T>::UnexpectedNonFungibleToken
         );
 
-        Portfolio::<T>::reduce_portfolio_balance(&portfolio, &asset_id, value)?;
+        Portfolio::<T>::reduce_portfolio_balance(portfolio, asset_id, value)?;
 
         asset_details.total_supply = asset_details
             .total_supply
@@ -3260,7 +3260,7 @@ impl<T: AssetConfig> Pallet<T> {
             Portfolio::<T>::portfolio_asset_balances(issuer_portfolio, asset_id) + amount_to_issue;
         Portfolio::<T>::set_portfolio_balance(
             issuer_portfolio,
-            &asset_id,
+            asset_id,
             new_issuer_portfolio_balance,
         );
 
@@ -3322,9 +3322,9 @@ impl<T: AssetConfig> Pallet<T> {
 
         // Updates the balances in the portfolio pallet
         Portfolio::<T>::unchecked_transfer_portfolio_balance(
-            &sender_portfolio,
-            &receiver_portfolio,
-            &asset_id,
+            sender_portfolio,
+            receiver_portfolio,
+            asset_id,
             transfer_value,
         );
 
