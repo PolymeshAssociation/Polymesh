@@ -18,7 +18,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use polymesh_primitives::protocol_fee::ProtocolOp;
+use polymesh_common_utilities::protocol_fee::ProtocolOp;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::traits::{SaturatedConversion, UniqueSaturatedInto};

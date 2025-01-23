@@ -104,8 +104,8 @@ use frame_system::ensure_root;
 use pallet_asset::checkpoint;
 use pallet_base::try_next_post;
 use pallet_identity::{Config as IdentityConfig, PermissionedCallOriginData};
+use polymesh_common_utilities::checkpoint::ScheduleId;
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::checkpoint::ScheduleId;
 use polymesh_primitives::{
     asset::CheckpointId, impl_checked_inc, storage_migration_ver, with_transaction, Balance,
     DocumentId, EventDid, IdentityId, Moment, PortfolioNumber, GC_DID,

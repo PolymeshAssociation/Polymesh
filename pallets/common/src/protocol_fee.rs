@@ -17,7 +17,7 @@ use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 /// Protocol fee operations.
 #[derive(Decode, Encode, TypeInfo)]

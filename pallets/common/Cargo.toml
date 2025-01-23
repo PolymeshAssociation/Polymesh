@@ -1,0 +1,28 @@
+[package]
+name = "polymesh-common-utilities"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0.104", optional = true, default-features = false, features = ["derive"] }
+
+polymesh-primitives = { workspace = true, default-features = false }
+
+# Substrate
+codec = { workspace = true, default-features = false, features = ["derive"] }
+frame-support = { workspace = true, default-features = false }
+scale-info = {  workspace = true, default-features = false, features = ["derive"] }
+sp-core = {  workspace = true, default-features = false }
+sp-std = {  workspace = true, default-features = false }
+
+[features]
+default = ["std"]
+
+std = [
+	"serde",
+	"codec/std",
+	"frame-support/std",
+	"polymesh-primitives/std",
+	"sp-core/std",
+	"sp-std/std",
+]

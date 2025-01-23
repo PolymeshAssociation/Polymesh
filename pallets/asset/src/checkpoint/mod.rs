@@ -56,9 +56,9 @@ use sp_std::prelude::*;
 use sp_std::vec;
 
 use pallet_base::try_next_pre;
+use polymesh_common_utilities::checkpoint::{NextCheckpoints, ScheduleCheckpoints, ScheduleId};
+use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::asset::{AssetId, CheckpointId};
-use polymesh_primitives::checkpoint::{NextCheckpoints, ScheduleCheckpoints, ScheduleId};
-use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::GC_DID;
 use polymesh_primitives::{storage_migration_ver, IdentityId, Moment};
 

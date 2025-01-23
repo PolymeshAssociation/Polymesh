@@ -16,7 +16,7 @@
 use crate::*;
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
-use polymesh_primitives::protocol_fee::ProtocolOp;
+use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use polymesh_primitives::PosRatio;
 
 benchmarks! {

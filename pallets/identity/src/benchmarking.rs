@@ -17,15 +17,16 @@ use crate::*;
 
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
+use polymesh_common_utilities::identity::TargetIdAuthorization;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS, MAX_SECONDARY_KEYS,
 };
 use polymesh_primitives::secondary_key::ExtrinsicNames;
 use polymesh_primitives::{
-    identity::TargetIdAuthorization, AssetPermissions, AuthorizationData, Claim, CountryCode,
-    ExtrinsicName, ExtrinsicPermissions, PalletName, PalletPermissions, Permissions, PortfolioId,
-    PortfolioNumber, PortfolioPermissions, Scope, SecondaryKey, Signatory,
+    AssetPermissions, AuthorizationData, Claim, CountryCode, ExtrinsicName, ExtrinsicPermissions,
+    PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, PortfolioPermissions,
+    Scope, SecondaryKey, Signatory,
 };
 use sp_core::H512;
 use sp_std::prelude::*;

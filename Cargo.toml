@@ -145,7 +145,7 @@ members = [
     "primitives/asset-metadata",
     "rpc",
     "rpc/runtime-api",
-    "utils/permissions",
+    "utils/permissions", "pallets/common",
 ]
 exclude = [
     "contracts",
@@ -185,6 +185,7 @@ polymesh-contracts = { path = "pallets/contracts", default-features = false }
 
 # Common
 polymesh-runtime-common = { path = "pallets/runtime/common", default-features = false }
+polymesh-common-utilities = { path = "pallets/common", default-features = false }
 polymesh-primitives = { path = "primitives", default-features = false }
 polymesh-primitives-derive = { path = "primitives_derive", default-features = false }
 polymesh-weights = { path = "pallets/weights/", default-features = false }
@@ -276,6 +277,7 @@ pallet-staking = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
+polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false }
 
