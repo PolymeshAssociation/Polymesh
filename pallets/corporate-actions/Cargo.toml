@@ -6,6 +6,7 @@ edition = "2021"
 
 [dependencies]
 # Common
+polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-primitives-derive = { workspace = true, default-features = false }
 
@@ -52,6 +53,7 @@ std = [
     "pallet-portfolio/std",
     "pallet-timestamp/std",
     "polymesh-primitives/std",
+    "polymesh-common-utilities/std",
     "serde/std",
     "serde_derive",
     "sp-api/std",

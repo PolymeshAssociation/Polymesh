@@ -9,6 +9,7 @@ edition = "2021"
 pallet-balances = { workspace = true, default-features = false }
 pallet-permissions = { workspace = true, default-features = false }
 pallet-identity = { workspace = true, default-features = false }
+polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 
 # Substrate
@@ -34,6 +35,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"polymesh-common-utilities/std",
 	"polymesh-primitives/std",
 	"pallet-balances/std",
 	"pallet-identity/std",

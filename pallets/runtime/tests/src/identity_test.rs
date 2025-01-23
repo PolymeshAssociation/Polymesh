@@ -20,16 +20,16 @@ use frame_support::{
 use pallet_balances as balances;
 use pallet_identity::{ChildDid, CustomClaimIdSequence, CustomClaims, CustomClaimsInverse};
 use pallet_identity::{Config as IdentityConfig, RawEvent};
+use polymesh_common_utilities::identity::{
+    CreateChildIdentityWithAuth, SecondaryKeyWithAuth, TargetIdAuthorization,
+};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
-    constants::currency::POLY,
-    identity::{CreateChildIdentityWithAuth, SecondaryKeyWithAuth, TargetIdAuthorization},
-    traits::group::GroupTrait,
-    traits::CddAndFeeDetails,
-    AccountId, AssetPermissions, AuthorizationData, AuthorizationType, Claim, ClaimType,
-    CustomClaimTypeId, ExtrinsicName, ExtrinsicPermissions, IdentityClaim, IdentityId, KeyRecord,
-    PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope, SecondaryKey,
-    Signatory, SubsetRestriction, SystematicIssuers, Ticker, TransactionError, GC_DID,
+    constants::currency::POLY, traits::group::GroupTrait, traits::CddAndFeeDetails, AccountId,
+    AssetPermissions, AuthorizationData, AuthorizationType, Claim, ClaimType, CustomClaimTypeId,
+    ExtrinsicName, ExtrinsicPermissions, IdentityClaim, IdentityId, KeyRecord, PalletName,
+    PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope, SecondaryKey, Signatory,
+    SubsetRestriction, SystematicIssuers, Ticker, TransactionError, GC_DID,
 };
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
 use sp_core::H512;

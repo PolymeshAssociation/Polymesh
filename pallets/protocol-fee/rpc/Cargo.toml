@@ -20,6 +20,7 @@ frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 
 node-rpc = { workspace = true }
+polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { workspace = true }
 

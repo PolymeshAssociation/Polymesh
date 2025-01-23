@@ -4726,6 +4726,7 @@ dependencies = [
  "pallet-statistics",
  "pallet-timestamp",
  "parity-scale-codec 3.6.9",
+ "polymesh-common-utilities",
  "polymesh-primitives",
  "polymesh-primitives-derive",
  "polymesh-runtime-common",
@@ -4916,6 +4917,7 @@ dependencies = [
  "pallet-permissions",
  "pallet-timestamp",
  "parity-scale-codec 3.6.9",
+ "polymesh-common-utilities",
  "polymesh-primitives",
  "scale-info",
  "serde",
@@ -4996,6 +4998,7 @@ dependencies = [
  "pallet-portfolio",
  "pallet-timestamp",
  "parity-scale-codec 3.6.9",
+ "polymesh-common-utilities",
  "polymesh-primitives",
  "polymesh-primitives-derive",
  "scale-info",
@@ -5159,6 +5162,7 @@ dependencies = [
  "pallet-permissions",
  "pallet-timestamp",
  "parity-scale-codec 3.6.9",
+ "polymesh-common-utilities",
  "polymesh-primitives",
  "scale-info",
  "schnorrkel 0.11.4",
@@ -5313,6 +5317,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-treasury",
  "parity-scale-codec 3.6.9",
+ "polymesh-common-utilities",
  "polymesh-primitives",
  "polymesh-primitives-derive",
  "polymesh-runtime-common",
@@ -5375,6 +5380,7 @@ dependencies = [
  "frame-system",
  "pallet-identity",
  "parity-scale-codec 3.6.9",
+ "polymesh-common-utilities",
  "polymesh-primitives",
  "scale-info",
  "serde",
@@ -5394,6 +5400,7 @@ dependencies = [
  "node-rpc",
  "pallet-protocol-fee-rpc-runtime-api",
  "parity-scale-codec 3.6.9",
+ "polymesh-common-utilities",
  "polymesh-primitives",
  "serde",
  "sp-api",
@@ -5409,6 +5416,7 @@ name = "pallet-protocol-fee-rpc-runtime-api"
 version = "0.1.0"
 dependencies = [
  "parity-scale-codec 3.6.9",
+ "polymesh-common-utilities",
  "polymesh-primitives",
  "serde",
  "sp-api",
@@ -5712,6 +5720,7 @@ dependencies = [
  "pallet-identity",
  "pallet-permissions",
  "parity-scale-codec 3.6.9",
+ "polymesh-common-utilities",
  "polymesh-primitives",
  "scale-info",
  "sp-core",
@@ -6184,6 +6193,7 @@ dependencies = [
  "pallet-sudo",
  "pallet-transaction-payment",
  "parity-scale-codec 3.6.9",
+ "polymesh-common-utilities",
  "polymesh-contracts",
  "polymesh-node-rpc",
  "polymesh-primitives",
@@ -6237,6 +6247,19 @@ name = "polymesh-build-tool"
 version = "0.1.0"
 dependencies = [
  "substrate-wasm-builder",
+]
+
+[[package]]
+name = "polymesh-common-utilities"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec 3.6.9",
+ "polymesh-primitives",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-std",
 ]
 
 [[package]]
@@ -6359,6 +6382,7 @@ dependencies = [
  "pallet-multisig",
  "pallet-relayer",
  "parity-scale-codec 3.6.9",
+ "polymesh-common-utilities",
  "polymesh-primitives",
  "smallvec",
  "sp-io",
@@ -6427,6 +6451,7 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec 3.6.9",
  "polymesh-build-tool",
+ "polymesh-common-utilities",
  "polymesh-contracts",
  "polymesh-primitives",
  "polymesh-runtime-common",
@@ -6509,6 +6534,7 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec 3.6.9",
  "polymesh-build-tool",
+ "polymesh-common-utilities",
  "polymesh-contracts",
  "polymesh-primitives",
  "polymesh-runtime-common",
@@ -6593,6 +6619,7 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec 3.6.9",
  "polymesh-build-tool",
+ "polymesh-common-utilities",
  "polymesh-contracts",
  "polymesh-primitives",
  "polymesh-runtime-common",
@@ -6683,6 +6710,7 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec 3.6.9",
  "parking_lot 0.12.1",
+ "polymesh-common-utilities",
  "polymesh-contracts",
  "polymesh-exec-macro",
  "polymesh-primitives",

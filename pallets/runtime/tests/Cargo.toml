@@ -35,6 +35,7 @@ pallet-transaction-payment = { workspace = true, default-features = false }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
+polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false, features = ["testing"] }
 polymesh-runtime-develop = { workspace = true }
@@ -158,6 +159,7 @@ std = [
     "pallet-treasury/std",
     "pallet-sudo/std",
     "polymesh-primitives/std",
+    "polymesh-common-utilities/std",
     "polymesh-runtime-common/std",
     "polymesh-contracts/std",
     "polymesh-weights/std",

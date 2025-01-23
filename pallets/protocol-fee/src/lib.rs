@@ -46,8 +46,8 @@ use frame_support::{
 };
 use frame_system::ensure_root;
 use pallet_identity::Config as IdentityConfig;
+use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::{
-    protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{CddAndFeeDetails, SubsidiserTrait},
     Balance, IdentityId, PosRatio, GC_DID,
 };

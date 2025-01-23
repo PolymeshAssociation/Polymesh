@@ -20,8 +20,8 @@ use pallet_corporate_actions::{
     TargetTreatment::{Exclude, Include},
     Tax,
 };
+use polymesh_common_utilities::checkpoint::{ScheduleCheckpoints, ScheduleId};
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::checkpoint::{ScheduleCheckpoints, ScheduleId};
 use polymesh_primitives::{
     agent::AgentGroup, asset::CheckpointId, constants::currency::ONE_UNIT, AuthorizationData,
     Claim, ClaimType, Condition, ConditionType, CountryCode, Document, DocumentId, IdentityId,

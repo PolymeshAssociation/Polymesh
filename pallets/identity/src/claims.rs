@@ -24,9 +24,9 @@ use frame_support::{
 use frame_system::ensure_root;
 use pallet_base::{ensure_string_limited, try_next_pre};
 
+use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use polymesh_primitives::identity_claim::CustomClaimTypeId;
 use polymesh_primitives::{
-    protocol_fee::ProtocolOp,
     traits::group::{GroupTrait, InactiveMember},
     CddId, Claim, ClaimType, IdentityClaim, IdentityId, Scope, SecondaryKey, SystematicIssuers,
 };

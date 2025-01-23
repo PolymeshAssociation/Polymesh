@@ -83,13 +83,13 @@ use frame_support::weights::Weight;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use pallet_base::ensure_length_ok;
 use pallet_external_agents::Config as EAConfig;
+use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::compliance_manager::{
     AssetCompliance, AssetComplianceResult, ComplianceReport, ComplianceRequirement,
     ConditionReport, ConditionResult, RequirementReport,
 };
 use polymesh_primitives::condition::{conditions_total_counts, Condition};
-use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::{
     proposition, storage_migration_ver,
     traits::{AssetFnConfig, ComplianceFnConfig},

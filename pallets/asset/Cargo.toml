@@ -6,6 +6,7 @@ edition = "2021"
 
 [dependencies]
 # Common
+polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-primitives-derive = { workspace = true, default-features = false }
 
@@ -57,6 +58,7 @@ std = [
     "pallet-timestamp/std",
     "pallet-external-agents/std",
     "polymesh-primitives/std",
+    "polymesh-common-utilities/std",
     "polymesh-runtime-common/std",
     "rustc-hex/std",
     "serde/std",

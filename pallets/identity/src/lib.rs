@@ -102,12 +102,14 @@ use frame_support::traits::{
 };
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, Parameter};
 use frame_system::ensure_root;
+use polymesh_common_utilities::{
+    identity::{AuthorizationNonce, CreateChildIdentityWithAuth, SecondaryKeyWithAuth},
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
+};
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
 };
 use polymesh_primitives::{
-    identity::{AuthorizationNonce, CreateChildIdentityWithAuth, SecondaryKeyWithAuth},
-    protocol_fee::{ChargeProtocolFee, ProtocolOp},
     storage_migration_ver,
     traits::group::GroupTrait,
     traits::{CddAndFeeDetails, IdentityFnTrait},
