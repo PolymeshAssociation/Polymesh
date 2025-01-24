@@ -417,6 +417,8 @@ macro_rules! misc_pallet_impls {
             type MaxDebugBufferLen = frame_support::traits::ConstU32<{ 2 * 1024 * 1024 }>;
             #[cfg(not(feature = "runtime-benchmarks"))]
             type Migrations = (
+                // Migration v9 -> v10 has already been run.
+                pallet_contracts::migration::NoopMigration<10>,
                 pallet_contracts::migration::v11::Migration<Runtime>,
                 pallet_contracts::migration::v12::Migration<Runtime>,
                 pallet_contracts::migration::v13::Migration<Runtime>,
