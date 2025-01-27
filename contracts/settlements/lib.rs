@@ -9,6 +9,7 @@ use polymesh_ink::*;
 #[ink::contract(env = PolymeshEnvironment)]
 mod settlements {
     use alloc::vec;
+    use alloc::collections::BTreeSet;
     use ink::storage::Mapping;
 
     use crate::*;
@@ -26,9 +27,9 @@ mod settlements {
         /// Upgradable Polymesh Ink API.
         api: PolymeshInk,
 
-        /// Ticker pair.
-        ticker1: Ticker,
-        ticker2: Ticker,
+        /// AssetId pair.
+        asset_id_1: AssetId,
+        asset_id_2: AssetId,
         initialized: bool,
         /// Venue for settlements.
         venue: VenueId,
@@ -61,8 +62,8 @@ mod settlements {
         AlreadyHavePortfolio,
         /// The caller doesn't have a portfolio yet.
         NoPortfolio,
-        /// Invalid ticker.
-        InvalidTicker,
+        /// Invalid AssetId.
+        InvalidAssetId,
     }
 
     impl From<PolymeshError> for Error {
@@ -77,16 +78,16 @@ mod settlements {
     impl Settlements {
         /// Creates a new contract.
         #[ink(constructor)]
-        pub fn new(ticker1: Ticker, ticker2: Ticker) -> Result<Self> {
+        pub fn new() -> Result<Self> {
             Ok(Self {
-                ticker1,
-                ticker2,
                 admin: Self::env().caller(),
                 portfolios: Default::default(),
                 did: PolymeshInk::get_our_did()?,
                 venue: Default::default(),
                 initialized: false,
                 api: PolymeshInk::new()?,
+                asset_id_1: Default::default(),
+                asset_id_2: Default::default(),
             })
         }
 
@@ -114,10 +115,9 @@ mod settlements {
             Ok(())
         }
 
-        fn create_asset(&mut self, ticker: Ticker) -> Result<()> {
+        fn create_asset(&mut self) -> Result<()> {
             self.api.asset_create_and_issue(
                 AssetName(b"".to_vec()),
-                ticker,
                 AssetType::EquityCommon,
                 true, // Divisible token.
                 Some(1_000_000 * UNIT),
@@ -125,9 +125,9 @@ mod settlements {
             Ok(())
         }
 
-        fn ensure_ticker(&self, ticker: Ticker) -> Result<()> {
-            if self.ticker1 != ticker && self.ticker2 != ticker {
-                Err(Error::InvalidTicker)
+        fn ensure_asset_id(&self, asset_id: AssetId) -> Result<()> {
+            if self.asset_id_1 != asset_id && self.asset_id_2 != asset_id {
+                Err(Error::InvalidAssetId)
             } else {
                 Ok(())
             }
@@ -166,16 +166,22 @@ mod settlements {
             let portfolio = self.api.create_portfolio(name)?;
             self.portfolios.insert(self.did, &portfolio);
 
-            // Create tickers.
-            self.create_asset(self.ticker1)?;
-            self.create_asset(self.ticker2)?;
+            // Create assetIds.
+            self.asset_id_1 = PolymeshInk::get_our_asset_id()?;
+            self.create_asset()?;
+            self.asset_id_2 = PolymeshInk::get_our_asset_id()?;
+            self.create_asset()?;
 
             self.initialized = true;
             Ok(())
         }
 
         fn transfer_assets(&self, legs: Vec<Leg>, portfolios: Vec<PortfolioId>) -> Result<()> {
-            self.api.settlement_execute(self.venue, legs, portfolios)?;
+            self.api.settlement_execute(
+                Some(self.venue),
+                legs,
+                portfolios.into_iter().collect::<BTreeSet<_>>(),
+            )?;
             Ok(())
         }
 
@@ -213,13 +219,13 @@ mod settlements {
                     Leg::Fungible {
                         sender: our_portfolio,
                         receiver: caller_portfolio,
-                        ticker: self.ticker1,
+                        asset_id: self.asset_id_1,
                         amount: 10 * UNIT,
                     },
                     Leg::Fungible {
                         sender: our_portfolio,
                         receiver: caller_portfolio,
-                        ticker: self.ticker2,
+                        asset_id: self.asset_id_2,
                         amount: 20 * UNIT,
                     },
                 ],
@@ -249,12 +255,12 @@ mod settlements {
         /// Allow the caller to withdrawal funds from the contract controlled portfolio.
         pub fn withdrawal(
             &mut self,
-            ticker: Ticker,
+            asset_id: AssetId,
             amount: Balance,
             dest: PortfolioKind,
         ) -> Result<()> {
             self.ensure_initialized()?;
-            self.ensure_ticker(ticker)?;
+            self.ensure_asset_id(asset_id)?;
 
             // Get the caller's identity.
             let caller_did = PolymeshInk::get_caller_did()?;
@@ -271,7 +277,7 @@ mod settlements {
                 dest,             // Caller controlled portfolio.
                 vec![Fund {
                     description: FundDescription::Fungible {
-                        ticker: ticker,
+                        asset_id,
                         amount,
                     },
                     memo: None,
@@ -303,14 +309,14 @@ mod settlements {
         /// Trade.
         pub fn trade(
             &mut self,
-            sell: Ticker,
+            sell: AssetId,
             sell_amount: Balance,
-            buy: Ticker,
+            buy: AssetId,
             buy_amount: Balance,
         ) -> Result<()> {
             self.ensure_initialized()?;
-            self.ensure_ticker(sell)?;
-            self.ensure_ticker(buy)?;
+            self.ensure_asset_id(sell)?;
+            self.ensure_asset_id(buy)?;
 
             // Get the caller's identity.
             let caller_did = PolymeshInk::get_caller_did()?;
@@ -328,13 +334,13 @@ mod settlements {
                     Leg::Fungible {
                         sender: caller_portfolio,
                         receiver: our_portfolio,
-                        ticker: sell,
+                        asset_id: sell,
                         amount: sell_amount,
                     },
                     Leg::Fungible {
                         sender: our_portfolio,
                         receiver: caller_portfolio,
-                        ticker: buy,
+                        asset_id: buy,
                         amount: buy_amount,
                     },
                 ],
@@ -348,16 +354,16 @@ mod settlements {
         #[ink(message)]
         pub fn asset_balance_of(
             &mut self,
-            ticker: Ticker,
+            asset_id: AssetId,
             did: IdentityId,
         ) -> PolymeshResult<Balance> {
-            Ok(self.api.asset_balance_of(ticker, did)?)
+            Ok(self.api.asset_balance_of(asset_id, did)?)
         }
 
         /// Get the `total_supply` of an asset.
         #[ink(message)]
-        pub fn asset_total_supply(&mut self, ticker: Ticker) -> PolymeshResult<Balance> {
-            Ok(self.api.asset_total_supply(ticker)?)
+        pub fn asset_total_supply(&mut self, asset_id: AssetId) -> PolymeshResult<Balance> {
+            Ok(self.api.asset_total_supply(asset_id)?)
         }
 
         /// Get Corporate action distribution summary.
@@ -379,15 +385,15 @@ mod settlements {
         #[ink(message)]
         pub fn create_dividend(
             &mut self,
-            ticker: Ticker,
+            asset_id: AssetId,
             portfolio: Option<PortfolioNumber>,
-            currency: Ticker,
+            currency: AssetId,
             per_share: Balance,
             amount: Balance,
         ) -> PolymeshResult<()> {
             let now = Self::env().block_timestamp();
             let dividend = SimpleDividend {
-                ticker,
+                asset_id,
                 decl_date: now,
                 record_date: now,
                 portfolio,

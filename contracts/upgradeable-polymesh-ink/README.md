@@ -51,7 +51,7 @@ ink = { version = "4.3", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
 
-polymesh-ink = { version = "3.0", default-features = false, features = ["as-library"] }
+polymesh-ink = { version = "3.4.0", default-features = false, features = ["as-library"] }
 
 [lib]
 path = "lib.rs"

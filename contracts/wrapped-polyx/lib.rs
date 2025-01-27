@@ -3,11 +3,11 @@
 extern crate alloc;
 
 use polymesh_ink::*;
-use alloc::collections::BTreeSet;
 
 #[ink::contract(env = PolymeshEnvironment)]
 mod wrapped_polyx {
     use alloc::vec;
+    use alloc::collections::BTreeSet;
     use ink::storage::Mapping;
 
     use crate::*;
