@@ -129,9 +129,9 @@ pub mod example_contract {
 
 				// Simple example of using the Polymesh Ink! API.
         #[ink(message)]
-        pub fn create_asset(&mut self, name: Vec<u8>, ticker: Ticker, amount: Balance) -> Result<()> {
+        pub fn create_asset(&mut self, name: Vec<u8>, amount: Balance) -> Result<()> {
             self.api
-                .asset_create_and_issue(AssetName(name), ticker, AssetType::EquityCommon, true, Some(amount))?;
+                .asset_create_and_issue(AssetName(name), AssetType::EquityCommon, true, Some(amount))?;
             Ok(())
         }
     }

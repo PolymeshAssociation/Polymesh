@@ -141,7 +141,7 @@ mod wrapped_polyx {
             let api = PolymeshInk::new()?;
             // Update our identity id.
             self.did = PolymeshInk::get_our_did()?;
-            // Create ticker.
+            // Create asset.
             self.asset_id = PolymeshInk::get_our_asset_id()?;
             self.create_wrapped_polyx(&api)?;
 

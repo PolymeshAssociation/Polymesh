@@ -23,8 +23,8 @@ After creating the asset for the NFT collection, the artist must set the metadat
 ```Rust
 /// All mandatoty information NFT artists must set as metadata.
 pub struct NFTArtistRules {
-    /// All [`Ticker`] the artist is willing to receive as royalty.
-    pub allowed_purchase_tickers: BTreeSet<Ticker>,
+    /// All [`AssetId`] the artist is willing to receive as royalty.
+    pub allowed_purchase_asset_ids: BTreeSet<AssetId>,
     /// The royalty percentage the artist will receive for each transfer.
     pub royalty_percentage: Perbill,
     /// The identity that will receive royalty payments.
@@ -47,8 +47,8 @@ In order to create an NFT transfer, the `create_transfer` method must be called.
 ```Rust
 /// The details of an NFT transfer.
 pub struct NFTTransferDetails {
-    /// The [`Ticker`] of the NFT collection.
-    pub collection_ticker: Ticker,
+    /// The [`AssetId`] of the NFT collection.
+    pub collection_asset_id: AssetId,
     /// All NFTs being transferred.
     pub nfts: Vec<NFTId>,
     /// The [`PortfolioId`] that contains the NFT being sold.
@@ -59,8 +59,8 @@ pub struct NFTTransferDetails {
 
 /// The details of the proposed offer in exchange for the NFT.
 pub struct NFTOffer {
-    /// The [`Ticker`] of the asset being used for buying the NFT.
-    pub purchase_ticker: Ticker,
+    /// The [`AssetId`] of the asset being used for buying the NFT.
+    pub purchase_asset_id: AssetId,
     /// The price the buyer is paying for the NFT.
     pub transfer_price: Balance,
     /// The [`PortfolioId`] that is paying for the NFT.
