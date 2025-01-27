@@ -52,7 +52,6 @@ pub use crate::nft_royalty::types::{NFTArtistRules, NFTOffer, NFTTransferDetails
 mod nft_royalty {
     use super::*;
     use alloc::vec;
-    use alloc::collections::BTreeSet;
 
     /// The asset metadata name for the key that holds the mandatory NFT collection metadata.
     const NFT_METADATA_NAME: &[u8] = "v0_nft_madantory_metadata".as_bytes();
