@@ -64,13 +64,7 @@ pub mod test_polymesh_ink {
             Ok(api
                 .create_venue(VenueDetails(details), VenueType::Other)?)
         }
-        // pub fn asset_create_and_issue(
-        //     &self,
-        //     asset_name: AssetName,
-        //     asset_type: AssetType,
-        //     divisible: bool,
-        //     amount_to_issue: Option<Balance>
-        // ) -> PolymeshResult<()> {
+
         /// Test creating and issueing an asset using the upgradable `polymesh-ink` API.
         #[ink(message)]
         pub fn create_asset(

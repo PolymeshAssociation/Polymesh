@@ -115,14 +115,14 @@ mod settlements {
             Ok(())
         }
 
-        fn create_asset(&mut self) -> Result<()> {
-            self.api.asset_create_and_issue(
+        fn create_asset(&mut self) -> Result<AssetId> {
+            let asset_id = self.api.asset_create_and_issue(
                 AssetName(b"".to_vec()),
                 AssetType::EquityCommon,
                 true, // Divisible token.
                 Some(1_000_000 * UNIT),
             )?;
-            Ok(())
+            Ok(asset_id)
         }
 
         fn ensure_asset_id(&self, asset_id: AssetId) -> Result<()> {
@@ -167,10 +167,8 @@ mod settlements {
             self.portfolios.insert(self.did, &portfolio);
 
             // Create assetIds.
-            self.asset_id_1 = PolymeshInk::get_our_asset_id()?;
-            self.create_asset()?;
-            self.asset_id_2 = PolymeshInk::get_our_asset_id()?;
-            self.create_asset()?;
+            self.asset_id_1 = self.create_asset()?;
+            self.asset_id_2 = self.create_asset()?;
 
             self.initialized = true;
             Ok(())

@@ -386,10 +386,10 @@ upgradable_api! {
                 asset_type: AssetType,
                 divisible: bool,
                 amount_to_issue: Option<Balance>
-            ) -> PolymeshResult<()> {
+            ) -> PolymeshResult<AssetId> {
                 let api = Api::new();
 
-                let asset_id = Self::get_asset_id(ink::env::account_id::<PolymeshEnvironment>())?;
+                let asset_id = Self::get_our_next_asset_id()?;
 
                 api.call()
                     .asset()
@@ -403,7 +403,7 @@ upgradable_api! {
                         .submit()?;
                 }
 
-                Ok(())
+                Ok(asset_id)
             }
 
             /// Returns the `asset_id` [`Balance`] for the given `did`.
@@ -627,12 +627,12 @@ upgradable_api! {
             }
 
             /// Returns the next [`AssetId`] for the caller.
-            pub fn get_our_asset_id() -> PolymeshResult<AssetId> {
-                Self::get_asset_id(ink::env::account_id::<PolymeshEnvironment>())
+            pub fn get_our_next_asset_id() -> PolymeshResult<AssetId> {
+                Self::get_next_asset_id(ink::env::account_id::<PolymeshEnvironment>())
             }
 
             /// Returns the next [`AssetId`] for the given `account_id`.
-            pub fn get_asset_id(account_id: AccountId) -> PolymeshResult<AssetId> {
+            pub fn get_next_asset_id(account_id: AccountId) -> PolymeshResult<AssetId> {
                 let api = Api::new();
                 Ok(api.runtime().get_next_asset_id(account_id)?)
             }

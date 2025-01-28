@@ -104,8 +104,8 @@ mod wrapped_polyx {
             })
         }
 
-        fn create_wrapped_polyx(&self, api: &PolymeshInk) -> Result<()> {
-            api.asset_create_and_issue(
+        fn create_wrapped_polyx(&mut self, api: &PolymeshInk) -> Result<()> {
+            self.asset_id = api.asset_create_and_issue(
                 AssetName(b"Wrapped POLYX".to_vec()),
                 AssetType::EquityCommon,
                 true, // Divisible token.
@@ -142,7 +142,6 @@ mod wrapped_polyx {
             // Update our identity id.
             self.did = PolymeshInk::get_our_did()?;
             // Create asset.
-            self.asset_id = PolymeshInk::get_our_asset_id()?;
             self.create_wrapped_polyx(&api)?;
 
             // Create venue.
