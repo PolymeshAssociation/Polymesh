@@ -84,7 +84,17 @@ impl<const T: u32> Get<u32> for ConstSize<T> {
 impl<const T: u32> GetExtra<u32> for ConstSize<T> {}
 
 /// Either a block number, or nothing.
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Encode,
+    Decode,
+    MaxEncodedLen,
+    TypeInfo,
+    Debug
+)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum MaybeBlock<BlockNumber> {
     /// Has a block number.
@@ -302,7 +312,7 @@ pub enum TransactionError {
 }
 
 /// Represents the target identity and the amount requested by a beneficiary.
-#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug)]
 pub struct Beneficiary<Balance> {
     /// Beneficiary identity.
     pub id: IdentityId,
@@ -311,7 +321,7 @@ pub struct Beneficiary<Balance> {
 }
 
 /// A short on-chain memo for POLYX transfer, asset transfer and portfolio moves.
-#[derive(Decode, Encode, TypeInfo, SliceU8StrongTyped)]
+#[derive(Decode, Encode, MaxEncodedLen, TypeInfo, SliceU8StrongTyped)]
 #[derive(Clone, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Memo(pub [u8; 32]);
 

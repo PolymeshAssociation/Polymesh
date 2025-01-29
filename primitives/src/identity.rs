@@ -17,7 +17,7 @@
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 #[cfg(feature = "running-ci")]
@@ -55,7 +55,7 @@ pub mod limits {
 /// Used to check if an identity exists and lookup its primary key.
 ///
 /// Asset Identities don't have a primary key.
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DidRecord<AccountId> {

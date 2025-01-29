@@ -1,5 +1,4 @@
-use frame_support::storage::StorageDoubleMap;
-use frame_support::{assert_noop, assert_ok, StorageMap};
+use frame_support::{assert_noop, assert_ok};
 
 use pallet_nft::NFTOwner;
 use pallet_portfolio::{
@@ -59,7 +58,7 @@ macro_rules! assert_owner_is_custodian {
     ($p:expr) => {{
         assert_eq!(Portfolio::portfolios_in_custody($p.did, $p), false);
         assert_eq!(
-            pallet_portfolio::PortfolioCustodian::contains_key(&$p),
+            pallet_portfolio::PortfolioCustodian::<TestStorage>::contains_key(&$p),
             false
         );
     }};
@@ -118,7 +117,7 @@ fn can_create_rename_delete_portfolio() {
             PortfolioNumber(2)
         );
         assert_eq!(name(), new_name);
-        assert!(NameToNumber::contains_key(owner.did, name()));
+        assert!(NameToNumber::<TestStorage>::contains_key(owner.did, name()));
         assert_ok!(Portfolio::delete_portfolio(owner.origin(), num));
     });
 }
@@ -805,27 +804,27 @@ fn move_portfolio_nfts() {
             funds,
         ));
         assert_eq!(
-            PortfolioNFT::get(alice_default_portfolio, (asset_id, NFTId(1))),
+            PortfolioNFT::<TestStorage>::get(alice_default_portfolio, (asset_id, NFTId(1))),
             false
         );
         assert_eq!(
-            PortfolioNFT::get(alice_default_portfolio, (asset_id, NFTId(2))),
+            PortfolioNFT::<TestStorage>::get(alice_default_portfolio, (asset_id, NFTId(2))),
             false
         );
         assert_eq!(
-            PortfolioNFT::get(alice_custom_portfolio, (asset_id, NFTId(1))),
+            PortfolioNFT::<TestStorage>::get(alice_custom_portfolio, (asset_id, NFTId(1))),
             true
         );
         assert_eq!(
-            PortfolioNFT::get(alice_custom_portfolio, (asset_id, NFTId(2))),
+            PortfolioNFT::<TestStorage>::get(alice_custom_portfolio, (asset_id, NFTId(2))),
             true
         );
         assert_eq!(
-            NFTOwner::get(asset_id, NFTId(1)),
+            NFTOwner::<TestStorage>::get(asset_id, NFTId(1)),
             Some(alice_custom_portfolio)
         );
         assert_eq!(
-            NFTOwner::get(asset_id, NFTId(2)),
+            NFTOwner::<TestStorage>::get(asset_id, NFTId(2)),
             Some(alice_custom_portfolio)
         );
     });
@@ -845,7 +844,7 @@ fn move_more_funds() {
         };
         let asset_id = create_and_issue_sample_asset(&alice);
         assert_eq!(
-            PortfolioAssetBalances::get(&alice_default_portfolio, &asset_id),
+            PortfolioAssetBalances::<TestStorage>::get(&alice_default_portfolio, &asset_id),
             1_000_000_000
         );
         assert_ok!(Portfolio::create_portfolio(
@@ -964,11 +963,14 @@ fn pre_approve_portfolio() {
         Portfolio::pre_approve_portfolio(alice.origin(), asset_id, alice_default_portfolio)
             .unwrap();
 
-        assert!(PreApprovedPortfolios::get(
+        assert!(PreApprovedPortfolios::<TestStorage>::get(
             alice_default_portfolio,
             asset_id
         ));
-        assert!(!PreApprovedPortfolios::get(alice_user_porfolio, asset_id));
+        assert!(!PreApprovedPortfolios::<TestStorage>::get(
+            alice_user_porfolio,
+            asset_id
+        ));
         assert!(!Portfolio::skip_portfolio_affirmation(
             &alice_user_porfolio,
             &asset_id
@@ -994,11 +996,14 @@ fn remove_portfolio_pre_approval() {
         Portfolio::remove_portfolio_pre_approval(alice.origin(), asset_id, alice_default_portfolio)
             .unwrap();
 
-        assert!(!PreApprovedPortfolios::get(
+        assert!(!PreApprovedPortfolios::<TestStorage>::get(
             alice_default_portfolio,
             asset_id
         ));
-        assert!(!PreApprovedPortfolios::get(alice_user_porfolio, asset_id));
+        assert!(!PreApprovedPortfolios::<TestStorage>::get(
+            alice_user_porfolio,
+            asset_id
+        ));
         assert!(!Portfolio::skip_portfolio_affirmation(
             &alice_user_porfolio,
             &asset_id
@@ -1051,7 +1056,10 @@ fn create_custody_portfolio_missing_owners_permission() {
             Portfolio::create_custody_portfolio(bob.origin(), alice.did, portfolio_name),
             Error::MissingOwnersPermission
         );
-        assert_eq!(AllowedCustodians::get(alice.did, bob.did), false);
+        assert_eq!(
+            AllowedCustodians::<TestStorage>::get(alice.did, bob.did),
+            false
+        );
     });
 }
 
@@ -1072,7 +1080,10 @@ fn create_custody_portfolio() {
             bob.did
         ));
         // Asserts storage has been updated
-        assert_eq!(AllowedCustodians::get(alice.did, bob.did), true);
+        assert_eq!(
+            AllowedCustodians::<TestStorage>::get(alice.did, bob.did),
+            true
+        );
 
         assert_ok!(Portfolio::create_custody_portfolio(
             bob.origin(),
@@ -1081,10 +1092,13 @@ fn create_custody_portfolio() {
         ));
         // Asserts storage has been updated
         assert_eq!(
-            Portfolios::get(alice.did, portfolio_number),
+            Portfolios::<TestStorage>::get(alice.did, portfolio_number),
             Some(portfolio_name)
         );
-        assert_eq!(PortfolioCustodian::get(portfolio_id), Some(bob.did));
+        assert_eq!(
+            PortfolioCustodian::<TestStorage>::get(portfolio_id),
+            Some(bob.did)
+        );
     });
 }
 
@@ -1109,7 +1123,10 @@ fn create_custody_portfolio_revoke_permission() {
             bob.did
         ));
         // Asserts storage has been updated
-        assert_eq!(AllowedCustodians::get(alice.did, bob.did), false);
+        assert_eq!(
+            AllowedCustodians::<TestStorage>::get(alice.did, bob.did),
+            false
+        );
 
         assert_noop!(
             Portfolio::create_custody_portfolio(bob.origin(), alice.did, portfolio_name),

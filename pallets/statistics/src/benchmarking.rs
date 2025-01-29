@@ -505,7 +505,7 @@ benchmarks! {
         let asset_id = AssetId::new([0 as u8; 16]);
         let statistic_claim = StatClaim::Jurisdiction(Some(CountryCode::BR));
         let transfer_condition = TransferCondition::ClaimOwnership(statistic_claim, alice.did(), Permill::zero(), Permill::zero());
-        TransferConditionExemptEntities::insert(transfer_condition.get_exempt_key(asset_id.clone()), bob.did(), true);
+        TransferConditionExemptEntities::<T>::insert(transfer_condition.get_exempt_key(asset_id.clone()), bob.did(), true);
     }: {
         assert!(
             Pallet::<T>::is_exempt(

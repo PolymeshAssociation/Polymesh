@@ -78,12 +78,11 @@
 pub mod benchmarking;
 
 use crate as ca;
-use ca::{CAId, CAKind, Config, CorporateAction};
-use codec::{Decode, Encode};
+use ca::{CAId, CAKind, CorporateAction};
+use codec::{Decode, Encode, MaxEncodedLen};
 use core::convert::TryInto;
 use core::mem;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
@@ -91,7 +90,6 @@ use frame_support::{
 };
 use pallet_asset::checkpoint;
 use pallet_base::ensure_string_limited;
-use pallet_identity as identity;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::{storage_migration_ver, Balance, EventDid, IdentityId, Moment};
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -101,7 +99,6 @@ use sp_runtime::traits::Zero;
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
-type Identity<T> = identity::Pallet<T>;
 type Checkpoint<T> = checkpoint::Pallet<T>;
 type CA<T> = ca::Pallet<T>;
 type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
@@ -172,7 +169,18 @@ impl BallotMeta {
 
 /// Timestamp range details about vote start / end.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Default, Debug, Encode, Decode, TypeInfo)]
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Default,
+    Debug,
+    Encode,
+    Decode,
+    TypeInfo,
+    MaxEncodedLen
+)]
 pub struct BallotTimeRange {
     /// Timestamp at which voting starts.
     pub start: Moment,
@@ -183,7 +191,18 @@ pub struct BallotTimeRange {
 
 /// A vote cast on some choice in some motion in a ballot.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Default, Debug, Encode, Decode, TypeInfo)]
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Default,
+    Debug,
+    Encode,
+    Decode,
+    TypeInfo,
+    MaxEncodedLen
+)]
 pub struct BallotVote {
     /// The weight / voting power assigned to this vote.
     pub power: Balance,
@@ -247,70 +266,110 @@ pub trait WeightInfo {
 
 storage_migration_ver!(1);
 
-decl_storage! {
-    trait Store for Pallet<T: Config> as CorporateBallot {
-        /// Metadata of a corporate ballot.
-        ///
-        /// (CAId) => BallotMeta
-        pub Metas get(fn metas): map hasher(blake2_128_concat) CAId => Option<BallotMeta>;
+pub use pallet::*;
 
-        /// Time details of a corporate ballot associated with a CA.
-        /// The timestamps denote when voting starts and stops.
-        ///
-        /// (CAId) => BallotTimeRange
-        pub TimeRanges get(fn time_ranges): map hasher(blake2_128_concat) CAId => Option<BallotTimeRange>;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::{ValueQuery, *};
+    use frame_system::pallet_prelude::*;
 
-        /// Stores how many choices there are in each motion.
-        ///
-        /// At all times, the invariant holds that `motion_choices[idx]` is equal to
-        /// `metas.unwrap().motions[idx].choices.len()`. That is, this is just a cache,
-        /// used to avoid fetching all the motions with their associated texts.
-        ///
-        /// `u16` choices should be more than enough to fit real use cases.
-        ///
-        /// (CAId) => Number of choices in each motion.
-        pub MotionNumChoices get(fn motion_choices): map hasher(blake2_128_concat) CAId => Vec<u16>;
-
-        /// Is ranked choice voting (RCV) enabled for this ballot?
-        /// For an understanding of how RCV is handled, see note on `BallotVote`'s `fallback` field.
-        ///
-        /// (CAId) => bool
-        pub RCV get(fn rcv): map hasher(blake2_128_concat) CAId => bool;
-
-        /// Stores the total vote tally on each choice.
-        ///
-        /// RCV is not accounted for,
-        /// as there are too many wants to interpret the graph,
-        /// and because it would not be efficient.
-        ///
-        /// (CAId) => [current vote weights]
-        pub Results get(fn results): map hasher(blake2_128_concat) CAId => Vec<Balance>;
-
-        /// Stores each DID's votes in a given ballot.
-        /// See the documentation of `BallotVote` for notes on semantics.
-        ///
-        /// (CAId) => (DID) => [vote weight]
-        ///
-        /// User must enter 0 vote weight if they don't want to vote for a choice.
-        pub Votes get(fn votes):
-            double_map hasher(blake2_128_concat) CAId, hasher(identity) IdentityId =>
-                Vec<BallotVote>;
-
-        /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
+    #[pallet::config]
+    pub trait Config: frame_system::Config + ca::Config {
+        /// The overarching event type.
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
     }
-}
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
-        type Error = Error<T>;
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
 
-        fn deposit_event() = default;
+    /// Metadata of a corporate ballot.
+    ///
+    /// (CAId) => BallotMeta
+    #[pallet::storage]
+    #[pallet::getter(fn metas)]
+    #[pallet::unbounded]
+    pub type Metas<T: Config> = StorageMap<_, Blake2_128Concat, CAId, BallotMeta>;
 
-        fn on_runtime_upgrade() -> Weight {
-            Weight::zero()
+    /// Time details of a corporate ballot associated with a CA.
+    /// The timestamps denote when voting starts and stops.
+    ///
+    /// (CAId) => BallotTimeRange
+    #[pallet::storage]
+    #[pallet::getter(fn time_ranges)]
+    pub type TimeRanges<T: Config> = StorageMap<_, Blake2_128Concat, CAId, BallotTimeRange>;
+
+    /// Stores how many choices there are in each motion.
+    ///
+    /// At all times, the invariant holds that `motion_choices[idx]` is equal to
+    /// `metas.unwrap().motions[idx].choices.len()`. That is, this is just a cache,
+    /// used to avoid fetching all the motions with their associated texts.
+    ///
+    /// `u16` choices should be more than enough to fit real use cases.
+    ///
+    /// (CAId) => Number of choices in each motion.
+    #[pallet::storage]
+    #[pallet::getter(fn motion_choices)]
+    #[pallet::unbounded]
+    pub type MotionNumChoices<T: Config> =
+        StorageMap<_, Blake2_128Concat, CAId, Vec<u16>, ValueQuery>;
+
+    /// Is ranked choice voting (RCV) enabled for this ballot?
+    /// For an understanding of how RCV is handled, see note on `BallotVote`'s `fallback` field.
+    ///
+    /// (CAId) => bool
+    #[pallet::storage]
+    #[pallet::getter(fn rcv)]
+    pub type RCV<T: Config> = StorageMap<_, Blake2_128Concat, CAId, bool, ValueQuery>;
+
+    /// Stores the total vote tally on each choice.
+    ///
+    /// RCV is not accounted for,
+    /// as there are too many wants to interpret the graph,
+    /// and because it would not be efficient.
+    ///
+    /// (CAId) => [current vote weights]
+    #[pallet::storage]
+    #[pallet::getter(fn results)]
+    #[pallet::unbounded]
+    pub type Results<T: Config> = StorageMap<_, Blake2_128Concat, CAId, Vec<Balance>, ValueQuery>;
+
+    /// Stores each DID's votes in a given ballot.
+    /// See the documentation of `BallotVote` for notes on semantics.
+    ///
+    /// (CAId) => (DID) => [vote weight]
+    ///
+    /// User must enter 0 vote weight if they don't want to vote for a choice.
+    #[pallet::storage]
+    #[pallet::getter(fn votes)]
+    #[pallet::unbounded]
+    pub type Votes<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        CAId,
+        Identity,
+        IdentityId,
+        Vec<BallotVote>,
+        ValueQuery,
+    >;
+
+    /// Storage version.
+    #[pallet::storage]
+    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
+
+    #[pallet::genesis_config]
+    #[derive(Default)]
+    pub struct GenesisConfig;
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+        fn build(&self) {
+            StorageVersion::<T>::put(Version::new(1));
         }
+    }
 
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Attach a corporate ballot to the CA identified by `ca_id`.
         ///
         /// The ballot will admit votes within `range`.
@@ -337,16 +396,29 @@ decl_module! {
         /// - `NumberOfChoicesOverflow` if the total choice in `meta` overflows `usize`.
         /// - `TooLong` if any of the embedded strings in `meta` are too long.
         /// - `InsufficientBalance` if the protocol fee couldn't be charged.
-        #[weight = <T as Config>::BallotWeightInfo::attach_ballot(meta.saturating_num_choices())]
-        pub fn attach_ballot(origin, ca_id: CAId, range: BallotTimeRange, meta: BallotMeta, rcv: bool) {
+        #[pallet::weight(<T as ca::Config>::BallotWeightInfo::attach_ballot(meta.saturating_num_choices()))]
+        #[pallet::call_index(0)]
+        pub fn attach_ballot(
+            origin: OriginFor<T>,
+            ca_id: CAId,
+            range: BallotTimeRange,
+            meta: BallotMeta,
+            rcv: bool,
+        ) -> DispatchResult {
             // Ensure origin is a permissioned agent, that `ca_id` exists, that its a notice, and the date invariant.
             let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?;
             let ca = <CA<T>>::ensure_ca_exists(ca_id)?;
-            ensure!(matches!(ca.kind, CAKind::IssuerNotice), Error::<T>::CANotNotice);
+            ensure!(
+                matches!(ca.kind, CAKind::IssuerNotice),
+                Error::<T>::CANotNotice
+            );
             Self::ensure_range_invariant(&ca, range)?;
 
             // Ensure CA doesn't have a ballot yet.
-            ensure!(!TimeRanges::contains_key(ca_id), Error::<T>::AlreadyExists);
+            ensure!(
+                !TimeRanges::<T>::contains_key(ca_id),
+                Error::<T>::AlreadyExists
+            );
 
             // Compute number-of-choices-in-motion cache.
             let choices = Self::derive_motion_num_choices(&meta.motions)?;
@@ -356,13 +428,14 @@ decl_module! {
             T::ProtocolFee::charge_fee(ProtocolOp::CorporateBallotAttachBallot)?;
 
             // Commit to storage.
-            MotionNumChoices::insert(ca_id, choices);
-            TimeRanges::insert(ca_id, range);
-            Metas::insert(ca_id, meta.clone());
-            RCV::insert(ca_id, rcv);
+            MotionNumChoices::<T>::insert(ca_id, choices);
+            TimeRanges::<T>::insert(ca_id, range);
+            Metas::<T>::insert(ca_id, meta.clone());
+            RCV::<T>::insert(ca_id, rcv);
 
             // Emit event.
             Self::deposit_event(Event::Created(agent, ca_id, range, meta, rcv));
+            Ok(().into())
         }
 
         /// Cast `votes` in the ballot attached to the CA identified by `ca_id`.
@@ -382,9 +455,10 @@ decl_module! {
         /// - `NotTargetedByCA` if the CA does not target `origin`'s DID.
         /// - `InsufficientVotes` if the voting power used for any motion in `votes`
         ///    exceeds `origin`'s DID's voting power.
-        #[weight = <T as Config>::BallotWeightInfo::vote(votes.len() as u32, T::MaxTargetIds::get())]
-        pub fn vote(origin, ca_id: CAId, votes: Vec<BallotVote>) {
-            let did = <Identity<T>>::ensure_perms(origin)?;
+        #[pallet::weight(<T as ca::Config>::BallotWeightInfo::vote(votes.len() as u32, T::MaxTargetIds::get()))]
+        #[pallet::call_index(1)]
+        pub fn vote(origin: OriginFor<T>, ca_id: CAId, votes: Vec<BallotVote>) -> DispatchResult {
+            let did = pallet_identity::Pallet::<T>::ensure_perms(origin)?;
 
             // Ensure ballot has started but not ended, i.e. `start <= now <= end`.
             let range = Self::ensure_ballot_exists(ca_id)?;
@@ -397,8 +471,12 @@ decl_module! {
             <CA<T>>::ensure_ca_targets(&ca, &did)?;
 
             // Ensure we have balances provided for each choice.
-            let choices_count = MotionNumChoices::get(ca_id);
-            let total_choices = choices_count.iter().copied().map(|c| c as usize).sum::<usize>();
+            let choices_count = MotionNumChoices::<T>::get(ca_id);
+            let total_choices = choices_count
+                .iter()
+                .copied()
+                .map(|c| c as usize)
+                .sum::<usize>();
             ensure!(votes.len() == total_choices, Error::<T>::WrongVoteCount);
 
             // Divide `votes` into motions.
@@ -410,27 +488,25 @@ decl_module! {
                     Some(&votes[mem::replace(start, end)..end])
                 });
 
-            if RCV::get(ca_id) {
+            if RCV::<T>::get(ca_id) {
                 // RCV is enabled.
                 // Ensure that all fallback choices point to some choice in the same motion.
                 // For in-depth discussion on `fallback`, consult `BallotVote`'s definition.
-                motions
-                    .clone()
-                    .try_for_each(|votes| -> DispatchResult {
-                        let count = votes.len();
-                        votes
-                            .iter()
-                            .enumerate()
-                            // Only check when a fallback is actually provided.
-                            .filter_map(|(idx, vote)| Some((idx, vote.fallback? as usize)))
-                            .try_for_each(|(idx, fallback)| {
-                                // Exclude self-cycles.
-                                ensure!(idx != fallback, Error::<T>::RCVSelfCycle);
-                                // Ensure the index does not point outside, i.e. beyond, the motion.
-                                ensure!(fallback < count, Error::<T>::NoSuchRCVFallback);
-                                Ok(())
-                            })
-                    })?;
+                motions.clone().try_for_each(|votes| -> DispatchResult {
+                    let count = votes.len();
+                    votes
+                        .iter()
+                        .enumerate()
+                        // Only check when a fallback is actually provided.
+                        .filter_map(|(idx, vote)| Some((idx, vote.fallback? as usize)))
+                        .try_for_each(|(idx, fallback)| {
+                            // Exclude self-cycles.
+                            ensure!(idx != fallback, Error::<T>::RCVSelfCycle);
+                            // Ensure the index does not point outside, i.e. beyond, the motion.
+                            ensure!(fallback < count, Error::<T>::NoSuchRCVFallback);
+                            Ok(())
+                        })
+                })?;
             } else {
                 // It's not. Make sure its also not used.
                 votes
@@ -447,14 +523,17 @@ decl_module! {
 
             // Ensure the total balance used in each motion doesn't exceed caller's voting power.
             motions
-                .map(|vs| vs.iter().try_fold(Balance::zero(), |acc, vote| acc.checked_add(vote.power)))
+                .map(|vs| {
+                    vs.iter()
+                        .try_fold(Balance::zero(), |acc, vote| acc.checked_add(vote.power))
+                })
                 .all(|power| power.filter(|&p| p <= available_power).is_some())
                 .then_some(())
                 .ok_or(Error::<T>::InsufficientVotes)?;
 
             // Update vote and total results.
-            Votes::mutate(ca_id, did, |vslot| {
-                Results::mutate_exists(ca_id, |rslot| match rslot {
+            Votes::<T>::mutate(ca_id, did, |vslot| {
+                Results::<T>::mutate_exists(ca_id, |rslot| match rslot {
                     Some(rslot) => {
                         for (result, old) in rslot.iter_mut().zip(vslot.iter()) {
                             *result -= old.power;
@@ -470,6 +549,7 @@ decl_module! {
 
             // Emit event.
             Self::deposit_event(Event::VoteCast(did, ca_id, votes));
+            Ok(().into())
         }
 
         /// Amend the end date of the ballot of the CA identified by `ca_id`.
@@ -484,8 +564,9 @@ decl_module! {
         /// - `NoSuchBallot` if `ca_id` does not identify a ballot.
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
         /// - `StartAfterEnd` if `start > end`.
-        #[weight = <T as Config>::BallotWeightInfo::change_end()]
-        pub fn change_end(origin, ca_id: CAId, end: Moment) {
+        #[pallet::weight(<T as ca::Config>::BallotWeightInfo::change_end())]
+        #[pallet::call_index(2)]
+        pub fn change_end(origin: OriginFor<T>, ca_id: CAId, end: Moment) -> DispatchResult {
             // Ensure origin is a permissioned agent, ballot exists, and start is in the future.
             let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?;
             let mut range = Self::ensure_ballot_exists(ca_id)?;
@@ -496,8 +577,9 @@ decl_module! {
             Self::ensure_range_consistent(range)?;
 
             // Commit new range to storage + emit event.
-            TimeRanges::insert(ca_id, range);
+            TimeRanges::<T>::insert(ca_id, range);
             Self::deposit_event(Event::RangeChanged(agent, ca_id, range));
+            Ok(().into())
         }
 
         /// Amend the metadata (title, motions, etc.) of the ballot of the CA identified by `ca_id`.
@@ -513,8 +595,9 @@ decl_module! {
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
         /// - `NumberOfChoicesOverflow` if the total choice in `meta` overflows `usize`.
         /// - `TooLong` if any of the embedded strings in `meta` are too long.
-        #[weight = <T as Config>::BallotWeightInfo::change_meta(meta.saturating_num_choices())]
-        pub fn change_meta(origin, ca_id: CAId, meta: BallotMeta) {
+        #[pallet::weight(<T as ca::Config>::BallotWeightInfo::change_meta(meta.saturating_num_choices()))]
+        #[pallet::call_index(3)]
+        pub fn change_meta(origin: OriginFor<T>, ca_id: CAId, meta: BallotMeta) -> DispatchResult {
             // Ensure origin is a permissioned agent, a ballot exists, start is in the future.
             let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?;
             Self::ensure_ballot_not_started(Self::ensure_ballot_exists(ca_id)?)?;
@@ -524,9 +607,10 @@ decl_module! {
             Self::ensure_meta_lengths_limited(&meta)?;
 
             // Commit metadata to storage + emit event.
-            MotionNumChoices::insert(ca_id, choices);
-            Metas::insert(ca_id, meta.clone());
+            MotionNumChoices::<T>::insert(ca_id, choices);
+            Metas::<T>::insert(ca_id, meta.clone());
             Self::deposit_event(Event::MetaChanged(agent, ca_id, meta));
+            Ok(().into())
         }
 
         /// Amend RCV support for the ballot of the CA identified by `ca_id`.
@@ -540,15 +624,17 @@ decl_module! {
         /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset_id`.
         /// - `NoSuchBallot` if `ca_id` does not identify a ballot.
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
-        #[weight = <T as Config>::BallotWeightInfo::change_rcv()]
-        pub fn change_rcv(origin, ca_id: CAId, rcv: bool) {
+        #[pallet::weight(<T as ca::Config>::BallotWeightInfo::change_rcv())]
+        #[pallet::call_index(4)]
+        pub fn change_rcv(origin: OriginFor<T>, ca_id: CAId, rcv: bool) -> DispatchResult {
             // Ensure origin is a permissioned agent, a ballot exists, start is in the future.
             let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?;
             Self::ensure_ballot_not_started(Self::ensure_ballot_exists(ca_id)?)?;
 
             // Commit to storage + emit event.
-            RCV::insert(ca_id, rcv);
+            RCV::<T>::insert(ca_id, rcv);
             Self::deposit_event(Event::RCVChanged(agent, ca_id, rcv));
+            Ok(().into())
         }
 
         /// Remove the ballot of the CA identified by `ca_id`.
@@ -561,17 +647,19 @@ decl_module! {
         /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset_id`.
         /// - `NoSuchBallot` if `ca_id` does not identify a ballot.
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
-        #[weight = <T as Config>::BallotWeightInfo::remove_ballot()]
-        pub fn remove_ballot(origin, ca_id: CAId) {
+        #[pallet::weight(<T as ca::Config>::BallotWeightInfo::remove_ballot())]
+        #[pallet::call_index(5)]
+        pub fn remove_ballot(origin: OriginFor<T>, ca_id: CAId) -> DispatchResult {
             let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?.for_event();
             let range = Self::ensure_ballot_exists(ca_id)?;
             Self::remove_ballot_base(agent, ca_id, range)?;
+            Ok(().into())
         }
     }
-}
 
-decl_event! {
-    pub enum Event {
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
         /// A corporate ballot was created.
         ///
         /// (Agent DID, CA's ID, Voting start/end, Ballot metadata, RCV enabled?)
@@ -602,10 +690,9 @@ decl_event! {
         /// (Agent DID, CA's ID)
         Removed(EventDid, CAId),
     }
-}
 
-decl_error! {
-    pub enum Error for Pallet<T: Config> {
+    #[pallet::error]
+    pub enum Error<T> {
         /// A corporate ballot was made for a non `IssuerNotice` CA.
         CANotNotice,
         /// A corporate ballot already exists for this CA.
@@ -633,7 +720,7 @@ decl_error! {
         /// The RCV fallback points to the origin choice.
         RCVSelfCycle,
         /// RCV is not allowed for this ballot.
-        RCVNotAllowed
+        RCVNotAllowed,
     }
 }
 
@@ -647,10 +734,10 @@ impl<T: Config> Pallet<T> {
         Self::ensure_ballot_not_started(range)?;
 
         // Remove all ballot data.
-        TimeRanges::remove(ca_id);
-        Metas::remove(ca_id);
-        MotionNumChoices::remove(ca_id);
-        RCV::remove(ca_id);
+        TimeRanges::<T>::remove(ca_id);
+        Metas::<T>::remove(ca_id);
+        MotionNumChoices::<T>::remove(ca_id);
+        RCV::<T>::remove(ca_id);
 
         // Emit event.
         Self::deposit_event(Event::Removed(agent, ca_id));
@@ -698,7 +785,7 @@ impl<T: Config> Pallet<T> {
 
     /// Ensure that `ca_id` has an active ballot and return its date-time range.
     fn ensure_ballot_exists(ca_id: CAId) -> Result<BallotTimeRange, DispatchError> {
-        TimeRanges::get(ca_id).ok_or_else(|| Error::<T>::NoSuchBallot.into())
+        TimeRanges::<T>::get(ca_id).ok_or_else(|| Error::<T>::NoSuchBallot.into())
     }
 
     /// Ensure that `range.start <= range.end`.

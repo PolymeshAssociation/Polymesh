@@ -12,7 +12,7 @@ use frame_support::traits::{
 use frame_support::weights::{
     RuntimeDbWeight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
 };
-use frame_support::{assert_ok, parameter_types, BoundedBTreeSet, StorageDoubleMap};
+use frame_support::{assert_ok, parameter_types, BoundedBTreeSet};
 use smallvec::smallvec;
 use sp_core::crypto::{key_types, Pair as PairTrait};
 use sp_core::sr25519::Pair;
@@ -37,8 +37,8 @@ use pallet_asset::checkpoint as pallet_checkpoint;
 use pallet_balances as balances;
 use pallet_committee as committee;
 use pallet_corporate_actions as corporate_actions;
-use pallet_corporate_actions::ballot as corporate_ballots;
-use pallet_corporate_actions::distribution as capital_distributions;
+use pallet_corporate_actions::ballot as pallet_corporate_ballot;
+use pallet_corporate_actions::distribution as pallet_capital_distribution;
 use pallet_group as group;
 use pallet_identity::{self as identity, Context};
 use pallet_pips as pips;
@@ -299,24 +299,24 @@ frame_support::construct_runtime!(
         Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>} = 25,
 
         // Asset: Genesis config deps: Timestamp,
-        Asset: pallet_asset::{Pallet, Call, Storage, Config<T>, Event<T>} = 26,
-        CapitalDistribution: capital_distributions::{Pallet, Call, Storage, Event} = 27,
-        Checkpoint: pallet_checkpoint::{Pallet, Call, Storage, Event, Config} = 28,
-        ComplianceManager: pallet_compliance_manager::{Pallet, Call, Storage, Event} = 29,
-        CorporateAction: pallet_corporate_actions::{Pallet, Call, Storage, Event, Config} = 30,
-        CorporateBallot: corporate_ballots::{Pallet, Call, Storage, Event} = 31,
+        Asset: pallet_asset::{Pallet, Call, Storage, Config, Event<T>} = 26,
+        CapitalDistribution: pallet_capital_distribution::{Pallet, Call, Storage, Event<T>, Config} = 27,
+        Checkpoint: pallet_checkpoint::{Pallet, Call, Storage, Event<T>, Config} = 28,
+        ComplianceManager: pallet_compliance_manager::{Pallet, Call, Storage, Event<T>} = 29,
+        CorporateAction: pallet_corporate_actions::{Pallet, Call, Storage, Event<T>, Config} = 30,
+        CorporateBallot: pallet_corporate_ballot::{Pallet, Call, Storage, Event<T>, Config} = 31,
         Permissions: pallet_permissions::{Pallet, Storage} = 32,
         Pips: pallet_pips::{Pallet, Call, Storage, Event<T>, Config<T>} = 33,
-        Portfolio: pallet_portfolio::{Pallet, Call, Storage, Event} = 34,
+        Portfolio: pallet_portfolio::{Pallet, Call, Storage, Event<T>, Config} = 34,
         ProtocolFee: pallet_protocol_fee::{Pallet, Call, Storage, Event<T>, Config} = 35,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 36,
         Settlement: pallet_settlement::{Pallet, Call, Storage, Event<T>, Config} = 37,
-        Statistics: pallet_statistics::{Pallet, Call, Storage, Event} = 38,
+        Statistics: pallet_statistics::{Pallet, Call, Storage, Event<T>, Config} = 38,
         Sto: pallet_sto::{Pallet, Call, Storage, Event<T>} = 39,
         Treasury: pallet_treasury::{Pallet, Call, Event<T>} = 40,
         Utility: pallet_utility::{Pallet, Call, Storage, Event<T>} = 41,
         Base: pallet_base::{Pallet, Call, Event} = 42,
-        ExternalAgents: pallet_external_agents::{Pallet, Call, Storage, Event} = 43,
+        ExternalAgents: pallet_external_agents::{Pallet, Call, Storage, Event<T>} = 43,
         Relayer: pallet_relayer::{Pallet, Call, Storage, Event<T>} = 44,
         // Removed pallet_rewards = 45,
 
@@ -327,7 +327,7 @@ frame_support::construct_runtime!(
         // Preimage register.  Used by `pallet_scheduler`.
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 48,
 
-        Nft: pallet_nft::{Pallet, Call, Storage, Event} = 49,
+        Nft: pallet_nft::{Pallet, Call, Storage, Event<T>} = 49,
 
         // Testing only.
         Example: example::{Pallet, Call} = 201,
@@ -699,7 +699,6 @@ polymesh_runtime_common::misc_pallet_impls!();
 pub type GovernanceCommittee = group::Pallet<TestStorage, group::Instance1>;
 pub type CddServiceProvider = group::Pallet<TestStorage, group::Instance2>;
 pub type Committee = committee::Pallet<TestStorage, committee::Instance1>;
-pub type DefaultCommittee = committee::Pallet<TestStorage, committee::DefaultInstance>;
 //pub type WrapperContracts = polymesh_contracts::Pallet<TestStorage>;
 pub type CorporateActions = corporate_actions::Pallet<TestStorage>;
 

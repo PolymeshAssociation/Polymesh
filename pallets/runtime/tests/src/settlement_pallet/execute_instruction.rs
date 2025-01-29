@@ -1,12 +1,12 @@
-use frame_support::{assert_ok, StorageDoubleMap, StorageMap};
+use frame_support::assert_ok;
 use sp_keyring::AccountKeyring;
 
 use pallet_asset::BalanceOf;
 use pallet_portfolio::PortfolioLockedAssets;
 use pallet_settlement::{
-    AffirmsReceived, Error, InstructionAffirmsPending, InstructionDetails, InstructionLegStatus,
-    InstructionLegs, InstructionMediatorsAffirmations, InstructionStatuses, OffChainAffirmations,
-    RawEvent, UserAffirmations, VenueInstructions,
+    AffirmsReceived, Error, Event, InstructionAffirmsPending, InstructionDetails,
+    InstructionLegStatus, InstructionLegs, InstructionMediatorsAffirmations, InstructionStatuses,
+    OffChainAffirmations, UserAffirmations, VenueInstructions,
 };
 use polymesh_primitives::settlement::{
     AffirmationStatus, Instruction, InstructionId, InstructionStatus, Leg, LegId, SettlementType,
@@ -60,13 +60,16 @@ fn execute_instruction_storage_pruning() {
         next_block();
 
         // Asserts all storage have been pruned
-        assert_eq!(InstructionAffirmsPending::get(instruction_id), 0);
         assert_eq!(
-            VenueInstructions::iter_prefix_values(venue_id.unwrap()).next(),
+            InstructionAffirmsPending::<TestStorage>::get(instruction_id),
+            0
+        );
+        assert_eq!(
+            VenueInstructions::<TestStorage>::iter_prefix_values(venue_id.unwrap()).next(),
             None
         );
         assert_eq!(
-            InstructionLegs::iter_prefix_values(instruction_id).next(),
+            InstructionLegs::<TestStorage>::iter_prefix_values(instruction_id).next(),
             None
         );
         assert_eq!(
@@ -78,11 +81,11 @@ fn execute_instruction_storage_pruning() {
             None
         );
         assert_eq!(
-            OffChainAffirmations::iter_prefix_values(instruction_id).next(),
+            OffChainAffirmations::<TestStorage>::iter_prefix_values(instruction_id).next(),
             None
         );
         assert_eq!(
-            AffirmsReceived::iter_prefix_values(instruction_id).next(),
+            AffirmsReceived::<TestStorage>::iter_prefix_values(instruction_id).next(),
             None
         );
         assert_eq!(
@@ -91,11 +94,11 @@ fn execute_instruction_storage_pruning() {
             None
         );
         assert_eq!(
-            UserAffirmations::get(alice_default_portfolio, instruction_id),
+            UserAffirmations::<TestStorage>::get(alice_default_portfolio, instruction_id),
             AffirmationStatus::Unknown
         );
         assert_eq!(
-            UserAffirmations::get(bob_default_portfolio, instruction_id),
+            UserAffirmations::<TestStorage>::get(bob_default_portfolio, instruction_id),
             AffirmationStatus::Unknown
         );
         assert_eq!(
@@ -152,44 +155,45 @@ fn execute_instruction_storage_rollback() {
             default_portfolio_btreeset(bob.did),
         ));
         // Removes asset_id2 balance to force an error
-        BalanceOf::insert(asset_id2, alice.did, 0);
+        BalanceOf::<TestStorage>::insert(asset_id2, alice.did, 0);
         next_block();
         // Asserts storage has not changed
         assert_eq!(
-            PortfolioLockedAssets::get(alice_default_portfolio, asset_id),
+            PortfolioLockedAssets::<TestStorage>::get(alice_default_portfolio, asset_id),
             1_000
         );
         assert_eq!(
-            PortfolioLockedAssets::get(alice_default_portfolio, asset_id2),
+            PortfolioLockedAssets::<TestStorage>::get(alice_default_portfolio, asset_id2),
             1_000
         );
         assert_eq!(
-            UserAffirmations::get(alice_default_portfolio, instruction_id),
+            UserAffirmations::<TestStorage>::get(alice_default_portfolio, instruction_id),
             AffirmationStatus::Affirmed
         );
         assert_eq!(
-            UserAffirmations::get(bob_default_portfolio, instruction_id),
+            UserAffirmations::<TestStorage>::get(bob_default_portfolio, instruction_id),
             AffirmationStatus::Affirmed
         );
         assert_eq!(
             InstructionStatuses::<TestStorage>::get(instruction_id),
             InstructionStatus::Failed
         );
-        let all_legs = InstructionLegs::iter_prefix_values(instruction_id).collect::<Vec<_>>();
+        let all_legs =
+            InstructionLegs::<TestStorage>::iter_prefix_values(instruction_id).collect::<Vec<_>>();
         assert_eq!(all_legs.len(), 2);
         // Asserts the events are being emitted
         let mut system_events = System::events();
         system_events.pop().unwrap();
         assert_eq!(
             system_events.pop().unwrap().event,
-            crate::storage::EventTest::Settlement(RawEvent::FailedToExecuteInstruction(
+            crate::storage::EventTest::Settlement(Event::FailedToExecuteInstruction(
                 instruction_id,
                 Error::<TestStorage>::FailedToReleaseLockOrTransferAssets.into()
             ))
         );
         assert_eq!(
             system_events.pop().unwrap().event,
-            crate::storage::EventTest::Settlement(RawEvent::LegFailedExecution(
+            crate::storage::EventTest::Settlement(Event::LegFailedExecution(
                 SettlementDID.as_id(),
                 instruction_id,
                 LegId(1)

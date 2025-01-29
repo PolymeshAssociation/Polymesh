@@ -59,10 +59,10 @@ use codec::{Compact, Decode, Encode};
 use frame_support::dispatch::{
     DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
 };
+use frame_support::ensure;
 use frame_support::pallet_prelude::MaxEncodedLen;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::ensure_root;
 use frame_system::ensure_signed;
 #[cfg(feature = "std")]
@@ -80,7 +80,7 @@ use pallet_identity::{Config as IdentityConfig, ParentDid, WeightInfo as Identit
 use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait};
 use polymesh_primitives::{storage_migration_ver, Balance, Permissions};
 
-type Identity<T> = pallet_identity::Pallet<T>;
+type IdentityPallet<T> = pallet_identity::Pallet<T>;
 type IdentityError<T> = pallet_identity::Error<T>;
 type FrameContracts<T> = pallet_contracts::Pallet<T>;
 type CodeHash<T> = <T as frame_system::Config>::Hash;
@@ -99,7 +99,7 @@ impl Api {
     }
 }
 
-#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Clone, Decode, Encode, MaxEncodedLen, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct ApiCodeHash<T: Config> {
     pub hash: CodeHash<T>,
@@ -125,7 +125,18 @@ impl<T: Config> sp_std::fmt::Debug for ApiCodeHash<T> {
     }
 }
 
-#[derive(Clone, Debug, Decode, Encode, Eq, Ord, PartialOrd, PartialEq, TypeInfo)]
+#[derive(
+    Clone,
+    Debug,
+    Decode,
+    Encode,
+    MaxEncodedLen,
+    Eq,
+    Ord,
+    PartialOrd,
+    PartialEq,
+    TypeInfo
+)]
 pub struct ChainVersion {
     spec_version: u32,
     tx_version: u32,
@@ -140,7 +151,7 @@ impl ChainVersion {
     }
 }
 
-#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Clone, Decode, Encode, MaxEncodedLen, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct NextUpgrade<T: Config> {
     pub chain_version: ChainVersion,
@@ -177,12 +188,12 @@ where
 
     fn on_instantiate_transfer(caller: &T::AccountId, contract: &T::AccountId) -> DispatchResult {
         // Get the caller's identity.
-        let did =
-            Identity::<T>::get_identity(&caller).ok_or(Error::<T>::InstantiatorWithNoIdentity)?;
+        let did = IdentityPallet::<T>::get_identity(&caller)
+            .ok_or(Error::<T>::InstantiatorWithNoIdentity)?;
         // Check if contact is already linked.
-        match Identity::<T>::get_identity(&contract) {
+        match IdentityPallet::<T>::get_identity(&contract) {
             Some(contract_did) => {
-                if contract_did != did && ParentDid::get(contract_did) != Some(did) {
+                if contract_did != did && ParentDid::<T>::get(contract_did) != Some(did) {
                     // Contract address already linked to a different identity.
                     Err(IdentityError::<T>::AlreadyLinked.into())
                 } else {
@@ -192,7 +203,11 @@ where
             }
             None => {
                 // Linked new contract address to caller's identity.  With empty permissions.
-                Identity::<T>::unsafe_join_identity(did, Permissions::empty(), contract.clone());
+                IdentityPallet::<T>::unsafe_join_identity(
+                    did,
+                    Permissions::empty(),
+                    contract.clone(),
+                );
                 Ok(())
             }
         }
@@ -294,41 +309,46 @@ pub trait WeightInfo {
     }
 }
 
-/// The `Config` trait for the smart contracts pallet.
-pub trait Config:
-    IdentityConfig + BConfig<Currency = Self::Balances> + frame_system::Config + AssetFnConfig
-{
-    /// The overarching event type.
-    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+pub use pallet::*;
 
-    /// Max value that `in_len` can take, that is,
-    /// the length of the data sent from a contract when using the ChainExtension.
-    type MaxInLen: Get<u32>;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-    /// Max value that can be returned from the ChainExtension.
-    type MaxOutLen: Get<u32>;
-
-    /// The weight configuration for the pallet.
-    type WeightInfo: WeightInfo;
-}
-
-decl_event! {
-    pub enum Event<T>
-    where
-        Hash = CodeHash<T>,
-        AccountId = <T as frame_system::Config>::AccountId,
+    /// The `Config` trait for the smart contracts pallet.
+    #[pallet::config]
+    pub trait Config:
+        IdentityConfig + BConfig<Currency = Self::Balances> + frame_system::Config + AssetFnConfig
     {
+        /// The overarching event type.
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+        /// Max value that `in_len` can take, that is,
+        /// the length of the data sent from a contract when using the ChainExtension.
+        type MaxInLen: Get<u32>;
+
+        /// Max value that can be returned from the ChainExtension.
+        type MaxOutLen: Get<u32>;
+
+        /// The weight configuration for the pallet.
+        type WeightInfo: WeightInfo;
+    }
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
         /// Emitted when a contract starts supporting a new API upgrade.
         /// Contains the [`Api`], [`ChainVersion`], and the bytes for the code hash.
-        ApiHashUpdated(Api, ChainVersion, Hash),
+        ApiHashUpdated(Api, ChainVersion, CodeHash<T>),
         /// Emitted when a contract calls into the runtime.
         /// Contains the account id set by the contract owner and the [`ExtrinsicId`].
-        SCRuntimeCall(AccountId, ExtrinsicId)
+        SCRuntimeCall(T::AccountId, ExtrinsicId),
     }
-}
 
-decl_error! {
-    pub enum Error for Pallet<T: Config> where T::AccountId: UncheckedFrom<T::Hash>, T::AccountId: AsRef<[u8]> {
+    #[pallet::error]
+    pub enum Error<T> {
         /// Invalid `func_id` provided from contract.
         InvalidFuncId,
         /// Failed to decode a valid `RuntimeCall`.
@@ -353,63 +373,74 @@ decl_error! {
         /// Only future chain versions are allowed.
         InvalidChainVersion,
         /// There are no api upgrades supported for the contract.
-        NoUpgradesSupported
+        NoUpgradesSupported,
     }
-}
 
-storage_migration_ver!(1);
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
 
-decl_storage! {
-    trait Store for Pallet<T: Config> as PolymeshContracts where T::AccountId: UncheckedFrom<T::Hash>, T::AccountId: AsRef<[u8]> {
-        /// Whitelist of extrinsics allowed to be called from contracts.
-        pub CallRuntimeWhitelist get(fn call_runtime_whitelist):
-            map hasher(identity) ExtrinsicId => bool;
-        /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
-        /// Stores the chain version and code hash for the next chain upgrade.
-        pub ApiNextUpgrade get(fn api_next_upgrade):
-            map hasher(twox_64_concat) Api => Option<NextUpgrade<T>>;
-        /// Stores the code hash for the current api.
-        pub CurrentApiHash get (fn api_tracker):
-            map hasher(twox_64_concat) Api => Option<ApiCodeHash<T>>;
+    storage_migration_ver!(1);
+
+    /// Whitelist of extrinsics allowed to be called from contracts.
+    #[pallet::storage]
+    #[pallet::getter(fn call_runtime_whitelist)]
+    pub type CallRuntimeWhitelist<T> = StorageMap<_, Identity, ExtrinsicId, bool, ValueQuery>;
+
+    /// Storage version.
+    #[pallet::storage]
+    pub type StorageVersion<T> = StorageValue<_, Version, ValueQuery>;
+
+    /// Stores the chain version and code hash for the next chain upgrade.
+    #[pallet::storage]
+    #[pallet::getter(fn next_upgrade)]
+    pub type ApiNextUpgrade<T> = StorageMap<_, Twox64Concat, Api, NextUpgrade<T>, OptionQuery>;
+
+    /// Stores the code hash for the current api.
+    #[pallet::storage]
+    #[pallet::getter(fn current_api_hash)]
+    pub type CurrentApiHash<T> = StorageMap<_, Twox64Concat, Api, ApiCodeHash<T>, OptionQuery>;
+
+    /// GenesisConfig for the contracts module.
+    #[pallet::genesis_config]
+    #[derive(frame_support::DefaultNoBound)]
+    pub struct GenesisConfig<T: Config> {
+        pub call_whitelist: Vec<ExtrinsicId>,
+        pub upgradable_code: Vec<u8>,
+        pub upgradable_owner: Option<T::AccountId>,
+        pub upgradable_description: [u8; 4],
+        pub upgradable_major: u32,
     }
-    add_extra_genesis {
-        config(call_whitelist): Vec<ExtrinsicId>;
-        config(upgradable_code): Vec<u8>;
-        config(upgradable_owner): Option<T::AccountId>;
-        config(upgradable_description): [u8; 4];
-        config(upgradable_major): u32;
-        build(|config: &GenesisConfig<T>| {
-            for ext_id in &config.call_whitelist {
-                CallRuntimeWhitelist::insert(ext_id, true);
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+        fn build(&self) {
+            StorageVersion::<T>::put(Version::new(1));
+
+            for ext_id in &self.call_whitelist {
+                CallRuntimeWhitelist::<T>::insert(ext_id, true);
             }
 
-            if let Some(ref owner) = config.upgradable_owner {
+            if let Some(ref owner) = self.upgradable_owner {
                 let code_result = FrameContracts::<T>::bare_upload_code(
                     owner.clone(),
-                    config.upgradable_code.clone(),
+                    self.upgradable_code.clone(),
                     None,
                     Determinism::Deterministic,
-                ).unwrap();
-                log::info!("Uploaded upgradeable code {}", code_result.code_hash);
-                let api_code_hash: ApiCodeHash<T> = ApiCodeHash::new(code_result.code_hash);
-                let api: Api = Api::new(config.upgradable_description, config.upgradable_major);
-                CurrentApiHash::insert(api, api_code_hash);
+                )
+                .unwrap();
+                log::info!("Uploaded upgradeable code: {}", code_result.code_hash);
+                let api_code_hash = ApiCodeHash::new(code_result.code_hash);
+                let api = Api::new(self.upgradable_description, self.upgradable_major);
+                CurrentApiHash::<T>::insert(&api, &api_code_hash);
             }
-
-        });
-    }
-}
-
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin, T::AccountId: UncheckedFrom<T::Hash>, T::AccountId: AsRef<[u8]> {
-        type Error = Error<T>;
-        fn deposit_event() = default;
-
-        fn on_runtime_upgrade() -> Weight {
-            Weight::zero()
         }
+    }
 
+    #[pallet::call]
+    impl<T: Config> Pallet<T>
+    where
+        T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+    {
         /// Instantiates a smart contract defining it with the given `code` and `salt`.
         ///
         /// The contract will be attached as a secondary key,
@@ -434,16 +465,17 @@ decl_module! {
         /// - All the errors in `pallet_contracts::Call::instantiate_with_code` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = Pallet::<T>::weight_instantiate_with_code(code.len() as u32, data.len() as u32, salt.len() as u32, Some(perms)).saturating_add(*gas_limit)]
+        #[pallet::weight(Pallet::<T>::weight_instantiate_with_code(code.len() as u32, data.len() as u32, salt.len() as u32, Some(perms)).saturating_add(*gas_limit))]
+        #[pallet::call_index(0)]
         pub fn instantiate_with_code_perms(
-            origin,
+            origin: OriginFor<T>,
             endowment: Balance,
             gas_limit: Weight,
             storage_deposit_limit: Option<Balance>,
             code: Vec<u8>,
             data: Vec<u8>,
             salt: Vec<u8>,
-            perms: Permissions
+            perms: Permissions,
         ) -> DispatchResultWithPostInfo {
             Self::general_instantiate(
                 origin,
@@ -454,7 +486,7 @@ decl_module! {
                 data,
                 salt,
                 Some(perms),
-                false
+                false,
             )
         }
 
@@ -485,16 +517,17 @@ decl_module! {
         /// - All the errors in `pallet_contracts::Call::instantiate` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = Pallet::<T>::weight_instantiate_with_hash(data.len() as u32, salt.len() as u32, Some(perms)).saturating_add(*gas_limit)]
+        #[pallet::weight(Pallet::<T>::weight_instantiate_with_hash(data.len() as u32, salt.len() as u32, Some(perms)).saturating_add(*gas_limit))]
+        #[pallet::call_index(1)]
         pub fn instantiate_with_hash_perms(
-            origin,
+            origin: OriginFor<T>,
             endowment: Balance,
             gas_limit: Weight,
             storage_deposit_limit: Option<Balance>,
             code_hash: CodeHash<T>,
             data: Vec<u8>,
             salt: Vec<u8>,
-            perms: Permissions
+            perms: Permissions,
         ) -> DispatchResultWithPostInfo {
             Self::general_instantiate(
                 origin,
@@ -505,7 +538,7 @@ decl_module! {
                 data,
                 salt,
                 Some(perms),
-                false
+                false,
             )
         }
 
@@ -514,8 +547,12 @@ decl_module! {
         /// # Arguments
         ///
         /// # Errors
-        #[weight = <T as Config>::WeightInfo::update_call_runtime_whitelist(updates.len() as u32)]
-        pub fn update_call_runtime_whitelist(origin, updates: Vec<(ExtrinsicId, bool)>) -> DispatchResult {
+        #[pallet::weight(<T as Config>::WeightInfo::update_call_runtime_whitelist(updates.len() as u32))]
+        #[pallet::call_index(2)]
+        pub fn update_call_runtime_whitelist(
+            origin: OriginFor<T>,
+            updates: Vec<(ExtrinsicId, bool)>,
+        ) -> DispatchResult {
             Self::base_update_call_runtime_whitelist(origin, updates)
         }
 
@@ -531,15 +568,16 @@ decl_module! {
         /// - `data`: The input data to pass to the contract constructor.
         /// - `salt`: Used for contract address derivation. By varying this, the same `code` can be used under the same identity.
         ///
-        #[weight = Pallet::<T>::weight_instantiate_with_code(code.len() as u32, data.len() as u32, salt.len() as u32, None).saturating_add(*gas_limit)]
+        #[pallet::weight(Pallet::<T>::weight_instantiate_with_code(code.len() as u32, data.len() as u32, salt.len() as u32, None).saturating_add(*gas_limit))]
+        #[pallet::call_index(3)]
         pub fn instantiate_with_code_as_primary_key(
-            origin,
+            origin: OriginFor<T>,
             endowment: Balance,
             gas_limit: Weight,
             storage_deposit_limit: Option<Balance>,
             code: Vec<u8>,
             data: Vec<u8>,
-            salt: Vec<u8>
+            salt: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             Self::general_instantiate(
                 origin,
@@ -550,7 +588,7 @@ decl_module! {
                 data,
                 salt,
                 None,
-                true
+                true,
             )
         }
 
@@ -568,9 +606,10 @@ decl_module! {
         /// - `data`: The input data to pass to the contract constructor.
         /// - `salt`: used for contract address derivation. By varying this, the same `code` can be used under the same identity.
         ///
-        #[weight = Pallet::<T>::weight_instantiate_with_hash(data.len() as u32, salt.len() as u32, None).saturating_add(*gas_limit)]
+        #[pallet::weight(Pallet::<T>::weight_instantiate_with_hash(data.len() as u32, salt.len() as u32, None).saturating_add(*gas_limit))]
+        #[pallet::call_index(4)]
         pub fn instantiate_with_hash_as_primary_key(
-            origin,
+            origin: OriginFor<T>,
             endowment: Balance,
             gas_limit: Weight,
             storage_deposit_limit: Option<Balance>,
@@ -587,15 +626,16 @@ decl_module! {
                 data,
                 salt,
                 None,
-                true
+                true,
             )
         }
 
-        #[weight =  <T as Config>::WeightInfo::upgrade_api()]
+        #[pallet::weight(<T as Config>::WeightInfo::upgrade_api())]
+        #[pallet::call_index(5)]
         pub fn upgrade_api(
-            origin,
+            origin: OriginFor<T>,
             api: Api,
-            next_upgrade: NextUpgrade<T>
+            next_upgrade: NextUpgrade<T>,
         ) -> DispatchResult {
             Self::base_upgrade_api(origin, api, next_upgrade)
         }
@@ -615,9 +655,9 @@ where
 
         for (ext_id, allow) in updates {
             if allow {
-                CallRuntimeWhitelist::insert(ext_id, true);
+                CallRuntimeWhitelist::<T>::insert(ext_id, true);
             } else {
-                CallRuntimeWhitelist::remove(ext_id);
+                CallRuntimeWhitelist::<T>::remove(ext_id);
             }
         }
         Ok(())
@@ -711,20 +751,20 @@ where
         let caller = pallet_permissions::Pallet::<T>::ensure_call_permissions(caller)?;
 
         // Ensure contract is not linked to a DID
-        Identity::<T>::ensure_key_did_unlinked(&contract)?;
+        IdentityPallet::<T>::ensure_key_did_unlinked(&contract)?;
         if deploy_as_child_identity {
             ensure!(
                 caller.secondary_key.is_none(),
                 Error::<T>::CallerNotAPrimaryKey
             );
-            Identity::<T>::ensure_no_parent(caller.primary_did)?;
-            Identity::<T>::unverified_create_child_identity(contract, caller.primary_did)?;
+            IdentityPallet::<T>::ensure_no_parent(caller.primary_did)?;
+            IdentityPallet::<T>::unverified_create_child_identity(contract, caller.primary_did)?;
         } else {
             let perms = perms.ok_or(Error::<T>::MissingKeyPermissions)?;
             // Ensure that the key can be a secondary-key
-            Identity::<T>::ensure_perms_length_limited(&perms)?;
+            IdentityPallet::<T>::ensure_perms_length_limited(&perms)?;
             // Link contract's address to caller's identity as a secondary key with `perms`.
-            Identity::<T>::unsafe_join_identity(caller.primary_did, perms, contract);
+            IdentityPallet::<T>::unsafe_join_identity(caller.primary_did, perms, contract);
         }
         Ok(())
     }

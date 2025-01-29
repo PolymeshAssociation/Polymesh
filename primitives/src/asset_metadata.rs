@@ -15,6 +15,7 @@
 
 use crate::impl_checked_inc;
 use crate::Url;
+use codec::MaxEncodedLen;
 use codec::{Decode, DecodeAll, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::{PortableRegistry, TypeInfo};
@@ -29,19 +30,19 @@ use sp_std::prelude::Vec;
 pub struct AssetMetadataName(#[cfg_attr(feature = "std", serde(with = "serde_bytes"))] pub Vec<u8>);
 
 /// Asset Metadata Global Key.
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub struct AssetMetadataGlobalKey(pub u64);
 impl_checked_inc!(AssetMetadataGlobalKey);
 
 /// Asset Metadata Local Key.
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub struct AssetMetadataLocalKey(pub u64);
 impl_checked_inc!(AssetMetadataLocalKey);
 
 /// Asset Metadata Key.
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub enum AssetMetadataKey {
     /// Global Metadata Key.
@@ -68,7 +69,7 @@ impl From<AssetMetadataGlobalKey> for AssetMetadataKey {
 pub struct AssetMetadataValue(pub Vec<u8>);
 
 /// Asset Metadata Value details.
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct AssetMetadataValueDetail<Moment> {
     /// Optional expire date for the value.
@@ -93,7 +94,7 @@ impl<Moment: PartialOrd> AssetMetadataValueDetail<Moment> {
 }
 
 /// Asset Metadata Lock Status
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AssetMetadataLockStatus<Moment> {
     /// Can be changed by asset issuer.

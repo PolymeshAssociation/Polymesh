@@ -9,14 +9,13 @@ use core::iter;
 use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
-    IterableStorageDoubleMap, StorageDoubleMap, StorageMap,
 };
 use pallet_asset::Assets;
 use pallet_corporate_actions::{
     ballot::{BallotMeta, BallotTimeRange, BallotVote, Motion, Votes},
     distribution::{self, Distribution, PER_SHARE_PRECISION},
-    CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, CorporateActions,
-    Details, LocalCAId, RecordDate, RecordDateSpec, TargetIdentities, TargetTreatment,
+    CACheckpoint, CADetails, CAId, CAKind, CorporateAction, LocalCAId, RecordDate, RecordDateSpec,
+    TargetIdentities, TargetTreatment,
     TargetTreatment::{Exclude, Include},
     Tax,
 };
@@ -51,7 +50,11 @@ type DistError = distribution::Error<TestStorage>;
 type PError = pallet_portfolio::Error<TestStorage>;
 type CPError = pallet_asset::checkpoint::Error<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
-type Custodian = pallet_portfolio::PortfolioCustodian;
+type Custodian = pallet_portfolio::PortfolioCustodian<TestStorage>;
+
+type Details = pallet_corporate_actions::Details<TestStorage>;
+type CAIdSequence = pallet_corporate_actions::CAIdSequence<TestStorage>;
+type CorporateActions = pallet_corporate_actions::CorporateActions<TestStorage>;
 
 const CDDP: AccountKeyring = AccountKeyring::Eve;
 
@@ -218,7 +221,7 @@ fn ballot_data(id: CAId) -> BallotData {
         choices: Ballot::motion_choices(id),
         rcv: Ballot::rcv(id),
         results: Ballot::results(id),
-        votes: Votes::iter_prefix(id).collect(),
+        votes: Votes::<TestStorage>::iter_prefix(id).collect(),
     }
 }
 
@@ -2155,7 +2158,7 @@ fn dist_claim_rounding_indivisible() {
 
         // Make `currency` indivisible.
         // This the crucial aspect different about this test.
-        Assets::mutate(currency, |t| {
+        Assets::<TestStorage>::mutate(currency, |t| {
             if let Some(t) = t {
                 t.divisible = false;
             }

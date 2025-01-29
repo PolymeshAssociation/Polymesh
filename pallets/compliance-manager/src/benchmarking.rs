@@ -337,7 +337,7 @@ pub fn setup_asset_compliance<T: Config>(
     });
 
     if pause_compliance {
-        AssetCompliances::mutate(&asset_id, |compliance| compliance.paused = true);
+        AssetCompliances::<T>::mutate(&asset_id, |compliance| compliance.paused = true);
     }
 }
 

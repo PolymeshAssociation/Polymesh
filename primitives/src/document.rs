@@ -15,7 +15,7 @@
 
 //! Document type
 use crate::{DocumentHash, Moment};
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
 use sp_std::prelude::Vec;
@@ -24,7 +24,7 @@ use sp_std::prelude::Vec;
 use serde::{Deserialize, Serialize};
 
 /// The local, per-ticker, ID of an asset documentation.
-#[derive(Decode, Encode, TypeInfo)]
+#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DocumentId(pub u32);

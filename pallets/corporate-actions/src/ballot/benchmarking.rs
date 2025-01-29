@@ -15,6 +15,7 @@
 
 use super::*;
 use crate::benchmarking::{set_ca_targets, setup_ca};
+use crate::CAConfig;
 use core::iter;
 use frame_benchmarking::benchmarks;
 use pallet_identity::benchmarking::User;
@@ -40,7 +41,7 @@ fn meta(n_motions: u32, n_choices: u32) -> BallotMeta {
     }
 }
 
-fn attach<T: Config>(n_motions: u32, n_choices: u32) -> (User<T>, CAId) {
+fn attach<T: CAConfig>(n_motions: u32, n_choices: u32) -> (User<T>, CAId) {
     let meta = meta(n_motions, n_choices);
     let (owner, ca_id) = setup_ca::<T>(CAKind::IssuerNotice);
     <Pallet<T>>::attach_ballot(owner.origin().into(), ca_id, RANGE, meta, true).unwrap();
@@ -48,6 +49,8 @@ fn attach<T: Config>(n_motions: u32, n_choices: u32) -> (User<T>, CAId) {
 }
 
 benchmarks! {
+    where_clause {  where T: CAConfig }
+
     attach_ballot {
         let c in 0..MAX_CHOICES;
 
@@ -55,7 +58,7 @@ benchmarks! {
         let (owner, ca_id) = setup_ca::<T>(CAKind::IssuerNotice);
     }: _(owner.origin(), ca_id, RANGE, meta, true)
     verify {
-        assert_eq!(TimeRanges::get(ca_id), Some(RANGE), "ballot not created");
+        assert_eq!(TimeRanges::<T>::get(ca_id), Some(RANGE), "ballot not created");
     }
 
     vote {
@@ -82,14 +85,14 @@ benchmarks! {
         let results = votes.iter().map(|v| v.power).collect::<Vec<_>>();
     }: _(owner.origin(), ca_id, votes)
     verify {
-        assert_eq!(Results::get(ca_id), results, "voting results are wrong")
+        assert_eq!(Results::<T>::get(ca_id), results, "voting results are wrong")
     }
 
     change_end {
         let (owner, ca_id) = attach::<T>(0, 0);
     }: _(owner.origin(), ca_id, 5000)
     verify {
-        assert_eq!(TimeRanges::get(ca_id).unwrap().end, 5000, "range not changed");
+        assert_eq!(TimeRanges::<T>::get(ca_id).unwrap().end, 5000, "range not changed");
     }
 
     change_meta {
@@ -100,20 +103,20 @@ benchmarks! {
         let meta2 = meta.clone();
     }: _(owner.origin(), ca_id, meta)
     verify {
-        assert_eq!(Metas::get(ca_id).unwrap(), meta2, "meta not changed");
+        assert_eq!(Metas::<T>::get(ca_id).unwrap(), meta2, "meta not changed");
     }
 
     change_rcv {
         let (owner, ca_id) = attach::<T>(0, 0);
     }: _(owner.origin(), ca_id, false)
     verify {
-        assert!(!RCV::get(ca_id), "RCV not changed");
+        assert!(!RCV::<T>::get(ca_id), "RCV not changed");
     }
 
     remove_ballot {
         let (owner, ca_id) = attach::<T>(0, 0);
     }: _(owner.origin(), ca_id)
     verify {
-        assert_eq!(TimeRanges::get(ca_id), None, "ballot not removed");
+        assert_eq!(TimeRanges::<T>::get(ca_id), None, "ballot not removed");
     }
 }

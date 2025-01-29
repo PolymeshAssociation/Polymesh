@@ -541,6 +541,8 @@ pub mod general {
             statistics: Default::default(),
             multi_sig: Default::default(),
             corporate_action: corporate_actions!(),
+            capital_distribution: Default::default(),
+            corporate_ballot: Default::default(),
             polymesh_contracts: polymesh_contracts!(Some(root_key)),
         }
     }
@@ -684,6 +686,8 @@ pub mod testnet {
             statistics: Default::default(),
             multi_sig: Default::default(),
             corporate_action: corporate_actions!(),
+            capital_distribution: Default::default(),
+            corporate_ballot: Default::default(),
             polymesh_contracts: polymesh_contracts!(Some(root_key)),
         }
     }
@@ -855,6 +859,8 @@ pub mod mainnet {
             statistics: Default::default(),
             multi_sig: Default::default(),
             corporate_action: corporate_actions!(),
+            capital_distribution: Default::default(),
+            corporate_ballot: Default::default(),
             polymesh_contracts: polymesh_contracts!(Some(root_key)),
         }
     }
@@ -1034,6 +1040,8 @@ pub mod general {
             statistics: Default::default(),
             multi_sig: Default::default(),
             corporate_action: corporate_actions!(),
+            capital_distribution: Default::default(),
+            corporate_ballot: Default::default(),
             polymesh_contracts: polymesh_contracts!(Some(root_key)),
         }
     }

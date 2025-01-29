@@ -16,7 +16,7 @@
 use crate::asset::AssetId;
 use crate::statistics::{v1, Percentage, StatClaim, StatOpType, StatType};
 use crate::{ClaimType, IdentityId};
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{pallet_prelude::Get, BoundedBTreeSet};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
@@ -25,7 +25,7 @@ use sp_std::prelude::*;
 
 /// Transfer condition.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, TypeInfo)]
+#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TransferCondition {
     /// Maximum investor count.
@@ -114,7 +114,7 @@ impl From<v1::TransferManagerResult> for TransferConditionResult {
 }
 
 /// Transfer Condition Exempt key.
-#[derive(Decode, Encode, TypeInfo)]
+#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct TransferConditionExemptKey {
     /// The [`AssetId`] of the token.
@@ -126,7 +126,7 @@ pub struct TransferConditionExemptKey {
 }
 
 /// List of transfer compliance requirements associated to an asset.
-#[derive(Decode, Encode, TypeInfo)]
+#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, PartialEq, Eq)]
 #[scale_info(skip_type_params(S))]
 pub struct AssetTransferCompliance<S: Get<u32>> {
