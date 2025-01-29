@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use pallet_identity::{Config as IdentityConfig, Module as Identity};
+use pallet_identity::{Config as IdentityConfig, Pallet as Identity};
 use polymesh_primitives::traits::CheckCdd;
 use polymesh_primitives::IdentityId;
 

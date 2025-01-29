@@ -63,7 +63,6 @@ use frame_support::ensure;
 use frame_support::pallet_prelude::MaxEncodedLen;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use frame_support::StorageMap as _;
 use frame_system::ensure_root;
 use frame_system::ensure_signed;
 #[cfg(feature = "std")]
@@ -194,7 +193,7 @@ where
         // Check if contact is already linked.
         match IdentityPallet::<T>::get_identity(&contract) {
             Some(contract_did) => {
-                if contract_did != did && ParentDid::get(contract_did) != Some(did) {
+                if contract_did != did && ParentDid::<T>::get(contract_did) != Some(did) {
                     // Contract address already linked to a different identity.
                     Err(IdentityError::<T>::AlreadyLinked.into())
                 } else {

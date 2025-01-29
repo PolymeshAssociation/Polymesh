@@ -312,7 +312,7 @@ pub enum TransactionError {
 }
 
 /// Represents the target identity and the amount requested by a beneficiary.
-#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug)]
 pub struct Beneficiary<Balance> {
     /// Beneficiary identity.
     pub id: IdentityId,
@@ -321,7 +321,7 @@ pub struct Beneficiary<Balance> {
 }
 
 /// A short on-chain memo for POLYX transfer, asset transfer and portfolio moves.
-#[derive(Decode, Encode, TypeInfo, SliceU8StrongTyped)]
+#[derive(Decode, Encode, MaxEncodedLen, TypeInfo, SliceU8StrongTyped)]
 #[derive(Clone, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Memo(pub [u8; 32]);
 

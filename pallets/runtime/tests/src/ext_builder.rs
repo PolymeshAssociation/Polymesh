@@ -326,13 +326,12 @@ impl ExtBuilder {
             max_ticker_length: 8,
             registration_length: Some(10000),
         };
-        asset::GenesisConfig::<TestStorage> {
+        let genesis = asset::GenesisConfig {
             ticker_registration_config,
             reserved_country_currency_codes: vec![],
             asset_metadata: vec![],
-        }
-        .assimilate_storage(storage)
-        .unwrap();
+        };
+        GenesisBuild::<TestStorage>::assimilate_storage(&genesis, storage).unwrap();
     }
 
     /// For each `cdd_providers`:

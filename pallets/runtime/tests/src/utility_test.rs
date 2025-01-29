@@ -6,7 +6,7 @@ use frame_support::dispatch::{
 use frame_support::error::BadOrigin;
 use frame_support::traits::Contains;
 use frame_support::{
-    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, storage, StorageMap,
+    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, storage,
 };
 use frame_system::{Call as SystemCall, EventRecord};
 use pallet_timestamp::Call as TimestampCall;

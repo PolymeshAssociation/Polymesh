@@ -6,7 +6,6 @@ use frame_support::dispatch::{
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_support::{ensure, require_transactional};
-use frame_support::{StorageDoubleMap as _, StorageMap as _};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{vec, vec::Vec};
@@ -53,6 +52,7 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config
         + pallet_asset::Config
+        + pallet_asset::checkpoint::Config
         + pallet_identity::Config
         + pallet_portfolio::Config
     {
@@ -493,7 +493,7 @@ impl<T: Config> Pallet<T> {
         for (metadata_key, metadata_value) in nft_attributes.into_iter() {
             MetadataValue::<T>::insert((&collection_id, &nft_id), metadata_key, metadata_value);
         }
-        PortfolioNFT::insert(caller_portfolio, (asset_id, nft_id), true);
+        PortfolioNFT::<T>::insert(caller_portfolio, (asset_id, nft_id), true);
         NFTOwner::<T>::insert(asset_id, nft_id, caller_portfolio);
 
         Self::deposit_event(Event::NFTPortfolioUpdated(
@@ -529,11 +529,11 @@ impl<T: Config> Pallet<T> {
 
         // Verifies if the NFT exists
         ensure!(
-            PortfolioNFT::contains_key(&caller_portfolio, (&asset_id, &nft_id)),
+            PortfolioNFT::<T>::contains_key(&caller_portfolio, (&asset_id, &nft_id)),
             Error::<T>::NFTNotFound
         );
         ensure!(
-            !PortfolioLockedNFT::contains_key(&caller_portfolio, (&asset_id, &nft_id)),
+            !PortfolioLockedNFT::<T>::contains_key(&caller_portfolio, (&asset_id, &nft_id)),
             Error::<T>::NFTIsLocked
         );
 
@@ -546,7 +546,7 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::BalanceUnderflow)?;
         NFTsInCollection::<T>::insert(&asset_id, new_supply);
         NumberOfNFTs::<T>::insert(&asset_id, &caller_portfolio.did, new_balance);
-        PortfolioNFT::remove(&caller_portfolio, (&asset_id, &nft_id));
+        PortfolioNFT::<T>::remove(&caller_portfolio, (&asset_id, &nft_id));
         NFTOwner::<T>::remove(asset_id, nft_id);
         let removed_keys = MetadataValue::<T>::drain_prefix((&collection_id, &nft_id)).count();
         if let Some(number_of_keys) = number_of_keys {
@@ -649,7 +649,7 @@ impl<T: Config> Pallet<T> {
 
         // Verifies that the asset is not frozen
         ensure!(
-            !Frozen::get(nfts.asset_id()),
+            !Frozen::<T>::get(nfts.asset_id()),
             Error::<T>::InvalidNFTTransferFrozenAsset
         );
 
@@ -683,11 +683,11 @@ impl<T: Config> Pallet<T> {
         // Verfies that the sender owns the nfts and that they are not locked
         for nft_id in nfts.ids() {
             ensure!(
-                PortfolioNFT::contains_key(sender_portfolio, (nfts.asset_id(), nft_id)),
+                PortfolioNFT::<T>::contains_key(sender_portfolio, (nfts.asset_id(), nft_id)),
                 Error::<T>::InvalidNFTTransferNFTNotOwned
             );
             ensure!(
-                !PortfolioLockedNFT::contains_key(sender_portfolio, (nfts.asset_id(), nft_id)),
+                !PortfolioLockedNFT::<T>::contains_key(sender_portfolio, (nfts.asset_id(), nft_id)),
                 Error::<T>::InvalidNFTTransferNFTIsLocked
             );
         }
@@ -728,8 +728,8 @@ impl<T: Config> Pallet<T> {
         });
         // Update the portfolio of the sender and the receiver
         for nft_id in nfts.ids() {
-            PortfolioNFT::remove(sender_portfolio, (nfts.asset_id(), nft_id));
-            PortfolioNFT::insert(receiver_portfolio, (nfts.asset_id(), nft_id), true);
+            PortfolioNFT::<T>::remove(sender_portfolio, (nfts.asset_id(), nft_id));
+            PortfolioNFT::<T>::insert(receiver_portfolio, (nfts.asset_id(), nft_id), true);
             NFTOwner::<T>::insert(nfts.asset_id(), nft_id, receiver_portfolio);
         }
     }
@@ -778,7 +778,7 @@ impl<T: Config> Pallet<T> {
             return vec![Error::<T>::InvalidNFTTransferCollectionNotFound.into()];
         }
 
-        if Frozen::get(nfts.asset_id()) {
+        if Frozen::<T>::get(nfts.asset_id()) {
             nft_transfer_errors.push(Error::<T>::InvalidNFTTransferFrozenAsset.into());
         }
 
@@ -802,7 +802,7 @@ impl<T: Config> Pallet<T> {
 
         if skip_locked_check {
             for nft_id in nfts.ids() {
-                if !PortfolioNFT::contains_key(sender_portfolio, (nfts.asset_id(), nft_id)) {
+                if !PortfolioNFT::<T>::contains_key(sender_portfolio, (nfts.asset_id(), nft_id)) {
                     nft_transfer_errors.push(Error::<T>::InvalidNFTTransferNFTNotOwned.into());
                     break;
                 }

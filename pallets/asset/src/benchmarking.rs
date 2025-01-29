@@ -14,7 +14,6 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use frame_benchmarking::benchmarks;
-use frame_support::StorageValue;
 use frame_system::RawOrigin;
 use scale_info::prelude::format;
 use sp_std::collections::btree_set::BTreeSet;
@@ -78,7 +77,7 @@ fn make_metadata_spec<T: Config>() -> AssetMetadataSpec {
 }
 
 /// Register a global metadata type for benchmarking.
-fn register_metadata_global_name<T: Config>() -> AssetMetadataKey {
+fn register_metadata_global_name<T: AssetConfig>() -> AssetMetadataKey {
     let root = RawOrigin::Root.into();
     let name = make_metadata_name::<T>();
     let spec = make_metadata_spec::<T>();
@@ -98,7 +97,10 @@ fn set_ticker_registration_config<T: Config>() {
 }
 
 /// Creates a new [`AssetDetails`] considering the worst case scenario.
-pub(crate) fn create_sample_asset<T: Config>(asset_owner: &User<T>, divisible: bool) -> AssetId {
+pub(crate) fn create_sample_asset<T: AssetConfig>(
+    asset_owner: &User<T>,
+    divisible: bool,
+) -> AssetId {
     let asset_name = AssetName::from(vec![b'N'; T::AssetNameMaxLength::get() as usize].as_slice());
     let funding_round_name =
         FundingRoundName::from(vec![b'F'; T::FundingRoundNameMaxLength::get() as usize].as_slice());
@@ -119,7 +121,7 @@ pub(crate) fn create_sample_asset<T: Config>(asset_owner: &User<T>, divisible: b
     asset_id
 }
 
-pub(crate) fn create_and_issue_sample_asset<T: Config>(asset_owner: &User<T>) -> AssetId {
+pub(crate) fn create_and_issue_sample_asset<T: AssetConfig>(asset_owner: &User<T>) -> AssetId {
     let asset_id = create_sample_asset::<T>(asset_owner, true);
     Pallet::<T>::issue(
         asset_owner.origin().into(),
@@ -134,7 +136,7 @@ pub(crate) fn create_and_issue_sample_asset<T: Config>(asset_owner: &User<T>) ->
 
 /// Creates an asset for `ticker`, creates a custom portfolio for the sender and receiver, sets up compliance and transfer restrictions.
 /// Returns the sender and receiver portfolio.
-pub fn setup_asset_transfer<T>(
+pub fn setup_asset_transfer<T: AssetConfig>(
     sender: &User<T>,
     receiver: &User<T>,
     sender_portfolio_name: Option<&str>,
@@ -142,10 +144,7 @@ pub fn setup_asset_transfer<T>(
     pause_compliance: bool,
     pause_restrictions: bool,
     n_mediators: u8,
-) -> (PortfolioId, PortfolioId, Vec<User<T>>, AssetId)
-where
-    T: Config,
-{
+) -> (PortfolioId, PortfolioId, Vec<User<T>>, AssetId) {
     let sender_portfolio =
         create_portfolio::<T>(sender, sender_portfolio_name.unwrap_or("SenderPortfolio"));
     let receiver_portfolio =
@@ -236,6 +235,8 @@ fn move_from_default_portfolio<T: Config>(
 }
 
 benchmarks! {
+    where_clause {  where T: AssetConfig }
+
     register_unique_ticker {
         // For the worst case ticker must be of length `TICKER_LEN`
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
@@ -244,7 +245,7 @@ benchmarks! {
     }: _(alice.origin.clone(), ticker)
     verify {
         assert_eq!(
-            TickersOwnedByUser::get(alice.did(), ticker),
+            TickersOwnedByUser::<T>::get(alice.did(), ticker),
             true
         );
         assert_eq!(
@@ -269,11 +270,11 @@ benchmarks! {
     }: _(bob.origin.clone(), new_owner_auth_id)
     verify {
         assert_eq!(
-            TickersOwnedByUser::get(alice.did(), ticker),
+            TickersOwnedByUser::<T>::get(alice.did(), ticker),
             false
         );
         assert_eq!(
-            TickersOwnedByUser::get(bob.did(), ticker),
+            TickersOwnedByUser::<T>::get(bob.did(), ticker),
             true
         );
         assert_eq!(
@@ -300,15 +301,15 @@ benchmarks! {
     }: _(bob.origin.clone(), new_owner_auth_id)
     verify {
         assert_eq!(
-            Assets::get(&asset_id).unwrap().owner_did,
+            Assets::<T>::get(&asset_id).unwrap().owner_did,
             bob.did()
         );
         assert_eq!(
-            SecurityTokensOwnedByUser::get(bob.did(), asset_id),
+            SecurityTokensOwnedByUser::<T>::get(bob.did(), asset_id),
             true
         );
         assert_eq!(
-            TickersOwnedByUser::get(bob.did(), ticker),
+            TickersOwnedByUser::<T>::get(bob.did(), ticker),
             true
         );
     }
@@ -331,23 +332,23 @@ benchmarks! {
     }: _(alice.origin.clone(), asset_name.clone(), true, AssetType::default(), asset_identifiers.clone(), Some(funding_round_name.clone()))
     verify {
         assert_eq!(
-            Assets::get(&asset_id),
+            Assets::<T>::get(&asset_id),
             Some(AssetDetails::new(0, alice.did(), true, AssetType::default()))
         );
         assert_eq!(
-            SecurityTokensOwnedByUser::get(alice.did(), &asset_id),
+            SecurityTokensOwnedByUser::<T>::get(alice.did(), &asset_id),
             true
         );
         assert_eq!(
-            AssetNames::get(&asset_id),
+            AssetNames::<T>::get(&asset_id),
             Some(asset_name)
         );
         assert_eq!(
-            FundingRound::get(&asset_id),
+            FundingRound::<T>::get(&asset_id),
             funding_round_name
         );
         assert_eq!(
-            AssetIdentifiers::get(&asset_id),
+            AssetIdentifiers::<T>::get(&asset_id),
             asset_identifiers
         );
     }
@@ -357,7 +358,7 @@ benchmarks! {
         let asset_id = create_sample_asset::<T>(&alice, true);
     }: _(alice.origin, asset_id)
     verify {
-        assert_eq!(Frozen::get(&asset_id), true);
+        assert_eq!(Frozen::<T>::get(&asset_id), true);
     }
 
     unfreeze {
@@ -366,7 +367,7 @@ benchmarks! {
         Pallet::<T>::freeze(alice.origin().into(), asset_id).unwrap();
     }: _(alice.origin, asset_id)
     verify {
-        assert_eq!(Frozen::get(&asset_id), false);
+        assert_eq!(Frozen::<T>::get(&asset_id), false);
     }
 
     rename_asset {
@@ -378,7 +379,7 @@ benchmarks! {
         let new_asset_name = AssetName::from(vec![b'N'; n as usize].as_slice());
     }: _(alice.origin, asset_id, new_asset_name.clone())
     verify {
-        assert_eq!(AssetNames::get(&asset_id), Some(new_asset_name));
+        assert_eq!(AssetNames::<T>::get(&asset_id), Some(new_asset_name));
     }
 
     issue {
@@ -388,7 +389,7 @@ benchmarks! {
     }: _(alice.origin, asset_id, (1_000_000 * POLY).into(), portfolio_id.kind)
     verify {
         assert_eq!(
-            Assets::get(&asset_id).unwrap().total_supply,
+            Assets::<T>::get(&asset_id).unwrap().total_supply,
             (1_000_000 * POLY).into()
         );
     }
@@ -408,7 +409,7 @@ benchmarks! {
     }: _(alice.origin, asset_id, (600_000 * POLY).into(), portfolio_id.kind)
     verify {
         assert_eq!(
-            Assets::get(&asset_id).unwrap().total_supply,
+            Assets::<T>::get(&asset_id).unwrap().total_supply,
             (400_000 * POLY).into()
         );
     }
@@ -419,7 +420,7 @@ benchmarks! {
     }: _(alice.origin, asset_id)
     verify {
         assert_eq!(
-            Assets::get(&asset_id).unwrap().divisible,
+            Assets::<T>::get(&asset_id).unwrap().divisible,
             true
         );
     }
@@ -453,7 +454,7 @@ benchmarks! {
     verify {
         for i in 1..d {
             assert_eq!(
-                AssetDocuments::contains_key(&asset_id, DocumentId(i-1)),
+                AssetDocuments::<T>::contains_key(&asset_id, DocumentId(i-1)),
                 false
             );
         }
@@ -468,7 +469,7 @@ benchmarks! {
     }: _(alice.origin, asset_id, funding_round_name.clone())
     verify {
         assert_eq!(
-            FundingRound::get(&asset_id),
+            FundingRound::<T>::get(&asset_id),
             funding_round_name
         );
     }
@@ -485,7 +486,7 @@ benchmarks! {
     }: _(alice.origin, asset_id, asset_identifiers.clone())
     verify {
         assert_eq!(
-            AssetIdentifiers::get(&asset_id),
+            AssetIdentifiers::<T>::get(&asset_id),
             asset_identifiers
         );
     }
@@ -573,7 +574,7 @@ benchmarks! {
     }: _(alice.origin, asset_id, AssetType::EquityPreferred)
     verify {
         assert_eq!(
-            Assets::get(&asset_id).unwrap().asset_type,
+            Assets::<T>::get(&asset_id).unwrap().asset_type,
             AssetType::EquityPreferred
         );
     }

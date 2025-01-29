@@ -15,7 +15,7 @@
 
 use crate::asset::AssetId;
 use crate::{ExtrinsicName, IdentityId, PalletName, PortfolioId, SubsetRestriction};
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -282,7 +282,7 @@ impl Permissions {
 }
 
 /// Account key record.
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum KeyRecord<AccountId> {
@@ -339,7 +339,17 @@ impl<AccountId> KeyRecord<AccountId> {
 
 /// It supports different elements as a signer.
 #[allow(missing_docs)]
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo)]
+#[derive(
+    Encode,
+    Decode,
+    MaxEncodedLen,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Debug,
+    TypeInfo
+)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum Signatory<AccountId> {
     #[cfg_attr(feature = "std", serde(alias = "identity"))]
