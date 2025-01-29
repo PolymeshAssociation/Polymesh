@@ -13,13 +13,12 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{
-    assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency, StorageDoubleMap,
-    StorageMap, StorageValue,
-};
+use frame_support::{assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency};
 use pallet_balances as balances;
-use pallet_identity::{ChildDid, CustomClaimIdSequence, CustomClaims, CustomClaimsInverse};
-use pallet_identity::{Config as IdentityConfig, RawEvent};
+use pallet_identity::{
+    ChildDid, CustomClaimIdSequence, CustomClaims, CustomClaimsInverse, ParentDid,
+};
+use pallet_identity::{Config as IdentityConfig, Event};
 use polymesh_common_utilities::identity::{
     CreateChildIdentityWithAuth, SecondaryKeyWithAuth, TargetIdAuthorization,
 };
@@ -43,7 +42,6 @@ type Asset = pallet_asset::Pallet<TestStorage>;
 type Balances = balances::Pallet<TestStorage>;
 type BaseError = pallet_base::Error<TestStorage>;
 type Identity = pallet_identity::Pallet<TestStorage>;
-type ParentDid = pallet_identity::ParentDid;
 type MultiSig = pallet_multisig::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
@@ -1964,14 +1962,14 @@ fn custom_claim_type_works() {
         let user = User::new(AccountKeyring::Alice);
         let register = |ty: &str| Identity::register_custom_claim_type(user.origin(), ty.into());
         let seq_is = |num| {
-            assert_eq!(CustomClaimIdSequence::get().0, num);
+            assert_eq!(CustomClaimIdSequence::<TestStorage>::get().0, num);
         };
         let slot_has = |id, data: &str| {
             seq_is(id);
             let id = CustomClaimTypeId(id);
             let data = data.as_bytes().to_vec();
-            assert_eq!(CustomClaims::get(id).as_ref(), Some(&data));
-            assert_eq!(CustomClaimsInverse::get(data), Some(id));
+            assert_eq!(CustomClaims::<TestStorage>::get(id).as_ref(), Some(&data));
+            assert_eq!(CustomClaimsInverse::<TestStorage>::get(data), Some(id));
         };
 
         // Nothing so far. Generator (G) at 0.
@@ -1998,7 +1996,7 @@ fn custom_claim_type_works() {
         slot_has(3, "foobar");
 
         // Set G to max. Next registration fails.
-        CustomClaimIdSequence::put(CustomClaimTypeId(u32::MAX));
+        CustomClaimIdSequence::<TestStorage>::put(CustomClaimTypeId(u32::MAX));
         assert_noop!(register("qux"), BaseError::CounterOverflow);
     });
 }
@@ -2043,7 +2041,7 @@ fn cdd_register_did_events() {
             let mut system_events = System::events();
             assert_eq!(
                 system_events.pop().unwrap().event,
-                super::storage::EventTest::Identity(RawEvent::AuthorizationAdded(
+                super::storage::EventTest::Identity(Event::AuthorizationAdded(
                     alice_did,
                     None,
                     Some(AccountKeyring::Charlie.to_account_id()),
@@ -2054,7 +2052,7 @@ fn cdd_register_did_events() {
             );
             assert_eq!(
                 system_events.pop().unwrap().event,
-                super::storage::EventTest::Identity(RawEvent::AuthorizationAdded(
+                super::storage::EventTest::Identity(Event::AuthorizationAdded(
                     alice_did,
                     None,
                     Some(AccountKeyring::Dave.to_account_id()),
@@ -2066,7 +2064,7 @@ fn cdd_register_did_events() {
             // Make sure a Did Created event was sent
             assert_eq!(
                 system_events.pop().unwrap().event,
-                super::storage::EventTest::Identity(RawEvent::DidCreated(
+                super::storage::EventTest::Identity(Event::DidCreated(
                     alice_did,
                     alice_account_id,
                     alice_secundary_keys.clone()
@@ -2098,7 +2096,7 @@ fn do_child_identity_test() {
     let valid_cdd = |u: User| did_of(u).map(Identity::has_valid_cdd).unwrap_or_default();
     let inc_acc_ref = |u: User| Identity::add_account_key_ref_count(&u.acc());
     let rejoin_parent = |parent: User, child: User| {
-        ParentDid::insert(child.did, parent.did);
+        ParentDid::<TestStorage>::insert(child.did, parent.did);
     };
 
     // Create some secondary keys.
@@ -2146,8 +2144,8 @@ fn do_child_identity_test() {
     // Ensure bob has a new identity.
     assert!(valid_cdd(bob));
     assert_ne!(bob.did, alice.did);
-    assert_eq!(ParentDid::get(bob.did), Some(alice.did));
-    assert_eq!(ChildDid::get(alice.did, bob.did), true);
+    assert_eq!(ParentDid::<TestStorage>::get(bob.did), Some(alice.did));
+    assert_eq!(ChildDid::<TestStorage>::get(alice.did, bob.did), true);
 
     // Attach secondary key to child identity.
     let ferdie = User::new_with(bob.did, AccountKeyring::Ferdie);
@@ -2211,8 +2209,8 @@ fn do_child_identity_test() {
 
     // Unlink child from parent again.
     exec_ok!(Identity::unlink_child_identity(bob.origin(), bob_did));
-    assert_eq!(ParentDid::get(bob.did), None);
-    assert_eq!(ChildDid::get(alice.did, bob.did), false);
+    assert_eq!(ParentDid::<TestStorage>::get(bob.did), None);
+    assert_eq!(ChildDid::<TestStorage>::get(alice.did, bob.did), false);
 
     assert!(valid_cdd(bob));
 
@@ -2222,8 +2220,8 @@ fn do_child_identity_test() {
     let ferdie_did = did_of(ferdie).expect("Ferdie's new identity");
     let ferdie = User::new_with(ferdie_did, AccountKeyring::Ferdie);
     assert!(valid_cdd(ferdie));
-    assert_eq!(ParentDid::get(ferdie.did), Some(bob.did));
-    assert_eq!(ChildDid::get(bob.did, ferdie.did), true);
+    assert_eq!(ParentDid::<TestStorage>::get(ferdie.did), Some(bob.did));
+    assert_eq!(ChildDid::<TestStorage>::get(bob.did, ferdie.did), true);
 }
 
 #[test]

@@ -96,11 +96,11 @@ fn create_venue_<T: Config>(did: IdentityId, signers: Vec<T::AccountId>) -> Venu
     };
     // NB: Venue counter starts with 1.
     let venue_counter = Pallet::<T>::venue_counter();
-    VenueInfo::insert(venue_counter, venue);
+    VenueInfo::<T>::insert(venue_counter, venue);
     for signer in signers {
-        <VenueSigners<T>>::insert(venue_counter, signer, true);
+        VenueSigners::<T>::insert(venue_counter, signer, true);
     }
-    VenueCounter::put(venue_counter.checked_inc().unwrap());
+    VenueCounter::<T>::put(venue_counter.checked_inc().unwrap());
     venue_counter
 }
 
@@ -344,7 +344,7 @@ benchmarks! {
     }: _(origin, venue_details, signers, venue_type)
     verify {
         assert_eq!(Pallet::<T>::venue_counter(), VenueId(2), "Invalid venue counter");
-        assert!(UserVenues::contains_key(did.unwrap(), VenueId(1)), "Invalid venue id");
+        assert!(UserVenues::<T>::contains_key(did.unwrap(), VenueId(1)), "Invalid venue id");
         assert!(Pallet::<T>::venue_info(VenueId(1)).is_some(), "Incorrect venue info set");
     }
 

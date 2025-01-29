@@ -15,16 +15,14 @@
 
 use crate::{
     types, AccountKeyRefCount, ChildDid, Claim, Config, CurrentAuthId, DidKeys, DidRecords, Error,
-    IsDidFrozen, KeyAssetPermissions, KeyExtrinsicPermissions, KeyPortfolioPermissions, KeyRecords,
-    MultiPurposeNonce, OffChainAuthorizationNonce, OutdatedAuthorizations, Pallet, ParentDid,
-    PermissionedCallOriginData, RawEvent, RpcDidRecords,
+    Event, IsDidFrozen, KeyAssetPermissions, KeyExtrinsicPermissions, KeyPortfolioPermissions,
+    KeyRecords, MultiPurposeNonce, OffChainAuthorizationNonce, OutdatedAuthorizations, Pallet,
+    ParentDid, PermissionedCallOriginData, RpcDidRecords,
 };
 use codec::{Decode, Encode as _};
 use frame_support::dispatch::DispatchResult;
+use frame_support::ensure;
 use frame_support::traits::{Currency as _, Get as _};
-use frame_support::{
-    ensure, IterableStorageDoubleMap, StorageDoubleMap, StorageMap as _, StorageValue as _,
-};
 use frame_system::ensure_signed;
 use pallet_base::{ensure_custom_length_ok, ensure_custom_string_limited};
 use pallet_permissions::{AccountCallPermissionsData, CheckAccountCallPermissions};
@@ -69,7 +67,10 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn ensure_no_parent(id: IdentityId) -> DispatchResult {
-        ensure!(!ParentDid::contains_key(id), Error::<T>::IsChildIdentity);
+        ensure!(
+            !ParentDid::<T>::contains_key(id),
+            Error::<T>::IsChildIdentity
+        );
         Ok(())
     }
 
@@ -240,7 +241,7 @@ impl<T: Config> Pallet<T> {
     /// This function applies the change if `can_add_key_record` returns `true`.
     /// Otherwise, it does nothing.
     pub fn add_key_record(key: &T::AccountId, record: KeyRecord<T::AccountId>) {
-        if Self::can_add_key_record(key) {
+        if !KeyRecords::<T>::contains_key(key) {
             // `key` is not yet linked to any identity, so no constraints.
             KeyRecords::<T>::insert(key, &record);
             // For primary/secondary keys add to `DidKeys`.
@@ -375,11 +376,11 @@ impl<T: Config> Pallet<T> {
             DidRecords::<T>::insert(target_did, DidRecord::new(new_primary_key.clone()));
 
             let removed_keys = vec![new_primary_key.clone()];
-            Self::deposit_event(RawEvent::SecondaryKeysRemoved(target_did, removed_keys));
+            Self::deposit_event(Event::SecondaryKeysRemoved(target_did, removed_keys));
         } else {
             Self::add_key_record(&new_primary_key, key_record);
         }
-        Self::deposit_event(RawEvent::PrimaryKeyUpdated(
+        Self::deposit_event(Event::PrimaryKeyUpdated(
             target_did,
             old_primary_key.clone(),
             new_primary_key,
@@ -391,7 +392,7 @@ impl<T: Config> Pallet<T> {
             Self::set_key_permissions(&old_primary_key, &perms);
 
             let sk = SecondaryKey::new(old_primary_key, perms);
-            Self::deposit_event(RawEvent::SecondaryKeysAdded(target_did, vec![sk]));
+            Self::deposit_event(Event::SecondaryKeysAdded(target_did, vec![sk]));
         } else {
             Self::remove_key_record(&old_primary_key, Some(target_did));
         }
@@ -444,7 +445,7 @@ impl<T: Config> Pallet<T> {
         // Update secondary key's permissions.
         Self::set_key_permissions(&key, &permissions);
 
-        Self::deposit_event(RawEvent::SecondaryKeyPermissionsUpdated(
+        Self::deposit_event(Event::SecondaryKeyPermissionsUpdated(
             did,
             key.clone(),
             old_perms,
@@ -471,7 +472,7 @@ impl<T: Config> Pallet<T> {
 
         // Unlink the secondary account key.
         Self::remove_key_record(&secondary_key, Some(parent_did));
-        Self::deposit_event(RawEvent::SecondaryKeysRemoved(
+        Self::deposit_event(Event::SecondaryKeysRemoved(
             parent_did,
             vec![secondary_key.clone()],
         ));
@@ -492,12 +493,12 @@ impl<T: Config> Pallet<T> {
         let child_did = Self::make_did()?;
         // Create a new identity record
         Self::add_key_record(&key, KeyRecord::PrimaryKey(child_did));
-        Self::deposit_event(RawEvent::DidCreated(child_did, key.clone(), vec![]));
+        Self::deposit_event(Event::DidCreated(child_did, key.clone(), vec![]));
         // Link new identity to parent identity.
-        ParentDid::insert(child_did, parent_did);
-        ChildDid::insert(parent_did, child_did, true);
+        ParentDid::<T>::insert(child_did, parent_did);
+        ChildDid::<T>::insert(parent_did, child_did, true);
 
-        Self::deposit_event(RawEvent::ChildDidCreated(parent_did, child_did, key));
+        Self::deposit_event(Event::ChildDidCreated(parent_did, child_did, key));
         Ok(())
     }
 
@@ -557,18 +558,20 @@ impl<T: Config> Pallet<T> {
         }
 
         // Update that identity's offchain authorization nonce.
-        OffChainAuthorizationNonce::mutate(parent_did, |nonce| *nonce = authorization.nonce + 1);
+        OffChainAuthorizationNonce::<T>::mutate(parent_did, |nonce| {
+            *nonce = authorization.nonce + 1
+        });
 
         for (key, child_did) in children {
             // Create a new identity record and link the primary key.
             Self::add_key_record(&key, KeyRecord::PrimaryKey(child_did));
-            Self::deposit_event(RawEvent::DidCreated(child_did, key.clone(), vec![]));
+            Self::deposit_event(Event::DidCreated(child_did, key.clone(), vec![]));
 
             // Link new identity to parent identity.
-            ParentDid::insert(child_did, parent_did);
-            ChildDid::insert(parent_did, child_did, true);
+            ParentDid::<T>::insert(child_did, parent_did);
+            ChildDid::<T>::insert(parent_did, child_did, true);
 
-            Self::deposit_event(RawEvent::ChildDidCreated(parent_did, child_did, key));
+            Self::deposit_event(Event::ChildDidCreated(parent_did, child_did, key));
         }
 
         Ok(())
@@ -582,7 +585,7 @@ impl<T: Config> Pallet<T> {
         let (_, caller_did) = Self::ensure_primary_key(origin)?;
 
         // Make sure that `child_did` is a child and get their parent identity.
-        let parent_did = ParentDid::get(child_did).ok_or(Error::<T>::NoParentIdentity)?;
+        let parent_did = ParentDid::<T>::get(child_did).ok_or(Error::<T>::NoParentIdentity)?;
 
         // Only the parent or child can unlink `child_did` from their parent.
         if caller_did != parent_did && caller_did != child_did {
@@ -590,12 +593,10 @@ impl<T: Config> Pallet<T> {
         }
 
         // Unlink child identity from parent identity.
-        ParentDid::remove(child_did);
-        ChildDid::remove(parent_did, child_did);
+        ParentDid::<T>::remove(child_did);
+        ChildDid::<T>::remove(parent_did, child_did);
 
-        Self::deposit_event(RawEvent::ChildDidUnlinked(
-            caller_did, parent_did, child_did,
-        ));
+        Self::deposit_event(Event::ChildDidUnlinked(caller_did, parent_did, child_did));
 
         Ok(())
     }
@@ -623,14 +624,14 @@ impl<T: Config> Pallet<T> {
             Self::set_outdated_autorizations(Signatory::Account(key.clone()));
         }
 
-        Self::deposit_event(RawEvent::SecondaryKeysRemoved(did, keys));
+        Self::deposit_event(Event::SecondaryKeysRemoved(did, keys));
         Ok(())
     }
 
     /// Sets all authorizations with auth_id less or equal to the current id as invalid for the
     /// `signatory_account`.
     fn set_outdated_autorizations(signatory_account: Signatory<T::AccountId>) {
-        let current_auth_id = CurrentAuthId::get();
+        let current_auth_id = CurrentAuthId::<T>::get();
         OutdatedAuthorizations::<T>::insert(signatory_account, current_auth_id);
     }
 
@@ -699,9 +700,9 @@ impl<T: Config> Pallet<T> {
         }
 
         // Update that identity's offchain authorization nonce.
-        OffChainAuthorizationNonce::mutate(did, |nonce| *nonce = authorization.nonce + 1);
+        OffChainAuthorizationNonce::<T>::mutate(did, |nonce| *nonce = authorization.nonce + 1);
 
-        Self::deposit_event(RawEvent::SecondaryKeysAdded(did, additional_keys_si));
+        Self::deposit_event(Event::SecondaryKeysAdded(did, additional_keys_si));
         Ok(())
     }
 
@@ -738,7 +739,7 @@ impl<T: Config> Pallet<T> {
         Self::set_key_permissions(&key, &permissions);
 
         let sk = SecondaryKey { key, permissions };
-        Self::deposit_event(RawEvent::SecondaryKeysAdded(target_did, vec![sk]));
+        Self::deposit_event(Event::SecondaryKeysAdded(target_did, vec![sk]));
     }
 
     pub(crate) fn leave_identity(origin: T::RuntimeOrigin) -> DispatchResult {
@@ -753,7 +754,7 @@ impl<T: Config> Pallet<T> {
         // Unlink secondary key from the identity.
         Self::remove_key_record(&key, Some(did));
 
-        Self::deposit_event(RawEvent::SecondaryKeyLeftIdentity(did, key));
+        Self::deposit_event(Event::SecondaryKeyLeftIdentity(did, key));
         Ok(())
     }
 
@@ -767,11 +768,11 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let (_, did) = Self::ensure_primary_key(origin)?;
         if freeze {
-            IsDidFrozen::insert(&did, true);
-            Self::deposit_event(RawEvent::SecondaryKeysFrozen(did))
+            IsDidFrozen::<T>::insert(&did, true);
+            Self::deposit_event(Event::SecondaryKeysFrozen(did))
         } else {
-            IsDidFrozen::remove(&did);
-            Self::deposit_event(RawEvent::SecondaryKeysUnfrozen(did));
+            IsDidFrozen::<T>::remove(&did);
+            Self::deposit_event(Event::SecondaryKeysUnfrozen(did));
         }
         Ok(())
     }
@@ -780,7 +781,7 @@ impl<T: Config> Pallet<T> {
     fn make_did() -> Result<IdentityId, DispatchError> {
         let nonce = Self::multi_purpose_nonce() + 7u64;
         // Even if this transaction fails, nonce should be increased for added unpredictability of dids
-        MultiPurposeNonce::put(&nonce);
+        MultiPurposeNonce::<T>::put(&nonce);
 
         // TODO: Look into getting randomness from `pallet_babe`.
         // NB: We can't get the current block's hash while processing
@@ -826,7 +827,7 @@ impl<T: Config> Pallet<T> {
 
         // Give `InitialPOLYX` to the primary key for testing.
         let _ = T::Balances::deposit_creating(&sender, T::InitialPOLYX::get());
-        Self::deposit_event(RawEvent::DidCreated(did, sender, secondary_keys.clone()));
+        Self::deposit_event(Event::DidCreated(did, sender, secondary_keys.clone()));
 
         // Add join identity authorizations for secondary keys.
         for sk in secondary_keys {
@@ -884,7 +885,7 @@ impl<T: Config> Pallet<T> {
             Self::set_key_permissions(&sk.key, &sk.permissions);
         }
 
-        Self::deposit_event(RawEvent::DidCreated(id, primary_key, secondary_keys));
+        Self::deposit_event(Event::DidCreated(id, primary_key, secondary_keys));
     }
 
     /// Ensure the `key` is a secondary key of the identity `did`.

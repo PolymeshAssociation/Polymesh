@@ -16,7 +16,7 @@
 use crate::asset::AssetId;
 use crate::{identity_id::IdentityId, impl_checked_inc, CddId, Moment};
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -26,7 +26,7 @@ use super::jurisdiction::CountryCode;
 
 /// The ID of a custom claim type.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
 pub struct CustomClaimTypeId(pub u32);
 impl_checked_inc!(CustomClaimTypeId);
@@ -140,7 +140,7 @@ impl Claim {
 
 /// Claim type represent the claim without its data.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
 pub enum ClaimType {
     /// User is Accredited.

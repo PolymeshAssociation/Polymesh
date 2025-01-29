@@ -1,5 +1,4 @@
 use frame_support::{assert_noop, assert_ok};
-use frame_support::{StorageDoubleMap, StorageMap, StorageValue};
 use sp_keyring::AccountKeyring;
 
 use pallet_asset::{
@@ -34,8 +33,14 @@ fn accept_ticker_transfer() {
         assert_ok!(Asset::accept_ticker_transfer(bob.origin(), auth_id,),);
 
         let ticker_registration_config = TickerConfig::<TestStorage>::get();
-        assert_eq!(TickersOwnedByUser::get(bob.did, ticker), true);
-        assert_eq!(TickersOwnedByUser::get(alice.did, ticker), false);
+        assert_eq!(
+            TickersOwnedByUser::<TestStorage>::get(bob.did, ticker),
+            true
+        );
+        assert_eq!(
+            TickersOwnedByUser::<TestStorage>::get(alice.did, ticker),
+            false
+        );
         assert_eq!(
             UniqueTickerRegistration::<TestStorage>::get(ticker).unwrap(),
             TickerRegistration {

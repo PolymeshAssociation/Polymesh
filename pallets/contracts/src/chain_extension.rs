@@ -26,7 +26,7 @@ type Identity<T> = pallet_identity::Pallet<T>;
 const MAX_DECODE_DEPTH: u32 = 10;
 
 /// ExtrinsicId
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ExtrinsicId(u8, u8);

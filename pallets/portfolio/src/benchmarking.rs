@@ -16,7 +16,6 @@
 use core::convert::TryInto;
 use frame_benchmarking::benchmarks;
 use scale_info::prelude::format;
-use sp_api_hidden_includes_decl_storage::hidden_include::traits::Get;
 use sp_std::prelude::*;
 
 use pallet_identity::benchmarking::{user, User, UserBuilder};
@@ -35,7 +34,7 @@ where
     let owner = user::<T>("owner", 0);
 
     let name = PortfolioName(vec![65u8; PORTFOLIO_NAME_LEN as usize]);
-    let num = NextPortfolioNumber::get(&owner.did());
+    let num = NextPortfolioNumber::<T>::get(&owner.did());
     Pallet::<T>::create_portfolio(owner.origin.clone().into(), name.clone()).unwrap();
     let pid = PortfolioId::user_portfolio(owner.did(), num.clone());
 
@@ -54,10 +53,10 @@ fn add_auth<T: Config>(owner: &User<T>, custodian: &User<T>, pid: PortfolioId) -
 
 fn assert_custodian<T: Config>(pid: PortfolioId, custodian: &User<T>, holds: bool) {
     assert_eq!(
-        PortfolioCustodian::get(&pid),
+        PortfolioCustodian::<T>::get(&pid),
         holds.then(|| custodian.did())
     );
-    assert_eq!(PortfoliosInCustody::get(&custodian.did(), &pid), holds);
+    assert_eq!(PortfoliosInCustody::<T>::get(&custodian.did(), &pid), holds);
 }
 
 benchmarks! {
@@ -65,23 +64,23 @@ benchmarks! {
         let l in 1..PORTFOLIO_NAME_LEN.try_into().unwrap();
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let next_portfolio_num = NextPortfolioNumber::get(alice.did());
+        let next_portfolio_num = NextPortfolioNumber::<T>::get(alice.did());
         let portfolio_name = PortfolioName(vec![65; l as usize]);
     }: _(alice.origin.clone(), portfolio_name.clone())
     verify {
-        assert_eq!(Portfolios::get(alice.did(), next_portfolio_num), Some(portfolio_name));
+        assert_eq!(Portfolios::<T>::get(alice.did(), next_portfolio_num), Some(portfolio_name));
     }
 
     delete_portfolio {
         let target = user::<T>("target", 0);
         let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; 5]);
-        let next_portfolio_num = NextPortfolioNumber::get(&did);
+        let next_portfolio_num = NextPortfolioNumber::<T>::get(&did);
         Pallet::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone()).unwrap();
-        assert_eq!(Portfolios::get(&did, &next_portfolio_num), Some(portfolio_name));
+        assert_eq!(Portfolios::<T>::get(&did, &next_portfolio_num), Some(portfolio_name));
     }: _(target.origin, next_portfolio_num.clone())
     verify {
-        assert!(!Portfolios::contains_key(&did, &next_portfolio_num));
+        assert!(!Portfolios::<T>::contains_key(&did, &next_portfolio_num));
     }
 
     rename_portfolio {
@@ -91,14 +90,14 @@ benchmarks! {
         let target = user::<T>("target", 0);
         let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; i as usize]);
-        let next_portfolio_num = NextPortfolioNumber::get(&did);
+        let next_portfolio_num = NextPortfolioNumber::<T>::get(&did);
         Pallet::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone()).unwrap();
-        assert_eq!(Portfolios::get(&did, &next_portfolio_num), Some(portfolio_name));
+        assert_eq!(Portfolios::<T>::get(&did, &next_portfolio_num), Some(portfolio_name));
         let new_name = PortfolioName(vec![66u8; i as usize]);
 
     }: _(target.origin, next_portfolio_num.clone(), new_name.clone())
     verify {
-        assert_eq!(Portfolios::get(&did, &next_portfolio_num), Some(new_name));
+        assert_eq!(Portfolios::<T>::get(&did, &next_portfolio_num), Some(new_name));
     }
 
     quit_portfolio_custody {
@@ -136,7 +135,7 @@ benchmarks! {
         Pallet::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
         // Simulates minting - Adding the NFT pallet causes cyclic dependency
         let nft_asset_id = AssetId::new([0; 16]);
-        (1..n + 1).for_each(|id| PortfolioNFT::insert(alice_default_portfolio, (nft_asset_id, NFTId(id.into())), true));
+        (1..n + 1).for_each(|id| PortfolioNFT::<T>::insert(alice_default_portfolio, (nft_asset_id, NFTId(id.into())), true));
 
         let nfts = NFTs::new_unverified(nft_asset_id, (1..n + 1).map(|id| NFTId(id.into())).collect());
         let mut funds = vec![Fund { description: FundDescription::NonFungible(nfts), memo: None }];
@@ -147,8 +146,8 @@ benchmarks! {
     }: _(alice.origin, alice_default_portfolio.clone(), alice_custom_portfolio.clone(), funds)
     verify {
         for i in 1..n + 1 {
-            assert_eq!(PortfolioNFT::get(&alice_default_portfolio, (&nft_asset_id, NFTId(i as u64))), false);
-            assert_eq!(PortfolioNFT::get(&alice_custom_portfolio, (&nft_asset_id, NFTId(i as u64))), true);
+            assert_eq!(PortfolioNFT::<T>::get(&alice_default_portfolio, (&nft_asset_id, NFTId(i as u64))), false);
+            assert_eq!(PortfolioNFT::<T>::get(&alice_custom_portfolio, (&nft_asset_id, NFTId(i as u64))), true);
         }
     }
 

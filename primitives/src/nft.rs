@@ -1,3 +1,4 @@
+use codec::MaxEncodedLen;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
@@ -15,20 +16,51 @@ use crate::impl_checked_inc;
 pub type NFTCount = u64;
 
 /// Controls the next available id for an NFT collection.
-#[derive(Clone, Copy, Debug, Decode, Default, Eq, Encode, PartialEq, TypeInfo)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Decode,
+    MaxEncodedLen,
+    Default,
+    Eq,
+    Encode,
+    PartialEq,
+    TypeInfo
+)]
 pub struct NFTCollectionId(pub u64);
 impl_checked_inc!(NFTCollectionId);
 
 /// Controls the next available id for an NFT within a collection.
 #[derive(
-    Clone, Copy, Debug, Decode, Default, Encode, Eq, Ord, PartialOrd, PartialEq, TypeInfo
+    Clone,
+    Copy,
+    Debug,
+    Decode,
+    Default,
+    Encode,
+    MaxEncodedLen,
+    Eq,
+    Ord,
+    PartialOrd,
+    PartialEq,
+    TypeInfo
 )]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct NFTId(pub u64);
 impl_checked_inc!(NFTId);
 
 /// Defines an NFT collection.
-#[derive(Clone, Debug, Decode, Default, Encode, PartialEq, TypeInfo)]
+#[derive(
+    Clone,
+    Debug,
+    Decode,
+    Default,
+    Encode,
+    MaxEncodedLen,
+    PartialEq,
+    TypeInfo
+)]
 pub struct NFTCollection {
     id: NFTCollectionId,
     asset_id: AssetId,

@@ -1,5 +1,4 @@
 use frame_support::{assert_noop, assert_ok};
-use frame_support::{StorageDoubleMap, StorageMap, StorageValue};
 use rand::Rng;
 use sp_keyring::AccountKeyring;
 use sp_std::collections::btree_set::BTreeSet;
@@ -86,7 +85,10 @@ fn register_ticker() {
                 expiry: ticker_registration_config.registration_length
             }
         );
-        assert_eq!(TickersOwnedByUser::get(&alice.did, &ticker), true);
+        assert_eq!(
+            TickersOwnedByUser::<TestStorage>::get(&alice.did, &ticker),
+            true
+        );
     });
 }
 
@@ -183,8 +185,14 @@ fn register_already_expired_ticker() {
                 .owner,
             bob.did,
         );
-        assert_eq!(TickersOwnedByUser::get(&alice.did, &ticker), false);
-        assert_eq!(TickersOwnedByUser::get(&bob.did, &ticker), true);
+        assert_eq!(
+            TickersOwnedByUser::<TestStorage>::get(&alice.did, &ticker),
+            false
+        );
+        assert_eq!(
+            TickersOwnedByUser::<TestStorage>::get(&bob.did, &ticker),
+            true
+        );
     });
 }
 

@@ -15,7 +15,7 @@
 
 use crate::asset::AssetId;
 use crate::{Claim, ClaimType, CountryCode, IdentityId, Scope};
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -26,7 +26,7 @@ pub type Percentage = sp_arithmetic::Permill;
 
 /// Stats Operation type.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, TypeInfo)]
+#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum StatOpType {
     /// Count - Investor count stats.
@@ -37,7 +37,7 @@ pub enum StatOpType {
 
 /// The statistic type.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, TypeInfo)]
+#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StatType {
     /// The [`StatOpType`] of the statistic.
@@ -66,7 +66,7 @@ impl StatType {
 }
 
 /// First stats key in double map.
-#[derive(Decode, Encode, TypeInfo)]
+#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Stat1stKey {
     /// The [`AssetId`] of the token.
@@ -92,7 +92,7 @@ impl Stat1stKey {
 }
 
 /// Second stats key in double map.
-#[derive(Decode, Encode, TypeInfo)]
+#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Stat2ndKey {
     /// For `MaxInvestorCount` and `MaxInvestorOwnership` transfer rules.
@@ -159,7 +159,7 @@ impl From<&StatClaim> for Stat2ndKey {
 /// Stats supported claims.
 ///
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, TypeInfo)]
+#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum StatClaim {
     /// User is Accredited or non-Accredited.

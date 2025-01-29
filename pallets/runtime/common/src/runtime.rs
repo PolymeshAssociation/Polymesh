@@ -367,6 +367,11 @@ macro_rules! misc_pallet_impls {
             type AssetFn = Asset;
         }
 
+        impl pallet_asset::checkpoint::Config for Runtime {
+            type RuntimeEvent = RuntimeEvent;
+            type WeightInfo = polymesh_weights::pallet_checkpoint::SubstrateWeight;
+        }
+
         impl pallet_asset::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type Currency = Balances;
@@ -378,7 +383,6 @@ macro_rules! misc_pallet_impls {
             type AssetMetadataValueMaxLength = AssetMetadataValueMaxLength;
             type AssetMetadataTypeDefMaxLength = AssetMetadataTypeDefMaxLength;
             type WeightInfo = polymesh_weights::pallet_asset::SubstrateWeight;
-            type CPWeightInfo = polymesh_weights::pallet_checkpoint::SubstrateWeight;
             type NFTFn = pallet_nft::Pallet<Runtime>;
             type MaxAssetMediators = MaxAssetMediators;
         }
