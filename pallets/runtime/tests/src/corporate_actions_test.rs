@@ -9,7 +9,6 @@ use core::iter;
 use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
-    StorageDoubleMap, StorageMap,
 };
 use pallet_asset::Assets;
 use pallet_corporate_actions::{
@@ -51,7 +50,7 @@ type DistError = distribution::Error<TestStorage>;
 type PError = pallet_portfolio::Error<TestStorage>;
 type CPError = pallet_asset::checkpoint::Error<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
-type Custodian = pallet_portfolio::PortfolioCustodian;
+type Custodian = pallet_portfolio::PortfolioCustodian<TestStorage>;
 
 type Details = pallet_corporate_actions::Details<TestStorage>;
 type CAIdSequence = pallet_corporate_actions::CAIdSequence<TestStorage>;

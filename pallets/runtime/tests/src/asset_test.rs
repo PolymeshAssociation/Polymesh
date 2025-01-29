@@ -1,7 +1,6 @@
 use chrono::prelude::Utc;
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::{assert_noop, assert_ok};
-use frame_support::{StorageDoubleMap, StorageMap};
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
 use rand::Rng;
@@ -114,7 +113,7 @@ macro_rules! assert_too_long {
 }
 
 pub(crate) fn statistics_investor_count(asset_id: AssetId) -> u128 {
-    AssetStats::get(
+    AssetStats::<TestStorage>::get(
         Stat1stKey::investor_count(asset_id),
         Stat2ndKey::NoClaimStat,
     )
@@ -295,7 +294,10 @@ fn issuers_can_redeem_tokens() {
         };
 
         let asset_id = create_and_issue_sample_asset(&owner);
-        assert_eq!(PortfolioAssetCount::get(owner_portfolio_id), 1);
+        assert_eq!(
+            PortfolioAssetCount::<TestStorage>::get(owner_portfolio_id),
+            1
+        );
 
         assert_noop!(
             Asset::redeem(bob.origin(), asset_id, ISSUE_AMOUNT, PortfolioKind::Default),
@@ -319,7 +321,10 @@ fn issuers_can_redeem_tokens() {
             PortfolioKind::Default
         ));
 
-        assert_eq!(PortfolioAssetCount::get(owner_portfolio_id), 0);
+        assert_eq!(
+            PortfolioAssetCount::<TestStorage>::get(owner_portfolio_id),
+            0
+        );
         assert_eq!(Asset::balance_of(&asset_id, owner.did), 0);
         assert_eq!(get_asset_details(&asset_id).total_supply, 0);
 
@@ -1229,7 +1234,7 @@ fn issuers_can_redeem_tokens_from_portfolio() {
             let asset_id = create_and_issue_sample_asset(&owner);
 
             let portfolio_name = PortfolioName(vec![65u8; 5]);
-            let next_portfolio_num = NextPortfolioNumber::get(&owner.did);
+            let next_portfolio_num = NextPortfolioNumber::<TestStorage>::get(&owner.did);
             let portfolio = PortfolioId::default_portfolio(owner.did);
             let user_portfolio = PortfolioId::user_portfolio(owner.did, next_portfolio_num.clone());
             Portfolio::create_portfolio(owner.origin(), portfolio_name.clone()).unwrap();
@@ -1249,11 +1254,11 @@ fn issuers_can_redeem_tokens_from_portfolio() {
             .unwrap();
 
             assert_eq!(
-                PortfolioAssetBalances::get(&portfolio, &asset_id),
+                PortfolioAssetBalances::<TestStorage>::get(&portfolio, &asset_id),
                 0u32.into()
             );
             assert_eq!(
-                PortfolioAssetBalances::get(&user_portfolio, &asset_id),
+                PortfolioAssetBalances::<TestStorage>::get(&user_portfolio, &asset_id),
                 ISSUE_AMOUNT
             );
 
@@ -2022,15 +2027,15 @@ fn issue_tokens_user_portfolio() {
         );
 
         assert_eq!(
-            PortfolioAssetBalances::get(&alice_default_portfolio, &asset_id),
+            PortfolioAssetBalances::<TestStorage>::get(&alice_default_portfolio, &asset_id),
             0
         );
         assert_eq!(
-            PortfolioAssetBalances::get(&alice_user_portfolio, &asset_id),
+            PortfolioAssetBalances::<TestStorage>::get(&alice_user_portfolio, &asset_id),
             ISSUE_AMOUNT
         );
         assert_eq!(
-            PortfolioLockedAssets::get(&alice_user_portfolio, &asset_id),
+            PortfolioLockedAssets::<TestStorage>::get(&alice_user_portfolio, &asset_id),
             0
         );
         assert_eq!(
@@ -2038,7 +2043,13 @@ fn issue_tokens_user_portfolio() {
             ISSUE_AMOUNT
         );
         assert_eq!(get_asset_details(&asset_id).total_supply, ISSUE_AMOUNT);
-        assert_eq!(PortfolioAssetCount::get(alice_user_portfolio), 1);
-        assert_eq!(PortfolioAssetCount::get(alice_default_portfolio), 0);
+        assert_eq!(
+            PortfolioAssetCount::<TestStorage>::get(alice_user_portfolio),
+            1
+        );
+        assert_eq!(
+            PortfolioAssetCount::<TestStorage>::get(alice_default_portfolio),
+            0
+        );
     });
 }

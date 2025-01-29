@@ -26,9 +26,7 @@ use frame_support::traits::{
     KeyOwnerProofSystem, OnUnbalanced, OneSessionHandler,
 };
 use frame_support::weights::constants::RocksDbWeight;
-use frame_support::{
-    assert_ok, ord_parameter_types, parameter_types, StorageDoubleMap, StorageMap,
-};
+use frame_support::{assert_ok, ord_parameter_types, parameter_types};
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_core::H256;
 use sp_runtime::curve::PiecewiseLinear;

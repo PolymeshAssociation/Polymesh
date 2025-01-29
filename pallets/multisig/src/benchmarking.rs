@@ -14,7 +14,6 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use frame_benchmarking::benchmarks;
-use frame_support::storage::StorageDoubleMap;
 use frame_system::RawOrigin;
 
 use pallet_identity::benchmarking::{User, UserBuilder};

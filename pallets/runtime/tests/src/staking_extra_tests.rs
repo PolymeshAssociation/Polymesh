@@ -1,4 +1,4 @@
-use frame_support::{assert_ok, StorageMap};
+use frame_support::assert_ok;
 use sp_keyring::AccountKeyring;
 
 use polymesh_primitives::{AuthorizationData, Permissions};

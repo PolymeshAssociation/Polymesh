@@ -30,7 +30,6 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
 use frame_support::weights::Weight;
-use frame_support::StorageMap as _;
 use scale_info::TypeInfo;
 use sp_runtime::DispatchError;
 use sp_std::collections::btree_set::BTreeSet;
@@ -365,7 +364,7 @@ pub mod pallet {
                 ..
             } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, offering_asset)?;
 
-            VenueInfo::get(venue_id)
+            VenueInfo::<T>::get(venue_id)
                 .filter(|v| v.creator == did && v.venue_type == VenueType::Sto)
                 .ok_or(Error::<T>::InvalidVenue)?;
 

@@ -12,7 +12,7 @@ use frame_support::traits::{
 use frame_support::weights::{
     RuntimeDbWeight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
 };
-use frame_support::{assert_ok, parameter_types, BoundedBTreeSet, StorageDoubleMap};
+use frame_support::{assert_ok, parameter_types, BoundedBTreeSet};
 use smallvec::smallvec;
 use sp_core::crypto::{key_types, Pair as PairTrait};
 use sp_core::sr25519::Pair;
@@ -307,11 +307,11 @@ frame_support::construct_runtime!(
         CorporateBallot: pallet_corporate_ballot::{Pallet, Call, Storage, Event<T>, Config} = 31,
         Permissions: pallet_permissions::{Pallet, Storage} = 32,
         Pips: pallet_pips::{Pallet, Call, Storage, Event<T>, Config<T>} = 33,
-        Portfolio: pallet_portfolio::{Pallet, Call, Storage, Event} = 34,
+        Portfolio: pallet_portfolio::{Pallet, Call, Storage, Event<T>, Config} = 34,
         ProtocolFee: pallet_protocol_fee::{Pallet, Call, Storage, Event<T>, Config} = 35,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 36,
         Settlement: pallet_settlement::{Pallet, Call, Storage, Event<T>, Config} = 37,
-        Statistics: pallet_statistics::{Pallet, Call, Storage, Event} = 38,
+        Statistics: pallet_statistics::{Pallet, Call, Storage, Event<T>, Config} = 38,
         Sto: pallet_sto::{Pallet, Call, Storage, Event<T>} = 39,
         Treasury: pallet_treasury::{Pallet, Call, Event<T>} = 40,
         Utility: pallet_utility::{Pallet, Call, Storage, Event<T>} = 41,
