@@ -54,11 +54,11 @@ benchmarks! {
         let parent_did = parent.did.unwrap();
 
         let child_key: T::AccountId = account("child", 0, SEED);
-        Module::<T>::unsafe_join_identity(parent_did, Permissions::default(), child_key.clone());
+        Pallet::<T>::unsafe_join_identity(parent_did, Permissions::default(), child_key.clone());
 
     }: _(parent.origin, child_key.clone())
     verify {
-        let child_did = Module::<T>::get_identity(&child_key).unwrap();
+        let child_did = Pallet::<T>::get_identity(&child_key).unwrap();
         assert_ne!(child_did, parent_did);
     }
 
@@ -73,7 +73,7 @@ benchmarks! {
         let expires_at: T::Moment = 600u32.into();
         let authorization = TargetIdAuthorization::<T::Moment> {
             target_id: parent_did,
-            nonce: Module::<T>::offchain_authorization_nonce(parent_did),
+            nonce: Pallet::<T>::offchain_authorization_nonce(parent_did),
             expires_at,
         };
         let auth_encoded = authorization.encode();
@@ -88,7 +88,7 @@ benchmarks! {
     }: _(parent.origin, child_keys_with_auth.clone(), expires_at)
     verify {
         for auth in child_keys_with_auth {
-            let child_did = Module::<T>::get_identity(&auth.key).unwrap();
+            let child_did = Pallet::<T>::get_identity(&auth.key).unwrap();
             assert_ne!(child_did, parent_did);
         }
     }
@@ -100,25 +100,25 @@ benchmarks! {
 
         // Create a secondary key.
         let child_key: T::AccountId = account("child", 0, SEED);
-        Module::<T>::unsafe_join_identity(parent_did, Permissions::default(), child_key.clone());
+        Pallet::<T>::unsafe_join_identity(parent_did, Permissions::default(), child_key.clone());
 
         // Create a child identity using the secondary key.
-        Module::<T>::create_child_identity(
+        Pallet::<T>::create_child_identity(
             parent.origin().into(),
             child_key.clone()
         ).unwrap();
-        let child_did = Module::<T>::get_identity(&child_key).unwrap();
+        let child_did = Pallet::<T>::get_identity(&child_key).unwrap();
 
         // Generate valid CDD claim for child identity.
         let cdd_claim = Claim::CustomerDueDiligence(CddId::default());
 
         // Add CDD claim to the child identity.
         let cdd = cdd_provider::<T>("cdd", 0).did.unwrap();
-        Module::<T>::unverified_add_claim_with_scope(child_did, cdd_claim, None, cdd, None);
+        Pallet::<T>::unverified_add_claim_with_scope(child_did, cdd_claim, None, cdd, None);
 
     }: _(parent.origin, child_did)
     verify {
-        assert!(Module::<T>::has_valid_cdd(child_did));
+        assert!(Pallet::<T>::has_valid_cdd(child_did));
     }
 
     cdd_register_did {
@@ -149,7 +149,7 @@ benchmarks! {
         for x in 0..i {
             let key: T::AccountId = account("key", x, SEED);
             signatories.push(key.clone());
-            Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), key);
+            Pallet::<T>::unsafe_join_identity(target.did(), Permissions::default(), key);
         }
     }: _(target.origin, signatories.clone())
 
@@ -159,18 +159,18 @@ benchmarks! {
         let new_key = UserBuilder::<T>::default().build("key");
         let signatory = Signatory::Account(new_key.account());
 
-        let cdd_auth_id =  Module::<T>::add_auth(
+        let cdd_auth_id =  Pallet::<T>::add_auth(
             cdd.did(), signatory.clone(),
             AuthorizationData::AttestPrimaryKeyRotation(target.did()),
             None,
         )
         .unwrap();
-        Module::<T>::change_cdd_requirement_for_mk_rotation(
+        Pallet::<T>::change_cdd_requirement_for_mk_rotation(
             RawOrigin::Root.into(),
             true
         ).unwrap();
 
-        let owner_auth_id =  Module::<T>::add_auth(
+        let owner_auth_id =  Pallet::<T>::add_auth(
             target.did(), signatory,
             AuthorizationData::RotatePrimaryKey,
             None,
@@ -184,19 +184,19 @@ benchmarks! {
         let new_key = UserBuilder::<T>::default().build("key");
         let signatory = Signatory::Account(new_key.account());
 
-        let cdd_auth_id =  Module::<T>::add_auth(
+        let cdd_auth_id =  Pallet::<T>::add_auth(
             cdd.did(), signatory.clone(),
             AuthorizationData::AttestPrimaryKeyRotation(target.did()),
             None,
         )
         .unwrap();
-        let rotate_auth_id =  Module::<T>::add_auth(
+        let rotate_auth_id =  Pallet::<T>::add_auth(
             target.did(), signatory.clone(),
             AuthorizationData::RotatePrimaryKeyToSecondary(Permissions::default()),
             None,
         )
         .unwrap();
-        Module::<T>::change_cdd_requirement_for_mk_rotation(
+        Pallet::<T>::change_cdd_requirement_for_mk_rotation(
             RawOrigin::Root.into(),
             true
         ).unwrap();
@@ -205,13 +205,13 @@ benchmarks! {
 
     change_cdd_requirement_for_mk_rotation {
         assert!(
-            !Module::<T>::cdd_auth_for_primary_key_rotation(),
+            !Pallet::<T>::cdd_auth_for_primary_key_rotation(),
             "CDD auth for primary key rotation is enabled"
         );
     }: _(RawOrigin::Root, true)
     verify {
         assert!(
-            Module::<T>::cdd_auth_for_primary_key_rotation(),
+            Pallet::<T>::cdd_auth_for_primary_key_rotation(),
             "CDD auth for primary key rotation did not change"
         );
     }
@@ -220,7 +220,7 @@ benchmarks! {
         let target = user::<T>("target", 0);
         let new_key = UserBuilder::<T>::default().build("key");
 
-        let auth_id =  Module::<T>::add_auth(
+        let auth_id =  Pallet::<T>::add_auth(
             target.did(),
             Signatory::Account(new_key.account()),
             AuthorizationData::JoinIdentity(Permissions::default()),
@@ -234,14 +234,14 @@ benchmarks! {
         let key = UserBuilder::<T>::default().build("key");
         let signatory = Signatory::Account(key.account());
 
-        let auth_id =  Module::<T>::add_auth(
+        let auth_id =  Pallet::<T>::add_auth(
             target.did(),
             signatory,
             AuthorizationData::JoinIdentity(Permissions::default()),
             None,
         )
         .unwrap();
-        Module::<T>::join_identity_as_key(key.origin().into(), auth_id)
+        Pallet::<T>::join_identity_as_key(key.origin().into(), auth_id)
             .expect("Key cannot be joined to identity");
 
     }: _(key.origin())
@@ -263,7 +263,7 @@ benchmarks! {
         let caller = user::<T>("caller", 0);
         let scope = Scope::Identity(caller.did());
         let claim = Claim::Jurisdiction(CountryCode::BB, scope);
-        Module::<T>::add_claim(caller.origin.clone().into(), caller.did(), claim.clone(), Some(666u32.into())).unwrap();
+        Pallet::<T>::add_claim(caller.origin.clone().into(), caller.did(), claim.clone(), Some(666u32.into())).unwrap();
     }: _(caller.origin, caller.did(), claim)
 
     revoke_claim_by_index {
@@ -271,7 +271,7 @@ benchmarks! {
         let scope = Scope::Identity(caller.did());
         let claim = Claim::Jurisdiction(CountryCode::BB, scope.clone());
         let claim_type = claim.claim_type();
-        Module::<T>::add_claim(caller.origin.clone().into(), caller.did(), claim.clone(), Some(666u32.into())).unwrap();
+        Pallet::<T>::add_claim(caller.origin.clone().into(), caller.did(), claim.clone(), Some(666u32.into())).unwrap();
     }: _(caller.origin, caller.did(), claim_type, Some(scope))
 
     set_secondary_key_permissions {
@@ -279,7 +279,7 @@ benchmarks! {
         let key = UserBuilder::<T>::default().build("key");
         let account_id = key.account();
 
-        Module::<T>::unsafe_join_identity(target.did(), Permissions::empty(), account_id.clone());
+        Pallet::<T>::unsafe_join_identity(target.did(), Permissions::empty(), account_id.clone());
     }: _(target.origin, account_id, Permissions::default().into())
 
     // Benchmark the memory/cpu complexity of Permissions.
@@ -346,7 +346,7 @@ benchmarks! {
 
     unfreeze_secondary_keys {
         let caller = user::<T>("caller", 0);
-        Module::<T>::freeze_secondary_keys(caller.origin.clone().into()).unwrap();
+        Pallet::<T>::freeze_secondary_keys(caller.origin.clone().into()).unwrap();
     }: _(caller.origin)
 
     add_authorization {
@@ -358,7 +358,7 @@ benchmarks! {
     remove_authorization {
         let caller = user::<T>("caller", 0);
         let signatory = Signatory::Identity(caller.did());
-        let auth_id =  Module::<T>::add_auth(
+        let auth_id =  Pallet::<T>::add_auth(
             caller.did(),
             signatory.clone(),
             AuthorizationData::JoinIdentity(Permissions::default()),
@@ -376,7 +376,7 @@ benchmarks! {
         let expires_at: T::Moment = 600u32.into();
         let authorization = TargetIdAuthorization::<T::Moment> {
             target_id: caller.did(),
-            nonce: Module::<T>::offchain_authorization_nonce(caller.did()),
+            nonce: Pallet::<T>::offchain_authorization_nonce(caller.did()),
             expires_at,
         };
         let auth_encoded = authorization.encode();
@@ -393,12 +393,12 @@ benchmarks! {
     register_custom_claim_type {
         let n in 1 .. T::MaxLen::get() as u32;
 
-        let id = Module::<T>::custom_claim_id_seq();
+        let id = Pallet::<T>::custom_claim_id_seq();
         let caller = user::<T>("caller", 0);
         let ty = vec![b'X'; n as usize];
     }: _(caller.origin, ty)
     verify {
-        assert_ne!(id, Module::<T>::custom_claim_id_seq());
+        assert_ne!(id, Pallet::<T>::custom_claim_id_seq());
     }
 
 }

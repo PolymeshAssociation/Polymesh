@@ -87,13 +87,13 @@ where
     // Polymesh change
     // -----------------------------------------------------------------
     // Attach the controller key as secondary key of the stash
-    let auth_id = pallet_identity::Module::<T>::add_auth(
+    let auth_id = pallet_identity::Pallet::<T>::add_auth(
         stash.did(),
         Signatory::Account(controller.account()),
         AuthorizationData::JoinIdentity(Permissions::default()),
         None,
     )?;
-    pallet_identity::Module::<T>::join_identity_as_key(controller.origin().into(), auth_id)?;
+    pallet_identity::Pallet::<T>::join_identity_as_key(controller.origin().into(), auth_id)?;
     // -----------------------------------------------------------------
 
     let controller_lookup = controller.lookup();
@@ -128,13 +128,13 @@ where
     // Polymesh change
     // -----------------------------------------------------------------
     // Attach the controller key as secondary key of the stash
-    let auth_id = pallet_identity::Module::<T>::add_auth(
+    let auth_id = pallet_identity::Pallet::<T>::add_auth(
         stash.did(),
         Signatory::Account(controller.account()),
         AuthorizationData::JoinIdentity(Permissions::default()),
         None,
     )?;
-    pallet_identity::Module::<T>::join_identity_as_key(controller.origin().into(), auth_id)?;
+    pallet_identity::Pallet::<T>::join_identity_as_key(controller.origin().into(), auth_id)?;
     // -----------------------------------------------------------------
 
     let controller_lookup = controller.lookup();

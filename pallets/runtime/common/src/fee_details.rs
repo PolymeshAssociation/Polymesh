@@ -1,7 +1,7 @@
 use codec::{Decode, Encode};
 use core::convert::{TryFrom, TryInto};
 use core::marker::PhantomData;
-use pallet_identity::{Config as IdentityConfig, Context, Module as Identity};
+use pallet_identity::{Config as IdentityConfig, Context, Pallet as Identity};
 use polymesh_primitives::{
     traits::CddAndFeeDetails, AccountId, AuthorizationData, IdentityId, Signatory, TransactionError,
 };
@@ -150,7 +150,7 @@ where
             // in an existing identity that has a valid CDD. The auth should be valid.
             Ok(Call::Identity(pallet_identity::Call::remove_authorization {
                 auth_id,
-                _auth_issuer_pays: true,
+                auth_issuer_pays: true,
                 ..
             })) => is_auth_valid(caller, auth_id, CallType::RemoveAuthorization),
             // Call made by a user key to accept subsidy from a paying key. The auth should be valid.

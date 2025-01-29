@@ -90,7 +90,7 @@ use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::identity::AuthorizationNonce;
 use polymesh_primitives::{traits::CheckCdd, IdentityId};
 
-type Identity<T> = pallet_identity::Module<T>;
+type Identity<T> = pallet_identity::Pallet<T>;
 
 pub trait WeightInfo {
     fn batch(c: u32) -> Weight;
@@ -108,7 +108,7 @@ pub trait WeightInfo {
 pub const MIN_WEIGHT: Weight = Weight::from_ref_time(1_000_000);
 
 // POLYMESH: Used for permission checks.
-type CallPermissions<T> = pallet_permissions::Module<T>;
+type CallPermissions<T> = pallet_permissions::Pallet<T>;
 
 /// POLYMESH: type for our events.
 pub type EventCounts = Vec<u32>;
@@ -617,7 +617,7 @@ impl<T: Config> Pallet<T> {
         is_root: bool,
         call: <T as Config>::RuntimeCall,
     ) -> DispatchResultWithPostInfo {
-        with_call_metadata(call.get_call_metadata(), || {
+        with_call_metadata::<T, _>(call.get_call_metadata(), || {
             // If origin is root, don't apply any dispatch filters; root can call anything.
             if is_root {
                 call.dispatch_bypass_filter(origin)
@@ -724,7 +724,7 @@ impl<T: Config> Pallet<T> {
         Context::set_current_payer::<Identity<T>>(account_id);
         // dispatch the call
         let call_result = {
-            with_call_metadata(call.get_call_metadata(), || {
+            with_call_metadata::<T, _>(call.get_call_metadata(), || {
                 if bypass_filter {
                     call.dispatch_bypass_filter(origin)
                 } else {

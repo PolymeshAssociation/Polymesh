@@ -169,7 +169,6 @@ pub use imbalances::{NegativeImbalance, PositiveImbalance};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{
@@ -178,7 +177,6 @@ use frame_support::{
         OnUnbalanced, ReservableCurrency, SignedImbalance, StoredMap, WithdrawReasons,
     },
     weights::Weight,
-    StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 use polymesh_primitives::traits::{BlockRewardsReserveCurrency, CheckCdd, IdentityFnTrait};
@@ -191,7 +189,7 @@ use sp_runtime::{
 use sp_std::ops::BitOr;
 use sp_std::{cmp, mem, prelude::*, result};
 
-type CallPermissions<T> = pallet_permissions::Module<T>;
+type CallPermissions<T> = pallet_permissions::Pallet<T>;
 
 pub trait BlockRewardConfig: Sized {
     type BlockRewardsReserve: BlockRewardsReserveCurrency<NegativeImbalance<Self>>;
@@ -286,86 +284,107 @@ impl BitOr for Reasons {
     }
 }
 
-decl_event!(
-    pub enum Event<T> where
-    <T as frame_system::Config>::AccountId
-    {
-         /// An account was created with some free balance. \[did, account, free_balance]
-        Endowed(Option<IdentityId>, AccountId, Balance),
+pub use pallet::*;
+
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
+        /// An account was created with some free balance. \[did, account, free_balance]
+        Endowed(Option<IdentityId>, T::AccountId, Balance),
         /// Transfer succeeded (from_did, from, to_did, to, value, memo).
-        Transfer(Option<IdentityId>, AccountId, Option<IdentityId>, AccountId, Balance, Option<Memo>),
+        Transfer(
+            Option<IdentityId>,
+            T::AccountId,
+            Option<IdentityId>,
+            T::AccountId,
+            Balance,
+            Option<Memo>,
+        ),
         /// A balance was set by root (did, who, free, reserved).
-        BalanceSet(IdentityId, AccountId, Balance, Balance),
+        BalanceSet(IdentityId, T::AccountId, Balance, Balance),
         /// The account and the amount of unlocked balance of that account that was burned.
         /// (caller Id, caller account, amount)
-        AccountBalanceBurned(IdentityId, AccountId, Balance),
+        AccountBalanceBurned(IdentityId, T::AccountId, Balance),
         /// Some balance was reserved (moved from free to reserved). \[who, value]
-        Reserved(AccountId, Balance),
+        Reserved(T::AccountId, Balance),
         /// Some balance was unreserved (moved from reserved to free). \[who, value]
-        Unreserved(AccountId, Balance),
+        Unreserved(T::AccountId, Balance),
         /// Some balance was moved from the reserve of the first account to the second account.
         /// Final argument indicates the destination balance type.
         /// \[from, to, balance, destination_status]
-        ReserveRepatriated(AccountId, AccountId, Balance, Status),
+        ReserveRepatriated(T::AccountId, T::AccountId, Balance, Status),
     }
-);
 
-pub trait WeightInfo {
-    fn transfer() -> Weight;
-    fn transfer_with_memo() -> Weight;
-    fn deposit_block_reward_reserve_balance() -> Weight;
-    fn set_balance() -> Weight;
-    fn force_transfer() -> Weight;
-    fn burn_account_balance() -> Weight;
-}
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
 
-pub trait Config: BlockRewardConfig + pallet_identity::Config {
-    /// The means of storing the balances of an account.
-    type AccountStore: StoredMap<Self::AccountId, AccountData>;
+    pub trait WeightInfo {
+        fn transfer() -> Weight;
+        fn transfer_with_memo() -> Weight;
+        fn deposit_block_reward_reserve_balance() -> Weight;
+        fn set_balance() -> Weight;
+        fn force_transfer() -> Weight;
+        fn burn_account_balance() -> Weight;
+    }
 
-    /// Handler for the unbalanced reduction when removing a dust account.
-    type DustRemoval: OnUnbalanced<NegativeImbalance<Self>>;
+    #[pallet::config]
+    pub trait Config: frame_system::Config + pallet_identity::Config + BlockRewardConfig {
+        /// The means of storing the balances of an account.
+        type AccountStore: StoredMap<Self::AccountId, AccountData>;
 
-    /// The overarching event type.
-    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+        /// Handler for the unbalanced reduction when removing a dust account.
+        type DustRemoval: OnUnbalanced<NegativeImbalance<Self>>;
 
-    /// This type is no longer needed but kept for compatibility reasons.
-    /// The minimum amount required to keep an account open.
-    type ExistentialDeposit: Get<Balance>;
+        /// The overarching event type.
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-    /// Used to check if an account is linked to a CDD'd identity
-    type CddChecker: CheckCdd<Self::AccountId>;
+        /// This type is no longer needed but kept for compatibility reasons.
+        /// The minimum amount required to keep an account open.
+        #[pallet::constant]
+        type ExistentialDeposit: Get<Balance>;
 
-    /// Weight information for extrinsics in this pallet.
-    type WeightInfo: WeightInfo;
+        /// Used to check if an account is linked to a CDD'd identity
+        type CddChecker: CheckCdd<Self::AccountId>;
 
-    /// The maximum number of locks that should exist on an account.
-    /// Not strictly enforced, but used for weight estimation.
-    type MaxLocks: Get<u32>;
-}
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: WeightInfo;
 
-/// Additional functionality atop `LockableCurrency` allowing a local,
-/// per-id, stacking layer atop the overlay.
-pub trait LockableCurrencyExt<AccountId>: LockableCurrency<AccountId, Balance = Balance> {
-    /// Reduce the locked amount under `id` for `who`.
-    /// If less than `amount` was locked, then `InsufficientBalance` is raised.
-    /// If the whole locked amount is reduced, then the lock is removed.
-    fn reduce_lock(id: LockIdentifier, who: &AccountId, amount: Balance) -> DispatchResult;
+        /// The maximum number of locks that should exist on an account.
+        /// Not strictly enforced, but used for weight estimation.
+        type MaxLocks: Get<u32>;
+    }
 
-    /// Increase the locked amount under `id` for `who` or raises `Overflow`.
-    /// If there's no lock already, it will be made, unless `amount.is_zero()`.
-    /// Before committing to storage, `check_sum` is called with the lock total,
-    /// allowing the transaction to be aborted.
-    fn increase_lock(
-        id: LockIdentifier,
-        who: &AccountId,
-        amount: Balance,
-        reasons: WithdrawReasons,
-        check_sum: impl FnOnce(Balance) -> DispatchResult,
-    ) -> DispatchResult;
-}
-decl_error! {
-    pub enum Error for Module<T: Config> {
+    /// Additional functionality atop `LockableCurrency` allowing a local,
+    /// per-id, stacking layer atop the overlay.
+    pub trait LockableCurrencyExt<AccountId>:
+        LockableCurrency<AccountId, Balance = Balance>
+    {
+        /// Reduce the locked amount under `id` for `who`.
+        /// If less than `amount` was locked, then `InsufficientBalance` is raised.
+        /// If the whole locked amount is reduced, then the lock is removed.
+        fn reduce_lock(id: LockIdentifier, who: &AccountId, amount: Balance) -> DispatchResult;
+
+        /// Increase the locked amount under `id` for `who` or raises `Overflow`.
+        /// If there's no lock already, it will be made, unless `amount.is_zero()`.
+        /// Before committing to storage, `check_sum` is called with the lock total,
+        /// allowing the transaction to be aborted.
+        fn increase_lock(
+            id: LockIdentifier,
+            who: &AccountId,
+            amount: Balance,
+            reasons: WithdrawReasons,
+            check_sum: impl FnOnce(Balance) -> DispatchResult,
+        ) -> DispatchResult;
+    }
+
+    #[pallet::error]
+    pub enum Error<T> {
         /// Account liquidity restrictions prevent withdrawal
         LiquidityRestrictions,
         /// Got an overflow after adding
@@ -377,59 +396,60 @@ decl_error! {
         /// Receiver does not have a valid CDD
         ReceiverCddMissing,
     }
-}
 
-/// A single lock on a balance. There can be many of these on an account and they "overlap", so the
-/// same balance is frozen by multiple locks.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
-pub struct BalanceLock<Balance> {
-    /// An identifier for this lock. Only one lock may be in existence for each identifier.
-    pub id: LockIdentifier,
-    /// The amount which the free balance may not drop below when this lock is in effect.
-    pub amount: Balance,
-    /// If true, then the lock remains in effect even for payment of transaction fees.
-    pub reasons: Reasons,
-}
+    /// A single lock on a balance. There can be many of these on an account and they "overlap", so the
+    /// same balance is frozen by multiple locks.
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+    pub struct BalanceLock<Balance> {
+        /// An identifier for this lock. Only one lock may be in existence for each identifier.
+        pub id: LockIdentifier,
+        /// The amount which the free balance may not drop below when this lock is in effect.
+        pub amount: Balance,
+        /// If true, then the lock remains in effect even for payment of transaction fees.
+        pub reasons: Reasons,
+    }
 
-decl_storage! {
-    trait Store for Module<T: Config> as Balances {
-        /// The total units issued in the system.
-        pub TotalIssuance get(fn total_issuance) build(|config: &GenesisConfig<T>| {
+    /// The total units issued in the system.
+    #[pallet::storage]
+    #[pallet::getter(fn total_issuance)]
+    pub(super) type TotalIssuance<T: Config> = StorageValue<_, Balance, ValueQuery>;
+
+    /// Any liquidity locks on some account balances.
+    /// NOTE: Should only be accessed when setting, changing and freeing a lock.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn locks)]
+    pub(super) type Locks<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<BalanceLock<Balance>>, ValueQuery>;
+
+    #[pallet::genesis_config]
+    #[derive(frame_support::DefaultNoBound)]
+    pub struct GenesisConfig<T: Config> {
+        pub balances: Vec<(T::AccountId, Balance)>,
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+        fn build(&self) {
             let f = |u: Balance, &v| u + v;
-            config.balances
-                .iter()
-                .map(|(_, v)| v)
-                .fold(Zero::zero(), f)
-        }): Balance;
+            let total: Balance = self.balances.iter().map(|(_, v)| v).fold(Zero::zero(), f);
+            TotalIssuance::<T>::put(total);
 
-
-        /// Any liquidity locks on some account balances.
-        /// NOTE: Should only be accessed when setting, changing and freeing a lock.
-        pub Locks get(fn locks): map hasher(blake2_128_concat) T::AccountId => Vec<BalanceLock<Balance>>;
-
-    }
-    add_extra_genesis {
-        /// Account balances at genesis.
-        config(balances): Vec<(T::AccountId, Balance)>;
-        build(|config: &GenesisConfig<T>| {
-            for (who, free) in &config.balances {
-                T::AccountStore::insert(who, AccountData { free: *free, .. Default::default() }).unwrap();
+            for (who, free) in &self.balances {
+                T::AccountStore::insert(
+                    who,
+                    AccountData {
+                        free: *free,
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
             }
-        });
+        }
     }
-}
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
-        type Error = Error<T>;
-
-        // Polymesh modified code. Existential Deposit requirements are zero in Polymesh.
-        // This is no longer needed but kept for compatibility reasons
-        /// The minimum amount required to keep an account open.
-        const ExistentialDeposit: Balance = 0u32.into();
-
-        fn deposit_event() = default;
-
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Transfer some liquid free balance to another account.
         ///
         /// `transfer` will set the `FreeBalance` of the sender and receiver.
@@ -452,16 +472,23 @@ decl_module! {
         /// - DB Weight: 1 Read and 1 Write to destination account.
         /// - Origin account is already in memory, so no DB operations for them.
         /// # </weight>
-        #[weight = <T as Config>::WeightInfo::transfer()]
+        #[pallet::weight(<T as Config>::WeightInfo::transfer())]
+        #[pallet::call_index(0)]
         pub fn transfer(
-            origin,
+            origin: OriginFor<T>,
             dest: <T::Lookup as StaticLookup>::Source,
-            #[compact] value: Balance
-        ) {
+            #[pallet::compact] value: Balance,
+        ) -> DispatchResult {
             let transactor = ensure_signed(origin)?;
             let dest = T::Lookup::lookup(dest)?;
-            // Polymesh modified code. CDD is checked before processing transfer.
-            Self::safe_transfer_core(&transactor, &dest, value, None, ExistenceRequirement::AllowDeath)?;
+            // Polymesh modified code.  CDD is checked before processing transfer.
+            Self::safe_transfer_core(
+                &transactor,
+                &dest,
+                value,
+                None,
+                ExistenceRequirement::AllowDeath,
+            )
         }
 
         // Polymesh modified code. New function to transfer with a memo.
@@ -473,29 +500,43 @@ decl_module! {
         /// - DB Weight: 1 Read and 1 Write to destination account.
         /// - Origin account is already in memory, so no DB operations for them.
         /// # </weight>
-        #[weight = <T as Config>::WeightInfo::transfer_with_memo()]
+        #[pallet::weight(<T as Config>::WeightInfo::transfer_with_memo())]
+        #[pallet::call_index(1)]
         pub fn transfer_with_memo(
-            origin,
+            origin: OriginFor<T>,
             dest: <T::Lookup as StaticLookup>::Source,
-            #[compact] value: Balance,
-            memo: Option<Memo>
-        ) {
+            #[pallet::compact] value: Balance,
+            memo: Option<Memo>,
+        ) -> DispatchResult {
             let transactor = ensure_signed(origin)?;
             let dest = T::Lookup::lookup(dest)?;
-            Self::safe_transfer_core(&transactor, &dest, value, memo, ExistenceRequirement::AllowDeath)?;
+            Self::safe_transfer_core(
+                &transactor,
+                &dest,
+                value,
+                memo,
+                ExistenceRequirement::AllowDeath,
+            )
         }
 
         // Polymesh specific change. New function to transfer balance to BRR.
         /// Move some POLYX from balance of self to balance of BRR.
-        #[weight = <T as Config>::WeightInfo::deposit_block_reward_reserve_balance()]
+        #[pallet::weight(<T as Config>::WeightInfo::deposit_block_reward_reserve_balance())]
+        #[pallet::call_index(2)]
         pub fn deposit_block_reward_reserve_balance(
-            origin,
-            #[compact] value: Balance
-        ) {
+            origin: OriginFor<T>,
+            #[pallet::compact] value: Balance,
+        ) -> DispatchResult {
             let transactor = ensure_signed(origin)?;
             CallPermissions::<T>::ensure_call_permissions(&transactor)?;
             let dest = Self::block_rewards_reserve();
-            Self::transfer_core(&transactor, &dest, value, None, ExistenceRequirement::AllowDeath)?;
+            Self::transfer_core(
+                &transactor,
+                &dest,
+                value,
+                None,
+                ExistenceRequirement::AllowDeath,
+            )
         }
 
         /// Set the balances of a given account.
@@ -504,13 +545,14 @@ decl_module! {
         /// also decrease the total issuance of the system (`TotalIssuance`).
         ///
         /// The dispatch origin for this call is `root`.
-        #[weight = <T as Config>::WeightInfo::set_balance()]
-        fn set_balance(
-            origin,
+        #[pallet::weight(<T as Config>::WeightInfo::set_balance())]
+        #[pallet::call_index(3)]
+        pub fn set_balance(
+            origin: OriginFor<T>,
             who: <T::Lookup as StaticLookup>::Source,
-            #[compact] new_free: Balance,
-            #[compact] new_reserved: Balance
-        ) {
+            #[pallet::compact] new_free: Balance,
+            #[pallet::compact] new_reserved: Balance,
+        ) -> DispatchResult {
             ensure_root(origin)?;
             let who = T::Lookup::lookup(who)?;
             let caller_id = GC_DID;
@@ -533,7 +575,8 @@ decl_module! {
 
                 (account.free, account.reserved)
             });
-            Self::deposit_event(RawEvent::BalanceSet(caller_id, who, free, reserved));
+            Self::deposit_event(Event::BalanceSet(caller_id, who, free, reserved));
+            Ok(())
         }
 
         /// Exactly as `transfer`, except the origin must be root and the source account may be
@@ -543,23 +586,31 @@ decl_module! {
         /// - Same as transfer, but additional read and write because the source account is
         ///   not assumed to be in the overlay.
         /// # </weight>
-        #[weight = <T as Config>::WeightInfo::force_transfer()]
+        #[pallet::weight(<T as Config>::WeightInfo::force_transfer())]
+        #[pallet::call_index(4)]
         pub fn force_transfer(
-            origin,
+            origin: OriginFor<T>,
             source: <T::Lookup as StaticLookup>::Source,
             dest: <T::Lookup as StaticLookup>::Source,
-            #[compact] value: Balance
-        ) {
+            #[pallet::compact] value: Balance,
+        ) -> DispatchResult {
             ensure_root(origin)?;
             let source = T::Lookup::lookup(source)?;
             let dest = T::Lookup::lookup(dest)?;
-            Self::transfer_core(&source, &dest, value, None, ExistenceRequirement::AllowDeath)?;
+            Self::transfer_core(
+                &source,
+                &dest,
+                value,
+                None,
+                ExistenceRequirement::AllowDeath,
+            )
         }
 
         // Polymesh modified code. New dispatchable function that anyone can call to burn their balance.
         /// Burns the given amount of tokens from the caller's free, unlocked balance.
-        #[weight = <T as Config>::WeightInfo::burn_account_balance()]
-        pub fn burn_account_balance(origin, amount: Balance) -> DispatchResult {
+        #[pallet::weight(<T as Config>::WeightInfo::burn_account_balance())]
+        #[pallet::call_index(5)]
+        pub fn burn_account_balance(origin: OriginFor<T>, amount: Balance) -> DispatchResult {
             let who = ensure_signed(origin)?;
             let caller_id = CallPermissions::<T>::ensure_call_permissions(&who)?.primary_did;
             // Withdraw the account balance and burn the resulting imbalance by dropping it.
@@ -571,13 +622,13 @@ decl_module! {
                 WithdrawReasons::TRANSFER,
                 ExistenceRequirement::AllowDeath,
             )?;
-            Self::deposit_event(RawEvent::AccountBalanceBurned(caller_id, who, amount));
+            Self::deposit_event(Event::AccountBalanceBurned(caller_id, who, amount));
             Ok(())
         }
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     // PRIVATE MUTABLES
 
     /// Get the free balance of an account.
@@ -634,7 +685,7 @@ impl<T: Config> Module<T> {
             return DepositConsequence::Success;
         }
 
-        if mint && TotalIssuance::get().checked_add(amount).is_none() {
+        if mint && TotalIssuance::<T>::get().checked_add(amount).is_none() {
             return DepositConsequence::Overflow;
         }
 
@@ -662,7 +713,7 @@ impl<T: Config> Module<T> {
             return WithdrawConsequence::Success;
         }
 
-        if TotalIssuance::get().checked_sub(amount).is_none() {
+        if TotalIssuance::<T>::get().checked_sub(amount).is_none() {
             return WithdrawConsequence::Underflow;
         }
 
@@ -739,7 +790,7 @@ impl<T: Config> Module<T> {
             if let Some(endowed) = maybe_endowed {
                 // Polymesh-note: Modified the code in the favour of Polymesh code base
                 let who_id = T::IdentityFn::get_identity(who);
-                Self::deposit_event(RawEvent::Endowed(who_id, who.clone(), endowed));
+                Self::deposit_event(Event::Endowed(who_id, who.clone(), endowed));
             }
             result
         })
@@ -846,7 +897,7 @@ impl<T: Config> Module<T> {
         let transactor_id = T::IdentityFn::get_identity(transactor);
         let dest_id = T::IdentityFn::get_identity(dest);
 
-        Self::deposit_event(RawEvent::Transfer(
+        Self::deposit_event(Event::Transfer(
             transactor_id,
             transactor.clone(),
             dest_id,
@@ -860,7 +911,7 @@ impl<T: Config> Module<T> {
 }
 
 // Polymesh modified code. Managed BRR related functions.
-impl<T: Config> BlockRewardsReserveCurrency<NegativeImbalance<T>> for Module<T> {
+impl<T: Config> BlockRewardsReserveCurrency<NegativeImbalance<T>> for Pallet<T> {
     // Polymesh modified code. Drop behavious modified to reduce BRR balance instead of inflating total supply.
     fn drop_positive_imbalance(mut amount: Balance) {
         if amount.is_zero() {
@@ -876,13 +927,13 @@ impl<T: Config> BlockRewardsReserveCurrency<NegativeImbalance<T>> for Module<T> 
                 // eg. amount = 100 and the account.free = 60 then `amount_to_mint` = 40
                 amount -= old_brr_free_balance - new_brr_free_balance;
             }
-            TotalIssuance::mutate(|v| *v = v.saturating_add(amount));
+            TotalIssuance::<T>::mutate(|v| *v = v.saturating_add(amount));
             Ok(())
         });
     }
 
     fn drop_negative_imbalance(amount: Balance) {
-        TotalIssuance::mutate(|v| *v = v.saturating_sub(amount));
+        TotalIssuance::<T>::mutate(|v| *v = v.saturating_sub(amount));
     }
 
     // Polymesh modified code. Instead of minting new tokens, this function tries to transfer tokens from BRR to the beneficiary.
@@ -905,7 +956,7 @@ impl<T: Config> BlockRewardsReserveCurrency<NegativeImbalance<T>> for Module<T> 
                 } else {
                     amount
                 };
-                TotalIssuance::mutate(|issued| {
+                TotalIssuance::<T>::mutate(|issued| {
                     *issued = issued.checked_add(amount_to_mint).unwrap_or_else(|| {
                         amount = Balance::max_value() - *issued;
                         Balance::max_value()
@@ -924,7 +975,7 @@ impl<T: Config> BlockRewardsReserveCurrency<NegativeImbalance<T>> for Module<T> 
     }
 }
 
-impl<T: Config> Currency<T::AccountId> for Module<T> {
+impl<T: Config> Currency<T::AccountId> for Pallet<T> {
     type Balance = Balance;
     type PositiveImbalance = PositiveImbalance<T>;
     type NegativeImbalance = NegativeImbalance<T>;
@@ -942,7 +993,7 @@ impl<T: Config> Currency<T::AccountId> for Module<T> {
     }
 
     fn total_issuance() -> Self::Balance {
-        TotalIssuance::get()
+        TotalIssuance::<T>::get()
     }
 
     fn minimum_balance() -> Self::Balance {
@@ -959,7 +1010,7 @@ impl<T: Config> Currency<T::AccountId> for Module<T> {
         if amount.is_zero() {
             return PositiveImbalance::zero();
         }
-        TotalIssuance::mutate(|issued| {
+        TotalIssuance::<T>::mutate(|issued| {
             *issued = issued.checked_sub(amount).unwrap_or_else(|| {
                 amount = *issued;
                 Zero::zero()
@@ -975,7 +1026,7 @@ impl<T: Config> Currency<T::AccountId> for Module<T> {
         if amount.is_zero() {
             return NegativeImbalance::zero();
         }
-        TotalIssuance::mutate(|issued| {
+        TotalIssuance::<T>::mutate(|issued| {
             *issued = issued.checked_add(amount).unwrap_or_else(|| {
                 amount = Self::Balance::max_value() - *issued;
                 Self::Balance::max_value()
@@ -1174,7 +1225,7 @@ impl<T: Config> Currency<T::AccountId> for Module<T> {
     }
 }
 
-impl<T: Config> ReservableCurrency<T::AccountId> for Module<T> {
+impl<T: Config> ReservableCurrency<T::AccountId> for Pallet<T> {
     /// Check if `who` can reserve `value` from their free balance.
     ///
     /// Always `true` if value to be reserved is zero.
@@ -1213,7 +1264,7 @@ impl<T: Config> ReservableCurrency<T::AccountId> for Module<T> {
                 .ok_or(Error::<T>::Overflow)?;
             Self::ensure_can_withdraw(who, value, WithdrawReasons::RESERVE, account.free)
         })?;
-        Self::deposit_event(RawEvent::Reserved(who.clone(), value));
+        Self::deposit_event(Event::Reserved(who.clone(), value));
         Ok(())
     }
 
@@ -1239,7 +1290,7 @@ impl<T: Config> ReservableCurrency<T::AccountId> for Module<T> {
             actual
         });
 
-        Self::deposit_event(RawEvent::Unreserved(who.clone(), actual));
+        Self::deposit_event(Event::Unreserved(who.clone(), actual));
         value - actual
     }
 
@@ -1318,7 +1369,7 @@ impl<T: Config> ReservableCurrency<T::AccountId> for Module<T> {
                 )
             },
         )?;
-        Self::deposit_event(RawEvent::ReserveRepatriated(
+        Self::deposit_event(Event::ReserveRepatriated(
             slashed.clone(),
             beneficiary.clone(),
             actual,
@@ -1328,7 +1379,7 @@ impl<T: Config> ReservableCurrency<T::AccountId> for Module<T> {
     }
 }
 
-impl<T: Config> LockableCurrency<T::AccountId> for Module<T> {
+impl<T: Config> LockableCurrency<T::AccountId> for Pallet<T> {
     type Moment = T::BlockNumber;
 
     type MaxLocks = T::MaxLocks;
@@ -1390,7 +1441,7 @@ impl<T: Config> LockableCurrency<T::AccountId> for Module<T> {
     }
 }
 
-impl<T: Config> LockableCurrencyExt<T::AccountId> for Module<T> {
+impl<T: Config> LockableCurrencyExt<T::AccountId> for Pallet<T> {
     fn reduce_lock(id: LockIdentifier, who: &T::AccountId, amount: Balance) -> DispatchResult {
         if amount.is_zero() {
             return Ok(());
@@ -1445,11 +1496,11 @@ impl<T: Config> LockableCurrencyExt<T::AccountId> for Module<T> {
     }
 }
 
-impl<T: Config> fungible::Inspect<T::AccountId> for Module<T> {
+impl<T: Config> fungible::Inspect<T::AccountId> for Pallet<T> {
     type Balance = Balance;
 
     fn total_issuance() -> Self::Balance {
-        TotalIssuance::get()
+        TotalIssuance::<T>::get()
     }
     fn minimum_balance() -> Self::Balance {
         T::ExistentialDeposit::get()

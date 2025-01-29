@@ -1,9 +1,6 @@
 use codec::Encode;
 use frame_support::dispatch::{DispatchError, Weight};
-use frame_support::{
-    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, StorageDoubleMap,
-    StorageMap,
-};
+use frame_support::{assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop};
 use polymesh_contracts::{
     Api, ApiCodeHash, ApiNextUpgrade, ChainVersion, ExtrinsicId, NextUpgrade,
 };
@@ -28,7 +25,7 @@ use crate::storage::{root, TestStorage, User};
 
 const GAS_LIMIT: Gas = Weight::from_ref_time(100_000_000_000).set_proof_size(3 * 1024 * 1024);
 
-type Asset = pallet_asset::Module<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
 type FrameContracts = pallet_contracts::Pallet<TestStorage>;
 type BaseContractsError = pallet_contracts::Error<TestStorage>;
 type CodeHash = <Hashing as Hash>::Output;
@@ -37,7 +34,7 @@ type Contracts = polymesh_contracts::Pallet<TestStorage>;
 type ContractsError = polymesh_contracts::Error<TestStorage>;
 type MaxInLen = <TestStorage as polymesh_contracts::Config>::MaxInLen;
 type Balances = pallet_balances::Pallet<TestStorage>;
-type Identity = pallet_identity::Module<TestStorage>;
+type Identity = pallet_identity::Pallet<TestStorage>;
 type IdentityError = pallet_identity::Error<TestStorage>;
 type PolymeshContracts = polymesh_contracts::Pallet<TestStorage>;
 
@@ -194,7 +191,10 @@ fn chain_extension_calls() {
             None,
             register_ticker_input
         ),);
-        assert_eq!(TickersOwnedByUser::get(&alice.did, ticker), true);
+        assert_eq!(
+            TickersOwnedByUser::<TestStorage>::get(&alice.did, ticker),
+            true
+        );
     })
 }
 
@@ -219,7 +219,7 @@ fn deploy_as_child_identity() {
 
         let contract_account_id = FrameContracts::contract_address(&alice.acc(), &hash, &[], &salt);
         let child_id = Identity::get_identity(&contract_account_id).unwrap();
-        assert_eq!(ParentDid::get(child_id), Some(alice.did));
+        assert_eq!(ParentDid::<TestStorage>::get(child_id), Some(alice.did));
     })
 }
 

@@ -1,4 +1,4 @@
-use frame_support::{assert_noop, assert_ok, StorageDoubleMap};
+use frame_support::{assert_noop, assert_ok};
 use sp_keyring::AccountKeyring;
 
 use pallet_asset::BalanceOf;
@@ -14,14 +14,14 @@ use super::setup::{create_and_issue_sample_asset, create_and_issue_sample_nft, I
 use crate::storage::{default_portfolio_btreeset, User};
 use crate::{ExtBuilder, TestStorage};
 
-type Asset = pallet_asset::Module<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
-type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
-type ExternalAgents = pallet_external_agents::Module<TestStorage>;
-type Identity = pallet_identity::Module<TestStorage>;
-type Portfolio = pallet_portfolio::Module<TestStorage>;
+type ComplianceManager = pallet_compliance_manager::Pallet<TestStorage>;
+type ExternalAgents = pallet_external_agents::Pallet<TestStorage>;
+type Identity = pallet_identity::Pallet<TestStorage>;
+type Portfolio = pallet_portfolio::Pallet<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
-type Settlement = pallet_settlement::Module<TestStorage>;
+type Settlement = pallet_settlement::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 
 #[test]
@@ -59,17 +59,20 @@ fn base_transfer() {
             &mut weight_meter
         ),);
 
-        assert_eq!(BalanceOf::get(&asset_id, &alice_default_portfolio.did), 0);
         assert_eq!(
-            PortfolioAssetBalances::get(&alice_default_portfolio, &asset_id),
+            BalanceOf::<TestStorage>::get(&asset_id, &alice_default_portfolio.did),
             0
         );
         assert_eq!(
-            BalanceOf::get(&asset_id, &bob_user_portfolio.did),
+            PortfolioAssetBalances::<TestStorage>::get(&alice_default_portfolio, &asset_id),
+            0
+        );
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(&asset_id, &bob_user_portfolio.did),
             ISSUE_AMOUNT
         );
         assert_eq!(
-            PortfolioAssetBalances::get(&bob_user_portfolio, &asset_id),
+            PortfolioAssetBalances::<TestStorage>::get(&bob_user_portfolio, &asset_id),
             ISSUE_AMOUNT
         );
     })

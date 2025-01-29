@@ -24,7 +24,7 @@ type AssetMetadataValueMaxLength =
 type AssetMetadataTypeDefMaxLength =
     <TestStorage as pallet_asset::Config>::AssetMetadataTypeDefMaxLength;
 
-type Asset = pallet_asset::Module<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
 
 type BaseError = pallet_base::Error<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;

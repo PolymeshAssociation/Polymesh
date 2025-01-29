@@ -6,7 +6,7 @@ use frame_support::dispatch::{
 use frame_support::error::BadOrigin;
 use frame_support::traits::Contains;
 use frame_support::{
-    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, storage, StorageMap,
+    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, storage,
 };
 use frame_system::{Call as SystemCall, EventRecord};
 use pallet_timestamp::Call as TimestampCall;
@@ -37,9 +37,9 @@ use super::{assert_event_doesnt_exist, assert_event_exists, assert_last_event, E
 
 type Error = utility::Error<TestStorage>;
 
-type Balances = pallet_balances::Module<TestStorage>;
+type Balances = pallet_balances::Pallet<TestStorage>;
 type Pips = pallet_pips::Pallet<TestStorage>;
-type Committee = pallet_committee::Module<TestStorage, pallet_committee::Instance1>;
+type Committee = pallet_committee::Pallet<TestStorage, pallet_committee::Instance1>;
 
 fn consensus_call(call: RuntimeCall, signers: &[User]) {
     let call = Box::new(call);

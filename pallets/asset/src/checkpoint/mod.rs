@@ -43,14 +43,8 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
-    ensure,
-    traits::UnixTime,
-    weights::Weight,
-};
-use frame_system::ensure_root;
+use frame_support::{pallet_prelude::*, traits::UnixTime};
+use frame_system::pallet_prelude::*;
 use sp_runtime::traits::SaturatedConversion;
 use sp_std::prelude::*;
 use sp_std::vec;
@@ -62,10 +56,10 @@ use polymesh_primitives::asset::{AssetId, CheckpointId};
 use polymesh_primitives::GC_DID;
 use polymesh_primitives::{storage_migration_ver, IdentityId, Moment};
 
-use crate::Config;
+use crate::AssetConfig;
 
-type Asset<T> = crate::Module<T>;
-type ExternalAgents<T> = pallet_external_agents::Module<T>;
+type Asset<T> = crate::Pallet<T>;
+type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
 
 storage_migration_ver!(2);
 
@@ -76,12 +70,34 @@ pub trait WeightInfo {
     fn remove_schedule() -> Weight;
 }
 
-decl_event! {
-    pub enum Event {
+pub use pallet::*;
+
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+
+    #[pallet::config]
+    pub trait Config: frame_system::Config + crate::Config {
+        /// The overarching event type.
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: WeightInfo;
+    }
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
         /// A checkpoint was created.
         ///
         /// (caller DID, AssetId, checkpoint ID, total supply, checkpoint timestamp)
-        CheckpointCreated(Option<IdentityId>, AssetId, CheckpointId, polymesh_primitives::Balance, Moment),
+        CheckpointCreated(
+            Option<IdentityId>,
+            AssetId,
+            CheckpointId,
+            polymesh_primitives::Balance,
+            Moment,
+        ),
 
         /// The maximum complexity for an arbitrary asset's schedule set was changed.
         ///
@@ -98,104 +114,179 @@ decl_event! {
         /// (caller DID, AssetId, schedule id, schedule)
         ScheduleRemoved(IdentityId, AssetId, ScheduleId, ScheduleCheckpoints),
     }
-}
 
-decl_storage! {
-    trait Store for Module<T: Config> as Checkpoint {
-        // --------------------- Supply / Balance storage ----------------------
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
 
-        /// Total supply of the token at the checkpoint.
-        ///
-        /// ([`AssetId`], checkpointId) -> total supply at given checkpoint
-        pub TotalSupply get(fn total_supply_at):
-            double_map hasher(blake2_128_concat) AssetId, hasher(twox_64_concat) CheckpointId => polymesh_primitives::Balance;
+    // --------------------- Supply / Balance storage ----------------------
 
-        /// Balance of a DID at a checkpoint.
-        ///
-        /// ([`AssetId`], did, checkpoint ID) -> Balance of a DID at a checkpoint
-        pub Balance get(fn balance_at_checkpoint):
-            double_map hasher(blake2_128_concat) (AssetId, CheckpointId), hasher(twox_64_concat) IdentityId => polymesh_primitives::Balance;
+    /// Total supply of the token at the checkpoint.
+    ///
+    /// ([`AssetId`], checkpointId) -> total supply at given checkpoint
+    #[pallet::storage]
+    #[pallet::getter(fn total_supply_at)]
+    pub(super) type TotalSupply<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        Twox64Concat,
+        CheckpointId,
+        polymesh_primitives::Balance,
+        ValueQuery,
+    >;
 
-        // ------------------------ Checkpoint storage -------------------------
+    /// Balance of a DID at a checkpoint.
+    ///
+    /// ([`AssetId`], did, checkpoint ID) -> Balance of a DID at a checkpoint
+    #[pallet::storage]
+    #[pallet::getter(fn balance_at_checkpoint)]
+    pub(super) type Balance<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        (AssetId, CheckpointId),
+        Twox64Concat,
+        IdentityId,
+        polymesh_primitives::Balance,
+        ValueQuery,
+    >;
 
-        /// Checkpoints ID generator sequence.
-        /// ID of first checkpoint is 1 instead of 0.
-        ///
-        /// ([`AssetId`]) -> no. of checkpoints
-        pub CheckpointIdSequence get(fn checkpoint_id_sequence):
-            map hasher(blake2_128_concat) AssetId => CheckpointId;
+    // ------------------------ Checkpoint storage -------------------------
 
-        /// Checkpoints where a DID's balance was updated.
-        /// ([`AssetId`], did) -> [checkpoint ID where user balance changed]
-        pub BalanceUpdates get(fn balance_updates):
-            double_map hasher(blake2_128_concat) AssetId, hasher(twox_64_concat) IdentityId => Vec<CheckpointId>;
+    /// Checkpoints ID generator sequence.
+    /// ID of first checkpoint is 1 instead of 0.
+    ///
+    /// ([`AssetId`]) -> no. of checkpoints
+    #[pallet::storage]
+    #[pallet::getter(fn checkpoint_id_sequence)]
+    pub(super) type CheckpointIdSequence<T: Config> =
+        StorageMap<_, Blake2_128Concat, AssetId, CheckpointId, ValueQuery>;
 
-        /// Checkpoint timestamps.
-        ///
-        /// Every schedule-originated checkpoint maps its ID to its due time.
-        /// Every checkpoint manually created maps its ID to the time of recording.
-        ///
-        /// ([`AssetId`]) -> (checkpoint ID) -> checkpoint timestamp
-        pub Timestamps get(fn timestamps):
-            double_map hasher(blake2_128_concat) AssetId, hasher(twox_64_concat) CheckpointId => Moment;
+    /// Checkpoints where a DID's balance was updated.
+    /// ([`AssetId`], did) -> [checkpoint ID where user balance changed]
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn balance_updates)]
+    pub(super) type BalanceUpdates<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        Twox64Concat,
+        IdentityId,
+        Vec<CheckpointId>,
+        ValueQuery,
+    >;
 
-        // -------------------- Checkpoint Schedule storage --------------------
+    /// Checkpoint timestamps.
+    ///
+    /// Every schedule-originated checkpoint maps its ID to its due time.
+    /// Every checkpoint manually created maps its ID to the time of recording.
+    ///
+    /// ([`AssetId`]) -> (checkpoint ID) -> checkpoint timestamp
+    #[pallet::storage]
+    #[pallet::getter(fn timestamps)]
+    pub(super) type Timestamps<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        Twox64Concat,
+        CheckpointId,
+        Moment,
+        ValueQuery,
+    >;
 
-        /// The maximum complexity allowed for an asset's schedules.
-        pub SchedulesMaxComplexity get(fn schedules_max_complexity) config(): u64;
+    // -------------------- Checkpoint Schedule storage --------------------
 
-        /// Checkpoint schedule ID sequence for assets.
-        ///
-        /// ([`AssetId`]) -> schedule ID
-        pub ScheduleIdSequence get(fn schedule_id_sequence):
-            map hasher(blake2_128_concat) AssetId => ScheduleId;
+    /// The maximum complexity allowed for an asset's schedules.
+    #[pallet::storage]
+    #[pallet::getter(fn schedules_max_complexity)]
+    pub(super) type SchedulesMaxComplexity<T: Config> = StorageValue<_, u64, ValueQuery>;
 
-        /// Cached next checkpoint for each schedule.
-        ///
-        /// This is used to quickly find the next checkpoint from a asset's schedules.
-        ///
-        /// ([`AssetId`]) -> next checkpoints
-        pub CachedNextCheckpoints get(fn cached_next_checkpoints):
-            map hasher(blake2_128_concat) AssetId => Option<NextCheckpoints>;
+    /// Checkpoint schedule ID sequence for assets.
+    ///
+    /// ([`AssetId`]) -> schedule ID
+    #[pallet::storage]
+    #[pallet::getter(fn schedule_id_sequence)]
+    pub(super) type ScheduleIdSequence<T: Config> =
+        StorageMap<_, Blake2_128Concat, AssetId, ScheduleId, ValueQuery>;
 
-        /// Scheduled checkpoints.
-        ///
-        /// ([`AssetId`], schedule ID) -> schedule checkpoints
-        pub ScheduledCheckpoints get(fn scheduled_checkpoints):
-            double_map hasher(blake2_128_concat) AssetId, hasher(twox_64_concat) ScheduleId => Option<ScheduleCheckpoints>;
+    /// Cached next checkpoint for each schedule.
+    ///
+    /// This is used to quickly find the next checkpoint from a asset's schedules.
+    ///
+    /// ([`AssetId`]) -> next checkpoints
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn cached_next_checkpoints)]
+    pub(super) type CachedNextCheckpoints<T: Config> =
+        StorageMap<_, Blake2_128Concat, AssetId, NextCheckpoints, OptionQuery>;
 
-        /// How many "strong" references are there to a given `ScheduleId`?
-        ///
-        /// The presence of a "strong" reference, in the sense of `Rc<T>`,
-        /// entails that the referenced schedule cannot be removed.
-        /// Thus, as long as `strong_ref_count(schedule_id) > 0`,
-        /// `remove_schedule(schedule_id)` will error.
-        ///
-        /// ([`AssetId`], schedule ID) -> strong ref count
-        pub ScheduleRefCount get(fn schedule_ref_count):
-            double_map hasher(blake2_128_concat) AssetId, hasher(twox_64_concat) ScheduleId => u32;
+    /// Scheduled checkpoints.
+    ///
+    /// ([`AssetId`], schedule ID) -> schedule checkpoints
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn scheduled_checkpoints)]
+    pub(super) type ScheduledCheckpoints<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        Twox64Concat,
+        ScheduleId,
+        ScheduleCheckpoints,
+        OptionQuery,
+    >;
 
-        /// All the checkpoints a given schedule originated.
-        ///
-        /// ([`AssetId`], schedule ID) -> [checkpoint ID]
-        pub SchedulePoints get(fn schedule_points):
-            double_map hasher(blake2_128_concat) AssetId, hasher(twox_64_concat) ScheduleId => Vec<CheckpointId>;
+    /// How many "strong" references are there to a given `ScheduleId`?
+    ///
+    /// The presence of a "strong" reference, in the sense of `Rc<T>`,
+    /// entails that the referenced schedule cannot be removed.
+    /// Thus, as long as `strong_ref_count(schedule_id) > 0`,
+    /// `remove_schedule(schedule_id)` will error.
+    ///
+    /// ([`AssetId`], schedule ID) -> strong ref count
+    #[pallet::storage]
+    #[pallet::getter(fn schedule_ref_count)]
+    pub(super) type ScheduleRefCount<T: Config> =
+        StorageDoubleMap<_, Blake2_128Concat, AssetId, Twox64Concat, ScheduleId, u32, ValueQuery>;
 
-        /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
+    /// All the checkpoints a given schedule originated.
+    ///
+    /// ([`AssetId`], schedule ID) -> [checkpoint ID]
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn schedule_points)]
+    pub(super) type SchedulePoints<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        Twox64Concat,
+        ScheduleId,
+        Vec<CheckpointId>,
+        ValueQuery,
+    >;
+
+    /// Storage version.
+    #[pallet::storage]
+    #[pallet::getter(fn storage_version)]
+    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
+
+    #[pallet::genesis_config]
+    #[derive(Default)]
+    pub struct GenesisConfig {
+        pub schedules_max_complexity: u64,
     }
-}
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
-        type Error = Error<T>;
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+        fn build(&self) {
+            StorageVersion::<T>::put(Version::new(2));
 
-        fn deposit_event() = default;
-
-        fn on_runtime_upgrade() -> Weight {
-            Weight::zero()
+            SchedulesMaxComplexity::<T>::put(self.schedules_max_complexity);
         }
+    }
 
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Creates a single checkpoint at the current time.
         ///
         /// # Arguments
@@ -205,10 +296,12 @@ decl_module! {
         /// # Errors
         /// - `UnauthorizedAgent` if the DID of `origin` isn't a permissioned agent for `asset_id`.
         /// - `CounterOverflow` if the total checkpoint counter would overflow.
-        #[weight = T::CPWeightInfo::create_checkpoint()]
-        pub fn create_checkpoint(origin, asset_id: AssetId) {
+        #[pallet::weight(<T as Config>::WeightInfo::create_checkpoint())]
+        #[pallet::call_index(0)]
+        pub fn create_checkpoint(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
             let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
             Self::create_at_by(caller_did, asset_id, Self::now_unix())?;
+            Ok(())
         }
 
         /// Sets the max complexity of a schedule set for an arbitrary asset_id to `max_complexity`.
@@ -220,11 +313,19 @@ decl_module! {
         /// # Arguments
         /// - `origin` is the root origin.
         /// - `max_complexity` allowed for an arbitrary asset's schedule set.
-        #[weight = T::CPWeightInfo::set_schedules_max_complexity()]
-        pub fn set_schedules_max_complexity(origin, max_complexity: u64) {
+        #[pallet::weight(<T as Config>::WeightInfo::set_schedules_max_complexity())]
+        #[pallet::call_index(1)]
+        pub fn set_schedules_max_complexity(
+            origin: OriginFor<T>,
+            max_complexity: u64,
+        ) -> DispatchResult {
             ensure_root(origin)?;
-            SchedulesMaxComplexity::put(max_complexity);
-            Self::deposit_event(Event::MaximumSchedulesComplexityChanged(GC_DID, max_complexity));
+            SchedulesMaxComplexity::<T>::put(max_complexity);
+            Self::deposit_event(Event::MaximumSchedulesComplexityChanged(
+                GC_DID,
+                max_complexity,
+            ));
+            Ok(())
         }
 
         /// Creates a schedule generating checkpoints
@@ -244,9 +345,10 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = T::CPWeightInfo::create_schedule()]
+        #[pallet::weight(<T as Config>::WeightInfo::create_schedule())]
+        #[pallet::call_index(2)]
         pub fn create_schedule(
-            origin,
+            origin: OriginFor<T>,
             asset_id: AssetId,
             schedule: ScheduleCheckpoints,
         ) -> DispatchResult {
@@ -269,9 +371,10 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = T::CPWeightInfo::remove_schedule()]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_schedule())]
+        #[pallet::call_index(3)]
         pub fn remove_schedule(
-            origin,
+            origin: OriginFor<T>,
             asset_id: AssetId,
             id: ScheduleId,
         ) -> DispatchResult {
@@ -279,10 +382,9 @@ decl_module! {
             Self::base_remove_schedule(caller_did, asset_id, id)
         }
     }
-}
 
-decl_error! {
-    pub enum Error for Module<T: Config> {
+    #[pallet::error]
+    pub enum Error<T> {
         /// A checkpoint schedule does not exist for the asset.
         NoSuchSchedule,
         /// A checkpoint schedule is not removable as `ref_count(schedule_id) > 0`.
@@ -298,10 +400,10 @@ decl_error! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: AssetConfig> Pallet<T> {
     /// Does checkpoint with ID `cp_id` exist for `asset_id`?
     pub fn checkpoint_exists(asset_id: &AssetId, cp: CheckpointId) -> bool {
-        cp > CheckpointId(0) && cp <= CheckpointIdSequence::get(asset_id)
+        cp > CheckpointId(0) && cp <= CheckpointIdSequence::<T>::get(asset_id)
     }
 
     /// Returns the balance of `did` for `asset_id` at first checkpoint ID `>= cp`, if any.
@@ -318,9 +420,11 @@ impl<T: Config> Module<T> {
         did: IdentityId,
         cp: CheckpointId,
     ) -> Option<polymesh_primitives::Balance> {
-        if Self::checkpoint_exists(&asset_id, cp) && BalanceUpdates::contains_key(asset_id, did) {
+        if Self::checkpoint_exists(&asset_id, cp)
+            && BalanceUpdates::<T>::contains_key(asset_id, did)
+        {
             // Checkpoint exists and user has some part in that.
-            let balance_updates = BalanceUpdates::get(asset_id, did);
+            let balance_updates = BalanceUpdates::<T>::get(asset_id, did);
             if cp <= balance_updates.last().copied().unwrap_or(CheckpointId(0)) {
                 // Use first checkpoint created after target checkpoint.
                 // The user has data for that checkpoint.
@@ -350,15 +454,15 @@ impl<T: Config> Module<T> {
     ///
     /// * When minting, the total supply of `asset_id` is updated **after** this function is called.
     fn update_balances(asset_id: &AssetId, updates: &[(IdentityId, polymesh_primitives::Balance)]) {
-        let last_cp = CheckpointIdSequence::get(asset_id);
+        let last_cp = CheckpointIdSequence::<T>::get(asset_id);
         if last_cp < CheckpointId(1) {
             return;
         }
         for (did, balance) in updates {
             let first_key = (asset_id, last_cp);
-            if !Balance::contains_key(first_key, did) {
-                Balance::insert(first_key, did, balance);
-                BalanceUpdates::append(asset_id, did, last_cp);
+            if !Balance::<T>::contains_key(first_key, did) {
+                Balance::<T>::insert(first_key, did, balance);
+                BalanceUpdates::<T>::append(asset_id, did, last_cp);
             }
         }
     }
@@ -366,7 +470,7 @@ impl<T: Config> Module<T> {
     /// Advance all checkpoint schedules for `asset_id`.
     fn advance_schedules(asset_id: &AssetId) -> DispatchResult {
         // Check if there are any pending checkpoints.
-        let mut cached = match CachedNextCheckpoints::try_get(asset_id) {
+        let mut cached = match CachedNextCheckpoints::<T>::try_get(asset_id) {
             Ok(cached) => cached,
             Err(_) => {
                 // No pending checkpoints for this asset_id.
@@ -381,13 +485,13 @@ impl<T: Config> Module<T> {
             return Ok(());
         }
 
-        let mut cp_id = CheckpointIdSequence::get(asset_id);
+        let mut cp_id = CheckpointIdSequence::<T>::get(asset_id);
 
         // Get the set of schedules that have expired checkpoints.
         let schedule_ids = cached.expired_schedules(now);
 
         for schedule_id in schedule_ids {
-            match ScheduledCheckpoints::try_get(asset_id, schedule_id) {
+            match ScheduledCheckpoints::<T>::try_get(asset_id, schedule_id) {
                 Ok(mut schedule) => {
                     // Remove expired checkpoints from the schedule.
                     let checkpoints = schedule.remove_expired(now);
@@ -398,11 +502,11 @@ impl<T: Config> Module<T> {
                             // Update cached `next` for this schedule.
                             cached.add_schedule_next(schedule_id, next);
                             // Update the pending checkpoints for this schedule.
-                            ScheduledCheckpoints::insert(asset_id, schedule_id, schedule);
+                            ScheduledCheckpoints::<T>::insert(asset_id, schedule_id, schedule);
                         }
                         None => {
                             // Schedule is finished, no more checkpoints.
-                            ScheduledCheckpoints::remove(asset_id, schedule_id);
+                            ScheduledCheckpoints::<T>::remove(asset_id, schedule_id);
                         }
                     }
 
@@ -412,7 +516,7 @@ impl<T: Config> Module<T> {
                     for at in checkpoints {
                         let id = try_next_pre::<T, _>(&mut cp_id)?;
                         Self::create_at(None, *asset_id, id, at);
-                        SchedulePoints::append(asset_id, schedule_id, id);
+                        SchedulePoints::<T>::append(asset_id, schedule_id, id);
                     }
                 }
                 _ => (),
@@ -422,13 +526,13 @@ impl<T: Config> Module<T> {
         // Save updated cache.
         if cached.is_empty() {
             // No more scheduled checkpoints, remove the cache.
-            CachedNextCheckpoints::remove(asset_id);
+            CachedNextCheckpoints::<T>::remove(asset_id);
         } else {
             // Update the cache.
-            CachedNextCheckpoints::insert(asset_id, cached);
+            CachedNextCheckpoints::<T>::insert(asset_id, cached);
         }
 
-        CheckpointIdSequence::insert(asset_id, cp_id);
+        CheckpointIdSequence::<T>::insert(asset_id, cp_id);
         Ok(())
     }
 
@@ -446,10 +550,10 @@ impl<T: Config> Module<T> {
             .len()
             .try_into()
             .map_err(|_| Error::<T>::SchedulesOverMaxComplexity)?;
-        let max_comp = SchedulesMaxComplexity::get();
+        let max_comp = SchedulesMaxComplexity::<T>::get();
         ensure!(len <= max_comp, Error::<T>::SchedulesOverMaxComplexity);
 
-        let mut cached = CachedNextCheckpoints::get(asset_id).unwrap_or_default();
+        let mut cached = CachedNextCheckpoints::<T>::get(asset_id).unwrap_or_default();
         // Ensure the total complexity for all schedules is not too great.
         let total_pending = cached.total_pending.saturating_add(len);
         ensure!(
@@ -465,7 +569,7 @@ impl<T: Config> Module<T> {
         );
 
         // Compute the next checkpoint schedule ID. Will store it later.
-        let id = try_next_pre::<T, _>(&mut ScheduleIdSequence::get(asset_id))?;
+        let id = try_next_pre::<T, _>(&mut ScheduleIdSequence::<T>::get(asset_id))?;
 
         // Charge the fee for checkpoint schedule creation.
         // N.B. this operation bundles verification + a storage change.
@@ -476,10 +580,10 @@ impl<T: Config> Module<T> {
         cached.add_schedule_next(id, next_at);
         cached.inc_total_pending(len);
 
-        CachedNextCheckpoints::insert(asset_id, cached);
-        ScheduledCheckpoints::insert(asset_id, id, &schedule);
-        ScheduleRefCount::insert(asset_id, id, ref_count);
-        ScheduleIdSequence::insert(asset_id, id);
+        CachedNextCheckpoints::<T>::insert(asset_id, cached);
+        ScheduledCheckpoints::<T>::insert(asset_id, id, &schedule);
+        ScheduleRefCount::<T>::insert(asset_id, id, ref_count);
+        ScheduleIdSequence::<T>::insert(asset_id, id);
 
         Self::deposit_event(Event::ScheduleCreated(caller_did, asset_id, id, schedule));
         Ok((id, next_at))
@@ -491,28 +595,28 @@ impl<T: Config> Module<T> {
         id: ScheduleId,
     ) -> DispatchResult {
         // Ensure that the schedule exists.
-        let schedule =
-            ScheduledCheckpoints::try_get(asset_id, id).map_err(|_| Error::<T>::NoSuchSchedule)?;
+        let schedule = ScheduledCheckpoints::<T>::try_get(asset_id, id)
+            .map_err(|_| Error::<T>::NoSuchSchedule)?;
 
         // Can only remove the schedule if it doesn't have any references to it.
         ensure!(
-            ScheduleRefCount::get(asset_id, id) == 0,
+            ScheduleRefCount::<T>::get(asset_id, id) == 0,
             Error::<T>::ScheduleNotRemovable
         );
 
         // Remove the schedule and any pending checkpoints.
         // We don't remove historical points related to the schedule.
-        ScheduleRefCount::remove(asset_id, id);
+        ScheduleRefCount::<T>::remove(asset_id, id);
 
         // Remove the schedule from the cached next checkpoints.
-        CachedNextCheckpoints::mutate(&asset_id, |cached| {
+        CachedNextCheckpoints::<T>::mutate(&asset_id, |cached| {
             if let Some(cached) = cached {
                 cached.remove_schedule(id);
                 cached.dec_total_pending(schedule.len() as u64);
             }
         });
         // Remove scheduled checkpoints.
-        ScheduledCheckpoints::remove(asset_id, id);
+        ScheduledCheckpoints::<T>::remove(asset_id, id);
 
         // Emit event.
         Self::deposit_event(Event::ScheduleRemoved(caller_did, asset_id, id, schedule));
@@ -526,8 +630,8 @@ impl<T: Config> Module<T> {
         asset_id: AssetId,
         at: Moment,
     ) -> Result<CheckpointId, DispatchError> {
-        let id = try_next_pre::<T, _>(&mut CheckpointIdSequence::get(asset_id))?;
-        CheckpointIdSequence::insert(asset_id, id);
+        let id = try_next_pre::<T, _>(&mut CheckpointIdSequence::<T>::get(asset_id))?;
+        CheckpointIdSequence::<T>::insert(asset_id, id);
         Self::create_at(Some(caller_did), asset_id, id, at);
         Ok(id)
     }
@@ -544,10 +648,10 @@ impl<T: Config> Module<T> {
         let supply = <Asset<T>>::try_get_asset_details(&asset_id)
             .map(|t| t.total_supply)
             .unwrap_or_default();
-        TotalSupply::insert(asset_id, id, supply);
+        TotalSupply::<T>::insert(asset_id, id, supply);
 
         // Relate AssetId -> ID -> time.
-        Timestamps::insert(asset_id, id, at);
+        Timestamps::<T>::insert(asset_id, id, at);
 
         // Emit event & we're done.
         Self::deposit_event(Event::CheckpointCreated(
@@ -557,12 +661,12 @@ impl<T: Config> Module<T> {
 
     /// Increment the schedule ref count.
     pub fn inc_schedule_ref(asset_id: &AssetId, id: ScheduleId) {
-        ScheduleRefCount::mutate(asset_id, id, |c| *c = c.saturating_add(1));
+        ScheduleRefCount::<T>::mutate(asset_id, id, |c| *c = c.saturating_add(1));
     }
 
     /// Decrement the schedule ref count.
     pub fn dec_schedule_ref(asset_id: &AssetId, id: ScheduleId) {
-        ScheduleRefCount::mutate(asset_id, id, |c| *c = c.saturating_sub(1));
+        ScheduleRefCount::<T>::mutate(asset_id, id, |c| *c = c.saturating_sub(1));
     }
 
     /// Ensure the schedule exists and get the next checkpoint.
@@ -570,12 +674,12 @@ impl<T: Config> Module<T> {
         asset_id: &AssetId,
         id: ScheduleId,
     ) -> Result<(Moment, u64), DispatchError> {
-        let schedule =
-            ScheduledCheckpoints::try_get(asset_id, id).map_err(|_| Error::<T>::NoSuchSchedule)?;
+        let schedule = ScheduledCheckpoints::<T>::try_get(asset_id, id)
+            .map_err(|_| Error::<T>::NoSuchSchedule)?;
         // Get the next checkpoint in the schedule, if it isn't finished.
         let cp_at = schedule.next().ok_or(Error::<T>::ScheduleFinished)?;
         // Get the index for the checkpoint in this schedule.
-        let cp_at_idx = SchedulePoints::decode_len(asset_id, id).unwrap_or(0) as u64;
+        let cp_at_idx = SchedulePoints::<T>::decode_len(asset_id, id).unwrap_or(0) as u64;
         Ok((cp_at, cp_at_idx))
     }
 

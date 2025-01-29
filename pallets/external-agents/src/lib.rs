@@ -53,12 +53,8 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
-    ensure,
-    weights::Weight,
-};
+use frame_support::{pallet_prelude::*, weights::Weight};
+use frame_system::pallet_prelude::*;
 use pallet_base::{try_next_post, try_next_pre};
 use pallet_identity::{Config as IdentityConfig, PermissionedCallOriginData};
 use pallet_permissions::Config as PermConfig;
@@ -71,32 +67,94 @@ use polymesh_primitives::{
 };
 use sp_std::prelude::*;
 
-type Identity<T> = pallet_identity::Module<T>;
-type Permissions<T> = pallet_permissions::Module<T>;
+type Identity<T> = pallet_identity::Pallet<T>;
+type Permissions<T> = pallet_permissions::Pallet<T>;
 
-storage_migration_ver!(1);
+pub use pallet::*;
 
-pub trait WeightInfo {
-    fn create_group(p: u32) -> Weight;
-    fn create_group_and_add_auth(p: u32) -> Weight;
-    fn create_and_change_custom_group(p: u32) -> Weight;
-    fn set_group_permissions(p: u32) -> Weight;
-    fn remove_agent() -> Weight;
-    fn abdicate() -> Weight;
-    fn change_group_builtin() -> Weight;
-    fn change_group_custom() -> Weight;
-    fn accept_become_agent() -> Weight;
-}
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
 
-pub trait Config: frame_system::Config + PermConfig + IdentityConfig + AssetFnConfig {
-    /// The overarching event type.
-    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+    storage_migration_ver!(1);
 
-    type WeightInfo: WeightInfo;
-}
+    pub trait WeightInfo {
+        fn create_group(p: u32) -> Weight;
+        fn create_group_and_add_auth(p: u32) -> Weight;
+        fn create_and_change_custom_group(p: u32) -> Weight;
+        fn set_group_permissions(p: u32) -> Weight;
+        fn remove_agent() -> Weight;
+        fn abdicate() -> Weight;
+        fn change_group_builtin() -> Weight;
+        fn change_group_custom() -> Weight;
+        fn accept_become_agent() -> Weight;
+    }
 
-decl_event! {
-    pub enum Event {
+    #[pallet::config]
+    pub trait Config: frame_system::Config + PermConfig + IdentityConfig + AssetFnConfig {
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        type WeightInfo: WeightInfo;
+    }
+
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    /// The next per-asset AG ID in the sequence.
+    ///
+    /// The full ID is defined as a combination of `AssetId` and a number in this sequence,
+    /// which starts from 1, rather than 0.
+    #[pallet::storage]
+    #[pallet::getter(fn agent_group_id_sequence)]
+    pub type AGIdSequence<T> = StorageMap<_, Blake2_128Concat, AssetId, AGId, ValueQuery>;
+
+    /// Maps an agent (`IdentityId`) to all assets they belong to, if any.
+    #[pallet::storage]
+    pub type AgentOf<T> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        IdentityId,
+        Blake2_128Concat,
+        AssetId,
+        (),
+        ValueQuery,
+    >;
+
+    /// Maps agents (`IdentityId`) for an `AssetId` to what AG they belong to, if any.
+    #[pallet::storage]
+    #[pallet::getter(fn agents)]
+    pub type GroupOfAgent<T> =
+        StorageDoubleMap<_, Blake2_128Concat, AssetId, Twox64Concat, IdentityId, AgentGroup>;
+
+    /// Maps an `AssetId` to the number of `Full` agents for it.
+    #[pallet::storage]
+    #[pallet::getter(fn num_full_agents)]
+    pub type NumFullAgents<T> = StorageMap<_, Blake2_128Concat, AssetId, u32, ValueQuery>;
+
+    /// For custom AGs of an `AssetId`, maps to what permissions an agent in that AG would have.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn permissions)]
+    pub type GroupPermissions<T> =
+        StorageDoubleMap<_, Blake2_128Concat, AssetId, Twox64Concat, AGId, ExtrinsicPermissions>;
+
+    /// Storage version.
+    #[pallet::storage]
+    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
+
+    #[pallet::genesis_config]
+    #[derive(Default)]
+    pub struct GenesisConfig;
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+        fn build(&self) {
+            StorageVersion::<T>::put(Version::new(1));
+        }
+    }
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
         /// An Agent Group was created.
         ///
         /// (Caller DID, AG's AssetId, AG's ID, AG's permissions)
@@ -122,58 +180,26 @@ decl_event! {
         /// (Caller DID, Agent's AssetId, Agent's DID, The new group of the agent)
         GroupChanged(EventDid, AssetId, IdentityId, AgentGroup),
     }
-}
 
-decl_storage! {
-    trait Store for Module<T: Config> as ExternalAgents {
-        /// The next per-asset AG ID in the sequence.
-        ///
-        /// The full ID is defined as a combination of `AssetId` and a number in this sequence,
-        /// which starts from 1, rather than 0.
-        pub AGIdSequence get(fn agent_group_id_sequence):
-            map hasher(blake2_128_concat) AssetId
-                => AGId;
-
-        /// Maps an agent (`IdentityId`) to all assets they belong to, if any.
-        pub AgentOf get(fn agent_of):
-            double_map
-                hasher(blake2_128_concat) IdentityId,
-                hasher(blake2_128_concat) AssetId
-                => ();
-
-        /// Maps agents (`IdentityId`) for an `AssetId` to what AG they belong to, if any.
-        pub GroupOfAgent get(fn agents):
-            double_map
-                hasher(blake2_128_concat) AssetId,
-                hasher(twox_64_concat) IdentityId
-                => Option<AgentGroup>;
-
-        /// Maps an `AssetId` to the number of `Full` agents for it.
-        pub NumFullAgents get(fn num_full_agents):
-            map hasher(blake2_128_concat) AssetId
-                => u32;
-
-        /// For custom AGs of an `AssetId`, maps to what permissions an agent in that AG would have.
-        pub GroupPermissions get(fn permissions):
-            double_map
-                hasher(blake2_128_concat) AssetId,
-                hasher(twox_64_concat) AGId
-                => Option<ExtrinsicPermissions>;
-
-        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
+    #[pallet::error]
+    pub enum Error<T> {
+        /// An AG with the given `AGId` did not exist for the `AssetId`.
+        NoSuchAG,
+        /// The agent is not authorized to call the current extrinsic.
+        UnauthorizedAgent,
+        /// The provided `agent` is already an agent for the `AssetId`.
+        AlreadyAnAgent,
+        /// The provided `agent` is not an agent for the `AssetId`.
+        NotAnAgent,
+        /// This agent is the last full one, and it's being removed,
+        /// making the asset orphaned.
+        RemovingLastFullAgent,
+        /// The caller's secondary key does not have the required asset permission.
+        SecondaryKeyNotAuthorizedForAsset,
     }
-}
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
-        type Error = Error<T>;
-
-        fn deposit_event() = default;
-
-        fn on_runtime_upgrade() -> Weight {
-            Weight::zero()
-        }
-
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Creates a custom agent group (AG) for the given `asset_id`.
         ///
         /// The AG will have the permissions as given by `perms`.
@@ -192,8 +218,13 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Agent
-        #[weight = <T as Config>::WeightInfo::create_group(perms.complexity() as u32)]
-        pub fn create_group(origin, asset_id: AssetId, perms: ExtrinsicPermissions) -> DispatchResult {
+        #[pallet::weight(<T as Config>::WeightInfo::create_group(perms.complexity() as u32))]
+        #[pallet::call_index(0)]
+        pub fn create_group(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            perms: ExtrinsicPermissions,
+        ) -> DispatchResult {
             Self::base_create_group(origin, asset_id, perms).map(drop)
         }
 
@@ -212,8 +243,14 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Agent
-        #[weight = <T as Config>::WeightInfo::set_group_permissions(perms.complexity() as u32)]
-        pub fn set_group_permissions(origin, asset_id: AssetId, id: AGId, perms: ExtrinsicPermissions) -> DispatchResult {
+        #[pallet::weight(<T as Config>::WeightInfo::set_group_permissions(perms.complexity() as u32))]
+        #[pallet::call_index(1)]
+        pub fn set_group_permissions(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            id: AGId,
+            perms: ExtrinsicPermissions,
+        ) -> DispatchResult {
             Self::base_set_group_permissions(origin, asset_id, id, perms)
         }
 
@@ -231,8 +268,13 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Agent
-        #[weight = <T as Config>::WeightInfo::remove_agent()]
-        pub fn remove_agent(origin, asset_id: AssetId, agent: IdentityId) -> DispatchResult {
+        #[pallet::weight(<T as Config>::WeightInfo::remove_agent())]
+        #[pallet::call_index(2)]
+        pub fn remove_agent(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            agent: IdentityId,
+        ) -> DispatchResult {
             Self::base_remove_agent(origin, asset_id, agent)
         }
 
@@ -247,8 +289,9 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::abdicate()]
-        pub fn abdicate(origin, asset_id: AssetId) -> DispatchResult {
+        #[pallet::weight(<T as Config>::WeightInfo::abdicate())]
+        #[pallet::call_index(3)]
+        pub fn abdicate(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
             Self::base_abdicate(origin, asset_id)
         }
 
@@ -268,11 +311,17 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Agent
-        #[weight = match group {
+        #[pallet::weight(match group {
             AgentGroup::Custom(_) => <T as Config>::WeightInfo::change_group_custom(),
             _ => <T as Config>::WeightInfo::change_group_builtin(),
-        }]
-        pub fn change_group(origin, asset_id: AssetId, agent: IdentityId, group: AgentGroup) -> DispatchResult {
+        })]
+        #[pallet::call_index(4)]
+        pub fn change_group(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            agent: IdentityId,
+            group: AgentGroup,
+        ) -> DispatchResult {
             Self::base_change_group(origin, asset_id, agent, group)
         }
 
@@ -292,8 +341,9 @@ decl_module! {
         ///
         /// # Permissions
         /// * Agent
-        #[weight = <T as Config>::WeightInfo::accept_become_agent()]
-        pub fn accept_become_agent(origin, auth_id: u64) -> DispatchResult {
+        #[pallet::weight(<T as Config>::WeightInfo::accept_become_agent())]
+        #[pallet::call_index(5)]
+        pub fn accept_become_agent(origin: OriginFor<T>, auth_id: u64) -> DispatchResult {
             Self::base_accept_become_agent(origin, auth_id)
         }
 
@@ -302,13 +352,14 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Agent
-        #[weight = <T as Config>::WeightInfo::create_group_and_add_auth(perms.complexity() as u32)]
+        #[pallet::weight(<T as Config>::WeightInfo::create_group_and_add_auth(perms.complexity() as u32))]
+        #[pallet::call_index(6)]
         pub fn create_group_and_add_auth(
-            origin,
+            origin: OriginFor<T>,
             asset_id: AssetId,
             perms: ExtrinsicPermissions,
             target: IdentityId,
-            expiry: Option<T::Moment>
+            expiry: Option<T::Moment>,
         ) -> DispatchResult {
             Self::base_create_group_and_add_auth(origin, asset_id, perms, target, expiry)
         }
@@ -318,38 +369,23 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Agent
-        #[weight = <T as Config>::WeightInfo::create_and_change_custom_group(perms.complexity() as u32)]
+        #[pallet::weight(<T as Config>::WeightInfo::create_and_change_custom_group(perms.complexity() as u32))]
+        #[pallet::call_index(7)]
         pub fn create_and_change_custom_group(
-            origin,
+            origin: OriginFor<T>,
             asset_id: AssetId,
             perms: ExtrinsicPermissions,
-            agent: IdentityId
+            agent: IdentityId,
         ) -> DispatchResult {
-            with_transaction(|| Self::base_create_and_change_custom_group(origin, asset_id, perms, agent))
+            with_transaction(|| {
+                Self::base_create_and_change_custom_group(origin, asset_id, perms, agent)
+            })
         }
     }
 }
 
-decl_error! {
-    pub enum Error for Module<T: Config> {
-        /// An AG with the given `AGId` did not exist for the `AssetId`.
-        NoSuchAG,
-        /// The agent is not authorized to call the current extrinsic.
-        UnauthorizedAgent,
-        /// The provided `agent` is already an agent for the `AssetId`.
-        AlreadyAnAgent,
-        /// The provided `agent` is not an agent for the `AssetId`.
-        NotAnAgent,
-        /// This agent is the last full one, and it's being removed,
-        /// making the asset orphaned.
-        RemovingLastFullAgent,
-        /// The caller's secondary key does not have the required asset permission.
-        SecondaryKeyNotAuthorizedForAsset,
-    }
-}
-
-impl<T: Config> Module<T> {
-    fn base_accept_become_agent(origin: T::RuntimeOrigin, auth_id: u64) -> DispatchResult {
+impl<T: Config> Pallet<T> {
+    fn base_accept_become_agent(origin: OriginFor<T>, auth_id: u64) -> DispatchResult {
         let to = Identity::<T>::ensure_perms(origin)?;
         Identity::<T>::accept_auth_with(&to.into(), auth_id, |data, from| {
             let (asset_id, group) = extract_auth!(data, BecomeAgent(t, ag));
@@ -357,7 +393,7 @@ impl<T: Config> Module<T> {
             Self::ensure_agent_permissioned(&asset_id, from)?;
             Self::ensure_agent_group_valid(&asset_id, group)?;
             ensure!(
-                GroupOfAgent::get(&asset_id, to).is_none(),
+                GroupOfAgent::<T>::get(&asset_id, to).is_none(),
                 Error::<T>::AlreadyAnAgent
             );
 
@@ -367,22 +403,22 @@ impl<T: Config> Module<T> {
     }
 
     fn base_create_group(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         asset_id: AssetId,
         perms: ExtrinsicPermissions,
     ) -> Result<(IdentityId, AGId), DispatchError> {
         let did = Self::ensure_perms(origin, asset_id)?;
         <Identity<T>>::ensure_extrinsic_perms_length_limited(&perms)?;
         // Fetch the AG id & advance the sequence.
-        let id = AGIdSequence::try_mutate(asset_id, try_next_pre::<T, _>)?;
+        let id = AGIdSequence::<T>::try_mutate(asset_id, try_next_pre::<T, _>)?;
         // Commit & emit.
-        GroupPermissions::insert(asset_id, id, perms.clone());
+        GroupPermissions::<T>::insert(asset_id, id, perms.clone());
         Self::deposit_event(Event::GroupCreated(did.for_event(), asset_id, id, perms));
         Ok((did, id))
     }
 
     fn base_create_group_and_add_auth(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         asset_id: AssetId,
         perms: ExtrinsicPermissions,
         target: IdentityId,
@@ -399,7 +435,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_set_group_permissions(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         asset_id: AssetId,
         id: AGId,
         perms: ExtrinsicPermissions,
@@ -409,13 +445,13 @@ impl<T: Config> Module<T> {
         Self::ensure_custom_agent_group_exists(&asset_id, &id)?;
 
         // Commit & emit.
-        GroupPermissions::insert(asset_id, id, perms.clone());
+        GroupPermissions::<T>::insert(asset_id, id, perms.clone());
         Self::deposit_event(Event::GroupPermissionsUpdated(did, asset_id, id, perms));
         Ok(())
     }
 
     fn base_remove_agent(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         asset_id: AssetId,
         agent: IdentityId,
     ) -> DispatchResult {
@@ -425,7 +461,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn base_abdicate(origin: T::RuntimeOrigin, asset_id: AssetId) -> DispatchResult {
+    fn base_abdicate(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
         let did = Self::ensure_asset_perms(origin, asset_id)?.primary_did;
         Self::try_mutate_agents_group(asset_id, did, None)?;
         Self::deposit_event(Event::AgentRemoved(did.for_event(), asset_id, did));
@@ -433,7 +469,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_create_and_change_custom_group(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         asset_id: AssetId,
         perms: ExtrinsicPermissions,
         agent: IdentityId,
@@ -443,7 +479,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_change_group(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         asset_id: AssetId,
         agent: IdentityId,
         group: AgentGroup,
@@ -475,7 +511,7 @@ impl<T: Config> Module<T> {
     /// Ensure that `id` identifies a custom AG of `asset_id`.
     fn ensure_custom_agent_group_exists(asset_id: &AssetId, id: &AGId) -> DispatchResult {
         ensure!(
-            (AGId(1)..=AGIdSequence::get(&asset_id)).contains(id),
+            (AGId(1)..=AGIdSequence::<T>::get(&asset_id)).contains(id),
             Error::<T>::NoSuchAG
         );
         Ok(())
@@ -487,7 +523,7 @@ impl<T: Config> Module<T> {
         agent: IdentityId,
         group: Option<AgentGroup>,
     ) -> DispatchResult {
-        GroupOfAgent::try_mutate(asset_id, agent, |slot| {
+        GroupOfAgent::<T>::try_mutate(asset_id, agent, |slot| {
             ensure!(slot.is_some(), Error::<T>::NotAnAgent);
 
             match (*slot, group) {
@@ -503,7 +539,7 @@ impl<T: Config> Module<T> {
 
             // Removal
             if group.is_none() {
-                AgentOf::remove(agent, asset_id);
+                AgentOf::<T>::remove(agent, asset_id);
             }
 
             *slot = group;
@@ -519,15 +555,15 @@ impl<T: Config> Module<T> {
         if let AgentGroup::Full = group {
             Self::inc_full_count(asset_id)?;
         }
-        GroupOfAgent::insert(asset_id, did, group);
-        AgentOf::insert(did, asset_id, ());
+        GroupOfAgent::<T>::insert(asset_id, did, group);
+        AgentOf::<T>::insert(did, asset_id, ());
         Self::deposit_event(Event::AgentAdded(did.for_event(), asset_id, group));
         Ok(())
     }
 
     /// Decrement the full agent count, or error on < 1.
     fn dec_full_count(asset_id: AssetId) -> DispatchResult {
-        NumFullAgents::try_mutate(asset_id, |n| {
+        NumFullAgents::<T>::try_mutate(asset_id, |n| {
             *n = n
                 .checked_sub(1)
                 .filter(|&x| x > 0)
@@ -538,12 +574,12 @@ impl<T: Config> Module<T> {
 
     /// Increment the full agent count, or error on overflow.
     fn inc_full_count(asset_id: AssetId) -> DispatchResult {
-        NumFullAgents::try_mutate(asset_id, try_next_post::<T, _>).map(drop)
+        NumFullAgents::<T>::try_mutate(asset_id, try_next_post::<T, _>).map(drop)
     }
 
     /// Ensures that `origin` is a permissioned agent for `asset_id`.
     pub fn ensure_perms(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         asset_id: AssetId,
     ) -> Result<IdentityId, DispatchError> {
         Self::ensure_agent_asset_perms(origin, asset_id).map(|d| d.primary_did)
@@ -551,7 +587,7 @@ impl<T: Config> Module<T> {
 
     /// Ensures that `origin` is a permissioned agent for `asset_id`.
     pub fn ensure_agent_asset_perms(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         asset_id: AssetId,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
         let data = Self::ensure_asset_perms(origin, asset_id)?;
@@ -562,7 +598,7 @@ impl<T: Config> Module<T> {
     /// Ensure that `origin` is permissioned for this call
     /// and the secondary key has relevant asset permissions.
     pub fn ensure_asset_perms(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         asset_id: AssetId,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
         let data = <Identity<T>>::ensure_origin_call_permissions(origin)?;
@@ -595,12 +631,11 @@ impl<T: Config> Module<T> {
     fn agent_permissions(asset_id: &AssetId, agent: IdentityId) -> ExtrinsicPermissions {
         let pallet = |p: &str| PalletPermissions::entire_pallet(p.into());
         let in_pallet = |p: &str, dns| PalletPermissions::new(p.into(), dns);
-        match GroupOfAgent::get(asset_id, agent) {
+        match GroupOfAgent::<T>::get(asset_id, agent) {
             None => ExtrinsicPermissions::empty(),
             Some(AgentGroup::Full) => ExtrinsicPermissions::default(),
-            Some(AgentGroup::Custom(ag_id)) => {
-                GroupPermissions::get(asset_id, ag_id).unwrap_or_else(ExtrinsicPermissions::empty)
-            }
+            Some(AgentGroup::Custom(ag_id)) => GroupPermissions::<T>::get(asset_id, ag_id)
+                .unwrap_or_else(ExtrinsicPermissions::empty),
             // Anything but extrinsics in this pallet.
             Some(AgentGroup::ExceptMeta) => {
                 ExtrinsicPermissions::except([pallet("ExternalAgents")])

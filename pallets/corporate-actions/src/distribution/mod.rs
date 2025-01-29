@@ -65,17 +65,15 @@
 pub mod benchmarking;
 
 use crate as ca;
-use ca::{CAId, Config, Tax};
-use codec::{Decode, Encode};
+use ca::{CAId, Tax};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
     weights::Weight,
 };
-use pallet_asset::{self as asset, checkpoint};
-use pallet_identity::{self as identity, PermissionedCallOriginData};
+use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
@@ -89,12 +87,14 @@ use sp_runtime::traits::Zero;
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
-type Asset<T> = asset::Module<T>;
-type Checkpoint<T> = checkpoint::Module<T>;
-type ExternalAgents<T> = pallet_external_agents::Module<T>;
-type CA<T> = ca::Module<T>;
-type Identity<T> = identity::Module<T>;
-type Portfolio<T> = pallet_portfolio::Module<T>;
+storage_migration_ver!(1);
+
+type Asset<T> = pallet_asset::Pallet<T>;
+type Checkpoint<T> = pallet_asset::checkpoint::Pallet<T>;
+type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
+type CA<T> = ca::Pallet<T>;
+type Identity<T> = pallet_identity::Pallet<T>;
+type Portfolio<T> = pallet_portfolio::Pallet<T>;
 
 /// The value `per_share` must take to get 1 `currency`.
 pub const PER_SHARE_PRECISION: Balance = 1_000_000;
@@ -103,7 +103,17 @@ pub const PER_SHARE_PRECISION: Balance = 1_000_000;
 ///
 /// All information contained is used by on-chain logic.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Encode, Decode, TypeInfo)]
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Debug,
+    Encode,
+    Decode,
+    MaxEncodedLen,
+    TypeInfo
+)]
 pub struct Distribution {
     /// The portfolio to distribute from.
     pub from: PortfolioId,
@@ -138,35 +148,58 @@ pub trait WeightInfo {
     fn remove_distribution() -> Weight;
 }
 
-decl_storage! {
-    trait Store for Module<T: Config> as CapitalDistribution {
-        /// All capital distributions, tied to their respective corporate actions (CAs).
-        ///
-        /// (CAId) => Distribution
-        Distributions get(fn distributions): map hasher(blake2_128_concat) CAId => Option<Distribution>;
+pub use pallet::*;
 
-        /// Has an asset holder been paid yet?
-        ///
-        /// (CAId, DID) -> Was DID paid in the CAId?
-        HolderPaid get(fn holder_paid): map hasher(blake2_128_concat) (CAId, IdentityId) => bool;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-        /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
+    /// The value `per_share` must take to get 1 `currency`.
+    pub const PER_SHARE_PRECISION: Balance = 1_000_000;
+
+    #[pallet::config]
+    pub trait Config: frame_system::Config + ca::Config {
+        /// The overarching event type.
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
     }
-}
 
-storage_migration_ver!(1);
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
-        type Error = Error<T>;
+    /// All capital distributions, tied to their respective corporate actions (CAs).
+    ///
+    /// (CAId) => Distribution
+    #[pallet::storage]
+    #[pallet::getter(fn distributions)]
+    pub(super) type Distributions<T: Config> = StorageMap<_, Blake2_128Concat, CAId, Distribution>;
 
-        fn deposit_event() = default;
+    /// Has an asset holder been paid yet?
+    ///
+    /// (CAId, DID) -> Was DID paid in the CAId?
+    #[pallet::storage]
+    #[pallet::getter(fn holder_paid)]
+    pub(super) type HolderPaid<T: Config> =
+        StorageMap<_, Blake2_128Concat, (CAId, IdentityId), bool, ValueQuery>;
 
-        fn on_runtime_upgrade() -> Weight {
-            Weight::zero()
+    /// Storage version.
+    #[pallet::storage]
+    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
+
+    #[pallet::genesis_config]
+    #[derive(Default)]
+    pub struct GenesisConfig;
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+        fn build(&self) {
+            StorageVersion::<T>::put(Version::new(1));
         }
+    }
 
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Start and attach a capital distribution, to the CA identified by `ca_id`,
         /// with `amount` funds in `currency` withdrawn from `portfolio` belonging to `origin`'s DID.
         ///
@@ -210,9 +243,10 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Portfolio
-        #[weight = <T as Config>::DistWeightInfo::distribute()]
+        #[pallet::call_index(0)]
+        #[pallet::weight(<T as ca::Config>::DistWeightInfo::distribute())]
         pub fn distribute(
-            origin,
+            origin: OriginFor<T>,
             ca_id: CAId,
             portfolio: Option<PortfolioNumber>,
             currency: AssetId,
@@ -222,14 +256,7 @@ decl_module! {
             expires_at: Option<Moment>,
         ) -> DispatchResult {
             Self::base_distribute(
-                origin,
-                ca_id,
-                portfolio,
-                currency,
-                per_share,
-                amount,
-                payment_at,
-                expires_at,
+                origin, ca_id, portfolio, currency, per_share, amount, payment_at, expires_at,
             )
         }
 
@@ -256,9 +283,11 @@ decl_module! {
         /// - `BalanceAmountProductOverflowed` if `ba = balance * amount` would overflow.
         /// - `BalanceAmountProductSupplyDivisionFailed` if `ba * supply` would overflow.
         /// - Other errors can occur if the compliance manager rejects the transfer.
-        #[weight = <T as Config>::DistWeightInfo::claim(T::MaxTargetIds::get(), T::MaxDidWhts::get())]
-        pub fn claim(origin, ca_id: CAId) {
+        #[pallet::call_index(1)]
+        #[pallet::weight(<T as ca::Config>::DistWeightInfo::claim(T::MaxTargetIds::get(), T::MaxDidWhts::get()))]
+        pub fn claim(origin: OriginFor<T>, ca_id: CAId) -> DispatchResult {
             Self::base_claim(origin, ca_id)?;
+            Ok(())
         }
 
         /// Push benefit of an ongoing distribution to the given `holder`.
@@ -285,9 +314,15 @@ decl_module! {
         /// - `BalanceAmountProductOverflowed` if `ba = balance * amount` would overflow.
         /// - `BalanceAmountProductSupplyDivisionFailed` if `ba * supply` would overflow.
         /// - Other errors can occur if the compliance manager rejects the transfer.
-        #[weight = <T as Config>::DistWeightInfo::push_benefit(T::MaxTargetIds::get(), T::MaxDidWhts::get())]
-        pub fn push_benefit(origin, ca_id: CAId, holder: IdentityId) {
+        #[pallet::call_index(2)]
+        #[pallet::weight(<T as ca::Config>::DistWeightInfo::push_benefit(T::MaxTargetIds::get(), T::MaxDidWhts::get()))]
+        pub fn push_benefit(
+            origin: OriginFor<T>,
+            ca_id: CAId,
+            holder: IdentityId,
+        ) -> DispatchResult {
             Self::base_push_benefit(origin, ca_id, holder)?;
+            Ok(())
         }
 
         /// Assuming a distribution has expired,
@@ -301,9 +336,11 @@ decl_module! {
         /// - `NoSuchDistribution` if there's no capital distribution for `ca_id`.
         /// - `AlreadyReclaimed` if this function has already been called successfully.
         /// - `NotExpired` if `now < expiry`.
-        #[weight = <T as Config>::DistWeightInfo::reclaim()]
-        pub fn reclaim(origin, ca_id: CAId) {
+        #[pallet::call_index(3)]
+        #[pallet::weight(<T as ca::Config>::DistWeightInfo::reclaim())]
+        pub fn reclaim(origin: OriginFor<T>, ca_id: CAId) -> DispatchResult {
             Self::base_reclaim(origin, ca_id)?;
+            Ok(())
         }
 
         /// Removes a distribution that hasn't started yet,
@@ -317,15 +354,17 @@ decl_module! {
         /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset_id`.
         /// - `NoSuchDistribution` if there's no capital distribution for `ca_id`.
         /// - `DistributionStarted` if `payment_at <= now`.
-        #[weight = <T as Config>::DistWeightInfo::remove_distribution()]
-        pub fn remove_distribution(origin, ca_id: CAId) {
+        #[pallet::call_index(4)]
+        #[pallet::weight(<T as ca::Config>::DistWeightInfo::remove_distribution())]
+        pub fn remove_distribution(origin: OriginFor<T>, ca_id: CAId) -> DispatchResult {
             Self::base_remove_distribution(origin, ca_id)?;
+            Ok(())
         }
     }
-}
 
-decl_event! {
-    pub enum Event {
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
         /// A capital distribution, with details included,
         /// was created by the DID (permissioned agent) for the CA identified by `CAId`.
         ///
@@ -347,10 +386,9 @@ decl_event! {
         /// (Agent DID, CA's ID)
         Removed(EventDid, CAId),
     }
-}
 
-decl_error! {
-    pub enum Error for Module<T: Config> {
+    #[pallet::error]
+    pub enum Error<T> {
         /// A capital distribution was made for a non-benefit CA.
         CANotBenefit,
         /// A distribution already exists for this CA.
@@ -385,7 +423,7 @@ decl_error! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     fn base_distribute(
         origin: T::RuntimeOrigin,
         ca_id: CAId,
@@ -456,7 +494,7 @@ impl<T: Config> Module<T> {
         Self::unlock(&dist, dist.remaining)?;
 
         // Zero `remaining` + note that we've reclaimed.
-        Distributions::insert(
+        Distributions::<T>::insert(
             ca_id,
             Distribution {
                 reclaimed: true,
@@ -492,7 +530,7 @@ impl<T: Config> Module<T> {
 
         // Unlock and remove chain data.
         Self::unlock(&dist, dist.amount)?;
-        Distributions::remove(ca_id);
+        Distributions::<T>::remove(ca_id);
 
         // Emit event.
         Self::deposit_event(Event::Removed(agent, ca_id));
@@ -512,7 +550,7 @@ impl<T: Config> Module<T> {
     fn transfer_benefit(actor: EventDid, holder: IdentityId, ca_id: CAId) -> DispatchResult {
         // Ensure holder not paid yet.
         ensure!(
-            !HolderPaid::get((ca_id, holder)),
+            !HolderPaid::<T>::get((ca_id, holder)),
             Error::<T>::HolderAlreadyPaid
         );
 
@@ -567,11 +605,11 @@ impl<T: Config> Module<T> {
         })?;
 
         // Note that DID was paid.
-        HolderPaid::insert((ca_id, holder), true);
+        HolderPaid::<T>::insert((ca_id, holder), true);
         let holder = holder.for_event();
 
         // Commit `dist` change to storage.
-        Distributions::insert(ca_id, dist);
+        Distributions::<T>::insert(ca_id, dist);
 
         // Emit event.
         Self::deposit_event(Event::BenefitClaimed(
@@ -597,7 +635,7 @@ impl<T: Config> Module<T> {
 
     /// Ensure `ca_id` has some distribution and return it.
     fn ensure_distribution_exists(ca_id: CAId) -> Result<Distribution, DispatchError> {
-        Distributions::get(ca_id).ok_or_else(|| Error::<T>::NoSuchDistribution.into())
+        Distributions::<T>::get(ca_id).ok_or_else(|| Error::<T>::NoSuchDistribution.into())
     }
 
     /// Ensure `ca_id` has a started and non-expired, i.e. active, distribution, which is returned.
@@ -639,7 +677,7 @@ impl<T: Config> Module<T> {
 
         // Ensure CA doesn't have a distribution yet.
         ensure!(
-            !Distributions::contains_key(ca_id),
+            !Distributions::<T>::contains_key(ca_id),
             Error::<T>::AlreadyExists
         );
 
@@ -686,7 +724,7 @@ impl<T: Config> Module<T> {
             payment_at,
             expires_at,
         };
-        Distributions::insert(ca_id, distribution);
+        Distributions::<T>::insert(ca_id, distribution);
 
         // Emit event.
         Self::deposit_event(Event::Created(agent, ca_id, distribution));

@@ -20,13 +20,13 @@ use pallet_permissions::with_call_metadata;
 
 use super::*;
 
-type Identity<T> = pallet_identity::Module<T>;
+type Identity<T> = pallet_identity::Pallet<T>;
 
 /// Maximum decoding depth.
 const MAX_DECODE_DEPTH: u32 = 10;
 
 /// ExtrinsicId
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ExtrinsicId(u8, u8);
@@ -405,7 +405,7 @@ where
         let ext_id =
             ExtrinsicId::try_from(input.as_slice()).ok_or(Error::<T>::InvalidRuntimeCall)?;
         // Check if the extrinsic is allowed to be called.
-        Module::<T>::ensure_call_runtime(ext_id)?;
+        Pallet::<T>::ensure_call_runtime(ext_id)?;
         (
             <<T as BConfig>::RuntimeCall>::decode_all_with_depth_limit(
                 MAX_DECODE_DEPTH,
@@ -423,10 +423,10 @@ where
     // Execute call requested by contract, with current DID set to the contract owner.
     let addr = env.ext().address().clone();
     // Emit event for calling into the runtime
-    Module::<T>::deposit_event(Event::<T>::SCRuntimeCall(addr.clone(), extrinsic_id));
+    Pallet::<T>::deposit_event(Event::<T>::SCRuntimeCall(addr.clone(), extrinsic_id));
     // Dispatch call
     let result = with_payer::<T, _, _>(addr.clone(), || {
-        with_call_metadata(call.get_call_metadata(), || {
+        with_call_metadata::<T, _>(call.get_call_metadata(), || {
             // Dispatch the call, avoiding use of `ext.call_runtime()`,
             // as that uses `CallFilter = Nothing`, which would case a problem for us.
             call.dispatch(RawOrigin::Signed(addr).into())

@@ -67,3 +67,4 @@ std = [
     "sp-version/std",
 ]
 runtime-benchmarks = ["frame-benchmarking", "schnorrkel", "hex"]
+try-runtime = ["frame-support/try-runtime"]

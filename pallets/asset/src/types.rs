@@ -1,7 +1,7 @@
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 use polymesh_primitives::asset::AssetType;
@@ -47,7 +47,17 @@ impl AssetDetails {
 }
 
 /// struct to store the ticker registration details.
-#[derive(Clone, Debug, Decode, Default, Encode, TypeInfo, PartialEq, Eq)]
+#[derive(
+    Clone,
+    Debug,
+    Decode,
+    Default,
+    Encode,
+    MaxEncodedLen,
+    TypeInfo,
+    PartialEq,
+    Eq
+)]
 pub struct TickerRegistration<T> {
     pub owner: IdentityId,
     pub expiry: Option<T>,
@@ -55,7 +65,17 @@ pub struct TickerRegistration<T> {
 
 /// struct to store the ticker registration config.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, Decode, Default, Encode, TypeInfo, PartialEq, Eq)]
+#[derive(
+    Clone,
+    Debug,
+    Decode,
+    Default,
+    Encode,
+    MaxEncodedLen,
+    TypeInfo,
+    PartialEq,
+    Eq
+)]
 pub struct TickerRegistrationConfig<T> {
     pub max_ticker_length: u8,
     pub registration_length: Option<T>,

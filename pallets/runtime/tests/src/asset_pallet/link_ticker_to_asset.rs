@@ -1,4 +1,3 @@
-use frame_support::StorageMap;
 use frame_support::{assert_noop, assert_ok};
 use sp_keyring::AccountKeyring;
 
@@ -9,7 +8,7 @@ use crate::asset_test::{now, set_timestamp};
 use crate::storage::User;
 use crate::{ExtBuilder, TestStorage};
 
-type Asset = pallet_asset::Module<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
 type ExternalAgentsError = pallet_external_agents::Error<TestStorage>;
 
@@ -37,8 +36,8 @@ fn link_ticker_to_asset_id_successfully() {
             asset_id
         ));
 
-        assert_eq!(TickerAssetId::get(ticker), Some(asset_id));
-        assert_eq!(AssetIdTicker::get(asset_id), Some(ticker));
+        assert_eq!(TickerAssetId::<TestStorage>::get(ticker), Some(asset_id));
+        assert_eq!(AssetIdTicker::<TestStorage>::get(asset_id), Some(ticker));
     });
 }
 
@@ -232,7 +231,7 @@ fn link_ticker_to_asset_id_after_unlink() {
             asset_id
         ));
 
-        assert_eq!(TickerAssetId::get(ticker_1), Some(asset_id));
-        assert_eq!(AssetIdTicker::get(asset_id), Some(ticker_1));
+        assert_eq!(TickerAssetId::<TestStorage>::get(ticker_1), Some(asset_id));
+        assert_eq!(AssetIdTicker::<TestStorage>::get(asset_id), Some(ticker_1));
     });
 }

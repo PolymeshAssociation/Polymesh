@@ -24,11 +24,11 @@ use sp_keyring::AccountKeyring;
 use std::ops::Deref;
 
 type System = frame_system::Pallet<TestStorage>;
-type Balances = pallet_balances::Module<TestStorage>;
+type Balances = pallet_balances::Pallet<TestStorage>;
 type Pips = pallet_pips::Pallet<TestStorage>;
-type Group = pallet_group::Module<TestStorage, pallet_group::Instance1>;
-type Committee = pallet_committee::Module<TestStorage, pallet_committee::Instance1>;
-type Treasury = treasury::Module<TestStorage>;
+type Group = pallet_group::Pallet<TestStorage, pallet_group::Instance1>;
+type Committee = pallet_committee::Pallet<TestStorage, pallet_committee::Instance1>;
+type Treasury = treasury::Pallet<TestStorage>;
 type Error = pallet_pips::Error<TestStorage>;
 type Deposits = pallet_pips::Deposits<TestStorage>;
 type Votes = pallet_pips::ProposalVotes<TestStorage>;

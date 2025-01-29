@@ -1,5 +1,4 @@
 use frame_support::{assert_noop, assert_ok};
-use frame_support::{StorageDoubleMap, StorageMap};
 use sp_keyring::AccountKeyring;
 
 use pallet_asset::{Assets, BalanceOf};
@@ -13,13 +12,13 @@ use super::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
 use crate::storage::User;
 use crate::{ExtBuilder, TestStorage};
 
-type Asset = pallet_asset::Module<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
 type ExternalAgentsError = pallet_external_agents::Error<TestStorage>;
-type Identity = pallet_identity::Module<TestStorage>;
-type Portfolio = pallet_portfolio::Module<TestStorage>;
+type Identity = pallet_identity::Pallet<TestStorage>;
+type Portfolio = pallet_portfolio::Pallet<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
-type Settlement = pallet_settlement::Module<TestStorage>;
+type Settlement = pallet_settlement::Pallet<TestStorage>;
 
 #[test]
 fn issue_tokens_default_portfolio() {
@@ -32,16 +31,25 @@ fn issue_tokens_default_portfolio() {
 
         let asset_id = create_and_issue_sample_asset(&alice);
         assert_eq!(
-            PortfolioAssetBalances::get(&alice_default_portfolio, &asset_id),
+            PortfolioAssetBalances::<TestStorage>::get(&alice_default_portfolio, &asset_id),
             ISSUE_AMOUNT
         );
         assert_eq!(
-            PortfolioLockedAssets::get(&alice_default_portfolio, &asset_id),
+            PortfolioLockedAssets::<TestStorage>::get(&alice_default_portfolio, &asset_id),
             0
         );
-        assert_eq!(BalanceOf::get(&asset_id, &alice.did), ISSUE_AMOUNT);
-        assert_eq!(Assets::get(&asset_id).unwrap().total_supply, ISSUE_AMOUNT);
-        assert_eq!(PortfolioAssetCount::get(alice_default_portfolio), 1);
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(&asset_id, &alice.did),
+            ISSUE_AMOUNT
+        );
+        assert_eq!(
+            Assets::<TestStorage>::get(&asset_id).unwrap().total_supply,
+            ISSUE_AMOUNT
+        );
+        assert_eq!(
+            PortfolioAssetCount::<TestStorage>::get(alice_default_portfolio),
+            1
+        );
     });
 }
 
@@ -76,15 +84,21 @@ fn issue_tokens_user_portfolio() {
         ));
 
         assert_eq!(
-            PortfolioAssetBalances::get(&alice_user_portfolio, asset_id),
+            PortfolioAssetBalances::<TestStorage>::get(&alice_user_portfolio, asset_id),
             ISSUE_AMOUNT
         );
         assert_eq!(
-            PortfolioLockedAssets::get(&alice_user_portfolio, asset_id),
+            PortfolioLockedAssets::<TestStorage>::get(&alice_user_portfolio, asset_id),
             0
         );
-        assert_eq!(BalanceOf::get(asset_id, &alice.did), ISSUE_AMOUNT);
-        assert_eq!(Assets::get(asset_id).unwrap().total_supply, ISSUE_AMOUNT);
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(asset_id, &alice.did),
+            ISSUE_AMOUNT
+        );
+        assert_eq!(
+            Assets::<TestStorage>::get(asset_id).unwrap().total_supply,
+            ISSUE_AMOUNT
+        );
     });
 }
 
@@ -145,9 +159,15 @@ fn issue_tokens_assigned_custody() {
             1_000,
             PortfolioKind::Default
         ));
-        assert_eq!(BalanceOf::get(asset_id, alice.did), 1_000);
-        assert_eq!(PortfolioAssetBalances::get(&portfolio_id, asset_id), 1_000);
-        assert_eq!(PortfolioAssetBalances::get(&portfolio_id, asset_id), 1_000);
+        assert_eq!(BalanceOf::<TestStorage>::get(asset_id, alice.did), 1_000);
+        assert_eq!(
+            PortfolioAssetBalances::<TestStorage>::get(&portfolio_id, asset_id),
+            1_000
+        );
+        assert_eq!(
+            PortfolioAssetBalances::<TestStorage>::get(&portfolio_id, asset_id),
+            1_000
+        );
     })
 }
 

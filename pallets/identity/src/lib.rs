@@ -100,7 +100,7 @@ use frame_support::dispatch::{
 use frame_support::traits::{
     ChangeMembers, Currency, EnsureOrigin, Get, GetCallMetadata, InitializeMembers,
 };
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, Parameter};
+use frame_support::Parameter;
 use frame_system::ensure_root;
 use polymesh_common_utilities::{
     identity::{AuthorizationNonce, CreateChildIdentityWithAuth, SecondaryKeyWithAuth},
@@ -210,85 +210,99 @@ pub trait WeightInfo {
     }
 }
 
-/// The module's configuration trait.
-pub trait Config:
-    frame_system::Config + pallet_timestamp::Config + pallet_base::Config + pallet_permissions::Config
-{
-    /// The overarching event type.
-    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
-    /// An extrinsic call.
-    type Proposal: Parameter
-        + Dispatchable<
-            RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin,
-            PostInfo = PostDispatchInfo,
-        > + GetCallMetadata
-        + GetDispatchInfo
-        + From<frame_system::Call<Self>>;
-    /// Group module
-    type CddServiceProviders: GroupTrait<Self::Moment>;
-    /// Balances module
-    type Balances: Currency<Self::AccountId, Balance = Balance>;
-    /// Used to check and update CDD
-    type CddHandler: CddAndFeeDetails<Self::AccountId, <Self as frame_system::Config>::RuntimeCall>;
+pub use pallet::*;
 
-    type Public: IdentifyAccount<AccountId = Self::AccountId>;
-    type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode + TypeInfo;
-    type ProtocolFee: ChargeProtocolFee<Self::AccountId>;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-    /// Origin for Governance Committee voting majority origin.
-    type GCVotingMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
-    /// Weight information for extrinsics in the identity pallet.
-    type WeightInfo: WeightInfo;
-
-    /// Identity functions
-    type IdentityFn: IdentityFnTrait<Self::AccountId>;
-
-    /// A type for identity-mapping the `Origin` type. Used by the scheduler.
-    type SchedulerOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
-
-    /// POLYX given to primary keys of all new Identities
-    type InitialPOLYX: Get<<Self::Balances as Currency<Self::AccountId>>::Balance>;
-
-    /// Maximum number of authorizations an identity can give.
-    type MaxGivenAuths: Get<u32>;
-}
-
-decl_event!(
-    pub enum Event<T>
-    where
-        AccountId = <T as frame_system::Config>::AccountId,
-        Moment = <T as pallet_timestamp::Config>::Moment,
+    /// Configure the pallet by specifying the parameters and types on which it depends.
+    #[pallet::config]
+    pub trait Config:
+        frame_system::Config
+        + pallet_timestamp::Config
+        + pallet_base::Config
+        + pallet_permissions::Config
     {
+        /// The overarching event type.
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        /// An extrinsic call.
+        type Proposal: Parameter
+            + Dispatchable<
+                RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin,
+                PostInfo = PostDispatchInfo,
+            > + GetCallMetadata
+            + GetDispatchInfo
+            + From<frame_system::Call<Self>>;
+        /// Group module
+        type CddServiceProviders: GroupTrait<Self::Moment>;
+        /// Balances module
+        type Balances: Currency<Self::AccountId, Balance = Balance>;
+        /// Used to check and update CDD
+        type CddHandler: CddAndFeeDetails<
+            Self::AccountId,
+            <Self as frame_system::Config>::RuntimeCall,
+        >;
+
+        type Public: IdentifyAccount<AccountId = Self::AccountId>;
+        type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode + TypeInfo;
+        type ProtocolFee: ChargeProtocolFee<Self::AccountId>;
+
+        /// Origin for Governance Committee voting majority origin.
+        type GCVotingMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+        /// Weight information for extrinsics in the identity pallet.
+        type WeightInfo: WeightInfo;
+
+        /// Identity functions
+        type IdentityFn: IdentityFnTrait<Self::AccountId>;
+
+        /// A type for identity-mapping the `Origin` type. Used by the scheduler.
+        type SchedulerOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
+
+        /// POLYX given to primary keys of all new Identities
+        #[pallet::constant]
+        type InitialPOLYX: Get<<Self::Balances as Currency<Self::AccountId>>::Balance>;
+
+        /// Maximum number of authorizations an identity can give.
+        #[pallet::constant]
+        type MaxGivenAuths: Get<u32>;
+    }
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
         /// Identity created.
         ///
         /// (DID, primary key, secondary keys)
-        DidCreated(IdentityId, AccountId, Vec<SecondaryKey<AccountId>>),
+        DidCreated(IdentityId, T::AccountId, Vec<SecondaryKey<T::AccountId>>),
 
         /// Secondary keys added to identity.
         ///
         /// (DID, new keys)
-        SecondaryKeysAdded(IdentityId, Vec<SecondaryKey<AccountId>>),
+        SecondaryKeysAdded(IdentityId, Vec<SecondaryKey<T::AccountId>>),
 
         /// Secondary keys removed from identity.
         ///
         /// (DID, the keys that got removed)
-        SecondaryKeysRemoved(IdentityId, Vec<AccountId>),
+        SecondaryKeysRemoved(IdentityId, Vec<T::AccountId>),
 
         /// A secondary key left their identity.
         ///
         /// (DID, secondary key)
-        SecondaryKeyLeftIdentity(IdentityId, AccountId),
+        SecondaryKeyLeftIdentity(IdentityId, T::AccountId),
 
         /// Secondary key permissions updated.
         ///
         /// (DID, updated secondary key, previous permissions, new permissions)
-        SecondaryKeyPermissionsUpdated(IdentityId, AccountId, Permissions, Permissions),
+        SecondaryKeyPermissionsUpdated(IdentityId, T::AccountId, Permissions, Permissions),
 
         /// Primary key of identity changed.
         ///
         /// (DID, old primary key account ID, new ID)
-        PrimaryKeyUpdated(IdentityId, AccountId, AccountId),
+        PrimaryKeyUpdated(IdentityId, T::AccountId, T::AccountId),
 
         /// Claim added to identity.
         ///
@@ -311,31 +325,31 @@ decl_event!(
         AuthorizationAdded(
             IdentityId,
             Option<IdentityId>,
-            Option<AccountId>,
+            Option<T::AccountId>,
             u64,
-            AuthorizationData<AccountId>,
-            Option<Moment>,
+            AuthorizationData<T::AccountId>,
+            Option<T::Moment>,
         ),
 
         /// Authorization revoked by the authorizer.
         ///
         /// (authorized_identity, authorized_key, auth_id)
-        AuthorizationRevoked(Option<IdentityId>, Option<AccountId>, u64),
+        AuthorizationRevoked(Option<IdentityId>, Option<T::AccountId>, u64),
 
         /// Authorization rejected by the user who was authorized.
         ///
         /// (authorized_identity, authorized_key, auth_id)
-        AuthorizationRejected(Option<IdentityId>, Option<AccountId>, u64),
+        AuthorizationRejected(Option<IdentityId>, Option<T::AccountId>, u64),
 
         /// Authorization consumed.
         ///
         /// (authorized_identity, authorized_key, auth_id)
-        AuthorizationConsumed(Option<IdentityId>, Option<AccountId>, u64),
+        AuthorizationConsumed(Option<IdentityId>, Option<T::AccountId>, u64),
 
         /// Accepting Authorization retry limit reached.
         ///
         /// (authorized_identity, authorized_key, auth_id)
-        AuthorizationRetryLimitReached(Option<IdentityId>, Option<AccountId>, u64),
+        AuthorizationRetryLimitReached(Option<IdentityId>, Option<T::AccountId>, u64),
 
         /// CDD requirement for updating primary key changed.
         ///
@@ -346,7 +360,7 @@ decl_event!(
         /// `Moment`.
         ///
         /// (CDD provider DID, disable from date)
-        CddClaimsInvalidated(IdentityId, Moment),
+        CddClaimsInvalidated(IdentityId, T::Moment),
 
         /// All Secondary keys of the identity ID are frozen.
         ///
@@ -366,176 +380,269 @@ decl_event!(
         /// Child identity created.
         ///
         /// (Parent DID, Child DID, primary key)
-        ChildDidCreated(IdentityId, IdentityId, AccountId),
+        ChildDidCreated(IdentityId, IdentityId, T::AccountId),
 
         /// Child identity unlinked from parent identity.
         ///
         /// (Caller DID, Parent DID, Child DID)
         ChildDidUnlinked(IdentityId, IdentityId, IdentityId),
     }
-);
 
-decl_storage! {
-    trait Store for Module<T: Config> as Identity {
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
 
-        /// DID -> identity info
-        pub DidRecords get(fn did_records):
-            map hasher(identity) IdentityId => Option<DidRecord<T::AccountId>>;
+    /// DID -> identity info
+    #[pallet::storage]
+    #[pallet::getter(fn did_records)]
+    pub type DidRecords<T: Config> =
+        StorageMap<_, Identity, IdentityId, DidRecord<T::AccountId>, OptionQuery>;
 
-        /// DID -> bool that indicates if secondary keys are frozen.
-        pub IsDidFrozen get(fn is_did_frozen): map hasher(identity) IdentityId => bool;
+    /// DID -> bool that indicates if secondary keys are frozen.
+    #[pallet::storage]
+    #[pallet::getter(fn is_did_frozen)]
+    pub type IsDidFrozen<T: Config> = StorageMap<_, Identity, IdentityId, bool, ValueQuery>;
 
-        /// It stores the current gas fee payer for the current transaction
-        pub CurrentPayer: Option<T::AccountId>;
+    /// It stores the current gas fee payer for the current transaction.
+    #[pallet::storage]
+    pub type CurrentPayer<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
-        /// (Target ID, claim type) (issuer,scope) -> Associated claims
-        pub Claims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => Option<IdentityClaim>;
-        /// CustomClaimTypeId -> String constant
-        pub CustomClaims: map hasher(twox_64_concat) CustomClaimTypeId => Option<Vec<u8>>;
-        /// String constant -> CustomClaimTypeId
-        pub CustomClaimsInverse: map hasher(blake2_128_concat) Vec<u8> => Option<CustomClaimTypeId>;
-        /// The next `CustomClaimTypeId`.
-        pub CustomClaimIdSequence get(fn custom_claim_id_seq): CustomClaimTypeId;
+    /// (Target ID, claim type) (issuer,scope) -> Associated claims
+    #[pallet::storage]
+    #[pallet::unbounded]
+    pub type Claims<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        Claim1stKey,
+        Blake2_128Concat,
+        Claim2ndKey,
+        IdentityClaim,
+        OptionQuery,
+    >;
 
-        /// Map from AccountId to `KeyRecord` that holds the key's type and identity.
-        pub KeyRecords get(fn key_records):
-            map hasher(twox_64_concat) T::AccountId => Option<KeyRecord<T::AccountId>>;
+    /// CusotmClaimTypeId -> String constant
+    #[pallet::storage]
+    #[pallet::unbounded]
+    pub type CustomClaims<T: Config> =
+        StorageMap<_, Twox64Concat, CustomClaimTypeId, Vec<u8>, OptionQuery>;
 
-        /// A secondary key's extrinsic permissions.
-        pub KeyExtrinsicPermissions get(fn key_extrinsic_permissions):
-            map hasher(twox_64_concat) T::AccountId => Option<ExtrinsicPermissions>;
+    /// String constant -> CustomClaimTypeId
+    #[pallet::storage]
+    #[pallet::unbounded]
+    pub type CustomClaimsInverse<T: Config> =
+        StorageMap<_, Blake2_128Concat, Vec<u8>, CustomClaimTypeId, OptionQuery>;
 
-        /// A secondary key's asset permissions.
-        pub KeyAssetPermissions get(fn key_asset_permissions):
-            map hasher(twox_64_concat) T::AccountId => Option<AssetPermissions>;
+    /// The next `CustomClaimTypeId`.
+    #[pallet::storage]
+    #[pallet::getter(fn custom_claim_id_seq)]
+    pub type CustomClaimIdSequence<T: Config> = StorageValue<_, CustomClaimTypeId, ValueQuery>;
 
-        /// A secondary key's portfolio permissions.
-        pub KeyPortfolioPermissions get(fn key_portfolio_permissions):
-            map hasher(twox_64_concat) T::AccountId => Option<PortfolioPermissions>;
+    /// Map from AccountId to `KeyRecord` that holds the key's type and identity.
+    #[pallet::storage]
+    #[pallet::getter(fn key_records)]
+    pub type KeyRecords<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, KeyRecord<T::AccountId>, OptionQuery>;
 
-        /// A reverse double map to allow finding all keys for an identity.
-        pub DidKeys get(fn did_keys):
-            double_map hasher(identity) IdentityId, hasher(twox_64_concat) T::AccountId => bool;
+    /// A secondary key's extrinsic permissions.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn key_extrinsic_permissions)]
+    pub type KeyExtrinsicPermissions<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, ExtrinsicPermissions, OptionQuery>;
 
-        /// Nonce to ensure unique actions. starts from 1.
-        pub MultiPurposeNonce get(fn multi_purpose_nonce) build(|_| 1u64): u64;
+    /// A secondary key's asset permissions.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn key_asset_permissions)]
+    pub type KeyAssetPermissions<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, AssetPermissions, OptionQuery>;
 
-        /// Authorization nonce per Identity. Initially is 0.
-        pub OffChainAuthorizationNonce get(fn offchain_authorization_nonce): map hasher(identity) IdentityId => AuthorizationNonce;
+    /// A secondary key's portfolio permissions.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn key_portfolio_permissions)]
+    pub type KeyPortfolioPermissions<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, PortfolioPermissions, OptionQuery>;
 
-        /// All authorizations that an identity/key has
-        pub Authorizations get(fn authorizations): double_map hasher(blake2_128_concat)
-            Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Option<Authorization<T::AccountId, T::Moment>>;
+    /// A reverse double map to allow finding all keys for an identity.
+    #[pallet::storage]
+    #[pallet::getter(fn did_keys)]
+    pub type DidKeys<T: Config> =
+        StorageDoubleMap<_, Identity, IdentityId, Twox64Concat, T::AccountId, bool, ValueQuery>;
 
-        /// All authorizations that an identity has given. (Authorizer, auth_id -> authorized)
-        pub AuthorizationsGiven: double_map hasher(identity)
-            IdentityId, hasher(twox_64_concat) u64 => Signatory<T::AccountId>;
+    /// Nonce to ensure unique actions. starts from 1.
+    #[pallet::storage]
+    #[pallet::getter(fn multi_purpose_nonce)]
+    pub type MultiPurposeNonce<T: Config> = StorageValue<_, u64, ValueQuery>;
 
-        /// A config flag that, if set, instructs an authorization from a CDD provider in order to
-        /// change the primary key of an identity.
-        pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
+    /// Authorization nonce per Identity. Initially is 0.
+    #[pallet::storage]
+    #[pallet::getter(fn offchain_authorization_nonce)]
+    pub type OffChainAuthorizationNonce<T: Config> =
+        StorageMap<_, Identity, IdentityId, AuthorizationNonce, ValueQuery>;
 
-        /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(7)): Version;
+    /// All authorizations that an identity/key has
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn authorizations)]
+    pub type Authorizations<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        Signatory<T::AccountId>,
+        Twox64Concat,
+        u64,
+        Authorization<T::AccountId, T::Moment>,
+        OptionQuery,
+    >;
 
-        /// How many "strong" references to the account key.
-        ///
-        /// Strong references will block a key from leaving it's identity.
-        ///
-        /// Pallets using "strong" references to account keys:
-        /// * Relayer: For `user_key` and `paying_key`
-        ///
-        pub AccountKeyRefCount get(fn account_key_ref_count):
-            map hasher(blake2_128_concat) T::AccountId => u64;
+    /// All authorizations that an identity has given. (Authorizer, auth_id -> authorized)
+    #[pallet::storage]
+    pub type AuthorizationsGiven<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        IdentityId,
+        Twox64Concat,
+        u64,
+        Signatory<T::AccountId>,
+        ValueQuery,
+    >;
 
-        /// Parent identity if the DID is a child Identity.
-        pub ParentDid get(fn parent_did):
-            map hasher(identity) IdentityId => Option<IdentityId>;
+    /// A config flag that, if set, instructs an authorization from a CDD provider in order to
+    /// change the primary key of an identity.
+    #[pallet::storage]
+    #[pallet::getter(fn cdd_auth_for_primary_key_rotation)]
+    pub type CddAuthForPrimaryKeyRotation<T: Config> = StorageValue<_, bool, ValueQuery>;
 
-        /// All child identities of a parent (i.e ParentDID, ChildDID, true)
-        pub ChildDid get(fn child_did):
-            double_map hasher(identity) IdentityId, hasher(identity) IdentityId => bool;
+    /// Storage version.
+    #[pallet::storage]
+    pub type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
 
-        /// Track the number of authorizations given by each identity.
-        pub NumberOfGivenAuths get(fn number_of_given_auths):
-            map hasher(identity) IdentityId => u32;
+    /// How many "strong" references to the account key.
+    ///
+    /// Strong references will block a key from leaving it's identity.
+    ///
+    /// Pallets using "strong" references to account keys:
+    /// * Relayer: For `user_key` and `paying_key`
+    ///
+    #[pallet::storage]
+    #[pallet::getter(fn account_key_ref_count)]
+    pub type AccountKeyRefCount<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
 
-        /// Tracks all authorizations that must be deleted
-        pub OutdatedAuthorizations get(fn outdated_authorizations):
-            map hasher(blake2_128_concat) Signatory<T::AccountId> => Option<u64>;
+    /// Parent identity if the DID is a child Identity.
+    #[pallet::storage]
+    #[pallet::getter(fn parent_did)]
+    pub type ParentDid<T: Config> = StorageMap<_, Identity, IdentityId, IdentityId, OptionQuery>;
 
-        /// Controls the authorization id.
-        pub CurrentAuthId get(fn current_auth_id): u64
+    /// All child identities of a parent (i.e ParentDID, ChildDID, true)
+    #[pallet::storage]
+    #[pallet::getter(fn child_did)]
+    pub type ChildDid<T: Config> =
+        StorageDoubleMap<_, Identity, IdentityId, Identity, IdentityId, bool, ValueQuery>;
+
+    /// Track the number of authorizations given by each identity.
+    #[pallet::storage]
+    #[pallet::getter(fn number_of_given_auths)]
+    pub type NumberOfGivenAuths<T: Config> = StorageMap<_, Identity, IdentityId, u32, ValueQuery>;
+
+    /// Tracks all authorizations that must be deleted
+    #[pallet::storage]
+    #[pallet::getter(fn outdated_authorizations)]
+    pub type OutdatedAuthorizations<T: Config> =
+        StorageMap<_, Blake2_128Concat, Signatory<T::AccountId>, u64, OptionQuery>;
+
+    /// Controls the authorization id.
+    #[pallet::storage]
+    #[pallet::getter(fn current_auth_id)]
+    pub type CurrentAuthId<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+    /// GenesisConfig for the identity pallet.
+    #[pallet::genesis_config]
+    #[derive(frame_support::DefaultNoBound)]
+    pub struct GenesisConfig<T: Config> {
+        /// The initial identities to create.
+        pub identities: Vec<polymesh_primitives::identity_id::GenesisIdentityRecord<T::AccountId>>,
+        /// Secondary keys of identities at genesis.  `identities` have to be initialized first.
+        pub secondary_keys: Vec<(T::AccountId, IdentityId)>,
     }
-    add_extra_genesis {
-        // Identities at genesis.
-        config(identities): Vec<polymesh_primitives::identity_id::GenesisIdentityRecord<T::AccountId>>;
-        // Secondary keys of identities at genesis. `identities` have to be initialised.
-        config(secondary_keys): Vec<(T::AccountId, IdentityId)>;
-        build(|config: &GenesisConfig<T>| {
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+        fn build(&self) {
+            MultiPurposeNonce::<T>::put(1);
+            StorageVersion::<T>::put(Version::new(7));
+
             polymesh_primitives::SYSTEMATIC_ISSUERS
                 .iter()
                 .copied()
-                .for_each(<Module<T>>::register_systematic_id);
+                .for_each(<Pallet<T>>::register_systematic_id);
 
             // Add CDD claims to Treasury & BRR
-            let sys_issuers_with_cdd = [SystematicIssuers::Treasury, SystematicIssuers::BlockRewardReserve, SystematicIssuers::Settlement];
-            let id_with_cdd = sys_issuers_with_cdd.iter()
+            let sys_issuers_with_cdd = [
+                SystematicIssuers::Treasury,
+                SystematicIssuers::BlockRewardReserve,
+                SystematicIssuers::Settlement,
+            ];
+            let id_with_cdd = sys_issuers_with_cdd
+                .iter()
                 .map(|iss| iss.as_id())
                 .collect::<Vec<_>>();
 
-            <Module<T>>::add_systematic_cdd_claims(&id_with_cdd, SystematicIssuers::CDDProvider);
+            Pallet::<T>::add_systematic_cdd_claims(&id_with_cdd, SystematicIssuers::CDDProvider);
 
             //  Other
-            for gen_id in &config.identities {
+            for gen_id in &self.identities {
                 let cdd_claim = Claim::CustomerDueDiligence(CddId::default());
                 // Direct storage change for registering the DID and providing the claim
-                <Module<T>>::ensure_no_id_record(gen_id.did).unwrap();
-                <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
-                let expiry = gen_id.cdd_claim_expiry.iter().map(|m| T::Moment::from(*m as u32)).next();
+                Pallet::<T>::ensure_no_id_record(gen_id.did).unwrap();
+                MultiPurposeNonce::<T>::mutate(|n| *n += 1_u64);
+                let expiry = gen_id
+                    .cdd_claim_expiry
+                    .iter()
+                    .map(|m| T::Moment::from(*m as u32))
+                    .next();
                 if let Some(primary_key) = &gen_id.primary_key {
-                    <Module<T>>::do_register_id(primary_key.clone(), gen_id.did, gen_id.secondary_keys.clone());
+                    <Pallet<T>>::do_register_id(
+                        primary_key.clone(),
+                        gen_id.did,
+                        gen_id.secondary_keys.clone(),
+                    );
                 }
                 for issuer in &gen_id.issuers {
-                    <Module<T>>::unverified_add_claim_with_scope(gen_id.did, cdd_claim.clone(), None, *issuer, expiry);
+                    <Pallet<T>>::unverified_add_claim_with_scope(
+                        gen_id.did,
+                        cdd_claim.clone(),
+                        None,
+                        *issuer,
+                        expiry,
+                    );
                 }
             }
 
-            for &(ref secondary_account_id, did) in &config.secondary_keys {
+            for &(ref secondary_account_id, did) in &self.secondary_keys {
                 // Direct storage change for attaching some secondary keys to identities
-                <Module<T>>::ensure_id_record_exists(did).unwrap();
+                Pallet::<T>::ensure_id_record_exists(did).unwrap();
                 assert!(
-                    <Module<T>>::can_add_key_record(secondary_account_id),
+                    <Pallet<T>>::can_add_key_record(secondary_account_id),
                     "Secondary key already linked"
                 );
-                <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
+                MultiPurposeNonce::<T>::mutate(|n| *n += 1_u64);
                 let sk = SecondaryKey::from_account_id(secondary_account_id.clone());
-                <Module<T>>::add_key_record(secondary_account_id, KeyRecord::SecondaryKey(did));
-                <Module<T>>::set_key_permissions(&sk.key, &sk.permissions);
-                <Module<T>>::deposit_event(RawEvent::SecondaryKeysAdded(did, vec![sk]));
+                Pallet::<T>::add_key_record(secondary_account_id, KeyRecord::SecondaryKey(did));
+                Pallet::<T>::set_key_permissions(&sk.key, &sk.permissions);
+                Pallet::<T>::deposit_event(Event::SecondaryKeysAdded(did, vec![sk]));
             }
-        });
+        }
     }
-}
 
-decl_module! {
-    /// The module declaration.
-    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
-
-        type Error = Error<T>;
-
-        const MaxGivenAuths: u32 = T::MaxGivenAuths::get();
-
-        // Initializing events
-        // this is needed only if you are using events in your module
-        fn deposit_event() = default;
-
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
             Weight::zero()
         }
+    }
 
-        const InitialPOLYX: <T::Balances as Currency<T::AccountId>>::Balance = T::InitialPOLYX::get();
-
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Register `target_account` with a new Identity.
         ///
         /// # Failure
@@ -544,27 +651,31 @@ decl_module! {
         /// - `target_account` (primary key of the new Identity) can be linked to just one and only
         /// one identity.
         /// - External secondary keys can be linked to just one identity.
-        #[weight = <T as Config>::WeightInfo::cdd_register_did(secondary_keys.len() as u32)]
+        #[pallet::weight(<T as Config>::WeightInfo::cdd_register_did(secondary_keys.len() as u32))]
+        #[pallet::call_index(0)]
         pub fn cdd_register_did(
-            origin,
+            origin: OriginFor<T>,
             target_account: T::AccountId,
-            secondary_keys: Vec<SecondaryKey<T::AccountId>>
-        ) {
+            secondary_keys: Vec<SecondaryKey<T::AccountId>>,
+        ) -> DispatchResult {
             Self::base_cdd_register_did(origin, target_account, secondary_keys)?;
+            Ok(())
         }
 
         /// Invalidates any claim generated by `cdd` from `disable_from` timestamps.
         ///
         /// You can also define an expiration time,
         /// which will invalidate all claims generated by that `cdd` and remove it as CDD member group.
-        #[weight = (<T as Config>::WeightInfo::invalidate_cdd_claims(), Operational, Pays::Yes)]
+        #[pallet::weight((<T as Config>::WeightInfo::invalidate_cdd_claims(), Operational, Pays::Yes))]
+        #[pallet::call_index(1)]
         pub fn invalidate_cdd_claims(
-            origin,
+            origin: OriginFor<T>,
             cdd: IdentityId,
             disable_from: T::Moment,
             expiry: Option<T::Moment>,
-        ) {
+        ) -> DispatchResult {
             Self::base_invalidate_cdd_claims(origin, cdd, disable_from, expiry)?;
+            Ok(())
         }
 
         /// Call this with the new primary key. By invoking this method, caller accepts authorization
@@ -580,8 +691,13 @@ decl_module! {
         /// # Arguments
         /// * `owner_auth_id` Authorization from the owner who initiated the change
         /// * `cdd_auth_id` Authorization from a CDD service provider
-        #[weight = <T as Config>::WeightInfo::accept_primary_key()]
-        pub fn accept_primary_key(origin, rotation_auth_id: u64, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
+        #[pallet::weight(<T as Config>::WeightInfo::accept_primary_key())]
+        #[pallet::call_index(2)]
+        pub fn accept_primary_key(
+            origin: OriginFor<T>,
+            rotation_auth_id: u64,
+            optional_cdd_auth_id: Option<u64>,
+        ) -> DispatchResult {
             Self::accept_primary_key_rotation(origin, rotation_auth_id, optional_cdd_auth_id)
         }
 
@@ -590,31 +706,39 @@ decl_module! {
         ///
         /// # Arguments
         /// * `auth_required` CDD Authorization required or not
-        #[weight = (<T as Config>::WeightInfo::change_cdd_requirement_for_mk_rotation(), Operational, Pays::Yes)]
-        pub fn change_cdd_requirement_for_mk_rotation(origin, auth_required: bool) {
+        #[pallet::weight((<T as Config>::WeightInfo::change_cdd_requirement_for_mk_rotation(), Operational, Pays::Yes))]
+        #[pallet::call_index(3)]
+        pub fn change_cdd_requirement_for_mk_rotation(
+            origin: OriginFor<T>,
+            auth_required: bool,
+        ) -> DispatchResult {
             ensure_root(origin)?;
-            CddAuthForPrimaryKeyRotation::put(auth_required);
-            Self::deposit_event(RawEvent::CddRequirementForPrimaryKeyUpdated(auth_required));
+            CddAuthForPrimaryKeyRotation::<T>::put(auth_required);
+            Self::deposit_event(Event::CddRequirementForPrimaryKeyUpdated(auth_required));
+            Ok(())
         }
 
         /// Join an identity as a secondary key.
-        #[weight = <T as Config>::WeightInfo::join_identity_as_key()]
-        pub fn join_identity_as_key(origin, auth_id: u64) -> DispatchResult {
+        #[pallet::weight(<T as Config>::WeightInfo::join_identity_as_key())]
+        #[pallet::call_index(4)]
+        pub fn join_identity_as_key(origin: OriginFor<T>, auth_id: u64) -> DispatchResult {
             Self::join_identity(origin, auth_id)
         }
 
         /// Leave the secondary key's identity.
-        #[weight = <T as Config>::WeightInfo::leave_identity_as_key()]
-        pub fn leave_identity_as_key(origin) -> DispatchResult {
+        #[pallet::weight(<T as Config>::WeightInfo::leave_identity_as_key())]
+        #[pallet::call_index(5)]
+        pub fn leave_identity_as_key(origin: OriginFor<T>) -> DispatchResult {
             Self::leave_identity(origin)
         }
 
         /// Adds a new claim record or edits an existing one.
         ///
         /// Only called by did_issuer's secondary key.
-        #[weight = <T as Config>::WeightInfo::add_claim()]
+        #[pallet::weight(<T as Config>::WeightInfo::add_claim())]
+        #[pallet::call_index(6)]
         pub fn add_claim(
-            origin,
+            origin: OriginFor<T>,
             target: IdentityId,
             claim: Claim,
             expiry: Option<T::Moment>,
@@ -622,7 +746,9 @@ decl_module! {
             let issuer = Self::ensure_signed_and_validate_claim_target(origin, target)?;
 
             match &claim {
-                Claim::CustomerDueDiligence(..) => Self::base_add_cdd_claim(target, claim, issuer, expiry),
+                Claim::CustomerDueDiligence(..) => {
+                    Self::base_add_cdd_claim(target, claim, issuer, expiry)
+                }
                 _ => {
                     Self::ensure_custom_scopes_limited(&claim)?;
                     T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddClaim)?;
@@ -632,8 +758,13 @@ decl_module! {
         }
 
         /// Marks the specified claim as revoked.
-        #[weight = (<T as Config>::WeightInfo::revoke_claim(), revoke_claim_class(claim.claim_type()))]
-        pub fn revoke_claim(origin, target: IdentityId, claim: Claim) -> DispatchResult {
+        #[pallet::weight((<T as Config>::WeightInfo::revoke_claim(), revoke_claim_class(claim.claim_type())))]
+        #[pallet::call_index(7)]
+        pub fn revoke_claim(
+            origin: OriginFor<T>,
+            target: IdentityId,
+            claim: Claim,
+        ) -> DispatchResult {
             let issuer = Self::ensure_perms(origin)?;
             let claim_type = claim.claim_type();
             let scope = claim.as_scope().cloned();
@@ -644,54 +775,60 @@ decl_module! {
         ///
         /// # Errors
         ///
-        #[weight = <T as Config>::WeightInfo::freeze_secondary_keys()]
-        pub fn freeze_secondary_keys(origin) -> DispatchResult {
+        #[pallet::weight(<T as Config>::WeightInfo::freeze_secondary_keys())]
+        #[pallet::call_index(8)]
+        pub fn freeze_secondary_keys(origin: OriginFor<T>) -> DispatchResult {
             Self::set_frozen_secondary_key_flags(origin, true)
         }
 
         /// Re-enables all secondary keys of the caller's identity.
-        #[weight = <T as Config>::WeightInfo::unfreeze_secondary_keys()]
-        pub fn unfreeze_secondary_keys(origin) -> DispatchResult {
+        #[pallet::weight(<T as Config>::WeightInfo::unfreeze_secondary_keys())]
+        #[pallet::call_index(9)]
+        pub fn unfreeze_secondary_keys(origin: OriginFor<T>) -> DispatchResult {
             Self::set_frozen_secondary_key_flags(origin, false)
         }
 
         // Manage generic authorizations
         /// Adds an authorization.
-        #[weight = <T as Config>::WeightInfo::add_authorization_full::<T::AccountId>(&data)]
+        #[pallet::weight(<T as Config>::WeightInfo::add_authorization_full::<T::AccountId>(&data))]
+        #[pallet::call_index(10)]
         pub fn add_authorization(
-            origin,
+            origin: OriginFor<T>,
             target: Signatory<T::AccountId>,
             data: AuthorizationData<T::AccountId>,
-            expiry: Option<T::Moment>
-        ) {
+            expiry: Option<T::Moment>,
+        ) -> DispatchResult {
             Self::base_add_authorization(origin, target, data, expiry)?;
+            Ok(())
         }
 
         /// Removes an authorization.
-        /// _auth_issuer_pays determines whether the issuer of the authorisation pays the transaction fee
-        #[weight = <T as Config>::WeightInfo::remove_authorization()]
+        /// `_auth_issuer_pays` determines whether the issuer of the authorisation pays the transaction fee
+        #[pallet::weight(<T as Config>::WeightInfo::remove_authorization())]
+        #[pallet::call_index(11)]
         pub fn remove_authorization(
-            origin,
+            origin: OriginFor<T>,
             target: Signatory<T::AccountId>,
             auth_id: u64,
             _auth_issuer_pays: bool,
-        ) {
+        ) -> DispatchResult {
             Self::base_remove_authorization(origin, target, auth_id)?;
+            Ok(())
         }
 
         /// Assuming this is executed by the GC voting majority, adds a new cdd claim record.
-        #[weight = (<T as Config>::WeightInfo::add_claim(), Operational, Pays::Yes)]
-        pub fn gc_add_cdd_claim(
-            origin,
-            target: IdentityId,
-        ) {
+        #[pallet::weight((<T as Config>::WeightInfo::add_claim(), Operational, Pays::Yes))]
+        #[pallet::call_index(12)]
+        pub fn gc_add_cdd_claim(origin: OriginFor<T>, target: IdentityId) -> DispatchResult {
             T::GCVotingMajorityOrigin::ensure_origin(origin)?;
             Self::add_systematic_cdd_claims(&[target], SystematicIssuers::Committee);
+            Ok(())
         }
 
         /// Assuming this is executed by the GC voting majority, removes an existing cdd claim record.
-        #[weight = (<T as Config>::WeightInfo::add_claim(), Operational, Pays::Yes)]
-        pub fn gc_revoke_cdd_claim(origin, target: IdentityId) -> DispatchResult {
+        #[pallet::weight((<T as Config>::WeightInfo::add_claim(), Operational, Pays::Yes))]
+        #[pallet::call_index(13)]
+        pub fn gc_revoke_cdd_claim(origin: OriginFor<T>, target: IdentityId) -> DispatchResult {
             T::GCVotingMajorityOrigin::ensure_origin(origin)?;
             Self::base_revoke_claim(target, ClaimType::CustomerDueDiligence, GC_DID, None)
         }
@@ -700,8 +837,14 @@ decl_module! {
         /// `claim_type`, and `scope`.
         ///
         /// Please note that `origin` must be the issuer of the target claim.
-        #[weight = (<T as Config>::WeightInfo::revoke_claim_by_index(), revoke_claim_class(*claim_type))]
-        pub fn revoke_claim_by_index(origin, target: IdentityId, claim_type: ClaimType, scope: Option<Scope>) -> DispatchResult {
+        #[pallet::weight((<T as Config>::WeightInfo::revoke_claim_by_index(), revoke_claim_class(*claim_type)))]
+        #[pallet::call_index(14)]
+        pub fn revoke_claim_by_index(
+            origin: OriginFor<T>,
+            target: IdentityId,
+            claim_type: ClaimType,
+            scope: Option<Scope>,
+        ) -> DispatchResult {
             let issuer = Self::ensure_perms(origin)?;
             Self::base_revoke_claim(target, claim_type, issuer, scope)
         }
@@ -720,8 +863,13 @@ decl_module! {
         /// # Arguments
         /// * `owner_auth_id` Authorization from the owner who initiated the change
         /// * `cdd_auth_id` Authorization from a CDD service provider
-        #[weight = <T as Config>::WeightInfo::rotate_primary_key_to_secondary()]
-        pub fn rotate_primary_key_to_secondary(origin, auth_id:u64, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
+        #[pallet::weight(<T as Config>::WeightInfo::rotate_primary_key_to_secondary())]
+        #[pallet::call_index(15)]
+        pub fn rotate_primary_key_to_secondary(
+            origin: OriginFor<T>,
+            auth_id: u64,
+            optional_cdd_auth_id: Option<u64>,
+        ) -> DispatchResult {
             Self::base_rotate_primary_key_to_secondary(origin, auth_id, optional_cdd_auth_id)
         }
 
@@ -738,21 +886,29 @@ decl_module! {
         /// # Errors
         ///     - Can only called by primary key owner.
         ///     - Keys should be able to linked to any identity.
-        #[weight = <T as Config>::WeightInfo::add_secondary_keys_full::<T::AccountId>(&additional_keys)]
+        #[pallet::weight(<T as Config>::WeightInfo::add_secondary_keys_full::<T::AccountId>(&additional_keys))]
+        #[pallet::call_index(16)]
         pub fn add_secondary_keys_with_authorization(
-            origin,
+            origin: OriginFor<T>,
             additional_keys: Vec<SecondaryKeyWithAuth<T::AccountId>>,
-            expires_at: T::Moment
-        ) {
+            expires_at: T::Moment,
+        ) -> DispatchResult {
             Self::base_add_secondary_keys_with_authorization(origin, additional_keys, expires_at)?;
+            Ok(())
         }
 
         /// Sets permissions for an specific `target_key` key.
         ///
         /// Only the primary key of an identity is able to set secondary key permissions.
-        #[weight = <T as Config>::WeightInfo::set_secondary_key_permissions_full(&perms)]
-        pub fn set_secondary_key_permissions(origin, key: T::AccountId, perms: Permissions) {
+        #[pallet::weight(<T as Config>::WeightInfo::set_secondary_key_permissions_full(&perms))]
+        #[pallet::call_index(17)]
+        pub fn set_secondary_key_permissions(
+            origin: OriginFor<T>,
+            key: T::AccountId,
+            perms: Permissions,
+        ) -> DispatchResult {
             Self::base_set_secondary_key_permissions(origin, key, perms)?;
+            Ok(())
         }
 
         /// Removes specified secondary keys of a DID if present.
@@ -760,9 +916,14 @@ decl_module! {
         /// # Errors
         ///
         /// The extrinsic can only called by primary key owner.
-        #[weight = <T as Config>::WeightInfo::remove_secondary_keys(keys_to_remove.len() as u32)]
-        pub fn remove_secondary_keys(origin, keys_to_remove: Vec<T::AccountId>) {
+        #[pallet::weight(<T as Config>::WeightInfo::remove_secondary_keys(keys_to_remove.len() as u32))]
+        #[pallet::call_index(18)]
+        pub fn remove_secondary_keys(
+            origin: OriginFor<T>,
+            keys_to_remove: Vec<T::AccountId>,
+        ) -> DispatchResult {
             Self::base_remove_secondary_keys(origin, keys_to_remove)?;
+            Ok(())
         }
 
         /// Register custom claim type.
@@ -771,9 +932,11 @@ decl_module! {
         /// * `CustomClaimTypeAlreadyExists` The type that is being registered already exists.
         /// * `CounterOverflow` CustomClaimTypeId has overflowed.
         /// * `TooLong` The type being registered is too lang.
-        #[weight = <T as Config>::WeightInfo::register_custom_claim_type(ty.len() as u32)]
-        pub fn register_custom_claim_type(origin, ty: Vec<u8>) {
+        #[pallet::weight(<T as Config>::WeightInfo::register_custom_claim_type(ty.len() as u32))]
+        #[pallet::call_index(19)]
+        pub fn register_custom_claim_type(origin: OriginFor<T>, ty: Vec<u8>) -> DispatchResult {
             Self::base_register_custom_claim_type(origin, ty)?;
+            Ok(())
         }
 
         /// Register `target_account` with a new Identity and issue a CDD claim with a blank CddId
@@ -784,16 +947,19 @@ decl_module! {
         /// - `target_account` (primary key of the new Identity) can be linked to just one and only
         /// one identity.
         /// - External secondary keys can be linked to just one identity.
-        #[weight = <T as Config>::WeightInfo::cdd_register_did(secondary_keys.len() as u32).saturating_add(<T as Config>::WeightInfo::add_claim())]
+        #[pallet::weight(<T as Config>::WeightInfo::cdd_register_did(secondary_keys.len() as u32).saturating_add(<T as Config>::WeightInfo::add_claim()))]
+        #[pallet::call_index(20)]
         pub fn cdd_register_did_with_cdd(
-            origin,
+            origin: OriginFor<T>,
             target_account: T::AccountId,
             secondary_keys: Vec<SecondaryKey<T::AccountId>>,
-            expiry: Option<T::Moment>
-        ) {
-            let (cdd_did, target_did) = Self::base_cdd_register_did(origin, target_account, secondary_keys)?;
+            expiry: Option<T::Moment>,
+        ) -> DispatchResult {
+            let (cdd_did, target_did) =
+                Self::base_cdd_register_did(origin, target_account, secondary_keys)?;
             let cdd_claim = Claim::CustomerDueDiligence(CddId::default());
             Self::base_add_claim(target_did, cdd_claim, cdd_did, expiry)?;
+            Ok(())
         }
 
         /// Create a child identity and make the `secondary_key` it's primary key.
@@ -808,9 +974,14 @@ decl_module! {
         /// - `NotASigner` the `secondary_key` is not a secondary key of the caller's identity.
         /// - `AccountKeyIsBeingUsed` the `secondary_key` can't be unlinked from it's current identity.
         /// - `IsChildIdentity` the caller's identity is already a child identity and can't create child identities.
-        #[weight = <T as Config>::WeightInfo::create_child_identity()]
-        pub fn create_child_identity(origin, secondary_key: T::AccountId) {
+        #[pallet::weight(<T as Config>::WeightInfo::create_child_identity())]
+        #[pallet::call_index(21)]
+        pub fn create_child_identity(
+            origin: OriginFor<T>,
+            secondary_key: T::AccountId,
+        ) -> DispatchResult {
             Self::base_create_child_identity(origin, secondary_key)?;
+            Ok(())
         }
 
         /// Create a child identities.
@@ -828,13 +999,15 @@ decl_module! {
         /// - `AlreadyLinked` one of the keys is already linked to an identity.
         /// - `DuplicateKey` one of the keys is included multiple times.
         /// - `IsChildIdentity` the caller's identity is already a child identity and can't create child identities.
-        #[weight = <T as Config>::WeightInfo::create_child_identities(child_keys.len() as u32)]
+        #[pallet::weight(<T as Config>::WeightInfo::create_child_identities(child_keys.len() as u32))]
+        #[pallet::call_index(22)]
         pub fn create_child_identities(
-            origin,
+            origin: OriginFor<T>,
             child_keys: Vec<CreateChildIdentityWithAuth<T::AccountId>>,
-            expires_at: T::Moment
-        ) {
+            expires_at: T::Moment,
+        ) -> DispatchResult {
             Self::base_create_child_identities(origin, child_keys, expires_at)?;
+            Ok(())
         }
 
         /// Unlink a child identity from it's parent identity.
@@ -848,15 +1021,19 @@ decl_module! {
         /// - `KeyNotAllowed` only the primary key of either the parent or child identity can unlink the identities.
         /// - `NoParentIdentity` the identity `child_did` doesn't have a parent identity.
         /// - `NotParentOrChildIdentity` the caller's identity isn't the parent or child identity.
-        #[weight = <T as Config>::WeightInfo::unlink_child_identity()]
-        pub fn unlink_child_identity(origin, child_did: IdentityId) {
+        #[pallet::weight(<T as Config>::WeightInfo::unlink_child_identity())]
+        #[pallet::call_index(23)]
+        pub fn unlink_child_identity(
+            origin: OriginFor<T>,
+            child_did: IdentityId,
+        ) -> DispatchResult {
             Self::base_unlink_child_identity(origin, child_did)?;
+            Ok(())
         }
     }
-}
 
-decl_error! {
-    pub enum Error for Module<T: Config> {
+    #[pallet::error]
+    pub enum Error<T> {
         /// One secondary or primary key can only belong to one DID
         AlreadyLinked,
         /// Caller is missing an identity.
@@ -927,7 +1104,7 @@ decl_error! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     pub fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
         dids.into_iter()
             .map(|did| {
@@ -952,7 +1129,7 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> IdentityFnTrait<T::AccountId> for Module<T> {
+impl<T: Config> IdentityFnTrait<T::AccountId> for Pallet<T> {
     /// Fetches identity of a key.
     fn get_identity(key: &T::AccountId) -> Option<IdentityId> {
         Self::get_identity(key)
@@ -960,15 +1137,15 @@ impl<T: Config> IdentityFnTrait<T::AccountId> for Module<T> {
 
     /// Fetches the fee payer from the context.
     fn current_payer() -> Option<T::AccountId> {
-        <CurrentPayer<T>>::get()
+        CurrentPayer::<T>::get()
     }
 
     /// Sets the fee payer in the context.
     fn set_current_payer(payer: Option<T::AccountId>) {
         if let Some(payer) = payer {
-            <CurrentPayer<T>>::put(payer);
+            CurrentPayer::<T>::put(payer);
         } else {
-            <CurrentPayer<T>>::kill();
+            CurrentPayer::<T>::kill();
         }
     }
 
@@ -987,7 +1164,7 @@ impl<T: Config> IdentityFnTrait<T::AccountId> for Module<T> {
 }
 
 /// Used by the CDD Providers group
-impl<T: Config> ChangeMembers<IdentityId> for Module<T> {
+impl<T: Config> ChangeMembers<IdentityId> for Pallet<T> {
     /// Updates systematic CDDs of members of a group.
     fn change_members_sorted(
         incoming: &[IdentityId],
@@ -1002,7 +1179,7 @@ impl<T: Config> ChangeMembers<IdentityId> for Module<T> {
 }
 
 /// Used by the CDD Providers group
-impl<T: Config> InitializeMembers<IdentityId> for Module<T> {
+impl<T: Config> InitializeMembers<IdentityId> for Pallet<T> {
     /// Initializes members of a group by adding systematic claims for them.
     fn initialize_members(members: &[IdentityId]) {
         Self::add_systematic_cdd_claims(members, SystematicIssuers::CDDProvider);
