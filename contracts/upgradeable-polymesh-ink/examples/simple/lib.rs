@@ -70,13 +70,11 @@ pub mod test_polymesh_ink {
         pub fn create_asset(
             &mut self,
             name: Vec<u8>,
-            ticker: Ticker,
             amount: Balance,
         ) -> Result<()> {
             let api = PolymeshInk::new()?;
             api.asset_create_and_issue(
                 AssetName(name),
-                ticker,
                 AssetType::EquityCommon,
                 true,
                 Some(amount),
