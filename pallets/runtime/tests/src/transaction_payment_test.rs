@@ -26,7 +26,7 @@ fn call() -> <TestStorage as frame_system::Config>::RuntimeCall {
     })
 }
 
-type Balances = pallet_balances::Module<TestStorage>;
+type Balances = pallet_balances::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 type TransactionPayment = pallet_transaction_payment::Pallet<TestStorage>;
 

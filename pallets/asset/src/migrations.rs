@@ -9,8 +9,8 @@ pub(crate) fn migrate_to_v6<T: Config>() {
     log::info!("Running Migration for removing asset_id/tickers mappings.");
     let mut remove_mappings = BTreeMap::new();
 
-    for (asset_id, ticker) in AssetIdTicker::iter() {
-        if !Assets::contains_key(asset_id) {
+    for (asset_id, ticker) in AssetIdTicker::<T>::iter() {
+        if !Assets::<T>::contains_key(asset_id) {
             remove_mappings.insert(asset_id, ticker);
         }
     }
@@ -26,15 +26,15 @@ pub(crate) fn migrate_to_v6<T: Config>() {
             ticker
         );
 
-        AssetIdTicker::remove(asset_id);
-        TickerAssetId::remove(ticker);
+        AssetIdTicker::<T>::remove(asset_id);
+        TickerAssetId::<T>::remove(ticker);
 
         UniqueTickerRegistration::<T>::mutate(ticker, |registration| {
             if let Some(registration) = registration {
                 if registration.expiry.is_some() {
                     registration.expiry = new_expiry;
 
-                    Module::<T>::deposit_event(RawEvent::TickerRegistered(
+                    Pallet::<T>::deposit_event(Event::TickerRegistered(
                         registration.owner,
                         ticker,
                         new_expiry,

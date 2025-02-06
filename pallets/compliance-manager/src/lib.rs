@@ -53,21 +53,21 @@
 //!
 //! ### Dispatchable Functions
 //!
-//! - [add_compliance_requirement](Module::add_compliance_requirement) - Adds a new compliance requirement to an asset's compliance.
-//! - [remove_compliance_requirement](Module::remove_compliance_requirement) - Removes a compliance requirement from an asset's compliance.
-//! - [reset_asset_compliance](Module::reset_asset_compliance) - Resets(remove) an asset's compliance.
-//! - [pause_asset_compliance](Module::pause_asset_compliance) - Pauses the evaluation of asset compliance for an asset  before executing a
+//! - [add_compliance_requirement](Pallet::add_compliance_requirement) - Adds a new compliance requirement to an asset's compliance.
+//! - [remove_compliance_requirement](Pallet::remove_compliance_requirement) - Removes a compliance requirement from an asset's compliance.
+//! - [reset_asset_compliance](Pallet::reset_asset_compliance) - Resets(remove) an asset's compliance.
+//! - [pause_asset_compliance](Pallet::pause_asset_compliance) - Pauses the evaluation of asset compliance for an asset  before executing a
 //! transaction.
-//! - [add_default_trusted_claim_issuer](Module::add_default_trusted_claim_issuer) - Adds a default
+//! - [add_default_trusted_claim_issuer](Pallet::add_default_trusted_claim_issuer) - Adds a default
 //!  trusted claim issuer for a given asset.
-//! - [remove_default_trusted_claim_issuer](Module::remove_default_trusted_claim_issuer) - Removes
+//! - [remove_default_trusted_claim_issuer](Pallet::remove_default_trusted_claim_issuer) - Removes
 //!  the default claim issuer.
-//! - [change_compliance_requirement](Module::change_compliance_requirement) - Updates a compliance requirement, based on its id.
+//! - [change_compliance_requirement](Pallet::change_compliance_requirement) - Updates a compliance requirement, based on its id.
 //! based on its id for a given asset.
 //!
 //! ### Public Functions
 //!
-//! - [verify_restriction](Module::verify_restriction) - Checks if a transfer is a valid transfer and returns the result
+//! - [verify_restriction](Pallet::verify_restriction) - Checks if a transfer is a valid transfer and returns the result
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -78,9 +78,10 @@ pub mod benchmarking;
 use codec::{Decode, Encode};
 use core::result::Result;
 use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::ensure;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
+use frame_system::pallet_prelude::OriginFor;
 use pallet_base::ensure_length_ok;
 use pallet_external_agents::Config as EAConfig;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
@@ -98,32 +99,41 @@ use polymesh_primitives::{
 };
 use sp_std::{convert::From, prelude::*};
 
-type ExternalAgents<T> = pallet_external_agents::Module<T>;
-type Identity<T> = pallet_identity::Module<T>;
+type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
+type Identity<T> = pallet_identity::Pallet<T>;
 
 storage_migration_ver!(1);
 
-/// The module's configuration trait.
-pub trait Config:
-    pallet_timestamp::Config
-    + frame_system::Config
-    + pallet_permissions::Config
-    + pallet_identity::Config
-    + EAConfig
-    + AssetFnConfig
-{
-    /// The overarching event type.
-    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+pub use pallet::*;
 
-    /// Weight details of all extrinsic
-    type WeightInfo: WeightInfo;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
 
-    /// The maximum claim reads that are allowed to happen in worst case of a condition resolution
-    type MaxConditionComplexity: Get<u32>;
-}
+    #[pallet::config]
+    pub trait Config:
+        pallet_timestamp::Config
+        + frame_system::Config
+        + pallet_permissions::Config
+        + pallet_identity::Config
+        + EAConfig
+        + AssetFnConfig
+    {
+        /// The overarching event type.
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-decl_event!(
-    pub enum Event {
+        /// Weight details of all extrinsic
+        type WeightInfo: WeightInfo;
+
+        /// The maximum claim reads that are allowed to happen in worst case of a condition resolution
+        #[pallet::constant]
+        type MaxConditionComplexity: Get<u32>;
+    }
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
         /// Emitted when new compliance requirement is created.
         /// (caller DID, AssetId, ComplianceRequirement).
         ComplianceRequirementCreated(IdentityId, AssetId, ComplianceRequirement),
@@ -152,75 +162,92 @@ decl_event!(
         /// (caller DID, AssetId, Removed TrustedIssuer).
         TrustedDefaultClaimIssuerRemoved(IdentityId, AssetId, IdentityId),
     }
-);
 
-pub trait WeightInfo {
-    fn add_compliance_requirement(c: u32) -> Weight;
-    fn remove_compliance_requirement() -> Weight;
-    fn pause_asset_compliance() -> Weight;
-    fn resume_asset_compliance() -> Weight;
-    fn add_default_trusted_claim_issuer() -> Weight;
-    fn remove_default_trusted_claim_issuer() -> Weight;
-    fn change_compliance_requirement(c: u32) -> Weight;
-    fn replace_asset_compliance(c: u32) -> Weight;
-    fn reset_asset_compliance() -> Weight;
-    fn is_condition_satisfied(c: u32, t: u32) -> Weight;
-    fn is_identity_condition(e: u32) -> Weight;
-    fn is_any_requirement_compliant(i: u32) -> Weight;
+    pub trait WeightInfo {
+        fn add_compliance_requirement(c: u32) -> Weight;
+        fn remove_compliance_requirement() -> Weight;
+        fn pause_asset_compliance() -> Weight;
+        fn resume_asset_compliance() -> Weight;
+        fn add_default_trusted_claim_issuer() -> Weight;
+        fn remove_default_trusted_claim_issuer() -> Weight;
+        fn change_compliance_requirement(c: u32) -> Weight;
+        fn replace_asset_compliance(c: u32) -> Weight;
+        fn reset_asset_compliance() -> Weight;
+        fn is_condition_satisfied(c: u32, t: u32) -> Weight;
+        fn is_identity_condition(e: u32) -> Weight;
+        fn is_any_requirement_compliant(i: u32) -> Weight;
 
-    fn condition_costs(conditions: u32, claims: u32, issuers: u32, claim_types: u32) -> Weight;
+        fn condition_costs(conditions: u32, claims: u32, issuers: u32, claim_types: u32) -> Weight;
 
-    fn add_compliance_requirement_full(sender: &[Condition], receiver: &[Condition]) -> Weight {
-        let (condtions, claims, issuers, claim_types) =
-            conditions_total_counts(sender.iter().chain(receiver.iter()));
-        Self::add_compliance_requirement(condtions).saturating_add(Self::condition_costs(
-            0,
-            claims,
-            issuers,
-            claim_types,
-        ))
+        fn add_compliance_requirement_full(sender: &[Condition], receiver: &[Condition]) -> Weight {
+            let (condtions, claims, issuers, claim_types) =
+                conditions_total_counts(sender.iter().chain(receiver.iter()));
+            Self::add_compliance_requirement(condtions).saturating_add(Self::condition_costs(
+                0,
+                claims,
+                issuers,
+                claim_types,
+            ))
+        }
+
+        fn change_compliance_requirement_full(req: &ComplianceRequirement) -> Weight {
+            let (conditions, claims, issuers, claim_types) = req.counts();
+            Self::change_compliance_requirement(conditions).saturating_add(Self::condition_costs(
+                0,
+                claims,
+                issuers,
+                claim_types,
+            ))
+        }
+
+        fn replace_asset_compliance_full(reqs: &[ComplianceRequirement]) -> Weight {
+            let (conditions, claims, issuers, claim_types) =
+                conditions_total_counts(reqs.iter().flat_map(|req| req.conditions()));
+            Self::replace_asset_compliance(reqs.len() as u32).saturating_add(Self::condition_costs(
+                conditions,
+                claims,
+                issuers,
+                claim_types,
+            ))
+        }
+
+        fn is_any_requirement_compliant_loop(i: u32) -> Weight {
+            Self::is_any_requirement_compliant(i)
+                .saturating_sub(Self::is_identity_condition(0).saturating_mul(i.into()))
+        }
     }
 
-    fn change_compliance_requirement_full(req: &ComplianceRequirement) -> Weight {
-        let (conditions, claims, issuers, claim_types) = req.counts();
-        Self::change_compliance_requirement(conditions).saturating_add(Self::condition_costs(
-            0,
-            claims,
-            issuers,
-            claim_types,
-        ))
+    /// Compliance for an asset ([`AssetId`] -> [`AssetCompliance`])
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn asset_compliance)]
+    pub(super) type AssetCompliances<T: Config> =
+        StorageMap<_, Blake2_128Concat, AssetId, AssetCompliance, ValueQuery>;
+
+    /// List of trusted claim issuer [`AssetId`] -> Issuer Identity
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn trusted_claim_issuer)]
+    pub(super) type TrustedClaimIssuer<T: Config> =
+        StorageMap<_, Blake2_128Concat, AssetId, Vec<TrustedIssuer>, ValueQuery>;
+
+    /// Storage version.
+    #[pallet::storage]
+    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
+
+    #[pallet::genesis_config]
+    #[derive(Default)]
+    pub struct GenesisConfig;
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+        fn build(&self) {
+            StorageVersion::<T>::put(Version::new(1));
+        }
     }
 
-    fn replace_asset_compliance_full(reqs: &[ComplianceRequirement]) -> Weight {
-        let (conditions, claims, issuers, claim_types) =
-            conditions_total_counts(reqs.iter().flat_map(|req| req.conditions()));
-        Self::replace_asset_compliance(reqs.len() as u32).saturating_add(Self::condition_costs(
-            conditions,
-            claims,
-            issuers,
-            claim_types,
-        ))
-    }
-
-    fn is_any_requirement_compliant_loop(i: u32) -> Weight {
-        Self::is_any_requirement_compliant(i)
-            .saturating_sub(Self::is_identity_condition(0).saturating_mul(i.into()))
-    }
-}
-
-decl_storage! {
-    trait Store for Module<T: Config> as ComplianceManager {
-        /// Compliance for an asset ([`AssetId`] -> [`AssetCompliance`])
-        pub AssetCompliances get(fn asset_compliance): map hasher(blake2_128_concat) AssetId => AssetCompliance;
-        /// List of trusted claim issuer [`AssetId`] -> Issuer Identity
-        pub TrustedClaimIssuer get(fn trusted_claim_issuer): map hasher(blake2_128_concat) AssetId => Vec<TrustedIssuer>;
-        /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
-    }
-}
-
-decl_error! {
-    pub enum Error for Module<T: Config> {
+    #[pallet::error]
+    pub enum Error<T> {
         /// User is not authorized.
         Unauthorized,
         /// Did not exist.
@@ -234,23 +261,14 @@ decl_error! {
         /// The worst case scenario of the compliance requirement is too complex.
         ComplianceRequirementTooComplex,
         /// The maximum weight limit for executing the function was exceeded.
-        WeightLimitExceeded
+        WeightLimitExceeded,
     }
-}
 
-decl_module! {
-    /// The module declaration.
-    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
-        type Error = Error<T>;
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
 
-        const MaxConditionComplexity: u32 = T::MaxConditionComplexity::get();
-
-        fn deposit_event() = default;
-
-        fn on_runtime_upgrade() -> Weight {
-            Weight::zero()
-        }
-
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Adds a compliance requirement to an asset given by `asset_id`.
         /// If there are duplicate ClaimTypes for a particular trusted issuer, duplicates are removed.
         ///
@@ -262,15 +280,21 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::add_compliance_requirement_full(&sender_conditions, &receiver_conditions)]
+        #[pallet::weight(<T as Config>::WeightInfo::add_compliance_requirement_full(&sender_conditions, &receiver_conditions))]
+        #[pallet::call_index(0)]
         pub fn add_compliance_requirement(
-            origin,
+            origin: OriginFor<T>,
             asset_id: AssetId,
             sender_conditions: Vec<Condition>,
-            receiver_conditions: Vec<Condition>
+            receiver_conditions: Vec<Condition>,
         ) -> DispatchResult {
             let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
-            Self::base_add_compliance_requirement(caller_did, asset_id, sender_conditions, receiver_conditions)
+            Self::base_add_compliance_requirement(
+                caller_did,
+                asset_id,
+                sender_conditions,
+                receiver_conditions,
+            )
         }
 
         /// Removes a compliance requirement from an asset's compliance.
@@ -282,18 +306,30 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::remove_compliance_requirement()]
-        pub fn remove_compliance_requirement(origin, asset_id: AssetId, id: u32) {
+        #[pallet::weight(<T as Config>::WeightInfo::remove_compliance_requirement())]
+        #[pallet::call_index(1)]
+        pub fn remove_compliance_requirement(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            id: u32,
+        ) -> DispatchResult {
             let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
 
-            AssetCompliances::try_mutate(asset_id, |AssetCompliance { requirements, .. }| {
-                let before = requirements.len();
-                requirements.retain(|requirement| requirement.id != id);
-                ensure!(before != requirements.len(), Error::<T>::InvalidComplianceRequirementId);
-                Ok(()) as DispatchResult
-            })?;
+            AssetCompliances::<T>::try_mutate(
+                asset_id,
+                |AssetCompliance { requirements, .. }| {
+                    let before = requirements.len();
+                    requirements.retain(|requirement| requirement.id != id);
+                    ensure!(
+                        before != requirements.len(),
+                        Error::<T>::InvalidComplianceRequirementId
+                    );
+                    Ok(()) as DispatchResult
+                },
+            )?;
 
             Self::deposit_event(Event::ComplianceRequirementRemoved(did, asset_id, id));
+            Ok(())
         }
 
         /// Replaces an asset's compliance with a new compliance.
@@ -311,29 +347,48 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::replace_asset_compliance_full(&asset_compliance)]
-        pub fn replace_asset_compliance(origin, asset_id: AssetId, asset_compliance: Vec<ComplianceRequirement>) {
+        #[pallet::weight(<T as Config>::WeightInfo::replace_asset_compliance_full(&asset_compliance))]
+        #[pallet::call_index(2)]
+        pub fn replace_asset_compliance(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            asset_compliance: Vec<ComplianceRequirement>,
+        ) -> DispatchResult {
             let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
 
             // Ensure `Scope::Custom(..)`s are limited.
-            Self::ensure_custom_scopes_limited(asset_compliance.iter().flat_map(|c| c.conditions()))?;
+            Self::ensure_custom_scopes_limited(
+                asset_compliance.iter().flat_map(|c| c.conditions()),
+            )?;
 
             // Ensure there are no duplicate requirement ids.
             let mut asset_compliance = asset_compliance;
             let start_len = asset_compliance.len();
             asset_compliance.sort_by_key(|r| r.id);
             asset_compliance.dedup_by_key(|r| r.id);
-            ensure!(start_len == asset_compliance.len(), Error::<T>::DuplicateComplianceRequirements);
+            ensure!(
+                start_len == asset_compliance.len(),
+                Error::<T>::DuplicateComplianceRequirements
+            );
 
             // Dedup `ClaimType`s and ensure issuers are limited in length.
-            asset_compliance.iter_mut().try_for_each(Self::dedup_and_ensure_requirement_limited)?;
+            asset_compliance
+                .iter_mut()
+                .try_for_each(Self::dedup_and_ensure_requirement_limited)?;
 
             // Ensure the complexity is limited.
             Self::verify_compliance_complexity(&asset_compliance, asset_id, 0)?;
 
             // Commit changes to storage + emit event.
-            AssetCompliances::mutate(&asset_id, |old| old.requirements = asset_compliance.clone());
-            Self::deposit_event(Event::AssetComplianceReplaced(did, asset_id, asset_compliance));
+            AssetCompliances::<T>::mutate(&asset_id, |old| {
+                old.requirements = asset_compliance.clone()
+            });
+            Self::deposit_event(Event::AssetComplianceReplaced(
+                did,
+                asset_id,
+                asset_compliance,
+            ));
+            Ok(())
         }
 
         /// Removes an asset's compliance
@@ -344,11 +399,13 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::reset_asset_compliance()]
-        pub fn reset_asset_compliance(origin, asset_id: AssetId) {
+        #[pallet::weight(<T as Config>::WeightInfo::reset_asset_compliance())]
+        #[pallet::call_index(3)]
+        pub fn reset_asset_compliance(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
             let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
-            AssetCompliances::remove(asset_id);
+            AssetCompliances::<T>::remove(asset_id);
             Self::deposit_event(Event::AssetComplianceReset(did, asset_id));
+            Ok(())
         }
 
         /// Pauses the verification of conditions for `asset_id` during transfers.
@@ -359,10 +416,12 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::pause_asset_compliance()]
-        pub fn pause_asset_compliance(origin, asset_id: AssetId) {
+        #[pallet::weight(<T as Config>::WeightInfo::pause_asset_compliance())]
+        #[pallet::call_index(4)]
+        pub fn pause_asset_compliance(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
             let did = Self::pause_resume_asset_compliance(origin, asset_id, true)?;
             Self::deposit_event(Event::AssetCompliancePaused(did, asset_id));
+            Ok(())
         }
 
         /// Resumes the verification of conditions for `asset_id` during transfers.
@@ -373,10 +432,12 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::resume_asset_compliance()]
-        pub fn resume_asset_compliance(origin, asset_id: AssetId) {
+        #[pallet::weight(<T as Config>::WeightInfo::resume_asset_compliance())]
+        #[pallet::call_index(5)]
+        pub fn resume_asset_compliance(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
             let did = Self::pause_resume_asset_compliance(origin, asset_id, false)?;
             Self::deposit_event(Event::AssetComplianceResumed(did, asset_id));
+            Ok(())
         }
 
         /// Adds another default trusted claim issuer at the asset level.
@@ -388,8 +449,13 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::add_default_trusted_claim_issuer()]
-        pub fn add_default_trusted_claim_issuer(origin, asset_id: AssetId, issuer: TrustedIssuer) -> DispatchResult {
+        #[pallet::weight(<T as Config>::WeightInfo::add_default_trusted_claim_issuer())]
+        #[pallet::call_index(6)]
+        pub fn add_default_trusted_claim_issuer(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            issuer: TrustedIssuer,
+        ) -> DispatchResult {
             let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
             Self::base_add_default_trusted_claim_issuer(caller_did, asset_id, issuer)
         }
@@ -403,16 +469,27 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::remove_default_trusted_claim_issuer()]
-        pub fn remove_default_trusted_claim_issuer(origin, asset_id: AssetId, issuer: IdentityId) {
+        #[pallet::weight(<T as Config>::WeightInfo::remove_default_trusted_claim_issuer())]
+        #[pallet::call_index(7)]
+        pub fn remove_default_trusted_claim_issuer(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            issuer: IdentityId,
+        ) -> DispatchResult {
             let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
-            TrustedClaimIssuer::try_mutate(asset_id, |issuers| {
+            TrustedClaimIssuer::<T>::try_mutate(asset_id, |issuers| {
                 let len = issuers.len();
                 issuers.retain(|ti| ti.issuer != issuer);
-                ensure!(len != issuers.len(), Error::<T>::IncorrectOperationOnTrustedIssuer);
+                ensure!(
+                    len != issuers.len(),
+                    Error::<T>::IncorrectOperationOnTrustedIssuer
+                );
                 Ok(()) as DispatchResult
             })?;
-            Self::deposit_event(Event::TrustedDefaultClaimIssuerRemoved(did, asset_id, issuer));
+            Self::deposit_event(Event::TrustedDefaultClaimIssuerRemoved(
+                did, asset_id, issuer,
+            ));
+            Ok(())
         }
 
         /// Modify an existing compliance requirement of a given asset.
@@ -424,18 +501,24 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::change_compliance_requirement_full(&new_req)]
-        pub fn change_compliance_requirement(origin, asset_id: AssetId, new_req: ComplianceRequirement) {
+        #[pallet::weight(<T as Config>::WeightInfo::change_compliance_requirement_full(&new_req))]
+        #[pallet::call_index(8)]
+        pub fn change_compliance_requirement(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            new_req: ComplianceRequirement,
+        ) -> DispatchResult {
             let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
 
             // Ensure `Scope::Custom(..)`s are limited.
             Self::ensure_custom_scopes_limited(new_req.conditions())?;
 
-            let mut asset_compliance = AssetCompliances::get(asset_id);
+            let mut asset_compliance = AssetCompliances::<T>::get(asset_id);
             let reqs = &mut asset_compliance.requirements;
 
             // If the compliance requirement is not found, throw an error.
-            let pos = reqs.binary_search_by_key(&new_req.id, |req| req.id)
+            let pos = reqs
+                .binary_search_by_key(&new_req.id, |req| req.id)
                 .map_err(|_| Error::<T>::InvalidComplianceRequirementId)?;
 
             // Dedup `ClaimType`s and ensure issuers are limited in length.
@@ -447,13 +530,14 @@ decl_module! {
             Self::verify_compliance_complexity(&reqs, asset_id, 0)?;
 
             // Store updated asset compliance.
-            AssetCompliances::insert(&asset_id, asset_compliance);
+            AssetCompliances::<T>::insert(&asset_id, asset_compliance);
             Self::deposit_event(Event::ComplianceRequirementChanged(did, asset_id, new_req));
+            Ok(())
         }
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     /// Adds a compliance requirement to the given `asset_id`.
     fn base_add_compliance_requirement(
         caller_did: IdentityId,
@@ -477,7 +561,7 @@ impl<T: Config> Module<T> {
         Self::dedup_and_ensure_requirement_limited(&mut new_req)?;
 
         // Add to existing requirements, and place a limit on the total complexity.
-        let mut asset_compliance = AssetCompliances::get(asset_id);
+        let mut asset_compliance = AssetCompliances::<T>::get(asset_id);
         asset_compliance.requirements.push(new_req.clone());
         Self::verify_compliance_complexity(&asset_compliance.requirements, asset_id, 0)?;
 
@@ -485,7 +569,7 @@ impl<T: Config> Module<T> {
         T::ProtocolFee::charge_fee(ProtocolOp::ComplianceManagerAddComplianceRequirement)?;
 
         // Commit new compliance to storage & emit event.
-        AssetCompliances::insert(&asset_id, asset_compliance);
+        AssetCompliances::<T>::insert(&asset_id, asset_compliance);
         Self::deposit_event(Event::ComplianceRequirementCreated(
             caller_did, asset_id, new_req,
         ));
@@ -506,7 +590,7 @@ impl<T: Config> Module<T> {
         // Ensure the new `issuer` is limited; the existing ones we have previously checked.
         Self::ensure_issuer_limited(&issuer)?;
 
-        TrustedClaimIssuer::try_mutate(asset_id, |issuers| {
+        TrustedClaimIssuer::<T>::try_mutate(asset_id, |issuers| {
             // Ensure we don't have too many issuers now in total.
             let new_count = issuers.len().saturating_add(1);
             ensure_length_ok::<T>(new_count)?;
@@ -519,7 +603,7 @@ impl<T: Config> Module<T> {
 
             // Ensure the complexity is limited for the asset_id.
             Self::base_verify_compliance_complexity(
-                &AssetCompliances::get(asset_id).requirements,
+                &AssetCompliances::<T>::get(asset_id).requirements,
                 new_count,
             )?;
 
@@ -686,12 +770,12 @@ impl<T: Config> Module<T> {
 
     /// Pauses or resumes the asset compliance.
     fn pause_resume_asset_compliance(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         asset_id: AssetId,
         pause: bool,
     ) -> Result<IdentityId, DispatchError> {
         let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
-        AssetCompliances::mutate(&asset_id, |compliance| compliance.paused = pause);
+        AssetCompliances::<T>::mutate(&asset_id, |compliance| compliance.paused = pause);
         Ok(did)
     }
 
@@ -711,7 +795,7 @@ impl<T: Config> Module<T> {
         asset_id: AssetId,
         add: usize,
     ) -> DispatchResult {
-        let count = TrustedClaimIssuer::decode_len(asset_id)
+        let count = TrustedClaimIssuer::<T>::decode_len(asset_id)
             .unwrap_or_default()
             .saturating_add(add);
         Self::base_verify_compliance_complexity(asset_compliance, count)
@@ -808,7 +892,7 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> ComplianceFnConfig for Module<T> {
+impl<T: Config> ComplianceFnConfig for Pallet<T> {
     fn is_compliant(
         asset_id: &AssetId,
         sender_did: IdentityId,
@@ -877,7 +961,7 @@ impl<T: Config> ComplianceFnConfig for Module<T> {
 // All RPC functions!
 //==========================================================================
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     /// Returns a [`ComplianceReport`] for the given `asset_id`.
     pub fn compliance_report(
         asset_id: &AssetId,

@@ -6,7 +6,7 @@ use codec::Encode;
 use frame_support::dispatch::DispatchErrorWithPostInfo;
 use frame_support::{
     assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, traits::TryCollect,
-    BoundedBTreeSet, IterableStorageDoubleMap, StorageDoubleMap, StorageMap,
+    BoundedBTreeSet,
 };
 use rand::{prelude::*, thread_rng};
 use sp_runtime::{AccountId32, AnySignature};
@@ -17,9 +17,9 @@ use pallet_nft::NumberOfNFTs;
 use pallet_portfolio::{PortfolioLockedNFT, PortfolioNFT};
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
-    AffirmsReceived, InstructionAffirmsPending, InstructionLegs, InstructionMediatorsAffirmations,
-    InstructionMemos, NumberOfVenueSigners, OffChainAffirmations, RawEvent, UserAffirmations,
-    UserVenues, VenueInstructions,
+    AffirmsReceived, Event, InstructionAffirmsPending, InstructionLegs,
+    InstructionMediatorsAffirmations, InstructionMemos, NumberOfVenueSigners, OffChainAffirmations,
+    UserAffirmations, UserVenues, VenueInstructions,
 };
 use polymesh_primitives::asset::{AssetId, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
@@ -50,19 +50,19 @@ use super::storage::{
 };
 use super::{next_block, ExtBuilder};
 
-type Identity = pallet_identity::Module<TestStorage>;
-type Balances = pallet_balances::Module<TestStorage>;
-type Asset = pallet_asset::Module<TestStorage>;
-type Portfolio = pallet_portfolio::Module<TestStorage>;
+type Identity = pallet_identity::Pallet<TestStorage>;
+type Balances = pallet_balances::Pallet<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
+type Portfolio = pallet_portfolio::Pallet<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
-type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
+type ComplianceManager = pallet_compliance_manager::Pallet<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type Moment = <TestStorage as pallet_timestamp::Config>::Moment;
 type BlockNumber = <TestStorage as frame_system::Config>::BlockNumber;
-type Settlement = pallet_settlement::Module<TestStorage>;
+type Settlement = pallet_settlement::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 type Error = pallet_settlement::Error<TestStorage>;
 type Scheduler = pallet_scheduler::Pallet<TestStorage>;
@@ -196,11 +196,13 @@ fn venue_details_length_limited() {
 }
 
 fn venue_instructions(id: VenueId) -> Vec<InstructionId> {
-    VenueInstructions::iter_prefix(id).map(|(i, _)| i).collect()
+    VenueInstructions::<TestStorage>::iter_prefix(id)
+        .map(|(i, _)| i)
+        .collect()
 }
 
 fn user_venues(did: IdentityId) -> Vec<VenueId> {
-    let mut venues = UserVenues::iter_prefix(did)
+    let mut venues = UserVenues::<TestStorage>::iter_prefix(did)
         .map(|(i, _)| i)
         .collect::<Vec<_>>();
     venues.sort();
@@ -468,7 +470,7 @@ fn token_swap() {
 
         for i in 0..legs.len() {
             assert_eq!(
-                InstructionLegs::get(&instruction_id, &LegId(i as u64)),
+                InstructionLegs::<TestStorage>::get(&instruction_id, &LegId(i as u64)),
                 legs[i].clone().into()
             );
         }
@@ -598,7 +600,7 @@ fn settle_on_block() {
 
         for i in 0..legs.len() {
             assert_eq!(
-                InstructionLegs::get(&instruction_id, &LegId(i as u64)),
+                InstructionLegs::<TestStorage>::get(&instruction_id, &LegId(i as u64)),
                 legs[i].clone().into()
             );
         }
@@ -734,7 +736,7 @@ fn failed_execution() {
 
         for i in 0..legs.len() {
             assert_eq!(
-                InstructionLegs::get(&instruction_id, &LegId(i as u64)),
+                InstructionLegs::<TestStorage>::get(&instruction_id, &LegId(i as u64)),
                 legs[i].clone().into()
             );
         }
@@ -1242,11 +1244,11 @@ fn claim_multiple_receipts_during_authorization() {
 
         assert_affirms_pending(id, 0);
         assert_eq!(
-            OffChainAffirmations::get(id, LegId(0)),
+            OffChainAffirmations::<TestStorage>::get(id, LegId(0)),
             AffirmationStatus::Affirmed
         );
         assert_eq!(
-            OffChainAffirmations::get(id, LegId(1)),
+            OffChainAffirmations::<TestStorage>::get(id, LegId(1)),
             AffirmationStatus::Affirmed
         );
         assert_leg_status(
@@ -1941,7 +1943,10 @@ fn dirty_storage_with_tx() {
         let total_amount = amount1 + amount2;
         assert_eq!(Settlement::instruction_affirms_pending(instruction_id), 0);
         next_block();
-        assert_eq!(InstructionLegs::iter_prefix(instruction_id).count(), 0);
+        assert_eq!(
+            InstructionLegs::<TestStorage>::iter_prefix(instruction_id).count(),
+            0
+        );
 
         // Ensure proper balance transfers
         alice.assert_balance_decreased(&asset_id, total_amount);
@@ -2179,7 +2184,10 @@ fn assert_number_of_venue_signers() {
             initial_signers.clone(),
             VenueType::Exchange
         ));
-        assert_eq!(NumberOfVenueSigners::get(venue_id), max_signers);
+        assert_eq!(
+            NumberOfVenueSigners::<TestStorage>::get(venue_id),
+            max_signers
+        );
         // Verifies that an error will be thrown when the limit is exceeded
         assert_noop!(
             Settlement::update_venue_signers(
@@ -2197,7 +2205,10 @@ fn assert_number_of_venue_signers() {
             initial_signers[0..3].to_vec(),
             false
         ));
-        assert_eq!(NumberOfVenueSigners::get(venue_id), max_signers - 3);
+        assert_eq!(
+            NumberOfVenueSigners::<TestStorage>::get(venue_id),
+            max_signers - 3
+        );
         // Verifies that the count is being updated when adding adding new signers
         assert_ok!(Settlement::update_venue_signers(
             alice.origin(),
@@ -2205,7 +2216,10 @@ fn assert_number_of_venue_signers() {
             initial_signers[0..2].to_vec(),
             true
         ));
-        assert_eq!(NumberOfVenueSigners::get(venue_id), max_signers - 1);
+        assert_eq!(
+            NumberOfVenueSigners::<TestStorage>::get(venue_id),
+            max_signers - 1
+        );
     })
 }
 
@@ -2541,14 +2555,14 @@ fn settle_manual_instruction_with_portfolio() {
         let mut system_events = System::events();
         assert_eq!(
             system_events.pop().unwrap().event,
-            super::storage::EventTest::Settlement(RawEvent::SettlementManuallyExecuted(
+            super::storage::EventTest::Settlement(Event::SettlementManuallyExecuted(
                 alice.did,
                 instruction_id
             ))
         );
         assert_eq!(
             system_events.pop().unwrap().event,
-            super::storage::EventTest::Settlement(RawEvent::InstructionExecuted(
+            super::storage::EventTest::Settlement(Event::InstructionExecuted(
                 alice.did,
                 instruction_id
             ))
@@ -2709,16 +2723,16 @@ fn add_and_affirm_nft_instruction() {
         ));
 
         // Before bob accepts the transaction balances must not be changed and the NFT must be locked.
-        assert_eq!(NumberOfNFTs::get(asset_id, alice.did), 1);
+        assert_eq!(NumberOfNFTs::<TestStorage>::get(asset_id, alice.did), 1);
         assert_eq!(
-            PortfolioNFT::get(
+            PortfolioNFT::<TestStorage>::get(
                 PortfolioId::default_portfolio(alice.did),
                 (asset_id, NFTId(1))
             ),
             true
         );
         assert_eq!(
-            PortfolioLockedNFT::get(
+            PortfolioLockedNFT::<TestStorage>::get(
                 PortfolioId::default_portfolio(alice.did),
                 (asset_id, NFTId(1))
             ),
@@ -2732,31 +2746,31 @@ fn add_and_affirm_nft_instruction() {
             default_portfolio_btreeset(bob.did),
         ));
         next_block();
-        assert_eq!(NumberOfNFTs::get(asset_id, alice.did), 0);
-        assert_eq!(NumberOfNFTs::get(asset_id, bob.did), 1);
+        assert_eq!(NumberOfNFTs::<TestStorage>::get(asset_id, alice.did), 0);
+        assert_eq!(NumberOfNFTs::<TestStorage>::get(asset_id, bob.did), 1);
         assert_eq!(
-            PortfolioNFT::get(
+            PortfolioNFT::<TestStorage>::get(
                 PortfolioId::default_portfolio(alice.did),
                 (asset_id, NFTId(1))
             ),
             false
         );
         assert_eq!(
-            PortfolioNFT::get(
+            PortfolioNFT::<TestStorage>::get(
                 PortfolioId::default_portfolio(bob.did),
                 (asset_id, NFTId(1))
             ),
             true
         );
         assert_eq!(
-            PortfolioLockedNFT::get(
+            PortfolioLockedNFT::<TestStorage>::get(
                 PortfolioId::default_portfolio(alice.did),
                 (asset_id, NFTId(1))
             ),
             false
         );
         assert_eq!(
-            PortfolioLockedNFT::get(
+            PortfolioLockedNFT::<TestStorage>::get(
                 PortfolioId::default_portfolio(bob.did),
                 (asset_id, NFTId(1))
             ),
@@ -3494,8 +3508,14 @@ fn manually_execute_failed_instruction() {
         assert_ok!(Asset::freeze(alice.origin(), asset_id));
         next_block();
         assert_instruction_status(InstructionId(0), InstructionStatus::Failed);
-        assert_eq!(BalanceOf::get(asset_id, alice.did), ISSUE_AMOUNT);
-        assert_eq!(BalanceOf::get(asset_id2, alice.did), ISSUE_AMOUNT);
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(asset_id, alice.did),
+            ISSUE_AMOUNT
+        );
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(asset_id2, alice.did),
+            ISSUE_AMOUNT
+        );
         // Executes the instruction once again, now successfully.
         assert_ok!(Asset::unfreeze(alice.origin(), asset_id));
         assert_ok!(Settlement::execute_manual_instruction(
@@ -3507,10 +3527,16 @@ fn manually_execute_failed_instruction() {
             0,
             None
         ));
-        assert_eq!(BalanceOf::get(asset_id, bob.did), 1);
-        assert_eq!(BalanceOf::get(asset_id2, bob.did), 1);
-        assert_eq!(BalanceOf::get(asset_id, alice.did), ISSUE_AMOUNT - 1);
-        assert_eq!(BalanceOf::get(asset_id2, alice.did), ISSUE_AMOUNT - 1);
+        assert_eq!(BalanceOf::<TestStorage>::get(asset_id, bob.did), 1);
+        assert_eq!(BalanceOf::<TestStorage>::get(asset_id2, bob.did), 1);
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(asset_id, alice.did),
+            ISSUE_AMOUNT - 1
+        );
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(asset_id2, alice.did),
+            ISSUE_AMOUNT - 1
+        );
         assert_instruction_status(
             InstructionId(0),
             InstructionStatus::Success(System::block_number()),
@@ -4170,38 +4196,41 @@ fn assert_add_instruction_storage(
 ) {
     portfolios_pending_approval.iter().for_each(|portfolio_id| {
         assert_eq!(
-            UserAffirmations::get(portfolio_id, instruction_id),
+            UserAffirmations::<TestStorage>::get(portfolio_id, instruction_id),
             AffirmationStatus::Pending
         )
     });
     portfolios_pre_approved.iter().for_each(|portfolio_id| {
         assert_eq!(
-            UserAffirmations::get(portfolio_id, instruction_id),
+            UserAffirmations::<TestStorage>::get(portfolio_id, instruction_id),
             AffirmationStatus::Affirmed
         );
         assert_eq!(
-            AffirmsReceived::get(instruction_id, portfolio_id),
+            AffirmsReceived::<TestStorage>::get(instruction_id, portfolio_id),
             AffirmationStatus::Affirmed
         )
     });
     offchain_legs.iter().for_each(|leg_id| {
         assert_eq!(
-            OffChainAffirmations::get(instruction_id, leg_id),
+            OffChainAffirmations::<TestStorage>::get(instruction_id, leg_id),
             AffirmationStatus::Pending
         );
     });
     assert_eq!(
-        InstructionAffirmsPending::get(instruction_id),
+        InstructionAffirmsPending::<TestStorage>::get(instruction_id),
         portfolios_pending_approval.len() as u64
             + offchain_legs.len() as u64
             + mediators_pending_approval.len() as u64
     );
 
-    assert_eq!(InstructionMemos::get(instruction_id), instruction_memo);
+    assert_eq!(
+        InstructionMemos::<TestStorage>::get(instruction_id),
+        instruction_memo
+    );
 
     (0..legs.len()).for_each(|i| {
         assert_eq!(
-            InstructionLegs::get(instruction_id, LegId(i as u64)),
+            InstructionLegs::<TestStorage>::get(instruction_id, LegId(i as u64)),
             Some(legs[i].clone())
         )
     });

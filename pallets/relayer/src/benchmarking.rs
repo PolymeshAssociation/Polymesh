@@ -17,8 +17,9 @@ use crate::*;
 
 use frame_benchmarking::benchmarks;
 use pallet_identity::benchmarking::{user, User};
+use polymesh_primitives::Balance;
 
-type Relayer<T> = crate::Module<T>;
+type Relayer<T> = crate::Pallet<T>;
 
 pub(crate) const SEED: u32 = 0;
 

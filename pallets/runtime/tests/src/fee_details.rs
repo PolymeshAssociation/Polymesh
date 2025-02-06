@@ -13,8 +13,8 @@ use sp_keyring::AccountKeyring;
 use sp_runtime::transaction_validity::InvalidTransaction;
 
 type MultiSig = multisig::Pallet<TestStorage>;
-type Balances = balances::Module<TestStorage>;
-type Identity = identity::Module<TestStorage>;
+type Balances = balances::Pallet<TestStorage>;
+type Identity = identity::Pallet<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 
 #[test]
@@ -78,7 +78,7 @@ fn cdd_checks() {
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: alice_signatory.clone(),
                         auth_id: alice_auth_id,
-                        _auth_issuer_pays: true
+                        auth_issuer_pays: true
                     }),
                     &alice_account
                 ),
@@ -91,7 +91,7 @@ fn cdd_checks() {
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: alice_signatory.clone(),
                         auth_id: alice_auth_id,
-                        _auth_issuer_pays: false
+                        auth_issuer_pays: false
                     }),
                     &alice_account
                 ),
@@ -112,7 +112,7 @@ fn cdd_checks() {
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: alice_signatory.clone(),
                         auth_id: alice_auth_id,
-                        _auth_issuer_pays: false
+                        auth_issuer_pays: false
                     }),
                     &alice_account
                 ),
@@ -125,7 +125,7 @@ fn cdd_checks() {
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: alice_signatory.clone(),
                         auth_id: alice_auth_id,
-                        _auth_issuer_pays: true
+                        auth_issuer_pays: true
                     }),
                     &alice_account
                 ),
@@ -146,7 +146,7 @@ fn cdd_checks() {
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: charlie_signatory.clone(),
                         auth_id: charlie_auth_id,
-                        _auth_issuer_pays: true
+                        auth_issuer_pays: true
                     }),
                     &charlie_account
                 ),
@@ -159,7 +159,7 @@ fn cdd_checks() {
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: charlie_signatory,
                         auth_id: charlie_auth_id,
-                        _auth_issuer_pays: false
+                        auth_issuer_pays: false
                     }),
                     &charlie_account
                 ),

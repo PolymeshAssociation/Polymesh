@@ -26,10 +26,10 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::dispatch::DispatchResult;
+use frame_support::ensure;
 use frame_support::weights::Weight;
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use scale_info::TypeInfo;
 use sp_runtime::DispatchError;
 use sp_std::collections::btree_set::BTreeSet;
@@ -47,22 +47,35 @@ use polymesh_primitives::{
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 
+storage_migration_ver!(1);
+
 pub const MAX_TIERS: usize = 10;
 
-type ExternalAgents<T> = pallet_external_agents::Module<T>;
-type Identity<T> = pallet_identity::Module<T>;
-type Portfolio<T> = pallet_portfolio::Module<T>;
-type Settlement<T> = pallet_settlement::Module<T>;
+type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
+type Identity<T> = pallet_identity::Pallet<T>;
+type Portfolio<T> = pallet_portfolio::Pallet<T>;
+type Settlement<T> = pallet_settlement::Pallet<T>;
 type Timestamp<T> = pallet_timestamp::Pallet<T>;
 
 /// The per-AssetId ID of a fundraiser.
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct FundraiserId(pub u64);
 impl_checked_inc!(FundraiserId);
 
 /// Status of a Fundraiser.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, TypeInfo, PartialOrd, Ord, Debug)]
+#[derive(
+    Clone,
+    PartialEq,
+    Eq,
+    Encode,
+    Decode,
+    TypeInfo,
+    MaxEncodedLen,
+    PartialOrd,
+    Ord,
+    Debug
+)]
 pub enum FundraiserStatus {
     /// Fundraiser is open for investments if start_time <= current_time < end_time.
     Live,
@@ -129,7 +142,7 @@ pub struct PriceTier {
 
 /// Single price tier of a `Fundraiser`.
 /// Similar to a `PriceTier` but with an extra field `remaining` for tracking the amount available for purchase in a tier.
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[derive(Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct FundraiserTier {
@@ -165,27 +178,38 @@ pub trait WeightInfo {
     fn stop() -> Weight;
 }
 
-pub trait Config:
-    frame_system::Config
-    + pallet_identity::Config
-    + pallet_settlement::Config
-    + pallet_portfolio::Config
-    + pallet_base::Config
-{
-    /// The overarching event type.
-    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
-    /// Weight information for extrinsic of the sto pallet.
-    type WeightInfo: WeightInfo;
-}
+// re-export pallet types.
+pub use pallet::*;
 
-decl_event!(
-    pub enum Event<T>
-    where
-        Moment = <T as pallet_timestamp::Config>::Moment,
+#[frame_support::pallet]
+pub mod pallet {
+    use super::{Identity, *};
+    use frame_support::pallet_prelude::{ValueQuery, *};
+    use frame_system::pallet_prelude::*;
+
+    #[pallet::config]
+    pub trait Config:
+        frame_system::Config
+        + pallet_identity::Config
+        + pallet_settlement::Config
+        + pallet_portfolio::Config
+        + pallet_base::Config
     {
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        type WeightInfo: WeightInfo;
+    }
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
         /// A new fundraiser has been created.
         /// (Agent DID, fundraiser id, fundraiser name, fundraiser details)
-        FundraiserCreated(IdentityId, FundraiserId, FundraiserName, Fundraiser<Moment>),
+        FundraiserCreated(
+            IdentityId,
+            FundraiserId,
+            FundraiserName,
+            Fundraiser<T::Moment>,
+        ),
         /// An investor invested in the fundraiser.
         /// (Investor, fundraiser_id, offering token, raise token, offering_token_amount, raise_token_amount)
         Invested(IdentityId, FundraiserId, AssetId, AssetId, Balance, Balance),
@@ -193,27 +217,25 @@ decl_event!(
         /// (Agent DID, fundraiser id)
         FundraiserFrozen(IdentityId, FundraiserId),
         /// A fundraiser has been unfrozen.
-        /// (Agent DID, fundraiser id)
+        /// (Agent DID, fundraiser id)  
         FundraiserUnfrozen(IdentityId, FundraiserId),
         /// A fundraiser window has been modified.
         /// (Agent DID, fundraiser id, old_start, old_end, new_start, new_end)
         FundraiserWindowModified(
             EventDid,
             FundraiserId,
-            Moment,
-            Option<Moment>,
-            Moment,
-            Option<Moment>,
+            T::Moment,
+            Option<T::Moment>,
+            T::Moment,
+            Option<T::Moment>,
         ),
         /// A fundraiser has been stopped.
         /// (Agent DID, fundraiser id)
         FundraiserClosed(IdentityId, FundraiserId),
     }
-);
 
-decl_error! {
-    /// Errors for the Settlement module.
-    pub enum Error for Module<T: Config> {
+    #[pallet::error]
+    pub enum Error<T> {
         /// Sender does not have required permissions.
         Unauthorized,
         /// An arithmetic operation overflowed.
@@ -237,50 +259,72 @@ decl_error! {
         /// Price of the investment exceeded the max price.
         MaxPriceExceeded,
         /// Investment amount is lower than minimum investment amount.
-        InvestmentAmountTooLow
+        InvestmentAmountTooLow,
     }
-}
 
-storage_migration_ver!(1);
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
 
-decl_storage! {
-    trait Store for Module<T: Config> as Sto {
-        /// All fundraisers that are currently running.
-        /// (AssetId, fundraiser_id) -> Fundraiser
-        Fundraisers get(fn fundraisers):
-            double_map
-                hasher(blake2_128_concat) AssetId,
-                hasher(twox_64_concat) FundraiserId
-                => Option<Fundraiser<T::Moment>>;
+    /// All fundraisers that are currently running.
+    /// (AssetId, fundraiser_id) -> Fundraiser
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn fundraisers)]
+    pub(super) type Fundraisers<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        Twox64Concat,
+        FundraiserId,
+        Fundraiser<T::Moment>,
+        OptionQuery,
+    >;
 
-        /// Total fundraisers created for a token.
-        FundraiserCount get(fn fundraiser_count):
-            map hasher(blake2_128_concat) AssetId
-                => FundraiserId;
+    /// Total fundraisers created for a token.
+    #[pallet::storage]
+    #[pallet::getter(fn fundraiser_count)]
+    pub(super) type FundraiserCount<T: Config> =
+        StorageMap<_, Blake2_128Concat, AssetId, FundraiserId, ValueQuery>;
 
-        /// Name for the Fundraiser. Only used offchain.
-        /// (AssetId, fundraiser_id) -> Fundraiser name
-        FundraiserNames get(fn fundraiser_name):
-            double_map
-                hasher(blake2_128_concat) AssetId,
-                hasher(twox_64_concat) FundraiserId
-                => Option<FundraiserName>;
+    /// Name for the Fundraiser. Only used offchain.
+    /// (AssetId, fundraiser_id) -> Fundraiser name
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn fundraiser_name)]
+    pub(super) type FundraiserNames<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        Twox64Concat,
+        FundraiserId,
+        FundraiserName,
+        OptionQuery,
+    >;
 
-        /// Storage migration version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
+    /// Storage migration version.
+    #[pallet::storage]
+    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
+
+    #[pallet::genesis_config]
+    #[derive(Default)]
+    pub struct GenesisConfig;
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+        fn build(&self) {
+            StorageVersion::<T>::put(Version::new(1));
+        }
     }
-}
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::RuntimeOrigin {
-        type Error = Error<T>;
-
-        fn deposit_event() = default;
-
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
             Weight::zero()
         }
+    }
 
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Create a new fundraiser.
         ///
         /// * `offering_portfolio` - Portfolio containing the `offering_asset`.
@@ -297,9 +341,10 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::create_fundraiser(tiers.len() as u32)]
+        #[pallet::weight(<T as Config>::WeightInfo::create_fundraiser(tiers.len() as u32))]
+        #[pallet::call_index(0)]
         pub fn create_fundraiser(
-            origin,
+            origin: OriginFor<T>,
             offering_portfolio: PortfolioId,
             offering_asset: AssetId,
             raising_portfolio: PortfolioId,
@@ -309,8 +354,8 @@ decl_module! {
             start: Option<T::Moment>,
             end: Option<T::Moment>,
             minimum_investment: Balance,
-            fundraiser_name: FundraiserName
-        ) {
+            fundraiser_name: FundraiserName,
+        ) -> DispatchResult {
             pallet_base::ensure_string_limited::<T>(&fundraiser_name)?;
 
             let PermissionedCallOriginData {
@@ -319,12 +364,20 @@ decl_module! {
                 ..
             } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, offering_asset)?;
 
-            VenueInfo::get(venue_id)
+            VenueInfo::<T>::get(venue_id)
                 .filter(|v| v.creator == did && v.venue_type == VenueType::Sto)
                 .ok_or(Error::<T>::InvalidVenue)?;
 
-            <Portfolio<T>>::ensure_portfolio_custody_and_permission(raising_portfolio, did, secondary_key.as_ref())?;
-            <Portfolio<T>>::ensure_portfolio_custody_and_permission(offering_portfolio, did, secondary_key.as_ref())?;
+            <Portfolio<T>>::ensure_portfolio_custody_and_permission(
+                raising_portfolio,
+                did,
+                secondary_key.as_ref(),
+            )?;
+            <Portfolio<T>>::ensure_portfolio_custody_and_permission(
+                offering_portfolio,
+                did,
+                secondary_key.as_ref(),
+            )?;
 
             // Ensure there are [1, MAX_TIERS] tiers and that all of their totals are non-zero.
             let mut totals = tiers.iter().map(|t| t.total);
@@ -346,7 +399,7 @@ decl_module! {
             }
 
             // Get the next fundraiser ID.
-            let mut seq = FundraiserCount::get(&offering_asset);
+            let mut seq = FundraiserCount::<T>::get(&offering_asset);
             let id = try_next_post::<T, _>(&mut seq)?;
 
             <Portfolio<T>>::lock_tokens(&offering_portfolio, &offering_asset, offering_amount)?;
@@ -362,14 +415,21 @@ decl_module! {
                 start,
                 end,
                 status: FundraiserStatus::Live,
-                minimum_investment
+                minimum_investment,
             };
 
-            FundraiserCount::insert(offering_asset, seq);
+            FundraiserCount::<T>::insert(offering_asset, seq);
             Fundraisers::<T>::insert(offering_asset, id, fundraiser.clone());
-            FundraiserNames::insert(offering_asset, id, fundraiser_name.clone());
+            FundraiserNames::<T>::insert(offering_asset, id, fundraiser_name.clone());
 
-            Self::deposit_event(RawEvent::FundraiserCreated(did, id, fundraiser_name, fundraiser));
+            Self::deposit_event(Event::FundraiserCreated(
+                did,
+                id,
+                fundraiser_name,
+                fundraiser,
+            ));
+
+            Ok(().into())
         }
 
         /// Invest in a fundraiser.
@@ -384,29 +444,41 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::invest()]
+        #[pallet::weight(<T as Config>::WeightInfo::invest())]
+        #[pallet::call_index(1)]
         pub fn invest(
-            origin,
+            origin: OriginFor<T>,
             investment_portfolio: PortfolioId,
             funding_portfolio: PortfolioId,
             offering_asset: AssetId,
             id: FundraiserId,
             purchase_amount: Balance,
             max_price: Option<Balance>,
-            receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>
-        ) {
+            receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
+        ) -> DispatchResult {
             let PermissionedCallOriginData {
                 primary_did: did,
                 secondary_key,
                 ..
             } = Identity::<T>::ensure_origin_call_permissions(origin.clone())?;
 
-            <Portfolio<T>>::ensure_portfolio_custody_and_permission(investment_portfolio, did, secondary_key.as_ref())?;
-            <Portfolio<T>>::ensure_portfolio_custody_and_permission(funding_portfolio, did, secondary_key.as_ref())?;
+            <Portfolio<T>>::ensure_portfolio_custody_and_permission(
+                investment_portfolio,
+                did,
+                secondary_key.as_ref(),
+            )?;
+            <Portfolio<T>>::ensure_portfolio_custody_and_permission(
+                funding_portfolio,
+                did,
+                secondary_key.as_ref(),
+            )?;
 
             let mut fundraiser = Self::ensure_fundraiser(offering_asset, id)?;
 
-            ensure!(fundraiser.status == FundraiserStatus::Live, Error::<T>::FundraiserNotLive);
+            ensure!(
+                fundraiser.status == FundraiserStatus::Live,
+                Error::<T>::FundraiserNotLive
+            );
 
             let now = Timestamp::<T>::get();
             ensure!(
@@ -429,10 +501,15 @@ decl_module! {
             // Tuple of (tier_id, amount to purchase from that tier).
             let mut purchases = Vec::new();
 
-            for (id, tier) in fundraiser.tiers.iter().enumerate().filter(|(_, tier)| tier.remaining > 0u32.into()) {
+            for (id, tier) in fundraiser
+                .tiers
+                .iter()
+                .enumerate()
+                .filter(|(_, tier)| tier.remaining > 0u32.into())
+            {
                 // fulfilled the investment amount
                 if remaining == 0u32.into() {
-                    break
+                    break;
                 }
 
                 // Check if this tier can fulfil the remaining investment amount.
@@ -454,10 +531,19 @@ decl_module! {
                     .ok_or(Error::<T>::Overflow)?;
             }
 
-            ensure!(remaining == 0u32.into(), Error::<T>::InsufficientTokensRemaining);
-            ensure!(cost >= fundraiser.minimum_investment, Error::<T>::InvestmentAmountTooLow);
             ensure!(
-                max_price.map(|max_price| cost <= max_price.saturating_mul(purchase_amount) / price_divisor).unwrap_or(true),
+                remaining == 0u32.into(),
+                Error::<T>::InsufficientTokensRemaining
+            );
+            ensure!(
+                cost >= fundraiser.minimum_investment,
+                Error::<T>::InvestmentAmountTooLow
+            );
+            ensure!(
+                max_price
+                    .map(|max_price| cost
+                        <= max_price.saturating_mul(purchase_amount) / price_divisor)
+                    .unwrap_or(true),
                 Error::<T>::MaxPriceExceeded
             );
 
@@ -466,18 +552,22 @@ decl_module! {
                     sender: fundraiser.offering_portfolio,
                     receiver: investment_portfolio,
                     asset_id: fundraiser.offering_asset,
-                    amount: purchase_amount
+                    amount: purchase_amount,
                 },
                 Leg::Fungible {
                     sender: funding_portfolio,
                     receiver: fundraiser.raising_portfolio,
                     asset_id: fundraiser.raising_asset,
-                    amount: cost
-                }
+                    amount: cost,
+                },
             ];
 
             with_transaction(|| {
-                <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, purchase_amount)?;
+                <Portfolio<T>>::unlock_tokens(
+                    &fundraiser.offering_portfolio,
+                    &fundraiser.offering_asset,
+                    purchase_amount,
+                )?;
 
                 let instruction_id = Settlement::<T>::base_add_instruction(
                     fundraiser.creator,
@@ -487,26 +577,32 @@ decl_module! {
                     None,
                     legs,
                     None,
-                    None
+                    None,
                 )?;
 
-                let portfolios = [fundraiser.offering_portfolio, fundraiser.raising_portfolio].iter().copied().collect::<BTreeSet<_>>();
+                let portfolios = [fundraiser.offering_portfolio, fundraiser.raising_portfolio]
+                    .iter()
+                    .copied()
+                    .collect::<BTreeSet<_>>();
                 Settlement::<T>::unsafe_affirm_instruction(
                     fundraiser.creator,
                     instruction_id,
                     portfolios,
                     None,
-                    None
+                    None,
                 )?;
 
-                let portfolios = [investment_portfolio, funding_portfolio].iter().copied().collect::<BTreeSet<_>>();
+                let portfolios = [investment_portfolio, funding_portfolio]
+                    .iter()
+                    .copied()
+                    .collect::<BTreeSet<_>>();
                 Settlement::<T>::affirm_and_execute_instruction(
                     origin,
                     instruction_id,
                     receipt,
                     portfolios,
                     did,
-                    &mut WeightMeter::max_limit_no_minimum()
+                    &mut WeightMeter::max_limit_no_minimum(),
                 )
             })?;
 
@@ -514,8 +610,18 @@ decl_module! {
                 fundraiser.tiers[id].remaining -= amount;
             }
 
-            Self::deposit_event(RawEvent::Invested(did, id, offering_asset, fundraiser.raising_asset, purchase_amount, cost));
+            Self::deposit_event(Event::Invested(
+                did,
+                id,
+                offering_asset,
+                fundraiser.raising_asset,
+                purchase_amount,
+                cost,
+            ));
+
             <Fundraisers<T>>::insert(offering_asset, id, fundraiser);
+
+            Ok(().into())
         }
 
         /// Freeze a fundraiser.
@@ -525,9 +631,15 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::freeze_fundraiser()]
-        pub fn freeze_fundraiser(origin, offering_asset: AssetId, id: FundraiserId) -> DispatchResult {
-            Self::set_frozen(origin, offering_asset, id, true)
+        #[pallet::weight(<T as Config>::WeightInfo::freeze_fundraiser())]
+        #[pallet::call_index(2)]
+        pub fn freeze_fundraiser(
+            origin: OriginFor<T>,
+            offering_asset: AssetId,
+            id: FundraiserId,
+        ) -> DispatchResult {
+            Self::set_frozen(origin, offering_asset, id, true)?;
+            Ok(().into())
         }
 
         /// Unfreeze a fundraiser.
@@ -537,9 +649,15 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::unfreeze_fundraiser()]
-        pub fn unfreeze_fundraiser(origin, offering_asset: AssetId, id: FundraiserId) -> DispatchResult {
-            Self::set_frozen(origin, offering_asset, id, false)
+        #[pallet::weight(<T as Config>::WeightInfo::unfreeze_fundraiser())]
+        #[pallet::call_index(3)]
+        pub fn unfreeze_fundraiser(
+            origin: OriginFor<T>,
+            offering_asset: AssetId,
+            id: FundraiserId,
+        ) -> DispatchResult {
+            Self::set_frozen(origin, offering_asset, id, false)?;
+            Ok(().into())
         }
 
         /// Modify the time window a fundraiser is active
@@ -551,9 +669,10 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::modify_fundraiser_window()]
+        #[pallet::weight(<T as Config>::WeightInfo::modify_fundraiser_window())]
+        #[pallet::call_index(4)]
         pub fn modify_fundraiser_window(
-            origin,
+            origin: OriginFor<T>,
             offering_asset: AssetId,
             id: FundraiserId,
             start: T::Moment,
@@ -570,11 +689,20 @@ decl_module! {
                 if let Some(end) = end {
                     ensure!(start < end, Error::<T>::InvalidOfferingWindow);
                 }
-                Self::deposit_event(RawEvent::FundraiserWindowModified(did, id, fundraiser.start, fundraiser.end, start, end));
+                Self::deposit_event(Event::FundraiserWindowModified(
+                    did,
+                    id,
+                    fundraiser.start,
+                    fundraiser.end,
+                    start,
+                    end,
+                ));
                 fundraiser.start = start;
                 fundraiser.end = end;
-                Ok(())
-            })
+                Ok::<_, DispatchError>(())
+            })?;
+
+            Ok(().into())
         }
 
         /// Stop a fundraiser.
@@ -584,34 +712,46 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::stop()]
-        pub fn stop(origin, offering_asset: AssetId, id: FundraiserId) {
+        #[pallet::weight(<T as Config>::WeightInfo::stop())]
+        #[pallet::call_index(5)]
+        pub fn stop(
+            origin: OriginFor<T>,
+            offering_asset: AssetId,
+            id: FundraiserId,
+        ) -> DispatchResult {
             let mut fundraiser = Self::ensure_fundraiser(offering_asset, id)?;
 
             let did = <ExternalAgents<T>>::ensure_asset_perms(origin, offering_asset)?.primary_did;
             if fundraiser.creator != did {
-                 <ExternalAgents<T>>::ensure_agent_permissioned(&offering_asset, did)?;
+                <ExternalAgents<T>>::ensure_agent_permissioned(&offering_asset, did)?;
             }
 
             ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
 
-            let remaining_amount: Balance = fundraiser.tiers
+            let remaining_amount: Balance = fundraiser
+                .tiers
                 .iter()
                 .map(|t| t.remaining)
                 .fold(0u32.into(), |remaining, x| remaining + x);
 
-            <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, remaining_amount)?;
+            <Portfolio<T>>::unlock_tokens(
+                &fundraiser.offering_portfolio,
+                &fundraiser.offering_asset,
+                remaining_amount,
+            )?;
             fundraiser.status = match fundraiser.end {
                 Some(end) if end > Timestamp::<T>::get() => FundraiserStatus::ClosedEarly,
                 _ => FundraiserStatus::Closed,
             };
             <Fundraisers<T>>::insert(offering_asset, id, fundraiser);
-            Self::deposit_event(RawEvent::FundraiserClosed(did, id));
+            Self::deposit_event(Event::FundraiserClosed(did, id));
+
+            Ok(().into())
         }
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     fn set_frozen(
         origin: T::RuntimeOrigin,
         offering_asset: AssetId,
@@ -623,10 +763,10 @@ impl<T: Config> Module<T> {
         ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
         if frozen {
             fundraiser.status = FundraiserStatus::Frozen;
-            Self::deposit_event(RawEvent::FundraiserFrozen(did, id));
+            Self::deposit_event(Event::FundraiserFrozen(did, id));
         } else {
             fundraiser.status = FundraiserStatus::Live;
-            Self::deposit_event(RawEvent::FundraiserUnfrozen(did, id));
+            Self::deposit_event(Event::FundraiserUnfrozen(did, id));
         }
         <Fundraisers<T>>::insert(offering_asset, id, fundraiser);
         Ok(())

@@ -10,20 +10,20 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
 };
 use frame_system::{EventRecord, Phase};
-use pallet_committee::{self as committee, PolymeshVotes, RawEvent as CommitteeRawEvent};
+use pallet_committee::{self as committee, Event as CommitteeRawEvent, PolymeshVotes};
 use pallet_group as group;
 use pallet_identity as identity;
-use pallet_pips::{PipId, ProposalState, SnapshotResult};
+use pallet_pips::{PipId, ProposalState, ProposalStates, SnapshotResult};
 use polymesh_primitives::{IdentityId, MaybeBlock};
 use sp_core::H256;
 use sp_keyring::AccountKeyring;
 use sp_runtime::traits::Hash;
 use std::convert::TryFrom;
 
-type Committee = committee::Module<TestStorage, committee::Instance1>;
-type CommitteeGroup = group::Module<TestStorage, group::Instance1>;
+type Committee = committee::Pallet<TestStorage, committee::Instance1>;
+type CommitteeGroup = group::Pallet<TestStorage, group::Instance1>;
 type System = frame_system::Pallet<TestStorage>;
-type Identity = identity::Module<TestStorage>;
+type Identity = identity::Pallet<TestStorage>;
 type Pips = pallet_pips::Pallet<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 
@@ -95,7 +95,10 @@ fn prepare_proposal(ring: AccountKeyring) {
 }
 
 fn check_scheduled(id: PipId) {
-    assert_eq!(Pips::proposal_state(id).unwrap(), ProposalState::Scheduled);
+    assert_eq!(
+        ProposalStates::<TestStorage>::get(id).unwrap(),
+        ProposalState::Scheduled
+    );
 }
 
 fn enact_snapshot_results_call() -> RuntimeCall {

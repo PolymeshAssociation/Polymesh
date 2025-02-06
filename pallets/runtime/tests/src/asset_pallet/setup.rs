@@ -6,8 +6,8 @@ use polymesh_primitives::{AssetIdentifier, Balance, PortfolioKind, Ticker};
 use crate::storage::User;
 use crate::TestStorage;
 
-type Asset = pallet_asset::Module<TestStorage>;
-type Nft = pallet_nft::Module<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
+type Nft = pallet_nft::Pallet<TestStorage>;
 
 /// The amount of tokens that will be issued for the sample asset.
 pub const ISSUE_AMOUNT: Balance = 1_000_000_000;

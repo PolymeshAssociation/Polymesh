@@ -24,8 +24,8 @@ benchmarks! {
         StoreCallMetadata::<T>::set_call_metadata(pallet_name, extrinsic_name);
     }
     verify {
-        assert_eq!(CurrentPalletName::get(), pallet_name_exp, "Unexpected pallet name");
-        assert_eq!(CurrentDispatchableName::get(), extrinsic_name_exp, "Unexpected extrinsic name");
+        assert_eq!(CurrentPalletName::<T>::get(), pallet_name_exp, "Unexpected pallet name");
+        assert_eq!(CurrentDispatchableName::<T>::get(), extrinsic_name_exp, "Unexpected extrinsic name");
     }
 
     clear_call_metadata {
@@ -36,7 +36,7 @@ benchmarks! {
         StoreCallMetadata::<T>::clear_call_metadata();
     }
     verify {
-        assert!(!CurrentPalletName::exists(), "Pallet name should not be exist");
-        assert!(!CurrentDispatchableName::exists(), "Dispatchable name should not be exist");
+        assert!(!CurrentPalletName::<T>::exists(), "Pallet name should not be exist");
+        assert!(!CurrentDispatchableName::<T>::exists(), "Dispatchable name should not be exist");
     }
 }

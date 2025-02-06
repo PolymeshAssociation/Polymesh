@@ -54,7 +54,7 @@ where
 {
     fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
         if let Some(author) = authorship::Pallet::<R>::author() {
-            <balances::Module<R>>::resolve_creating(&author, amount);
+            <balances::Pallet<R>>::resolve_creating(&author, amount);
         }
     }
 }
@@ -68,7 +68,7 @@ where
     R: balances::Config,
 {
     fn factor() -> Balance {
-        let issuance: Balance = <balances::Module<R>>::total_issuance();
+        let issuance: Balance = <balances::Pallet<R>>::total_issuance();
         (issuance / u64::max_value() as Balance).max(1)
     }
 }

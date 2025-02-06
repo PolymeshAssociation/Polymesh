@@ -1300,7 +1300,7 @@ pub mod pallet {
 
             // Polymesh change
             // -----------------------------------------------------------------
-            let stash_did = pallet_identity::Module::<T>::get_identity(stash)
+            let stash_did = pallet_identity::Pallet::<T>::get_identity(stash)
                 .ok_or(Error::<T>::StashIdentityDoesNotExist)?;
             let mut stash_did_prefs = Self::permissioned_identity(stash_did)
                 .ok_or(Error::<T>::StashIdentityNotPermissioned)?;
@@ -1322,7 +1322,7 @@ pub mod pallet {
                     Error::<T>::TooManyValidators
                 );
                 stash_did_prefs.running_count += 1;
-                pallet_identity::Module::<T>::add_account_key_ref_count(&stash);
+                pallet_identity::Pallet::<T>::add_account_key_ref_count(&stash);
                 PermissionedIdentity::<T>::insert(stash_did, stash_did_prefs);
             }
             // -----------------------------------------------------------------
@@ -1401,11 +1401,11 @@ pub mod pallet {
 
             // Polymesh change
             // -----------------------------------------------------------------
-            let nominator_did = pallet_identity::Module::<T>::get_identity(&stash)
+            let nominator_did = pallet_identity::Pallet::<T>::get_identity(&stash)
                 .ok_or(Error::<T>::StashIdentityDoesNotExist)?;
             let bounding_duration_period = Self::get_bonding_duration_period() as u32;
 
-            if let None = pallet_identity::Module::<T>::fetch_cdd(
+            if let None = pallet_identity::Pallet::<T>::fetch_cdd(
                 nominator_did,
                 bounding_duration_period.into(),
             ) {
@@ -2062,7 +2062,7 @@ pub mod pallet {
             );
 
             ensure!(
-                pallet_identity::Module::<T>::has_valid_cdd(identity),
+                pallet_identity::Pallet::<T>::has_valid_cdd(identity),
                 Error::<T>::IdentityIsMissingCDD
             );
 
@@ -2149,8 +2149,8 @@ pub mod pallet {
                     // So we iterate all of them and if any one of the claim value doesn't expire then nominator posses
                     // valid CDD otherwise it will be removed from the pool of the nominators.
                     // If the target has no DID, it's also removed.
-                    pallet_identity::Module::<T>::get_identity(&target)
-                        .filter(|did| pallet_identity::Module::<T>::has_valid_cdd(*did))
+                    pallet_identity::Pallet::<T>::get_identity(&target)
+                        .filter(|did| pallet_identity::Pallet::<T>::has_valid_cdd(*did))
                         .is_none()
                 })
             {

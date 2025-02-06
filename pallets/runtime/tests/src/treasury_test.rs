@@ -8,10 +8,10 @@ use polymesh_primitives::{Beneficiary, IdentityId};
 use sp_keyring::AccountKeyring;
 use sp_runtime::DispatchError;
 
-pub type Balances = pallet_balances::Module<TestStorage>;
-pub type Treasury = pallet_treasury::Module<TestStorage>;
+pub type Balances = pallet_balances::Pallet<TestStorage>;
+pub type Treasury = pallet_treasury::Pallet<TestStorage>;
 type TreasuryError = pallet_treasury::Error<TestStorage>;
-type Identity = pallet_identity::Module<TestStorage>;
+type Identity = pallet_identity::Pallet<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 
 fn beneficiary<Balance>(id: IdentityId, amount: Balance) -> Beneficiary<Balance> {

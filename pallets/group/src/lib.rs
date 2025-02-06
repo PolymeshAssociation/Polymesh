@@ -78,12 +78,10 @@
 pub mod benchmarking;
 
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
     ensure,
     traits::{ChangeMembers, EnsureOrigin, InitializeMembers},
     weights::Weight,
-    StorageValue,
 };
 use pallet_identity as identity;
 use polymesh_primitives::{
@@ -91,64 +89,70 @@ use polymesh_primitives::{
     traits::group::{GroupTrait, InactiveMember, MemberCount},
     IdentityId, GC_DID,
 };
-use sp_std::prelude::*;
-use sp_std::vec::Vec;
+use sp_std::{prelude::*, vec::Vec};
 
-type Identity<T> = identity::Module<T>;
+pub use pallet::*;
 
-pub trait WeightInfo {
-    fn set_active_members_limit() -> Weight;
-    fn add_member() -> Weight;
-    fn remove_member() -> Weight;
-    fn disable_member() -> Weight;
-    fn swap_member() -> Weight;
-    fn reset_members(new_members_len: u32) -> Weight;
-    fn abdicate_membership() -> Weight;
-}
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-pub trait Config<I>:
-    frame_system::Config
-    + pallet_permissions::Config
-    + pallet_timestamp::Config
-    + pallet_identity::Config
-{
-    /// The overarching event type.
-    type RuntimeEvent: From<Event<Self, I>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+    type Identity<T> = identity::Pallet<T>;
+    pub trait WeightInfo {
+        fn set_active_members_limit() -> Weight;
+        fn add_member() -> Weight;
+        fn remove_member() -> Weight;
+        fn disable_member() -> Weight;
+        fn swap_member() -> Weight;
+        fn reset_members(new_members_len: u32) -> Weight;
+        fn abdicate_membership() -> Weight;
+    }
 
-    /// Required origin for changing the active limit.
-    /// It's recommended that e.g., in case of a committee,
-    /// this be an origin that cannot be formed through a committee majority.
-    type LimitOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
-
-    /// Required origin for adding a member (though can always be Root).
-    type AddOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
-
-    /// Required origin for removing a member (though can always be Root).
-    type RemoveOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
-
-    /// Required origin for adding and removing a member in a single action.
-    type SwapOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
-
-    /// Required origin for resetting membership.
-    type ResetOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
-
-    /// The receiver of the signal for when the membership has been initialized. This happens pre-
-    /// genesis and will usually be the same as `MembershipChanged`. If you need to do something
-    /// different on initialization, then you can change this accordingly.
-    type MembershipInitialized: InitializeMembers<IdentityId>;
-
-    /// The receiver of the signal for when the membership has changed.
-    type MembershipChanged: ChangeMembers<IdentityId>;
-
-    /// Weight information for extrinsics in this pallet.
-    type WeightInfo: WeightInfo;
-}
-
-decl_event!(
-    pub enum Event<T, I> where
-    <T as frame_system::Config>::AccountId,
-    <T as Config<I>>::RuntimeEvent,
+    #[pallet::config]
+    pub trait Config<I: 'static = ()>:
+        frame_system::Config
+        + pallet_permissions::Config
+        + pallet_timestamp::Config
+        + pallet_identity::Config
     {
+        /// The overarching event type.
+        type RuntimeEvent: From<Event<Self, I>>
+            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+        /// Required origin for changing the active limit.
+        /// It's recommended that e.g., in case of a committee,
+        /// this be an origin that cannot be formed through a committee majority.
+        type LimitOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
+
+        /// Required origin for adding a member (though can always be Root).
+        type AddOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
+
+        /// Required origin for removing a member (though can always be Root).
+        type RemoveOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
+
+        /// Required origin for adding and removing a member in a single action.
+        type SwapOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
+
+        /// Required origin for resetting membership.
+        type ResetOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
+
+        /// The receiver of the signal for when the membership has been initialized. This happens pre-
+        /// genesis and will usually be the same as `MembershipChanged`. If you need to do something
+        /// different on initialization, then you can change this accordingly.
+        type MembershipInitialized: InitializeMembers<IdentityId>;
+
+        /// The receiver of the signal for when the membership has changed.
+        type MembershipChanged: ChangeMembers<IdentityId>;
+
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: WeightInfo;
+    }
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config<I>, I: 'static = ()> {
         /// The given member was added; see the transaction for who.
         /// caller DID, New member DID.
         MemberAdded(IdentityId, IdentityId),
@@ -166,53 +170,98 @@ decl_event!(
         MembersReset(IdentityId, Vec<IdentityId>),
         /// The limit of how many active members there can be concurrently was changed.
         ActiveLimitChanged(IdentityId, MemberCount, MemberCount),
-        /// Phantom member, never used.
-        Dummy(sp_std::marker::PhantomData<(AccountId, RuntimeEvent)>),
+        /// Phantom member, never used.  This can be removed now.  FRAME v2 doesn't require this.
+        /// TODO: remove.
+        Dummy(PhantomData<(T::AccountId, <T as Config<I>>::RuntimeEvent)>),
     }
-);
 
-decl_storage! {
-    trait Store for Module<T: Config<I>, I: Instance=DefaultInstance> as Group {
-        /// The current "active" membership, stored as an ordered Vec.
-        pub ActiveMembers get(fn active_members) config(): Vec<IdentityId>;
-        /// The current "inactive" membership, stored as an ordered Vec.
-        pub InactiveMembers get(fn inactive_members): Vec<InactiveMember<T::Moment>>;
-        /// Limit of how many "active" members there can be.
-        pub ActiveMembersLimit get(fn active_members_limit) config(): u32;
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
+    #[pallet::pallet]
+    #[pallet::storage_version(STORAGE_VERSION)]
+    pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
+
+    /// The current "active" membership, stored as an ordered Vec.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn active_members)]
+    pub type ActiveMembers<T: Config<I>, I: 'static = ()> =
+        StorageValue<_, Vec<IdentityId>, ValueQuery>;
+
+    /// The current "inactive" membership, stored as an ordered Vec.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn inactive_members)]
+    pub type InactiveMembers<T: Config<I>, I: 'static = ()> =
+        StorageValue<_, Vec<InactiveMember<T::Moment>>, ValueQuery>;
+
+    /// Limit of how many "active" members there can be.
+    #[pallet::storage]
+    #[pallet::getter(fn active_members_limit)]
+    pub type ActiveMembersLimit<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, ValueQuery>;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
+        pub active_members_limit: u32,
+        pub active_members: Vec<IdentityId>,
+        pub phantom: PhantomData<(T, I)>,
     }
-    add_extra_genesis {
-        config(phantom): sp_std::marker::PhantomData<(T, I)>;
-        build(|config: &Self| {
+
+    #[cfg(feature = "std")]
+    impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
+        fn default() -> Self {
+            Self {
+                active_members_limit: 0,
+                active_members: vec![],
+                phantom: Default::default(),
+            }
+        }
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config<I>, I: 'static> GenesisBuild<T, I> for GenesisConfig<T, I> {
+        fn build(&self) {
             use frame_support::traits::InitializeMembers;
 
-            let mut members = config.active_members.clone();
-            assert!(members.len() as MemberCount <= config.active_members_limit);
+            let mut members = self.active_members.clone();
+            assert!(members.len() as MemberCount <= self.active_members_limit);
             members.sort();
             T::MembershipInitialized::initialize_members(&members);
-            <ActiveMembers<I>>::put(members);
-        })
+            ActiveMembers::<T, I>::put(members);
+            ActiveMembersLimit::<T, I>::put(self.active_members_limit);
+        }
     }
-}
 
-decl_module! {
-    pub struct Module<T: Config<I>, I: Instance=DefaultInstance>
-        for enum Call
-        where origin: T::RuntimeOrigin
-    {
-        type Error = Error<T, I>;
+    #[pallet::hooks]
+    impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+        fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
+            polymesh_primitives::migrate::frame_v2_instance_migrate::<Pallet<T, I>, I>(
+                "Group",
+                STORAGE_VERSION,
+            )
+        }
+    }
 
-        fn deposit_event() = default;
-
+    #[pallet::call]
+    impl<T: Config<I>, I: 'static> Pallet<T, I> {
         /// Change this group's limit for how many concurrent active members they may be.
         ///
         /// # Arguments
         /// * `limit` - the number of active members there may be concurrently.
-        #[weight = <T as Config<I>>::WeightInfo::set_active_members_limit()]
-        pub fn set_active_members_limit(origin, limit: MemberCount) {
+        #[pallet::weight(<T as Config<I>>::WeightInfo::set_active_members_limit())]
+        #[pallet::call_index(0)]
+        pub fn set_active_members_limit(
+            origin: OriginFor<T>,
+            limit: MemberCount,
+        ) -> DispatchResult {
             T::LimitOrigin::ensure_origin(origin)?;
-            ensure!(limit <= COMMITTEE_MEMBERS_MAX, Error::<T, I>::ActiveMembersLimitOverflow);
-            let old = <ActiveMembersLimit<I>>::mutate(|slot| core::mem::replace(slot, limit));
-            Self::deposit_event(RawEvent::ActiveLimitChanged(GC_DID, limit, old));
+            ensure!(
+                limit <= COMMITTEE_MEMBERS_MAX,
+                Error::<T, I>::ActiveMembersLimitOverflow
+            );
+            let old = ActiveMembersLimit::<T, I>::mutate(|slot| core::mem::replace(slot, limit));
+            Self::deposit_event(Event::ActiveLimitChanged(GC_DID, limit, old));
+            Ok(())
         }
 
         /// Disables a member at specific moment.
@@ -231,11 +280,13 @@ decl_module! {
         /// * `who` - Target member of the group.
         /// * `expiry` - Time-stamp when `who` is removed from CDD. As soon as it is expired, the
         /// generated claims will be "invalid" as `who` is not considered a member of the group.
-        #[weight = <T as Config<I>>::WeightInfo::disable_member()]
-        pub fn disable_member( origin,
+        #[pallet::weight(<T as Config<I>>::WeightInfo::disable_member())]
+        #[pallet::call_index(1)]
+        pub fn disable_member(
+            origin: OriginFor<T>,
             who: IdentityId,
             expiry: Option<T::Moment>,
-            at: Option<T::Moment>
+            at: Option<T::Moment>,
         ) -> DispatchResult {
             T::RemoveOrigin::ensure_origin(origin)?;
 
@@ -247,8 +298,9 @@ decl_module! {
         /// # Arguments
         /// * `origin` - Origin representing `AddOrigin` or root
         /// * `who` - IdentityId to be added to the group.
-        #[weight = <T as Config<I>>::WeightInfo::add_member()]
-        pub fn add_member(origin, who: IdentityId) -> DispatchResult {
+        #[pallet::weight(<T as Config<I>>::WeightInfo::add_member())]
+        #[pallet::call_index(2)]
+        pub fn add_member(origin: OriginFor<T>, who: IdentityId) -> DispatchResult {
             T::AddOrigin::ensure_origin(origin)?;
             <Self as GroupTrait<T::Moment>>::add_member(who)
         }
@@ -263,8 +315,9 @@ decl_module! {
         /// # Arguments
         /// * `origin` - Origin representing `RemoveOrigin` or root
         /// * `who` - IdentityId to be removed from the group.
-        #[weight = <T as Config<I>>::WeightInfo::remove_member()]
-        pub fn remove_member(origin, who: IdentityId) -> DispatchResult {
+        #[pallet::weight(<T as Config<I>>::WeightInfo::remove_member())]
+        #[pallet::call_index(3)]
+        pub fn remove_member(origin: OriginFor<T>, who: IdentityId) -> DispatchResult {
             T::RemoveOrigin::ensure_origin(origin)?;
             Self::base_remove_member(who)
         }
@@ -277,26 +330,36 @@ decl_module! {
         /// * `origin` - Origin representing `SwapOrigin` or root
         /// * `remove` - IdentityId to be removed from the group.
         /// * `add` - IdentityId to be added in place of `remove`.
-        #[weight = <T as Config<I>>::WeightInfo::swap_member()]
-        pub fn swap_member(origin, remove: IdentityId, add: IdentityId) {
+        #[pallet::weight(<T as Config<I>>::WeightInfo::swap_member())]
+        #[pallet::call_index(4)]
+        pub fn swap_member(
+            origin: OriginFor<T>,
+            remove: IdentityId,
+            add: IdentityId,
+        ) -> DispatchResult {
             T::SwapOrigin::ensure_origin(origin)?;
 
-            if remove == add { return Ok(()) }
+            if remove == add {
+                return Ok(());
+            }
 
-            let mut members = <ActiveMembers<I>>::get();
-            let remove_location = members.binary_search(&remove).ok().ok_or(Error::<T, I>::NoSuchMember)?;
-            let _add_location = members.binary_search(&add).err().ok_or(Error::<T, I>::DuplicateMember)?;
+            let mut members = ActiveMembers::<T, I>::get();
+            let remove_location = members
+                .binary_search(&remove)
+                .ok()
+                .ok_or(Error::<T, I>::NoSuchMember)?;
+            let _add_location = members
+                .binary_search(&add)
+                .err()
+                .ok_or(Error::<T, I>::DuplicateMember)?;
             members[remove_location] = add;
             members.sort();
-            <ActiveMembers<I>>::put(&members);
+            ActiveMembers::<T, I>::put(&members);
 
-            T::MembershipChanged::change_members_sorted(
-                &[add],
-                &[remove],
-                &members[..],
-            );
+            T::MembershipChanged::change_members_sorted(&[add], &[remove], &members[..]);
             let current_did = GC_DID;
-            Self::deposit_event(RawEvent::MembersSwapped(current_did, remove, add));
+            Self::deposit_event(Event::MembersSwapped(current_did, remove, add));
+            Ok(())
         }
 
         /// Changes the membership to a new set, disregarding the existing membership.
@@ -305,20 +368,22 @@ decl_module! {
         /// # Arguments
         /// * `origin` - Origin representing `ResetOrigin` or root
         /// * `members` - New set of identities
-        #[weight = <T as Config<I>>::WeightInfo::reset_members( members.len() as u32)]
-        pub fn reset_members(origin, members: Vec<IdentityId>) {
+        #[pallet::weight(<T as Config<I>>::WeightInfo::reset_members(members.len() as u32))]
+        #[pallet::call_index(5)]
+        pub fn reset_members(origin: OriginFor<T>, members: Vec<IdentityId>) -> DispatchResult {
             T::ResetOrigin::ensure_origin(origin)?;
 
             Self::ensure_within_active_members_limit(&members)?;
 
             let mut new_members = members.clone();
             new_members.sort();
-            <ActiveMembers<I>>::mutate(|m| {
+            ActiveMembers::<T, I>::mutate(|m| {
                 T::MembershipChanged::set_members_sorted(&new_members[..], m);
                 *m = new_members;
             });
             let current_did = GC_DID;
-            Self::deposit_event(RawEvent::MembersReset(current_did, members));
+            Self::deposit_event(Event::MembersReset(current_did, members));
+            Ok(())
         }
 
         /// Allows the calling member to *unilaterally quit* without this being subject to a GC
@@ -331,33 +396,33 @@ decl_module! {
         ///
         /// * Only primary key can abdicate.
         /// * Last member of a group cannot abdicate.
-        #[weight = <T as Config<I>>::WeightInfo::abdicate_membership()]
-        pub fn abdicate_membership(origin) {
+        #[pallet::weight(<T as Config<I>>::WeightInfo::abdicate_membership())]
+        #[pallet::call_index(6)]
+        pub fn abdicate_membership(origin: OriginFor<T>) -> DispatchResult {
             let (who, remove_id) = Identity::<T>::ensure_did(origin)?;
 
             ensure!(
                 <Identity<T>>::is_primary_key(&remove_id, &who),
-                Error::<T,I>::OnlyPrimaryKeyAllowed
+                Error::<T, I>::OnlyPrimaryKeyAllowed
             );
 
             let mut members = Self::get_members();
-            ensure!(members.len() > 1, Error::<T,I>::LastMemberCannotQuit);
-            ensure!(members.binary_search(&remove_id).is_ok(), Error::<T,I>::NoSuchMember);
+            ensure!(members.len() > 1, Error::<T, I>::LastMemberCannotQuit);
+            ensure!(
+                members.binary_search(&remove_id).is_ok(),
+                Error::<T, I>::NoSuchMember
+            );
 
             members.retain(|id| *id != remove_id);
-            <ActiveMembers<I>>::put(&members);
+            ActiveMembers::<T, I>::put(&members);
 
-            T::MembershipChanged::change_members_sorted(
-                &[],
-                &[remove_id],
-                &members[..],
-            );
+            T::MembershipChanged::change_members_sorted(&[], &[remove_id], &members[..]);
+            Ok(())
         }
     }
-}
 
-decl_error! {
-    pub enum Error for Module<T: Config<I>, I: Instance> {
+    #[pallet::error]
+    pub enum Error<T, I = ()> {
         /// Only primary key of the identity is allowed.
         OnlyPrimaryKeyAllowed,
         /// Group member was added already.
@@ -373,7 +438,7 @@ decl_error! {
     }
 }
 
-impl<T: Config<I>, I: Instance> Module<T, I> {
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
     /// Ensure that updating the active set to `members` will not exceed the set limit.
     fn ensure_within_active_members_limit(members: &[IdentityId]) -> DispatchResult {
         ensure!(
@@ -404,7 +469,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
     /// * `NoSuchMember` if `who` is not part of *inactive members*.
     fn base_remove_inactive_member(who: IdentityId) -> DispatchResult {
         let inactive_who = InactiveMember::<T::Moment>::from(who);
-        let mut members = <InactiveMembers<T, I>>::get();
+        let mut members = InactiveMembers::<T, I>::get();
         let position = members
             .binary_search(&inactive_who)
             .ok()
@@ -412,9 +477,9 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
 
         members.swap_remove(position);
 
-        <InactiveMembers<T, I>>::put(&members);
+        InactiveMembers::<T, I>::put(&members);
         let current_did = GC_DID;
-        Self::deposit_event(RawEvent::MemberRemoved(current_did, who));
+        Self::deposit_event(Event::MemberRemoved(current_did, who));
         Ok(())
     }
 
@@ -423,25 +488,25 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
     /// # Errors
     /// * `NoSuchMember` if `who` is not part of *active members*.
     fn base_remove_active_member(who: IdentityId) -> DispatchResult {
-        let mut members = <ActiveMembers<I>>::get();
+        let mut members = ActiveMembers::<T, I>::get();
         let location = members
             .binary_search(&who)
             .ok()
             .ok_or(Error::<T, I>::NoSuchMember)?;
 
         members.remove(location);
-        <ActiveMembers<I>>::put(&members);
+        ActiveMembers::<T, I>::put(&members);
 
         T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
         let current_did = GC_DID;
-        Self::deposit_event(RawEvent::MemberRemoved(current_did, who));
+        Self::deposit_event(Event::MemberRemoved(current_did, who));
         Ok(())
     }
 }
 
 /// Retrieve all members of this group
 /// Is the given `IdentityId` a valid member?
-impl<T: Config<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
+impl<T: Config<I>, I: 'static> GroupTrait<T::Moment> for Pallet<T, I> {
     /// Returns the "active members".
     #[inline]
     fn get_members() -> Vec<IdentityId> {
@@ -481,14 +546,14 @@ impl<T: Config<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
             deactivated_at,
         };
 
-        <InactiveMembers<T, I>>::mutate(|members| {
+        InactiveMembers::<T, I>::mutate(|members| {
             // Remove expired members.
             let now = <pallet_timestamp::Pallet<T>>::get();
             members.retain(|m| {
                 if !Self::is_member_expired(m, now) {
                     true
                 } else {
-                    Self::deposit_event(RawEvent::MemberRemoved(current_did, who));
+                    Self::deposit_event(Event::MemberRemoved(current_did, who));
                     false
                 }
             });
@@ -502,24 +567,24 @@ impl<T: Config<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
             }
         });
 
-        Self::deposit_event(RawEvent::MemberRevoked(current_did, who));
+        Self::deposit_event(Event::MemberRevoked(current_did, who));
         Ok(())
     }
 
     /// Adds a new member to the group
     fn add_member(who: IdentityId) -> DispatchResult {
-        let mut members = <ActiveMembers<I>>::get();
+        let mut members = ActiveMembers::<T, I>::get();
         let location = members
             .binary_search(&who)
             .err()
             .ok_or(Error::<T, I>::DuplicateMember)?;
         members.insert(location, who);
         Self::ensure_within_active_members_limit(&members)?;
-        <ActiveMembers<I>>::put(&members);
+        ActiveMembers::<T, I>::put(&members);
 
         T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
         let current_did = GC_DID;
-        Self::deposit_event(RawEvent::MemberAdded(current_did, who));
+        Self::deposit_event(Event::MemberAdded(current_did, who));
         Ok(())
     }
 }

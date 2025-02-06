@@ -1,5 +1,4 @@
 use frame_support::{assert_noop, assert_ok};
-use frame_support::{StorageDoubleMap, StorageMap};
 use sp_keyring::AccountKeyring;
 
 use pallet_asset::{AssetIdTicker, TickerAssetId, TickersOwnedByUser, UniqueTickerRegistration};
@@ -9,11 +8,11 @@ use polymesh_primitives::{AuthorizationData, Signatory, Ticker};
 use crate::storage::User;
 use crate::{ExtBuilder, TestStorage};
 
-type Asset = pallet_asset::Module<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
-type ExternalAgents = pallet_external_agents::Module<TestStorage>;
+type ExternalAgents = pallet_external_agents::Pallet<TestStorage>;
 type ExternalAgentsError = pallet_external_agents::Error<TestStorage>;
-type Identity = pallet_identity::Module<TestStorage>;
+type Identity = pallet_identity::Pallet<TestStorage>;
 
 #[test]
 fn unlink_ticker_from_asset_id_successfully() {
@@ -45,10 +44,13 @@ fn unlink_ticker_from_asset_id_successfully() {
             asset_id
         ));
 
-        assert_eq!(TickerAssetId::get(ticker), None);
-        assert_eq!(AssetIdTicker::get(asset_id), None);
+        assert_eq!(TickerAssetId::<TestStorage>::get(ticker), None);
+        assert_eq!(AssetIdTicker::<TestStorage>::get(asset_id), None);
         assert_eq!(UniqueTickerRegistration::<TestStorage>::get(ticker), None);
-        assert_eq!(TickersOwnedByUser::get(alice.did, ticker), false);
+        assert_eq!(
+            TickersOwnedByUser::<TestStorage>::get(alice.did, ticker),
+            false
+        );
     });
 }
 

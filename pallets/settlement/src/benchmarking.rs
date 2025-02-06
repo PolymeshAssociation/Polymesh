@@ -95,12 +95,12 @@ fn create_venue_<T: Config>(did: IdentityId, signers: Vec<T::AccountId>) -> Venu
         venue_type: VenueType::Distribution,
     };
     // NB: Venue counter starts with 1.
-    let venue_counter = Module::<T>::venue_counter();
-    VenueInfo::insert(venue_counter, venue);
+    let venue_counter = Pallet::<T>::venue_counter();
+    VenueInfo::<T>::insert(venue_counter, venue);
     for signer in signers {
-        <VenueSigners<T>>::insert(venue_counter, signer, true);
+        VenueSigners::<T>::insert(venue_counter, signer, true);
     }
-    VenueCounter::put(venue_counter.checked_inc().unwrap());
+    VenueCounter::<T>::put(venue_counter.checked_inc().unwrap());
     venue_counter
 }
 
@@ -223,7 +223,7 @@ where
         pause_compliance,
         pause_restrictions,
     );
-    Module::<T>::add_instruction_with_mediators(
+    Pallet::<T>::add_instruction_with_mediators(
         sender.origin.clone().into(),
         Some(venue_id),
         settlement_type,
@@ -248,7 +248,7 @@ where
         })
         .collect();
     let sdr_portfolios = parameters.sdr_portfolios();
-    Module::<T>::affirm_with_receipts(
+    Pallet::<T>::affirm_with_receipts(
         sender.origin.clone().into(),
         InstructionId(1),
         receipt_details.clone(),
@@ -256,7 +256,7 @@ where
     )
     .unwrap();
     let rcv_portfolios = parameters.rcv_portfolios();
-    Module::<T>::affirm_with_receipts(
+    Pallet::<T>::affirm_with_receipts(
         receiver.origin.clone().into(),
         InstructionId(1),
         Vec::new(),
@@ -265,7 +265,7 @@ where
     .unwrap();
     // All mediators must affirm the instruction
     parameters.asset_mediators.iter().for_each(|u| {
-        Module::<T>::affirm_instruction_as_mediator(
+        Pallet::<T>::affirm_instruction_as_mediator(
             u.origin.clone().into(),
             InstructionId(1),
             None,
@@ -273,7 +273,7 @@ where
         .unwrap();
     });
     m_user.into_iter().for_each(|u| {
-        Module::<T>::affirm_instruction_as_mediator(u.origin.into(), InstructionId(1), None)
+        Pallet::<T>::affirm_instruction_as_mediator(u.origin.into(), InstructionId(1), None)
             .unwrap();
     });
     parameters
@@ -343,9 +343,9 @@ benchmarks! {
         }
     }: _(origin, venue_details, signers, venue_type)
     verify {
-        assert_eq!(Module::<T>::venue_counter(), VenueId(2), "Invalid venue counter");
-        assert!(UserVenues::contains_key(did.unwrap(), VenueId(1)), "Invalid venue id");
-        assert!(Module::<T>::venue_info(VenueId(1)).is_some(), "Incorrect venue info set");
+        assert_eq!(Pallet::<T>::venue_counter(), VenueId(2), "Invalid venue counter");
+        assert!(UserVenues::<T>::contains_key(did.unwrap(), VenueId(1)), "Invalid venue id");
+        assert!(Pallet::<T>::venue_info(VenueId(1)).is_some(), "Incorrect venue info set");
     }
 
     update_venue_details {
@@ -358,7 +358,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(did.unwrap(), vec![]);
     }: _(origin, venue_id, details1)
     verify {
-        assert_eq!(Module::<T>::details(venue_id), details2, "Incorrect venue details");
+        assert_eq!(Pallet::<T>::details(venue_id), details2, "Incorrect venue details");
     }
 
     update_venue_type {
@@ -368,7 +368,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(did.unwrap(), vec![]);
     }: _(origin, venue_id, ty)
     verify {
-        assert_eq!(Module::<T>::venue_info(VenueId(1)).unwrap().venue_type, ty, "Incorrect venue type value");
+        assert_eq!(Pallet::<T>::venue_info(VenueId(1)).unwrap().venue_type, ty, "Incorrect venue type value");
     }
 
     update_venue_signers {
@@ -384,7 +384,7 @@ benchmarks! {
     }: _(origin, venue_id, signers.clone(), true)
     verify {
         for signer in signers.iter() {
-            assert_eq!(Module::<T>::venue_signers(venue_id, signer), true, "Incorrect venue signer");
+            assert_eq!(Pallet::<T>::venue_signers(venue_id, signer), true, "Incorrect venue signer");
         }
     }
 
@@ -394,7 +394,7 @@ benchmarks! {
         let ticker = create_asset_::<T>(&user);
     }: _(user.origin, ticker, true)
     verify {
-        assert!(Module::<T>::venue_filtering(ticker), "Fail: set_venue_filtering failed");
+        assert!(Pallet::<T>::venue_filtering(ticker), "Fail: set_venue_filtering failed");
     }
 
     allow_venues {
@@ -410,7 +410,7 @@ benchmarks! {
     }: _(user.origin, ticker, s_venues)
     verify {
         for v in venues.iter() {
-            assert!(Module::<T>::venue_allow_list(ticker, v), "Fail: allow_venue dispatch");
+            assert!(Pallet::<T>::venue_allow_list(ticker, v), "Fail: allow_venue dispatch");
         }
     }
 
@@ -427,7 +427,7 @@ benchmarks! {
     }: _(user.origin, ticker, s_venues)
     verify {
         for v in venues.iter() {
-            assert!(!Module::<T>::venue_allow_list(ticker, v), "Fail: allow_venue dispatch");
+            assert!(!Pallet::<T>::venue_allow_list(ticker, v), "Fail: allow_venue dispatch");
         }
     }
 
@@ -443,7 +443,7 @@ benchmarks! {
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
         let portfolios = parameters.sdr_portfolios();
-        Module::<T>::add_instruction(
+        Pallet::<T>::add_instruction(
             alice.origin.clone().into(),
             Some(venue_id),
             SettlementType::SettleOnAffirmation,
@@ -526,7 +526,7 @@ benchmarks! {
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, T::MaxNumberOfOffChainAssets::get(), false, false);
         let portfolios = parameters.sdr_portfolios();
-        Module::<T>::add_instruction(
+        Pallet::<T>::add_instruction(
             alice.origin.clone().into(),
             Some(venue_id),
             SettlementType::SettleOnAffirmation,
@@ -603,7 +603,7 @@ benchmarks! {
     ensure_root_origin {
         let origin = RawOrigin::Root;
     }: {
-        assert!(Module::<T>::ensure_root_origin(origin.into()).is_ok());
+        assert!(Pallet::<T>::ensure_root_origin(origin.into()).is_ok());
     }
 
     affirm_with_receipts_rcv {
@@ -618,7 +618,7 @@ benchmarks! {
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
         let portfolios = parameters.rcv_portfolios();
-        Module::<T>::add_instruction(
+        Pallet::<T>::add_instruction(
             alice.origin.clone().into(),
             Some(venue_id),
             SettlementType::SettleOnAffirmation,
@@ -654,7 +654,7 @@ benchmarks! {
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, T::MaxNumberOfOffChainAssets::get(), false, false);
         let portfolios = parameters.rcv_portfolios();
-        Module::<T>::add_instruction(
+        Pallet::<T>::add_instruction(
             alice.origin.clone().into(),
             Some(venue_id),
             SettlementType::SettleOnAffirmation,
@@ -734,7 +734,7 @@ benchmarks! {
             false,
             false,
         );
-        Module::<T>::add_instruction_with_mediators(
+        Pallet::<T>::add_instruction_with_mediators(
             alice.origin.clone().into(),
             Some(venue_id),
             SettlementType::SettleOnAffirmation,
@@ -764,7 +764,7 @@ benchmarks! {
             false,
             false,
         );
-        Module::<T>::add_instruction_with_mediators(
+        Pallet::<T>::add_instruction_with_mediators(
             alice.origin.clone().into(),
             Some(venue_id),
             SettlementType::SettleOnAffirmation,
@@ -774,7 +774,7 @@ benchmarks! {
             memo,
             mediators.try_into().unwrap()
         ).unwrap();
-        Module::<T>::affirm_instruction_as_mediator(
+        Pallet::<T>::affirm_instruction_as_mediator(
             david.origin.clone().into(),
             InstructionId(1),
             None

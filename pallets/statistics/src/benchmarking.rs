@@ -126,7 +126,7 @@ pub fn set_transfer_exception<T: Config>(
         op: StatOpType::Balance,
         claim_type: Some(ClaimType::Accredited),
     };
-    Module::<T>::set_entities_exempt(
+    Pallet::<T>::set_entities_exempt(
         origin.clone(),
         true,
         transfer_exception,
@@ -137,7 +137,7 @@ pub fn set_transfer_exception<T: Config>(
 
 /// Adds `claim` issued by `issuer_id` to `id`.
 pub fn add_identity_claim<T: Config>(id: IdentityId, claim: Claim, issuer_id: IdentityId) {
-    pallet_identity::Module::<T>::unverified_add_claim_with_scope(
+    pallet_identity::Pallet::<T>::unverified_add_claim_with_scope(
         id,
         claim.clone(),
         claim.as_scope().cloned(),
@@ -162,7 +162,7 @@ pub fn setup_transfer_restrictions<T: Config>(
             claim_issuer: Some((ClaimType::Accredited, IdentityId::from(i as u128))),
         })
         .collect();
-    Module::<T>::set_active_asset_stats(origin.clone(), asset_id, active_stats).unwrap();
+    Pallet::<T>::set_active_asset_stats(origin.clone(), asset_id, active_stats).unwrap();
 
     let transfer_conditions: BTreeSet<TransferCondition> = (0..n)
         .map(|i| {
@@ -175,7 +175,7 @@ pub fn setup_transfer_restrictions<T: Config>(
             TransferCondition::ClaimCount(StatClaim::Accredited(true), issuer_id, 0, Some(1))
         })
         .collect();
-    Module::<T>::set_asset_transfer_compliance(origin.clone(), asset_id, transfer_conditions)
+    Pallet::<T>::set_asset_transfer_compliance(origin.clone(), asset_id, transfer_conditions)
         .unwrap();
     if pause_restrictions {
         ActiveAssetStats::<T>::remove(&asset_id);
@@ -217,7 +217,7 @@ benchmarks! {
         }).cloned().unwrap();
 
         // Set active stats.
-        Module::<T>::set_active_asset_stats(owner.origin.clone().into(), ticker.into(), stats)?;
+        Pallet::<T>::set_active_asset_stats(owner.origin.clone().into(), ticker.into(), stats)?;
 
         // Generate updates.
         let updates = make_jur_stat_updates(i, Some(1000u128));
@@ -230,7 +230,7 @@ benchmarks! {
         let (owner, ticker, stats, conditions) = init_transfer_conditions::<T>(max_stats, i);
 
         // Set active stats.
-        Module::<T>::set_active_asset_stats(owner.origin.clone().into(), ticker.into(), stats)?;
+        Pallet::<T>::set_active_asset_stats(owner.origin.clone().into(), ticker.into(), stats)?;
 
     }: _(owner.origin, ticker.into(), conditions)
 
@@ -253,7 +253,7 @@ benchmarks! {
         let transfer_condition = TransferCondition::MaxInvestorCount(1);
         let changes = if a == 1 { Some((false, true)) } else { Some((true, true)) };
     }: {
-        assert!(Module::<T>::check_transfer_condition(
+        assert!(Pallet::<T>::check_transfer_condition(
             &transfer_condition,
             asset_id,
             &alice.did(),
@@ -274,7 +274,7 @@ benchmarks! {
         let asset_id = create_and_issue_sample_asset::<T>(alice.account(), true, None, b"MyAsset", true);
         let transfer_condition = TransferCondition::MaxInvestorOwnership(Permill::one());
     }: {
-        assert!(Module::<T>::check_transfer_condition(
+        assert!(Pallet::<T>::check_transfer_condition(
             &transfer_condition,
             asset_id,
             &alice.did(),
@@ -300,7 +300,7 @@ benchmarks! {
         let transfer_condition =
             TransferCondition::ClaimCount(StatClaim::Accredited(true), alice.did(), 0, Some(1));
     }: {
-        assert!(Module::<T>::check_transfer_condition(
+        assert!(Pallet::<T>::check_transfer_condition(
             &transfer_condition,
             asset_id,
             &alice.did(),
@@ -322,7 +322,7 @@ benchmarks! {
         let transfer_condition =
             TransferCondition::ClaimCount(StatClaim::Accredited(true), alice.did(), 0, Some(1));
     }: {
-        assert!(Module::<T>::check_transfer_condition(
+        assert!(Pallet::<T>::check_transfer_condition(
             &transfer_condition,
             asset_id,
             &alice.did(),
@@ -354,7 +354,7 @@ benchmarks! {
             );
         }
     }: {
-        assert!(Module::<T>::check_transfer_condition(
+        assert!(Pallet::<T>::check_transfer_condition(
             &transfer_condition,
             asset_id,
             &alice.did(),
@@ -398,9 +398,9 @@ benchmarks! {
             }
         };
     }: {
-        let from_key2 = Module::<T>::fetch_claim_as_key(Some(&alice.did()), &key1);
-        let to_key2 = Module::<T>::fetch_claim_as_key(Some(&bob.did()), &key1);
-        Module::<T>::update_asset_count_stats(
+        let from_key2 = Pallet::<T>::fetch_claim_as_key(Some(&alice.did()), &key1);
+        let to_key2 = Pallet::<T>::fetch_claim_as_key(Some(&bob.did()), &key1);
+        Pallet::<T>::update_asset_count_stats(
             key1,
             from_key2,
             to_key2,
@@ -439,9 +439,9 @@ benchmarks! {
             }
         };
     }: {
-        let from_key2 = Module::<T>::fetch_claim_as_key(Some(&alice.did()), &key1);
-        let to_key2 = Module::<T>::fetch_claim_as_key(Some(&bob.did()), &key1);
-        Module::<T>::update_asset_balance_stats(
+        let from_key2 = Pallet::<T>::fetch_claim_as_key(Some(&alice.did()), &key1);
+        let to_key2 = Pallet::<T>::fetch_claim_as_key(Some(&bob.did()), &key1);
+        Pallet::<T>::update_asset_balance_stats(
             key1,
             from_key2,
             to_key2,
@@ -466,7 +466,7 @@ benchmarks! {
             .collect();
     }: {
         assert!(
-            Module::<T>::verify_requirements::<T::MaxTransferConditionsPerAsset>(
+            Pallet::<T>::verify_requirements::<T::MaxTransferConditionsPerAsset>(
                 &transfer_conditions.try_into().unwrap(),
                 asset_id,
                 &alice.did(),
@@ -496,7 +496,7 @@ benchmarks! {
         let statistics: BoundedBTreeSet<StatType, T::MaxStatsPerAsset> = statistics.try_into().unwrap();
         ActiveAssetStats::<T>::insert(&asset_id, statistics);
     }: {
-        Module::<T>::active_asset_stats(asset_id).into_iter();
+        Pallet::<T>::active_asset_stats(asset_id).into_iter();
     }
 
     is_exempt {
@@ -505,10 +505,10 @@ benchmarks! {
         let asset_id = AssetId::new([0 as u8; 16]);
         let statistic_claim = StatClaim::Jurisdiction(Some(CountryCode::BR));
         let transfer_condition = TransferCondition::ClaimOwnership(statistic_claim, alice.did(), Permill::zero(), Permill::zero());
-        TransferConditionExemptEntities::insert(transfer_condition.get_exempt_key(asset_id.clone()), bob.did(), true);
+        TransferConditionExemptEntities::<T>::insert(transfer_condition.get_exempt_key(asset_id.clone()), bob.did(), true);
     }: {
         assert!(
-            Module::<T>::is_exempt(
+            Pallet::<T>::is_exempt(
                 asset_id,
                 &transfer_condition,
                 &alice.did(),

@@ -28,6 +28,7 @@ use frame_support::{
 };
 use mock::*;
 use pallet_balances::Error as BalancesError;
+use pallet_pips::{ProposalVotes, Proposals};
 use polymesh_primitives::IdentityId;
 use sp_runtime::{
     assert_eq_error_rate,
@@ -51,7 +52,7 @@ macro_rules! assert_add_permissioned_validator {
     ($acc_id:expr) => {
         assert_ok!(Staking::add_permissioned_validator(
             RuntimeOrigin::root(),
-            pallet_identity::Module::<Test>::get_identity($acc_id).unwrap(),
+            pallet_identity::Pallet::<Test>::get_identity($acc_id).unwrap(),
             None
         ));
     };
@@ -6838,8 +6839,8 @@ fn slashing_leaves_pips_untouched() {
         };
         let id = PipId(0);
         let vote_is = |bal| {
-            Pips::proposals(id).unwrap();
-            assert_eq!(Pips::proposal_vote(id, acc).unwrap().1, bal);
+            Proposals::<Test>::get(id).unwrap();
+            assert_eq!(ProposalVotes::<Test>::get(id, acc).unwrap().1, bal);
         };
         let vote = |bal| Pips::vote(Origin::signed(acc), id, true, bal);
 

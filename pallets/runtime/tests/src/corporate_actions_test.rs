@@ -9,14 +9,13 @@ use core::iter;
 use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
-    IterableStorageDoubleMap, StorageDoubleMap, StorageMap,
 };
 use pallet_asset::Assets;
 use pallet_corporate_actions::{
     ballot::{BallotMeta, BallotTimeRange, BallotVote, Motion, Votes},
     distribution::{self, Distribution, PER_SHARE_PRECISION},
-    CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, CorporateActions,
-    Details, LocalCAId, RecordDate, RecordDateSpec, TargetIdentities, TargetTreatment,
+    CACheckpoint, CADetails, CAId, CAKind, CorporateAction, LocalCAId, RecordDate, RecordDateSpec,
+    TargetIdentities, TargetTreatment,
     TargetTreatment::{Exclude, Include},
     Tax,
 };
@@ -33,17 +32,17 @@ use std::convert::TryInto;
 
 type System = frame_system::Pallet<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
-type Asset = pallet_asset::Module<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
-type ExternalAgents = pallet_external_agents::Module<TestStorage>;
+type ExternalAgents = pallet_external_agents::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
-type Identity = pallet_identity::Module<TestStorage>;
+type Identity = pallet_identity::Pallet<TestStorage>;
 type Authorizations = pallet_identity::Authorizations<TestStorage>;
-type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
-type CA = pallet_corporate_actions::Module<TestStorage>;
-type Ballot = pallet_corporate_actions::ballot::Module<TestStorage>;
-type Dist = distribution::Module<TestStorage>;
-type Portfolio = pallet_portfolio::Module<TestStorage>;
+type ComplianceManager = pallet_compliance_manager::Pallet<TestStorage>;
+type CA = pallet_corporate_actions::Pallet<TestStorage>;
+type Ballot = pallet_corporate_actions::ballot::Pallet<TestStorage>;
+type Dist = distribution::Pallet<TestStorage>;
+type Portfolio = pallet_portfolio::Pallet<TestStorage>;
 type BaseError = pallet_base::Error<TestStorage>;
 type Error = pallet_corporate_actions::Error<TestStorage>;
 type BallotError = pallet_corporate_actions::ballot::Error<TestStorage>;
@@ -51,7 +50,11 @@ type DistError = distribution::Error<TestStorage>;
 type PError = pallet_portfolio::Error<TestStorage>;
 type CPError = pallet_asset::checkpoint::Error<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
-type Custodian = pallet_portfolio::PortfolioCustodian;
+type Custodian = pallet_portfolio::PortfolioCustodian<TestStorage>;
+
+type Details = pallet_corporate_actions::Details<TestStorage>;
+type CAIdSequence = pallet_corporate_actions::CAIdSequence<TestStorage>;
+type CorporateActions = pallet_corporate_actions::CorporateActions<TestStorage>;
 
 const CDDP: AccountKeyring = AccountKeyring::Eve;
 
@@ -218,7 +221,7 @@ fn ballot_data(id: CAId) -> BallotData {
         choices: Ballot::motion_choices(id),
         rcv: Ballot::rcv(id),
         results: Ballot::results(id),
-        votes: Votes::iter_prefix(id).collect(),
+        votes: Votes::<TestStorage>::iter_prefix(id).collect(),
     }
 }
 
@@ -2155,7 +2158,7 @@ fn dist_claim_rounding_indivisible() {
 
         // Make `currency` indivisible.
         // This the crucial aspect different about this test.
-        Assets::mutate(currency, |t| {
+        Assets::<TestStorage>::mutate(currency, |t| {
             if let Some(t) = t {
                 t.divisible = false;
             }

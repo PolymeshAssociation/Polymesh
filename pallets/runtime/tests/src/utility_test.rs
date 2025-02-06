@@ -6,14 +6,14 @@ use frame_support::dispatch::{
 use frame_support::error::BadOrigin;
 use frame_support::traits::Contains;
 use frame_support::{
-    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, storage, StorageMap,
+    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, storage,
 };
 use frame_system::{Call as SystemCall, EventRecord};
 use pallet_timestamp::Call as TimestampCall;
 
 use pallet_asset::UniqueTickerRegistration;
 use pallet_balances::Call as BalancesCall;
-use pallet_pips::{ProposalState, SnapshotResult};
+use pallet_pips::{PipIdSequence, ProposalState, SnapshotResult};
 use pallet_portfolio::Call as PortfolioCall;
 use pallet_utility::{
     self as utility, Call as UtilityCall, Config as UtilityConfig, Event, UniqueCall, WeightInfo,
@@ -37,9 +37,9 @@ use super::{assert_event_doesnt_exist, assert_event_exists, assert_last_event, E
 
 type Error = utility::Error<TestStorage>;
 
-type Balances = pallet_balances::Module<TestStorage>;
+type Balances = pallet_balances::Pallet<TestStorage>;
 type Pips = pallet_pips::Pallet<TestStorage>;
-type Committee = pallet_committee::Module<TestStorage, pallet_committee::Instance1>;
+type Committee = pallet_committee::Pallet<TestStorage, pallet_committee::Instance1>;
 
 fn consensus_call(call: RuntimeCall, signers: &[User]) {
     let call = Box::new(call);
@@ -898,9 +898,9 @@ fn batch_works_with_committee_origin() {
             )
         };
 
-        let id_committee = Pips::pip_id_sequence();
+        let id_committee = PipIdSequence::<TestStorage>::get();
         assert_ok!(committee_proposal(0));
-        let id_snapshot = Pips::pip_id_sequence();
+        let id_snapshot = PipIdSequence::<TestStorage>::get();
         assert_ok!(community_proposal(proposer, 10));
         assert_ok!(Pips::snapshot(bob.origin()));
         consensus_batch(vec![
@@ -932,9 +932,9 @@ fn force_batch_works_with_committee_origin() {
             )
         };
 
-        let id_committee = Pips::pip_id_sequence();
+        let id_committee = PipIdSequence::<TestStorage>::get();
         assert_ok!(committee_proposal(0));
-        let id_snapshot = Pips::pip_id_sequence();
+        let id_snapshot = PipIdSequence::<TestStorage>::get();
         assert_ok!(community_proposal(proposer, 10));
         assert_ok!(Pips::snapshot(bob.origin()));
         consensus_batch(vec![
@@ -966,9 +966,9 @@ fn batch_all_works_with_committee_origin() {
             )
         };
 
-        let id_committee = Pips::pip_id_sequence();
+        let id_committee = PipIdSequence::<TestStorage>::get();
         assert_ok!(committee_proposal(0));
-        let id_snapshot = Pips::pip_id_sequence();
+        let id_snapshot = PipIdSequence::<TestStorage>::get();
         assert_ok!(community_proposal(proposer, 10));
         assert_ok!(Pips::snapshot(bob.origin()));
         consensus_batch(vec![

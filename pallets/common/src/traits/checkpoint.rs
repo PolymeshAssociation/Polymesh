@@ -1,6 +1,6 @@
 #![allow(missing_docs)]
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
@@ -10,7 +10,7 @@ use polymesh_primitives::calendar::{CalendarPeriod, CheckpointSchedule};
 use polymesh_primitives::{impl_checked_inc, Moment};
 
 /// ID of a `StoredSchedule`.
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct ScheduleId(pub u64);
 impl_checked_inc!(ScheduleId);

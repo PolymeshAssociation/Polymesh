@@ -2,13 +2,13 @@ use crate::*;
 use pallet_identity::benchmarking::{User, UserBuilder};
 use polymesh_primitives::traits::group::GroupTrait;
 
-use frame_benchmarking::benchmarks_instance;
+use frame_benchmarking::benchmarks_instance_pallet;
 use frame_system::RawOrigin;
 
 const MAX_MEMBERS: u32 = 1_000;
 
 /// Create `m` new users.
-fn make_users<T: Config<I>, I: Instance>(m: u32) -> Vec<IdentityId> {
+fn make_users<T: Config<I>, I: 'static>(m: u32) -> Vec<IdentityId> {
     (0..m)
         .map(|s| {
             UserBuilder::<T>::default()
@@ -21,36 +21,36 @@ fn make_users<T: Config<I>, I: Instance>(m: u32) -> Vec<IdentityId> {
 }
 
 /// Create `m` new users and add them into the group.
-fn make_members<T: Config<I>, I: Instance>(m: u32) -> Vec<IdentityId> {
-    <ActiveMembersLimit<I>>::put(u32::MAX);
+fn make_members<T: Config<I>, I: 'static>(m: u32) -> Vec<IdentityId> {
+    ActiveMembersLimit::<T, I>::put(u32::MAX);
     let dids = make_users::<T, I>(m);
     dids.iter().for_each(|did| {
-        Module::<T, I>::add_member(RawOrigin::Root.into(), *did).expect("Member cannot be added");
+        Pallet::<T, I>::add_member(RawOrigin::Root.into(), *did).expect("Member cannot be added");
     });
 
     dids
 }
 
 /// Check if inactive members contain the given identity.
-fn inactive_members_contains<T: Config<I>, I: Instance>(did: &IdentityId) -> bool {
-    Module::<T, I>::get_inactive_members()
+fn inactive_members_contains<T: Config<I>, I: 'static>(did: &IdentityId) -> bool {
+    Pallet::<T, I>::get_inactive_members()
         .into_iter()
         .map(|m| m.id)
         .find(|m_id| m_id == did)
         .is_some()
 }
 
-fn build_new_member<T: Config<I>, I: Instance>() -> User<T> {
+fn build_new_member<T: Config<I>, I: 'static>() -> User<T> {
     UserBuilder::<T>::default()
         .generate_did()
         .build("new member")
 }
 
-benchmarks_instance! {
+benchmarks_instance_pallet! {
     set_active_members_limit {
     }: _(RawOrigin::Root, 5u32)
     verify {
-        assert_eq!( ActiveMembersLimit::<I>::get(), 5u32);
+        assert_eq!( ActiveMembersLimit::<T, I>::get(), 5u32);
     }
 
     add_member {
@@ -58,23 +58,23 @@ benchmarks_instance! {
         let new_member = build_new_member::<T,I>().did();
     }: _(RawOrigin::Root, new_member)
     verify {
-        assert_eq!( Module::<T,I>::get_members().contains(&new_member), true);
+        assert_eq!( Pallet::<T,I>::get_members().contains(&new_member), true);
     }
 
     remove_member {
         let members = make_members::<T,I>(MAX_MEMBERS-1);
         let new_member = build_new_member::<T,I>().did();
-        Module::<T,I>::add_member(RawOrigin::Root.into(), new_member).expect("Member cannot be added");
+        Pallet::<T,I>::add_member(RawOrigin::Root.into(), new_member).expect("Member cannot be added");
 
 
         // Worst case is when you remove an inactive member, so we disable all members.
         members.iter().chain(&[new_member]).for_each( |did| {
-            Module::<T,I>::disable_member(RawOrigin::Root.into(), *did, None, None)
+            Pallet::<T,I>::disable_member(RawOrigin::Root.into(), *did, None, None)
                 .expect("Member cannot be disabled");
         });
     }: _(RawOrigin::Root, new_member)
     verify {
-        assert_eq!( Module::<T,I>::get_members().contains(&new_member), false);
+        assert_eq!( Pallet::<T,I>::get_members().contains(&new_member), false);
         assert_eq!( inactive_members_contains::<T,I>(&new_member), false);
     }
 
@@ -84,7 +84,7 @@ benchmarks_instance! {
         let expiry_at = Some(200u32.into());
     }: _(RawOrigin::Root, target, expiry_at, None)
     verify {
-        assert_eq!( Module::<T,I>::get_members().contains(&target), false);
+        assert_eq!( Pallet::<T,I>::get_members().contains(&target), false);
         assert_eq!( inactive_members_contains::<T,I>(&target), true);
     }
 
@@ -96,7 +96,7 @@ benchmarks_instance! {
 
     }: _(RawOrigin::Root, old_member, new_member)
     verify {
-        let members = Module::<T,I>::get_members();
+        let members = Pallet::<T,I>::get_members();
         assert_eq!( members.contains(&new_member), true);
         assert_eq!( members.contains(&old_member), false);
         assert_eq!( inactive_members_contains::<T,I>(&old_member), false);
@@ -104,7 +104,7 @@ benchmarks_instance! {
 
     reset_members {
         let m in 1..MAX_MEMBERS;
-        <ActiveMembersLimit<I>>::put(u32::MAX);
+        ActiveMembersLimit::<T, I>::put(u32::MAX);
 
         let new_members = make_users::<T,I>(m);
 
@@ -113,18 +113,18 @@ benchmarks_instance! {
 
     }: _(RawOrigin::Root, new_members)
     verify {
-        assert_eq!( Module::<T,I>::get_members(), new_members_exp);
+        assert_eq!( Pallet::<T,I>::get_members(), new_members_exp);
     }
 
     abdicate_membership {
         let members = make_members::<T,I>(MAX_MEMBERS-1);
         let new_member = build_new_member::<T,I>();
 
-        Module::<T,I>::add_member( RawOrigin::Root.into(), new_member.did())
+        Pallet::<T,I>::add_member( RawOrigin::Root.into(), new_member.did())
             .expect("Member cannot be added");
 
     }: _(new_member.origin())
     verify {
-        assert_eq!( Module::<T,I>::get_members().contains(&new_member.did()), false);
+        assert_eq!( Pallet::<T,I>::get_members().contains(&new_member.did()), false);
     }
 }

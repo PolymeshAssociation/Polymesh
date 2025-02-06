@@ -1,15 +1,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
 use frame_support::dispatch::{
     DispatchError, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo,
 };
-use frame_support::storage::StorageDoubleMap;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, ensure, require_transactional,
-};
+use frame_support::{ensure, require_transactional};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{vec, vec::Vec};
@@ -24,20 +20,17 @@ use polymesh_primitives::nft::{
 };
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::{
-    storage_migration_ver,
     traits::{ComplianceFnConfig, NFTTrait},
     IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, WeightMeter,
 };
 
-type Asset<T> = pallet_asset::Module<T>;
-type ExternalAgents<T> = pallet_external_agents::Module<T>;
-type Identity<T> = pallet_identity::Module<T>;
-type Portfolio<T> = pallet_portfolio::Module<T>;
+type Asset<T> = pallet_asset::Pallet<T>;
+type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
+type IdentityPallet<T> = pallet_identity::Pallet<T>;
+type Portfolio<T> = pallet_portfolio::Pallet<T>;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-
-storage_migration_ver!(4);
 
 pub trait WeightInfo {
     fn create_nft_collection(n: u32) -> Weight;
@@ -47,22 +40,40 @@ pub trait WeightInfo {
     fn controller_transfer(n: u32) -> Weight;
 }
 
-pub trait Config:
-    frame_system::Config + pallet_asset::Config + pallet_identity::Config + pallet_portfolio::Config
-{
-    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+pub use pallet::*;
 
-    type WeightInfo: WeightInfo;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::{OptionQuery, *};
+    use frame_system::pallet_prelude::*;
 
-    type Compliance: ComplianceFnConfig;
+    #[pallet::config]
+    pub trait Config:
+        frame_system::Config
+        + pallet_asset::Config
+        + pallet_asset::checkpoint::Config
+        + pallet_identity::Config
+        + pallet_portfolio::Config
+    {
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        type WeightInfo: WeightInfo;
+        type Compliance: ComplianceFnConfig;
+        #[pallet::constant]
+        type MaxNumberOfCollectionKeys: Get<u8>;
+        #[pallet::constant]
+        type MaxNumberOfNFTsCount: Get<u32>;
+    }
 
-    type MaxNumberOfCollectionKeys: Get<u8>;
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
-    type MaxNumberOfNFTsCount: Get<u32>;
-}
+    #[pallet::pallet]
+    #[pallet::storage_version(STORAGE_VERSION)]
+    pub struct Pallet<T>(_);
 
-decl_event!(
-    pub enum Event {
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
         /// Emitted when a new nft collection is created.
         NftCollectionCreated(IdentityId, AssetId, NFTCollectionId),
         /// Emitted when NFTs were issued, redeemed or transferred.
@@ -76,58 +87,94 @@ decl_event!(
             PortfolioUpdateReason,
         ),
     }
-);
 
-decl_storage!(
-    trait Store for Module<T: Config> as NFT {
-        /// The total number of NFTs per identity.
-        pub NumberOfNFTs get(fn balance_of): double_map hasher(blake2_128_concat) AssetId, hasher(identity) IdentityId => NFTCount;
+    /// The total number of NFTs per identity.
+    #[pallet::storage]
+    #[pallet::getter(fn number_of_nfts)]
+    pub type NumberOfNFTs<T: Config> =
+        StorageDoubleMap<_, Blake2_128Concat, AssetId, Identity, IdentityId, NFTCount, ValueQuery>;
 
-        /// The collection id corresponding to each asset.
-        pub CollectionAsset get(fn collection_asset): map hasher(blake2_128_concat) AssetId => NFTCollectionId;
+    /// The collection id corresponding to each asset.
+    #[pallet::storage]
+    #[pallet::getter(fn collection_asset)]
+    pub type CollectionAsset<T: Config> =
+        StorageMap<_, Blake2_128Concat, AssetId, NFTCollectionId, ValueQuery>;
 
-        /// All collection details for a given collection id.
-        pub Collection get(fn nft_collection): map hasher(blake2_128_concat) NFTCollectionId => NFTCollection;
+    /// All collection details for a given collection id.
+    #[pallet::storage]
+    #[pallet::getter(fn collection)]
+    pub type Collection<T: Config> =
+        StorageMap<_, Blake2_128Concat, NFTCollectionId, NFTCollection, ValueQuery>;
 
-        /// All mandatory metadata keys for a given collection.
-        pub CollectionKeys get(fn collection_keys): map hasher(blake2_128_concat) NFTCollectionId => BTreeSet<AssetMetadataKey>;
+    /// All mandatory metadata keys for a given collection.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn collection_keys)]
+    pub type CollectionKeys<T: Config> =
+        StorageMap<_, Blake2_128Concat, NFTCollectionId, BTreeSet<AssetMetadataKey>, ValueQuery>;
 
-        /// The metadata value of an nft given its collection id, token id and metadata key.
-        pub MetadataValue get(fn metadata_value):
-            double_map hasher(blake2_128_concat) (NFTCollectionId, NFTId), hasher(blake2_128_concat) AssetMetadataKey => AssetMetadataValue;
+    /// The metadata value of an nft given its collection id, token id and metadata key.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn metadata_value)]
+    pub type MetadataValue<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        (NFTCollectionId, NFTId),
+        Blake2_128Concat,
+        AssetMetadataKey,
+        AssetMetadataValue,
+        ValueQuery,
+    >;
 
-        /// The total number of NFTs in a collection
-        pub NFTsInCollection get(fn nfts_in_collection): map hasher(blake2_128_concat) AssetId => NFTCount;
+    /// The total number of NFTs in a collection.
+    #[pallet::storage]
+    #[pallet::getter(fn nfts_in_collection)]
+    pub type NFTsInCollection<T: Config> =
+        StorageMap<_, Blake2_128Concat, AssetId, NFTCount, ValueQuery>;
 
-        /// Tracks the owner of an NFT
-        pub NFTOwner get(fn nft_owner): double_map hasher(blake2_128_concat) AssetId, hasher(blake2_128_concat) NFTId => Option<PortfolioId>;
+    /// Tracks the owner of an NFT
+    #[pallet::storage]
+    #[pallet::getter(fn nft_owner)]
+    pub type NFTOwner<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        Blake2_128Concat,
+        NFTId,
+        PortfolioId,
+        OptionQuery,
+    >;
 
-        /// The last `NFTId` used for an NFT.
-        pub CurrentNFTId get(fn current_nft_id): map hasher(blake2_128_concat) NFTCollectionId => Option<NFTId>;
+    /// The last `NFTId` used for an NFT.
+    #[pallet::storage]
+    #[pallet::getter(fn current_nft_id)]
+    pub type CurrentNFTId<T: Config> =
+        StorageMap<_, Blake2_128Concat, NFTCollectionId, NFTId, OptionQuery>;
 
-        /// The last `NFTCollectionId` used for a collection.
-        pub CurrentCollectionId get(fn current_collection_id): Option<NFTCollectionId>;
+    /// The last `NFTCollectionId` used for a collection.
+    #[pallet::storage]
+    #[pallet::getter(fn current_collection_id)]
+    pub type CurrentCollectionId<T: Config> = StorageValue<_, NFTCollectionId, OptionQuery>;
 
-        /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(4)): Version;
+    #[pallet::genesis_config]
+    #[derive(Default)]
+    pub struct GenesisConfig;
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+        fn build(&self) {}
     }
-);
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
-
-        type Error = Error<T>;
-
-        const MaxNumberOfCollectionKeys: u8 = T::MaxNumberOfCollectionKeys::get();
-        const MaxNumberOfNFTsCount: u32 = T::MaxNumberOfNFTsCount::get();
-
-        /// Initializes the default event for this module.
-        fn deposit_event() = default;
-
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
-            Weight::zero()
+            polymesh_primitives::migrate::frame_v2_migrate::<Pallet<T>>("NFT", STORAGE_VERSION)
         }
+    }
 
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Cretes a new `NFTCollection`.
         ///
         /// # Arguments
@@ -145,12 +192,13 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::create_nft_collection(collection_keys.len() as u32)]
+        #[pallet::weight(<T as Config>::WeightInfo::create_nft_collection(collection_keys.len() as u32))]
+        #[pallet::call_index(0)]
         pub fn create_nft_collection(
-            origin,
+            origin: OriginFor<T>,
             asset_id: Option<AssetId>,
             nft_type: Option<NonFungibleType>,
-            collection_keys: NFTCollectionKeys
+            collection_keys: NFTCollectionKeys,
         ) -> DispatchResult {
             Self::base_create_nft_collection(origin, asset_id, nft_type, collection_keys)
         }
@@ -172,8 +220,14 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::issue_nft(nft_metadata_attributes.len() as u32)]
-        pub fn issue_nft(origin, asset_id: AssetId, nft_metadata_attributes: Vec<NFTMetadataAttribute>, portfolio_kind: PortfolioKind) -> DispatchResult {
+        #[pallet::weight(<T as Config>::WeightInfo::issue_nft(nft_metadata_attributes.len() as u32))]
+        #[pallet::call_index(1)]
+        pub fn issue_nft(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            nft_metadata_attributes: Vec<NFTMetadataAttribute>,
+            portfolio_kind: PortfolioKind,
+        ) -> DispatchResult {
             Self::base_issue_nft(origin, asset_id, nft_metadata_attributes, portfolio_kind)
         }
 
@@ -192,18 +246,19 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::redeem_nft(
+        #[pallet::weight(<T as Config>::WeightInfo::redeem_nft(
             number_of_keys.map_or(
                 u32::from(T::MaxNumberOfCollectionKeys::get()),
                 |v| u32::from(v)
             )
-        )]
+        ))]
+        #[pallet::call_index(2)]
         pub fn redeem_nft(
-            origin,
+            origin: OriginFor<T>,
             asset_id: AssetId,
             nft_id: NFTId,
             portfolio_kind: PortfolioKind,
-            number_of_keys: Option<u8>
+            number_of_keys: Option<u8>,
         ) -> DispatchResultWithPostInfo {
             Self::base_redeem_nft(origin, asset_id, nft_id, portfolio_kind, number_of_keys)
         }
@@ -219,20 +274,20 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::controller_transfer(nfts.len() as u32)]
+        #[pallet::weight(<T as Config>::WeightInfo::controller_transfer(nfts.len() as u32))]
+        #[pallet::call_index(3)]
         pub fn controller_transfer(
-            origin,
+            origin: OriginFor<T>,
             nfts: NFTs,
             source_portfolio: PortfolioId,
-            callers_portfolio_kind: PortfolioKind
+            callers_portfolio_kind: PortfolioKind,
         ) -> DispatchResult {
             Self::base_controller_transfer(origin, nfts, source_portfolio, callers_portfolio_kind)
         }
     }
-}
 
-decl_error! {
-    pub enum Error for Module<T: Config> {
+    #[pallet::error]
+    pub enum Error<T> {
         /// An overflow while calculating the balance.
         BalanceOverflow,
         /// An underflow while calculating the balance.
@@ -294,7 +349,7 @@ decl_error! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     fn base_create_nft_collection(
         origin: T::RuntimeOrigin,
         asset_id: Option<AssetId>,
@@ -318,7 +373,7 @@ impl<T: Config> Module<T> {
                 },
                 None => {
                     let caller_data =
-                        Identity::<T>::ensure_origin_call_permissions(origin.clone())?;
+                        IdentityPallet::<T>::ensure_origin_call_permissions(origin.clone())?;
                     let asset_id = Asset::<T>::generate_asset_id(caller_data.sender, false);
                     (true, caller_data.primary_did, asset_id)
                 }
@@ -327,7 +382,7 @@ impl<T: Config> Module<T> {
 
         // Verifies if the asset_id is already associated to an NFT collection
         ensure!(
-            !CollectionAsset::contains_key(&asset_id),
+            !CollectionAsset::<T>::contains_key(&asset_id),
             Error::<T>::CollectionAlredyRegistered
         );
 
@@ -369,9 +424,9 @@ impl<T: Config> Module<T> {
         // Creates the nft collection
         let collection_id = Self::update_current_collection_id()?;
         let nft_collection = NFTCollection::new(collection_id, asset_id.clone());
-        Collection::insert(&collection_id, nft_collection);
-        CollectionKeys::insert(&collection_id, collection_keys);
-        CollectionAsset::insert(&asset_id, &collection_id);
+        Collection::<T>::insert(&collection_id, nft_collection);
+        CollectionKeys::<T>::insert(&collection_id, collection_keys);
+        CollectionAsset::<T>::insert(&asset_id, &collection_id);
 
         Self::deposit_event(Event::NftCollectionCreated(
             caller_did,
@@ -389,7 +444,7 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         // Verifies if the collection exists
         let collection_id =
-            CollectionAsset::try_get(&asset_id).map_err(|_| Error::<T>::CollectionNotFound)?;
+            CollectionAsset::<T>::try_get(&asset_id).map_err(|_| Error::<T>::CollectionNotFound)?;
 
         // Verifies if the caller has the right permissions (regarding asset and portfolio)
         let caller_portfolio = Asset::<T>::ensure_origin_asset_and_portfolio_permissions(
@@ -426,20 +481,20 @@ impl<T: Config> Module<T> {
         }
 
         // Mints the NFT and adds it to the caller's portfolio
-        let new_supply = NFTsInCollection::get(&asset_id)
+        let new_supply = NFTsInCollection::<T>::get(&asset_id)
             .checked_add(1)
             .ok_or(Error::<T>::SupplyOverflow)?;
-        let new_balance = NumberOfNFTs::get(&asset_id, &caller_portfolio.did)
+        let new_balance = NumberOfNFTs::<T>::get(&asset_id, &caller_portfolio.did)
             .checked_add(1)
             .ok_or(Error::<T>::BalanceOverflow)?;
         let nft_id = Self::update_current_nft_id(&collection_id)?;
-        NFTsInCollection::insert(&asset_id, new_supply);
-        NumberOfNFTs::insert(&asset_id, &caller_portfolio.did, new_balance);
+        NFTsInCollection::<T>::insert(&asset_id, new_supply);
+        NumberOfNFTs::<T>::insert(&asset_id, &caller_portfolio.did, new_balance);
         for (metadata_key, metadata_value) in nft_attributes.into_iter() {
-            MetadataValue::insert((&collection_id, &nft_id), metadata_key, metadata_value);
+            MetadataValue::<T>::insert((&collection_id, &nft_id), metadata_key, metadata_value);
         }
-        PortfolioNFT::insert(caller_portfolio, (asset_id, nft_id), true);
-        NFTOwner::insert(asset_id, nft_id, caller_portfolio);
+        PortfolioNFT::<T>::insert(caller_portfolio, (asset_id, nft_id), true);
+        NFTOwner::<T>::insert(asset_id, nft_id, caller_portfolio);
 
         Self::deposit_event(Event::NFTPortfolioUpdated(
             caller_portfolio.did,
@@ -462,7 +517,7 @@ impl<T: Config> Module<T> {
     ) -> DispatchResultWithPostInfo {
         // Verifies if the collection exists
         let collection_id =
-            CollectionAsset::try_get(&asset_id).map_err(|_| Error::<T>::CollectionNotFound)?;
+            CollectionAsset::<T>::try_get(&asset_id).map_err(|_| Error::<T>::CollectionNotFound)?;
 
         // Ensure origin is agent with custody and permissions for portfolio.
         let caller_portfolio = Asset::<T>::ensure_origin_asset_and_portfolio_permissions(
@@ -474,26 +529,26 @@ impl<T: Config> Module<T> {
 
         // Verifies if the NFT exists
         ensure!(
-            PortfolioNFT::contains_key(&caller_portfolio, (&asset_id, &nft_id)),
+            PortfolioNFT::<T>::contains_key(&caller_portfolio, (&asset_id, &nft_id)),
             Error::<T>::NFTNotFound
         );
         ensure!(
-            !PortfolioLockedNFT::contains_key(&caller_portfolio, (&asset_id, &nft_id)),
+            !PortfolioLockedNFT::<T>::contains_key(&caller_portfolio, (&asset_id, &nft_id)),
             Error::<T>::NFTIsLocked
         );
 
         // Burns the NFT
-        let new_supply = NFTsInCollection::get(&asset_id)
+        let new_supply = NFTsInCollection::<T>::get(&asset_id)
             .checked_sub(1)
             .ok_or(Error::<T>::SupplyUnderflow)?;
-        let new_balance = NumberOfNFTs::get(&asset_id, &caller_portfolio.did)
+        let new_balance = NumberOfNFTs::<T>::get(&asset_id, &caller_portfolio.did)
             .checked_sub(1)
             .ok_or(Error::<T>::BalanceUnderflow)?;
-        NFTsInCollection::insert(&asset_id, new_supply);
-        NumberOfNFTs::insert(&asset_id, &caller_portfolio.did, new_balance);
-        PortfolioNFT::remove(&caller_portfolio, (&asset_id, &nft_id));
-        NFTOwner::remove(asset_id, nft_id);
-        let removed_keys = MetadataValue::drain_prefix((&collection_id, &nft_id)).count();
+        NFTsInCollection::<T>::insert(&asset_id, new_supply);
+        NumberOfNFTs::<T>::insert(&asset_id, &caller_portfolio.did, new_balance);
+        PortfolioNFT::<T>::remove(&caller_portfolio, (&asset_id, &nft_id));
+        NFTOwner::<T>::remove(asset_id, nft_id);
+        let removed_keys = MetadataValue::<T>::drain_prefix((&collection_id, &nft_id)).count();
         if let Some(number_of_keys) = number_of_keys {
             ensure!(
                 usize::from(number_of_keys) >= removed_keys,
@@ -558,7 +613,7 @@ impl<T: Config> Module<T> {
         weight_meter: Option<&mut WeightMeter>,
     ) -> DispatchResult {
         // Verifies if there is a collection associated to the NFTs
-        if !CollectionAsset::contains_key(nfts.asset_id()) {
+        if !CollectionAsset::<T>::contains_key(nfts.asset_id()) {
             return Err(Error::<T>::InvalidNFTTransferCollectionNotFound.into());
         }
 
@@ -571,7 +626,7 @@ impl<T: Config> Module<T> {
         // Verifies that the sender has the required nft count
         let nfts_transferred = nfts.len() as u64;
         ensure!(
-            NumberOfNFTs::get(nfts.asset_id(), sender_portfolio.did) >= nfts_transferred,
+            NumberOfNFTs::<T>::get(nfts.asset_id(), sender_portfolio.did) >= nfts_transferred,
             Error::<T>::InvalidNFTTransferInsufficientCount
         );
 
@@ -583,7 +638,7 @@ impl<T: Config> Module<T> {
         Self::ensure_nft_ownership(sender_portfolio, nfts)?;
 
         // Verfies that the receiver will not overflow
-        NumberOfNFTs::get(nfts.asset_id(), receiver_portfolio.did)
+        NumberOfNFTs::<T>::get(nfts.asset_id(), receiver_portfolio.did)
             .checked_add(nfts_transferred)
             .ok_or(Error::<T>::InvalidNFTTransferCountOverflow)?;
 
@@ -594,19 +649,19 @@ impl<T: Config> Module<T> {
 
         // Verifies that the asset is not frozen
         ensure!(
-            !Frozen::get(nfts.asset_id()),
+            !Frozen::<T>::get(nfts.asset_id()),
             Error::<T>::InvalidNFTTransferFrozenAsset
         );
 
         // Verifies if the receiver has a valid CDD claim.
         ensure!(
-            Identity::<T>::has_valid_cdd(receiver_portfolio.did),
+            IdentityPallet::<T>::has_valid_cdd(receiver_portfolio.did),
             Error::<T>::InvalidNFTTransferInvalidReceiverCDD
         );
 
         // Verifies if the sender has a valid CDD claim.
         ensure!(
-            Identity::<T>::has_valid_cdd(sender_portfolio.did),
+            IdentityPallet::<T>::has_valid_cdd(sender_portfolio.did),
             Error::<T>::InvalidNFTTransferInvalidSenderCDD
         );
 
@@ -628,11 +683,11 @@ impl<T: Config> Module<T> {
         // Verfies that the sender owns the nfts and that they are not locked
         for nft_id in nfts.ids() {
             ensure!(
-                PortfolioNFT::contains_key(sender_portfolio, (nfts.asset_id(), nft_id)),
+                PortfolioNFT::<T>::contains_key(sender_portfolio, (nfts.asset_id(), nft_id)),
                 Error::<T>::InvalidNFTTransferNFTNotOwned
             );
             ensure!(
-                !PortfolioLockedNFT::contains_key(sender_portfolio, (nfts.asset_id(), nft_id)),
+                !PortfolioLockedNFT::<T>::contains_key(sender_portfolio, (nfts.asset_id(), nft_id)),
                 Error::<T>::InvalidNFTTransferNFTIsLocked
             );
         }
@@ -665,17 +720,17 @@ impl<T: Config> Module<T> {
     ) {
         // Update the balance of the sender and the receiver
         let transferred_amount = nfts.len() as u64;
-        NumberOfNFTs::mutate(nfts.asset_id(), sender_portfolio.did, |balance| {
+        NumberOfNFTs::<T>::mutate(nfts.asset_id(), sender_portfolio.did, |balance| {
             *balance -= transferred_amount
         });
-        NumberOfNFTs::mutate(nfts.asset_id(), receiver_portfolio.did, |balance| {
+        NumberOfNFTs::<T>::mutate(nfts.asset_id(), receiver_portfolio.did, |balance| {
             *balance += transferred_amount
         });
         // Update the portfolio of the sender and the receiver
         for nft_id in nfts.ids() {
-            PortfolioNFT::remove(sender_portfolio, (nfts.asset_id(), nft_id));
-            PortfolioNFT::insert(receiver_portfolio, (nfts.asset_id(), nft_id), true);
-            NFTOwner::insert(nfts.asset_id(), nft_id, receiver_portfolio);
+            PortfolioNFT::<T>::remove(sender_portfolio, (nfts.asset_id(), nft_id));
+            PortfolioNFT::<T>::insert(receiver_portfolio, (nfts.asset_id(), nft_id), true);
+            NFTOwner::<T>::insert(nfts.asset_id(), nft_id, receiver_portfolio);
         }
     }
 
@@ -719,11 +774,11 @@ impl<T: Config> Module<T> {
         let mut nft_transfer_errors = Vec::new();
 
         // If the collection doesn't exist, there's no point in assessing anything else
-        if !CollectionAsset::contains_key(nfts.asset_id()) {
+        if !CollectionAsset::<T>::contains_key(nfts.asset_id()) {
             return vec![Error::<T>::InvalidNFTTransferCollectionNotFound.into()];
         }
 
-        if Frozen::get(nfts.asset_id()) {
+        if Frozen::<T>::get(nfts.asset_id()) {
             nft_transfer_errors.push(Error::<T>::InvalidNFTTransferFrozenAsset.into());
         }
 
@@ -733,7 +788,7 @@ impl<T: Config> Module<T> {
         }
 
         let nfts_transferred = nfts.len() as u64;
-        if NumberOfNFTs::get(nfts.asset_id(), &sender_portfolio.did) < nfts_transferred {
+        if NumberOfNFTs::<T>::get(nfts.asset_id(), &sender_portfolio.did) < nfts_transferred {
             nft_transfer_errors.push(Error::<T>::InvalidNFTTransferInsufficientCount.into());
         }
 
@@ -747,7 +802,7 @@ impl<T: Config> Module<T> {
 
         if skip_locked_check {
             for nft_id in nfts.ids() {
-                if !PortfolioNFT::contains_key(sender_portfolio, (nfts.asset_id(), nft_id)) {
+                if !PortfolioNFT::<T>::contains_key(sender_portfolio, (nfts.asset_id(), nft_id)) {
                     nft_transfer_errors.push(Error::<T>::InvalidNFTTransferNFTNotOwned.into());
                     break;
                 }
@@ -758,15 +813,15 @@ impl<T: Config> Module<T> {
             }
         }
 
-        if !Identity::<T>::has_valid_cdd(receiver_portfolio.did) {
+        if !IdentityPallet::<T>::has_valid_cdd(receiver_portfolio.did) {
             nft_transfer_errors.push(Error::<T>::InvalidNFTTransferInvalidReceiverCDD.into());
         }
 
-        if !Identity::<T>::has_valid_cdd(sender_portfolio.did) {
+        if !IdentityPallet::<T>::has_valid_cdd(sender_portfolio.did) {
             nft_transfer_errors.push(Error::<T>::InvalidNFTTransferInvalidSenderCDD.into());
         }
 
-        if NumberOfNFTs::get(nfts.asset_id(), &receiver_portfolio.did)
+        if NumberOfNFTs::<T>::get(nfts.asset_id(), &receiver_portfolio.did)
             .checked_add(nfts_transferred)
             .is_none()
         {
@@ -795,7 +850,7 @@ impl<T: Config> Module<T> {
 
     /// Adds one to `CurrentCollectionId`.
     fn update_current_collection_id() -> Result<NFTCollectionId, DispatchError> {
-        CurrentCollectionId::try_mutate(|current_collection_id| match current_collection_id {
+        CurrentCollectionId::<T>::try_mutate(|current_collection_id| match current_collection_id {
             Some(current_id) => {
                 let new_id = try_next_pre::<T, _>(current_id)?;
                 *current_collection_id = Some(new_id);
@@ -811,7 +866,7 @@ impl<T: Config> Module<T> {
 
     /// Adds one to the `NFTId` that belongs to `collection_id`.
     fn update_current_nft_id(collection_id: &NFTCollectionId) -> Result<NFTId, DispatchError> {
-        CurrentNFTId::try_mutate(collection_id, |current_nft_id| match current_nft_id {
+        CurrentNFTId::<T>::try_mutate(collection_id, |current_nft_id| match current_nft_id {
             Some(current_id) => {
                 let new_nft_id = try_next_pre::<T, _>(current_id)?;
                 *current_nft_id = Some(new_nft_id);
@@ -826,11 +881,11 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> NFTTrait<T::RuntimeOrigin> for Module<T> {
+impl<T: Config> NFTTrait<T::RuntimeOrigin> for Pallet<T> {
     fn is_collection_key(asset_id: &AssetId, metadata_key: &AssetMetadataKey) -> bool {
-        match CollectionAsset::try_get(asset_id) {
+        match CollectionAsset::<T>::try_get(asset_id) {
             Ok(collection_id) => {
-                let key_set = CollectionKeys::get(&collection_id);
+                let key_set = CollectionKeys::<T>::get(&collection_id);
                 key_set.contains(metadata_key)
             }
             Err(_) => false,
@@ -838,7 +893,7 @@ impl<T: Config> NFTTrait<T::RuntimeOrigin> for Module<T> {
     }
 
     fn move_portfolio_owner(asset_id: AssetId, nft_id: NFTId, new_owner_portfolio: PortfolioId) {
-        NFTOwner::insert(asset_id, nft_id, new_owner_portfolio);
+        NFTOwner::<T>::insert(asset_id, nft_id, new_owner_portfolio);
     }
 
     #[cfg(feature = "runtime-benchmarks")]
@@ -848,6 +903,6 @@ impl<T: Config> NFTTrait<T::RuntimeOrigin> for Module<T> {
         nft_type: Option<NonFungibleType>,
         collection_keys: NFTCollectionKeys,
     ) -> DispatchResult {
-        Module::<T>::create_nft_collection(origin, asset_id, nft_type, collection_keys)
+        Pallet::<T>::create_nft_collection(origin, asset_id, nft_type, collection_keys)
     }
 }

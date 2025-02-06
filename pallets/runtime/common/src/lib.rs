@@ -47,7 +47,7 @@ pub use cdd_check::CddChecker;
 pub use impls::{Author, CurrencyToVoteHandler};
 
 pub type NegativeImbalance<T> =
-    <balances::Module<T> as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+    <balances::Pallet<T> as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
     items as Balance * 15 * CENTS + (bytes as Balance) * 6 * CENTS

@@ -14,7 +14,6 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use frame_benchmarking::benchmarks;
-use frame_support::StorageValue;
 use frame_system::RawOrigin;
 use scale_info::prelude::format;
 use sp_std::collections::btree_set::BTreeSet;
@@ -78,14 +77,14 @@ fn make_metadata_spec<T: Config>() -> AssetMetadataSpec {
 }
 
 /// Register a global metadata type for benchmarking.
-fn register_metadata_global_name<T: Config>() -> AssetMetadataKey {
+fn register_metadata_global_name<T: AssetConfig>() -> AssetMetadataKey {
     let root = RawOrigin::Root.into();
     let name = make_metadata_name::<T>();
     let spec = make_metadata_spec::<T>();
 
-    Module::<T>::register_asset_metadata_global_type(root, name, spec).unwrap();
+    Pallet::<T>::register_asset_metadata_global_type(root, name, spec).unwrap();
 
-    let key = Module::<T>::current_asset_metadata_global_key().unwrap();
+    let key = Pallet::<T>::current_asset_metadata_global_key().unwrap();
     AssetMetadataKey::Global(key)
 }
 
@@ -98,15 +97,18 @@ fn set_ticker_registration_config<T: Config>() {
 }
 
 /// Creates a new [`AssetDetails`] considering the worst case scenario.
-pub(crate) fn create_sample_asset<T: Config>(asset_owner: &User<T>, divisible: bool) -> AssetId {
+pub(crate) fn create_sample_asset<T: AssetConfig>(
+    asset_owner: &User<T>,
+    divisible: bool,
+) -> AssetId {
     let asset_name = AssetName::from(vec![b'N'; T::AssetNameMaxLength::get() as usize].as_slice());
     let funding_round_name =
         FundingRoundName::from(vec![b'F'; T::FundingRoundNameMaxLength::get() as usize].as_slice());
     let asset_identifiers = (0..MAX_IDENTIFIERS_PER_ASSET)
         .map(|_| AssetIdentifier::cusip(*b"17275R102").unwrap())
         .collect();
-    let asset_id = Module::<T>::generate_asset_id(asset_owner.account(), false);
-    Module::<T>::create_asset(
+    let asset_id = Pallet::<T>::generate_asset_id(asset_owner.account(), false);
+    Pallet::<T>::create_asset(
         asset_owner.origin.clone().into(),
         asset_name,
         divisible,
@@ -119,9 +121,9 @@ pub(crate) fn create_sample_asset<T: Config>(asset_owner: &User<T>, divisible: b
     asset_id
 }
 
-pub(crate) fn create_and_issue_sample_asset<T: Config>(asset_owner: &User<T>) -> AssetId {
+pub(crate) fn create_and_issue_sample_asset<T: AssetConfig>(asset_owner: &User<T>) -> AssetId {
     let asset_id = create_sample_asset::<T>(asset_owner, true);
-    Module::<T>::issue(
+    Pallet::<T>::issue(
         asset_owner.origin().into(),
         asset_id,
         (1_000_000 * POLY).into(),
@@ -134,7 +136,7 @@ pub(crate) fn create_and_issue_sample_asset<T: Config>(asset_owner: &User<T>) ->
 
 /// Creates an asset for `ticker`, creates a custom portfolio for the sender and receiver, sets up compliance and transfer restrictions.
 /// Returns the sender and receiver portfolio.
-pub fn setup_asset_transfer<T>(
+pub fn setup_asset_transfer<T: AssetConfig>(
     sender: &User<T>,
     receiver: &User<T>,
     sender_portfolio_name: Option<&str>,
@@ -142,10 +144,7 @@ pub fn setup_asset_transfer<T>(
     pause_compliance: bool,
     pause_restrictions: bool,
     n_mediators: u8,
-) -> (PortfolioId, PortfolioId, Vec<User<T>>, AssetId)
-where
-    T: Config,
-{
+) -> (PortfolioId, PortfolioId, Vec<User<T>>, AssetId) {
     let sender_portfolio =
         create_portfolio::<T>(sender, sender_portfolio_name.unwrap_or("SenderPortfolio"));
     let receiver_portfolio =
@@ -167,7 +166,7 @@ where
                 mediator.did()
             })
             .collect();
-        Module::<T>::add_mandatory_mediators(
+        Pallet::<T>::add_mandatory_mediators(
             sender.origin().into(),
             asset_id,
             mediators_identity.try_into().unwrap(),
@@ -236,6 +235,8 @@ fn move_from_default_portfolio<T: Config>(
 }
 
 benchmarks! {
+    where_clause {  where T: AssetConfig }
+
     register_unique_ticker {
         // For the worst case ticker must be of length `TICKER_LEN`
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
@@ -244,7 +245,7 @@ benchmarks! {
     }: _(alice.origin.clone(), ticker)
     verify {
         assert_eq!(
-            TickersOwnedByUser::get(alice.did(), ticker),
+            TickersOwnedByUser::<T>::get(alice.did(), ticker),
             true
         );
         assert_eq!(
@@ -259,7 +260,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
 
         let ticker = reg_unique_ticker::<T>(alice.account(), None);
-        let new_owner_auth_id = pallet_identity::Module::<T>::add_auth(
+        let new_owner_auth_id = pallet_identity::Pallet::<T>::add_auth(
             alice.did(),
             Signatory::from(bob.did()),
             AuthorizationData::TransferTicker(ticker),
@@ -269,11 +270,11 @@ benchmarks! {
     }: _(bob.origin.clone(), new_owner_auth_id)
     verify {
         assert_eq!(
-            TickersOwnedByUser::get(alice.did(), ticker),
+            TickersOwnedByUser::<T>::get(alice.did(), ticker),
             false
         );
         assert_eq!(
-            TickersOwnedByUser::get(bob.did(), ticker),
+            TickersOwnedByUser::<T>::get(bob.did(), ticker),
             true
         );
         assert_eq!(
@@ -288,9 +289,9 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
         let ticker = reg_unique_ticker::<T>(alice.account(), None);
-        Module::<T>::link_ticker_to_asset_id(alice.origin().into(), ticker, asset_id).unwrap();
+        Pallet::<T>::link_ticker_to_asset_id(alice.origin().into(), ticker, asset_id).unwrap();
 
-        let new_owner_auth_id = pallet_identity::Module::<T>::add_auth(
+        let new_owner_auth_id = pallet_identity::Pallet::<T>::add_auth(
             alice.did(),
             Signatory::from(bob.did()),
             AuthorizationData::TransferAssetOwnership(asset_id),
@@ -300,15 +301,15 @@ benchmarks! {
     }: _(bob.origin.clone(), new_owner_auth_id)
     verify {
         assert_eq!(
-            Assets::get(&asset_id).unwrap().owner_did,
+            Assets::<T>::get(&asset_id).unwrap().owner_did,
             bob.did()
         );
         assert_eq!(
-            SecurityTokensOwnedByUser::get(bob.did(), asset_id),
+            SecurityTokensOwnedByUser::<T>::get(bob.did(), asset_id),
             true
         );
         assert_eq!(
-            TickersOwnedByUser::get(bob.did(), ticker),
+            TickersOwnedByUser::<T>::get(bob.did(), ticker),
             true
         );
     }
@@ -327,27 +328,27 @@ benchmarks! {
         let asset_identifiers: Vec<AssetIdentifier> = (0..i)
             .map(|_| AssetIdentifier::cusip(*b"17275R102").unwrap())
             .collect();
-        let asset_id = Module::<T>::generate_asset_id(alice.account(), false);
+        let asset_id = Pallet::<T>::generate_asset_id(alice.account(), false);
     }: _(alice.origin.clone(), asset_name.clone(), true, AssetType::default(), asset_identifiers.clone(), Some(funding_round_name.clone()))
     verify {
         assert_eq!(
-            Assets::get(&asset_id),
+            Assets::<T>::get(&asset_id),
             Some(AssetDetails::new(0, alice.did(), true, AssetType::default()))
         );
         assert_eq!(
-            SecurityTokensOwnedByUser::get(alice.did(), &asset_id),
+            SecurityTokensOwnedByUser::<T>::get(alice.did(), &asset_id),
             true
         );
         assert_eq!(
-            AssetNames::get(&asset_id),
+            AssetNames::<T>::get(&asset_id),
             Some(asset_name)
         );
         assert_eq!(
-            FundingRound::get(&asset_id),
+            FundingRound::<T>::get(&asset_id),
             funding_round_name
         );
         assert_eq!(
-            AssetIdentifiers::get(&asset_id),
+            AssetIdentifiers::<T>::get(&asset_id),
             asset_identifiers
         );
     }
@@ -357,16 +358,16 @@ benchmarks! {
         let asset_id = create_sample_asset::<T>(&alice, true);
     }: _(alice.origin, asset_id)
     verify {
-        assert_eq!(Frozen::get(&asset_id), true);
+        assert_eq!(Frozen::<T>::get(&asset_id), true);
     }
 
     unfreeze {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
-        Module::<T>::freeze(alice.origin().into(), asset_id).unwrap();
+        Pallet::<T>::freeze(alice.origin().into(), asset_id).unwrap();
     }: _(alice.origin, asset_id)
     verify {
-        assert_eq!(Frozen::get(&asset_id), false);
+        assert_eq!(Frozen::<T>::get(&asset_id), false);
     }
 
     rename_asset {
@@ -378,7 +379,7 @@ benchmarks! {
         let new_asset_name = AssetName::from(vec![b'N'; n as usize].as_slice());
     }: _(alice.origin, asset_id, new_asset_name.clone())
     verify {
-        assert_eq!(AssetNames::get(&asset_id), Some(new_asset_name));
+        assert_eq!(AssetNames::<T>::get(&asset_id), Some(new_asset_name));
     }
 
     issue {
@@ -388,7 +389,7 @@ benchmarks! {
     }: _(alice.origin, asset_id, (1_000_000 * POLY).into(), portfolio_id.kind)
     verify {
         assert_eq!(
-            Assets::get(&asset_id).unwrap().total_supply,
+            Assets::<T>::get(&asset_id).unwrap().total_supply,
             (1_000_000 * POLY).into()
         );
     }
@@ -398,7 +399,7 @@ benchmarks! {
         let asset_id = create_sample_asset::<T>(&alice, true);
         let portfolio_id = create_portfolio::<T>(&alice, "MyPortfolio");
 
-        Module::<T>::issue(
+        Pallet::<T>::issue(
             alice.origin.clone().into(),
             asset_id,
             (1_000_000 * POLY).into(),
@@ -408,7 +409,7 @@ benchmarks! {
     }: _(alice.origin, asset_id, (600_000 * POLY).into(), portfolio_id.kind)
     verify {
         assert_eq!(
-            Assets::get(&asset_id).unwrap().total_supply,
+            Assets::<T>::get(&asset_id).unwrap().total_supply,
             (400_000 * POLY).into()
         );
     }
@@ -419,7 +420,7 @@ benchmarks! {
     }: _(alice.origin, asset_id)
     verify {
         assert_eq!(
-            Assets::get(&asset_id).unwrap().divisible,
+            Assets::<T>::get(&asset_id).unwrap().divisible,
             true
         );
     }
@@ -434,7 +435,7 @@ benchmarks! {
     verify {
         for i in 1..d {
             assert_eq!(
-                Module::<T>::asset_documents(asset_id, DocumentId(i)).unwrap(),
+                Pallet::<T>::asset_documents(asset_id, DocumentId(i)).unwrap(),
                 docs[i as usize]
             );
         }
@@ -446,14 +447,14 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
         let docs = iter::repeat(make_document()).take(d as usize).collect::<Vec<_>>();
-        Module::<T>::add_documents(alice.origin().into(), docs.clone(), asset_id).unwrap();
+        Pallet::<T>::add_documents(alice.origin().into(), docs.clone(), asset_id).unwrap();
 
         let remove_doc_ids = (1..d).map(|i| DocumentId(i - 1)).collect::<Vec<_>>();
     }: _(alice.origin, remove_doc_ids, asset_id)
     verify {
         for i in 1..d {
             assert_eq!(
-                AssetDocuments::contains_key(&asset_id, DocumentId(i-1)),
+                AssetDocuments::<T>::contains_key(&asset_id, DocumentId(i-1)),
                 false
             );
         }
@@ -468,7 +469,7 @@ benchmarks! {
     }: _(alice.origin, asset_id, funding_round_name.clone())
     verify {
         assert_eq!(
-            FundingRound::get(&asset_id),
+            FundingRound::<T>::get(&asset_id),
             funding_round_name
         );
     }
@@ -485,7 +486,7 @@ benchmarks! {
     }: _(alice.origin, asset_id, asset_identifiers.clone())
     verify {
         assert_eq!(
-            AssetIdentifiers::get(&asset_id),
+            AssetIdentifiers::<T>::get(&asset_id),
             asset_identifiers
         );
     }
@@ -495,7 +496,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
 
-        Module::<T>::issue(
+        Pallet::<T>::issue(
             alice.origin.clone().into(),
             asset_id,
             1_000_000,
@@ -503,18 +504,18 @@ benchmarks! {
         )
         .unwrap();
 
-        let auth_id = pallet_identity::Module::<T>::add_auth(
+        let auth_id = pallet_identity::Pallet::<T>::add_auth(
             alice.did(),
             Signatory::from(bob.did()),
             AuthorizationData::BecomeAgent(asset_id, AgentGroup::Full),
             None,
         )
         .unwrap();
-        pallet_external_agents::Module::<T>::accept_become_agent(bob.origin().into(), auth_id)?;
+        pallet_external_agents::Pallet::<T>::accept_become_agent(bob.origin().into(), auth_id)?;
     }: _(bob.origin.clone(), asset_id, 1_000,  PortfolioId::default_portfolio(alice.did()))
     verify {
         assert_eq!(
-            Module::<T>::balance_of(asset_id, bob.did()),
+            Pallet::<T>::balance_of(asset_id, bob.did()),
             1_000
         );
     }
@@ -524,10 +525,10 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let ty = vec![b'X'; n as usize];
-        assert_eq!(Module::<T>::custom_type_id_seq(), CustomAssetTypeId(0));
+        assert_eq!(Pallet::<T>::custom_type_id_seq(), CustomAssetTypeId(0));
     }: _(alice.origin, ty)
     verify {
-        assert_eq!(Module::<T>::custom_type_id_seq(), CustomAssetTypeId(1));
+        assert_eq!(Pallet::<T>::custom_type_id_seq(), CustomAssetTypeId(1));
     }
 
     set_asset_metadata {
@@ -573,7 +574,7 @@ benchmarks! {
     }: _(alice.origin, asset_id, AssetType::EquityPreferred)
     verify {
         assert_eq!(
-            Assets::get(&asset_id).unwrap().asset_type,
+            Assets::<T>::get(&asset_id).unwrap().asset_type,
             AssetType::EquityPreferred
         );
     }
@@ -582,8 +583,8 @@ benchmarks! {
         // Creates an asset of type NFT
         let user = user::<T>("target", 0);
         let asset_name = AssetName::from(b"MyAsset");
-        let asset_id = Module::<T>::generate_asset_id(user.account(), false);
-        Module::<T>::create_asset(
+        let asset_id = Pallet::<T>::generate_asset_id(user.account(), false);
+        Pallet::<T>::create_asset(
             user.origin().into(),
             asset_name,
             false,
@@ -599,13 +600,13 @@ benchmarks! {
             description: None,
             type_def: None,
         };
-        Module::<T>::register_asset_metadata_local_type(
+        Pallet::<T>::register_asset_metadata_local_type(
             user.origin().into(),
             asset_id,
             asset_metadata_name.clone(),
             asset_metadata_spec.clone()
         ).unwrap();
-        Module::<T>::register_asset_metadata_local_type(
+        Pallet::<T>::register_asset_metadata_local_type(
             user.origin().into(),
             asset_id,
             AssetMetadataName(b"mylocalkey2".to_vec()),
@@ -620,8 +621,8 @@ benchmarks! {
         // Creates an asset of type NFT
         let user = user::<T>("target", 0);
         let asset_name = AssetName::from(b"MyAsset");
-        let asset_id = Module::<T>::generate_asset_id(user.account(), false);
-        Module::<T>::create_asset(
+        let asset_id = Pallet::<T>::generate_asset_id(user.account(), false);
+        Pallet::<T>::create_asset(
             user.origin().into(),
             asset_name,
             false,
@@ -636,13 +637,13 @@ benchmarks! {
             description: None,
             type_def: None,
         };
-        Module::<T>::register_asset_metadata_local_type(
+        Pallet::<T>::register_asset_metadata_local_type(
             user.origin().into(),
             asset_id,
             asset_metadata_name.clone(),
             asset_metadata_spec.clone()
         ).unwrap();
-        Module::<T>::set_asset_metadata(
+        Pallet::<T>::set_asset_metadata(
             user.origin().into(),
             asset_id,
             AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
@@ -664,7 +665,7 @@ benchmarks! {
         let (sender_portfolio, receiver_portfolio, _, asset_id) =
             setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0);
     }: {
-        Module::<T>::base_transfer(
+        Pallet::<T>::base_transfer(
             sender_portfolio,
             receiver_portfolio,
             asset_id,
@@ -685,7 +686,7 @@ benchmarks! {
     remove_asset_affirmation_exemption {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
-        Module::<T>::exempt_asset_affirmation(RawOrigin::Root.into(), asset_id).unwrap();
+        Pallet::<T>::exempt_asset_affirmation(RawOrigin::Root.into(), asset_id).unwrap();
     }: _(RawOrigin::Root, asset_id)
 
     pre_approve_asset {
@@ -696,7 +697,7 @@ benchmarks! {
     remove_asset_pre_approval {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
-        Module::<T>::pre_approve_asset(alice.clone().origin().into(), asset_id).unwrap();
+        Pallet::<T>::pre_approve_asset(alice.clone().origin().into(), asset_id).unwrap();
     }: _(alice.origin, asset_id)
 
     add_mandatory_mediators {
@@ -705,8 +706,8 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let mediators: BTreeSet<IdentityId> = (0..n).map(|i| IdentityId::from(i as u128)).collect();
 
-        let asset_id = Module::<T>::generate_asset_id(alice.account(), false);
-        Module::<T>::create_asset(
+        let asset_id = Pallet::<T>::generate_asset_id(alice.account(), false);
+        Pallet::<T>::create_asset(
             alice.clone().origin().into(),
             AssetName::from(b"MyAsset"),
             false,
@@ -724,8 +725,8 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let mediators: BTreeSet<IdentityId> = (0..n).map(|i| IdentityId::from(i as u128)).collect();
 
-        let asset_id = Module::<T>::generate_asset_id(alice.account(), false);
-        Module::<T>::create_asset(
+        let asset_id = Pallet::<T>::generate_asset_id(alice.account(), false);
+        Pallet::<T>::create_asset(
             alice.clone().origin().into(),
             AssetName::from(b"MyAsset"),
             false,
@@ -735,7 +736,7 @@ benchmarks! {
         )
         .unwrap();
 
-        Module::<T>::add_mandatory_mediators(
+        Pallet::<T>::add_mandatory_mediators(
             alice.clone().origin().into(),
             asset_id,
             mediators.clone().try_into().unwrap()
@@ -755,7 +756,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
         let ticker = reg_unique_ticker::<T>(alice.account(), None);
-        Module::<T>::link_ticker_to_asset_id(
+        Pallet::<T>::link_ticker_to_asset_id(
             alice.clone().origin().into(),
             ticker,
             asset_id

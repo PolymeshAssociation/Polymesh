@@ -18,13 +18,13 @@ use super::storage::{make_account_with_portfolio, TestStorage, User};
 use super::{exec_noop, exec_ok, ExtBuilder};
 
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
-type Asset = pallet_asset::Module<TestStorage>;
-type Sto = pallet_sto::Module<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
+type Sto = pallet_sto::Pallet<TestStorage>;
 type Error = pallet_sto::Error<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
-type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
-type Settlement = pallet_settlement::Module<TestStorage>;
+type ComplianceManager = pallet_compliance_manager::Pallet<TestStorage>;
+type Settlement = pallet_settlement::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 
