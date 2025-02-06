@@ -2860,9 +2860,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api"
-version = "3.9.1"
+version = "3.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2af6fb58c1f9734edeb3adf9e17e6b6e07a3cdb5fa1bb922aaaf22cfd3bb3bba"
+checksum = "04800409213133b481495a7fe4106d7464f55d88e72b29a949b618a4e7a8d44a"
 dependencies = [
  "ink",
  "log",
@@ -2871,14 +2871,13 @@ dependencies = [
  "polymesh-api-codegen-macro",
  "polymesh-api-ink",
  "scale-info",
- "sp-arithmetic",
 ]
 
 [[package]]
 name = "polymesh-api-client"
-version = "3.8.0"
+version = "3.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11d5af8138ea299d6d24c06d41a6506717a4a44b29ddf005059245a1fa3ef5c3"
+checksum = "82ba16ca03a45e606e62871c89f66aa676c2c1472e36c5d2744d1fca0c757850"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -2905,13 +2904,14 @@ dependencies = [
  "subxt-signer",
  "thiserror",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
 name = "polymesh-api-codegen"
-version = "3.6.1"
+version = "3.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b734215680e3a1cebed8d3852d1899a96842865c9e076904cf1b832b0f1fe370"
+checksum = "96a70bee3291d46d9e6d188c49032b46c7dc0710fe7dd776b62a4b4db1209b8d"
 dependencies = [
  "frame-metadata 15.1.0",
  "heck",
@@ -2929,9 +2929,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-codegen-macro"
-version = "3.6.1"
+version = "3.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e9c138a371c4e48a695cec75febba8070a613d94c45031e2281715e904faf53"
+checksum = "e21e34839ac176bf726856dc8b8301bf83387f2a7c8cb6625f3c10205c7ddb45"
 dependencies = [
  "darling 0.14.4",
  "parity-scale-codec",
@@ -2959,7 +2959,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh-ink"
-version = "3.3.0"
+version = "3.4.0"
 dependencies = [
  "ink",
  "parity-scale-codec",
@@ -4892,6 +4892,15 @@ dependencies = [
  "form_urlencoded",
  "idna",
  "percent-encoding",
+]
+
+[[package]]
+name = "uuid"
+version = "1.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3758f5e68192bb96cc8f9b7e2c2cfdabb435499a28499a42f8f984092adad4b"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

@@ -7,6 +7,7 @@ use polymesh_ink::*;
 #[ink::contract(env = PolymeshEnvironment)]
 mod wrapped_polyx {
     use alloc::vec;
+    use alloc::collections::BTreeSet;
     use ink::storage::Mapping;
 
     use crate::*;
@@ -17,7 +18,7 @@ mod wrapped_polyx {
     pub struct WrappedPolyx {
         initialized: bool,
         /// WrappedPolyx token.
-        ticker: Ticker,
+        asset_id: AssetId,
         /// Venue for settlements.
         venue: VenueId,
         /// Contract's identity.
@@ -96,18 +97,16 @@ mod wrapped_polyx {
     impl WrappedPolyx {
         /// Creates a new contract.
         #[ink(constructor)]
-        pub fn new(ticker: Ticker) -> Result<Self> {
+        pub fn new() -> Result<Self> {
             Ok(Self {
-                ticker,
                 did: PolymeshInk::get_our_did()?,
                 ..Default::default()
             })
         }
 
-        fn create_wrapped_polyx(&self, api: &PolymeshInk) -> Result<()> {
-            api.asset_create_and_issue(
+        fn create_wrapped_polyx(&mut self, api: &PolymeshInk) -> Result<()> {
+            self.asset_id = api.asset_create_and_issue(
                 AssetName(b"Wrapped POLYX".to_vec()),
-                self.ticker,
                 AssetType::EquityCommon,
                 true, // Divisible token.
                 None,
@@ -142,7 +141,7 @@ mod wrapped_polyx {
             let api = PolymeshInk::new()?;
             // Update our identity id.
             self.did = PolymeshInk::get_our_did()?;
-            // Create ticker.
+            // Create asset.
             self.create_wrapped_polyx(&api)?;
 
             // Create venue.
@@ -198,14 +197,14 @@ mod wrapped_polyx {
             amount: Balance,
         ) -> Result<()> {
             api.settlement_execute(
-                self.venue,
+                Some(self.venue),
                 vec![Leg::Fungible {
                     sender,
                     receiver,
-                    ticker: self.ticker,
+                    asset_id: self.asset_id,
                     amount: amount,
                 }],
-                vec![sender, receiver],
+                vec![sender, receiver].into_iter().collect::<BTreeSet<_>>(),
             )?;
             Ok(())
         }
@@ -222,7 +221,7 @@ mod wrapped_polyx {
 
             let api = PolymeshInk::new()?;
             // Mint some tokens.
-            api.asset_issue(self.ticker, amount, PortfolioKind::Default)?;
+            api.asset_issue(self.asset_id, amount, PortfolioKind::Default)?;
             // Transfer tokens to the caller's portfolio.
             let our_portfolio = PortfolioId {
                 did: self.did,
@@ -256,7 +255,7 @@ mod wrapped_polyx {
             self.transfer(&api, caller_portfolio, our_portfolio, amount)?;
 
             // Redeem the tokens.
-            api.asset_redeem(self.ticker, amount, PortfolioKind::Default)?;
+            api.asset_redeem(self.asset_id, amount, PortfolioKind::Default)?;
 
             if Self::env().transfer(Self::env().caller(), amount).is_err() {
                 panic!("error transferring")
@@ -312,7 +311,7 @@ mod wrapped_polyx {
                 dest,
                 vec![Fund {
                     description: FundDescription::Fungible {
-                        ticker: self.ticker,
+                        asset_id: self.asset_id,
                         amount,
                     },
                     memo: None,
