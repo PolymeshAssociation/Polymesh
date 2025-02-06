@@ -14,9 +14,12 @@ use frame_support::{
 };
 use frame_system::{self, EventRecord};
 use pallet_pips::{
-    DepositInfo, Event, LiveQueue, Pip, PipDescription, PipId, PipsMetadata, ProposalState,
-    Proposer, SnapshotId, SnapshotMetadata, SnapshotResult, SnapshottedPip, Vote, VoteCount,
-    VotingResult,
+    ActivePipCount, ActivePipLimit, CommitteePips, DefaultEnactmentPeriod, DepositInfo, Event,
+    LiveQueue, MaxPipSkipCount, MinimumProposalDeposit, PendingPipExpiry, PendingRefunds, Pip,
+    PipDescription, PipId, PipIdSequence, PipSkipCount, PipToSchedule, PipsMetadata,
+    ProposalMetadata, ProposalResult, ProposalState, ProposalStates, ProposalVotes, Proposals,
+    Proposer, PruneHistoricalPips, SnapshotId, SnapshotMeta, SnapshotMetadata, SnapshotQueue,
+    SnapshotResult, SnapshottedPip, Vote, VoteCount, VotesToBePruned, VotingResult,
 };
 use pallet_treasury as treasury;
 use polymesh_primitives::{AccountId, BlockNumber, MaybeBlock, Url, GC_DID};
@@ -92,21 +95,24 @@ fn proposal(
     url: Option<Url>,
     desc: Option<PipDescription>,
 ) -> DispatchResult {
-    let before = Pips::pip_id_sequence();
-    let active = Pips::active_pip_count();
+    let before = PipIdSequence::<TestStorage>::get();
+    let active = ActivePipCount::<TestStorage>::get();
     let signer = signer.clone();
     let result = Pips::propose(signer, Box::new(proposal), deposit, url, desc);
     let add = result.map_or(0, |_| 1);
     if let Ok(_) = result {
         assert_last_event!(Event::ProposalCreated(_, _, id, ..), *id == before);
         assert_eq!(
-            Pips::committee_pips().contains(&before),
+            CommitteePips::<TestStorage>::get().contains(&before),
             matches!(proposer, Proposer::Committee(_))
         );
-        assert_eq!(&Pips::proposals(before).unwrap().proposer, proposer);
+        assert_eq!(
+            &Proposals::<TestStorage>::get(before).unwrap().proposer,
+            proposer
+        );
     }
-    assert_eq!(Pips::pip_id_sequence(), PipId(before.0 + add));
-    assert_eq!(Pips::active_pip_count(), active + add);
+    assert_eq!(PipIdSequence::<TestStorage>::get(), PipId(before.0 + add));
+    assert_eq!(ActivePipCount::<TestStorage>::get(), active + add);
     result
 }
 
@@ -154,11 +160,11 @@ fn consensus_call(call: pallet_pips::Call<TestStorage>, signers: &[&Origin]) {
 }
 
 pub fn assert_state(id: PipId, care_about_pruned: bool, state: ProposalState) {
-    let prop = Pips::proposals(id);
-    if care_about_pruned && Pips::prune_historical_pips() {
+    let prop = Proposals::<TestStorage>::get(id);
+    if care_about_pruned && PruneHistoricalPips::<TestStorage>::get() {
         assert_eq!(prop, None);
     } else {
-        assert_eq!(Pips::proposal_state(id).unwrap(), state);
+        assert_eq!(ProposalStates::<TestStorage>::get(id).unwrap(), state);
     }
 }
 
@@ -172,39 +178,39 @@ fn updating_pips_variables_works() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
 
-        assert_eq!(Pips::prune_historical_pips(), false);
+        assert_eq!(PruneHistoricalPips::<TestStorage>::get(), false);
         assert_ok!(Pips::set_prune_historical_pips(root(), true));
         assert_last_event!(Event::HistoricalPipsPruned(_, false, true));
-        assert_eq!(Pips::prune_historical_pips(), true);
+        assert_eq!(PruneHistoricalPips::<TestStorage>::get(), true);
 
-        assert_eq!(Pips::min_proposal_deposit(), 50);
+        assert_eq!(MinimumProposalDeposit::<TestStorage>::get(), 50);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 10));
         assert_last_event!(Event::MinimumProposalDepositChanged(_, 50, 10));
-        assert_eq!(Pips::min_proposal_deposit(), 10);
+        assert_eq!(MinimumProposalDeposit::<TestStorage>::get(), 10);
 
-        assert_eq!(Pips::default_enactment_period(), 100);
+        assert_eq!(DefaultEnactmentPeriod::<TestStorage>::get(), 100);
         assert_ok!(Pips::set_default_enactment_period(root(), 10));
         assert_last_event!(Event::DefaultEnactmentPeriodChanged(_, 100, 10));
-        assert_eq!(Pips::default_enactment_period(), 10);
+        assert_eq!(DefaultEnactmentPeriod::<TestStorage>::get(), 10);
 
-        assert_eq!(Pips::pending_pip_expiry(), MaybeBlock::None);
+        assert_eq!(PendingPipExpiry::<TestStorage>::get(), MaybeBlock::None);
         assert_ok!(Pips::set_pending_pip_expiry(root(), MaybeBlock::Some(13)));
         assert_last_event!(Event::PendingPipExpiryChanged(
             _,
             MaybeBlock::None,
             MaybeBlock::Some(13)
         ));
-        assert_eq!(Pips::pending_pip_expiry(), MaybeBlock::Some(13));
+        assert_eq!(PendingPipExpiry::<TestStorage>::get(), MaybeBlock::Some(13));
 
-        assert_eq!(Pips::max_pip_skip_count(), 1);
+        assert_eq!(MaxPipSkipCount::<TestStorage>::get(), 1);
         assert_ok!(Pips::set_max_pip_skip_count(root(), 42));
         assert_last_event!(Event::MaxPipSkipCountChanged(_, 1, 42));
-        assert_eq!(Pips::max_pip_skip_count(), 42);
+        assert_eq!(MaxPipSkipCount::<TestStorage>::get(), 42);
 
-        assert_eq!(Pips::active_pip_limit(), 5);
+        assert_eq!(ActivePipLimit::<TestStorage>::get(), 5);
         assert_ok!(Pips::set_active_pip_limit(root(), 42));
         assert_last_event!(Event::ActivePipLimitChanged(_, 5, 42));
-        assert_eq!(Pips::active_pip_limit(), 42);
+        assert_eq!(ActivePipLimit::<TestStorage>::get(), 42);
     });
 }
 
@@ -267,22 +273,25 @@ fn min_deposit_works() {
         let alice = User::new(AccountKeyring::Alice).balance(300);
 
         // Error when min deposit requirements are not met.
-        assert_eq!(Pips::pip_id_sequence(), PipId(0));
-        assert_eq!(Pips::active_pip_count(), 0);
+        assert_eq!(PipIdSequence::<TestStorage>::get(), PipId(0));
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 0);
         assert_noop!(community_proposal(alice, deposit), Error::IncorrectDeposit);
 
         // Now let's use enough.
         assert_ok!(community_proposal(alice, deposit + 1));
         assert_state(PipId(0), false, ProposalState::Pending);
         assert_eq!(
-            Pips::proposals(PipId(0)).unwrap().proposer,
+            Proposals::<TestStorage>::get(PipId(0)).unwrap().proposer,
             Proposer::Community(alice.acc())
         );
 
         // Committees are exempt from min deposit.
         assert_ok!(committee_proposal(0));
         assert_state(PipId(1), false, ProposalState::Pending);
-        assert_eq!(Pips::proposals(PipId(1)).unwrap().proposer, THE_COMMITTEE);
+        assert_eq!(
+            Proposals::<TestStorage>::get(PipId(1)).unwrap().proposer,
+            THE_COMMITTEE
+        );
         assert_vote_details(PipId(1), VotingResult::default(), vec![], vec![]);
     })
 }
@@ -295,34 +304,34 @@ fn active_limit_works() {
 
         let proposer = User::new(AccountKeyring::Alice);
 
-        assert_eq!(Pips::pip_id_sequence(), PipId(0));
-        assert_eq!(Pips::active_pip_count(), 0);
+        assert_eq!(PipIdSequence::<TestStorage>::get(), PipId(0));
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 0);
 
         assert_ok!(community_proposal(proposer, 0));
-        assert_eq!(Pips::active_pip_count(), 1);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 1);
 
         // Limit reached, so error.
         assert_ok!(Pips::set_active_pip_limit(root(), 1));
         assert_noop!(community_proposal(proposer, 0), Error::TooManyActivePips);
-        assert_eq!(Pips::active_pip_count(), 1);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 1);
 
         // Bump limit; ok again.
         assert_ok!(Pips::set_active_pip_limit(root(), 2));
         assert_ok!(community_proposal(proposer, 0));
-        assert_eq!(Pips::active_pip_count(), 2);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 2);
 
         // Reached again, so error.
         assert_noop!(community_proposal(proposer, 0), Error::TooManyActivePips);
-        assert_eq!(Pips::active_pip_count(), 2);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 2);
 
         // Committees are exempt from limit.
         assert_ok!(committee_proposal(0));
-        assert_eq!(Pips::active_pip_count(), 3);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 3);
 
         // Remove limit completely, and let's add more.
         assert_ok!(Pips::set_active_pip_limit(root(), 0));
         assert_ok!(community_proposal(proposer, 0));
-        assert_eq!(Pips::active_pip_count(), 4);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 4);
     })
 }
 
@@ -337,7 +346,7 @@ fn default_enactment_period_works_community() {
         let check_community = |period| {
             assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
             assert_ok!(community_proposal(alice, 0));
-            let last_id = PipId(Pips::pip_id_sequence().0 - 1);
+            let last_id = PipId(PipIdSequence::<TestStorage>::get().0 - 1);
             fast_forward_blocks(1);
             assert_ok!(Pips::snapshot(alice.origin()));
             assert_ok!(Pips::set_default_enactment_period(root(), period));
@@ -346,7 +355,7 @@ fn default_enactment_period_works_community() {
                 gc_vmo(),
                 vec![(last_id, SnapshotResult::Approve)]
             ));
-            let expected = Pips::pip_to_schedule(last_id).unwrap();
+            let expected = PipToSchedule::<TestStorage>::get(last_id).unwrap();
             let period = period.max(1);
             assert_eq!(expected, block_at_approval + period);
             assert_eq!(1, Agenda::get(expected).len());
@@ -368,12 +377,12 @@ fn default_enactment_period_works_committee() {
 
         let check_committee = |period| {
             assert_ok!(committee_proposal(0));
-            let last_id = PipId(Pips::pip_id_sequence().0 - 1);
+            let last_id = PipId(PipIdSequence::<TestStorage>::get().0 - 1);
             fast_forward_blocks(1);
             assert_ok!(Pips::set_default_enactment_period(root(), period));
             let block_at_approval = System::block_number();
             assert_ok!(Pips::approve_committee_proposal(gc_vmo(), last_id));
-            let expected = Pips::pip_to_schedule(last_id).unwrap();
+            let expected = PipToSchedule::<TestStorage>::get(last_id).unwrap();
             let period = period.max(1);
             assert_eq!(expected, block_at_approval + period);
             assert_eq!(1, Agenda::get(expected).len());
@@ -425,7 +434,7 @@ fn assert_vote_details(
     deposits: Vec<DepositInfo<AccountId>>,
     votes: Vec<Vote>,
 ) {
-    assert_eq!(results, Pips::proposal_result(id));
+    assert_eq!(results, ProposalResult::<TestStorage>::get(id));
     assert_eq!(
         deposits,
         Deposits::iter_prefix_values(id).collect::<Vec<_>>(),
@@ -476,9 +485,9 @@ fn proposal_details_are_correct() {
             proposal: call,
             proposer,
         };
-        assert_eq!(Pips::proposals(PipId(0)).unwrap(), expected);
+        assert_eq!(Proposals::<TestStorage>::get(PipId(0)).unwrap(), expected);
         assert_eq!(
-            Pips::proposal_state(PipId(0)).unwrap(),
+            ProposalStates::<TestStorage>::get(PipId(0)).unwrap(),
             ProposalState::Pending
         );
 
@@ -490,7 +499,10 @@ fn proposal_details_are_correct() {
             transaction_version: 7,
             expiry: <_>::default(),
         };
-        assert_eq!(Pips::proposal_metadata(PipId(0)).unwrap(), expected);
+        assert_eq!(
+            ProposalMetadata::<TestStorage>::get(PipId(0)).unwrap(),
+            expected
+        );
 
         assert_balance(alice.acc(), 300, 60);
         assert_votes(PipId(0), alice.acc(), 60);
@@ -671,7 +683,7 @@ fn vote_duplicate_ok() {
         let proposer = User::new(AccountKeyring::Alice);
 
         let vote = |aye, power| Pips::vote(proposer.origin(), PipId(0), aye, power);
-        let res = || Pips::proposal_result(PipId(0));
+        let res = || ProposalResult::<TestStorage>::get(PipId(0));
 
         assert_ok!(community_proposal(proposer, 42));
         assert_eq!(
@@ -732,7 +744,7 @@ fn vote_stake_overflow() {
 
         assert_ok!(community_proposal(alice, u128::MAX));
         assert_eq!(
-            Pips::proposal_result(id),
+            ProposalResult::<TestStorage>::get(id),
             VotingResult {
                 ayes_count: 1,
                 ayes_stake: u128::MAX,
@@ -899,9 +911,9 @@ fn only_gc_majority_stuff() {
         set_members(vec![bob.did, charlie.did]);
 
         // Make a proposal
-        let id = Pips::pip_id_sequence();
+        let id = PipIdSequence::<TestStorage>::get();
         assert_eq!(id, PipId(0));
-        assert_eq!(Pips::active_pip_count(), 0);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 0);
         assert_ok!(community_proposal(proposer, 0));
         // Alice not part of GC and cannot reject.
         assert_bad_origin!(Pips::reject_proposal(alice.origin(), id));
@@ -927,20 +939,20 @@ fn only_gc_majority_stuff() {
         // VMO can reject.
         assert_ok!(Pips::set_prune_historical_pips(root(), false));
         assert_ok!(Pips::reject_proposal(gc_vmo(), id));
-        assert_eq!(Pips::pip_id_sequence(), PipId(1));
-        assert_eq!(Pips::active_pip_count(), 0);
+        assert_eq!(PipIdSequence::<TestStorage>::get(), PipId(1));
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 0);
         assert_state(id, false, ProposalState::Rejected);
         // VMO can also prune.
         assert_ok!(Pips::prune_proposal(gc_vmo(), id));
-        assert_eq!(Pips::proposals(id), None);
+        assert_eq!(Proposals::<TestStorage>::get(id), None);
         // VMO can also `approve_committee_proposal`.
-        let id = Pips::pip_id_sequence();
+        let id = PipIdSequence::<TestStorage>::get();
         assert_ok!(committee_proposal(0));
         assert_ok!(Pips::approve_committee_proposal(gc_vmo(), id));
         assert_ok!(Pips::reject_proposal(gc_vmo(), id));
         assert_ok!(Pips::prune_proposal(gc_vmo(), id));
         // VMO can also `enact_snapshot_results`.
-        let id = Pips::pip_id_sequence();
+        let id = PipIdSequence::<TestStorage>::get();
         assert_ok!(community_proposal(proposer, 0));
         assert_ok!(Pips::snapshot(bob.origin()));
         assert_ok!(Pips::enact_snapshot_results(
@@ -951,23 +963,23 @@ fn only_gc_majority_stuff() {
         let consensus_call = |call| consensus_call(call, &[&bob.origin(), &charlie.origin()]);
 
         // Bob & Charlie seek consensus and successfully reject.
-        let id = Pips::pip_id_sequence();
+        let id = PipIdSequence::<TestStorage>::get();
         assert_ok!(community_proposal(proposer, 0));
-        assert_eq!(Pips::pip_id_sequence().0, id.0 + 1);
-        assert_eq!(Pips::active_pip_count(), 1);
+        assert_eq!(PipIdSequence::<TestStorage>::get().0, id.0 + 1);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 1);
         consensus_call(pallet_pips::Call::reject_proposal { id });
-        assert_eq!(Pips::pip_id_sequence().0, id.0 + 1);
-        assert_eq!(Pips::active_pip_count(), 0);
+        assert_eq!(PipIdSequence::<TestStorage>::get().0, id.0 + 1);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 0);
         assert_state(id, false, ProposalState::Rejected);
         // And now they seek consensus to and do prune.
         consensus_call(pallet_pips::Call::prune_proposal { id });
-        assert_eq!(Pips::proposals(id), None);
+        assert_eq!(Proposals::<TestStorage>::get(id), None);
 
         // Bob & Charlie seek consensus.
         // They successfully do `approve_committee_proposal` & `enact_snapshot_results`.
-        let id_committee = Pips::pip_id_sequence();
+        let id_committee = PipIdSequence::<TestStorage>::get();
         assert_ok!(committee_proposal(0));
-        let id_snapshot = Pips::pip_id_sequence();
+        let id_snapshot = PipIdSequence::<TestStorage>::get();
         assert_ok!(community_proposal(proposer, 0));
         assert_ok!(Pips::snapshot(bob.origin()));
         consensus_call(pallet_pips::Call::approve_committee_proposal { id: id_committee });
@@ -984,21 +996,21 @@ fn cannot_reject_no_such_proposal() {
     ExtBuilder::default().build().execute_with(|| {
         // Rejecting PIP that doesn't exist errors.
         let id = PipId(0);
-        assert_eq!(Pips::pip_id_sequence(), id);
-        assert_eq!(Pips::active_pip_count(), 0);
+        assert_eq!(PipIdSequence::<TestStorage>::get(), id);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 0);
         assert_no_pip!(Pips::reject_proposal(gc_vmo(), id));
-        assert_eq!(Pips::pip_id_sequence(), id);
-        assert_eq!(Pips::active_pip_count(), 0);
+        assert_eq!(PipIdSequence::<TestStorage>::get(), id);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 0);
         assert_no_pip!(Pips::prune_proposal(gc_vmo(), id));
-        assert_eq!(Pips::pip_id_sequence(), id);
-        assert_eq!(Pips::active_pip_count(), 0);
+        assert_eq!(PipIdSequence::<TestStorage>::get(), id);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 0);
     });
 }
 
 fn scheduled_proposal(proposer: User, member: User, deposit: u128) -> PipId {
-    let next_id = Pips::pip_id_sequence();
+    let next_id = PipIdSequence::<TestStorage>::get();
     assert_ok!(community_proposal(proposer, deposit));
-    let active = Pips::active_pip_count();
+    let active = ActivePipCount::<TestStorage>::get();
     assert_ok!(Pips::snapshot(member.origin()));
     assert_ok!(Pips::enact_snapshot_results(
         gc_vmo(),
@@ -1006,27 +1018,27 @@ fn scheduled_proposal(proposer: User, member: User, deposit: u128) -> PipId {
     ));
     assert_event_exists!(
         EventTest::Scheduler(pallet_scheduler::Event::Scheduled { when, .. }),
-        *when == System::block_number() + Pips::default_enactment_period()
+        *when == System::block_number() + DefaultEnactmentPeriod::<TestStorage>::get()
     );
     assert_state(next_id, false, ProposalState::Scheduled);
-    assert_eq!(Pips::active_pip_count(), active);
+    assert_eq!(ActivePipCount::<TestStorage>::get(), active);
     next_id
 }
 
 fn executed_community_proposal(proposer: User, member: User) -> PipId {
-    let deposit = Pips::min_proposal_deposit();
+    let deposit = MinimumProposalDeposit::<TestStorage>::get();
     let next_id = scheduled_proposal(proposer, member, deposit);
-    let active = Pips::active_pip_count();
-    fast_forward_blocks(Pips::default_enactment_period() + 1);
+    let active = ActivePipCount::<TestStorage>::get();
+    fast_forward_blocks(DefaultEnactmentPeriod::<TestStorage>::get() + 1);
     assert_ok!(Pips::set_min_proposal_deposit(root(), deposit));
     assert_state(next_id, true, ProposalState::Executed);
-    assert_eq!(Pips::active_pip_count(), active - 1);
+    assert_eq!(ActivePipCount::<TestStorage>::get(), active - 1);
     next_id
 }
 
 fn failed_community_proposal(proposer: User, member: User, bad_id: PipId) -> PipId {
-    let next_id = Pips::pip_id_sequence();
-    let deposit = Pips::min_proposal_deposit();
+    let next_id = PipIdSequence::<TestStorage>::get();
+    let deposit = MinimumProposalDeposit::<TestStorage>::get();
     assert_ok!(proposal(
         &proposer.origin(),
         &Proposer::Community(proposer.acc()),
@@ -1035,53 +1047,61 @@ fn failed_community_proposal(proposer: User, member: User, bad_id: PipId) -> Pip
         None,
         None
     ));
-    let active = Pips::active_pip_count();
+    let active = ActivePipCount::<TestStorage>::get();
     assert_ok!(Pips::snapshot(member.origin()));
     assert_ok!(Pips::enact_snapshot_results(
         gc_vmo(),
         vec![(next_id, SnapshotResult::Approve)]
     ));
     assert_state(next_id, false, ProposalState::Scheduled);
-    assert_eq!(Pips::active_pip_count(), active);
-    fast_forward_blocks(Pips::default_enactment_period() + 1);
+    assert_eq!(ActivePipCount::<TestStorage>::get(), active);
+    fast_forward_blocks(DefaultEnactmentPeriod::<TestStorage>::get() + 1);
     assert_state(next_id, true, ProposalState::Failed);
-    assert_eq!(Pips::active_pip_count(), active - 1);
+    assert_eq!(ActivePipCount::<TestStorage>::get(), active - 1);
     next_id
 }
 
 fn rejected_proposal(proposer: User) -> PipId {
-    let next_id = Pips::pip_id_sequence();
-    assert_ok!(community_proposal(proposer, Pips::min_proposal_deposit()));
-    let active = Pips::active_pip_count();
+    let next_id = PipIdSequence::<TestStorage>::get();
+    assert_ok!(community_proposal(
+        proposer,
+        MinimumProposalDeposit::<TestStorage>::get()
+    ));
+    let active = ActivePipCount::<TestStorage>::get();
     assert_ok!(Pips::reject_proposal(gc_vmo(), next_id));
     assert_state(next_id, true, ProposalState::Rejected);
-    assert_eq!(Pips::active_pip_count(), active - 1);
-    assert_eq!(Pips::pip_id_sequence().0, next_id.0 + 1);
+    assert_eq!(ActivePipCount::<TestStorage>::get(), active - 1);
+    assert_eq!(PipIdSequence::<TestStorage>::get().0, next_id.0 + 1);
     next_id
 }
 
 fn expired_proposal(proposer: User, expiry: BlockNumber) -> PipId {
-    let next_id = Pips::pip_id_sequence();
+    let next_id = PipIdSequence::<TestStorage>::get();
 
     // Save old config data and set new ones for expiry.
-    let old_expiry = Pips::pending_pip_expiry();
+    let old_expiry = PendingPipExpiry::<TestStorage>::get();
     assert_ok!(Pips::set_pending_pip_expiry(
         root(),
         MaybeBlock::Some(expiry)
     ));
 
     // Create a proposal and verify its pending.
-    let active = Pips::active_pip_count();
-    assert_ok!(community_proposal(proposer, Pips::min_proposal_deposit()));
+    let active = ActivePipCount::<TestStorage>::get();
+    assert_ok!(community_proposal(
+        proposer,
+        MinimumProposalDeposit::<TestStorage>::get()
+    ));
     assert_state(next_id, false, ProposalState::Pending);
     assert_eq!(
-        Pips::proposal_metadata(next_id).unwrap().expiry,
+        ProposalMetadata::<TestStorage>::get(next_id)
+            .unwrap()
+            .expiry,
         MaybeBlock::Some(expiry + System::block_number())
     );
 
     // Now fast forward.
     fast_forward_blocks(expiry + 1); // Forward exactly to expiry point + 1.
-    assert_eq!(Pips::active_pip_count(), active);
+    assert_eq!(ActivePipCount::<TestStorage>::get(), active);
 
     // Restore config to before function was called.
     assert_ok!(Pips::set_pending_pip_expiry(root(), old_expiry));
@@ -1111,15 +1131,24 @@ fn cannot_reject_incorrect_state() {
 }
 
 fn assert_pruned(id: PipId) {
-    assert_eq!(Pips::proposal_metadata(id), None);
-    assert_eq!(Deposits::iter_prefix_values(id).count(), 0);
-    assert_eq!(Pips::proposals(id), None);
-    assert_vote_details(id, VotingResult::default(), vec![], vec![]);
-    assert_eq!(Pips::pip_to_schedule(id), None);
+    assert_eq!(ProposalMetadata::<TestStorage>::get(id), None);
+    assert_eq!(Deposits::iter_prefix_values(id).count(), 1);
+    assert_eq!(PendingRefunds::<TestStorage>::get(id), Some(true));
+    assert_eq!(VotesToBePruned::<TestStorage>::get(id), Some(true));
+    assert_eq!(Proposals::<TestStorage>::get(id), None);
+    assert_vote_details(
+        id,
+        VotingResult::default(),
+        vec![Deposits::iter_prefix_values(id).next().unwrap()],
+        Votes::iter_prefix_values(id).collect::<Vec<_>>(),
+    );
+    assert_eq!(PipToSchedule::<TestStorage>::get(id), None);
     // TODO: Check that the PIP has been removed from the schedule. This should be easily done after
     // fixing this issue: https://github.com/PolymeshAssociation/substrate/issues/7449
-    assert!(Pips::snapshot_queue().iter().all(|p| p.id != id));
-    assert_eq!(Pips::pip_skip_count(id), 0);
+    assert!(SnapshotQueue::<TestStorage>::get()
+        .iter()
+        .all(|p| p.id != id));
+    assert_eq!(PipSkipCount::<TestStorage>::get(id), 0);
 }
 
 #[test]
@@ -1139,8 +1168,8 @@ fn can_prune_states_that_cannot_be_rejected() {
         let id = PipId(0);
         assert_ok!(community_proposal(proposer, 200));
         assert_balance(proposer.acc(), init_bal, 200);
-        assert_eq!(Pips::pip_id_sequence(), PipId(1));
-        assert_eq!(Pips::active_pip_count(), 1);
+        assert_eq!(PipIdSequence::<TestStorage>::get(), PipId(1));
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 1);
         assert_ok!(Pips::snapshot(member.origin()));
         assert_ok!(Pips::enact_snapshot_results(
             gc_vmo(),
@@ -1148,13 +1177,13 @@ fn can_prune_states_that_cannot_be_rejected() {
         ));
         assert_state(id, false, ProposalState::Scheduled);
         assert_balance(proposer.acc(), init_bal, 200);
-        assert_eq!(Pips::active_pip_count(), 1);
-        fast_forward_blocks(Pips::default_enactment_period() + 1);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 1);
+        fast_forward_blocks(DefaultEnactmentPeriod::<TestStorage>::get() + 1);
         assert_state(id, false, ProposalState::Executed);
-        assert_balance(proposer.acc(), init_bal, 0);
-        assert_eq!(Pips::active_pip_count(), 0);
+        assert_balance(proposer.acc(), init_bal, 200);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 0);
         assert_ok!(Pips::prune_proposal(gc_vmo(), id));
-        assert_balance(proposer.acc(), init_bal, 0);
+        assert_balance(proposer.acc(), init_bal, 200);
         assert_pruned(id);
 
         // Can prune failed:
@@ -1167,37 +1196,37 @@ fn can_prune_states_that_cannot_be_rejected() {
             None,
             None
         ));
-        assert_balance(proposer.acc(), init_bal, 300);
-        assert_eq!(Pips::pip_id_sequence(), PipId(2));
-        assert_eq!(Pips::active_pip_count(), 1);
+        assert_balance(proposer.acc(), init_bal, 300 + 200);
+        assert_eq!(PipIdSequence::<TestStorage>::get(), PipId(2));
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 1);
         assert_ok!(Pips::snapshot(member.origin()));
         assert_ok!(Pips::enact_snapshot_results(
             gc_vmo(),
             vec![(id, SnapshotResult::Approve)]
         ));
         assert_state(id, false, ProposalState::Scheduled);
-        assert_balance(proposer.acc(), init_bal, 300);
-        assert_eq!(Pips::active_pip_count(), 1);
-        fast_forward_blocks(Pips::default_enactment_period() + 1);
+        assert_balance(proposer.acc(), init_bal, 300 + 200);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 1);
+        fast_forward_blocks(DefaultEnactmentPeriod::<TestStorage>::get() + 1);
         assert_state(id, false, ProposalState::Failed);
-        assert_balance(proposer.acc(), init_bal, 0);
-        assert_eq!(Pips::active_pip_count(), 0);
+        assert_balance(proposer.acc(), init_bal, 300 + 200);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 0);
         assert_ok!(Pips::prune_proposal(gc_vmo(), id));
-        assert_balance(proposer.acc(), init_bal, 0);
+        assert_balance(proposer.acc(), init_bal, 300 + 200);
         assert_pruned(id);
 
         // Can prune rejected:
         let id = PipId(2);
         assert_ok!(community_proposal(proposer, 400));
-        assert_balance(proposer.acc(), init_bal, 400);
-        assert_eq!(Pips::pip_id_sequence(), PipId(3));
-        assert_eq!(Pips::active_pip_count(), 1);
+        assert_balance(proposer.acc(), init_bal, 300 + 200 + 400);
+        assert_eq!(PipIdSequence::<TestStorage>::get(), PipId(3));
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 1);
         assert_ok!(Pips::reject_proposal(gc_vmo(), id));
-        assert_balance(proposer.acc(), init_bal, 0);
+        assert_balance(proposer.acc(), init_bal, 300 + 200 + 400);
         assert_state(id, false, ProposalState::Rejected);
-        assert_eq!(Pips::active_pip_count(), 0);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 0);
         assert_ok!(Pips::prune_proposal(gc_vmo(), id));
-        assert_balance(proposer.acc(), init_bal, 0);
+        assert_balance(proposer.acc(), init_bal, 300 + 200 + 400);
         assert_pruned(id);
     });
 }
@@ -1221,8 +1250,8 @@ fn cannot_prune_active() {
         assert_state(id, false, ProposalState::Pending);
         assert_bad_state!(Pips::prune_proposal(gc_vmo(), id));
         let id = PipId(1);
-        assert_eq!(Pips::pip_id_sequence(), id);
-        assert_eq!(Pips::active_pip_count(), 1);
+        assert_eq!(PipIdSequence::<TestStorage>::get(), id);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 1);
         assert_balance(proposer.acc(), init_bal, 50);
 
         // Alice starts a proposal with some deposit.
@@ -1237,8 +1266,8 @@ fn cannot_prune_active() {
         assert_state(id, false, ProposalState::Scheduled);
         // Now remove that PIP and check that funds are back.
         assert_bad_state!(Pips::prune_proposal(gc_vmo(), id));
-        assert_eq!(Pips::pip_id_sequence(), PipId(2));
-        assert_eq!(Pips::active_pip_count(), 2);
+        assert_eq!(PipIdSequence::<TestStorage>::get(), PipId(2));
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 2);
         assert_balance(proposer.acc(), init_bal, 50 + 60);
     });
 }
@@ -1263,40 +1292,44 @@ fn reject_proposal_works() {
             nays_count: 0,
             nays_stake: 0,
         };
-        assert_eq!(Pips::proposal_result(id), result);
+        assert_eq!(ProposalResult::<TestStorage>::get(id), result);
 
         // Now remove that PIP and check that funds are back.
         assert_ok!(Pips::set_prune_historical_pips(root(), false));
         assert_state(id, false, ProposalState::Pending);
         assert_ok!(Pips::reject_proposal(gc_vmo(), id));
-        assert_eq!(Pips::active_pip_count(), 0);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 0);
         assert_eq!(
-            Pips::proposals(id).unwrap(),
+            Proposals::<TestStorage>::get(id).unwrap(),
             Pip {
                 id,
                 proposal: make_proposal(42),
                 proposer: Proposer::Community(proposer.acc()),
             }
         );
-        assert_eq!(Pips::proposal_state(id).unwrap(), ProposalState::Rejected);
-        assert_balance(proposer.acc(), init_bal, 0);
-        assert_eq!(Deposits::iter_prefix_values(id).count(), 0);
+        assert_eq!(
+            ProposalStates::<TestStorage>::get(id).unwrap(),
+            ProposalState::Rejected
+        );
+        assert_balance(proposer.acc(), init_bal, 50);
+        assert_eq!(Deposits::iter_prefix_values(id).count(), 1);
+        assert_eq!(PendingRefunds::<TestStorage>::get(id), Some(true));
         // We keep this info for posterity.
         assert_eq!(Votes::iter_prefix_values(id).count(), 1);
-        assert_eq!(Pips::proposal_result(id), result);
+        assert_eq!(ProposalResult::<TestStorage>::get(id), result);
         let id = PipId(1);
-        assert_eq!(Pips::pip_id_sequence(), id);
+        assert_eq!(PipIdSequence::<TestStorage>::get(), id);
 
         // Alice starts a proposal with some deposit.
         assert_ok!(community_proposal(proposer, 60));
-        assert_balance(proposer.acc(), init_bal, 60);
+        assert_balance(proposer.acc(), init_bal, 60 + 50);
         let result = VotingResult {
             ayes_count: 1,
             ayes_stake: 60,
             nays_count: 0,
             nays_stake: 0,
         };
-        assert_eq!(Pips::proposal_result(id), result);
+        assert_eq!(ProposalResult::<TestStorage>::get(id), result);
 
         // Schedule the PIP.
         assert_ok!(Pips::snapshot(member.origin()));
@@ -1308,22 +1341,26 @@ fn reject_proposal_works() {
 
         // Now remove that PIP and check that funds are back.
         assert_ok!(Pips::reject_proposal(gc_vmo(), id));
-        assert_eq!(Pips::pip_id_sequence(), PipId(2));
-        assert_eq!(Pips::active_pip_count(), 0);
+        assert_eq!(PipIdSequence::<TestStorage>::get(), PipId(2));
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 0);
         assert_eq!(
-            Pips::proposals(id).unwrap(),
+            Proposals::<TestStorage>::get(id).unwrap(),
             Pip {
                 id,
                 proposal: make_proposal(42),
                 proposer: Proposer::Community(proposer.acc()),
             }
         );
-        assert_eq!(Pips::proposal_state(id).unwrap(), ProposalState::Rejected);
-        assert_balance(proposer.acc(), init_bal, 0);
-        assert_eq!(Deposits::iter_prefix_values(id).count(), 0);
+        assert_eq!(
+            ProposalStates::<TestStorage>::get(id).unwrap(),
+            ProposalState::Rejected
+        );
+        assert_balance(proposer.acc(), init_bal, 60 + 50);
+        assert_eq!(Deposits::iter_prefix_values(id).count(), 1);
         // We keep this info for posterity.
         assert_eq!(Votes::iter_prefix_values(id).count(), 1);
-        assert_eq!(Pips::proposal_result(id), result);
+        assert_eq!(ProposalResult::<TestStorage>::get(id), result);
+        assert_eq!(PendingRefunds::<TestStorage>::get(id), Some(true));
     });
 }
 
@@ -1341,9 +1378,9 @@ fn reject_proposal_will_unsnapshot() {
         let id = PipId(0);
         assert_ok!(community_proposal(proposer, 0));
         assert_ok!(Pips::snapshot(member.origin()));
-        assert_eq!(Pips::snapshot_queue()[0].id, id);
+        assert_eq!(SnapshotQueue::<TestStorage>::get()[0].id, id);
         assert_ok!(Pips::reject_proposal(gc_vmo(), id));
-        assert_eq!(Pips::snapshot_queue(), vec![]);
+        assert_eq!(SnapshotQueue::<TestStorage>::get(), vec![]);
     });
 }
 
@@ -1358,9 +1395,9 @@ fn reject_proposal_will_unschedule() {
         set_members(vec![alice.did]);
 
         let check = |id: PipId| {
-            let scheduled_at = Pips::pip_to_schedule(id).unwrap();
+            let scheduled_at = PipToSchedule::<TestStorage>::get(id).unwrap();
             assert_ok!(Pips::reject_proposal(gc_vmo(), id));
-            assert_eq!(Pips::pip_to_schedule(id), None);
+            assert_eq!(PipToSchedule::<TestStorage>::get(id), None);
             assert_event_exists!(
                 EventTest::Scheduler(pallet_scheduler::Event::Canceled { when, .. }),
                 *when == scheduled_at
@@ -1407,14 +1444,14 @@ fn reschedule_execution_only_release_coordinator() {
 
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
         let id = scheduled_proposal(alice, alice, 0);
-        let scheduled_at = Pips::pip_to_schedule(id);
+        let scheduled_at = PipToSchedule::<TestStorage>::get(id);
         consensus_call(
             pallet_pips::Call::reschedule_execution { id, until: None },
             &[&alice.origin(), &bob.origin(), &charlie.origin()],
         );
-        assert_eq!(scheduled_at, Pips::pip_to_schedule(id));
+        assert_eq!(scheduled_at, PipToSchedule::<TestStorage>::get(id));
         assert_ok!(Pips::reschedule_execution(charlie.origin(), id, None));
-        assert_ne!(scheduled_at, Pips::pip_to_schedule(id));
+        assert_ne!(scheduled_at, PipToSchedule::<TestStorage>::get(id));
     });
 }
 
@@ -1441,7 +1478,7 @@ fn reschedule_execution_not_scheduled() {
         let rc = init_rc();
         let proposer = User::new(AccountKeyring::Bob);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        let id = Pips::pip_id_sequence();
+        let id = PipIdSequence::<TestStorage>::get();
         assert_ok!(community_proposal(proposer, 0));
         assert_bad_state!(Pips::reschedule_execution(rc.origin(), id, None));
         assert_ok!(Pips::reject_proposal(gc_vmo(), id));
@@ -1488,29 +1525,29 @@ fn reschedule_execution_works() {
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         // Schedule a proposal and verify that it is.
-        assert_eq!(Pips::active_pip_count(), 0);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 0);
         let id = scheduled_proposal(proposer, rc, 0);
-        assert_eq!(Pips::active_pip_count(), 1);
-        let scheduled_at = Pips::pip_to_schedule(id).unwrap();
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 1);
+        let scheduled_at = PipToSchedule::<TestStorage>::get(id).unwrap();
         assert!(matches!(Agenda::get(scheduled_at).deref()[..], [Some(_)]));
 
         // Reschedule execution for next block.
         let next = System::block_number() + 1;
         assert_ok!(Pips::reschedule_execution(rc.origin(), id, None));
         // Regression test for <https://polymath.atlassian.net/browse/GTN-2172>.
-        assert_eq!(Pips::active_pip_count(), 1);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 1);
         // Rescheduling currently works by cancelling + then scheduling again. Verify this.
         assert_event_exists!(EventTest::Scheduler(
             pallet_scheduler::Event::Canceled { .. }
         ));
-        assert_eq!(Pips::pip_to_schedule(id).unwrap(), next);
+        assert_eq!(PipToSchedule::<TestStorage>::get(id).unwrap(), next);
         assert_eq!(Agenda::get(scheduled_at), vec![]);
         assert!(matches!(Agenda::get(next).deref()[..], [Some(_)]));
 
         // Reschedule execution for 50 blocks ahead.
         assert_ok!(Pips::reschedule_execution(rc.origin(), id, Some(next + 50)));
-        assert_eq!(Pips::active_pip_count(), 1);
-        assert_eq!(Pips::pip_to_schedule(id).unwrap(), next + 50);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), 1);
+        assert_eq!(PipToSchedule::<TestStorage>::get(id).unwrap(), next + 50);
         assert_eq!(Agenda::get(scheduled_at), vec![]);
         assert_eq!(Agenda::get(next), vec![]);
         assert!(matches!(Agenda::get(next + 50).deref()[..], [Some(_)]));
@@ -1537,11 +1574,11 @@ fn clear_snapshot_works() {
         System::set_block_number(1);
         let rc = init_rc();
         // No snapshot, but we can still clear.
-        assert_eq!(Pips::snapshot_queue(), vec![]);
-        assert_eq!(Pips::snapshot_metadata(), None);
+        assert_eq!(SnapshotQueue::<TestStorage>::get(), vec![]);
+        assert_eq!(SnapshotMeta::<TestStorage>::get(), None);
         assert_ok!(Pips::clear_snapshot(rc.origin()));
-        assert_eq!(Pips::snapshot_queue(), vec![]);
-        assert_eq!(Pips::snapshot_metadata(), None);
+        assert_eq!(SnapshotQueue::<TestStorage>::get(), vec![]);
+        assert_eq!(SnapshotMeta::<TestStorage>::get(), None);
 
         // Make a snapshot with something and clear it.
         let proposer = User::new(AccountKeyring::Bob);
@@ -1549,11 +1586,11 @@ fn clear_snapshot_works() {
         assert_ok!(community_proposal(proposer, 200));
         assert_ok!(community_proposal(proposer, 400));
         assert_ok!(Pips::snapshot(rc.origin()));
-        assert_ne!(Pips::snapshot_queue(), vec![]);
-        assert_ne!(Pips::snapshot_metadata(), None);
+        assert_ne!(SnapshotQueue::<TestStorage>::get(), vec![]);
+        assert_ne!(SnapshotMeta::<TestStorage>::get(), None);
         assert_ok!(Pips::clear_snapshot(rc.origin()));
-        assert_eq!(Pips::snapshot_queue(), vec![]);
-        assert_eq!(Pips::snapshot_metadata(), None);
+        assert_eq!(SnapshotQueue::<TestStorage>::get(), vec![]);
+        assert_eq!(SnapshotMeta::<TestStorage>::get(), None);
     });
 }
 
@@ -1584,18 +1621,21 @@ fn snapshot_only_pending_hot_community() {
         let s = scheduled_proposal(proposer, rc, 0);
         let ex = expired_proposal(proposer, 1);
         assert_ok!(community_proposal(proposer, 0));
-        let p = PipId(Pips::pip_id_sequence().0 - 1);
+        let p = PipId(PipIdSequence::<TestStorage>::get().0 - 1);
         for id in &[r, e, f, s, p, ex] {
             assert_eq!(
-                Pips::proposals(*id).unwrap().proposer,
+                Proposals::<TestStorage>::get(*id).unwrap().proposer,
                 Proposer::Community(proposer.acc())
             );
         }
         assert_ok!(committee_proposal(0));
 
         assert_ok!(Pips::snapshot(rc.origin()));
-        assert_eq!(Pips::snapshot_queue(), vec![spip(p.0, true, 0)]);
-        assert_ne!(Pips::snapshot_metadata(), None);
+        assert_eq!(
+            SnapshotQueue::<TestStorage>::get(),
+            vec![spip(p.0, true, 0)]
+        );
+        assert_ne!(SnapshotMeta::<TestStorage>::get(), None);
     });
 }
 
@@ -1634,7 +1674,7 @@ fn snapshot_works() {
 
         assert_ok!(snapshot());
         assert_eq!(
-            Pips::snapshot_queue(),
+            SnapshotQueue::<TestStorage>::get(),
             vec![
                 spip(1, false, 100),
                 spip(5, false, 50),
@@ -1647,7 +1687,7 @@ fn snapshot_works() {
 
         let assert_snapshot = |id| {
             assert_eq!(
-                Pips::snapshot_metadata(),
+                SnapshotMeta::<TestStorage>::get(),
                 Some(SnapshotMetadata {
                     created_at: 1,
                     made_by: member.acc(),
@@ -1763,8 +1803,8 @@ fn enact_snapshot_results_works() {
         propose();
         propose();
         assert_ok!(Pips::snapshot(member.origin()));
-        assert_eq!(Pips::snapshot_queue(), mk_queue(&[2, 1, 0]));
-        assert_eq!(Pips::pip_skip_count(PipId(1)), 0);
+        assert_eq!(SnapshotQueue::<TestStorage>::get(), mk_queue(&[2, 1, 0]));
+        assert_eq!(PipSkipCount::<TestStorage>::get(PipId(1)), 0);
         assert_ok!(Pips::enact_snapshot_results(
             gc_vmo(),
             vec![
@@ -1775,16 +1815,16 @@ fn enact_snapshot_results_works() {
         ));
         assert_state(PipId(0), false, ProposalState::Rejected);
         assert_state(PipId(1), false, ProposalState::Pending);
-        assert_eq!(Pips::pip_skip_count(PipId(1)), 1);
+        assert_eq!(PipSkipCount::<TestStorage>::get(PipId(1)), 1);
         assert_state(PipId(2), false, ProposalState::Scheduled);
-        assert_eq!(Pips::snapshot_queue(), vec![]);
-        assert_ne!(Pips::snapshot_metadata(), None);
+        assert_eq!(SnapshotQueue::<TestStorage>::get(), vec![]);
+        assert_ne!(SnapshotMeta::<TestStorage>::get(), None);
 
         // Add another proposal; we previously skipped one, so queue size is 2.
         // Only enact for 1 proposal, leaving the last added PIP in the queue.
         propose();
         assert_ok!(Pips::snapshot(member.origin()));
-        assert_eq!(Pips::snapshot_queue(), mk_queue(&[3, 1]));
+        assert_eq!(SnapshotQueue::<TestStorage>::get(), mk_queue(&[3, 1]));
         assert_ok!(Pips::enact_snapshot_results(
             gc_vmo(),
             vec![(PipId(1), SnapshotResult::Approve)]
@@ -1794,7 +1834,7 @@ fn enact_snapshot_results_works() {
             a.is_empty() && b.is_empty() && c == &[PipId(1)]
         );
         assert_state(PipId(1), false, ProposalState::Scheduled);
-        assert_eq!(Pips::snapshot_queue(), mk_queue(&[3]));
+        assert_eq!(SnapshotQueue::<TestStorage>::get(), mk_queue(&[3]));
 
         // Cleared queue + enacting zero-length results => noop.
         assert_ok!(Pips::clear_snapshot(member.origin()));
@@ -1833,13 +1873,15 @@ fn expiry_works() {
         let s = scheduled_proposal(proposer, member, 0);
         fast_forward_blocks(13 + 100);
         for id in &[r, e, f, s] {
-            assert_ne!(Pips::proposal_state(id).unwrap(), ProposalState::Expired);
+            assert_ne!(
+                ProposalStates::<TestStorage>::get(id).unwrap(),
+                ProposalState::Expired
+            );
         }
     });
 }
 
 #[test]
-#[should_panic = "called `Result::unwrap_err()` on an `Ok` value: 0"]
 fn propose_dupe_live_insert_panics() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
@@ -1848,8 +1890,11 @@ fn propose_dupe_live_insert_panics() {
         // Manipulate storage to provoke panic in `insert_live_queue`.
         LiveQueue::<TestStorage>::mutate(|queue| *queue = vec![spip(0, true, 0)]);
 
-        // Triggers a panic, assertion never reached.
-        assert_ok!(community_proposal(User::new(AccountKeyring::Alice), 0));
+        // Returns an error since pip_id is already in the live queue
+        assert_eq!(
+            community_proposal(User::new(AccountKeyring::Alice), 0).unwrap_err(),
+            Error::InvalidPipId.into()
+        );
     });
 }
 
@@ -1859,7 +1904,7 @@ fn execute_scheduled_pip() {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
         assert_ok!(Pips::set_prune_historical_pips(root(), true));
-        let pip_id = Pips::pip_id_sequence();
+        let pip_id = PipIdSequence::<TestStorage>::get();
         let user = User::new(AccountKeyring::Alice);
         assert_ok!(remark_proposal(user, 0));
         set_members(vec![user.did]);
@@ -1880,7 +1925,7 @@ fn expire_scheduled_pip() {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
         assert_ok!(Pips::set_prune_historical_pips(root(), true));
-        let pip_id = Pips::pip_id_sequence();
+        let pip_id = PipIdSequence::<TestStorage>::get();
         let user = User::new(AccountKeyring::Alice);
         assert_ok!(remark_proposal(user, 0));
         assert_state(pip_id, false, ProposalState::Pending);
@@ -1898,11 +1943,17 @@ fn live_queue_off_by_one_insertion_regression_test() {
         let proposer = User::new(AccountKeyring::Alice);
         assert_ok!(community_proposal(proposer, 2));
         assert_ok!(community_proposal(proposer, 4));
-        assert_eq!(Pips::live_queue(), vec![spip(0, true, 2), spip(1, true, 4)]);
+        assert_eq!(
+            LiveQueue::<TestStorage>::get(),
+            vec![spip(0, true, 2), spip(1, true, 4)]
+        );
 
         let user = User::new(AccountKeyring::Bob);
         assert_ok!(Pips::vote(user.origin(), PipId(0), true, 1));
-        assert_eq!(Pips::live_queue(), vec![spip(0, true, 3), spip(1, true, 4)]);
+        assert_eq!(
+            LiveQueue::<TestStorage>::get(),
+            vec![spip(0, true, 3), spip(1, true, 4)]
+        );
     });
 }
 
@@ -1922,7 +1973,7 @@ fn live_queue_off_by_one_insertion_regression_test2() {
         assert_ok!(Pips::vote(voter.origin(), PipId(0), false, 100));
         assert_ok!(Pips::vote(voter.origin(), PipId(2), false, 100));
         assert_eq!(
-            Pips::live_queue(),
+            LiveQueue::<TestStorage>::get(),
             vec![spip(0, false, 100), spip(2, false, 50), spip(1, true, 0)]
         );
     });
@@ -1967,5 +2018,82 @@ fn pips_rpcs() {
             vec![pip_id1, pip_id0],
         );
         assert_eq!(Pips::voted_on(bob.acc()), vec![pip_id1, pip_id0]);
+    });
+}
+
+#[test]
+fn prune_data_with_leftover() {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
+        System::set_block_number(1);
+
+        // Creates a proposal and 3 users vote on it
+        let bob = User::new(AccountKeyring::Bob);
+        let dave = User::new(AccountKeyring::Dave);
+        let alice = User::new(AccountKeyring::Alice);
+        let charlie = User::new(AccountKeyring::Charlie);
+
+        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        assert_ok!(community_proposal(alice, 0));
+        assert_ok!(Pips::vote(bob.origin(), PipId(0), true, 100));
+        assert_ok!(Pips::vote(dave.origin(), PipId(0), true, 100));
+        assert_ok!(Pips::vote(charlie.origin(), PipId(0), true, 100));
+        assert_eq!(Deposits::iter_prefix_values(PipId(0)).count(), 4);
+        assert_eq!(
+            ProposalVotes::<TestStorage>::iter_prefix_values(PipId(0)).count(),
+            4
+        );
+        assert!(Proposals::<TestStorage>::get(PipId(0)).is_some());
+        assert_eq!(VotesToBePruned::<TestStorage>::get(PipId(0)), None);
+        assert_eq!(PendingRefunds::<TestStorage>::get(PipId(0)), None);
+
+        // Reject proposal - Adds the proposal to the pending refund queue
+        assert_ok!(Pips::set_prune_historical_pips(root(), false));
+        assert_ok!(Pips::reject_proposal(gc_vmo(), PipId(0)));
+        assert_eq!(PendingRefunds::<TestStorage>::get(PipId(0)), Some(true));
+        assert_eq!(VotesToBePruned::<TestStorage>::get(PipId(0)), None);
+        assert_eq!(Deposits::iter_prefix_values(PipId(0)).count(), 4);
+        assert_eq!(
+            ProposalVotes::<TestStorage>::iter_prefix_values(PipId(0)).count(),
+            4
+        );
+        assert!(Proposals::<TestStorage>::get(PipId(0)).is_some());
+
+        // Prune proposal - Adds the poposal to the Votes to be pruned queue
+        assert_ok!(Pips::prune_proposal(gc_vmo(), PipId(0)));
+        assert_eq!(VotesToBePruned::<TestStorage>::get(PipId(0)), Some(true));
+        assert_eq!(PendingRefunds::<TestStorage>::get(PipId(0)), Some(true));
+        assert_eq!(
+            ProposalVotes::<TestStorage>::iter_prefix_values(PipId(0)).count(),
+            4
+        );
+        assert_eq!(Deposits::iter_prefix_values(PipId(0)).count(), 4);
+        assert_eq!(ProposalMetadata::<TestStorage>::get(PipId(0)), None);
+        assert_eq!(Proposals::<TestStorage>::get(PipId(0)), None);
+        assert_eq!(PipSkipCount::<TestStorage>::get(PipId(0)), 0);
+        assert_eq!(ProposalStates::<TestStorage>::get(PipId(0)), None);
+        assert_eq!(
+            ProposalResult::<TestStorage>::get(PipId(0)),
+            VotingResult::default()
+        );
+
+        // On idle execution, Refunds 2 accounts and prune 2 votes
+        Pips::remove_pending_storage();
+        assert_eq!(PendingRefunds::<TestStorage>::get(PipId(0)), Some(true));
+        assert_eq!(Deposits::iter_prefix_values(PipId(0)).count(), 2);
+        assert_eq!(VotesToBePruned::<TestStorage>::get(PipId(0)), Some(true));
+        assert_eq!(
+            ProposalVotes::<TestStorage>::iter_prefix_values(PipId(0)).count(),
+            2
+        );
+
+        // On idle execution, Refunds 2 accounts and prune 2 votes
+        Pips::remove_pending_storage();
+        assert_eq!(PendingRefunds::<TestStorage>::get(PipId(0)), None);
+        assert_eq!(Deposits::iter_prefix_values(PipId(0)).count(), 0);
+        assert_eq!(VotesToBePruned::<TestStorage>::get(PipId(0)), None);
+        assert_eq!(
+            ProposalVotes::<TestStorage>::iter_prefix_values(PipId(0)).count(),
+            0
+        );
     });
 }
