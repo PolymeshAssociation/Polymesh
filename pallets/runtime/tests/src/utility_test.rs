@@ -13,7 +13,7 @@ use pallet_timestamp::Call as TimestampCall;
 
 use pallet_asset::UniqueTickerRegistration;
 use pallet_balances::Call as BalancesCall;
-use pallet_pips::{ProposalState, SnapshotResult};
+use pallet_pips::{PipIdSequence, ProposalState, SnapshotResult};
 use pallet_portfolio::Call as PortfolioCall;
 use pallet_utility::{
     self as utility, Call as UtilityCall, Config as UtilityConfig, Event, UniqueCall, WeightInfo,
@@ -898,9 +898,9 @@ fn batch_works_with_committee_origin() {
             )
         };
 
-        let id_committee = Pips::pip_id_sequence();
+        let id_committee = PipIdSequence::<TestStorage>::get();
         assert_ok!(committee_proposal(0));
-        let id_snapshot = Pips::pip_id_sequence();
+        let id_snapshot = PipIdSequence::<TestStorage>::get();
         assert_ok!(community_proposal(proposer, 10));
         assert_ok!(Pips::snapshot(bob.origin()));
         consensus_batch(vec![
@@ -932,9 +932,9 @@ fn force_batch_works_with_committee_origin() {
             )
         };
 
-        let id_committee = Pips::pip_id_sequence();
+        let id_committee = PipIdSequence::<TestStorage>::get();
         assert_ok!(committee_proposal(0));
-        let id_snapshot = Pips::pip_id_sequence();
+        let id_snapshot = PipIdSequence::<TestStorage>::get();
         assert_ok!(community_proposal(proposer, 10));
         assert_ok!(Pips::snapshot(bob.origin()));
         consensus_batch(vec![
@@ -966,9 +966,9 @@ fn batch_all_works_with_committee_origin() {
             )
         };
 
-        let id_committee = Pips::pip_id_sequence();
+        let id_committee = PipIdSequence::<TestStorage>::get();
         assert_ok!(committee_proposal(0));
-        let id_snapshot = Pips::pip_id_sequence();
+        let id_snapshot = PipIdSequence::<TestStorage>::get();
         assert_ok!(community_proposal(proposer, 10));
         assert_ok!(Pips::snapshot(bob.origin()));
         consensus_batch(vec![

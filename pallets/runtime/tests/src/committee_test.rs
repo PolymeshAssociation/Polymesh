@@ -13,7 +13,7 @@ use frame_system::{EventRecord, Phase};
 use pallet_committee::{self as committee, Event as CommitteeRawEvent, PolymeshVotes};
 use pallet_group as group;
 use pallet_identity as identity;
-use pallet_pips::{PipId, ProposalState, SnapshotResult};
+use pallet_pips::{PipId, ProposalState, ProposalStates, SnapshotResult};
 use polymesh_primitives::{IdentityId, MaybeBlock};
 use sp_core::H256;
 use sp_keyring::AccountKeyring;
@@ -95,7 +95,10 @@ fn prepare_proposal(ring: AccountKeyring) {
 }
 
 fn check_scheduled(id: PipId) {
-    assert_eq!(Pips::proposal_state(id).unwrap(), ProposalState::Scheduled);
+    assert_eq!(
+        ProposalStates::<TestStorage>::get(id).unwrap(),
+        ProposalState::Scheduled
+    );
 }
 
 fn enact_snapshot_results_call() -> RuntimeCall {

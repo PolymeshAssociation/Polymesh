@@ -245,6 +245,7 @@ impl pallet_pips::Config for Test {
     type WeightInfo = polymesh_weights::pallet_pips::SubstrateWeight;
     type Scheduler = Scheduler;
     type SchedulerCall = RuntimeCall;
+    type MaxRefundsAndVotesPruned = MaxRefundsAndVotesPruned;
 }
 
 impl pallet_treasury::Config for Test {
@@ -260,6 +261,8 @@ impl pallet_authorship::Config for Test {
 
 parameter_types! {
     pub const MinimumPeriod: u64 = 5;
+    // PIPs
+    pub const MaxRefundsAndVotesPruned: u32 = 128;
 }
 
 impl pallet_timestamp::Config for Test {
