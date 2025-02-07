@@ -14,10 +14,11 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    types, AccountKeyRefCount, ChildDid, Claim, Config, CurrentAuthId, DidKeys, DidRecords, Error,
-    Event, IsDidFrozen, KeyAssetPermissions, KeyExtrinsicPermissions, KeyPortfolioPermissions,
-    KeyRecords, MultiPurposeNonce, OffChainAuthorizationNonce, OutdatedAuthorizations, Pallet,
-    ParentDid, PermissionedCallOriginData, RpcDidRecords,
+    types, AccountKeyRefCount, CddAuthForPrimaryKeyRotation, ChildDid, Claim, Config,
+    CurrentAuthId, DidKeys, DidRecords, Error, Event, IsDidFrozen, KeyAssetPermissions,
+    KeyExtrinsicPermissions, KeyPortfolioPermissions, KeyRecords, MultiPurposeNonce,
+    OffChainAuthorizationNonce, OutdatedAuthorizations, Pallet, ParentDid,
+    PermissionedCallOriginData, RpcDidRecords,
 };
 use codec::{Decode, Encode as _};
 use frame_support::dispatch::DispatchResult;
@@ -85,7 +86,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_identity(key: &T::AccountId) -> Option<IdentityId> {
         match KeyRecords::<T>::get(key)? {
             KeyRecord::PrimaryKey(did) => Some(did),
-            KeyRecord::SecondaryKey(did) if !Self::is_did_frozen(did) => Some(did),
+            KeyRecord::SecondaryKey(did) if !IsDidFrozen::<T>::get(did) => Some(did),
             // Is a multisig signer, or frozen secondary key.
             _ => None,
         }
@@ -348,7 +349,7 @@ impl<T: Config> Pallet<T> {
         let signer = Signatory::Account(new_primary_key.clone());
 
         // Accept authorization from CDD service provider.
-        if Self::cdd_auth_for_primary_key_rotation() {
+        if CddAuthForPrimaryKeyRotation::<T>::get() {
             let auth_id = optional_cdd_auth_id
                 .ok_or_else(|| Error::<T>::InvalidAuthorizationFromCddProvider)?;
 
@@ -518,7 +519,7 @@ impl<T: Config> Pallet<T> {
         ensure!(now < expires_at, Error::<T>::AuthorizationExpired);
         let authorization = TargetIdAuthorization {
             target_id: parent_did,
-            nonce: Self::offchain_authorization_nonce(parent_did),
+            nonce: OffChainAuthorizationNonce::<T>::get(parent_did),
             expires_at,
         };
         let auth_encoded = authorization.encode();
@@ -657,7 +658,7 @@ impl<T: Config> Pallet<T> {
         // Create authorization data that the keys need to sign.
         let authorization = TargetIdAuthorization {
             target_id: did,
-            nonce: Self::offchain_authorization_nonce(did),
+            nonce: OffChainAuthorizationNonce::<T>::get(did),
             expires_at,
         };
         let auth_encoded = authorization.encode();
@@ -779,7 +780,7 @@ impl<T: Config> Pallet<T> {
 
     /// Create a new DID out of the parent block hash and a `nonce`.
     fn make_did() -> Result<IdentityId, DispatchError> {
-        let nonce = Self::multi_purpose_nonce() + 7u64;
+        let nonce = MultiPurposeNonce::<T>::get() + 7u64;
         // Even if this transaction fails, nonce should be increased for added unpredictability of dids
         MultiPurposeNonce::<T>::put(&nonce);
 
@@ -890,7 +891,7 @@ impl<T: Config> Pallet<T> {
 
     /// Ensure the `key` is a secondary key of the identity `did`.
     fn ensure_secondary_key(did: IdentityId, key: &T::AccountId) -> DispatchResult {
-        let key_did = Self::key_records(key).and_then(|rec| rec.is_secondary_key());
+        let key_did = KeyRecords::<T>::get(key).and_then(|rec| rec.is_secondary_key());
         ensure!(key_did == Some(did), Error::<T>::NotASigner);
         Ok(())
     }
@@ -900,8 +901,8 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
     ) -> Result<(T::AccountId, IdentityId), DispatchError> {
         let sender = ensure_signed(origin)?;
-        let key_rec =
-            Self::key_records(&sender).ok_or(pallet_permissions::Error::<T>::UnauthorizedCaller)?;
+        let key_rec = KeyRecords::<T>::get(&sender)
+            .ok_or(pallet_permissions::Error::<T>::UnauthorizedCaller)?;
         let did = key_rec.is_primary_key().ok_or(Error::<T>::KeyNotAllowed)?;
         Ok((sender, did))
     }
@@ -988,7 +989,7 @@ impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Pallet<T> {
             // Primary keys do not have / require further permission checks.
             KeyRecord::PrimaryKey(did) => Some(data(did, None)),
             // Secondary Key. Ensure DID isn't frozen + key has sufficient permissions.
-            KeyRecord::SecondaryKey(did) if !Self::is_did_frozen(&did) => {
+            KeyRecord::SecondaryKey(did) if !IsDidFrozen::<T>::get(&did) => {
                 let permissions = Self::get_key_permissions(who);
                 let sk = SecondaryKey {
                     key: who.clone(),

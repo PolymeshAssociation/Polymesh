@@ -251,8 +251,7 @@ pub mod pallet {
     /// Nonce for `relay_tx`.
     /// POLYMESH: added.
     #[pallet::storage]
-    #[pallet::getter(fn nonce)]
-    pub(super) type Nonces<T: Config> =
+    pub type Nonces<T: Config> =
         StorageMap<_, Twox64Concat, T::AccountId, AuthorizationNonce, ValueQuery>;
 
     #[pallet::call]

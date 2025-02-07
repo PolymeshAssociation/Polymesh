@@ -1,5 +1,6 @@
 use frame_support::assert_ok;
 
+use pallet_settlement::VenueCounter;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::settlement::{VenueDetails, VenueId, VenueType};
 
@@ -15,7 +16,7 @@ type Settlement = pallet_settlement::Pallet<TestStorage>;
 pub fn create_and_issue_sample_asset_with_venue(asset_owner: &User) -> (AssetId, Option<VenueId>) {
     let asset_id = create_and_issue_sample_asset(&asset_owner);
 
-    let venue_id = Settlement::venue_counter();
+    let venue_id = VenueCounter::<TestStorage>::get();
     assert_ok!(Settlement::create_venue(
         asset_owner.origin(),
         VenueDetails::default(),

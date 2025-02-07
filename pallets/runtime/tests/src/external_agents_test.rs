@@ -1,16 +1,16 @@
+use frame_support::dispatch::DispatchResult;
+use frame_support::{assert_noop, assert_ok};
+use pallet_external_agents::GroupPermissions;
+use pallet_permissions::StoreCallMetadata;
+use polymesh_primitives::agent::{AGId, AgentGroup};
+use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::{AuthorizationData, ExtrinsicPermissions, PalletPermissions, Signatory};
+use sp_keyring::AccountKeyring;
+
 use crate::asset_pallet::setup::create_and_issue_sample_asset;
 use crate::ext_builder::ExtBuilder;
 use crate::identity_test::test_with_bad_ext_perms;
 use crate::storage::{TestStorage, User};
-use frame_support::dispatch::DispatchResult;
-use frame_support::{assert_noop, assert_ok};
-use pallet_permissions::StoreCallMetadata;
-use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::{
-    agent::{AGId, AgentGroup},
-    AuthorizationData, ExtrinsicPermissions, PalletPermissions, Signatory,
-};
-use sp_keyring::AccountKeyring;
 
 type ExternalAgents = pallet_external_agents::Pallet<TestStorage>;
 type BaseError = pallet_base::Error<TestStorage>;
@@ -108,13 +108,19 @@ fn create_group_set_perms_works() {
         // Add a group successfully.
         let perms = make_perms("foo");
         assert_ok!(create(perms.clone()));
-        assert_eq!(Some(perms), ExternalAgents::permissions(asset_id, AGId(1)));
-        assert_eq!(AGId(1), ExternalAgents::agent_group_id_sequence(asset_id));
+        assert_eq!(
+            Some(perms),
+            GroupPermissions::<TestStorage>::get(asset_id, AGId(1))
+        );
+        assert_eq!(AGId(1), AGIdSequence::get(asset_id));
 
         // Now that the group does exist, modify its perms.
         let perms = make_perms("pallet_external_agent");
         assert_ok!(set(AGId(1), perms.clone()));
-        assert_eq!(Some(perms), ExternalAgents::permissions(asset_id, AGId(1)));
+        assert_eq!(
+            Some(perms),
+            GroupPermissions::<TestStorage>::get(asset_id, AGId(1))
+        );
 
         // Below we also test agent permissions checking logic.
 
@@ -249,7 +255,7 @@ fn add_works() {
         let dave = User::new(AccountKeyring::Dave);
         let asset_id = create_and_issue_sample_asset(&owner);
 
-        let check_num = |n| assert_eq!(ExternalAgents::num_full_agents(asset_id), n);
+        let check_num = |n| assert_eq!(NumFullAgents::get(asset_id), n);
 
         check_num(1);
 
@@ -347,7 +353,7 @@ fn agent_of_mapping_works() {
             add_become_agent(*asset_id, owner, bob, AgentGroup::Full, Ok(()));
             add_become_agent(*asset_id, owner, charlie, AgentGroup::ExceptMeta, Ok(()));
             add_become_agent(*asset_id, owner, dave, AgentGroup::PolymeshV1CAA, Ok(()));
-            assert_eq!(ExternalAgents::num_full_agents(asset_id), 2);
+            assert_eq!(NumFullAgents::get(asset_id), 2);
         }
 
         // Check the reverse mappings
@@ -361,7 +367,7 @@ fn agent_of_mapping_works() {
             remove(*asset_id, bob);
             remove(*asset_id, charlie);
             remove(*asset_id, dave);
-            assert_eq!(ExternalAgents::num_full_agents(asset_id), 1);
+            assert_eq!(NumFullAgents::get(asset_id), 1);
         }
 
         // Check the reverse mappings are correct or empty

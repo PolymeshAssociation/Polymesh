@@ -269,8 +269,7 @@ pub mod pallet {
     /// (AssetId, fundraiser_id) -> Fundraiser
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn fundraisers)]
-    pub(super) type Fundraisers<T: Config> = StorageDoubleMap<
+    pub type Fundraisers<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         AssetId,
@@ -282,16 +281,14 @@ pub mod pallet {
 
     /// Total fundraisers created for a token.
     #[pallet::storage]
-    #[pallet::getter(fn fundraiser_count)]
-    pub(super) type FundraiserCount<T: Config> =
+    pub type FundraiserCount<T: Config> =
         StorageMap<_, Blake2_128Concat, AssetId, FundraiserId, ValueQuery>;
 
     /// Name for the Fundraiser. Only used offchain.
     /// (AssetId, fundraiser_id) -> Fundraiser name
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn fundraiser_name)]
-    pub(super) type FundraiserNames<T: Config> = StorageDoubleMap<
+    pub type FundraiserNames<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         AssetId,

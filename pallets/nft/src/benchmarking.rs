@@ -35,7 +35,7 @@ fn create_collection<T: Config>(collection_owner: &User<T>, n: u32) -> (AssetId,
         collection_keys,
     )
     .expect("failed to create nft collection");
-    (asset_id, Pallet::<T>::current_collection_id().unwrap())
+    (asset_id, CurrentCollectionId::<T>::get().unwrap())
 }
 
 /// Creates a set of `NFTCollectionKeys` made of `n` global keys and registers `n` global asset metadata types.

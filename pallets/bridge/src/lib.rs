@@ -129,31 +129,26 @@ pub mod pallet {
     /// The bridge transaction timelock period, in blocks, since the acceptance of the
     /// transaction proposal during which the admin key can freeze the transaction.
     #[pallet::storage]
-    #[pallet::getter(fn timelock)]
     pub(super) type Timelock<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
     /// The maximum number of bridged POLYX per identity within a set interval of
     /// blocks. Fields: POLYX amount and the block interval duration.
     #[pallet::storage]
-    #[pallet::getter(fn bridge_limit)]
     pub(super) type BridgeLimit<T: Config> = StorageValue<_, (Balance, T::BlockNumber), ValueQuery>;
 
     /// Amount of POLYX bridged by the identity in last block interval. Fields: the bridged
     /// amount and the last interval number.
     #[pallet::storage]
-    #[pallet::getter(fn polyx_bridged)]
     pub(super) type PolyxBridged<T: Config> =
         StorageMap<_, Identity, IdentityId, (Balance, T::BlockNumber), ValueQuery>;
 
     /// Identities not constrained by the bridge limit.
     #[pallet::storage]
-    #[pallet::getter(fn bridge_exempted)]
     pub(super) type BridgeLimitExempted<T: Config> =
         StorageMap<_, Twox64Concat, IdentityId, bool, ValueQuery>;
 
     /// Storage version.
     #[pallet::storage]
-    #[pallet::getter(fn storage_version)]
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
 
     #[pallet::genesis_config]

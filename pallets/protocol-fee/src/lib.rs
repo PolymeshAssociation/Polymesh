@@ -101,12 +101,10 @@ pub mod pallet {
 
     /// The mapping of operation names to the base fees of those operations.
     #[pallet::storage]
-    #[pallet::getter(fn base_fees)]
     pub type BaseFees<T: Config> = StorageMap<_, Twox64Concat, ProtocolOp, Balance, ValueQuery>;
 
     /// The fee coefficient as a positive rational (numerator, denominator).
     #[pallet::storage]
-    #[pallet::getter(fn coefficient)]
     pub type Coefficient<T: Config> = StorageValue<_, PosRatio, ValueQuery>;
 
     #[pallet::genesis_config]
@@ -184,11 +182,11 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     /// Computes the fee of the operation as `(base_fee * coefficient.0) / coefficient.1`.
     pub fn compute_fee(ops: &[ProtocolOp]) -> Balance {
-        let coefficient = Self::coefficient();
+        let coefficient = Coefficient::<T>::get();
         let ratio = Perbill::from_rational(coefficient.0, coefficient.1);
         let base = ops
             .iter()
-            .fold(Zero::zero(), |a: Balance, e| a + Self::base_fees(e));
+            .fold(Zero::zero(), |a: Balance, e| a + BaseFees::<T>::get(e));
         ratio * base
     }
 

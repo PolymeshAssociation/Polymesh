@@ -287,7 +287,6 @@ pub mod pallet {
     ///
     /// (CAId) => BallotMeta
     #[pallet::storage]
-    #[pallet::getter(fn metas)]
     #[pallet::unbounded]
     pub type Metas<T: Config> = StorageMap<_, Blake2_128Concat, CAId, BallotMeta>;
 
@@ -296,7 +295,6 @@ pub mod pallet {
     ///
     /// (CAId) => BallotTimeRange
     #[pallet::storage]
-    #[pallet::getter(fn time_ranges)]
     pub type TimeRanges<T: Config> = StorageMap<_, Blake2_128Concat, CAId, BallotTimeRange>;
 
     /// Stores how many choices there are in each motion.
@@ -309,7 +307,6 @@ pub mod pallet {
     ///
     /// (CAId) => Number of choices in each motion.
     #[pallet::storage]
-    #[pallet::getter(fn motion_choices)]
     #[pallet::unbounded]
     pub type MotionNumChoices<T: Config> =
         StorageMap<_, Blake2_128Concat, CAId, Vec<u16>, ValueQuery>;
@@ -319,7 +316,6 @@ pub mod pallet {
     ///
     /// (CAId) => bool
     #[pallet::storage]
-    #[pallet::getter(fn rcv)]
     pub type RCV<T: Config> = StorageMap<_, Blake2_128Concat, CAId, bool, ValueQuery>;
 
     /// Stores the total vote tally on each choice.
@@ -330,7 +326,6 @@ pub mod pallet {
     ///
     /// (CAId) => [current vote weights]
     #[pallet::storage]
-    #[pallet::getter(fn results)]
     #[pallet::unbounded]
     pub type Results<T: Config> = StorageMap<_, Blake2_128Concat, CAId, Vec<Balance>, ValueQuery>;
 
@@ -341,7 +336,6 @@ pub mod pallet {
     ///
     /// User must enter 0 vote weight if they don't want to vote for a choice.
     #[pallet::storage]
-    #[pallet::getter(fn votes)]
     #[pallet::unbounded]
     pub type Votes<T: Config> = StorageDoubleMap<
         _,

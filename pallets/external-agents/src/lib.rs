@@ -55,9 +55,11 @@ pub mod benchmarking;
 use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::*, weights::Weight};
 use frame_system::pallet_prelude::*;
+
 use pallet_base::{try_next_post, try_next_pre};
 use pallet_identity::{Config as IdentityConfig, PermissionedCallOriginData};
 use pallet_permissions::Config as PermConfig;
+use pallet_permissions::{CurrentDispatchableName, CurrentPalletName};
 use polymesh_primitives::agent::{AGId, AgentGroup};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
@@ -68,7 +70,6 @@ use polymesh_primitives::{
 use sp_std::prelude::*;
 
 type Identity<T> = pallet_identity::Pallet<T>;
-type Permissions<T> = pallet_permissions::Pallet<T>;
 
 pub use pallet::*;
 
@@ -104,7 +105,6 @@ pub mod pallet {
     /// The full ID is defined as a combination of `AssetId` and a number in this sequence,
     /// which starts from 1, rather than 0.
     #[pallet::storage]
-    #[pallet::getter(fn agent_group_id_sequence)]
     pub type AGIdSequence<T> = StorageMap<_, Blake2_128Concat, AssetId, AGId, ValueQuery>;
 
     /// Maps an agent (`IdentityId`) to all assets they belong to, if any.
@@ -121,19 +121,16 @@ pub mod pallet {
 
     /// Maps agents (`IdentityId`) for an `AssetId` to what AG they belong to, if any.
     #[pallet::storage]
-    #[pallet::getter(fn agents)]
     pub type GroupOfAgent<T> =
         StorageDoubleMap<_, Blake2_128Concat, AssetId, Twox64Concat, IdentityId, AgentGroup>;
 
     /// Maps an `AssetId` to the number of `Full` agents for it.
     #[pallet::storage]
-    #[pallet::getter(fn num_full_agents)]
     pub type NumFullAgents<T> = StorageMap<_, Blake2_128Concat, AssetId, u32, ValueQuery>;
 
     /// For custom AGs of an `AssetId`, maps to what permissions an agent in that AG would have.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn permissions)]
     pub type GroupPermissions<T> =
         StorageDoubleMap<_, Blake2_128Concat, AssetId, Twox64Concat, AGId, ExtrinsicPermissions>;
 
@@ -619,8 +616,8 @@ impl<T: Config> Pallet<T> {
     pub fn ensure_agent_permissioned(asset_id: &AssetId, agent: IdentityId) -> DispatchResult {
         ensure!(
             Self::agent_permissions(asset_id, agent).sufficient_for(
-                &<Permissions<T>>::current_pallet_name(),
-                &<Permissions<T>>::current_dispatchable_name()
+                &CurrentPalletName::<T>::get(),
+                &CurrentDispatchableName::<T>::get()
             ),
             Error::<T>::UnauthorizedAgent
         );

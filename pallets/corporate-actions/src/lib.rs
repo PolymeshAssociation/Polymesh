@@ -91,8 +91,9 @@ pub mod benchmarking;
 pub mod ballot;
 pub mod distribution;
 
+use ballot::TimeRanges;
 use codec::{Decode, Encode, MaxEncodedLen};
-use distribution::WeightInfo as DistWeightInfoTrait;
+use distribution::{Distributions, WeightInfo as DistWeightInfoTrait};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
@@ -444,7 +445,6 @@ pub mod pallet {
     ///
     /// [graphemes]: https://en.wikipedia.org/wiki/Grapheme
     #[pallet::storage]
-    #[pallet::getter(fn max_details_length)]
     pub type MaxDetailsLength<T> = StorageValue<_, u32, ValueQuery>;
 
     /// The identities targeted by default for CAs for this asset,
@@ -453,7 +453,6 @@ pub mod pallet {
     /// (AssetId => target identities)
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn default_target_identities)]
     pub type DefaultTargetIdentities<T> =
         StorageMap<_, Blake2_128Concat, AssetId, TargetIdentities, ValueQuery>;
 
@@ -466,7 +465,6 @@ pub mod pallet {
     ///
     /// (AssetId => % to withhold)
     #[pallet::storage]
-    #[pallet::getter(fn default_withholding_tax)]
     pub type DefaultWithholdingTax<T> = StorageMap<_, Blake2_128Concat, AssetId, Tax, ValueQuery>;
 
     /// The amount of tax to withhold ("withholding tax", WT) for a certain AssetId x DID.
@@ -475,14 +473,12 @@ pub mod pallet {
     /// (AssetId => [(did, % to withhold)]
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn did_withholding_tax)]
     pub type DidWithholdingTax<T> =
         StorageMap<_, Blake2_128Concat, AssetId, Vec<(IdentityId, Tax)>, ValueQuery>;
 
     /// The next per-`AssetId` CA ID in the sequence.
     /// The full ID is defined as a combination of `AssetId` and a number in this sequence.
     #[pallet::storage]
-    #[pallet::getter(fn ca_id_sequence)]
     pub type CAIdSequence<T> = StorageMap<_, Blake2_128Concat, AssetId, LocalCAId, ValueQuery>;
 
     /// All recorded CAs thus far.
@@ -492,7 +488,6 @@ pub mod pallet {
     /// (AssetId => local ID => the corporate action)
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn corporate_actions)]
     pub type CorporateActions<T> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -510,14 +505,12 @@ pub mod pallet {
     /// so we can infer `AssetId => CAId`. Therefore, we don't need a double map.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn ca_doc_link)]
     pub type CADocLink<T> = StorageMap<_, Blake2_128Concat, CAId, Vec<DocumentId>, ValueQuery>;
 
     /// Associates details in free-form text with a CA by its ID.
     /// (CAId => CADetails)
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn record_dates)]
     pub type Details<T> = StorageMap<_, Blake2_128Concat, CAId, CADetails, ValueQuery>;
 
     /// Storage version.
@@ -785,12 +778,12 @@ pub mod pallet {
             match ca.kind {
                 CAKind::Other | CAKind::Reorganization => {}
                 CAKind::IssuerNotice => {
-                    if let Some(range) = <Ballot<T>>::time_ranges(ca_id) {
+                    if let Some(range) = TimeRanges::<T>::get(ca_id) {
                         <Ballot<T>>::remove_ballot_base(agent, ca_id, range)?;
                     }
                 }
                 CAKind::PredictableBenefit | CAKind::UnpredictableBenefit => {
-                    if let Some(dist) = <Distribution<T>>::distributions(ca_id) {
+                    if let Some(dist) = Distributions::<T>::get(ca_id) {
                         <Distribution<T>>::unverified_remove_distribution(agent, ca_id, &dist)?;
                     }
                 }
@@ -844,13 +837,13 @@ pub mod pallet {
                 match ca.kind {
                     CAKind::Other | CAKind::Reorganization => {}
                     CAKind::IssuerNotice => {
-                        if let Some(range) = <Ballot<T>>::time_ranges(ca_id) {
+                        if let Some(range) = TimeRanges::<T>::get(ca_id) {
                             Self::ensure_record_date_before_start(&ca, range.start)?;
                             <Ballot<T>>::ensure_ballot_not_started(range)?;
                         }
                     }
                     CAKind::PredictableBenefit | CAKind::UnpredictableBenefit => {
-                        if let Some(dist) = <Distribution<T>>::distributions(ca_id) {
+                        if let Some(dist) = Distributions::<T>::get(ca_id) {
                             Self::ensure_record_date_before_start(&ca, dist.payment_at)?;
                             <Distribution<T>>::ensure_distribution_not_started(&dist)?;
                         }
@@ -997,7 +990,7 @@ impl<T: Config> Pallet<T> {
         let agent = caller_did.for_event();
         // Ensure that `details` is short enough.
         ensure!(
-            details.len() <= Self::max_details_length() as usize,
+            details.len() <= MaxDetailsLength::<T>::get() as usize,
             Error::<T>::DetailsTooLong
         );
 
@@ -1045,11 +1038,11 @@ impl<T: Config> Pallet<T> {
         // Use asset level defaults if data not provided here.
         let targets = targets
             .map(|t| t.dedup())
-            .unwrap_or_else(|| Self::default_target_identities(asset_id));
+            .unwrap_or_else(|| DefaultTargetIdentities::<T>::get(asset_id));
         let default_withholding_tax =
-            default_withholding_tax.unwrap_or_else(|| Self::default_withholding_tax(asset_id));
+            default_withholding_tax.unwrap_or_else(|| DefaultWithholdingTax::<T>::get(asset_id));
         let withholding_tax =
-            withholding_tax.unwrap_or_else(|| Self::did_withholding_tax(asset_id));
+            withholding_tax.unwrap_or_else(|| DidWithholdingTax::<T>::get(asset_id));
 
         // Commit CA to storage.
         let ca = CorporateAction {

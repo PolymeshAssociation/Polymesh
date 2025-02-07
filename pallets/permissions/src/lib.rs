@@ -86,14 +86,12 @@ pub mod pallet {
     /// The name of the current pallet (aka module name).
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn current_pallet_name)]
-    pub(super) type CurrentPalletName<T> = StorageValue<_, PalletName, ValueQuery>;
+    pub type CurrentPalletName<T> = StorageValue<_, PalletName, ValueQuery>;
 
     /// The name of the current function (aka extrinsic).
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn current_dispatchable_name)]
-    pub(super) type CurrentDispatchableName<T> = StorageValue<_, ExtrinsicName, ValueQuery>;
+    pub type CurrentDispatchableName<T> = StorageValue<_, ExtrinsicName, ValueQuery>;
 
     #[pallet::error]
     pub enum Error<T> {
@@ -109,8 +107,8 @@ pub mod pallet {
         ) -> Result<AccountCallPermissionsData<T::AccountId>, DispatchError> {
             T::Checker::check_account_call_permissions(
                 who,
-                || Self::current_pallet_name(),
-                || Self::current_dispatchable_name(),
+                || CurrentPalletName::<T>::get(),
+                || CurrentDispatchableName::<T>::get(),
             )
             .ok_or_else(|| Error::<T>::UnauthorizedCaller.into())
         }

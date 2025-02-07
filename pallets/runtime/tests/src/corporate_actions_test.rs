@@ -12,10 +12,14 @@ use frame_support::{
 };
 use pallet_asset::Assets;
 use pallet_corporate_actions::{
-    ballot::{BallotMeta, BallotTimeRange, BallotVote, Motion, Votes},
-    distribution::{self, Distribution, PER_SHARE_PRECISION},
-    CACheckpoint, CADetails, CAId, CAKind, CorporateAction, LocalCAId, RecordDate, RecordDateSpec,
-    TargetIdentities, TargetTreatment,
+    ballot::{
+        BallotMeta, BallotTimeRange, BallotVote, Metas, Motion, MotionNumChoices, Results,
+        TimeRanges, Votes, RCV,
+    },
+    distribution::{self, Distribution, Distributions, PER_SHARE_PRECISION},
+    CACheckpoint, CADetails, CADocLink, CAId, CAKind, CorporateAction, DefaultTargetIdentities,
+    DefaultWithholdingTax, DidWithholdingTax, LocalCAId, MaxDetailsLength, RecordDate,
+    RecordDateSpec, TargetIdentities, TargetTreatment,
     TargetTreatment::{Exclude, Include},
     Tax,
 };
@@ -131,7 +135,7 @@ fn transfer_caa(asset_id: AssetId, from: User, to: User) -> DispatchResult {
 type CAResult = Result<CorporateAction, DispatchError>;
 
 fn get_ca(id: CAId) -> Option<CorporateAction> {
-    CA::corporate_actions(id.asset_id, id.local_id)
+    CorporateActions::get(id.asset_id, id.local_id)
 }
 
 fn init_ca(
@@ -195,7 +199,7 @@ fn set_schedule_complexity() {
 }
 
 fn next_ca_id(asset_id: AssetId) -> CAId {
-    let local_id = CA::ca_id_sequence(asset_id);
+    let local_id = CAIdSequence::get(asset_id);
     CAId { asset_id, local_id }
 }
 
@@ -216,11 +220,11 @@ struct BallotData {
 
 fn ballot_data(id: CAId) -> BallotData {
     BallotData {
-        meta: Ballot::metas(id),
-        range: Ballot::time_ranges(id),
-        choices: Ballot::motion_choices(id),
-        rcv: Ballot::rcv(id),
-        results: Ballot::results(id),
+        meta: Metas::<TestStorage>::get(id),
+        range: TimeRanges::<TestStorage>::get(id),
+        choices: MotionNumChoices::<TestStorage>::get(id),
+        rcv: RCV::<TestStorage>::get(id),
+        results: Results::<TestStorage>::get(id),
         votes: Votes::<TestStorage>::iter_prefix(id).collect(),
     }
 }
@@ -391,7 +395,7 @@ fn set_default_targets_works() {
                 treatment,
                 identities: expect_ids,
             };
-            assert_eq!(CA::default_target_identities(asset_id), ids);
+            assert_eq!(DefaultTargetIdentities::<TestStorage>::get(asset_id), ids);
         };
         let expect = vec![foo.did, bar.did];
         set(Exclude, expect.clone(), expect.clone());
@@ -403,13 +407,13 @@ fn set_default_targets_works() {
 #[test]
 fn set_default_withholding_tax_works() {
     test(|asset_id, [owner, ..]| {
-        assert_eq!(CA::default_withholding_tax(asset_id), P0);
+        assert_eq!(DefaultWithholdingTax::<TestStorage>::get(asset_id), P0);
         assert_ok!(CA::set_default_withholding_tax(
             owner.origin(),
             asset_id,
             P50
         ));
-        assert_eq!(CA::default_withholding_tax(asset_id), P50);
+        assert_eq!(DefaultWithholdingTax::<TestStorage>::get(asset_id), P50);
     });
 }
 
@@ -457,7 +461,7 @@ fn set_did_withholding_tax_works() {
                 user.did,
                 tax
             ));
-            assert_eq!(CA::did_withholding_tax(asset_id), expect);
+            assert_eq!(DidWithholdingTax::<TestStorage>::get(asset_id), expect);
         };
         check(bar, Some(P25), vec![(bar.did, P25)]);
         check(foo, Some(P75), vec![(foo.did, P75), (bar.did, P25)]);
@@ -475,7 +479,7 @@ fn set_max_details_length_only_root() {
             DispatchError::BadOrigin,
         );
         assert_ok!(CA::set_max_details_length(root(), 10));
-        assert_eq!(CA::max_details_length(), 10);
+        assert_eq!(MaxDetailsLength::<TestStorage>::get(), 10);
     });
 }
 
@@ -722,7 +726,7 @@ fn link_ca_docs_works() {
         let link = |docs| CA::link_ca_doc(owner.origin(), id, docs);
         let link_ok = |docs: Vec<_>| {
             assert_ok!(link(docs.clone()));
-            assert_eq!(CA::ca_doc_link(id), docs);
+            assert_eq!(CADocLink::<TestStorage>::get(id), docs);
         };
 
         // Link to a CA that doesn't exist, and ensure failure.
@@ -757,7 +761,7 @@ fn remove_ca_works() {
 
         let assert_no_ca = |id: CAId| {
             assert_eq!(None, get_ca(id));
-            assert_eq!(CA::ca_doc_link(id), vec![]);
+            assert_eq!(CADocLink::<TestStorage>::get(id), vec![]);
         };
 
         // Remove a CA that doesn't exist, and ensure failure.
@@ -769,7 +773,7 @@ fn remove_ca_works() {
         add_doc(owner, asset_id);
         let docs = vec![DocumentId(0)];
         assert_ok!(CA::link_ca_doc(owner.origin(), id, docs.clone()));
-        assert_eq!(docs, CA::ca_doc_link(id));
+        assert_eq!(docs, CADocLink::<TestStorage>::get(id));
         assert_ok!(remove(id));
         assert_no_ca(id);
 
@@ -848,7 +852,7 @@ fn remove_ca_works() {
         let id = mk_dist();
         // Ensure the details are right.
         assert_eq!(
-            Dist::distributions(id),
+            Distributions::<TestStorage>::get(id),
             Some(Distribution {
                 from: PortfolioId::default_portfolio(owner.did),
                 currency,
@@ -865,7 +869,7 @@ fn remove_ca_works() {
         assert_ok!(remove(id));
         // And ensure all details were removed.
         assert_no_ca(id);
-        assert_eq!(Dist::distributions(id), None);
+        assert_eq!(Distributions::<TestStorage>::get(id), None);
     });
 }
 
@@ -1862,7 +1866,7 @@ fn dist_distribute_works() {
         assert_noop!(dist(AMOUNT + 1), PError::InsufficientPortfolioBalance);
         assert_ok!(dist(AMOUNT));
         assert_eq!(
-            Dist::distributions(id),
+            Distributions::<TestStorage>::get(id),
             Some(Distribution {
                 from: PortfolioId::default_portfolio(other.did),
                 currency,
@@ -1906,7 +1910,7 @@ fn dist_remove_works() {
         // Not started, and can remove.
         set_timestamp(4);
         assert_ok!(remove(id));
-        assert_eq!(Dist::distributions(id), None);
+        assert_eq!(Distributions::<TestStorage>::get(id), None);
     });
 }
 
@@ -1963,12 +1967,12 @@ fn dist_reclaim_works() {
 
         let ensure = |x| Portfolio::ensure_sufficient_balance(&pid, &currency, x);
         assert_noop!(ensure(1), PError::InsufficientPortfolioBalance);
-        let dist = Dist::distributions(id).unwrap();
+        let dist = Distributions::<TestStorage>::get(id).unwrap();
         assert_ok!(reclaim(id, other));
         assert_ok!(ensure(AMOUNT));
         assert_noop!(ensure(AMOUNT + 1), PError::InsufficientPortfolioBalance);
         assert_eq!(
-            Dist::distributions(id).unwrap(),
+            Distributions::<TestStorage>::get(id).unwrap(),
             Distribution {
                 reclaimed: true,
                 remaining: 0,
@@ -2121,8 +2125,12 @@ fn dist_claim_works() {
         let benefit_foo = AMOUNT * per_share / PER_SHARE_PRECISION;
         let post_tax_foo = benefit_foo - benefit_foo * 1 / 4;
         assert_eq!(Asset::balance_of(&currency, foo.did), post_tax_foo);
-        let assert_rem =
-            |removed| assert_eq!(Dist::distributions(id).unwrap().remaining, amount - removed);
+        let assert_rem = |removed| {
+            assert_eq!(
+                Distributions::<TestStorage>::get(id).unwrap().remaining,
+                amount - removed
+            )
+        };
         assert_rem(benefit_foo);
 
         // `bar` is pushed to with 1/3 tax.
@@ -2188,8 +2196,12 @@ fn dist_claim_rounding_indivisible() {
 
         let benefit = |x| x * per_share / PER_SHARE_PRECISION;
         let rounded = |x| x / ONE_UNIT * ONE_UNIT;
-        let assert_rem =
-            |removed| assert_eq!(Dist::distributions(id).unwrap().remaining, amount - removed);
+        let assert_rem = |removed| {
+            assert_eq!(
+                Distributions::<TestStorage>::get(id).unwrap().remaining,
+                amount - removed
+            )
+        };
         let balance = |u: User| Asset::balance_of(&currency, u.did);
 
         // `foo` claims. 3 / 2 units are rounded down to 1.

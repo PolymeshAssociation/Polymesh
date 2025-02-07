@@ -16,7 +16,8 @@ use pallet_balances::Call as BalancesCall;
 use pallet_pips::{PipIdSequence, ProposalState, SnapshotResult};
 use pallet_portfolio::Call as PortfolioCall;
 use pallet_utility::{
-    self as utility, Call as UtilityCall, Config as UtilityConfig, Event, UniqueCall, WeightInfo,
+    self as utility, Call as UtilityCall, Config as UtilityConfig, Event, Nonces, UniqueCall,
+    WeightInfo,
 };
 use polymesh_primitives::{
     traits::CddAndFeeDetails, AccountId, Balance, ExtrinsicPermissions, PalletPermissions,
@@ -231,7 +232,7 @@ fn _relay_happy_case() {
 
     let origin = RuntimeOrigin::signed(alice);
     let transaction = UniqueCall::new(
-        Utility::nonce(bob.clone()),
+        Nonces::<TestStorage>::get(bob.clone()),
         RuntimeCall::Balances(BalancesCall::transfer {
             dest: charlie.clone().into(),
             value: 50,
@@ -266,7 +267,7 @@ fn _relay_unhappy_cases() {
 
     let origin = RuntimeOrigin::signed(alice);
     let transaction = UniqueCall::new(
-        Utility::nonce(bob.clone()),
+        Nonces::<TestStorage>::get(bob.clone()),
         RuntimeCall::Balances(BalancesCall::transfer {
             dest: charlie.clone().into(),
             value: 59,
@@ -296,7 +297,7 @@ fn _relay_unhappy_cases() {
     let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
 
     let transaction = UniqueCall::new(
-        Utility::nonce(bob.clone()) + 1,
+        Nonces::<TestStorage>::get(bob.clone()) + 1,
         RuntimeCall::Balances(BalancesCall::transfer {
             dest: charlie.into(),
             value: 59,

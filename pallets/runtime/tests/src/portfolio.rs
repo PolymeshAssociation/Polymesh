@@ -1,10 +1,12 @@
 use frame_support::{assert_noop, assert_ok};
+use sp_keyring::AccountKeyring;
 
 use pallet_nft::NFTOwner;
 use pallet_portfolio::{
     AllowedCustodians, Event, NameToNumber, PortfolioAssetBalances, PortfolioCustodian,
     PortfolioNFT, Portfolios, PreApprovedPortfolios,
 };
+use pallet_settlement::VenueCounter;
 use polymesh_primitives::asset::{AssetId, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
@@ -15,7 +17,6 @@ use polymesh_primitives::{
     NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind,
     PortfolioName, PortfolioNumber, Signatory,
 };
-use sp_keyring::AccountKeyring;
 
 use super::asset_pallet::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
 use super::asset_test::max_len_bytes;
@@ -660,7 +661,7 @@ fn delete_portfolio_with_locked_nfts() {
             nfts_metadata,
             PortfolioKind::User(PortfolioNumber(1)),
         );
-        let venue_id = Settlement::venue_counter();
+        let venue_id = VenueCounter::<TestStorage>::get();
         assert_ok!(Settlement::create_venue(
             alice.origin(),
             Default::default(),

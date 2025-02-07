@@ -16,7 +16,8 @@ use codec::Encode;
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency};
 use pallet_balances as balances;
 use pallet_identity::{
-    ChildDid, CustomClaimIdSequence, CustomClaims, CustomClaimsInverse, ParentDid,
+    Authorizations, ChildDid, CurrentAuthId, CustomClaimIdSequence, CustomClaims,
+    CustomClaimsInverse, OffChainAuthorizationNonce, ParentDid,
 };
 use pallet_identity::{Config as IdentityConfig, Event};
 use polymesh_common_utilities::identity::{
@@ -84,7 +85,7 @@ fn target_id_auth(user: User) -> (TargetIdAuthorization<u64>, u64) {
     (
         TargetIdAuthorization {
             target_id: user.did,
-            nonce: Identity::offchain_authorization_nonce(user.did),
+            nonce: OffChainAuthorizationNonce::<TestStorage>::get(user.did),
             expires_at,
         },
         expires_at,
@@ -1013,7 +1014,7 @@ fn add_secondary_keys_with_authorization_duplicate_keys() {
         let auth = || {
             let auth = TargetIdAuthorization {
                 target_id: user.did,
-                nonce: Identity::offchain_authorization_nonce(user.did),
+                nonce: OffChainAuthorizationNonce::<TestStorage>::get(user.did),
                 expires_at,
             };
             auth.encode()
@@ -1050,7 +1051,7 @@ fn add_secondary_keys_with_authorization_too_many_sks() {
         let auth = || {
             let auth = TargetIdAuthorization {
                 target_id: user.did,
-                nonce: Identity::offchain_authorization_nonce(user.did),
+                nonce: OffChainAuthorizationNonce::<TestStorage>::get(user.did),
                 expires_at,
             };
             auth.encode()
@@ -1153,8 +1154,8 @@ fn adding_authorizations() {
             AuthorizationsGiven::get(alice.did, auth_id),
             bob.signatory_did(),
         );
-        let mut auth =
-            Identity::authorizations(&bob.signatory_did(), auth_id).expect("Missing authorization");
+        let mut auth = Authorizations::<TestStorage>::get(&bob.signatory_did(), auth_id)
+            .expect("Missing authorization");
         assert_eq!(auth.authorized_by, alice.did);
         assert_eq!(auth.expiry, None);
         assert_eq!(
@@ -1172,8 +1173,8 @@ fn adding_authorizations() {
             AuthorizationsGiven::get(alice.did, auth_id),
             bob.signatory_did()
         );
-        auth =
-            Identity::authorizations(&bob.signatory_did(), auth_id).expect("Missing authorization");
+        auth = Authorizations::<TestStorage>::get(&bob.signatory_did(), auth_id)
+            .expect("Missing authorization");
         assert_eq!(auth.authorized_by, alice.did);
         assert_eq!(auth.expiry, Some(100));
         assert_eq!(
@@ -1218,8 +1219,8 @@ fn removing_authorizations() {
             AuthorizationsGiven::get(alice.did, auth_id),
             bob.signatory_did()
         );
-        let auth =
-            Identity::authorizations(&bob.signatory_did(), auth_id).expect("Missing authorization");
+        let auth = Authorizations::<TestStorage>::get(&bob.signatory_did(), auth_id)
+            .expect("Missing authorization");
         assert_eq!(
             auth.authorization_data,
             AuthorizationData::TransferTicker(ticker50)
@@ -1231,12 +1232,10 @@ fn removing_authorizations() {
             false,
         ));
         assert!(!AuthorizationsGiven::contains_key(alice.did, auth_id));
-        assert!(
-            !<pallet_identity::Authorizations<TestStorage>>::contains_key(
-                bob.signatory_did(),
-                auth_id
-            )
-        );
+        assert!(!Authorizations::<TestStorage>::contains_key(
+            bob.signatory_did(),
+            auth_id
+        ));
     });
 }
 
@@ -2045,7 +2044,7 @@ fn cdd_register_did_events() {
                     alice_did,
                     None,
                     Some(AccountKeyring::Charlie.to_account_id()),
-                    Identity::current_auth_id(),
+                    CurrentAuthId::<TestStorage>::get(),
                     AuthorizationData::JoinIdentity(alice_secundary_keys[1].permissions.clone()),
                     None,
                 ))
@@ -2056,7 +2055,7 @@ fn cdd_register_did_events() {
                     alice_did,
                     None,
                     Some(AccountKeyring::Dave.to_account_id()),
-                    Identity::current_auth_id() - 1,
+                    CurrentAuthId::<TestStorage>::get() - 1,
                     AuthorizationData::JoinIdentity(alice_secundary_keys[0].permissions.clone()),
                     None,
                 ))
@@ -2244,7 +2243,7 @@ fn do_create_child_identities_with_auth_test() {
     let auth = || {
         let auth = TargetIdAuthorization {
             target_id: alice.did,
-            nonce: Identity::offchain_authorization_nonce(alice.did),
+            nonce: OffChainAuthorizationNonce::<TestStorage>::get(alice.did),
             expires_at,
         };
         auth.encode()

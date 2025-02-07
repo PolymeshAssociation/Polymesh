@@ -496,7 +496,7 @@ benchmarks! {
         let statistics: BoundedBTreeSet<StatType, T::MaxStatsPerAsset> = statistics.try_into().unwrap();
         ActiveAssetStats::<T>::insert(&asset_id, statistics);
     }: {
-        Pallet::<T>::active_asset_stats(asset_id).into_iter();
+        ActiveAssetStats::<T>::get(asset_id).into_iter();
     }
 
     is_exempt {

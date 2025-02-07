@@ -152,7 +152,7 @@ fn generate_multisig_and_proposal_for_alice<T: Config>(
 > {
     let (alice, multisig, signers, users, _) =
         generate_multisig_for_alice::<T>(total_signers, signers_required).unwrap();
-    let proposal_id = MultiSig::<T>::next_proposal_id(multisig.clone());
+    let proposal_id = NextProposalId::<T>::get(multisig.clone());
     let proposal = Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
     Ok((
         alice,
@@ -195,13 +195,13 @@ fn generate_multisig_and_create_proposal<T: Config>(
 
 macro_rules! assert_proposal_created {
     ($proposal_id:ident, $multisig:ident) => {
-        assert!($proposal_id < MultiSig::<T>::next_proposal_id($multisig));
+        assert!($proposal_id < NextProposalId::<T>::get($multisig));
     };
 }
 
 macro_rules! assert_vote_cast {
     ($proposal_id:ident, $multisig:ident, $signatory:expr) => {
-        assert!(MultiSig::<T>::votes(($multisig, $proposal_id), $signatory));
+        assert!(Votes::<T>::get(($multisig, $proposal_id), $signatory));
     };
 }
 

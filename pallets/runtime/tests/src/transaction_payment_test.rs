@@ -7,7 +7,9 @@ use frame_support::{
     weights::WeightToFee,
 };
 use pallet_balances::Call as BalancesCall;
-use pallet_transaction_payment::{ChargeTransactionPayment, Multiplier, RuntimeDispatchInfo};
+use pallet_transaction_payment::{
+    ChargeTransactionPayment, Multiplier, NextFeeMultiplier, RuntimeDispatchInfo,
+};
 use polymesh_primitives::AccountId;
 use polymesh_primitives::TransactionError;
 use sp_arithmetic::traits::One;
@@ -258,7 +260,7 @@ fn compute_fee_works_without_multiplier() {
         .build()
         .execute_with(|| {
             // Next fee multiplier is zero
-            assert_eq!(TransactionPayment::next_fee_multiplier(), Multiplier::one());
+            assert_eq!(NextFeeMultiplier::<TestStorage>::get(), Multiplier::one());
 
             // Tip only, no fees works
             let dispatch_info = DispatchInfo {
