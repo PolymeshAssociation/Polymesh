@@ -59,17 +59,17 @@ where
     );
     // Leave space for one additional proposal to be created
     for i in 0..(PROPOSALS_MAX - 1) {
-        let index = Pallet::<T, I>::proposal_count();
+        let index = ProposalCount::<T, I>::get();
         let proposal = make_proposal::<T, I>(i).0;
         Pallet::<T, I>::vote_or_propose(users[0].origin.clone().into(), true, Box::new(proposal))
             .unwrap();
         if users.len() > 1 {
-            let hash = *Pallet::<T, I>::proposals().last().unwrap();
+            let hash = *Proposals::<T, I>::get().last().unwrap();
             // cast min(user.len(), N) - 1 additional votes for proposal #N
             // alternating nay, aye, nay, aye...
             for (j, user) in users.iter().skip(1).take(i as usize).enumerate() {
                 // Vote for the proposal if it's not finalised.
-                if Pallet::<T, I>::voting(&hash).is_some() {
+                if Voting::<T, I>::get(&hash).is_some() {
                     Pallet::<T, I>::vote(user.origin.clone().into(), hash, index, j % 2 != 0)
                         .unwrap();
                 }
@@ -137,7 +137,7 @@ benchmarks_instance_pallet! {
         call.dispatch_bypass_filter(origin).unwrap();
     }
     verify {
-        assert_eq!(Pallet::<T, _>::vote_threshold(), (n, d), "incorrect vote threshold");
+        assert_eq!(VoteThreshold::<T, I>::get(), (n, d), "incorrect vote threshold");
     }
 
     set_release_coordinator {
@@ -167,7 +167,7 @@ benchmarks_instance_pallet! {
         call.dispatch_bypass_filter(origin).unwrap();
     }
     verify {
-        assert_eq!(Pallet::<T, _>::expires_after(), maybe_block, "incorrect expiration");
+        assert_eq!(ExpiresAfter::<T, I>::get(), maybe_block, "incorrect expiration");
     }
 
     vote_or_propose_new_proposal {
@@ -193,7 +193,7 @@ benchmarks_instance_pallet! {
         if COMMITTEE_MEMBERS_MAX <= 4 {
             // Proposal was executed.
             assert!(
-                Pallet::<T, _>::voting(&hash).is_none(),
+                Voting::<T, I>::get(&hash).is_none(),
                 "votes are present on an executed existing proposal"
             );
         } else {

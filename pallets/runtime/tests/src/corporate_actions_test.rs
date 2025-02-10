@@ -10,6 +10,9 @@ use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
 };
+use pallet_asset::checkpoint::{
+    CheckpointIdSequence, ScheduleIdSequence, SchedulePoints, ScheduleRefCount, Timestamps,
+};
 use pallet_asset::{Assets, BalanceOf};
 use pallet_corporate_actions::{
     ballot::{
@@ -547,10 +550,10 @@ fn initiate_corporate_action_record_date() {
                 transfer(&asset_id, owner, foo);
 
                 assert_eq!(
-                    Checkpoint::schedule_points(asset_id, schedule_id),
+                    SchedulePoints::<TestStorage>::get(asset_id, schedule_id),
                     vec![cp_id]
                 );
-                assert_eq!(date, Checkpoint::timestamps(asset_id, cp_id));
+                assert_eq!(date, Timestamps::<TestStorage>::get(asset_id, cp_id));
             }
         };
 
@@ -559,7 +562,7 @@ fn initiate_corporate_action_record_date() {
         check(Some(100_000));
 
         assert_eq!(
-            Checkpoint::checkpoint_id_sequence(asset_id),
+            CheckpointIdSequence::<TestStorage>::get(asset_id),
             CheckpointId(2)
         );
     });
@@ -885,8 +888,9 @@ fn change_record_date_works() {
             assert_eq!(expect, get_ca(id).unwrap().record_date);
         };
         let assert_refs =
-            |sh_id, count| assert_eq!(Checkpoint::schedule_ref_count(asset_id, sh_id), count);
-        let assert_fresh = |sh_id| assert_eq!(Checkpoint::schedule_id_sequence(asset_id), sh_id);
+            |sh_id, count| assert_eq!(ScheduleRefCount::<TestStorage>::get(asset_id, sh_id), count);
+        let assert_fresh =
+            |sh_id| assert_eq!(ScheduleIdSequence::<TestStorage>::get(asset_id), sh_id);
 
         // Change for a CA that doesn't exist, and ensure failure.
         let id = next_ca_id(asset_id);
@@ -929,7 +933,7 @@ fn change_record_date_works() {
             sh_id
         };
         let sh_id1 = change_ok_scheduled();
-        assert_eq!(Checkpoint::schedule_ref_count(asset_id, sh_id1), 1);
+        assert_eq!(ScheduleRefCount::<TestStorage>::get(asset_id, sh_id1), 1);
 
         // Then use a distinct existing ID.
         let sh_id2 = change_ok_scheduled();
@@ -1021,7 +1025,7 @@ fn existing_schedule_ref_count() {
         let sh_id = next_schedule_id(asset_id);
         let spec = Some(RecordDateSpec::ExistingSchedule(sh_id));
         let assert_refs =
-            |count| assert_eq!(Checkpoint::schedule_ref_count(asset_id, sh_id), count);
+            |count| assert_eq!(ScheduleRefCount::<TestStorage>::get(asset_id, sh_id), count);
         let remove_ca = |id| CA::remove_ca(owner.origin(), id);
         let remove_sh = || Checkpoint::remove_schedule(owner.origin(), asset_id, sh_id);
 
@@ -1719,7 +1723,7 @@ fn vote_existing_checkpoint() {
     vote_cp_test(|asset_id, owner| {
         assert_ok!(Checkpoint::create_checkpoint(owner.origin(), asset_id));
         let rd = Some(RecordDateSpec::Existing(
-            Checkpoint::checkpoint_id_sequence(asset_id),
+            CheckpointIdSequence::<TestStorage>::get(asset_id),
         ));
         let id = notice_ca(owner, asset_id, Some(1000)).unwrap();
         assert_ok!(CA::change_record_date(owner.origin(), id, rd));
@@ -2314,7 +2318,7 @@ fn dist_claim_existing_checkpoint() {
     dist_claim_cp_test(|asset_id, owner| {
         assert_ok!(Checkpoint::create_checkpoint(owner.origin(), asset_id));
         let rd = Some(RecordDateSpec::Existing(
-            Checkpoint::checkpoint_id_sequence(asset_id),
+            CheckpointIdSequence::<TestStorage>::get(asset_id),
         ));
         let id = dist_ca(owner, asset_id, Some(1000)).unwrap();
         assert_ok!(CA::change_record_date(owner.origin(), id, rd));

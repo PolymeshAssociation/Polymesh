@@ -20,6 +20,7 @@ use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{convert::TryInto, iter, prelude::*};
 
 use pallet_identity::benchmarking::{user, User, UserBuilder};
+use pallet_portfolio::NextPortfolioNumber;
 use pallet_statistics::benchmarking::setup_transfer_restrictions;
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{AssetName, NonFungibleType};
@@ -198,7 +199,7 @@ pub fn setup_asset_transfer<T: AssetConfig>(
 
 /// Creates a user portfolio for `user`.
 pub fn create_portfolio<T: Config>(user: &User<T>, portofolio_name: &str) -> PortfolioId {
-    let portfolio_number = Portfolio::<T>::next_portfolio_number(user.did()).0;
+    let portfolio_number = NextPortfolioNumber::<T>::get(user.did()).0;
 
     Portfolio::<T>::create_portfolio(
         user.origin().clone().into(),

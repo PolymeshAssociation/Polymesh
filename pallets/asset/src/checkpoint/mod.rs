@@ -124,8 +124,7 @@ pub mod pallet {
     ///
     /// ([`AssetId`], checkpointId) -> total supply at given checkpoint
     #[pallet::storage]
-    #[pallet::getter(fn total_supply_at)]
-    pub(super) type TotalSupply<T: Config> = StorageDoubleMap<
+    pub type TotalSupply<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         AssetId,
@@ -139,8 +138,7 @@ pub mod pallet {
     ///
     /// ([`AssetId`], did, checkpoint ID) -> Balance of a DID at a checkpoint
     #[pallet::storage]
-    #[pallet::getter(fn balance_at_checkpoint)]
-    pub(super) type Balance<T: Config> = StorageDoubleMap<
+    pub type Balance<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         (AssetId, CheckpointId),
@@ -157,16 +155,14 @@ pub mod pallet {
     ///
     /// ([`AssetId`]) -> no. of checkpoints
     #[pallet::storage]
-    #[pallet::getter(fn checkpoint_id_sequence)]
-    pub(super) type CheckpointIdSequence<T: Config> =
+    pub type CheckpointIdSequence<T: Config> =
         StorageMap<_, Blake2_128Concat, AssetId, CheckpointId, ValueQuery>;
 
     /// Checkpoints where a DID's balance was updated.
     /// ([`AssetId`], did) -> [checkpoint ID where user balance changed]
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn balance_updates)]
-    pub(super) type BalanceUpdates<T: Config> = StorageDoubleMap<
+    pub type BalanceUpdates<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         AssetId,
@@ -183,8 +179,7 @@ pub mod pallet {
     ///
     /// ([`AssetId`]) -> (checkpoint ID) -> checkpoint timestamp
     #[pallet::storage]
-    #[pallet::getter(fn timestamps)]
-    pub(super) type Timestamps<T: Config> = StorageDoubleMap<
+    pub type Timestamps<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         AssetId,
@@ -198,15 +193,13 @@ pub mod pallet {
 
     /// The maximum complexity allowed for an asset's schedules.
     #[pallet::storage]
-    #[pallet::getter(fn schedules_max_complexity)]
-    pub(super) type SchedulesMaxComplexity<T: Config> = StorageValue<_, u64, ValueQuery>;
+    pub type SchedulesMaxComplexity<T: Config> = StorageValue<_, u64, ValueQuery>;
 
     /// Checkpoint schedule ID sequence for assets.
     ///
     /// ([`AssetId`]) -> schedule ID
     #[pallet::storage]
-    #[pallet::getter(fn schedule_id_sequence)]
-    pub(super) type ScheduleIdSequence<T: Config> =
+    pub type ScheduleIdSequence<T: Config> =
         StorageMap<_, Blake2_128Concat, AssetId, ScheduleId, ValueQuery>;
 
     /// Cached next checkpoint for each schedule.
@@ -216,8 +209,7 @@ pub mod pallet {
     /// ([`AssetId`]) -> next checkpoints
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn cached_next_checkpoints)]
-    pub(super) type CachedNextCheckpoints<T: Config> =
+    pub type CachedNextCheckpoints<T: Config> =
         StorageMap<_, Blake2_128Concat, AssetId, NextCheckpoints, OptionQuery>;
 
     /// Scheduled checkpoints.
@@ -225,8 +217,7 @@ pub mod pallet {
     /// ([`AssetId`], schedule ID) -> schedule checkpoints
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn scheduled_checkpoints)]
-    pub(super) type ScheduledCheckpoints<T: Config> = StorageDoubleMap<
+    pub type ScheduledCheckpoints<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         AssetId,
@@ -245,8 +236,7 @@ pub mod pallet {
     ///
     /// ([`AssetId`], schedule ID) -> strong ref count
     #[pallet::storage]
-    #[pallet::getter(fn schedule_ref_count)]
-    pub(super) type ScheduleRefCount<T: Config> =
+    pub type ScheduleRefCount<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, AssetId, Twox64Concat, ScheduleId, u32, ValueQuery>;
 
     /// All the checkpoints a given schedule originated.
@@ -254,8 +244,7 @@ pub mod pallet {
     /// ([`AssetId`], schedule ID) -> [checkpoint ID]
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn schedule_points)]
-    pub(super) type SchedulePoints<T: Config> = StorageDoubleMap<
+    pub type SchedulePoints<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         AssetId,
@@ -267,7 +256,6 @@ pub mod pallet {
 
     /// Storage version.
     #[pallet::storage]
-    #[pallet::getter(fn storage_version)]
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
 
     #[pallet::genesis_config]
@@ -429,7 +417,7 @@ impl<T: AssetConfig> Pallet<T> {
                 // Use first checkpoint created after target checkpoint.
                 // The user has data for that checkpoint.
                 let id = *find_ceiling(&balance_updates, &cp);
-                return Some(Self::balance_at_checkpoint((asset_id, id), did));
+                return Some(Balance::<T>::get((asset_id, id), did));
             }
             // User has not transacted after checkpoint creation.
             // This means their current balance = their balance at that cp.

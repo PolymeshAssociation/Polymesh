@@ -14,7 +14,9 @@ use sp_std::collections::btree_set::BTreeSet;
 
 use pallet_asset::BalanceOf;
 use pallet_nft::NumberOfNFTs;
-use pallet_portfolio::{PortfolioLockedAssets, PortfolioLockedNFT, PortfolioNFT};
+use pallet_portfolio::{
+    NextPortfolioNumber, PortfolioLockedAssets, PortfolioLockedNFT, PortfolioNFT,
+};
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
     AffirmsReceived, Details, Event, InstructionAffirmsPending, InstructionCounter,
@@ -1468,7 +1470,7 @@ fn cross_portfolio_settlement() {
         let mut bob = UserWithBalance::new(bob, &[asset_id]);
 
         let name = PortfolioName::from([42u8].to_vec());
-        let num = Portfolio::next_portfolio_number(&bob.did);
+        let num = NextPortfolioNumber::<TestStorage>::get(&bob.did);
         assert_ok!(Portfolio::create_portfolio(bob.origin(), name.clone()));
         let instruction_id = InstructionCounter::<TestStorage>::get();
         let amount = 100u128;
@@ -1546,8 +1548,8 @@ fn multiple_portfolio_settlement() {
         let mut bob = UserWithBalance::new(bob, &[asset_id]);
 
         let name = PortfolioName::from([42u8].to_vec());
-        let alice_num = Portfolio::next_portfolio_number(&alice.did);
-        let bob_num = Portfolio::next_portfolio_number(&bob.did);
+        let alice_num = NextPortfolioNumber::<TestStorage>::get(&alice.did);
+        let bob_num = NextPortfolioNumber::<TestStorage>::get(&bob.did);
         assert_ok!(Portfolio::create_portfolio(bob.origin(), name.clone()));
         assert_ok!(Portfolio::create_portfolio(alice.origin(), name.clone()));
         let instruction_id = InstructionCounter::<TestStorage>::get();
@@ -1689,8 +1691,8 @@ fn multiple_custodian_settlement() {
 
         // Create portfolios
         let name = PortfolioName::from([42u8].to_vec());
-        let alice_num = Portfolio::next_portfolio_number(&alice.did);
-        let bob_num = Portfolio::next_portfolio_number(&bob.did);
+        let alice_num = NextPortfolioNumber::<TestStorage>::get(&alice.did);
+        let bob_num = NextPortfolioNumber::<TestStorage>::get(&bob.did);
         assert_ok!(Portfolio::create_portfolio(bob.origin(), name.clone()));
         assert_ok!(Portfolio::create_portfolio(alice.origin(), name.clone()));
 

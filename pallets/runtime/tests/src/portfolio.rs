@@ -3,8 +3,9 @@ use sp_keyring::AccountKeyring;
 
 use pallet_nft::NFTOwner;
 use pallet_portfolio::{
-    AllowedCustodians, Event, NameToNumber, PortfolioAssetBalances, PortfolioCustodian,
-    PortfolioLockedAssets, PortfolioNFT, Portfolios, PortfoliosInCustody, PreApprovedPortfolios,
+    AllowedCustodians, Event, NameToNumber, NextPortfolioNumber, PortfolioAssetBalances,
+    PortfolioCustodian, PortfolioLockedAssets, PortfolioNFT, Portfolios, PortfoliosInCustody,
+    PreApprovedPortfolios,
 };
 use pallet_settlement::VenueCounter;
 use polymesh_primitives::asset::{AssetId, AssetType, NonFungibleType};
@@ -34,7 +35,7 @@ type Settlement = pallet_settlement::Pallet<TestStorage>;
 fn create_portfolio() -> (User, PortfolioNumber) {
     let owner = User::new(AccountKeyring::Alice);
     let name = PortfolioName::from([42u8].to_vec());
-    let num = Portfolio::next_portfolio_number(&owner.did);
+    let num = NextPortfolioNumber::<TestStorage>::get(&owner.did);
     assert_eq!(num, PortfolioNumber(1));
     assert_ok!(Portfolio::create_portfolio(owner.origin(), name.clone()));
     assert_eq!(Portfolios::<TestStorage>::get(&owner.did, num), Some(name));
@@ -69,7 +70,7 @@ macro_rules! assert_owner_is_custodian {
 fn portfolio_name_too_long() {
     ExtBuilder::default().build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
-        let id = Portfolio::next_portfolio_number(owner.did);
+        let id = NextPortfolioNumber::<TestStorage>::get(owner.did);
         let create = |name| Portfolio::create_portfolio(owner.origin(), name);
         let rename = |name| Portfolio::rename_portfolio(owner.origin(), id, name);
         assert_too_long!(create(max_len_bytes(1)));
@@ -84,7 +85,7 @@ fn portfolio_name_too_long() {
 fn portfolio_name_taken() {
     ExtBuilder::default().build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
-        let id = Portfolio::next_portfolio_number(owner.did);
+        let id = NextPortfolioNumber::<TestStorage>::get(owner.did);
         let create = |name: &str| Portfolio::create_portfolio(owner.origin(), name.into());
         let rename = |name: &str| Portfolio::rename_portfolio(owner.origin(), id, name.into());
 
@@ -114,7 +115,7 @@ fn can_create_rename_delete_portfolio() {
             new_name.clone()
         ));
         assert_eq!(
-            Portfolio::next_portfolio_number(&owner.did),
+            NextPortfolioNumber::<TestStorage>::get(&owner.did),
             PortfolioNumber(2)
         );
         assert_eq!(name(), new_name);

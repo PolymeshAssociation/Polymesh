@@ -171,49 +171,41 @@ pub mod pallet {
 
     /// The hashes of the active proposals.
     #[pallet::storage]
-    #[pallet::getter(fn proposals)]
     #[pallet::unbounded]
     pub type Proposals<T: Config<I>, I: 'static = ()> = StorageValue<_, Vec<T::Hash>, ValueQuery>;
 
     /// Actual proposal for a given hash.
     #[pallet::storage]
-    #[pallet::getter(fn proposal_of)]
     #[pallet::unbounded]
     pub type ProposalOf<T: Config<I>, I: 'static = ()> =
         StorageMap<_, Identity, T::Hash, <T as Config<I>>::Proposal, OptionQuery>;
 
     /// PolymeshVotes on a given proposal, if it is ongoing.
     #[pallet::storage]
-    #[pallet::getter(fn voting)]
     #[pallet::unbounded]
     pub type Voting<T: Config<I>, I: 'static = ()> =
         StorageMap<_, Identity, T::Hash, PolymeshVotes<T::BlockNumber>, OptionQuery>;
 
     /// Proposals so far.
     #[pallet::storage]
-    #[pallet::getter(fn proposal_count)]
     pub type ProposalCount<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, ValueQuery>;
 
     /// The current members of the committee.
     #[pallet::storage]
-    #[pallet::getter(fn members)]
     #[pallet::unbounded]
     pub type Members<T: Config<I>, I: 'static = ()> = StorageValue<_, Vec<IdentityId>, ValueQuery>;
 
     /// Vote threshold for an approval.
     #[pallet::storage]
-    #[pallet::getter(fn vote_threshold)]
     pub type VoteThreshold<T: Config<I>, I: 'static = ()> = StorageValue<_, (u32, u32), ValueQuery>;
 
     /// Release cooridinator.
     #[pallet::storage]
-    #[pallet::getter(fn release_coordinator)]
     pub type ReleaseCoordinator<T: Config<I>, I: 'static = ()> =
         StorageValue<_, IdentityId, OptionQuery>;
 
     /// Time after which a proposal will expire.
     #[pallet::storage]
-    #[pallet::getter(fn expires_after)]
     pub type ExpiresAfter<T: Config<I>, I: 'static = ()> =
         StorageValue<_, MaybeBlock<T::BlockNumber>, ValueQuery>;
 
@@ -427,7 +419,7 @@ pub mod pallet {
         ) -> DispatchResult {
             // Either create a new proposal or vote on an existing one.
             let hash = T::Hashing::hash_of(&call);
-            match Self::voting(hash) {
+            match Voting::<T, I>::get(hash) {
                 Some(voting) => Self::vote(origin, hash, voting.index, approve),
                 // NOTE: boxing is necessary or the trait system will throw a fit.
                 None if approve => Self::propose(origin, *call),
@@ -498,7 +490,7 @@ pub mod pallet {
             hash: &T::Hash,
             idx: ProposalIndex,
         ) -> Result<PolymeshVotes<T::BlockNumber>, DispatchError> {
-            let voting = Self::voting(&hash).ok_or(Error::<T, I>::NoSuchProposal)?;
+            let voting = Voting::<T, I>::get(&hash).ok_or(Error::<T, I>::NoSuchProposal)?;
             ensure!(voting.index == idx, Error::<T, I>::MismatchedVotingIndex);
             Ok(voting)
         }
@@ -513,14 +505,14 @@ pub mod pallet {
         /// Returns true if `who` is contained in the set of committee members, and `false` otherwise.
         pub fn ensure_did_is_member(who: &IdentityId) -> DispatchResult {
             ensure!(
-                Self::members().binary_search(who).is_ok(),
+                Members::<T, I>::get().binary_search(who).is_ok(),
                 Error::<T, I>::NotAMember
             );
             Ok(())
         }
 
         fn seats() -> MemberCount {
-            Self::members().len() as _
+            Members::<T, I>::get().len() as _
         }
 
         /// Given `votes` number of votes out of `total` votes, this function compares`votes`/`total`
@@ -534,7 +526,7 @@ pub mod pallet {
         /// # Return
         /// It returns true if vote was removed.
         pub(crate) fn remove_vote_from(id: IdentityId, proposal: T::Hash) -> bool {
-            if let Some(mut voting) = Self::voting(&proposal) {
+            if let Some(mut voting) = Voting::<T, I>::get(&proposal) {
                 // If any element is removed, we have to update `voting`.
                 let idx = voting.index;
                 let remove = |from: &mut Vec<_>, sig| {
@@ -553,7 +545,7 @@ pub mod pallet {
 
         /// Accepts or rejects the proposal if its threshold is satisfied.
         pub(crate) fn execute_if_passed(did: Option<IdentityId>, proposal: T::Hash) {
-            let voting = match Self::voting(&proposal) {
+            let voting = match Voting::<T, I>::get(&proposal) {
                 // Make sure we don't have an expired proposal at this point.
                 Some(v) if Self::ensure_not_expired(&proposal, v.expiry).is_ok() => v,
                 _ => return,
@@ -659,7 +651,7 @@ pub mod pallet {
 
             // 1.1 Ensure proposal limit has not been reached.
             ensure!(
-                Self::proposal_count() < PROPOSALS_MAX,
+                ProposalCount::<T, I>::get() < PROPOSALS_MAX,
                 Error::<T, I>::ProposalsLimitReached
             );
 
@@ -682,7 +674,7 @@ pub mod pallet {
                     index,
                     ayes: vec![did],
                     nays: vec![],
-                    expiry: Self::expires_after() + now,
+                    expiry: ExpiresAfter::<T, I>::get() + now,
                 };
                 <Voting<T, I>>::insert(proposal_hash, votes);
 
@@ -697,7 +689,7 @@ pub mod pallet {
 impl<T: Config<I>, I: 'static> GroupTrait<T::Moment> for Pallet<T, I> {
     /// Retrieve all members of this committee
     fn get_members() -> Vec<IdentityId> {
-        Self::members()
+        Members::<T, I>::get()
     }
 
     fn get_inactive_members() -> Vec<InactiveMember<T::Moment>> {
@@ -719,12 +711,12 @@ impl<T: Config<I>, I: 'static> GroupTrait<T::Moment> for Pallet<T, I> {
 
 impl<T: Config<I>, I: 'static> GovernanceGroupTrait<T::Moment> for Pallet<T, I> {
     fn release_coordinator() -> Option<IdentityId> {
-        Self::release_coordinator()
+        ReleaseCoordinator::<T, I>::get()
     }
 
     #[cfg(feature = "runtime-benchmarks")]
     fn bench_set_release_coordinator(id: IdentityId) {
-        if !Self::members().contains(&id) {
+        if !Members::<T, I>::get().contains(&id) {
             Self::change_members_sorted(&[id], &[], &[id]);
         }
         <ReleaseCoordinator<T, I>>::put(id);
@@ -743,7 +735,7 @@ impl<T: Config<I>, I: 'static> ChangeMembers<IdentityId> for Pallet<T, I> {
         <Members<T, I>>::put(new);
 
         // Remove accounts from all current voting in motions.
-        Self::proposals()
+        Proposals::<T, I>::get()
             .into_iter()
             .filter(|proposal| {
                 outgoing
@@ -753,7 +745,7 @@ impl<T: Config<I>, I: 'static> ChangeMembers<IdentityId> for Pallet<T, I> {
             .for_each(|proposal| Self::execute_if_passed(None, proposal));
 
         // Double check if any `outgoing` is the Release coordinator.
-        if let Some(curr_rc) = Self::release_coordinator() {
+        if let Some(curr_rc) = ReleaseCoordinator::<T, I>::get() {
             if outgoing.contains(&curr_rc) {
                 <ReleaseCoordinator<T, I>>::kill();
                 Self::deposit_event(Event::ReleaseCoordinatorUpdated(None));

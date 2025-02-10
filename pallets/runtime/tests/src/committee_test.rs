@@ -10,7 +10,10 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
 };
 use frame_system::{EventRecord, Phase};
-use pallet_committee::{self as committee, Event as CommitteeRawEvent, PolymeshVotes};
+use pallet_committee::{
+    self as committee, Event as CommitteeRawEvent, Members, PolymeshVotes, Proposals,
+    ReleaseCoordinator, VoteThreshold, Voting,
+};
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips::{PipId, ProposalState, ProposalStates, SnapshotResult};
@@ -48,8 +51,14 @@ fn motions_basic_environment_works_we() {
     committee.sort();
 
     System::set_block_number(1);
-    assert_eq!(Committee::members(), committee);
-    assert_eq!(Committee::proposals(), vec![]);
+    assert_eq!(
+        Members::<TestStorage, committee::Instance1>::get(),
+        committee
+    );
+    assert_eq!(
+        Proposals::<TestStorage, committee::Instance1>::get(),
+        vec![]
+    );
 }
 
 fn make_proposal(value: u64) -> RuntimeCall {
@@ -66,7 +75,10 @@ pub fn set_members(ids: Vec<IdentityId>) {
 }
 
 fn assert_mem_len(len: u32) {
-    assert_ok!(u32::try_from((Committee::members()).len()), len)
+    assert_ok!(
+        u32::try_from((Members::<TestStorage, committee::Instance1>::get()).len()),
+        len
+    )
 }
 
 fn assert_mem(who: IdentityId, is: bool) {
@@ -139,7 +151,10 @@ fn single_member_committee_works_we() {
     // Proposal is executed if committee is comprised of a single member
     prepare_proposal(alice_ring);
     assert_ok!(Pips::snapshot(alice_signer.clone()));
-    assert_eq!(Committee::proposals(), vec![]);
+    assert_eq!(
+        Proposals::<TestStorage, committee::Instance1>::get(),
+        vec![]
+    );
 
     assert_ok!(vote(&alice_signer, true));
     check_scheduled(PipId(0));
@@ -175,7 +190,10 @@ fn preventing_motions_from_non_members_works_we() {
         Pips::snapshot(alice_signer.clone()),
         pallet_pips::Error::<TestStorage>::NotACommitteeMember
     );
-    assert_eq!(Committee::proposals(), vec![]);
+    assert_eq!(
+        Proposals::<TestStorage, committee::Instance1>::get(),
+        vec![]
+    );
     assert_noop!(
         vote(&alice_signer, true),
         committee::Error::<TestStorage, committee::Instance1>::NotAMember
@@ -201,7 +219,10 @@ fn preventing_voting_from_non_members_works_we() {
     set_members(vec![alice_did]);
     prepare_proposal(alice_ring);
     assert_ok!(Pips::snapshot(alice_signer.clone()));
-    assert_eq!(Committee::proposals(), vec![]);
+    assert_eq!(
+        Proposals::<TestStorage, committee::Instance1>::get(),
+        vec![]
+    );
     assert_noop!(
         vote(&bob_signer, true),
         committee::Error::<TestStorage, committee::Instance1>::NotAMember
@@ -228,12 +249,15 @@ fn motions_revoting_works_we() {
 
     set_members(vec![alice_did, bob_did, charlie_did]);
     prepare_proposal(alice_ring);
-    assert_eq!(Committee::proposals(), vec![]);
+    assert_eq!(
+        Proposals::<TestStorage, committee::Instance1>::get(),
+        vec![]
+    );
 
     assert_ok!(vote(&alice_signer, true));
     let enact_hash = hash_enact_snapshot_results();
     assert_eq!(
-        Committee::voting(&enact_hash),
+        Voting::<TestStorage, committee::Instance1>::get(&enact_hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![alice_did],
@@ -247,7 +271,7 @@ fn motions_revoting_works_we() {
     );
     assert_ok!(vote(&alice_signer, false));
     assert_eq!(
-        Committee::voting(&enact_hash),
+        Voting::<TestStorage, committee::Instance1>::get(&enact_hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![],
@@ -278,7 +302,10 @@ fn first_vote_cannot_be_reject_we() {
 
     set_members(vec![alice_did, bob_did, charlie_did]);
     prepare_proposal(alice_ring);
-    assert_eq!(Committee::proposals(), vec![]);
+    assert_eq!(
+        Proposals::<TestStorage, committee::Instance1>::get(),
+        vec![]
+    );
     assert_noop!(
         vote(&Origin::signed(alice_ring.to_account_id()), false),
         committee::Error::<TestStorage, committee::Instance1>::FirstVoteReject
@@ -305,7 +332,10 @@ fn changing_vote_threshold_works_we() {
     let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
     set_members(vec![alice_did, bob_did]);
 
-    assert_eq!(Committee::vote_threshold(), (1, 1));
+    assert_eq!(
+        VoteThreshold::<TestStorage, committee::Instance1>::get(),
+        (1, 1)
+    );
 
     let call_svt = Box::new(RuntimeCall::PolymeshCommittee(
         pallet_committee::Call::set_vote_threshold { n: 4, d: 17 },
@@ -321,7 +351,10 @@ fn changing_vote_threshold_works_we() {
         call_svt.clone()
     ));
 
-    assert_eq!(Committee::vote_threshold(), (4, 17));
+    assert_eq!(
+        VoteThreshold::<TestStorage, committee::Instance1>::get(),
+        (4, 17)
+    );
 }
 
 #[test]
@@ -357,13 +390,16 @@ fn rage_quit_we() {
     // Make a proposal... only Alice & Bob approve it.
     prepare_proposal(alice_ring);
     assert_ok!(Pips::snapshot(alice_signer.clone()));
-    assert_eq!(Committee::proposals(), vec![]);
+    assert_eq!(
+        Proposals::<TestStorage, committee::Instance1>::get(),
+        vec![]
+    );
 
     assert_ok!(vote(&bob_signer, true));
     assert_ok!(vote(&charlie_signer, false));
     let enact_hash = hash_enact_snapshot_results();
     assert_eq!(
-        Committee::voting(&enact_hash),
+        Voting::<TestStorage, committee::Instance1>::get(&enact_hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![bob_did],
@@ -375,7 +411,7 @@ fn rage_quit_we() {
     // Bob quits, its vote should be removed.
     abdicate_membership(bob_did, &bob_signer, 4);
     assert_eq!(
-        Committee::voting(&enact_hash),
+        Voting::<TestStorage, committee::Instance1>::get(&enact_hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![],
@@ -387,7 +423,7 @@ fn rage_quit_we() {
     // Charlie quits, its vote should be removed.
     abdicate_membership(charlie_did, &charlie_signer, 3);
     assert_eq!(
-        Committee::voting(&enact_hash),
+        Voting::<TestStorage, committee::Instance1>::get(&enact_hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![],
@@ -403,7 +439,7 @@ fn rage_quit_we() {
         committee::Error::<TestStorage, committee::Instance1>::DuplicateVote
     );
     assert_eq!(
-        Committee::voting(&enact_hash),
+        Voting::<TestStorage, committee::Instance1>::get(&enact_hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![],
@@ -413,7 +449,7 @@ fn rage_quit_we() {
     );
     assert_ok!(vote(&alice_signer, true));
     assert_eq!(
-        Committee::voting(&enact_hash),
+        Voting::<TestStorage, committee::Instance1>::get(&enact_hash),
         Some(PolymeshVotes {
             index: 0,
             ayes: vec![alice_did],
@@ -426,7 +462,10 @@ fn rage_quit_we() {
     System::reset_events();
     abdicate_membership(charlie_did, &charlie_signer, 3);
     abdicate_membership(bob_did, &bob_signer, 2);
-    assert_eq!(Committee::voting(&enact_hash), None);
+    assert_eq!(
+        Voting::<TestStorage, committee::Instance1>::get(&enact_hash),
+        None
+    );
     assert_mem(alice_did, true);
     assert_noop!(
         CommitteeGroup::abdicate_membership(alice_signer),
@@ -467,7 +506,7 @@ fn release_coordinator_we() {
     let charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
     assert_eq!(
-        Committee::release_coordinator(),
+        ReleaseCoordinator::<TestStorage, committee::Instance1>::get(),
         Some(IdentityId::from(999))
     );
 
@@ -482,14 +521,23 @@ fn release_coordinator_we() {
     );
 
     assert_ok!(Committee::set_release_coordinator(gc_vmo(), bob_id));
-    assert_eq!(Committee::release_coordinator(), Some(bob_id));
+    assert_eq!(
+        ReleaseCoordinator::<TestStorage, committee::Instance1>::get(),
+        Some(bob_id)
+    );
 
     // Bob abdicates
     assert_ok!(CommitteeGroup::abdicate_membership(bob));
-    assert_eq!(Committee::release_coordinator(), None);
+    assert_eq!(
+        ReleaseCoordinator::<TestStorage, committee::Instance1>::get(),
+        None
+    );
 
     assert_ok!(Committee::set_release_coordinator(gc_vmo(), alice_id));
-    assert_eq!(Committee::release_coordinator(), Some(alice_id));
+    assert_eq!(
+        ReleaseCoordinator::<TestStorage, committee::Instance1>::get(),
+        Some(alice_id)
+    );
 }
 
 #[test]
@@ -512,7 +560,7 @@ fn release_coordinator_majority_we() {
     let bob_id = get_identity_id(AccountKeyring::Bob).expect("Bob is part of the committee");
 
     assert_eq!(
-        Committee::release_coordinator(),
+        ReleaseCoordinator::<TestStorage, committee::Instance1>::get(),
         Some(IdentityId::from(999))
     );
 
@@ -528,7 +576,7 @@ fn release_coordinator_majority_we() {
 
     // No majority yet.
     assert_eq!(
-        Committee::release_coordinator(),
+        ReleaseCoordinator::<TestStorage, committee::Instance1>::get(),
         Some(IdentityId::from(999))
     );
 
@@ -537,7 +585,10 @@ fn release_coordinator_majority_we() {
     assert_ok!(Committee::vote(bob, hash, 0, true));
 
     // Now we have a new RC.
-    assert_eq!(Committee::release_coordinator(), Some(bob_id));
+    assert_eq!(
+        ReleaseCoordinator::<TestStorage, committee::Instance1>::get(),
+        Some(bob_id)
+    );
 }
 
 #[test]
@@ -567,7 +618,10 @@ fn enact_we() {
     // 1. Create the PIP.
     prepare_proposal(alice);
     assert_ok!(Pips::snapshot(alice_signer.clone()));
-    assert_eq!(Committee::proposals(), vec![]);
+    assert_eq!(
+        Proposals::<TestStorage, committee::Instance1>::get(),
+        vec![]
+    );
 
     // 2. Alice and Bob vote to enact that pip, they are 2/3 of committee.
     assert_ok!(vote(&alice_signer, true));
@@ -593,7 +647,7 @@ fn mesh_1065_regression_test() {
 
         let assert_ayes = |ayes| {
             assert_eq!(
-                Committee::voting(&hash_enact_snapshot_results()),
+                Voting::<TestStorage, committee::Instance1>::get(&hash_enact_snapshot_results()),
                 Some(PolymeshVotes {
                     index: 0,
                     ayes,
@@ -640,11 +694,14 @@ fn expiry_works() {
 
         set_members(vec![alice_did, bob_did, charlie_did]);
         prepare_proposal(alice_ring);
-        assert_eq!(Committee::proposals(), vec![]);
+        assert_eq!(
+            Proposals::<TestStorage, committee::Instance1>::get(),
+            vec![]
+        );
 
         assert_ok!(vote(&alice_signer, true));
         assert_eq!(
-            Committee::voting(&hash_enact_snapshot_results())
+            Voting::<TestStorage, committee::Instance1>::get(&hash_enact_snapshot_results())
                 .unwrap()
                 .expiry,
             MaybeBlock::Some(System::block_number() + 13),

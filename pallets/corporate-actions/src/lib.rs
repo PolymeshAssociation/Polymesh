@@ -101,6 +101,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::ensure_root;
+use pallet_asset::checkpoint::{SchedulePoints, Timestamps};
 use pallet_asset::{checkpoint, BalanceOf};
 use pallet_base::try_next_post;
 use pallet_identity::{Config as IdentityConfig, PermissionedCallOriginData};
@@ -1117,7 +1118,7 @@ impl<T: Config> Pallet<T> {
             // since you may attach a pre-existing and recurring schedule to it.
             // However, the record date stores the index for the CP,
             // assuming a transfer has happened since the record date.
-            CACheckpoint::Scheduled(id, idx) => Ok(<Checkpoint<T>>::schedule_points(asset_id, id)
+            CACheckpoint::Scheduled(id, idx) => Ok(SchedulePoints::<T>::get(asset_id, id)
                 .get(idx as usize)
                 .copied()),
         }
@@ -1174,7 +1175,7 @@ impl<T: Config> Pallet<T> {
                     Error::<T>::NoSuchCheckpointId
                 );
                 (
-                    <Checkpoint<T>>::timestamps(asset_id, id),
+                    Timestamps::<T>::get(asset_id, id),
                     CACheckpoint::Existing(id),
                 )
             }

@@ -215,7 +215,6 @@ pub mod pallet {
 
     /// The next portfolio sequence number of an identity.
     #[pallet::storage]
-    #[pallet::getter(fn next_portfolio_number)]
     pub type NextPortfolioNumber<T: Config> =
         StorageMap<_, Identity, IdentityId, PortfolioNumber, ValueQuery>;
 
