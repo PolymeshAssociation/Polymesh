@@ -14,7 +14,7 @@ use pallet_timestamp::Call as TimestampCall;
 use pallet_asset::UniqueTickerRegistration;
 use pallet_balances::Call as BalancesCall;
 use pallet_pips::{PipIdSequence, ProposalState, SnapshotResult};
-use pallet_portfolio::Call as PortfolioCall;
+use pallet_portfolio::{Call as PortfolioCall, Portfolios};
 use pallet_utility::{
     self as utility, Call as UtilityCall, Config as UtilityConfig, Event, Nonces, UniqueCall,
     WeightInfo,
@@ -323,7 +323,7 @@ fn batch_secondary_with_permissions() {
     let bob = User::new_with(alice.did, AccountKeyring::Bob);
     let check_name = |name| {
         assert_eq!(
-            Portfolio::portfolios(&alice.did, &PortfolioNumber(1)),
+            Portfolios::<TestStorage>::get(&alice.did, &PortfolioNumber(1)),
             Some(name)
         );
     };

@@ -2,6 +2,7 @@ use frame_support::{assert_noop, assert_ok};
 use sp_keyring::AccountKeyring;
 use sp_runtime::DispatchError;
 
+use pallet_asset::BalanceOf;
 use pallet_settlement::{InstructionCounter, InstructionStatuses, VenueCounter};
 use pallet_sto::{
     Fundraiser, FundraiserCount, FundraiserId, FundraiserName, FundraiserNames, FundraiserStatus,
@@ -134,10 +135,10 @@ fn raise_happy_path() {
     ));
 
     let amount = 100u128;
-    let alice_init_offering = Asset::balance_of(&offering_asset, alice.did);
-    let bob_init_offering = Asset::balance_of(&offering_asset, bob.did);
-    let alice_init_raise = Asset::balance_of(&raise_asset, alice.did);
-    let bob_init_raise = Asset::balance_of(&raise_asset, bob.did);
+    let alice_init_offering = BalanceOf::<TestStorage>::get(&offering_asset, alice.did);
+    let bob_init_offering = BalanceOf::<TestStorage>::get(&offering_asset, bob.did);
+    let alice_init_raise = BalanceOf::<TestStorage>::get(&raise_asset, alice.did);
+    let bob_init_raise = BalanceOf::<TestStorage>::get(&raise_asset, bob.did);
 
     // Alice starts a fundraiser
     let fundraiser_id = FundraiserCount::<TestStorage>::get(offering_asset);
@@ -185,15 +186,21 @@ fn raise_happy_path() {
     check_fundraiser(1_000_000u128);
 
     assert_eq!(
-        Asset::balance_of(&offering_asset, alice.did),
+        BalanceOf::<TestStorage>::get(&offering_asset, alice.did),
         alice_init_offering
     );
     assert_eq!(
-        Asset::balance_of(&offering_asset, bob.did),
+        BalanceOf::<TestStorage>::get(&offering_asset, bob.did),
         bob_init_offering
     );
-    assert_eq!(Asset::balance_of(&raise_asset, alice.did), alice_init_raise);
-    assert_eq!(Asset::balance_of(&raise_asset, bob.did), bob_init_raise);
+    assert_eq!(
+        BalanceOf::<TestStorage>::get(&raise_asset, alice.did),
+        alice_init_raise
+    );
+    assert_eq!(
+        BalanceOf::<TestStorage>::get(&raise_asset, bob.did),
+        bob_init_raise
+    );
     assert_eq!(
         FundraiserNames::<TestStorage>::get(offering_asset, fundraiser_id),
         Some(fundraiser_name)
@@ -245,19 +252,19 @@ fn raise_happy_path() {
     );
 
     assert_eq!(
-        Asset::balance_of(&offering_asset, alice.did),
+        BalanceOf::<TestStorage>::get(&offering_asset, alice.did),
         alice_init_offering - amount
     );
     assert_eq!(
-        Asset::balance_of(&offering_asset, bob.did),
+        BalanceOf::<TestStorage>::get(&offering_asset, bob.did),
         bob_init_offering + amount
     );
     assert_eq!(
-        Asset::balance_of(&raise_asset, alice.did),
+        BalanceOf::<TestStorage>::get(&raise_asset, alice.did),
         alice_init_raise + amount
     );
     assert_eq!(
-        Asset::balance_of(&raise_asset, bob.did),
+        BalanceOf::<TestStorage>::get(&raise_asset, bob.did),
         bob_init_raise - amount
     );
 }

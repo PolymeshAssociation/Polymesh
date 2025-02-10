@@ -4,7 +4,7 @@ use sp_keyring::AccountKeyring;
 use pallet_nft::NFTOwner;
 use pallet_portfolio::{
     AllowedCustodians, Event, NameToNumber, PortfolioAssetBalances, PortfolioCustodian,
-    PortfolioNFT, Portfolios, PreApprovedPortfolios,
+    PortfolioLockedAssets, PortfolioNFT, Portfolios, PortfoliosInCustody, PreApprovedPortfolios,
 };
 use pallet_settlement::VenueCounter;
 use polymesh_primitives::asset::{AssetId, AssetType, NonFungibleType};
@@ -37,7 +37,7 @@ fn create_portfolio() -> (User, PortfolioNumber) {
     let num = Portfolio::next_portfolio_number(&owner.did);
     assert_eq!(num, PortfolioNumber(1));
     assert_ok!(Portfolio::create_portfolio(owner.origin(), name.clone()));
-    assert_eq!(Portfolio::portfolios(&owner.did, num), Some(name));
+    assert_eq!(Portfolios::<TestStorage>::get(&owner.did, num), Some(name));
     (owner, num)
 }
 
@@ -57,7 +57,7 @@ fn set_custodian_ok(current_custodian: User, new_custodian: User, portfolio_id: 
 
 macro_rules! assert_owner_is_custodian {
     ($p:expr) => {{
-        assert_eq!(Portfolio::portfolios_in_custody($p.did, $p), false);
+        assert_eq!(PortfoliosInCustody::<TestStorage>::get($p.did, $p), false);
         assert_eq!(
             pallet_portfolio::PortfolioCustodian::<TestStorage>::contains_key(&$p),
             false
@@ -101,8 +101,8 @@ fn can_create_rename_delete_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         let (owner, num) = create_portfolio();
 
-        let name = || Portfolio::portfolios(owner.did, num).unwrap();
-        let num_of = |name| Portfolio::name_to_number(owner.did, name);
+        let name = || Portfolios::<TestStorage>::get(owner.did, num).unwrap();
+        let num_of = |name| NameToNumber::<TestStorage>::get(owner.did, name);
 
         let first_name = name();
         assert_eq!(num_of(&first_name), Some(num));
@@ -128,8 +128,8 @@ fn can_delete_recreate_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         let (owner, num) = create_portfolio();
 
-        let name = || Portfolio::portfolios(owner.did, num).unwrap();
-        let num_of = |name| Portfolio::name_to_number(owner.did, name);
+        let name = || Portfolios::<TestStorage>::get(owner.did, num).unwrap();
+        let num_of = |name| NameToNumber::<TestStorage>::get(owner.did, name);
 
         let first_name = name();
         assert_eq!(num_of(&first_name), Some(num));
@@ -379,7 +379,7 @@ fn can_lock_unlock_assets() {
             ISSUE_AMOUNT,
         );
         assert_eq!(
-            Portfolio::locked_assets(owner_default_portfolio, &asset_id),
+            PortfolioLockedAssets::<TestStorage>::get(owner_default_portfolio, &asset_id),
             lock_amount,
         );
 
@@ -421,7 +421,7 @@ fn can_lock_unlock_assets() {
             lock_amount,
         );
         assert_eq!(
-            Portfolio::locked_assets(owner_default_portfolio, &asset_id),
+            PortfolioLockedAssets::<TestStorage>::get(owner_default_portfolio, &asset_id),
             lock_amount,
         );
 
@@ -458,7 +458,7 @@ fn can_lock_unlock_assets() {
             lock_amount,
         );
         assert_eq!(
-            Portfolio::locked_assets(owner_default_portfolio, &asset_id),
+            PortfolioLockedAssets::<TestStorage>::get(owner_default_portfolio, &asset_id),
             0,
         );
 
@@ -484,7 +484,7 @@ fn can_lock_unlock_assets() {
             ISSUE_AMOUNT,
         );
         assert_eq!(
-            Portfolio::locked_assets(owner_default_portfolio, &asset_id),
+            PortfolioLockedAssets::<TestStorage>::get(owner_default_portfolio, &asset_id),
             0,
         );
     });
@@ -499,7 +499,8 @@ fn can_take_custody_of_portfolios() {
         let owner_default_portfolio = PortfolioId::default_portfolio(owner.did);
         let owner_user_portfolio = PortfolioId::user_portfolio(owner.did, num);
 
-        let has_custody = |u: User| Portfolio::portfolios_in_custody(u.did, owner_user_portfolio);
+        let has_custody =
+            |u: User| PortfoliosInCustody::<TestStorage>::get(u.did, owner_user_portfolio);
 
         // Custody of all portfolios is with the owner identity by default
         assert_ok!(Portfolio::ensure_portfolio_custody(
@@ -511,10 +512,13 @@ fn can_take_custody_of_portfolios() {
             owner.did
         ));
         assert_eq!(
-            Portfolio::portfolio_custodian(owner_default_portfolio),
+            PortfolioCustodian::<TestStorage>::get(owner_default_portfolio),
             None
         );
-        assert_eq!(Portfolio::portfolio_custodian(owner_user_portfolio), None);
+        assert_eq!(
+            PortfolioCustodian::<TestStorage>::get(owner_user_portfolio),
+            None
+        );
         assert!(!has_custody(bob));
 
         // Bob can not issue authorization for custody transfer of a portfolio they don't have custody of
@@ -552,11 +556,11 @@ fn can_take_custody_of_portfolios() {
             Error::UnauthorizedCustodian
         );
         assert_eq!(
-            Portfolio::portfolio_custodian(owner_default_portfolio),
+            PortfolioCustodian::<TestStorage>::get(owner_default_portfolio),
             None
         );
         assert_eq!(
-            Portfolio::portfolio_custodian(owner_user_portfolio),
+            PortfolioCustodian::<TestStorage>::get(owner_user_portfolio),
             Some(bob.did)
         );
         assert!(has_custody(bob));

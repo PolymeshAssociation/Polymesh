@@ -12,13 +12,14 @@ use sp_std::iter;
 
 use pallet_asset::{
     AssetDetails, AssetDocuments, AssetIdentifiers, AssetMetadataLocalKeyToName,
-    AssetMetadataLocalNameToKey, AssetMetadataLocalSpecs, AssetMetadataValues, Assets,
+    AssetMetadataLocalNameToKey, AssetMetadataLocalSpecs, AssetMetadataValues, AssetNames, Assets,
     AssetsExemptFromAffirmation, BalanceOf, Config as AssetConfig, CustomTypeIdSequence,
-    CustomTypes, CustomTypesInverse, MandatoryMediators, PreApprovedAsset,
+    CustomTypes, CustomTypesInverse, FundingRound, MandatoryMediators, PreApprovedAsset,
     SecurityTokensOwnedByUser,
 };
 use pallet_portfolio::{
-    NextPortfolioNumber, PortfolioAssetBalances, PortfolioAssetCount, PortfolioLockedAssets,
+    NextPortfolioNumber, PortfolioAssetBalances, PortfolioAssetCount, PortfolioCustodian,
+    PortfolioLockedAssets,
 };
 use pallet_statistics::AssetStats;
 use polymesh_common_utilities::checkpoint::{NextCheckpoints, ScheduleCheckpoints, ScheduleId};
@@ -243,7 +244,10 @@ fn issuers_can_create_and_rename_tokens() {
             SecurityTokensOwnedByUser::<TestStorage>::get(owner.did, asset_id),
             true
         );
-        assert_eq!(Asset::funding_round(asset_id), funding_round_name.clone());
+        assert_eq!(
+            FundingRound::<TestStorage>::get(asset_id),
+            funding_round_name.clone()
+        );
 
         // Unauthorized agents cannot rename the token.
         let eve = User::new(AccountKeyring::Eve);
@@ -256,8 +260,8 @@ fn issuers_can_create_and_rename_tokens() {
         // Rename the token and check storage has been updated.
         let new: AssetName = [0x42].into();
         assert_ok!(Asset::rename_asset(owner.origin(), asset_id, new.clone()));
-        assert_eq!(Asset::asset_names(asset_id), Some(new));
-        assert!(Asset::asset_identifiers(asset_id).is_empty());
+        assert_eq!(AssetNames::<TestStorage>::get(asset_id), Some(new));
+        assert!(AssetIdentifiers::<TestStorage>::get(asset_id).is_empty());
     });
 }
 
@@ -278,8 +282,11 @@ fn valid_transfers_pass() {
         );
         assert_ok!(transfer(owner, alice));
 
-        assert_eq!(Asset::balance_of(&asset_id, owner.did), ISSUE_AMOUNT - 500);
-        assert_eq!(Asset::balance_of(&asset_id, alice.did), 500);
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(&asset_id, owner.did),
+            ISSUE_AMOUNT - 500
+        );
+        assert_eq!(BalanceOf::<TestStorage>::get(&asset_id, alice.did), 500);
     })
 }
 
@@ -325,7 +332,7 @@ fn issuers_can_redeem_tokens() {
             PortfolioAssetCount::<TestStorage>::get(owner_portfolio_id),
             0
         );
-        assert_eq!(Asset::balance_of(&asset_id, owner.did), 0);
+        assert_eq!(BalanceOf::<TestStorage>::get(&asset_id, owner.did), 0);
         assert_eq!(get_asset_details(&asset_id).total_supply, 0);
 
         assert_noop!(
@@ -398,7 +405,7 @@ fn controller_transfer() {
 
         assert_ok!(transfer(asset_id, owner, alice, 500));
 
-        let balance_of = |did| Asset::balance_of(&asset_id, did);
+        let balance_of = |did| BalanceOf::<TestStorage>::get(&asset_id, did);
         let balance_alice = balance_of(alice.did);
         let balance_owner = balance_of(owner.did);
         assert_eq!(balance_owner, ISSUE_AMOUNT - 500);
@@ -611,7 +618,7 @@ fn adding_removing_documents() {
         for (idx, doc) in documents.into_iter().enumerate() {
             assert_eq!(
                 Some(doc),
-                Asset::asset_documents(asset_id, DocumentId(idx as u32))
+                AssetDocuments::<TestStorage>::get(asset_id, DocumentId(idx as u32))
             );
         }
 
@@ -770,7 +777,7 @@ fn next_checkpoint_is_updated_we() {
         // After this transfer Alice's balance is 0.
         transfer(checkpoint2);
         // The balance after checkpoint 2.
-        assert_eq!(0, Asset::balance_of(&asset_id, owner.did));
+        assert_eq!(0, BalanceOf::<TestStorage>::get(&asset_id, owner.did));
         // Balances at checkpoint 2.
         let id = CheckpointId(2);
         assert_eq!(vec![start + 2 * period_ms], checkpoint_ats(asset_id));
@@ -1289,7 +1296,10 @@ fn issuers_can_redeem_tokens_from_portfolio() {
                 PortfolioKind::User(next_portfolio_num)
             ));
 
-            assert_eq!(Asset::balance_of(&asset_id, owner.did), ISSUE_AMOUNT / 2);
+            assert_eq!(
+                BalanceOf::<TestStorage>::get(&asset_id, owner.did),
+                ISSUE_AMOUNT / 2
+            );
             assert_eq!(get_asset_details(&asset_id).total_supply, ISSUE_AMOUNT / 2);
 
             // Add auth for custody to be moved to bob
@@ -1305,7 +1315,7 @@ fn issuers_can_redeem_tokens_from_portfolio() {
             assert_ok!(Portfolio::accept_portfolio_custody(bob.origin(), auth_id));
 
             assert_eq!(
-                Portfolio::portfolio_custodian(user_portfolio),
+                PortfolioCustodian::<TestStorage>::get(user_portfolio),
                 Some(bob.did)
             );
 

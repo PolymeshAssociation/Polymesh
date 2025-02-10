@@ -3,6 +3,7 @@ use frame_support::dispatch::DispatchError;
 use scale_info::prelude::format;
 
 use pallet_asset::benchmarking::setup_asset_transfer;
+use pallet_asset::BalanceOf;
 use pallet_identity::benchmarking::{User, UserBuilder};
 use pallet_settlement::VenueCounter;
 use polymesh_primitives::settlement::VenueDetails;
@@ -167,7 +168,7 @@ benchmarks! {
             None
         )
     verify {
-        assert!(<Asset<T>>::balance_of(&setup_portfolios.offering_asset_id, bob.did()) > 0u32.into(), "invest");
+        assert!(BalanceOf::<T>::get(&setup_portfolios.offering_asset_id, bob.did()) > 0u32.into(), "invest");
     }
 
     freeze_fundraiser {

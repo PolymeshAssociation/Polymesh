@@ -101,7 +101,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::ensure_root;
-use pallet_asset::checkpoint;
+use pallet_asset::{checkpoint, BalanceOf};
 use pallet_base::try_next_post;
 use pallet_identity::{Config as IdentityConfig, PermissionedCallOriginData};
 use polymesh_common_utilities::checkpoint::ScheduleId;
@@ -1099,7 +1099,7 @@ impl<T: Config> Pallet<T> {
             Some(cp_id) => <Asset<T>>::get_balance_at(asset_id, did, cp_id),
             // Although record date has passed, no transfers have happened yet for `asset_id`.
             // Thus, there is no checkpoint ID, and we must use current balance instead.
-            None => <Asset<T>>::balance_of(asset_id, did),
+            None => BalanceOf::<T>::get(asset_id, did),
         }
     }
 

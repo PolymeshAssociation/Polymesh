@@ -14,7 +14,7 @@ use sp_std::collections::btree_set::BTreeSet;
 
 use pallet_asset::BalanceOf;
 use pallet_nft::NumberOfNFTs;
-use pallet_portfolio::{PortfolioLockedNFT, PortfolioNFT};
+use pallet_portfolio::{PortfolioLockedAssets, PortfolioLockedNFT, PortfolioNFT};
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
     AffirmsReceived, Details, Event, InstructionAffirmsPending, InstructionCounter,
@@ -95,7 +95,7 @@ impl UserWithBalance {
         Self {
             init_balances: assets
                 .iter()
-                .map(|asset_id| (*asset_id, Asset::balance_of(asset_id, user.did)))
+                .map(|asset_id| (*asset_id, BalanceOf::<TestStorage>::get(asset_id, user.did)))
                 .collect(),
             user,
         }
@@ -103,7 +103,7 @@ impl UserWithBalance {
 
     fn refresh_init_balances(&mut self) {
         for (asset_id, balance) in &mut self.init_balances {
-            *balance = Asset::balance_of(asset_id, self.user.did);
+            *balance = BalanceOf::<TestStorage>::get(asset_id, self.user.did);
         }
     }
 
@@ -904,7 +904,7 @@ fn venue_filtering() {
         assert_affirm_instruction!(bob.origin(), instruction_id.checked_inc().unwrap(), bob.did);
 
         next_block();
-        assert_eq!(Asset::balance_of(&asset_id, bob.did), 10);
+        assert_eq!(BalanceOf::<TestStorage>::get(&asset_id, bob.did), 10);
         assert_ok!(Settlement::disallow_venues(
             alice.origin(),
             asset_id,
@@ -1044,14 +1044,17 @@ fn basic_fuzzing() {
         ) {
             for ((did, asset_id), balance) in locked_assets {
                 assert_eq!(
-                    Portfolio::locked_assets(PortfolioId::default_portfolio(*did), asset_id),
+                    PortfolioLockedAssets::<TestStorage>::get(
+                        PortfolioId::default_portfolio(*did),
+                        asset_id
+                    ),
                     *balance as u128
                 );
             }
             for asset_id in assets {
                 for user in users {
                     assert_eq!(
-                        Portfolio::locked_assets(
+                        PortfolioLockedAssets::<TestStorage>::get(
                             PortfolioId::default_portfolio(user.did),
                             &asset_id
                         ),
@@ -1092,7 +1095,7 @@ fn basic_fuzzing() {
             for user in &users {
                 if fail {
                     assert_eq!(
-                        Asset::balance_of(&asset_id, user.did),
+                        BalanceOf::<TestStorage>::get(&asset_id, user.did),
                         u128::try_from(
                             *balances
                                 .get(&(asset_id, user.did, "init").encode())
@@ -1101,7 +1104,7 @@ fn basic_fuzzing() {
                         .unwrap()
                     );
                     assert_eq!(
-                        Portfolio::locked_assets(
+                        PortfolioLockedAssets::<TestStorage>::get(
                             PortfolioId::default_portfolio(user.did),
                             &asset_id
                         ),
@@ -1112,7 +1115,7 @@ fn basic_fuzzing() {
                     );
                 } else {
                     assert_eq!(
-                        Asset::balance_of(&asset_id, user.did),
+                        BalanceOf::<TestStorage>::get(&asset_id, user.did),
                         u128::try_from(
                             *balances
                                 .get(&(asset_id, user.did, "final").encode())
@@ -1121,7 +1124,7 @@ fn basic_fuzzing() {
                         .unwrap()
                     );
                     assert_eq!(
-                        Portfolio::locked_assets(
+                        PortfolioLockedAssets::<TestStorage>::get(
                             PortfolioId::default_portfolio(user.did),
                             &asset_id
                         ),
@@ -1146,7 +1149,10 @@ fn basic_fuzzing() {
         for asset_id in &assets {
             for user in &users {
                 assert_eq!(
-                    Portfolio::locked_assets(PortfolioId::default_portfolio(user.did), asset_id),
+                    PortfolioLockedAssets::<TestStorage>::get(
+                        PortfolioId::default_portfolio(user.did),
+                        asset_id
+                    ),
                     0
                 );
             }
@@ -1637,7 +1643,10 @@ fn multiple_portfolio_settlement() {
         bob.assert_portfolio_bal(bob_num, 0, &asset_id);
         assert_locked_assets(&asset_id, &alice, amount);
         assert_eq!(
-            Portfolio::locked_assets(PortfolioId::user_portfolio(alice.did, alice_num), &asset_id),
+            PortfolioLockedAssets::<TestStorage>::get(
+                PortfolioId::user_portfolio(alice.did, alice_num),
+                &asset_id
+            ),
             amount
         );
 
@@ -1762,7 +1771,10 @@ fn multiple_custodian_settlement() {
         bob.assert_portfolio_bal(bob_num, 0, &asset_id);
         assert_locked_assets(&asset_id, &alice, amount);
         assert_eq!(
-            Portfolio::locked_assets(PortfolioId::user_portfolio(alice.did, alice_num), &asset_id),
+            PortfolioLockedAssets::<TestStorage>::get(
+                PortfolioId::user_portfolio(alice.did, alice_num),
+                &asset_id
+            ),
             amount
         );
 
@@ -4303,7 +4315,7 @@ fn assert_instruction_status(
 
 #[track_caller]
 fn assert_balance(asset_id: &AssetId, user: &User, balance: Balance) {
-    assert_eq!(Asset::balance_of(asset_id, user.did), balance);
+    assert_eq!(BalanceOf::<TestStorage>::get(asset_id, user.did), balance);
 }
 
 #[track_caller]
@@ -4350,7 +4362,10 @@ fn assert_affirms_pending(instruction_id: InstructionId, pending: u64) {
 #[track_caller]
 fn assert_locked_assets(asset_id: &AssetId, user: &User, num_of_assets: Balance) {
     assert_eq!(
-        Portfolio::locked_assets(PortfolioId::default_portfolio(user.did), asset_id),
+        PortfolioLockedAssets::<TestStorage>::get(
+            PortfolioId::default_portfolio(user.did),
+            asset_id
+        ),
         num_of_assets
     );
 }

@@ -10,7 +10,7 @@ use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
 };
-use pallet_asset::Assets;
+use pallet_asset::{Assets, BalanceOf};
 use pallet_corporate_actions::{
     ballot::{
         BallotMeta, BallotTimeRange, BallotVote, Metas, Motion, MotionNumChoices, Results,
@@ -1626,7 +1626,7 @@ fn vote_works() {
         // Total asset balance voter == AMOUNT.
         transfer(&asset_id, owner, voter);
         transfer(&asset_id, owner, other);
-        assert_eq!(Asset::balance_of(&asset_id, voter.did), AMOUNT);
+        assert_eq!(BalanceOf::<TestStorage>::get(&asset_id, voter.did), AMOUNT);
 
         let id = notice_ca(owner, asset_id, Some(1)).unwrap();
         assert_ok!(attach(owner, id, false));
@@ -2124,7 +2124,10 @@ fn dist_claim_works() {
         already(foo);
         let benefit_foo = AMOUNT * per_share / PER_SHARE_PRECISION;
         let post_tax_foo = benefit_foo - benefit_foo * 1 / 4;
-        assert_eq!(Asset::balance_of(&currency, foo.did), post_tax_foo);
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(&currency, foo.did),
+            post_tax_foo
+        );
         let assert_rem = |removed| {
             assert_eq!(
                 Distributions::<TestStorage>::get(id).unwrap().remaining,
@@ -2138,7 +2141,10 @@ fn dist_claim_works() {
         already(bar);
         let benefit_bar = AMOUNT * 2 * per_share / PER_SHARE_PRECISION;
         let post_tax_bar = benefit_bar * 2 / 3; // Using 1/3 tax to test rounding.
-        assert_eq!(Asset::balance_of(&currency, bar.did), post_tax_bar);
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(&currency, bar.did),
+            post_tax_bar
+        );
         assert_rem(benefit_foo + benefit_bar);
 
         // Owner should have some free currency balance due to withheld taxes.
@@ -2202,7 +2208,7 @@ fn dist_claim_rounding_indivisible() {
                 amount - removed
             )
         };
-        let balance = |u: User| Asset::balance_of(&currency, u.did);
+        let balance = |u: User| BalanceOf::<TestStorage>::get(&currency, u.did);
 
         // `foo` claims. 3 / 2 units are rounded down to 1.
         assert_ok!(Dist::claim(foo.origin(), id));
@@ -2296,10 +2302,10 @@ fn dist_claim_cp_test(mk_ca: impl FnOnce(AssetId, User) -> CAId) {
 
         // Check the balances; tax is 0%.
         assert_eq!(
-            Asset::balance_of(&currency, claimant.did),
+            BalanceOf::<TestStorage>::get(&currency, claimant.did),
             AMOUNT * per_share / PER_SHARE_PRECISION
         );
-        assert_eq!(Asset::balance_of(&currency, other.did), 0);
+        assert_eq!(BalanceOf::<TestStorage>::get(&currency, other.did), 0);
     });
 }
 

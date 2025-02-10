@@ -6,6 +6,7 @@ use super::{
     ExtBuilder,
 };
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
+use pallet_asset::{AssetMetadataGlobalNameToKey, AssetMetadataLocalNameToKey};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLockStatus, AssetMetadataName, AssetMetadataSpec,
@@ -87,7 +88,7 @@ fn register_metadata_type(owner: User, asset_id: Option<AssetId>, name: &str) ->
             spec,
         ));
 
-        Asset::asset_metadata_local_name_to_key(asset_id, name)
+        AssetMetadataLocalNameToKey::<TestStorage>::get(asset_id, name)
             .map(AssetMetadataKey::from)
             .expect("Failed to register metadata")
     } else {
@@ -99,7 +100,7 @@ fn register_metadata_type(owner: User, asset_id: Option<AssetId>, name: &str) ->
             spec,
         ));
 
-        Asset::asset_metadata_global_name_to_key(name)
+        AssetMetadataGlobalNameToKey::<TestStorage>::get(name)
             .map(AssetMetadataKey::from)
             .expect("Failed to register metadata")
     }
