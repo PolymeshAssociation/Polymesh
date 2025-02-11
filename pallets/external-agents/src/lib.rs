@@ -63,9 +63,8 @@ use pallet_permissions::{CurrentDispatchableName, CurrentPalletName};
 use polymesh_primitives::agent::{AGId, AgentGroup};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
-    extract_auth, storage_migration_ver, traits::AssetFnConfig, with_transaction,
-    AuthorizationData, EventDid, ExtrinsicPermissions, IdentityId, PalletPermissions, Signatory,
-    SubsetRestriction,
+    extract_auth, storage_migration_ver, traits::AssetFnConfig, AuthorizationData, EventDid,
+    ExtrinsicPermissions, IdentityId, PalletPermissions, Signatory, SubsetRestriction,
 };
 use sp_std::prelude::*;
 
@@ -374,9 +373,8 @@ pub mod pallet {
             perms: ExtrinsicPermissions,
             agent: IdentityId,
         ) -> DispatchResult {
-            with_transaction(|| {
-                Self::base_create_and_change_custom_group(origin, asset_id, perms, agent)
-            })
+            Self::base_create_and_change_custom_group(origin, asset_id, perms, agent)?;
+            Ok(())
         }
     }
 }

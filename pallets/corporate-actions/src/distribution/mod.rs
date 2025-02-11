@@ -77,9 +77,8 @@ use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
-    constants::currency::ONE_UNIT, storage_migration_ver, traits::PortfolioSubTrait,
-    with_transaction, Balance, EventDid, IdentityId, Moment, PortfolioId, PortfolioNumber,
-    SecondaryKey, WeightMeter,
+    constants::currency::ONE_UNIT, storage_migration_ver, traits::PortfolioSubTrait, Balance,
+    EventDid, IdentityId, Moment, PortfolioId, PortfolioNumber, SecondaryKey, WeightMeter,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
@@ -583,24 +582,22 @@ impl<T: Config> Pallet<T> {
             gain / ONE_UNIT * ONE_UNIT
         };
 
-        with_transaction(|| {
-            // Unlock `benefit` of `currency` from the calling agent's portfolio.
-            Self::unlock(&dist, benefit)?;
+        // Unlock `benefit` of `currency` from the calling agent's portfolio.
+        Self::unlock(&dist, benefit)?;
 
-            // Transfer remainder (`gain`) to DID.
-            let to = PortfolioId::default_portfolio(holder);
-            let mut weight_meter = WeightMeter::max_limit_no_minimum();
-            <Asset<T>>::base_transfer(
-                dist.from,
-                to,
-                dist.currency,
-                gain,
-                None,
-                None,
-                actor.clone().risky_into_inner(),
-                &mut weight_meter,
-            )
-        })?;
+        // Transfer remainder (`gain`) to DID.
+        let to = PortfolioId::default_portfolio(holder);
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+        <Asset<T>>::base_transfer(
+            dist.from,
+            to,
+            dist.currency,
+            gain,
+            None,
+            None,
+            actor.clone().risky_into_inner(),
+            &mut weight_meter,
+        )?;
 
         // Note that DID was paid.
         HolderPaid::<T>::insert((ca_id, holder), true);

@@ -42,8 +42,8 @@ use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::impl_checked_inc;
 use polymesh_primitives::settlement::{Leg, ReceiptDetails, SettlementType, VenueId, VenueType};
 use polymesh_primitives::{
-    storage_migration_ver, traits::PortfolioSubTrait, with_transaction, Balance, EventDid,
-    IdentityId, PortfolioId, WeightMeter,
+    storage_migration_ver, traits::PortfolioSubTrait, Balance, EventDid, IdentityId, PortfolioId,
+    WeightMeter,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 
@@ -559,49 +559,47 @@ pub mod pallet {
                 },
             ];
 
-            with_transaction(|| {
-                <Portfolio<T>>::unlock_tokens(
-                    &fundraiser.offering_portfolio,
-                    &fundraiser.offering_asset,
-                    purchase_amount,
-                )?;
+            <Portfolio<T>>::unlock_tokens(
+                &fundraiser.offering_portfolio,
+                &fundraiser.offering_asset,
+                purchase_amount,
+            )?;
 
-                let instruction_id = Settlement::<T>::base_add_instruction(
-                    fundraiser.creator,
-                    Some(fundraiser.venue_id),
-                    SettlementType::SettleOnAffirmation,
-                    None,
-                    None,
-                    legs,
-                    None,
-                    None,
-                )?;
+            let instruction_id = Settlement::<T>::base_add_instruction(
+                fundraiser.creator,
+                Some(fundraiser.venue_id),
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                legs,
+                None,
+                None,
+            )?;
 
-                let portfolios = [fundraiser.offering_portfolio, fundraiser.raising_portfolio]
-                    .iter()
-                    .copied()
-                    .collect::<BTreeSet<_>>();
-                Settlement::<T>::unsafe_affirm_instruction(
-                    fundraiser.creator,
-                    instruction_id,
-                    portfolios,
-                    None,
-                    None,
-                )?;
+            let portfolios = [fundraiser.offering_portfolio, fundraiser.raising_portfolio]
+                .iter()
+                .copied()
+                .collect::<BTreeSet<_>>();
+            Settlement::<T>::unsafe_affirm_instruction(
+                fundraiser.creator,
+                instruction_id,
+                portfolios,
+                None,
+                None,
+            )?;
 
-                let portfolios = [investment_portfolio, funding_portfolio]
-                    .iter()
-                    .copied()
-                    .collect::<BTreeSet<_>>();
-                Settlement::<T>::affirm_and_execute_instruction(
-                    origin,
-                    instruction_id,
-                    receipt,
-                    portfolios,
-                    did,
-                    &mut WeightMeter::max_limit_no_minimum(),
-                )
-            })?;
+            let portfolios = [investment_portfolio, funding_portfolio]
+                .iter()
+                .copied()
+                .collect::<BTreeSet<_>>();
+            Settlement::<T>::affirm_and_execute_instruction(
+                origin,
+                instruction_id,
+                receipt,
+                portfolios,
+                did,
+                &mut WeightMeter::max_limit_no_minimum(),
+            )?;
 
             for (id, amount) in purchases {
                 fundraiser.tiers[id].remaining -= amount;

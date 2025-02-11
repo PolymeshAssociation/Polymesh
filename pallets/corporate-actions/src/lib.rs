@@ -108,8 +108,8 @@ use pallet_identity::{Config as IdentityConfig, PermissionedCallOriginData};
 use polymesh_common_utilities::checkpoint::ScheduleId;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
-    asset::CheckpointId, impl_checked_inc, storage_migration_ver, with_transaction, Balance,
-    DocumentId, EventDid, IdentityId, Moment, PortfolioNumber, GC_DID,
+    asset::CheckpointId, impl_checked_inc, storage_migration_ver, Balance, DocumentId, EventDid,
+    IdentityId, Moment, PortfolioNumber, GC_DID,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
@@ -827,31 +827,28 @@ pub mod pallet {
             let agent = caller_did.for_event();
             let mut ca = Self::ensure_ca_exists(ca_id)?;
 
-            with_transaction(|| -> DispatchResult {
-                // If provided, either use the existing CP ID or schedule one to be made.
-                Self::dec_strong_ref_count(ca_id, ca.record_date);
-                ca.record_date = record_date
-                    .map(|date| Self::handle_record_date(caller_did, ca_id.asset_id, date))
-                    .transpose()?;
+            // If provided, either use the existing CP ID or schedule one to be made.
+            Self::dec_strong_ref_count(ca_id, ca.record_date);
+            ca.record_date = record_date
+                .map(|date| Self::handle_record_date(caller_did, ca_id.asset_id, date))
+                .transpose()?;
 
-                // Ensure associated services allow changing the date.
-                match ca.kind {
-                    CAKind::Other | CAKind::Reorganization => {}
-                    CAKind::IssuerNotice => {
-                        if let Some(range) = TimeRanges::<T>::get(ca_id) {
-                            Self::ensure_record_date_before_start(&ca, range.start)?;
-                            <Ballot<T>>::ensure_ballot_not_started(range)?;
-                        }
-                    }
-                    CAKind::PredictableBenefit | CAKind::UnpredictableBenefit => {
-                        if let Some(dist) = Distributions::<T>::get(ca_id) {
-                            Self::ensure_record_date_before_start(&ca, dist.payment_at)?;
-                            <Distribution<T>>::ensure_distribution_not_started(&dist)?;
-                        }
+            // Ensure associated services allow changing the date.
+            match ca.kind {
+                CAKind::Other | CAKind::Reorganization => {}
+                CAKind::IssuerNotice => {
+                    if let Some(range) = TimeRanges::<T>::get(ca_id) {
+                        Self::ensure_record_date_before_start(&ca, range.start)?;
+                        <Ballot<T>>::ensure_ballot_not_started(range)?;
                     }
                 }
-                Ok(())
-            })?;
+                CAKind::PredictableBenefit | CAKind::UnpredictableBenefit => {
+                    if let Some(dist) = Distributions::<T>::get(ca_id) {
+                        Self::ensure_record_date_before_start(&ca, dist.payment_at)?;
+                        <Distribution<T>>::ensure_distribution_not_started(&dist)?;
+                    }
+                }
+            }
 
             // Commit changes + emit event.
             CorporateActions::<T>::insert(ca_id.asset_id, ca_id.local_id, ca.clone());
@@ -890,31 +887,31 @@ pub mod pallet {
                 ..
             } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, asset_id)?;
 
-            with_transaction(|| {
-                let ca_id = Self::unsafe_initiate_corporate_action(
-                    caller_did,
-                    asset_id,
-                    kind,
-                    decl_date,
-                    record_date,
-                    details,
-                    targets,
-                    default_withholding_tax,
-                    withholding_tax,
-                )?;
+            let ca_id = Self::unsafe_initiate_corporate_action(
+                caller_did,
+                asset_id,
+                kind,
+                decl_date,
+                record_date,
+                details,
+                targets,
+                default_withholding_tax,
+                withholding_tax,
+            )?;
 
-                <distribution::Pallet<T>>::unverified_distribute(
-                    caller_did,
-                    secondary_key,
-                    ca_id,
-                    portfolio,
-                    currency,
-                    per_share,
-                    amount,
-                    payment_at,
-                    expires_at,
-                )
-            })
+            <distribution::Pallet<T>>::unverified_distribute(
+                caller_did,
+                secondary_key,
+                ca_id,
+                portfolio,
+                currency,
+                per_share,
+                amount,
+                payment_at,
+                expires_at,
+            )?;
+
+            Ok(())
         }
     }
 
@@ -1025,11 +1022,9 @@ impl<T: Config> Pallet<T> {
         // If provided, either use the existing CP ID or schedule one to be made.
         let record_date = record_date
             .map(|date| {
-                with_transaction(|| -> Result<_, DispatchError> {
-                    let rd = Self::handle_record_date(caller_did, asset_id, date)?;
-                    ensure!(decl_date <= rd.date, Error::<T>::DeclDateAfterRecordDate);
-                    Ok(rd)
-                })
+                let rd = Self::handle_record_date(caller_did, asset_id, date)?;
+                ensure!(decl_date <= rd.date, Error::<T>::DeclDateAfterRecordDate);
+                Ok::<RecordDate, DispatchError>(rd)
             })
             .transpose()?;
 
