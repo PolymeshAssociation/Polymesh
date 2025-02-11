@@ -1371,12 +1371,12 @@ impl<T: Config> Pallet<T> {
                 amount,
                 ..
             } => T::Portfolio::lock_tokens(&sender, &asset_id, *amount),
-            Leg::NonFungible { sender, nfts, .. } => with_transaction(|| {
+            Leg::NonFungible { sender, nfts, .. } => {
                 for nft_id in nfts.ids() {
                     T::Portfolio::lock_nft(&sender, nfts.asset_id(), &nft_id)?;
                 }
                 Ok(())
-            }),
+            }
             Leg::OffChain { .. } => Err(Error::<T>::OffChainAssetCantBeLocked.into()),
         }
     }
@@ -1389,12 +1389,12 @@ impl<T: Config> Pallet<T> {
                 amount,
                 ..
             } => T::Portfolio::unlock_tokens(&sender, &asset_id, *amount),
-            Leg::NonFungible { sender, nfts, .. } => with_transaction(|| {
+            Leg::NonFungible { sender, nfts, .. } => {
                 for nft_id in nfts.ids() {
                     T::Portfolio::unlock_nft(&sender, nfts.asset_id(), &nft_id)?;
                 }
                 Ok(())
-            }),
+            }
             Leg::OffChain { .. } => Err(Error::<T>::OffChainAssetCantBeLocked.into()),
         }
     }
