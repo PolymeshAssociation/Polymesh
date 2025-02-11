@@ -68,3 +68,4 @@ runtime-benchmarks = [
     "frame-benchmarking",
     "pallet-compliance-manager"
 ]
+try-runtime = ["frame-support/try-runtime"]

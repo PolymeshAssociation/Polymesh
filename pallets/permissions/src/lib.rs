@@ -28,7 +28,6 @@ pub mod benchmarking;
 use codec::{Decode, Encode};
 use core::mem;
 use frame_support::{
-    decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     traits::{CallMetadata, GetCallMetadata},
 };
@@ -40,76 +39,81 @@ use sp_runtime::{
 };
 use sp_std::{fmt, marker::PhantomData, result::Result, vec};
 
-/// Permissions module configuration trait.
-pub trait Config: frame_system::Config {
-    /// The type that implements the permission check function.
-    type Checker: CheckAccountCallPermissions<Self::AccountId>;
-}
+use frame_support::pallet_prelude::*;
 
-/// Result of `CheckAccountCallPermissions::check_account_call_permissions`.
-pub struct AccountCallPermissionsData<AccountId> {
-    /// The primary identity of the call.
-    pub primary_did: IdentityId,
-    /// The secondary key of the call, if it is defined.
-    pub secondary_key: Option<SecondaryKey<AccountId>>,
-}
+pub use pallet::*;
 
-/// A permission checker for calls from accounts to extrinsics.
-pub trait CheckAccountCallPermissions<AccountId> {
-    /// Checks whether `who` can call the current extrinsic represented by `pallet_name` and
-    /// `function_name`.
-    ///
-    /// Returns:
-    ///
-    /// - `Some(data)` where `data` contains the primary identity ID on behalf of which the caller
-    /// is allowed to make this call and the secondary key of the caller if the caller is a
-    /// secondary key of the primary identity.
-    ///
-    /// - `None` if the call is not allowed.
-    fn check_account_call_permissions(
-        who: &AccountId,
-        pallet_name: impl FnOnce() -> PalletName,
-        function_name: impl FnOnce() -> ExtrinsicName,
-    ) -> Option<AccountCallPermissionsData<AccountId>>;
-}
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
 
-decl_storage! {
-    trait Store for Module<T: Config> as Permissions {
-        /// The name of the current pallet (aka module name).
-        pub CurrentPalletName get(fn current_pallet_name): PalletName;
-        /// The name of the current function (aka extrinsic).
-        pub CurrentDispatchableName get(fn current_dispatchable_name): ExtrinsicName;
+    #[pallet::config]
+    pub trait Config: frame_system::Config {
+        /// The type that implements the permission check function.
+        type Checker: CheckAccountCallPermissions<Self::AccountId>;
     }
-}
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
-        // This definition is needed because the construct_runtime! macro uses it to generate metadata.
-        // Without this definition, the metadata won't have details about the errors of this module.
-        // That will lead to UIs either throwing fits or showing incorrect error messages.
-        type Error = Error<T>;
+    /// Result of `CheckAccountCallPermissions::check_account_call_permissions`.
+    pub struct AccountCallPermissionsData<AccountId> {
+        /// The primary identity of the call.
+        pub primary_did: IdentityId,
+        /// The secondary key of the call, if it is defined.
+        pub secondary_key: Option<SecondaryKey<AccountId>>,
     }
-}
 
-decl_error! {
-    pub enum Error for Module<T: Config> {
+    /// A permission checker for calls from accounts to extrinsics.
+    pub trait CheckAccountCallPermissions<AccountId> {
+        /// Checks whether `who` can call the current extrinsic represented by `pallet_name` and
+        /// `function_name`.
+        ///
+        /// Returns:
+        ///
+        /// - `Some(data)` where `data` contains the primary identity ID on behalf of which the caller
+        /// is allowed to make this call and the secondary key of the caller if the caller is a
+        /// secondary key of the primary identity.
+        ///
+        /// - `None` if the call is not allowed.
+        fn check_account_call_permissions(
+            who: &AccountId,
+            pallet_name: impl FnOnce() -> PalletName,
+            function_name: impl FnOnce() -> ExtrinsicName,
+        ) -> Option<AccountCallPermissionsData<AccountId>>;
+    }
+
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    /// The name of the current pallet (aka module name).
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn current_pallet_name)]
+    pub(super) type CurrentPalletName<T> = StorageValue<_, PalletName, ValueQuery>;
+
+    /// The name of the current function (aka extrinsic).
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn current_dispatchable_name)]
+    pub(super) type CurrentDispatchableName<T> = StorageValue<_, ExtrinsicName, ValueQuery>;
+
+    #[pallet::error]
+    pub enum Error<T> {
         /// The caller is not authorized to call the current extrinsic.
         UnauthorizedCaller,
     }
-}
 
-impl<T: Config> Module<T> {
-    /// Checks if the caller identified with the account `who` is permissioned to call the current
-    /// extrinsic. Returns `Ok(data)` if successful. Otherwise returns an `Err`.
-    pub fn ensure_call_permissions(
-        who: &T::AccountId,
-    ) -> Result<AccountCallPermissionsData<T::AccountId>, DispatchError> {
-        T::Checker::check_account_call_permissions(
-            who,
-            || Self::current_pallet_name(),
-            || Self::current_dispatchable_name(),
-        )
-        .ok_or_else(|| Error::<T>::UnauthorizedCaller.into())
+    impl<T: Config> Pallet<T> {
+        /// Checks if the caller identified with the account `who` is permissioned to call the current
+        /// extrinsic. Returns `Ok(data)` if successful. Otherwise returns an `Err`.
+        pub fn ensure_call_permissions(
+            who: &T::AccountId,
+        ) -> Result<AccountCallPermissionsData<T::AccountId>, DispatchError> {
+            T::Checker::check_account_call_permissions(
+                who,
+                || Self::current_pallet_name(),
+                || Self::current_dispatchable_name(),
+            )
+            .ok_or_else(|| Error::<T>::UnauthorizedCaller.into())
+        }
     }
 }
 
@@ -138,14 +142,14 @@ impl<T: Config> StoreCallMetadata<T> {
 
     /// Stores call metadata in runtime storage.
     pub fn set_call_metadata(pallet_name: PalletName, extrinsic_name: ExtrinsicName) {
-        CurrentPalletName::put(pallet_name);
-        CurrentDispatchableName::put(extrinsic_name);
+        CurrentPalletName::<T>::put(pallet_name);
+        CurrentDispatchableName::<T>::put(extrinsic_name);
     }
 
     /// Erases call metadata from runtime storage.
     fn clear_call_metadata() {
-        CurrentPalletName::kill();
-        CurrentDispatchableName::kill();
+        CurrentPalletName::<T>::kill();
+        CurrentDispatchableName::<T>::kill();
     }
 }
 
@@ -202,27 +206,24 @@ where
 /// finished. Restores the current call metadata at the end.
 ///
 /// Returns the result of `tx`.
-pub fn with_call_metadata<Succ, Err>(
-    metadata: CallMetadata,
-    tx: impl FnOnce() -> Result<Succ, Err>,
-) -> Result<Succ, Err> {
+pub fn with_call_metadata<T: Config, R>(metadata: CallMetadata, tx: impl FnOnce() -> R) -> R {
     // Set the extrinsic call metadata and save the current call metadata.
     let (pallet_name, function_name) =
-        swap_call_metadata(metadata.pallet_name.into(), metadata.function_name.into());
+        swap_call_metadata::<T>(metadata.pallet_name.into(), metadata.function_name.into());
     let result = tx();
     // Restore the current call metadata.
-    let _ = swap_call_metadata(pallet_name, function_name);
+    let _ = swap_call_metadata::<T>(pallet_name, function_name);
     result
 }
 
 /// Replaces the current call metadata with the given ones and returns the old,
 /// replaced call metadata.
-pub fn swap_call_metadata(
+pub fn swap_call_metadata<T: Config>(
     pallet_name: PalletName,
     extrinsic_name: ExtrinsicName,
 ) -> (PalletName, ExtrinsicName) {
     (
-        CurrentPalletName::mutate(|s| mem::replace(s, pallet_name)),
-        CurrentDispatchableName::mutate(|s| mem::replace(s, extrinsic_name)),
+        CurrentPalletName::<T>::mutate(|s| mem::replace(s, pallet_name)),
+        CurrentDispatchableName::<T>::mutate(|s| mem::replace(s, extrinsic_name)),
     )
 }

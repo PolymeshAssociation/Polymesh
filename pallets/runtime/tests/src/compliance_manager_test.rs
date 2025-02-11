@@ -23,16 +23,16 @@ use super::asset_test::set_timestamp;
 use super::storage::{TestStorage, User};
 use super::ExtBuilder;
 
-type Identity = pallet_identity::Module<TestStorage>;
+type Identity = pallet_identity::Pallet<TestStorage>;
 type IdError = pallet_identity::Error<TestStorage>;
-type Balances = pallet_balances::Module<TestStorage>;
+type Balances = pallet_balances::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
-type Asset = pallet_asset::Module<TestStorage>;
-type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
-type CDDGroup = pallet_group::Module<TestStorage, pallet_group::Instance2>;
+type Asset = pallet_asset::Pallet<TestStorage>;
+type ComplianceManager = pallet_compliance_manager::Pallet<TestStorage>;
+type CDDGroup = pallet_group::Pallet<TestStorage, pallet_group::Instance2>;
 type Moment = u64;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
-type ExternalAgents = pallet_external_agents::Module<TestStorage>;
+type ExternalAgents = pallet_external_agents::Pallet<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
 
 macro_rules! assert_invalid_transfer {

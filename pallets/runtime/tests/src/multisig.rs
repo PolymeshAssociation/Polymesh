@@ -18,8 +18,8 @@ use super::storage::{
 };
 use super::ExtBuilder;
 
-type Balances = pallet_balances::Module<TestStorage>;
-type Identity = pallet_identity::Module<TestStorage>;
+type Balances = pallet_balances::Pallet<TestStorage>;
+type Identity = pallet_identity::Pallet<TestStorage>;
 type MultiSig = pallet_multisig::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;

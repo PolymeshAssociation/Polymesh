@@ -9,12 +9,12 @@ use polymesh_primitives::TrustedIssuer;
 
 use crate::*;
 
-pub type Asset<T> = pallet_asset::Module<T>;
-pub type ComplianceManager<T> = pallet_compliance_manager::Module<T>;
-pub type Identity<T> = pallet_identity::Module<T>;
+pub type Asset<T> = pallet_asset::Pallet<T>;
+pub type ComplianceManager<T> = pallet_compliance_manager::Pallet<T>;
+pub type Identity<T> = pallet_identity::Pallet<T>;
 pub type Timestamp<T> = pallet_timestamp::Pallet<T>;
-pub type Settlement<T> = pallet_settlement::Module<T>;
-pub type Sto<T> = crate::Module<T>;
+pub type Settlement<T> = pallet_settlement::Pallet<T>;
+pub type Sto<T> = crate::pallet::Pallet<T>;
 
 struct SetupPortfolios {
     pub fundraiser_offering_portfolio: PortfolioId,
@@ -54,13 +54,13 @@ where
         .generate_did()
         .build("TrustedUser");
     let trusted_issuer = TrustedIssuer::from(trusted_user.did());
-    pallet_compliance_manager::Module::<T>::add_default_trusted_claim_issuer(
+    pallet_compliance_manager::Pallet::<T>::add_default_trusted_claim_issuer(
         fundraiser.origin().into(),
         offering_asset_id,
         trusted_issuer.clone(),
     )
     .unwrap();
-    pallet_compliance_manager::Module::<T>::add_default_trusted_claim_issuer(
+    pallet_compliance_manager::Pallet::<T>::add_default_trusted_claim_issuer(
         investor.origin().into(),
         raising_asset_id,
         trusted_issuer,
@@ -148,7 +148,7 @@ benchmarks! {
             vec![].into()
         )
     verify {
-        assert!(FundraiserCount::get(setup_portfolios.offering_asset_id) > FundraiserId(0), "create_fundraiser");
+        assert!(FundraiserCount::<T>::get(setup_portfolios.offering_asset_id) > FundraiserId(0), "create_fundraiser");
     }
 
     invest {

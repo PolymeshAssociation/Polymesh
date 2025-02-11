@@ -14,7 +14,6 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use frame_benchmarking::benchmarks;
-use frame_support::storage::StorageDoubleMap;
 use frame_system::RawOrigin;
 
 use pallet_identity::benchmarking::{User, UserBuilder};
@@ -22,7 +21,7 @@ use pallet_identity::benchmarking::{User, UserBuilder};
 use crate::*;
 
 pub type MultiSig<T> = crate::Pallet<T>;
-pub type Identity<T> = pallet_identity::Module<T>;
+pub type Identity<T> = pallet_identity::Pallet<T>;
 pub type Timestamp<T> = pallet_timestamp::Pallet<T>;
 
 fn generate_signers<T: Config>(

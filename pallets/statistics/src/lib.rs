@@ -15,14 +15,17 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub use pallet::*;
+
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::pallet_prelude::*;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, BoundedBTreeSet};
+use frame_support::BoundedBTreeSet;
+use frame_system::pallet_prelude::*;
 use sp_std::{collections::btree_set::BTreeSet, vec, vec::Vec};
 
 use pallet_external_agents::Config as EAConfig;
@@ -36,49 +39,56 @@ use polymesh_primitives::transfer_compliance::{
 };
 use polymesh_primitives::{storage_migration_ver, Balance, IdentityId, WeightMeter};
 
-type Identity<T> = pallet_identity::Module<T>;
-type ExternalAgents<T> = pallet_external_agents::Module<T>;
+type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
 
 storage_migration_ver!(3);
 
-/// The main trait for statistics module
-pub trait Config:
-    frame_system::Config + pallet_identity::Config + EAConfig + AssetFnConfig
-{
-    /// The overarching event type.
-    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
-    /// Maximum stats that can be enabled for an Asset.
-    type MaxStatsPerAsset: Get<u32>;
-    /// Maximum transfer conditions that can be enabled for an Asset.
-    type MaxTransferConditionsPerAsset: Get<u32>;
-    /// Weights for extrinsics.
-    type WeightInfo: WeightInfo;
-}
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
 
-/// Weight info for extrinsics
-pub trait WeightInfo {
-    fn set_active_asset_stats(i: u32) -> Weight;
-    fn batch_update_asset_stats(i: u32) -> Weight;
-    fn set_asset_transfer_compliance(i: u32) -> Weight;
-    fn set_entities_exempt(i: u32) -> Weight;
-    fn max_investor_count_restriction(a: u32) -> Weight;
-    fn max_investor_ownership_restriction() -> Weight;
-    fn claim_count_restriction_no_stats(c: u32) -> Weight;
-    fn claim_count_restriction_with_stats() -> Weight;
-    fn claim_ownership_restriction(a: u32) -> Weight;
-    fn update_asset_count_stats(a: u32) -> Weight;
-    fn update_asset_balance_stats(a: u32) -> Weight;
-    fn active_asset_statistics_load(_a: u32) -> Weight;
-    fn is_exempt() -> Weight;
-    fn verify_requirements(i: u32) -> Weight;
-    fn verify_requirements_loop(i: u32) -> Weight {
-        Self::verify_requirements(i)
-            .saturating_sub(Self::max_investor_count_restriction(0).saturating_mul(i.into()))
+    /// The main trait for statistics module
+    #[pallet::config]
+    pub trait Config:
+        frame_system::Config + pallet_identity::Config + EAConfig + AssetFnConfig
+    {
+        /// The overarching event type.
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        /// Maximum stats that can be enabled for an Asset.
+        #[pallet::constant]
+        type MaxStatsPerAsset: Get<u32>;
+        /// Maximum transfer conditions that can be enabled for an Asset.
+        #[pallet::constant]
+        type MaxTransferConditionsPerAsset: Get<u32>;
+        /// Weights for extrinsics.
+        type WeightInfo: WeightInfo;
     }
-}
 
-decl_event!(
-    pub enum Event {
+    /// Weight info for extrinsics
+    pub trait WeightInfo {
+        fn set_active_asset_stats(i: u32) -> Weight;
+        fn batch_update_asset_stats(i: u32) -> Weight;
+        fn set_asset_transfer_compliance(i: u32) -> Weight;
+        fn set_entities_exempt(i: u32) -> Weight;
+        fn max_investor_count_restriction(a: u32) -> Weight;
+        fn max_investor_ownership_restriction() -> Weight;
+        fn claim_count_restriction_no_stats(c: u32) -> Weight;
+        fn claim_count_restriction_with_stats() -> Weight;
+        fn claim_ownership_restriction(a: u32) -> Weight;
+        fn update_asset_count_stats(a: u32) -> Weight;
+        fn update_asset_balance_stats(a: u32) -> Weight;
+        fn active_asset_statistics_load(_a: u32) -> Weight;
+        fn is_exempt() -> Weight;
+        fn verify_requirements(i: u32) -> Weight;
+        fn verify_requirements_loop(i: u32) -> Weight {
+            Self::verify_requirements(i)
+                .saturating_sub(Self::max_investor_count_restriction(0).saturating_mul(i.into()))
+        }
+    }
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
         /// Stat types added to asset.
         ///
         /// (Caller DID, AssetId, Stat types)
@@ -104,45 +114,93 @@ decl_event!(
         /// (Caller DID, Exempt key, Entities)
         TransferConditionExemptionsRemoved(IdentityId, TransferConditionExemptKey, Vec<IdentityId>),
     }
-);
 
-decl_storage! {
-    trait Store for Module<T: Config> as Statistics {
-        /// Maps a set of [`StatType`] for each [`AssetId`].
-        pub ActiveAssetStats get(fn active_asset_stats):
-            map hasher(blake2_128_concat) AssetId => BoundedBTreeSet<StatType, T::MaxStatsPerAsset>;
-
-        /// Asset stats.
-        pub AssetStats get(fn asset_stats):
-          double_map hasher(blake2_128_concat) Stat1stKey, hasher(blake2_128_concat) Stat2ndKey => u128;
-
-        /// The [`AssetTransferCompliance`] for each [`AssetId`].
-        pub AssetTransferCompliances get(fn asset_transfer_compliance):
-            map hasher(blake2_128_concat) AssetId => AssetTransferCompliance<T::MaxTransferConditionsPerAsset>;
-
-        /// Entities exempt from a Transfer Compliance rule.
-        pub TransferConditionExemptEntities get(fn transfer_condition_exempt_entities):
-            double_map hasher(blake2_128_concat) TransferConditionExemptKey, hasher(blake2_128_concat) IdentityId => bool;
-
-        /// Storage migration version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(3)): Version;
+    #[pallet::error]
+    pub enum Error<T> {
+        /// Invalid transfer [`TransferCondition`] not respected.
+        InvalidTransferStatisticsFailure,
+        /// StatType is not enabled.
+        StatTypeMissing,
+        /// StatType is needed by TransferCondition.
+        StatTypeNeededByTransferCondition,
+        /// A Stattype is in use and can't be removed.
+        CannotRemoveStatTypeInUse,
+        /// The limit of StatTypes allowed for an asset has been reached.
+        StatTypeLimitReached,
+        /// The limit of TransferConditions allowed for an asset has been reached.
+        TransferConditionLimitReached,
+        /// The maximum weight limit for executing the function was exceeded.
+        WeightLimitExceeded,
     }
-}
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
-        type Error = Error<T>;
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
 
-        const MaxStatsPerAsset: u32 = T::MaxStatsPerAsset::get();
-        const MaxTransferConditionsPerAsset: u32 = T::MaxTransferConditionsPerAsset::get();
+    /// Maps a set of [`StatType`] for each [`AssetId`].
+    #[pallet::storage]
+    #[pallet::getter(fn active_asset_stats)]
+    pub(super) type ActiveAssetStats<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        BoundedBTreeSet<StatType, T::MaxStatsPerAsset>,
+        ValueQuery,
+    >;
 
-        /// initialize the default event for this module
-        fn deposit_event() = default;
+    /// Asset stats.
+    #[pallet::storage]
+    #[pallet::getter(fn asset_stats)]
+    pub type AssetStats<T> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        Stat1stKey,
+        Blake2_128Concat,
+        Stat2ndKey,
+        u128,
+        ValueQuery,
+    >;
 
-        fn on_runtime_upgrade() -> Weight {
-            Weight::zero()
+    /// The [`AssetTransferCompliance`] for each [`AssetId`].
+    #[pallet::storage]
+    #[pallet::getter(fn asset_transfer_compliances)]
+    pub(super) type AssetTransferCompliances<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        AssetTransferCompliance<T::MaxTransferConditionsPerAsset>,
+        ValueQuery,
+    >;
+
+    /// Entities exempt from a Transfer Compliance rule.
+    #[pallet::storage]
+    #[pallet::getter(fn transfer_condition_exempt_entities)]
+    pub(super) type TransferConditionExemptEntities<T> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        TransferConditionExemptKey,
+        Blake2_128Concat,
+        IdentityId,
+        bool,
+        ValueQuery,
+    >;
+
+    /// Storage migration version.
+    #[pallet::storage]
+    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
+
+    #[pallet::genesis_config]
+    #[derive(Default)]
+    pub struct GenesisConfig;
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+        fn build(&self) {
+            StorageVersion::<T>::put(Version::new(3));
         }
+    }
 
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Set the active asset stat_types.
         ///
         /// # Arguments
@@ -158,9 +216,14 @@ decl_module! {
         /// # Permissions
         /// - Agent
         /// - Asset
-        #[weight = <T as Config>::WeightInfo::set_active_asset_stats(stat_types.len() as u32)]
-        pub fn set_active_asset_stats(origin, asset_id: AssetId, stat_types: BTreeSet<StatType>) {
-            Self::base_set_active_asset_stats(origin, asset_id, stat_types)?;
+        #[pallet::weight(<T as Config>::WeightInfo::set_active_asset_stats(stat_types.len() as u32))]
+        #[pallet::call_index(0)]
+        pub fn set_active_asset_stats(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            stat_types: BTreeSet<StatType>,
+        ) -> DispatchResult {
+            Self::base_set_active_asset_stats(origin, asset_id, stat_types)
         }
 
         /// Allow a trusted issuer to init/resync asset/company stats.
@@ -178,9 +241,15 @@ decl_module! {
         /// # Permissions
         /// - Agent
         /// - Asset
-        #[weight = <T as Config>::WeightInfo::batch_update_asset_stats(values.len() as u32)]
-        pub fn batch_update_asset_stats(origin, asset_id: AssetId, stat_type: StatType, values: BTreeSet<StatUpdate>) {
-            Self::base_batch_update_asset_stats(origin, asset_id, stat_type, values)?;
+        #[pallet::weight(<T as Config>::WeightInfo::batch_update_asset_stats(values.len() as u32))]
+        #[pallet::call_index(1)]
+        pub fn batch_update_asset_stats(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            stat_type: StatType,
+            values: BTreeSet<StatUpdate>,
+        ) -> DispatchResult {
+            Self::base_batch_update_asset_stats(origin, asset_id, stat_type, values)
         }
 
         /// Set asset transfer compliance rules.
@@ -198,9 +267,14 @@ decl_module! {
         /// # Permissions
         /// - Agent
         /// - Asset
-        #[weight = <T as Config>::WeightInfo::set_asset_transfer_compliance(transfer_conditions.len() as u32)]
-        pub fn set_asset_transfer_compliance(origin, asset_id: AssetId, transfer_conditions: BTreeSet<TransferCondition>) {
-            Self::base_set_asset_transfer_compliance(origin, asset_id, transfer_conditions)?;
+        #[pallet::weight(<T as Config>::WeightInfo::set_asset_transfer_compliance(transfer_conditions.len() as u32))]
+        #[pallet::call_index(2)]
+        pub fn set_asset_transfer_compliance(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            transfer_conditions: BTreeSet<TransferCondition>,
+        ) -> DispatchResult {
+            Self::base_set_asset_transfer_compliance(origin, asset_id, transfer_conditions)
         }
 
         /// Set/unset entities exempt from an asset's transfer compliance rules.
@@ -217,14 +291,20 @@ decl_module! {
         /// # Permissions
         /// - Agent
         /// - Asset
-        #[weight = <T as Config>::WeightInfo::set_entities_exempt(entities.len() as u32)]
-        pub fn set_entities_exempt(origin, is_exempt: bool, exempt_key: TransferConditionExemptKey, entities: BTreeSet<IdentityId>) {
-            Self::base_set_entities_exempt(origin, is_exempt, exempt_key, entities)?;
+        #[pallet::weight(<T as Config>::WeightInfo::set_entities_exempt(entities.len() as u32))]
+        #[pallet::call_index(3)]
+        pub fn set_entities_exempt(
+            origin: OriginFor<T>,
+            is_exempt: bool,
+            exempt_key: TransferConditionExemptKey,
+            entities: BTreeSet<IdentityId>,
+        ) -> DispatchResult {
+            Self::base_set_entities_exempt(origin, is_exempt, exempt_key, entities)
         }
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     fn ensure_asset_perms(
         origin: T::RuntimeOrigin,
         asset_id: AssetId,
@@ -275,7 +355,7 @@ impl<T: Config> Module<T> {
         for stat_type in &remove_types {
             // Cleanup storage for this stat type, since it is being removed.
             #[allow(deprecated)]
-            AssetStats::remove_prefix(
+            AssetStats::<T>::remove_prefix(
                 Stat1stKey {
                     asset_id,
                     stat_type: *stat_type,
@@ -321,10 +401,10 @@ impl<T: Config> Module<T> {
                 let key2 = update.key2.clone();
                 match update.value {
                     Some(value) => {
-                        AssetStats::insert(key1, key2, value);
+                        AssetStats::<T>::insert(key1, key2, value);
                     }
                     None => {
-                        AssetStats::remove(key1, key2);
+                        AssetStats::<T>::remove(key1, key2);
                     }
                 }
                 update
@@ -387,7 +467,7 @@ impl<T: Config> Module<T> {
         let did = Self::ensure_asset_perms(origin, exempt_key.asset_id)?;
         if is_exempt {
             for entity in &entities {
-                TransferConditionExemptEntities::insert(&exempt_key, entity, true);
+                TransferConditionExemptEntities::<T>::insert(&exempt_key, entity, true);
             }
             Self::deposit_event(Event::TransferConditionExemptionsAdded(
                 did,
@@ -396,7 +476,7 @@ impl<T: Config> Module<T> {
             ));
         } else {
             for entity in &entities {
-                TransferConditionExemptEntities::remove(&exempt_key, entity);
+                TransferConditionExemptEntities::<T>::remove(&exempt_key, entity);
             }
             Self::deposit_event(Event::TransferConditionExemptionsRemoved(
                 did,
@@ -437,13 +517,13 @@ impl<T: Config> Module<T> {
         )?;
         if from_balance.is_some() {
             // Remove `amount` from `from_key2`.
-            AssetStats::mutate(key1, from_key2, |balance| {
+            AssetStats::<T>::mutate(key1, from_key2, |balance| {
                 *balance = balance.saturating_sub(amount)
             });
         }
         if to_balance.is_some() {
             // Add `amount` to `to_key2`.
-            AssetStats::mutate(key1, to_key2, |balance| {
+            AssetStats::<T>::mutate(key1, to_key2, |balance| {
                 *balance = balance.saturating_add(amount)
             });
         }
@@ -455,7 +535,7 @@ impl<T: Config> Module<T> {
     /// * `changes: (from_change, to_change)`
     /// If the `from` is transfering the total balance (decreasing investor count), then `from_change == true`.
     /// If the `to` has no tokens before this transfer (increasing investor count), then `to_change == true`.
-    fn update_asset_count_stats(
+    pub(crate) fn update_asset_count_stats(
         key1: Stat1stKey,
         from_key2: Stat2ndKey,
         to_key2: Stat2ndKey,
@@ -488,13 +568,13 @@ impl<T: Config> Module<T> {
                 )?;
                 if from_change {
                     // Remove one investor.
-                    AssetStats::mutate(key1, from_key2, |counter| {
+                    AssetStats::<T>::mutate(key1, from_key2, |counter| {
                         *counter = counter.saturating_sub(1)
                     });
                 }
                 if to_change {
                     // Add one investor.
-                    AssetStats::mutate(key1, to_key2, |counter| {
+                    AssetStats::<T>::mutate(key1, to_key2, |counter| {
                         *counter = counter.saturating_add(1)
                     });
                 }
@@ -504,15 +584,20 @@ impl<T: Config> Module<T> {
     }
 
     /// Fetch a claim for an identity as needed by the stat type.
-    fn fetch_claim_as_key(did: Option<&IdentityId>, key1: &Stat1stKey) -> Stat2ndKey {
+    pub(crate) fn fetch_claim_as_key(did: Option<&IdentityId>, key1: &Stat1stKey) -> Stat2ndKey {
         key1.stat_type
             .claim_issuer
             .map(|(claim_type, issuer)| {
                 // Get the claim.
                 let did_claim = did.and_then(|did| {
                     let claim_scope = key1.claim_scope();
-                    Identity::<T>::fetch_claim(*did, claim_type, issuer, Some(claim_scope))
-                        .map(|c| c.claim)
+                    pallet_identity::Pallet::<T>::fetch_claim(
+                        *did,
+                        claim_type,
+                        issuer,
+                        Some(claim_scope),
+                    )
+                    .map(|c| c.claim)
                 });
                 Stat2ndKey::new_from(&claim_type, did_claim)
             })
@@ -645,7 +730,7 @@ impl<T: Config> Module<T> {
                     weight_meter,
                     <T as Config>::WeightInfo::max_investor_count_restriction(1),
                 )?;
-                let current_count = AssetStats::get(key1, Stat2ndKey::NoClaimStat);
+                let current_count = AssetStats::<T>::get(key1, Stat2ndKey::NoClaimStat);
                 Ok(current_count < max_count)
             }
         }
@@ -698,7 +783,7 @@ impl<T: Config> Module<T> {
                     <T as Config>::WeightInfo::claim_count_restriction_with_stats(),
                 )?;
                 // Get current investor count.
-                let count = AssetStats::get(key1, key2);
+                let count = AssetStats::<T>::get(key1, key2);
                 // Check minimum count restriction.
                 if min > 0 && from_change && from_matches {
                     // The `from` investor has the claim (`from_matches == true`) and
@@ -780,7 +865,7 @@ impl<T: Config> Module<T> {
                     <T as Config>::WeightInfo::claim_ownership_restriction(1),
                 )?;
                 // Calculate new claim % ownership.
-                let claim_balance = AssetStats::get(key1, key2);
+                let claim_balance = AssetStats::<T>::get(key1, key2);
                 let new_percentage = sp_arithmetic::Permill::from_rational(
                     claim_balance.saturating_add(value),
                     total_supply,
@@ -796,7 +881,7 @@ impl<T: Config> Module<T> {
                     <T as Config>::WeightInfo::claim_ownership_restriction(1),
                 )?;
                 // Calculate new claim % ownership.
-                let claim_balance = AssetStats::get(key1, key2);
+                let claim_balance = AssetStats::<T>::get(key1, key2);
                 let new_percentage = sp_arithmetic::Permill::from_rational(
                     claim_balance.saturating_sub(value),
                     total_supply,
@@ -808,7 +893,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Check transfer condition.
-    fn check_transfer_condition(
+    pub(crate) fn check_transfer_condition(
         condition: &TransferCondition,
         asset_id: AssetId,
         from_did: &IdentityId,
@@ -878,7 +963,7 @@ impl<T: Config> Module<T> {
     /// Returns `true` if the [`TransferCondition`] operation is of type [`StatOpType::Count`] and `sender_did`
     /// is in the exemption list or if [`TransferCondition`] operation is of type [`StatOpType::Balance`] and
     /// `receiver_did` is in the exemption list, otherwise returns `false`.
-    fn is_exempt(
+    pub(crate) fn is_exempt(
         asset_id: AssetId,
         transfer_condition: &TransferCondition,
         sender_did: &IdentityId,
@@ -930,7 +1015,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns `true` if all `requirements` are met, otherwise returns `false`.
-    fn verify_requirements<S: Get<u32>>(
+    pub(crate) fn verify_requirements<S: Get<u32>>(
         transfer_conditions: &BoundedBTreeSet<TransferCondition, S>,
         asset_id: AssetId,
         sender_did: &IdentityId,
@@ -1018,25 +1103,5 @@ impl<T: Config> Module<T> {
         weight_meter
             .consume_weight_until_limit(weight)
             .map_err(|_| Error::<T>::WeightLimitExceeded.into())
-    }
-}
-
-decl_error! {
-    /// Statistics module errors.
-    pub enum Error for Module<T: Config> {
-        /// Invalid transfer [`TransferCondition`] not respected.
-        InvalidTransferStatisticsFailure,
-        /// StatType is not enabled.
-        StatTypeMissing,
-        /// StatType is needed by TransferCondition.
-        StatTypeNeededByTransferCondition,
-        /// A Stattype is in use and can't be removed.
-        CannotRemoveStatTypeInUse,
-        /// The limit of StatTypes allowed for an asset has been reached.
-        StatTypeLimitReached,
-        /// The limit of TransferConditions allowed for an asset has been reached.
-        TransferConditionLimitReached,
-        /// The maximum weight limit for executing the function was exceeded.
-        WeightLimitExceeded,
     }
 }

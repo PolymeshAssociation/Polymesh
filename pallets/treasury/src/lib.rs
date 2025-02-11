@@ -21,14 +21,14 @@
 //! ## Overview
 //!
 //! Treasury balance is filled by fees of each operation, but it also accepts donations
-//! through [reimbursement](Module::reimbursement) method.
+//! through [reimbursement](Pallet::reimbursement) method.
 //!
 //! The disbursement mechanism is designed to incentivize Polymesh Improvement Proposals.
 //!
 //! ## Dispatchable Functions
 //!
-//! - [disbursement](Module::disbursement) - Transfers from the treasury to the given benericiaries.
-//! - [reimbursement](Module::reimbursement) - Transfers to the treasury.
+//! - [disbursement](Pallet::disbursement) - Transfers from the treasury to the given benericiaries.
+//! - [reimbursement](Pallet::reimbursement) - Transfers to the treasury.
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -36,9 +36,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use frame_support::traits::{StorageInfo, StorageInfoTrait};
 use frame_support::{
-    decl_error, decl_event, decl_module,
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced},
@@ -53,66 +51,66 @@ use sp_std::prelude::*;
 
 pub type ProposalIndex = u32;
 
-type Identity<T> = identity::Module<T>;
+type Identity<T> = identity::Pallet<T>;
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 
-pub trait Config: frame_system::Config + BalancesConfig {
-    // The overarching event type.
-    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
-    /// The native currency.
-    type Currency: Currency<Self::AccountId>;
-    /// Weight information for extrinsics in the identity pallet.
-    type WeightInfo: WeightInfo;
-}
+pub use pallet::*;
 
-pub trait WeightInfo {
-    fn reimbursement() -> Weight;
-    fn disbursement(beneficiary_count: u32) -> Weight;
-}
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-decl_event!(
-    pub enum Event<T>
-    where
-        Balance = BalanceOf<T>,
-        AccountId = <T as frame_system::Config>::AccountId,
-    {
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    #[pallet::config]
+    pub trait Config: frame_system::Config + BalancesConfig {
+        /// The overarching event type.
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        /// The native currency.
+        type Currency: Currency<Self::AccountId>;
+        /// Weight information for extrinsics in the identity pallet.
+        type WeightInfo: WeightInfo;
+    }
+
+    pub trait WeightInfo {
+        fn reimbursement() -> Weight;
+        fn disbursement(beneficiary_count: u32) -> Weight;
+    }
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
         /// Disbursement to a target Identity.
         ///
         /// (treasury identity, target identity, target primary key, amount)
-        TreasuryDisbursement(IdentityId, IdentityId, AccountId, Balance),
-
+        TreasuryDisbursement(IdentityId, IdentityId, T::AccountId, BalanceOf<T>),
         /// Disbursement to a target Identity failed.
         ///
         /// (treasury identity, target identity, target primary key, amount)
-        TreasuryDisbursementFailed(IdentityId, IdentityId, AccountId, Balance),
-
+        TreasuryDisbursementFailed(IdentityId, IdentityId, T::AccountId, BalanceOf<T>),
         /// Treasury reimbursement.
         ///
         /// (source identity, amount)
-        TreasuryReimbursement(IdentityId, Balance),
+        TreasuryReimbursement(IdentityId, BalanceOf<T>),
     }
-);
 
-decl_error! {
-    /// Error for the treasury module.
-    pub enum Error for Module<T: Config> {
+    #[pallet::error]
+    pub enum Error<T> {
         /// Proposer's balance is too low.
         InsufficientBalance,
         /// Invalid identity for disbursement.
         InvalidIdentity,
     }
-}
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
-        type Error = Error<T>;
-
-        fn deposit_event() = default;
-
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// It transfers balances from treasury to each of beneficiaries and the specific amount
         /// for each of them.
         ///
@@ -120,22 +118,27 @@ decl_module! {
         /// * `BadOrigin`: Only root can execute transaction.
         /// * `InsufficientBalance`: If treasury balances is not enough to cover all beneficiaries.
         /// * `InvalidIdentity`: If one of the beneficiaries has an invalid identity.
-        #[weight = <T as Config>::WeightInfo::disbursement(beneficiaries.len() as u32)]
-        pub fn disbursement(origin, beneficiaries: Vec<Beneficiary<BalanceOf<T>>>) {
-            Self::base_disbursement(origin, beneficiaries)?;
+        #[pallet::call_index(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::disbursement(beneficiaries.len() as u32))]
+        pub fn disbursement(
+            origin: OriginFor<T>,
+            beneficiaries: Vec<Beneficiary<BalanceOf<T>>>,
+        ) -> DispatchResult {
+            Self::base_disbursement(origin, beneficiaries)
         }
 
         /// It transfers the specific `amount` from `origin` account into treasury.
         ///
         /// Only accounts which are associated to an identity can make a donation to treasury.
-        #[weight = <T as Config>::WeightInfo::reimbursement()]
-        pub fn reimbursement(origin, amount: BalanceOf<T>) {
-            Self::base_reimbursement(origin, amount)?;
+        #[pallet::call_index(1)]
+        #[pallet::weight(<T as Config>::WeightInfo::reimbursement())]
+        pub fn reimbursement(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
+            Self::base_reimbursement(origin, amount)
         }
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     fn base_disbursement(
         origin: T::RuntimeOrigin,
         beneficiaries: Vec<Beneficiary<BalanceOf<T>>>,
@@ -185,7 +188,7 @@ impl<T: Config> Module<T> {
             ExistenceRequirement::AllowDeath,
         )?;
 
-        Self::deposit_event(RawEvent::TreasuryReimbursement(primary_did, amount));
+        Self::deposit_event(Event::TreasuryReimbursement(primary_did, amount));
 
         Ok(())
     }
@@ -214,9 +217,9 @@ impl<T: Config> Module<T> {
 
         // Emit event based on transfer results.
         let event = if res.is_ok() {
-            RawEvent::TreasuryDisbursement
+            Event::TreasuryDisbursement
         } else {
-            RawEvent::TreasuryDisbursementFailed
+            Event::TreasuryDisbursementFailed
         };
         Self::deposit_event(event(GC_DID, target, primary_key, amount));
     }
@@ -228,17 +231,11 @@ impl<T: Config> Module<T> {
 }
 
 /// That trait implementation is needed to receive a portion of the fees from transactions.
-impl<T: Config> OnUnbalanced<NegativeImbalanceOf<T>> for Module<T> {
+impl<T: Config> OnUnbalanced<NegativeImbalanceOf<T>> for Pallet<T> {
     fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<T>) {
         let numeric_amount = amount.peek();
 
         let _ = T::Currency::resolve_creating(&Self::account_id(), amount);
-        Self::deposit_event(RawEvent::TreasuryReimbursement(GC_DID, numeric_amount));
-    }
-}
-
-impl<T: Config> StorageInfoTrait for Module<T> {
-    fn storage_info() -> Vec<StorageInfo> {
-        Vec::new()
+        Self::deposit_event(Event::TreasuryReimbursement(GC_DID, numeric_amount));
     }
 }

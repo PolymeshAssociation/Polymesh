@@ -15,6 +15,7 @@ rand_core = { version = "0.6", default-features = false }
 rand = { version = "0.8", default-features = false, optional = true }
 rustc-hex = { version = "2.1.0", default-features = false }
 either = { version = "1.6.1", default-features = false }
+log = "0.4"
 
 # Ours
 polymesh-primitives-derive = { version = "0.1.0", path = "../primitives_derive", default-features = false }

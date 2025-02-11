@@ -326,13 +326,12 @@ impl ExtBuilder {
             max_ticker_length: 8,
             registration_length: Some(10000),
         };
-        asset::GenesisConfig::<TestStorage> {
+        let genesis = asset::GenesisConfig {
             ticker_registration_config,
             reserved_country_currency_codes: vec![],
             asset_metadata: vec![],
-        }
-        .assimilate_storage(storage)
-        .unwrap();
+        };
+        GenesisBuild::<TestStorage>::assimilate_storage(&genesis, storage).unwrap();
     }
 
     /// For each `cdd_providers`:
@@ -393,12 +392,11 @@ impl ExtBuilder {
     }
 
     fn build_protocol_fee_genesis(&self, storage: &mut Storage) {
-        pallet_protocol_fee::GenesisConfig {
+        let genesis = pallet_protocol_fee::GenesisConfig {
             base_fees: self.protocol_base_fees.0.clone(),
             coefficient: self.protocol_coefficient,
-        }
-        .assimilate_storage(storage)
-        .unwrap();
+        };
+        GenesisBuild::<TestStorage>::assimilate_storage(&genesis, storage).unwrap();
     }
 
     fn build_pips_genesis(&self, storage: &mut Storage) {

@@ -50,8 +50,6 @@ type MaxNominators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig
 // Polymesh change
 // -----------------------------------------------------------------
 
-use frame_support::StorageDoubleMap;
-
 use pallet_identity::benchmarking::{User, UserBuilder};
 use polymesh_primitives::identity_claim::ClaimType;
 use polymesh_primitives::{IdentityId, Permissions};
@@ -942,7 +940,7 @@ benchmarks! {
             let key = UserBuilder::<T>::default().seed(x).balance(10_000u32).build("key");
             let _ = T::Currency::issue(10_000u32.into());
 
-            pallet_identity::Module::<T>::unsafe_join_identity(
+            pallet_identity::Pallet::<T>::unsafe_join_identity(
                 validator.did(),
                 Permissions::default(),
                 key.account.clone()
@@ -1010,7 +1008,7 @@ benchmarks! {
                 target: nominator.0.did(),
                 claim_type: ClaimType::CustomerDueDiligence
             };
-            let _ = pallet_identity::Claims::clear_prefix(claim_first, 1, None);
+            let _ = pallet_identity::Claims::<T>::clear_prefix(claim_first, 1, None);
         }
 
         let nominators: Vec<T::AccountId> = nominators.iter().map(|x| x.0.account()).collect();

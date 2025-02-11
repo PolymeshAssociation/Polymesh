@@ -14,11 +14,11 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    AuthorizationType, Authorizations, AuthorizationsGiven, Config, CurrentAuthId, Error,
-    KeyRecords, Module, NumberOfGivenAuths, RawEvent,
+    AuthorizationType, Authorizations, AuthorizationsGiven, Config, CurrentAuthId, Error, Event,
+    KeyRecords, NumberOfGivenAuths, Pallet,
 };
 use frame_support::dispatch::DispatchResult;
-use frame_support::{ensure, StorageDoubleMap, StorageMap, StorageValue};
+use frame_support::ensure;
 use frame_system::ensure_signed;
 use polymesh_primitives::{
     Authorization, AuthorizationData, AuthorizationError, IdentityId, Signatory,
@@ -27,7 +27,7 @@ use sp_core::Get;
 use sp_runtime::DispatchError;
 use sp_std::vec::Vec;
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     /// Adds an authorization.
     pub(crate) fn base_add_authorization(
         origin: T::RuntimeOrigin,
@@ -56,15 +56,15 @@ impl<T: Config> Module<T> {
         authorization_data: AuthorizationData<T::AccountId>,
         expiry: Option<T::Moment>,
     ) -> Result<u64, DispatchError> {
-        let number_of_given_auths = NumberOfGivenAuths::get(from);
+        let number_of_given_auths = NumberOfGivenAuths::<T>::get(from);
         ensure!(
             number_of_given_auths < T::MaxGivenAuths::get(),
             Error::<T>::ExceededNumberOfGivenAuths
         );
-        NumberOfGivenAuths::insert(from, number_of_given_auths.saturating_add(1));
+        NumberOfGivenAuths::<T>::insert(from, number_of_given_auths.saturating_add(1));
 
         let new_auth_id = Self::current_auth_id().saturating_add(1);
-        CurrentAuthId::put(new_auth_id);
+        CurrentAuthId::<T>::put(new_auth_id);
 
         let auth = Authorization {
             authorization_data: authorization_data.clone(),
@@ -74,11 +74,11 @@ impl<T: Config> Module<T> {
             count: 50,
         };
 
-        <Authorizations<T>>::insert(target.clone(), new_auth_id, auth);
-        <AuthorizationsGiven<T>>::insert(from, new_auth_id, target.clone());
+        Authorizations::<T>::insert(target.clone(), new_auth_id, auth);
+        AuthorizationsGiven::<T>::insert(from, new_auth_id, target.clone());
 
         // This event is split in order to help the event harvesters.
-        Self::deposit_event(RawEvent::AuthorizationAdded(
+        Self::deposit_event(Event::AuthorizationAdded(
             from,
             target.as_identity().cloned(),
             target.as_account().cloned(),
@@ -97,9 +97,9 @@ impl<T: Config> Module<T> {
         auth_id: u64,
     ) -> DispatchResult {
         let sender = ensure_signed(origin)?;
-        let from_did = if <KeyRecords<T>>::contains_key(&sender) {
+        let from_did = if KeyRecords::<T>::contains_key(&sender) {
             // If the sender is linked to an identity, ensure that it has relevant permissions
-            Some(pallet_permissions::Module::<T>::ensure_call_permissions(&sender)?.primary_did)
+            Some(pallet_permissions::Pallet::<T>::ensure_call_permissions(&sender)?.primary_did)
         } else {
             None
         };
@@ -122,17 +122,17 @@ impl<T: Config> Module<T> {
         authorizer: &IdentityId,
         revoked: bool,
     ) {
-        <Authorizations<T>>::remove(target, auth_id);
-        <AuthorizationsGiven<T>>::remove(authorizer, auth_id);
-        NumberOfGivenAuths::mutate(authorizer, |number_of_given_auths| {
+        Authorizations::<T>::remove(target, auth_id);
+        AuthorizationsGiven::<T>::remove(authorizer, auth_id);
+        NumberOfGivenAuths::<T>::mutate(authorizer, |number_of_given_auths| {
             *number_of_given_auths = number_of_given_auths.saturating_sub(1);
         });
         let id = target.as_identity().cloned();
         let acc = target.as_account().cloned();
         let event = if revoked {
-            RawEvent::AuthorizationRevoked
+            Event::AuthorizationRevoked
         } else {
-            RawEvent::AuthorizationRejected
+            Event::AuthorizationRejected
         };
         Self::deposit_event(event(id, acc, auth_id))
     }
@@ -147,7 +147,7 @@ impl<T: Config> Module<T> {
         auth_type: Option<AuthorizationType>,
     ) -> Vec<Authorization<T::AccountId, T::Moment>> {
         let now = <pallet_timestamp::Pallet<T>>::get();
-        let auths = <Authorizations<T>>::iter_prefix_values(signatory)
+        let auths = Authorizations::<T>::iter_prefix_values(signatory)
             .filter(|auth| allow_expired || auth.expiry.filter(|&e| e < now).is_none());
         if let Some(auth_type) = auth_type {
             auths
@@ -197,12 +197,12 @@ impl<T: Config> Module<T> {
         accepter(auth.authorization_data.clone(), auth.authorized_by)?;
 
         // Remove authorization from storage and emit event.
-        <Authorizations<T>>::remove(&target, auth_id);
-        <AuthorizationsGiven<T>>::remove(auth.authorized_by, auth_id);
-        NumberOfGivenAuths::mutate(auth.authorized_by, |number_of_given_auths| {
+        Authorizations::<T>::remove(&target, auth_id);
+        AuthorizationsGiven::<T>::remove(auth.authorized_by, auth_id);
+        NumberOfGivenAuths::<T>::mutate(auth.authorized_by, |number_of_given_auths| {
             *number_of_given_auths = number_of_given_auths.saturating_sub(1);
         });
-        Self::deposit_event(RawEvent::AuthorizationConsumed(
+        Self::deposit_event(Event::AuthorizationConsumed(
             target.as_identity().cloned(),
             target.as_account().cloned(),
             auth_id,

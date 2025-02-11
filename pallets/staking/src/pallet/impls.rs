@@ -257,7 +257,7 @@ impl<T: Config> Pallet<T> {
             // Polymesh change
             // -----------------------------------------------------------------
             let stash_did =
-                pallet_identity::Module::<T>::get_identity(&ledger.stash).unwrap_or_default();
+                pallet_identity::Pallet::<T>::get_identity(&ledger.stash).unwrap_or_default();
             // -----------------------------------------------------------------
             Self::deposit_event(Event::<T>::Rewarded {
                 identity: stash_did,
@@ -286,7 +286,7 @@ impl<T: Config> Pallet<T> {
                 // Polymesh change
                 // -----------------------------------------------------------------
                 let nominator_did =
-                    pallet_identity::Module::<T>::get_identity(&nominator.who).unwrap_or_default();
+                    pallet_identity::Pallet::<T>::get_identity(&nominator.who).unwrap_or_default();
                 // -----------------------------------------------------------------
                 let e = Event::<T>::Rewarded {
                     identity: nominator_did,
@@ -1111,16 +1111,16 @@ impl<T: Config> Pallet<T> {
 
     /// Returns `true` if `stash` has a valid cdd claim and is permissioned. Otherwise, returns `false`.
     pub(crate) fn is_validator_compliant(stash: &T::AccountId) -> bool {
-        pallet_identity::Module::<T>::get_identity(stash).map_or(false, |id| {
-            pallet_identity::Module::<T>::has_valid_cdd(id)
+        pallet_identity::Pallet::<T>::get_identity(stash).map_or(false, |id| {
+            pallet_identity::Pallet::<T>::has_valid_cdd(id)
                 && Self::permissioned_identity(id).is_some()
         })
     }
 
     /// Returns `true` if `who` has a valid cdd claim. Otherwise, returns `false`.
     pub(crate) fn is_nominator_compliant(who: &T::AccountId) -> bool {
-        pallet_identity::Module::<T>::get_identity(who)
-            .map_or(false, |id| pallet_identity::Module::<T>::has_valid_cdd(id))
+        pallet_identity::Pallet::<T>::get_identity(who)
+            .map_or(false, |id| pallet_identity::Pallet::<T>::has_valid_cdd(id))
     }
 
     pub(crate) fn get_bonding_duration_period() -> u64 {
@@ -1135,7 +1135,7 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
-        if let Some(did) = pallet_identity::Module::<T>::get_identity(stash) {
+        if let Some(did) = pallet_identity::Pallet::<T>::get_identity(stash) {
             PermissionedIdentity::<T>::mutate(&did, |preferences| {
                 if let Some(p) = preferences {
                     if p.running_count > 0 {
@@ -1143,7 +1143,7 @@ impl<T: Config> Pallet<T> {
                     }
                 }
             });
-            pallet_identity::Module::<T>::remove_account_key_ref_count(&stash);
+            pallet_identity::Pallet::<T>::remove_account_key_ref_count(&stash);
         }
     }
 
@@ -1228,7 +1228,7 @@ impl<T: Config> Pallet<T> {
         T::AdminOrigin::ensure_origin(origin)?;
 
         for key in &stash_keys {
-            let key_did = pallet_identity::Module::<T>::get_identity(&key);
+            let key_did = pallet_identity::Pallet::<T>::get_identity(&key);
             // Checks if the stash key identity is the same as the identity given.
             ensure!(key_did == Some(identity), Error::<T>::NotStash);
             // Checks if the key is a validator if not returns an error.

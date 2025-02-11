@@ -9,7 +9,7 @@ use polymesh_primitives::traits::CddAndFeeDetails;
 use sp_keyring::AccountKeyring;
 
 type Error = pallet_protocol_fee::Error<TestStorage>;
-type ProtocolFee = pallet_protocol_fee::Module<TestStorage>;
+type ProtocolFee = pallet_protocol_fee::Pallet<TestStorage>;
 
 #[test]
 fn can_compute_fee() {

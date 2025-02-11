@@ -7,6 +7,7 @@ use polymesh_runtime_develop::{
 };
 
 use frame_support::dispatch::{DispatchClass, DispatchInfo, Weight};
+use frame_support::pallet_prelude::*;
 use frame_system::{
     CheckEra, CheckGenesis, CheckNonce, CheckSpecVersion, CheckTxVersion, CheckWeight,
 };

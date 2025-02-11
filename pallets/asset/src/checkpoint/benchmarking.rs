@@ -29,7 +29,7 @@ fn init_with_existing<T: Config>(asset_owner: &User<T>, existing: u64) -> AssetI
 
     for n in 0..existing {
         let schedule = ScheduleCheckpoints::new(CP_BASE + n);
-        Module::<T>::create_schedule(asset_owner.origin.clone().into(), asset_id, schedule)
+        Pallet::<T>::create_schedule(asset_owner.origin.clone().into(), asset_id, schedule)
             .unwrap();
     }
 
@@ -39,7 +39,7 @@ fn init_with_existing<T: Config>(asset_owner: &User<T>, existing: u64) -> AssetI
 benchmarks! {
     set_schedules_max_complexity {}: _(RawOrigin::Root, 7)
     verify {
-        assert_eq!(Module::<T>::schedules_max_complexity(), 7)
+        assert_eq!(Pallet::<T>::schedules_max_complexity(), 7)
     }
 
     create_checkpoint {
@@ -48,20 +48,20 @@ benchmarks! {
         let asset_id = create_sample_asset::<T>(&alice, true);
     }: _(alice.origin, asset_id)
     verify {
-        assert_eq!(Module::<T>::checkpoint_id_sequence(asset_id), CheckpointId(1))
+        assert_eq!(Pallet::<T>::checkpoint_id_sequence(asset_id), CheckpointId(1))
     }
 
     create_schedule {
         <pallet_timestamp::Now<T>>::set(1000u32.into());
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
 
-        let max = Module::<T>::schedules_max_complexity();
+        let max = Pallet::<T>::schedules_max_complexity();
         let schedule = ScheduleCheckpoints::new_checkpoints(
             (0..max).into_iter().map(|n| CP_BASE + n).collect()
         );
 
         // Must fit in the max complexity.
-        Module::<T>::set_schedules_max_complexity(
+        Pallet::<T>::set_schedules_max_complexity(
             RawOrigin::Root.into(),
             10 * max
         ).unwrap();
@@ -69,17 +69,17 @@ benchmarks! {
         let asset_id = init_with_existing::<T>(&alice, max);
     }: _(alice.origin, asset_id, schedule)
     verify {
-        assert_eq!(Module::<T>::schedule_id_sequence(asset_id), ScheduleId(max + 1))
+        assert_eq!(Pallet::<T>::schedule_id_sequence(asset_id), ScheduleId(max + 1))
     }
 
     remove_schedule {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let max = Module::<T>::schedules_max_complexity();
+        let max = Pallet::<T>::schedules_max_complexity();
 
         let id = ScheduleId(max);
         let asset_id = init_with_existing::<T>(&alice, max);
     }: _(alice.origin, asset_id, id)
     verify {
-        assert_eq!(Module::<T>::scheduled_checkpoints(asset_id, id), None);
+        assert_eq!(Pallet::<T>::scheduled_checkpoints(asset_id, id), None);
     }
 }

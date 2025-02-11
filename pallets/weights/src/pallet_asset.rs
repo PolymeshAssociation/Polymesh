@@ -764,4 +764,14 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(4))
     }
+    // Storage: Asset AssetMetadataGlobalNameToKey (r:1 w:0)
+    // Proof Skipped: Asset AssetMetadataGlobalNameToKey (max_values: None, max_size: None, mode: Measured)
+    // Storage: Asset AssetMetadataGlobalSpecs (r:1 w:1)
+    // Proof Skipped: Asset AssetMetadataGlobalSpecs (max_values: None, max_size: None, mode: Measured)
+    fn update_global_metadata_spec() -> Weight {
+        // Minimum execution time: 40_469 nanoseconds.
+        Weight::from_ref_time(40_786_000)
+            .saturating_add(DbWeight::get().reads(2))
+            .saturating_add(DbWeight::get().writes(1))
+    }
 }

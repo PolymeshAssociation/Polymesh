@@ -129,7 +129,7 @@ pub trait WeightInfo {
     }
 }
 
-type IdentityPallet<T> = pallet_identity::Module<T>;
+type IdentityPallet<T> = pallet_identity::Pallet<T>;
 
 storage_migration_ver!(3);
 
@@ -559,7 +559,7 @@ pub mod pallet {
             let multisig = ensure_signed(origin.clone())?;
             Self::ensure_ms(&multisig)?;
             AuthToProposalId::<T>::remove(multisig, auth_id);
-            pallet_identity::Module::<T>::join_identity(origin, auth_id)?;
+            pallet_identity::Pallet::<T>::join_identity(origin, auth_id)?;
             Ok(().into())
         }
 
@@ -1149,31 +1149,37 @@ impl<T: Config> Pallet<T> {
             Error::<T>::MaxWeightTooLow
         );
 
-        let (result, actual_weight) = match with_call_metadata(proposal.get_call_metadata(), || {
-            // Check execution reentry guard.
-            ensure!(!Self::execution_reentry(), Error::<T>::NestingNotAllowed,);
+        let (result, actual_weight) =
+            match with_call_metadata::<T, _>(proposal.get_call_metadata(), || {
+                // Check execution reentry guard.
+                ensure!(!Self::execution_reentry(), Error::<T>::NestingNotAllowed,);
 
-            // Enable reentry guard before executing the proposal.
-            ExecutionReentry::<T>::set(true);
-            // Execute proposal.
-            let res = proposal.dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into());
-            // Make sure to reset the reentry guard, even if the proposal throws an error.
-            ExecutionReentry::<T>::set(false);
-            res
-        }) {
-            Ok(post_info) => {
-                ProposalStates::<T>::insert(
-                    multisig,
-                    proposal_id,
-                    ProposalState::ExecutionSuccessful,
-                );
-                (Ok(()), post_info.actual_weight)
-            }
-            Err(e) => {
-                ProposalStates::<T>::insert(multisig, proposal_id, ProposalState::ExecutionFailed);
-                (Err(e.error), e.post_info.actual_weight)
-            }
-        };
+                // Enable reentry guard before executing the proposal.
+                ExecutionReentry::<T>::set(true);
+                // Execute proposal.
+                let res =
+                    proposal.dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into());
+                // Make sure to reset the reentry guard, even if the proposal throws an error.
+                ExecutionReentry::<T>::set(false);
+                res
+            }) {
+                Ok(post_info) => {
+                    ProposalStates::<T>::insert(
+                        multisig,
+                        proposal_id,
+                        ProposalState::ExecutionSuccessful,
+                    );
+                    (Ok(()), post_info.actual_weight)
+                }
+                Err(e) => {
+                    ProposalStates::<T>::insert(
+                        multisig,
+                        proposal_id,
+                        ProposalState::ExecutionFailed,
+                    );
+                    (Err(e.error), e.post_info.actual_weight)
+                }
+            };
 
         Self::deposit_event(Event::ProposalExecuted {
             caller_did,

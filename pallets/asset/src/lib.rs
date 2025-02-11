@@ -83,7 +83,6 @@ pub mod checkpoint;
 #[cfg(feature = "runtime-benchmarks")]
 use frame_system::RawOrigin;
 
-mod error;
 mod migrations;
 mod types;
 
@@ -91,10 +90,10 @@ use codec::{Decode, Encode};
 use core::mem;
 use currency::*;
 use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::ensure;
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
 use frame_support::BoundedBTreeSet;
-use frame_support::{decl_event, decl_module, decl_storage, ensure};
 use frame_system::ensure_root;
 use sp_io::hashing::blake2_128;
 use sp_runtime::traits::Zero;
@@ -121,73 +120,102 @@ use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait, ComplianceFnConfig, NFTTrait};
 use polymesh_primitives::{
     extract_auth, storage_migrate_on, storage_migration_ver, AssetIdentifier, Balance, Document,
-    DocumentId, IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, SecondaryKey,
-    Ticker, WeightMeter,
+    DocumentId, IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, Ticker,
+    WeightMeter,
 };
 
-pub use error::Error;
 pub use types::{
     AssetDetails, AssetOwnershipRelation, TickerRegistration, TickerRegistrationConfig,
     TickerRegistrationStatus,
 };
 
-type Checkpoint<T> = checkpoint::Module<T>;
-type ExternalAgents<T> = pallet_external_agents::Module<T>;
-type Identity<T> = pallet_identity::Module<T>;
-type Portfolio<T> = pallet_portfolio::Module<T>;
-type Statistics<T> = pallet_statistics::Module<T>;
+type Checkpoint<T> = checkpoint::Pallet<T>;
+type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
+type IdentityPallet<T> = pallet_identity::Pallet<T>;
+type Portfolio<T> = pallet_portfolio::Pallet<T>;
+type Statistics<T> = pallet_statistics::Pallet<T>;
+
+/// Combinded config traits of the asset and checkpoint pallets.
+pub trait AssetConfig: Config + checkpoint::Config {}
+
+impl<T: Config + checkpoint::Config> AssetConfig for T {}
 
 storage_migration_ver!(6);
 
+pub use pallet::*;
+
 /// The module's configuration trait.
-pub trait Config:
-    EAConfig + pallet_statistics::Config + pallet_portfolio::Config + AssetFnConfig
-{
-    /// The overarching event type.
-    type RuntimeEvent: From<Event<Self>>
-        + From<checkpoint::Event>
-        + Into<<Self as frame_system::Config>::RuntimeEvent>;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-    type Currency: Currency<Self::AccountId>;
-
-    type ComplianceManager: ComplianceFnConfig;
-
-    /// Time used in computation of checkpoints.
-    type UnixTime: UnixTime;
-
-    /// Max length for the name of an asset.
-    type AssetNameMaxLength: Get<u32>;
-
-    /// Max length of the funding round name.
-    type FundingRoundNameMaxLength: Get<u32>;
-
-    /// Max length for the Asset Metadata type name.
-    type AssetMetadataNameMaxLength: Get<u32>;
-
-    /// Max length for the Asset Metadata value.
-    type AssetMetadataValueMaxLength: Get<u32>;
-
-    /// Max length for the Asset Metadata type definition.
-    type AssetMetadataTypeDefMaxLength: Get<u32>;
-
-    type WeightInfo: WeightInfo;
-
-    type CPWeightInfo: checkpoint::WeightInfo;
-
-    type NFTFn: NFTTrait<Self::RuntimeOrigin>;
-
-    /// Maximum number of mediators for an asset.
-    type MaxAssetMediators: Get<u32>;
-}
-
-decl_event! {
-    pub enum Event<T>
-    where
-        Moment = <T as pallet_timestamp::Config>::Moment,
+    #[pallet::config]
+    pub trait Config:
+        frame_system::Config
+        + EAConfig
+        + pallet_statistics::Config
+        + pallet_portfolio::Config
+        + AssetFnConfig
     {
+        /// The overarching event type.
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+        type Currency: Currency<Self::AccountId>;
+
+        type ComplianceManager: ComplianceFnConfig;
+
+        /// Time used in computation of checkpoints.
+        type UnixTime: UnixTime;
+
+        /// Max length for the name of an asset.
+        #[pallet::constant]
+        type AssetNameMaxLength: Get<u32>;
+
+        /// Max length of the funding round name.
+        #[pallet::constant]
+        type FundingRoundNameMaxLength: Get<u32>;
+
+        /// Max length for the Asset Metadata type name.
+        #[pallet::constant]
+        type AssetMetadataNameMaxLength: Get<u32>;
+
+        /// Max length for the Asset Metadata value.
+        #[pallet::constant]
+        type AssetMetadataValueMaxLength: Get<u32>;
+
+        /// Max length for the Asset Metadata type definition.
+        #[pallet::constant]
+        type AssetMetadataTypeDefMaxLength: Get<u32>;
+
+        type WeightInfo: WeightInfo;
+
+        type NFTFn: NFTTrait<Self::RuntimeOrigin>;
+
+        /// Maximum number of mediators for an asset.
+        #[pallet::constant]
+        type MaxAssetMediators: Get<u32>;
+    }
+
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
         /// Event for creation of the asset.
         /// caller DID/ owner DID, AssetId, divisibility, asset type, beneficiary DID, asset name, identifiers, funding round
-        AssetCreated(IdentityId, AssetId, bool, AssetType, IdentityId, AssetName, Vec<AssetIdentifier>, Option<FundingRoundName>),
+        AssetCreated(
+            IdentityId,
+            AssetId,
+            bool,
+            AssetType,
+            IdentityId,
+            AssetName,
+            Vec<AssetIdentifier>,
+            Option<FundingRoundName>,
+        ),
         /// Event emitted when any token identifiers are updated.
         /// caller DID, AssetId, a vector of (identifier type, identifier value)
         IdentifiersUpdated(IdentityId, AssetId, Vec<AssetIdentifier>),
@@ -196,7 +224,7 @@ decl_event! {
         DivisibilityChanged(IdentityId, AssetId, bool),
         /// Emit when ticker is registered.
         /// caller DID / ticker owner did, ticker, ticker owner, expiry
-        TickerRegistered(IdentityId, Ticker, Option<Moment>),
+        TickerRegistered(IdentityId, Ticker, Option<T::Moment>),
         /// Emit when ticker is transferred.
         /// caller DID / ticker transferred to DID, ticker, from
         TickerTransferred(IdentityId, Ticker, IdentityId),
@@ -230,16 +258,31 @@ decl_event! {
         CustomAssetTypeRegistered(IdentityId, CustomAssetTypeId, Vec<u8>),
         /// Set asset metadata value.
         /// (Caller DID, AssetId, metadata value, optional value details)
-        SetAssetMetadataValue(IdentityId, AssetId, AssetMetadataValue, Option<AssetMetadataValueDetail<Moment>>),
+        SetAssetMetadataValue(
+            IdentityId,
+            AssetId,
+            AssetMetadataValue,
+            Option<AssetMetadataValueDetail<T::Moment>>,
+        ),
         /// Set asset metadata value details (expire, lock status).
         /// (Caller DID, AssetId, value details)
-        SetAssetMetadataValueDetails(IdentityId, AssetId, AssetMetadataValueDetail<Moment>),
+        SetAssetMetadataValueDetails(IdentityId, AssetId, AssetMetadataValueDetail<T::Moment>),
         /// Register asset metadata local type.
         /// (Caller DID, AssetId, Local type name, Local type key, type specs)
-        RegisterAssetMetadataLocalType(IdentityId, AssetId, AssetMetadataName, AssetMetadataLocalKey, AssetMetadataSpec),
+        RegisterAssetMetadataLocalType(
+            IdentityId,
+            AssetId,
+            AssetMetadataName,
+            AssetMetadataLocalKey,
+            AssetMetadataSpec,
+        ),
         /// Register asset metadata global type.
         /// (Global type name, Global type key, type specs)
-        RegisterAssetMetadataGlobalType(AssetMetadataName, AssetMetadataGlobalKey, AssetMetadataSpec),
+        RegisterAssetMetadataGlobalType(
+            AssetMetadataName,
+            AssetMetadataGlobalKey,
+            AssetMetadataSpec,
+        ),
         /// An event emitted when the type of an asset changed.
         /// Parameters: caller DID, AssetId, new token type.
         AssetTypeChanged(IdentityId, AssetId, AssetType),
@@ -284,204 +327,324 @@ decl_event! {
         /// An identity has unlinked a ticker from an asset.
         /// Parameters: [`IdentityId`] of caller, unlinked [`Ticker`], the asset identifier [`AssetId`].
         TickerUnlinkedFromAsset(IdentityId, Ticker, AssetId),
-    }
-}
-
-pub trait WeightInfo {
-    fn register_unique_ticker() -> Weight;
-    fn accept_ticker_transfer() -> Weight;
-    fn accept_asset_ownership_transfer() -> Weight;
-    fn create_asset(n: u32, i: u32, f: u32) -> Weight;
-    fn freeze() -> Weight;
-    fn unfreeze() -> Weight;
-    fn rename_asset(n: u32) -> Weight;
-    fn issue() -> Weight;
-    fn redeem() -> Weight;
-    fn make_divisible() -> Weight;
-    fn add_documents(d: u32) -> Weight;
-    fn remove_documents(d: u32) -> Weight;
-    fn set_funding_round(f: u32) -> Weight;
-    fn update_identifiers(i: u32) -> Weight;
-    fn controller_transfer() -> Weight;
-    fn register_custom_asset_type(n: u32) -> Weight;
-    fn set_asset_metadata() -> Weight;
-    fn set_asset_metadata_details() -> Weight;
-    fn register_and_set_local_asset_metadata() -> Weight;
-    fn register_asset_metadata_local_type() -> Weight;
-    fn register_asset_metadata_global_type() -> Weight;
-    fn update_asset_type() -> Weight;
-    fn remove_local_metadata_key() -> Weight;
-    fn remove_metadata_value() -> Weight;
-    fn base_transfer() -> Weight;
-    fn exempt_asset_affirmation() -> Weight;
-    fn remove_asset_affirmation_exemption() -> Weight;
-    fn pre_approve_asset() -> Weight;
-    fn remove_asset_pre_approval() -> Weight;
-    fn add_mandatory_mediators(n: u32) -> Weight;
-    fn remove_mandatory_mediators(n: u32) -> Weight;
-    fn link_ticker_to_asset_id() -> Weight;
-    fn unlink_ticker_from_asset_id() -> Weight;
-}
-decl_storage! {
-    trait Store for Module<T: Config> as Asset {
-        /// Maps each [`Ticker`] to its registration details ([`TickerRegistration`]).
-        pub UniqueTickerRegistration get(fn unique_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<TickerRegistration<T::Moment>>;
-        /// Returns [`TickerRegistrationConfig`] for assessing if a ticker is valid.
-        pub TickerConfig get(fn ticker_registration_config) config(): TickerRegistrationConfig<T::Moment>;
-        /// Maps each [`AssetId`] to its underling [`AssetDetails`].
-        pub Assets get(fn assets_details): map hasher(blake2_128_concat) AssetId => Option<AssetDetails>;
-        /// Maps each [`AssetId`] to its underling [`AssetName`].
-        pub AssetNames get(fn asset_names): map hasher(blake2_128_concat) AssetId => Option<AssetName>;
-        /// Tracks the total [`Balance`] for each [`AssetId`] per [`IdentityId`].
-        // NB: It is safe to use `identity` hasher here because assets can not be distributed to non-existent identities.
-        pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) AssetId, hasher(identity) IdentityId => Balance;
-        /// Maps each [`AssetId`] to its asset identifiers ([`AssetIdentifier`]).
-        pub AssetIdentifiers get(fn asset_identifiers): map hasher(blake2_128_concat) AssetId => Vec<AssetIdentifier>;
-
-        /// The next `AssetType::Custom` ID in the sequence.
-        ///
-        /// Numbers in the sequence start from 1 rather than 0.
-        pub CustomTypeIdSequence get(fn custom_type_id_seq): CustomAssetTypeId;
-        /// Maps custom asset type ids to the registered string contents.
-        pub CustomTypes get(fn custom_types): map hasher(twox_64_concat) CustomAssetTypeId => Vec<u8>;
-        /// Inverse map of `CustomTypes`, from registered string contents to custom asset type ids.
-        pub CustomTypesInverse get(fn custom_types_inverse): map hasher(blake2_128_concat) Vec<u8> => Option<CustomAssetTypeId>;
-
-        /// Maps each [`AssetId`] to the name of its founding round ([`FundingRoundName`]).
-        pub FundingRound get(fn funding_round): map hasher(blake2_128_concat) AssetId => FundingRoundName;
-        /// The total [`Balance`] of tokens issued in all recorded funding rounds ([`FundingRoundName`]).
-        pub IssuedInFundingRound get(fn issued_in_funding_round): map hasher(blake2_128_concat) (AssetId, FundingRoundName) => Balance;
-        /// Returns `true` if transfers for the asset are frozen. Otherwise, returns `false`.
-        pub Frozen get(fn frozen): map hasher(blake2_128_concat) AssetId => bool;
-        /// All [`Document`] attached to an asset.
-        pub AssetDocuments get(fn asset_documents):
-            double_map hasher(blake2_128_concat) AssetId, hasher(twox_64_concat) DocumentId => Option<Document>;
-        /// [`DocumentId`] counter per [`AssetId`].
-        pub AssetDocumentsIdSequence get(fn asset_documents_id_sequence): map hasher(blake2_128_concat) AssetId => DocumentId;
-
-        /// Metatdata values for an asset.
-        pub AssetMetadataValues get(fn asset_metadata_values):
-            double_map hasher(blake2_128_concat) AssetId, hasher(twox_64_concat) AssetMetadataKey =>
-                Option<AssetMetadataValue>;
-        /// Details for an asset's Metadata values.
-        pub AssetMetadataValueDetails get(fn asset_metadata_value_details):
-            double_map hasher(blake2_128_concat) AssetId, hasher(twox_64_concat) AssetMetadataKey =>
-                Option<AssetMetadataValueDetail<T::Moment>>;
-
-        /// Asset Metadata Local Name -> Key.
-        pub AssetMetadataLocalNameToKey get(fn asset_metadata_local_name_to_key):
-            double_map hasher(blake2_128_concat) AssetId, hasher(blake2_128_concat) AssetMetadataName =>
-                Option<AssetMetadataLocalKey>;
-        /// Asset Metadata Global Name -> Key.
-        pub AssetMetadataGlobalNameToKey get(fn asset_metadata_global_name_to_key):
-            map hasher(blake2_128_concat) AssetMetadataName => Option<AssetMetadataGlobalKey>;
-
-        /// Asset Metadata Local Key -> Name.
-        pub AssetMetadataLocalKeyToName get(fn asset_metadata_local_key_to_name):
-            double_map hasher(blake2_128_concat) AssetId, hasher(twox_64_concat) AssetMetadataLocalKey =>
-                Option<AssetMetadataName>;
-        /// Asset Metadata Global Key -> Name.
-        pub AssetMetadataGlobalKeyToName get(fn asset_metadata_global_key_to_name):
-            map hasher(twox_64_concat) AssetMetadataGlobalKey => Option<AssetMetadataName>;
-
-        /// Asset Metadata Local Key specs.
-        pub AssetMetadataLocalSpecs get(fn asset_metadata_local_specs):
-            double_map hasher(blake2_128_concat) AssetId, hasher(twox_64_concat) AssetMetadataLocalKey =>
-                Option<AssetMetadataSpec>;
-        /// Asset Metadata Global Key specs.
-        pub AssetMetadataGlobalSpecs get(fn asset_metadata_global_specs):
-            map hasher(twox_64_concat) AssetMetadataGlobalKey => Option<AssetMetadataSpec>;
-
-        /// A list of assets that exempt all users from affirming its receivement.
-        pub AssetsExemptFromAffirmation get(fn assets_exempt_from_affirmation):
-            map hasher(blake2_128_concat) AssetId => bool;
-
-        /// All assets that don't need an affirmation to be received by an identity.
-        pub PreApprovedAsset get(fn pre_approved_asset):
-            double_map hasher(identity) IdentityId, hasher(blake2_128_concat) AssetId => bool;
-
-        /// The list of mandatory mediators for every ticker.
-        pub MandatoryMediators get(fn mandatory_mediators):
-            map hasher(blake2_128_concat) AssetId => BoundedBTreeSet<IdentityId, T::MaxAssetMediators>;
-
-        /// The last [`AssetMetadataLocalKey`] used for [`AssetId`].
-        pub CurrentAssetMetadataLocalKey get(fn current_asset_metadata_local_key):
-            map hasher(blake2_128_concat) AssetId => Option<AssetMetadataLocalKey>;
-
-        /// The last [`AssetMetadataGlobalKey`] used for a global key.
-        pub CurrentAssetMetadataGlobalKey get(fn current_asset_metadata_global_key): Option<AssetMetadataGlobalKey>;
-
-        /// All tickers owned by a user.
-        pub TickersOwnedByUser get(fn tickers_owned_by_user):
-            double_map hasher(identity) IdentityId, hasher(blake2_128_concat) Ticker => bool;
-
-        /// All assets owned by a user.
-        pub SecurityTokensOwnedByUser get(fn security_tokens_owned_by_user):
-            double_map hasher(identity) IdentityId, hasher(blake2_128_concat) AssetId => bool;
-
-        /// Maps all [`AssetId`] that are mapped to a [`Ticker`].
-        pub AssetIdTicker get(fn asset_id_ticker): map hasher(blake2_128_concat) AssetId => Option<Ticker>;
-
-        /// Maps all [`Ticker`] that are linked to an [`AssetId`].
-        pub TickerAssetId get(fn ticker_asset_id): map hasher(blake2_128_concat) Ticker => Option<AssetId>;
-
-        /// A per account nonce that is used for generating an [`AssetId`].
-        pub AssetNonce: map hasher(identity) T::AccountId => u64;
-
-        /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(6)): Version;
+        /// Asset Global Metadata Spec has been Updated.
+        /// Parameters: [`AssetMetadataName`] of the metadata, [`AssetMetadataSpec`] of the metadata.
+        GlobalMetadataSpecUpdated(AssetMetadataName, AssetMetadataSpec),
     }
 
-    add_extra_genesis {
-        config(reserved_country_currency_codes): Vec<Ticker>;
-        config(asset_metadata): Vec<(AssetMetadataName, AssetMetadataSpec)>;
+    /// Map each [`Ticker`] to its registration details ([`TickerRegistration`]).
+    #[pallet::storage]
+    #[pallet::getter(fn unique_ticker_registration)]
+    pub type UniqueTickerRegistration<T: Config> =
+        StorageMap<_, Blake2_128Concat, Ticker, TickerRegistration<T::Moment>, OptionQuery>;
 
-        build(|config: &GenesisConfig<T>| {
-            // Reserving country currency logic
-            let fiat_tickers_reservation_did =
-                polymesh_primitives::SystematicIssuers::FiatTickersReservation.as_id();
-            for currency_ticker in &config.reserved_country_currency_codes {
-                let _ = <Module<T>>::unverified_register_ticker(
-                    *currency_ticker,
-                    fiat_tickers_reservation_did,
-                    None,
-                    false
-                );
-            }
+    /// Returns [`TickerRegistrationConfig`] for assessing if a ticker is valid.
+    #[pallet::storage]
+    #[pallet::getter(fn ticker_registration_config)]
+    pub type TickerConfig<T: Config> =
+        StorageValue<_, TickerRegistrationConfig<T::Moment>, ValueQuery>;
 
-            // Register Asset Metadata.
-            for (name, spec) in &config.asset_metadata {
-                <Module<T>>::base_register_asset_metadata_global_type(name.clone(), spec.clone())
-                    .expect("Shouldn't fail");
-            }
-        });
-    }
+    /// Maps each [`AssetId`] to its underling [`AssetDetails`].
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn assets_details)]
+    pub type Assets<T: Config> =
+        StorageMap<_, Blake2_128Concat, AssetId, AssetDetails, OptionQuery>;
 
-}
+    /// Maps each [`AssetId`] to its underling [`AssetName`].
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn asset_names)]
+    pub type AssetNames<T: Config> =
+        StorageMap<_, Blake2_128Concat, AssetId, AssetName, OptionQuery>;
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
+    /// Tracks the total [`Balance`] for each [`AssetId`] per [`IdentityId`].
+    // NB: It is safe to use `identity` hasher here because assets can not be distributed to non-existent identities.
+    #[pallet::storage]
+    #[pallet::getter(fn balance_of)]
+    pub type BalanceOf<T: Config> =
+        StorageDoubleMap<_, Blake2_128Concat, AssetId, Identity, IdentityId, Balance, ValueQuery>;
 
-        type Error = Error<T>;
+    /// Maps each [`AssetId`] to its asset identifiers ([`AssetIdentifier`]).
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn asset_identifiers)]
+    pub type AssetIdentifiers<T: Config> =
+        StorageMap<_, Blake2_128Concat, AssetId, Vec<AssetIdentifier>, ValueQuery>;
 
-        const AssetNameMaxLength: u32 = T::AssetNameMaxLength::get();
-        const FundingRoundNameMaxLength: u32 = T::FundingRoundNameMaxLength::get();
-        const AssetMetadataNameMaxLength: u32 = T::AssetMetadataNameMaxLength::get();
-        const AssetMetadataValueMaxLength: u32 = T::AssetMetadataValueMaxLength::get();
-        const AssetMetadataTypeDefMaxLength: u32 = T::AssetMetadataTypeDefMaxLength::get();
-        const MaxAssetMediators: u32 = T::MaxAssetMediators::get();
+    /// The next `AssetType::Custom` ID in the sequence.
+    ///
+    /// Numbers in the sequence start from 1 rather than 0.
+    #[pallet::storage]
+    #[pallet::getter(fn custom_type_id_seq)]
+    pub type CustomTypeIdSequence<T: Config> = StorageValue<_, CustomAssetTypeId, ValueQuery>;
 
-        /// initialize the default event for this module
-        fn deposit_event() = default;
+    /// Maps custom asset type ids to the registered string contents.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn custom_types)]
+    pub type CustomTypes<T: Config> =
+        StorageMap<_, Twox64Concat, CustomAssetTypeId, Vec<u8>, ValueQuery>;
 
+    /// Inverse map of `CustomTypes`, from registered string contents to custom asset type ids.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn custom_types_inverse)]
+    pub type CustomTypesInverse<T: Config> =
+        StorageMap<_, Blake2_128Concat, Vec<u8>, CustomAssetTypeId, OptionQuery>;
+
+    /// Maps each [`AssetId`] to the name of its founding round ([`FundingRoundName`]).
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn funding_round)]
+    pub type FundingRound<T: Config> =
+        StorageMap<_, Blake2_128Concat, AssetId, FundingRoundName, ValueQuery>;
+
+    /// The total [`Balance`] of tokens issued in all recorded funding rounds ([`FundingRoundName`]).
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn issued_in_funding_round)]
+    pub type IssuedInFundingRound<T: Config> =
+        StorageMap<_, Blake2_128Concat, (AssetId, FundingRoundName), Balance, ValueQuery>;
+
+    /// Returns `true` if transfers for the asset are frozen. Otherwise, returns `false`.
+    #[pallet::storage]
+    #[pallet::getter(fn frozen)]
+    pub type Frozen<T: Config> = StorageMap<_, Blake2_128Concat, AssetId, bool, ValueQuery>;
+
+    /// All [`Document`] attached to an asset.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn asset_documents)]
+    pub type AssetDocuments<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        Twox64Concat,
+        DocumentId,
+        Document,
+        OptionQuery,
+    >;
+
+    /// [`DocumentId`] counter per [`AssetId`].
+    #[pallet::storage]
+    #[pallet::getter(fn asset_documents_id_sequence)]
+    pub type AssetDocumentsIdSequence<T: Config> =
+        StorageMap<_, Blake2_128Concat, AssetId, DocumentId, ValueQuery>;
+
+    /// Metatdata values for an asset.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn asset_metadata_values)]
+    pub type AssetMetadataValues<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        Twox64Concat,
+        AssetMetadataKey,
+        AssetMetadataValue,
+        OptionQuery,
+    >;
+
+    /// Details for an asset's Metadata values.
+    #[pallet::storage]
+    #[pallet::getter(fn asset_metadata_value_details)]
+    pub type AssetMetadataValueDetails<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        Twox64Concat,
+        AssetMetadataKey,
+        AssetMetadataValueDetail<T::Moment>,
+        OptionQuery,
+    >;
+
+    /// Asset Metadata Local Name -> Key.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn asset_metadata_local_name_to_key)]
+    pub type AssetMetadataLocalNameToKey<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        Blake2_128Concat,
+        AssetMetadataName,
+        AssetMetadataLocalKey,
+        OptionQuery,
+    >;
+
+    /// Asset Metadata Global Name -> Key.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn asset_metadata_global_name_to_key)]
+    pub type AssetMetadataGlobalNameToKey<T: Config> =
+        StorageMap<_, Blake2_128Concat, AssetMetadataName, AssetMetadataGlobalKey, OptionQuery>;
+
+    /// Asset Metadata Local Key -> Name.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn asset_metadata_local_key_to_name)]
+    pub type AssetMetadataLocalKeyToName<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        Twox64Concat,
+        AssetMetadataLocalKey,
+        AssetMetadataName,
+        OptionQuery,
+    >;
+
+    /// Asset Metadata Global Key -> Name.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn asset_metadata_global_key_to_name)]
+    pub type AssetMetadataGlobalKeyToName<T: Config> =
+        StorageMap<_, Twox64Concat, AssetMetadataGlobalKey, AssetMetadataName, OptionQuery>;
+
+    /// Asset Metadata Local Key specs.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn asset_metadata_local_specs)]
+    pub type AssetMetadataLocalSpecs<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        Twox64Concat,
+        AssetMetadataLocalKey,
+        AssetMetadataSpec,
+        OptionQuery,
+    >;
+
+    /// Asset Metadata Global Key specs.
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn asset_metadata_global_specs)]
+    pub type AssetMetadataGlobalSpecs<T: Config> =
+        StorageMap<_, Twox64Concat, AssetMetadataGlobalKey, AssetMetadataSpec, OptionQuery>;
+
+    /// A list of assets that exempt all users from affirming its receivement.
+    #[pallet::storage]
+    pub type AssetsExemptFromAffirmation<T: Config> =
+        StorageMap<_, Blake2_128Concat, AssetId, bool, ValueQuery>;
+
+    /// All assets that don't need an affirmation to be received by an identity.
+    #[pallet::storage]
+    pub type PreApprovedAsset<T: Config> =
+        StorageDoubleMap<_, Identity, IdentityId, Blake2_128Concat, AssetId, bool, ValueQuery>;
+
+    /// The list of mandatory mediators for every ticker.
+    #[pallet::storage]
+    pub type MandatoryMediators<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        BoundedBTreeSet<IdentityId, T::MaxAssetMediators>,
+        ValueQuery,
+    >;
+
+    /// The last [`AssetMetadataLocalKey`] used for [`AssetId`].
+    #[pallet::storage]
+    #[pallet::getter(fn current_asset_metadata_local_key)]
+    pub type CurrentAssetMetadataLocalKey<T: Config> =
+        StorageMap<_, Blake2_128Concat, AssetId, AssetMetadataLocalKey, OptionQuery>;
+
+    /// The last [`AssetMetadataGlobalKey`] used for a global key.
+    #[pallet::storage]
+    #[pallet::getter(fn current_asset_metadata_global_key)]
+    pub type CurrentAssetMetadataGlobalKey<T: Config> =
+        StorageValue<_, AssetMetadataGlobalKey, OptionQuery>;
+
+    /// All tickers owned by a user.
+    #[pallet::storage]
+    pub type TickersOwnedByUser<T: Config> =
+        StorageDoubleMap<_, Identity, IdentityId, Blake2_128Concat, Ticker, bool, ValueQuery>;
+
+    /// All assets owned by a user.
+    #[pallet::storage]
+    pub type SecurityTokensOwnedByUser<T: Config> =
+        StorageDoubleMap<_, Identity, IdentityId, Blake2_128Concat, AssetId, bool, ValueQuery>;
+
+    /// Maps all [`AssetId`] that are mapped to a [`Ticker`].
+    #[pallet::storage]
+    pub type AssetIdTicker<T: Config> =
+        StorageMap<_, Blake2_128Concat, AssetId, Ticker, OptionQuery>;
+
+    /// Maps all [`Ticker`] that are linked to an [`AssetId`].
+    #[pallet::storage]
+    pub type TickerAssetId<T: Config> =
+        StorageMap<_, Blake2_128Concat, Ticker, AssetId, OptionQuery>;
+
+    /// A per account nonce that is used for generating an [`AssetId`].
+    #[pallet::storage]
+    pub type AssetNonce<T: Config> = StorageMap<_, Identity, T::AccountId, u64, ValueQuery>;
+
+    /// Storage version.
+    #[pallet::storage]
+    pub type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 6, {
+            storage_migrate_on!(StorageVersion::<T>, 6, {
                 migrations::migrate_to_v6::<T>();
             });
 
             Weight::zero()
         }
+    }
 
+    #[pallet::genesis_config]
+    #[derive(frame_support::DefaultNoBound)]
+    pub struct GenesisConfig {
+        // TODO: Why is serde required here?
+        pub ticker_registration_config: TickerRegistrationConfig<polymesh_primitives::Moment>,
+        pub reserved_country_currency_codes: Vec<Ticker>,
+        pub asset_metadata: Vec<(AssetMetadataName, AssetMetadataSpec)>,
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig
+    where
+        T: AssetConfig,
+    {
+        fn build(&self) {
+            StorageVersion::<T>::put(Version::new(6));
+
+            // Set ticker registratoin config.
+            TickerConfig::<T>::put(TickerRegistrationConfig {
+                max_ticker_length: self.ticker_registration_config.max_ticker_length,
+                registration_length: self
+                    .ticker_registration_config
+                    .registration_length
+                    // TODO: Fix this hack?
+                    .map(|m| (m as u32).into()),
+            });
+
+            // Reserving country currency logic
+            let fiat_tickers_reservation_did =
+                polymesh_primitives::SystematicIssuers::FiatTickersReservation.as_id();
+            for currency_ticker in &self.reserved_country_currency_codes {
+                let _ = <Pallet<T>>::unverified_register_ticker(
+                    *currency_ticker,
+                    fiat_tickers_reservation_did,
+                    None,
+                    false,
+                );
+            }
+
+            // Register Asset Metadata.
+            for (name, spec) in &self.asset_metadata {
+                <Pallet<T>>::base_register_asset_metadata_global_type(name.clone(), spec.clone())
+                    .expect("Shouldn't fail");
+            }
+        }
+    }
+
+    #[pallet::call]
+    impl<T: Config> Pallet<T>
+    where
+        T: AssetConfig,
+    {
         /// Registers a unique ticker or extends the validity of an existing ticker.
         ///
         /// This function allows the caller to register a new ticker or extend the registration
@@ -498,8 +661,9 @@ decl_module! {
         /// * `TickerAlreadyRegistered` - If the ticker is already registered.
         /// * `TickerTooLong` - If the ticker length exceeds the maximum allowed length.
         /// * `InvalidTickerCharacter` - If the ticker contains invalid characters.
-        #[weight = <T as Config>::WeightInfo::register_unique_ticker()]
-        pub fn register_unique_ticker(origin, ticker: Ticker) -> DispatchResult {
+        #[pallet::call_index(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::register_unique_ticker())]
+        pub fn register_unique_ticker(origin: OriginFor<T>, ticker: Ticker) -> DispatchResult {
             Self::base_register_unique_ticker(origin, ticker)
         }
 
@@ -518,8 +682,9 @@ decl_module! {
         /// # Errors
         /// * `TickerRegistrationNotFound` - If the ticker registration is not found.
         /// * `TickerIsAlreadyLinkedToAnAsset` - If the ticker is already linked to an asset.
-        #[weight = <T as Config>::WeightInfo::accept_ticker_transfer()]
-        pub fn accept_ticker_transfer(origin, auth_id: u64) -> DispatchResult {
+        #[pallet::call_index(1)]
+        #[pallet::weight(<T as Config>::WeightInfo::accept_ticker_transfer())]
+        pub fn accept_ticker_transfer(origin: OriginFor<T>, auth_id: u64) -> DispatchResult {
             Self::base_accept_ticker_transfer(origin, auth_id)
         }
 
@@ -538,14 +703,18 @@ decl_module! {
         /// # Errors
         /// * `TickerRegistrationNotFound` - If the ticker registration is not found.
         /// * `TickerIsAlreadyLinkedToAnAsset` - If the ticker is already linked to an asset.
-        #[weight = <T as Config>::WeightInfo::accept_asset_ownership_transfer()]
-        pub fn accept_asset_ownership_transfer(origin, auth_id: u64) -> DispatchResult {
+        #[pallet::call_index(2)]
+        #[pallet::weight(<T as Config>::WeightInfo::accept_asset_ownership_transfer())]
+        pub fn accept_asset_ownership_transfer(
+            origin: OriginFor<T>,
+            auth_id: u64,
+        ) -> DispatchResult {
             Self::base_accept_asset_ownership_transfer(origin, auth_id)
         }
 
         /// Creates a new asset.
         ///
-        /// The total supply will initially be zero. To mint tokens, use [`Module::issue`].
+        /// The total supply will initially be zero. To mint tokens, use [`Pallet::issue`].
         ///
         /// # Arguments
         /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
@@ -562,13 +731,14 @@ decl_module! {
         /// * `MaxLengthOfAssetNameExceeded` - If the asset name length exceeds the maximum allowed length.
         /// * `InvalidCustomAssetTypeId` - If the custom asset type ID is invalid.
         /// * `InvalidAssetIdentifier` - If any of the asset identifiers are invalid.
-        #[weight = <T as Config>::WeightInfo::create_asset(
+        #[pallet::call_index(3)]
+        #[pallet::weight(<T as Config>::WeightInfo::create_asset(
             asset_name.len() as u32,
             asset_identifiers.len() as u32,
             funding_round_name.as_ref().map_or(0, |name| name.len()) as u32
-        )]
+        ))]
         pub fn create_asset(
-            origin,
+            origin: OriginFor<T>,
             asset_name: AssetName,
             divisible: bool,
             asset_type: AssetType,
@@ -581,7 +751,7 @@ decl_module! {
                 divisible,
                 asset_type,
                 asset_identifiers,
-                funding_round_name
+                funding_round_name,
             )?;
             Ok(())
         }
@@ -603,8 +773,9 @@ decl_module! {
         /// # Errors
         /// * `NoSuchAsset` - If the asset does not exist.
         /// * `AlreadyFrozen` - If the asset is already frozen.
-        #[weight = <T as Config>::WeightInfo::freeze()]
-        pub fn freeze(origin, asset_id: AssetId) -> DispatchResult {
+        #[pallet::call_index(4)]
+        #[pallet::weight(<T as Config>::WeightInfo::freeze())]
+        pub fn freeze(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
             Self::base_set_freeze(origin, asset_id, true)
         }
 
@@ -625,8 +796,9 @@ decl_module! {
         /// # Errors
         /// * `NoSuchAsset` - If the asset does not exist.
         /// * `NotFrozen` - If the asset is not frozen.
-        #[weight = <T as Config>::WeightInfo::unfreeze()]
-        pub fn unfreeze(origin, asset_id: AssetId) -> DispatchResult {
+        #[pallet::call_index(5)]
+        #[pallet::weight(<T as Config>::WeightInfo::unfreeze())]
+        pub fn unfreeze(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
             Self::base_set_freeze(origin, asset_id, false)
         }
 
@@ -648,8 +820,13 @@ decl_module! {
         /// # Errors
         /// * `MaxLengthOfAssetNameExceeded` - If the asset name length exceeds the maximum allowed length.
         /// * `NoSuchAsset` - If the asset does not exist.
-        #[weight = <T as Config>::WeightInfo::rename_asset(asset_name.len() as u32)]
-        pub fn rename_asset(origin, asset_id: AssetId, asset_name: AssetName) -> DispatchResult {
+        #[pallet::call_index(6)]
+        #[pallet::weight(<T as Config>::WeightInfo::rename_asset(asset_name.len() as u32))]
+        pub fn rename_asset(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            asset_name: AssetName,
+        ) -> DispatchResult {
             Self::base_rename_asset(origin, asset_id, asset_name)
         }
 
@@ -674,8 +851,14 @@ decl_module! {
         /// * `UnexpectedNonFungibleToken` - If the asset is a non-fungible token.
         /// * `InvalidGranularity` - If the amount to issue does not meet the granularity requirements.
         /// * `TotalSupplyOverflow` - If the total supply exceeds the maximum allowed limit.
-        #[weight = <T as Config>::WeightInfo::issue()]
-        pub fn issue(origin, asset_id: AssetId, amount: Balance, portfolio_kind: PortfolioKind) -> DispatchResult {
+        #[pallet::call_index(7)]
+        #[pallet::weight(<T as Config>::WeightInfo::issue())]
+        pub fn issue(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            amount: Balance,
+            portfolio_kind: PortfolioKind,
+        ) -> DispatchResult {
             Self::base_issue(origin, asset_id, amount, portfolio_kind)
         }
 
@@ -700,8 +883,14 @@ decl_module! {
         /// * `UnexpectedNonFungibleToken` - If the asset is a non-fungible token.
         /// * `InvalidGranularity` - If the value to redeem does not meet the granularity requirements.
         /// * `TotalSupplyOverflow` - If the total supply exceeds the maximum allowed limit.
-        #[weight = <T as Config>::WeightInfo::redeem()]
-        pub fn redeem(origin, asset_id: AssetId, value: Balance, portfolio_kind: PortfolioKind) -> DispatchResult {
+        #[pallet::call_index(8)]
+        #[pallet::weight(<T as Config>::WeightInfo::redeem())]
+        pub fn redeem(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            value: Balance,
+            portfolio_kind: PortfolioKind,
+        ) -> DispatchResult {
             let mut weight_meter = WeightMeter::max_limit_no_minimum();
             Self::base_redeem(origin, asset_id, value, portfolio_kind, &mut weight_meter)
         }
@@ -724,8 +913,9 @@ decl_module! {
         /// * `NoSuchAsset` - If the asset does not exist.
         /// * `UnexpectedNonFungibleToken` - If the asset is a non-fungible token.
         /// * `AssetAlreadyDivisible` - If the asset is already divisible.
-        #[weight = <T as Config>::WeightInfo::make_divisible()]
-        pub fn make_divisible(origin, asset_id: AssetId) -> DispatchResult {
+        #[pallet::call_index(9)]
+        #[pallet::weight(<T as Config>::WeightInfo::make_divisible())]
+        pub fn make_divisible(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
             Self::base_make_divisible(origin, asset_id)
         }
 
@@ -746,8 +936,13 @@ decl_module! {
         ///
         /// # Errors
         /// * `CounterOverflow` - If the document ID counter overflows.
-        #[weight = <T as Config>::WeightInfo::add_documents(docs.len() as u32)]
-        pub fn add_documents(origin, docs: Vec<Document>, asset_id: AssetId) -> DispatchResult {
+        #[pallet::call_index(10)]
+        #[pallet::weight(<T as Config>::WeightInfo::add_documents(docs.len() as u32))]
+        pub fn add_documents(
+            origin: OriginFor<T>,
+            docs: Vec<Document>,
+            asset_id: AssetId,
+        ) -> DispatchResult {
             Self::base_add_documents(origin, docs, asset_id)
         }
 
@@ -765,8 +960,13 @@ decl_module! {
         ///
         /// # Events
         /// * `DocumentRemoved` - When a document is successfully removed from an asset.
-        #[weight = <T as Config>::WeightInfo::remove_documents(docs_id.len() as u32)]
-        pub fn remove_documents(origin, docs_id: Vec<DocumentId>, asset_id: AssetId) -> DispatchResult {
+        #[pallet::call_index(11)]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_documents(docs_id.len() as u32))]
+        pub fn remove_documents(
+            origin: OriginFor<T>,
+            docs_id: Vec<DocumentId>,
+            asset_id: AssetId,
+        ) -> DispatchResult {
             Self::base_remove_documents(origin, docs_id, asset_id)
         }
 
@@ -787,8 +987,13 @@ decl_module! {
         ///
         /// # Errors
         /// * `FundingRoundNameMaxLengthExceeded` - If the funding round name length exceeds the maximum allowed length.
-        #[weight = <T as Config>::WeightInfo::set_funding_round(funding_round_name.len() as u32)]
-        pub fn set_funding_round(origin, asset_id: AssetId, funding_round_name: FundingRoundName) -> DispatchResult {
+        #[pallet::call_index(12)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_funding_round(funding_round_name.len() as u32))]
+        pub fn set_funding_round(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            funding_round_name: FundingRoundName,
+        ) -> DispatchResult {
             Self::base_set_funding_round(origin, asset_id, funding_round_name)
         }
 
@@ -809,11 +1014,12 @@ decl_module! {
         ///
         /// # Errors
         /// * `InvalidAssetIdentifier` - If any of the asset identifiers are invalid.
-        #[weight = <T as Config>::WeightInfo::update_identifiers(asset_identifiers.len() as u32)]
+        #[pallet::call_index(13)]
+        #[pallet::weight(<T as Config>::WeightInfo::update_identifiers(asset_identifiers.len() as u32))]
         pub fn update_identifiers(
-            origin,
+            origin: OriginFor<T>,
             asset_id: AssetId,
-            asset_identifiers: Vec<AssetIdentifier>
+            asset_identifiers: Vec<AssetIdentifier>,
         ) -> DispatchResult {
             Self::base_update_identifiers(origin, asset_id, asset_identifiers)
         }
@@ -839,10 +1045,22 @@ decl_module! {
         /// * `UnexpectedNonFungibleToken` - If the asset is a non-fungible token.
         /// * `InvalidGranularity` - If the amount to transfer does not meet the granularity requirements.
         /// * `TotalSupplyOverflow` - If the total supply exceeds the maximum allowed limit.
-        #[weight = <T as Config>::WeightInfo::controller_transfer()]
-        pub fn controller_transfer(origin, asset_id: AssetId, value: Balance, from_portfolio: PortfolioId) -> DispatchResult {
+        #[pallet::call_index(14)]
+        #[pallet::weight(<T as Config>::WeightInfo::controller_transfer())]
+        pub fn controller_transfer(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            value: Balance,
+            from_portfolio: PortfolioId,
+        ) -> DispatchResult {
             let mut weight_meter = WeightMeter::max_limit_no_minimum();
-            Self::base_controller_transfer(origin, asset_id, value, from_portfolio, &mut weight_meter)
+            Self::base_controller_transfer(
+                origin,
+                asset_id,
+                value,
+                from_portfolio,
+                &mut weight_meter,
+            )
         }
 
         /// Registers a custom asset type.
@@ -857,15 +1075,16 @@ decl_module! {
         ///
         /// # Errors
         /// * `TooLong` - If the custom asset type length exceeds the maximum allowed length.
-        #[weight = <T as Config>::WeightInfo::register_custom_asset_type(ty.len() as u32)]
-        pub fn register_custom_asset_type(origin, ty: Vec<u8>) -> DispatchResult {
+        #[pallet::call_index(15)]
+        #[pallet::weight(<T as Config>::WeightInfo::register_custom_asset_type(ty.len() as u32))]
+        pub fn register_custom_asset_type(origin: OriginFor<T>, ty: Vec<u8>) -> DispatchResult {
             Self::base_register_custom_asset_type(origin, ty)?;
             Ok(())
         }
 
         /// Creates a new asset with a new custom asset type.
         ///
-        /// The total supply will initially be zero. To mint tokens, use [`Module::issue`].
+        /// The total supply will initially be zero. To mint tokens, use [`Pallet::issue`].
         ///
         /// # Arguments
         /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
@@ -885,16 +1104,17 @@ decl_module! {
         /// * `InvalidCustomAssetTypeId` - If the custom asset type ID is invalid.
         /// * `InvalidAssetIdentifier` - If any of the asset identifiers are invalid.
         /// * `TooLong` - If the custom asset type length exceeds the maximum allowed length.
-        #[weight = <T as Config>::WeightInfo::create_asset(
+        #[pallet::call_index(16)]
+        #[pallet::weight(<T as Config>::WeightInfo::create_asset(
             asset_name.len() as u32,
             asset_identifiers.len() as u32,
             funding_round_name.as_ref().map_or(0, |name| name.len()) as u32,
         )
         .saturating_add(<T as Config>::WeightInfo::register_custom_asset_type(
             custom_asset_type.len() as u32,
-        ))]
+        )))]
         pub fn create_asset_with_custom_type(
-            origin,
+            origin: OriginFor<T>,
             asset_name: AssetName,
             divisible: bool,
             custom_asset_type: Vec<u8>,
@@ -907,7 +1127,7 @@ decl_module! {
                 divisible,
                 custom_asset_type,
                 asset_identifiers,
-                funding_round_name
+                funding_round_name,
             )?;
             Ok(())
         }
@@ -933,13 +1153,14 @@ decl_module! {
         /// * `AssetMetadataKeyIsMissing` - If the metadata key is missing.
         /// * `AssetMetadataValueIsLocked` - If the metadata value is locked.
         /// * `AssetMetadataValueMaxLengthExceeded` - If the metadata value length exceeds the maximum allowed length.
-        #[weight = <T as Config>::WeightInfo::set_asset_metadata()]
+        #[pallet::call_index(17)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_asset_metadata())]
         pub fn set_asset_metadata(
-            origin,
+            origin: OriginFor<T>,
             asset_id: AssetId,
             key: AssetMetadataKey,
             value: AssetMetadataValue,
-            detail: Option<AssetMetadataValueDetail<T::Moment>>
+            detail: Option<AssetMetadataValueDetail<T::Moment>>,
         ) -> DispatchResult {
             Self::base_set_asset_metadata(origin, asset_id, key, value, detail)
         }
@@ -964,12 +1185,13 @@ decl_module! {
         /// * `AssetMetadataKeyIsMissing` - If the metadata key is missing.
         /// * `AssetMetadataValueIsLocked` - If the metadata value is locked.
         /// * `AssetMetadataValueIsEmpty` - If the metadata value is empty.
-        #[weight = <T as Config>::WeightInfo::set_asset_metadata_details()]
+        #[pallet::call_index(18)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_asset_metadata_details())]
         pub fn set_asset_metadata_details(
-            origin,
+            origin: OriginFor<T>,
             asset_id: AssetId,
             key: AssetMetadataKey,
-            detail: AssetMetadataValueDetail<T::Moment>
+            detail: AssetMetadataValueDetail<T::Moment>,
         ) -> DispatchResult {
             Self::base_set_asset_metadata_details(origin, asset_id, key, detail)
         }
@@ -997,16 +1219,19 @@ decl_module! {
         /// * `AssetMetadataLocalKeyAlreadyExists` - If the local metadata key already exists.
         /// * `AssetMetadataValueIsLocked` - If the metadata value is locked.
         /// * `AssetMetadataValueMaxLengthExceeded` - If the metadata value length exceeds the maximum allowed length.
-        #[weight = <T as Config>::WeightInfo::register_and_set_local_asset_metadata()]
+        #[pallet::call_index(19)]
+        #[pallet::weight(<T as Config>::WeightInfo::register_and_set_local_asset_metadata())]
         pub fn register_and_set_local_asset_metadata(
-            origin,
+            origin: OriginFor<T>,
             asset_id: AssetId,
             name: AssetMetadataName,
             spec: AssetMetadataSpec,
             value: AssetMetadataValue,
-            detail: Option<AssetMetadataValueDetail<T::Moment>>
+            detail: Option<AssetMetadataValueDetail<T::Moment>>,
         ) -> DispatchResult {
-            Self::base_register_and_set_local_asset_metadata(origin, asset_id, name, spec, value, detail)
+            Self::base_register_and_set_local_asset_metadata(
+                origin, asset_id, name, spec, value, detail,
+            )
         }
 
         /// Registers asset metadata local type.
@@ -1029,12 +1254,13 @@ decl_module! {
         /// * `AssetMetadataLocalKeyAlreadyExists` - If the local metadata key already exists.
         /// * `AssetMetadataNameMaxLengthExceeded` - If the metadata name length exceeds the maximum allowed length.
         /// * `AssetMetadataTypeDefMaxLengthExceeded` - If the metadata type definition length exceeds the maximum allowed length.
-        #[weight = <T as Config>::WeightInfo::register_asset_metadata_local_type()]
+        #[pallet::call_index(20)]
+        #[pallet::weight(<T as Config>::WeightInfo::register_asset_metadata_local_type())]
         pub fn register_asset_metadata_local_type(
-            origin,
+            origin: OriginFor<T>,
             asset_id: AssetId,
             name: AssetMetadataName,
-            spec: AssetMetadataSpec
+            spec: AssetMetadataSpec,
         ) -> DispatchResult {
             Self::base_register_asset_metadata_local_type(origin, asset_id, name, spec)
         }
@@ -1055,11 +1281,12 @@ decl_module! {
         /// * `AssetMetadataGlobalKeyAlreadyExists` - If the global metadata key already exists.
         /// * `AssetMetadataNameMaxLengthExceeded` - If the metadata name length exceeds the maximum allowed length.
         /// * `AssetMetadataTypeDefMaxLengthExceeded` - If the metadata type definition length exceeds the maximum allowed length.
-        #[weight = <T as Config>::WeightInfo::register_asset_metadata_global_type()]
+        #[pallet::call_index(21)]
+        #[pallet::weight(<T as Config>::WeightInfo::register_asset_metadata_global_type())]
         pub fn register_asset_metadata_global_type(
-            origin,
+            origin: OriginFor<T>,
             name: AssetMetadataName,
-            spec: AssetMetadataSpec
+            spec: AssetMetadataSpec,
         ) -> DispatchResult {
             // Only allow global metadata types to be registered by root.
             ensure_root(origin)?;
@@ -1086,8 +1313,13 @@ decl_module! {
         /// * `NoSuchAsset` - If the asset does not exist.
         /// * `InvalidCustomAssetTypeId` - If the custom asset type ID is invalid.
         /// * `IncompatibleAssetTypeUpdate` - If the new asset type is incompatible with the existing asset type.
-        #[weight = <T as Config>::WeightInfo::update_asset_type()]
-        pub fn update_asset_type(origin, asset_id: AssetId, asset_type: AssetType) -> DispatchResult {
+        #[pallet::call_index(22)]
+        #[pallet::weight(<T as Config>::WeightInfo::update_asset_type())]
+        pub fn update_asset_type(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            asset_type: AssetType,
+        ) -> DispatchResult {
             Self::base_update_asset_type(origin, asset_id, asset_type)
         }
 
@@ -1110,8 +1342,13 @@ decl_module! {
         /// * `AssetMetadataKeyIsMissing` - If the local metadata key is missing.
         /// * `AssetMetadataValueIsLocked` - If the metadata value is locked.
         /// * `AssetMetadataKeyBelongsToNFTCollection` - If the metadata key belongs to an NFT collection.
-        #[weight = <T as Config>::WeightInfo::remove_local_metadata_key()]
-        pub fn remove_local_metadata_key(origin, asset_id: AssetId, local_key: AssetMetadataLocalKey) -> DispatchResult {
+        #[pallet::call_index(23)]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_local_metadata_key())]
+        pub fn remove_local_metadata_key(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            local_key: AssetMetadataLocalKey,
+        ) -> DispatchResult {
             Self::base_remove_local_metadata_key(origin, asset_id, local_key)
         }
 
@@ -1133,8 +1370,13 @@ decl_module! {
         /// # Errors
         /// * `AssetMetadataKeyIsMissing` - If the metadata key is missing.
         /// * `AssetMetadataValueIsLocked` - If the metadata value is locked.
-        #[weight = <T as Config>::WeightInfo::remove_metadata_value()]
-        pub fn remove_metadata_value(origin, asset_id: AssetId, metadata_key: AssetMetadataKey) -> DispatchResult {
+        #[pallet::call_index(24)]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_metadata_value())]
+        pub fn remove_metadata_value(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            metadata_key: AssetMetadataKey,
+        ) -> DispatchResult {
             Self::base_remove_metadata_value(origin, asset_id, metadata_key)
         }
 
@@ -1148,8 +1390,9 @@ decl_module! {
         ///
         /// # Events
         /// * `AssetAffirmationExemption` - When the asset is successfully exempted from affirmation.
-        #[weight = <T as Config>::WeightInfo::exempt_asset_affirmation()]
-        pub fn exempt_asset_affirmation(origin, asset_id: AssetId) -> DispatchResult {
+        #[pallet::call_index(25)]
+        #[pallet::weight(<T as Config>::WeightInfo::exempt_asset_affirmation())]
+        pub fn exempt_asset_affirmation(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
             Self::base_exempt_asset_affirmation(origin, asset_id)
         }
 
@@ -1163,8 +1406,12 @@ decl_module! {
         ///
         /// # Events
         /// * `RemoveAssetAffirmationExemption` - When the asset's affirmation exemption is successfully removed.
-        #[weight = <T as Config>::WeightInfo::remove_asset_affirmation_exemption()]
-        pub fn remove_asset_affirmation_exemption(origin, asset_id: AssetId) -> DispatchResult {
+        #[pallet::call_index(26)]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_asset_affirmation_exemption())]
+        pub fn remove_asset_affirmation_exemption(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+        ) -> DispatchResult {
             Self::base_remove_asset_affirmation_exemption(origin, asset_id)
         }
 
@@ -1179,8 +1426,9 @@ decl_module! {
         ///
         /// # Events
         /// * `PreApprovedAsset` - When the asset is successfully pre-approved for receivement.
-        #[weight = <T as Config>::WeightInfo::pre_approve_asset()]
-        pub fn pre_approve_asset(origin, asset_id: AssetId) -> DispatchResult {
+        #[pallet::call_index(27)]
+        #[pallet::weight(<T as Config>::WeightInfo::pre_approve_asset())]
+        pub fn pre_approve_asset(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
             Self::base_pre_approve_asset(origin, asset_id)
         }
 
@@ -1195,8 +1443,12 @@ decl_module! {
         ///
         /// # Events
         /// * `RemovePreApprovedAsset` - When the asset's pre-approval is successfully removed.
-        #[weight = <T as Config>::WeightInfo::remove_asset_pre_approval()]
-        pub fn remove_asset_pre_approval(origin, asset_id: AssetId) -> DispatchResult {
+        #[pallet::call_index(28)]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_asset_pre_approval())]
+        pub fn remove_asset_pre_approval(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+        ) -> DispatchResult {
             Self::base_remove_asset_pre_approval(origin, asset_id)
         }
 
@@ -1217,13 +1469,15 @@ decl_module! {
         ///
         /// # Errors
         /// * `NumberOfAssetMediatorsExceeded` - If the number of mandatory mediators exceeds the maximum allowed limit.
-        #[weight = <T as Config>::WeightInfo::add_mandatory_mediators(mediators.len() as u32)]
+        #[pallet::call_index(29)]
+        #[pallet::weight(<T as Config>::WeightInfo::add_mandatory_mediators(mediators.len() as u32))]
         pub fn add_mandatory_mediators(
-            origin,
+            origin: OriginFor<T>,
             asset_id: AssetId,
-            mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>
-        ) {
+            mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>,
+        ) -> DispatchResult {
             Self::base_add_mandatory_mediators(origin, asset_id, mediators)?;
+            Ok(())
         }
 
         /// Removes all identities in the `mediators` set from the mandatory mediators list for the given `asset_id`.
@@ -1240,13 +1494,15 @@ decl_module! {
         ///
         /// # Events
         /// * `AssetMediatorsRemoved` - When the mandatory mediators are successfully removed.
-        #[weight = <T as Config>::WeightInfo::remove_mandatory_mediators(mediators.len() as u32)]
+        #[pallet::call_index(30)]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_mandatory_mediators(mediators.len() as u32))]
         pub fn remove_mandatory_mediators(
-            origin,
+            origin: OriginFor<T>,
             asset_id: AssetId,
-            mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>
-        ) {
+            mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>,
+        ) -> DispatchResult {
             Self::base_remove_mandatory_mediators(origin, asset_id, mediators)?;
+            Ok(())
         }
 
         /// Establishes a connection between a ticker and an AssetId.
@@ -1270,9 +1526,15 @@ decl_module! {
         /// * `TickerRegistrationNotFound` - If the ticker registration is not found.
         /// * `TickerIsAlreadyLinkedToAnAsset` - If the ticker is already linked to an asset.
         /// * `AssetIsAlreadyLinkedToATicker` - If the asset is already linked to a ticker.
-        #[weight = <T as Config>::WeightInfo::link_ticker_to_asset_id()]
-        pub fn link_ticker_to_asset_id(origin, ticker: Ticker, asset_id: AssetId) {
+        #[pallet::call_index(31)]
+        #[pallet::weight(<T as Config>::WeightInfo::link_ticker_to_asset_id())]
+        pub fn link_ticker_to_asset_id(
+            origin: OriginFor<T>,
+            ticker: Ticker,
+            asset_id: AssetId,
+        ) -> DispatchResult {
             Self::base_link_ticker_to_asset_id(origin, ticker, asset_id)?;
+            Ok(())
         }
 
         /// Removes the link between a ticker and an asset.
@@ -1294,10 +1556,179 @@ decl_module! {
         /// * `TickerNotRegisteredToCaller` - If the ticker is not registered to the caller.
         /// * `TickerRegistrationNotFound` - If the ticker registration is not found.
         /// * `TickerIsNotLinkedToTheAsset` - If the ticker is not linked to the asset.
-        #[weight = <T as Config>::WeightInfo::unlink_ticker_from_asset_id()]
-        pub fn unlink_ticker_from_asset_id(origin, ticker: Ticker, asset_id: AssetId) {
+        #[pallet::call_index(32)]
+        #[pallet::weight(<T as Config>::WeightInfo::unlink_ticker_from_asset_id())]
+        pub fn unlink_ticker_from_asset_id(
+            origin: OriginFor<T>,
+            ticker: Ticker,
+            asset_id: AssetId,
+        ) -> DispatchResult {
             Self::base_unlink_ticker_from_asset_id(origin, ticker, asset_id)?;
+            Ok(())
         }
+
+        /// Updates the global metadata specification.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_metadata_name` - The [`AssetMetadataName`] associated with the global metadata.
+        /// * `asset_metadata_spec` - The new [`AssetMetadataSpec`] that will be associated with the global metadata.
+        ///
+        /// # Events
+        /// * `GlobalMetadataSpecUpdated` - When the global metadata specification is successfully updated.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the origin is not authorized.
+        /// * `TooLong` - If the metadata url or description length exceeds the maximum allowed length.
+        /// * `AssetMetadataTypeDefMaxLengthExceeded` - If the metadata type definition length exceeds the maximum allowed length.
+        #[pallet::call_index(33)]
+        #[pallet::weight(<T as Config>::WeightInfo::update_global_metadata_spec())]
+        pub fn update_global_metadata_spec(
+            origin: OriginFor<T>,
+            asset_metadata_name: AssetMetadataName,
+            asset_metadata_spec: AssetMetadataSpec,
+        ) -> DispatchResult {
+            Self::base_update_global_metadata_spec(origin, asset_metadata_name, asset_metadata_spec)
+        }
+    }
+
+    #[pallet::error]
+    pub enum Error<T> {
+        /// The user is not authorized.
+        Unauthorized,
+        /// The token has already been created.
+        AssetAlreadyCreated,
+        /// The ticker length is over the limit.
+        TickerTooLong,
+        /// The ticker has non-alphanumeric parts.
+        TickerNotAlphanumeric,
+        /// The ticker is already registered to someone else.
+        TickerAlreadyRegistered,
+        /// The total supply is above the limit.
+        TotalSupplyAboveLimit,
+        /// No token associated to the given asset ID.
+        NoSuchAsset,
+        /// The token is already frozen.
+        AlreadyFrozen,
+        /// Not an owner of the token on Ethereum.
+        NotAnOwner,
+        /// An overflow while calculating the balance.
+        BalanceOverflow,
+        /// An overflow while calculating the total supply.
+        TotalSupplyOverflow,
+        /// An invalid granularity.
+        InvalidGranularity,
+        /// The asset must be frozen.
+        NotFrozen,
+        /// Transfer validation check failed.
+        InvalidTransfer,
+        /// The sender balance is not sufficient.
+        InsufficientBalance,
+        /// The token is already divisible.
+        AssetAlreadyDivisible,
+        /// An invalid Ethereum `EcdsaSignature`.
+        InvalidEthereumSignature,
+        /// Registration of ticker has expired.
+        TickerRegistrationExpired,
+        /// Transfers to self are not allowed
+        SenderSameAsReceiver,
+        /// The given Document does not exist.
+        NoSuchDoc,
+        /// Maximum length of asset name has been exceeded.
+        MaxLengthOfAssetNameExceeded,
+        /// Maximum length of the funding round name has been exceeded.
+        FundingRoundNameMaxLengthExceeded,
+        /// Some `AssetIdentifier` was invalid.
+        InvalidAssetIdentifier,
+        /// Investor Uniqueness claims are not allowed for this asset.
+        InvestorUniquenessClaimNotAllowed,
+        /// Invalid `CustomAssetTypeId`.
+        InvalidCustomAssetTypeId,
+        /// Maximum length of the asset metadata type name has been exceeded.
+        AssetMetadataNameMaxLengthExceeded,
+        /// Maximum length of the asset metadata value has been exceeded.
+        AssetMetadataValueMaxLengthExceeded,
+        /// Maximum length of the asset metadata type definition has been exceeded.
+        AssetMetadataTypeDefMaxLengthExceeded,
+        /// Asset Metadata key is missing.
+        AssetMetadataKeyIsMissing,
+        /// Asset Metadata value is locked.
+        AssetMetadataValueIsLocked,
+        /// Asset Metadata Local type already exists for asset.
+        AssetMetadataLocalKeyAlreadyExists,
+        /// Asset Metadata Global type already exists.
+        AssetMetadataGlobalKeyAlreadyExists,
+        /// Tickers should start with at least one valid byte.
+        TickerFirstByteNotValid,
+        /// Attempt to call an extrinsic that is only permitted for fungible tokens.
+        UnexpectedNonFungibleToken,
+        /// Attempt to update the type of a non fungible token to a fungible token or the other way around.
+        IncompatibleAssetTypeUpdate,
+        /// Attempt to delete a key that is needed for an NFT collection.
+        AssetMetadataKeyBelongsToNFTCollection,
+        /// Attempt to lock a metadata value that is empty.
+        AssetMetadataValueIsEmpty,
+        /// Number of asset mediators would exceed the maximum allowed.
+        NumberOfAssetMediatorsExceeded,
+        /// Invalid ticker character - valid set: A`..`Z` `0`..`9` `_` `-` `.` `/`.
+        InvalidTickerCharacter,
+        /// Failed to transfer the asset - asset is frozen.
+        InvalidTransferFrozenAsset,
+        /// Failed to transfer an NFT - compliance failed.
+        InvalidTransferComplianceFailure,
+        /// Failed to transfer the asset - receiver cdd is not valid.
+        InvalidTransferInvalidReceiverCDD,
+        /// Failed to transfer the asset - sender cdd is not valid.
+        InvalidTransferInvalidSenderCDD,
+        /// The ticker registration associated to the ticker was not found.
+        TickerRegistrationNotFound,
+        /// The given ticker is already linked to an asset.
+        TickerIsAlreadyLinkedToAnAsset,
+        /// An unexpected error when generating a new asset ID.
+        AssetIdGenerationError,
+        /// The ticker doesn't belong to the caller.
+        TickerNotRegisteredToCaller,
+        /// The given asset is already linked to a ticker.
+        AssetIsAlreadyLinkedToATicker,
+        /// The given ticker is not linked to the given asset.
+        TickerIsNotLinkedToTheAsset,
+    }
+
+    pub trait WeightInfo {
+        fn register_unique_ticker() -> Weight;
+        fn accept_ticker_transfer() -> Weight;
+        fn accept_asset_ownership_transfer() -> Weight;
+        fn create_asset(n: u32, i: u32, f: u32) -> Weight;
+        fn freeze() -> Weight;
+        fn unfreeze() -> Weight;
+        fn rename_asset(n: u32) -> Weight;
+        fn issue() -> Weight;
+        fn redeem() -> Weight;
+        fn make_divisible() -> Weight;
+        fn add_documents(d: u32) -> Weight;
+        fn remove_documents(d: u32) -> Weight;
+        fn set_funding_round(f: u32) -> Weight;
+        fn update_identifiers(i: u32) -> Weight;
+        fn controller_transfer() -> Weight;
+        fn register_custom_asset_type(n: u32) -> Weight;
+        fn set_asset_metadata() -> Weight;
+        fn set_asset_metadata_details() -> Weight;
+        fn register_and_set_local_asset_metadata() -> Weight;
+        fn register_asset_metadata_local_type() -> Weight;
+        fn register_asset_metadata_global_type() -> Weight;
+        fn update_asset_type() -> Weight;
+        fn remove_local_metadata_key() -> Weight;
+        fn remove_metadata_value() -> Weight;
+        fn base_transfer() -> Weight;
+        fn exempt_asset_affirmation() -> Weight;
+        fn remove_asset_affirmation_exemption() -> Weight;
+        fn pre_approve_asset() -> Weight;
+        fn remove_asset_pre_approval() -> Weight;
+        fn add_mandatory_mediators(n: u32) -> Weight;
+        fn remove_mandatory_mediators(n: u32) -> Weight;
+        fn link_ticker_to_asset_id() -> Weight;
+        fn unlink_ticker_from_asset_id() -> Weight;
+        fn update_global_metadata_spec() -> Weight;
     }
 }
 
@@ -1305,10 +1736,10 @@ decl_module! {
 // All base functions!
 //==========================================================================
 
-impl<T: Config> Module<T> {
+impl<T: AssetConfig> Pallet<T> {
     /// Registers `ticker` to the caller.
     fn base_register_unique_ticker(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
-        let caller_did = Identity::<T>::ensure_perms(origin)?;
+        let caller_did = IdentityPallet::<T>::ensure_perms(origin)?;
 
         let ticker_registration_config = TickerConfig::<T>::get();
         let ticker_registration_status = Self::validate_ticker_registration_rules(
@@ -1332,8 +1763,8 @@ impl<T: Config> Module<T> {
 
     /// Accepts and executes the ticker transfer.
     fn base_accept_ticker_transfer(origin: T::RuntimeOrigin, auth_id: u64) -> DispatchResult {
-        let to = Identity::<T>::ensure_perms(origin)?;
-        <Identity<T>>::accept_auth_with(&to.into(), auth_id, |data, auth_by| {
+        let to = IdentityPallet::<T>::ensure_perms(origin)?;
+        <IdentityPallet<T>>::accept_auth_with(&to.into(), auth_id, |data, auth_by| {
             let ticker = extract_auth!(data, TransferTicker(t));
 
             Self::ensure_ticker_not_linked(&ticker)?;
@@ -1341,7 +1772,7 @@ impl<T: Config> Module<T> {
             let ticker_registration = UniqueTickerRegistration::<T>::get(&ticker)
                 .ok_or(Error::<T>::TickerRegistrationNotFound)?;
 
-            <Identity<T>>::ensure_auth_by(auth_by, ticker_registration.owner)?;
+            <IdentityPallet<T>>::ensure_auth_by(auth_by, ticker_registration.owner)?;
 
             Self::transfer_ticker(ticker_registration, ticker, to);
             Ok(())
@@ -1353,9 +1784,9 @@ impl<T: Config> Module<T> {
         origin: T::RuntimeOrigin,
         auth_id: u64,
     ) -> DispatchResult {
-        let caller_did = Identity::<T>::ensure_perms(origin)?;
+        let caller_did = IdentityPallet::<T>::ensure_perms(origin)?;
 
-        <Identity<T>>::accept_auth_with(&caller_did.into(), auth_id, |auth_data, auth_by| {
+        <IdentityPallet<T>>::accept_auth_with(&caller_did.into(), auth_id, |auth_data, auth_by| {
             let asset_id = extract_auth!(auth_data, TransferAssetOwnership(asset_id));
 
             let mut asset_details = Self::try_get_asset_details(&asset_id)?;
@@ -1364,7 +1795,7 @@ impl<T: Config> Module<T> {
             <ExternalAgents<T>>::ensure_agent_permissioned(&asset_id, auth_by)?;
 
             // If the asset is linked to a unique ticker, the ticker registration must be updated.
-            if let Some(ticker) = AssetIdTicker::get(&asset_id) {
+            if let Some(ticker) = AssetIdTicker::<T>::get(&asset_id) {
                 let ticker_registration = UniqueTickerRegistration::<T>::try_get(&ticker)
                     .map_err(|_| Error::<T>::TickerRegistrationNotFound)?;
                 Self::transfer_ticker(ticker_registration, ticker, caller_did);
@@ -1372,13 +1803,13 @@ impl<T: Config> Module<T> {
 
             // Updates asset ownership
             let previous_owner = asset_details.owner_did;
-            SecurityTokensOwnedByUser::remove(previous_owner, asset_id);
-            SecurityTokensOwnedByUser::insert(caller_did, asset_id, true);
+            SecurityTokensOwnedByUser::<T>::remove(previous_owner, asset_id);
+            SecurityTokensOwnedByUser::<T>::insert(caller_did, asset_id, true);
 
             // Updates asset details.
             asset_details.owner_did = caller_did;
-            Assets::insert(asset_id, asset_details);
-            Self::deposit_event(RawEvent::AssetOwnershipTransferred(
+            Assets::<T>::insert(asset_id, asset_details);
+            Self::deposit_event(Event::AssetOwnershipTransferred(
                 caller_did,
                 asset_id,
                 previous_owner,
@@ -1388,7 +1819,7 @@ impl<T: Config> Module<T> {
     }
 
     /// If all rules for creating an asset are being respected, creates a new [`AssetDetails`].
-    /// See also [`Module::validate_asset_creation_rules`].
+    /// See also [`Pallet::validate_asset_creation_rules`].
     fn base_create_asset(
         origin: T::RuntimeOrigin,
         asset_name: AssetName,
@@ -1397,7 +1828,7 @@ impl<T: Config> Module<T> {
         asset_identifiers: Vec<AssetIdentifier>,
         funding_round_name: Option<FundingRoundName>,
     ) -> Result<IdentityId, DispatchError> {
-        let caller_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
+        let caller_data = IdentityPallet::<T>::ensure_origin_call_permissions(origin)?;
         let caller_primary_did = caller_data.primary_did;
 
         Self::validate_and_create_asset(
@@ -1423,13 +1854,16 @@ impl<T: Config> Module<T> {
         Self::ensure_asset_exists(&asset_id)?;
 
         if freeze {
-            ensure!(Frozen::get(&asset_id) == false, Error::<T>::AlreadyFrozen);
-            Frozen::insert(asset_id, true);
-            Self::deposit_event(RawEvent::AssetFrozen(caller_did, asset_id));
+            ensure!(
+                Frozen::<T>::get(&asset_id) == false,
+                Error::<T>::AlreadyFrozen
+            );
+            Frozen::<T>::insert(asset_id, true);
+            Self::deposit_event(Event::AssetFrozen(caller_did, asset_id));
         } else {
-            ensure!(Frozen::get(&asset_id) == true, Error::<T>::NotFrozen);
-            Frozen::insert(asset_id, false);
-            Self::deposit_event(RawEvent::AssetUnfrozen(caller_did, asset_id));
+            ensure!(Frozen::<T>::get(&asset_id) == true, Error::<T>::NotFrozen);
+            Frozen::<T>::insert(asset_id, false);
+            Self::deposit_event(Event::AssetUnfrozen(caller_did, asset_id));
         }
 
         Ok(())
@@ -1446,8 +1880,8 @@ impl<T: Config> Module<T> {
 
         let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
 
-        AssetNames::insert(asset_id, asset_name.clone());
-        Self::deposit_event(RawEvent::AssetRenamed(caller_did, asset_id, asset_name));
+        AssetNames::<T>::insert(asset_id, asset_name.clone());
+        Self::deposit_event(Event::AssetRenamed(caller_did, asset_id, asset_name));
         Ok(())
     }
 
@@ -1502,7 +1936,7 @@ impl<T: Config> Module<T> {
             Error::<T>::UnexpectedNonFungibleToken
         );
 
-        Portfolio::<T>::reduce_portfolio_balance(&portfolio, &asset_id, value)?;
+        Portfolio::<T>::reduce_portfolio_balance(portfolio, asset_id, value)?;
 
         asset_details.total_supply = asset_details
             .total_supply
@@ -1517,8 +1951,8 @@ impl<T: Config> Module<T> {
         let updated_balance = Self::balance_of(asset_id, portfolio.did) - value;
 
         // Update identity balances and total supply
-        BalanceOf::insert(asset_id, &portfolio.did, updated_balance);
-        Assets::insert(asset_id, asset_details);
+        BalanceOf::<T>::insert(asset_id, &portfolio.did, updated_balance);
+        Assets::<T>::insert(asset_id, asset_details);
 
         // Update statistic info.
         Statistics::<T>::update_asset_stats(
@@ -1531,7 +1965,7 @@ impl<T: Config> Module<T> {
             weight_meter,
         )?;
 
-        Self::deposit_event(RawEvent::AssetBalanceUpdated(
+        Self::deposit_event(Event::AssetBalanceUpdated(
             portfolio.did,
             asset_id,
             value,
@@ -1545,7 +1979,7 @@ impl<T: Config> Module<T> {
     fn base_make_divisible(origin: T::RuntimeOrigin, asset_id: AssetId) -> DispatchResult {
         let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
 
-        Assets::try_mutate(&asset_id, |asset_details| -> DispatchResult {
+        Assets::<T>::try_mutate(&asset_id, |asset_details| -> DispatchResult {
             let asset_details = asset_details.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
             ensure!(
                 asset_details.asset_type.is_fungible(),
@@ -1554,7 +1988,7 @@ impl<T: Config> Module<T> {
             ensure!(!asset_details.divisible, Error::<T>::AssetAlreadyDivisible);
             asset_details.divisible = true;
 
-            Self::deposit_event(RawEvent::DivisibilityChanged(caller_did, asset_id, true));
+            Self::deposit_event(Event::DivisibilityChanged(caller_did, asset_id, true));
             Ok(())
         })
     }
@@ -1574,7 +2008,7 @@ impl<T: Config> Module<T> {
         }
 
         // Ensure we can advance documents ID sequence by `len`.
-        let pre = AssetDocumentsIdSequence::try_mutate(asset_id, |id| {
+        let pre = AssetDocumentsIdSequence::<T>::try_mutate(asset_id, |id| {
             id.0.checked_add(docs.len() as u32)
                 .ok_or(CounterOverflow::<T>)
                 .map(|new| mem::replace(id, DocumentId(new)))
@@ -1585,8 +2019,8 @@ impl<T: Config> Module<T> {
 
         // Add the documents & emit events.
         for (id, doc) in (pre.0..).map(DocumentId).zip(docs) {
-            AssetDocuments::insert(asset_id, id, doc.clone());
-            Self::deposit_event(RawEvent::DocumentAdded(did, asset_id, id, doc));
+            AssetDocuments::<T>::insert(asset_id, id, doc.clone());
+            Self::deposit_event(Event::DocumentAdded(did, asset_id, id, doc));
         }
         Ok(())
     }
@@ -1598,8 +2032,8 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
         for doc_id in docs_id {
-            AssetDocuments::remove(asset_id, doc_id);
-            Self::deposit_event(RawEvent::DocumentRemoved(caller_did, asset_id, doc_id));
+            AssetDocuments::<T>::remove(asset_id, doc_id);
+            Self::deposit_event(Event::DocumentRemoved(caller_did, asset_id, doc_id));
         }
         Ok(())
     }
@@ -1612,8 +2046,8 @@ impl<T: Config> Module<T> {
         Self::ensure_valid_funding_round_name(&funding_round_name)?;
         let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
 
-        FundingRound::insert(asset_id, funding_round_name.clone());
-        Self::deposit_event(RawEvent::FundingRoundSet(
+        FundingRound::<T>::insert(asset_id, funding_round_name.clone());
+        Self::deposit_event(Event::FundingRoundSet(
             caller_did,
             asset_id,
             funding_round_name,
@@ -1666,7 +2100,7 @@ impl<T: Config> Module<T> {
             weight_meter,
         )?;
 
-        Self::deposit_event(RawEvent::ControllerTransfer(
+        Self::deposit_event(Event::ControllerTransfer(
             caller_portfolio.did,
             asset_id,
             sender_portfolio,
@@ -1680,7 +2114,7 @@ impl<T: Config> Module<T> {
         origin: T::RuntimeOrigin,
         asset_type_bytes: Vec<u8>,
     ) -> DispatchResult {
-        let caller_did = Identity::<T>::ensure_perms(origin)?;
+        let caller_did = IdentityPallet::<T>::ensure_perms(origin)?;
         Self::validate_custom_asset_type_rules(&asset_type_bytes)?;
 
         Self::unverified_register_custom_asset_type(caller_did, asset_type_bytes)?;
@@ -1696,7 +2130,7 @@ impl<T: Config> Module<T> {
         asset_identifiers: Vec<AssetIdentifier>,
         funding_round_name: Option<FundingRoundName>,
     ) -> DispatchResult {
-        let caller_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
+        let caller_data = IdentityPallet::<T>::ensure_origin_call_permissions(origin)?;
 
         Self::validate_custom_asset_type_rules(&asset_type_bytes)?;
         let custom_asset_type_id =
@@ -1751,16 +2185,14 @@ impl<T: Config> Module<T> {
 
         // Prevent locking an asset metadata with no value
         if detail.is_locked(<pallet_timestamp::Pallet<T>>::get()) {
-            AssetMetadataValues::try_get(&asset_id, &key)
+            AssetMetadataValues::<T>::try_get(&asset_id, &key)
                 .map_err(|_| Error::<T>::AssetMetadataValueIsEmpty)?;
         }
 
         // Set asset metadata value details.
         AssetMetadataValueDetails::<T>::insert(asset_id, key, &detail);
 
-        Self::deposit_event(RawEvent::SetAssetMetadataValueDetails(
-            did, asset_id, detail,
-        ));
+        Self::deposit_event(Event::SetAssetMetadataValueDetails(did, asset_id, detail));
         Ok(())
     }
 
@@ -1802,7 +2234,7 @@ impl<T: Config> Module<T> {
 
         // Check if key already exists.
         ensure!(
-            !AssetMetadataGlobalNameToKey::contains_key(&name),
+            !AssetMetadataGlobalNameToKey::<T>::contains_key(&name),
             Error::<T>::AssetMetadataGlobalKeyAlreadyExists
         );
 
@@ -1810,13 +2242,13 @@ impl<T: Config> Module<T> {
         let key = Self::update_current_asset_metadata_global_key()?;
 
         // Store global key <-> name mapping.
-        AssetMetadataGlobalNameToKey::insert(&name, key);
-        AssetMetadataGlobalKeyToName::insert(key, &name);
+        AssetMetadataGlobalNameToKey::<T>::insert(&name, key);
+        AssetMetadataGlobalKeyToName::<T>::insert(key, &name);
 
         // Store global specs.
-        AssetMetadataGlobalSpecs::insert(key, &spec);
+        AssetMetadataGlobalSpecs::<T>::insert(key, &spec);
 
-        Self::deposit_event(RawEvent::RegisterAssetMetadataGlobalType(name, key, spec));
+        Self::deposit_event(Event::RegisterAssetMetadataGlobalType(name, key, spec));
         Ok(())
     }
 
@@ -1828,7 +2260,7 @@ impl<T: Config> Module<T> {
         Self::ensure_asset_exists(&asset_id)?;
         Self::ensure_valid_asset_type(&asset_type)?;
         let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
-        Assets::try_mutate(&asset_id, |asset| -> DispatchResult {
+        Assets::<T>::try_mutate(&asset_id, |asset| -> DispatchResult {
             let asset = asset.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
             // Ensures that both parameters are non fungible types or if both are fungible types.
             ensure!(
@@ -1838,7 +2270,7 @@ impl<T: Config> Module<T> {
             asset.asset_type = asset_type;
             Ok(())
         })?;
-        Self::deposit_event(RawEvent::AssetTypeChanged(did, asset_id, asset_type));
+        Self::deposit_event(Event::AssetTypeChanged(did, asset_id, asset_type));
         Ok(())
     }
 
@@ -1850,7 +2282,7 @@ impl<T: Config> Module<T> {
         // Verifies if the caller has the correct permissions for this asset
         let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
         // Verifies if the key exists.
-        let name = AssetMetadataLocalKeyToName::try_get(asset_id, &local_key)
+        let name = AssetMetadataLocalKeyToName::<T>::try_get(asset_id, &local_key)
             .map_err(|_| Error::<T>::AssetMetadataKeyIsMissing)?;
         // Verifies if the value is locked
         let metadata_key = AssetMetadataKey::Local(local_key);
@@ -1866,12 +2298,12 @@ impl<T: Config> Module<T> {
             Error::<T>::AssetMetadataKeyBelongsToNFTCollection
         );
         // Remove key from storage
-        AssetMetadataValues::remove(&asset_id, &metadata_key);
+        AssetMetadataValues::<T>::remove(&asset_id, &metadata_key);
         AssetMetadataValueDetails::<T>::remove(&asset_id, &metadata_key);
-        AssetMetadataLocalNameToKey::remove(&asset_id, &name);
-        AssetMetadataLocalKeyToName::remove(&asset_id, &local_key);
-        AssetMetadataLocalSpecs::remove(&asset_id, &local_key);
-        Self::deposit_event(RawEvent::LocalMetadataKeyDeleted(
+        AssetMetadataLocalNameToKey::<T>::remove(&asset_id, &name);
+        AssetMetadataLocalKeyToName::<T>::remove(&asset_id, &local_key);
+        AssetMetadataLocalSpecs::<T>::remove(&asset_id, &local_key);
+        Self::deposit_event(Event::LocalMetadataKeyDeleted(
             caller_did, asset_id, local_key,
         ));
         Ok(())
@@ -1887,12 +2319,12 @@ impl<T: Config> Module<T> {
         // Verifies if the key exists.
         match metadata_key {
             AssetMetadataKey::Global(global_key) => {
-                if !AssetMetadataGlobalKeyToName::contains_key(&global_key) {
+                if !AssetMetadataGlobalKeyToName::<T>::contains_key(&global_key) {
                     return Err(Error::<T>::AssetMetadataKeyIsMissing.into());
                 }
             }
             AssetMetadataKey::Local(local_key) => {
-                if !AssetMetadataLocalKeyToName::contains_key(asset_id, &local_key) {
+                if !AssetMetadataLocalKeyToName::<T>::contains_key(asset_id, &local_key) {
                     return Err(Error::<T>::AssetMetadataKeyIsMissing.into());
                 }
             }
@@ -1905,9 +2337,9 @@ impl<T: Config> Module<T> {
             );
         }
         // Remove the metadata value from storage
-        AssetMetadataValues::remove(&asset_id, &metadata_key);
+        AssetMetadataValues::<T>::remove(&asset_id, &metadata_key);
         AssetMetadataValueDetails::<T>::remove(&asset_id, &metadata_key);
-        Self::deposit_event(RawEvent::MetadataValueDeleted(
+        Self::deposit_event(Event::MetadataValueDeleted(
             caller_did,
             asset_id,
             metadata_key,
@@ -1921,8 +2353,8 @@ impl<T: Config> Module<T> {
         asset_id: AssetId,
     ) -> DispatchResult {
         ensure_root(origin)?;
-        AssetsExemptFromAffirmation::insert(&asset_id, true);
-        Self::deposit_event(RawEvent::AssetAffirmationExemption(asset_id));
+        AssetsExemptFromAffirmation::<T>::insert(&asset_id, true);
+        Self::deposit_event(Event::AssetAffirmationExemption(asset_id));
         Ok(())
     }
 
@@ -1932,16 +2364,16 @@ impl<T: Config> Module<T> {
         assset_id: AssetId,
     ) -> DispatchResult {
         ensure_root(origin)?;
-        AssetsExemptFromAffirmation::remove(&assset_id);
-        Self::deposit_event(RawEvent::RemoveAssetAffirmationExemption(assset_id));
+        AssetsExemptFromAffirmation::<T>::remove(&assset_id);
+        Self::deposit_event(Event::RemoveAssetAffirmationExemption(assset_id));
         Ok(())
     }
 
     /// Pre-approves the receivement of an asset.
     fn base_pre_approve_asset(origin: T::RuntimeOrigin, asset_id: AssetId) -> DispatchResult {
-        let caller_did = Identity::<T>::ensure_perms(origin)?;
-        PreApprovedAsset::insert(&caller_did, &asset_id, true);
-        Self::deposit_event(RawEvent::PreApprovedAsset(caller_did, asset_id));
+        let caller_did = IdentityPallet::<T>::ensure_perms(origin)?;
+        PreApprovedAsset::<T>::insert(&caller_did, &asset_id, true);
+        Self::deposit_event(Event::PreApprovedAsset(caller_did, asset_id));
         Ok(())
     }
 
@@ -1950,9 +2382,9 @@ impl<T: Config> Module<T> {
         origin: T::RuntimeOrigin,
         asset_id: AssetId,
     ) -> DispatchResult {
-        let caller_did = Identity::<T>::ensure_perms(origin)?;
-        PreApprovedAsset::remove(&caller_did, &asset_id);
-        Self::deposit_event(RawEvent::RemovePreApprovedAsset(caller_did, asset_id));
+        let caller_did = IdentityPallet::<T>::ensure_perms(origin)?;
+        PreApprovedAsset::<T>::remove(&caller_did, &asset_id);
+        Self::deposit_event(Event::RemovePreApprovedAsset(caller_did, asset_id));
         Ok(())
     }
 
@@ -1974,7 +2406,7 @@ impl<T: Config> Module<T> {
             Ok(())
         })?;
 
-        Self::deposit_event(RawEvent::AssetMediatorsAdded(
+        Self::deposit_event(Event::AssetMediatorsAdded(
             caller_did,
             asset_id,
             new_mediators.into_inner(),
@@ -1996,7 +2428,7 @@ impl<T: Config> Module<T> {
                 mandatory_mediators.remove(mediator);
             }
         });
-        Self::deposit_event(RawEvent::AssetMediatorsRemoved(
+        Self::deposit_event(Event::AssetMediatorsRemoved(
             caller_did,
             asset_id,
             mediators.into_inner(),
@@ -2077,13 +2509,13 @@ impl<T: Config> Module<T> {
         Self::ensure_ticker_not_linked(&ticker)?;
         // The asset can't be linked to any other ticker
         ensure!(
-            !AssetIdTicker::contains_key(asset_id),
+            !AssetIdTicker::<T>::contains_key(asset_id),
             Error::<T>::AssetIsAlreadyLinkedToATicker
         );
         // Links the ticker to the asset
-        TickerAssetId::insert(ticker, asset_id);
-        AssetIdTicker::insert(asset_id, ticker);
-        Self::deposit_event(RawEvent::TickerLinkedToAsset(caller_did, ticker, asset_id));
+        TickerAssetId::<T>::insert(ticker, asset_id);
+        AssetIdTicker::<T>::insert(asset_id, ticker);
+        Self::deposit_event(Event::TickerLinkedToAsset(caller_did, ticker, asset_id));
         Ok(())
     }
 
@@ -2105,17 +2537,46 @@ impl<T: Config> Module<T> {
 
         // The ticker must be linked to the given asset
         ensure!(
-            TickerAssetId::get(ticker) == Some(asset_id),
+            TickerAssetId::<T>::get(ticker) == Some(asset_id),
             Error::<T>::TickerIsNotLinkedToTheAsset
         );
 
         // Removes the storage links
-        TickersOwnedByUser::remove(caller_did, ticker);
-        TickerAssetId::remove(ticker);
-        AssetIdTicker::remove(asset_id);
-        Self::deposit_event(RawEvent::TickerUnlinkedFromAsset(
-            caller_did, ticker, asset_id,
+        TickersOwnedByUser::<T>::remove(caller_did, ticker);
+        TickerAssetId::<T>::remove(ticker);
+        AssetIdTicker::<T>::remove(asset_id);
+        Self::deposit_event(Event::TickerUnlinkedFromAsset(caller_did, ticker, asset_id));
+        Ok(())
+    }
+
+    /// Updates the global metadata spec. This function is only callable by the root account.
+    fn base_update_global_metadata_spec(
+        origin: T::RuntimeOrigin,
+        asset_metadata_name: AssetMetadataName,
+        asset_metadata_spec: AssetMetadataSpec,
+    ) -> DispatchResult {
+        ensure_root(origin)?;
+
+        let metadata_key = AssetMetadataGlobalNameToKey::<T>::get(&asset_metadata_name)
+            .ok_or(Error::<T>::AssetMetadataKeyIsMissing)?;
+
+        Self::ensure_asset_metadata_spec_limited(&asset_metadata_spec)?;
+
+        AssetMetadataGlobalSpecs::<T>::try_mutate(metadata_key, |spec| -> DispatchResult {
+            match spec {
+                Some(spec) => {
+                    *spec = asset_metadata_spec.clone();
+                    Ok(())
+                }
+                None => Err(Error::<T>::AssetMetadataKeyIsMissing.into()),
+            }
+        })?;
+
+        Self::deposit_event(Event::GlobalMetadataSpecUpdated(
+            asset_metadata_name,
+            asset_metadata_spec,
         ));
+
         Ok(())
     }
 }
@@ -2124,7 +2585,7 @@ impl<T: Config> Module<T> {
 // All validattion functions!
 //==========================================================================
 
-impl<T: Config> Module<T> {
+impl<T: AssetConfig> Pallet<T> {
     /// Returns [`TickerRegistrationStatus`] if all registration rules are satisfied.
     fn validate_ticker_registration_rules(
         ticker: &Ticker,
@@ -2175,7 +2636,7 @@ impl<T: Config> Module<T> {
     /// Returns `Ok` if `ticker` is not linked to an [`AssetId`]. Otherwise, returns [`Error::TickerIsAlreadyLinkedToAnAsset`].
     fn ensure_ticker_not_linked(ticker: &Ticker) -> DispatchResult {
         ensure!(
-            !TickerAssetId::contains_key(ticker),
+            !TickerAssetId::<T>::contains_key(ticker),
             Error::<T>::TickerIsAlreadyLinkedToAnAsset
         );
         Ok(())
@@ -2224,8 +2685,6 @@ impl<T: Config> Module<T> {
 
     /// Returns [`TickerRegistrationStatus`] if all rules for creating an asset are satisfied.
     fn validate_asset_creation_rules(
-        caller_did: IdentityId,
-        secondary_key: Option<SecondaryKey<T::AccountId>>,
         asset_id: &AssetId,
         asset_name: &AssetName,
         asset_type: &AssetType,
@@ -2242,19 +2701,12 @@ impl<T: Config> Module<T> {
         // Ensure there's no pre-existing entry for the `asset_id`
         Self::ensure_new_asset_id(asset_id)?;
 
-        // Ensure that the caller has relevant portfolio permissions
-        Portfolio::<T>::ensure_portfolio_custody_and_permission(
-            PortfolioId::default_portfolio(caller_did),
-            caller_did,
-            secondary_key.as_ref(),
-        )?;
-
         Ok(())
     }
 
     /// Returns the [`AssetDetails`] associated to `asset_id`, if one exists. Otherwise, returns [`Error::<T>::NoSuchAsset`].
     pub fn try_get_asset_details(asset_id: &AssetId) -> Result<AssetDetails, DispatchError> {
-        let asset_details = Assets::try_get(asset_id).or(Err(Error::<T>::NoSuchAsset))?;
+        let asset_details = Assets::<T>::try_get(asset_id).or(Err(Error::<T>::NoSuchAsset))?;
         Ok(asset_details)
     }
 
@@ -2280,7 +2732,7 @@ impl<T: Config> Module<T> {
     fn ensure_valid_asset_type(asset_type: &AssetType) -> DispatchResult {
         if let AssetType::Custom(custom_type_id) = asset_type {
             ensure!(
-                CustomTypes::contains_key(custom_type_id),
+                CustomTypes::<T>::contains_key(custom_type_id),
                 Error::<T>::InvalidCustomAssetTypeId
             );
         }
@@ -2334,16 +2786,16 @@ impl<T: Config> Module<T> {
 
     /// Returns `true` if [`AssetDetails::divisible`], otherwise returns `false`.
     pub fn is_divisible(asset_id: &AssetId) -> bool {
-        Assets::get(asset_id)
+        Assets::<T>::get(asset_id)
             .map(|t| t.divisible)
             .unwrap_or_default()
     }
 
     pub fn check_asset_metadata_key_exists(asset_id: &AssetId, key: &AssetMetadataKey) -> bool {
         match key {
-            AssetMetadataKey::Global(key) => AssetMetadataGlobalKeyToName::contains_key(key),
+            AssetMetadataKey::Global(key) => AssetMetadataGlobalKeyToName::<T>::contains_key(key),
             AssetMetadataKey::Local(key) => {
-                AssetMetadataLocalKeyToName::contains_key(asset_id, key)
+                AssetMetadataLocalKeyToName::<T>::contains_key(asset_id, key)
             }
         }
     }
@@ -2388,14 +2840,14 @@ impl<T: Config> Module<T> {
     /// Returns `None` if there's no asset associated to the given asset_id,
     /// returns Some(true) if the asset exists and is of type `AssetType::NonFungible`, and returns Some(false) otherwise.
     pub fn nft_asset(asset_id: &AssetId) -> Option<bool> {
-        let asset = Assets::try_get(asset_id).ok()?;
+        let asset = Assets::<T>::try_get(asset_id).ok()?;
         Some(asset.asset_type.is_non_fungible())
     }
 
     /// Ensure that the document `doc` exists for `ticker`.
     pub fn ensure_doc_exists(asset_id: &AssetId, doc: &DocumentId) -> DispatchResult {
         ensure!(
-            AssetDocuments::contains_key(asset_id, doc),
+            AssetDocuments::<T>::contains_key(asset_id, doc),
             Error::<T>::NoSuchDoc
         );
         Ok(())
@@ -2421,11 +2873,11 @@ impl<T: Config> Module<T> {
         );
 
         ensure!(
-            BalanceOf::get(asset_id, &sender_portfolio.did) >= transfer_value,
+            BalanceOf::<T>::get(asset_id, &sender_portfolio.did) >= transfer_value,
             Error::<T>::InsufficientBalance
         );
         ensure!(
-            BalanceOf::get(asset_id, &receiver_portfolio.did)
+            BalanceOf::<T>::get(asset_id, &receiver_portfolio.did)
                 .checked_add(transfer_value)
                 .is_some(),
             Error::<T>::BalanceOverflow
@@ -2446,17 +2898,17 @@ impl<T: Config> Module<T> {
 
         // Verifies that the asset is not frozen
         ensure!(
-            !Frozen::get(asset_id),
+            !Frozen::<T>::get(asset_id),
             Error::<T>::InvalidTransferFrozenAsset
         );
 
         ensure!(
-            Identity::<T>::has_valid_cdd(receiver_portfolio.did),
+            IdentityPallet::<T>::has_valid_cdd(receiver_portfolio.did),
             Error::<T>::InvalidTransferInvalidReceiverCDD
         );
 
         ensure!(
-            Identity::<T>::has_valid_cdd(sender_portfolio.did),
+            IdentityPallet::<T>::has_valid_cdd(sender_portfolio.did),
             Error::<T>::InvalidTransferInvalidSenderCDD
         );
 
@@ -2498,7 +2950,7 @@ impl<T: Config> Module<T> {
 
         // If the asset doesn't exist or is an NFT, there's no point in assessing anything else
         let asset_details = {
-            match Assets::try_get(asset_id) {
+            match Assets::<T>::try_get(asset_id) {
                 Ok(asset_details) => asset_details,
                 Err(_) => return vec![Error::<T>::NoSuchAsset.into()],
             }
@@ -2511,12 +2963,12 @@ impl<T: Config> Module<T> {
             asset_transfer_errors.push(e);
         }
 
-        let sender_current_balance = BalanceOf::get(asset_id, &sender_portfolio.did);
+        let sender_current_balance = BalanceOf::<T>::get(&asset_id, &sender_portfolio.did);
         if sender_current_balance < transfer_value {
             asset_transfer_errors.push(Error::<T>::InsufficientBalance.into());
         }
 
-        let receiver_current_balance = BalanceOf::get(asset_id, &receiver_portfolio.did);
+        let receiver_current_balance = BalanceOf::<T>::get(&asset_id, &receiver_portfolio.did);
         if receiver_current_balance
             .checked_add(transfer_value)
             .is_none()
@@ -2538,7 +2990,7 @@ impl<T: Config> Module<T> {
         }
 
         if skip_locked_check {
-            if PortfolioAssetBalances::get(sender_portfolio, asset_id) < transfer_value {
+            if PortfolioAssetBalances::<T>::get(sender_portfolio, asset_id) < transfer_value {
                 asset_transfer_errors
                     .push(PortfolioError::<T>::InsufficientPortfolioBalance.into());
             }
@@ -2552,15 +3004,15 @@ impl<T: Config> Module<T> {
             }
         }
 
-        if !Identity::<T>::has_valid_cdd(receiver_portfolio.did) {
+        if !IdentityPallet::<T>::has_valid_cdd(receiver_portfolio.did) {
             asset_transfer_errors.push(Error::<T>::InvalidTransferInvalidReceiverCDD.into());
         }
 
-        if !Identity::<T>::has_valid_cdd(sender_portfolio.did) {
+        if !IdentityPallet::<T>::has_valid_cdd(sender_portfolio.did) {
             asset_transfer_errors.push(Error::<T>::InvalidTransferInvalidSenderCDD.into());
         }
 
-        if Frozen::get(asset_id) {
+        if Frozen::<T>::get(asset_id) {
             asset_transfer_errors.push(Error::<T>::InvalidTransferFrozenAsset.into());
         }
 
@@ -2598,12 +3050,12 @@ impl<T: Config> Module<T> {
 
     /// Returns [`AssetDetails::total_supply`] for the given `asset_id`.
     pub fn total_supply(asset_id: &AssetId) -> Balance {
-        Assets::get(asset_id)
+        Assets::<T>::get(asset_id)
             .map(|t| t.total_supply)
             .unwrap_or_default()
     }
 
-    /// Calls [`Module::validate_asset_creation_rules`] and [`Module::unverified_create_asset`].
+    /// Calls [`Pallet::validate_asset_creation_rules`] and [`Pallet::unverified_create_asset`].
     fn validate_and_create_asset(
         caller_data: PermissionedCallOriginData<T::AccountId>,
         asset_name: AssetName,
@@ -2615,8 +3067,6 @@ impl<T: Config> Module<T> {
         let asset_id = Self::generate_asset_id(caller_data.sender, true);
 
         Self::validate_asset_creation_rules(
-            caller_data.primary_did,
-            caller_data.secondary_key,
             &asset_id,
             &asset_name,
             &asset_type,
@@ -2660,7 +3110,7 @@ impl<T: Config> Module<T> {
     /// Returns `Ok` if there's no asset associated to `asset_id`. Otherwise, returns [`Error::<T>::AssetIdGenerationError`].
     fn ensure_new_asset_id(asset_id: &AssetId) -> DispatchResult {
         ensure!(
-            !Assets::contains_key(asset_id),
+            !Assets::<T>::contains_key(asset_id),
             Error::<T>::AssetIdGenerationError
         );
         Ok(())
@@ -2668,7 +3118,7 @@ impl<T: Config> Module<T> {
 
     /// Returns `Ok` if there's a asset associated to `asset_id`. Otherwise, returns [`Error::<T>::NoSuchAsset`].
     fn ensure_asset_exists(asset_id: &AssetId) -> DispatchResult {
-        ensure!(Assets::contains_key(asset_id), Error::<T>::NoSuchAsset);
+        ensure!(Assets::<T>::contains_key(asset_id), Error::<T>::NoSuchAsset);
         Ok(())
     }
 
@@ -2693,7 +3143,7 @@ impl<T: Config> Module<T> {
 // All Storage Writes!
 //==========================================================================
 
-impl<T: Config> Module<T> {
+impl<T: AssetConfig> Pallet<T> {
     /// All storage writes for registering `ticker` to `owner` with an optional `expiry`.
     /// Note: If `charge_fee` is `true` one fee is charged ([`ProtocolOp::AssetRegisterTicker`]).
     fn unverified_register_ticker(
@@ -2708,25 +3158,25 @@ impl<T: Config> Module<T> {
 
         // If the ticker was already registered, removes the previous owner
         if let Some(ticker_registration) = UniqueTickerRegistration::<T>::get(ticker) {
-            TickersOwnedByUser::remove(&ticker_registration.owner, &ticker);
+            TickersOwnedByUser::<T>::remove(&ticker_registration.owner, &ticker);
         }
 
         // Write the ticker registration data to the storage
         UniqueTickerRegistration::<T>::insert(ticker, TickerRegistration { owner, expiry });
-        TickersOwnedByUser::insert(owner, ticker, true);
+        TickersOwnedByUser::<T>::insert(owner, ticker, true);
 
-        Self::deposit_event(RawEvent::TickerRegistered(owner, ticker, expiry));
+        Self::deposit_event(Event::TickerRegistered(owner, ticker, expiry));
         Ok(())
     }
 
     /// Transfer the given `ticker`'s registration from `req.owner` to `to`.
     fn transfer_ticker(mut reg: TickerRegistration<T::Moment>, ticker: Ticker, to: IdentityId) {
         let from = reg.owner;
-        TickersOwnedByUser::remove(from, ticker);
-        TickersOwnedByUser::insert(to, ticker, true);
+        TickersOwnedByUser::<T>::remove(from, ticker);
+        TickersOwnedByUser::<T>::insert(to, ticker, true);
         reg.owner = to;
         UniqueTickerRegistration::<T>::insert(&ticker, reg);
-        Self::deposit_event(RawEvent::TickerTransferred(to, ticker, from));
+        Self::deposit_event(Event::TickerTransferred(to, ticker, from));
     }
 
     /// All storage writes for creating an asset.
@@ -2743,15 +3193,15 @@ impl<T: Config> Module<T> {
         T::ProtocolFee::charge_fee(ProtocolOp::AssetCreateAsset)?;
 
         let asset_details = AssetDetails::new(Zero::zero(), caller_did, divisible, asset_type);
-        Assets::insert(asset_id, asset_details);
+        Assets::<T>::insert(asset_id, asset_details);
 
-        AssetNames::insert(asset_id, &asset_name);
+        AssetNames::<T>::insert(asset_id, &asset_name);
         if let Some(funding_round_name) = funding_round_name.as_ref() {
-            FundingRound::insert(asset_id, funding_round_name);
+            FundingRound::<T>::insert(asset_id, funding_round_name);
         }
 
-        SecurityTokensOwnedByUser::insert(caller_did, asset_id, true);
-        Self::deposit_event(RawEvent::AssetCreated(
+        SecurityTokensOwnedByUser::<T>::insert(caller_did, asset_id, true);
+        Self::deposit_event(Event::AssetCreated(
             caller_did,
             asset_id,
             divisible,
@@ -2769,18 +3219,14 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Inserts `asset_identifiers` for the given `asset_id` and emits [`RawEvent::IdentifiersUpdated`].
+    /// Inserts `asset_identifiers` for the given `asset_id` and emits [`Event::IdentifiersUpdated`].
     fn unverified_update_asset_identifiers(
         did: IdentityId,
         asset_id: AssetId,
         asset_identifiers: Vec<AssetIdentifier>,
     ) {
-        AssetIdentifiers::insert(asset_id, asset_identifiers.clone());
-        Self::deposit_event(RawEvent::IdentifiersUpdated(
-            did,
-            asset_id,
-            asset_identifiers,
-        ));
+        AssetIdentifiers::<T>::insert(asset_id, asset_identifiers.clone());
+        Self::deposit_event(Event::IdentifiersUpdated(did, asset_id, asset_identifiers));
     }
 
     /// All storage writes for issuing tokens.
@@ -2797,24 +3243,24 @@ impl<T: Config> Module<T> {
             T::ProtocolFee::charge_fee(ProtocolOp::AssetIssue)?;
         }
 
-        let current_issuer_balance = BalanceOf::get(&asset_id, &issuer_portfolio.did);
+        let current_issuer_balance = BalanceOf::<T>::get(&asset_id, &issuer_portfolio.did);
         <Checkpoint<T>>::advance_update_balances(
             &asset_id,
             &[(issuer_portfolio.did, current_issuer_balance)],
         )?;
 
         let new_issuer_balance = current_issuer_balance + amount_to_issue;
-        BalanceOf::insert(asset_id, issuer_portfolio.did, new_issuer_balance);
+        BalanceOf::<T>::insert(asset_id, issuer_portfolio.did, new_issuer_balance);
 
         asset_details.total_supply += amount_to_issue;
-        Assets::insert(asset_id, asset_details);
+        Assets::<T>::insert(asset_id, asset_details);
 
         // No check since the total balance is always <= the total supply
         let new_issuer_portfolio_balance =
             Portfolio::<T>::portfolio_asset_balances(issuer_portfolio, asset_id) + amount_to_issue;
         Portfolio::<T>::set_portfolio_balance(
             issuer_portfolio,
-            &asset_id,
+            asset_id,
             new_issuer_portfolio_balance,
         );
 
@@ -2828,12 +3274,12 @@ impl<T: Config> Module<T> {
             weight_meter,
         )?;
 
-        let funding_round_name = FundingRound::get(&asset_id);
-        IssuedInFundingRound::mutate((&asset_id, &funding_round_name), |balance| {
+        let funding_round_name = FundingRound::<T>::get(&asset_id);
+        IssuedInFundingRound::<T>::mutate((&asset_id, &funding_round_name), |balance| {
             *balance = balance.saturating_add(amount_to_issue)
         });
 
-        Self::deposit_event(RawEvent::AssetBalanceUpdated(
+        Self::deposit_event(Event::AssetBalanceUpdated(
             issuer_portfolio.did,
             asset_id,
             amount_to_issue,
@@ -2858,8 +3304,8 @@ impl<T: Config> Module<T> {
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // Gets the current balance and advances the checkpoint
-        let sender_current_balance = BalanceOf::get(&asset_id, &sender_portfolio.did);
-        let receiver_current_balance = BalanceOf::get(&asset_id, &receiver_portfolio.did);
+        let sender_current_balance = BalanceOf::<T>::get(&asset_id, &sender_portfolio.did);
+        let receiver_current_balance = BalanceOf::<T>::get(&asset_id, &receiver_portfolio.did);
         <Checkpoint<T>>::advance_update_balances(
             &asset_id,
             &[
@@ -2871,14 +3317,14 @@ impl<T: Config> Module<T> {
         // Updates the balance in the asset pallet
         let sender_new_balance = sender_current_balance - transfer_value;
         let receiver_new_balance = receiver_current_balance + transfer_value;
-        BalanceOf::insert(asset_id, sender_portfolio.did, sender_new_balance);
-        BalanceOf::insert(asset_id, receiver_portfolio.did, receiver_new_balance);
+        BalanceOf::<T>::insert(asset_id, sender_portfolio.did, sender_new_balance);
+        BalanceOf::<T>::insert(asset_id, receiver_portfolio.did, receiver_new_balance);
 
         // Updates the balances in the portfolio pallet
         Portfolio::<T>::unchecked_transfer_portfolio_balance(
-            &sender_portfolio,
-            &receiver_portfolio,
-            &asset_id,
+            sender_portfolio,
+            receiver_portfolio,
+            asset_id,
             transfer_value,
         );
 
@@ -2893,7 +3339,7 @@ impl<T: Config> Module<T> {
             weight_meter,
         )?;
 
-        Self::deposit_event(RawEvent::AssetBalanceUpdated(
+        Self::deposit_event(Event::AssetBalanceUpdated(
             caller_did,
             asset_id,
             transfer_value,
@@ -2912,7 +3358,7 @@ impl<T: Config> Module<T> {
         caller_did: IdentityId,
         asset_type_bytes: Vec<u8>,
     ) -> Result<CustomAssetTypeId, DispatchError> {
-        match CustomTypesInverse::try_get(&asset_type_bytes) {
+        match CustomTypesInverse::<T>::try_get(&asset_type_bytes) {
             Ok(type_id) => {
                 Self::deposit_event(Event::<T>::CustomAssetTypeExists(
                     caller_did,
@@ -2922,9 +3368,9 @@ impl<T: Config> Module<T> {
                 Ok(type_id)
             }
             Err(_) => {
-                let type_id = CustomTypeIdSequence::try_mutate(try_next_pre::<T, _>)?;
-                CustomTypesInverse::insert(&asset_type_bytes, type_id);
-                CustomTypes::insert(type_id, &asset_type_bytes);
+                let type_id = CustomTypeIdSequence::<T>::try_mutate(try_next_pre::<T, _>)?;
+                CustomTypesInverse::<T>::insert(&asset_type_bytes, type_id);
+                CustomTypes::<T>::insert(type_id, &asset_type_bytes);
                 Self::deposit_event(Event::<T>::CustomAssetTypeRegistered(
                     caller_did,
                     type_id,
@@ -2958,16 +3404,14 @@ impl<T: Config> Module<T> {
         );
 
         // Set asset metadata value for asset.
-        AssetMetadataValues::insert(asset_id, key, &value);
+        AssetMetadataValues::<T>::insert(asset_id, key, &value);
 
         // Set asset metadata value details.
         if let Some(ref detail) = detail {
             AssetMetadataValueDetails::<T>::insert(asset_id, key, detail);
         }
 
-        Self::deposit_event(RawEvent::SetAssetMetadataValue(
-            did, asset_id, value, detail,
-        ));
+        Self::deposit_event(Event::SetAssetMetadataValue(did, asset_id, value, detail));
         Ok(())
     }
 
@@ -2982,7 +3426,7 @@ impl<T: Config> Module<T> {
 
         // Check if key already exists.
         ensure!(
-            !AssetMetadataLocalNameToKey::contains_key(asset_id, &name),
+            !AssetMetadataLocalNameToKey::<T>::contains_key(asset_id, &name),
             Error::<T>::AssetMetadataLocalKeyAlreadyExists
         );
 
@@ -2990,13 +3434,13 @@ impl<T: Config> Module<T> {
         let key = Self::update_current_asset_metadata_local_key(&asset_id)?;
 
         // Store local key <-> name mapping.
-        AssetMetadataLocalNameToKey::insert(asset_id, &name, key);
-        AssetMetadataLocalKeyToName::insert(asset_id, key, &name);
+        AssetMetadataLocalNameToKey::<T>::insert(asset_id, &name, key);
+        AssetMetadataLocalKeyToName::<T>::insert(asset_id, key, &name);
 
         // Store local specs.
-        AssetMetadataLocalSpecs::insert(asset_id, key, &spec);
+        AssetMetadataLocalSpecs::<T>::insert(asset_id, key, &spec);
 
-        Self::deposit_event(RawEvent::RegisterAssetMetadataLocalType(
+        Self::deposit_event(Event::RegisterAssetMetadataLocalType(
             did, asset_id, name, key, spec,
         ));
         Ok(key.into())
@@ -3004,25 +3448,27 @@ impl<T: Config> Module<T> {
 
     /// Adds one to `CurrentCollectionId`.
     fn update_current_asset_metadata_global_key() -> Result<AssetMetadataGlobalKey, DispatchError> {
-        CurrentAssetMetadataGlobalKey::try_mutate(|current_global_key| match current_global_key {
-            Some(current_key) => {
-                let new_key = try_next_pre::<T, _>(current_key)?;
-                *current_global_key = Some(new_key);
-                Ok::<AssetMetadataGlobalKey, DispatchError>(new_key)
-            }
-            None => {
-                let new_key = AssetMetadataGlobalKey(1);
-                *current_global_key = Some(new_key);
-                Ok::<AssetMetadataGlobalKey, DispatchError>(new_key)
-            }
-        })
+        CurrentAssetMetadataGlobalKey::<T>::try_mutate(
+            |current_global_key| match current_global_key {
+                Some(current_key) => {
+                    let new_key = try_next_pre::<T, _>(current_key)?;
+                    *current_global_key = Some(new_key);
+                    Ok::<AssetMetadataGlobalKey, DispatchError>(new_key)
+                }
+                None => {
+                    let new_key = AssetMetadataGlobalKey(1);
+                    *current_global_key = Some(new_key);
+                    Ok::<AssetMetadataGlobalKey, DispatchError>(new_key)
+                }
+            },
+        )
     }
 
     /// Adds one to the `AssetMetadataLocalKey` for the given `ticker`.
     fn update_current_asset_metadata_local_key(
         asset_id: &AssetId,
     ) -> Result<AssetMetadataLocalKey, DispatchError> {
-        CurrentAssetMetadataLocalKey::try_mutate(asset_id, |current_local_key| {
+        CurrentAssetMetadataLocalKey::<T>::try_mutate(asset_id, |current_local_key| {
             match current_local_key {
                 Some(current_key) => {
                     let new_key = try_next_pre::<T, _>(current_key)?;
@@ -3047,25 +3493,25 @@ impl<T: Config> Module<T> {
 // Trait implementation!
 //==========================================================================
 
-impl<T: Config> AssetFnTrait<T::AccountId> for Module<T> {
+impl<T: AssetConfig> AssetFnTrait<T::AccountId> for Pallet<T> {
     fn ensure_granular(asset_id: &AssetId, value: Balance) -> DispatchResult {
         let asset_details = Self::try_get_asset_details(&asset_id)?;
         Self::ensure_asset_granular(&asset_details, &value)
     }
 
     fn skip_asset_affirmation(identity_id: &IdentityId, asset_id: &AssetId) -> bool {
-        if AssetsExemptFromAffirmation::get(asset_id) {
+        if AssetsExemptFromAffirmation::<T>::get(asset_id) {
             return true;
         }
-        PreApprovedAsset::get(identity_id, asset_id)
+        PreApprovedAsset::<T>::get(identity_id, asset_id)
     }
 
     fn asset_affirmation_exemption(asset_id: &AssetId) -> bool {
-        AssetsExemptFromAffirmation::get(asset_id)
+        AssetsExemptFromAffirmation::<T>::get(asset_id)
     }
 
     fn asset_balance(asset_id: &AssetId, did: &IdentityId) -> Balance {
-        BalanceOf::get(asset_id, did)
+        BalanceOf::<T>::get(asset_id, did)
     }
 
     fn asset_total_supply(asset_id: &AssetId) -> Result<Balance, DispatchError> {

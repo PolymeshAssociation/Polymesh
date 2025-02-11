@@ -10,9 +10,9 @@ use polymesh_primitives::IdentityId;
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
 use sp_keyring::AccountKeyring;
 
-type CommitteeGroup = group::Module<TestStorage, group::Instance1>;
+type CommitteeGroup = group::Pallet<TestStorage, group::Instance1>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
-type Identity = identity::Module<TestStorage>;
+type Identity = identity::Pallet<TestStorage>;
 
 #[test]
 fn query_membership_works() {

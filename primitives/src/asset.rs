@@ -16,7 +16,7 @@
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_128;
 use sp_std::prelude::Vec;
@@ -27,7 +27,7 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 
 /// An unique asset identifier.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, TypeInfo)]
+#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct AssetId([u8; 16]);
 
@@ -60,7 +60,7 @@ impl From<Ticker> for AssetId {
 }
 
 /// A per-asset checkpoint ID.
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CheckpointId(pub u64);
 impl_checked_inc!(CheckpointId);
@@ -71,12 +71,33 @@ impl_checked_inc!(CheckpointId);
 pub struct AssetName(pub Vec<u8>);
 
 /// The ID of a custom asset type.
-#[derive(Encode, Decode, TypeInfo, Copy, Clone, Default, Debug, PartialEq, Eq)]
+#[derive(
+    Encode,
+    Decode,
+    TypeInfo,
+    MaxEncodedLen,
+    Copy,
+    Clone,
+    Default,
+    Debug,
+    PartialEq,
+    Eq
+)]
 pub struct CustomAssetTypeId(pub u32);
 impl_checked_inc!(CustomAssetTypeId);
 
 /// The type of security represented by a token.
-#[derive(Encode, Decode, TypeInfo, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    Encode,
+    Decode,
+    TypeInfo,
+    MaxEncodedLen,
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq
+)]
 pub enum AssetType {
     /// Common stock - a security that represents ownership in a corporation.
     EquityCommon,
@@ -118,7 +139,17 @@ pub enum AssetType {
 }
 
 /// Defines all non-fungible variants.
-#[derive(Encode, Decode, TypeInfo, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    Encode,
+    Decode,
+    TypeInfo,
+    MaxEncodedLen,
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq
+)]
 pub enum NonFungibleType {
     /// Derivative contract - a contract between two parties for buying or selling a security at a
     /// predetermined price within a specific time period.

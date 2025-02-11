@@ -2,7 +2,7 @@ use super::{
     storage::{register_keyring_account, EventTest, TestStorage},
     ExtBuilder,
 };
-use pallet_balances::{self as balances, RawEvent as BalancesRawEvent};
+use pallet_balances::{self as balances, Event as BalancesRawEvent};
 use pallet_identity as identity;
 use polymesh_runtime_develop::{runtime, Runtime};
 
@@ -17,9 +17,9 @@ use polymesh_primitives::{traits::BlockRewardsReserveCurrency, Memo};
 use sp_keyring::AccountKeyring;
 use sp_runtime::traits::SignedExtension;
 
-pub type Balances = balances::Module<TestStorage>;
+pub type Balances = balances::Pallet<TestStorage>;
 pub type System = frame_system::Pallet<TestStorage>;
-type Identity = identity::Module<TestStorage>;
+type Identity = identity::Pallet<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type Error = balances::Error<TestStorage>;
 

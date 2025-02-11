@@ -1,5 +1,4 @@
 use frame_support::{assert_noop, assert_ok};
-use frame_support::{StorageDoubleMap, StorageMap, StorageValue};
 use sp_keyring::AccountKeyring;
 
 use pallet_asset::{
@@ -12,9 +11,9 @@ use crate::asset_test::{now, set_timestamp};
 use crate::storage::User;
 use crate::{ExtBuilder, TestStorage};
 
-type Asset = pallet_asset::Module<TestStorage>;
+type Asset = pallet_asset::Pallet<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
-type Identity = pallet_identity::Module<TestStorage>;
+type Identity = pallet_identity::Pallet<TestStorage>;
 
 #[test]
 fn accept_ticker_transfer() {
@@ -34,8 +33,14 @@ fn accept_ticker_transfer() {
         assert_ok!(Asset::accept_ticker_transfer(bob.origin(), auth_id,),);
 
         let ticker_registration_config = TickerConfig::<TestStorage>::get();
-        assert_eq!(TickersOwnedByUser::get(bob.did, ticker), true);
-        assert_eq!(TickersOwnedByUser::get(alice.did, ticker), false);
+        assert_eq!(
+            TickersOwnedByUser::<TestStorage>::get(bob.did, ticker),
+            true
+        );
+        assert_eq!(
+            TickersOwnedByUser::<TestStorage>::get(alice.did, ticker),
+            false
+        );
         assert_eq!(
             UniqueTickerRegistration::<TestStorage>::get(ticker).unwrap(),
             TickerRegistration {

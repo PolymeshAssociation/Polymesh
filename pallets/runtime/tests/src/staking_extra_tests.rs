@@ -1,4 +1,4 @@
-use frame_support::{assert_ok, StorageMap};
+use frame_support::assert_ok;
 use sp_keyring::AccountKeyring;
 
 use polymesh_primitives::{AuthorizationData, Permissions};
@@ -20,7 +20,7 @@ fn updating_controller() {
 
             add_secondary_key(alice.did, eve.acc());
 
-            let auth_id = pallet_identity::Module::<TestStorage>::add_auth(
+            let auth_id = pallet_identity::Pallet::<TestStorage>::add_auth(
                 alice.did,
                 eve.signatory_acc(),
                 AuthorizationData::RotatePrimaryKeyToSecondary(Permissions::default()),
@@ -48,7 +48,7 @@ fn updating_controller() {
                 pallet_staking::ValidatorPrefs::default()
             ));
 
-            assert_ok!(pallet_identity::Module::<TestStorage>::revoke_claim(
+            assert_ok!(pallet_identity::Pallet::<TestStorage>::revoke_claim(
                 Origin::signed(AccountKeyring::Charlie.to_account_id()),
                 alice.did,
                 polymesh_primitives::Claim::CustomerDueDiligence(Default::default())
@@ -74,7 +74,7 @@ fn updating_controller() {
             );
 
             assert_ok!(
-                pallet_identity::Module::<TestStorage>::rotate_primary_key_to_secondary(
+                pallet_identity::Pallet::<TestStorage>::rotate_primary_key_to_secondary(
                     eve.origin(),
                     auth_id,
                     None
