@@ -448,7 +448,7 @@ macro_rules! polymesh_contracts {
                 .as_bytes()
                 .try_into()
                 .expect("Wrong Length - should be length 4"),
-            upgradable_major: 6,
+            upgradable_major: 7,
             upgradable_owner: $root_key,
         }
     };
@@ -456,7 +456,7 @@ macro_rules! polymesh_contracts {
 
 fn contracts_upgradable_code() -> Vec<u8> {
     // NB - Contract should match the `upgradable_major` version above.
-    let upgradable_code = include_bytes!("data/contracts/polymesh_ink_6.wasm").to_vec();
+    let upgradable_code = include_bytes!("data/contracts/polymesh_ink_7.wasm").to_vec();
     upgradable_code
 }
 
