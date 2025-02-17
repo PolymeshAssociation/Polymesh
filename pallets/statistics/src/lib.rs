@@ -138,7 +138,6 @@ pub mod pallet {
 
     /// Maps a set of [`StatType`] for each [`AssetId`].
     #[pallet::storage]
-    #[pallet::getter(fn active_asset_stats)]
     pub(super) type ActiveAssetStats<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
@@ -149,7 +148,6 @@ pub mod pallet {
 
     /// Asset stats.
     #[pallet::storage]
-    #[pallet::getter(fn asset_stats)]
     pub type AssetStats<T> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -162,7 +160,6 @@ pub mod pallet {
 
     /// The [`AssetTransferCompliance`] for each [`AssetId`].
     #[pallet::storage]
-    #[pallet::getter(fn asset_transfer_compliances)]
     pub(super) type AssetTransferCompliances<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
@@ -173,7 +170,6 @@ pub mod pallet {
 
     /// Entities exempt from a Transfer Compliance rule.
     #[pallet::storage]
-    #[pallet::getter(fn transfer_condition_exempt_entities)]
     pub(super) type TransferConditionExemptEntities<T> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -313,7 +309,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn is_asset_stat_active(asset_id: &AssetId, stat_type: &StatType) -> bool {
-        Self::active_asset_stats(asset_id).contains(stat_type)
+        ActiveAssetStats::<T>::get(asset_id).contains(stat_type)
     }
 
     fn base_set_active_asset_stats(
@@ -336,7 +332,7 @@ impl<T: Config> Pallet<T> {
             .collect::<BTreeSet<_>>();
 
         // Check if removed StatTypes are needed by TransferConditions.
-        let remove_types = Self::active_asset_stats(&asset_id)
+        let remove_types = ActiveAssetStats::<T>::get(&asset_id)
             .into_iter()
             // Only remove stats that are not in the new `stat_types` set.
             .filter(|stat_type| !stat_types.contains(&stat_type))
@@ -652,7 +648,7 @@ impl<T: Config> Pallet<T> {
         let count_changes = Self::investor_count_changes(from_balance, to_balance, amount);
 
         // Update active asset stats.
-        for stat_type in Self::active_asset_stats(asset_id).into_iter() {
+        for stat_type in ActiveAssetStats::<T>::get(asset_id).into_iter() {
             let key1 = Stat1stKey {
                 asset_id,
                 stat_type,
@@ -973,10 +969,10 @@ impl<T: Config> Pallet<T> {
         match transfer_condition_exempt_key.op {
             // Count transfer conditions require the sender to be exempt.
             StatOpType::Count => {
-                Self::transfer_condition_exempt_entities(transfer_condition_exempt_key, sender_did)
+                TransferConditionExemptEntities::<T>::get(transfer_condition_exempt_key, sender_did)
             }
             // Percent ownersip transfer conditions require the receiver to be exempt.
-            StatOpType::Balance => Self::transfer_condition_exempt_entities(
+            StatOpType::Balance => TransferConditionExemptEntities::<T>::get(
                 transfer_condition_exempt_key,
                 receiver_did,
             ),

@@ -20,6 +20,7 @@ use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{convert::TryInto, iter, prelude::*};
 
 use pallet_identity::benchmarking::{user, User, UserBuilder};
+use pallet_portfolio::NextPortfolioNumber;
 use pallet_statistics::benchmarking::setup_transfer_restrictions;
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{AssetName, NonFungibleType};
@@ -84,7 +85,7 @@ fn register_metadata_global_name<T: AssetConfig>() -> AssetMetadataKey {
 
     Pallet::<T>::register_asset_metadata_global_type(root, name, spec).unwrap();
 
-    let key = Pallet::<T>::current_asset_metadata_global_key().unwrap();
+    let key = CurrentAssetMetadataGlobalKey::<T>::get().unwrap();
     AssetMetadataKey::Global(key)
 }
 
@@ -198,7 +199,7 @@ pub fn setup_asset_transfer<T: AssetConfig>(
 
 /// Creates a user portfolio for `user`.
 pub fn create_portfolio<T: Config>(user: &User<T>, portofolio_name: &str) -> PortfolioId {
-    let portfolio_number = Portfolio::<T>::next_portfolio_number(user.did()).0;
+    let portfolio_number = NextPortfolioNumber::<T>::get(user.did()).0;
 
     Portfolio::<T>::create_portfolio(
         user.origin().clone().into(),
@@ -435,7 +436,7 @@ benchmarks! {
     verify {
         for i in 1..d {
             assert_eq!(
-                Pallet::<T>::asset_documents(asset_id, DocumentId(i)).unwrap(),
+                AssetDocuments::<T>::get(asset_id, DocumentId(i)).unwrap(),
                 docs[i as usize]
             );
         }
@@ -515,7 +516,7 @@ benchmarks! {
     }: _(bob.origin.clone(), asset_id, 1_000,  PortfolioId::default_portfolio(alice.did()))
     verify {
         assert_eq!(
-            Pallet::<T>::balance_of(asset_id, bob.did()),
+            BalanceOf::<T>::get(asset_id, bob.did()),
             1_000
         );
     }
@@ -525,10 +526,10 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let ty = vec![b'X'; n as usize];
-        assert_eq!(Pallet::<T>::custom_type_id_seq(), CustomAssetTypeId(0));
+        assert_eq!(CustomTypeIdSequence::<T>::get(), CustomAssetTypeId(0));
     }: _(alice.origin, ty)
     verify {
-        assert_eq!(Pallet::<T>::custom_type_id_seq(), CustomAssetTypeId(1));
+        assert_eq!(CustomTypeIdSequence::<T>::get(), CustomAssetTypeId(1));
     }
 
     set_asset_metadata {

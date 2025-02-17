@@ -14,12 +14,15 @@ use sp_std::collections::btree_set::BTreeSet;
 
 use pallet_asset::BalanceOf;
 use pallet_nft::NumberOfNFTs;
-use pallet_portfolio::{PortfolioLockedNFT, PortfolioNFT};
+use pallet_portfolio::{
+    NextPortfolioNumber, PortfolioLockedAssets, PortfolioLockedNFT, PortfolioNFT,
+};
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
-    AffirmsReceived, Event, InstructionAffirmsPending, InstructionLegs,
-    InstructionMediatorsAffirmations, InstructionMemos, NumberOfVenueSigners, OffChainAffirmations,
-    UserAffirmations, UserVenues, VenueInstructions,
+    AffirmsReceived, Details, Event, InstructionAffirmsPending, InstructionCounter,
+    InstructionDetails, InstructionLegStatus, InstructionLegs, InstructionMediatorsAffirmations,
+    InstructionMemos, InstructionStatuses, NumberOfVenueSigners, OffChainAffirmations,
+    UserAffirmations, UserVenues, VenueCounter, VenueInfo, VenueInstructions, VenueSigners,
 };
 use polymesh_primitives::asset::{AssetId, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
@@ -94,7 +97,7 @@ impl UserWithBalance {
         Self {
             init_balances: assets
                 .iter()
-                .map(|asset_id| (*asset_id, Asset::balance_of(asset_id, user.did)))
+                .map(|asset_id| (*asset_id, BalanceOf::<TestStorage>::get(asset_id, user.did)))
                 .collect(),
             user,
         }
@@ -102,7 +105,7 @@ impl UserWithBalance {
 
     fn refresh_init_balances(&mut self) {
         for (asset_id, balance) in &mut self.init_balances {
-            *balance = Asset::balance_of(asset_id, self.user.did);
+            *balance = BalanceOf::<TestStorage>::get(asset_id, self.user.did);
         }
     }
 
@@ -185,7 +188,7 @@ pub fn set_current_block_number(block: u32) {
 fn venue_details_length_limited() {
     ExtBuilder::default().build().execute_with(|| {
         let actor = User::new(AccountKeyring::Alice);
-        let id = Settlement::venue_counter();
+        let id = VenueCounter::<TestStorage>::get();
         let create = |d| Settlement::create_venue(actor.origin(), d, vec![], VenueType::Exchange);
         let update = |d| Settlement::update_venue_details(actor.origin(), id, d);
         assert_too_long!(create(max_len_bytes(1)));
@@ -213,7 +216,7 @@ fn user_venues(did: IdentityId) -> Vec<VenueId> {
 fn venue_registration() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
-        let venue_counter = Settlement::venue_counter();
+        let venue_counter = VenueCounter::<TestStorage>::get();
         assert_ok!(Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
@@ -223,23 +226,32 @@ fn venue_registration() {
             ],
             VenueType::Exchange
         ));
-        let venue_info = Settlement::venue_info(venue_counter).unwrap();
+        let venue_info = VenueInfo::<TestStorage>::get(venue_counter).unwrap();
         assert_eq!(
-            Settlement::venue_counter(),
+            VenueCounter::<TestStorage>::get(),
             venue_counter.checked_inc().unwrap()
         );
         assert_eq!(user_venues(alice.did), [venue_counter]);
         assert_eq!(venue_info.creator, alice.did);
         assert_eq!(venue_instructions(venue_counter).len(), 0);
-        assert_eq!(Settlement::details(venue_counter), VenueDetails::default());
-        assert_eq!(venue_info.venue_type, VenueType::Exchange);
-        assert_eq!(Settlement::venue_signers(venue_counter, alice.acc()), true);
         assert_eq!(
-            Settlement::venue_signers(venue_counter, AccountKeyring::Bob.to_account_id()),
+            Details::<TestStorage>::get(venue_counter),
+            VenueDetails::default()
+        );
+        assert_eq!(venue_info.venue_type, VenueType::Exchange);
+        assert_eq!(
+            VenueSigners::<TestStorage>::get(venue_counter, alice.acc()),
             true
         );
         assert_eq!(
-            Settlement::venue_signers(venue_counter, AccountKeyring::Charlie.to_account_id()),
+            VenueSigners::<TestStorage>::get(venue_counter, AccountKeyring::Bob.to_account_id()),
+            true
+        );
+        assert_eq!(
+            VenueSigners::<TestStorage>::get(
+                venue_counter,
+                AccountKeyring::Charlie.to_account_id()
+            ),
             false
         );
 
@@ -261,10 +273,10 @@ fn venue_registration() {
             venue_counter,
             [0x01].into(),
         ));
-        let venue_info = Settlement::venue_info(venue_counter).unwrap();
+        let venue_info = VenueInfo::<TestStorage>::get(venue_counter).unwrap();
         assert_eq!(venue_info.creator, alice.did);
         assert_eq!(venue_instructions(venue_counter).len(), 0);
-        assert_eq!(Settlement::details(venue_counter), [0x01].into());
+        assert_eq!(Details::<TestStorage>::get(venue_counter), [0x01].into());
         assert_eq!(venue_info.venue_type, VenueType::Exchange);
     });
 }
@@ -287,7 +299,7 @@ fn basic_settlement() {
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
         let mut bob = UserWithBalance::new(bob, &[asset_id]);
 
-        let instruction_id = Settlement::instruction_counter();
+        let instruction_id = InstructionCounter::<TestStorage>::get();
         let amount = 100u128;
         alice.refresh_init_balances();
         bob.refresh_init_balances();
@@ -333,7 +345,7 @@ fn create_and_affirm_instruction() {
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
         let mut bob = UserWithBalance::new(bob, &[asset_id]);
-        let instruction_id = Settlement::instruction_counter();
+        let instruction_id = InstructionCounter::<TestStorage>::get();
         let amount = 100u128;
         alice.refresh_init_balances();
         bob.refresh_init_balances();
@@ -390,7 +402,7 @@ fn overdraft_failure() {
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
         let mut bob = UserWithBalance::new(bob, &[asset_id]);
-        let instruction_id = Settlement::instruction_counter();
+        let instruction_id = InstructionCounter::<TestStorage>::get();
         let amount = ISSUE_AMOUNT + 1;
         alice.refresh_init_balances();
         bob.refresh_init_balances();
@@ -435,7 +447,7 @@ fn token_swap() {
         let mut alice = UserWithBalance::new(alice, &[asset_id, asset_id2]);
         let mut bob = UserWithBalance::new(bob, &[asset_id, asset_id2]);
 
-        let instruction_id = Settlement::instruction_counter();
+        let instruction_id = InstructionCounter::<TestStorage>::get();
         let amount = 100u128;
         alice.refresh_init_balances();
         bob.refresh_init_balances();
@@ -562,7 +574,7 @@ fn settle_on_block() {
         let mut alice = UserWithBalance::new(alice, &[asset_id, asset_id2]);
         let mut bob = UserWithBalance::new(bob, &[asset_id, asset_id2]);
 
-        let instruction_id = Settlement::instruction_counter();
+        let instruction_id = InstructionCounter::<TestStorage>::get();
         let block_number = System::block_number() + 1;
         let amount = 100u128;
         alice.refresh_init_balances();
@@ -615,7 +627,7 @@ fn settle_on_block() {
         };
         assert_instruction_status(instruction_id, InstructionStatus::Pending);
         assert_eq!(
-            Settlement::instruction_details(instruction_id),
+            InstructionDetails::<TestStorage>::get(instruction_id),
             instruction_details
         );
 
@@ -679,7 +691,7 @@ fn failed_execution() {
         let mut alice = UserWithBalance::new(alice, &[asset_id, asset_id2]);
         let mut bob = UserWithBalance::new(bob, &[asset_id, asset_id2]);
 
-        let instruction_id = Settlement::instruction_counter();
+        let instruction_id = InstructionCounter::<TestStorage>::get();
         assert_ok!(ComplianceManager::reset_asset_compliance(
             Origin::signed(AccountKeyring::Bob.to_account_id()),
             asset_id2,
@@ -751,7 +763,7 @@ fn failed_execution() {
         };
         assert_instruction_status(instruction_id, InstructionStatus::Pending);
         assert_eq!(
-            Settlement::instruction_details(instruction_id),
+            InstructionDetails::<TestStorage>::get(instruction_id),
             instruction_details
         );
         assert_affirms_pending(instruction_id, 2);
@@ -839,7 +851,7 @@ fn venue_filtering() {
         let bob = User::new(AccountKeyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
         let block_number = System::block_number() + 1;
-        let instruction_id = Settlement::instruction_counter();
+        let instruction_id = InstructionCounter::<TestStorage>::get();
 
         let legs = vec![Leg::Fungible {
             sender: PortfolioId::default_portfolio(alice.did),
@@ -894,7 +906,7 @@ fn venue_filtering() {
         assert_affirm_instruction!(bob.origin(), instruction_id.checked_inc().unwrap(), bob.did);
 
         next_block();
-        assert_eq!(Asset::balance_of(&asset_id, bob.did), 10);
+        assert_eq!(BalanceOf::<TestStorage>::get(&asset_id, bob.did), 10);
         assert_ok!(Settlement::disallow_venues(
             alice.origin(),
             asset_id,
@@ -913,7 +925,7 @@ fn basic_fuzzing() {
         let bob = User::new(AccountKeyring::Bob);
         let charlie = User::new(AccountKeyring::Charlie);
         let dave = User::new(AccountKeyring::Dave);
-        let venue_counter = Settlement::venue_counter();
+        let venue_counter = VenueCounter::<TestStorage>::get();
         assert_ok!(Settlement::create_venue(
             Origin::signed(AccountKeyring::Alice.to_account_id()),
             VenueDetails::default(),
@@ -932,7 +944,7 @@ fn basic_fuzzing() {
         }
 
         let block_number = System::block_number() + 1;
-        let instruction_id = Settlement::instruction_counter();
+        let instruction_id = InstructionCounter::<TestStorage>::get();
 
         // initialize balances
         for i in 0..10 {
@@ -1034,14 +1046,17 @@ fn basic_fuzzing() {
         ) {
             for ((did, asset_id), balance) in locked_assets {
                 assert_eq!(
-                    Portfolio::locked_assets(PortfolioId::default_portfolio(*did), asset_id),
+                    PortfolioLockedAssets::<TestStorage>::get(
+                        PortfolioId::default_portfolio(*did),
+                        asset_id
+                    ),
                     *balance as u128
                 );
             }
             for asset_id in assets {
                 for user in users {
                     assert_eq!(
-                        Portfolio::locked_assets(
+                        PortfolioLockedAssets::<TestStorage>::get(
                             PortfolioId::default_portfolio(user.did),
                             &asset_id
                         ),
@@ -1072,7 +1087,7 @@ fn basic_fuzzing() {
 
         if fail {
             assert_eq!(
-                Settlement::instruction_status(instruction_id),
+                InstructionStatuses::<TestStorage>::get(instruction_id),
                 InstructionStatus::Failed
             );
             check_locked_assets(&locked_assets, &assets, &users);
@@ -1082,7 +1097,7 @@ fn basic_fuzzing() {
             for user in &users {
                 if fail {
                     assert_eq!(
-                        Asset::balance_of(&asset_id, user.did),
+                        BalanceOf::<TestStorage>::get(&asset_id, user.did),
                         u128::try_from(
                             *balances
                                 .get(&(asset_id, user.did, "init").encode())
@@ -1091,7 +1106,7 @@ fn basic_fuzzing() {
                         .unwrap()
                     );
                     assert_eq!(
-                        Portfolio::locked_assets(
+                        PortfolioLockedAssets::<TestStorage>::get(
                             PortfolioId::default_portfolio(user.did),
                             &asset_id
                         ),
@@ -1102,7 +1117,7 @@ fn basic_fuzzing() {
                     );
                 } else {
                     assert_eq!(
-                        Asset::balance_of(&asset_id, user.did),
+                        BalanceOf::<TestStorage>::get(&asset_id, user.did),
                         u128::try_from(
                             *balances
                                 .get(&(asset_id, user.did, "final").encode())
@@ -1111,7 +1126,7 @@ fn basic_fuzzing() {
                         .unwrap()
                     );
                     assert_eq!(
-                        Portfolio::locked_assets(
+                        PortfolioLockedAssets::<TestStorage>::get(
                             PortfolioId::default_portfolio(user.did),
                             &asset_id
                         ),
@@ -1128,7 +1143,7 @@ fn basic_fuzzing() {
                 PortfolioId::default_portfolio(users[0].did),
             ));
             assert_eq!(
-                Settlement::instruction_status(instruction_id),
+                InstructionStatuses::<TestStorage>::get(instruction_id),
                 InstructionStatus::Rejected(System::block_number())
             );
         }
@@ -1136,7 +1151,10 @@ fn basic_fuzzing() {
         for asset_id in &assets {
             for user in &users {
                 assert_eq!(
-                    Portfolio::locked_assets(PortfolioId::default_portfolio(user.did), asset_id),
+                    PortfolioLockedAssets::<TestStorage>::get(
+                        PortfolioId::default_portfolio(user.did),
+                        asset_id
+                    ),
                     0
                 );
             }
@@ -1155,7 +1173,7 @@ fn claim_multiple_receipts_during_authorization() {
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
         let mut bob = UserWithBalance::new(bob, &[asset_id]);
-        let id = Settlement::instruction_counter();
+        let id = InstructionCounter::<TestStorage>::get();
         alice.refresh_init_balances();
         bob.refresh_init_balances();
         let amount = 100;
@@ -1357,7 +1375,7 @@ fn test_weights_for_settlement_transaction() {
             let dave = AccountKeyring::Dave.to_account_id();
             let (dave_signed, dave_did) = make_account_with_balance(dave, 10_000).unwrap();
 
-            let instruction_id = Settlement::instruction_counter();
+            let instruction_id = InstructionCounter::<TestStorage>::get();
 
             // Add claim rules for settlement
             assert_ok!(ComplianceManager::add_compliance_requirement(
@@ -1452,9 +1470,9 @@ fn cross_portfolio_settlement() {
         let mut bob = UserWithBalance::new(bob, &[asset_id]);
 
         let name = PortfolioName::from([42u8].to_vec());
-        let num = Portfolio::next_portfolio_number(&bob.did);
+        let num = NextPortfolioNumber::<TestStorage>::get(&bob.did);
         assert_ok!(Portfolio::create_portfolio(bob.origin(), name.clone()));
-        let instruction_id = Settlement::instruction_counter();
+        let instruction_id = InstructionCounter::<TestStorage>::get();
         let amount = 100u128;
         alice.refresh_init_balances();
         bob.refresh_init_balances();
@@ -1530,11 +1548,11 @@ fn multiple_portfolio_settlement() {
         let mut bob = UserWithBalance::new(bob, &[asset_id]);
 
         let name = PortfolioName::from([42u8].to_vec());
-        let alice_num = Portfolio::next_portfolio_number(&alice.did);
-        let bob_num = Portfolio::next_portfolio_number(&bob.did);
+        let alice_num = NextPortfolioNumber::<TestStorage>::get(&alice.did);
+        let bob_num = NextPortfolioNumber::<TestStorage>::get(&bob.did);
         assert_ok!(Portfolio::create_portfolio(bob.origin(), name.clone()));
         assert_ok!(Portfolio::create_portfolio(alice.origin(), name.clone()));
-        let instruction_id = Settlement::instruction_counter();
+        let instruction_id = InstructionCounter::<TestStorage>::get();
         let amount = 100u128;
         alice.refresh_init_balances();
         bob.refresh_init_balances();
@@ -1627,7 +1645,10 @@ fn multiple_portfolio_settlement() {
         bob.assert_portfolio_bal(bob_num, 0, &asset_id);
         assert_locked_assets(&asset_id, &alice, amount);
         assert_eq!(
-            Portfolio::locked_assets(PortfolioId::user_portfolio(alice.did, alice_num), &asset_id),
+            PortfolioLockedAssets::<TestStorage>::get(
+                PortfolioId::user_portfolio(alice.did, alice_num),
+                &asset_id
+            ),
             amount
         );
 
@@ -1670,8 +1691,8 @@ fn multiple_custodian_settlement() {
 
         // Create portfolios
         let name = PortfolioName::from([42u8].to_vec());
-        let alice_num = Portfolio::next_portfolio_number(&alice.did);
-        let bob_num = Portfolio::next_portfolio_number(&bob.did);
+        let alice_num = NextPortfolioNumber::<TestStorage>::get(&alice.did);
+        let bob_num = NextPortfolioNumber::<TestStorage>::get(&bob.did);
         assert_ok!(Portfolio::create_portfolio(bob.origin(), name.clone()));
         assert_ok!(Portfolio::create_portfolio(alice.origin(), name.clone()));
 
@@ -1686,7 +1707,7 @@ fn multiple_custodian_settlement() {
         assert_ok!(Portfolio::accept_portfolio_custody(alice.origin(), auth_id));
 
         // Create a token
-        let instruction_id = Settlement::instruction_counter();
+        let instruction_id = InstructionCounter::<TestStorage>::get();
         let amount = 100u128;
         alice.refresh_init_balances();
         bob.refresh_init_balances();
@@ -1752,7 +1773,10 @@ fn multiple_custodian_settlement() {
         bob.assert_portfolio_bal(bob_num, 0, &asset_id);
         assert_locked_assets(&asset_id, &alice, amount);
         assert_eq!(
-            Portfolio::locked_assets(PortfolioId::user_portfolio(alice.did, alice_num), &asset_id),
+            PortfolioLockedAssets::<TestStorage>::get(
+                PortfolioId::user_portfolio(alice.did, alice_num),
+                &asset_id
+            ),
             amount
         );
 
@@ -1844,14 +1868,14 @@ fn reject_instruction() {
 
         let assert_user_affirmations = |instruction_id, alice_status, bob_status| {
             assert_eq!(
-                Settlement::user_affirmations(
+                UserAffirmations::<TestStorage>::get(
                     PortfolioId::default_portfolio(alice.did),
                     instruction_id
                 ),
                 alice_status
             );
             assert_eq!(
-                Settlement::user_affirmations(
+                UserAffirmations::<TestStorage>::get(
                     PortfolioId::default_portfolio(bob.did),
                     instruction_id
                 ),
@@ -1904,7 +1928,7 @@ fn dirty_storage_with_tx() {
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
         let mut bob = UserWithBalance::new(bob, &[asset_id]);
-        let instruction_id = Settlement::instruction_counter();
+        let instruction_id = InstructionCounter::<TestStorage>::get();
         let amount1 = 100u128;
         let amount2 = 50u128;
         alice.refresh_init_balances();
@@ -1941,7 +1965,10 @@ fn dirty_storage_with_tx() {
 
         // Advances the block no. to execute the instruction.
         let total_amount = amount1 + amount2;
-        assert_eq!(Settlement::instruction_affirms_pending(instruction_id), 0);
+        assert_eq!(
+            InstructionAffirmsPending::<TestStorage>::get(instruction_id),
+            0
+        );
         next_block();
         assert_eq!(
             InstructionLegs::<TestStorage>::iter_prefix(instruction_id).count(),
@@ -2023,7 +2050,7 @@ fn modify_venue_signers() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let charlie = User::new(AccountKeyring::Charlie);
-        let venue_counter = Settlement::venue_counter();
+        let venue_counter = VenueCounter::<TestStorage>::get();
 
         assert_ok!(Settlement::create_venue(
             alice.origin(),
@@ -2085,13 +2112,19 @@ fn modify_venue_signers() {
         ));
 
         // this checks if the signer is already in the signer list
-        assert_eq!(Settlement::venue_signers(venue_counter, alice.acc()), true);
         assert_eq!(
-            Settlement::venue_signers(venue_counter, AccountKeyring::Bob.to_account_id()),
+            VenueSigners::<TestStorage>::get(venue_counter, alice.acc()),
             true
         );
         assert_eq!(
-            Settlement::venue_signers(venue_counter, AccountKeyring::Charlie.to_account_id()),
+            VenueSigners::<TestStorage>::get(venue_counter, AccountKeyring::Bob.to_account_id()),
+            true
+        );
+        assert_eq!(
+            VenueSigners::<TestStorage>::get(
+                venue_counter,
+                AccountKeyring::Charlie.to_account_id()
+            ),
             false
         );
 
@@ -2135,21 +2168,27 @@ fn modify_venue_signers() {
             Error::SignerAlreadyExists
         );
 
-        assert_eq!(Settlement::venue_signers(venue_counter, alice.acc()), true);
         assert_eq!(
-            Settlement::venue_signers(venue_counter, AccountKeyring::Bob.to_account_id()),
+            VenueSigners::<TestStorage>::get(venue_counter, alice.acc()),
             true
         );
         assert_eq!(
-            Settlement::venue_signers(venue_counter, AccountKeyring::Charlie.to_account_id()),
+            VenueSigners::<TestStorage>::get(venue_counter, AccountKeyring::Bob.to_account_id()),
+            true
+        );
+        assert_eq!(
+            VenueSigners::<TestStorage>::get(
+                venue_counter,
+                AccountKeyring::Charlie.to_account_id()
+            ),
             false
         );
         assert_eq!(
-            Settlement::venue_signers(venue_counter, AccountKeyring::Dave.to_account_id()),
+            VenueSigners::<TestStorage>::get(venue_counter, AccountKeyring::Dave.to_account_id()),
             false
         );
         assert_eq!(
-            Settlement::venue_signers(venue_counter, AccountKeyring::Eve.to_account_id()),
+            VenueSigners::<TestStorage>::get(venue_counter, AccountKeyring::Eve.to_account_id()),
             false
         );
     });
@@ -2268,7 +2307,7 @@ fn basic_settlement_with_memo() {
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
         let mut bob = UserWithBalance::new(bob, &[asset_id]);
-        let instruction_id = Settlement::instruction_counter();
+        let instruction_id = InstructionCounter::<TestStorage>::get();
         let amount = 100u128;
         alice.refresh_init_balances();
         bob.refresh_init_balances();
@@ -2291,7 +2330,10 @@ fn basic_settlement_with_memo() {
         bob.assert_all_balances_unchanged();
 
         // check that the memo was stored correctly
-        assert_eq!(Settlement::memo(instruction_id).unwrap(), Memo::default());
+        assert_eq!(
+            InstructionMemos::<TestStorage>::get(instruction_id).unwrap(),
+            Memo::default()
+        );
 
         assert_affirm_instruction!(alice.origin(), instruction_id, alice.did);
 
@@ -2315,7 +2357,7 @@ fn create_instruction(
     asset_id: AssetId,
     amount: u128,
 ) -> InstructionId {
-    let instruction_id = Settlement::instruction_counter();
+    let instruction_id = InstructionCounter::<TestStorage>::get();
     set_current_block_number(10);
     assert_ok!(Settlement::add_and_affirm_instruction(
         alice.origin(),
@@ -2344,7 +2386,7 @@ fn settle_manual_instruction() {
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
         let mut bob = UserWithBalance::new(bob, &[asset_id]);
-        let instruction_id = Settlement::instruction_counter();
+        let instruction_id = InstructionCounter::<TestStorage>::get();
         let block_number = System::block_number() + 1;
         let amount = 10u128;
         alice.refresh_init_balances();
@@ -2456,7 +2498,7 @@ fn settle_manual_instruction_with_portfolio() {
 
         let alice_portfolio = PortfolioId::default_portfolio(alice.did);
         let charlie_portfolio = PortfolioId::default_portfolio(charlie.did);
-        let instruction_id = Settlement::instruction_counter();
+        let instruction_id = InstructionCounter::<TestStorage>::get();
         let block_number = System::block_number() + 1;
         let amount = 10u128;
         alice.refresh_init_balances();
@@ -2694,7 +2736,7 @@ fn add_and_affirm_nft_instruction() {
             PortfolioKind::Default,
         );
         ComplianceManager::pause_asset_compliance(alice.origin(), asset_id).unwrap();
-        let venue_id = Settlement::venue_counter();
+        let venue_id = VenueCounter::<TestStorage>::get();
         Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
@@ -2704,7 +2746,7 @@ fn add_and_affirm_nft_instruction() {
         .unwrap();
 
         // Adds and affirms the instruction
-        let instruction_id = Settlement::instruction_counter();
+        let instruction_id = InstructionCounter::<TestStorage>::get();
         let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
             sender: PortfolioId::default_portfolio(alice.did),
@@ -2803,7 +2845,7 @@ fn add_and_affirm_nft_not_owned() {
             nfts_metadata,
             PortfolioKind::Default,
         );
-        let venue_id = Settlement::venue_counter();
+        let venue_id = VenueCounter::<TestStorage>::get();
         Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
@@ -2865,7 +2907,7 @@ fn add_same_nft_different_legs() {
             nfts_metadata,
             PortfolioKind::Default,
         );
-        let venue_id = Settlement::venue_counter();
+        let venue_id = VenueCounter::<TestStorage>::get();
         Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
@@ -2929,7 +2971,7 @@ fn add_and_affirm_with_receipts_nfts() {
             nfts_metadata,
             PortfolioKind::Default,
         );
-        let venue_id = Settlement::venue_counter();
+        let venue_id = VenueCounter::<TestStorage>::get();
         Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
@@ -2982,7 +3024,7 @@ fn add_instruction_unexpected_offchain_asset() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
-        let venue_counter = Settlement::venue_counter();
+        let venue_counter = VenueCounter::<TestStorage>::get();
         Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
@@ -3109,7 +3151,7 @@ fn affirm_offchain_asset_without_receipt() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
-        let venue = Settlement::venue_counter();
+        let venue = VenueCounter::<TestStorage>::get();
         Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
@@ -4256,7 +4298,10 @@ fn assert_instruction_details(
     instruction_id: InstructionId,
     details: Instruction<Moment, BlockNumber>,
 ) {
-    assert_eq!(Settlement::instruction_details(instruction_id), details);
+    assert_eq!(
+        InstructionDetails::<TestStorage>::get(instruction_id),
+        details
+    );
 }
 
 #[track_caller]
@@ -4264,18 +4309,24 @@ fn assert_instruction_status(
     instruction_id: InstructionId,
     status: InstructionStatus<BlockNumber>,
 ) {
-    assert_eq!(Settlement::instruction_status(instruction_id), status);
+    assert_eq!(
+        InstructionStatuses::<TestStorage>::get(instruction_id),
+        status
+    );
 }
 
 #[track_caller]
 fn assert_balance(asset_id: &AssetId, user: &User, balance: Balance) {
-    assert_eq!(Asset::balance_of(asset_id, user.did), balance);
+    assert_eq!(BalanceOf::<TestStorage>::get(asset_id, user.did), balance);
 }
 
 #[track_caller]
 fn assert_user_affirms(instruction_id: InstructionId, user: &User, status: AffirmationStatus) {
     assert_eq!(
-        Settlement::user_affirmations(PortfolioId::default_portfolio(user.did), instruction_id),
+        UserAffirmations::<TestStorage>::get(
+            PortfolioId::default_portfolio(user.did),
+            instruction_id
+        ),
         status
     );
 
@@ -4286,7 +4337,10 @@ fn assert_user_affirms(instruction_id: InstructionId, user: &User, status: Affir
     };
 
     assert_eq!(
-        Settlement::affirms_received(instruction_id, PortfolioId::default_portfolio(user.did)),
+        AffirmsReceived::<TestStorage>::get(
+            instruction_id,
+            PortfolioId::default_portfolio(user.did)
+        ),
         affirms_received_status
     );
 }
@@ -4294,7 +4348,7 @@ fn assert_user_affirms(instruction_id: InstructionId, user: &User, status: Affir
 #[track_caller]
 fn assert_leg_status(instruction_id: InstructionId, leg: LegId, status: LegStatus<AccountId>) {
     assert_eq!(
-        Settlement::instruction_leg_status(instruction_id, leg),
+        InstructionLegStatus::<TestStorage>::get(instruction_id, leg),
         status
     );
 }
@@ -4302,7 +4356,7 @@ fn assert_leg_status(instruction_id: InstructionId, leg: LegId, status: LegStatu
 #[track_caller]
 fn assert_affirms_pending(instruction_id: InstructionId, pending: u64) {
     assert_eq!(
-        Settlement::instruction_affirms_pending(instruction_id),
+        InstructionAffirmsPending::<TestStorage>::get(instruction_id),
         pending
     );
 }
@@ -4310,7 +4364,10 @@ fn assert_affirms_pending(instruction_id: InstructionId, pending: u64) {
 #[track_caller]
 fn assert_locked_assets(asset_id: &AssetId, user: &User, num_of_assets: Balance) {
     assert_eq!(
-        Portfolio::locked_assets(PortfolioId::default_portfolio(user.did), asset_id),
+        PortfolioLockedAssets::<TestStorage>::get(
+            PortfolioId::default_portfolio(user.did),
+            asset_id
+        ),
         num_of_assets
     );
 }

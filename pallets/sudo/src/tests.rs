@@ -17,20 +17,22 @@
 
 //! Tests for the module.
 
-use super::*;
 use frame_support::{assert_noop, assert_ok, weights::Weight};
-use mock::{
-    new_test_ext, Logger, LoggerCall, RuntimeCall, RuntimeEvent as TestEvent, RuntimeOrigin, Sudo,
+
+use crate::mock::logger::{AccountLog, I32Log};
+use crate::mock::{
+    new_test_ext, LoggerCall, RuntimeCall, RuntimeEvent as TestEvent, RuntimeOrigin, Sudo,
     SudoCall, System, Test,
 };
+use crate::*;
 
 #[test]
 fn test_setup_works() {
     // Environment setup, logger storage, and sudo `key` retrieval should work as expected.
     new_test_ext(1).execute_with(|| {
-        assert_eq!(Sudo::key(), Some(1u64));
-        assert!(Logger::i32_log().is_empty());
-        assert!(Logger::account_log().is_empty());
+        assert_eq!(Key::<Test>::get(), Some(1u64));
+        assert!(I32Log::<Test>::get().is_empty());
+        assert!(AccountLog::<Test>::get().is_empty());
     });
 }
 
@@ -44,7 +46,7 @@ fn sudo_basics() {
             weight: Weight::from_ref_time(1_000),
         }));
         assert_ok!(Sudo::sudo(RuntimeOrigin::signed(1), call));
-        assert_eq!(Logger::i32_log(), vec![42i32]);
+        assert_eq!(I32Log::<Test>::get(), vec![42i32]);
 
         // A privileged function should not work when `sudo` is passed a non-root `key` as `origin`.
         let call = Box::new(RuntimeCall::Logger(LoggerCall::privileged_i32_log {
@@ -92,7 +94,7 @@ fn sudo_unchecked_weight_basics() {
             call,
             Weight::from_ref_time(1_000)
         ));
-        assert_eq!(Logger::i32_log(), vec![42i32]);
+        assert_eq!(I32Log::<Test>::get(), vec![42i32]);
 
         // A privileged function should not work when called with a non-root `key`.
         let call = Box::new(RuntimeCall::Logger(LoggerCall::privileged_i32_log {
@@ -111,7 +113,7 @@ fn sudo_unchecked_weight_basics() {
             }
         );
         // `I32Log` is unchanged after unsuccessful call.
-        assert_eq!(Logger::i32_log(), vec![42i32]);
+        assert_eq!(I32Log::<Test>::get(), vec![42i32]);
 
         // Controls the dispatched weight.
         let call = Box::new(RuntimeCall::Logger(LoggerCall::privileged_i32_log {
@@ -154,7 +156,7 @@ fn set_key_basics() {
     new_test_ext(1).execute_with(|| {
         // A root `key` can change the root `key`
         assert_ok!(Sudo::set_key(RuntimeOrigin::signed(1), 2));
-        assert_eq!(Sudo::key(), Some(2u64));
+        assert_eq!(Key::<Test>::get(), Some(2u64));
     });
 
     new_test_ext(1).execute_with(|| {
@@ -198,8 +200,8 @@ fn sudo_as_basics() {
             weight: Weight::from_ref_time(1_000),
         }));
         assert_ok!(Sudo::sudo_as(RuntimeOrigin::signed(1), 2, call));
-        assert!(Logger::i32_log().is_empty());
-        assert!(Logger::account_log().is_empty());
+        assert!(I32Log::<Test>::get().is_empty());
+        assert!(AccountLog::<Test>::get().is_empty());
 
         // A non-privileged function should not work when called with a non-root `key`.
         let call = Box::new(RuntimeCall::Logger(LoggerCall::non_privileged_log {
@@ -220,9 +222,9 @@ fn sudo_as_basics() {
             weight: Weight::from_ref_time(1),
         }));
         assert_ok!(Sudo::sudo_as(RuntimeOrigin::signed(1), 2, call));
-        assert_eq!(Logger::i32_log(), vec![42i32]);
+        assert_eq!(I32Log::<Test>::get(), vec![42i32]);
         // The correct user makes the call within `sudo_as`.
-        assert_eq!(Logger::account_log(), vec![2]);
+        assert_eq!(AccountLog::<Test>::get(), vec![2]);
     });
 }
 

@@ -375,13 +375,11 @@ pub mod pallet {
     }
 
     #[pallet::storage]
-    #[pallet::getter(fn next_fee_multiplier)]
     pub type NextFeeMultiplier<T> =
         StorageValue<_, Multiplier, ValueQuery, NextFeeMultiplierOnEmpty>;
 
     #[cfg(feature = "disable_fees")]
     #[pallet::storage]
-    #[pallet::getter(fn disable_fees)]
     pub type DisableFees<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     #[pallet::storage]
@@ -676,7 +674,7 @@ where
         if pays_fee == Pays::Yes {
             // the adjustable part of the fee.
             let unadjusted_weight_fee = Self::weight_to_fee(weight);
-            let multiplier = Self::next_fee_multiplier();
+            let multiplier = NextFeeMultiplier::<T>::get();
 
             // final adjusted weight fee.
             let adjusted_weight_fee = multiplier.saturating_mul_int(unadjusted_weight_fee);

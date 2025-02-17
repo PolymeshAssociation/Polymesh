@@ -62,7 +62,7 @@ fn remark_call_builder<T: Config>(
     _: T::AccountId,
 ) -> (UniqueCall<<T as Config>::RuntimeCall>, Vec<u8>) {
     let call = make_calls::<T>(1).pop().unwrap();
-    let nonce: AuthorizationNonce = Pallet::<T>::nonce(signer.account());
+    let nonce: AuthorizationNonce = Nonces::<T>::get(signer.account());
     let call = UniqueCall::new(nonce, call);
 
     // Signer signs the relay call.

@@ -83,7 +83,7 @@ use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_system::pallet_prelude::OriginFor;
 use pallet_base::ensure_length_ok;
-use pallet_external_agents::Config as EAConfig;
+use pallet_external_agents::{Config as EAConfig, GroupOfAgent};
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::compliance_manager::{
@@ -91,11 +91,10 @@ use polymesh_primitives::compliance_manager::{
     ConditionReport, ConditionResult, RequirementReport,
 };
 use polymesh_primitives::condition::{conditions_total_counts, Condition};
+use polymesh_primitives::traits::{AssetFnConfig, ComplianceFnConfig};
 use polymesh_primitives::{
-    proposition, storage_migration_ver,
-    traits::{AssetFnConfig, ComplianceFnConfig},
-    Claim, ConditionType, Context, IdentityId, TargetIdentity, TrustedFor, TrustedIssuer,
-    WeightMeter,
+    proposition, storage_migration_ver, Claim, ConditionType, Context, IdentityId, TargetIdentity,
+    TrustedFor, TrustedIssuer, WeightMeter,
 };
 use sp_std::{convert::From, prelude::*};
 
@@ -220,15 +219,13 @@ pub mod pallet {
     /// Compliance for an asset ([`AssetId`] -> [`AssetCompliance`])
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn asset_compliance)]
-    pub(super) type AssetCompliances<T: Config> =
+    pub type AssetCompliances<T: Config> =
         StorageMap<_, Blake2_128Concat, AssetId, AssetCompliance, ValueQuery>;
 
     /// List of trusted claim issuer [`AssetId`] -> Issuer Identity
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn trusted_claim_issuer)]
-    pub(super) type TrustedClaimIssuer<T: Config> =
+    pub type TrustedClaimIssuer<T: Config> =
         StorageMap<_, Blake2_128Concat, AssetId, Vec<TrustedIssuer>, ValueQuery>;
 
     /// Storage version.
@@ -646,7 +643,7 @@ impl<T: Config> Pallet<T> {
         slot: &'a mut Option<Vec<TrustedIssuer>>,
     ) -> &'a [TrustedIssuer] {
         if condition.issuers.is_empty() {
-            slot.get_or_insert_with(|| Self::trusted_claim_issuer(asset_id))
+            slot.get_or_insert_with(|| TrustedClaimIssuer::<T>::get(asset_id))
         } else {
             &condition.issuers
         }
@@ -740,7 +737,7 @@ impl<T: Config> Pallet<T> {
         weight_meter: &mut WeightMeter,
     ) -> Result<bool, DispatchError> {
         let context = Self::fetch_context(did, asset_id, slot, &condition, weight_meter)?;
-        let any_ea = |ctx: Context<_>| ExternalAgents::<T>::agents(asset_id, ctx.id).is_some();
+        let any_ea = |ctx: Context<_>| GroupOfAgent::<T>::get(asset_id, ctx.id).is_some();
         Ok(proposition::run(&condition, context, any_ea))
     }
 
@@ -781,7 +778,7 @@ impl<T: Config> Pallet<T> {
 
     /// Compute the id of the last requirement in an asset's compliance rules.
     fn get_latest_requirement_id(asset_id: AssetId) -> u32 {
-        Self::asset_compliance(asset_id)
+        AssetCompliances::<T>::get(asset_id)
             .requirements
             .last()
             .map(|r| r.id)
@@ -899,7 +896,7 @@ impl<T: Config> ComplianceFnConfig for Pallet<T> {
         receiver_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> Result<bool, DispatchError> {
-        let asset_compliance = Self::asset_compliance(asset_id);
+        let asset_compliance = AssetCompliances::<T>::get(asset_id);
 
         // If there are no requirements or compliance is paused, no rules are checked.
         if asset_compliance.paused || asset_compliance.requirements.is_empty() {
@@ -925,7 +922,7 @@ impl<T: Config> ComplianceFnConfig for Pallet<T> {
         weight_meter: &mut WeightMeter,
     ) -> Result<AssetComplianceResult, DispatchError> {
         let mut compliance_with_results =
-            AssetComplianceResult::from(Self::asset_compliance(asset_id));
+            AssetComplianceResult::from(AssetCompliances::<T>::get(asset_id));
 
         // Evaluates all conditions.
         // False result in any of the conditions => False requirement result.
@@ -969,7 +966,7 @@ impl<T: Config> Pallet<T> {
         receiver_identity: &IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> Result<ComplianceReport, DispatchError> {
-        let asset_compliance = Self::asset_compliance(asset_id);
+        let asset_compliance = AssetCompliances::<T>::get(asset_id);
 
         if asset_compliance.requirements.is_empty() {
             return Ok(ComplianceReport::new(

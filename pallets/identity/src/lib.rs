@@ -393,13 +393,11 @@ pub mod pallet {
 
     /// DID -> identity info
     #[pallet::storage]
-    #[pallet::getter(fn did_records)]
     pub type DidRecords<T: Config> =
         StorageMap<_, Identity, IdentityId, DidRecord<T::AccountId>, OptionQuery>;
 
     /// DID -> bool that indicates if secondary keys are frozen.
     #[pallet::storage]
-    #[pallet::getter(fn is_did_frozen)]
     pub type IsDidFrozen<T: Config> = StorageMap<_, Identity, IdentityId, bool, ValueQuery>;
 
     /// It stores the current gas fee payer for the current transaction.
@@ -433,57 +431,48 @@ pub mod pallet {
 
     /// The next `CustomClaimTypeId`.
     #[pallet::storage]
-    #[pallet::getter(fn custom_claim_id_seq)]
     pub type CustomClaimIdSequence<T: Config> = StorageValue<_, CustomClaimTypeId, ValueQuery>;
 
     /// Map from AccountId to `KeyRecord` that holds the key's type and identity.
     #[pallet::storage]
-    #[pallet::getter(fn key_records)]
     pub type KeyRecords<T: Config> =
         StorageMap<_, Twox64Concat, T::AccountId, KeyRecord<T::AccountId>, OptionQuery>;
 
     /// A secondary key's extrinsic permissions.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn key_extrinsic_permissions)]
     pub type KeyExtrinsicPermissions<T: Config> =
         StorageMap<_, Twox64Concat, T::AccountId, ExtrinsicPermissions, OptionQuery>;
 
     /// A secondary key's asset permissions.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn key_asset_permissions)]
     pub type KeyAssetPermissions<T: Config> =
         StorageMap<_, Twox64Concat, T::AccountId, AssetPermissions, OptionQuery>;
 
     /// A secondary key's portfolio permissions.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn key_portfolio_permissions)]
     pub type KeyPortfolioPermissions<T: Config> =
         StorageMap<_, Twox64Concat, T::AccountId, PortfolioPermissions, OptionQuery>;
 
     /// A reverse double map to allow finding all keys for an identity.
     #[pallet::storage]
-    #[pallet::getter(fn did_keys)]
     pub type DidKeys<T: Config> =
         StorageDoubleMap<_, Identity, IdentityId, Twox64Concat, T::AccountId, bool, ValueQuery>;
 
     /// Nonce to ensure unique actions. starts from 1.
     #[pallet::storage]
-    #[pallet::getter(fn multi_purpose_nonce)]
     pub type MultiPurposeNonce<T: Config> = StorageValue<_, u64, ValueQuery>;
 
     /// Authorization nonce per Identity. Initially is 0.
     #[pallet::storage]
-    #[pallet::getter(fn offchain_authorization_nonce)]
     pub type OffChainAuthorizationNonce<T: Config> =
         StorageMap<_, Identity, IdentityId, AuthorizationNonce, ValueQuery>;
 
     /// All authorizations that an identity/key has
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn authorizations)]
     pub type Authorizations<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -509,7 +498,6 @@ pub mod pallet {
     /// A config flag that, if set, instructs an authorization from a CDD provider in order to
     /// change the primary key of an identity.
     #[pallet::storage]
-    #[pallet::getter(fn cdd_auth_for_primary_key_rotation)]
     pub type CddAuthForPrimaryKeyRotation<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     /// Storage version.
@@ -524,35 +512,29 @@ pub mod pallet {
     /// * Relayer: For `user_key` and `paying_key`
     ///
     #[pallet::storage]
-    #[pallet::getter(fn account_key_ref_count)]
     pub type AccountKeyRefCount<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
 
     /// Parent identity if the DID is a child Identity.
     #[pallet::storage]
-    #[pallet::getter(fn parent_did)]
     pub type ParentDid<T: Config> = StorageMap<_, Identity, IdentityId, IdentityId, OptionQuery>;
 
     /// All child identities of a parent (i.e ParentDID, ChildDID, true)
     #[pallet::storage]
-    #[pallet::getter(fn child_did)]
     pub type ChildDid<T: Config> =
         StorageDoubleMap<_, Identity, IdentityId, Identity, IdentityId, bool, ValueQuery>;
 
     /// Track the number of authorizations given by each identity.
     #[pallet::storage]
-    #[pallet::getter(fn number_of_given_auths)]
     pub type NumberOfGivenAuths<T: Config> = StorageMap<_, Identity, IdentityId, u32, ValueQuery>;
 
     /// Tracks all authorizations that must be deleted
     #[pallet::storage]
-    #[pallet::getter(fn outdated_authorizations)]
     pub type OutdatedAuthorizations<T: Config> =
         StorageMap<_, Blake2_128Concat, Signatory<T::AccountId>, u64, OptionQuery>;
 
     /// Controls the authorization id.
     #[pallet::storage]
-    #[pallet::getter(fn current_auth_id)]
     pub type CurrentAuthId<T: Config> = StorageValue<_, u64, ValueQuery>;
 
     /// GenesisConfig for the identity pallet.

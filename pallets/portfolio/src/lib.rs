@@ -215,7 +215,6 @@ pub mod pallet {
 
     /// The next portfolio sequence number of an identity.
     #[pallet::storage]
-    #[pallet::getter(fn next_portfolio_number)]
     pub type NextPortfolioNumber<T: Config> =
         StorageMap<_, Identity, IdentityId, PortfolioNumber, ValueQuery>;
 
@@ -224,7 +223,6 @@ pub mod pallet {
     /// pair maps to `Some(name)` then such a portfolio exists and is called `name`.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn portfolios)]
     pub type Portfolios<T: Config> = StorageDoubleMap<
         _,
         Identity,
@@ -239,7 +237,6 @@ pub mod pallet {
     /// and uniqueness of names in `Portfolios`.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn name_to_number)]
     pub type NameToNumber<T: Config> = StorageDoubleMap<
         _,
         Identity,
@@ -252,13 +249,11 @@ pub mod pallet {
 
     /// How many assets with non-zero balance this portfolio contains.
     #[pallet::storage]
-    #[pallet::getter(fn portfolio_has_assets)]
     pub type PortfolioAssetCount<T: Config> =
         StorageMap<_, Twox64Concat, PortfolioId, u64, ValueQuery>;
 
     /// The asset balances of portfolios.
     #[pallet::storage]
-    #[pallet::getter(fn portfolio_asset_balances)]
     pub type PortfolioAssetBalances<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
@@ -272,7 +267,6 @@ pub mod pallet {
     /// Amount of assets locked in a portfolio.
     /// These assets show up in portfolio balance but can not be transferred away.
     #[pallet::storage]
-    #[pallet::getter(fn locked_assets)]
     pub type PortfolioLockedAssets<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
@@ -285,7 +279,6 @@ pub mod pallet {
 
     /// The custodian of a particular portfolio. None implies that the identity owner is the custodian.
     #[pallet::storage]
-    #[pallet::getter(fn portfolio_custodian)]
     pub type PortfolioCustodian<T: Config> =
         StorageMap<_, Twox64Concat, PortfolioId, IdentityId, OptionQuery>;
 
@@ -293,13 +286,11 @@ pub mod pallet {
     /// When `true` is stored as the value for a given `(did, pid)`, it means that `pid` is in custody of `did`.
     /// `false` values are never explicitly stored in the map, and are instead inferred by the absence of a key.
     #[pallet::storage]
-    #[pallet::getter(fn portfolios_in_custody)]
     pub type PortfoliosInCustody<T: Config> =
         StorageDoubleMap<_, Identity, IdentityId, Twox64Concat, PortfolioId, bool, ValueQuery>;
 
     /// The nft associated to the portfolio.
     #[pallet::storage]
-    #[pallet::getter(fn portfolio_nft)]
     pub type PortfolioNFT<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
@@ -312,7 +303,6 @@ pub mod pallet {
 
     /// All locked nft for a given portfolio.
     #[pallet::storage]
-    #[pallet::getter(fn portfolio_locked_nft)]
     pub type PortfolioLockedNFT<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
@@ -325,13 +315,11 @@ pub mod pallet {
 
     /// All portfolios that don't need to affirm the receivement of a given [`AssetId`].
     #[pallet::storage]
-    #[pallet::getter(fn pre_approved_portfolios)]
     pub type PreApprovedPortfolios<T: Config> =
         StorageDoubleMap<_, Twox64Concat, PortfolioId, Blake2_128Concat, AssetId, bool, ValueQuery>;
 
     /// Custodians allowed to create and take custody of portfolios on an id's behalf.
     #[pallet::storage]
-    #[pallet::getter(fn allowed_custodians)]
     pub type AllowedCustodians<T: Config> =
         StorageDoubleMap<_, Identity, IdentityId, Identity, IdentityId, bool, ValueQuery>;
 
@@ -684,7 +672,7 @@ impl<T: Config> Pallet<T> {
 
     /// Returns the asset balance of the identity's default portfolio.
     pub fn default_portfolio_balance(did: IdentityId, asset_id: &AssetId) -> Balance {
-        Self::portfolio_asset_balances(PortfolioId::default_portfolio(did), asset_id)
+        PortfolioAssetBalances::<T>::get(PortfolioId::default_portfolio(did), asset_id)
     }
 
     /// Returns the asset balance of an identity's user portfolio.
@@ -693,7 +681,7 @@ impl<T: Config> Pallet<T> {
         num: PortfolioNumber,
         asset_id: &AssetId,
     ) -> Balance {
-        Self::portfolio_asset_balances(PortfolioId::user_portfolio(did, num), asset_id)
+        PortfolioAssetBalances::<T>::get(PortfolioId::user_portfolio(did, num), asset_id)
     }
 
     /// Sets the asset balance of the specified portfolio to `new_balance`.
@@ -799,7 +787,7 @@ impl<T: Config> Pallet<T> {
         // If a custodian is assigned, only they are allowed.
         // Else, only the portfolio owner is allowed
         ensure!(
-            Self::portfolio_custodian(portfolio).unwrap_or(portfolio.did) == custodian,
+            PortfolioCustodian::<T>::get(portfolio).unwrap_or(portfolio.did) == custodian,
             Error::<T>::UnauthorizedCustodian
         );
 
@@ -861,8 +849,8 @@ impl<T: Config> Pallet<T> {
         amount: Balance,
     ) -> DispatchResult {
         // Ensure portfolio has enough free balance
-        let total_balance = Self::portfolio_asset_balances(&pid, asset_id);
-        let locked_balance = Self::locked_assets(&pid, asset_id);
+        let total_balance = PortfolioAssetBalances::<T>::get(&pid, asset_id);
+        let locked_balance = PortfolioLockedAssets::<T>::get(&pid, asset_id);
         let remaining_balance = total_balance
             .checked_sub(amount)
             .filter(|rb| rb >= &locked_balance)
@@ -890,8 +878,8 @@ impl<T: Config> Pallet<T> {
         amount: Balance,
     ) -> DispatchResult {
         T::AssetFn::ensure_granular(asset_id, amount)?;
-        Self::portfolio_asset_balances(portfolio, asset_id)
-            .saturating_sub(Self::locked_assets(portfolio, asset_id))
+        PortfolioAssetBalances::<T>::get(portfolio, asset_id)
+            .saturating_sub(PortfolioLockedAssets::<T>::get(portfolio, asset_id))
             .checked_sub(amount)
             .ok_or_else(|| Error::<T>::InsufficientPortfolioBalance.into())
             .map(drop)
@@ -1180,7 +1168,7 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Pallet<T> {
         amount: Balance,
     ) -> DispatchResult {
         // 1. Ensure portfolio has enough locked tokens
-        let locked = Self::locked_assets(portfolio, asset_id);
+        let locked = PortfolioLockedAssets::<T>::get(portfolio, asset_id);
         ensure!(locked >= amount, Error::<T>::InsufficientTokensLocked);
 
         // 2. Unlock tokens. Can not underflow due to above ensure.
@@ -1253,7 +1241,7 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Pallet<T> {
     }
 
     fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, asset_id: &AssetId) -> bool {
-        if Self::portfolio_custodian(portfolio_id).is_some() {
+        if PortfolioCustodian::<T>::get(portfolio_id).is_some() {
             if T::AssetFn::asset_affirmation_exemption(asset_id) {
                 return true;
             }

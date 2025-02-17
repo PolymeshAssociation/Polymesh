@@ -95,7 +95,7 @@ fn create_venue_<T: Config>(did: IdentityId, signers: Vec<T::AccountId>) -> Venu
         venue_type: VenueType::Distribution,
     };
     // NB: Venue counter starts with 1.
-    let venue_counter = Pallet::<T>::venue_counter();
+    let venue_counter = VenueCounter::<T>::get();
     VenueInfo::<T>::insert(venue_counter, venue);
     for signer in signers {
         VenueSigners::<T>::insert(venue_counter, signer, true);
@@ -343,9 +343,9 @@ benchmarks! {
         }
     }: _(origin, venue_details, signers, venue_type)
     verify {
-        assert_eq!(Pallet::<T>::venue_counter(), VenueId(2), "Invalid venue counter");
+        assert_eq!(VenueCounter::<T>::get(), VenueId(2), "Invalid venue counter");
         assert!(UserVenues::<T>::contains_key(did.unwrap(), VenueId(1)), "Invalid venue id");
-        assert!(Pallet::<T>::venue_info(VenueId(1)).is_some(), "Incorrect venue info set");
+        assert!(VenueInfo::<T>::get(VenueId(1)).is_some(), "Incorrect venue info set");
     }
 
     update_venue_details {
@@ -358,7 +358,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(did.unwrap(), vec![]);
     }: _(origin, venue_id, details1)
     verify {
-        assert_eq!(Pallet::<T>::details(venue_id), details2, "Incorrect venue details");
+        assert_eq!(Details::<T>::get(venue_id), details2, "Incorrect venue details");
     }
 
     update_venue_type {
@@ -368,7 +368,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(did.unwrap(), vec![]);
     }: _(origin, venue_id, ty)
     verify {
-        assert_eq!(Pallet::<T>::venue_info(VenueId(1)).unwrap().venue_type, ty, "Incorrect venue type value");
+        assert_eq!(VenueInfo::<T>::get(VenueId(1)).unwrap().venue_type, ty, "Incorrect venue type value");
     }
 
     update_venue_signers {
@@ -384,7 +384,7 @@ benchmarks! {
     }: _(origin, venue_id, signers.clone(), true)
     verify {
         for signer in signers.iter() {
-            assert_eq!(Pallet::<T>::venue_signers(venue_id, signer), true, "Incorrect venue signer");
+            assert_eq!(VenueSigners::<T>::get(venue_id, signer), true, "Incorrect venue signer");
         }
     }
 
@@ -394,7 +394,7 @@ benchmarks! {
         let ticker = create_asset_::<T>(&user);
     }: _(user.origin, ticker, true)
     verify {
-        assert!(Pallet::<T>::venue_filtering(ticker), "Fail: set_venue_filtering failed");
+        assert!(VenueFiltering::<T>::get(ticker), "Fail: set_venue_filtering failed");
     }
 
     allow_venues {
@@ -410,7 +410,7 @@ benchmarks! {
     }: _(user.origin, ticker, s_venues)
     verify {
         for v in venues.iter() {
-            assert!(Pallet::<T>::venue_allow_list(ticker, v), "Fail: allow_venue dispatch");
+            assert!(VenueAllowList::<T>::get(ticker, v), "Fail: allow_venue dispatch");
         }
     }
 
@@ -427,7 +427,7 @@ benchmarks! {
     }: _(user.origin, ticker, s_venues)
     verify {
         for v in venues.iter() {
-            assert!(!Pallet::<T>::venue_allow_list(ticker, v), "Fail: allow_venue dispatch");
+            assert!(!VenueAllowList::<T>::get(ticker, v), "Fail: allow_venue dispatch");
         }
     }
 

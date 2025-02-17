@@ -7,6 +7,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
 };
 use pallet_external_agents::Event;
+use pallet_statistics::AssetStats;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
     asset::AssetType, jurisdiction::CountryCode, statistics::*, transfer_compliance::*, AccountId,
@@ -523,7 +524,7 @@ impl AssetTracker {
                     StatOpType::Balance => self.calculate_stat_balance(claim_issuer, &key2),
                 };
                 // Get stat from pallet.
-                let value = Statistics::asset_stats(key1, key2.clone());
+                let value = AssetStats::<TestStorage>::get(key1, key2.clone());
                 (cal_value, value)
             })
             .collect()
@@ -569,7 +570,7 @@ impl AssetTracker {
             stat_type: *stat_type,
         };
         for key2 in self.fetch_stats_key2(stat_type).iter() {
-            let value = Statistics::asset_stats(key1, key2);
+            let value = AssetStats::<TestStorage>::get(key1, key2);
             match (stat_type.operation_type, stat_type.claim_issuer) {
                 (StatOpType::Count, claim_issuer) => {
                     let cal_value = self.calculate_stat_count(claim_issuer, &key2);

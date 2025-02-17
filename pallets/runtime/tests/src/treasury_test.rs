@@ -8,6 +8,8 @@ use polymesh_primitives::{Beneficiary, IdentityId};
 use sp_keyring::AccountKeyring;
 use sp_runtime::DispatchError;
 
+use pallet_balances::TotalIssuance;
+
 pub type Balances = pallet_balances::Pallet<TestStorage>;
 pub type Treasury = pallet_treasury::Pallet<TestStorage>;
 type TreasuryError = pallet_treasury::Error<TestStorage>;
@@ -32,13 +34,13 @@ fn reimbursement_and_disbursement_we() {
     let charlie_acc = AccountKeyring::Charlie.to_account_id();
     let (_, charlie_did) = make_account_without_cdd(charlie_acc.clone()).unwrap();
 
-    let total_issuance = Balances::total_issuance();
+    let total_issuance = TotalIssuance::<TestStorage>::get();
 
     // Verify reimbursement.
     assert_eq!(Treasury::balance(), 0);
     exec_ok!(Treasury::reimbursement(alice.origin(), 1_000));
     assert_eq!(Treasury::balance(), 1_000);
-    assert_eq!(total_issuance, Balances::total_issuance());
+    assert_eq!(total_issuance, TotalIssuance::<TestStorage>::get());
 
     // Disbursement: Only root can do that.
     exec_noop!(
@@ -70,14 +72,14 @@ fn reimbursement_and_disbursement_we() {
     );
     assert_eq!(Balances::free_balance(&bob.acc()), before_bob_balance + 500);
     assert_eq!(Balances::free_balance(&charlie_acc), before_charlie_balance);
-    assert_eq!(total_issuance, Balances::total_issuance());
+    assert_eq!(total_issuance, TotalIssuance::<TestStorage>::get());
 
     // Alice cannot make a disbursement to herself.
     exec_noop!(
         Treasury::disbursement(alice.origin(), vec![beneficiary(alice.did, 500)]),
         DispatchError::BadOrigin
     );
-    assert_eq!(total_issuance, Balances::total_issuance());
+    assert_eq!(total_issuance, TotalIssuance::<TestStorage>::get());
 
     // Repeat disbursement.  This time there is not enough POLYX in the treasury.
     exec_noop!(
@@ -99,14 +101,14 @@ fn bad_disbursement_did_we() {
     let bob = User::new(AccountKeyring::Bob);
     let default_key = pallet_identity::types::zero_account_id();
 
-    let total_issuance = Balances::total_issuance();
+    let total_issuance = TotalIssuance::<TestStorage>::get();
     let treasury_balance = 10_000;
 
     // Give the Treasury some POLYX.
     assert_eq!(Treasury::balance(), 0);
     exec_ok!(Treasury::reimbursement(alice.origin(), treasury_balance));
     assert_eq!(Treasury::balance(), treasury_balance);
-    assert_eq!(total_issuance, Balances::total_issuance());
+    assert_eq!(total_issuance, TotalIssuance::<TestStorage>::get());
 
     let beneficiaries = vec![
         // Valid identities.
@@ -139,5 +141,5 @@ fn bad_disbursement_did_we() {
     );
 
     // Make sure total POLYX issuance hasn't changed.
-    assert_eq!(total_issuance, Balances::total_issuance());
+    assert_eq!(total_issuance, TotalIssuance::<TestStorage>::get());
 }

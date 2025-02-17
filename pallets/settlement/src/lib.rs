@@ -551,7 +551,6 @@ pub mod pallet {
     pub struct Pallet<T>(_);
 
     #[pallet::storage]
-    #[pallet::getter(fn venue_info)]
     /// Info about a venue. venue_id -> venue
     pub type VenueInfo<T: Config> = StorageMap<_, Twox64Concat, VenueId, Venue, OptionQuery>;
 
@@ -559,7 +558,6 @@ pub mod pallet {
     /// Only needed for the UI.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn details)]
     pub type Details<T: Config> = StorageMap<_, Twox64Concat, VenueId, VenueDetails, ValueQuery>;
 
     /// Instructions under a venue.
@@ -567,14 +565,12 @@ pub mod pallet {
     ///
     /// venue_id -> instruction_id -> ()
     #[pallet::storage]
-    #[pallet::getter(fn venue_instructions)]
     pub type VenueInstructions<T: Config> =
         StorageDoubleMap<_, Twox64Concat, VenueId, Twox64Concat, InstructionId, (), ValueQuery>;
 
     /// Signers allowed by the venue. (venue_id, signer) -> bool
     #[pallet::storage]
-    #[pallet::getter(fn venue_signers)]
-    pub(super) type VenueSigners<T: Config> =
+    pub type VenueSigners<T: Config> =
         StorageDoubleMap<_, Twox64Concat, VenueId, Twox64Concat, T::AccountId, bool, ValueQuery>;
 
     /// Venues create by an identity.
@@ -582,13 +578,11 @@ pub mod pallet {
     ///
     /// identity -> venue_id -> ()
     #[pallet::storage]
-    #[pallet::getter(fn user_venues)]
     pub type UserVenues<T: Config> =
         StorageDoubleMap<_, Twox64Concat, IdentityId, Twox64Concat, VenueId, (), ValueQuery>;
 
     /// Details about an instruction. instruction_id -> instruction_details
     #[pallet::storage]
-    #[pallet::getter(fn instruction_details)]
     pub type InstructionDetails<T: Config> = StorageMap<
         _,
         Twox64Concat,
@@ -599,7 +593,6 @@ pub mod pallet {
 
     /// Status of a leg under an instruction. (instruction_id, leg_id) -> LegStatus
     #[pallet::storage]
-    #[pallet::getter(fn instruction_leg_status)]
     pub type InstructionLegStatus<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
@@ -612,13 +605,11 @@ pub mod pallet {
 
     /// Number of affirmations pending before instruction is executed. instruction_id -> affirm_pending
     #[pallet::storage]
-    #[pallet::getter(fn instruction_affirms_pending)]
     pub type InstructionAffirmsPending<T: Config> =
         StorageMap<_, Twox64Concat, InstructionId, u64, ValueQuery>;
 
     /// Tracks affirmations received for an instruction. (instruction_id, counter_party) -> AffirmationStatus
     #[pallet::storage]
-    #[pallet::getter(fn affirms_received)]
     pub type AffirmsReceived<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
@@ -632,7 +623,6 @@ pub mod pallet {
     /// Helps a user track their pending instructions and affirmations (only needed for UI).
     /// (counter_party, instruction_id) -> AffirmationStatus
     #[pallet::storage]
-    #[pallet::getter(fn user_affirmations)]
     pub type UserAffirmations<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
@@ -645,55 +635,46 @@ pub mod pallet {
 
     /// Tracks redemption of receipts. (signer, receipt_uid) -> receipt_used
     #[pallet::storage]
-    #[pallet::getter(fn receipts_used)]
     pub(super) type ReceiptsUsed<T: Config> =
         StorageDoubleMap<_, Twox64Concat, T::AccountId, Blake2_128Concat, u64, bool, ValueQuery>;
 
     /// Tracks if a token has enabled filtering venues that can create instructions involving their token. AssetId -> filtering_enabled
     #[pallet::storage]
-    #[pallet::getter(fn venue_filtering)]
     pub(super) type VenueFiltering<T: Config> =
         StorageMap<_, Blake2_128Concat, AssetId, bool, ValueQuery>;
 
     /// Venues that are allowed to create instructions involving a particular asset. Only used if filtering is enabled.
     /// ([`AssetId`], venue_id) -> allowed
     #[pallet::storage]
-    #[pallet::getter(fn venue_allow_list)]
     pub(super) type VenueAllowList<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, AssetId, Twox64Concat, VenueId, bool, ValueQuery>;
 
     /// Number of venues in the system (It's one more than the actual number)
     #[pallet::storage]
-    #[pallet::getter(fn venue_counter)]
     pub type VenueCounter<T: Config> = StorageValue<_, VenueId, ValueQuery>;
 
     /// Number of instructions in the system (It's one more than the actual number)
     #[pallet::storage]
-    #[pallet::getter(fn instruction_counter)]
     pub type InstructionCounter<T: Config> = StorageValue<_, InstructionId, ValueQuery>;
 
     /// Instruction memo
     #[pallet::storage]
-    #[pallet::getter(fn memo)]
     pub type InstructionMemos<T: Config> =
         StorageMap<_, Twox64Concat, InstructionId, Memo, OptionQuery>;
 
     /// Instruction statuses. instruction_id -> InstructionStatus
     #[pallet::storage]
-    #[pallet::getter(fn instruction_status)]
     pub type InstructionStatuses<T: Config> =
         StorageMap<_, Twox64Concat, InstructionId, InstructionStatus<T::BlockNumber>, ValueQuery>;
 
     /// Legs under an instruction. (instruction_id, leg_id) -> Leg
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn instruction_legs)]
     pub type InstructionLegs<T: Config> =
         StorageDoubleMap<_, Twox64Concat, InstructionId, Twox64Concat, LegId, Leg, OptionQuery>;
 
     /// Tracks the affirmation status for offchain legs in a instruction. [`(InstructionId, LegId)`] -> [`AffirmationStatus`]
     #[pallet::storage]
-    #[pallet::getter(fn offchain_affirmations)]
     pub type OffChainAffirmations<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
@@ -706,13 +687,11 @@ pub mod pallet {
 
     /// Tracks the number of signers each venue has.
     #[pallet::storage]
-    #[pallet::getter(fn number_of_venue_signers)]
     pub type NumberOfVenueSigners<T: Config> =
         StorageMap<_, Twox64Concat, VenueId, u32, ValueQuery>;
 
     /// The status for the mediators affirmation.
     #[pallet::storage]
-    #[pallet::getter(fn venue_mediators_affirmations)]
     pub type InstructionMediatorsAffirmations<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
@@ -1437,7 +1416,7 @@ impl<T: Config> Pallet<T> {
     // Extract `Venue` with `id`, assuming it was created by `did`, or error.
     fn venue_for_management(id: VenueId, did: IdentityId) -> Result<Venue, DispatchError> {
         // Ensure venue exists & that DID created it.
-        let venue = Self::venue_info(id).ok_or(Error::<T>::InvalidVenue)?;
+        let venue = VenueInfo::<T>::get(id).ok_or(Error::<T>::InvalidVenue)?;
         ensure!(venue.creator == did, Error::<T>::Unauthorized);
         Ok(venue)
     }
@@ -1662,7 +1641,7 @@ impl<T: Config> Pallet<T> {
             Self::ensure_valid_affirmation_count(&filtered_legs, &affirmation_count)?;
         }
         for (leg_id, leg) in filtered_legs.sender_subset() {
-            match Self::instruction_leg_status(id, leg_id) {
+            match InstructionLegStatus::<T>::get(id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(_, _) => {
                     return Err(Error::<T>::UnexpectedLegStatus.into())
                 }
@@ -1693,9 +1672,9 @@ impl<T: Config> Pallet<T> {
         id: InstructionId,
         is_execute: bool,
     ) -> Result<Instruction<T::Moment, T::BlockNumber>, DispatchError> {
-        let details = Self::instruction_details(id);
+        let details = InstructionDetails::<T>::get(id);
         ensure!(
-            Self::instruction_status(id) != InstructionStatus::Unknown,
+            InstructionStatuses::<T>::get(id) != InstructionStatus::Unknown,
             Error::<T>::UnknownInstruction
         );
 
@@ -1926,7 +1905,8 @@ impl<T: Config> Pallet<T> {
         weight_meter: &mut WeightMeter,
     ) -> Result<(), LegId> {
         for (leg_id, leg) in instruction_legs {
-            if Self::instruction_leg_status(instruction_id, leg_id) == LegStatus::ExecutionPending {
+            if InstructionLegStatus::<T>::get(instruction_id, leg_id) == LegStatus::ExecutionPending
+            {
                 match leg {
                     Leg::Fungible {
                         sender,
@@ -2047,7 +2027,7 @@ impl<T: Config> Pallet<T> {
             <InstructionLegStatus<T>>::insert(id, leg_id, LegStatus::ExecutionPending);
         }
 
-        let affirms_pending = Self::instruction_affirms_pending(id);
+        let affirms_pending = InstructionAffirmsPending::<T>::get(id);
 
         // Updates storage
         for portfolio in &portfolios {
@@ -2064,7 +2044,7 @@ impl<T: Config> Pallet<T> {
 
     fn release_locks(id: InstructionId, instruction_legs: &[(LegId, Leg)]) -> DispatchResult {
         for (leg_id, leg) in instruction_legs {
-            if let LegStatus::ExecutionPending = Self::instruction_leg_status(id, leg_id) {
+            if let LegStatus::ExecutionPending = InstructionLegStatus::<T>::get(id, leg_id) {
                 Self::unlock_via_leg(&leg)?;
             }
         }
@@ -2075,7 +2055,8 @@ impl<T: Config> Pallet<T> {
     /// settlement type is `SettleOnAffirmation` and no. of affirms pending is 0.
     fn maybe_schedule_instruction(affirms_pending: u64, id: InstructionId, weight_limit: Weight) {
         if affirms_pending == 0
-            && Self::instruction_details(id).settlement_type == SettlementType::SettleOnAffirmation
+            && InstructionDetails::<T>::get(id).settlement_type
+                == SettlementType::SettleOnAffirmation
         {
             // Schedule instruction to be executed in the next block.
             let execution_at = System::<T>::block_number() + One::one();
@@ -2229,7 +2210,7 @@ impl<T: Config> Pallet<T> {
             instruction_asset_count.off_chain(),
         );
         // Schedule instruction to be executed in the next block (expected) if conditions are met.
-        Self::maybe_schedule_instruction(Self::instruction_affirms_pending(id), id, weight_limit);
+        Self::maybe_schedule_instruction(InstructionAffirmsPending::<T>::get(id), id, weight_limit);
         Ok(PostDispatchInfo::from(Some(
             Self::affirm_with_receipts_actual_weight(
                 filtered_legs.sender_asset_count().clone(),
@@ -2258,7 +2239,7 @@ impl<T: Config> Pallet<T> {
             instruction_asset_count.off_chain(),
         );
         // Schedule the instruction if conditions are met
-        Self::maybe_schedule_instruction(Self::instruction_affirms_pending(id), id, weight_limit);
+        Self::maybe_schedule_instruction(InstructionAffirmsPending::<T>::get(id), id, weight_limit);
         Ok(PostDispatchInfo::from(Some(
             Self::affirm_instruction_actual_weight(
                 filtered_legs.sender_asset_count().clone(),
@@ -2286,8 +2267,8 @@ impl<T: Config> Pallet<T> {
         };
         Self::execute_settle_on_affirmation_instruction(
             id,
-            Self::instruction_affirms_pending(id),
-            Self::instruction_details(id).settlement_type,
+            InstructionAffirmsPending::<T>::get(id),
+            InstructionDetails::<T>::get(id).settlement_type,
             caller_did,
             weight_meter,
         )?;
@@ -2325,7 +2306,7 @@ impl<T: Config> Pallet<T> {
                 custodian,
                 secondary_key,
             )?;
-            let user_affirmation = Self::user_affirmations(portfolio, id);
+            let user_affirmation = UserAffirmations::<T>::get(portfolio, id);
             ensure!(
                 expected_statuses.contains(&user_affirmation),
                 Error::<T>::UnexpectedAffirmationStatus
@@ -2365,7 +2346,7 @@ impl<T: Config> Pallet<T> {
             );
             for signer in &signers {
                 ensure!(
-                    !Self::venue_signers(&id, &signer),
+                    !VenueSigners::<T>::get(&id, &signer),
                     Error::<T>::SignerAlreadyExists
                 );
             }
@@ -2376,7 +2357,7 @@ impl<T: Config> Pallet<T> {
         } else {
             for signer in &signers {
                 ensure!(
-                    Self::venue_signers(&id, &signer),
+                    VenueSigners::<T>::get(&id, &signer),
                     Error::<T>::SignerDoesNotExist
                 );
             }
@@ -2402,7 +2383,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResultWithPostInfo {
         // Makes sure the instruction exists
         ensure!(
-            Self::instruction_status(instruction_id) != InstructionStatus::Unknown,
+            InstructionStatuses::<T>::get(instruction_id) != InstructionStatus::Unknown,
             Error::<T>::UnknownInstruction
         );
         // Get all legs for the instruction
@@ -2501,9 +2482,9 @@ impl<T: Config> Pallet<T> {
         venue_id: &Option<VenueId>,
     ) -> DispatchResult {
         if let Some(venue_id) = venue_id {
-            if tickers.insert(asset_id) && Self::venue_filtering(asset_id) {
+            if tickers.insert(asset_id) && VenueFiltering::<T>::get(asset_id) {
                 ensure!(
-                    Self::venue_allow_list(asset_id, venue_id),
+                    VenueAllowList::<T>::get(asset_id, venue_id),
                     Error::<T>::UnauthorizedVenue
                 );
             }
@@ -2773,13 +2754,13 @@ impl<T: Config> Pallet<T> {
 
             if let Some(venue_id) = venue_id {
                 ensure!(
-                    Self::venue_signers(venue_id, receipt_details.signer()),
+                    VenueSigners::<T>::get(venue_id, receipt_details.signer()),
                     Error::<T>::UnauthorizedSigner
                 );
             }
 
             ensure!(
-                !Self::receipts_used(receipt_details.signer(), &receipt_details.uid()),
+                !ReceiptsUsed::<T>::get(receipt_details.signer(), &receipt_details.uid()),
                 Error::<T>::ReceiptAlreadyClaimed
             );
 
@@ -3166,7 +3147,7 @@ impl<T: Config> Pallet<T> {
     ) -> Vec<DispatchError> {
         let mut execution_errors = Vec::new();
 
-        if Self::instruction_affirms_pending(instruction_id) != 0 {
+        if InstructionAffirmsPending::<T>::get(instruction_id) != 0 {
             execution_errors.push(Error::<T>::NotAllAffirmationsHaveBeenReceived.into());
         }
 
@@ -3174,7 +3155,7 @@ impl<T: Config> Pallet<T> {
             execution_errors.push(e);
         }
 
-        match Self::instruction_status(instruction_id) {
+        match InstructionStatuses::<T>::get(instruction_id) {
             InstructionStatus::Unknown
             | InstructionStatus::Success(_)
             | InstructionStatus::Rejected(_) => {
@@ -3185,13 +3166,13 @@ impl<T: Config> Pallet<T> {
 
         let instruction_legs: Vec<(LegId, Leg)> =
             InstructionLegs::<T>::iter_prefix(&instruction_id).collect();
-        let venue_id = Self::instruction_details(instruction_id).venue_id;
+        let venue_id = InstructionDetails::<T>::get(instruction_id).venue_id;
         if let Err(e) = Self::ensure_allowed_venue(&instruction_legs, venue_id) {
             execution_errors.push(e);
         }
 
         for (leg_id, leg) in instruction_legs {
-            let leg_status = Self::instruction_leg_status(instruction_id, leg_id);
+            let leg_status = InstructionLegStatus::<T>::get(instruction_id, leg_id);
             if leg_status == LegStatus::ExecutionPending {
                 let transfer_errors = Self::transfer_report(leg, true, weight_meter);
                 execution_errors.extend_from_slice(&transfer_errors);

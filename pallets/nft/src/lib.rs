@@ -90,33 +90,28 @@ pub mod pallet {
 
     /// The total number of NFTs per identity.
     #[pallet::storage]
-    #[pallet::getter(fn number_of_nfts)]
     pub type NumberOfNFTs<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, AssetId, Identity, IdentityId, NFTCount, ValueQuery>;
 
     /// The collection id corresponding to each asset.
     #[pallet::storage]
-    #[pallet::getter(fn collection_asset)]
     pub type CollectionAsset<T: Config> =
         StorageMap<_, Blake2_128Concat, AssetId, NFTCollectionId, ValueQuery>;
 
     /// All collection details for a given collection id.
     #[pallet::storage]
-    #[pallet::getter(fn collection)]
     pub type Collection<T: Config> =
         StorageMap<_, Blake2_128Concat, NFTCollectionId, NFTCollection, ValueQuery>;
 
     /// All mandatory metadata keys for a given collection.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn collection_keys)]
     pub type CollectionKeys<T: Config> =
         StorageMap<_, Blake2_128Concat, NFTCollectionId, BTreeSet<AssetMetadataKey>, ValueQuery>;
 
     /// The metadata value of an nft given its collection id, token id and metadata key.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn metadata_value)]
     pub type MetadataValue<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -129,13 +124,11 @@ pub mod pallet {
 
     /// The total number of NFTs in a collection.
     #[pallet::storage]
-    #[pallet::getter(fn nfts_in_collection)]
     pub type NFTsInCollection<T: Config> =
         StorageMap<_, Blake2_128Concat, AssetId, NFTCount, ValueQuery>;
 
     /// Tracks the owner of an NFT
     #[pallet::storage]
-    #[pallet::getter(fn nft_owner)]
     pub type NFTOwner<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -148,13 +141,11 @@ pub mod pallet {
 
     /// The last `NFTId` used for an NFT.
     #[pallet::storage]
-    #[pallet::getter(fn current_nft_id)]
     pub type CurrentNFTId<T: Config> =
         StorageMap<_, Blake2_128Concat, NFTCollectionId, NFTId, OptionQuery>;
 
     /// The last `NFTCollectionId` used for a collection.
     #[pallet::storage]
-    #[pallet::getter(fn current_collection_id)]
     pub type CurrentCollectionId<T: Config> = StorageValue<_, NFTCollectionId, OptionQuery>;
 
     #[pallet::genesis_config]
@@ -457,7 +448,7 @@ impl<T: Config> Pallet<T> {
         Portfolio::<T>::ensure_portfolio_validity(&caller_portfolio)?;
 
         // Verifies that all mandatory keys are being set and that there are no duplicated keys
-        let mandatory_keys: BTreeSet<AssetMetadataKey> = Self::collection_keys(&collection_id);
+        let mandatory_keys: BTreeSet<AssetMetadataKey> = CollectionKeys::<T>::get(&collection_id);
         ensure!(
             mandatory_keys.len() == metadata_attributes.len(),
             Error::<T>::InvalidMetadataAttribute

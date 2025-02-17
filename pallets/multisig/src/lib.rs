@@ -83,7 +83,9 @@ use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
 
-use pallet_identity::{Config as IdentityConfig, PermissionedCallOriginData};
+use pallet_identity::{
+    CddAuthForPrimaryKeyRotation, Config as IdentityConfig, PermissionedCallOriginData,
+};
 use pallet_permissions::with_call_metadata;
 use polymesh_primitives::multisig::{ProposalState, ProposalVoteCount};
 use polymesh_primitives::{
@@ -544,7 +546,7 @@ pub mod pallet {
                 })
             } else {
                 let proposal = Call::<T>::join_identity { auth_id }.into();
-                let proposal_id = Self::next_proposal_id(&multisig);
+                let proposal_id = NextProposalId::<T>::get(&multisig);
                 AuthToProposalId::<T>::insert(&multisig, auth_id, proposal_id);
                 with_base_weight(<T as Config>::WeightInfo::create_join_identity(), || {
                     Self::base_create_proposal(&multisig, signer, &proposal, None)
@@ -731,7 +733,6 @@ pub mod pallet {
 
     /// Nonce to ensure unique MultiSig addresses are generated; starts from 1.
     #[pallet::storage]
-    #[pallet::getter(fn ms_nonce)]
     pub type MultiSigNonce<T: Config> = StorageValue<_, u64, ValueQuery>;
 
     /// Signers of a multisig. (multisig, signer) => bool.
@@ -741,12 +742,10 @@ pub mod pallet {
 
     /// Number of approved/accepted signers of a multisig.
     #[pallet::storage]
-    #[pallet::getter(fn number_of_signers)]
     pub type NumberOfSigners<T: Config> = StorageMap<_, Identity, T::AccountId, u64, ValueQuery>;
 
     /// Confirmations required before processing a multisig tx.
     #[pallet::storage]
-    #[pallet::getter(fn ms_signs_required)]
     pub type MultiSigSignsRequired<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery>;
 
@@ -754,14 +753,12 @@ pub mod pallet {
     ///
     /// multisig => next proposal id
     #[pallet::storage]
-    #[pallet::getter(fn next_proposal_id)]
     pub type NextProposalId<T: Config> = StorageMap<_, Identity, T::AccountId, u64, ValueQuery>;
 
     /// Proposals presented for voting to a multisig.
     ///
     /// multisig -> proposal id => Option<Proposal>.
     #[pallet::storage]
-    #[pallet::getter(fn proposals)]
     pub type Proposals<T: Config> =
         StorageDoubleMap<_, Twox64Concat, T::AccountId, Twox64Concat, u64, <T as Config>::Proposal>;
 
@@ -769,7 +766,6 @@ pub mod pallet {
     ///
     /// (multisig, proposal_id) -> signer => vote.
     #[pallet::storage]
-    #[pallet::getter(fn votes)]
     pub type Votes<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
@@ -798,7 +794,6 @@ pub mod pallet {
     ///
     /// multisig -> proposal id => Option<ProposalVoteCount>.
     #[pallet::storage]
-    #[pallet::getter(fn proposal_vote_counts)]
     pub type ProposalVoteCounts<T: Config> =
         StorageDoubleMap<_, Twox64Concat, T::AccountId, Twox64Concat, u64, ProposalVoteCount>;
 
@@ -806,7 +801,6 @@ pub mod pallet {
     ///
     /// multisig -> proposal id => Option<ProposalState>.
     #[pallet::storage]
-    #[pallet::getter(fn proposal_states)]
     pub type ProposalStates<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
@@ -818,7 +812,6 @@ pub mod pallet {
 
     /// Proposal execution reentry guard.
     #[pallet::storage]
-    #[pallet::getter(fn execution_reentry)]
     pub(super) type ExecutionReentry<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     /// Pending join identity authorization proposals.
@@ -830,20 +823,17 @@ pub mod pallet {
 
     /// The last transaction version, used for `on_runtime_upgrade`.
     #[pallet::storage]
-    #[pallet::getter(fn transaction_version)]
     pub(super) type TransactionVersion<T: Config> = StorageValue<_, u32, ValueQuery>;
 
     /// The last proposal id before the multisig changed signers or signatures required.
     ///
     /// multisig => Option<proposal id>
     #[pallet::storage]
-    #[pallet::getter(fn last_invalid_proposal)]
     pub type LastInvalidProposal<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, OptionQuery>;
 
     /// Storage version.
     #[pallet::storage]
-    #[pallet::getter(fn storage_version)]
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
 
     #[pallet::genesis_config]
@@ -1029,7 +1019,7 @@ impl<T: Config> Pallet<T> {
         permissions: Permissions,
     ) -> DispatchResult {
         // Generate new MultiSig address.
-        let new_nonce = Self::ms_nonce()
+        let new_nonce = MultiSigNonce::<T>::get()
             .checked_add(1)
             .ok_or(Error::<T>::NonceOverflow)?;
         MultiSigNonce::<T>::put(new_nonce);
@@ -1066,7 +1056,7 @@ impl<T: Config> Pallet<T> {
         Self::ensure_ms_signer(multisig, &signer)?;
         let max_weight = proposal.get_dispatch_info().weight;
         let caller_did = Self::ensure_ms_get_did(multisig)?;
-        let proposal_id = Self::next_proposal_id(multisig);
+        let proposal_id = NextProposalId::<T>::get(multisig);
         Self::ensure_valid_expiry(&expiry)?;
 
         Proposals::<T>::insert(multisig, proposal_id, &*proposal);
@@ -1095,7 +1085,7 @@ impl<T: Config> Pallet<T> {
         Self::ensure_ms_signer(multisig, &signer)?;
         let caller_did = Self::ensure_ms_get_did(multisig)?;
         ensure!(
-            !Self::votes((multisig, proposal_id), &signer),
+            !Votes::<T>::get((multisig, proposal_id), &signer),
             Error::<T>::AlreadyVoted
         );
         ensure!(
@@ -1106,7 +1096,7 @@ impl<T: Config> Pallet<T> {
         let mut vote_count = ProposalVoteCounts::<T>::try_get(multisig, proposal_id)
             .map_err(|_| Error::<T>::ProposalMissing)?;
         vote_count.approvals += 1u64;
-        let execute_proposal = vote_count.approvals >= Self::ms_signs_required(multisig);
+        let execute_proposal = vote_count.approvals >= MultiSigSignsRequired::<T>::get(multisig);
 
         // Update storage
         Votes::<T>::insert((multisig, proposal_id), &signer, true);
@@ -1152,7 +1142,7 @@ impl<T: Config> Pallet<T> {
         let (result, actual_weight) =
             match with_call_metadata::<T, _>(proposal.get_call_metadata(), || {
                 // Check execution reentry guard.
-                ensure!(!Self::execution_reentry(), Error::<T>::NestingNotAllowed,);
+                ensure!(!ExecutionReentry::<T>::get(), Error::<T>::NestingNotAllowed,);
 
                 // Enable reentry guard before executing the proposal.
                 ExecutionReentry::<T>::set(true);
@@ -1228,8 +1218,8 @@ impl<T: Config> Pallet<T> {
         Votes::<T>::insert((multisig, proposal_id), &signer, true);
         vote_count.rejections += 1u64;
 
-        let approvals_needed = Self::ms_signs_required(&multisig);
-        let ms_signers = Self::number_of_signers(&multisig);
+        let approvals_needed = MultiSigSignsRequired::<T>::get(&multisig);
+        let ms_signers = NumberOfSigners::<T>::get(&multisig);
         if vote_count.rejections > ms_signers.saturating_sub(approvals_needed) || proposal_owner {
             if proposal_owner {
                 vote_count.approvals = 0;
@@ -1308,7 +1298,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_next_multisig_address(caller: T::AccountId) -> Result<T::AccountId, DispatchError> {
         // Nonce is always only incremented by small numbers and hence can never overflow 64 bits.
         // Also, this is just a helper function that does not modify state.
-        let new_nonce = Self::ms_nonce() + 1;
+        let new_nonce = MultiSigNonce::<T>::get() + 1;
         Self::get_multisig_address(&caller, new_nonce)
     }
 
@@ -1328,7 +1318,7 @@ impl<T: Config> Pallet<T> {
 
     /// Checks whether changing the list of signers is allowed in a multisig.
     pub fn is_changing_signers_allowed(multisig: &T::AccountId) -> bool {
-        if IdentityPallet::<T>::cdd_auth_for_primary_key_rotation() {
+        if CddAuthForPrimaryKeyRotation::<T>::get() {
             if let Some(did) = IdentityPallet::<T>::get_identity(multisig) {
                 if IdentityPallet::<T>::is_primary_key(&did, multisig) {
                     return false;
@@ -1374,7 +1364,7 @@ impl<T: Config> Pallet<T> {
 
     /// Returns `Ok` if `proposal_id` is valid. Otherwise, returns [`Error::InvalidatedProposal`].
     fn ensure_valid_proposal(multisig: &T::AccountId, proposal_id: u64) -> DispatchResult {
-        if let Some(last_invalid_proposal) = Self::last_invalid_proposal(multisig) {
+        if let Some(last_invalid_proposal) = LastInvalidProposal::<T>::get(multisig) {
             ensure!(
                 proposal_id > last_invalid_proposal,
                 Error::<T>::InvalidatedProposal
@@ -1385,7 +1375,7 @@ impl<T: Config> Pallet<T> {
 
     /// Sets [`LastInvalidProposal`] with the proposal id of the last proposal.
     fn set_invalid_proposals(multisig: &T::AccountId) {
-        let next_proposal_id = Self::next_proposal_id(multisig);
+        let next_proposal_id = NextProposalId::<T>::get(multisig);
 
         // There are no proposals for the multisig
         if next_proposal_id == 0 {

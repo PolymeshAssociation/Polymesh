@@ -27,7 +27,8 @@ use frame_support::{
     traits::{Currency, Get, ReservableCurrency},
 };
 use mock::*;
-use pallet_balances::Error as BalancesError;
+
+use pallet_balances::{Error as BalancesError, Locks};
 use pallet_pips::{ProposalVotes, Proposals};
 use polymesh_primitives::IdentityId;
 use sp_runtime::{
@@ -2209,7 +2210,7 @@ fn bond_with_no_staked_value() {
                 5,
                 RewardDestination::Controller
             ));
-            assert_eq!(Balances::locks(&1)[0].amount, 5);
+            assert_eq!(Locks::<Test>::get(&1)[0].amount, 5);
 
             // unbonding even 1 will cause all to be unbonded.
             assert_ok!(Staking::unbond(RuntimeOrigin::signed(2), 1));
@@ -2234,14 +2235,14 @@ fn bond_with_no_staked_value() {
             // not yet removed.
             assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(2), 0));
             assert!(Staking::ledger(2).is_some());
-            assert_eq!(Balances::locks(&1)[0].amount, 5);
+            assert_eq!(Locks::<Test>::get(&1)[0].amount, 5);
 
             mock::start_active_era(3);
 
             // poof. Account 1 is removed from the staking system.
             assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(2), 0));
             assert!(Staking::ledger(2).is_some());
-            assert_eq!(Balances::locks(&1).len(), 1);
+            assert_eq!(Locks::<Test>::get(&1).len(), 1);
         });
 }
 

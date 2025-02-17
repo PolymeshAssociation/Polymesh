@@ -197,7 +197,6 @@ pub mod pallet {
 
     /// Limit of how many "active" members there can be.
     #[pallet::storage]
-    #[pallet::getter(fn active_members_limit)]
     pub type ActiveMembersLimit<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, ValueQuery>;
 
     #[pallet::genesis_config]
@@ -442,7 +441,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     /// Ensure that updating the active set to `members` will not exceed the set limit.
     fn ensure_within_active_members_limit(members: &[IdentityId]) -> DispatchResult {
         ensure!(
-            members.len() as MemberCount <= Self::active_members_limit(),
+            members.len() as MemberCount <= ActiveMembersLimit::<T, I>::get(),
             Error::<T, I>::ActiveMembersLimitExceeded
         );
         Ok(())
@@ -510,14 +509,14 @@ impl<T: Config<I>, I: 'static> GroupTrait<T::Moment> for Pallet<T, I> {
     /// Returns the "active members".
     #[inline]
     fn get_members() -> Vec<IdentityId> {
-        Self::active_members()
+        ActiveMembers::<T, I>::get()
     }
 
     /// Returns inactive members who are not expired yet.
     #[inline]
     fn get_inactive_members() -> Vec<InactiveMember<T::Moment>> {
         let now = <pallet_timestamp::Pallet<T>>::get();
-        Self::inactive_members()
+        InactiveMembers::<T, I>::get()
             .into_iter()
             .filter(|member| !Self::is_member_expired(member, now))
             .collect::<Vec<_>>()

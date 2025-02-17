@@ -172,20 +172,18 @@ pub mod pallet {
     ///
     /// (CAId) => Distribution
     #[pallet::storage]
-    #[pallet::getter(fn distributions)]
-    pub(super) type Distributions<T: Config> = StorageMap<_, Blake2_128Concat, CAId, Distribution>;
+    pub type Distributions<T: Config> = StorageMap<_, Blake2_128Concat, CAId, Distribution>;
 
     /// Has an asset holder been paid yet?
     ///
     /// (CAId, DID) -> Was DID paid in the CAId?
     #[pallet::storage]
-    #[pallet::getter(fn holder_paid)]
-    pub(super) type HolderPaid<T: Config> =
+    pub(crate) type HolderPaid<T: Config> =
         StorageMap<_, Blake2_128Concat, (CAId, IdentityId), bool, ValueQuery>;
 
     /// Storage version.
     #[pallet::storage]
-    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
+    pub(crate) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
 
     #[pallet::genesis_config]
     #[derive(Default)]

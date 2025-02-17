@@ -383,7 +383,6 @@ pub mod pallet {
 
     /// Whitelist of extrinsics allowed to be called from contracts.
     #[pallet::storage]
-    #[pallet::getter(fn call_runtime_whitelist)]
     pub type CallRuntimeWhitelist<T> = StorageMap<_, Identity, ExtrinsicId, bool, ValueQuery>;
 
     /// Storage version.
@@ -392,12 +391,10 @@ pub mod pallet {
 
     /// Stores the chain version and code hash for the next chain upgrade.
     #[pallet::storage]
-    #[pallet::getter(fn next_upgrade)]
     pub type ApiNextUpgrade<T> = StorageMap<_, Twox64Concat, Api, NextUpgrade<T>, OptionQuery>;
 
     /// Stores the code hash for the current api.
     #[pallet::storage]
-    #[pallet::getter(fn current_api_hash)]
     pub type CurrentApiHash<T> = StorageMap<_, Twox64Concat, Api, ApiCodeHash<T>, OptionQuery>;
 
     /// GenesisConfig for the contracts module.
@@ -665,7 +662,7 @@ where
 
     pub fn ensure_call_runtime(ext_id: ExtrinsicId) -> DispatchResult {
         ensure!(
-            Self::call_runtime_whitelist(ext_id),
+            CallRuntimeWhitelist::<T>::get(ext_id),
             Error::<T>::RuntimeCallDenied
         );
         Ok(())

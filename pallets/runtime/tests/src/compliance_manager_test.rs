@@ -3,7 +3,7 @@ use frame_support::traits::Currency;
 use frame_support::{assert_noop, assert_ok};
 use sp_std::prelude::*;
 
-use pallet_compliance_manager::Error as CMError;
+use pallet_compliance_manager::{AssetCompliances, Error as CMError, TrustedClaimIssuer};
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::compliance_manager::{
@@ -71,7 +71,7 @@ macro_rules! assert_add_claim {
 }
 
 fn get_latest_requirement_id(asset_id: AssetId) -> u32 {
-    ComplianceManager::asset_compliance(asset_id)
+    AssetCompliances::<TestStorage>::get(asset_id)
         .requirements
         .last()
         .map(|r| r.id)
@@ -442,7 +442,7 @@ fn should_replace_asset_compliance_we() {
 
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
-    let asset_compliance = ComplianceManager::asset_compliance(asset_id);
+    let asset_compliance = AssetCompliances::<TestStorage>::get(asset_id);
     assert_eq!(asset_compliance.requirements.len(), 1);
 
     // Create three requirements with different requirement IDs.
@@ -463,7 +463,7 @@ fn should_replace_asset_compliance_we() {
         new_asset_compliance.clone(),
     ));
 
-    let asset_compliance = ComplianceManager::asset_compliance(asset_id);
+    let asset_compliance = AssetCompliances::<TestStorage>::get(asset_id);
     assert_eq!(asset_compliance.requirements, new_asset_compliance);
 }
 
@@ -485,7 +485,7 @@ fn test_dedup_replace_asset_compliance_we() {
 
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
-    let asset_compliance = ComplianceManager::asset_compliance(asset_id);
+    let asset_compliance = AssetCompliances::<TestStorage>::get(asset_id);
     assert_eq!(asset_compliance.requirements.len(), 1);
 
     let make_req = |id: u32| ComplianceRequirement {
@@ -533,7 +533,7 @@ fn should_reset_asset_compliance_we() {
 
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
-    let asset_compliance = ComplianceManager::asset_compliance(asset_id);
+    let asset_compliance = AssetCompliances::<TestStorage>::get(asset_id);
     assert_eq!(asset_compliance.requirements.len(), 1);
 
     assert_ok!(ComplianceManager::reset_asset_compliance(
@@ -541,7 +541,7 @@ fn should_reset_asset_compliance_we() {
         asset_id
     ));
 
-    let asset_compliance_new = ComplianceManager::asset_compliance(asset_id);
+    let asset_compliance_new = AssetCompliances::<TestStorage>::get(asset_id);
     assert_eq!(asset_compliance_new.requirements.len(), 0);
 }
 
@@ -661,9 +661,9 @@ fn should_successfully_add_and_use_default_issuers_we() {
         add_issuer(ti);
     }
 
-    assert_eq!(ComplianceManager::trusted_claim_issuer(asset_id).len(), 3);
+    assert_eq!(TrustedClaimIssuer::<TestStorage>::get(asset_id).len(), 3);
     assert_eq!(
-        ComplianceManager::trusted_claim_issuer(asset_id),
+        TrustedClaimIssuer::<TestStorage>::get(asset_id),
         trusted_issuers
     );
     assert_ok!(Identity::add_claim(
@@ -760,9 +760,9 @@ fn should_modify_vector_of_trusted_issuer_we() {
         trusted_issuer_2.issuer()
     ));
 
-    assert_eq!(ComplianceManager::trusted_claim_issuer(asset_id).len(), 2);
+    assert_eq!(TrustedClaimIssuer::<TestStorage>::get(asset_id).len(), 2);
     assert_eq!(
-        ComplianceManager::trusted_claim_issuer(asset_id),
+        TrustedClaimIssuer::<TestStorage>::get(asset_id),
         vec![trusted_issuer_1.issuer(), trusted_issuer_2.issuer()]
     );
 
@@ -825,9 +825,9 @@ fn should_modify_vector_of_trusted_issuer_we() {
         trusted_issuer_1.did
     ));
 
-    assert_eq!(ComplianceManager::trusted_claim_issuer(asset_id).len(), 1);
+    assert_eq!(TrustedClaimIssuer::<TestStorage>::get(asset_id).len(), 1);
     assert_eq!(
-        ComplianceManager::trusted_claim_issuer(asset_id),
+        TrustedClaimIssuer::<TestStorage>::get(asset_id),
         vec![trusted_issuer_2.issuer()]
     );
 
@@ -1561,7 +1561,7 @@ fn should_limit_compliance_requirements_complexity_we() {
         CMError::<TestStorage>::ComplianceRequirementTooComplex
     );
 
-    let asset_compliance = ComplianceManager::asset_compliance(asset_id);
+    let asset_compliance = AssetCompliances::<TestStorage>::get(asset_id);
     assert_eq!(asset_compliance.requirements.len(), 1);
 }
 

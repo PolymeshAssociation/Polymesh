@@ -1,15 +1,17 @@
 use frame_support::{assert_noop, assert_ok};
+use sp_keyring::AccountKeyring;
 use sp_runtime::DispatchError;
 
+use pallet_asset::BalanceOf;
+use pallet_settlement::{InstructionCounter, InstructionStatuses, VenueCounter};
 use pallet_sto::{
-    Fundraiser, FundraiserId, FundraiserName, FundraiserStatus, FundraiserTier, PriceTier,
-    MAX_TIERS,
+    Fundraiser, FundraiserCount, FundraiserId, FundraiserName, FundraiserNames, FundraiserStatus,
+    FundraiserTier, Fundraisers, PriceTier, MAX_TIERS,
 };
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::settlement::{InstructionStatus, VenueDetails, VenueId, VenueType};
 use polymesh_primitives::{IdentityId, PortfolioId, WeightMeter};
-use sp_keyring::AccountKeyring;
 
 use crate::asset_pallet::setup::create_and_issue_sample_asset;
 
@@ -123,8 +125,8 @@ fn raise_happy_path() {
     ));
 
     // Register a venue
-    let venue_counter = Settlement::venue_counter();
-    let instruction_id = Settlement::instruction_counter();
+    let venue_counter = VenueCounter::<TestStorage>::get();
+    let instruction_id = InstructionCounter::<TestStorage>::get();
     exec_ok!(Settlement::create_venue(
         alice.origin(),
         VenueDetails::default(),
@@ -133,13 +135,13 @@ fn raise_happy_path() {
     ));
 
     let amount = 100u128;
-    let alice_init_offering = Asset::balance_of(&offering_asset, alice.did);
-    let bob_init_offering = Asset::balance_of(&offering_asset, bob.did);
-    let alice_init_raise = Asset::balance_of(&raise_asset, alice.did);
-    let bob_init_raise = Asset::balance_of(&raise_asset, bob.did);
+    let alice_init_offering = BalanceOf::<TestStorage>::get(&offering_asset, alice.did);
+    let bob_init_offering = BalanceOf::<TestStorage>::get(&offering_asset, bob.did);
+    let alice_init_raise = BalanceOf::<TestStorage>::get(&raise_asset, alice.did);
+    let bob_init_raise = BalanceOf::<TestStorage>::get(&raise_asset, bob.did);
 
     // Alice starts a fundraiser
-    let fundraiser_id = Sto::fundraiser_count(offering_asset);
+    let fundraiser_id = FundraiserCount::<TestStorage>::get(offering_asset);
     let fundraiser_name: FundraiserName = max_len_bytes(0);
     exec_ok!(Sto::create_fundraiser(
         alice.origin(),
@@ -160,7 +162,7 @@ fn raise_happy_path() {
 
     let check_fundraiser = |remaining| {
         assert_eq!(
-            Sto::fundraisers(offering_asset, fundraiser_id),
+            Fundraisers::<TestStorage>::get(offering_asset, fundraiser_id),
             Some(Fundraiser {
                 creator: alice.did,
                 offering_portfolio: alice_portfolio,
@@ -184,17 +186,23 @@ fn raise_happy_path() {
     check_fundraiser(1_000_000u128);
 
     assert_eq!(
-        Asset::balance_of(&offering_asset, alice.did),
+        BalanceOf::<TestStorage>::get(&offering_asset, alice.did),
         alice_init_offering
     );
     assert_eq!(
-        Asset::balance_of(&offering_asset, bob.did),
+        BalanceOf::<TestStorage>::get(&offering_asset, bob.did),
         bob_init_offering
     );
-    assert_eq!(Asset::balance_of(&raise_asset, alice.did), alice_init_raise);
-    assert_eq!(Asset::balance_of(&raise_asset, bob.did), bob_init_raise);
     assert_eq!(
-        Sto::fundraiser_name(offering_asset, fundraiser_id),
+        BalanceOf::<TestStorage>::get(&raise_asset, alice.did),
+        alice_init_raise
+    );
+    assert_eq!(
+        BalanceOf::<TestStorage>::get(&raise_asset, bob.did),
+        bob_init_raise
+    );
+    assert_eq!(
+        FundraiserNames::<TestStorage>::get(offering_asset, fundraiser_id),
         Some(fundraiser_name)
     );
     let sto_invest = |purchase_amount, max_price, err: Error| {
@@ -235,28 +243,28 @@ fn raise_happy_path() {
     ));
     check_fundraiser(1_000_000u128 - amount);
     assert_eq!(
-        Some(Settlement::instruction_counter()),
+        Some(InstructionCounter::<TestStorage>::get()),
         instruction_id.checked_inc()
     );
     assert_eq!(
-        Settlement::instruction_status(instruction_id),
+        InstructionStatuses::<TestStorage>::get(instruction_id),
         InstructionStatus::Success(System::block_number())
     );
 
     assert_eq!(
-        Asset::balance_of(&offering_asset, alice.did),
+        BalanceOf::<TestStorage>::get(&offering_asset, alice.did),
         alice_init_offering - amount
     );
     assert_eq!(
-        Asset::balance_of(&offering_asset, bob.did),
+        BalanceOf::<TestStorage>::get(&offering_asset, bob.did),
         bob_init_offering + amount
     );
     assert_eq!(
-        Asset::balance_of(&raise_asset, alice.did),
+        BalanceOf::<TestStorage>::get(&raise_asset, alice.did),
         alice_init_raise + amount
     );
     assert_eq!(
-        Asset::balance_of(&raise_asset, bob.did),
+        BalanceOf::<TestStorage>::get(&raise_asset, bob.did),
         bob_init_raise - amount
     );
 }
@@ -307,7 +315,7 @@ fn raise_unhappy_path() {
     };
 
     let create_venue = |user: User, type_| {
-        let bad_venue = Settlement::venue_counter();
+        let bad_venue = VenueCounter::<TestStorage>::get();
         assert_ok!(Settlement::create_venue(
             user.origin(),
             VenueDetails::default(),
@@ -413,7 +421,7 @@ fn invalid_fundraiser() {
         ..
     } = init_raise_context();
 
-    let venue_counter = Settlement::venue_counter();
+    let venue_counter = VenueCounter::<TestStorage>::get();
     assert_ok!(Settlement::create_venue(
         alice.origin(),
         VenueDetails::default(),
@@ -476,14 +484,14 @@ fn invalid_fundraiser() {
 fn basic_fundraiser() -> (FundraiserId, RaiseContext) {
     let context = init_raise_context();
 
-    let venue_counter = Settlement::venue_counter();
+    let venue_counter = VenueCounter::<TestStorage>::get();
     assert_ok!(Settlement::create_venue(
         context.alice.origin(),
         VenueDetails::default(),
         vec![AccountKeyring::Alice.to_account_id()],
         VenueType::Sto
     ));
-    let fundraiser_id = Sto::fundraiser_count(context.offering_asset);
+    let fundraiser_id = FundraiserCount::<TestStorage>::get(context.offering_asset);
     assert_ok!(Sto::create_fundraiser(
         context.alice.origin(),
         context.alice_portfolio,

@@ -334,41 +334,35 @@ pub mod pallet {
 
     /// Map each [`Ticker`] to its registration details ([`TickerRegistration`]).
     #[pallet::storage]
-    #[pallet::getter(fn unique_ticker_registration)]
     pub type UniqueTickerRegistration<T: Config> =
         StorageMap<_, Blake2_128Concat, Ticker, TickerRegistration<T::Moment>, OptionQuery>;
 
     /// Returns [`TickerRegistrationConfig`] for assessing if a ticker is valid.
     #[pallet::storage]
-    #[pallet::getter(fn ticker_registration_config)]
     pub type TickerConfig<T: Config> =
         StorageValue<_, TickerRegistrationConfig<T::Moment>, ValueQuery>;
 
     /// Maps each [`AssetId`] to its underling [`AssetDetails`].
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn assets_details)]
     pub type Assets<T: Config> =
         StorageMap<_, Blake2_128Concat, AssetId, AssetDetails, OptionQuery>;
 
     /// Maps each [`AssetId`] to its underling [`AssetName`].
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn asset_names)]
     pub type AssetNames<T: Config> =
         StorageMap<_, Blake2_128Concat, AssetId, AssetName, OptionQuery>;
 
     /// Tracks the total [`Balance`] for each [`AssetId`] per [`IdentityId`].
     // NB: It is safe to use `identity` hasher here because assets can not be distributed to non-existent identities.
     #[pallet::storage]
-    #[pallet::getter(fn balance_of)]
     pub type BalanceOf<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, AssetId, Identity, IdentityId, Balance, ValueQuery>;
 
     /// Maps each [`AssetId`] to its asset identifiers ([`AssetIdentifier`]).
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn asset_identifiers)]
     pub type AssetIdentifiers<T: Config> =
         StorageMap<_, Blake2_128Concat, AssetId, Vec<AssetIdentifier>, ValueQuery>;
 
@@ -376,46 +370,39 @@ pub mod pallet {
     ///
     /// Numbers in the sequence start from 1 rather than 0.
     #[pallet::storage]
-    #[pallet::getter(fn custom_type_id_seq)]
     pub type CustomTypeIdSequence<T: Config> = StorageValue<_, CustomAssetTypeId, ValueQuery>;
 
     /// Maps custom asset type ids to the registered string contents.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn custom_types)]
     pub type CustomTypes<T: Config> =
         StorageMap<_, Twox64Concat, CustomAssetTypeId, Vec<u8>, ValueQuery>;
 
     /// Inverse map of `CustomTypes`, from registered string contents to custom asset type ids.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn custom_types_inverse)]
     pub type CustomTypesInverse<T: Config> =
         StorageMap<_, Blake2_128Concat, Vec<u8>, CustomAssetTypeId, OptionQuery>;
 
     /// Maps each [`AssetId`] to the name of its founding round ([`FundingRoundName`]).
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn funding_round)]
     pub type FundingRound<T: Config> =
         StorageMap<_, Blake2_128Concat, AssetId, FundingRoundName, ValueQuery>;
 
     /// The total [`Balance`] of tokens issued in all recorded funding rounds ([`FundingRoundName`]).
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn issued_in_funding_round)]
     pub type IssuedInFundingRound<T: Config> =
         StorageMap<_, Blake2_128Concat, (AssetId, FundingRoundName), Balance, ValueQuery>;
 
     /// Returns `true` if transfers for the asset are frozen. Otherwise, returns `false`.
     #[pallet::storage]
-    #[pallet::getter(fn frozen)]
     pub type Frozen<T: Config> = StorageMap<_, Blake2_128Concat, AssetId, bool, ValueQuery>;
 
     /// All [`Document`] attached to an asset.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn asset_documents)]
     pub type AssetDocuments<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -428,14 +415,12 @@ pub mod pallet {
 
     /// [`DocumentId`] counter per [`AssetId`].
     #[pallet::storage]
-    #[pallet::getter(fn asset_documents_id_sequence)]
     pub type AssetDocumentsIdSequence<T: Config> =
         StorageMap<_, Blake2_128Concat, AssetId, DocumentId, ValueQuery>;
 
     /// Metatdata values for an asset.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn asset_metadata_values)]
     pub type AssetMetadataValues<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -448,7 +433,6 @@ pub mod pallet {
 
     /// Details for an asset's Metadata values.
     #[pallet::storage]
-    #[pallet::getter(fn asset_metadata_value_details)]
     pub type AssetMetadataValueDetails<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -462,7 +446,6 @@ pub mod pallet {
     /// Asset Metadata Local Name -> Key.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn asset_metadata_local_name_to_key)]
     pub type AssetMetadataLocalNameToKey<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -476,14 +459,12 @@ pub mod pallet {
     /// Asset Metadata Global Name -> Key.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn asset_metadata_global_name_to_key)]
     pub type AssetMetadataGlobalNameToKey<T: Config> =
         StorageMap<_, Blake2_128Concat, AssetMetadataName, AssetMetadataGlobalKey, OptionQuery>;
 
     /// Asset Metadata Local Key -> Name.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn asset_metadata_local_key_to_name)]
     pub type AssetMetadataLocalKeyToName<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -497,14 +478,12 @@ pub mod pallet {
     /// Asset Metadata Global Key -> Name.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn asset_metadata_global_key_to_name)]
     pub type AssetMetadataGlobalKeyToName<T: Config> =
         StorageMap<_, Twox64Concat, AssetMetadataGlobalKey, AssetMetadataName, OptionQuery>;
 
     /// Asset Metadata Local Key specs.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn asset_metadata_local_specs)]
     pub type AssetMetadataLocalSpecs<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -518,7 +497,6 @@ pub mod pallet {
     /// Asset Metadata Global Key specs.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn asset_metadata_global_specs)]
     pub type AssetMetadataGlobalSpecs<T: Config> =
         StorageMap<_, Twox64Concat, AssetMetadataGlobalKey, AssetMetadataSpec, OptionQuery>;
 
@@ -544,13 +522,11 @@ pub mod pallet {
 
     /// The last [`AssetMetadataLocalKey`] used for [`AssetId`].
     #[pallet::storage]
-    #[pallet::getter(fn current_asset_metadata_local_key)]
     pub type CurrentAssetMetadataLocalKey<T: Config> =
         StorageMap<_, Blake2_128Concat, AssetId, AssetMetadataLocalKey, OptionQuery>;
 
     /// The last [`AssetMetadataGlobalKey`] used for a global key.
     #[pallet::storage]
-    #[pallet::getter(fn current_asset_metadata_global_key)]
     pub type CurrentAssetMetadataGlobalKey<T: Config> =
         StorageValue<_, AssetMetadataGlobalKey, OptionQuery>;
 
@@ -1945,10 +1921,10 @@ impl<T: AssetConfig> Pallet<T> {
 
         <Checkpoint<T>>::advance_update_balances(
             &asset_id,
-            &[(portfolio.did, Self::balance_of(asset_id, portfolio.did))],
+            &[(portfolio.did, BalanceOf::<T>::get(asset_id, portfolio.did))],
         )?;
 
-        let updated_balance = Self::balance_of(asset_id, portfolio.did) - value;
+        let updated_balance = BalanceOf::<T>::get(asset_id, portfolio.did) - value;
 
         // Update identity balances and total supply
         BalanceOf::<T>::insert(asset_id, &portfolio.did, updated_balance);
@@ -2855,7 +2831,7 @@ impl<T: AssetConfig> Pallet<T> {
 
     pub fn get_balance_at(asset_id: AssetId, did: IdentityId, at: CheckpointId) -> Balance {
         <Checkpoint<T>>::balance_at(asset_id, did, at)
-            .unwrap_or_else(|| Self::balance_of(&asset_id, &did))
+            .unwrap_or_else(|| BalanceOf::<T>::get(&asset_id, &did))
     }
 
     pub fn validate_asset_transfer(
@@ -2917,8 +2893,8 @@ impl<T: AssetConfig> Pallet<T> {
             asset_id,
             &sender_portfolio.did,
             &receiver_portfolio.did,
-            Self::balance_of(asset_id, sender_portfolio.did),
-            Self::balance_of(asset_id, receiver_portfolio.did),
+            BalanceOf::<T>::get(asset_id, sender_portfolio.did),
+            BalanceOf::<T>::get(asset_id, receiver_portfolio.did),
             transfer_value,
             asset_details.total_supply,
             weight_meter,
@@ -3257,7 +3233,7 @@ impl<T: AssetConfig> Pallet<T> {
 
         // No check since the total balance is always <= the total supply
         let new_issuer_portfolio_balance =
-            Portfolio::<T>::portfolio_asset_balances(issuer_portfolio, asset_id) + amount_to_issue;
+            PortfolioAssetBalances::<T>::get(issuer_portfolio, asset_id) + amount_to_issue;
         Portfolio::<T>::set_portfolio_balance(
             issuer_portfolio,
             asset_id,

@@ -258,7 +258,7 @@ pub mod pallet {
             // Only allow signed origins.
             let sender = ensure_signed(origin)?;
             // Ensure the signer is the current Sudo key.
-            if Some(sender) != Self::key() {
+            if Some(sender) != Key::<T>::get() {
                 // roughly same as a 4 byte remark since perbill is u32.
                 return Err(DispatchErrorWithPostInfo {
                     post_info: Some(MIN_WEIGHT).into(),
@@ -289,8 +289,7 @@ pub mod pallet {
 
     /// The `AccountId` of the sudo key.
     #[pallet::storage]
-    #[pallet::getter(fn key)]
-    pub(super) type Key<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+    pub type Key<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {

@@ -10,15 +10,20 @@ use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::{From, TryFrom, TryInto};
 use sp_std::iter;
 
+use pallet_asset::checkpoint::{
+    CachedNextCheckpoints, CheckpointIdSequence, ScheduleIdSequence, SchedulePoints,
+    ScheduledCheckpoints, Timestamps, TotalSupply,
+};
 use pallet_asset::{
     AssetDetails, AssetDocuments, AssetIdentifiers, AssetMetadataLocalKeyToName,
-    AssetMetadataLocalNameToKey, AssetMetadataLocalSpecs, AssetMetadataValues, Assets,
+    AssetMetadataLocalNameToKey, AssetMetadataLocalSpecs, AssetMetadataValues, AssetNames, Assets,
     AssetsExemptFromAffirmation, BalanceOf, Config as AssetConfig, CustomTypeIdSequence,
-    CustomTypes, CustomTypesInverse, MandatoryMediators, PreApprovedAsset,
+    CustomTypes, CustomTypesInverse, FundingRound, MandatoryMediators, PreApprovedAsset,
     SecurityTokensOwnedByUser,
 };
 use pallet_portfolio::{
-    NextPortfolioNumber, PortfolioAssetBalances, PortfolioAssetCount, PortfolioLockedAssets,
+    NextPortfolioNumber, PortfolioAssetBalances, PortfolioAssetCount, PortfolioCustodian,
+    PortfolioLockedAssets,
 };
 use pallet_statistics::AssetStats;
 use polymesh_common_utilities::checkpoint::{NextCheckpoints, ScheduleCheckpoints, ScheduleId};
@@ -174,7 +179,7 @@ fn exceeded_funding_round_name() -> FundingRoundName {
 }
 
 pub fn next_schedule_id(asset_id: AssetId) -> ScheduleId {
-    let ScheduleId(id) = Checkpoint::schedule_id_sequence(asset_id);
+    let ScheduleId(id) = ScheduleIdSequence::<TestStorage>::get(asset_id);
     ScheduleId(id + 1)
 }
 
@@ -183,16 +188,19 @@ pub fn check_schedules(asset_id: AssetId, schedules: &[(ScheduleId, ScheduleChec
     let mut cached = NextCheckpoints::default();
     for (id, schedule) in schedules {
         assert_eq!(
-            Checkpoint::scheduled_checkpoints(asset_id, id).as_ref(),
+            ScheduledCheckpoints::<TestStorage>::get(asset_id, id).as_ref(),
             Some(schedule)
         );
         cached.add_schedule_next(*id, schedule.next().unwrap());
         cached.inc_total_pending(schedule.len() as u64);
     }
     if cached.is_empty() {
-        assert_eq!(Checkpoint::cached_next_checkpoints(asset_id), None);
+        assert_eq!(CachedNextCheckpoints::<TestStorage>::get(asset_id), None);
     } else {
-        assert_eq!(Checkpoint::cached_next_checkpoints(asset_id), Some(cached));
+        assert_eq!(
+            CachedNextCheckpoints::<TestStorage>::get(asset_id),
+            Some(cached)
+        );
     }
 }
 
@@ -243,7 +251,10 @@ fn issuers_can_create_and_rename_tokens() {
             SecurityTokensOwnedByUser::<TestStorage>::get(owner.did, asset_id),
             true
         );
-        assert_eq!(Asset::funding_round(asset_id), funding_round_name.clone());
+        assert_eq!(
+            FundingRound::<TestStorage>::get(asset_id),
+            funding_round_name.clone()
+        );
 
         // Unauthorized agents cannot rename the token.
         let eve = User::new(AccountKeyring::Eve);
@@ -256,8 +267,8 @@ fn issuers_can_create_and_rename_tokens() {
         // Rename the token and check storage has been updated.
         let new: AssetName = [0x42].into();
         assert_ok!(Asset::rename_asset(owner.origin(), asset_id, new.clone()));
-        assert_eq!(Asset::asset_names(asset_id), Some(new));
-        assert!(Asset::asset_identifiers(asset_id).is_empty());
+        assert_eq!(AssetNames::<TestStorage>::get(asset_id), Some(new));
+        assert!(AssetIdentifiers::<TestStorage>::get(asset_id).is_empty());
     });
 }
 
@@ -278,8 +289,11 @@ fn valid_transfers_pass() {
         );
         assert_ok!(transfer(owner, alice));
 
-        assert_eq!(Asset::balance_of(&asset_id, owner.did), ISSUE_AMOUNT - 500);
-        assert_eq!(Asset::balance_of(&asset_id, alice.did), 500);
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(&asset_id, owner.did),
+            ISSUE_AMOUNT - 500
+        );
+        assert_eq!(BalanceOf::<TestStorage>::get(&asset_id, alice.did), 500);
     })
 }
 
@@ -325,7 +339,7 @@ fn issuers_can_redeem_tokens() {
             PortfolioAssetCount::<TestStorage>::get(owner_portfolio_id),
             0
         );
-        assert_eq!(Asset::balance_of(&asset_id, owner.did), 0);
+        assert_eq!(BalanceOf::<TestStorage>::get(&asset_id, owner.did), 0);
         assert_eq!(get_asset_details(&asset_id).total_supply, 0);
 
         assert_noop!(
@@ -398,7 +412,7 @@ fn controller_transfer() {
 
         assert_ok!(transfer(asset_id, owner, alice, 500));
 
-        let balance_of = |did| Asset::balance_of(&asset_id, did);
+        let balance_of = |did| BalanceOf::<TestStorage>::get(&asset_id, did);
         let balance_alice = balance_of(alice.did);
         let balance_owner = balance_of(owner.did);
         assert_eq!(balance_owner, ISSUE_AMOUNT - 500);
@@ -611,7 +625,7 @@ fn adding_removing_documents() {
         for (idx, doc) in documents.into_iter().enumerate() {
             assert_eq!(
                 Some(doc),
-                Asset::asset_documents(asset_id, DocumentId(idx as u32))
+                AssetDocuments::<TestStorage>::get(asset_id, DocumentId(idx as u32))
             );
         }
 
@@ -736,7 +750,7 @@ fn next_checkpoint_is_updated_we() {
 
         let asset_id = create_and_issue_sample_asset(&owner);
 
-        assert_eq!(Checkpoint::cached_next_checkpoints(asset_id), None);
+        assert_eq!(CachedNextCheckpoints::<TestStorage>::get(asset_id), None);
         let schedule = ScheduleCheckpoints::from_period(start, period, 5);
         assert_ok!(Checkpoint::set_schedules_max_complexity(
             root(),
@@ -749,9 +763,9 @@ fn next_checkpoint_is_updated_we() {
         ));
         assert_ok!(Checkpoint::advance_update_balances(&asset_id, &[]));
         let id = CheckpointId(1);
-        assert_eq!(id, Checkpoint::checkpoint_id_sequence(&asset_id));
-        assert_eq!(start, Checkpoint::timestamps(asset_id, id));
-        assert_eq!(ISSUE_AMOUNT, Checkpoint::total_supply_at(asset_id, id));
+        assert_eq!(id, CheckpointIdSequence::<TestStorage>::get(&asset_id));
+        assert_eq!(start, Timestamps::<TestStorage>::get(asset_id, id));
+        assert_eq!(ISSUE_AMOUNT, TotalSupply::<TestStorage>::get(asset_id, id));
         assert_eq!(ISSUE_AMOUNT, Asset::get_balance_at(asset_id, owner.did, id));
         assert_eq!(0, Asset::get_balance_at(asset_id, bob.did, id));
         let checkpoint2 = start + period_ms;
@@ -770,12 +784,15 @@ fn next_checkpoint_is_updated_we() {
         // After this transfer Alice's balance is 0.
         transfer(checkpoint2);
         // The balance after checkpoint 2.
-        assert_eq!(0, Asset::balance_of(&asset_id, owner.did));
+        assert_eq!(0, BalanceOf::<TestStorage>::get(&asset_id, owner.did));
         // Balances at checkpoint 2.
         let id = CheckpointId(2);
         assert_eq!(vec![start + 2 * period_ms], checkpoint_ats(asset_id));
-        assert_eq!(id, Checkpoint::checkpoint_id_sequence(&asset_id));
-        assert_eq!(start + period_ms, Checkpoint::timestamps(asset_id, id));
+        assert_eq!(id, CheckpointIdSequence::<TestStorage>::get(&asset_id));
+        assert_eq!(
+            start + period_ms,
+            Timestamps::<TestStorage>::get(asset_id, id)
+        );
         assert_eq!(
             ISSUE_AMOUNT / 2,
             Asset::get_balance_at(asset_id, owner.did, id)
@@ -802,7 +819,7 @@ fn non_recurring_schedule_works_we() {
 
         let asset_id = create_and_issue_sample_asset(&owner);
 
-        assert_eq!(Checkpoint::cached_next_checkpoints(asset_id), None);
+        assert_eq!(CachedNextCheckpoints::<TestStorage>::get(asset_id), None);
         let schedule = ScheduleCheckpoints::from_period(start, period, 10);
         assert_ok!(Checkpoint::set_schedules_max_complexity(
             root(),
@@ -815,27 +832,28 @@ fn non_recurring_schedule_works_we() {
         ));
         assert_ok!(Checkpoint::advance_update_balances(&asset_id, &[]));
         let id = CheckpointId(1);
-        assert_eq!(id, Checkpoint::checkpoint_id_sequence(&asset_id));
-        assert_eq!(start, Checkpoint::timestamps(asset_id, id));
-        assert_eq!(ISSUE_AMOUNT, Checkpoint::total_supply_at(asset_id, id));
+        assert_eq!(id, CheckpointIdSequence::<TestStorage>::get(&asset_id));
+        assert_eq!(start, Timestamps::<TestStorage>::get(asset_id, id));
+        assert_eq!(ISSUE_AMOUNT, TotalSupply::<TestStorage>::get(asset_id, id));
         assert_eq!(ISSUE_AMOUNT, Asset::get_balance_at(asset_id, owner.did, id));
         assert_eq!(0, Asset::get_balance_at(asset_id, bob.did, id));
         // The schedule will not recur.
-        assert_eq!(Checkpoint::cached_next_checkpoints(asset_id), None);
+        assert_eq!(CachedNextCheckpoints::<TestStorage>::get(asset_id), None);
     });
 }
 
 fn checkpoint_ats(asset_id: AssetId) -> Vec<u64> {
-    let cached = Checkpoint::cached_next_checkpoints(asset_id).unwrap_or_default();
+    let cached = CachedNextCheckpoints::<TestStorage>::get(asset_id).unwrap_or_default();
     cached.schedules.values().copied().collect()
 }
 
 fn next_checkpoints(asset_id: AssetId) -> Vec<Option<u64>> {
-    let ScheduleId(id) = Checkpoint::schedule_id_sequence(asset_id);
+    let ScheduleId(id) = ScheduleIdSequence::<TestStorage>::get(asset_id);
     (1..=id)
         .into_iter()
         .map(|id| {
-            Checkpoint::scheduled_checkpoints(asset_id, ScheduleId(id)).and_then(|s| s.next())
+            ScheduledCheckpoints::<TestStorage>::get(asset_id, ScheduleId(id))
+                .and_then(|s| s.next())
         })
         .collect()
 }
@@ -856,14 +874,14 @@ fn schedule_remaining_works() {
             transfer(asset_id, owner, bob, 1).unwrap();
         };
         let collect_ts = |sh_id| {
-            Checkpoint::schedule_points(asset_id, sh_id)
+            SchedulePoints::<TestStorage>::get(asset_id, sh_id)
                 .into_iter()
-                .map(|cp| Checkpoint::timestamps(asset_id, cp))
+                .map(|cp| Timestamps::<TestStorage>::get(asset_id, cp))
                 .collect::<Vec<_>>()
         };
 
         // No schedules yet.
-        assert_eq!(Checkpoint::cached_next_checkpoints(asset_id), None);
+        assert_eq!(CachedNextCheckpoints::<TestStorage>::get(asset_id), None);
 
         // For simplicity, we use 1s = 1_000ms periods.
         let period = CalendarPeriod {
@@ -889,7 +907,7 @@ fn schedule_remaining_works() {
         // We had `remaining == 1` and `start == now`,
         // so since a CP was created, hence `remaining => 0`,
         // the schedule was immediately evicted.
-        assert_eq!(Checkpoint::cached_next_checkpoints(asset_id), None);
+        assert_eq!(CachedNextCheckpoints::<TestStorage>::get(asset_id), None);
         assert_eq!(collect_ts(ScheduleId(1)), vec![start]);
 
         // This time, we set `remaining == 5`, but we still have `start == now`,
@@ -907,7 +925,7 @@ fn schedule_remaining_works() {
             let now = (at - 1) * 1_000;
             let mut schedule = schedule.clone();
             schedule.remove_expired(now);
-            let chain = Checkpoint::scheduled_checkpoints(asset_id, id2).unwrap_or_default();
+            let chain = ScheduledCheckpoints::<TestStorage>::get(asset_id, id2).unwrap_or_default();
             assert_eq!(chain, schedule);
             assert_eq!(chain.len(), remaining);
         };
@@ -930,7 +948,7 @@ fn schedule_remaining_works() {
         // Transfer and move to the 5th (last) recurrence.
         // We've to the point where there are no ticks left.
         transfer(5);
-        assert_eq!(Checkpoint::cached_next_checkpoints(asset_id), None);
+        assert_eq!(CachedNextCheckpoints::<TestStorage>::get(asset_id), None);
         assert_ts(5);
     });
 }
@@ -949,13 +967,13 @@ fn mesh_1531_ts_collission_regression_test() {
         set_timestamp(1_000);
         let create = |asset_id| Checkpoint::create_checkpoint(owner.origin(), asset_id);
         assert_ok!(create(asset_id));
-        assert_eq!(Checkpoint::timestamps(asset_id, cp), 1_000);
+        assert_eq!(Timestamps::<TestStorage>::get(asset_id, cp), 1_000);
 
         // Second CP is for beta, using same ID.
         set_timestamp(2_000);
         assert_ok!(create(asset_id2));
-        assert_eq!(Checkpoint::timestamps(asset_id, cp), 1_000);
-        assert_eq!(Checkpoint::timestamps(asset_id2, cp), 2_000);
+        assert_eq!(Timestamps::<TestStorage>::get(asset_id, cp), 1_000);
+        assert_eq!(Timestamps::<TestStorage>::get(asset_id2, cp), 2_000);
     });
 }
 
@@ -1289,7 +1307,10 @@ fn issuers_can_redeem_tokens_from_portfolio() {
                 PortfolioKind::User(next_portfolio_num)
             ));
 
-            assert_eq!(Asset::balance_of(&asset_id, owner.did), ISSUE_AMOUNT / 2);
+            assert_eq!(
+                BalanceOf::<TestStorage>::get(&asset_id, owner.did),
+                ISSUE_AMOUNT / 2
+            );
             assert_eq!(get_asset_details(&asset_id).total_supply, ISSUE_AMOUNT / 2);
 
             // Add auth for custody to be moved to bob
@@ -1305,7 +1326,7 @@ fn issuers_can_redeem_tokens_from_portfolio() {
             assert_ok!(Portfolio::accept_portfolio_custody(bob.origin(), auth_id));
 
             assert_eq!(
-                Portfolio::portfolio_custodian(user_portfolio),
+                PortfolioCustodian::<TestStorage>::get(user_portfolio),
                 Some(bob.did)
             );
 

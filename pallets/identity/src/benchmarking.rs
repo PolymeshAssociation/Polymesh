@@ -73,7 +73,7 @@ benchmarks! {
         let expires_at: T::Moment = 600u32.into();
         let authorization = TargetIdAuthorization::<T::Moment> {
             target_id: parent_did,
-            nonce: Pallet::<T>::offchain_authorization_nonce(parent_did),
+            nonce: OffChainAuthorizationNonce::<T>::get(parent_did),
             expires_at,
         };
         let auth_encoded = authorization.encode();
@@ -205,13 +205,13 @@ benchmarks! {
 
     change_cdd_requirement_for_mk_rotation {
         assert!(
-            !Pallet::<T>::cdd_auth_for_primary_key_rotation(),
+            !CddAuthForPrimaryKeyRotation::<T>::get(),
             "CDD auth for primary key rotation is enabled"
         );
     }: _(RawOrigin::Root, true)
     verify {
         assert!(
-            Pallet::<T>::cdd_auth_for_primary_key_rotation(),
+            CddAuthForPrimaryKeyRotation::<T>::get(),
             "CDD auth for primary key rotation did not change"
         );
     }
@@ -376,7 +376,7 @@ benchmarks! {
         let expires_at: T::Moment = 600u32.into();
         let authorization = TargetIdAuthorization::<T::Moment> {
             target_id: caller.did(),
-            nonce: Pallet::<T>::offchain_authorization_nonce(caller.did()),
+            nonce: OffChainAuthorizationNonce::<T>::get(caller.did()),
             expires_at,
         };
         let auth_encoded = authorization.encode();
@@ -393,12 +393,12 @@ benchmarks! {
     register_custom_claim_type {
         let n in 1 .. T::MaxLen::get() as u32;
 
-        let id = Pallet::<T>::custom_claim_id_seq();
+        let id = CustomClaimIdSequence::<T>::get();
         let caller = user::<T>("caller", 0);
         let ty = vec![b'X'; n as usize];
     }: _(caller.origin, ty)
     verify {
-        assert_ne!(id, Pallet::<T>::custom_claim_id_seq());
+        assert_ne!(id, CustomClaimIdSequence::<T>::get());
     }
 
 }

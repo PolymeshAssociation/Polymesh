@@ -15,7 +15,7 @@
 
 use crate::{
     AuthorizationType, Authorizations, AuthorizationsGiven, Config, CurrentAuthId, Error, Event,
-    KeyRecords, NumberOfGivenAuths, Pallet,
+    KeyRecords, NumberOfGivenAuths, OutdatedAuthorizations, Pallet,
 };
 use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
@@ -63,7 +63,7 @@ impl<T: Config> Pallet<T> {
         );
         NumberOfGivenAuths::<T>::insert(from, number_of_given_auths.saturating_add(1));
 
-        let new_auth_id = Self::current_auth_id().saturating_add(1);
+        let new_auth_id = CurrentAuthId::<T>::get().saturating_add(1);
         CurrentAuthId::<T>::put(new_auth_id);
 
         let auth = Authorization {
@@ -163,7 +163,7 @@ impl<T: Config> Pallet<T> {
         target: &Signatory<T::AccountId>,
         auth_id: &u64,
     ) -> Option<Authorization<T::AccountId, T::Moment>> {
-        Self::authorizations(target, *auth_id).filter(|auth| {
+        Authorizations::<T>::get(target, *auth_id).filter(|auth| {
             auth.expiry
                 .filter(|&expiry| <pallet_timestamp::Pallet<T>>::get() > expiry)
                 .is_none()
@@ -216,9 +216,9 @@ impl<T: Config> Pallet<T> {
         auth_id: u64,
     ) -> Result<Authorization<T::AccountId, T::Moment>, DispatchError> {
         let auth =
-            Self::authorizations(target, auth_id).ok_or_else(|| AuthorizationError::Invalid)?;
+            Authorizations::<T>::get(target, auth_id).ok_or_else(|| AuthorizationError::Invalid)?;
         // Ensures the authorization is not outdated
-        if let Some(outdated_id) = Self::outdated_authorizations(target) {
+        if let Some(outdated_id) = OutdatedAuthorizations::<T>::get(target) {
             if auth_id <= outdated_id {
                 return Err(AuthorizationError::Invalid.into());
             }

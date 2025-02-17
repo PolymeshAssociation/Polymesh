@@ -411,15 +411,13 @@ pub mod pallet {
 
     /// The total units issued in the system.
     #[pallet::storage]
-    #[pallet::getter(fn total_issuance)]
-    pub(super) type TotalIssuance<T: Config> = StorageValue<_, Balance, ValueQuery>;
+    pub type TotalIssuance<T: Config> = StorageValue<_, Balance, ValueQuery>;
 
     /// Any liquidity locks on some account balances.
     /// NOTE: Should only be accessed when setting, changing and freeing a lock.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn locks)]
-    pub(super) type Locks<T: Config> =
+    pub type Locks<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<BalanceLock<Balance>>, ValueQuery>;
 
     #[pallet::genesis_config]
@@ -1398,7 +1396,7 @@ impl<T: Config> LockableCurrency<T::AccountId> for Pallet<T> {
             amount,
             reasons: reasons.into(),
         };
-        let mut locks = Self::locks(who);
+        let mut locks = Locks::<T>::get(who);
         if let Some(pos) = locks.iter().position(|l| l.id == id) {
             locks[pos] = new_lock;
         } else {
@@ -1419,7 +1417,7 @@ impl<T: Config> LockableCurrency<T::AccountId> for Pallet<T> {
             return;
         }
         let reasons = reasons.into();
-        let mut locks = Self::locks(who);
+        let mut locks = Locks::<T>::get(who);
         if let Some(pos) = locks.iter().position(|l| l.id == id) {
             let slot = &mut locks[pos];
             slot.amount = slot.amount.max(amount);
@@ -1435,7 +1433,7 @@ impl<T: Config> LockableCurrency<T::AccountId> for Pallet<T> {
     }
 
     fn remove_lock(id: LockIdentifier, who: &T::AccountId) {
-        let mut locks = Self::locks(who);
+        let mut locks = Locks::<T>::get(who);
         locks.retain(|l| l.id != id);
         Self::update_locks(who, &locks[..]);
     }
@@ -1446,7 +1444,7 @@ impl<T: Config> LockableCurrencyExt<T::AccountId> for Pallet<T> {
         if amount.is_zero() {
             return Ok(());
         }
-        let mut locks = Self::locks(who);
+        let mut locks = Locks::<T>::get(who);
         locks
             .iter()
             .position(|l| l.id == id)
@@ -1474,7 +1472,7 @@ impl<T: Config> LockableCurrencyExt<T::AccountId> for Pallet<T> {
             return Ok(());
         }
         let reasons = reasons.into();
-        let mut locks = Self::locks(who);
+        let mut locks = Locks::<T>::get(who);
         check_sum(if let Some(pos) = locks.iter().position(|l| l.id == id) {
             let slot = &mut locks[pos];
             slot.amount = slot

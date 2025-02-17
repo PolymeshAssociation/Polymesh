@@ -361,7 +361,7 @@ benchmarks! {
 
     }: _(d.owner.origin, d.asset_id, d.sender_conditions.clone(), d.receiver_conditions.clone())
     verify {
-        let req = Pallet::<T>::asset_compliance(d.asset_id).requirements.pop().unwrap();
+        let req = AssetCompliances::<T>::get(d.asset_id).requirements.pop().unwrap();
         assert_eq!( req.sender_conditions, d.sender_conditions, "Sender conditions not expected");
         assert_eq!( req.receiver_conditions, d.receiver_conditions, "Sender conditions not expected");
     }
@@ -377,7 +377,7 @@ benchmarks! {
         let id = Pallet::<T>::get_latest_requirement_id(d.asset_id);
     }: _(d.owner.origin, d.asset_id, id)
     verify {
-        let is_removed = Pallet::<T>::asset_compliance(d.asset_id)
+        let is_removed = AssetCompliances::<T>::get(d.asset_id)
             .requirements
             .into_iter()
             .find(|r| r.id == id)
@@ -393,7 +393,7 @@ benchmarks! {
             .add_compliance_requirement().build();
     }: _(d.owner.origin, d.asset_id)
     verify {
-        assert!( Pallet::<T>::asset_compliance(d.asset_id).paused, "Asset compliance is not paused");
+        assert!( AssetCompliances::<T>::get(d.asset_id).paused, "Asset compliance is not paused");
     }
 
     resume_asset_compliance {
@@ -405,7 +405,7 @@ benchmarks! {
             d.asset_id.clone()).unwrap();
     }: _(d.owner.origin, d.asset_id)
     verify {
-        assert!( !Pallet::<T>::asset_compliance(d.asset_id).paused, "Asset compliance is paused");
+        assert!( !AssetCompliances::<T>::get(d.asset_id).paused, "Asset compliance is paused");
     }
 
     add_default_trusted_claim_issuer {
@@ -419,7 +419,7 @@ benchmarks! {
         let new_issuer = make_issuer::<T>(MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS, None);
     }: _(d.owner.origin, d.asset_id, new_issuer.clone())
     verify {
-        let trusted_issuers = Pallet::<T>::trusted_claim_issuer(d.asset_id);
+        let trusted_issuers = TrustedClaimIssuer::<T>::get(d.asset_id);
         assert!(
             trusted_issuers.contains(&new_issuer),
             "Default trusted claim issuer was not added");
@@ -434,10 +434,10 @@ benchmarks! {
         d.add_default_trusted_claim_issuer(MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS);
 
         // Delete the latest trusted issuer.
-        let issuer = Pallet::<T>::trusted_claim_issuer(d.asset_id).pop().unwrap();
+        let issuer = TrustedClaimIssuer::<T>::get(d.asset_id).pop().unwrap();
     }: _(d.owner.origin, d.asset_id, issuer.issuer.clone())
     verify {
-        let trusted_issuers = Pallet::<T>::trusted_claim_issuer(d.asset_id);
+        let trusted_issuers = TrustedClaimIssuer::<T>::get(d.asset_id);
         assert!(
             !trusted_issuers.contains(&issuer),
             "Default trusted claim issuer was not removed"
@@ -466,7 +466,7 @@ benchmarks! {
         };
     }: _(d.owner.origin, d.asset_id, new_req.clone())
     verify {
-        let req = Pallet::<T>::asset_compliance(d.asset_id)
+        let req = AssetCompliances::<T>::get(d.asset_id)
             .requirements
             .into_iter()
             .find(|req| req.id == new_req.id)
@@ -506,7 +506,7 @@ benchmarks! {
             }}).collect::<Vec<_>>();
     }: _(d.owner.origin, d.asset_id, asset_compliance.clone())
     verify {
-        let reqs = Pallet::<T>::asset_compliance(d.asset_id).requirements;
+        let reqs = AssetCompliances::<T>::get(d.asset_id).requirements;
         assert_eq!( reqs, asset_compliance, "Asset compliance was not replaced");
     }
 
@@ -519,7 +519,7 @@ benchmarks! {
     }: _(d.owner.origin, d.asset_id)
     verify {
         assert!(
-            Pallet::<T>::asset_compliance(d.asset_id).requirements.is_empty(),
+            AssetCompliances::<T>::get(d.asset_id).requirements.is_empty(),
             "Compliance Requeriment was not reset");
     }
 
