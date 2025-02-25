@@ -189,9 +189,9 @@ pub mod pallet {
         /// - `auth_id` the authorization id to accept a `paying_key`.
         ///
         /// # Errors
-        /// - `AuthorizationError::Invalid` if `auth_id` does not exist for the given caller.
-        /// - `AuthorizationError::Expired` if `auth_id` the authorization has expired.
-        /// - `AuthorizationError::BadType` if `auth_id` was not a `AddRelayerPayingKey` authorization.
+        /// - `Error::InvalidAuthorization` if `auth_id` does not exist for the given caller.
+        /// - `Error::AuthorizationExpired` if `auth_id` the authorization has expired.
+        /// - `Error::BadAuthorizationType` if `auth_id` was not a `AddRelayerPayingKey` authorization.
         /// - `NotAuthorizedForUserKey` if `origin` is not authorized to accept the authorization for the `user_key`.
         /// - `NotAuthorizedForPayingKey` if the authorization was created an identity different from the `paying_key`'s identity.
         /// - `UserKeyCddMissing` if the `user_key` is not attached to a CDD'd identity.
@@ -303,6 +303,8 @@ pub mod pallet {
         NotAuthorizedForUserKey,
         /// The remaining POLYX for `user_key` overflowed.
         Overflow,
+        /// The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
+        BadAuthorizationType,
     }
 }
 

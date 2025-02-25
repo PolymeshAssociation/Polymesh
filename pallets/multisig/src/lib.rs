@@ -729,6 +729,8 @@ pub mod pallet {
         InvalidatedProposal,
         /// Multisig has no admin.
         AdminNotFound,
+        /// The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
+        BadAuthorizationType,
     }
 
     /// Nonce to ensure unique MultiSig addresses are generated; starts from 1.

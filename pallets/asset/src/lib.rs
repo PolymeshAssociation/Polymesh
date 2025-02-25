@@ -1668,6 +1668,8 @@ pub mod pallet {
         AssetIsAlreadyLinkedToATicker,
         /// The given ticker is not linked to the given asset.
         TickerIsNotLinkedToTheAsset,
+        /// The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
+        BadAuthorizationType,
     }
 
     pub trait WeightInfo {

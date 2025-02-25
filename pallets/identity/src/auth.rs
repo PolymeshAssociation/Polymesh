@@ -20,9 +20,7 @@ use crate::{
 use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
 use frame_system::ensure_signed;
-use polymesh_primitives::{
-    Authorization, AuthorizationData, AuthorizationError, IdentityId, Signatory,
-};
+use polymesh_primitives::{Authorization, AuthorizationData, IdentityId, Signatory};
 use sp_core::Get;
 use sp_runtime::DispatchError;
 use sp_std::vec::Vec;
@@ -173,7 +171,7 @@ impl<T: Config> Pallet<T> {
     /// Given that `auth_by` is the DID that issued an authorization,
     /// ensure that it matches `from`, or otherwise return an error.
     pub fn ensure_auth_by(auth_by: IdentityId, from: IdentityId) -> DispatchResult {
-        ensure!(auth_by == from, AuthorizationError::Unauthorized);
+        ensure!(auth_by == from, Error::<T>::Unauthorized);
         Ok(())
     }
 
@@ -190,7 +188,7 @@ impl<T: Config> Pallet<T> {
         // Ensure that `auth.expiry`, if provided, is in the future.
         if let Some(expiry) = auth.expiry {
             let now = <pallet_timestamp::Pallet<T>>::get();
-            ensure!(expiry > now, AuthorizationError::Expired);
+            ensure!(expiry > now, Error::<T>::AuthorizationExpired);
         }
 
         // Run custom per-type validation and updates.
@@ -215,12 +213,12 @@ impl<T: Config> Pallet<T> {
         target: &Signatory<T::AccountId>,
         auth_id: u64,
     ) -> Result<Authorization<T::AccountId, T::Moment>, DispatchError> {
-        let auth =
-            Authorizations::<T>::get(target, auth_id).ok_or_else(|| AuthorizationError::Invalid)?;
+        let auth = Authorizations::<T>::get(target, auth_id)
+            .ok_or_else(|| Error::<T>::InvalidAuthorization)?;
         // Ensures the authorization is not outdated
         if let Some(outdated_id) = OutdatedAuthorizations::<T>::get(target) {
             if auth_id <= outdated_id {
-                return Err(AuthorizationError::Invalid.into());
+                return Err(Error::<T>::InvalidAuthorization.into());
             }
         }
         Ok(auth)

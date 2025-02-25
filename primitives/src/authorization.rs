@@ -14,7 +14,6 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::DispatchError;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -103,35 +102,6 @@ pub enum AuthorizationType {
     RotatePrimaryKeyToSecondary,
 }
 
-/// Status of an Authorization after consume is called on it.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub enum AuthorizationError {
-    /// Auth identified by an `auth_id` for a given `target` does not exist.
-    /// The `target` might be wrong or the `auth_id` was never created at all.
-    Invalid,
-    /// Caller not authorized or the identity who created
-    /// this authorization is not authorized to create this authorization.
-    Unauthorized,
-    /// Auth expired already.
-    Expired,
-    /// The extrinsic expected a different `AuthorizationType`
-    /// than what the `data.auth_type()` is.
-    BadType,
-}
-
-impl From<AuthorizationError> for DispatchError {
-    fn from(error: AuthorizationError) -> DispatchError {
-        match error {
-            AuthorizationError::Invalid => DispatchError::Other("Authorization does not exist"),
-            AuthorizationError::Unauthorized => {
-                DispatchError::Other("Illegal use of Authorization")
-            }
-            AuthorizationError::Expired => DispatchError::Other("Authorization expired"),
-            AuthorizationError::BadType => DispatchError::Other("Authorization type is wrong"),
-        }
-    }
-}
-
 /// Authorization struct
 #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -158,13 +128,13 @@ macro_rules! extract_auth {
     ($data:expr, $variant:ident ( $($f:ident),*) ) => {
         match $data {
             $crate::authorization::AuthorizationData::$variant($($f),*) => ($($f),*),
-            _ => frame_support::fail!($crate::authorization::AuthorizationError::BadType),
+            _ => frame_support::fail!(Error::<T>::BadAuthorizationType),
         }
     };
     ($data:expr, $variant:ident ) => {
         match $data {
             $crate::authorization::AuthorizationData::$variant => (),
-            _ => frame_support::fail!($crate::authorization::AuthorizationError::BadType),
+            _ => frame_support::fail!(Error::<T>::BadAuthorizationType),
         }
     };
 }
