@@ -14,6 +14,7 @@ use crate::{ExtBuilder, TestStorage};
 type Asset = pallet_asset::Pallet<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
 type Identity = pallet_identity::Pallet<TestStorage>;
+type IdentityError = pallet_identity::Error<TestStorage>;
 
 #[test]
 fn accept_ticker_transfer() {
@@ -61,7 +62,7 @@ fn accept_ticker_transfer_missing_auth() {
         assert_ok!(Asset::register_unique_ticker(alice.origin(), ticker,));
         assert_noop!(
             Asset::accept_ticker_transfer(bob.origin(), 1,),
-            "Authorization does not exist"
+            IdentityError::InvalidAuthorization
         );
     });
 }
@@ -107,7 +108,7 @@ fn accept_ticker_transfer_auth_expired() {
         .unwrap();
         assert_noop!(
             Asset::accept_ticker_transfer(bob.origin(), bob_auth_id,),
-            "Authorization expired"
+            IdentityError::AuthorizationExpired
         );
     });
 }
@@ -161,7 +162,7 @@ fn accept_ticker_transfer_illegal_auth() {
         assert_ok!(Asset::accept_ticker_transfer(bob.origin(), bob_auth_id,),);
         assert_noop!(
             Asset::accept_ticker_transfer(dave.origin(), dave_auth_id,),
-            "Illegal use of Authorization"
+            IdentityError::Unauthorized
         );
     });
 }
@@ -190,7 +191,7 @@ fn accept_ticker_transfer_bad_type() {
         .unwrap();
         assert_noop!(
             Asset::accept_ticker_transfer(bob.origin(), bob_auth_id,),
-            "Authorization type is wrong"
+            AssetError::BadAuthorizationType
         );
     });
 }

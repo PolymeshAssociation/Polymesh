@@ -380,6 +380,8 @@ pub mod pallet {
         InvalidTransferSenderIdMatchesReceiverId,
         /// Adding itself as an AllowedCustodian is not permitted.
         SelfAdditionNotAllowed,
+        /// The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
+        BadAuthorizationType,
     }
 
     #[pallet::call]

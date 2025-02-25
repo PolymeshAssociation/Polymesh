@@ -1083,6 +1083,11 @@ pub mod pallet {
         ExceptNotAllowedForExtrinsics,
         /// Maximum number of given authorizations was exceeded.
         ExceededNumberOfGivenAuths,
+        /// The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
+        BadAuthorizationType,
+        /// Auth identified by an `auth_id` for a given `target` does not exist.
+        /// The `target` might be wrong or the `auth_id` was never created at all.
+        InvalidAuthorization,
     }
 }
 
