@@ -45,8 +45,8 @@ use polymesh_primitives::statistics::StatType;
 use polymesh_primitives::statistics::{Stat1stKey, Stat2ndKey};
 use polymesh_primitives::traits::AssetFnTrait;
 use polymesh_primitives::{
-    AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document, DocumentId,
-    Fund, FundDescription, IdentityId, Memo, Moment, NFTCollectionKeys, Permissions, PortfolioId,
+    AssetIdentifier, AssetPermissions, AuthorizationData, Document, DocumentId, Fund,
+    FundDescription, IdentityId, Memo, Moment, NFTCollectionKeys, Permissions, PortfolioId,
     PortfolioKind, PortfolioName, PortfolioNumber, Signatory, Ticker, WeightMeter,
 };
 use sp_keyring::AccountKeyring;
@@ -64,6 +64,7 @@ use crate::storage::{
 
 type BaseError = pallet_base::Error<TestStorage>;
 type Identity = pallet_identity::Pallet<TestStorage>;
+type IdentityError = pallet_identity::Error<TestStorage>;
 type Balances = pallet_balances::Pallet<TestStorage>;
 type Asset = pallet_asset::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
@@ -461,7 +462,7 @@ fn transfer_token_ownership() {
 
         assert_noop!(
             Asset::accept_asset_ownership_transfer(alice.origin(), auth_id_alice + 1),
-            "Authorization does not exist"
+            IdentityError::InvalidAuthorization
         );
 
         assert_eq!(
@@ -504,7 +505,7 @@ fn transfer_token_ownership() {
 
         assert_noop!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
-            "Authorization expired"
+            IdentityError::AuthorizationExpired
         );
 
         // Try accepting the wrong authorization type.
@@ -518,7 +519,7 @@ fn transfer_token_ownership() {
 
         assert_eq!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
-            Err(AuthorizationError::BadType.into())
+            Err(AssetError::BadAuthorizationType.into())
         );
 
         auth_id = Identity::add_auth(

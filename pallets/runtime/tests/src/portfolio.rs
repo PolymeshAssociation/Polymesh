@@ -14,9 +14,9 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::settlement::{Leg, SettlementType};
 use polymesh_primitives::{
-    traits::PortfolioSubTrait, AuthorizationData, AuthorizationError, Fund, FundDescription, Memo,
-    NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind,
-    PortfolioName, PortfolioNumber, Signatory,
+    traits::PortfolioSubTrait, AuthorizationData, Fund, FundDescription, Memo, NFTCollectionKeys,
+    NFTId, NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
+    Signatory,
 };
 
 use super::asset_pallet::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
@@ -28,6 +28,7 @@ use super::ExtBuilder;
 type Asset = pallet_asset::Pallet<TestStorage>;
 type Error = pallet_portfolio::Error<TestStorage>;
 type Identity = pallet_identity::Pallet<TestStorage>;
+type IdentityError = pallet_identity::Error<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type Portfolio = pallet_portfolio::Pallet<TestStorage>;
 type Settlement = pallet_settlement::Pallet<TestStorage>;
@@ -531,13 +532,13 @@ fn can_take_custody_of_portfolios() {
         let auth_id = add_auth(bob, bob);
         assert_eq!(
             Portfolio::accept_portfolio_custody(bob.origin(), auth_id),
-            Err(AuthorizationError::Unauthorized.into())
+            Err(IdentityError::Unauthorized.into())
         );
 
         // Can not accept an invalid auth
         assert_noop!(
             Portfolio::accept_portfolio_custody(bob.origin(), auth_id + 1),
-            AuthorizationError::Invalid
+            IdentityError::InvalidAuthorization
         );
 
         // Can accept a valid custody transfer auth
@@ -570,7 +571,7 @@ fn can_take_custody_of_portfolios() {
         let auth_id = add_auth(owner, owner);
         assert_eq!(
             Portfolio::accept_portfolio_custody(owner.origin(), auth_id),
-            Err(AuthorizationError::Unauthorized.into())
+            Err(IdentityError::Unauthorized.into())
         );
 
         // Bob transfers portfolio custody back to Alice.

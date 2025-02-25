@@ -220,7 +220,7 @@ pub use subset::{LatticeOrd, LatticeOrdering, SubsetRestriction};
 
 /// Generic authorization data types for all two step processes
 pub mod authorization;
-pub use authorization::{Authorization, AuthorizationData, AuthorizationError, AuthorizationType};
+pub use authorization::{Authorization, AuthorizationData, AuthorizationType};
 
 /// Pub Traits
 pub mod traits;

@@ -192,6 +192,8 @@ pub mod pallet {
         RemovingLastFullAgent,
         /// The caller's secondary key does not have the required asset permission.
         SecondaryKeyNotAuthorizedForAsset,
+        /// The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
+        BadAuthorizationType,
     }
 
     #[pallet::call]
@@ -328,9 +330,9 @@ pub mod pallet {
         /// - `auth_id` identifying the authorization to accept.
         ///
         /// # Errors
-        /// - `AuthorizationError::Invalid` if `auth_id` does not exist for the given caller.
-        /// - `AuthorizationError::Expired` if `auth_id` is for an auth that has expired.
-        /// - `AuthorizationError::BadType` if `auth_id` was not for a `BecomeAgent` auth type.
+        /// - `Error::InvalidAuthorization` if `auth_id` does not exist for the given caller.
+        /// - `Error::AuthorizationExpired` if `auth_id` is for an auth that has expired.
+        /// - `Error::BadAuthorizationType` if `auth_id` was not for a `BecomeAgent` auth type.
         /// - `UnauthorizedAgent` if "Alice" is not permissioned to provide the auth.
         /// - `NoSuchAG` if the group referred to a custom that does not exist.
         /// - `AlreadyAnAgent` if the caller is already an agent of the asset.
