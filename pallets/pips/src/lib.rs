@@ -94,9 +94,9 @@ use pallet_base::{ensure_opt_string_limited, try_next_post};
 use pallet_identity::{Config as IdentityConfig, PermissionedCallOriginData};
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::constants::PIP_MAX_REPORTING_SIZE;
+use polymesh_primitives::storage_migration_ver;
 use polymesh_primitives::traits::group::GroupTrait;
 use polymesh_primitives::traits::GovernanceGroupTrait;
-use polymesh_primitives::{storage_migration_ver, with_transaction};
 use polymesh_primitives::{Balance, IdentityId, MaybeBlock, Url};
 use polymesh_primitives::{GC_DID, TECHNICAL_DID, UPGRADE_DID};
 use polymesh_runtime_common::PipsEnactSnapshotMaximumWeight;
@@ -737,11 +737,8 @@ pub mod pallet {
                 );
 
                 // Lock the deposit + charge protocol fees.
-                // Both do check-modify so we need a transaction.
-                with_transaction(|| {
-                    Self::increase_lock(proposer, deposit)?;
-                    charge()
-                })?;
+                Self::increase_lock(proposer, deposit)?;
+                charge()?;
             } else {
                 // Committee PIPs cannot have a deposit.
                 ensure!(deposit.is_zero(), Error::<T>::NotFromCommunity);
@@ -877,19 +874,17 @@ pub mod pallet {
 
             let old_res = Self::aggregate_result(id);
 
-            with_transaction(|| {
-                // Reserve the deposit, or refund if needed.
-                let curr_deposit = Deposits::<T>::get(id, &voter)
-                    .map(|d| d.amount)
-                    .unwrap_or_default();
-                if deposit < curr_deposit {
-                    Self::reduce_lock(&voter, curr_deposit - deposit)?;
-                } else {
-                    Self::increase_lock(&voter, deposit - curr_deposit)?;
-                }
-                // Save the vote.
-                Self::unsafe_vote(id, voter.clone(), Vote(aye_or_nay, deposit))
-            })?;
+            // Reserve the deposit, or refund if needed.
+            let curr_deposit = Deposits::<T>::get(id, &voter)
+                .map(|d| d.amount)
+                .unwrap_or_default();
+            if deposit < curr_deposit {
+                Self::reduce_lock(&voter, curr_deposit - deposit)?;
+            } else {
+                Self::increase_lock(&voter, deposit - curr_deposit)?;
+            }
+            // Save the vote.
+            Self::unsafe_vote(id, voter.clone(), Vote(aye_or_nay, deposit))?;
 
             // Adjust live queue.
             Self::adjust_live_queue(id, old_res);
