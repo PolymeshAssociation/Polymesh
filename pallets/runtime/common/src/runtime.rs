@@ -332,6 +332,8 @@ macro_rules! misc_pallet_impls {
                     RuntimeCall::Sto(_) => true,
                     RuntimeCall::Balances(_) => true,
                     RuntimeCall::Identity(_) => true,
+                    RuntimeCall::Nft(_) => true,
+                    RuntimeCall::Staking(_) => true,
                     // Allow non-nested batch calls.
                     RuntimeCall::Utility(call) if nested == false => match call {
                         // Limit batch size to 7.
