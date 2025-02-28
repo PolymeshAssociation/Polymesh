@@ -91,30 +91,28 @@ pub mod benchmarking;
 pub mod ballot;
 pub mod distribution;
 
-use ballot::TimeRanges;
 use codec::{Decode, Encode, MaxEncodedLen};
-use distribution::{Distributions, WeightInfo as DistWeightInfoTrait};
-use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
-    ensure,
-    traits::Get,
-    weights::Weight,
-};
+use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::ensure;
+use frame_support::traits::Get;
+use frame_support::weights::Weight;
 use frame_system::ensure_root;
+use scale_info::TypeInfo;
+use sp_arithmetic::Permill;
+use sp_std::prelude::*;
+
 use pallet_asset::checkpoint::{SchedulePoints, Timestamps};
 use pallet_asset::{checkpoint, BalanceOf};
 use pallet_base::try_next_post;
 use pallet_identity::{Config as IdentityConfig, PermissionedCallOriginData};
 use polymesh_common_utilities::checkpoint::ScheduleId;
-use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::{
-    asset::CheckpointId, impl_checked_inc, storage_migration_ver, Balance, DocumentId, EventDid,
-    IdentityId, Moment, PortfolioNumber, GC_DID,
-};
+use polymesh_primitives::asset::{AssetId, CheckpointId};
+use polymesh_primitives::{impl_checked_inc, storage_migration_ver, Balance, DocumentId};
+use polymesh_primitives::{EventDid, IdentityId, Moment, PortfolioNumber, GC_DID};
 use polymesh_primitives_derive::VecU8StrongTyped;
-use scale_info::TypeInfo;
-use sp_arithmetic::Permill;
-use sp_std::prelude::*;
+
+use ballot::{BallotMeta, BallotTimeRange, TimeRanges, WeightInfo as BallotWeightInfo};
+use distribution::{Distributions, WeightInfo as DistWeightInfoTrait};
 
 storage_migration_ver!(1);
 
@@ -909,6 +907,49 @@ pub mod pallet {
                 amount,
                 payment_at,
                 expires_at,
+            )?;
+
+            Ok(())
+        }
+
+        #[pallet::weight(initiate_corporate_action_weight::<T>(&ca_args.targets, &ca_args.withholding_tax)
+            .saturating_add(<T as Config>::BallotWeightInfo::attach_ballot(ballot_meta.saturating_num_choices())))]
+        #[pallet::call_index(9)]
+        pub fn initiate_corporate_action_and_ballot(
+            origin: OriginFor<T>,
+            ca_args: InitiateCorporateActionArgs,
+            ballot_time_range: BallotTimeRange,
+            ballot_meta: BallotMeta,
+            rcv: bool,
+        ) -> DispatchResult {
+            // Ensure that the caller is a permissioned agent
+            let caller_did = ExternalAgents::<T>::ensure_perms(origin, ca_args.asset_id)?;
+
+            let ca_id = Self::unsafe_initiate_corporate_action(
+                caller_did,
+                ca_args.asset_id,
+                ca_args.kind,
+                ca_args.decl_date,
+                ca_args.record_date,
+                ca_args.details,
+                ca_args.targets,
+                ca_args.default_withholding_tax,
+                ca_args.withholding_tax,
+            )?;
+
+            let motion_choices = ballot::Pallet::<T>::validate_ballot_creation_rules(
+                ca_id,
+                ballot_time_range,
+                &ballot_meta,
+            )?;
+
+            ballot::Pallet::<T>::unverified_create_ballot(
+                caller_did,
+                ca_id,
+                motion_choices,
+                ballot_time_range,
+                ballot_meta,
+                rcv,
             )?;
 
             Ok(())
