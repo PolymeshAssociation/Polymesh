@@ -14,7 +14,7 @@ pallet-portfolio = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 
 # Substrate
-codec = { workspace = true, default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 frame-support = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }

@@ -29,7 +29,7 @@ arrayvec = { version = "0.7.1", default-features = false }
 log = "0.4"
 
 # Substrate
-codec = { workspace = true, default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
 sp-arithmetic = { workspace = true, default-features = false }
 sp-core = { workspace = true, default-features = false }
