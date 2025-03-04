@@ -160,7 +160,7 @@ pub struct BallotMeta {
 }
 
 impl BallotMeta {
-    fn saturating_num_choices(&self) -> u32 {
+    pub(crate) fn saturating_num_choices(&self) -> u32 {
         self.motions
             .iter()
             .fold(0, |a, m| a.saturating_add(m.choices.len() as u32))
@@ -399,37 +399,14 @@ pub mod pallet {
             meta: BallotMeta,
             rcv: bool,
         ) -> DispatchResult {
-            // Ensure origin is a permissioned agent, that `ca_id` exists, that its a notice, and the date invariant.
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?;
-            let ca = <CA<T>>::ensure_ca_exists(ca_id)?;
-            ensure!(
-                matches!(ca.kind, CAKind::IssuerNotice),
-                Error::<T>::CANotNotice
-            );
-            Self::ensure_range_invariant(&ca, range)?;
+            // Ensure that the caller is a permissioned agent
+            let caller_did = ExternalAgents::<T>::ensure_perms(origin, ca_id.asset_id)?;
 
-            // Ensure CA doesn't have a ballot yet.
-            ensure!(
-                !TimeRanges::<T>::contains_key(ca_id),
-                Error::<T>::AlreadyExists
-            );
+            let motion_choices = Self::validate_ballot_creation_rules(ca_id, range, &meta)?;
 
-            // Compute number-of-choices-in-motion cache.
-            let choices = Self::derive_motion_num_choices(&meta.motions)?;
-            Self::ensure_meta_lengths_limited(&meta)?;
+            Self::unverified_create_ballot(caller_did, ca_id, motion_choices, range, meta, rcv)?;
 
-            // Charge protocol fee.
-            T::ProtocolFee::charge_fee(ProtocolOp::CorporateBallotAttachBallot)?;
-
-            // Commit to storage.
-            MotionNumChoices::<T>::insert(ca_id, choices);
-            TimeRanges::<T>::insert(ca_id, range);
-            Metas::<T>::insert(ca_id, meta.clone());
-            RCV::<T>::insert(ca_id, rcv);
-
-            // Emit event.
-            Self::deposit_event(Event::Created(agent, ca_id, range, meta, rcv));
-            Ok(().into())
+            Ok(())
         }
 
         /// Cast `votes` in the ballot attached to the CA identified by `ca_id`.
@@ -719,6 +696,60 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    /// Returns the number-of-choices-in-motion if all rules for creating a ballot are satisfied. Otherwise, an error.
+    pub(crate) fn validate_ballot_creation_rules(
+        ca_id: CAId,
+        ballot_time_range: BallotTimeRange,
+        ballot_meta: &BallotMeta,
+    ) -> Result<Vec<u16>, DispatchError> {
+        let corporate_action = CA::<T>::ensure_ca_exists(ca_id)?;
+
+        ensure!(
+            corporate_action.kind == CAKind::IssuerNotice,
+            Error::<T>::CANotNotice
+        );
+
+        Self::ensure_range_invariant(&corporate_action, ballot_time_range)?;
+
+        // Ensure CA doesn't have a ballot yet
+        ensure!(
+            !TimeRanges::<T>::contains_key(ca_id),
+            Error::<T>::AlreadyExists
+        );
+
+        let motion_choices = Self::derive_motion_num_choices(&ballot_meta.motions)?;
+        Self::ensure_meta_lengths_limited(ballot_meta)?;
+
+        Ok(motion_choices)
+    }
+
+    /// Charges the protocol fee and creates a ballot.
+    pub(crate) fn unverified_create_ballot(
+        caller_id: IdentityId,
+        ca_id: CAId,
+        motion_choices: Vec<u16>,
+        ballot_time_range: BallotTimeRange,
+        ballot_meta: BallotMeta,
+        rcv: bool,
+    ) -> DispatchResult {
+        T::ProtocolFee::charge_fee(ProtocolOp::CorporateBallotAttachBallot)?;
+
+        MotionNumChoices::<T>::insert(ca_id, motion_choices);
+        TimeRanges::<T>::insert(ca_id, ballot_time_range);
+        Metas::<T>::insert(ca_id, ballot_meta.clone());
+        RCV::<T>::insert(ca_id, rcv);
+
+        Self::deposit_event(Event::Created(
+            caller_id,
+            ca_id,
+            ballot_time_range,
+            ballot_meta,
+            rcv,
+        ));
+
+        Ok(())
+    }
+
     /// Ensure the ballot hasn't started and remove it.
     pub(crate) fn remove_ballot_base(
         agent: EventDid,
