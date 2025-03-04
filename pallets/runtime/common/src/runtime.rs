@@ -723,9 +723,9 @@ macro_rules! misc_pallet_impls {
 #[macro_export]
 macro_rules! runtime_apis {
     ($($extra:item)*) => {
-        use frame_support::dispatch::{GetStorageVersion, DispatchError};
+        use frame_support::traits::GetStorageVersion;
+        use frame_support::pallet_prelude::DispatchError;
         use sp_inherents::{CheckInherentsResult, InherentData};
-        use frame_support::dispatch::result::Result as FrameResult;
         use node_rpc_runtime_api::asset as rpc_api_asset;
 
         use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords};
@@ -1229,7 +1229,7 @@ macro_rules! runtime_apis {
                     asset_id: &AssetId,
                     sender_identity: &IdentityId,
                     receiver_identity: &IdentityId,
-                ) -> FrameResult<ComplianceReport, DispatchError> {
+                ) -> Result<ComplianceReport, DispatchError> {
                     let mut weight_meter = WeightMeter::max_limit_no_minimum();
                     ComplianceManager::compliance_report(
                         asset_id,
@@ -1247,7 +1247,7 @@ macro_rules! runtime_apis {
                     sender_did: &IdentityId,
                     receiver_did: &IdentityId,
                     transfer_amount: Balance,
-                ) -> FrameResult<Vec<TransferCondition>, DispatchError> {
+                ) -> Result<Vec<TransferCondition>, DispatchError> {
                     let mut weight_meter = WeightMeter::max_limit_no_minimum();
                     Statistics::transfer_restrictions_report(
                         asset_id,

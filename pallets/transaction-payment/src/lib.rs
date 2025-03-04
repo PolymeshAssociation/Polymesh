@@ -54,11 +54,10 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
     dispatch::{
         DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays, PostDispatchInfo,
-        Weight,
     },
     pallet_prelude::*,
     traits::{Currency, Get, GetCallMetadata},
-    weights::{WeightToFee, WeightToFeeCoefficient, WeightToFeePolynomial},
+    weights::{Weight, WeightToFee, WeightToFeeCoefficient, WeightToFeePolynomial},
 };
 use frame_system::pallet_prelude::{BlockNumberFor, OriginFor};
 use polymesh_primitives::{

@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::dispatch::DispatchResult;
+use sp_runtime::DispatchResult;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 

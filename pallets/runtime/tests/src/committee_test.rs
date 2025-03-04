@@ -5,9 +5,9 @@ use super::{
         RuntimeCall, TestStorage,
     },
 };
+use sp_runtime::{DispatchError, DispatchResult};
 use frame_support::{
     assert_noop, assert_ok,
-    dispatch::{DispatchError, DispatchResult},
 };
 use frame_system::{EventRecord, Phase};
 use pallet_committee::{

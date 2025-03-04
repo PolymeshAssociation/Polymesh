@@ -34,7 +34,7 @@ impl WeightMeter {
 
         Ok(Self {
             minimum_charge,
-            meter: FrameWeightMeter::from_limit(limit),
+            meter: FrameWeightMeter::with_limit(limit),
         })
     }
 
@@ -42,7 +42,7 @@ impl WeightMeter {
     pub fn max_limit(minimum_charge: Weight) -> Self {
         Self {
             minimum_charge,
-            meter: FrameWeightMeter::max_limit(),
+            meter: FrameWeightMeter::new(),
         }
     }
 
@@ -50,7 +50,7 @@ impl WeightMeter {
     pub fn max_limit_no_minimum() -> Self {
         Self {
             minimum_charge: Weight::zero(),
-            meter: FrameWeightMeter::max_limit(),
+            meter: FrameWeightMeter::new(),
         }
     }
 

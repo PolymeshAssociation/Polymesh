@@ -7,9 +7,9 @@ use super::{
     },
     ExtBuilder,
 };
+use sp_runtime::{DispatchError, DispatchResult};
 use frame_support::{
     assert_noop, assert_ok,
-    dispatch::{DispatchError, DispatchResult},
     traits::{LockableCurrency, WithdrawReasons},
 };
 use frame_system::{self, EventRecord};

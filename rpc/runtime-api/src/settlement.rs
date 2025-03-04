@@ -15,7 +15,7 @@
 
 //! Runtime API definition for Settlement module.
 
-use frame_support::dispatch::DispatchError;
+use sp_runtime::DispatchError;
 use frame_support::weights::Weight;
 use sp_std::vec::Vec;
 

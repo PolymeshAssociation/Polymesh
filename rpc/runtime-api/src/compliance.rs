@@ -15,7 +15,7 @@
 
 //! Runtime API definition for Compliance module.
 
-use frame_support::dispatch::DispatchError;
+use sp_runtime::DispatchError;
 
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::compliance_manager::ComplianceReport;

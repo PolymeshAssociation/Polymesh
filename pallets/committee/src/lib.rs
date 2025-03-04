@@ -60,11 +60,14 @@ pub mod benchmarking;
 
 use core::marker::PhantomData;
 use core::mem;
+use codec::{Decode, Encode, MaxEncodedLen};
+use sp_runtime::traits::Dispatchable;
+use frame_support::pallet_prelude::*;
+use frame_support::weights::Weight;
 use frame_support::{
-    codec::{Decode, Encode, MaxEncodedLen},
     dispatch::{
-        DispatchClass, DispatchError, DispatchResult, Dispatchable, GetDispatchInfo, Parameter,
-        PostDispatchInfo, Weight,
+        DispatchClass, GetDispatchInfo, Parameter,
+        PostDispatchInfo,
     },
     ensure,
     traits::{ChangeMembers, EnsureOrigin, InitializeMembers},
@@ -105,7 +108,6 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
 
     /// The committee trait.

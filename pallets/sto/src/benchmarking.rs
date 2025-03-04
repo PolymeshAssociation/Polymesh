@@ -1,5 +1,5 @@
 use frame_benchmarking::benchmarks;
-use frame_support::dispatch::DispatchError;
+use sp_runtime::DispatchError;
 use scale_info::prelude::format;
 use sp_runtime::MultiSignature;
 

@@ -47,10 +47,9 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use core::{iter, mem};
-use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::ensure;
-use frame_support::pallet_prelude::Get;
 use frame_support::weights::Weight;
+use frame_support::pallet_prelude::*;
 use sp_arithmetic::traits::Zero;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
@@ -105,7 +104,6 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
 
     #[pallet::config]

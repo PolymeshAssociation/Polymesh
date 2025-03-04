@@ -1,5 +1,6 @@
 use codec::Encode;
-use frame_support::dispatch::{DispatchError, Weight};
+use sp_runtime::DispatchError;
+use frame_support::dispatch::Weight;
 use frame_support::{assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop};
 use polymesh_contracts::{
     Api, ApiCodeHash, ApiNextUpgrade, ChainVersion, ExtrinsicId, NextUpgrade,

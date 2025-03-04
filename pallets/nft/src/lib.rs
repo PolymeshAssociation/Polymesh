@@ -1,7 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use frame_support::pallet_prelude::{OptionQuery, *};
 use frame_support::dispatch::{
-    DispatchError, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo,
+    DispatchResultWithPostInfo, PostDispatchInfo,
 };
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
@@ -45,7 +46,6 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::{OptionQuery, *};
     use frame_system::pallet_prelude::*;
 
     #[pallet::config]

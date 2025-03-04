@@ -16,7 +16,7 @@
 
 use crate::IdentityId;
 use codec::{Decode, Encode};
-use frame_support::dispatch::DispatchResult;
+use sp_runtime::DispatchResult;
 use scale_info::TypeInfo;
 use sp_std::{
     cmp::{Eq, Ordering, PartialEq},

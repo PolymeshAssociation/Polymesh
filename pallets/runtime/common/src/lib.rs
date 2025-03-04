@@ -24,7 +24,7 @@ pub mod migration;
 pub mod runtime;
 
 pub use frame_support::{
-    dispatch::{DispatchClass, GetDispatchInfo, Weight},
+    dispatch::{DispatchClass, GetDispatchInfo},
     parameter_types,
     traits::{Currency, Get},
     weights::{
@@ -32,7 +32,8 @@ pub use frame_support::{
             WEIGHT_REF_TIME_PER_MICROS, WEIGHT_REF_TIME_PER_MILLIS, WEIGHT_REF_TIME_PER_NANOS,
             WEIGHT_REF_TIME_PER_SECOND,
         },
-        RuntimeDbWeight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
+        RuntimeDbWeight, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
+        WeightToFeePolynomial,
     },
 };
 use frame_system::limits::{BlockLength, BlockWeights};

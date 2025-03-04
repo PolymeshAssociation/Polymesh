@@ -27,8 +27,8 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use core::mem;
+use sp_runtime::{DispatchError, DispatchResult};
 use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
     traits::{CallMetadata, GetCallMetadata},
 };
 use polymesh_primitives::{ExtrinsicName, IdentityId, PalletName, SecondaryKey};

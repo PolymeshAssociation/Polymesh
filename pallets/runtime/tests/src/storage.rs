@@ -5,7 +5,8 @@ use std::cell::RefCell;
 use std::convert::From;
 
 use codec::Encode;
-use frame_support::dispatch::{DispatchResult, Weight};
+use sp_runtime::DispatchResult;
+use frame_support::dispatch::Weight;
 use frame_support::traits::{
     Currency, Imbalance, KeyOwnerProofSystem, OnInitialize, OnUnbalanced, TryCollect,
 };

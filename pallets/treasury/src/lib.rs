@@ -36,8 +36,8 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+use frame_support::pallet_prelude::*;
 use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced},
     weights::Weight,
@@ -63,7 +63,6 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
 
     #[pallet::pallet]

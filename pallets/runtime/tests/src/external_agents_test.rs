@@ -1,4 +1,4 @@
-use frame_support::dispatch::DispatchResult;
+use sp_runtime::DispatchResult;
 use frame_support::{assert_noop, assert_ok};
 use pallet_external_agents::GroupPermissions;
 use pallet_permissions::StoreCallMetadata;

@@ -89,7 +89,7 @@ mod types;
 use codec::{Decode, Encode};
 use core::mem;
 use currency::*;
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::pallet_prelude::*;
 use frame_support::ensure;
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
@@ -149,7 +149,6 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
 
     #[pallet::config]
     pub trait Config:

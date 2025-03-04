@@ -71,9 +71,10 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use core::convert::From;
+use frame_support::pallet_prelude::*;
+use frame_support::weights::Weight;
 use frame_support::dispatch::{
-    DispatchError, DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo,
-    Weight,
+    DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo,
 };
 use frame_support::ensure;
 use frame_support::traits::{Get, GetCallMetadata, IsSubType, UnfilteredDispatchable};
@@ -160,7 +161,6 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
 
     #[pallet::config]

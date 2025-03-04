@@ -82,8 +82,8 @@ use ca::{CAId, CAKind, CorporateAction};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::convert::TryInto;
 use core::mem;
+use frame_support::pallet_prelude::{ValueQuery, *};
 use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
     weights::Weight,
@@ -270,7 +270,6 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::{ValueQuery, *};
     use frame_system::pallet_prelude::*;
 
     #[pallet::config]

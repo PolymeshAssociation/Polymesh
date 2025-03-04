@@ -6,9 +6,9 @@ use super::{
 use crate::asset_pallet::setup::create_and_issue_sample_asset;
 use crate::asset_test::{check_schedules, next_schedule_id, set_timestamp};
 use core::iter;
+use sp_runtime::{DispatchError, DispatchResult};
 use frame_support::{
     assert_noop, assert_ok,
-    dispatch::{DispatchError, DispatchResult},
 };
 use pallet_asset::checkpoint::{
     CheckpointIdSequence, ScheduleIdSequence, SchedulePoints, ScheduleRefCount, Timestamps,

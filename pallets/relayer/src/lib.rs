@@ -45,11 +45,11 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
     ensure, fail,
     traits::{Contains, GetCallMetadata},
     weights::Weight,
 };
+use frame_support::pallet_prelude::*;
 use frame_system::ensure_signed;
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_primitives::{
@@ -75,7 +75,6 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
 
     #[pallet::config]

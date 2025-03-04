@@ -57,10 +57,10 @@ pub mod chain_extension;
 
 use codec::{Compact, Decode, Encode};
 use frame_support::dispatch::{
-    DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
+    DispatchErrorWithPostInfo, DispatchResultWithPostInfo,
 };
 use frame_support::ensure;
-use frame_support::pallet_prelude::MaxEncodedLen;
+use frame_support::pallet_prelude::*;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_system::ensure_root;
@@ -74,7 +74,7 @@ use sp_std::{vec, vec::Vec};
 pub use chain_extension::{ExtrinsicId, PolymeshExtension};
 use pallet_contracts::weights::WeightInfo as FrameWeightInfo;
 use pallet_contracts::Config as BConfig;
-use pallet_contracts_primitives::Code;
+use pallet_contracts::Code;
 use pallet_identity::{Config as IdentityConfig, ParentDid, WeightInfo as IdentityWeightInfo};
 use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait};
 use polymesh_primitives::{storage_migration_ver, Balance, Permissions};
@@ -313,7 +313,6 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
 
     /// The `Config` trait for the smart contracts pallet.

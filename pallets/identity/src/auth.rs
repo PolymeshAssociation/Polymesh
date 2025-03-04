@@ -17,7 +17,7 @@ use crate::{
     AuthorizationType, Authorizations, AuthorizationsGiven, Config, CurrentAuthId, Error, Event,
     KeyRecords, NumberOfGivenAuths, OutdatedAuthorizations, Pallet,
 };
-use frame_support::dispatch::DispatchResult;
+use sp_runtime::DispatchResult;
 use frame_support::ensure;
 use frame_system::ensure_signed;
 use polymesh_primitives::{Authorization, AuthorizationData, IdentityId, Signatory};

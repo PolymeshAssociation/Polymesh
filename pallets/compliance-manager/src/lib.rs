@@ -77,10 +77,10 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use core::result::Result;
-use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::ensure;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
+use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::OriginFor;
 use pallet_base::ensure_length_ok;
 use pallet_external_agents::{Config as EAConfig, GroupOfAgent};
@@ -108,7 +108,6 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
 
     #[pallet::config]
     pub trait Config:

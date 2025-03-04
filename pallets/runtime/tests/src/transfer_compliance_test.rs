@@ -2,9 +2,9 @@ use super::{
     storage::{account_from, make_account, TestStorage, User},
     ExtBuilder,
 };
+use sp_runtime::{DispatchError, DispatchResult};
 use frame_support::{
     assert_noop, assert_ok,
-    dispatch::{DispatchError, DispatchResult},
 };
 use pallet_external_agents::Event;
 use pallet_statistics::AssetStats;

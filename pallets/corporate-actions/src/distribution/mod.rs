@@ -67,8 +67,8 @@ pub mod benchmarking;
 use crate as ca;
 use ca::{CAId, Tax};
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::pallet_prelude::*;
 use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
     weights::Weight,
@@ -151,7 +151,6 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
 
     /// The value `per_share` must take to get 1 `currency`.

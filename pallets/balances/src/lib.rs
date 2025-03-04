@@ -169,7 +169,6 @@ pub use imbalances::{NegativeImbalance, PositiveImbalance};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{
         tokens::{
@@ -184,6 +183,7 @@ use frame_support::{
     },
     weights::Weight,
 };
+use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use frame_system::{self as system, ensure_root, ensure_signed};
 use polymesh_primitives::traits::{BlockRewardsReserveCurrency, CheckCdd, IdentityFnTrait};
@@ -298,7 +298,6 @@ const LOG_TARGET: &str = "runtime::balances";
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]

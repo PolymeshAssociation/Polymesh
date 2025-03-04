@@ -92,7 +92,7 @@ pub mod ballot;
 pub mod distribution;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::pallet_prelude::{ValueQuery, *};
 use frame_support::ensure;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
@@ -402,7 +402,6 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::{ValueQuery, *};
     use frame_system::pallet_prelude::*;
 
     #[pallet::config]

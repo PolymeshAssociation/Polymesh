@@ -50,8 +50,9 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
+use sp_runtime::{DispatchError, DispatchResult};
 use frame_support::dispatch::{
-    DispatchError, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
+    DispatchErrorWithPostInfo, DispatchResultWithPostInfo,
     PostDispatchInfo,
 };
 use frame_support::pallet_prelude::*;

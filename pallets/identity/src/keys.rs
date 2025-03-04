@@ -21,7 +21,7 @@ use crate::{
     PermissionedCallOriginData, RpcDidRecords,
 };
 use codec::Encode as _;
-use frame_support::dispatch::DispatchResult;
+use sp_runtime::DispatchResult;
 use frame_support::ensure;
 use frame_support::traits::{Currency as _, Get as _};
 use frame_system::ensure_signed;

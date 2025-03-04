@@ -73,8 +73,10 @@ pub mod benchmarking;
 mod types;
 
 use codec::{Decode, Encode};
+use sp_runtime::DispatchResult;
 use frame_support::dispatch::DispatchClass::Operational;
-use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo, Weight};
+use frame_support::dispatch::{DispatchResultWithPostInfo};
+use frame_support::weights::Weight;
 use frame_support::ensure;
 use frame_support::pallet_prelude::*;
 use frame_support::storage::types::StorageValue;

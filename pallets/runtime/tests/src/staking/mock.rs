@@ -20,7 +20,8 @@
 use std::collections::BTreeMap;
 
 use frame_election_provider_support::{onchain, SequentialPhragmen};
-use frame_support::dispatch::{DispatchResult, Weight};
+use sp_runtime::DispatchResult;
+use frame_support::dispatch::Weight;
 use frame_support::traits::{
     ConstU32, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, KeyOwnerProofSystem,
     OnUnbalanced, OneSessionHandler,

@@ -38,8 +38,8 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+use sp_runtime::{DispatchError, DispatchResult};
 use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
     traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReasons},
     weights::Weight,
 };

@@ -15,7 +15,7 @@
 
 //! Runtime API definition for NFT module.
 
-use frame_support::dispatch::DispatchError;
+use sp_runtime::DispatchError;
 use sp_std::vec::Vec;
 
 use polymesh_primitives::{NFTs, PortfolioId};

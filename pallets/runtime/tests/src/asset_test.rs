@@ -1,5 +1,5 @@
 use chrono::prelude::Utc;
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use sp_runtime::{DispatchError, DispatchResult};
 use frame_support::{assert_noop, assert_ok};
 use rand::Rng;
 use sp_consensus_babe::Slot;

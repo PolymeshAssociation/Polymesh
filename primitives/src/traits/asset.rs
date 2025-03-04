@@ -8,7 +8,7 @@ use crate::{
 use sp_std::{collections::btree_set::BTreeSet, prelude::Vec};
 
 use crate::{asset::AssetId, Balance, IdentityId};
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use sp_runtime::{DispatchError, DispatchResult};
 
 pub trait AssetFnConfig: frame_system::Config {
     type AssetFn: AssetFnTrait<Self::AccountId>;
