@@ -3,7 +3,7 @@ use std::{convert::TryInto, sync::Arc};
 use codec::Codec;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
-use jsonrpsee::types::error::{CallError, ErrorCode, ErrorObject};
+use jsonrpsee::types::error::{ErrorCode, ErrorObject};
 use sp_api::{ApiExt, ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::{Block as BlockT, Zero};
@@ -116,12 +116,11 @@ where
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
         api.is_identity_has_valid_cdd(at_hash, did, buffer_time)
             .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
+                ErrorObject::owned(
                     Error::RuntimeError.into(),
                     "Either cdd claim not exist or Identity.",
                     Some(e.to_string()),
-                ))
-                .into()
+                )
             })
     }
 
@@ -137,31 +136,30 @@ where
                 at_hash,
             )
             .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
+                ErrorObject::owned(
                     Error::RuntimeError.into(),
                     "Unable to fetch DID records",
                     Some(e.to_string()),
-                ))
+                )
             })?;
 
         match api_version {
             Some(version) if version >= 2 => api.get_did_records(at_hash, did),
             _ => {
-                return Err(CallError::Custom(ErrorObject::owned(
+                return Err(ErrorObject::owned(
                     ErrorCode::MethodNotFound.code(),
                     format!("Cannot find `IdentityApi` for block {:?}", at),
                     None::<()>,
-                ))
-                .into());
+                )
+                );
             }
         }
         .map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
+            ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to fetch DID records",
                 Some(e.to_string()),
-            ))
-            .into()
+            )
         })
     }
 
@@ -177,12 +175,11 @@ where
 
         api.get_filtered_authorizations(at_hash, signatory, allow_expired, auth_type)
             .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
+                ErrorObject::owned(
                     Error::RuntimeError.into(),
                     "Unable to fetch authorizations data",
                     Some(e.to_string()),
-                ))
-                .into()
+                )
             })
     }
 
@@ -196,26 +193,25 @@ where
                 .try_into()
                 .unwrap_or_else(|_| Zero::zero())
         {
-            return Err(CallError::Custom(ErrorObject::owned(
+            return Err(ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to fetch dids status",
                 Some(format!(
                     "Provided vector length is more than the maximum allowed length i.e {:?}",
                     MAX_IDENTITIES_ALLOWED_TO_QUERY
                 )),
-            ))
-            .into());
+            )
+            );
         }
         let api = self.client.runtime_api();
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.get_did_status(at_hash, dids).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
+            ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to fetch dids status",
                 Some(e.to_string()),
-            ))
-            .into()
+            )
         })
     }
 
@@ -246,12 +242,11 @@ where
 
         api.valid_cdd_claims(at_hash, target_identity, cdd_checker_leeway)
             .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
+                ErrorObject::owned(
                     Error::RuntimeError.into(),
                     "Unable to call valid_cdd_claims runtime",
                     Some(e.to_string()),
-                ))
-                .into()
+                )
             })
     }
 }

@@ -18,7 +18,7 @@ use std::sync::Arc;
 use sp_runtime::DispatchError;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
-use jsonrpsee::types::error::{CallError, ErrorObject};
+use jsonrpsee::types::error::{ErrorObject};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
@@ -77,12 +77,11 @@ where
 
         api.compliance_report(at_hash, &asset_id, &sender_identity, &receiver_identity)
             .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
+                ErrorObject::owned(
                     Error::RuntimeError.into(),
                     "Unable to call compliance_report runtime",
                     Some(e.to_string()),
-                ))
-                .into()
+                )
             })
     }
 }

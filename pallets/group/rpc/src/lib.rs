@@ -5,7 +5,7 @@ use std::{marker::PhantomData, sync::Arc};
 use jsonrpsee::{
     core::RpcResult,
     proc_macros::rpc,
-    types::error::{CallError, ErrorObject},
+    types::error::{ErrorObject},
 };
 use node_rpc::Error;
 use sp_api::ProvideRuntimeApi;
@@ -48,12 +48,11 @@ where
         let api = self.client.runtime_api();
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
         api.get_cdd_valid_members(at_hash).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
+            ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to fetch CDD providers.",
                 Some(e.to_string()),
-            ))
-            .into()
+            )
         })
     }
 
@@ -61,12 +60,11 @@ where
         let api = self.client.runtime_api();
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
         api.get_gc_valid_members(at_hash).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
+            ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to fetch Governance Committee members.",
                 Some(e.to_string()),
-            ))
-            .into()
+            )
         })
     }
 }

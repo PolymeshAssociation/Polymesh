@@ -9,7 +9,7 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_std::{prelude::*, vec::Vec};
 
-#[derive(Eq, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

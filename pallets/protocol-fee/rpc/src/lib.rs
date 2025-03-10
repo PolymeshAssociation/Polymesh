@@ -16,7 +16,7 @@
 use jsonrpsee::{
     core::RpcResult,
     proc_macros::rpc,
-    types::error::{CallError, ErrorObject},
+    types::error::{ErrorObject},
 };
 use node_rpc::Error;
 pub use pallet_protocol_fee_rpc_runtime_api::{CappedFee, ProtocolFeeApi as ProtocolFeeRuntimeApi};
@@ -65,12 +65,11 @@ where
             self.client.info().best_hash);
 
         api.compute_fee(at_hash, op).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
+            ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to query dispatch info.",
                 Some(e.to_string()),
-            ))
-            .into()
+            )
         })
     }
 }

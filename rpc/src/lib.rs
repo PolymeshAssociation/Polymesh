@@ -38,11 +38,11 @@ macro_rules! rpc_forward_call {
         let at_hash = $at.unwrap_or_else(|| $self.client.info().best_hash);
 
         let result = $f(api, at_hash).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
+            ErrorObject::owned(
                 crate::Error::RuntimeError.into(),
                 $err_msg,
                 Some(e.to_string()),
-            ))
+            )
         })?;
 
         Ok(result)

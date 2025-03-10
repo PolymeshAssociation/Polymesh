@@ -18,7 +18,9 @@ use std::sync::Arc;
 use frame_support::pallet_prelude::DispatchError;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
-use jsonrpsee::types::error::{CallError, ErrorObject};
+use jsonrpsee::types::{
+  error::{ErrorObject},
+};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
@@ -87,12 +89,11 @@ where
             skip_locked_check,
         )
         .map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
+            ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to call asset_transfer_report runtime",
                 Some(e.to_string()),
-            ))
-            .into()
+            )
         })
     }
 }

@@ -10,7 +10,7 @@ repository = "https://github.com/PolymeshAssociation/substrate"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpsee = { version = "0.16.2", features = ["server"] }
+jsonrpsee = { version = "0.22", features = ["server"] }
 
 polymesh-primitives = { workspace = true, default-features = false }
 pallet-group-rpc = { workspace = true }

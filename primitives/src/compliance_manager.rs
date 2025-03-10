@@ -148,7 +148,7 @@ impl From<AssetCompliance> for AssetComplianceResult {
 /// Holds detailed information for all asset's requirements.
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Serialize, Deserialize)]
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Encode, Decode, TypeInfo)]
 pub struct ComplianceReport {
     /// Set to `true` if any requirement is satisfied.
     any_requirement_satisfied: bool,
@@ -186,7 +186,7 @@ impl ComplianceReport {
 /// Holds the information for an individual asset requirement.
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Serialize, Deserialize)]
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Encode, Decode, TypeInfo)]
 pub struct RequirementReport {
     /// Set to `true` if all conditions are satisfied.
     requirement_satisfied: bool,
@@ -233,7 +233,7 @@ impl RequirementReport {
 /// Holds the information for an individual condition.
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Serialize, Deserialize)]
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Encode, Decode, TypeInfo)]
 pub struct ConditionReport {
     /// Set to `true` if the condition is satisfied.
     pub satisfied: bool,

@@ -25,7 +25,7 @@ use sp_runtime::traits::{SaturatedConversion, UniqueSaturatedInto};
 
 /// A capped version of `Balance` which is normally a `u128`, fit into `u64` which is a serializable
 /// type unlike `u128`. There are no fees that would not fit into `u64`.
-#[derive(Eq, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

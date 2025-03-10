@@ -19,7 +19,7 @@ use std::sync::Arc;
 use sp_runtime::DispatchError;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
-use jsonrpsee::types::error::{CallError, ErrorObject};
+use jsonrpsee::types::error::{ErrorObject};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
@@ -97,12 +97,11 @@ where
 
         api.get_execute_instruction_info(at_hash, instruction_id)
             .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
+                ErrorObject::owned(
                     Error::RuntimeError.into(),
                     "Unable to call get_execute_instruction_info runtime",
                     Some(e.to_string()),
-                ))
-                .into()
+                )
             })
     }
 
@@ -118,12 +117,11 @@ where
 
         api.get_affirmation_count(at_hash, instruction_id, portfolios)
             .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
+                ErrorObject::owned(
                     Error::RuntimeError.into(),
                     "Unable to call get_affirmation_count runtime",
                     Some(e.to_string()),
-                ))
-                .into()
+                )
             })
     }
 
@@ -139,12 +137,11 @@ where
 
         api.get_transfer_report(at_hash, leg, skip_locked_check)
             .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
+                ErrorObject::owned(
                     Error::RuntimeError.into(),
                     "Unable to call get_transfer_report runtime",
                     Some(e.to_string()),
-                ))
-                .into()
+                )
             })
     }
 
@@ -159,12 +156,11 @@ where
 
         api.get_execute_instruction_report(at_hash, instruction_id)
             .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
+                ErrorObject::owned(
                     Error::RuntimeError.into(),
                     "Unable to call get_execute_instruction_report runtime",
                     Some(e.to_string()),
-                ))
-                .into()
+                )
             })
     }
 }
