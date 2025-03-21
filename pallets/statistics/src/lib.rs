@@ -15,8 +15,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use pallet::*;
-
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
@@ -26,18 +24,22 @@ use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_support::BoundedBTreeSet;
 use frame_system::pallet_prelude::*;
-use sp_std::{collections::btree_set::BTreeSet, vec, vec::Vec};
+use sp_std::collections::btree_map::BTreeMap;
+use sp_std::collections::btree_set::BTreeSet;
+use sp_std::{vec, vec::Vec};
 
 use pallet_external_agents::Config as EAConfig;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::statistics::{
-    Percentage, Stat1stKey, Stat2ndKey, StatOpType, StatType, StatUpdate,
+    IncomingInvestorsUpdate, Percentage, Stat1stKey, Stat2ndKey, StatOpType, StatType, StatUpdate,
 };
 use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait};
 use polymesh_primitives::transfer_compliance::{
     AssetTransferCompliance, TransferCondition, TransferConditionExemptKey,
 };
 use polymesh_primitives::{storage_migration_ver, Balance, IdentityId, WeightMeter};
+
+pub use pallet::*;
 
 type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
 
@@ -131,6 +133,22 @@ pub mod pallet {
         TransferConditionLimitReached,
         /// The maximum weight limit for executing the function was exceeded.
         WeightLimitExceeded,
+        /// The new number of investors would execeed the maximum allowed.
+        ExceededMaxInvestorCount,
+        /// At least of investors would execeed the maximum ownership percentage.
+        ExceededMaxInvestorOwnership,
+        /// The new number of investors would be below the minimum allowed.
+        NumberofInvestorsBelowMinimum,
+        /// The new number of investors would be above the maximum allowed.
+        NumberofInvestorsAboveMaximum,
+        /// The asset ownership percentage would be below the minimum allowed.
+        BelowMinimumOwnershipClaim,
+        /// The asset ownership percentage would be above the minimum allowed.
+        ExceededMaximumOwnershipClaim,
+        /// The number of investors is in an invalid state.
+        UnexpectedInvestorCount,
+        /// The balance of the asset is in an invalid state.
+        UnexpectedBalance,
     }
 
     #[pallet::pallet]
@@ -1091,6 +1109,290 @@ impl<T: Config> Pallet<T> {
         }
 
         Ok(failed_conditions)
+    }
+
+    /// Returns `Ok` if all statistics requirements are met.
+    pub fn ensure_valid_statistics(
+        asset_id: AssetId,
+        total_rcv_per_did: &BTreeMap<IdentityId, Balance>,
+        total_sent_per_did: &BTreeMap<IdentityId, Balance>,
+        _weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        let asset_compliance = AssetTransferCompliances::<T>::get(&asset_id);
+
+        // If the requirements are paused, the conditions are not checked
+        if asset_compliance.paused {
+            return Ok(());
+        }
+
+        let investors_update =
+            Self::calculate_investors_balance(&asset_id, total_rcv_per_did, total_sent_per_did)?;
+
+        let current_investor_count = AssetStats::<T>::get(
+            Stat1stKey::investor_count(asset_id.clone()),
+            Stat2ndKey::NoClaimStat,
+        );
+        let new_investor_count = current_investor_count
+            .saturating_add(investors_update.number_of_new_investors())
+            .checked_sub(investors_update.number_of_old_investors())
+            .ok_or(Error::<T>::UnexpectedInvestorCount)?;
+
+        let asset_total_supply = T::AssetFn::asset_total_supply(&asset_id)?;
+
+        for condition in asset_compliance.requirements {
+            match condition {
+                TransferCondition::MaxInvestorCount(max_investors) => {
+                    Self::ensure_max_investor_count(
+                        current_investor_count,
+                        new_investor_count,
+                        max_investors as u128,
+                    )?;
+                }
+                TransferCondition::MaxInvestorOwnership(max_ownership_percentage) => {
+                    Self::ensure_max_investor_ownership(
+                        total_rcv_per_did.keys(),
+                        investors_update.dids_final_balance(),
+                        asset_total_supply,
+                        max_ownership_percentage,
+                    )?;
+                }
+                TransferCondition::ClaimCount(claim, _, min, max) => {
+                    Self::ensure_claim_count(
+                        investors_update.old_investors(),
+                        investors_update.new_investors(),
+                        current_investor_count,
+                        new_investor_count,
+                        min as u128,
+                        max.map(|v| v as u128),
+                        &Stat1stKey::new(asset_id, condition.get_stat_type()),
+                        &Stat2ndKey::from(claim),
+                    )?;
+                }
+                TransferCondition::ClaimOwnership(claim, _, min, max) => {
+                    Self::ensure_claim_ownership(
+                        investors_update.dids_current_balance(),
+                        investors_update.dids_final_balance(),
+                        asset_total_supply,
+                        min,
+                        max,
+                        &Stat1stKey::new(asset_id, condition.get_stat_type()),
+                        &Stat2ndKey::from(claim),
+                    )?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Calculates the final balance for each identity in the instruction.
+    fn calculate_investors_balance(
+        asset_id: &AssetId,
+        total_rcv_per_did: &BTreeMap<IdentityId, Balance>,
+        total_sent_per_did: &BTreeMap<IdentityId, Balance>,
+    ) -> Result<IncomingInvestorsUpdate, DispatchError> {
+        let mut investors_update = IncomingInvestorsUpdate::new();
+
+        for did in total_sent_per_did.keys().chain(total_rcv_per_did.keys()) {
+            let current_did_balance = T::AssetFn::asset_balance(asset_id, did);
+            let incoming_balance = total_rcv_per_did.get(did).cloned().unwrap_or(0);
+            let outgoing_balance = total_sent_per_did.get(did).cloned().unwrap_or(0);
+
+            let did_final_balance = current_did_balance
+                .saturating_add(incoming_balance)
+                .checked_sub(outgoing_balance)
+                .ok_or(Error::<T>::UnexpectedBalance)?;
+
+            if current_did_balance == 0 && did_final_balance > 0 {
+                investors_update.add_new_investor(*did);
+            }
+
+            if current_did_balance != 0 && did_final_balance == 0 {
+                investors_update.add_old_investor(*did);
+            }
+
+            investors_update.add_did_final_balance(*did, did_final_balance);
+            investors_update.add_did_current_balance(*did, current_did_balance);
+        }
+
+        Ok(investors_update)
+    }
+
+    /// Returns `Ok` if the number of investors is not increasing or is less or equal to `max_investors`.
+    fn ensure_max_investor_count(
+        current_investor_count: u128,
+        new_investor_count: u128,
+        max_investors: u128,
+    ) -> DispatchResult {
+        if new_investor_count > current_investor_count {
+            if new_investor_count > max_investors {
+                return Err(Error::<T>::ExceededMaxInvestorCount.into());
+            }
+        }
+        Ok(())
+    }
+
+    /// Returns `Ok` if the balance of all identities receiving the asset is less or equal to `max_ownership_percentage`.
+    fn ensure_max_investor_ownership<'a>(
+        receivers_did: impl Iterator<Item = &'a IdentityId>,
+        dids_final_balance: &BTreeMap<IdentityId, Balance>,
+        asset_total_supply: Balance,
+        max_ownership_percentage: Percentage,
+    ) -> DispatchResult {
+        for rcv_did in receivers_did {
+            let rcv_final_balance = dids_final_balance
+                .get(rcv_did)
+                .copied()
+                .ok_or(Error::<T>::UnexpectedBalance)?;
+            let new_percentage =
+                sp_arithmetic::Permill::from_rational(rcv_final_balance, asset_total_supply);
+            if new_percentage > max_ownership_percentage {
+                return Err(Error::<T>::ExceededMaxInvestorOwnership.into());
+            }
+        }
+        Ok(())
+    }
+
+    /// Returns `Ok` if any of the following conditions are met:
+    ///
+    /// 1. The number of investors has not changed.
+    /// 2. If the number of investors has decreased:
+    ///    - If the number of invertors is still above or equal to the minimum.
+    ///    - If it's less than the minimum and none of the old investors had the claim count.
+    /// 3. If the number of investors has increased:
+    ///    - If the number of investors is still below or equal to the maximum.
+    ///    - If it's more than the maximum and none of the new investors have a claim count.
+    fn ensure_claim_count(
+        old_investors: &BTreeSet<IdentityId>,
+        new_investors: &BTreeSet<IdentityId>,
+        current_investor_count: u128,
+        new_investor_count: u128,
+        min: u128,
+        max: Option<u128>,
+        stat_fist_key: &Stat1stKey,
+        stat_second_key: &Stat2ndKey,
+    ) -> DispatchResult {
+        // The number of investors has not changed
+        if new_investor_count == current_investor_count {
+            return Ok(());
+        }
+
+        // The number of investors has decreased
+        if current_investor_count > new_investor_count {
+            if new_investor_count < min {
+                Self::ensure_old_investors_claim_count(
+                    old_investors,
+                    stat_fist_key,
+                    stat_second_key,
+                )?;
+            }
+        }
+
+        // The number of investors has increased
+        if new_investor_count > current_investor_count {
+            if let Some(max) = max {
+                if new_investor_count > max {
+                    Self::ensure_new_investors_claim_count(
+                        new_investors,
+                        stat_fist_key,
+                        stat_second_key,
+                    )?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Returns `Ok` if none of the identities sending all their balance have claim count restrictions.
+    fn ensure_old_investors_claim_count(
+        old_investors: &BTreeSet<IdentityId>,
+        stat_fist_key: &Stat1stKey,
+        stat_second_key: &Stat2ndKey,
+    ) -> DispatchResult {
+        for did in old_investors {
+            if Self::has_matching_claim(did, stat_fist_key, stat_second_key) {
+                return Err(Error::<T>::NumberofInvestorsBelowMinimum.into());
+            }
+        }
+        Ok(())
+    }
+
+    /// Returns `Ok` if none of the new investors have claim count restrictions.
+    fn ensure_new_investors_claim_count(
+        new_investors: &BTreeSet<IdentityId>,
+        stat_fist_key: &Stat1stKey,
+        stat_second_key: &Stat2ndKey,
+    ) -> DispatchResult {
+        for did in new_investors {
+            if Self::has_matching_claim(did, stat_fist_key, stat_second_key) {
+                return Err(Error::<T>::NumberofInvestorsAboveMaximum.into());
+            }
+        }
+        Ok(())
+    }
+
+    /// Returns `Ok` if any of the following conditions are met:
+    ///
+    /// 1. The transfer amount of all identites that have the claim has not changed.
+    /// 2. If transfer amount of all identites that have the claim has decreased:
+    ///    - The new claim balance percentage must be above or equal to the minimum.
+    /// 3. If transfer amount of all identites that have the claim has increased:
+    ///    - The new claim balance percentage must be below or equal to the minimum.
+    fn ensure_claim_ownership(
+        dids_current_balance: &BTreeMap<IdentityId, Balance>,
+        dids_final_balance: &BTreeMap<IdentityId, Balance>,
+        asset_total_supply: Balance,
+        min_percentage: Percentage,
+        max_percentage: Percentage,
+        stat_fist_key: &Stat1stKey,
+        stat_second_key: &Stat2ndKey,
+    ) -> DispatchResult {
+        let mut increased_value = 0;
+        let mut decreased_value = 0;
+
+        for (did, curent_balance) in dids_current_balance {
+            if Self::has_matching_claim(did, stat_fist_key, stat_second_key) {
+                let final_balance = dids_final_balance
+                    .get(did)
+                    .copied()
+                    .ok_or(Error::<T>::UnexpectedBalance)?;
+
+                if final_balance > *curent_balance {
+                    increased_value += final_balance - *curent_balance;
+                }
+
+                if final_balance < *curent_balance {
+                    decreased_value += *curent_balance - final_balance;
+                }
+            }
+        }
+
+        if increased_value == decreased_value {
+            return Ok(());
+        }
+
+        let claim_balance = AssetStats::<T>::get(stat_fist_key, stat_second_key);
+        let new_percentage = sp_arithmetic::Permill::from_rational(
+            claim_balance
+                .saturating_add(increased_value)
+                .saturating_sub(decreased_value),
+            asset_total_supply,
+        );
+
+        if increased_value > decreased_value {
+            if new_percentage > max_percentage {
+                return Err(Error::<T>::ExceededMaximumOwnershipClaim.into());
+            }
+        }
+
+        if decreased_value > increased_value {
+            if new_percentage < min_percentage {
+                return Err(Error::<T>::BelowMinimumOwnershipClaim.into());
+            }
+        }
+
+        Ok(())
     }
 
     /// Consumes from `weight_meter` the given `weight`.

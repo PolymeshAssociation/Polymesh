@@ -13,13 +13,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::asset::AssetId;
-use crate::{Claim, ClaimType, CountryCode, IdentityId, Scope};
-use codec::{Decode, Encode, MaxEncodedLen};
-use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_std::{hash::Hash, hash::Hasher, ops::Deref, ops::DerefMut, prelude::*};
+
+use codec::{Decode, Encode, MaxEncodedLen};
+use scale_info::TypeInfo;
+use sp_std::collections::btree_map::BTreeMap;
+use sp_std::collections::btree_set::BTreeSet;
+use sp_std::prelude::*;
+
+use crate::asset::AssetId;
+use crate::{Balance, Claim, ClaimType, CountryCode, IdentityId, Scope};
 
 /// Transfer manager percentage
 pub type Percentage = sp_arithmetic::Permill;
@@ -76,6 +80,14 @@ pub struct Stat1stKey {
 }
 
 impl Stat1stKey {
+    /// Creates a new [`Stat1stKey`] instance.
+    pub fn new(asset_id: AssetId, stat_type: StatType) -> Self {
+        Self {
+            asset_id,
+            stat_type,
+        }
+    }
+
     /// Returns a [`Stat1stKey`] instance where [`Stat1stKey::asset_id`] is set to `asset_id` and
     /// [`Stat1stKey::stat_type`] is set to [`StatType::investor_count`].
     pub fn investor_count(asset_id: AssetId) -> Self {
@@ -156,6 +168,12 @@ impl From<&StatClaim> for Stat2ndKey {
     }
 }
 
+impl From<StatClaim> for Stat2ndKey {
+    fn from(claim: StatClaim) -> Stat2ndKey {
+        Stat2ndKey::Claim(claim)
+    }
+}
+
 /// Stats supported claims.
 ///
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -202,67 +220,76 @@ pub struct StatUpdate {
     pub value: Option<u128>,
 }
 
-/// Older v1 Transfer Managers.
-pub mod v1 {
-    use super::*;
+/// Holds the incoming balance update for each investor.
+pub struct IncomingInvestorsUpdate {
+    /// All identities that were investors, but are not anymore.
+    old_investors: BTreeSet<IdentityId>,
+    /// All identities that were not investors, but are now.
+    new_investors: BTreeSet<IdentityId>,
+    /// The current balance of all identities in the instruction.
+    dids_current_balance: BTreeMap<IdentityId, Balance>,
+    /// The final balance of all identities in the instruction.
+    dids_final_balance: BTreeMap<IdentityId, Balance>,
+}
 
-    /// Transfer manager counter.
-    pub type Counter = u64;
-    /// Transfer manager percentage.
-    pub type Percentage = HashablePermill;
-
-    /// Wrapper around `sp_arithmetic::Permill`
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    #[derive(Decode, Encode, TypeInfo)]
-    #[derive(Copy, Clone, Debug, Eq, PartialOrd, Ord, Default)]
-    pub struct HashablePermill(pub sp_arithmetic::Permill);
-
-    impl Hash for HashablePermill {
-        fn hash<H: Hasher>(&self, state: &mut H) {
-            state.write(&self.0.deconstruct().to_le_bytes())
+impl IncomingInvestorsUpdate {
+    /// Creates a new [`IncomingStats`] instance.
+    pub fn new() -> Self {
+        Self {
+            old_investors: BTreeSet::new(),
+            new_investors: BTreeSet::new(),
+            dids_current_balance: BTreeMap::new(),
+            dids_final_balance: BTreeMap::new(),
         }
     }
 
-    // Keep clippy happy.
-    impl PartialEq for HashablePermill {
-        fn eq(&self, other: &Self) -> bool {
-            self.0.eq(&other.0)
-        }
+    /// Adds an identity to the list of old investors.
+    pub fn add_old_investor(&mut self, did: IdentityId) {
+        self.old_investors.insert(did);
     }
 
-    impl Deref for HashablePermill {
-        type Target = sp_arithmetic::Permill;
-
-        fn deref(&self) -> &Self::Target {
-            &self.0
-        }
+    /// Returns a reference to the identities of all old investors.
+    pub fn old_investors(&self) -> &BTreeSet<IdentityId> {
+        &self.old_investors
     }
 
-    impl DerefMut for HashablePermill {
-        fn deref_mut(&mut self) -> &mut Self::Target {
-            &mut self.0
-        }
+    /// Returns the number of old investors.
+    pub fn number_of_old_investors(&self) -> u128 {
+        self.old_investors.len() as u128
     }
 
-    /// Transfer managers that can be attached to a Token for compliance.
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    #[derive(Decode, Encode, TypeInfo)]
-    #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-    pub enum TransferManager {
-        /// CTM limits the number of active investors in a Token.
-        CountTransferManager(Counter),
-        /// PTM limits the percentage of token owned by a single Identity.
-        PercentageTransferManager(Percentage),
+    /// Adds an identity to the list of new investors.
+    pub fn add_new_investor(&mut self, did: IdentityId) {
+        self.new_investors.insert(did);
     }
 
-    /// Result of a transfer manager check.
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    #[derive(Decode, Encode, TypeInfo)]
-    #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-    pub struct TransferManagerResult {
-        /// Transfer manager that was checked.
-        pub tm: TransferManager,
-        /// Final evaluation result.
-        pub result: bool,
+    /// Returns a reference to the identities of all new investors.
+    pub fn new_investors(&self) -> &BTreeSet<IdentityId> {
+        &self.new_investors
+    }
+
+    /// Returns the number of new investors.
+    pub fn number_of_new_investors(&self) -> u128 {
+        self.new_investors.len() as u128
+    }
+
+    /// Returns the current balance of the given `did`
+    pub fn dids_current_balance(&self) -> &BTreeMap<IdentityId, Balance> {
+        &self.dids_current_balance
+    }
+
+    /// Adds the current balance of the identity with the given `did`.
+    pub fn add_did_current_balance(&mut self, did: IdentityId, balance: Balance) {
+        self.dids_current_balance.insert(did, balance);
+    }
+
+    /// Returns the final balance of each identity in the instruction.
+    pub fn dids_final_balance(&self) -> &BTreeMap<IdentityId, Balance> {
+        &self.dids_final_balance
+    }
+
+    /// Adds the final balance of the identity with the given `did`.
+    pub fn add_did_final_balance(&mut self, did: IdentityId, balance: Balance) {
+        self.dids_final_balance.insert(did, balance);
     }
 }
