@@ -139,6 +139,14 @@ impl Stat2ndKey {
             _ => Self::NoClaimStat,
         }
     }
+
+    /// Returns the claim type if any, ortherwise `None`.
+    pub fn claim_type(&self) -> Option<ClaimType> {
+        match self {
+            Stat2ndKey::Claim(claim) => Some(claim.claim_type()),
+            _ => None,
+        }
+    }
 }
 
 impl From<Option<Claim>> for Stat2ndKey {

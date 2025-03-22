@@ -37,7 +37,7 @@ use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait};
 use polymesh_primitives::transfer_compliance::{
     AssetTransferCompliance, TransferCondition, TransferConditionExemptKey,
 };
-use polymesh_primitives::{storage_migration_ver, Balance, IdentityId, WeightMeter};
+use polymesh_primitives::{storage_migration_ver, Balance, ClaimType, IdentityId, WeightMeter};
 
 pub use pallet::*;
 
@@ -135,7 +135,7 @@ pub mod pallet {
         WeightLimitExceeded,
         /// The new number of investors would execeed the maximum allowed.
         ExceededMaxInvestorCount,
-        /// At least of investors would execeed the maximum ownership percentage.
+        /// At least one investors would execeed the maximum ownership percentage.
         ExceededMaxInvestorOwnership,
         /// The new number of investors would be below the minimum allowed.
         NumberofInvestorsBelowMinimum,
@@ -1150,6 +1150,7 @@ impl<T: Config> Pallet<T> {
                 }
                 TransferCondition::MaxInvestorOwnership(max_ownership_percentage) => {
                     Self::ensure_max_investor_ownership(
+                        asset_id.clone(),
                         total_rcv_per_did.keys(),
                         investors_update.dids_final_balance(),
                         asset_total_supply,
@@ -1234,6 +1235,7 @@ impl<T: Config> Pallet<T> {
 
     /// Returns `Ok` if the balance of all identities receiving the asset is less or equal to `max_ownership_percentage`.
     fn ensure_max_investor_ownership<'a>(
+        asset_id: AssetId,
         receivers_did: impl Iterator<Item = &'a IdentityId>,
         dids_final_balance: &BTreeMap<IdentityId, Balance>,
         asset_total_supply: Balance,
@@ -1247,7 +1249,9 @@ impl<T: Config> Pallet<T> {
             let new_percentage =
                 sp_arithmetic::Permill::from_rational(rcv_final_balance, asset_total_supply);
             if new_percentage > max_ownership_percentage {
-                return Err(Error::<T>::ExceededMaxInvestorOwnership.into());
+                if !Self::is_exempt_from_condition(rcv_did, asset_id, StatOpType::Balance, None) {
+                    return Err(Error::<T>::ExceededMaxInvestorOwnership.into());
+                }
             }
         }
         Ok(())
@@ -1312,7 +1316,14 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         for did in old_investors {
             if Self::has_matching_claim(did, stat_fist_key, stat_second_key) {
-                return Err(Error::<T>::NumberofInvestorsBelowMinimum.into());
+                if !Self::is_exempt_from_condition(
+                    did,
+                    stat_fist_key.asset_id,
+                    StatOpType::Count,
+                    stat_second_key.claim_type(),
+                ) {
+                    return Err(Error::<T>::NumberofInvestorsBelowMinimum.into());
+                }
             }
         }
         Ok(())
@@ -1326,7 +1337,14 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         for did in new_investors {
             if Self::has_matching_claim(did, stat_fist_key, stat_second_key) {
-                return Err(Error::<T>::NumberofInvestorsAboveMaximum.into());
+                if !Self::is_exempt_from_condition(
+                    did,
+                    stat_fist_key.asset_id,
+                    StatOpType::Count,
+                    stat_second_key.claim_type(),
+                ) {
+                    return Err(Error::<T>::NumberofInvestorsAboveMaximum.into());
+                }
             }
         }
         Ok(())
@@ -1350,6 +1368,8 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let mut increased_value = 0;
         let mut decreased_value = 0;
+        let mut senders = BTreeSet::new();
+        let mut receivers = BTreeSet::new();
 
         for (did, curent_balance) in dids_current_balance {
             if Self::has_matching_claim(did, stat_fist_key, stat_second_key) {
@@ -1360,10 +1380,12 @@ impl<T: Config> Pallet<T> {
 
                 if final_balance > *curent_balance {
                     increased_value += final_balance - *curent_balance;
+                    receivers.insert(did);
                 }
 
                 if final_balance < *curent_balance {
                     decreased_value += *curent_balance - final_balance;
+                    senders.insert(did);
                 }
             }
         }
@@ -1382,17 +1404,46 @@ impl<T: Config> Pallet<T> {
 
         if increased_value > decreased_value {
             if new_percentage > max_percentage {
-                return Err(Error::<T>::ExceededMaximumOwnershipClaim.into());
+                for did in receivers {
+                    if !Self::is_exempt_from_condition(
+                        &did,
+                        stat_fist_key.asset_id,
+                        StatOpType::Balance,
+                        stat_second_key.claim_type(),
+                    ) {
+                        return Err(Error::<T>::ExceededMaximumOwnershipClaim.into());
+                    }
+                }
             }
         }
 
         if decreased_value > increased_value {
             if new_percentage < min_percentage {
-                return Err(Error::<T>::BelowMinimumOwnershipClaim.into());
+                for did in senders {
+                    if !Self::is_exempt_from_condition(
+                        &did,
+                        stat_fist_key.asset_id,
+                        StatOpType::Balance,
+                        stat_second_key.claim_type(),
+                    ) {
+                        return Err(Error::<T>::ExceededMaximumOwnershipClaim.into());
+                    }
+                }
             }
         }
 
         Ok(())
+    }
+
+    /// Returns `true` if the identity is exempt from the transfer condition requirement.
+    fn is_exempt_from_condition(
+        did: &IdentityId,
+        asset_id: AssetId,
+        stat_op_type: StatOpType,
+        claim_type: Option<ClaimType>,
+    ) -> bool {
+        let exemption_key = TransferConditionExemptKey::new(asset_id, stat_op_type, claim_type);
+        TransferConditionExemptEntities::<T>::get(&exemption_key, did)
     }
 
     /// Consumes from `weight_meter` the given `weight`.
