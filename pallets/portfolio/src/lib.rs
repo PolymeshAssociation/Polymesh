@@ -1145,35 +1145,20 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> PortfolioSubTrait<T::AccountId> for Pallet<T> {
-    /// Locks some user tokens so that they can not be used for transfers.
-    /// This is used internally by the settlement engine to prevent users from using the same funds
-    /// in multiple ongoing settlements
-    ///
-    /// # Errors
-    /// * `InsufficientPortfolioBalance` if the portfolio does not have enough free balance to lock
     fn lock_tokens(portfolio: &PortfolioId, asset_id: &AssetId, amount: Balance) -> DispatchResult {
         Self::ensure_sufficient_balance(portfolio, asset_id, amount)?;
         Self::unchecked_lock_tokens(portfolio, asset_id, amount);
         Ok(())
     }
 
-    /// Unlocks some locked tokens of a user.
-    /// Since this is only ever called by the settlement engine,
-    /// it will never be called under circumstances when it has to return an error.
-    /// We are being defensive with the checks anyway.
-    ///
-    /// # Errors
-    /// * `InsufficientTokensLocked` if the portfolio does not have enough locked tokens to unlock
     fn unlock_tokens(
         portfolio: &PortfolioId,
         asset_id: &AssetId,
         amount: Balance,
     ) -> DispatchResult {
-        // 1. Ensure portfolio has enough locked tokens
         let locked = PortfolioLockedAssets::<T>::get(portfolio, asset_id);
         ensure!(locked >= amount, Error::<T>::InsufficientTokensLocked);
 
-        // 2. Unlock tokens. Can not underflow due to above ensure.
         if (locked - amount) == 0 {
             PortfolioLockedAssets::<T>::remove(portfolio, asset_id);
         } else {
@@ -1183,18 +1168,14 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Pallet<T> {
         Ok(())
     }
 
-    /// Ensure that the `portfolio` exists.
     fn ensure_portfolio_validity(portfolio: &PortfolioId) -> DispatchResult {
         Self::ensure_portfolio_validity(portfolio)
     }
 
-    /// Ensures that the portfolio's custody is with the provided identity
     fn ensure_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult {
         Self::ensure_portfolio_custody(portfolio, custodian)
     }
 
-    /// Ensures that the portfolio's custody is with the provided identity
-    /// And the secondary key has the relevant portfolio permission
     fn ensure_portfolio_custody_and_permission(
         portfolio: PortfolioId,
         custodian: IdentityId,
@@ -1203,41 +1184,25 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Pallet<T> {
         Self::ensure_portfolio_custody_and_permission(portfolio, custodian, secondary_key)
     }
 
-    /// Locks the given nft. This prevents transfering the same NFT more than once.
-    ///
-    /// # Errors
-    /// * `NFTAlreadyLocked` if the given nft is already locked.
-    /// * `NFTNotFoundInPortfolio` if the given nft was not found in the portfolio.
     fn lock_nft(portfolio_id: &PortfolioId, asset_id: &AssetId, nft_id: &NFTId) -> DispatchResult {
-        // Verifies if the portfolio contains the NFT
         ensure!(
             PortfolioNFT::<T>::contains_key(portfolio_id, (asset_id, nft_id)),
             Error::<T>::NFTNotFoundInPortfolio
         );
-        // Verifies if the nft is not locked
         ensure!(
             !PortfolioLockedNFT::<T>::contains_key(portfolio_id, (asset_id, nft_id)),
             Error::<T>::NFTAlreadyLocked
         );
-        // Locks the nft
         PortfolioLockedNFT::<T>::insert(portfolio_id, (asset_id, nft_id), true);
         Ok(())
     }
 
-    /// Unlocks the given nft.
-    ///
-    /// # Errors
-    /// * `NFTNotFoundInPortfolio` if the given nft was not found in the portfolio.
     fn unlock_nft(
         portfolio_id: &PortfolioId,
         asset_id: &AssetId,
         nft_id: &NFTId,
     ) -> DispatchResult {
-        // Verifies if the locked NFT exist.
-        ensure!(
-            PortfolioLockedNFT::<T>::contains_key(portfolio_id, (asset_id, nft_id)),
-            Error::<T>::NFTNotLocked
-        );
+        Self::ensure_nft_is_locked(portfolio_id, asset_id, nft_id)?;
         PortfolioLockedNFT::<T>::remove(portfolio_id, (asset_id, nft_id));
         Ok(())
     }
@@ -1254,5 +1219,41 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Pallet<T> {
             return true;
         }
         PreApprovedPortfolios::<T>::get(portfolio_id, asset_id)
+    }
+
+    fn ensure_tokens_are_locked(
+        portfolio: &PortfolioId,
+        asset_id: &AssetId,
+        amount: Balance,
+    ) -> DispatchResult {
+        ensure!(
+            PortfolioLockedAssets::<T>::get(portfolio, asset_id) >= amount,
+            Error::<T>::InsufficientTokensLocked
+        );
+        Ok(())
+    }
+
+    fn ensure_nft_is_locked(
+        portfolio_id: &PortfolioId,
+        asset_id: &AssetId,
+        nft_id: &NFTId,
+    ) -> DispatchResult {
+        ensure!(
+            PortfolioLockedNFT::<T>::contains_key(portfolio_id, (asset_id, nft_id)),
+            Error::<T>::NFTNotLocked
+        );
+        Ok(())
+    }
+
+    fn ensure_portfolio_balance(
+        portfolio_id: &PortfolioId,
+        asset_id: &AssetId,
+        amount: Balance,
+    ) -> DispatchResult {
+        ensure!(
+            PortfolioAssetBalances::<T>::get(portfolio_id, asset_id) >= amount,
+            Error::<T>::InsufficientPortfolioBalance
+        );
+        Ok(())
     }
 }

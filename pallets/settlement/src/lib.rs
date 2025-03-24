@@ -15,33 +15,49 @@
 
 //! # Settlement Module
 //!
-//! Settlement module manages all kinds of transfers and settlements of assets
+//! The Settlement module manages all kinds of transfers and settlements of assets.
 //!
 //! ## Overview
 //!
-//! The settlement module provides functionality to settle onchain as well as offchain trades between multiple parties.
-//! All trades are settled under venues. An appropriately permissioned external agent
-//! can allow/block certain venues from settling trades that involve their tokens.
-//! An atomic settlement is called an Instruction. An instruction can contain multiple legs. Legs are essentially simple one to one transfers.
-//! When an instruction is settled, either all legs are executed successfully or none are. In other words, if one of the leg fails due to
-//! compliance failure, all other legs will also fail.
+//! The settlement module provides functionality to settle both on-chain and off-chain trades between multiple parties.
+//! All trades are settled under venues. An appropriately permissioned external agent can allow or block certain venues
+//! from settling trades that involve their tokens. An atomic settlement is called an Instruction. An instruction can
+//! contain multiple legs, which are essentially simple one-to-one transfers. When an instruction is settled, either all
+//! legs are executed successfully or none are. In other words, if one of the legs fails due to compliance failure, all
+//! other legs will also fail.
 //!
-//! An instruction must be authorized by all the counter parties involved for it to be executed.
-//! An instruction can be set to automatically execute in the next block when all authorizations are received or at a particular block number.
+//! An instruction must be authorized by all the counter parties involved for it to be executed. An instruction can be
+//! set to automatically execute in the next block when all authorizations are received or at a particular block number.
 //!
-//! Offchain settlements are represented via receipts. If a leg has a receipt attached to it, it will not be executed onchain.
-//! All other legs will be executed onchain during settlement.
+//! Off-chain settlements are represented via receipts. If a leg has a receipt attached to it, it will not be executed
+//! on-chain. All other legs will be executed on-chain during settlement.
 //!
 //! ## Dispatchable Functions
 //!
 //! - `create_venue` - Registers a new venue.
-//! - `add_instruction` - Adds a new instruction.
-//! - `affirm_instruction` - Affirms an existing instruction.
-//! - `withdraw_affirmation` - Withdraw an existing affirmation to the given instruction.
-//! - `reject_instruction` - Rejects an existing instruction.
-//! - `set_venue_filtering` - Enables or disabled venue filtering for a token.
+//! - `update_venue_details` - Updates the details of an existing venue.
+//! - `update_venue_type` - Updates the type of an existing venue.
+//! - `affirm_with_receipts` - Affirms an instruction using receipts for off-chain transfers.
+//! - `set_venue_filtering` - Enables or disables venue filtering for a token.
 //! - `allow_venues` - Allows additional venues to create instructions involving an asset.
 //! - `disallow_venues` - Revokes permission given to venues for creating instructions involving a particular asset.
+//! - `update_venue_signers` - Updates the signers of a venue.
+//! - `execute_manual_instruction` - Manually executes an instruction.
+//! - `add_instruction` - Adds a new instruction.
+//! - `add_and_affirm_instruction` - Adds and affirms a new instruction.
+//! - `affirm_instruction` - Provides affirmation to an existing instruction.
+//! - `withdraw_affirmation` - Withdraws an affirmation for a given instruction.
+//! - `reject_instruction` - Rejects an existing instruction.
+//! - `execute_scheduled_instruction` - Executes a scheduled instruction.
+//! - `affirm_with_receipts_with_count` - Affirms an instruction using receipts for off-chain transfers with a specified count.
+//! - `affirm_instruction_with_count` - Provides affirmation to an existing instruction with a specified count.
+//! - `reject_instruction_with_count` - Rejects an existing instruction with a specified count.
+//! - `withdraw_affirmation_with_count` - Withdraws an affirmation for a given instruction with a specified count.
+//! - `add_instruction_with_mediators` - Adds a new instruction with mediators.
+//! - `add_and_affirm_with_mediators` - Adds and affirms a new instruction with mediators.
+//! - `affirm_instruction_as_mediator` - Affirms the instruction as a mediator.
+//! - `withdraw_affirmation_as_mediator` - Removes the mediator's affirmation for the instruction.
+//! - `reject_instruction_as_mediator` - Rejects an existing instruction as a mediator.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -61,27 +77,29 @@ use frame_support::weights::Weight;
 use frame_support::{ensure, BoundedBTreeSet};
 use frame_system::pallet_prelude::*;
 use frame_system::{ensure_root, RawOrigin};
+use polymesh_primitives::{nft, weight_meter, NFTId};
 use sp_runtime::traits::{One, Verify};
+use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
 use sp_std::vec;
 
-use pallet_asset::MandatoryMediators;
+use pallet_asset::{BalanceOf, Frozen, MandatoryMediators};
 use pallet_base::{ensure_string_limited, try_next_post};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY;
 use polymesh_primitives::settlement::{
     AffirmationCount, AffirmationStatus, AssetCount, ExecuteInstructionInfo, FilteredLegs,
-    Instruction, InstructionId, InstructionInfo, InstructionStatus, Leg, LegId, LegStatus,
-    MediatorAffirmationStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, Venue,
-    VenueDetails, VenueId, VenueType,
+    FungibleTxSummary, Instruction, InstructionId, InstructionInfo, InstructionStatus, Leg, LegId,
+    LegStatus, MediatorAffirmationStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType,
+    Venue, VenueDetails, VenueId, VenueType,
 };
-use polymesh_primitives::with_transaction;
+use polymesh_primitives::traits::ComplianceFnConfig;
 use polymesh_primitives::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::{
-    storage_migration_ver, traits::PortfolioSubTrait, Balance, IdentityId, Memo, NFTs, PortfolioId,
-    SecondaryKey, WeightMeter,
+    storage_migration_ver, traits::PortfolioSubTrait, with_transaction, Balance, IdentityId, Memo,
+    NFTs, PortfolioId, SecondaryKey, WeightMeter,
 };
 
 type System<T> = frame_system::Pallet<T>;
@@ -451,6 +469,10 @@ pub mod pallet {
         /// Maximum number mediators in the instruction level (this does not include asset mediators).
         #[pallet::constant]
         type MaxInstructionMediators: Get<u32>;
+
+        /// The maximum time period that an instruction can be held in the `LockedForExecution` status.
+        #[pallet::constant]
+        type MaximumLockPeriod: Get<Self::Moment>;
     }
 
     #[pallet::error]
@@ -543,6 +565,20 @@ pub mod pallet {
         MediatorAffirmationExpired,
         /// Offchain assets must have a venue.
         OffChainAssetsMustHaveAVenue,
+        /// Instructions of type `SettleOnComplianceCheck` must have at least one mediator.
+        SettlementTypeRequiresMediators,
+        /// The instruction has a frozen asset.
+        InstructionWithAFrozenAsset,
+        /// The instruction has an identity with an invalid CDD claim.
+        InstructionWithAnInvalidCDDClaim,
+        /// One of the instruction receivers is not compliant.
+        IntructionReceiverIsNotCompliant,
+        /// One of the instruction senders is not compliant.
+        IntructionSenderIsNotCompliant,
+        /// Of of the sender doesn't have enough balance to execute the instruction.
+        SenderHasInsufficientBalance,
+        /// The instruction is trying to transfer the same nft more than once.
+        DuplicatedNFTId,
     }
 
     storage_migration_ver!(3);
@@ -1359,6 +1395,18 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             Self::base_reject_instruction(origin, instruction_id, None, number_of_assets)
         }
+
+        #[pallet::weight(Weight::zero())]
+        #[pallet::call_index(24)]
+        pub fn lock_instruction(
+            origin: OriginFor<T>,
+            instruction_id: InstructionId,
+            weight_limit: Option<Weight>,
+        ) -> DispatchResult {
+            let mut weight_meter = unimplemented!();
+            Self::base_lock_instruction(origin, instruction_id, &mut weight_meter)?;
+            Ok(())
+        }
     }
 }
 
@@ -1458,6 +1506,12 @@ impl<T: Config> Pallet<T> {
         // Adds the instruction mediators
         if let Some(mediators) = mediators {
             instruction_info.extend_mediators(mediators.into())
+        }
+
+        if settlement_type == SettlementType::SettleOnComplianceCheck
+            && instruction_info.mediators().is_empty()
+        {
+            return Err(Error::<T>::SettlementTypeRequiresMediators.into());
         }
 
         // Advance and get next `instruction_id`.
@@ -1743,7 +1797,7 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::InvalidInstructionStatusForExecution
             );
             // Ensures all mediator's affirmations are still valid
-            Self::ensure_non_expired_affirmations(&instruction_id)?;
+            Self::validate_mediators_affirmations(&instruction_id)?;
 
             // The order of execution of the legs matter in some edge cases around compliance.
             let mut instruction_legs: Vec<(LegId, Leg)> =
@@ -1815,12 +1869,49 @@ impl<T: Config> Pallet<T> {
         tx_result
     }
 
-    /// Returns `Ok` if all mediator's affirmation are still valid. Otherwise, returns an error.
-    /// This call also removes all elements from the `InstructionMediatorsAffirmations` storage.
-    fn ensure_non_expired_affirmations(instruction_id: &InstructionId) -> DispatchResult {
+    /// Returns `Ok` if all conditions for executing the instruction are met.
+    /// The conditions for executing an instruction are:
+    ///     - All affirmations have been received
+    ///     - Instruction is pending or has failed at least one time
+    ///     - All mediator's affirmations are still valid
+    ///     - All assets are in the allowed venue list
+    ///     - All senders have the right amount of assets being transferred
+    ///     - All senders and receivers are compliant and have valid CDD claims
+    ///     - All assets' statistics are still valid
+    ///     - There are no frozen assets
+    fn validate_execute_instruction_conditions(
+        instruction_id: &InstructionId,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        ensure!(
+            InstructionAffirmsPending::<T>::get(instruction_id) == 0,
+            Error::<T>::NotAllAffirmationsHaveBeenReceived
+        );
+
+        Self::ensure_instruction_is_pending_or_failed(instruction_id)?;
+
+        Self::validate_mediators_affirmations(instruction_id)?;
+
+        let mut instruction_legs: Vec<_> =
+            InstructionLegs::<T>::iter_prefix(instruction_id).collect();
+
+        Self::ensure_no_missing_affirmation(instruction_id, &instruction_legs)?;
+
+        // Ensures the venue is allowed for all tickers in the instruction
+        let instruction_details = InstructionDetails::<T>::get(instruction_id);
+        Self::ensure_allowed_venue(&instruction_legs, instruction_details.venue_id)?;
+
+        Self::ensure_assets_can_be_transferred(instruction_id, &instruction_legs, weight_meter)?;
+
+        Ok(())
+    }
+
+    /// Returns `Ok` if all mediator's affirmation are still valid.
+    fn validate_mediators_affirmations(instruction_id: &InstructionId) -> DispatchResult {
         let current_timestamp = <pallet_timestamp::Pallet<T>>::get();
-        for (_, mediator_affirmation) in
-            InstructionMediatorsAffirmations::<T>::drain_prefix(instruction_id)
+
+        for mediator_affirmation in
+            InstructionMediatorsAffirmations::<T>::iter_prefix_values(instruction_id)
         {
             match mediator_affirmation {
                 MediatorAffirmationStatus::Affirmed { expiry, .. } => {
@@ -1839,8 +1930,8 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Returns `Ok` if all affirmations have been received. Otherwise, returns an error.
-    /// This call also removes all elements from `UserAffirmations`, `AffirmsReceived` and `OffChainAffirmations` storage.
+    /// Returns `Ok` if all affirmations have been received.
+    #[rustfmt::skip]
     fn ensure_no_missing_affirmation(
         instruction_id: &InstructionId,
         instruction_legs: &[(LegId, Leg)],
@@ -1849,21 +1940,17 @@ impl<T: Config> Pallet<T> {
 
         for (leg_id, leg) in instruction_legs {
             match leg {
-                Leg::Fungible {
-                    sender, receiver, ..
-                }
-                | Leg::NonFungible {
-                    sender, receiver, ..
-                } => {
+                Leg::Fungible { sender, receiver, .. }
+                | Leg::NonFungible { sender, receiver, .. } => {
                     if unique_portfolios.insert(sender) {
                         let sdr_affirmation_status =
-                            UserAffirmations::<T>::take(sender, instruction_id);
+                            UserAffirmations::<T>::get(sender, instruction_id);
                         ensure!(
                             sdr_affirmation_status == AffirmationStatus::Affirmed,
                             Error::<T>::NotAllAffirmationsHaveBeenReceived
                         );
                         let sdr_affirmation_status =
-                            AffirmsReceived::<T>::take(instruction_id, sender);
+                            AffirmsReceived::<T>::get(instruction_id, sender);
                         ensure!(
                             sdr_affirmation_status == AffirmationStatus::Affirmed,
                             Error::<T>::NotAllAffirmationsHaveBeenReceived
@@ -1871,13 +1958,13 @@ impl<T: Config> Pallet<T> {
                     }
                     if unique_portfolios.insert(receiver) {
                         let rcv_affirmation_status =
-                            UserAffirmations::<T>::take(receiver, instruction_id);
+                            UserAffirmations::<T>::get(receiver, instruction_id);
                         ensure!(
                             rcv_affirmation_status == AffirmationStatus::Affirmed,
                             Error::<T>::NotAllAffirmationsHaveBeenReceived
                         );
                         let rcv_affirmation_status =
-                            AffirmsReceived::<T>::take(instruction_id, receiver);
+                            AffirmsReceived::<T>::get(instruction_id, receiver);
                         ensure!(
                             rcv_affirmation_status == AffirmationStatus::Affirmed,
                             Error::<T>::NotAllAffirmationsHaveBeenReceived
@@ -1886,7 +1973,7 @@ impl<T: Config> Pallet<T> {
                 }
                 Leg::OffChain { .. } => {
                     ensure!(
-                        OffChainAffirmations::<T>::take(instruction_id, leg_id)
+                        OffChainAffirmations::<T>::get(instruction_id, leg_id)
                             == AffirmationStatus::Affirmed,
                         Error::<T>::NotAllAffirmationsHaveBeenReceived,
                     );
@@ -1894,6 +1981,205 @@ impl<T: Config> Pallet<T> {
             }
         }
 
+        Ok(())
+    }
+
+    /// Returns `Ok` if all assets can be transferred.
+    #[rustfmt::skip]
+    fn ensure_assets_can_be_transferred(
+        id: &InstructionId,
+        instruction_legs: &[(LegId, Leg)],
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        let mut nfts_transferred = BTreeMap::new();
+        let mut fungible_tx_summary = FungibleTxSummary::new();
+
+        // Aggregates the total amount of assets sent and received per DID and per Portfolio
+        for (leg_id, leg) in instruction_legs {
+            match leg {
+                Leg::Fungible { sender, receiver, asset_id, amount } => {
+                    ensure!(
+                        InstructionLegStatus::<T>::get(id, leg_id) == LegStatus::ExecutionPending,
+                        Error::<T>::UnexpectedLegStatus
+                    );
+                    instruction_tx_summary
+                        .add_fungible_transfer(*sender, *receiver, *asset_id, *amount);
+                },
+                Leg::NonFungible { sender, receiver, nfts } => {
+                    ensure!(
+                        InstructionLegStatus::<T>::get(id, leg_id) == LegStatus::ExecutionPending,
+                        Error::<T>::UnexpectedLegStatus
+                    );
+                    Self::ensure_valid_nft_transfer(
+                        sender,
+                        receiver,
+                        nfts,
+                        &mut nfts_transferred,
+                        weight_meter
+                    )?;
+                },
+                Leg::OffChain { .. } => {
+                    if let LegStatus::ExecutionToBeSkipped(_, _) =
+                        InstructionLegStatus::<T>::get(id, leg_id)
+                    {
+                        continue;
+                    }
+                    return Err(Error::<T>::UnexpectedLegStatus.into());
+                }
+            }
+        }
+
+        Self::ensure_valid_fungible_transfers(&instruction_tx_summary, weight_meter)?;
+        Ok(())
+    }
+
+    /// Returns `Ok` if the nfts can be transferred. Adds the nfts to the `nfts_transferred` map.
+    fn ensure_valid_nft_transfer(
+        sender_pid: &PortfolioId,
+        receiver_pid: &PortfolioId,
+        nfts: &NFTs,
+        nfts_transferred: &mut BTreeMap<AssetId, BTreeSet<NFTId>>,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        for nft_id in nfts.ids() {
+            // It should not be possible to transfer the same NFT twice in the same instruction
+            if let Some(transferred_ids) = nfts_transferred.get(nfts.asset_id()) {
+                ensure!(
+                    !transferred_ids.contains(nft_id),
+                    Error::<T>::DuplicatedNFTId
+                );
+            }
+
+            Nft::<T>::validate_nft_transfer(
+                sender_pid,
+                receiver_pid,
+                nfts,
+                false,
+                Some(weight_meter),
+            )?;
+
+            nfts_transferred
+                .entry(*nfts.asset_id())
+                .and_modify(|nft_ids| {
+                    nft_ids.insert(*nft_id);
+                })
+                .or_insert(BTreeSet::from([*nft_id]));
+        }
+        Ok(())
+    }
+
+    /// Returns `Ok` if all non fungible transfers are valid.
+    fn ensure_valid_fungible_transfers(
+        fungible_tx_summary: &FungibleTxSummary,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        Self::ensure_assets_are_not_frozen(fungible_tx_summary.assets())?;
+        Self::ensure_valid_cdd_claims(fungible_tx_summary.unique_dids())?;
+        Self::ensure_receivers_are_compliant_and_their_portfolios_exist(
+            fungible_tx_summary.total_rcv_per_did(),
+            fungible_tx_summary.rcv_portfolios(),
+            weight_meter,
+        )?;
+        Self::ensure_ensure_senders_are_compliant_and_funded(
+            fungible_tx_summary.total_sent_per_did(),
+            fungible_tx_summary.total_sent_per_portfolio(),
+            weight_meter,
+        )?;
+        Self::ensure_valid_statistics(fungible_tx_summary, weight_meter)?;
+        Ok(())
+    }
+
+    /// Returns `Ok` if all assets are not frozen.
+    fn ensure_assets_are_not_frozen(unique_assets: &BTreeSet<AssetId>) -> DispatchResult {
+        for asset_id in unique_assets {
+            ensure!(
+                Frozen::<T>::get(asset_id),
+                Error::<T>::InstructionWithAFrozenAsset
+            );
+        }
+        Ok(())
+    }
+
+    /// Returns `Ok` if all identities have a valid CDD claim.
+    fn ensure_valid_cdd_claims(unique_dids: &BTreeSet<IdentityId>) -> DispatchResult {
+        for did in unique_dids {
+            ensure!(
+                pallet_identity::Pallet::<T>::has_valid_cdd(*did),
+                Error::<T>::InstructionWithAnInvalidCDDClaim
+            );
+        }
+        Ok(())
+    }
+
+    /// Returns `Ok` if all receivers are compliant and their portfolios exist.
+    fn ensure_receivers_are_compliant_and_their_portfolios_exist(
+        total_rcv_per_did: &BTreeMap<(AssetId, IdentityId), Balance>,
+        rcv_portfolios: &BTreeSet<PortfolioId>,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        for portfolio_id in rcv_portfolios {
+            T::Portfolio::ensure_portfolio_validity(portfolio_id)?;
+        }
+
+        for ((asset_id, did), _) in total_rcv_per_did.iter() {
+            if !pallet_compliance_manager::Pallet::<T>::is_compliant(
+                asset_id,
+                None,
+                Some(*did),
+                weight_meter,
+            )? {
+                return Err(Error::<T>::IntructionReceiverIsNotCompliant.into());
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Returns `Ok` if all sender's portfolio have the right balance, the tokens are locked and they are compliant.
+    fn ensure_senders_are_compliant_and_funded(
+        total_sent_per_did: &BTreeMap<(AssetId, IdentityId), Balance>,
+        total_sent_per_portfolio: &BTreeMap<(AssetId, PortfolioId), Balance>,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        // Each individual portfolio must have all tokens locked and their amount
+        for ((asset_id, portfolio_id), balance) in total_sent_per_portfolio.iter() {
+            T::Portfolio::ensure_tokens_are_locked(portfolio_id, asset_id, *balance)?;
+            T::Portfolio::ensure_portfolio_balance(portfolio_id, asset_id, *balance)?;
+        }
+
+        // The aggregate balance of the sender must be equal or greater than the total amount of tokens sent
+        for ((asset_id, did), amount) in total_sent_per_did.iter() {
+            ensure!(
+                BalanceOf::<T>::get(asset_id, did) >= *amount,
+                Error::<T>::SenderHasInsufficientBalance
+            );
+
+            if !pallet_compliance_manager::Pallet::<T>::is_compliant(
+                asset_id,
+                Some(*did),
+                None,
+                weight_meter,
+            )? {
+                return Err(Error::<T>::IntructionSenderIsNotCompliant.into());
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Returns `Ok` if the statistics requirements of all assets are met.
+    fn ensure_valid_statistics(
+        instruction_tx_summary: &FungibleTxSummary,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        for asset_id in instruction_tx_summary.assets() {
+            Asset::<T>::ensure_valid_statistics(
+                asset_id,
+                instruction_tx_summary.total_rcv_per_did_given_asset(asset_id),
+                instruction_tx_summary.total_sent_per_did_given_asset(asset_id),
+                weight_meter,
+            )?;
+        }
         Ok(())
     }
 
@@ -2930,18 +3216,7 @@ impl<T: Config> Pallet<T> {
         let (caller_did, _, instruction) =
             Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id, false)?;
 
-        // Verifies if the caller is a mediator and has already affirmed the instruction
-        let mediator_affirmation_status =
-            InstructionMediatorsAffirmations::<T>::get(instruction_id, caller_did);
-        match mediator_affirmation_status {
-            MediatorAffirmationStatus::Unknown => {
-                return Err(Error::<T>::CallerIsNotAMediator.into())
-            }
-            MediatorAffirmationStatus::Pending => {
-                return Err(Error::<T>::UnexpectedAffirmationStatus.into())
-            }
-            MediatorAffirmationStatus::Affirmed { .. } => {}
-        }
+        Self::ensure_mediator_has_affirmed_instruction(&caller_did, &instruction_id)?;
 
         // Updates the mediator's affirmation status to pending and add one to the number of pending affirmations
         InstructionMediatorsAffirmations::<T>::insert(
@@ -2966,6 +3241,56 @@ impl<T: Config> Pallet<T> {
             instruction_id,
         ));
         Ok(())
+    }
+
+    /// If the caller is a mediator and all conditions for executing the instruction are met, 
+    /// updates the instruction status to `LockedForExecution`.
+    fn base_lock_instruction(
+        origin: OriginFor<T>,
+        instruction_id: InstructionId,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        let caller_did = pallet_identity::Pallet::<T>::ensure_perms(origin.clone())?;
+
+        Self::ensure_mediator_has_affirmed_instruction(&did, instruction_id)?;
+
+        Self::validate_execute_instruction_conditions(&instruction_id, weight_meter)?;
+
+        InstructionStatuses::<T>::insert(instruction_id, InstructionStatus::LockedForExecution);
+
+        Ok(())
+    }
+
+    /// Returns `Ok` if `did` is a mediator and has affirmed the instruction.
+    fn ensure_mediator_has_affirmed_instruction(
+        did: &IdentityId,
+        instruction_id: &InstructionId,
+    ) -> DispatchResult {
+        let mediator_affirmation_status =
+            InstructionMediatorsAffirmations::<T>::get(instruction_id, did);
+
+        match mediator_affirmation_status {
+            MediatorAffirmationStatus::Affirmed { .. } => Ok(()),
+            MediatorAffirmationStatus::Unknown => Err(Error::<T>::CallerIsNotAMediator.into()),
+            MediatorAffirmationStatus::Pending => {
+                Err(Error::<T>::UnexpectedAffirmationStatus.into())
+            }
+        }
+    }
+
+    /// Returns `Ok` if the instruction status is `Pending` or `Failed`.
+    fn ensure_instruction_is_pending_or_failed(instruction_id: &InstructionId) -> DispatchResult {
+        let instruction_status = InstructionStatuses::<T>::get(instruction_id);
+
+        match instruction_status {
+            InstructionStatus::Pending | InstructionStatus::Failed => Ok(()),
+            InstructionStatus::Unknown
+            | InstructionStatus::Success(_)
+            | InstructionStatus::Rejected(_)
+            | InstructionStatus::LockedForExecution => {
+                Err(Error::<T>::InvalidInstructionStatusForExecution.into())
+            }
+        }
     }
 
     /// Returns the worst case weight for an instruction with `f` fungible legs, `n` nfts being transferred and `o` offchain assets.
@@ -3151,7 +3476,7 @@ impl<T: Config> Pallet<T> {
             execution_errors.push(Error::<T>::NotAllAffirmationsHaveBeenReceived.into());
         }
 
-        if let Err(e) = Self::ensure_non_expired_affirmations(&instruction_id) {
+        if let Err(e) = Self::validate_mediators_affirmations(&instruction_id) {
             execution_errors.push(e);
         }
 
@@ -3161,7 +3486,9 @@ impl<T: Config> Pallet<T> {
             | InstructionStatus::Rejected(_) => {
                 execution_errors.push(Error::<T>::InvalidInstructionStatusForExecution.into());
             }
-            InstructionStatus::Pending | InstructionStatus::Failed => {}
+            InstructionStatus::Pending
+            | InstructionStatus::Failed
+            | InstructionStatus::LockedForExecution => {}
         }
 
         let instruction_legs: Vec<(LegId, Leg)> =

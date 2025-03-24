@@ -659,8 +659,8 @@ impl<T: Config> Pallet<T> {
         // Verifies that all compliance rules are being respected
         if !T::Compliance::is_compliant(
             nfts.asset_id(),
-            sender_portfolio.did,
-            receiver_portfolio.did,
+            Some(sender_portfolio.did),
+            Some(receiver_portfolio.did),
             weight_meter.ok_or(Error::<T>::InvalidNFTTransferComplianceFailure)?,
         )? {
             return Err(Error::<T>::InvalidNFTTransferComplianceFailure.into());
@@ -821,8 +821,8 @@ impl<T: Config> Pallet<T> {
 
         match T::Compliance::is_compliant(
             nfts.asset_id(),
-            sender_portfolio.did,
-            receiver_portfolio.did,
+            Some(sender_portfolio.did),
+            Some(receiver_portfolio.did),
             weight_meter,
         ) {
             Ok(is_compliant) => {

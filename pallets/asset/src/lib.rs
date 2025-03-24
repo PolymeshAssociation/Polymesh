@@ -2905,8 +2905,8 @@ impl<T: AssetConfig> Pallet<T> {
         // Verifies that all compliance rules are being respected
         if !T::ComplianceManager::is_compliant(
             &asset_id,
-            sender_portfolio.did,
-            receiver_portfolio.did,
+            Some(sender_portfolio.did),
+            Some(receiver_portfolio.did),
             weight_meter,
         )? {
             return Err(Error::<T>::InvalidTransferComplianceFailure.into());
@@ -3009,8 +3009,8 @@ impl<T: AssetConfig> Pallet<T> {
 
         match T::ComplianceManager::is_compliant(
             asset_id,
-            sender_portfolio.did,
-            receiver_portfolio.did,
+            Some(sender_portfolio.did),
+            Some(receiver_portfolio.did),
             weight_meter,
         ) {
             Ok(is_compliant) => {

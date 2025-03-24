@@ -1121,7 +1121,7 @@ impl<T: Config> Pallet<T> {
         let asset_compliance = AssetTransferCompliances::<T>::get(&asset_id);
 
         // If the requirements are paused, the conditions are not checked
-        if asset_compliance.paused {
+        if asset_compliance.paused || asset_compliance.requirements.is_empty() {
             return Ok(());
         }
 

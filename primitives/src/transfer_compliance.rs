@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::asset::AssetId;
-use crate::statistics::{v1, Percentage, StatClaim, StatOpType, StatType};
+use crate::statistics::{Percentage, StatClaim, StatOpType, StatType};
 use crate::{ClaimType, IdentityId};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{pallet_prelude::Get, BoundedBTreeSet};
@@ -82,17 +82,6 @@ impl TransferCondition {
     }
 }
 
-impl From<v1::TransferManager> for TransferCondition {
-    fn from(old: v1::TransferManager) -> Self {
-        match old {
-            v1::TransferManager::CountTransferManager(max) => Self::MaxInvestorCount(max),
-            v1::TransferManager::PercentageTransferManager(max) => {
-                Self::MaxInvestorOwnership(max.0)
-            }
-        }
-    }
-}
-
 /// Result of a transfer condition check.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode, TypeInfo)]
@@ -102,15 +91,6 @@ pub struct TransferConditionResult {
     pub condition: TransferCondition,
     /// Final evaluation result.
     pub result: bool,
-}
-
-impl From<v1::TransferManagerResult> for TransferConditionResult {
-    fn from(old: v1::TransferManagerResult) -> Self {
-        Self {
-            condition: old.tm.into(),
-            result: old.result,
-        }
-    }
 }
 
 /// Transfer Condition Exempt key.
@@ -123,6 +103,17 @@ pub struct TransferConditionExemptKey {
     pub op: StatOpType,
     /// Claim type.
     pub claim_type: Option<ClaimType>,
+}
+
+impl TransferConditionExemptKey {
+    /// Create a new instance of [`TransferConditionExemptKey`]
+    pub fn new(asset_id: AssetId, op: StatOpType, claim_type: Option<ClaimType>) -> Self {
+        Self {
+            asset_id,
+            op,
+            claim_type,
+        }
+    }
 }
 
 /// List of transfer compliance requirements associated to an asset.

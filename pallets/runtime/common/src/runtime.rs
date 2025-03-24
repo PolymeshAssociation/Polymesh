@@ -556,6 +556,7 @@ macro_rules! misc_pallet_impls {
             type MaxNumberOfPortfolios = MaxNumberOfPortfolios;
             type MaxNumberOfVenueSigners = MaxNumberOfVenueSigners;
             type MaxInstructionMediators = MaxInstructionMediators;
+            type MaximumLockPeriod = MaximumLockPeriod;
         }
 
         impl pallet_sto::Config for Runtime {

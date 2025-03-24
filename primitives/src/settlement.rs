@@ -23,6 +23,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
 use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
+use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec::Vec;
 
@@ -44,19 +45,8 @@ impl_checked_inc!(VenueId);
 pub struct VenueDetails(Vec<u8>);
 
 /// Status of an instruction
-#[derive(
-    Clone,
-    Debug,
-    Decode,
-    Default,
-    Encode,
-    MaxEncodedLen,
-    Eq,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    TypeInfo
-)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub enum InstructionStatus<BlockNumber> {
     /// Invalid instruction or details pruned
     #[default]
@@ -69,23 +59,13 @@ pub enum InstructionStatus<BlockNumber> {
     Success(BlockNumber),
     /// Instruction has been rejected.
     Rejected(BlockNumber),
+    /// Instruction is locked for execution.
+    LockedForExecution,
 }
 
 /// Type of the venue. Used for offchain filtering.
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Decode,
-    Default,
-    Encode,
-    MaxEncodedLen,
-    Eq,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    TypeInfo
-)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Copy, Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub enum VenueType {
     /// Default type - used for mixed and unknown types
     #[default]
@@ -99,20 +79,8 @@ pub enum VenueType {
 }
 
 /// Status of a leg
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Decode,
-    Default,
-    Encode,
-    MaxEncodedLen,
-    Eq,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    TypeInfo
-)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Copy, Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub enum LegStatus<AccountId> {
     /// It is waiting for affirmation
     #[default]
@@ -124,19 +92,8 @@ pub enum LegStatus<AccountId> {
 }
 
 /// Status of an affirmation
-#[derive(
-    Clone,
-    Debug,
-    Decode,
-    Default,
-    Encode,
-    MaxEncodedLen,
-    Eq,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    TypeInfo
-)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub enum AffirmationStatus {
     /// Invalid affirmation
     #[default]
@@ -148,20 +105,8 @@ pub enum AffirmationStatus {
 }
 
 /// Type of settlement
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Decode,
-    Default,
-    Encode,
-    MaxEncodedLen,
-    Eq,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    TypeInfo
-)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Copy, Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub enum SettlementType<BlockNumber> {
     /// Instruction should be settled in the next block as soon as all affirmations are received.
     #[default]
@@ -170,6 +115,8 @@ pub enum SettlementType<BlockNumber> {
     SettleOnBlock(BlockNumber),
     /// Instruction must be settled manually on or after BlockNumber.
     SettleManual(BlockNumber),
+    /// Instruction will be settled after compliance check.
+    SettleOnComplianceCheck,
 }
 
 /// A per-Instruction leg ID.
@@ -277,17 +224,8 @@ pub struct Venue {
 }
 
 /// An offchain transaction receipt.
-#[derive(
-    Encode,
-    Decode,
-    MaxEncodedLen,
-    Clone,
-    PartialEq,
-    Eq,
-    Debug,
-    PartialOrd,
-    Ord
-)]
+#[derive(Encode, Decode, MaxEncodedLen)]
+#[derive(Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Receipt<Balance> {
     /// Unique receipt number set by the signer for their receipts.
     uid: u64,
@@ -334,18 +272,8 @@ impl<Balance> Receipt<Balance> {
 pub struct ReceiptMetadata([u8; 32]);
 
 /// Details about an offchain transaction receipt.
-#[derive(
-    Encode,
-    Decode,
-    MaxEncodedLen,
-    TypeInfo,
-    Clone,
-    PartialEq,
-    Eq,
-    Debug,
-    PartialOrd,
-    Ord
-)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct ReceiptDetails<AccountId, OffChainSignature> {
     /// Unique receipt number set by the signer for their receipts
     uid: u64,
@@ -414,18 +342,8 @@ impl<AccountId, OffChainSignature> ReceiptDetails<AccountId, OffChainSignature> 
 
 /// Stores the number of fungible, non fungible and offchain transfers in a set of legs.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Decode,
-    MaxEncodedLen,
-    Default,
-    Encode,
-    Eq,
-    PartialEq,
-    TypeInfo
-)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct AssetCount {
     fungible: u32,
     non_fungible: u32,
@@ -718,18 +636,8 @@ impl FilteredLegs {
 
 /// Holds the [`AssetCount`] for both the sender and receiver side and the number of offchain assets.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Decode,
-    Default,
-    Encode,
-    MaxEncodedLen,
-    Eq,
-    PartialEq,
-    TypeInfo
-)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct AffirmationCount {
     /// The [`AssetCount`] for sender side.
     sender_asset_count: AssetCount,
@@ -813,17 +721,8 @@ impl ExecuteInstructionInfo {
 }
 
 /// The status of the mediator's affirmation.
-#[derive(
-    Clone,
-    Debug,
-    Decode,
-    Default,
-    Encode,
-    MaxEncodedLen,
-    Eq,
-    PartialEq,
-    TypeInfo
-)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum MediatorAffirmationStatus<T> {
     /// Invalid affirmation status
     #[default]
@@ -835,4 +734,119 @@ pub enum MediatorAffirmationStatus<T> {
         /// Sets an expiration date for the affirmation.
         expiry: Option<T>,
     },
+}
+
+/// A summary of the amount of fungible tokens being exchanged in an instruction.
+pub struct FungibleTxSummary {
+    /// All unique fungible assets in the instruction.
+    assets: BTreeSet<AssetId>,
+    /// All unique identities exchanging fungible assets in the instruction.
+    dids: BTreeSet<IdentityId>,
+    /// All unique portfolios that receive fungible assets in the instruction.
+    rcv_portfolios: BTreeSet<PortfolioId>,
+    /// Total amount of each fungible asset received per identity.
+    total_rcv_per_did: BTreeMap<(AssetId, IdentityId), Balance>,
+    /// Total amount of each fungible asset sent per identity.
+    total_sent_per_did: BTreeMap<(AssetId, IdentityId), Balance>,
+    /// Total amount of each fungible asset sent per portfolio.
+    total_sent_per_portfolio: BTreeMap<(AssetId, PortfolioId), Balance>,
+}
+
+impl FungibleTxSummary {
+    /// Creates a new instance of [`FungibleTxSummary`].
+    pub fn new() -> Self {
+        FungibleTxSummary {
+            assets: BTreeSet::new(),
+            dids: BTreeSet::new(),
+            rcv_portfolios: BTreeSet::new(),
+            total_rcv_per_did: BTreeMap::new(),
+            total_sent_per_did: BTreeMap::new(),
+            total_sent_per_portfolio: BTreeMap::new(),
+        }
+    }
+
+    /// Returns all assets in the instruction.
+    pub fn assets(&self) -> &BTreeSet<AssetId> {
+        &self.assets
+    }
+
+    /// Returns all identities in the instruction.
+    pub fn dids(&self) -> &BTreeSet<IdentityId> {
+        &self.dids
+    }
+
+    /// Returns all portfolios that receive assets in the instruction.
+    pub fn rcv_portfolios(&self) -> &BTreeSet<PortfolioId> {
+        &self.rcv_portfolios
+    }
+
+    /// Returns the total amount of each asset received per identity.
+    pub fn total_rcv_per_did(&self) -> &BTreeMap<(AssetId, IdentityId), Balance> {
+        &self.total_rcv_per_did
+    }
+
+    /// Returns a [`BTreeMap<IdentityId, Balance>`] containing the total amount received per identity for the given asset.
+    pub fn total_rcv_per_did_given_asset(
+        &self,
+        asset_id: &AssetId,
+    ) -> BTreeMap<IdentityId, Balance> {
+        self.total_rcv_per_did
+            .iter()
+            .filter(|((a, _), _)| a == asset_id)
+            .map(|((_, did), amount)| (*did, *amount))
+            .collect()
+    }
+
+    /// Returns the total amount of each asset sent per identity.
+    pub fn total_sent_per_did(&self) -> &BTreeMap<(AssetId, IdentityId), Balance> {
+        &self.total_sent_per_did
+    }
+
+    /// Returns a [`BTreeMap<IdentityId, Balance>`] containing the total amount sent per identity for the given asset.
+    pub fn total_sent_per_did_given_asset(
+        &self,
+        asset_id: &AssetId,
+    ) -> BTreeMap<IdentityId, Balance> {
+        self.total_sent_per_did
+            .iter()
+            .filter(|((a, _), _)| a == asset_id)
+            .map(|((_, did), amount)| (*did, *amount))
+            .collect()
+    }
+
+    /// Returns the total amount of each asset sent per portfolio.
+    pub fn total_sent_per_portfolio(&self) -> &BTreeMap<(AssetId, PortfolioId), Balance> {
+        &self.total_sent_per_portfolio
+    }
+
+    /// Updates the amount of tokens sent and receiver by each party in a fungible transfer.
+    pub fn add_fungible_transfer(
+        &mut self,
+        sender_pid: PortfolioId,
+        receiver_pid: PortfolioId,
+        asset_id: AssetId,
+        amount: Balance,
+    ) {
+        self.assets.insert(asset_id);
+
+        self.dids.insert(sender_pid.did);
+        self.dids.insert(receiver_pid.did);
+
+        self.rcv_portfolios.insert(receiver_pid);
+
+        self.total_rcv_per_did
+            .entry((asset_id, receiver_pid.did))
+            .and_modify(|v| *v += amount)
+            .or_insert(amount);
+
+        self.total_sent_per_did
+            .entry((asset_id, sender_pid.did))
+            .and_modify(|v| *v += amount)
+            .or_insert(amount);
+
+        self.total_sent_per_portfolio
+            .entry((asset_id, sender_pid))
+            .and_modify(|v| *v += amount)
+            .or_insert(amount);
+    }
 }

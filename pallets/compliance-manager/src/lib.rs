@@ -715,10 +715,17 @@ impl<T: Config> Pallet<T> {
     /// Loads the context for each condition in `conditions` and verifies that all of them evaluate to `true`.
     fn are_all_conditions_satisfied(
         asset_id: &AssetId,
-        did: IdentityId,
+        did: Option<IdentityId>,
         conditions: &[Condition],
         weight_meter: &mut WeightMeter,
     ) -> Result<bool, DispatchError> {
+        let did = {
+            match did {
+                Some(did) => did,
+                None => return Ok(true),
+            }
+        };
+
         let slot = &mut None;
         for condition in conditions {
             if !Self::is_condition_satisfied(asset_id, did, condition, slot, weight_meter)? {
@@ -864,8 +871,8 @@ impl<T: Config> Pallet<T> {
     fn is_any_requirement_compliant(
         asset_id: &AssetId,
         requirements: &[ComplianceRequirement],
-        sender_did: IdentityId,
-        receiver_did: IdentityId,
+        sender_did: Option<IdentityId>,
+        receiver_did: Option<IdentityId>,
         weight_meter: &mut WeightMeter,
     ) -> Result<bool, DispatchError> {
         for requirement in requirements {
@@ -892,8 +899,8 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> ComplianceFnConfig for Pallet<T> {
     fn is_compliant(
         asset_id: &AssetId,
-        sender_did: IdentityId,
-        receiver_did: IdentityId,
+        sender_did: Option<IdentityId>,
+        receiver_did: Option<IdentityId>,
         weight_meter: &mut WeightMeter,
     ) -> Result<bool, DispatchError> {
         let asset_compliance = AssetCompliances::<T>::get(asset_id);

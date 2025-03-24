@@ -96,17 +96,11 @@ pub trait PortfolioSubTrait<AccountId> {
     /// * `portfolio` - Portfolio to lock tokens
     /// * `asset_id` - [`AssetId`] of the token to lock
     /// * `amount` - Amount of tokens to lock
-
     fn lock_tokens(portfolio: &PortfolioId, asset_id: &AssetId, amount: Balance) -> DispatchResult;
 
-    /// Unlocks some tokens of a portfolio
-    ///
-    /// # Arguments
-    /// * `portfolio` - Portfolio to unlock tokens
-    /// * asset_id` - [`AssetId`] of the token to unlock
-    /// * `amount` - Amount of tokens to unlock
+    /// Unlocks `amount` tokens of `asset_id` from `portfolio_id`.
     fn unlock_tokens(
-        portfolio: &PortfolioId,
+        portfolio_id: &PortfolioId,
         asset_id: &AssetId,
         amount: Balance,
     ) -> DispatchResult;
@@ -143,6 +137,27 @@ pub trait PortfolioSubTrait<AccountId> {
 
     /// Returns `true` if the portfolio has pre-approved the receivement of `asset_id`, otherwise returns `false`.
     fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, asset_id: &AssetId) -> bool;
+
+    /// Returns `Ok` if the given `amount` of `asset_id` tokens are locked in `portfolio_id`.
+    fn ensure_tokens_are_locked(
+        portfolio: &PortfolioId,
+        asset_id: &AssetId,
+        amount: Balance,
+    ) -> DispatchResult;
+
+    /// Returns `Ok` if the specified `nft_id` for a given `asset_id` is locked in `portfolio_id`.
+    fn ensure_nft_is_locked(
+        portfolio_id: &PortfolioId,
+        asset_id: &AssetId,
+        nft_id: &NFTId,
+    ) -> DispatchResult;
+
+    /// Returns `Ok` if the amount of `asset_id` tokens in `portfolio_id` is greater or equal to `amount`.
+    fn ensure_portfolio_balance(
+        portfolio_id: &PortfolioId,
+        asset_id: &AssetId,
+        amount: Balance,
+    ) -> DispatchResult;
 }
 
 pub trait ComplianceFnConfig {
@@ -150,8 +165,8 @@ pub trait ComplianceFnConfig {
     /// Otherwise, returns `false`.
     fn is_compliant(
         asset_id: &AssetId,
-        sender_did: IdentityId,
-        receiver_did: IdentityId,
+        sender_did: Option<IdentityId>,
+        receiver_did: Option<IdentityId>,
         weight_meter: &mut WeightMeter,
     ) -> Result<bool, DispatchError>;
 
