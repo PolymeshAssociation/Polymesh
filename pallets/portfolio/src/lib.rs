@@ -1202,7 +1202,10 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Pallet<T> {
         asset_id: &AssetId,
         nft_id: &NFTId,
     ) -> DispatchResult {
-        Self::ensure_nft_is_locked(portfolio_id, asset_id, nft_id)?;
+        ensure!(
+            PortfolioLockedNFT::<T>::contains_key(portfolio_id, (asset_id, nft_id)),
+            Error::<T>::NFTNotLocked
+        );
         PortfolioLockedNFT::<T>::remove(portfolio_id, (asset_id, nft_id));
         Ok(())
     }
@@ -1229,18 +1232,6 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Pallet<T> {
         ensure!(
             PortfolioLockedAssets::<T>::get(portfolio, asset_id) >= amount,
             Error::<T>::InsufficientTokensLocked
-        );
-        Ok(())
-    }
-
-    fn ensure_nft_is_locked(
-        portfolio_id: &PortfolioId,
-        asset_id: &AssetId,
-        nft_id: &NFTId,
-    ) -> DispatchResult {
-        ensure!(
-            PortfolioLockedNFT::<T>::contains_key(portfolio_id, (asset_id, nft_id)),
-            Error::<T>::NFTNotLocked
         );
         Ok(())
     }

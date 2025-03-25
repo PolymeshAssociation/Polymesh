@@ -77,7 +77,7 @@ use frame_support::weights::Weight;
 use frame_support::{ensure, BoundedBTreeSet};
 use frame_system::pallet_prelude::*;
 use frame_system::{ensure_root, RawOrigin};
-use polymesh_primitives::{nft, weight_meter, NFTId};
+use polymesh_primitives::NFTId;
 use sp_runtime::traits::{One, Verify};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
@@ -1396,15 +1396,33 @@ pub mod pallet {
             Self::base_reject_instruction(origin, instruction_id, None, number_of_assets)
         }
 
+        /// Moves the instruction status to `LockedForExecution`. This function must be called by a
+        /// mediator of the instruction and will only suceed if the following conditions are met:
+        ///     - All affirmations have been received.
+        ///     - Instruction is pending or has failed at least one time.
+        ///     - All mediator's affirmations are still valid.
+        ///     - All assets are in the allowed venue list.
+        ///     - All senders have the right amount of assets being transferred.
+        ///     - All senders and receivers are compliant and have valid CDD claims.
+        ///     - All assets' statistics are still valid.
+        ///     - There are no frozen assets.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, specifying the caller.
+        /// * `instruction_id` - The [`InstructionId`] of the instruction to be locked.
+        /// * `weight_limit` - An optional maximum [`Weight`] value to be charged for locking the instruction.
         #[pallet::weight(Weight::zero())]
         #[pallet::call_index(24)]
         pub fn lock_instruction(
             origin: OriginFor<T>,
             instruction_id: InstructionId,
-            weight_limit: Option<Weight>,
+            _weight_limit: Option<Weight>,
         ) -> DispatchResult {
-            let mut weight_meter = unimplemented!();
-            Self::base_lock_instruction(origin, instruction_id, &mut weight_meter)?;
+            Self::base_lock_instruction(
+                origin,
+                instruction_id,
+                &mut WeightMeter::max_limit(Weight::zero()),
+            )?;
             Ok(())
         }
     }
@@ -1892,12 +1910,10 @@ impl<T: Config> Pallet<T> {
 
         Self::validate_mediators_affirmations(instruction_id)?;
 
-        let mut instruction_legs: Vec<_> =
-            InstructionLegs::<T>::iter_prefix(instruction_id).collect();
+        let instruction_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(instruction_id).collect();
 
         Self::ensure_no_missing_affirmation(instruction_id, &instruction_legs)?;
 
-        // Ensures the venue is allowed for all tickers in the instruction
         let instruction_details = InstructionDetails::<T>::get(instruction_id);
         Self::ensure_allowed_venue(&instruction_legs, instruction_details.venue_id)?;
 
@@ -2002,7 +2018,7 @@ impl<T: Config> Pallet<T> {
                         InstructionLegStatus::<T>::get(id, leg_id) == LegStatus::ExecutionPending,
                         Error::<T>::UnexpectedLegStatus
                     );
-                    instruction_tx_summary
+                    fungible_tx_summary
                         .add_fungible_transfer(*sender, *receiver, *asset_id, *amount);
                 },
                 Leg::NonFungible { sender, receiver, nfts } => {
@@ -2029,7 +2045,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        Self::ensure_valid_fungible_transfers(&instruction_tx_summary, weight_meter)?;
+        Self::ensure_valid_fungible_transfers(&fungible_tx_summary, weight_meter)?;
         Ok(())
     }
 
@@ -2074,13 +2090,13 @@ impl<T: Config> Pallet<T> {
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         Self::ensure_assets_are_not_frozen(fungible_tx_summary.assets())?;
-        Self::ensure_valid_cdd_claims(fungible_tx_summary.unique_dids())?;
+        Self::ensure_valid_cdd_claims(fungible_tx_summary.dids())?;
         Self::ensure_receivers_are_compliant_and_their_portfolios_exist(
             fungible_tx_summary.total_rcv_per_did(),
             fungible_tx_summary.rcv_portfolios(),
             weight_meter,
         )?;
-        Self::ensure_ensure_senders_are_compliant_and_funded(
+        Self::ensure_senders_are_compliant_and_funded(
             fungible_tx_summary.total_sent_per_did(),
             fungible_tx_summary.total_sent_per_portfolio(),
             weight_meter,
@@ -2174,9 +2190,9 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         for asset_id in instruction_tx_summary.assets() {
             Asset::<T>::ensure_valid_statistics(
-                asset_id,
-                instruction_tx_summary.total_rcv_per_did_given_asset(asset_id),
-                instruction_tx_summary.total_sent_per_did_given_asset(asset_id),
+                *asset_id,
+                &instruction_tx_summary.total_rcv_per_did_given_asset(asset_id),
+                &instruction_tx_summary.total_sent_per_did_given_asset(asset_id),
                 weight_meter,
             )?;
         }
@@ -3243,7 +3259,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// If the caller is a mediator and all conditions for executing the instruction are met, 
+    /// If the caller is a mediator and all conditions for executing the instruction are met,
     /// updates the instruction status to `LockedForExecution`.
     fn base_lock_instruction(
         origin: OriginFor<T>,
@@ -3252,7 +3268,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let caller_did = pallet_identity::Pallet::<T>::ensure_perms(origin.clone())?;
 
-        Self::ensure_mediator_has_affirmed_instruction(&did, instruction_id)?;
+        Self::ensure_mediator_has_affirmed_instruction(&caller_did, &instruction_id)?;
 
         Self::validate_execute_instruction_conditions(&instruction_id, weight_meter)?;
 

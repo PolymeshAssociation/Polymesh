@@ -145,13 +145,6 @@ pub trait PortfolioSubTrait<AccountId> {
         amount: Balance,
     ) -> DispatchResult;
 
-    /// Returns `Ok` if the specified `nft_id` for a given `asset_id` is locked in `portfolio_id`.
-    fn ensure_nft_is_locked(
-        portfolio_id: &PortfolioId,
-        asset_id: &AssetId,
-        nft_id: &NFTId,
-    ) -> DispatchResult;
-
     /// Returns `Ok` if the amount of `asset_id` tokens in `portfolio_id` is greater or equal to `amount`.
     fn ensure_portfolio_balance(
         portfolio_id: &PortfolioId,

@@ -7,8 +7,10 @@ use crate::{
 #[cfg(feature = "runtime-benchmarks")]
 use sp_std::{collections::btree_set::BTreeSet, prelude::Vec};
 
-use crate::{asset::AssetId, Balance, IdentityId};
 use frame_support::dispatch::{DispatchError, DispatchResult};
+
+use crate::asset::AssetId;
+use crate::{Balance, IdentityId};
 
 pub trait AssetFnConfig: frame_system::Config {
     type AssetFn: AssetFnTrait<Self::AccountId>;

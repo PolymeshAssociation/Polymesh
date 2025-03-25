@@ -1469,7 +1469,12 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     // No compliance requirement is present, compliance should pass
     let mut weight_meter = WeightMeter::max_limit_no_minimum();
     assert_ok!(
-        ComplianceManager::is_compliant(&asset_id, issuer.did, other.did, &mut weight_meter),
+        ComplianceManager::is_compliant(
+            &asset_id,
+            Some(issuer.did),
+            Some(other.did),
+            &mut weight_meter
+        ),
         true
     );
 
@@ -1490,7 +1495,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     ));
 
     let verify = |from: User, to: User, weight_meter: &mut WeightMeter| {
-        ComplianceManager::is_compliant(&asset_id, from.did, to.did, weight_meter)
+        ComplianceManager::is_compliant(&asset_id, Some(from.did), Some(to.did), weight_meter)
     };
 
     // From primary issuance agent to the random guy should succeed

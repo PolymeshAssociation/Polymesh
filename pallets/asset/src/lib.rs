@@ -97,6 +97,7 @@ use frame_support::BoundedBTreeSet;
 use frame_system::ensure_root;
 use sp_io::hashing::blake2_128;
 use sp_runtime::traits::Zero;
+use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
 
@@ -3114,6 +3115,20 @@ impl<T: AssetConfig> Pallet<T> {
         }
 
         nonce
+    }
+
+    pub fn ensure_valid_statistics(
+        asset_id: AssetId,
+        total_rcv_per_did: &BTreeMap<IdentityId, Balance>,
+        total_sent_per_did: &BTreeMap<IdentityId, Balance>,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        Statistics::<T>::ensure_valid_statistics(
+            asset_id,
+            total_rcv_per_did,
+            total_sent_per_did,
+            weight_meter,
+        )
     }
 }
 

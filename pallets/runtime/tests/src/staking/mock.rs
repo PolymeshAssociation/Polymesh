@@ -460,6 +460,22 @@ impl PortfolioSubTrait<AccountId> for Test {
     fn skip_portfolio_affirmation(_: &PortfolioId, _: &AssetId) -> bool {
         unimplemented!()
     }
+
+    fn ensure_tokens_are_locked(
+        _portfolio: &PortfolioId,
+        _asset_id: &AssetId,
+        _amount: polymesh_primitives::Balance,
+    ) -> DispatchResult {
+        unimplemented!()
+    }
+
+    fn ensure_portfolio_balance(
+        _portfolio_id: &PortfolioId,
+        _asset_id: &AssetId,
+        _amount: polymesh_primitives::Balance,
+    ) -> DispatchResult {
+        unimplemented!()
+    }
 }
 
 impl CheckCdd<AccountId> for Test {
