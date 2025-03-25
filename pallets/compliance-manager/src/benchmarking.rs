@@ -606,8 +606,8 @@ benchmarks! {
             !Pallet::<T>::is_any_requirement_compliant(
                 &asset_id,
                 &requirements,
-                alice.did(),
-                bob.did(),
+                Some(alice.did()),
+                Some(bob.did()),
                 &mut weight_meter
             )
             .unwrap()
