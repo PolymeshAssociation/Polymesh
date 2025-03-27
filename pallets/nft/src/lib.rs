@@ -870,6 +870,31 @@ impl<T: Config> Pallet<T> {
             }
         })
     }
+
+    /// Transfers all `nfts` from `sender_pid` to `receiver_pid`.
+    /// Note: This functions skips all compliance checks and only checks for onwership.
+    pub fn simplified_nft_transfer(
+        sender_pid: PortfolioId,
+        receiver_pid: PortfolioId,
+        nfts: NFTs,
+        instruction_id: InstructionId,
+        instruction_memo: Option<Memo>,
+        caller_did: IdentityId,
+    ) -> DispatchResult {
+        Self::ensure_nft_ownership(&sender_pid, &nfts)?;
+        Self::unverified_nfts_transfer(&sender_pid, &receiver_pid, &nfts);
+        Self::deposit_event(Event::NFTPortfolioUpdated(
+            caller_did,
+            nfts,
+            Some(sender_pid),
+            Some(receiver_pid),
+            PortfolioUpdateReason::Transferred {
+                instruction_id: Some(instruction_id),
+                instruction_memo,
+            },
+        ));
+        Ok(())
+    }
 }
 
 impl<T: Config> NFTTrait<T::RuntimeOrigin> for Pallet<T> {

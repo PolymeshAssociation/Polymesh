@@ -3476,6 +3476,37 @@ impl<T: AssetConfig> Pallet<T> {
             }
         })
     }
+
+    /// Transfers `transfer_value` of `asset_id` from `sender_pid` to `receiver_pid`.
+    /// Note: This functions skips all compliance and statistics checks, only checking for balance.
+    pub fn simplified_fungible_transfer(
+        asset_id: AssetId,
+        sender_pid: PortfolioId,
+        receiver_pid: PortfolioId,
+        transfer_value: Balance,
+        instruction_id: InstructionId,
+        instruction_memo: Option<Memo>,
+        caller_did: IdentityId,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        ensure!(
+            BalanceOf::<T>::get(&asset_id, &sender_pid.did) >= transfer_value,
+            Error::<T>::InsufficientBalance
+        );
+
+        Self::unverified_transfer_asset(
+            sender_pid,
+            receiver_pid,
+            asset_id,
+            transfer_value,
+            Some(instruction_id),
+            instruction_memo,
+            caller_did,
+            weight_meter,
+        )?;
+
+        Ok(())
+    }
 }
 
 //==========================================================================

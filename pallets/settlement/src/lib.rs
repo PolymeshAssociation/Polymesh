@@ -579,6 +579,12 @@ pub mod pallet {
         SenderHasInsufficientBalance,
         /// The instruction is trying to transfer the same nft more than once.
         DuplicatedNFTId,
+        /// The instruction has been locked for too much time.
+        ExceededMaximumLockingPeriod,
+        /// All locked instruction must register a lock timestamp.
+        LockTimestampNotFound,
+        /// Unexpected settlement type.
+        UnexpectedSettlementType,
     }
 
     storage_migration_ver!(3);
@@ -738,6 +744,11 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    /// The moment the instruction was moved to the `LockedForExecution` status.
+    #[pallet::storage]
+    pub type LockedTimestamp<T: Config> =
+        StorageMap<_, Twox64Concat, InstructionId, T::Moment, OptionQuery>;
+
     /// Storage version.
     #[pallet::storage]
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
@@ -812,7 +823,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_string_limited::<T>(&details)?;
             let did = pallet_identity::Pallet::<T>::ensure_perms(origin)?;
-            Self::venue_for_management(id, did)?;
+            Self::ensure_venue_creator(id, did)?;
 
             // Commit to storage.
             Details::<T>::insert(id, details.clone());
@@ -833,7 +844,7 @@ pub mod pallet {
         ) -> DispatchResult {
             let did = pallet_identity::Pallet::<T>::ensure_perms(origin)?;
 
-            let mut venue = Self::venue_for_management(id, did)?;
+            let mut venue = Self::ensure_venue_creator(id, did)?;
             venue.venue_type = typ;
             VenueInfo::<T>::insert(id, venue);
 
@@ -957,17 +968,24 @@ pub mod pallet {
         /// Manually executes an instruction.
         ///
         /// # Arguments
-        /// * `id`: The [`InstructionId`] of the instruction to be executed.
-        /// * `portfolio`:  One of the caller's [`PortfolioId`] which is also a counter patry in the instruction.
-        /// If None, the caller must be the venue creator or a counter party in a [`Leg::OffChain`].
-        /// * `fungible_transfers`: The number of fungible legs in the instruction.
-        /// * `nfts_transfers`: The number of nfts being transferred in the instruction.
-        /// * `offchain_transfers`: The number of offchain legs in the instruction.
-        /// * `weight_limit`: An optional maximum [`Weight`] value to be charged for executing the instruction.
-        /// If the `weight_limit` is less than the required amount, the instruction will fail execution.
+        /// * `id` - The [`InstructionId`] of the instruction to be executed.
+        /// * `portfolio` - An optional [`PortfolioId`] that belongs to the caller, which must be a counterparty
+        ///   in the instruction. If `None`, the caller must either be the venue creator or a counterparty in an [`Leg::OffChain`].
+        /// * `fungible_transfers` - The number of fungible asset transfers in the instruction.
+        /// * `nfts_transfers` - The number of non-fungible token (NFT) transfers in the instruction.
+        /// * `offchain_transfers` - The number of off-chain asset transfers in the instruction.
+        /// * `weight_limit` - An optional maximum [`Weight`] value to be charged for executing the instruction.
+        ///   If the `weight_limit` is less than the required weight, the execution will fail.
         ///
-        /// Note: calling the rpc method `get_execute_instruction_info` returns an instance of [`ExecuteInstructionInfo`], which contains the count parameters.
-        #[pallet::weight(<T as Config>::WeightInfo::execute_manual_weight_limit(weight_limit, fungible_transfers, nfts_transfers, offchain_transfers))]
+        /// # Permissions
+        /// The caller must meet one of the following conditions:
+        /// - Be the creator of the venue associated with the instruction.
+        /// - Be a counterparty in the instruction.
+        ///
+        /// # Notes
+        /// - The caller can use the RPC method `get_execute_instruction_info` to retrieve an instance of
+        ///   [`ExecuteInstructionInfo`], which provides the counts for fungible, NFT, and off-chain transfers.
+        #[pallet::weight(<T as Config>::WeightInfo::execute_manual_weight_limit(_weight_limit, fungible_transfers, nfts_transfers, offchain_transfers))]
         #[pallet::call_index(8)]
         pub fn execute_manual_instruction(
             origin: OriginFor<T>,
@@ -976,23 +994,16 @@ pub mod pallet {
             fungible_transfers: u32,
             nfts_transfers: u32,
             offchain_transfers: u32,
-            weight_limit: Option<Weight>,
+            _weight_limit: Option<Weight>,
         ) -> DispatchResultWithPostInfo {
-            let mut weight_meter = Self::ensure_valid_weight_meter(
-                Self::execute_manual_instruction_minimum_weight(),
-                weight_limit.unwrap_or(Self::execute_manual_instruction_weight_limit(
-                    fungible_transfers,
-                    nfts_transfers,
-                    offchain_transfers,
-                )),
-            )?;
-            let input_cost =
-                AssetCount::new(fungible_transfers, nfts_transfers, offchain_transfers);
-            Self::base_execute_manual_instruction(
+            let mut weight_meter = WeightMeter::max_limit(Weight::zero());
+            Self::base_manual_execution(
                 origin,
                 id,
                 portfolio,
-                &input_cost,
+                fungible_transfers,
+                nfts_transfers,
+                offchain_transfers,
                 &mut weight_meter,
             )
             .map_err(|e| DispatchErrorWithPostInfo {
@@ -1479,10 +1490,9 @@ impl<T: Config> Pallet<T> {
         ))
     }
 
-    // Extract `Venue` with `id`, assuming it was created by `did`, or error.
-    fn venue_for_management(id: VenueId, did: IdentityId) -> Result<Venue, DispatchError> {
-        // Ensure venue exists & that DID created it.
-        let venue = VenueInfo::<T>::get(id).ok_or(Error::<T>::InvalidVenue)?;
+    /// Returns `Ok(Venue)` if `venue_id` was created by `did`.
+    fn ensure_venue_creator(venue_id: VenueId, did: IdentityId) -> Result<Venue, DispatchError> {
+        let venue = VenueInfo::<T>::get(venue_id).ok_or(Error::<T>::InvalidVenue)?;
         ensure!(venue.creator == did, Error::<T>::Unauthorized);
         Ok(venue)
     }
@@ -1515,7 +1525,7 @@ impl<T: Config> Pallet<T> {
 
         // Ensure venue exists & sender is its creator.
         if let Some(venue_id) = venue_id {
-            Self::venue_for_management(venue_id, did)?;
+            Self::ensure_venue_creator(venue_id, did)?;
         }
 
         // Verifies if all legs are valid.
@@ -1900,7 +1910,7 @@ impl<T: Config> Pallet<T> {
     fn validate_execute_instruction_conditions(
         instruction_id: &InstructionId,
         weight_meter: &mut WeightMeter,
-    ) -> DispatchResult {
+    ) -> Result<Vec<(LegId, Leg)>, DispatchError> {
         ensure!(
             InstructionAffirmsPending::<T>::get(instruction_id) == 0,
             Error::<T>::NotAllAffirmationsHaveBeenReceived
@@ -1919,7 +1929,7 @@ impl<T: Config> Pallet<T> {
 
         Self::ensure_assets_can_be_transferred(instruction_id, &instruction_legs, weight_meter)?;
 
-        Ok(())
+        Ok(instruction_legs)
     }
 
     /// Returns `Ok` if all mediator's affirmation are still valid.
@@ -2637,7 +2647,7 @@ impl<T: Config> Pallet<T> {
         add_signers: bool,
     ) -> DispatchResult {
         // Ensure venue exists & sender is its creator.
-        Self::venue_for_management(id, did)?;
+        Self::ensure_venue_creator(id, did)?;
 
         if add_signers {
             let current_number_of_signers = NumberOfVenueSigners::<T>::get(id);
@@ -2929,59 +2939,98 @@ impl<T: Config> Pallet<T> {
         pallet_asset::Assets::<T>::contains_key(asset_id)
     }
 
-    fn base_execute_manual_instruction(
+    /// Manually executes an instruction.
+    fn base_manual_execution(
         origin: OriginFor<T>,
-        id: InstructionId,
-        portfolio: Option<PortfolioId>,
-        input_cost: &AssetCount,
+        inst_id: InstructionId,
+        caller_pid: Option<PortfolioId>,
+        _fungible_transfers: u32,
+        _nfts_transfers: u32,
+        _offchain_transfers: u32,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResultWithPostInfo {
-        // check origin has the permissions required and valid instruction
-        let (caller_did, sk, instruction_details) =
-            Self::ensure_origin_perm_and_instruction_validity(origin, id, true)?;
+        let origin_data = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
+        let caller_did = origin_data.primary_did;
+        let caller_sk = origin_data.secondary_key.as_ref();
 
-        let instruction_legs: Vec<(LegId, Leg)> = InstructionLegs::<T>::iter_prefix(&id).collect();
-        match portfolio {
-            Some(portfolio) => {
-                // Ensure that the caller is a party of this instruction
-                T::Portfolio::ensure_portfolio_custody_and_permission(
-                    portfolio,
-                    caller_did,
-                    sk.as_ref(),
-                )?;
-                ensure!(
-                    Self::is_portfolio_present(&instruction_legs, &portfolio),
-                    Error::<T>::CallerIsNotAParty
-                );
+        let inst_details = InstructionDetails::<T>::get(&inst_id);
+        Self::ensure_valid_caller(
+            caller_did,
+            caller_sk,
+            caller_pid,
+            inst_details.venue_id,
+            inst_id,
+        )?;
+
+        match InstructionStatuses::<T>::get(&inst_id) {
+            InstructionStatus::Pending => {
+                Self::ensure_manual_settlement_type(inst_details.settlement_type)?;
+                let legs = Self::validate_execute_instruction_conditions(&inst_id, weight_meter)?;
+                let inst_memo = InstructionMemos::<T>::get(&inst_id);
+                Self::transfer_assets(inst_id, legs, inst_memo, caller_did, weight_meter)?;
             }
-            None => {
-                // If the caller is not the venue creator, they should be a counter party in an offchain leg
-                match instruction_details.venue_id {
-                    Some(venue_id) => {
-                        if Self::venue_for_management(venue_id, caller_did).is_err() {
-                            ensure!(
-                                Self::is_offchain_party(&instruction_legs, &caller_did),
-                                Error::<T>::Unauthorized
-                            );
-                        };
-                    }
-                    None => {
-                        ensure!(
-                            Self::is_offchain_party(&instruction_legs, &caller_did),
-                            Error::<T>::Unauthorized
-                        );
-                    }
-                }
+            InstructionStatus::Failed => {
+                let legs = Self::validate_execute_instruction_conditions(&inst_id, weight_meter)?;
+                let inst_memo = InstructionMemos::<T>::get(&inst_id);
+                Self::transfer_assets(inst_id, legs, inst_memo, caller_did, weight_meter)?;
+            }
+            InstructionStatus::LockedForExecution => {
+                let inst_memo = InstructionMemos::<T>::get(&inst_id);
+                let inst_legs = InstructionLegs::<T>::iter_prefix(&inst_id).collect::<Vec<_>>();
+                Self::transfer_assets(inst_id, inst_legs, inst_memo, caller_did, weight_meter)?;
+            }
+            _ => return Err(Error::<T>::InvalidInstructionStatusForExecution.into()),
+        }
+
+        Self::deposit_event(Event::SettlementManuallyExecuted(caller_did, inst_id));
+        Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
+    }
+
+    /// Returns `Ok` if any of the following conditions is true:
+    /// - The caller has the permission of the given portfolio and that portfolio is a party in the instruction.
+    /// - The caller is the venue creator of the instruction.
+    /// - The caller is a counter party in an offchain leg.
+    fn ensure_valid_caller(
+        caller_did: IdentityId,
+        caller_sk: Option<&SecondaryKey<T::AccountId>>,
+        caller_pid: Option<PortfolioId>,
+        venue_id: Option<VenueId>,
+        inst_id: InstructionId,
+    ) -> DispatchResult {
+        // Checks if the caller has the permission of the given portfolio and that portfolio is a party in the instruction
+        if let Some(caller_pid) = caller_pid {
+            T::Portfolio::ensure_portfolio_custody_and_permission(
+                caller_pid, caller_did, caller_sk,
+            )?;
+            Self::ensure_portfolio_belongs_to_instruction(&inst_id, &caller_pid)?;
+            return Ok(());
+        }
+
+        // Checks if the caller is the venue creator
+        if let Some(venue_id) = venue_id {
+            if Self::ensure_venue_creator(venue_id, caller_did).is_ok() {
+                return Ok(());
             }
         }
 
-        let instruction_asset_count = AssetCount::from_legs(&instruction_legs);
-        Self::ensure_valid_cost(&instruction_asset_count, input_cost)?;
+        // Checks if the caller is a counter party in an offchain leg
+        unimplemented!();
+    }
 
-        Self::execute_instruction_retryable(id, caller_did, weight_meter)?;
-        Self::deposit_event(Event::SettlementManuallyExecuted(caller_did, id));
+    /// Returns `Ok` if [`SettlementType::SettleManual`] and the `block_number` is reached.
+    fn ensure_manual_settlement_type(
+        settlement_type: SettlementType<T::BlockNumber>,
+    ) -> DispatchResult {
+        if let SettlementType::SettleManual(block_number) = settlement_type {
+            ensure!(
+                System::<T>::block_number() >= block_number,
+                Error::<T>::InstructionSettleBlockNotReached
+            );
 
-        Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
+            return Ok(());
+        }
+
+        Err(Error::<T>::UnexpectedSettlementType.into())
     }
 
     /// Returns `Ok` if `origin` represents the root, otherwise returns an `Err` with the consumed weight for this function.
@@ -2990,6 +3039,17 @@ impl<T: Config> Pallet<T> {
             post_info: Some(<T as Config>::WeightInfo::ensure_root_origin()).into(),
             error: e.into(),
         })
+    }
+
+    /// Returns `Ok` if the `pid` is a party in the instruction of the given `inst_id`.
+    fn ensure_portfolio_belongs_to_instruction(
+        inst_id: &InstructionId,
+        pid: &PortfolioId,
+    ) -> DispatchResult {
+        match AffirmsReceived::<T>::get(inst_id, pid) {
+            AffirmationStatus::Unknown => Err(Error::<T>::CallerIsNotAParty.into()),
+            AffirmationStatus::Pending | AffirmationStatus::Affirmed => Ok(()),
+        }
     }
 
     /// Returns `true` if the given `portfolio_id` is a party in the given `instruction_set`, otherwise returns `false`.
@@ -3273,6 +3333,7 @@ impl<T: Config> Pallet<T> {
         Self::validate_execute_instruction_conditions(&instruction_id, weight_meter)?;
 
         InstructionStatuses::<T>::insert(instruction_id, InstructionStatus::LockedForExecution);
+        LockedTimestamp::<T>::insert(instruction_id, pallet_timestamp::Pallet::<T>::get());
 
         Ok(())
     }
@@ -3300,12 +3361,77 @@ impl<T: Config> Pallet<T> {
 
         match instruction_status {
             InstructionStatus::Pending | InstructionStatus::Failed => Ok(()),
-            InstructionStatus::Unknown
-            | InstructionStatus::Success(_)
-            | InstructionStatus::Rejected(_)
-            | InstructionStatus::LockedForExecution => {
-                Err(Error::<T>::InvalidInstructionStatusForExecution.into())
+            _ => Err(Error::<T>::InvalidInstructionStatusForExecution.into()),
+        }
+    }
+
+    /// Transfer all assets in the instruction. Only the following checks are assessed:
+    /// - If the instruction is locked for execution, the locking period must be below the maximum.
+    /// - All assets must be locked.
+    /// - All senders must have the required balance.
+    #[rustfmt::skip]
+    fn transfer_assets(
+        instruction_id: InstructionId,
+        legs: Vec<(LegId, Leg)>,
+        instruction_memo: Option<Memo>,
+        caller_did: IdentityId,
+        weight_meter: &mut WeightMeter
+    ) -> DispatchResult {
+        let inst_status = InstructionStatuses::<T>::get(instruction_id);
+
+        if inst_status == InstructionStatus::LockedForExecution {
+            Self::ensure_maximum_locking_period_not_exceeded(&instruction_id)?;
+        }
+
+        for (_, leg) in legs {
+            match leg {
+                Leg::Fungible { sender, receiver, asset_id, amount } => {
+                    T::Portfolio::unlock_tokens(&sender, &asset_id, amount)?;
+                    Asset::<T>::simplified_fungible_transfer(
+                        asset_id,
+                        sender,
+                        receiver,
+                        amount,
+                        instruction_id.clone(),
+                        instruction_memo.clone(),
+                        caller_did,
+                        weight_meter
+                    )?;
+                },
+                Leg::NonFungible { sender, receiver, nfts } => {
+                    for nft_id in nfts.ids() {
+                        T::Portfolio::unlock_nft(&sender, nfts.asset_id(), nft_id)?;
+                    }
+                    Nft::<T>::simplified_nft_transfer(
+                        sender,
+                        receiver,
+                        nfts,
+                        instruction_id,
+                        instruction_memo.clone(),
+                        caller_did,
+                    )?;
+                },
+                Leg::OffChain { .. } => {
+                    continue
+                },
             }
+        }
+
+        Ok(())
+    }
+
+    /// Returns `Ok` if the maximum locking period was not exceeded.
+    fn ensure_maximum_locking_period_not_exceeded(inst_id: &InstructionId) -> DispatchResult {
+        match LockedTimestamp::<T>::get(inst_id) {
+            Some(locked_timestamp) => {
+                let now = pallet_timestamp::Pallet::<T>::get();
+                ensure!(
+                    now - locked_timestamp <= T::MaximumLockPeriod::get(),
+                    Error::<T>::ExceededMaximumLockingPeriod
+                );
+                Ok(())
+            }
+            None => Err(Error::<T>::LockTimestampNotFound.into()),
         }
     }
 
