@@ -127,10 +127,17 @@ pub struct AssetTransferCompliance<S: Get<u32>> {
     pub requirements: BoundedBTreeSet<TransferCondition, S>,
 }
 
-impl<S> Default for AssetTransferCompliance<S>
-where
-    S: Get<u32>,
-{
+impl<S: Get<u32>> AssetTransferCompliance<S> {
+    /// Create a new instance of [`AssetTransferCompliance`].
+    pub fn new(paused: bool, requirements: BoundedBTreeSet<TransferCondition, S>) -> Self {
+        Self {
+            paused,
+            requirements,
+        }
+    }
+}
+
+impl<S: Get<u32>> Default for AssetTransferCompliance<S> {
     fn default() -> Self {
         Self {
             paused: Default::default(),

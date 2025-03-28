@@ -135,57 +135,6 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(i.into())))
     }
-    // Storage: Statistics AssetStats (r:1 w:0)
-    // Proof Skipped: Statistics AssetStats (max_values: None, max_size: None, mode: Measured)
-    /// The range of component `a` is `[0, 1]`.
-    fn max_investor_count_restriction(a: u32) -> Weight {
-        // Minimum execution time: 541 nanoseconds.
-        Weight::from_ref_time(805_566)
-            // Standard Error: 43_814
-            .saturating_add(Weight::from_ref_time(7_416_767).saturating_mul(a.into()))
-            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(a.into())))
-    }
-    fn max_investor_ownership_restriction() -> Weight {
-        // Minimum execution time: 861 nanoseconds.
-        Weight::from_ref_time(1_092_000)
-    }
-    // Storage: Timestamp Now (r:1 w:0)
-    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: Identity Claims (r:2 w:0)
-    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
-    /// The range of component `c` is `[0, 1]`.
-    fn claim_count_restriction_no_stats(c: u32) -> Weight {
-        // Minimum execution time: 571 nanoseconds.
-        Weight::from_ref_time(912_176)
-            // Standard Error: 229_762
-            .saturating_add(Weight::from_ref_time(18_293_823).saturating_mul(c.into()))
-            .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(c.into())))
-    }
-    // Storage: Timestamp Now (r:1 w:0)
-    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: Identity Claims (r:2 w:0)
-    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
-    // Storage: Statistics AssetStats (r:1 w:0)
-    // Proof Skipped: Statistics AssetStats (max_values: None, max_size: None, mode: Measured)
-    fn claim_count_restriction_with_stats() -> Weight {
-        // Minimum execution time: 21_162 nanoseconds.
-        Weight::from_ref_time(22_164_000).saturating_add(DbWeight::get().reads(4))
-    }
-    // Storage: Timestamp Now (r:1 w:0)
-    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: Identity Claims (r:2 w:0)
-    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
-    // Storage: Statistics AssetStats (r:1 w:0)
-    // Proof Skipped: Statistics AssetStats (max_values: None, max_size: None, mode: Measured)
-    /// The range of component `a` is `[0, 1]`.
-    fn claim_ownership_restriction(a: u32) -> Weight {
-        // Minimum execution time: 14_992 nanoseconds.
-        Weight::from_ref_time(16_782_771)
-            // Standard Error: 400_993
-            .saturating_add(Weight::from_ref_time(7_463_562).saturating_mul(a.into()))
-            .saturating_add(DbWeight::get().reads(3))
-            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(a.into())))
-    }
     // Storage: Timestamp Now (r:1 w:0)
     // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
     // Storage: Identity Claims (r:2 w:0)
@@ -218,13 +167,6 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(a.into())))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(a.into())))
     }
-    /// The range of component `i` is `[0, 4]`.
-    fn verify_requirements(i: u32) -> Weight {
-        // Minimum execution time: 421 nanoseconds.
-        Weight::from_ref_time(737_345)
-            // Standard Error: 20_511
-            .saturating_add(Weight::from_ref_time(162_577).saturating_mul(i.into()))
-    }
     // Storage: Statistics ActiveAssetStats (r:1 w:0)
     // Proof Skipped: Statistics ActiveAssetStats (max_values: None, max_size: None, mode: Measured)
     /// The range of component `a` is `[1, 10]`.
@@ -235,10 +177,16 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
             .saturating_add(Weight::from_ref_time(23_673).saturating_mul(a.into()))
             .saturating_add(DbWeight::get().reads(1))
     }
-    // Storage: Statistics TransferConditionExemptEntities (r:1 w:0)
-    // Proof Skipped: Statistics TransferConditionExemptEntities (max_values: None, max_size: None, mode: Measured)
-    fn is_exempt() -> Weight {
-        // Minimum execution time: 8_683 nanoseconds.
-        Weight::from_ref_time(8_954_000).saturating_add(DbWeight::get().reads(1))
+    fn ensure_valid_statistics_all(_n: u32) -> Weight {
+        Weight::zero()
+    }
+    fn is_exempt_from_condition() -> Weight {
+        Weight::zero()
+    }
+    fn has_matching_claim() -> Weight {
+        Weight::zero()
+    }
+    fn asset_stats_read() -> Weight {
+        Weight::zero()
     }
 }

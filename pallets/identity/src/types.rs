@@ -63,25 +63,30 @@ pub struct PermissionedCallOriginData<AccountId> {
     pub secondary_key: Option<SecondaryKey<AccountId>>,
 }
 
-#[derive(
-    Encode,
-    Decode,
-    MaxEncodedLen,
-    TypeInfo,
-    Clone,
-    PartialEq,
-    Eq,
-    Debug,
-    PartialOrd,
-    Ord
-)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Claim1stKey {
     pub target: IdentityId,
     pub claim_type: ClaimType,
 }
 
-#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+impl Claim1stKey {
+    /// Create a new [`Claim1stKey`] instance.
+    pub fn new(target: IdentityId, claim_type: ClaimType) -> Self {
+        Self { target, claim_type }
+    }
+}
+
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Claim2ndKey {
     pub issuer: IdentityId,
     pub scope: Option<Scope>,
+}
+
+impl Claim2ndKey {
+    /// Create a new [`Claim2ndKey`] instance.
+    pub fn new(issuer: IdentityId, scope: Option<Scope>) -> Self {
+        Self { issuer, scope }
+    }
 }

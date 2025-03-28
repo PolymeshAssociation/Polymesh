@@ -2892,16 +2892,7 @@ impl<T: AssetConfig> Pallet<T> {
         );
 
         // Verifies that the statistics restrictions are satisfied
-        Statistics::<T>::verify_transfer_restrictions(
-            asset_id,
-            &sender_portfolio.did,
-            &receiver_portfolio.did,
-            BalanceOf::<T>::get(asset_id, sender_portfolio.did),
-            BalanceOf::<T>::get(asset_id, receiver_portfolio.did),
-            transfer_value,
-            asset_details.total_supply,
-            weight_meter,
-        )?;
+        unimplemented!();
 
         // Verifies that all compliance rules are being respected
         if !T::ComplianceManager::is_compliant(
@@ -2995,18 +2986,7 @@ impl<T: AssetConfig> Pallet<T> {
             asset_transfer_errors.push(Error::<T>::InvalidTransferFrozenAsset.into());
         }
 
-        if let Err(e) = Statistics::<T>::verify_transfer_restrictions(
-            *asset_id,
-            &sender_portfolio.did,
-            &receiver_portfolio.did,
-            sender_current_balance,
-            receiver_current_balance,
-            transfer_value,
-            asset_details.total_supply,
-            weight_meter,
-        ) {
-            asset_transfer_errors.push(e);
-        }
+        unimplemented!();
 
         match T::ComplianceManager::is_compliant(
             asset_id,

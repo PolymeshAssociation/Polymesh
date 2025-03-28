@@ -4,9 +4,12 @@ use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
 
 use pallet_identity::benchmarking::{User, UserBuilder};
+use pallet_identity::{Claim1stKey, Claim2ndKey};
 use polymesh_primitives::bench::create_and_issue_sample_asset;
-use polymesh_primitives::constants::currency::{ONE_UNIT, POLY};
-use polymesh_primitives::{jurisdiction::*, statistics::*, Claim, ClaimType, Scope};
+use polymesh_primitives::constants::currency::ONE_UNIT;
+use polymesh_primitives::jurisdiction::*;
+use polymesh_primitives::statistics::*;
+use polymesh_primitives::{Claim, ClaimType, IdentityClaim, Scope};
 
 use crate::*;
 
@@ -241,132 +244,6 @@ benchmarks! {
         let (owner, exempt_key, scope_ids) = init_exempts::<T>(i);
     }: set_entities_exempt(owner.origin, true, exempt_key, scope_ids)
 
-    max_investor_count_restriction {
-        // If `AssetStats` should be read
-        let a in 0..1;
-
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
-
-        let asset_id = create_and_issue_sample_asset::<T>(alice.account(), true, None, b"MyAsset", true);
-        let transfer_condition = TransferCondition::MaxInvestorCount(1);
-        let changes = if a == 1 { Some((false, true)) } else { Some((true, true)) };
-    }: {
-        assert!(Pallet::<T>::check_transfer_condition(
-            &transfer_condition,
-            asset_id,
-            &alice.did(),
-            &bob.did(),
-            0,
-            ONE_UNIT,
-            ONE_UNIT * POLY,
-            changes,
-            &mut weight_meter
-        ).unwrap());
-    }
-
-    max_investor_ownership_restriction {
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
-
-        let asset_id = create_and_issue_sample_asset::<T>(alice.account(), true, None, b"MyAsset", true);
-        let transfer_condition = TransferCondition::MaxInvestorOwnership(Permill::one());
-    }: {
-        assert!(Pallet::<T>::check_transfer_condition(
-            &transfer_condition,
-            asset_id,
-            &alice.did(),
-            &bob.did(),
-            0,
-            ONE_UNIT,
-            ONE_UNIT * POLY,
-            None,
-            &mut weight_meter
-        ).unwrap());
-    }
-
-    claim_count_restriction_no_stats {
-        // If `Claims` should be read
-        let c in 0..1;
-
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
-
-        let asset_id = create_and_issue_sample_asset::<T>(alice.account(), true, None, b"MyAsset", true);
-        let changes = if c == 0 { None } else { Some((false, false)) };
-        let transfer_condition =
-            TransferCondition::ClaimCount(StatClaim::Accredited(true), alice.did(), 0, Some(1));
-    }: {
-        assert!(Pallet::<T>::check_transfer_condition(
-            &transfer_condition,
-            asset_id,
-            &alice.did(),
-            &bob.did(),
-            0,
-            ONE_UNIT,
-            ONE_UNIT * POLY,
-            changes,
-            &mut weight_meter
-        ).unwrap());
-    }
-
-    claim_count_restriction_with_stats {
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
-
-        let asset_id = create_and_issue_sample_asset::<T>(alice.account(), true, None, b"MyAsset", true);
-        let transfer_condition =
-            TransferCondition::ClaimCount(StatClaim::Accredited(true), alice.did(), 0, Some(1));
-    }: {
-        assert!(Pallet::<T>::check_transfer_condition(
-            &transfer_condition,
-            asset_id,
-            &alice.did(),
-            &bob.did(),
-            0,
-            ONE_UNIT,
-            ONE_UNIT * POLY,
-            Some((false, true)),
-            &mut weight_meter
-        ).unwrap());
-    }
-
-    claim_ownership_restriction {
-        // If `AssetStats` should be read
-        let a in 0..1;
-
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
-
-        let asset_id = create_and_issue_sample_asset::<T>(alice.account(), true, None, b"MyAsset", true);
-        let transfer_condition =
-            TransferCondition::ClaimOwnership(StatClaim::Accredited(true), IdentityId::from(0), Permill::zero(), Permill::one());
-        if a == 1 {
-            add_identity_claim::<T>(
-                alice.did(),
-                Claim::Accredited(Scope::Asset(asset_id)),
-                IdentityId::from(0)
-            );
-        }
-    }: {
-        assert!(Pallet::<T>::check_transfer_condition(
-            &transfer_condition,
-            asset_id,
-            &alice.did(),
-            &bob.did(),
-            0,
-            ONE_UNIT,
-            ONE_UNIT * POLY,
-            None,
-            &mut weight_meter
-        ).unwrap());
-    }
-
     update_asset_count_stats {
         // Number of times `AssetStats` is read/written
         let a in 0..2;
@@ -453,34 +330,6 @@ benchmarks! {
         .unwrap();
     }
 
-    verify_requirements {
-        let i in 0..T::MaxTransferConditionsPerAsset::get();
-
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let asset_id = AssetId::new([i as u8; 16]);
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
-
-        let transfer_conditions: BTreeSet<TransferCondition> = (0..i)
-            .map(|i| TransferCondition::MaxInvestorCount(i as u64))
-            .collect();
-    }: {
-        assert!(
-            Pallet::<T>::verify_requirements::<T::MaxTransferConditionsPerAsset>(
-                &transfer_conditions.try_into().unwrap(),
-                asset_id,
-                &alice.did(),
-                &bob.did(),
-                ONE_UNIT,
-                1,
-                1,
-                ONE_UNIT,
-                &mut weight_meter
-            )
-            .is_ok()
-        );
-    }
-
     active_asset_statistics_load {
         let a in 1..T::MaxStatsPerAsset::get();
 
@@ -499,21 +348,118 @@ benchmarks! {
         ActiveAssetStats::<T>::get(asset_id).into_iter();
     }
 
-    is_exempt {
+    ensure_valid_statistics_paused {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let asset_id = create_and_issue_sample_asset::<T>(alice.account(), true, None, b"MyAsset", true);
+
+        let transfer_conditions = (0..T::MaxTransferConditionsPerAsset::get())
+            .map(|i| TransferCondition::MaxInvestorCount((100+i).into()))
+            .collect::<BTreeSet<_>>();
+        let transfer_conditions = transfer_conditions.try_into().unwrap();
+        let asset_transfer_compliance = AssetTransferCompliance::new(true, transfer_conditions);
+        AssetTransferCompliances::<T>::insert(asset_id.clone(), asset_transfer_compliance);
+    }: {
+        let asset_compliance = AssetTransferCompliances::<T>::get(&asset_id);
+        assert!(asset_compliance.paused);
+    }
+
+    ensure_valid_statistics_all {
+        // The maximum number of fungible assets
+        let n in 1..10;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let asset_id = create_and_issue_sample_asset::<T>(alice.account(), true, None, b"MyAsset", true);
+
+        let transfer_conditions = (0..T::MaxTransferConditionsPerAsset::get())
+            .map(|i| TransferCondition::MaxInvestorCount((100+i).into()))
+            .collect::<BTreeSet<_>>();
+        let transfer_conditions = transfer_conditions.try_into().unwrap();
+        let asset_transfer_compliance = AssetTransferCompliance::new(false, transfer_conditions);
+        AssetTransferCompliances::<T>::insert(asset_id.clone(), asset_transfer_compliance);
+
+        let total_rcv_per_did = (0..n)
+            .map(|i| (IdentityId::from(i as u128), 0))
+            .collect::<BTreeMap<_, _>>();
+        let total_sent_per_did = (0..n)
+            .map(|i| (IdentityId::from((i + n) as u128), 0))
+            .collect::<BTreeMap<_, _>>();
+    }: {
+        let _ = AssetTransferCompliances::<T>::get(&asset_id);
+
+        let investors_update = Pallet::<T>::calculate_investors_balance(
+            &asset_id,
+            &total_rcv_per_did,
+            &total_sent_per_did,
+        )
+        .unwrap();
+
+        let current_investor_count = AssetStats::<T>::get(
+            Stat1stKey::investor_count(asset_id.clone()),
+            Stat2ndKey::NoClaimStat,
+        );
+        let _ = current_investor_count
+            .saturating_add(investors_update.number_of_new_investors())
+            .checked_sub(investors_update.number_of_old_investors())
+            .unwrap();
+
+        let asset_total_supply = T::AssetFn::asset_total_supply(&asset_id).unwrap();
+    }
+
+    is_exempt_from_condition {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = AssetId::new([0 as u8; 16]);
-        let statistic_claim = StatClaim::Jurisdiction(Some(CountryCode::BR));
-        let transfer_condition = TransferCondition::ClaimOwnership(statistic_claim, alice.did(), Permill::zero(), Permill::zero());
-        TransferConditionExemptEntities::<T>::insert(transfer_condition.get_exempt_key(asset_id.clone()), bob.did(), true);
+        let transfer_condition = TransferCondition::ClaimOwnership(
+            StatClaim::Jurisdiction(Some(CountryCode::BR)),
+            alice.did(),
+            Permill::zero(),
+            Permill::zero(),
+        );
+        TransferConditionExemptEntities::<T>::insert(
+            transfer_condition.get_exempt_key(asset_id.clone()),
+            alice.did(),
+            true,
+        );
     }: {
         assert!(
-            Pallet::<T>::is_exempt(
-                asset_id,
-                &transfer_condition,
+            Pallet::<T>::is_exempt_from_condition(
                 &alice.did(),
-                &bob.did()
+                asset_id,
+                StatOpType::Balance,
+                Some(ClaimType::Jurisdiction),
+                &mut WeightMeter::max_limit_no_minimum()
             )
+            .unwrap()
         );
+    }
+
+    has_matching_claim {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let issuer = UserBuilder::<T>::default().generate_did().build("issuer");
+        let asset_id = AssetId::new([0 as u8; 16]);
+        let claim = Claim::Jurisdiction(CountryCode::BR, Scope::Asset(asset_id));
+        pallet_identity::Claims::<T>::insert(
+            Claim1stKey::new(alice.did(), claim.claim_type()),
+            Claim2ndKey::new(issuer.did(), Some(Scope::Asset(asset_id))),
+            IdentityClaim::from(claim.clone()),
+        );
+    }: {
+        assert!(
+            Pallet::<T>::has_matching_claim(
+                &alice.did(),
+                &Stat1stKey::new(asset_id, StatType::new(StatOpType::Count, Some((claim.claim_type(), issuer.did())))),
+                &Stat2ndKey::new_from(&claim.claim_type(), Some(claim)),
+                &mut WeightMeter::max_limit_no_minimum()
+            )
+            .unwrap()
+        );
+    }
+
+    asset_stats_read {
+        let asset_id = AssetId::new([0 as u8; 16]);
+        let stat_first_key = Stat1stKey::investor_count(asset_id.clone());
+        let stat_second_key = Stat2ndKey::NoClaimStat;
+        AssetStats::<T>::insert(stat_first_key, stat_second_key.clone(), 100);
+    }: {
+        assert_eq!(AssetStats::<T>::get(stat_first_key, stat_second_key), 100);
     }
 }
