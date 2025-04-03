@@ -232,8 +232,10 @@ pub mod pallet {
         fn ensure_valid_cdd_claims(f: u32) -> Weight;
         fn valid_receivers_portfolio(f: u32) -> Weight;
         fn senders_are_funded(f: u32) -> Weight;
+        fn maximum_lock_period() -> Weight;
         fn transfer_assets(f: u32, n: u32) -> Weight;
         fn prune_instruction(f: u32, n: u32, o: u32) -> Weight;
+        fn reject_instruction_common(f: u32, n: u32, o: u32) -> Weight;
 
         fn add_and_affirm_with_mediators_legs(
             legs: &[Leg],
@@ -2684,6 +2686,20 @@ impl<T: Config> Pallet<T> {
         caller_pid: Option<PortfolioId>,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResultWithPostInfo {
+        let origin_data = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
+        let caller_did = origin_data.primary_did;
+
+        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
+        let inst_asset_count = AssetCount::from_legs(&inst_legs);
+        Self::check_accrue(
+            weight_meter,
+            <T as Config>::WeightInfo::reject_instruction_common(
+                inst_asset_count.fungible() as u32,
+                inst_asset_count.non_fungible() as u32,
+                inst_asset_count.off_chain() as u32,
+            ),
+        )?;
+
         let inst_status = InstructionStatuses::<T>::get(inst_id);
         ensure!(
             inst_status != InstructionStatus::Unknown
@@ -2691,15 +2707,10 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidInstructionStatusForRejection
         );
 
-        let origin_data = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
-        let caller_did = origin_data.primary_did;
-        let caller_sk = origin_data.secondary_key.as_ref();
-
-        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
         let inst_details = InstructionDetails::<T>::get(&inst_id);
         Self::ensure_valid_caller(
             caller_did,
-            caller_sk,
+            origin_data.secondary_key.as_ref(),
             caller_pid,
             inst_details.venue_id,
             &inst_id,
@@ -2722,7 +2733,7 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::InstructionRejected(caller_did, inst_id));
 
         // returns the actual weight of the call
-        unimplemented!()
+        Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
 
     /// Returns `Ok` if the number of fungible, nonfungible and offchain assets is under the input given by the user.
@@ -3450,6 +3461,11 @@ impl<T: Config> Pallet<T> {
         inst_id: &InstructionId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
+        Self::check_accrue(
+            weight_meter,
+            <T as Config>::WeightInfo::maximum_lock_period(),
+        )?;
+
         match LockedTimestamp::<T>::get(inst_id) {
             Some(locked_timestamp) => {
                 let now = pallet_timestamp::Pallet::<T>::get();

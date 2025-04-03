@@ -79,6 +79,7 @@ pub mod pallet {
         fn is_exempt_from_condition() -> Weight;
         fn has_matching_claim() -> Weight;
         fn asset_stats_read() -> Weight;
+        fn transfer_compliance_read() -> Weight;
     }
 
     #[pallet::event]
@@ -714,6 +715,11 @@ impl<T: Config> Pallet<T> {
         total_sent_per_did: &BTreeMap<IdentityId, Balance>,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
+        Self::consume_weight_meter(
+            weight_meter,
+            <T as Config>::WeightInfo::transfer_compliance_read(),
+        )?;
+
         let asset_compliance = AssetTransferCompliances::<T>::get(&asset_id);
 
         // If the requirements are paused, the conditions are not checked

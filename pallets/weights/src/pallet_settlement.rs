@@ -1162,10 +1162,16 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     fn senders_are_funded(_f: u32) -> Weight {
         Weight::zero()
     }
+    fn maximum_lock_period() -> Weight {
+        Weight::zero()
+    }
     fn transfer_assets(_f: u32, _n: u32) -> Weight {
         Weight::zero()
     }
     fn prune_instruction(_f: u32, _n: u32, _o: u32) -> Weight {
+        Weight::zero()
+    }
+    fn reject_instruction_common(_f: u32, _n: u32, _o: u32) -> Weight {
         Weight::zero()
     }
 }

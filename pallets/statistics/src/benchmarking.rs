@@ -384,8 +384,6 @@ benchmarks! {
             .map(|i| (IdentityId::from((i + n) as u128), 0))
             .collect::<BTreeMap<_, _>>();
     }: {
-        let _ = AssetTransferCompliances::<T>::get(&asset_id);
-
         let investors_update = Pallet::<T>::calculate_investors_balance(
             &asset_id,
             &total_rcv_per_did,
@@ -397,10 +395,6 @@ benchmarks! {
             Stat1stKey::investor_count(asset_id.clone()),
             Stat2ndKey::NoClaimStat,
         );
-        let _ = current_investor_count
-            .saturating_add(investors_update.number_of_new_investors())
-            .checked_sub(investors_update.number_of_old_investors())
-            .unwrap();
 
         let asset_total_supply = T::AssetFn::asset_total_supply(&asset_id).unwrap();
     }
@@ -461,5 +455,19 @@ benchmarks! {
         AssetStats::<T>::insert(stat_first_key, stat_second_key.clone(), 100);
     }: {
         assert_eq!(AssetStats::<T>::get(stat_first_key, stat_second_key), 100);
+    }
+
+    transfer_compliance_read {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let asset_id = create_and_issue_sample_asset::<T>(alice.account(), true, None, b"MyAsset", true);
+
+        let transfer_conditions = (0..T::MaxTransferConditionsPerAsset::get())
+            .map(|i| TransferCondition::MaxInvestorCount((100+i).into()))
+            .collect::<BTreeSet<_>>();
+        let transfer_conditions = transfer_conditions.try_into().unwrap();
+        let asset_transfer_compliance = AssetTransferCompliance::new(false, transfer_conditions);
+        AssetTransferCompliances::<T>::insert(asset_id.clone(), asset_transfer_compliance);
+    }: {
+        let _ = AssetTransferCompliances::<T>::get(&asset_id);
     }
 }

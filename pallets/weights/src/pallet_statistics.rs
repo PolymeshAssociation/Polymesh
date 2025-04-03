@@ -189,4 +189,7 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
     fn asset_stats_read() -> Weight {
         Weight::zero()
     }
+    fn transfer_compliance_read() -> Weight {
+        Weight::zero()
+    }
 }
