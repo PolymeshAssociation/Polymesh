@@ -599,7 +599,7 @@ impl pallet_staking::Config for Test {
     type SlashDeferDuration = SlashDeferDuration;
     type AdminOrigin = frame_system::EnsureRoot<AccountId>;
     type SessionInterface = Self;
-    type EraPayout = ConvertCurve<RewardCurve>;
+    type EraPayout = ConvertCurve<Self, RewardCurve>;
     type NextNewSession = Session;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
     type OffendingValidatorsThreshold = OffendingValidatorsThreshold;

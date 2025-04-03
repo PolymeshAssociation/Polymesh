@@ -259,7 +259,7 @@ macro_rules! misc_pallet_impls {
             type SlashDeferDuration = SlashDeferDuration;
             type AdminOrigin = polymesh_primitives::EnsureRoot;
             type SessionInterface = Self;
-            type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+            type EraPayout = pallet_staking::ConvertCurve<Self, RewardCurve>;
             type NextNewSession = Session;
             type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
             type OffendingValidatorsThreshold = OffendingValidatorsThreshold;

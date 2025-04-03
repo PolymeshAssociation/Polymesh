@@ -2,8 +2,51 @@
 use sp_runtime::{Deserialize, Serialize};
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::dispatch::DispatchResult;
 use scale_info::TypeInfo;
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{Perbill, RuntimeDebug};
+
+use crate::{ActiveEraInfo, Config};
+
+/// A trait used by the staking pallet for permissioned staking.
+///
+/// A permissioned Substrate network can be configured to allow only a set of
+/// identities to participate in staking. This trait is used to define the
+/// behavior of the staking pallet in such a network.
+pub trait PermissionedStaking<T: Config> {
+    /// On validate hook.
+    fn on_validate(_who: &T::AccountId, _commission: Perbill) -> DispatchResult {
+        Ok(())
+    }
+
+    /// On chill hook.
+    fn on_chill(_who: &T::AccountId) -> DispatchResult {
+        Ok(())
+    }
+
+    /// On nominate hook.
+    fn on_nominate(_who: &T::AccountId) -> DispatchResult {
+        Ok(())
+    }
+
+    /// On unbond hook.
+    fn on_unbond(_who: &T::AccountId) -> DispatchResult {
+        Ok(())
+    }
+
+    /// Is the validator still compliant?
+    fn is_validator_compliant(_who: &T::AccountId) -> bool {
+        true
+    }
+
+    /// Is the nominator still compliant?
+    fn is_nominator_compliant(_who: &T::AccountId) -> bool {
+        true
+    }
+
+    /// Schedule reward payouts.
+    fn schedule_payouts(_active_era: &ActiveEraInfo) {}
+}
 
 /// Preference of an identity regarding validation.
 #[derive(Decode, Encode, RuntimeDebug, TypeInfo)]
