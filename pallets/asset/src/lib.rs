@@ -2892,7 +2892,12 @@ impl<T: AssetConfig> Pallet<T> {
         );
 
         // Verifies that the statistics restrictions are satisfied
-        unimplemented!();
+        Statistics::<T>::ensure_valid_statistics(
+            asset_id,
+            &BTreeMap::from([(receiver_portfolio.did, transfer_value)]),
+            &BTreeMap::from([(sender_portfolio.did, transfer_value)]),
+            weight_meter,
+        )?;
 
         // Verifies that all compliance rules are being respected
         if !T::ComplianceManager::is_compliant(
@@ -2986,7 +2991,14 @@ impl<T: AssetConfig> Pallet<T> {
             asset_transfer_errors.push(Error::<T>::InvalidTransferFrozenAsset.into());
         }
 
-        unimplemented!();
+        if let Err(e) = Statistics::<T>::ensure_valid_statistics(
+            *asset_id,
+            &BTreeMap::from([(receiver_portfolio.did, transfer_value)]),
+            &BTreeMap::from([(sender_portfolio.did, transfer_value)]),
+            weight_meter,
+        ) {
+            asset_transfer_errors.push(e);
+        };
 
         match T::ComplianceManager::is_compliant(
             asset_id,

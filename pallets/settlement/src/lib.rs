@@ -221,6 +221,19 @@ pub mod pallet {
         fn affirm_instruction_as_mediator() -> Weight;
         fn withdraw_affirmation_as_mediator() -> Weight;
         fn reject_instruction_as_mediator(f: u32, n: u32, o: u32) -> Weight;
+        fn valid_caller_portfolio() -> Weight;
+        fn valid_caller_venue() -> Weight;
+        fn valid_caller_mediator() -> Weight;
+        fn manual_execution_common(f: u32, n: u32, o: u32) -> Weight;
+        fn validate_mediators_affirmations(n: u32) -> Weight;
+        fn validate_execute_instruction_conditions_common(f: u32, n: u32, o: u32) -> Weight;
+        fn ensure_assets_can_be_transferred_common(n: u32) -> Weight;
+        fn ensure_assets_are_not_frozen(f: u32) -> Weight;
+        fn ensure_valid_cdd_claims(f: u32) -> Weight;
+        fn valid_receivers_portfolio(f: u32) -> Weight;
+        fn senders_are_funded(f: u32) -> Weight;
+        fn transfer_assets(f: u32, n: u32) -> Weight;
+        fn prune_instruction(f: u32, n: u32, o: u32) -> Weight;
 
         fn add_and_affirm_with_mediators_legs(
             legs: &[Leg],
@@ -987,7 +1000,7 @@ pub mod pallet {
         /// # Notes
         /// - The caller can use the RPC method `get_execute_instruction_info` to retrieve an instance of
         ///   [`ExecuteInstructionInfo`], which provides the counts for fungible, NFT, and off-chain transfers.
-        #[pallet::weight(<T as Config>::WeightInfo::execute_manual_weight_limit(_weight_limit, fungible_transfers, nfts_transfers, offchain_transfers))]
+        #[pallet::weight(<T as Config>::WeightInfo::execute_manual_weight_limit(weight_limit, fungible_transfers, nfts_transfers, offchain_transfers))]
         #[pallet::call_index(8)]
         pub fn execute_manual_instruction(
             origin: OriginFor<T>,
@@ -996,21 +1009,21 @@ pub mod pallet {
             fungible_transfers: u32,
             nfts_transfers: u32,
             offchain_transfers: u32,
-            _weight_limit: Option<Weight>,
+            weight_limit: Option<Weight>,
         ) -> DispatchResultWithPostInfo {
-            let mut weight_meter = WeightMeter::max_limit(Weight::zero());
-            Self::base_manual_execution(
-                origin,
-                id,
-                portfolio,
-                fungible_transfers,
-                nfts_transfers,
-                offchain_transfers,
-                &mut weight_meter,
-            )
-            .map_err(|e| DispatchErrorWithPostInfo {
-                post_info: Some(weight_meter.consumed()).into(),
-                error: e.error,
+            let mut weight_meter = Self::ensure_valid_weight_meter(
+                Self::execute_manual_instruction_minimum_weight(),
+                weight_limit.unwrap_or(Self::execute_manual_instruction_weight_limit(
+                    fungible_transfers,
+                    nfts_transfers,
+                    offchain_transfers,
+                )),
+            )?;
+            Self::base_manual_execution(origin, id, portfolio, &mut weight_meter).map_err(|e| {
+                DispatchErrorWithPostInfo {
+                    post_info: Some(weight_meter.consumed()).into(),
+                    error: e.error,
+                }
             })
         }
 
@@ -1145,7 +1158,12 @@ pub mod pallet {
             id: InstructionId,
             portfolio: PortfolioId,
         ) -> DispatchResultWithPostInfo {
-            Self::base_reject_instruction(origin, id, Some(portfolio), None)
+            Self::base_reject_instruction(
+                origin,
+                id,
+                Some(portfolio),
+                &mut WeightMeter::max_limit_no_minimum(),
+            )
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
@@ -1247,8 +1265,13 @@ pub mod pallet {
             portfolio: PortfolioId,
             number_of_assets: Option<AssetCount>,
         ) -> DispatchResult {
-            Self::base_reject_instruction(origin, id, Some(portfolio), number_of_assets)
-                .map_err(|e| e.error)?;
+            Self::base_reject_instruction(
+                origin,
+                id,
+                Some(portfolio),
+                &mut WeightMeter::max_limit_no_minimum(),
+            )
+            .map_err(|e| e.error)?;
             Ok(())
         }
 
@@ -1406,7 +1429,12 @@ pub mod pallet {
             instruction_id: InstructionId,
             number_of_assets: Option<AssetCount>,
         ) -> DispatchResultWithPostInfo {
-            Self::base_reject_instruction(origin, instruction_id, None, number_of_assets)
+            Self::base_reject_instruction(
+                origin,
+                instruction_id,
+                None,
+                &mut WeightMeter::max_limit_no_minimum(),
+            )
         }
 
         /// Moves the instruction status to `LockedForExecution`. This function must be called by a
@@ -1446,10 +1474,10 @@ impl<T: Config> Pallet<T> {
     #[rustfmt::skip]
     fn lock_via_leg(leg: &Leg) -> DispatchResult {
         match leg {
-            Leg::Fungible { sender, asset_id, amount,.. } => {
+            Leg::Fungible { sender, asset_id, amount, .. } => {
                 T::Portfolio::lock_tokens(&sender, &asset_id, *amount)?;
                 Ok(())
-            },
+            }
             Leg::NonFungible { sender, nfts, .. } => {
                 for nft_id in nfts.ids() {
                     T::Portfolio::lock_nft(&sender, nfts.asset_id(), &nft_id)?;
@@ -1815,7 +1843,15 @@ impl<T: Config> Pallet<T> {
         caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        let inst_legs = Self::validate_execute_instruction_conditions(&inst_id, weight_meter)?;
+        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
+        let inst_asset_count = AssetCount::from_legs(&inst_legs);
+        Self::validate_execute_instruction_conditions(
+            &inst_id,
+            &inst_legs,
+            &inst_asset_count,
+            weight_meter,
+        )?;
+
         let inst_memo = InstructionMemos::<T>::get(&inst_id);
         with_transaction(|| {
             Self::transfer_assets(
@@ -1823,9 +1859,10 @@ impl<T: Config> Pallet<T> {
                 inst_legs.clone(),
                 inst_memo,
                 caller_did,
+                &inst_asset_count,
                 weight_meter,
             )?;
-            Self::prune_instruction(&inst_id, &inst_legs);
+            Self::prune_instruction(&inst_id, &inst_legs, &inst_asset_count, weight_meter)?;
             InstructionStatuses::<T>::insert(
                 inst_id,
                 InstructionStatus::Success(System::<T>::block_number()),
@@ -1837,47 +1874,65 @@ impl<T: Config> Pallet<T> {
 
     /// Returns `Ok` if all conditions for executing the instruction are met.
     /// The conditions for executing an instruction are:
-    ///     - All affirmations have been received
-    ///     - Instruction is pending or has failed at least one time
-    ///     - All mediator's affirmations are still valid
-    ///     - All assets are in the allowed venue list
-    ///     - All senders have the right amount of assets being transferred
-    ///     - All senders and receivers are compliant and have valid CDD claims
-    ///     - All assets' statistics are still valid
-    ///     - There are no frozen assets
+    /// - All affirmations have been received
+    /// - Instruction is pending or has failed at least one time
+    /// - All mediator's affirmations are still valid
+    /// - All assets are in the allowed venue list
+    /// - All senders have the right amount of assets being transferred
+    /// - All senders and receivers are compliant and have valid CDD claims
+    /// - All assets' statistics are still valid
+    /// - There are no frozen assets
     fn validate_execute_instruction_conditions(
-        instruction_id: &InstructionId,
+        inst_id: &InstructionId,
+        inst_legs: &[(LegId, Leg)],
+        inst_asset_count: &AssetCount,
         weight_meter: &mut WeightMeter,
-    ) -> Result<Vec<(LegId, Leg)>, DispatchError> {
+    ) -> DispatchResult {
+        Self::check_accrue(
+            weight_meter,
+            <T as Config>::WeightInfo::validate_execute_instruction_conditions_common(
+                inst_asset_count.fungible(),
+                inst_asset_count.non_fungible(),
+                inst_asset_count.off_chain(),
+            ),
+        )?;
+
         ensure!(
-            InstructionAffirmsPending::<T>::get(instruction_id) == 0,
+            InstructionAffirmsPending::<T>::get(inst_id) == 0,
             Error::<T>::NotAllAffirmationsHaveBeenReceived
         );
 
-        Self::ensure_instruction_is_pending_or_failed(instruction_id)?;
+        Self::ensure_instruction_is_pending_or_failed(inst_id)?;
 
-        Self::validate_mediators_affirmations(instruction_id)?;
+        Self::validate_mediators_affirmations(inst_id, weight_meter)?;
 
-        let instruction_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(instruction_id).collect();
+        Self::ensure_no_missing_affirmation(inst_id, inst_legs)?;
 
-        Self::ensure_no_missing_affirmation(instruction_id, &instruction_legs)?;
+        let instruction_details = InstructionDetails::<T>::get(inst_id);
+        Self::ensure_allowed_venue(&inst_legs, instruction_details.venue_id)?;
 
-        let instruction_details = InstructionDetails::<T>::get(instruction_id);
-        Self::ensure_allowed_venue(&instruction_legs, instruction_details.venue_id)?;
-
-        Self::ensure_assets_can_be_transferred(instruction_id, &instruction_legs, weight_meter)?;
-
-        Ok(instruction_legs)
+        Self::ensure_assets_can_be_transferred(inst_id, &inst_legs, weight_meter)?;
+        Ok(())
     }
 
     /// Returns `Ok` if all mediator's affirmation are still valid.
-    fn validate_mediators_affirmations(instruction_id: &InstructionId) -> DispatchResult {
+    fn validate_mediators_affirmations(
+        inst_id: &InstructionId,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
         let current_timestamp = <pallet_timestamp::Pallet<T>>::get();
 
-        for mediator_affirmation in
-            InstructionMediatorsAffirmations::<T>::iter_prefix_values(instruction_id)
-        {
-            match mediator_affirmation {
+        let mediators_affirmations: Vec<_> =
+            InstructionMediatorsAffirmations::<T>::iter_prefix_values(&inst_id).collect();
+        Self::check_accrue(
+            weight_meter,
+            <T as Config>::WeightInfo::validate_mediators_affirmations(
+                mediators_affirmations.len() as u32,
+            ),
+        )?;
+
+        for affirmation in mediators_affirmations {
+            match affirmation {
                 MediatorAffirmationStatus::Affirmed { expiry, .. } => {
                     if let Some(expiry) = expiry {
                         ensure!(
@@ -1952,14 +2007,21 @@ impl<T: Config> Pallet<T> {
     #[rustfmt::skip]
     fn ensure_assets_can_be_transferred(
         id: &InstructionId,
-        instruction_legs: &[(LegId, Leg)],
+        inst_legs: &[(LegId, Leg)],
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
+        Self::check_accrue(
+            weight_meter,
+            <T as Config>::WeightInfo::ensure_assets_can_be_transferred_common(
+                inst_legs.len() as u32
+            ),
+        )?;
+
         let mut nfts_transferred = BTreeMap::new();
         let mut fungible_tx_summary = FungibleTxSummary::new();
 
         // Aggregates the total amount of assets sent and received per DID and per Portfolio
-        for (leg_id, leg) in instruction_legs {
+        for (leg_id, leg) in inst_legs {
             match leg {
                 Leg::Fungible { sender, receiver, asset_id, amount } => {
                     ensure!(
@@ -1968,7 +2030,7 @@ impl<T: Config> Pallet<T> {
                     );
                     fungible_tx_summary
                         .add_fungible_transfer(*sender, *receiver, *asset_id, *amount);
-                },
+                }
                 Leg::NonFungible { sender, receiver, nfts } => {
                     ensure!(
                         InstructionLegStatus::<T>::get(id, leg_id) == LegStatus::ExecutionPending,
@@ -1979,9 +2041,9 @@ impl<T: Config> Pallet<T> {
                         receiver,
                         nfts,
                         &mut nfts_transferred,
-                        weight_meter
+                        weight_meter,
                     )?;
-                },
+                }
                 Leg::OffChain { .. } => {
                     if let LegStatus::ExecutionToBeSkipped(_, _) =
                         InstructionLegStatus::<T>::get(id, leg_id)
@@ -2037,8 +2099,8 @@ impl<T: Config> Pallet<T> {
         fungible_tx_summary: &FungibleTxSummary,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        Self::ensure_assets_are_not_frozen(fungible_tx_summary.assets())?;
-        Self::ensure_valid_cdd_claims(fungible_tx_summary.dids())?;
+        Self::ensure_assets_are_not_frozen(fungible_tx_summary.assets(), weight_meter)?;
+        Self::ensure_valid_cdd_claims(fungible_tx_summary.dids(), weight_meter)?;
         Self::ensure_receivers_are_compliant_and_their_portfolios_exist(
             fungible_tx_summary.total_rcv_per_did(),
             fungible_tx_summary.rcv_portfolios(),
@@ -2054,10 +2116,18 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns `Ok` if all assets are not frozen.
-    fn ensure_assets_are_not_frozen(unique_assets: &BTreeSet<AssetId>) -> DispatchResult {
+    fn ensure_assets_are_not_frozen(
+        unique_assets: &BTreeSet<AssetId>,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        Self::check_accrue(
+            weight_meter,
+            <T as Config>::WeightInfo::ensure_assets_are_not_frozen(unique_assets.len() as u32),
+        )?;
+
         for asset_id in unique_assets {
             ensure!(
-                Frozen::<T>::get(asset_id),
+                !Frozen::<T>::get(asset_id),
                 Error::<T>::InstructionWithAFrozenAsset
             );
         }
@@ -2065,7 +2135,15 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns `Ok` if all identities have a valid CDD claim.
-    fn ensure_valid_cdd_claims(unique_dids: &BTreeSet<IdentityId>) -> DispatchResult {
+    fn ensure_valid_cdd_claims(
+        unique_dids: &BTreeSet<IdentityId>,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        Self::check_accrue(
+            weight_meter,
+            <T as Config>::WeightInfo::ensure_valid_cdd_claims(unique_dids.len() as u32),
+        )?;
+
         for did in unique_dids {
             ensure!(
                 pallet_identity::Pallet::<T>::has_valid_cdd(*did),
@@ -2081,6 +2159,11 @@ impl<T: Config> Pallet<T> {
         rcv_portfolios: &BTreeSet<PortfolioId>,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
+        Self::check_accrue(
+            weight_meter,
+            <T as Config>::WeightInfo::valid_receivers_portfolio(rcv_portfolios.len() as u32),
+        )?;
+
         for portfolio_id in rcv_portfolios {
             T::Portfolio::ensure_portfolio_validity(portfolio_id)?;
         }
@@ -2105,6 +2188,11 @@ impl<T: Config> Pallet<T> {
         total_sent_per_portfolio: &BTreeMap<(AssetId, PortfolioId), Balance>,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
+        Self::check_accrue(
+            weight_meter,
+            <T as Config>::WeightInfo::senders_are_funded(total_sent_per_portfolio.len() as u32),
+        )?;
+
         // Each individual portfolio must have all tokens locked and their amount
         for ((asset_id, portfolio_id), balance) in total_sent_per_portfolio.iter() {
             T::Portfolio::ensure_tokens_are_locked(portfolio_id, asset_id, *balance)?;
@@ -2157,7 +2245,21 @@ impl<T: Config> Pallet<T> {
     /// - `AffirmsReceived`
     /// - `OffChainAffirmations`
     #[rustfmt::skip]
-    fn prune_instruction(inst_id: &InstructionId, inst_legs: &[(LegId, Leg)]) {
+    fn prune_instruction(
+        inst_id: &InstructionId,
+        inst_legs: &[(LegId, Leg)],
+        inst_asset_count: &AssetCount,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        Self::check_accrue(
+            weight_meter,
+            <T as Config>::WeightInfo::prune_instruction(
+                inst_asset_count.fungible() as u32,
+                inst_asset_count.non_fungible() as u32,
+                inst_asset_count.off_chain() as u32,
+            ),
+        )?;
+
         let inst_details = InstructionDetails::<T>::take(inst_id);
 
         if let Some(venue_id) = inst_details.venue_id {
@@ -2172,12 +2274,6 @@ impl<T: Config> Pallet<T> {
             None,
         );
 
-        let _ = InstructionLegStatus::<T>::clear_prefix(
-            &inst_id,
-            inst_legs.len() as u32,
-            None,
-        );
-
         // Removes all affirmations related to the instruction
         for (leg_id, leg) in inst_legs {
             match leg {
@@ -2187,12 +2283,16 @@ impl<T: Config> Pallet<T> {
                     UserAffirmations::<T>::remove(receiver, inst_id);
                     AffirmsReceived::<T>::remove(inst_id, sender);
                     AffirmsReceived::<T>::remove(inst_id, receiver);
+                    InstructionLegStatus::<T>::remove(inst_id, leg_id);
                 }
                 Leg::OffChain { .. } => {
-                    OffChainAffirmations::<T>::remove(inst_id, *leg_id);
+                    OffChainAffirmations::<T>::remove(inst_id, leg_id);
+                    InstructionLegStatus::<T>::remove(inst_id, leg_id);
                 }
             }
         }
+
+        Ok(())
     }
 
     pub fn unsafe_affirm_instruction(
@@ -2582,7 +2682,7 @@ impl<T: Config> Pallet<T> {
         origin: OriginFor<T>,
         inst_id: InstructionId,
         caller_pid: Option<PortfolioId>,
-        _asset_count: Option<AssetCount>,
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResultWithPostInfo {
         let inst_status = InstructionStatuses::<T>::get(inst_id);
         ensure!(
@@ -2595,6 +2695,7 @@ impl<T: Config> Pallet<T> {
         let caller_did = origin_data.primary_did;
         let caller_sk = origin_data.secondary_key.as_ref();
 
+        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
         let inst_details = InstructionDetails::<T>::get(&inst_id);
         Self::ensure_valid_caller(
             caller_did,
@@ -2602,15 +2703,17 @@ impl<T: Config> Pallet<T> {
             caller_pid,
             inst_details.venue_id,
             &inst_id,
+            &inst_legs,
+            weight_meter,
         )?;
 
-        let inst_legs = InstructionLegs::<T>::iter_prefix(&inst_id).collect::<Vec<_>>();
         Self::release_locks(&inst_id, &inst_legs)?;
 
         // Note: ignoring the error here is fine, since the instruction might not be scheduled yet
         let _ = T::Scheduler::cancel_named(inst_id.execution_name());
 
-        Self::prune_instruction(&inst_id, &inst_legs);
+        let inst_asset_count = AssetCount::from_legs(&inst_legs);
+        Self::prune_instruction(&inst_id, &inst_legs, &inst_asset_count, weight_meter)?;
         InstructionStatuses::<T>::insert(
             inst_id,
             InstructionStatus::Rejected(System::<T>::block_number()),
@@ -2619,7 +2722,7 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::InstructionRejected(caller_did, inst_id));
 
         // returns the actual weight of the call
-        unimplemented!();
+        unimplemented!()
     }
 
     /// Returns `Ok` if the number of fungible, nonfungible and offchain assets is under the input given by the user.
@@ -2690,6 +2793,7 @@ impl<T: Config> Pallet<T> {
 
     /// Returns `Ok` if the leg is valid, otherwise returns an error.
     /// See also: [`Pallet::ensure_valid_fungible_leg`], [`Pallet::ensure_valid_nft_leg`] and [`Pallet::ensure_valid_off_chain_leg`].
+    #[rustfmt::skip]
     fn ensure_valid_leg(
         leg: &Leg,
         venue_id: &Option<VenueId>,
@@ -2697,12 +2801,7 @@ impl<T: Config> Pallet<T> {
         instruction_asset_count: &mut AssetCount,
     ) -> DispatchResult {
         match leg {
-            Leg::Fungible {
-                sender,
-                receiver,
-                asset_id,
-                amount,
-            } => {
+            Leg::Fungible { sender, receiver, asset_id, amount } => {
                 ensure!(sender.did != receiver.did, Error::<T>::SameSenderReceiver);
                 Self::ensure_valid_fungible_leg(tickers, *asset_id, *amount, venue_id)?;
                 instruction_asset_count
@@ -2710,11 +2809,7 @@ impl<T: Config> Pallet<T> {
                     .map_err(|_| Error::<T>::MaxNumberOfFungibleAssetsExceeded)?;
                 Ok(())
             }
-            Leg::NonFungible {
-                sender,
-                receiver,
-                nfts,
-            } => {
+            Leg::NonFungible { sender, receiver, nfts } => {
                 ensure!(sender.did != receiver.did, Error::<T>::SameSenderReceiver);
                 Self::ensure_valid_nft_leg(tickers, &nfts, venue_id)?;
                 instruction_asset_count
@@ -2722,12 +2817,7 @@ impl<T: Config> Pallet<T> {
                     .map_err(|_| Error::<T>::MaxNumberOfNFTsExceeded)?;
                 Ok(())
             }
-            Leg::OffChain {
-                sender_identity,
-                receiver_identity,
-                amount,
-                ..
-            } => {
+            Leg::OffChain { sender_identity, receiver_identity, amount, .. } => {
                 ensure!(venue_id.is_some(), Error::<T>::OffChainAssetsMustHaveAVenue);
                 Self::ensure_valid_off_chain_leg(sender_identity, receiver_identity, *amount)?;
                 instruction_asset_count
@@ -2816,14 +2906,23 @@ impl<T: Config> Pallet<T> {
         origin: OriginFor<T>,
         inst_id: InstructionId,
         caller_pid: Option<PortfolioId>,
-        _fungible_transfers: u32,
-        _nfts_transfers: u32,
-        _offchain_transfers: u32,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResultWithPostInfo {
         let origin_data = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
         let caller_did = origin_data.primary_did;
         let caller_sk = origin_data.secondary_key.as_ref();
+
+        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(inst_id).collect();
+        let inst_asset_count = AssetCount::from_legs(&inst_legs);
+
+        Self::check_accrue(
+            weight_meter,
+            <T as Config>::WeightInfo::manual_execution_common(
+                inst_asset_count.fungible(),
+                inst_asset_count.non_fungible(),
+                inst_asset_count.off_chain(),
+            ),
+        )?;
 
         let inst_details = InstructionDetails::<T>::get(&inst_id);
         Self::ensure_valid_caller(
@@ -2832,28 +2931,61 @@ impl<T: Config> Pallet<T> {
             caller_pid,
             inst_details.venue_id,
             &inst_id,
+            &inst_legs,
+            weight_meter,
         )?;
 
         match InstructionStatuses::<T>::get(&inst_id) {
             InstructionStatus::Pending => {
                 Self::ensure_manual_settlement_type(inst_details.settlement_type)?;
-                let legs = Self::validate_execute_instruction_conditions(&inst_id, weight_meter)?;
+                Self::validate_execute_instruction_conditions(
+                    &inst_id,
+                    &inst_legs,
+                    &inst_asset_count,
+                    weight_meter,
+                )?;
                 let inst_memo = InstructionMemos::<T>::get(&inst_id);
-                Self::transfer_assets(inst_id, legs, inst_memo, caller_did, weight_meter)?;
+                Self::transfer_assets(
+                    inst_id,
+                    inst_legs.clone(),
+                    inst_memo,
+                    caller_did,
+                    &inst_asset_count,
+                    weight_meter,
+                )?;
             }
             InstructionStatus::Failed => {
-                let legs = Self::validate_execute_instruction_conditions(&inst_id, weight_meter)?;
+                Self::validate_execute_instruction_conditions(
+                    &inst_id,
+                    &inst_legs,
+                    &inst_asset_count,
+                    weight_meter,
+                )?;
                 let inst_memo = InstructionMemos::<T>::get(&inst_id);
-                Self::transfer_assets(inst_id, legs, inst_memo, caller_did, weight_meter)?;
+                Self::transfer_assets(
+                    inst_id,
+                    inst_legs.clone(),
+                    inst_memo,
+                    caller_did,
+                    &inst_asset_count,
+                    weight_meter,
+                )?;
             }
             InstructionStatus::LockedForExecution => {
                 let inst_memo = InstructionMemos::<T>::get(&inst_id);
-                let inst_legs = InstructionLegs::<T>::iter_prefix(&inst_id).collect::<Vec<_>>();
-                Self::transfer_assets(inst_id, inst_legs, inst_memo, caller_did, weight_meter)?;
+                Self::transfer_assets(
+                    inst_id,
+                    inst_legs.clone(),
+                    inst_memo,
+                    caller_did,
+                    &inst_asset_count,
+                    weight_meter,
+                )?;
             }
             _ => return Err(Error::<T>::InvalidInstructionStatusForExecution.into()),
         }
 
+        Self::prune_instruction(&inst_id, &inst_legs, &inst_asset_count, weight_meter)?;
         Self::deposit_event(Event::SettlementManuallyExecuted(caller_did, inst_id));
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
@@ -2869,9 +3001,15 @@ impl<T: Config> Pallet<T> {
         caller_pid: Option<PortfolioId>,
         venue_id: Option<VenueId>,
         inst_id: &InstructionId,
+        inst_legs: &[(LegId, Leg)],
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // Checks if the caller has the permission of the given portfolio and that portfolio is a party in the instruction
         if let Some(caller_pid) = caller_pid {
+            Self::check_accrue(
+                weight_meter,
+                <T as Config>::WeightInfo::valid_caller_portfolio(),
+            )?;
             T::Portfolio::ensure_portfolio_custody_and_permission(
                 caller_pid, caller_did, caller_sk,
             )?;
@@ -2881,6 +3019,10 @@ impl<T: Config> Pallet<T> {
 
         // Checks if the caller is the venue creator
         if let Some(venue_id) = venue_id {
+            Self::check_accrue(
+                weight_meter,
+                <T as Config>::WeightInfo::valid_caller_venue(),
+            )?;
             if Self::ensure_venue_creator(&venue_id, caller_did).is_ok() {
                 return Ok(());
             }
@@ -2888,11 +3030,19 @@ impl<T: Config> Pallet<T> {
 
         // Checks if the caller is a mediator
         if Self::ensure_mediator(&inst_id, &caller_did).is_ok() {
+            Self::check_accrue(
+                weight_meter,
+                <T as Config>::WeightInfo::valid_caller_mediator(),
+            )?;
             return Ok(());
         }
 
         // Checks if the caller is a counter party in an offchain leg
-        unimplemented!();
+        if Self::is_offchain_party(&caller_did, inst_legs) {
+            return Ok(());
+        }
+
+        Err(Error::<T>::CallerIsNotAParty.into())
     }
 
     /// Returns `Ok` if the given `did` is a mediator in the instruction.
@@ -2930,6 +3080,19 @@ impl<T: Config> Pallet<T> {
         })
     }
 
+    /// Returns `true` if `caller_did` is a party in any offchain leg in the instruction.
+    #[rustfmt::skip]
+    fn is_offchain_party(caller_did: &IdentityId, inst_legs: &[(LegId, Leg)]) -> bool {
+        for (_, leg) in inst_legs {
+            if let Leg::OffChain { sender_identity, receiver_identity, .. } = leg {
+                if sender_identity == caller_did || receiver_identity == caller_did {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     /// Returns `Ok` if the `pid` is a party in the instruction of the given `inst_id`.
     fn ensure_portfolio_belongs_to_instruction(
         inst_id: &InstructionId,
@@ -2944,6 +3107,7 @@ impl<T: Config> Pallet<T> {
     /// Ensures the all receipts are valid. A receipt is considered valid if the signer is allowed by the venue,
     /// if the receipt has not been used before, if the receipt's `leg_id` and `instruction_id` are referencing the
     /// correct instruction/leg and if its signature is valid.
+    #[rustfmt::skip]
     fn ensure_valid_receipts_details(
         venue_id: Option<VenueId>,
         instruction_id: InstructionId,
@@ -2981,12 +3145,7 @@ impl<T: Config> Pallet<T> {
             let leg = InstructionLegs::<T>::get(&instruction_id, &receipt_details.leg_id())
                 .ok_or(Error::<T>::LegNotFound)?;
             match leg {
-                Leg::OffChain {
-                    sender_identity,
-                    receiver_identity,
-                    ticker,
-                    amount,
-                } => {
+                Leg::OffChain { sender_identity, receiver_identity, ticker, amount } => {
                     ensure!(
                         OffChainAffirmations::<T>::get(instruction_id, receipt_details.leg_id())
                             == AffirmationStatus::Pending,
@@ -3182,7 +3341,14 @@ impl<T: Config> Pallet<T> {
 
         Self::ensure_mediator_has_affirmed_instruction(&caller_did, &instruction_id)?;
 
-        Self::validate_execute_instruction_conditions(&instruction_id, weight_meter)?;
+        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&instruction_id).collect();
+        let inst_asset_count = AssetCount::from_legs(&inst_legs);
+        Self::validate_execute_instruction_conditions(
+            &instruction_id,
+            &inst_legs,
+            &inst_asset_count,
+            weight_meter,
+        )?;
 
         InstructionStatuses::<T>::insert(instruction_id, InstructionStatus::LockedForExecution);
         LockedTimestamp::<T>::insert(instruction_id, pallet_timestamp::Pallet::<T>::get());
@@ -3227,12 +3393,21 @@ impl<T: Config> Pallet<T> {
         legs: Vec<(LegId, Leg)>,
         instruction_memo: Option<Memo>,
         caller_did: IdentityId,
-        weight_meter: &mut WeightMeter
+        inst_asset_count: &AssetCount,
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
+        Self::check_accrue(
+            weight_meter,
+            <T as Config>::WeightInfo::transfer_assets(
+                inst_asset_count.fungible(),
+                inst_asset_count.non_fungible(),
+            ),
+        )?;
+
         let inst_status = InstructionStatuses::<T>::get(instruction_id);
 
         if inst_status == InstructionStatus::LockedForExecution {
-            Self::ensure_maximum_locking_period_not_exceeded(&instruction_id)?;
+            Self::ensure_maximum_locking_period_not_exceeded(&instruction_id, weight_meter)?;
         }
 
         for (_, leg) in legs {
@@ -3247,9 +3422,9 @@ impl<T: Config> Pallet<T> {
                         instruction_id.clone(),
                         instruction_memo.clone(),
                         caller_did,
-                        weight_meter
+                        weight_meter,
                     )?;
-                },
+                }
                 Leg::NonFungible { sender, receiver, nfts } => {
                     for nft_id in nfts.ids() {
                         T::Portfolio::unlock_nft(&sender, nfts.asset_id(), nft_id)?;
@@ -3262,10 +3437,8 @@ impl<T: Config> Pallet<T> {
                         instruction_memo.clone(),
                         caller_did,
                     )?;
-                },
-                Leg::OffChain { .. } => {
-                    continue
-                },
+                }
+                Leg::OffChain { .. } => continue,
             }
         }
 
@@ -3273,7 +3446,10 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns `Ok` if the maximum locking period was not exceeded.
-    fn ensure_maximum_locking_period_not_exceeded(inst_id: &InstructionId) -> DispatchResult {
+    fn ensure_maximum_locking_period_not_exceeded(
+        inst_id: &InstructionId,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
         match LockedTimestamp::<T>::get(inst_id) {
             Some(locked_timestamp) => {
                 let now = pallet_timestamp::Pallet::<T>::get();
@@ -3285,6 +3461,14 @@ impl<T: Config> Pallet<T> {
             }
             None => Err(Error::<T>::LockTimestampNotFound.into()),
         }
+    }
+
+    /// Consumes the given weight after checking that it can be consumed. Returns an error otherwise.
+    fn check_accrue(weight_meter: &mut WeightMeter, weight: Weight) -> DispatchResult {
+        weight_meter
+            .check_accrue(weight)
+            .map_err(|_| Error::<T>::WeightLimitExceeded)?;
+        Ok(())
     }
 
     /// Returns the worst case weight for an instruction with `f` fungible legs, `n` nfts being transferred and `o` offchain assets.
@@ -3444,18 +3628,16 @@ impl<T: Config> Pallet<T> {
                     weight_meter,
                 )
             }
-            Leg::NonFungible { sender, receiver, nfts} => {
+            Leg::NonFungible { sender, receiver, nfts } => {
                 <Nft<T>>::nft_transfer_report(
                     &sender,
                     &receiver,
                     &nfts,
                     skip_locked_check,
-                    weight_meter
+                    weight_meter,
                 )
             }
-            Leg::OffChain { .. } => {
-                Vec::new()
-            },
+            Leg::OffChain { .. } => Vec::new(),
         }
     }
 
@@ -3470,7 +3652,7 @@ impl<T: Config> Pallet<T> {
             execution_errors.push(Error::<T>::NotAllAffirmationsHaveBeenReceived.into());
         }
 
-        if let Err(e) = Self::validate_mediators_affirmations(&instruction_id) {
+        if let Err(e) = Self::validate_mediators_affirmations(&instruction_id, weight_meter) {
             execution_errors.push(e);
         }
 

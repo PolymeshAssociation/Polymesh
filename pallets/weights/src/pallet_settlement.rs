@@ -1129,4 +1129,43 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((7_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
     }
+    fn valid_caller_portfolio() -> Weight {
+        Weight::zero()
+    }
+    fn valid_caller_venue() -> Weight {
+        Weight::zero()
+    }
+    fn valid_caller_mediator() -> Weight {
+        Weight::zero()
+    }
+    fn manual_execution_common(_f: u32, _n: u32, _o: u32) -> Weight {
+        Weight::zero()
+    }
+    fn validate_execute_instruction_conditions_common(_f: u32, _n: u32, _o: u32) -> Weight {
+        Weight::zero()
+    }
+    fn validate_mediators_affirmations(_n: u32) -> Weight {
+        Weight::zero()
+    }
+    fn ensure_assets_can_be_transferred_common(_n: u32) -> Weight {
+        Weight::zero()
+    }
+    fn ensure_assets_are_not_frozen(_f: u32) -> Weight {
+        Weight::zero()
+    }
+    fn ensure_valid_cdd_claims(_f: u32) -> Weight {
+        Weight::zero()
+    }
+    fn valid_receivers_portfolio(_f: u32) -> Weight {
+        Weight::zero()
+    }
+    fn senders_are_funded(_f: u32) -> Weight {
+        Weight::zero()
+    }
+    fn transfer_assets(_f: u32, _n: u32) -> Weight {
+        Weight::zero()
+    }
+    fn prune_instruction(_f: u32, _n: u32, _o: u32) -> Weight {
+        Weight::zero()
+    }
 }
