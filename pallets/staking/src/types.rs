@@ -20,17 +20,10 @@ pub trait PermissionedStaking<T: Config> {
     }
 
     /// On chill hook.
-    fn on_chill(_who: &T::AccountId) -> DispatchResult {
-        Ok(())
-    }
+    fn on_chill(_who: &T::AccountId) {}
 
     /// On nominate hook.
     fn on_nominate(_who: &T::AccountId) -> DispatchResult {
-        Ok(())
-    }
-
-    /// On unbond hook.
-    fn on_unbond(_who: &T::AccountId) -> DispatchResult {
         Ok(())
     }
 

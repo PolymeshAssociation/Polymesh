@@ -71,17 +71,23 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
     }
 
     /// On chill hook.
-    fn on_chill(_who: &T::AccountId) -> DispatchResult {
-        Ok(())
+    fn on_chill(stash: &T::AccountId) {
+        Self::release_running_validator(stash);
     }
 
     /// On nominate hook.
-    fn on_nominate(_who: &T::AccountId) -> DispatchResult {
-        Ok(())
-    }
+    fn on_nominate(stash: &T::AccountId) -> DispatchResult {
+        let nominator_did = pallet_identity::Pallet::<T>::get_identity(&stash)
+            .ok_or(Error::<T>::StashIdentityDoesNotExist)?;
+        let bounding_duration_period = Self::get_bonding_duration_period() as u32;
 
-    /// On unbond hook.
-    fn on_unbond(_who: &T::AccountId) -> DispatchResult {
+        if let None =
+            pallet_identity::Pallet::<T>::fetch_cdd(nominator_did, bounding_duration_period.into())
+        {
+            return Err(Error::<T>::StashIdentityNotCDDed.into());
+        }
+
+        Self::release_running_validator(&stash);
         Ok(())
     }
 

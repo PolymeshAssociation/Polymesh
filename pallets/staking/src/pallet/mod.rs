@@ -1417,18 +1417,10 @@ pub mod pallet {
 
             // Polymesh change
             // -----------------------------------------------------------------
+            Self::on_nominate(&stash)?;
+
             let nominator_did = pallet_identity::Pallet::<T>::get_identity(&stash)
                 .ok_or(Error::<T>::StashIdentityDoesNotExist)?;
-            let bounding_duration_period = Self::get_bonding_duration_period() as u32;
-
-            if let None = pallet_identity::Pallet::<T>::fetch_cdd(
-                nominator_did,
-                bounding_duration_period.into(),
-            ) {
-                return Err(Error::<T>::StashIdentityNotCDDed.into());
-            }
-
-            Self::release_running_validator(&stash);
             Self::deposit_event(Event::<T>::Nominated {
                 nominator_identity: nominator_did,
                 stash: ledger.stash.clone(),
@@ -1827,6 +1819,8 @@ pub mod pallet {
             let _ = ensure_signed(origin)?;
 
             let ed = T::Currency::minimum_balance();
+            // Polymesh change:
+            //   total_balance(stash) <= ed
             let reapable = T::Currency::total_balance(&stash) <= ed
                 || Self::ledger(Self::bonded(stash.clone()).ok_or(Error::<T>::NotStash)?)
                     .map(|l| l.total)

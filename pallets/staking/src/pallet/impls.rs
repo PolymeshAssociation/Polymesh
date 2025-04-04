@@ -117,6 +117,8 @@ impl<T: Config> Pallet<T> {
             ledger = ledger.consolidate_unlocked(current_era)
         }
 
+        // Polymesh change:
+        //  ledger.active <= minimum_balance()
         let used_weight =
             if ledger.unlocking.is_empty() && ledger.active <= T::Currency::minimum_balance() {
                 // This account must have called `unbond()` with some value that caused the active
@@ -320,7 +322,7 @@ impl<T: Config> Pallet<T> {
     pub fn chill_stash(stash: &T::AccountId) {
         // Polymesh change
         // -----------------------------------------------------------------
-        Self::release_running_validator(stash);
+        Self::on_chill(stash);
         // -----------------------------------------------------------------
         let chilled_as_validator = Self::do_remove_validator(stash);
         let chilled_as_nominator = Self::do_remove_nominator(stash);
