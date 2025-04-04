@@ -38,6 +38,7 @@ pub trait WeightInfo {
     fn redeem_nft(n: u32) -> Weight;
     fn base_nft_transfer(n: u32) -> Weight;
     fn controller_transfer(n: u32) -> Weight;
+    fn validate_nft_transfer_common(n: u32) -> Weight;
 }
 
 pub use pallet::*;
@@ -337,6 +338,8 @@ pub mod pallet {
         NFTIsLocked,
         /// The number of keys in the collection is greater than the input.
         NumberOfKeysIsLessThanExpected,
+        /// The maximum weight limit for executing the function was exceeded.
+        WeightLimitExceeded,
     }
 }
 
@@ -601,8 +604,16 @@ impl<T: Config> Pallet<T> {
         receiver_portfolio: &PortfolioId,
         nfts: &NFTs,
         is_controller_transfer: bool,
-        weight_meter: Option<&mut WeightMeter>,
+        mut weight_meter: Option<&mut WeightMeter>,
     ) -> DispatchResult {
+        if let Some(weight_meter) = weight_meter.as_mut() {
+            weight_meter
+                .check_accrue(<T as Config>::WeightInfo::validate_nft_transfer_common(
+                    nfts.len() as u32,
+                ))
+                .map_err(|_| Error::<T>::WeightLimitExceeded)?;
+        }
+
         // Verifies if there is a collection associated to the NFTs
         if !CollectionAsset::<T>::contains_key(nfts.asset_id()) {
             return Err(Error::<T>::InvalidNFTTransferCollectionNotFound.into());

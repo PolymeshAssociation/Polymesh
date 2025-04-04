@@ -253,4 +253,31 @@ benchmarks! {
         assert_eq!(NFTsInCollection::<T>::get(nfts.asset_id()), n as u64);
     }
 
+    validate_nft_transfer_common {
+        let n in 1..10;
+
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let (asset_id, sender_portfolio, receiver_portfolio, _) =
+            setup_nft_transfer::<T>(&alice, &bob, n, None, None, true, 0);
+        let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
+    }: {
+        assert!(CollectionAsset::<T>::contains_key(nfts.asset_id()));
+
+        let nfts_transferred = nfts.len() as u64;
+        assert!(NumberOfNFTs::<T>::get(nfts.asset_id(), sender_portfolio.did) >= nfts_transferred);
+
+        Pallet::<T>::ensure_within_nfts_transfer_limits(&nfts).unwrap();
+        Pallet::<T>::ensure_no_duplicate_nfts(&nfts).unwrap();
+        Pallet::<T>::ensure_nft_ownership(&sender_portfolio, &nfts).unwrap();
+
+        NumberOfNFTs::<T>::get(nfts.asset_id(), receiver_portfolio.did)
+            .checked_add(nfts_transferred)
+            .unwrap();
+
+        assert!(!Frozen::<T>::get(nfts.asset_id()));
+
+        assert!(IdentityPallet::<T>::has_valid_cdd(receiver_portfolio.did));
+        assert!(IdentityPallet::<T>::has_valid_cdd(sender_portfolio.did));
+    }
 }
