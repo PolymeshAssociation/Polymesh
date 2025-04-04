@@ -170,37 +170,6 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes(4))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
     }
-    // Storage: NFT CollectionAsset (r:1 w:0)
-    // Proof Skipped: NFT CollectionAsset (max_values: None, max_size: None, mode: Measured)
-    // Storage: NFT NumberOfNFTs (r:2 w:2)
-    // Proof Skipped: NFT NumberOfNFTs (max_values: None, max_size: None, mode: Measured)
-    // Storage: Portfolio PortfolioNFT (r:10 w:20)
-    // Proof Skipped: Portfolio PortfolioNFT (max_values: None, max_size: None, mode: Measured)
-    // Storage: Portfolio PortfolioLockedNFT (r:10 w:0)
-    // Proof Skipped: Portfolio PortfolioLockedNFT (max_values: None, max_size: None, mode: Measured)
-    // Storage: Asset Frozen (r:1 w:0)
-    // Proof Skipped: Asset Frozen (max_values: None, max_size: None, mode: Measured)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Proof Skipped: Instance2Group ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Identity Claims (r:4 w:0)
-    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
-    // Storage: ComplianceManager AssetCompliances (r:1 w:0)
-    // Proof Skipped: ComplianceManager AssetCompliances (max_values: None, max_size: None, mode: Measured)
-    // Storage: NFT NFTOwner (r:0 w:10)
-    // Proof Skipped: NFT NFTOwner (max_values: None, max_size: None, mode: Measured)
-    /// The range of component `n` is `[1, 10]`.
-    fn base_nft_transfer(n: u32) -> Weight {
-        // Minimum execution time: 132_779 nanoseconds.
-        Weight::from_ref_time(127_076_178)
-            // Standard Error: 135_156
-            .saturating_add(Weight::from_ref_time(14_141_631).saturating_mul(n.into()))
-            .saturating_add(DbWeight::get().reads(11))
-            .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(n.into())))
-            .saturating_add(DbWeight::get().writes(2))
-            .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
-    }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)

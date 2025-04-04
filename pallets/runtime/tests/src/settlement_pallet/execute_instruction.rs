@@ -9,10 +9,9 @@ use pallet_settlement::{
     OffChainAffirmations, UserAffirmations, VenueInstructions,
 };
 use polymesh_primitives::settlement::{
-    AffirmationStatus, Instruction, InstructionId, InstructionStatus, Leg, LegId, SettlementType,
+    AffirmationStatus, Instruction, InstructionId, InstructionStatus, Leg, SettlementType,
 };
 use polymesh_primitives::PortfolioId;
-use polymesh_primitives::SystematicIssuers::Settlement as SettlementDID;
 
 use super::setup::create_and_issue_sample_asset_with_venue;
 use crate::asset_pallet::setup::create_and_issue_sample_asset;
@@ -188,15 +187,7 @@ fn execute_instruction_storage_rollback() {
             system_events.pop().unwrap().event,
             crate::storage::EventTest::Settlement(Event::FailedToExecuteInstruction(
                 instruction_id,
-                Error::<TestStorage>::FailedToReleaseLockOrTransferAssets.into()
-            ))
-        );
-        assert_eq!(
-            system_events.pop().unwrap().event,
-            crate::storage::EventTest::Settlement(Event::LegFailedExecution(
-                SettlementDID.as_id(),
-                instruction_id,
-                LegId(1)
+                Error::<TestStorage>::SenderHasInsufficientBalance.into()
             ))
         );
     });

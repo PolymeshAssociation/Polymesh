@@ -13,11 +13,12 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataValue,
 };
 use polymesh_primitives::settlement::{InstructionId, Leg, SettlementType};
+use polymesh_primitives::traits::PortfolioSubTrait;
 use polymesh_primitives::{
-    with_transaction, AuthorizationData, Claim, ClaimType, Condition, ConditionType, CountryCode,
-    IdentityId, NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId,
-    PortfolioKind, PortfolioNumber, PortfolioUpdateReason, Scope, Signatory, TrustedFor,
-    TrustedIssuer, WeightMeter,
+    AuthorizationData, Claim, ClaimType, Condition, ConditionType, CountryCode, NFTCollectionId,
+    NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind,
+    PortfolioNumber, PortfolioUpdateReason, Scope, Signatory, TrustedFor, TrustedIssuer,
+    WeightMeter,
 };
 use sp_keyring::AccountKeyring;
 
@@ -618,7 +619,6 @@ fn transfer_nft_without_collection() {
         let alice: User = User::new(AccountKeyring::Alice);
         let bob: User = User::new(AccountKeyring::Bob);
 
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let sender_portfolio = PortfolioId {
             did: alice.did,
             kind: PortfolioKind::Default,
@@ -630,17 +630,7 @@ fn transfer_nft_without_collection() {
         let nfts = NFTs::new(Asset::generate_asset_id(alice.acc(), false), vec![NFTId(1)]).unwrap();
 
         assert_noop!(
-            with_transaction(|| {
-                NFT::base_nft_transfer(
-                    sender_portfolio,
-                    receiver_portfolio,
-                    nfts,
-                    InstructionId(0),
-                    None,
-                    IdentityId::default(),
-                    &mut weight_meter,
-                )
-            }),
+            NFT::validate_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts, false, None,),
             NFTError::InvalidNFTTransferCollectionNotFound
         );
     });
@@ -657,7 +647,6 @@ fn transfer_nft_same_portfolio() {
 
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let asset_id = create_nft_collection(
             alice.clone(),
             AssetType::NonFungible(NonFungibleType::Derivative),
@@ -675,17 +664,7 @@ fn transfer_nft_same_portfolio() {
         };
         let nfts = NFTs::new(asset_id, vec![NFTId(1)]).unwrap();
         assert_noop!(
-            with_transaction(|| {
-                NFT::base_nft_transfer(
-                    sender_portfolio,
-                    receiver_portfolio,
-                    nfts,
-                    InstructionId(0),
-                    None,
-                    IdentityId::default(),
-                    &mut weight_meter,
-                )
-            }),
+            NFT::validate_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts, false, None,),
             NFTError::InvalidNFTTransferSenderIdMatchesReceiverId
         );
     });
@@ -701,7 +680,6 @@ fn transfer_nft_invalid_count() {
         let alice: User = User::new(AccountKeyring::Alice);
         let bob: User = User::new(AccountKeyring::Bob);
 
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         let asset_id = create_nft_collection(
@@ -731,17 +709,7 @@ fn transfer_nft_invalid_count() {
         };
         let nfts = NFTs::new(asset_id, vec![NFTId(1), NFTId(2)]).unwrap();
         assert_noop!(
-            with_transaction(|| {
-                NFT::base_nft_transfer(
-                    sender_portfolio,
-                    receiver_portfolio,
-                    nfts,
-                    InstructionId(0),
-                    None,
-                    IdentityId::default(),
-                    &mut weight_meter,
-                )
-            }),
+            NFT::validate_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts, false, None,),
             NFTError::InvalidNFTTransferInsufficientCount
         );
     });
@@ -757,7 +725,6 @@ fn transfer_nft_not_owned() {
         let alice: User = User::new(AccountKeyring::Alice);
         let bob: User = User::new(AccountKeyring::Bob);
 
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         let asset_id = create_nft_collection(
@@ -787,17 +754,7 @@ fn transfer_nft_not_owned() {
         };
         let nfts = NFTs::new(asset_id, vec![NFTId(1)]).unwrap();
         assert_noop!(
-            with_transaction(|| {
-                NFT::base_nft_transfer(
-                    sender_portfolio,
-                    receiver_portfolio,
-                    nfts,
-                    InstructionId(0),
-                    None,
-                    IdentityId::default(),
-                    &mut weight_meter,
-                )
-            }),
+            NFT::validate_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts, false, None,),
             NFTError::InvalidNFTTransferInsufficientCount
         );
     });
@@ -814,7 +771,6 @@ fn transfer_nft_failing_compliance() {
         let dave: User = User::new(AccountKeyring::Dave);
         let alice: User = User::new(AccountKeyring::Alice);
 
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         let asset_id = create_nft_collection(
@@ -859,18 +815,9 @@ fn transfer_nft_failing_compliance() {
             kind: PortfolioKind::Default,
         };
         let nfts = NFTs::new(asset_id, vec![NFTId(1)]).unwrap();
+        Portfolio::lock_nft(&sender_portfolio, &asset_id, &NFTId(1)).unwrap();
         assert_noop!(
-            with_transaction(|| {
-                NFT::base_nft_transfer(
-                    sender_portfolio,
-                    receiver_portfolio,
-                    nfts,
-                    InstructionId(0),
-                    None,
-                    IdentityId::default(),
-                    &mut weight_meter,
-                )
-            }),
+            NFT::validate_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts, false, None,),
             NFTError::InvalidNFTTransferComplianceFailure
         );
     });
@@ -887,7 +834,6 @@ fn transfer_nft() {
         let alice: User = User::new(AccountKeyring::Alice);
         let bob: User = User::new(AccountKeyring::Bob);
 
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         let asset_id = create_nft_collection(
@@ -917,17 +863,25 @@ fn transfer_nft() {
             kind: PortfolioKind::Default,
         };
         let nfts = NFTs::new(asset_id, vec![NFTId(1)]).unwrap();
-        assert_ok!(with_transaction(|| {
-            NFT::base_nft_transfer(
-                sender_portfolio,
-                receiver_portfolio,
-                nfts.clone(),
-                InstructionId(0),
-                None,
-                IdentityId::default(),
-                &mut weight_meter,
-            )
-        }));
+        Portfolio::lock_nft(&sender_portfolio, &asset_id, &NFTId(1)).unwrap();
+        NFT::validate_nft_transfer(
+            &sender_portfolio,
+            &receiver_portfolio,
+            &nfts,
+            false,
+            Some(&mut WeightMeter::max_limit_no_minimum()),
+        )
+        .unwrap();
+        Portfolio::unlock_nft(&sender_portfolio, &asset_id, &NFTId(1)).unwrap();
+        NFT::simplified_nft_transfer(
+            sender_portfolio,
+            receiver_portfolio,
+            nfts.clone(),
+            InstructionId(0),
+            None,
+            alice.did,
+        )
+        .unwrap();
         assert_eq!(NumberOfNFTs::<TestStorage>::get(&asset_id, alice.did), 0);
         assert_eq!(
             PortfolioNFT::<TestStorage>::get(
@@ -951,7 +905,7 @@ fn transfer_nft() {
         );
         assert_eq!(
             super::storage::EventTest::Nft(Event::NFTPortfolioUpdated(
-                IdentityId::default(),
+                alice.did,
                 nfts,
                 Some(sender_portfolio),
                 Some(receiver_portfolio),
@@ -974,8 +928,6 @@ fn controller_transfer() {
         System::set_block_number(1);
         let alice: User = User::new(AccountKeyring::Alice);
         let bob: User = User::new(AccountKeyring::Bob);
-
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         let asset_id = create_nft_collection(
             alice.clone(),
@@ -1000,17 +952,15 @@ fn controller_transfer() {
             kind: PortfolioKind::Default,
         };
         let nfts = NFTs::new(asset_id, vec![NFTId(1)]).unwrap();
-        assert_ok!(with_transaction(|| {
-            NFT::base_nft_transfer(
-                alice_portfolio,
-                bob_portfolio,
-                nfts.clone(),
-                InstructionId(0),
-                None,
-                IdentityId::default(),
-                &mut weight_meter,
-            )
-        }));
+        NFT::simplified_nft_transfer(
+            alice_portfolio,
+            bob_portfolio,
+            nfts.clone(),
+            InstructionId(0),
+            None,
+            alice.did,
+        )
+        .unwrap();
         // Before the controller transfer all NFTs belong to bob
         assert_eq!(
             NumberOfNFTs::<TestStorage>::get(nfts.asset_id(), bob.did),

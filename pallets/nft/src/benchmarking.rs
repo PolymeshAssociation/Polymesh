@@ -188,35 +188,6 @@ benchmarks! {
         }
     }
 
-    base_nft_transfer {
-        // The weight depends on the number of ids in the `NFTs` vec and the complexity of the compliance rules.
-        // Since the compliance weight will be charged separately, the rules were paused and only the `Self::asset_compliance(ticker)`
-        // read will be considered (this read was not charged in the is_condition_satisfied benchmark).
-
-        let n in 1..10;
-
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
-
-        let (asset_id, sender_portfolio, receiver_portfolio, _) =
-            setup_nft_transfer::<T>(&alice, &bob, n, None, None, true, 0);
-        let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
-    }: {
-        with_transaction(|| {
-            Pallet::<T>::base_nft_transfer(
-                sender_portfolio,
-                receiver_portfolio,
-                nfts,
-                InstructionId(1),
-                None,
-                IdentityId::default(),
-                &mut weight_meter
-            )
-        })
-        .unwrap();
-    }
-
     controller_transfer {
         let n in 1..T::MaxNumberOfNFTsCount::get();
 

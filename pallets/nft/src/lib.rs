@@ -3,9 +3,9 @@
 use frame_support::dispatch::{
     DispatchError, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo,
 };
+use frame_support::ensure;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use frame_support::{ensure, require_transactional};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{vec, vec::Vec};
@@ -36,7 +36,6 @@ pub trait WeightInfo {
     fn create_nft_collection(n: u32) -> Weight;
     fn issue_nft(n: u32) -> Weight;
     fn redeem_nft(n: u32) -> Weight;
-    fn base_nft_transfer(n: u32) -> Weight;
     fn controller_transfer(n: u32) -> Weight;
     fn validate_nft_transfer_common(n: u32) -> Weight;
 }
@@ -340,6 +339,8 @@ pub mod pallet {
         NumberOfKeysIsLessThanExpected,
         /// The maximum weight limit for executing the function was exceeded.
         WeightLimitExceeded,
+        /// Failed to transfer an NFT - nft is not locked.
+        InvalidNFTTransferNFTIsNotLocked,
     }
 }
 
@@ -562,42 +563,6 @@ impl<T: Config> Pallet<T> {
         )))
     }
 
-    /// Tranfer ownership of all NFTs.
-    #[require_transactional]
-    pub fn base_nft_transfer(
-        sender_portfolio: PortfolioId,
-        receiver_portfolio: PortfolioId,
-        nfts: NFTs,
-        instruction_id: InstructionId,
-        instruction_memo: Option<Memo>,
-        caller_did: IdentityId,
-        weight_meter: &mut WeightMeter,
-    ) -> DispatchResult {
-        // Verifies if all rules for transfering the NFTs are being respected
-        Self::validate_nft_transfer(
-            &sender_portfolio,
-            &receiver_portfolio,
-            &nfts,
-            false,
-            Some(weight_meter),
-        )?;
-
-        // Transfer ownership of the NFTs
-        Self::unverified_nfts_transfer(&sender_portfolio, &receiver_portfolio, &nfts);
-
-        Self::deposit_event(Event::NFTPortfolioUpdated(
-            caller_did,
-            nfts,
-            Some(sender_portfolio),
-            Some(receiver_portfolio),
-            PortfolioUpdateReason::Transferred {
-                instruction_id: Some(instruction_id),
-                instruction_memo,
-            },
-        ));
-        Ok(())
-    }
-
     /// Returns `Ok` if all rules for transferring the NFTs are satisfied.
     pub fn validate_nft_transfer(
         sender_portfolio: &PortfolioId,
@@ -632,12 +597,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidNFTTransferInsufficientCount
         );
 
-        // Verifies that the number of nfts being transferred are within the allowed limits
         Self::ensure_within_nfts_transfer_limits(nfts)?;
-        // Verifies that all ids are unique
         Self::ensure_no_duplicate_nfts(nfts)?;
-        // Verfies that the sender owns the nfts
-        Self::ensure_nft_ownership(sender_portfolio, nfts)?;
+        Self::ensure_sender_owns_nfts(sender_portfolio, nfts)?;
 
         // Verfies that the receiver will not overflow
         NumberOfNFTs::<T>::get(nfts.asset_id(), receiver_portfolio.did)
@@ -648,6 +610,8 @@ impl<T: Config> Pallet<T> {
         if is_controller_transfer {
             return Ok(());
         }
+
+        Self::ensure_nfts_are_locked(sender_portfolio, nfts)?;
 
         // Verifies that the asset is not frozen
         ensure!(
@@ -680,20 +644,37 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Returns `Ok` if `sender_portfolio` has all nfts and they are not locked. Otherwise, returns an `Err`.
-    fn ensure_nft_ownership(sender_portfolio: &PortfolioId, nfts: &NFTs) -> DispatchResult {
-        // Verfies that the sender owns the nfts and that they are not locked
+    /// Returns `Ok` if `sender_portfolio` holds all nfts.
+    fn ensure_sender_owns_nfts(sender_portfolio: &PortfolioId, nfts: &NFTs) -> DispatchResult {
         for nft_id in nfts.ids() {
             ensure!(
                 PortfolioNFT::<T>::contains_key(sender_portfolio, (nfts.asset_id(), nft_id)),
                 Error::<T>::InvalidNFTTransferNFTNotOwned
             );
+        }
+        Ok(())
+    }
+
+    /// Returns `Ok` if all nfts in sender_portfolio are locked.
+    fn ensure_nfts_are_locked(sender_portfolio: &PortfolioId, nfts: &NFTs) -> DispatchResult {
+        for nft_id in nfts.ids() {
+            ensure!(
+                PortfolioLockedNFT::<T>::contains_key(sender_portfolio, (nfts.asset_id(), nft_id)),
+                Error::<T>::InvalidNFTTransferNFTIsNotLocked
+            );
+        }
+        Ok(())
+    }
+
+    /// Returns `Ok` if all nfts in sender_portfolio are not locked.
+    fn ensure_nfts_are_not_locked(sender_portfolio: &PortfolioId, nfts: &NFTs) -> DispatchResult {
+        // Verfies that the sender owns the nfts and that they are not locked
+        for nft_id in nfts.ids() {
             ensure!(
                 !PortfolioLockedNFT::<T>::contains_key(sender_portfolio, (nfts.asset_id(), nft_id)),
                 Error::<T>::InvalidNFTTransferNFTIsLocked
             );
         }
-
         Ok(())
     }
 
@@ -810,9 +791,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
         } else {
-            if let Err(e) = Self::ensure_nft_ownership(sender_portfolio, nfts) {
-                nft_transfer_errors.push(e);
-            }
+            unimplemented!();
         }
 
         if !IdentityPallet::<T>::has_valid_cdd(receiver_portfolio.did) {
@@ -892,7 +871,8 @@ impl<T: Config> Pallet<T> {
         instruction_memo: Option<Memo>,
         caller_did: IdentityId,
     ) -> DispatchResult {
-        Self::ensure_nft_ownership(&sender_pid, &nfts)?;
+        Self::ensure_sender_owns_nfts(&sender_pid, &nfts)?;
+        Self::ensure_nfts_are_not_locked(&sender_pid, &nfts)?;
         Self::unverified_nfts_transfer(&sender_pid, &receiver_pid, &nfts);
         Self::deposit_event(Event::NFTPortfolioUpdated(
             caller_did,

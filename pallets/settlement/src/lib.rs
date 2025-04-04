@@ -2286,10 +2286,12 @@ impl<T: Config> Pallet<T> {
                     AffirmsReceived::<T>::remove(inst_id, sender);
                     AffirmsReceived::<T>::remove(inst_id, receiver);
                     InstructionLegStatus::<T>::remove(inst_id, leg_id);
+                    InstructionLegs::<T>::remove(inst_id, leg_id);
                 }
                 Leg::OffChain { .. } => {
                     OffChainAffirmations::<T>::remove(inst_id, leg_id);
                     InstructionLegStatus::<T>::remove(inst_id, leg_id);
+                    InstructionLegs::<T>::remove(inst_id, leg_id);
                 }
             }
         }
