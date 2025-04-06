@@ -2998,6 +2998,10 @@ impl<T: Config> Pallet<T> {
             _ => return Err(Error::<T>::InvalidInstructionStatusForExecution.into()),
         }
 
+        InstructionStatuses::<T>::insert(
+            inst_id,
+            InstructionStatus::Success(System::<T>::block_number()),
+        );
         Self::prune_instruction(&inst_id, &inst_legs, &inst_asset_count, weight_meter)?;
         Self::deposit_event(Event::SettlementManuallyExecuted(caller_did, inst_id));
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
@@ -3111,7 +3115,7 @@ impl<T: Config> Pallet<T> {
         inst_id: &InstructionId,
         pid: &PortfolioId,
     ) -> DispatchResult {
-        match AffirmsReceived::<T>::get(inst_id, pid) {
+        match UserAffirmations::<T>::get(pid, inst_id) {
             AffirmationStatus::Unknown => Err(Error::<T>::CallerIsNotAParty.into()),
             AffirmationStatus::Pending | AffirmationStatus::Affirmed => Ok(()),
         }
