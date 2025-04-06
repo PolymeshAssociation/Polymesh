@@ -26,6 +26,7 @@ use frame_support::BoundedBTreeSet;
 use frame_system::pallet_prelude::*;
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
+use sp_std::iter::Iterator;
 use sp_std::{vec, vec::Vec};
 
 use pallet_external_agents::Config as EAConfig;
@@ -737,23 +738,15 @@ impl<T: Config> Pallet<T> {
         let investors_update =
             Self::calculate_investors_balance(&asset_id, total_rcv_per_did, total_sent_per_did)?;
 
-        let current_investor_count = AssetStats::<T>::get(
-            Stat1stKey::investor_count(asset_id.clone()),
-            Stat2ndKey::NoClaimStat,
-        );
-        let new_investor_count = current_investor_count
-            .saturating_add(investors_update.number_of_new_investors())
-            .checked_sub(investors_update.number_of_old_investors())
-            .ok_or(Error::<T>::UnexpectedInvestorCount)?;
-
         let asset_total_supply = T::AssetFn::asset_total_supply(&asset_id)?;
 
         for condition in asset_compliance.requirements {
             match condition {
                 TransferCondition::MaxInvestorCount(max_investors) => {
                     Self::ensure_max_investor_count(
-                        current_investor_count,
-                        new_investor_count,
+                        asset_id,
+                        investors_update.number_of_new_investors(),
+                        investors_update.number_of_old_investors(),
                         max_investors as u128,
                     )?;
                 }
@@ -771,12 +764,11 @@ impl<T: Config> Pallet<T> {
                     Self::ensure_claim_count(
                         investors_update.old_investors(),
                         investors_update.new_investors(),
-                        current_investor_count,
-                        new_investor_count,
                         min as u128,
                         max.map(|v| v as u128),
                         &Stat1stKey::new(asset_id, condition.get_stat_type()),
                         &Stat2ndKey::from(claim),
+                        total_sent_per_did.keys(),
                         weight_meter,
                     )?;
                 }
@@ -833,10 +825,19 @@ impl<T: Config> Pallet<T> {
 
     /// Returns `Ok` if the number of investors is not increasing or is less or equal to `max_investors`.
     fn ensure_max_investor_count(
-        current_investor_count: u128,
-        new_investor_count: u128,
+        asset_id: AssetId,
+        number_of_new_investors: u128,
+        number_of_old_investors: u128,
         max_investors: u128,
     ) -> DispatchResult {
+        let current_investor_count = AssetStats::<T>::get(
+            Stat1stKey::investor_count(asset_id.clone()),
+            Stat2ndKey::NoClaimStat,
+        );
+        let new_investor_count = current_investor_count
+            .saturating_add(number_of_new_investors)
+            .saturating_sub(number_of_old_investors);
+
         if new_investor_count > current_investor_count {
             if new_investor_count > max_investors {
                 return Err(Error::<T>::ExceededMaxInvestorCount.into());
@@ -864,7 +865,7 @@ impl<T: Config> Pallet<T> {
             if new_percentage > max_ownership_percentage {
                 if !Self::is_exempt_from_condition(
                     rcv_did,
-                    asset_id,
+                    &asset_id,
                     StatOpType::Balance,
                     None,
                     weight_meter,
@@ -885,95 +886,78 @@ impl<T: Config> Pallet<T> {
     /// 3. If the number of investors has increased:
     ///    - If the number of investors is still below or equal to the maximum.
     ///    - If it's more than the maximum and none of the new investors have a claim count.
-    fn ensure_claim_count(
+    fn ensure_claim_count<'a>(
         old_investors: &BTreeSet<IdentityId>,
         new_investors: &BTreeSet<IdentityId>,
-        current_investor_count: u128,
-        new_investor_count: u128,
         min: u128,
         max: Option<u128>,
         stat_fist_key: &Stat1stKey,
         stat_second_key: &Stat2ndKey,
+        senders_did: impl Iterator<Item = &'a IdentityId>,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        // The number of investors has not changed
-        if new_investor_count == current_investor_count {
+        let old_investors_with_claim = Self::dids_with_matching_claim_count(
+            old_investors,
+            stat_fist_key,
+            stat_second_key,
+            weight_meter,
+        )?;
+
+        let new_investors_with_claim = Self::dids_with_matching_claim_count(
+            new_investors,
+            stat_fist_key,
+            stat_second_key,
+            weight_meter,
+        )?;
+
+        if old_investors_with_claim == new_investors_with_claim {
             return Ok(());
         }
 
-        // The number of investors has decreased
-        if current_investor_count > new_investor_count {
-            if new_investor_count < min {
-                Self::ensure_old_investors_claim_count(
-                    old_investors,
-                    stat_fist_key,
-                    stat_second_key,
-                    weight_meter,
-                )?;
-            }
-        }
+        let current_count = AssetStats::<T>::get(stat_fist_key, stat_second_key);
+        let new_count = current_count
+            .saturating_add(new_investors_with_claim)
+            .saturating_sub(old_investors_with_claim);
 
-        // The number of investors has increased
-        if new_investor_count > current_investor_count {
-            if let Some(max) = max {
-                if new_investor_count > max {
-                    Self::ensure_new_investors_claim_count(
-                        new_investors,
-                        stat_fist_key,
-                        stat_second_key,
-                        weight_meter,
-                    )?;
-                }
+        if new_count < current_count && new_count < min {
+            if !Self::all_dids_exempt_from_condition(
+                senders_did,
+                &stat_fist_key.asset_id,
+                StatOpType::Count,
+                stat_second_key.claim_type(),
+                weight_meter,
+            )? {
+                return Err(Error::<T>::NumberofInvestorsBelowMinimum.into());
+            }
+        } else if new_count > current_count && max.is_some_and(|x| new_count > x) {
+            if !Self::all_dids_exempt_from_condition(
+                senders_did,
+                &stat_fist_key.asset_id,
+                StatOpType::Count,
+                stat_second_key.claim_type(),
+                weight_meter,
+            )? {
+                return Err(Error::<T>::NumberofInvestorsAboveMaximum.into());
             }
         }
 
         Ok(())
     }
 
-    /// Returns `Ok` if none of the identities sending all their balance have claim count restrictions.
-    fn ensure_old_investors_claim_count(
-        old_investors: &BTreeSet<IdentityId>,
+    /// Returns the number of identities that are not exempt from the claim count.
+    fn dids_with_matching_claim_count(
+        identities: &BTreeSet<IdentityId>,
         stat_first_key: &Stat1stKey,
         stat_second_key: &Stat2ndKey,
         weight_meter: &mut WeightMeter,
-    ) -> DispatchResult {
-        for did in old_investors {
+    ) -> Result<u128, DispatchError> {
+        let mut n: u128 = 0;
+        for did in identities {
             if Self::has_matching_claim(did, stat_first_key, stat_second_key, weight_meter)? {
-                if !Self::is_exempt_from_condition(
-                    did,
-                    stat_first_key.asset_id,
-                    StatOpType::Count,
-                    stat_second_key.claim_type(),
-                    weight_meter,
-                )? {
-                    return Err(Error::<T>::NumberofInvestorsBelowMinimum.into());
-                }
+                n += 1;
             }
         }
-        Ok(())
-    }
-
-    /// Returns `Ok` if none of the new investors have claim count restrictions.
-    fn ensure_new_investors_claim_count(
-        new_investors: &BTreeSet<IdentityId>,
-        stat_first_key: &Stat1stKey,
-        stat_second_key: &Stat2ndKey,
-        weight_meter: &mut WeightMeter,
-    ) -> DispatchResult {
-        for did in new_investors {
-            if Self::has_matching_claim(did, stat_first_key, stat_second_key, weight_meter)? {
-                if !Self::is_exempt_from_condition(
-                    did,
-                    stat_first_key.asset_id,
-                    StatOpType::Count,
-                    stat_second_key.claim_type(),
-                    weight_meter,
-                )? {
-                    return Err(Error::<T>::NumberofInvestorsAboveMaximum.into());
-                }
-            }
-        }
-        Ok(())
+        Ok(n)
     }
 
     /// Returns `Ok` if any of the following conditions are met:
@@ -1007,12 +991,12 @@ impl<T: Config> Pallet<T> {
 
                 if final_balance > *curent_balance {
                     increased_value += final_balance - *curent_balance;
-                    receivers.insert(did);
+                    receivers.insert(*did);
                 }
 
                 if final_balance < *curent_balance {
                     decreased_value += *curent_balance - final_balance;
-                    senders.insert(did);
+                    senders.insert(*did);
                 }
             }
         }
@@ -1033,32 +1017,28 @@ impl<T: Config> Pallet<T> {
 
         if increased_value > decreased_value {
             if new_percentage > max_percentage {
-                for did in receivers {
-                    if !Self::is_exempt_from_condition(
-                        &did,
-                        stat_fist_key.asset_id,
-                        StatOpType::Balance,
-                        stat_second_key.claim_type(),
-                        weight_meter,
-                    )? {
-                        return Err(Error::<T>::ExceededMaximumOwnershipClaim.into());
-                    }
+                if !Self::all_dids_exempt_from_condition(
+                    receivers.iter(),
+                    &stat_fist_key.asset_id,
+                    StatOpType::Balance,
+                    stat_second_key.claim_type(),
+                    weight_meter,
+                )? {
+                    return Err(Error::<T>::ExceededMaximumOwnershipClaim.into());
                 }
             }
         }
 
         if decreased_value > increased_value {
             if new_percentage < min_percentage {
-                for did in senders {
-                    if !Self::is_exempt_from_condition(
-                        &did,
-                        stat_fist_key.asset_id,
-                        StatOpType::Balance,
-                        stat_second_key.claim_type(),
-                        weight_meter,
-                    )? {
-                        return Err(Error::<T>::ExceededMaximumOwnershipClaim.into());
-                    }
+                if !Self::all_dids_exempt_from_condition(
+                    receivers.iter(),
+                    &stat_fist_key.asset_id,
+                    StatOpType::Balance,
+                    stat_second_key.claim_type(),
+                    weight_meter,
+                )? {
+                    return Err(Error::<T>::BelowMinimumOwnershipClaim.into());
                 }
             }
         }
@@ -1069,7 +1049,7 @@ impl<T: Config> Pallet<T> {
     /// Returns `true` if the identity is exempt from the transfer condition requirement.
     fn is_exempt_from_condition(
         did: &IdentityId,
-        asset_id: AssetId,
+        asset_id: &AssetId,
         stat_op_type: StatOpType,
         claim_type: Option<ClaimType>,
         weight_meter: &mut WeightMeter,
@@ -1079,11 +1059,33 @@ impl<T: Config> Pallet<T> {
             <T as Config>::WeightInfo::is_exempt_from_condition(),
         )?;
 
-        let exemption_key = TransferConditionExemptKey::new(asset_id, stat_op_type, claim_type);
+        let exemption_key = TransferConditionExemptKey::new(*asset_id, stat_op_type, claim_type);
         Ok(TransferConditionExemptEntities::<T>::get(
             &exemption_key,
             did,
         ))
+    }
+
+    /// Returns `true` if all identities are exempt from the transfer condition requirement.
+    fn all_dids_exempt_from_condition<'a>(
+        identities: impl Iterator<Item = &'a IdentityId>,
+        asset_id: &AssetId,
+        stat_op_type: StatOpType,
+        claim_type: Option<ClaimType>,
+        weight_meter: &mut WeightMeter,
+    ) -> Result<bool, DispatchError> {
+        for did in identities {
+            if !Self::is_exempt_from_condition(
+                did,
+                asset_id,
+                stat_op_type,
+                claim_type,
+                weight_meter,
+            )? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
     }
 
     /// Consumes from `weight_meter` the given `weight`.

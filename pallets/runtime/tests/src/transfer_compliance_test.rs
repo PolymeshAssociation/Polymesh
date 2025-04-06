@@ -469,11 +469,8 @@ impl AssetTracker {
     }
 
     #[track_caller]
-    pub fn ensure_invalid_transfer(&mut self, from: u64, to: u64, amount: u128) {
-        assert_noop!(
-            self.do_transfer(from, to, amount),
-            Error::InvalidTransferStatisticsFailure
-        );
+    pub fn ensure_invalid_transfer(&mut self, from: u64, to: u64, amount: u128, error: Error) {
+        assert_noop!(self.do_transfer(from, to, amount), error);
     }
 
     pub fn fetch_stats_key2(&self, stat_type: &StatType) -> Vec<Stat2ndKey> {
@@ -768,7 +765,7 @@ fn max_investor_rule_with_ext() {
 
     // Try adding another investor.
     let id = tracker.new_investor(); // No balance yet.
-    tracker.ensure_invalid_transfer(tracker.owner_id, id, 1_000);
+    tracker.ensure_invalid_transfer(tracker.owner_id, id, 1_000, Error::ExceededMaxInvestorCount);
 
     tracker.ensure_asset_stats();
 }
@@ -808,7 +805,12 @@ fn max_investor_ownership_rule_with_ext() {
     tracker.ensure_asset_stats();
 
     // Try transfer more so they would have >25%.
-    tracker.ensure_invalid_transfer(tracker.owner_id, id, 16_000);
+    tracker.ensure_invalid_transfer(
+        tracker.owner_id,
+        id,
+        16_000,
+        Error::ExceededMaxInvestorOwnership,
+    );
 
     tracker.ensure_asset_stats();
 }
@@ -878,7 +880,12 @@ fn claim_count_rule_with_ext() {
     let id = tracker.new_investor(); // No balance yet.
 
     // Try transfer some tokens to them.  Should fail.
-    tracker.ensure_invalid_transfer(tracker.owner_id, id, 1_000);
+    tracker.ensure_invalid_transfer(
+        tracker.owner_id,
+        id,
+        1_000,
+        Error::NumberofInvestorsAboveMaximum,
+    );
 
     tracker.ensure_asset_stats();
 
@@ -887,7 +894,12 @@ fn claim_count_rule_with_ext() {
 
     // Retry transfer.
     // Should still fail since the sender needs to be exempt for Count rules.
-    tracker.ensure_invalid_transfer(tracker.owner_id, id, 1_000);
+    tracker.ensure_invalid_transfer(
+        tracker.owner_id,
+        id,
+        1_000,
+        Error::NumberofInvestorsAboveMaximum,
+    );
 
     tracker.ensure_asset_stats();
 
@@ -964,7 +976,12 @@ fn jurisdiction_count_rule_with_ext() {
     tracker.add_claim_to_investors(&[id], claim_type, Some(CountryCode::GB));
 
     // Try transfer some tokens to them.  Should fail.
-    tracker.ensure_invalid_transfer(tracker.owner_id, id, 1_000);
+    tracker.ensure_invalid_transfer(
+        tracker.owner_id,
+        id,
+        1_000,
+        Error::NumberofInvestorsAboveMaximum,
+    );
 
     tracker.ensure_asset_stats();
 
@@ -973,7 +990,12 @@ fn jurisdiction_count_rule_with_ext() {
 
     // Retry transfer.
     // Should still fail since the sender needs to be exempt for Count rules.
-    tracker.ensure_invalid_transfer(tracker.owner_id, id, 1_000);
+    tracker.ensure_invalid_transfer(
+        tracker.owner_id,
+        id,
+        1_000,
+        Error::NumberofInvestorsAboveMaximum,
+    );
 
     tracker.ensure_asset_stats();
 
@@ -1049,7 +1071,12 @@ fn jurisdiction_ownership_rule_with_ext() {
     tracker.add_claim_to_investors(&[id], claim_type, Some(CountryCode::GB));
 
     // Try transfer more then 25% of the tokens to them.  Should fail.
-    tracker.ensure_invalid_transfer(tracker.owner_id, id, 260_000);
+    tracker.ensure_invalid_transfer(
+        tracker.owner_id,
+        id,
+        260_000,
+        Error::ExceededMaximumOwnershipClaim,
+    );
 
     tracker.ensure_asset_stats();
 
@@ -1058,7 +1085,12 @@ fn jurisdiction_ownership_rule_with_ext() {
 
     // Retry transfer.
     // Should still fail since the receiver needs to be exempt for Count rules.
-    tracker.ensure_invalid_transfer(tracker.owner_id, id, 260_000);
+    tracker.ensure_invalid_transfer(
+        tracker.owner_id,
+        id,
+        260_000,
+        Error::ExceededMaximumOwnershipClaim,
+    );
 
     tracker.ensure_asset_stats();
 
