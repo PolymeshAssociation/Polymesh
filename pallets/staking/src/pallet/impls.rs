@@ -57,7 +57,6 @@ use frame_support::traits::DefensiveSaturating;
 
 use polymesh_primitives::traits::IdentityFnTrait;
 
-use crate::pallet::SlashingSwitch;
 use crate::types::PermissionedStaking;
 use crate::UnlockChunk;
 // -----------------------------------------------------------------
@@ -1436,10 +1435,10 @@ where
         // Polymesh change
         // -----------------------------------------------------------------
         let slash_fraction_none = vec![Perbill::from_parts(0); slash_fraction.len()];
-        let slash_fraction = if SlashingAllowedFor::<T>::get() == SlashingSwitch::None {
-            slash_fraction_none.as_slice()
-        } else {
+        let slash_fraction = if Self::is_slashing_enabled() {
             slash_fraction
+        } else {
+            slash_fraction_none.as_slice()
         };
         // -----------------------------------------------------------------
 

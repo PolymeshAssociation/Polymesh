@@ -39,6 +39,21 @@ pub trait PermissionedStaking<T: Config> {
 
     /// Schedule reward payouts.
     fn schedule_payouts(_active_era: &ActiveEraInfo) {}
+
+    /// Who should be slashed?
+    fn who_to_slash() -> Option<WhoToSlash> {
+        Some(WhoToSlash::ValidatorAndNominator)
+    }
+
+    /// Is slashing enabled?
+    fn is_slashing_enabled() -> bool {
+        Self::who_to_slash().is_some()
+    }
+
+    /// Slash nominators?
+    fn slash_nominators() -> bool {
+        Self::who_to_slash() == Some(WhoToSlash::ValidatorAndNominator)
+    }
 }
 
 /// Preference of an identity regarding validation.
@@ -74,6 +89,17 @@ impl PermissionedIdentityPrefs {
     }
 }
 
+/// Who should be slashed.
+#[derive(Decode, Encode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum WhoToSlash {
+    /// Allow validators but not nominators to get slashed.
+    Validator,
+    /// Allow both validators and nominators to get slashed.
+    ValidatorAndNominator,
+}
+
 /// Switch used to change the "victim" for slashing. Victims can be
 /// validators, both validators and nominators, or no-one.
 #[derive(Decode, Encode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
@@ -87,4 +113,14 @@ pub enum SlashingSwitch {
     /// Forbid slashing.
     #[default]
     None,
+}
+
+impl From<SlashingSwitch> for Option<WhoToSlash> {
+    fn from(value: SlashingSwitch) -> Self {
+        match value {
+            SlashingSwitch::Validator => Some(WhoToSlash::Validator),
+            SlashingSwitch::ValidatorAndNominator => Some(WhoToSlash::ValidatorAndNominator),
+            SlashingSwitch::None => None,
+        }
+    }
 }

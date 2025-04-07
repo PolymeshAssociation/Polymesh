@@ -50,8 +50,8 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-    types::SlashingSwitch, BalanceOf, Config, Error, Exposure, NegativeImbalanceOf, Pallet,
-    Perbill, SessionInterface, SlashingAllowedFor, Store, UnappliedSlash,
+    types::PermissionedStaking, BalanceOf, Config, Error, Exposure, NegativeImbalanceOf, Pallet,
+    Perbill, SessionInterface, Store, UnappliedSlash,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
@@ -303,7 +303,7 @@ pub(crate) fn compute_slash<T: Config>(
     // Polymesh change
     // -----------------------------------------------------------------
     let mut nominators_slashed = Vec::new();
-    if SlashingAllowedFor::<T>::get() == SlashingSwitch::ValidatorAndNominator {
+    if Pallet::<T>::slash_nominators() {
         reward_payout +=
             slash_nominators::<T>(params.clone(), prior_slash_p, &mut nominators_slashed);
     }
@@ -665,7 +665,7 @@ pub(crate) fn apply_slash<T: Config>(
 
     // Polymesh change
     // -----------------------------------------------------------------
-    if SlashingAllowedFor::<T>::get() == SlashingSwitch::ValidatorAndNominator {
+    if Pallet::<T>::slash_nominators() {
         for &(ref nominator, nominator_slash) in &unapplied_slash.others {
             do_slash::<T>(
                 nominator,

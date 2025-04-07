@@ -13,7 +13,7 @@ use polymesh_primitives::GC_DID;
 
 use sp_runtime::traits::AccountIdConversion;
 
-use crate::types::{PermissionedIdentityPrefs, PermissionedStaking, SlashingSwitch};
+use crate::types::{PermissionedIdentityPrefs, PermissionedStaking, SlashingSwitch, WhoToSlash};
 use crate::*;
 
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
@@ -142,6 +142,12 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
                     }
                 }
         }
+    }
+
+    /// Who should be slashed?
+    /// Returns `None` if no one should be slashed.
+    fn who_to_slash() -> Option<WhoToSlash> {
+        SlashingAllowedFor::<T>::get().into()
     }
 }
 
