@@ -754,7 +754,78 @@ impl<T: Config> Pallet<T> {
         skip_locked_check: bool,
         weight_meter: &mut WeightMeter,
     ) -> Vec<DispatchError> {
-        unimplemented!();
+        let mut nft_transfer_errors = Vec::new();
+
+        // If the collection doesn't exist, there's no point in assessing anything else
+        if !CollectionAsset::<T>::contains_key(nfts.asset_id()) {
+            return vec![Error::<T>::InvalidNFTTransferCollectionNotFound.into()];
+        }
+
+        if Frozen::<T>::get(nfts.asset_id()) {
+            nft_transfer_errors.push(Error::<T>::InvalidNFTTransferFrozenAsset.into());
+        }
+
+        if sender_portfolio.did == receiver_portfolio.did {
+            nft_transfer_errors
+                .push(Error::<T>::InvalidNFTTransferSenderIdMatchesReceiverId.into());
+        }
+
+        let nfts_transferred = nfts.len() as u64;
+        if NumberOfNFTs::<T>::get(nfts.asset_id(), &sender_portfolio.did) < nfts_transferred {
+            nft_transfer_errors.push(Error::<T>::InvalidNFTTransferInsufficientCount.into());
+        }
+
+        if let Err(e) = Self::ensure_within_nfts_transfer_limits(nfts) {
+            nft_transfer_errors.push(e);
+        }
+
+        if let Err(e) = Self::ensure_no_duplicate_nfts(nfts) {
+            nft_transfer_errors.push(e);
+        }
+
+        if let Err(e) = Self::ensure_sender_owns_nfts(sender_portfolio, nfts) {
+            nft_transfer_errors.push(e);
+        }
+
+        if !skip_locked_check {
+            if let Err(e) = Self::ensure_nfts_are_locked(sender_portfolio, nfts) {
+                nft_transfer_errors.push(e);
+            }
+        }
+
+        if !IdentityPallet::<T>::has_valid_cdd(receiver_portfolio.did) {
+            nft_transfer_errors.push(Error::<T>::InvalidNFTTransferInvalidReceiverCDD.into());
+        }
+
+        if !IdentityPallet::<T>::has_valid_cdd(sender_portfolio.did) {
+            nft_transfer_errors.push(Error::<T>::InvalidNFTTransferInvalidSenderCDD.into());
+        }
+
+        if NumberOfNFTs::<T>::get(nfts.asset_id(), &receiver_portfolio.did)
+            .checked_add(nfts_transferred)
+            .is_none()
+        {
+            nft_transfer_errors.push(Error::<T>::InvalidNFTTransferCountOverflow.into());
+        }
+
+        match T::Compliance::is_compliant(
+            nfts.asset_id(),
+            Some(sender_portfolio.did),
+            Some(receiver_portfolio.did),
+            weight_meter,
+        ) {
+            Ok(is_compliant) => {
+                if !is_compliant {
+                    nft_transfer_errors
+                        .push(Error::<T>::InvalidNFTTransferComplianceFailure.into());
+                }
+            }
+            Err(e) => {
+                nft_transfer_errors.push(e);
+            }
+        }
+
+        nft_transfer_errors
     }
 
     /// Adds one to `CurrentCollectionId`.

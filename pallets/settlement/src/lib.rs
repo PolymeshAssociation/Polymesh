@@ -225,7 +225,6 @@ pub mod pallet {
         fn manual_execution_common(f: u32, n: u32, o: u32) -> Weight;
         fn validate_mediators_affirmations(n: u32) -> Weight;
         fn validate_execute_instruction_conditions_common(f: u32, n: u32, o: u32) -> Weight;
-        fn ensure_assets_can_be_transferred_common(n: u32) -> Weight;
         fn ensure_assets_are_not_frozen(f: u32) -> Weight;
         fn ensure_valid_cdd_claims(f: u32) -> Weight;
         fn valid_receivers_portfolio(f: u32) -> Weight;
@@ -2008,26 +2007,27 @@ impl<T: Config> Pallet<T> {
     /// Returns `Ok` if all assets can be transferred.
     #[rustfmt::skip]
     fn ensure_assets_can_be_transferred(
-        id: &InstructionId,
+        inst_id: &InstructionId,
         inst_legs: &[(LegId, Leg)],
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        Self::check_accrue(
-            weight_meter,
-            <T as Config>::WeightInfo::ensure_assets_can_be_transferred_common(
-                inst_legs.len() as u32
-            ),
-        )?;
+        //Self::check_accrue(
+        //    weight_meter,
+        //    <T as Config>::WeightInfo::ensure_assets_can_be_transferred_common(
+        //        inst_legs.len() as u32
+        //    ),
+        //)?;
 
         let mut nfts_transferred = BTreeMap::new();
         let mut fungible_tx_summary = FungibleTxSummary::new();
 
         // Aggregates the total amount of assets sent and received per DID and per Portfolio
         for (leg_id, leg) in inst_legs {
+            let leg_status = InstructionLegStatus::<T>::get(inst_id, leg_id);
             match leg {
                 Leg::Fungible { sender, receiver, asset_id, amount } => {
                     ensure!(
-                        InstructionLegStatus::<T>::get(id, leg_id) == LegStatus::ExecutionPending,
+                        leg_status == LegStatus::ExecutionPending,
                         Error::<T>::UnexpectedLegStatus
                     );
                     fungible_tx_summary
@@ -2035,7 +2035,7 @@ impl<T: Config> Pallet<T> {
                 }
                 Leg::NonFungible { sender, receiver, nfts } => {
                     ensure!(
-                        InstructionLegStatus::<T>::get(id, leg_id) == LegStatus::ExecutionPending,
+                        leg_status == LegStatus::ExecutionPending,
                         Error::<T>::UnexpectedLegStatus
                     );
                     Self::ensure_valid_nft_transfer(
@@ -2047,9 +2047,7 @@ impl<T: Config> Pallet<T> {
                     )?;
                 }
                 Leg::OffChain { .. } => {
-                    if let LegStatus::ExecutionToBeSkipped(_, _) =
-                        InstructionLegStatus::<T>::get(id, leg_id)
-                    {
+                    if let LegStatus::ExecutionToBeSkipped(_, _) = leg_status {
                         continue;
                     }
                     return Err(Error::<T>::UnexpectedLegStatus.into());
@@ -3639,16 +3637,6 @@ impl<T: Config> Pallet<T> {
         )
     }
 
-    /// Returns a vector containing all errors for the transfer. An empty vec means there's no error.
-    #[rustfmt::skip]
-    pub fn transfer_report(
-        leg: Leg,
-        skip_locked_check: bool,
-        weight_meter: &mut WeightMeter,
-    ) -> Vec<DispatchError> {
-        unimplemented!()
-    }
-
     /// Returns a vector containing all errors for the execution. An empty vec means there's no error.
     #[rustfmt::skip]
     pub fn execute_instruction_report(
@@ -3657,7 +3645,7 @@ impl<T: Config> Pallet<T> {
     ) -> Vec<DispatchError> {
         let mut execution_errors = Vec::new();
 
-        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&instruction_id).collect();
+        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(inst_id).collect();
         if InstructionAffirmsPending::<T>::get(inst_id) != 0 {
             execution_errors.push(Error::<T>::NotAllAffirmationsHaveBeenReceived.into());
         }
@@ -3679,46 +3667,19 @@ impl<T: Config> Pallet<T> {
             execution_errors.push(e);
         }
 
-        let mut nfts_transferred = BTreeMap::new();
-        let mut fungible_tx_summary = FungibleTxSummary::new();
-        for (leg_id, leg) in inst_legs {
-            match leg {
-                Leg::Fungible { sender, receiver, asset_id, amount} => {
-                    if InstructionLegStatus::<T>::get(id, leg_id) != LegStatus::ExecutionPending {
-                        execution_errors.push(Error::<T>::UnexpectedLegStatus.into());
-                    }
-                    fungible_tx_summary.add_transfer(sender, receiver, asset_id, amount);
-                }
-                Leg::NonFungible {sender, receiver, nfts } => {
-                    if InstructionLegStatus::<T>::get(id, leg_id) != LegStatus::ExecutionPending {
-                        execution_errors.push(Error::<T>::UnexpectedLegStatus.into());
-                    }
-
-                    if let Err(e) = Self::Self::ensure_valid_nft_transfer(
-                        sender,
-                        receiver,
-                        nfts,
-                        &mut nfts_transferred,
-                        weight_meter,
-                    ) {
-                        execution_errors.push(e);
-                    }
-                }
-                Leg::OffChain { .. } => {
-                    let leg_status = InstructionLegStatus::<T>::get(id, leg_id);
-                    if LegStatus::ExecutionPending == leg_status
-                        || leg_status == leg_status::PendingTokenLock
-                    {
-                        execution_errors.push(Error::<T>::UnexpectedLegStatus.into());
-                    }
-                }
-            }
-        }
-
-        if let Err(e) = Self::ensure_valid_fungible_transfer(&fungible_tx_summary, weight_meter) {
+        if let Err(e) = Self::ensure_assets_can_be_transferred(inst_id, &inst_legs, weight_meter)
+        {
             execution_errors.push(e);
         }
 
-        unimplemented!()
+        let inst_status = InstructionStatuses::<T>::get(inst_id);
+        if inst_status == InstructionStatus::LockedForExecution {
+            if let Err(e) = Self::ensure_maximum_locking_period_not_exceeded(inst_id, weight_meter)
+            {
+                execution_errors.push(e);
+            }
+        }
+
+        execution_errors
     }
 }

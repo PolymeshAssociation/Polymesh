@@ -48,7 +48,6 @@ use pallet_transaction_payment::RuntimeDispatchInfo;
 use pallet_utility;
 use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use polymesh_primitives::constants::currency::{DOLLARS, POLY};
-use polymesh_primitives::settlement::Leg;
 use polymesh_primitives::{
     traits::{group::GroupTrait, CddAndFeeDetails},
     AccountId, Authorization, AuthorizationData, BlockNumber, Claim, Moment,

@@ -25,9 +25,7 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 
 pub use node_rpc_runtime_api::settlement::SettlementApi as SettlementRuntimeApi;
-use polymesh_primitives::settlement::{
-    AffirmationCount, ExecuteInstructionInfo, InstructionId, Leg,
-};
+use polymesh_primitives::settlement::{AffirmationCount, ExecuteInstructionInfo, InstructionId};
 use polymesh_primitives::PortfolioId;
 
 use crate::Error;
@@ -48,14 +46,6 @@ pub trait SettlementApi<BlockHash> {
         portfolios: Vec<PortfolioId>,
         at: Option<BlockHash>,
     ) -> RpcResult<AffirmationCount>;
-
-    #[method(name = "settlement_getTransferReport")]
-    fn get_transfer_report(
-        &self,
-        leg: Leg,
-        skip_locked_check: bool,
-        at: Option<BlockHash>,
-    ) -> RpcResult<Vec<DispatchError>>;
 
     #[method(name = "settlement_getExecuteInstructionReport")]
     fn get_execute_instruction_report(

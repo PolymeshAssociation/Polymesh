@@ -1096,13 +1096,91 @@ impl<T: Config> Pallet<T> {
             .map_err(|_| Error::<T>::WeightLimitExceeded.into())
     }
 
+    /// Returns a vector containing all [`TransferCondition`] that are not being respected for the transfer. An empty vec means there's no error.
     pub fn transfer_restrictions_report(
-        _asset_id: AssetId,
-        _sender_did: &IdentityId,
-        _receiver_did: &IdentityId,
-        _transfer_amount: Balance,
-        _weight_meter: &mut WeightMeter,
+        asset_id: AssetId,
+        sender_did: &IdentityId,
+        receiver_did: &IdentityId,
+        transfer_amount: Balance,
+        weight_meter: &mut WeightMeter,
     ) -> Result<Vec<TransferCondition>, DispatchError> {
-        unimplemented!()
+        let mut failed_conditions = Vec::new();
+
+        let asset_total_supply = T::AssetFn::asset_total_supply(&asset_id)?;
+        let asset_compliance = AssetTransferCompliances::<T>::get(&asset_id);
+
+        if asset_compliance.paused || asset_compliance.requirements.is_empty() {
+            return Ok(failed_conditions);
+        }
+
+        let total_rcv_per_did = &BTreeMap::from([(*receiver_did, transfer_amount)]);
+        let total_sent_per_did = &BTreeMap::from([(*sender_did, transfer_amount)]);
+        let investors_update =
+            Self::calculate_investors_balance(&asset_id, total_rcv_per_did, total_sent_per_did)?;
+
+        for condition in asset_compliance.requirements {
+            match condition {
+                TransferCondition::MaxInvestorCount(max_investors) => {
+                    if Self::ensure_max_investor_count(
+                        asset_id,
+                        investors_update.number_of_new_investors(),
+                        investors_update.number_of_old_investors(),
+                        max_investors as u128,
+                    )
+                    .is_err()
+                    {
+                        failed_conditions.push(condition.clone());
+                    }
+                }
+                TransferCondition::MaxInvestorOwnership(max_ownership_percentage) => {
+                    if Self::ensure_max_investor_ownership(
+                        asset_id.clone(),
+                        total_rcv_per_did.keys(),
+                        investors_update.dids_final_balance(),
+                        asset_total_supply,
+                        max_ownership_percentage,
+                        weight_meter,
+                    )
+                    .is_err()
+                    {
+                        failed_conditions.push(condition.clone());
+                    }
+                }
+                TransferCondition::ClaimCount(claim, _, min, max) => {
+                    if Self::ensure_claim_count(
+                        investors_update.old_investors(),
+                        investors_update.new_investors(),
+                        min as u128,
+                        max.map(|v| v as u128),
+                        &Stat1stKey::new(asset_id, condition.get_stat_type()),
+                        &Stat2ndKey::from(claim),
+                        total_sent_per_did.keys(),
+                        weight_meter,
+                    )
+                    .is_err()
+                    {
+                        failed_conditions.push(condition.clone());
+                    }
+                }
+                TransferCondition::ClaimOwnership(claim, _, min, max) => {
+                    if Self::ensure_claim_ownership(
+                        investors_update.dids_current_balance(),
+                        investors_update.dids_final_balance(),
+                        asset_total_supply,
+                        min,
+                        max,
+                        &Stat1stKey::new(asset_id, condition.get_stat_type()),
+                        &Stat2ndKey::from(claim),
+                        weight_meter,
+                    )
+                    .is_err()
+                    {
+                        failed_conditions.push(condition.clone());
+                    }
+                }
+            }
+        }
+
+        Ok(failed_conditions)
     }
 }

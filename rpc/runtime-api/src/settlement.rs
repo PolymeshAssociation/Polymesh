@@ -18,9 +18,7 @@
 use frame_support::dispatch::DispatchError;
 use sp_std::vec::Vec;
 
-use polymesh_primitives::settlement::{
-    AffirmationCount, ExecuteInstructionInfo, InstructionId, Leg,
-};
+use polymesh_primitives::settlement::{AffirmationCount, ExecuteInstructionInfo, InstructionId};
 use polymesh_primitives::PortfolioId;
 
 sp_api::decl_runtime_apis! {
@@ -52,28 +50,6 @@ sp_api::decl_runtime_apis! {
         ///   }'
         /// ```
         fn get_affirmation_count(instruction_id: InstructionId, portfolios: Vec<PortfolioId>) -> AffirmationCount;
-
-        /// Returns a vector containing all errors for the transfer. An empty vec means there's no error.
-        ///
-        /// ```ignore
-        /// curl http://localhost:9933 -H "Content-Type: application/json" -d '{
-        ///     "id":1,
-        ///     "jsonrpc":"2.0",
-        ///     "method": "settlement_getTransferReport",
-        ///     "params": [
-        ///         {
-        ///            "NonFungible":
-        ///                {
-        ///                    "sender": { "did": "0x0100000000000000000000000000000000000000000000000000000000000000", "kind": "Default"},
-        ///                    "receiver": { "did": "0x0100000000000000000000000000000000000000000000000000000000000000", "kind": "Default"},
-        ///                    "nfts": { "ticker": "0x5449434B4552303030303031", "ids": [1]}
-        ///                }
-        ///         },
-        ///         false
-        ///     ]
-        /// }'
-        /// ```
-        fn get_transfer_report(leg: Leg, skip_locked_check: bool) -> Vec<DispatchError>;
 
         /// Returns a vector containing all errors for the execution. An empty vec means there's no error.
         ///

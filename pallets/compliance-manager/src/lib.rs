@@ -973,7 +973,52 @@ impl<T: Config> Pallet<T> {
         receiver_identity: &IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> Result<ComplianceReport, DispatchError> {
-        unimplemented!()
+        let asset_compliance = AssetCompliances::<T>::get(asset_id);
+
+        if asset_compliance.requirements.is_empty() {
+            return Ok(ComplianceReport::new(
+                Vec::new(),
+                true,
+                asset_compliance.paused,
+            ));
+        }
+
+        let mut any_requirement_satisfied = false;
+        // Get the [`RequirementReport`] for each requirement
+        let mut requirements_report = Vec::new();
+        for requirement in asset_compliance.requirements {
+            // The requirement is satisfied only if all sender and receiver conditions hold.
+            let mut requirement_satisfied = true;
+            // Get the [`ConditionrReport`] for all sender conditions
+            let sender_conditions_report = Self::get_conditions_report(
+                asset_id,
+                *sender_identity,
+                requirement.sender_conditions,
+                &mut requirement_satisfied,
+                weight_meter,
+            )?;
+            // Get the [`ConditionrReport`] for all receiver conditions
+            let receiver_conditions_report = Self::get_conditions_report(
+                asset_id,
+                *receiver_identity,
+                requirement.receiver_conditions,
+                &mut requirement_satisfied,
+                weight_meter,
+            )?;
+            requirements_report.push(RequirementReport::new(
+                sender_conditions_report,
+                receiver_conditions_report,
+                requirement.id,
+                requirement_satisfied,
+            ));
+            any_requirement_satisfied = any_requirement_satisfied || requirement_satisfied;
+        }
+
+        Ok(ComplianceReport::new(
+            requirements_report,
+            any_requirement_satisfied,
+            asset_compliance.paused,
+        ))
     }
 
     /// Returns all [`ConditionReport`] for the given `conditions`.
@@ -984,6 +1029,18 @@ impl<T: Config> Pallet<T> {
         requirement_satisfied: &mut bool,
         weight_meter: &mut WeightMeter,
     ) -> Result<Vec<ConditionReport>, DispatchError> {
-        unimplemented!()
+        let mut conditions_report = Vec::new();
+        for condition in conditions {
+            let is_condition_satisfied = Self::is_condition_satisfied(
+                asset_id,
+                identity,
+                &condition,
+                &mut None,
+                weight_meter,
+            )?;
+            conditions_report.push(ConditionReport::new(condition, is_condition_satisfied));
+            *requirement_satisfied = *requirement_satisfied && is_condition_satisfied;
+        }
+        Ok(conditions_report)
     }
 }

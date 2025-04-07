@@ -1175,12 +1175,6 @@ macro_rules! runtime_apis {
                 }
 
                 #[inline]
-                fn get_transfer_report(leg: Leg, skip_locked_check: bool) -> Vec<DispatchError> {
-                    let mut weight_meter = WeightMeter::max_limit_no_minimum();
-                    Settlement::transfer_report(leg, skip_locked_check, &mut weight_meter)
-                }
-
-                #[inline]
                 fn get_execute_instruction_report(instruction_id: InstructionId) -> Vec<DispatchError> {
                     let mut weight_meter = WeightMeter::max_limit_no_minimum();
                     Settlement::execute_instruction_report(&instruction_id, &mut weight_meter)
