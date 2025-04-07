@@ -23,14 +23,14 @@
 //! HOSTNAME: `ubuntu-8gb-nbg1-1-bench2`, CPU: `AMD EPYC-Milan Processor`
 
 // Executed Command:
-// ./polymesh
+// ./target/release/polymesh
 // benchmark
 // pallet
 // -s
 // 100
 // -r
 // 5
-// -p=*
+// -p=pallet_settlement
 // -e=*
 // --heap-pages
 // 4096
@@ -41,9 +41,9 @@
 // --wasm-execution
 // compiled
 // --output
-// ./Polymesh/pallets/weights/src/
+// ./pallets/weights/src/
 // --template
-// ./Polymesh/.maintain/frame-weight-template.hbs
+// ./.maintain/frame-weight-template.hbs
 
 #![allow(unused_parens)]
 #![allow(unused_imports)]
@@ -54,176 +54,174 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 pub struct SubstrateWeight;
 impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: Settlement VenueCounter (r:1 w:1)
-    // Proof Skipped: Settlement VenueCounter (max_values: Some(1), max_size: None, mode: Measured)
+    // Proof: Settlement VenueCounter (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
     // Storage: Settlement VenueInfo (r:0 w:1)
-    // Proof Skipped: Settlement VenueInfo (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueInfo (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
     // Storage: Settlement Details (r:0 w:1)
     // Proof Skipped: Settlement Details (max_values: None, max_size: None, mode: Measured)
     // Storage: Settlement NumberOfVenueSigners (r:0 w:1)
-    // Proof Skipped: Settlement NumberOfVenueSigners (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement NumberOfVenueSigners (max_values: None, max_size: Some(20), added: 2495, mode: MaxEncodedLen)
     // Storage: Settlement VenueSigners (r:0 w:49)
-    // Proof Skipped: Settlement VenueSigners (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueSigners (max_values: None, max_size: Some(57), added: 2532, mode: MaxEncodedLen)
     // Storage: Settlement UserVenues (r:0 w:1)
-    // Proof Skipped: Settlement UserVenues (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement UserVenues (max_values: None, max_size: Some(56), added: 2531, mode: MaxEncodedLen)
     /// The range of component `d` is `[1, 2048]`.
     /// The range of component `s` is `[0, 50]`.
     fn create_venue(d: u32, s: u32) -> Weight {
-        // Minimum execution time: 38_007 nanoseconds.
-        Weight::from_ref_time(43_823_114)
-            // Standard Error: 328
-            .saturating_add(Weight::from_ref_time(338).saturating_mul(d.into()))
-            // Standard Error: 13_352
-            .saturating_add(Weight::from_ref_time(2_337_555).saturating_mul(s.into()))
+        // Minimum execution time: 41_815 nanoseconds.
+        Weight::from_ref_time(45_019_979)
+            // Standard Error: 320
+            .saturating_add(Weight::from_ref_time(569).saturating_mul(d.into()))
+            // Standard Error: 13_019
+            .saturating_add(Weight::from_ref_time(2_079_766).saturating_mul(s.into()))
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(5))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(s.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: Settlement VenueInfo (r:1 w:0)
-    // Proof Skipped: Settlement VenueInfo (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueInfo (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
     // Storage: Settlement Details (r:0 w:1)
     // Proof Skipped: Settlement Details (max_values: None, max_size: None, mode: Measured)
     /// The range of component `d` is `[1, 2048]`.
     fn update_venue_details(d: u32) -> Weight {
-        // Minimum execution time: 27_702 nanoseconds.
-        Weight::from_ref_time(34_850_082)
-            // Standard Error: 450
-            .saturating_add(Weight::from_ref_time(2_322).saturating_mul(d.into()))
+        // Minimum execution time: 33_362 nanoseconds.
+        Weight::from_ref_time(34_318_819)
+            // Standard Error: 71
+            .saturating_add(Weight::from_ref_time(1_659).saturating_mul(d.into()))
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: Settlement VenueInfo (r:1 w:1)
-    // Proof Skipped: Settlement VenueInfo (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueInfo (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
     fn update_venue_type() -> Weight {
-        // Minimum execution time: 27_330 nanoseconds.
-        Weight::from_ref_time(28_732_000)
+        // Minimum execution time: 32_365 nanoseconds.
+        Weight::from_ref_time(32_548_000)
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: Settlement VenueInfo (r:1 w:0)
-    // Proof Skipped: Settlement VenueInfo (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueInfo (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
     // Storage: Settlement NumberOfVenueSigners (r:1 w:1)
-    // Proof Skipped: Settlement NumberOfVenueSigners (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement NumberOfVenueSigners (max_values: None, max_size: Some(20), added: 2495, mode: MaxEncodedLen)
     // Storage: Settlement VenueSigners (r:49 w:49)
-    // Proof Skipped: Settlement VenueSigners (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueSigners (max_values: None, max_size: Some(57), added: 2532, mode: MaxEncodedLen)
     /// The range of component `s` is `[0, 50]`.
     fn update_venue_signers(s: u32) -> Weight {
-        // Minimum execution time: 29_644 nanoseconds.
-        Weight::from_ref_time(41_178_975)
-            // Standard Error: 25_032
-            .saturating_add(Weight::from_ref_time(4_526_473).saturating_mul(s.into()))
+        // Minimum execution time: 33_986 nanoseconds.
+        Weight::from_ref_time(40_140_021)
+            // Standard Error: 8_098
+            .saturating_add(Weight::from_ref_time(4_287_425).saturating_mul(s.into()))
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(s.into())))
             .saturating_add(DbWeight::get().writes(1))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(s.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
-    // Proof Skipped: ExternalAgents GroupOfAgent (max_values: None, max_size: None, mode: Measured)
+    // Proof: ExternalAgents GroupOfAgent (max_values: None, max_size: Some(77), added: 2552, mode: MaxEncodedLen)
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Proof Skipped: Permissions CurrentPalletName (max_values: Some(1), max_size: None, mode: Measured)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
     // Storage: Settlement VenueFiltering (r:0 w:1)
-    // Proof Skipped: Settlement VenueFiltering (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueFiltering (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     fn set_venue_filtering() -> Weight {
-        // Minimum execution time: 33_059 nanoseconds.
-        Weight::from_ref_time(34_743_000)
+        // Minimum execution time: 37_677 nanoseconds.
+        Weight::from_ref_time(37_915_000)
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
-    // Proof Skipped: ExternalAgents GroupOfAgent (max_values: None, max_size: None, mode: Measured)
+    // Proof: ExternalAgents GroupOfAgent (max_values: None, max_size: Some(77), added: 2552, mode: MaxEncodedLen)
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Proof Skipped: Permissions CurrentPalletName (max_values: Some(1), max_size: None, mode: Measured)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
     // Storage: Settlement VenueAllowList (r:0 w:99)
-    // Proof Skipped: Settlement VenueAllowList (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueAllowList (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
     /// The range of component `v` is `[0, 100]`.
     fn allow_venues(v: u32) -> Weight {
-        // Minimum execution time: 29_734 nanoseconds.
-        Weight::from_ref_time(34_041_969)
-            // Standard Error: 18_920
-            .saturating_add(Weight::from_ref_time(2_558_029).saturating_mul(v.into()))
+        // Minimum execution time: 35_724 nanoseconds.
+        Weight::from_ref_time(37_135_171)
+            // Standard Error: 3_625
+            .saturating_add(Weight::from_ref_time(2_310_199).saturating_mul(v.into()))
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(v.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
-    // Proof Skipped: ExternalAgents GroupOfAgent (max_values: None, max_size: None, mode: Measured)
+    // Proof: ExternalAgents GroupOfAgent (max_values: None, max_size: Some(77), added: 2552, mode: MaxEncodedLen)
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Proof Skipped: Permissions CurrentPalletName (max_values: Some(1), max_size: None, mode: Measured)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
     // Storage: Settlement VenueAllowList (r:0 w:99)
-    // Proof Skipped: Settlement VenueAllowList (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueAllowList (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
     /// The range of component `v` is `[0, 100]`.
     fn disallow_venues(v: u32) -> Weight {
-        // Minimum execution time: 32_018 nanoseconds.
-        Weight::from_ref_time(35_158_836)
-            // Standard Error: 18_808
-            .saturating_add(Weight::from_ref_time(2_479_690).saturating_mul(v.into()))
+        // Minimum execution time: 36_020 nanoseconds.
+        Weight::from_ref_time(38_065_721)
+            // Standard Error: 3_086
+            .saturating_add(Weight::from_ref_time(2_195_454).saturating_mul(v.into()))
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(v.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: Settlement InstructionDetails (r:1 w:0)
-    // Proof Skipped: Settlement InstructionDetails (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionDetails (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Settlement InstructionStatuses (r:1 w:0)
-    // Proof Skipped: Settlement InstructionStatuses (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionStatuses (max_values: None, max_size: Some(21), added: 2496, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioCustodian (r:110 w:0)
-    // Proof Skipped: Portfolio PortfolioCustodian (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioCustodian (max_values: None, max_size: Some(81), added: 2556, mode: MaxEncodedLen)
     // Storage: Settlement UserAffirmations (r:110 w:110)
-    // Proof Skipped: Settlement UserAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement UserAffirmations (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement VenueSigners (r:1 w:0)
-    // Proof Skipped: Settlement VenueSigners (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueSigners (max_values: None, max_size: Some(57), added: 2532, mode: MaxEncodedLen)
     // Storage: Settlement ReceiptsUsed (r:10 w:10)
-    // Proof Skipped: Settlement ReceiptsUsed (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement ReceiptsUsed (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Settlement InstructionLegs (r:121 w:0)
     // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
     // Storage: Settlement OffChainAffirmations (r:10 w:10)
-    // Proof Skipped: Settlement OffChainAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement OffChainAffirmations (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioNFT (r:100 w:0)
-    // Proof Skipped: Portfolio PortfolioNFT (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioNFT (max_values: None, max_size: Some(90), added: 2565, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioLockedNFT (r:100 w:100)
-    // Proof Skipped: Portfolio PortfolioLockedNFT (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioLockedNFT (max_values: None, max_size: Some(90), added: 2565, mode: MaxEncodedLen)
     // Storage: Asset Assets (r:10 w:0)
     // Proof Skipped: Asset Assets (max_values: None, max_size: None, mode: Measured)
     // Storage: Portfolio PortfolioAssetBalances (r:10 w:0)
-    // Proof Skipped: Portfolio PortfolioAssetBalances (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioAssetBalances (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioLockedAssets (r:10 w:10)
-    // Proof Skipped: Portfolio PortfolioLockedAssets (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioLockedAssets (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
     // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
-    // Proof Skipped: Settlement InstructionAffirmsPending (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionAffirmsPending (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
     // Storage: Settlement AffirmsReceived (r:0 w:110)
-    // Proof Skipped: Settlement AffirmsReceived (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement AffirmsReceived (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement InstructionLegStatus (r:0 w:120)
-    // Proof Skipped: Settlement InstructionLegStatus (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionLegStatus (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     fn affirm_with_receipts(f: u32, n: u32, o: u32) -> Weight {
-        // Minimum execution time: 1_362_039 nanoseconds.
-        Weight::from_ref_time(30_752_065)
-            // Standard Error: 920_495
-            .saturating_add(Weight::from_ref_time(50_145_102).saturating_mul(f.into()))
-            // Standard Error: 85_148
-            .saturating_add(Weight::from_ref_time(37_317_225).saturating_mul(n.into()))
-            // Standard Error: 833_827
-            .saturating_add(Weight::from_ref_time(84_072_250).saturating_mul(o.into()))
+        // Minimum execution time: 1_264_745 nanoseconds.
+        Weight::from_ref_time(1_266_855_000)
+            // Standard Error: 132_810
+            .saturating_add(Weight::from_ref_time(30_333_130).saturating_mul(n.into()))
+            // Standard Error: 1_323_101
+            .saturating_add(Weight::from_ref_time(29_116_031).saturating_mul(o.into()))
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().reads((6_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((5_u64).saturating_mul(n.into())))
@@ -234,118 +232,120 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement InstructionDetails (r:1 w:1)
-    // Proof Skipped: Settlement InstructionDetails (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement InstructionStatuses (r:1 w:1)
-    // Proof Skipped: Settlement InstructionStatuses (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: Settlement InstructionLegs (r:121 w:120)
     // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionDetails (r:1 w:1)
+    // Proof: Settlement InstructionDetails (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Settlement VenueInfo (r:1 w:0)
-    // Proof Skipped: Settlement VenueInfo (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueInfo (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
+    // Storage: Settlement InstructionStatuses (r:1 w:1)
+    // Proof: Settlement InstructionStatuses (max_values: None, max_size: Some(21), added: 2496, mode: MaxEncodedLen)
     // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
-    // Proof Skipped: Settlement InstructionAffirmsPending (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionAffirmsPending (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
     // Storage: Timestamp Now (r:1 w:0)
     // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: Settlement InstructionMediatorsAffirmations (r:445 w:444)
-    // Proof Skipped: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionMediatorsAffirmations (r:445 w:4)
+    // Proof: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: Some(58), added: 2533, mode: MaxEncodedLen)
     // Storage: Settlement OffChainAffirmations (r:10 w:10)
-    // Proof Skipped: Settlement OffChainAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement OffChainAffirmations (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     // Storage: Settlement UserAffirmations (r:220 w:220)
-    // Proof Skipped: Settlement UserAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement UserAffirmations (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement AffirmsReceived (r:220 w:220)
-    // Proof Skipped: Settlement AffirmsReceived (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement AffirmsReceived (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement VenueFiltering (r:110 w:0)
-    // Proof Skipped: Settlement VenueFiltering (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueFiltering (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     // Storage: Settlement InstructionLegStatus (r:120 w:120)
-    // Proof Skipped: Settlement InstructionLegStatus (max_values: None, max_size: None, mode: Measured)
-    // Storage: Portfolio PortfolioLockedAssets (r:10 w:10)
-    // Proof Skipped: Portfolio PortfolioLockedAssets (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionLegStatus (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
+    // Storage: Nft CollectionAsset (r:100 w:0)
+    // Proof: Nft CollectionAsset (max_values: None, max_size: Some(40), added: 2515, mode: MaxEncodedLen)
+    // Storage: Nft NumberOfNFTs (r:200 w:200)
+    // Proof: Nft NumberOfNFTs (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
+    // Storage: Portfolio PortfolioNFT (r:100 w:200)
+    // Proof: Portfolio PortfolioNFT (max_values: None, max_size: Some(90), added: 2565, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioLockedNFT (r:100 w:100)
-    // Proof Skipped: Portfolio PortfolioLockedNFT (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement InstructionMemos (r:1 w:0)
-    // Proof Skipped: Settlement InstructionMemos (max_values: None, max_size: None, mode: Measured)
-    // Storage: Asset Assets (r:10 w:0)
-    // Proof Skipped: Asset Assets (max_values: None, max_size: None, mode: Measured)
-    // Storage: Asset BalanceOf (r:20 w:20)
-    // Proof Skipped: Asset BalanceOf (max_values: None, max_size: None, mode: Measured)
-    // Storage: Portfolio Portfolios (r:20 w:0)
-    // Proof Skipped: Portfolio Portfolios (max_values: None, max_size: None, mode: Measured)
-    // Storage: Portfolio PortfolioAssetBalances (r:20 w:20)
-    // Proof Skipped: Portfolio PortfolioAssetBalances (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioLockedNFT (max_values: None, max_size: Some(90), added: 2565, mode: MaxEncodedLen)
     // Storage: Asset Frozen (r:110 w:0)
-    // Proof Skipped: Asset Frozen (max_values: None, max_size: None, mode: Measured)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Proof Skipped: Instance2Group ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
+    // Proof: Asset Frozen (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
+    // Storage: CddServiceProviders ActiveMembers (r:1 w:0)
+    // Proof Skipped: CddServiceProviders ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
     // Storage: Identity Claims (r:205 w:0)
     // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
-    // Storage: Statistics AssetTransferCompliances (r:10 w:0)
-    // Proof Skipped: Statistics AssetTransferCompliances (max_values: None, max_size: None, mode: Measured)
-    // Storage: Statistics AssetStats (r:140 w:100)
-    // Proof Skipped: Statistics AssetStats (max_values: None, max_size: None, mode: Measured)
     // Storage: ComplianceManager AssetCompliances (r:110 w:0)
     // Proof Skipped: ComplianceManager AssetCompliances (max_values: None, max_size: None, mode: Measured)
+    // Storage: Portfolio Portfolios (r:10 w:0)
+    // Proof Skipped: Portfolio Portfolios (max_values: None, max_size: None, mode: Measured)
+    // Storage: Portfolio PortfolioLockedAssets (r:10 w:10)
+    // Proof: Portfolio PortfolioLockedAssets (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
+    // Storage: Portfolio PortfolioAssetBalances (r:20 w:20)
+    // Proof: Portfolio PortfolioAssetBalances (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
+    // Storage: Asset BalanceOf (r:20 w:20)
+    // Proof: Asset BalanceOf (max_values: None, max_size: Some(80), added: 2555, mode: MaxEncodedLen)
+    // Storage: Statistics AssetTransferCompliances (r:10 w:0)
+    // Proof: Statistics AssetTransferCompliances (max_values: None, max_size: Some(246), added: 2721, mode: MaxEncodedLen)
+    // Storage: Asset Assets (r:10 w:0)
+    // Proof Skipped: Asset Assets (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionMemos (r:1 w:0)
+    // Proof: Settlement InstructionMemos (max_values: None, max_size: Some(48), added: 2523, mode: MaxEncodedLen)
     // Storage: Checkpoint CachedNextCheckpoints (r:10 w:0)
     // Proof Skipped: Checkpoint CachedNextCheckpoints (max_values: None, max_size: None, mode: Measured)
     // Storage: Checkpoint CheckpointIdSequence (r:10 w:0)
-    // Proof Skipped: Checkpoint CheckpointIdSequence (max_values: None, max_size: None, mode: Measured)
+    // Proof: Checkpoint CheckpointIdSequence (max_values: None, max_size: Some(40), added: 2515, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioAssetCount (r:10 w:10)
-    // Proof Skipped: Portfolio PortfolioAssetCount (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioAssetCount (max_values: None, max_size: Some(57), added: 2532, mode: MaxEncodedLen)
     // Storage: Statistics ActiveAssetStats (r:10 w:0)
-    // Proof Skipped: Statistics ActiveAssetStats (max_values: None, max_size: None, mode: Measured)
-    // Storage: NFT CollectionAsset (r:100 w:0)
-    // Proof Skipped: NFT CollectionAsset (max_values: None, max_size: None, mode: Measured)
-    // Storage: NFT NumberOfNFTs (r:200 w:200)
-    // Proof Skipped: NFT NumberOfNFTs (max_values: None, max_size: None, mode: Measured)
-    // Storage: Portfolio PortfolioNFT (r:100 w:200)
-    // Proof Skipped: Portfolio PortfolioNFT (max_values: None, max_size: None, mode: Measured)
-    // Storage: NFT NFTOwner (r:0 w:100)
-    // Proof Skipped: NFT NFTOwner (max_values: None, max_size: None, mode: Measured)
+    // Proof: Statistics ActiveAssetStats (max_values: None, max_size: Some(423), added: 2898, mode: MaxEncodedLen)
+    // Storage: Statistics AssetStats (r:100 w:100)
+    // Proof: Statistics AssetStats (max_values: None, max_size: Some(107), added: 2582, mode: MaxEncodedLen)
     // Storage: Settlement VenueInstructions (r:0 w:1)
-    // Proof Skipped: Settlement VenueInstructions (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueInstructions (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
+    // Storage: Nft NFTOwner (r:0 w:100)
+    // Proof: Nft NFTOwner (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     fn execute_manual_instruction(f: u32, n: u32, o: u32) -> Weight {
-        // Minimum execution time: 4_326_122 nanoseconds.
-        Weight::from_ref_time(4_334_153_000)
-            // Standard Error: 5_116_456
-            .saturating_add(Weight::from_ref_time(248_402_942).saturating_mul(f.into()))
-            // Standard Error: 494_029
-            .saturating_add(Weight::from_ref_time(179_827_924).saturating_mul(n.into()))
+        // Minimum execution time: 4_048_436 nanoseconds.
+        Weight::from_ref_time(478_781_281)
+            // Standard Error: 3_659_948
+            .saturating_add(Weight::from_ref_time(348_547_198).saturating_mul(f.into()))
+            // Standard Error: 338_555
+            .saturating_add(Weight::from_ref_time(185_003_392).saturating_mul(n.into()))
+            // Standard Error: 3_315_347
+            .saturating_add(Weight::from_ref_time(2_835_451).saturating_mul(o.into()))
             .saturating_add(DbWeight::get().reads(19))
-            .saturating_add(DbWeight::get().reads((60_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().reads((55_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((18_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(o.into())))
             .saturating_add(DbWeight::get().writes(8))
-            .saturating_add(DbWeight::get().writes((26_u64).saturating_mul(f.into())))
-            .saturating_add(DbWeight::get().writes((16_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes((22_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().writes((12_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: Settlement VenueInfo (r:1 w:0)
-    // Proof Skipped: Settlement VenueInfo (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueInfo (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
     // Storage: Asset Assets (r:110 w:0)
     // Proof Skipped: Asset Assets (max_values: None, max_size: None, mode: Measured)
     // Storage: Settlement VenueFiltering (r:110 w:0)
-    // Proof Skipped: Settlement VenueFiltering (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueFiltering (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     // Storage: Identity DidRecords (r:2 w:0)
-    // Proof Skipped: Identity DidRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity DidRecords (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Portfolio Portfolios (r:220 w:0)
     // Proof Skipped: Portfolio Portfolios (max_values: None, max_size: None, mode: Measured)
     // Storage: Portfolio PortfolioCustodian (r:110 w:0)
-    // Proof Skipped: Portfolio PortfolioCustodian (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioCustodian (max_values: None, max_size: Some(81), added: 2556, mode: MaxEncodedLen)
     // Storage: Asset AssetsExemptFromAffirmation (r:110 w:0)
-    // Proof Skipped: Asset AssetsExemptFromAffirmation (max_values: None, max_size: None, mode: Measured)
+    // Proof: Asset AssetsExemptFromAffirmation (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     // Storage: Asset PreApprovedAsset (r:110 w:0)
-    // Proof Skipped: Asset PreApprovedAsset (max_values: None, max_size: None, mode: Measured)
+    // Proof: Asset PreApprovedAsset (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Portfolio PreApprovedPortfolios (r:110 w:0)
-    // Proof Skipped: Portfolio PreApprovedPortfolios (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PreApprovedPortfolios (max_values: None, max_size: Some(82), added: 2557, mode: MaxEncodedLen)
     // Storage: Asset MandatoryMediators (r:110 w:0)
-    // Proof Skipped: Asset MandatoryMediators (max_values: None, max_size: None, mode: Measured)
+    // Proof: Asset MandatoryMediators (max_values: None, max_size: Some(161), added: 2636, mode: MaxEncodedLen)
     // Storage: Settlement InstructionCounter (r:1 w:1)
-    // Proof Skipped: Settlement InstructionCounter (max_values: Some(1), max_size: None, mode: Measured)
+    // Proof: Settlement InstructionCounter (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
     // Storage: Timestamp Now (r:1 w:0)
     // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
     // Storage: Scheduler Lookup (r:1 w:1)
@@ -355,33 +355,31 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: Settlement InstructionLegs (r:0 w:120)
     // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
     // Storage: Settlement UserAffirmations (r:0 w:220)
-    // Proof Skipped: Settlement UserAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement UserAffirmations (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement OffChainAffirmations (r:0 w:10)
-    // Proof Skipped: Settlement OffChainAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement OffChainAffirmations (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     // Storage: Settlement InstructionAffirmsPending (r:0 w:1)
-    // Proof Skipped: Settlement InstructionAffirmsPending (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionAffirmsPending (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
     // Storage: Settlement InstructionMemos (r:0 w:1)
-    // Proof Skipped: Settlement InstructionMemos (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionMemos (max_values: None, max_size: Some(48), added: 2523, mode: MaxEncodedLen)
     // Storage: Settlement InstructionStatuses (r:0 w:1)
-    // Proof Skipped: Settlement InstructionStatuses (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionStatuses (max_values: None, max_size: Some(21), added: 2496, mode: MaxEncodedLen)
     // Storage: Settlement InstructionDetails (r:0 w:1)
-    // Proof Skipped: Settlement InstructionDetails (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionDetails (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Settlement VenueInstructions (r:0 w:1)
-    // Proof Skipped: Settlement VenueInstructions (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueInstructions (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
     // Storage: Settlement InstructionMediatorsAffirmations (r:0 w:440)
-    // Proof Skipped: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: Some(58), added: 2533, mode: MaxEncodedLen)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     fn add_instruction(f: u32, n: u32, o: u32) -> Weight {
-        // Minimum execution time: 649_862 nanoseconds.
-        Weight::from_ref_time(181_103_629)
-            // Standard Error: 859_961
-            .saturating_add(Weight::from_ref_time(49_562_998).saturating_mul(f.into()))
-            // Standard Error: 79_548
-            .saturating_add(Weight::from_ref_time(50_371_349).saturating_mul(n.into()))
-            // Standard Error: 778_992
-            .saturating_add(Weight::from_ref_time(377_069).saturating_mul(o.into()))
+        // Minimum execution time: 627_297 nanoseconds.
+        Weight::from_ref_time(310_629_324)
+            // Standard Error: 1_023_188
+            .saturating_add(Weight::from_ref_time(35_445_604).saturating_mul(f.into()))
+            // Standard Error: 94_647
+            .saturating_add(Weight::from_ref_time(49_038_500).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().reads((9_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((9_u64).saturating_mul(n.into())))
@@ -391,29 +389,29 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(o.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: Settlement VenueInfo (r:1 w:0)
-    // Proof Skipped: Settlement VenueInfo (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueInfo (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
     // Storage: Asset Assets (r:110 w:0)
     // Proof Skipped: Asset Assets (max_values: None, max_size: None, mode: Measured)
     // Storage: Settlement VenueFiltering (r:110 w:0)
-    // Proof Skipped: Settlement VenueFiltering (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueFiltering (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     // Storage: Identity DidRecords (r:2 w:0)
-    // Proof Skipped: Identity DidRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity DidRecords (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Portfolio Portfolios (r:220 w:0)
     // Proof Skipped: Portfolio Portfolios (max_values: None, max_size: None, mode: Measured)
     // Storage: Portfolio PortfolioCustodian (r:220 w:0)
-    // Proof Skipped: Portfolio PortfolioCustodian (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioCustodian (max_values: None, max_size: Some(81), added: 2556, mode: MaxEncodedLen)
     // Storage: Asset AssetsExemptFromAffirmation (r:110 w:0)
-    // Proof Skipped: Asset AssetsExemptFromAffirmation (max_values: None, max_size: None, mode: Measured)
+    // Proof: Asset AssetsExemptFromAffirmation (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     // Storage: Asset PreApprovedAsset (r:110 w:0)
-    // Proof Skipped: Asset PreApprovedAsset (max_values: None, max_size: None, mode: Measured)
+    // Proof: Asset PreApprovedAsset (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Portfolio PreApprovedPortfolios (r:110 w:0)
-    // Proof Skipped: Portfolio PreApprovedPortfolios (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PreApprovedPortfolios (max_values: None, max_size: Some(82), added: 2557, mode: MaxEncodedLen)
     // Storage: Asset MandatoryMediators (r:110 w:0)
-    // Proof Skipped: Asset MandatoryMediators (max_values: None, max_size: None, mode: Measured)
+    // Proof: Asset MandatoryMediators (max_values: None, max_size: Some(161), added: 2636, mode: MaxEncodedLen)
     // Storage: Settlement InstructionCounter (r:1 w:1)
-    // Proof Skipped: Settlement InstructionCounter (max_values: Some(1), max_size: None, mode: Measured)
+    // Proof: Settlement InstructionCounter (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
     // Storage: Timestamp Now (r:1 w:0)
     // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
     // Storage: Scheduler Lookup (r:1 w:1)
@@ -423,45 +421,45 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: Settlement InstructionLegs (r:121 w:120)
     // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
     // Storage: Portfolio PortfolioNFT (r:100 w:0)
-    // Proof Skipped: Portfolio PortfolioNFT (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioNFT (max_values: None, max_size: Some(90), added: 2565, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioLockedNFT (r:100 w:100)
-    // Proof Skipped: Portfolio PortfolioLockedNFT (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioLockedNFT (max_values: None, max_size: Some(90), added: 2565, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioAssetBalances (r:10 w:0)
-    // Proof Skipped: Portfolio PortfolioAssetBalances (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioAssetBalances (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioLockedAssets (r:10 w:10)
-    // Proof Skipped: Portfolio PortfolioLockedAssets (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioLockedAssets (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
     // Storage: Settlement UserAffirmations (r:0 w:220)
-    // Proof Skipped: Settlement UserAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement UserAffirmations (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement OffChainAffirmations (r:0 w:10)
-    // Proof Skipped: Settlement OffChainAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement OffChainAffirmations (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     // Storage: Settlement InstructionAffirmsPending (r:0 w:1)
-    // Proof Skipped: Settlement InstructionAffirmsPending (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionAffirmsPending (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
     // Storage: Settlement InstructionMemos (r:0 w:1)
-    // Proof Skipped: Settlement InstructionMemos (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionMemos (max_values: None, max_size: Some(48), added: 2523, mode: MaxEncodedLen)
     // Storage: Settlement InstructionStatuses (r:0 w:1)
-    // Proof Skipped: Settlement InstructionStatuses (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionStatuses (max_values: None, max_size: Some(21), added: 2496, mode: MaxEncodedLen)
     // Storage: Settlement InstructionDetails (r:0 w:1)
-    // Proof Skipped: Settlement InstructionDetails (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionDetails (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Settlement VenueInstructions (r:0 w:1)
-    // Proof Skipped: Settlement VenueInstructions (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueInstructions (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
     // Storage: Settlement InstructionMediatorsAffirmations (r:0 w:440)
-    // Proof Skipped: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: Some(58), added: 2533, mode: MaxEncodedLen)
     // Storage: Settlement AffirmsReceived (r:0 w:110)
-    // Proof Skipped: Settlement AffirmsReceived (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement AffirmsReceived (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement InstructionLegStatus (r:0 w:110)
-    // Proof Skipped: Settlement InstructionLegStatus (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionLegStatus (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     fn add_and_affirm_instruction(f: u32, n: u32, o: u32) -> Weight {
-        // Minimum execution time: 1_044_625 nanoseconds.
-        Weight::from_ref_time(35_687_014)
-            // Standard Error: 1_353_987
-            .saturating_add(Weight::from_ref_time(88_363_287).saturating_mul(f.into()))
-            // Standard Error: 125_247
-            .saturating_add(Weight::from_ref_time(84_907_864).saturating_mul(n.into()))
-            // Standard Error: 1_226_503
-            .saturating_add(Weight::from_ref_time(10_688_477).saturating_mul(o.into()))
+        // Minimum execution time: 1_028_819 nanoseconds.
+        Weight::from_ref_time(136_276_040)
+            // Standard Error: 2_763_078
+            .saturating_add(Weight::from_ref_time(67_978_896).saturating_mul(f.into()))
+            // Standard Error: 255_592
+            .saturating_add(Weight::from_ref_time(80_317_767).saturating_mul(n.into()))
+            // Standard Error: 2_502_922
+            .saturating_add(Weight::from_ref_time(10_024_989).saturating_mul(o.into()))
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().reads((13_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((13_u64).saturating_mul(n.into())))
@@ -472,42 +470,42 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(o.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: Settlement InstructionDetails (r:1 w:0)
-    // Proof Skipped: Settlement InstructionDetails (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionDetails (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Settlement InstructionStatuses (r:1 w:0)
-    // Proof Skipped: Settlement InstructionStatuses (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionStatuses (max_values: None, max_size: Some(21), added: 2496, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioCustodian (r:110 w:0)
-    // Proof Skipped: Portfolio PortfolioCustodian (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioCustodian (max_values: None, max_size: Some(81), added: 2556, mode: MaxEncodedLen)
     // Storage: Settlement UserAffirmations (r:110 w:110)
-    // Proof Skipped: Settlement UserAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement UserAffirmations (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement InstructionLegs (r:121 w:0)
     // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
     // Storage: Portfolio PortfolioNFT (r:100 w:0)
-    // Proof Skipped: Portfolio PortfolioNFT (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioNFT (max_values: None, max_size: Some(90), added: 2565, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioLockedNFT (r:100 w:100)
-    // Proof Skipped: Portfolio PortfolioLockedNFT (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioLockedNFT (max_values: None, max_size: Some(90), added: 2565, mode: MaxEncodedLen)
     // Storage: Asset Assets (r:10 w:0)
     // Proof Skipped: Asset Assets (max_values: None, max_size: None, mode: Measured)
     // Storage: Portfolio PortfolioAssetBalances (r:10 w:0)
-    // Proof Skipped: Portfolio PortfolioAssetBalances (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioAssetBalances (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioLockedAssets (r:10 w:10)
-    // Proof Skipped: Portfolio PortfolioLockedAssets (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioLockedAssets (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
     // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
-    // Proof Skipped: Settlement InstructionAffirmsPending (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionAffirmsPending (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
     // Storage: Settlement AffirmsReceived (r:0 w:110)
-    // Proof Skipped: Settlement AffirmsReceived (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement AffirmsReceived (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement InstructionLegStatus (r:0 w:110)
-    // Proof Skipped: Settlement InstructionLegStatus (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionLegStatus (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[1, 100]`.
     fn affirm_instruction(f: u32, n: u32) -> Weight {
-        // Minimum execution time: 573_378 nanoseconds.
-        Weight::from_ref_time(227_742_958)
-            // Standard Error: 621_956
-            .saturating_add(Weight::from_ref_time(33_924_547).saturating_mul(f.into()))
-            // Standard Error: 58_443
-            .saturating_add(Weight::from_ref_time(36_201_669).saturating_mul(n.into()))
+        // Minimum execution time: 580_642 nanoseconds.
+        Weight::from_ref_time(176_662_554)
+            // Standard Error: 1_393_512
+            .saturating_add(Weight::from_ref_time(38_014_736).saturating_mul(f.into()))
+            // Standard Error: 130_945
+            .saturating_add(Weight::from_ref_time(34_922_578).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(15))
             .saturating_add(DbWeight::get().reads((6_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((5_u64).saturating_mul(n.into())))
@@ -516,37 +514,37 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((4_u64).saturating_mul(n.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: Settlement InstructionDetails (r:1 w:0)
-    // Proof Skipped: Settlement InstructionDetails (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionDetails (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Settlement InstructionStatuses (r:1 w:0)
-    // Proof Skipped: Settlement InstructionStatuses (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionStatuses (max_values: None, max_size: Some(21), added: 2496, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioCustodian (r:110 w:0)
-    // Proof Skipped: Portfolio PortfolioCustodian (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioCustodian (max_values: None, max_size: Some(81), added: 2556, mode: MaxEncodedLen)
     // Storage: Settlement UserAffirmations (r:110 w:110)
-    // Proof Skipped: Settlement UserAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement UserAffirmations (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement InstructionLegs (r:121 w:0)
     // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
     // Storage: Settlement InstructionLegStatus (r:110 w:110)
-    // Proof Skipped: Settlement InstructionLegStatus (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionLegStatus (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioLockedNFT (r:100 w:100)
-    // Proof Skipped: Portfolio PortfolioLockedNFT (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioLockedNFT (max_values: None, max_size: Some(90), added: 2565, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioLockedAssets (r:10 w:10)
-    // Proof Skipped: Portfolio PortfolioLockedAssets (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioLockedAssets (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
     // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
-    // Proof Skipped: Settlement InstructionAffirmsPending (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionAffirmsPending (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
     // Storage: Settlement AffirmsReceived (r:0 w:110)
-    // Proof Skipped: Settlement AffirmsReceived (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement AffirmsReceived (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     fn withdraw_affirmation(f: u32, n: u32, o: u32) -> Weight {
-        // Minimum execution time: 472_688 nanoseconds.
-        Weight::from_ref_time(149_586_656)
-            // Standard Error: 627_411
-            .saturating_add(Weight::from_ref_time(35_874_804).saturating_mul(f.into()))
-            // Standard Error: 58_037
-            .saturating_add(Weight::from_ref_time(37_322_729).saturating_mul(n.into()))
+        // Minimum execution time: 449_110 nanoseconds.
+        Weight::from_ref_time(451_692_000)
+            // Standard Error: 969_444
+            .saturating_add(Weight::from_ref_time(26_810_832).saturating_mul(f.into()))
+            // Standard Error: 93_606
+            .saturating_add(Weight::from_ref_time(34_702_982).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().reads((5_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((5_u64).saturating_mul(n.into())))
@@ -555,267 +553,212 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((4_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((4_u64).saturating_mul(n.into())))
     }
-    // Storage: Settlement InstructionStatuses (r:1 w:1)
-    // Proof Skipped: Settlement InstructionStatuses (max_values: None, max_size: None, mode: Measured)
     // Storage: Settlement InstructionLegs (r:121 w:120)
     // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
-    // Storage: Portfolio PortfolioCustodian (r:1 w:0)
-    // Proof Skipped: Portfolio PortfolioCustodian (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement InstructionLegStatus (r:120 w:120)
-    // Proof Skipped: Settlement InstructionLegStatus (max_values: None, max_size: None, mode: Measured)
-    // Storage: Portfolio PortfolioLockedNFT (r:100 w:100)
-    // Proof Skipped: Portfolio PortfolioLockedNFT (max_values: None, max_size: None, mode: Measured)
-    // Storage: Portfolio PortfolioLockedAssets (r:10 w:10)
-    // Proof Skipped: Portfolio PortfolioLockedAssets (max_values: None, max_size: None, mode: Measured)
-    // Storage: Scheduler Lookup (r:1 w:1)
-    // Proof: Scheduler Lookup (max_values: None, max_size: Some(48), added: 2523, mode: MaxEncodedLen)
-    // Storage: Scheduler Agenda (r:1 w:1)
-    // Proof: Scheduler Agenda (max_values: None, max_size: Some(10463), added: 12938, mode: MaxEncodedLen)
-    // Storage: Settlement InstructionDetails (r:1 w:1)
-    // Proof Skipped: Settlement InstructionDetails (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement InstructionMediatorsAffirmations (r:5 w:4)
-    // Proof Skipped: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement UserAffirmations (r:0 w:220)
-    // Proof Skipped: Settlement UserAffirmations (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement OffChainAffirmations (r:0 w:10)
-    // Proof Skipped: Settlement OffChainAffirmations (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement InstructionAffirmsPending (r:0 w:1)
-    // Proof Skipped: Settlement InstructionAffirmsPending (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement VenueInstructions (r:0 w:1)
-    // Proof Skipped: Settlement VenueInstructions (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement AffirmsReceived (r:0 w:220)
-    // Proof Skipped: Settlement AffirmsReceived (max_values: None, max_size: None, mode: Measured)
-    /// The range of component `f` is `[1, 10]`.
-    /// The range of component `n` is `[0, 100]`.
-    /// The range of component `o` is `[0, 10]`.
-    fn reject_instruction(f: u32, n: u32, o: u32) -> Weight {
-        // Minimum execution time: 580_358 nanoseconds.
-        Weight::from_ref_time(118_055_273)
-            // Standard Error: 1_085_190
-            .saturating_add(Weight::from_ref_time(28_028_976).saturating_mul(f.into()))
-            // Standard Error: 100_383
-            .saturating_add(Weight::from_ref_time(36_339_812).saturating_mul(n.into()))
-            // Standard Error: 983_014
-            .saturating_add(Weight::from_ref_time(11_885_329).saturating_mul(o.into()))
-            .saturating_add(DbWeight::get().reads(12))
-            .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(f.into())))
-            .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
-            .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(o.into())))
-            .saturating_add(DbWeight::get().writes(10))
-            .saturating_add(DbWeight::get().writes((7_u64).saturating_mul(f.into())))
-            .saturating_add(DbWeight::get().writes((7_u64).saturating_mul(n.into())))
-            .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
-    }
     // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
-    // Proof Skipped: Settlement InstructionAffirmsPending (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionAffirmsPending (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
     // Storage: Settlement InstructionStatuses (r:1 w:1)
-    // Proof Skipped: Settlement InstructionStatuses (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionStatuses (max_values: None, max_size: Some(21), added: 2496, mode: MaxEncodedLen)
     // Storage: Timestamp Now (r:1 w:0)
     // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: Settlement InstructionMediatorsAffirmations (r:445 w:444)
-    // Proof Skipped: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement InstructionLegs (r:121 w:120)
-    // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionMediatorsAffirmations (r:445 w:4)
+    // Proof: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: Some(58), added: 2533, mode: MaxEncodedLen)
     // Storage: Settlement OffChainAffirmations (r:10 w:10)
-    // Proof Skipped: Settlement OffChainAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement OffChainAffirmations (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     // Storage: Settlement UserAffirmations (r:220 w:220)
-    // Proof Skipped: Settlement UserAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement UserAffirmations (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement AffirmsReceived (r:220 w:220)
-    // Proof Skipped: Settlement AffirmsReceived (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement AffirmsReceived (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement InstructionDetails (r:1 w:1)
-    // Proof Skipped: Settlement InstructionDetails (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionDetails (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Settlement VenueFiltering (r:110 w:0)
-    // Proof Skipped: Settlement VenueFiltering (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueFiltering (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     // Storage: Settlement InstructionLegStatus (r:120 w:120)
-    // Proof Skipped: Settlement InstructionLegStatus (max_values: None, max_size: None, mode: Measured)
-    // Storage: Portfolio PortfolioLockedAssets (r:10 w:10)
-    // Proof Skipped: Portfolio PortfolioLockedAssets (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionLegStatus (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
+    // Storage: Nft CollectionAsset (r:100 w:0)
+    // Proof: Nft CollectionAsset (max_values: None, max_size: Some(40), added: 2515, mode: MaxEncodedLen)
+    // Storage: Nft NumberOfNFTs (r:200 w:200)
+    // Proof: Nft NumberOfNFTs (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
+    // Storage: Portfolio PortfolioNFT (r:100 w:200)
+    // Proof: Portfolio PortfolioNFT (max_values: None, max_size: Some(90), added: 2565, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioLockedNFT (r:100 w:100)
-    // Proof Skipped: Portfolio PortfolioLockedNFT (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement InstructionMemos (r:1 w:0)
-    // Proof Skipped: Settlement InstructionMemos (max_values: None, max_size: None, mode: Measured)
-    // Storage: Asset Assets (r:10 w:0)
-    // Proof Skipped: Asset Assets (max_values: None, max_size: None, mode: Measured)
-    // Storage: Asset BalanceOf (r:20 w:20)
-    // Proof Skipped: Asset BalanceOf (max_values: None, max_size: None, mode: Measured)
-    // Storage: Portfolio Portfolios (r:20 w:0)
-    // Proof Skipped: Portfolio Portfolios (max_values: None, max_size: None, mode: Measured)
-    // Storage: Portfolio PortfolioAssetBalances (r:20 w:20)
-    // Proof Skipped: Portfolio PortfolioAssetBalances (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioLockedNFT (max_values: None, max_size: Some(90), added: 2565, mode: MaxEncodedLen)
     // Storage: Asset Frozen (r:110 w:0)
-    // Proof Skipped: Asset Frozen (max_values: None, max_size: None, mode: Measured)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Proof Skipped: Instance2Group ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
+    // Proof: Asset Frozen (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
+    // Storage: CddServiceProviders ActiveMembers (r:1 w:0)
+    // Proof Skipped: CddServiceProviders ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
     // Storage: Identity Claims (r:4 w:0)
     // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
-    // Storage: Statistics AssetTransferCompliances (r:10 w:0)
-    // Proof Skipped: Statistics AssetTransferCompliances (max_values: None, max_size: None, mode: Measured)
     // Storage: ComplianceManager AssetCompliances (r:110 w:0)
     // Proof Skipped: ComplianceManager AssetCompliances (max_values: None, max_size: None, mode: Measured)
+    // Storage: Portfolio Portfolios (r:10 w:0)
+    // Proof Skipped: Portfolio Portfolios (max_values: None, max_size: None, mode: Measured)
+    // Storage: Portfolio PortfolioLockedAssets (r:10 w:10)
+    // Proof: Portfolio PortfolioLockedAssets (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
+    // Storage: Portfolio PortfolioAssetBalances (r:20 w:20)
+    // Proof: Portfolio PortfolioAssetBalances (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
+    // Storage: Asset BalanceOf (r:20 w:20)
+    // Proof: Asset BalanceOf (max_values: None, max_size: Some(80), added: 2555, mode: MaxEncodedLen)
+    // Storage: Statistics AssetTransferCompliances (r:10 w:0)
+    // Proof: Statistics AssetTransferCompliances (max_values: None, max_size: Some(246), added: 2721, mode: MaxEncodedLen)
+    // Storage: Settlement InstructionMemos (r:1 w:0)
+    // Proof: Settlement InstructionMemos (max_values: None, max_size: Some(48), added: 2523, mode: MaxEncodedLen)
     // Storage: Checkpoint CachedNextCheckpoints (r:10 w:0)
     // Proof Skipped: Checkpoint CachedNextCheckpoints (max_values: None, max_size: None, mode: Measured)
     // Storage: Checkpoint CheckpointIdSequence (r:10 w:0)
-    // Proof Skipped: Checkpoint CheckpointIdSequence (max_values: None, max_size: None, mode: Measured)
+    // Proof: Checkpoint CheckpointIdSequence (max_values: None, max_size: Some(40), added: 2515, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioAssetCount (r:10 w:10)
-    // Proof Skipped: Portfolio PortfolioAssetCount (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioAssetCount (max_values: None, max_size: Some(57), added: 2532, mode: MaxEncodedLen)
     // Storage: Statistics ActiveAssetStats (r:10 w:0)
-    // Proof Skipped: Statistics ActiveAssetStats (max_values: None, max_size: None, mode: Measured)
-    // Storage: NFT CollectionAsset (r:100 w:0)
-    // Proof Skipped: NFT CollectionAsset (max_values: None, max_size: None, mode: Measured)
-    // Storage: NFT NumberOfNFTs (r:200 w:200)
-    // Proof Skipped: NFT NumberOfNFTs (max_values: None, max_size: None, mode: Measured)
-    // Storage: Portfolio PortfolioNFT (r:100 w:200)
-    // Proof Skipped: Portfolio PortfolioNFT (max_values: None, max_size: None, mode: Measured)
-    // Storage: NFT NFTOwner (r:0 w:100)
-    // Proof Skipped: NFT NFTOwner (max_values: None, max_size: None, mode: Measured)
+    // Proof: Statistics ActiveAssetStats (max_values: None, max_size: Some(423), added: 2898, mode: MaxEncodedLen)
     // Storage: Settlement VenueInstructions (r:0 w:1)
-    // Proof Skipped: Settlement VenueInstructions (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueInstructions (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
+    // Storage: Nft NFTOwner (r:0 w:100)
+    // Proof: Nft NFTOwner (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     fn execute_instruction_paused(f: u32, n: u32, o: u32) -> Weight {
-        // Minimum execution time: 2_385_781 nanoseconds.
-        Weight::from_ref_time(2_426_592_000)
-            // Standard Error: 3_430_970
-            .saturating_add(Weight::from_ref_time(118_611_412).saturating_mul(f.into()))
-            // Standard Error: 331_283
-            .saturating_add(Weight::from_ref_time(176_390_618).saturating_mul(n.into()))
+        // Minimum execution time: 2_438_972 nanoseconds.
+        Weight::from_ref_time(2_449_711_000)
+            // Standard Error: 3_852_581
+            .saturating_add(Weight::from_ref_time(99_010_827).saturating_mul(f.into()))
+            // Standard Error: 371_993
+            .saturating_add(Weight::from_ref_time(171_897_703).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(16))
-            .saturating_add(DbWeight::get().reads((26_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().reads((24_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((18_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(o.into())))
             .saturating_add(DbWeight::get().writes(8))
-            .saturating_add(DbWeight::get().writes((16_u64).saturating_mul(f.into())))
-            .saturating_add(DbWeight::get().writes((16_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes((12_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().writes((12_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
     }
-    // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
-    // Proof Skipped: Settlement InstructionAffirmsPending (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement InstructionStatuses (r:1 w:1)
-    // Proof Skipped: Settlement InstructionStatuses (max_values: None, max_size: None, mode: Measured)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: Settlement InstructionMediatorsAffirmations (r:445 w:444)
-    // Proof Skipped: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: None, mode: Measured)
     // Storage: Settlement InstructionLegs (r:121 w:120)
     // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
+    // Proof: Settlement InstructionAffirmsPending (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
+    // Storage: Settlement InstructionStatuses (r:1 w:1)
+    // Proof: Settlement InstructionStatuses (max_values: None, max_size: Some(21), added: 2496, mode: MaxEncodedLen)
+    // Storage: Timestamp Now (r:1 w:0)
+    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
+    // Storage: Settlement InstructionMediatorsAffirmations (r:445 w:4)
+    // Proof: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: Some(58), added: 2533, mode: MaxEncodedLen)
     // Storage: Settlement OffChainAffirmations (r:10 w:10)
-    // Proof Skipped: Settlement OffChainAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement OffChainAffirmations (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     // Storage: Settlement UserAffirmations (r:220 w:220)
-    // Proof Skipped: Settlement UserAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement UserAffirmations (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement AffirmsReceived (r:220 w:220)
-    // Proof Skipped: Settlement AffirmsReceived (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement AffirmsReceived (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement InstructionDetails (r:1 w:1)
-    // Proof Skipped: Settlement InstructionDetails (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionDetails (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Settlement VenueFiltering (r:110 w:0)
-    // Proof Skipped: Settlement VenueFiltering (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueFiltering (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     // Storage: Settlement InstructionLegStatus (r:120 w:120)
-    // Proof Skipped: Settlement InstructionLegStatus (max_values: None, max_size: None, mode: Measured)
-    // Storage: Portfolio PortfolioLockedAssets (r:10 w:10)
-    // Proof Skipped: Portfolio PortfolioLockedAssets (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionLegStatus (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
+    // Storage: Nft CollectionAsset (r:100 w:0)
+    // Proof: Nft CollectionAsset (max_values: None, max_size: Some(40), added: 2515, mode: MaxEncodedLen)
+    // Storage: Nft NumberOfNFTs (r:200 w:200)
+    // Proof: Nft NumberOfNFTs (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
+    // Storage: Portfolio PortfolioNFT (r:100 w:200)
+    // Proof: Portfolio PortfolioNFT (max_values: None, max_size: Some(90), added: 2565, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioLockedNFT (r:100 w:100)
-    // Proof Skipped: Portfolio PortfolioLockedNFT (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement InstructionMemos (r:1 w:0)
-    // Proof Skipped: Settlement InstructionMemos (max_values: None, max_size: None, mode: Measured)
-    // Storage: Asset Assets (r:10 w:0)
-    // Proof Skipped: Asset Assets (max_values: None, max_size: None, mode: Measured)
-    // Storage: Asset BalanceOf (r:20 w:20)
-    // Proof Skipped: Asset BalanceOf (max_values: None, max_size: None, mode: Measured)
-    // Storage: Portfolio Portfolios (r:20 w:0)
-    // Proof Skipped: Portfolio Portfolios (max_values: None, max_size: None, mode: Measured)
-    // Storage: Portfolio PortfolioAssetBalances (r:20 w:20)
-    // Proof Skipped: Portfolio PortfolioAssetBalances (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioLockedNFT (max_values: None, max_size: Some(90), added: 2565, mode: MaxEncodedLen)
     // Storage: Asset Frozen (r:110 w:0)
-    // Proof Skipped: Asset Frozen (max_values: None, max_size: None, mode: Measured)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Proof Skipped: Instance2Group ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
+    // Proof: Asset Frozen (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
+    // Storage: CddServiceProviders ActiveMembers (r:1 w:0)
+    // Proof Skipped: CddServiceProviders ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
     // Storage: Identity Claims (r:205 w:0)
     // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
-    // Storage: Statistics AssetTransferCompliances (r:10 w:0)
-    // Proof Skipped: Statistics AssetTransferCompliances (max_values: None, max_size: None, mode: Measured)
-    // Storage: Statistics AssetStats (r:140 w:100)
-    // Proof Skipped: Statistics AssetStats (max_values: None, max_size: None, mode: Measured)
     // Storage: ComplianceManager AssetCompliances (r:110 w:0)
     // Proof Skipped: ComplianceManager AssetCompliances (max_values: None, max_size: None, mode: Measured)
+    // Storage: Portfolio Portfolios (r:10 w:0)
+    // Proof Skipped: Portfolio Portfolios (max_values: None, max_size: None, mode: Measured)
+    // Storage: Portfolio PortfolioLockedAssets (r:10 w:10)
+    // Proof: Portfolio PortfolioLockedAssets (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
+    // Storage: Portfolio PortfolioAssetBalances (r:20 w:20)
+    // Proof: Portfolio PortfolioAssetBalances (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
+    // Storage: Asset BalanceOf (r:20 w:20)
+    // Proof: Asset BalanceOf (max_values: None, max_size: Some(80), added: 2555, mode: MaxEncodedLen)
+    // Storage: Statistics AssetTransferCompliances (r:10 w:0)
+    // Proof: Statistics AssetTransferCompliances (max_values: None, max_size: Some(246), added: 2721, mode: MaxEncodedLen)
+    // Storage: Asset Assets (r:10 w:0)
+    // Proof Skipped: Asset Assets (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionMemos (r:1 w:0)
+    // Proof: Settlement InstructionMemos (max_values: None, max_size: Some(48), added: 2523, mode: MaxEncodedLen)
     // Storage: Checkpoint CachedNextCheckpoints (r:10 w:0)
     // Proof Skipped: Checkpoint CachedNextCheckpoints (max_values: None, max_size: None, mode: Measured)
     // Storage: Checkpoint CheckpointIdSequence (r:10 w:0)
-    // Proof Skipped: Checkpoint CheckpointIdSequence (max_values: None, max_size: None, mode: Measured)
+    // Proof: Checkpoint CheckpointIdSequence (max_values: None, max_size: Some(40), added: 2515, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioAssetCount (r:10 w:10)
-    // Proof Skipped: Portfolio PortfolioAssetCount (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioAssetCount (max_values: None, max_size: Some(57), added: 2532, mode: MaxEncodedLen)
     // Storage: Statistics ActiveAssetStats (r:10 w:0)
-    // Proof Skipped: Statistics ActiveAssetStats (max_values: None, max_size: None, mode: Measured)
-    // Storage: NFT CollectionAsset (r:100 w:0)
-    // Proof Skipped: NFT CollectionAsset (max_values: None, max_size: None, mode: Measured)
-    // Storage: NFT NumberOfNFTs (r:200 w:200)
-    // Proof Skipped: NFT NumberOfNFTs (max_values: None, max_size: None, mode: Measured)
-    // Storage: Portfolio PortfolioNFT (r:100 w:200)
-    // Proof Skipped: Portfolio PortfolioNFT (max_values: None, max_size: None, mode: Measured)
-    // Storage: NFT NFTOwner (r:0 w:100)
-    // Proof Skipped: NFT NFTOwner (max_values: None, max_size: None, mode: Measured)
+    // Proof: Statistics ActiveAssetStats (max_values: None, max_size: Some(423), added: 2898, mode: MaxEncodedLen)
+    // Storage: Statistics AssetStats (r:100 w:100)
+    // Proof: Statistics AssetStats (max_values: None, max_size: Some(107), added: 2582, mode: MaxEncodedLen)
     // Storage: Settlement VenueInstructions (r:0 w:1)
-    // Proof Skipped: Settlement VenueInstructions (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueInstructions (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
+    // Storage: Nft NFTOwner (r:0 w:100)
+    // Proof: Nft NFTOwner (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     fn execute_scheduled_instruction(f: u32, n: u32, o: u32) -> Weight {
-        // Minimum execution time: 4_243_219 nanoseconds.
-        Weight::from_ref_time(4_250_300_000)
-            // Standard Error: 4_870_147
-            .saturating_add(Weight::from_ref_time(258_973_141).saturating_mul(f.into()))
-            // Standard Error: 470_246
-            .saturating_add(Weight::from_ref_time(175_126_988).saturating_mul(n.into()))
+        // Minimum execution time: 4_067_222 nanoseconds.
+        Weight::from_ref_time(4_077_185_000)
+            // Standard Error: 4_522_630
+            .saturating_add(Weight::from_ref_time(214_522_256).saturating_mul(f.into()))
+            // Standard Error: 436_691
+            .saturating_add(Weight::from_ref_time(170_862_998).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(17))
-            .saturating_add(DbWeight::get().reads((60_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().reads((55_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((18_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(o.into())))
             .saturating_add(DbWeight::get().writes(8))
-            .saturating_add(DbWeight::get().writes((26_u64).saturating_mul(f.into())))
-            .saturating_add(DbWeight::get().writes((16_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes((22_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().writes((12_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
     }
     fn ensure_root_origin() -> Weight {
-        // Minimum execution time: 591 nanoseconds.
-        Weight::from_ref_time(651_000)
+        // Minimum execution time: 686 nanoseconds.
+        Weight::from_ref_time(720_000)
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: Settlement InstructionDetails (r:1 w:0)
-    // Proof Skipped: Settlement InstructionDetails (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionDetails (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Settlement InstructionStatuses (r:1 w:0)
-    // Proof Skipped: Settlement InstructionStatuses (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionStatuses (max_values: None, max_size: Some(21), added: 2496, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioCustodian (r:110 w:0)
-    // Proof Skipped: Portfolio PortfolioCustodian (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioCustodian (max_values: None, max_size: Some(81), added: 2556, mode: MaxEncodedLen)
     // Storage: Settlement UserAffirmations (r:110 w:110)
-    // Proof Skipped: Settlement UserAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement UserAffirmations (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement VenueSigners (r:1 w:0)
-    // Proof Skipped: Settlement VenueSigners (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueSigners (max_values: None, max_size: Some(57), added: 2532, mode: MaxEncodedLen)
     // Storage: Settlement ReceiptsUsed (r:10 w:10)
-    // Proof Skipped: Settlement ReceiptsUsed (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement ReceiptsUsed (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Settlement InstructionLegs (r:121 w:0)
     // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
     // Storage: Settlement OffChainAffirmations (r:10 w:10)
-    // Proof Skipped: Settlement OffChainAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement OffChainAffirmations (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
-    // Proof Skipped: Settlement InstructionAffirmsPending (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionAffirmsPending (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
     // Storage: Settlement AffirmsReceived (r:0 w:110)
-    // Proof Skipped: Settlement AffirmsReceived (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement AffirmsReceived (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement InstructionLegStatus (r:0 w:10)
-    // Proof Skipped: Settlement InstructionLegStatus (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionLegStatus (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     fn affirm_with_receipts_rcv(f: u32, n: u32, o: u32) -> Weight {
-        // Minimum execution time: 1_165_554 nanoseconds.
-        Weight::from_ref_time(152_923_311)
-            // Standard Error: 520_828
-            .saturating_add(Weight::from_ref_time(21_184_928).saturating_mul(f.into()))
-            // Standard Error: 48_178
-            .saturating_add(Weight::from_ref_time(21_625_684).saturating_mul(n.into()))
-            // Standard Error: 471_790
-            .saturating_add(Weight::from_ref_time(85_672_760).saturating_mul(o.into()))
+        // Minimum execution time: 1_096_752 nanoseconds.
+        Weight::from_ref_time(84_695_909)
+            // Standard Error: 195_657
+            .saturating_add(Weight::from_ref_time(21_588_437).saturating_mul(f.into()))
+            // Standard Error: 18_098
+            .saturating_add(Weight::from_ref_time(21_543_960).saturating_mul(n.into()))
+            // Standard Error: 177_235
+            .saturating_add(Weight::from_ref_time(80_807_758).saturating_mul(o.into()))
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
@@ -826,30 +769,30 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: Settlement InstructionDetails (r:1 w:0)
-    // Proof Skipped: Settlement InstructionDetails (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionDetails (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Settlement InstructionStatuses (r:1 w:0)
-    // Proof Skipped: Settlement InstructionStatuses (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionStatuses (max_values: None, max_size: Some(21), added: 2496, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioCustodian (r:110 w:0)
-    // Proof Skipped: Portfolio PortfolioCustodian (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioCustodian (max_values: None, max_size: Some(81), added: 2556, mode: MaxEncodedLen)
     // Storage: Settlement UserAffirmations (r:110 w:110)
-    // Proof Skipped: Settlement UserAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement UserAffirmations (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement InstructionLegs (r:121 w:0)
     // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
     // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
-    // Proof Skipped: Settlement InstructionAffirmsPending (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionAffirmsPending (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
     // Storage: Settlement AffirmsReceived (r:0 w:110)
-    // Proof Skipped: Settlement AffirmsReceived (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement AffirmsReceived (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[1, 100]`.
     fn affirm_instruction_rcv(f: u32, n: u32) -> Weight {
-        // Minimum execution time: 366_979 nanoseconds.
-        Weight::from_ref_time(152_848_331)
-            // Standard Error: 572_932
-            .saturating_add(Weight::from_ref_time(23_592_317).saturating_mul(f.into()))
-            // Standard Error: 53_837
-            .saturating_add(Weight::from_ref_time(21_858_616).saturating_mul(n.into()))
+        // Minimum execution time: 358_571 nanoseconds.
+        Weight::from_ref_time(125_852_122)
+            // Standard Error: 288_643
+            .saturating_add(Weight::from_ref_time(23_762_429).saturating_mul(f.into()))
+            // Standard Error: 27_123
+            .saturating_add(Weight::from_ref_time(21_237_073).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(15))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
@@ -858,33 +801,33 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(n.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: Settlement InstructionDetails (r:1 w:0)
-    // Proof Skipped: Settlement InstructionDetails (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionDetails (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Settlement InstructionStatuses (r:1 w:0)
-    // Proof Skipped: Settlement InstructionStatuses (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionStatuses (max_values: None, max_size: Some(21), added: 2496, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioCustodian (r:110 w:0)
-    // Proof Skipped: Portfolio PortfolioCustodian (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioCustodian (max_values: None, max_size: Some(81), added: 2556, mode: MaxEncodedLen)
     // Storage: Settlement UserAffirmations (r:110 w:110)
-    // Proof Skipped: Settlement UserAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement UserAffirmations (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement InstructionLegs (r:121 w:0)
     // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
     // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
-    // Proof Skipped: Settlement InstructionAffirmsPending (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionAffirmsPending (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
     // Storage: Settlement AffirmsReceived (r:0 w:110)
-    // Proof Skipped: Settlement AffirmsReceived (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement AffirmsReceived (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     fn withdraw_affirmation_rcv(f: u32, n: u32, o: u32) -> Weight {
-        // Minimum execution time: 334_761 nanoseconds.
-        Weight::from_ref_time(135_422_202)
-            // Standard Error: 432_167
-            .saturating_add(Weight::from_ref_time(21_839_953).saturating_mul(f.into()))
-            // Standard Error: 39_976
-            .saturating_add(Weight::from_ref_time(21_464_027).saturating_mul(n.into()))
-            // Standard Error: 391_476
-            .saturating_add(Weight::from_ref_time(1_853_671).saturating_mul(o.into()))
+        // Minimum execution time: 324_722 nanoseconds.
+        Weight::from_ref_time(25_057_561)
+            // Standard Error: 486_304
+            .saturating_add(Weight::from_ref_time(23_866_356).saturating_mul(f.into()))
+            // Standard Error: 44_984
+            .saturating_add(Weight::from_ref_time(21_773_521).saturating_mul(n.into()))
+            // Standard Error: 440_516
+            .saturating_add(Weight::from_ref_time(5_157_975).saturating_mul(o.into()))
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
@@ -894,29 +837,29 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(n.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: Settlement VenueInfo (r:1 w:0)
-    // Proof Skipped: Settlement VenueInfo (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueInfo (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
     // Storage: Asset Assets (r:110 w:0)
     // Proof Skipped: Asset Assets (max_values: None, max_size: None, mode: Measured)
     // Storage: Settlement VenueFiltering (r:110 w:0)
-    // Proof Skipped: Settlement VenueFiltering (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueFiltering (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     // Storage: Identity DidRecords (r:2 w:0)
-    // Proof Skipped: Identity DidRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity DidRecords (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Portfolio Portfolios (r:220 w:0)
     // Proof Skipped: Portfolio Portfolios (max_values: None, max_size: None, mode: Measured)
     // Storage: Portfolio PortfolioCustodian (r:110 w:0)
-    // Proof Skipped: Portfolio PortfolioCustodian (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioCustodian (max_values: None, max_size: Some(81), added: 2556, mode: MaxEncodedLen)
     // Storage: Asset AssetsExemptFromAffirmation (r:110 w:0)
-    // Proof Skipped: Asset AssetsExemptFromAffirmation (max_values: None, max_size: None, mode: Measured)
+    // Proof: Asset AssetsExemptFromAffirmation (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     // Storage: Asset PreApprovedAsset (r:110 w:0)
-    // Proof Skipped: Asset PreApprovedAsset (max_values: None, max_size: None, mode: Measured)
+    // Proof: Asset PreApprovedAsset (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Portfolio PreApprovedPortfolios (r:110 w:0)
-    // Proof Skipped: Portfolio PreApprovedPortfolios (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PreApprovedPortfolios (max_values: None, max_size: Some(82), added: 2557, mode: MaxEncodedLen)
     // Storage: Asset MandatoryMediators (r:110 w:0)
-    // Proof Skipped: Asset MandatoryMediators (max_values: None, max_size: None, mode: Measured)
+    // Proof: Asset MandatoryMediators (max_values: None, max_size: Some(161), added: 2636, mode: MaxEncodedLen)
     // Storage: Settlement InstructionCounter (r:1 w:1)
-    // Proof Skipped: Settlement InstructionCounter (max_values: Some(1), max_size: None, mode: Measured)
+    // Proof: Settlement InstructionCounter (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
     // Storage: Timestamp Now (r:1 w:0)
     // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
     // Storage: Scheduler Lookup (r:1 w:1)
@@ -926,34 +869,36 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: Settlement InstructionLegs (r:0 w:120)
     // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
     // Storage: Settlement UserAffirmations (r:0 w:220)
-    // Proof Skipped: Settlement UserAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement UserAffirmations (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement OffChainAffirmations (r:0 w:10)
-    // Proof Skipped: Settlement OffChainAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement OffChainAffirmations (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     // Storage: Settlement InstructionAffirmsPending (r:0 w:1)
-    // Proof Skipped: Settlement InstructionAffirmsPending (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionAffirmsPending (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
     // Storage: Settlement InstructionMemos (r:0 w:1)
-    // Proof Skipped: Settlement InstructionMemos (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionMemos (max_values: None, max_size: Some(48), added: 2523, mode: MaxEncodedLen)
     // Storage: Settlement InstructionStatuses (r:0 w:1)
-    // Proof Skipped: Settlement InstructionStatuses (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionStatuses (max_values: None, max_size: Some(21), added: 2496, mode: MaxEncodedLen)
     // Storage: Settlement InstructionDetails (r:0 w:1)
-    // Proof Skipped: Settlement InstructionDetails (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionDetails (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Settlement VenueInstructions (r:0 w:1)
-    // Proof Skipped: Settlement VenueInstructions (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueInstructions (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
     // Storage: Settlement InstructionMediatorsAffirmations (r:0 w:444)
-    // Proof Skipped: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: Some(58), added: 2533, mode: MaxEncodedLen)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     /// The range of component `m` is `[0, 4]`.
     fn add_instruction_with_mediators(f: u32, n: u32, o: u32, m: u32) -> Weight {
-        // Minimum execution time: 633_118 nanoseconds.
-        Weight::from_ref_time(167_302_584)
-            // Standard Error: 809_143
-            .saturating_add(Weight::from_ref_time(50_685_362).saturating_mul(f.into()))
-            // Standard Error: 74_667
-            .saturating_add(Weight::from_ref_time(50_629_572).saturating_mul(n.into()))
-            // Standard Error: 733_198
-            .saturating_add(Weight::from_ref_time(3_558_326).saturating_mul(o.into()))
+        // Minimum execution time: 618_533 nanoseconds.
+        Weight::from_ref_time(75_741_093)
+            // Standard Error: 1_413_722
+            .saturating_add(Weight::from_ref_time(50_963_868).saturating_mul(f.into()))
+            // Standard Error: 130_457
+            .saturating_add(Weight::from_ref_time(50_411_690).saturating_mul(n.into()))
+            // Standard Error: 1_281_031
+            .saturating_add(Weight::from_ref_time(196_843).saturating_mul(o.into()))
+            // Standard Error: 2_966_389
+            .saturating_add(Weight::from_ref_time(225_250).saturating_mul(m.into()))
             .saturating_add(DbWeight::get().reads(8))
             .saturating_add(DbWeight::get().reads((9_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((9_u64).saturating_mul(n.into())))
@@ -964,29 +909,29 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(m.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: Settlement VenueInfo (r:1 w:0)
-    // Proof Skipped: Settlement VenueInfo (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueInfo (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
     // Storage: Asset Assets (r:110 w:0)
     // Proof Skipped: Asset Assets (max_values: None, max_size: None, mode: Measured)
     // Storage: Settlement VenueFiltering (r:110 w:0)
-    // Proof Skipped: Settlement VenueFiltering (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueFiltering (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     // Storage: Identity DidRecords (r:2 w:0)
-    // Proof Skipped: Identity DidRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity DidRecords (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Portfolio Portfolios (r:220 w:0)
     // Proof Skipped: Portfolio Portfolios (max_values: None, max_size: None, mode: Measured)
     // Storage: Portfolio PortfolioCustodian (r:220 w:0)
-    // Proof Skipped: Portfolio PortfolioCustodian (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioCustodian (max_values: None, max_size: Some(81), added: 2556, mode: MaxEncodedLen)
     // Storage: Asset AssetsExemptFromAffirmation (r:110 w:0)
-    // Proof Skipped: Asset AssetsExemptFromAffirmation (max_values: None, max_size: None, mode: Measured)
+    // Proof: Asset AssetsExemptFromAffirmation (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     // Storage: Asset PreApprovedAsset (r:110 w:0)
-    // Proof Skipped: Asset PreApprovedAsset (max_values: None, max_size: None, mode: Measured)
+    // Proof: Asset PreApprovedAsset (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Portfolio PreApprovedPortfolios (r:110 w:0)
-    // Proof Skipped: Portfolio PreApprovedPortfolios (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PreApprovedPortfolios (max_values: None, max_size: Some(82), added: 2557, mode: MaxEncodedLen)
     // Storage: Asset MandatoryMediators (r:110 w:0)
-    // Proof Skipped: Asset MandatoryMediators (max_values: None, max_size: None, mode: Measured)
+    // Proof: Asset MandatoryMediators (max_values: None, max_size: Some(161), added: 2636, mode: MaxEncodedLen)
     // Storage: Settlement InstructionCounter (r:1 w:1)
-    // Proof Skipped: Settlement InstructionCounter (max_values: Some(1), max_size: None, mode: Measured)
+    // Proof: Settlement InstructionCounter (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
     // Storage: Timestamp Now (r:1 w:0)
     // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
     // Storage: Scheduler Lookup (r:1 w:1)
@@ -996,46 +941,44 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: Settlement InstructionLegs (r:121 w:120)
     // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
     // Storage: Portfolio PortfolioNFT (r:100 w:0)
-    // Proof Skipped: Portfolio PortfolioNFT (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioNFT (max_values: None, max_size: Some(90), added: 2565, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioLockedNFT (r:100 w:100)
-    // Proof Skipped: Portfolio PortfolioLockedNFT (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioLockedNFT (max_values: None, max_size: Some(90), added: 2565, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioAssetBalances (r:10 w:0)
-    // Proof Skipped: Portfolio PortfolioAssetBalances (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioAssetBalances (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
     // Storage: Portfolio PortfolioLockedAssets (r:10 w:10)
-    // Proof Skipped: Portfolio PortfolioLockedAssets (max_values: None, max_size: None, mode: Measured)
+    // Proof: Portfolio PortfolioLockedAssets (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
     // Storage: Settlement UserAffirmations (r:0 w:220)
-    // Proof Skipped: Settlement UserAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement UserAffirmations (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement OffChainAffirmations (r:0 w:10)
-    // Proof Skipped: Settlement OffChainAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement OffChainAffirmations (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     // Storage: Settlement InstructionAffirmsPending (r:0 w:1)
-    // Proof Skipped: Settlement InstructionAffirmsPending (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionAffirmsPending (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
     // Storage: Settlement InstructionMemos (r:0 w:1)
-    // Proof Skipped: Settlement InstructionMemos (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionMemos (max_values: None, max_size: Some(48), added: 2523, mode: MaxEncodedLen)
     // Storage: Settlement InstructionStatuses (r:0 w:1)
-    // Proof Skipped: Settlement InstructionStatuses (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionStatuses (max_values: None, max_size: Some(21), added: 2496, mode: MaxEncodedLen)
     // Storage: Settlement InstructionDetails (r:0 w:1)
-    // Proof Skipped: Settlement InstructionDetails (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionDetails (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Settlement VenueInstructions (r:0 w:1)
-    // Proof Skipped: Settlement VenueInstructions (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement VenueInstructions (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
     // Storage: Settlement InstructionMediatorsAffirmations (r:0 w:444)
-    // Proof Skipped: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: Some(58), added: 2533, mode: MaxEncodedLen)
     // Storage: Settlement AffirmsReceived (r:0 w:110)
-    // Proof Skipped: Settlement AffirmsReceived (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement AffirmsReceived (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
     // Storage: Settlement InstructionLegStatus (r:0 w:110)
-    // Proof Skipped: Settlement InstructionLegStatus (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionLegStatus (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     /// The range of component `m` is `[0, 4]`.
     fn add_and_affirm_with_mediators(f: u32, n: u32, o: u32, m: u32) -> Weight {
-        // Minimum execution time: 1_081_398 nanoseconds.
-        Weight::from_ref_time(102_620_422)
-            // Standard Error: 1_211_850
-            .saturating_add(Weight::from_ref_time(79_234_687).saturating_mul(f.into()))
-            // Standard Error: 111_828
-            .saturating_add(Weight::from_ref_time(85_074_081).saturating_mul(n.into()))
-            // Standard Error: 1_098_106
-            .saturating_add(Weight::from_ref_time(13_898_085).saturating_mul(o.into()))
+        // Minimum execution time: 1_051_429 nanoseconds.
+        Weight::from_ref_time(933_865_510)
+            // Standard Error: 2_324_603
+            .saturating_add(Weight::from_ref_time(92_654_652).saturating_mul(f.into()))
+            // Standard Error: 214_512
+            .saturating_add(Weight::from_ref_time(80_501_017).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().reads((13_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((13_u64).saturating_mul(n.into())))
@@ -1047,131 +990,292 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(m.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: Settlement InstructionDetails (r:1 w:0)
-    // Proof Skipped: Settlement InstructionDetails (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionDetails (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Settlement InstructionStatuses (r:1 w:0)
-    // Proof Skipped: Settlement InstructionStatuses (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionStatuses (max_values: None, max_size: Some(21), added: 2496, mode: MaxEncodedLen)
     // Storage: Settlement InstructionMediatorsAffirmations (r:1 w:1)
-    // Proof Skipped: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: Some(58), added: 2533, mode: MaxEncodedLen)
     // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
-    // Proof Skipped: Settlement InstructionAffirmsPending (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionAffirmsPending (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
     fn affirm_instruction_as_mediator() -> Weight {
-        // Minimum execution time: 97_645 nanoseconds.
-        Weight::from_ref_time(104_767_000)
+        // Minimum execution time: 78_595 nanoseconds.
+        Weight::from_ref_time(83_265_000)
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(2))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: Settlement InstructionDetails (r:1 w:0)
-    // Proof Skipped: Settlement InstructionDetails (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionDetails (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
     // Storage: Settlement InstructionStatuses (r:1 w:0)
-    // Proof Skipped: Settlement InstructionStatuses (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionStatuses (max_values: None, max_size: Some(21), added: 2496, mode: MaxEncodedLen)
     // Storage: Settlement InstructionMediatorsAffirmations (r:1 w:1)
-    // Proof Skipped: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: Some(58), added: 2533, mode: MaxEncodedLen)
     // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
-    // Proof Skipped: Settlement InstructionAffirmsPending (max_values: None, max_size: None, mode: Measured)
+    // Proof: Settlement InstructionAffirmsPending (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
     fn withdraw_affirmation_as_mediator() -> Weight {
-        // Minimum execution time: 100_541 nanoseconds.
-        Weight::from_ref_time(107_081_000)
+        // Minimum execution time: 79_563 nanoseconds.
+        Weight::from_ref_time(81_215_000)
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(2))
     }
-    // Storage: Settlement InstructionStatuses (r:1 w:1)
-    // Proof Skipped: Settlement InstructionStatuses (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement InstructionLegs (r:121 w:120)
-    // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
+    // Storage: Portfolio PortfolioCustodian (r:1 w:0)
+    // Proof: Portfolio PortfolioCustodian (max_values: None, max_size: Some(81), added: 2556, mode: MaxEncodedLen)
+    // Storage: Settlement UserAffirmations (r:1 w:0)
+    // Proof: Settlement UserAffirmations (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
+    fn valid_caller_portfolio() -> Weight {
+        // Minimum execution time: 26_005 nanoseconds.
+        Weight::from_ref_time(26_467_000).saturating_add(DbWeight::get().reads(2))
+    }
+    // Storage: Settlement VenueInfo (r:1 w:0)
+    // Proof: Settlement VenueInfo (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
+    fn valid_caller_venue() -> Weight {
+        // Minimum execution time: 14_417 nanoseconds.
+        Weight::from_ref_time(14_605_000).saturating_add(DbWeight::get().reads(1))
+    }
+    // Storage: Settlement InstructionMediatorsAffirmations (r:1 w:0)
+    // Proof: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: Some(58), added: 2533, mode: MaxEncodedLen)
+    fn valid_caller_mediator() -> Weight {
+        // Minimum execution time: 17_304 nanoseconds.
+        Weight::from_ref_time(17_688_000).saturating_add(DbWeight::get().reads(1))
+    }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement InstructionMediatorsAffirmations (r:6 w:4)
-    // Proof Skipped: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement InstructionLegStatus (r:120 w:120)
-    // Proof Skipped: Settlement InstructionLegStatus (max_values: None, max_size: None, mode: Measured)
-    // Storage: Portfolio PortfolioLockedNFT (r:100 w:100)
-    // Proof Skipped: Portfolio PortfolioLockedNFT (max_values: None, max_size: None, mode: Measured)
-    // Storage: Portfolio PortfolioLockedAssets (r:10 w:10)
-    // Proof Skipped: Portfolio PortfolioLockedAssets (max_values: None, max_size: None, mode: Measured)
-    // Storage: Scheduler Lookup (r:1 w:1)
-    // Proof: Scheduler Lookup (max_values: None, max_size: Some(48), added: 2523, mode: MaxEncodedLen)
-    // Storage: Scheduler Agenda (r:1 w:1)
-    // Proof: Scheduler Agenda (max_values: None, max_size: Some(10463), added: 12938, mode: MaxEncodedLen)
-    // Storage: Settlement InstructionDetails (r:1 w:1)
-    // Proof Skipped: Settlement InstructionDetails (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement UserAffirmations (r:0 w:220)
-    // Proof Skipped: Settlement UserAffirmations (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement OffChainAffirmations (r:0 w:10)
-    // Proof Skipped: Settlement OffChainAffirmations (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement InstructionAffirmsPending (r:0 w:1)
-    // Proof Skipped: Settlement InstructionAffirmsPending (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement VenueInstructions (r:0 w:1)
-    // Proof Skipped: Settlement VenueInstructions (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement AffirmsReceived (r:0 w:220)
-    // Proof Skipped: Settlement AffirmsReceived (max_values: None, max_size: None, mode: Measured)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
+    // Storage: Settlement InstructionLegs (r:121 w:0)
+    // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionDetails (r:1 w:0)
+    // Proof: Settlement InstructionDetails (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
+    // Storage: Settlement InstructionStatuses (r:1 w:0)
+    // Proof: Settlement InstructionStatuses (max_values: None, max_size: Some(21), added: 2496, mode: MaxEncodedLen)
+    // Storage: Settlement InstructionMemos (r:1 w:0)
+    // Proof: Settlement InstructionMemos (max_values: None, max_size: Some(48), added: 2523, mode: MaxEncodedLen)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
-    fn reject_instruction_as_mediator(f: u32, n: u32, o: u32) -> Weight {
-        // Minimum execution time: 603_653 nanoseconds.
-        Weight::from_ref_time(139_191_704)
-            // Standard Error: 1_088_239
-            .saturating_add(Weight::from_ref_time(25_785_995).saturating_mul(f.into()))
-            // Standard Error: 100_665
-            .saturating_add(Weight::from_ref_time(36_080_056).saturating_mul(n.into()))
-            // Standard Error: 985_776
-            .saturating_add(Weight::from_ref_time(12_324_568).saturating_mul(o.into()))
-            .saturating_add(DbWeight::get().reads(12))
+    fn manual_execution_common(f: u32, n: u32, o: u32) -> Weight {
+        // Minimum execution time: 142_116 nanoseconds.
+        Weight::from_ref_time(58_680_658)
+            // Standard Error: 202_517
+            .saturating_add(Weight::from_ref_time(3_357_821).saturating_mul(f.into()))
+            // Standard Error: 18_733
+            .saturating_add(Weight::from_ref_time(4_799_955).saturating_mul(n.into()))
+            // Standard Error: 183_449
+            .saturating_add(Weight::from_ref_time(4_859_198).saturating_mul(o.into()))
+            .saturating_add(DbWeight::get().reads(5))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(o.into())))
+    }
+    // Storage: Settlement InstructionAffirmsPending (r:1 w:0)
+    // Proof: Settlement InstructionAffirmsPending (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
+    // Storage: Settlement InstructionStatuses (r:1 w:0)
+    // Proof: Settlement InstructionStatuses (max_values: None, max_size: Some(21), added: 2496, mode: MaxEncodedLen)
+    // Storage: Settlement OffChainAffirmations (r:10 w:0)
+    // Proof: Settlement OffChainAffirmations (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
+    // Storage: Settlement UserAffirmations (r:220 w:0)
+    // Proof: Settlement UserAffirmations (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
+    // Storage: Settlement AffirmsReceived (r:220 w:0)
+    // Proof: Settlement AffirmsReceived (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
+    // Storage: Settlement InstructionDetails (r:1 w:0)
+    // Proof: Settlement InstructionDetails (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
+    // Storage: Settlement VenueFiltering (r:110 w:0)
+    // Proof: Settlement VenueFiltering (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
+    /// The range of component `f` is `[1, 10]`.
+    /// The range of component `n` is `[0, 100]`.
+    /// The range of component `o` is `[0, 10]`.
+    fn validate_execute_instruction_conditions_common(f: u32, n: u32, o: u32) -> Weight {
+        // Minimum execution time: 265_939 nanoseconds.
+        Weight::from_ref_time(7_389_852)
+            // Standard Error: 447_739
+            .saturating_add(Weight::from_ref_time(22_452_973).saturating_mul(f.into()))
+            // Standard Error: 41_417
+            .saturating_add(Weight::from_ref_time(21_532_211).saturating_mul(n.into()))
+            // Standard Error: 405_582
+            .saturating_add(Weight::from_ref_time(341_792).saturating_mul(o.into()))
+            .saturating_add(DbWeight::get().reads(3))
+            .saturating_add(DbWeight::get().reads((5_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().reads((5_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(o.into())))
+    }
+    // Storage: Timestamp Now (r:1 w:0)
+    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
+    // Storage: Settlement InstructionMediatorsAffirmations (r:5 w:0)
+    // Proof: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: Some(58), added: 2533, mode: MaxEncodedLen)
+    /// The range of component `n` is `[0, 4]`.
+    fn validate_mediators_affirmations(n: u32) -> Weight {
+        // Minimum execution time: 11_380 nanoseconds.
+        Weight::from_ref_time(14_050_674)
+            // Standard Error: 84_629
+            .saturating_add(Weight::from_ref_time(6_527_729).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(2))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+    }
+    // Storage: Asset Frozen (r:10 w:0)
+    // Proof: Asset Frozen (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
+    /// The range of component `f` is `[1, 10]`.
+    fn ensure_assets_are_not_frozen(f: u32) -> Weight {
+        // Minimum execution time: 9_985 nanoseconds.
+        Weight::from_ref_time(8_171_647)
+            // Standard Error: 11_000
+            .saturating_add(Weight::from_ref_time(2_326_304).saturating_mul(f.into()))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(f.into())))
+    }
+    // Storage: Timestamp Now (r:1 w:0)
+    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
+    // Storage: CddServiceProviders ActiveMembers (r:1 w:0)
+    // Proof Skipped: CddServiceProviders ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
+    // Storage: Identity Claims (r:20 w:0)
+    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
+    /// The range of component `f` is `[1, 10]`.
+    fn ensure_valid_cdd_claims(f: u32) -> Weight {
+        // Minimum execution time: 25_245 nanoseconds.
+        Weight::from_ref_time(15_762_555)
+            // Standard Error: 40_768
+            .saturating_add(Weight::from_ref_time(12_172_335).saturating_mul(f.into()))
+            .saturating_add(DbWeight::get().reads(2))
+            .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(f.into())))
+    }
+    // Storage: Portfolio Portfolios (r:10 w:0)
+    // Proof Skipped: Portfolio Portfolios (max_values: None, max_size: None, mode: Measured)
+    /// The range of component `f` is `[1, 10]`.
+    fn valid_receivers_portfolio(f: u32) -> Weight {
+        // Minimum execution time: 11_095 nanoseconds.
+        Weight::from_ref_time(7_970_789)
+            // Standard Error: 12_272
+            .saturating_add(Weight::from_ref_time(3_850_338).saturating_mul(f.into()))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(f.into())))
+    }
+    // Storage: Portfolio PortfolioLockedAssets (r:10 w:0)
+    // Proof: Portfolio PortfolioLockedAssets (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
+    // Storage: Portfolio PortfolioAssetBalances (r:10 w:0)
+    // Proof: Portfolio PortfolioAssetBalances (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
+    /// The range of component `f` is `[1, 10]`.
+    fn senders_are_funded(f: u32) -> Weight {
+        // Minimum execution time: 17_479 nanoseconds.
+        Weight::from_ref_time(8_746_693)
+            // Standard Error: 27_282
+            .saturating_add(Weight::from_ref_time(10_081_972).saturating_mul(f.into()))
+            .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(f.into())))
+    }
+    // Storage: Settlement LockedTimestamp (r:1 w:0)
+    // Proof: Settlement LockedTimestamp (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
+    // Storage: Timestamp Now (r:1 w:0)
+    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
+    fn maximum_lock_period() -> Weight {
+        // Minimum execution time: 15_409 nanoseconds.
+        Weight::from_ref_time(16_193_000).saturating_add(DbWeight::get().reads(2))
+    }
+    // Storage: Settlement InstructionStatuses (r:1 w:0)
+    // Proof: Settlement InstructionStatuses (max_values: None, max_size: Some(21), added: 2496, mode: MaxEncodedLen)
+    // Storage: Portfolio PortfolioLockedAssets (r:10 w:10)
+    // Proof: Portfolio PortfolioLockedAssets (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
+    // Storage: Asset BalanceOf (r:20 w:20)
+    // Proof: Asset BalanceOf (max_values: None, max_size: Some(80), added: 2555, mode: MaxEncodedLen)
+    // Storage: Checkpoint CachedNextCheckpoints (r:10 w:0)
+    // Proof Skipped: Checkpoint CachedNextCheckpoints (max_values: None, max_size: None, mode: Measured)
+    // Storage: Checkpoint CheckpointIdSequence (r:10 w:0)
+    // Proof: Checkpoint CheckpointIdSequence (max_values: None, max_size: Some(40), added: 2515, mode: MaxEncodedLen)
+    // Storage: Portfolio PortfolioAssetBalances (r:20 w:20)
+    // Proof: Portfolio PortfolioAssetBalances (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
+    // Storage: Portfolio PortfolioAssetCount (r:10 w:10)
+    // Proof: Portfolio PortfolioAssetCount (max_values: None, max_size: Some(57), added: 2532, mode: MaxEncodedLen)
+    // Storage: Statistics ActiveAssetStats (r:10 w:0)
+    // Proof: Statistics ActiveAssetStats (max_values: None, max_size: Some(423), added: 2898, mode: MaxEncodedLen)
+    // Storage: Portfolio PortfolioLockedNFT (r:99 w:99)
+    // Proof: Portfolio PortfolioLockedNFT (max_values: None, max_size: Some(90), added: 2565, mode: MaxEncodedLen)
+    // Storage: Portfolio PortfolioNFT (r:99 w:198)
+    // Proof: Portfolio PortfolioNFT (max_values: None, max_size: Some(90), added: 2565, mode: MaxEncodedLen)
+    // Storage: Nft NumberOfNFTs (r:198 w:198)
+    // Proof: Nft NumberOfNFTs (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
+    // Storage: Nft NFTOwner (r:0 w:99)
+    // Proof: Nft NFTOwner (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
+    /// The range of component `f` is `[1, 10]`.
+    /// The range of component `n` is `[0, 100]`.
+    fn transfer_assets(f: u32, n: u32) -> Weight {
+        // Minimum execution time: 589_328 nanoseconds.
+        Weight::from_ref_time(590_428_000)
+            // Standard Error: 884_670
+            .saturating_add(Weight::from_ref_time(21_179_866).saturating_mul(f.into()))
+            // Standard Error: 91_247
+            .saturating_add(Weight::from_ref_time(31_260_905).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().reads((9_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().reads((4_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes((6_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().writes((6_u64).saturating_mul(n.into())))
+    }
+    // Storage: Settlement InstructionDetails (r:1 w:1)
+    // Proof: Settlement InstructionDetails (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
+    // Storage: Settlement InstructionMediatorsAffirmations (r:5 w:4)
+    // Proof: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: Some(58), added: 2533, mode: MaxEncodedLen)
+    // Storage: Settlement InstructionLegs (r:0 w:120)
+    // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement UserAffirmations (r:0 w:220)
+    // Proof: Settlement UserAffirmations (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
+    // Storage: Settlement OffChainAffirmations (r:0 w:10)
+    // Proof: Settlement OffChainAffirmations (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
+    // Storage: Settlement InstructionAffirmsPending (r:0 w:1)
+    // Proof: Settlement InstructionAffirmsPending (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
+    // Storage: Settlement VenueInstructions (r:0 w:1)
+    // Proof: Settlement VenueInstructions (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
+    // Storage: Settlement AffirmsReceived (r:0 w:220)
+    // Proof: Settlement AffirmsReceived (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
+    // Storage: Settlement InstructionLegStatus (r:0 w:120)
+    // Proof: Settlement InstructionLegStatus (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
+    /// The range of component `f` is `[1, 10]`.
+    /// The range of component `n` is `[0, 100]`.
+    /// The range of component `o` is `[0, 10]`.
+    fn prune_instruction(f: u32, n: u32, o: u32) -> Weight {
+        // Minimum execution time: 196_496 nanoseconds.
+        Weight::from_ref_time(18_994_606)
+            // Standard Error: 179_133
+            .saturating_add(Weight::from_ref_time(12_167_762).saturating_mul(f.into()))
+            // Standard Error: 16_570
+            .saturating_add(Weight::from_ref_time(10_959_904).saturating_mul(n.into()))
+            // Standard Error: 162_267
+            .saturating_add(Weight::from_ref_time(5_137_386).saturating_mul(o.into()))
+            .saturating_add(DbWeight::get().reads(6))
+            .saturating_add(DbWeight::get().writes(7))
+            .saturating_add(DbWeight::get().writes((6_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().writes((6_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
+    }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
+    // Storage: Settlement InstructionLegs (r:121 w:0)
+    // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionStatuses (r:1 w:1)
+    // Proof: Settlement InstructionStatuses (max_values: None, max_size: Some(21), added: 2496, mode: MaxEncodedLen)
+    // Storage: Settlement InstructionDetails (r:1 w:0)
+    // Proof: Settlement InstructionDetails (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
+    // Storage: Settlement InstructionLegStatus (r:120 w:0)
+    // Proof: Settlement InstructionLegStatus (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
+    // Storage: Portfolio PortfolioLockedNFT (r:100 w:100)
+    // Proof: Portfolio PortfolioLockedNFT (max_values: None, max_size: Some(90), added: 2565, mode: MaxEncodedLen)
+    // Storage: Portfolio PortfolioLockedAssets (r:10 w:10)
+    // Proof: Portfolio PortfolioLockedAssets (max_values: None, max_size: Some(97), added: 2572, mode: MaxEncodedLen)
+    // Storage: Scheduler Lookup (r:1 w:0)
+    // Proof: Scheduler Lookup (max_values: None, max_size: Some(48), added: 2523, mode: MaxEncodedLen)
+    /// The range of component `f` is `[1, 10]`.
+    /// The range of component `n` is `[0, 100]`.
+    /// The range of component `o` is `[0, 10]`.
+    fn reject_instruction_common(f: u32, n: u32, o: u32) -> Weight {
+        // Minimum execution time: 282_870 nanoseconds.
+        Weight::from_ref_time(93_122_214)
+            // Standard Error: 293_193
+            .saturating_add(Weight::from_ref_time(15_347_713).saturating_mul(f.into()))
+            // Standard Error: 27_121
+            .saturating_add(Weight::from_ref_time(15_307_640).saturating_mul(n.into()))
+            // Standard Error: 265_588
+            .saturating_add(Weight::from_ref_time(5_795_044).saturating_mul(o.into()))
+            .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(o.into())))
-            .saturating_add(DbWeight::get().writes(10))
-            .saturating_add(DbWeight::get().writes((7_u64).saturating_mul(f.into())))
-            .saturating_add(DbWeight::get().writes((7_u64).saturating_mul(n.into())))
-            .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
-    }
-    fn valid_caller_portfolio() -> Weight {
-        Weight::zero()
-    }
-    fn valid_caller_venue() -> Weight {
-        Weight::zero()
-    }
-    fn valid_caller_mediator() -> Weight {
-        Weight::zero()
-    }
-    fn manual_execution_common(_f: u32, _n: u32, _o: u32) -> Weight {
-        Weight::zero()
-    }
-    fn validate_execute_instruction_conditions_common(_f: u32, _n: u32, _o: u32) -> Weight {
-        Weight::zero()
-    }
-    fn validate_mediators_affirmations(_n: u32) -> Weight {
-        Weight::zero()
-    }
-    fn ensure_assets_can_be_transferred_common(_n: u32) -> Weight {
-        Weight::zero()
-    }
-    fn ensure_assets_are_not_frozen(_f: u32) -> Weight {
-        Weight::zero()
-    }
-    fn ensure_valid_cdd_claims(_f: u32) -> Weight {
-        Weight::zero()
-    }
-    fn valid_receivers_portfolio(_f: u32) -> Weight {
-        Weight::zero()
-    }
-    fn senders_are_funded(_f: u32) -> Weight {
-        Weight::zero()
-    }
-    fn maximum_lock_period() -> Weight {
-        Weight::zero()
-    }
-    fn transfer_assets(_f: u32, _n: u32) -> Weight {
-        Weight::zero()
-    }
-    fn prune_instruction(_f: u32, _n: u32, _o: u32) -> Weight {
-        Weight::zero()
-    }
-    fn reject_instruction_common(_f: u32, _n: u32, _o: u32) -> Weight {
-        Weight::zero()
+            .saturating_add(DbWeight::get().writes(1))
+            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
     }
 }

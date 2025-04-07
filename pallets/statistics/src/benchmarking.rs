@@ -417,7 +417,7 @@ benchmarks! {
         assert!(
             Pallet::<T>::is_exempt_from_condition(
                 &alice.did(),
-                asset_id,
+                &asset_id,
                 StatOpType::Balance,
                 Some(ClaimType::Jurisdiction),
                 &mut WeightMeter::max_limit_no_minimum()

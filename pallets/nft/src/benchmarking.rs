@@ -12,7 +12,7 @@ use polymesh_primitives::asset_metadata::{
 use polymesh_primitives::bench::create_and_issue_sample_asset;
 use polymesh_primitives::nft::{NFTCollectionId, NFTCollectionKeys, NFTId};
 use polymesh_primitives::traits::{AssetFnTrait, ComplianceFnConfig};
-use polymesh_primitives::{with_transaction, IdentityId, PortfolioKind, WeightMeter};
+use polymesh_primitives::{IdentityId, PortfolioKind};
 
 use crate::*;
 
@@ -193,22 +193,18 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         let (asset_id, alice_user_portfolio, bob_user_portfolio, _) =
             setup_nft_transfer::<T>(&alice, &bob, n, None, None, true, 0);
         let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
-        with_transaction(|| {
-            Pallet::<T>::base_nft_transfer(
-                alice_user_portfolio,
-                bob_user_portfolio,
-                nfts.clone(),
-                InstructionId(1),
-                None,
-                IdentityId::default(),
-                &mut weight_meter
-            )
-        })
+        Pallet::<T>::simplified_nft_transfer(
+            alice_user_portfolio,
+            bob_user_portfolio,
+            nfts.clone(),
+            InstructionId(1),
+            None,
+            IdentityId::default(),
+        )
         .unwrap();
         // Before the controller transfer all NFTs belong to bob
         assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), bob.did()), n as u64);
@@ -240,12 +236,13 @@ benchmarks! {
 
         Pallet::<T>::ensure_within_nfts_transfer_limits(&nfts).unwrap();
         Pallet::<T>::ensure_no_duplicate_nfts(&nfts).unwrap();
-        Pallet::<T>::ensure_nft_ownership(&sender_portfolio, &nfts).unwrap();
+        Pallet::<T>::ensure_sender_owns_nfts(&sender_portfolio, &nfts).unwrap();
 
         NumberOfNFTs::<T>::get(nfts.asset_id(), receiver_portfolio.did)
             .checked_add(nfts_transferred)
             .unwrap();
 
+        Pallet::<T>::ensure_nfts_are_locked(&sender_portfolio, &nfts).unwrap();
         assert!(!Frozen::<T>::get(nfts.asset_id()));
 
         assert!(IdentityPallet::<T>::has_valid_cdd(receiver_portfolio.did));

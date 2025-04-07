@@ -554,22 +554,6 @@ benchmarks! {
         let portfolios = parameters.sdr_portfolios();
     }: _(alice.origin, InstructionId(1),  portfolios)
 
-    reject_instruction {
-        // Number of fungible, non-fungible and offchain LEGS in the instruction
-        let f in 1..T::MaxNumberOfFungibleAssets::get();
-        let n in 0..T::MaxNumberOfNFTs::get();
-        let o in 0..T::MaxNumberOfOffChainAssets::get();
-
-        let m = T::MaxInstructionMediators::get();
-
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
-        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
-
-        let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, false, false);
-    }: _(alice.origin, InstructionId(1), parameters.portfolios.sdr_portfolios[0])
-
     execute_instruction_paused {
         // Number of fungible, non-fungible and offchain assets in the instruction
         let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
@@ -780,22 +764,6 @@ benchmarks! {
             None
         ).unwrap();
     }: _(david.origin, InstructionId(1))
-
-    reject_instruction_as_mediator {
-        // Number of fungible, non-fungible and offchain LEGS in the instruction
-        let f in 1..T::MaxNumberOfFungibleAssets::get();
-        let n in 0..T::MaxNumberOfNFTs::get();
-        let o in 0..T::MaxNumberOfOffChainAssets::get();
-
-        let m = T::MaxInstructionMediators::get();
-
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
-        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
-
-        let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, false, false);
-    }: _(parameters.asset_mediators[0].origin.clone(), InstructionId(1), None)
 
     valid_caller_portfolio {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");

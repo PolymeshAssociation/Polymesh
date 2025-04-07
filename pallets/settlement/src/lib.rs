@@ -209,7 +209,6 @@ pub mod pallet {
         fn add_and_affirm_instruction(f: u32, n: u32, o: u32) -> Weight;
         fn affirm_instruction(f: u32, n: u32) -> Weight;
         fn withdraw_affirmation(f: u32, n: u32, o: u32) -> Weight;
-        fn reject_instruction(f: u32, n: u32, o: u32) -> Weight;
         fn execute_instruction_paused(f: u32, n: u32, o: u32) -> Weight;
         fn execute_scheduled_instruction(f: u32, n: u32, o: u32) -> Weight;
         fn ensure_root_origin() -> Weight;
@@ -220,7 +219,6 @@ pub mod pallet {
         fn add_and_affirm_with_mediators(f: u32, n: u32, o: u32, m: u32) -> Weight;
         fn affirm_instruction_as_mediator() -> Weight;
         fn withdraw_affirmation_as_mediator() -> Weight;
-        fn reject_instruction_as_mediator(f: u32, n: u32, o: u32) -> Weight;
         fn valid_caller_portfolio() -> Weight;
         fn valid_caller_venue() -> Weight;
         fn valid_caller_mediator() -> Weight;
@@ -404,30 +402,31 @@ pub mod pallet {
                 }
             }
         }
-        fn reject_instruction_input(asset_count: Option<AssetCount>, as_mediator: bool) -> Weight {
-            match asset_count {
-                Some(asset_count) => {
-                    if as_mediator {
-                        return Self::reject_instruction_as_mediator(
-                            asset_count.fungible(),
-                            asset_count.non_fungible(),
-                            asset_count.off_chain(),
-                        );
-                    }
-                    Self::reject_instruction(
-                        asset_count.fungible(),
-                        asset_count.non_fungible(),
-                        asset_count.off_chain(),
-                    )
-                }
-                None => {
-                    let (f, n, o) = (10, 100, 10);
-                    if as_mediator {
-                        return Self::reject_instruction_as_mediator(f, n, o);
-                    }
-                    Self::reject_instruction(f, n, o)
-                }
+
+        fn reject_instruction(inst_asset_count: &AssetCount) -> Weight {
+            let reject_common = Self::reject_instruction_common(
+                inst_asset_count.fungible(),
+                inst_asset_count.non_fungible(),
+                inst_asset_count.off_chain(),
+            );
+            let caller_validation = Self::valid_caller_portfolio();
+            let prune = Self::prune_instruction(
+                inst_asset_count.fungible(),
+                inst_asset_count.non_fungible(),
+                inst_asset_count.off_chain(),
+            );
+
+            reject_common
+                .saturating_add(caller_validation)
+                .saturating_add(prune)
+        }
+
+        fn reject_instruction_input(inst_asset_count: Option<AssetCount>) -> Weight {
+            if let Some(inst_asset_count) = inst_asset_count {
+                return Self::reject_instruction(&inst_asset_count);
             }
+
+            Self::reject_instruction(&AssetCount::new(10, 100, 10))
         }
     }
 
@@ -1153,7 +1152,7 @@ pub mod pallet {
         ///
         /// # Permissions
         /// * Portfolio
-        #[pallet::weight(<T as Config>::WeightInfo::reject_instruction_input(None, false))]
+        #[pallet::weight(<T as Config>::WeightInfo::reject_instruction_input(None))]
         #[pallet::call_index(13)]
         pub fn reject_instruction(
             origin: OriginFor<T>,
@@ -1259,7 +1258,7 @@ pub mod pallet {
         ///
         /// # Permissions
         /// * Portfolio
-        #[pallet::weight(<T as Config>::WeightInfo::reject_instruction_input(*number_of_assets, false))]
+        #[pallet::weight(<T as Config>::WeightInfo::reject_instruction_input(*number_of_assets))]
         #[pallet::call_index(17)]
         pub fn reject_instruction_with_count(
             origin: OriginFor<T>,
@@ -1267,13 +1266,14 @@ pub mod pallet {
             portfolio: PortfolioId,
             number_of_assets: Option<AssetCount>,
         ) -> DispatchResult {
-            Self::base_reject_instruction(
-                origin,
-                id,
-                Some(portfolio),
-                &mut WeightMeter::max_limit_no_minimum(),
+            let mut weight_meter = Self::ensure_valid_weight_meter(
+                Self::reject_instruction_minimum_weight(),
+                <T as Config>::WeightInfo::reject_instruction_input(number_of_assets),
             )
             .map_err(|e| e.error)?;
+
+            Self::base_reject_instruction(origin, id, Some(portfolio), &mut weight_meter)
+                .map_err(|e| e.error)?;
             Ok(())
         }
 
@@ -1424,19 +1424,19 @@ pub mod pallet {
         /// * `number_of_assets` - an optional [`AssetCount`] that will be used for a precise fee estimation before executing the extrinsic.
         ///
         /// Note: calling the rpc method `get_execute_instruction_info` returns an instance of [`ExecuteInstructionInfo`], which contain the asset count.
-        #[pallet::weight(<T as Config>::WeightInfo::reject_instruction_input(*number_of_assets, true))]
+        #[pallet::weight(<T as Config>::WeightInfo::reject_instruction_input(*number_of_assets))]
         #[pallet::call_index(23)]
         pub fn reject_instruction_as_mediator(
             origin: OriginFor<T>,
             instruction_id: InstructionId,
             number_of_assets: Option<AssetCount>,
         ) -> DispatchResultWithPostInfo {
-            Self::base_reject_instruction(
-                origin,
-                instruction_id,
-                None,
-                &mut WeightMeter::max_limit_no_minimum(),
-            )
+            let mut weight_meter = Self::ensure_valid_weight_meter(
+                Self::reject_instruction_minimum_weight(),
+                <T as Config>::WeightInfo::reject_instruction_input(number_of_assets),
+            )?;
+
+            Self::base_reject_instruction(origin, instruction_id, None, &mut weight_meter)
         }
 
         /// Moves the instruction status to `LockedForExecution`. This function must be called by a
@@ -3547,12 +3547,19 @@ impl<T: Config> Pallet<T> {
         <T as Config>::WeightInfo::withdraw_affirmation_input(Some(affirmation_count), 0)
     }
 
-    /// Returns the weight for calling `reject_instruction_weight` with the number of assets in `instruction_asset_count`.
-    fn reject_instruction_weight(instruction_asset_count: AssetCount, as_mediator: bool) -> Weight {
-        <T as Config>::WeightInfo::reject_instruction_input(
-            Some(instruction_asset_count),
-            as_mediator,
-        )
+    /// Returns the miminum weight for calling the `reject_instruction` extrinsic.
+    fn reject_instruction_minimum_weight() -> Weight {
+        let reject_common = <T as Config>::WeightInfo::reject_instruction_common(1, 0, 0);
+        let caller_validation = <T as Config>::WeightInfo::valid_caller_mediator();
+        let prune = <T as Config>::WeightInfo::prune_instruction(1, 0, 0);
+
+        reject_common
+            .saturating_add(caller_validation)
+            .saturating_add(prune)
+    }
+
+    fn reject_instruction_weight(inst_asset_count: &AssetCount) -> Weight {
+        <T as Config>::WeightInfo::reject_instruction(inst_asset_count)
     }
 
     pub fn get_actual_weight(call: &Call<T>) -> Option<Weight> {
@@ -3582,7 +3589,7 @@ impl<T: Config> Pallet<T> {
             }
             Call::reject_instruction { id, .. } => {
                 let asset_count = Self::get_instruction_asset_count(id);
-                Some(Self::reject_instruction_weight(asset_count, false))
+                Some(Self::reject_instruction_weight(&asset_count))
             }
             _ => None,
         }
@@ -3639,71 +3646,79 @@ impl<T: Config> Pallet<T> {
         skip_locked_check: bool,
         weight_meter: &mut WeightMeter,
     ) -> Vec<DispatchError> {
-        match leg {
-            Leg::Fungible { sender, receiver, asset_id, amount } => {
-                <Asset<T>>::asset_transfer_report(
-                    &sender,
-                    &receiver,
-                    &asset_id,
-                    amount,
-                    skip_locked_check,
-                    weight_meter,
-                )
-            }
-            Leg::NonFungible { sender, receiver, nfts } => {
-                <Nft<T>>::nft_transfer_report(
-                    &sender,
-                    &receiver,
-                    &nfts,
-                    skip_locked_check,
-                    weight_meter,
-                )
-            }
-            Leg::OffChain { .. } => Vec::new(),
-        }
+        unimplemented!()
     }
 
     /// Returns a vector containing all errors for the execution. An empty vec means there's no error.
+    #[rustfmt::skip]
     pub fn execute_instruction_report(
-        instruction_id: &InstructionId,
+        inst_id: &InstructionId,
         weight_meter: &mut WeightMeter,
     ) -> Vec<DispatchError> {
         let mut execution_errors = Vec::new();
 
-        if InstructionAffirmsPending::<T>::get(instruction_id) != 0 {
+        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&instruction_id).collect();
+        if InstructionAffirmsPending::<T>::get(inst_id) != 0 {
             execution_errors.push(Error::<T>::NotAllAffirmationsHaveBeenReceived.into());
         }
 
-        if let Err(e) = Self::validate_mediators_affirmations(&instruction_id, weight_meter) {
+        if let Err(e) = Self::ensure_instruction_is_pending_or_failed(inst_id) {
             execution_errors.push(e);
         }
 
-        match InstructionStatuses::<T>::get(instruction_id) {
-            InstructionStatus::Unknown
-            | InstructionStatus::Success(_)
-            | InstructionStatus::Rejected(_) => {
-                execution_errors.push(Error::<T>::InvalidInstructionStatusForExecution.into());
-            }
-            InstructionStatus::Pending
-            | InstructionStatus::Failed
-            | InstructionStatus::LockedForExecution => {}
-        }
-
-        let instruction_legs: Vec<(LegId, Leg)> =
-            InstructionLegs::<T>::iter_prefix(&instruction_id).collect();
-        let venue_id = InstructionDetails::<T>::get(instruction_id).venue_id;
-        if let Err(e) = Self::ensure_allowed_venue(&instruction_legs, venue_id) {
+        if let Err(e) = Self::validate_mediators_affirmations(inst_id, weight_meter) {
             execution_errors.push(e);
         }
 
-        for (leg_id, leg) in instruction_legs {
-            let leg_status = InstructionLegStatus::<T>::get(instruction_id, leg_id);
-            if leg_status == LegStatus::ExecutionPending {
-                let transfer_errors = Self::transfer_report(leg, true, weight_meter);
-                execution_errors.extend_from_slice(&transfer_errors);
+        if let Err(e) = Self::ensure_no_missing_affirmation(inst_id, &inst_legs) {
+            execution_errors.push(e);
+        }
+
+        let inst_details = InstructionDetails::<T>::get(inst_id);
+        if let Err(e) = Self::ensure_allowed_venue(&inst_legs, inst_details.venue_id) {
+            execution_errors.push(e);
+        }
+
+        let mut nfts_transferred = BTreeMap::new();
+        let mut fungible_tx_summary = FungibleTxSummary::new();
+        for (leg_id, leg) in inst_legs {
+            match leg {
+                Leg::Fungible { sender, receiver, asset_id, amount} => {
+                    if InstructionLegStatus::<T>::get(id, leg_id) != LegStatus::ExecutionPending {
+                        execution_errors.push(Error::<T>::UnexpectedLegStatus.into());
+                    }
+                    fungible_tx_summary.add_transfer(sender, receiver, asset_id, amount);
+                }
+                Leg::NonFungible {sender, receiver, nfts } => {
+                    if InstructionLegStatus::<T>::get(id, leg_id) != LegStatus::ExecutionPending {
+                        execution_errors.push(Error::<T>::UnexpectedLegStatus.into());
+                    }
+
+                    if let Err(e) = Self::Self::ensure_valid_nft_transfer(
+                        sender,
+                        receiver,
+                        nfts,
+                        &mut nfts_transferred,
+                        weight_meter,
+                    ) {
+                        execution_errors.push(e);
+                    }
+                }
+                Leg::OffChain { .. } => {
+                    let leg_status = InstructionLegStatus::<T>::get(id, leg_id);
+                    if LegStatus::ExecutionPending == leg_status
+                        || leg_status == leg_status::PendingTokenLock
+                    {
+                        execution_errors.push(Error::<T>::UnexpectedLegStatus.into());
+                    }
+                }
             }
         }
 
-        execution_errors
+        if let Err(e) = Self::ensure_valid_fungible_transfer(&fungible_tx_summary, weight_meter) {
+            execution_errors.push(e);
+        }
+
+        unimplemented!()
     }
 }
