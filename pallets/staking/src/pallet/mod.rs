@@ -1096,6 +1096,7 @@ pub mod pallet {
                 return Err(Error::<T>::AlreadyBonded.into());
             }
 
+            /// Polymesh added:
             // An existing controller cannot become a stash.
             if <Ledger<T>>::contains_key(&stash) {
                 return Err(Error::<T>::AlreadyPaired.into());
@@ -1508,6 +1509,7 @@ pub mod pallet {
                 return Err(Error::<T>::AlreadyPaired.into());
             }
 
+            /// Polymesh added:
             // Prevents stashes which are controllers of another ledger from calling the extrinsic
             if old_controller != stash {
                 if <Ledger<T>>::contains_key(&stash) {
