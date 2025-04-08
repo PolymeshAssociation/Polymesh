@@ -998,7 +998,7 @@ benchmarks! {
             .collect();
     }: {
         for did in unique_dids {
-            let _ = BalanceOf::<T>::get(AssetId::from(0u32), did)
+            let _ = BalanceOf::<T>::get(AssetId::from([0; 16]), did);
         }
     }
 
@@ -1127,7 +1127,7 @@ benchmarks! {
         let inst_id = InstructionId(1);
         let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, false, false);
     }: {
-        let _: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
+        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
         let _ = AssetCount::from_legs(&inst_legs);
         let inst_memo = InstructionMemos::<T>::get(&inst_id);
         InstructionStatuses::<T>::insert(inst_id, InstructionStatus::Success(System::<T>::block_number()));

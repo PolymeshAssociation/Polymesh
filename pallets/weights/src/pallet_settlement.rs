@@ -1112,7 +1112,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
-    fn assets_can_be_transferred_common(n: u32) -> Weight {
+    fn assets_can_be_transferred_common(_n: u32) -> Weight {
         Weight::zero()
     }
     // Storage: Asset Frozen (r:10 w:0)
@@ -1162,7 +1162,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(Weight::from_ref_time(10_081_972).saturating_mul(f.into()))
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(f.into())))
     }
-    fn senders_balance_read(f: u32) -> Weight {
+    fn senders_balance_read(_f: u32) -> Weight {
         Weight::zero()
     }
     // Storage: Settlement LockedTimestamp (r:1 w:0)
@@ -1284,7 +1284,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
     }
-    fn execute_instruction_common(f: u32, n: u32, o: u32) -> Weight {
+    fn execute_instruction_common(_f: u32, _n: u32, _o: u32) -> Weight {
         Weight::zero()
     }
 }
