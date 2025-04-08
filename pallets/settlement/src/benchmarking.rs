@@ -1111,4 +1111,25 @@ benchmarks! {
         let _ = T::Scheduler::cancel_named(inst_id.execution_name());
         InstructionStatuses::<T>::insert(inst_id, InstructionStatus::Rejected(System::<T>::block_number()));
     }
+
+    execute_instruction_common {
+        let f in 1..T::MaxNumberOfFungibleAssets::get();
+        let n in 0..T::MaxNumberOfNFTs::get();
+        let o in 0..T::MaxNumberOfOffChainAssets::get();
+
+        let m = T::MaxInstructionMediators::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let settlement_type = SettlementType::SettleManual(0u32.into());
+        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
+
+        let inst_id = InstructionId(1);
+        let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, false, false);
+    }: {
+        let _: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
+        let _ = AssetCount::from_legs(&inst_legs);
+        let inst_memo = InstructionMemos::<T>::get(&inst_id);
+        InstructionStatuses::<T>::insert(inst_id, InstructionStatus::Success(System::<T>::block_number()));
+    }
 }

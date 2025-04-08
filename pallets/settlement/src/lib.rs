@@ -235,6 +235,7 @@ pub mod pallet {
         fn transfer_assets(f: u32, n: u32) -> Weight;
         fn prune_instruction(f: u32, n: u32, o: u32) -> Weight;
         fn reject_instruction_common(f: u32, n: u32, o: u32) -> Weight;
+        fn execute_instruction_common(f: u32, n: u32, o: u32) -> Weight;
 
         fn add_and_affirm_with_mediators_legs(
             legs: &[Leg],
@@ -1848,6 +1849,16 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
         let inst_asset_count = AssetCount::from_legs(&inst_legs);
+
+        Self::check_accrue(
+            weight_meter,
+            <T as Config>::WeightInfo::execute_instruction_common(
+                inst_asset_count.fungible(),
+                inst_asset_count.non_fungible(),
+                inst_asset_count.off_chain(),
+            ),
+        )?;
+
         Self::validate_execute_instruction_conditions(
             &inst_id,
             &inst_legs,
@@ -3005,6 +3016,7 @@ impl<T: Config> Pallet<T> {
             InstructionStatus::Success(System::<T>::block_number()),
         );
         Self::prune_instruction(&inst_id, &inst_legs, &inst_asset_count, weight_meter)?;
+        Self::deposit_event(Event::InstructionExecuted(caller_did, inst_id));
         Self::deposit_event(Event::SettlementManuallyExecuted(caller_did, inst_id));
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
@@ -3505,22 +3517,32 @@ impl<T: Config> Pallet<T> {
 
     /// Returns the worst case weight for an instruction with `f` fungible legs, `n` nfts being transferred and `o` offchain assets.
     fn execute_scheduled_instruction_weight_limit(f: u32, n: u32, o: u32) -> Weight {
-        <T as Config>::WeightInfo::execute_scheduled_instruction(f, n, o)
+        <T as Config>::WeightInfo::execute_scheduled_instruction(f + 1, n + 1, o + 1)
     }
 
     /// Returns the minimum weight for calling the `execute_scheduled_instruction` function.
     fn execute_scheduled_instruction_minimum_weight() -> Weight {
-        <T as Config>::WeightInfo::execute_scheduled_instruction(0, 0, 0)
+        <T as Config>::WeightInfo::execute_scheduled_instruction(1, 0, 0)
     }
 
     /// Returns the worst case weight for an instruction with `f` fungible legs, `n` nfts being transferred and `o` offchain assets.
     fn execute_manual_instruction_weight_limit(f: u32, n: u32, o: u32) -> Weight {
-        <T as Config>::WeightInfo::execute_manual_instruction(f, n, o)
+        <T as Config>::WeightInfo::execute_manual_instruction(f + 1, n + 1, o + 1)
     }
 
     /// Returns the minimum weight for calling the `execute_manual_instruction` extrinsic.
+    /// For the minimum weight the instruction must have on leg and of `SettlementType::SettleOnComplianceCheck`.
     pub fn execute_manual_instruction_minimum_weight() -> Weight {
-        <T as Config>::WeightInfo::execute_manual_instruction(0, 0, 0)
+        let common_weight = <T as Config>::WeightInfo::manual_execution_common(1, 0, 0);
+        let caller_validation_weight = <T as Config>::WeightInfo::valid_caller_mediator();
+        let transfer_weight = <T as Config>::WeightInfo::transfer_assets(1, 0);
+        let lock_assessement_weight = <T as Config>::WeightInfo::maximum_lock_period();
+        let prune_weight = <T as Config>::WeightInfo::prune_instruction(1, 0, 0);
+        common_weight
+            .saturating_add(caller_validation_weight)
+            .saturating_add(transfer_weight)
+            .saturating_add(lock_assessement_weight)
+            .saturating_add(prune_weight)
     }
 
     /// Returns the weight for calling `affirm_with_receipts` while considering the `sender_asset_count` for the sender, `receiver_asset_count`

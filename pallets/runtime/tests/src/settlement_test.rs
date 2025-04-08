@@ -2450,22 +2450,6 @@ fn settle_manual_instruction() {
                 error: Error::CallerIsNotAParty.into()
             }
         );
-        // Ensure correct error message when wrong number of legs is given
-        assert_noop!(
-            Settlement::execute_manual_instruction(
-                alice.origin(),
-                instruction_id,
-                None,
-                0,
-                0,
-                0,
-                None
-            ),
-            DispatchErrorWithPostInfo {
-                post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
-                error: Error::NumberOfFungibleTransfersUnderestimated.into()
-            }
-        );
         // Ensure it succeeds as the execute block was reached
         assert_ok!(Settlement::execute_manual_instruction(
             alice.origin(),
@@ -2560,22 +2544,6 @@ fn settle_manual_instruction_with_portfolio() {
             DispatchErrorWithPostInfo {
                 post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
                 error: Error::CallerIsNotAParty.into()
-            }
-        );
-        // Ensure correct error message when wrong number of legs is given
-        assert_noop!(
-            Settlement::execute_manual_instruction(
-                alice.origin(),
-                instruction_id,
-                Some(alice_portfolio),
-                0,
-                0,
-                0,
-                None
-            ),
-            DispatchErrorWithPostInfo {
-                post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
-                error: Error::NumberOfFungibleTransfersUnderestimated.into()
             }
         );
         // Ensure it succeeds as the execute block was reached
