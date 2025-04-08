@@ -45,9 +45,7 @@ impl<
     }
 }
 
-pub struct PolymeshStaking<T>(sp_std::marker::PhantomData<T>);
-
-impl<T: Config> PermissionedStaking<T> for PolymeshStaking<T> {
+impl<T: Config> PermissionedStaking<T> for Pallet<T> {
     fn on_validate(stash: &T::AccountId, commission: Perbill) -> DispatchResult {
         // ensure their commission is correct.
         ensure!(
@@ -153,7 +151,7 @@ impl<T: Config> PermissionedStaking<T> for PolymeshStaking<T> {
     }
 }
 
-impl<T: Config> PolymeshStaking<T> {
+impl<T: Config> Pallet<T> {
     /// Returns `true` if active balance is above [`MinValidatorBond`]. Otherwise, returns `false`.
     pub(crate) fn is_validator_active_balance_valid(who: &T::AccountId) -> bool {
         if let Some(controller) = Bonded::<T>::get(&who) {
@@ -188,13 +186,6 @@ impl<T: Config> PolymeshStaking<T> {
         }
     }
 
-    /// Returns the maximum number of validators per identiy
-    pub fn maximum_number_of_validators_per_identity() -> u32 {
-        (T::MaxValidatorPerIdentity::get() * ValidatorCount::<T>::get()).max(1)
-    }
-}
-
-impl<T: Config> Pallet<T> {
     /// Returns the maximum number of validators per identiy
     pub fn maximum_number_of_validators_per_identity() -> u32 {
         (T::MaxValidatorPerIdentity::get() * ValidatorCount::<T>::get()).max(1)

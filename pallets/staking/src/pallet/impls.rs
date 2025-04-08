@@ -850,6 +850,7 @@ impl<T: Config> Pallet<T> {
 
             if let Some(Nominations { targets, .. }) = <Nominators<T>>::get(&voter) {
                 nominators_seen.saturating_inc();
+                // Polymesh change: check if the nominator is compliant
                 if T::Permissioned::is_nominator_compliant(&voter) {
                     let voter_weight = weight_of(&voter);
                     if !targets.is_empty() {
@@ -863,6 +864,7 @@ impl<T: Config> Pallet<T> {
                 }
             } else if Validators::<T>::contains_key(&voter) {
                 validators_seen.saturating_inc();
+                // Polymesh change: check if the validator is compliant
                 if T::Permissioned::is_validator_compliant(&voter) {
                     // if this voter is a validator:
                     let self_vote = (
@@ -938,6 +940,7 @@ impl<T: Config> Pallet<T> {
 
             if Validators::<T>::contains_key(&target) {
                 validators_seen.saturating_inc();
+                // Polymesh change: check if the validator is compliant
                 if T::Permissioned::is_validator_compliant(&target) {
                     all_targets.push(target);
                 }

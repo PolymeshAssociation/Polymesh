@@ -275,7 +275,7 @@ macro_rules! misc_pallet_impls {
             type Call = RuntimeCall;
             type PalletsOrigin = OriginCaller;
             type RewardScheduler = Scheduler;
-            type Permissioned = pallet_staking::PolymeshStaking<Self>;
+            type Permissioned = Staking;
         }
 
         impl pallet_authority_discovery::Config for Runtime {
