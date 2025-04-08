@@ -1112,6 +1112,9 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
+    fn assets_can_be_transferred_common(n: u32) -> Weight {
+        Weight::zero()
+    }
     // Storage: Asset Frozen (r:10 w:0)
     // Proof: Asset Frozen (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
     /// The range of component `f` is `[1, 10]`.
@@ -1158,6 +1161,9 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             // Standard Error: 27_282
             .saturating_add(Weight::from_ref_time(10_081_972).saturating_mul(f.into()))
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(f.into())))
+    }
+    fn senders_balance_read(f: u32) -> Weight {
+        Weight::zero()
     }
     // Storage: Settlement LockedTimestamp (r:1 w:0)
     // Proof: Settlement LockedTimestamp (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)

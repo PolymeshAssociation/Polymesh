@@ -843,6 +843,7 @@ benchmarks! {
         let _ = InstructionDetails::<T>::get(&inst_id);
         let _ = InstructionStatuses::<T>::get(&inst_id);
         let _ = InstructionMemos::<T>::get(&inst_id);
+        InstructionStatuses::<T>::insert(inst_id, InstructionStatus::Success(System::<T>::block_number()));
     }
 
     validate_execute_instruction_conditions_common {
@@ -890,6 +891,23 @@ benchmarks! {
         .unwrap();
     }
 
+    assets_can_be_transferred_common {
+        let n in 1..T::MaxNumberOfNFTs::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let settlement_type = SettlementType::SettleManual(0u32.into());
+        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
+
+        let inst_id = InstructionId(1);
+        let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, 0, n, 0, 0, false, false);
+        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
+    }: {
+        for (leg_id, leg) in inst_legs {
+            let _ = InstructionLegStatus::<T>::get(inst_id, leg_id);
+        }
+    }
+
     ensure_assets_are_not_frozen {
         let f in 1..T::MaxNumberOfFungibleAssets::get();
 
@@ -910,7 +928,7 @@ benchmarks! {
     }
 
     ensure_valid_cdd_claims {
-        let f in 1..T::MaxNumberOfFungibleAssets::get();
+        let f in 0..T::MaxNumberOfFungibleAssets::get();
 
         let unique_dids: BTreeSet<IdentityId> = (0..f)
             .map(|i| {
@@ -964,6 +982,23 @@ benchmarks! {
         for ((asset_id, portfolio_id), balance) in fungible_tx_summary.total_sent_per_portfolio() {
             T::Portfolio::ensure_tokens_are_locked(portfolio_id, asset_id, *balance).unwrap();
             T::Portfolio::ensure_portfolio_balance(portfolio_id, asset_id, *balance).unwrap();
+        }
+    }
+
+    senders_balance_read {
+        let f in 0..T::MaxNumberOfFungibleAssets::get();
+
+        let unique_dids: BTreeSet<IdentityId> = (0..f)
+            .map(|i| {
+                UserBuilder::<T>::default()
+                    .generate_did()
+                    .build(&format!("UniqueDID{}", i))
+                    .did()
+            })
+            .collect();
+    }: {
+        for did in unique_dids {
+            let _ = BalanceOf::<T>::get(AssetId::from(0u32), did)
         }
     }
 

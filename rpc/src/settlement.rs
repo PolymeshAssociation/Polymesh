@@ -118,27 +118,6 @@ where
             })
     }
 
-    fn get_transfer_report(
-        &self,
-        leg: Leg,
-        skip_locked_check: bool,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Vec<DispatchError>> {
-        let api = self.client.runtime_api();
-        // If the block hash is not supplied assume the best block.
-        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
-
-        api.get_transfer_report(at_hash, leg, skip_locked_check)
-            .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to call get_transfer_report runtime",
-                    Some(e.to_string()),
-                ))
-                .into()
-            })
-    }
-
     fn get_execute_instruction_report(
         &self,
         instruction_id: InstructionId,

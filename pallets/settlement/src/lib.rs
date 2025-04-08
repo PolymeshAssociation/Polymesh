@@ -224,11 +224,13 @@ pub mod pallet {
         fn valid_caller_mediator() -> Weight;
         fn manual_execution_common(f: u32, n: u32, o: u32) -> Weight;
         fn validate_mediators_affirmations(n: u32) -> Weight;
+        fn assets_can_be_transferred_common(n: u32) -> Weight;
         fn validate_execute_instruction_conditions_common(f: u32, n: u32, o: u32) -> Weight;
         fn ensure_assets_are_not_frozen(f: u32) -> Weight;
         fn ensure_valid_cdd_claims(f: u32) -> Weight;
         fn valid_receivers_portfolio(f: u32) -> Weight;
         fn senders_are_funded(f: u32) -> Weight;
+        fn senders_balance_read(f: u32) -> Weight;
         fn maximum_lock_period() -> Weight;
         fn transfer_assets(f: u32, n: u32) -> Weight;
         fn prune_instruction(f: u32, n: u32, o: u32) -> Weight;
@@ -2011,12 +2013,12 @@ impl<T: Config> Pallet<T> {
         inst_legs: &[(LegId, Leg)],
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        //Self::check_accrue(
-        //    weight_meter,
-        //    <T as Config>::WeightInfo::ensure_assets_can_be_transferred_common(
-        //        inst_legs.len() as u32
-        //    ),
-        //)?;
+        Self::check_accrue(
+            weight_meter,
+            <T as Config>::WeightInfo::assets_can_be_transferred_common(
+                inst_legs.len() as u32
+            ),
+        )?;
 
         let mut nfts_transferred = BTreeMap::new();
         let mut fungible_tx_summary = FungibleTxSummary::new();
@@ -2190,7 +2192,10 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         Self::check_accrue(
             weight_meter,
-            <T as Config>::WeightInfo::senders_are_funded(total_sent_per_portfolio.len() as u32),
+            <T as Config>::WeightInfo::senders_are_funded(total_sent_per_portfolio.len() as u32)
+                .saturating_add(<T as Config>::WeightInfo::senders_balance_read(
+                    total_sent_per_did.len() as u32,
+                )),
         )?;
 
         // Each individual portfolio must have all tokens locked and their amount
@@ -2946,6 +2951,8 @@ impl<T: Config> Pallet<T> {
             weight_meter,
         )?;
 
+        let inst_memo = InstructionMemos::<T>::get(&inst_id);
+
         match InstructionStatuses::<T>::get(&inst_id) {
             InstructionStatus::Pending => {
                 Self::ensure_manual_settlement_type(inst_details.settlement_type)?;
@@ -2955,7 +2962,6 @@ impl<T: Config> Pallet<T> {
                     &inst_asset_count,
                     weight_meter,
                 )?;
-                let inst_memo = InstructionMemos::<T>::get(&inst_id);
                 Self::transfer_assets(
                     inst_id,
                     inst_legs.clone(),
@@ -2972,7 +2978,6 @@ impl<T: Config> Pallet<T> {
                     &inst_asset_count,
                     weight_meter,
                 )?;
-                let inst_memo = InstructionMemos::<T>::get(&inst_id);
                 Self::transfer_assets(
                     inst_id,
                     inst_legs.clone(),
@@ -2983,7 +2988,6 @@ impl<T: Config> Pallet<T> {
                 )?;
             }
             InstructionStatus::LockedForExecution => {
-                let inst_memo = InstructionMemos::<T>::get(&inst_id);
                 Self::transfer_assets(
                     inst_id,
                     inst_legs.clone(),
@@ -3025,6 +3029,7 @@ impl<T: Config> Pallet<T> {
                 weight_meter,
                 <T as Config>::WeightInfo::valid_caller_portfolio(),
             )?;
+
             T::Portfolio::ensure_portfolio_custody_and_permission(
                 caller_pid, caller_did, caller_sk,
             )?;
@@ -3038,6 +3043,7 @@ impl<T: Config> Pallet<T> {
                 weight_meter,
                 <T as Config>::WeightInfo::valid_caller_venue(),
             )?;
+
             if Self::ensure_venue_creator(&venue_id, caller_did).is_ok() {
                 return Ok(());
             }
@@ -3049,6 +3055,7 @@ impl<T: Config> Pallet<T> {
                 weight_meter,
                 <T as Config>::WeightInfo::valid_caller_mediator(),
             )?;
+
             return Ok(());
         }
 
@@ -3356,6 +3363,12 @@ impl<T: Config> Pallet<T> {
 
         Self::ensure_mediator_has_affirmed_instruction(&caller_did, &instruction_id)?;
 
+        let inst_details = InstructionDetails::<T>::get(&instruction_id);
+        ensure!(
+            inst_details.settlement_type == SettlementType::SettleOnComplianceCheck,
+            Error::<T>::UnexpectedSettlementType
+        );
+
         let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&instruction_id).collect();
         let inst_asset_count = AssetCount::from_legs(&inst_legs);
         Self::validate_execute_instruction_conditions(
@@ -3419,11 +3432,7 @@ impl<T: Config> Pallet<T> {
             ),
         )?;
 
-        let inst_status = InstructionStatuses::<T>::get(instruction_id);
-
-        if inst_status == InstructionStatus::LockedForExecution {
-            Self::ensure_maximum_locking_period_not_exceeded(&instruction_id, weight_meter)?;
-        }
+        Self::ensure_maximum_locking_period_not_exceeded(&instruction_id, weight_meter)?;
 
         for (_, leg) in legs {
             match leg {
@@ -3470,17 +3479,20 @@ impl<T: Config> Pallet<T> {
             <T as Config>::WeightInfo::maximum_lock_period(),
         )?;
 
-        match LockedTimestamp::<T>::get(inst_id) {
-            Some(locked_timestamp) => {
-                let now = pallet_timestamp::Pallet::<T>::get();
-                ensure!(
-                    now - locked_timestamp <= T::MaximumLockPeriod::get(),
-                    Error::<T>::ExceededMaximumLockingPeriod
-                );
-                Ok(())
-            }
-            None => Err(Error::<T>::LockTimestampNotFound.into()),
+        let inst_status = InstructionStatuses::<T>::get(inst_id);
+
+        if inst_status == InstructionStatus::LockedForExecution {
+            let locked_timestamp =
+                LockedTimestamp::<T>::get(inst_id).ok_or(Error::<T>::LockTimestampNotFound)?;
+
+            let now = pallet_timestamp::Pallet::<T>::get();
+            ensure!(
+                now - locked_timestamp <= T::MaximumLockPeriod::get(),
+                Error::<T>::ExceededMaximumLockingPeriod
+            );
         }
+
+        Ok(())
     }
 
     /// Consumes the given weight after checking that it can be consumed. Returns an error otherwise.
@@ -3672,12 +3684,8 @@ impl<T: Config> Pallet<T> {
             execution_errors.push(e);
         }
 
-        let inst_status = InstructionStatuses::<T>::get(inst_id);
-        if inst_status == InstructionStatus::LockedForExecution {
-            if let Err(e) = Self::ensure_maximum_locking_period_not_exceeded(inst_id, weight_meter)
-            {
-                execution_errors.push(e);
-            }
+        if let Err(e) = Self::ensure_maximum_locking_period_not_exceeded(inst_id, weight_meter) {
+            execution_errors.push(e);
         }
 
         execution_errors

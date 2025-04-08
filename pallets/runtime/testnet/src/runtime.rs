@@ -35,7 +35,6 @@ pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFe
 use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use polymesh_primitives::constants::currency::*;
 use polymesh_primitives::constants::ENSURED_MAX_LEN;
-use polymesh_primitives::settlement::Leg;
 use polymesh_primitives::{Balance, BlockNumber, Moment};
 use polymesh_runtime_common::impls::Author;
 use polymesh_runtime_common::merge_active_and_inactive;
