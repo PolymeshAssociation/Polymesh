@@ -303,7 +303,7 @@ pub(crate) fn compute_slash<T: Config>(
     // Polymesh change
     // -----------------------------------------------------------------
     let mut nominators_slashed = Vec::new();
-    if Pallet::<T>::slash_nominators() {
+    if T::Permissioned::slash_nominators() {
         reward_payout +=
             slash_nominators::<T>(params.clone(), prior_slash_p, &mut nominators_slashed);
     }
@@ -665,7 +665,7 @@ pub(crate) fn apply_slash<T: Config>(
 
     // Polymesh change
     // -----------------------------------------------------------------
-    if Pallet::<T>::slash_nominators() {
+    if T::Permissioned::slash_nominators() {
         for &(ref nominator, nominator_slash) in &unapplied_slash.others {
             do_slash::<T>(
                 nominator,

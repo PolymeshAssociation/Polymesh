@@ -321,7 +321,7 @@ impl<T: Config> Pallet<T> {
     pub fn chill_stash(stash: &T::AccountId) {
         // Polymesh change
         // -----------------------------------------------------------------
-        Self::on_chill(stash);
+        T::Permissioned::on_chill(stash);
         // -----------------------------------------------------------------
         let chilled_as_validator = Self::do_remove_validator(stash);
         let chilled_as_nominator = Self::do_remove_nominator(stash);
@@ -500,7 +500,7 @@ impl<T: Config> Pallet<T> {
             // Polymesh change
             // -----------------------------------------------------------------
             // Schedule rewards
-            Self::schedule_payouts(&active_era);
+            T::Permissioned::schedule_payouts(&active_era);
             // -----------------------------------------------------------------
 
             Self::deposit_event(Event::<T>::EraPaid {
@@ -850,7 +850,7 @@ impl<T: Config> Pallet<T> {
 
             if let Some(Nominations { targets, .. }) = <Nominators<T>>::get(&voter) {
                 nominators_seen.saturating_inc();
-                if Self::is_nominator_compliant(&voter) {
+                if T::Permissioned::is_nominator_compliant(&voter) {
                     let voter_weight = weight_of(&voter);
                     if !targets.is_empty() {
                         all_voters.push((voter.clone(), voter_weight, targets));
@@ -863,7 +863,7 @@ impl<T: Config> Pallet<T> {
                 }
             } else if Validators::<T>::contains_key(&voter) {
                 validators_seen.saturating_inc();
-                if Self::is_validator_compliant(&voter) {
+                if T::Permissioned::is_validator_compliant(&voter) {
                     // if this voter is a validator:
                     let self_vote = (
                         voter.clone(),
@@ -938,7 +938,7 @@ impl<T: Config> Pallet<T> {
 
             if Validators::<T>::contains_key(&target) {
                 validators_seen.saturating_inc();
-                if Self::is_validator_compliant(&target) {
+                if T::Permissioned::is_validator_compliant(&target) {
                     all_targets.push(target);
                 }
             }
@@ -1435,7 +1435,7 @@ where
         // Polymesh change
         // -----------------------------------------------------------------
         let slash_fraction_none = vec![Perbill::from_parts(0); slash_fraction.len()];
-        let slash_fraction = if Self::is_slashing_enabled() {
+        let slash_fraction = if T::Permissioned::is_slashing_enabled() {
             slash_fraction
         } else {
             slash_fraction_none.as_slice()

@@ -292,7 +292,7 @@ pub mod slashing;
 pub mod weights;
 
 pub mod permissioned;
-pub use permissioned::PolymeshConvertCurve;
+pub use permissioned::{PolymeshConvertCurve, PolymeshStaking};
 pub mod types;
 
 pub mod pallet;

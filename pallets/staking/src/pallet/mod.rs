@@ -327,6 +327,9 @@ pub mod pallet {
         // Polymesh change
         // -----------------------------------------------------------------
 
+        /// Permissioned staking.
+        type Permissioned: PermissionedStaking<Self>;
+
         /// Maximum amount of validators that can run by an identity.
         /// It will be MaxValidatorPerIdentity * Self::validator_count().
         #[pallet::constant]
@@ -1340,7 +1343,7 @@ pub mod pallet {
                 }
                 // Polymesh change
                 // -----------------------------------------------------------------
-                Self::on_validate(stash, prefs.commission)?;
+                T::Permissioned::on_validate(stash, prefs.commission)?;
                 // -----------------------------------------------------------------
             }
 
@@ -1418,7 +1421,7 @@ pub mod pallet {
 
             // Polymesh change
             // -----------------------------------------------------------------
-            Self::on_nominate(&stash)?;
+            T::Permissioned::on_nominate(&stash)?;
 
             let nominator_did = pallet_identity::Pallet::<T>::get_identity(&stash)
                 .ok_or(Error::<T>::StashIdentityDoesNotExist)?;

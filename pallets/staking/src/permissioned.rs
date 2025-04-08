@@ -45,17 +45,19 @@ impl<
     }
 }
 
-impl<T: Config> PermissionedStaking<T> for Pallet<T> {
+pub struct PolymeshStaking<T>(sp_std::marker::PhantomData<T>);
+
+impl<T: Config> PermissionedStaking<T> for PolymeshStaking<T> {
     fn on_validate(stash: &T::AccountId, commission: Perbill) -> DispatchResult {
         // ensure their commission is correct.
         ensure!(
-            commission <= Self::validator_commission_cap(),
+            commission <= ValidatorCommissionCap::<T>::get(),
             Error::<T>::CommissionTooHigh
         );
 
         let stash_did = pallet_identity::Pallet::<T>::get_identity(stash)
             .ok_or(Error::<T>::StashIdentityDoesNotExist)?;
-        let mut stash_did_prefs = Self::permissioned_identity(stash_did)
+        let mut stash_did_prefs = PermissionedIdentity::<T>::get(stash_did)
             .ok_or(Error::<T>::StashIdentityNotPermissioned)?;
 
         // Ensure the identity doesn't run more validators than the intended count
@@ -95,7 +97,7 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
     fn is_validator_compliant(stash: &T::AccountId) -> bool {
         pallet_identity::Pallet::<T>::get_identity(stash).map_or(false, |id| {
             pallet_identity::Pallet::<T>::has_valid_cdd(id)
-                && Self::permissioned_identity(id).is_some()
+                && PermissionedIdentity::<T>::get(id).is_some()
                 && Self::is_validator_active_balance_valid(stash)
         })
     }
@@ -134,7 +136,7 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
                             "⛔ Detected error in scheduling the reward payment: {:?}",
                             error
                         );
-                        Self::deposit_event(Event::<T>::RewardPaymentSchedulingInterrupted {
+                        Pallet::<T>::deposit_event(Event::<T>::RewardPaymentSchedulingInterrupted {
                             account_id: validator_id,
                             era: active_era.index,
                             error
@@ -151,11 +153,11 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
     }
 }
 
-impl<T: Config> Pallet<T> {
+impl<T: Config> PolymeshStaking<T> {
     /// Returns `true` if active balance is above [`MinValidatorBond`]. Otherwise, returns `false`.
     pub(crate) fn is_validator_active_balance_valid(who: &T::AccountId) -> bool {
-        if let Some(controller) = Self::bonded(&who) {
-            if let Some(ledger) = Self::ledger(&controller) {
+        if let Some(controller) = Bonded::<T>::get(&who) {
+            if let Some(ledger) = Ledger::<T>::get(&controller) {
                 return ledger.active >= MinValidatorBond::<T>::get();
             }
         }
@@ -188,7 +190,14 @@ impl<T: Config> Pallet<T> {
 
     /// Returns the maximum number of validators per identiy
     pub fn maximum_number_of_validators_per_identity() -> u32 {
-        (T::MaxValidatorPerIdentity::get() * Self::validator_count()).max(1)
+        (T::MaxValidatorPerIdentity::get() * ValidatorCount::<T>::get()).max(1)
+    }
+}
+
+impl<T: Config> Pallet<T> {
+    /// Returns the maximum number of validators per identiy
+    pub fn maximum_number_of_validators_per_identity() -> u32 {
+        (T::MaxValidatorPerIdentity::get() * ValidatorCount::<T>::get()).max(1)
     }
 
     pub(crate) fn base_add_permissioned_validator(
@@ -224,7 +233,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        Self::deposit_event(Event::<T>::PermissionedIdentityAdded {
+        Pallet::<T>::deposit_event(Event::<T>::PermissionedIdentityAdded {
             governance_councill_did: GC_DID,
             validators_identity: identity,
         });
@@ -244,7 +253,7 @@ impl<T: Config> Pallet<T> {
 
         PermissionedIdentity::<T>::remove(&identity);
 
-        Self::deposit_event(Event::<T>::PermissionedIdentityRemoved {
+        Pallet::<T>::deposit_event(Event::<T>::PermissionedIdentityRemoved {
             governance_councill_did: GC_DID,
             validators_identity: identity,
         });
@@ -292,7 +301,7 @@ impl<T: Config> Pallet<T> {
                 <Nominators<T>>::remove(target);
             }
         }
-        Self::deposit_event(Event::<T>::InvalidatedNominators {
+        Pallet::<T>::deposit_event(Event::<T>::InvalidatedNominators {
             governance_councill_did: GC_DID,
             governance_councill_account: GC_PALLET_ID.into_account_truncating(),
             expired_nominators: expired_nominators,
@@ -315,7 +324,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         ensure_root(origin)?;
         SlashingAllowedFor::<T>::put(slashing_switch);
-        Self::deposit_event(Event::<T>::SlashingAllowedForChanged { slashing_switch });
+        Pallet::<T>::deposit_event(Event::<T>::SlashingAllowedForChanged { slashing_switch });
         Ok(())
     }
 
@@ -356,7 +365,7 @@ impl<T: Config> Pallet<T> {
             Some(prefs)
         });
 
-        Self::deposit_event(Event::<T>::CommissionCapUpdated {
+        Pallet::<T>::deposit_event(Event::<T>::CommissionCapUpdated {
             governance_councill_did: GC_DID,
             old_commission_cap: old_cap,
             new_commission_cap: new_cap,
@@ -389,7 +398,7 @@ impl<T: Config> Pallet<T> {
         // Change identity status to be Non-Permissioned
         PermissionedIdentity::<T>::remove(&identity);
 
-        Self::deposit_event(Event::<T>::PermissionedIdentityRemoved {
+        Pallet::<T>::deposit_event(Event::<T>::PermissionedIdentityRemoved {
             governance_councill_did: GC_DID,
             validators_identity: identity,
         });
