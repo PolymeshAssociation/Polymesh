@@ -348,22 +348,7 @@ benchmarks! {
         ActiveAssetStats::<T>::get(asset_id).into_iter();
     }
 
-    ensure_valid_statistics_paused {
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let asset_id = create_and_issue_sample_asset::<T>(alice.account(), true, None, b"MyAsset", true);
-
-        let transfer_conditions = (0..T::MaxTransferConditionsPerAsset::get())
-            .map(|i| TransferCondition::MaxInvestorCount((100+i).into()))
-            .collect::<BTreeSet<_>>();
-        let transfer_conditions = transfer_conditions.try_into().unwrap();
-        let asset_transfer_compliance = AssetTransferCompliance::new(true, transfer_conditions);
-        AssetTransferCompliances::<T>::insert(asset_id.clone(), asset_transfer_compliance);
-    }: {
-        let asset_compliance = AssetTransferCompliances::<T>::get(&asset_id);
-        assert!(asset_compliance.paused);
-    }
-
-    ensure_valid_statistics_all {
+    ensure_valid_statistics_common {
         // The maximum number of fungible assets
         let n in 1..10;
 
@@ -390,11 +375,6 @@ benchmarks! {
             &total_sent_per_did,
         )
         .unwrap();
-
-        let current_investor_count = AssetStats::<T>::get(
-            Stat1stKey::investor_count(asset_id.clone()),
-            Stat2ndKey::NoClaimStat,
-        );
 
         let asset_total_supply = T::AssetFn::asset_total_supply(&asset_id).unwrap();
     }

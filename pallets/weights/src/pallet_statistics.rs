@@ -177,7 +177,7 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
             .saturating_add(Weight::from_ref_time(23_673).saturating_mul(a.into()))
             .saturating_add(DbWeight::get().reads(1))
     }
-    fn ensure_valid_statistics_all(_n: u32) -> Weight {
+    fn ensure_valid_statistics_common(_n: u32) -> Weight {
         Weight::zero()
     }
     fn is_exempt_from_condition() -> Weight {

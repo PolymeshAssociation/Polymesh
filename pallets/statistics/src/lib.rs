@@ -76,7 +76,7 @@ pub mod pallet {
         fn update_asset_count_stats(a: u32) -> Weight;
         fn update_asset_balance_stats(a: u32) -> Weight;
         fn active_asset_statistics_load(_a: u32) -> Weight;
-        fn ensure_valid_statistics_all(n: u32) -> Weight;
+        fn ensure_valid_statistics_common(n: u32) -> Weight;
         fn is_exempt_from_condition() -> Weight;
         fn has_matching_claim() -> Weight;
         fn asset_stats_read() -> Weight;
@@ -732,7 +732,7 @@ impl<T: Config> Pallet<T> {
         let n = total_rcv_per_did.len().max(total_sent_per_did.len()) as u32;
         Self::consume_weight_meter(
             weight_meter,
-            <T as Config>::WeightInfo::ensure_valid_statistics_all(n),
+            <T as Config>::WeightInfo::ensure_valid_statistics_common(n),
         )?;
 
         let investors_update =
@@ -748,6 +748,7 @@ impl<T: Config> Pallet<T> {
                         investors_update.number_of_new_investors(),
                         investors_update.number_of_old_investors(),
                         max_investors as u128,
+                        weight_meter,
                     )?;
                 }
                 TransferCondition::MaxInvestorOwnership(max_ownership_percentage) => {
@@ -829,7 +830,10 @@ impl<T: Config> Pallet<T> {
         number_of_new_investors: u128,
         number_of_old_investors: u128,
         max_investors: u128,
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
+        Self::consume_weight_meter(weight_meter, <T as Config>::WeightInfo::asset_stats_read())?;
+
         let current_investor_count = AssetStats::<T>::get(
             Stat1stKey::investor_count(asset_id.clone()),
             Stat2ndKey::NoClaimStat,
@@ -913,6 +917,8 @@ impl<T: Config> Pallet<T> {
         if old_investors_with_claim == new_investors_with_claim {
             return Ok(());
         }
+
+        Self::consume_weight_meter(weight_meter, <T as Config>::WeightInfo::asset_stats_read())?;
 
         let current_count = AssetStats::<T>::get(stat_fist_key, stat_second_key);
         let new_count = current_count
@@ -1126,6 +1132,7 @@ impl<T: Config> Pallet<T> {
                         investors_update.number_of_new_investors(),
                         investors_update.number_of_old_investors(),
                         max_investors as u128,
+                        weight_meter,
                     )
                     .is_err()
                     {

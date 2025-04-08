@@ -228,6 +228,9 @@ benchmarks! {
         let (asset_id, sender_portfolio, receiver_portfolio, _) =
             setup_nft_transfer::<T>(&alice, &bob, n, None, None, true, 0);
         let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
+        for nft_id in nfts.ids() {
+            PortfolioLockedNFT::<T>::insert(sender_portfolio, (asset_id, nft_id), true);
+        }
     }: {
         assert!(CollectionAsset::<T>::contains_key(nfts.asset_id()));
 
