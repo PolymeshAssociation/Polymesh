@@ -14,6 +14,14 @@ use crate::{ActiveEraInfo, Config};
 /// identities to participate in staking. This trait is used to define the
 /// behavior of the staking pallet in such a network.
 pub trait PermissionedStaking<T: Config> {
+    /// Permission a validator.
+    #[cfg(feature = "runtime-benchmarks")]
+    fn permission_validator(_who: &T::AccountId) {}
+
+    /// Setup stash and controller.
+    #[cfg(feature = "runtime-benchmarks")]
+    fn setup_stash_and_controller(_stash: &T::AccountId, _controller: &T::AccountId) {}
+
     /// On validate hook.
     fn on_validate(_who: &T::AccountId, _commission: Perbill) -> DispatchResult {
         Ok(())

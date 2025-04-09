@@ -52,9 +52,9 @@ type MaxNominators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig
 
 use pallet_identity::benchmarking::{User, UserBuilder};
 use polymesh_primitives::identity_claim::ClaimType;
-use polymesh_primitives::{IdentityId, Permissions};
+use polymesh_primitives::Permissions;
 
-use crate::types::SlashingSwitch;
+use crate::types::{PermissionedStaking, SlashingSwitch};
 // -----------------------------------------------------------------
 
 // Polymesh change
@@ -66,11 +66,10 @@ macro_rules! whitelist_account {
     };
 }
 
-fn add_permissioned_validator_<T: Config>(id: IdentityId, intended_count: Option<u32>) {
+fn add_permissioned_validator_<T: Config>(stash: &T::AccountId) {
     Staking::<T>::set_validator_count(RawOrigin::Root.into(), 10)
         .expect("Failed to set the validator count");
-    Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), id, intended_count)
-        .expect("Failed to add permissioned validator");
+    T::Permissioned::permission_validator(stash);
 }
 
 // -----------------------------------------------------------------
@@ -120,7 +119,7 @@ where
     };
     Staking::<T>::set_commission_cap(RawOrigin::Root.into(), Perbill::from_percent(60)).unwrap();
     Staking::<T>::set_validator_count(RawOrigin::Root.into(), 10)?;
-    Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), v_stash.did(), Some(2))?;
+    T::Permissioned::permission_validator(&v_stash.account());
     Staking::<T>::validate(v_controller.origin().into(), validator_prefs)?;
     let stash_lookup = v_stash.lookup();
 
@@ -299,7 +298,7 @@ benchmarks! {
 
         // Polymesh change
         // -----------------------------------------------------------------
-        add_permissioned_validator_::<T>(stash.did(), Some(2));
+        add_permissioned_validator_::<T>(&stash.account());
         // -----------------------------------------------------------------
 
         whitelist_account!(controller);
@@ -328,7 +327,7 @@ benchmarks! {
         )?;
         let stash_lookup = stash.lookup();
 
-        add_permissioned_validator_::<T>(stash.did(), Some(2));
+        add_permissioned_validator_::<T>(&stash.account());
 
         // they start validating.
         Staking::<T>::validate(controller.origin().into(), Default::default())?;
@@ -405,7 +404,7 @@ benchmarks! {
         // Polymesh change
         // -----------------------------------------------------------------
         let (stash, controller) = create_stash_controller::<T>(0, 10_000_000, Default::default())?;
-        Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), stash.did(), Some(2))?;
+        T::Permissioned::permission_validator(&stash.account());
         Staking::<T>::validate(controller.origin().into(), ValidatorPrefs::default())?;
         assert!(T::VoterList::contains(&stash.account()));
         assert!(Validators::<T>::contains_key(&stash.account()));
@@ -473,7 +472,7 @@ benchmarks! {
         // Polymesh change
         // -----------------------------------------------------------------
         let (stash, controller) = create_stash_controller::<T>(USER_SEED, 10_000_000, Default::default())?;
-        Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), stash.did(), Some(2))?;
+        T::Permissioned::permission_validator(&stash.account());
         Staking::<T>::validate(controller.origin().into(), ValidatorPrefs::default())?;
         add_slashing_spans::<T>(&stash.account(), s);
         assert!(T::VoterList::contains(&stash.account()));
@@ -620,7 +619,7 @@ benchmarks! {
 
         let (stash, controller) =
             create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
-        Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), stash.did(), Some(2))?;
+        T::Permissioned::permission_validator(&stash.account());
         Staking::<T>::validate(controller.origin().into(), ValidatorPrefs::default())?;
 
         add_slashing_spans::<T>(&stash.account(), s);
@@ -822,7 +821,7 @@ benchmarks! {
         let validator_prefs =
             ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
         Staking::<T>::set_commission_cap(RawOrigin::Root.into(), Perbill::from_percent(60)).unwrap();
-        Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), stash.did(), Some(2))?;
+        T::Permissioned::permission_validator(&stash.account());
         Staking::<T>::validate(controller.origin().into(), validator_prefs)?;
         assert!(T::VoterList::contains(&stash.account()));
 
@@ -852,7 +851,7 @@ benchmarks! {
         let validator_prefs =
             ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
         Staking::<T>::set_commission_cap(RawOrigin::Root.into(), Perbill::from_percent(60)).unwrap();
-        Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), stash.did(), Some(2))?;
+        T::Permissioned::permission_validator(&stash.account());
         Staking::<T>::validate(controller.origin().into(), validator_prefs)?;
 
         // Sanity check
@@ -897,7 +896,7 @@ benchmarks! {
         clear_validators_and_nominators::<T>();
         let (stash, controller) =
             create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
-        add_permissioned_validator_::<T>(stash.did(), Some(1));
+        add_permissioned_validator_::<T>(&stash.account());
     }: _(RawOrigin::Root, stash.did())
     verify {
         let identity_preferences = Staking::<T>::permissioned_identity(stash.did());
@@ -913,7 +912,7 @@ benchmarks! {
         clear_validators_and_nominators::<T>();
         let (stash, controller) =
             create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
-        add_permissioned_validator_::<T>(stash.did(), Some(1));
+        add_permissioned_validator_::<T>(&stash.account());
     }: _(RawOrigin::Root, stash.did(), 2)
     verify {
         assert_eq!(Staking::<T>::permissioned_identity(stash.did()).unwrap().intended_count, 2);

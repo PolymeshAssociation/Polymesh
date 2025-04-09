@@ -36,8 +36,8 @@ const SEED: u32 = 0;
 
 // Polymesh change
 // -----------------------------------------------------------------
+use crate::types::PermissionedStaking;
 use pallet_identity::benchmarking::{User, UserBuilder};
-use polymesh_primitives::{AuthorizationData, Permissions, Signatory};
 // -----------------------------------------------------------------
 
 /// This function removes all validators and nominators from storage.
@@ -87,13 +87,7 @@ where
     // Polymesh change
     // -----------------------------------------------------------------
     // Attach the controller key as secondary key of the stash
-    let auth_id = pallet_identity::Pallet::<T>::add_auth(
-        stash.did(),
-        Signatory::Account(controller.account()),
-        AuthorizationData::JoinIdentity(Permissions::default()),
-        None,
-    )?;
-    pallet_identity::Pallet::<T>::join_identity_as_key(controller.origin().into(), auth_id)?;
+    T::Permissioned::setup_stash_and_controller(&stash.account(), &controller.account());
     // -----------------------------------------------------------------
 
     let controller_lookup = controller.lookup();
@@ -128,13 +122,7 @@ where
     // Polymesh change
     // -----------------------------------------------------------------
     // Attach the controller key as secondary key of the stash
-    let auth_id = pallet_identity::Pallet::<T>::add_auth(
-        stash.did(),
-        Signatory::Account(controller.account()),
-        AuthorizationData::JoinIdentity(Permissions::default()),
-        None,
-    )?;
-    pallet_identity::Pallet::<T>::join_identity_as_key(controller.origin().into(), auth_id)?;
+    T::Permissioned::setup_stash_and_controller(&stash.account(), &controller.account());
     // -----------------------------------------------------------------
 
     let controller_lookup = controller.lookup();
@@ -178,7 +166,7 @@ where
         };
         // Polymesh change
         // -----------------------------------------------------------------
-        Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), stash.did(), Some(2))?;
+        T::Permissioned::permission_validator(&stash.account());
         // -----------------------------------------------------------------
         Staking::<T>::validate(controller.origin().into(), validator_prefs)?;
         validators.push(stash.lookup());
@@ -227,7 +215,7 @@ where
         };
         let (v_stash, v_controller) =
             create_stash_controller::<T>(i, balance_factor, RewardDestination::Staked)?;
-        Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), v_stash.did(), Some(2))?;
+        T::Permissioned::permission_validator(&v_stash.account());
         let validator_prefs = ValidatorPrefs {
             commission: Perbill::from_percent(50),
             ..Default::default()

@@ -10,6 +10,8 @@ use frame_support::traits::schedule::{DispatchTime, HIGHEST_PRIORITY};
 use polymesh_primitives::constants::GC_PALLET_ID;
 use polymesh_primitives::IdentityId;
 use polymesh_primitives::GC_DID;
+#[cfg(feature = "runtime-benchmarks")]
+use polymesh_primitives::{AuthorizationData, Permissions, Signatory};
 
 use sp_runtime::traits::AccountIdConversion;
 
@@ -46,6 +48,34 @@ impl<
 }
 
 impl<T: Config> PermissionedStaking<T> for Pallet<T> {
+    /// Permission a validator.
+    #[cfg(feature = "runtime-benchmarks")]
+    fn permission_validator(stash: &T::AccountId) {
+        let did =
+            pallet_identity::Pallet::<T>::get_identity(stash).expect("Failed to get identity");
+        Pallet::<T>::add_permissioned_validator(RawOrigin::Root.into(), did, Some(2))
+            .expect("Failed to add permissioned validator");
+    }
+
+    /// Setup stash and controller.
+    #[cfg(feature = "runtime-benchmarks")]
+    fn setup_stash_and_controller(stash: &T::AccountId, controller: &T::AccountId) {
+        let did =
+            pallet_identity::Pallet::<T>::get_identity(stash).expect("Failed to get identity");
+        let auth_id = pallet_identity::Pallet::<T>::add_auth(
+            did,
+            Signatory::Account(controller.clone()),
+            AuthorizationData::JoinIdentity(Permissions::default()),
+            None,
+        )
+        .expect("Failed to add auth");
+        pallet_identity::Pallet::<T>::join_identity_as_key(
+            RawOrigin::Signed(controller.clone()).into(),
+            auth_id,
+        )
+        .expect("Failed to join identity as key");
+    }
+
     fn on_validate(stash: &T::AccountId, commission: Perbill) -> DispatchResult {
         // ensure their commission is correct.
         ensure!(
