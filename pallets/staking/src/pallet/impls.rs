@@ -1665,8 +1665,8 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn score_update_worst_case(_who: &T::AccountId, _is_increase: bool) -> Self::Score {
-        unimplemented!()
+    fn score_update_worst_case(who: &T::AccountId, _is_increase: bool) -> Self::Score {
+        (Pallet::<T>::weight_of(who) + 1_000).into()
     }
 }
 
@@ -1748,8 +1748,8 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn score_update_worst_case(_who: &T::AccountId, _is_increase: bool) -> Self::Score {
-        unimplemented!()
+    fn score_update_worst_case(who: &T::AccountId, _is_increase: bool) -> Self::Score {
+        (Pallet::<T>::weight_of(who) + 1_000).into()
     }
 }
 
