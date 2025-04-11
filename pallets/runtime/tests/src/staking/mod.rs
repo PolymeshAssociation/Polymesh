@@ -48,7 +48,7 @@ use std::collections::BTreeMap;
 use sp_runtime::traits::Zero;
 
 use pallet_staking::{ConfigOp, Event, Validators, *};
-use pallet_validators::{Error as ValidatorsError};
+use pallet_validators::Error as ValidatorsError;
 
 type PalletValidators = pallet_validators::Pallet<Test>;
 
@@ -6545,19 +6545,19 @@ type PError = pallet_pips::Error<Test>;
 
 macro_rules! assert_absent_identity {
     ($acc_id:expr) => {
-        assert!(
-            PalletValidators::permissioned_identity(mock::Identity::get_identity($acc_id).unwrap())
-                .is_none()
-        );
+        assert!(PalletValidators::permissioned_identity(
+            mock::Identity::get_identity($acc_id).unwrap()
+        )
+        .is_none());
     };
 }
 
 macro_rules! assert_present_identity {
     ($acc_id:expr) => {
-        assert!(
-            PalletValidators::permissioned_identity(mock::Identity::get_identity($acc_id).unwrap())
-                .is_some()
-        );
+        assert!(PalletValidators::permissioned_identity(
+            mock::Identity::get_identity($acc_id).unwrap()
+        )
+        .is_some());
     };
 }
 
@@ -6891,7 +6891,10 @@ fn check_slashing_switch_for_validators_and_nominators() {
         .validator_count(4)
         .build_and_execute(|| {
             // Check the initial state of the Slashing Switch.
-            assert_eq!(PalletValidators::slashing_allowed_for(), SlashingSwitch::Validator);
+            assert_eq!(
+                PalletValidators::slashing_allowed_for(),
+                SlashingSwitch::Validator
+            );
 
             let change_slashing_allowed_for = |switch: SlashingSwitch| {
                 assert_ok!(PalletValidators::change_slashing_allowed_for(
@@ -6916,7 +6919,10 @@ fn offence_is_blocked_when_slashing_status_is_off() {
                 RuntimeOrigin::root(),
                 SlashingSwitch::None
             ));
-            assert_eq!(PalletValidators::slashing_allowed_for(), SlashingSwitch::None);
+            assert_eq!(
+                PalletValidators::slashing_allowed_for(),
+                SlashingSwitch::None
+            );
             let initial_balance = Balances::free_balance(10);
             create_on_offence_now(10);
             // No slashing happened.
@@ -6996,7 +7002,11 @@ fn chill_from_governance() {
 
             // No longer permissioned identity
             assert_noop!(
-                PalletValidators::chill_from_governance(RuntimeOrigin::root(), entity_id, vec![50, 60]),
+                PalletValidators::chill_from_governance(
+                    RuntimeOrigin::root(),
+                    entity_id,
+                    vec![50, 60]
+                ),
                 ValidatorsError::<Test>::ValidatorNotFound
             );
 
@@ -7013,13 +7023,21 @@ fn chill_from_governance() {
 
             // Check keys that aren't joined with identity gives error
             assert_noop!(
-                PalletValidators::chill_from_governance(RuntimeOrigin::root(), entity_id_2, vec![90, 95]),
+                PalletValidators::chill_from_governance(
+                    RuntimeOrigin::root(),
+                    entity_id_2,
+                    vec![90, 95]
+                ),
                 Error::<Test>::NotStash
             );
 
             // Check key that is not GC gives error
             assert_noop!(
-                PalletValidators::chill_from_governance(Origin::signed(20), entity_id_2, vec![90, 95]),
+                PalletValidators::chill_from_governance(
+                    Origin::signed(20),
+                    entity_id_2,
+                    vec![90, 95]
+                ),
                 BadOrigin
             );
         });

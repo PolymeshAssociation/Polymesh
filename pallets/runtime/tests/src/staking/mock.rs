@@ -946,22 +946,33 @@ impl ExtBuilder {
         }
 
         let genesis = pallet_validators::GenesisConfig {
-            validators: stakers.iter().filter_map(|(did, _stash, _controller, _balance, status)| {
-                if let StakerStatus::Validator = status {
-                    Some(*did)
-                } else {
-                    None
-                }
-            }).collect::<Vec<_>>(),
+            validators: stakers
+                .iter()
+                .filter_map(|(did, _stash, _controller, _balance, status)| {
+                    if let StakerStatus::Validator = status {
+                        Some(*did)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>(),
             slashing_allowed_for: self.slashing_allowed_for,
             ..Default::default()
         };
         GenesisBuild::<Test>::assimilate_storage(&genesis, &mut storage).unwrap();
 
         let _ = pallet_staking::GenesisConfig::<Test> {
-            stakers: stakers.iter().map(|(_, stash, controller, balance, status)| {
-                (stash.clone(), controller.clone(), balance.clone(), status.clone())
-            }).collect::<Vec<_>>(),
+            stakers: stakers
+                .iter()
+                .map(|(_, stash, controller, balance, status)| {
+                    (
+                        stash.clone(),
+                        controller.clone(),
+                        balance.clone(),
+                        status.clone(),
+                    )
+                })
+                .collect::<Vec<_>>(),
             validator_count: self.validator_count,
             minimum_validator_count: self.minimum_validator_count,
             invulnerables: self.invulnerables,
