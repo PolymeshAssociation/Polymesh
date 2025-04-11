@@ -34,6 +34,7 @@ pallet-protocol-fee = { workspace = true, default-features = false }
 pallet-relayer = { workspace = true, default-features = false }
 pallet-settlement = { workspace = true, default-features = false }
 pallet-staking = { workspace = true, default-features = false }
+pallet-validators = { workspace = true, default-features = false }
 pallet-statistics = { workspace = true, default-features = false }
 pallet-sto = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
@@ -153,6 +154,7 @@ std = [
     "pallet-settlement/std",
     "pallet-staking-rpc-runtime-api/std",
     "pallet-staking/std",
+    "pallet-validators/std",
     "pallet-statistics/std",
     "pallet-sto/std",
     "pallet-sudo/std",

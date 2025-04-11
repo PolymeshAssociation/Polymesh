@@ -336,6 +336,7 @@ mod benches {
         [pallet_grandpa, Grandpa]
         [pallet_scheduler, Scheduler]
         [pallet_staking, Staking]
+        [pallet_validators, Validators]
         [polymesh_contracts, PolymeshContracts]
         [pallet_nft, Nft]
         [pallet_contracts, Contracts]
@@ -385,11 +386,8 @@ construct_runtime!(
 
         MultiSig: pallet_multisig::{Pallet, Call, Config, Storage, Event<T>} = 15,
 
-        // Removed:
-        //Bridge = 16,
-
-        // Staking: Genesis config deps: Bridge, Balances, Indices, Identity, Babe, Timestamp, Committees
-        Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>} = 17,
+        Validators: pallet_validators = 16,
+        Staking: pallet_staking = 17,
 
         Offences: pallet_offences::{Pallet, Storage, Event} = 18,
 

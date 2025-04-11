@@ -12,12 +12,14 @@ use polymesh_primitives::constants::GC_PALLET_ID;
 use polymesh_primitives::IdentityId;
 use polymesh_primitives::GC_DID;
 #[cfg(feature = "runtime-benchmarks")]
-use polymesh_primitives::{AuthorizationData, Permissions, Signatory};
+use polymesh_primitives::{traits::IdentityFnTrait, AuthorizationData, Permissions, Signatory};
 
 use sp_runtime::traits::AccountIdConversion;
 
-use crate::types::{PermissionedIdentityPrefs, PermissionedStaking, SlashingSwitch, WhoToSlash};
 use crate::*;
+use pallet_staking::types::{
+    PermissionedIdentityPrefs, PermissionedStaking, SlashingSwitch, WhoToSlash,
+};
 
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
@@ -49,9 +51,16 @@ impl<
 }
 
 impl<T: Config> PermissionedStaking<T> for Pallet<T> {
+    /// Onboard an account.
+    #[cfg(feature = "runtime-benchmarks")]
+    fn onboard_account(who: &T::AccountId) {
+        let _ = T::IdentityFn::testing_cdd_register_did(who.clone(), vec![]);
+    }
+
     /// Permission a validator.
     #[cfg(feature = "runtime-benchmarks")]
     fn permission_validator(stash: &T::AccountId) {
+        let _ = Pallet::<T>::set_commission_cap(RawOrigin::Root.into(), Perbill::from_percent(99));
         let did =
             pallet_identity::Pallet::<T>::get_identity(stash).expect("Failed to get identity");
         Pallet::<T>::add_permissioned_validator(RawOrigin::Root.into(), did, Some(2))
@@ -97,7 +106,7 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
         // Ensure the identity doesn't run more validators than the intended count
         ensure!(
             stash_did_prefs.running_count < stash_did_prefs.intended_count,
-            Error::<T>::TooManyValidators
+            StakingError::<T>::TooManyValidators
         );
         stash_did_prefs.running_count += 1;
         pallet_identity::Pallet::<T>::add_account_key_ref_count(&stash);
@@ -145,7 +154,10 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
     /// Schedule reward payouts.
     fn schedule_payouts(active_era: &ActiveEraInfo) {
         let next_block_number = <frame_system::Pallet<T>>::block_number() + 1u32.into();
-        for (index, validator_id) in T::SessionInterface::validators().into_iter().enumerate() {
+        for (index, validator_id) in <T as StakingConfig>::SessionInterface::validators()
+            .into_iter()
+            .enumerate()
+        {
             let schedule_block_number =
                 next_block_number + index.saturated_into::<T::BlockNumber>();
             match T::RewardScheduler::schedule(
@@ -293,14 +305,14 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         ensure_root(origin.clone())?;
 
-        ensure!(!targets.is_empty(), Error::<T>::EmptyTargets);
+        ensure!(!targets.is_empty(), StakingError::<T>::EmptyTargets);
 
         let mut expired_nominators = Vec::new();
         // Iterate provided list of accountIds (These accountIds should be stash type account).
         for target in targets
             .iter()
             // Nominator must be vouching for someone.
-            .filter(|target| Self::nominators(target).is_some())
+            .filter(|target| Nominators::<T>::get(target).is_some())
             // Access the DIDs of the nominators whose CDDs have expired.
             .filter(|target| {
                 // Fetch all the claim values provided by the trusted service providers
@@ -317,11 +329,12 @@ impl<T: Config> Pallet<T> {
             // This unbonded amount only be accessible after completion of the BondingDuration
             // Controller account need to call the dispatchable function `withdraw_unbond` to withdraw fund.
 
-            let controller = Self::bonded(target).ok_or(Error::<T>::NotStash)?;
-            let mut ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
+            let controller = Bonded::<T>::get(target).ok_or(StakingError::<T>::NotStash)?;
+            let mut ledger =
+                Ledger::<T>::get(&controller).ok_or(StakingError::<T>::NotController)?;
             let active_balance = ledger.active;
             if ledger.unlocking.len() < T::MaxUnlockingChunks::get() as usize {
-                Self::unbond_balance(controller, &mut ledger, active_balance)?;
+                StakingPallet::<T>::unbond_balance(controller, &mut ledger, active_balance)?;
 
                 expired_nominators.push(target.clone());
                 // Free the nominator from the valid nominator list
@@ -342,7 +355,7 @@ impl<T: Config> Pallet<T> {
         era: EraIndex,
     ) -> DispatchResultWithPostInfo {
         ensure_root(origin)?;
-        Self::do_payout_stakers(validator_stash, era)
+        StakingPallet::<T>::do_payout_stakers(validator_stash, era)
     }
 
     pub(crate) fn base_change_slashing_allowed_for(
@@ -410,7 +423,7 @@ impl<T: Config> Pallet<T> {
         for key in &stash_keys {
             let key_did = pallet_identity::Pallet::<T>::get_identity(&key);
             // Checks if the stash key identity is the same as the identity given.
-            ensure!(key_did == Some(identity), Error::<T>::NotStash);
+            ensure!(key_did == Some(identity), StakingError::<T>::NotStash);
             // Checks if the key is a validator if not returns an error.
             ensure!(
                 <Validators<T>>::contains_key(&key),
@@ -419,7 +432,7 @@ impl<T: Config> Pallet<T> {
         }
 
         for key in stash_keys {
-            Self::chill_stash(&key);
+            StakingPallet::<T>::chill_stash(&key);
         }
 
         // Change identity status to be Non-Permissioned

@@ -286,8 +286,9 @@ frame_support::construct_runtime!(
 
         MultiSig: pallet_multisig::{Pallet, Call, Config, Storage, Event<T>} = 15,
 
-        // Staking: Genesis config deps: Balances, Indices, Identity, Babe, Timestamp, CddServiceProviders.
-        Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>} = 17,
+        Validators: pallet_validators = 16,
+        Staking: pallet_staking = 17,
+
         Offences: pallet_offences::{Pallet, Storage, Event} = 18,
 
         // Session: Genesis config deps: System.

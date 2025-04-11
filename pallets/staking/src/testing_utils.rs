@@ -37,11 +37,8 @@ const SEED: u32 = 0;
 // Polymesh change
 // -----------------------------------------------------------------
 use crate::types::PermissionedStaking;
-use polymesh_primitives::traits::IdentityFnTrait;
-use polymesh_primitives::IdentityId;
 
 pub fn add_permissioned_validator_<T: Config>(stash: &T::AccountId) {
-    let _ = Staking::<T>::set_commission_cap(RawOrigin::Root.into(), Perbill::from_percent(99));
     Staking::<T>::set_validator_count(RawOrigin::Root.into(), 10)
         .expect("Failed to set the validator count");
     T::Permissioned::permission_validator(stash);
@@ -53,11 +50,7 @@ pub fn minimum_balance<T: Config>() -> T::CurrencyBalance {
 
 /// Create a DID for account `acc` using the specified investor ID.
 pub fn onboard_account<T: Config>(acc: &T::AccountId) {
-    let _ = T::IdentityFn::testing_cdd_register_did(acc.clone(), vec![]);
-}
-
-pub fn get_did<T: Config>(who: &T::AccountId) -> IdentityId {
-    pallet_identity::Pallet::<T>::get_identity(who).expect("Failed to get identity id")
+    T::Permissioned::onboard_account(acc);
 }
 
 // ----------------------------------------------------------------

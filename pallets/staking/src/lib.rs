@@ -291,8 +291,6 @@ pub mod inflation;
 pub mod slashing;
 pub mod weights;
 
-pub mod permissioned;
-pub use permissioned::PolymeshConvertCurve;
 pub mod types;
 
 pub mod pallet;
@@ -923,8 +921,6 @@ impl<
             total_issuance,
             // Duration of era; more than u64::MAX is rewarded as u64::MAX.
             era_duration_millis,
-            T::MaxVariableInflationTotalIssuance::get(),
-            T::FixedYearlyReward::get(),
         );
         let rest = max_payout.saturating_sub(validator_payout.clone());
         (validator_payout, rest)

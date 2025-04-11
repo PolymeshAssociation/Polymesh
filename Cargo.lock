@@ -5721,6 +5721,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-validators"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-authorship",
+ "pallet-babe",
+ "pallet-identity",
+ "pallet-session",
+ "pallet-staking",
+ "pallet-staking-reward-curve",
+ "parity-scale-codec 3.6.9",
+ "polymesh-primitives",
+ "rand_chacha 0.2.2",
+ "scale-info",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-npos-elections",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
+ "sp-tracing",
+ "static_assertions",
+]
+
+[[package]]
 name = "parity-db"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6182,6 +6213,7 @@ dependencies = [
  "pallet-staking-rpc-runtime-api",
  "pallet-sudo",
  "pallet-transaction-payment",
+ "pallet-validators",
  "parity-scale-codec 3.6.9",
  "polymesh-common-utilities",
  "polymesh-contracts",
@@ -6440,6 +6472,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-treasury",
  "pallet-utility",
+ "pallet-validators",
  "parity-scale-codec 3.6.9",
  "polymesh-build-tool",
  "polymesh-common-utilities",
@@ -6522,6 +6555,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-treasury",
  "pallet-utility",
+ "pallet-validators",
  "parity-scale-codec 3.6.9",
  "polymesh-build-tool",
  "polymesh-common-utilities",
@@ -6606,6 +6640,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-treasury",
  "pallet-utility",
+ "pallet-validators",
  "parity-scale-codec 3.6.9",
  "polymesh-build-tool",
  "polymesh-common-utilities",
@@ -6696,6 +6731,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-treasury",
  "pallet-utility",
+ "pallet-validators",
  "parity-scale-codec 3.6.9",
  "parking_lot 0.12.1",
  "polymesh-common-utilities",
@@ -6768,6 +6804,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-treasury",
  "pallet-utility",
+ "pallet-validators",
  "polymesh-contracts",
  "polymesh-primitives",
  "sp-std",

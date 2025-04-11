@@ -113,6 +113,7 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         Authorship: pallet_authorship,
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Validators: pallet_validators::{Pallet, Call, Config<T>, Storage, Event<T>},
         Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
         Historical: pallet_session::historical::{Pallet},
@@ -609,13 +610,19 @@ impl pallet_staking::Config for Test {
     type OnStakerSlash = OnStakerSlashMock<Self>;
     type BenchmarkingConfig = pallet_staking::SampleBenchmarkingConfig;
     type WeightInfo = polymesh_weights::pallet_staking::SubstrateWeight;
+    type Permissioned = Validators;
+}
+
+impl pallet_validators::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = polymesh_weights::pallet_validators::SubstrateWeight;
+
     type MaxValidatorPerIdentity = polymesh_runtime_common::MaxValidatorPerIdentity;
     type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
     type FixedYearlyReward = FixedYearlyReward;
     type Call = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type RewardScheduler = Scheduler;
-    type Permissioned = Staking;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test

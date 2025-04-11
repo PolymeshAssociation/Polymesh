@@ -50,17 +50,7 @@ use crate::{
 
 // Polymesh change
 // -----------------------------------------------------------------
-use frame_support::traits::schedule::Anon;
-use frame_support::traits::IsSubType;
-use frame_system::offchain::SendTransactionTypes;
-use sp_runtime::traits::Dispatchable;
-use sp_runtime::Permill;
-
-use pallet_identity::Config as IdentityConfig;
-use polymesh_primitives::GC_DID;
-use polymesh_primitives::{storage_migration_ver, traits::IdentityFnTrait, IdentityId};
-
-use crate::types::{PermissionedIdentityPrefs, PermissionedStaking, SlashingSwitch};
+use crate::types::PermissionedStaking;
 // -----------------------------------------------------------------
 
 const STAKING_ID: LockIdentifier = *b"staking ";
@@ -131,12 +121,7 @@ pub mod pallet {
     }
 
     #[pallet::config]
-    pub trait Config:
-        frame_system::Config
-        + SendTransactionTypes<Call<Self>>
-        + pallet_babe::Config
-        + IdentityConfig
-    {
+    pub trait Config: frame_system::Config {
         /// The staking balance.
         type Currency: LockableCurrency<
             Self::AccountId,
@@ -329,29 +314,6 @@ pub mod pallet {
 
         /// Permissioned staking.
         type Permissioned: PermissionedStaking<Self>;
-
-        /// Maximum amount of validators that can run by an identity.
-        /// It will be MaxValidatorPerIdentity * Self::validator_count().
-        #[pallet::constant]
-        type MaxValidatorPerIdentity: Get<Permill>;
-
-        /// Maximum amount of total issuance after which fixed rewards kicks in.
-        #[pallet::constant]
-        type MaxVariableInflationTotalIssuance: Get<BalanceOf<Self>>;
-
-        /// Yearly total reward amount that gets distributed when fixed rewards kicks in.
-        #[pallet::constant]
-        type FixedYearlyReward: Get<BalanceOf<Self>>;
-
-        /// The overarching call type.
-        type Call: Dispatchable + From<Call<Self>> + IsSubType<Call<Self>> + Clone;
-
-        /// Overarching type of all pallets origins.
-        type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
-
-        /// To schedule the rewards for the stakers after the end of era.
-        type RewardScheduler: Anon<Self::BlockNumber, <Self as Config>::Call, Self::PalletsOrigin>;
-
         // -----------------------------------------------------------------
     }
 
@@ -660,31 +622,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
-    // Polymesh change
-    // -----------------------------------------------------------------
-
-    /// Entities that are allowed to run operator/validator nodes.
-    #[pallet::storage]
-    #[pallet::unbounded]
-    #[pallet::getter(fn permissioned_identity)]
-    pub type PermissionedIdentity<T: Config> =
-        StorageMap<_, Twox64Concat, IdentityId, PermissionedIdentityPrefs, OptionQuery>;
-
-    /// Slashing switch for validators & Nominators.
-    #[pallet::storage]
-    #[pallet::getter(fn slashing_allowed_for)]
-    pub type SlashingAllowedFor<T: Config> = StorageValue<_, SlashingSwitch, ValueQuery>;
-
-    /// Allows flexibility in commission. Every validator has commission that should be in the range [0, Cap].
-    #[pallet::storage]
-    #[pallet::getter(fn validator_commission_cap)]
-    pub type ValidatorCommissionCap<T: Config> = StorageValue<_, Perbill, ValueQuery>;
-
-    #[pallet::storage]
-    pub type PolymeshStorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
-
-    // -----------------------------------------------------------------
-
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub validator_count: u32,
@@ -694,7 +631,6 @@ pub mod pallet {
         pub slash_reward_fraction: Perbill,
         pub canceled_payout: BalanceOf<T>,
         pub stakers: Vec<(
-            IdentityId,
             T::AccountId,
             T::AccountId,
             BalanceOf<T>,
@@ -704,8 +640,6 @@ pub mod pallet {
         pub min_validator_bond: BalanceOf<T>,
         pub max_validator_count: Option<u32>,
         pub max_nominator_count: Option<u32>,
-        pub slashing_allowed_for: SlashingSwitch,
-        pub validator_commission_cap: Perbill,
     }
 
     #[cfg(feature = "std")]
@@ -723,8 +657,6 @@ pub mod pallet {
                 min_validator_bond: Default::default(),
                 max_validator_count: None,
                 max_nominator_count: None,
-                slashing_allowed_for: Default::default(),
-                validator_commission_cap: Default::default(),
             }
         }
     }
@@ -740,9 +672,6 @@ pub mod pallet {
             SlashRewardFraction::<T>::put(self.slash_reward_fraction);
             MinNominatorBond::<T>::put(self.min_nominator_bond);
             MinValidatorBond::<T>::put(self.min_validator_bond);
-            SlashingAllowedFor::<T>::put(self.slashing_allowed_for);
-            ValidatorCommissionCap::<T>::put(self.validator_commission_cap);
-            PolymeshStorageVersion::<T>::put(Version::new(2));
             if let Some(x) = self.max_validator_count {
                 MaxValidatorsCount::<T>::put(x);
             }
@@ -750,7 +679,7 @@ pub mod pallet {
                 MaxNominatorsCount::<T>::put(x);
             }
 
-            for &(did, ref stash, ref controller, balance, ref status) in &self.stakers {
+            for &(ref stash, ref controller, balance, ref status) in &self.stakers {
                 crate::log!(
                     trace,
                     "inserting genesis staker: {:?} => {:?} => {:?}",
@@ -769,29 +698,10 @@ pub mod pallet {
                     RewardDestination::Staked,
                 ));
                 frame_support::assert_ok!(match status {
-                    crate::StakerStatus::Validator => {
-                        // Polymesh change
-                        // -----------------------------------------------------------------
-                        if <Pallet<T>>::permissioned_identity(&did).is_none() {
-                            // Adding identity directly in the storage by assuming it is CDD'ed
-                            PermissionedIdentity::<T>::insert(
-                                &did,
-                                PermissionedIdentityPrefs::new(3),
-                            );
-                            <Pallet<T>>::deposit_event(Event::<T>::PermissionedIdentityAdded {
-                                governance_councill_did: GC_DID,
-                                validators_identity: did,
-                            });
-                        }
-                        // -----------------------------------------------------------------
-                        <Pallet<T>>::validate(
-                            T::RuntimeOrigin::from(Some(controller.clone()).into()),
-                            ValidatorPrefs {
-                                commission: self.validator_commission_cap,
-                                blocked: Default::default(),
-                            },
-                        )
-                    }
+                    crate::StakerStatus::Validator => <Pallet<T>>::validate(
+                        T::RuntimeOrigin::from(Some(controller.clone()).into()),
+                        Default::default(),
+                    ),
                     crate::StakerStatus::Nominator(votes) => <Pallet<T>>::nominate(
                         T::RuntimeOrigin::from(Some(controller.clone()).into()),
                         votes
@@ -828,7 +738,6 @@ pub mod pallet {
         },
         /// The nominator has been rewarded by this amount.
         Rewarded {
-            identity: IdentityId,
             stash: T::AccountId,
             amount: BalanceOf<T>,
         },
@@ -854,13 +763,11 @@ pub mod pallet {
         /// NOTE: This event is only emitted when funds are bonded via a dispatchable. Notably,
         /// it will not be emitted for staking rewards when they are added to stake.
         Bonded {
-            identity: IdentityId,
             stash: T::AccountId,
             amount: BalanceOf<T>,
         },
         /// An account has unbonded this amount.
         Unbonded {
-            identity: IdentityId,
             stash: T::AccountId,
             amount: BalanceOf<T>,
         },
@@ -891,46 +798,6 @@ pub mod pallet {
         },
         /// A new force era mode was set.
         ForceEra { mode: Forcing },
-
-        // Polymesh change
-        // -----------------------------------------------------------------
-        /// User has updated their nominations.
-        Nominated {
-            nominator_identity: IdentityId,
-            stash: T::AccountId,
-            targets: Vec<T::AccountId>,
-        },
-        /// An identity has issued a candidacy for becoming a validator.
-        PermissionedIdentityAdded {
-            governance_councill_did: IdentityId,
-            validators_identity: IdentityId,
-        },
-        /// An identity has been removed from the permissioned identities pool.
-        PermissionedIdentityRemoved {
-            governance_councill_did: IdentityId,
-            validators_identity: IdentityId,
-        },
-        /// Remove the nominators from the valid nominators when there CDD expired.
-        InvalidatedNominators {
-            governance_councill_did: IdentityId,
-            governance_councill_account: IdentityId,
-            expired_nominators: Vec<T::AccountId>,
-        },
-        /// Slashing allowed has been updated.
-        SlashingAllowedForChanged { slashing_switch: SlashingSwitch },
-        /// Reward scheduling interrupted.
-        RewardPaymentSchedulingInterrupted {
-            account_id: T::AccountId,
-            era: EraIndex,
-            error: DispatchError,
-        },
-        /// Commission cap has been updated.
-        CommissionCapUpdated {
-            governance_councill_did: IdentityId,
-            old_commission_cap: Perbill,
-            new_commission_cap: Perbill,
-        },
-        // -----------------------------------------------------------------
     }
 
     #[pallet::error]
@@ -979,8 +846,7 @@ pub mod pallet {
         BadTarget,
         /// The user has enough bond and thus cannot be chilled forcefully by an external person.
         CannotChillOther,
-        /// There are too many nominators in the system. Governance needs to adjust the staking
-        /// settings to keep things safe for the runtime.
+        /// There are too many nominators in the system.
         TooManyNominators,
         /// There are too many validator candidates in the system.
         TooManyValidators,
@@ -988,26 +854,6 @@ pub mod pallet {
         CommissionTooLow,
         /// Some bound is not met.
         BoundNotMet,
-        /// Validator or nominator stash identity does not exist.
-        StashIdentityDoesNotExist,
-        /// Validator's stash identity is not permissioned.
-        StashIdentityNotPermissioned,
-        /// Nominator stash has not gone through CDD.
-        StashIdentityNotCDDed,
-        /// Permissioned validator already exists.
-        IdentityIsAlreadyPermissioned,
-        /// Identity has not gone throught CDD.
-        IdentityIsMissingCDD,
-        /// When the intended number of validators to run is >= 2/3 of `validator_count`.
-        IntendedCountIsExceedingConsensusLimit,
-        /// Identity was not found in the permissioned identity pool.
-        IdentityNotFound,
-        /// No validator was found for the given key.
-        ValidatorNotFound,
-        /// Validator commiission is above maximum.
-        CommissionTooHigh,
-        /// New commission must be different from previous commission.
-        CommissionUnchanged,
     }
 
     #[pallet::hooks]
@@ -1130,15 +976,10 @@ pub mod pallet {
             let stash_balance = T::Currency::free_balance(&stash);
             let value = value.min(stash_balance);
 
-            // Polymesh change
-            // -----------------------------------------------------------------
-            let stash_did = T::IdentityFn::get_identity(&stash).unwrap_or_default();
             Self::deposit_event(Event::<T>::Bonded {
-                identity: stash_did,
                 stash: stash.clone(),
                 amount: value,
             });
-            // -----------------------------------------------------------------
 
             let item = StakingLedger {
                 stash,
@@ -1200,15 +1041,10 @@ pub mod pallet {
                         T::VoterList::on_update(&stash, Self::weight_of(&ledger.stash)).defensive();
                 }
 
-                // Polymesh change
-                // -----------------------------------------------------------------
-                let stash_did = T::IdentityFn::get_identity(&stash).unwrap_or_default();
                 Self::deposit_event(Event::<T>::Bonded {
-                    identity: stash_did,
                     stash,
                     amount: extra,
                 });
-                // -----------------------------------------------------------------
             }
             Ok(())
         }
@@ -1422,14 +1258,6 @@ pub mod pallet {
             // Polymesh change
             // -----------------------------------------------------------------
             T::Permissioned::on_nominate(&stash)?;
-
-            let nominator_did = pallet_identity::Pallet::<T>::get_identity(&stash)
-                .ok_or(Error::<T>::StashIdentityDoesNotExist)?;
-            Self::deposit_event(Event::<T>::Nominated {
-                nominator_identity: nominator_did,
-                stash: ledger.stash.clone(),
-                targets: targets.to_vec(),
-            });
             // -----------------------------------------------------------------
 
             let nominations = Nominations {
@@ -1784,7 +1612,6 @@ pub mod pallet {
             );
 
             Self::deposit_event(Event::<T>::Bonded {
-                identity: IdentityId::default(),
                 stash: ledger.stash.clone(),
                 amount: rebonded_value,
             });
@@ -2055,112 +1882,6 @@ pub mod pallet {
             MinCommission::<T>::put(new);
             Ok(())
         }
-
-        // Polymesh change
-        // -----------------------------------------------------------------
-
-        /// Adds a permissioned identity and sets its preferences.
-        ///
-        /// The dispatch origin must be Root.
-        #[pallet::call_index(26)]
-        #[pallet::weight(<T as Config>::WeightInfo::add_permissioned_validator())]
-        pub fn add_permissioned_validator(
-            origin: OriginFor<T>,
-            identity: IdentityId,
-            intended_count: Option<u32>,
-        ) -> DispatchResult {
-            Self::base_add_permissioned_validator(origin, identity, intended_count)
-        }
-
-        /// Remove an identity from the pool of (wannabe) validator identities. Effects are known in the next session.
-        ///
-        /// The dispatch origin must be Root.
-        ///
-        /// # Arguments
-        /// * origin Required origin for removing a potential validator.
-        /// * identity Validator's IdentityId.
-        #[pallet::call_index(27)]
-        #[pallet::weight(<T as Config>::WeightInfo::remove_permissioned_validator())]
-        pub fn remove_permissioned_validator(
-            origin: OriginFor<T>,
-            identity: IdentityId,
-        ) -> DispatchResult {
-            Self::base_remove_permissioned_validator(origin, identity)
-        }
-
-        /// Validate the nominators CDD expiry time.
-        ///
-        /// If an account from a given set of address is nominating then check the CDD expiry time
-        /// of it and if it is expired then the account should be unbonded and removed from the
-        /// nominating process.
-        #[pallet::call_index(28)]
-        #[pallet::weight(<T as Config>::WeightInfo::validate_cdd_expiry_nominators(targets.len() as u32))]
-        pub fn validate_cdd_expiry_nominators(
-            origin: OriginFor<T>,
-            targets: Vec<T::AccountId>,
-        ) -> DispatchResult {
-            Self::base_validate_cdd_expiry_nominators(origin, targets)
-        }
-
-        #[pallet::call_index(29)]
-        #[pallet::weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(
-            T::MaxNominatorRewardedPerValidator::get()
-        ))]
-        pub fn payout_stakers_by_system(
-            origin: OriginFor<T>,
-            validator_stash: T::AccountId,
-            era: EraIndex,
-        ) -> DispatchResultWithPostInfo {
-            Self::base_payout_stakers_by_system(origin, validator_stash, era)
-        }
-
-        /// Switch slashing status on the basis of given `slashing_switch`. Can only be called by root.
-        #[pallet::call_index(30)]
-        #[pallet::weight(<T as Config>::WeightInfo::change_slashing_allowed_for())]
-        pub fn change_slashing_allowed_for(
-            origin: OriginFor<T>,
-            slashing_switch: SlashingSwitch,
-        ) -> DispatchResult {
-            Self::base_change_slashing_allowed_for(origin, slashing_switch)
-        }
-
-        /// Sets the intended count to `new_intended_count` for the given `identity`.
-        #[pallet::call_index(31)]
-        #[pallet::weight(<T as Config>::WeightInfo::update_permissioned_validator_intended_count())]
-        pub fn update_permissioned_validator_intended_count(
-            origin: OriginFor<T>,
-            identity: IdentityId,
-            new_intended_count: u32,
-        ) -> DispatchResult {
-            Self::base_update_permissioned_validator_intended_count(
-                origin,
-                identity,
-                new_intended_count,
-            )
-        }
-
-        /// Governance council forcefully chills a validator. Effects will be felt at the beginning of the next era.
-        #[pallet::call_index(32)]
-        #[pallet::weight(<T as Config>::WeightInfo::chill_from_governance(stash_keys.len() as u32))]
-        pub fn chill_from_governance(
-            origin: OriginFor<T>,
-            identity: IdentityId,
-            stash_keys: Vec<T::AccountId>,
-        ) -> DispatchResult {
-            Self::base_chill_from_governance(origin, identity, stash_keys)
-        }
-
-        /// Changes commission rate which applies to all validators. Only Governance
-        /// committee is allowed to change this value.
-        ///
-        /// # Arguments
-        /// * `new_cap` the new commission cap.
-        #[pallet::call_index(33)]
-        #[pallet::weight(<T as Config>::WeightInfo::set_commission_cap(150))]
-        pub fn set_commission_cap(origin: OriginFor<T>, new_cap: Perbill) -> DispatchResult {
-            Self::base_set_commission_cap(origin, new_cap)
-        }
-        // -----------------------------------------------------------------
     }
 }
 

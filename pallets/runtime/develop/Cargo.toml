@@ -34,6 +34,7 @@ pallet-relayer = { workspace = true, default-features = false }
 pallet-sto = { workspace = true, default-features = false }
 pallet-settlement = { workspace = true, default-features = false }
 pallet-staking = { workspace = true, default-features = false }
+pallet-validators = { workspace = true, default-features = false }
 pallet-staking-reward-curve = { version = "4.0.0-dev", default-features = false }
 pallet-statistics = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
@@ -167,6 +168,7 @@ std = [
     "pallet-settlement/std",
     "pallet-staking-rpc-runtime-api/std",
     "pallet-staking/std",
+    "pallet-validators/std",
     "pallet-statistics/std",
     "pallet-sudo/std",
     "pallet-timestamp/std",
@@ -227,11 +229,11 @@ runtime-benchmarks = [
     "pallet-settlement/runtime-benchmarks",
     "pallet-sto/runtime-benchmarks",
     "pallet-staking/runtime-benchmarks",
+    "pallet-validators/runtime-benchmarks",
     "pallet-statistics/runtime-benchmarks",
     "pallet-timestamp/runtime-benchmarks",
     "pallet-treasury/runtime-benchmarks",
     "pallet-utility/runtime-benchmarks",
-    "pallet-staking/runtime-benchmarks",
     "polymesh-contracts/runtime-benchmarks",
     "polymesh-primitives/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",

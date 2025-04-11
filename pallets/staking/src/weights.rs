@@ -54,11 +54,4 @@ pub trait WeightInfo {
 	fn chill_other() -> Weight;
 	fn force_apply_min_commission() -> Weight;
 	fn set_min_commission() -> Weight;
-	fn add_permissioned_validator() -> Weight;
-	fn remove_permissioned_validator() -> Weight;
-	fn change_slashing_allowed_for() -> Weight;
-	fn update_permissioned_validator_intended_count() -> Weight;
-	fn chill_from_governance(n: u32) -> Weight;
-	fn set_commission_cap(n: u32) -> Weight;
-	fn validate_cdd_expiry_nominators(n: u32) -> Weight;
 }

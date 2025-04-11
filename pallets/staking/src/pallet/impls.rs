@@ -52,13 +52,9 @@ use super::{pallet::*, STAKING_ID};
 
 // Polymesh change
 // -----------------------------------------------------------------
-
-use frame_support::traits::DefensiveSaturating;
-
-use polymesh_primitives::traits::IdentityFnTrait;
-
 use crate::types::PermissionedStaking;
 use crate::UnlockChunk;
+use frame_support::traits::DefensiveSaturating;
 // -----------------------------------------------------------------
 
 /// The maximum number of iterations that we do whilst iterating over `T::VoterList` in
@@ -252,13 +248,7 @@ impl<T: Config> Pallet<T> {
             &ledger.stash,
             validator_staking_payout + validator_commission_payout,
         ) {
-            // Polymesh change
-            // -----------------------------------------------------------------
-            let stash_did =
-                pallet_identity::Pallet::<T>::get_identity(&ledger.stash).unwrap_or_default();
-            // -----------------------------------------------------------------
             Self::deposit_event(Event::<T>::Rewarded {
-                identity: stash_did,
                 stash: ledger.stash,
                 amount: imbalance.peek(),
             });
@@ -281,13 +271,7 @@ impl<T: Config> Pallet<T> {
             if let Some(imbalance) = Self::make_payout(&nominator.who, nominator_reward) {
                 // Note: this logic does not count payouts for `RewardDestination::None`.
                 nominator_payout_count += 1;
-                // Polymesh change
-                // -----------------------------------------------------------------
-                let nominator_did =
-                    pallet_identity::Pallet::<T>::get_identity(&nominator.who).unwrap_or_default();
-                // -----------------------------------------------------------------
                 let e = Event::<T>::Rewarded {
-                    identity: nominator_did,
                     stash: nominator.who.clone(),
                     amount: imbalance.peek(),
                 };
@@ -555,7 +539,7 @@ impl<T: Config> Pallet<T> {
     /// In case election result has more than [`MinimumValidatorCount`] validator trigger a new era.
     ///
     /// In case a new era is planned, the new validator set is returned.
-    pub(crate) fn try_trigger_new_era(
+    pub fn try_trigger_new_era(
         start_session_index: SessionIndex,
         is_genesis: bool,
     ) -> Option<BoundedVec<T::AccountId, MaxWinnersOf<T>>> {
@@ -1108,16 +1092,10 @@ impl<T: Config> Pallet<T> {
                     .defensive();
             }
 
-            // Polymesh change
-            // -----------------------------------------------------------------
-            let controller_did =
-                T::IdentityFn::get_identity(&controller_account).unwrap_or_default();
             Self::deposit_event(Event::<T>::Unbonded {
-                identity: controller_did,
                 stash: ledger.stash.clone(),
                 amount: value,
             });
-            // -----------------------------------------------------------------
         }
 
         Ok(())
