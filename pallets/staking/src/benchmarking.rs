@@ -47,6 +47,12 @@ const MAX_SLASHES: u32 = 1000;
 type MaxValidators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxValidators;
 type MaxNominators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxNominators;
 
+// Polymesh change
+use crate::types::SlashingSwitch;
+use pallet_identity::benchmarking::UserBuilder;
+use polymesh_primitives::identity_claim::ClaimType;
+use polymesh_primitives::Permissions;
+
 // Add slashing spans to a user account. Not relevant for actual use, only to benchmark
 // read and write operations.
 pub fn add_slashing_spans<T: Config>(who: &T::AccountId, spans: u32) {
@@ -84,6 +90,7 @@ pub fn create_validator_with_nominators<T: Config>(
         commission: Perbill::from_percent(50),
         ..Default::default()
     };
+    add_permissioned_validator_::<T>(&v_stash);
     Staking::<T>::validate(RawOrigin::Signed(v_controller).into(), validator_prefs)?;
     let stash_lookup = T::Lookup::unlookup(v_stash.clone());
 
@@ -135,7 +142,7 @@ pub fn create_validator_with_nominators<T: Config>(
     ErasRewardPoints::<T>::insert(current_era, reward);
 
     // Create reward pool
-    let total_payout = T::Currency::minimum_balance()
+    let total_payout = minimum_balance::<T>()
         .saturating_mul(upper_bound.into())
         .saturating_mul(1000u32.into());
     <ErasValidatorReward<T>>::insert(current_era, total_payout);
@@ -235,7 +242,7 @@ benchmarks! {
         let controller = create_funded_user::<T>("controller", USER_SEED, 100);
         let controller_lookup = T::Lookup::unlookup(controller.clone());
         let reward_destination = RewardDestination::Staked;
-        let amount = T::Currency::minimum_balance() * 10u32.into();
+        let amount = minimum_balance::<T>() * 10u32.into();
         whitelist_account!(stash);
     }: _(RawOrigin::Signed(stash.clone()), controller_lookup, amount, reward_destination)
     verify {
@@ -247,7 +254,7 @@ benchmarks! {
         // clean up any existing state.
         clear_validators_and_nominators::<T>();
 
-        let origin_weight = MinNominatorBond::<T>::get().max(T::Currency::minimum_balance());
+        let origin_weight = MinNominatorBond::<T>::get().max(minimum_balance::<T>());
 
         // setup the worst case list scenario.
 
@@ -261,7 +268,7 @@ benchmarks! {
         let original_bonded: BalanceOf<T>
             = Ledger::<T>::get(&controller).map(|l| l.active).ok_or("ledger not created after")?;
 
-        T::Currency::deposit_into_existing(&stash, max_additional).unwrap();
+        let _ = T::Currency::deposit_into_existing(&stash, max_additional).unwrap();
 
         whitelist_account!(stash);
     }: _(RawOrigin::Signed(stash), max_additional)
@@ -304,7 +311,7 @@ benchmarks! {
         let s in 0 .. MAX_SPANS;
         let (stash, controller) = create_stash_controller::<T>(0, 100, Default::default())?;
         add_slashing_spans::<T>(&stash, s);
-        let amount = T::Currency::minimum_balance() * 5u32.into(); // Half of total
+        let amount = minimum_balance::<T>() * 5u32.into(); // Half of total
         Staking::<T>::unbond(RawOrigin::Signed(controller.clone()).into(), amount)?;
         CurrentEra::<T>::put(EraIndex::max_value());
         let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
@@ -324,7 +331,7 @@ benchmarks! {
         // clean up any existing state.
         clear_validators_and_nominators::<T>();
 
-        let origin_weight = MinNominatorBond::<T>::get().max(T::Currency::minimum_balance());
+        let origin_weight = MinNominatorBond::<T>::get().max(minimum_balance::<T>());
 
         // setup a worst case list scenario. Note that we don't care about the setup of the
         // destination position because we are doing a removal from the list but no insert.
@@ -334,9 +341,8 @@ benchmarks! {
         add_slashing_spans::<T>(&stash, s);
         assert!(T::VoterList::contains(&stash));
 
-        let ed = T::Currency::minimum_balance();
         let mut ledger = Ledger::<T>::get(&controller).unwrap();
-        ledger.active = ed - One::one();
+        ledger.active = 0u32.into();
         Ledger::<T>::insert(&controller, ledger);
         CurrentEra::<T>::put(EraIndex::max_value());
 
@@ -356,7 +362,12 @@ benchmarks! {
         // because it is chilled.
         assert!(!T::VoterList::contains(&stash));
 
-        let prefs = ValidatorPrefs::default();
+        // Polymesh change
+        // -----------------------------------------------------------------
+        add_permissioned_validator_::<T>(&stash);
+        // -----------------------------------------------------------------
+
+         let prefs = ValidatorPrefs::default();
         whitelist_account!(controller);
     }: _(RawOrigin::Signed(controller), prefs)
     verify {
@@ -383,8 +394,13 @@ benchmarks! {
         )?;
         let stash_lookup = T::Lookup::unlookup(stash.clone());
 
+        let validator_prefs =
+            ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
+
+        add_permissioned_validator_::<T>(&stash);
+
         // they start validating.
-        Staking::<T>::validate(RawOrigin::Signed(controller.clone()).into(), Default::default())?;
+        Staking::<T>::validate(RawOrigin::Signed(controller.clone()).into(), validator_prefs)?;
 
         // we now create the nominators. there will be `k` of them; each will nominate all
         // validators. we will then kick each of the `k` nominators from the main validator.
@@ -434,7 +450,7 @@ benchmarks! {
         // clean up any existing state.
         clear_validators_and_nominators::<T>();
 
-        let origin_weight = MinNominatorBond::<T>::get().max(T::Currency::minimum_balance());
+        let origin_weight = MinNominatorBond::<T>::get().max(minimum_balance::<T>());
 
         // setup a worst case list scenario. Note we don't care about the destination position, because
         // we are just doing an insert into the origin position.
@@ -460,7 +476,7 @@ benchmarks! {
         // clean up any existing state.
         clear_validators_and_nominators::<T>();
 
-        let origin_weight = MinNominatorBond::<T>::get().max(T::Currency::minimum_balance());
+        let origin_weight = MinNominatorBond::<T>::get().max(minimum_balance::<T>());
 
         // setup a worst case list scenario. Note that we don't care about the setup of the
         // destination position because we are doing a removal from the list but no insert.
@@ -528,7 +544,7 @@ benchmarks! {
         // Clean up any existing state.
         clear_validators_and_nominators::<T>();
 
-        let origin_weight = MinNominatorBond::<T>::get().max(T::Currency::minimum_balance());
+        let origin_weight = MinNominatorBond::<T>::get().max(minimum_balance::<T>());
 
         // setup a worst case list scenario. Note that we don't care about the setup of the
         // destination position because we are doing a removal from the list but no insert.
@@ -636,7 +652,7 @@ benchmarks! {
         clear_validators_and_nominators::<T>();
 
         let origin_weight = MinNominatorBond::<T>::get()
-            .max(T::Currency::minimum_balance())
+            .max(minimum_balance::<T>())
             // we use 100 to play friendly with the list threshold values in the mock
             .max(100u32.into());
 
@@ -682,7 +698,7 @@ benchmarks! {
         // clean up any existing state.
         clear_validators_and_nominators::<T>();
 
-        let origin_weight = MinNominatorBond::<T>::get().max(T::Currency::minimum_balance());
+        let origin_weight = MinNominatorBond::<T>::get().max(minimum_balance::<T>());
 
         // setup a worst case list scenario. Note that we don't care about the setup of the
         // destination position because we are doing a removal from the list but no insert.
@@ -693,11 +709,12 @@ benchmarks! {
         add_slashing_spans::<T>(&stash, s);
         let l = StakingLedger {
             stash: stash.clone(),
-            active: T::Currency::minimum_balance() - One::one(),
-            total: T::Currency::minimum_balance() - One::one(),
+            active: T::Currency::minimum_balance(),
+            total: T::Currency::minimum_balance(),
             unlocking: Default::default(),
             claimed_rewards: Default::default(),
         };
+        T::Currency::make_free_balance_be(&stash, 0u32.into());
         Ledger::<T>::insert(&controller, l);
 
         assert!(Bonded::<T>::contains_key(&stash));
@@ -763,7 +780,7 @@ benchmarks! {
         ErasRewardPoints::<T>::insert(current_era, reward);
 
         // Create reward pool
-        let total_payout = T::Currency::minimum_balance() * 1000u32.into();
+        let total_payout = minimum_balance::<T>() * 1000u32.into();
         <ErasValidatorReward<T>>::insert(current_era, total_payout);
 
         let caller: T::AccountId = whitelisted_caller();
@@ -792,7 +809,7 @@ benchmarks! {
             staking_ledger.unlocking.try_push(unlock_chunk.clone()).unwrap();
         }
         Ledger::<T>::insert(controller, staking_ledger);
-        let slash_amount = T::Currency::minimum_balance() * 10u32.into();
+        let slash_amount = minimum_balance::<T>() * 10u32.into();
         let balance_before = T::Currency::free_balance(&stash);
     }: {
         crate::slashing::do_slash::<T>(
@@ -883,7 +900,7 @@ benchmarks! {
         // clean up any existing state.
         clear_validators_and_nominators::<T>();
 
-        let origin_weight = MinNominatorBond::<T>::get().max(T::Currency::minimum_balance());
+        let origin_weight = MinNominatorBond::<T>::get().max(minimum_balance::<T>());
 
         // setup a worst case list scenario. Note that we don't care about the setup of the
         // destination position because we are doing a removal from the list but no insert.
@@ -917,7 +934,8 @@ benchmarks! {
             create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
         let validator_prefs =
             ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
-        Staking::<T>::validate(RawOrigin::Signed(controller).into(), validator_prefs)?;
+        add_permissioned_validator_::<T>(&stash);
+        Staking::<T>::validate(RawOrigin::Signed(controller.clone()).into(), validator_prefs)?;
 
         // Sanity check
         assert_eq!(
@@ -943,6 +961,159 @@ benchmarks! {
     verify {
         assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
     }
+
+    // Polymesh change
+    // -----------------------------------------------------------------
+    add_permissioned_validator {
+        clear_validators_and_nominators::<T>();
+        let (stash, controller) =
+            create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
+        Staking::<T>::set_validator_count(RawOrigin::Root.into(), 10).unwrap();
+        let did = get_did::<T>(&stash);
+    }: _(RawOrigin::Root, did, Some(1))
+    verify {
+        let identity_preferences = Staking::<T>::permissioned_identity(did);
+        assert!(identity_preferences.is_some());
+        assert_eq!(identity_preferences.unwrap().intended_count, 1);
+    }
+
+    remove_permissioned_validator {
+        clear_validators_and_nominators::<T>();
+        let (stash, controller) =
+            create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
+        add_permissioned_validator_::<T>(&stash);
+        let did = get_did::<T>(&stash);
+    }: _(RawOrigin::Root, did)
+    verify {
+        let identity_preferences = Staking::<T>::permissioned_identity(did);
+        assert!(identity_preferences.is_none());
+    }
+
+    change_slashing_allowed_for {}: _(RawOrigin::Root, SlashingSwitch::ValidatorAndNominator)
+    verify {
+        assert_eq!(Staking::<T>::slashing_allowed_for(), SlashingSwitch::ValidatorAndNominator);
+    }
+
+    update_permissioned_validator_intended_count {
+        clear_validators_and_nominators::<T>();
+        let (stash, controller) =
+            create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
+        add_permissioned_validator_::<T>(&stash);
+        let did = get_did::<T>(&stash);
+    }: _(RawOrigin::Root, did, 2)
+    verify {
+        assert_eq!(Staking::<T>::permissioned_identity(did).unwrap().intended_count, 2);
+    }
+
+    chill_from_governance {
+        let s in 1..100;
+
+        let validator = create_funded_user::<T>("validator", USER_SEED, 10_000);
+
+        Staking::<T>::set_validator_count(RawOrigin::Root.into(), 1_000).unwrap();
+        assert_eq!(Staking::<T>::validator_count(), 1_000);
+
+        let did = get_did::<T>(&validator);
+        Staking::<T>::add_permissioned_validator(
+            RawOrigin::Root.into(),
+            did,
+            Some(100)
+        ).unwrap();
+
+        whitelist_account!(validator);
+
+        let mut signatories = Vec::new();
+        for x in 0 .. s {
+            let key = UserBuilder::<T>::default().seed(x).balance(10_000u32).build("key").account();
+            let key_lookup = T::Lookup::unlookup(key.clone());
+            let _ = T::Currency::issue(10_000u32.into());
+
+            let did = get_did::<T>(&validator);
+            pallet_identity::Pallet::<T>::unsafe_join_identity(
+                did,
+                Permissions::default(),
+                key.clone()
+            );
+            Staking::<T>::bond(
+                RawOrigin::Signed(key.clone()).into(),
+                key_lookup,
+                2_000_000u32.into(),
+                RewardDestination::Staked
+            )
+            .unwrap();
+            whitelist_account!(key);
+
+            Staking::<T>::validate(RawOrigin::Signed(key.clone()).into(), ValidatorPrefs::default())?;
+            assert_eq!(<Validators<T>>::contains_key(&key), true);
+            signatories.push(key.clone());
+        }
+        let did = get_did::<T>(&validator);
+    }: _(RawOrigin::Root, did, signatories.clone())
+    verify {
+        for key in signatories {
+            assert!(!<Validators<T>>::contains_key(&key));
+        }
+    }
+
+    set_commission_cap {
+        let m in 0 .. 150;
+
+        let mut stashes = Vec::with_capacity(m as usize);
+        for i in 0 .. m {
+            let stash = create_funded_user::<T>("stash", i, 1000);
+            stashes.push(stash.clone());
+            Validators::<T>::insert(
+                stash,
+                ValidatorPrefs {
+                    commission: Perbill::from_percent(70),
+                    ..Default::default()
+                }
+            );
+        }
+    }: _(RawOrigin::Root, Perbill::from_percent(50))
+    verify {
+        stashes.iter().for_each(|s| {
+            assert_eq!(
+                Staking::<T>::validators(s),
+                ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() }
+            );
+        });
+    }
+
+    validate_cdd_expiry_nominators {
+        let n in 1 .. T::MaxNominations::get();
+
+        clear_validators_and_nominators::<T>();
+
+        let (validator, nominators) = create_validator_with_nominators::<T>(
+            n,
+            T::MaxNominatorRewardedPerValidator::get() as u32,
+            true,
+            RewardDestination::Controller,
+        )?;
+
+        for nominator in &nominators {
+            let did = get_did::<T>(&nominator.0);
+            let claim_first = pallet_identity::Claim1stKey {
+                target: did,
+                claim_type: ClaimType::CustomerDueDiligence
+            };
+            let _ = pallet_identity::Claims::<T>::clear_prefix(claim_first, 1, None);
+        }
+
+        let nominators: Vec<T::AccountId> = nominators.iter().map(|x| x.0.clone()).collect();
+        for nominator in &nominators {
+            assert!(Nominators::<T>::contains_key(nominator));
+        }
+
+    }: _(RawOrigin::Root, nominators.clone())
+    verify {
+        for nominator in nominators {
+            assert!(!Nominators::<T>::contains_key(nominator));
+        }
+    }
+
+    // -----------------------------------------------------------------
 
     impl_benchmark_test_suite!(
         Staking,
