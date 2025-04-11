@@ -932,7 +932,7 @@ pub mod pallet {
         /// NOTE: Two of the storage writes (`Self::bonded`, `Self::payee`) are _never_ cleaned
         /// unless the `origin` falls below _existential deposit_ and gets removed as dust.
         #[pallet::call_index(0)]
-        #[pallet::weight(<T as Config>::WeightInfo::bond())]
+        #[pallet::weight(T::WeightInfo::bond())]
         pub fn bond(
             origin: OriginFor<T>,
             controller: AccountIdLookupOf<T>,
@@ -1012,7 +1012,7 @@ pub mod pallet {
         /// - Independent of the arguments. Insignificant complexity.
         /// - O(1).
         #[pallet::call_index(1)]
-        #[pallet::weight(<T as Config>::WeightInfo::bond_extra())]
+        #[pallet::weight(T::WeightInfo::bond_extra())]
         pub fn bond_extra(
             origin: OriginFor<T>,
             #[pallet::compact] max_additional: BalanceOf<T>,
@@ -1070,7 +1070,7 @@ pub mod pallet {
         /// See also [`Call::withdraw_unbonded`].
         #[pallet::call_index(2)]
         #[pallet::weight(
-            <T as Config>::WeightInfo::withdraw_unbonded_kill(SPECULATIVE_NUM_SPANS).saturating_add(<T as Config>::WeightInfo::unbond()))
+            T::WeightInfo::withdraw_unbonded_kill(SPECULATIVE_NUM_SPANS).saturating_add(T::WeightInfo::unbond()))
         ]
         pub fn unbond(
             origin: OriginFor<T>,
@@ -1108,9 +1108,9 @@ pub mod pallet {
             Self::unbond_balance(controller, &mut ledger, value)?;
 
             let actual_weight = if let Some(withdraw_weight) = maybe_withdraw_weight {
-                Some(<T as Config>::WeightInfo::unbond().saturating_add(withdraw_weight))
+                Some(T::WeightInfo::unbond().saturating_add(withdraw_weight))
             } else {
-                Some(<T as Config>::WeightInfo::unbond())
+                Some(T::WeightInfo::unbond())
             };
 
             Ok(actual_weight.into())
@@ -1131,7 +1131,7 @@ pub mod pallet {
         /// O(S) where S is the number of slashing spans to remove
         /// NOTE: Weight annotation is the kill scenario, we refund otherwise.
         #[pallet::call_index(3)]
-        #[pallet::weight(<T as Config>::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans))]
+        #[pallet::weight(T::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans))]
         pub fn withdraw_unbonded(
             origin: OriginFor<T>,
             num_slashing_spans: u32,
@@ -1148,7 +1148,7 @@ pub mod pallet {
         ///
         /// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
         #[pallet::call_index(4)]
-        #[pallet::weight(<T as Config>::WeightInfo::validate())]
+        #[pallet::weight(T::WeightInfo::validate())]
         pub fn validate(origin: OriginFor<T>, prefs: ValidatorPrefs) -> DispatchResult {
             let controller = ensure_signed(origin)?;
 
@@ -1204,7 +1204,7 @@ pub mod pallet {
         /// which is capped at CompactAssignments::LIMIT (T::MaxNominations).
         /// - Both the reads and writes follow a similar pattern.
         #[pallet::call_index(5)]
-        #[pallet::weight(<T as Config>::WeightInfo::nominate(targets.len() as u32))]
+        #[pallet::weight(T::WeightInfo::nominate(targets.len() as u32))]
         pub fn nominate(
             origin: OriginFor<T>,
             targets: Vec<AccountIdLookupOf<T>>,
@@ -1283,7 +1283,7 @@ pub mod pallet {
         /// - Contains one read.
         /// - Writes are limited to the `origin` account key.
         #[pallet::call_index(6)]
-        #[pallet::weight(<T as Config>::WeightInfo::chill())]
+        #[pallet::weight(T::WeightInfo::chill())]
         pub fn chill(origin: OriginFor<T>) -> DispatchResult {
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1304,7 +1304,7 @@ pub mod pallet {
         /// - Writes are limited to the `origin` account key.
         /// ---------
         #[pallet::call_index(7)]
-        #[pallet::weight(<T as Config>::WeightInfo::set_payee())]
+        #[pallet::weight(T::WeightInfo::set_payee())]
         pub fn set_payee(
             origin: OriginFor<T>,
             payee: RewardDestination<T::AccountId>,
@@ -1328,7 +1328,7 @@ pub mod pallet {
         /// - Contains a limited number of reads.
         /// - Writes are limited to the `origin` account key.
         #[pallet::call_index(8)]
-        #[pallet::weight(<T as Config>::WeightInfo::set_controller())]
+        #[pallet::weight(T::WeightInfo::set_controller())]
         pub fn set_controller(
             origin: OriginFor<T>,
             controller: AccountIdLookupOf<T>,
@@ -1364,7 +1364,7 @@ pub mod pallet {
         /// ## Complexity
         /// O(1)
         #[pallet::call_index(9)]
-        #[pallet::weight(<T as Config>::WeightInfo::set_validator_count())]
+        #[pallet::weight(T::WeightInfo::set_validator_count())]
         pub fn set_validator_count(
             origin: OriginFor<T>,
             #[pallet::compact] new: u32,
@@ -1388,7 +1388,7 @@ pub mod pallet {
         /// ## Complexity
         /// Same as [`Self::set_validator_count`].
         #[pallet::call_index(10)]
-        #[pallet::weight(<T as Config>::WeightInfo::set_validator_count())]
+        #[pallet::weight(T::WeightInfo::set_validator_count())]
         pub fn increase_validator_count(
             origin: OriginFor<T>,
             #[pallet::compact] additional: u32,
@@ -1415,7 +1415,7 @@ pub mod pallet {
         /// ## Complexity
         /// Same as [`Self::set_validator_count`].
         #[pallet::call_index(11)]
-        #[pallet::weight(<T as Config>::WeightInfo::set_validator_count())]
+        #[pallet::weight(T::WeightInfo::set_validator_count())]
         pub fn scale_validator_count(origin: OriginFor<T>, factor: Percent) -> DispatchResult {
             ensure_root(origin)?;
             let old = ValidatorCount::<T>::get();
@@ -1446,7 +1446,7 @@ pub mod pallet {
         /// - No arguments.
         /// - Weight: O(1)
         #[pallet::call_index(12)]
-        #[pallet::weight(<T as Config>::WeightInfo::force_no_eras())]
+        #[pallet::weight(T::WeightInfo::force_no_eras())]
         pub fn force_no_eras(origin: OriginFor<T>) -> DispatchResult {
             ensure_root(origin)?;
             Self::set_force_era(Forcing::ForceNone);
@@ -1468,7 +1468,7 @@ pub mod pallet {
         /// - No arguments.
         /// - Weight: O(1)
         #[pallet::call_index(13)]
-        #[pallet::weight(<T as Config>::WeightInfo::force_new_era())]
+        #[pallet::weight(T::WeightInfo::force_new_era())]
         pub fn force_new_era(origin: OriginFor<T>) -> DispatchResult {
             ensure_root(origin)?;
             Self::set_force_era(Forcing::ForceNew);
@@ -1479,7 +1479,7 @@ pub mod pallet {
         ///
         /// The dispatch origin must be Root.
         #[pallet::call_index(14)]
-        #[pallet::weight(<T as Config>::WeightInfo::set_invulnerables(invulnerables.len() as u32))]
+        #[pallet::weight(T::WeightInfo::set_invulnerables(invulnerables.len() as u32))]
         pub fn set_invulnerables(
             origin: OriginFor<T>,
             invulnerables: Vec<T::AccountId>,
@@ -1493,7 +1493,7 @@ pub mod pallet {
         ///
         /// The dispatch origin must be Root.
         #[pallet::call_index(15)]
-        #[pallet::weight(<T as Config>::WeightInfo::force_unstake(*num_slashing_spans))]
+        #[pallet::weight(T::WeightInfo::force_unstake(*num_slashing_spans))]
         pub fn force_unstake(
             origin: OriginFor<T>,
             stash: T::AccountId,
@@ -1519,7 +1519,7 @@ pub mod pallet {
         /// If this is called just before a new era is triggered, the election process may not
         /// have enough blocks to get a result.
         #[pallet::call_index(16)]
-        #[pallet::weight(<T as Config>::WeightInfo::force_new_era_always())]
+        #[pallet::weight(T::WeightInfo::force_new_era_always())]
         pub fn force_new_era_always(origin: OriginFor<T>) -> DispatchResult {
             ensure_root(origin)?;
             Self::set_force_era(Forcing::ForceAlways);
@@ -1532,7 +1532,7 @@ pub mod pallet {
         ///
         /// Parameters: era and indices of the slashes for that era to kill.
         #[pallet::call_index(17)]
-        #[pallet::weight(<T as Config>::WeightInfo::cancel_deferred_slash(slash_indices.len() as u32))]
+        #[pallet::weight(T::WeightInfo::cancel_deferred_slash(slash_indices.len() as u32))]
         pub fn cancel_deferred_slash(
             origin: OriginFor<T>,
             era: EraIndex,
@@ -1574,7 +1574,7 @@ pub mod pallet {
         /// ## Complexity
         /// - At most O(MaxNominatorRewardedPerValidator).
         #[pallet::call_index(18)]
-        #[pallet::weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(
+        #[pallet::weight(T::WeightInfo::payout_stakers_alive_staked(
             T::MaxNominatorRewardedPerValidator::get()
         ))]
         pub fn payout_stakers(
@@ -1594,7 +1594,7 @@ pub mod pallet {
         /// - Time complexity: O(L), where L is unlocking chunks
         /// - Bounded by `MaxUnlockingChunks`.
         #[pallet::call_index(19)]
-        #[pallet::weight(<T as Config>::WeightInfo::rebond(T::MaxUnlockingChunks::get() as u32))]
+        #[pallet::weight(T::WeightInfo::rebond(T::MaxUnlockingChunks::get() as u32))]
         pub fn rebond(
             origin: OriginFor<T>,
             #[pallet::compact] value: BalanceOf<T>,
@@ -1626,7 +1626,7 @@ pub mod pallet {
             let removed_chunks = 1u32 // for the case where the last iterated chunk is not removed
                 .saturating_add(initial_unlocking)
                 .saturating_sub(ledger.unlocking.len() as u32);
-            Ok(Some(<T as Config>::WeightInfo::rebond(removed_chunks)).into())
+            Ok(Some(T::WeightInfo::rebond(removed_chunks)).into())
         }
 
         /// Remove all data structures concerning a staker/stash once it is at a state where it can
@@ -1642,7 +1642,7 @@ pub mod pallet {
         ///
         /// Refunds the transaction fees upon successful execution.
         #[pallet::call_index(20)]
-        #[pallet::weight(<T as Config>::WeightInfo::reap_stash(*num_slashing_spans))]
+        #[pallet::weight(T::WeightInfo::reap_stash(*num_slashing_spans))]
         pub fn reap_stash(
             origin: OriginFor<T>,
             stash: T::AccountId,
@@ -1678,7 +1678,7 @@ pub mod pallet {
         /// Note: Making this call only makes sense if you first set the validator preferences to
         /// block any further nominations.
         #[pallet::call_index(21)]
-        #[pallet::weight(<T as Config>::WeightInfo::kick(who.len() as u32))]
+        #[pallet::weight(T::WeightInfo::kick(who.len() as u32))]
         pub fn kick(origin: OriginFor<T>, who: Vec<AccountIdLookupOf<T>>) -> DispatchResult {
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1727,8 +1727,8 @@ pub mod pallet {
         // removed.
         #[pallet::call_index(22)]
         #[pallet::weight(
-			<T as Config>::WeightInfo::set_staking_configs_all_set()
-				.max(<T as Config>::WeightInfo::set_staking_configs_all_remove())
+			T::WeightInfo::set_staking_configs_all_set()
+				.max(T::WeightInfo::set_staking_configs_all_remove())
 		)]
         pub fn set_staking_configs(
             origin: OriginFor<T>,
@@ -1786,7 +1786,7 @@ pub mod pallet {
         /// This can be helpful if bond requirements are updated, and we need to remove old users
         /// who do not satisfy these requirements.
         #[pallet::call_index(23)]
-        #[pallet::weight(<T as Config>::WeightInfo::chill_other())]
+        #[pallet::weight(T::WeightInfo::chill_other())]
         pub fn chill_other(origin: OriginFor<T>, controller: T::AccountId) -> DispatchResult {
             // Anyone can call this function.
             let caller = ensure_signed(origin)?;
@@ -1852,7 +1852,7 @@ pub mod pallet {
         /// validator who already has a commission greater than or equal to the minimum. Any account
         /// can call this.
         #[pallet::call_index(24)]
-        #[pallet::weight(<T as Config>::WeightInfo::force_apply_min_commission())]
+        #[pallet::weight(T::WeightInfo::force_apply_min_commission())]
         pub fn force_apply_min_commission(
             origin: OriginFor<T>,
             validator_stash: T::AccountId,
@@ -1876,7 +1876,7 @@ pub mod pallet {
         /// This call has lower privilege requirements than `set_staking_config` and can be called
         /// by the `T::AdminOrigin`. Root can always call this.
         #[pallet::call_index(25)]
-        #[pallet::weight(<T as Config>::WeightInfo::set_min_commission())]
+        #[pallet::weight(T::WeightInfo::set_min_commission())]
         pub fn set_min_commission(origin: OriginFor<T>, new: Perbill) -> DispatchResult {
             T::AdminOrigin::ensure_origin(origin)?;
             MinCommission::<T>::put(new);

@@ -388,13 +388,9 @@ benchmarks! {
         )?;
         let stash_lookup = T::Lookup::unlookup(stash.clone());
 
-        let validator_prefs =
-            ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
-
         add_permissioned_validator_::<T>(&stash);
-
         // they start validating.
-        Staking::<T>::validate(RawOrigin::Signed(controller.clone()).into(), validator_prefs)?;
+        Staking::<T>::validate(RawOrigin::Signed(controller.clone()).into(), Default::default())?;
 
         // we now create the nominators. there will be `k` of them; each will nominate all
         // validators. we will then kick each of the `k` nominators from the main validator.
@@ -929,7 +925,7 @@ benchmarks! {
         let validator_prefs =
             ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
         add_permissioned_validator_::<T>(&stash);
-        Staking::<T>::validate(RawOrigin::Signed(controller.clone()).into(), validator_prefs)?;
+        Staking::<T>::validate(RawOrigin::Signed(controller).into(), validator_prefs)?;
 
         // Sanity check
         assert_eq!(
