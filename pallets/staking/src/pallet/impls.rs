@@ -52,7 +52,7 @@ use super::{pallet::*, STAKING_ID};
 
 // Polymesh change
 // -----------------------------------------------------------------
-use crate::types::PermissionedStaking;
+use crate::PermissionedStaking;
 use crate::UnlockChunk;
 use frame_support::traits::DefensiveSaturating;
 // -----------------------------------------------------------------

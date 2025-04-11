@@ -28,7 +28,8 @@ pub mod inflation;
 pub mod permissioned;
 pub use permissioned::PolymeshConvertCurve;
 
-pub use pallet_staking::types;
+pub mod types;
+pub use pallet_staking::PermissionedStaking;
 
 use codec::{Decode, Encode};
 use frame_support::traits::schedule::Anon;

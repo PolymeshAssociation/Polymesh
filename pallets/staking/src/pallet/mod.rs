@@ -50,7 +50,7 @@ use crate::{
 
 // Polymesh change
 // -----------------------------------------------------------------
-use crate::types::PermissionedStaking;
+use crate::PermissionedStaking;
 // -----------------------------------------------------------------
 
 const STAKING_ID: LockIdentifier = *b"staking ";

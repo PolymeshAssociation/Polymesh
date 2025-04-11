@@ -6539,7 +6539,7 @@ mod staking_interface {
 use chrono::Utc;
 
 use crate::asset_test::set_timestamp;
-use pallet_staking::types::{PermissionedIdentityPrefs, SlashingSwitch};
+use pallet_validators::types::{PermissionedIdentityPrefs, SlashingSwitch};
 
 type PError = pallet_pips::Error<Test>;
 

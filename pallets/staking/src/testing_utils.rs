@@ -36,7 +36,7 @@ const SEED: u32 = 0;
 
 // Polymesh change
 // -----------------------------------------------------------------
-use crate::types::PermissionedStaking;
+use crate::PermissionedStaking;
 
 pub fn add_permissioned_validator_<T: Config>(stash: &T::AccountId) {
     Staking::<T>::set_validator_count(RawOrigin::Root.into(), 10)

@@ -16,10 +16,10 @@ use polymesh_primitives::{traits::IdentityFnTrait, AuthorizationData, Permission
 
 use sp_runtime::traits::AccountIdConversion;
 
+use pallet_staking::{PermissionedStaking, WhoToSlash};
+
+use crate::types::{PermissionedIdentityPrefs, SlashingSwitch};
 use crate::*;
-use pallet_staking::types::{
-    PermissionedIdentityPrefs, PermissionedStaking, SlashingSwitch, WhoToSlash,
-};
 
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.

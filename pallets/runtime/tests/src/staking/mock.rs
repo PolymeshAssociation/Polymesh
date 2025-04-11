@@ -39,8 +39,8 @@ use sp_staking::{EraIndex, SessionIndex};
 
 use pallet_balances::AccountData;
 use pallet_balances::BlockRewardConfig;
-use pallet_staking::types::SlashingSwitch;
 use pallet_staking::*;
+use pallet_validators::types::SlashingSwitch;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::identity_id::GenesisIdentityRecord;

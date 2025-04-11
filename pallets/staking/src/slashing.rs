@@ -50,8 +50,8 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-    types::PermissionedStaking, BalanceOf, Config, Error, Exposure, NegativeImbalanceOf, Pallet,
-    Perbill, SessionInterface, Store, UnappliedSlash,
+    BalanceOf, Config, Error, Exposure, NegativeImbalanceOf, Pallet, Perbill, PermissionedStaking,
+    SessionInterface, Store, UnappliedSlash,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
