@@ -47,11 +47,14 @@ use std::collections::BTreeMap;
 
 use sp_runtime::traits::Zero;
 
-use pallet_staking::{ConfigOp, Event, *};
+use pallet_staking::{ConfigOp, Event, Validators, *};
+use pallet_validators::{Error as ValidatorsError};
+
+type PalletValidators = pallet_validators::Pallet<Test>;
 
 macro_rules! assert_add_permissioned_validator {
     ($acc_id:expr) => {
-        assert_ok!(Staking::add_permissioned_validator(
+        assert_ok!(PalletValidators::add_permissioned_validator(
             RuntimeOrigin::root(),
             pallet_identity::Pallet::<Test>::get_identity($acc_id).unwrap(),
             None
@@ -880,7 +883,7 @@ fn double_staking_should_fail() {
         // 2 = controller  => nominating should work.
         assert_noop!(
             Staking::nominate(RuntimeOrigin::signed(2), vec![1]),
-            Error::<Test>::StashIdentityDoesNotExist
+            ValidatorsError::<Test>::StashIdentityDoesNotExist
         );
         provide_did_to_user(1);
         assert_ok!(Staking::nominate(RuntimeOrigin::signed(2), vec![1]));
@@ -1898,7 +1901,6 @@ fn rebond_emits_right_value_in_event() {
         assert_eq!(
             *staking_events().last().unwrap(),
             Event::Bonded {
-                identity: IdentityId::default(),
                 stash: 11,
                 amount: 100
             }
@@ -1920,7 +1922,6 @@ fn rebond_emits_right_value_in_event() {
         assert_eq!(
             *staking_events().last().unwrap(),
             Event::Bonded {
-                identity: IdentityId::default(),
                 stash: 11,
                 amount: 800
             }
@@ -5553,7 +5554,7 @@ fn capped_stakers_works() {}
 #[test]
 fn min_commission_works() {
     ExtBuilder::default().build_and_execute(|| {
-        assert_ok!(Staking::set_commission_cap(
+        assert_ok!(PalletValidators::set_commission_cap(
             RuntimeOrigin::root(),
             Perbill::from_percent(60)
         ));
@@ -5807,7 +5808,7 @@ fn force_apply_min_commission_works() {
     };
     let validators = || Validators::<Test>::iter().collect::<Vec<_>>();
     ExtBuilder::default().build_and_execute(|| {
-        assert_ok!(Staking::set_commission_cap(
+        assert_ok!(PalletValidators::set_commission_cap(
             RuntimeOrigin::root(),
             Perbill::from_percent(60)
         ));
@@ -6467,7 +6468,7 @@ fn set_min_commission_works_with_admin_origin() {
         );
 
         // setting commission >= min_commission works
-        assert_ok!(Staking::set_commission_cap(
+        assert_ok!(PalletValidators::set_commission_cap(
             RuntimeOrigin::root(),
             Perbill::from_percent(60)
         ));
@@ -6545,7 +6546,7 @@ type PError = pallet_pips::Error<Test>;
 macro_rules! assert_absent_identity {
     ($acc_id:expr) => {
         assert!(
-            Staking::permissioned_identity(mock::Identity::get_identity($acc_id).unwrap())
+            PalletValidators::permissioned_identity(mock::Identity::get_identity($acc_id).unwrap())
                 .is_none()
         );
     };
@@ -6554,7 +6555,7 @@ macro_rules! assert_absent_identity {
 macro_rules! assert_present_identity {
     ($acc_id:expr) => {
         assert!(
-            Staking::permissioned_identity(mock::Identity::get_identity($acc_id).unwrap())
+            PalletValidators::permissioned_identity(mock::Identity::get_identity($acc_id).unwrap())
                 .is_some()
         );
     };
@@ -6563,7 +6564,7 @@ macro_rules! assert_present_identity {
 macro_rules! assert_permissioned_identity_prefs {
     ($id:expr, $i_count:expr, $r_count:expr) => {
         assert_eq!(
-            Staking::permissioned_identity($id).unwrap(),
+            PalletValidators::permissioned_identity($id).unwrap(),
             PermissionedIdentityPrefs {
                 intended_count: $i_count,
                 running_count: $r_count
@@ -6608,7 +6609,7 @@ fn add_nominator_with_invalid_expiry() {
         set_timestamp(Utc::now().timestamp() as u64);
         assert_noop!(
             Staking::nominate(alice_controller_signed, vec![10, 20, 30]),
-            Error::<Test>::StashIdentityNotCDDed,
+            ValidatorsError::<Test>::StashIdentityNotCDDed,
         );
         assert!(Staking::nominators(&alice_acc).is_none());
     });
@@ -6683,7 +6684,7 @@ fn validate_nominators_with_valid_cdd() {
             assert!(!Staking::nominators(&eve_acc).is_none());
 
             set_timestamp((Utc::now().timestamp() as u64) + 800_u64);
-            assert_ok!(Staking::validate_cdd_expiry_nominators(
+            assert_ok!(PalletValidators::validate_cdd_expiry_nominators(
                 RuntimeOrigin::root(),
                 vec![alice_acc.clone(), eve_acc.clone()]
             ));
@@ -6761,7 +6762,7 @@ fn should_remove_permissioned_validators() {
         assert_add_permissioned_validator!(&acc_10);
         assert_add_permissioned_validator!(&acc_20);
 
-        assert_ok!(Staking::remove_permissioned_validator(
+        assert_ok!(PalletValidators::remove_permissioned_validator(
             RuntimeOrigin::root(),
             mock::Identity::get_identity(&acc_20).unwrap()
         ));
@@ -6890,14 +6891,14 @@ fn check_slashing_switch_for_validators_and_nominators() {
         .validator_count(4)
         .build_and_execute(|| {
             // Check the initial state of the Slashing Switch.
-            assert_eq!(Staking::slashing_allowed_for(), SlashingSwitch::Validator);
+            assert_eq!(PalletValidators::slashing_allowed_for(), SlashingSwitch::Validator);
 
             let change_slashing_allowed_for = |switch: SlashingSwitch| {
-                assert_ok!(Staking::change_slashing_allowed_for(
+                assert_ok!(PalletValidators::change_slashing_allowed_for(
                     RuntimeOrigin::root(),
                     switch
                 ));
-                assert_eq!(Staking::slashing_allowed_for(), switch);
+                assert_eq!(PalletValidators::slashing_allowed_for(), switch);
             };
 
             change_slashing_allowed_for(SlashingSwitch::None);
@@ -6911,11 +6912,11 @@ fn offence_is_blocked_when_slashing_status_is_off() {
         .validator_count(4)
         .has_stakers(false)
         .build_and_execute(|| {
-            assert_ok!(Staking::change_slashing_allowed_for(
+            assert_ok!(PalletValidators::change_slashing_allowed_for(
                 RuntimeOrigin::root(),
                 SlashingSwitch::None
             ));
-            assert_eq!(Staking::slashing_allowed_for(), SlashingSwitch::None);
+            assert_eq!(PalletValidators::slashing_allowed_for(), SlashingSwitch::None);
             let initial_balance = Balances::free_balance(10);
             create_on_offence_now(10);
             // No slashing happened.
@@ -6932,12 +6933,12 @@ fn check_slashing_for_different_switches() {
         assert_eq!(Balances::free_balance(21), 2000);
 
         // Switch to ValidatorAndNominator.
-        assert_ok!(Staking::change_slashing_allowed_for(
+        assert_ok!(PalletValidators::change_slashing_allowed_for(
             RuntimeOrigin::root(),
             SlashingSwitch::ValidatorAndNominator
         ));
         assert_eq!(
-            Staking::slashing_allowed_for(),
+            PalletValidators::slashing_allowed_for(),
             SlashingSwitch::ValidatorAndNominator
         );
 
@@ -6987,7 +6988,7 @@ fn chill_from_governance() {
             assert_permissioned_identity_prefs!(entity_id, 2, 2);
 
             // Removes 50 and 60 from being validators
-            assert_ok!(Staking::chill_from_governance(
+            assert_ok!(PalletValidators::chill_from_governance(
                 RuntimeOrigin::root(),
                 entity_id,
                 vec![50, 60]
@@ -6995,8 +6996,8 @@ fn chill_from_governance() {
 
             // No longer permissioned identity
             assert_noop!(
-                Staking::chill_from_governance(RuntimeOrigin::root(), entity_id, vec![50, 60]),
-                Error::<Test>::ValidatorNotFound
+                PalletValidators::chill_from_governance(RuntimeOrigin::root(), entity_id, vec![50, 60]),
+                ValidatorsError::<Test>::ValidatorNotFound
             );
 
             // 70 stash and 71 controller
@@ -7012,13 +7013,13 @@ fn chill_from_governance() {
 
             // Check keys that aren't joined with identity gives error
             assert_noop!(
-                Staking::chill_from_governance(RuntimeOrigin::root(), entity_id_2, vec![90, 95]),
+                PalletValidators::chill_from_governance(RuntimeOrigin::root(), entity_id_2, vec![90, 95]),
                 Error::<Test>::NotStash
             );
 
             // Check key that is not GC gives error
             assert_noop!(
-                Staking::chill_from_governance(Origin::signed(20), entity_id_2, vec![90, 95]),
+                PalletValidators::chill_from_governance(Origin::signed(20), entity_id_2, vec![90, 95]),
                 BadOrigin
             );
         });
