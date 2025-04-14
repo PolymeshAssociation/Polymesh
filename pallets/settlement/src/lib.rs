@@ -193,6 +193,12 @@ pub mod pallet {
         /// An instruction with mediators has been created.
         /// Parameters: [`InstructionId`] of the instruction and the [`IdentityId`] of all mediators.
         InstructionMediators(InstructionId, BTreeSet<IdentityId>),
+        /// An instruction has been sucessfully locked for execution
+        ///
+        /// Parameters:
+        /// - `IdentityId`: The [`IdentityId`] of the caller.
+        /// - `InstructionId`: The [`InstructionId`] of the instruction.
+        InstructionLocked(IdentityId, InstructionId),
     }
 
     pub trait WeightInfo {
@@ -3393,6 +3399,7 @@ impl<T: Config> Pallet<T> {
         InstructionStatuses::<T>::insert(instruction_id, InstructionStatus::LockedForExecution);
         LockedTimestamp::<T>::insert(instruction_id, pallet_timestamp::Pallet::<T>::get());
 
+        Self::deposit_event(Event::InstructionLocked(caller_did, instruction_id));
         Ok(())
     }
 
