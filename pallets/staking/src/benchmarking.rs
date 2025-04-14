@@ -361,7 +361,7 @@ benchmarks! {
         add_permissioned_validator_::<T>(&stash);
         // -----------------------------------------------------------------
 
-         let prefs = ValidatorPrefs::default();
+        let prefs = ValidatorPrefs::default();
         whitelist_account!(controller);
     }: _(RawOrigin::Signed(controller), prefs)
     verify {

@@ -45,7 +45,6 @@ where
     let payout = portion
         * yearly_inflation
             .calculate_for_fraction_times_denominator(npos_token_staked, total_tokens.clone());
-
     let maximum = portion * (yearly_inflation.maximum * total_tokens);
     (payout, maximum)
 }
