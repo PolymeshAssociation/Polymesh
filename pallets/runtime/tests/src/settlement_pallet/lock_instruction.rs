@@ -13,7 +13,7 @@ use polymesh_primitives::{Claim, PortfolioId, PortfolioKind, PortfolioName, Port
 use polymesh_primitives::{ClaimType, Condition, ConditionType, CountryCode, Scope, TrustedIssuer};
 
 use super::setup::create_and_issue_sample_asset_with_venue;
-use crate::storage::{next_block, root, EventTest, User};
+use crate::storage::{root, EventTest, User};
 use crate::{ExtBuilder, TestStorage};
 
 type Asset = pallet_asset::Pallet<TestStorage>;
@@ -200,61 +200,16 @@ fn invalid_inst_status() {
 #[test]
 fn expired_mediator_affirmation() {
     ExtBuilder::default().build().execute_with(|| {
-        let inst_id = InstructionId(0);
         let bob = User::new(AccountKeyring::Bob);
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
-        let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
-        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
 
-        let (asset_id, venue_id) = create_and_issue_sample_asset_with_venue(&alice);
-        let legs = vec![Leg::Fungible {
-            sender: alice_default_portfolio,
-            receiver: bob_default_portfolio,
-            asset_id,
-            amount: 1_000,
-        }];
-
-        Settlement::add_instruction_with_mediators(
-            alice.origin(),
-            venue_id,
-            SettlementType::SettleOnComplianceCheck,
-            None,
-            None,
-            legs.clone(),
-            None,
-            BTreeSet::from([dave.did]).try_into().unwrap(),
-        )
-        .unwrap();
-
-        Settlement::affirm_instruction(
-            bob.origin(),
-            inst_id,
-            BTreeSet::from([bob_default_portfolio]).try_into().unwrap(),
-        )
-        .unwrap();
-
-        Settlement::affirm_instruction(
-            alice.origin(),
-            inst_id,
-            BTreeSet::from([alice_default_portfolio])
-                .try_into()
-                .unwrap(),
-        )
-        .unwrap();
-
-        Settlement::affirm_instruction_as_mediator(
-            dave.origin(),
-            inst_id,
-            Some(Timestamp::get() + 1),
-        )
-        .unwrap();
+        let _ = add_and_affirm_simple_instruction(alice, bob, dave);
 
         Timestamp::set_timestamp(Timestamp::get() + 2);
-        next_block();
 
         assert_noop!(
-            Settlement::lock_instruction(dave.origin(), inst_id, None),
+            Settlement::lock_instruction(dave.origin(), InstructionId(0), None),
             Error::<TestStorage>::MediatorAffirmationExpired
         );
     });
@@ -578,7 +533,12 @@ fn add_and_affirm_simple_instruction(sender: User, receiver: User, mediator: Use
     )
     .unwrap();
 
-    Settlement::affirm_instruction_as_mediator(mediator.origin(), InstructionId(0), None).unwrap();
+    Settlement::affirm_instruction_as_mediator(
+        mediator.origin(),
+        InstructionId(0),
+        Some(Timestamp::get() + 1),
+    )
+    .unwrap();
 
     asset_id
 }
