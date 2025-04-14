@@ -11,6 +11,7 @@ use polymesh_primitives::traits::PortfolioSubTrait;
 use polymesh_primitives::TrustedFor;
 use polymesh_primitives::{Claim, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber};
 use polymesh_primitives::{ClaimType, Condition, ConditionType, CountryCode, Scope, TrustedIssuer};
+use polymesh_runtime_common::Weight;
 
 use super::setup::create_and_issue_sample_asset_with_venue;
 use crate::storage::{root, EventTest, User};
@@ -57,7 +58,7 @@ fn invalid_caller() {
         .unwrap();
 
         assert_noop!(
-            Settlement::lock_instruction(alice.origin(), inst_id, None),
+            Settlement::lock_instruction(alice.origin(), inst_id, Weight::MAX),
             Error::<TestStorage>::CallerIsNotAMediator
         );
     });
@@ -94,7 +95,7 @@ fn mediator_has_not_affirmed() {
         .unwrap();
 
         assert_noop!(
-            Settlement::lock_instruction(dave.origin(), inst_id, None),
+            Settlement::lock_instruction(dave.origin(), inst_id, Weight::MAX),
             Error::<TestStorage>::UnexpectedAffirmationStatus
         );
     });
@@ -133,7 +134,7 @@ fn invalid_type() {
         Settlement::affirm_instruction_as_mediator(dave.origin(), inst_id, None).unwrap();
 
         assert_noop!(
-            Settlement::lock_instruction(dave.origin(), inst_id, None),
+            Settlement::lock_instruction(dave.origin(), inst_id, Weight::MAX),
             Error::<TestStorage>::UnexpectedSettlementType
         );
     });
@@ -172,7 +173,7 @@ fn missing_affirmation() {
         Settlement::affirm_instruction_as_mediator(dave.origin(), inst_id, None).unwrap();
 
         assert_noop!(
-            Settlement::lock_instruction(dave.origin(), inst_id, None),
+            Settlement::lock_instruction(dave.origin(), inst_id, Weight::MAX),
             Error::<TestStorage>::NotAllAffirmationsHaveBeenReceived
         );
     });
@@ -191,7 +192,7 @@ fn invalid_inst_status() {
         InstructionStatuses::<TestStorage>::insert(InstructionId(0), InstructionStatus::Unknown);
 
         assert_noop!(
-            Settlement::lock_instruction(dave.origin(), InstructionId(0), None),
+            Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
             Error::<TestStorage>::InvalidInstructionStatusForExecution
         );
     });
@@ -209,7 +210,7 @@ fn expired_mediator_affirmation() {
         Timestamp::set_timestamp(Timestamp::get() + 2);
 
         assert_noop!(
-            Settlement::lock_instruction(dave.origin(), InstructionId(0), None),
+            Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
             Error::<TestStorage>::MediatorAffirmationExpired
         );
     });
@@ -227,7 +228,7 @@ fn unauthorized_venue() {
         Settlement::set_venue_filtering(alice.origin(), asset_id, true).unwrap();
 
         assert_noop!(
-            Settlement::lock_instruction(dave.origin(), InstructionId(0), None),
+            Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
             Error::<TestStorage>::UnauthorizedVenue
         );
     });
@@ -244,7 +245,7 @@ fn frozen_asset() {
         Asset::freeze(alice.origin(), asset_id).unwrap();
 
         assert_noop!(
-            Settlement::lock_instruction(dave.origin(), InstructionId(0), None),
+            Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
             Error::<TestStorage>::InstructionWithAFrozenAsset
         );
     });
@@ -266,7 +267,7 @@ fn missing_cdd_claim() {
             Identity::invalidate_cdd_claims(root(), cdd_1_id, Timestamp::get(), None).unwrap();
 
             assert_noop!(
-                Settlement::lock_instruction(dave.origin(), InstructionId(0), None),
+                Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
                 Error::<TestStorage>::InstructionWithAnInvalidCDDClaim
             );
         });
@@ -325,7 +326,7 @@ fn receivers_missing_portfolio() {
         Portfolio::delete_portfolio(bob.origin(), PortfolioNumber(1)).unwrap();
 
         assert_noop!(
-            Settlement::lock_instruction(dave.origin(), inst_id, None),
+            Settlement::lock_instruction(dave.origin(), inst_id, Weight::MAX),
             PortfolioError::PortfolioDoesNotExist
         );
     });
@@ -358,7 +359,7 @@ fn receivers_not_compliant() {
         .unwrap();
 
         assert_noop!(
-            Settlement::lock_instruction(dave.origin(), InstructionId(0), None),
+            Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
             Error::<TestStorage>::IntructionReceiverIsNotCompliant
         );
     });
@@ -376,7 +377,7 @@ fn sender_tokens_are_locked() {
         Portfolio::unlock_tokens(&PortfolioId::default_portfolio(alice.did), &asset_id, 1).unwrap();
 
         assert_noop!(
-            Settlement::lock_instruction(dave.origin(), InstructionId(0), None),
+            Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
             PortfolioError::InsufficientTokensLocked
         );
     });
@@ -398,7 +399,7 @@ fn sender_invalid_portfolio_balance() {
         );
 
         assert_noop!(
-            Settlement::lock_instruction(dave.origin(), InstructionId(0), None),
+            Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
             PortfolioError::InsufficientPortfolioBalance
         );
     });
@@ -416,7 +417,7 @@ fn sender_invalid_balance() {
         BalanceOf::<TestStorage>::insert(asset_id, alice.did, 999);
 
         assert_noop!(
-            Settlement::lock_instruction(dave.origin(), InstructionId(0), None),
+            Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
             Error::<TestStorage>::SenderHasInsufficientBalance
         );
     });
@@ -449,8 +450,30 @@ fn senders_not_compliant() {
         .unwrap();
 
         assert_noop!(
-            Settlement::lock_instruction(dave.origin(), InstructionId(0), None),
+            Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
             Error::<TestStorage>::IntructionSenderIsNotCompliant
+        );
+    });
+}
+
+#[test]
+fn invalid_weight() {
+    ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(1);
+
+        let bob = User::new(AccountKeyring::Bob);
+        let dave = User::new(AccountKeyring::Dave);
+        let alice = User::new(AccountKeyring::Alice);
+
+        let _ = add_and_affirm_simple_instruction(alice, bob, dave);
+
+        assert_noop!(
+            Settlement::lock_instruction(
+                dave.origin(),
+                InstructionId(0),
+                Settlement::lock_instruction_minimum_weight()
+            ),
+            Error::<TestStorage>::WeightLimitExceeded
         );
     });
 }
@@ -469,7 +492,7 @@ fn success() {
         assert_ok!(Settlement::lock_instruction(
             dave.origin(),
             InstructionId(0),
-            None
+            Weight::MAX
         ));
 
         assert_eq!(

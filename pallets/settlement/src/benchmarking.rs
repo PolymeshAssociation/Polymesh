@@ -1132,4 +1132,29 @@ benchmarks! {
         let inst_memo = InstructionMemos::<T>::get(&inst_id);
         InstructionStatuses::<T>::insert(inst_id, InstructionStatus::Success(System::<T>::block_number()));
     }
+
+    lock_instruction_common {
+        let f in 1..T::MaxNumberOfFungibleAssets::get();
+        let n in 0..T::MaxNumberOfNFTs::get();
+        let o in 0..T::MaxNumberOfOffChainAssets::get();
+
+        let m = T::MaxInstructionMediators::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let settlement_type = SettlementType::SettleOnComplianceCheck;
+        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
+
+        let inst_id = InstructionId(1);
+        let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, false, false);
+    }: {
+        let caller_did =
+            pallet_identity::Pallet::<T>::ensure_perms(parameters.asset_mediators[0].clone().origin.into()).unwrap();
+        Pallet::<T>::ensure_mediator_has_affirmed_instruction(&caller_did, &inst_id).unwrap();
+        let _ = InstructionDetails::<T>::get(&inst_id);
+        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
+        let _ = AssetCount::from_legs(&inst_legs);
+        InstructionStatuses::<T>::insert(inst_id, InstructionStatus::LockedForExecution);
+        LockedTimestamp::<T>::insert(inst_id, pallet_timestamp::Pallet::<T>::get());
+    }
 }

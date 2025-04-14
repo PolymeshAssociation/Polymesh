@@ -242,6 +242,7 @@ pub mod pallet {
         fn prune_instruction(f: u32, n: u32, o: u32) -> Weight;
         fn reject_instruction_common(f: u32, n: u32, o: u32) -> Weight;
         fn execute_instruction_common(f: u32, n: u32, o: u32) -> Weight;
+        fn lock_instruction_common(f: u32, n: u32, o: u32) -> Weight;
 
         fn add_and_affirm_with_mediators_legs(
             legs: &[Leg],
@@ -435,6 +436,12 @@ pub mod pallet {
             }
 
             Self::reject_instruction(&AssetCount::new(10, 100, 10))
+        }
+        fn lock_instruction(weight_limit: Weight) -> Weight {
+            let minimum_weight = Self::lock_instruction_common(0, 0, 1).saturating_add(
+                Self::validate_execute_instruction_conditions_common(0, 0, 1),
+            );
+            weight_limit.max(minimum_weight)
         }
     }
 
@@ -1462,19 +1469,21 @@ pub mod pallet {
         /// * `origin` - The origin of the call, specifying the caller.
         /// * `instruction_id` - The [`InstructionId`] of the instruction to be locked.
         /// * `weight_limit` - An optional maximum [`Weight`] value to be charged for locking the instruction.
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::lock_instruction(*weight_limit))]
         #[pallet::call_index(24)]
         pub fn lock_instruction(
             origin: OriginFor<T>,
             instruction_id: InstructionId,
-            _weight_limit: Option<Weight>,
-        ) -> DispatchResult {
-            Self::base_lock_instruction(
-                origin,
-                instruction_id,
-                &mut WeightMeter::max_limit(Weight::zero()),
+            weight_limit: Weight,
+        ) -> DispatchResultWithPostInfo {
+            let mut weight_meter = Self::ensure_valid_weight_meter(
+                Self::lock_instruction_minimum_weight(),
+                weight_limit,
             )?;
-            Ok(())
+
+            Self::base_lock_instruction(origin, instruction_id, &mut weight_meter)?;
+
+            Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
         }
     }
 }
@@ -3389,6 +3398,16 @@ impl<T: Config> Pallet<T> {
 
         let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&instruction_id).collect();
         let inst_asset_count = AssetCount::from_legs(&inst_legs);
+
+        Self::check_accrue(
+            weight_meter,
+            <T as Config>::WeightInfo::lock_instruction_common(
+                inst_asset_count.fungible(),
+                inst_asset_count.non_fungible(),
+                inst_asset_count.off_chain(),
+            ),
+        )?;
+
         Self::validate_execute_instruction_conditions(
             &instruction_id,
             &inst_legs,
@@ -3529,7 +3548,7 @@ impl<T: Config> Pallet<T> {
 
     /// Returns the minimum weight for calling the `execute_scheduled_instruction` function.
     fn execute_scheduled_instruction_minimum_weight() -> Weight {
-        <T as Config>::WeightInfo::execute_scheduled_instruction(1, 0, 0)
+        <T as Config>::WeightInfo::execute_scheduled_instruction(0, 0, 1)
     }
 
     /// Returns the worst case weight for an instruction with `f` fungible legs, `n` nfts being transferred and `o` offchain assets.
@@ -3540,16 +3559,24 @@ impl<T: Config> Pallet<T> {
     /// Returns the minimum weight for calling the `execute_manual_instruction` extrinsic.
     /// For the minimum weight the instruction must have on leg and of `SettlementType::SettleOnComplianceCheck`.
     pub fn execute_manual_instruction_minimum_weight() -> Weight {
-        let common_weight = <T as Config>::WeightInfo::manual_execution_common(1, 0, 0);
+        let common_weight = <T as Config>::WeightInfo::manual_execution_common(0, 0, 1);
         let caller_validation_weight = <T as Config>::WeightInfo::valid_caller_mediator();
-        let transfer_weight = <T as Config>::WeightInfo::transfer_assets(1, 0);
+        let transfer_weight = <T as Config>::WeightInfo::transfer_assets(0, 0);
         let lock_assessement_weight = <T as Config>::WeightInfo::maximum_lock_period();
-        let prune_weight = <T as Config>::WeightInfo::prune_instruction(1, 0, 0);
+        let prune_weight = <T as Config>::WeightInfo::prune_instruction(0, 0, 1);
         common_weight
             .saturating_add(caller_validation_weight)
             .saturating_add(transfer_weight)
             .saturating_add(lock_assessement_weight)
             .saturating_add(prune_weight)
+    }
+
+    /// Returns the minimum weight for calling the `lock_instruction` function.
+    pub fn lock_instruction_minimum_weight() -> Weight {
+        let lock_common_weight = <T as Config>::WeightInfo::lock_instruction_common(0, 0, 1);
+        let validate_common_weight =
+            <T as Config>::WeightInfo::validate_execute_instruction_conditions_common(0, 0, 1);
+        lock_common_weight.saturating_add(validate_common_weight)
     }
 
     /// Returns the weight for calling `affirm_with_receipts` while considering the `sender_asset_count` for the sender, `receiver_asset_count`

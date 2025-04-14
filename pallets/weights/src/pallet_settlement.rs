@@ -1287,4 +1287,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     fn execute_instruction_common(_f: u32, _n: u32, _o: u32) -> Weight {
         Weight::zero()
     }
+    fn lock_instruction_common(_f: u32, _n: u32, _o: u32) -> Weight {
+        Weight::zero()
+    }
 }
