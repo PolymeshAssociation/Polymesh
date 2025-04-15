@@ -1112,8 +1112,15 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
-    fn assets_can_be_transferred_common(_n: u32) -> Weight {
-        Weight::zero()
+    // Storage: Settlement InstructionLegStatus (r:100 w:0)
+    // Proof: Settlement InstructionLegStatus (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
+    /// The range of component `n` is `[1, 100]`.
+    fn assets_can_be_transferred_common(n: u32) -> Weight {
+        // Minimum execution time: 10_349 nanoseconds.
+        Weight::from_ref_time(8_639_286)
+            // Standard Error: 4_582
+            .saturating_add(Weight::from_ref_time(3_310_560).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: Asset Frozen (r:10 w:0)
     // Proof: Asset Frozen (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
@@ -1162,8 +1169,15 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(Weight::from_ref_time(10_081_972).saturating_mul(f.into()))
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(f.into())))
     }
-    fn senders_balance_read(_f: u32) -> Weight {
-        Weight::zero()
+    // Storage: Asset BalanceOf (r:10 w:0)
+    // Proof: Asset BalanceOf (max_values: None, max_size: Some(80), added: 2555, mode: MaxEncodedLen)
+    /// The range of component `f` is `[0, 10]`.
+    fn senders_balance_read(f: u32) -> Weight {
+        // Minimum execution time: 356 nanoseconds.
+        Weight::from_ref_time(5_745_265)
+            // Standard Error: 45_011
+            .saturating_add(Weight::from_ref_time(2_833_364).saturating_mul(f.into()))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(f.into())))
     }
     // Storage: Settlement LockedTimestamp (r:1 w:0)
     // Proof: Settlement LockedTimestamp (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
@@ -1284,7 +1298,28 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
     }
-    fn execute_instruction_common(_f: u32, _n: u32, _o: u32) -> Weight {
-        Weight::zero()
+    // Storage: Settlement InstructionLegs (r:121 w:0)
+    // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
+    // Storage: Settlement InstructionMemos (r:1 w:0)
+    // Proof: Settlement InstructionMemos (max_values: None, max_size: Some(48), added: 2523, mode: MaxEncodedLen)
+    // Storage: Settlement InstructionStatuses (r:0 w:1)
+    // Proof: Settlement InstructionStatuses (max_values: None, max_size: Some(21), added: 2496, mode: MaxEncodedLen)
+    /// The range of component `f` is `[1, 10]`.
+    /// The range of component `n` is `[0, 100]`.
+    /// The range of component `o` is `[0, 10]`.
+    fn execute_instruction_common(f: u32, n: u32, o: u32) -> Weight {
+        // Minimum execution time: 114_738 nanoseconds.
+        Weight::from_ref_time(25_442_315)
+            // Standard Error: 150_226
+            .saturating_add(Weight::from_ref_time(5_962_520).saturating_mul(f.into()))
+            // Standard Error: 13_896
+            .saturating_add(Weight::from_ref_time(4_813_235).saturating_mul(n.into()))
+            // Standard Error: 136_082
+            .saturating_add(Weight::from_ref_time(2_691_786).saturating_mul(o.into()))
+            .saturating_add(DbWeight::get().reads(2))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(o.into())))
+            .saturating_add(DbWeight::get().writes(1))
     }
 }

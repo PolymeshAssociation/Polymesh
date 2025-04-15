@@ -203,7 +203,29 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes(2))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
     }
-    fn validate_nft_transfer_common(_n: u32) -> Weight {
-        Weight::zero()
+    // Storage: Nft CollectionAsset (r:1 w:0)
+    // Proof: Nft CollectionAsset (max_values: None, max_size: Some(40), added: 2515, mode: MaxEncodedLen)
+    // Storage: Nft NumberOfNFTs (r:2 w:0)
+    // Proof: Nft NumberOfNFTs (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
+    // Storage: Portfolio PortfolioNFT (r:10 w:0)
+    // Proof: Portfolio PortfolioNFT (max_values: None, max_size: Some(90), added: 2565, mode: MaxEncodedLen)
+    // Storage: Portfolio PortfolioLockedNFT (r:10 w:0)
+    // Proof: Portfolio PortfolioLockedNFT (max_values: None, max_size: Some(90), added: 2565, mode: MaxEncodedLen)
+    // Storage: Asset Frozen (r:1 w:0)
+    // Proof: Asset Frozen (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
+    // Storage: Timestamp Now (r:1 w:0)
+    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
+    // Storage: CddServiceProviders ActiveMembers (r:1 w:0)
+    // Proof Skipped: CddServiceProviders ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
+    // Storage: Identity Claims (r:4 w:0)
+    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
+    /// The range of component `n` is `[1, 10]`.
+    fn validate_nft_transfer_common(n: u32) -> Weight {
+        // Minimum execution time: 75_558 nanoseconds.
+        Weight::from_ref_time(71_076_400)
+            // Standard Error: 22_598
+            .saturating_add(Weight::from_ref_time(6_609_163).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(10))
+            .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(n.into())))
     }
 }

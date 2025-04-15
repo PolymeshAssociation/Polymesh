@@ -177,19 +177,43 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
             .saturating_add(Weight::from_ref_time(23_673).saturating_mul(a.into()))
             .saturating_add(DbWeight::get().reads(1))
     }
-    fn ensure_valid_statistics_common(_n: u32) -> Weight {
-        Weight::zero()
+    // Storage: Asset BalanceOf (r:20 w:0)
+    // Proof: Asset BalanceOf (max_values: None, max_size: Some(80), added: 2555, mode: MaxEncodedLen)
+    // Storage: Asset Assets (r:1 w:0)
+    // Proof Skipped: Asset Assets (max_values: None, max_size: None, mode: Measured)
+    /// The range of component `n` is `[1, 10]`.
+    fn ensure_valid_statistics_common(n: u32) -> Weight {
+        // Minimum execution time: 19_116 nanoseconds.
+        Weight::from_ref_time(14_104_193)
+            // Standard Error: 15_735
+            .saturating_add(Weight::from_ref_time(5_489_167).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(n.into())))
     }
+    // Storage: Statistics TransferConditionExemptEntities (r:1 w:0)
+    // Proof: Statistics TransferConditionExemptEntities (max_values: None, max_size: Some(88), added: 2563, mode: MaxEncodedLen)
     fn is_exempt_from_condition() -> Weight {
-        Weight::zero()
+        // Minimum execution time: 9_860 nanoseconds.
+        Weight::from_ref_time(10_202_000).saturating_add(DbWeight::get().reads(1))
     }
+    // Storage: Timestamp Now (r:1 w:0)
+    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
+    // Storage: Identity Claims (r:1 w:0)
+    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
     fn has_matching_claim() -> Weight {
-        Weight::zero()
+        // Minimum execution time: 15_018 nanoseconds.
+        Weight::from_ref_time(15_091_000).saturating_add(DbWeight::get().reads(2))
     }
+    // Storage: Statistics AssetStats (r:1 w:0)
+    // Proof: Statistics AssetStats (max_values: None, max_size: Some(107), added: 2582, mode: MaxEncodedLen)
     fn asset_stats_read() -> Weight {
-        Weight::zero()
+        // Minimum execution time: 8_364 nanoseconds.
+        Weight::from_ref_time(8_550_000).saturating_add(DbWeight::get().reads(1))
     }
+    // Storage: Statistics AssetTransferCompliances (r:1 w:0)
+    // Proof: Statistics AssetTransferCompliances (max_values: None, max_size: Some(246), added: 2721, mode: MaxEncodedLen)
     fn transfer_compliance_read() -> Weight {
-        Weight::zero()
+        // Minimum execution time: 10_456 nanoseconds.
+        Weight::from_ref_time(10_483_000).saturating_add(DbWeight::get().reads(1))
     }
 }

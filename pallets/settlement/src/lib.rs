@@ -588,9 +588,9 @@ pub mod pallet {
         /// The instruction has an identity with an invalid CDD claim.
         InstructionWithAnInvalidCDDClaim,
         /// One of the instruction receivers is not compliant.
-        IntructionReceiverIsNotCompliant,
+        InstructionReceiverIsNotCompliant,
         /// One of the instruction senders is not compliant.
-        IntructionSenderIsNotCompliant,
+        InstructionSenderIsNotCompliant,
         /// Of of the sender doesn't have enough balance to execute the instruction.
         SenderHasInsufficientBalance,
         /// The instruction is trying to transfer the same nft more than once.
@@ -2188,7 +2188,7 @@ impl<T: Config> Pallet<T> {
                 Some(*did),
                 weight_meter,
             )? {
-                return Err(Error::<T>::IntructionReceiverIsNotCompliant.into());
+                return Err(Error::<T>::InstructionReceiverIsNotCompliant.into());
             }
         }
 
@@ -2228,7 +2228,7 @@ impl<T: Config> Pallet<T> {
                 None,
                 weight_meter,
             )? {
-                return Err(Error::<T>::IntructionSenderIsNotCompliant.into());
+                return Err(Error::<T>::InstructionSenderIsNotCompliant.into());
             }
         }
 
