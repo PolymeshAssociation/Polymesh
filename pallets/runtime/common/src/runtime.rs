@@ -1161,9 +1161,9 @@ macro_rules! runtime_apis {
             impl node_rpc_runtime_api::settlement::SettlementApi<Block> for Runtime {
                 #[inline]
                 fn get_execute_instruction_info(
-                    instruction_id: &InstructionId
+                    instruction_id: InstructionId
                 ) -> Option<ExecuteInstructionInfo> {
-                    Settlement::execute_instruction_info(instruction_id)
+                    Settlement::manual_execution_weight(instruction_id)
                 }
 
                 #[inline]

@@ -2651,7 +2651,6 @@ impl<T: Config> Pallet<T> {
     }
 
     fn get_instruction_asset_count(id: &InstructionId) -> AssetCount {
-        // Get the weight limit for the instruction
         let legs: Vec<(LegId, Leg)> = InstructionLegs::<T>::iter_prefix(id).collect();
         AssetCount::from_legs(&legs)
     }
@@ -3556,13 +3555,16 @@ impl<T: Config> Pallet<T> {
         <T as Config>::WeightInfo::execute_manual_instruction(f + 1, n + 1, o + 1)
     }
 
-    /// Returns the minimum weight for calling the `execute_manual_instruction` extrinsic.
-    /// For the minimum weight the instruction must have on leg and of `SettlementType::SettleOnComplianceCheck`.
+    /// Returns the minimum weight required for calling the `execute_manual_instruction` extrinsic.
+    ///
+    /// This function calculates the minimum weight by considering the following:
+    /// - The instruction must have one leg.
+    /// - The settlement type must be `SettlementType::SettleOnComplianceCheck`.
     pub fn execute_manual_instruction_minimum_weight() -> Weight {
         let common_weight = <T as Config>::WeightInfo::manual_execution_common(0, 0, 1);
-        let caller_validation_weight = <T as Config>::WeightInfo::valid_caller_mediator();
-        let transfer_weight = <T as Config>::WeightInfo::transfer_assets(0, 0);
+        let caller_validation_weight = <T as Config>::WeightInfo::valid_caller_venue();
         let lock_assessement_weight = <T as Config>::WeightInfo::maximum_lock_period();
+        let transfer_weight = <T as Config>::WeightInfo::transfer_assets(0, 0);
         let prune_weight = <T as Config>::WeightInfo::prune_instruction(0, 0, 1);
         common_weight
             .saturating_add(caller_validation_weight)
@@ -3571,7 +3573,7 @@ impl<T: Config> Pallet<T> {
             .saturating_add(prune_weight)
     }
 
-    /// Returns the minimum weight for calling the `lock_instruction` function.
+    /// Returns the minimum weight required for calling the `lock_instruction` extrinsic.
     pub fn lock_instruction_minimum_weight() -> Weight {
         let lock_common_weight = <T as Config>::WeightInfo::lock_instruction_common(0, 0, 1);
         let validate_common_weight =
@@ -3661,36 +3663,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Returns an instance of [`ExecuteInstructionInfo`].
-    pub fn execute_instruction_info(
-        instruction_id: &InstructionId,
-    ) -> Option<ExecuteInstructionInfo> {
-        if !InstructionDetails::<T>::contains_key(instruction_id) {
-            return None;
-        }
-
-        let caller_did = SettlementDID.as_id();
-        let instruction_asset_count = Self::get_instruction_asset_count(instruction_id);
-        let mut weight_meter =
-            WeightMeter::max_limit(Self::execute_manual_instruction_minimum_weight());
-        match Self::execute_instruction_retryable(*instruction_id, caller_did, &mut weight_meter) {
-            Ok(_) => Some(ExecuteInstructionInfo::new(
-                instruction_asset_count.fungible(),
-                instruction_asset_count.non_fungible(),
-                instruction_asset_count.off_chain(),
-                weight_meter.consumed(),
-                None,
-            )),
-            Err(e) => Some(ExecuteInstructionInfo::new(
-                instruction_asset_count.fungible(),
-                instruction_asset_count.non_fungible(),
-                instruction_asset_count.off_chain(),
-                weight_meter.consumed(),
-                Some(e.into()),
-            )),
-        }
-    }
-
     /// Returns an instance of [`AffirmationCount`].
     pub fn affirmation_count(
         instruction_id: InstructionId,
@@ -3769,5 +3741,76 @@ impl<T: Config> Pallet<T> {
         )?;
 
         Ok(weight_meter.consumed())
+    }
+
+    /// Returns the weight for executing `execute_manual_instruction`.
+    /// Note: should only be called as a RPC.
+    pub fn manual_execution_weight(inst_id: InstructionId) -> Option<ExecuteInstructionInfo> {
+        let mut weight_meter =
+            WeightMeter::max_limit(Self::execute_manual_instruction_minimum_weight());
+
+        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
+        let inst_asset_count = AssetCount::from_legs(&inst_legs);
+
+        Self::check_accrue(
+            &mut weight_meter,
+            <T as Config>::WeightInfo::manual_execution_common(
+                inst_asset_count.fungible(),
+                inst_asset_count.non_fungible(),
+                inst_asset_count.off_chain(),
+            ),
+        )
+        .ok()?;
+
+        // Assume mediator is calling
+        let caller_validation_weight = <T as Config>::WeightInfo::valid_caller_venue()
+            .saturating_add(<T as Config>::WeightInfo::valid_caller_mediator());
+
+        let inst_memo = InstructionMemos::<T>::get(&inst_id);
+
+        match InstructionStatuses::<T>::get(&inst_id) {
+            InstructionStatus::Pending | InstructionStatus::Failed => {
+                Self::validate_execute_instruction_conditions(
+                    &inst_id,
+                    &inst_legs,
+                    &inst_asset_count,
+                    &mut weight_meter,
+                )
+                .ok()?;
+                Self::transfer_assets(
+                    inst_id,
+                    inst_legs.clone(),
+                    inst_memo,
+                    SettlementDID.as_id(),
+                    &inst_asset_count,
+                    &mut weight_meter,
+                )
+                .ok()?;
+            }
+            InstructionStatus::LockedForExecution => {
+                Self::transfer_assets(
+                    inst_id,
+                    inst_legs.clone(),
+                    inst_memo,
+                    SettlementDID.as_id(),
+                    &inst_asset_count,
+                    &mut weight_meter,
+                )
+                .ok()?;
+            }
+            _ => return None,
+        }
+
+        Self::prune_instruction(&inst_id, &inst_legs, &inst_asset_count, &mut weight_meter).ok()?;
+
+        Some(ExecuteInstructionInfo::new(
+            inst_asset_count.fungible(),
+            inst_asset_count.non_fungible(),
+            inst_asset_count.off_chain(),
+            weight_meter
+                .consumed()
+                .saturating_add(caller_validation_weight),
+            None,
+        ))
     }
 }
