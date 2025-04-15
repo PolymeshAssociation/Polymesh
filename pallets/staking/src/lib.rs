@@ -284,8 +284,13 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-#[cfg(any(feature = "runtime-benchmarks"))]
+#[cfg(any(feature = "runtime-benchmarks", test))]
 pub mod testing_utils;
+
+#[cfg(test)]
+pub(crate) mod mock;
+#[cfg(test)]
+mod tests;
 
 pub mod inflation;
 pub mod slashing;
@@ -326,15 +331,15 @@ use frame_support::dispatch::DispatchResult;
 /// behavior of the staking pallet in such a network.
 pub trait PermissionedStaking<T: Config> {
     /// Onboard an account.
-    #[cfg(feature = "runtime-benchmarks")]
+    #[cfg(any(feature = "runtime-benchmarks", test))]
     fn onboard_account(_who: &T::AccountId) {}
 
     /// Permission a validator.
-    #[cfg(feature = "runtime-benchmarks")]
+    #[cfg(any(feature = "runtime-benchmarks", test))]
     fn permission_validator(_who: &T::AccountId) {}
 
     /// Setup stash and controller.
-    #[cfg(feature = "runtime-benchmarks")]
+    #[cfg(any(feature = "runtime-benchmarks", test))]
     fn setup_stash_and_controller(_stash: &T::AccountId, _controller: &T::AccountId) {}
 
     /// Check if amount is under the existential deposit.
@@ -383,6 +388,8 @@ pub trait PermissionedStaking<T: Config> {
         Self::who_to_slash() == Some(WhoToSlash::ValidatorAndNominator)
     }
 }
+
+impl<T: Config> PermissionedStaking<T> for () {}
 
 /// Who should be slashed.
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -1118,9 +1125,9 @@ pub trait BenchmarkingConfig {
 /// A mock benchmarking config for pallet-staking.
 ///
 /// Should only be used for testing.
-pub struct SampleBenchmarkingConfig;
+pub struct TestBenchmarkingConfig;
 
-impl BenchmarkingConfig for SampleBenchmarkingConfig {
+impl BenchmarkingConfig for TestBenchmarkingConfig {
     type MaxValidators = frame_support::traits::ConstU32<100>;
     type MaxNominators = frame_support::traits::ConstU32<100>;
 }

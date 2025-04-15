@@ -36,8 +36,17 @@ frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional
 rand_chacha = { version = "0.2", default-features = false, optional = true }
 
 [dev-dependencies]
-pallet-staking-reward-curve = { version = "4.0.0-dev", default-features = false }
 sp-tracing = "6.0.0"
+sp-core = { version = "7.0.0" }
+sp-npos-elections = { version = "4.0.0-dev" }
+pallet-balances = { version = "4.0.0-dev" }
+pallet-timestamp = { version = "4.0.0-dev" }
+pallet-staking-reward-curve = { version = "4.0.0-dev", default-features = false }
+pallet-bags-list = { version = "4.0.0-dev" }
+substrate-test-utils = { version = "4.0.0-dev" }
+frame-benchmarking = { version = "4.0.0-dev" }
+frame-election-provider-support = { version = "4.0.0-dev" }
+rand_chacha = { version = "0.2" }
 
 [features]
 default = ["std"]

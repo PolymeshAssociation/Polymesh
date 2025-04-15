@@ -267,7 +267,7 @@ macro_rules! misc_pallet_impls {
             type TargetList = pallet_staking::UseValidatorsMap<Self>;
             type MaxUnlockingChunks = polymesh_runtime_common::MaxUnlockingChunks;
             type OnStakerSlash = pallet_staking::OnStakerSlashMock<Self>;
-            type BenchmarkingConfig = pallet_staking::SampleBenchmarkingConfig;
+            type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
             type WeightInfo = polymesh_weights::pallet_staking::SubstrateWeight;
             type Permissioned = Validators;
         }

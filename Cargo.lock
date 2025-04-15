@@ -4813,6 +4813,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-bags-list"
+version = "4.0.0-dev"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v6-monthly-2023-03#74ef745933703849d756dc16d41d938157d6943a"
+dependencies = [
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances 4.0.0-dev",
+ "parity-scale-codec 3.6.9",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-tracing",
+]
+
+[[package]]
 name = "pallet-balances"
 version = "0.1.0"
 dependencies = [
@@ -5512,9 +5532,12 @@ dependencies = [
  "log",
  "pallet-authorship",
  "pallet-babe",
+ "pallet-bags-list",
+ "pallet-balances 4.0.0-dev",
  "pallet-identity",
  "pallet-session",
  "pallet-staking-reward-curve",
+ "pallet-timestamp",
  "parity-scale-codec 3.6.9",
  "polymesh-primitives",
  "rand_chacha 0.2.2",
@@ -5529,6 +5552,7 @@ dependencies = [
  "sp-std",
  "sp-tracing",
  "static_assertions",
+ "substrate-test-utils",
 ]
 
 [[package]]
@@ -10763,7 +10787,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "digest 0.10.7",
  "rand 0.8.5",
  "static_assertions",

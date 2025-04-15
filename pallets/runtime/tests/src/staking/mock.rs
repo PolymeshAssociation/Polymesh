@@ -608,7 +608,7 @@ impl pallet_staking::Config for Test {
     type TargetList = pallet_staking::UseValidatorsMap<Self>;
     type MaxUnlockingChunks = MaxUnlockingChunks;
     type OnStakerSlash = OnStakerSlashMock<Self>;
-    type BenchmarkingConfig = pallet_staking::SampleBenchmarkingConfig;
+    type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
     type WeightInfo = polymesh_weights::pallet_staking::SubstrateWeight;
     type Permissioned = Validators;
 }

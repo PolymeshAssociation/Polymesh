@@ -45,7 +45,7 @@ pub fn add_permissioned_validator_<T: Config>(stash: &T::AccountId) {
 }
 
 pub fn minimum_balance<T: Config>() -> T::CurrencyBalance {
-    T::Currency::minimum_balance().max(1_000_000u32.into())
+    T::Currency::minimum_balance().max(1u32.into())
 }
 
 /// Create a DID for account `acc` using the specified investor ID.
