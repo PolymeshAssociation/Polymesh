@@ -37,7 +37,7 @@ sp_api::decl_runtime_apis! {
         ///     "params": [1]
         ///   }'
         /// ```
-        fn get_execute_instruction_info(instruction_id: &InstructionId) -> Option<ExecuteInstructionInfo>;
+        fn get_execute_instruction_info(instruction_id: InstructionId) -> Option<ExecuteInstructionInfo>;
 
         /// Returns an [`AffirmationCount`] instance containing the number of assets being sent/received from `portfolios`,
         /// and the number of off-chain assets in the instruction.
