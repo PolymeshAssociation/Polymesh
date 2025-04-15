@@ -117,24 +117,24 @@ impl<T: Config> Pallet<T> {
         }
 
         // Polymesh change:
-        //  ledger.active <= minimum_balance()
-        let used_weight =
-            if ledger.unlocking.is_empty() && ledger.active <= T::Currency::minimum_balance() {
-                // This account must have called `unbond()` with some value that caused the active
-                // portion to fall below existential deposit + will have no more unlocking chunks
-                // left. We can now safely remove all staking-related information.
-                Self::kill_stash(&stash, num_slashing_spans)?;
-                // Remove the lock.
-                T::Currency::remove_lock(STAKING_ID, &stash);
+        //   use T::Permissioned::reapable(amount)
+        let used_weight = if ledger.unlocking.is_empty() && T::Permissioned::reapable(ledger.active)
+        {
+            // This account must have called `unbond()` with some value that caused the active
+            // portion to fall below existential deposit + will have no more unlocking chunks
+            // left. We can now safely remove all staking-related information.
+            Self::kill_stash(&stash, num_slashing_spans)?;
+            // Remove the lock.
+            T::Currency::remove_lock(STAKING_ID, &stash);
 
-                <T as Config>::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
-            } else {
-                // This was the consequence of a partial unbond. just update the ledger and move on.
-                Self::update_ledger(&controller, &ledger);
+            <T as Config>::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
+        } else {
+            // This was the consequence of a partial unbond. just update the ledger and move on.
+            Self::update_ledger(&controller, &ledger);
 
-                // This is only an update, so we use less overall weight.
-                <T as Config>::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
-            };
+            // This is only an update, so we use less overall weight.
+            <T as Config>::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
+        };
 
         // `old_total` should never be less than the new total because
         // `consolidate_unlocked` strictly subtracts balance.

@@ -1823,14 +1823,14 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
 
-            let ed = T::Currency::minimum_balance();
             // Polymesh change:
-            //   total_balance(stash) <= ed
-            let reapable = T::Currency::total_balance(&stash) <= ed
-                || Self::ledger(Self::bonded(stash.clone()).ok_or(Error::<T>::NotStash)?)
-                    .map(|l| l.total)
-                    .unwrap_or_default()
-                    < ed;
+            //   use T::Permissioned::reapable(amount)
+            let reapable = T::Permissioned::reapable(T::Currency::total_balance(&stash))
+                || T::Permissioned::reapable(
+                    Self::ledger(Self::bonded(stash.clone()).ok_or(Error::<T>::NotStash)?)
+                        .map(|l| l.total)
+                        .unwrap_or_default(),
+                );
             ensure!(reapable, Error::<T>::FundedTarget);
 
             Self::kill_stash(&stash, num_slashing_spans)?;

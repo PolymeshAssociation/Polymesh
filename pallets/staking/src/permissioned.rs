@@ -6,6 +6,7 @@ use sp_std::prelude::*;
 
 use frame_support::traits::schedule::Anon;
 use frame_support::traits::schedule::{DispatchTime, HIGHEST_PRIORITY};
+use frame_support::traits::Currency;
 
 use polymesh_primitives::constants::GC_PALLET_ID;
 use polymesh_primitives::IdentityId;
@@ -74,6 +75,11 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
             auth_id,
         )
         .expect("Failed to join identity as key");
+    }
+
+    /// Check if amount is under the existential deposit.
+    fn reapable(amount: BalanceOf<T>) -> bool {
+        amount <= T::Currency::minimum_balance()
     }
 
     fn on_validate(stash: &T::AccountId, commission: Perbill) -> DispatchResult {

@@ -3,10 +3,11 @@ use sp_runtime::{Deserialize, Serialize};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::dispatch::DispatchResult;
+use frame_support::traits::Currency;
 use scale_info::TypeInfo;
 use sp_runtime::{Perbill, RuntimeDebug};
 
-use crate::{ActiveEraInfo, Config};
+use crate::{ActiveEraInfo, BalanceOf, Config};
 
 /// A trait used by the staking pallet for permissioned staking.
 ///
@@ -21,6 +22,11 @@ pub trait PermissionedStaking<T: Config> {
     /// Setup stash and controller.
     #[cfg(feature = "runtime-benchmarks")]
     fn setup_stash_and_controller(_stash: &T::AccountId, _controller: &T::AccountId) {}
+
+    /// Check if amount is under the existential deposit.
+    fn reapable(amount: BalanceOf<T>) -> bool {
+        amount < T::Currency::minimum_balance()
+    }
 
     /// On validate hook.
     fn on_validate(_who: &T::AccountId, _commission: Perbill) -> DispatchResult {
