@@ -3706,7 +3706,6 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns a vector containing all errors for the execution. An empty vec means there's no error.
-    #[rustfmt::skip]
     pub fn execute_instruction_report(
         inst_id: &InstructionId,
         weight_meter: &mut WeightMeter,
@@ -3735,8 +3734,7 @@ impl<T: Config> Pallet<T> {
             execution_errors.push(e);
         }
 
-        if let Err(e) = Self::ensure_assets_can_be_transferred(inst_id, &inst_legs, weight_meter)
-        {
+        if let Err(e) = Self::ensure_assets_can_be_transferred(inst_id, &inst_legs, weight_meter) {
             execution_errors.push(e);
         }
 
@@ -3745,5 +3743,31 @@ impl<T: Config> Pallet<T> {
         }
 
         execution_errors
+    }
+
+    /// Returns the weight for executing `lock_instruction`.
+    pub fn lock_instruction_weight(inst_id: &InstructionId) -> Result<Weight, DispatchError> {
+        let mut weight_meter = WeightMeter::max_limit(Self::lock_instruction_minimum_weight());
+
+        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(inst_id).collect();
+        let inst_asset_count = AssetCount::from_legs(&inst_legs);
+
+        Self::check_accrue(
+            &mut weight_meter,
+            <T as Config>::WeightInfo::lock_instruction_common(
+                inst_asset_count.fungible(),
+                inst_asset_count.non_fungible(),
+                inst_asset_count.off_chain(),
+            ),
+        )?;
+
+        Self::validate_execute_instruction_conditions(
+            inst_id,
+            &inst_legs,
+            &inst_asset_count,
+            &mut weight_meter,
+        )?;
+
+        Ok(weight_meter.consumed())
     }
 }

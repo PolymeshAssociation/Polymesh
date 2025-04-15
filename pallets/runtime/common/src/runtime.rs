@@ -745,7 +745,7 @@ macro_rules! runtime_apis {
         use polymesh_primitives::compliance_manager::{AssetComplianceResult, ComplianceReport};
         use polymesh_primitives::{
             asset::CheckpointId, IdentityId, Index, NFTs,PortfolioId, Signatory, Ticker,
-            WeightMeter, IdentityClaim
+            WeightMeter, IdentityClaim,
         };
 
         /// The address format for describing accounts.
@@ -1178,6 +1178,11 @@ macro_rules! runtime_apis {
                 fn get_execute_instruction_report(instruction_id: InstructionId) -> Vec<DispatchError> {
                     let mut weight_meter = WeightMeter::max_limit_no_minimum();
                     Settlement::execute_instruction_report(&instruction_id, &mut weight_meter)
+                }
+
+                #[inline]
+                fn lock_instruction_weight(instruction_id: InstructionId) -> FrameResult<Weight, DispatchError> {
+                    Settlement::lock_instruction_weight(&instruction_id)
                 }
 
             }

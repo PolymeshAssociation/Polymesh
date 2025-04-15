@@ -16,6 +16,7 @@
 //! Runtime API definition for Settlement module.
 
 use frame_support::dispatch::DispatchError;
+use frame_support::weights::Weight;
 use sp_std::vec::Vec;
 
 use polymesh_primitives::settlement::{AffirmationCount, ExecuteInstructionInfo, InstructionId};
@@ -62,5 +63,17 @@ sp_api::decl_runtime_apis! {
         ///   }'
         /// ```
         fn get_execute_instruction_report(instruction_id: InstructionId) -> Vec<DispatchError>;
+
+        /// Returns the weight for calling `lock_instruction` for the given `instruction_id`.
+        ///
+        /// ```ignore
+        /// curl http://localhost:9933 -H "Content-Type: application/json" -d '{
+        ///     "id":1,
+        ///     "jsonrpc":"2.0",
+        ///     "method": "settlement_lockInstructionWeight",
+        ///     "params": [1]
+        ///   }'
+        /// ```
+        fn lock_instruction_weight(instruction_id: InstructionId) -> Result<Weight, DispatchError>;
     }
 }

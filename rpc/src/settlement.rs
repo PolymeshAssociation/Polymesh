@@ -17,6 +17,7 @@ use sp_std::vec::Vec;
 use std::sync::Arc;
 
 use frame_support::dispatch::DispatchError;
+use frame_support::weights::Weight;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
 use jsonrpsee::types::error::{CallError, ErrorObject};
@@ -53,6 +54,13 @@ pub trait SettlementApi<BlockHash> {
         instruction_id: InstructionId,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<DispatchError>>;
+
+    #[method(name = "settlement_lockInstructionWeight")]
+    fn lock_instruction_weight(
+        &self,
+        instruction_id: InstructionId,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Result<Weight, DispatchError>>;
 }
 
 /// An implementation of Settlement specific RPC methods.
@@ -132,6 +140,26 @@ where
                 CallError::Custom(ErrorObject::owned(
                     Error::RuntimeError.into(),
                     "Unable to call get_execute_instruction_report runtime",
+                    Some(e.to_string()),
+                ))
+                .into()
+            })
+    }
+
+    fn lock_instruction_weight(
+        &self,
+        instruction_id: InstructionId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Result<Weight, DispatchError>> {
+        let api = self.client.runtime_api();
+        // If the block hash is not supplied assume the best block.
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.lock_instruction_weight(at_hash, instruction_id)
+            .map_err(|e| {
+                CallError::Custom(ErrorObject::owned(
+                    Error::RuntimeError.into(),
+                    "Unable to call lock_instruction_weight runtime",
                     Some(e.to_string()),
                 ))
                 .into()
