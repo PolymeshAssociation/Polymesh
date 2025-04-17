@@ -19,7 +19,6 @@ pallet-asset = { workspace = true, default-features = false }
 pallet-balances = { workspace = true, default-features = false }
 pallet-base = { workspace = true, default-features = false }
 pallet-sto = { workspace = true, default-features = false }
-pallet-bridge = { workspace = true, default-features = false }
 pallet-committee = { workspace = true, default-features = false }
 pallet-compliance-manager = { workspace = true, default-features = false }
 pallet-corporate-actions = { workspace = true, default-features = false }
@@ -130,7 +129,6 @@ std = [
     "pallet-babe/std",
     "pallet-balances/std",
     "pallet-sto/std",
-    "pallet-bridge/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
     "pallet-contracts/std",

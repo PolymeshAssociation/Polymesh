@@ -4872,28 +4872,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-bridge"
-version = "1.0.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "pallet-balances 0.1.0",
- "pallet-base",
- "pallet-identity",
- "pallet-multisig",
- "pallet-scheduler",
- "parity-scale-codec 3.6.9",
- "polymesh-primitives",
- "scale-info",
- "serde",
- "sp-core",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-committee"
 version = "0.1.0"
 dependencies = [
@@ -6168,7 +6146,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh"
-version = "7.2.0"
+version = "7.3.0"
 dependencies = [
  "clap",
  "frame-benchmarking",
@@ -6184,7 +6162,6 @@ dependencies = [
  "pallet-asset",
  "pallet-babe",
  "pallet-balances 0.1.0",
- "pallet-bridge",
  "pallet-committee",
  "pallet-corporate-actions",
  "pallet-external-agents",
@@ -6387,6 +6364,7 @@ dependencies = [
  "frame-election-provider-support",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-authorship",
  "pallet-balances 0.1.0",
  "pallet-committee",
@@ -6425,7 +6403,6 @@ dependencies = [
  "pallet-babe",
  "pallet-balances 0.1.0",
  "pallet-base",
- "pallet-bridge",
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-contracts",
@@ -6508,7 +6485,6 @@ dependencies = [
  "pallet-babe",
  "pallet-balances 0.1.0",
  "pallet-base",
- "pallet-bridge",
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-contracts",
@@ -6593,7 +6569,6 @@ dependencies = [
  "pallet-babe",
  "pallet-balances 0.1.0",
  "pallet-base",
- "pallet-bridge",
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-contracts",
@@ -6684,7 +6659,6 @@ dependencies = [
  "pallet-babe",
  "pallet-balances 0.1.0",
  "pallet-base",
- "pallet-bridge",
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-contracts",

@@ -20,6 +20,7 @@
 pub mod cdd_check;
 pub mod fee_details;
 pub mod impls;
+pub mod migration;
 pub mod runtime;
 
 pub use frame_support::{

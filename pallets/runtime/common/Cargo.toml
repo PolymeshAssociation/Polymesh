@@ -19,6 +19,7 @@ pallet-group-rpc-runtime-api = { workspace = true, default-features = false}
 
 # General
 smallvec = "1.4.0"
+log = "0.4.8"
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }

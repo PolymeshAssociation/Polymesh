@@ -55,7 +55,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
     // N.B. `d` is unpinned from the binary version
-    spec_version: 7_002_000,
+    spec_version: 7_003_000,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 7,
@@ -341,7 +341,8 @@ construct_runtime!(
 
         MultiSig: pallet_multisig::{Pallet, Call, Config, Storage, Event<T>} = 15,
 
-        Bridge: pallet_bridge::{Pallet, Storage} = 16,
+        // Removed:
+        //Bridge = 16,
 
         // Staking: Genesis config deps: Bridge, Balances, Indices, Identity, Babe, Timestamp, Committees
         Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>} = 17,

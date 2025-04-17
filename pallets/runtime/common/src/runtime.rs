@@ -288,8 +288,6 @@ macro_rules! misc_pallet_impls {
             type MaxSigners = MaxMultiSigSigners;
         }
 
-        impl pallet_bridge::Config for Runtime {}
-
         impl pallet_portfolio::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type WeightInfo = polymesh_weights::pallet_portfolio::SubstrateWeight;
@@ -481,6 +479,8 @@ macro_rules! misc_pallet_impls {
             pub const PreimageMaxSize: u32 = 4096 * 1024;
             pub const PreimageBaseDeposit: Balance = polymesh_runtime_common::deposit(2, 64);
             pub const PreimageByteDeposit: Balance = polymesh_runtime_common::deposit(0, 1);
+
+            pub const BridgePalletName: &'static str = "Bridge";
         }
 
         impl pallet_preimage::Config for Runtime {
@@ -784,6 +784,7 @@ macro_rules! runtime_apis {
             (
               pallet_scheduler::migration::v4::CleanupAgendas<Runtime>,
               pallet_contracts::Migration<Runtime>,
+              polymesh_runtime_common::migration::RemovePallet<BridgePalletName, <Runtime as frame_system::Config>::DbWeight>,
             )
         >;
 
