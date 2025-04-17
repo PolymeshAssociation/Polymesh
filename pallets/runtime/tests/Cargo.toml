@@ -27,7 +27,7 @@ pallet-relayer = { workspace = true, default-features = false }
 pallet-settlement = { workspace = true, default-features = false }
 pallet-staking = { workspace = true, default-features = false }
 pallet-validators = { workspace = true, default-features = false }
-pallet-staking-rpc-runtime-api = { workspace = true, default-features = false }
+pallet-staking-runtime-api = { workspace = true, default-features = false }
 pallet-statistics = { workspace = true, default-features = false }
 pallet-sto = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }

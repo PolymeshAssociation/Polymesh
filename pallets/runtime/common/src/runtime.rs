@@ -1036,9 +1036,9 @@ macro_rules! runtime_apis {
                 }
             }
 
-            impl pallet_staking_rpc_runtime_api::StakingApi<Block> for Runtime {
-                fn get_curve() -> Vec<(Perbill, Perbill)> {
-                    RewardCurve::get().points.to_vec()
+            impl pallet_staking_runtime_api::StakingApi<Block, Balance> for Runtime {
+                fn nominations_quota(balance: Balance) -> u32 {
+                    Staking::api_nominations_quota(balance)
                 }
             }
 

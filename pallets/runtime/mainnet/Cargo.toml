@@ -45,7 +45,7 @@ polymesh-contracts = { workspace = true, default-features = false }
 
 # RPC
 node-rpc-runtime-api = { workspace = true, default-features = false }
-pallet-staking-rpc-runtime-api = { workspace = true, default-features = false }
+pallet-staking-runtime-api = { workspace = true, default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { workspace = true, default-features = false }
 
 # Others
@@ -152,7 +152,7 @@ std = [
     "pallet-scheduler/std",
     "pallet-session/std",
     "pallet-settlement/std",
-    "pallet-staking-rpc-runtime-api/std",
+    "pallet-staking-runtime-api/std",
     "pallet-staking/std",
     "pallet-validators/std",
     "pallet-statistics/std",
