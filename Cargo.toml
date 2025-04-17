@@ -107,7 +107,6 @@ members = [
     "pallets/asset",
     "pallets/balances",
     "pallets/base",
-    "pallets/bridge",
     "pallets/committee",
     "pallets/compliance-manager",
     "pallets/contracts",
@@ -159,7 +158,6 @@ exclude = [
 pallet-asset = { path = "pallets/asset", default-features = false }
 pallet-balances = { path = "pallets/balances", default-features = false }
 pallet-base = { path = "pallets/base", default-features = false }
-pallet-bridge = { path = "pallets/bridge", default-features = false }
 pallet-committee = { path = "pallets/committee", default-features = false }
 pallet-compliance-manager = { path = "pallets/compliance-manager", default-features = false }
 pallet-corporate-actions = { path = "pallets/corporate-actions", default-features = false }
@@ -263,7 +261,6 @@ rand_chacha = { version = "0.3", default-features = false }
 [dependencies]
 pallet-asset = { workspace = true }
 pallet-balances = { workspace = true, default-features = false  }
-pallet-bridge = { workspace = true, default-features = false }
 pallet-committee = { workspace = true, default-features = false }
 pallet-corporate-actions = { workspace = true, default-features = false }
 pallet-external-agents = { workspace = true, default-features = false }

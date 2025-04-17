@@ -21,6 +21,7 @@ pub mod cdd_check;
 pub mod fee_details;
 pub mod impls;
 pub mod runtime;
+pub mod migration;
 
 pub use frame_support::{
     dispatch::{DispatchClass, GetDispatchInfo, Weight},
