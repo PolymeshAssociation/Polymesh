@@ -15,34 +15,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support::{
-  traits::Get,
-	weights::RuntimeDbWeight,
-};
 use core::marker::PhantomData;
+use frame_support::{traits::Get, weights::RuntimeDbWeight};
 use sp_io::{hashing::twox_128, storage::clear_prefix, KillStorageResult};
 
 pub struct RemovePallet<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>(
-	PhantomData<(P, DbWeight)>,
+    PhantomData<(P, DbWeight)>,
 );
 impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits::OnRuntimeUpgrade
-	for RemovePallet<P, DbWeight>
+    for RemovePallet<P, DbWeight>
 {
-	fn on_runtime_upgrade() -> frame_support::weights::Weight {
-		let hashed_prefix = twox_128(P::get().as_bytes());
-		let keys_removed = match clear_prefix(&hashed_prefix, None) {
-			KillStorageResult::AllRemoved(value) => value,
-			KillStorageResult::SomeRemaining(value) => {
-				log::error!(
-					"`clear_prefix` failed to remove all keys for {}. THIS SHOULD NEVER HAPPEN! 🚨",
-					P::get()
-				);
-				value
-			},
-		} as u64;
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        let hashed_prefix = twox_128(P::get().as_bytes());
+        let keys_removed = match clear_prefix(&hashed_prefix, None) {
+            KillStorageResult::AllRemoved(value) => value,
+            KillStorageResult::SomeRemaining(value) => {
+                log::error!(
+                    "`clear_prefix` failed to remove all keys for {}. THIS SHOULD NEVER HAPPEN! 🚨",
+                    P::get()
+                );
+                value
+            }
+        } as u64;
 
-		log::info!("Removed {} {} keys 🧹", keys_removed, P::get());
+        log::info!("Removed {} {} keys 🧹", keys_removed, P::get());
 
-		DbWeight::get().reads_writes(keys_removed + 1, keys_removed)
-	}
+        DbWeight::get().reads_writes(keys_removed + 1, keys_removed)
+    }
 }
