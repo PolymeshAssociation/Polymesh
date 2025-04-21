@@ -175,30 +175,6 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(crate) fn deposit_event)]
     pub enum Event<T: Config> {
-        /// The nominator has been rewarded by this amount.
-        Rewarded {
-            identity: IdentityId,
-            stash: T::AccountId,
-            amount: BalanceOf<T>,
-        },
-        /// An account has bonded this amount. \[stash, amount\]
-        ///
-        /// NOTE: This event is only emitted when funds are bonded via a dispatchable. Notably,
-        /// it will not be emitted for staking rewards when they are added to stake.
-        Bonded {
-            identity: IdentityId,
-            stash: T::AccountId,
-            amount: BalanceOf<T>,
-        },
-        /// An account has unbonded this amount.
-        Unbonded {
-            identity: IdentityId,
-            stash: T::AccountId,
-            amount: BalanceOf<T>,
-        },
-
-        // Polymesh change
-        // -----------------------------------------------------------------
         /// User has updated their nominations.
         Nominated {
             nominator_identity: IdentityId,
@@ -235,7 +211,6 @@ pub mod pallet {
             old_commission_cap: Perbill,
             new_commission_cap: Perbill,
         },
-        // -----------------------------------------------------------------
     }
 
     #[pallet::error]
