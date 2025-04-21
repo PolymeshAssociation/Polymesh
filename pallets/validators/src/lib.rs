@@ -31,7 +31,6 @@ pub use permissioned::PolymeshConvertCurve;
 pub mod types;
 pub use pallet_staking::PermissionedStaking;
 
-use codec::{Decode, Encode};
 use frame_support::traits::schedule::Anon;
 use frame_support::traits::IsSubType;
 use frame_support::{
@@ -47,7 +46,6 @@ use sp_staking::EraIndex;
 use sp_std::prelude::*;
 use sp_std::vec;
 
-use polymesh_primitives::storage_migration_ver;
 use polymesh_primitives::{IdentityId, GC_DID};
 
 pub(crate) use pallet_staking::{
@@ -71,8 +69,6 @@ macro_rules! log {
 	};
 }
 
-storage_migration_ver!(2);
-
 /// Weight functions needed for pallet_staking.
 pub trait WeightInfo {
     fn add_permissioned_validator() -> Weight;
@@ -90,7 +86,10 @@ pub use pallet::*;
 pub mod pallet {
     use super::*;
 
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
     #[pallet::pallet]
+    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     #[pallet::config]
@@ -145,10 +144,6 @@ pub mod pallet {
     #[pallet::getter(fn validator_commission_cap)]
     pub type ValidatorCommissionCap<T: Config> = StorageValue<_, Perbill, ValueQuery>;
 
-    #[pallet::storage]
-    #[pallet::getter(fn storage_version)]
-    pub type PolymeshStorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
-
     #[pallet::genesis_config]
     #[derive(Default)]
     pub struct GenesisConfig {
@@ -162,7 +157,6 @@ pub mod pallet {
         fn build(&self) {
             SlashingAllowedFor::<T>::put(self.slashing_allowed_for);
             ValidatorCommissionCap::<T>::put(self.validator_commission_cap);
-            PolymeshStorageVersion::<T>::put(Version::new(2));
 
             for &did in &self.validators {
                 crate::log!(trace, "inserting genesis permissioned validator: {:?}", did,);
