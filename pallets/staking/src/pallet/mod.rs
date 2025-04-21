@@ -72,6 +72,38 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 
 storage_migration_ver!(2);
 
+mod migrations {
+    use super::pallet::*;
+    use frame_support::{
+        pallet_prelude::*,
+        storage_alias,
+        traits::{Get, GetStorageVersion},
+    };
+
+    /// Alias to the old storage item used for release versioning. Obsolete since v13.
+    #[storage_alias]
+    type StorageVersion<T: Config> = StorageValue<Pallet<T>, u8, ValueQuery>;
+
+    pub fn migrate_v13<T: Config>() -> Weight {
+        let in_code = Pallet::<T>::current_storage_version();
+        let on_chain = Pallet::<T>::on_chain_storage_version();
+
+        // We need to remove the old obsolete storage version and
+        // initialize the pallet storage version.
+        if in_code == 13 && on_chain < 13 {
+            // The old storage item is not used anymore, so we can just remove it.
+            StorageVersion::<T>::kill();
+            // Make sure that the new storage version is initialized.
+            in_code.put::<Pallet<T>>();
+
+            crate::log!(info, "v13 applied successfully");
+            T::DbWeight::get().reads_writes(1, 2)
+        } else {
+            T::DbWeight::get().reads(1)
+        }
+    }
+}
+
 #[frame_support::pallet]
 pub mod pallet {
     use frame_election_provider_support::ElectionDataProvider;
@@ -80,8 +112,12 @@ pub mod pallet {
 
     use super::*;
 
+    /// The in-code storage version.
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(13);
+
     #[pallet::pallet]
     #[pallet::generate_store(pub(crate) trait Store)]
+    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     /// Possible operations on the configuration values of this pallet.
@@ -643,7 +679,6 @@ pub mod pallet {
     pub type ValidatorCommissionCap<T: Config> = StorageValue<_, Perbill, ValueQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn storage_version)]
     pub type PolymeshStorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
 
     // -----------------------------------------------------------------
@@ -976,7 +1011,7 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            Weight::zero()
+            migrations::migrate_v13::<T>()
         }
 
         fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
