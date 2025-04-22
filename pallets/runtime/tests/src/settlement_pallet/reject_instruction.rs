@@ -5,11 +5,12 @@ use pallet_portfolio::PortfolioLockedAssets;
 use pallet_settlement::{AffirmsReceived, InstructionAffirmsPending, InstructionLegs};
 use pallet_settlement::{Error, InstructionLegStatus, InstructionStatuses};
 use pallet_settlement::{InstructionMediatorsAffirmations, UserAffirmations};
-use polymesh_primitives::settlement::{AssetCount, InstructionId, InstructionStatus};
+use polymesh_primitives::settlement::{AssetCount, InstructionId};
+use polymesh_primitives::settlement::{InstructionStatus, SettlementType};
 use polymesh_primitives::{PortfolioId, PortfolioNumber};
 use polymesh_runtime_common::Weight;
 
-use super::lock_instruction::add_and_affirm_simple_instruction;
+use super::setup::add_and_affirm_simple_instruction;
 use crate::storage::User;
 use crate::{ExtBuilder, TestStorage};
 
@@ -24,7 +25,12 @@ fn invalid_caller() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let _ = add_and_affirm_simple_instruction(alice, bob, dave);
+        let _ = add_and_affirm_simple_instruction(
+            alice,
+            bob,
+            dave,
+            SettlementType::SettleOnComplianceCheck,
+        );
 
         assert_noop!(
             Settlement::reject_instruction_as_mediator(eve.origin(), InstructionId(0), None),
@@ -49,7 +55,12 @@ fn locked_for_execution() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let _ = add_and_affirm_simple_instruction(alice, bob, dave);
+        let _ = add_and_affirm_simple_instruction(
+            alice,
+            bob,
+            dave,
+            SettlementType::SettleOnComplianceCheck,
+        );
 
         assert_ok!(Settlement::lock_instruction(
             dave.origin(),
@@ -71,7 +82,12 @@ fn invalid_weight() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let _ = add_and_affirm_simple_instruction(alice, bob, dave);
+        let _ = add_and_affirm_simple_instruction(
+            alice,
+            bob,
+            dave,
+            SettlementType::SettleOnComplianceCheck,
+        );
 
         assert_noop!(
             Settlement::reject_instruction_as_mediator(
@@ -91,7 +107,12 @@ fn success() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let asset_id = add_and_affirm_simple_instruction(alice, bob, dave);
+        let asset_id = add_and_affirm_simple_instruction(
+            alice,
+            bob,
+            dave,
+            SettlementType::SettleOnComplianceCheck,
+        );
 
         assert_ok!(Settlement::reject_instruction_as_mediator(
             dave.origin(),

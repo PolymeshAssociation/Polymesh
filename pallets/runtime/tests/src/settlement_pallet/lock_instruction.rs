@@ -1,11 +1,10 @@
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_ok, assert_noop};
 use sp_keyring::AccountKeyring;
 use sp_std::collections::btree_set::BTreeSet;
 
 use pallet_asset::BalanceOf;
 use pallet_portfolio::PortfolioAssetBalances;
 use pallet_settlement::{Error, Event, InstructionStatuses, LockedTimestamp};
-use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::settlement::{InstructionId, InstructionStatus, Leg, SettlementType};
 use polymesh_primitives::traits::PortfolioSubTrait;
 use polymesh_primitives::TrustedFor;
@@ -13,7 +12,7 @@ use polymesh_primitives::{Claim, PortfolioId, PortfolioKind, PortfolioName, Port
 use polymesh_primitives::{ClaimType, Condition, ConditionType, CountryCode, Scope, TrustedIssuer};
 use polymesh_runtime_common::Weight;
 
-use super::setup::create_and_issue_sample_asset_with_venue;
+use super::setup::{add_and_affirm_simple_instruction, create_and_issue_sample_asset_with_venue};
 use crate::storage::{root, EventTest, User};
 use crate::{ExtBuilder, TestStorage};
 
@@ -186,7 +185,12 @@ fn invalid_inst_status() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let _ = add_and_affirm_simple_instruction(alice, bob, dave);
+        let _ = add_and_affirm_simple_instruction(
+            alice,
+            bob,
+            dave,
+            SettlementType::SettleOnComplianceCheck,
+        );
 
         // Force an error
         InstructionStatuses::<TestStorage>::insert(InstructionId(0), InstructionStatus::Unknown);
@@ -205,7 +209,12 @@ fn expired_mediator_affirmation() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let _ = add_and_affirm_simple_instruction(alice, bob, dave);
+        let _ = add_and_affirm_simple_instruction(
+            alice,
+            bob,
+            dave,
+            SettlementType::SettleOnComplianceCheck,
+        );
 
         Timestamp::set_timestamp(Timestamp::get() + 2);
 
@@ -223,7 +232,12 @@ fn unauthorized_venue() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let asset_id = add_and_affirm_simple_instruction(alice, bob, dave);
+        let asset_id = add_and_affirm_simple_instruction(
+            alice,
+            bob,
+            dave,
+            SettlementType::SettleOnComplianceCheck,
+        );
 
         Settlement::set_venue_filtering(alice.origin(), asset_id, true).unwrap();
 
@@ -241,7 +255,12 @@ fn frozen_asset() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let asset_id = add_and_affirm_simple_instruction(alice, bob, dave);
+        let asset_id = add_and_affirm_simple_instruction(
+            alice,
+            bob,
+            dave,
+            SettlementType::SettleOnComplianceCheck,
+        );
         Asset::freeze(alice.origin(), asset_id).unwrap();
 
         assert_noop!(
@@ -261,7 +280,12 @@ fn missing_cdd_claim() {
             let dave = User::new(AccountKeyring::Dave);
             let alice = User::new(AccountKeyring::Alice);
 
-            let _ = add_and_affirm_simple_instruction(alice, bob, dave);
+            let _ = add_and_affirm_simple_instruction(
+                alice,
+                bob,
+                dave,
+                SettlementType::SettleOnComplianceCheck,
+            );
 
             let cdd_1_id = Identity::get_identity(&AccountKeyring::Eve.to_account_id()).unwrap();
             Identity::invalidate_cdd_claims(root(), cdd_1_id, Timestamp::get(), None).unwrap();
@@ -339,7 +363,12 @@ fn receivers_not_compliant() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let asset_id = add_and_affirm_simple_instruction(alice, bob, dave);
+        let asset_id = add_and_affirm_simple_instruction(
+            alice,
+            bob,
+            dave,
+            SettlementType::SettleOnComplianceCheck,
+        );
 
         ComplianceManager::add_compliance_requirement(
             alice.origin(),
@@ -372,7 +401,12 @@ fn sender_tokens_are_locked() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let asset_id = add_and_affirm_simple_instruction(alice, bob, dave);
+        let asset_id = add_and_affirm_simple_instruction(
+            alice,
+            bob,
+            dave,
+            SettlementType::SettleOnComplianceCheck,
+        );
 
         Portfolio::unlock_tokens(&PortfolioId::default_portfolio(alice.did), &asset_id, 1).unwrap();
 
@@ -390,7 +424,12 @@ fn sender_invalid_portfolio_balance() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let asset_id = add_and_affirm_simple_instruction(alice, bob, dave);
+        let asset_id = add_and_affirm_simple_instruction(
+            alice,
+            bob,
+            dave,
+            SettlementType::SettleOnComplianceCheck,
+        );
 
         PortfolioAssetBalances::<TestStorage>::insert(
             &PortfolioId::default_portfolio(alice.did),
@@ -412,7 +451,12 @@ fn sender_invalid_balance() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let asset_id = add_and_affirm_simple_instruction(alice, bob, dave);
+        let asset_id = add_and_affirm_simple_instruction(
+            alice,
+            bob,
+            dave,
+            SettlementType::SettleOnComplianceCheck,
+        );
 
         BalanceOf::<TestStorage>::insert(asset_id, alice.did, 999);
 
@@ -430,7 +474,12 @@ fn senders_not_compliant() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let asset_id = add_and_affirm_simple_instruction(alice, bob, dave);
+        let asset_id = add_and_affirm_simple_instruction(
+            alice,
+            bob,
+            dave,
+            SettlementType::SettleOnComplianceCheck,
+        );
 
         ComplianceManager::add_compliance_requirement(
             alice.origin(),
@@ -465,7 +514,12 @@ fn invalid_weight() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let _ = add_and_affirm_simple_instruction(alice, bob, dave);
+        let _ = add_and_affirm_simple_instruction(
+            alice,
+            bob,
+            dave,
+            SettlementType::SettleOnComplianceCheck,
+        );
 
         assert_noop!(
             Settlement::lock_instruction(
@@ -487,7 +541,12 @@ fn success() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let _ = add_and_affirm_simple_instruction(alice, bob, dave);
+        let _ = add_and_affirm_simple_instruction(
+            alice,
+            bob,
+            dave,
+            SettlementType::SettleOnComplianceCheck,
+        );
 
         assert_ok!(Settlement::lock_instruction(
             dave.origin(),
@@ -508,64 +567,4 @@ fn success() {
             EventTest::Settlement(Event::InstructionLocked(dave.did, InstructionId(0)))
         );
     });
-}
-
-/// 1. Creates and issues an asset with a venue;
-/// 2. Creates a settlement instruction with the asset;
-/// 3. Affirms the instruction;
-///
-/// `Note:` The instruction transfers 1_000 tokens from the sender's default portfolio to the receiver's default portfolio.
-pub(crate) fn add_and_affirm_simple_instruction(
-    sender: User,
-    receiver: User,
-    mediator: User,
-) -> AssetId {
-    let (asset_id, venue_id) = create_and_issue_sample_asset_with_venue(&sender);
-
-    let rcv_default_portfolio = PortfolioId::default_portfolio(receiver.did);
-    let sender_default_portfolio = PortfolioId::default_portfolio(sender.did);
-
-    let legs = vec![Leg::Fungible {
-        sender: sender_default_portfolio,
-        receiver: rcv_default_portfolio,
-        asset_id,
-        amount: 1_000,
-    }];
-
-    Settlement::add_instruction_with_mediators(
-        sender.origin(),
-        venue_id,
-        SettlementType::SettleOnComplianceCheck,
-        None,
-        None,
-        legs.clone(),
-        None,
-        BTreeSet::from([mediator.did]).try_into().unwrap(),
-    )
-    .unwrap();
-
-    Settlement::affirm_instruction(
-        receiver.origin(),
-        InstructionId(0),
-        BTreeSet::from([rcv_default_portfolio]).try_into().unwrap(),
-    )
-    .unwrap();
-
-    Settlement::affirm_instruction(
-        sender.origin(),
-        InstructionId(0),
-        BTreeSet::from([sender_default_portfolio])
-            .try_into()
-            .unwrap(),
-    )
-    .unwrap();
-
-    Settlement::affirm_instruction_as_mediator(
-        mediator.origin(),
-        InstructionId(0),
-        Some(Timestamp::get() + 1),
-    )
-    .unwrap();
-
-    asset_id
 }

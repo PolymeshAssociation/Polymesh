@@ -22,7 +22,7 @@ type Settlement = pallet_settlement::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 
 #[test]
-fn execute_instruction_storage_pruning() {
+fn storage_pruning() {
     ExtBuilder::default().build().execute_with(|| {
         let instruction_id = InstructionId(0);
         let bob = User::new(AccountKeyring::Bob);
@@ -108,7 +108,7 @@ fn execute_instruction_storage_pruning() {
 }
 
 #[test]
-fn execute_instruction_storage_rollback() {
+fn storage_rollback() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
 
