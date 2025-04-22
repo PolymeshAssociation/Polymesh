@@ -515,7 +515,11 @@ fn success() {
 /// 3. Affirms the instruction;
 ///
 /// `Note:` The instruction transfers 1_000 tokens from the sender's default portfolio to the receiver's default portfolio.
-fn add_and_affirm_simple_instruction(sender: User, receiver: User, mediator: User) -> AssetId {
+pub(crate) fn add_and_affirm_simple_instruction(
+    sender: User,
+    receiver: User,
+    mediator: User,
+) -> AssetId {
     let (asset_id, venue_id) = create_and_issue_sample_asset_with_venue(&sender);
 
     let rcv_default_portfolio = PortfolioId::default_portfolio(receiver.did);

@@ -418,7 +418,8 @@ pub mod pallet {
                 inst_asset_count.non_fungible(),
                 inst_asset_count.off_chain(),
             );
-            let caller_validation = Self::valid_caller_portfolio();
+            let caller_validation =
+                Self::valid_caller_venue().saturating_add(Self::valid_caller_mediator());
             let prune = Self::prune_instruction(
                 inst_asset_count.fungible(),
                 inst_asset_count.non_fungible(),
@@ -2301,7 +2302,7 @@ impl<T: Config> Pallet<T> {
 
         let _ = InstructionMediatorsAffirmations::<T>::clear_prefix(
             inst_id,
-            T::MaxInstructionMediators::get(),
+            u32::MAX,
             None,
         );
 
@@ -3617,9 +3618,9 @@ impl<T: Config> Pallet<T> {
 
     /// Returns the miminum weight for calling the `reject_instruction` extrinsic.
     fn reject_instruction_minimum_weight() -> Weight {
-        let reject_common = <T as Config>::WeightInfo::reject_instruction_common(1, 0, 0);
-        let caller_validation = <T as Config>::WeightInfo::valid_caller_mediator();
-        let prune = <T as Config>::WeightInfo::prune_instruction(1, 0, 0);
+        let reject_common = <T as Config>::WeightInfo::reject_instruction_common(0, 0, 1);
+        let caller_validation = <T as Config>::WeightInfo::valid_caller_venue();
+        let prune = <T as Config>::WeightInfo::prune_instruction(0, 0, 1);
 
         reject_common
             .saturating_add(caller_validation)
