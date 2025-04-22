@@ -1,4 +1,4 @@
-use frame_support::{assert_ok, assert_noop};
+use frame_support::{assert_noop, assert_ok};
 use sp_keyring::AccountKeyring;
 use sp_std::collections::btree_set::BTreeSet;
 
@@ -25,6 +25,7 @@ type System = frame_system::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
+type NFTError = pallet_nft::Error<TestStorage>;
 
 #[test]
 fn invalid_caller() {
@@ -232,14 +233,14 @@ fn unauthorized_venue() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let asset_id = add_and_affirm_simple_instruction(
+        let (asset_id, _) = add_and_affirm_simple_instruction(
             alice,
             bob,
             dave,
             SettlementType::SettleOnComplianceCheck,
         );
 
-        Settlement::set_venue_filtering(alice.origin(), asset_id, true).unwrap();
+        Settlement::set_venue_filtering(dave.origin(), asset_id, true).unwrap();
 
         assert_noop!(
             Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
@@ -255,13 +256,13 @@ fn frozen_asset() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let asset_id = add_and_affirm_simple_instruction(
+        let (asset_id, _) = add_and_affirm_simple_instruction(
             alice,
             bob,
             dave,
             SettlementType::SettleOnComplianceCheck,
         );
-        Asset::freeze(alice.origin(), asset_id).unwrap();
+        Asset::freeze(dave.origin(), asset_id).unwrap();
 
         assert_noop!(
             Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
@@ -292,7 +293,7 @@ fn missing_cdd_claim() {
 
             assert_noop!(
                 Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
-                Error::<TestStorage>::InstructionWithAnInvalidCDDClaim
+                NFTError::InvalidNFTTransferInvalidReceiverCDD
             );
         });
 }
@@ -363,7 +364,7 @@ fn receivers_not_compliant() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let asset_id = add_and_affirm_simple_instruction(
+        let (asset_id, _) = add_and_affirm_simple_instruction(
             alice,
             bob,
             dave,
@@ -371,7 +372,7 @@ fn receivers_not_compliant() {
         );
 
         ComplianceManager::add_compliance_requirement(
-            alice.origin(),
+            dave.origin(),
             asset_id,
             Default::default(),
             vec![Condition {
@@ -401,7 +402,7 @@ fn sender_tokens_are_locked() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let asset_id = add_and_affirm_simple_instruction(
+        let (asset_id, _) = add_and_affirm_simple_instruction(
             alice,
             bob,
             dave,
@@ -424,7 +425,7 @@ fn sender_invalid_portfolio_balance() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let asset_id = add_and_affirm_simple_instruction(
+        let (asset_id, _) = add_and_affirm_simple_instruction(
             alice,
             bob,
             dave,
@@ -451,7 +452,7 @@ fn sender_invalid_balance() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let asset_id = add_and_affirm_simple_instruction(
+        let (asset_id, _) = add_and_affirm_simple_instruction(
             alice,
             bob,
             dave,
@@ -474,7 +475,7 @@ fn senders_not_compliant() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let asset_id = add_and_affirm_simple_instruction(
+        let (asset_id, _) = add_and_affirm_simple_instruction(
             alice,
             bob,
             dave,
@@ -482,7 +483,7 @@ fn senders_not_compliant() {
         );
 
         ComplianceManager::add_compliance_requirement(
-            alice.origin(),
+            dave.origin(),
             asset_id,
             vec![Condition {
                 condition_type: ConditionType::IsPresent(Claim::Jurisdiction(

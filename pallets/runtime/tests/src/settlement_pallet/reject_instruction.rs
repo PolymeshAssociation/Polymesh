@@ -107,7 +107,7 @@ fn success() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let asset_id = add_and_affirm_simple_instruction(
+        let (asset_id, _) = add_and_affirm_simple_instruction(
             alice,
             bob,
             dave,
@@ -117,7 +117,7 @@ fn success() {
         assert_ok!(Settlement::reject_instruction_as_mediator(
             dave.origin(),
             InstructionId(0),
-            Some(AssetCount::new(1, 0, 0))
+            Some(AssetCount::new(1, 1, 0))
         ));
 
         assert_eq!(

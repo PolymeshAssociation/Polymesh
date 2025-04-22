@@ -3486,6 +3486,8 @@ impl<T: AssetConfig> Pallet<T> {
             BalanceOf::<T>::get(&asset_id, &sender_pid.did) >= transfer_value,
             Error::<T>::InsufficientBalance
         );
+        Portfolio::<T>::ensure_portfolio_validity(&receiver_pid)?;
+        Portfolio::<T>::ensure_sufficient_balance(&sender_pid, &asset_id, transfer_value)?;
 
         Self::unverified_transfer_asset(
             sender_pid,

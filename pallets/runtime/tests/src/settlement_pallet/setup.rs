@@ -4,12 +4,15 @@ use pallet_settlement::VenueCounter;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::settlement::{InstructionId, Leg};
 use polymesh_primitives::settlement::{SettlementType, VenueDetails, VenueId, VenueType};
-use polymesh_primitives::{BlockNumber, PortfolioId};
+use polymesh_primitives::{BlockNumber, NFTId, NFTs, PortfolioId, WeightMeter};
 
 use crate::asset_pallet::setup::create_and_issue_sample_asset;
+use crate::asset_pallet::setup::create_and_issue_sample_nft;
 use crate::storage::User;
 use crate::TestStorage;
 
+type Asset = pallet_asset::Pallet<TestStorage>;
+type Nft = pallet_nft::Pallet<TestStorage>;
 type Settlement = pallet_settlement::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 
@@ -29,31 +32,61 @@ pub fn create_and_issue_sample_asset_with_venue(asset_owner: &User) -> (AssetId,
     (asset_id, Some(venue_id))
 }
 
-/// 1. Creates and issues an asset with a venue;
-/// 2. Creates a settlement instruction with the asset;
-/// 3. Affirms the instruction;
+/// 1. The mediator creates and issues one fungible and one non-fungible asset;
+/// 2. The mediator transfers the assets to the sender;
+/// 2. The mediator creates a settlement instruction with the assets;
+/// 3. All parties affirm the instruction;
 ///
-/// `Note:` The instruction transfers 1_000 tokens from the sender's default portfolio to the receiver's default portfolio.
+/// `Note:` The instruction transfers 1_000 tokens and 1 NFT from the sender's default portfolio to the receiver's default portfolio.
 pub fn add_and_affirm_simple_instruction(
     sender: User,
     receiver: User,
     mediator: User,
     settlement_type: SettlementType<BlockNumber>,
-) -> AssetId {
-    let (asset_id, venue_id) = create_and_issue_sample_asset_with_venue(&sender);
-
+) -> (AssetId, AssetId) {
+    let med_default_portfolio = PortfolioId::default_portfolio(mediator.did);
     let rcv_default_portfolio = PortfolioId::default_portfolio(receiver.did);
     let sender_default_portfolio = PortfolioId::default_portfolio(sender.did);
 
-    let legs = vec![Leg::Fungible {
-        sender: sender_default_portfolio,
-        receiver: rcv_default_portfolio,
+    // The mediator creates both assets to allow controller transfer tests
+    let (asset_id, venue_id) = create_and_issue_sample_asset_with_venue(&mediator);
+    let nft_asset_id = create_and_issue_sample_nft(&mediator);
+    Asset::simplified_fungible_transfer(
         asset_id,
-        amount: 1_000,
-    }];
+        med_default_portfolio,
+        sender_default_portfolio,
+        1_000,
+        InstructionId(0),
+        None,
+        mediator.did,
+        &mut WeightMeter::max_limit_no_minimum(),
+    )
+    .unwrap();
+    Nft::simplified_nft_transfer(
+        med_default_portfolio,
+        sender_default_portfolio,
+        NFTs::new_unverified(nft_asset_id, vec![NFTId(1)]),
+        InstructionId(0),
+        None,
+        mediator.did,
+    )
+    .unwrap();
 
+    let legs = vec![
+        Leg::Fungible {
+            sender: sender_default_portfolio,
+            receiver: rcv_default_portfolio,
+            asset_id,
+            amount: 1_000,
+        },
+        Leg::NonFungible {
+            sender: sender_default_portfolio,
+            receiver: rcv_default_portfolio,
+            nfts: NFTs::new_unverified(nft_asset_id, vec![NFTId(1)]),
+        },
+    ];
     Settlement::add_instruction_with_mediators(
-        sender.origin(),
+        mediator.origin(),
         venue_id,
         settlement_type,
         None,
@@ -87,5 +120,5 @@ pub fn add_and_affirm_simple_instruction(
     )
     .unwrap();
 
-    asset_id
+    (asset_id, nft_asset_id)
 }
