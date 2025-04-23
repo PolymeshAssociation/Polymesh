@@ -7,7 +7,7 @@ use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 
 /// Preference of an identity regarding validation.
-#[derive(Decode, Encode, RuntimeDebug, TypeInfo)]
+#[derive(Decode, Encode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct PermissionedIdentityPrefs {
     /// Intended number of validators an identity wants to run.

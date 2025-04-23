@@ -80,6 +80,47 @@ pub trait WeightInfo {
     fn validate_cdd_expiry_nominators(n: u32) -> Weight;
 }
 
+mod migrations {
+    use super::*;
+    use frame_support::traits::{Get, GetStorageVersion};
+
+    pub fn migrate_v1<T: Config>() -> Weight {
+        let in_code = Pallet::<T>::current_storage_version();
+        let on_chain = Pallet::<T>::on_chain_storage_version();
+
+        if on_chain < 1 {
+            let old_pallet = b"Staking";
+            let new_pallet = Pallet::<T>::name().as_bytes();
+            // Move: PermissionedIdentity
+            frame_support::storage::migration::move_storage_from_pallet(
+                b"PermissionedIdentity",
+                old_pallet,
+                new_pallet,
+            );
+            // Move: SlashingAllowedFor
+            frame_support::storage::migration::move_storage_from_pallet(
+                b"SlashingAllowedFor",
+                old_pallet,
+                new_pallet,
+            );
+            // Move: ValidatorCommissionCap
+            frame_support::storage::migration::move_storage_from_pallet(
+                b"ValidatorCommissionCap",
+                old_pallet,
+                new_pallet,
+            );
+            in_code.put::<Pallet<T>>();
+
+            log::info!(
+                target: crate::LOG_TARGET,
+                "Moved some storage from pallet Staking to pallet Validators",
+            );
+            return T::DbWeight::get().reads_writes(3, 3);
+        }
+        Weight::zero()
+    }
+}
+
 pub use pallet::*;
 
 #[frame_support::pallet]
@@ -129,7 +170,6 @@ pub mod pallet {
 
     /// Entities that are allowed to run operator/validator nodes.
     #[pallet::storage]
-    #[pallet::unbounded]
     #[pallet::getter(fn permissioned_identity)]
     pub type PermissionedIdentity<T: Config> =
         StorageMap<_, Twox64Concat, IdentityId, PermissionedIdentityPrefs, OptionQuery>;
@@ -235,6 +275,13 @@ pub mod pallet {
         CommissionTooHigh,
         /// New commission must be different from previous commission.
         CommissionUnchanged,
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            migrations::migrate_v1::<T>()
+        }
     }
 
     #[pallet::call]
