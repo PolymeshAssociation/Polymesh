@@ -872,6 +872,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         Self::ensure_sender_owns_nfts(&sender_pid, &nfts)?;
         Self::ensure_nfts_are_not_locked(&sender_pid, &nfts)?;
+        Portfolio::<T>::ensure_portfolio_validity(&receiver_pid)?;
         Self::unverified_nfts_transfer(&sender_pid, &receiver_pid, &nfts);
         Self::deposit_event(Event::NFTPortfolioUpdated(
             caller_did,
