@@ -27,8 +27,8 @@ use alloc::{
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::Add;
+use frame_support::parameter_types;
 use frame_support::traits::Get;
-use frame_support::weights::Weight;
 use polymesh_primitives_derive::{SliceU8StrongTyped, StringStrongTyped, VecU8StrongTyped};
 use scale_info::TypeInfo;
 use sp_runtime::{generic, traits::BlakeTwo256, MultiSignature};
@@ -280,6 +280,23 @@ pub use portfolio::{Fund, FundDescription, PortfolioUpdateReason};
 /// Custom WeightMeter definitions.
 pub mod weight_meter;
 pub use weight_meter::WeightMeter;
+
+/// Re-exports of some common types.
+pub use frame_support::weights::{
+    constants::{WEIGHT_REF_TIME_PER_MICROS, WEIGHT_REF_TIME_PER_NANOS},
+    RuntimeDbWeight, Weight,
+};
+parameter_types! {
+    /// Polymesh custom db weights.
+    /// When the read/writes are cached/buffered, they take 25/100 microseconds on NVMe disks.
+    /// When they are uncached, they take 250/450 microseconds on NVMe disks.
+    /// Most read will be cached and writes will be buffered in production.
+    /// We are taking a number slightly higher than what cached suggest to allow for some extra breathing room.
+    pub const RocksDbWeight: RuntimeDbWeight = RuntimeDbWeight {
+        read: 50 * WEIGHT_REF_TIME_PER_MICROS, // ~50 µs @ 100,000 items
+        write: 200 * WEIGHT_REF_TIME_PER_MICROS, // ~200 µs @ 100,000 items
+    };
+}
 
 /// Settlement type definitions.
 pub mod settlement;

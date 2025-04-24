@@ -89,11 +89,10 @@ use pallet_identity::{
 use pallet_permissions::with_call_metadata;
 use polymesh_primitives::multisig::{ProposalState, ProposalVoteCount};
 use polymesh_primitives::{
+    RocksDbWeight as DbWeight,
     extract_auth, storage_migration_ver, AuthorizationData, IdentityId, KeyRecord, Permissions,
     Signatory,
 };
-//use polymesh_runtime_common::RocksDbWeight as DbWeight;
-use frame_support::weights::constants::RocksDbWeight as DbWeight;
 
 pub trait WeightInfo {
     fn create_multisig(signers: u32) -> Weight;

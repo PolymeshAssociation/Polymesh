@@ -6769,7 +6769,7 @@ dependencies = [
  "pallet-treasury",
  "pallet-utility",
  "polymesh-contracts",
- "polymesh-runtime-common",
+ "polymesh-primitives",
  "sp-std",
 ]
 

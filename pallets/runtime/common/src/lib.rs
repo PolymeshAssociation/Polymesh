@@ -42,6 +42,7 @@ pub use sp_runtime::{Perbill, Permill};
 
 use pallet_balances as balances;
 use polymesh_primitives::constants::currency::*;
+pub use polymesh_primitives::RocksDbWeight;
 use polymesh_primitives::{Balance, BlockNumber, IdentityId, Moment};
 
 pub use cdd_check::CddChecker;
@@ -85,14 +86,6 @@ parameter_types! {
     pub const BlockExecutionWeight: Weight = Weight::from_ref_time(WEIGHT_REF_TIME_PER_MILLIS.saturating_mul(20));
     /// 0.65 ms is needed to process an empty extrinsic.
     pub const ExtrinsicBaseWeight: Weight = Weight::from_ref_time(WEIGHT_REF_TIME_PER_MICROS.saturating_mul(650));
-    /// When the read/writes are cached/buffered, they take 25/100 microseconds on NVMe disks.
-    /// When they are uncached, they take 250/450 microseconds on NVMe disks.
-    /// Most read will be cached and writes will be buffered in production.
-    /// We are taking a number slightly higher than what cached suggest to allow for some extra breathing room.
-    pub const RocksDbWeight: RuntimeDbWeight = RuntimeDbWeight {
-        read: 50 * WEIGHT_REF_TIME_PER_MICROS,   // ~50 µs @ 100,000 items
-        write: 200 * WEIGHT_REF_TIME_PER_MICROS, // ~200 µs @ 100,000 items
-    };
     /// This implies a 100 POLYX fee per MB of transaction length
     pub const TransactionByteFee: Balance = 10 * MILLICENTS;
     /// We want the noop transaction to cost 0.03 POLYX
