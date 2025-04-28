@@ -48,7 +48,7 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
+use polymesh_primitives::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_scheduler using the Substrate node and recommended hardware.
 pub struct SubstrateWeight;

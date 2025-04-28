@@ -79,7 +79,7 @@ macro_rules! misc_pallet_impls {
             /// Maximum number of block number to block hash mappings to keep (oldest pruned first).
             type BlockHashCount = polymesh_runtime_common::BlockHashCount;
             /// The weight of database operations that the runtime can invoke.
-            type DbWeight = polymesh_runtime_common::RocksDbWeight;
+            type DbWeight = polymesh_primitives::RocksDbWeight;
             /// Version of the runtime.
             type Version = Version;
             /// Converts a module to the index of the module in `construct_runtime!`.
