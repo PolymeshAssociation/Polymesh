@@ -2447,7 +2447,7 @@ fn settle_manual_instruction() {
             ),
             DispatchErrorWithPostInfo {
                 post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
-                error: Error::Unauthorized.into()
+                error: Error::CallerIsNotAParty.into()
             }
         );
         // Ensure correct error message when wrong number of legs is given
@@ -3130,7 +3130,7 @@ fn add_and_execute_offchain_instruction() {
             ),
             DispatchErrorWithPostInfo {
                 post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
-                error: Error::Unauthorized.into()
+                error: Error::CallerIsNotAParty.into()
             }
         );
         assert_ok!(Settlement::execute_manual_instruction(
@@ -4171,7 +4171,7 @@ fn reject_instruction_as_mediator() {
 
         assert_noop!(
             Settlement::reject_instruction_as_mediator(dave.origin(), InstructionId(0), None),
-            Error::CallerIsNotAMediator
+            Error::CallerIsNotAParty
         );
         assert_ok!(Settlement::reject_instruction_as_mediator(
             charlie.origin(),
