@@ -2973,7 +2973,10 @@ impl<T: Config> Pallet<T> {
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         if let Some(caller_pid) = caller_pid {
-            Self::check_accrue(weight_meter, <T as Config>::WeightInfo::valid_caller_portfolio())?;
+            Self::check_accrue(
+                weight_meter,
+                <T as Config>::WeightInfo::valid_caller_portfolio(),
+            )?;
 
             T::Portfolio::ensure_portfolio_custody_and_permission(
                 caller_pid, caller_did, caller_sk,
@@ -2983,14 +2986,20 @@ impl<T: Config> Pallet<T> {
         }
 
         if let Some(venue_id) = venue_id {
-            Self::check_accrue(weight_meter, <T as Config>::WeightInfo::valid_caller_venue())?;
+            Self::check_accrue(
+                weight_meter,
+                <T as Config>::WeightInfo::valid_caller_venue(),
+            )?;
 
             if Self::ensure_venue_creator(&venue_id, &caller_did).is_ok() {
                 return Ok(());
             }
         }
 
-        Self::check_accrue(weight_meter, <T as Config>::WeightInfo::valid_caller_mediator())?;
+        Self::check_accrue(
+            weight_meter,
+            <T as Config>::WeightInfo::valid_caller_mediator(),
+        )?;
         if Self::ensure_mediator(&inst_id, &caller_did).is_ok() {
             return Ok(());
         }
@@ -3208,7 +3217,7 @@ impl<T: Config> Pallet<T> {
                     weight_meter,
                 )
             }
-            Leg::NonFungible { sender, receiver, nfts} => {
+            Leg::NonFungible { sender, receiver, nfts } => {
                 <Nft<T>>::nft_transfer_report(
                     &sender,
                     &receiver,
