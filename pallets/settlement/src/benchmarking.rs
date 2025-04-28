@@ -796,4 +796,115 @@ benchmarks! {
 
         let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, false, false);
     }: _(parameters.asset_mediators[0].origin.clone(), InstructionId(1), None)
+
+    valid_caller_portfolio {
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
+        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
+        let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, 10, 0, 0, 0, false, false);
+    }: {
+        Pallet::<T>::ensure_valid_caller(
+            alice.did(),
+            None,
+            parameters.sdr_portfolios().first().cloned(),
+            None,
+            &InstructionId(1),
+            &Vec::new(),
+            &mut WeightMeter::max_limit_no_minimum(),
+        )
+        .unwrap();
+    }
+
+    valid_caller_venue {
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
+        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
+        let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, 10, 0, 0, 0, false, false);
+    }: {
+        Pallet::<T>::ensure_valid_caller(
+            alice.did(),
+            None,
+            None,
+            Some(venue_id),
+            &InstructionId(1),
+            &Vec::new(),
+            &mut WeightMeter::max_limit_no_minimum(),
+        )
+        .unwrap();
+    }
+
+    valid_caller_mediator {
+        let m = T::MaxInstructionMediators::get();
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
+        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
+        let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, 10, 0, 0, m, false, false);
+    }: {
+        Pallet::<T>::ensure_valid_caller(
+            parameters.asset_mediators[0].did(),
+            None,
+            None,
+            None,
+            &InstructionId(1),
+            &Vec::new(),
+            &mut WeightMeter::max_limit_no_minimum(),
+        )
+        .unwrap();
+    }
+
+    prune_instruction {
+        let f in 0..T::MaxNumberOfFungibleAssets::get();
+        let n in 0..T::MaxNumberOfNFTs::get();
+        let o in 0..T::MaxNumberOfOffChainAssets::get();
+
+        let m = T::MaxInstructionMediators::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let settlement_type = SettlementType::SettleManual(0u32.into());
+        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
+
+        let inst_id = InstructionId(1);
+        let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, false, false);
+        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
+        let inst_asset_count = AssetCount::from_legs(&inst_legs);
+    }: {
+        Pallet::<T>::prune_instruction(
+            &inst_id,
+            &inst_legs,
+            &inst_asset_count,
+            &mut WeightMeter::max_limit_no_minimum()
+        )
+        .unwrap()
+    }
+
+    reject_instruction_common {
+        let f in 0..T::MaxNumberOfFungibleAssets::get();
+        let n in 0..T::MaxNumberOfNFTs::get();
+        let o in 0..T::MaxNumberOfOffChainAssets::get();
+
+        let m = T::MaxInstructionMediators::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let settlement_type = SettlementType::SettleManual(0u32.into());
+        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
+
+        let inst_id = InstructionId(1);
+        let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, false, false);
+        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
+    }: {
+        let _ = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(alice.origin.into()).unwrap();
+        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
+        let _ = AssetCount::from_legs(&inst_legs);
+        let _ = InstructionStatuses::<T>::get(inst_id);
+        let _ = InstructionDetails::<T>::get(&inst_id);
+        Pallet::<T>::release_locks(&inst_id, &inst_legs).unwrap();
+        let _ = T::Scheduler::cancel_named(inst_id.execution_name());
+        InstructionStatuses::<T>::insert(inst_id, InstructionStatus::Rejected(System::<T>::block_number()));
+    }
+
 }
