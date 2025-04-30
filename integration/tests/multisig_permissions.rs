@@ -715,6 +715,7 @@ async fn ms_remove_payer_via_payer() -> Result<()> {
 
 /// Test subsidy transaction fees for a MS.
 #[tokio::test]
+#[cfg(feature = "current_release")]
 async fn ms_subsidy() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let users = tester.users(&["MultiSigSubsidy", "Subsidizer"]).await?;
