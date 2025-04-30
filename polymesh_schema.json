@@ -391,7 +391,8 @@
       "authorization_data": "AuthorizationData",
       "authorized_by": "IdentityId",
       "expiry": "Option<Moment>",
-      "auth_id": "u64"
+      "auth_id": "u64",
+      "count": "u32"
     },
     "AuthorizationData": {
       "_enum": {
