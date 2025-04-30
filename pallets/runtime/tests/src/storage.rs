@@ -214,6 +214,7 @@ parameter_types! {
     pub const MaxNumberOfFungibleAssets: u32 = 100;
     pub const MaxNumberOfNFTsPerLeg: u32 = 10;
     pub const MaxNumberOfNFTs: u32 = 100;
+    pub const MaximumLockPeriod: Moment = 2;
 
     // Multisig
     pub const MaxMultiSigSigners: u32 = 50;

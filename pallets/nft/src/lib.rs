@@ -712,10 +712,10 @@ impl<T: Config> Pallet<T> {
         // Update the balance of the sender and the receiver
         let transferred_amount = nfts.len() as u64;
         NumberOfNFTs::<T>::mutate(nfts.asset_id(), sender_portfolio.did, |balance| {
-            *balance -= transferred_amount
+            *balance = balance.saturating_sub(transferred_amount)
         });
         NumberOfNFTs::<T>::mutate(nfts.asset_id(), receiver_portfolio.did, |balance| {
-            *balance += transferred_amount
+            *balance = balance.saturating_add(transferred_amount)
         });
         // Update the portfolio of the sender and the receiver
         for nft_id in nfts.ids() {
@@ -869,6 +869,43 @@ impl<T: Config> Pallet<T> {
                 Ok::<NFTId, DispatchError>(new_nft_id)
             }
         })
+    }
+
+    /// Transfers all `nfts` from `sender_pid` to `receiver_pid`.
+    /// Note: This functions skips all compliance checks and only checks for onwership.
+    pub fn simplified_nft_transfer(
+        sender_pid: PortfolioId,
+        receiver_pid: PortfolioId,
+        nfts: NFTs,
+        inst_id: InstructionId,
+        inst_memo: Option<Memo>,
+        caller_did: IdentityId,
+    ) -> DispatchResult {
+        Portfolio::<T>::ensure_portfolio_validity(&receiver_pid)?;
+        Self::ensure_sender_owns_nfts(&sender_pid, &nfts)?;
+        Self::unverified_nfts_transfer(&sender_pid, &receiver_pid, &nfts);
+        Self::deposit_event(Event::NFTPortfolioUpdated(
+            caller_did,
+            nfts,
+            Some(sender_pid),
+            Some(receiver_pid),
+            PortfolioUpdateReason::Transferred {
+                instruction_id: Some(inst_id),
+                instruction_memo: inst_memo,
+            },
+        ));
+        Ok(())
+    }
+
+    /// Returns `Ok` if `sender_pid` holds all nfts.
+    fn ensure_sender_owns_nfts(sender_pid: &PortfolioId, nfts: &NFTs) -> DispatchResult {
+        for nft_id in nfts.ids() {
+            ensure!(
+                PortfolioNFT::<T>::contains_key(sender_pid, (nfts.asset_id(), nft_id)),
+                Error::<T>::InvalidNFTTransferNFTNotOwned
+            );
+        }
+        Ok(())
     }
 }
 

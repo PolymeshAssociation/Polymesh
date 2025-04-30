@@ -55,6 +55,8 @@ use frame_support::dispatch::{
     PostDispatchInfo,
 };
 use frame_support::pallet_prelude::*;
+use frame_support::storage::with_transaction as frame_support_with_transaction;
+use frame_support::storage::TransactionOutcome;
 use frame_support::traits::schedule::{DispatchTime, Named};
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
@@ -175,6 +177,12 @@ pub mod pallet {
         /// An instruction with mediators has been created.
         /// Parameters: [`InstructionId`] of the instruction and the [`IdentityId`] of all mediators.
         InstructionMediators(InstructionId, BTreeSet<IdentityId>),
+        /// An instruction has been sucessfully locked for execution
+        ///
+        /// Parameters:
+        /// - `IdentityId`: The [`IdentityId`] of the caller.
+        /// - `InstructionId`: The [`InstructionId`] of the instruction.
+        InstructionLocked(IdentityId, InstructionId),
     }
 
     pub trait WeightInfo {
@@ -206,6 +214,7 @@ pub mod pallet {
         fn valid_caller_mediator() -> Weight;
         fn prune_instruction(f: u32, n: u32, o: u32) -> Weight;
         fn reject_instruction_common(f: u32, n: u32, o: u32) -> Weight;
+        fn lock_instruction_common(f: u32, n: u32, o: u32) -> Weight;
 
         fn add_and_affirm_with_mediators_legs(
             legs: &[Leg],
@@ -397,6 +406,10 @@ pub mod pallet {
                 .saturating_add(caller_validation)
                 .saturating_add(prune)
         }
+
+        fn lock_instruction(_weight_limit: Weight) -> Weight {
+            unimplemented!()
+        }
     }
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
@@ -452,6 +465,10 @@ pub mod pallet {
         /// Maximum number mediators in the instruction level (this does not include asset mediators).
         #[pallet::constant]
         type MaxInstructionMediators: Get<u32>;
+
+        /// The maximum time period that an instruction can be held in the `LockedForExecution` status.
+        #[pallet::constant]
+        type MaximumLockPeriod: Get<Self::Moment>;
     }
 
     #[pallet::error]
@@ -548,6 +565,10 @@ pub mod pallet {
         UnexpectedSettlementType,
         /// [`InstructionStatus::Unknow`] can't be rejected.
         InvalidInstructionStatusForRejection,
+        /// All locked instructions must register a lock timestamp.
+        LockTimestampNotFound,
+        /// The instruction has been locked for too much time.
+        ExceededMaximumLockingPeriod,
     }
 
     storage_migration_ver!(3);
@@ -706,6 +727,11 @@ pub mod pallet {
         MediatorAffirmationStatus<T::Moment>,
         ValueQuery,
     >;
+
+    /// The moment the instruction was moved to the `LockedForExecution` status.
+    #[pallet::storage]
+    pub type LockedTimestamp<T: Config> =
+        StorageMap<_, Twox64Concat, InstructionId, T::Moment, OptionQuery>;
 
     /// Storage version.
     #[pallet::storage]
@@ -1386,6 +1412,38 @@ pub mod pallet {
                 &mut weight_meter,
             )
         }
+
+        /// Moves the instruction status to `LockedForExecution`. This function must be called by a
+        /// mediator of the instruction and will only suceed if the following conditions are met:
+        /// - All affirmations have been received.
+        /// - Instruction is pending or has failed at least one time.
+        /// - All mediator's affirmations are still valid.
+        /// - All assets are in the allowed venue list.
+        /// - All senders have the right amount of assets being transferred.
+        /// - All senders and receivers are compliant and have valid CDD claims.
+        /// - All assets' statistics are still valid.
+        /// - There are no frozen assets.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, specifying the caller.
+        /// * `inst_id` - The [`InstructionId`] of the instruction to be locked.
+        /// * `weight_limit` - A maximum [`Weight`] value to be charged for locking the instruction.
+        #[pallet::weight(<T as Config>::WeightInfo::lock_instruction(*weight_limit))]
+        #[pallet::call_index(24)]
+        pub fn lock_instruction(
+            origin: OriginFor<T>,
+            inst_id: InstructionId,
+            weight_limit: Weight,
+        ) -> DispatchResultWithPostInfo {
+            let mut weight_meter = Self::ensure_valid_weight_meter(
+                Self::lock_instruction_minimum_weight(),
+                weight_limit,
+            )?;
+
+            Self::base_lock_instruction(origin, inst_id, &mut weight_meter)?;
+
+            Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
+        }
     }
 }
 
@@ -1749,91 +1807,46 @@ impl<T: Config> Pallet<T> {
     }
 
     fn execute_instruction(
-        instruction_id: InstructionId,
+        inst_id: InstructionId,
         caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
+        // The order of execution of the legs matter in some edge cases around compliance
+        let mut inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
+        inst_legs.sort_by_key(|leg| leg.0);
+        let inst_asset_count = AssetCount::from_legs(&inst_legs);
+
+        Self::validate_execute_instruction_pre_conditions(
+            &inst_id,
+            &inst_legs,
+            &inst_asset_count,
+            weight_meter,
+        )?;
+        let inst_memo = InstructionMemos::<T>::get(&inst_id);
+
         let mut failed_leg_id = None;
         let tx_result = with_transaction(|| {
-            // Ensures the number of pending affirmations is zero
-            let n_pending_affirmations = InstructionAffirmsPending::<T>::take(instruction_id);
-            ensure!(
-                n_pending_affirmations == 0,
-                Error::<T>::NotAllAffirmationsHaveBeenReceived
-            );
-            // Ensures the instruction is pending or has failed at least one time
-            let instruction_status = InstructionStatuses::<T>::get(instruction_id);
-            ensure!(
-                instruction_status == InstructionStatus::Pending
-                    || instruction_status == InstructionStatus::Failed,
-                Error::<T>::InvalidInstructionStatusForExecution
-            );
-            // Ensures all mediator's affirmations are still valid
-            Self::ensure_non_expired_affirmations(&instruction_id)?;
-
-            // The order of execution of the legs matter in some edge cases around compliance.
-            let mut instruction_legs: Vec<(LegId, Leg)> =
-                InstructionLegs::<T>::drain_prefix(&instruction_id).collect();
-            instruction_legs.sort_by_key(|leg_id_leg| leg_id_leg.0);
-
-            // Ensures all affirmations have been received
-            Self::ensure_no_missing_affirmation(&instruction_id, &instruction_legs)?;
-
-            let instruction_asset_count = AssetCount::from_legs(&instruction_legs);
-            weight_meter
-                .check_accrue(<T as Config>::WeightInfo::execute_instruction_paused(
-                    instruction_asset_count.fungible(),
-                    instruction_asset_count.non_fungible(),
-                    instruction_asset_count.off_chain(),
-                ))
-                .map_err(|_| Error::<T>::WeightLimitExceeded)?;
-
-            // Ensures the venue is allowed for all tickers in the instruction
-            let instruction_details = InstructionDetails::<T>::take(instruction_id);
-            Self::ensure_allowed_venue(&instruction_legs, instruction_details.venue_id)?;
-
-            // Attempts to release the locks
-            Self::release_locks(&instruction_id, &instruction_legs)?;
-
-            // Transfer all fungible an non fungible assets
-            let instruction_memo = InstructionMemos::<T>::get(&instruction_id);
-            match Self::transfer_pending_legs(
-                instruction_id,
-                &instruction_legs,
-                instruction_memo,
-                caller_did,
-                weight_meter,
-            ) {
-                Ok(_) => {
-                    // Remove remaning storage
-                    if let Some(venue_id) = instruction_details.venue_id {
-                        VenueInstructions::<T>::remove(venue_id, instruction_id);
-                    }
-                    let _ = InstructionLegStatus::<T>::clear_prefix(
-                        instruction_id,
-                        instruction_legs.len() as u32,
-                        None,
-                    );
-                    // Change instruction status
-                    InstructionStatuses::<T>::insert(
-                        instruction_id,
-                        InstructionStatus::Success(System::<T>::block_number()),
-                    );
-                    Self::deposit_event(Event::InstructionExecuted(caller_did, instruction_id));
-                    Ok(())
-                }
-                Err(leg_id) => {
-                    failed_leg_id = Some(leg_id);
-                    Err(Error::<T>::FailedToReleaseLockOrTransferAssets.into())
-                }
+            Self::release_locks(&inst_id, &inst_legs)?;
+            if let Err(leg_id) =
+                Self::transfer_assets(inst_id, &inst_legs, inst_memo, caller_did, weight_meter)
+            {
+                failed_leg_id = Some(leg_id);
+                return Err(Error::<T>::FailedToReleaseLockOrTransferAssets.into());
             }
+            Self::prune_instruction(&inst_id, &inst_legs, &inst_asset_count, weight_meter)?;
+            Self::deposit_event(Event::InstructionExecuted(caller_did, inst_id));
+            InstructionStatuses::<T>::insert(
+                inst_id,
+                InstructionStatus::Success(System::<T>::block_number()),
+            );
+            Ok(())
         });
 
-        // Since with_transaction reverts events as well, the events have to be emitted here
+        // Since with_transaction reverts events as well, the event has to be emitted here
         if let Some(failed_leg_id) = failed_leg_id {
             Self::deposit_event(Event::LegFailedExecution(
                 caller_did,
-                instruction_id,
+                inst_id,
                 failed_leg_id,
             ));
         }
@@ -1841,12 +1854,52 @@ impl<T: Config> Pallet<T> {
         tx_result
     }
 
-    /// Returns `Ok` if all mediator's affirmation are still valid. Otherwise, returns an error.
-    /// This call also removes all elements from the `InstructionMediatorsAffirmations` storage.
-    fn ensure_non_expired_affirmations(instruction_id: &InstructionId) -> DispatchResult {
+    /// Returns `Ok` if the following conditions for executing the instruction are met:
+    /// - Instruction is pending or has failed at least one time
+    /// - All affirmations have been received
+    /// - All mediator's affirmations are still valid
+    /// - All assets are in the allowed venue list
+    fn validate_execute_instruction_pre_conditions(
+        inst_id: &InstructionId,
+        inst_legs: &[(LegId, Leg)],
+        _inst_asset_count: &AssetCount,
+        _weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        Self::ensure_instruction_is_pending_or_failed(inst_id)?;
+
+        ensure!(
+            InstructionAffirmsPending::<T>::get(inst_id) == 0,
+            Error::<T>::NotAllAffirmationsHaveBeenReceived
+        );
+
+        Self::validate_mediators_affirmations(inst_id)?;
+
+        Self::validate_parties_affirmations(inst_id, inst_legs)?;
+
+        let inst_details = InstructionDetails::<T>::get(inst_id);
+        Self::ensure_allowed_venue(inst_legs, inst_details.venue_id)?;
+
+        Ok(())
+    }
+
+    /// Returns `Ok` if the instruction status is `Pending` or `Failed`.
+    fn ensure_instruction_is_pending_or_failed(inst_id: &InstructionId) -> DispatchResult {
+        let inst_status = InstructionStatuses::<T>::get(inst_id);
+
+        ensure!(
+            inst_status == InstructionStatus::Pending || inst_status == InstructionStatus::Failed,
+            Error::<T>::InvalidInstructionStatusForExecution
+        );
+
+        Ok(())
+    }
+
+    /// Returns `Ok` if all mediator's affirmation are still valid.
+    fn validate_mediators_affirmations(inst_id: &InstructionId) -> DispatchResult {
         let current_timestamp = <pallet_timestamp::Pallet<T>>::get();
-        for (_, mediator_affirmation) in
-            InstructionMediatorsAffirmations::<T>::drain_prefix(instruction_id)
+
+        for mediator_affirmation in
+            InstructionMediatorsAffirmations::<T>::iter_prefix_values(inst_id)
         {
             match mediator_affirmation {
                 MediatorAffirmationStatus::Affirmed { expiry, .. } => {
@@ -1862,48 +1915,48 @@ impl<T: Config> Pallet<T> {
                 }
             }
         }
+
         Ok(())
     }
 
-    /// Returns `Ok` if all affirmations have been received. Otherwise, returns an error.
-    /// This call also removes all elements from `UserAffirmations`, `AffirmsReceived` and `OffChainAffirmations` storage.
-    fn ensure_no_missing_affirmation(
-        instruction_id: &InstructionId,
-        instruction_legs: &[(LegId, Leg)],
+    /// Returns `Ok` if all affirmations have been received.
+    #[rustfmt::skip]
+    fn validate_parties_affirmations(
+        inst_id: &InstructionId,
+        inst_legs: &[(LegId, Leg)],
     ) -> DispatchResult {
         let mut unique_portfolios = BTreeSet::new();
 
-        for (leg_id, leg) in instruction_legs {
+        for (leg_id, leg) in inst_legs {
             match leg {
-                Leg::Fungible {
-                    sender, receiver, ..
-                }
-                | Leg::NonFungible {
-                    sender, receiver, ..
-                } => {
+                Leg::Fungible { sender, receiver, .. }
+                | Leg::NonFungible { sender, receiver, .. } => {
+                    ensure!(
+                        InstructionLegStatus::<T>::get(inst_id, leg_id)
+                            == LegStatus::ExecutionPending,
+                        Error::<T>::UnexpectedLegStatus
+                    );
+
                     if unique_portfolios.insert(sender) {
-                        let sdr_affirmation_status =
-                            UserAffirmations::<T>::take(sender, instruction_id);
+                        let sdr_affirmation_status = UserAffirmations::<T>::get(sender, inst_id);
                         ensure!(
                             sdr_affirmation_status == AffirmationStatus::Affirmed,
                             Error::<T>::NotAllAffirmationsHaveBeenReceived
                         );
-                        let sdr_affirmation_status =
-                            AffirmsReceived::<T>::take(instruction_id, sender);
+                        let sdr_affirmation_status = AffirmsReceived::<T>::get(inst_id, sender);
                         ensure!(
                             sdr_affirmation_status == AffirmationStatus::Affirmed,
                             Error::<T>::NotAllAffirmationsHaveBeenReceived
                         );
                     }
+
                     if unique_portfolios.insert(receiver) {
-                        let rcv_affirmation_status =
-                            UserAffirmations::<T>::take(receiver, instruction_id);
+                        let rcv_affirmation_status = UserAffirmations::<T>::get(receiver, inst_id);
                         ensure!(
                             rcv_affirmation_status == AffirmationStatus::Affirmed,
                             Error::<T>::NotAllAffirmationsHaveBeenReceived
                         );
-                        let rcv_affirmation_status =
-                            AffirmsReceived::<T>::take(instruction_id, receiver);
+                        let rcv_affirmation_status = AffirmsReceived::<T>::get(inst_id, receiver);
                         ensure!(
                             rcv_affirmation_status == AffirmationStatus::Affirmed,
                             Error::<T>::NotAllAffirmationsHaveBeenReceived
@@ -1911,11 +1964,18 @@ impl<T: Config> Pallet<T> {
                     }
                 }
                 Leg::OffChain { .. } => {
-                    ensure!(
-                        OffChainAffirmations::<T>::take(instruction_id, leg_id)
-                            == AffirmationStatus::Affirmed,
-                        Error::<T>::NotAllAffirmationsHaveBeenReceived,
-                    );
+                    match InstructionLegStatus::<T>::get(inst_id, leg_id) {
+                        LegStatus::ExecutionToBeSkipped(_, _) => {
+                            ensure!(
+                                OffChainAffirmations::<T>::get(inst_id, leg_id)
+                                    == AffirmationStatus::Affirmed,
+                                Error::<T>::NotAllAffirmationsHaveBeenReceived,
+                            );
+                        }
+                        LegStatus::PendingTokenLock | LegStatus::ExecutionPending => {
+                            return Err(Error::<T>::UnexpectedLegStatus.into());
+                        }
+                    }
                 }
             }
         }
@@ -1923,61 +1983,51 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn transfer_pending_legs(
-        instruction_id: InstructionId,
-        instruction_legs: &[(LegId, Leg)],
-        instruction_memo: Option<Memo>,
+    #[rustfmt::skip]
+    fn transfer_assets(
+        inst_id: InstructionId,
+        inst_legs: &[(LegId, Leg)],
+        inst_memo: Option<Memo>,
         caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> Result<(), LegId> {
-        for (leg_id, leg) in instruction_legs {
-            if InstructionLegStatus::<T>::get(instruction_id, leg_id) == LegStatus::ExecutionPending
-            {
-                match leg {
-                    Leg::Fungible {
-                        sender,
-                        receiver,
-                        asset_id,
-                        amount,
-                    } => {
-                        if <Asset<T>>::base_transfer(
-                            *sender,
-                            *receiver,
-                            *asset_id,
-                            *amount,
-                            Some(instruction_id),
-                            instruction_memo.clone(),
-                            caller_did,
-                            weight_meter,
-                        )
-                        .is_err()
-                        {
-                            return Err(*leg_id);
-                        }
+        for (leg_id, leg) in inst_legs {
+            match leg {
+                Leg::Fungible { sender, receiver, asset_id, amount } => {
+                    if Asset::<T>::base_transfer(
+                        *sender,
+                        *receiver,
+                        *asset_id,
+                        *amount,
+                        Some(inst_id),
+                        inst_memo.clone(),
+                        caller_did,
+                        weight_meter,
+                    )
+                    .is_err()
+                    {
+                        return Err(*leg_id);
                     }
-                    Leg::NonFungible {
-                        sender,
-                        receiver,
-                        nfts,
-                    } => {
-                        if <Nft<T>>::base_nft_transfer(
-                            *sender,
-                            *receiver,
-                            nfts.clone(),
-                            instruction_id,
-                            instruction_memo.clone(),
-                            caller_did,
-                            weight_meter,
-                        )
-                        .is_err()
-                        {
-                            return Err(*leg_id);
-                        }
-                    }
-                    Leg::OffChain { .. } => {}
                 }
+                Leg::NonFungible { sender, receiver, nfts } => {
+                    if Nft::<T>::base_nft_transfer(
+                        *sender,
+                        *receiver,
+                        nfts.clone(),
+                        inst_id,
+                        inst_memo.clone(),
+                        caller_did,
+                        weight_meter,
+                    )
+                    .is_err()
+                    {
+                        return Err(*leg_id);
+                    }
+                }
+                Leg::OffChain { .. } => {}
             }
         }
+
         Ok(())
     }
 
@@ -2448,7 +2498,8 @@ impl<T: Config> Pallet<T> {
 
         let inst_status = InstructionStatuses::<T>::get(inst_id);
         ensure!(
-            inst_status != InstructionStatus::Unknown,
+            inst_status != InstructionStatus::Unknown
+                && inst_status != InstructionStatus::LockedForExecution,
             Error::<T>::InvalidInstructionStatusForRejection
         );
 
@@ -2703,7 +2754,20 @@ impl<T: Config> Pallet<T> {
             InstructionStatus::Failed => {
                 Self::execute_instruction_retryable(inst_id, caller_did, weight_meter)?;
             }
-            _ => return Err(Error::<T>::InvalidInstructionStatusForExecution.into()),
+            InstructionStatus::LockedForExecution => {
+                Self::simplified_asset_transfer(
+                    inst_id,
+                    inst_legs,
+                    caller_did,
+                    &inst_asset_count,
+                    weight_meter,
+                )?;
+            }
+            InstructionStatus::Success(_)
+            | InstructionStatus::Unknown
+            | InstructionStatus::Rejected(_) => {
+                return Err(Error::<T>::InvalidInstructionStatusForExecution.into())
+            }
         }
 
         Self::deposit_event(Event::SettlementManuallyExecuted(caller_did, inst_id));
@@ -3063,6 +3127,123 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// If the caller is a mediator and all conditions for executing the instruction are met, updates the instruction status to `LockedForExecution`.
+    fn base_lock_instruction(
+        origin: OriginFor<T>,
+        inst_id: InstructionId,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        let caller_did = pallet_identity::Pallet::<T>::ensure_perms(origin.clone())?;
+
+        Self::ensure_mediator(&inst_id, &caller_did)?;
+
+        let inst_details = InstructionDetails::<T>::get(&inst_id);
+        ensure!(
+            inst_details.settlement_type == SettlementType::SettleAfterLock,
+            Error::<T>::UnexpectedSettlementType
+        );
+
+        // The order of execution of the legs matter in some edge cases around compliance
+        let mut inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
+        inst_legs.sort_by_key(|leg| leg.0);
+        let inst_asset_count = AssetCount::from_legs(&inst_legs);
+
+        Self::validate_execute_instruction_pre_conditions(
+            &inst_id,
+            &inst_legs,
+            &inst_asset_count,
+            weight_meter,
+        )?;
+
+        let inst_memo = InstructionMemos::<T>::get(&inst_id);
+        frame_support_with_transaction(|| {
+            if let Err(e) = Self::release_locks(&inst_id, &inst_legs) {
+                return TransactionOutcome::Rollback(Err(e));
+            };
+
+            if Self::transfer_assets(inst_id, &inst_legs, inst_memo, caller_did, weight_meter)
+                .is_err()
+            {
+                return TransactionOutcome::Rollback(Err(
+                    Error::<T>::FailedToReleaseLockOrTransferAssets.into(),
+                ));
+            }
+
+            TransactionOutcome::Rollback(Ok(()))
+        })?;
+
+        InstructionStatuses::<T>::insert(inst_id, InstructionStatus::LockedForExecution);
+        LockedTimestamp::<T>::insert(inst_id, pallet_timestamp::Pallet::<T>::get());
+
+        Self::deposit_event(Event::InstructionLocked(caller_did, inst_id));
+        Ok(())
+    }
+
+    /// Transfer all assets in the instruction. Only the following checks are assessed:
+    /// - The locking period must be below the maximum.
+    /// - All assets are locked.
+    /// - All senders must have the required balance.
+    #[rustfmt::skip]
+    fn simplified_asset_transfer(
+        inst_id: InstructionId,
+        inst_legs: Vec<(LegId, Leg)>,
+        caller_did: IdentityId,
+        inst_asset_count: &AssetCount,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        Self::ensure_maximum_locking_period_not_exceeded(&inst_id, weight_meter)?;
+
+        Self::release_locks(&inst_id, &inst_legs)?;
+
+        let inst_memo = InstructionMemos::<T>::get(&inst_id);
+        for (_, leg) in inst_legs {
+            match leg {
+                Leg::Fungible { sender, receiver, asset_id, amount } => {
+                    Asset::<T>::simplified_fungible_transfer(
+                        asset_id,
+                        sender,
+                        receiver,
+                        amount,
+                        inst_id,
+                        inst_memo.clone(),
+                        caller_did,
+                        weight_meter,
+                    )?;
+                }
+                Leg::NonFungible { sender, receiver, nfts } => {
+                    Nft::<T>::simplified_nft_transfer(
+                        sender,
+                        receiver,
+                        nfts,
+                        inst_id,
+                        inst_memo.clone(),
+                        caller_did,
+                    )?;
+                }
+                Leg::OffChain { .. } => continue,
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Returns `Ok` if the maximum locking period was not exceeded.
+    fn ensure_maximum_locking_period_not_exceeded(
+        inst_id: &InstructionId,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        let locked_timestamp =
+            LockedTimestamp::<T>::get(inst_id).ok_or(Error::<T>::LockTimestampNotFound)?;
+
+        let now = pallet_timestamp::Pallet::<T>::get();
+        ensure!(
+            now - locked_timestamp <= T::MaximumLockPeriod::get(),
+            Error::<T>::ExceededMaximumLockingPeriod
+        );
+
+        Ok(())
+    }
+
     /// Consumes the given weight after checking that it can be consumed.
     /// Returns an error if the weight limit is exceeded.
     fn check_accrue(weight_meter: &mut WeightMeter, weight: Weight) -> DispatchResult {
@@ -3135,6 +3316,11 @@ impl<T: Config> Pallet<T> {
         reject_common
             .saturating_add(caller_validation)
             .saturating_add(prune)
+    }
+
+    /// Returns the minimum weight required for calling the `lock_instruction` extrinsic.
+    pub fn lock_instruction_minimum_weight() -> Weight {
+        unimplemented!()
     }
 
     pub fn get_actual_weight(call: &Call<T>) -> Option<Weight> {
@@ -3251,43 +3437,9 @@ impl<T: Config> Pallet<T> {
 
     /// Returns a vector containing all errors for the execution. An empty vec means there's no error.
     pub fn execute_instruction_report(
-        instruction_id: &InstructionId,
-        weight_meter: &mut WeightMeter,
+        _instruction_id: &InstructionId,
+        _weight_meter: &mut WeightMeter,
     ) -> Vec<DispatchError> {
-        let mut execution_errors = Vec::new();
-
-        if InstructionAffirmsPending::<T>::get(instruction_id) != 0 {
-            execution_errors.push(Error::<T>::NotAllAffirmationsHaveBeenReceived.into());
-        }
-
-        if let Err(e) = Self::ensure_non_expired_affirmations(&instruction_id) {
-            execution_errors.push(e);
-        }
-
-        match InstructionStatuses::<T>::get(instruction_id) {
-            InstructionStatus::Unknown
-            | InstructionStatus::Success(_)
-            | InstructionStatus::Rejected(_) => {
-                execution_errors.push(Error::<T>::InvalidInstructionStatusForExecution.into());
-            }
-            InstructionStatus::Pending | InstructionStatus::Failed => {}
-        }
-
-        let instruction_legs: Vec<(LegId, Leg)> =
-            InstructionLegs::<T>::iter_prefix(&instruction_id).collect();
-        let venue_id = InstructionDetails::<T>::get(instruction_id).venue_id;
-        if let Err(e) = Self::ensure_allowed_venue(&instruction_legs, venue_id) {
-            execution_errors.push(e);
-        }
-
-        for (leg_id, leg) in instruction_legs {
-            let leg_status = InstructionLegStatus::<T>::get(instruction_id, leg_id);
-            if leg_status == LegStatus::ExecutionPending {
-                let transfer_errors = Self::transfer_report(leg, true, weight_meter);
-                execution_errors.extend_from_slice(&transfer_errors);
-            }
-        }
-
-        execution_errors
+        unimplemented!()
     }
 }

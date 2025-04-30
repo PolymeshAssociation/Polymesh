@@ -1119,4 +1119,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
     }
+    fn lock_instruction_common(_f: u32, _n: u32, _o: u32) -> Weight {
+        Weight::zero()
+    }
 }
