@@ -3148,6 +3148,15 @@ impl<T: Config> Pallet<T> {
         inst_legs.sort_by_key(|leg| leg.0);
         let inst_asset_count = AssetCount::from_legs(&inst_legs);
 
+        Self::check_accrue(
+            weight_meter,
+            <T as Config>::WeightInfo::lock_instruction_common(
+                inst_asset_count.fungible(),
+                inst_asset_count.non_fungible(),
+                inst_asset_count.off_chain(),
+            ),
+        )?;
+
         Self::validate_execute_instruction_pre_conditions(
             &inst_id,
             &inst_legs,

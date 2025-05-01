@@ -14,6 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 pub use frame_benchmarking::{account, benchmarks};
+use frame_support::storage::with_transaction as frame_support_with_transaction;
 use frame_support::traits::{Get, TryCollect};
 use frame_system::RawOrigin;
 use scale_info::prelude::format;
@@ -29,7 +30,7 @@ use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::constants::currency::ONE_UNIT;
 use polymesh_primitives::constants::ENSURED_MAX_LEN;
 use polymesh_primitives::settlement::ReceiptMetadata;
-use polymesh_primitives::{IdentityId, Memo, NFTId, NFTs, PortfolioId, Ticker};
+use polymesh_primitives::{IdentityId, Memo, NFTId, NFTs, PortfolioId, Ticker, WeightMeter};
 
 use crate::*;
 
@@ -873,6 +874,49 @@ benchmarks! {
         Pallet::<T>::release_locks(&inst_id, &inst_legs).unwrap();
         let _ = T::Scheduler::cancel_named(inst_id.execution_name());
         InstructionStatuses::<T>::insert(inst_id, InstructionStatus::Rejected(System::<T>::block_number()));
+    }
+
+    lock_instruction_common {
+        let f in 1..T::MaxNumberOfFungibleAssets::get();
+        let n in 0..T::MaxNumberOfNFTs::get();
+        let o in 0..T::MaxNumberOfOffChainAssets::get();
+
+        let m = T::MaxInstructionMediators::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let settlement_type = SettlementType::SettleAfterLock;
+        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
+
+        let inst_id = InstructionId(1);
+        let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, true, true);
+    }: {
+        let caller_did =
+            pallet_identity::Pallet::<T>::ensure_perms(parameters.asset_mediators[0].clone().origin.into()).unwrap();
+        Pallet::<T>::ensure_mediator(&inst_id, &caller_did).unwrap();
+
+        let _ = InstructionDetails::<T>::get(&inst_id);
+        let inst_memo = InstructionMemos::<T>::get(&inst_id);
+
+        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
+        let _ = AssetCount::from_legs(&inst_legs);
+
+        frame_support_with_transaction(|| {
+            Pallet::<T>::release_locks(&inst_id, &inst_legs).unwrap();
+            Pallet::<T>::transfer_assets(
+                inst_id,
+                &inst_legs,
+                inst_memo,
+                caller_did,
+                &mut WeightMeter::max_limit_no_minimum()
+            )
+            .unwrap();
+            TransactionOutcome::Rollback(Ok::<(), DispatchError>(()))
+        })
+        .unwrap();
+
+        InstructionStatuses::<T>::insert(inst_id, InstructionStatus::LockedForExecution);
+        LockedTimestamp::<T>::insert(inst_id, pallet_timestamp::Pallet::<T>::get());
     }
 
 }
