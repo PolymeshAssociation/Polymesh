@@ -1133,10 +1133,10 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(o.into())))
             .saturating_add(DbWeight::get().writes(2))
     }
-    fn execute_locked_instruction(f: u32, n: u32, o: u32) -> Weight {
+    fn execute_locked_instruction(_f: u32, _n: u32, _o: u32) -> Weight {
         Weight::zero()
     }
-    fn execute_manual_instruction_paused(f: u32, n: u32, o: u32) -> Weight {
+    fn execute_manual_instruction_paused(_f: u32, _n: u32, _o: u32) -> Weight {
         Weight::zero()
     }
 }

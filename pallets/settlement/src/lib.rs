@@ -562,6 +562,8 @@ pub mod pallet {
         LockTimestampNotFound,
         /// The instruction has been locked for too much time.
         ExceededMaximumLockingPeriod,
+        /// Not all conditions for transferring the asset have been met.
+        FailedAssetTransferringConditions,
     }
 
     storage_migration_ver!(3);
@@ -1832,7 +1834,7 @@ impl<T: Config> Pallet<T> {
                 Self::transfer_assets(inst_id, &inst_legs, inst_memo, caller_did, weight_meter)
             {
                 failed_leg_id = Some(leg_id);
-                return Err(Error::<T>::FailedToReleaseLockOrTransferAssets.into());
+                return Err(Error::<T>::FailedAssetTransferringConditions.into());
             }
             Self::prune_instruction(&inst_id, &inst_legs)?;
             Self::deposit_event(Event::InstructionExecuted(caller_did, inst_id));
@@ -3166,7 +3168,7 @@ impl<T: Config> Pallet<T> {
                 .is_err()
             {
                 return TransactionOutcome::Rollback(Err(
-                    Error::<T>::FailedToReleaseLockOrTransferAssets.into(),
+                    Error::<T>::FailedAssetTransferringConditions.into(),
                 ));
             }
 

@@ -839,7 +839,7 @@ fn failed_execution() {
                 0,
                 None,
             ),
-            Error::FailedToReleaseLockOrTransferAssets
+            Error::FailedAssetTransferringConditions
         ));
     });
 }
