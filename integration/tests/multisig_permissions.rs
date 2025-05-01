@@ -713,6 +713,61 @@ async fn ms_remove_payer_via_payer() -> Result<()> {
     Ok(())
 }
 
+/// Test transaction fees for a MS when the primary key of the paying DID has a subsidy.
+#[tokio::test]
+#[cfg(feature = "current_release")]
+async fn ms_subsidy_payer() -> Result<()> {
+    let mut tester = PolymeshTester::new().await?;
+    let users = tester
+        .users(&["MultiSigSubsidyPayer", "Subsidizer"])
+        .await?;
+    let mut did = users[0].clone();
+    let mut subsidizer = users[1].clone();
+
+    // Create a subsidy for the paying did's primary key.
+    // The subsidy is created with a POLYX limit of 10.
+    let mut res = tester
+        .api
+        .call()
+        .relayer()
+        .set_paying_key(did.primary_key.account(), 10 * ONE_POLYX)?
+        .execute(&mut subsidizer)
+        .await?;
+    // Get the authorization ID of the new subsidy.
+    let auth_id = get_auth_id(&mut res)
+        .await?
+        .expect("Missing SetPayingKey auth id");
+
+    // Accept the subsidy authorization as the primary key.
+    let mut res = tester
+        .api
+        .call()
+        .relayer()
+        .accept_paying_key(auth_id)?
+        .execute(&mut did.primary_key)
+        .await?;
+    res.ok().await?;
+
+    // Use the primary key of did1 to create a MS and join it do did1 as a secondary key.
+    let whole = PermissionsBuilder::whole();
+    let mut ms = MuliSigState::create_and_join_creator(
+        &mut tester,
+        &did.primary_key,
+        3,
+        2,
+        false,
+        Some(whole.into()),
+    )
+    .await?;
+
+    // Should be able to execute proposals now.
+    let remark_call = tester.api.call().system().remark(vec![])?;
+    let mut res = ms.run_proposal(remark_call).await?;
+    res.ok().await?;
+
+    Ok(())
+}
+
 /// Test subsidy transaction fees for a MS.
 #[tokio::test]
 #[cfg(feature = "current_release")]
