@@ -1025,64 +1025,6 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(2))
     }
-    // Storage: Portfolio PortfolioCustodian (r:1 w:0)
-    // Proof: Portfolio PortfolioCustodian (max_values: None, max_size: Some(81), added: 2556, mode: MaxEncodedLen)
-    // Storage: Settlement UserAffirmations (r:1 w:0)
-    // Proof: Settlement UserAffirmations (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
-    fn valid_caller_portfolio() -> Weight {
-        // Minimum execution time: 23_085 nanoseconds.
-        Weight::from_ref_time(24_816_000).saturating_add(DbWeight::get().reads(2))
-    }
-    // Storage: Settlement VenueInfo (r:1 w:0)
-    // Proof: Settlement VenueInfo (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
-    fn valid_caller_venue() -> Weight {
-        // Minimum execution time: 12_472 nanoseconds.
-        Weight::from_ref_time(14_225_000).saturating_add(DbWeight::get().reads(1))
-    }
-    // Storage: Settlement InstructionMediatorsAffirmations (r:1 w:0)
-    // Proof: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: Some(58), added: 2533, mode: MaxEncodedLen)
-    fn valid_caller_mediator() -> Weight {
-        // Minimum execution time: 15_279 nanoseconds.
-        Weight::from_ref_time(15_612_000).saturating_add(DbWeight::get().reads(1))
-    }
-    // Storage: Settlement InstructionDetails (r:1 w:1)
-    // Proof: Settlement InstructionDetails (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
-    // Storage: Settlement InstructionMediatorsAffirmations (r:444 w:444)
-    // Proof: Settlement InstructionMediatorsAffirmations (max_values: None, max_size: Some(58), added: 2533, mode: MaxEncodedLen)
-    // Storage: Settlement InstructionLegs (r:0 w:120)
-    // Proof Skipped: Settlement InstructionLegs (max_values: None, max_size: None, mode: Measured)
-    // Storage: Settlement UserAffirmations (r:0 w:220)
-    // Proof: Settlement UserAffirmations (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
-    // Storage: Settlement OffChainAffirmations (r:0 w:10)
-    // Proof: Settlement OffChainAffirmations (max_values: None, max_size: Some(33), added: 2508, mode: MaxEncodedLen)
-    // Storage: Settlement InstructionAffirmsPending (r:0 w:1)
-    // Proof: Settlement InstructionAffirmsPending (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
-    // Storage: Settlement VenueInstructions (r:0 w:1)
-    // Proof: Settlement VenueInstructions (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
-    // Storage: Settlement AffirmsReceived (r:0 w:220)
-    // Proof: Settlement AffirmsReceived (max_values: None, max_size: Some(66), added: 2541, mode: MaxEncodedLen)
-    // Storage: Settlement InstructionLegStatus (r:0 w:120)
-    // Proof: Settlement InstructionLegStatus (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
-    /// The range of component `f` is `[0, 10]`.
-    /// The range of component `n` is `[0, 100]`.
-    /// The range of component `o` is `[0, 10]`.
-    fn prune_instruction(f: u32, n: u32, o: u32) -> Weight {
-        // Minimum execution time: 236_685 nanoseconds.
-        Weight::from_ref_time(15_570_114)
-            // Standard Error: 192_325
-            .saturating_add(Weight::from_ref_time(15_112_669).saturating_mul(f.into()))
-            // Standard Error: 19_641
-            .saturating_add(Weight::from_ref_time(15_658_802).saturating_mul(n.into()))
-            // Standard Error: 192_325
-            .saturating_add(Weight::from_ref_time(5_224_711).saturating_mul(o.into()))
-            .saturating_add(DbWeight::get().reads(5))
-            .saturating_add(DbWeight::get().reads((4_u64).saturating_mul(f.into())))
-            .saturating_add(DbWeight::get().reads((4_u64).saturating_mul(n.into())))
-            .saturating_add(DbWeight::get().writes(7))
-            .saturating_add(DbWeight::get().writes((10_u64).saturating_mul(f.into())))
-            .saturating_add(DbWeight::get().writes((10_u64).saturating_mul(n.into())))
-            .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
-    }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: Settlement InstructionLegs (r:121 w:0)
@@ -1102,7 +1044,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[0, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
-    fn reject_instruction_common(f: u32, n: u32, o: u32) -> Weight {
+    fn base_reject_instruction(f: u32, n: u32, o: u32) -> Weight {
         // Minimum execution time: 285_164 nanoseconds.
         Weight::from_ref_time(41_970_402)
             // Standard Error: 144_403
@@ -1176,7 +1118,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
-    fn lock_instruction_common(f: u32, n: u32, o: u32) -> Weight {
+    fn base_lock_instruction(f: u32, n: u32, o: u32) -> Weight {
         // Minimum execution time: 1_808_704 nanoseconds.
         Weight::from_ref_time(56_320_006)
             // Standard Error: 1_710_336
@@ -1190,5 +1132,11 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((9_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(o.into())))
             .saturating_add(DbWeight::get().writes(2))
+    }
+    fn execute_locked_instruction(f: u32, n: u32, o: u32) -> Weight {
+        Weight::zero()
+    }
+    fn execute_manual_instruction_paused(f: u32, n: u32, o: u32) -> Weight {
+        Weight::zero()
     }
 }

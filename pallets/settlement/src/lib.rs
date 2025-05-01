@@ -209,12 +209,10 @@ pub mod pallet {
         fn add_and_affirm_with_mediators(f: u32, n: u32, o: u32, m: u32) -> Weight;
         fn affirm_instruction_as_mediator() -> Weight;
         fn withdraw_affirmation_as_mediator() -> Weight;
-        fn valid_caller_portfolio() -> Weight;
-        fn valid_caller_venue() -> Weight;
-        fn valid_caller_mediator() -> Weight;
-        fn prune_instruction(f: u32, n: u32, o: u32) -> Weight;
-        fn reject_instruction_common(f: u32, n: u32, o: u32) -> Weight;
-        fn lock_instruction_common(f: u32, n: u32, o: u32) -> Weight;
+        fn base_reject_instruction(f: u32, n: u32, o: u32) -> Weight;
+        fn base_lock_instruction(f: u32, n: u32, o: u32) -> Weight;
+        fn execute_locked_instruction(f: u32, n: u32, o: u32) -> Weight;
+        fn execute_manual_instruction_paused(f: u32, n: u32, o: u32) -> Weight;
 
         fn add_and_affirm_with_mediators_legs(
             legs: &[Leg],
@@ -237,15 +235,18 @@ pub mod pallet {
             Self::add_and_affirm_instruction(f, n, o)
         }
         fn execute_manual_weight_limit(
-            weight_limit: &Option<Weight>,
+            weight: &Option<Weight>,
             f: &u32,
             n: &u32,
             o: &u32,
         ) -> Weight {
-            if let Some(weight_limit) = weight_limit {
-                return *weight_limit;
+            let min_weight = Self::execute_locked_instruction(0, 0, 1);
+
+            if let Some(weight) = weight {
+                return weight.max(min_weight);
             }
-            Self::execute_manual_instruction(*f, *n, *o)
+
+            Self::execute_manual_instruction(*f, *n, *o).max(min_weight)
         }
         fn get_transfer_by_asset(legs: &[Leg], portfolios: u32) -> (u32, u32, u32) {
             let asset_count =
@@ -387,28 +388,20 @@ pub mod pallet {
         fn reject_instruction(inst_asset_count: Option<AssetCount>) -> Weight {
             let inst_asset_count = inst_asset_count.unwrap_or(AssetCount::new(10, 100, 10));
 
-            let reject_common = Self::reject_instruction_common(
+            let input_weight = Self::base_reject_instruction(
                 inst_asset_count.fungible(),
                 inst_asset_count.non_fungible(),
                 inst_asset_count.off_chain(),
             );
 
-            let caller_validation =
-                Self::valid_caller_venue().saturating_add(Self::valid_caller_mediator());
+            let min_weight = Self::base_reject_instruction(0, 0, 1);
 
-            let prune = Self::prune_instruction(
-                inst_asset_count.fungible(),
-                inst_asset_count.non_fungible(),
-                inst_asset_count.off_chain(),
-            );
-
-            reject_common
-                .saturating_add(caller_validation)
-                .saturating_add(prune)
+            input_weight.max(min_weight)
         }
 
-        fn lock_instruction(_weight_limit: Weight) -> Weight {
-            unimplemented!()
+        fn lock_instruction(weight_limit: Weight) -> Weight {
+            let min_weight = Self::base_lock_instruction(0, 0, 1);
+            weight_limit.max(min_weight)
         }
     }
 
@@ -1798,8 +1791,9 @@ impl<T: Config> Pallet<T> {
         id: InstructionId,
         caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
+        skip_base_charge: bool,
     ) -> DispatchResult {
-        if let Err(e) = Self::execute_instruction(id, caller_did, weight_meter) {
+        if let Err(e) = Self::execute_instruction(id, caller_did, weight_meter, skip_base_charge) {
             InstructionStatuses::<T>::insert(id, InstructionStatus::Failed);
             return Err(e);
         }
@@ -1810,18 +1804,25 @@ impl<T: Config> Pallet<T> {
         inst_id: InstructionId,
         caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
+        skip_base_charge: bool,
     ) -> DispatchResult {
         // The order of execution of the legs matter in some edge cases around compliance
         let mut inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
         inst_legs.sort_by_key(|leg| leg.0);
         let inst_asset_count = AssetCount::from_legs(&inst_legs);
 
-        Self::validate_execute_instruction_pre_conditions(
-            &inst_id,
-            &inst_legs,
-            &inst_asset_count,
-            weight_meter,
-        )?;
+        // Manual executions charge the weight in advance
+        if !skip_base_charge {
+            weight_meter
+                .check_accrue(<T as Config>::WeightInfo::execute_instruction_paused(
+                    inst_asset_count.fungible(),
+                    inst_asset_count.non_fungible(),
+                    inst_asset_count.off_chain(),
+                ))
+                .map_err(|_| Error::<T>::WeightLimitExceeded)?;
+        }
+
+        Self::validate_execute_instruction_pre_conditions(&inst_id, &inst_legs)?;
         let inst_memo = InstructionMemos::<T>::get(&inst_id);
 
         let mut failed_leg_id = None;
@@ -1833,7 +1834,7 @@ impl<T: Config> Pallet<T> {
                 failed_leg_id = Some(leg_id);
                 return Err(Error::<T>::FailedToReleaseLockOrTransferAssets.into());
             }
-            Self::prune_instruction(&inst_id, &inst_legs, &inst_asset_count, weight_meter)?;
+            Self::prune_instruction(&inst_id, &inst_legs)?;
             Self::deposit_event(Event::InstructionExecuted(caller_did, inst_id));
             InstructionStatuses::<T>::insert(
                 inst_id,
@@ -1862,8 +1863,6 @@ impl<T: Config> Pallet<T> {
     fn validate_execute_instruction_pre_conditions(
         inst_id: &InstructionId,
         inst_legs: &[(LegId, Leg)],
-        _inst_asset_count: &AssetCount,
-        _weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         Self::ensure_instruction_is_pending_or_failed(inst_id)?;
 
@@ -2044,18 +2043,7 @@ impl<T: Config> Pallet<T> {
     fn prune_instruction(
         inst_id: &InstructionId,
         inst_legs: &[(LegId, Leg)],
-        inst_asset_count: &AssetCount,
-        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        Self::check_accrue(
-            weight_meter,
-            <T as Config>::WeightInfo::prune_instruction(
-                inst_asset_count.fungible() as u32,
-                inst_asset_count.non_fungible() as u32,
-                inst_asset_count.off_chain() as u32,
-            ),
-        )?;
-
         let instruction_details = InstructionDetails::<T>::take(&inst_id);
 
         if let Some(venue_id) = instruction_details.venue_id {
@@ -2344,7 +2332,6 @@ impl<T: Config> Pallet<T> {
         receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: BTreeSet<PortfolioId>,
         caller_did: IdentityId,
-        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         match receipt {
             Some(receipt) => {
@@ -2357,7 +2344,6 @@ impl<T: Config> Pallet<T> {
             InstructionAffirmsPending::<T>::get(id),
             InstructionDetails::<T>::get(id).settlement_type,
             caller_did,
-            weight_meter,
         )?;
         Ok(())
     }
@@ -2367,7 +2353,6 @@ impl<T: Config> Pallet<T> {
         affirms_pending: u64,
         settlement_type: SettlementType<T::BlockNumber>,
         caller_did: IdentityId,
-        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // We assume `settlement_type == SettleOnAffirmation`,
         // to be defensive, however, this is checked before instruction execution.
@@ -2375,7 +2360,12 @@ impl<T: Config> Pallet<T> {
             // We use execute_instruction here directly
             // and not the execute_instruction_retryable variant
             // because direct settlement is not retryable.
-            Self::execute_instruction(id, caller_did, weight_meter)?;
+            Self::execute_instruction(
+                id,
+                caller_did,
+                &mut WeightMeter::max_limit_no_minimum(),
+                true,
+            )?;
         }
         Ok(())
     }
@@ -2489,7 +2479,7 @@ impl<T: Config> Pallet<T> {
 
         Self::check_accrue(
             weight_meter,
-            <T as Config>::WeightInfo::reject_instruction_common(
+            <T as Config>::WeightInfo::base_reject_instruction(
                 inst_asset_count.fungible() as u32,
                 inst_asset_count.non_fungible() as u32,
                 inst_asset_count.off_chain() as u32,
@@ -2511,7 +2501,6 @@ impl<T: Config> Pallet<T> {
             inst_details.venue_id,
             &inst_id,
             &inst_legs,
-            weight_meter,
         )?;
 
         Self::release_locks(&inst_id, &inst_legs)?;
@@ -2519,7 +2508,7 @@ impl<T: Config> Pallet<T> {
         // Note: ignoring the error here is fine, since the instruction might not be scheduled yet
         let _ = T::Scheduler::cancel_named(inst_id.execution_name());
 
-        Self::prune_instruction(&inst_id, &inst_legs, &inst_asset_count, weight_meter)?;
+        Self::prune_instruction(&inst_id, &inst_legs)?;
         InstructionStatuses::<T>::insert(
             inst_id,
             InstructionStatus::Rejected(System::<T>::block_number()),
@@ -2591,7 +2580,7 @@ impl<T: Config> Pallet<T> {
         weight_meter: &mut WeightMeter,
     ) -> PostDispatchInfo {
         let caller_did = SettlementDID.as_id();
-        if let Err(e) = Self::execute_instruction_retryable(id, caller_did, weight_meter) {
+        if let Err(e) = Self::execute_instruction_retryable(id, caller_did, weight_meter, false) {
             Self::deposit_event(Event::FailedToExecuteInstruction(id, e));
         }
         PostDispatchInfo::from(Some(weight_meter.consumed()))
@@ -2743,25 +2732,48 @@ impl<T: Config> Pallet<T> {
             inst_details.venue_id,
             &inst_id,
             &inst_legs,
-            weight_meter,
         )?;
 
         match InstructionStatuses::<T>::get(&inst_id) {
             InstructionStatus::Pending => {
+                Self::check_accrue(
+                    weight_meter,
+                    <T as Config>::WeightInfo::execute_manual_instruction_paused(
+                        inst_asset_count.fungible() as u32,
+                        inst_asset_count.non_fungible() as u32,
+                        inst_asset_count.off_chain() as u32,
+                    ),
+                )?;
                 Self::ensure_manual_settlement_type(inst_details.settlement_type)?;
-                Self::execute_instruction_retryable(inst_id, caller_did, weight_meter)?;
+                Self::execute_instruction_retryable(inst_id, caller_did, weight_meter, true)?;
             }
             InstructionStatus::Failed => {
-                Self::execute_instruction_retryable(inst_id, caller_did, weight_meter)?;
+                Self::check_accrue(
+                    weight_meter,
+                    <T as Config>::WeightInfo::execute_manual_instruction_paused(
+                        inst_asset_count.fungible() as u32,
+                        inst_asset_count.non_fungible() as u32,
+                        inst_asset_count.off_chain() as u32,
+                    ),
+                )?;
+                Self::execute_instruction_retryable(inst_id, caller_did, weight_meter, true)?;
             }
             InstructionStatus::LockedForExecution => {
+                Self::check_accrue(
+                    weight_meter,
+                    <T as Config>::WeightInfo::execute_locked_instruction(
+                        inst_asset_count.fungible() as u32,
+                        inst_asset_count.non_fungible() as u32,
+                        inst_asset_count.off_chain() as u32,
+                    ),
+                )?;
                 Self::simplified_asset_transfer(
                     inst_id,
-                    inst_legs,
+                    inst_legs.clone(),
                     caller_did,
-                    &inst_asset_count,
                     weight_meter,
                 )?;
+                Self::prune_instruction(&inst_id, &inst_legs)?;
             }
             InstructionStatus::Success(_)
             | InstructionStatus::Unknown
@@ -3051,14 +3063,8 @@ impl<T: Config> Pallet<T> {
         venue_id: Option<VenueId>,
         inst_id: &InstructionId,
         inst_legs: &[(LegId, Leg)],
-        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         if let Some(caller_pid) = caller_pid {
-            Self::check_accrue(
-                weight_meter,
-                <T as Config>::WeightInfo::valid_caller_portfolio(),
-            )?;
-
             T::Portfolio::ensure_portfolio_custody_and_permission(
                 caller_pid, caller_did, caller_sk,
             )?;
@@ -3067,20 +3073,11 @@ impl<T: Config> Pallet<T> {
         }
 
         if let Some(venue_id) = venue_id {
-            Self::check_accrue(
-                weight_meter,
-                <T as Config>::WeightInfo::valid_caller_venue(),
-            )?;
-
             if Self::ensure_venue_creator(&venue_id, &caller_did).is_ok() {
                 return Ok(());
             }
         }
 
-        Self::check_accrue(
-            weight_meter,
-            <T as Config>::WeightInfo::valid_caller_mediator(),
-        )?;
         if Self::ensure_mediator(&inst_id, &caller_did).is_ok() {
             return Ok(());
         }
@@ -3150,19 +3147,14 @@ impl<T: Config> Pallet<T> {
 
         Self::check_accrue(
             weight_meter,
-            <T as Config>::WeightInfo::lock_instruction_common(
+            <T as Config>::WeightInfo::base_lock_instruction(
                 inst_asset_count.fungible(),
                 inst_asset_count.non_fungible(),
                 inst_asset_count.off_chain(),
             ),
         )?;
 
-        Self::validate_execute_instruction_pre_conditions(
-            &inst_id,
-            &inst_legs,
-            &inst_asset_count,
-            weight_meter,
-        )?;
+        Self::validate_execute_instruction_pre_conditions(&inst_id, &inst_legs)?;
 
         let inst_memo = InstructionMemos::<T>::get(&inst_id);
         frame_support_with_transaction(|| {
@@ -3197,10 +3189,9 @@ impl<T: Config> Pallet<T> {
         inst_id: InstructionId,
         inst_legs: Vec<(LegId, Leg)>,
         caller_did: IdentityId,
-        inst_asset_count: &AssetCount,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        Self::ensure_maximum_locking_period_not_exceeded(&inst_id, weight_meter)?;
+        Self::ensure_maximum_locking_period_not_exceeded(&inst_id)?;
 
         Self::release_locks(&inst_id, &inst_legs)?;
 
@@ -3233,14 +3224,17 @@ impl<T: Config> Pallet<T> {
             }
         }
 
+        Self::deposit_event(Event::InstructionExecuted(caller_did, inst_id));
+        InstructionStatuses::<T>::insert(
+            inst_id,
+            InstructionStatus::Success(System::<T>::block_number())
+        );
+
         Ok(())
     }
 
     /// Returns `Ok` if the maximum locking period was not exceeded.
-    fn ensure_maximum_locking_period_not_exceeded(
-        inst_id: &InstructionId,
-        weight_meter: &mut WeightMeter,
-    ) -> DispatchResult {
+    fn ensure_maximum_locking_period_not_exceeded(inst_id: &InstructionId) -> DispatchResult {
         let locked_timestamp =
             LockedTimestamp::<T>::get(inst_id).ok_or(Error::<T>::LockTimestampNotFound)?;
 
@@ -3318,18 +3312,12 @@ impl<T: Config> Pallet<T> {
 
     /// Returns the miminum weight for calling the `reject_instruction` extrinsic.
     fn reject_instruction_minimum_weight() -> Weight {
-        let reject_common = <T as Config>::WeightInfo::reject_instruction_common(0, 0, 1);
-        let caller_validation = <T as Config>::WeightInfo::valid_caller_venue();
-        let prune = <T as Config>::WeightInfo::prune_instruction(0, 0, 1);
-
-        reject_common
-            .saturating_add(caller_validation)
-            .saturating_add(prune)
+        <T as Config>::WeightInfo::base_reject_instruction(0, 0, 1)
     }
 
     /// Returns the minimum weight required for calling the `lock_instruction` extrinsic.
     pub fn lock_instruction_minimum_weight() -> Weight {
-        unimplemented!()
+        <T as Config>::WeightInfo::base_lock_instruction(0, 0, 1)
     }
 
     pub fn get_actual_weight(call: &Call<T>) -> Option<Weight> {
@@ -3369,32 +3357,9 @@ impl<T: Config> Pallet<T> {
 
     /// Returns an instance of [`ExecuteInstructionInfo`].
     pub fn execute_instruction_info(
-        instruction_id: &InstructionId,
+        _instruction_id: &InstructionId,
     ) -> Option<ExecuteInstructionInfo> {
-        if !InstructionDetails::<T>::contains_key(instruction_id) {
-            return None;
-        }
-
-        let caller_did = SettlementDID.as_id();
-        let instruction_asset_count = Self::get_instruction_asset_count(instruction_id);
-        let mut weight_meter =
-            WeightMeter::max_limit(Self::execute_manual_instruction_minimum_weight());
-        match Self::execute_instruction_retryable(*instruction_id, caller_did, &mut weight_meter) {
-            Ok(_) => Some(ExecuteInstructionInfo::new(
-                instruction_asset_count.fungible(),
-                instruction_asset_count.non_fungible(),
-                instruction_asset_count.off_chain(),
-                weight_meter.consumed(),
-                None,
-            )),
-            Err(e) => Some(ExecuteInstructionInfo::new(
-                instruction_asset_count.fungible(),
-                instruction_asset_count.non_fungible(),
-                instruction_asset_count.off_chain(),
-                weight_meter.consumed(),
-                Some(e.into()),
-            )),
-        }
+        unimplemented!()
     }
 
     /// Returns an instance of [`AffirmationCount`].
