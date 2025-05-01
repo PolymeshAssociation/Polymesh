@@ -18,7 +18,7 @@
 //! Default weights for the Babe Pallet
 //! This file was not auto-generated.
 
-use polymesh_runtime_common::{
+use polymesh_primitives::{
     RocksDbWeight as DbWeight, Weight, WEIGHT_REF_TIME_PER_MICROS, WEIGHT_REF_TIME_PER_NANOS,
 };
 
