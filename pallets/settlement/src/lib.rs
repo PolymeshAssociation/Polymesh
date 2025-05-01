@@ -1095,12 +1095,11 @@ pub mod pallet {
             id: InstructionId,
             portfolio: PortfolioId,
         ) -> DispatchResultWithPostInfo {
-            Self::base_reject_instruction(
-                origin,
-                id,
-                Some(portfolio),
-                &mut WeightMeter::max_limit_no_minimum(),
-            )
+            let mut weight_meter = Self::ensure_valid_weight_meter(
+                Self::reject_instruction_minimum_weight(),
+                <T as Config>::WeightInfo::reject_instruction(Some(AssetCount::new(10, 100, 10))),
+            )?;
+            Self::base_reject_instruction(origin, id, Some(portfolio), None, &mut weight_meter)
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
@@ -1208,8 +1207,14 @@ pub mod pallet {
             )
             .map_err(|e| e.error)?;
 
-            Self::base_reject_instruction(origin, id, Some(portfolio), &mut weight_meter)
-                .map_err(|e| e.error)?;
+            Self::base_reject_instruction(
+                origin,
+                id,
+                Some(portfolio),
+                number_of_assets,
+                &mut weight_meter,
+            )
+            .map_err(|e| e.error)?;
 
             Ok(())
         }
@@ -1373,7 +1378,13 @@ pub mod pallet {
                 <T as Config>::WeightInfo::reject_instruction(number_of_assets),
             )?;
 
-            Self::base_reject_instruction(origin, instruction_id, None, &mut weight_meter)
+            Self::base_reject_instruction(
+                origin,
+                instruction_id,
+                None,
+                number_of_assets,
+                &mut weight_meter,
+            )
         }
     }
 }
@@ -2413,6 +2424,7 @@ impl<T: Config> Pallet<T> {
         origin: OriginFor<T>,
         inst_id: InstructionId,
         caller_pid: Option<PortfolioId>,
+        input_asset_count: Option<AssetCount>,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResultWithPostInfo {
         let origin_data = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
@@ -2420,6 +2432,11 @@ impl<T: Config> Pallet<T> {
 
         let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
         let inst_asset_count = AssetCount::from_legs(&inst_legs);
+
+        if let Some(input_asset_count) = input_asset_count {
+            Self::ensure_valid_cost(&inst_asset_count, &input_asset_count)?;
+        }
+
         Self::check_accrue(
             weight_meter,
             <T as Config>::WeightInfo::reject_instruction_common(

@@ -3803,7 +3803,7 @@ fn reject_instruction_cost() {
                 bob_default_portfolio,
                 Some(AssetCount::new(1, 0, 0))
             ),
-            Error::WeightLimitExceeded
+            Error::NumberOfTransferredNFTsUnderestimated
         );
         assert_ok!(Settlement::reject_instruction_with_count(
             bob.origin(),
