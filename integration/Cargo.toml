@@ -15,6 +15,9 @@ edition = "2021"
 [features]
 default = []
 
+previous_release = []
+current_release = []
+
 [dependencies]
 anyhow = "1"
 log = "0.4"
