@@ -467,6 +467,30 @@ benchmarks! {
             .collect();
     }: _(alice.origin, InstructionId(1), receipt_details, portfolios)
 
+    execute_manual_instruction {
+        let f in 0..T::MaxNumberOfFungibleAssets::get();
+        let n in 0..T::MaxNumberOfNFTs::get();
+        let o in 0..T::MaxNumberOfOffChainAssets::get();
+
+        let m = T::MaxInstructionMediators::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let settlement_type = SettlementType::SettleManual(0u32.into());
+        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
+
+        let p = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, false, false);
+    }: {
+        Pallet::<T>::base_manual_execution(
+            p.asset_mediators[0].clone().origin.into(),
+            InstructionId(1),
+            None,
+            &AssetCount::new(f, n, o),
+            &mut WeightMeter::max_limit_no_minimum(),
+        )
+        .unwrap();
+    }
+
     add_instruction{
         // Number of fungible, non-fungible and offchain LEGS in the instruction
         let f in 1..T::MaxNumberOfFungibleAssets::get();
@@ -775,7 +799,7 @@ benchmarks! {
         .unwrap()
     }
 
-    lock_instruction {
+    base_lock_instruction {
         let f in 0..T::MaxNumberOfFungibleAssets::get();
         let n in 0..T::MaxNumberOfNFTs::get();
         let o in 0..T::MaxNumberOfOffChainAssets::get();
@@ -842,30 +866,6 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
 
         let p = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, true, true);
-    }: {
-        Pallet::<T>::base_manual_execution(
-            p.asset_mediators[0].clone().origin.into(),
-            InstructionId(1),
-            None,
-            &AssetCount::new(f, n, o),
-            &mut WeightMeter::max_limit_no_minimum(),
-        )
-        .unwrap();
-    }
-
-    execute_manual_instruction {
-        let f in 0..T::MaxNumberOfFungibleAssets::get();
-        let n in 0..T::MaxNumberOfNFTs::get();
-        let o in 0..T::MaxNumberOfOffChainAssets::get();
-
-        let m = T::MaxInstructionMediators::get();
-
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let settlement_type = SettlementType::SettleManual(0u32.into());
-        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
-
-        let p = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, false, false);
     }: {
         Pallet::<T>::base_manual_execution(
             p.asset_mediators[0].clone().origin.into(),
