@@ -526,3 +526,22 @@ fn success() {
         );
     });
 }
+
+#[test]
+fn rpc_call() {
+    ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(1);
+
+        let bob = User::new(AccountKeyring::Bob);
+        let dave = User::new(AccountKeyring::Dave);
+        let alice = User::new(AccountKeyring::Alice);
+
+        let _ =
+            add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
+
+        Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX).unwrap();
+
+        let weight = Settlement::manual_execution_weight(InstructionId(0)).unwrap();
+        assert_eq!(weight.error, None);
+    });
+}

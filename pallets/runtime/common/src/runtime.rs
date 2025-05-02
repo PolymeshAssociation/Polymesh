@@ -736,17 +736,17 @@ macro_rules! runtime_apis {
         use frame_support::dispatch::result::Result as FrameResult;
         use node_rpc_runtime_api::asset as rpc_api_asset;
 
-        use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords, DidStatus, KeyIdentityData};
+        use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords};
+        use pallet_identity::types::{DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
-        use polymesh_primitives::asset::AssetId;
-        use polymesh_primitives::settlement::{InstructionId, ExecuteInstructionInfo, AffirmationCount};
+        use polymesh_primitives::asset::{AssetId, CheckpointId};
+        use polymesh_primitives::settlement::{ AssetCount, AffirmationCount};
+        use polymesh_primitives::settlement::{InstructionId, ExecuteInstructionInfo};
         use polymesh_primitives::transfer_compliance::TransferCondition;
         use polymesh_primitives::compliance_manager::{AssetComplianceResult, ComplianceReport};
-        use polymesh_primitives::{
-            asset::CheckpointId, IdentityId, Index, NFTs,PortfolioId, Signatory, Ticker,
-            WeightMeter, IdentityClaim
-        };
+        use polymesh_primitives::{IdentityId, Index, NFTs, PortfolioId};
+        use polymesh_primitives::{Signatory, Ticker, WeightMeter, IdentityClaim};
 
         /// The address format for describing accounts.
         pub type Address = <Indices as StaticLookup>::Source;
@@ -1162,9 +1162,9 @@ macro_rules! runtime_apis {
             impl node_rpc_runtime_api::settlement::SettlementApi<Block> for Runtime {
                 #[inline]
                 fn get_execute_instruction_info(
-                    instruction_id: &InstructionId
+                    instruction_id: InstructionId
                 ) -> Option<ExecuteInstructionInfo> {
-                    Settlement::execute_instruction_info(instruction_id)
+                    Settlement::manual_execution_weight(instruction_id)
                 }
 
                 #[inline]
@@ -1183,10 +1183,18 @@ macro_rules! runtime_apis {
 
                 #[inline]
                 fn get_execute_instruction_report(instruction_id: InstructionId) -> Vec<DispatchError> {
-                    let mut weight_meter = WeightMeter::max_limit_no_minimum();
-                    Settlement::execute_instruction_report(&instruction_id, &mut weight_meter)
+                    Settlement::execute_instruction_report(&instruction_id)
                 }
 
+                #[inline]
+                fn lock_instruction_weight(instruction_id: InstructionId) -> Result<Weight, DispatchError> {
+                    Settlement::lock_instruction_weight(instruction_id)
+                }
+
+                #[inline]
+                fn instruction_asset_count(instruction_id: InstructionId) -> AssetCount {
+                    Settlement::instruction_asset_count(&instruction_id)
+                }
             }
 
             impl node_rpc_runtime_api::compliance::ComplianceApi<Block> for Runtime {

@@ -71,6 +71,7 @@ use sp_std::vec;
 
 use pallet_asset::MandatoryMediators;
 use pallet_base::{ensure_string_limited, try_next_post};
+use pallet_identity::DidRecords;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY;
 use polymesh_primitives::settlement::{
@@ -968,21 +969,32 @@ pub mod pallet {
             offchain_transfers: u32,
             weight_limit: Option<Weight>,
         ) -> DispatchResultWithPostInfo {
+            let worst_case_weight = <T as Config>::WeightInfo::execute_manual_instruction(
+                fungible_transfers,
+                nfts_transfers,
+                offchain_transfers,
+            );
+
             let mut weight_meter = Self::ensure_valid_weight_meter(
                 Self::execute_manual_instruction_minimum_weight(),
-                weight_limit.unwrap_or(Self::execute_manual_instruction_weight_limit(
-                    fungible_transfers,
-                    nfts_transfers,
-                    offchain_transfers,
-                )),
+                weight_limit.unwrap_or(worst_case_weight),
             )?;
+
             let input_cost =
                 AssetCount::new(fungible_transfers, nfts_transfers, offchain_transfers);
-            Self::base_manual_execution(origin, id, portfolio, &input_cost, &mut weight_meter)
-                .map_err(|e| DispatchErrorWithPostInfo {
-                    post_info: Some(weight_meter.consumed()).into(),
-                    error: e.error,
-                })
+
+            Self::base_manual_execution(
+                origin,
+                id,
+                portfolio,
+                &input_cost,
+                false,
+                &mut weight_meter,
+            )
+            .map_err(|e| DispatchErrorWithPostInfo {
+                post_info: Some(weight_meter.consumed()).into(),
+                error: e.error,
+            })
         }
 
         /// Adds a new instruction.
@@ -1435,7 +1447,7 @@ pub mod pallet {
                 weight_limit,
             )?;
 
-            Self::base_lock_instruction(origin, inst_id, &mut weight_meter)?;
+            Self::base_lock_instruction(origin, inst_id, false, &mut weight_meter)?;
 
             Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
         }
@@ -2401,10 +2413,10 @@ impl<T: Config> Pallet<T> {
         FilteredLegs::filter_sender(instruction_legs, portfolio)
     }
 
-    fn get_instruction_asset_count(id: &InstructionId) -> AssetCount {
-        // Get the weight limit for the instruction
-        let legs: Vec<(LegId, Leg)> = InstructionLegs::<T>::iter_prefix(id).collect();
-        AssetCount::from_legs(&legs)
+    /// Returns the [`AssetCount`] for the given `inst_id`.
+    pub fn instruction_asset_count(inst_id: &InstructionId) -> AssetCount {
+        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(inst_id).collect();
+        AssetCount::from_legs(&inst_legs)
     }
 
     fn base_update_venue_signers(
@@ -2716,6 +2728,7 @@ impl<T: Config> Pallet<T> {
         inst_id: InstructionId,
         caller_pid: Option<PortfolioId>,
         input_asset_count: &AssetCount,
+        skip_caller_check: bool,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResultWithPostInfo {
         let origin_data = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
@@ -2727,14 +2740,18 @@ impl<T: Config> Pallet<T> {
         Self::ensure_valid_cost(&inst_asset_count, input_asset_count)?;
 
         let inst_details = InstructionDetails::<T>::get(&inst_id);
-        Self::ensure_valid_caller(
-            caller_did,
-            caller_sk,
-            caller_pid,
-            inst_details.venue_id,
-            &inst_id,
-            &inst_legs,
-        )?;
+
+        // RPC don't need to check the caller
+        if !skip_caller_check {
+            Self::ensure_valid_caller(
+                caller_did,
+                caller_sk,
+                caller_pid,
+                inst_details.venue_id,
+                &inst_id,
+                &inst_legs,
+            )?;
+        }
 
         match InstructionStatuses::<T>::get(&inst_id) {
             InstructionStatus::Pending => {
@@ -2990,7 +3007,7 @@ impl<T: Config> Pallet<T> {
         if n_pending_affirmations == 0
             && instruction.settlement_type == SettlementType::SettleOnAffirmation
         {
-            let instruction_asset_count = Self::get_instruction_asset_count(&instruction_id);
+            let instruction_asset_count = Self::instruction_asset_count(&instruction_id);
             let weight_limit = Self::execute_scheduled_instruction_weight_limit(
                 instruction_asset_count.fungible(),
                 instruction_asset_count.non_fungible(),
@@ -3130,11 +3147,14 @@ impl<T: Config> Pallet<T> {
     fn base_lock_instruction(
         origin: OriginFor<T>,
         inst_id: InstructionId,
+        skip_caller_check: bool,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         let caller_did = pallet_identity::Pallet::<T>::ensure_perms(origin.clone())?;
 
-        Self::ensure_mediator(&inst_id, &caller_did)?;
+        if !skip_caller_check {
+            Self::ensure_mediator(&inst_id, &caller_did)?;
+        }
 
         let inst_details = InstructionDetails::<T>::get(&inst_id);
         ensure!(
@@ -3268,11 +3288,6 @@ impl<T: Config> Pallet<T> {
         <T as Config>::WeightInfo::execute_scheduled_instruction(0, 0, 1)
     }
 
-    /// Returns the worst case weight for an instruction with `f` fungible legs, `n` nfts being transferred and `o` offchain assets.
-    fn execute_manual_instruction_weight_limit(f: u32, n: u32, o: u32) -> Weight {
-        <T as Config>::WeightInfo::execute_manual_instruction(f, n, o)
-    }
-
     /// Returns the minimum weight for calling the `execute_manual_instruction` extrinsic.
     pub fn execute_manual_instruction_minimum_weight() -> Weight {
         <T as Config>::WeightInfo::execute_locked_instruction(0, 0, 1)
@@ -3348,20 +3363,13 @@ impl<T: Config> Pallet<T> {
                 ))
             }
             Call::reject_instruction { id, .. } => {
-                let inst_asset_count = Self::get_instruction_asset_count(id);
+                let inst_asset_count = Self::instruction_asset_count(id);
                 Some(<T as Config>::WeightInfo::reject_instruction(Some(
                     inst_asset_count,
                 )))
             }
             _ => None,
         }
-    }
-
-    /// Returns an instance of [`ExecuteInstructionInfo`].
-    pub fn execute_instruction_info(
-        _instruction_id: &InstructionId,
-    ) -> Option<ExecuteInstructionInfo> {
-        unimplemented!()
     }
 
     /// Returns an instance of [`AffirmationCount`].
@@ -3379,6 +3387,8 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns a vector containing all errors for the transfer. An empty vec means there's no error.
+    ///
+    /// `Note:` should only be called as a RPC.
     #[rustfmt::skip]
     pub fn transfer_report(
         leg: Leg,
@@ -3412,10 +3422,99 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns a vector containing all errors for the execution. An empty vec means there's no error.
-    pub fn execute_instruction_report(
-        _instruction_id: &InstructionId,
-        _weight_meter: &mut WeightMeter,
-    ) -> Vec<DispatchError> {
-        unimplemented!()
+    ///
+    /// `Note:` should only be called as a RPC.
+    pub fn execute_instruction_report(inst_id: &InstructionId) -> Vec<DispatchError> {
+        let mut execution_errors = Vec::new();
+
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(inst_id).collect();
+
+        if InstructionAffirmsPending::<T>::get(inst_id) != 0 {
+            execution_errors.push(Error::<T>::NotAllAffirmationsHaveBeenReceived.into());
+        }
+
+        if let Err(e) = Self::ensure_instruction_is_pending_or_failed(inst_id) {
+            execution_errors.push(e);
+        }
+
+        if let Err(e) = Self::validate_mediators_affirmations(inst_id) {
+            execution_errors.push(e);
+        }
+
+        if let Err(e) = Self::validate_parties_affirmations(inst_id, &inst_legs) {
+            execution_errors.push(e);
+        }
+
+        let inst_details = InstructionDetails::<T>::get(inst_id);
+        if let Err(e) = Self::ensure_allowed_venue(&inst_legs, inst_details.venue_id) {
+            execution_errors.push(e);
+        }
+
+        for (_, leg) in inst_legs {
+            let transfer_errors = Self::transfer_report(leg, true, &mut weight_meter);
+            execution_errors.extend_from_slice(&transfer_errors);
+        }
+
+        execution_errors
+    }
+
+    /// Returns the weight for executing `execute_manual_instruction`.
+    ///
+    /// `Note:` should only be called as a RPC.
+    pub fn manual_execution_weight(inst_id: InstructionId) -> Option<ExecuteInstructionInfo> {
+        let mut weight_meter =
+            WeightMeter::max_limit(Self::execute_manual_instruction_minimum_weight());
+
+        let caller_did = SettlementDID.as_id();
+        let caller_account_id = DidRecords::<T>::get(&caller_did)?.primary_key?;
+        let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(inst_id).collect();
+        let inst_asset_count = AssetCount::from_legs(&inst_legs);
+
+        match Self::base_manual_execution(
+            RawOrigin::Signed(caller_account_id).into(),
+            inst_id,
+            None,
+            &inst_asset_count,
+            true,
+            &mut weight_meter,
+        ) {
+            Ok(_) => Some(ExecuteInstructionInfo::new(
+                inst_asset_count.fungible(),
+                inst_asset_count.non_fungible(),
+                inst_asset_count.off_chain(),
+                weight_meter.consumed(),
+                None,
+            )),
+            Err(e) => Some(ExecuteInstructionInfo::new(
+                inst_asset_count.fungible(),
+                inst_asset_count.non_fungible(),
+                inst_asset_count.off_chain(),
+                weight_meter.consumed(),
+                Some(e.into()),
+            )),
+        }
+    }
+
+    /// Returns the weight for executing `lock_instruction`.
+    ///
+    /// `Note:` should only be called as a RPC.
+    pub fn lock_instruction_weight(inst_id: InstructionId) -> Result<Weight, DispatchError> {
+        let mut weight_meter = WeightMeter::max_limit(Self::lock_instruction_minimum_weight());
+
+        let caller_did = SettlementDID.as_id();
+        let caller_account_id = DidRecords::<T>::get(&caller_did)
+            .ok_or(Error::<T>::Unauthorized)?
+            .primary_key
+            .ok_or(Error::<T>::Unauthorized)?;
+
+        Self::base_lock_instruction(
+            RawOrigin::Signed(caller_account_id).into(),
+            inst_id,
+            true,
+            &mut weight_meter,
+        )?;
+
+        Ok(weight_meter.consumed())
     }
 }
