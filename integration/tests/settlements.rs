@@ -1,11 +1,12 @@
 use anyhow::Result;
+use sp_core::Encode;
 use std::collections::BTreeSet;
 
 use integration::*;
 use polymesh_api::types::polymesh_primitives::{
     asset::{AssetName, AssetType},
     identity_id::{PortfolioId, PortfolioKind},
-    settlement::{Leg, SettlementType, VenueDetails, VenueId, VenueType},
+    settlement::{Leg, LegId, ReceiptDetails, SettlementType, VenueDetails, VenueId, VenueType},
 };
 
 /// Asset Helper.
@@ -19,14 +20,20 @@ pub struct AssetHelper {
 
 impl AssetHelper {
     /// Create a new asset, mint some tokens, and pause compliance rules.
-    pub async fn new(api: &Api, issuer: &mut User, name: &str, mint: u128) -> Result<Self> {
+    pub async fn new(
+        api: &Api,
+        issuer: &mut User,
+        name: &str,
+        mint: u128,
+        signers: Vec<AccountId>,
+    ) -> Result<Self> {
         // Create a new venue.
         let mut venue_res = api
             .call()
             .settlement()
             .create_venue(
                 VenueDetails(format!("Venue for {name}").into()),
-                vec![],
+                signers,
                 VenueType::Other,
             )?
             .submit_and_watch(issuer)
@@ -224,8 +231,14 @@ async fn asset_helper() -> Result<()> {
     let mut investor = users.next().expect("Investor");
 
     // Create a new asset and mint some tokens.
-    let mut asset_helper =
-        AssetHelper::new(&tester.api, &mut asset_issuer, "TestAsset", 1_000_000).await?;
+    let mut asset_helper = AssetHelper::new(
+        &tester.api,
+        &mut asset_issuer,
+        "TestAsset",
+        1_000_000,
+        vec![],
+    )
+    .await?;
 
     // Fund the investors portfolio with some tokens.
     asset_helper
@@ -374,6 +387,135 @@ async fn simple_settlement() -> Result<()> {
         .call()
         .settlement()
         .execute_manual_instruction(settlement_id, None, 1, 0, 0, None)?
+        .submit_and_watch(&mut venue)
+        .await?;
+
+    // Wait for the settlement to complete.
+    execute_res.ok().await?;
+
+    Ok(())
+}
+
+/// Test a settlement with offchain leg and onchain fungible leg.
+#[tokio::test]
+async fn offchain_settlement() -> Result<()> {
+    let mut tester = PolymeshTester::new().await?;
+    let mut users = tester
+        .users(&["VenueUser1", "VenueSigner1", "Investor1"])
+        .await?
+        .into_iter();
+    let mut venue = users.next().expect("Venue user");
+    let signer1 = users.next().expect("Venue signer 1");
+    let mut investor1 = users.next().expect("Investor1");
+
+    // Create a new asset and mint some tokens.
+    let asset_helper = AssetHelper::new(
+        &tester.api,
+        &mut venue,
+        "TestAsset",
+        1_000_000,
+        vec![signer1.account()],
+    )
+    .await?;
+    let venue_id = asset_helper.issuer_venue_id;
+    let venue_did = asset_helper.issuer_did;
+
+    // Get the DIDs of the users.
+    let sender_identity = investor1.did.expect("Investor 1 DID");
+    let receiver_identity = venue_did;
+
+    // User portfolios.
+    let issuer_portfolio = PortfolioId {
+        did: venue_did,
+        kind: PortfolioKind::Default,
+    };
+    let investor_portfolio = PortfolioId {
+        did: sender_identity,
+        kind: PortfolioKind::Default,
+    };
+
+    let ticker = Ticker(*b"OFFCHAIN0000");
+    let amount = 10u128;
+
+    // Create a Settlement to transfer offchain assets using a receipt signed by a venue signer.
+    let mut settlement_res = tester
+        .api
+        .call()
+        .settlement()
+        .add_and_affirm_instruction(
+            Some(venue_id),
+            SettlementType::SettleManual(0),
+            None,
+            None,
+            vec![
+                Leg::Fungible {
+                    sender: issuer_portfolio,
+                    receiver: investor_portfolio,
+                    asset_id: asset_helper.asset_id,
+                    amount: 10 * ONE_POLYX,
+                },
+                Leg::OffChain {
+                    sender_identity,
+                    receiver_identity,
+                    ticker,
+                    amount,
+                },
+            ],
+            [issuer_portfolio].into(),
+            None,
+        )?
+        .submit_and_watch(&mut venue)
+        .await?;
+
+    // Get the settlement ID from the response.
+    let instruction_id = get_instruction_id(&mut settlement_res)
+        .await?
+        .expect("Settlement ID not found");
+
+    // Create a receipt for the offchain asset and sign it with the venue signer.
+    let uid = 0u64;
+    let leg_id = LegId(1u64);
+    let receipt = Receipt {
+        uid,
+        instruction_id,
+        leg_id,
+        sender_identity,
+        receiver_identity,
+        ticker,
+        amount,
+    };
+    let encoded = receipt.encode();
+    let sig = signer1.sign(&encoded[..]).await?;
+
+    // The investor needs to affirm the settlement with the offchain receipt.
+    let mut affirm_res = tester
+        .api
+        .call()
+        .settlement()
+        .affirm_with_receipts(
+            instruction_id,
+            vec![ReceiptDetails {
+                uid,
+                instruction_id,
+                leg_id,
+                signer: signer1.account(),
+                signature: sig,
+                metadata: None,
+            }],
+            [investor_portfolio].into(),
+        )?
+        .submit_and_watch(&mut investor1)
+        .await?;
+
+    // Wait for the affirmations to complete.
+    affirm_res.ok().await?;
+
+    // Execute the settlement
+    let mut execute_res = tester
+        .api
+        .call()
+        .settlement()
+        .execute_manual_instruction(instruction_id, None, 1, 0, 1, None)?
         .submit_and_watch(&mut venue)
         .await?;
 
