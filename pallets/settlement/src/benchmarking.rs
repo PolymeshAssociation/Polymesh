@@ -486,6 +486,7 @@ benchmarks! {
             InstructionId(1),
             None,
             &AssetCount::new(f, n, o),
+            false,
             &mut WeightMeter::max_limit_no_minimum(),
         )
         .unwrap();
@@ -817,6 +818,7 @@ benchmarks! {
         Pallet::<T>::base_lock_instruction(
             parameters.asset_mediators[0].clone().origin.into(),
             inst_id,
+            false,
             &mut WeightMeter::max_limit_no_minimum(),
         )
         .unwrap();
@@ -839,6 +841,7 @@ benchmarks! {
         Pallet::<T>::base_lock_instruction(
             p.asset_mediators[0].clone().origin.into(),
             InstructionId(1),
+            false,
             &mut WeightMeter::max_limit_no_minimum(),
         )
         .unwrap();
@@ -848,6 +851,7 @@ benchmarks! {
             InstructionId(1),
             None,
             &AssetCount::new(f, n, o),
+            false,
             &mut WeightMeter::max_limit_no_minimum(),
         )
         .unwrap();
@@ -872,6 +876,7 @@ benchmarks! {
             InstructionId(1),
             None,
             &AssetCount::new(f, n, o),
+            false,
             &mut WeightMeter::max_limit_no_minimum(),
         )
         .unwrap();
