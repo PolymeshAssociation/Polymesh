@@ -1,5 +1,4 @@
 use anyhow::{bail, Result};
-use sp_core::Encode;
 
 use sp_runtime::MultiSignature;
 
@@ -45,7 +44,6 @@ async fn add_secondary_key_with_authorization() -> Result<()> {
         nonce,
         expires_at,
     };
-    let auth_data = auth.encode();
 
     // Secondary keys with authorization and permissions.
     let permissions: Permissions = serde_json::from_value(serde_json::json!({
@@ -55,7 +53,7 @@ async fn add_secondary_key_with_authorization() -> Result<()> {
     }))?;
     let mut keys = Vec::new();
     for key in &mut secondary_keys {
-        match key.sign(&auth_data[..]).await? {
+        match sign_with_key(key, &auth).await? {
             MultiSignature::Sr25519(sig) => {
                 keys.push(SecondaryKeyWithAuth {
                     secondary_key: SecondaryKey {
@@ -115,12 +113,11 @@ async fn create_child_identities_with_authorizations() -> Result<()> {
         nonce,
         expires_at,
     };
-    let auth_data = auth.encode();
 
     let mut children = Vec::new();
     for key in &keys {
         // Sign the authorization data with the secondary key.
-        match key.sign(&auth_data[..]).await? {
+        match sign_with_key(key, &auth).await? {
             MultiSignature::Sr25519(sig) => {
                 // Create child identity with authorization.
                 let child = CreateChildIdentityWithAuth {
@@ -178,7 +175,7 @@ async fn relay_tx() -> Result<()> {
             call: Box::new(remark_call.clone()),
             nonce: nonce + idx,
         };
-        let sig = relayed.sign(&unique_call.encode()[..]).await?;
+        let sig = sign_with_key(&relayed, &unique_call).await?;
 
         // Use `relayer` to relay the call.
         tester

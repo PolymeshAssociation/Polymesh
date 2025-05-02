@@ -1,5 +1,4 @@
 use anyhow::Result;
-use sp_core::Encode;
 use std::collections::BTreeSet;
 
 use integration::*;
@@ -484,8 +483,7 @@ async fn offchain_settlement() -> Result<()> {
         ticker,
         amount,
     };
-    let encoded = receipt.encode();
-    let sig = signer1.sign(&encoded[..]).await?;
+    let sig = sign_with_key(&signer1, &receipt).await?;
 
     // The investor needs to affirm the settlement with the offchain receipt.
     let mut affirm_res = tester
