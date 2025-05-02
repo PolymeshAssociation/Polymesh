@@ -416,24 +416,24 @@ impl IntegrationUser for User {
 }
 
 /// A helper function to sign a SCALE encoded message with a signing key.
-#[cfg(feature = "previous_release")]
 pub async fn sign_with_key<S: Signer, T: sp_core::Encode>(
     signer: &S,
     message: &T,
+    _no_wrapping: bool,
 ) -> Result<sp_runtime::MultiSignature> {
+    #[cfg(feature = "previous_release")]
     let encoded = message.encode();
-    Ok(signer.sign(&encoded[..]).await?)
-}
 
-/// A helper function to sign a SCALE encoded message with a signing key.
-#[cfg(feature = "current_release")]
-pub async fn sign_with_key<S: Signer, T: sp_core::Encode>(
-    signer: &S,
-    message: &T,
-) -> Result<sp_runtime::MultiSignature> {
-    use crate::client::{BytesPayload, Encoded};
-    use sp_core::Encode;
+    #[cfg(feature = "current_release")]
+    let encoded = {
+        use crate::client::{BytesPayload, Encoded};
+        use sp_core::Encode;
 
-    let encoded = BytesPayload(Encoded::from(message)).encode();
+        if _no_wrapping {
+            message.encode()
+        } else {
+            BytesPayload(Encoded::from(message)).encode()
+        }
+    };
     Ok(signer.sign(&encoded[..]).await?)
 }

@@ -483,7 +483,7 @@ async fn offchain_settlement() -> Result<()> {
         ticker,
         amount,
     };
-    let sig = sign_with_key(&signer1, &receipt).await?;
+    let sig = sign_with_key(&signer1, &receipt, false).await?;
 
     // The investor needs to affirm the settlement with the offchain receipt.
     let mut affirm_res = tester

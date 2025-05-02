@@ -53,7 +53,7 @@ async fn add_secondary_key_with_authorization() -> Result<()> {
     }))?;
     let mut keys = Vec::new();
     for key in &mut secondary_keys {
-        match sign_with_key(key, &auth).await? {
+        match sign_with_key(key, &auth, false).await? {
             MultiSignature::Sr25519(sig) => {
                 keys.push(SecondaryKeyWithAuth {
                     secondary_key: SecondaryKey {
@@ -117,7 +117,7 @@ async fn create_child_identities_with_authorizations() -> Result<()> {
     let mut children = Vec::new();
     for key in &keys {
         // Sign the authorization data with the secondary key.
-        match sign_with_key(key, &auth).await? {
+        match sign_with_key(key, &auth, false).await? {
             MultiSignature::Sr25519(sig) => {
                 // Create child identity with authorization.
                 let child = CreateChildIdentityWithAuth {
@@ -175,7 +175,7 @@ async fn relay_tx() -> Result<()> {
             call: Box::new(remark_call.clone()),
             nonce: nonce + idx,
         };
-        let sig = sign_with_key(&relayed, &unique_call).await?;
+        let sig = sign_with_key(&relayed, &unique_call, false).await?;
 
         // Use `relayer` to relay the call.
         tester
