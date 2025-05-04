@@ -480,7 +480,7 @@ pub mod pallet {
             let transactor = ensure_signed(origin)?;
             let dest = T::Lookup::lookup(dest)?;
             // Polymesh modified code.  CDD is checked before processing transfer.
-            Self::safe_transfer_core(
+            Self::transfer_core(
                 &transactor,
                 &dest,
                 value,
@@ -508,7 +508,7 @@ pub mod pallet {
         ) -> DispatchResult {
             let transactor = ensure_signed(origin)?;
             let dest = T::Lookup::lookup(dest)?;
-            Self::safe_transfer_core(
+            Self::transfer_core(
                 &transactor,
                 &dest,
                 value,
@@ -832,23 +832,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Polymesh modified code. New wrapper function for the transfer_core function that checks for CDD.
-    /// Checks CDD and then only performs the transfer
-    fn safe_transfer_core(
-        transactor: &T::AccountId,
-        dest: &T::AccountId,
-        value: Balance,
-        memo: Option<Memo>,
-        existence_requirement: ExistenceRequirement,
-    ) -> DispatchResult {
-        ensure!(
-            T::CddChecker::check_key_cdd(dest),
-            Error::<T>::ReceiverCddMissing
-        );
-
-        Self::transfer_core(transactor, dest, value, memo, existence_requirement)
-    }
-
     /// Common functionality for transfers.
     /// It does not emit any event.
     ///
@@ -1058,7 +1041,6 @@ impl<T: Config> Currency<T::AccountId> for Pallet<T> {
         Ok(())
     }
 
-    /// Important-Note - Use the transfer carefully as this function is not resilient for the cdd check of receiver.
     /// Transfer some free balance from `transactor` to `dest`.
     /// Is a no-op if value to be transferred is zero or the `transactor` is the same as `dest`.
     fn transfer(
@@ -1067,7 +1049,7 @@ impl<T: Config> Currency<T::AccountId> for Pallet<T> {
         value: Self::Balance,
         existence_requirement: ExistenceRequirement,
     ) -> DispatchResult {
-        Self::safe_transfer_core(transactor, dest, value, None, existence_requirement)
+        Self::transfer_core(transactor, dest, value, None, existence_requirement)
     }
 
     /// Transfer some free balance from `transactor` to `dest`.
