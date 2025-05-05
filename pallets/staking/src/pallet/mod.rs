@@ -60,7 +60,7 @@ use pallet_identity::Config as IdentityConfig;
 use polymesh_primitives::GC_DID;
 use polymesh_primitives::{storage_migration_ver, traits::IdentityFnTrait, IdentityId};
 
-use crate::types::{PermissionedIdentityPrefs, SlashingSwitch};
+use crate::types::{PermissionedIdentityPrefs, PermissionedStaking, SlashingSwitch};
 // -----------------------------------------------------------------
 
 const STAKING_ID: LockIdentifier = *b"staking ";
@@ -326,6 +326,9 @@ pub mod pallet {
 
         // Polymesh change
         // -----------------------------------------------------------------
+
+        /// Permissioned staking.
+        type Permissioned: PermissionedStaking<Self>;
 
         /// Maximum amount of validators that can run by an identity.
         /// It will be MaxValidatorPerIdentity * Self::validator_count().
@@ -1096,6 +1099,7 @@ pub mod pallet {
                 return Err(Error::<T>::AlreadyBonded.into());
             }
 
+            // Polymesh added:
             // An existing controller cannot become a stash.
             if <Ledger<T>>::contains_key(&stash) {
                 return Err(Error::<T>::AlreadyPaired.into());
@@ -1326,19 +1330,6 @@ pub mod pallet {
                 Error::<T>::CommissionTooLow
             );
 
-            // ensure their commission is correct.
-            ensure!(
-                prefs.commission <= Self::validator_commission_cap(),
-                Error::<T>::CommissionTooHigh
-            );
-
-            // Polymesh change
-            // -----------------------------------------------------------------
-            let stash_did = pallet_identity::Pallet::<T>::get_identity(stash)
-                .ok_or(Error::<T>::StashIdentityDoesNotExist)?;
-            let mut stash_did_prefs = Self::permissioned_identity(stash_did)
-                .ok_or(Error::<T>::StashIdentityNotPermissioned)?;
-
             // Only check limits if they are not already a validator.
             if !Validators::<T>::contains_key(stash) {
                 // If this error is reached, we need to adjust the `MinValidatorBond` and start
@@ -1350,16 +1341,11 @@ pub mod pallet {
                         Error::<T>::TooManyValidators
                     );
                 }
-                // Ensure the identity doesn't run more validators than the intended count
-                ensure!(
-                    stash_did_prefs.running_count < stash_did_prefs.intended_count,
-                    Error::<T>::TooManyValidators
-                );
-                stash_did_prefs.running_count += 1;
-                pallet_identity::Pallet::<T>::add_account_key_ref_count(&stash);
-                PermissionedIdentity::<T>::insert(stash_did, stash_did_prefs);
+                // Polymesh change
+                // -----------------------------------------------------------------
+                T::Permissioned::on_validate(stash, prefs.commission)?;
+                // -----------------------------------------------------------------
             }
-            // -----------------------------------------------------------------
 
             Self::do_remove_nominator(stash);
             Self::do_add_validator(stash, prefs.clone());
@@ -1435,9 +1421,9 @@ pub mod pallet {
 
             // Polymesh change
             // -----------------------------------------------------------------
-            let nominator_did = pallet_identity::Pallet::<T>::get_identity(&stash);
+            T::Permissioned::on_nominate(&stash)?;
 
-            Self::release_running_validator(&stash);
+            let nominator_did = pallet_identity::Pallet::<T>::get_identity(&stash);
             Self::deposit_event(Event::<T>::Nominated {
                 nominator_identity: nominator_did.unwrap_or_default(),
                 stash: ledger.stash.clone(),
@@ -1525,6 +1511,7 @@ pub mod pallet {
                 return Err(Error::<T>::AlreadyPaired.into());
             }
 
+            // Polymesh added:
             // Prevents stashes which are controllers of another ledger from calling the extrinsic
             if old_controller != stash {
                 if <Ledger<T>>::contains_key(&stash) {
@@ -1835,12 +1822,14 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
 
-            let ed = T::Currency::minimum_balance();
-            let reapable = T::Currency::total_balance(&stash) <= ed
-                || Self::ledger(Self::bonded(stash.clone()).ok_or(Error::<T>::NotStash)?)
-                    .map(|l| l.total)
-                    .unwrap_or_default()
-                    < ed;
+            // Polymesh change:
+            //   use T::Permissioned::reapable(amount)
+            let reapable = T::Permissioned::reapable(T::Currency::total_balance(&stash))
+                || T::Permissioned::reapable(
+                    Self::ledger(Self::bonded(stash.clone()).ok_or(Error::<T>::NotStash)?)
+                        .map(|l| l.total)
+                        .unwrap_or_default(),
+                );
             ensure!(reapable, Error::<T>::FundedTarget);
 
             Self::kill_stash(&stash, num_slashing_spans)?;
@@ -2079,42 +2068,7 @@ pub mod pallet {
             identity: IdentityId,
             intended_count: Option<u32>,
         ) -> DispatchResult {
-            T::AdminOrigin::ensure_origin(origin)?;
-
-            ensure!(
-                Self::permissioned_identity(&identity).is_none(),
-                Error::<T>::IdentityIsAlreadyPermissioned
-            );
-
-            ensure!(
-                pallet_identity::Pallet::<T>::has_valid_cdd(identity),
-                Error::<T>::IdentityIsMissingCDD
-            );
-
-            match intended_count {
-                Some(intended_count) => {
-                    ensure!(
-                        intended_count < Self::maximum_number_of_validators_per_identity(),
-                        Error::<T>::IntendedCountIsExceedingConsensusLimit
-                    );
-                    PermissionedIdentity::<T>::insert(
-                        &identity,
-                        PermissionedIdentityPrefs::new(intended_count),
-                    );
-                }
-                None => {
-                    PermissionedIdentity::<T>::insert(
-                        &identity,
-                        PermissionedIdentityPrefs::default(),
-                    );
-                }
-            }
-
-            Self::deposit_event(Event::<T>::PermissionedIdentityAdded {
-                governance_councill_did: GC_DID,
-                validators_identity: identity,
-            });
-            Ok(())
+            Self::base_add_permissioned_validator(origin, identity, intended_count)
         }
 
         /// Remove an identity from the pool of (wannabe) validator identities. Effects are known in the next session.
@@ -2130,20 +2084,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             identity: IdentityId,
         ) -> DispatchResult {
-            T::AdminOrigin::ensure_origin(origin)?;
-
-            ensure!(
-                Self::permissioned_identity(&identity).is_some(),
-                Error::<T>::IdentityNotFound
-            );
-
-            PermissionedIdentity::<T>::remove(&identity);
-
-            Self::deposit_event(Event::<T>::PermissionedIdentityRemoved {
-                governance_councill_did: GC_DID,
-                validators_identity: identity,
-            });
-            Ok(())
+            Self::base_remove_permissioned_validator(origin, identity)
         }
 
         #[pallet::call_index(29)]
@@ -2155,8 +2096,7 @@ pub mod pallet {
             validator_stash: T::AccountId,
             era: EraIndex,
         ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            Self::do_payout_stakers(validator_stash, era)
+            Self::base_payout_stakers_by_system(origin, validator_stash, era)
         }
 
         /// Switch slashing status on the basis of given `slashing_switch`. Can only be called by root.
@@ -2166,10 +2106,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             slashing_switch: SlashingSwitch,
         ) -> DispatchResult {
-            ensure_root(origin)?;
-            SlashingAllowedFor::<T>::put(slashing_switch);
-            Self::deposit_event(Event::<T>::SlashingAllowedForChanged { slashing_switch });
-            Ok(())
+            Self::base_change_slashing_allowed_for(origin, slashing_switch)
         }
 
         /// Sets the intended count to `new_intended_count` for the given `identity`.
@@ -2180,18 +2117,11 @@ pub mod pallet {
             identity: IdentityId,
             new_intended_count: u32,
         ) -> DispatchResult {
-            T::AdminOrigin::ensure_origin(origin)?;
-
-            ensure!(
-                Self::maximum_number_of_validators_per_identity() > new_intended_count,
-                Error::<T>::IntendedCountIsExceedingConsensusLimit
-            );
-
-            PermissionedIdentity::<T>::try_mutate(&identity, |pref| {
-                pref.as_mut()
-                    .ok_or_else(|| Error::<T>::IdentityNotFound.into())
-                    .map(|p| p.intended_count = new_intended_count)
-            })
+            Self::base_update_permissioned_validator_intended_count(
+                origin,
+                identity,
+                new_intended_count,
+            )
         }
 
         /// Governance council forcefully chills a validator. Effects will be felt at the beginning of the next era.
@@ -2213,28 +2143,7 @@ pub mod pallet {
         #[pallet::call_index(33)]
         #[pallet::weight(<T as Config>::WeightInfo::set_commission_cap(150))]
         pub fn set_commission_cap(origin: OriginFor<T>, new_cap: Perbill) -> DispatchResult {
-            T::AdminOrigin::ensure_origin(origin.clone())?;
-
-            // Update the cap, assuming it changed, or error.
-            let old_cap =
-                ValidatorCommissionCap::<T>::try_mutate(|cap| -> Result<_, DispatchError> {
-                    ensure!(*cap != new_cap, Error::<T>::CommissionUnchanged);
-                    Ok(core::mem::replace(cap, new_cap))
-                })?;
-
-            // Update `commission` in each validator prefs to `min(comission, new_cap)`.
-            <Validators<T>>::translate(|_, mut prefs: ValidatorPrefs| {
-                prefs.commission = prefs.commission.min(new_cap);
-                Some(prefs)
-            });
-
-            Self::deposit_event(Event::<T>::CommissionCapUpdated {
-                governance_councill_did: GC_DID,
-                old_commission_cap: old_cap,
-                new_commission_cap: new_cap,
-            });
-
-            Ok(())
+            Self::base_set_commission_cap(origin, new_cap)
         }
         // -----------------------------------------------------------------
     }
