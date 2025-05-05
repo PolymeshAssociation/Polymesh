@@ -43,7 +43,6 @@ use polymesh_primitives::impl_checked_inc;
 use polymesh_primitives::settlement::{Leg, ReceiptDetails, SettlementType, VenueId, VenueType};
 use polymesh_primitives::{
     storage_migration_ver, traits::PortfolioSubTrait, Balance, EventDid, IdentityId, PortfolioId,
-    WeightMeter,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 
@@ -598,7 +597,6 @@ pub mod pallet {
                 receipt,
                 portfolios,
                 did,
-                &mut WeightMeter::max_limit_no_minimum(),
             )?;
 
             for (id, amount) in purchases {

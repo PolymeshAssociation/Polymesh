@@ -839,7 +839,7 @@ fn failed_execution() {
                 0,
                 None,
             ),
-            Error::FailedToReleaseLockOrTransferAssets
+            Error::FailedAssetTransferringConditions
         ));
     });
 }
@@ -2418,7 +2418,7 @@ fn settle_manual_instruction() {
         assert_affirm_instruction!(bob.origin(), instruction_id, bob.did);
 
         // Ensure it gave the correct error message after it failed because the execution block number hasn't reached yet
-        assert_noop!(
+        assert_storage_noop!(assert_err_ignore_postinfo!(
             Settlement::execute_manual_instruction(
                 alice.origin(),
                 instruction_id,
@@ -2428,11 +2428,8 @@ fn settle_manual_instruction() {
                 0,
                 None
             ),
-            DispatchErrorWithPostInfo {
-                post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
-                error: Error::InstructionSettleBlockNotReached.into()
-            }
-        );
+            Error::InstructionSettleBlockNotReached
+        ));
         next_block();
         // Ensure bob can't execute instruction with portfolio set to none since he is not the venue creator
         assert_noop!(
@@ -2530,7 +2527,7 @@ fn settle_manual_instruction_with_portfolio() {
         assert_affirm_instruction!(bob.origin(), instruction_id, bob.did);
 
         // Ensure it gave the correct error message after it failed because the execution block number hasn't reached yet
-        assert_noop!(
+        assert_storage_noop!(assert_err_ignore_postinfo!(
             Settlement::execute_manual_instruction(
                 alice.origin(),
                 instruction_id,
@@ -2540,11 +2537,8 @@ fn settle_manual_instruction_with_portfolio() {
                 0,
                 None
             ),
-            DispatchErrorWithPostInfo {
-                post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
-                error: Error::InstructionSettleBlockNotReached.into()
-            }
-        );
+            Error::InstructionSettleBlockNotReached
+        ));
         next_block();
         // Ensure correct error is shown when non party member tries to execute function
         assert_noop!(
