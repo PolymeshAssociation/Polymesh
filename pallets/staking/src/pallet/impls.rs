@@ -53,15 +53,11 @@ use super::{pallet::*, STAKING_ID};
 // Polymesh change
 // -----------------------------------------------------------------
 
-use frame_support::traits::schedule::Anon;
-use frame_support::traits::schedule::{DispatchTime, HIGHEST_PRIORITY};
 use frame_support::traits::DefensiveSaturating;
 
 use polymesh_primitives::traits::IdentityFnTrait;
-use polymesh_primitives::IdentityId;
-use polymesh_primitives::GC_DID;
 
-use crate::pallet::SlashingSwitch;
+use crate::types::PermissionedStaking;
 use crate::UnlockChunk;
 // -----------------------------------------------------------------
 
@@ -120,23 +116,25 @@ impl<T: Config> Pallet<T> {
             ledger = ledger.consolidate_unlocked(current_era)
         }
 
-        let used_weight =
-            if ledger.unlocking.is_empty() && ledger.active <= T::Currency::minimum_balance() {
-                // This account must have called `unbond()` with some value that caused the active
-                // portion to fall below existential deposit + will have no more unlocking chunks
-                // left. We can now safely remove all staking-related information.
-                Self::kill_stash(&stash, num_slashing_spans)?;
-                // Remove the lock.
-                T::Currency::remove_lock(STAKING_ID, &stash);
+        // Polymesh change:
+        //   use T::Permissioned::reapable(amount)
+        let used_weight = if ledger.unlocking.is_empty() && T::Permissioned::reapable(ledger.active)
+        {
+            // This account must have called `unbond()` with some value that caused the active
+            // portion to fall below existential deposit + will have no more unlocking chunks
+            // left. We can now safely remove all staking-related information.
+            Self::kill_stash(&stash, num_slashing_spans)?;
+            // Remove the lock.
+            T::Currency::remove_lock(STAKING_ID, &stash);
 
-                <T as Config>::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
-            } else {
-                // This was the consequence of a partial unbond. just update the ledger and move on.
-                Self::update_ledger(&controller, &ledger);
+            <T as Config>::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
+        } else {
+            // This was the consequence of a partial unbond. just update the ledger and move on.
+            Self::update_ledger(&controller, &ledger);
 
-                // This is only an update, so we use less overall weight.
-                <T as Config>::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
-            };
+            // This is only an update, so we use less overall weight.
+            <T as Config>::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
+        };
 
         // `old_total` should never be less than the new total because
         // `consolidate_unlocked` strictly subtracts balance.
@@ -152,7 +150,7 @@ impl<T: Config> Pallet<T> {
         Ok(used_weight)
     }
 
-    pub(super) fn do_payout_stakers(
+    pub fn do_payout_stakers(
         validator_stash: T::AccountId,
         era: EraIndex,
     ) -> DispatchResultWithPostInfo {
@@ -309,7 +307,7 @@ impl<T: Config> Pallet<T> {
     /// Update the ledger for a controller.
     ///
     /// This will also update the stash lock.
-    pub(crate) fn update_ledger(controller: &T::AccountId, ledger: &StakingLedger<T>) {
+    pub fn update_ledger(controller: &T::AccountId, ledger: &StakingLedger<T>) {
         T::Currency::set_lock(
             STAKING_ID,
             &ledger.stash,
@@ -320,10 +318,10 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Chill a stash account.
-    pub(crate) fn chill_stash(stash: &T::AccountId) {
+    pub fn chill_stash(stash: &T::AccountId) {
         // Polymesh change
         // -----------------------------------------------------------------
-        Self::release_running_validator(stash);
+        T::Permissioned::on_chill(stash);
         // -----------------------------------------------------------------
         let chilled_as_validator = Self::do_remove_validator(stash);
         let chilled_as_nominator = Self::do_remove_nominator(stash);
@@ -496,51 +494,13 @@ impl<T: Config> Pallet<T> {
             let era_duration = (now_as_millis_u64 - active_era_start).saturated_into::<u64>();
             let staked = Self::eras_total_stake(&active_era.index);
             let issuance = T::Currency::total_issuance();
-            let (validator_payout, remainder) = T::EraPayout::era_payout(
-                staked,
-                issuance,
-                era_duration,
-                T::MaxVariableInflationTotalIssuance::get(),
-                T::FixedYearlyReward::get(),
-            );
+            let (validator_payout, remainder) =
+                T::EraPayout::era_payout(staked, issuance, era_duration);
 
             // Polymesh change
             // -----------------------------------------------------------------
             // Schedule rewards
-            let next_block_number = <frame_system::Pallet<T>>::block_number() + 1u32.into();
-            for (index, validator_id) in T::SessionInterface::validators().into_iter().enumerate() {
-                let schedule_block_number =
-                    next_block_number + index.saturated_into::<T::BlockNumber>();
-                match T::RewardScheduler::schedule(
-                    DispatchTime::At(schedule_block_number),
-                    None,
-                    HIGHEST_PRIORITY,
-                    RawOrigin::Root.into(),
-                    Call::<T>::payout_stakers_by_system {
-                        validator_stash: validator_id.clone(),
-                        era: active_era.index,
-                    }.into()
-                ) {
-                    Ok(_) => log!(
-                        info,
-                        "💸 Rewards are successfully scheduled for validator id: {:?} at block number: {:?}",
-                        &validator_id,
-                        schedule_block_number,
-                    ),
-                    Err(error) => {
-                        log!(
-                            error,
-                            "⛔ Detected error in scheduling the reward payment: {:?}",
-                            error
-                        );
-                        Self::deposit_event(Event::<T>::RewardPaymentSchedulingInterrupted {
-                            account_id: validator_id,
-                            era: active_era.index,
-                            error
-                        });
-                    }
-                }
-            }
+            T::Permissioned::schedule_payouts(&active_era);
             // -----------------------------------------------------------------
 
             Self::deposit_event(Event::<T>::EraPaid {
@@ -904,9 +864,8 @@ impl<T: Config> Pallet<T> {
                 };
             } else if Validators::<T>::contains_key(&voter) {
                 validators_seen.saturating_inc();
-                if Self::is_validator_compliant(&voter)
-                    && Self::is_validator_active_balance_valid(&voter)
-                {
+                // Polymesh change: check if the validator is compliant
+                if T::Permissioned::is_validator_compliant(&voter) {
                     // if this voter is a validator:
                     let self_vote = (
                         voter.clone(),
@@ -981,9 +940,8 @@ impl<T: Config> Pallet<T> {
 
             if Validators::<T>::contains_key(&target) {
                 validators_seen.saturating_inc();
-                if Self::is_validator_compliant(&target)
-                    && Self::is_validator_active_balance_valid(&target)
-                {
+                // Polymesh change: check if the validator is compliant
+                if T::Permissioned::is_validator_compliant(&target) {
                     all_targets.push(target);
                 }
             }
@@ -1097,50 +1055,6 @@ impl<T: Config> Pallet<T> {
         );
     }
 
-    // Polymesh change
-    // -----------------------------------------------------------------
-
-    /// Returns `true` if active balance is above [`MinValidatorBond`]. Otherwise, returns `false`.
-    pub(crate) fn is_validator_active_balance_valid(who: &T::AccountId) -> bool {
-        if let Some(controller) = Self::bonded(&who) {
-            if let Some(ledger) = Self::ledger(&controller) {
-                return ledger.active >= MinValidatorBond::<T>::get();
-            }
-        }
-        false
-    }
-
-    /// Returns `true` if `stash` has a valid cdd claim and is permissioned. Otherwise, returns `false`.
-    pub(crate) fn is_validator_compliant(stash: &T::AccountId) -> bool {
-        pallet_identity::Pallet::<T>::get_identity(stash).map_or(false, |id| {
-            pallet_identity::Pallet::<T>::has_valid_cdd(id)
-                && Self::permissioned_identity(id).is_some()
-        })
-    }
-
-    /// Decrease the running count of validators by 1 for the stash identity.
-    pub(crate) fn release_running_validator(stash: &T::AccountId) {
-        if !<Validators<T>>::contains_key(stash) {
-            return;
-        }
-
-        if let Some(did) = pallet_identity::Pallet::<T>::get_identity(stash) {
-            PermissionedIdentity::<T>::mutate(&did, |preferences| {
-                if let Some(p) = preferences {
-                    if p.running_count > 0 {
-                        p.running_count -= 1;
-                    }
-                }
-            });
-            pallet_identity::Pallet::<T>::remove_account_key_ref_count(&stash);
-        }
-    }
-
-    /// Returns the maximum number of validators per identiy
-    pub fn maximum_number_of_validators_per_identity() -> u32 {
-        (T::MaxValidatorPerIdentity::get() * Self::validator_count()).max(1)
-    }
-
     pub fn unbond_balance(
         controller_account: T::AccountId,
         ledger: &mut StakingLedger<T>,
@@ -1208,40 +1122,6 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
-
-    pub(crate) fn base_chill_from_governance(
-        origin: T::RuntimeOrigin,
-        identity: IdentityId,
-        stash_keys: Vec<T::AccountId>,
-    ) -> DispatchResult {
-        T::AdminOrigin::ensure_origin(origin)?;
-
-        for key in &stash_keys {
-            let key_did = pallet_identity::Pallet::<T>::get_identity(&key);
-            // Checks if the stash key identity is the same as the identity given.
-            ensure!(key_did == Some(identity), Error::<T>::NotStash);
-            // Checks if the key is a validator if not returns an error.
-            ensure!(
-                <Validators<T>>::contains_key(&key),
-                Error::<T>::ValidatorNotFound
-            );
-        }
-
-        for key in stash_keys {
-            Self::chill_stash(&key);
-        }
-
-        // Change identity status to be Non-Permissioned
-        PermissionedIdentity::<T>::remove(&identity);
-
-        Self::deposit_event(Event::<T>::PermissionedIdentityRemoved {
-            governance_councill_did: GC_DID,
-            validators_identity: identity,
-        });
-        Ok(())
-    }
-
-    // -----------------------------------------------------------------
 }
 
 impl<T: Config> Pallet<T> {
@@ -1558,10 +1438,10 @@ where
         // Polymesh change
         // -----------------------------------------------------------------
         let slash_fraction_none = vec![Perbill::from_parts(0); slash_fraction.len()];
-        let slash_fraction = if SlashingAllowedFor::<T>::get() == SlashingSwitch::None {
-            slash_fraction_none.as_slice()
-        } else {
+        let slash_fraction = if T::Permissioned::is_slashing_enabled() {
             slash_fraction
+        } else {
+            slash_fraction_none.as_slice()
         };
         // -----------------------------------------------------------------
 
