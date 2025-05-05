@@ -4,7 +4,70 @@ use sp_runtime::{Deserialize, Serialize};
 use codec::{Decode, Encode, MaxEncodedLen};
 use pallet_staking::WhoToSlash;
 use scale_info::TypeInfo;
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{Perbill, RuntimeDebug};
+
+use crate::{ActiveEraInfo, BalanceOf, Config};
+
+/// A trait used by the staking pallet for permissioned staking.
+///
+/// A permissioned Substrate network can be configured to allow only a set of
+/// identities to participate in staking. This trait is used to define the
+/// behavior of the staking pallet in such a network.
+pub trait PermissionedStaking<T: Config> {
+    /// Permission a validator.
+    #[cfg(feature = "runtime-benchmarks")]
+    fn permission_validator(_who: &T::AccountId) {}
+
+    /// Setup stash and controller.
+    #[cfg(feature = "runtime-benchmarks")]
+    fn setup_stash_and_controller(_stash: &T::AccountId, _controller: &T::AccountId) {}
+
+    /// Check if amount is under the existential deposit.
+    fn reapable(amount: BalanceOf<T>) -> bool {
+        amount < T::Currency::minimum_balance()
+    }
+
+    /// On validate hook.
+    fn on_validate(_who: &T::AccountId, _commission: Perbill) -> DispatchResult {
+        Ok(())
+    }
+
+    /// On chill hook.
+    fn on_chill(_who: &T::AccountId) {}
+
+    /// On nominate hook.
+    fn on_nominate(_who: &T::AccountId) -> DispatchResult {
+        Ok(())
+    }
+
+    /// Is the validator still compliant?
+    fn is_validator_compliant(_who: &T::AccountId) -> bool {
+        true
+    }
+
+    /// Is the nominator still compliant?
+    fn is_nominator_compliant(_who: &T::AccountId) -> bool {
+        true
+    }
+
+    /// Schedule reward payouts.
+    fn schedule_payouts(_active_era: &ActiveEraInfo) {}
+
+    /// Who should be slashed?
+    fn who_to_slash() -> Option<WhoToSlash> {
+        Some(WhoToSlash::ValidatorAndNominator)
+    }
+
+    /// Is slashing enabled?
+    fn is_slashing_enabled() -> bool {
+        Self::who_to_slash().is_some()
+    }
+
+    /// Slash nominators?
+    fn slash_nominators() -> bool {
+        Self::who_to_slash() == Some(WhoToSlash::ValidatorAndNominator)
+    }
+}
 
 /// Preference of an identity regarding validation.
 #[derive(Decode, Encode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
@@ -37,6 +100,17 @@ impl PermissionedIdentityPrefs {
             running_count: 0,
         }
     }
+}
+
+/// Who should be slashed.
+#[derive(Decode, Encode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum WhoToSlash {
+    /// Allow validators but not nominators to get slashed.
+    Validator,
+    /// Allow both validators and nominators to get slashed.
+    ValidatorAndNominator,
 }
 
 /// Switch used to change the "victim" for slashing. Victims can be

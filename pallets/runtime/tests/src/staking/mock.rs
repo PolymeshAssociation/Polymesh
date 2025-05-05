@@ -621,6 +621,7 @@ impl pallet_validators::Config for Test {
     type Call = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type RewardScheduler = Scheduler;
+    type Permissioned = Staking;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
