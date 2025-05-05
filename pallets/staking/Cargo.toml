@@ -60,7 +60,6 @@ std = [
 	"pallet-babe/std",
 	"sp-arithmetic/std",
 	"rand_chacha",
-	"frame-benchmarking",
 	"sp-core/std",
 ]
 runtime-benchmarks = [

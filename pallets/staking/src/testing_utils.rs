@@ -36,8 +36,8 @@ const SEED: u32 = 0;
 
 // Polymesh change
 // -----------------------------------------------------------------
-use pallet_identity::benchmarking::{User, UserBuilder};
-use polymesh_primitives::{AuthorizationData, Permissions, Signatory};
+use crate::types::PermissionedStaking;
+use pallet_identity::benchmarking::UserBuilder;
 // -----------------------------------------------------------------
 
 /// This function removes all validators and nominators from storage.
@@ -54,10 +54,7 @@ pub fn clear_validators_and_nominators<T: Config>() {
 }
 
 /// Grab a funded user.
-pub fn create_funded_user<T>(string: &'static str, n: u32, balance: u32) -> User<T>
-where
-    T: Config,
-{
+pub fn create_funded_user<T: Config>(string: &'static str, n: u32, balance: u32) -> T::AccountId {
     // Polymesh change
     // -----------------------------------------------------------------
     let _ = T::Currency::issue(balance.into());
@@ -66,39 +63,32 @@ where
         .seed(n)
         .generate_did()
         .build(string)
+        .account()
     // -----------------------------------------------------------------
 }
 
 /// Create a stash and controller pair.
-pub fn create_stash_controller<T>(
+pub fn create_stash_controller<T: Config>(
     n: u32,
     balance: u32,
     destination: RewardDestination<T::AccountId>,
-) -> Result<(User<T>, User<T>), &'static str>
-where
-    T: Config,
-{
+) -> Result<(T::AccountId, T::AccountId), &'static str> {
     let stash = create_funded_user::<T>("stash", n, balance);
     let controller = UserBuilder::<T>::default()
         .balance(balance)
         .seed(n)
-        .build("controller");
+        .build("controller")
+        .account();
+    let controller_lookup = T::Lookup::unlookup(controller.clone());
 
     // Polymesh change
     // -----------------------------------------------------------------
     // Attach the controller key as secondary key of the stash
-    let auth_id = pallet_identity::Pallet::<T>::add_auth(
-        stash.did(),
-        Signatory::Account(controller.account()),
-        AuthorizationData::JoinIdentity(Permissions::default()),
-        None,
-    )?;
-    pallet_identity::Pallet::<T>::join_identity_as_key(controller.origin().into(), auth_id)?;
+    T::Permissioned::setup_stash_and_controller(&stash, &controller);
     // -----------------------------------------------------------------
 
-    let controller_lookup = controller.lookup();
     Staking::<T>::bond(
-        stash.origin().into(),
+        RawOrigin::Signed(stash.clone()).into(),
         controller_lookup,
         (balance / 10).into(),
         destination,
@@ -112,34 +102,19 @@ pub fn create_stash_and_dead_controller<T: Config>(
     n: u32,
     balance: u32,
     destination: RewardDestination<T::AccountId>,
-) -> Result<(User<T>, User<T>), &'static str>
-where
-    T: Config,
-{
+) -> Result<(T::AccountId, T::AccountId), &'static str> {
     let stash = create_funded_user::<T>("stash", n, balance);
-    let controller_account: T::AccountId = account("controller", n, 100);
-    let controller = User {
-        account: controller_account.clone(),
-        origin: RawOrigin::Signed(controller_account),
-        did: None,
-        secret: None,
-    };
+    let controller: T::AccountId = account("controller", n, 100);
+    let controller_lookup = T::Lookup::unlookup(controller.clone());
 
     // Polymesh change
     // -----------------------------------------------------------------
     // Attach the controller key as secondary key of the stash
-    let auth_id = pallet_identity::Pallet::<T>::add_auth(
-        stash.did(),
-        Signatory::Account(controller.account()),
-        AuthorizationData::JoinIdentity(Permissions::default()),
-        None,
-    )?;
-    pallet_identity::Pallet::<T>::join_identity_as_key(controller.origin().into(), auth_id)?;
+    T::Permissioned::setup_stash_and_controller(&stash, &controller);
     // -----------------------------------------------------------------
 
-    let controller_lookup = controller.lookup();
     Staking::<T>::bond(
-        stash.origin().into(),
+        RawOrigin::Signed(stash.clone()).into(),
         controller_lookup,
         (balance / 10).into(),
         destination,
@@ -178,10 +153,11 @@ where
         };
         // Polymesh change
         // -----------------------------------------------------------------
-        Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), stash.did(), Some(2))?;
+        T::Permissioned::permission_validator(&stash);
         // -----------------------------------------------------------------
-        Staking::<T>::validate(controller.origin().into(), validator_prefs)?;
-        validators.push(stash.lookup());
+        Staking::<T>::validate(RawOrigin::Signed(controller).into(), validator_prefs)?;
+        let stash_lookup = T::Lookup::unlookup(stash);
+        validators.push(stash_lookup);
     }
 
     Ok(validators)
@@ -227,13 +203,16 @@ where
         };
         let (v_stash, v_controller) =
             create_stash_controller::<T>(i, balance_factor, RewardDestination::Staked)?;
-        Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), v_stash.did(), Some(2))?;
+        T::Permissioned::permission_validator(&v_stash);
         let validator_prefs = ValidatorPrefs {
             commission: Perbill::from_percent(50),
             ..Default::default()
         };
-        Staking::<T>::validate(v_controller.origin().into(), validator_prefs)?;
-        let stash_lookup = v_stash.lookup();
+        Staking::<T>::validate(
+            RawOrigin::Signed(v_controller.clone()).into(),
+            validator_prefs,
+        )?;
+        let stash_lookup = T::Lookup::unlookup(v_stash.clone());
         validators_stash.push(stash_lookup.clone());
     }
 
@@ -260,7 +239,7 @@ where
             let validator = available_validators.remove(selected);
             selected_validators.push(validator);
         }
-        Staking::<T>::nominate(n_controller.origin().into(), selected_validators)?;
+        Staking::<T>::nominate(RawOrigin::Signed(n_controller).into(), selected_validators)?;
     }
 
     ValidatorCount::<T>::put(validators);
