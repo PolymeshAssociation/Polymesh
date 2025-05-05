@@ -69,8 +69,7 @@ impl<T: Config> ValidatorInfo<T> {
             Some(balance),
         )
         .unwrap()
-        .0
-        .account();
+        .0;
         let controller = pallet_staking::Pallet::<T>::bonded(&stash).expect("not stash");
 
         let keys = T::Keys::decode(&mut TrailingZeroInput::zeroes()).unwrap();

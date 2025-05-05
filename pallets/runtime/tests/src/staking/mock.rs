@@ -40,7 +40,7 @@ use sp_staking::{EraIndex, SessionIndex};
 use pallet_balances::AccountData;
 use pallet_balances::BlockRewardConfig;
 use pallet_staking::types::SlashingSwitch;
-use pallet_staking::{self as pallet_staking, *};
+use pallet_staking::*;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::identity_id::GenesisIdentityRecord;
@@ -599,7 +599,7 @@ impl pallet_staking::Config for Test {
     type SlashDeferDuration = SlashDeferDuration;
     type AdminOrigin = frame_system::EnsureRoot<AccountId>;
     type SessionInterface = Self;
-    type EraPayout = ConvertCurve<RewardCurve>;
+    type EraPayout = PolymeshConvertCurve<Self, RewardCurve>;
     type NextNewSession = Session;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
     type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
@@ -615,6 +615,7 @@ impl pallet_staking::Config for Test {
     type Call = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type RewardScheduler = Scheduler;
+    type Permissioned = Staking;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
