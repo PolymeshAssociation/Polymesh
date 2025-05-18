@@ -65,13 +65,16 @@ fn reimbursement_and_disbursement_we() {
     exec_ok!(Treasury::disbursement(root(), beneficiaries.clone()));
 
     // Check balances after disbursement.
-    assert_eq!(Treasury::balance(), 400);
+    assert_eq!(Treasury::balance(), 300);
     assert_eq!(
         Balances::free_balance(&alice.acc()),
         before_alice_balance + 100
     );
     assert_eq!(Balances::free_balance(&bob.acc()), before_bob_balance + 500);
-    assert_eq!(Balances::free_balance(&charlie_acc), before_charlie_balance);
+    assert_eq!(
+        Balances::free_balance(&charlie_acc),
+        before_charlie_balance + 100
+    );
     assert_eq!(total_issuance, TotalIssuance::<TestStorage>::get());
 
     // Alice cannot make a disbursement to herself.
