@@ -35,6 +35,7 @@ pallet-protocol-fee = { workspace = true, default-features = false }
 pallet-relayer = { workspace = true, default-features = false }
 pallet-settlement = { workspace = true, default-features = false }
 pallet-staking = { workspace = true, default-features = false }
+pallet-validators = { workspace = true, default-features = false }
 pallet-statistics = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 pallet-treasury = { workspace = true, default-features = false }
@@ -44,7 +45,7 @@ polymesh-contracts = { workspace = true, default-features = false }
 
 # RPC
 node-rpc-runtime-api = { workspace = true, default-features = false }
-pallet-staking-rpc-runtime-api = { workspace = true, default-features = false }
+pallet-staking-runtime-api = { workspace = true, default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { workspace = true, default-features = false }
 
 # Others
@@ -155,8 +156,9 @@ std = [
     "pallet-scheduler/std",
     "pallet-session/std",
     "pallet-settlement/std",
-    "pallet-staking-rpc-runtime-api/std",
+    "pallet-staking-runtime-api/std",
     "pallet-staking/std",
+    "pallet-validators/std",
     "pallet-statistics/std",
     "pallet-sudo/std",
     "pallet-timestamp/std",
