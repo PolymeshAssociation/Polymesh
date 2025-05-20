@@ -419,7 +419,7 @@ jobs:
           name: Tests
           command: >-
             cargo test
-            --package pallet-staking
+            --package pallet-validators
             --package pallet-group
             --package pallet-sudo
             --package pallet-pips

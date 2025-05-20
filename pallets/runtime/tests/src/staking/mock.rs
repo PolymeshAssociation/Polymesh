@@ -39,8 +39,8 @@ use sp_staking::{EraIndex, SessionIndex};
 
 use pallet_balances::AccountData;
 use pallet_balances::BlockRewardConfig;
-use pallet_staking::types::SlashingSwitch;
 use pallet_staking::*;
+use pallet_validators::types::SlashingSwitch;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::identity_id::GenesisIdentityRecord;
@@ -113,6 +113,7 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         Authorship: pallet_authorship,
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Validators: pallet_validators,
         Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
         Historical: pallet_session::historical::{Pallet},
@@ -605,7 +606,7 @@ impl pallet_staking::Config for Test {
     type SlashDeferDuration = SlashDeferDuration;
     type AdminOrigin = frame_system::EnsureRoot<AccountId>;
     type SessionInterface = Self;
-    type EraPayout = PolymeshConvertCurve<Self, RewardCurve>;
+    type EraPayout = pallet_validators::PolymeshConvertCurve<Self, RewardCurve>;
     type NextNewSession = Session;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
     type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
@@ -613,15 +614,21 @@ impl pallet_staking::Config for Test {
     type TargetList = pallet_staking::UseValidatorsMap<Self>;
     type MaxUnlockingChunks = MaxUnlockingChunks;
     type OnStakerSlash = OnStakerSlashMock<Self>;
-    type BenchmarkingConfig = pallet_staking::SampleBenchmarkingConfig;
+    type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
     type WeightInfo = polymesh_weights::pallet_staking::SubstrateWeight;
+    type Permissioned = Validators;
+}
+
+impl pallet_validators::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = polymesh_weights::pallet_validators::SubstrateWeight;
+
     type MaxValidatorPerIdentity = polymesh_runtime_common::MaxValidatorPerIdentity;
     type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
     type FixedYearlyReward = FixedYearlyReward;
     type Call = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type RewardScheduler = Scheduler;
-    type Permissioned = Staking;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
@@ -944,15 +951,40 @@ impl ExtBuilder {
             stakers.extend(self.stakers)
         }
 
+        let genesis = pallet_validators::GenesisConfig {
+            validators: stakers
+                .iter()
+                .filter_map(|(did, _stash, _controller, _balance, status)| {
+                    if let StakerStatus::Validator = status {
+                        Some(*did)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>(),
+            slashing_allowed_for: self.slashing_allowed_for,
+            ..Default::default()
+        };
+        GenesisBuild::<Test>::assimilate_storage(&genesis, &mut storage).unwrap();
+
         let _ = pallet_staking::GenesisConfig::<Test> {
-            stakers: stakers.clone(),
+            stakers: stakers
+                .iter()
+                .map(|(_, stash, controller, balance, status)| {
+                    (
+                        stash.clone(),
+                        controller.clone(),
+                        balance.clone(),
+                        status.clone(),
+                    )
+                })
+                .collect::<Vec<_>>(),
             validator_count: self.validator_count,
             minimum_validator_count: self.minimum_validator_count,
             invulnerables: self.invulnerables,
             slash_reward_fraction: Perbill::from_percent(10),
             min_nominator_bond: self.min_nominator_bond,
             min_validator_bond: self.min_validator_bond,
-            slashing_allowed_for: self.slashing_allowed_for,
             ..Default::default()
         }
         .assimilate_storage(&mut storage);
@@ -1105,8 +1137,8 @@ pub fn bond_validator_with_intended_count(
     bond(stash, ctrl, val);
 
     let stash_id = Identity::get_identity(&stash).unwrap();
-    if Staking::permissioned_identity(stash_id).is_none() {
-        assert_ok!(Staking::add_permissioned_validator(
+    if Validators::permissioned_identity(stash_id).is_none() {
+        assert_ok!(Validators::add_permissioned_validator(
             frame_system::RawOrigin::Root.into(),
             stash_id,
             i_count
@@ -1186,7 +1218,8 @@ pub(crate) fn start_active_era(era_index: EraIndex) {
 }
 
 pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
-    let reward = inflation::compute_total_payout(
+    use pallet_validators::Config;
+    let reward = pallet_validators::inflation::compute_total_payout(
         &I_NPOS,
         Staking::eras_total_stake(active_era()),
         Balances::total_issuance(),
@@ -1200,7 +1233,8 @@ pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 }
 
 pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
-    inflation::compute_total_payout(
+    use pallet_validators::Config;
+    pallet_validators::inflation::compute_total_payout(
         &I_NPOS,
         0,
         Balances::total_issuance(),

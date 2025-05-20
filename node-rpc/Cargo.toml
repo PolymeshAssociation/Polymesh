@@ -14,7 +14,6 @@ jsonrpsee = { version = "0.16.2", features = ["server"] }
 
 polymesh-primitives = { path = "../primitives", default-features = false }
 pallet-group-rpc = { path = "../pallets/group/rpc" }
-pallet-staking-rpc = { path = "../pallets/staking/rpc" }
 pallet-protocol-fee-rpc = {  path = "../pallets/protocol-fee/rpc" }
 node-rpc = { path = "../rpc" }
 
