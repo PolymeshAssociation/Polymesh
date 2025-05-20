@@ -1,3 +1,4 @@
+use frame_support::assert_ok;
 use sp_std::collections::btree_set::BTreeSet;
 
 use pallet_settlement::VenueCounter;
@@ -21,13 +22,12 @@ pub fn create_and_issue_sample_asset_with_venue(asset_owner: &User) -> (AssetId,
     let asset_id = create_and_issue_sample_asset(&asset_owner);
 
     let venue_id = VenueCounter::<TestStorage>::get();
-    Settlement::create_venue(
+    assert_ok!(Settlement::create_venue(
         asset_owner.origin(),
         VenueDetails::default(),
         vec![asset_owner.acc()],
         VenueType::Other,
-    )
-    .unwrap();
+    ));
 
     (asset_id, Some(venue_id))
 }

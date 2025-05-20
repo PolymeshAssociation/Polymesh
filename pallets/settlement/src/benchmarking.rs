@@ -480,17 +480,15 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
 
         let p = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, false, false);
-    }: {
-        Pallet::<T>::base_manual_execution(
-            p.asset_mediators[0].clone().origin.into(),
-            InstructionId(1),
-            None,
-            &AssetCount::new(f, n, o),
-            false,
-            &mut WeightMeter::max_limit_no_minimum(),
-        )
-        .unwrap();
-    }
+        let weight = {
+            frame_support_with_transaction(|| {
+                let inst_info =
+                    Pallet::<T>::manual_execution_weight(InstructionId(1)).unwrap();
+                TransactionOutcome::Rollback(Ok::<Weight, DispatchError>(inst_info.consumed_weight()))
+            })
+            .unwrap()
+        };
+    }: _(p.asset_mediators[0].clone().origin, InstructionId(1), None, f, n, o, Some(weight))
 
     add_instruction{
         // Number of fungible, non-fungible and offchain LEGS in the instruction
@@ -800,7 +798,7 @@ benchmarks! {
         .unwrap()
     }
 
-    base_lock_instruction {
+    lock_instruction_extrinsic {
         let f in 0..T::MaxNumberOfFungibleAssets::get();
         let n in 0..T::MaxNumberOfNFTs::get();
         let o in 0..T::MaxNumberOfOffChainAssets::get();
@@ -814,12 +812,18 @@ benchmarks! {
 
         let inst_id = InstructionId(1);
         let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, true, true);
+        let weight = {
+            frame_support_with_transaction(|| {
+                let weight = Pallet::<T>::lock_instruction_weight(InstructionId(1)).unwrap();
+                TransactionOutcome::Rollback(Ok::<Weight, DispatchError>(weight))
+            })
+            .unwrap()
+        };
     }: {
-        Pallet::<T>::base_lock_instruction(
+        Pallet::<T>::lock_instruction(
             parameters.asset_mediators[0].clone().origin.into(),
             inst_id,
-            false,
-            &mut WeightMeter::max_limit_no_minimum(),
+            weight
         )
         .unwrap();
     }
@@ -845,14 +849,24 @@ benchmarks! {
             &mut WeightMeter::max_limit_no_minimum(),
         )
         .unwrap();
+
+        let weight = {
+            frame_support_with_transaction(|| {
+                let inst_info =
+                    Pallet::<T>::manual_execution_weight(InstructionId(1)).unwrap();
+                TransactionOutcome::Rollback(Ok::<Weight, DispatchError>(inst_info.consumed_weight()))
+            })
+            .unwrap()
+        };
     }: {
-        Pallet::<T>::base_manual_execution(
+        Pallet::<T>::execute_manual_instruction(
             p.asset_mediators[0].clone().origin.into(),
             InstructionId(1),
             None,
-            &AssetCount::new(f, n, o),
-            false,
-            &mut WeightMeter::max_limit_no_minimum(),
+            f,
+            n,
+            o,
+            Some(weight),
         )
         .unwrap();
     }
@@ -870,14 +884,24 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
 
         let p = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, true, true);
+
+        let weight = {
+            frame_support_with_transaction(|| {
+                let inst_info =
+                    Pallet::<T>::manual_execution_weight(InstructionId(1)).unwrap();
+                TransactionOutcome::Rollback(Ok::<Weight, DispatchError>(inst_info.consumed_weight()))
+            })
+            .unwrap()
+        };
     }: {
-        Pallet::<T>::base_manual_execution(
+        Pallet::<T>::execute_manual_instruction(
             p.asset_mediators[0].clone().origin.into(),
             InstructionId(1),
             None,
-            &AssetCount::new(f, n, o),
-            false,
-            &mut WeightMeter::max_limit_no_minimum(),
+            f,
+            n,
+            o,
+            Some(weight),
         )
         .unwrap();
     }

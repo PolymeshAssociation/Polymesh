@@ -211,7 +211,7 @@ pub mod pallet {
         fn affirm_instruction_as_mediator() -> Weight;
         fn withdraw_affirmation_as_mediator() -> Weight;
         fn base_reject_instruction(f: u32, n: u32, o: u32) -> Weight;
-        fn base_lock_instruction(f: u32, n: u32, o: u32) -> Weight;
+        fn lock_instruction_extrinsic(f: u32, n: u32, o: u32) -> Weight;
         fn execute_locked_instruction(f: u32, n: u32, o: u32) -> Weight;
         fn execute_manual_instruction_paused(f: u32, n: u32, o: u32) -> Weight;
 
@@ -401,7 +401,7 @@ pub mod pallet {
         }
 
         fn lock_instruction(weight_limit: Weight) -> Weight {
-            let min_weight = Self::base_lock_instruction(0, 0, 1);
+            let min_weight = Self::lock_instruction_extrinsic(0, 0, 1);
             weight_limit.max(min_weight)
         }
     }
@@ -969,15 +969,15 @@ pub mod pallet {
             offchain_transfers: u32,
             weight_limit: Option<Weight>,
         ) -> DispatchResultWithPostInfo {
-            let worst_case_weight = <T as Config>::WeightInfo::execute_manual_instruction(
-                fungible_transfers,
-                nfts_transfers,
-                offchain_transfers,
-            );
-
             let mut weight_meter = Self::ensure_valid_weight_meter(
                 Self::execute_manual_instruction_minimum_weight(),
-                weight_limit.unwrap_or(worst_case_weight),
+                weight_limit.unwrap_or_else(|| {
+                    <T as Config>::WeightInfo::execute_manual_instruction(
+                        fungible_transfers,
+                        nfts_transfers,
+                        offchain_transfers,
+                    )
+                }),
             )?;
 
             let input_cost =
@@ -2500,22 +2500,30 @@ impl<T: Config> Pallet<T> {
             ),
         )?;
 
-        let inst_status = InstructionStatuses::<T>::get(inst_id);
-        ensure!(
-            inst_status != InstructionStatus::Unknown
-                && inst_status != InstructionStatus::LockedForExecution,
-            Error::<T>::InvalidInstructionStatusForRejection
-        );
-
-        let inst_details = InstructionDetails::<T>::get(&inst_id);
-        Self::ensure_valid_caller(
-            caller_did,
-            origin_data.secondary_key.as_ref(),
-            caller_pid,
-            inst_details.venue_id,
-            &inst_id,
-            &inst_legs,
-        )?;
+        match InstructionStatuses::<T>::get(inst_id) {
+            InstructionStatus::Pending | InstructionStatus::Failed => {
+                let inst_details = InstructionDetails::<T>::get(&inst_id);
+                Self::ensure_valid_caller(
+                    caller_did,
+                    origin_data.secondary_key.as_ref(),
+                    caller_pid,
+                    inst_details.venue_id,
+                    &inst_id,
+                    &inst_legs,
+                )?;
+            }
+            InstructionStatus::LockedForExecution => {
+                ensure!(
+                    Self::ensure_mediator(&inst_id, &caller_did).is_ok(),
+                    Error::<T>::CallerIsNotAMediator
+                );
+            }
+            InstructionStatus::Unknown
+            | InstructionStatus::Rejected(_)
+            | InstructionStatus::Success(_) => {
+                return Err(Error::<T>::InvalidInstructionStatusForRejection.into());
+            }
+        }
 
         Self::release_locks(&inst_id, &inst_legs)?;
 
@@ -2742,7 +2750,7 @@ impl<T: Config> Pallet<T> {
         let inst_details = InstructionDetails::<T>::get(&inst_id);
 
         // RPC don't need to check the caller
-        if !skip_caller_check {
+        if !skip_caller_check && inst_details.settlement_type != SettlementType::SettleAfterLock {
             Self::ensure_valid_caller(
                 caller_did,
                 caller_sk,
@@ -2786,6 +2794,12 @@ impl<T: Config> Pallet<T> {
                         inst_asset_count.off_chain() as u32,
                     ),
                 )?;
+                if !skip_caller_check {
+                    ensure!(
+                        Self::ensure_mediator(&inst_id, &caller_did).is_ok(),
+                        Error::<T>::CallerIsNotAMediator
+                    );
+                }
                 Self::simplified_asset_transfer(
                     inst_id,
                     inst_legs.clone(),
@@ -3169,7 +3183,7 @@ impl<T: Config> Pallet<T> {
 
         Self::check_accrue(
             weight_meter,
-            <T as Config>::WeightInfo::base_lock_instruction(
+            <T as Config>::WeightInfo::lock_instruction_extrinsic(
                 inst_asset_count.fungible(),
                 inst_asset_count.non_fungible(),
                 inst_asset_count.off_chain(),
@@ -3334,7 +3348,7 @@ impl<T: Config> Pallet<T> {
 
     /// Returns the minimum weight required for calling the `lock_instruction` extrinsic.
     pub fn lock_instruction_minimum_weight() -> Weight {
-        <T as Config>::WeightInfo::base_lock_instruction(0, 0, 1)
+        <T as Config>::WeightInfo::lock_instruction_extrinsic(0, 0, 1)
     }
 
     pub fn get_actual_weight(call: &Call<T>) -> Option<Weight> {

@@ -47,7 +47,7 @@ fn invalid_caller() {
                 0,
                 None
             ),
-            Error::<TestStorage>::CallerIsNotAParty
+            Error::<TestStorage>::CallerIsNotAMediator
         ));
 
         assert_storage_noop!(assert_err_ignore_postinfo!(
@@ -60,7 +60,7 @@ fn invalid_caller() {
                 0,
                 None
             ),
-            PortfolioError::UnauthorizedCustodian
+            Error::<TestStorage>::CallerIsNotAMediator
         ));
     });
 }
@@ -184,6 +184,31 @@ fn unexpected_settle_on_block() {
             dave,
             SettlementType::SettleOnBlock(System::block_number() + 1),
         );
+
+        assert_storage_noop!(assert_err_ignore_postinfo!(
+            Settlement::execute_manual_instruction(
+                dave.origin(),
+                InstructionId(0),
+                None,
+                1,
+                1,
+                0,
+                None
+            ),
+            Error::<TestStorage>::UnexpectedSettlementType
+        ));
+    });
+}
+
+#[test]
+fn execute_before_lock() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let dave = User::new(AccountKeyring::Dave);
+        let alice = User::new(AccountKeyring::Alice);
+
+        let _ =
+            add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
         assert_storage_noop!(assert_err_ignore_postinfo!(
             Settlement::execute_manual_instruction(

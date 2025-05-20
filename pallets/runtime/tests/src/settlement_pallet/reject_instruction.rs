@@ -45,7 +45,7 @@ fn invalid_caller() {
 }
 
 #[test]
-fn locked_for_execution() {
+fn invalid_caller_locked_for_execution() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(AccountKeyring::Bob);
         let dave = User::new(AccountKeyring::Dave);
@@ -61,8 +61,8 @@ fn locked_for_execution() {
         ));
 
         assert_noop!(
-            Settlement::reject_instruction_as_mediator(dave.origin(), InstructionId(0), None),
-            Error::<TestStorage>::InvalidInstructionStatusForRejection
+            Settlement::reject_instruction_as_mediator(bob.origin(), InstructionId(0), None),
+            Error::<TestStorage>::CallerIsNotAMediator
         );
     });
 }
@@ -97,6 +97,12 @@ fn success() {
 
         let (asset_id, _) =
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
+
+        assert_ok!(Settlement::lock_instruction(
+            dave.origin(),
+            InstructionId(0),
+            Weight::MAX
+        ));
 
         assert_ok!(Settlement::reject_instruction_as_mediator(
             dave.origin(),
