@@ -20,7 +20,7 @@ use crate::{
     OffChainAuthorizationNonce, OutdatedAuthorizations, Pallet, ParentDid,
     PermissionedCallOriginData, RpcDidRecords,
 };
-use codec::{Decode, Encode as _};
+use codec::Encode as _;
 use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
 use frame_support::traits::{Currency as _, Get as _};
@@ -32,6 +32,7 @@ use polymesh_common_utilities::identity::{
 };
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee as _, ProtocolOp};
 use polymesh_primitives::constants::did::USER;
+use polymesh_primitives::crypto::verify_any_signature;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
 };
@@ -40,10 +41,9 @@ use polymesh_primitives::{
     extract_auth, traits::group::GroupTrait, AuthorizationData, CddId, DidRecord, ExtrinsicName,
     ExtrinsicPermissions, IdentityId, KeyRecord, PalletName, Permissions, SecondaryKey, Signatory,
 };
-use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
-use sp_runtime::traits::{AccountIdConversion as _, IdentifyAccount, Verify};
-use sp_runtime::{AnySignature, DispatchError};
+use sp_runtime::traits::AccountIdConversion as _;
+use sp_runtime::DispatchError;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{vec, vec::Vec};
 
@@ -522,7 +522,6 @@ impl<T: Config> Pallet<T> {
             nonce: OffChainAuthorizationNonce::<T>::get(parent_did),
             expires_at,
         };
-        let auth_encoded = authorization.encode();
 
         // Verify signatures.
         let mut keys = BTreeSet::new();
@@ -535,12 +534,8 @@ impl<T: Config> Pallet<T> {
             keys.insert(auth.key.clone());
 
             // Verify the signature.
-            let signature = AnySignature::from(Signature::from_h512(auth.auth_signature));
-            let signer: <<AnySignature as Verify>::Signer as IdentifyAccount>::AccountId =
-                Decode::decode(&mut &auth.key.encode()[..])
-                    .map_err(|_| Error::<T>::CannotDecodeSignerAccountId)?;
             ensure!(
-                signature.verify(auth_encoded.as_slice(), &signer),
+                verify_any_signature::<T, _>(&auth.key, auth.auth_signature, &authorization, false),
                 Error::<T>::InvalidAuthorizationSignature
             );
         }
@@ -661,7 +656,6 @@ impl<T: Config> Pallet<T> {
             nonce: OffChainAuthorizationNonce::<T>::get(did),
             expires_at,
         };
-        let auth_encoded = authorization.encode();
 
         // Verify signatures.
         let mut additional_keys_si = Vec::with_capacity(keys.len());
@@ -682,12 +676,13 @@ impl<T: Config> Pallet<T> {
             Self::ensure_key_did_unlinked(&secondary_key.key)?;
 
             // Verify the signature.
-            let signature = AnySignature::from(Signature::from_h512(auth_signature));
-            let signer: <<AnySignature as Verify>::Signer as IdentifyAccount>::AccountId =
-                Decode::decode(&mut &secondary_key.key.encode()[..])
-                    .map_err(|_| Error::<T>::CannotDecodeSignerAccountId)?;
             ensure!(
-                signature.verify(auth_encoded.as_slice(), &signer),
+                verify_any_signature::<T, _>(
+                    &secondary_key.key,
+                    auth_signature,
+                    &authorization,
+                    false
+                ),
                 Error::<T>::InvalidAuthorizationSignature
             );
 

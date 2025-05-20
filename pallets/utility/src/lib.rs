@@ -81,14 +81,14 @@ use sp_core::Get;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::TrailingZeroInput;
 use sp_runtime::traits::{BadOrigin, Dispatchable};
-use sp_runtime::{traits::Verify, DispatchError, RuntimeDebug};
+use sp_runtime::{DispatchError, RuntimeDebug};
 use sp_std::prelude::*;
 
 use pallet_balances::Config as BalancesConfig;
 use pallet_identity::{Config as IdentityConfig, Context};
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::identity::AuthorizationNonce;
-use polymesh_primitives::{traits::CheckCdd, IdentityId};
+use polymesh_primitives::{crypto::verify_signature, traits::CheckCdd, IdentityId};
 
 type Identity<T> = pallet_identity::Pallet<T>;
 
@@ -358,7 +358,7 @@ pub mod pallet {
             ensure!(target_nonce == call.nonce, Error::<T>::InvalidNonce);
 
             ensure!(
-                signature.verify(call.encode().as_slice(), &target),
+                verify_signature::<T, _, _>(&target, &signature, &call, false),
                 Error::<T>::InvalidSignature
             );
 

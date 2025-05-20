@@ -1,6 +1,6 @@
 [package]
 name = "polymesh-ink"
-version = "3.4.0"
+version = "3.5.0"
 authors = ["PolymeshAssociation"]
 edition = "2021"
 license = "Apache-2.0"
@@ -15,7 +15,7 @@ paste = "1.0"
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
 
-polymesh-api = { version = "3.10.2", default-features = false, features = ["ink", "polymesh_v7"] }
+polymesh-api = { version = "3.11", default-features = false, features = ["ink", "polymesh_v7"] }
 
 [lib]
 path = "src/lib.rs"
