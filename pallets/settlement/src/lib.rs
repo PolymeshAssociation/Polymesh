@@ -2500,9 +2500,9 @@ impl<T: Config> Pallet<T> {
             ),
         )?;
 
+        let inst_details = InstructionDetails::<T>::get(&inst_id);
         match InstructionStatuses::<T>::get(inst_id) {
             InstructionStatus::Pending | InstructionStatus::Failed => {
-                let inst_details = InstructionDetails::<T>::get(&inst_id);
                 Self::ensure_valid_caller(
                     caller_did,
                     origin_data.secondary_key.as_ref(),
@@ -2513,10 +2513,22 @@ impl<T: Config> Pallet<T> {
                 )?;
             }
             InstructionStatus::LockedForExecution => {
-                ensure!(
-                    Self::ensure_mediator(&inst_id, &caller_did).is_ok(),
-                    Error::<T>::CallerIsNotAMediator
-                );
+                // If the locking perid is exceeded, any party can reject the instruction
+                if Self::ensure_maximum_locking_period_not_exceeded(&inst_id).is_err() {
+                    Self::ensure_valid_caller(
+                        caller_did,
+                        origin_data.secondary_key.as_ref(),
+                        caller_pid,
+                        inst_details.venue_id,
+                        &inst_id,
+                        &inst_legs,
+                    )?;
+                } else {
+                    ensure!(
+                        Self::ensure_mediator(&inst_id, &caller_did).is_ok(),
+                        Error::<T>::CallerIsNotAMediator
+                    );
+                }
             }
             InstructionStatus::Unknown
             | InstructionStatus::Rejected(_)

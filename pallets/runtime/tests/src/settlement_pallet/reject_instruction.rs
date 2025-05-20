@@ -16,6 +16,7 @@ use crate::{ExtBuilder, TestStorage};
 
 type Settlement = pallet_settlement::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
+type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 
 #[test]
 fn invalid_caller() {
@@ -62,6 +63,16 @@ fn invalid_caller_locked_for_execution() {
 
         assert_noop!(
             Settlement::reject_instruction_as_mediator(bob.origin(), InstructionId(0), None),
+            Error::<TestStorage>::CallerIsNotAMediator
+        );
+
+        assert_noop!(
+            Settlement::reject_instruction_with_count(
+                bob.origin(),
+                InstructionId(0),
+                PortfolioId::default_portfolio(bob.did),
+                Some(AssetCount::new(1, 1, 0))
+            ),
             Error::<TestStorage>::CallerIsNotAMediator
         );
     });
@@ -149,5 +160,32 @@ fn success() {
             ),
             0
         );
+    });
+}
+
+#[test]
+fn success_expired_lock() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let dave = User::new(AccountKeyring::Dave);
+        let alice = User::new(AccountKeyring::Alice);
+
+        let _ =
+            add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
+
+        assert_ok!(Settlement::lock_instruction(
+            dave.origin(),
+            InstructionId(0),
+            Weight::MAX
+        ));
+
+        Timestamp::set_timestamp(Timestamp::get() + 3);
+
+        assert_ok!(Settlement::reject_instruction_with_count(
+            bob.origin(),
+            InstructionId(0),
+            PortfolioId::default_portfolio(bob.did),
+            Some(AssetCount::new(1, 1, 0))
+        ));
     });
 }
