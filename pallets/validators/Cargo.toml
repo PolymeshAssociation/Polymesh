@@ -1,12 +1,15 @@
 [package]
-name = "pallet-staking"
-version = "2.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
+name = "pallet-validators"
+version = "0.1.0"
+authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
 polymesh-primitives = { workspace = true, default-features = false }
-pallet-identity = { workspace = true, default-features = false}
+pallet-identity = { workspace = true, default-features = false }
+
+# Substrate staking
+pallet-staking = { workspace = true, default-features = false }
 
 # General
 static_assertions = "1.1.0"
@@ -15,19 +18,23 @@ log = "0.4.8"
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
-scale-info = { version = "2.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.0", default-features = false, features = [
+	"derive",
+] }
 sp-core = { version = "7.0.0", default-features = false }
 sp-std = { version = "5.0.0", default-features = false }
-sp-io = { version = "7.0.0", default-features = false}
+sp-io = { version = "7.0.0", default-features = false }
 sp-runtime = { version = "7.0.0", default-features = false }
 sp-arithmetic = { version = "6.0.0", default-features = false }
 sp-staking = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 frame-election-provider-support = { version = "4.0.0-dev", default-features = false }
-sp-npos-elections = { version = "4.0.0-dev", default-features = false}
+sp-npos-elections = { version = "4.0.0-dev", default-features = false }
 
-pallet-session = { features = ["historical"], version = "4.0.0-dev", default-features = false }
+pallet-session = { features = [
+	"historical",
+], version = "4.0.0-dev", default-features = false }
 pallet-authorship = { version = "4.0.0-dev", default-features = false }
 pallet-babe = { version = "4.0.0-dev", default-features = false }
 
@@ -57,6 +64,7 @@ std = [
 	"frame-system/std",
 	"pallet-authorship/std",
 	"pallet-identity/std",
+	"pallet-staking/std",
 	"pallet-babe/std",
 	"sp-arithmetic/std",
 	"rand_chacha",
@@ -64,6 +72,8 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
+	"pallet-staking/runtime-benchmarks",
+	"pallet-identity/runtime-benchmarks",
 	"rand_chacha",
 ]
 try-runtime = []

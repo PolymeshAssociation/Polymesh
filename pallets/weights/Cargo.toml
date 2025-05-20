@@ -23,6 +23,7 @@ sp-std = { version = "5.0.0", default-features = false }
 pallet-asset = { workspace = true, default-features = false }
 pallet-balances = { workspace = true, default-features = false }
 pallet-staking = { workspace = true, default-features = false }
+pallet-validators = { workspace = true, default-features = false }
 pallet-committee = { workspace = true, default-features = false }
 pallet-compliance-manager = { workspace = true, default-features = false  }
 pallet-corporate-actions = { workspace = true, default-features = false }
@@ -52,6 +53,7 @@ std = [
     "pallet-asset/std",
     "pallet-babe/std",
     "pallet-staking/std",
+    "pallet-validators/std",
     "pallet-balances/std",
     "pallet-compliance-manager/std",
     "pallet-corporate-actions/std",
