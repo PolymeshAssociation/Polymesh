@@ -791,6 +791,11 @@ impl ExecuteInstructionInfo {
             error: error.map(|e| e.to_string()),
         }
     }
+
+    /// Returns the weight needed for executing the instruction.
+    pub fn consumed_weight(&self) -> Weight {
+        self.consumed_weight
+    }
 }
 
 /// The status of the mediator's affirmation.

@@ -88,27 +88,9 @@ sp_api::decl_runtime_apis! {
         fn get_execute_instruction_report(instruction_id: InstructionId) -> Vec<DispatchError>;
 
         /// Returns the weight for calling `lock_instruction` for the given `instruction_id`.
-        ///
-        /// ```ignore
-        /// curl http://localhost:9933 -H "Content-Type: application/json" -d '{
-        ///     "id":1,
-        ///     "jsonrpc":"2.0",
-        ///     "method": "settlement_lockInstructionWeight",
-        ///     "params": [1]
-        ///   }'
-        /// ```
         fn lock_instruction_weight(instruction_id: InstructionId) -> Result<Weight, DispatchError>;
 
         /// Returns the [`AssetCount`] for the given `instruction_id`.
-        ///
-        /// ```ignore
-        /// curl http://localhost:9933 -H "Content-Type: application/json" -d '{
-        ///     "id":1,
-        ///     "jsonrpc":"2.0",
-        ///     "method": "settlement_instructionAssetCount",
-        ///     "params": [1]
-        ///   }'
-        /// ```
         fn instruction_asset_count(instruction_id: InstructionId) -> AssetCount;
     }
 }
