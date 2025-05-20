@@ -2,7 +2,7 @@
 
 SKIP_WASM_BUILD=1 RUST_BACKTRACE=1 \
   cargo test \
-  --package pallet-staking \
+  --package pallet-validators \
   --package pallet-group \
   --package pallet-sudo \
   --package pallet-pips \
