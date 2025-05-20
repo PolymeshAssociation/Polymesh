@@ -22,7 +22,6 @@
 // - It uses our Staking pallet.
 
 use codec::Decode;
-use core::convert::TryInto;
 use frame_benchmarking::benchmarks;
 use frame_support::traits::{Currency, Get, OnInitialize};
 use frame_system::RawOrigin;
@@ -32,8 +31,6 @@ use pallet_staking::RewardDestination;
 use sp_runtime::traits::TrailingZeroInput;
 use sp_std::prelude::*;
 use sp_std::vec;
-
-use polymesh_primitives::constants::currency::POLY;
 
 pub struct Pallet<T: Config>(Session<T>);
 pub trait Config:
@@ -60,13 +57,11 @@ impl<T: Config> ValidatorInfo<T> {
             <T as frame_system::Config>::AccountId,
         >>::Balance: From<u128>,
     {
-        let balance: u32 = (4_000 * POLY).try_into().unwrap();
         let stash = create_validator_with_nominators::<T>(
             nominators,
             <T as pallet_staking::Config>::MaxNominations::get(),
             false,
             RewardDestination::Staked,
-            Some(balance),
         )
         .unwrap()
         .0;

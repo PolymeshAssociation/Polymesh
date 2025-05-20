@@ -259,7 +259,7 @@ macro_rules! misc_pallet_impls {
             type SlashDeferDuration = SlashDeferDuration;
             type AdminOrigin = polymesh_primitives::EnsureRoot;
             type SessionInterface = Self;
-            type EraPayout = pallet_staking::PolymeshConvertCurve<Self, RewardCurve>;
+            type EraPayout = pallet_validators::PolymeshConvertCurve<Self, RewardCurve>;
             type NextNewSession = Session;
             type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
             type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
@@ -267,15 +267,21 @@ macro_rules! misc_pallet_impls {
             type TargetList = pallet_staking::UseValidatorsMap<Self>;
             type MaxUnlockingChunks = polymesh_runtime_common::MaxUnlockingChunks;
             type OnStakerSlash = pallet_staking::OnStakerSlashMock<Self>;
-            type BenchmarkingConfig = pallet_staking::SampleBenchmarkingConfig;
+            type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
             type WeightInfo = polymesh_weights::pallet_staking::SubstrateWeight;
+            type Permissioned = Validators;
+        }
+
+        impl pallet_validators::Config for Runtime {
+            type RuntimeEvent = RuntimeEvent;
+            type WeightInfo = polymesh_weights::pallet_validators::SubstrateWeight;
+
             type MaxValidatorPerIdentity = polymesh_runtime_common::MaxValidatorPerIdentity;
             type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
             type FixedYearlyReward = FixedYearlyReward;
             type Call = RuntimeCall;
             type PalletsOrigin = OriginCaller;
             type RewardScheduler = Scheduler;
-            type Permissioned = Staking;
         }
 
         impl pallet_authority_discovery::Config for Runtime {
@@ -1035,9 +1041,9 @@ macro_rules! runtime_apis {
                 }
             }
 
-            impl pallet_staking_rpc_runtime_api::StakingApi<Block> for Runtime {
-                fn get_curve() -> Vec<(Perbill, Perbill)> {
-                    RewardCurve::get().points.to_vec()
+            impl pallet_staking_runtime_api::StakingApi<Block, Balance> for Runtime {
+                fn nominations_quota(balance: Balance) -> u32 {
+                    Staking::api_nominations_quota(balance)
                 }
             }
 
