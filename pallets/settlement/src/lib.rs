@@ -63,7 +63,7 @@ use frame_support::weights::Weight;
 use frame_support::{ensure, BoundedBTreeSet};
 use frame_system::pallet_prelude::*;
 use frame_system::{ensure_root, RawOrigin};
-use sp_runtime::traits::{One, Verify};
+use sp_runtime::traits::One;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
@@ -74,6 +74,7 @@ use pallet_base::{ensure_string_limited, try_next_post};
 use pallet_identity::DidRecords;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY;
+use polymesh_primitives::crypto::verify_signature;
 use polymesh_primitives::settlement::{
     AffirmationCount, AffirmationStatus, AssetCount, ExecuteInstructionInfo, FilteredLegs,
     Instruction, InstructionId, InstructionInfo, InstructionStatus, Leg, LegId, LegStatus,
@@ -2915,10 +2916,14 @@ impl<T: Config> Pallet<T> {
                         ticker,
                         amount,
                     );
+                    let signature = receipt_details.signature();
                     ensure!(
-                        receipt_details
-                            .signature()
-                            .verify(&receipt.encode()[..], receipt_details.signer()),
+                        verify_signature::<T, T::OffChainSignature, _>(
+                            &receipt_details.signer(),
+                            &signature,
+                            &receipt,
+                            false,
+                        ),
                         Error::<T>::InvalidSignature
                     );
                 }
