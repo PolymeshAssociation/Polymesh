@@ -108,7 +108,6 @@ where
         + 'static,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
     C::Api: node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block>,
-    C::Api: pallet_staking_rpc::StakingRuntimeApi<Block>,
     C::Api: node_rpc::pips::PipsRuntimeApi<Block, AccountId>,
     C::Api: node_rpc::identity::IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, Moment>,
     C::Api: pallet_protocol_fee_rpc::ProtocolFeeRuntimeApi<Block>,
@@ -133,7 +132,6 @@ where
     };
     use pallet_group_rpc::{Group, GroupApiServer};
     use pallet_protocol_fee_rpc::{ProtocolFee, ProtocolFeeApiServer};
-    use pallet_staking_rpc::{Staking, StakingApiServer};
     use sc_consensus_babe_rpc::{Babe, BabeApiServer};
     use sc_consensus_grandpa_rpc::{Grandpa, GrandpaApiServer};
     use sc_rpc::dev::{Dev, DevApiServer};
@@ -210,7 +208,6 @@ where
 
     io.merge(Dev::new(client.clone(), deny_unsafe).into_rpc())?;
 
-    io.merge(Staking::new(client.clone()).into_rpc())?;
     io.merge(Pips::new(client.clone()).into_rpc())?;
     io.merge(Identity::new(client.clone()).into_rpc())?;
     io.merge(ProtocolFee::new(client.clone()).into_rpc())?;

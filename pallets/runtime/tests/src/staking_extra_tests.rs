@@ -29,7 +29,7 @@ fn updating_controller() {
             .unwrap();
 
             assert_ok!(
-                pallet_staking::Pallet::<TestStorage>::add_permissioned_validator(
+                pallet_validators::Pallet::<TestStorage>::add_permissioned_validator(
                     Origin::root(),
                     alice.did,
                     None
@@ -55,7 +55,7 @@ fn updating_controller() {
             ));
 
             assert_ok!(
-                pallet_staking::Pallet::<TestStorage>::remove_permissioned_validator(
+                pallet_validators::Pallet::<TestStorage>::remove_permissioned_validator(
                     Origin::root(),
                     alice.did,
                 )

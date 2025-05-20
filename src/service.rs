@@ -2,7 +2,9 @@
 
 use futures::stream::StreamExt;
 use polymesh_node_rpc as node_rpc;
-pub use polymesh_primitives::{AccountId, Block, IdentityId, Index as Nonce, Moment, Ticker};
+pub use polymesh_primitives::{
+    AccountId, Balance, Block, IdentityId, Index as Nonce, Moment, Ticker,
+};
 pub use polymesh_runtime_develop;
 pub use polymesh_runtime_mainnet;
 pub use polymesh_runtime_testnet;
@@ -92,7 +94,7 @@ pub trait RuntimeApiCollection:
     + sp_offchain::OffchainWorkerApi<Block>
     + sp_session::SessionKeys<Block>
     + sp_authority_discovery::AuthorityDiscoveryApi<Block>
-    + pallet_staking_rpc_runtime_api::StakingApi<Block>
+    + pallet_staking_runtime_api::StakingApi<Block, Balance>
     + node_rpc_runtime_api::pips::PipsApi<Block, AccountId>
     + node_rpc_runtime_api::identity::IdentityApi<Block, IdentityId, Ticker, AccountId, Moment>
     + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
@@ -118,7 +120,7 @@ where
         + sp_offchain::OffchainWorkerApi<Block>
         + sp_session::SessionKeys<Block>
         + sp_authority_discovery::AuthorityDiscoveryApi<Block>
-        + pallet_staking_rpc_runtime_api::StakingApi<Block>
+        + pallet_staking_runtime_api::StakingApi<Block, Balance>
         + node_rpc_runtime_api::pips::PipsApi<Block, AccountId>
         + node_rpc_runtime_api::identity::IdentityApi<Block, IdentityId, Ticker, AccountId, Moment>
         + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>

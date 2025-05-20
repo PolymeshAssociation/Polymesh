@@ -364,14 +364,37 @@ macro_rules! session {
 }
 
 macro_rules! staking {
-    ($auths:expr, $stakers:expr, $cap:expr) => {
+    ($stakers:expr) => {
         pallet_staking::GenesisConfig {
             validator_count: 40,
-            validator_commission_cap: $cap,
             minimum_validator_count: 1,
-            stakers: $stakers,
+            stakers: $stakers
+                .iter()
+                .map(|(_did, stash, controller, balance, status)| {
+                    (stash.clone(), controller.clone(), *balance, status.clone())
+                })
+                .collect::<Vec<_>>(),
             invulnerables: vec![],
             slash_reward_fraction: sp_runtime::Perbill::from_percent(10),
+            ..Default::default()
+        }
+    };
+}
+
+macro_rules! validators {
+    ($stakers:expr, $cap:expr) => {
+        pallet_validators::GenesisConfig {
+            validator_commission_cap: $cap,
+            validators: $stakers
+                .iter()
+                .filter_map(|(did, _stash, _controller, _balance, status)| {
+                    if let StakerStatus::Validator = status {
+                        Some(*did)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>(),
             ..Default::default()
         }
     };
@@ -503,11 +526,8 @@ pub mod general {
                 key: Some(root_key.clone()),
             },
             session: session!(initial_authorities, session_keys),
-            staking: staking!(
-                initial_authorities,
-                stakers,
-                PerThing::from_rational(1u64, 4u64)
-            ),
+            validators: validators!(stakers, PerThing::from_rational(1u64, 4u64)),
+            staking: staking!(stakers),
             pips: pips!(time::MINUTES, MaybeBlock::None, 25),
             im_online: Default::default(),
             authority_discovery: Default::default(),
@@ -648,11 +668,8 @@ pub mod testnet {
             balances: rt::runtime::BalancesConfig { balances },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
             session: session!(initial_authorities, session_keys),
-            staking: staking!(
-                initial_authorities,
-                stakers,
-                PerThing::from_rational(1u64, 10u64)
-            ),
+            validators: validators!(stakers, PerThing::from_rational(1u64, 10u64)),
+            staking: staking!(stakers),
             pips: pips!(time::DAYS * 30, MaybeBlock::None, 1000),
             im_online: Default::default(),
             authority_discovery: Default::default(),
@@ -821,11 +838,8 @@ pub mod mainnet {
             balances: rt::runtime::BalancesConfig { balances },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
             session: session!(initial_authorities, session_keys),
-            staking: staking!(
-                initial_authorities,
-                stakers,
-                PerThing::from_rational(1u64, 10u64)
-            ),
+            validators: validators!(stakers, PerThing::from_rational(1u64, 10u64)),
+            staking: staking!(stakers),
             pips: pips!(time::DAYS * 30, MaybeBlock::Some(time::DAYS * 90), 1000),
             im_online: Default::default(),
             authority_discovery: Default::default(),
@@ -1006,7 +1020,8 @@ pub mod general {
                 key: Some(root_key.clone()),
             },
             session: session!(initial_authorities, session_keys),
-            staking: staking!(initial_authorities, stakers, PerThing::zero()),
+            validators: validators!(stakers, PerThing::zero()),
+            staking: staking!(stakers),
             pips: pips!(time::DAYS * 7, MaybeBlock::None, 1000),
             im_online: Default::default(),
             authority_discovery: Default::default(),
