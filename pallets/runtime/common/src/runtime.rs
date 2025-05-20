@@ -261,11 +261,7 @@ macro_rules! misc_pallet_impls {
             type SlashDeferDuration = SlashDeferDuration;
             type AdminOrigin = polymesh_primitives::EnsureRoot;
             type SessionInterface = Self;
-<<<<<<< HEAD
             type EraPayout = pallet_validators::PolymeshConvertCurve<Self, RewardCurve>;
-=======
-            type EraPayout = pallet_staking::PolymeshConvertCurve<Self, RewardCurve>;
->>>>>>> Refactor our changes out of the core Staking code. (#1802)
             type NextNewSession = Session;
             type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
             type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
@@ -288,7 +284,6 @@ macro_rules! misc_pallet_impls {
             type Call = RuntimeCall;
             type PalletsOrigin = OriginCaller;
             type RewardScheduler = Scheduler;
-            type Permissioned = Staking;
         }
 
         impl pallet_authority_discovery::Config for Runtime {
