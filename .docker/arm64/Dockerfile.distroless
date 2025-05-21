@@ -1,5 +1,5 @@
 ARG golangbase=1.15
-FROM arm64v8/golang:${golangbase} as gobuild
+FROM golang:${golangbase} as gobuild
 
 ADD .docker/src/health-check/ /opt/health-check/
 ADD .docker/src/rotate-keys/ /opt/rotate-keys/
@@ -14,9 +14,13 @@ RUN ls -a && \
     go build && \
     chmod 0755 /opt/rotate-keys/polymesh-rotate-keys
 
+FROM ubuntu:20.04 as install
+RUN apt update
+
 FROM gcr.io/distroless/cc
 USER 4001:4001
 
+COPY --from=install /lib/aarch64-linux-gnu/libz.so.1 /lib/aarch64-linux-gnu/libz.so.1
 COPY --chown=4001:4001 ./polymesh-arm64 /polymesh
 COPY --chown=4002:4002 --from=gobuild      /opt/health-check/polymesh-health-check /usr/local/bin/check
 COPY --chown=4002:4002 --from=gobuild      /opt/rotate-keys/polymesh-rotate-keys   /usr/local/bin/rotate
