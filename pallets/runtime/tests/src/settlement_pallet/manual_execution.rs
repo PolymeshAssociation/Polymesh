@@ -54,6 +54,19 @@ fn invalid_caller() {
             Settlement::execute_manual_instruction(
                 eve.origin(),
                 InstructionId(0),
+                Some(PortfolioId::user_portfolio(eve.did, PortfolioNumber(1))),
+                1,
+                1,
+                0,
+                None
+            ),
+            Error::<TestStorage>::CallerIsNotAMediator
+        ));
+
+        assert_storage_noop!(assert_err_ignore_postinfo!(
+            Settlement::execute_manual_instruction(
+                bob.origin(),
+                InstructionId(0),
                 Some(PortfolioId::user_portfolio(bob.did, PortfolioNumber(1))),
                 1,
                 1,
