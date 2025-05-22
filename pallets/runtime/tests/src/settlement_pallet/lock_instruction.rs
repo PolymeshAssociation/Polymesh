@@ -187,8 +187,7 @@ fn invalid_inst_status() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let _ =
-            add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
+        add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
         // Force an error
         InstructionStatuses::<TestStorage>::insert(InstructionId(0), InstructionStatus::Unknown);
@@ -207,8 +206,7 @@ fn expired_mediator_affirmation() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let _ =
-            add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
+        add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
         Timestamp::set_timestamp(Timestamp::get() + 2);
 
@@ -266,12 +264,7 @@ fn missing_cdd_claim() {
             let dave = User::new(AccountKeyring::Dave);
             let alice = User::new(AccountKeyring::Alice);
 
-            let _ = add_and_affirm_simple_instruction(
-                alice,
-                bob,
-                dave,
-                SettlementType::SettleAfterLock,
-            );
+            add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
             let cdd_1_id = Identity::get_identity(&AccountKeyring::Eve.to_account_id()).unwrap();
             Identity::invalidate_cdd_claims(root(), cdd_1_id, Timestamp::get(), None).unwrap();
@@ -480,8 +473,7 @@ fn invalid_weight() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let _ =
-            add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
+        add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
         assert_noop!(
             Settlement::lock_instruction(
@@ -503,8 +495,7 @@ fn success() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let _ =
-            add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
+        add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
         assert_ok!(Settlement::lock_instruction(
             dave.origin(),

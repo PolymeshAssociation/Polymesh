@@ -32,8 +32,7 @@ fn invalid_caller() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let _ =
-            add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
+        add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
         Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX).unwrap();
 
@@ -79,14 +78,64 @@ fn invalid_caller() {
 }
 
 #[test]
+fn execute_settle_after_lock_before_lock() {
+    ExtBuilder::default().build().execute_with(|| {
+        let eve = User::new(AccountKeyring::Eve);
+        let bob = User::new(AccountKeyring::Bob);
+        let dave = User::new(AccountKeyring::Dave);
+        let alice = User::new(AccountKeyring::Alice);
+
+        add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
+
+        assert_storage_noop!(assert_err_ignore_postinfo!(
+            Settlement::execute_manual_instruction(
+                eve.origin(),
+                InstructionId(0),
+                Some(PortfolioId::user_portfolio(eve.did, PortfolioNumber(1))),
+                1,
+                1,
+                0,
+                None
+            ),
+            Error::<TestStorage>::UnexpectedSettlementType
+        ));
+
+        assert_storage_noop!(assert_err_ignore_postinfo!(
+            Settlement::execute_manual_instruction(
+                bob.origin(),
+                InstructionId(0),
+                Some(PortfolioId::user_portfolio(bob.did, PortfolioNumber(1))),
+                1,
+                1,
+                0,
+                None
+            ),
+            Error::<TestStorage>::UnexpectedSettlementType
+        ));
+
+        assert_storage_noop!(assert_err_ignore_postinfo!(
+            Settlement::execute_manual_instruction(
+                dave.origin(),
+                InstructionId(0),
+                None,
+                1,
+                1,
+                0,
+                None
+            ),
+            Error::<TestStorage>::UnexpectedSettlementType
+        ));
+    });
+}
+
+#[test]
 fn exceeded_maximum_locking_period() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(AccountKeyring::Bob);
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let _ =
-            add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
+        add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
         Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX).unwrap();
 
@@ -162,12 +211,7 @@ fn unexpected_settle_on_affirmation() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let _ = add_and_affirm_simple_instruction(
-            alice,
-            bob,
-            dave,
-            SettlementType::SettleOnAffirmation,
-        );
+        add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleOnAffirmation);
 
         assert_storage_noop!(assert_err_ignore_postinfo!(
             Settlement::execute_manual_instruction(
@@ -191,7 +235,7 @@ fn unexpected_settle_on_block() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let _ = add_and_affirm_simple_instruction(
+        add_and_affirm_simple_instruction(
             alice,
             bob,
             dave,
@@ -220,8 +264,7 @@ fn execute_before_lock() {
         let dave = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
 
-        let _ =
-            add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
+        add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
         assert_storage_noop!(assert_err_ignore_postinfo!(
             Settlement::execute_manual_instruction(
