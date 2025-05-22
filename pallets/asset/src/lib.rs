@@ -3293,8 +3293,8 @@ impl<T: AssetConfig> Pallet<T> {
         )?;
 
         // Updates the balance in the asset pallet
-        let sender_new_balance = sender_current_balance - transfer_value;
-        let receiver_new_balance = receiver_current_balance + transfer_value;
+        let sender_new_balance = sender_current_balance.saturating_sub(transfer_value);
+        let receiver_new_balance = receiver_current_balance.saturating_add(transfer_value);
         BalanceOf::<T>::insert(asset_id, sender_portfolio.did, sender_new_balance);
         BalanceOf::<T>::insert(asset_id, receiver_portfolio.did, receiver_new_balance);
 
@@ -3460,6 +3460,39 @@ impl<T: AssetConfig> Pallet<T> {
                 }
             }
         })
+    }
+
+    /// Transfers `transfer_value` of `asset_id` from `sender_pid` to `receiver_pid`.
+    /// Note: This functions skips all compliance and statistics checks, only checking for balance.
+    pub fn simplified_fungible_transfer(
+        asset_id: AssetId,
+        sender_pid: PortfolioId,
+        receiver_pid: PortfolioId,
+        transfer_value: Balance,
+        inst_id: InstructionId,
+        inst_memo: Option<Memo>,
+        caller_did: IdentityId,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        ensure!(
+            BalanceOf::<T>::get(&asset_id, &sender_pid.did) >= transfer_value,
+            Error::<T>::InsufficientBalance
+        );
+        Portfolio::<T>::ensure_portfolio_validity(&receiver_pid)?;
+        Portfolio::<T>::ensure_sufficient_balance(&sender_pid, &asset_id, transfer_value)?;
+
+        Self::unverified_transfer_asset(
+            sender_pid,
+            receiver_pid,
+            asset_id,
+            transfer_value,
+            Some(inst_id),
+            inst_memo,
+            caller_did,
+            weight_meter,
+        )?;
+
+        Ok(())
     }
 }
 

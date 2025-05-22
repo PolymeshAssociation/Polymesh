@@ -44,19 +44,8 @@ impl_checked_inc!(VenueId);
 pub struct VenueDetails(Vec<u8>);
 
 /// Status of an instruction
-#[derive(
-    Clone,
-    Debug,
-    Decode,
-    Default,
-    Encode,
-    MaxEncodedLen,
-    Eq,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    TypeInfo
-)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub enum InstructionStatus<BlockNumber> {
     /// Invalid instruction or details pruned
     #[default]
@@ -69,6 +58,8 @@ pub enum InstructionStatus<BlockNumber> {
     Success(BlockNumber),
     /// Instruction has been rejected.
     Rejected(BlockNumber),
+    /// Instruction is locked for execution.
+    LockedForExecution,
 }
 
 /// Type of the venue. Used for offchain filtering.
@@ -148,20 +139,8 @@ pub enum AffirmationStatus {
 }
 
 /// Type of settlement
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Decode,
-    Default,
-    Encode,
-    MaxEncodedLen,
-    Eq,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    TypeInfo
-)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Copy, Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub enum SettlementType<BlockNumber> {
     /// Instruction should be settled in the next block as soon as all affirmations are received.
     #[default]
@@ -170,6 +149,8 @@ pub enum SettlementType<BlockNumber> {
     SettleOnBlock(BlockNumber),
     /// Instruction must be settled manually on or after BlockNumber.
     SettleManual(BlockNumber),
+    /// Instruction will be settled after lock.
+    SettleAfterLock,
 }
 
 /// A per-Instruction leg ID.
@@ -809,6 +790,11 @@ impl ExecuteInstructionInfo {
             consumed_weight,
             error: error.map(|e| e.to_string()),
         }
+    }
+
+    /// Returns the weight needed for executing the instruction.
+    pub fn consumed_weight(&self) -> Weight {
+        self.consumed_weight
     }
 }
 

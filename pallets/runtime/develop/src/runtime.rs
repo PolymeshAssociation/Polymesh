@@ -94,6 +94,7 @@ parameter_types! {
     pub const MaxNumberOfPortfolios: u32 = (10 + 100) * 2;
     pub const MaxNumberOfVenueSigners: u32 = 50;
     pub const MaxInstructionMediators: u32 = 4;
+    pub const MaximumLockPeriod: Moment = 1_440_000; // 24 hours
 
     // Multisig
     pub const MaxMultiSigSigners: u32 = 50;

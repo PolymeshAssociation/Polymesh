@@ -25,9 +25,8 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 
 pub use node_rpc_runtime_api::settlement::SettlementApi as SettlementRuntimeApi;
-use polymesh_primitives::settlement::{
-    AffirmationCount, ExecuteInstructionInfo, InstructionId, Leg,
-};
+use polymesh_primitives::settlement::{AffirmationCount, ExecuteInstructionInfo};
+use polymesh_primitives::settlement::{InstructionId, Leg};
 use polymesh_primitives::PortfolioId;
 
 use crate::Error;
@@ -96,7 +95,7 @@ where
         // If the block hash is not supplied assume the best block.
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_execute_instruction_info(at_hash, &instruction_id)
+        api.get_execute_instruction_info(at_hash, instruction_id)
             .map_err(|e| {
                 CallError::Custom(ErrorObject::owned(
                     Error::RuntimeError.into(),
