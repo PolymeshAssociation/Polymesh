@@ -414,3 +414,22 @@ impl IntegrationUser for User {
         Ok(child)
     }
 }
+
+/// A helper function to sign a SCALE encoded message with a signing key.
+pub async fn sign_with_key<S: Signer, T: sp_core::Encode>(
+    signer: &S,
+    message: &T,
+    no_wrapping: bool,
+) -> Result<sp_runtime::MultiSignature> {
+    let encoded = {
+        use crate::client::{BytesPayload, Encoded};
+        use sp_core::Encode;
+
+        if cfg!(feature = "previous_release") || no_wrapping {
+            message.encode()
+        } else {
+            BytesPayload(Encoded::from(message)).encode()
+        }
+    };
+    Ok(signer.sign(&encoded[..]).await?)
+}
