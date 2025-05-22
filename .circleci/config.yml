@@ -533,9 +533,9 @@ jobs:
           command: cargo clippy -- -A clippy::all -W clippy::complexity -W clippy::perf
           no_output_timeout: 30m
       - save-sccache-cache
-  build-docker-debian:
+  build-docker-amd64-debian:
     environment:
-      IMAGE_NAME: polymeshassociation/polymesh
+      IMAGE_NAME: polymeshassociation/polymesh-amd64
     docker:
       - image: cimg/deploy:2023.08
     resource_class: small
@@ -549,9 +549,9 @@ jobs:
           docker build -f ./.docker/Dockerfile.debian --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker push --all-tags $IMAGE_NAME
-  build-docker-distroless:
+  build-docker-amd64-distroless:
     environment:
-      IMAGE_NAME: polymeshassociation/polymesh
+      IMAGE_NAME: polymeshassociation/polymesh-amd64
     docker:
       - image: cimg/deploy:2023.08
     resource_class: small
@@ -563,6 +563,22 @@ jobs:
       - run: |
           export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
           docker build -f ./.docker/Dockerfile.distroless --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-distroless --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-distroless .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push --all-tags $IMAGE_NAME
+  build-docker-ci-runtime:
+    environment:
+      IMAGE_NAME: polymeshassociation/polymesh-ci
+    docker:
+      - image: cimg/deploy:2023.08
+    resource_class: small
+    steps:
+      - checkout
+      - setup_remote_docker
+      - attach_workspace:
+          at: .
+      - run: |
+          export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
+          docker build -f ./.docker/Dockerfile.debian --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker push --all-tags $IMAGE_NAME
   build-docker-arm64-debian:
@@ -595,6 +611,42 @@ jobs:
           docker build -f ./.docker/arm64/Dockerfile.distroless --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-distroless --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-distroless .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker push --all-tags $IMAGE_NAME
+  build-docker-debian:
+    environment:
+      IMAGE_NAME: polymeshassociation/polymesh
+      IMAGE_AMD_NAME: polymeshassociation/polymesh-amd64
+      IMAGE_ARM_NAME: polymeshassociation/polymesh-arm64
+    docker:
+      - image: cimg/deploy:2023.08
+    resource_class: small
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run: |
+          export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
+          docker manifest create $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian $IMAGE_AMD_NAME:latest-$CIRCLE_BRANCH-debian $IMAGE_ARM_NAME:latest-$CIRCLE_BRANCH-debian
+          docker manifest create $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian $IMAGE_AMD_NAME:$VERSION-$CIRCLE_BRANCH-debian $IMAGE_ARM_NAME:$VERSION-$CIRCLE_BRANCH-debian
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker manifest push $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian
+          docker manifest push $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian
+  build-docker-distroless:
+    environment:
+      IMAGE_NAME: polymeshassociation/polymesh
+      IMAGE_AMD_NAME: polymeshassociation/polymesh-amd64
+      IMAGE_ARM_NAME: polymeshassociation/polymesh-arm64
+    docker:
+      - image: cimg/deploy:2023.08
+    resource_class: small
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run: |
+          export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
+          docker manifest create $IMAGE_NAME:latest-$CIRCLE_BRANCH-distroless $IMAGE_AMD_NAME:latest-$CIRCLE_BRANCH-distroless $IMAGE_ARM_NAME:latest-$CIRCLE_BRANCH-distroless
+          docker manifest create $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-distroless $IMAGE_AMD_NAME:$VERSION-$CIRCLE_BRANCH-distroless $IMAGE_ARM_NAME:$VERSION-$CIRCLE_BRANCH-distroless
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker manifest push $IMAGE_NAME:latest-$CIRCLE_BRANCH-distroless
+          docker manifest push $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-distroless
   build-docker-rust-debian:
     environment:
       RUST_BASE: 1.75.0
@@ -743,7 +795,7 @@ workflows:
       - benchmark:
           requires:
             - benchmark-build
-      - build-docker-debian:
+      - build-docker-amd64-debian:
           requires:
             - build
           filters:
@@ -753,7 +805,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
-      - build-docker-distroless:
+      - build-docker-amd64-distroless:
           requires:
             - build
           filters:
@@ -762,6 +814,13 @@ workflows:
                 - mainnet
                 - testnet
                 - staging
+                - develop
+      - build-docker-ci-runtime:
+          requires:
+            - build-ci
+          filters:
+            branches:
+              only:
                 - develop
       - build-docker-arm64-debian:
           requires:
@@ -776,6 +835,28 @@ workflows:
       - build-docker-arm64-distroless:
           requires:
             - build-arm64
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
+                - develop
+      - build-docker-debian:
+          requires:
+            - build-docker-amd64-debian
+            - build-docker-arm64-debian
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
+                - develop
+      - build-docker-distroless:
+          requires:
+            - build-docker-amd64-distroless
+            - build-docker-arm64-distroless
           filters:
             branches:
               only:
