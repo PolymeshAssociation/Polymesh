@@ -18,12 +18,17 @@ FROM ubuntu:20.04 as install
 RUN apt update
 
 FROM gcr.io/distroless/cc
-USER 4001:4001
 
 COPY --from=install /lib/aarch64-linux-gnu/libz.so.1 /lib/aarch64-linux-gnu/libz.so.1
-COPY --chown=4001:4001 ./polymesh-arm64 /polymesh
 COPY --chown=4002:4002 --from=gobuild      /opt/health-check/polymesh-health-check /usr/local/bin/check
 COPY --chown=4002:4002 --from=gobuild      /opt/rotate-keys/polymesh-rotate-keys   /usr/local/bin/rotate
+COPY --chown=4001:4001 ./polymesh-arm64 /usr/local/bin/polymesh
+
+RUN mkdir /var/lib/polymesh && \
+    chown 4001:4001 /var/lib/polymesh && \
+    ln -s /usr/local/bin/polymesh /polymesh
+
+USER 4001:4001
 
 ENTRYPOINT ["/polymesh"]
 CMD [ "-d", "/var/lib/polymesh" ]
