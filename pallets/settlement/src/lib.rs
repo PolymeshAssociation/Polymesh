@@ -2197,6 +2197,11 @@ impl<T: Config> Pallet<T> {
         let (did, secondary_key, instruction_details) =
             Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id, false)?;
 
+        // The settlement must have a venue to use off-chain receipts.
+        let venue_id = instruction_details
+            .venue_id
+            .ok_or(Error::<T>::OffChainAssetsMustHaveAVenue)?;
+
         // Verify portfolio custodianship and check if it is a counter party with a pending affirmation.
         Self::ensure_portfolios_and_affirmation_status(
             instruction_id,
@@ -2206,11 +2211,7 @@ impl<T: Config> Pallet<T> {
             &[AffirmationStatus::Pending],
         )?;
 
-        Self::ensure_valid_receipts_details(
-            instruction_details.venue_id,
-            instruction_id,
-            &receipts_details,
-        )?;
+        Self::ensure_valid_receipts_details(venue_id, instruction_id, &receipts_details)?;
 
         // Lock tokens for all legs that are not of type [`Leg::OffChain`]
         let filtered_legs = Self::filtered_legs(instruction_id, &portfolios);
@@ -2860,7 +2861,7 @@ impl<T: Config> Pallet<T> {
     /// if the receipt has not been used before, if the receipt's `leg_id` and `instruction_id` are referencing the
     /// correct instruction/leg and if its signature is valid.
     fn ensure_valid_receipts_details(
-        venue_id: Option<VenueId>,
+        venue_id: VenueId,
         instruction_id: InstructionId,
         receipts_details: &[ReceiptDetails<T::AccountId, T::OffChainSignature>],
     ) -> DispatchResult {
@@ -2881,12 +2882,10 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::MultipleReceiptsForOneLeg
             );
 
-            if let Some(venue_id) = venue_id {
-                ensure!(
-                    VenueSigners::<T>::get(venue_id, receipt_details.signer()),
-                    Error::<T>::UnauthorizedSigner
-                );
-            }
+            ensure!(
+                VenueSigners::<T>::get(venue_id, receipt_details.signer()),
+                Error::<T>::UnauthorizedSigner
+            );
 
             ensure!(
                 !ReceiptsUsed::<T>::get(receipt_details.signer(), &receipt_details.uid()),
