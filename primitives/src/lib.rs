@@ -301,6 +301,9 @@ parameter_types! {
 /// Settlement type definitions.
 pub mod settlement;
 
+/// STO type definitions.
+pub mod sto;
+
 /// Constants definitions.
 pub mod constants;
 pub use constants::{SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS, TECHNICAL_DID, UPGRADE_DID};

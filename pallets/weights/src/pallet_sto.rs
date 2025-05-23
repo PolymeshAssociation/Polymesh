@@ -168,6 +168,12 @@ impl pallet_sto::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(131))
             .saturating_add(DbWeight::get().writes(50))
     }
+    fn invest_with_receipt() -> Weight {
+        // Minimum execution time: 1_051_755 nanoseconds.
+        Weight::from_ref_time(1_059_396_000)
+            .saturating_add(DbWeight::get().reads(131))
+            .saturating_add(DbWeight::get().writes(50))
+    }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -179,6 +185,12 @@ impl pallet_sto::WeightInfo for SubstrateWeight {
     // Storage: Sto Fundraisers (r:1 w:1)
     // Proof Skipped: Sto Fundraisers (max_values: None, max_size: None, mode: Measured)
     fn freeze_fundraiser() -> Weight {
+        // Minimum execution time: 45_648 nanoseconds.
+        Weight::from_ref_time(46_720_000)
+            .saturating_add(DbWeight::get().reads(5))
+            .saturating_add(DbWeight::get().writes(1))
+    }
+    fn enable_offchain_funding() -> Weight {
         // Minimum execution time: 45_648 nanoseconds.
         Weight::from_ref_time(46_720_000)
             .saturating_add(DbWeight::get().reads(5))

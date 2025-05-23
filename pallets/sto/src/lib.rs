@@ -30,6 +30,8 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
 use frame_support::weights::Weight;
+use frame_system::pallet_prelude::OriginFor;
+use polymesh_primitives::crypto::verify_signature;
 use scale_info::TypeInfo;
 use sp_runtime::DispatchError;
 use sp_std::collections::btree_set::BTreeSet;
@@ -39,10 +41,11 @@ use pallet_base::try_next_post;
 use pallet_identity::PermissionedCallOriginData;
 use pallet_settlement::VenueInfo;
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::impl_checked_inc;
 use polymesh_primitives::settlement::{Leg, ReceiptDetails, SettlementType, VenueId, VenueType};
+use polymesh_primitives::sto::{FundraiserId, FundraiserReceipt, FundraiserReceiptDetails};
 use polymesh_primitives::{
     storage_migration_ver, traits::PortfolioSubTrait, Balance, EventDid, IdentityId, PortfolioId,
+    Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 
@@ -55,12 +58,6 @@ type Identity<T> = pallet_identity::Pallet<T>;
 type Portfolio<T> = pallet_portfolio::Pallet<T>;
 type Settlement<T> = pallet_settlement::Pallet<T>;
 type Timestamp<T> = pallet_timestamp::Pallet<T>;
-
-/// The per-AssetId ID of a fundraiser.
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
-pub struct FundraiserId(pub u64);
-impl_checked_inc!(FundraiserId);
 
 /// Status of a Fundraiser.
 #[derive(
@@ -90,6 +87,25 @@ impl Default for FundraiserStatus {
     fn default() -> Self {
         Self::Closed
     }
+}
+
+/// Funding method.  On-chain asset or off-chain receipt.
+pub enum FundingMethod<AccountId, OffChainSignature> {
+    /// On-chain asset.
+    OnChain(PortfolioId),
+    /// Off-chain receipt.
+    OffChain(FundraiserReceiptDetails<AccountId, OffChainSignature>),
+}
+
+/// Which funding asset was used to invest in the fundraiser.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub enum FundingAsset {
+    /// On-chain asset.
+    OnChain(AssetId),
+    /// Off-chain receipt.
+    OffChain(Ticker),
 }
 
 /// Details about the Fundraiser.
@@ -171,10 +187,12 @@ pub struct FundraiserName(Vec<u8>);
 pub trait WeightInfo {
     fn create_fundraiser(i: u32) -> Weight;
     fn invest() -> Weight;
+    fn invest_with_receipt() -> Weight;
     fn freeze_fundraiser() -> Weight;
     fn unfreeze_fundraiser() -> Weight;
     fn modify_fundraiser_window() -> Weight;
     fn stop() -> Weight;
+    fn enable_offchain_funding() -> Weight;
 }
 
 // re-export pallet types.
@@ -182,7 +200,7 @@ pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
-    use super::{Identity, *};
+    use super::*;
     use frame_support::pallet_prelude::{ValueQuery, *};
     use frame_system::pallet_prelude::*;
 
@@ -231,6 +249,16 @@ pub mod pallet {
         /// A fundraiser has been stopped.
         /// (Agent DID, fundraiser id)
         FundraiserClosed(IdentityId, FundraiserId),
+        /// An investor invested in the fundraiser.
+        /// (Investor, fundraiser_id, offering token, raise token, offering_token_amount, raise_token_amount)
+        InvestedV2(
+            IdentityId,
+            FundraiserId,
+            AssetId,
+            FundingAsset,
+            Balance,
+            Balance,
+        ),
     }
 
     #[pallet::error]
@@ -259,6 +287,10 @@ pub mod pallet {
         MaxPriceExceeded,
         /// Investment amount is lower than minimum investment amount.
         InvestmentAmountTooLow,
+        /// Invalid receipt signature.
+        InvalidSignature,
+        /// Off-chain funding is not allowed for this fundraiser.
+        OffchainFundingNotAllowed,
     }
 
     #[pallet::pallet]
@@ -296,6 +328,11 @@ pub mod pallet {
         FundraiserName,
         OptionQuery,
     >;
+
+    /// If the fundraiser supports off-chain funding payments using receipts.
+    #[pallet::storage]
+    pub type FundraiserOffchainAsset<T: Config> =
+        StorageMap<_, Twox64Concat, FundraiserId, Ticker, OptionQuery>;
 
     /// Storage migration version.
     #[pallet::storage]
@@ -425,7 +462,7 @@ pub mod pallet {
                 fundraiser,
             ));
 
-            Ok(().into())
+            Ok(())
         }
 
         /// Invest in a fundraiser.
@@ -436,7 +473,6 @@ pub mod pallet {
         /// * `id` - ID of the fundraiser to invest in.
         /// * `purchase_amount` - Amount of `offering_asset` to purchase.
         /// * `max_price` - Maximum price to pay per unit of `offering_asset`, If `None`there are no constraints on price.
-        /// * `receipt` - Off-chain receipt to use instead of on-chain balance in `funding_portfolio`.
         ///
         /// # Permissions
         /// * Portfolio
@@ -452,169 +488,19 @@ pub mod pallet {
             max_price: Option<Balance>,
             receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         ) -> DispatchResult {
-            let PermissionedCallOriginData {
-                primary_did: did,
-                secondary_key,
-                ..
-            } = Identity::<T>::ensure_origin_call_permissions(origin.clone())?;
+            // Old receipts are not supported anymore.
+            ensure!(receipt.is_none(), Error::<T>::Unauthorized);
 
-            <Portfolio<T>>::ensure_portfolio_custody_and_permission(
-                investment_portfolio,
-                did,
-                secondary_key.as_ref(),
-            )?;
-            <Portfolio<T>>::ensure_portfolio_custody_and_permission(
-                funding_portfolio,
-                did,
-                secondary_key.as_ref(),
-            )?;
-
-            let mut fundraiser = Self::ensure_fundraiser(offering_asset, id)?;
-
-            ensure!(
-                fundraiser.status == FundraiserStatus::Live,
-                Error::<T>::FundraiserNotLive
-            );
-
-            let now = Timestamp::<T>::get();
-            ensure!(
-                fundraiser.start <= now && fundraiser.end.filter(|e| now >= *e).is_none(),
-                Error::<T>::FundraiserExpired
-            );
-
-            // Remaining tokens to fulfil the investment amount
-            let mut remaining = purchase_amount;
-            // Total cost to to fulfil the investment amount.
-            // Primary use is to calculate the blended price (offering_token_amount / cost).
-            // Blended price must be <= to max_price or the investment will fail.
-            let mut cost = Balance::from(0u32);
-
-            // Price is entered as a multiple of 1_000_000
-            // i.e. a price of 1 unit is 1_000_000
-            // a price of 1.5 units is 1_500_00
-            let price_divisor = Balance::from(1_000_000u32);
-            // Individual purchases from each tier that accumulate to fulfil the investment amount.
-            // Tuple of (tier_id, amount to purchase from that tier).
-            let mut purchases = Vec::new();
-
-            for (id, tier) in fundraiser
-                .tiers
-                .iter()
-                .enumerate()
-                .filter(|(_, tier)| tier.remaining > 0u32.into())
-            {
-                // fulfilled the investment amount
-                if remaining == 0u32.into() {
-                    break;
-                }
-
-                // Check if this tier can fulfil the remaining investment amount.
-                // If it can, purchase the remaining amount.
-                // If it can't, purchase what's remaining in the tier.
-                let purchase_amount = if tier.remaining >= remaining {
-                    remaining
-                } else {
-                    tier.remaining
-                };
-
-                remaining -= purchase_amount;
-                purchases.push((id, purchase_amount));
-                cost = purchase_amount
-                    .checked_mul(tier.price)
-                    .ok_or(Error::<T>::Overflow)?
-                    .checked_div(price_divisor)
-                    .and_then(|pa| cost.checked_add(pa))
-                    .ok_or(Error::<T>::Overflow)?;
-            }
-
-            ensure!(
-                remaining == 0u32.into(),
-                Error::<T>::InsufficientTokensRemaining
-            );
-            ensure!(
-                cost >= fundraiser.minimum_investment,
-                Error::<T>::InvestmentAmountTooLow
-            );
-            ensure!(
-                max_price
-                    .map(|max_price| cost
-                        <= max_price.saturating_mul(purchase_amount) / price_divisor)
-                    .unwrap_or(true),
-                Error::<T>::MaxPriceExceeded
-            );
-
-            let legs = vec![
-                Leg::Fungible {
-                    sender: fundraiser.offering_portfolio,
-                    receiver: investment_portfolio,
-                    asset_id: fundraiser.offering_asset,
-                    amount: purchase_amount,
-                },
-                Leg::Fungible {
-                    sender: funding_portfolio,
-                    receiver: fundraiser.raising_portfolio,
-                    asset_id: fundraiser.raising_asset,
-                    amount: cost,
-                },
-            ];
-
-            <Portfolio<T>>::unlock_tokens(
-                &fundraiser.offering_portfolio,
-                &fundraiser.offering_asset,
-                purchase_amount,
-            )?;
-
-            let instruction_id = Settlement::<T>::base_add_instruction(
-                fundraiser.creator,
-                Some(fundraiser.venue_id),
-                SettlementType::SettleOnAffirmation,
-                None,
-                None,
-                legs,
-                None,
-                None,
-            )?;
-
-            let portfolios = [fundraiser.offering_portfolio, fundraiser.raising_portfolio]
-                .iter()
-                .copied()
-                .collect::<BTreeSet<_>>();
-            Settlement::<T>::unsafe_affirm_instruction(
-                fundraiser.creator,
-                instruction_id,
-                portfolios,
-                None,
-                None,
-            )?;
-
-            let portfolios = [investment_portfolio, funding_portfolio]
-                .iter()
-                .copied()
-                .collect::<BTreeSet<_>>();
-            Settlement::<T>::affirm_and_execute_instruction(
+            Self::base_invest(
                 origin,
-                instruction_id,
-                receipt,
-                portfolios,
-                did,
-            )?;
-
-            for (id, amount) in purchases {
-                fundraiser.tiers[id].remaining -= amount;
-            }
-
-            Self::deposit_event(Event::Invested(
-                did,
-                id,
+                investment_portfolio,
+                FundingMethod::OnChain(funding_portfolio),
                 offering_asset,
-                fundraiser.raising_asset,
+                id,
                 purchase_amount,
-                cost,
-            ));
-
-            <Fundraisers<T>>::insert(offering_asset, id, fundraiser);
-
-            Ok(().into())
+                max_price,
+            )?;
+            Ok(())
         }
 
         /// Freeze a fundraiser.
@@ -632,7 +518,7 @@ pub mod pallet {
             id: FundraiserId,
         ) -> DispatchResult {
             Self::set_frozen(origin, offering_asset, id, true)?;
-            Ok(().into())
+            Ok(())
         }
 
         /// Unfreeze a fundraiser.
@@ -650,7 +536,7 @@ pub mod pallet {
             id: FundraiserId,
         ) -> DispatchResult {
             Self::set_frozen(origin, offering_asset, id, false)?;
-            Ok(().into())
+            Ok(())
         }
 
         /// Modify the time window a fundraiser is active
@@ -695,7 +581,7 @@ pub mod pallet {
                 Ok::<_, DispatchError>(())
             })?;
 
-            Ok(().into())
+            Ok(())
         }
 
         /// Stop a fundraiser.
@@ -725,7 +611,7 @@ pub mod pallet {
                 .tiers
                 .iter()
                 .map(|t| t.remaining)
-                .fold(0u32.into(), |remaining, x| remaining + x);
+                .fold(0, |remaining, x| remaining + x);
 
             <Portfolio<T>>::unlock_tokens(
                 &fundraiser.offering_portfolio,
@@ -739,12 +625,285 @@ pub mod pallet {
             <Fundraisers<T>>::insert(offering_asset, id, fundraiser);
             Self::deposit_event(Event::FundraiserClosed(did, id));
 
-            Ok(().into())
+            Ok(())
+        }
+
+        /// Enable support for off-chain funding.
+        ///
+        /// * `offering_asset` - Asset to enable off-chain funding for.
+        /// * `id` - ID of the fundraiser to enable off-chain funding for.
+        /// * `ticker` - Ticker of the asset to use for off-chain funding.
+        ///
+        /// # Permissions
+        /// * Asset
+        #[pallet::weight(<T as Config>::WeightInfo::enable_offchain_funding())]
+        #[pallet::call_index(6)]
+        pub fn enable_offchain_funding(
+            origin: OriginFor<T>,
+            offering_asset: AssetId,
+            id: FundraiserId,
+            ticker: Ticker,
+        ) -> DispatchResult {
+            let did = <ExternalAgents<T>>::ensure_asset_perms(origin, offering_asset)?.primary_did;
+
+            let fundraiser = Self::ensure_fundraiser(offering_asset, id)?;
+            if fundraiser.creator != did {
+                <ExternalAgents<T>>::ensure_agent_permissioned(&offering_asset, did)?;
+            }
+            ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
+
+            FundraiserOffchainAsset::<T>::insert(id, ticker);
+
+            Ok(())
+        }
+
+        /// Invest in a fundraiser using an off-chain receipt.
+        ///
+        /// * `investment_portfolio` - Portfolio that `offering_asset` will be deposited in.
+        /// * `offering_asset` - Asset to invest in.
+        /// * `id` - ID of the fundraiser to invest in.
+        /// * `purchase_amount` - Amount of `offering_asset` to purchase.
+        /// * `max_price` - Maximum price to pay per unit of `offering_asset`, If `None`there are no constraints on price.
+        ///
+        /// # Permissions
+        /// * Portfolio
+        #[pallet::weight(<T as Config>::WeightInfo::invest_with_receipt())]
+        #[pallet::call_index(7)]
+        pub fn invest_with_receipt(
+            origin: OriginFor<T>,
+            investment_portfolio: PortfolioId,
+            offering_asset: AssetId,
+            id: FundraiserId,
+            purchase_amount: Balance,
+            max_price: Option<Balance>,
+            receipt: FundraiserReceiptDetails<T::AccountId, T::OffChainSignature>,
+        ) -> DispatchResult {
+            Self::base_invest(
+                origin,
+                investment_portfolio,
+                FundingMethod::OffChain(receipt),
+                offering_asset,
+                id,
+                purchase_amount,
+                max_price,
+            )?;
+
+            Ok(())
         }
     }
 }
 
 impl<T: Config> Pallet<T> {
+    fn base_invest(
+        origin: OriginFor<T>,
+        investment_portfolio: PortfolioId,
+        funding: FundingMethod<T::AccountId, T::OffChainSignature>,
+        offering_asset: AssetId,
+        fundraiser_id: FundraiserId,
+        purchase_amount: Balance,
+        max_price: Option<Balance>,
+    ) -> DispatchResult {
+        let PermissionedCallOriginData {
+            primary_did: investor_did,
+            secondary_key,
+            ..
+        } = Identity::<T>::ensure_origin_call_permissions(origin.clone())?;
+
+        <Portfolio<T>>::ensure_portfolio_custody_and_permission(
+            investment_portfolio,
+            investor_did,
+            secondary_key.as_ref(),
+        )?;
+
+        let mut fundraiser = Self::ensure_fundraiser(offering_asset, fundraiser_id)?;
+
+        ensure!(
+            fundraiser.status == FundraiserStatus::Live,
+            Error::<T>::FundraiserNotLive
+        );
+
+        let now = Timestamp::<T>::get();
+        ensure!(
+            fundraiser.start <= now && fundraiser.end.filter(|e| now >= *e).is_none(),
+            Error::<T>::FundraiserExpired
+        );
+
+        // Remaining tokens to fulfil the investment amount
+        let mut remaining = purchase_amount;
+        // Total cost to to fulfil the investment amount.
+        // Primary use is to calculate the blended price (offering_token_amount / cost).
+        // Blended price must be <= to max_price or the investment will fail.
+        let mut cost = Balance::from(0u32);
+
+        // Price is entered as a multiple of 1_000_000
+        // i.e. a price of 1 unit is 1_000_000
+        // a price of 1.5 units is 1_500_00
+        let price_divisor = Balance::from(1_000_000u32);
+        // Individual purchases from each tier that accumulate to fulfil the investment amount.
+        // Tuple of (tier_id, amount to purchase from that tier).
+        let mut purchases = Vec::new();
+
+        for (id, tier) in fundraiser
+            .tiers
+            .iter()
+            .enumerate()
+            .filter(|(_, tier)| tier.remaining > 0)
+        {
+            // fulfilled the investment amount
+            if remaining == 0 {
+                break;
+            }
+
+            // Check if this tier can fulfil the remaining investment amount.
+            // If it can, purchase the remaining amount.
+            // If it can't, purchase what's remaining in the tier.
+            let purchase_amount = if tier.remaining >= remaining {
+                remaining
+            } else {
+                tier.remaining
+            };
+
+            remaining -= purchase_amount;
+            purchases.push((id, purchase_amount));
+            cost = purchase_amount
+                .checked_mul(tier.price)
+                .ok_or(Error::<T>::Overflow)?
+                .checked_div(price_divisor)
+                .and_then(|pa| cost.checked_add(pa))
+                .ok_or(Error::<T>::Overflow)?;
+        }
+
+        ensure!(remaining == 0, Error::<T>::InsufficientTokensRemaining);
+        ensure!(
+            cost >= fundraiser.minimum_investment,
+            Error::<T>::InvestmentAmountTooLow
+        );
+        ensure!(
+            max_price
+                .map(|max_price| cost <= max_price.saturating_mul(purchase_amount) / price_divisor)
+                .unwrap_or(true),
+            Error::<T>::MaxPriceExceeded
+        );
+
+        let mut investor_portfolios = [investment_portfolio]
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>();
+        let mut legs = vec![Leg::Fungible {
+            sender: fundraiser.offering_portfolio,
+            receiver: investment_portfolio,
+            asset_id: fundraiser.offering_asset,
+            amount: purchase_amount,
+        }];
+        let funding_asset = match funding {
+            FundingMethod::OnChain(funding_portfolio) => {
+                <Portfolio<T>>::ensure_portfolio_custody_and_permission(
+                    funding_portfolio,
+                    investor_did,
+                    secondary_key.as_ref(),
+                )?;
+                investor_portfolios.insert(funding_portfolio);
+                legs.push(Leg::Fungible {
+                    sender: funding_portfolio,
+                    receiver: fundraiser.raising_portfolio,
+                    asset_id: fundraiser.raising_asset,
+                    amount: cost,
+                });
+                FundingAsset::OnChain(fundraiser.raising_asset)
+            }
+            FundingMethod::OffChain(receipt_details) => {
+                let ticker = FundraiserOffchainAsset::<T>::get(fundraiser_id)
+                    .ok_or(Error::<T>::OffchainFundingNotAllowed)?;
+                Settlement::<T>::mark_receipt_as_used(
+                    fundraiser.venue_id,
+                    &receipt_details.signer,
+                    receipt_details.uid,
+                )?;
+                let receipt = FundraiserReceipt::new(
+                    receipt_details.uid,
+                    fundraiser_id,
+                    investor_did,
+                    fundraiser.raising_portfolio.did,
+                    ticker,
+                    cost,
+                );
+                ensure!(
+                    verify_signature::<T, T::OffChainSignature, _>(
+                        &receipt_details.signer,
+                        &receipt_details.signature,
+                        &receipt,
+                        true,
+                    ),
+                    Error::<T>::InvalidSignature
+                );
+                FundingAsset::OffChain(ticker)
+            }
+        };
+
+        <Portfolio<T>>::unlock_tokens(
+            &fundraiser.offering_portfolio,
+            &fundraiser.offering_asset,
+            purchase_amount,
+        )?;
+
+        let instruction_id = Settlement::<T>::base_add_instruction(
+            fundraiser.creator,
+            Some(fundraiser.venue_id),
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs,
+            None,
+            None,
+        )?;
+
+        let portfolios = [fundraiser.offering_portfolio, fundraiser.raising_portfolio]
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>();
+        Settlement::<T>::unsafe_affirm_instruction(
+            fundraiser.creator,
+            instruction_id,
+            portfolios,
+            None,
+            None,
+        )?;
+
+        Settlement::<T>::affirm_and_execute_instruction(
+            origin,
+            instruction_id,
+            None,
+            investor_portfolios,
+            investor_did,
+        )?;
+
+        for (id, amount) in purchases {
+            fundraiser.tiers[id].remaining -= amount;
+        }
+
+        Self::deposit_event(Event::Invested(
+            investor_did,
+            fundraiser_id,
+            offering_asset,
+            fundraiser.raising_asset,
+            purchase_amount,
+            cost,
+        ));
+
+        Self::deposit_event(Event::InvestedV2(
+            investor_did,
+            fundraiser_id,
+            offering_asset,
+            funding_asset,
+            purchase_amount,
+            cost,
+        ));
+
+        <Fundraisers<T>>::insert(offering_asset, fundraiser_id, fundraiser);
+
+        Ok(())
+    }
+
     fn set_frozen(
         origin: T::RuntimeOrigin,
         offering_asset: AssetId,
@@ -769,6 +928,6 @@ impl<T: Config> Pallet<T> {
         asset_id: AssetId,
         id: FundraiserId,
     ) -> Result<Fundraiser<T::Moment>, DispatchError> {
-        Fundraisers::<T>::get(asset_id, id).ok_or_else(|| Error::<T>::FundraiserNotFound.into())
+        Ok(Fundraisers::<T>::get(asset_id, id).ok_or_else(|| Error::<T>::FundraiserNotFound)?)
     }
 }

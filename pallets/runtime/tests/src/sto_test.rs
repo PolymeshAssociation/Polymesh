@@ -5,12 +5,13 @@ use sp_runtime::DispatchError;
 use pallet_asset::BalanceOf;
 use pallet_settlement::{InstructionCounter, InstructionStatuses, VenueCounter};
 use pallet_sto::{
-    Fundraiser, FundraiserCount, FundraiserId, FundraiserName, FundraiserNames, FundraiserStatus,
-    FundraiserTier, Fundraisers, PriceTier, MAX_TIERS,
+    Fundraiser, FundraiserCount, FundraiserName, FundraiserNames, FundraiserStatus, FundraiserTier,
+    Fundraisers, PriceTier, MAX_TIERS,
 };
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::settlement::{InstructionStatus, VenueDetails, VenueId, VenueType};
+use polymesh_primitives::sto::FundraiserId;
 use polymesh_primitives::{IdentityId, PortfolioId, WeightMeter};
 
 use crate::asset_pallet::setup::create_and_issue_sample_asset;
