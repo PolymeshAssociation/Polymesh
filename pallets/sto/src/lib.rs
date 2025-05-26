@@ -249,6 +249,9 @@ pub mod pallet {
         /// A fundraiser has been stopped.
         /// (Agent DID, fundraiser id)
         FundraiserClosed(IdentityId, FundraiserId),
+        /// A fundraiser has enabled off-chain funding.
+        /// (Agent DID, fundraiser id, ticker)
+        FundraiserOffchainFundingEnabled(IdentityId, FundraiserId, Ticker),
         /// An investor invested in the fundraiser.
         /// (Investor, fundraiser_id, offering token, raise token, offering_token_amount, raise_token_amount)
         InvestedV2(
@@ -653,6 +656,8 @@ pub mod pallet {
             ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
 
             FundraiserOffchainAsset::<T>::insert(id, ticker);
+
+            Self::deposit_event(Event::FundraiserOffchainFundingEnabled(did, id, ticker));
 
             Ok(())
         }
