@@ -790,6 +790,10 @@ impl<T: Config> Pallet<T> {
             Error::<T>::MaxPriceExceeded
         );
 
+        let mut fundraiser_portfolios = [fundraiser.offering_portfolio]
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>();
         let mut investor_portfolios = [investment_portfolio]
             .iter()
             .copied()
@@ -807,6 +811,7 @@ impl<T: Config> Pallet<T> {
                     investor_did,
                     secondary_key.as_ref(),
                 )?;
+                fundraiser_portfolios.insert(fundraiser.raising_portfolio);
                 investor_portfolios.insert(funding_portfolio);
                 legs.push(Leg::Fungible {
                     sender: funding_portfolio,
@@ -844,6 +849,11 @@ impl<T: Config> Pallet<T> {
                 FundingAsset::OffChain(ticker)
             }
         };
+        log::error!(
+            "STO legs = {:?}, investor_portfolios={:?}",
+            legs,
+            investment_portfolio
+        );
 
         <Portfolio<T>>::unlock_tokens(
             &fundraiser.offering_portfolio,
@@ -862,14 +872,10 @@ impl<T: Config> Pallet<T> {
             None,
         )?;
 
-        let portfolios = [fundraiser.offering_portfolio, fundraiser.raising_portfolio]
-            .iter()
-            .copied()
-            .collect::<BTreeSet<_>>();
         Settlement::<T>::unsafe_affirm_instruction(
             fundraiser.creator,
             instruction_id,
-            portfolios,
+            fundraiser_portfolios,
             None,
             None,
         )?;
