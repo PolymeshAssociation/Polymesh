@@ -7,7 +7,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use polymesh_api::types::polymesh_primitives::{
     identity_id::PortfolioId,
     secondary_key::{ExtrinsicPermissions, PalletPermissions},
-    sto::FundraiserId,
     subset::SubsetRestriction,
     ExtrinsicName, PalletName,
 };
@@ -17,6 +16,9 @@ use anyhow::{anyhow, Result};
 
 mod asset_helper;
 pub use asset_helper::*;
+
+mod sto;
+pub use sto::*;
 
 pub async fn get_batch_results(res: &mut TransactionResults) -> Result<Vec<bool>> {
     let events = res
@@ -267,23 +269,6 @@ pub async fn get_auth_id(res: &mut TransactionResults) -> Result<Option<u64>> {
             match &rec.event {
                 RuntimeEvent::Identity(IdentityEvent::AuthorizationAdded(_, _, _, auth, _, _)) => {
                     return Ok(Some(*auth));
-                }
-                _ => (),
-            }
-        }
-    }
-    Ok(None)
-}
-
-/// Get Fundraiser ID from the transaction results.
-pub async fn get_fundraiser_id(
-    res: &mut TransactionResults,
-) -> Result<Option<(AssetId, FundraiserId)>> {
-    if let Some(events) = res.events().await? {
-        for rec in &events.0 {
-            match &rec.event {
-                RuntimeEvent::Sto(StoEvent::FundraiserCreated(_, asset, fundraiser, ..)) => {
-                    return Ok(Some((*asset, fundraiser.clone())));
                 }
                 _ => (),
             }
