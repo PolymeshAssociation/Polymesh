@@ -34,42 +34,15 @@ where
     /// However, this does not set the payer context since that is meant to remain constant
     /// throughout the transaction. This function can also be used to simply check CDD and update identity context.
     fn get_valid_payer(call: &C, caller: &AccountId) -> ValidPayerResult {
-        // Check if the `did` has a valid CDD claim.
-        let check_did_cdd = |did: &IdentityId| {
-            if Identity::<A>::has_valid_cdd(*did) {
-                Ok(None)
-            } else {
-                CDD_REQUIRED
-            }
-        };
-
-        // Check if the `did` has a valid CDD claim
-        // and return the primary key as the payer.
-        let did_primary_pays = |did: &IdentityId| {
-            check_did_cdd(did)?;
-            Ok(Identity::<A>::get_primary_key(*did))
-        };
-
-        // Check if the `caller` key has a DID and a valid CDD claim.
-        // The caller is also the payer.
-        let caller_pays = |caller: &AccountId| {
-            match Identity::<A>::get_identity(caller) {
-                Some(did) => {
-                    check_did_cdd(&did)?;
-                    Ok(Some(caller.clone()))
-                }
-                // Return if there's no DID.
-                None => MISSING_ID,
-            }
-        };
+        // Return the primary key as the payer.
+        let did_primary_pays = |did: &IdentityId| Ok(Identity::<A>::get_primary_key(*did));
 
         let handle_multisig = |multisig: &AccountId, caller: &AccountId| {
             if pallet_multisig::MultiSigSigners::<A>::contains_key(multisig, caller) {
-                let ms_pays = caller_pays(multisig)?;
                 // If the `multisig` has a paying DID, then it's primary key pays.
                 match pallet_multisig::Pallet::<A>::get_paying_did(multisig) {
                     Some(did) => Ok(Identity::<A>::get_primary_key(did)),
-                    None => Ok(ms_pays),
+                    None => Ok(Some(multisig.clone())),
                 }
             } else {
                 MISSING_ID
@@ -198,10 +171,6 @@ enum CallType {
 }
 
 type ValidPayerResult = Result<Option<AccountId>, InvalidTransaction>;
-
-const CDD_REQUIRED: ValidPayerResult = Err(InvalidTransaction::Custom(
-    TransactionError::CddRequired as u8,
-));
 
 const MISSING_ID: ValidPayerResult = Err(InvalidTransaction::Custom(
     TransactionError::MissingIdentity as u8,

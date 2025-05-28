@@ -83,9 +83,7 @@ use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
 
-use pallet_identity::{
-    CddAuthForPrimaryKeyRotation, Config as IdentityConfig, PermissionedCallOriginData,
-};
+use pallet_identity::{CddAuthForPrimaryKeyRotation, Config as IdentityConfig};
 use pallet_permissions::with_call_metadata;
 use polymesh_primitives::multisig::{ProposalState, ProposalVoteCount};
 use polymesh_primitives::{
@@ -236,25 +234,17 @@ pub mod pallet {
             sigs_required: u64,
             permissions: Option<Permissions>,
         ) -> DispatchResultWithPostInfo {
-            let (caller, caller_did, permissions) = match permissions {
-                Some(permissions) => {
-                    // Only the primary key can add a secondary key with custom permissions.
-                    let (caller, did) = IdentityPallet::<T>::ensure_primary_key(origin)?;
-                    (caller, did, permissions)
-                }
-                None => {
-                    // Default to empty permissions for the new secondary key.
-                    let PermissionedCallOriginData {
-                        sender: caller,
-                        primary_did,
-                        ..
-                    } = IdentityPallet::<T>::ensure_origin_call_permissions(origin)?;
-                    (caller, primary_did, Permissions::empty())
-                }
-            };
+            let (caller, caller_did) =
+                IdentityPallet::<T>::ensure_valid_origin(origin, permissions.is_some())?;
             let signers_len: u64 = u64::try_from(signers.len()).unwrap_or_default();
             Self::ensure_sigs_in_bounds(signers_len, sigs_required)?;
-            Self::base_create_multisig(caller, caller_did, signers, sigs_required, permissions)?;
+            Self::base_create_multisig(
+                caller,
+                caller_did,
+                signers,
+                sigs_required,
+                permissions.unwrap_or(Permissions::empty()),
+            )?;
             Ok(().into())
         }
 
@@ -729,6 +719,12 @@ pub mod pallet {
         AdminNotFound,
         /// The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
         BadAuthorizationType,
+        /// The callers does not have an identity.
+        MissingIdentity,
+        /// The caller's key is not allowed to perform the action.
+        KeyNotAllowed,
+        /// The caller's does not have the required permissions.
+        UnauthorizedCallerMissingPermissions,
     }
 
     /// Nonce to ensure unique MultiSig addresses are generated; starts from 1.

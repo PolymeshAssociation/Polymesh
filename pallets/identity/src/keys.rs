@@ -976,6 +976,18 @@ impl<T: Config> Pallet<T> {
         }
         Ok(())
     }
+
+    /// Checks if the caller is permissioned to call the current extrinsic skipping CDD checks.
+    /// If `must_be_primary_key` ensures that the caller is a primary key.
+    pub fn ensure_valid_origin(
+        origin: T::RuntimeOrigin,
+        must_be_primary_key: bool,
+    ) -> Result<(T::AccountId, IdentityId), DispatchError> {
+        let caller_acc = ensure_signed(origin)?;
+        let caller_did =
+            pallet_permissions::Pallet::<T>::ensure_valid_origin(&caller_acc, must_be_primary_key)?;
+        Ok((caller_acc, caller_did))
+    }
 }
 
 impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Pallet<T> {
@@ -1021,9 +1033,46 @@ impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Pallet<T> {
 
                 Ok(data(did, Some(sk)))
             }
-            KeyRecord::MultiSigSignerKey(_) => {
-                Err(Error::<T>::UnauthorizedCallerMultisigKey.into())
-            }
+            KeyRecord::MultiSigSignerKey(_) => Err(Error::<T>::MissingIdentity.into()),
         }
+    }
+
+    fn ensure_valid_origin(
+        caller_acc: &T::AccountId,
+        must_be_primary_key: bool,
+        pallet_name: impl FnOnce() -> PalletName,
+        function_name: impl FnOnce() -> ExtrinsicName,
+    ) -> Result<IdentityId, DispatchError> {
+        let key_record = KeyRecords::<T>::get(&caller_acc).ok_or(Error::<T>::MissingIdentity)?;
+
+        if must_be_primary_key {
+            let did = key_record
+                .is_primary_key()
+                .ok_or(Error::<T>::KeyNotAllowed)?;
+            return Ok(did);
+        }
+
+        if let KeyRecord::PrimaryKey(did) = key_record {
+            return Ok(did);
+        }
+
+        let did = key_record
+            .is_secondary_key()
+            .ok_or(Error::<T>::KeyNotAllowed)?;
+
+        ensure!(
+            !IsDidFrozen::<T>::get(&did),
+            Error::<T>::UnauthorizedCallerFrozenDid
+        );
+
+        let permissions = Self::get_key_permissions(&caller_acc);
+        ensure!(
+            permissions
+                .extrinsic
+                .sufficient_for(&pallet_name(), &function_name()),
+            Error::<T>::UnauthorizedCallerMissingPermissions
+        );
+
+        Ok(did)
     }
 }

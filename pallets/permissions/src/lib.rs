@@ -78,6 +78,16 @@ pub mod pallet {
             pallet_name: impl FnOnce() -> PalletName,
             function_name: impl FnOnce() -> ExtrinsicName,
         ) -> Result<AccountCallPermissionsData<AccountId>, DispatchError>;
+
+        /// Checks whether `who` can call the current extrinsic represented by `pallet_name` and
+        /// `function_name` skipping CDD checks. If `must_be_primary_key` is true, ensures that
+        /// the caller is a primary key.
+        fn ensure_valid_origin(
+            who: &AccountId,
+            must_be_primary_key: bool,
+            pallet_name: impl FnOnce() -> PalletName,
+            function_name: impl FnOnce() -> ExtrinsicName,
+        ) -> Result<IdentityId, DispatchError>;
     }
 
     #[pallet::pallet]
@@ -107,6 +117,20 @@ pub mod pallet {
         ) -> Result<AccountCallPermissionsData<T::AccountId>, DispatchError> {
             T::Checker::check_account_call_permissions(
                 who,
+                || CurrentPalletName::<T>::get(),
+                || CurrentDispatchableName::<T>::get(),
+            )
+        }
+
+        /// Checks if the caller is permissioned to call the current extrinsic skipping CDD checks.
+        /// If `must_be_primary_key` ensures that the caller is a primary key.
+        pub fn ensure_valid_origin(
+            who: &T::AccountId,
+            must_be_primary_key: bool,
+        ) -> Result<IdentityId, DispatchError> {
+            T::Checker::ensure_valid_origin(
+                who,
+                must_be_primary_key,
                 || CurrentPalletName::<T>::get(),
                 || CurrentDispatchableName::<T>::get(),
             )
