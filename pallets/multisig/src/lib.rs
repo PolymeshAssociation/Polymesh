@@ -719,12 +719,6 @@ pub mod pallet {
         AdminNotFound,
         /// The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
         BadAuthorizationType,
-        /// The callers does not have an identity.
-        MissingIdentity,
-        /// The caller's key is not allowed to perform the action.
-        KeyNotAllowed,
-        /// The caller's does not have the required permissions.
-        UnauthorizedCallerMissingPermissions,
     }
 
     /// Nonce to ensure unique MultiSig addresses are generated; starts from 1.
