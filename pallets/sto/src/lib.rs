@@ -90,6 +90,9 @@ impl Default for FundraiserStatus {
 }
 
 /// Funding method.  On-chain asset or off-chain receipt.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub enum FundingMethod<AccountId, OffChainSignature> {
     /// On-chain asset.
     OnChain(PortfolioId),
@@ -193,12 +196,21 @@ pub struct FundraiserName(Vec<u8>);
 pub trait WeightInfo {
     fn create_fundraiser(i: u32) -> Weight;
     fn invest() -> Weight;
-    fn invest_with_receipt() -> Weight;
+    fn invest_v2_onchain() -> Weight;
+    fn invest_v2_offchain() -> Weight;
     fn freeze_fundraiser() -> Weight;
     fn unfreeze_fundraiser() -> Weight;
     fn modify_fundraiser_window() -> Weight;
     fn stop() -> Weight;
     fn enable_offchain_funding() -> Weight;
+
+    fn invest_v2(onchain: bool) -> Weight {
+        if onchain {
+            Self::invest_v2_onchain()
+        } else {
+            Self::invest_v2_offchain()
+        }
+    }
 }
 
 // re-export pallet types.
@@ -509,10 +521,10 @@ pub mod pallet {
 
             Self::base_invest(
                 origin,
-                investment_portfolio,
-                FundingMethod::OnChain(funding_portfolio),
                 offering_asset,
                 id,
+                investment_portfolio,
+                FundingMethod::OnChain(funding_portfolio),
                 purchase_amount,
                 max_price,
                 true,
@@ -683,31 +695,32 @@ pub mod pallet {
 
         /// Invest in a fundraiser using an off-chain receipt.
         ///
-        /// * `investment_portfolio` - Portfolio that `offering_asset` will be deposited in.
         /// * `offering_asset` - Asset to invest in.
         /// * `id` - ID of the fundraiser to invest in.
+        /// * `investment_portfolio` - Portfolio that `offering_asset` will be deposited in.
+        /// * `funding` - Funding method, either on-chain portfolio or off-chain receipt.
         /// * `purchase_amount` - Amount of `offering_asset` to purchase.
         /// * `max_price` - Maximum price to pay per unit of `offering_asset`, If `None`there are no constraints on price.
         ///
         /// # Permissions
         /// * Portfolio
-        #[pallet::weight(<T as Config>::WeightInfo::invest_with_receipt())]
+        #[pallet::weight(<T as Config>::WeightInfo::invest_v2(funding.is_onchain()))]
         #[pallet::call_index(7)]
-        pub fn invest_with_receipt(
+        pub fn invest_v2(
             origin: OriginFor<T>,
-            investment_portfolio: PortfolioId,
             offering_asset: AssetId,
             id: FundraiserId,
+            investment_portfolio: PortfolioId,
+            funding: FundingMethod<T::AccountId, T::OffChainSignature>,
             purchase_amount: Balance,
             max_price: Option<Balance>,
-            receipt: FundraiserReceiptDetails<T::AccountId, T::OffChainSignature>,
         ) -> DispatchResult {
             Self::base_invest(
                 origin,
-                investment_portfolio,
-                FundingMethod::OffChain(receipt),
                 offering_asset,
                 id,
+                investment_portfolio,
+                funding,
                 purchase_amount,
                 max_price,
                 false,
@@ -721,10 +734,10 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     fn base_invest(
         origin: OriginFor<T>,
-        investment_portfolio: PortfolioId,
-        funding: FundingMethod<T::AccountId, T::OffChainSignature>,
         offering_asset: AssetId,
         fundraiser_id: FundraiserId,
+        investment_portfolio: PortfolioId,
+        funding: FundingMethod<T::AccountId, T::OffChainSignature>,
         purchase_amount: Balance,
         max_price: Option<Balance>,
         old_invest: bool,
@@ -922,16 +935,15 @@ impl<T: Config> Pallet<T> {
                 purchase_amount,
                 cost,
             ));
-        } else {
-            Self::deposit_event(Event::InvestedV2(
-                investor_did,
-                offering_asset,
-                fundraiser_id,
-                funding_asset,
-                purchase_amount,
-                cost,
-            ));
         }
+        Self::deposit_event(Event::InvestedV2(
+            investor_did,
+            offering_asset,
+            fundraiser_id,
+            funding_asset,
+            purchase_amount,
+            cost,
+        ));
 
         <Fundraisers<T>>::insert(offering_asset, fundraiser_id, fundraiser);
 

@@ -252,7 +252,24 @@ benchmarks! {
         let setup_portfolios = setup_fundraiser::<T>(&alice, &bob, 1);
     }: _(alice.origin(), setup_portfolios.offering_asset_id, id, ticker)
 
-    invest_with_receipt {
+    invest_v2_onchain {
+        let alice = <UserBuilder<T>>::default().generate_did().build("Alice");
+        let bob = <UserBuilder<T>>::default().generate_did().build("Bob");
+        let setup_portfolios = setup_fundraiser::<T>(&alice, &bob, MAX_TIERS as u32);
+    }: invest_v2(
+            bob.origin(),
+            setup_portfolios.offering_asset_id,
+            FundraiserId(0),
+            setup_portfolios.investor_offering_portfolio,
+            FundingMethod::OnChain(setup_portfolios.investor_raising_portfolio),
+            100,
+            Some(1_000_000u128.into())
+        )
+    verify {
+        assert!(BalanceOf::<T>::get(&setup_portfolios.offering_asset_id, bob.did()) > 0u32.into(), "invest");
+    }
+
+    invest_v2_offchain {
         let id = FundraiserId(0);
         let alice = <UserBuilder<T>>::default().generate_did().build("Alice");
         let bob = <UserBuilder<T>>::default().generate_did().build("Bob");
@@ -275,13 +292,16 @@ benchmarks! {
             ticker,
             10
         );
-    }: _(
+    }: invest_v2(
             bob.origin(),
-            setup_portfolios.investor_offering_portfolio,
             setup_portfolios.offering_asset_id,
             FundraiserId(0),
+            setup_portfolios.investor_offering_portfolio,
+            FundingMethod::OffChain(receipt),
             100,
-            Some(1_000_000u128.into()),
-            receipt
+            Some(1_000_000u128.into())
         )
+    verify {
+        assert!(BalanceOf::<T>::get(&setup_portfolios.offering_asset_id, bob.did()) > 0u32.into(), "invest");
+    }
 }
