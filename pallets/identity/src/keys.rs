@@ -891,7 +891,8 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Ensures that `origin`'s key is the primary key of a DID.
+    /// Ensures that `origin`'s key is the primary key of a DID and has a valid CDD claim.
+    /// Returns the caller's account and DID.
     pub fn ensure_primary_key(
         origin: T::RuntimeOrigin,
     ) -> Result<(T::AccountId, IdentityId), DispatchError> {
@@ -899,15 +900,24 @@ impl<T: Config> Pallet<T> {
         let key_rec = KeyRecords::<T>::get(&sender)
             .ok_or(pallet_permissions::Error::<T>::UnauthorizedCaller)?;
         let did = key_rec.is_primary_key().ok_or(Error::<T>::KeyNotAllowed)?;
+        ensure!(
+            Self::has_valid_cdd(did),
+            Error::<T>::UnauthorizedCallerDidMissingCdd
+        );
         Ok((sender, did))
     }
 
-    /// Ensures that `origin`'s key is linked to a DID and returns both.
+    /// Ensures that `origin`'s key is linked to a DID and has a valid CDD claim.
+    /// Returns the caller's account and DID.
     pub fn ensure_did(
         origin: T::RuntimeOrigin,
     ) -> Result<(T::AccountId, IdentityId), DispatchError> {
         let sender = ensure_signed(origin)?;
         let did = Self::get_identity(&sender).ok_or(Error::<T>::MissingIdentity)?;
+        ensure!(
+            Self::has_valid_cdd(did),
+            Error::<T>::UnauthorizedCallerDidMissingCdd
+        );
         Ok((sender, did))
     }
 
@@ -969,32 +979,51 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Pallet<T> {
-    // For weighting purposes, the function reads 4 storage values.
     fn check_account_call_permissions(
         who: &T::AccountId,
         pallet_name: impl FnOnce() -> PalletName,
         function_name: impl FnOnce() -> ExtrinsicName,
-    ) -> Option<AccountCallPermissionsData<T::AccountId>> {
+    ) -> Result<AccountCallPermissionsData<T::AccountId>, DispatchError> {
         let data = |did, secondary_key| AccountCallPermissionsData {
             primary_did: did,
             secondary_key,
         };
 
-        match KeyRecords::<T>::get(who)? {
-            // Primary keys do not have / require further permission checks.
-            KeyRecord::PrimaryKey(did) => Some(data(did, None)),
-            // Secondary Key. Ensure DID isn't frozen + key has sufficient permissions.
-            KeyRecord::SecondaryKey(did) if !IsDidFrozen::<T>::get(&did) => {
-                let permissions = Self::get_key_permissions(who);
-                let sk = SecondaryKey {
-                    key: who.clone(),
-                    permissions,
-                };
-                sk.has_extrinsic_permission(&pallet_name(), &function_name())
-                    .then(|| data(did, Some(sk)))
+        let key_record = KeyRecords::<T>::get(who).ok_or(Error::<T>::MissingIdentity)?;
+
+        match key_record {
+            // Primary keys only require a valid CDD claim.
+            KeyRecord::PrimaryKey(did) => {
+                ensure!(
+                    Self::has_valid_cdd(did),
+                    Error::<T>::UnauthorizedCallerDidMissingCdd
+                );
+                Ok(data(did, None))
             }
-            // DIDs with frozen secondary keys, AKA frozen DIDs, are not permitted to call extrinsics.
-            _ => None,
+            // Secondary Key. Ensure DID isn't frozen + has a valid CDD claim + key has sufficient permissions.
+            KeyRecord::SecondaryKey(did) => {
+                ensure!(
+                    !IsDidFrozen::<T>::get(&did),
+                    Error::<T>::UnauthorizedCallerFrozenDid
+                );
+
+                ensure!(
+                    Self::has_valid_cdd(did),
+                    Error::<T>::UnauthorizedCallerDidMissingCdd
+                );
+
+                let permissions = Self::get_key_permissions(who);
+                let sk = SecondaryKey::new(who.clone(), permissions);
+                ensure!(
+                    sk.has_extrinsic_permission(&pallet_name(), &function_name()),
+                    Error::<T>::UnauthorizedCallerMissingPermissions
+                );
+
+                Ok(data(did, Some(sk)))
+            }
+            KeyRecord::MultiSigSignerKey(_) => {
+                Err(Error::<T>::UnauthorizedCallerMultisigKey.into())
+            }
         }
     }
 }

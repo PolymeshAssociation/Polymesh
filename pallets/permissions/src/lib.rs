@@ -77,7 +77,7 @@ pub mod pallet {
             who: &AccountId,
             pallet_name: impl FnOnce() -> PalletName,
             function_name: impl FnOnce() -> ExtrinsicName,
-        ) -> Option<AccountCallPermissionsData<AccountId>>;
+        ) -> Result<AccountCallPermissionsData<AccountId>, DispatchError>;
     }
 
     #[pallet::pallet]
@@ -110,7 +110,6 @@ pub mod pallet {
                 || CurrentPalletName::<T>::get(),
                 || CurrentDispatchableName::<T>::get(),
             )
-            .ok_or_else(|| Error::<T>::UnauthorizedCaller.into())
         }
     }
 }

@@ -25,6 +25,7 @@ type System = frame_system::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 
 type AssetError = pallet_asset::Error<TestStorage>;
+type IdentityError = pallet_identity::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type NFTError = pallet_nft::Error<TestStorage>;
 
@@ -271,7 +272,7 @@ fn missing_cdd_claim() {
 
             assert_noop!(
                 Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
-                Error::<TestStorage>::FailedAssetTransferringConditions
+                IdentityError::UnauthorizedCallerDidMissingCdd
             );
         });
 }

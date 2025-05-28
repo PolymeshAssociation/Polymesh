@@ -164,10 +164,8 @@ where
                 | pallet_multisig::Call::approve { multisig, .. }
                 | pallet_multisig::Call::reject { multisig, .. },
             )) => handle_multisig(multisig, caller),
-            // All other calls.
-            //
-            // The external account must directly be linked to an identity with valid CDD.
-            _ => caller_pays(caller),
+            // All other calls
+            _ => Ok(Some(caller.clone())),
         }
     }
 

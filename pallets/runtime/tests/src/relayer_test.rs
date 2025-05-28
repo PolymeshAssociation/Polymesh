@@ -30,6 +30,7 @@ type ProtocolFee = pallet_protocol_fee::Pallet<TestStorage>;
 type TransactionPayment = pallet_transaction_payment::Pallet<TestStorage>;
 type ChargeTransactionPayment = pallet_transaction_payment::ChargeTransactionPayment<TestStorage>;
 type Error = pallet_relayer::Error<TestStorage>;
+type IdentityError = pallet_identity::Error<TestStorage>;
 
 // Relayer Test Helper functions
 // =======================================
@@ -395,14 +396,9 @@ fn do_relayer_paying_key_missing_cdd_test() {
     let (bob_sign, _) = make_account_without_cdd(bob_acc.clone()).unwrap();
 
     // Add authorization for using Bob as the paying key for Alice.
-    assert_ok!(Relayer::set_paying_key(bob_sign, alice.acc(), 10u128));
-
-    // Alice tries to accept the paying key, but the paying key
-    // is without a CDD.
-    let auth_id = get_last_auth_id(&Signatory::Account(alice.acc()));
-    assert_eq!(
-        Relayer::accept_paying_key(alice.origin(), auth_id),
-        Err(Error::PayingKeyCddMissing.into()),
+    assert_noop!(
+        Relayer::set_paying_key(bob_sign, alice.acc(), 10u128),
+        IdentityError::UnauthorizedCallerDidMissingCdd
     );
 }
 
