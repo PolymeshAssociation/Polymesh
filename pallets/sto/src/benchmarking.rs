@@ -185,19 +185,54 @@ benchmarks! {
         assert!(FundraiserCount::<T>::get(setup_portfolios.offering_asset_id) > FundraiserId(0), "create_fundraiser");
     }
 
-    invest {
+    invest_onchain {
         let alice = <UserBuilder<T>>::default().generate_did().build("Alice");
         let bob = <UserBuilder<T>>::default().generate_did().build("Bob");
         let setup_portfolios = setup_fundraiser::<T>(&alice, &bob, MAX_TIERS as u32);
-    }: _(
+    }: invest(
             bob.origin(),
-            setup_portfolios.investor_offering_portfolio,
-            setup_portfolios.investor_raising_portfolio,
             setup_portfolios.offering_asset_id,
             FundraiserId(0),
+            setup_portfolios.investor_offering_portfolio,
+            FundingMethod::OnChain(setup_portfolios.investor_raising_portfolio),
             100,
-            Some(1_000_000u128.into()),
-            None
+            Some(1_000_000u128.into())
+        )
+    verify {
+        assert!(BalanceOf::<T>::get(&setup_portfolios.offering_asset_id, bob.did()) > 0u32.into(), "invest");
+    }
+
+    invest_offchain {
+        let id = FundraiserId(0);
+        let alice = <UserBuilder<T>>::default().generate_did().build("Alice");
+        let bob = <UserBuilder<T>>::default().generate_did().build("Bob");
+        let ticker = Ticker::from_slice_truncated(b"TEST");
+
+        let setup_portfolios = setup_fundraiser::<T>(&alice, &bob, MAX_TIERS as u32);
+        Sto::<T>::enable_offchain_funding(
+            alice.origin().into(),
+            setup_portfolios.offering_asset_id,
+            id,
+            ticker
+        ).unwrap();
+
+        let receipt = sign_receipt(
+            &alice,
+            0,
+            id,
+            alice.did(),
+            bob.did(),
+            ticker,
+            10
+        );
+    }: invest(
+            bob.origin(),
+            setup_portfolios.offering_asset_id,
+            FundraiserId(0),
+            setup_portfolios.investor_offering_portfolio,
+            FundingMethod::OffChain(receipt),
+            100,
+            Some(1_000_000u128.into())
         )
     verify {
         assert!(BalanceOf::<T>::get(&setup_portfolios.offering_asset_id, bob.did()) > 0u32.into(), "invest");
@@ -251,57 +286,4 @@ benchmarks! {
         let ticker = Ticker::from_slice_truncated(b"TEST");
         let setup_portfolios = setup_fundraiser::<T>(&alice, &bob, 1);
     }: _(alice.origin(), setup_portfolios.offering_asset_id, id, ticker)
-
-    invest_v2_onchain {
-        let alice = <UserBuilder<T>>::default().generate_did().build("Alice");
-        let bob = <UserBuilder<T>>::default().generate_did().build("Bob");
-        let setup_portfolios = setup_fundraiser::<T>(&alice, &bob, MAX_TIERS as u32);
-    }: invest_v2(
-            bob.origin(),
-            setup_portfolios.offering_asset_id,
-            FundraiserId(0),
-            setup_portfolios.investor_offering_portfolio,
-            FundingMethod::OnChain(setup_portfolios.investor_raising_portfolio),
-            100,
-            Some(1_000_000u128.into())
-        )
-    verify {
-        assert!(BalanceOf::<T>::get(&setup_portfolios.offering_asset_id, bob.did()) > 0u32.into(), "invest");
-    }
-
-    invest_v2_offchain {
-        let id = FundraiserId(0);
-        let alice = <UserBuilder<T>>::default().generate_did().build("Alice");
-        let bob = <UserBuilder<T>>::default().generate_did().build("Bob");
-        let ticker = Ticker::from_slice_truncated(b"TEST");
-
-        let setup_portfolios = setup_fundraiser::<T>(&alice, &bob, MAX_TIERS as u32);
-        Sto::<T>::enable_offchain_funding(
-            alice.origin().into(),
-            setup_portfolios.offering_asset_id,
-            id,
-            ticker
-        ).unwrap();
-
-        let receipt = sign_receipt(
-            &alice,
-            0,
-            id,
-            alice.did(),
-            bob.did(),
-            ticker,
-            10
-        );
-    }: invest_v2(
-            bob.origin(),
-            setup_portfolios.offering_asset_id,
-            FundraiserId(0),
-            setup_portfolios.investor_offering_portfolio,
-            FundingMethod::OffChain(receipt),
-            100,
-            Some(1_000_000u128.into())
-        )
-    verify {
-        assert!(BalanceOf::<T>::get(&setup_portfolios.offering_asset_id, bob.did()) > 0u32.into(), "invest");
-    }
 }

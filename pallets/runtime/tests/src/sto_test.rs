@@ -5,8 +5,8 @@ use sp_runtime::DispatchError;
 use pallet_asset::BalanceOf;
 use pallet_settlement::{InstructionCounter, InstructionStatuses, VenueCounter};
 use pallet_sto::{
-    Fundraiser, FundraiserCount, FundraiserName, FundraiserNames, FundraiserStatus, FundraiserTier,
-    Fundraisers, PriceTier, MAX_TIERS,
+    FundingMethod, Fundraiser, FundraiserCount, FundraiserName, FundraiserNames, FundraiserStatus,
+    FundraiserTier, Fundraisers, PriceTier, MAX_TIERS,
 };
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::checked_inc::CheckedInc;
@@ -210,13 +210,12 @@ fn raise_happy_path() {
         exec_noop!(
             Sto::invest(
                 bob.origin(),
-                bob_portfolio,
-                bob_portfolio,
                 offering_asset,
                 fundraiser_id,
+                bob_portfolio,
+                FundingMethod::OnChain(bob_portfolio),
                 purchase_amount,
                 max_price,
-                None,
             ),
             err
         );
@@ -234,13 +233,12 @@ fn raise_happy_path() {
     // Bob invests in Alice's fundraiser
     exec_ok!(Sto::invest(
         bob.origin(),
-        bob_portfolio,
-        bob_portfolio,
         offering_asset,
         fundraiser_id,
+        bob_portfolio,
+        FundingMethod::OnChain(bob_portfolio),
         amount.into(),
         Some(1_000_000u128),
-        None,
     ));
     check_fundraiser(1_000_000u128 - amount);
     assert_eq!(
@@ -545,13 +543,12 @@ fn fundraiser_expired() {
     assert_noop!(
         Sto::invest(
             bob.origin(),
-            bob_portfolio,
-            bob_portfolio,
             offering_asset,
             fundraiser_id,
+            bob_portfolio,
+            FundingMethod::OnChain(bob_portfolio),
             1000,
             None,
-            None
         ),
         Error::FundraiserExpired
     );

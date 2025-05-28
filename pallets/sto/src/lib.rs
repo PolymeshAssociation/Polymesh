@@ -41,7 +41,7 @@ use pallet_base::try_next_post;
 use pallet_identity::PermissionedCallOriginData;
 use pallet_settlement::VenueInfo;
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::settlement::{Leg, ReceiptDetails, SettlementType, VenueId, VenueType};
+use polymesh_primitives::settlement::{Leg, SettlementType, VenueId, VenueType};
 use polymesh_primitives::sto::{FundraiserId, FundraiserReceipt, FundraiserReceiptDetails};
 use polymesh_primitives::{
     storage_migration_ver, traits::PortfolioSubTrait, Balance, EventDid, IdentityId, PortfolioId,
@@ -195,20 +195,19 @@ pub struct FundraiserName(Vec<u8>);
 
 pub trait WeightInfo {
     fn create_fundraiser(i: u32) -> Weight;
-    fn invest() -> Weight;
-    fn invest_v2_onchain() -> Weight;
-    fn invest_v2_offchain() -> Weight;
+    fn invest_onchain() -> Weight;
+    fn invest_offchain() -> Weight;
     fn freeze_fundraiser() -> Weight;
     fn unfreeze_fundraiser() -> Weight;
     fn modify_fundraiser_window() -> Weight;
     fn stop() -> Weight;
     fn enable_offchain_funding() -> Weight;
 
-    fn invest_v2(onchain: bool) -> Weight {
+    fn invest(onchain: bool) -> Weight {
         if onchain {
-            Self::invest_v2_onchain()
+            Self::invest_onchain()
         } else {
-            Self::invest_v2_offchain()
+            Self::invest_offchain()
         }
     }
 }
@@ -238,41 +237,17 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// A new fundraiser has been created.
-        /// (Agent DID, fundraiser id, fundraiser name, fundraiser details)
+        /// (Agent DID, offering token, fundraiser id, fundraiser name, fundraiser details)
         FundraiserCreated(
             IdentityId,
+            AssetId,
             FundraiserId,
             FundraiserName,
             Fundraiser<T::Moment>,
         ),
         /// An investor invested in the fundraiser.
-        /// (Investor, fundraiser_id, offering token, raise token, offering_token_amount, raise_token_amount)
-        Invested(IdentityId, FundraiserId, AssetId, AssetId, Balance, Balance),
-        /// A fundraiser has been frozen.
-        /// (Agent DID, fundraiser id)
-        FundraiserFrozen(IdentityId, FundraiserId),
-        /// A fundraiser has been unfrozen.
-        /// (Agent DID, fundraiser id)  
-        FundraiserUnfrozen(IdentityId, FundraiserId),
-        /// A fundraiser window has been modified.
-        /// (Agent DID, fundraiser id, old_start, old_end, new_start, new_end)
-        FundraiserWindowModified(
-            EventDid,
-            FundraiserId,
-            T::Moment,
-            Option<T::Moment>,
-            T::Moment,
-            Option<T::Moment>,
-        ),
-        /// A fundraiser has been stopped.
-        /// (Agent DID, fundraiser id)
-        FundraiserClosed(IdentityId, FundraiserId),
-        /// A fundraiser has enabled off-chain funding.
-        /// (Agent DID, offering token, fundraiser id, ticker)
-        FundraiserOffchainFundingEnabled(IdentityId, AssetId, FundraiserId, Ticker),
-        /// An investor invested in the fundraiser.
         /// (Investor, offering token, fundraiser_id, raise token, offering_token_amount, raise_token_amount)
-        InvestedV2(
+        Invested(
             IdentityId,
             AssetId,
             FundraiserId,
@@ -280,6 +255,29 @@ pub mod pallet {
             Balance,
             Balance,
         ),
+        /// A fundraiser has been frozen.
+        /// (Agent DID, offering token, fundraiser id)
+        FundraiserFrozen(IdentityId, AssetId, FundraiserId),
+        /// A fundraiser has been unfrozen.
+        /// (Agent DID, offering token, fundraiser id)  
+        FundraiserUnfrozen(IdentityId, AssetId, FundraiserId),
+        /// A fundraiser window has been modified.
+        /// (Agent DID, offering token, fundraiser id, old_start, old_end, new_start, new_end)
+        FundraiserWindowModified(
+            EventDid,
+            AssetId,
+            FundraiserId,
+            T::Moment,
+            Option<T::Moment>,
+            T::Moment,
+            Option<T::Moment>,
+        ),
+        /// A fundraiser has been stopped.
+        /// (Agent DID, offering token, fundraiser id)
+        FundraiserClosed(IdentityId, AssetId, FundraiserId),
+        /// A fundraiser has enabled off-chain funding.
+        /// (Agent DID, offering token, fundraiser id, ticker)
+        FundraiserOffchainFundingEnabled(IdentityId, AssetId, FundraiserId, Ticker),
     }
 
     #[pallet::error]
@@ -485,6 +483,7 @@ pub mod pallet {
 
             Self::deposit_event(Event::FundraiserCreated(
                 did,
+                offering_asset,
                 id,
                 fundraiser_name,
                 fundraiser,
@@ -493,43 +492,37 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Invest in a fundraiser.
+        /// Invest in a fundraiser using an off-chain receipt.
         ///
-        /// * `investment_portfolio` - Portfolio that `offering_asset` will be deposited in.
-        /// * `funding_portfolio` - Portfolio that will fund the investment.
         /// * `offering_asset` - Asset to invest in.
         /// * `id` - ID of the fundraiser to invest in.
+        /// * `investment_portfolio` - Portfolio that `offering_asset` will be deposited in.
+        /// * `funding` - Funding method, either on-chain portfolio or off-chain receipt.
         /// * `purchase_amount` - Amount of `offering_asset` to purchase.
         /// * `max_price` - Maximum price to pay per unit of `offering_asset`, If `None`there are no constraints on price.
         ///
         /// # Permissions
         /// * Portfolio
-        #[pallet::weight(<T as Config>::WeightInfo::invest())]
+        #[pallet::weight(<T as Config>::WeightInfo::invest(funding.is_onchain()))]
         #[pallet::call_index(1)]
         pub fn invest(
             origin: OriginFor<T>,
-            investment_portfolio: PortfolioId,
-            funding_portfolio: PortfolioId,
             offering_asset: AssetId,
             id: FundraiserId,
+            investment_portfolio: PortfolioId,
+            funding: FundingMethod<T::AccountId, T::OffChainSignature>,
             purchase_amount: Balance,
             max_price: Option<Balance>,
-            receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         ) -> DispatchResult {
-            // Old receipts are not supported anymore.
-            ensure!(receipt.is_none(), Error::<T>::Unauthorized);
-
             Self::base_invest(
                 origin,
                 offering_asset,
                 id,
                 investment_portfolio,
-                FundingMethod::OnChain(funding_portfolio),
+                funding,
                 purchase_amount,
                 max_price,
-                true,
-            )?;
-            Ok(())
+            )
         }
 
         /// Freeze a fundraiser.
@@ -599,6 +592,7 @@ pub mod pallet {
                 }
                 Self::deposit_event(Event::FundraiserWindowModified(
                     did,
+                    offering_asset,
                     id,
                     fundraiser.start,
                     fundraiser.end,
@@ -652,7 +646,7 @@ pub mod pallet {
                 _ => FundraiserStatus::Closed,
             };
             <Fundraisers<T>>::insert(offering_asset, id, fundraiser);
-            Self::deposit_event(Event::FundraiserClosed(did, id));
+            Self::deposit_event(Event::FundraiserClosed(did, offering_asset, id));
 
             Ok(())
         }
@@ -692,42 +686,6 @@ pub mod pallet {
 
             Ok(())
         }
-
-        /// Invest in a fundraiser using an off-chain receipt.
-        ///
-        /// * `offering_asset` - Asset to invest in.
-        /// * `id` - ID of the fundraiser to invest in.
-        /// * `investment_portfolio` - Portfolio that `offering_asset` will be deposited in.
-        /// * `funding` - Funding method, either on-chain portfolio or off-chain receipt.
-        /// * `purchase_amount` - Amount of `offering_asset` to purchase.
-        /// * `max_price` - Maximum price to pay per unit of `offering_asset`, If `None`there are no constraints on price.
-        ///
-        /// # Permissions
-        /// * Portfolio
-        #[pallet::weight(<T as Config>::WeightInfo::invest_v2(funding.is_onchain()))]
-        #[pallet::call_index(7)]
-        pub fn invest_v2(
-            origin: OriginFor<T>,
-            offering_asset: AssetId,
-            id: FundraiserId,
-            investment_portfolio: PortfolioId,
-            funding: FundingMethod<T::AccountId, T::OffChainSignature>,
-            purchase_amount: Balance,
-            max_price: Option<Balance>,
-        ) -> DispatchResult {
-            Self::base_invest(
-                origin,
-                offering_asset,
-                id,
-                investment_portfolio,
-                funding,
-                purchase_amount,
-                max_price,
-                false,
-            )?;
-
-            Ok(())
-        }
     }
 }
 
@@ -740,7 +698,6 @@ impl<T: Config> Pallet<T> {
         funding: FundingMethod<T::AccountId, T::OffChainSignature>,
         purchase_amount: Balance,
         max_price: Option<Balance>,
-        old_invest: bool,
     ) -> DispatchResult {
         let PermissionedCallOriginData {
             primary_did: investor_did,
@@ -926,17 +883,7 @@ impl<T: Config> Pallet<T> {
             fundraiser.tiers[id].remaining -= amount;
         }
 
-        if old_invest {
-            Self::deposit_event(Event::Invested(
-                investor_did,
-                fundraiser_id,
-                offering_asset,
-                fundraiser.raising_asset,
-                purchase_amount,
-                cost,
-            ));
-        }
-        Self::deposit_event(Event::InvestedV2(
+        Self::deposit_event(Event::Invested(
             investor_did,
             offering_asset,
             fundraiser_id,
@@ -961,10 +908,10 @@ impl<T: Config> Pallet<T> {
         ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
         if frozen {
             fundraiser.status = FundraiserStatus::Frozen;
-            Self::deposit_event(Event::FundraiserFrozen(did, id));
+            Self::deposit_event(Event::FundraiserFrozen(did, offering_asset, id));
         } else {
             fundraiser.status = FundraiserStatus::Live;
-            Self::deposit_event(Event::FundraiserUnfrozen(did, id));
+            Self::deposit_event(Event::FundraiserUnfrozen(did, offering_asset, id));
         }
         <Fundraisers<T>>::insert(offering_asset, id, fundraiser);
         Ok(())
