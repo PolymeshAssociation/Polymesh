@@ -97,6 +97,12 @@ pub enum FundingMethod<AccountId, OffChainSignature> {
     OffChain(FundraiserReceiptDetails<AccountId, OffChainSignature>),
 }
 
+impl<AccountId, OffChainSignature> FundingMethod<AccountId, OffChainSignature> {
+    pub fn is_onchain(&self) -> bool {
+        matches!(self, FundingMethod::OnChain(_))
+    }
+}
+
 /// Which funding asset was used to invest in the fundraiser.
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -250,14 +256,14 @@ pub mod pallet {
         /// (Agent DID, fundraiser id)
         FundraiserClosed(IdentityId, FundraiserId),
         /// A fundraiser has enabled off-chain funding.
-        /// (Agent DID, fundraiser id, ticker)
-        FundraiserOffchainFundingEnabled(IdentityId, FundraiserId, Ticker),
+        /// (Agent DID, offering token, fundraiser id, ticker)
+        FundraiserOffchainFundingEnabled(IdentityId, AssetId, FundraiserId, Ticker),
         /// An investor invested in the fundraiser.
-        /// (Investor, fundraiser_id, offering token, raise token, offering_token_amount, raise_token_amount)
+        /// (Investor, offering token, fundraiser_id, raise token, offering_token_amount, raise_token_amount)
         InvestedV2(
             IdentityId,
-            FundraiserId,
             AssetId,
+            FundraiserId,
             FundingAsset,
             Balance,
             Balance,
@@ -334,8 +340,15 @@ pub mod pallet {
 
     /// If the fundraiser supports off-chain funding payments using receipts.
     #[pallet::storage]
-    pub type FundraiserOffchainAsset<T: Config> =
-        StorageMap<_, Twox64Concat, FundraiserId, Ticker, OptionQuery>;
+    pub type FundraiserOffchainAsset<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        Twox64Concat,
+        FundraiserId,
+        Ticker,
+        OptionQuery,
+    >;
 
     /// Storage migration version.
     #[pallet::storage]
@@ -502,6 +515,7 @@ pub mod pallet {
                 id,
                 purchase_amount,
                 max_price,
+                true,
             )?;
             Ok(())
         }
@@ -655,9 +669,14 @@ pub mod pallet {
             }
             ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
 
-            FundraiserOffchainAsset::<T>::insert(id, ticker);
+            FundraiserOffchainAsset::<T>::insert(offering_asset, id, ticker);
 
-            Self::deposit_event(Event::FundraiserOffchainFundingEnabled(did, id, ticker));
+            Self::deposit_event(Event::FundraiserOffchainFundingEnabled(
+                did,
+                offering_asset,
+                id,
+                ticker,
+            ));
 
             Ok(())
         }
@@ -691,6 +710,7 @@ pub mod pallet {
                 id,
                 purchase_amount,
                 max_price,
+                false,
             )?;
 
             Ok(())
@@ -707,6 +727,7 @@ impl<T: Config> Pallet<T> {
         fundraiser_id: FundraiserId,
         purchase_amount: Balance,
         max_price: Option<Balance>,
+        old_invest: bool,
     ) -> DispatchResult {
         let PermissionedCallOriginData {
             primary_did: investor_did,
@@ -822,7 +843,7 @@ impl<T: Config> Pallet<T> {
                 FundingAsset::OnChain(fundraiser.raising_asset)
             }
             FundingMethod::OffChain(receipt_details) => {
-                let ticker = FundraiserOffchainAsset::<T>::get(fundraiser_id)
+                let ticker = FundraiserOffchainAsset::<T>::get(&offering_asset, fundraiser_id)
                     .ok_or(Error::<T>::OffchainFundingNotAllowed)?;
                 Settlement::<T>::mark_receipt_as_used(
                     fundraiser.venue_id,
@@ -892,23 +913,25 @@ impl<T: Config> Pallet<T> {
             fundraiser.tiers[id].remaining -= amount;
         }
 
-        Self::deposit_event(Event::Invested(
-            investor_did,
-            fundraiser_id,
-            offering_asset,
-            fundraiser.raising_asset,
-            purchase_amount,
-            cost,
-        ));
-
-        Self::deposit_event(Event::InvestedV2(
-            investor_did,
-            fundraiser_id,
-            offering_asset,
-            funding_asset,
-            purchase_amount,
-            cost,
-        ));
+        if old_invest {
+            Self::deposit_event(Event::Invested(
+                investor_did,
+                fundraiser_id,
+                offering_asset,
+                fundraiser.raising_asset,
+                purchase_amount,
+                cost,
+            ));
+        } else {
+            Self::deposit_event(Event::InvestedV2(
+                investor_did,
+                offering_asset,
+                fundraiser_id,
+                funding_asset,
+                purchase_amount,
+                cost,
+            ));
+        }
 
         <Fundraisers<T>>::insert(offering_asset, fundraiser_id, fundraiser);
 
