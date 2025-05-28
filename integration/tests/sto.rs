@@ -51,7 +51,8 @@ mod sto_tests {
         let mut v = venue.clone();
         let api = tester.api.clone();
         let offering_asset = tokio::spawn(async move {
-            AssetHelper::new(&api, &mut v, "TestOfferingAsset", 1_000_000, vec![]).await
+            // Mint 10,000.0 tokens.
+            AssetHelper::new(&api, &mut v, "TestOfferingAsset", 10_000_000_000, vec![]).await
         });
         let mut v = venue.clone();
         let api = tester.api.clone();
@@ -60,9 +61,9 @@ mod sto_tests {
             let mut funding_asset =
                 AssetHelper::new(&api, &mut v, "TestFundingCoin", 1_000_000, vec![]).await?;
 
-            // Give some funds to the investor.
+            // Give 1,000.0 funds to the investor.
             funding_asset
-                .fund_investors(&mut [&mut investor], 100_000_000)
+                .fund_investors(&mut [&mut investor], 1_000_000_000)
                 .await?;
 
             Ok::<_, anyhow::Error>(funding_asset)
@@ -103,22 +104,22 @@ mod sto_tests {
                 funding_asset.asset_id,
                 vec![
                     PriceTier {
-                        total: 100,
-                        price: 500_000, // 1 offering token = 0.5 funding token
+                        total: 1_000_000_000, // 1,000.0 tokens.
+                        price: 800_000,       // 1 offering token = 0.8 funding token
                     },
                     PriceTier {
-                        total: 100,
-                        price: 1_000_000, // 1 offering token = 1.0 funding token
+                        total: 1_000_000_000, // 1,000.0 tokens.
+                        price: 1_600_000,     // 1 offering token = 1.6 funding token
                     },
                     PriceTier {
-                        total: 100,
-                        price: 2_000_000, // 1 offering token = 2.0 funding token
+                        total: 1_000_000_000, // 1,000.0 tokens.
+                        price: 2_400_000,     // 1 offering token = 2.4 funding token
                     },
                 ],
                 sto_venue_id,
                 None,
                 None,
-                1u128,
+                1_000_000u128,
                 FundraiserName("TestFundraiser".into()),
             )?
             .submit_and_watch(&mut venue)
@@ -139,7 +140,7 @@ mod sto_tests {
                 investor_portfolio,
                 offering_asset.asset_id,
                 fundraiser_id,
-                200,             // 200 tokens (avg price 0.75 funding tokens per offering token).
+                1_050_000_000, // 1,050.0 tokens (avg price 0.838095 funding tokens per offering token).
                 Some(1_000_000), // pay a maximum of 1.0 funding tokens per offering token.
                 None,
             )?
@@ -207,7 +208,8 @@ mod sto_tests {
         let mut v = venue.clone();
         let api = tester.api.clone();
         let offering_asset = tokio::spawn(async move {
-            AssetHelper::new(&api, &mut v, "TestOfferingAsset", 1_000_000, vec![]).await
+            // Mint 10,000.0 tokens.
+            AssetHelper::new(&api, &mut v, "TestOfferingAsset", 10_000_000_000, vec![]).await
         });
         let mut v = venue.clone();
         let api = tester.api.clone();
@@ -216,9 +218,9 @@ mod sto_tests {
             let mut funding_asset =
                 AssetHelper::new(&api, &mut v, "TestFundingCoin", 1_000_000, vec![]).await?;
 
-            // Give some funds to the investor.
+            // Give 1,000.0 funds to the investor.
             funding_asset
-                .fund_investors(&mut [&mut investor], 100_000_000)
+                .fund_investors(&mut [&mut investor], 1_000_000_000)
                 .await?;
 
             Ok::<_, anyhow::Error>(funding_asset)
@@ -259,22 +261,22 @@ mod sto_tests {
                 funding_asset.asset_id,
                 vec![
                     PriceTier {
-                        total: 100,
-                        price: 500_000, // 1 offering token = 0.5 funding token
+                        total: 1_000_000_000, // 1,000.0 tokens.
+                        price: 800_000,       // 1 offering token = 0.8 funding token
                     },
                     PriceTier {
-                        total: 100,
-                        price: 1_000_000, // 1 offering token = 1.0 funding token
+                        total: 1_000_000_000, // 1,000.0 tokens.
+                        price: 1_600_000,     // 1 offering token = 1.6 funding token
                     },
                     PriceTier {
-                        total: 100,
-                        price: 2_000_000, // 1 offering token = 2.0 funding token
+                        total: 1_000_000_000, // 1,000.0 tokens.
+                        price: 2_400_000,     // 1 offering token = 2.4 funding token
                     },
                 ],
                 sto_venue_id,
                 None,
                 None,
-                1u128,
+                1_000_000u128,
                 FundraiserName("TestFundraiser".into()),
             )?
             .submit_and_watch(&mut venue)
@@ -295,8 +297,8 @@ mod sto_tests {
                 fundraiser_id,
                 investor_portfolio,
                 FundingMethod::OnChain(investor_portfolio),
-                200,             // 200 tokens (avg price 0.75 funding tokens per offering token).
-                Some(1_000_000), // pay a maximum of 1.0 funding tokens per offering token.
+                1_050_000_000, // 1,050.0 tokens (avg price 0.838095 funding tokens per offering token).
+                Some(900_000), // pay a maximum of 0.9 funding tokens per offering token.
             )?
             .submit_and_watch(&mut investor1)
             .await?;
@@ -337,7 +339,8 @@ mod sto_tests {
         let mut v = venue.clone();
         let api = tester.api.clone();
         let offering_asset = tokio::spawn(async move {
-            AssetHelper::new(&api, &mut v, "TestOfferingAsset", 1_000_000, vec![]).await
+            // Mint 10,000.0 tokens.
+            AssetHelper::new(&api, &mut v, "TestOfferingAsset", 10_000_000_000, vec![]).await
         });
         let mut v = venue.clone();
         let api = tester.api.clone();
@@ -346,9 +349,9 @@ mod sto_tests {
             let mut funding_asset =
                 AssetHelper::new(&api, &mut v, "TestFundingCoin", 1_000_000, vec![]).await?;
 
-            // Give some funds to the investor.
+            // Give 3,000.0 funds to the investor.
             funding_asset
-                .fund_investors(&mut [&mut investor], 200_000_000)
+                .fund_investors(&mut [&mut investor], 3_000_000_000)
                 .await?;
 
             Ok::<_, anyhow::Error>(funding_asset)
@@ -392,22 +395,22 @@ mod sto_tests {
                 funding_asset.asset_id,
                 vec![
                     PriceTier {
-                        total: 100,
-                        price: 500_000, // 1 offering token = 0.5 funding token
+                        total: 1_000_000_000, // 1,000.0 tokens.
+                        price: 800_000,       // 1 offering token = 0.8 funding token
                     },
                     PriceTier {
-                        total: 100,
-                        price: 1_000_000, // 1 offering token = 1.0 funding token
+                        total: 1_000_000_000, // 1,000.0 tokens.
+                        price: 1_600_000,     // 1 offering token = 1.6 funding token
                     },
                     PriceTier {
-                        total: 100,
-                        price: 2_000_000, // 1 offering token = 2.0 funding token
+                        total: 1_000_000_000, // 1,000.0 tokens.
+                        price: 2_400_000,     // 1 offering token = 2.4 funding token
                     },
                 ],
                 sto_venue_id,
                 None,
                 None,
-                1u128,
+                1_000_000u128,
                 FundraiserName("TestFundraiser".into()),
             )?
             .submit_and_watch(&mut venue)
@@ -427,18 +430,20 @@ mod sto_tests {
             .submit_and_watch(&mut venue)
             .await?;
 
+        let offchain_purchase_amount = 2_000_000_000u128; // 2,000 tokens (avg price 1.2 funding tokens per offering token).
+        let offchain_funding_amount = 2_400_000_000u128;
+        let onchain_purchase_amount = 1_000_000_000u128; // 1,000 tokens (avg price 2.4 funding tokens per offering token).
+
         // Create a receipt for the offchain asset funding.
         let uid = 0u64;
-        let amount = 150u128;
         let receipt = FundraiserReceipt {
             uid,
             fundraiser_id: fundraiser_id.clone(),
             sender_identity: investor1_did,
             receiver_identity: venue_did,
             ticker,
-            amount,
+            amount: offchain_funding_amount,
         };
-        eprintln!("Receipt: {:?}", receipt);
         let sig = sign_with_key(&signer1, &receipt, false).await?;
         let receipt_details = FundraiserReceiptDetails {
             uid,
@@ -460,8 +465,8 @@ mod sto_tests {
                 fundraiser_id.clone(),
                 investor_portfolio,
                 FundingMethod::OffChain(receipt_details),
-                200,             // 200 tokens (avg price 0.75 funding tokens per offering token).
-                Some(1_000_000), // pay a maximum of 1.0 funding tokens per offering token.
+                offchain_purchase_amount,
+                Some(1_300_000), // pay a maximum of 1.3 funding tokens per offering token.
             )?
             .submit_and_watch(&mut investor1)
             .await?;
@@ -476,8 +481,8 @@ mod sto_tests {
                 fundraiser_id,
                 investor_portfolio,
                 FundingMethod::OnChain(investor_portfolio),
-                100,             // 100 tokens (avg price 2.00 funding tokens per offering token).
-                Some(2_000_000), // pay a maximum of 2.0 funding tokens per offering token.
+                onchain_purchase_amount,
+                Some(2_400_000), // pay a maximum of 2.4 funding tokens per offering token.
             )?
             .submit_and_watch(&mut investor1)
             .await?;
