@@ -55,7 +55,7 @@ fn cdd_checks() {
             );
 
             create_multisig_default_perms(
-                alice_account.clone(),
+                charlie_account.clone(),
                 create_signers(vec![alice_account.clone()]),
                 1,
             );
@@ -68,7 +68,7 @@ fn cdd_checks() {
                     }),
                     &alice_account
                 ),
-                Ok(Some(AccountKeyring::Alice.to_account_id()))
+                Ok(Some(AccountKeyring::Charlie.to_account_id()))
             );
 
             assert_eq!(
@@ -80,7 +80,7 @@ fn cdd_checks() {
                     }),
                     &alice_account
                 ),
-                Ok(Some(AccountKeyring::Alice.to_account_id()))
+                Ok(Some(AccountKeyring::Charlie.to_account_id()))
             );
 
             assert_eq!(

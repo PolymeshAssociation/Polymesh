@@ -61,6 +61,19 @@ pub mod pallet {
         pub secondary_key: Option<SecondaryKey<AccountId>>,
     }
 
+    impl<AccountId> AccountCallPermissionsData<AccountId> {
+        /// Constructs a new `AccountCallPermissionsData`.
+        pub fn new(
+            primary_did: IdentityId,
+            secondary_key: Option<SecondaryKey<AccountId>>,
+        ) -> Self {
+            Self {
+                primary_did,
+                secondary_key,
+            }
+        }
+    }
+
     /// A permission checker for calls from accounts to extrinsics.
     pub trait CheckAccountCallPermissions<AccountId> {
         /// Checks whether `who` can call the current extrinsic represented by `pallet_name` and
@@ -82,12 +95,12 @@ pub mod pallet {
         /// Checks whether `who` can call the current extrinsic represented by `pallet_name` and
         /// `function_name` skipping CDD checks. If `must_be_primary_key` is true, ensures that
         /// the caller is a primary key.
-        fn ensure_valid_origin(
+        fn ensure_valid_origin_permissions(
             who: &AccountId,
             must_be_primary_key: bool,
             pallet_name: impl FnOnce() -> PalletName,
             function_name: impl FnOnce() -> ExtrinsicName,
-        ) -> Result<IdentityId, DispatchError>;
+        ) -> Result<AccountCallPermissionsData<AccountId>, DispatchError>;
     }
 
     #[pallet::pallet]
@@ -124,11 +137,11 @@ pub mod pallet {
 
         /// Checks if the caller is permissioned to call the current extrinsic skipping CDD checks.
         /// If `must_be_primary_key` ensures that the caller is a primary key.
-        pub fn ensure_valid_origin(
+        pub fn ensure_valid_origin_permissions(
             who: &T::AccountId,
             must_be_primary_key: bool,
-        ) -> Result<IdentityId, DispatchError> {
-            T::Checker::ensure_valid_origin(
+        ) -> Result<AccountCallPermissionsData<T::AccountId>, DispatchError> {
+            T::Checker::ensure_valid_origin_permissions(
                 who,
                 must_be_primary_key,
                 || CurrentPalletName::<T>::get(),

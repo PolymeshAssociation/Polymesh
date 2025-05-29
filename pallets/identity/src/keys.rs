@@ -984,9 +984,11 @@ impl<T: Config> Pallet<T> {
         must_be_primary_key: bool,
     ) -> Result<(T::AccountId, IdentityId), DispatchError> {
         let caller_acc = ensure_signed(origin)?;
-        let caller_did =
-            pallet_permissions::Pallet::<T>::ensure_valid_origin(&caller_acc, must_be_primary_key)?;
-        Ok((caller_acc, caller_did))
+        let account_data = pallet_permissions::Pallet::<T>::ensure_valid_origin_permissions(
+            &caller_acc,
+            must_be_primary_key,
+        )?;
+        Ok((caller_acc, account_data.primary_did))
     }
 }
 
@@ -996,64 +998,34 @@ impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Pallet<T> {
         pallet_name: impl FnOnce() -> PalletName,
         function_name: impl FnOnce() -> ExtrinsicName,
     ) -> Result<AccountCallPermissionsData<T::AccountId>, DispatchError> {
-        let data = |did, secondary_key| AccountCallPermissionsData {
-            primary_did: did,
-            secondary_key,
-        };
+        let account_call_permissions_data =
+            Self::ensure_valid_origin_permissions(who, false, pallet_name, function_name)?;
 
-        let key_record = KeyRecords::<T>::get(who).ok_or(Error::<T>::MissingIdentity)?;
+        ensure!(
+            Self::has_valid_cdd(account_call_permissions_data.primary_did),
+            Error::<T>::UnauthorizedCallerDidMissingCdd
+        );
 
-        match key_record {
-            // Primary keys only require a valid CDD claim.
-            KeyRecord::PrimaryKey(did) => {
-                ensure!(
-                    Self::has_valid_cdd(did),
-                    Error::<T>::UnauthorizedCallerDidMissingCdd
-                );
-                Ok(data(did, None))
-            }
-            // Secondary Key. Ensure DID isn't frozen + has a valid CDD claim + key has sufficient permissions.
-            KeyRecord::SecondaryKey(did) => {
-                ensure!(
-                    !IsDidFrozen::<T>::get(&did),
-                    Error::<T>::UnauthorizedCallerFrozenDid
-                );
-
-                ensure!(
-                    Self::has_valid_cdd(did),
-                    Error::<T>::UnauthorizedCallerDidMissingCdd
-                );
-
-                let permissions = Self::get_key_permissions(who);
-                let sk = SecondaryKey::new(who.clone(), permissions);
-                ensure!(
-                    sk.has_extrinsic_permission(&pallet_name(), &function_name()),
-                    Error::<T>::UnauthorizedCallerMissingPermissions
-                );
-
-                Ok(data(did, Some(sk)))
-            }
-            KeyRecord::MultiSigSignerKey(_) => Err(Error::<T>::MissingIdentity.into()),
-        }
+        Ok(account_call_permissions_data)
     }
 
-    fn ensure_valid_origin(
+    fn ensure_valid_origin_permissions(
         caller_acc: &T::AccountId,
         must_be_primary_key: bool,
         pallet_name: impl FnOnce() -> PalletName,
         function_name: impl FnOnce() -> ExtrinsicName,
-    ) -> Result<IdentityId, DispatchError> {
+    ) -> Result<AccountCallPermissionsData<T::AccountId>, DispatchError> {
         let key_record = KeyRecords::<T>::get(&caller_acc).ok_or(Error::<T>::MissingIdentity)?;
 
         if must_be_primary_key {
             let did = key_record
                 .is_primary_key()
                 .ok_or(Error::<T>::KeyNotAllowed)?;
-            return Ok(did);
+            return Ok(AccountCallPermissionsData::new(did, None));
         }
 
         if let KeyRecord::PrimaryKey(did) = key_record {
-            return Ok(did);
+            return Ok(AccountCallPermissionsData::new(did, None));
         }
 
         let did = key_record
@@ -1072,7 +1044,8 @@ impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Pallet<T> {
                 .sufficient_for(&pallet_name(), &function_name()),
             Error::<T>::UnauthorizedCallerMissingPermissions
         );
+        let sk = SecondaryKey::new(caller_acc.clone(), permissions);
 
-        Ok(did)
+        Ok(AccountCallPermissionsData::new(did, Some(sk)))
     }
 }
