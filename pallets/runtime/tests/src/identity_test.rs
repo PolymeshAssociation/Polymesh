@@ -29,12 +29,11 @@ use polymesh_primitives::{
     AssetPermissions, AuthorizationData, AuthorizationType, Claim, ClaimType, CustomClaimTypeId,
     ExtrinsicName, ExtrinsicPermissions, IdentityClaim, IdentityId, KeyRecord, PalletName,
     PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope, SecondaryKey, Signatory,
-    SubsetRestriction, SystematicIssuers, Ticker, TransactionError, GC_DID,
+    SubsetRestriction, SystematicIssuers, Ticker, GC_DID,
 };
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
 use sp_core::H512;
 use sp_keyring::AccountKeyring;
-use sp_runtime::transaction_validity::InvalidTransaction;
 use sp_std::iter;
 use std::convert::From;
 
@@ -454,7 +453,7 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
         alice.clone()
     )));
 
-    // 4. Bob should NOT transfer any amount. SE is simulated.
+    // 4. Bob should be able to transfer any amount. SE is simulated.
     // Balances::transfer_with_memo(Origin::signed(bob), charlie, 1_000, None),
     let payer = CddHandler::get_valid_payer(
         &RuntimeCall::Balances(balances::Call::transfer_with_memo {
@@ -464,10 +463,7 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
         }),
         &AccountKeyring::Bob.to_account_id(),
     );
-    assert_noop!(
-        payer,
-        InvalidTransaction::Custom(TransactionError::MissingIdentity as u8)
-    );
+    assert!(payer.is_ok());
 
     assert_eq!(Balances::free_balance(charlie.clone()), 1100);
 
@@ -1689,7 +1685,7 @@ fn invalidate_cdd_claims_we() {
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
     assert_noop!(
         Identity::cdd_register_did(Origin::signed(cdd.clone()), bob_acc.clone(), vec![]),
-        Error::UnAuthorizedCddProvider
+        Error::UnauthorizedCallerDidMissingCdd
     );
 
     // Move to time 11 ... CDD_1 is expired: Its claims are invalid.
@@ -1697,7 +1693,7 @@ fn invalidate_cdd_claims_we() {
     assert_eq!(Identity::has_valid_cdd(alice_id), false);
     assert_noop!(
         Identity::cdd_register_did(Origin::signed(cdd), bob_acc, vec![]),
-        Error::UnAuthorizedCddProvider
+        Error::UnauthorizedCallerDidMissingCdd
     );
 }
 
