@@ -374,7 +374,7 @@ fn batch_secondary_with_permissions() {
     let high_risk_name: PortfolioName = b"high risk".into();
     assert_noop!(
         Portfolio::create_portfolio(bob.origin(), high_risk_name.clone()),
-        pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
+        pallet_identity::Error::<TestStorage>::UnauthorizedCallerMissingPermissions
     );
 
     // Call one disallowed and one allowed extrinsic in a batch.
@@ -388,7 +388,7 @@ fn batch_secondary_with_permissions() {
         }),
     ];
     let expected_error: DispatchError =
-        pallet_permissions::Error::<TestStorage>::UnauthorizedCaller.into();
+        pallet_identity::Error::<TestStorage>::UnauthorizedCallerMissingPermissions.into();
     assert_ok!(Utility::batch(bob.origin(), calls.clone()));
     assert_event_doesnt_exist!(EventTest::Utility(Event::BatchCompleted));
     assert_event_exists!(

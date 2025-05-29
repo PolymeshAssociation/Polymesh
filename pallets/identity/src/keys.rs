@@ -891,7 +891,8 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Ensures that `origin`'s key is the primary key of a DID.
+    /// Ensures that `origin`'s key is the primary key of a DID and has a valid CDD claim.
+    /// Returns the caller's account and DID.
     pub fn ensure_primary_key(
         origin: T::RuntimeOrigin,
     ) -> Result<(T::AccountId, IdentityId), DispatchError> {
@@ -899,15 +900,24 @@ impl<T: Config> Pallet<T> {
         let key_rec = KeyRecords::<T>::get(&sender)
             .ok_or(pallet_permissions::Error::<T>::UnauthorizedCaller)?;
         let did = key_rec.is_primary_key().ok_or(Error::<T>::KeyNotAllowed)?;
+        ensure!(
+            Self::has_valid_cdd(did),
+            Error::<T>::UnauthorizedCallerDidMissingCdd
+        );
         Ok((sender, did))
     }
 
-    /// Ensures that `origin`'s key is linked to a DID and returns both.
+    /// Ensures that `origin`'s key is linked to a DID and has a valid CDD claim.
+    /// Returns the caller's account and DID.
     pub fn ensure_did(
         origin: T::RuntimeOrigin,
     ) -> Result<(T::AccountId, IdentityId), DispatchError> {
         let sender = ensure_signed(origin)?;
         let did = Self::get_identity(&sender).ok_or(Error::<T>::MissingIdentity)?;
+        ensure!(
+            Self::has_valid_cdd(did),
+            Error::<T>::UnauthorizedCallerDidMissingCdd
+        );
         Ok((sender, did))
     }
 
@@ -966,35 +976,76 @@ impl<T: Config> Pallet<T> {
         }
         Ok(())
     }
+
+    /// Checks if the caller is permissioned to call the current extrinsic skipping CDD checks.
+    /// If `must_be_primary_key` ensures that the caller is a primary key.
+    pub fn ensure_valid_origin(
+        origin: T::RuntimeOrigin,
+        must_be_primary_key: bool,
+    ) -> Result<(T::AccountId, IdentityId), DispatchError> {
+        let caller_acc = ensure_signed(origin)?;
+        let account_data = pallet_permissions::Pallet::<T>::ensure_valid_origin_permissions(
+            &caller_acc,
+            must_be_primary_key,
+        )?;
+        Ok((caller_acc, account_data.primary_did))
+    }
 }
 
 impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Pallet<T> {
-    // For weighting purposes, the function reads 4 storage values.
     fn check_account_call_permissions(
         who: &T::AccountId,
         pallet_name: impl FnOnce() -> PalletName,
         function_name: impl FnOnce() -> ExtrinsicName,
-    ) -> Option<AccountCallPermissionsData<T::AccountId>> {
-        let data = |did, secondary_key| AccountCallPermissionsData {
-            primary_did: did,
-            secondary_key,
-        };
+    ) -> Result<AccountCallPermissionsData<T::AccountId>, DispatchError> {
+        let account_call_permissions_data =
+            Self::ensure_valid_origin_permissions(who, false, pallet_name, function_name)?;
 
-        match KeyRecords::<T>::get(who)? {
-            // Primary keys do not have / require further permission checks.
-            KeyRecord::PrimaryKey(did) => Some(data(did, None)),
-            // Secondary Key. Ensure DID isn't frozen + key has sufficient permissions.
-            KeyRecord::SecondaryKey(did) if !IsDidFrozen::<T>::get(&did) => {
-                let permissions = Self::get_key_permissions(who);
-                let sk = SecondaryKey {
-                    key: who.clone(),
-                    permissions,
-                };
-                sk.has_extrinsic_permission(&pallet_name(), &function_name())
-                    .then(|| data(did, Some(sk)))
-            }
-            // DIDs with frozen secondary keys, AKA frozen DIDs, are not permitted to call extrinsics.
-            _ => None,
+        ensure!(
+            Self::has_valid_cdd(account_call_permissions_data.primary_did),
+            Error::<T>::UnauthorizedCallerDidMissingCdd
+        );
+
+        Ok(account_call_permissions_data)
+    }
+
+    fn ensure_valid_origin_permissions(
+        caller_acc: &T::AccountId,
+        must_be_primary_key: bool,
+        pallet_name: impl FnOnce() -> PalletName,
+        function_name: impl FnOnce() -> ExtrinsicName,
+    ) -> Result<AccountCallPermissionsData<T::AccountId>, DispatchError> {
+        let key_record = KeyRecords::<T>::get(&caller_acc).ok_or(Error::<T>::MissingIdentity)?;
+
+        if must_be_primary_key {
+            let did = key_record
+                .is_primary_key()
+                .ok_or(Error::<T>::KeyNotAllowed)?;
+            return Ok(AccountCallPermissionsData::new(did, None));
         }
+
+        if let KeyRecord::PrimaryKey(did) = key_record {
+            return Ok(AccountCallPermissionsData::new(did, None));
+        }
+
+        let did = key_record
+            .is_secondary_key()
+            .ok_or(Error::<T>::KeyNotAllowed)?;
+
+        ensure!(
+            !IsDidFrozen::<T>::get(&did),
+            Error::<T>::UnauthorizedCallerFrozenDid
+        );
+
+        let permissions = Self::get_key_permissions(&caller_acc);
+        ensure!(
+            permissions
+                .extrinsic
+                .sufficient_for(&pallet_name(), &function_name()),
+            Error::<T>::UnauthorizedCallerMissingPermissions
+        );
+        let sk = SecondaryKey::new(caller_acc.clone(), permissions);
+
+        Ok(AccountCallPermissionsData::new(did, Some(sk)))
     }
 }

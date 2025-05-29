@@ -30,6 +30,7 @@ type ProtocolFee = pallet_protocol_fee::Pallet<TestStorage>;
 type TransactionPayment = pallet_transaction_payment::Pallet<TestStorage>;
 type ChargeTransactionPayment = pallet_transaction_payment::ChargeTransactionPayment<TestStorage>;
 type Error = pallet_relayer::Error<TestStorage>;
+type IdentityError = pallet_identity::Error<TestStorage>;
 
 // Relayer Test Helper functions
 // =======================================

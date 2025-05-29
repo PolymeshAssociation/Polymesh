@@ -1,16 +1,17 @@
-use super::{
-    multisig::{create_multisig_default_perms, create_signers},
-    storage::{get_last_auth_id, make_account_without_cdd, register_keyring_account, TestStorage},
-    ExtBuilder,
-};
 use frame_support::assert_noop;
+use sp_keyring::AccountKeyring;
+use sp_runtime::transaction_validity::InvalidTransaction;
+
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_primitives::{traits::CddAndFeeDetails, Signatory, TransactionError};
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
-use sp_keyring::AccountKeyring;
-use sp_runtime::transaction_validity::InvalidTransaction;
+
+use super::multisig::{create_multisig_default_perms, create_signers};
+use super::storage::{get_last_auth_id, make_account_without_cdd};
+use super::storage::{register_keyring_account, TestStorage};
+use super::ExtBuilder;
 
 type MultiSig = multisig::Pallet<TestStorage>;
 type Balances = balances::Pallet<TestStorage>;
@@ -34,15 +35,14 @@ fn cdd_checks() {
             let charlie_account = AccountKeyring::Charlie.to_account_id();
             let charlie_signatory = Signatory::Account(charlie_account.clone());
 
-            // normal tx without cdd should fail
-            assert_noop!(
+            assert_eq!(
                 CddHandler::get_valid_payer(
                     &RuntimeCall::MultiSig(multisig::Call::change_sigs_required {
                         sigs_required: 1
                     }),
                     &alice_account
                 ),
-                InvalidTransaction::Custom(TransactionError::CddRequired as u8)
+                Ok(Some(AccountKeyring::Alice.to_account_id()))
             );
 
             // call to accept being a multisig signer should fail when invalid auth
@@ -54,26 +54,24 @@ fn cdd_checks() {
                 InvalidTransaction::Custom(TransactionError::InvalidAuthorization as u8)
             );
 
-            // call to accept being a multisig signer should fail when authorizer does not have a valid cdd (expired)
             create_multisig_default_perms(
-                alice_account.clone(),
+                charlie_account.clone(),
                 create_signers(vec![alice_account.clone()]),
                 1,
             );
 
             let alice_auth_id = get_last_auth_id(&alice_signatory);
-            assert_noop!(
+            assert_eq!(
                 CddHandler::get_valid_payer(
                     &RuntimeCall::MultiSig(multisig::Call::accept_multisig_signer {
                         auth_id: alice_auth_id
                     }),
                     &alice_account
                 ),
-                InvalidTransaction::Custom(TransactionError::CddRequired as u8)
+                Ok(Some(AccountKeyring::Charlie.to_account_id()))
             );
 
-            // call to remove authorisation with issuer paying should fail if issuer does not have a valid cdd
-            assert_noop!(
+            assert_eq!(
                 CddHandler::get_valid_payer(
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: alice_signatory.clone(),
@@ -82,11 +80,10 @@ fn cdd_checks() {
                     }),
                     &alice_account
                 ),
-                InvalidTransaction::Custom(TransactionError::CddRequired as u8)
+                Ok(Some(AccountKeyring::Charlie.to_account_id()))
             );
 
-            // call to remove authorisation with caller paying should fail if caller does not have a valid cdd
-            assert_noop!(
+            assert_eq!(
                 CddHandler::get_valid_payer(
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: alice_signatory.clone(),
@@ -95,7 +92,7 @@ fn cdd_checks() {
                     }),
                     &alice_account
                 ),
-                InvalidTransaction::Custom(TransactionError::CddRequired as u8)
+                Ok(Some(AccountKeyring::Alice.to_account_id()))
             );
 
             // check that authorisation can be removed correctly
@@ -106,8 +103,7 @@ fn cdd_checks() {
             );
             let alice_auth_id = get_last_auth_id(&alice_signatory);
 
-            // call to remove authorisation with caller paying should fail if caller does not have a valid cdd
-            assert_noop!(
+            assert_eq!(
                 CddHandler::get_valid_payer(
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: alice_signatory.clone(),
@@ -116,10 +112,9 @@ fn cdd_checks() {
                     }),
                     &alice_account
                 ),
-                InvalidTransaction::Custom(TransactionError::CddRequired as u8)
+                Ok(Some(AccountKeyring::Alice.to_account_id()))
             );
 
-            // call to remove authorisation with issuer paying should succeed as issuer has CDD
             assert_eq!(
                 CddHandler::get_valid_payer(
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
@@ -140,8 +135,7 @@ fn cdd_checks() {
             );
             let charlie_auth_id = get_last_auth_id(&charlie_signatory);
 
-            // call to remove authorisation with issuer paying should fail if issuer does not have a valid cdd
-            assert_noop!(
+            assert_eq!(
                 CddHandler::get_valid_payer(
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: charlie_signatory.clone(),
@@ -150,7 +144,7 @@ fn cdd_checks() {
                     }),
                     &charlie_account
                 ),
-                InvalidTransaction::Custom(TransactionError::CddRequired as u8)
+                Ok(Some(AccountKeyring::Alice.to_account_id()))
             );
 
             // call to remove authorisation with caller paying should succeed as caller has CDD

@@ -1088,6 +1088,12 @@ pub mod pallet {
         /// Auth identified by an `auth_id` for a given `target` does not exist.
         /// The `target` might be wrong or the `auth_id` was never created at all.
         InvalidAuthorization,
+        /// Frozen secondary key.
+        UnauthorizedCallerFrozenDid,
+        /// The DID is missing a CDD claim.
+        UnauthorizedCallerDidMissingCdd,
+        /// The key does not have permissions to execute the extrinsic.
+        UnauthorizedCallerMissingPermissions,
     }
 }
 

@@ -314,11 +314,7 @@ impl<T: Config> Pallet<T> {
         user_key: T::AccountId,
         polyx_limit: Balance,
     ) -> DispatchResult {
-        let PermissionedCallOriginData {
-            sender: paying_key,
-            primary_did: paying_did,
-            ..
-        } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
+        let (paying_key, paying_did) = Identity::<T>::ensure_valid_origin(origin, false)?;
 
         // Create authorization for `paying_key` to subsidise the `user_key`, with `polyx_limit` POLYX.
         Self::unverified_add_auth_for_paying_key(paying_did, user_key, paying_key, polyx_limit)?;

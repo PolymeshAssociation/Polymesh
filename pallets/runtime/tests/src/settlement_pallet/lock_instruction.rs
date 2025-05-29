@@ -13,7 +13,7 @@ use polymesh_primitives::{ClaimType, Condition, ConditionType, CountryCode, Scop
 use polymesh_runtime_common::Weight;
 
 use super::setup::{add_and_affirm_simple_instruction, create_and_issue_sample_asset_with_venue};
-use crate::storage::{root, EventTest, User};
+use crate::storage::{EventTest, RuntimeOrigin, User};
 use crate::{ExtBuilder, TestStorage};
 
 type Asset = pallet_asset::Pallet<TestStorage>;
@@ -25,6 +25,7 @@ type System = frame_system::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 
 type AssetError = pallet_asset::Error<TestStorage>;
+type IdentityError = pallet_identity::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type NFTError = pallet_nft::Error<TestStorage>;
 
@@ -255,7 +256,7 @@ fn frozen_asset() {
 }
 
 #[test]
-fn missing_cdd_claim() {
+fn sender_missing_cdd_claim() {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
@@ -266,8 +267,38 @@ fn missing_cdd_claim() {
 
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
-            let cdd_1_id = Identity::get_identity(&AccountKeyring::Eve.to_account_id()).unwrap();
-            Identity::invalidate_cdd_claims(root(), cdd_1_id, Timestamp::get(), None).unwrap();
+            Identity::revoke_claim(
+                RuntimeOrigin::signed(AccountKeyring::Eve.to_account_id()),
+                alice.did,
+                Claim::CustomerDueDiligence(Default::default()),
+            )
+            .unwrap();
+
+            assert_noop!(
+                Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
+                Error::<TestStorage>::FailedAssetTransferringConditions
+            );
+        });
+}
+
+#[test]
+fn rcv_missing_cdd_claim() {
+    ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
+        .build()
+        .execute_with(|| {
+            let bob = User::new(AccountKeyring::Bob);
+            let dave = User::new(AccountKeyring::Dave);
+            let alice = User::new(AccountKeyring::Alice);
+
+            add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
+
+            Identity::revoke_claim(
+                RuntimeOrigin::signed(AccountKeyring::Eve.to_account_id()),
+                bob.did,
+                Claim::CustomerDueDiligence(Default::default()),
+            )
+            .unwrap();
 
             assert_noop!(
                 Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
