@@ -5,6 +5,7 @@ use polymesh_api::{
         authorization::AuthorizationData,
         secondary_key::Signatory,
         settlement::{VenueDetails, VenueType},
+        identity_id::PortfolioName,
     },
     TransactionResults, WrappedCall,
 };
@@ -610,10 +611,10 @@ async fn ms_needs_to_be_linked_to_an_identity() -> Result<()> {
     let mut res = ms.leave_did().await?;
     res.wait_in_block().await?;
 
-    // Prepare `system.remark` call.
-    let remark_call = tester.api.call().system().remark(vec![])?;
+    // Prepare `create_portfolio` call.
+    let call = tester.api.call().portfolio().create_portfolio(PortfolioName(Vec::new()))?;
     // Shouldn't be allowed, since the MS doesn't have a DID.
-    let res = ms.run_proposal(remark_call).await;
+    let res = ms.run_proposal(call).await;
     assert!(res.is_err());
 
     Ok(())
